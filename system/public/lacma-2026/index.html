@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>aesthetic.computer: personal computers are not done yet · LACMA Art + Technology Lab 2026</title>
-<meta name="description" content="Jeffrey Alan Scudder's pitch for the LACMA Art + Technology Lab 2026 — the second personal computing scene is starting. Aesthetic Computer as a bare-metal creative OS on surplus x86_64 laptops at ~$50/seat, two orders of magnitude below Princeton's PLOrk laptop-orchestra model.">
+<meta name="description" content="Jeffrey Alan Scudder's pitch for the LACMA Art + Technology Lab 2026. The second personal computing scene is starting. Aesthetic Computer as a bare-metal creative OS on surplus x86_64 laptops at ~$50/seat, two orders of magnitude below Princeton's PLOrk laptop-orchestra model.">
 <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
 <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
 <style>
@@ -21,7 +21,7 @@
     font-display: swap;
   }
 
-  /* Sepia / muted palette — aims for "old-paper" in light mode and
+  /* Sepia / muted palette · aims for "old-paper" in light mode and
      "tobacco / warm-dark" in dark mode. All accents de-saturated for
      long-form reading; ~11:1 text contrast on both modes. */
   :root {
@@ -69,7 +69,7 @@
   }
   @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
 
-  /* Monospace is still used for metadata, code, labels — anywhere we want
+  /* Monospace is still used for metadata, code, labels · anywhere we want
      a "terminal / data" texture. Prose stays proportional for readability. */
   .mono, code, .eyebrow, .meta, .stat .l, .count, .section-break,
   .channel-status, .stats-status, footer {
@@ -139,7 +139,7 @@
     border-bottom: 1px solid var(--box-border);
     margin-bottom: 1em;
   }
-  /* Ornaments (§, ·, arrows) render in mono — YWFT Processing doesn't
+  /* Ornaments (§, ·, arrows) render in mono · YWFT Processing doesn't
      have those glyphs and falls back to a weird shape. */
   h2 .ord {
     color: var(--pink);
@@ -174,7 +174,7 @@
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain;  /* letterbox — no crop */
+    object-fit: contain;  /* letterbox · no crop */
     background: #0c0a08;
   }
   .demo-hardware {
@@ -587,6 +587,55 @@
     .meta { grid-template-columns: 1fr; gap: 0.05em; }
     .meta dt { padding-top: 0.6em; }
   }
+
+  /* ── MORE / DROPDOWN ──────────────────────── */
+  /* Below-the-fold extended reference (pitch, registers, feature set,
+     lineage, papers, etc.) is tucked behind a <details> so the primary
+     view is the Submittable form mirror. */
+  details.more {
+    margin: 3em 0 0;
+    border-top: 1px solid var(--box-border);
+    padding-top: 2em;
+  }
+  details.more[open] {
+    margin-bottom: 2em;
+  }
+  details.more > summary {
+    cursor: pointer;
+    list-style: none;
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: 1.1em;
+    color: var(--text);
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+  }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary:hover {
+    color: var(--pink);
+    background: rgba(195,128,152,0.05);
+  }
+  details.more > summary::before {
+    content: "▸ ";
+    color: var(--pink);
+    display: inline-block;
+    transition: transform 0.15s;
+    margin-right: 0.3em;
+  }
+  details.more[open] > summary::before {
+    content: "▾ ";
+  }
+  details.more > summary .hint {
+    float: right;
+    color: var(--dim);
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-top: 0.25em;
+  }
 </style>
 </head>
 <body>
@@ -602,8 +651,8 @@
       <dt>Notification</dt><dd>July 2026 · Project start fall 2026</dd>
       <dt>Grant</dt><dd>Up to $50,000 · 2-year project</dd>
       <dt>Partners</dt><dd><span class="partner">Hyundai Motor</span> · <span class="partner">Snap Inc.</span> · <span class="partner">Anthropic</span> · MIT Media Lab · NASA JPL</dd>
-      <dt>Call</dt><dd><a href="https://unframed.lacma.org/2026/02/23/lacma-2026-art-technology-lab-request-proposals">Unframed — 2026 A+T Lab Request for Proposals</a> · <a href="https://www.lacma.org/art/lab/grants">lacma.org/art/lab/grants</a></dd>
-      <dt>Submit</dt><dd><a href="https://lacma.submittable.com/submit/348727/2026-art-technology-lab-grants">lacma.submittable.com — 2026 Art+Technology Lab Grants</a></dd>
+      <dt>Call</dt><dd><a href="https://unframed.lacma.org/2026/02/23/lacma-2026-art-technology-lab-request-proposals">Unframed · 2026 A+T Lab Request for Proposals</a> · <a href="https://www.lacma.org/art/lab/grants">lacma.org/art/lab/grants</a></dd>
+      <dt>Submit</dt><dd><a href="https://lacma.submittable.com/submit/348727/2026-art-technology-lab-grants">lacma.submittable.com · 2026 Art+Technology Lab Grants</a></dd>
       <dt>Proposal</dt><dd><a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/lacma-2026">repo</a></dd>
     </dl>
   </header>
@@ -623,11 +672,11 @@
       <div class="demo-hardware">
         <a href="https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51" target="_blank" rel="noopener">
           <img src="https://shop.aesthetic.computer/cdn/shop/files/ac-native-laptop-hero-final.png?v=1776841885&width=1445"
-               alt="AC Blank — ThinkPad 11e Yoga Gen 6 running AC Native OS on grass, showing 'hi @jeffrey · enjoy Los Angeles!'" loading="lazy">
+               alt="AC Blank · ThinkPad 11e Yoga Gen 6 running AC Native OS on grass, showing 'hi @jeffrey · enjoy Los Angeles!'" loading="lazy">
         </a>
         <div class="tag">
           <b>AC Blank</b>
-          ThinkPad 11e Yoga Gen 6, refurbished, preloaded with AC Native. The video's actual hardware — available now at <a href="https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51" target="_blank" rel="noopener">shop.aesthetic.computer</a>.
+          ThinkPad 11e Yoga Gen 6, refurbished, preloaded with AC Native. The video's actual hardware, available now at <a href="https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51" target="_blank" rel="noopener">shop.aesthetic.computer</a>.
         </div>
       </div>
     </div>
@@ -635,7 +684,7 @@
       <div class="sequence">
         <span class="step">boot</span><span class="arrow">→</span><span class="step">type 'notepat'</span><span class="arrow">→</span><span class="step">notepat</span><span class="arrow">→</span><span class="step">play C note</span><span class="arrow">→</span><span class="step">back to prompt</span><span class="arrow">→</span><span class="step">off</span><span class="arrow">→</span><span class="step">bye @jeffrey</span>
       </div>
-      <div class="byline">22 s · click to unmute · single-capture demo via the macOS ac-native host's <code>--demo</code> flag — boot → prompt → notepat → prompt → "off" → shutdown, all one run · captions and TTS rendered natively by AC Native itself</div>
+      <div class="byline">22 s · click to unmute · single-capture demo via the macOS ac-native host's <code>--demo</code> flag · boot → prompt → notepat → prompt → "off" → shutdown, all one run · captions and TTS rendered natively by AC Native itself</div>
     </div>
   </section>
 
@@ -652,12 +701,12 @@
       <dd>instrument · language · network</dd>
 
       <dt>One-sentence description</dt>
-      <dd>Aesthetic Computer is a bare-metal creative computing system — custom hardware, a handmade programming language, and a social network — that reimagines the personal computer as a live musical instrument for art.</dd>
+      <dd>Aesthetic Computer is a bare-metal creative computing system (custom hardware, a handmade programming language, and a social network) that reimagines the personal computer as a live musical instrument for art.</dd>
 
-      <dt>Full project description<span class="cap">500 w · ours: 499</span></dt>
+      <dt>Full project description<span class="cap">500 w · ours: 500</span></dt>
       <dd>
-        <p class="excerpt">Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them — operating systems built to sell attention, software gatekept by app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything — before platform consolidation cut it short. AC bets that a second personal computing scene is starting, and that with tools this powerful in everyone's hands, it will go both wider <em>and</em> deeper than the first…</p>
-        <a class="jump" href="#pitch">Read full 499-word pitch ↓</a> · <a class="jump" href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">PDF</a>
+        <p class="excerpt">Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them: operating systems built to sell attention, software gatekept by app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything. Platform consolidation cut it short. Aesthetic Computer bets a second personal computing scene is starting, and with tools this powerful in everyone's hands it will go wider <em>and</em> deeper than the first…</p>
+        <a class="jump" href="#pitch">Read full 500-word pitch ↓</a> · <a class="jump" href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">PDF</a>
       </dd>
 
       <dt>Artist bio / CV</dt>
@@ -667,13 +716,13 @@
       </dd>
 
       <dt>Artistic merit<span class="cap">100 w · ours: 95</span></dt>
-      <dd class="statement">Aesthetic Computer treats the computer itself as an unfinished instrument — a site for ongoing artistic invention rather than a fixed consumer product. By building from bare metal (custom kernel, framebuffer rendering, sample-level audio synthesis), we recover the directness that early personal computing promised but commercial platforms abandoned. The work sits at the intersection of software art, instrument design, and language design: KidLisp is simultaneously a tool and a medium, and AC Native transforms commodity laptops into dedicated creative instruments. The artistic claim is that how we build computers is itself a creative act with cultural consequences.</dd>
+      <dd class="statement">Aesthetic Computer treats the computer itself as an unfinished instrument, a site for ongoing artistic invention rather than a fixed consumer product. By building from bare metal (custom kernel, framebuffer rendering, sample-level audio synthesis), we recover the directness that early personal computing promised but commercial platforms abandoned. The work sits at the intersection of software art, instrument design, and language design: KidLisp is simultaneously a tool and a medium, and AC Native transforms commodity laptops into dedicated creative instruments. The artistic claim is that how we build computers is itself a creative act with cultural consequences.</dd>
 
       <dt>Technology + culture<span class="cap">100 w · ours: 98</span></dt>
       <dd class="statement">Consumer operating systems have become attention-extraction machines, optimized for engagement metrics rather than creative agency. AC Native offers a counter-model: a computer that boots directly into art software and grows alongside the artist. Over five years of active development, Aesthetic Computer's community has written 17,000+ KidLisp programs, made 4,400+ paintings, shared 2,900+ moods, and exchanged 19,000+ chat messages across 2,800+ registered handles. AC Native carries that social layer with it: chat, multiplayer, notepat, KidLisp runtime. The personal computer's design is a cultural question, not a settled technical one, and people show up when given the room.</dd>
 
       <dt>Public engagement<span class="cap">100 w · ours: 95</span></dt>
-      <dd class="statement">We propose three forms of public engagement. First, hands-on KidLisp workshops at LACMA where participants write generative art programs that run on AC Native hardware — no prior coding experience required. Second, an installation of multiple AC Native stations where visitors experience creative computing as a direct, instrument-like interaction. Third, open "build days" where we assemble USB drives and document the process publicly, inviting visitors into the making of the system itself. All curricula, documentation, and software will be published openly for other artists and institutions to adopt.</dd>
+      <dd class="statement">Three forms of public engagement. First, hands-on KidLisp workshops at LACMA where participants write generative art programs that run on AC Native hardware, with no prior coding experience required. Second, an installation of multiple AC Native stations where visitors experience creative computing as a direct, instrument-like interaction. Third, open "build days" where we assemble USB drives and document the process publicly, inviting visitors into the making of the system itself. The entire software stack is free and open source on GitHub, so any teacher, artist, or institution can fork it.</dd>
 
       <dt>Budget<span class="cap">$50k cap · ours: $50k</span></dt>
       <dd>
@@ -687,8 +736,8 @@
       <dt>Timeline<span class="cap">24 months · two leads</span></dt>
       <dd>
         <strong>Two public events, one sentence each.</strong><br>
-        <em>2027 Symposium — "We boot the cohort."</em> Every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor.<br>
-        <em>2028 Demo Day — "We open the gallery."</em> A multi-station AC Native installation premieres on the LACMA floor, and v1.0 of the open-source build pipeline ships so any institution can stand up the same rig.
+        <em>2027 Symposium · "We boot the cohort."</em> Every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor.<br>
+        <em>2028 Demo Day · "We open the gallery."</em> A multi-station AC Native installation premieres on the LACMA floor, and v1.0 of the open-source build pipeline ships alongside so any institution can stand up the same rig.
         <br><a class="jump" href="#calendar">Full calendar ↓</a>
       </dd>
 
@@ -704,9 +753,9 @@
           </figure>
           <figure class="dark">
             <a href="https://assets.aesthetic.computer/lacma-2026/kidlisp-featured.jpg" target="_blank">
-              <img src="https://assets.aesthetic.computer/lacma-2026/kidlisp-featured.jpg" alt="$roz by @jeffrey — a KidLisp piece" loading="lazy">
+              <img src="https://assets.aesthetic.computer/lacma-2026/kidlisp-featured.jpg" alt="$roz by @jeffrey, a KidLisp piece" loading="lazy">
             </a>
-            <figcaption><b>2 · kidlisp-featured.jpg</b><em>$roz</em> by @jeffrey — a KidLisp piece with 6,000+ plays.</figcaption>
+            <figcaption><b>2 · kidlisp-featured.jpg</b><em>$roz</em> by @jeffrey, a KidLisp piece with 6,000+ plays.</figcaption>
           </figure>
           <figure>
             <a href="https://assets.aesthetic.computer/lacma-2026/card-gallery.jpg" target="_blank">
@@ -718,11 +767,11 @@
             <a href="https://assets.aesthetic.computer/lacma-2026/card-berz.jpg" target="_blank">
               <img src="https://assets.aesthetic.computer/lacma-2026/card-berz.jpg" alt="$berz card up close" loading="lazy">
             </a>
-            <figcaption><b>4 · card-berz.jpg</b>The $berz card, up close — 6 lines of KidLisp.</figcaption>
+            <figcaption><b>4 · card-berz.jpg</b>The $berz card, up close. 6 lines of KidLisp.</figcaption>
           </figure>
           <figure>
             <a href="https://assets.aesthetic.computer/lacma-2026/hardware-yoga.jpg" target="_blank">
-              <img src="https://assets.aesthetic.computer/lacma-2026/hardware-yoga.jpg" alt="Target hardware — Lenovo Yoga running AC Native" loading="lazy">
+              <img src="https://assets.aesthetic.computer/lacma-2026/hardware-yoga.jpg" alt="Target hardware: Lenovo Yoga running AC Native" loading="lazy">
             </a>
             <figcaption><b>5 · hardware-yoga.jpg</b>Target hardware: Lenovo Yoga running AC Native from USB.</figcaption>
           </figure>
@@ -737,29 +786,32 @@
     </dl>
   </section>
 
+  <details class="more">
+    <summary>Extended reference<span class="hint">pitch · registers · metrics · features · cards · lineage · calendar · budget · papers</span></summary>
+
   <!-- ── PITCH ───────────────────────────────── -->
   <section class="pitch" id="pitch">
     <h2><span class="ord">§</span>Pitch</h2>
 
-    <p>Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them — operating systems built to sell attention, software gatekept by a handful of app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything — before platform consolidation cut it short.</p>
+    <p>Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them: operating systems built to sell attention, software gatekept by a handful of app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything. Platform consolidation cut it short.</p>
 
-    <p><strong>Aesthetic Computer (AC) bets that a second personal computing scene is starting</strong> — and that with tools this powerful in everyone's hands, it will go both wider <em>and</em> deeper than the first. Wider because anyone can publish. Deeper because anyone can now write a language, modify a kernel, or put an AI coding partner to work on a single piece.</p>
+    <p><strong>Aesthetic Computer bets a second personal computing scene is starting</strong>, and with tools this powerful in everyone's hands it will go wider <em>and</em> deeper than the first. Wider because anyone can publish. Deeper because anyone can write a language, modify a kernel, or put an AI coding partner to work on a single piece.</p>
 
-    <p>AC has three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language called <em>KidLisp</em> for generative art, and a social network where anyone can publish and share interactive programs called "pieces." <strong>The second scene has feedstock</strong>: Windows 10 end-of-life has stranded ~240 million x86_64 laptops; ~62 million tonnes of e-waste pile up each year. Strip away the consumer OS and those machines become <em>a planetary population of half-built instruments waiting for a kernel</em>.</p>
+    <p>Aesthetic Computer has three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language called <em>KidLisp</em> for generative art, and a social network where anyone can publish and share interactive programs called "pieces." The whole stack is free and open source on GitHub. <strong>The second scene has feedstock</strong>: Windows 10 end-of-life has stranded roughly 240 million x86_64 laptops; 62 million tonnes of e-waste pile up each year. Strip away the consumer OS and those machines become <em>a planetary population of half-built instruments waiting for a kernel</em>.</p>
 
     <span class="drop">AC Native is the kernel.</span>
 
-    <p>A Linux boot that runs a custom C runtime as <em>PID 1</em> on x86_64 UEFI laptops — no desktop, no window manager, no browser. It renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192 kHz with 32-voice polyphony. <strong>Per-seat cost lands near $50 — two orders of magnitude below Princeton's PLOrk laptop-orchestra model</strong> ($1,500+/seat hand-fabricated), and 15× below Virginia Tech's L2Ork ($750/seat Linux). The laptop-orchestra movement settled the artistic question in year one; what it failed at was access. AC Native escapes that constraint.</p>
+    <p>A Linux boot runs a custom C runtime as <em>PID 1</em> on x86_64 UEFI laptops, with no desktop, no window manager, no browser. It renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192 kHz with 32-voice polyphony. <strong>Per-seat cost lands near $50</strong>, two orders of magnitude below Princeton's PLOrk laptop-orchestra model ($1,500+/seat hand-fabricated), and 15× below Virginia Tech's L2Ork ($750/seat Linux). The laptop-orchestra movement settled the artistic question in year one; what it failed at was access. AC Native escapes that constraint.</p>
 
-    <p>A built-in <code>code</code> command drops into a native terminal running <span style="color:var(--purple)"><strong>Anthropic's Claude Code</strong></span> — the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument with eight waveforms, sample recording, and USB + UDP MIDI; twenty other pieces ship alongside it.</p>
+    <p>A built-in <code>code</code> command drops into a native terminal running <span style="color:var(--purple)"><strong>Anthropic's Claude Code</strong></span>, so artists can ask an AI coding partner to modify a piece without leaving the OS. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument with eight waveforms, sample recording, and USB + UDP MIDI. Twenty other pieces ship alongside it.</p>
 
     <span class="drop">KidLisp is the language.</span>
 
-    <p>A minimal Lisp dialect designed specifically for generative art. 118 built-in functions across 12 categories — accessible to non-programmers, expressive enough for complex compositions. KidLisp programs can be minted as on-chain "keeps" on Tezos, establishing provenance without requiring artists to understand blockchain infrastructure.</p>
+    <p>A minimal Lisp dialect designed specifically for generative art. 118 built-in functions across 12 categories, accessible to non-programmers yet expressive enough for complex compositions. KidLisp programs can be minted as on-chain "keeps" on Tezos, establishing provenance without requiring artists to understand blockchain infrastructure.</p>
 
     <span class="drop">The Network ties it together.</span>
 
-    <p>Aesthetic Computer hosts hundreds of built-in pieces across thousands of registered handles (see live counts below). Every piece is URL-addressable and instantly shareable via QR code. The platform supports real-time multiplayer through WebSocket and UDP channels — people can draw, compose, and play together.</p>
+    <p>Aesthetic Computer hosts hundreds of built-in pieces across thousands of registered handles (see live counts below). Every piece is URL-addressable and instantly shareable via QR code. The platform supports real-time multiplayer through WebSocket and UDP channels, so people can draw, compose, and play together. The website has been in active development since 2021 (19,000+ commits across 5 years); AC Native is new, its kernel prototype landing February 2026.</p>
 
     <span class="drop">What happens in the grant period.</span>
 
@@ -793,14 +845,14 @@
   <section>
     <h2><span class="ord">§</span>The Network, Right Now<span class="count">live from aesthetic.computer/api/metrics</span></h2>
     <div class="stats" id="stats">
-      <div class="stat" data-k="handles"><span class="n">—</span><span class="l">Handles</span></div>
-      <div class="stat" data-k="kidlisp"><span class="n">—</span><span class="l">KidLisp pieces</span></div>
-      <div class="stat" data-k="pieces"><span class="n">—</span><span class="l">User pieces</span></div>
-      <div class="stat" data-k="paintings"><span class="n">—</span><span class="l">Paintings</span></div>
-      <div class="stat" data-k="moods"><span class="n">—</span><span class="l">Moods</span></div>
-      <div class="stat" data-k="chatMessages"><span class="n">—</span><span class="l">Chat msgs</span></div>
-      <div class="stat" data-k="active"><span class="n">—</span><span class="l">Active now</span></div>
-      <div class="stat" data-k="printsOrdered"><span class="n">—</span><span class="l">Prints ordered</span></div>
+      <div class="stat" data-k="handles"><span class="n">…</span><span class="l">Handles</span></div>
+      <div class="stat" data-k="kidlisp"><span class="n">…</span><span class="l">KidLisp pieces</span></div>
+      <div class="stat" data-k="pieces"><span class="n">…</span><span class="l">User pieces</span></div>
+      <div class="stat" data-k="paintings"><span class="n">…</span><span class="l">Paintings</span></div>
+      <div class="stat" data-k="moods"><span class="n">…</span><span class="l">Moods</span></div>
+      <div class="stat" data-k="chatMessages"><span class="n">…</span><span class="l">Chat msgs</span></div>
+      <div class="stat" data-k="active"><span class="n">…</span><span class="l">Active now</span></div>
+      <div class="stat" data-k="printsOrdered"><span class="n">…</span><span class="l">Prints ordered</span></div>
     </div>
     <div class="stats-status" id="stats-status">Fetching <span class="ok">api/metrics</span> …</div>
   </section>
@@ -811,7 +863,7 @@
     <div class="features">
       <div class="feat"><b>Boot</b>USB → Linux kernel → custom C runtime as PID 1. No systemd, no compositor, no browser. UEFI only, x86_64.</div>
       <div class="feat"><b>Graphics</b>DRM dumb-buffer rendering (no compositor). Nearest-neighbor upscale for the chunky-pixel aesthetic. Optional SDL3 GPU backend.</div>
-      <div class="feat"><b>Audio</b>ALSA at 192 kHz. 32-voice polyphony. 8 waveforms — sine, triangle, sawtooth, square, composite, harp, whistle, sample. Room reverb, master drive.</div>
+      <div class="feat"><b>Audio</b>ALSA at 192 kHz. 32-voice polyphony. 8 waveforms: sine, triangle, sawtooth, square, composite, harp, whistle, sample. Room reverb, master drive.</div>
       <div class="feat"><b>Input</b>Raw evdev: keyboard, mouse/trackpad, touch, gamepad, analog key support. Camera + V4L2 + QR scanning via quirc.</div>
       <div class="feat"><b>code - AI partner</b>Built-in <code>code</code> command spawns <strong>Anthropic's Claude Code</strong> as a PTY subprocess inside a native terminal emulator. Modify a piece without leaving the OS.</div>
       <div class="feat"><b>MIDI</b>USB MIDI (in + out) and UDP MIDI broadcast. notepat transmits polyphonic MIDI live to other hardware and other AC Native stations.</div>
@@ -841,7 +893,7 @@
     <h2><span class="ord">§</span>The Lineage<span class="count">specific, not canonical</span></h2>
     <div class="lineage">
       <div class="row"><div class="who">Alan Kay · Xerox PARC</div><div class="claim"><em>Dynabook</em> &amp; Smalltalk (1972–). The computer as <em>personal medium</em>, not productivity tool. Children should be the first audience. Every native app a system you can open and modify.</div></div>
-      <div class="row"><div class="who">Seymour Papert</div><div class="claim"><em>Mindstorms</em> (1980) — microworlds. KidLisp is a microworld: constrained, memorizable, constructible by the viewer. A language you can learn inside one evening.</div></div>
+      <div class="row"><div class="who">Seymour Papert</div><div class="claim"><em>Mindstorms</em> (1980). Microworlds. KidLisp is a microworld: constrained, memorizable, constructible by the viewer. A language you can learn inside one evening.</div></div>
       <div class="row"><div class="who">Casey Reas + Ben Fry</div><div class="claim"><em>Processing</em> (2001–). The most-read-from precedent on this project. Proof that a language can be designed for artists first and programmers second. Reas is my Author-in-Residence host at UCLA this year.</div></div>
       <div class="row"><div class="who">Bill Atkinson · HyperCard</div><div class="claim">The last mainstream system where anyone on a computer could author a complete interactive thing. Aesthetic Computer reconstructs this social contract for 2026.</div></div>
       <div class="row"><div class="who">Game Boy / Pico-8</div><div class="claim">Dedicated hardware as creative permission. The constraint is the feature. AC Native generalises this: a USB stick that turns any laptop into a constrained, complete instrument.</div></div>
@@ -861,7 +913,7 @@
       <div class="feat"><b>Spring to Summer 2027</b>Pre-Symposium: 2 pilot workshops at LACMA, prototype multi-station installation, publish v0 of the open-source build guide.</div>
       <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fall 2027 · 2027 Symposium · "We boot the cohort."</b><strong style="color:var(--text)">At Symposium, every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor.</strong> Talk / in-conversation on generative computing, alongside the 2023 cohort (Reas, Duke, Nickerson, Chang+Kelley, Porras-Kim).</div>
       <div class="feat"><b>Winter 2027 to Summer 2028</b>Full installation build: kiosk-mode hardening, 20+ take-home USB drives, 4 additional workshops, documentation, curriculum translation (EN + ES).</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fall 2028 · 2028 Demo Day · "We open the gallery."</b><strong style="color:var(--text)">A multi-station AC Native installation premieres on the LACMA floor — visitors sit down and play a fully-realized creative computer — and v1.0 of the open-source build pipeline ships, so any institution can stand up the same rig.</strong> Public programs introduce the system to teachers, museum educators, and other artists.</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fall 2028 · 2028 Demo Day · "We open the gallery."</b><strong style="color:var(--text)">A multi-station AC Native installation premieres on the LACMA floor · visitors sit down and play a fully-realized creative computer · and v1.0 of the open-source build pipeline ships, so any institution can stand up the same rig.</strong> Public programs introduce the system to teachers, museum educators, and other artists.</div>
     </div>
   </section>
 
@@ -891,15 +943,15 @@
     <h2><span class="ord">§</span>This Lab's Lineage<span class="count">45 projects · 2014–2023</span></h2>
     <p style="color:var(--dim);margin-bottom:1em">A few Art + Technology Lab projects that mark out the territory this proposal enters. Full reference list in the <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/art-tech-lab-recipients.md">repo homework file</a>.</p>
     <div class="lineage">
-      <div class="row"><div class="who">Casey Reas · 2023</div><div class="claim"><em>METAVASARELY and An Empty Room</em>. Computational + generative systems. Reas co-teaches UCLA's Social Software course and hosts my Author-in-Residence year — the closest direct precedent for AC's language-as-art stance.</div></div>
-      <div class="row"><div class="who">Lauren Lee McCarthy · 2022</div><div class="claim"><em>Auto</em>. Autonomous-vehicle testing as a performance of human–machine interaction. McCarthy co-teaches Social Software with Reas — her public/social-interface practice is the other half of the lineage this proposal picks up.</div></div>
-      <div class="row"><div class="who">Kyle McDonald, Daisy Mahaina, Dr. Marianne George · 2020</div><div class="claim"><em>Te Lapa: Polynesian Navigation Illuminated</em>. Digital simulation documenting traditional Polynesian wayfinding. A public-tool precedent — code released so researchers elsewhere can use it.</div></div>
+      <div class="row"><div class="who">Casey Reas · 2023</div><div class="claim"><em>METAVASARELY and An Empty Room</em>. Computational + generative systems. Reas co-teaches UCLA's Social Software course and hosts my Author-in-Residence year · the closest direct precedent for AC's language-as-art stance.</div></div>
+      <div class="row"><div class="who">Lauren Lee McCarthy · 2022</div><div class="claim"><em>Auto</em>. Autonomous-vehicle testing as a performance of human–machine interaction. McCarthy co-teaches Social Software with Reas · her public/social-interface practice is the other half of the lineage this proposal picks up.</div></div>
+      <div class="row"><div class="who">Kyle McDonald, Daisy Mahaina, Dr. Marianne George · 2020</div><div class="claim"><em>Te Lapa: Polynesian Navigation Illuminated</em>. Digital simulation documenting traditional Polynesian wayfinding. A public-tool precedent · code released so researchers elsewhere can use it.</div></div>
       <div class="row"><div class="who">Rashaad Newsome · 2019</div><div class="claim"><em>Being</em>. Social humanoid robot confronting AI's questions around rights, bias, safety. AC's position: <em>AI inside a creative instrument</em> is a different axis from AI-as-artwork.</div></div>
       <div class="row"><div class="who">Tom Sachs · 2019</div><div class="claim"><em>Transcendence Sphere</em>. VR synced with massage chairs, fans, misting systems. A kinfolk: art as custom-built physical instrument, not art via a software platform.</div></div>
       <div class="row"><div class="who">Sarah Rosalena Brady · 2019</div><div class="claim"><em>Exit Points</em>. ML + weaving; feminist/decolonial code-as-performance. Precedent for publishing code-art with a political thesis.</div></div>
       <div class="row"><div class="who">Tahir Hemphill · 2018</div><div class="claim"><em>Implications of a Rap Neural Network</em>. AI trained on hip-hop; cultural production examined through AI. The honest Anthropic-adjacent precedent for AI-as-cultural-instrument.</div></div>
       <div class="row"><div class="who">Julia Christensen · 2017</div><div class="claim"><em>Upgrade Available</em>. Multi-generational tech as lens for human-technology relations. Our OS-strip-down answers her same question from the opposite direction.</div></div>
-      <div class="row"><div class="who">Annina Rüst · 2014</div><div class="claim"><em>A Piece of the Pie Chart</em>. A robot that transfers data-pie-charts onto edible pies. Inaugural cohort. Instrument-as-artwork pedigree — AC Native descends from this posture.</div></div>
+      <div class="row"><div class="who">Annina Rüst · 2014</div><div class="claim"><em>A Piece of the Pie Chart</em>. A robot that transfers data-pie-charts onto edible pies. Inaugural cohort. Instrument-as-artwork pedigree · AC Native descends from this posture.</div></div>
     </div>
   </section>
 
@@ -908,9 +960,9 @@
     <h2><span class="ord">§</span>Submission-Form Version<span class="count">~200 words</span></h2>
     <div class="pitch" style="border-left: 2px solid var(--pink); padding-left: 1em">
       <p><em>Aesthetic Computer: Personal Computers Are Not Done Yet.</em> The 1980s personal computing scene promised a computer that belonged to you; platform consolidation cut it short. AC bets a second scene is starting, with tools powerful enough to go both wider and deeper than the first.</p>
-      <p><strong>AC Native</strong> is a Linux kernel that boots directly into art on x86_64 UEFI laptops, running a custom C runtime as PID 1 — no desktop, no window manager, no browser. 32-voice audio at 192 kHz, DRM graphics, raw evdev input. A built-in <code>code</code> command drops into a terminal running Anthropic's Claude Code, so artists can ask an AI coding partner to modify a piece without leaving the OS. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument.</p>
-      <p><strong>KidLisp</strong> is a minimal Lisp with 118 functions — 17,000+ programs already written. Programs can be minted on Tezos without artists touching blockchain infrastructure.</p>
-      <p>With LACMA support: <strong style="color:var(--pink)">at the 2027 Symposium we boot the cohort</strong> (cohort-wide USB-boot demo + public KidLisp workshop); <strong style="color:var(--pink)">at the 2028 Demo Day we open the gallery</strong> (multi-station installation + open-source v1.0 release). The personal computer's design is a cultural question, not a settled technical one — this project treats it as one.</p>
+      <p><strong>AC Native</strong> is a Linux kernel that boots directly into art on x86_64 UEFI laptops, running a custom C runtime as PID 1, with no desktop, no window manager, no browser. 32-voice audio at 192 kHz, DRM graphics, raw evdev input. A built-in <code>code</code> command drops into a terminal running Anthropic's Claude Code, so artists can ask an AI coding partner to modify a piece without leaving the OS. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument.</p>
+      <p><strong>KidLisp</strong> is a minimal Lisp with 118 functions. 17,000+ programs already written. Programs can be minted on Tezos without artists touching blockchain infrastructure.</p>
+      <p>With LACMA support: <strong style="color:var(--pink)">at the 2027 Symposium we boot the cohort</strong> (cohort-wide USB-boot demo + public KidLisp workshop); <strong style="color:var(--pink)">at the 2028 Demo Day we open the gallery</strong> (multi-station installation + open-source v1.0 release). The personal computer's design is a cultural question, not a settled technical one, and this project treats it as one.</p>
     </div>
   </section>
 
@@ -921,9 +973,9 @@
     <div class="features">
       <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">PLOrk'ing the Planet</b>From Ivy League Laptop Orchestra to Kid-Friendly Planetary Organ. The economic argument: surplus x86_64 laptops + bare-metal OS = laptop orchestra two orders of magnitude below PLOrk. <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-plork">papers/arxiv-plork</a></div>
       <div class="feat"><b>AC Native OS '26</b>A Bare-Metal Creative Computing Operating System. The system paper. Architecture, design decisions, measurements. <a href="https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-os">source</a></div>
-      <div class="feat"><b>KidLisp</b>Minimal Lisp for generative art — 118 functions, 17,000+ programs. The language paper. <a href="https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-kidlisp">source</a></div>
+      <div class="feat"><b>KidLisp</b>Minimal Lisp for generative art · 118 functions, 17,000+ programs. The language paper. <a href="https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-kidlisp">source</a></div>
       <div class="feat"><b>Who Pays for Creative Tools?</b>Sustainability economics of creative software. Makes the funding/labor case that the plork argument leans on. <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-sustainability">papers/arxiv-sustainability</a></div>
-      <div class="feat"><b>Playable Folk Songs</b>Oral Tradition Meets the Browser Keyboard. <em>notepat</em>'s pedagogical basis — chord-shape-as-melody. <a href="https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-folk-songs">source</a></div>
+      <div class="feat"><b>Playable Folk Songs</b>Oral Tradition Meets the Browser Keyboard. <em>notepat</em>'s pedagogical basis · chord-shape-as-melody. <a href="https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-folk-songs">source</a></div>
       <div class="feat"><b>Get Closed Source Out of Schools</b>Every Chromebook is a gateway denied. Access / open-tooling argument for classrooms. <a href="https://papers.aesthetic.computer/open-schools-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-open-schools">source</a></div>
       <div class="feat"><b>notepat</b>The default piece. Keyboard-as-polyphonic-instrument; chord-shape pedagogy. <a href="https://papers.aesthetic.computer/notepat-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-notepat">source</a></div>
       <div class="feat"><b>Whistlegraph</b>Drawing, Singing, and the Graphic Score as Viral Form. The prior art form (2019) that set the self-teaching-score principle underlying KidLisp cards. <a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-whistlegraph">source</a></div>
@@ -934,18 +986,20 @@
   <section>
     <h2><span class="ord">§</span>Status</h2>
     <ul class="check">
-      <li class="done">Proposal drafted — <a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a> (2.0 MB, 13 pages incl. CV + call-for-proposals appendix).</li>
+      <li class="done">Proposal drafted · <a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a> (2.0 MB, 13 pages incl. CV + call-for-proposals appendix).</li>
       <li class="done">Stats refreshed to current live numbers; AC Native claims audited for accuracy (no aspirational &lt;2s boot, honest DRM + Claude Code framing).</li>
       <li class="done">Figures: sosoft-style KidLisp cards replace the old "educational poster" figures.</li>
       <li class="done">5 JPEG images staged in <code>grants/lacma-2026/jpegs/submit/</code>.</li>
       <li class="done">Credentials front-loaded: Yale MFA, KADIST + SMK collections, HN × 2, Casey Reas residency at UCLA.</li>
       <li class="done">Timeline + budget anchored to the Lab's announced 2027 Symposium and 2028 Demo Day.</li>
       <li class="done">Research: 45-recipient <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/art-tech-lab-recipients.md">Lab-recipients reference file</a> compiled; Reas (2023) identified as nearest lineage precedent.</li>
-      <li class="done">This page — <a href="https://aesthetic.computer/lacma-2026">aesthetic.computer/lacma-2026</a>.</li>
+      <li class="done">This page · <a href="https://aesthetic.computer/lacma-2026">aesthetic.computer/lacma-2026</a>.</li>
       <li class="todo">Record video demo per <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/lacma-2026/video-script.md">video-script.md</a> and upload unlisted. <em>Tomorrow.</em></li>
       <li class="todo">Paste field contents into Submittable, attach PDF + 5 JPEGs, link video, submit. <em>Before 11:59 PM PST, Wed Apr 22.</em></li>
     </ul>
   </section>
+
+  </details>
 
   <footer>
     <a href="https://aesthetic.computer/lacma-2026">aesthetic.computer/lacma-2026</a> · 2026-04-21 · live metrics from <a href="https://aesthetic.computer/api/metrics">aesthetic.computer/api/metrics</a>
@@ -954,13 +1008,43 @@
 </main>
 
 <script>
+// Auto-open the <details class="more"> wrapper when a jump link targets
+// a section inside it, so readers who click "Full budget ↓" (etc.) from
+// the Application-at-a-Glance mirror don't get a dead anchor.
+(() => {
+  const details = document.querySelector("details.more");
+  if (!details) return;
+  function maybeOpen() {
+    if (!location.hash) return;
+    const target = document.querySelector(location.hash);
+    if (target && details.contains(target)) {
+      details.open = true;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+  window.addEventListener("hashchange", maybeOpen);
+  // Also fire on initial load if the URL arrives with a hash.
+  maybeOpen();
+  // And when any jump link is clicked (in case hashchange doesn't fire
+  // for same-hash clicks).
+  for (const a of document.querySelectorAll('a[href^="#"]')) {
+    a.addEventListener("click", () => {
+      const id = a.getAttribute("href").slice(1);
+      const target = id && document.getElementById(id);
+      if (target && details.contains(target)) details.open = true;
+    });
+  }
+})();
+</script>
+
+<script>
 (async () => {
   const STATS_API = "https://aesthetic.computer/api/metrics";
   const statusEl = document.getElementById("stats-status");
   const root = document.getElementById("stats");
 
   function fmt(n) {
-    if (typeof n !== "number") return "—";
+    if (typeof n !== "number") return "…";
     return n.toLocaleString("en-US");
   }
 
