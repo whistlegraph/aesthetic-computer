@@ -6227,6 +6227,24 @@
         let lastStage = null;
         let thumbnailFallbackWarned = false; // only raise the fallback warning once per job
         const STAGE_STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 min with no update = stale
+        // Per-stage elapsed telemetry. Long oven bakes (up to 150s) look
+        // identical to a hang without this — user was left staring at
+        // "Baking thumbnail..." with no sense of motion. We track when each
+        // stage first went active, append live elapsed seconds to the stage
+        // detail, log it on stage transitions, and drop a heartbeat into the
+        // track log every 30s of inactivity so things feel alive.
+        const stageStartedAt = {};
+        const stageHeartbeatAt = {};
+        const STAGE_ELAPSED_SHOW_MS = 5 * 1000; // start appending "· 5s" after 5s
+        const STAGE_HEARTBEAT_MS = 30 * 1000; // track-log "still working" every 30s
+        const STAGE_FIRST_HEARTBEAT_MS = 20 * 1000; // first one at 20s since stage start
+        const TRACK_LOG_ON_STAGE_ENTER = new Set(['thumbnail', 'bundle', 'ipfs', 'metadata']);
+        const prettyStage = (id) => (MINT_STEPS.find(s => s.id === id)?.label || id);
+        function formatElapsed(ms) {
+          const s = Math.round(ms / 1000);
+          if (s < 60) return `${s}s`;
+          return `${Math.floor(s / 60)}m ${s % 60}s`;
+        }
 
         function stopPolling() {
           if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
@@ -6278,13 +6296,49 @@
 
             // Update timeline from job stage
             if (job.stage && job.stage !== 'ready') {
-              setMintStep(job.stage, 'active', job.stageMessage || job.stage);
-              // Mark previous stages done
+              const now = Date.now();
+              const isNewStage = !stageStartedAt[job.stage];
+              if (isNewStage) {
+                stageStartedAt[job.stage] = now;
+                stageHeartbeatAt[job.stage] = now;
+                if (TRACK_LOG_ON_STAGE_ENTER.has(job.stage)) {
+                  addTrackEntry(`${prettyStage(job.stage)}: ${job.stageMessage || 'working...'}`, 'active');
+                }
+              }
+              const stageElapsed = now - stageStartedAt[job.stage];
+              const baseMsg = job.stageMessage || job.stage;
+              // Append live elapsed seconds after 5s so long oven bakes
+              // (thumbnail can take ~150s) visibly tick forward.
+              const detail = stageElapsed >= STAGE_ELAPSED_SHOW_MS
+                ? `${baseMsg} · ${formatElapsed(stageElapsed)}`
+                : baseMsg;
+              setMintStep(job.stage, 'active', detail);
+              // Track-log heartbeat so the user sees motion even when the
+              // stageMessage itself isn't changing. First at 20s from stage
+              // start, then every 30s.
+              const lastBeatAt = stageHeartbeatAt[job.stage];
+              const nextBeatAt = (lastBeatAt === stageStartedAt[job.stage])
+                ? stageStartedAt[job.stage] + STAGE_FIRST_HEARTBEAT_MS
+                : lastBeatAt + STAGE_HEARTBEAT_MS;
+              if (now >= nextBeatAt && !isNewStage) {
+                stageHeartbeatAt[job.stage] = now;
+                addTrackEntry(`${prettyStage(job.stage)}: still working — ${formatElapsed(stageElapsed)} elapsed`, 'active');
+              }
+              // Mark previous stages done (log their total elapsed once).
               const stageIndex = MINT_STEPS.findIndex(s => s.id === job.stage);
               for (let i = 0; i < stageIndex; i++) {
                 const prevId = MINT_STEPS[i].id;
                 if (prevId !== 'wallet' && mintStepStates[prevId]?.status !== 'done') {
-                  setMintStep(prevId, 'done', mintStepStates[prevId]?.detail || '');
+                  const prevStart = stageStartedAt[prevId];
+                  const prevElapsed = prevStart ? (now - prevStart) : 0;
+                  const prevDetail = mintStepStates[prevId]?.detail || '';
+                  const detailWithTime = (prevElapsed && TRACK_LOG_ON_STAGE_ENTER.has(prevId))
+                    ? `${prevDetail ? prevDetail + ' · ' : ''}took ${formatElapsed(prevElapsed)}`.trim()
+                    : prevDetail;
+                  setMintStep(prevId, 'done', detailWithTime);
+                  if (prevStart && TRACK_LOG_ON_STAGE_ENTER.has(prevId)) {
+                    addTrackEntry(`${prettyStage(prevId)}: done in ${formatElapsed(prevElapsed)}`, 'done');
+                  }
                 }
               }
             }
