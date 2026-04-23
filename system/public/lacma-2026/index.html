@@ -763,7 +763,9 @@
 
     <span class="drop">What happens in the grant period.</span>
 
-    <p>Two public events, one sentence each. <strong style="color:var(--pink)">At the 2027 Symposium we boot the cohort</strong> — every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor. <strong style="color:var(--pink)">At the 2028 Demo Day we open the gallery</strong> — a multi-station AC Native installation premieres on the LACMA floor, and v1.0 of the open-source build pipeline ships so any institution can stand up the same rig. Everything between those two events (hardware expansion, workshop curriculum, translated documentation, paid helpers) is structured to make those two sentences true.</p>
+    <p>Five years of work on the website (19,000+ git commits, 17,000+ KidLisp programs, 2,800+ handles) gives us a platform that already breathes. Two months on AC Native (kernel prototype landed February 2026) give us a kernel, a shutdown strobe, a native <code>code</code> command, and a first public capture. The grant turns that kernel into something a museum and a classroom can run. Over 24 months we expand AC Native compatibility from one laptop to five, build a multi-piece boot menu, design a 3-level KidLisp workshop curriculum (the card format Casey and Lauren used at UCLA, translated EN + ES), harden kiosk mode, press 20+ USB drives for take-home, and ship v1.0 of the open-source build pipeline so any institution can stand up the same rig.</p>
+
+    <p><strong style="color:var(--pink)">At the 2027 Symposium we boot the cohort:</strong> every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor. <strong style="color:var(--pink)">At the 2028 Demo Day we open the gallery:</strong> a multi-station AC Native installation premieres on the LACMA floor, and v1.0 of the open-source build pipeline ships alongside it.</p>
 
     <p style="color:var(--dim);font-size:0.88em;margin-top:1.4em">The full 500-word pitch and statements live in <a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a>.</p>
   </section>
@@ -810,7 +812,7 @@
       <div class="feat"><b>Boot</b>USB → Linux kernel → custom C runtime as PID 1. No systemd, no compositor, no browser. UEFI only, x86_64.</div>
       <div class="feat"><b>Graphics</b>DRM dumb-buffer rendering (no compositor). Nearest-neighbor upscale for the chunky-pixel aesthetic. Optional SDL3 GPU backend.</div>
       <div class="feat"><b>Audio</b>ALSA at 192 kHz. 32-voice polyphony. 8 waveforms — sine, triangle, sawtooth, square, composite, harp, whistle, sample. Room reverb, master drive.</div>
-      <div class="feat"><b>Input</b>Raw evdev: keyboard, mouse/trackpad, touch, gamepad, NuPhy analog keys. Camera + V4L2 + QR scanning via quirc.</div>
+      <div class="feat"><b>Input</b>Raw evdev: keyboard, mouse/trackpad, touch, gamepad, analog key support. Camera + V4L2 + QR scanning via quirc.</div>
       <div class="feat"><b>code - AI partner</b>Built-in <code>code</code> command spawns <strong>Anthropic's Claude Code</strong> as a PTY subprocess inside a native terminal emulator. Modify a piece without leaving the OS.</div>
       <div class="feat"><b>MIDI</b>USB MIDI (in + out) and UDP MIDI broadcast. notepat transmits polyphonic MIDI live to other hardware and other AC Native stations.</div>
       <div class="feat"><b>TTS</b>Flite speech synthesis (male + female voices) integrated into the audio ring buffer. Pieces can speak.</div>
@@ -874,7 +876,7 @@
       <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Paid event helpers</b>$3,000 · workshop TAs + install/take-down at Symposium and Demo Day</div>
       <div class="feat"><b>Studio hardware</b>$3,500 · dev machines + displays</div>
       <div class="feat"><b>Installation laptops</b>$2,000 · 5 × $400 refurbished</div>
-      <div class="feat"><b>NuPhy analog keyboards</b>$600 · 5 × $120</div>
+      <div class="feat"><b>Mini Rig portable speakers</b>$600 · 5 × $120</div>
       <div class="feat"><b>USB + peripherals</b>$500 · drives, cables, adapters</div>
       <div class="feat"><b>Installation fabrication</b>$2,500 · furniture, mounts, signage</div>
       <div class="feat"><b>Workshop materials</b>$1,200 · printed guides + KidLisp reference cards</div>
