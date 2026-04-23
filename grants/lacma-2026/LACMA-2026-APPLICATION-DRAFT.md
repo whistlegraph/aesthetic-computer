@@ -36,7 +36,7 @@ Aesthetic Computer has three interlocking layers (a bare-metal operating system,
 
 **The Network** hosts 371 built-in pieces, 265 user-published, 2,800+ registered handles. The website has been in active development since 2021 (19,000+ commits across 5 years); AC Native is new, its kernel prototype landing February 2026.
 
-**The Library** is what makes the stack civic. A lending fleet of AC Blank laptops (refurbished ThinkPad 11e Yoga Gen 6, flashed with AC OS at $128/seat) circulates through Flash Days, workshops, and Family Play afternoons at LACMA. Members join a public waitlist. AC OS is the flagship; the library welcomes artists flashing their own custom creative OSes, in the lineage of Nick Montfort's Trope Tank and other artist-run hardware labs.
+**The Library** is what makes the stack civic. A lending fleet of AC Blank laptops (refurbished ThinkPad 11e Yoga Gen 6, flashed with AC OS at $128/seat) circulates through Flash Days, workshops, and Family Play afternoons at LACMA. Members join a public waitlist. AC OS is the flagship; the library openly welcomes artists flashing their own custom creative operating systems onto library hardware, joining a tradition of artist-run device libraries.
 
 During the grant period we grow the library and run public events:
 
@@ -104,7 +104,7 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 | **2. First Library Cohort + Pilots** | Spring – Summer 2027 | Open the library waitlist; run 2 pilot Flash Days at LACMA; first public borrowing cycle; assemble a prototype multi-station installation; publish v0 of the open-source build guide. |
 | **3. 2027 Symposium · "We boot the cohort."** | Fall 2027 | **At Symposium, every laptop in the room becomes an AC Native instrument from a single USB stick. Cohort artists and library members flash AC Blanks together and take them home.** Public KidLisp workshop. Talk / in-conversation on generative computing alongside the 2023 cohort. |
 | **4. Library Scaling + Extended Workshops** | Winter 2027 – Summer 2028 | Kiosk-mode hardening, library curriculum v1 (EN + ES), 4 additional workshops, returns-and-repair cycle for the fleet, complete documentation of the waitlist and lending system. |
-| **5. 2028 Demo Day · "We play the room."** | Fall 2028 | **A multi-station AC Native installation premieres on the LACMA floor. Family Play afternoons open the library fleet to visitors of any age. v1.0 of the open-source build pipeline ships alongside so any institution can run its own room, in the lineage of Nick Montfort's Trope Tank and other artist-run hardware libraries.** |
+| **5. 2028 Demo Day · "We play the room."** | Fall 2028 | **A multi-station AC Native installation premieres on the LACMA floor. Family Play afternoons open the library fleet to visitors of any age. v1.0 of the open-source build pipeline ships alongside so any institution can run its own room.** |
 
 ---
 
