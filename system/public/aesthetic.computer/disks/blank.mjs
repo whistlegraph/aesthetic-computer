@@ -1,5 +1,5 @@
 // blank, 26.03.20
-// AC Blank — AC Native Laptop product page & checkout
+// AC Blank — AC Blank Laptop product page & checkout
 // Checkout is handled by Shopify (shop.aesthetic.computer). Earlier this page
 // ran Stripe directly because we hadn't re-enabled Shopify; that path is gone.
 
@@ -8,7 +8,7 @@ const { floor, sin, cos, abs, min, max, PI, sqrt } = Math;
 // Module state
 let amount = 12800; // Kept in sync with the Shopify variant price (USD cents).
 const SHOP_URL =
-  "https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51";
+  "https://shop.aesthetic.computer/products/laptops_ac-blank-laptop_26-4-17-12-51";
 let thanks = false;
 
 // UI elements
