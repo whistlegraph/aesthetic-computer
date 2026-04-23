@@ -102,7 +102,7 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 | **2. Pre-Symposium Workshops** | Spring – Summer 2027 | Run 2 pilot workshops at LACMA, assemble a prototype multi-station installation, and publish v0 of the open-source build guide. |
 | **3. 2027 Symposium · "We boot the cohort."** | Fall 2027 | **At Symposium, every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor.** Talk / in-conversation on generative computing, situated alongside the 2023 cohort. |
 | **4. Full Installation + Workshops** | Winter 2027 – Summer 2028 | Kiosk-mode hardening, 20+ take-home USB drives, 4 additional workshops, complete documentation, and a translated curriculum (EN + ES, matching AC's translation pipeline). |
-| **5. 2028 Demo Day · "We open the gallery."** | Fall 2028 | **A multi-station AC Native installation premieres on the LACMA floor. Visitors sit down and play a fully-realized creative computer. v1.0 of the open-source build pipeline ships alongside, so any institution can stand up the same rig.** Public programs introduce the system to teachers, museum educators, and other artists. |
+| **5. 2028 Demo Day · "We play the room."** | Fall 2028 | **A multi-station AC Native installation premieres on the LACMA floor, and visitors and artists play together across the stations. v1.0 of the open-source build pipeline ships alongside, so any institution can run its own room.** Public programs introduce the system to teachers, museum educators, and other artists. |
 
 ---
 
@@ -112,13 +112,13 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 |------|------|
 | Artist fee (24 months, Fall 2026 – Fall 2028) | $22,000 |
 | Studio hardware (dev machines, displays) | $3,500 |
-| Installation laptops (5 × $400 refurbished) | $2,000 |
+| AC Blank laptops (5 installation + 7 cohort × $128 preloaded with AC Native, incl. shipping) | $2,000 |
 | Mini Rig portable speakers for installation (5 × $120) | $600 |
 | USB drives, cables, peripherals | $500 |
 | Installation fabrication (furniture, mounts) | $2,500 |
 | Workshop materials (printed guides, KidLisp reference cards) | $1,200 |
 | **2027 Symposium "boot the cohort"** (cohort demo USB kit, on-site workshop station, travel) | $2,500 |
-| **2028 Demo Day "open the gallery"** (multi-station install setup, public-program support) | $3,000 |
+| **2028 Demo Day "play the room"** (multi-station install setup, public-program support, v1.0 release) | $3,000 |
 | **Paid event helpers** (workshop TAs, install + take-down at Symposium and Demo Day) | $3,000 |
 | Server + compute infrastructure (hosting, CDN, CI/CD) | $3,500 |
 | Documentation production (video, photography, translation) | $2,000 |
