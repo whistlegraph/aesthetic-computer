@@ -36,13 +36,19 @@ function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-// ─── IPFS Upload (self-hosted Kubo node on lith + oven seeder) ───────────────
+// ─── IPFS Upload (self-hosted Kubo node on lith + oven seeder + public pin) ──
 // Matches keep-prepare-background.mjs so the on-chain sync path has the same
 // storage+mirroring guarantees as the prepare pipeline (no Pinata dependency).
 const IPFS_API = process.env.IPFS_API_URL || "http://localhost:5001";
 const IPFS_SEEDER_URL = process.env.IPFS_SEEDER_URL || "http://137.184.237.166:5001";
 const USE_GATEWAY_URLS = process.env.USE_IPFS_GATEWAY_URLS === "true";
 const IPFS_GATEWAY = process.env.IPFS_GATEWAY || "https://ipfs.aesthetic.computer";
+
+// Public pinning service (IPFS Pinning Service API spec — Filebase, etc.).
+// Pins the CID we already own, no re-upload, so objkt's indexer and other
+// gateways have a well-peered secondary to fetch from.
+const IPFS_PINNING_SERVICE_URL = process.env.IPFS_PINNING_SERVICE_URL || "";
+const IPFS_PINNING_SERVICE_TOKEN = process.env.IPFS_PINNING_SERVICE_TOKEN || "";
 
 function formatIpfsUri(hash) {
   return USE_GATEWAY_URLS ? `${IPFS_GATEWAY}/ipfs/${hash}` : `ipfs://${hash}`;
@@ -52,6 +58,22 @@ function formatIpfsUri(hash) {
 function seedToSecondaryNode(hash) {
   fetch(`${IPFS_SEEDER_URL}/api/v0/pin/add?arg=${hash}`, { method: "POST", signal: AbortSignal.timeout(120000) })
     .then(r => r.ok ? console.log(`🌱 KEEP-UPDATE: seeded ${hash.slice(0, 12)}... to oven`) : null)
+    .catch(() => {}); // Best-effort, don't block pipeline
+}
+
+// Pin existing CID on a public pinning service (fire-and-forget).
+function pinToPublicService(hash, name) {
+  if (!IPFS_PINNING_SERVICE_URL || !IPFS_PINNING_SERVICE_TOKEN) return;
+  fetch(`${IPFS_PINNING_SERVICE_URL}/pins`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${IPFS_PINNING_SERVICE_TOKEN}`,
+    },
+    body: JSON.stringify({ cid: hash, ...(name ? { name } : {}) }),
+    signal: AbortSignal.timeout(30000),
+  })
+    .then(r => r.ok ? console.log(`📌 KEEP-UPDATE: pinned ${hash.slice(0, 12)}... to public service`) : r.text().then(t => console.warn(`📌 KEEP-UPDATE: public pin ${r.status}: ${t.slice(0, 200)}`)))
     .catch(() => {}); // Best-effort, don't block pipeline
 }
 
@@ -71,6 +93,7 @@ async function uploadJsonToIPFS(data, name, timeoutMs = 30000) {
     if (!res.ok) throw new Error(`Metadata upload failed: ${res.status}`);
     const result = await res.json();
     seedToSecondaryNode(result.Hash);
+    pinToPublicService(result.Hash, name);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);

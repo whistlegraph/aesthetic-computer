@@ -371,14 +371,38 @@ function isCachedMediaValid(piece) {
     && piece?.ipfsMedia?.sourceHash === hashSource(piece.source);
 }
 
-// ─── IPFS Upload (self-hosted Kubo node on lith + oven seeder) ───────────────
+// ─── IPFS Upload (self-hosted Kubo node on lith + oven seeder + public pin) ──
 const IPFS_API = process.env.IPFS_API_URL || "http://localhost:5001";
 const IPFS_SEEDER_URL = process.env.IPFS_SEEDER_URL || "http://137.184.237.166:5001";
+
+// Public pinning service (IPFS Pinning Service API spec — Filebase, web3.storage,
+// Estuary, etc.). Vendor-neutral so provider can be swapped by env var alone.
+// Pinning the CID we already own (no re-upload) gives objkt's indexer / public
+// gateways a well-peered place to fetch from while our node stays primary.
+const IPFS_PINNING_SERVICE_URL = process.env.IPFS_PINNING_SERVICE_URL || "";
+const IPFS_PINNING_SERVICE_TOKEN = process.env.IPFS_PINNING_SERVICE_TOKEN || "";
 
 // Seed content to the oven IPFS node (fire-and-forget for faster gateway propagation)
 function seedToSecondaryNode(hash) {
   fetch(`${IPFS_SEEDER_URL}/api/v0/pin/add?arg=${hash}`, { method: "POST", signal: AbortSignal.timeout(120000) })
     .then(r => r.ok ? console.log(`🌱 Seeded ${hash.slice(0, 12)}... to oven`) : null)
+    .catch(() => {}); // Best-effort, don't block pipeline
+}
+
+// Pin existing CID on a public IPFS pinning service (fire-and-forget).
+// Skips silently when credentials aren't configured.
+function pinToPublicService(hash, name) {
+  if (!IPFS_PINNING_SERVICE_URL || !IPFS_PINNING_SERVICE_TOKEN) return;
+  fetch(`${IPFS_PINNING_SERVICE_URL}/pins`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${IPFS_PINNING_SERVICE_TOKEN}`,
+    },
+    body: JSON.stringify({ cid: hash, ...(name ? { name } : {}) }),
+    signal: AbortSignal.timeout(30000),
+  })
+    .then(r => r.ok ? console.log(`📌 Pinned ${hash.slice(0, 12)}... to public service`) : r.text().then(t => console.warn(`📌 Public pin ${r.status}: ${t.slice(0, 200)}`)))
     .catch(() => {}); // Best-effort, don't block pipeline
 }
 
@@ -397,6 +421,7 @@ async function uploadToIPFS(content, filename, mimeType, timeoutMs = 90000) {
     if (!res.ok) throw new Error(`IPFS upload failed: ${res.status}`);
     const result = await res.json();
     seedToSecondaryNode(result.Hash);
+    pinToPublicService(result.Hash, filename);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
@@ -421,6 +446,7 @@ async function uploadJsonToIPFS(json, name, timeoutMs = 30000) {
     if (!res.ok) throw new Error(`Metadata upload failed: ${res.status}`);
     const result = await res.json();
     seedToSecondaryNode(result.Hash);
+    pinToPublicService(result.Hash, name);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
