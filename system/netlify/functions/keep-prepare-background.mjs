@@ -406,6 +406,29 @@ function pinToPublicService(hash, name) {
     .catch(() => {}); // Best-effort, don't block pipeline
 }
 
+// Warm public IPFS gateways so they DHT-fetch the CID from us and cache it.
+// Once cached on e.g. ipfs.io, there are multiple providers for downstream
+// indexers (objkt, tzkt) to find, which dramatically cuts the lag between
+// edit_metadata and rebaked thumbnails appearing in their UIs. Fire-and-forget;
+// Range header keeps our egress tiny while the gateway fetches the full CID.
+const PUBLIC_GATEWAYS = [
+  "https://ipfs.io",
+  "https://gateway.ipfs.io",
+  "https://dweb.link",
+  "https://nftstorage.link",
+];
+function warmPublicGateways(hash) {
+  for (const gw of PUBLIC_GATEWAYS) {
+    fetch(`${gw}/ipfs/${hash}`, {
+      method: "GET",
+      headers: { Range: "bytes=0-0" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(20000),
+    }).catch(() => {}); // Best-effort, don't block pipeline
+  }
+  console.log(`🔥 Warming ${hash.slice(0, 12)}... on ${PUBLIC_GATEWAYS.length} public gateways`);
+}
+
 async function uploadToIPFS(content, filename, mimeType, timeoutMs = 90000) {
   const formData = new FormData();
   formData.append("file", new Blob([content], { type: mimeType }), filename);
@@ -422,6 +445,7 @@ async function uploadToIPFS(content, filename, mimeType, timeoutMs = 90000) {
     const result = await res.json();
     seedToSecondaryNode(result.Hash);
     pinToPublicService(result.Hash, filename);
+    warmPublicGateways(result.Hash);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
@@ -447,6 +471,7 @@ async function uploadJsonToIPFS(json, name, timeoutMs = 30000) {
     const result = await res.json();
     seedToSecondaryNode(result.Hash);
     pinToPublicService(result.Hash, name);
+    warmPublicGateways(result.Hash);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);

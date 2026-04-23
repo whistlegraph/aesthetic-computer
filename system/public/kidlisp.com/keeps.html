@@ -6748,6 +6748,37 @@
         throw new Error(confirmData?.error || `Metadata update confirm failed (${confirmResponse.status})`);
       }
 
+      // Warm public IPFS gateways for the final URIs so objkt's indexer has
+      // well-peered sources the moment it re-reads the on-chain pointer.
+      // Fire-and-forget but surfaced in the track log so the user sees it.
+      const finalArtifact = confirmData?.artifactUri || confirmPayload.artifactUri;
+      const finalThumb = confirmData?.thumbnailUri || confirmPayload.thumbnailUri;
+      const finalMeta = confirmData?.metadataUri || confirmPayload.metadataUri;
+      const cidsToWarm = [finalArtifact, finalThumb, finalMeta]
+        .filter(Boolean)
+        .map((u) => (u.startsWith('ipfs://') ? u.slice(7) : u))
+        .filter((cid) => /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|ba[a-z0-9]{56,})$/.test(cid));
+      if (cidsToWarm.length) {
+        addTrackEntry(`Warming public IPFS gateways for ${cidsToWarm.length} CID${cidsToWarm.length === 1 ? '' : 's'}...`, 'active');
+        try {
+          const warmRes = await fetch(`${API_BASE}/api/warm-gateways`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cids: cidsToWarm }),
+          });
+          const warmData = await warmRes.json().catch(() => null);
+          if (warmRes.ok && warmData?.ok) {
+            const gws = (warmData.gateways || []).join(', ');
+            addTrackEntry(`Gateways warmed: ${gws}`, 'done');
+          } else {
+            addTrackEntry('Gateway warming skipped (non-critical)', 'done');
+          }
+        } catch (warmErr) {
+          addTrackEntry('Gateway warming failed (non-critical)', 'done');
+          console.warn('warm-gateways failed:', warmErr);
+        }
+      }
+
       return {
         txHash,
         tokenId: normalizedTokenId,
@@ -6755,9 +6786,9 @@
         contractAddress: confirmPayload.contractAddress,
         contractProfile: confirmData?.contractProfile || confirmPayload.contractProfile || null,
         contractVersion: confirmData?.contractVersion || confirmPayload.contractVersion || null,
-        artifactUri: confirmData?.artifactUri || confirmPayload.artifactUri,
-        thumbnailUri: confirmData?.thumbnailUri || confirmPayload.thumbnailUri,
-        metadataUri: confirmData?.metadataUri || confirmPayload.metadataUri,
+        artifactUri: finalArtifact,
+        thumbnailUri: finalThumb,
+        metadataUri: finalMeta,
       };
     }
 

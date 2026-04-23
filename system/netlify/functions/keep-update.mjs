@@ -77,6 +77,27 @@ function pinToPublicService(hash, name) {
     .catch(() => {}); // Best-effort, don't block pipeline
 }
 
+// Warm public IPFS gateways so they DHT-fetch and cache the CID, giving
+// downstream indexers (objkt, tzkt) multiple providers to find. Keeps objkt
+// from seeing stale metadata when our self-hosted node is the sole provider.
+const PUBLIC_GATEWAYS = [
+  "https://ipfs.io",
+  "https://gateway.ipfs.io",
+  "https://dweb.link",
+  "https://nftstorage.link",
+];
+function warmPublicGateways(hash) {
+  for (const gw of PUBLIC_GATEWAYS) {
+    fetch(`${gw}/ipfs/${hash}`, {
+      method: "GET",
+      headers: { Range: "bytes=0-0" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(20000),
+    }).catch(() => {}); // Best-effort, don't block pipeline
+  }
+  console.log(`🔥 KEEP-UPDATE: warming ${hash.slice(0, 12)}... on ${PUBLIC_GATEWAYS.length} public gateways`);
+}
+
 async function uploadJsonToIPFS(data, name, timeoutMs = 30000) {
   const content = JSON.stringify(data);
   const formData = new FormData();
@@ -94,6 +115,7 @@ async function uploadJsonToIPFS(data, name, timeoutMs = 30000) {
     const result = await res.json();
     seedToSecondaryNode(result.Hash);
     pinToPublicService(result.Hash, name);
+    warmPublicGateways(result.Hash);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
