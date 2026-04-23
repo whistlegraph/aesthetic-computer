@@ -2,13 +2,20 @@
 // A simple test piece for the TTS API.
 // Type a word or phrase after `say` to hear it spoken.
 
-/* #region 📚 README 
+/* #region 📚 README
   Usage: say hello
          say how are you today
          say:male hi there
          say:female good morning
          say:google hello (use Google TTS)
          say:google:female hi there
+         say:jeffrey hello         (Jeffrey PVC — @jeffrey's voice clone)
+         say:jeffrey:scream AHHH   (screaming variant)
+
+  All utterances are cached to the art.aesthetic.computer CDN under
+  `tts-cache/` (jeffrey gets its own subfolder `tts-cache/jeffrey/`).
+  Each cached MP3 has the original text + voice stamped as S3 metadata,
+  so you can rehydrate the catalog later by listing the bucket.
 #endregion */
 
 let text = "";
@@ -34,14 +41,15 @@ function boot({ params, colon }) {
       if (part === "google") provider = "google";
       else if (part === "openai") provider = "openai";
       else if (part === "eleven") provider = "eleven";
+      else if (part === "jeffrey") provider = "jeffrey";
       else if (part === "male") gender = "male";
       else if (part === "female") gender = "female";
       else if (part === "scream") {
         scream = true;
         if (provider === "openai") {
           instructions = "Deliver this as a blood-curdling scream. Shriek at the absolute top of your lungs with your voice cracking. Pure primal rage. Do NOT speak normally — only scream, raw and unhinged.";
-        } else if (provider !== "eleven") {
-          provider = "eleven"; // Default scream to ElevenLabs
+        } else if (provider !== "eleven" && provider !== "jeffrey") {
+          provider = "eleven"; // Default scream to ElevenLabs premade voices
         }
       }
     }
@@ -56,13 +64,21 @@ function paint({ wipe, ink, write, screen }) {
   // Note: Top-left corner is reserved for prompt HUD label
   
   // Provider indicator (below HUD area)
-  const providerColor = scream ? "red" : provider === "eleven" ? "orange" : provider === "google" ? "cyan" : "lime";
+  const providerColor = scream
+    ? "red"
+    : provider === "jeffrey"
+      ? "magenta"
+      : provider === "eleven"
+        ? "orange"
+        : provider === "google"
+          ? "cyan"
+          : "lime";
   const providerLabel = scream ? `[${provider} SCREAM]` : `[${provider}]`;
   ink(providerColor).write(providerLabel, { x: 6, y: 18 });
-  
+
   // Instructions
   ink("gray").write("say <words>", { x: 6, y: 32 });
-  ink("gray").write("say:google or say:male", { x: 6, y: 44 });
+  ink("gray").write("say:jeffrey · say:google · say:male", { x: 6, y: 44 });
   
   // Current text
   if (text) {

@@ -29,10 +29,13 @@ const CDN_URL = "https://art.aesthetic.computer";
 const CACHE_PREFIX = "tts-cache/";
 
 // Generate cache key from provider + voice + text + instructions
+// Custom voice clones (jeffrey) get their own subfolder so all utterances
+// from that voice are easy to list / browse on the CDN.
 function getCacheKey(provider, voiceId, text, instructions) {
   const parts = `${provider}:${voiceId}:${text}${instructions ? `:${instructions}` : ""}`;
   const hash = crypto.createHash("sha256").update(parts).digest("hex");
-  return `${CACHE_PREFIX}${hash}.mp3`;
+  const subfolder = provider === "jeffrey" ? "jeffrey/" : "";
+  return `${CACHE_PREFIX}${subfolder}${hash}.mp3`;
 }
 
 // Check if cached audio exists, return CDN URL if so
@@ -49,9 +52,20 @@ async function checkCache(key) {
   }
 }
 
-// Save audio to cache
-async function saveToCache(key, audioBuffer) {
+// Save audio to cache. Optional `metadata` is persisted as S3 user metadata
+// so we can browse utterances later (e.g. HeadObject → x-amz-meta-text).
+async function saveToCache(key, audioBuffer, metadata = {}) {
   try {
+    // S3 user metadata must be ASCII and each header is usually capped
+    // around 2 KB; trim text + encode non-ASCII defensively.
+    const cleanMeta = {};
+    for (const [k, v] of Object.entries(metadata)) {
+      if (v == null) continue;
+      const str = String(v).slice(0, 1800);
+      // Keep values ASCII-safe (S3 rejects high-unicode metadata headers).
+      cleanMeta[k] = Buffer.from(str, "utf8").toString("ascii").replace(/[\r\n]/g, " ");
+    }
+
     await s3.send(new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
@@ -59,6 +73,7 @@ async function saveToCache(key, audioBuffer) {
       ContentType: "audio/mpeg",
       ACL: "public-read",
       CacheControl: "public, max-age=31536000", // 1 year (audio doesn't change)
+      Metadata: cleanMeta,
     }));
     console.log(`✅ Cached TTS: ${CDN_URL}/${key}`);
     return `${CDN_URL}/${key}`;
@@ -144,6 +159,46 @@ async function generateElevenLabs(text, gender, set, scream) {
   return {
     buffer: Buffer.from(await response.arrayBuffer()),
     voiceId: `eleven-${voiceId.slice(0, 8)}`,
+  };
+}
+
+// ── Jeffrey: Professional Voice Clone (PVC) ──────────────────────────
+// Trained on multiple public lectures/talks by @jeffrey. Same voice
+// used in the LACMA 2026 grant pitch video.
+// Usage from the piece: `say:jeffrey hello world`
+const JEFFREY_VOICE_ID = "dYNGZ848Oo6DtNBoeqgh";
+
+async function generateJeffrey(text, scream) {
+  // Calmer, more natural delivery than the premade "scream" preset.
+  // Same knobs as the grant-video pipeline for homogeneity.
+  const voiceSettings = scream
+    ? { stability: 0.2, similarity_boost: 0.85, style: 0.9, use_speaker_boost: true }
+    : { stability: 0.65, similarity_boost: 0.9, style: 0.15, use_speaker_boost: true };
+
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${JEFFREY_VOICE_ID}`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": process.env.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: voiceSettings,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`ElevenLabs (Jeffrey) API error ${response.status}: ${err}`);
+  }
+
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    voiceId: "jeffrey-pvc",
   };
 }
 
@@ -271,6 +326,8 @@ exports.handler = async (event) => {
         result = await generateGoogle(text, gender, set, isSSML);
       } else if (provider === "eleven") {
         result = await generateElevenLabs(text, gender, set, scream);
+      } else if (provider === "jeffrey") {
+        result = await generateJeffrey(text, scream);
       } else {
         result = await generateOpenAI(text, gender, set, instructions);
       }
@@ -287,8 +344,15 @@ exports.handler = async (event) => {
 
       console.log(`🗣️ Generated with ${provider}: ${voiceId}`);
 
-      // Cache for next time
-      const cdnUrl = await saveToCache(cacheKey, audioBuffer);
+      // Cache for next time. Attach the original text + voice as S3 metadata
+      // so individual objects are self-describing when you browse them.
+      const cdnUrl = await saveToCache(cacheKey, audioBuffer, {
+        text,
+        provider,
+        voice: voiceId,
+        scream: scream ? "1" : "0",
+        ts: new Date().toISOString(),
+      });
 
       if (cdnUrl) {
         return {
