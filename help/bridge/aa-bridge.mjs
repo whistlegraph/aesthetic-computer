@@ -13,12 +13,15 @@
 // GET  /api/history    — return prior user/assistant events for this user's session
 
 import http from "http";
-import { spawn } from "child_process";
+import { spawn, exec } from "child_process";
+import { promisify } from "util";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";
 import { randomUUID } from "crypto";
+
+const execP = promisify(exec);
 
 const PORT = parseInt(process.env.AA_PORT || "3004", 10);
 const ADMIN_SUB = process.env.ADMIN_SUB;
@@ -236,6 +239,42 @@ async function readSessionTranscript(sessionId) {
   return events;
 }
 
+// ───────── git sync ─────────
+// Pull remote changes into WORK_DIR before each turn so claude always starts
+// from a fresh tree. --autostash tucks in-flight edits; --rebase keeps linear
+// history. We never abort the turn on pull failure — claude gets to see the
+// repo state and can reconcile.
+async function gitPull(cwd = WORK_DIR) {
+  const started = Date.now();
+  try {
+    const { stdout, stderr } = await execP("git pull --rebase --autostash", {
+      cwd,
+      timeout: 30_000,
+      maxBuffer: 1024 * 1024,
+    });
+    const out = ((stdout || "") + (stderr || "")).trim();
+    let summary = "updated";
+    if (/Already up to date/i.test(out)) summary = "up to date";
+    else if (/Fast-forward/.test(out)) summary = "fast-forwarded";
+    else if (/Successfully rebased/.test(out)) summary = "rebased";
+    else if (/CONFLICT/.test(out)) summary = "conflicts";
+    return {
+      ok: true,
+      summary,
+      output: out.split("\n").slice(-20).join("\n"),
+      durationMs: Date.now() - started,
+    };
+  } catch (err) {
+    const out = ((err.stdout || "") + (err.stderr || "")).trim();
+    return {
+      ok: false,
+      summary: "failed",
+      output: (out || err.message || "").split("\n").slice(-20).join("\n"),
+      durationMs: Date.now() - started,
+    };
+  }
+}
+
 // ───────── claude spawn ─────────
 //
 // Git attribution: commits made through this bridge keep the *author* as
@@ -315,6 +354,10 @@ async function handleChat(req, res, origin) {
 
   const sessionId = await getSessionId(sub);
   sse(res, "start", { sessionId, cwd: WORK_DIR });
+
+  // Pre-spawn: pull any remote changes so claude works from fresh state.
+  const pull = await gitPull(WORK_DIR);
+  sse(res, "git-pull", pull);
 
   const child = spawnClaude(message, sessionId);
   let buffer = "";
@@ -586,6 +629,19 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { "Content-Type": "application/json", ...corsHeaders(origin) });
       res.end(JSON.stringify({ error: err.message }));
     }
+    return;
+  }
+
+  if (req.url === "/api/pull" && req.method === "POST") {
+    const sub = await validateBearer(req.headers.authorization);
+    if (!sub || (!DEV_BYPASS && sub !== ADMIN_SUB)) {
+      res.writeHead(sub ? 403 : 401, corsHeaders(origin));
+      res.end();
+      return;
+    }
+    const pull = await gitPull(WORK_DIR);
+    res.writeHead(200, { "Content-Type": "application/json", ...corsHeaders(origin) });
+    res.end(JSON.stringify(pull));
     return;
   }
 

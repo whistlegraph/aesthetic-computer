@@ -17,6 +17,8 @@ let pending = false;
 let abortCtrl = null;
 let userHandleRef = null;
 let hudRef = null;
+let verbose = false;       // /verbose toggles rich telemetry
+const queue = [];          // prompts stacked while pending
 
 let msgCounter = 0;
 const nextId = () => `aa-${Date.now()}-${msgCounter++}`;
@@ -125,11 +127,32 @@ async function boot({ api, debug, send, hud, handle, user, authorize }) {
       if (text === "/reset") return reset();
       if (text === "/clear") {
         client.system.messages.length = 0;
+        queue.length = 0;
         invalidate();
         return;
       }
       if (text === "/cancel" || text === "/stop") {
         if (abortCtrl) abortCtrl.abort();
+        return;
+      }
+      if (text === "/verbose") {
+        verbose = !verbose;
+        pushSystem(`verbose ${verbose ? "on" : "off"}`);
+        return;
+      }
+      if (text === "/queue") {
+        pushSystem(queue.length ? `${queue.length} queued` : "queue empty");
+        return;
+      }
+      if (text === "/pull") return manualPull();
+
+      // Echo the prompt immediately so the transcript reflects submission order.
+      const me = userHandleRef?.() || "@jeffrey";
+      pushMessage(me, text);
+
+      if (pending) {
+        queue.push(text);
+        pushSystem(`→ queued (${queue.length})`);
         return;
       }
       await sendToBridge(text);
@@ -211,10 +234,86 @@ async function reset() {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
+    queue.length = 0;
     pushSystem("session reset.");
   } catch (err) {
     pushSystem(`reset failed: ${err.message}`);
   }
+}
+
+async function manualPull() {
+  try {
+    const res = await fetch(`${ENDPOINT}/api/pull`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      pushSystem(`pull failed: ${res.status}`);
+      return;
+    }
+    const data = await res.json();
+    renderGitPull(data);
+  } catch (err) {
+    pushSystem(`pull failed: ${err.message}`);
+  }
+}
+
+function renderGitPull(p) {
+  if (!p) return;
+  const ms = p.durationMs != null ? ` ${Math.max(1, Math.round(p.durationMs / 100) / 10)}s` : "";
+  // "up to date" is the common case — keep it out of the transcript unless verbose.
+  if (p.ok && p.summary === "up to date" && !verbose) return;
+  const glyph = p.ok ? "⟲" : "⟲!";
+  const head = `${glyph} pull ${p.summary}${ms}`;
+  if (verbose && p.output) pushSystem(`${head}\n${p.output}`);
+  else pushSystem(head);
+}
+
+function shorten(s, max = 80) {
+  if (!s) return "";
+  const t = String(s);
+  return t.length > max ? t.slice(0, max - 1) + "…" : t;
+}
+
+function toolLabel(block) {
+  const name = block.name || "?";
+  const input = block.input || {};
+  let arg = "";
+  switch (name) {
+    case "Read":
+    case "Write":
+    case "Edit":
+    case "MultiEdit":
+    case "NotebookEdit":
+      arg = input.file_path || input.notebook_path || "";
+      break;
+    case "Bash":
+      arg = input.command || "";
+      break;
+    case "Grep":
+    case "Glob":
+      arg = input.pattern || "";
+      break;
+    case "WebFetch":
+    case "WebSearch":
+      arg = input.url || input.query || "";
+      break;
+    case "TodoWrite":
+      arg = `${input.todos?.length ?? 0} items`;
+      break;
+    case "Task":
+      arg = input.description || input.subagent_type || "";
+      break;
+    default:
+      // Generic fallback: first string-ish value in input
+      for (const v of Object.values(input)) {
+        if (typeof v === "string") { arg = v; break; }
+      }
+  }
+  // Strip the common home prefix so paths stay readable on a phone.
+  if (arg.startsWith("/Users/aesthetic/")) arg = arg.slice("/Users/aesthetic/".length);
+  arg = shorten(arg.replace(/\s+/g, " ").trim(), 100);
+  return arg ? `⚙ ${name} ${arg}` : `⚙ ${name}`;
 }
 
 async function loadHistory() {
@@ -266,15 +365,14 @@ function renderClaudeEvent(ev) {
 }
 
 async function sendToBridge(text) {
-  if (pending) { pushSystem("still thinking — type /cancel to stop."); return; }
-
-  const me = userHandleRef?.() || "@jeffrey";
-  pushMessage(me, text);
   pending = true;
   abortCtrl = new AbortController();
 
   // Streamed reply: the aa bubble is created lazily on the first text chunk,
-  // then mutated in place so the reply appears progressively.
+  // then mutated in place so the reply appears progressively. Each assistant
+  // turn may emit multiple text blocks interleaved with tool_use blocks, so
+  // we close the current bubble when a tool_use lands and start a fresh one
+  // on the next text chunk.
   let streamMsg = null;
   let pendingText = "";
   const applyStream = () => {
@@ -283,6 +381,11 @@ async function sendToBridge(text) {
       streamMsg.text = pendingText;
       invalidate();
     }
+  };
+  const flushBubble = () => {
+    if (streamMsg && !pendingText) removeMessage(streamMsg);
+    streamMsg = null;
+    pendingText = "";
   };
 
   try {
@@ -320,21 +423,65 @@ async function sendToBridge(text) {
         const evt = parseSSE(block);
         if (!evt) continue;
 
-        if (evt.event === "claude") {
+        if (evt.event === "git-pull") {
+          renderGitPull(evt.data);
+        } else if (evt.event === "claude") {
           const ev = evt.data;
-          if (ev.type === "assistant" && ev.message?.content) {
+          if (ev.type === "system" && ev.subtype === "init") {
+            const parts = [];
+            if (ev.model) parts.push(ev.model);
+            if (ev.session_id) parts.push(ev.session_id.slice(0, 8));
+            if (parts.length) pushSystem(`◌ ${parts.join(" · ")}`);
+          } else if (ev.type === "assistant" && ev.message?.content) {
             for (const b of ev.message.content) {
               if (b.type === "text" && b.text) {
                 pendingText += b.text;
                 applyStream();
+              } else if (b.type === "tool_use") {
+                // Seal the current assistant bubble so the tool line lands
+                // between text blocks rather than replacing them.
+                if (streamMsg && pendingText) {
+                  streamMsg.text = pendingText;
+                  streamMsg = null;
+                  pendingText = "";
+                }
+                pushSystem(toolLabel(b));
+              } else if (b.type === "thinking" && verbose && b.thinking) {
+                pushSystem(`… ${shorten(b.thinking.replace(/\s+/g, " "), 200)}`);
               }
-              // tool_use / thinking / other blocks deliberately suppressed
             }
-          } else if (ev.type === "result" && ev.result) {
-            pendingText = ev.result;
-            applyStream();
+          } else if (ev.type === "user" && verbose && ev.message?.content) {
+            const c = ev.message.content;
+            const blocks = Array.isArray(c) ? c : [];
+            for (const b of blocks) {
+              if (b.type === "tool_result") {
+                const body = typeof b.content === "string"
+                  ? b.content
+                  : Array.isArray(b.content)
+                    ? b.content.filter((x) => x.type === "text").map((x) => x.text).join("\n")
+                    : "";
+                if (body) {
+                  const preview = body.split("\n").slice(0, 3).join(" ");
+                  pushSystem(`← ${shorten(preview, 180)}`);
+                }
+              }
+            }
+          } else if (ev.type === "result") {
+            if (ev.result && !pendingText) {
+              // Rare: result arrived with no prior streamed text — render it.
+              pendingText = ev.result;
+              applyStream();
+            }
+            const parts = [];
+            if (ev.duration_ms != null) parts.push(`${(ev.duration_ms / 1000).toFixed(1)}s`);
+            if (ev.total_cost_usd != null) parts.push(`$${Number(ev.total_cost_usd).toFixed(4)}`);
+            const u = ev.usage || {};
+            if (u.input_tokens) parts.push(`${u.input_tokens}in`);
+            if (u.output_tokens) parts.push(`${u.output_tokens}out`);
+            if (u.cache_read_input_tokens) parts.push(`${u.cache_read_input_tokens}cache`);
+            if (ev.num_turns) parts.push(`${ev.num_turns}t`);
+            if (parts.length) pushSystem(`✓ ${parts.join(" · ")}`);
           }
-          // tool_result (in user events) also suppressed
         } else if (evt.event === "error") {
           pushMessage("aa", `! ${evt.data.message || "error"}`);
         } else if (evt.event === "done") {
@@ -355,12 +502,18 @@ async function sendToBridge(text) {
       }
     }
   } catch (err) {
-    if (streamMsg && !pendingText) removeMessage(streamMsg);
+    flushBubble();
     if (err.name === "AbortError") pushSystem("cancelled.");
     else pushSystem(`error: ${err.message}`);
   } finally {
     pending = false;
     abortCtrl = null;
+    // Drain the next queued prompt if any. Defer a tick so the current turn's
+    // "done" state renders before the next one starts streaming.
+    if (queue.length > 0) {
+      const next = queue.shift();
+      setTimeout(() => { sendToBridge(next); }, 40);
+    }
   }
 }
 
