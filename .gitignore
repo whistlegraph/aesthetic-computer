@@ -381,6 +381,14 @@ papers/**/*.log
 papers/**/*.out
 papers/**/*.toc
 
+# Lecture archive: large source media (kept locally, not in git)
+papers/lectures/*.mp4
+papers/lectures/*.webm
+papers/lectures/*.mkv
+papers/lectures/*.mp3
+papers/lectures/*.m4a
+papers/lectures/*.wav
+
 # babypat build artifacts
 fedac/babypat/*.o
 fedac/babypat/*.so
