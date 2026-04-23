@@ -271,9 +271,10 @@ exports.handler = async (event) => {
     const set = parseInt(body.voice?.split(":")[1]) || 0;
     const gender = body.voice?.split(":")[0]?.toLowerCase() || "neutral";
 
-    // Provider: "openai" (default), "google", "eleven"
-    // Can be set via body.provider or defaults to openai
-    const provider = body.provider || "openai";
+    // Provider: "jeffrey" (default PVC), "openai", "google", "eleven"
+    // Can be set via body.provider; falls back to Jeffrey for parity
+    // with the `say` piece default.
+    const provider = body.provider || "jeffrey";
 
     // Instructions for gpt-4o-mini-tts emotional/style control (OpenAI only)
     const instructions = provider === "openai" ? (body.instructions || null) : null;

@@ -3,14 +3,15 @@
 // Type a word or phrase after `say` to hear it spoken.
 
 /* #region 📚 README
-  Usage: say hello
+  Usage: say hello                  (default: Jeffrey PVC)
          say how are you today
-         say:male hi there
-         say:female good morning
-         say:google hello (use Google TTS)
+         say:openai hello           (OpenAI gpt-4o-mini-tts)
+         say:openai:male hi there
+         say:google hello           (Google Cloud TTS)
          say:google:female hi there
-         say:jeffrey hello         (Jeffrey PVC — @jeffrey's voice clone)
-         say:jeffrey:scream AHHH   (screaming variant)
+         say:eleven hello           (ElevenLabs premade voices)
+         say:jeffrey hello          (explicit Jeffrey PVC — same as default)
+         say:jeffrey:scream AHHH    (screaming variant of Jeffrey)
 
   All utterances are cached to the art.aesthetic.computer CDN under
   `tts-cache/` (jeffrey gets its own subfolder `tts-cache/jeffrey/`).
@@ -21,7 +22,7 @@
 let text = "";
 let lastSpoken = "";
 let status = "idle"; // idle, speaking, error
-let provider = "openai"; // "openai", "google", or "eleven"
+let provider = "jeffrey"; // default: Jeffrey PVC — switch via colon (say:openai, say:google, say:eleven)
 let gender = "neutral";
 let instructions = null;
 let scream = false;
