@@ -143,7 +143,8 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
   // Header (painted last to mask scroll)
   ink(c.headerBg).box(0, 0, screen.width, HEADER_HEIGHT);
   const countStr = `${items.length} recent`;
-  ink(c.date).write(countStr, { x: LEFT_MARGIN, y: 3 }, undefined, undefined, false, COMPACT_FONT);
+  const countW = countStr.length * COMPACT_CHAR_W;
+  ink(c.date).write(countStr, { x: screen.width - countW - 4, y: 3 }, undefined, undefined, false, COMPACT_FONT);
 }
 
 function act({ event: e, screen, hud, piece, jump, needsPaint, beep }) {
