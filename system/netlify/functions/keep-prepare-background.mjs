@@ -575,8 +575,12 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
             body: JSON.stringify({
               piece: `$${pieceName}`, format: "webp",
               width: 256, height: 256, density: 2,
-              duration: forceFresh ? 4000 : 5000, fps: 8,
-              quality: 70,
+              // Longer + higher-quality so per-frame bytes clear objkt's
+              // "probably-a-still" heuristic (was flattening low-entropy WebPs
+              // to static JPEG; $sum at 6.7KB/frame → animated GIF, $pie at
+              // 1.3KB/frame → JPEG). Aiming for ≥5KB/frame average.
+              duration: forceFresh ? 6000 : 7000, fps: 10,
+              quality: 88,
               cacheKey: forceFresh ? `rebake-${pieceSourceHash}-${Date.now()}` : `src-${pieceSourceHash}`,
               skipCache: forceFresh,
             }),
