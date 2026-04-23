@@ -128,7 +128,21 @@ for (const rawLine of scriptRaw.split("\n")) {
     continue;
   }
   const t = parseTime(tsMatch[1]);
-  const body = tsMatch[2].trim();
+  let body = tsMatch[2].trim();
+
+  // Demo-script format compatibility: lines may be `[t] KIND arg` where
+  // KIND is one of key|say|caption|wait|env. Only `say` and `caption`
+  // produce narration + subtitle output here; the rest (keys/env/wait)
+  // are dispatched by the binary's --demo runner so we skip them.
+  const demoKindMatch = body.match(/^(key|say|caption|wait|env)\s+(.*)$/);
+  if (demoKindMatch) {
+    const kind = demoKindMatch[1];
+    if (kind === "key" || kind === "wait" || kind === "env") continue;
+    body = demoKindMatch[2].trim();
+  } else if (/^(key|wait|env)\b/.test(body)) {
+    continue;  // key/wait/env with no arg — skip
+  }
+
   const silent = body === "" || body === "--silence--";
   const stageOnly = body.startsWith("(") && body.endsWith(")");
   segments.push({ t, text: body, silent, stageOnly });

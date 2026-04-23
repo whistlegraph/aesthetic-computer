@@ -30,26 +30,26 @@ Personal computers have not been very personal. For forty years the form has bee
 
 AC has three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language (KidLisp) for generative art, and a social network for publishing interactive programs called "pieces." The second scene has feedstock: Windows 10 end-of-life has stranded ~240 million x86_64 laptops, and ~62 million tonnes of e-waste pile up each year. Strip away the consumer OS and those machines become a planetary population of half-built instruments waiting for a kernel.
 
-**AC Native** is the kernel. A Linux boot runs a custom C runtime as PID 1 on x86_64 UEFI laptops — no desktop, no compositor, no browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192 kHz with 32-voice polyphony. Per-seat cost lands near $50 — two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in `code` command drops into a native terminal running Anthropic's Claude Code — the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is *notepat*, an 8,466-line polyphonic instrument with eight waveforms, sample recording, and MIDI; twenty other pieces ship alongside it.
+**AC Native** is the kernel. A Linux boot runs a custom C runtime as PID 1 on x86_64 UEFI laptops, with no desktop, compositor, or browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192 kHz with 32-voice polyphony. Per-seat cost lands near $50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in `code` command drops into a native terminal running Anthropic's Claude Code, the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is *notepat*, an 8,466-line polyphonic instrument with eight waveforms, sample recording, and MIDI. Twenty more pieces ship alongside, including chat and paint.
 
-**KidLisp** is a minimal Lisp for generative art — 118 functions, accessible to non-programmers, expressive enough for complex compositions. 17,000+ KidLisp programs already live on the platform. Programs can be minted as on-chain "keeps" on Tezos, establishing provenance without requiring artists to touch blockchain infrastructure.
+**KidLisp** is a minimal Lisp for generative art, with 118 functions. It is accessible to non-programmers yet expressive enough for complex compositions, and 17,000+ programs already live on the platform. Programs can be minted as on-chain "keeps" on Tezos, establishing provenance without requiring artists to touch blockchain infrastructure.
 
-**The Network** hosts 371 built-in pieces, 265 user-published, and 2,800+ registered handles. Every piece is URL-addressable and QR-shareable; real-time multiplayer runs through WebSocket and UDP.
+**The Network** hosts 371 built-in pieces, 265 user-published, and 2,800+ registered handles. People draw, chat, and play together in real time; every piece is URL-addressable and QR-shareable.
 
 During the grant period we propose to develop AC Native into a distributable creative instrument and public installation:
 
-1. **Portable Instruments** — USB-bootable AC Native drives preloaded with curated pieces for visitors to take home.
-2. **KidLisp Workshops** — Hands-on sessions writing programs that run on AC Native in real time, code to sound and image with no intermediary.
-3. **Public Installation** — Multiple AC Native stations at LACMA where visitors encounter creative computing as an instrument-like interaction.
-4. **Open Documentation** — Complete build pipeline, hardware compatibility guide, and curriculum, published openly so other institutions can replicate.
+1. **Portable Instruments.** USB-bootable AC Native drives preloaded with curated pieces for visitors to take home.
+2. **KidLisp Workshops.** Hands-on sessions where participants write programs that run on AC Native in real time, from code to sound and image.
+3. **Public Installation.** Multiple AC Native stations at LACMA where visitors encounter creative computing as an instrument-like interaction.
+4. **Open Documentation.** Complete build pipeline, hardware compatibility guide, and curriculum, published openly so other institutions can replicate.
 
-This is not a product. It is an argument: the personal computer is still a site of artistic invention — and the new scene has just begun.
+This is not a product. It is an argument: the personal computer is still a site of artistic invention, and the new scene has just begun.
 
 ---
 
 ## Artist Bio (short)
 
-Jeffrey Alan Scudder (b. 1989, Assonet, MA) is an artist based in Los Angeles, working across stretched canvas, custom software, and live performance. Yale School of Art MFA (2013). He is the creator of Aesthetic Computer, Whistlegraph, and No Paint; his open-source tools *No Paint* (2020) and *notepat* (2024) each reached the front page of Hacker News. Work is held in the collections of KADIST (San Francisco) and SMK — National Gallery of Denmark. He is currently Author in Residence at UCLA, working with Casey Reas, and hosts biweekly NELA Computer Club demos at Plot.Place in Chinatown, Los Angeles.
+Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles. He loves building instruments and tools for other artists to use, and keeps a live and active practice across performance painting, software writing, and teaching. He holds an MFA from the Yale School of Art (2013) and a BFA from Ringling College of Art and Design (2011). He has taught at UCLA, Parsons School of Design, and Southern Oregon University, and is currently Author in Residence at UCLA Social Software with Casey Reas and Lauren Lee McCarthy. He is the creator of Aesthetic Computer, Whistlegraph, and No Paint, and his open-source tools *No Paint* and *notepat* each reached the front page of Hacker News. His work is held in the collections of KADIST (San Francisco) and SMK, the National Gallery of Denmark. He hosts biweekly NELA Computer Club demos at Plot.Place in Chinatown, Los Angeles.
 
 ## Artist CV
 
@@ -80,7 +80,7 @@ Aesthetic Computer treats the computer itself as an unfinished instrument — a 
 
 _[~98 words]_
 
-Consumer operating systems have become attention-extraction machines — optimized for engagement metrics, not creative agency. AC Native offers a counter-model: a computer that boots directly into a single piece of art software and does nothing else. This is not nostalgia for early computing but a forward-looking argument that the personal computer's design is a cultural question, not a settled technical one. KidLisp extends this argument to programming itself — demonstrating that a language can be designed for artistic expression rather than industrial production. The 17,000+ programs written in KidLisp suggest this resonates beyond our own practice.
+Consumer operating systems have become attention-extraction machines, optimized for engagement metrics rather than creative agency. AC Native offers a counter-model: a computer that boots directly into art software and grows alongside the artist. Over five years of active development, Aesthetic Computer's community has written 17,000+ KidLisp programs, made 4,400+ paintings, shared 2,900+ moods, and exchanged 19,000+ chat messages across 2,800+ registered handles. AC Native carries that social layer with it: chat, multiplayer, notepat, KidLisp runtime. The personal computer's design is a cultural question, not a settled technical one, and people show up when given the room.
 
 ---
 
@@ -98,11 +98,11 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 
 | Phase | Timing | Milestones |
 |-------|--------|------------|
-| **1. Hardware & Curriculum** | Fall 2026 – Spring 2027 | Expand AC Native compatibility to 5+ laptop models; build multi-piece boot menu; design the 3-level KidLisp workshop curriculum; produce printed reference cards (extending the sosoft card template used at UCLA). |
-| **2. Pre-Symposium Workshops** | Spring – Summer 2027 | Run 2 pilot workshops at LACMA; assemble a prototype multi-station installation; publish v0 of the open-source build guide. |
-| **3. 2027 Symposium (WIP)** | Fall 2027 | Live AC Native demonstration: visitors and cohort artists boot the OS on their own laptops from USB. Public KidLisp workshop in the museum. Talk / in-conversation on generative computing, situated alongside the 2023 cohort. |
-| **4. Full Installation + Workshops** | Winter 2027 – Summer 2028 | Kiosk-mode hardening; 20+ take-home USB drives; 4 additional workshops; complete documentation; translate workshop curriculum (EN + ES, matching AC's translation pipeline). |
-| **5. 2028 Demo Day (premiere)** | Fall 2028 | Public premiere of the multi-station AC Native installation in the LACMA galleries. Open-source v1.0 release with full build pipeline, hardware compatibility matrix, and workshop curriculum for other institutions to adopt. Public programs introducing the system to teachers, museum educators, and other artists. |
+| **1. Hardware & Curriculum** | Fall 2026 – Spring 2027 | Expand AC Native compatibility to 5+ laptop models, build the multi-piece boot menu, design the 3-level KidLisp workshop curriculum, and produce printed reference cards (extending the sosoft card template used at UCLA). |
+| **2. Pre-Symposium Workshops** | Spring – Summer 2027 | Run 2 pilot workshops at LACMA, assemble a prototype multi-station installation, and publish v0 of the open-source build guide. |
+| **3. 2027 Symposium — "We boot the cohort."** | Fall 2027 | **At Symposium, every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor.** Talk / in-conversation on generative computing, situated alongside the 2023 cohort. |
+| **4. Full Installation + Workshops** | Winter 2027 – Summer 2028 | Kiosk-mode hardening, 20+ take-home USB drives, 4 additional workshops, complete documentation, and a translated curriculum (EN + ES, matching AC's translation pipeline). |
+| **5. 2028 Demo Day — "We open the gallery."** | Fall 2028 | **A multi-station AC Native installation premieres on the LACMA floor — visitors sit down and play a fully-realized creative computer — and v1.0 of the open-source build pipeline ships, so any institution can stand up the same rig.** Public programs introduce the system to teachers, museum educators, and other artists. |
 
 ---
 
@@ -117,14 +117,15 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 | USB drives, cables, peripherals | $500 |
 | Installation fabrication (furniture, mounts) | $2,500 |
 | Workshop materials (printed guides, KidLisp reference cards) | $1,200 |
-| **2027 Symposium contribution** (travel, cohort demo USB kit, on-site demo station) | $2,500 |
-| **2028 Demo Day premiere** (install setup, public-program support) | $3,000 |
+| **2027 Symposium "boot the cohort"** (cohort demo USB kit, on-site workshop station, travel) | $2,500 |
+| **2028 Demo Day "open the gallery"** (multi-station install setup, public-program support) | $3,000 |
+| **Paid event helpers** (workshop TAs, install + take-down at Symposium and Demo Day) | $3,000 |
 | Server + compute infrastructure (hosting, CDN, CI/CD) | $3,500 |
 | Documentation production (video, photography, translation) | $2,000 |
 | Contingency (10%) | $3,700 |
-| **Total Requested** | **$47,000** |
+| **Total Requested** | **$50,000** |
 
-$3,000 of headroom remains under the $50,000 cap.
+The 10% contingency line handles budget slip; paid helpers are a direct expense budgeted for the cohort's two public events.
 
 ---
 
