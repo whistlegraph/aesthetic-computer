@@ -674,18 +674,25 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     stopOvenProgressPoller();
     if (thumbResult?.ipfsUri) {
       thumbnailUri = thumbResult.ipfsUri;
-      await setJobResult(jobId, { thumbnailUri });
+      await setJobResult(jobId, { thumbnailUri, thumbnailFallback: null });
       await updateJobStage(jobId, "thumbnail", "Thumbnail baked");
       log("thumbnail", `Done: ${thumbnailUri}`);
     } else {
+      const errMsg = thumbResult?.error || "oven returned no ipfsUri";
       const preexisting = piece.ipfsMedia?.thumbnailUri;
       if (preexisting) {
         thumbnailUri = preexisting;
-        await setJobResult(jobId, { thumbnailUri });
-        log("thumbnail", `Reusing previous: ${thumbnailUri}`);
+        // Surface the silent fallback so the track log + regenerated-artifact
+        // panel can show the user that the new thumbnail DIDN'T land and they
+        // are still looking at the previous bake. Without this the bake
+        // failure was invisible — new artifactUri on-chain but stale thumb.
+        await setJobResult(jobId, { thumbnailUri, thumbnailFallback: { kind: "preexisting", reason: errMsg } });
+        await updateJobStage(jobId, "thumbnail", `⚠️ Bake failed (${errMsg}); reused previous thumbnail`);
+        log("thumbnail", `⚠️ Reusing previous ${thumbnailUri} (reason: ${errMsg})`);
       } else {
-        // Fallback: use artifact as thumbnail so the mint can proceed
-        log("thumbnail", `Oven failed (${thumbResult?.error || "unknown"}), using artifact as fallback`);
+        // Fallback to artifact handled below once artifactUri resolves.
+        await updateJobStage(jobId, "thumbnail", `⚠️ Bake failed (${errMsg}); will reuse artifact`);
+        log("thumbnail", `Oven failed (${errMsg}), artifact fallback pending`);
       }
     }
   }
@@ -697,11 +704,11 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     await updateJobStage(jobId, "ipfs", "Pinned to IPFS");
     log("ipfs", `Artifact: ${artifactUri}`);
 
-    // If thumbnail failed, fall back to artifact URI
+    // If thumbnail failed AND no previous thumbnail exists, fall back to artifact URI
     if (!thumbnailUri) {
       thumbnailUri = artifactUri;
-      await setJobResult(jobId, { thumbnailUri });
-      log("thumbnail", `Fallback to artifact: ${thumbnailUri}`);
+      await setJobResult(jobId, { thumbnailUri, thumbnailFallback: { kind: "artifact", reason: "no previous thumbnail to reuse" } });
+      log("thumbnail", `⚠️ Fallback to artifact: ${thumbnailUri}`);
     }
   }
 

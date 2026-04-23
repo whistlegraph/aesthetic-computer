@@ -6162,6 +6162,7 @@
         let pollCount = 0;
         const MAX_POLLS = 450; // 15 min at 2s intervals
         let lastStage = null;
+        let thumbnailFallbackWarned = false; // only raise the fallback warning once per job
         const STAGE_STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 min with no update = stale
 
         function stopPolling() {
@@ -6284,6 +6285,24 @@
             if (job.stage !== 'thumbnail' && job.stage !== 'bundle' && mintOvenPreviewTimer) {
               clearInterval(mintOvenPreviewTimer);
               mintOvenPreviewTimer = null;
+            }
+
+            // Surface silent thumbnail-bake fallback (oven failed, server
+            // reused previous thumbnail or fell back to artifact). Without
+            // this the user would see a "success" but their thumbnail stayed
+            // stale — previously only logged server-side.
+            if (job.thumbnailFallback && !thumbnailFallbackWarned) {
+              thumbnailFallbackWarned = true;
+              const fb = job.thumbnailFallback;
+              const detail = fb.kind === 'preexisting'
+                ? `⚠️ Thumbnail bake failed (${fb.reason || 'unknown'}) — reusing previous thumbnail. Sync will not update the image on objkt.`
+                : fb.kind === 'artifact'
+                  ? `⚠️ Thumbnail bake failed (${fb.reason || 'unknown'}) — using artifact as thumbnail.`
+                  : `⚠️ Thumbnail bake fallback: ${JSON.stringify(fb)}`;
+              addTrackEntry(detail, 'error');
+              if (mintStepStates['thumbnail']) {
+                setMintStep('thumbnail', 'error', 'Bake failed — fallback used');
+              }
             }
 
             // Show final IPFS thumbnail when available

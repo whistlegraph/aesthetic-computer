@@ -214,6 +214,7 @@ export function formatJobForClient(job) {
     artifactUri: job.artifactUri,
     thumbnailUri: job.thumbnailUri,
     metadataUri: job.metadataUri,
+    thumbnailFallback: job.thumbnailFallback || null,
     // Ready state
     preparedData: job.preparedData,
     // Error state
