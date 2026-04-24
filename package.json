@@ -78,6 +78,8 @@
     "site:debug": "cd system; npm run codespaces-dev-debug",
     "site:live": "cd system; npm run codespaces-dev-public",
     "new": "node utilities/generate-new-piece.mjs",
+    "notepat:build": "node ac-m4l/build-notepat.mjs",
+    "notepat:build:desktop": "node ac-m4l/build-notepat.mjs --desktop --log",
     "reload-piece": "curl -X POST -H \"Content-Type: application/json\" -d '{\"piece\": \"@digitpain/hello\"}' http://localhost:8082/reload",
     "server:socket": "cd socket-server; npm run server",
     "assets:sync:down": "aws s3 sync s3://assets-aesthetic-computer system/public/assets --endpoint-url https://sfo3.digitaloceanspaces.com --exclude 'false.work/spiderlily-*.zip*' || echo 'Sync completed with some directory conflicts (safe to ignore)'",

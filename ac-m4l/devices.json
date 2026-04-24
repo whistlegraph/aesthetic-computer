@@ -1,34 +1,50 @@
 {
   "devices": [
     {
+      "name": "notepat.com",
+      "piece": "notepat-remote",
+      "description": "Play the notepat keyboard in any Ableton MIDI track — stacked octaves, qwerty pads, live track-color theming. Primary distribution @ https://notepat.com/amxd.",
+      "width": 150,
+      "height": 169,
+      "type": "midi",
+      "source": "AC-NotepatRemote.amxd.json",
+      "version": "1.0.0",
+      "featured": true,
+      "permalink": "https://notepat.com/amxd"
+    },
+    {
       "name": "AC KidLisp.com",
       "piece": "kidlisp.com/device",
       "description": "KidLisp.com Device View - receives code from kidlisp.com IDE",
       "width": 400,
       "height": 300,
       "devUrl": "https://localhost:8888/kidlisp.com/device",
-      "prodUrl": "https://kidlisp.com/device"
+      "prodUrl": "https://kidlisp.com/device",
+      "deprecated": true
     },
     {
       "name": "AC 🟪 notepat (https://aesthetic.computer/notepat)",
       "piece": "notepat",
       "description": "Aesthetic Computer Notepat with Ableton Sync",
       "width": 500,
-      "height": 169
+      "height": 169,
+      "deprecated": true
     },
     {
       "name": "AC 🟪 metronome (https://aesthetic.computer/metronome)",
       "piece": "metronome",
       "description": "Aesthetic Computer Metronome with Ableton Sync",
       "width": 200,
-      "height": 169
+      "height": 169,
+      "deprecated": true
     },
     {
       "name": "AC 🟪 prompt (https://aesthetic.computer/prompt)",
       "piece": "prompt",
       "description": "Aesthetic Computer Prompt with Ableton Sync",
       "width": 200,
-      "height": 200
+      "height": 200,
+      "deprecated": true
     },
     {
       "name": "AC 🎸 pedal (https://aesthetic.computer/pedal)",
@@ -36,7 +52,8 @@
       "description": "Aesthetic Computer Audio Effect Pedal - filter-style plugin with audio input",
       "width": 400,
       "height": 250,
-      "type": "effect"
+      "type": "effect",
+      "deprecated": true
     },
     {
       "name": "AC 🎹 spreadnob-clean (aesthetic.computer)",
@@ -46,7 +63,8 @@
       "height": 110,
       "type": "midi",
       "source": "AC-SpreadnobClean.amxd.json",
-      "version": "2.0.0"
+      "version": "2.0.0",
+      "deprecated": true
     },
     {
       "name": "AC 🎹 spreadnob (aesthetic.computer)",
@@ -56,17 +74,8 @@
       "height": 170,
       "type": "midi",
       "source": "AC-KnobMap.amxd.json",
-      "version": "1.0.5"
-    },
-    {
-      "name": "AC 🎹 notepat-remote (aesthetic.computer)",
-      "piece": "notepat-remote",
-      "description": "Relay MIDI from ac-native notepat (ThinkPad) to this track via session-server",
-      "width": 360,
-      "height": 169,
-      "type": "midi",
-      "source": "AC-NotepatRemote.amxd.json",
-      "version": "0.1.0"
+      "version": "1.0.5",
+      "deprecated": true
     }
   ],
   "defaults": {

@@ -1,0 +1,15 @@
+{
+  "name": "notepat.com",
+  "version": "110c359993afbf1f17cda2fd07a9b241373c0a2a-dirty",
+  "piece_git": "110c359993afbf1f17cda2fd07a9b241373c0a2a",
+  "dirty": true,
+  "built": "2026-04-24T20:07:01.429Z",
+  "amxd": {
+    "filename": "notepat.com.amxd",
+    "versionedPath": "/m4l/notepat.com/110c359993afbf1f17cda2fd07a9b241373c0a2a-dirty.amxd",
+    "aliasPath": "/m4l/notepat.com.amxd",
+    "permalink": "https://notepat.com/amxd",
+    "sizeBytes": 1167417,
+    "sha256": "c9b5c5d707f6209f323c670ebc1d99f2fb70c82c07b511fdce48ef3827ade597"
+  }
+}

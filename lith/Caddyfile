@@ -432,6 +432,15 @@
         handle @notepatindex {
             rewrite * /notepat
         }
+        # Permalink: notepat.com/amxd → current notepat.com.amxd as a
+        # direct download. Clients get the Content-Disposition so it
+        # lands in ~/Downloads instead of opening in-browser.
+        handle /amxd {
+            rewrite * /m4l/notepat.com.amxd
+            header Content-Disposition "attachment; filename=\"notepat.com.amxd\""
+            root * /opt/ac/system/public
+            file_server
+        }
         reverse_proxy localhost:8888
     }
     @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com p5.aesthetic.computer sitemap.aesthetic.computer

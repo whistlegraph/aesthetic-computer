@@ -4648,20 +4648,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       packMode: !!window.acPACK_MODE,
       packGit: window.acPACK_GIT || null,
       packDate: window.acPACK_DATE || null,
-      latestCommit: null,
+      latestCommit: null,   // piece_git from notepat.com/latest.json
+      latestAmxd: null,     // { sizeBytes, sha256, versionedPath, built }
     };
     let envLatestFetched = false;
     async function _dawFetchLatestCommit() {
       if (envLatestFetched) return;
       envLatestFetched = true;
+      // Amxd-specific manifest — the piece_git here is the commit the
+      // *amxd* was built from, not whichever commit lith happens to be
+      // serving. Avoids false "UPDATE AVAILABLE" on unrelated repo
+      // changes (docs, other pieces, infra).
       try {
         const r = await fetch(
-          "https://aesthetic.computer/.commit-ref",
+          "https://aesthetic.computer/m4l/notepat.com/latest.json",
           { cache: "no-cache", mode: "cors" },
         );
         if (!r.ok) return;
-        const hash = (await r.text()).trim();
-        if (hash) envInfo.latestCommit = hash;
+        const manifest = await r.json();
+        if (manifest?.piece_git) envInfo.latestCommit = manifest.piece_git;
+        if (manifest?.amxd) envInfo.latestAmxd = manifest.amxd;
       } catch (_e) { /* offline */ }
     }
     function _dawSendEnvInfo() {

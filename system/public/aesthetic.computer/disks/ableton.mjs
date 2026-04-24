@@ -37,22 +37,28 @@ let downloadHitboxes = {};
 
 const FEATURED_DOWNLOADS = [
   {
-    id: "featured-spreadnob-clean",
-    label: "spreadnob clean",
-    badge: "FOR TOM",
-    piece: "spreadnob-clean",
-    fileName: "AC 🎹 spreadnob-clean (aesthetic.computer).amxd",
-    downloadLabel: "FOR TOM",
-    blurb: "main version - compact, octave-aware, and the one to grab",
-  },
-  {
-    id: "featured-spreadnob",
-    label: "spreadnob rack",
-    piece: "spreadnob",
-    fileName: "AC 🎹 spreadnob (aesthetic.computer).amxd",
-    blurb: "expanded rack view with the full module layout",
+    id: "featured-notepat-com",
+    label: "notepat.com",
+    badge: "PRIMARY",
+    piece: "notepat-remote",
+    fileName: "notepat.com.amxd",
+    downloadUrl: "https://notepat.com/amxd",
+    downloadLabel: "download",
+    blurb: "piano pads + qwerty keyboard in any MIDI track — live track-color theming, case-door focus animation",
   },
 ];
+
+// Older devices kept on S3 for anyone who already had them; hidden
+// from the main list so notepat.com is the front door.
+const DEPRECATED_PIECES = new Set([
+  "kidlisp.com/device",
+  "notepat",
+  "metronome",
+  "prompt",
+  "pedal",
+  "spreadnob-clean",
+  "spreadnob",
+]);
 
 const { sin, cos, floor, abs, max } = Math;
 
@@ -395,6 +401,9 @@ function drawButton({ ink, box }, region, label, colors, hovered) {
 }
 
 function featuredAssetUrl(featured) {
+  // Prefer an explicit permalink (e.g. https://notepat.com/amxd) when
+  // provided; fall back to the legacy S3 path.
+  if (featured.downloadUrl) return featured.downloadUrl;
   return `https://assets.aesthetic.computer/m4l/${encodeURIComponent(featured.fileName)}`;
 }
 
@@ -414,7 +423,11 @@ export function boot({ params, needsPaint }) {
       return res.json();
     })
     .then((data) => {
-      plugins = Array.isArray(data) ? data : [];
+      const raw = Array.isArray(data) ? data : [];
+      // Hide deprecated plugins — they stay in MongoDB for historical
+      // downloads but drop off the primary list so notepat.com is the
+      // hero here.
+      plugins = raw.filter((p) => !DEPRECATED_PIECES.has(p?.metadata?.piece));
       syncCustomPieceOptions();
       loading = false;
       needsPaintRef?.();

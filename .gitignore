@@ -340,6 +340,10 @@ system/.env
 ac-vst/vst3sdk/
 *.amxd
 !system/public/m4l/*.amxd
+# Versioned build-stream amxds regenerate per commit — keep latest.json
+# + the root alias (notepat.com.amxd above) but don't bloat the repo
+# with per-build binaries.
+system/public/m4l/notepat.com/*.amxd
 
 # Emacs performance logs (keep directory, ignore log files)
 .emacs-logs/*.log
