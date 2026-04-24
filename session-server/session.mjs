@@ -79,6 +79,11 @@ const udpClients = new Map(); // key "ip:port" → { address, port, handle, last
 const UDP_MIDI_SOURCE_TTL_MS = 20000;
 const notepatMidiSources = new Map(); // key "@handle:machine" -> source metadata
 const notepatMidiSubscribers = new Map(); // connection id -> { ws, all, handle, machineId }
+// UDP-side subscribers for notepat:midi fan-out over geckos.io. The WS map
+// above handles reliable subscription handshakes; this map mirrors the same
+// filter model against geckos channels so we can emit events twice (once
+// reliably over WS, once low-latency over UDP) to consumers that opened both.
+const notepatMidiUdpSubscribers = new Map(); // channel id -> { channel, all, handle, machineId }
 
 // Error logging ring buffer (for dashboard display)
 const errorLog = [];
@@ -3244,6 +3249,21 @@ function broadcastNotepatMidiEvent(event) {
       error("🎹 Failed to fan out notepat midi event:", err);
     }
   }
+  // UDP fan-out. Same filter model, emitted on the geckos channel. M4L
+  // notepat-remote devices care about this path for sub-frame latency —
+  // the WS path is ~5-15 ms slower end-to-end on a typical home network.
+  for (const [id, sub] of notepatMidiUdpSubscribers) {
+    if (!sub?.channel || sub.channel.webrtcConnection?.state !== "open") {
+      notepatMidiUdpSubscribers.delete(id);
+      continue;
+    }
+    if (!notepatMidiSubscriberMatches(sub, event)) continue;
+    try {
+      sub.channel.emit("notepat:midi", event);
+    } catch (err) {
+      error("🎹 UDP fan-out failed:", err);
+    }
+  }
 }
 
 function upsertNotepatMidiSource({ handle, machineId, piece, lastEvent, ts, address, port }) {
@@ -3581,7 +3601,8 @@ io.onConnection((channel) => {
     log(`🩰 ${channel.id} got disconnected`);
     delete udpChannels[channel.id];
     fairyThrottle.delete(channel.id);
-    
+    notepatMidiUdpSubscribers.delete(channel.id);
+
     // Clean up client record if no longer connected via any protocol
     if (clients[channel.id]) {
       clients[channel.id].udp = false;
@@ -3590,8 +3611,35 @@ io.onConnection((channel) => {
         delete clients[channel.id];
       }
     }
-    
+
     channel.close();
+  });
+
+  // 🎹 Notepat MIDI relay over UDP. Same subscribe/unsubscribe model as the
+  // WS path (cross-session, filter on handle/machineId or all:true). Events
+  // fan out via notepatMidiUdpSubscribers in broadcastNotepatMidiEvent.
+  channel.on("notepat:midi:subscribe", (data) => {
+    let filter = {};
+    try { filter = typeof data === "string" ? JSON.parse(data) : (data || {}); } catch {}
+    // Optional: wrap in `{ filter: {...} }` or pass fields directly — accept both.
+    if (filter.filter) filter = filter.filter;
+    notepatMidiUdpSubscribers.set(channel.id, {
+      channel,
+      all: filter.all === true,
+      handle: normalizeMidiHandle(filter.handle),
+      machineId: filter.machineId ? `${filter.machineId}`.trim() : "",
+    });
+    try { channel.emit("notepat:midi:subscribed", {
+      all: filter.all === true,
+      handle: normalizeMidiHandle(filter.handle) || null,
+      machineId: filter.machineId ? `${filter.machineId}`.trim() : null,
+    }); } catch {}
+    log(`🎹 UDP ${channel.id} subscribed to notepat:midi (all=${filter.all === true})`);
+  });
+
+  channel.on("notepat:midi:unsubscribe", () => {
+    notepatMidiUdpSubscribers.delete(channel.id);
+    try { channel.emit("notepat:midi:unsubscribed", true); } catch {}
   });
 
   // 💎 TODO: Make these channel names programmable somehow? 24.12.08.04.12

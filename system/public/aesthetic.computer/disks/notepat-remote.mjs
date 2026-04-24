@@ -61,6 +61,15 @@ let wsState = "idle";
 let wsError = "";
 let reconnectAt = 0;
 
+// Dual-transport net channels. Raw WS above carries the authoritative
+// notepat:midi subscription (reliable, cross-session). UDP via geckos.io
+// carries the same events on a low-latency path — session-server fans out
+// notepat:midi over both when a subscriber opens both.
+let netSocket = null;
+let netUdp = null;
+let udpSubscribed = false;
+let udpRelayCount = 0;
+
 let sources = [];
 let relayCount = 0;
 
@@ -86,9 +95,11 @@ function connectWs() {
   try {
     wsState = "connecting";
     wsError = "";
+    console.log(`[notepat-remote] WS connecting → ${WS_URL}`);
     ws = new WebSocket(WS_URL);
     ws.onopen = () => {
       wsState = "open";
+      console.log(`[notepat-remote] WS open, subscribing to notepat:midi`);
       try {
         ws.send(JSON.stringify({
           type: "notepat:midi:subscribe",
@@ -110,16 +121,23 @@ function connectWs() {
         }));
       }
     };
-    ws.onerror = () => { wsState = "error"; wsError = "ws err"; };
-    ws.onclose = () => { wsState = "closed"; reconnectAt = frame + RECONNECT_FRAMES; };
+    ws.onerror = (e) => {
+      wsState = "error"; wsError = "ws err";
+      console.warn(`[notepat-remote] WS error`, e?.message || e);
+    };
+    ws.onclose = (e) => {
+      wsState = "closed"; reconnectAt = frame + RECONNECT_FRAMES;
+      console.log(`[notepat-remote] WS closed code=${e?.code} reason=${e?.reason || ""} — reconnect in ${RECONNECT_FRAMES} frames`);
+    };
   } catch (err) {
     wsState = "error";
     wsError = err?.message || "connect fail";
     reconnectAt = frame + RECONNECT_FRAMES;
+    console.warn(`[notepat-remote] WS connect threw: ${err?.message || err}`);
   }
 }
 
-function handleRelay(ev) {
+function handleRelay(ev, transport = "ws") {
   if (!_send) return;
   const pitch = Number(ev.note);
   const vel = Number(ev.velocity);
@@ -139,6 +157,7 @@ function handleRelay(ev) {
     pitch,
     vel,
     source: "relay",
+    transport,
     handle: ev.handle || "",
     ts: Date.now(),
   };
@@ -164,17 +183,65 @@ function pitchForKey(key) {
   return (baseOctave + 1) * 12 + off;
 }
 
-function boot({ wipe, cursor, hud, send }) {
+function boot({ wipe, cursor, hud, send, net }) {
   wipe(10, 12, 22);
   cursor?.("native");
   hud?.label?.("");
   _send = send;
   connectWs();
+  // Also open AC's session-scoped socket + udp purely so the transport
+  // status indicator can show UDP connectivity. Callbacks are no-ops —
+  // the notepat:midi subscription flows through the raw WS above.
+  try {
+    netUdp = net?.udp?.((type, content) => {
+      if (type === "notepat:midi") {
+        udpRelayCount += 1;
+        handleRelay(content, "udp");
+      } else if (type === "notepat:midi:subscribed") {
+        console.log(`[notepat-remote] UDP subscribe ack`, content);
+      }
+    });
+    console.log(`[notepat-remote] UDP channel opened (via net.udp)`);
+  } catch (err) {
+    console.warn(`[notepat-remote] UDP open threw: ${err?.message || err}`);
+  }
+  try {
+    netSocket = net?.socket?.(() => {});
+  } catch (err) {
+    console.warn(`[notepat-remote] session WS open threw: ${err?.message || err}`);
+  }
 }
+
+let lastStatusLogFrame = -9999;
+const STATUS_LOG_INTERVAL = 60 * 3; // every ~3 seconds at 60fps
 
 function sim() {
   frame += 1;
   if (wsState === "closed" && frame >= reconnectAt) connectWs();
+
+  // Subscribe over UDP once the geckos channel comes up. Lost connection
+  // resets the flag so we re-subscribe on reconnect.
+  if (netUdp?.connected && !udpSubscribed) {
+    udpSubscribed = true;
+    try {
+      netUdp.send("notepat:midi:subscribe", { all: true });
+      console.log(`[notepat-remote] UDP subscribed to notepat:midi`);
+    } catch (err) {
+      console.warn(`[notepat-remote] UDP subscribe failed: ${err?.message || err}`);
+      udpSubscribed = false;
+    }
+  } else if (!netUdp?.connected && udpSubscribed) {
+    udpSubscribed = false;
+  }
+
+  // Periodic transport heartbeat so Max Console users can see without a
+  // UI screenshot whether WS and UDP are actually linked.
+  if (frame - lastStatusLogFrame >= STATUS_LOG_INTERVAL) {
+    lastStatusLogFrame = frame;
+    const udpOk = !!netUdp?.connected;
+    const wsOk = wsState === "open";
+    console.log(`[notepat-remote] status: WS=${wsState}${wsError?`(${wsError})`:""} UDP=${udpOk?(udpSubscribed?"subscribed":"connected"):"--"} ws-relays=${relayCount - udpRelayCount} udp-relays=${udpRelayCount}`);
+  }
 }
 
 let tappedButton = null; // button object currently pressed via touch
@@ -310,15 +377,26 @@ function paint({ wipe, ink, box, line, screen }) {
     ink(...accentBright, floor(40 * f)).box(0, 0, W, H, "fill");
   }
 
-  // ── Header row: piece name + ws state ─────────────────────────────────
+  // ── Header row: piece name + transport state ─────────────────────────
   let y = 2;
   ink(...accent).write("notepat-remote", { x: 4, y });
-  const wsColor =
+  // Transport indicator mirrors arena.mjs: UDP (green) > WS (yellow) >
+  // OFFLINE (red). UDP means net.udp is live (session geckos channel up);
+  // WS means the raw notepat:midi subscription socket is open.
+  const udpOk = !!netUdp?.connected;
+  const wsOk = wsState === "open";
+  const transport = udpOk && wsOk ? "UDP+WS"
+                  : udpOk ? "UDP"
+                  : wsOk ? "WS"
+                  : wsState === "connecting" ? "..."
+                  : "OFFLINE";
+  const transportColor =
     !focused ? dim :
-    wsState === "open" ? [120, 220, 140] :
+    udpOk ? [120, 220, 140] :
+    wsOk ? [230, 200, 80] :
     wsState === "connecting" ? [255, 200, 90] :
-    wsState === "error" || wsState === "closed" ? [255, 100, 100] : dim;
-  ink(...wsColor).write(wsState, { x: W - wsState.length * 6 - 4, y });
+    [255, 100, 100];
+  ink(...transportColor).write(transport, { x: W - transport.length * 6 - 4, y });
   y += 10;
 
   // ── Status row: ACTIVE + octave + last note ──────────────────────────
@@ -332,7 +410,7 @@ function paint({ wipe, ink, box, line, screen }) {
     const pn = pitchName(lastNote.pitch);
     const noteColor = noteFresh ? accent : dim;
     const srcTag =
-      lastNote.source === "relay" ? "@" + (lastNote.handle || "?") :
+      lastNote.source === "relay" ? (lastNote.transport === "udp" ? "⚡" : "") + "@" + (lastNote.handle || "?") :
       lastNote.source === "tap" ? "tap" : "kbd";
     const label = `${lastNote.vel === 0 ? "v" : "^"} ${pn} ${srcTag}`;
     ink(...noteColor).write(label, { x: W - label.length * 6 - 4, y });

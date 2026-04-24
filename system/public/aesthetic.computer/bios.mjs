@@ -1217,11 +1217,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ? window.acPACK_DENSITY 
         : 2);
 
+  // acFORCE_NOGAP pins gap=0 for packed M4L bundles loaded via data: URI
+  // where there's no `?nogap` query param to read — equivalent behavior.
   const startGap =
-    location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
+    location.host.indexOf("botce") > -1 || AestheticExtension || window.acFORCE_NOGAP === true ? 0 : 8;
 
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap) {
+    // Packed M4L bundles pin gap=0 on every reframe so the nogap CSS class
+    // sticks — without this, a later frame() call with an explicit non-zero
+    // gap would remove nogap even though the device never wants margin.
+    if (window.acFORCE_NOGAP === true) gap = 0;
     // Notify parent on first frame setup
     if (!imageData) {
       if (window.acBOOT_LOG) {
@@ -4505,8 +4511,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   sound.bpm = bpm;
 
   // 🎹 DAW Sync (for Max for Live integration)
-  // Only connect if ?daw query param is present (for M4L browser-based embedding)
-  const hasDawParam = new URLSearchParams(window.location.search).has("daw");
+  // Connect if ?daw query param is present (for M4L browser-based embedding)
+  // or if window.acFORCE_DAW is set (for packed offline amxd bundles loaded
+  // via data: URI, where window.location.search is always empty).
+  const hasDawParam =
+    new URLSearchParams(window.location.search).has("daw") ||
+    window.acFORCE_DAW === true;
   if (hasDawParam) {
     _dawConnectSend(send, updateMetronome);
 

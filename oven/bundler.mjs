@@ -423,15 +423,19 @@ function rewriteImports(code, filepath) {
     /import\s*\((['"]aesthetic\.computer\/disks\/([^'"]+)['")])\)/g,
     (match, fullPath, p) => "import('ac/disks/" + p + "')"
   );
+  // Path char classes exclude `?` so greedy matching stops at the query
+  // string boundary — otherwise `./foo.mjs?v=123` becomes the path and the
+  // rewritten specifier (with query) doesn't match the import map's
+  // query-less VFS keys, causing runtime resolve failures.
   code = code.replace(
-    /from\s*['"](\.\.\/[^'"]+|\.\/[^'"]+)(\?[^'"]+)?['"]/g,
+    /from\s*['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]+)?['"]/g,
     (match, p) => {
       const resolved = resolvePath(filepath, p);
       return 'from"' + resolved + '"';
     }
   );
   code = code.replace(
-    /import\s*\((['"](\.\.\/[^'"]+|\.\/[^'"]+)(\?[^'"]+)?['")])\)/g,
+    /import\s*\((['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]+)?['")])\)/g,
     (match, fullPath, p) => {
       const resolved = resolvePath(filepath, p);
       return 'import("' + resolved + '")';
@@ -510,8 +514,12 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
 
     try {
       const content = await fs.readFile(fullPath, "utf8");
-      const importRegex = /from\s+["'](\.\.[^"']+|\.\/[^"']+)["']/g;
-      const dynamicRegex = /import\s*\(\s*["'](\.\.[^"']+|\.\/[^"']+)["']\s*\)/g;
+      // Exclude `?` from the path char class so cache-bust queries
+      // (`./foo.mjs?v=123`) don't get baked into the resolved VFS key —
+      // otherwise `fs.readFile('lib/foo.mjs?v=123')` fails and the file is
+      // silently dropped from the bundle.
+      const importRegex = /from\s+["'](\.\.[^"'?]+|\.\/[^"'?]+)(?:\?[^"']*)?["']/g;
+      const dynamicRegex = /import\s*\(\s*["'](\.\.[^"'?]+|\.\/[^"'?]+)(?:\?[^"']*)?["']\s*\)/g;
 
       let match;
       while ((match = importRegex.exec(content)) !== null) {
@@ -762,7 +770,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 
 // ─── JS piece bundle ────────────────────────────────────────────────
 
-export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false) {
+export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false, forceDaw = false) {
   const acDir = AC_SOURCE_DIR;
   onProgress({ stage: "init", message: `Bundling ${pieceName}...` });
 
@@ -814,7 +822,7 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
 
   const boxArtPNG = noboxart ? null : await generateBoxArtPNG(pieceName, null, null, packDate).catch(() => null);
 
-  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG, keeplabel });
+  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG, keeplabel, forceDaw });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -843,8 +851,16 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
 const M4L_HEADER_INSTRUMENT = Buffer.from(
   "ampf\x04\x00\x00\x00iiiimeta\x04\x00\x00\x00\x00\x00\x00\x00ptch", "binary"
 );
+// MIDI effect header — used by devices that emit MIDI (noteout) without audio
+// output, e.g. notepat-remote. Tag is 'mmmm' where instruments use 'iiii'.
+// Live refuses to load a 'mmmm' device on an audio track; an 'iiii' device
+// on a MIDI track with no audio outlet shows up but can't route MIDI cleanly.
+const M4L_HEADER_MIDI_EFFECT = Buffer.from(
+  "ampf\x04\x00\x00\x00mmmmmeta\x04\x00\x00\x00\x00\x00\x00\x00ptch", "binary"
+);
 
-function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
+function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200, pieceProfile = "default") {
+  if (pieceProfile === "notepat") return generateNotepatM4DPatcher(pieceName, dataUri);
   return {
     patcher: {
       fileversion: 1,
@@ -894,28 +910,270 @@ function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200) {
   };
 }
 
-function packAMXD(patcher) {
+// Notepat-specific patcher: routes `notedown`/`noteup`/`octave`/`ping` from
+// jweb~ (emitted by bios.mjs's daw bridge) into [noteout], and echoes the
+// RTT pong back via script→window.acMaxPong. Mirrors the hand-rolled
+// system/public/m4l/notepat-remote.amxd so the offline bundle behaves
+// identically to the live version.
+function generateNotepatM4DPatcher(pieceName, dataUri) {
+  const W = 360, H = 169;
+  return {
+    patcher: {
+      fileversion: 1,
+      appversion: { major: 9, minor: 0, revision: 7, architecture: "x64", modernui: 1 },
+      classnamespace: "box",
+      rect: [100, 100, 900, 520],
+      openrect: [0, 0, W, H],
+      openinpresentation: 1,
+      gridsize: [15, 15],
+      enablehscroll: 0, enablevscroll: 0,
+      devicewidth: W,
+      description: `Aesthetic Computer ${pieceName} (offline) — packed notepat + local hotkey input. BIOS in jweb~ owns keyboard + octave state and emits pitches via window.max.outlet (notedown/noteup).`,
+      boxes: [
+        { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: dataUri } },
+        { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,250,560,22], text: "route note channel notedown noteup octave focus ping" } },
+        { box: { id: "obj-noteout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,400,60,22], text: "noteout" } },
+        { box: { id: "obj-pack-on", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["list"], patching_rect: [10,360,90,22], text: "pack 0 100" } },
+        { box: { id: "obj-pack-off", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["list"], patching_rect: [120,360,90,22], text: "pack 0 0" } },
+        { box: { id: "obj-print-note", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [600,290,200,22], text: "print NOTEPAT-NOTE" } },
+        { box: { id: "obj-print-chan", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [600,320,200,22], text: "print NOTEPAT-CHAN" } },
+        { box: { id: "obj-print-keydown", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [600,360,200,22], text: "print NOTEPAT-DOWN" } },
+        { box: { id: "obj-print-keyup", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [600,390,200,22], text: "print NOTEPAT-UP" } },
+        { box: { id: "obj-print-octave", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [600,420,200,22], text: "print NOTEPAT-OCT" } },
+        { box: { id: "obj-print-focus", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [600,450,200,22], text: "print NOTEPAT-FOCUS" } },
+        { box: { id: "obj-print-other", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [600,480,200,22], text: "print NOTEPAT-OTHER" } },
+        { box: { id: "obj-sprintf-pong", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,290,320,22], text: "sprintf script window.acMaxPong(%ld)" } },
+        { box: { id: "obj-thisdevice", maxclass: "newobj", numinlets: 1, numoutlets: 3, outlettype: ["bang","int","int"], patching_rect: [240,290,90,22], text: "live.thisdevice" } },
+        { box: { id: "obj-routeready", maxclass: "newobj", numinlets: 1, numoutlets: 2, outlettype: ["",""], patching_rect: [240,320,60,22], text: "route ready" } },
+        { box: { id: "obj-activate", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [240,350,120,22], text: "script daw-activate" } },
+        // Console → Max log routing. jweb's 3rd outlet emits any dict/list
+        // from window.max.outlet, including "log"/"error"/"warn" calls wired
+        // by bios.mjs. [route log error warn] peels them off the MIDI stream
+        // into a Max console printer so we can see bundle errors in the
+        // Max Console window when the UI goes gray.
+        { box: { id: "obj-route-logs", maxclass: "newobj", numinlets: 1, numoutlets: 4, outlettype: ["","","",""], patching_rect: [340,220,160,22], text: "route log error warn" } },
+        { box: { id: "obj-print-log", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [340,250,200,22], text: "print [AC-LOG]" } },
+        { box: { id: "obj-print-error", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [450,250,200,22], text: "print [AC-ERROR]" } },
+        { box: { id: "obj-print-warn", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [560,250,200,22], text: "print [AC-WARN]" } },
+      ],
+      lines: [
+        { patchline: { source: ["obj-jweb", 2], destination: ["obj-route", 0] } },
+        { patchline: { source: ["obj-jweb", 2], destination: ["obj-route-logs", 0] } },
+        { patchline: { source: ["obj-route", 0], destination: ["obj-noteout", 0] } },
+        { patchline: { source: ["obj-route", 0], destination: ["obj-print-note", 0] } },
+        { patchline: { source: ["obj-route", 1], destination: ["obj-noteout", 1] } },
+        { patchline: { source: ["obj-route", 1], destination: ["obj-print-chan", 0] } },
+        { patchline: { source: ["obj-route", 2], destination: ["obj-pack-on", 0] } },
+        { patchline: { source: ["obj-route", 2], destination: ["obj-print-keydown", 0] } },
+        { patchline: { source: ["obj-route", 3], destination: ["obj-pack-off", 0] } },
+        { patchline: { source: ["obj-route", 3], destination: ["obj-print-keyup", 0] } },
+        { patchline: { source: ["obj-route", 4], destination: ["obj-print-octave", 0] } },
+        { patchline: { source: ["obj-route", 5], destination: ["obj-print-focus", 0] } },
+        { patchline: { source: ["obj-route", 6], destination: ["obj-sprintf-pong", 0] } },
+        { patchline: { source: ["obj-sprintf-pong", 0], destination: ["obj-jweb", 0] } },
+        { patchline: { source: ["obj-pack-on", 0], destination: ["obj-noteout", 0] } },
+        { patchline: { source: ["obj-pack-off", 0], destination: ["obj-noteout", 0] } },
+        { patchline: { source: ["obj-thisdevice", 0], destination: ["obj-routeready", 0] } },
+        { patchline: { source: ["obj-routeready", 0], destination: ["obj-activate", 0] } },
+        { patchline: { source: ["obj-activate", 0], destination: ["obj-jweb", 0] } },
+        { patchline: { source: ["obj-route-logs", 0], destination: ["obj-print-log", 0] } },
+        { patchline: { source: ["obj-route-logs", 1], destination: ["obj-print-error", 0] } },
+        { patchline: { source: ["obj-route-logs", 2], destination: ["obj-print-warn", 0] } },
+      ],
+      dependency_cache: [], latency: 0, is_mpe: 0,
+      external_mpe_tuning_enabled: 0, minimum_live_version: "",
+      minimum_max_version: "", platform_compatibility: 0, autosave: 0,
+    },
+  };
+}
+
+function packAMXD(patcher, kind = "instrument") {
   const json = Buffer.from(JSON.stringify(patcher));
   const len = Buffer.alloc(4);
   len.writeUInt32LE(json.length, 0);
-  return Buffer.concat([M4L_HEADER_INSTRUMENT, len, json]);
+  const header = kind === "midi_effect" ? M4L_HEADER_MIDI_EFFECT : M4L_HEADER_INSTRUMENT;
+  return Buffer.concat([header, len, json]);
 }
+
+// ─── Chunked bootstrap (for amxd bundles > 32 KB) ───────────────────
+//
+// Max 9 caps jweb~'s `url` attribute (and message box text) at ~32 KB, so
+// we can't ship the full AC runtime as a single data: URI. The chunked
+// bootstrap pattern works around this:
+//
+// 1. The amxd sets `url` to a ~3 KB bootstrap HTML (fits in the attr cap).
+// 2. Bootstrap polls for `window.max`, then calls `outlet("ready", 1)`.
+// 3. Patcher's `[route ready …]` fires the "ready" signal into N message
+//    boxes, each holding one ~28 KB chunk of `executejavascript
+//    window._ac.p('I|N|<base64-gz-slice>')`.
+// 4. Each chunk message goes to jweb → the JS runs → _ac.p accumulates.
+// 5. On the final chunk, _ac.p base64-decodes → gunzips via
+//    DecompressionStream → `document.open/write/close` renders the real
+//    bundle.
+//
+// Handshake via "ready" avoids the race where chunks are sent before jweb
+// has loaded the page (executejavascript silently drops in that state).
+
+// Max 9 caps message box `text` at ~32 KB. Wrapper is
+// `executejavascript window._ac.p('I|N|')` + closing `')` — ~42 chars.
+// 28 KB per chunk leaves ample headroom for the wrapper + ints.
+const M4D_CHUNK_SIZE = 28000;
+
+function generateChunkedBootstrapHTML(pieceName) {
+  const title = pieceName.replace(/[<>&"']/g, "");
+  // Compact JS so the whole document stays well under the 24 KB ceiling
+  // the `url` data: URI attribute can hold.
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>${title} · loading</title>
+<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#0e1012;color:#4f9;font:12px -apple-system,monospace;overflow:hidden}pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-all}</style>
+</head><body><pre id="s">booting ${title}…</pre><script>
+(function(){
+var el=document.getElementById("s");
+function log(m){if(el)el.textContent=(el.textContent+"\\n"+m).slice(-3000);try{if(window.max&&window.max.outlet)window.max.outlet("log",String(m).slice(0,900));}catch(_){}}
+window._ac={chunks:[],total:0,received:0,
+p:function(s){var parts=s.split("|");var i=+parts[0];var n=+parts[1];var d=parts.slice(2).join("|");this.total=n;this.chunks[i]=d;this.received++;if(el)el.textContent="loading "+this.received+"/"+n;if(this.received===n)this.render();},
+render:function(){log("all "+this.total+" chunks received, decompressing");try{
+var b64=this.chunks.join("");var bin=atob(b64);var bytes=new Uint8Array(bin.length);for(var j=0;j<bin.length;j++)bytes[j]=bin.charCodeAt(j);
+var blob=new Blob([bytes],{type:"application/gzip"});
+fetch(URL.createObjectURL(blob)).then(function(r){return r.blob();}).then(function(b){return b.stream().pipeThrough(new DecompressionStream("gzip"));}).then(function(s){return new Response(s).text();}).then(function(h){log("decompressed, writing "+h.length+" bytes");document.open();document.write(h);document.close();}).catch(function(e){log("decompress failed: "+e);});
+}catch(e){log("render failed: "+e);}}};
+window.addEventListener("error",function(e){log("[err] "+e.message);});
+window.addEventListener("unhandledrejection",function(e){log("[rej] "+(e.reason&&e.reason.message||e.reason));});
+log("alive, polling for window.max");
+var tries=0;var iv=setInterval(function(){if(window.max&&typeof window.max.outlet==="function"){clearInterval(iv);log("window.max bound ("+tries+" tries), sending ready");try{window.max.outlet("ready",1);}catch(e){log("ready send failed: "+e);}}else if(++tries>100){clearInterval(iv);log("gave up waiting for window.max");}},50);
+})();
+</script></body></html>`;
+}
+
+function chunkBundleForM4D(html) {
+  const gz = gzipSync(Buffer.from(html, "utf-8"), { level: 9 });
+  const b64 = gz.toString("base64");
+  const chunks = [];
+  for (let i = 0; i < b64.length; i += M4D_CHUNK_SIZE) {
+    chunks.push(b64.slice(i, i + M4D_CHUNK_SIZE));
+  }
+  return { chunks, gzBytes: gz.length, b64Bytes: b64.length };
+}
+
+// Notepat patcher for chunked bundles. jweb outlet 2 feeds `route ready log
+// error warn …` — the `ready` signal from the bootstrap fires every chunk
+// message into jweb's inlet 0, and unmatched messages (notedown, noteup,
+// octave, focus, ping from the daw bridge) pass through the final outlet to
+// the MIDI router. Everything else matches the hand-rolled notepat device.
+function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
+  const W = 360, H = 169;
+  const boxes = [
+    { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: bootstrapDataUri } },
+    // Split jweb outlet 2 first by handshake/log symbols, then pass anything
+    // else to the MIDI router. `route` has (N matched + 1 unmatched) outlets.
+    { box: { id: "obj-route-top", maxclass: "newobj", numinlets: 1, numoutlets: 5, outlettype: ["","","","",""], patching_rect: [10,200,400,22], text: "route ready log error warn" } },
+    { box: { id: "obj-print-log", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [100,230,200,22], text: "print [AC-LOG]" } },
+    { box: { id: "obj-print-error", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [200,230,200,22], text: "print [AC-ERROR]" } },
+    { box: { id: "obj-print-warn", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [300,230,200,22], text: "print [AC-WARN]" } },
+    // MIDI routing (downstream of the unmatched outlet).
+    { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,300,560,22], text: "route note channel notedown noteup octave focus ping" } },
+    { box: { id: "obj-noteout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,450,60,22], text: "noteout" } },
+    { box: { id: "obj-pack-on", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["list"], patching_rect: [10,410,90,22], text: "pack 0 100" } },
+    { box: { id: "obj-pack-off", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["list"], patching_rect: [120,410,90,22], text: "pack 0 0" } },
+    { box: { id: "obj-sprintf-pong", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,340,320,22], text: "sprintf script window.acMaxPong(%ld)" } },
+  ];
+  const lines = [
+    { patchline: { source: ["obj-jweb", 2], destination: ["obj-route-top", 0] } },
+    // Handshake "ready" fans out to every chunk message (see below).
+    { patchline: { source: ["obj-route-top", 1], destination: ["obj-print-log", 0] } },
+    { patchline: { source: ["obj-route-top", 2], destination: ["obj-print-error", 0] } },
+    { patchline: { source: ["obj-route-top", 3], destination: ["obj-print-warn", 0] } },
+    // Unmatched messages (notedown/noteup/octave/focus/ping) → MIDI router.
+    { patchline: { source: ["obj-route-top", 4], destination: ["obj-route", 0] } },
+    { patchline: { source: ["obj-route", 0], destination: ["obj-noteout", 0] } },
+    { patchline: { source: ["obj-route", 1], destination: ["obj-noteout", 1] } },
+    { patchline: { source: ["obj-route", 2], destination: ["obj-pack-on", 0] } },
+    { patchline: { source: ["obj-route", 3], destination: ["obj-pack-off", 0] } },
+    // Octave/focus: no MIDI wiring, just stream into the log prints
+    // via route-top's log outlet already (skipped here — no-op on absence).
+    { patchline: { source: ["obj-route", 6], destination: ["obj-sprintf-pong", 0] } },
+    { patchline: { source: ["obj-sprintf-pong", 0], destination: ["obj-jweb", 0] } },
+    { patchline: { source: ["obj-pack-on", 0], destination: ["obj-noteout", 0] } },
+    { patchline: { source: ["obj-pack-off", 0], destination: ["obj-noteout", 0] } },
+  ];
+  // One message box per chunk. All share a single source (ready) so they
+  // fire together — order doesn't matter, _ac.p reassembles by index.
+  chunks.forEach((data, i) => {
+    const id = "obj-chunk-" + i;
+    const text = "executejavascript window._ac.p('" + i + "|" + chunks.length + "|" + data + "')";
+    boxes.push({ box: { id, maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [10, 480 + i * 4, 200, 22], text } });
+    lines.push({ patchline: { source: ["obj-route-top", 0], destination: [id, 0] } });
+    lines.push({ patchline: { source: [id, 0], destination: ["obj-jweb", 0] } });
+  });
+  return {
+    patcher: {
+      fileversion: 1,
+      appversion: { major: 9, minor: 0, revision: 7, architecture: "x64", modernui: 1 },
+      classnamespace: "box",
+      rect: [100, 100, 900, 520],
+      openrect: [0, 0, W, H],
+      openinpresentation: 1,
+      gridsize: [15, 15],
+      enablehscroll: 0, enablevscroll: 0,
+      devicewidth: W,
+      description: `Aesthetic Computer ${pieceName} (offline, chunked) — ${chunks.length} chunks`,
+      boxes, lines,
+      dependency_cache: [], latency: 0, is_mpe: 0,
+      external_mpe_tuning_enabled: 0, minimum_live_version: "",
+      minimum_max_version: "", platform_compatibility: 0, autosave: 0,
+    },
+  };
+}
+
+// Pieces that need the bios.mjs DAW bridge (window.max.outlet for MIDI) and
+// a piece-specific Max patcher + amxd kind. Auto-detected so callers don't
+// need to pass flags — keeps the m4d CLI/prompt command one-liners.
+// `profile` picks the patcher wiring; `kind` picks the amxd header tag
+// (instrument=iiii vs midi_effect=mmmm) since Live uses it to categorize.
+// `chunked: true` routes through the chunked bootstrap pipeline, required
+// whenever the bundle exceeds Max's ~32 KB attribute/message text cap.
+const DAW_PIECE_PROFILES = {
+  "notepat-remote": { profile: "notepat", kind: "midi_effect", chunked: true },
+};
 
 export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {}, density = null) {
   onProgress({ stage: "fetch", message: `Building M4L device for ${pieceName}...` });
 
+  const profileSpec = DAW_PIECE_PROFILES[pieceName] || { profile: "default", kind: "instrument", chunked: false };
+  const { profile: pieceProfile, kind: amxdKind, chunked } = profileSpec;
+  const forceDaw = pieceProfile !== "default";
+
+  // Chunked pipeline always gzips the bundle (decompressed client-side by
+  // the bootstrap). The single-URI pipeline can't use gzip inside jweb, so
+  // it stays uncompressed when it's used.
   const bundleResult = isJSPiece
-    ? await createJSPieceBundle(pieceName, onProgress, false, density)
-    : await createBundle(pieceName, onProgress, false, density);
+    ? await createJSPieceBundle(pieceName, onProgress, !chunked, density, false, false, false, forceDaw)
+    : await createBundle(pieceName, onProgress, !chunked, density);
 
-  onProgress({ stage: "generate", message: "Embedding bundle in M4L device..." });
-
-  const dataUri = `data:text/html;base64,${Buffer.from(bundleResult.html).toString("base64")}`;
-  const patcher = generateM4DPatcher(pieceName, dataUri);
+  let patcher;
+  if (chunked) {
+    onProgress({ stage: "generate", message: "Chunking bundle for M4L device..." });
+    const { chunks, gzBytes, b64Bytes } = chunkBundleForM4D(bundleResult.html);
+    onProgress({ stage: "generate", message: `Chunking: gzip=${Math.round(gzBytes/1024)}KB base64=${Math.round(b64Bytes/1024)}KB → ${chunks.length} chunks` });
+    const bootstrapHTML = generateChunkedBootstrapHTML(pieceName);
+    const bootstrapDataUri = `data:text/html;base64,${Buffer.from(bootstrapHTML).toString("base64")}`;
+    if (bootstrapDataUri.length > 32000) {
+      throw new Error(`chunked bootstrap data URI ${bootstrapDataUri.length} bytes exceeds 32000 cap`);
+    }
+    if (pieceProfile === "notepat") {
+      patcher = generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks);
+    } else {
+      throw new Error(`chunked pipeline has no patcher template for profile "${pieceProfile}"`);
+    }
+  } else {
+    onProgress({ stage: "generate", message: "Embedding bundle in M4L device..." });
+    const dataUri = `data:text/html;base64,${Buffer.from(bundleResult.html).toString("base64")}`;
+    patcher = generateM4DPatcher(pieceName, dataUri, 400, 200, pieceProfile);
+  }
 
   onProgress({ stage: "compress", message: "Packing .amxd binary..." });
 
-  const binary = packAMXD(patcher);
+  const binary = packAMXD(patcher, amxdKind);
   const filename = `AC ${pieceName} (offline).amxd`;
 
   return { binary, filename, sizeKB: Math.round(binary.length / 1024) };
@@ -1333,8 +1591,9 @@ function generateHTMLBundle(opts) {
     try {
       await import(window.VFS_BLOB_URLS['boot.mjs']);
     } catch (err) {
-      document.body.style.cssText='color:#fff;background:#000;padding:20px;font-family:monospace';
-      document.body.textContent='Boot failed: '+err.message;
+      document.body.style.cssText='color:#fff;background:#400;padding:20px;font:12px monospace;white-space:pre-wrap';
+      document.body.textContent='Boot failed: '+err.message+'\n'+(err.stack||'');
+      try { if (window.max && window.max.outlet) window.max.outlet('error', '[boot] ' + err.message + ' :: ' + (err.stack || '')); } catch(_){}
     }
   </script>
 </body>
@@ -1342,7 +1601,7 @@ function generateHTMLBundle(opts) {
 }
 
 function generateJSPieceHTMLBundle(opts) {
-  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG, keeplabel } = opts;
+  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG, keeplabel, forceDaw } = opts;
 
   const boxArtImg = renderBoxArt(pieceName, boxArtPNG);
 
@@ -1353,19 +1612,78 @@ function generateJSPieceHTMLBundle(opts) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${pieceName} · Aesthetic Computer</title>
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; }
+    body { margin: 0; padding: 0; overflow: hidden; background: #222; }
     canvas { display: block; image-rendering: pixelated; }
     #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }
   </style>
 </head>
 <body>
   ${boxArtImg}
+  ${forceDaw ? `<script>
+    // Max console bridge — must run FIRST so we see anything that breaks
+    // below. Forwards console.log/warn/error + window.onerror to
+    // window.max.outlet, which [route log error warn] in the patcher
+    // funnels into [print] for the Max Console. Without this a bundle
+    // failure is invisible (gray jweb, no diagnostics).
+    //
+    // window.max may be injected slightly after page load — buffer early
+    // messages and flush once the outlet shows up (or give up after 5s).
+    (function(){
+      var buf = [];
+      var ready = false;
+      function flush() {
+        if (!window.max || typeof window.max.outlet !== 'function') return false;
+        ready = true;
+        for (var i = 0; i < buf.length; i++) {
+          try { window.max.outlet(buf[i][0], buf[i][1]); } catch (_) {}
+        }
+        buf.length = 0;
+        return true;
+      }
+      function emit(tag, args) {
+        var parts = [];
+        for (var i = 0; i < args.length; i++) {
+          var a = args[i];
+          if (a && a.stack) parts.push(String(a.stack));
+          else if (typeof a === 'object') { try { parts.push(JSON.stringify(a)); } catch(_) { parts.push(String(a)); } }
+          else parts.push(String(a));
+        }
+        var msg = parts.join(' ').slice(0, 900);
+        if (ready) { try { window.max.outlet(tag, msg); } catch (_) {} }
+        else buf.push([tag, msg]);
+      }
+      var orig = { log: console.log, warn: console.warn, error: console.error };
+      console.log = function() { emit('log', arguments); orig.log.apply(console, arguments); };
+      console.warn = function() { emit('warn', arguments); orig.warn.apply(console, arguments); };
+      console.error = function() { emit('error', arguments); orig.error.apply(console, arguments); };
+      window.addEventListener('error', function(e) {
+        emit('error', ['[uncaught]', e.message, '@', (e.filename||'?') + ':' + (e.lineno||0) + ':' + (e.colno||0)]);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        emit('error', ['[unhandled-rejection]', (e.reason && e.reason.stack) || String(e.reason)]);
+      });
+      emit('log', ['[ac-bundle] jweb alive — piece=' + (${JSON.stringify(pieceName)}) + ' ua=' + navigator.userAgent]);
+      // Flush as soon as window.max is injected.
+      var tries = 0;
+      var iv = setInterval(function() {
+        if (flush() || ++tries > 50) clearInterval(iv);
+      }, 100);
+    })();
+  </script>` : ""}
   <script>
     // Phase 1: Setup VFS, blob URLs, import map, and fetch interception.
     // This MUST run in a regular <script> (not type="module") so the import map
     // is in the DOM BEFORE any <script type="module"> executes.
     window.acPACK_MODE = true;
     ${keeplabel ? `window.acKEEP_LABEL = true;` : ""}
+    ${forceDaw ? `window.acFORCE_DAW = true;
+    // M4L devices always want density=1, nogap, and keep the corner HUD
+    // label (matches the live URL's ?density=1&nogap params — the data:
+    // URI has no query string, so we set the equivalent globals).
+    window.acPACK_DENSITY = 1;
+    window.acFORCE_NOGAP = true;
+    window.acKEEP_LABEL = true;
+    try { window.max && window.max.outlet && window.max.outlet("log", "[viewport] inner=" + innerWidth + "x" + innerHeight + " dpr=" + devicePixelRatio); } catch(_) {}` : ""}
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
     window.acSTARTING_PIECE = "${pieceName}";
