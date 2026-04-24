@@ -481,21 +481,24 @@ function paint({ wipe, ink, box, line, screen }) {
   // BAR_BORDER so it reads as a seam, not a void.
   const cols = 4;
   const rows = 6;
-  const octaveGap = 4;
-  // Per-axis cell size (no longer forced square — "no margins" wins
-  // over "perfect squares" at this aspect ratio).
-  const cellW = floor(W / cols);
-  const cellH = floor((H - octaveGap) / rows);
-  // colEdges distributed so the 4 columns exactly span W (last cell
-  // absorbs any rounding remainder).
+  const octaveGap = 2;
+  // colEdges span W exactly (last cell absorbs any horizontal
+  // rounding remainder).
   const colEdges = [];
   for (let c = 0; c <= cols; c += 1) colEdges.push(floor((c * W) / cols));
-  // rowEdges[r] is the top of row r; the octave gap sits between rows
-  // 2 and 3, adding octaveGap px before row 3's top.
-  const rowEdges = [];
-  for (let r = 0; r <= rows; r += 1) {
-    const gapBefore = r >= 3 ? octaveGap : 0;
-    rowEdges.push(r * cellH + gapBefore);
+  // rowHeights distribute the available vertical space evenly and
+  // absorb the leftover px into the first few rows so the grid ends
+  // flush with H — otherwise we'd leave a few dead pixels at the
+  // bottom edge. Octave gap is inserted between row 2 and row 3.
+  const avail = H - octaveGap;
+  const rowBase = floor(avail / rows);
+  const rowRem = avail - rowBase * rows;
+  const rowHeights = [];
+  for (let r = 0; r < rows; r += 1) rowHeights.push(rowBase + (r < rowRem ? 1 : 0));
+  const rowEdges = [0];
+  for (let r = 0; r < rows; r += 1) {
+    const gap = r === 3 ? octaveGap : 0;
+    rowEdges.push(rowEdges[r] + rowHeights[r] + gap);
   }
 
   buttons = [];
@@ -516,10 +519,9 @@ function paint({ wipe, ink, box, line, screen }) {
         const x0 = colEdges[globalCol];
         const x1 = colEdges[globalCol + 1];
         const y0 = rowEdges[globalRow];
-        // Pads are cellH tall regardless of the octave-gap between rows
-        // 2 and 3; using rowEdges[r+1] would swell row 2 to include the
-        // divider strip.
-        const b = { x: x0, y: y0, w: x1 - x0, h: cellH, key, pitch };
+        // rowHeights absorbs the vertical rounding remainder so the
+        // grid fills H precisely without dead pixels at the bottom.
+        const b = { x: x0, y: y0, w: x1 - x0, h: rowHeights[globalRow], key, pitch };
         buttons.push(b);
 
         const held =
@@ -644,15 +646,10 @@ function paint({ wipe, ink, box, line, screen }) {
     }
   }
 
-  // ── Octave divider bar ──────────────────────────────────────────
-  // Full-width horizontal strip between the base octave block
-  // (rows 0-2) and the +1 octave block (rows 3-5). Uses BAR_BG fill +
-  // BAR_BORDER edges so it reads as a hard seam across the device.
+  // ── Octave divider: 2px gray horizontal bar between blocks ───────
   if (focused) {
-    const barY = 3 * cellH;
-    ink(...BAR_BG).box(0, barY, W, octaveGap, "fill");
-    ink(...BAR_BORDER).line(0, barY, W - 1, barY);
-    ink(...BAR_BORDER).line(0, barY + octaveGap - 1, W - 1, barY + octaveGap - 1);
+    const barY = rowEdges[3] - octaveGap;
+    ink(100, 100, 110).box(0, barY, W, octaveGap, "fill");
   }
 
   // ── Unfocused overlay: big red X spanning the device ─────────────────
