@@ -32,9 +32,8 @@ const KEY_OFFSETS = {
 };
 
 // Chromatic octave blocks — 4 cols × 3 rows = 12 notes each.
-// Matches notepat.mjs pad layout. Row 0 = low (C..D#), row 2 = high (G#..B).
-// Two blocks render side-by-side (base octave left, +1 right) when the
-// device is wide enough (always 360px in M4L).
+// Row 0 = low (C..D#), row 2 = high (G#..B). Two blocks (base + base+1)
+// stack vertically in paint().
 const OCTAVE_GRIDS = [
   // Base octave (offsets 0-11 → C..B of baseOctave)
   [
@@ -608,12 +607,13 @@ function paint({ wipe, ink, box, line, screen }) {
         ];
         ink(...borderColor).box(px, py, pw, ph, "outline");
 
-        // Main label = note name (C, C#, D…). Matches notepat.mjs web
-        // piece: jittery shake while held + 1px drop shadow so the
-        // typography pulses with each strike.
+        // Main label = keyboard key you actually press. Note name is
+        // secondary — the QWERTY letter is what turns the pad into a
+        // "playable thing"; pitch info is pinned as a tiny MatrixChunky8
+        // hint in the bottom-right.
         const charW = 6;
         const charH = 10;
-        const label = nameShort;
+        const label = key.toUpperCase();
         const labelW = label.length * charW;
         const labelX = px + floor((pw - labelW) / 2);
         const labelY = py + floor((ph - charH) / 2);
@@ -641,17 +641,16 @@ function paint({ wipe, ink, box, line, screen }) {
         ink(...shadowColor).write(label, { x: labelX + shakeX + 1, y: labelY + shakeY + 1 });
         ink(...labelColor).write(label, { x: labelX + shakeX, y: labelY + shakeY });
 
-        // QWERTY hint — tiny MatrixChunky8 glyph pinned to the bottom-
-        // right of the pad so you still see which key drives which note
-        // even after we shrank the pads. Only drawn when the pad has
-        // room (>= 14px) so we don't paint on top of the note label.
+        // Tiny note-name hint (C, C#, …) in the bottom-right corner so
+        // you can still read the pitch at a glance. MatrixChunky8 keeps
+        // it readable at narrow pad widths.
         if (pw >= 14 && ph >= 14) {
           const hintColor =
             held && focused && !black ? [10, 10, 14, 220] :
             black ? [210, 210, 220, 180] : [30, 30, 40, 190];
           ink(...hintColor).write(
-            key.toUpperCase(),
-            { x: px + pw - 6, y: py + ph - 7 },
+            nameShort,
+            { x: px + pw - nameShort.length * 5 - 2, y: py + ph - 7 },
             undefined, undefined, false,
             "MatrixChunky8",
           );
