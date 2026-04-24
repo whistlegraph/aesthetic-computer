@@ -1067,7 +1067,10 @@ function chunkBundleForM4D(html) {
 // the MIDI router. Everything else matches the hand-rolled notepat device.
 function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
   const W = 150, H = 169;
-  const liveUrl = "https://aesthetic.computer/" + pieceName + "?daw=1&nogap=1&density=1";
+  // Cache-bust the live URL with the git commit so jweb/service-worker
+  // caches can't keep an older piece pinned after a lith deploy.
+  const liveUrl = "https://aesthetic.computer/" + pieceName +
+    "?daw=1&nogap=1&density=1&v=" + GIT_COMMIT;
   // presentation_rect gets a +1 on each axis so jweb content bleeds
   // 1px past the visible device rect — this is the well-known Max
   // quirk fix (same as the generic instrument patcher) for hiding

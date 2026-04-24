@@ -453,7 +453,12 @@ function paint({ wipe, ink, box, line, screen }) {
   const BAR_BORDER = [55, 35, 45];
   const PAD_SHARP = [18, 18, 20];        // black-key rest fill
   const IVORY = [240, 232, 215];         // white-key rest fill (piano-ivory)
-  const BG_IDLE = [4, 2, 6];             // near-black when nothing playing
+  // Idle backdrop: biases toward a deeply darkened track color when
+  // Max has pushed one, otherwise a flat warm near-black. Keeps the
+  // track's flavor alive even when nothing is being played.
+  const BG_IDLE = liveTrackColor
+    ? [floor(liveTrackColor[0] * 0.08), floor(liveTrackColor[1] * 0.08), floor(liveTrackColor[2] * 0.08)]
+    : [4, 2, 6];
 
   // Focused theme — notepat palette, rainbow accent per note.
   const focusedFg = [220, 220, 220];
@@ -612,8 +617,20 @@ function paint({ wipe, ink, box, line, screen }) {
           ];
         } else if (focused) {
           // Resting state: piano-key look — ivory whites, near-black
-          // sharps. The rainbow only comes out when a note is active.
-          fill = black ? PAD_SHARP : IVORY;
+          // sharps. When Max has pushed a track color, blend a touch of
+          // it into the rest fill so every pad carries the flavor of
+          // the hosting track (subtle — pads still read as piano keys).
+          const base = black ? PAD_SHARP : IVORY;
+          if (liveTrackColor) {
+            const mix = black ? 0.22 : 0.12;
+            fill = [
+              floor(base[0] + (liveTrackColor[0] - base[0]) * mix),
+              floor(base[1] + (liveTrackColor[1] - base[1]) * mix),
+              floor(base[2] + (liveTrackColor[2] - base[2]) * mix),
+            ];
+          } else {
+            fill = base;
+          }
         } else {
           fill = black ? keyBlack : unfocusedKeyWhite;
         }
