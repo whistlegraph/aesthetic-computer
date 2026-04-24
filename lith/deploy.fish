@@ -178,11 +178,14 @@ echo -e "$GREEN-> Installing dependencies...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --omit=dev && cd $REMOTE_DIR/system && npm install --omit=dev && cd $REMOTE_DIR/oven && PUPPETEER_SKIP_DOWNLOAD=1 npm install --omit=dev"
 
 # notepat.com amxd build stream.
-# Modeled after `ac-os upload`'s "always rebuild first" pattern so
-# notepat.com/amxd + /m4l/notepat.com/latest.json always reflect the
-# commit we just deployed (no "dirty" hashes from dev machine state).
-echo -e "$GREEN-> Building notepat.com.amxd from deployed commit...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node ac-m4l/build-notepat.mjs"
+# Modeled after `ac-os upload`'s OTA flow: only rebuild + re-upload
+# when an amxd input actually changed since the last successful build
+# (via --if-stale), then push the versioned artifact + latest.json to
+# DO Spaces (--sync-spaces) so each release has a durable CDN URL
+# outside lith. Sourcing /opt/ac/system/.env before running picks up
+# DO_SPACES_* / AWS_* creds that lith.service already has configured.
+echo -e "$GREEN-> Refreshing notepat.com.amxd build stream...$NC"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && set -a && source system/.env 2>/dev/null || true; set +a; node ac-m4l/build-notepat.mjs --if-stale --sync-spaces"
 
 # Install service file + Caddy config from the deployed checkout
 echo -e "$GREEN-> Updating service + Caddy config...$NC"
