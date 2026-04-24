@@ -105,7 +105,6 @@ const bgColor = [4, 2, 6];
 // device's parent track. Null until that lands; paint falls back to the
 // rainbow/ambient scheme when it's null so this stays optional.
 let liveTrackColor = null;
-let lastFocusPollFrame = -9999;
 
 // Button grid layout (recomputed on each paint in case screen size changes).
 let buttons = [];
@@ -220,54 +219,15 @@ function boot({ wipe, cursor, hud, send, net }) {
   _send = send;
   connectWs();
 
-  // ── Focus detection ────────────────────────────────────────────────
-  // jweb inside Max for Live doesn't always surface DOM blur/focus as AC
-  // events. We listen on four paths: (1) AC act() events, (2) native
-  // window blur/focus, (3) document visibilitychange, (4) Max [active]
-  // object pushing via window.acSetLiveFocus. Each transition logs its
-  // source so the Max Console shows which hook actually catches it.
-  if (typeof window !== "undefined") {
-    const setFocus = (f, source) => {
-      if (focused !== f) {
-        focused = f;
-        focusedChangedFrame = frame;
-        if (!f) heldKeys.clear();
-        try { console.log(`[focus] ${source} → ${f ? "ACTIVE" : "inactive"}`); } catch {}
-      }
-    };
-    try {
-      window.addEventListener("blur", () => setFocus(false, "window.blur"));
-      window.addEventListener("focus", () => setFocus(true, "window.focus"));
-      document.addEventListener?.("visibilitychange", () =>
-        setFocus(!document.hidden, "document.visibilitychange"));
-    } catch {}
-    // Max side pushes focus + theme state via these globals. Defining
-    // them unconditionally lets the patcher call them whenever it likes.
-    window.acSetLiveFocus = (f) => {
-      try { console.log(`[focus] max.active received ${f}`); } catch {}
-      setFocus(!!f, "max.active");
-    };
-    window.acSetLiveTrackColor = (colorInt) => {
-      const n = Number(colorInt) >>> 0;
-      if (!Number.isFinite(n)) {
-        try { console.log(`[track-color] max push ignored (bad int ${colorInt})`); } catch {}
-        return;
-      }
-      liveTrackColor = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-      try {
-        console.log(
-          `[track-color] max push ${n} → rgb(${liveTrackColor[0]},${liveTrackColor[1]},${liveTrackColor[2]})`,
-        );
-      } catch {}
-    };
-    // Pull the current track color now — the Max patcher's
-    // `live.observer` fires once on device load (before this boot
-    // runs), so without an explicit re-request we'd never see it.
-    try { window.max?.outlet?.("requestTrackColor", 1); } catch {}
-    // Same story for the [active] focus signal — the initial fire
-    // can happen before jweb navigates to the live URL.
-    try { window.max?.outlet?.("requestFocus", 1); } catch {}
-  }
+  // ── Re-request Max-side state from the piece (worker) side ───────
+  // Pieces run in a Web Worker — no window/document here. The bios.mjs
+  // main-thread bridge defines window.acSetLiveFocus / Live track
+  // color handlers that forward into the worker via send() as
+  // "focus-change" + "live:track-color" messages, which disk.mjs
+  // dispatches as act() events. On boot we ask Max to re-emit both
+  // because their initial fires can land before we've mounted.
+  send({ type: "daw:request-focus" });
+  send({ type: "daw:request-track-color" });
   // Also open AC's session-scoped socket + udp purely so the transport
   // status indicator can show UDP connectivity. Callbacks are no-ops —
   // the notepat:midi subscription flows through the raw WS above.
@@ -298,21 +258,9 @@ function sim() {
   frame += 1;
   if (wsState === "closed" && frame >= reconnectAt) connectWs();
 
-  // Poll document.hasFocus() every ~250ms as a safety net — some jweb
-  // focus transitions (user clicks the Live mixer header, browses a
-  // menu) don't dispatch blur/focus events. Polling catches those.
-  if (frame - lastFocusPollFrame > 15) {
-    lastFocusPollFrame = frame;
-    if (typeof document !== "undefined" && typeof document.hasFocus === "function") {
-      const hf = document.hasFocus();
-      if (hf !== focused) {
-        focused = hf;
-        focusedChangedFrame = frame;
-        if (!hf) heldKeys.clear();
-        try { console.log(`[focus] document.hasFocus() → ${hf ? "ACTIVE" : "inactive"}`); } catch {}
-      }
-    }
-  }
+  // (Worker has no document — focus state lands exclusively via the
+  // "focus-change" event dispatched by disk.mjs from bios's main-thread
+  // bridge, driven by Max [active] or DOM focus/blur.)
 
   // Subscribe over UDP once the geckos channel comes up. Lost connection
   // resets the flag so we re-subscribe on reconnect.
@@ -344,21 +292,33 @@ let tappedButton = null; // button object currently pressed via touch
 function act({ event: e }) {
   if (!e?.is) return;
 
-  // Focus/blur signals from AC (if AC forwards them; harmless if it doesn't).
+  // Focus/defocus from disk.mjs's "focus-change" dispatch. bios pushes
+  // this both from DOM window focus/blur AND from Max's [active] via
+  // window.acSetLiveFocus, so a single event handler covers all paths.
   if (e.is("focus")) {
     if (!focused) {
       focused = true;
       focusedChangedFrame = frame;
-      try { console.log("[focus] ac-event:focus → ACTIVE"); } catch {}
+      console.log("[focus] focus-change → ACTIVE");
     }
     return;
   }
-  if (e.is("blur")) {
+  if (e.is("defocus")) {
     if (focused) {
       focused = false;
       focusedChangedFrame = frame;
       heldKeys.clear();
-      try { console.log("[focus] ac-event:blur → inactive"); } catch {}
+      console.log("[focus] focus-change → inactive");
+    }
+    return;
+  }
+
+  // Live track color pushed by Max via bios → disk dispatch.
+  if (e.is("live:track-color")) {
+    const rgb = e.trackColor;
+    if (Array.isArray(rgb) && rgb.length === 3) {
+      liveTrackColor = rgb.slice();
+      console.log(`[track-color] received rgb(${rgb.join(",")})`);
     }
     return;
   }

@@ -4616,6 +4616,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       for (const k of Object.keys(_dawHeldPitch)) delete _dawHeldPitch[k];
       _dawEmitMax("focus", 0);
     }, true);
+
+    // 🎹 Max → piece bridge. Patcher calls these via
+    //   `executejavascript window.acSetLiveFocus(N)` /
+    //   `executejavascript window.acSetLiveTrackColor(N)`.
+    // The piece runs in a Web Worker so it can't define these itself;
+    // we forward the state in via the same `send()` used for other
+    // main→worker messages. Existing "focus-change" path surfaces as
+    // e.is("focus") / e.is("defocus") in the piece's act().
+    window.acSetLiveFocus = (f) => {
+      const focused = !!f;
+      console.log(`🎹 acSetLiveFocus ${focused ? "ACTIVE" : "inactive"}`);
+      try { send({ type: "focus-change", content: focused }); } catch (_e) {}
+    };
+    window.acSetLiveTrackColor = (colorInt) => {
+      const n = Number(colorInt) >>> 0;
+      if (!Number.isFinite(n)) {
+        console.log(`🎹 acSetLiveTrackColor ignored (bad ${colorInt})`);
+        return;
+      }
+      const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      console.log(`🎹 acSetLiveTrackColor ${n} → rgb(${rgb.join(",")})`);
+      try { send({ type: "live:track-color", content: rgb }); } catch (_e) {}
+    };
   }
 
   function requestBeat(time) {
@@ -5279,6 +5302,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (!Number.isFinite(pitch) || !Number.isFinite(velocity)) return;
         try { window.max.outlet("channel", channel); } catch (_e) {}
         try { window.max.outlet("note", pitch, velocity); } catch (_e) {}
+      }
+      return;
+    }
+
+    // 🎹 Piece → Max: ask max to re-emit state values whose initial
+    // fire happened before the piece mounted its handlers (focus,
+    // track color). Matches the `route ready goonline requestTrackColor
+    // requestFocus …` outlets on the patcher's route-top.
+    if (type === "daw:request-focus") {
+      if (typeof window !== "undefined" && window.max?.outlet) {
+        try { window.max.outlet("requestFocus", 1); } catch (_e) {}
+      }
+      return;
+    }
+    if (type === "daw:request-track-color") {
+      if (typeof window !== "undefined" && window.max?.outlet) {
+        try { window.max.outlet("requestTrackColor", 1); } catch (_e) {}
       }
       return;
     }

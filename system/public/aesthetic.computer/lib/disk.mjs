@@ -10696,6 +10696,25 @@ async function makeFrame({ data: { type, content } }) {
     }
   }
 
+  // Max for Live → piece: track color push (bios forwards as this
+  // message type after Max's live.observer fires into jweb via
+  // window.acSetLiveTrackColor). Pieces read e.trackColor in act().
+  if (type === "live:track-color") {
+    if (!cachedAPI) return;
+    const $api = cachedAPI;
+    const data = {
+      device: "live",
+      trackColor: content,
+      is: (e) => e === "live:track-color",
+    };
+    $api.event = data;
+    try {
+      act($api);
+    } catch (e) {
+      console.warn("️ ✒ Act failure (live:track-color)", e);
+    }
+  }
+
   if (type === "visibility-change") {
     // 🧨 Just in case of a regression... 23.06.02.21.12
     //    Because the `bios` focus event changed from visibility behavior.
