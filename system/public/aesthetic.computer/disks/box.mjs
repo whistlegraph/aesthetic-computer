@@ -88,4 +88,14 @@ function lift({ ink, color, mark, system }) {
   }
 }
 
-export { overlay, lift };
+function meta() {
+  return {
+    title: "Box",
+    desc: "Draw rectangles with brush gestures.",
+    controls: "drag from one corner to the opposite corner to draw a rectangle; release to bake",
+    params: "color (e.g. red, blue, fade:red-blue, or r,g,b[,a])",
+    example: "box red",
+  };
+}
+
+export { overlay, lift, meta };

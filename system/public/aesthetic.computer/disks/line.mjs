@@ -254,7 +254,18 @@ function bake() {
   strokeToBake?.();
 }
 
-export { boot, act, paint, bake, system };
+function meta() {
+  return {
+    title: "Line",
+    desc: "Freehand line brush with per-gesture alpha.",
+    controls: "drag to draw a continuous freehand line; release to bake the stroke",
+    keys: "[ / ] decrease/increase opacity; scroll to change thickness; middle-click cycles palette colors",
+    params: "color (e.g. red, purple, fade:red-blue, or r,g,b[,a]); :n for thickness (e.g. line:3)",
+    example: "line:3 blue 128",
+  };
+}
+
+export { boot, act, paint, bake, meta, system };
 
 // ── Helpers ──
 
