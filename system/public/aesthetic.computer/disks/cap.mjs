@@ -299,6 +299,14 @@ function stopRecording(rec, sound, jump) {
 }
 
 function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud }) {
+  // 📊 Camera diagnostics from bios.mjs → piece-runs via console.log.
+  if (e.is("camera:debug")) {
+    console.log("📷 cam/init:", JSON.stringify(e));
+  }
+  if (e.is("camera:debug:frame")) {
+    console.log("📷 cam/frame:", JSON.stringify(e));
+  }
+
   // Handle microphone connection events
   if (e.is("microphone-connect:success")) {
     micConnected = true;
@@ -451,5 +459,6 @@ function drawMicIcon($, x, y, color) {
 
 export { boot, paint, sim, act, beat, leave };
 
-// No nopaint system - cap records the screen directly via tape infrastructure
-export const nohud = true; // Minimal HUD for camera view
+// No nopaint system — cap records the screen directly via tape infrastructure.
+// We keep the standard HUD corner label ("cap") visible; hiding it (nohud)
+// left the corner empty and felt broken.

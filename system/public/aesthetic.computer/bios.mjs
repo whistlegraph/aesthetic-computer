@@ -19894,15 +19894,42 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // const capabilities = videoTrack.getCapabilities();
           settings = videoTrack.getSettings();
 
-          // console.log(
-          //   "Got: Width:",
-          //   settings.width,
-          //   "Height:",
-          //   settings.height,
-          // ); // ❤️‍🔥
-
           // Update global facingMode in case different from requested.
           facingMode = videoTrack.getConstraints().facingMode;
+
+          // 📊 Send camera debug telemetry to the worker so pieces (e.g. cap)
+          // can console.log() it and the piece-runs silo captures it.
+          // This lets us diagnose rotation/orientation issues on devices we
+          // can't inspect directly.
+          const orientationAngle =
+            (typeof screen !== "undefined" && screen.orientation?.angle) ??
+            (typeof window !== "undefined" ? window.orientation : null) ??
+            null;
+          const isPortrait =
+            typeof window !== "undefined"
+              ? window.matchMedia?.("(orientation: portrait)")?.matches
+              : null;
+          send({
+            type: "camera:debug",
+            content: {
+              requested: { width: reqWidth, height: reqHeight },
+              bufferRequested: { width: cWidth, height: cHeight },
+              trackSettings: {
+                width: settings?.width ?? null,
+                height: settings?.height ?? null,
+                aspectRatio: settings?.aspectRatio ?? null,
+                facingMode: settings?.facingMode ?? null,
+                frameRate: settings?.frameRate ?? null,
+              },
+              facingMode,
+              iOS,
+              Android,
+              isPortrait,
+              orientationAngle,
+              userAgent:
+                typeof navigator !== "undefined" ? navigator.userAgent : null,
+            },
+          });
 
           const devices = await navigator.mediaDevices.enumerateDevices();
           const videoDevices = devices.filter(
@@ -20111,6 +20138,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           video.videoWidth > 0 &&
           video.videoHeight > 0 &&
           videoIsLandscape === bufferIsPortrait;
+
+        // 📊 One-shot diagnostic: report actual video dimensions once the
+        // first real frame is available. Lands in piece-runs via cap.mjs.
+        if (!video.__acFrameDebugReported && video.videoWidth > 0) {
+          video.__acFrameDebugReported = true;
+          send({
+            type: "camera:debug:frame",
+            content: {
+              video: { width: video.videoWidth, height: video.videoHeight },
+              buffer: { width: buffer.width, height: buffer.height },
+              videoIsLandscape,
+              bufferIsPortrait,
+              needsRotation,
+              facingMode,
+            },
+          });
+        }
         // Mirror the front camera for selfie framing. Desktop webcams are
         // conventionally mirrored too. Mobile rear camera stays unmirrored.
         const needsMirror = facingMode === "user" || (!iOS && !Android);
@@ -20118,13 +20162,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Front cameras are mounted mirrored relative to rear cameras, so the
         // rotation that lands the subject upright is opposite: front = +90° CW,
         // rear = -90° CCW. Desktop webcams behave like front cameras.
-        const rotationAngle =
+        // 🧪 URL override for camera rotation while we bisect the correct
+        // angle on device: ?camrot=0|cw|180|ccw (0 = no rotation). Also
+        // ?camforce=1 forces the rotation path even when dims say no.
+        let rotationAngle =
           facingMode === "user" || (!iOS && !Android)
             ? Math.PI / 2
             : -Math.PI / 2;
+        let forceRotation = false;
+        if (typeof location !== "undefined" && location.search) {
+          const camParams = new URLSearchParams(location.search);
+          const camrot = camParams.get("camrot");
+          if (camrot === "cw" || camrot === "90") rotationAngle = Math.PI / 2;
+          else if (camrot === "ccw" || camrot === "-90")
+            rotationAngle = -Math.PI / 2;
+          else if (camrot === "180") rotationAngle = Math.PI;
+          else if (camrot === "0" || camrot === "none") rotationAngle = 0;
+          if (camParams.get("camforce") === "1") forceRotation = true;
+        }
+        const needsRotationFinal = forceRotation
+          ? video.videoWidth > 0 && video.videoHeight > 0
+          : needsRotation;
 
         // Send frames by default (non-rotation path only).
-        if (!needsRotation && needsMirror) {
+        if ((!needsRotationFinal || rotationAngle === 0) && needsMirror) {
           bufferCtx.translate(buffer.width / 2, buffer.height / 2);
           const zoom = 1;
           // if (hands) {
@@ -20156,7 +20217,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Drawing a video frame to the buffer (mirrored, proportion adjusted).
-        if (needsRotation) {
+        if (needsRotationFinal && rotationAngle !== 0) {
           // Landscape sensor pixels in portrait buffer: rotate ±90° so the
           // video fills the portrait frame. After rotation the effective
           // video width/height are swapped, so fit calculation uses the
