@@ -1521,8 +1521,8 @@ pull_ota() {
         # assume the file is the one the kernel hash above verified.
         local SLIM_REMOTE_SIZE=$(curl -sfI "${SLIM_URL}" | awk -F'[: ]+' '/^[Cc]ontent-[Ll]ength:/ {print $2+0}' | tr -d '\r')
         local INIT_REMOTE_SIZE=$(curl -sfI "${INITRAMFS_URL}" | awk -F'[: ]+' '/^[Cc]ontent-[Ll]ength:/ {print $2+0}' | tr -d '\r')
-        local SLIM_LOCAL_SIZE=$([ -f "${PULLED_SLIM}" ] && stat -c%s "${PULLED_SLIM}" 2>/dev/null || echo 0)
-        local INIT_LOCAL_SIZE=$([ -f "${PULLED_INITRAMFS}" ] && stat -c%s "${PULLED_INITRAMFS}" 2>/dev/null || echo 0)
+        local SLIM_LOCAL_SIZE=$([ -f "${PULLED_SLIM}" ] && wc -c < "${PULLED_SLIM}" 2>/dev/null | tr -d ' ' || echo 0)
+        local INIT_LOCAL_SIZE=$([ -f "${PULLED_INITRAMFS}" ] && wc -c < "${PULLED_INITRAMFS}" 2>/dev/null | tr -d ' ' || echo 0)
         if [ "${SLIM_LOCAL_SIZE}" = "${SLIM_REMOTE_SIZE}" ] && [ "${SLIM_REMOTE_SIZE}" -gt 0 ]; then
             log "Cached slim kernel matches — skipping download"
         else
