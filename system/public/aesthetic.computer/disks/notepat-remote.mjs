@@ -205,6 +205,15 @@ function pitchForKey(key) {
 }
 
 function boot({ wipe, cursor, hud, send, net }) {
+  // Obvious fingerprint so the Max Console shows which version actually
+  // loaded — live URL (aesthetic.computer) is served by lith and can be
+  // stale if deploy hasn't run; offline chunked bundle is always latest.
+  try {
+    console.log(
+      `[notepat-remote] boot build=2026-04-24-focus-hooks ` +
+      `packed=${!!window.acPACK_MODE} forceDaw=${!!window.acFORCE_DAW}`,
+    );
+  } catch {}
   wipe(10, 12, 22);
   cursor?.("native");
   hud?.label?.("");
