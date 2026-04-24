@@ -14,6 +14,8 @@
 //   • When the iframe loses focus, Max's key listener stops receiving, so
 //     the UI goes red + "TAP ME!" attract mode to prompt a click.
 
+import { getNoteColorForOctave } from "../lib/note-colors.mjs";
+
 const { floor, min, max, abs, sin, PI } = Math;
 
 const WS_URL = "wss://session-server.aesthetic.computer/";
@@ -51,6 +53,14 @@ const OCTAVE_GRIDS = [
 const PITCH_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 function pitchName(p) {
   return PITCH_NAMES[((p % 12) + 12) % 12] + (floor(p / 12) - 1);
+}
+// Short pitch name (no octave suffix) for tight pad labels.
+function pitchNameShort(p) {
+  return PITCH_NAMES[((p % 12) + 12) % 12];
+}
+// MIDI octave number (C4 = 60 in standard MIDI).
+function pitchOctave(p) {
+  return floor(p / 12) - 1;
 }
 function isBlackKey(p) {
   return [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12);
@@ -418,20 +428,23 @@ function paint({ wipe, ink, box, line, screen }) {
   y += 10;
 
   // ── Button grid area: two 4×3 octave blocks side-by-side ─────────────
-  const gridTop = y + 2;
-  const gridBottom = H - 4;
-  const gap = 6;
-  const blockW = floor((W - 8 - gap) / 2);
-  const blockH = gridBottom - gridTop;
-  const cellW = floor(blockW / 4);
-  const cellH = floor(blockH / 3);
+  // Pixel-perfect: spans full width (0..W), fills from gridTop down to H.
+  // Pads butt up against each other — rainbow palette gives enough natural
+  // contrast that explicit separators add noise.
+  const gridTop = y + 1;
+  // Pre-compute row and column extents so every pixel is accounted for and
+  // adjacent pads share the same boundary line (no 1px gaps or overlaps).
+  const cols = 8; // 4 pads × 2 octave blocks
+  const rows = 3;
+  const colEdges = [];
+  for (let c = 0; c <= cols; c += 1) colEdges.push(floor((c * W) / cols));
+  const rowEdges = [];
+  for (let r = 0; r <= rows; r += 1) rowEdges.push(gridTop + floor((r * (H - gridTop)) / rows));
 
   buttons = [];
   for (let octIdx = 0; octIdx < OCTAVE_GRIDS.length; octIdx += 1) {
     const grid = OCTAVE_GRIDS[octIdx];
-    const blockX = 4 + octIdx * (blockW + gap);
     const octNum = baseOctave + octIdx;
-    ink(...dim).write(`o${octNum}`, { x: blockX + 1, y: gridTop - 1 });
 
     for (let rowIdx = 0; rowIdx < grid.length; rowIdx += 1) {
       const row = grid[rowIdx];
@@ -439,14 +452,12 @@ function paint({ wipe, ink, box, line, screen }) {
         const key = row[colIdx];
         const offset = rowIdx * 4 + colIdx;
         const pitch = (baseOctave + 1 + octIdx) * 12 + offset;
-        const b = {
-          x: blockX + colIdx * cellW,
-          y: gridTop + rowIdx * cellH,
-          w: cellW - 1,
-          h: cellH - 1,
-          key,
-          pitch,
-        };
+        const globalCol = octIdx * 4 + colIdx;
+        const x0 = colEdges[globalCol];
+        const x1 = colEdges[globalCol + 1];
+        const y0 = rowEdges[rowIdx];
+        const y1 = rowEdges[rowIdx + 1];
+        const b = { x: x0, y: y0, w: x1 - x0, h: y1 - y0, key, pitch };
         buttons.push(b);
 
         const held =
@@ -455,29 +466,71 @@ function paint({ wipe, ink, box, line, screen }) {
           lastNote && lastNote.pitch === pitch && sinceNote < 18;
         const black = isBlackKey(pitch);
 
+        // Rainbow ROYGBIV per note from note-colors.mjs — matches
+        // notepat.mjs so the packed remote visually maps onto the main
+        // piece's pad palette. Sharps/flats render black.
+        const nameShort = pitchNameShort(pitch);
+        const noteOctave = pitchOctave(pitch);
+        const baseColor = black
+          ? [20, 22, 28]
+          : getNoteColorForOctave(nameShort.toLowerCase(), noteOctave, baseOctave);
+
         let fill;
         if (held && focused) {
-          fill = accent;
+          // Fully saturated note color when pressed.
+          fill = baseColor;
         } else if (recentFlash && focused) {
+          // Note color blended in at recent-flash intensity.
           const f = 1 - sinceNote / 18;
           fill = [
-            floor(bgBase[0] + (accent[0] - bgBase[0]) * f * 0.5),
-            floor(bgBase[1] + (accent[1] - bgBase[1]) * f * 0.5),
-            floor(bgBase[2] + (accent[2] - bgBase[2]) * f * 0.5),
+            floor(bgBase[0] + (baseColor[0] - bgBase[0]) * (0.35 + f * 0.5)),
+            floor(bgBase[1] + (baseColor[1] - bgBase[1]) * (0.35 + f * 0.5)),
+            floor(bgBase[2] + (baseColor[2] - bgBase[2]) * (0.35 + f * 0.5)),
+          ];
+        } else if (focused) {
+          // Resting state: muted version of note color so the rainbow is
+          // still readable without overwhelming the unpressed pads.
+          fill = [
+            floor(bgBase[0] + (baseColor[0] - bgBase[0]) * 0.35),
+            floor(bgBase[1] + (baseColor[1] - bgBase[1]) * 0.35),
+            floor(bgBase[2] + (baseColor[2] - bgBase[2]) * 0.35),
           ];
         } else {
           fill = black ? keyBlack : keyWhite;
         }
         ink(...fill).box(b.x, b.y, b.w, b.h, "fill");
-        ink(...(held && focused ? accent : outline))
-          .box(b.x, b.y, b.w, b.h, "outline");
+        // Draw a thin separator on the top and left edges using a darker
+        // shade of the pad's own color. This gives a consistent 1px grid
+        // line without the awkward outline-over-fill double-draw artifact.
+        // Rightmost / bottommost pads skip the edge since the device
+        // frame handles that boundary.
+        const edgeDark = [
+          floor(fill[0] * 0.55),
+          floor(fill[1] * 0.55),
+          floor(fill[2] * 0.55),
+        ];
+        if (b.x > 0) ink(...edgeDark).line(b.x, b.y, b.x, b.y + b.h - 1);
+        if (b.y > gridTop) ink(...edgeDark).line(b.x, b.y, b.x + b.w - 1, b.y);
+        // Held state: bright accent border fully around the pad.
+        if (held && focused) {
+          ink(...accent).box(b.x, b.y, b.w, b.h, "outline");
+        }
 
-        const labelX = b.x + floor(b.w / 2) - 2;
-        const labelY = b.y + floor(b.h / 2) - 4;
+        // Main label = note name (C, C#, D…), small hint = keyboard key.
+        const label = nameShort;
+        const labelX = b.x + floor(b.w / 2) - floor(label.length * 6 / 2);
+        const labelY = b.y + floor(b.h / 2) - 7;
         const labelColor =
-          held && focused ? [10, 16, 10] :
-          black ? [200, 210, 220] : fg;
-        ink(...labelColor).write(key.toUpperCase(), { x: labelX, y: labelY });
+          held && focused ? [10, 10, 14] :
+          black ? [220, 225, 235] : [20, 22, 28];
+        ink(...labelColor).write(label, { x: labelX, y: labelY });
+        // Keyboard key hint (1 char), bottom-right corner of the pad.
+        const hintX = b.x + b.w - 7;
+        const hintY = b.y + b.h - 8;
+        const hintColor =
+          held && focused ? [10, 10, 14, 200] :
+          black ? [180, 180, 190, 180] : [40, 44, 52, 180];
+        ink(...hintColor).write(key.toUpperCase(), { x: hintX, y: hintY });
       }
     }
   }
