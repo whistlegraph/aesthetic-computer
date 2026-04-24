@@ -43,7 +43,7 @@ stop_ambient() {
     else
         pkill -TERM -f lid-reactive.py 2>/dev/null
     fi
-    rm -f /tmp/slab-ambient-active
+    rm -f /tmp/slab-ambient-active /tmp/slab-ambient-paused
     pkill -x afplay 2>/dev/null
 }
 

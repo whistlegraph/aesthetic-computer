@@ -29,6 +29,13 @@
         ]
       }
     ],
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "@HOME@/.local/bin/claude-notify.sh", "async": true }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [

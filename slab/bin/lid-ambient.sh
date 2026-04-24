@@ -4,11 +4,14 @@
 # mic-reactive noise, and pluck-arp triggers — and runs only when:
 #   lid is closed AND sleep is disabled AND at least one active marker exists
 #   in $SLAB_HOME/state/active-prompts/ (UserPromptSubmit → Stop lifecycle)
-#   or $SLAB_HOME/state/active-subagents/ (Task tool → SubagentStop lifecycle).
+#   or $SLAB_HOME/state/active-subagents/ (Task tool → SubagentStop lifecycle)
+#   AND the ambient pause flag is absent (Notification → next prompt/Stop).
 # Lid close always turns off the display (when sleep is disabled).
 # Lid open asks the listener to fade out (SIGTERM), then lets the return
 # chime play while it ramps to silence and exits.
 # Completion + auto-sleep is handled by the Stop hook — see claude-stop.sh.
+# Pause-for-feedback ("help me") is handled by the Notification hook — see
+# claude-notify.sh.
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
@@ -20,6 +23,10 @@ return_wav="$SOUNDS/lid-return.wav"
 open_ding="$SOUNDS/lid-open-ding.wav"
 return_dur=2.5
 AMBIENT_FLAG=/tmp/slab-ambient-active
+# Set by claude-notify.sh when the agent pauses for user feedback. While
+# present, ambient stays off even though an active marker exists. Cleared by
+# claude-prompt-log.sh (user responded) or claude-stop.sh (work ended).
+AMBIENT_PAUSE_FLAG=/tmp/slab-ambient-paused
 
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
 SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
@@ -180,9 +187,10 @@ while true; do
         fi
     fi
 
-    # Ambient gate: lid closed + sleep disabled + active prompt or subagent.
+    # Ambient gate: lid closed + sleep disabled + active prompt or subagent,
+    # and NOT paused-for-feedback by a Notification hook.
     ambient_wanted=0
-    if [[ "$lid_state" == "Yes" && "$sleep_disabled" == "1" ]] && (( active_count > 0 )); then
+    if [[ "$lid_state" == "Yes" && "$sleep_disabled" == "1" ]] && (( active_count > 0 )) && [[ ! -f "$AMBIENT_PAUSE_FLAG" ]]; then
         ambient_wanted=1
     fi
 

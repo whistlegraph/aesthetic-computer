@@ -11,6 +11,10 @@ input=$(cat)
 pkill -f claude-ping-repeat.sh 2>/dev/null
 pkill -f claude-sleep-schedule.sh 2>/dev/null
 
+# User responded to a pending Notification (or started fresh work) — clear
+# the ambient pause flag so the daemon can re-arm ambient on its next tick.
+rm -f /tmp/slab-ambient-paused
+
 # keep the machine awake while this new prompt runs
 "$SLAB_BIN/claude-sleep" awake >/dev/null 2>&1 &
 
