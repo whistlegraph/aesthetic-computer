@@ -19862,7 +19862,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         async function getDevice(facingModeChoice) {
           // Use local copies so we don't mutate the outer cWidth/cHeight
           // across repeated calls (camera swap, resize, etc.).
-          const reqWidth = cWidth,
+          let reqWidth = cWidth,
             reqHeight = cHeight;
 
           const constraints = {
@@ -19870,12 +19870,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frameRate: { ideal: 30 },
           };
 
-          // Ask for what we actually want. On mobile portrait, iOS Safari
-          // and modern Android Chrome already present the stream oriented
-          // to match the device (auto-rotated for the <video> element and
-          // drawImage()), so we do NOT swap width/height to force a
-          // landscape request. If the browser gives us a landscape stream
-          // anyway, the detection path in process() will rotate it to fit.
+          // Mobile camera sensors are physically landscape. Per Snap and
+          // webrtcHacks: always request landscape constraints, even on a
+          // portrait device — otherwise iOS Safari may refuse the request
+          // or hand back a stream stuck at the orientation present at
+          // getUserMedia time. We then rotate the canvas in process()
+          // below to fit the portrait buffer.
+          if (
+            (iOS || Android) &&
+            typeof window !== "undefined" &&
+            window.matchMedia?.("(orientation: portrait)")?.matches &&
+            (facingModeChoice === "environment" ||
+              facingModeChoice === "user")
+          ) {
+            const tmp = reqWidth;
+            reqWidth = reqHeight;
+            reqHeight = tmp;
+          }
+
           constraints.width = { ideal: reqWidth };
           constraints.height = { ideal: reqHeight };
 
@@ -20158,17 +20170,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Mirror the front camera for selfie framing. Desktop webcams are
         // conventionally mirrored too. Mobile rear camera stays unmirrored.
         const needsMirror = facingMode === "user" || (!iOS && !Android);
-        // Rotation direction for sensor→buffer orientation mismatch.
-        // Front cameras are mounted mirrored relative to rear cameras, so the
-        // rotation that lands the subject upright is opposite: front = +90° CW,
-        // rear = -90° CCW. Desktop webcams behave like front cameras.
-        // 🧪 URL override for camera rotation while we bisect the correct
-        // angle on device: ?camrot=0|cw|180|ccw (0 = no rotation). Also
-        // ?camforce=1 forces the rotation path even when dims say no.
-        let rotationAngle =
-          facingMode === "user" || (!iOS && !Android)
-            ? Math.PI / 2
-            : -Math.PI / 2;
+        // EXIF orientation 6 — the convention iPhone (and most Android
+        // devices) tag portrait camera captures with — means "rotate 90°
+        // CW for display". The raw landscape sensor buffer has the
+        // subject's "up" direction at column 0, and rotating +PI/2 CW
+        // brings column 0 to the top of the rendered frame.
+        // 🧪 URL override while we bisect on device:
+        //   ?camrot=0|cw|180|ccw   manually pick the angle
+        //   ?camforce=1            force rotation even when dims say no
+        let rotationAngle = Math.PI / 2;
         let forceRotation = false;
         if (typeof location !== "undefined" && location.search) {
           const camParams = new URLSearchParams(location.search);

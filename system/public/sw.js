@@ -1,15 +1,16 @@
 // Aesthetic Computer Service Worker
 // Caches JavaScript modules for faster subsequent loads
 
-const CACHE_NAME = 'ac-modules-v7'; // Bump to force fresh udp.mjs with robust respond() parsing (fixes arena:snap drops)
+const CACHE_NAME = 'ac-modules-v8'; // Bump: pull bios.mjs/disk.mjs out of the cache pipeline while we iterate on camera + telemetry
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms (dev-friendly)
 
-// Critical modules to precache on install
+// Critical modules to precache on install. NOTE: bios.mjs and lib/disk.mjs
+// are intentionally absent — they sit at the heart of the rotation/telemetry
+// loop and need to ship updates within seconds, not stale-while-revalidate
+// cycles. NEVER_CACHE below also bypasses runtime caching for them.
 const PRECACHE_MODULES = [
   '/aesthetic.computer/boot.mjs',
-  '/aesthetic.computer/bios.mjs',
   '/aesthetic.computer/lib/parse.mjs',
-  '/aesthetic.computer/lib/disk.mjs',
   '/aesthetic.computer/lib/graph.mjs',
   '/aesthetic.computer/lib/num.mjs',
   '/aesthetic.computer/lib/help.mjs',
@@ -44,6 +45,11 @@ const NEVER_CACHE = [
   /\/disks\/.*\.mjs$/, // User pieces should always be fresh
   /\?v=/, // Cache-busted URLs
   /localhost:8889/, // Session server
+  // 🚧 Pinned-to-network while iterating on camera rotation + piece-runs
+  // telemetry. Restore caching for these once the rotation default is
+  // locked in.
+  /\/aesthetic\.computer\/bios\.mjs$/,
+  /\/aesthetic\.computer\/lib\/disk\.mjs$/,
 ];
 
 self.addEventListener('install', (event) => {
