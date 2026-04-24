@@ -486,20 +486,24 @@ function paint({ wipe, ink, box, line, screen }) {
   const cols = 4;
   const rows = 6;
   const octaveGap = 2;
-  // colEdges span W exactly (last cell absorbs any horizontal
-  // rounding remainder).
+  const bezel = 2;      // visible bezel thickness
+  const gridInset = 3;  // bezel + 1px bg so cell-gap-to-bezel matches pad-gap-between (both 2px)
+  // colEdges span the inner area (inside bezel + 1px bg) exactly; last
+  // cell absorbs any horizontal rounding remainder.
+  const innerW = W - gridInset * 2;
+  const innerH = H - gridInset * 2;
   const colEdges = [];
-  for (let c = 0; c <= cols; c += 1) colEdges.push(floor((c * W) / cols));
+  for (let c = 0; c <= cols; c += 1) colEdges.push(gridInset + floor((c * innerW) / cols));
   // rowHeights distribute the available vertical space evenly and
   // absorb the leftover px into the first few rows so the grid ends
-  // flush with H — otherwise we'd leave a few dead pixels at the
-  // bottom edge. Octave gap is inserted between row 2 and row 3.
-  const avail = H - octaveGap;
+  // flush with (H - gridInset). Octave gap is inserted between row 2
+  // and row 3.
+  const avail = innerH - octaveGap;
   const rowBase = floor(avail / rows);
   const rowRem = avail - rowBase * rows;
   const rowHeights = [];
   for (let r = 0; r < rows; r += 1) rowHeights.push(rowBase + (r < rowRem ? 1 : 0));
-  const rowEdges = [0];
+  const rowEdges = [gridInset];
   for (let r = 0; r < rows; r += 1) {
     const gap = r === 3 ? octaveGap : 0;
     rowEdges.push(rowEdges[r] + rowHeights[r] + gap);
@@ -588,13 +592,13 @@ function paint({ wipe, ink, box, line, screen }) {
         const ph = max(1, b.h - gap * 2);
 
         ink(...fill).box(px, py, pw, ph, "fill");
-        // Pad border: darker shade of fill, or bright accent when held.
-        const borderColor = held && focused ? accent : [
-          floor(fill[0] * 0.5),
-          floor(fill[1] * 0.5),
-          floor(fill[2] * 0.5),
-        ];
-        ink(...borderColor).box(px, py, pw, ph, "outline");
+        // Held pads get a bright accent outline; resting pads are flat
+        // (the 2px bg gap between cells is the separator). Stacking an
+        // outline on every pad doubled up against the neighbor's gap
+        // and the device bezel, making edges read as "off by a pixel".
+        if (held && focused) {
+          ink(...accent).box(px, py, pw, ph, "outline");
+        }
 
         // Main label = keyboard key you actually press. Note name is
         // secondary — the QWERTY letter is what turns the pad into a
@@ -654,9 +658,12 @@ function paint({ wipe, ink, box, line, screen }) {
   // muted rose rather than a stark gray.
   if (focused) {
     const chrome = liveTrackColor || [150, 80, 110];
+    // Divider runs the full inner width (skipping the bezel columns so
+    // the horizontal & vertical chrome meet cleanly at the corners).
     const barY = rowEdges[3] - octaveGap;
-    ink(...chrome).box(0, barY, W, octaveGap, "fill");
-    for (let i = 0; i < 2; i += 1) {
+    ink(...chrome).box(bezel, barY, W - bezel * 2, octaveGap, "fill");
+    // 2px bezel as two concentric 1px outlines.
+    for (let i = 0; i < bezel; i += 1) {
       ink(...chrome).box(i, i, W - i * 2, H - i * 2, "outline");
     }
   }
