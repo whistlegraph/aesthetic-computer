@@ -1,7 +1,7 @@
 // Aesthetic Computer Service Worker
 // Caches JavaScript modules for faster subsequent loads
 
-const CACHE_NAME = 'ac-modules-v6'; // Bump to invalidate cached disk.mjs/bios.mjs after the piece-runs telemetry shape fix
+const CACHE_NAME = 'ac-modules-v7'; // Bump to force fresh udp.mjs with robust respond() parsing (fixes arena:snap drops)
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms (dev-friendly)
 
 // Critical modules to precache on install

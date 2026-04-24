@@ -114,7 +114,17 @@ function connect(port = 8889, url = undefined, send, explicitTurnHost = null) {
     }
 
     function respond(name, content) {
-      content = JSON.parse(content);
+      // Geckos auto-parses JSON envelopes: if the sender emitted an object,
+      // `content` already arrives as an object; if the sender emitted a
+      // pre-stringified payload (the pattern client→server uses), it arrives
+      // as a string that still needs parsing. Handle both.
+      if (typeof content === "string") {
+        try { content = JSON.parse(content); }
+        catch (err) {
+          console.warn(`🩰 UDP ${name}: JSON.parse failed`, err?.message);
+          return;
+        }
+      }
       if (logs.udp) console.log(`🩰 UDP Received:`, content);
       send({
         type: "udp:receive",

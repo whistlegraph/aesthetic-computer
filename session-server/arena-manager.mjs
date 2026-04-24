@@ -206,6 +206,11 @@ export class ArenaManager {
   receiveCmd(handle, frame) {
     const rec = this.players.get(handle);
     if (!rec) return;
+    if (!rec._firstCmdLogged) {
+      console.log(`🏟️  cmd:first handle=${handle} cmds=${(frame.cmds || []).length}`);
+      rec._firstCmdLogged = true;
+    }
+    rec._cmdRxCount = (rec._cmdRxCount || 0) + 1;
     rec.lastSeenMs = this.now();
 
     // Snap-ack: client tells us which snap they last saw.
@@ -282,6 +287,20 @@ export class ArenaManager {
     if (this.tick % TICK_RATE === 0) this.sweepStale(nowMs);
 
     if (this.tick % SNAP_EVERY === 0) this.broadcastSnapshots();
+
+    // Periodic rate log (every 5s at TICK_RATE=60).
+    if (this.tick % (TICK_RATE * 5) === 0 && this.players.size > 0) {
+      const rows = [];
+      for (const rec of this.players.values()) {
+        const cmdRx = rec._cmdRxCount || 0;
+        const snapTx = rec._snapTxCount || 0;
+        const transport = rec.udpChannelId != null ? "UDP" : "WS";
+        rows.push(`${rec.handle}(${transport} rx=${cmdRx} tx=${snapTx})`);
+        rec._cmdRxCount = 0;
+        rec._snapTxCount = 0;
+      }
+      console.log(`🏟️  stats[5s] ${rows.join(" ")}`);
+    }
   }
 
   sweepStale(nowMs) {
@@ -403,6 +422,7 @@ export class ArenaManager {
       if (!ok && rec.wsId != null && this.sendWS) {
         this.sendWS(rec.wsId, "arena:snap", snap);
       }
+      if (ok || rec.wsId != null) rec._snapTxCount = (rec._snapTxCount || 0) + 1;
     }
 
     // Probes: always WS, full snap, messageNum=0 (they don't ack).
