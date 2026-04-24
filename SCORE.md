@@ -295,6 +295,76 @@ ac-piece-logs-json --slug notepat | jq  # raw JSON for scripting
 
 The CLI ships with every `fish lith/deploy.fish`. If you add new telemetry, bump the payload in `disk.mjs` and the phase handler in `netlify/functions/piece-log.mjs`; no schema migration needed (MongoDB collection is schemaless).
 
+### Pulling Chat Messages (clock / system channels)
+
+Chat lives in MongoDB. Each channel is a separate collection:
+
+- `chat-system` — the main `chat` piece (`/chat`)
+- `chat-clock` — the `laer-klokken` / r8dio chat piece (connects via `client.connect("clock")` in [`disks/laer-klokken.mjs`](system/public/aesthetic.computer/disks/laer-klokken.mjs))
+
+**Public read endpoint:** [`/api/chat-messages`](system/netlify/functions/chat-messages.mjs) (GET, 2-min Redis cache):
+
+```fish
+# Latest 100 clock-channel messages as chronological JSON (oldest → newest)
+curl -s "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100" | jq
+
+# Just handle + text
+curl -s "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100" \
+  | jq -r '.messages[] | "\(.when)  \(.from)  |  \(.text)"'
+
+# Filter by sender or URL pattern (e.g. YouTube links from @prutti)
+curl -s "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100" \
+  | jq -r '.messages[]
+            | select((.from == "@prutti") or (.text | test("youtu\\.?be|youtube\\.com"; "i")))
+            | "\(.when)  \(.from)  |  \(.text)"'
+```
+
+Query params:
+- `instance` — `system` (default) or `clock`. Any other value hits `chat-system`.
+- `limit` — up to **100** (over 100 returns HTTP 400). Sort is `when` descending, then reversed to chronological before returning.
+
+Response shape: `{ instance, count, messages: [{ id, from, text, when, hearts }], nextBefore }`. `from` is resolved to `@handle` via the `@handles` collection, falling back to `"anon"` for unclaimed user ids. `hearts` joins the shared `hearts` collection (`type: "chat-<instance>"`). `nextBefore` is the oldest `when` in the page, ready to hand back as `before=` for the previous page.
+
+**Going back further than 100 messages** — pass `before=<ISO>` to walk back (or use `nextBefore` from the previous response):
+
+```fish
+# All @prutti YouTube links in the clock channel, paginating back
+cursor=""
+while true
+    set url "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100"
+    test -n "$cursor"; and set url "$url&before=$cursor"
+    set page (curl -s $url)
+    test (echo $page | jq '.count') -eq 0; and break
+    echo $page | jq -r '.messages[]
+      | select(.from == "@prutti" and (.text | test("youtu"; "i")))
+      | "\(.when)  \(.text)"'
+    set cursor (echo $page | jq -r '.nextBefore')
+end
+```
+
+Full docs and `curl`/JS/Python examples live at [`/api/chat-messages` on api.aesthetic.computer](https://api.aesthetic.computer) (served by [`system/netlify/functions/api-docs.mjs`](system/netlify/functions/api-docs.mjs)).
+
+If you ever need raw Mongo access (deleted messages, admin edits, heavier aggregations), go direct from lith:
+
+```fish
+# On lith (or any machine with backend creds loaded):
+ac-host                                          # pick lith
+# then in the ssh session:
+cd aesthetic.computer/system
+node -e '
+  import("./backend/database.mjs").then(async ({ connect }) => {
+    const { db, disconnect } = await connect();
+    const rows = await db.collection("chat-clock")
+      .find({ when: { $lt: new Date("2026-04-22T00:00:00Z") } })
+      .sort({ when: -1 }).limit(500).toArray();
+    console.log(JSON.stringify(rows, null, 2));
+    await disconnect();
+  });
+'
+```
+
+When adding `before` pagination, update the TODO at the top of [`chat-messages.mjs`](system/netlify/functions/chat-messages.mjs) and bump the cache key so stale entries don't mask the new param.
+
 ### Keeps Market Stats (Tezos / Objkt)
 
 Use this flow for live Keeps market checks (`jas.tez`, `keeps.tez`, contract-level stats).

@@ -1,12 +1,13 @@
 // chat-messages, 25.11.21.18.30
 // GET: Returns recent chat messages from a specific chat instance.
 //      Examples: "clock" for Laer-Klokken, "system" for main chat
-// Now with Redis caching (2 min TTL).
-
-/* #region 🏁 TODO 
-  - [] Add pagination support
-  - [] Add date range filtering
-#endregion */
+// Query params:
+//   instance  — "clock" or "system" (default: "system")
+//   limit     — max messages to return, up to 100 (default: 50)
+//   before    — ISO timestamp; return messages strictly older than this
+//               (use the oldest `when` from the previous page to paginate back)
+// Response is still chronological (oldest → newest) within each page.
+// Redis caching: 2 min TTL, keyed on (instance, limit, before).
 
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
@@ -31,13 +32,29 @@ export async function handler(event, context) {
       return respond(400, { message: "Limit cannot exceed 100" });
     }
 
-    // Cache key includes instance and limit
-    const cacheKey = `give:chat:${instance}:${limit}`;
+    // Optional `before` cursor for paginating further back in history.
+    // Accepts ISO timestamp; rejected if it doesn't parse.
+    let before = null;
+    if (params.before) {
+      const parsed = new Date(params.before);
+      if (isNaN(parsed.getTime())) {
+        return respond(400, {
+          message: "Invalid `before` timestamp; expected ISO 8601 (e.g. 2026-04-20T00:00:00Z)",
+        });
+      }
+      before = parsed;
+    }
+
+    // Cache key includes instance, limit, and pagination cursor
+    const cacheKey = `give:chat:${instance}:${limit}:${before ? before.toISOString() : "head"}`;
 
     const result = await getOrCompute(
       cacheKey,
       async () => {
-        shell.log(`📨 Fetching ${limit} messages for chat instance: ${instance}`);
+        shell.log(
+          `📨 Fetching ${limit} messages for chat instance: ${instance}` +
+            (before ? ` (before ${before.toISOString()})` : ""),
+        );
 
         const database = await connect();
 
@@ -48,8 +65,9 @@ export async function handler(event, context) {
         shell.log(`📂 Using collection: ${collectionName} for instance: ${instance}`);
 
         // Query for messages, sorted by timestamp descending
+        const filter = before ? { when: { $lt: before } } : {};
         const messages = await collection
-          .find({})
+          .find(filter)
           .sort({ when: -1 })
           .limit(limit)
           .toArray();
@@ -101,10 +119,20 @@ export async function handler(event, context) {
 
         shell.log(`✅ Found ${messagesWithHandles.length} messages for instance: ${instance}`);
 
+        // `nextBefore` is the oldest `when` in this page, ready to be passed
+        // back as the `before=` query to fetch the previous page.
+        const nextBefore =
+          messagesWithHandles.length > 0
+            ? (messagesWithHandles[0].when instanceof Date
+                ? messagesWithHandles[0].when.toISOString()
+                : new Date(messagesWithHandles[0].when).toISOString())
+            : null;
+
         return {
           instance,
           count: messagesWithHandles.length,
           messages: messagesWithHandles,
+          nextBefore,
         };
       },
       CACHE_TTLS.CHAT // 2 minutes

@@ -241,6 +241,115 @@ print(f"Listen at: https://aesthetic.computer/clock~{data['code']}")`,
       },
 
       {
+        name: "List Chat Messages",
+        method: "GET",
+        path: "/api/chat-messages",
+        description: "Read recent messages from a chat channel. `system` backs the main `/chat` piece; `clock` backs `laer-klokken` (r8Dio). Results are chronological (oldest → newest) within each page. Paginate further back with `before`.",
+        authentication: "None (public read)",
+        queryParameters: {
+          instance: {
+            type: "string",
+            enum: ["system", "clock"],
+            default: "system",
+            description: "Chat channel to read. `system` = main chat, `clock` = laer-klokken."
+          },
+          limit: {
+            type: "number",
+            default: 50,
+            max: 100,
+            description: "How many messages to return. Values over 100 return HTTP 400."
+          },
+          before: {
+            type: "string",
+            required: false,
+            description: "ISO-8601 timestamp. Returns messages strictly older than this — pass the `nextBefore` from the previous response to page back."
+          }
+        },
+        responseBody: {
+          schema: {
+            instance: { type: "string", description: "Echoes the queried channel." },
+            count: { type: "number", description: "Number of messages in this page." },
+            messages: {
+              type: "array",
+              description: "Chronological (oldest → newest).",
+              items: {
+                id: { type: "string", description: "Mongo ObjectId string." },
+                from: { type: "string", description: "`@handle` of the sender, or `anon` if unresolved." },
+                text: { type: "string", description: "Message body as posted." },
+                when: { type: "string", description: "ISO timestamp." },
+                hearts: { type: "number", description: "Heart-reaction count from the shared `hearts` collection." }
+              }
+            },
+            nextBefore: {
+              type: "string",
+              description: "ISO timestamp of the oldest message in this page — pass as `before=` to fetch the previous page. `null` when the page is empty."
+            }
+          }
+        },
+        examples: [
+          {
+            title: "Latest 50 messages from the main chat",
+            description: "Default channel is `system`.",
+            curl: `curl "https://aesthetic.computer/api/chat-messages"`,
+            javascript: `const res = await fetch("https://aesthetic.computer/api/chat-messages");
+const { messages } = await res.json();
+for (const m of messages) console.log(m.when, m.from, m.text);`,
+            python: `import requests
+
+data = requests.get("https://aesthetic.computer/api/chat-messages").json()
+for m in data["messages"]:
+    print(m["when"], m["from"], m["text"])`
+          },
+          {
+            title: "Latest 100 from the laer-klokken (clock) channel",
+            curl: `curl "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100"`,
+            javascript: `const res = await fetch(
+  "https://aesthetic.computer/api/chat-messages?instance=clock&limit=100"
+);
+const { messages, nextBefore } = await res.json();
+console.log(messages.length, "messages; older page cursor:", nextBefore);`
+          },
+          {
+            title: "Paginate back through older messages",
+            description: "Use `nextBefore` from each response to walk back in time.",
+            javascript: `async function* allClockMessages() {
+  let before;
+  while (true) {
+    const url = new URL("https://aesthetic.computer/api/chat-messages");
+    url.searchParams.set("instance", "clock");
+    url.searchParams.set("limit", "100");
+    if (before) url.searchParams.set("before", before);
+    const res = await fetch(url);
+    const page = await res.json();
+    if (page.count === 0) break;
+    yield page.messages;
+    before = page.nextBefore;
+  }
+}`,
+            python: `import requests
+
+def all_clock_messages():
+    before = None
+    while True:
+        params = {"instance": "clock", "limit": 100}
+        if before:
+            params["before"] = before
+        page = requests.get("https://aesthetic.computer/api/chat-messages",
+                            params=params).json()
+        if page["count"] == 0:
+            break
+        yield page["messages"]
+        before = page["nextBefore"]`
+          }
+        ],
+        notes: [
+          "Responses are cached in Redis for 2 minutes, keyed on (instance, limit, before).",
+          "`from` falls back to `anon` when a message's author has no resolved `@handle`.",
+          "`hearts` comes from the shared `hearts` collection (`type: chat-<instance>`)."
+        ]
+      },
+
+      {
         name: "Store JavaScript Piece",
         method: "POST",
         path: "/api/store-piece",
