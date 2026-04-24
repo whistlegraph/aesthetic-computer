@@ -1066,7 +1066,7 @@ function chunkBundleForM4D(html) {
 // octave, focus, ping from the daw bridge) pass through the final outlet to
 // the MIDI router. Everything else matches the hand-rolled notepat device.
 function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
-  const W = 140, H = 169;
+  const W = 120, H = 169;
   const liveUrl = "https://aesthetic.computer/" + pieceName + "?daw=1&nogap=1&density=1";
   const boxes = [
     { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: bootstrapDataUri } },

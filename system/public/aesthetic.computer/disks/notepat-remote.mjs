@@ -475,21 +475,17 @@ function paint({ wipe, ink, box, line, screen }) {
 
   wipe(...bgBase);
 
-  // ── Top bar: notepat-native BAR_BG strip across the full width ───────
-  // Keeps header chrome legible while the responsive backdrop still shows
-  // through the 1px gaps between pads below.
-  const topBarH = 22;
+  // ── Compact top strip: octave + transport only ───────────────────────
+  // Title removed — the downloaded filename + Live's device display
+  // already label what this is. Octave and transport are the live-
+  // updating bits worth keeping visible.
+  const topBarH = 12;
   if (focused) {
     ink(...BAR_BG).box(0, 0, W, topBarH, "fill");
     ink(...BAR_BORDER).line(0, topBarH, W - 1, topBarH);
   }
-
-  // ── Header row: piece name + transport state ─────────────────────────
   let y = 2;
-  ink(...fg).write("notepat.com", { x: 4, y });
-  // Transport indicator mirrors arena.mjs: UDP (green) > WS (yellow) >
-  // OFFLINE (red). UDP means net.udp is live (session geckos channel up);
-  // WS means the raw notepat:midi subscription socket is open.
+  ink(...dim).write(`o${baseOctave}`, { x: 3, y });
   const udpOk = !!netUdp?.connected;
   const wsOk = wsState === "open";
   const transport = udpOk && wsOk ? "UDP+WS"
@@ -503,35 +499,15 @@ function paint({ wipe, ink, box, line, screen }) {
     wsOk ? [230, 200, 80] :
     wsState === "connecting" ? [255, 200, 90] :
     [255, 100, 100];
-  ink(...transportColor).write(transport, { x: W - transport.length * 6 - 4, y });
-  y += 10;
+  ink(...transportColor).write(transport, { x: W - transport.length * 6 - 3, y });
 
-  // ── Status row: ACTIVE + octave + last note ──────────────────────────
-  if (focused) {
-    ink(...accent).box(4, y + 1, 6, 6, "fill");
-    ink(...fg).write("ACTIVE", { x: 14, y });
-  }
-  ink(...dim).write(`oct ${baseOctave}`, { x: 70, y });
-  if (lastNote) {
-    const noteFresh = sinceNote < 30;
-    const pn = pitchName(lastNote.pitch);
-    const noteColor = noteFresh ? accent : dim;
-    const srcTag =
-      lastNote.source === "relay" ? (lastNote.transport === "udp" ? "⚡" : "") + "@" + (lastNote.handle || "?") :
-      lastNote.source === "tap" ? "tap" : "kbd";
-    const label = `${lastNote.vel === 0 ? "v" : "^"} ${pn} ${srcTag}`;
-    ink(...noteColor).write(label, { x: W - label.length * 6 - 4, y });
-  }
-  y += 10;
-
-  // ── Button grid area: two 4×3 octave blocks side-by-side ─────────────
-  // Pads are always square — cell size is the min of width/cols and
-  // height/rows, so the grid stays piano-shaped no matter how narrow or
-  // tall the device is. Grid centers horizontally; extra vertical space
-  // falls below (kept for future readouts).
-  const gridTop = y + 1;
-  const cols = 8; // 4 pads × 2 octave blocks
-  const rows = 3;
+  // ── Button grid: 4 cols × 6 rows (stacked octaves) ───────────────────
+  // Base octave on top, +1 on bottom — keeps reading order low→high
+  // from top to bottom (matches the prior left→right layout, just
+  // rotated 90°). Pads remain square.
+  const gridTop = topBarH + 1;
+  const cols = 4;
+  const rows = 6; // 2 octave blocks × 3 rows each
   const cellSize = max(1, min(floor(W / cols), floor((H - gridTop) / rows)));
   const gridW = cellSize * cols;
   const gridLeft = floor((W - gridW) / 2);
@@ -551,11 +527,14 @@ function paint({ wipe, ink, box, line, screen }) {
         const key = row[colIdx];
         const offset = rowIdx * 4 + colIdx;
         const pitch = (baseOctave + 1 + octIdx) * 12 + offset;
-        const globalCol = octIdx * 4 + colIdx;
+        // Stacked layout: base octave on top (globalRow 0-2),
+        // +1 octave below (globalRow 3-5). 4 cols per row.
+        const globalCol = colIdx;
+        const globalRow = octIdx * 3 + rowIdx;
         const x0 = colEdges[globalCol];
         const x1 = colEdges[globalCol + 1];
-        const y0 = rowEdges[rowIdx];
-        const y1 = rowEdges[rowIdx + 1];
+        const y0 = rowEdges[globalRow];
+        const y1 = rowEdges[globalRow + 1];
         const b = { x: x0, y: y0, w: x1 - x0, h: y1 - y0, key, pitch };
         buttons.push(b);
 
