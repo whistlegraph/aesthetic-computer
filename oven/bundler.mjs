@@ -1096,6 +1096,13 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     { box: { id: "obj-live-observe-color", maxclass: "newobj", numinlets: 2, numoutlets: 3, outlettype: ["","",""], patching_rect: [10,600,220,22], text: "live.observer @property color" } },
     { box: { id: "obj-route-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 2, outlettype: ["",""], patching_rect: [10,630,120,22], text: "route color" } },
     { box: { id: "obj-sprintf-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,660,480,22], text: "sprintf executejavascript window.acSetLiveTrackColor(%ld)" } },
+    // ── Host-window focus detection ─────────────────────────────────
+    // [active] fires 1 when Live's window becomes the foreground window
+    // and 0 when it loses focus. The DOM-level blur/focus listeners
+    // inside jweb don't see Live's OS focus transitions, so we push the
+    // state in from Max via window.acSetLiveFocus(N).
+    { box: { id: "obj-active", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: ["int"], patching_rect: [10,700,60,22], text: "active" } },
+    { box: { id: "obj-sprintf-focus", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,730,440,22], text: "sprintf executejavascript window.acSetLiveFocus(%ld)" } },
     // MIDI routing (downstream of the unmatched outlet).
     { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,300,560,22], text: "route note channel notedown noteup octave focus ping" } },
     { box: { id: "obj-noteout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,450,60,22], text: "noteout" } },
@@ -1125,6 +1132,9 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     { patchline: { source: ["obj-live-observe-color", 0], destination: ["obj-route-track-color", 0] } },
     { patchline: { source: ["obj-route-track-color", 0], destination: ["obj-sprintf-track-color", 0] } },
     { patchline: { source: ["obj-sprintf-track-color", 0], destination: ["obj-jweb", 0] } },
+    // Host-window focus chain: [active] → sprintf → jweb:
+    { patchline: { source: ["obj-active", 0], destination: ["obj-sprintf-focus", 0] } },
+    { patchline: { source: ["obj-sprintf-focus", 0], destination: ["obj-jweb", 0] } },
     { patchline: { source: ["obj-route", 0], destination: ["obj-noteout", 0] } },
     { patchline: { source: ["obj-route", 1], destination: ["obj-noteout", 1] } },
     { patchline: { source: ["obj-route", 2], destination: ["obj-pack-on", 0] } },

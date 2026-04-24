@@ -213,24 +213,28 @@ function boot({ wipe, cursor, hud, send, net }) {
 
   // ── Focus detection ────────────────────────────────────────────────
   // jweb inside Max for Live doesn't always surface DOM blur/focus as AC
-  // events. Hook the native listeners ourselves so the red-X unfocused
-  // overlay actually tracks "can my keyboard drive this right now?".
+  // events. We listen on four paths: (1) AC act() events, (2) native
+  // window blur/focus, (3) document visibilitychange, (4) Max [active]
+  // object pushing via window.acSetLiveFocus. Each transition logs its
+  // source so the Max Console shows which hook actually catches it.
   if (typeof window !== "undefined") {
-    const setFocus = (f) => {
+    const setFocus = (f, source) => {
       if (focused !== f) {
         focused = f;
         focusedChangedFrame = frame;
         if (!f) heldKeys.clear();
+        try { console.log(`[focus] ${source} → ${f ? "ACTIVE" : "inactive"}`); } catch {}
       }
     };
     try {
-      window.addEventListener("blur", () => setFocus(false));
-      window.addEventListener("focus", () => setFocus(true));
-      document.addEventListener?.("visibilitychange", () => setFocus(!document.hidden));
+      window.addEventListener("blur", () => setFocus(false, "window.blur"));
+      window.addEventListener("focus", () => setFocus(true, "window.focus"));
+      document.addEventListener?.("visibilitychange", () =>
+        setFocus(!document.hidden, "document.visibilitychange"));
     } catch {}
     // Max side pushes focus + theme state via these globals. Defining
     // them unconditionally lets the patcher call them whenever it likes.
-    window.acSetLiveFocus = (f) => setFocus(!!f);
+    window.acSetLiveFocus = (f) => setFocus(!!f, "max.active");
     window.acSetLiveTrackColor = (colorInt) => {
       const n = Number(colorInt) >>> 0;
       if (!Number.isFinite(n)) return;
@@ -282,6 +286,7 @@ function sim() {
         focused = hf;
         focusedChangedFrame = frame;
         if (!hf) heldKeys.clear();
+        try { console.log(`[focus] document.hasFocus() → ${hf ? "ACTIVE" : "inactive"}`); } catch {}
       }
     }
   }
@@ -318,14 +323,20 @@ function act({ event: e }) {
 
   // Focus/blur signals from AC (if AC forwards them; harmless if it doesn't).
   if (e.is("focus")) {
-    focused = true;
-    focusedChangedFrame = frame;
+    if (!focused) {
+      focused = true;
+      focusedChangedFrame = frame;
+      try { console.log("[focus] ac-event:focus → ACTIVE"); } catch {}
+    }
     return;
   }
   if (e.is("blur")) {
-    focused = false;
-    focusedChangedFrame = frame;
-    heldKeys.clear();
+    if (focused) {
+      focused = false;
+      focusedChangedFrame = frame;
+      heldKeys.clear();
+      try { console.log("[focus] ac-event:blur → inactive"); } catch {}
+    }
     return;
   }
 
