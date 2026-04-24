@@ -1831,19 +1831,17 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   paintRemotes(ink, undefined, FormRef);
 
   // --- HUD (top-right) ---
-  // Sections stack vertically without overlap:
-  //   0–1  GFX   (FPS, MS)
-  //   2–3  CAM   (FOV, RUN)
-  //   4–5  STATE (POSE, POV)        ← only when phys is available
-  //   6    SPEED (u/s)
-  //   7–9  PERF  (mode, gfx, flip)
-  //   10–13 NET  (status, rx/tx, peers, spectate)
+  // Layout, top to bottom:
+  //   1. minimap (square showing live player positions)
+  //   2. plain-English status: who, where, how the connection is doing
+  //   3. local-perf info (fps + quality tier) at the bottom
   const font = "MatrixChunky8";
   const margin = 4;
   const lineH = 10;
   const rX = screen.width - margin; // right edge
   const dim = [140, 140, 150];      // shared label color
-  const rightLabel = (txt, y) => {
+  const rightLabel = (txt, y, color) => {
+    if (color) (Array.isArray(color) ? ink(...color) : ink(color));
     write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);
   };
   // Right-align a row built from [color, text] segments so labels and values
@@ -1859,93 +1857,131 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     }
   };
 
-  // GFX — FPS + frame time.
-  const fpsColor = fps >= 30 ? "lime" : fps >= 15 ? "yellow" : "red";
-  rightLabelMulti([[dim, "FPS "], [fpsColor, `${fps}`]], margin);
-  rightLabelMulti([[dim, "MS "], [[200, 200, 200], avgDt.toFixed(1)]], margin + lineH);
-
-  // CAM — FOV + run speed.
-  const cam = [150, 200, 255];
-  rightLabelMulti([[dim, "FOV "], [cam, `${FOV}`]], margin + lineH * 2);
-  rightLabelMulti([[dim, "RUN "], [cam, `${RUN_SPEED.toFixed(1)}u/s`]], margin + lineH * 3);
-
-  // STATE — pose + POV (only when phys snapshot is available).
-  if (phys) {
-    const airborne = !phys.onGround;
-    const crouching = phys.crouch > 0.5;
-    const poseTxt = airborne ? "AIR" : crouching ? "CROUCH" : "GROUND";
-    const poseClr = airborne ? "yellow" : crouching ? "orange" : "lime";
-    rightLabelMulti([[dim, "POSE "], [poseClr, poseTxt]], margin + lineH * 4);
-
-    const povTxt = phys.thirdPerson ? `3P x${ZOOM_DISTANCES[zoomLevel]}` : "1P";
-    const povClr = phys.thirdPerson ? "magenta" : "cyan";
-    rightLabelMulti([[dim, "POV "], [povClr, povTxt]], margin + lineH * 5);
-  }
-
-  // SPEED — colored by how close to max (kept on its own row).
-  const upsNow = speedSmoothed * SIM_HZ;
-  const barMaxUPSNow = RUN_SPEED * 1.2;
-  const fillNow = Math.min(1, upsNow / barMaxUPSNow);
-  const spR = fillNow > 0.5 ? Math.floor(255 * ((fillNow - 0.5) * 2)) : 0;
-  const spG = fillNow < 0.5 ? 255 : Math.floor(255 * (1 - (fillNow - 0.5) * 2));
-  rightLabelMulti([[dim, "SPD "], [[spR, spG, 50], `${upsNow.toFixed(1)}u/s`]], margin + lineH * 6);
-
-  // PERF — adaptive-quality tier, what it disabled, and the hover-flip mode.
+  // 1. Minimap — top-right, shows arena floor + everyone's position.
+  const mapSize = 64;
+  const mapX = rX - mapSize;
+  const mapY = margin;
+  ink(20, 22, 28, 200).box(mapX, mapY, mapSize, mapSize);
+  ink(80, 82, 96).box(mapX, mapY, mapSize, 1);
+  ink(80, 82, 96).box(mapX, mapY + mapSize - 1, mapSize, 1);
+  ink(80, 82, 96).box(mapX, mapY, 1, mapSize);
+  ink(80, 82, 96).box(mapX + mapSize - 1, mapY, 1, mapSize);
   {
-    const tier = perfLowMode ? "LOW" : perfMedMode ? "MED" : "HIGH";
-    const tierClr = perfLowMode ? "red" : perfMedMode ? "orange" : "lime";
-    const fresh = perfSamplesSinceSwitch < 6;
-    rightLabelMulti([[dim, "PERF "], [fresh ? "white" : tierClr, tier]], margin + lineH * 7);
-
-    // GFX disabled-by-tier breakdown — each toggle gets its own tint.
-    if (perfLowMode) {
-      rightLabelMulti(
-        [[dim, "GFX "], ["red", "-BODY "], ["orange", "-ANIM"]],
-        margin + lineH * 8,
-      );
-    } else if (perfMedMode) {
-      rightLabelMulti(
-        [[dim, "GFX "], [[255, 140, 80], "-LAVA "], ["orange", "-ANIM"]],
-        margin + lineH * 8,
-      );
-    } else {
-      rightLabelMulti([[dim, "GFX "], ["lime", "FULL"]], margin + lineH * 8);
+    const { xMin, xMax, zMin, zMax } = ARENA_CFG.groundBounds;
+    const wWorld = xMax - xMin;
+    const hWorld = zMax - zMin;
+    const inner = mapSize - 4;
+    const sx = inner / wWorld;
+    const sz = inner / hWorld;
+    const ox = mapX + 2;
+    const oy = mapY + 2;
+    const project = (wx, wz) => ({
+      px: Math.round(ox + (wx - xMin) * sx),
+      py: Math.round(oy + (wz - zMin) * sz),
+    });
+    // Remote players (interpolated like the 3D bodies).
+    const tNow = renderTimeNow();
+    for (const [handle, o] of Object.entries(others)) {
+      const s = sampleOther(o, tNow);
+      if (!s) continue;
+      const { px, py } = project(s.x, s.z);
+      const [r, g, b] = handleColor(handle);
+      ink(r, g, b).box(px - 1, py - 1, 3, 3);
     }
-
-    const flipNames = ["NONE", "X", "Z", "XZ"];
-    const flipClr = hoverFlipMode === 0 ? [130, 130, 130] : [255, 200, 80];
-    rightLabelMulti([[dim, "FLIP "], [flipClr, flipNames[hoverFlipMode]]], margin + lineH * 9);
+    // Self — bigger white dot with a yaw notch.
+    const camRef = system?.fps?.doll?.cam;
+    if (camRef) {
+      const myX = -camRef.x;
+      const myZ = -camRef.z;
+      const { px, py } = project(myX, myZ);
+      ink(255, 255, 255).box(px - 2, py - 2, 5, 5);
+      const yawR = camRef.rotY * Math.PI / 180;
+      const tipX = px + Math.round(Math.sin(yawR) * 6);
+      const tipY = py + Math.round(Math.cos(yawR) * 6);
+      ink(255, 220, 60).box(tipX - 1, tipY - 1, 2, 2);
+    }
   }
 
-  // NET — transport, ping, snap rx, cmd tx, peer count. Below the perf block.
+  // 2. Plain-English status — what an average reader actually wants.
+  let lineY = margin + mapSize + 4;
+  const advance = () => { lineY += lineH; };
+
+  // Players: count + your handle.
+  const peers = Object.keys(others).length;
+  const total = peers + (netSpectator ? 0 : 1);
+  rightLabelMulti(
+    [[dim, "players "], [peers > 0 ? [180, 230, 180] : [200, 200, 200], `${total}`]],
+    lineY,
+  );
+  advance();
+
+  // Connection: transport + how stale snaps are + lag.
   {
     const wsOk = !!netServer;
     const udpOk = !!netUdp?.connected;
     const nowMs = Date.now();
     const snapAgeMs = netStats.lastSnapMs ? nowMs - netStats.lastSnapMs : Infinity;
-    const transport = udpOk ? "UDP" : wsOk ? "WS" : "--";
-    const transportClr = !wsOk ? [200, 80, 80]
-                       : udpOk ? (snapAgeMs < 500 ? [120, 230, 120] : [230, 200, 80])
-                       : [200, 180, 80];
-    const pingClr = ping < 80 ? [180, 230, 180]
-                  : ping < 200 ? [230, 220, 120]
-                  : [230, 140, 120];
-    rightLabelMulti(
-      [[dim, "NET "], [transportClr, transport], [dim, " "], [pingClr, `${ping}ms`]],
-      margin + lineH * 10,
-    );
-    rightLabelMulti(
-      [[dim, "RX "], [[160, 200, 230], `${netStats.snapsRx}`],
-       [dim, "  TX "], [[200, 180, 230], `${netStats.cmdsTx}`]],
-      margin + lineH * 11,
-    );
-    const peers = Object.keys(others).length;
-    const peersClr = peers > 0 ? [180, 230, 180] : [130, 130, 130];
-    rightLabelMulti([[dim, "PEERS "], [peersClr, `${peers}`]], margin + lineH * 12);
-    if (netSpectator) {
-      ink(255, 180, 60);
-      rightLabel(`SPECTATE`, margin + lineH * 13);
+    let label, color;
+    if (!wsOk) { label = "offline"; color = [220, 90, 90]; }
+    else if (snapAgeMs < 500) { label = udpOk ? "live" : "live (slow)"; color = [120, 230, 120]; }
+    else if (snapAgeMs < 2000) { label = "lagging"; color = [230, 200, 80]; }
+    else { label = "stalled"; color = [230, 140, 90]; }
+    rightLabelMulti([[dim, "online "], [color, label]], lineY);
+    advance();
+    if (wsOk) {
+      const lagClr = ping < 80 ? [180, 230, 180]
+                   : ping < 200 ? [230, 220, 120]
+                   : [230, 140, 120];
+      rightLabelMulti([[dim, "lag "], [lagClr, `${ping}ms`]], lineY);
+      advance();
     }
+  }
+
+  // Live state from physics: stance + camera mode + speed.
+  if (phys) {
+    const stance = !phys.onGround ? "jumping"
+                 : phys.crouch > 0.5 ? "crouched"
+                 : "standing";
+    const stanceClr = !phys.onGround ? [240, 220, 100]
+                    : phys.crouch > 0.5 ? [240, 170, 90]
+                    : [180, 230, 180];
+    rightLabelMulti([[dim, "stance "], [stanceClr, stance]], lineY);
+    advance();
+
+    const view = phys.thirdPerson ? `3rd · x${ZOOM_DISTANCES[zoomLevel]}` : "1st";
+    const viewClr = phys.thirdPerson ? [220, 160, 240] : [120, 220, 230];
+    rightLabelMulti([[dim, "view "], [viewClr, view]], lineY);
+    advance();
+  }
+
+  {
+    const upsNow = speedSmoothed * SIM_HZ;
+    const barMaxUPSNow = RUN_SPEED * 1.2;
+    const fillNow = Math.min(1, upsNow / barMaxUPSNow);
+    const spR = fillNow > 0.5 ? Math.floor(255 * ((fillNow - 0.5) * 2)) : 0;
+    const spG = fillNow < 0.5 ? 255 : Math.floor(255 * (1 - (fillNow - 0.5) * 2));
+    rightLabelMulti([[dim, "speed "], [[spR, spG, 50], `${upsNow.toFixed(1)}`]], lineY);
+    advance();
+  }
+
+  if (netSpectator) {
+    rightLabel("watching", lineY, [255, 200, 80]);
+    advance();
+  }
+
+  // 3. Quiet local-perf info at the bottom of the column.
+  lineY += 4;
+  const fpsColor = fps >= 30 ? [180, 230, 180]
+                 : fps >= 15 ? [230, 220, 120]
+                 : [230, 140, 120];
+  rightLabelMulti([[dim, "fps "], [fpsColor, `${fps}`]], lineY);
+  advance();
+  {
+    const tier = perfLowMode ? "low" : perfMedMode ? "medium" : "high";
+    const tierClr = perfLowMode ? [220, 130, 130]
+                  : perfMedMode ? [230, 200, 120]
+                  : [180, 220, 180];
+    rightLabelMulti([[dim, "quality "], [tierClr, tier]], lineY);
   }
 
   // 🪑 Full-width spectator overlay (only renders when we were kicked from
