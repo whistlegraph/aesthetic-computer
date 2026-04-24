@@ -930,7 +930,7 @@ function generateNotepatM4DPatcher(pieceName, dataUri) {
       devicewidth: W,
       description: `Aesthetic Computer ${pieceName} (offline) — packed notepat + local hotkey input. BIOS in jweb~ owns keyboard + octave state and emits pitches via window.max.outlet (notedown/noteup).`,
       boxes: [
-        { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: dataUri } },
+        { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W+1,H+1], rendermode: 1, url: dataUri } },
         { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,250,560,22], text: "route note channel notedown noteup octave focus ping" } },
         { box: { id: "obj-noteout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,400,60,22], text: "noteout" } },
         { box: { id: "obj-pack-on", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["list"], patching_rect: [10,360,90,22], text: "pack 0 100" } },
@@ -1068,8 +1068,12 @@ function chunkBundleForM4D(html) {
 function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
   const W = 150, H = 169;
   const liveUrl = "https://aesthetic.computer/" + pieceName + "?daw=1&nogap=1&density=1";
+  // presentation_rect gets a +1 on each axis so jweb content bleeds
+  // 1px past the visible device rect — this is the well-known Max
+  // quirk fix (same as the generic instrument patcher) for hiding
+  // the 1px chrome seam that otherwise shows up on the right/bottom.
   const boxes = [
-    { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: bootstrapDataUri } },
+    { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W+1,H+1], rendermode: 1, url: bootstrapDataUri } },
     // Split jweb outlet 2 first by handshake/log symbols, then pass anything
     // else to the MIDI router. `route` has (N matched + 1 unmatched) outlets.
     // `goonline` means the bootstrap's network probe succeeded — swap
