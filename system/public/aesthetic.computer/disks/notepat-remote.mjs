@@ -474,37 +474,27 @@ function paint({ wipe, ink, box, line, screen }) {
 
   wipe(...bgBase);
 
-  // ── Compact top strip: octave + transport only ───────────────────────
-  // Title removed — the downloaded filename + Live's device display
-  // already label what this is. Octave and transport are the live-
-  // updating bits worth keeping visible.
-  const topBarH = 12;
-  if (focused) {
-    ink(...BAR_BG).box(0, 0, W, topBarH, "fill");
-    ink(...BAR_BORDER).line(0, topBarH, W - 1, topBarH);
-  }
-  let y = 2;
-  ink(...dim).write(`o${baseOctave}`, { x: 3, y });
+  // ── Implicit status cues (no text bar) ────────────────────────────
+  // Top bar removed — transport and octave were taking pixels that the
+  // pads could use. We encode them as tiny visual cues in the empty
+  // side strips instead:
+  //   • top-left corner dot = transport state (green/yellow/red/…)
+  //   • right-edge vertical dot ladder = current octave (1..9)
   const udpOk = !!netUdp?.connected;
   const wsOk = wsState === "open";
-  const transport = udpOk && wsOk ? "UDP+WS"
-                  : udpOk ? "UDP"
-                  : wsOk ? "WS"
-                  : wsState === "connecting" ? "..."
-                  : "OFFLINE";
   const transportColor =
-    !focused ? dim :
-    udpOk ? [120, 220, 140] :
+    !focused ? [110, 110, 120] :
+    udpOk && wsOk ? [120, 220, 140] :
+    udpOk ? [120, 200, 180] :
     wsOk ? [230, 200, 80] :
     wsState === "connecting" ? [255, 200, 90] :
     [255, 100, 100];
-  ink(...transportColor).write(transport, { x: W - transport.length * 6 - 3, y });
 
   // ── Button grid: 4 cols × 6 rows (stacked octaves) ───────────────────
   // Base octave on top, +1 on bottom — keeps reading order low→high
   // from top to bottom (matches the prior left→right layout, just
   // rotated 90°). Pads remain square.
-  const gridTop = topBarH + 1;
+  const gridTop = 0;
   const cols = 4;
   const rows = 6; // 2 octave blocks × 3 rows each
   const cellSize = max(1, min(floor(W / cols), floor((H - gridTop) / rows)));
@@ -656,6 +646,26 @@ function paint({ wipe, ink, box, line, screen }) {
           );
         }
       }
+    }
+  }
+
+  // ── Transport dot (top-left of the device) ───────────────────────
+  if (focused) {
+    ink(...transportColor).box(2, 2, 3, 3, "fill");
+  }
+
+  // ── Octave ladder (right-edge vertical dots 1..9) ────────────────
+  // One dot per octave; the current octave is bright and 3px wide,
+  // others are dim single pixels. Vertically centered in the device.
+  if (focused) {
+    const ladderH = 9 * 3 - 1; // 9 dots × 2 px + 1 px gaps
+    const ladderTop = floor((H - ladderH) / 2);
+    for (let oct = 1; oct <= 9; oct += 1) {
+      const dotY = ladderTop + (oct - 1) * 3;
+      const active = oct === baseOctave;
+      const dotColor = active ? (lastNoteColor || focusedFg) : [70, 70, 80];
+      const dotW = active ? 3 : 2;
+      ink(...dotColor).box(W - dotW - 1, dotY, dotW, 2, "fill");
     }
   }
 
