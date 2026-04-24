@@ -47,6 +47,18 @@ const MAX_DURATION = 30; // Server limit for tapes
 let micConnected = false; // Track if mic is actually connected
 let pendingRecordStart = false; // Track if user wants to record but mic isn't ready
 
+// 🔍 Slide-up-to-zoom (while holding record).
+// `zoom` scales the camera frame around the screen center. 1 = no zoom.
+// `zoomStartY` is the Y position of the touch that began recording.
+// `zoomMax` caps how far the user can zoom in via slide.
+// `zoomSensitivity` is the screen-pixels-per-zoom-unit: at 240 px/unit
+// a comfy thumb slide of half a phone height (~400px) gives ~1.7x zoom.
+let zoom = 1;
+let zoomStartY = null;
+const zoomMax = 4;
+const zoomMin = 1;
+const zoomSensitivity = 240;
+
 // 🥾 Boot
 function boot({ ui, params, colon, system, rec, notice }) {
   // Parse parameters
@@ -112,12 +124,17 @@ function paint({
     });
   }
 
-  // Paste the video centered on screen
+  // Paste the video centered on screen, scaled by the current zoom factor.
+  // paste(frame, x, y, scale) draws the frame upscaled by `scale`; we
+  // recenter so the camera image stays anchored to the screen center as
+  // the user slides up to zoom in. Off-screen pixels clip naturally.
   if (frame) {
-    const offsetX = floor((screen.width - frame.width) / 2);
-    const offsetY = floor((screen.height - frame.height) / 2);
+    const drawW = frame.width * zoom;
+    const drawH = frame.height * zoom;
+    const offsetX = floor((screen.width - drawW) / 2);
+    const offsetY = floor((screen.height - drawH) / 2);
     wipe(0); // Clear first
-    paste(frame, offsetX, offsetY);
+    paste(frame, offsetX, offsetY, zoom);
   }
 
   // 🎬 Draw UI elements to a recording UI overlay (NOT captured in tape).
@@ -185,11 +202,31 @@ function paint({
         center: "x",
       });
     } else {
-      $.ink(255, 80, 80, 220).write("● recording — release to stop", {
+      const zoomedIn = zoom > 1.02;
+      const label = zoomedIn
+        ? `● rec ${zoom.toFixed(1)}× — release to stop`
+        : "● recording — slide up to zoom, release to stop";
+      $.ink(255, 80, 80, 220).write(label, {
         x: centerX,
         y: bottomY,
         center: "x",
       });
+
+      // Zoom bar on the right edge: fills upward as zoom increases,
+      // gives a tactile sense of the slide gesture without obscuring
+      // the camera frame.
+      const barH = floor(screen.height * 0.4);
+      const barX = screen.width - 6;
+      const barY = floor(screen.height / 2 - barH / 2);
+      $.ink(255, 255, 255, 40).box(barX, barY, 2, barH);
+      const fillRatio = (zoom - zoomMin) / (zoomMax - zoomMin);
+      const fillH = floor(barH * fillRatio);
+      $.ink(255, 80, 80, 220).box(
+        barX,
+        barY + (barH - fillH),
+        2,
+        fillH,
+      );
     }
 
     // Recording border indicator
@@ -336,8 +373,21 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
     const onSwapBtn = swapBtn?.btn?.box?.contains(e);
     const onHud = hud?.currentLabel()?.btn?.down;
     if (!onSwapBtn && !onHud && !isRecording && !pendingRecordStart) {
+      // Anchor zoom slider at the touch-down Y so the very first drag
+      // pixel is treated as zoom = 1, no jumps.
+      zoomStartY = e.y;
       startRecording(rec, sound, notice);
     }
+  }
+
+  // 🔍 Slide up while holding to zoom in, slide back down to zoom out.
+  // We anchor zoomStartY at the original touch and remap the absolute
+  // Y delta each draw event — this means the user can swing freely
+  // up and down without accumulating drift across pauses.
+  if (e.is("draw") && isRecording && zoomStartY !== null) {
+    const dy = zoomStartY - e.y; // up is positive
+    const target = 1 + dy / zoomSensitivity;
+    zoom = Math.max(zoomMin, Math.min(zoomMax, target));
   }
 
   if (e.is("lift") && !leaving()) {
@@ -348,6 +398,8 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
       pendingRecordStart = false;
       notice("CANCELLED", ["yellow", "black"]);
     }
+    zoomStartY = null;
+    zoom = 1;
   }
 
   // Keyboard shortcut: space toggles record (useful for desktop testing).

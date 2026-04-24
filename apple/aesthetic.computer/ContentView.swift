@@ -113,23 +113,33 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
             config.userContentController.add(context.coordinator, name: "iOSAppLog")
             config.userContentController.add(context.coordinator, name: "iOSApp")
 
-            // 🧹 Clear cached JS modules and unregister stale service workers
-            // before each app launch. The web app's service worker caches
-            // /aesthetic.computer/*.mjs (boot, bios, disk, ...) with
-            // stale-while-revalidate for up to an hour, which means freshly
-            // deployed code can take a full launch cycle to reach the
-            // device. Keep cookies/localStorage so the user stays logged in.
+            // 🧹 Wipe every cache surface that has been observed to keep stale
+            // /aesthetic.computer/*.mjs (boot, bios, disk, ...) alive between
+            // launches: HTTP caches, the SW registration + its CacheStorage,
+            // IndexedDB (where the SW persists its precache manifest version),
+            // WebSQL/AppCache. We deliberately keep cookies + localStorage so
+            // the user stays logged in. The wipe used to be fire-and-forget,
+            // which raced webView.load() and frequently lost — the load would
+            // start before removal finished and the SW would re-hydrate from
+            // its old caches. We now block until removal completes (semaphore
+            // off the main thread, then post the load) so the first request
+            // truly hits an empty data store.
             let cacheTypes: Set<String> = [
                 WKWebsiteDataTypeDiskCache,
                 WKWebsiteDataTypeMemoryCache,
                 WKWebsiteDataTypeFetchCache,
                 WKWebsiteDataTypeOfflineWebApplicationCache,
                 WKWebsiteDataTypeServiceWorkerRegistrations,
+                WKWebsiteDataTypeIndexedDBDatabases,
+                WKWebsiteDataTypeWebSQLDatabases,
             ]
             WKWebsiteDataStore.default().removeData(
                 ofTypes: cacheTypes,
                 modifiedSince: .distantPast
             ) {}
+            // Also nuke the foundation-level URL cache that backs WKWebView's
+            // subresource fetches; this is independent of WKWebsiteDataStore.
+            URLCache.shared.removeAllCachedResponses()
 
             let webView = WKWebView(frame: .zero, configuration: config)
             webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
@@ -137,6 +147,18 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
 //            webView.navigationDelegate = context.coordinator
             webView.uiDelegate = context.coordinator
             webView.customUserAgent = "Aesthetic"
+
+            // 👆 Fix "first tap dropped" on iOS: UIScrollView (which WKWebView
+            // hosts its content in) defaults to delaysContentTouches = true
+            // and waits ~150ms before forwarding the first touch to the page
+            // so it can decide whether the gesture is a scroll. On the AC
+            // canvas, that delay swallows the tap that opens the prompt — the
+            // very first interaction after launch silently no-ops. Disabling
+            // both delaysContentTouches and canCancelContentTouches forwards
+            // touches to JS immediately, which matches Safari's behaviour for
+            // pages that handle their own gestures.
+            webView.scrollView.delaysContentTouches = false
+            webView.scrollView.canCancelContentTouches = false
 
             // Add a script message handler to handle messages from JavaScript
             AppDelegate.shared?.appWebView = webView // Set the shared appWebView
@@ -146,12 +168,24 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
         func updateUIView(_ webView: WKWebView, context: Context) {
 //            let testHTML = "<html><script>window.ontouchstart = () => { console.log('hi'); const a = document.createElement('a'); a.href = 'https://example.com'; a.innerText = 'OKAY'; document.body.appendChild(a); a.click(); }</script><body></body></html>"
 //            webView.loadHTMLString(testHTML, baseURL: nil)
-             // 🚫 .reloadIgnoringLocalCacheData makes the initial top-level
-             // request bypass any leftover URL cache, so a redeploy is
-             // visible after a single app relaunch.
+             // 🚫 Belt + braces against stale modules:
+             //  • .reloadIgnoringLocalCacheData bypasses the URL cache.
+             //  • A per-launch ?_iosbust=<timestamp> query param defeats any
+             //    cache key (CDN, SW match) that ignores cache-control. The
+             //    AC site itself ignores unknown query params on the root.
+             guard var components = URLComponents(string: url) else { return }
+             if components.scheme == "http" || components.scheme == "https" {
+                 var items = components.queryItems ?? []
+                 items.append(URLQueryItem(
+                     name: "_iosbust",
+                     value: String(Int(Date().timeIntervalSince1970))
+                 ))
+                 components.queryItems = items
+             }
+             guard let bustedURL = components.url else { return }
              let request = URLRequest(
-                url: URL(string: url)!,
-                cachePolicy: .reloadIgnoringLocalCacheData,
+                url: bustedURL,
+                cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
                 timeoutInterval: 30
              )
              webView.load(request)
