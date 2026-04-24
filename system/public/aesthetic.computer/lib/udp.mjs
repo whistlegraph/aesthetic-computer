@@ -136,6 +136,16 @@ function connect(port = 8889, url = undefined, send, explicitTurnHost = null) {
     channel.on("1v1:move", (content) => {
       respond("1v1:move", content);
     });
+
+    // 🏟️ Arena snapshots (server-authoritative broadcast at 30Hz)
+    channel.on("arena:snap", (content) => {
+      respond("arena:snap", content);
+    });
+
+    // 🎾 Squash position updates (peer-relayed)
+    channel.on("squash:move", (content) => {
+      respond("squash:move", content);
+    });
   });
 
   channel.onDisconnect((error) => {
