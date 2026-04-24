@@ -101,6 +101,13 @@ let frame = 0;
 // most recent note (darkened) and decays back to idle when nothing is held.
 const bgColor = [4, 2, 6];
 
+// Live track color, pushed in by the Max patcher via
+// `window.acSetLiveTrackColor(int)` once `live.observer` resolves the
+// device's parent track. Null until that lands; paint falls back to the
+// rainbow/ambient scheme when it's null so this stays optional.
+let liveTrackColor = null;
+let lastFocusPollFrame = -9999;
+
 // Button grid layout (recomputed on each paint in case screen size changes).
 let buttons = [];
 
@@ -204,6 +211,37 @@ function boot({ wipe, cursor, hud, send, net }) {
   hud?.label?.("");
   _send = send;
   connectWs();
+
+  // ── Focus detection ────────────────────────────────────────────────
+  // jweb inside Max for Live doesn't always surface DOM blur/focus as AC
+  // events. Hook the native listeners ourselves so the red-X unfocused
+  // overlay actually tracks "can my keyboard drive this right now?".
+  if (typeof window !== "undefined") {
+    const setFocus = (f) => {
+      if (focused !== f) {
+        focused = f;
+        focusedChangedFrame = frame;
+        if (!f) heldKeys.clear();
+      }
+    };
+    try {
+      window.addEventListener("blur", () => setFocus(false));
+      window.addEventListener("focus", () => setFocus(true));
+      document.addEventListener?.("visibilitychange", () => setFocus(!document.hidden));
+    } catch {}
+    // Max side pushes focus + theme state via these globals. Defining
+    // them unconditionally lets the patcher call them whenever it likes.
+    window.acSetLiveFocus = (f) => setFocus(!!f);
+    window.acSetLiveTrackColor = (colorInt) => {
+      const n = Number(colorInt) >>> 0;
+      if (!Number.isFinite(n)) return;
+      liveTrackColor = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    // Pull the current track color now — the Max patcher's
+    // `live.observer` fires once on device load (before this boot
+    // runs), so without an explicit re-request we'd never see it.
+    try { window.max?.outlet?.("requestTrackColor", 1); } catch {}
+  }
   // Also open AC's session-scoped socket + udp purely so the transport
   // status indicator can show UDP connectivity. Callbacks are no-ops —
   // the notepat:midi subscription flows through the raw WS above.
@@ -233,6 +271,21 @@ const STATUS_LOG_INTERVAL = 60 * 3; // every ~3 seconds at 60fps
 function sim() {
   frame += 1;
   if (wsState === "closed" && frame >= reconnectAt) connectWs();
+
+  // Poll document.hasFocus() every ~250ms as a safety net — some jweb
+  // focus transitions (user clicks the Live mixer header, browses a
+  // menu) don't dispatch blur/focus events. Polling catches those.
+  if (frame - lastFocusPollFrame > 15) {
+    lastFocusPollFrame = frame;
+    if (typeof document !== "undefined" && typeof document.hasFocus === "function") {
+      const hf = document.hasFocus();
+      if (hf !== focused) {
+        focused = hf;
+        focusedChangedFrame = frame;
+        if (!hf) heldKeys.clear();
+      }
+    }
+  }
 
   // Subscribe over UDP once the geckos channel comes up. Lost connection
   // resets the flag so we re-subscribe on reconnect.
@@ -525,8 +578,21 @@ function paint({ wipe, ink, box, line, screen }) {
 
         let fill;
         if (held && focused) {
-          // Fully saturated note color when pressed.
-          fill = baseColor;
+          if (black) {
+            // Black keys use PAD_SHARP at rest — if we kept that for the
+            // held state they'd never visibly change. Brighten + warm-
+            // tint using the live track color (when Max has pushed it)
+            // or a muted purple fallback so the press actually reads.
+            const tint = liveTrackColor || [120, 90, 140];
+            fill = [
+              floor(55 + tint[0] * 0.35),
+              floor(55 + tint[1] * 0.35),
+              floor(55 + tint[2] * 0.35),
+            ];
+          } else {
+            // White keys: fully saturated rainbow note color on press.
+            fill = baseColor;
+          }
         } else if (recentFlash && focused) {
           // Note color blended in at recent-flash intensity.
           const f = 1 - sinceNote / 18;
@@ -595,6 +661,22 @@ function paint({ wipe, ink, box, line, screen }) {
         const shadowColor = labelColor[0] < 128 ? [240, 240, 240, 140] : [0, 0, 0, 180];
         ink(...shadowColor).write(label, { x: labelX + shakeX + 1, y: labelY + shakeY + 1 });
         ink(...labelColor).write(label, { x: labelX + shakeX, y: labelY + shakeY });
+
+        // QWERTY hint — tiny MatrixChunky8 glyph pinned to the bottom-
+        // right of the pad so you still see which key drives which note
+        // even after we shrank the pads. Only drawn when the pad has
+        // room (>= 14px) so we don't paint on top of the note label.
+        if (pw >= 14 && ph >= 14) {
+          const hintColor =
+            held && focused && !black ? [10, 10, 14, 220] :
+            black ? [210, 210, 220, 180] : [30, 30, 40, 190];
+          ink(...hintColor).write(
+            key.toUpperCase(),
+            { x: px + pw - 6, y: py + ph - 7 },
+            undefined, undefined, false,
+            "MatrixChunky8",
+          );
+        }
       }
     }
   }

@@ -1066,7 +1066,7 @@ function chunkBundleForM4D(html) {
 // octave, focus, ping from the daw bridge) pass through the final outlet to
 // the MIDI router. Everything else matches the hand-rolled notepat device.
 function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
-  const W = 180, H = 169;
+  const W = 140, H = 169;
   const liveUrl = "https://aesthetic.computer/" + pieceName + "?daw=1&nogap=1&density=1";
   const boxes = [
     { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: bootstrapDataUri } },
@@ -1074,11 +1074,24 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     // else to the MIDI router. `route` has (N matched + 1 unmatched) outlets.
     // `goonline` means the bootstrap's network probe succeeded — swap
     // jweb~'s URL to the live piece and skip chunk reassembly entirely.
-    { box: { id: "obj-route-top", maxclass: "newobj", numinlets: 1, numoutlets: 6, outlettype: ["","","","","",""], patching_rect: [10,200,400,22], text: "route ready goonline log error warn" } },
+    // `requestTrackColor` is emitted by the piece post-boot to pull the
+    // current Live track color (observer's initial fire happens before
+    // the piece has mounted its handler).
+    { box: { id: "obj-route-top", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,200,500,22], text: "route ready goonline requestTrackColor log error warn" } },
     { box: { id: "obj-goonline-msg", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [10,160,560,22], text: "url " + liveUrl } },
     { box: { id: "obj-print-log", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [100,230,200,22], text: "print [AC-LOG]" } },
     { box: { id: "obj-print-error", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [200,230,200,22], text: "print [AC-ERROR]" } },
     { box: { id: "obj-print-warn", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [300,230,200,22], text: "print [AC-WARN]" } },
+    // ── Live track color integration ────────────────────────────────
+    // live.thisdevice → canonical_parent resolves the track hosting
+    // this device; live.observer watches its `color` property and re-
+    // emits on change. Route the color int through sprintf into jweb
+    // as window.acSetLiveTrackColor(N). Piece decodes 0xRRGGBB itself.
+    { box: { id: "obj-live-thisdevice", maxclass: "newobj", numinlets: 1, numoutlets: 3, outlettype: ["bang","int","int"], patching_rect: [10,540,110,22], text: "live.thisdevice" } },
+    { box: { id: "obj-live-path-parent", maxclass: "newobj", numinlets: 1, numoutlets: 3, outlettype: ["","",""], patching_rect: [10,570,280,22], text: "live.path this_device canonical_parent" } },
+    { box: { id: "obj-live-observe-color", maxclass: "newobj", numinlets: 2, numoutlets: 3, outlettype: ["","",""], patching_rect: [10,600,220,22], text: "live.observer @property color" } },
+    { box: { id: "obj-route-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 2, outlettype: ["",""], patching_rect: [10,630,120,22], text: "route color" } },
+    { box: { id: "obj-sprintf-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,660,480,22], text: "sprintf executejavascript window.acSetLiveTrackColor(%ld)" } },
     // MIDI routing (downstream of the unmatched outlet).
     { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,300,560,22], text: "route note channel notedown noteup octave focus ping" } },
     { box: { id: "obj-noteout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,450,60,22], text: "noteout" } },
@@ -1093,11 +1106,21 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     // the live piece and abandons the bootstrap (chunks never fire).
     { patchline: { source: ["obj-route-top", 1], destination: ["obj-goonline-msg", 0] } },
     { patchline: { source: ["obj-goonline-msg", 0], destination: ["obj-jweb", 0] } },
-    { patchline: { source: ["obj-route-top", 2], destination: ["obj-print-log", 0] } },
-    { patchline: { source: ["obj-route-top", 3], destination: ["obj-print-error", 0] } },
-    { patchline: { source: ["obj-route-top", 4], destination: ["obj-print-warn", 0] } },
+    // `requestTrackColor` from piece: bang the observer so it re-emits
+    // the current value to jweb (the initial fire happens before the
+    // piece is mounted, so without this the color never lands).
+    { patchline: { source: ["obj-route-top", 2], destination: ["obj-live-observe-color", 0] } },
+    { patchline: { source: ["obj-route-top", 3], destination: ["obj-print-log", 0] } },
+    { patchline: { source: ["obj-route-top", 4], destination: ["obj-print-error", 0] } },
+    { patchline: { source: ["obj-route-top", 5], destination: ["obj-print-warn", 0] } },
     // Unmatched messages (notedown/noteup/octave/focus/ping) → MIDI router.
-    { patchline: { source: ["obj-route-top", 5], destination: ["obj-route", 0] } },
+    { patchline: { source: ["obj-route-top", 6], destination: ["obj-route", 0] } },
+    // Live track color chain:
+    { patchline: { source: ["obj-live-thisdevice", 0], destination: ["obj-live-path-parent", 0] } },
+    { patchline: { source: ["obj-live-path-parent", 0], destination: ["obj-live-observe-color", 0] } },
+    { patchline: { source: ["obj-live-observe-color", 0], destination: ["obj-route-track-color", 0] } },
+    { patchline: { source: ["obj-route-track-color", 0], destination: ["obj-sprintf-track-color", 0] } },
+    { patchline: { source: ["obj-sprintf-track-color", 0], destination: ["obj-jweb", 0] } },
     { patchline: { source: ["obj-route", 0], destination: ["obj-noteout", 0] } },
     { patchline: { source: ["obj-route", 1], destination: ["obj-noteout", 1] } },
     { patchline: { source: ["obj-route", 2], destination: ["obj-pack-on", 0] } },
