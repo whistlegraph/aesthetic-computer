@@ -501,13 +501,15 @@ function buildRemoteBody(Form, colorRGB, watcher = false) {
   return f;
 }
 
-// Deterministic per-handle color so remotes are distinguishable at a glance.
-function handleColor(handle) {
+function handleHash(handle) {
   let h = 0; for (let i = 0; i < handle.length; i++) h = (h * 31 + handle.charCodeAt(i)) | 0;
-  const hue = (h >>> 0) % 360;
-  // HSL→RGB (s=0.7, l=0.6)
-  const c = 0.7 * 0.6 * 2, x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = 0.6 - c / 2;
+  return h >>> 0;
+}
+
+function hslToRgb(hue, sat, light) {
+  const c = sat * (1 - Math.abs(2 * light - 1));
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = light - c / 2;
   let r = 0, g = 0, b = 0;
   if (hue < 60)       [r, g, b] = [c, x, 0];
   else if (hue < 120) [r, g, b] = [x, c, 0];
@@ -518,6 +520,20 @@ function handleColor(handle) {
   return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
 }
 
+// Deterministic per-handle color for named players: full hue range, vivid.
+function handleColor(handle) {
+  const hue = handleHash(handle) % 360;
+  return hslToRgb(hue, 0.7, 0.6);
+}
+
+// Spectators (specs) — anon guest_/swarm_ tabs. Constrained to the cool half
+// of the spectrum (cyan→blue→violet→pink) with bright lightness so they read
+// as ghostly/icy rather than just "dim gray".
+function specColor(handle) {
+  const hue = 170 + (handleHash(handle) % 150); // 170..319
+  return hslToRgb(hue, 0.55, 0.72);
+}
+
 // Called from paint() once per frame.
 function paintRemotes(ink, form, Form) {
   const t = renderTimeNow();
@@ -526,7 +542,7 @@ function paintRemotes(ink, form, Form) {
     if (!sample) continue;
     if (!o.body) {
       const watcher = isGuestHandle(handle);
-      const color = watcher ? [170, 175, 195] : handleColor(handle);
+      const color = watcher ? specColor(handle) : handleColor(handle);
       o.body = buildRemoteBody(Form, color, watcher);
     }
     // Mirror local body positioning: Form.position uses (-x, y, -z).
@@ -1901,7 +1917,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
       if (!s) continue;
       const { px, py } = project(s.x, s.z);
       if (isGuestHandle(handle)) {
-        ink(150, 155, 175, 160).box(px, py, 1, 1);
+        const [r, g, b] = specColor(handle);
+        ink(r, g, b, 200).box(px, py, 2, 2);
       } else {
         const [r, g, b] = handleColor(handle);
         ink(r, g, b).box(px - 1, py - 1, 3, 3);
@@ -1916,7 +1933,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
       const { px, py } = project(myX, myZ);
       const meWatching = isGuestHandle(myHandle);
       if (meWatching) {
-        ink(180, 185, 205).box(px - 1, py - 1, 3, 3);
+        const [r, g, b] = specColor(myHandle);
+        ink(r, g, b).box(px - 1, py - 1, 3, 3);
       } else {
         ink(255, 255, 255).box(px - 2, py - 2, 5, 5);
       }
@@ -1947,7 +1965,7 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   );
   advance();
   if (watcherTotal > 0) {
-    rightLabelMulti([[dim, "watchers "], [[170, 175, 200], `${watcherTotal}`]], lineY);
+    rightLabelMulti([[dim, "specs "], [[170, 200, 235], `${watcherTotal}`]], lineY);
     advance();
   }
 
