@@ -101,6 +101,11 @@ let frame = 0;
 // most recent note (darkened) and decays back to idle when nothing is held.
 const bgColor = [4, 2, 6];
 
+// Case-doors animation. 0 = fully open (focused, pads visible), 1 =
+// fully closed (unfocused, dark panels meet at a chrome seam in the
+// middle). Lerps each paint toward the focus target.
+let doorPhase = 0;
+
 // Live track color, pushed in by the Max patcher via
 // `window.acSetLiveTrackColor(int)` once `live.observer` resolves the
 // device's parent track. Null until that lands; paint falls back to the
@@ -677,53 +682,42 @@ function paint({ wipe, ink, box, line, screen }) {
     }
   }
 
-  // ── Octave divider + device bezel ───────────────────────────────
-  // Both pick up the Live track color when Max has pushed it, so the
-  // non-pad chrome responds to the hosting track. Fallback is a warm
-  // muted rose rather than a stark gray.
-  if (focused) {
-    const chrome = liveTrackColor || [150, 80, 110];
-    // Divider runs the full inner width (skipping the bezel columns so
-    // the horizontal & vertical chrome meet cleanly at the corners).
+  // ── Octave divider ──────────────────────────────────────────────
+  // Pulled out of the focused guard so the chrome stays consistent
+  // even during the door transition.
+  const chrome = liveTrackColor || [150, 80, 110];
+  {
     const barY = rowEdges[3] - octaveGap;
     ink(...chrome).box(bezel, barY, W - bezel * 2, octaveGap, "fill");
-    // 2px bezel as two concentric 1px outlines.
-    for (let i = 0; i < bezel; i += 1) {
-      ink(...chrome).box(i, i, W - i * 2, H - i * 2, "outline");
+  }
+
+  // ── Case doors (unfocused overlay) ─────────────────────────────
+  // Instrument-case metaphor: when the piece loses focus, two panels
+  // slide in from the left and right and meet at a chrome seam. When
+  // focused the panels retract off-screen and the pads are fully
+  // visible. Lerps smoothly so focus transitions animate.
+  const doorTarget = focused ? 0 : 1;
+  doorPhase += (doorTarget - doorPhase) * 0.18;
+  if (doorPhase > 0.01) {
+    const halfW = floor(W / 2);
+    const doorW = floor(halfW * doorPhase);
+    const panel = [18, 12, 18]; // warm near-black case material
+    // Panel bodies — slide in from each edge.
+    ink(...panel).box(0, 0, doorW, H, "fill");
+    ink(...panel).box(W - doorW, 0, doorW, H, "fill");
+    // Inner edges of each panel get a chrome stripe that matches the
+    // bezel/divider color — becomes a 2px center seam when closed.
+    if (doorW > 0) {
+      ink(...chrome).line(doorW - 1, 0, doorW - 1, H - 1);
+      ink(...chrome).line(W - doorW, 0, W - doorW, H - 1);
     }
   }
 
-  // ── Unfocused overlay: big red X spanning the device ─────────────────
-  // When the mjs piece doesn't have focus, the keyboard won't drive
-  // notes — the red X is the at-a-glance signal for that.
-  if (!focused) {
-    // Darken the grid so the X reads as "inactive" not "on top of art"
-    ink(4, 0, 0, 150).box(0, 0, W, H, "fill");
-
-    // Pulsing red border — same cue scheme as before, just thinner
-    const borderAlpha = floor(140 + blinkPhase * 115);
-    for (let i = 0; i < 2; i += 1) {
-      ink(255, 40, 40, borderAlpha).box(i, i, W - i * 2, H - i * 2, "outline");
-    }
-
-    // Thick red X from corner to corner. AC's line() is 1px, so stack
-    // a handful of parallel lines to build a visible stroke.
-    const xAlpha = floor(180 + blinkPhase * 75);
-    const xThick = 2; // gives a 5px-equivalent X across (t from -2..2)
-    for (let t = -xThick; t <= xThick; t += 1) {
-      ink(255, 60, 60, xAlpha).line(0, t, W - 1, H - 1 + t);
-      ink(255, 60, 60, xAlpha).line(W - 1, t, 0, H - 1 + t);
-    }
-
-    // Small hint badge at the top so the reason is readable
-    const hint = "click to activate keys";
-    const hintW = hint.length * 6;
-    const hintBoxX = floor((W - hintW) / 2) - 4;
-    const hintBoxY = 2;
-    ink(0, 0, 0, 200).box(hintBoxX, hintBoxY, hintW + 8, 12, "fill");
-    ink(255, 80, 80, borderAlpha).box(hintBoxX, hintBoxY, hintW + 8, 12, "outline");
-    ink(blinkOn ? 255 : 200, 140, 140)
-      .write(hint, { x: floor((W - hintW) / 2), y: hintBoxY + 2 });
+  // ── Device bezel (drawn last, always on top) ─────────────────────
+  // The "case frame" — stays visible whether or not the doors are
+  // closed, so the device outline is always present.
+  for (let i = 0; i < bezel; i += 1) {
+    ink(...chrome).box(i, i, W - i * 2, H - i * 2, "outline");
   }
 }
 
