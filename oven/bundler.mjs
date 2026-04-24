@@ -1080,8 +1080,9 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     // jweb~'s URL to the live piece and skip chunk reassembly entirely.
     // `requestTrackColor` is emitted by the piece post-boot to pull the
     // current Live track color (observer's initial fire happens before
-    // the piece has mounted its handler).
-    { box: { id: "obj-route-top", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,200,500,22], text: "route ready goonline requestTrackColor log error warn" } },
+    // the piece has mounted its handler). `requestFocus` does the same
+    // for the [active] focus signal.
+    { box: { id: "obj-route-top", maxclass: "newobj", numinlets: 1, numoutlets: 8, outlettype: ["","","","","","","",""], patching_rect: [10,200,560,22], text: "route ready goonline requestTrackColor requestFocus log error warn" } },
     { box: { id: "obj-goonline-msg", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [10,160,560,22], text: "url " + liveUrl } },
     { box: { id: "obj-print-log", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [100,230,200,22], text: "print [AC-LOG]" } },
     { box: { id: "obj-print-error", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [200,230,200,22], text: "print [AC-ERROR]" } },
@@ -1098,11 +1099,12 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     { box: { id: "obj-sprintf-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,660,480,22], text: "sprintf executejavascript window.acSetLiveTrackColor(%ld)" } },
     // ── Host-window focus detection ─────────────────────────────────
     // [active] fires 1 when Live's window becomes the foreground window
-    // and 0 when it loses focus. The DOM-level blur/focus listeners
-    // inside jweb don't see Live's OS focus transitions, so we push the
-    // state in from Max via window.acSetLiveFocus(N).
+    // and 0 when it loses focus. Stashed in an [i] so requestFocus can
+    // bang it to re-emit the current state (the initial fire can
+    // happen before jweb navigates to the live URL, losing the push).
     { box: { id: "obj-active", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: ["int"], patching_rect: [10,700,60,22], text: "active" } },
-    { box: { id: "obj-sprintf-focus", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,730,440,22], text: "sprintf executejavascript window.acSetLiveFocus(%ld)" } },
+    { box: { id: "obj-focus-i", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["int"], patching_rect: [10,725,40,22], text: "i" } },
+    { box: { id: "obj-sprintf-focus", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,755,440,22], text: "sprintf executejavascript window.acSetLiveFocus(%ld)" } },
     // MIDI routing (downstream of the unmatched outlet).
     { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,300,560,22], text: "route note channel notedown noteup octave focus ping" } },
     { box: { id: "obj-noteout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,450,60,22], text: "noteout" } },
@@ -1117,23 +1119,27 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     // the live piece and abandons the bootstrap (chunks never fire).
     { patchline: { source: ["obj-route-top", 1], destination: ["obj-goonline-msg", 0] } },
     { patchline: { source: ["obj-goonline-msg", 0], destination: ["obj-jweb", 0] } },
-    // `requestTrackColor` from piece: bang the observer so it re-emits
-    // the current value to jweb (the initial fire happens before the
-    // piece is mounted, so without this the color never lands).
+    // `requestTrackColor` / `requestFocus` from piece: bang the source
+    // so it re-emits the current value to jweb (the initial fire can
+    // happen before the piece is mounted, so without these the state
+    // never lands in the new document).
     { patchline: { source: ["obj-route-top", 2], destination: ["obj-live-observe-color", 0] } },
-    { patchline: { source: ["obj-route-top", 3], destination: ["obj-print-log", 0] } },
-    { patchline: { source: ["obj-route-top", 4], destination: ["obj-print-error", 0] } },
-    { patchline: { source: ["obj-route-top", 5], destination: ["obj-print-warn", 0] } },
+    { patchline: { source: ["obj-route-top", 3], destination: ["obj-focus-i", 0] } },
+    { patchline: { source: ["obj-route-top", 4], destination: ["obj-print-log", 0] } },
+    { patchline: { source: ["obj-route-top", 5], destination: ["obj-print-error", 0] } },
+    { patchline: { source: ["obj-route-top", 6], destination: ["obj-print-warn", 0] } },
     // Unmatched messages (notedown/noteup/octave/focus/ping) → MIDI router.
-    { patchline: { source: ["obj-route-top", 6], destination: ["obj-route", 0] } },
+    { patchline: { source: ["obj-route-top", 7], destination: ["obj-route", 0] } },
     // Live track color chain:
     { patchline: { source: ["obj-live-thisdevice", 0], destination: ["obj-live-path-parent", 0] } },
     { patchline: { source: ["obj-live-path-parent", 0], destination: ["obj-live-observe-color", 0] } },
     { patchline: { source: ["obj-live-observe-color", 0], destination: ["obj-route-track-color", 0] } },
     { patchline: { source: ["obj-route-track-color", 0], destination: ["obj-sprintf-track-color", 0] } },
     { patchline: { source: ["obj-sprintf-track-color", 0], destination: ["obj-jweb", 0] } },
-    // Host-window focus chain: [active] → sprintf → jweb:
-    { patchline: { source: ["obj-active", 0], destination: ["obj-sprintf-focus", 0] } },
+    // Host-window focus chain: [active] → [i] (storage) → sprintf → jweb.
+    // requestFocus bangs [i]'s left inlet to re-emit the stored value.
+    { patchline: { source: ["obj-active", 0], destination: ["obj-focus-i", 0] } },
+    { patchline: { source: ["obj-focus-i", 0], destination: ["obj-sprintf-focus", 0] } },
     { patchline: { source: ["obj-sprintf-focus", 0], destination: ["obj-jweb", 0] } },
     { patchline: { source: ["obj-route", 0], destination: ["obj-noteout", 0] } },
     { patchline: { source: ["obj-route", 1], destination: ["obj-noteout", 1] } },

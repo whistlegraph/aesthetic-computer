@@ -234,7 +234,10 @@ function boot({ wipe, cursor, hud, send, net }) {
     } catch {}
     // Max side pushes focus + theme state via these globals. Defining
     // them unconditionally lets the patcher call them whenever it likes.
-    window.acSetLiveFocus = (f) => setFocus(!!f, "max.active");
+    window.acSetLiveFocus = (f) => {
+      try { console.log(`[focus] max.active received ${f}`); } catch {}
+      setFocus(!!f, "max.active");
+    };
     window.acSetLiveTrackColor = (colorInt) => {
       const n = Number(colorInt) >>> 0;
       if (!Number.isFinite(n)) return;
@@ -244,6 +247,9 @@ function boot({ wipe, cursor, hud, send, net }) {
     // `live.observer` fires once on device load (before this boot
     // runs), so without an explicit re-request we'd never see it.
     try { window.max?.outlet?.("requestTrackColor", 1); } catch {}
+    // Same story for the [active] focus signal — the initial fire
+    // can happen before jweb navigates to the live URL.
+    try { window.max?.outlet?.("requestFocus", 1); } catch {}
   }
   // Also open AC's session-scoped socket + udp purely so the transport
   // status indicator can show UDP connectivity. Callbacks are no-ops —
