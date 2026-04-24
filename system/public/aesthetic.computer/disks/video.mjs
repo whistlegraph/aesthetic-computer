@@ -33,9 +33,14 @@
 #endregion */
 
 let postBtn; // POST button for uploading tape
+// gif/mp4/zip exports temporarily deprecated in favor of a single Back
+// button so cap → back → cap → back is fast. The action handlers below
+// stay in place (they no-op because the button refs are undefined) so
+// we can re-enable later without diffing this whole file.
 let gifBtn;
 let mp4Btn;
 let zipBtn;
+let backBtn; // jumps back to cap so the user can re-shoot quickly
 
 let isPrinting = false;
 let isPostingTape = false;
@@ -407,31 +412,20 @@ function paint({
       }
     }
 
-    if (!zipBtn) {
-      zipBtn = new ui.TextButton("ZIP", { left: 6, bottom: 6, screen });
+    // 🔙 Back-to-cap button replaces the gif/mp4/zip export trio while we
+    // optimize for the cap → review → re-cap → post loop.
+    if (!backBtn) {
+      backBtn = new ui.TextButton("Back", { left: 6, bottom: 6, screen });
     }
-    zipBtn.reposition({ left: 6, bottom: 6, screen });
-    zipBtn.disabled = disableExports;
-    zipBtn.paint(api);
-
-    if (!gifBtn) {
-      gifBtn = new ui.TextButton("GIF", { left: 38, bottom: 6, screen });
-    }
-    gifBtn.reposition({ left: 38, bottom: 6, screen });
-    gifBtn.disabled = disableExports;
-    gifBtn.paint(api);
-
-    if (!mp4Btn) {
-      mp4Btn = new ui.TextButton("MP4", { left: 70, bottom: 6, screen });
-    }
-    mp4Btn.reposition({ left: 70, bottom: 6, screen });
-    mp4Btn.disabled = disableExports;
-    mp4Btn.paint(api);
+    backBtn.reposition({ left: 6, bottom: 6, screen }, "Back");
+    backBtn.disabled = disableExports;
+    backBtn.paint(api);
   } else {
     postBtn = undefined;
     gifBtn = undefined;
     mp4Btn = undefined;
     zipBtn = undefined;
+    backBtn = undefined;
   }
 
   ensureScrubStripButton(
@@ -811,6 +805,33 @@ function act({
 
   if (!rec.printing && !isPrinting) {
     const allowExport = exportAvailable && !isPostingTape;
+
+    // 🔙 Back to cap so the user can immediately re-shoot.
+    backBtn?.act(e, {
+      down: () => {
+        synth({
+          type: "sine",
+          tone: 500,
+          attack: 0.1,
+          decay: 0.99,
+          volume: 0.6,
+          duration: 0.001,
+        });
+      },
+      push: () => {
+        synth({
+          type: "sine",
+          tone: 700,
+          attack: 0.1,
+          decay: 0.5,
+          volume: 0.5,
+          duration: 0.005,
+        });
+        // Drop the current tape so cap.mjs starts clean.
+        rec?.slate?.();
+        jump("cap");
+      },
+    });
 
     gifBtn?.act(e, {
       down: () => {

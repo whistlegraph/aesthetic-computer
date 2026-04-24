@@ -20,7 +20,6 @@
 #endregion */
 
 import {
-  CaptureButton,
   SwapButton,
   RecordingTimer,
   MicLevel,
@@ -40,7 +39,7 @@ let recordingStarted = false;
 let videoInitialized = false;
 
 // UI elements
-let captureBtn, swapBtn, timer, micLevel;
+let swapBtn, timer, micLevel;
 let mic; // Microphone reference
 
 // Recording config
@@ -121,25 +120,12 @@ function paint({
     paste(frame, offsetX, offsetY);
   }
 
-  // 🎬 Draw UI elements to a recording UI overlay (NOT captured in tape)
-  // This ensures the camera feed is recorded but not the buttons/timer
+  // 🎬 Draw UI elements to a recording UI overlay (NOT captured in tape).
+  // BakTok-style hold-to-record: full screen is the touch target. The
+  // overlay is just the swap button, mic indicator, hint, and rec border.
   const uiOverlay = painting(screen.width, screen.height, ($) => {
     const centerX = floor(screen.width / 2);
-    const bottomY = screen.height - 40;
-
-    // Capture/record button (large circle at bottom center)
-    if (!captureBtn) {
-      captureBtn = new CaptureButton({
-        x: centerX,
-        y: bottomY,
-        radius: 28,
-        type: "cap",
-      });
-    }
-    captureBtn.reposition({ x: centerX, y: bottomY });
-    captureBtn.recording = isRecording;
-    captureBtn.disabled = pendingRecordStart; // Disable button while waiting for mic
-    captureBtn.paint($);
+    const bottomY = screen.height - 28;
 
     // Swap button (bottom right, only if multiple cameras and not recording)
     if (cameras > 1 && !isRecording && !pendingRecordStart) {
@@ -159,7 +145,7 @@ function paint({
         micLevel.paint($, { x: 8, y: 8, width: 50, height: 4 });
       }
     }
-    
+
     // Mic connection status indicator (top left) — drawn as a small pixel
     // mic icon instead of the 🎤 emoji, which the default typeface can't
     // render and falls back to "??" glyphs.
@@ -173,7 +159,6 @@ function paint({
         iconColor = [80, 255, 120];
       }
       drawMicIcon($, iconX, iconY, iconColor);
-      // Small status dot next to the mic: ✓ when connected, ⏳ when pending.
       if (micConnected) {
         $.ink(80, 255, 120).box(iconX + 10, iconY + 3, 2, 2);
       } else if (pendingRecordStart) {
@@ -181,24 +166,23 @@ function paint({
       }
     }
 
-    // Hint text (positioned ABOVE the button, not below)
-    const hintY = bottomY - 46;
+    // Hint text — bottom-centered, swaps copy based on state.
     if (pendingRecordStart) {
       $.ink(255, 200, 80, 255).write("waiting for mic...", {
         x: centerX,
-        y: hintY,
+        y: bottomY,
         center: "x",
       });
     } else if (!isRecording) {
-      $.ink(255, 255, 255, 160).write("tap to cap", {
+      $.ink(255, 255, 255, 200).write("hold to cap", {
         x: centerX,
-        y: hintY,
+        y: bottomY,
         center: "x",
       });
     } else {
-      $.ink(255, 80, 80, 200).write("● REC - tap to stop", {
+      $.ink(255, 80, 80, 220).write("● recording — release to stop", {
         x: centerX,
-        y: hintY,
+        y: bottomY,
         center: "x",
       });
     }
@@ -206,7 +190,7 @@ function paint({
     // Recording border indicator
     if (isRecording) {
       const borderPulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
-      $.ink(255, 60, 60, floor(100 * borderPulse)).box(
+      $.ink(255, 60, 60, floor(120 * borderPulse)).box(
         0,
         0,
         screen.width,
@@ -311,42 +295,25 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   if (e.is("microphone-connect:success")) {
     micConnected = true;
     console.log("🎤 Microphone connected for cap.mjs");
-    
-    // If user already requested recording, start it now
+
+    // If user already requested recording (held screen before mic ready),
+    // start it now.
     if (pendingRecordStart && !isRecording) {
       console.log("🎤 Mic ready - starting queued recording");
       startRecording(rec, sound, notice);
     }
   }
-  
+
   if (e.is("microphone-connect:failure")) {
     micConnected = false;
     pendingRecordStart = false;
     console.warn("🎤 Microphone connection failed:", e.reason);
     notice("MIC DENIED - RECORDING WITHOUT AUDIO", ["yellow", "red"]);
-    // Could still allow recording without mic if desired
-  }
-  
-  // Capture/record button interaction
-  if (captureBtn) {
-    captureBtn.act(e, {
-      down: () => sounds.down(sound),
-      push: () => {
-        if (!isRecording && !pendingRecordStart) {
-          startRecording(rec, sound, notice);
-        } else if (isRecording) {
-          stopRecording(rec, sound, jump);
-        } else if (pendingRecordStart) {
-          // Cancel pending recording
-          pendingRecordStart = false;
-          notice("CANCELLED", ["yellow", "black"]);
-        }
-      },
-    });
   }
 
-  // Swap camera button (only when not recording)
-  if (cameras > 1 && swapBtn && !isRecording) {
+  // Swap camera button — only fires when the touch is on the swap button
+  // itself, so it doesn't compete with the fullscreen hold-to-record gesture.
+  if (cameras > 1 && swapBtn && !isRecording && !pendingRecordStart) {
     swapBtn.act(e, {
       down: () => sounds.down(sound),
       push: () => {
@@ -358,26 +325,28 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
     });
   }
 
-  // Touch anywhere (not on buttons) to start/stop
-  if (e.is("lift") && !leaving()) {
-    const onCaptureBtn = captureBtn?.contains(e.x, e.y);
+  // 🎬 Hold-to-record (BakTok pattern): touch anywhere outside the swap
+  // button or HUD label starts recording; releasing stops + jumps to video.
+  if (e.is("touch") && !leaving()) {
     const onSwapBtn = swapBtn?.contains(e.x, e.y);
     const onHud = hud?.currentLabel()?.btn?.down;
-
-    if (!onCaptureBtn && !onSwapBtn && !onHud) {
-      if (!isRecording && !pendingRecordStart) {
-        startRecording(rec, sound, notice);
-      } else if (isRecording) {
-        stopRecording(rec, sound, jump);
-      } else if (pendingRecordStart) {
-        pendingRecordStart = false;
-        notice("CANCELLED", ["yellow", "black"]);
-      }
+    if (!onSwapBtn && !onHud && !isRecording && !pendingRecordStart) {
+      startRecording(rec, sound, notice);
     }
   }
 
-  // Keyboard shortcuts
-  if (e.is("keyboard:down:enter") || e.is("keyboard:down: ")) {
+  if (e.is("lift") && !leaving()) {
+    if (isRecording) {
+      stopRecording(rec, sound, jump);
+    } else if (pendingRecordStart) {
+      // User released before the mic was ready — cancel the queued start.
+      pendingRecordStart = false;
+      notice("CANCELLED", ["yellow", "black"]);
+    }
+  }
+
+  // Keyboard shortcut: space toggles record (useful for desktop testing).
+  if (e.is("keyboard:down: ")) {
     if (!isRecording && !pendingRecordStart) {
       startRecording(rec, sound, notice);
     } else {
@@ -387,10 +356,8 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
 
   if (e.is("keyboard:down:escape")) {
     if (isRecording) {
-      // Stop recording and go to video
       stopRecording(rec, sound, jump);
     } else {
-      // Just exit
       jump("prompt");
     }
   }
