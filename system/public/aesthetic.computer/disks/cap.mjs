@@ -20,7 +20,6 @@
 #endregion */
 
 import {
-  SwapButton,
   RecordingTimer,
   MicLevel,
   sounds,
@@ -82,6 +81,7 @@ function paint({
   rec,
   painting,
   recordingUI,
+  ui,
   num: { randIntRange, clamp, rand },
 }) {
   // Initialize video feed to match screen dimensions (not painting)
@@ -127,12 +127,17 @@ function paint({
     const centerX = floor(screen.width / 2);
     const bottomY = screen.height - 28;
 
-    // Swap button (bottom right, only if multiple cameras and not recording)
+    // Swap-camera TextButton, top-right. Only shown when multiple cameras
+    // are available and we're not actively (or about to be) recording.
+    // Lives in the recordingUI overlay so it isn't baked into the tape,
+    // and is anchored top-right so the bottom edge stays clear for the
+    // hold-to-record gesture.
     if (cameras > 1 && !isRecording && !pendingRecordStart) {
       if (!swapBtn) {
-        swapBtn = new SwapButton({ x: 0, y: 0, width: 48, height: 20 });
+        swapBtn = new ui.TextButton("Swap", { right: 6, top: 6, screen });
+        swapBtn.btn.stickyScrubbing = true;
       }
-      swapBtn.reposition({ right: 6, bottom: 6, screen });
+      swapBtn.reposition({ right: 6, top: 6, screen }, "Swap");
       swapBtn.paint($);
     }
 
@@ -328,7 +333,7 @@ function act({ event: e, jump, video, cameras, sound, rec, notice, leaving, hud 
   // 🎬 Hold-to-record (BakTok pattern): touch anywhere outside the swap
   // button or HUD label starts recording; releasing stops + jumps to video.
   if (e.is("touch") && !leaving()) {
-    const onSwapBtn = swapBtn?.contains(e.x, e.y);
+    const onSwapBtn = swapBtn?.btn?.box?.contains(e);
     const onHud = hud?.currentLabel()?.btn?.down;
     if (!onSwapBtn && !onHud && !isRecording && !pendingRecordStart) {
       startRecording(rec, sound, notice);

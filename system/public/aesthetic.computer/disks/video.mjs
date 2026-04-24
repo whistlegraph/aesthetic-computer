@@ -827,8 +827,50 @@ function act({
           volume: 0.5,
           duration: 0.005,
         });
-        // Drop the current tape so cap.mjs starts clean.
-        rec?.slate?.();
+        // Drop the current tape and any cached export / playback state
+        // so cap.mjs starts clean and stale UI (progress bar, scrub
+        // strip, post button) doesn't bleed through to the next visit.
+        try {
+          rec?.slate?.();
+          if (rec) {
+            rec.tapeProgress = 0;
+            rec.printing = false;
+            rec.presenting = false;
+            rec.recorded = false;
+            rec.presentProgress = 0;
+          }
+        } catch {}
+        isPrinting = false;
+        isPostingTape = false;
+        isExportingGIF = false;
+        isExportingFrames = false;
+        isExportingWebP = false;
+        isExportingAnimWebP = false;
+        isExportingAPNG = false;
+        currentExportType = "";
+        currentExportPhase = "";
+        exportStatusMessage = "";
+        printProgress = 0;
+        progressHistory = [];
+        exportStartTime = 0;
+        completionMessage = "";
+        completionMessageTimer = 0;
+        postedTapeCode = null;
+        tapeInfo = null;
+        isScrubbing = false;
+        inertiaActive = false;
+        scrubSpeed = 0;
+        scrubMoved = false;
+        scrubCurrentProgress = 0;
+        scrubAudioSpeed = 1;
+        wasPlayingBeforeScrub = false;
+        tapeWaveform = null;
+        scrubStripBtn = null;
+        backBtn = undefined;
+        postBtn = undefined;
+        gifBtn = undefined;
+        mp4Btn = undefined;
+        zipBtn = undefined;
         jump("cap");
       },
     });

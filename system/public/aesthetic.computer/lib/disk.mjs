@@ -11491,6 +11491,19 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 📊 Camera diagnostics from bios — log directly here so they land in
+  // the piece-runs silo via the patched console. Avoids needing to wire
+  // every diagnostic type into the actAlerts queue (which only carries
+  // string keys, not the full content payload we need for debugging).
+  if (type === "camera:debug" || type === "camera:debug:frame") {
+    try {
+      console.log(`📷 ${type}:`, JSON.stringify(content));
+    } catch {
+      console.log(`📷 ${type}:`, content);
+    }
+    return;
+  }
+
   // 1c. Loading from History
   if (type === "history-load") {
     if (debug && logs.history) console.log("⏳ History:", content);
