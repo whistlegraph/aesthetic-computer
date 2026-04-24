@@ -160,12 +160,25 @@ function paint({
       }
     }
     
-    // Mic connection status indicator (top left)
-    if (!micConnected && !isRecording) {
-      const micIcon = pendingRecordStart ? "🎤⏳" : "🎤";
-      $.ink(255, 200, 80).write(micIcon, { x: 4, y: 4 });
-    } else if (micConnected && !isRecording) {
-      $.ink(80, 255, 120).write("🎤✓", { x: 4, y: 4 });
+    // Mic connection status indicator (top left) — drawn as a small pixel
+    // mic icon instead of the 🎤 emoji, which the default typeface can't
+    // render and falls back to "??" glyphs.
+    if (!isRecording) {
+      const iconX = 4;
+      const iconY = 4;
+      let iconColor;
+      if (!micConnected) {
+        iconColor = pendingRecordStart ? [255, 180, 60] : [255, 200, 80];
+      } else {
+        iconColor = [80, 255, 120];
+      }
+      drawMicIcon($, iconX, iconY, iconColor);
+      // Small status dot next to the mic: ✓ when connected, ⏳ when pending.
+      if (micConnected) {
+        $.ink(80, 255, 120).box(iconX + 10, iconY + 3, 2, 2);
+      } else if (pendingRecordStart) {
+        $.ink(255, 180, 60).box(iconX + 10, iconY + 1, 1, 6);
+      }
     }
 
     // Hint text (positioned ABOVE the button, not below)
@@ -425,6 +438,15 @@ function leave({ rec, jump }) {
   if (isRecording) {
     stopRecording(rec, null, jump);
   }
+}
+
+// Tiny mic glyph: capsule + stand. Roughly 8x9 pixels at origin (x, y).
+function drawMicIcon($, x, y, color) {
+  $.ink(...color);
+  $.box(x + 2, y, 4, 5); // mic capsule
+  $.box(x + 1, y + 5, 6, 1); // under-capsule lip
+  $.box(x + 4, y + 6, 2, 2); // stem
+  $.box(x + 2, y + 8, 6, 1); // base
 }
 
 export { boot, paint, sim, act, beat, leave };

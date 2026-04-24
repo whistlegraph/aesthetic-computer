@@ -19862,7 +19862,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         async function getDevice(facingModeChoice) {
           // Use local copies so we don't mutate the outer cWidth/cHeight
           // across repeated calls (camera swap, resize, etc.).
-          let reqWidth = cWidth,
+          const reqWidth = cWidth,
             reqHeight = cHeight;
 
           const constraints = {
@@ -19870,25 +19870,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frameRate: { ideal: 30 },
           };
 
-          // Swap width/height on mobile in portrait — camera sensors are
-          // natively landscape, so request landscape constraints.
-          if (
-            (iOS || Android) &&
-            window.matchMedia("(orientation: portrait)").matches &&
-            (facingModeChoice === "environment" || facingModeChoice === "user")
-          ) {
-            const temp = reqWidth;
-            reqWidth = reqHeight;
-            reqHeight = temp;
-          }
-
-          // Calculate target aspect ratio AFTER the swap so it matches
-          // the width/height we actually request.
-          const targetAR = reqWidth / reqHeight;
-
+          // Ask for what we actually want. On mobile portrait, iOS Safari
+          // and modern Android Chrome already present the stream oriented
+          // to match the device (auto-rotated for the <video> element and
+          // drawImage()), so we do NOT swap width/height to force a
+          // landscape request. If the browser gives us a landscape stream
+          // anyway, the detection path in process() will rotate it to fit.
           constraints.width = { ideal: reqWidth };
           constraints.height = { ideal: reqHeight };
 
+          const targetAR = reqWidth / reqHeight;
           if (targetAR > 0 && isFinite(targetAR)) {
             constraints.aspectRatio = { ideal: targetAR };
           }
@@ -20109,14 +20100,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // 💡 For GPU backed visuals. 23.04.29.20.47
 
         // Detect orientation mismatch (landscape video in portrait buffer or vice versa).
-        // Mobile sensors always return landscape pixels; in portrait mode we rotate -90° CCW.
+        // On modern iOS Safari and Android Chrome the camera stream is already
+        // rotated to match the device orientation, so this path rarely fires —
+        // but desktop webcams and some older browsers still hand us the raw
+        // sensor buffer (landscape) and need a manual rotation to fit a
+        // portrait buffer.
         const videoIsLandscape = video.videoWidth > video.videoHeight;
         const bufferIsPortrait = buffer.height > buffer.width;
         const needsRotation =
           video.videoWidth > 0 &&
           video.videoHeight > 0 &&
           videoIsLandscape === bufferIsPortrait;
+        // Mirror the front camera for selfie framing. Desktop webcams are
+        // conventionally mirrored too. Mobile rear camera stays unmirrored.
         const needsMirror = facingMode === "user" || (!iOS && !Android);
+        // Rotation direction for sensor→buffer orientation mismatch.
+        // Front cameras are mounted mirrored relative to rear cameras, so the
+        // rotation that lands the subject upright is opposite: front = +90° CW,
+        // rear = -90° CCW. Desktop webcams behave like front cameras.
+        const rotationAngle =
+          facingMode === "user" || (!iOS && !Android)
+            ? Math.PI / 2
+            : -Math.PI / 2;
 
         // Send frames by default (non-rotation path only).
         if (!needsRotation && needsMirror) {
@@ -20152,8 +20157,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Drawing a video frame to the buffer (mirrored, proportion adjusted).
         if (needsRotation) {
-          // Landscape sensor pixels in portrait buffer: rotate 90° CW so the
-          // video fills the portrait frame. Use the swapped AR for fit calculation.
+          // Landscape sensor pixels in portrait buffer: rotate ±90° so the
+          // video fills the portrait frame. After rotation the effective
+          // video width/height are swapped, so fit calculation uses the
+          // swapped aspect ratio.
           const rotatedVideoAR = video.videoHeight / video.videoWidth;
           const bufferAR = buffer.width / buffer.height;
           let outWidth, outHeight;
@@ -20181,9 +20188,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           bufferCtx.save();
           bufferCtx.translate(outX + outWidth / 2, outY + outHeight / 2);
-          bufferCtx.rotate(Math.PI / 2); // CW: landscape sensor → portrait buffer
-          if (needsMirror) bufferCtx.scale(1, -1); // Horizontal flip in portrait space
-          bufferCtx.drawImage(video, -outHeight / 2, -outWidth / 2, outHeight, outWidth);
+          bufferCtx.rotate(rotationAngle);
+          // Mirror correction. In the rotated frame, horizontal flip in
+          // original (buffer) space is scale(1, -1) for CW rotation and
+          // scale(1, 1) (no-op) for CCW — the CCW case already lands the
+          // subject in the right handedness after rotation for rear cams.
+          if (needsMirror) bufferCtx.scale(1, -1);
+          bufferCtx.drawImage(
+            video,
+            -outHeight / 2,
+            -outWidth / 2,
+            outHeight,
+            outWidth,
+          );
           bufferCtx.restore();
         } else {
           const videoAR = video.videoWidth / video.videoHeight;

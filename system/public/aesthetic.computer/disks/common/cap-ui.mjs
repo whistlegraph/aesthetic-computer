@@ -109,9 +109,13 @@ export class CaptureButton {
   paint({ ink, screen }, frameCount = 0) {
     const { x, y, radius, type, down, recording, disabled } = this;
 
-    // Outer ring
-    const ringColor = disabled ? [60, 60, 60] : [255, 255, 255];
-    ink(...ringColor).circle(x, y, radius + 4, false, 2);
+    // Outer ring — a thin dark shadow line, then a crisp white outline.
+    // Two concentric circles give the button a proper stroked outline
+    // with depth, instead of one flat ring.
+    const outlineOuter = disabled ? [0, 0, 0, 120] : [0, 0, 0, 180];
+    const outlineInner = disabled ? [80, 80, 80] : [255, 255, 255];
+    ink(...outlineOuter).circle(x, y, radius + 5, false, 1);
+    ink(...outlineInner).circle(x, y, radius + 3, false, 2);
 
     if (type === "snap") {
       // Snap button - white circle with camera icon feel
@@ -120,7 +124,7 @@ export class CaptureButton {
       // Inner detail
       ink(200, 200, 200).circle(x, y, radius - 8, false, 1);
     } else {
-      // Cap button - red circle that becomes square when recording
+      // Cap button - red filled circle that becomes a square when recording
       if (recording) {
         // Pulsing red square when recording (properly centered)
         this.pulsePhase += 0.1;
@@ -134,12 +138,14 @@ export class CaptureButton {
           squareSize,
           squareSize,
         );
-        // Recording indicator ring
+        // Extra red recording ring between square and outline
         ink(255, 60, 60).circle(x, y, radius, false, 2);
       } else {
-        // Red circle when not recording
-        const fillColor = down ? [180, 40, 40] : [255, 60, 60];
-        ink(...fillColor).circle(x, y, radius - 4, true);
+        // Red filled circle with a subtle darker rim for a "button" feel.
+        const fillColor = down ? [180, 40, 40] : [245, 60, 60];
+        ink(...fillColor).circle(x, y, radius - 3, true);
+        // Highlight arc on the upper-left for a touch of depth.
+        ink(255, 255, 255, 70).circle(x, y, radius - 4, false, 1);
       }
     }
 
