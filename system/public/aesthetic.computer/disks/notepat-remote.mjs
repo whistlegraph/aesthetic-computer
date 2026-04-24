@@ -348,8 +348,11 @@ function act({ event: e }) {
   }
   if (e.is("draw")) {
     // Allow drag across buttons (piano-roll tap). Release previous, press new.
+    // `buttons` is rebuilt every paint, so `hit` is a fresh object even when
+    // the user hasn't moved off the current pad — compare by pitch instead
+    // of object identity, otherwise every draw event retriggers the note.
     const hit = hitButton(e.x, e.y);
-    if (hit && hit !== tappedButton) {
+    if (hit && (!tappedButton || hit.pitch !== tappedButton.pitch)) {
       if (tappedButton) tapNote(tappedButton.pitch, false);
       tappedButton = hit;
       tapNote(hit.pitch, true);
