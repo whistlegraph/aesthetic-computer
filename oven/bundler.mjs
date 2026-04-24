@@ -1096,7 +1096,10 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     { box: { id: "obj-live-path-parent", maxclass: "newobj", numinlets: 1, numoutlets: 3, outlettype: ["","",""], patching_rect: [10,570,280,22], text: "live.path this_device canonical_parent" } },
     { box: { id: "obj-live-observe-color", maxclass: "newobj", numinlets: 2, numoutlets: 3, outlettype: ["","",""], patching_rect: [10,600,220,22], text: "live.observer @property color" } },
     { box: { id: "obj-route-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 2, outlettype: ["",""], patching_rect: [10,630,120,22], text: "route color" } },
-    { box: { id: "obj-sprintf-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,660,480,22], text: "sprintf executejavascript window.acSetLiveTrackColor(%ld)" } },
+    // Stash the track color int in an [i] so requestTrackColor can
+    // bang it to re-emit post-boot (mirrors the focus pattern).
+    { box: { id: "obj-track-color-i", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["int"], patching_rect: [10,655,40,22], text: "i" } },
+    { box: { id: "obj-sprintf-track-color", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,680,480,22], text: "sprintf executejavascript window.acSetLiveTrackColor(%ld)" } },
     // ── Host-window focus detection ─────────────────────────────────
     // [active] fires 1 when Live's window becomes the foreground window
     // and 0 when it loses focus. Stashed in an [i] so requestFocus can
@@ -1119,22 +1122,23 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     // the live piece and abandons the bootstrap (chunks never fire).
     { patchline: { source: ["obj-route-top", 1], destination: ["obj-goonline-msg", 0] } },
     { patchline: { source: ["obj-goonline-msg", 0], destination: ["obj-jweb", 0] } },
-    // `requestTrackColor` / `requestFocus` from piece: bang the source
-    // so it re-emits the current value to jweb (the initial fire can
-    // happen before the piece is mounted, so without these the state
-    // never lands in the new document).
-    { patchline: { source: ["obj-route-top", 2], destination: ["obj-live-observe-color", 0] } },
+    // `requestTrackColor` / `requestFocus` from piece: bang the stored
+    // [i] so it re-emits the last value into jweb (the initial fires
+    // can happen before the piece is mounted).
+    { patchline: { source: ["obj-route-top", 2], destination: ["obj-track-color-i", 0] } },
     { patchline: { source: ["obj-route-top", 3], destination: ["obj-focus-i", 0] } },
     { patchline: { source: ["obj-route-top", 4], destination: ["obj-print-log", 0] } },
     { patchline: { source: ["obj-route-top", 5], destination: ["obj-print-error", 0] } },
     { patchline: { source: ["obj-route-top", 6], destination: ["obj-print-warn", 0] } },
     // Unmatched messages (notedown/noteup/octave/focus/ping) → MIDI router.
     { patchline: { source: ["obj-route-top", 7], destination: ["obj-route", 0] } },
-    // Live track color chain:
+    // Live track color chain — stashed in [i] so requestTrackColor can
+    // bang it to re-emit:
     { patchline: { source: ["obj-live-thisdevice", 0], destination: ["obj-live-path-parent", 0] } },
     { patchline: { source: ["obj-live-path-parent", 0], destination: ["obj-live-observe-color", 0] } },
     { patchline: { source: ["obj-live-observe-color", 0], destination: ["obj-route-track-color", 0] } },
-    { patchline: { source: ["obj-route-track-color", 0], destination: ["obj-sprintf-track-color", 0] } },
+    { patchline: { source: ["obj-route-track-color", 0], destination: ["obj-track-color-i", 0] } },
+    { patchline: { source: ["obj-track-color-i", 0], destination: ["obj-sprintf-track-color", 0] } },
     { patchline: { source: ["obj-sprintf-track-color", 0], destination: ["obj-jweb", 0] } },
     // Host-window focus chain: [active] → [i] (storage) → sprintf → jweb.
     // requestFocus bangs [i]'s left inlet to re-emit the stored value.

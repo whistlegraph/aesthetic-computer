@@ -249,8 +249,16 @@ function boot({ wipe, cursor, hud, send, net }) {
     };
     window.acSetLiveTrackColor = (colorInt) => {
       const n = Number(colorInt) >>> 0;
-      if (!Number.isFinite(n)) return;
+      if (!Number.isFinite(n)) {
+        try { console.log(`[track-color] max push ignored (bad int ${colorInt})`); } catch {}
+        return;
+      }
       liveTrackColor = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      try {
+        console.log(
+          `[track-color] max push ${n} → rgb(${liveTrackColor[0]},${liveTrackColor[1]},${liveTrackColor[2]})`,
+        );
+      } catch {}
     };
     // Pull the current track color now — the Max patcher's
     // `live.observer` fires once on device load (before this boot
