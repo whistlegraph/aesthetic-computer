@@ -175,7 +175,14 @@ end
 
 # Install deps
 echo -e "$GREEN-> Installing dependencies...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --omit=dev && cd $REMOTE_DIR/system && npm install --omit=dev"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --omit=dev && cd $REMOTE_DIR/system && npm install --omit=dev && cd $REMOTE_DIR/oven && PUPPETEER_SKIP_DOWNLOAD=1 npm install --omit=dev --omit=optional"
+
+# notepat.com amxd build stream.
+# Modeled after `ac-os upload`'s "always rebuild first" pattern so
+# notepat.com/amxd + /m4l/notepat.com/latest.json always reflect the
+# commit we just deployed (no "dirty" hashes from dev machine state).
+echo -e "$GREEN-> Building notepat.com.amxd from deployed commit...$NC"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node ac-m4l/build-notepat.mjs"
 
 # Install service file + Caddy config from the deployed checkout
 echo -e "$GREEN-> Updating service + Caddy config...$NC"
