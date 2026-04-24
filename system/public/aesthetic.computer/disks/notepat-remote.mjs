@@ -474,36 +474,29 @@ function paint({ wipe, ink, box, line, screen }) {
 
   wipe(...bgBase);
 
-  // ── Implicit status cues (no text bar) ────────────────────────────
-  // Top bar removed — transport and octave were taking pixels that the
-  // pads could use. We encode them as tiny visual cues in the empty
-  // side strips instead:
-  //   • top-left corner dot = transport state (green/yellow/red/…)
-  //   • right-edge vertical dot ladder = current octave (1..9)
-  const udpOk = !!netUdp?.connected;
-  const wsOk = wsState === "open";
-  const transportColor =
-    !focused ? [110, 110, 120] :
-    udpOk && wsOk ? [120, 220, 140] :
-    udpOk ? [120, 200, 180] :
-    wsOk ? [230, 200, 80] :
-    wsState === "connecting" ? [255, 200, 90] :
-    [255, 100, 100];
-
-  // ── Button grid: 4 cols × 6 rows (stacked octaves) ───────────────────
-  // Base octave on top, +1 on bottom — keeps reading order low→high
-  // from top to bottom (matches the prior left→right layout, just
-  // rotated 90°). Pads remain square.
-  const gridTop = 0;
+  // ── Button grid: 4 cols × 6 rows, fills the entire device ─────────
+  // Base octave on top (rows 0-2), +1 on bottom (rows 3-5). No margins:
+  // pads run edge-to-edge horizontally and vertically. A horizontal
+  // divider bar sits between the two octave blocks — same stroke as
+  // BAR_BORDER so it reads as a seam, not a void.
   const cols = 4;
-  const rows = 6; // 2 octave blocks × 3 rows each
-  const cellSize = max(1, min(floor(W / cols), floor((H - gridTop) / rows)));
-  const gridW = cellSize * cols;
-  const gridLeft = floor((W - gridW) / 2);
+  const rows = 6;
+  const octaveGap = 4;
+  // Per-axis cell size (no longer forced square — "no margins" wins
+  // over "perfect squares" at this aspect ratio).
+  const cellW = floor(W / cols);
+  const cellH = floor((H - octaveGap) / rows);
+  // colEdges distributed so the 4 columns exactly span W (last cell
+  // absorbs any rounding remainder).
   const colEdges = [];
-  for (let c = 0; c <= cols; c += 1) colEdges.push(gridLeft + c * cellSize);
+  for (let c = 0; c <= cols; c += 1) colEdges.push(floor((c * W) / cols));
+  // rowEdges[r] is the top of row r; the octave gap sits between rows
+  // 2 and 3, adding octaveGap px before row 3's top.
   const rowEdges = [];
-  for (let r = 0; r <= rows; r += 1) rowEdges.push(gridTop + r * cellSize);
+  for (let r = 0; r <= rows; r += 1) {
+    const gapBefore = r >= 3 ? octaveGap : 0;
+    rowEdges.push(r * cellH + gapBefore);
+  }
 
   buttons = [];
   for (let octIdx = 0; octIdx < OCTAVE_GRIDS.length; octIdx += 1) {
@@ -523,8 +516,10 @@ function paint({ wipe, ink, box, line, screen }) {
         const x0 = colEdges[globalCol];
         const x1 = colEdges[globalCol + 1];
         const y0 = rowEdges[globalRow];
-        const y1 = rowEdges[globalRow + 1];
-        const b = { x: x0, y: y0, w: x1 - x0, h: y1 - y0, key, pitch };
+        // Pads are cellH tall regardless of the octave-gap between rows
+        // 2 and 3; using rowEdges[r+1] would swell row 2 to include the
+        // divider strip.
+        const b = { x: x0, y: y0, w: x1 - x0, h: cellH, key, pitch };
         buttons.push(b);
 
         const held =
@@ -649,24 +644,15 @@ function paint({ wipe, ink, box, line, screen }) {
     }
   }
 
-  // ── Transport dot (top-left of the device) ───────────────────────
+  // ── Octave divider bar ──────────────────────────────────────────
+  // Full-width horizontal strip between the base octave block
+  // (rows 0-2) and the +1 octave block (rows 3-5). Uses BAR_BG fill +
+  // BAR_BORDER edges so it reads as a hard seam across the device.
   if (focused) {
-    ink(...transportColor).box(2, 2, 3, 3, "fill");
-  }
-
-  // ── Octave ladder (right-edge vertical dots 1..9) ────────────────
-  // One dot per octave; the current octave is bright and 3px wide,
-  // others are dim single pixels. Vertically centered in the device.
-  if (focused) {
-    const ladderH = 9 * 3 - 1; // 9 dots × 2 px + 1 px gaps
-    const ladderTop = floor((H - ladderH) / 2);
-    for (let oct = 1; oct <= 9; oct += 1) {
-      const dotY = ladderTop + (oct - 1) * 3;
-      const active = oct === baseOctave;
-      const dotColor = active ? (lastNoteColor || focusedFg) : [70, 70, 80];
-      const dotW = active ? 3 : 2;
-      ink(...dotColor).box(W - dotW - 1, dotY, dotW, 2, "fill");
-    }
+    const barY = 3 * cellH;
+    ink(...BAR_BG).box(0, barY, W, octaveGap, "fill");
+    ink(...BAR_BORDER).line(0, barY, W - 1, barY);
+    ink(...BAR_BORDER).line(0, barY + octaveGap - 1, W - 1, barY + octaveGap - 1);
   }
 
   // ── Unfocused overlay: big red X spanning the device ─────────────────
