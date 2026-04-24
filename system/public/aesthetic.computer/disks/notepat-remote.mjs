@@ -88,6 +88,7 @@ let lastNoteFrame = -9999;
 // Local state mirrored from keyboard events (visual only — BIOS emits MIDI).
 let baseOctave = 4;
 const heldKeys = new Set();
+let shiftHeld = false;       // typography case toggle for pad labels
 let focused = true;          // assume focused until we learn otherwise
 let focusedChangedFrame = 0;
 let lastInteractionFrame = -999;
@@ -354,6 +355,17 @@ function act({ event: e }) {
     return;
   }
 
+  // Shift tracking — flips pad labels between lowercase (resting) and
+  // uppercase (shift held) so the keyboard state is visible on the pads.
+  if (e.is("keyboard:down:shift")) {
+    shiftHeld = true;
+    return;
+  }
+  if (e.is("keyboard:up:shift")) {
+    shiftHeld = false;
+    return;
+  }
+
   // Octave hot-switch 1-9 (BIOS also tracks this, we mirror for UI).
   for (let n = 1; n <= 9; n += 1) {
     if (e.is(`keyboard:down:${n}`)) {
@@ -617,7 +629,9 @@ function paint({ wipe, ink, box, line, screen }) {
         // hint in the bottom-right.
         const charW = 6;
         const charH = 10;
-        const label = key.toUpperCase();
+        // Lowercase at rest, uppercase while Shift is held — echoes the
+        // actual keyboard state on the pad face.
+        const label = shiftHeld ? key.toUpperCase() : key.toLowerCase();
         const labelW = label.length * charW;
         const labelX = px + floor((pw - labelW) / 2);
         const labelY = py + floor((ph - charH) / 2);
