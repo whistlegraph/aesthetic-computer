@@ -1097,9 +1097,9 @@ function generateHTML(docs) {
         <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
         <p>${endpoint.description}</p>
 
-        ${endpoint.examples.map((example, exIdx) => `
-          <h3>${example.title}</h3>
-          <p>${example.description}</p>
+        ${(endpoint.examples || []).map((example, exIdx) => `
+          <h3>${example.title || ''}</h3>
+          <p>${example.description || ''}</p>
 
           <div class="tabs" id="tabs-${idx}-${exIdx}">
             <button class="tab active" onclick="showTab(${idx}, ${exIdx}, 'curl')">curl</button>
@@ -1108,17 +1108,17 @@ function generateHTML(docs) {
           </div>
 
           <div class="tab-content active" id="content-${idx}-${exIdx}-curl">
-            <pre>${escapeHTML(example.curl)}</pre>
+            <pre>${escapeHTML(example.curl || '')}</pre>
           </div>
           <div class="tab-content" id="content-${idx}-${exIdx}-js">
-            <pre>${escapeHTML(example.javascript)}</pre>
+            <pre>${escapeHTML(example.javascript || '')}</pre>
           </div>
           <div class="tab-content" id="content-${idx}-${exIdx}-py">
-            <pre>${escapeHTML(example.python)}</pre>
+            <pre>${escapeHTML(example.python || '')}</pre>
           </div>
 
-          <h4>response:</h4>
-          <pre><code>${JSON.stringify(example.response.body, null, 2)}</code></pre>
+          ${example.response ? `<h4>response:</h4>
+          <pre><code>${escapeHTML(JSON.stringify(example.response.body ?? example.response, null, 2))}</code></pre>` : ''}
         `).join('')}
       </div>
     `).join('')}

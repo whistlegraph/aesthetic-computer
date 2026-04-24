@@ -172,6 +172,13 @@ app.use((req, _res, next) => {
     req.url = "/notepat" + (req.url === "/" ? "" : req.url.slice(req.path.length));
   }
 
+  // api.aesthetic.computer / api.prompt.ac → api-docs function (public API reference)
+  if (host === "api.aesthetic.computer" || host === "api.prompt.ac") {
+    if (req.path === "/" || req.path === "") {
+      req.url = "/api-docs" + (req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "");
+    }
+  }
+
   next();
 });
 
@@ -948,6 +955,8 @@ app.all("/media/*rest", async (req, res) => {
 });
 
 // API functions (matches Netlify redirect rules)
+// Bare `/api` serves the public API reference (same function that backs api.aesthetic.computer).
+app.all("/api", directFn("api-docs"));
 app.all("/api/:fn", handleFunctionResolved);
 app.all("/api/:fn/*rest", handleFunctionResolved);
 app.all("/.netlify/functions/:fn", handleFunction);
@@ -986,6 +995,8 @@ app.all("/presigned-download-url/*rest", directFn("presigned-url"));
 app.all("/docs", directFn("docs"));
 app.all("/docs.json", directFn("docs"));
 app.all("/docs/*rest", directFn("docs"));
+app.all("/api-docs", directFn("api-docs"));
+app.all("/api-docs.json", directFn("api-docs"));
 app.all("/media-collection", directFn("media-collection"));
 app.all("/media-collection/*rest", directFn("media-collection"));
 app.all("/device-login", directFn("device-login"));
