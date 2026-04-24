@@ -822,6 +822,19 @@ async function boot({
           recentCommits = data.recentCommits || [];
           needsPaint();
           console.log("📦 New deployment detected:", data.deployed);
+          // Tell the active service worker (via the main thread, since we
+          // run inside a Web Worker and don't have direct access to
+          // navigator.serviceWorker) to evict its module cache. The
+          // user's NEXT navigation/reload then pulls fresh bios.mjs +
+          // disk.mjs instead of stale-while-revalidating for up to an
+          // hour. We don't auto-reload here — that would interrupt the
+          // user mid-task — but the cache eviction makes a manual
+          // reload propagate the new build immediately.
+          try {
+            send({ type: "sw:clear-cache" });
+          } catch (e) {
+            console.warn("📦 Could not request SW cache clear:", e);
+          }
           break; // Stop polling — update is available
         } catch (e) {
           if (e.name === "AbortError") break;

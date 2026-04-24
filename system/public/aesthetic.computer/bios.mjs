@@ -5963,6 +5963,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "sw:clear-cache") {
+      // Forwarded from prompt.mjs's deployment poll. Tell the active SW
+      // to drop its module cache so the next page load fetches fresh
+      // bios.mjs / disk.mjs etc. instead of stale-while-revalidating.
+      try {
+        navigator.serviceWorker?.controller?.postMessage("clearCache");
+        console.log("🔧 Main thread: requested SW cache clear");
+      } catch (e) {
+        console.warn("🔧 Could not post clearCache to SW:", e);
+      }
+      return;
+    }
+
     // Helper function to ensure fonts are loaded before use
     let fontsLoaded = false;
     async function ensureFontsLoaded() {
