@@ -148,6 +148,21 @@ async function commitAndPushPDFs(job) {
   addLogLine(job, "stdout", `  GIT: committing ${changedFiles.length} file(s)...`);
   await git(["commit", "-m", msg]);
 
+  // Discard any remaining unstaged build artifacts (xelatex leaves tracked
+  // .log/.toc/.aux/.fls files modified after each run, and intermediate .pdfs
+  // in papers/arxiv-*/ may also be dirty). We only commit system/public/... +
+  // metadata.json + BUILDLOG.md, so anything still dirty is byproduct we
+  // don't want to preserve — and leaving it dirty blocks `git pull --rebase`.
+  try {
+    await git(["checkout", "--", "papers/"]);
+  } catch (cleanupErr) {
+    addLogLine(
+      job,
+      "stderr",
+      `  GIT: pre-rebase cleanup note: ${cleanupErr.message || cleanupErr}`,
+    );
+  }
+
   // Pull any changes that landed while we were building (rebase our commit on top)
   addLogLine(job, "stdout", "  GIT: pulling latest before push...");
   try {
