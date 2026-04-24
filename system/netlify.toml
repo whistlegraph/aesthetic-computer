@@ -2058,6 +2058,10 @@ status = 200
 # status = 200
 # force = false
 [[redirects]]
+from = "/api/flux"
+to = "/.netlify/functions/flux"
+status = 200
+[[redirects]]
 from = "/api/playlist"
 to = "/.netlify/functions/playlist"
 status = 200
