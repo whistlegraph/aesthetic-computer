@@ -4639,6 +4639,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.log(`🎹 acSetLiveTrackColor ${n} → rgb(${rgb.join(",")})`);
       try { send({ type: "live:track-color", content: rgb }); } catch (_e) {}
     };
+
+    // 🎹 Env info for the piece — packed vs live, build hash, and the
+    // latest commit the server is currently serving (so a packed bundle
+    // can know whether its baked-in version is behind). Fetched lazily
+    // once then cached — piece asks via send({type:"env:request"}).
+    const envInfo = {
+      packMode: !!window.acPACK_MODE,
+      packGit: window.acPACK_GIT || null,
+      packDate: window.acPACK_DATE || null,
+      latestCommit: null,
+    };
+    let envLatestFetched = false;
+    async function _dawFetchLatestCommit() {
+      if (envLatestFetched) return;
+      envLatestFetched = true;
+      try {
+        const r = await fetch(
+          "https://aesthetic.computer/.commit-ref",
+          { cache: "no-cache", mode: "cors" },
+        );
+        if (!r.ok) return;
+        const hash = (await r.text()).trim();
+        if (hash) envInfo.latestCommit = hash;
+      } catch (_e) { /* offline */ }
+    }
+    function _dawSendEnvInfo() {
+      try { send({ type: "env:info", content: { ...envInfo } }); } catch (_e) {}
+    }
+    // Kick off the fetch immediately; when it resolves, push to the
+    // piece. The piece also re-requests on boot (via env:request)
+    // which will re-send whatever we've got.
+    _dawFetchLatestCommit().then(_dawSendEnvInfo);
+    window.acDawEnvRequest = _dawSendEnvInfo;
   }
 
   function requestBeat(time) {
@@ -5319,6 +5352,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "daw:request-track-color") {
       if (typeof window !== "undefined" && window.max?.outlet) {
         try { window.max.outlet("requestTrackColor", 1); } catch (_e) {}
+      }
+      return;
+    }
+    // Piece asks bios for the current build env (pack mode, git hash,
+    // latest commit on the server for staleness checks).
+    if (type === "env:request") {
+      if (typeof window !== "undefined" && typeof window.acDawEnvRequest === "function") {
+        try { window.acDawEnvRequest(); } catch (_e) {}
       }
       return;
     }

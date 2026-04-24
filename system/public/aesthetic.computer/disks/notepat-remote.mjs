@@ -106,6 +106,11 @@ const bgColor = [4, 2, 6];
 // middle). Lerps each paint toward the focus target.
 let doorPhase = 0;
 
+// Build env from bios (populated via e.is("env:info"). null until the
+// bridge pushes the info, then:
+//   { packMode, packGit, packDate, latestCommit }
+let envInfo = null;
+
 // Live track color, pushed in by the Max patcher via
 // `window.acSetLiveTrackColor(int)` once `live.observer` resolves the
 // device's parent track. Null until that lands; paint falls back to the
@@ -234,6 +239,7 @@ function boot({ wipe, cursor, hud, send, net }) {
   // because their initial fires can land before we've mounted.
   send({ type: "daw:request-focus" });
   send({ type: "daw:request-track-color" });
+  send({ type: "env:request" });
   // Also open AC's session-scoped socket + udp purely so the transport
   // status indicator can show UDP connectivity. Callbacks are no-ops —
   // the notepat:midi subscription flows through the raw WS above.
@@ -325,6 +331,17 @@ function act({ event: e }) {
     if (Array.isArray(rgb) && rgb.length === 3) {
       liveTrackColor = rgb.slice();
       console.log(`[track-color] received rgb(${rgb.join(",")})`);
+    }
+    return;
+  }
+
+  // Build env info from bios (packed vs live + version).
+  if (e.is("env:info")) {
+    envInfo = e.env || null;
+    if (envInfo) {
+      console.log(
+        `[env] packMode=${envInfo.packMode} packGit=${(envInfo.packGit || "").slice(0, 9)} latest=${(envInfo.latestCommit || "").slice(0, 9)}`,
+      );
     }
     return;
   }
@@ -710,6 +727,45 @@ function paint({ wipe, ink, box, line, screen }) {
     if (doorW > 0) {
       ink(...chrome).line(doorW - 1, 0, doorW - 1, H - 1);
       ink(...chrome).line(W - doorW, 0, W - doorW, H - 1);
+    }
+
+    // Once doors are nearly closed, display the piece's diagnostic
+    // readout on top of them: transport online state + build mode +
+    // staleness hint if the packed amxd is behind the live commit.
+    if (doorPhase > 0.85) {
+      const readoutAlpha = floor((doorPhase - 0.85) / 0.15 * 255);
+      const udpOk = !!netUdp?.connected;
+      const wsOk = wsState === "open";
+      const online = udpOk || wsOk;
+      const transportLine = online
+        ? (udpOk && wsOk ? "ONLINE · UDP+WS" : udpOk ? "ONLINE · UDP" : "ONLINE · WS")
+        : "OFFLINE";
+      const transportColor = online ? [130, 230, 160] : [255, 110, 110];
+      const modeLine = envInfo
+        ? (envInfo.packMode ? "PACKED" : "LIVE")
+        : "…";
+      const stale = envInfo && envInfo.packMode && envInfo.packGit &&
+        envInfo.latestCommit && envInfo.packGit !== envInfo.latestCommit;
+
+      // Centered three-row readout, MatrixChunky8 keeps it legible at W≈150.
+      const lineH = 9;
+      const totalH = stale ? lineH * 3 + 4 : lineH * 2 + 2;
+      let ty = floor((H - totalH) / 2);
+      const writeCentered = (text, color, font) => {
+        const charW = font === "MatrixChunky8" ? 5 : 6;
+        const tx = floor((W - text.length * charW) / 2);
+        ink(...color, readoutAlpha).write(
+          text, { x: tx, y: ty },
+          undefined, undefined, false, font,
+        );
+        ty += lineH;
+      };
+      writeCentered(transportLine, transportColor, "MatrixChunky8");
+      writeCentered(modeLine, chrome, "MatrixChunky8");
+      if (stale) {
+        ty += 2;
+        writeCentered("UPDATE AVAILABLE", [255, 180, 90], "MatrixChunky8");
+      }
     }
   }
 

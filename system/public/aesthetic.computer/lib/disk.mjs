@@ -10715,6 +10715,26 @@ async function makeFrame({ data: { type, content } }) {
     }
   }
 
+  // Build env info from bios: { packMode, packGit, packDate, latestCommit }
+  // Piece reads e.env in act() to know whether it's in the packed offline
+  // bundle or the live URL, and whether its build hash matches the latest
+  // the server is serving (for an "update available" nudge).
+  if (type === "env:info") {
+    if (!cachedAPI) return;
+    const $api = cachedAPI;
+    const data = {
+      device: "env",
+      env: content,
+      is: (e) => e === "env:info",
+    };
+    $api.event = data;
+    try {
+      act($api);
+    } catch (e) {
+      console.warn("️ ✒ Act failure (env:info)", e);
+    }
+  }
+
   if (type === "visibility-change") {
     // 🧨 Just in case of a regression... 23.06.02.21.12
     //    Because the `bios` focus event changed from visibility behavior.
