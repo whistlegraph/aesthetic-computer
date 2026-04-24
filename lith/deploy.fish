@@ -182,10 +182,36 @@ ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --om
 # when an amxd input actually changed since the last successful build
 # (via --if-stale), then push the versioned artifact + latest.json to
 # DO Spaces (--sync-spaces) so each release has a durable CDN URL
-# outside lith. Sourcing /opt/ac/system/.env before running picks up
-# DO_SPACES_* / AWS_* creds that lith.service already has configured.
+# outside lith.
+#
+# DO Spaces credentials live in aesthetic-computer-vault/spaces/.env
+# (canonical: spaces/.env.gpg). We decrypt locally, ship to /tmp on
+# lith for the build's lifetime, then remove — avoids storing S3 keys
+# permanently in /opt/ac/system/.env. If the vault file is missing or
+# GPG can't decrypt it, the build still runs — `--sync-spaces` just
+# gracefully skips the upload with a warning.
+set SPACES_ENV_SRC "$VAULT_DIR/spaces/.env"
+set SPACES_ENV_GPG "$VAULT_DIR/spaces/.env.gpg"
+set TMP_SPACES (mktemp)
+set SPACES_READY false
+if test -f $SPACES_ENV_SRC
+    cp $SPACES_ENV_SRC $TMP_SPACES
+    set SPACES_READY true
+else if test -f $SPACES_ENV_GPG
+    if gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG >$TMP_SPACES 2>/dev/null
+        set SPACES_READY true
+    end
+end
+
 echo -e "$GREEN-> Refreshing notepat.com.amxd build stream...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && set -a && source system/.env 2>/dev/null || true; set +a; node ac-m4l/build-notepat.mjs --if-stale --sync-spaces"
+if test $SPACES_READY = true
+    scp -i $SSH_KEY -q $TMP_SPACES $LITH_USER@$TARGET_HOST:/tmp/notepat-spaces.env
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && set -a && . /tmp/notepat-spaces.env && set +a && node ac-m4l/build-notepat.mjs --if-stale --sync-spaces; rc=\$?; rm -f /tmp/notepat-spaces.env; exit \$rc"
+else
+    echo -e "$YELLOW   spaces creds unavailable — building without S3 sync.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node ac-m4l/build-notepat.mjs --if-stale"
+end
+rm -f $TMP_SPACES
 
 # Install service file + Caddy config from the deployed checkout
 echo -e "$GREEN-> Updating service + Caddy config...$NC"
