@@ -916,7 +916,7 @@ function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200, piece
 // system/public/m4l/notepat-remote.amxd so the offline bundle behaves
 // identically to the live version.
 function generateNotepatM4DPatcher(pieceName, dataUri) {
-  const W = 360, H = 169;
+  const W = 180, H = 169;
   return {
     patcher: {
       fileversion: 1,
@@ -1066,7 +1066,7 @@ function chunkBundleForM4D(html) {
 // octave, focus, ping from the daw bridge) pass through the final outlet to
 // the MIDI router. Everything else matches the hand-rolled notepat device.
 function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
-  const W = 360, H = 169;
+  const W = 180, H = 169;
   const liveUrl = "https://aesthetic.computer/" + pieceName + "?daw=1&nogap=1&density=1";
   const boxes = [
     { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: bootstrapDataUri } },
@@ -1146,7 +1146,7 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
 // `chunked: true` routes through the chunked bootstrap pipeline, required
 // whenever the bundle exceeds Max's ~32 KB attribute/message text cap.
 const DAW_PIECE_PROFILES = {
-  "notepat-remote": { profile: "notepat", kind: "midi_effect", chunked: true },
+  "notepat-remote": { profile: "notepat", kind: "midi_effect", chunked: true, displayName: "notepat.com" },
 };
 
 export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {}, density = null) {
@@ -1187,7 +1187,10 @@ export async function createM4DBundle(pieceName, isJSPiece, onProgress = () => {
   onProgress({ stage: "compress", message: "Packing .amxd binary..." });
 
   const binary = packAMXD(patcher, amxdKind);
-  const filename = `AC ${pieceName} (offline).amxd`;
+  const displayName = profileSpec.displayName || pieceName;
+  const filename = profileSpec.displayName
+    ? `${displayName}.amxd`
+    : `AC ${pieceName} (offline).amxd`;
 
   return { binary, filename, sizeKB: Math.round(binary.length / 1024) };
 }

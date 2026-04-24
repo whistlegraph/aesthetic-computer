@@ -433,7 +433,7 @@ function paint({ wipe, ink, box, line, screen }) {
 
   // ── Header row: piece name + transport state ─────────────────────────
   let y = 2;
-  ink(...fg).write("notepat-remote", { x: 4, y });
+  ink(...fg).write("notepat.com", { x: 4, y });
   // Transport indicator mirrors arena.mjs: UDP (green) > WS (yellow) >
   // OFFLINE (red). UDP means net.udp is live (session geckos channel up);
   // WS means the raw notepat:midi subscription socket is open.
@@ -570,21 +570,13 @@ function paint({ wipe, ink, box, line, screen }) {
         const labelX = px + floor((pw - labelW) / 2);
         const labelY = py + floor((ph - charH) / 2);
         // Black keys stay dark when held (fill ≈ graphite), so dark label
-        // text disappears. Keep the light label/hint for black keys even
-        // in the held state; only white keys (bright rainbow fill) flip
-        // to dark text on press.
+        // text disappears. Keep the light label for black keys even in
+        // the held state; only white keys (bright rainbow fill) flip to
+        // dark text on press.
         const labelColor =
           held && focused && !black ? [10, 10, 14] :
           black ? [220, 225, 235] : [20, 22, 28];
         ink(...labelColor).write(label, { x: labelX, y: labelY });
-        // Keyboard key hint, inset from the bottom-right corner.
-        const hintInset = 2;
-        const hintX = px + pw - charW - hintInset;
-        const hintY = py + ph - charH - hintInset + 1;
-        const hintColor =
-          held && focused && !black ? [10, 10, 14, 200] :
-          black ? [180, 180, 190, 180] : [40, 44, 52, 180];
-        ink(...hintColor).write(key.toUpperCase(), { x: hintX, y: hintY });
       }
     }
   }

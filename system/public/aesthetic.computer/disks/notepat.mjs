@@ -7124,7 +7124,7 @@ function act({
       down: () => api.beep(400),
       push: () => {
         api.beep();
-        jump("out:https://aesthetic.computer/m4l/notepat-remote.amxd");
+        jump("out:https://aesthetic.computer/m4l/notepat.com.amxd");
       },
     });
 
