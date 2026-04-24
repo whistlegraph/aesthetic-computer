@@ -1021,7 +1021,7 @@ const pieceRuns = (() => {
     if (run.flushTimer) { clearTimeout(run.flushTimer); run.flushTimer = null; }
     if (run.events.length) {
       const events = run.events.splice(0, run.events.length);
-      post("log", run.pieceId, { events });
+      post("log", run.pieceId, { data: { events } });
     }
     post("complete", run.pieceId, {
       data: { duration: Date.now() - run.startedAt, ...summary },
@@ -1046,7 +1046,7 @@ const pieceRuns = (() => {
         if (run.flushTimer) { clearTimeout(run.flushTimer); run.flushTimer = null; }
         if (!run.events.length) return;
         const events = run.events.splice(0, run.events.length);
-        post("log", run.pieceId, { events });
+        post("log", run.pieceId, { data: { events } });
       };
       current = run;
       post("start", pieceId, {
