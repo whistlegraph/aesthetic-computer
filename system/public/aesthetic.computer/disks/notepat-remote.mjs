@@ -472,18 +472,20 @@ function paint({ wipe, ink, box, line, screen }) {
   y += 10;
 
   // ── Button grid area: two 4×3 octave blocks side-by-side ─────────────
-  // Pixel-perfect: spans full width (0..W), fills from gridTop down to H.
-  // Pads butt up against each other — rainbow palette gives enough natural
-  // contrast that explicit separators add noise.
+  // Pads are always square — cell size is the min of width/cols and
+  // height/rows, so the grid stays piano-shaped no matter how narrow or
+  // tall the device is. Grid centers horizontally; extra vertical space
+  // falls below (kept for future readouts).
   const gridTop = y + 1;
-  // Pre-compute row and column extents so every pixel is accounted for and
-  // adjacent pads share the same boundary line (no 1px gaps or overlaps).
   const cols = 8; // 4 pads × 2 octave blocks
   const rows = 3;
+  const cellSize = max(1, min(floor(W / cols), floor((H - gridTop) / rows)));
+  const gridW = cellSize * cols;
+  const gridLeft = floor((W - gridW) / 2);
   const colEdges = [];
-  for (let c = 0; c <= cols; c += 1) colEdges.push(floor((c * W) / cols));
+  for (let c = 0; c <= cols; c += 1) colEdges.push(gridLeft + c * cellSize);
   const rowEdges = [];
-  for (let r = 0; r <= rows; r += 1) rowEdges.push(gridTop + floor((r * (H - gridTop)) / rows));
+  for (let r = 0; r <= rows; r += 1) rowEdges.push(gridTop + r * cellSize);
 
   buttons = [];
   for (let octIdx = 0; octIdx < OCTAVE_GRIDS.length; octIdx += 1) {
@@ -561,14 +563,27 @@ function paint({ wipe, ink, box, line, screen }) {
         ];
         ink(...borderColor).box(px, py, pw, ph, "outline");
 
-        // Main label = note name (C, C#, D…), small hint = keyboard key.
-        // Measured against AC's default 6×10 glyph grid.
+        // Main label = note name (C, C#, D…). Matches notepat.mjs web
+        // piece: jittery shake while held + 1px drop shadow so the
+        // typography pulses with each strike.
         const charW = 6;
         const charH = 10;
         const label = nameShort;
         const labelW = label.length * charW;
         const labelX = px + floor((pw - labelW) / 2);
         const labelY = py + floor((ph - charH) / 2);
+        // Shake: 2px jitter while held, 1px briefly after release.
+        const shakeAmount = held && focused
+          ? 2
+          : recentFlash && focused && sinceNote < 6
+          ? 1
+          : 0;
+        const shakeX = shakeAmount > 0
+          ? floor((Math.random() - 0.5) * shakeAmount * 2)
+          : 0;
+        const shakeY = shakeAmount > 0
+          ? floor((Math.random() - 0.5) * shakeAmount * 2)
+          : 0;
         // Black keys stay dark when held (fill ≈ graphite), so dark label
         // text disappears. Keep the light label for black keys even in
         // the held state; only white keys (bright rainbow fill) flip to
@@ -576,7 +591,10 @@ function paint({ wipe, ink, box, line, screen }) {
         const labelColor =
           held && focused && !black ? [10, 10, 14] :
           black ? [220, 225, 235] : [20, 22, 28];
-        ink(...labelColor).write(label, { x: labelX, y: labelY });
+        // Drop shadow — opposite luminance of the label, slight offset.
+        const shadowColor = labelColor[0] < 128 ? [240, 240, 240, 140] : [0, 0, 0, 180];
+        ink(...shadowColor).write(label, { x: labelX + shakeX + 1, y: labelY + shakeY + 1 });
+        ink(...labelColor).write(label, { x: labelX + shakeX, y: labelY + shakeY });
       }
     }
   }
