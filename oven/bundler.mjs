@@ -1028,9 +1028,9 @@ function generateChunkedBootstrapHTML(pieceName) {
   // `goonline` message); on failure it emits `ready` and lets the chunk
   // messages reassemble the embedded offline bundle.
   return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>${title} · loading</title>
-<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#0e1012;color:#4f9;font:12px -apple-system,monospace;overflow:hidden}pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-all}</style>
-</head><body><pre id="s">booting ${title}…</pre><script>
+<html lang="en"><head><meta charset="utf-8"><title>${title}</title>
+<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}pre{display:none}</style>
+</head><body><pre id="s"></pre><script>
 (function(){
 var el=document.getElementById("s");
 function log(m){if(el)el.textContent=(el.textContent+"\\n"+m).slice(-3000);try{if(window.max&&window.max.outlet)window.max.outlet("log",String(m).slice(0,900));}catch(_){}}
@@ -1069,8 +1069,10 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
   const W = 150, H = 169;
   // Cache-bust the live URL with the git commit so jweb/service-worker
   // caches can't keep an older piece pinned after a lith deploy.
+  // `noboot=1` hides the boot-canvas VHS animation entirely — tiny
+  // M4L device panel looks wrong with it running.
   const liveUrl = "https://aesthetic.computer/" + pieceName +
-    "?daw=1&nogap=1&density=1&v=" + GIT_COMMIT;
+    "?daw=1&nogap=1&density=1&noboot=1&v=" + GIT_COMMIT;
   // presentation_rect gets a +1 on each axis so jweb content bleeds
   // 1px past the visible device rect — this is the well-known Max
   // quirk fix (same as the generic instrument patcher) for hiding
