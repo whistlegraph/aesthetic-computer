@@ -48,13 +48,15 @@ function gitHash() {
 }
 
 function gitDirty() {
+  // Only tracked-file modifications count as "dirty" for versioning —
+  // stray untracked files on the server (like deploy.fish's
+  // system/public/.commit-ref) shouldn't make every deploy's version
+  // look like a dev build.
   try {
-    const out = execSync("git status --porcelain", { cwd: REPO_ROOT })
-      .toString()
-      .trim();
-    return out.length > 0;
-  } catch {
+    execSync("git diff --quiet HEAD --", { cwd: REPO_ROOT, stdio: "pipe" });
     return false;
+  } catch {
+    return true;
   }
 }
 

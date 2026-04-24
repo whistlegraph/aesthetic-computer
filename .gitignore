@@ -344,6 +344,8 @@ ac-vst/vst3sdk/
 # + the root alias (notepat.com.amxd above) but don't bloat the repo
 # with per-build binaries.
 system/public/m4l/notepat.com/*.amxd
+# deploy.fish writes this post-pull on lith — not a dev artifact.
+system/public/.commit-ref
 
 # Emacs performance logs (keep directory, ignore log files)
 .emacs-logs/*.log
