@@ -112,22 +112,48 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
             config.userContentController.addUserScript(userScript)
             config.userContentController.add(context.coordinator, name: "iOSAppLog")
             config.userContentController.add(context.coordinator, name: "iOSApp")
+
+            // 🧹 Clear cached JS modules and unregister stale service workers
+            // before each app launch. The web app's service worker caches
+            // /aesthetic.computer/*.mjs (boot, bios, disk, ...) with
+            // stale-while-revalidate for up to an hour, which means freshly
+            // deployed code can take a full launch cycle to reach the
+            // device. Keep cookies/localStorage so the user stays logged in.
+            let cacheTypes: Set<String> = [
+                WKWebsiteDataTypeDiskCache,
+                WKWebsiteDataTypeMemoryCache,
+                WKWebsiteDataTypeFetchCache,
+                WKWebsiteDataTypeOfflineWebApplicationCache,
+                WKWebsiteDataTypeServiceWorkerRegistrations,
+            ]
+            WKWebsiteDataStore.default().removeData(
+                ofTypes: cacheTypes,
+                modifiedSince: .distantPast
+            ) {}
+
             let webView = WKWebView(frame: .zero, configuration: config)
             webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
             webView.isOpaque = false
 //            webView.navigationDelegate = context.coordinator
             webView.uiDelegate = context.coordinator
             webView.customUserAgent = "Aesthetic"
-            
+
             // Add a script message handler to handle messages from JavaScript
             AppDelegate.shared?.appWebView = webView // Set the shared appWebView
             return webView
         }
-        
+
         func updateUIView(_ webView: WKWebView, context: Context) {
 //            let testHTML = "<html><script>window.ontouchstart = () => { console.log('hi'); const a = document.createElement('a'); a.href = 'https://example.com'; a.innerText = 'OKAY'; document.body.appendChild(a); a.click(); }</script><body></body></html>"
 //            webView.loadHTMLString(testHTML, baseURL: nil)
-             let request = URLRequest(url: URL(string: url)!)
+             // 🚫 .reloadIgnoringLocalCacheData makes the initial top-level
+             // request bypass any leftover URL cache, so a redeploy is
+             // visible after a single app relaunch.
+             let request = URLRequest(
+                url: URL(string: url)!,
+                cachePolicy: .reloadIgnoringLocalCacheData,
+                timeoutInterval: 30
+             )
              webView.load(request)
         }
        
