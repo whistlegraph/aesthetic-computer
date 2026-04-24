@@ -1023,6 +1023,10 @@ function generateChunkedBootstrapHTML(pieceName) {
   const title = pieceName.replace(/[<>&"']/g, "");
   // Compact JS so the whole document stays well under the 24 KB ceiling
   // the `url` data: URI attribute can hold.
+  // Online-first: on boot the bootstrap probes aesthetic.computer. On
+  // success it tells Max to navigate jweb~ to the live URL (via a
+  // `goonline` message); on failure it emits `ready` and lets the chunk
+  // messages reassemble the embedded offline bundle.
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>${title} · loading</title>
 <style>html,body{margin:0;padding:0;width:100%;height:100%;background:#0e1012;color:#4f9;font:12px -apple-system,monospace;overflow:hidden}pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-all}</style>
@@ -1039,8 +1043,9 @@ fetch(URL.createObjectURL(blob)).then(function(r){return r.blob();}).then(functi
 }catch(e){log("render failed: "+e);}}};
 window.addEventListener("error",function(e){log("[err] "+e.message);});
 window.addEventListener("unhandledrejection",function(e){log("[rej] "+(e.reason&&e.reason.message||e.reason));});
+function probe(){return new Promise(function(res){if(typeof navigator!=="undefined"&&navigator.onLine===false){return res(false);}var done=false;var to=setTimeout(function(){if(!done){done=true;res(false);}},2500);try{fetch("https://aesthetic.computer/favicon.ico",{mode:"no-cors",cache:"no-store"}).then(function(){if(!done){done=true;clearTimeout(to);res(true);}}).catch(function(){if(!done){done=true;clearTimeout(to);res(false);}});}catch(e){if(!done){done=true;clearTimeout(to);res(false);}}});}
 log("alive, polling for window.max");
-var tries=0;var iv=setInterval(function(){if(window.max&&typeof window.max.outlet==="function"){clearInterval(iv);log("window.max bound ("+tries+" tries), sending ready");try{window.max.outlet("ready",1);}catch(e){log("ready send failed: "+e);}}else if(++tries>100){clearInterval(iv);log("gave up waiting for window.max");}},50);
+var tries=0;var iv=setInterval(function(){if(window.max&&typeof window.max.outlet==="function"){clearInterval(iv);log("window.max bound ("+tries+" tries), probing network");probe().then(function(online){if(online){log("online — sending goonline");try{window.max.outlet("goonline",1);}catch(e){log("goonline send failed: "+e);}}else{log("offline — sending ready");try{window.max.outlet("ready",1);}catch(e){log("ready send failed: "+e);}}});}else if(++tries>100){clearInterval(iv);log("gave up waiting for window.max");}},50);
 })();
 </script></body></html>`;
 }
@@ -1062,11 +1067,15 @@ function chunkBundleForM4D(html) {
 // the MIDI router. Everything else matches the hand-rolled notepat device.
 function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
   const W = 360, H = 169;
+  const liveUrl = "https://aesthetic.computer/" + pieceName + "?daw=1&nogap=1&density=1";
   const boxes = [
     { box: { disablefind: 0, id: "obj-jweb", latency: 0, maxclass: "jweb~", numinlets: 1, numoutlets: 3, outlettype: ["signal","signal",""], patching_rect: [10,10,W,H], presentation: 1, presentation_rect: [0,0,W,H], rendermode: 1, url: bootstrapDataUri } },
     // Split jweb outlet 2 first by handshake/log symbols, then pass anything
     // else to the MIDI router. `route` has (N matched + 1 unmatched) outlets.
-    { box: { id: "obj-route-top", maxclass: "newobj", numinlets: 1, numoutlets: 5, outlettype: ["","","","",""], patching_rect: [10,200,400,22], text: "route ready log error warn" } },
+    // `goonline` means the bootstrap's network probe succeeded — swap
+    // jweb~'s URL to the live piece and skip chunk reassembly entirely.
+    { box: { id: "obj-route-top", maxclass: "newobj", numinlets: 1, numoutlets: 6, outlettype: ["","","","","",""], patching_rect: [10,200,400,22], text: "route ready goonline log error warn" } },
+    { box: { id: "obj-goonline-msg", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [10,160,560,22], text: "url " + liveUrl } },
     { box: { id: "obj-print-log", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [100,230,200,22], text: "print [AC-LOG]" } },
     { box: { id: "obj-print-error", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [200,230,200,22], text: "print [AC-ERROR]" } },
     { box: { id: "obj-print-warn", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [300,230,200,22], text: "print [AC-WARN]" } },
@@ -1080,11 +1089,15 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
   const lines = [
     { patchline: { source: ["obj-jweb", 2], destination: ["obj-route-top", 0] } },
     // Handshake "ready" fans out to every chunk message (see below).
-    { patchline: { source: ["obj-route-top", 1], destination: ["obj-print-log", 0] } },
-    { patchline: { source: ["obj-route-top", 2], destination: ["obj-print-error", 0] } },
-    { patchline: { source: ["obj-route-top", 3], destination: ["obj-print-warn", 0] } },
+    // `goonline` fires the `url …` message into jweb~, which navigates to
+    // the live piece and abandons the bootstrap (chunks never fire).
+    { patchline: { source: ["obj-route-top", 1], destination: ["obj-goonline-msg", 0] } },
+    { patchline: { source: ["obj-goonline-msg", 0], destination: ["obj-jweb", 0] } },
+    { patchline: { source: ["obj-route-top", 2], destination: ["obj-print-log", 0] } },
+    { patchline: { source: ["obj-route-top", 3], destination: ["obj-print-error", 0] } },
+    { patchline: { source: ["obj-route-top", 4], destination: ["obj-print-warn", 0] } },
     // Unmatched messages (notedown/noteup/octave/focus/ping) → MIDI router.
-    { patchline: { source: ["obj-route-top", 4], destination: ["obj-route", 0] } },
+    { patchline: { source: ["obj-route-top", 5], destination: ["obj-route", 0] } },
     { patchline: { source: ["obj-route", 0], destination: ["obj-noteout", 0] } },
     { patchline: { source: ["obj-route", 1], destination: ["obj-noteout", 1] } },
     { patchline: { source: ["obj-route", 2], destination: ["obj-pack-on", 0] } },

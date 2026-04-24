@@ -96,6 +96,11 @@ let lastInteractionFrame = -999;
 let _send = null;
 let frame = 0;
 
+// Smoothly-lerped background color so the notepat-native "color-reactive
+// backdrop" vibe carries into the M4L device. Target is derived from the
+// most recent note (darkened) and decays back to idle when nothing is held.
+const bgColor = [4, 2, 6];
+
 // Button grid layout (recomputed on each paint in case screen size changes).
 let buttons = [];
 
@@ -345,51 +350,90 @@ function paint({ wipe, ink, box, line, screen }) {
   const H = screen.height;
 
   // ── Palette ──────────────────────────────────────────────────────────
-  // Ableton-tasteful: graphite background, amber/orange accent (Live's
-  // MIDI color), muted grays. Unfocused = deeply dimmed + angry red blink
-  // so you can't miss it.
+  // Ported from notepat.mjs (web) + fedac/native/pieces/notepat.mjs so the
+  // M4L device shares the "notepat look" instead of its own Ableton-orange
+  // identity: warm near-black backdrop that color-reacts to incoming notes
+  // (native does this on its full screen via `wipe(bgColor)`), burgundy-
+  // graphite bar tones, and off-white chrome. Held pads glow in their own
+  // rainbow note color — no global accent color to clash with Live's UI.
   const blinkPhase = (sin(frame * 0.14) + 1) / 2; // 0..1 sinusoidal
   const blinkOn = blinkPhase > 0.5;
 
-  // Focused theme (always-on)
-  const focusedBg = [16, 18, 22];
-  const focusedAccent = [255, 156, 60];   // Live orange
-  const focusedAccentBright = [255, 196, 110];
-  const focusedFg = [212, 216, 224];
-  const focusedDim = [110, 116, 130];
-  const focusedKeyWhite = [38, 42, 50];
-  const focusedKeyBlack = [22, 24, 30];
-  const focusedOutline = [70, 76, 88];
+  // Native's dark palette (fedac/native/pieces/notepat.mjs paint()).
+  const BAR_BG = [35, 20, 30];
+  const BAR_BORDER = [55, 35, 45];
+  const PAD_SHARP = [18, 18, 20];        // black-key rest fill
+  const BG_IDLE = [4, 2, 6];             // near-black when nothing playing
+
+  // Focused theme — notepat palette, rainbow accent per note.
+  const focusedFg = [220, 220, 220];
+  const focusedDim = [130, 125, 130];
 
   // Unfocused theme — dark + red; flashes for attention.
   const unfocusedBg = blinkOn ? [48, 12, 12] : [22, 6, 6];
   const unfocusedAccent = blinkOn ? [255, 70, 70] : [180, 45, 45];
   const unfocusedFg = [180, 150, 150];
   const unfocusedDim = [100, 70, 70];
-  const unfocusedKeyWhite = [40, 18, 18];
   const unfocusedKeyBlack = [24, 10, 10];
-  const unfocusedOutline = [80, 30, 30];
+  const unfocusedKeyWhite = [40, 18, 18];
 
-  const bgBase = focused ? focusedBg : unfocusedBg;
-  const accent = focused ? focusedAccent : unfocusedAccent;
-  const accentBright = focused ? focusedAccentBright : unfocusedAccent;
+  const sinceNote = frame - lastNoteFrame;
+
+  // Compute the target backdrop color (notepat-native style: darkened note
+  // color when a note's active/fresh, otherwise fade toward BG_IDLE).
+  const BG_DECAY = 48; // frames a note keeps tinting the backdrop
+  let bgTarget;
+  if (focused && lastNote && sinceNote < BG_DECAY) {
+    const lastPitchName = pitchNameShort(lastNote.pitch).toLowerCase();
+    const lastOct = pitchOctave(lastNote.pitch);
+    const lastColor = getNoteColorForOctave(lastPitchName, lastOct, baseOctave);
+    // Darker when old, brighter when fresh; caps at 0.42 so the bg never
+    // competes with pad legibility.
+    const freshness = max(0, 1 - sinceNote / BG_DECAY);
+    const darken = 0.18 + freshness * 0.24;
+    bgTarget = [
+      floor(BG_IDLE[0] + (lastColor[0] * darken - BG_IDLE[0]) * freshness),
+      floor(BG_IDLE[1] + (lastColor[1] * darken - BG_IDLE[1]) * freshness),
+      floor(BG_IDLE[2] + (lastColor[2] * darken - BG_IDLE[2]) * freshness),
+    ];
+  } else if (!focused) {
+    bgTarget = unfocusedBg;
+  } else {
+    bgTarget = BG_IDLE;
+  }
+  // Smooth lerp into target — snap on held (currently-pressed) notes.
+  const hasHeld = focused && (heldKeys.size > 0 || !!tappedButton);
+  const lerp = hasHeld ? 1 : 0.25;
+  bgColor[0] += (bgTarget[0] - bgColor[0]) * lerp;
+  bgColor[1] += (bgTarget[1] - bgColor[1]) * lerp;
+  bgColor[2] += (bgTarget[2] - bgColor[2]) * lerp;
+  const bgBase = [floor(bgColor[0]), floor(bgColor[1]), floor(bgColor[2])];
+
+  // Fallback-ish "accent" — used only where chrome needs a non-fg color
+  // (held pad borders); derived from the last note so it still tracks the
+  // rainbow vibe. When nothing's been played, use a warm off-white.
+  const lastNoteColor = lastNote
+    ? getNoteColorForOctave(pitchNameShort(lastNote.pitch).toLowerCase(), pitchOctave(lastNote.pitch), baseOctave)
+    : focusedFg;
+  const accent = focused ? lastNoteColor : unfocusedAccent;
   const fg = focused ? focusedFg : unfocusedFg;
   const dim = focused ? focusedDim : unfocusedDim;
-  const keyWhite = focused ? focusedKeyWhite : unfocusedKeyWhite;
-  const keyBlack = focused ? focusedKeyBlack : unfocusedKeyBlack;
-  const outline = focused ? focusedOutline : unfocusedOutline;
+  const keyBlack = focused ? PAD_SHARP : unfocusedKeyBlack;
 
   wipe(...bgBase);
 
-  const sinceNote = frame - lastNoteFrame;
-  if (lastNote && sinceNote < 10 && focused) {
-    const f = 1 - sinceNote / 10;
-    ink(...accentBright, floor(40 * f)).box(0, 0, W, H, "fill");
+  // ── Top bar: notepat-native BAR_BG strip across the full width ───────
+  // Keeps header chrome legible while the responsive backdrop still shows
+  // through the 1px gaps between pads below.
+  const topBarH = 22;
+  if (focused) {
+    ink(...BAR_BG).box(0, 0, W, topBarH, "fill");
+    ink(...BAR_BORDER).line(0, topBarH, W - 1, topBarH);
   }
 
   // ── Header row: piece name + transport state ─────────────────────────
   let y = 2;
-  ink(...accent).write("notepat-remote", { x: 4, y });
+  ink(...fg).write("notepat-remote", { x: 4, y });
   // Transport indicator mirrors arena.mjs: UDP (green) > WS (yellow) >
   // OFFLINE (red). UDP means net.udp is live (session geckos channel up);
   // WS means the raw notepat:midi subscription socket is open.
@@ -471,8 +515,10 @@ function paint({ wipe, ink, box, line, screen }) {
         // piece's pad palette. Sharps/flats render black.
         const nameShort = pitchNameShort(pitch);
         const noteOctave = pitchOctave(pitch);
+        // Black keys use native's PAD_SHARP so the "sharp" rest tone is
+        // tuned to the rest of the palette; white keys keep the rainbow.
         const baseColor = black
-          ? [20, 22, 28]
+          ? PAD_SHARP
           : getNoteColorForOctave(nameShort.toLowerCase(), noteOctave, baseOctave);
 
         let fill;
@@ -496,75 +542,84 @@ function paint({ wipe, ink, box, line, screen }) {
             floor(bgBase[2] + (baseColor[2] - bgBase[2]) * 0.35),
           ];
         } else {
-          fill = black ? keyBlack : keyWhite;
+          fill = black ? keyBlack : unfocusedKeyWhite;
         }
-        ink(...fill).box(b.x, b.y, b.w, b.h, "fill");
-        // Draw a thin separator on the top and left edges using a darker
-        // shade of the pad's own color. This gives a consistent 1px grid
-        // line without the awkward outline-over-fill double-draw artifact.
-        // Rightmost / bottommost pads skip the edge since the device
-        // frame handles that boundary.
-        const edgeDark = [
-          floor(fill[0] * 0.55),
-          floor(fill[1] * 0.55),
-          floor(fill[2] * 0.55),
+        // Inset the drawn pad inside the cell so adjacent pads show a 1px
+        // background gap between them. Hit area stays the full cell.
+        const gap = 1;
+        const px = b.x + gap;
+        const py = b.y + gap;
+        const pw = max(1, b.w - gap * 2);
+        const ph = max(1, b.h - gap * 2);
+
+        ink(...fill).box(px, py, pw, ph, "fill");
+        // Pad border: darker shade of fill, or bright accent when held.
+        const borderColor = held && focused ? accent : [
+          floor(fill[0] * 0.5),
+          floor(fill[1] * 0.5),
+          floor(fill[2] * 0.5),
         ];
-        if (b.x > 0) ink(...edgeDark).line(b.x, b.y, b.x, b.y + b.h - 1);
-        if (b.y > gridTop) ink(...edgeDark).line(b.x, b.y, b.x + b.w - 1, b.y);
-        // Held state: bright accent border fully around the pad.
-        if (held && focused) {
-          ink(...accent).box(b.x, b.y, b.w, b.h, "outline");
-        }
+        ink(...borderColor).box(px, py, pw, ph, "outline");
 
         // Main label = note name (C, C#, D…), small hint = keyboard key.
+        // Measured against AC's default 6×10 glyph grid.
+        const charW = 6;
+        const charH = 10;
         const label = nameShort;
-        const labelX = b.x + floor(b.w / 2) - floor(label.length * 6 / 2);
-        const labelY = b.y + floor(b.h / 2) - 7;
+        const labelW = label.length * charW;
+        const labelX = px + floor((pw - labelW) / 2);
+        const labelY = py + floor((ph - charH) / 2);
+        // Black keys stay dark when held (fill ≈ graphite), so dark label
+        // text disappears. Keep the light label/hint for black keys even
+        // in the held state; only white keys (bright rainbow fill) flip
+        // to dark text on press.
         const labelColor =
-          held && focused ? [10, 10, 14] :
+          held && focused && !black ? [10, 10, 14] :
           black ? [220, 225, 235] : [20, 22, 28];
         ink(...labelColor).write(label, { x: labelX, y: labelY });
-        // Keyboard key hint (1 char), bottom-right corner of the pad.
-        const hintX = b.x + b.w - 7;
-        const hintY = b.y + b.h - 8;
+        // Keyboard key hint, inset from the bottom-right corner.
+        const hintInset = 2;
+        const hintX = px + pw - charW - hintInset;
+        const hintY = py + ph - charH - hintInset + 1;
         const hintColor =
-          held && focused ? [10, 10, 14, 200] :
+          held && focused && !black ? [10, 10, 14, 200] :
           black ? [180, 180, 190, 180] : [40, 44, 52, 180];
         ink(...hintColor).write(key.toUpperCase(), { x: hintX, y: hintY });
       }
     }
   }
 
-  // ── Unfocused overlay: big blinking "TAP ME!" over everything ────────
+  // ── Unfocused overlay: big red X spanning the device ─────────────────
+  // When the mjs piece doesn't have focus, the keyboard won't drive
+  // notes — the red X is the at-a-glance signal for that.
   if (!focused) {
-    // Semi-opaque scrim so the grid visibly darkens
-    ink(4, 0, 0, 160).box(0, 0, W, H, "fill");
+    // Darken the grid so the X reads as "inactive" not "on top of art"
+    ink(4, 0, 0, 150).box(0, 0, W, H, "fill");
 
-    // Thick pulsing red border that can't be missed
+    // Pulsing red border — same cue scheme as before, just thinner
     const borderAlpha = floor(140 + blinkPhase * 115);
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       ink(255, 40, 40, borderAlpha).box(i, i, W - i * 2, H - i * 2, "outline");
     }
 
-    // Huge "TAP ME!" centered in the device
-    const msg = "TAP ME!";
-    const msgSize = 2; // AC text scaling
-    const charW = 6 * msgSize;
-    const charH = 10 * msgSize;
-    const msgW = msg.length * charW;
-    const msgX = floor((W - msgW) / 2);
-    const msgY = floor((H - charH) / 2) - 4;
-    // Drop shadow
-    ink(0, 0, 0, 180).write(msg, { x: msgX + 2, y: msgY + 2, size: msgSize });
-    ink(255, blinkOn ? 80 : 40, blinkOn ? 80 : 40)
-      .write(msg, { x: msgX, y: msgY, size: msgSize });
+    // Thick red X from corner to corner. AC's line() is 1px, so stack
+    // a handful of parallel lines to build a visible stroke.
+    const xAlpha = floor(180 + blinkPhase * 75);
+    const xThick = 2; // gives a 5px-equivalent X across (t from -2..2)
+    for (let t = -xThick; t <= xThick; t += 1) {
+      ink(255, 60, 60, xAlpha).line(0, t, W - 1, H - 1 + t);
+      ink(255, 60, 60, xAlpha).line(W - 1, t, 0, H - 1 + t);
+    }
 
-    // Subtitle — smaller, italic-y hint
-    const sub = "click me to play";
-    const subX = floor((W - sub.length * 6) / 2);
-    const subY = msgY + charH + 4;
-    ink(blinkOn ? 220 : 140, 120, 120)
-      .write(sub, { x: subX, y: subY });
+    // Small hint badge at the top so the reason is readable
+    const hint = "click to activate keys";
+    const hintW = hint.length * 6;
+    const hintBoxX = floor((W - hintW) / 2) - 4;
+    const hintBoxY = 2;
+    ink(0, 0, 0, 200).box(hintBoxX, hintBoxY, hintW + 8, 12, "fill");
+    ink(255, 80, 80, borderAlpha).box(hintBoxX, hintBoxY, hintW + 8, 12, "outline");
+    ink(blinkOn ? 255 : 200, 140, 140)
+      .write(hint, { x: floor((W - hintW) / 2), y: hintBoxY + 2 });
   }
 }
 
