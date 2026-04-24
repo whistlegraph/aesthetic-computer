@@ -415,6 +415,7 @@ function paint({ wipe, ink, box, line, screen }) {
   const BAR_BG = [35, 20, 30];
   const BAR_BORDER = [55, 35, 45];
   const PAD_SHARP = [18, 18, 20];        // black-key rest fill
+  const IVORY = [240, 232, 215];         // white-key rest fill (piano-ivory)
   const BG_IDLE = [4, 2, 6];             // near-black when nothing playing
 
   // Focused theme — notepat palette, rainbow accent per note.
@@ -559,21 +560,19 @@ function paint({ wipe, ink, box, line, screen }) {
             fill = baseColor;
           }
         } else if (recentFlash && focused) {
-          // Note color blended in at recent-flash intensity.
+          // Recent-flash: blend the rest tone (ivory/PAD_SHARP) toward
+          // the note color. Fades out over 18 frames.
+          const restTone = black ? PAD_SHARP : IVORY;
           const f = 1 - sinceNote / 18;
           fill = [
-            floor(bgBase[0] + (baseColor[0] - bgBase[0]) * (0.35 + f * 0.5)),
-            floor(bgBase[1] + (baseColor[1] - bgBase[1]) * (0.35 + f * 0.5)),
-            floor(bgBase[2] + (baseColor[2] - bgBase[2]) * (0.35 + f * 0.5)),
+            floor(restTone[0] + (baseColor[0] - restTone[0]) * (0.35 + f * 0.5)),
+            floor(restTone[1] + (baseColor[1] - restTone[1]) * (0.35 + f * 0.5)),
+            floor(restTone[2] + (baseColor[2] - restTone[2]) * (0.35 + f * 0.5)),
           ];
         } else if (focused) {
-          // Resting state: muted version of note color so the rainbow is
-          // still readable without overwhelming the unpressed pads.
-          fill = [
-            floor(bgBase[0] + (baseColor[0] - bgBase[0]) * 0.35),
-            floor(bgBase[1] + (baseColor[1] - bgBase[1]) * 0.35),
-            floor(bgBase[2] + (baseColor[2] - bgBase[2]) * 0.35),
-          ];
+          // Resting state: piano-key look — ivory whites, near-black
+          // sharps. The rainbow only comes out when a note is active.
+          fill = black ? PAD_SHARP : IVORY;
         } else {
           fill = black ? keyBlack : unfocusedKeyWhite;
         }
@@ -646,10 +645,17 @@ function paint({ wipe, ink, box, line, screen }) {
     }
   }
 
-  // ── Octave divider: 2px gray horizontal bar between blocks ───────
+  // ── Octave divider + device bezel ───────────────────────────────
+  // Both pick up the Live track color when Max has pushed it, so the
+  // non-pad chrome responds to the hosting track. Fallback is a warm
+  // muted rose rather than a stark gray.
   if (focused) {
+    const chrome = liveTrackColor || [150, 80, 110];
     const barY = rowEdges[3] - octaveGap;
-    ink(100, 100, 110).box(0, barY, W, octaveGap, "fill");
+    ink(...chrome).box(0, barY, W, octaveGap, "fill");
+    for (let i = 0; i < 2; i += 1) {
+      ink(...chrome).box(i, i, W - i * 2, H - i * 2, "outline");
+    }
   }
 
   // ── Unfocused overlay: big red X spanning the device ─────────────────
