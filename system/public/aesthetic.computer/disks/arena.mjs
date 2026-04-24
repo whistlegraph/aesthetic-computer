@@ -465,12 +465,21 @@ function lerpAngle(a, b, k) {
   return a + d * k;
 }
 
+// Anonymous tabs (guest_xxxx or swarm_xxx from the load-test CLI) get a
+// "watcher" treatment — gray, translucent, tiny on the minimap — so the
+// visual prominence in the arena is reserved for people who claimed a handle.
+function isGuestHandle(h) {
+  return typeof h === "string" && (h.startsWith("guest_") || h.startsWith("swarm_"));
+}
+
 // Build a small humanoid stick-figure as a single line Form. Cheap to clone
 // per remote (handful of verts) and matches the arena's visual language.
-function buildRemoteBody(Form, colorRGB) {
+function buildRemoteBody(Form, colorRGB, watcher = false) {
   const [r, g, b] = colorRGB;
-  const col = [r / 255, g / 255, b / 255, 0.9];
-  const colDim = [r / 255, g / 255, b / 255, 0.5];
+  const a = watcher ? 0.35 : 0.9;
+  const aDim = watcher ? 0.18 : 0.5;
+  const col = [r / 255, g / 255, b / 255, a];
+  const colDim = [r / 255, g / 255, b / 255, aDim];
   const head = 0.3, shoulder = -0.4, hip = -1.1, foot = -2.0;
   // coords are (x, y, z, w); y is "up" in the form's local space.
   const pts = [
@@ -515,7 +524,11 @@ function paintRemotes(ink, form, Form) {
   for (const [handle, o] of Object.entries(others)) {
     const sample = sampleOther(o, t);
     if (!sample) continue;
-    if (!o.body) o.body = buildRemoteBody(Form, handleColor(handle));
+    if (!o.body) {
+      const watcher = isGuestHandle(handle);
+      const color = watcher ? [170, 175, 195] : handleColor(handle);
+      o.body = buildRemoteBody(Form, color, watcher);
+    }
     // Mirror local body positioning: Form.position uses (-x, y, -z).
     o.body.position[0] = -sample.x;
     o.body.position[1] = sample.y;
@@ -1879,22 +1892,34 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
       px: Math.round(ox + (wx - xMin) * sx),
       py: Math.round(oy + (wz - zMin) * sz),
     });
-    // Remote players (interpolated like the 3D bodies).
+    // Remote players (interpolated like the 3D bodies). Watchers (anon
+    // guest_/swarm_) render as a small dim 1px dot; named players get a
+    // bright 3×3 colored square.
     const tNow = renderTimeNow();
     for (const [handle, o] of Object.entries(others)) {
       const s = sampleOther(o, tNow);
       if (!s) continue;
       const { px, py } = project(s.x, s.z);
-      const [r, g, b] = handleColor(handle);
-      ink(r, g, b).box(px - 1, py - 1, 3, 3);
+      if (isGuestHandle(handle)) {
+        ink(150, 155, 175, 160).box(px, py, 1, 1);
+      } else {
+        const [r, g, b] = handleColor(handle);
+        ink(r, g, b).box(px - 1, py - 1, 3, 3);
+      }
     }
-    // Self — bigger white dot with a yaw notch.
+    // Self — white if you have a real handle, dim if anonymous, plus a
+    // yellow yaw notch so the map is orientation-readable.
     const camRef = system?.fps?.doll?.cam;
     if (camRef) {
       const myX = -camRef.x;
       const myZ = -camRef.z;
       const { px, py } = project(myX, myZ);
-      ink(255, 255, 255).box(px - 2, py - 2, 5, 5);
+      const meWatching = isGuestHandle(myHandle);
+      if (meWatching) {
+        ink(180, 185, 205).box(px - 1, py - 1, 3, 3);
+      } else {
+        ink(255, 255, 255).box(px - 2, py - 2, 5, 5);
+      }
       const yawR = camRef.rotY * Math.PI / 180;
       const tipX = px + Math.round(Math.sin(yawR) * 6);
       const tipY = py + Math.round(Math.cos(yawR) * 6);
@@ -1906,14 +1931,25 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   let lineY = margin + mapSize + 4;
   const advance = () => { lineY += lineH; };
 
-  // Players: count + your handle.
-  const peers = Object.keys(others).length;
-  const total = peers + (netSpectator ? 0 : 1);
+  // Players + watchers — split named handles from anon guests so the
+  // count tells you who's *here* versus who's just looking around.
+  let namedRemotes = 0;
+  let watcherRemotes = 0;
+  for (const h of Object.keys(others)) {
+    if (isGuestHandle(h)) watcherRemotes++; else namedRemotes++;
+  }
+  const meIsWatcher = isGuestHandle(myHandle);
+  const namedTotal = namedRemotes + (netSpectator || meIsWatcher ? 0 : 1);
+  const watcherTotal = watcherRemotes + (netSpectator || meIsWatcher ? 1 : 0);
   rightLabelMulti(
-    [[dim, "players "], [peers > 0 ? [180, 230, 180] : [200, 200, 200], `${total}`]],
+    [[dim, "players "], [namedTotal > 0 ? [180, 230, 180] : [180, 180, 190], `${namedTotal}`]],
     lineY,
   );
   advance();
+  if (watcherTotal > 0) {
+    rightLabelMulti([[dim, "watchers "], [[170, 175, 200], `${watcherTotal}`]], lineY);
+    advance();
+  }
 
   // Connection: transport + how stale snaps are + lag.
   {
