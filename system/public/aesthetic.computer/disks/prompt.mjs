@@ -2350,6 +2350,41 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
+  } else if (slug === "tell") {
+    // tell @handle your one-way message
+    const to = params[0] || "";
+    const body = params.slice(1).join(" ").trim();
+    if (!to.startsWith("@")) {
+      flashColor = [255, 255, 0];
+      notice("TELL WHO?", ["yellow", "red"]);
+      makeFlash($, true);
+      return true;
+    }
+    if (!body) {
+      flashColor = [255, 255, 0];
+      notice("TELL WHAT?", ["yellow", "red"]);
+      makeFlash($, true);
+      return true;
+    }
+    const res = await net.userRequest("POST", "/api/tell", { to, text: body });
+    if (res?.status === 200) {
+      flashColor = [0, 255, 0];
+      notice(`TOLD ${to.toUpperCase()}`);
+    } else if (res?.status === 404) {
+      flashColor = [255, 0, 0];
+      notice("NO HANDLE", ["yellow", "red"]);
+      makeFlash($, true);
+    } else if (res?.status === 401 || res?.message === "unauthorized") {
+      flashColor = [255, 0, 0];
+      notice("LOG IN TO TELL", ["yellow", "red"]);
+      makeFlash($, true);
+    } else {
+      flashColor = [255, 0, 0];
+      notice("TELL FAILED", ["yellow", "red"]);
+      makeFlash($, true);
+    }
+    makeFlash($);
+    return true;
   } else if (text.startsWith("publish")) {
     const publishablePiece = store["publishable-piece"];
     if (!publishablePiece) {

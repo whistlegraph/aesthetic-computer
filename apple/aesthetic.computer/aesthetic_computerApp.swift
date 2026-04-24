@@ -182,7 +182,41 @@ extension AppDelegate: MessagingDelegate {
             object: nil,
             userInfo: dataDict
         )
-        // TODO: If necessary, send token to your application server.
-        // Note: This callback is fired at each app startup and whenever a new token is generated.
+        // Hand the token to the WebView so the AC runtime can POST it to
+        // /api/register-push-token against the logged-in user.
+        // This callback is fired at each app startup and whenever a new token is generated.
+        guard let token = fcmToken, !token.isEmpty else { return }
+        deliverPushTokenToWebView(token)
+    }
+
+    private func deliverPushTokenToWebView(_ token: String, attempt: Int = 0) {
+        // Retry a few times so we don't lose the token if the WebView hasn't
+        // finished loading AC's bios.mjs yet (iOSReceivePushToken lives there).
+        let escaped = token.replacingOccurrences(of: "\\", with: "\\\\")
+                           .replacingOccurrences(of: "'", with: "\\'")
+        let script = "window.iOSReceivePushToken && window.iOSReceivePushToken('\(escaped)', 'ios');"
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            guard let webView = self.appWebView else {
+                if attempt < 20 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.deliverPushTokenToWebView(token, attempt: attempt + 1)
+                    }
+                }
+                return
+            }
+            webView.evaluateJavaScript(script) { _, error in
+                if let error = error {
+                    print("📱 🔔 Failed to hand token to WebView: \(error)")
+                    if attempt < 20 {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            self.deliverPushTokenToWebView(token, attempt: attempt + 1)
+                        }
+                    }
+                } else {
+                    print("📱 🔔 Handed FCM token to WebView (attempt \(attempt)).")
+                }
+            }
+        }
     }
 }

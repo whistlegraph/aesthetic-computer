@@ -104,6 +104,14 @@ export async function handler(event, context) {
       await database.db.collection("moods").deleteMany({ user: sub });
       console.log("🧠 Deleted moods.");
 
+      await database.db.collection("push-tokens").deleteMany({ user: sub });
+      console.log("🔔 Deleted push tokens.");
+
+      await database.db
+        .collection("tells")
+        .deleteMany({ $or: [{ to: sub }, { from: sub }] });
+      console.log("📣 Deleted tells (sent + received).");
+
       await database.db.collection("verifications").deleteOne({ _id: sub });
       console.log("🧏 Deleted verification count.");
 

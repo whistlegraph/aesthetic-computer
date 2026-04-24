@@ -1505,13 +1505,16 @@ if (!sandboxed && !skipAuth) {
       const legitParams = extractLegitimateParams(window.location.href);
       if (legitParams.has("signup")) window.acLOGIN("signup");
 
-      window.acLOGOUT = () => {
+      window.acLOGOUT = async () => {
         if (isAuthenticated) {
           console.log("🔐 Logging out...");
           window.acSEND({
             type: "logout:broadcast:subscribe",
             content: { user: window.acUSER },
           });
+          try {
+            await window.iOSUnregisterPushToken?.();
+          } catch {}
           auth0Client.logout({
             logoutParams: { returnTo: window.location.origin },
           });
@@ -1559,6 +1562,9 @@ if (!sandboxed && !skipAuth) {
           type: "session:started",
           content: { user: window.acUSER },
         });
+
+        // 🔔 If the native iOS app handed us a push token before login, register it now.
+        window.iOSTryRegisterPushToken?.();
 
         // Background: fetch handle from /user and refresh token if needed.
         // This runs after the disk already has auth — it just enriches data.

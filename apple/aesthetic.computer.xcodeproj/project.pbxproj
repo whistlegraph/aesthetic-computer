@@ -13,7 +13,6 @@
 		41F5CDCE2B2931B000F7FF87 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDCD2B2931B000F7FF87 /* Preview Assets.xcassets */; };
 		41F5CDD62B29333300F7FF87 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDD52B29333300F7FF87 /* FirebaseAnalytics */; };
 		41F5CDD82B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDD72B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion */; };
-		41F5CDDA2B29333300F7FF87 /* FirebaseAnalyticsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDD92B29333300F7FF87 /* FirebaseAnalyticsSwift */; };
 		41F5CDDC2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDDB2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport */; };
 		41F5CDDE2B29333300F7FF87 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDDD2B29333300F7FF87 /* FirebaseAppCheck */; };
 		41F5CDE12B29348800F7FF87 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 41F5CDE02B29348800F7FF87 /* FirebaseMessaging */; };
@@ -73,7 +72,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				41F5CDE12B29348800F7FF87 /* FirebaseMessaging in Frameworks */,
-				41F5CDDA2B29333300F7FF87 /* FirebaseAnalyticsSwift in Frameworks */,
 				41F5CDD62B29333300F7FF87 /* FirebaseAnalytics in Frameworks */,
 				41F5CDD82B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */,
 				41F5CDDE2B29333300F7FF87 /* FirebaseAppCheck in Frameworks */,
@@ -174,7 +172,6 @@
 			packageProductDependencies = (
 				41F5CDD52B29333300F7FF87 /* FirebaseAnalytics */,
 				41F5CDD72B29333300F7FF87 /* FirebaseAnalyticsOnDeviceConversion */,
-				41F5CDD92B29333300F7FF87 /* FirebaseAnalyticsSwift */,
 				41F5CDDB2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport */,
 				41F5CDDD2B29333300F7FF87 /* FirebaseAppCheck */,
 				41F5CDE02B29348800F7FF87 /* FirebaseMessaging */,
@@ -429,7 +426,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = aesthetic.computer/aesthetic.computer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
@@ -447,7 +444,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -464,7 +461,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "aesthetic.computer/aesthetic.computer-release.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
@@ -482,7 +479,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -496,7 +493,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
@@ -508,7 +505,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -523,7 +520,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
@@ -535,7 +532,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -583,7 +580,7 @@
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 10.19.0;
+				minimumVersion = 11.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -598,11 +595,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAnalyticsOnDeviceConversion;
-		};
-		41F5CDD92B29333300F7FF87 /* FirebaseAnalyticsSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 41F5CDD42B29333300F7FF87 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalyticsSwift;
 		};
 		41F5CDDB2B29333300F7FF87 /* FirebaseAnalyticsWithoutAdIdSupport */ = {
 			isa = XCSwiftPackageProductDependency;

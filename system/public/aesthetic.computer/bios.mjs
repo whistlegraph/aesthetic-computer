@@ -21270,6 +21270,75 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       content: { piece, ahistorical: false, alias: false },
     });
   };
+
+  // 🔔 Native push-token bridge.
+  // Swift calls window.iOSReceivePushToken when FCM hands it a token.
+  // If the user is logged in we POST it to /api/register-push-token right
+  // away; otherwise we stash it and register once session:started fires
+  // (see iOSTryRegisterPushToken, called from boot.mjs after login).
+  let _iosPushToken = null;
+  let _iosPushPlatform = "ios";
+  let _iosPushRegistered = false;
+  let _iosPushInflight = false;
+
+  window.iOSReceivePushToken = (token, platform) => {
+    if (typeof token !== "string" || !token) return;
+    if (_iosPushToken === token && _iosPushRegistered) return;
+    _iosPushToken = token;
+    _iosPushPlatform = platform || "ios";
+    _iosPushRegistered = false;
+    window.iOSTryRegisterPushToken();
+  };
+
+  window.iOSTryRegisterPushToken = async () => {
+    if (!_iosPushToken || _iosPushRegistered || _iosPushInflight) return;
+    if (!window.auth0Client || !window.acUSER) return; // wait for login
+    _iosPushInflight = true;
+    try {
+      const authToken = await window.auth0Client.getTokenSilently();
+      if (!authToken) return;
+      const res = await fetch("/api/register-push-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          token: _iosPushToken,
+          platform: _iosPushPlatform,
+        }),
+      });
+      if (res.ok) {
+        _iosPushRegistered = true;
+        console.log("📱 🔔 Push token registered.");
+      } else {
+        console.warn("📱 🔔 Push token registration failed:", res.status);
+      }
+    } catch (err) {
+      console.warn("📱 🔔 Push token registration error:", err);
+    } finally {
+      _iosPushInflight = false;
+    }
+  };
+
+  window.iOSUnregisterPushToken = async () => {
+    if (!_iosPushToken || !window.auth0Client || !window.acUSER) return;
+    try {
+      const authToken = await window.auth0Client.getTokenSilently();
+      if (!authToken) return;
+      await fetch("/api/register-push-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ token: _iosPushToken, remove: true }),
+      });
+      _iosPushRegistered = false;
+    } catch (err) {
+      console.warn("📱 🔔 Push token unregister error:", err);
+    }
+  };
 } // End of boot function
 
 function iOSAppSend(message) {
