@@ -157,6 +157,8 @@ static void sigterm_handler(int sig) {
 //     We ALSO try the reboot syscall directly since we're running as root
 //     with CAP_SYS_BOOT — that's faster than round-tripping through init.
 //   - Under systemd (NixOS): fall back to systemctl.
+static void draw_shutdown_anim(void);
+
 static void ac_poweroff(void) {
     // Farewell animation (1.5s) — runs only if the display context is
     // available (skipped during early-boot emergency poweroffs before main
@@ -496,12 +498,9 @@ void *g_display = NULL;
 // Shutdown animation context — main() populates these once the display +
 // graph are initialized so ac_poweroff() can draw a "bye @handle" farewell
 // screen that mirrors the boot animation before the kernel halts.
-// Forward-declared here because ac_poweroff() (defined at the top of the
-// file) needs to call into drawing code further down.
 static ACGraph *g_shutdown_graph = NULL;
 static ACFramebuffer *g_shutdown_screen = NULL;
 static int g_shutdown_pixel_scale = 3;
-static void draw_shutdown_anim(void);
 
 #ifdef USE_WAYLAND
 // Global Wayland display — used by ac_display_present dispatch
