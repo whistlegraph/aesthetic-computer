@@ -1880,3 +1880,12 @@ Built:
 - Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
 - Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
 - Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+
+## 2026-04-25 18:09
+
+Built:
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
