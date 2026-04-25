@@ -3551,6 +3551,643 @@ function act({ event: e, sound, wifi, system }) {
   }
 }
 
+// === BANDMATE CHARACTERS ===
+// Each wave-type has a procedural bandmate drawn in the empty middle space
+// between the left/right note grids. Sprites are 18×22 char grids ('.' =
+// transparent), block size 2, so ~36×44 px on screen. Two frames each for
+// idle sway / playing dance — swap rate keys off note activity. Special
+// characters in each grid are interpreted by drawBandmate():
+//   E = eye-white (a 1px pupil is overlaid on top, looking at the cursor)
+//   M = mouth (neutral resting)
+//   N = mouth (excited/playing) — drawn over M when activeCount > 0
+//   = = animated string / instrument detail (shimmer on fresh pluck)
+//   O = origin marker for emitted music notes (transparent — sprite reads
+//       through, but drawBandmate caches the X/Y to spawn ♪ from)
+//   palette key '+' = bright shimmer color for '=' on fresh pluck
+//   palette key 'P' = pupil color
+const CHARACTER_SPRITES = {
+  // Existing harpist — now with addressable eyes (E) + dual mouth (M/N)
+  // and a string-pluck origin (O) for note emission.
+  harp: {
+    palette: {
+      H: [180, 90, 60], h: [140, 60, 30],
+      S: [240, 200, 170],
+      M: [200, 60, 70], N: [255, 100, 120], L: [200, 60, 70],
+      D: [180, 120, 220], d: [120, 70, 160],
+      "=": [255, 230, 140], "+": [255, 255, 200],
+      F: [220, 180, 80],
+      P: [25, 15, 30],
+    },
+    paletteLight: {
+      H: [140, 60, 30], h: [110, 50, 20],
+      S: [240, 200, 170],
+      M: [200, 60, 70], N: [230, 80, 100], L: [200, 60, 70],
+      D: [150, 80, 200], d: [100, 50, 150],
+      "=": [200, 160, 40], "+": [240, 200, 80],
+      F: [180, 120, 40],
+      P: [20, 10, 25],
+    },
+    spriteA: [
+      "....HHHHHH........",
+      "...HHHHHHHH.......",
+      "..HHEEHHEEHH......",
+      "..HHEEHHEEHH......",
+      "..HHHHMMHHHH......",
+      "..HHHLLLLHHH......",
+      "...HHHHHHHH.......",
+      "....SSSSSS........",
+      "...DDDDDDDD..FF...",
+      "..DDDDDDDDDD.FF...",
+      "..DDDDDDDDDDFF....",
+      "..DDDDdDDDDD=F....",
+      "..DDDDddDDDDO=F...",
+      "..DDDDdDdDDD=F....",
+      "...DDDDDDDD.F=F...",
+      "....dddddd..F=F...",
+      "....dd..dd..F=F...",
+      "....dd..dd..FFF...",
+      "...ddd..ddd.......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+    ],
+    spriteB: [
+      "....HHHHHH........",
+      "...HHHHHHHH.......",
+      "..HHEEHHEEHH......",
+      "..HHEEHHEEHH......",
+      "..HHHHNNHHHH......",
+      "..HHHLLLLHHH......",
+      "...HHHHHHHH.......",
+      "....SSSSSS........",
+      "...DDDDDDDD.FF....",
+      "..DDDDDDDDDDFF....",
+      "..DDDDDDDDDD=F....",
+      "..DDDDdDDDDD==F...",
+      "..DDDDddDDDD=F....",
+      "..DDDDdDdDDDFO=F..",
+      "...DDDDDDDDFF=F...",
+      "....dddddd.F=F....",
+      "....dd..dd.FFF....",
+      "....dd..dd........",
+      "...ddd..ddd.......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+    ],
+  },
+  // Sine Guy — round mellow dude with a sine-wave halo above his head.
+  // Signature gesture: nodding head, slow swayed hair, calm expression.
+  sine: {
+    palette: {
+      H: [40, 80, 200], h: [30, 60, 150],
+      S: [240, 210, 180], C: [60, 120, 255],
+      M: [180, 80, 80], N: [220, 100, 110], L: [180, 80, 80],
+      W: [120, 180, 255], "+": [200, 230, 255],
+      B: [40, 60, 140], b: [30, 45, 100],
+      P: [10, 20, 50],
+    },
+    paletteLight: {
+      H: [60, 100, 220], h: [40, 70, 170],
+      S: [240, 210, 180], C: [40, 100, 240],
+      M: [180, 60, 70], N: [210, 80, 90], L: [180, 60, 70],
+      W: [80, 140, 230], "+": [180, 220, 255],
+      B: [40, 70, 160], b: [30, 50, 110],
+      P: [10, 15, 40],
+    },
+    // The "WW" line above the head is a tiny sine-wave halo.
+    spriteA: [
+      ".......WW.........",
+      "....WWW..WWW......",
+      "..WW........WW....",
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHSSEESSEEHH...",
+      "..HHHSSEESSEEHH...",
+      "..HHSSSSSSSSSHH...",
+      "..HHSSSSMMSSSHH...",
+      "..hhSSSLLLLSShh...",
+      "...hhhSSSSSShh....",
+      "....SSSSSSSS......",
+      "...BBBBBBBBBB.....",
+      "..BBBBBBBBBBBB....",
+      "..BBBBBBBBBBBB....",
+      "..bbBBBBBBBBbb....",
+      "..bbBBBBBBBBbb....",
+      "...bbbBBBBbbb.....",
+      "....SS....SS......",
+      "....SS....SS......",
+      "....SS....SS......",
+      "...SSS....SSS.....",
+    ],
+    spriteB: [
+      ".........WW.......",
+      "......WWW..WWW....",
+      "....WW........WW..",
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHSSEESSEEHH...",
+      "..HHHSSEESSEEHH...",
+      "..HHSSSSSSSSSHH...",
+      "..HHSSSSNNSSSHH...",
+      "..hhSSSLLLLSShh...",
+      "...hhhSSSSSShh....",
+      "....SSSSOSSS......",
+      "...BBBBBBBBBB.....",
+      "..BBBBBBBBBBBB....",
+      "..BBBBBBBBBBBB....",
+      "..bbBBBBBBBBbb....",
+      "..bbBBBBBBBBbb....",
+      "...bbbBBBBbbb.....",
+      "...SSS....SSS.....",
+      "...SS......SS.....",
+      "..SS........SS....",
+      ".SSS........SSS...",
+    ],
+  },
+  // Triangle Girl — pointy hat, triangular dress, sharp angular sway.
+  triangle: {
+    palette: {
+      H: [20, 120, 60], h: [15, 90, 45],
+      S: [240, 220, 200], T: [60, 200, 80], t: [30, 140, 50],
+      M: [200, 90, 110], N: [240, 120, 140], L: [200, 90, 110],
+      D: [80, 220, 120], d: [40, 160, 80],
+      "+": [200, 255, 220],
+      P: [10, 30, 15],
+    },
+    paletteLight: {
+      H: [20, 100, 50], h: [15, 70, 35],
+      S: [240, 220, 200], T: [40, 180, 70], t: [25, 130, 50],
+      M: [200, 80, 100], N: [220, 100, 120], L: [200, 80, 100],
+      D: [60, 200, 100], d: [30, 150, 70],
+      "+": [180, 240, 200],
+      P: [10, 25, 15],
+    },
+    spriteA: [
+      "........T.........",
+      ".......TTT........",
+      "......TTTTT.......",
+      ".....TTTtTTT......",
+      "....HHHHHHHH......",
+      "...HHEEHHEEHH.....",
+      "...HHEEHHEEHH.....",
+      "...HHSSSSSSHH.....",
+      "...HHSSMMSSHH.....",
+      "....SSLLLLSS......",
+      ".....SSSSSS.......",
+      "......DDDD........",
+      ".....DDDDDD.......",
+      "....DDDDDDDD......",
+      "...DDDDOdDDDD.....",
+      "..DDDDDDDDDDDD....",
+      ".DDDDDdDDdDDDDD...",
+      "DDDDDDDDDDDDDDDD..",
+      "....SS....SS......",
+      "....SS....SS......",
+      "...SSS....SSS.....",
+      "..SSS......SSS....",
+    ],
+    spriteB: [
+      "........T.........",
+      ".......TTT........",
+      "......TTTTT.......",
+      ".....TTTtTTT......",
+      "....HHHHHHHH......",
+      "...HHEEHHEEHH.....",
+      "...HHEEHHEEHH.....",
+      "...HHSSSSSSHH.....",
+      "...HHSSNNSSHH.....",
+      "....SSLLLLSS......",
+      ".....SSSSSS.......",
+      "......DDDD........",
+      ".....DDDDDD.......",
+      "....DDDOdDDD......",
+      "...DDDDDDDDDD.....",
+      "..DDDDDdDDDDDD....",
+      ".DDDDDDdDdDDDDD...",
+      "DDDDDDDDDDDDDDDD..",
+      "....SSS..SSS......",
+      "...SSS....SSS.....",
+      "...SS......SS.....",
+      "..SSS......SSS....",
+    ],
+  },
+  // Square Bot — boxy android, antenna, screen-face, segmented arms.
+  square: {
+    palette: {
+      H: [120, 80, 180], h: [80, 50, 130],
+      S: [200, 200, 220],
+      M: [220, 80, 220], N: [255, 120, 255], L: [200, 60, 200],
+      B: [160, 80, 220], b: [110, 50, 160],
+      "=": [255, 220, 80], "+": [255, 255, 200],
+      A: [60, 60, 80],
+      P: [255, 80, 200],
+    },
+    paletteLight: {
+      H: [110, 70, 170], h: [70, 45, 120],
+      S: [220, 220, 240],
+      M: [200, 70, 200], N: [230, 100, 230], L: [180, 50, 180],
+      B: [140, 70, 200], b: [90, 40, 140],
+      "=": [220, 180, 40], "+": [240, 220, 100],
+      A: [60, 60, 80],
+      P: [200, 50, 160],
+    },
+    spriteA: [
+      "........A.........",
+      "........A.........",
+      ".......AAA........",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHSSSSSSSSHH....",
+      "..HHSEESSEESSHH...",
+      "..HHSEESSEESSHH...",
+      "..HHSSSSSSSSHH....",
+      "..HHSSMMMMSSHH....",
+      "..hhSSLLLLSShh....",
+      "...hhSSSSSShh.....",
+      "....BBBBBBBB......",
+      "...BBBBOBBBB......",
+      "..BBBBBBBBBBBB....",
+      "..BBBB====BBBB....",
+      "..BBBBBBBBBBBB....",
+      "..bbbBBBBBBbbb....",
+      "...bb......bb.....",
+      "...BB......BB.....",
+      "..BBB......BBB....",
+      "..AAA......AAA....",
+    ],
+    spriteB: [
+      "........A.........",
+      ".......AAA........",
+      "........A.........",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHSSSSSSSSHH....",
+      "..HHSEESSEESSHH...",
+      "..HHSEESSEESSHH...",
+      "..HHSSSSSSSSHH....",
+      "..HHSSNNNNSSHH....",
+      "..hhSSLLLLSShh....",
+      "...hhSSSSSShh.....",
+      "....BBBBBBBB......",
+      "....BBBOBBBB......",
+      "..BBBBBBBBBBBB....",
+      "..BBBB====BBBB....",
+      "..BBBBBBBBBBBB....",
+      "..bbbBBBBBBbbb....",
+      "...BB......BB.....",
+      "...bb......bb.....",
+      "..BBB......BBB....",
+      "..AAA......AAA....",
+    ],
+  },
+  // Sinister Sawtooth — jagged teeth, spiky hair, hollow malevolent eyes.
+  sawtooth: {
+    palette: {
+      H: [80, 30, 30], h: [50, 15, 15],
+      S: [180, 160, 150],
+      M: [40, 0, 0], N: [255, 0, 0], L: [255, 220, 220],
+      D: [120, 30, 40], d: [80, 15, 25],
+      Z: [255, 100, 0], z: [200, 60, 0],
+      "+": [255, 220, 100],
+      P: [255, 200, 0],
+    },
+    paletteLight: {
+      H: [70, 25, 25], h: [40, 12, 12],
+      S: [200, 170, 160],
+      M: [40, 0, 0], N: [200, 0, 0], L: [180, 60, 70],
+      D: [110, 30, 40], d: [70, 15, 25],
+      Z: [220, 80, 0], z: [180, 50, 0],
+      "+": [255, 200, 80],
+      P: [200, 50, 0],
+    },
+    spriteA: [
+      "..H.H.H.H.H.H.H...",
+      "..HHHHHHHHHHHHH...",
+      ".HHHHHHHHHHHHHHH..",
+      ".HHHEEHHHHHEEHHH..",
+      ".HHHEEHHHHHEEHHH..",
+      ".HHSSSSSSSSSSSHH..",
+      ".HHSSSSSSSSSSSHH..",
+      ".HHSSMMMMMMMSSHH..",
+      ".hhSSLLLLLLLLShh..",
+      "..hhSSSSSSSSShh...",
+      "...DDDDDDDDDD.....",
+      "..DDDDDDDDDDDD....",
+      ".DDDDOZzZzZDDDD...",
+      ".DDDDZzZzZzDDDD...",
+      ".DDDDzZzZzZDDDD...",
+      "..ddDDDDDDDDdd....",
+      "...ddDDDDDDdd.....",
+      "....SS....SS......",
+      "...SS......SS.....",
+      "..SS........SS....",
+      ".SSS........SSS...",
+      ".SS..........SS...",
+    ],
+    spriteB: [
+      ".H.H.H.H.H.H.H.H..",
+      ".HHHHHHHHHHHHHHH..",
+      "HHHHHHHHHHHHHHHHH.",
+      "HHHHEEHHHHHEEHHHH.",
+      "HHHHEEHHHHHEEHHHH.",
+      ".HHSSSSSSSSSSSHH..",
+      ".HHSSSSSSSSSSSHH..",
+      ".HHSSNNNNNNNSSHH..",
+      ".hhSSLLLLLLLLShh..",
+      "..hhSSSSSSSSShh...",
+      "...DDDDDDDDDD.....",
+      "..DDDDDDDDDDDD....",
+      ".DDDDZzZzZzDDDD...",
+      ".DDDDOZzZzZzDDDD..",
+      ".DDDDzZzZzZDDDD...",
+      "..ddDDDDDDDDdd....",
+      "...ddDDDDDDdd.....",
+      "...SSS....SSS.....",
+      "..SSS......SSS....",
+      ".SSS........SSS...",
+      "SSS..........SSS..",
+      "SS............SS..",
+    ],
+  },
+  // Whistling Wanderer — hooded traveler, puckered/whistling lips, pack
+  // on back. Lone-traveller silhouette; the 'O' marker is at the lips so
+  // emitted notes drift from his pucker.
+  whistle: {
+    palette: {
+      H: [80, 70, 60], h: [50, 45, 40],
+      S: [240, 210, 180],
+      M: [120, 60, 50], N: [200, 100, 80], L: [200, 100, 80],
+      C: [180, 150, 110], c: [120, 100, 70],
+      G: [60, 90, 50], g: [40, 65, 35],
+      "+": [255, 230, 180],
+      P: [30, 25, 20],
+    },
+    paletteLight: {
+      H: [90, 80, 70], h: [60, 55, 50],
+      S: [240, 210, 180],
+      M: [110, 50, 40], N: [180, 80, 60], L: [180, 80, 60],
+      C: [200, 170, 130], c: [140, 110, 80],
+      G: [70, 100, 60], g: [50, 75, 45],
+      "+": [240, 220, 170],
+      P: [25, 20, 15],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "..HHSSSMMOSSHH....",
+      "..HHSSSLLSSSHH....",
+      "..hhSSSSSSSShh....",
+      "...hhhSSSSShhh....",
+      "....CCCCCCCC......",
+      "...CCCCCCCCCC..gg.",
+      "..CCCCCCCCCCCCGG..",
+      "..CCCCCCCCCCCCGG..",
+      "..ccCCCCCCCCccGg..",
+      "..ccCCCCCCCCcc....",
+      "...cccCCCCccc.....",
+      "....cc....cc......",
+      "....cc....cc......",
+      "...ccc....ccc.....",
+      "..GGG......GGG....",
+      "..ggg......ggg....",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "..HHSSSNNOSSHH....",
+      "..HHSSSLLSSSHH....",
+      "..hhSSSSSSSShh....",
+      "...hhhSSSSShhh....",
+      "....CCCCCCCC......",
+      "...CCCCCCCCCC.gg..",
+      "..CCCCCCCCCCCGG...",
+      "..CCCCCCCCCCCGG...",
+      "..ccCCCCCCCCccG...",
+      "..ccCCCCCCCCcc....",
+      "...cccCCCCccc.....",
+      "....cc....cc......",
+      "...ccc....cc......",
+      "...cc......ccc....",
+      "..GGG......GGG....",
+      "..ggg......ggg....",
+    ],
+  },
+};
+
+// Floating music-note particles emitted by the active bandmate when notes
+// play. Pure visual layer — additive, max ~80, drift up + sway, fade out.
+let musicNotes = [];
+let lastTrailEmit = {}; // key -> last frame that emitted a note for this key
+
+function emitMusicNote(originX, originY, color) {
+  if (musicNotes.length > 80) musicNotes.shift();
+  const ang = (Math.random() - 0.5) * 0.6;
+  musicNotes.push({
+    x: originX + (Math.random() - 0.5) * 4,
+    y: originY,
+    vx: ang * 1.2,
+    vy: -0.7 - Math.random() * 0.5,
+    swayPhase: Math.random() * Math.PI * 2,
+    swayAmp: 1 + Math.random() * 1.5,
+    glyph: Math.floor(Math.random() * 3), // 0=quarter, 1=eighth, 2=beamed
+    color: [color[0], color[1], color[2]],
+    life: 0,
+    max: 55 + Math.floor(Math.random() * 20),
+  });
+}
+
+function updateMusicNotes() {
+  for (let i = musicNotes.length - 1; i >= 0; i--) {
+    const n = musicNotes[i];
+    n.life++;
+    n.swayPhase += 0.18;
+    n.x += n.vx + Math.sin(n.swayPhase) * 0.3;
+    n.y += n.vy;
+    n.vy += 0.006;
+    if (n.life >= n.max) musicNotes.splice(i, 1);
+  }
+}
+
+function drawMusicNotes(ink, box) {
+  for (const n of musicNotes) {
+    const t = n.life / n.max;
+    const alpha = Math.floor((1 - t * t) * 230);
+    if (alpha <= 0) continue;
+    const c = n.color;
+    const x = Math.floor(n.x);
+    const y = Math.floor(n.y);
+    // Note head — 3×2 filled blob
+    ink(c[0], c[1], c[2], alpha);
+    box(x, y, 3, 2, true);
+    // Stem rising from head
+    box(x + 2, y - 5, 1, 5, true);
+    // Flag (eighth/beamed have a flag at the top)
+    if (n.glyph >= 1) {
+      box(x + 3, y - 5, 2, 1, true);
+      box(x + 3, y - 4, 1, 1, true);
+    }
+    if (n.glyph === 2) {
+      // Beamed pair — extra small flag
+      box(x + 3, y - 3, 2, 1, true);
+    }
+  }
+}
+
+// Draws the procedural bandmate for the given wave type. Returns the
+// origin point for music notes (mouth/'O' marker) so the caller can
+// emit particles from the right spot.
+function drawBandmate(wave, ink, box, ctx) {
+  const char = CHARACTER_SPRITES[wave];
+  if (!char) return null;
+  const { dark, frame, activeCount, lastKeyFrame, hoverX, hoverY,
+          centerX, topY, bottomY } = ctx;
+  const palette = dark ? char.palette : char.paletteLight;
+
+  const playing = activeCount > 0;
+  const recent = (frame - lastKeyFrame) < 30;
+  // Sway speed: faster when actively playing, mid when recently touched,
+  // slow idle otherwise. Sawtooth twitches faster (sinister jitter).
+  const fastSwap = wave === "sawtooth" ? 4 : 6;
+  const idleSwap = wave === "sawtooth" ? 9 : 16;
+  const swapEvery = playing ? fastSwap : (recent ? Math.floor((fastSwap + idleSwap) / 2) : idleSwap);
+  const sprite = (Math.floor(frame / swapEvery) % 2 === 0) ? char.spriteA : char.spriteB;
+
+  const block = 2;
+  const spW = sprite[0].length;
+  const spH = sprite.length;
+  const spriteW = spW * block;
+  const spriteH = spH * block;
+  const sx = Math.floor(centerX - spriteW / 2);
+  const sy = Math.max(topY + 2, bottomY - spriteH - 2);
+
+  // Eye-tracking: pupils nudge toward the cursor (or center if no hover).
+  // Clamp to ±1 px within the eye-white block so they stay inside the eye.
+  const cx = sx + spriteW / 2;
+  const cy = sy + spriteH / 2;
+  const dx = hoverX >= 0 ? (hoverX - cx) : 0;
+  const dy = hoverY >= 0 ? (hoverY - cy) : 0;
+  const pupilDX = Math.max(-1, Math.min(1, Math.round(dx / 40)));
+  const pupilDY = Math.max(-1, Math.min(1, Math.round(dy / 50)));
+
+  const pluckFresh = (frame - lastKeyFrame) < 10;
+  const showActiveMouth = playing || (frame - lastKeyFrame) < 8;
+
+  // Pass 0: locate the music-note emission origin. Prefer an explicit
+  // 'O' marker in either frame; fall back to the first M/N (mouth) so
+  // characters drawn without an explicit O still emit from the face.
+  let mouthX = sx + Math.floor(spriteW / 2);
+  let mouthY = sy + Math.floor(spriteH * 0.4);
+  let mouthFound = false;
+  for (const grid of [char.spriteA, char.spriteB]) {
+    if (mouthFound) break;
+    for (let r = 0; r < grid.length; r++) {
+      const idxO = grid[r].indexOf("O");
+      if (idxO >= 0) {
+        mouthX = sx + idxO * block;
+        mouthY = sy + r * block;
+        mouthFound = true;
+        break;
+      }
+    }
+  }
+  if (!mouthFound) {
+    for (let r = 0; r < sprite.length; r++) {
+      const lineStr = sprite[r];
+      const idxM = lineStr.indexOf("M") >= 0 ? lineStr.indexOf("M") : lineStr.indexOf("N");
+      if (idxM >= 0) {
+        mouthX = sx + idxM * block;
+        mouthY = sy + r * block;
+        break;
+      }
+    }
+  }
+  for (let row = 0; row < spH; row++) {
+    const lineStr = sprite[row];
+    for (let col = 0; col < spW; col++) {
+      let ch = lineStr[col];
+      if (ch === "." || ch === " ") continue;
+      if (ch === "E" || ch === "P") continue; // drawn in pass 2
+      if (ch === "O") continue;                // origin marker — invisible
+      if (ch === "M" && showActiveMouth) {
+        ch = "N";
+      } else if (ch === "N" && !showActiveMouth) {
+        ch = "M";
+      }
+      let color = palette[ch];
+      if (!color) continue;
+      // Fresh-pluck shimmer on instrument detail.
+      if ((ch === "=" || ch === "Z") && pluckFresh) {
+        const bright = palette["+"];
+        if (bright) color = bright;
+      }
+      ink(color[0], color[1], color[2]);
+      box(sx + col * block, sy + row * block, block, block, true);
+    }
+  }
+
+  // Pass 2: eye whites + pupil overlay so eyes visibly track the cursor.
+  const skinPal = palette["S"] || [240, 200, 170];
+  const pupilPal = palette["P"] || [20, 10, 30];
+  for (let row = 0; row < spH; row++) {
+    const lineStr = sprite[row];
+    for (let col = 0; col < spW; col++) {
+      if (lineStr[col] !== "E") continue;
+      // Eye-white background (skin-tone)
+      ink(skinPal[0], skinPal[1], skinPal[2]);
+      box(sx + col * block, sy + row * block, block, block, true);
+    }
+  }
+  // Cluster eye Es into per-eye centers (left half / right half of the
+  // sprite) so each eye gets one pupil rather than per-cell.
+  const eyeCells = [];
+  for (let row = 0; row < spH; row++) {
+    const lineStr = sprite[row];
+    for (let col = 0; col < spW; col++) {
+      if (lineStr[col] === "E") eyeCells.push({ row, col });
+    }
+  }
+  if (eyeCells.length > 0) {
+    // Group by clusters with the gap heuristic (same row, contiguous cols
+    // form one eye; otherwise separate eyes).
+    const halfCol = spW / 2;
+    let lEye = null, rEye = null;
+    for (const cell of eyeCells) {
+      const target = cell.col < halfCol ? "l" : "r";
+      const slot = target === "l" ? lEye : rEye;
+      if (!slot) {
+        if (target === "l") lEye = { rSum: cell.row, cSum: cell.col, n: 1 };
+        else rEye = { rSum: cell.row, cSum: cell.col, n: 1 };
+      } else {
+        slot.rSum += cell.row;
+        slot.cSum += cell.col;
+        slot.n += 1;
+      }
+    }
+    const drawPupil = (eye) => {
+      if (!eye) return;
+      const cr = eye.rSum / eye.n;
+      const cc = eye.cSum / eye.n;
+      const ex = sx + Math.round(cc * block) + pupilDX;
+      const ey = sy + Math.round(cr * block) + pupilDY;
+      ink(pupilPal[0], pupilPal[1], pupilPal[2]);
+      box(ex, ey, 1, 1, true);
+    };
+    drawPupil(lEye);
+    drawPupil(rEye);
+  }
+
+  return { mouthX, mouthY };
+}
+
 function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, pressures, wifi }) {
   frame++;
   usbMidiRecent = usbMidiRecent.filter((entry) => entry.until > frame);
@@ -4761,120 +5398,53 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // === HARPIST SPRITE (harp mode only) ===
-  // Tiny pixel-art lady playing a harp, shown in the empty center
-  // space between the left + right grids when wave === "harp". Has
-  // a 2-frame dance animation keyed to harp-note activity: when a
-  // harp note has played within the last ~30 frames, she animates
-  // faster (keyed from frame%). Idle sway otherwise.
-  if (wave === "harp") {
-    // Color palette
-    const HAIR    = dark ? [180,  90,  60] : [140,  60,  30];
-    const SKIN    = dark ? [240, 200, 170] : [240, 200, 170];
-    const LIPS    = dark ? [220,  90, 100] : [200,  60,  70];
-    const DRESS   = dark ? [180, 120, 220] : [150,  80, 200];
-    const DRESS_D = dark ? [120,  70, 160] : [100,  50, 150];
-    const STRING  = dark ? [255, 230, 140] : [200, 160,  40];
-    const STRING_A= dark ? [255, 255, 200] : [240, 200,  80];
-    const FRAME_C = dark ? [220, 180,  80] : [180, 120,  40];
-    // 18×22 sprite grid. '.' = transparent. Block size is 2 so the
-    // whole thing is 36×44 px at native resolution — roughly fills
-    // the center space above the record strip.
-    const SPRITE_A = [
-      "....HHHHHH........",
-      "...HHHHHHHH.......",
-      "..HHSSHHSSHH......",
-      "..HHSSHHSSHH......",
-      "..HHHHMMHHHH......",
-      "..HHHLLLLHHH......",
-      "...HHHHHHHH.......",
-      "....SSSSSS........",
-      "...DDDDDDDD..FF...",
-      "..DDDDDDDDDD.FF...",
-      "..DDDDDDDDDDFF....",
-      "..DDDDdDDDDD=F....",
-      "..DDDDddDDDD==F...",
-      "..DDDDdDdDDD=F....",
-      "...DDDDDDDD.F=F...",
-      "....dddddd..F=F...",
-      "....dd..dd..F=F...",
-      "....dd..dd..FFF...",
-      "...ddd..ddd.......",
-      "..ddd....ddd......",
-      "..ddd....ddd......",
-      "..ddd....ddd......",
-    ];
-    const SPRITE_B = [
-      "....HHHHHH........",
-      "...HHHHHHHH.......",
-      "..HHSSHHSSHH......",
-      "..HHSSHHSSHH......",
-      "..HHHHMMHHHH......",
-      "..HHHLLLLHHH......",
-      "...HHHHHHHH.......",
-      "....SSSSSS........",
-      "...DDDDDDDD.FF....",
-      "..DDDDDDDDDDFF....",
-      "..DDDDDDDDDD=F....",
-      "..DDDDdDDDDD==F...",
-      "..DDDDddDDDD=F....",
-      "..DDDDdDdDDDF=F...",
-      "...DDDDDDDDFF=F...",
-      "....dddddd.F=F....",
-      "....dd..dd.FFF....",
-      "....dd..dd........",
-      "...ddd..ddd.......",
-      "..ddd....ddd......",
-      "..ddd....ddd......",
-      "..ddd....ddd......",
-    ];
-    const colorFor = (ch) => {
-      switch (ch) {
-        case "H": return HAIR;
-        case "S": return SKIN;
-        case "M": return LIPS;
-        case "L": return LIPS;
-        case "D": return DRESS;
-        case "d": return DRESS_D;
-        case "=": return STRING;
-        case "F": return FRAME_C;
-        default:  return null;
-      }
-    };
-    // Track harp-note activity to switch the animation speed.
-    const harpActive = activeCount > 0 ||
-      (frame - lastKeyFrame) < 30;
-    // Faster sway when playing: swap frames every 6 frames; slower
-    // idle sway every 14 frames.
-    const swapEvery = harpActive ? 6 : 14;
-    const sprite = Math.floor(frame / swapEvery) % 2 === 0 ? SPRITE_A : SPRITE_B;
-    // Center the sprite between the left-grid right edge and the
-    // right-grid left edge. Place just above the record strip.
-    const spW = sprite[0].length;
-    const spH = sprite.length;
-    const block = 2;
-    const spriteW = spW * block;
-    const spriteH = spH * block;
-    const betweenX0 = leftX + gridW;
-    const betweenX1 = rightX;
-    const sx = Math.floor((betweenX0 + betweenX1 - spriteW) / 2);
-    const sy = Math.max(topBarH + 2, recordStripTop - spriteH - 2);
-    // When the player hits a harp note, briefly flash the STRING
-    // color brighter. Indexed by plucked-age for a simple shimmer.
-    const pluckFresh = (frame - lastKeyFrame) < 10;
-    for (let row = 0; row < spH; row++) {
-      const line = sprite[row];
-      for (let col = 0; col < spW; col++) {
-        const ch = line[col];
-        if (ch === "." || ch === " ") continue;
-        let color = colorFor(ch);
-        if (!color) continue;
-        if (ch === "=" && pluckFresh) color = STRING_A;
-        ink(color[0], color[1], color[2]);
-        box(sx + col * block, sy + row * block, block, block, true);
+  // === BANDMATE CHARACTER (per-wave-type) ===
+  // Each instrument tab gets its own pixel-art bandmate drawn in the
+  // empty center between the left + right grids. Each one has expression
+  // frames keyed to note activity, eyes that track the cursor (so they
+  // address the user), and a mouth/instrument origin for the floating
+  // music-note particles. See CHARACTER_SPRITES near the top of the file
+  // for the per-character sprite tables and palettes.
+  const betweenX0 = leftX + gridW;
+  const betweenX1 = rightX;
+  const bandmateOrigin = drawBandmate(wave, ink, box, {
+    dark, frame, activeCount, lastKeyFrame, hoverX, hoverY,
+    centerX: (betweenX0 + betweenX1) / 2,
+    topY: topBarH,
+    bottomY: recordStripTop,
+  });
+
+  // === MUSIC-NOTE PARTICLES ===
+  // Scan trail[] for freshly-pressed notes (brightness > 0.95). For each
+  // one we haven't already emitted for at this trigger, spawn a music
+  // note particle from the bandmate's mouth/instrument origin in the
+  // note's color. Old emit tokens for keys no longer in trail are
+  // cleared so a re-press fires a new emission.
+  if (bandmateOrigin) {
+    for (const key in trail) {
+      const tr = trail[key];
+      if (!tr) continue;
+      // Trail brightness decays *= 0.92 per frame, so a fresh trigger
+      // lands near 1.0 and is below 0.9 within ~2 frames. Emit once per
+      // trigger by gating on >0.9 brightness + a min-age cooldown so a
+      // sustained press doesn't spam particles, but a re-press (which
+      // resets brightness to 1.0) does.
+      if (tr.brightness > 0.9) {
+        const age = frame - (lastTrailEmit[key] || -999);
+        if (age > 6) {
+          const c = NOTE_COLORS[tr.note] || [180, 180, 180];
+          emitMusicNote(bandmateOrigin.mouthX, bandmateOrigin.mouthY, c);
+          lastTrailEmit[key] = frame;
+        }
       }
     }
+    // Drop stale tokens so a re-press always re-emits.
+    for (const key in lastTrailEmit) {
+      if (!trail[key]) delete lastTrailEmit[key];
+    }
   }
+  updateMusicNotes();
+  drawMusicNotes(ink, box);
 
   // Expose grid layout for touch hit-testing in act()
   globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
