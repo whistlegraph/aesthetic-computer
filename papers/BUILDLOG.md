@@ -1817,3 +1817,12 @@ Built:
 - Two Departments, One Building [zh] → ucla-arts-funding-26-arxiv-zh.pdf
 - Two Departments, One Building [cards] → ucla-arts-funding-26-arxiv-cards.pdf
 - The Potter and the Prompt [en] → potter-and-prompt-26-arxiv.pdf
+
+## 2026-04-25 17:55
+
+Built:
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf

@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-04-18T23:13:03.065Z</updated>
+  <updated>2026-04-25T17:55:30.046Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://orcid.org/0009-0007-4460-4913</uri>
@@ -13,10 +13,20 @@
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
   <entry>
+    <title>Whistlegraph</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
+    <updated>2026-04-25T17:55:30.046Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
+  </entry>
+  <entry>
     <title>Jeffrey Alan Scudder — CV</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
     <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
-    <updated>2026-04-18T23:13:03.065Z</updated>
+    <updated>2026-04-25T17:55:30.044Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -24,10 +34,37 @@
     <title>The URL Tradition</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf</id>
-    <updated>2026-04-07T23:19:13.903Z</updated>
+    <updated>2026-04-25T17:55:30.043Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Addressable Creative Computing from HyperCard to Aesthetic Computer · arXiv 5pp — The URL Tradition traces how URL-addressability reshapes creative computing. From HyperCard&apos;s landlocked stacks to AC&apos;s prompt-as-address-bar, the paper argues the URL is not a feature but a medium property that transforms pedagogy, distribution, authorship, and social interaction.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp (ELS 2026)</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
+    <updated>2026-04-24T23:26:01.786Z</updated>
+    <category term="ELS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
+    <updated>2026-04-24T23:26:01.773Z</updated>
+    <category term="JOSS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic Computer &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
+    <updated>2026-04-24T23:26:01.727Z</updated>
+    <category term="JOSS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
   </entry>
   <entry>
     <title>Aesthetic Computer &apos;26</title>
@@ -118,16 +155,6 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Goodiepalian Approaches in Aesthetic Computer · arXiv 5pp — This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.</summary>
-  </entry>
-  <entry>
-    <title>Whistlegraph</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
-    <updated>2026-04-06T22:52:45.200Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
   </entry>
   <entry>
     <title>Sucking on the Complex</title>
@@ -278,32 +305,5 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Reading the Score looks at the graphic score as an interface for interpretation and collaboration. The paper treats notation as a computational and social object.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp (ELS 2026)</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
-    <updated>2026-03-29T00:19:12.959Z</updated>
-    <category term="ELS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
-    <updated>2026-03-29T00:19:12.950Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic Computer &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
-    <updated>2026-03-29T00:19:12.925Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
   </entry>
 </feed>
