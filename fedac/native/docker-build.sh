@@ -120,7 +120,7 @@ make -j$(nproc) CC="${CC_USE}" BUILDDIR="$BUILD" \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
     > "$BUILD/.make.log" 2>&1 || true
 
-[ -f "$BUILD/ac-native" ] || { tail -60 "$BUILD/.make.log" >&2; err "Binary compilation failed"; exit 1; }
+[ -f "$BUILD/ac-native" ] || { show_kernel_error_context "$BUILD/.make.log"; cp "$BUILD/.make.log" "$OUT/ac-native.make.log" 2>/dev/null || true; err "Binary compilation failed"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 log "  NEEDED libs:"
 readelf -d "$BUILD/ac-native" 2>/dev/null | grep NEEDED | sed 's/.*\[/    /' | sed 's/\]//'
