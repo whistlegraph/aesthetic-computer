@@ -1970,3 +1970,37 @@ Built:
 - Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
 - Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
 - Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+
+## 2026-04-25 18:33
+
+Built:
+- Aesthetic Computer '26 [ja] → aesthetic-computer-26-arxiv-ja.pdf
+- From setup() to boot() [ja] → piece-api-26-arxiv-ja.pdf
+- Repository Archaeology [ja] → repo-archaeology-26-arxiv-ja.pdf
+- Vestigial Features [ja] → dead-ends-26-arxiv-ja.pdf
+- Citation Diversity Audit [ja] → citation-diversity-audit-26-ja.pdf
+- Radical Computer Art [ja] → radical-computer-art-26-arxiv-ja.pdf
+- KidLisp '26 [ja] → kidlisp-26-arxiv-ja.pdf
+- KidLisp Language Reference [ja] → kidlisp-reference-26-arxiv-ja.pdf
+- Network Audit [ja] → network-audit-26-arxiv-ja.pdf
+- notepat.com [ja] → notepat-26-arxiv-ja.pdf
+- AC Native OS [ja] → ac-native-os-26-arxiv-ja.pdf
+- Pieces Not Programs [ja] → pieces-not-programs-26-arxiv-ja.pdf
+- Who Pays for Creative Tools? [ja] → who-pays-for-creative-tools-26-arxiv-ja.pdf
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+- PLOrk'ing the Planet [ja] → plorking-the-planet-26-arxiv-ja.pdf
+- Playable Folk Songs [ja] → folk-songs-26-arxiv-ja.pdf
+- KidLisp Cards [ja] → kidlisp-cards-26-arxiv-ja.pdf
+- Reading the Score [ja] → reading-the-score-26-arxiv-ja.pdf
+- CalArts, Callouts, and Papers [ja] → calarts-callouts-papers-26-arxiv-ja.pdf
+- Get Closed Source Out of Schools [ja] → open-schools-26-arxiv-ja.pdf
+- Five Years from Now [ja] → five-years-from-now-26-arxiv-ja.pdf
+- Handle Identity on the AT Protocol [ja] → handle-identity-atproto-26-arxiv-ja.pdf
+
+Failed:
+- Sucking on the Complex [ja]
