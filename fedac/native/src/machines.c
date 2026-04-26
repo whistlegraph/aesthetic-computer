@@ -76,6 +76,38 @@ static int json_get_str(const char *json, const char *key, char *out, int out_sz
     return len;
 }
 
+// Escape-aware JSON string extraction: respects \", \\, \n, \r, \t so values
+// like `(format t "hi")` survive transit. Stops at the first un-escaped quote.
+static int json_get_str_unesc(const char *json, const char *key, char *out, int out_sz) {
+    char needle[128];
+    snprintf(needle, sizeof(needle), "\"%s\":\"", key);
+    const char *p = strstr(json, needle);
+    if (!p) return -1;
+    p += strlen(needle);
+    int j = 0;
+    while (*p && j < out_sz - 1) {
+        if (*p == '"') break;
+        if (*p == '\\' && p[1]) {
+            char c = p[1];
+            if (c == '"')      out[j++] = '"';
+            else if (c == '\\') out[j++] = '\\';
+            else if (c == 'n') out[j++] = '\n';
+            else if (c == 'r') out[j++] = '\r';
+            else if (c == 't') out[j++] = '\t';
+            else if (c == '/') out[j++] = '/';
+            else { // unknown escape — keep verbatim
+                out[j++] = '\\';
+                if (j < out_sz - 1) out[j++] = c;
+            }
+            p += 2;
+        } else {
+            out[j++] = *p++;
+        }
+    }
+    out[j] = 0;
+    return j;
+}
+
 // Escape a string for JSON embedding (backslash, quotes, control chars).
 // Returns number of bytes written (excluding null terminator).
 static int json_escape(const char *in, int in_len, char *out, int out_sz) {
@@ -340,6 +372,21 @@ static void process_messages(ACMachines *m) {
             ac_log("[machines] rebooting by remote command\n");
             sync();
             reboot(0x01234567); // LINUX_REBOOT_CMD_RESTART
+        } else if (strcmp(cmd, "prompt") == 0) {
+            // Free-text remote prompt: feed `text` straight into prompt.mjs's
+            // execute() on the device. Use the escape-aware extractor so
+            // strings/parens/newlines in the payload survive.
+            char text[2048] = "";
+            json_get_str_unesc(raw, "text", text, sizeof(text));
+            if (text[0] && !m->cmd_pending) {
+                strncpy(m->cmd_type, "prompt", sizeof(m->cmd_type) - 1);
+                m->cmd_type[sizeof(m->cmd_type) - 1] = 0;
+                strncpy(m->cmd_target, text, sizeof(m->cmd_target) - 1);
+                m->cmd_target[sizeof(m->cmd_target) - 1] = 0;
+                strncpy(m->cmd_id, cmd_id, sizeof(m->cmd_id) - 1);
+                m->cmd_id[sizeof(m->cmd_id) - 1] = 0;
+                m->cmd_pending = 1;
+            }
         } else if (strcmp(cmd, "jump") == 0 ||
                    strcmp(cmd, "update") == 0 ||
                    strcmp(cmd, "request-logs") == 0) {
@@ -422,6 +469,22 @@ void machines_tick(ACMachines *m, ACWifi *wifi, int frame, int fps,
     if (m->connected && m->ws->connected) {
         sq_drain_one(m);
     }
+}
+
+void machines_send_response(ACMachines *m, const char *cmd_id,
+                            const char *cmd, const char *output, int ok) {
+    if (!m || !cmd_id || !cmd) return;
+    char escaped[8192];
+    int olen = output ? (int)strlen(output) : 0;
+    json_escape(output ? output : "", olen, escaped, sizeof(escaped));
+    char msg[12288];
+    snprintf(msg, sizeof(msg),
+        "{\"type\":\"command-response\","
+         "\"commandId\":\"%s\","
+         "\"command\":\"%s\","
+         "\"data\":{\"ok\":%s,\"output\":\"%s\"}}",
+        cmd_id, cmd, ok ? "true" : "false", escaped);
+    sq_push(m, msg);
 }
 
 void machines_flush_logs(ACMachines *m) {

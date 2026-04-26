@@ -197,6 +197,27 @@ function boot({ system }) {
     const raw = system?.readFile?.(CREDS_PATH);
     if (raw) savedCreds = JSON.parse(raw);
   } catch (_) {}
+
+  // Outside-in remote prompt: ac-native stages text + commandId here when a
+  // viewer publishes cmd:"prompt" through /machines. Run it through the same
+  // execute() that local typing uses, then ship whatever message landed back.
+  const remote = system?.consumePromptCmd?.();
+  if (remote && remote.text) {
+    const before = message;
+    message = "";
+    let ok = 1;
+    try {
+      execute(remote.text, system);
+    } catch (err) {
+      ok = 0;
+      message = "error: " + (err?.message || String(err));
+    }
+    const reply = message || "(no output)";
+    try { system?.machinesResponse?.(remote.id, reply, ok); } catch (_) {}
+    // Restore prior message so the local screen doesn't get hijacked when
+    // execute() didn't produce visible feedback.
+    if (!message) message = before;
+  }
 }
 
 function act({ event: e, system, sound }) {

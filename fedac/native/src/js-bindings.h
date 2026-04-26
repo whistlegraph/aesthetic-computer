@@ -94,6 +94,14 @@ typedef struct {
     char jump_params[8][64];             // colon-separated params (e.g. "chat:clock" → ["clock"])
     int jump_param_count;
 
+    // Outside-in remote prompt (cmd:"prompt" via /machines).
+    // ac-native.c stages text + commandId here when a remote prompt arrives;
+    // prompt.mjs's boot consumes it via system.consumePromptCmd() and replies
+    // through system.machinesResponse(id, output, ok).
+    volatile int pending_prompt_cmd;
+    char pending_prompt_text[2048];
+    char pending_prompt_id[32];
+
     // PTY terminal emulator
     ACPty pty;
     int pty_active;                      // 1 = PTY session is running

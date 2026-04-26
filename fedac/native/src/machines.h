@@ -28,10 +28,14 @@ typedef struct {
 
     // Pending command from server → forwarded to JS runtime
     volatile int cmd_pending;
-    char  cmd_type[32];           // "jump", "reboot", "update", "request-logs"
-    char  cmd_target[128];        // e.g. piece name for "jump"
+    char  cmd_type[32];           // "jump" | "prompt" | "reboot" | "update" | "request-logs"
+    char  cmd_target[2048];       // piece name for "jump"; free-text for "prompt"
     char  cmd_id[32];             // commandId for ack
 } ACMachines;
+
+// Singleton instance defined in ac-native.c. Exposed so js-bindings.c can
+// queue command-response messages out through the same WebSocket session.
+extern ACMachines g_machines;
 
 // Call once at startup (after init_machine_id, before main loop)
 void machines_init(ACMachines *m);
@@ -42,6 +46,12 @@ void machines_tick(ACMachines *m, ACWifi *wifi, int frame, int fps,
 
 // Flush final logs before shutdown (blocking drain of send queue)
 void machines_flush_logs(ACMachines *m);
+
+// Send a command-response back to the viewer for an outside-in prompt.
+// `output` is the device's reply text (may contain newlines/quotes).
+// `ok` is 1 for success, 0 for failure.
+void machines_send_response(ACMachines *m, const char *cmd_id,
+                            const char *cmd, const char *output, int ok);
 
 // Call at shutdown
 void machines_destroy(ACMachines *m);

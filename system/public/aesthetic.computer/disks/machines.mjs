@@ -213,6 +213,22 @@ function handleWsMessage(msg) {
           logs.unshift(...fetched);
           if (logs.length > 500) logs.length = 500;
         }
+      } else if (msg.command === "prompt" && msg.data) {
+        if (selectedMachine?.machineId === msg.machineId) {
+          const ok = msg.data.ok !== false;
+          const out = typeof msg.data.output === "string"
+            ? msg.data.output
+            : JSON.stringify(msg.data);
+          out.split("\n").filter(Boolean).forEach((line) => {
+            logs.unshift({
+              level: ok ? "reply" : "error",
+              message: (ok ? "← " : "✗ ") + line,
+              type: "prompt",
+              when: new Date().toISOString(),
+            });
+          });
+          if (logs.length > 500) logs.length = 500;
+        }
       }
       break;
   }
@@ -453,16 +469,16 @@ function paintDetail({ ink, line, screen, help }) {
   const btnH = 12;
 
   if (jumpInputActive) {
-    ink(80).write("Piece:", { x: M, y: btnY });
-    ink(255).write(jumpText + "_", { x: M + 42, y: btnY });
+    ink(80).write("Prompt:", { x: M, y: btnY });
+    ink(255).write(jumpText + "_", { x: M + 50, y: btnY });
     y += btnH + 4;
   } else {
-    // Jump button
-    ink(100, 200, 255).write("[Jump]", { x: M, y: btnY });
+    // Prompt button — free-text execute through the device's prompt.mjs
+    ink(100, 200, 255).write("[Prompt]", { x: M, y: btnY });
     // Update button
-    ink(100, 220, 100).write("[Update]", { x: M + 44, y: btnY });
+    ink(100, 220, 100).write("[Update]", { x: M + 56, y: btnY });
     // Reboot button
-    ink(220, 100, 100).write("[Reboot]", { x: M + 100, y: btnY });
+    ink(220, 100, 100).write("[Reboot]", { x: M + 112, y: btnY });
     y += btnH + 4;
   }
 
@@ -525,7 +541,11 @@ function paintDetail({ ink, line, screen, help }) {
         ? [220, 80, 80]
         : entry.level === "warn"
           ? [220, 180, 60]
-          : [70, 70, 90];
+          : entry.level === "cmd"
+            ? [120, 200, 255]
+            : entry.level === "reply"
+              ? [140, 220, 140]
+              : [70, 70, 90];
 
     ink(...levelColor).write(time, { x: M, y: logY });
     ink(160).write(
@@ -597,10 +617,19 @@ function act({ event: e, needsPaint, jump, pen }) {
     return;
   }
 
-  // Jump text input
+  // Prompt text input — sends free text through the device's prompt.mjs
   if (jumpInputActive) {
     if (e.is("keyboard:down:enter") && jumpText.length > 0) {
-      sendCommand(selectedMachine.machineId, "jump", { piece: jumpText });
+      sendCommand(selectedMachine.machineId, "prompt", { text: jumpText });
+      // Mirror the submission as a log entry so the viewer sees what was typed
+      // before the device's reply lands a tick later.
+      logs.unshift({
+        level: "cmd",
+        message: "❯ " + jumpText,
+        type: "prompt",
+        when: new Date().toISOString(),
+      });
+      if (logs.length > 500) logs.length = 500;
       jumpInputActive = false;
       jumpText = "";
       needsPaint();
@@ -667,23 +696,23 @@ function act({ event: e, needsPaint, jump, pen }) {
 
       // Command buttons (at row ~after info)
       // Approximate: commands area starts around y=120-160 depending on hw info
-      // We use the text positions: [Jump] starts at M, [Update] at M+44, [Reboot] at M+100
+      // Text positions: [Prompt] starts at M, [Update] at M+56, [Reboot] at M+112.
       const cmdY = findCommandY();
       if (py >= cmdY && py < cmdY + 14) {
-        if (px >= M && px < M + 40) {
-          // Jump
+        if (px >= M && px < M + 52) {
+          // Prompt — open free-text input
           jumpInputActive = true;
           jumpText = "";
           needsPaint();
           return;
         }
-        if (px >= M + 44 && px < M + 96) {
+        if (px >= M + 56 && px < M + 108) {
           // Update
           sendCommand(selectedMachine.machineId, "update");
           needsPaint();
           return;
         }
-        if (px >= M + 100 && px < M + 152) {
+        if (px >= M + 112 && px < M + 164) {
           // Reboot
           confirmReboot = selectedMachine.machineId;
           needsPaint();

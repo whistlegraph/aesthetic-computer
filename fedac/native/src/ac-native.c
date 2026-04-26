@@ -456,7 +456,7 @@ static void try_mount_log(void) {
 // Generated on first boot, read back on subsequent boots.
 // Accessible from js-bindings.c via extern.
 char g_machine_id[64] = {0};
-static ACMachines g_machines = {0};
+ACMachines g_machines = {0};
 
 static void init_machine_id(void) {
     FILE *f = fopen("/mnt/.machine-id", "r");
@@ -4571,6 +4571,19 @@ int main(int argc, char *argv[]) {
                         strncpy(rt->jump_target, g_machines.cmd_target, sizeof(rt->jump_target) - 1);
                         rt->jump_requested = 1;
                         ac_log("[machines] jump → %s\n", g_machines.cmd_target);
+                    } else if (strcmp(g_machines.cmd_type, "prompt") == 0 && g_machines.cmd_target[0]) {
+                        // Stage text + id for prompt.mjs to consume on boot,
+                        // then route the runtime through the prompt piece.
+                        strncpy(rt->pending_prompt_text, g_machines.cmd_target,
+                                sizeof(rt->pending_prompt_text) - 1);
+                        rt->pending_prompt_text[sizeof(rt->pending_prompt_text) - 1] = 0;
+                        strncpy(rt->pending_prompt_id, g_machines.cmd_id,
+                                sizeof(rt->pending_prompt_id) - 1);
+                        rt->pending_prompt_id[sizeof(rt->pending_prompt_id) - 1] = 0;
+                        rt->pending_prompt_cmd = 1;
+                        strncpy(rt->jump_target, "prompt", sizeof(rt->jump_target) - 1);
+                        rt->jump_requested = 1;
+                        ac_log("[machines] prompt → %.80s\n", g_machines.cmd_target);
                     } else if (strcmp(g_machines.cmd_type, "update") == 0) {
                         // Jump to notepat which handles OTA updates
                         strncpy(rt->jump_target, "notepat", sizeof(rt->jump_target) - 1);

@@ -1822,6 +1822,9 @@ wss.on("connection", async (ws, req) => {
                 command: msg.cmd,
                 commandId,
                 target: msg.args?.target || msg.args?.piece || undefined,
+                // Free-text payload for cmd:"prompt" — runs through the
+                // device's prompt.mjs execute() exactly as if typed locally.
+                text: typeof msg.args?.text === "string" ? msg.args.text : undefined,
               }));
               log(`Command '${msg.cmd}' → ${msg.machineId} (${commandId})`);
             }

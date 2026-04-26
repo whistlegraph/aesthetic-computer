@@ -20,6 +20,7 @@
 #include <errno.h>
 #include "qrcodegen.h"
 #include <alsa/asoundlib.h>
+#include "machines.h"
 #ifdef HAVE_RAYLIB
 #include "raylib-soft.h"
 #endif
@@ -2629,6 +2630,41 @@ static JSValue js_paste(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 
     graph_paste(current_rt->graph, src, dx, dy);
     return JS_UNDEFINED;
+}
+
+// system.consumePromptCmd() — pop a pending outside-in prompt command staged
+// by ac-native.c (machines daemon → cmd:"prompt"). Returns {id, text} once
+// per arrival and clears the slot, or null if nothing's queued.
+static JSValue js_consume_prompt_cmd(JSContext *ctx, JSValueConst this_val,
+                                     int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt || !current_rt->pending_prompt_cmd) return JS_NULL;
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "id",   JS_NewString(ctx, current_rt->pending_prompt_id));
+    JS_SetPropertyStr(ctx, obj, "text", JS_NewString(ctx, current_rt->pending_prompt_text));
+    current_rt->pending_prompt_cmd = 0;
+    current_rt->pending_prompt_text[0] = 0;
+    current_rt->pending_prompt_id[0] = 0;
+    return obj;
+}
+
+// system.machinesResponse(id, output, ok?) — ship a command-response back
+// through the existing /machines WebSocket session so the viewer's UI can
+// render what the device produced for an outside-in prompt.
+static JSValue js_machines_response(JSContext *ctx, JSValueConst this_val,
+                                    int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2) return JS_FALSE;
+    const char *id = JS_ToCString(ctx, argv[0]);
+    const char *output = JS_ToCString(ctx, argv[1]);
+    int ok = 1;
+    if (argc >= 3) ok = JS_ToBool(ctx, argv[2]);
+    if (id && output) {
+        machines_send_response(&g_machines, id, "prompt", output, ok);
+    }
+    if (id) JS_FreeCString(ctx, id);
+    if (output) JS_FreeCString(ctx, output);
+    return JS_TRUE;
 }
 
 // system.raylibTest(painting, frame?) — fill a painting buffer with a
@@ -7104,6 +7140,12 @@ static JSValue build_system_obj(JSContext *ctx) {
     // compiled in, so pieces can probe availability.
     JS_SetPropertyStr(ctx, sys, "raylibTest",
                       JS_NewCFunction(ctx, js_raylib_test, "raylibTest", 2));
+
+    // Outside-in remote prompt round-trip (cmd:"prompt" via /machines).
+    JS_SetPropertyStr(ctx, sys, "consumePromptCmd",
+                      JS_NewCFunction(ctx, js_consume_prompt_cmd, "consumePromptCmd", 0));
+    JS_SetPropertyStr(ctx, sys, "machinesResponse",
+                      JS_NewCFunction(ctx, js_machines_response, "machinesResponse", 3));
 
     // Printer detection and raw printing
     JS_SetPropertyStr(ctx, sys, "listPrinters",
