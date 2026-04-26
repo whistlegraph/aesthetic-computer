@@ -1,56 +1,60 @@
 # Francis Gallery (LA) — Painting Exhibition — Research
 
-> **User note:** "apply for Francis Gallery solo painting exhibition by May 30"
-> **What I found does not match.** The publicly listed Francis Gallery LA open
-> call is a **group Summer Exhibition**, not a solo show, with a deadline that
-> already closed:
+> **DEADLINE:** 2026-04-30 (extended from 2026-04-02). **Today is
+> 2026-04-24, so 6 days left.**
+> **Results announced:** 2026-05-08
+> **What it is:** **Summer Exhibition** — a *group* show of paintings,
+> not a solo show. The user wrote "solo painting exhibition by May 30"
+> which doesn't match the publicly listed call; the dates also don't
+> line up (May 30 vs Apr 30). Two readings:
 >
-> - Original deadline: 2026-04-02 (extended to 2026-04-30)
-> - Results announced: 2026-05-08
-> - Two prizes: $15,000 Francis Award (abstract), $15,000 Clara Award (figurative)
-> - $30 application fee per artwork (max 2 works)
-> - Artist must be LA-area, 18+
-> - Works: original paintings, 8×10" min to 48×60" max, completed within last 3 years
+> 1. The user is referring to this Summer Exhibition group call and
+>    "solo" was misremembered or they meant "submit my own paintings."
+>    In that reading, **we can still apply** by Apr 30.
+> 2. There's a separate, unposted solo call (direct invite, private
+>    word-of-mouth) — in which case we still need the source URL or
+>    contact and the May 30 deadline is the right one for *that*.
 
-## Possibilities
+## Summer Exhibition specifics (if we apply)
 
-1. **Different opportunity:** the user may be tracking a separate solo-show
-   call — maybe direct outreach to Francis Gallery, an invited proposal, or
-   another gallery with "Francis" in the name. Worth confirming before
-   drafting anything.
-2. **Same call, misremembered as solo:** if it's the Summer Exhibition, the
-   May 30 date doesn't line up either (results were May 8); the call closed
-   April 30. **This one is past deadline.**
-3. **Future-dated solo call:** Francis Gallery may have a separate solo
-   exhibition call we haven't surfaced. Their site lists exhibitions but the
-   public open-call page is the Summer Exhibition.
+- **Eligibility:** LA-area artists, 18+
+- **Submission:** up to 2 paintings, 8×10″ to 48×60″, original work
+  completed within last 3 years
+- **Application fee:** $30 per artwork ($60 if both)
+- **Two prizes:** $15,000 Francis Award (abstract), $15,000 Clara Award
+  (figurative)
+- **Submit at:** https://francisgallery.com/news/summer-exhibition-application-2026
 
-## What you can paint with right now
+## What JS could submit
 
-If the user *does* want to do a paint-focused submission somewhere, the AC
-universe has strong painting threads to pull on:
+The AC monorepo has a `paintings/` directory but it's mostly server-
+side code (paintings stored on the platform, not in repo). The actual
+work would be:
 
-- The Holden paper (`papers/arxiv-holden/holden.tex`) — "The Potter and the
-  Prompt" is about generative painting practice.
-- *No Paint* — the open-source paint tool that hit HN front page.
-- The Whistlegraph paintings / paintings-as-source-code thread.
-- `paintings/` directory in the monorepo (browse for current series).
+- **Recent performance paintings** (Whistlegraph series, etc.) — if
+  any have been printed/exported as physical paintings within the last
+  3 years.
+- **Generative-painting outputs** rendered as physical pieces — KidLisp
+  $roz or other minted pieces produced as prints/canvases.
+- **Studio paintings outside AC** that JS keeps separately (these aren't
+  in the repo).
 
-## Sources
+JS knows their own painting inventory and which two pieces are the
+strongest fit (Francis Award = abstract, Clara Award = figurative —
+JS can decide which prize track to optimize for).
 
-- [Open Call — Summer Exhibition](https://francisgallery.com/news/summer-exhibition-application-2026)
+## Source materials
+
+- [Open Call — Summer Exhibition (canonical)](https://francisgallery.com/news/summer-exhibition-application-2026)
 - [California Arts Council listing](https://arts.ca.gov/collective/francis-gallery-236-4-open-call-for-artists-summer-exhibition-2026/)
 - [Francis Gallery homepage](https://francisgallery.com/)
 
-## Next step (needs you)
+## Next steps (in order)
 
-**Please confirm one of:**
-
-- **(a)** This is the Summer Exhibition (group call, deadline already passed) —
-  **action: drop from list or contact gallery to ask if late submission is
-  possible.**
-- **(b)** It's a different solo opportunity — **action: send the URL or
-  context (e.g., who told you, where you saw it) and I'll re-research.**
-- **(c)** It's an unsolicited proposal you want to send the gallery directly —
-  **action: I'll draft the proposal and a cover letter against your painting
-  practice, and you set your own May 30 internal deadline.**
+1. **Decide which call:** is this the Summer Exhibition (group, Apr 30,
+   still open) or a separate solo invitation (need URL/source)?
+2. **If Summer Exhibition:** pick two paintings (one abstract, one
+   figurative — or two of one to maximize one prize track), get high-
+   resolution photos, complete the application form by Apr 30.
+3. **If different solo call:** send the URL/contact and I'll re-research
+   against May 30.

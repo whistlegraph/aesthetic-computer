@@ -103,6 +103,19 @@ gotchas:
    that's also where the Slab menubar's `mu` query expects to find them
    (`maildir:/ac-mail/INBOX OR maildir:/jas-mail/INBOX`).
 
+4. **`tls_trust_file` Linux path in `.msmtprc`.** Vault config has
+   `tls_trust_file /etc/ssl/certs/ca-certificates.crt` (Debian/Fedora
+   layout). On macOS this file doesn't exist; msmtp errors with:
+
+   ```
+   msmtp: cannot set X509 trust file /etc/ssl/certs/ca-certificates.crt
+   for TLS session: Error while reading file.
+   ```
+
+   **Fix:** rewrite to `/etc/ssl/cert.pem` (macOS system bundle; also
+   available at `/opt/homebrew/etc/ca-certificates/cert.pem`). Patched
+   in vault source on 2026-04-24 so fresh decrypts won't hit it again.
+
 **One-shot bootstrap that handles all three:**
 
 ```bash
