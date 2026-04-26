@@ -2718,6 +2718,47 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
         }
 
+        // Pals logo (top-left): pixelified rasterization of pals.svg.
+        // 36x22 grid, drawn at 2x scale so it reads as ~72x44 px on the
+        // splash. Pink ink (#cd5c9b) matches the SVG fill; fades in with
+        // the rest of the splash via the shared `alpha`.
+        if (alpha > 30) {
+            static const char pals[22][37] = {
+                ".........#...........####...........",
+                ".......#####........######...####...",
+                "......#######.......##..##.######...",
+                "......##...##.......##..#####.###...",
+                "......###..######.#####.########....",
+                ".......##..############.##.###......",
+                "......###.......###.......###.......",
+                ".....###.....#########....##........",
+                "....#####....#########....##........",
+                "...##.####...##.....##....##........",
+                ".###.#####...##.....##....###.......",
+                ".########....##....###..#..##..###..",
+                ".#####.##....###...###.###.########.",
+                "..##...##.###.##...##.#####.####.##.",
+                "......#######.##...##.##.###..#####.",
+                "......##.##.####...##.##..#######...",
+                "......#####.####..######...###......",
+                ".....##.##..####..##.##.............",
+                ".....##.##..####..##.##.............",
+                "....######..####..##.##.............",
+                ".....####...####..####..............",
+                "......##.....##....##...............",
+            };
+            int pa = (int)((alpha > 200 ? 200 : alpha) * 1.0);
+            int origin_x = 8;
+            int origin_y = 8;
+            for (int py = 0; py < 22; py++) {
+                for (int px = 0; px < 36; px++) {
+                    if (pals[py][px] != '#') continue;
+                    graph_ink(graph, (ACColor){205, 92, 155, (uint8_t)pa});
+                    graph_box(graph, origin_x + px*2, origin_y + py*2, 2, 2, 1);
+                }
+            }
+        }
+
         // Auth badges (bottom-left): pixel crab = Claude, pixel octocat = GitHub
         // Badges — scaled to appear earlier in the shorter animation.
         if (f > 40 && alpha > 80) {
