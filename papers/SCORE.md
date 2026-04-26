@@ -40,7 +40,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
-| Where the Microseconds Go: Input and Audio Latency in AC Native OS | arXiv (LaTeX, 4pp) | `arxiv-latency/latency.pdf` | `arxiv-latency/latency.tex` |
+| Where the Microseconds Go: Input and Audio Latency in AC Native OS | arXiv (LaTeX, 6pp) | `arxiv-latency/latency.pdf` | `arxiv-latency/latency.tex` |
 | Aesthetic Computer Demo (C&C 2026) | ACM Demo (LaTeX) | `cc-demo-2026/demo.pdf` | `cc-demo-2026/demo.tex` |
 | The URL Tradition | arXiv (LaTeX) | `arxiv-url-tradition/url-tradition.pdf` | `arxiv-url-tradition/url-tradition.tex` |
 | The Potter and the Prompt | arXiv (LaTeX) | `arxiv-holden/holden.pdf` | `arxiv-holden/holden.tex` |

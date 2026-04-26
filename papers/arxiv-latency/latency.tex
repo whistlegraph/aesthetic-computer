@@ -168,7 +168,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-This paper, written for a friend (Parag) who asked what an IRQ is and whether stacking display servers makes a computer feel slower, walks the keypress-to-sound path inside \acos{} from the keyboard's USB host controller IRQ down to the audio codec's DMA engine. I quantify each layer the signal must cross, compare the values measured in \acos{} today against the theoretical floor set by physics and minimum kernel work, and trace the commit-by-commit history of how the chromatic keyboard piece \texttt{notepat} arrived at its current numbers. \acos{} runs ALSA at a 192-frame period at 192\,kHz ($\approx$1\,ms hardware turnaround) on HDA-direct codecs, falling back to 10--20\,ms periods on Sound Open Firmware (SOF) platforms whose DAPM models cannot tolerate sub-period scheduling pressure. Wayland is supported but not required: the system also ships a direct DRM/KMS path and an evdev fallback, because each compositing or buffering layer adds either a context switch ($\mu$s, harmless) or a buffer turnaround (ms or one frame, audible). I show that the realistic floor is approximately 2\,ms key-to-DAC; we are at roughly 3--4\,ms on HDA hardware and 12--22\,ms on SOF. The remaining gap is not algorithmic --- it is the cost of supporting hardware whose firmware demands buffering we do not need.
+This paper, written for a friend (Parag) who asked what an IRQ is and whether stacking display servers makes a computer feel slower, walks the keypress-to-sound path inside \acos{} from the keyboard's USB host controller IRQ down to the audio codec's DMA engine. I quantify each layer the signal must cross, compare the values measured in \acos{} today against the theoretical floor set by physics and minimum kernel work, and trace the commit-by-commit history of how the chromatic keyboard piece \texttt{notepat} arrived at its current numbers. \acos{} runs ALSA at a 192-frame period at 192\,kHz ($\approx$1\,ms hardware turnaround) on HDA-direct codecs, falling back to 10--20\,ms periods on Sound Open Firmware (SOF) platforms whose DAPM models cannot tolerate sub-period scheduling pressure. Wayland is supported but not required: the system also ships a direct DRM/KMS path and an evdev fallback, because each compositing or buffering layer adds either a context switch ($\mu$s, harmless) or a buffer turnaround (ms or one frame, audible). I show that the realistic floor is approximately 2\,ms key-to-DAC; we are at roughly 3--4\,ms on HDA hardware and 12--22\,ms on SOF. The macOS sibling port confirms the same thesis even more dramatically: switching from SDL3's audio stream to a direct CoreAudio backend dropped the measured median from 6.47\,ms to 0.65\,ms on the same hardware --- a 10$\times$ reduction that no buffer-size change could reach, because the bottleneck was a layer we had not noticed adding. The remaining gap is not algorithmic --- it is the cost of supporting hardware whose firmware demands buffering we do not need.
 \end{quote}
 \vspace{0.5em}
 }]
@@ -261,7 +261,24 @@ DAC + amp & $<$1\,ms & $<$1\,ms \\
 
 The HDA-direct number sits within the 5\,ms threshold below which McPherson et al. showed users cannot reliably distinguish action from sound~\citep{mcpherson2016action}. The SOF number does not. There is no software fix on the Linux side: shrinking the SOF buffer reintroduces the DAPM amp-storm. The only paths to a smaller SOF floor are (a) firmware changes upstream, (b) a kernel patch that reroutes the DAPM events out of the audio fast path, or (c) selecting hardware whose codec is HDA-direct.
 
-For comparison, the \texttt{notepat} macOS port (\texttt{fedac/native/macos/}) running on Apple Silicon through SDL3~\citep{sdl3} and CoreAudio~\citep{coreaudio} has its own measurement: with a 64-frame request and the CoreAudio pipeline floor, the \texttt{AC\_LATENCY\_TEST} bench reports a median of $\sim$6.4\,ms with the jitter ceiling at $\sim$7\,ms (commit \texttt{c8256aa29}). Smaller buffers do not lower the median; the floor there is set by CoreAudio's own pipeline scheduling. The Linux HDA path is genuinely faster than CoreAudio, because there is no userspace audio server in the way --- ac-native talks to ALSA directly, no PipeWire, no PulseAudio.
+For comparison, the \texttt{notepat} macOS port (\texttt{fedac/native/macos/}) on Apple Silicon shipped with two backends so they could be A/B tested. The numbers from the \texttt{AC\_LATENCY\_TEST=40} benchmark in commit \texttt{c6e740192}, with \texttt{AC\_AUDIO\_BUFFER=32}:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Backend} & \textbf{min} & \textbf{median} & \textbf{mean} & \textbf{max} \\
+\midrule
+SDL3~\citep{sdl3} & 1.42 & 6.47 & 5.99 & 7.32 \\
+CoreAudio direct & 0.08 & \textbf{0.65} & 0.58 & 0.80 \\
+\bottomrule
+\end{tabular}
+\caption{Mac key-to-sample latency in milliseconds (commit \texttt{c6e740192}).}
+\label{tab:macos}
+\end{table}
+
+That is roughly a 10$\times$ reduction from the same hardware, same buffer size, same synthesizer. The commit message draws the conclusion in plain language: \emph{``the bottleneck wasn't the buffer size, it was SDL3's audio stream layering its own schedule on top of CoreAudio's pipeline.''} The number 0.65\,ms is below the underlying CoreAudio scheduling floor we earlier believed in, because that floor turned out to be SDL's own indirection. This is the cleanest single example of the thesis of this paper: each layer between hardware and the app costs a buffer turnaround, and the layer is often invisible until you remove it.
 
 % ============ 5. WAYLAND, DIRECT KMS, AND DISPLAY ============
 
@@ -281,33 +298,77 @@ The general rule: each layer between hardware and the application costs either a
 \section{The notepat Latency History}
 \label{sec:history}
 
-The chromatic keyboard piece \texttt{notepat} is the canonical instrument running on \acos{}. Its current feel is the result of a sequence of small commits, each of which moved the experience closer to the floor. Reading them in order is the most honest answer to ``where does the present number come from.''
+The chromatic keyboard piece \texttt{notepat} is the canonical instrument that runs on \acos{}. Its current feel is the result of about ten days of dense, often-painful debugging in April 2026, recorded as 40+ commits across \texttt{audio.c}, \texttt{input.c}, and \texttt{notepat.mjs}. Read in order, the commits split into seven phases, each of which moved one specific number. Reading them as a sequence is the most honest answer to ``where does the present latency come from'' --- because almost none of the work was clever DSP or kernel hacking. It was identifying which layer was secretly buffering, and removing or tuning it.
+
+\subsection{Phase 1: Make the speakers play at all (Apr 14--15)}
+
+Before latency could even be measured, the SOF-based Framework Laptop 13 (G7) had to actually emit sound. The relevant log line at the time was \emph{``everything else correct, but no audio.''} Commits \texttt{8e1663d72}, \texttt{6247baf17}, \texttt{cad9313e4}, \texttt{410c78476}, \texttt{0d423b19f}, \texttt{1c95ab767} walked through ChromeOS's UCM (Use Case Manager) configuration --- enumerating PCMs, picking the speaker verb, fixing the namespace prefix --- to get audio routed to the right output at all. \texttt{877c2336d} stopped enabling UCM Headphones at boot (was silencing speakers). \texttt{e851f5dce} stopped the mixer walk from re-enabling the headphone jack switch (was silencing the speaker amp). \texttt{eb960efd9} forced runtime power management off after the card probed.
+
+Then the breakthrough: \textbf{\texttt{3e3608733} (Apr 14, \emph{native: SOF-aware audio period sizing})}. The commit message names the bug exactly:
+
+\begin{quote}\small\itshape
+Root cause of silent G7 speakers with everything else correct: the old audio.c config hardcoded $\sim$1\,ms ALSA period (rate/1000 frames) + 4\,ms total buffer. Works fine on HDA-direct codecs (ThinkPad X13 etc.) but on SOF+MAX98360A the boot log shows \textbf{10{,}686 sdmode toggles per boot} --- once per period, matching the $\sim$5\,ms toggle spacing exactly.
+\end{quote}
+
+The 1\,ms period that was a feature on HDA hardware was actively breaking SOF: at 4\,ms buffer depth, the 16\,ms paint-loop submission cadence missed every period, the stream underran constantly, and the MAX98357A amplifier's DAPM event handler flipped \texttt{SD\_MODE} high and low faster than the chip could stabilize. Detection of SOF (presence of \texttt{sound/soc/sof} card and absence of legacy HDA codec97) and a bump to 10\,ms period / 40\,ms buffer fixed it.
+
+\subsection{Phase 2: The Goldilocks dither saga (Apr 15--16)}
+
+Once audio was reaching the amp, a second SOF bug emerged: the silence detector inside the SOF DSP would gate the speaker pipeline whenever the buffer fell below a few dB FS, even briefly. Sustained tones cut off mid-note. The fix was to inject inaudible keepalive dither.
 
 \begin{description}
-\item[\texttt{f9670700} \emph{NuPhy analog smoothing, dark theme, boot perf, media keys}.] The first appearance of analog-pressure handling for the NuPhy HE keyboard. Hidraw reports were noisy at low pressures; raw\_accum/raw\_count averaging cleaned the signal at the cost of one frame of input averaging.
-
-\item[\texttt{d8b28e65c} \emph{simplify NuPhy evdev filter, add input diagnostics}.] Stopped reading the NuPhy as both a generic HID keyboard \emph{and} a hidraw analog device, removing a class of double-trigger artifacts.
-
-\item[\texttt{18880d7a8} \emph{velocity-capture + pressure smoothing + NuPhy badge/gauge}.] Introduced velocity capture from the analog stream so a hard press maps to a louder note, with on-screen pressure feedback.
-
-\item[\texttt{cf3ca7f43} \emph{Karplus-Strong plucked string; notepat noise$\rightarrow$harp}.] Replaced the noise-based default voice with a Karplus-Strong delay-line waveguide. The synth itself adds no latency relative to a sine; this is mentioned because the perceived attack tightness depends as much on the voice's transient shape as on the buffer size.
-
-\item[\texttt{474237ee4} \emph{tanh soft-limiter + dropped/shaped dither}.] The dither story is its own subplot. Commit \texttt{319732304} added a $\pm$1\,LSB dither to prevent SOF's silence detector from gating the amplifier. \texttt{e075ebac5} bumped it to $\pm$160 when $\pm$1 turned out to extend the sustain only to 96\,s. \texttt{7add48bb5} reduced it to $\pm$1 again because $\pm$160 was audible as a 24\,kHz fizz. \texttt{ec143aca7} settled on $\pm$32 with a 20\,ms/80\,ms SOF buffer.
-
-\item[\texttt{3e3608733} \emph{SOF-aware audio period sizing}.] The structural break: split the audio config into HDA-direct (1\,ms period) and SOF (10\,ms period) paths.
-
-\item[\texttt{ec143aca7} \emph{bigger SOF buffer (20ms/80ms)}.] Pushed the SOF buffer further when XRUNs persisted under boot load.
-
-\item[\texttt{72476348f} \emph{negotiate S32\_LE format for SOF speaker PCM}.] Format negotiation moved samples to 32-bit on SOF paths. No latency change directly, but it eliminated a class of crunchy-quiet artifacts that had been mistakenly attributed to buffer underruns.
-
-\item[\texttt{04dea9da7} \emph{macos: low-latency audio + windowed resizable default}.] On the Mac port: dropped CoreAudio's default 2048--4096-frame buffer (40--85\,ms) to 128 frames ($\sim$2.7\,ms), bringing the Mac round-trip to roughly 5--8\,ms.
-
-\item[\texttt{c8256aa29} \emph{macos: dynamic FB reflow, live resize, keypress-latency bench}.] Added the \texttt{AC\_LATENCY\_TEST} benchmark and tightened the Mac buffer to 64 frames. Median held at $\sim$6.4\,ms (CoreAudio floor); jitter ceiling fell from $\sim$11 to $\sim$7\,ms.
-
-\item[\texttt{7a2e69f92} \emph{notepat: wobble/flange FX + snap-release (kill dead silent time)}.] Worth flagging: ``snap-release'' is a perceptual fix, not a measured one. By snapping the envelope's release rather than letting it ramp, the \emph{end} of a note feels tighter. Latency at the start did not change, but the instrument felt faster.
+  \item[\texttt{319732304}] (Apr 15, evening) injected $\pm$1\,LSB dither when the buffer would otherwise be all zeros. \emph{``Should be inaudible; enough to hold the SSP1 BE DAI active.''}
+  \item[\texttt{e075ebac5}] (Apr 15, $\sim$1\,h later) bumped to $\pm$160. The $\pm$1 dither extended the sustain only to 96\,s before the silence detector gave up.
+  \item[\texttt{7add48bb5}] (Apr 15, evening) reduced back to $\pm$1. \emph{``$\pm$160 was audible as a 24\,kHz fizz.''}
+  \item[\texttt{ec143aca7}] (Apr 16) settled on $\pm$32 (\emph{``-72 dBFS at S32\_LE, still inaudible''}) and at the same time raised the SOF period/buffer from 10/40\,ms to \textbf{20/80\,ms}: the 10\,ms buffer was too tight, producing XRUNs and short writes (96 of 480 frames).
 \end{description}
 
-The arc of these commits is unsurprising in retrospect but only obvious in hindsight: the bulk of the work has not been clever DSP or kernel hacking. It has been understanding which parts of the stack are negotiable and which are firmware-controlled, then choosing settings on each side that do not trip the firmware into defensive behavior.
+This is the latency floor for SOF hardware in the current codebase: 80\,ms of buffering, sitting on top of a firmware that requires it. No cleverness in the synth or the JS layer can recover those milliseconds.
+
+\subsection{Phase 3: Format and signal level (Apr 15--16)}
+
+\texttt{f246470ea} preferred \texttt{plughw:} for the speaker PCM and logged the negotiated format. \texttt{72476348f} negotiated \textbf{S32\_LE} for the SOF path (the topology accepts it; converting in userspace eliminated a class of crunchy/quiet artifacts that had been misdiagnosed as XRUNs). \texttt{474237ee4} added a tanh soft-limiter and shaped dither for cleaner peak handling. \texttt{b7ab5a5de}, \texttt{c28b18eef}, \texttt{f6ca477f9}, \texttt{153ce7c09} are the loudness arc: $-80$\,dB attenuation bug fix, then $+4$\,dB peak via a 0.85 soft-clip knee, then default volume tuning on SOF (which came up quieter than HDA). None of these are latency commits per se, but several of them were attempts to fix what \emph{sounded} like latency (sluggish notes, late-arriving transients) and turned out to be amplitude or format problems.
+
+\subsection{Phase 4: Synth quality and perceptual tightness (Apr 17--21)}
+
+A note's perceived onset latency depends as much on the transient shape of the synthesized voice as on the audio buffer. \texttt{cf3ca7f43} replaced the noise-based default voice with a Karplus-Strong plucked string --- a delay-line waveguide whose first half-cycle has the entire excitation in it, so the attack lands inside the first millisecond regardless of buffer size. \texttt{3928613fe} extracted a shared \texttt{synth\_core} so the same model set runs on both bare-metal Linux and the macOS port (parity makes A/B testing meaningful). \texttt{803188b95} fixed harp loudness and sustain, \texttt{93b3568b0} keyed Shift-pluck on duration, \texttt{6a5e6cf3e} added a master volume + drive (tanh soft-sat) FX block.
+
+The two perceptual-only commits are worth calling out:
+
+\begin{description}
+\item[\texttt{608a746fb}] (Apr 21, \emph{reverse replay is locked to visual cursor + capture pauses}). Visual feedback was drifting against the audio playback; the commit pinned the visual cursor directly to elapsed-since-press wall-clock time and paused the capture ring during reverse hold. The synth's audio latency did not change, but the user-reported \emph{``hjanky''} feel went away.
+\item[\texttt{7a2e69f92}] (Apr 21, \emph{wobble/flange FX + snap-release}). Made the envelope's release \emph{snap} to zero instead of easing back over $\sim$20 frames. Quote from the commit: \emph{``those $\sim$333\,ms of sweeping visual had no sound behind them. User reported this as `extra dead silent time at the end of every reverse gesture' and noted it made the snap-back feel unresponsive.''} A pure perceptual fix --- no audio latency reduction, but the instrument felt 333\,ms faster on release.
+\end{description}
+
+\subsection{Phase 5: NuPhy analog input (Apr 18--20)}
+
+The NuPhy HE is an analog Hall-effect keyboard that exposes per-key pressure values via a vendor hidraw report alongside its standard HID keyboard interface. Three commits matter:
+
+\begin{description}
+\item[\texttt{d8b28e65c}] simplified the evdev filter to suppress NuPhy keys when the hidraw stream is active. Without this, every key fired twice (once from evdev, once from the analog handler), audible as a flam.
+\item[\texttt{f27960700}] added analog smoothing, a dark theme, and boot performance and media-key fixes in one batch.
+\item[\textbf{\texttt{18880d7a8}}] (Apr 20, \emph{velocity-capture + pressure smoothing + NuPhy badge/gauge}). Diagnosed audible popping on sustained sine tones: \emph{``raw pressure samples arrive at driver-specific ADC step rates and the sim loop was writing every raw value straight into synth.update() each frame, so discrete pressure steps produced audible clicks.''} Fix: a one-pole lowpass ($\alpha$=0.20, $\sim$80\,ms time constant) plus rate-limit synth.update() to changes $>$0.5\%. This is the single commit where input-side latency was deliberately \emph{added} (80\,ms of pressure smoothing) to remove an audio artifact. The note onset path is unchanged --- key-down still triggers the synth voice on the same frame.
+\end{description}
+
+\subsection{Phase 6: macOS port latency arc (Apr 18)}
+
+The macOS port (\texttt{fedac/native/macos/}, SDL3 + CoreAudio) gave us the cleanest A/B benchmark of the whole project --- and the most surprising finding.
+
+\begin{description}
+\item[\texttt{04dea9da7}] (Apr 18, 16:53) requested a 128-frame device buffer via \texttt{SDL\_HINT\_AUDIO\_DEVICE\_SAMPLE\_FRAMES}. CoreAudio's default was 2048--4096 frames (40--85\,ms). 128 frames at 48\,kHz is $\sim$2.7\,ms.
+\item[\texttt{c8256aa29}] (Apr 18, 17:13) added the \texttt{AC\_LATENCY\_TEST=$n$} benchmark: vsync off, $n$ back-to-back keypress injections, with rearm/settle between each, prints min/median/mean/max + sample list. Tightened the buffer to 64 frames. Median held at $\sim$6.4\,ms; jitter ceiling fell from $\sim$11\,ms to $\sim$7\,ms. The commit message concluded \emph{``smaller buffers don't lower the median further but can hit the min''} --- which we interpreted as the CoreAudio pipeline floor.
+\item[\textbf{\texttt{c6e740192}}] (Apr 18, 17:32) tested that conclusion. A direct \texttt{kAudioUnitSubType\_DefaultOutput} backend was added alongside the SDL3 one, with \texttt{kAudioDevicePropertyBufferFrameSize} set on the device before AU instantiation. The benchmark in Table~\ref{tab:macos} dropped the median from 6.47\,ms to 0.65\,ms --- a 10$\times$ improvement that no buffer-size tweak had been able to reach. The bottleneck was not CoreAudio. It was SDL3's audio-stream abstraction layering its own schedule on top.
+\end{description}
+
+This is the pattern of the entire project condensed into 39 minutes of git history: a buffering layer that no one named was costing more than the layer that was named. The fix was to remove it.
+
+\subsection{Phase 7: Boot acceleration (Apr 20)}
+
+Latency to \emph{first} note also includes how fast the OS reaches a playable state from cold. \texttt{bc16acb76} backgrounded diagnostic dumps and ran USB mount/GPU wait in parallel during init. \texttt{11c6a6ff8} cut the startup-fade boot animation from 3\,s to 2\,s with a matrix-rain background, and explicitly framed the change as \emph{``boot into notepat faster.''} Time from power button to interactive note dropped to 7.3\,s. None of this is per-keypress latency, but it sets the threshold above which the device feels like a tool versus a toy.
+
+\subsection{What the history says}
+
+These seven phases describe maybe 40 commits across nine days, almost all of them merged on the same branch as ordinary product work. There is no separate ``latency project.'' The numbers got better because every time a user-reported feel issue (\emph{popping, crunchy, dead silent time, hjanky}) was investigated, the investigation forced a layer to become visible. Sometimes the answer was buffer size; more often it was a firmware silence detector, an unwanted abstraction, an envelope shape, or a duplicated input device. The instrument is fast not because it was optimized, but because each obstruction was identified and removed in turn.
 
 % ============ 7. WHAT IS LEFT TO SQUEEZE ============
 
