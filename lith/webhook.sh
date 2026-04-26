@@ -63,7 +63,31 @@ NEED_RESTART=false
 NEED_CADDY_RELOAD=false
 NEED_NPM_INSTALL=false
 NEED_DP1_FEED_RESTART=false
-NEED_CF_PURGE=false
+PURGE_URLS=()
+
+# Map a system/public/<host>/<rel> path to the public URL(s) it serves.
+# papers.aesthetic.computer is also reachable as papers.prompt.ac, so emit both.
+emit_urls_for() {
+  local file="$1"
+  case "$file" in
+    system/public/papers.aesthetic.computer/*)
+      local rel="${file#system/public/papers.aesthetic.computer/}"
+      PURGE_URLS+=("https://papers.aesthetic.computer/${rel}")
+      PURGE_URLS+=("https://papers.prompt.ac/${rel}")
+      ;;
+    system/public/aesthetic.computer/*)
+      local rel="${file#system/public/aesthetic.computer/}"
+      PURGE_URLS+=("https://aesthetic.computer/${rel}")
+      ;;
+    system/public/*)
+      # Other subdomains — strip the host segment and emit one URL.
+      local stripped="${file#system/public/}"
+      local host="${stripped%%/*}"
+      local rel="${stripped#*/}"
+      PURGE_URLS+=("https://${host}/${rel}")
+      ;;
+  esac
+}
 
 while IFS= read -r file; do
   case "$file" in
@@ -91,9 +115,7 @@ while IFS= read -r file; do
       NEED_DP1_FEED_RESTART=true
       ;;
     system/public/*)
-      # Static files — Caddy serves directly from disk, but Cloudflare
-      # caches them at the edge for up to an hour, so we need to purge.
-      NEED_CF_PURGE=true
+      emit_urls_for "$file"
       ;;
     *)
       # Other files (docs, tests, etc.) — no action needed
@@ -129,22 +151,39 @@ else
   log "static-only deploy — no restart needed"
 fi
 
-if $NEED_CF_PURGE; then
+if [ ${#PURGE_URLS[@]} -gt 0 ]; then
   if [ -n "${CLOUDFLARE_PURGE_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ZONE_ID:-}" ]; then
-    log "purging Cloudflare cache for zone $CLOUDFLARE_ZONE_ID..."
-    CF_RESPONSE=$(curl -sS -X POST \
-      "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-      -H "Authorization: Bearer ${CLOUDFLARE_PURGE_TOKEN}" \
-      -H "Content-Type: application/json" \
-      --data '{"purge_everything":true}' \
-      --max-time 20 || echo '{"success":false,"errors":[{"message":"curl failed"}]}')
-    if echo "$CF_RESPONSE" | grep -q '"success":true'; then
-      log "Cloudflare cache purged"
-    else
-      log "WARN: Cloudflare purge failed: $CF_RESPONSE"
+    log "purging ${#PURGE_URLS[@]} Cloudflare URL(s) on zone $CLOUDFLARE_ZONE_ID..."
+    # Cloudflare's purge_cache takes up to 30 URLs per request. Chunk the list.
+    chunk=()
+    purge_chunk() {
+      local files_json
+      files_json=$(printf '%s\n' "${chunk[@]}" | python3 -c 'import sys, json; print(json.dumps({"files": [l.strip() for l in sys.stdin if l.strip()]}))')
+      CF_RESPONSE=$(curl -sS -X POST \
+        "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+        -H "Authorization: Bearer ${CLOUDFLARE_PURGE_TOKEN}" \
+        -H "Content-Type: application/json" \
+        --data "$files_json" \
+        --max-time 20 || echo '{"success":false,"errors":[{"message":"curl failed"}]}')
+      if echo "$CF_RESPONSE" | grep -q '"success":true'; then
+        log "  purged ${#chunk[@]} URL(s)"
+      else
+        log "  WARN: purge failed: $CF_RESPONSE"
+      fi
+    }
+    for url in "${PURGE_URLS[@]}"; do
+      chunk+=("$url")
+      if [ ${#chunk[@]} -ge 30 ]; then
+        purge_chunk
+        chunk=()
+      fi
+    done
+    if [ ${#chunk[@]} -gt 0 ]; then
+      purge_chunk
     fi
   else
-    log "skipping CF purge (CLOUDFLARE_PURGE_TOKEN / CLOUDFLARE_ZONE_ID not set)"
+    log "skipping CF purge of ${#PURGE_URLS[@]} URL(s) — CLOUDFLARE_PURGE_TOKEN / CLOUDFLARE_ZONE_ID not set"
+    log "  set them in aesthetic-computer-vault/lith/.env (uploaded to /opt/ac/system/.env on deploy)"
   fi
 fi
 
