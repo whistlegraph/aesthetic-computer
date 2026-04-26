@@ -22,7 +22,7 @@ let tabPrefix = "";   // what was typed before tab
 let PIECE_NAMES = [];
 // Built-in non-piece commands
 const BUILTIN_COMMANDS = [
-  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers", "login", "midi",
+  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers", "link", "login", "midi",
 ];
 // All completable commands (built in boot)
 let COMMANDS = [];
@@ -55,7 +55,9 @@ const PIECE_DESC = {
   "print":         "printer / thermal",
   "theme":         "prompt theme",
   "voice":         "system voice",
-  "login":         "switch identity",
+  "link":          "pair this device with an account",
+  "login":         "→ link",
+  "raylibtest":    "raylib software renderer test",
   "midi":          "usb midi + udp relay",
   "dark":          "dark mode",
   "light":         "light mode",
@@ -176,8 +178,12 @@ function boot({ system }) {
       voiceOff = cfg.voice === "off";
     }
   } catch (_) {}
-  // Discover all available pieces dynamically
-  PIECE_NAMES = (system?.listPieces?.() || []).filter(n => n !== "prompt" && n !== "lisp" && n !== "cc");
+  // Discover all available pieces dynamically.
+  // listPieces returns .lisp files with the extension intact (so list.mjs can
+  // bucket them); for prompt dispatch we want bare command names.
+  PIECE_NAMES = (system?.listPieces?.() || [])
+    .map(n => (n.endsWith && n.endsWith(".lisp")) ? n.slice(0, -5) : n)
+    .filter(n => n !== "prompt" && n !== "lisp" && n !== "cc");
   PIECE_NAMES.sort();
   COMMANDS = [...PIECE_NAMES, ...BUILTIN_COMMANDS, ...CODE_NAMES];
   // Restore input from KidLisp return (backspace/escape preserves source)
@@ -324,11 +330,11 @@ function execute(cmd, system) {
     system?.poweroff?.();
     return;
   }
-  if (baseWord === "login") {
+  if (baseWord === "link" || baseWord === "login") {
     const code = cmd.slice(spaceIdx > 0 ? spaceIdx + 1 : cmd.length).trim();
-    message = "~> login";
+    message = "~> link";
     messageFrame = 0;
-    system?.jump?.(code ? "login:" + code : "login");
+    system?.jump?.(code ? "link:" + code : "link");
     return;
   }
   if (lower === "clear") {

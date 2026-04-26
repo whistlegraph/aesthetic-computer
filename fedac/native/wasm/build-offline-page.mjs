@@ -733,7 +733,8 @@ const html = `<!doctype html>
     pieces.lisp = makeStubPiece("lisp", () => "KidLisp eval is not wired into the browser host yet.");
     pieces.list = makeStubPiece("list", ({ system }) => "Available offline pieces: " + system.listPieces().join(", "));
     pieces.claude = makeStubPiece("claude", () => "Claude integration is native-only for now.");
-    pieces.login = makeStubPiece("login", ({ params }) => params[0] ? "Login code: " + params[0] : "No login code provided.");
+    pieces.link = makeStubPiece("link", ({ params }) => params[0] ? "Link code: " + params[0] : "No link code provided.");
+    pieces.login = pieces.link; // legacy alias
 
     const promptUrl = URL.createObjectURL(new Blob([PROMPT_SOURCE], { type: "text/javascript" }));
     const promptPiece = await import(promptUrl);

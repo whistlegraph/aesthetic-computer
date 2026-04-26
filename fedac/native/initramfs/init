@@ -73,7 +73,9 @@ if [ -f /claude-creds.json ] || [ -f /claude-token ]; then
     # CLI resolves "sonnet" to the latest Sonnet family member, which
     # is currently Sonnet 4.7. Users who want a specific pinned version
     # can override by writing a different model string into this file.
-    printf '{"permissions":{"allow":["Bash(*)","Read(*)","Write(*)","Edit(*)","Glob(*)","Grep(*)","WebFetch(*)","WebSearch(*)"]},"autoUpdates":false,"installMethod":"native","model":"sonnet"}\n' > /tmp/.claude/settings.json
+    # `theme: auto` matches the terminal's light/dark mode AND skips the
+    # first-run theme picker, so Claude Code launches straight to a session.
+    printf '{"permissions":{"allow":["Bash(*)","Read(*)","Write(*)","Edit(*)","Glob(*)","Grep(*)","WebFetch(*)","WebSearch(*)"]},"autoUpdates":false,"installMethod":"native","model":"sonnet","theme":"auto"}\n' > /tmp/.claude/settings.json
 fi
 if [ -f /tangled-key ] || [ -f /tangled-ssh-config ] || [ -f /tangled-known-hosts ]; then
     mkdir -p /tmp/.ssh

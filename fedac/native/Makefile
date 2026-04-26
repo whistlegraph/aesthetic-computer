@@ -43,11 +43,24 @@ ifeq ($(HAVE_AVCODEC),1)
   AV_LIBS   := $(shell pkg-config --libs libavcodec libavformat libavutil libswscale libswresample 2>/dev/null)
 endif
 
+# raylib — used purely as a CPU-side software rasterizer via the Image* APIs
+# (no GL/window context). Fedora's libraylib.so dlopens windowing deps at
+# runtime, so as long as we never call InitWindow() the binary stays clean.
+HAVE_RAYLIB := $(shell pkg-config --exists raylib 2>/dev/null && echo 1)
+ifeq ($(HAVE_RAYLIB),1)
+  RAYLIB_CFLAGS := $(shell pkg-config --cflags raylib 2>/dev/null)
+  RAYLIB_LIBS   := $(shell pkg-config --libs raylib 2>/dev/null)
+endif
+
 CFLAGS  += $(DRM_CFLAGS) $(ALSA_CFLAGS)
 LDFLAGS += $(DRM_LIBS) $(ALSA_LIBS) $(FLITE_LIBS)
 ifeq ($(HAVE_AVCODEC),1)
   CFLAGS  += -DHAVE_AVCODEC $(AV_CFLAGS)
   LDFLAGS += $(AV_LIBS)
+endif
+ifeq ($(HAVE_RAYLIB),1)
+  CFLAGS  += -DHAVE_RAYLIB $(RAYLIB_CFLAGS)
+  LDFLAGS += $(RAYLIB_LIBS)
 endif
 
 # SDL3 GPU-accelerated display: always compiled, loaded via dlopen at runtime.
@@ -88,6 +101,10 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/js-bindings.c \
         $(SRCDIR)/audio-decode.c \
         $(SRCDIR)/recorder.c
+
+ifeq ($(HAVE_RAYLIB),1)
+  SRCS += $(SRCDIR)/raylib-soft.c
+endif
 
 # Wayland display backend (conditional)
 ifdef USE_WAYLAND

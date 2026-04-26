@@ -20,6 +20,9 @@
 #include <errno.h>
 #include "qrcodegen.h"
 #include <alsa/asoundlib.h>
+#ifdef HAVE_RAYLIB
+#include "raylib-soft.h"
+#endif
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
@@ -2626,6 +2629,26 @@ static JSValue js_paste(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 
     graph_paste(current_rt->graph, src, dx, dy);
     return JS_UNDEFINED;
+}
+
+// system.raylibTest(painting, frame?) — fill a painting buffer with a
+// raylib-rendered test pattern (CPU-side software path). Returns true on
+// success, false when raylib isn't compiled in or the painting is invalid.
+static JSValue js_raylib_test(JSContext *ctx, JSValueConst this_val,
+                              int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_FALSE;
+    ACFramebuffer *fb = JS_GetOpaque(argv[0], painting_class_id);
+    if (!fb || !fb->pixels) return JS_FALSE;
+    int frame = 0;
+    if (argc >= 2) JS_ToInt32(ctx, &frame, argv[1]);
+#ifdef HAVE_RAYLIB
+    int rc = raylib_soft_test(fb->pixels, fb->width, fb->height, fb->stride, frame);
+    return rc == 0 ? JS_TRUE : JS_FALSE;
+#else
+    (void)fb; (void)frame;
+    return JS_FALSE;
+#endif
 }
 
 // sound.bpm(val?) — get or set BPM, returns current value
@@ -7075,6 +7098,12 @@ static JSValue build_system_obj(JSContext *ctx) {
     // system.listPieces() — scan /pieces/*.mjs and return name array
     JS_SetPropertyStr(ctx, sys, "listPieces",
                       JS_NewCFunction(ctx, js_list_pieces, "listPieces", 0));
+
+    // system.raylibTest(painting, frame?) — fill a painting buffer using
+    // raylib's software (Image*) APIs. Returns false when raylib isn't
+    // compiled in, so pieces can probe availability.
+    JS_SetPropertyStr(ctx, sys, "raylibTest",
+                      JS_NewCFunction(ctx, js_raylib_test, "raylibTest", 2));
 
     // Printer detection and raw printing
     JS_SetPropertyStr(ctx, sys, "listPrinters",

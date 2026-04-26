@@ -17,7 +17,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     curl jq file git tar xz findutils pkgconf-pkg-config zstd xorriso \
     bash \
     ca-certificates \
-    alsa-lib-devel libdrm-devel flite-devel SDL3-devel \
+    alsa-lib-devel libdrm-devel flite-devel SDL3-devel raylib-devel \
     ffmpeg-free-devel \
     wpa_supplicant dhcp-client iw \
     iwlwifi-mvm-firmware wireless-regdb \

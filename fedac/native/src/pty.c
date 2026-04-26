@@ -659,12 +659,14 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         if (access("/tmp/.claude/settings.json", F_OK) != 0) {
             FILE *sf = fopen("/tmp/.claude/settings.json", "w");
             if (sf) {
+                // theme:auto skips the first-run theme picker.
                 fprintf(sf, "{\n"
                     "  \"permissions\": {\n"
                     "    \"allow\": [\"Bash(*)\", \"Read(*)\", \"Write(*)\", \"Edit(*)\", "
                     "\"Glob(*)\", \"Grep(*)\", \"WebFetch(*)\", \"WebSearch(*)\"]\n"
                     "  },\n"
-                    "  \"autoUpdates\": false\n"
+                    "  \"autoUpdates\": false,\n"
+                    "  \"theme\": \"auto\"\n"
                     "}\n");
                 fclose(sf);
             }
