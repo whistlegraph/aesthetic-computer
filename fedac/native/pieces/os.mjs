@@ -73,6 +73,20 @@ function addTelemetry(msg) {
   if (telemetry.length > 50) telemetry.shift();
 }
 
+// Read /mnt/config.json and return true when the device has a usable
+// identity. After OTA the public initramfs lands without baked creds, so
+// this catches "device just flashed itself, needs to re-link" flows.
+function hasCreds(system) {
+  try {
+    const raw = system?.readFile?.("/mnt/config.json");
+    if (!raw) return false;
+    const cfg = JSON.parse(raw);
+    return !!(cfg.handle && cfg.token);
+  } catch (_) {
+    return false;
+  }
+}
+
 function boot({ system }) {
   currentVersion = system?.version || "unknown";
   // Default flash target: prefer non-boot device (e.g., NVMe when booting from USB)
@@ -80,6 +94,16 @@ function boot({ system }) {
   const bootDev = system?.bootDevice;
   const nonBootIdx = targets.findIndex(t => t.device !== bootDev);
   if (nonBootIdx >= 0) flashTargetIdx = nonBootIdx;
+
+  // No-creds detection: after an OTA from the public CDN the initramfs
+  // lands without /claude-token, /github-pat, or a populated config.json.
+  // Offer to bootstrap a link before doing anything else so the device
+  // can self-recover its identity.
+  if (!hasCreds(system)) {
+    state = "link-prompt";
+    return;
+  }
+
   // Auto-check on boot if online
   if (system?.fetchPending === false) {
     state = "checking";
@@ -98,6 +122,28 @@ function act({ event: e, sound, system }) {
       system?.jump?.("prompt");
       return;
     }
+  }
+
+  // No-creds bootstrap prompt: y = link this device, n = continue without.
+  if (state === "link-prompt") {
+    if (e.is("keyboard:down:y") || e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
+      sound?.synth({ type: "triangle", tone: 784, duration: 0.1, volume: 0.12, attack: 0.003, decay: 0.08 });
+      system?.jump?.("link");
+      return;
+    }
+    if (e.is("keyboard:down:n") || e.is("keyboard:down:escape") || e.is("keyboard:down:backspace")) {
+      sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.1, attack: 0.002, decay: 0.04 });
+      // Fall through into the normal version-check flow.
+      state = "idle";
+      if (system?.fetchPending === false) {
+        state = "checking";
+        fetchPending = true;
+        checkFrame = 0;
+        system?.fetch?.(OS_VERSION_URL);
+      }
+      return;
+    }
+    return;
   }
 
   // Reboot confirmation: y = reboot, n = back to prompt
@@ -425,7 +471,23 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
 
   const stateY = 66;
 
-  if (state === "checking") {
+  if (state === "link-prompt") {
+    // Bootstrap prompt — shown when /mnt/config.json has no handle/token,
+    // typically right after an OTA flashed the public initramfs over the
+    // creds-baked one.
+    ink(T.warn[0], T.warn[1], T.warn[2]);
+    write("no creds on this device", { x: pad, y: stateY, size: 1, font });
+    ink(T.fgMute, T.fgMute + 10, T.fgMute);
+    write("OTA replaces the baked initramfs;", { x: pad, y: stateY + 14, size: 1, font });
+    write("re-link to restore identity + tokens.", { x: pad, y: stateY + 26, size: 1, font });
+    const pulse = Math.floor(180 + 75 * Math.sin(frame * 0.08));
+    ink(pulse, 255, pulse);
+    write("link this device? y/n", { x: pad, y: stateY + 46, size: 1, font });
+    ink(80, 80, 100);
+    write("y → device-initiated pairing", { x: pad, y: stateY + 60, size: 1, font });
+    write("n → continue without creds", { x: pad, y: stateY + 72, size: 1, font });
+
+  } else if (state === "checking") {
     ink(T.warn[0], T.warn[1], T.warn[2]);
     const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
     write("checking" + dots, { x: pad, y: stateY, size: 1, font });

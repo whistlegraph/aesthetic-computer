@@ -1,7 +1,13 @@
 // Link, 2026.04.25
 // Pair this account with an aesthetic computer device.
-// Generates a 6-char code, claims it with the current user's identity,
-// and keeps it on screen until the device fetches it (or it expires).
+//
+// Two flows, mirroring the native `link.mjs`:
+//   `link`        — web generates a 6-char code, claims it with the current
+//                   user's auth, keeps it on screen. Device polls
+//                   device-pair?code=… on the other side.
+//   `link CODE`   — claim a code that was already generated on the device
+//                   (device-initiated pairing). The web user with auth
+//                   completes the handshake by claiming.
 
 const API_URL = "/.netlify/functions/device-pair";
 const CODE_TTL_MS = 10 * 60 * 1000; // matches device-pair TTL (600s)
@@ -50,12 +56,41 @@ async function generate(net) {
   }
 }
 
-async function boot({ net, handle, user, hud }) {
+// Claim a code that the device generated (device-initiated pairing).
+// Different from generate() — no create step, just the auth-bound claim.
+async function claimExisting(net, providedCode) {
+  status = "requesting";
+  errorMsg = "";
+  code = (providedCode || "").toUpperCase();
+  try {
+    const claimRes = await net.userRequest("POST", API_URL, {
+      action: "claim",
+      code,
+    });
+    if (!claimRes?.handle) {
+      throw new Error(claimRes?.message || "claim failed");
+    }
+    expiresAt = Date.now() + CODE_TTL_MS;
+    status = "claimed";
+    console.log(`🔗 Claimed device code ${code} as @${claimRes.handle}`);
+  } catch (err) {
+    status = "error";
+    errorMsg = (err && err.message) || "network error";
+  }
+}
+
+async function boot({ net, handle, user, hud, params, colon }) {
   hud?.labelBack?.();
   userHandle = handle?.() || null;
   const signedIn = !!(userHandle || user?.email);
   if (!signedIn) {
     status = "unauthed";
+    return;
+  }
+  // `link CODE` (or `link:CODE`) → claim the device-generated code.
+  const provided = (params?.[0] || colon?.[0] || "").trim();
+  if (provided && provided.length >= 4) {
+    await claimExisting(net, provided);
     return;
   }
   await generate(net);
@@ -135,6 +170,27 @@ function paint({ wipe, ink, write, screen, ui }) {
     ink(220, 160, 160).write(errorMsg || "unknown", {
       center: "x",
       y: codeY + 18,
+      screen,
+    });
+  }
+
+  if (status === "claimed") {
+    // Device-initiated pairing succeeded — the device is now polling and
+    // will write its config + reboot momentarily.
+    ink(140, 220, 140).write(code || "------", {
+      center: "x",
+      y: codeY,
+      size: 3,
+      screen,
+    });
+    ink(180, 230, 200).write("claimed — device is linking…", {
+      center: "x",
+      y: codeY + 40,
+      screen,
+    });
+    ink(160, 200, 220).write("you can close this", {
+      center: "x",
+      y: codeY + 58,
       screen,
     });
   }

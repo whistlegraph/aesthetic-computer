@@ -1,33 +1,56 @@
 // link.mjs — AC Native identity pairing piece
-// Usage: `link ABCD12` (link code generated on aesthetic.computer with `link`)
 //
-// Flow:
-// 1. User types `link` on aesthetic.computer (web) — code is shown on screen
-// 2. On the device, types `link ABCD12`
-// 3. Device polls device-pair API with that code
-// 4. Gets back handle + tokens, writes config.json, reboots
+// Two flows:
+//   `link`           — device generates a code, displays it, polls for
+//                      a claim. Type `link CODE` on prompt.ac (logged in)
+//                      to claim it.
+//   `link ABCD12`    — device polls an already-displayed web code that the
+//                      user generated on prompt.ac via the `link` piece.
+//
+// On success: writes /mnt/config.json (handle, sub, email, token, optional
+// claudeToken/githubPat), writes /claude-token + /github-pat, then reboots
+// so init.sh re-stages everything from a clean state.
 
 const API_BASE = "https://aesthetic.computer/.netlify/functions/device-pair";
-let state = "init"; // init | polling | success | error
+let state = "init"; // init | creating | polling | success | error
 let pairCode = "";
 let message = "";
 let frame = 0;
 let pollAttempts = 0;
 let newHandle = "";
 let successFrame = 0;
+let createdLocally = false; // true when the device generated the code itself
+let lastFetchAt = 0;
+
+function startCreate(system) {
+  state = "creating";
+  pairCode = "";
+  pollAttempts = 0;
+  createdLocally = true;
+  lastFetchAt = frame;
+  const body = JSON.stringify({ action: "create" });
+  const headers = JSON.stringify({ "Content-Type": "application/json" });
+  system?.fetchPost?.(API_BASE, body, headers);
+}
+
+function startPoll(system, code) {
+  state = "polling";
+  pairCode = (code || "").toUpperCase();
+  pollAttempts = 0;
+  lastFetchAt = frame;
+  system?.fetch?.(API_BASE + "?code=" + pairCode);
+}
 
 function boot({ system, params, colon }) {
   // Get code from params: `link ABCD12` or `link:ABCD12`
   const code = params?.[0] || colon?.[0] || "";
-  if (!code || code.length < 4) {
-    state = "error";
-    message = "usage: link CODE";
-    return;
+  if (code && code.length >= 4) {
+    // Consumer mode — claim a web-generated code.
+    startPoll(system, code);
+  } else {
+    // Producer mode — generate a code on this device, wait for claim.
+    startCreate(system);
   }
-  pairCode = code.toUpperCase();
-  state = "polling";
-  pollAttempts = 0;
-  system?.fetch?.(API_BASE + "?code=" + pairCode);
 }
 
 function act({ event: e, system }) {
@@ -42,12 +65,19 @@ function act({ event: e, system }) {
   // Retry on error
   if (state === "error" && (e.is("keyboard:down:enter") || e.is("keyboard:down:return"))) {
     if (pairCode) {
-      state = "polling";
-      pollAttempts = 0;
-      system?.fetch?.(API_BASE + "?code=" + pairCode);
+      startPoll(system, pairCode);
+    } else if (createdLocally) {
+      startCreate(system);
     } else {
       system?.jump?.("prompt");
     }
+  }
+}
+
+function drawHints(ink, write, T, h) {
+  if (state !== "success") {
+    ink(T.fgMute, T.fgMute + 10, T.fgMute);
+    write("esc: back", { x: 10, y: h - 12, size: 1, font: "font_1" });
   }
 }
 
@@ -77,15 +107,54 @@ function paint({ wipe, ink, write, screen, system, sound }) {
 
   const stateY = 52;
 
-  // Poll for claimed credentials
-  if (state === "polling") {
+  // Creating: posting device-pair {action:"create"} to get a fresh code.
+  if (state === "creating") {
     const dots = ".".repeat((Math.floor(frame / 15) % 3) + 1);
     ink(120, 180, 255);
-    write("checking code" + dots, { x: pad, y: stateY, size: 1, font });
-    ink(255, 255, 255);
-    write(pairCode, { x: pad, y: stateY + 16, size: 2, font: "matrix" });
+    write("requesting code" + dots, { x: pad, y: stateY, size: 1, font });
 
-    if (system?.fetchResult !== undefined && system?.fetchResult !== null) {
+    if (system?.fetchResult) {
+      try {
+        const data = JSON.parse(system.fetchResult);
+        if (data.code) {
+          startPoll(system, data.code);
+        } else {
+          state = "error";
+          message = data.message || "no code in response";
+        }
+      } catch (err) {
+        state = "error";
+        message = "bad response from server";
+      }
+    }
+    if (system?.fetchError) {
+      state = "error";
+      message = "network error — check wifi";
+    }
+    return drawHints(ink, write, T, h);
+  }
+
+  // Poll for claimed credentials.
+  if (state === "polling") {
+    if (createdLocally) {
+      // Producer mode — code is the call to action.
+      ink(255, 220, 80);
+      write(pairCode, { x: pad, y: stateY, size: 3, font: "matrix" });
+      ink(160, 200, 255);
+      write("on prompt.ac type: link " + pairCode, { x: pad, y: stateY + 30, size: 1, font });
+      const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
+      ink(T.fgMute, T.fgMute + 10, T.fgMute);
+      write("waiting" + dots, { x: pad, y: stateY + 46, size: 1, font });
+    } else {
+      // Consumer mode — code came from the web, just confirm we're checking.
+      const dots = ".".repeat((Math.floor(frame / 15) % 3) + 1);
+      ink(120, 180, 255);
+      write("checking code" + dots, { x: pad, y: stateY, size: 1, font });
+      ink(255, 255, 255);
+      write(pairCode, { x: pad, y: stateY + 16, size: 2, font: "matrix" });
+    }
+
+    if (system?.fetchResult) {
       try {
         const data = JSON.parse(system.fetchResult);
         if (data.status === "claimed" && data.handle) {
@@ -112,11 +181,11 @@ function paint({ wipe, ink, write, screen, system, sound }) {
           successFrame = frame;
           sound?.synth?.({ type: "sine", tone: 660, duration: 0.15, volume: 0.12, attack: 0.005, decay: 0.1 });
         } else if (data.status === "pending") {
-          // Not claimed yet — keep polling
           pollAttempts++;
-          if (pollAttempts >= 60) {
+          // 10-min server TTL ÷ ~2s polls = ~300 attempts before expiry.
+          if (pollAttempts >= 300) {
             state = "error";
-            message = "code expired — generate a new one";
+            message = "code expired — try again";
           }
         } else if (data.message) {
           state = "error";
@@ -135,10 +204,12 @@ function paint({ wipe, ink, write, screen, system, sound }) {
       message = "network error — check wifi";
     }
 
-    // Re-poll every ~2 seconds (120 frames at 60fps) if still pending
-    if (state === "polling" && frame % 120 === 0 && pollAttempts > 0) {
+    // Re-poll every ~2 seconds (120 frames at 60fps).
+    if (state === "polling" && (frame - lastFetchAt) >= 120) {
+      lastFetchAt = frame;
       system?.fetch?.(API_BASE + "?code=" + pairCode);
     }
+    return drawHints(ink, write, T, h);
   }
 
   // Success — reboot
@@ -153,6 +224,7 @@ function paint({ wipe, ink, write, screen, system, sound }) {
     } else {
       system?.reboot?.();
     }
+    return;
   }
 
   // Error state
@@ -162,20 +234,16 @@ function paint({ wipe, ink, write, screen, system, sound }) {
     ink(200, 120, 100);
     write(message, { x: pad, y: stateY + 14, size: 1, font });
     ink(T.fgMute);
-    if (pairCode) {
+    if (pairCode || createdLocally) {
       write("enter: retry  esc: back", { x: pad, y: stateY + 30, size: 1, font });
     } else {
-      write("on aesthetic.computer, type: link", { x: pad, y: stateY + 30, size: 1, font });
-      write("then here: link CODE", { x: pad, y: stateY + 44, size: 1, font });
+      write("link        — generate a code here", { x: pad, y: stateY + 30, size: 1, font });
+      write("link CODE   — claim a code from prompt.ac", { x: pad, y: stateY + 44, size: 1, font });
       write("esc: back", { x: pad, y: stateY + 60, size: 1, font });
     }
+    return drawHints(ink, write, T, h);
   }
 
-  // Bottom hint
-  if (state !== "success") {
-    ink(T.fgMute, T.fgMute + 10, T.fgMute);
-    write("esc: back", { x: pad, y: h - 12, size: 1, font });
-  }
 }
 
 function sim() {}
