@@ -4571,19 +4571,40 @@ int main(int argc, char *argv[]) {
                         strncpy(rt->jump_target, g_machines.cmd_target, sizeof(rt->jump_target) - 1);
                         rt->jump_requested = 1;
                         ac_log("[machines] jump → %s\n", g_machines.cmd_target);
-                    } else if (strcmp(g_machines.cmd_type, "prompt") == 0 && g_machines.cmd_target[0]) {
+                    } else if ((strcmp(g_machines.cmd_type, "prompt") == 0 ||
+                                strcmp(g_machines.cmd_type, "prompt-bg") == 0) &&
+                               g_machines.cmd_target[0]) {
                         // Stage text + id for prompt.mjs to consume on boot,
                         // then route the runtime through the prompt piece.
+                        // For prompt-bg we also remember the current piece so
+                        // prompt.mjs can return there after running execute().
                         strncpy(rt->pending_prompt_text, g_machines.cmd_target,
                                 sizeof(rt->pending_prompt_text) - 1);
                         rt->pending_prompt_text[sizeof(rt->pending_prompt_text) - 1] = 0;
                         strncpy(rt->pending_prompt_id, g_machines.cmd_id,
                                 sizeof(rt->pending_prompt_id) - 1);
                         rt->pending_prompt_id[sizeof(rt->pending_prompt_id) - 1] = 0;
+                        rt->pending_prompt_bg =
+                            (strcmp(g_machines.cmd_type, "prompt-bg") == 0) ? 1 : 0;
+                        if (rt->pending_prompt_bg) {
+                            // Capture the *current* piece (post-jump value of
+                            // jump_target if set, else the boot piece) before
+                            // overwriting jump_target with "prompt" below.
+                            const char *return_to =
+                                rt->jump_target[0] ? rt->jump_target :
+                                (rt->piece[0] ? rt->piece : "prompt");
+                            strncpy(rt->pending_prompt_return_to, return_to,
+                                    sizeof(rt->pending_prompt_return_to) - 1);
+                            rt->pending_prompt_return_to[sizeof(rt->pending_prompt_return_to) - 1] = 0;
+                        } else {
+                            rt->pending_prompt_return_to[0] = 0;
+                        }
                         rt->pending_prompt_cmd = 1;
                         strncpy(rt->jump_target, "prompt", sizeof(rt->jump_target) - 1);
                         rt->jump_requested = 1;
-                        ac_log("[machines] prompt → %.80s\n", g_machines.cmd_target);
+                        ac_log("[machines] %s → %.80s (return=%s)\n",
+                               g_machines.cmd_type, g_machines.cmd_target,
+                               rt->pending_prompt_return_to[0] ? rt->pending_prompt_return_to : "(none)");
                     } else if (strcmp(g_machines.cmd_type, "update") == 0) {
                         // Jump to notepat which handles OTA updates
                         strncpy(rt->jump_target, "notepat", sizeof(rt->jump_target) - 1);

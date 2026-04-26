@@ -372,14 +372,15 @@ static void process_messages(ACMachines *m) {
             ac_log("[machines] rebooting by remote command\n");
             sync();
             reboot(0x01234567); // LINUX_REBOOT_CMD_RESTART
-        } else if (strcmp(cmd, "prompt") == 0) {
+        } else if (strcmp(cmd, "prompt") == 0 || strcmp(cmd, "prompt-bg") == 0) {
             // Free-text remote prompt: feed `text` straight into prompt.mjs's
-            // execute() on the device. Use the escape-aware extractor so
-            // strings/parens/newlines in the payload survive.
+            // execute() on the device. "prompt" force-jumps to the prompt
+            // piece; "prompt-bg" runs in the background and bounces back to
+            // whatever was on screen so notepat etc. aren't disrupted.
             char text[2048] = "";
             json_get_str_unesc(raw, "text", text, sizeof(text));
             if (text[0] && !m->cmd_pending) {
-                strncpy(m->cmd_type, "prompt", sizeof(m->cmd_type) - 1);
+                strncpy(m->cmd_type, cmd, sizeof(m->cmd_type) - 1);
                 m->cmd_type[sizeof(m->cmd_type) - 1] = 0;
                 strncpy(m->cmd_target, text, sizeof(m->cmd_target) - 1);
                 m->cmd_target[sizeof(m->cmd_target) - 1] = 0;
@@ -474,10 +475,30 @@ void machines_tick(ACMachines *m, ACWifi *wifi, int frame, int fps,
 void machines_send_response(ACMachines *m, const char *cmd_id,
                             const char *cmd, const char *output, int ok) {
     if (!m || !cmd_id || !cmd) return;
-    char escaped[8192];
+    // Cap raw output at ~7KB so the worst-case escaped form (~14KB if every
+    // byte gets backslash-encoded) plus the JSON envelope still fits below
+    // MACHINES_SEND_MSG_SIZE (16384). Append a "…[truncated]" marker so the
+    // viewer knows there was more.
+    char buf[7168];
     int olen = output ? (int)strlen(output) : 0;
-    json_escape(output ? output : "", olen, escaped, sizeof(escaped));
-    char msg[12288];
+    static const char TRUNC[] = " …[truncated]";
+    const int trunc_len = (int)sizeof(TRUNC) - 1;
+    if (olen > (int)sizeof(buf) - 1) {
+        const int copy_len = (int)sizeof(buf) - trunc_len - 1;
+        memcpy(buf, output, copy_len);
+        memcpy(buf + copy_len, TRUNC, trunc_len);
+        buf[copy_len + trunc_len] = 0;
+        olen = copy_len + trunc_len;
+    } else if (output) {
+        memcpy(buf, output, olen);
+        buf[olen] = 0;
+    } else {
+        buf[0] = 0;
+    }
+
+    char escaped[14336];
+    json_escape(buf, olen, escaped, sizeof(escaped));
+    char msg[15800];
     snprintf(msg, sizeof(msg),
         "{\"type\":\"command-response\","
          "\"commandId\":\"%s\","

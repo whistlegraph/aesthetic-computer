@@ -28,6 +28,7 @@ let confirmReboot = null; // machineId being confirmed
 let commandPending = null; // { machineId, cmd, sentAt }
 let jumpInputActive = false;
 let jumpText = "";
+let promptBg = true; // bg=fire-and-forget; toggle to false for force-jump
 
 // UI
 let backBtn = null;
@@ -469,8 +470,12 @@ function paintDetail({ ink, line, screen, help }) {
   const btnH = 12;
 
   if (jumpInputActive) {
-    ink(80).write("Prompt:", { x: M, y: btnY });
-    ink(255).write(jumpText + "_", { x: M + 50, y: btnY });
+    // [bg] = fire-and-forget (no piece change); [fg] = force-jump to prompt.
+    // Tab toggles, shift+enter inverts for one-off.
+    const modeColor = promptBg ? [120, 200, 140] : [220, 160, 90];
+    ink(...modeColor).write(promptBg ? "[bg]" : "[fg]", { x: M, y: btnY });
+    ink(80).write("Prompt:", { x: M + 28, y: btnY });
+    ink(255).write(jumpText + "_", { x: M + 78, y: btnY });
     y += btnH + 4;
   } else {
     // Prompt button — free-text execute through the device's prompt.mjs
@@ -617,15 +622,24 @@ function act({ event: e, needsPaint, jump, pen }) {
     return;
   }
 
-  // Prompt text input — sends free text through the device's prompt.mjs
+  // Prompt text input — sends free text through the device's prompt.mjs.
+  // Tab toggles between bg (fire-and-forget; default) and fg (force-jump).
   if (jumpInputActive) {
+    if (e.is("keyboard:down:tab")) {
+      promptBg = !promptBg;
+      needsPaint();
+      return;
+    }
     if (e.is("keyboard:down:enter") && jumpText.length > 0) {
-      sendCommand(selectedMachine.machineId, "prompt", { text: jumpText });
+      // shift+enter inverts the current toggle for one-off overrides.
+      const useBg = e.shift ? !promptBg : promptBg;
+      const cmd = useBg ? "prompt-bg" : "prompt";
+      sendCommand(selectedMachine.machineId, cmd, { text: jumpText });
       // Mirror the submission as a log entry so the viewer sees what was typed
       // before the device's reply lands a tick later.
       logs.unshift({
         level: "cmd",
-        message: "❯ " + jumpText,
+        message: (useBg ? "❯ " : "❯❯ ") + jumpText,
         type: "prompt",
         when: new Date().toISOString(),
       });

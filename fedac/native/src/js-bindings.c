@@ -2633,18 +2633,24 @@ static JSValue js_paste(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 }
 
 // system.consumePromptCmd() — pop a pending outside-in prompt command staged
-// by ac-native.c (machines daemon → cmd:"prompt"). Returns {id, text} once
-// per arrival and clears the slot, or null if nothing's queued.
+// by ac-native.c. Returns {id, text, bg, returnTo} once per arrival and
+// clears the slot, or null if nothing's queued. `bg=true` means run silently
+// without changing pieces; `returnTo` is the piece the device was on before
+// being routed through prompt for this evaluation.
 static JSValue js_consume_prompt_cmd(JSContext *ctx, JSValueConst this_val,
                                      int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
     if (!current_rt || !current_rt->pending_prompt_cmd) return JS_NULL;
     JSValue obj = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, obj, "id",   JS_NewString(ctx, current_rt->pending_prompt_id));
-    JS_SetPropertyStr(ctx, obj, "text", JS_NewString(ctx, current_rt->pending_prompt_text));
+    JS_SetPropertyStr(ctx, obj, "id",       JS_NewString(ctx, current_rt->pending_prompt_id));
+    JS_SetPropertyStr(ctx, obj, "text",     JS_NewString(ctx, current_rt->pending_prompt_text));
+    JS_SetPropertyStr(ctx, obj, "bg",       JS_NewBool(ctx, current_rt->pending_prompt_bg));
+    JS_SetPropertyStr(ctx, obj, "returnTo", JS_NewString(ctx, current_rt->pending_prompt_return_to));
     current_rt->pending_prompt_cmd = 0;
     current_rt->pending_prompt_text[0] = 0;
     current_rt->pending_prompt_id[0] = 0;
+    current_rt->pending_prompt_bg = 0;
+    current_rt->pending_prompt_return_to[0] = 0;
     return obj;
 }
 

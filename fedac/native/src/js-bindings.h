@@ -94,13 +94,18 @@ typedef struct {
     char jump_params[8][64];             // colon-separated params (e.g. "chat:clock" → ["clock"])
     int jump_param_count;
 
-    // Outside-in remote prompt (cmd:"prompt" via /machines).
+    // Outside-in remote prompt (cmd:"prompt"|"prompt-bg" via /machines).
     // ac-native.c stages text + commandId here when a remote prompt arrives;
     // prompt.mjs's boot consumes it via system.consumePromptCmd() and replies
     // through system.machinesResponse(id, output, ok).
+    // bg=1 means "fire-and-forget": prompt.mjs intercepts jump() during
+    // execute() and jumps back to `pending_prompt_return_to` afterward so
+    // the user's active piece (e.g. notepat) doesn't get knocked offscreen.
     volatile int pending_prompt_cmd;
     char pending_prompt_text[2048];
     char pending_prompt_id[32];
+    int  pending_prompt_bg;
+    char pending_prompt_return_to[64];
 
     // PTY terminal emulator
     ACPty pty;

@@ -199,24 +199,55 @@ function boot({ system }) {
   } catch (_) {}
 
   // Outside-in remote prompt: ac-native stages text + commandId here when a
-  // viewer publishes cmd:"prompt" through /machines. Run it through the same
-  // execute() that local typing uses, then ship whatever message landed back.
+  // viewer publishes cmd:"prompt" or cmd:"prompt-bg" through /machines.
+  //   prompt    — run execute() and let any jump it triggers stand
+  //   prompt-bg — run execute() with jump intercepted, then bounce back to
+  //               whatever piece the user had open (so notepat etc. survive)
   const remote = system?.consumePromptCmd?.();
   if (remote && remote.text) {
     const before = message;
     message = "";
     let ok = 1;
-    try {
-      execute(remote.text, system);
-    } catch (err) {
-      ok = 0;
-      message = "error: " + (err?.message || String(err));
+    let interceptedJump = null;
+
+    if (remote.bg && system) {
+      const origJump = system.jump;
+      system.jump = (target) => { interceptedJump = target; };
+      try {
+        execute(remote.text, system);
+      } catch (err) {
+        ok = 0;
+        message = "error: " + (err?.message || String(err));
+      }
+      system.jump = origJump;
+    } else {
+      try {
+        execute(remote.text, system);
+      } catch (err) {
+        ok = 0;
+        message = "error: " + (err?.message || String(err));
+      }
     }
-    const reply = message || "(no output)";
+
+    let reply = message;
+    if (!reply && interceptedJump) reply = "(suppressed jump → " + interceptedJump + ")";
+    if (!reply) reply = "(no output)";
     try { system?.machinesResponse?.(remote.id, reply, ok); } catch (_) {}
-    // Restore prior message so the local screen doesn't get hijacked when
-    // execute() didn't produce visible feedback.
-    if (!message) message = before;
+
+    if (remote.bg) {
+      // Bounce back to the user's prior piece without disrupting it.
+      const returnTo = remote.returnTo || "prompt";
+      if (returnTo && returnTo !== "prompt") {
+        try { system?.jump?.(returnTo); } catch (_) {}
+      }
+      // Don't leak our captured message onto the prompt screen — though we
+      // probably won't render it anyway since we're jumping away.
+      message = before;
+    } else if (!message) {
+      // Restore prior message so the local screen doesn't get hijacked when
+      // execute() didn't produce visible feedback.
+      message = before;
+    }
   }
 }
 
