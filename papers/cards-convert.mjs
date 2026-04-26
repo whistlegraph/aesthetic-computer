@@ -43,6 +43,7 @@ const PAPER_MAP = {
   "arxiv-ucla-arts": { base: "ucla-arts", title: "Two Departments, One Building", siteName: "ucla-arts-funding-26-arxiv" },
   "arxiv-holden": { base: "holden", title: "The Potter and the Prompt", siteName: "potter-and-prompt-26-arxiv" },
   "arxiv-url-tradition": { base: "url-tradition", title: "The URL Tradition", siteName: "url-tradition-26-arxiv" },
+  "arxiv-latency": { base: "latency", title: "Where the Microseconds Go", siteName: "where-the-microseconds-go-26-arxiv" },
 };
 
 function getAvailableTranslations(dir, info) {

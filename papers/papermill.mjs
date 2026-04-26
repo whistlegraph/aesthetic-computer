@@ -146,6 +146,11 @@ const PAPER_MAP = {
     siteName: "reading-the-score-26-arxiv",
     paperId: "score-analysis",
   },
+  "arxiv-latency": {
+    base: "latency",
+    siteName: "where-the-microseconds-go-26-arxiv",
+    paperId: "latency",
+  },
 };
 
 // --- File discovery ---

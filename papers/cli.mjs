@@ -191,6 +191,11 @@ const PAPER_MAP = {
     title: "The URL Tradition",
     psycho: true,
   },
+  "arxiv-latency": {
+    base: "latency",
+    siteName: "where-the-microseconds-go-26-arxiv",
+    title: "Where the Microseconds Go",
+  },
   "cv": {
     base: "cv",
     siteName: "jeffrey-alan-scudder-cv",
