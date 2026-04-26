@@ -5404,3 +5404,13 @@ Built:
 - Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
 - Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
 - Where the Microseconds Go [en] → where-the-microseconds-go-26-arxiv.pdf
+
+## 2026-04-26 05:52
+
+Built:
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
