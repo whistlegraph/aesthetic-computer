@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-04-26T07:00:30.548Z</updated>
+  <updated>2026-04-26T07:03:08.542Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://orcid.org/0009-0007-4460-4913</uri>
@@ -16,17 +16,26 @@
     <title>Whistlegraph</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
-    <updated>2026-04-26T07:00:30.548Z</updated>
+    <updated>2026-04-26T07:03:08.542Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
   </entry>
   <entry>
+    <title>Where the Microseconds Go</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf</id>
+    <updated>2026-04-26T07:03:08.542Z</updated>
+    <published>2026-04-26T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
     <title>Jeffrey Alan Scudder — CV</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
     <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
-    <updated>2026-04-26T07:00:30.547Z</updated>
+    <updated>2026-04-26T07:03:08.541Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -34,19 +43,10 @@
     <title>The URL Tradition</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf</id>
-    <updated>2026-04-26T07:00:30.545Z</updated>
+    <updated>2026-04-26T07:03:08.540Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Addressable Creative Computing from HyperCard to Aesthetic Computer · arXiv 5pp — The URL Tradition traces how URL-addressability reshapes creative computing. From HyperCard&apos;s landlocked stacks to AC&apos;s prompt-as-address-bar, the paper argues the URL is not a feature but a medium property that transforms pedagogy, distribution, authorship, and social interaction.</summary>
-  </entry>
-  <entry>
-    <title>Where the Microseconds Go</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf</id>
-    <updated>2026-04-26T06:24:55.736Z</updated>
-    <published>2026-04-26T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
   </entry>
   <entry>
     <title>KidLisp (ELS 2026)</title>
