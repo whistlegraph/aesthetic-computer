@@ -162,16 +162,41 @@ elif [ "${AC_TOKEN_EXPIRED}" = "1" ]; then
     log "  creds fetch: skipped (~/.ac-token expired — run \`ac-login\` to refresh)"
 fi
 
+# --- locate Tangled SSH identity for knot.aesthetic.computer pushes ---
+# Mirrors ac-os Linux flash: prefer the IdentityFile that `ssh -G knot...`
+# resolves to (handles ~/.ssh/config overrides), fall back to ~/.ssh/tangled.
+TANGLED_KEY=""
+if command -v ssh >/dev/null 2>&1; then
+    TANGLED_KEY="$(ssh -G knot.aesthetic.computer 2>/dev/null \
+                   | awk '/^identityfile / {print $2; exit}')"
+    case "${TANGLED_KEY}" in
+        "~/"*) TANGLED_KEY="${HOME}/${TANGLED_KEY#~/}" ;;
+    esac
+fi
+[ -z "${TANGLED_KEY}" ] && [ -f "${HOME}/.ssh/tangled" ] && TANGLED_KEY="${HOME}/.ssh/tangled"
+[ -n "${TANGLED_KEY}" ] && [ ! -f "${TANGLED_KEY}" ] && TANGLED_KEY=""
+
+# --- locate device-claude.md and SCORE.md for on-device context ---
+DEVICE_CLAUDE_MD=""
+[ -f "${NATIVE_DIR}/device-claude.md" ] && DEVICE_CLAUDE_MD="${NATIVE_DIR}/device-claude.md"
+DEVICE_SCORE_MD=""
+[ -f "${NATIVE_DIR}/SCORE.md" ] && DEVICE_SCORE_MD="${NATIVE_DIR}/SCORE.md"
+
 # --- bake creds into initramfs via concatenated cpio archive ---
 # The Linux kernel's unpack_to_rootfs() accepts multiple concatenated
 # gzipped cpio archives in the initrd stream (same trick intel-ucode
 # uses). We build a tiny supplementary archive containing the baked
 # files and append it to the end of initramfs.cpio.gz.
 # Files baked (matches ac-os Linux layout):
-#   /claude-token        plain bearer — pty.c reads + sets CLAUDE_CODE_OAUTH_TOKEN
-#   /claude-state.json   init copies to /tmp/.claude.json (skips CC onboarding)
-#   /github-pat          plain bearer — pty.c sets GITHUB_TOKEN
-if [ -n "${CLAUDE_TOKEN}${GITHUB_PAT}" ]; then
+#   /claude-token            plain bearer — pty.c sets CLAUDE_CODE_OAUTH_TOKEN
+#   /claude-state.json       init copies to /tmp/.claude.json (skips CC onboarding)
+#   /github-pat              plain bearer — pty.c sets GITHUB_TOKEN
+#   /tangled-key             SSH private key — init copies to /tmp/.ssh/tangled
+#   /tangled-known-hosts     init copies to /tmp/.ssh/known_hosts
+#   /tangled-ssh-config      init copies to /tmp/.ssh/config; pty.c sets GIT_SSH_COMMAND
+#   /device-claude.md        on-device CLAUDE.md (init copies to /tmp/ac/CLAUDE.md)
+#   /device-score.md         on-device SCORE.md (init symlinks to /tmp/ac/SCORE.md)
+if [ -n "${CLAUDE_TOKEN}${GITHUB_PAT}${TANGLED_KEY}${DEVICE_CLAUDE_MD}${DEVICE_SCORE_MD}" ]; then
     BAKE_DIR="$(mktemp -d /tmp/ac-bake.XXXXXX)"
     BAKED_INITRAMFS="/tmp/ac-initramfs-baked.$$.cpio.gz"
     ORIG_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
@@ -191,6 +216,53 @@ claude-state.json
         chmod 600 "${BAKE_DIR}/github-pat"
         BAKE_LIST="${BAKE_LIST}github-pat
 "
+    fi
+    if [ -n "${TANGLED_KEY}" ]; then
+        cp "${TANGLED_KEY}" "${BAKE_DIR}/tangled-key"
+        chmod 600 "${BAKE_DIR}/tangled-key"
+        # Bring along known_hosts so first-push StrictHostKeyChecking has the
+        # entry; otherwise let ssh fall back to accept-new from the config.
+        if [ -f "${HOME}/.ssh/known_hosts" ]; then
+            cp "${HOME}/.ssh/known_hosts" "${BAKE_DIR}/tangled-known-hosts"
+            chmod 600 "${BAKE_DIR}/tangled-known-hosts"
+        elif command -v ssh-keyscan >/dev/null 2>&1; then
+            ssh-keyscan -H knot.aesthetic.computer 2>/dev/null \
+                > "${BAKE_DIR}/tangled-known-hosts" || true
+            [ -s "${BAKE_DIR}/tangled-known-hosts" ] \
+                && chmod 600 "${BAKE_DIR}/tangled-known-hosts" \
+                || rm -f "${BAKE_DIR}/tangled-known-hosts"
+        fi
+        cat > "${BAKE_DIR}/tangled-ssh-config" <<'SSHCFG'
+Host knot.aesthetic.computer
+    HostName knot.aesthetic.computer
+    User git
+    IdentityFile ~/.ssh/tangled
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking accept-new
+    UserKnownHostsFile ~/.ssh/known_hosts
+SSHCFG
+        chmod 600 "${BAKE_DIR}/tangled-ssh-config"
+        BAKE_LIST="${BAKE_LIST}tangled-key
+tangled-ssh-config
+"
+        [ -f "${BAKE_DIR}/tangled-known-hosts" ] && BAKE_LIST="${BAKE_LIST}tangled-known-hosts
+"
+        log "  tangled ssh: baked (${TANGLED_KEY})"
+    else
+        log "  tangled ssh: not found (skipping knot push setup)"
+    fi
+    if [ -n "${DEVICE_CLAUDE_MD}" ]; then
+        cp "${DEVICE_CLAUDE_MD}" "${BAKE_DIR}/device-claude.md"
+        BAKE_LIST="${BAKE_LIST}device-claude.md
+"
+        log "  CLAUDE.md: baked"
+    fi
+    if [ -n "${DEVICE_SCORE_MD}" ]; then
+        cp "${DEVICE_SCORE_MD}" "${BAKE_DIR}/device-score.md"
+        BAKE_LIST="${BAKE_LIST}device-score.md
+"
+        log "  SCORE.md: baked"
     fi
     cp "${INITRAMFS}" "${BAKED_INITRAMFS}"
     ( cd "${BAKE_DIR}" && printf '%s' "${BAKE_LIST}" \

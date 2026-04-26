@@ -2781,6 +2781,35 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                     }
                 badge_x += 28;
             }
+            // 11x11 pixel "(λ)" — Common Lisp / Tangled push access.
+            // Shown when a tangled SSH key was baked into the initramfs so on-
+            // device git can push to knot.aesthetic.computer alongside GitHub.
+            if (access("/tangled-key", F_OK) == 0) {
+                static const char lambda[11][12] = {
+                    "  .#####.  ",
+                    " #.......# ",
+                    "#....#....#",
+                    "#....#....#",
+                    "#...#.#...#",
+                    "#..#...#..#",
+                    "#.#.....#.#",
+                    "#....#.#..#",
+                    "#...#...#.#",
+                    " #.......# ",
+                    "  .#####.  ",
+                };
+                for (int cy = 0; cy < 11; cy++)
+                    for (int cx = 0; cx < 11; cx++) {
+                        char c = lambda[cy][cx];
+                        if (c == '#')
+                            graph_ink(graph, (ACColor){200, 150, 240, (uint8_t)ba});
+                        else if (c == '.')
+                            graph_ink(graph, (ACColor){140, 100, 200, (uint8_t)(ba*2/3)});
+                        else continue;
+                        graph_box(graph, badge_x + cx*2, badge_y + cy*2, 2, 2, 1);
+                    }
+                badge_x += 28;
+            }
         }
 
         // Animated triangles — geometric decoration
