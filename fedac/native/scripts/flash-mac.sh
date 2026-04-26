@@ -256,7 +256,12 @@ log "Initramfs: ${INITRD_BYTES} bytes  ${INITRD_SHA:0:16}…"
 FREE_MB=$(( DISK_MB - MAIN_MB - EFI_MB - 64 ))
 log "Layout:    ACBOOT=${MAIN_MB}MB  ACEFI=${EFI_MB}MB  free=${FREE_MB}MB"
 echo
-read -r -p "Type 'YES' to ERASE ${USB_DEV} and write AC Native OS: " CONFIRM
+if [ -n "${AC_FLASH_YES:-}" ] || [ ! -t 0 ]; then
+    log "Auto-confirming wipe (AC_FLASH_YES set or stdin not a TTY)"
+    CONFIRM=YES
+else
+    read -r -p "Type 'YES' to ERASE ${USB_DEV} and write AC Native OS: " CONFIRM
+fi
 [ "${CONFIRM}" = "YES" ] || die "Aborted."
 
 # --- wipe + repartition ---
@@ -388,7 +393,7 @@ verify "ACEFI/initramfs.cpio.gz"    "${M2}/initramfs.cpio.gz"      "${INITRD_SHA
 # --- finalize ---
 sync
 log "Unmounting + ejecting…"
-umount "${M1}" "${M2}"
+diskutil unmountDisk force "${USB_DEV}" >/dev/null
 diskutil eject "${USB_DEV}" >/dev/null
 trap - EXIT
 rmdir "${M1}" "${M2}" 2>/dev/null || true
