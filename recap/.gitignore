@@ -1,0 +1,3 @@
+out/
+models/*.bin
+node_modules/
