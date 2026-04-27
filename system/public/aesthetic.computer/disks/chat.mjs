@@ -1846,7 +1846,11 @@ function paint(
       ? (hudLabelBox.y ?? 0) + (hudLabelBox.h ?? 0)
       : 12;
     const presenceX = 6;
-    const presenceY = hudLabelBottom + 3;
+    // Clamp Y so the counter + its 1px shadow stay inside the top chrome panel,
+    // even when the HUD label box is tall (e.g. when a QR stamp is attached).
+    const matrixChunky8Height = 8;
+    const maxPresenceY = topMargin - matrixChunky8Height - 2;
+    const presenceY = Math.min(hudLabelBottom + 3, maxPresenceY);
     const onlineFgColor = theme?.timestamp || 160;
     ink(0, 0, 0, 180).write(line, {
       x: presenceX + 1,
@@ -1883,12 +1887,14 @@ function paint(
     const presenceX = 6 + qrTotalWidth;
     // Sit just below the HUD corner label so the counter doesn't have to
     // dodge it horizontally. Falls back to a sensible default when the HUD
-    // label hasn't reported a box yet.
+    // label hasn't reported a box yet. Clamp so the counter + its 1px shadow
+    // stay inside the top chrome panel even when the HUD label is tall (QR).
     const matrixChunky8Height = 8;
     const hudLabelBottom = hudLabelBox
       ? (hudLabelBox.y ?? 0) + (hudLabelBox.h ?? 0)
       : 12;
-    const presenceY = hudLabelBottom + 3;
+    const maxPresenceY = topMargin - matrixChunky8Height - 2;
+    const presenceY = Math.min(hudLabelBottom + 3, maxPresenceY);
 
     const onlineFgColor = theme?.timestamp || 160;
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
