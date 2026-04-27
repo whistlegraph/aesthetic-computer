@@ -14,6 +14,7 @@
     "dev": "fish dev.fish --dev",
     "dev:prod": "fish dev.fish --prod",
     "dev:watch": "fish dev.fish --dev --watch",
+    "install:mac": "fish install.fish",
     "electron": "./node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
     "icons": "node scripts/generate-icons.mjs",
     "native:build": "cd native/osr-gpu && npm install && npm run build || echo 'Native addon build skipped'",
