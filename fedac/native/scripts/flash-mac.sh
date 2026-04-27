@@ -348,7 +348,8 @@ WIFI_PRESETS_JSON='[
   {"ssid":"aesthetic.computer","pass":"aesthetic.computer"},
   {"ssid":"ATT2AWTpcr","pass":"t84q%7%g2h8u"},
   {"ssid":"GettyLink","pass":""},
-  {"ssid":"Tondo_Guest","pass":"California"}
+  {"ssid":"Tondo_Guest","pass":"California"},
+  {"ssid":"Eightfold Coffee","pass":"wecloseat430"}
 ]'
 
 INFO=$(diskutil info "${USB_DEV}" 2>/dev/null) || die "diskutil info failed for ${USB_DEV}"
