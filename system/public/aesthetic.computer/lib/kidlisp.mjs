@@ -9082,6 +9082,13 @@ class KidLisp {
               existingLayer.sourceCode = source;
               existingLayer.kidlispInstance.source = source; // Store in instance for dynamic content detection
               existingLayer.parsedCode = existingLayer.kidlispInstance.parse(source);
+              // Real source loaded — re-detect firstLineColor and re-bake on next render.
+              existingLayer.kidlispInstance.firstLineColor = null;
+              existingLayer.kidlispInstance.ast = JSON.parse(
+                JSON.stringify(existingLayer.parsedCode),
+              );
+              existingLayer.kidlispInstance.detectFirstLineColor();
+              existingLayer.firstLineColorApplied = false;
 
               // Reset timing for fresh start
               existingLayer.localFrameCount = 0;
@@ -12773,6 +12780,8 @@ class KidLisp {
           existingLayer.buffer.pixels.fill(0);
           // Buffer cleared - log removed for performance
         }
+        // Buffer was just wiped — re-bake the first-line color on next render.
+        existingLayer.firstLineColorApplied = false;
       }
 
       // 🔄 REUSE existing KidLisp instance but reset execution state
@@ -12926,6 +12935,8 @@ class KidLisp {
         persistentLayer.source = source;
         persistentLayer.parsedCode = precompiledCode;
         persistentLayer.kidlispInstance = embeddedKidLisp;
+        // Buffer was just wiped — re-bake the first-line color on next render.
+        persistentLayer.firstLineColorApplied = false;
       }
     } else {
       // � REFRAME OPTIMIZATION: Check if we can reuse existing buffer during size changes
@@ -13902,6 +13913,27 @@ class KidLisp {
       embeddedApi.width = embeddedLayer.width;
       embeddedApi.height = embeddedLayer.height;
 
+      // 🎨 First-word color: bake firstLineColor into the embedded buffer ONCE,
+      // mirroring how layer0 is seeded in standalone pieces. Calling api.wipe
+      // directly invokes the BIOS wipe which renders fade:/p0/p1/rainbow/zebra
+      // gradients at the embedded buffer's dimensions. Doing this once per
+      // buffer lifecycle preserves accumulation effects (scroll, etc.) on
+      // subsequent frames. Resets when source/buffer changes.
+      if (
+        !embeddedLayer.firstLineColorApplied &&
+        embeddedLayer.kidlispInstance.firstLineColor
+      ) {
+        try {
+          api.wipe(embeddedLayer.kidlispInstance.firstLineColor);
+        } catch (err) {
+          console.warn(
+            "⚠️ embedded first-line wipe failed:",
+            err?.message,
+          );
+        }
+        embeddedLayer.firstLineColorApplied = true;
+      }
+
       // Update environment efficiently
       const localEnv = embeddedLayer.kidlispInstance.localEnv;
       localEnv.frame = embeddedLayer.localFrameCount;
@@ -14488,6 +14520,25 @@ class KidLisp {
       embeddedApi.screen.width = embeddedLayer.width;
       embeddedApi.screen.height = embeddedLayer.height;
       embeddedApi.screen.pixels = embeddedLayer.buffer.pixels;
+
+      // 🎨 First-word color: bake firstLineColor into the embedded buffer ONCE
+      // (mirrors layer0 seeding in standalone). Calling api.wipe directly runs
+      // the BIOS wipe so fade:/p0/p1/rainbow/zebra render as gradients at the
+      // embedded dimensions. Resets when source/buffer changes.
+      if (
+        !embeddedLayer.firstLineColorApplied &&
+        embeddedLayer.kidlispInstance.firstLineColor
+      ) {
+        try {
+          api.wipe(embeddedLayer.kidlispInstance.firstLineColor);
+        } catch (err) {
+          console.warn(
+            "⚠️ embedded first-line wipe failed:",
+            err?.message,
+          );
+        }
+        embeddedLayer.firstLineColorApplied = true;
+      }
 
       // ⚡ PERFORMANCE: Optimize environment updates (avoid expensive spread)
       const localEnv = embeddedLayer.kidlispInstance.localEnv;
