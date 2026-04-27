@@ -1336,6 +1336,14 @@ const CUSTOM_IMAGE_URLS = {
   'music_baktok-7-inch_25-11-3-14-17': 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-record.png',
 };
 
+// 🛒 Carousel allowlist — only these Shopify product handles appear in the prompt carousel.
+// Set to null to show every live product.
+const PRODUCT_HANDLE_ALLOWLIST = new Set([
+  'laptops_ac-blank-laptop_26-4-17-12-51',
+  'music_laer-klokken-med-goodiepal_26-4-21-15-1',
+  'music_laer-klokken-shitcore-patch_26-4-21-18-12',
+]);
+
 // 🎯 Active product (can be switched)
 let productKeys = [];
 let activeProductKey = null;
@@ -1411,6 +1419,7 @@ async function fetchAndLoadProducts(api) {
     
     // Create product configs - include ALL products (available and sold)
     for (const shopProduct of data.products) {
+      if (PRODUCT_HANDLE_ALLOWLIST && !PRODUCT_HANDLE_ALLOWLIST.has(shopProduct.handle)) continue;
       const key = `shop_${shopProduct.id}`;
       if (products[key]) continue; // Already loaded
       

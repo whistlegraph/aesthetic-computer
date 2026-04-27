@@ -217,18 +217,11 @@ let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape conte
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
 
-// 🎰 UNITICKER - Unified ticker combining chat, laer-klokken chat, sigiled media, commits, handles, moods
+// 🎰 UNITICKER - Unified ticker combining sigiled media + chats
 let uniticker; // Single ticker for all combined content
 let unitickerButton; // Button for hover interaction
 let unitickerItems = []; // Combined items: {type, text, code, color, ...}
-let unitickerHoveredItem = null; // Currently hovered item for tooltip
-let unitickerIdleFrames = 0;
-let unitickerLastPenX = -1;
-let unitickerLastPenY = -1;
-let unitickerAutoSelectedItem = null;
-let unitickerAutoSelectedX = 0;
-let unitickerAutoSelectedWidth = 0;
-const UNITICKER_IDLE_THRESHOLD = 120; // ~2 seconds at 60fps before auto-selecting
+let unitickerHoveredItem = null; // Currently hovered item
 
 
 const tinyTickers = true; // Use MatrixChunky8 font for tighter, smaller tickers
@@ -6018,9 +6011,9 @@ function paint($) {
       });
     }
 
-    // 🎲 Round-robin interleave across all 6 buckets for a healthy mix
+    // 🎲 Round-robin interleave across sigiled media + chats only
     unitickerItems = [];
-    const allBuckets = [chatItems, clockItems, mediaItems, commitItems, statsItems, moodItems].filter(
+    const allBuckets = [chatItems, clockItems, mediaItems].filter(
       (b) => b.length > 0,
     );
     const bucketIndices = allBuckets.map(() => 0);
@@ -6107,21 +6100,6 @@ function paint($) {
         const loopedOffset = totalCycleWidth > 0 ? rawOffset % totalCycleWidth : 0;
 
         let hoveredItem = null;
-        let hoveredItemX = 0;
-        let hoveredItemWidth = 0;
-        const visibleItemsForAutoSelect = [];
-
-        // Track pen idle state
-        const penX = $.pen?.x ?? -1;
-        const penY = $.pen?.y ?? -1;
-        if (penX !== unitickerLastPenX || penY !== unitickerLastPenY) {
-          unitickerIdleFrames = 0;
-          unitickerLastPenX = penX;
-          unitickerLastPenY = penY;
-          if (hoveredItem) unitickerAutoSelectedItem = null;
-        } else {
-          unitickerIdleFrames++;
-        }
 
         const startMargin = 6;
         const baseX = startMargin - loopedOffset;
@@ -6144,12 +6122,6 @@ function paint($) {
 
             if (isHovered && currentX >= 0 && currentX < screen.width) {
               hoveredItem = item;
-              hoveredItemX = currentX;
-              hoveredItemWidth = textWidth;
-            }
-
-            if (currentX >= 0 && currentX < screen.width) {
-              visibleItemsForAutoSelect.push({ item, x: currentX, width: textWidth });
             }
 
             const isVisible = currentX + textWidth > -10 && currentX < screen.width + 10;
@@ -6175,152 +6147,11 @@ function paint($) {
 
         unitickerHoveredItem = hoveredItem;
         unitickerButton.hoveredItem = hoveredItem;
-
-        // 🎯 Auto-select an item when idle (picks from center-right, scrolls with ticker)
-        let displayItem = hoveredItem;
-        let displayItemX = hoveredItemX;
-        let displayItemWidth = hoveredItemWidth;
-
-        if (!hoveredItem && unitickerIdleFrames >= UNITICKER_IDLE_THRESHOLD && visibleItemsForAutoSelect.length > 0) {
-          visibleItemsForAutoSelect.sort((a, b) => a.x - b.x);
-
-          if (unitickerAutoSelectedItem) {
-            const stillVisible = visibleItemsForAutoSelect.find(
-              (v) => v.item === unitickerAutoSelectedItem && v.x >= -v.width * 0.3,
-            );
-            if (stillVisible) {
-              displayItem = stillVisible.item;
-              displayItemX = stillVisible.x;
-              displayItemWidth = stillVisible.width;
-              unitickerAutoSelectedX = stillVisible.x;
-              unitickerAutoSelectedWidth = stillVisible.width;
-            } else {
-              unitickerAutoSelectedItem = null;
-            }
-          }
-
-          if (!unitickerAutoSelectedItem && visibleItemsForAutoSelect.length > 0) {
-            const minThreshold = screen.width * 0.4;
-            const maxThreshold = screen.width * 0.7;
-            const centered = visibleItemsForAutoSelect.filter(
-              (v) => v.x >= minThreshold && v.x <= maxThreshold,
-            );
-            let target;
-            if (centered.length > 0) {
-              target = centered[centered.length - 1];
-            } else {
-              const idealX = screen.width * 0.55;
-              target = visibleItemsForAutoSelect.reduce((best, v) =>
-                Math.abs(v.x - idealX) < Math.abs(best.x - idealX) ? v : best,
-              );
-            }
-            unitickerAutoSelectedItem = target.item;
-            unitickerAutoSelectedX = target.x;
-            unitickerAutoSelectedWidth = target.width;
-            displayItem = target.item;
-            displayItemX = target.x;
-            displayItemWidth = target.width;
-          }
-        } else if (hoveredItem) {
-          unitickerAutoSelectedItem = null;
-        }
-
-        // 🎯 Contextual "Enter 'code' to ..." tooltip below hovered/auto-selected item
-        if (displayItem && !unitickerButton.down) {
-          let tooltipPrefix, tooltipCode, tooltipSuffix;
-          const doc = tooltipDocs?.[displayItem.code];
-          if (doc?.desc) {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = `' to ${doc.desc.toLowerCase().replace(/\.$/, "")}`;
-          } else if (displayItem.type === "kidlisp") {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "' to run";
-          } else if (displayItem.type === "painting") {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "' to view";
-          } else if (displayItem.type === "tape") {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "' to listen";
-          } else if (displayItem.type === "sigil-clock") {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "' to run";
-          } else if (displayItem.type === "commit") {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "' to browse";
-          } else if (displayItem.type === "stats") {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "' to browse";
-          } else if (displayItem.type === "mood") {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "' to set yours";
-          } else {
-            tooltipPrefix = "Enter '";
-            tooltipCode = displayItem.code;
-            tooltipSuffix = "'";
-          }
-          const tooltipText = tooltipPrefix + tooltipCode + tooltipSuffix;
-          const tooltipWidth = $.text.box(tooltipText, undefined, undefined, undefined, undefined, tickerFont).box.width;
-          const tooltipHeight = 10;
-          const tooltipPadding = 3;
-
-          let tooltipX = displayItemX + displayItemWidth / 2 - tooltipWidth / 2 - tooltipPadding;
-          const tooltipY = boxY + boxHeight + 10;
-          tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - tooltipPadding * 2 - 4));
-
-          const alphaMultiplier = hoveredItem ? 1 : 0.7;
-          const tooltipBgColor = [...displayItem.color, Math.round(180 * alphaMultiplier)];
-          ink([10, 10, 20, Math.round(220 * alphaMultiplier)]).box(
-            tooltipX,
-            tooltipY,
-            tooltipWidth + tooltipPadding * 2,
-            tooltipHeight + tooltipPadding * 2,
-          );
-          ink(tooltipBgColor).box(
-            tooltipX,
-            tooltipY,
-            tooltipWidth + tooltipPadding * 2,
-            tooltipHeight + tooltipPadding * 2,
-            "inline",
-          );
-
-          const ttTextY = tooltipY + tooltipPadding + 1;
-          let textX = tooltipX + tooltipPadding;
-          const baseAlpha = Math.round(255 * alphaMultiplier);
-          const dimAlpha = Math.round(180 * alphaMultiplier);
-
-          ink([255, 255, 255, dimAlpha]).write(tooltipPrefix, { x: textX, y: ttTextY }, undefined, undefined, false, tickerFont);
-          textX += $.text.box(tooltipPrefix, undefined, undefined, undefined, undefined, tickerFont).box.width;
-
-          ink([...displayItem.color, baseAlpha]).write(tooltipCode, { x: textX, y: ttTextY }, undefined, undefined, false, tickerFont);
-          textX += $.text.box(tooltipCode, undefined, undefined, undefined, undefined, tickerFont).box.width;
-
-          ink([255, 255, 255, dimAlpha]).write(tooltipSuffix, { x: textX, y: ttTextY }, undefined, undefined, false, tickerFont);
-
-          const arrowX = displayItemX + displayItemWidth / 2;
-          const arrowY = tooltipY;
-          const arrowAlpha = Math.round(200 * alphaMultiplier);
-          ink([...displayItem.color, arrowAlpha]).line(arrowX, arrowY, arrowX - 3, arrowY - 3);
-          ink([...displayItem.color, arrowAlpha]).line(arrowX, arrowY, arrowX + 3, arrowY - 3);
-
-          if (!hoveredItem && unitickerAutoSelectedItem) {
-            $.ink([...displayItem.color, 30]).box(displayItemX - 1, boxY + 1, displayItemWidth + 2, boxHeight - 3);
-          }
-        }
       }
     } else {
       uniticker = null;
       unitickerButton = null;
       unitickerHoveredItem = null;
-      unitickerAutoSelectedItem = null;
-      unitickerIdleFrames = 0;
     }
 
     $.layer(1);
@@ -6329,7 +6160,7 @@ function paint($) {
     // Hide commits button when KidLisp button is active (they share the same screen area)
     if (versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
       const commitText = updateAvailable
-        ? "update ready"
+        ? `update to ${versionInfo.deployed}`
         : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
       // Create button using TextButtonSmall (MatrixChunky8 font) centered at bottom
       const buttonY = screen.height - 20; // 20px from bottom
@@ -6350,33 +6181,41 @@ function paint($) {
       if (cBox) {
         const isHover = commitBtn.btn.over && !commitBtn.btn.down;
 
+        // Blink the update-ready button so it's hard to miss.
+        const blink = updateAvailable
+          ? 0.5 + 0.5 * Math.sin(motdFrame * 0.18)
+          : 0;
+        const blinkFillBoost = Math.round(40 * blink);
+        const blinkOutlineBoost = Math.round(80 * blink);
+        const blinkTextBoost = Math.round(60 * blink);
+
         const colors = updateAvailable
           ? isHover
             ? [
-                [30, 60, 30, 180],    // fill: bright green on hover
-                [60, 140, 60, 200],   // outline: vivid green
-                220,                  // text alpha
-                [30, 60, 30, 180]
+                [30 + blinkFillBoost, 60 + blinkFillBoost, 30, 180],
+                [60 + blinkOutlineBoost, 160 + blinkOutlineBoost / 2, 60, 220],
+                Math.min(255, 220 + blinkTextBoost),
+                [30 + blinkFillBoost, 60 + blinkFillBoost, 30, 180]
               ]
             : [
-                [20, 50, 20, 160],    // fill: green (update ready)
-                [50, 120, 50, 180],   // outline: green
-                180,                  // text alpha
-                [20, 50, 20, 160]
+                [20 + blinkFillBoost, 50 + blinkFillBoost, 20, 160],
+                [50 + blinkOutlineBoost, 140 + blinkOutlineBoost / 2, 50, 200],
+                Math.min(255, 195 + blinkTextBoost),
+                [20 + blinkFillBoost, 50 + blinkFillBoost, 20, 160]
               ]
           : versionInfo.status === "behind"
             ? isHover
               ? [
-                  [60, 52, 30, 160],    // fill: brighter orange on hover
-                  [120, 105, 60, 180],  // outline: much brighter orange
-                  180,                  // text alpha brighter
-                  [60, 52, 30, 160]
+                  [110, 70, 25, 200],   // fill: vivid orange on hover
+                  [255, 165, 50, 230],  // outline: bright orange
+                  240,                  // text alpha
+                  [110, 70, 25, 200]
                 ]
               : [
-                  [40, 35, 20, 128],    // fill: dark orange (behind)
-                  [80, 70, 40, 128],    // outline: lighter orange
-                  200,                  // text alpha
-                  [40, 35, 20, 128]
+                  [80, 50, 15, 170],    // fill: orange (behind)
+                  [220, 130, 30, 200],  // outline: bright orange
+                  230,                  // text alpha
+                  [80, 50, 15, 170]
                 ]
             : isHover
               ? [
