@@ -384,38 +384,57 @@ static inline double generate_harp_sample(ACVoice *v, double sample_rate) {
 //
 // References embedded above the piano fields in audio.h.
 static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
+    (void)sample_rate;
     double env = compute_envelope(v);
 
-    double sum = 0.0;
-    for (int i = 0; i < v->piano_num_partials; i++) {
-        // Phasor sine. We could SIMD this, but at 10 partials × 32 voices
-        // × 192kHz = 61.4 Msin/s the math.h sin() call dominates. Could
-        // be replaced with a polynomial approx if profiling demands it.
-        sum += v->piano_partial_amp[i] * sin(2.0 * M_PI * v->piano_partial_phase[i]);
-        v->piano_partial_phase[i] += v->piano_partial_freq[i] / sample_rate;
-        if (v->piano_partial_phase[i] >= 1.0) v->piano_partial_phase[i] -= 1.0;
-        v->piano_partial_amp[i] *= v->piano_partial_decay[i];
-    }
+    double mix = 0.0;
+    for (int s = 0; s < v->ks_num_strings; s++) {
+        // Fractional delay read with linear interpolation. Without
+        // fractional delay the string would only support pitches whose
+        // delay-line length is an integer sample count → tuning errors
+        // up to half a semitone in the treble at 48kHz.
+        double rp = (double)v->ks_write_pos[s] - v->ks_delay_len[s];
+        while (rp < 0.0) rp += (double)KS_MAX_DELAY;
+        int rp_i = (int)rp;
+        double frac = rp - (double)rp_i;
+        int rp_n = (rp_i + 1) % KS_MAX_DELAY;
+        double tail = (1.0 - frac) * (double)v->ks_delay[s][rp_i] +
+                              frac  * (double)v->ks_delay[s][rp_n];
 
-    // Hammer noise burst: short bright thump that gives the attack its
-    // percussive character. Without this, the partials alone sound like
-    // an organ tine — too pure for a struck-string instrument.
-    if (v->piano_hammer_env > 1e-5) {
-        double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
-        // 1-pole LPF — alpha ≈ 1 - exp(-2π·fc/sr), fc ≈ 3kHz at 192kHz
-        // gives alpha ≈ 0.097. Keeps the hammer noise from sounding like
-        // hi-hat hash; instead it's a soft "tk" / felt thwack.
-        double alpha = 0.097;
-        v->piano_hammer_lp = v->piano_hammer_lp + alpha * (white - v->piano_hammer_lp);
-        sum += v->piano_hammer_lp * v->piano_hammer_env * 0.55;
-        v->piano_hammer_env *= v->piano_hammer_decay_mult;
-    }
+        // 1st-order all-pass dispersion. Phase delay decreases with
+        // frequency → upper partials lag → inharmonicity emerges
+        // naturally without per-partial stretching math. Coefficient
+        // a in [0, 1) controls amount of dispersion. Standard
+        // direct-form implementation:
+        //     y[n] = a*x[n] + x[n-1] - a*y[n-1]
+        // We store (x[n] - a*y[n]) as state so the next iteration can
+        // form x[n-1] - a*y[n-1] from a single load.
+        double a = v->ks_allpass_a[s];
+        double y_ap = a * tail + v->ks_allpass_state[s];
+        v->ks_allpass_state[s] = tail - a * y_ap;
 
-    // Output gain — partials sum coherently for a few ms then disperse,
-    // peaking around 0.6-0.8. 0.55 keeps the post-attack sustain in the
-    // same loudness range as sine/triangle/sawtooth voices.
-    return 0.55 * sum * env;
+        // Damping LPF: 1-pole, alpha closer to 1 = brighter (less
+        // damping). Treble strings get higher alpha so high partials
+        // ring longer; bass strings smaller alpha so they don't sound
+        // metallic.
+        double y_d = (1.0 - v->ks_damper_alpha[s]) * v->ks_damper_state[s] +
+                            v->ks_damper_alpha[s]  * y_ap;
+        v->ks_damper_state[s] = y_d;
+
+        // Feedback into the write head and advance.
+        double fb = y_d * v->ks_feedback[s];
+        v->ks_delay[s][v->ks_write_pos[s]] = (float)fb;
+        v->ks_write_pos[s] = (v->ks_write_pos[s] + 1) % KS_MAX_DELAY;
+
+        mix += fb * v->ks_string_amp[s];
+    }
+    return mix * env;
 }
+
+// (Old modal-additive piano path removed in favor of the Karplus-Strong
+// banded waveguide above. Reference notes about the previous approach
+// remain in the comment block at the top of generate_piano_sample's
+// section — search for "Bank/Välimäki" if you need to compare.)
 
 // ============================================================
 // Gun synthesis — two models per preset
@@ -3029,102 +3048,100 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
         // Next write lands past the pluck; first read pulls buf[0].
         v->whistle_bore_w = n;
     } else if (type == WAVE_PIANO) {
-        // Modal additive grand piano init. See generate_piano_sample for
-        // the algorithm; this block fills in the per-partial frequency,
-        // amplitude and decay-rate tables.
+        // Karplus-Strong banded waveguide piano init. See the long
+        // comment block above generate_piano_sample for the algorithm
+        // overview. This block instantiates 1-3 strings per note,
+        // computes their delay lengths + filter coefficients, and
+        // primes each delay buffer with a hammer impulse (windowed
+        // band-limited noise). The partials emerge from delay-line
+        // eigenfrequencies + the all-pass dispersion at run time.
         double sr = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
-        double f0 = freq;
-        if (f0 < 20.0) f0 = 20.0;
+        double f0 = freq < 20.0 ? 20.0 : freq;
 
-        // Inharmonicity coefficient B. Real grand pianos: ~5e-5 at A0,
-        // ~1e-4 at A4, ~5e-3 at C8. We interpolate smoothly with f0.
-        // The sqrt(1 + B·n²) stretch is what makes high partials sit
-        // sharper than perfect harmonics — the "piano-ness" of the tone.
-        double B = 0.00006 + 0.0006 * (f0 / 880.0);
-        if (B > 0.005) B = 0.005;
+        // String count by register, modeled on real piano stringing:
+        //   bass (A0..B1, ~27.5–61 Hz)        → 1 wound string
+        //   transitional (C2..F#3, 65–185 Hz) → 2 strings
+        //   treble (G3+, 196 Hz+)              → 3 strings
+        int n_strings = (f0 < 65.0)  ? 1 :
+                        (f0 < 196.0) ? 2 : 3;
+        if (n_strings > KS_MAX_STRINGS) n_strings = KS_MAX_STRINGS;
+        v->ks_num_strings = n_strings;
 
-        // Per-partial relative amplitudes. Loosely modeled on measured
-        // spectra of struck steel piano strings — fundamental dominates,
-        // 2nd partial ~−5dB, then a -6dB/octave-ish slope. Slight bump
-        // at partials 3-4 gives the warm "body" of the soundboard.
-        const double base_amp[10] = {
-            1.00, 0.62, 0.50, 0.42, 0.30, 0.22, 0.16, 0.12, 0.09, 0.06
-        };
-        // Per-partial T60 in seconds. High partials damp ~quadratically
-        // faster than the fundamental (Weinreich 1977). Bass strings
-        // ring much longer than treble — scale T60 down for high f0.
-        // At f0=440Hz, T60[0] ≈ 7s, [9] ≈ 0.4s — close to a real C4-A4.
-        const double base_t60[10] = {
-            7.0, 5.5, 4.0, 3.0, 2.2, 1.6, 1.1, 0.8, 0.55, 0.40
-        };
-        // Treble-bias: short scaling for high notes (treble strings
-        // physically have less energy and damp faster).
-        double t60_scale = 1.0;
-        if (f0 > 440.0) t60_scale = 440.0 / f0;
-        if (t60_scale < 0.25) t60_scale = 0.25;
+        // Per-string detune in cents around f0. Real piano tuners
+        // intentionally leave a slight tuning spread so the unison
+        // strings beat against each other — that beating IS the warm
+        // chorus character. ±0.4 cents is on the subtle side; can be
+        // doubled if it sounds too clean.
+        static const double detune_cents[3] = { -0.4, 0.0, +0.4 };
 
-        int N = 10;
-        for (int i = 0; i < 10; i++) {
-            double n_idx = (double)(i + 1);
-            double fn = n_idx * f0 * sqrt(1.0 + B * n_idx * n_idx);
-            // Cap the partial count below Nyquist with margin.
-            if (fn > sr * 0.45) {
-                N = i;
-                break;
+        for (int s = 0; s < n_strings; s++) {
+            double cents = (n_strings == 1) ? 0.0 : detune_cents[s];
+            double f = f0 * pow(2.0, cents / 1200.0);
+            double delay_len = sr / f;
+            // Reserve at least 1 sample for the all-pass + LPF group
+            // delay; cap at buffer size − 2 for fractional read safety.
+            if (delay_len < 4.0) delay_len = 4.0;
+            if (delay_len > (double)(KS_MAX_DELAY - 2)) {
+                delay_len = (double)(KS_MAX_DELAY - 2);
             }
-            v->piano_partial_freq[i] = fn;
-            v->piano_partial_amp[i]  = base_amp[i];
-            // T60 → per-sample multiplier: amp *= mult each sample,
-            // amp drops to 10^(-3) (-60dB) after T60 seconds.
-            //   mult = exp(ln(0.001) / (T60 · sr))  =  exp(-6.9078 / (T60·sr))
-            double t60 = base_t60[i] * t60_scale;
-            if (t60 < 0.05) t60 = 0.05;
-            v->piano_partial_decay[i] = exp(-6.9077553 / (t60 * sr));
-            // Random initial phase so successive notes don't add coherently
-            // and create unnatural attack-phase artifacts. Use noise_seed
-            // we already initialized above.
-            v->piano_partial_phase[i] =
-                ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX);
-        }
-        v->piano_num_partials = N;
+            v->ks_delay_len[s] = delay_len;
+            v->ks_write_pos[s] = 0;
+            v->ks_allpass_state[s] = 0.0;
+            v->ks_damper_state[s]  = 0.0;
 
-        // Three "phantom" mistuned fundamentals — the unison-string
-        // chorus. Replace partials 7-9 (high partials are barely audible
-        // anyway) with f0±detune to produce inter-string beating. Beat
-        // rate ~0.5-1 Hz mimics a real grand's tuning slop; without
-        // beats, piano sounds like a synth bell.
-        if (N >= 3) {
-            double detune_hz = 0.55 + 0.4 * ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX);
-            int slots[3] = { N - 3, N - 2, N - 1 };
-            // Use the lowest 3 frequencies — partials are sorted, so the
-            // FIRST 3 slots are most audible. Better to put phantoms there
-            // than discard the bass partials. Shift partials 0,1,2 → 3,4,5.
-            // But we already filled slots 0..N-1 — overwrite indices 0,1,2
-            // with detuned fundamentals AT high amplitudes (chorus core)
-            // and append the original fundamental + 2nd partial back into
-            // slots N..N+2 if room. Simpler: just inject detunes as extra
-            // partials at the END of the table (indices N, N+1, N+2).
-            (void)slots;
-            int extra_slots = 10 - N;
-            int phantoms = extra_slots < 3 ? extra_slots : 3;
-            double phantom_amps[3] = { 0.45, 0.35, 0.30 };
-            double phantom_offs[3] = { -detune_hz, +detune_hz, +0.5 * detune_hz };
-            for (int p = 0; p < phantoms; p++) {
-                int slot = N + p;
-                v->piano_partial_freq[slot]  = f0 + phantom_offs[p];
-                v->piano_partial_amp[slot]   = phantom_amps[p];
-                // Phantoms decay at the fundamental's rate.
-                v->piano_partial_decay[slot] = v->piano_partial_decay[0];
-                v->piano_partial_phase[slot] =
-                    ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX);
+            // Loop feedback gain. T60 ≈ -3 · delay_len / (sr · log10(fb)).
+            // We pick T60 by register: long ring in the bass (12s),
+            // shorter in the treble (~3s) — matches real piano damping.
+            double t60 = 6.0 * (220.0 / f0);
+            if (t60 < 0.4)  t60 = 0.4;
+            if (t60 > 12.0) t60 = 12.0;
+            // feedback = 10^(-3 · loops_per_T60⁻¹) where loops/sec
+            // = sr/delay_len, so feedback = 10^(-3·delay_len/(t60·sr)).
+            double fb = pow(0.001, delay_len / (t60 * sr));
+            // Keep just below 1 to guarantee the loop decays even on
+            // nearly-instant delay lengths (extreme treble).
+            if (fb > 0.99995) fb = 0.99995;
+            v->ks_feedback[s] = fb;
+
+            // All-pass dispersion strength a ∈ [0, 0.75]. Higher a =
+            // more inharmonicity. Real piano inharmonicity rises with
+            // pitch (shorter, stiffer strings); we mirror that.
+            double a = 0.30 + 0.40 * (f0 / 880.0);
+            if (a < 0.30) a = 0.30;
+            if (a > 0.75) a = 0.75;
+            v->ks_allpass_a[s] = a;
+
+            // Damping LPF coefficient. Higher α = brighter (less HF
+            // damping per loop). Treble strings: ring brightly. Bass:
+            // moderate damping so they don't sound metallic / harsh.
+            double damp_alpha = 0.55 + 0.40 * (f0 / 1760.0);
+            if (damp_alpha < 0.55) damp_alpha = 0.55;
+            if (damp_alpha > 0.97) damp_alpha = 0.97;
+            v->ks_damper_alpha[s] = damp_alpha;
+
+            // Per-string output mix. Single bass string is fuller;
+            // 2-3 strings sum so each individual amplitude is lower.
+            v->ks_string_amp[s] = (n_strings == 1) ? 0.85 :
+                                   (n_strings == 2) ? 0.65 : 0.55;
+
+            // Clear the delay buffer, then fill the first ~1.5 ms with
+            // a Hann-windowed band-limited noise burst — this IS the
+            // hammer excitation. The window prevents DC + click; the
+            // length controls attack brightness (1 ms = bright/glassy,
+            // 3 ms = dull/thuddy). Real piano hammer contact ≈ 1-2 ms.
+            for (int i = 0; i < KS_MAX_DELAY; i++) v->ks_delay[s][i] = 0.0f;
+            int hammer_samples = (int)(0.0015 * sr);
+            int delay_int = (int)delay_len;
+            if (hammer_samples > delay_int - 2) hammer_samples = delay_int - 2;
+            if (hammer_samples < 4) hammer_samples = 4;
+            for (int i = 0; i < hammer_samples; i++) {
+                double t = (double)i / (double)hammer_samples;
+                double w = 0.5 - 0.5 * cos(2.0 * M_PI * t);
+                double rnd = ((double)xorshift32(&v->noise_seed) /
+                              (double)UINT32_MAX) * 2.0 - 1.0;
+                v->ks_delay[s][i] = (float)(rnd * w * 0.7);
             }
-            v->piano_num_partials = N + phantoms;
         }
-
-        // Hammer noise burst — soft "thump" at attack. T60 ≈ 5ms.
-        v->piano_hammer_env        = 1.0;
-        v->piano_hammer_decay_mult = exp(-6.9077553 / (0.005 * sr));
-        v->piano_hammer_lp         = 0.0;
     }
 
     pthread_mutex_unlock(&audio->lock);
