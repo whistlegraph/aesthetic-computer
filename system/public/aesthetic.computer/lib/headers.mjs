@@ -187,8 +187,8 @@ export function headers(isDarkMode) {
       const build = colophon.build;
       
       // Override the title with git commit info in PACK mode
-      console.clear();
-      
+      // (console.clear removed -- preserve prior errors across reloads)
+
       // Get today's color scheme for the title
       const today = new Date().getDay();
       const isDarkMode = true; // Console is typically dark

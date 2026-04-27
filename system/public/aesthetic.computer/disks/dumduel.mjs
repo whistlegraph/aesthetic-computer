@@ -99,7 +99,7 @@ function applySnapshot(s) {
   }
 }
 
-function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
+function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, debug }) {
   sw = screen.width;
   sh = screen.height;
   myHandle = handle?.() || "guest_" + Math.floor(Math.random() * 9999);
@@ -107,23 +107,27 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
   synth = sound.synth;
   sendFn = send;
 
-  // Version polling — auto-reload on new deploy
-  (async () => {
-    try {
-      const res = await fetch("/api/version");
-      if (!res.ok) return;
-      const info = await res.json();
-      const current = info.deployed;
-      while (true) {
-        try {
-          const r = await fetch(`/api/version?current=${current}`);
-          if (!r.ok) break;
-          const data = await r.json();
-          if (data.changed !== false) { sendFn?.({ type: "window:reload" }); break; }
-        } catch { break; }
-      }
-    } catch {}
-  })();
+  // Version polling — auto-reload on new deploy. DEV ONLY: the loop is
+  // detached and persists across piece transitions, so in prod it would
+  // force-reload pieces like chat that the user has since navigated to.
+  if (debug) {
+    (async () => {
+      try {
+        const res = await fetch("/api/version");
+        if (!res.ok) return;
+        const info = await res.json();
+        const current = info.deployed;
+        while (true) {
+          try {
+            const r = await fetch(`/api/version?current=${current}`);
+            if (!r.ok) break;
+            const data = await r.json();
+            if (data.changed !== false) { sendFn?.({ type: "window:reload" }); break; }
+          } catch { break; }
+        }
+      } catch {}
+    })();
+  }
 
   // Ping measurement every 2s
   setInterval(() => {

@@ -285,30 +285,34 @@ function reconcileLocal() {
   reconCorrectionMs++;
 }
 
-function netBoot({ net, handle, send }) {
+function netBoot({ net, handle, send, debug }) {
   netSendFn = send;
   myHandle = handle?.() || "guest_" + Math.floor(Math.random() * 9999);
   netConnectedAt = Date.now();
 
-  // 🔄 Live-reload on new deploy (same pattern as dumduel.mjs).
-  // Polls /api/version until the `deployed` value changes, then asks bios
-  // to reload the page. Fire-and-forget; any error silently gives up.
-  (async () => {
-    try {
-      const res = await fetch("/api/version");
-      if (!res.ok) return;
-      const info = await res.json();
-      const current = info.deployed;
-      while (true) {
-        try {
-          const r = await fetch(`/api/version?current=${current}`);
-          if (!r.ok) break;
-          const data = await r.json();
-          if (data.changed !== false) { netSendFn?.({ type: "window:reload" }); break; }
-        } catch { break; }
-      }
-    } catch {}
-  })();
+  // 🔄 Live-reload on new deploy — DEV ONLY.
+  // The `while (true)` poll loop is detached from piece lifecycle, so in
+  // production it persists after navigating away (e.g. into chat) and
+  // would force a reload there too. Gate behind `debug` so live-reload
+  // only fires on local dev checkouts.
+  if (debug) {
+    (async () => {
+      try {
+        const res = await fetch("/api/version");
+        if (!res.ok) return;
+        const info = await res.json();
+        const current = info.deployed;
+        while (true) {
+          try {
+            const r = await fetch(`/api/version?current=${current}`);
+            if (!r.ok) break;
+            const data = await r.json();
+            if (data.changed !== false) { netSendFn?.({ type: "window:reload" }); break; }
+          } catch { break; }
+        }
+      } catch {}
+    })();
+  }
 
   if (!net) return;
 
@@ -835,7 +839,7 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send }) {
+function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug }) {
   penLock();
   FormRef = Form;
   paintingRef = painting;
@@ -845,7 +849,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   lastFrameTime = performance.now();
 
   // 🏟️ Multiplayer: open WS + UDP, send arena:hello.
-  netBoot({ net, handle, send });
+  netBoot({ net, handle, send, debug });
 
   // 🎯 Set initial cursor style
   if (api?.cursor) {
