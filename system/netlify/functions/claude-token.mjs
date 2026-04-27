@@ -1,26 +1,44 @@
 // claude-token, 2026.03.16
 // Store/retrieve device tokens (Claude OAuth + GitHub PAT) per handle.
-// GET ?handle=X → returns tokens
+// GET                  → returns tokens for the authenticated user's own handle
+// GET ?handle=X        → admin-only: returns tokens for handle X (used by
+//                        ac-inscribe --for-handle when an admin flashes a
+//                        USB on behalf of another user). Returns sub so the
+//                        inscription's usbConfig can be built without an
+//                        access_token (admins cannot sign for other users).
 // POST {token, githubPat} → stores tokens for authenticated user's handle
 
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
 export async function handler(event) {
-  // GET: Retrieve tokens for authenticated user's handle
+  // GET: Retrieve tokens for the authenticated user — or, when an admin
+  // passes ?handle=X, for that other handle so the admin can flash a USB
+  // pre-baked with that user's claude/github creds.
   if (event.httpMethod === "GET") {
     const user = await authorize(event.headers);
     if (!user) return respond(401, { message: "unauthorized" });
 
+    const targetHandle = event.queryStringParameters?.handle;
     const database = await connect();
     try {
-      const existing = await database.db.collection("@handles").findOne({
-        _id: user.sub,
-      });
+      let existing;
+      if (targetHandle) {
+        const isAdmin = await hasAdmin(user, "aesthetic");
+        if (!isAdmin) return respond(403, { message: "admin only" });
+        existing = await database.db
+          .collection("@handles")
+          .findOne({ handle: targetHandle });
+      } else {
+        existing = await database.db
+          .collection("@handles")
+          .findOne({ _id: user.sub });
+      }
       if (!existing) return respond(404, { message: "Handle not found" });
       return respond(200, {
         handle: existing.handle,
+        sub: existing._id,
         token: existing.claudeCodeToken || null,
         githubPat: existing.githubPat || null,
       });

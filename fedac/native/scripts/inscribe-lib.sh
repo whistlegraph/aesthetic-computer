@@ -117,20 +117,28 @@ aci_require_login() {
 
 # ─── handle-token API fetch ────────────────────────────────────────
 
-# aci_fetch_handle_tokens
-# Calls /.netlify/functions/claude-token with the AC access token. Sets
-# ACI_HANDLE_API, ACI_CLAUDE_TOKEN, ACI_GITHUB_PAT (each may be empty).
-# Returns 0 on HTTP success even if individual fields are empty; 1 on
-# network/HTTP failure.
+# aci_fetch_handle_tokens [target_handle]
+# Calls /.netlify/functions/claude-token with the AC access token.
+# When target_handle is provided, hits the admin path (?handle=X) — the
+# server gates this on hasAdmin(user). Sets ACI_HANDLE_API,
+# ACI_CLAUDE_TOKEN, ACI_GITHUB_PAT, ACI_TARGET_SUB. Returns 0 on HTTP
+# success even if individual fields are empty; 1 on network/HTTP failure
+# (including 403 when a non-admin asks for another handle).
 aci_fetch_handle_tokens() {
     [ -n "${ACI_ACCESS_TOKEN:-}" ] || { aci_fail "no access token to fetch with"; return 1; }
+    local target="${1:-}"
+    local url="https://aesthetic.computer/.netlify/functions/claude-token"
+    if [ -n "${target}" ]; then
+        url="${url}?handle=${target}"
+    fi
     local resp
     resp=$(curl -fsSL \
         -H "Authorization: Bearer ${ACI_ACCESS_TOKEN}" \
-        "https://aesthetic.computer/.netlify/functions/claude-token" \
+        "${url}" \
         --max-time 20 2>/dev/null) || return 1
 
     ACI_HANDLE_API=$(node -e "const d=JSON.parse(process.argv[1]||'{}'); process.stdout.write(d.handle||'')" "${resp}" 2>/dev/null)
+    ACI_TARGET_SUB=$(node -e "const d=JSON.parse(process.argv[1]||'{}'); process.stdout.write(d.sub||'')" "${resp}" 2>/dev/null)
     ACI_CLAUDE_TOKEN=$(node -e "const d=JSON.parse(process.argv[1]||'{}'); process.stdout.write(d.token||'')" "${resp}" 2>/dev/null)
     ACI_GITHUB_PAT=$(node -e "const d=JSON.parse(process.argv[1]||'{}'); process.stdout.write(d.githubPat||'')" "${resp}" 2>/dev/null)
     return 0

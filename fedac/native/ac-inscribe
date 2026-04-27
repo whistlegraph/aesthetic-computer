@@ -13,6 +13,7 @@
 #   ac-inscribe --out <path>      # override output (default: /tmp/ac-os-pull/inscription.json)
 #   ac-inscribe --no-claude       # skip baking local Claude session
 #   ac-inscribe --inspect <path>  # print summary of an existing inscription
+#   ac-inscribe --for-handle <h>  # admin: inscribe for another user
 #
 # Exit codes:
 #   0  inscription written and valid
@@ -21,6 +22,15 @@
 #
 # This script never writes to USB. ac-os flash consumes the artifact and
 # is the only path that touches block devices.
+#
+# --for-handle <handle>: when an admin (per backend hasAdmin) flashes a
+# USB on behalf of another user, this passes ?handle=<h> to the
+# claude-token API to pull that handle's claude/github tokens. The
+# resulting inscription has empty access_token (admins cannot sign for
+# other users), so on-device tape uploads will be silently skipped
+# until the recipient runs ac-login on the device once. The local
+# Claude session bake is also skipped — that's the operator's, not
+# the recipient's.
 
 set -u
 
@@ -36,6 +46,7 @@ YES=0
 NO_CLAUDE=0
 OUT="/tmp/ac-os-pull/inscription.json"
 INSPECT=""
+FOR_HANDLE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -44,8 +55,9 @@ while [ $# -gt 0 ]; do
         --no-claude)   NO_CLAUDE=1 ;;
         --out)         OUT="$2"; shift ;;
         --inspect)     INSPECT="$2"; shift ;;
+        --for-handle)  FOR_HANDLE="${2#@}"; shift ;;
         --help|-h)
-            sed -n '2,18p' "$0" | sed 's/^# *//'
+            sed -n '2,28p' "$0" | sed 's/^# *//'
             exit 0
             ;;
         *)
@@ -94,6 +106,74 @@ if [ "${ANON}" -eq 1 ]; then
     aci_ok "wrote $(wc -c < "${OUT}" | tr -d ' ') bytes (mode 0600)"
     printf '\n%s[ac-inscribe]%s ready. run: %sac-os flash%s\n' \
         "${ACI_C_CYAN}" "${ACI_C_RESET}" "${ACI_C_BOLD}" "${ACI_C_RESET}"
+    exit 0
+fi
+
+# ─── for-handle (admin-on-behalf) path ────────────────────────────
+# Admin inscribes for another user. Pulls the target's claudeToken +
+# githubPat from the backend; access_token stays empty (admins cannot
+# sign for other users — the device's tape uploader requires the
+# recipient's own access_token, so the recipient runs ac-login once
+# on the device after first boot to populate it).
+if [ -n "${FOR_HANDLE}" ]; then
+    aci_step 1 4 "Admin auth — operator must be logged in"
+    if aci_require_login; then
+        aci_ok "operator: ${ACI_C_BOLD}@${ACI_HANDLE}${ACI_C_RESET}"
+        aci_ok "operator sub: ${ACI_SUB}"
+        OPERATOR_HANDLE="${ACI_HANDLE}"
+    else
+        aci_die "operator auth failed"
+    fi
+
+    aci_step 2 4 "Pulling tokens for ${ACI_C_BOLD}@${FOR_HANDLE}${ACI_C_RESET} (admin path)"
+    if aci_fetch_handle_tokens "${FOR_HANDLE}"; then
+        if [ -z "${ACI_HANDLE_API}" ] || [ -z "${ACI_TARGET_SUB}" ]; then
+            aci_die "@${FOR_HANDLE} not found, or not authorized to pull (need admin)"
+        fi
+        aci_ok "target handle: @${ACI_HANDLE_API}"
+        aci_ok "target sub:    ${ACI_TARGET_SUB}"
+        [ -n "${ACI_CLAUDE_TOKEN}" ] && aci_ok "claudeToken: present (${#ACI_CLAUDE_TOKEN} bytes)" || aci_warn "claudeToken: none stored for @${FOR_HANDLE}"
+        [ -n "${ACI_GITHUB_PAT}" ]   && aci_ok "githubPat:   present (${#ACI_GITHUB_PAT} bytes)"   || aci_warn "githubPat:   none stored for @${FOR_HANDLE}"
+        # Override identity so the bundle is for the target, not the operator.
+        ACI_HANDLE="${ACI_HANDLE_API}"
+        ACI_SUB="${ACI_TARGET_SUB}"
+        ACI_EMAIL=""             # not stored in @handles; recipient ac-logins on device
+        ACI_ACCESS_TOKEN=""      # admin cannot sign for the target
+        ACI_CLAUDE_CREDS=""      # operator's local Claude session is irrelevant here
+        ACI_CLAUDE_STATE=""
+    else
+        aci_die "claude-token API failed (network? not admin? @${FOR_HANDLE} doesn't exist?)"
+    fi
+
+    aci_step 3 4 "Assembling inscription bundle for @${ACI_HANDLE}"
+    BUNDLE=$(aci_build_inscription_json) || aci_die "bundle assembly failed"
+    BUNDLE_BYTES=$(printf '%s' "${BUNDLE}" | wc -c | tr -d ' ')
+    aci_ok "version 1 envelope, ${BUNDLE_BYTES} bytes"
+    aci_ok "fields: handle, sub, email(empty), token(empty)$([ -n "${ACI_CLAUDE_TOKEN}" ] && printf ', claudeToken')$([ -n "${ACI_GITHUB_PAT}" ] && printf ', githubPat')"
+    aci_warn "access_token is empty — recipient runs ac-login on device once for tape uploads"
+
+    if [ "${YES}" -eq 0 ] && [ -t 0 ]; then
+        printf '\n%sproceed? this writes credentials for @%s to %s%s%s [y/N]: ' \
+            "${ACI_C_YELLOW}" "${ACI_HANDLE}" "${ACI_C_BOLD}" "${OUT}" "${ACI_C_RESET}"
+        read -r CONFIRM
+        case "${CONFIRM}" in
+            y|Y|yes|YES) ;;
+            *) printf '%s[ac-inscribe]%s declined\n' "${ACI_C_CYAN}" "${ACI_C_RESET}"; exit 2 ;;
+        esac
+    fi
+
+    aci_step 4 4 "Writing ${OUT}"
+    mkdir -p "$(dirname "${OUT}")" || aci_die "could not create output dir"
+    printf '%s' "${BUNDLE}" > "${OUT}" || aci_die "write failed"
+    chmod 600 "${OUT}" 2>/dev/null || true
+    aci_ok "wrote ${BUNDLE_BYTES} bytes (mode 0600)"
+
+    printf '\n%s[ac-inscribe]%s %sinscribed%s @%s on behalf of admin @%s — run: %sac-os flash%s\n' \
+        "${ACI_C_CYAN}" "${ACI_C_RESET}" \
+        "${ACI_C_GREEN}" "${ACI_C_RESET}" \
+        "${ACI_HANDLE}" \
+        "${OPERATOR_HANDLE:-???}" \
+        "${ACI_C_BOLD}" "${ACI_C_RESET}"
     exit 0
 fi
 
