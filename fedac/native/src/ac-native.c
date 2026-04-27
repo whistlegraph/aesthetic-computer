@@ -162,6 +162,8 @@ static void draw_shutdown_anim(void);
 
 // Forward declarations for ac_poweroff bootpic capture.
 static int bootpic_capture_to(const char *prefix);
+// ac_log is defined further down — bootpic_capture_to logs through it.
+void ac_log(const char *fmt, ...);
 
 static void ac_poweroff(void) {
     // Off-pic: snap a final frame before the farewell animation. Runs
