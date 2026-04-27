@@ -8,6 +8,9 @@
 #   ac-os pull         Download latest OTA kernel + flash USB (no local build)
 #   ac-os scan         Find AC Native OS devices on local network (Swank port 4005)
 #   ac-os repl [IP]    Connect to a running device's Swank REPL
+#   ac-os oven [REF]   Trigger remote OTA build on oven (default: HEAD)
+#   ac-os oven status  Show oven build queue + last builds
+#   ac-os oven watch   Tail logs for active oven build (SSE)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -1205,6 +1208,139 @@ load_vault_creds() {
     log "Credentials decrypted and cached for session"
 }
 
+# Decrypt the oven OS_BUILD_ADMIN_KEY from the vault. Echoes the key to
+# stdout — caller is responsible for keeping it out of process listings,
+# logs, and shell history. Cached in /tmp for the session (chmod 600).
+load_oven_admin_key() {
+    local CACHE="/tmp/.ac-oven-admin-key"
+    if [ -f "${CACHE}" ]; then
+        cat "${CACHE}"
+        return 0
+    fi
+
+    local GPG_FILE=""
+    for candidate in \
+        "${SCRIPT_DIR}/../../aesthetic-computer-vault/oven/os-build-admin-key.txt.gpg" \
+        "${HOME}/aesthetic-computer-vault/oven/os-build-admin-key.txt.gpg" \
+        "/home/me/aesthetic-computer-vault/oven/os-build-admin-key.txt.gpg"; do
+        if [ -f "${candidate}" ]; then
+            GPG_FILE="${candidate}"
+            break
+        fi
+    done
+
+    if [ -z "${GPG_FILE}" ]; then
+        err "No oven admin key found. Expected:"
+        err "  aesthetic-computer-vault/oven/os-build-admin-key.txt.gpg"
+        return 1
+    fi
+
+    local KEY
+    KEY=$(gpg --batch --pinentry-mode loopback -d "${GPG_FILE}" 2>/dev/null | tr -d '\n\r ')
+    if [ -z "${KEY}" ] && [ -t 0 ]; then
+        # Agent didn't have it — let GPG prompt
+        KEY=$(gpg --pinentry-mode loopback -d "${GPG_FILE}" 2>/dev/null | tr -d '\n\r ')
+    fi
+    if [ -z "${KEY}" ]; then
+        err "Failed to decrypt ${GPG_FILE}"
+        return 1
+    fi
+
+    umask 077
+    printf '%s' "${KEY}" > "${CACHE}"
+    printf '%s' "${KEY}"
+}
+
+# Trigger a remote OTA build on the oven. Reads admin key from the vault,
+# sends ref + changed-paths from local git state. Server-side workflow:
+# preflight-sync → docker build → kernel → upload OTA → done.
+oven_build() {
+    local REF="${1:-HEAD}"
+    local OVEN_HOST="${AC_OVEN_HOST:-https://oven.aesthetic.computer}"
+
+    # Resolve ref to a full SHA. The poller checks out exactly this ref
+    # on the build host; passing "HEAD" or a branch name is ambiguous.
+    local SHA
+    SHA=$(cd "${SCRIPT_DIR}" && git rev-parse "${REF}" 2>/dev/null) || {
+        err "Cannot resolve ref: ${REF}"
+        exit 1
+    }
+
+    # Changed paths since the previous commit — informational only on the
+    # server; the build always builds the resolved ref in full.
+    local CHANGED
+    CHANGED=$(cd "${SCRIPT_DIR}" && git show --name-only --pretty=format: "${SHA}" 2>/dev/null \
+        | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
+
+    local KEY
+    KEY=$(load_oven_admin_key) || exit 1
+
+    log "Triggering oven build for ${SHA:0:9} on ${OVEN_HOST}..."
+    local RESP
+    RESP=$(curl -sS -w '\n__HTTP_STATUS__:%{http_code}' -X POST "${OVEN_HOST}/native-build" \
+        -H "Authorization: Bearer ${KEY}" \
+        -H "Content-Type: application/json" \
+        -d "{\"ref\":\"${SHA}\",\"changed_paths\":\"${CHANGED}\"}") || {
+        err "Request failed"
+        exit 1
+    }
+    unset KEY
+
+    local STATUS=$(printf '%s\n' "${RESP}" | grep '^__HTTP_STATUS__:' | cut -d: -f2)
+    local BODY=$(printf '%s\n' "${RESP}" | sed '/^__HTTP_STATUS__:/d')
+
+    case "${STATUS}" in
+        202)
+            local JOB_ID=$(printf '%s' "${BODY}" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(d).id||'')}catch{}})" 2>/dev/null)
+            log "Build started: ${JOB_ID}"
+            log "Watch:   ac-os oven watch"
+            log "Status:  ac-os oven status"
+            log "Stream:  ${OVEN_HOST}/native-build/${JOB_ID}/stream"
+            ;;
+        409)
+            local ACTIVE=$(printf '%s' "${BODY}" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(d).activeJobId||'')}catch{}})" 2>/dev/null)
+            err "Oven busy — active job: ${ACTIVE}"
+            err "Cancel with: curl -X POST ${OVEN_HOST}/native-build/${ACTIVE}/cancel -H 'Authorization: Bearer <key>'"
+            exit 1
+            ;;
+        *)
+            err "HTTP ${STATUS}: ${BODY}"
+            exit 1
+            ;;
+    esac
+}
+
+oven_status() {
+    local OVEN_HOST="${AC_OVEN_HOST:-https://oven.aesthetic.computer}"
+    curl -sS "${OVEN_HOST}/native-build" | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  const j=JSON.parse(d);
+  if(j.active){
+    const a=j.active;
+    console.log('● ACTIVE  '+a.id+'  '+a.status+'  '+a.stage+'  '+(a.percent||0)+'%  ref='+(a.ref||'').slice(0,9));
+    if(a.commitMsg)console.log('         '+a.commitMsg);
+  } else { console.log('○ idle'); }
+  console.log('');
+  console.log('recent:');
+  for(const r of (j.recent||[]).slice(0,8)){
+    const mark=r.status==='success'?'✓':r.status==='failed'?'✗':'·';
+    console.log('  '+mark+' '+r.id+'  '+r.status.padEnd(10)+(r.buildName||'(unnamed)').padEnd(28)+(r.commitMsg||'').slice(0,60));
+  }
+});"
+}
+
+oven_watch() {
+    local OVEN_HOST="${AC_OVEN_HOST:-https://oven.aesthetic.computer}"
+    local ACTIVE=$(curl -sS "${OVEN_HOST}/native-build" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.activeJobId||'')}catch{}})" 2>/dev/null)
+    if [ -z "${ACTIVE}" ]; then
+        log "No active oven build."
+        oven_status
+        return 0
+    fi
+    log "Streaming logs for ${ACTIVE} (Ctrl+C to detach)..."
+    curl -sS -N "${OVEN_HOST}/native-build/${ACTIVE}/stream"
+}
+
 generate_template_image() {
     local IMAGE="/tmp/ac-native.img"
     local STAGING="/tmp/ac-img-staging"
@@ -1705,6 +1841,43 @@ exec qemu-system-x86_64 \
             log "Tip: install sbcl for a proper REPL experience"
             exec nc "${SWANK_IP}" "${SWANK_PORT}"
         fi
+        ;;
+    oven|ota)
+        # Trigger / observe remote OTA builds on oven.aesthetic.computer.
+        # Default action with no subcommand: trigger build for HEAD.
+        OVEN_SUB="${2:-build}"
+        case "${OVEN_SUB}" in
+            status)
+                oven_status
+                ;;
+            watch|tail|stream)
+                oven_watch
+                ;;
+            cancel)
+                JOB_ID="${3:-}"
+                if [ -z "${JOB_ID}" ]; then
+                    JOB_ID=$(curl -sS "${AC_OVEN_HOST:-https://oven.aesthetic.computer}/native-build" \
+                        | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log(j.activeJobId||'')}catch{}})" 2>/dev/null)
+                fi
+                if [ -z "${JOB_ID}" ]; then
+                    err "No active oven job to cancel"
+                    exit 1
+                fi
+                KEY=$(load_oven_admin_key) || exit 1
+                curl -sS -X POST "${AC_OVEN_HOST:-https://oven.aesthetic.computer}/native-build/${JOB_ID}/cancel" \
+                    -H "Authorization: Bearer ${KEY}"
+                unset KEY
+                echo
+                ;;
+            build|"")
+                # Optional 3rd arg = ref. Default = HEAD.
+                oven_build "${3:-HEAD}"
+                ;;
+            *)
+                # Treat the first non-keyword arg as a ref (e.g. `ac-os oven abc1234`)
+                oven_build "${OVEN_SUB}"
+                ;;
+        esac
         ;;
     nixos)
         NIXOS_CMD="${2:-build}"

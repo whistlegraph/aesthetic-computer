@@ -4576,6 +4576,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (e.repeat) return;
       const k = typeof e.key === "string" ? e.key : "";
       if (k.length !== 1) return;
+      // Spacebar: bubble up to Live's transport (play/pause). When the
+      // jweb iframe holds focus Live's own [key] never sees the event,
+      // so route it through the Max patcher's `transport` symbol. Stop
+      // browser default to avoid scroll/button activation in jweb.
+      if (k === " ") {
+        // Diagnostic: forward into the Max console so we can confirm
+        // the iframe actually saw the key (Live's host window grabs
+        // spacebar as its transport shortcut before jweb in some
+        // focus states). If "🎹 SPACE" never prints, the event isn't
+        // reaching the iframe and we need a different approach.
+        console.log("🎹 SPACE keydown → transport");
+        try { window.max?.outlet?.("log", "🎹 SPACE keydown → transport"); } catch (_) {}
+        if (typeof e.preventDefault === "function") e.preventDefault();
+        if (typeof e.stopPropagation === "function") e.stopPropagation();
+        _dawEmitMax("transport", 1);
+        return;
+      }
       // Octave hot-switch 1-9
       if (k >= "1" && k <= "9") {
         _dawBaseOctave = parseInt(k, 10);
@@ -5341,6 +5358,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (!Number.isFinite(pitch) || !Number.isFinite(velocity)) return;
         try { window.max.outlet("channel", channel); } catch (_e) {}
         try { window.max.outlet("note", pitch, velocity); } catch (_e) {}
+      }
+      return;
+    }
+
+    // 🎹 Piece → Max: toggle Live's transport (play/pause). Used in
+    // place of the spacebar-shortcut path because Live's host window
+    // claims spacebar as a global hotkey before the jweb iframe ever
+    // sees the keydown — so the piece dispatches transport from a UI
+    // button (or any non-spacebar input) and we forward to Max here.
+    // Patcher routes `transport` to v8.codebox `function transport()`,
+    // which calls live_set.start_playing / stop_playing.
+    if (type === "daw:transport") {
+      if (typeof window !== "undefined" && window.max?.outlet) {
+        try { window.max.outlet("transport", 1); } catch (_e) {}
       }
       return;
     }

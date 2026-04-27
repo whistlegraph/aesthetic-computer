@@ -358,19 +358,27 @@ function act({ event: e }) {
     return;
   }
 
-  // Button grid taps — tapNote for touch, release on lift.
+  // Button grid taps — tapNote for note pads, daw:transport for the
+  // play/pause overlay (Live grabs spacebar globally so the keyboard
+  // path can't reach jweb; this UI button is the fallback).
   if (e.is("touch")) {
     lastInteractionFrame = frame;
     const hit = hitButton(e.x, e.y);
     if (hit) {
       tappedButton = hit;
-      tapNote(hit.pitch, true);
+      if (hit.kind === "transport") {
+        if (_send) _send({ type: "daw:transport" });
+      } else {
+        tapNote(hit.pitch, true);
+      }
     }
     return;
   }
   if (e.is("lift")) {
     if (tappedButton) {
-      tapNote(tappedButton.pitch, false);
+      if (tappedButton.kind !== "transport") {
+        tapNote(tappedButton.pitch, false);
+      }
       tappedButton = null;
     }
     return;
@@ -381,8 +389,9 @@ function act({ event: e }) {
     // the user hasn't moved off the current pad — compare by pitch instead
     // of object identity, otherwise every draw event retriggers the note.
     const hit = hitButton(e.x, e.y);
-    if (hit && (!tappedButton || hit.pitch !== tappedButton.pitch)) {
-      if (tappedButton) tapNote(tappedButton.pitch, false);
+    if (hit && hit.kind !== "transport" &&
+        (!tappedButton || tappedButton.kind === "transport" || hit.pitch !== tappedButton.pitch)) {
+      if (tappedButton && tappedButton.kind !== "transport") tapNote(tappedButton.pitch, false);
       tappedButton = hit;
       tapNote(hit.pitch, true);
     }
@@ -559,6 +568,21 @@ function paint({ wipe, ink, box, line, screen }) {
   const octTint = octaveTint(baseOctave);
 
   buttons = [];
+  // Play/pause button — top-right corner overlay. Live's host window
+  // claims spacebar before jweb sees the keydown, so the keyboard
+  // route can't reach this iframe. A tappable button is the only
+  // way to toggle Live's transport from inside the device panel.
+  // Pushed first so hitButton matches it before the underlying pad.
+  const tBtnW = 14, tBtnH = 11;
+  const transportBtn = {
+    kind: "transport",
+    x: W - tBtnW - 3,
+    y: bezel + 1,
+    w: tBtnW,
+    h: tBtnH,
+  };
+  buttons.push(transportBtn);
+
   for (let octIdx = 0; octIdx < OCTAVE_GRIDS.length; octIdx += 1) {
     const grid = OCTAVE_GRIDS[octIdx];
     const octNum = baseOctave + octIdx;
@@ -825,6 +849,32 @@ function paint({ wipe, ink, box, line, screen }) {
         const col = [clamp8(60 + tint[0]), clamp8(50 + tint[1]), clamp8(70 + tint[2])];
         ink(...col).box(sx, dashY, segW, dashH, "fill");
       }
+    }
+  }
+
+  // ── Transport play/pause overlay (top-right corner) ──────────────
+  // Tap target — sends `daw:transport` through bios → max → LiveAPI
+  // toggle. Stays above the pads so it's reachable even with the
+  // unfocus doors closing in. Visually: dark cell with a chrome
+  // outline + a play triangle that tints when pressed.
+  {
+    const t = transportBtn;
+    const pressed = !!(tappedButton && tappedButton.kind === "transport");
+    const bgFill = pressed ? [120, 80, 50] : [22, 14, 22];
+    const triColor = pressed ? [255, 220, 180] : [220, 230, 240];
+    ink(...bgFill).box(t.x, t.y, t.w, t.h, "fill");
+    ink(...chrome).box(t.x, t.y, t.w, t.h, "outline");
+    // Filled play triangle pointing right — built from 1px scanlines.
+    const padX = 3, padY = 2;
+    const triX = t.x + padX;
+    const triY = t.y + padY;
+    const triW = max(1, t.w - padX * 2);
+    const triH = max(1, t.h - padY * 2);
+    const half = (triH - 1) / 2 || 1;
+    for (let dy = 0; dy < triH; dy += 1) {
+      const d = abs(dy - half);
+      const w = max(1, floor(triW * (1 - d / half)));
+      ink(...triColor).box(triX, triY + dy, w, 1, "fill");
     }
   }
 

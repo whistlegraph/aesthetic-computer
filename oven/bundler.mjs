@@ -910,6 +910,384 @@ function generateM4DPatcher(pieceName, dataUri, width = 400, height = 200, piece
   };
 }
 
+// Notepat → Live recording bridge. [noteout] feeds the device chain
+// (downstream instrument plays) but Live records the track INPUT, not
+// what an M4L MIDI effect emits — so without LiveAPI the played notes
+// are heard but never captured. This v8.codebox catches the same
+// notedown/noteup stream and writes notes into the currently-recording
+// session clip on the device's parent track via add_new_notes.
+const NOTEPAT_RECORDER_JS = `autowatch = 0;
+inlets = 1;
+outlets = 1;
+
+const DEFAULT_VELOCITY = 100;
+const MIN_DURATION = 1 / 32;
+// Generous default so a few bars of playing fits without needing the
+// auto-extender to kick in mid-take. Extender below grows it further
+// if the user keeps going past this length.
+const AUTO_CLIP_BEATS = 32;
+const active = {};
+let lastDigest = "";
+// Stickied auto-created clip for the current recording session. Reset
+// whenever the user disengages record so the next pass starts fresh.
+let autoClipId = null;
+let prevWantsRecord = false;
+let noteCount = 0;
+// Time base for our auto-created clips. Live's session-auto clips are
+// not actually "playing", so clip.playing_position reads 0 every time
+// and all notes end up stacked on beat 0 (which is what was happening:
+// every wrote-notes message logged start=0.000). Capture a reference at
+// the moment recording engages and translate elapsed wall time into
+// beats via the live_set tempo. If transport is playing when record
+// engages, prefer current_song_time (sample-accurate, drift-free).
+let recordStartedAtMs = 0;
+let recordStartSongBeats = 0;
+let recordCapturedSongTime = false;
+
+function captureRecordStart() {
+  recordStartedAtMs = Date.now();
+  const set = new LiveAPI("live_set");
+  const playing = parseInt(set.get("is_playing")) === 1;
+  recordCapturedSongTime = playing;
+  recordStartSongBeats = playing ? parseFloat(set.get("current_song_time")) : 0;
+  log("record start captured (playing=" + playing + " songBeats=" + recordStartSongBeats + ")");
+}
+
+function elapsedBeats() {
+  const set = new LiveAPI("live_set");
+  const playing = parseInt(set.get("is_playing")) === 1;
+  if (playing && recordCapturedSongTime) {
+    const t = parseFloat(set.get("current_song_time")) - recordStartSongBeats;
+    return t >= 0 ? t : 0;
+  }
+  let tempo = parseFloat(set.get("tempo"));
+  if (!isFinite(tempo) || tempo <= 0) tempo = 120;
+  const elapsedMs = Date.now() - recordStartedAtMs;
+  return (elapsedMs / 1000) * (tempo / 60);
+}
+
+// Grow the clip's loop_end / end_marker if our recording position has
+// reached the current end. Without this the auto-created 32-beat clip
+// truncates anything past the boundary.
+function ensureClipLength(clip, atLeastBeats) {
+  if (!clip || clip.id == 0) return;
+  let len = parseFloat(clip.get("length"));
+  if (!isFinite(len) || len <= 0) len = AUTO_CLIP_BEATS;
+  if (atLeastBeats > len - 0.5) {
+    const target = Math.ceil(atLeastBeats + 4);
+    try { clip.set("loop_end", target); } catch (_) {}
+    try { clip.set("end_marker", target); } catch (_) {}
+  }
+}
+
+function logOnChange(key, msg) {
+  if (key === lastDigest) return;
+  lastDigest = key;
+  post("[NOTEPAT-REC] " + msg + "\\n");
+}
+function log(msg) { post("[NOTEPAT-REC] " + msg + "\\n"); }
+
+log("loaded — send 'info' to dump full state, 'transport' to play/pause");
+
+// Dump current state of the device's parent track so we can see why a
+// recording attempt isn't landing where expected. Triggered by the
+// "info" message into the v8 inlet OR called automatically the first
+// time we hit a "no recording target" condition each pass.
+function dumpState(prefix) {
+  prefix = prefix || "info";
+  const track = new LiveAPI("this_device canonical_parent");
+  if (!track || track.id == 0) {
+    log(prefix + ": no track resolved (this_device canonical_parent)");
+    return;
+  }
+  const trackName = track.get("name");
+  log(prefix + ": track id=" + track.id + " name=" + trackName +
+      " arm=" + track.get("arm") + " input_routing_type=" + track.get("input_routing_type"));
+
+  const set = new LiveAPI("live_set");
+  log(prefix + ": transport playing=" + set.get("is_playing") +
+      " session_record=" + set.get("session_record") +
+      " record_mode=" + set.get("record_mode") +
+      " tempo=" + set.get("tempo"));
+
+  const slotsList = track.get("clip_slots");
+  const slotCount = slotsList ? parseInt(slotsList.length / 2) : 0;
+  log(prefix + ": " + slotCount + " session slot(s) on track");
+  for (let i = 0; i < slotCount; i++) {
+    const slot = new LiveAPI("this_device canonical_parent clip_slots " + i);
+    if (!slot || slot.id == 0) continue;
+    const has = parseInt(slot.get("has_clip"));
+    const triggered = parseInt(slot.get("is_triggered"));
+    let clipInfo = "empty";
+    if (has === 1) {
+      const clip = new LiveAPI("this_device canonical_parent clip_slots " + i + " clip");
+      if (clip && clip.id != 0) {
+        clipInfo = "clip id=" + clip.id +
+                   " name=" + clip.get("name") +
+                   " is_recording=" + clip.get("is_recording") +
+                   " is_playing=" + clip.get("is_playing") +
+                   " length=" + clip.get("length");
+      }
+    }
+    log(prefix + ":   slot " + i + " has_clip=" + has + " triggered=" + triggered + " " + clipInfo);
+  }
+
+  const arrClips = track.get("arrangement_clips");
+  const arrCount = arrClips ? parseInt(arrClips.length / 2) : 0;
+  log(prefix + ": " + arrCount + " arrangement clip(s) on track");
+  for (let i = 1; arrClips && i < arrClips.length; i += 2) {
+    const arr = new LiveAPI("id " + arrClips[i]);
+    if (!arr || arr.id == 0) continue;
+    log(prefix + ":   arr clip id=" + arr.id +
+        " name=" + arr.get("name") +
+        " is_recording=" + arr.get("is_recording") +
+        " start=" + arr.get("start_time") +
+        " length=" + arr.get("length"));
+  }
+}
+
+function info() { dumpState("info"); }
+function bang() { dumpState("info"); }
+
+// Spacebar pass-through from jweb → toggle Live transport. Mirrors the
+// host app's spacebar behavior so the user doesn't have to alt-tab out
+// of the device panel to control playback.
+function transport() {
+  const set = new LiveAPI("live_set");
+  if (!set || set.id == 0) { log("transport: no live_set"); return; }
+  const playing = parseInt(set.get("is_playing")) === 1;
+  if (playing) {
+    set.call("stop_playing");
+    log("transport: stop");
+  } else {
+    set.call("start_playing");
+    log("transport: start");
+  }
+}
+
+// Find or create a clip to write notes into. Priority order:
+//   1. A session clip with is_recording == 1 (Live's active session record)
+//   2. An arrangement clip with is_recording == 1
+//   3. Auto-create OR reuse a single session clip when the user has
+//      engaged a real record state (session_record on, OR arrangement
+//      record + playing). The clip is named "notepat" and stays sticky
+//      for the rest of that recording pass — we don't create one per
+//      keypress. Resets when record disengages.
+//   4. Bail.
+//
+// Track-armed-alone is intentionally NOT a trigger: arming is monitor
+// intent, not record intent. Without this gate every notedown on an
+// armed track without record would auto-create a fresh clip.
+function recordingClip() {
+  const track = new LiveAPI("this_device canonical_parent");
+  if (!track || track.id == 0) {
+    return { failed: true, digest: "no-track" };
+  }
+
+  // 1. Active session-record slot — Live is actually recording into it.
+  const slotsList = track.get("clip_slots");
+  const slotCount = slotsList ? parseInt(slotsList.length / 2) : 0;
+  let firstEmptySlot = -1;
+  for (let i = 0; i < slotCount; i++) {
+    const slot = new LiveAPI("this_device canonical_parent clip_slots " + i);
+    if (!slot || slot.id == 0) continue;
+    if (parseInt(slot.get("has_clip")) !== 1) {
+      if (firstEmptySlot < 0) firstEmptySlot = i;
+      continue;
+    }
+    const clip = new LiveAPI("this_device canonical_parent clip_slots " + i + " clip");
+    if (!clip || clip.id == 0) continue;
+    if (parseInt(clip.get("is_recording")) === 1) {
+      return { clip: clip, kind: "session-rec", digest: "sess-rec:" + clip.id };
+    }
+  }
+
+  const set = new LiveAPI("live_set");
+  const arrRec = parseInt(set.get("record_mode")) === 1;
+  const sessRec = parseInt(set.get("session_record")) === 1;
+  const playing = parseInt(set.get("is_playing")) === 1;
+
+  // 2. Active arrangement-record clip
+  if (arrRec && playing) {
+    const arrClips = track.get("arrangement_clips");
+    for (let i = 1; arrClips && i < arrClips.length; i += 2) {
+      const arrClip = new LiveAPI("id " + arrClips[i]);
+      if (!arrClip || arrClip.id == 0) continue;
+      if (parseInt(arrClip.get("is_recording")) === 1) {
+        return { clip: arrClip, kind: "arr-rec", digest: "arr-rec:" + arrClip.id };
+      }
+    }
+  }
+
+  // 3. wantsRecord gate — only proceed if the user has engaged any
+  //    record intent. Track-armed-alone is not enough (arming is
+  //    monitor intent; without this gate every keystroke on an armed
+  //    track without record would create clips).
+  const wantsRecord = sessRec || (arrRec && playing);
+  if (!wantsRecord) {
+    if (prevWantsRecord) {
+      log("record disengaged — sticky clip will reset on next pass");
+      prevWantsRecord = false;
+      autoClipId = null;
+    }
+    const digest = "idle|sessRec=0|arrRec=" + (arrRec ? 1 : 0) + "|play=" + (playing ? 1 : 0);
+    return { failed: true, digest: digest };
+  }
+
+  // Fresh recording pass — capture the time base, clear sticky clip.
+  if (!prevWantsRecord) {
+    autoClipId = null;
+    prevWantsRecord = true;
+    captureRecordStart();
+  }
+
+  // Sticky during the pass — once we lock onto a clip, stay there even
+  // if Live's selection changes. Avoids notes hopping mid-take.
+  if (autoClipId) {
+    const existing = new LiveAPI("id " + autoClipId);
+    if (existing && existing.id != 0) {
+      return { clip: existing, kind: "session-locked", digest: "lock:" + autoClipId };
+    }
+    autoClipId = null;
+  }
+
+  // 4. First note of the pass — prefer the user's selected clip slot.
+  //    This is the slot the user "hit record on" or last clicked in
+  //    Session view. If it has a clip, write into it (overdub-style);
+  //    if empty, create a clip there. Far more predictable than
+  //    auto-allocating a fresh scene.
+  const sel = new LiveAPI("this_device canonical_parent view selected_clip_slot");
+  if (sel && sel.id != 0) {
+    const selHas = parseInt(sel.get("has_clip"));
+    if (selHas === 1) {
+      const selClip = new LiveAPI("this_device canonical_parent view selected_clip_slot clip");
+      if (selClip && selClip.id != 0) {
+        autoClipId = selClip.id;
+        log("locked onto selected clip id=" + selClip.id + " name=" + selClip.get("name"));
+        return { clip: selClip, kind: "session-selected", digest: "sel:" + selClip.id };
+      }
+    } else {
+      try { sel.call("create_clip", AUTO_CLIP_BEATS); } catch (_) {}
+      const newClip = new LiveAPI("this_device canonical_parent view selected_clip_slot clip");
+      if (newClip && newClip.id != 0) {
+        try { newClip.set("name", "notepat"); } catch (_) {}
+        autoClipId = newClip.id;
+        log("created clip in selected slot id=" + newClip.id);
+        return { clip: newClip, kind: "session-selected-new", digest: "sel-new:" + newClip.id };
+      }
+    }
+  }
+
+  // 5. No usable selected slot — fall back to first empty slot or new scene.
+  if (firstEmptySlot < 0) {
+    log("no empty slot on track — appending a new scene");
+    const liveSet = new LiveAPI("live_set");
+    try {
+      liveSet.call("create_scene", -1);
+    } catch (err) {
+      logOnChange("scene-fail", "create_scene failed: " + err);
+      return { failed: true, digest: "scene-fail" };
+    }
+    firstEmptySlot = slotCount;
+  }
+  const slot = new LiveAPI("this_device canonical_parent clip_slots " + firstEmptySlot);
+  try {
+    slot.call("create_clip", AUTO_CLIP_BEATS);
+  } catch (err) {
+    logOnChange("create-fail", "create_clip failed in slot " + firstEmptySlot + ": " + err);
+    return { failed: true, digest: "create-fail" };
+  }
+  const clip = new LiveAPI("this_device canonical_parent clip_slots " + firstEmptySlot + " clip");
+  if (!clip || clip.id == 0) {
+    return { failed: true, digest: "create-no-clip" };
+  }
+  try { clip.set("name", "notepat"); } catch (_) {}
+  autoClipId = clip.id;
+  log("auto-created notepat clip in slot " + firstEmptySlot + " (" + AUTO_CLIP_BEATS + " beats) — sticky for this pass");
+  return { clip: clip, kind: "session-auto", digest: "sess-auto:" + autoClipId };
+}
+
+function clipById(id) {
+  if (!id) return null;
+  const api = new LiveAPI("id " + id);
+  if (!api || api.id == 0) return null;
+  return api;
+}
+
+function clipPos(clip) {
+  return parseFloat(clip.get("playing_position"));
+}
+
+function startNote(pitch, velocity) {
+  if (typeof pitch !== "number") return;
+  noteCount++;
+  const dest = recordingClip();
+  if (!dest || dest.failed) {
+    const digest = dest ? dest.digest : "null";
+    if (digest !== lastDigest) {
+      logOnChange(digest, "no recording target — " + digest + " (note #" + noteCount + ", pitch=" + pitch + ")");
+      dumpState("miss");
+    }
+    return;
+  }
+  logOnChange(dest.digest, "writing into " + dest.kind + " clip=" + dest.clip.id);
+  // Live-managed recording clips (session-rec / arr-rec) advance their
+  // own playing_position; trust it. For everything else (selected /
+  // locked / auto), playing_position stays at 0 unless the clip is
+  // actually playing — fall back to our own elapsed-beats clock.
+  const useLiveClock = dest.kind === "session-rec" || dest.kind === "arr-rec";
+  const start = useLiveClock ? clipPos(dest.clip) : elapsedBeats();
+  active[pitch] = {
+    startInClip: isFinite(start) ? start : 0,
+    velocity: velocity,
+    clipId: dest.clip.id,
+    useLiveClock: useLiveClock,
+  };
+}
+
+function endNote(pitch) {
+  if (typeof pitch !== "number") return;
+  const note = active[pitch];
+  if (!note) return;
+  delete active[pitch];
+  const clip = clipById(note.clipId);
+  if (!clip) {
+    log("noteoff pitch=" + pitch + ": clip " + note.clipId + " gone");
+    return;
+  }
+  const endPos = note.useLiveClock ? clipPos(clip) : elapsedBeats();
+  let duration = endPos - note.startInClip;
+  if (!isFinite(duration) || duration < MIN_DURATION) duration = MIN_DURATION;
+  // Grow the clip's loop_end / end_marker if the user has played past
+  // the current clip length. Without this anything beyond AUTO_CLIP_BEATS
+  // gets clipped off and looks invisible in the clip view.
+  if (!note.useLiveClock) ensureClipLength(clip, note.startInClip + duration);
+  try {
+    clip.call("add_new_notes", {
+      notes: [{
+        pitch: pitch,
+        start_time: note.startInClip,
+        duration: duration,
+        velocity: note.velocity,
+        mute: 0,
+      }],
+    });
+    logOnChange("write:" + note.clipId, "wrote notes into clip=" + note.clipId +
+      " (most recent: pitch=" + pitch + " start=" + note.startInClip.toFixed(3) +
+      " dur=" + duration.toFixed(3) + " vel=" + note.velocity + ")");
+  } catch (err) {
+    log("add_new_notes failed pitch=" + pitch + " clip=" + note.clipId + ": " + err);
+  }
+}
+
+function notedown(p) { startNote(p, DEFAULT_VELOCITY); }
+function noteup(p)   { endNote(p); }
+function note(p, v) {
+  if (v > 0) startNote(p, v);
+  else endNote(p);
+}
+`;
+
 // Notepat-specific patcher: routes `notedown`/`noteup`/`octave`/`ping` from
 // jweb~ (emitted by bios.mjs's daw bridge) into [noteout], and echoes the
 // RTT pong back via script→window.acMaxPong. Mirrors the hand-rolled
@@ -955,6 +1333,12 @@ function generateNotepatM4DPatcher(pieceName, dataUri) {
         { box: { id: "obj-print-log", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [340,250,200,22], text: "print [AC-LOG]" } },
         { box: { id: "obj-print-error", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [450,250,200,22], text: "print [AC-ERROR]" } },
         { box: { id: "obj-print-warn", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [560,250,200,22], text: "print [AC-WARN]" } },
+        // Live recording bridge — taps the same notedown/noteup stream
+        // and writes notes into the recording clip via LiveAPI.
+        { box: { id: "obj-prepend-note-rec", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,440,90,22], text: "prepend note" } },
+        { box: { id: "obj-prepend-down-rec", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [110,440,110,22], text: "prepend notedown" } },
+        { box: { id: "obj-prepend-up-rec", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [230,440,100,22], text: "prepend noteup" } },
+        { box: { id: "obj-recorder", maxclass: "v8.codebox", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,480,720,180], filename: "none", saved_object_attributes: { parameter_enable: 0 }, code: NOTEPAT_RECORDER_JS } },
       ],
       lines: [
         { patchline: { source: ["obj-jweb", 2], destination: ["obj-route", 0] } },
@@ -979,6 +1363,12 @@ function generateNotepatM4DPatcher(pieceName, dataUri) {
         { patchline: { source: ["obj-route-logs", 0], destination: ["obj-print-log", 0] } },
         { patchline: { source: ["obj-route-logs", 1], destination: ["obj-print-error", 0] } },
         { patchline: { source: ["obj-route-logs", 2], destination: ["obj-print-warn", 0] } },
+        { patchline: { source: ["obj-route", 0], destination: ["obj-prepend-note-rec", 0] } },
+        { patchline: { source: ["obj-route", 2], destination: ["obj-prepend-down-rec", 0] } },
+        { patchline: { source: ["obj-route", 3], destination: ["obj-prepend-up-rec", 0] } },
+        { patchline: { source: ["obj-prepend-note-rec", 0], destination: ["obj-recorder", 0] } },
+        { patchline: { source: ["obj-prepend-down-rec", 0], destination: ["obj-recorder", 0] } },
+        { patchline: { source: ["obj-prepend-up-rec", 0], destination: ["obj-recorder", 0] } },
       ],
       dependency_cache: [], latency: 0, is_mpe: 0,
       external_mpe_tuning_enabled: 0, minimum_live_version: "",
@@ -1114,11 +1504,42 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     { box: { id: "obj-focus-i", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["int"], patching_rect: [10,725,40,22], text: "i" } },
     { box: { id: "obj-sprintf-focus", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,755,440,22], text: "sprintf executejavascript window.acSetLiveFocus(%ld)" } },
     // MIDI routing (downstream of the unmatched outlet).
-    { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 7, outlettype: ["","","","","","",""], patching_rect: [10,300,560,22], text: "route note channel notedown noteup octave focus ping" } },
+    // `transport` carries spacebar-style play/pause requests from the
+    // jweb iframe. `info` is a manual diagnostics dump bound to a
+    // patcher button so the user can grab a state snapshot on demand.
+    { box: { id: "obj-route", maxclass: "newobj", numinlets: 1, numoutlets: 10, outlettype: ["","","","","","","","","",""], patching_rect: [10,300,560,22], text: "route note channel notedown noteup octave focus ping transport info" } },
     { box: { id: "obj-noteout", maxclass: "newobj", numinlets: 2, numoutlets: 0, patching_rect: [10,450,60,22], text: "noteout" } },
+    // MIDI thru: the device sits in the MIDI Effect chain ahead of the
+    // instrument, so any MIDI arriving from a clip (or upstream device)
+    // has to be forwarded explicitly — without these two boxes the
+    // clip's notes hit the device, get consumed, and never reach the
+    // instrument downstream. [noteout] above carries our jweb-driven
+    // keypresses; this pair handles everything else (clip playback,
+    // upstream MIDI effects, controller input on the track).
+    { box: { id: "obj-midiin", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: ["int"], patching_rect: [400,420,60,22], text: "midiin" } },
+    { box: { id: "obj-midiout", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [400,450,60,22], text: "midiout" } },
     { box: { id: "obj-pack-on", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["list"], patching_rect: [10,410,90,22], text: "pack 0 100" } },
     { box: { id: "obj-pack-off", maxclass: "newobj", numinlets: 2, numoutlets: 1, outlettype: ["list"], patching_rect: [120,410,90,22], text: "pack 0 0" } },
     { box: { id: "obj-sprintf-pong", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,340,320,22], text: "sprintf script window.acMaxPong(%ld)" } },
+    // Live recording bridge — taps the same notedown/noteup/note stream
+    // and writes notes into the recording clip via LiveAPI. Without this,
+    // [noteout] plays the downstream instrument but Live records the
+    // track INPUT, not the device's output, so nothing ends up in the clip.
+    { box: { id: "obj-prepend-note-rec", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,790,90,22], text: "prepend note" } },
+    { box: { id: "obj-prepend-down-rec", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [110,790,110,22], text: "prepend notedown" } },
+    { box: { id: "obj-prepend-up-rec", maxclass: "newobj", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [230,790,100,22], text: "prepend noteup" } },
+    // transport / info messages from jweb get prepended to a single
+    // symbol so the v8.codebox dispatcher (function transport, function
+    // info) picks them up. `info` button beside the device gives a
+    // manual diagnostic dump without needing to type into Max console.
+    { box: { id: "obj-msg-transport", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [340,790,80,22], text: "transport" } },
+    { box: { id: "obj-msg-info", maxclass: "message", numinlets: 2, numoutlets: 1, outlettype: [""], patching_rect: [430,790,80,22], text: "info" } },
+    // Print boxes so we can see whether the symbols ever land in Max —
+    // if "TRANSPORT-IN" never appears in the Max console while you're
+    // hitting spacebar, the iframe isn't receiving the keydown (Live's
+    // host window has snatched it for native transport).
+    { box: { id: "obj-print-transport", maxclass: "newobj", numinlets: 1, numoutlets: 0, patching_rect: [520,790,160,22], text: "print TRANSPORT-IN" } },
+    { box: { id: "obj-recorder", maxclass: "v8.codebox", numinlets: 1, numoutlets: 1, outlettype: [""], patching_rect: [10,820,720,180], filename: "none", saved_object_attributes: { parameter_enable: 0 }, code: NOTEPAT_RECORDER_JS } },
   ];
   const lines = [
     { patchline: { source: ["obj-jweb", 2], destination: ["obj-route-top", 0] } },
@@ -1160,6 +1581,22 @@ function generateChunkedNotepatM4DPatcher(pieceName, bootstrapDataUri, chunks) {
     { patchline: { source: ["obj-sprintf-pong", 0], destination: ["obj-jweb", 0] } },
     { patchline: { source: ["obj-pack-on", 0], destination: ["obj-noteout", 0] } },
     { patchline: { source: ["obj-pack-off", 0], destination: ["obj-noteout", 0] } },
+    // Forward any clip / upstream MIDI verbatim through the device.
+    { patchline: { source: ["obj-midiin", 0], destination: ["obj-midiout", 0] } },
+    // Tap note/notedown/noteup into the LiveAPI recorder.
+    { patchline: { source: ["obj-route", 0], destination: ["obj-prepend-note-rec", 0] } },
+    { patchline: { source: ["obj-route", 2], destination: ["obj-prepend-down-rec", 0] } },
+    { patchline: { source: ["obj-route", 3], destination: ["obj-prepend-up-rec", 0] } },
+    { patchline: { source: ["obj-prepend-note-rec", 0], destination: ["obj-recorder", 0] } },
+    { patchline: { source: ["obj-prepend-down-rec", 0], destination: ["obj-recorder", 0] } },
+    { patchline: { source: ["obj-prepend-up-rec", 0], destination: ["obj-recorder", 0] } },
+    // transport (route outlet 7) → `transport` message → recorder.transport()
+    // info (route outlet 8) and the manual button → `info` → recorder.info()
+    { patchline: { source: ["obj-route", 7], destination: ["obj-msg-transport", 0] } },
+    { patchline: { source: ["obj-route", 7], destination: ["obj-print-transport", 0] } },
+    { patchline: { source: ["obj-route", 8], destination: ["obj-msg-info", 0] } },
+    { patchline: { source: ["obj-msg-transport", 0], destination: ["obj-recorder", 0] } },
+    { patchline: { source: ["obj-msg-info", 0], destination: ["obj-recorder", 0] } },
   ];
   // One message box per chunk. All share a single source (ready) so they
   // fire together — order doesn't matter, _ac.p reassembles by index.

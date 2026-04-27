@@ -3241,23 +3241,24 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
 
-    // Wave type / REC / octave row
+    // Wave type / OCT / REC row
     const wb = globalThis.__waveButtons;
     if (wb && y >= wb.y && y < wb.y + wb.h) {
-      if (x >= wb.octX) {
-        if (wave === "sample") {
-          // REC button — hold to record
-          const ok = !!sound?.microphone?.rec?.();
-          recording = ok;
-          recPointerId = ok ? pid : null;
-          if (ok) recStartTime = Date.now();
-          const mic = sound?.microphone || {};
-          console.log(`[mic] rec-touch: ok=${ok} connected=${!!mic.connected} device=${mic.device || "none"} err=${mic.lastError || ""}`);
-          if (!ok) sound?.synth?.({ type: "sine", tone: 220, duration: 0.08, volume: 0.16, attack: 0.002, decay: 0.06 });
-        } else {
-          // Octave button — tap to increment
-          octave = (octave % 6) + 1;
-        }
+      if (wb.recX != null && x >= wb.recX) {
+        // REC button — always visible. Press-and-hold to record into the
+        // global sample slot. Auto-switch to "sample" wave so playback
+        // hears the capture, no matter which wave was active when pressed.
+        if (wave !== "sample") setWave("sample", sound);
+        const ok = !!sound?.microphone?.rec?.();
+        recording = ok;
+        recPointerId = ok ? pid : null;
+        if (ok) recStartTime = Date.now();
+        const mic = sound?.microphone || {};
+        console.log(`[mic] rec-touch: ok=${ok} connected=${!!mic.connected} device=${mic.device || "none"} err=${mic.lastError || ""}`);
+        if (!ok) sound?.synth?.({ type: "sine", tone: 220, duration: 0.08, volume: 0.16, attack: 0.002, decay: 0.06 });
+      } else if (x >= wb.octX) {
+        // Octave button — tap to step (always visible).
+        octave = (octave % 6) + 1;
       } else {
         const idx = Math.min(wavetypes.length - 1, Math.floor(x / wb.btnW));
         setWave(wavetypes[idx], sound);
@@ -6232,8 +6233,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
   {
     const waveLabels = ["sine", "tri", "saw", "square", "pno", "harp", "whist", "sample"];
-    const octBtnW = 22;                           // octave button on right
-    const waveAreaW = w - octBtnW - 1;
+    const octBtnW = 22;                           // octave button
+    const recBtnW = 24;                           // REC button (rightmost, always visible)
+    const waveAreaW = w - octBtnW - recBtnW - 2;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
 
     // Wave type colors: sin=blue, tri=green, saw=orange, sq=purple, pno=ivory,
@@ -6299,34 +6301,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       write(label, { x: lx, y: waveRowY + 3, size: 1, font: "font_1" });
     }
 
-    // Octave / REC button (right side)
-    const obx = w - octBtnW;
-    const octHov = hoverX >= obx && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
-    if (wave === "sample" && recording) {
-      // Recording — red pulse with countdown bar
-      const recElapsed = (Date.now() - recStartTime) / 1000;
-      const recRemain = Math.max(0, MAX_REC_SECS - recElapsed);
-      const recFrac = recRemain / MAX_REC_SECS;
-      ink(200, 30, 30);
-      box(obx, waveRowY, octBtnW, waveRowH, true);
-      // Countdown bar (shrinks from full width as time runs out)
-      const barH = 2;
-      const barW = Math.round((octBtnW - 2) * recFrac);
-      ink(255, 80, 80);
-      box(obx + 1, waveRowY + waveRowH - barH - 1, barW, barH, true);
-      ink(255, 255, 255);
-      write(recRemain.toFixed(1), { x: obx + 2, y: waveRowY + 2, size: 1, font: "font_1" });
-    } else if (wave === "sample") {
-      // REC button (idle)
-      ink(dark ? (octHov ? 80 : 50) : (octHov ? 180 : 210),
-          dark ? (octHov ? 30 : 20) : (octHov ? 180 : 210),
-          dark ? (octHov ? 30 : 20) : (octHov ? 185 : 215));
-      box(obx, waveRowY, octBtnW, waveRowH, true);
-      ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
-      box(obx, waveRowY, 1, waveRowH, true);
-      ink(dark ? 220 : 180, dark ? 80 : 60, dark ? 80 : 60);
-      write("REC", { x: obx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
-    } else {
+    // Octave button (always visible, second-from-right). Tap to step.
+    const obx = w - recBtnW - octBtnW - 1;
+    const octHov = hoverX >= obx && hoverX < obx + octBtnW && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
+    {
       ink(dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
           dark ? (octHov ? 50 : 28) : (octHov ? 200 : 225),
           dark ? (octHov ? 55 : 32) : (octHov ? 205 : 230));
@@ -6361,6 +6339,38 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       }
     }
 
+    // REC button (always visible, rightmost). Press-and-hold to record into
+    // the global sample slot. Auto-switches wave to "sample" so playback
+    // hears the capture, regardless of which wave was active when pressed.
+    const rbx = w - recBtnW;
+    const recHov = hoverX >= rbx && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
+    if (recording) {
+      // Recording — red pulse with countdown bar
+      const recElapsed = (Date.now() - recStartTime) / 1000;
+      const recRemain = Math.max(0, MAX_REC_SECS - recElapsed);
+      const recFrac = recRemain / MAX_REC_SECS;
+      ink(200, 30, 30);
+      box(rbx, waveRowY, recBtnW, waveRowH, true);
+      const barH = 2;
+      const barW = Math.round((recBtnW - 2) * recFrac);
+      ink(255, 80, 80);
+      box(rbx + 1, waveRowY + waveRowH - barH - 1, barW, barH, true);
+      ink(255, 255, 255);
+      write(recRemain.toFixed(1), { x: rbx + 2, y: waveRowY + 2, size: 1, font: "font_1" });
+    } else {
+      ink(dark ? (recHov ? 80 : 50) : (recHov ? 220 : 240),
+          dark ? (recHov ? 30 : 20) : (recHov ? 200 : 220),
+          dark ? (recHov ? 30 : 20) : (recHov ? 200 : 220));
+      box(rbx, waveRowY, recBtnW, waveRowH, true);
+      ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
+      box(rbx, waveRowY, 1, waveRowH, true);
+      ink(dark ? 240 : 200, dark ? 80 : 50, dark ? 80 : 50);
+      // Filled red dot before the label
+      box(rbx + 3, waveRowY + 5, 4, 4, true);
+      ink(dark ? 220 : 160, dark ? 80 : 60, dark ? 80 : 60);
+      write("REC", { x: rbx + 9, y: waveRowY + 3, size: 1, font: "font_1" });
+    }
+
     // Mic level meter in sample mode — compact multi-segment bar next to REC.
     if (wave === "sample") {
       const infoY = waveRowY + waveRowH + 1;
@@ -6374,9 +6384,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         write((len / rate).toFixed(1) + "s", { x: 2, y: infoY + 1, size: 1, font: "font_1" });
       }
 
-      // Multi-segment level meter (spans most of the row)
+      // Multi-segment level meter (spans most of the row, ends at REC button)
       const meterX = (len > 0 && rate > 0) ? 30 : 2;
-      const meterW = obx - meterX - 2;
+      const meterW = (rbx - 2) - meterX;
       const meterH = 7;
       const meterY = infoY + 1;
       const segments = 16;
@@ -6398,7 +6408,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
 
     // Expose hit zones for act()
-    globalThis.__waveButtons = { y: waveRowY, h: waveRowH, btnW: btnW2, octX: obx, octW: octBtnW };
+    globalThis.__waveButtons = {
+      y: waveRowY, h: waveRowH, btnW: btnW2,
+      octX: obx, octW: octBtnW,
+      recX: rbx, recW: recBtnW
+    };
 
   }
 

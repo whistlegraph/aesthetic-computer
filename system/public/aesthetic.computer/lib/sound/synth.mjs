@@ -143,7 +143,10 @@ export default class Synth {
       this.#frequency = options.tone;
       this.#whistleBoreBuf = new Float32Array(2048);
       this.#whistleJetBuf = new Float32Array(512);
-      this.#whistleNoiseSeed = ((id || 1) * 2654435761) >>> 0;
+      // id can arrive as a BigInt from the worklet message channel; coerce
+      // to Number before mixing with the multiplier so the >>> 0 chain
+      // doesn't throw "Cannot mix BigInt and other types".
+      this.#whistleNoiseSeed = ((Number(id) || 1) * 2654435761) >>> 0;
       this.type = "whistle"; // normalize alias
     } else if (type === "sample") {
       this.#frequency = null; // 1; // TODO: This could be a low or high pass

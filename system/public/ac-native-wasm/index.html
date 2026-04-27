@@ -3,106 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AC Native Prompt WASM Prototype</title>
+  <title>AC Native Prompt • WASM Offline Prototype</title>
   <style>
-    :root {
-      --bg: #111013;
-      --panel: rgba(255, 255, 255, 0.06);
-      --border: rgba(255, 255, 255, 0.14);
-      --text: #f3e9ef;
-      --muted: #baa9b5;
-      --accent: #ff6b9d;
-    }
     * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      display: grid;
-      place-items: center;
-      background:
-        radial-gradient(circle at top, rgba(255, 107, 157, 0.18), transparent 34%),
-        radial-gradient(circle at bottom right, rgba(93, 209, 196, 0.16), transparent 28%),
-        linear-gradient(180deg, #17131a 0%, #0e0c10 100%);
-      color: var(--text);
-      font-family: "Iosevka Aile", "IBM Plex Sans", ui-sans-serif, sans-serif;
-    }
-    .shell {
-      width: min(96vw, 1120px);
-      padding: 18px;
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      background: rgba(10, 8, 12, 0.82);
-      box-shadow: 0 32px 90px rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(18px);
-    }
-    .bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 14px;
-    }
-    .title {
-      font-size: 14px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .hint {
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .hint strong { color: var(--text); font-weight: 600; }
-    .stage {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 3 / 2;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: #0e0d11;
-    }
+    html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
     canvas {
-      width: 100%;
-      height: 100%;
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
       display: block;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+      touch-action: none;
+      outline: none;
     }
-    .status {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .status strong { color: var(--accent); }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <div class="bar">
-      <div class="title">AC Native Prompt • WASM Offline Prototype</div>
-      <div class="hint"><strong>Type</strong> in the canvas. <strong>Esc</strong> clears. <strong>Tab</strong> completes. <strong>Backspace</strong> returns from stub pieces.</div>
-    </div>
-    <div class="stage">
-      <canvas id="screen" width="960" height="640" tabindex="0" aria-label="AC Native Prompt WASM Prototype"></canvas>
-    </div>
-    <div class="status">
-      <div id="status-left">booting...</div>
-      <div id="status-right">single-file offline html</div>
-    </div>
-  </div>
+  <canvas id="screen" width="960" height="640" tabindex="0" aria-label="AC Native Prompt • WASM Offline Prototype"></canvas>
+  
   <script type="module">
     const WASM_BASE64 = "AGFzbQEAAAABGARgAn9/AX9gBH9/f38AYAN/f38Bf2AAAAMHBgABAAIDAQUDAQBQBiMGfwFBAAt/AUEAC38BQf8BC38BQf8BC38BQf8BC38BQf8BCwcvBQZtZW1vcnkCAARpbml0AAAHc2V0X2luawABBWNsZWFyAAQJZmlsbF9yZWN0AAUK5wIGDAAgACQAIAEkAUEACxIAIAAkAiABJAMgAiQEIAMkBQsNACABIwBsIABqQQRsCxkAIAEgAmwgAEH/ASACa2xqQf8AakH/AW4LTgEDfyMAIwFsIQECQANAIAAgAU8NASAAQQRsIQIgAiMCOgAAIAJBAWojAzoAACACQQJqIwQ6AAAgAkEDakH/AToAACAAQQFqIQAMAAsLC80BAQh/AkADQCAEIANPDQFBACEFAkADQCAFIAJPDQEgACAFaiEGIAEgBGohByAGIAcQAiEIIwVB/wFGBEAgCCMCOgAAIAhBAWojAzoAACAIQQJqIwQ6AAAgCEEDakH/AToAAAUgCC0AACEJIAhBAWotAAAhCiAIQQJqLQAAIQsgCCAJIwIjBRADOgAAIAhBAWogCiMDIwUQAzoAACAIQQJqIAsjBCMFEAM6AAAgCEEDakH/AToAAAsgBUEBaiEFDAALCyAEQQFqIQQMAAsLCwC9AQRuYW1lARYCAgxwaXhlbF9vZmZzZXQDBWJsZW5kAnAGAAIAAXcBAWgBBAABcgEBZwIBYgMBYQICAAF4AQF5AwMAA2RzdAEDc3JjAgFhBAMAAWkBBXRvdGFsAgRhZGRyBQwAAXgBAXkCAXcDAWgEAnl5BQJ4eAYCcHgHAnB5CARhZGRyCQJkcgoCZGcLAmRiBywGAAV3aWR0aAEGaGVpZ2h0AgVpbmtfcgMFaW5rX2cEBWlua19iBQVpbmtfYQ==";
-    const PROMPT_SOURCE = "// prompt.mjs — Native command-line piece for fedac\n// Text input at top-left, pink block cursor, no prompt prefix.\n// Anything typed (except \"notepat\") is evaluated as KidLisp source.\n\nlet input = \"\";\nlet cursor = 0; // cursor position within input\nlet cursorVisible = true;\nlet cursorFrame = 0;\nlet history = [];\nlet historyIndex = -1;\nlet message = \"\";\nlet messageFrame = 0;\nlet shiftHeld = false;\nlet frame = 0;\nlet voiceOff = false; // true when user sets voice to \"off\"\nlet T = __theme.update(); // global theme (auto dark/light)\nlet tabMatches = []; // current tab completion candidates\nlet tabIndex = -1;   // cycling index for tab\nlet tabPrefix = \"\";   // what was typed before tab\n\n// Discovered piece names (populated in boot via system.listPieces)\nlet PIECE_NAMES = [];\n// Built-in non-piece commands\nconst BUILTIN_COMMANDS = [\n  \"version\", \"reboot\", \"off\", \"clear\", \"help\", \"ssh\", \"hi\", \"bye\", \"ls\", \"papers\", \"login\", \"midi\",\n];\n// All completable commands (built in boot)\nlet COMMANDS = [];\n// $code aliases\nconst CODE_NAMES = [\"$roz\"];\n// Piece descriptions (for tab completion display)\nconst PIECE_DESC = {\n  \"notepat\":       \"synthesizer instrument\",\n  \"os\":            \"system update (OTA)\",\n  \"wifi\":          \"network picker\",\n  \"claude\":        \"AI assistant\",\n  \"terminal\":      \"PTY terminal\",\n  \"geo\":           \"geolocation\",\n  \"chat\":          \"real-time chat\",\n  \"laer-klokken\":  \"clock room chat\",\n  \"machine\":       \"hardware info\",\n  \"roz\":           \"generative art\",\n  \"list\":          \"all commands\",\n  \"ls\":            \"→ list\",\n  \"papers\":        \"papers site\",\n  \"clock\":         \"melody clock\",\n  \"brick-breaker\": \"paddle + ball game\",\n  \"gostop\":        \"go/stop rhythm\",\n  \"beat\":          \"percussion\",\n  \"shh\":           \"noise drone\",\n  \"dync\":          \"percussive pad\",\n  \"chart\":         \"diagram sketch\",\n  \"f3ral3xp\":      \"feral expression\",\n  \"3x3\":           \"ortholinear pad\",\n  \"print\":         \"printer / thermal\",\n  \"theme\":         \"prompt theme\",\n  \"voice\":         \"system voice\",\n  \"login\":         \"switch identity\",\n  \"midi\":          \"usb midi + udp relay\",\n  \"dark\":          \"dark mode\",\n  \"light\":         \"light mode\",\n  \"auto\":          \"auto dark/light\",\n  \"error\":         \"error screen\",\n  \"404\":           \"not found\",\n};\n\n// WiFi auto-connect state\nconst AC_SSID = \"aesthetic.computer\";\nconst AC_PASS = \"aesthetic.computer\";\nconst CREDS_PATH = \"/mnt/wifi_creds.json\";\nlet savedCreds = [];\nlet autoConnectFrame = 0;\nlet connectStartFrame = -9999;\n\nconst SHIFT_MAP = {\n  \"1\":\"!\", \"2\":\"@\", \"3\":\"#\", \"4\":\"$\", \"5\":\"%\",\n  \"6\":\"^\", \"7\":\"&\", \"8\":\"*\", \"9\":\"(\", \"0\":\")\",\n  \"-\":\"_\", \"=\":\"+\", \"[\":\"{\", \"]\":\"}\", \"\\\\\":\"|\",\n  \";\":\":\", \"'\":'\"', \",\":\"<\", \".\":\">\", \"/\":\"?\", \"`\":\"~\",\n};\n\n// KidLisp syntax highlighting colors\nconst KL_KEYWORDS = new Set([\n  \"ink\",\"line\",\"circle\",\"box\",\"wipe\",\"fade\",\"write\",\"grid\",\"plot\",\n  \"spin\",\"zoom\",\"scroll\",\"contrast\",\"noise\",\"blend\",\"mirror\",\n  \"w\",\"h\",\"w/2\",\"h/2\",\"t\",\"frame\",\"pi\",\"tau\",\n  \"sin\",\"cos\",\"tan\",\"abs\",\"sqrt\",\"floor\",\"ceil\",\"round\",\"min\",\"max\",\"pow\",\"mod\",\n  \"?\",\"...\",\n]);\nconst KL_COLORS = new Set([\n  \"red\",\"green\",\"blue\",\"cyan\",\"magenta\",\"yellow\",\"white\",\"black\",\n  \"orange\",\"pink\",\"purple\",\"gray\",\"grey\",\"rainbow\",\n]);\n\nfunction klTokenColor(token) {\n  if (KL_COLORS.has(token)) return [255, 140, 100]; // warm orange for color names\n  if (KL_KEYWORDS.has(token)) return [120, 180, 255]; // blue for keywords\n  if (/^-?\\d+(\\.\\d+)?$/.test(token)) return [180, 220, 140]; // green for numbers\n  if (/^[a-z]/.test(token) && token.includes(\"/\")) return [180, 220, 140]; // w/2 etc\n  return null; // default\n}\n\n// Built-in $code aliases\nconst CODES = {\n  \"$roz\": `fade:red-blue-black-blue-red\nink (? rainbow white 0) (1s... 24 64)\nline w/2 0 w/2 h\n(spin (2s... -1.125 1.125)) (zoom 1.1)\n(0.5s (contrast 1.05))\n(scroll (? -0.1 0 0.1) (? -0.1 0 0.1))\nink (? cyan yellow magenta) 8\ncircle w/2 h/2 (? 2 4 8)`,\n};\n\nfunction readUsbMidiStatus(system) {\n  try {\n    return system?.usbMidi?.status?.() || system?.usbMidi || null;\n  } catch (_) {\n    return system?.usbMidi || null;\n  }\n}\n\nfunction formatUsbMidiStatus(status) {\n  if (!status) return \"usb midi unavailable\";\n  if (status.active) {\n    let msg = \"usb midi active\";\n    if (status.alsaDevice) msg += \" \" + status.alsaDevice;\n    else if (status.udc) msg += \" \" + status.udc;\n    if (status.port) msg += \" via \" + status.port;\n    return msg;\n  }\n  if (status.enabled) {\n    return status.reason && status.reason !== \"ok\"\n      ? \"usb midi enabled (\" + status.reason + \")\"\n      : \"usb midi enabled\";\n  }\n  if (status.reason && status.reason !== \"disabled\" && status.reason !== \"uninitialized\") {\n    return \"usb midi off (\" + status.reason + \")\";\n  }\n  return \"usb midi off\";\n}\n\nfunction readConfig(system) {\n  try {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    return raw ? JSON.parse(raw) : {};\n  } catch (_) {\n    return {};\n  }\n}\n\nfunction udpMidiRelayEnabled(system) {\n  const cfg = readConfig(system);\n  return cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === \"true\";\n}\n\nfunction formatUdpMidiRelayStatus(system) {\n  const cfg = readConfig(system);\n  const enabled = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === \"true\";\n  if (!enabled) return \"udp midi relay off\";\n  if (cfg.handle) return \"udp midi relay on @\" + cfg.handle;\n  return \"udp midi relay on\";\n}\n\nfunction boot({ system }) {\n  message = \"\";\n  // Load saved theme from config (persists across reboots)\n  try {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    if (raw) {\n      const cfg = JSON.parse(raw);\n      if (cfg.theme) __theme.apply(cfg.theme);\n      if (cfg.darkMode === \"dark\") __theme._forceDark = true;\n      else if (cfg.darkMode === \"light\") __theme._forceDark = false;\n      if (cfg.darkMode) { __theme._lastCheck = 0; __theme.update(); }\n      voiceOff = cfg.voice === \"off\";\n    }\n  } catch (_) {}\n  // Discover all available pieces dynamically\n  PIECE_NAMES = (system?.listPieces?.() || []).filter(n => n !== \"prompt\" && n !== \"lisp\" && n !== \"cc\");\n  PIECE_NAMES.sort();\n  COMMANDS = [...PIECE_NAMES, ...BUILTIN_COMMANDS, ...CODE_NAMES];\n  // Restore input from KidLisp return (backspace/escape preserves source)\n  if (globalThis.__promptRestore) {\n    input = globalThis.__promptRestore;\n    cursor = input.length;\n    globalThis.__promptRestore = undefined;\n  }\n  // Load saved WiFi credentials\n  try {\n    const raw = system?.readFile?.(CREDS_PATH);\n    if (raw) savedCreds = JSON.parse(raw);\n  } catch (_) {}\n}\n\nfunction act({ event: e, system, sound }) {\n  if (e.is(\"keyboard:down:shift\")) { shiftHeld = true; return; }\n  if (e.is(\"keyboard:up:shift\")) { shiftHeld = false; return; }\n\n  if (e.is(\"keyboard:down\")) {\n    const key = e.key;\n    cursorFrame = 0;\n    cursorVisible = true;\n\n    // Keystroke voicing (JS fallback — C input loop also fires for zero-latency)\n    if (!voiceOff) {\n      if (key.length === 1) {\n        sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);\n      } else if (key === \"space\") {\n        sound?.speakCached?.(\"space\");\n      } else if (key === \"backspace\") {\n        sound?.speakCached?.(\"back\");\n      } else if (key === \"enter\" || key === \"return\") {\n        sound?.speakCached?.(\"enter\");\n      } else if (key === \"escape\") {\n        sound?.speakCached?.(\"clear\");\n      } else if (key === \"tab\") {\n        sound?.speakCached?.(\"tab\");\n      }\n    }\n\n    if (key === \"tab\") {\n      // Tab completion\n      const prefix = input.slice(0, cursor).toLowerCase();\n      if (prefix.length > 0) {\n        if (tabPrefix !== prefix) {\n          // New prefix — build match list\n          tabPrefix = prefix;\n          tabMatches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);\n          tabIndex = -1;\n        }\n        if (tabMatches.length > 0) {\n          tabIndex = (tabIndex + 1) % tabMatches.length;\n          const match = tabMatches[tabIndex];\n          input = match + input.slice(cursor);\n          cursor = match.length;\n        }\n      }\n      return;\n    }\n    // Any non-tab key resets tab state\n    tabPrefix = \"\";\n    tabMatches = [];\n    tabIndex = -1;\n\n    if (key === \"enter\" || key === \"return\") {\n      const cmd = input.trim();\n      if (cmd.length > 0) {\n        history.unshift(cmd);\n        historyIndex = -1;\n        execute(cmd, system);\n        input = \"\";\n        cursor = 0;\n      }\n    } else if (key === \"backspace\") {\n      if (cursor > 0) {\n        input = input.slice(0, cursor - 1) + input.slice(cursor);\n        cursor--;\n      }\n    } else if (key === \"delete\") {\n      if (cursor < input.length) {\n        input = input.slice(0, cursor) + input.slice(cursor + 1);\n      }\n    } else if (key === \"escape\") {\n      input = \"\";\n      cursor = 0;\n    } else if (key === \"arrowleft\") {\n      if (cursor > 0) cursor--;\n    } else if (key === \"arrowright\") {\n      if (cursor < input.length) cursor++;\n    } else if (key === \"home\") {\n      cursor = 0;\n    } else if (key === \"end\") {\n      cursor = input.length;\n    } else if (key === \"arrowup\") {\n      if (history.length > 0 && historyIndex < history.length - 1) {\n        historyIndex++;\n        input = history[historyIndex];\n        cursor = input.length;\n      }\n    } else if (key === \"arrowdown\") {\n      if (historyIndex > 0) {\n        historyIndex--;\n        input = history[historyIndex];\n        cursor = input.length;\n      } else if (historyIndex === 0) {\n        historyIndex = -1;\n        input = \"\";\n        cursor = 0;\n      }\n    } else if (key === \"space\") {\n      input = input.slice(0, cursor) + \" \" + input.slice(cursor);\n      cursor++;\n    } else if (key.length === 1) {\n      const ch = shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key;\n      input = input.slice(0, cursor) + ch + input.slice(cursor);\n      cursor++;\n    }\n  }\n}\n\nfunction execute(cmd, system) {\n  const lower = cmd.toLowerCase();\n  // Handle colon params: \"clock:cdefg\" → piece=\"clock\", rest passed via jump\n  const colonIdx = lower.indexOf(\":\");\n  const baseName = colonIdx >= 0 ? lower.slice(0, colonIdx) : lower;\n  // Also handle space params: \"clock cdefg\" → piece=\"clock\"\n  const spaceIdx = lower.indexOf(\" \");\n  const baseWord = spaceIdx >= 0 ? lower.slice(0, spaceIdx) : lower;\n\n  // Built-in commands (non-piece)\n  if (lower === \"version\") {\n    message = system?.version || \"unknown\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"reboot\") {\n    system?.reboot?.();\n    return;\n  }\n  if (lower === \"off\" || lower === \"shutdown\" || lower === \"poweroff\") {\n    message = \"shutting down...\";\n    messageFrame = 0;\n    system?.poweroff?.();\n    return;\n  }\n  if (baseWord === \"login\") {\n    const code = cmd.slice(spaceIdx > 0 ? spaceIdx + 1 : cmd.length).trim();\n    message = \"~> login\";\n    messageFrame = 0;\n    system?.jump?.(code ? \"login:\" + code : \"login\");\n    return;\n  }\n  if (lower === \"clear\") {\n    history = [];\n    message = \"\";\n    return;\n  }\n  if (lower === \"help\") {\n    message = \"type a piece name or kidlisp — tab to complete\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"ssh\") {\n    if (system?.sshStarted) {\n      message = \"ssh running on port 22\";\n    } else {\n      system?.startSSH?.();\n      message = \"starting ssh...\";\n    }\n    messageFrame = 0;\n    return;\n  }\n  if (baseWord === \"midi\") {\n    const arg = spaceIdx >= 0 ? lower.slice(spaceIdx + 1).trim() : \"status\";\n    if (arg === \"relay\" || arg.startsWith(\"relay \")) {\n      const relayArg = arg === \"relay\" ? \"status\" : arg.slice(\"relay \".length).trim();\n      if (!relayArg || relayArg === \"status\") {\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      if (relayArg === \"on\" || relayArg === \"enable\") {\n        system?.saveConfig?.(\"udpMidiBroadcast\", \"true\");\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      if (relayArg === \"off\" || relayArg === \"disable\") {\n        system?.saveConfig?.(\"udpMidiBroadcast\", \"false\");\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      message = \"usage: midi relay [status|on|off]\";\n      messageFrame = 0;\n      return;\n    }\n    if (!arg || arg === \"status\") {\n      message = formatUsbMidiStatus(readUsbMidiStatus(system)) + \" | \" + formatUdpMidiRelayStatus(system);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"on\" || arg === \"enable\") {\n      system?.saveConfig?.(\"usbMidi\", \"true\");\n      const status = system?.usbMidi?.enable?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"off\" || arg === \"disable\") {\n      system?.saveConfig?.(\"usbMidi\", \"false\");\n      const status = system?.usbMidi?.disable?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"refresh\" || arg === \"retry\") {\n      const status = system?.usbMidi?.refresh?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    message = \"usage: midi [status|on|off|refresh|relay]\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"hi\") {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    if (raw) {\n      try {\n        const cfg = JSON.parse(raw);\n        if (cfg.handle) {\n          message = \"logged in as @\" + cfg.handle;\n        } else if (cfg.email) {\n          message = \"logged in as \" + cfg.email;\n        } else {\n          message = \"config exists but no user\";\n        }\n      } catch (_) { message = \"config parse error\"; }\n    } else {\n      message = \"not logged in — flash from an authenticated CLI\";\n    }\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"bye\") {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    let cfg = {};\n    if (raw) try { cfg = JSON.parse(raw); } catch (_) {}\n    const had = cfg.handle || cfg.email;\n    delete cfg.handle;\n    delete cfg.email;\n    delete cfg.sub;\n    system?.writeFile?.(\"/mnt/config.json\", JSON.stringify(cfg, null, 2));\n    message = had ? \"logged out (was @\" + had + \")\" : \"already logged out\";\n    messageFrame = 0;\n    return;\n  }\n\n  // Set default boot piece\n  if (baseWord === \"boot\") {\n    if (spaceIdx > 0) {\n      const pieceName = cmd.slice(spaceIdx + 1).trim();\n      if (pieceName) {\n        system?.saveConfig?.(\"piece\", pieceName);\n        message = \"boot → \" + pieceName;\n      } else {\n        message = \"usage: boot <piece-name>\";\n      }\n    } else {\n      // Show current boot piece\n      const raw = system?.readFile?.(\"/mnt/config.json\");\n      let cur = \"notepat\";\n      if (raw) try { cur = JSON.parse(raw).piece || cur; } catch (_) {}\n      message = \"boot piece: \" + cur;\n    }\n    messageFrame = 0;\n    return;\n  }\n\n  // Dark/light mode override\n  if (lower === \"dark\") {\n    __theme._forceDark = true;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"dark\");\n    message = \"dark mode\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"light\") {\n    __theme._forceDark = false;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"light\");\n    message = \"light mode\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"auto\") {\n    __theme._forceDark = undefined;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"auto\");\n    message = \"auto dark/light (LA time)\";\n    messageFrame = 0;\n    return;\n  }\n\n  // Check for built-in $code aliases\n  if (CODES[lower]) {\n    message = \"~> \" + lower;\n    messageFrame = 0;\n    globalThis.__kidlispSource = CODES[lower];\n    globalThis.__kidlispLabel = lower;\n    system?.jump?.(\"lisp\");\n    return;\n  }\n\n  // \"claude TOKEN\" — associate Claude Code OAuth token with your handle\n  if (baseWord === \"claude\" && spaceIdx > 0) {\n    const token = cmd.slice(spaceIdx + 1).trim();\n    if (token.startsWith(\"sk-ant-\")) {\n      message = \"saving token...\";\n      messageFrame = 0;\n      // Read handle from config\n      let handle = \"\";\n      let acToken = \"\";\n      try {\n        const raw = system?.readFile?.(\"/mnt/config.json\");\n        if (raw) {\n          const cfg = JSON.parse(raw);\n          handle = cfg.handle || \"\";\n          acToken = cfg.token || \"\";\n        }\n      } catch (_) {}\n      if (!handle) {\n        message = \"not logged in — flash from authenticated CLI first\";\n        messageFrame = 0;\n        return;\n      }\n      // POST to API\n      const url = \"https://aesthetic.computer/.netlify/functions/claude-token\";\n      const body = JSON.stringify({ token });\n      const headers = JSON.stringify({ \"Content-Type\": \"application/json\", \"Authorization\": \"Bearer \" + acToken });\n      system?.fetchPost?.(url, body, headers);\n      // Also save locally for immediate use\n      system?.writeFile?.(\"/claude-token\", token);\n      message = \"token saved for @\" + handle;\n      messageFrame = 0;\n      return;\n    }\n  }\n\n  // \"git TOKEN\" — associate GitHub PAT with your handle\n  if (baseWord === \"git\" && spaceIdx > 0) {\n    const pat = cmd.slice(spaceIdx + 1).trim();\n    if (pat.startsWith(\"ghp_\")) {\n      message = \"saving github token...\";\n      messageFrame = 0;\n      let handle = \"\";\n      let acToken = \"\";\n      try {\n        const raw = system?.readFile?.(\"/mnt/config.json\");\n        if (raw) {\n          const cfg = JSON.parse(raw);\n          handle = cfg.handle || \"\";\n          acToken = cfg.token || \"\";\n        }\n      } catch (_) {}\n      if (!handle) {\n        message = \"not logged in — flash from authenticated CLI first\";\n        messageFrame = 0;\n        return;\n      }\n      const url = \"https://aesthetic.computer/.netlify/functions/claude-token\";\n      const body = JSON.stringify({ githubPat: pat });\n      const headers = JSON.stringify({ \"Content-Type\": \"application/json\", \"Authorization\": \"Bearer \" + acToken });\n      system?.fetchPost?.(url, body, headers);\n      system?.writeFile?.(\"/github-pat\", pat);\n      message = \"github token saved for @\" + handle;\n      messageFrame = 0;\n      return;\n    }\n  }\n\n  // \"papers\" opens papers.aesthetic.computer\n  if (lower === \"papers\") {\n    message = \"~> papers.aesthetic.computer\";\n    messageFrame = 0;\n    // Native can't open a browser — show the URL as a message\n    return;\n  }\n\n  // \"ls\" is an alias for \"list\"\n  if (baseName === \"ls\" || baseWord === \"ls\") {\n    message = \"~> list\";\n    messageFrame = 0;\n    system?.jump?.(\"list\");\n    return;\n  }\n\n  // \"code\" is an alias for \"claude\" piece\n  if (baseName === \"code\" || baseWord === \"code\") {\n    message = \"~> code\";\n    messageFrame = 0;\n    system?.jump?.(\"claude\");\n    return;\n  }\n\n  // Dynamic piece jump — check if the command matches any discovered piece\n  if (PIECE_NAMES.includes(baseName) || PIECE_NAMES.includes(baseWord)) {\n    const pieceName = PIECE_NAMES.includes(baseName) ? baseName : baseWord;\n    message = \"~> \" + pieceName;\n    messageFrame = 0;\n    // Native ac-native jump() only parses colon-separated params (see\n    // jump_target/jump_params split in ac-native.c). Convert any space-\n    // separated form \"clock ceg dfa\" into \"clock:ceg:dfa\" so the piece\n    // receives params=[\"ceg\",\"dfa\"] instead of loading \"/pieces/clock ceg dfa.mjs\".\n    // Commands that already use colons (e.g. \"mo:1:c:e:g\") pass through unchanged.\n    let jumpArg = cmd;\n    if (cmd.indexOf(\":\") < 0 && cmd.indexOf(\" \") >= 0) {\n      jumpArg = cmd.replace(/\\s+/g, \":\");\n    }\n    system?.jump?.(jumpArg);\n    return;\n  }\n\n  // Everything else → KidLisp evaluator\n  message = \"~> lisp\";\n  messageFrame = 0;\n  globalThis.__kidlispSource = cmd;\n  globalThis.__kidlispLabel = cmd;\n  system?.jump?.(\"lisp\");\n}\n\n// Draw syntax-highlighted KidLisp text\nfunction drawHighlighted(text, x0, y0, charW, ink, write, font) {\n  // Tokenize by spaces and parens, preserving positions\n  let cx = x0;\n  let i = 0;\n  while (i < text.length) {\n    // Skip whitespace\n    if (text[i] === \" \") {\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Parens get special color\n    if (text[i] === \"(\" || text[i] === \")\") {\n      ink(180, 120, 200); // purple parens\n      write(text[i], { x: cx, y: y0, size: 1, font });\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Colon (fade separator)\n    if (text[i] === \":\") {\n      ink(140, 140, 160);\n      write(\":\", { x: cx, y: y0, size: 1, font });\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Collect token\n    let token = \"\";\n    const start = i;\n    while (i < text.length && text[i] !== \" \" && text[i] !== \"(\" && text[i] !== \")\") {\n      token += text[i];\n      i++;\n    }\n    const color = klTokenColor(token.toLowerCase());\n    if (color) {\n      ink(color[0], color[1], color[2]);\n    } else {\n      ink(T.fg, T.fg, T.fg + 10); // default text\n    }\n    write(token, { x: cx, y: y0, size: 1, font });\n    cx += token.length * charW;\n  }\n}\n\nfunction paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {\n  frame++;\n  const T = __theme.update();\n  wipe(T.bg[0], T.bg[1], T.bg[2]);\n\n  const W = screen.width;\n  const H = screen.height;\n\n  // WiFi auto-connect (runs every frame, same logic as notepat)\n  if (wifi && !wifi.connected) {\n    autoConnectFrame++;\n    const knownCreds = [\n      { ssid: AC_SSID, pass: AC_PASS },\n      ...savedCreds.filter(c => c.ssid !== AC_SSID),\n    ];\n    const knownSSIDs = new Set(knownCreds.map(c => c.ssid));\n    const isConnecting = wifi.state === 3 || wifi.state === 4;\n    const isIdle = !isConnecting;\n\n    // Timeout connecting after 3s\n    if (isConnecting && frame - connectStartFrame > 180) {\n      wifi.disconnect?.();\n      autoConnectFrame = -30;\n    }\n\n    if (isIdle) {\n      if (autoConnectFrame <= 1 || autoConnectFrame % 120 === 0) wifi.scan?.();\n      if (autoConnectFrame % 120 === 60) {\n        const nets = wifi.networks || [];\n        const matches = nets\n          .filter(n => n.ssid && knownSSIDs.has(n.ssid))\n          .sort((a, b) => b.signal - a.signal);\n        if (matches.length > 0) {\n          const best = matches[0];\n          const cred = knownCreds.find(c => c.ssid === best.ssid);\n          wifi.connect(cred.ssid, cred.pass);\n          connectStartFrame = frame;\n        }\n      }\n    }\n  }\n\n  const charW = 6; // 6x10 font\n  const charH = 10;\n  const lineH = 12;\n  const x0 = 4;\n  const y0 = 4;\n  const font = \"6x10\";\n\n  // Cursor blink\n  cursorFrame++;\n  if (cursorFrame % 30 === 0) cursorVisible = !cursorVisible;\n\n  // Input text with syntax highlighting\n  drawHighlighted(input, x0, y0, charW, ink, write, font);\n\n  // Pure block cursor\n  if (cursorVisible) {\n    const cx = x0 + cursor * charW;\n    ink(T.cursor[0], T.cursor[1], T.cursor[2]);\n    box(cx, y0, charW, charH, true);\n    // Draw character under cursor if not at end\n    if (cursor < input.length) {\n      ink(T.dark ? 255 : 255, T.dark ? 255 : 255, T.dark ? 255 : 255);\n      write(input[cursor], { x: cx, y: y0, size: 1, font });\n    }\n  }\n\n  // Ghosted tab completion suggestions below input (with descriptions)\n  let completionH = 0;\n  {\n    const prefix = input.slice(0, cursor).toLowerCase();\n    if (prefix.length > 0) {\n      const matches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);\n      if (matches.length > 0) {\n        const sugY = y0 + lineH + 1;\n        for (let mi = 0; mi < Math.min(matches.length, 8); mi++) {\n          const m = matches[mi];\n          const sy = sugY + mi * (charH + 1);\n          // Ghosted: dim text, highlight the matching prefix portion\n          ink(T.fgDim, T.fgDim - 20, T.fgDim + 20);\n          write(m.slice(0, prefix.length), { x: x0, y: sy, size: 1, font });\n          ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);\n          write(m.slice(prefix.length), { x: x0 + prefix.length * charW, y: sy, size: 1, font });\n          // Show description after the name\n          const desc = PIECE_DESC[m];\n          if (desc) {\n            ink(T.fgMute - 20, T.fgMute - 20, T.fgMute - 10);\n            write(\" \" + desc, { x: x0 + m.length * charW, y: sy, size: 1, font });\n          }\n          // Highlight current tab selection\n          if (tabMatches.length > 0 && tabIndex >= 0 && matches[mi] === tabMatches[tabIndex]) {\n            const fullLen = desc ? m.length + 1 + desc.length : m.length;\n            ink(T.accent[0], T.accent[1], T.accent[2], 40);\n            box(x0 - 1, sy - 1, fullLen * charW + 2, charH + 2, true);\n          }\n        }\n        completionH = Math.min(matches.length, 8) * (charH + 1) + 4;\n      }\n    }\n  }\n\n  // History below input (also syntax highlighted)\n  let hy = y0 + lineH + 4 + completionH;\n  for (let i = 0; i < history.length && hy < H - 20; i++) {\n    // Dim the history entries\n    const entry = history[i];\n    const lower = entry.toLowerCase();\n    // Navigation commands in dim purple, KidLisp source highlighted but dimmed\n    if (COMMANDS.includes(lower) || BUILTIN_COMMANDS.includes(lower)) {\n      ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);\n      write(entry, { x: x0, y: hy, size: 1, font });\n    } else {\n      // KidLisp history — dim highlight\n      drawHighlighted(entry, x0, hy, charW,\n        (r, g, b) => ink(Math.floor(r * 0.4), Math.floor(g * 0.4), Math.floor(b * 0.4)),\n        write, font);\n    }\n    hy += lineH;\n  }\n\n  // Message (bottom)\n  if (message.length > 0) {\n    ink(T.fgDim, T.fgDim - 10, T.fgDim + 20);\n    write(message, { x: x0, y: H - 14, size: 1, font });\n  }\n}\n\nfunction sim() {}\n\nconst system = \"prompt\";\nexport { boot, paint, act, sim, system };\n";
+    const PIECE_NAME = "prompt";
+    const PIECE_SOURCE = "// prompt.mjs — Native command-line piece for fedac\n// Text input at top-left, pink block cursor, no prompt prefix.\n// Anything typed (except \"notepat\") is evaluated as KidLisp source.\n\nlet input = \"\";\nlet cursor = 0; // cursor position within input\nlet cursorVisible = true;\nlet cursorFrame = 0;\nlet history = [];\nlet historyIndex = -1;\nlet message = \"\";\nlet messageFrame = 0;\nlet shiftHeld = false;\nlet frame = 0;\nlet voiceOff = false; // true when user sets voice to \"off\"\nlet T = __theme.update(); // global theme (auto dark/light)\nlet tabMatches = []; // current tab completion candidates\nlet tabIndex = -1;   // cycling index for tab\nlet tabPrefix = \"\";   // what was typed before tab\n\n// Discovered piece names (populated in boot via system.listPieces)\nlet PIECE_NAMES = [];\n// Built-in non-piece commands\nconst BUILTIN_COMMANDS = [\n  \"version\", \"reboot\", \"off\", \"clear\", \"help\", \"ssh\", \"hi\", \"bye\", \"ls\", \"papers\", \"link\", \"login\", \"midi\",\n];\n// All completable commands (built in boot)\nlet COMMANDS = [];\n// $code aliases\nconst CODE_NAMES = [\"$roz\"];\n// Piece descriptions (for tab completion display)\nconst PIECE_DESC = {\n  \"notepat\":       \"synthesizer instrument\",\n  \"os\":            \"system update (OTA)\",\n  \"wifi\":          \"network picker\",\n  \"claude\":        \"AI assistant\",\n  \"terminal\":      \"PTY terminal\",\n  \"geo\":           \"geolocation\",\n  \"chat\":          \"real-time chat\",\n  \"laer-klokken\":  \"clock room chat\",\n  \"machine\":       \"hardware info\",\n  \"roz\":           \"generative art\",\n  \"list\":          \"all commands\",\n  \"ls\":            \"→ list\",\n  \"papers\":        \"papers site\",\n  \"clock\":         \"melody clock\",\n  \"brick-breaker\": \"paddle + ball game\",\n  \"gostop\":        \"go/stop rhythm\",\n  \"beat\":          \"percussion\",\n  \"shh\":           \"noise drone\",\n  \"dync\":          \"percussive pad\",\n  \"chart\":         \"diagram sketch\",\n  \"f3ral3xp\":      \"feral expression\",\n  \"3x3\":           \"ortholinear pad\",\n  \"print\":         \"printer / thermal\",\n  \"theme\":         \"prompt theme\",\n  \"voice\":         \"system voice\",\n  \"link\":          \"pair this device with an account\",\n  \"login\":         \"→ link\",\n  \"raylibtest\":    \"raylib software renderer test\",\n  \"midi\":          \"usb midi + udp relay\",\n  \"dark\":          \"dark mode\",\n  \"light\":         \"light mode\",\n  \"auto\":          \"auto dark/light\",\n  \"error\":         \"error screen\",\n  \"404\":           \"not found\",\n};\n\n// WiFi auto-connect state\nconst AC_SSID = \"aesthetic.computer\";\nconst AC_PASS = \"aesthetic.computer\";\nconst CREDS_PATH = \"/mnt/wifi_creds.json\";\nlet savedCreds = [];\nlet autoConnectFrame = 0;\nlet connectStartFrame = -9999;\n\nconst SHIFT_MAP = {\n  \"1\":\"!\", \"2\":\"@\", \"3\":\"#\", \"4\":\"$\", \"5\":\"%\",\n  \"6\":\"^\", \"7\":\"&\", \"8\":\"*\", \"9\":\"(\", \"0\":\")\",\n  \"-\":\"_\", \"=\":\"+\", \"[\":\"{\", \"]\":\"}\", \"\\\\\":\"|\",\n  \";\":\":\", \"'\":'\"', \",\":\"<\", \".\":\">\", \"/\":\"?\", \"`\":\"~\",\n};\n\n// KidLisp syntax highlighting colors\nconst KL_KEYWORDS = new Set([\n  \"ink\",\"line\",\"circle\",\"box\",\"wipe\",\"fade\",\"write\",\"grid\",\"plot\",\n  \"spin\",\"zoom\",\"scroll\",\"contrast\",\"noise\",\"blend\",\"mirror\",\n  \"w\",\"h\",\"w/2\",\"h/2\",\"t\",\"frame\",\"pi\",\"tau\",\n  \"sin\",\"cos\",\"tan\",\"abs\",\"sqrt\",\"floor\",\"ceil\",\"round\",\"min\",\"max\",\"pow\",\"mod\",\n  \"?\",\"...\",\n]);\nconst KL_COLORS = new Set([\n  \"red\",\"green\",\"blue\",\"cyan\",\"magenta\",\"yellow\",\"white\",\"black\",\n  \"orange\",\"pink\",\"purple\",\"gray\",\"grey\",\"rainbow\",\n]);\n\nfunction klTokenColor(token) {\n  if (KL_COLORS.has(token)) return [255, 140, 100]; // warm orange for color names\n  if (KL_KEYWORDS.has(token)) return [120, 180, 255]; // blue for keywords\n  if (/^-?\\d+(\\.\\d+)?$/.test(token)) return [180, 220, 140]; // green for numbers\n  if (/^[a-z]/.test(token) && token.includes(\"/\")) return [180, 220, 140]; // w/2 etc\n  return null; // default\n}\n\n// Built-in $code aliases\nconst CODES = {\n  \"$roz\": `fade:red-blue-black-blue-red\nink (? rainbow white 0) (1s... 24 64)\nline w/2 0 w/2 h\n(spin (2s... -1.125 1.125)) (zoom 1.1)\n(0.5s (contrast 1.05))\n(scroll (? -0.1 0 0.1) (? -0.1 0 0.1))\nink (? cyan yellow magenta) 8\ncircle w/2 h/2 (? 2 4 8)`,\n};\n\nfunction readUsbMidiStatus(system) {\n  try {\n    return system?.usbMidi?.status?.() || system?.usbMidi || null;\n  } catch (_) {\n    return system?.usbMidi || null;\n  }\n}\n\nfunction formatUsbMidiStatus(status) {\n  if (!status) return \"usb midi unavailable\";\n  if (status.active) {\n    let msg = \"usb midi active\";\n    if (status.alsaDevice) msg += \" \" + status.alsaDevice;\n    else if (status.udc) msg += \" \" + status.udc;\n    if (status.port) msg += \" via \" + status.port;\n    return msg;\n  }\n  if (status.enabled) {\n    return status.reason && status.reason !== \"ok\"\n      ? \"usb midi enabled (\" + status.reason + \")\"\n      : \"usb midi enabled\";\n  }\n  if (status.reason && status.reason !== \"disabled\" && status.reason !== \"uninitialized\") {\n    return \"usb midi off (\" + status.reason + \")\";\n  }\n  return \"usb midi off\";\n}\n\nfunction readConfig(system) {\n  try {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    return raw ? JSON.parse(raw) : {};\n  } catch (_) {\n    return {};\n  }\n}\n\nfunction udpMidiRelayEnabled(system) {\n  const cfg = readConfig(system);\n  return cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === \"true\";\n}\n\nfunction formatUdpMidiRelayStatus(system) {\n  const cfg = readConfig(system);\n  const enabled = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === \"true\";\n  if (!enabled) return \"udp midi relay off\";\n  if (cfg.handle) return \"udp midi relay on @\" + cfg.handle;\n  return \"udp midi relay on\";\n}\n\nfunction boot({ system }) {\n  message = \"\";\n  // Load saved theme from config (persists across reboots)\n  try {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    if (raw) {\n      const cfg = JSON.parse(raw);\n      if (cfg.theme) __theme.apply(cfg.theme);\n      if (cfg.darkMode === \"dark\") __theme._forceDark = true;\n      else if (cfg.darkMode === \"light\") __theme._forceDark = false;\n      if (cfg.darkMode) { __theme._lastCheck = 0; __theme.update(); }\n      voiceOff = cfg.voice === \"off\";\n    }\n  } catch (_) {}\n  // Discover all available pieces dynamically.\n  // listPieces returns .lisp files with the extension intact (so list.mjs can\n  // bucket them); for prompt dispatch we want bare command names.\n  PIECE_NAMES = (system?.listPieces?.() || [])\n    .map(n => (n.endsWith && n.endsWith(\".lisp\")) ? n.slice(0, -5) : n)\n    .filter(n => n !== \"prompt\" && n !== \"lisp\" && n !== \"cc\");\n  PIECE_NAMES.sort();\n  COMMANDS = [...PIECE_NAMES, ...BUILTIN_COMMANDS, ...CODE_NAMES];\n  // Restore input from KidLisp return (backspace/escape preserves source)\n  if (globalThis.__promptRestore) {\n    input = globalThis.__promptRestore;\n    cursor = input.length;\n    globalThis.__promptRestore = undefined;\n  }\n  // Load saved WiFi credentials\n  try {\n    const raw = system?.readFile?.(CREDS_PATH);\n    if (raw) savedCreds = JSON.parse(raw);\n  } catch (_) {}\n\n  // Outside-in remote prompt: ac-native stages text + commandId here when a\n  // viewer publishes cmd:\"prompt\" or cmd:\"prompt-bg\" through /machines.\n  //   prompt    — run execute() and let any jump it triggers stand\n  //   prompt-bg — run execute() with jump intercepted, then bounce back to\n  //               whatever piece the user had open (so notepat etc. survive)\n  const remote = system?.consumePromptCmd?.();\n  if (remote && remote.text) {\n    const before = message;\n    message = \"\";\n    let ok = 1;\n    let interceptedJump = null;\n\n    if (remote.bg && system) {\n      const origJump = system.jump;\n      system.jump = (target) => { interceptedJump = target; };\n      try {\n        execute(remote.text, system);\n      } catch (err) {\n        ok = 0;\n        message = \"error: \" + (err?.message || String(err));\n      }\n      system.jump = origJump;\n    } else {\n      try {\n        execute(remote.text, system);\n      } catch (err) {\n        ok = 0;\n        message = \"error: \" + (err?.message || String(err));\n      }\n    }\n\n    let reply = message;\n    if (!reply && interceptedJump) reply = \"(suppressed jump → \" + interceptedJump + \")\";\n    if (!reply) reply = \"(no output)\";\n    try { system?.machinesResponse?.(remote.id, reply, ok); } catch (_) {}\n\n    if (remote.bg) {\n      // Bounce back to the user's prior piece without disrupting it.\n      const returnTo = remote.returnTo || \"prompt\";\n      if (returnTo && returnTo !== \"prompt\") {\n        try { system?.jump?.(returnTo); } catch (_) {}\n      }\n      // Don't leak our captured message onto the prompt screen — though we\n      // probably won't render it anyway since we're jumping away.\n      message = before;\n    } else if (!message) {\n      // Restore prior message so the local screen doesn't get hijacked when\n      // execute() didn't produce visible feedback.\n      message = before;\n    }\n  }\n}\n\nfunction act({ event: e, system, sound }) {\n  if (e.is(\"keyboard:down:shift\")) { shiftHeld = true; return; }\n  if (e.is(\"keyboard:up:shift\")) { shiftHeld = false; return; }\n\n  if (e.is(\"keyboard:down\")) {\n    const key = e.key;\n    cursorFrame = 0;\n    cursorVisible = true;\n\n    // Keystroke voicing (JS fallback — C input loop also fires for zero-latency)\n    if (!voiceOff) {\n      if (key.length === 1) {\n        sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);\n      } else if (key === \"space\") {\n        sound?.speakCached?.(\"space\");\n      } else if (key === \"backspace\") {\n        sound?.speakCached?.(\"back\");\n      } else if (key === \"enter\" || key === \"return\") {\n        sound?.speakCached?.(\"enter\");\n      } else if (key === \"escape\") {\n        sound?.speakCached?.(\"clear\");\n      } else if (key === \"tab\") {\n        sound?.speakCached?.(\"tab\");\n      }\n    }\n\n    if (key === \"tab\") {\n      // Tab completion\n      const prefix = input.slice(0, cursor).toLowerCase();\n      if (prefix.length > 0) {\n        if (tabPrefix !== prefix) {\n          // New prefix — build match list\n          tabPrefix = prefix;\n          tabMatches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);\n          tabIndex = -1;\n        }\n        if (tabMatches.length > 0) {\n          tabIndex = (tabIndex + 1) % tabMatches.length;\n          const match = tabMatches[tabIndex];\n          input = match + input.slice(cursor);\n          cursor = match.length;\n        }\n      }\n      return;\n    }\n    // Any non-tab key resets tab state\n    tabPrefix = \"\";\n    tabMatches = [];\n    tabIndex = -1;\n\n    if (key === \"enter\" || key === \"return\") {\n      const cmd = input.trim();\n      if (cmd.length > 0) {\n        history.unshift(cmd);\n        historyIndex = -1;\n        execute(cmd, system);\n        input = \"\";\n        cursor = 0;\n      }\n    } else if (key === \"backspace\") {\n      if (cursor > 0) {\n        input = input.slice(0, cursor - 1) + input.slice(cursor);\n        cursor--;\n      }\n    } else if (key === \"delete\") {\n      if (cursor < input.length) {\n        input = input.slice(0, cursor) + input.slice(cursor + 1);\n      }\n    } else if (key === \"escape\") {\n      input = \"\";\n      cursor = 0;\n    } else if (key === \"arrowleft\") {\n      if (cursor > 0) cursor--;\n    } else if (key === \"arrowright\") {\n      if (cursor < input.length) cursor++;\n    } else if (key === \"home\") {\n      cursor = 0;\n    } else if (key === \"end\") {\n      cursor = input.length;\n    } else if (key === \"arrowup\") {\n      if (history.length > 0 && historyIndex < history.length - 1) {\n        historyIndex++;\n        input = history[historyIndex];\n        cursor = input.length;\n      }\n    } else if (key === \"arrowdown\") {\n      if (historyIndex > 0) {\n        historyIndex--;\n        input = history[historyIndex];\n        cursor = input.length;\n      } else if (historyIndex === 0) {\n        historyIndex = -1;\n        input = \"\";\n        cursor = 0;\n      }\n    } else if (key === \"space\") {\n      input = input.slice(0, cursor) + \" \" + input.slice(cursor);\n      cursor++;\n    } else if (key.length === 1) {\n      const ch = shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key;\n      input = input.slice(0, cursor) + ch + input.slice(cursor);\n      cursor++;\n    }\n  }\n}\n\nfunction execute(cmd, system) {\n  const lower = cmd.toLowerCase();\n  // Handle colon params: \"clock:cdefg\" → piece=\"clock\", rest passed via jump\n  const colonIdx = lower.indexOf(\":\");\n  const baseName = colonIdx >= 0 ? lower.slice(0, colonIdx) : lower;\n  // Also handle space params: \"clock cdefg\" → piece=\"clock\"\n  const spaceIdx = lower.indexOf(\" \");\n  const baseWord = spaceIdx >= 0 ? lower.slice(0, spaceIdx) : lower;\n\n  // Built-in commands (non-piece)\n  if (lower === \"version\") {\n    message = system?.version || \"unknown\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"reboot\") {\n    system?.reboot?.();\n    return;\n  }\n  if (lower === \"off\" || lower === \"shutdown\" || lower === \"poweroff\") {\n    message = \"shutting down...\";\n    messageFrame = 0;\n    system?.poweroff?.();\n    return;\n  }\n  if (baseWord === \"link\" || baseWord === \"login\") {\n    const code = cmd.slice(spaceIdx > 0 ? spaceIdx + 1 : cmd.length).trim();\n    message = \"~> link\";\n    messageFrame = 0;\n    system?.jump?.(code ? \"link:\" + code : \"link\");\n    return;\n  }\n  if (lower === \"clear\") {\n    history = [];\n    message = \"\";\n    return;\n  }\n  if (lower === \"help\") {\n    message = \"type a piece name or kidlisp — tab to complete\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"ssh\") {\n    if (system?.sshStarted) {\n      message = \"ssh running on port 22\";\n    } else {\n      system?.startSSH?.();\n      message = \"starting ssh...\";\n    }\n    messageFrame = 0;\n    return;\n  }\n  if (baseWord === \"midi\") {\n    const arg = spaceIdx >= 0 ? lower.slice(spaceIdx + 1).trim() : \"status\";\n    if (arg === \"relay\" || arg.startsWith(\"relay \")) {\n      const relayArg = arg === \"relay\" ? \"status\" : arg.slice(\"relay \".length).trim();\n      if (!relayArg || relayArg === \"status\") {\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      if (relayArg === \"on\" || relayArg === \"enable\") {\n        system?.saveConfig?.(\"udpMidiBroadcast\", \"true\");\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      if (relayArg === \"off\" || relayArg === \"disable\") {\n        system?.saveConfig?.(\"udpMidiBroadcast\", \"false\");\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      message = \"usage: midi relay [status|on|off]\";\n      messageFrame = 0;\n      return;\n    }\n    if (!arg || arg === \"status\") {\n      message = formatUsbMidiStatus(readUsbMidiStatus(system)) + \" | \" + formatUdpMidiRelayStatus(system);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"on\" || arg === \"enable\") {\n      system?.saveConfig?.(\"usbMidi\", \"true\");\n      const status = system?.usbMidi?.enable?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"off\" || arg === \"disable\") {\n      system?.saveConfig?.(\"usbMidi\", \"false\");\n      const status = system?.usbMidi?.disable?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"refresh\" || arg === \"retry\") {\n      const status = system?.usbMidi?.refresh?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    message = \"usage: midi [status|on|off|refresh|relay]\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"hi\") {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    if (raw) {\n      try {\n        const cfg = JSON.parse(raw);\n        if (cfg.handle) {\n          message = \"logged in as @\" + cfg.handle;\n        } else if (cfg.email) {\n          message = \"logged in as \" + cfg.email;\n        } else {\n          message = \"config exists but no user\";\n        }\n      } catch (_) { message = \"config parse error\"; }\n    } else {\n      message = \"not logged in — flash from an authenticated CLI\";\n    }\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"bye\") {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    let cfg = {};\n    if (raw) try { cfg = JSON.parse(raw); } catch (_) {}\n    const had = cfg.handle || cfg.email;\n    delete cfg.handle;\n    delete cfg.email;\n    delete cfg.sub;\n    system?.writeFile?.(\"/mnt/config.json\", JSON.stringify(cfg, null, 2));\n    message = had ? \"logged out (was @\" + had + \")\" : \"already logged out\";\n    messageFrame = 0;\n    return;\n  }\n\n  // Set default boot piece\n  if (baseWord === \"boot\") {\n    if (spaceIdx > 0) {\n      const pieceName = cmd.slice(spaceIdx + 1).trim();\n      if (pieceName) {\n        system?.saveConfig?.(\"piece\", pieceName);\n        message = \"boot → \" + pieceName;\n      } else {\n        message = \"usage: boot <piece-name>\";\n      }\n    } else {\n      // Show current boot piece\n      const raw = system?.readFile?.(\"/mnt/config.json\");\n      let cur = \"notepat\";\n      if (raw) try { cur = JSON.parse(raw).piece || cur; } catch (_) {}\n      message = \"boot piece: \" + cur;\n    }\n    messageFrame = 0;\n    return;\n  }\n\n  // Dark/light mode override\n  if (lower === \"dark\") {\n    __theme._forceDark = true;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"dark\");\n    message = \"dark mode\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"light\") {\n    __theme._forceDark = false;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"light\");\n    message = \"light mode\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"auto\") {\n    __theme._forceDark = undefined;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"auto\");\n    message = \"auto dark/light (LA time)\";\n    messageFrame = 0;\n    return;\n  }\n\n  // Check for built-in $code aliases\n  if (CODES[lower]) {\n    message = \"~> \" + lower;\n    messageFrame = 0;\n    globalThis.__kidlispSource = CODES[lower];\n    globalThis.__kidlispLabel = lower;\n    system?.jump?.(\"lisp\");\n    return;\n  }\n\n  // \"claude TOKEN\" — associate Claude Code OAuth token with your handle\n  if (baseWord === \"claude\" && spaceIdx > 0) {\n    const token = cmd.slice(spaceIdx + 1).trim();\n    if (token.startsWith(\"sk-ant-\")) {\n      message = \"saving token...\";\n      messageFrame = 0;\n      // Read handle from config\n      let handle = \"\";\n      let acToken = \"\";\n      try {\n        const raw = system?.readFile?.(\"/mnt/config.json\");\n        if (raw) {\n          const cfg = JSON.parse(raw);\n          handle = cfg.handle || \"\";\n          acToken = cfg.token || \"\";\n        }\n      } catch (_) {}\n      if (!handle) {\n        message = \"not logged in — flash from authenticated CLI first\";\n        messageFrame = 0;\n        return;\n      }\n      // POST to API\n      const url = \"https://aesthetic.computer/.netlify/functions/claude-token\";\n      const body = JSON.stringify({ token });\n      const headers = JSON.stringify({ \"Content-Type\": \"application/json\", \"Authorization\": \"Bearer \" + acToken });\n      system?.fetchPost?.(url, body, headers);\n      // Also save locally for immediate use\n      system?.writeFile?.(\"/claude-token\", token);\n      message = \"token saved for @\" + handle;\n      messageFrame = 0;\n      return;\n    }\n  }\n\n  // \"git TOKEN\" — associate GitHub PAT with your handle\n  if (baseWord === \"git\" && spaceIdx > 0) {\n    const pat = cmd.slice(spaceIdx + 1).trim();\n    if (pat.startsWith(\"ghp_\")) {\n      message = \"saving github token...\";\n      messageFrame = 0;\n      let handle = \"\";\n      let acToken = \"\";\n      try {\n        const raw = system?.readFile?.(\"/mnt/config.json\");\n        if (raw) {\n          const cfg = JSON.parse(raw);\n          handle = cfg.handle || \"\";\n          acToken = cfg.token || \"\";\n        }\n      } catch (_) {}\n      if (!handle) {\n        message = \"not logged in — flash from authenticated CLI first\";\n        messageFrame = 0;\n        return;\n      }\n      const url = \"https://aesthetic.computer/.netlify/functions/claude-token\";\n      const body = JSON.stringify({ githubPat: pat });\n      const headers = JSON.stringify({ \"Content-Type\": \"application/json\", \"Authorization\": \"Bearer \" + acToken });\n      system?.fetchPost?.(url, body, headers);\n      system?.writeFile?.(\"/github-pat\", pat);\n      message = \"github token saved for @\" + handle;\n      messageFrame = 0;\n      return;\n    }\n  }\n\n  // \"papers\" opens papers.aesthetic.computer\n  if (lower === \"papers\") {\n    message = \"~> papers.aesthetic.computer\";\n    messageFrame = 0;\n    // Native can't open a browser — show the URL as a message\n    return;\n  }\n\n  // \"ls\" is an alias for \"list\"\n  if (baseName === \"ls\" || baseWord === \"ls\") {\n    message = \"~> list\";\n    messageFrame = 0;\n    system?.jump?.(\"list\");\n    return;\n  }\n\n  // \"code\" is an alias for \"claude\" piece\n  if (baseName === \"code\" || baseWord === \"code\") {\n    message = \"~> code\";\n    messageFrame = 0;\n    system?.jump?.(\"claude\");\n    return;\n  }\n\n  // Dynamic piece jump — check if the command matches any discovered piece\n  if (PIECE_NAMES.includes(baseName) || PIECE_NAMES.includes(baseWord)) {\n    const pieceName = PIECE_NAMES.includes(baseName) ? baseName : baseWord;\n    message = \"~> \" + pieceName;\n    messageFrame = 0;\n    // Native ac-native jump() only parses colon-separated params (see\n    // jump_target/jump_params split in ac-native.c). Convert any space-\n    // separated form \"clock ceg dfa\" into \"clock:ceg:dfa\" so the piece\n    // receives params=[\"ceg\",\"dfa\"] instead of loading \"/pieces/clock ceg dfa.mjs\".\n    // Commands that already use colons (e.g. \"mo:1:c:e:g\") pass through unchanged.\n    let jumpArg = cmd;\n    if (cmd.indexOf(\":\") < 0 && cmd.indexOf(\" \") >= 0) {\n      jumpArg = cmd.replace(/\\s+/g, \":\");\n    }\n    system?.jump?.(jumpArg);\n    return;\n  }\n\n  // Everything else → KidLisp evaluator\n  message = \"~> lisp\";\n  messageFrame = 0;\n  globalThis.__kidlispSource = cmd;\n  globalThis.__kidlispLabel = cmd;\n  system?.jump?.(\"lisp\");\n}\n\n// Draw syntax-highlighted KidLisp text\nfunction drawHighlighted(text, x0, y0, charW, ink, write, font) {\n  // Tokenize by spaces and parens, preserving positions\n  let cx = x0;\n  let i = 0;\n  while (i < text.length) {\n    // Skip whitespace\n    if (text[i] === \" \") {\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Parens get special color\n    if (text[i] === \"(\" || text[i] === \")\") {\n      ink(180, 120, 200); // purple parens\n      write(text[i], { x: cx, y: y0, size: 1, font });\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Colon (fade separator)\n    if (text[i] === \":\") {\n      ink(140, 140, 160);\n      write(\":\", { x: cx, y: y0, size: 1, font });\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Collect token\n    let token = \"\";\n    const start = i;\n    while (i < text.length && text[i] !== \" \" && text[i] !== \"(\" && text[i] !== \")\") {\n      token += text[i];\n      i++;\n    }\n    const color = klTokenColor(token.toLowerCase());\n    if (color) {\n      ink(color[0], color[1], color[2]);\n    } else {\n      ink(T.fg, T.fg, T.fg + 10); // default text\n    }\n    write(token, { x: cx, y: y0, size: 1, font });\n    cx += token.length * charW;\n  }\n}\n\nfunction paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {\n  frame++;\n  const T = __theme.update();\n  wipe(T.bg[0], T.bg[1], T.bg[2]);\n\n  const W = screen.width;\n  const H = screen.height;\n\n  // WiFi auto-connect (runs every frame, same logic as notepat)\n  if (wifi && !wifi.connected) {\n    autoConnectFrame++;\n    const knownCreds = [\n      { ssid: AC_SSID, pass: AC_PASS },\n      ...savedCreds.filter(c => c.ssid !== AC_SSID),\n    ];\n    const knownSSIDs = new Set(knownCreds.map(c => c.ssid));\n    const isConnecting = wifi.state === 3 || wifi.state === 4;\n    const isIdle = !isConnecting;\n\n    // Timeout connecting after 3s\n    if (isConnecting && frame - connectStartFrame > 180) {\n      wifi.disconnect?.();\n      autoConnectFrame = -30;\n    }\n\n    if (isIdle) {\n      if (autoConnectFrame <= 1 || autoConnectFrame % 120 === 0) wifi.scan?.();\n      if (autoConnectFrame % 120 === 60) {\n        const nets = wifi.networks || [];\n        const matches = nets\n          .filter(n => n.ssid && knownSSIDs.has(n.ssid))\n          .sort((a, b) => b.signal - a.signal);\n        if (matches.length > 0) {\n          const best = matches[0];\n          const cred = knownCreds.find(c => c.ssid === best.ssid);\n          wifi.connect(cred.ssid, cred.pass);\n          connectStartFrame = frame;\n        }\n      }\n    }\n  }\n\n  const charW = 6; // 6x10 font\n  const charH = 10;\n  const lineH = 12;\n  const x0 = 4;\n  const y0 = 4;\n  const font = \"6x10\";\n\n  // Cursor blink\n  cursorFrame++;\n  if (cursorFrame % 30 === 0) cursorVisible = !cursorVisible;\n\n  // Input text with syntax highlighting\n  drawHighlighted(input, x0, y0, charW, ink, write, font);\n\n  // Pure block cursor\n  if (cursorVisible) {\n    const cx = x0 + cursor * charW;\n    ink(T.cursor[0], T.cursor[1], T.cursor[2]);\n    box(cx, y0, charW, charH, true);\n    // Draw character under cursor if not at end\n    if (cursor < input.length) {\n      ink(T.dark ? 255 : 255, T.dark ? 255 : 255, T.dark ? 255 : 255);\n      write(input[cursor], { x: cx, y: y0, size: 1, font });\n    }\n  }\n\n  // Ghosted tab completion suggestions below input (with descriptions)\n  let completionH = 0;\n  {\n    const prefix = input.slice(0, cursor).toLowerCase();\n    if (prefix.length > 0) {\n      const matches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);\n      if (matches.length > 0) {\n        const sugY = y0 + lineH + 1;\n        for (let mi = 0; mi < Math.min(matches.length, 8); mi++) {\n          const m = matches[mi];\n          const sy = sugY + mi * (charH + 1);\n          // Ghosted: dim text, highlight the matching prefix portion\n          ink(T.fgDim, T.fgDim - 20, T.fgDim + 20);\n          write(m.slice(0, prefix.length), { x: x0, y: sy, size: 1, font });\n          ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);\n          write(m.slice(prefix.length), { x: x0 + prefix.length * charW, y: sy, size: 1, font });\n          // Show description after the name\n          const desc = PIECE_DESC[m];\n          if (desc) {\n            ink(T.fgMute - 20, T.fgMute - 20, T.fgMute - 10);\n            write(\" \" + desc, { x: x0 + m.length * charW, y: sy, size: 1, font });\n          }\n          // Highlight current tab selection\n          if (tabMatches.length > 0 && tabIndex >= 0 && matches[mi] === tabMatches[tabIndex]) {\n            const fullLen = desc ? m.length + 1 + desc.length : m.length;\n            ink(T.accent[0], T.accent[1], T.accent[2], 40);\n            box(x0 - 1, sy - 1, fullLen * charW + 2, charH + 2, true);\n          }\n        }\n        completionH = Math.min(matches.length, 8) * (charH + 1) + 4;\n      }\n    }\n  }\n\n  // History below input (also syntax highlighted)\n  let hy = y0 + lineH + 4 + completionH;\n  for (let i = 0; i < history.length && hy < H - 20; i++) {\n    // Dim the history entries\n    const entry = history[i];\n    const lower = entry.toLowerCase();\n    // Navigation commands in dim purple, KidLisp source highlighted but dimmed\n    if (COMMANDS.includes(lower) || BUILTIN_COMMANDS.includes(lower)) {\n      ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);\n      write(entry, { x: x0, y: hy, size: 1, font });\n    } else {\n      // KidLisp history — dim highlight\n      drawHighlighted(entry, x0, hy, charW,\n        (r, g, b) => ink(Math.floor(r * 0.4), Math.floor(g * 0.4), Math.floor(b * 0.4)),\n        write, font);\n    }\n    hy += lineH;\n  }\n\n  // Message (bottom)\n  if (message.length > 0) {\n    ink(T.fgDim, T.fgDim - 10, T.fgDim + 20);\n    write(message, { x: x0, y: H - 14, size: 1, font });\n  }\n}\n\nfunction sim() {}\n\nconst system = \"prompt\";\nexport { boot, paint, act, sim, system };\n";
+    const INLINE_MODULES = [];
+    const FONT_TABLES = {"matrix":{"kind":"matrix","ascent":8,"glyphs":[{"w":1,"h":1,"xoff":0,"yoff":0,"dwidth":2,"rows":[0]},{"w":1,"h":7,"xoff":0,"yoff":1,"dwidth":2,"rows":[128,128,128,128,0,128,128]},{"w":3,"h":2,"xoff":0,"yoff":6,"dwidth":4,"rows":[160,160]},{"w":5,"h":7,"xoff":0,"yoff":1,"dwidth":6,"rows":[80,80,248,80,248,80,80]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[64,224,128,224,32,224,64]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,32,64,128,160,160]},{"w":4,"h":7,"xoff":0,"yoff":1,"dwidth":5,"rows":[224,160,160,224,80,176,208]},{"w":1,"h":3,"xoff":0,"yoff":5,"dwidth":2,"rows":[128,128,128]},{"w":2,"h":7,"xoff":0,"yoff":1,"dwidth":3,"rows":[64,64,128,128,128,64,64]},{"w":2,"h":7,"xoff":0,"yoff":1,"dwidth":3,"rows":[128,128,64,64,64,128,128]},{"w":5,"h":4,"xoff":0,"yoff":2,"dwidth":6,"rows":[32,248,80,168]},{"w":3,"h":3,"xoff":0,"yoff":3,"dwidth":4,"rows":[64,224,64]},{"w":1,"h":2,"xoff":0,"yoff":1,"dwidth":2,"rows":[128,128]},{"w":3,"h":1,"xoff":0,"yoff":4,"dwidth":4,"rows":[224]},{"w":1,"h":1,"xoff":0,"yoff":1,"dwidth":2,"rows":[128]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[32,32,64,64,64,128,128]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,160,160,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[64,192,64,64,64,64,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,32,32,224,128,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,32,32,224,32,32,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,224,32,32,32]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,128,224,32,32,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,128,224,160,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,32,32,32,32,32,32]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,224,160,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,224,32,32,224]},{"w":1,"h":3,"xoff":0,"yoff":3,"dwidth":2,"rows":[128,0,128]},{"w":1,"h":5,"xoff":0,"yoff":1,"dwidth":2,"rows":[128,0,0,128,128]},{"w":3,"h":5,"xoff":0,"yoff":2,"dwidth":4,"rows":[32,64,128,64,32]},{"w":3,"h":3,"xoff":0,"yoff":3,"dwidth":4,"rows":[224,0,224]},{"w":3,"h":5,"xoff":0,"yoff":2,"dwidth":4,"rows":[128,64,32,64,128]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,32,96,64,0,64]},{"w":4,"h":7,"xoff":0,"yoff":1,"dwidth":5,"rows":[240,144,144,176,176,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,224,160,160,160]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,192,160,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,128,128,128,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[192,160,160,160,160,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,128,224,128,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,128,224,128,128,128]},{"w":4,"h":7,"xoff":0,"yoff":1,"dwidth":5,"rows":[224,128,128,176,144,144,240]},{"w":4,"h":7,"xoff":0,"yoff":1,"dwidth":5,"rows":[144,144,144,240,144,144,144]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,64,64,64,64,64,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[32,32,32,32,160,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,192,160,160,160]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[128,128,128,128,128,128,224]},{"w":5,"h":7,"xoff":0,"yoff":1,"dwidth":6,"rows":[136,216,168,168,136,136,136]},{"w":4,"h":7,"xoff":0,"yoff":1,"dwidth":5,"rows":[144,144,208,176,144,144,144]},{"w":4,"h":7,"xoff":0,"yoff":1,"dwidth":5,"rows":[240,144,144,144,144,144,240]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,224,128,128,128]},{"w":4,"h":7,"xoff":0,"yoff":1,"dwidth":5,"rows":[240,144,144,144,176,160,208]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,192,160,160,160]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,128,224,32,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,64,64,64,64,64,64]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,160,160,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,160,160,224,64]},{"w":5,"h":7,"xoff":0,"yoff":1,"dwidth":6,"rows":[168,168,168,168,168,248,80]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,64,160,160,160]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,224,64,64,64]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,32,32,64,128,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,128,128,128,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[128,128,64,64,64,32,32]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,32,32,32,32,32,224]},{"w":3,"h":3,"xoff":0,"yoff":5,"dwidth":4,"rows":[64,224,160]},{"w":3,"h":1,"xoff":0,"yoff":1,"dwidth":4,"rows":[224]},{"w":2,"h":2,"xoff":0,"yoff":6,"dwidth":3,"rows":[128,64]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,32,224,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[128,128,224,160,160,160,224]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,128,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[32,32,224,160,160,160,224]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,224,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[96,64,64,224,64,64,64]},{"w":3,"h":6,"xoff":0,"yoff":0,"dwidth":4,"rows":[224,160,160,224,32,96]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[128,128,224,160,160,160,160]},{"w":3,"h":6,"xoff":0,"yoff":1,"dwidth":4,"rows":[64,0,192,64,64,224]},{"w":3,"h":7,"xoff":0,"yoff":0,"dwidth":4,"rows":[32,0,32,32,32,160,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[128,128,160,160,192,160,160]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[192,64,64,64,64,64,224]},{"w":5,"h":5,"xoff":0,"yoff":1,"dwidth":6,"rows":[248,168,168,168,168]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,160,160]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,160,160,160,224]},{"w":3,"h":6,"xoff":0,"yoff":0,"dwidth":4,"rows":[224,160,160,224,128,128]},{"w":3,"h":6,"xoff":0,"yoff":0,"dwidth":4,"rows":[224,160,160,224,32,32]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,128,128,128]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,128,224,32,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[64,64,224,64,64,64,96]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,160,224]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,160,224,64]},{"w":5,"h":5,"xoff":0,"yoff":1,"dwidth":6,"rows":[168,168,168,248,80]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[160,160,64,160,160]},{"w":3,"h":6,"xoff":0,"yoff":0,"dwidth":4,"rows":[160,160,160,224,32,96]},{"w":3,"h":5,"xoff":0,"yoff":1,"dwidth":4,"rows":[224,32,64,128,224]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[96,64,64,192,64,64,96]},{"w":1,"h":7,"xoff":0,"yoff":1,"dwidth":2,"rows":[128,128,128,128,128,128,128]},{"w":3,"h":7,"xoff":0,"yoff":1,"dwidth":4,"rows":[192,64,64,96,64,64,192]},{"w":3,"h":2,"xoff":0,"yoff":3,"dwidth":4,"rows":[96,192]}]},"6x10":{"kind":"fixed","ascent":0,"glyphs":[{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,0,0,0,0,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,32,32,32,32,0,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,80,80,80,0,0,0,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,80,80,248,80,248,80,80,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,112,160,112,40,112,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,72,168,80,32,80,168,144,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,64,160,160,64,168,144,104,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,32,32,0,0,0,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,16,32,64,64,64,32,16,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,64,32,16,16,16,32,64,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,136,80,248,80,136,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,32,32,248,32,32,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,0,0,0,48,32,64,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,0,248,0,0,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,0,0,0,32,112,32,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,8,8,16,32,64,128,128,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,80,136,136,136,80,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,96,160,32,32,32,248,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,8,48,64,128,248,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,248,8,16,48,8,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,16,48,80,144,248,16,16,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,248,128,176,200,8,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,48,64,128,176,200,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,248,8,16,16,32,64,64,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,136,112,136,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,152,104,8,16,96,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,32,112,32,0,32,112,32,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,32,112,32,0,48,32,64,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,8,16,32,64,32,16,8,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,248,0,248,0,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,64,32,16,8,16,32,64,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,16,32,32,0,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,152,168,176,128,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,80,136,136,248,136,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,240,72,72,112,72,72,240,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,128,128,128,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,240,72,72,72,72,72,240,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,248,128,128,240,128,128,248,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,248,128,128,240,128,128,128,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,128,128,152,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,136,248,136,136,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,32,32,32,32,32,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,56,16,16,16,16,144,96,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,144,160,192,160,144,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,128,128,128,128,128,128,248,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,216,168,136,136,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,200,168,152,136,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,136,136,136,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,240,136,136,240,128,128,128,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,136,136,136,168,112,8,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,240,136,136,240,160,144,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,136,128,112,8,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,248,32,32,32,32,32,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,136,136,136,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,136,80,80,80,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,136,168,168,216,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,80,32,80,136,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,136,136,80,32,32,32,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,248,8,16,32,64,128,248,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,64,64,64,64,64,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,128,128,64,32,16,8,8,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,112,16,16,16,16,16,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,80,136,0,0,0,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,0,0,0,0,0,248,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[32,16,0,0,0,0,0,0,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,112,8,120,136,120,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,128,128,176,200,136,200,176,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,112,136,128,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,8,8,104,152,136,152,104,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,112,136,248,128,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,48,72,64,240,64,64,64,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,120,136,136,120,8,136,112]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,128,128,176,200,136,136,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,0,96,32,32,32,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,8,0,24,8,8,8,72,72,48]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,128,128,136,144,224,144,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,96,32,32,32,32,32,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,208,168,168,168,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,176,200,136,136,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,112,136,136,136,112,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,176,200,136,200,176,128,128]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,104,152,136,152,104,8,8]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,176,200,128,128,128,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,112,128,112,8,240,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,64,64,240,64,64,72,48,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,136,136,136,152,104,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,136,136,80,80,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,136,136,168,168,80,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,136,80,32,80,136,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,136,136,152,104,8,136,112]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,0,0,248,16,32,64,248,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,24,32,16,96,16,32,24,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,32,32,32,32,32,32,32,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,96,16,32,24,32,16,96,0,0]},{"w":6,"h":10,"xoff":0,"yoff":0,"dwidth":6,"rows":[0,72,168,144,0,0,0,0,0,0]}]}};
+
     const screen = document.getElementById("screen");
     const ctx = screen.getContext("2d", { alpha: false });
     ctx.imageSmoothingEnabled = false;
-
-    const statusLeft = document.getElementById("status-left");
-    const statusRight = document.getElementById("status-right");
 
     function bytesFromBase64(base64) {
       const text = atob(base64);
@@ -125,6 +55,15 @@
     const pixelView = new Uint8ClampedArray(wasm.memory.buffer, bufferPtr, WIDTH * HEIGHT * 4);
     const imageData = new ImageData(pixelView, WIDTH, HEIGHT);
 
+    // Build blob URLs for inline modules and substitute their placeholders
+    // (created at build time) with the real URLs so imports resolve.
+    let rewrittenSource = PIECE_SOURCE;
+    for (const mod of INLINE_MODULES) {
+      const blob = new Blob([mod.source], { type: "text/javascript" });
+      const url = URL.createObjectURL(blob);
+      rewrittenSource = rewrittenSource.split(mod.placeholder).join(url);
+    }
+
     globalThis.__theme = (function() {
       function getLAOffset() {
         const d = new Date();
@@ -145,31 +84,9 @@
         return (new Date().getUTCHours() - getLAOffset() + 24) % 24;
       }
       const t = { dark: true, _lastCheck: 0, _overrideId: null, _override: null };
-      t.presets = {
-        serious: {
-          label: "serious", desc: "black & white",
-          dark: { bg:[0,0,0], bgAlt:[10,10,10], bgDim:[0,0,0], fg:255, fgDim:160, fgMute:90, bar:[15,15,15], border:[60,60,60], accent:[128,128,128], ok:[200,200,200], err:[255,100,100], warn:[200,200,100], link:[180,180,255], pad:[10,10,10], padSharp:[5,5,5], padLine:[40,40,40], cursor:[255,255,255] },
-          light: { bg:[255,255,255], bgAlt:[245,245,245], bgDim:[235,235,235], fg:0, fgDim:80, fgMute:160, bar:[240,240,240], border:[180,180,180], accent:[100,100,100], ok:[40,40,40], err:[180,40,40], warn:[120,100,20], link:[40,40,180], pad:[245,245,245], padSharp:[230,230,230], padLine:[200,200,200], cursor:[0,0,0] }
-        },
-        neo: {
-          label: "neo", desc: "lime & black",
-          dark: { bg:[0,0,0], bgAlt:[5,10,5], bgDim:[0,0,0], fg:200, fgDim:120, fgMute:60, bar:[5,15,5], border:[0,80,0], accent:[0,200,80], ok:[0,255,0], err:[255,50,50], warn:[200,255,0], link:[0,180,255], pad:[5,10,5], padSharp:[0,5,0], padLine:[0,50,0], cursor:[0,255,80] },
-          light: { bg:[220,255,220], bgAlt:[230,255,230], bgDim:[200,240,200], fg:10, fgDim:60, fgMute:120, bar:[200,240,200], border:[100,180,100], accent:[0,140,60], ok:[0,120,40], err:[180,30,30], warn:[120,140,0], link:[0,80,180], pad:[210,245,210], padSharp:[190,230,190], padLine:[140,200,140], cursor:[0,120,40] }
-        },
-        ember: {
-          label: "ember", desc: "warm amber",
-          dark: { bg:[20,12,8], bgAlt:[28,18,12], bgDim:[14,8,5], fg:220, fgDim:150, fgMute:90, bar:[35,20,12], border:[60,35,20], accent:[255,140,40], ok:[120,220,80], err:[255,70,50], warn:[255,200,60], link:[255,180,100], pad:[28,18,12], padSharp:[18,10,6], padLine:[55,35,22], cursor:[255,120,30] },
-          light: { bg:[255,245,230], bgAlt:[255,250,240], bgDim:[245,235,218], fg:40, fgDim:90, fgMute:140, bar:[245,232,215], border:[210,190,160], accent:[200,100,20], ok:[40,140,50], err:[190,40,30], warn:[180,120,20], link:[180,90,20], pad:[250,240,225], padSharp:[238,225,208], padLine:[220,200,175], cursor:[200,90,15] }
-        }
-      };
+      t.presets = {};
       t.apply = function(id) {
-        if (!id || id === "default") {
-          t._overrideId = null;
-          t._override = null;
-        } else if (t.presets[id]) {
-          t._overrideId = id;
-          t._override = t.presets[id];
-        }
+        t._overrideId = id || null;
         t._lastCheck = 0;
         return t.update();
       };
@@ -197,12 +114,6 @@
         t.padSharp = t.dark ? [18, 18, 20] : [235, 232, 228];
         t.padLine = t.dark ? [50, 50, 55] : [210, 205, 200];
         t.cursor = t.dark ? [220, 80, 140] : [180, 50, 110];
-        if (t._override) {
-          const mode = t.dark ? t._override.dark : t._override.light;
-          if (mode) {
-            for (const key of Object.keys(mode)) t[key] = mode[key];
-          }
-        }
         return t;
       };
       t.update();
@@ -213,67 +124,63 @@
       const fallback = new Map();
       return {
         get(key) {
-          try {
-            return localStorage.getItem(key);
-          } catch (_) {
-            return fallback.has(key) ? fallback.get(key) : null;
-          }
+          try { return localStorage.getItem(key); }
+          catch (_) { return fallback.has(key) ? fallback.get(key) : null; }
         },
         set(key, value) {
-          try {
-            localStorage.setItem(key, value);
-          } catch (_) {
-            fallback.set(key, value);
-          }
+          try { localStorage.setItem(key, value); }
+          catch (_) { fallback.set(key, value); }
         }
       };
     }
 
     const storage = makeStorage();
-    const storageKey = "ac-native-wasm:files";
+    const storageKey = "ac-native-wasm:" + PIECE_NAME + ":files";
 
     function loadFiles() {
       const raw = storage.get(storageKey);
-      if (!raw) {
-        return {
-          "/mnt/config.json": JSON.stringify({ piece: "prompt", darkMode: "auto" }, null, 2),
-          "/mnt/wifi_creds.json": "[]"
-        };
-      }
-      try {
-        return JSON.parse(raw);
-      } catch (_) {
-        return {
-          "/mnt/config.json": JSON.stringify({ piece: "prompt", darkMode: "auto" }, null, 2),
-          "/mnt/wifi_creds.json": "[]"
-        };
-      }
+      const defaults = {
+        "/mnt/config.json": JSON.stringify({ piece: PIECE_NAME, darkMode: "auto" }, null, 2),
+        "/mnt/wifi_creds.json": "[]"
+      };
+      if (!raw) return defaults;
+      try { return JSON.parse(raw); } catch (_) { return defaults; }
     }
 
     const files = loadFiles();
-    function persistFiles() {
-      storage.set(storageKey, JSON.stringify(files));
+    function persistFiles() { storage.set(storageKey, JSON.stringify(files)); }
+
+    function readConfig() {
+      const raw = files["/mnt/config.json"];
+      if (!raw) return {};
+      try { return JSON.parse(raw); } catch (_) { return {}; }
     }
 
     const state = {
-      currentPieceName: "prompt",
+      currentPieceName: PIECE_NAME,
       currentPiece: null,
-      currentPieceSpec: "prompt",
+      currentPieceSpec: PIECE_NAME,
       currentParams: [],
       currentColon: [],
       paintCount: 0,
       jumpMessage: "",
       lastPost: "",
-      statusText: "booting native prompt",
+      statusText: "booting native " + PIECE_NAME,
       events: [],
-      focused: false
+      focused: false,
+      pointerDown: false,
+      pointerX: 0,
+      pointerY: 0
     };
 
     const wifi = {
       connected: false,
       state: 0,
       networks: [],
+      iface: "wlan0",
+      ip: null,
       _connectTimer: null,
+      status() { return wifi.connected ? "connected" : "offline"; },
       scan() {
         wifi.state = 3;
         setTimeout(() => {
@@ -290,12 +197,14 @@
         wifi._connectTimer = setTimeout(() => {
           wifi.connected = true;
           wifi.state = 0;
+          wifi.ip = "10.0.0.42";
           wifi.networks = [{ ssid, signal: 96, encrypted: !!pass }];
         }, 280);
       },
       disconnect() {
         clearTimeout(wifi._connectTimer);
         wifi.connected = false;
+        wifi.ip = null;
         wifi.state = 0;
       }
     };
@@ -309,6 +218,9 @@
       if (key === "Escape") return "escape";
       if (key === "Tab") return "tab";
       if (key === "Shift") return "shift";
+      if (key === "Meta") return "meta";
+      if (key === "Control") return "control";
+      if (key === "Alt") return "alt";
       if (key === "ArrowLeft") return "arrowleft";
       if (key === "ArrowRight") return "arrowright";
       if (key === "ArrowUp") return "arrowup";
@@ -318,13 +230,17 @@
       return typeof key === "string" ? key.toLowerCase() : "";
     }
 
-    function makeEvent(type, key) {
+    function makeKeyEvent(type, key) {
+      return { key, type, is(match) { return type === match; } };
+    }
+
+    function makePointerEvent(type, x, y, pointerId, pressure) {
       return {
-        key,
         type,
-        is(match) {
-          return type === match;
-        }
+        x, y,
+        pointer: { x, y, id: pointerId, pressure },
+        pressure,
+        is(match) { return type === match; }
       };
     }
 
@@ -336,104 +252,612 @@
     screen.addEventListener("click", () => screen.focus());
     screen.addEventListener("focus", () => { state.focused = true; });
     screen.addEventListener("blur", () => { state.focused = false; });
+
     window.addEventListener("keydown", (event) => {
       const key = normalizeKey(event);
       if (!key) return;
-      if (blockedKeys.has(key) || key.length === 1 || key === "shift") event.preventDefault();
-      state.events.push(makeEvent(key === "shift" ? "keyboard:down:shift" : "keyboard:down", key));
+      if (blockedKeys.has(key) || key.length === 1 || key === "shift" || key === "meta" || key === "control" || key === "alt") {
+        event.preventDefault();
+      }
+      const type = (key === "shift" || key === "meta" || key === "control" || key === "alt")
+        ? "keyboard:down:" + key
+        : "keyboard:down";
+      state.events.push(makeKeyEvent(type, key));
+      if (type !== "keyboard:down") {
+        // Pieces also commonly listen for plain keyboard:down on modifiers
+        state.events.push(makeKeyEvent("keyboard:down", key));
+      }
     });
     window.addEventListener("keyup", (event) => {
       const key = normalizeKey(event);
-      if (key === "shift") {
-        event.preventDefault();
-        state.events.push(makeEvent("keyboard:up:shift", key));
+      if (!key) return;
+      const type = (key === "shift" || key === "meta" || key === "control" || key === "alt")
+        ? "keyboard:up:" + key
+        : "keyboard:up";
+      if (type !== "keyboard:up") event.preventDefault();
+      state.events.push(makeKeyEvent(type, key));
+      if (type !== "keyboard:up") {
+        state.events.push(makeKeyEvent("keyboard:up", key));
       }
     });
 
-    const rasterApi = (() => {
-      let ink = [255, 255, 255, 255];
-      function setInk(r = 255, g = 255, b = 255, a = 255) {
-        ink = [r | 0, g | 0, b | 0, a == null ? 255 : a | 0];
-        wasm.set_ink(ink[0], ink[1], ink[2], ink[3]);
-      }
-      function clampRect(x, y, w, h) {
-        let rx = Math.trunc(x);
-        let ry = Math.trunc(y);
-        let rw = Math.trunc(w);
-        let rh = Math.trunc(h);
-        if (rw < 0) { rx += rw; rw = -rw; }
-        if (rh < 0) { ry += rh; rh = -rh; }
-        if (rx < 0) { rw += rx; rx = 0; }
-        if (ry < 0) { rh += ry; ry = 0; }
-        if (rx + rw > WIDTH) rw = WIDTH - rx;
-        if (ry + rh > HEIGHT) rh = HEIGHT - ry;
-        return rw > 0 && rh > 0 ? [rx, ry, rw, rh] : null;
-      }
-      return {
-        wipe(r, g, b, a = 255) {
-          setInk(r, g, b, a);
-          wasm.clear();
-        },
-        ink(r, g, b, a = 255) {
-          setInk(r, g, b, a);
-        },
-        box(x, y, w, h, filled = true) {
-          const rect = clampRect(x, y, w, h);
-          if (!rect) return;
-          if (filled) {
-            wasm.fill_rect(rect[0], rect[1], rect[2], rect[3]);
-            return;
-          }
-          wasm.fill_rect(rect[0], rect[1], rect[2], 1);
-          wasm.fill_rect(rect[0], rect[1] + rect[3] - 1, rect[2], 1);
-          wasm.fill_rect(rect[0], rect[1], 1, rect[3]);
-          wasm.fill_rect(rect[0] + rect[2] - 1, rect[1], 1, rect[3]);
-        }
-      };
-    })();
-
-    const textQueue = [];
-    function drawText(text, options = {}) {
-      textQueue.push({
-        text: String(text),
-        x: Math.trunc(options.x ?? 0),
-        y: Math.trunc(options.y ?? 0),
-        size: options.size ?? 1,
-        font: options.font ?? "6x10",
-        color: clone(currentInk)
-      });
+    function canvasCoords(event) {
+      const rect = screen.getBoundingClientRect();
+      const sx = WIDTH / rect.width;
+      const sy = HEIGHT / rect.height;
+      return [
+        Math.round((event.clientX - rect.left) * sx),
+        Math.round((event.clientY - rect.top) * sy)
+      ];
     }
 
+    screen.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      screen.setPointerCapture?.(event.pointerId);
+      const [x, y] = canvasCoords(event);
+      state.pointerDown = true;
+      state.pointerX = x; state.pointerY = y;
+      state.events.push(makePointerEvent("touch", x, y, event.pointerId, event.pressure ?? 1));
+    });
+    screen.addEventListener("pointermove", (event) => {
+      const [x, y] = canvasCoords(event);
+      state.pointerX = x; state.pointerY = y;
+      if (state.pointerDown) {
+        state.events.push(makePointerEvent("draw", x, y, event.pointerId, event.pressure ?? 1));
+      }
+    });
+    function pointerUp(event) {
+      const [x, y] = canvasCoords(event);
+      if (state.pointerDown) {
+        state.pointerDown = false;
+        state.events.push(makePointerEvent("lift", x, y, event.pointerId, 0));
+      }
+    }
+    screen.addEventListener("pointerup", pointerUp);
+    screen.addEventListener("pointercancel", pointerUp);
+
+    // ---------- raster + canvas-overlay drawing ----------
     let currentInk = [255, 255, 255, 255];
+    const lineQueue = [];
+
+    function setInk(r = 255, g = 255, b = 255, a = 255) {
+      currentInk = [r | 0, g | 0, b | 0, a == null ? 255 : a | 0];
+      wasm.set_ink(currentInk[0], currentInk[1], currentInk[2], currentInk[3]);
+    }
+    function clampRect(x, y, w, h) {
+      let rx = Math.trunc(x), ry = Math.trunc(y);
+      let rw = Math.trunc(w), rh = Math.trunc(h);
+      if (rw < 0) { rx += rw; rw = -rw; }
+      if (rh < 0) { ry += rh; rh = -rh; }
+      if (rx < 0) { rw += rx; rx = 0; }
+      if (ry < 0) { rh += ry; ry = 0; }
+      if (rx + rw > WIDTH) rw = WIDTH - rx;
+      if (ry + rh > HEIGHT) rh = HEIGHT - ry;
+      return rw > 0 && rh > 0 ? [rx, ry, rw, rh] : null;
+    }
+    function rasterWipe(r, g, b, a = 255) { setInk(r, g, b, a); wasm.clear(); }
+
+    // ---------- bitmap-font blitter ----------
+    // Mirrors ac-native's font.c: 6x10 is fixed-grid, matrix-chunky8 has
+    // per-glyph w/h/xoff/yoff/dwidth and uses ascent for vertical alignment.
+    // Lit pixels go straight to the WASM framebuffer via fill_rect.
+    function drawBitmapText(text, x, y, scale, fontKey) {
+      const font = FONT_TABLES[fontKey] || FONT_TABLES["6x10"];
+      if (!font) return;
+      const fixed = font.kind === "fixed";
+      const ascent = font.ascent | 0;
+      const startX = x;
+      let cx = x;
+      let cy = y;
+      for (let i = 0; i < text.length; i++) {
+        const code = text.charCodeAt(i);
+        if (code === 10) { // 
+
+          cx = startX;
+          cy += (fixed ? 10 : ascent) * scale;
+          continue;
+        }
+        let cp = (code >= 32 && code <= 126) ? code : 63; // '?'
+        const glyph = font.glyphs[cp - 32] || font.glyphs[63 - 32];
+        if (!glyph) continue;
+        const gw = glyph.w | 0, gh = glyph.h | 0;
+        const advance = (glyph.dwidth || gw + 1) * scale;
+        // Vertical placement: matrix glyphs use baseline math; 6x10 plots from top-left.
+        const gx = cx + (fixed ? 0 : (glyph.xoff | 0) * scale);
+        const gy = cy + (fixed ? 0 : (ascent - (glyph.yoff | 0) - gh) * scale);
+        const rows = glyph.rows;
+        for (let row = 0; row < gh; row++) {
+          const bits = rows[row] | 0;
+          if (!bits) continue;
+          for (let col = 0; col < gw; col++) {
+            if (bits & (0x80 >> col)) {
+              const px = gx + col * scale;
+              const py = gy + row * scale;
+              if (px + scale <= 0 || py + scale <= 0 || px >= WIDTH || py >= HEIGHT) continue;
+              wasm.fill_rect(px, py, scale, scale);
+            }
+          }
+        }
+        cx += advance;
+      }
+    }
+    function rasterBox(x, y, w, h, filled = true) {
+      const rect = clampRect(x, y, w, h);
+      if (!rect) return;
+      if (filled) { wasm.fill_rect(rect[0], rect[1], rect[2], rect[3]); return; }
+      wasm.fill_rect(rect[0], rect[1], rect[2], 1);
+      wasm.fill_rect(rect[0], rect[1] + rect[3] - 1, rect[2], 1);
+      wasm.fill_rect(rect[0], rect[1], 1, rect[3]);
+      wasm.fill_rect(rect[0] + rect[2] - 1, rect[1], 1, rect[3]);
+    }
+
     const hostApi = {
       wipe(r, g, b, a = 255) {
-        currentInk = [r | 0, g | 0, b | 0, a | 0];
-        rasterApi.wipe(r, g, b, a);
+        if (typeof r === "object" && r !== null) {
+          // wipe([r,g,b]) form
+          const arr = r;
+          rasterWipe(arr[0]|0, arr[1]|0, arr[2]|0, (arr[3] ?? 255)|0);
+          return;
+        }
+        rasterWipe(r|0, g|0, b|0, (a ?? 255)|0);
       },
       ink(r, g, b, a = 255) {
-        currentInk = [r | 0, g | 0, b | 0, a | 0];
-        rasterApi.ink(r, g, b, a);
+        if (typeof r === "object" && r !== null) {
+          const arr = r;
+          setInk(arr[0]|0, arr[1]|0, arr[2]|0, (arr[3] ?? 255)|0);
+          return;
+        }
+        setInk(r|0, g|0, b|0, (a ?? 255)|0);
       },
-      box: rasterApi.box,
-      write: drawText,
+      box: (x, y, w, h, filled) => rasterBox(x, y, w, h, filled !== false),
+      line(x1, y1, x2, y2) {
+        lineQueue.push({
+          x1: Math.trunc(x1), y1: Math.trunc(y1),
+          x2: Math.trunc(x2), y2: Math.trunc(y2),
+          color: clone(currentInk)
+        });
+      },
+      write(text, options = {}) {
+        // Render directly into the WASM framebuffer so glyphs land on the
+        // same pixel layer as box/line — matches ac-native's font.c order.
+        const requested = String(options.font || "6x10").toLowerCase();
+        const fontKey = (requested === "matrix" || requested === "matrixchunky8")
+          ? "matrix"
+          : (requested === "font_1" ? "6x10" : (FONT_TABLES[requested] ? requested : "6x10"));
+        drawBitmapText(String(text),
+                       Math.trunc(options.x ?? 0),
+                       Math.trunc(options.y ?? 0),
+                       Math.max(1, options.size | 0 || 1),
+                       fontKey);
+      },
       screen: { width: WIDTH, height: HEIGHT },
       paintCount: 0,
       wifi,
-      sound: {
-        speakCached() {},
-        speak() {}
-      }
+      sound: makeSound(),
+      trackpad: { dx: 0, dy: 0 },
+      pressures: {}
     };
 
-    function readConfig() {
-      const raw = files["/mnt/config.json"];
-      if (!raw) return {};
-      try {
-        return JSON.parse(raw);
-      } catch (_) {
-        return {};
+    // ---------- Web Audio synth ----------
+    // Browsers require a user gesture to start audio. We create the
+    // AudioContext eagerly on the first pointerdown/keydown — INSIDE the
+    // gesture handler — and resume() it there too. We also retry resume()
+    // on every gesture since browsers can re-suspend if the page loses
+    // focus, etc.
+    let audioCtx = null;
+    let masterGain = null;
+    let noiseBuffer = null;
+    // Master-output ring buffer — captures the last RECENT_BUFFER_SECONDS of
+    // mixed audio so speaker.getRecentBuffer() and speaker.drawStrip() can
+    // read it. Filled by a ScriptProcessorNode hung off masterGain.
+    const RECENT_BUFFER_SECONDS = 12;
+    let recentBuf = null;
+    let recentHead = 0;
+    let recentFilled = 0;
+    function ensureAudio() {
+      if (audioCtx) return audioCtx;
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) { console.warn("[ac-native-wasm] no AudioContext available"); return null; }
+      audioCtx = new Ctor();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.6;
+      masterGain.connect(audioCtx.destination);
+      // 2-second white noise buffer reused for "noise" voices.
+      const length = audioCtx.sampleRate * 2;
+      noiseBuffer = audioCtx.createBuffer(1, length, audioCtx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+
+      // Master-output tap. ScriptProcessorNode is deprecated but the
+      // simplest way to feed a ring buffer without an AudioWorklet module
+      // file. Output is silenced so it doesn't double-add to the mix.
+      recentBuf = new Float32Array(audioCtx.sampleRate * RECENT_BUFFER_SECONDS);
+      recentHead = 0;
+      recentFilled = 0;
+      const PROC_FRAMES = 4096;
+      const tap = audioCtx.createScriptProcessor(PROC_FRAMES, 1, 1);
+      tap.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const buf = recentBuf;
+        let head = recentHead;
+        for (let i = 0; i < input.length; i++) {
+          buf[head] = input[i];
+          head = head + 1; if (head >= buf.length) head = 0;
+        }
+        recentHead = head;
+        if (recentFilled < buf.length) recentFilled = Math.min(buf.length, recentFilled + input.length);
+      };
+      const muteSink = audioCtx.createGain();
+      muteSink.gain.value = 0;
+      masterGain.connect(tap);
+      tap.connect(muteSink).connect(audioCtx.destination);
+      return audioCtx;
+    }
+    function unlockAudio() {
+      const ctx = ensureAudio();
+      if (ctx && ctx.state !== "running") {
+        ctx.resume().catch(() => {});
       }
     }
+    // Capture-phase listeners so we run before any pointerdown/keydown
+    // hits the canvas — the gesture window closes once any default action
+    // settles, so creating + resuming the context here is what matters.
+    window.addEventListener("pointerdown", unlockAudio, { capture: true });
+    window.addEventListener("keydown", unlockAudio, { capture: true });
+    window.addEventListener("touchstart", unlockAudio, { capture: true, passive: true });
+
+    const NATIVE_WAVES = new Set(["sine", "triangle", "sawtooth", "square"]);
+
+    function makeSound() {
+      function synth(opts = {}) {
+        const ctx = ensureAudio();
+        if (!ctx) return { kill: () => {}, update: () => {} };
+        const now = ctx.currentTime;
+        const type = opts.type || "sine";
+        const tone = Number(opts.tone) || 440;
+        const volRaw = opts.volume == null ? 0.5 : Number(opts.volume);
+        const volume = Math.max(0, Math.min(1, volRaw));
+        const attack = Math.max(0.001, Number(opts.attack) || 0.005);
+        const decay = Math.max(0.001, Number(opts.decay) || 0.1);
+        const durRaw = opts.duration;
+        const isInfinite = durRaw === Infinity || durRaw === "infinite";
+        const duration = isInfinite ? Infinity : Math.max(0.01, Number(durRaw) || 0.2);
+        const pan = Math.max(-1, Math.min(1, Number(opts.pan) || 0));
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(volume, now + attack);
+
+        let panNode = null;
+        if (typeof ctx.createStereoPanner === "function") {
+          panNode = ctx.createStereoPanner();
+          panNode.pan.setValueAtTime(pan, now);
+          gain.connect(panNode).connect(masterGain);
+        } else {
+          gain.connect(masterGain);
+        }
+
+        let source;
+        if (type === "noise") {
+          source = ctx.createBufferSource();
+          source.buffer = noiseBuffer;
+          source.loop = true;
+          // Tone shapes the noise with a bandpass for snappier drums.
+          if (typeof ctx.createBiquadFilter === "function") {
+            const bp = ctx.createBiquadFilter();
+            bp.type = "bandpass";
+            bp.frequency.setValueAtTime(tone, now);
+            bp.Q.setValueAtTime(1.5, now);
+            source.connect(bp).connect(gain);
+          } else {
+            source.connect(gain);
+          }
+        } else {
+          source = ctx.createOscillator();
+          source.type = NATIVE_WAVES.has(type) ? type : "sine";
+          source.frequency.setValueAtTime(tone, now);
+          source.connect(gain);
+        }
+
+        let stopAt = isInfinite ? Infinity : now + attack + duration;
+        if (!isInfinite) {
+          // Decay ramps from full volume back to 0 over the trailing window.
+          const decayStart = Math.max(now + attack, stopAt - decay);
+          gain.gain.setValueAtTime(volume, decayStart);
+          gain.gain.linearRampToValueAtTime(0, stopAt);
+        }
+        source.start(now);
+        if (!isInfinite) source.stop(stopAt + 0.01);
+
+        let killed = false;
+        const handle = {
+          kill(fade = 0.02) {
+            if (killed) return;
+            killed = true;
+            const t = audioCtx.currentTime;
+            const f = Math.max(0.005, Number(fade) || 0.02);
+            try {
+              gain.gain.cancelScheduledValues(t);
+              gain.gain.setValueAtTime(gain.gain.value, t);
+              gain.gain.linearRampToValueAtTime(0, t + f);
+              source.stop(t + f + 0.02);
+            } catch (_) {}
+          },
+          update(patch = {}) {
+            if (killed) return;
+            const t = audioCtx.currentTime;
+            try {
+              if (patch.tone != null && source.frequency) {
+                source.frequency.cancelScheduledValues(t);
+                source.frequency.linearRampToValueAtTime(Number(patch.tone) || 440, t + 0.02);
+              }
+              if (patch.volume != null) {
+                const v = Math.max(0, Math.min(1, Number(patch.volume)));
+                gain.gain.cancelScheduledValues(t);
+                gain.gain.linearRampToValueAtTime(v, t + 0.02);
+              }
+              if (patch.pan != null && panNode) {
+                panNode.pan.cancelScheduledValues(t);
+                panNode.pan.linearRampToValueAtTime(Math.max(-1, Math.min(1, Number(patch.pan))), t + 0.02);
+              }
+            } catch (_) {}
+          }
+        };
+        return handle;
+      }
+
+      function kill(handle, fade) {
+        try { handle?.kill?.(fade); } catch (_) {}
+      }
+
+      // Player factory shared by replay + sample. Stores the most recent
+      // loaded buffer; play() spawns a BufferSourceNode with playbackRate
+      // = tone / base. Returns a kill/update handle compatible with
+      // notepat's expectations.
+      function makeBufferPlayer() {
+        let activeBuffer = null;
+        let activeRate = 0;
+        function loadData(data, rate) {
+          const ctx = ensureAudio();
+          if (!ctx || !data || !data.length) return;
+          activeRate = Number(rate) || ctx.sampleRate;
+          const buf = ctx.createBuffer(1, data.length, activeRate);
+          // copyToChannel is fast-path; fallback for older Safari.
+          const ch = buf.getChannelData(0);
+          for (let i = 0; i < data.length; i++) ch[i] = data[i];
+          activeBuffer = buf;
+        }
+        function play(opts = {}) {
+          const ctx = ensureAudio();
+          if (!ctx || !activeBuffer) return { kill: () => {}, update: () => {} };
+          const now = ctx.currentTime;
+          const tone = Number(opts.tone) || 261.63;
+          const base = Number(opts.base) || 261.63;
+          const rate = Math.max(0.0001, tone / base);
+          const volume = Math.max(0, Math.min(1, opts.volume == null ? 1 : Number(opts.volume)));
+          const pan = Math.max(-1, Math.min(1, Number(opts.pan) || 0));
+          const loop = !!opts.loop;
+          const source = ctx.createBufferSource();
+          source.buffer = activeBuffer;
+          source.loop = loop;
+          source.playbackRate.setValueAtTime(rate, now);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(volume, now);
+          let panNode = null;
+          if (typeof ctx.createStereoPanner === "function") {
+            panNode = ctx.createStereoPanner();
+            panNode.pan.setValueAtTime(pan, now);
+            source.connect(g).connect(panNode).connect(masterGain);
+          } else {
+            source.connect(g).connect(masterGain);
+          }
+          source.start(now);
+          let killed = false;
+          return {
+            kill(fade = 0.02) {
+              if (killed) return;
+              killed = true;
+              const t = audioCtx.currentTime;
+              const f = Math.max(0.005, Number(fade) || 0.02);
+              try {
+                g.gain.cancelScheduledValues(t);
+                g.gain.setValueAtTime(g.gain.value, t);
+                g.gain.linearRampToValueAtTime(0, t + f);
+                source.stop(t + f + 0.02);
+              } catch (_) {}
+            },
+            update(patch = {}) {
+              if (killed) return;
+              const t = audioCtx.currentTime;
+              try {
+                if (patch.tone != null) {
+                  const newBase = Number(patch.base) || base;
+                  const newRate = Math.max(0.0001, Number(patch.tone) / newBase);
+                  source.playbackRate.cancelScheduledValues(t);
+                  source.playbackRate.linearRampToValueAtTime(newRate, t + 0.02);
+                }
+                if (patch.volume != null) {
+                  const v = Math.max(0, Math.min(1, Number(patch.volume)));
+                  g.gain.cancelScheduledValues(t);
+                  g.gain.linearRampToValueAtTime(v, t + 0.02);
+                }
+                if (patch.pan != null && panNode) {
+                  panNode.pan.cancelScheduledValues(t);
+                  panNode.pan.linearRampToValueAtTime(Math.max(-1, Math.min(1, Number(patch.pan))), t + 0.02);
+                }
+              } catch (_) {}
+            }
+          };
+        }
+        function getData() {
+          if (!activeBuffer) return null;
+          const ch = activeBuffer.getChannelData(0);
+          // Return a copy so callers can't mutate the live buffer.
+          const out = new Float32Array(ch.length);
+          out.set(ch);
+          return out;
+        }
+        return { loadData, play, getData, kill: (h, fade) => { try { h?.kill?.(fade); } catch (_) {} } };
+      }
+
+      // ---- speaker tap ----
+      function getRecentBuffer(seconds) {
+        if (!audioCtx || !recentBuf || recentFilled <= 0) return null;
+        const sr = audioCtx.sampleRate;
+        const want = Math.min(recentFilled, Math.max(1, Math.floor(Number(seconds) * sr)));
+        if (want <= 0) return null;
+        const out = new Float32Array(want);
+        let read = recentHead - want; if (read < 0) read += recentBuf.length;
+        for (let i = 0; i < want; i++) {
+          out[i] = recentBuf[read];
+          read = read + 1; if (read >= recentBuf.length) read = 0;
+        }
+        return { data: out, rate: sr };
+      }
+
+      function drawStrip(x, y, w, h, totalSec, anchor, offsetSec) {
+        const px = Math.trunc(x), py = Math.trunc(y);
+        const pw = Math.trunc(w), ph = Math.trunc(h);
+        if (pw <= 0 || ph <= 0) return;
+        // Background
+        const T = globalThis.__theme.update();
+        const prevInk = clone(currentInk);
+        setInk(T.padSharp[0], T.padSharp[1], T.padSharp[2], 255);
+        rasterBox(px, py, pw, ph, true);
+
+        // No audio yet — just draw the empty rail with a center line.
+        if (!audioCtx || recentFilled <= 0) {
+          setInk(T.padLine[0], T.padLine[1], T.padLine[2], 255);
+          rasterBox(px, py + Math.floor(ph / 2), pw, 1, true);
+          setInk(prevInk[0], prevInk[1], prevInk[2], prevInk[3]);
+          return;
+        }
+        const sr = audioCtx.sampleRate;
+        const offSec = Math.max(0, Number(offsetSec) || 0);
+        const totSec = Math.max(0.05, Number(totalSec) || 4);
+        const totalSamples = Math.floor(totSec * sr);
+        const offSamples = Math.floor(offSec * sr);
+        // Pull the visible window from the ring buffer.
+        const out = new Float32Array(totalSamples);
+        let read = recentHead - offSamples - totalSamples;
+        // wrap into [0, recentBuf.length)
+        const L = recentBuf.length;
+        read = ((read % L) + L) % L;
+        for (let i = 0; i < totalSamples; i++) {
+          out[i] = recentBuf[read];
+          read = read + 1; if (read >= L) read = 0;
+        }
+        // Per-pixel min/max → vertical bar
+        const halfH = Math.floor(ph / 2);
+        const baseY = py + halfH;
+        setInk(T.accent[0], T.accent[1], T.accent[2], 255);
+        for (let col = 0; col < pw; col++) {
+          const s0 = Math.floor((col / pw) * totalSamples);
+          const s1 = Math.floor(((col + 1) / pw) * totalSamples);
+          let lo = 0, hi = 0;
+          for (let i = s0; i < s1; i++) {
+            const v = out[i];
+            if (v < lo) lo = v;
+            if (v > hi) hi = v;
+          }
+          const top = Math.max(py, baseY + Math.round(lo * halfH));
+          const bot = Math.min(py + ph - 1, baseY + Math.round(hi * halfH));
+          const barH = Math.max(1, bot - top + 1);
+          rasterBox(px + col, top, 1, barH, true);
+        }
+        // Center rail
+        setInk(T.padLine[0], T.padLine[1], T.padLine[2], 180);
+        rasterBox(px, baseY, pw, 1, true);
+        // Anchor needle (red)
+        const a = Math.max(0, Math.min(1, Number(anchor) || 0.5));
+        const needleX = px + Math.floor(pw * a);
+        setInk(220, 60, 60, 255);
+        rasterBox(needleX, py, 1, ph, true);
+        setInk(prevInk[0], prevInk[1], prevInk[2], prevInk[3]);
+      }
+
+      const replayPlayer = makeBufferPlayer();
+      const samplePlayer = makeBufferPlayer();
+      return {
+        synth,
+        kill,
+        get microphone() {
+          return {
+            sampleRate: audioCtx?.sampleRate || 48000,
+            connected: false,
+            level: 0
+          };
+        },
+        deck: { play: () => {}, setSpeed: () => {}, kill: () => {}, stop: () => {} },
+        replay: replayPlayer,
+        sample: samplePlayer,
+        speaker: { drawStrip, getRecentBuffer }
+      };
+    }
+
+    // ---------- QR ----------
+    // Cache: text → Uint8Array bit matrix flattened row-major, plus size.
+    const qrCache = new Map();
+    function buildQRMatrix(text) {
+      if (qrCache.has(text)) return qrCache.get(text);
+      if (typeof QRCode === "undefined") return null;
+      // QRCode.js requires a DOM container. We give it a hidden one and
+      // pull the bit matrix out via the inner _oQRCode. Lower CorrectLevel
+      // = fewer modules = bigger pixels at the same on-screen footprint.
+      const div = document.createElement("div");
+      div.style.cssText = "position:absolute;visibility:hidden;width:0;height:0;overflow:hidden";
+      document.body.appendChild(div);
+      try {
+        const inst = new QRCode(div, {
+          text: String(text),
+          width: 64, height: 64,
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        const inner = inst._oQRCode;
+        const size = inner.getModuleCount();
+        const bits = new Uint8Array(size * size);
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            bits[r * size + c] = inner.isDark(r, c) ? 1 : 0;
+          }
+        }
+        const result = { size, bits };
+        qrCache.set(text, result);
+        return result;
+      } catch (err) {
+        console.warn("[ac-native-wasm] qr encode failed:", err);
+        qrCache.set(text, null);
+        return null;
+      } finally {
+        document.body.removeChild(div);
+      }
+    }
+    globalThis.qr = (text, x, y, scale) => {
+      const m = buildQRMatrix(text);
+      const s = Math.max(1, Math.trunc(scale || 1));
+      const prevInk = clone(currentInk);
+      // 1-module quiet zone, white background
+      const quiet = 1;
+      const matrixSize = m ? m.size : 21; // fallback placeholder
+      const total = (matrixSize + quiet * 2) * s;
+      setInk(255, 255, 255, 255);
+      rasterBox(x, y, total, total, true);
+      if (m) {
+        setInk(0, 0, 0, 255);
+        const ox = x + quiet * s, oy = y + quiet * s;
+        for (let r = 0; r < m.size; r++) {
+          for (let c = 0; c < m.size; c++) {
+            if (m.bits[r * m.size + c]) {
+              rasterBox(ox + c * s, oy + r * s, s, s, true);
+            }
+          }
+        }
+      } else {
+        setInk(180, 60, 60, 255);
+        rasterBox(x, y, total, total, false);
+      }
+      setInk(prevInk[0], prevInk[1], prevInk[2], prevInk[3]);
+    };
 
     const pieces = {};
     function makeStubPiece(title, describe) {
@@ -443,14 +867,14 @@
           lines = [
             title,
             describe({ params, colon, system }),
-            "This prototype is running the real native prompt piece,",
+            "This prototype is running the real native " + PIECE_NAME + " piece,",
             "but other native pieces are still browser stubs.",
             "Press Backspace or Escape to return."
           ];
         },
         act({ event, system }) {
           if (event.is("keyboard:down") && (event.key === "backspace" || event.key === "escape")) {
-            system.jump("prompt");
+            system.jump(PIECE_NAME);
           }
         },
         sim() {},
@@ -472,14 +896,15 @@
     pieces.lisp = makeStubPiece("lisp", () => "KidLisp eval is not wired into the browser host yet.");
     pieces.list = makeStubPiece("list", ({ system }) => "Available offline pieces: " + system.listPieces().join(", "));
     pieces.claude = makeStubPiece("claude", () => "Claude integration is native-only for now.");
-    pieces.login = makeStubPiece("login", ({ params }) => params[0] ? "Login code: " + params[0] : "No login code provided.");
+    pieces.link = makeStubPiece("link", ({ params }) => params[0] ? "Link code: " + params[0] : "No link code provided.");
+    pieces.login = pieces.link;
 
-    const promptUrl = URL.createObjectURL(new Blob([PROMPT_SOURCE], { type: "text/javascript" }));
-    const promptPiece = await import(promptUrl);
-    pieces.prompt = promptPiece;
+    const pieceUrl = URL.createObjectURL(new Blob([rewrittenSource], { type: "text/javascript" }));
+    const loadedPieceModule = await import(pieceUrl);
+    pieces[PIECE_NAME] = loadedPieceModule;
 
     function normalizeJumpTarget(spec) {
-      const raw = String(spec || "prompt").trim() || "prompt";
+      const raw = String(spec || PIECE_NAME).trim() || PIECE_NAME;
       const colonIndex = raw.indexOf(":");
       const baseSpec = colonIndex >= 0 ? raw.slice(0, colonIndex) : raw;
       const colon = colonIndex >= 0 ? raw.slice(colonIndex + 1).split(":").filter(Boolean) : [];
@@ -490,13 +915,33 @@
     }
 
     const systemApi = {
-      version: "ac-native wasm prompt prototype",
-      get sshStarted() {
-        return false;
-      },
-      listPieces() {
-        return Object.keys(pieces).sort();
-      },
+      version: "ac-native wasm " + PIECE_NAME + " prototype",
+      aesthetic: { handle: null, sub: null },
+      bootDevice: "browser",
+      hasHdmi: false,
+      hdmi: { connected: false },
+      tabletMode: false,
+      get sshStarted() { return false; },
+      // Pending fetch state — notepat polls these each frame
+      fetchPending: false,
+      fetchResult: null,
+      fetchError: null,
+      // Binary fetch state (firmware updates etc.)
+      fetchBinary: () => false,
+      fetchBinaryDone: false,
+      fetchBinaryOk: false,
+      fetchBinaryProgress: 0,
+      // Flash state (firmware flashing)
+      flashUpdate: () => false,
+      flashDone: false,
+      flashOk: false,
+      flashPhase: "idle",
+      flashTargets: [],
+      flashVerifiedBytes: 0,
+      // UDP/WS — stubbed
+      udp: { send: () => {}, on: () => {} },
+      ws: { connected: false, send: () => {}, on: () => {} },
+      listPieces() { return Object.keys(pieces).sort(); },
       readFile(filePath) {
         return Object.prototype.hasOwnProperty.call(files, filePath) ? files[filePath] : "";
       },
@@ -511,42 +956,40 @@
         files["/mnt/config.json"] = JSON.stringify(config, null, 2);
         persistFiles();
       },
-      reboot() {
-        state.statusText = "reboot requested (stubbed in browser)";
+      reboot() { state.statusText = "reboot requested (stubbed in browser)"; },
+      poweroff() { state.statusText = "poweroff requested (stubbed in browser)"; },
+      startSSH() { state.statusText = "ssh requested (stubbed in browser)"; },
+      fetch(url, opts) {
+        systemApi.fetchPending = true;
+        systemApi.fetchResult = null;
+        systemApi.fetchError = null;
+        fetch(url, opts).then(async (r) => {
+          systemApi.fetchPending = false;
+          systemApi.fetchResult = await r.text();
+        }).catch((err) => {
+          systemApi.fetchPending = false;
+          systemApi.fetchError = String(err);
+        });
+        return true;
       },
-      poweroff() {
-        state.statusText = "poweroff requested (stubbed in browser)";
-      },
-      startSSH() {
-        state.statusText = "ssh requested (stubbed in browser)";
-      },
+      fetchCancel() { systemApi.fetchPending = false; },
       fetchPost(url, body, headers) {
         state.lastPost = "POST " + url;
         console.log("[ac-native-wasm] fetchPost", { url, body, headers });
       },
       usbMidi: {
-        status() {
-          return { enabled: false, active: false, reason: "browser-stub" };
-        },
-        enable() {
-          return { enabled: false, active: false, reason: "browser-stub" };
-        },
-        disable() {
-          return { enabled: false, active: false, reason: "browser-stub" };
-        },
-        refresh() {
-          return { enabled: false, active: false, reason: "browser-stub" };
-        }
+        status() { return { enabled: false, active: false, reason: "browser-stub" }; },
+        enable() { return { enabled: false, active: false, reason: "browser-stub" }; },
+        disable() { return { enabled: false, active: false, reason: "browser-stub" }; },
+        refresh() { return { enabled: false, active: false, reason: "browser-stub" }; }
       },
-      jump(spec) {
-        loadPiece(spec);
-      }
+      jump(spec) { loadPiece(spec); }
     };
 
     async function loadPiece(spec) {
       const target = normalizeJumpTarget(spec);
       state.currentPieceSpec = target.raw;
-      state.currentPieceName = pieces[target.pieceName] ? target.pieceName : "lisp";
+      state.currentPieceName = pieces[target.pieceName] ? target.pieceName : PIECE_NAME;
       state.currentParams = target.params;
       state.currentColon = target.colon;
       state.currentPiece = pieces[state.currentPieceName];
@@ -554,75 +997,90 @@
       state.jumpMessage = target.raw;
       state.statusText = "piece -> " + state.currentPieceName;
       if (typeof state.currentPiece.boot === "function") {
-        state.currentPiece.boot({
-          ...hostApi,
-          system: systemApi,
-          params: clone(state.currentParams),
-          colon: clone(state.currentColon)
-        });
+        try {
+          state.currentPiece.boot({
+            ...hostApi,
+            system: systemApi,
+            params: clone(state.currentParams),
+            colon: clone(state.currentColon)
+          });
+        } catch (err) {
+          state.statusText = "boot error: " + (err?.message || err);
+          console.error(err);
+        }
       }
     }
 
     function flushFrame() {
       ctx.putImageData(imageData, 0, 0);
-      ctx.textBaseline = "top";
-      ctx.font = "10px 'Iosevka Term', 'IBM Plex Mono', monospace";
-      textQueue.forEach((entry) => {
-        const [r, g, b, a] = entry.color;
-        ctx.fillStyle = "rgba(" + r + ", " + g + ", " + b + ", " + (a / 255) + ")";
-        ctx.fillText(entry.text, entry.x, entry.y);
-      });
-      textQueue.length = 0;
+      // Lines (drawn after raster, before text)
+      if (lineQueue.length > 0) {
+        ctx.lineWidth = 1;
+        for (const ln of lineQueue) {
+          const [r, g, b, a] = ln.color;
+          ctx.strokeStyle = "rgba(" + r + ", " + g + ", " + b + ", " + (a / 255) + ")";
+          ctx.beginPath();
+          ctx.moveTo(ln.x1 + 0.5, ln.y1 + 0.5);
+          ctx.lineTo(ln.x2 + 0.5, ln.y2 + 0.5);
+          ctx.stroke();
+        }
+        lineQueue.length = 0;
+      }
+      // Bitmap text was rendered into the framebuffer during paint(), so
+      // there's no canvas-overlay text pass anymore.
     }
 
     function tick() {
       hostApi.paintCount = state.paintCount;
+      // Flush any setTimeout queue the piece installed (notepat polyfill).
+      try { state.currentPiece?.__tickPendingTimeouts?.(); } catch (_) {}
+      // Some pieces export a pending-timeout ticker on globalThis instead.
+      try { globalThis.__tickPendingTimeouts?.(); } catch (_) {}
+
+      const baseArgs = () => ({
+        ...hostApi,
+        system: systemApi,
+        params: clone(state.currentParams),
+        colon: clone(state.currentColon)
+      });
+
       if (typeof state.currentPiece?.sim === "function") {
-        state.currentPiece.sim({
-          ...hostApi,
-          system: systemApi,
-          params: clone(state.currentParams),
-          colon: clone(state.currentColon)
-        });
+        try { state.currentPiece.sim(baseArgs()); }
+        catch (err) { state.statusText = "sim error: " + err.message; console.error(err); }
       }
 
       while (state.events.length > 0) {
         const event = state.events.shift();
         if (typeof state.currentPiece?.act === "function") {
-          state.currentPiece.act({
-            ...hostApi,
-            event,
-            system: systemApi,
-            params: clone(state.currentParams),
-            colon: clone(state.currentColon)
-          });
+          try { state.currentPiece.act({ ...baseArgs(), event }); }
+          catch (err) { state.statusText = "act error: " + err.message; console.error(err); }
         }
       }
 
       if (typeof state.currentPiece?.paint === "function") {
-        state.currentPiece.paint({
-          ...hostApi,
-          system: systemApi,
-          params: clone(state.currentParams),
-          colon: clone(state.currentColon)
-        });
+        try { state.currentPiece.paint(baseArgs()); }
+        catch (err) {
+          state.statusText = "paint error: " + err.message;
+          console.error(err);
+          // Show error on screen too
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, WIDTH, HEIGHT);
+          ctx.fillStyle = "#ff6b9d";
+          ctx.font = "14px 'Iosevka Term', monospace";
+          ctx.fillText("paint error: " + err.message, 12, 20);
+          const stack = String(err.stack || "").split("\n").slice(0, 8);
+          stack.forEach((line, i) => ctx.fillText(line, 12, 44 + i * 16));
+          requestAnimationFrame(tick);
+          return;
+        }
       }
 
       flushFrame();
       state.paintCount += 1;
-      const config = readConfig();
-      statusLeft.textContent = state.statusText;
-      statusRight.textContent = [
-        wifi.connected ? "wifi: connected" : "wifi: offline",
-        config.darkMode ? "mode: " + config.darkMode : "mode: auto",
-        state.focused ? "kbd: focused" : "kbd: click to focus"
-      ].join(" • ");
       requestAnimationFrame(tick);
     }
 
-    await loadPiece("prompt");
-    statusLeft.textContent = "running prompt.mjs";
-    statusRight.textContent = "click canvas to focus keyboard";
+    await loadPiece(PIECE_NAME);
     screen.focus();
     requestAnimationFrame(tick);
   </script>
