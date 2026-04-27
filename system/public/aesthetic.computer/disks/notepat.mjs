@@ -425,6 +425,15 @@ let enterHeld = false;
 const heldVoices = new Map();
 const SHIFT_DECAY_SECONDS = 6.0; // long tail after release in shift-sustain mode
 
+// 👀 Character eye-tracking state. Two characters watch the piano:
+// Piano Man on the left half, Sample Sally on the right half. Their
+// pupils smoothly lerp toward the x-center of whichever key in their
+// half is currently pressed; when no key is pressed in their half the
+// pupils drift back to looking forward (0.5).
+let pianoManPupilX = 0.5;
+let sampleSallyPupilX = 0.5;
+const CHARACTER_EYE_LERP = 0.28;
+
 // 🔬 Telemetry: Expose state for stability testing
 if (typeof window !== 'undefined') {
   window.__notepat_sounds = sounds;
@@ -2909,6 +2918,130 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
   return { painting, gridTop };
 }
 
+// 🎩👩 Piano Man + Sample Sally — two pixel-art characters that sit
+// in a thin band above the piano keys and watch the notes pressed
+// under them. Each character's pupils lerp toward the x-center of
+// whichever active key sits in their half; pupils recenter when
+// nothing is pressed in that half. Drawn after the piano key loop so
+// the characters render on top of the piano if vertical clearance is
+// tight, with semi-translucent fills so keys stay visible underneath.
+function paintCharacters({ ink }) {
+  // Compute the piano's actual bounding box from the visible buttons.
+  let pianoLeft = Infinity;
+  let pianoRight = -Infinity;
+  let pianoTop = Infinity;
+  for (const note in buttons) {
+    const btn = buttons[note];
+    if (!btn?.box || btn.hidden) continue;
+    if (btn.box.x < pianoLeft) pianoLeft = btn.box.x;
+    if (btn.box.x + btn.box.w > pianoRight) pianoRight = btn.box.x + btn.box.w;
+    if (btn.box.y < pianoTop) pianoTop = btn.box.y;
+  }
+  if (!isFinite(pianoLeft) || !isFinite(pianoTop)) return;
+
+  const pianoWidth = pianoRight - pianoLeft;
+  if (pianoWidth < 80) return; // too narrow to host two characters
+  const pianoMidX = pianoLeft + pianoWidth / 2;
+
+  // 14px tall character heads, centered ~9px above the topmost key
+  // when there's clearance, otherwise overlapping the top of the keys.
+  const HEAD_W = 18;
+  const HEAD_H = 14;
+  const charY = Math.max(2, pianoTop - HEAD_H - 2);
+  const pianoManCX = Math.round(pianoLeft + pianoWidth * 0.25);
+  const sampleSallyCX = Math.round(pianoLeft + pianoWidth * 0.75);
+
+  // Find the most-recently-pressed active note in each half, so the
+  // characters track the leading edge of a chord rather than averaging.
+  let pianoManTargetX = null;
+  let sampleSallyTargetX = null;
+  let pianoManMostRecent = -Infinity;
+  let sampleSallyMostRecent = -Infinity;
+  for (const note in sounds) {
+    const entry = sounds[note];
+    const btn = buttons[note];
+    if (!btn?.box) continue;
+    const noteCenterX = btn.box.x + btn.box.w / 2;
+    const startedAt = entry?.sound?.startedAt ?? 0;
+    if (noteCenterX < pianoMidX) {
+      if (startedAt > pianoManMostRecent) {
+        pianoManMostRecent = startedAt;
+        pianoManTargetX = noteCenterX;
+      }
+    } else {
+      if (startedAt > sampleSallyMostRecent) {
+        sampleSallyMostRecent = startedAt;
+        sampleSallyTargetX = noteCenterX;
+      }
+    }
+  }
+
+  // Map an absolute target x into a normalized 0..1 pupil position
+  // within the character's eye-track range. Range = the character's
+  // half of the piano so pupils always have headroom to track edges.
+  const halfWidth = pianoWidth / 2;
+  const targetForChar = (charCX, abs) => {
+    if (abs == null) return 0.5;
+    const minX = charCX - halfWidth / 2;
+    const t = (abs - minX) / halfWidth;
+    return Math.max(0, Math.min(1, t));
+  };
+
+  const pmTarget = targetForChar(pianoManCX, pianoManTargetX);
+  const ssTarget = targetForChar(sampleSallyCX, sampleSallyTargetX);
+
+  pianoManPupilX += (pmTarget - pianoManPupilX) * CHARACTER_EYE_LERP;
+  sampleSallyPupilX += (ssTarget - sampleSallyPupilX) * CHARACTER_EYE_LERP;
+
+  // Draw both characters. Each has a head, two eye whites, two
+  // pupils that move within the eye whites, and a mouth.
+  drawPianoMan(ink, pianoManCX - HEAD_W / 2, charY, HEAD_W, HEAD_H, pianoManPupilX);
+  drawSampleSally(ink, sampleSallyCX - HEAD_W / 2, charY, HEAD_W, HEAD_H, sampleSallyPupilX);
+}
+
+function drawPianoMan(ink, x, y, w, h, pupilX) {
+  // Head: warm tan with a black bowler hat band on top.
+  ink(60, 50, 70, 200).box(x, y, w, h);              // hatband shadow
+  ink(220, 195, 165, 230).box(x + 1, y + 4, w - 2, h - 4); // face
+  ink(40, 30, 45, 240).box(x, y, w, 4);              // hat top
+  ink(40, 30, 45, 240).box(x - 1, y + 3, w + 2, 1);  // hat brim
+  // Eye whites (3x3 each)
+  const eyeY = y + 6;
+  const leftEyeX = x + 3;
+  const rightEyeX = x + w - 6;
+  ink(255, 255, 245, 240).box(leftEyeX, eyeY, 3, 3);
+  ink(255, 255, 245, 240).box(rightEyeX, eyeY, 3, 3);
+  // Pupils (1x1, move within the 3x3 eye white)
+  const pupilOffset = Math.round(pupilX * 2);
+  ink(20, 15, 25, 255).box(leftEyeX + pupilOffset, eyeY + 1, 1, 1);
+  ink(20, 15, 25, 255).box(rightEyeX + pupilOffset, eyeY + 1, 1, 1);
+  // Mustache (a horizontal line under the eyes)
+  ink(40, 30, 45, 220).box(x + 4, y + 11, w - 8, 1);
+}
+
+function drawSampleSally(ink, x, y, w, h, pupilX) {
+  // Head: pinker tone with brown wavy hair on top.
+  ink(110, 70, 50, 240).box(x, y, w, 3);             // hair top row
+  ink(110, 70, 50, 240).box(x - 1, y + 1, 1, 3);     // hair left side
+  ink(110, 70, 50, 240).box(x + w, y + 1, 1, 3);     // hair right side
+  ink(240, 200, 195, 230).box(x + 1, y + 3, w - 2, h - 3); // face
+  // Hair fringe (couple of dark pixels between hairline and forehead)
+  ink(110, 70, 50, 200).box(x + 3, y + 3, 1, 1);
+  ink(110, 70, 50, 200).box(x + w - 4, y + 3, 1, 1);
+  // Eye whites
+  const eyeY = y + 6;
+  const leftEyeX = x + 3;
+  const rightEyeX = x + w - 6;
+  ink(255, 255, 245, 240).box(leftEyeX, eyeY, 3, 3);
+  ink(255, 255, 245, 240).box(rightEyeX, eyeY, 3, 3);
+  // Pupils (1x1, move within the 3x3 eye white)
+  const pupilOffset = Math.round(pupilX * 2);
+  ink(30, 20, 60, 255).box(leftEyeX + pupilOffset, eyeY + 1, 1, 1);
+  ink(30, 20, 60, 255).box(rightEyeX + pupilOffset, eyeY + 1, 1, 1);
+  // Smile (small mouth)
+  ink(170, 60, 90, 230).box(x + w / 2 - 1, y + 11, 2, 1);
+}
+
 function paint({
   wipe,
   ink,
@@ -5144,6 +5277,11 @@ function paint({
             );
           }
         });
+    }
+
+    // 🎩👩 Piano Man + Sample Sally watch from above the keys.
+    if (!projector && !paintPictureOverlay) {
+      paintCharacters({ ink });
     }
 
     if (!projector && !usePadsBase) {
