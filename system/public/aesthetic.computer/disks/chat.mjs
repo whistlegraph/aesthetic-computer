@@ -407,24 +407,6 @@ async function boot(
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
 
-  // Version polling — auto-reload on new deploy (same pattern as dumduel.mjs)
-  (async () => {
-    try {
-      const res = await fetch("/api/version");
-      if (!res.ok) return;
-      const info = await res.json();
-      const current = info.deployed;
-      while (true) {
-        try {
-          const r = await fetch(`/api/version?current=${current}`);
-          if (!r.ok) break;
-          const data = await r.json();
-          if (data.changed !== false) { send?.({ type: "window:reload" }); break; }
-        } catch { break; }
-      }
-    } catch {}
-  })();
-
   // Store dom API reference for YouTube modal
   domApi = dom;
 
@@ -4049,47 +4031,51 @@ async function loadOgPreview(url, preload) {
     // Fetch OG metadata from our serverless function
     // In local dev, Netlify Dev can't make outbound HTTP from functions,
     // so use the production endpoint instead
-    const isLocal = typeof window !== "undefined" && 
+    const isLocal = typeof window !== "undefined" &&
       (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
     const apiBase = isLocal ? "https://aesthetic.computer" : "";
     const apiUrl = `${apiBase}/api/og-preview?url=${encodeURIComponent(url)}`;
     const response = await fetch(apiUrl);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch OG data: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
+
+    // Route third-party image URLs through our CORS-friendly proxy so
+    // toBitmap's canvas read doesn't get tainted by missing CORS headers.
+    const proxied = (u) => `${apiBase}/api/og-image?url=${encodeURIComponent(u)}`;
+
     // If there's an og:image, load it
     let imageData = null;
     let faviconData = null;
-    
+
     if (data.image) {
       try {
-        const loaded = await preload(data.image);
+        const loaded = await preload(proxied(data.image));
         imageData = loaded?.img || loaded;
       } catch (imgErr) {
         console.warn(`Failed to load OG image for ${url}:`, imgErr);
       }
     }
-    
+
     // If no OG image or it failed, try to load favicon as fallback
     if (!imageData && data.favicon) {
       try {
-        const loaded = await preload(data.favicon);
+        const loaded = await preload(proxied(data.favicon));
         faviconData = loaded?.img || loaded;
       } catch (favErr) {
         console.warn(`Failed to load favicon for ${url}:`, favErr);
       }
     }
-    
+
     // If still no image, try common favicon paths
     if (!imageData && !faviconData) {
       try {
         const urlObj = new URL(url);
         const defaultFavicon = `${urlObj.origin}/favicon.ico`;
-        const loaded = await preload(defaultFavicon);
+        const loaded = await preload(proxied(defaultFavicon));
         faviconData = loaded?.img || loaded;
       } catch (defaultFavErr) {
         // Ignore - no favicon available
@@ -4119,9 +4105,12 @@ async function loadOgPreview(url, preload) {
     // Try to load just the favicon as a fallback
     let faviconData = null;
     try {
+      const isLocal = typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+      const apiBase = isLocal ? "https://aesthetic.computer" : "";
       const urlObj = new URL(url);
       const defaultFavicon = `${urlObj.origin}/favicon.ico`;
-      const loaded = await preload(defaultFavicon);
+      const loaded = await preload(`${apiBase}/api/og-image?url=${encodeURIComponent(defaultFavicon)}`);
       faviconData = loaded?.img || loaded;
     } catch (favErr) {
       // No favicon either
