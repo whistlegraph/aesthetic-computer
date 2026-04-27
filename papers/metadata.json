@@ -61,8 +61,8 @@
   },
   "arxiv-whistlegraph": {
     "created": "2026-03-21",
-    "revisions": 1543,
-    "updated": "2026-04-27T22:18:35.132Z"
+    "revisions": 1544,
+    "updated": "2026-04-27T22:44:09.993Z"
   },
   "arxiv-plork": {
     "created": "2026-03-21",
@@ -128,5 +128,10 @@
     "created": "2026-04-26",
     "revisions": 4,
     "updated": "2026-04-27T17:05:10.844Z"
+  },
+  "arxiv-url-tradition": {
+    "created": "2026-04-27",
+    "revisions": 1,
+    "updated": "2026-04-27T22:44:09.993Z"
   }
 }
