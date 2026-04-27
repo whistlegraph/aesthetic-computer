@@ -907,19 +907,21 @@ class Product {
     }
     
     // Center control: play triangle / pause / streaming
+    // Only show playback controls for records that have an audio URL configured
     const isShowingTriangle = !this.isPlaying && !this.isBuffering;
-    
+
     // Add wobble to button
     const centerWobbleX = floor(sin(this.rotation * 0.08) * 2);
     const centerWobbleY = floor(cos(this.rotation * 0.09) * 2);
-    
+
     // Check if dark mode
     const isDark = $.dark;
-    
+
     // Draw center control (play triangle, pause bars, or streaming text)
     const centerX = recordX + recordW / 2; // Perfectly centered
     const centerY = recordY + recordH / 2;
-    
+
+    if (this.audioUrl) {
     if (isShowingTriangle) {
       // Draw a triangular play button with shadow
       const triangleSize = 12;
@@ -1017,7 +1019,8 @@ class Product {
         $.ink(...charColor).write(centerText[i], { x: charX, y: centerTextY });
       }
     }
-    
+    }
+
     // Draw BUY button to the right of price (always visible, proper text button with MatrixChunky8)
     // BUY has its own separate sway animation
     // Show SOLD in red for sold out items
