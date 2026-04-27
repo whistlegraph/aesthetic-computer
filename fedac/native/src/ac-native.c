@@ -528,6 +528,16 @@ static char boot_title[80] = "notepat";
 static ACColor boot_title_colors[80];
 static int boot_title_colors_len = 0;
 
+// Boot mood — most recent mood for the user, displayed as the splash
+// subtitle in place of the default "enjoy <city>!" line. Two sources:
+//   1. config.json "mood" — baked at flash time by ac-inscribe.
+//   2. /mnt/last-mood — written at runtime after a successful
+//      /api/mood/@<handle> fetch on the previous boot's wifi-connect.
+// /mnt/last-mood (when present) wins, since it's always at least as
+// fresh as the inscription. Empty string disables the mood subtitle
+// and falls back to the original "enjoy <city>!" rendering.
+static char boot_mood[256] = "";
+
 static uint8_t clamp_u8(int v) {
     if (v < 0) return 0;
     if (v > 255) return 255;
@@ -644,6 +654,26 @@ static void load_boot_visual_config(void) {
         }
     }
     parse_boot_title_colors(json);
+
+    // Boot mood: prefer /mnt/last-mood (written at the previous boot's
+    // wifi-connect from /api/mood/@<handle>) since it's always fresher
+    // than the inscription's baked value. Fall back to config.json's
+    // "mood" field if last-mood doesn't exist or is empty.
+    {
+        FILE *lm = fopen("/mnt/last-mood", "r");
+        if (lm) {
+            size_t r = fread(boot_mood, 1, sizeof(boot_mood) - 1, lm);
+            fclose(lm);
+            boot_mood[r] = '\0';
+            // Strip a single trailing newline if present.
+            size_t blen = strlen(boot_mood);
+            if (blen > 0 && boot_mood[blen - 1] == '\n') boot_mood[blen - 1] = '\0';
+        }
+        if (!boot_mood[0]) {
+            parse_config_string(json, "\"mood\"", boot_mood, sizeof(boot_mood));
+        }
+        if (boot_mood[0]) ac_log("[ac-native] Boot mood: %s\n", boot_mood);
+    }
 
     // Read wifi flag (default: enabled)
     int wifi_val = 1;
@@ -2702,8 +2732,10 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
 #endif
 
-        // Subtitle: "enjoy <city>!" appears after frame 130
-        // Scaled for 120-frame total (was gated at 130 of 180).
+        // Subtitle: prefer the user's stored mood (boot_mood) over the
+        // default "enjoy <city>!" line. Mood comes from /mnt/last-mood
+        // (refreshed on the previous boot's wifi-connect) or the
+        // inscription bake. Fade in over the same window either way.
         if (f > 80) {
             double sub_t = (double)(f - 80) / 20.0;
             if (sub_t > 1.0) sub_t = 1.0;
@@ -2711,8 +2743,12 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             graph_ink(graph, is_day
                 ? (ACColor){120, 100, 80, (uint8_t)sub_alpha}
                 : (ACColor){220, 180, 140, (uint8_t)sub_alpha});
-            char subtitle[128];
-            snprintf(subtitle, sizeof subtitle, "enjoy %s!", greet_city);
+            char subtitle[256];
+            if (boot_mood[0]) {
+                snprintf(subtitle, sizeof subtitle, "%s", boot_mood);
+            } else {
+                snprintf(subtitle, sizeof subtitle, "enjoy %s!", greet_city);
+            }
             int sw = font_measure_matrix(subtitle, 1);
             font_draw_matrix(graph, subtitle,
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
@@ -4022,6 +4058,40 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 }
+                // Mood response — written by the wifi-connect curl above.
+                // Parse the .mood string out of {"_id":"...","mood":"...",...}
+                // and persist to /mnt/last-mood for the NEXT boot's subtitle.
+                FILE *mf = fopen("/tmp/mood-resp.json", "r");
+                if (mf) {
+                    char mbuf[2048] = {0};
+                    fread(mbuf, 1, sizeof(mbuf) - 1, mf);
+                    fclose(mf);
+                    unlink("/tmp/mood-resp.json");
+                    const char *mk = strstr(mbuf, "\"mood\"");
+                    if (mk) {
+                        const char *mv = strchr(mk + 6, ':');
+                        if (mv) {
+                            mv++; while (*mv == ' ' || *mv == '"') mv++;
+                            // Find the closing quote, skipping over JSON-
+                            // escaped quotes (\") inside the mood string.
+                            const char *me = mv;
+                            while (*me) {
+                                if (*me == '\\' && me[1]) { me += 2; continue; }
+                                if (*me == '"') break;
+                                me++;
+                            }
+                            if (me > mv && (me - mv) > 0 && (me - mv) < 240) {
+                                FILE *lm = fopen("/mnt/last-mood", "w");
+                                if (lm) {
+                                    fwrite(mv, 1, me - mv, lm);
+                                    fclose(lm);
+                                    ac_log("[mood] persisted (%d bytes) for next boot\n",
+                                           (int)(me - mv));
+                                }
+                            }
+                        }
+                    }
+                }
             }
             // Copy tmpfs debug logs to USB periodically (every 5 sec)
             if (logfile && main_frame % 300 == 0) {
@@ -4561,6 +4631,19 @@ int main(int argc, char *argv[]) {
                                     "-o /tmp/claude-api-resp.json 2>/dev/null &", actoken);
                                 system(cmd);
                                 ac_log("[tokens] fetching for @%s\n", handle);
+                            }
+                            // Mood refresh: GET /api/mood/@<handle>. Public, no auth.
+                            // Result is parsed in the main loop and persisted to
+                            // /mnt/last-mood for the NEXT boot to pick up — we
+                            // don't try to update the in-flight splash subtitle.
+                            if (handle[0]) {
+                                char mcmd[1024];
+                                snprintf(mcmd, sizeof(mcmd),
+                                    "curl -fsSL --max-time 10 "
+                                    "'https://aesthetic.computer/api/mood/@%s' "
+                                    "-o /tmp/mood-resp.json 2>/dev/null &", handle);
+                                system(mcmd);
+                                ac_log("[mood] fetching for @%s\n", handle);
                             }
                         }
                     }

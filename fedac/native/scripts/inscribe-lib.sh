@@ -146,6 +146,52 @@ aci_fetch_handle_tokens() {
 
 # ─── local Claude session detection ────────────────────────────────
 
+# ─── handle-colors + mood (boot personalization) ───────────────────
+
+# aci_fetch_handle_colors <handle>
+# Hits /api/handle-colors?handle=X and stores the raw "colors" JSON
+# array (e.g. '[{"r":255,"g":128,"b":64},...]') on success in
+# ACI_HANDLE_COLORS_JSON. Empty when no custom colors are stored — the
+# C boot renderer falls back to its theme color in that case.
+aci_fetch_handle_colors() {
+    local handle="$1"
+    [ -n "${handle}" ] || { ACI_HANDLE_COLORS_JSON=""; return 0; }
+    local resp
+    resp=$(curl -fsSL --max-time 10 \
+        "https://aesthetic.computer/api/handle-colors?handle=${handle}" \
+        2>/dev/null) || { ACI_HANDLE_COLORS_JSON=""; return 0; }
+    ACI_HANDLE_COLORS_JSON=$(node -e "
+        try {
+            const d = JSON.parse(process.argv[1] || '{}');
+            if (Array.isArray(d.colors) && d.colors.length > 0) {
+                process.stdout.write(JSON.stringify(d.colors));
+            }
+        } catch (e) {}
+    " "${resp}" 2>/dev/null)
+    return 0
+}
+
+# aci_fetch_mood <handle>
+# Hits /api/mood/@<handle> and stores the mood string (just the .mood
+# text, not the full envelope) in ACI_MOOD. Empty if no mood is set.
+aci_fetch_mood() {
+    local handle="$1"
+    [ -n "${handle}" ] || { ACI_MOOD=""; return 0; }
+    local resp
+    resp=$(curl -fsSL --max-time 10 \
+        "https://aesthetic.computer/api/mood/@${handle}" \
+        2>/dev/null) || { ACI_MOOD=""; return 0; }
+    ACI_MOOD=$(node -e "
+        try {
+            const d = JSON.parse(process.argv[1] || '{}');
+            if (typeof d.mood === 'string' && d.mood.length > 0) {
+                process.stdout.write(d.mood);
+            }
+        } catch (e) {}
+    " "${resp}" 2>/dev/null)
+    return 0
+}
+
 # aci_collect_local_claude
 # Sets ACI_CLAUDE_CREDS (raw JSON text), ACI_CLAUDE_STATE (derived JSON)
 # when:
@@ -205,19 +251,29 @@ aci_collect_local_claude() {
 # aci_build_usb_config_json
 # Emits the inner JSON (matches the existing write_usb_config_file shape)
 # to stdout. Inputs: ACI_HANDLE/ACI_SUB/ACI_EMAIL/ACI_ACCESS_TOKEN +
-# optional ACI_CLAUDE_TOKEN/ACI_GITHUB_PAT/ACI_CLAUDE_CREDS/ACI_CLAUDE_STATE.
+# optional ACI_CLAUDE_TOKEN/ACI_GITHUB_PAT/ACI_CLAUDE_CREDS/ACI_CLAUDE_STATE
+# + boot personalization: ACI_HANDLE_COLORS_JSON (raw JSON array string)
+# and ACI_MOOD (plain string).
 aci_build_usb_config_json() {
     node -e "
-        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState] = process.argv.slice(1);
+        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState, colorsJson, mood] = process.argv.slice(1);
         const cfg = { handle, sub, email, token };
         if (claudeToken) cfg.claudeToken = claudeToken;
         if (githubPat)   cfg.githubPat   = githubPat;
         try { if (claudeCreds) cfg.claudeCreds = JSON.parse(claudeCreds); } catch (e) {}
         try { if (claudeState) cfg.claudeState = JSON.parse(claudeState); } catch (e) {}
+        try {
+            if (colorsJson) {
+                const c = JSON.parse(colorsJson);
+                if (Array.isArray(c) && c.length > 0) cfg.colors = c;
+            }
+        } catch (e) {}
+        if (mood) cfg.mood = mood;
         process.stdout.write(JSON.stringify(cfg));
     " "${ACI_HANDLE:-}" "${ACI_SUB:-}" "${ACI_EMAIL:-}" "${ACI_ACCESS_TOKEN:-}" \
       "${ACI_CLAUDE_TOKEN:-}" "${ACI_GITHUB_PAT:-}" \
-      "${ACI_CLAUDE_CREDS:-}" "${ACI_CLAUDE_STATE:-}"
+      "${ACI_CLAUDE_CREDS:-}" "${ACI_CLAUDE_STATE:-}" \
+      "${ACI_HANDLE_COLORS_JSON:-}" "${ACI_MOOD:-}"
 }
 
 # aci_build_inscription_json <out_path>
