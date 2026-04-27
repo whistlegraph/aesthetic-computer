@@ -1,0 +1,181 @@
+#!/bin/bash
+# ac-device — admin CLI for the AC Native OS hardware-fingerprint registry.
+#
+# Each laptop computes a stable fingerprint from DMI fields and sends it
+# to /api/ac-device after every wifi-connect. This CLI is the operator-
+# side complement for assigning curated slot names ("ac0", "ac1", …) to
+# specific upcycled machines so they can be referred to by stable model
+# numbers across reflashes.
+#
+# Usage:
+#   ac-device list
+#       Print all registered devices (slot, fp, model, notes). Admin only.
+#
+#   ac-device lookup <fp>
+#       Public read — show whatever the registry has for <fp>. Useful
+#       when sshing to a device, copying its fp from the boot log, then
+#       checking what's already on file.
+#
+#   ac-device assign <fp> [<slot>] [--model "..."] [--notes "..."]
+#       Admin assign. If <slot> is omitted, the server picks the next
+#       free "ac<N>" automatically. Re-running with the same fp updates
+#       the row in place (model/notes are merged).
+#
+#   ac-device unassign <fp>
+#       Admin delete. Forgets the registry entry. The device's
+#       /mnt/.ac-device-slot will be overwritten on its next wifi
+#       refresh (or stay cached forever if it never reconnects).
+#
+# fp = 16 hex chars, computed device-side by sha256(product_serial +
+# system_uuid + board_serial). Find it on the device with:
+#   grep '\[ac-device\] fp=' /mnt/cage-child.log
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LIB="${SCRIPT_DIR}/scripts/inscribe-lib.sh"
+[ -f "${LIB}" ] || { echo "ac-device: missing ${LIB}" >&2; exit 1; }
+# shellcheck disable=SC1090
+source "${LIB}"
+
+API="https://aesthetic.computer/api/ac-device"
+
+if [ $# -eq 0 ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    sed -n '2,30p' "$0" | sed 's/^# *//'
+    exit 0
+fi
+
+CMD="$1"; shift
+
+case "${CMD}" in
+    list)
+        aci_step 1 2 "Operator auth (admin required)"
+        if aci_require_login; then
+            aci_ok "operator: ${ACI_C_BOLD}@${ACI_HANDLE}${ACI_C_RESET}"
+        else
+            aci_die "operator auth failed"
+        fi
+
+        aci_step 2 2 "Fetching device registry"
+        RESP=$(curl -fsSL --max-time 15 \
+            -H "Authorization: Bearer ${ACI_ACCESS_TOKEN}" \
+            "${API}?list=1" 2>/dev/null) || aci_die "list fetch failed (admin only — are you @jeffrey?)"
+
+        node -e "
+            const d = JSON.parse(process.argv[1] || '{}');
+            const list = d.devices || [];
+            if (list.length === 0) {
+                console.log('  (no devices registered yet)');
+                process.exit(0);
+            }
+            for (const dev of list) {
+                const slot  = (dev.slot || '?').padEnd(8);
+                const fp    = (dev._id  || '?').padEnd(18);
+                const model = dev.model || '';
+                const notes = dev.notes ? '— ' + dev.notes : '';
+                console.log('  ' + slot + fp + (model + ' ' + notes).trim());
+            }
+        " "${RESP}"
+        ;;
+
+    lookup)
+        FP="${1:-}"
+        [ -n "${FP}" ] || aci_die "usage: ac-device lookup <fp>"
+        aci_step 1 1 "Looking up fp=${ACI_C_BOLD}${FP}${ACI_C_RESET}"
+        RESP=$(curl -sS -w '\n__HTTP__:%{http_code}' --max-time 10 \
+            "${API}?fp=${FP}" 2>/dev/null) || aci_die "request failed"
+        STATUS=$(printf '%s' "${RESP}" | awk -F: '/^__HTTP__:/{print $2}' | tr -d '\r')
+        BODY=$(printf '%s' "${RESP}" | sed '/^__HTTP__:/d')
+        case "${STATUS}" in
+            200)
+                node -e "
+                    const d = JSON.parse(process.argv[1] || '{}');
+                    console.log('  slot       :', d.slot);
+                    console.log('  model      :', d.model || '(none)');
+                    console.log('  assignedAt :', d.assignedAt);
+                    console.log('  assignedBy :', d.assignedBy);
+                    console.log('  notes      :', d.notes || '(none)');
+                " "${BODY}"
+                ;;
+            404) aci_warn "not registered" ;;
+            *)   aci_fail "HTTP ${STATUS}: ${BODY}" ;;
+        esac
+        ;;
+
+    assign)
+        FP="${1:-}"
+        [ -n "${FP}" ] || aci_die "usage: ac-device assign <fp> [<slot>] [--model X] [--notes Y]"
+        shift
+        SLOT=""
+        MODEL=""
+        NOTES=""
+        # Optional positional slot before --flags
+        if [ $# -gt 0 ] && [ "${1:0:2}" != "--" ]; then
+            SLOT="$1"; shift
+        fi
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --model) MODEL="${2:-}"; shift 2 ;;
+                --notes) NOTES="${2:-}"; shift 2 ;;
+                *) aci_die "unknown flag: $1" ;;
+            esac
+        done
+
+        aci_step 1 2 "Operator auth (admin required)"
+        if aci_require_login; then
+            aci_ok "operator: ${ACI_C_BOLD}@${ACI_HANDLE}${ACI_C_RESET}"
+        else
+            aci_die "operator auth failed"
+        fi
+
+        aci_step 2 2 "Assigning ${ACI_C_BOLD}${SLOT:-<auto>}${ACI_C_RESET} to fp=${FP}"
+        BODY=$(node -e "
+            const o = { fp: process.argv[1] };
+            if (process.argv[2]) o.slot  = process.argv[2];
+            if (process.argv[3]) o.model = process.argv[3];
+            if (process.argv[4]) o.notes = process.argv[4];
+            process.stdout.write(JSON.stringify(o));
+        " "${FP}" "${SLOT}" "${MODEL}" "${NOTES}")
+        RESP=$(curl -sS -w '\n__HTTP__:%{http_code}' --max-time 15 \
+            -H "Authorization: Bearer ${ACI_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -X POST -d "${BODY}" \
+            "${API}" 2>/dev/null) || aci_die "request failed"
+        STATUS=$(printf '%s' "${RESP}" | awk -F: '/^__HTTP__:/{print $2}' | tr -d '\r')
+        ABODY=$(printf '%s' "${RESP}" | sed '/^__HTTP__:/d')
+        if [ "${STATUS}" != "200" ]; then
+            aci_fail "HTTP ${STATUS}: ${ABODY}"
+            exit 1
+        fi
+        node -e "
+            const d = JSON.parse(process.argv[1] || '{}');
+            console.log('              ✓ assigned slot=' + d.slot);
+            if (d.model) console.log('              ✓ model: ' + d.model);
+            if (d.notes) console.log('              ✓ notes: ' + d.notes);
+        " "${ABODY}"
+        printf '\n%s[ac-device]%s done\n' "${ACI_C_CYAN}" "${ACI_C_RESET}"
+        ;;
+
+    unassign|delete)
+        FP="${1:-}"
+        [ -n "${FP}" ] || aci_die "usage: ac-device unassign <fp>"
+
+        aci_step 1 2 "Operator auth (admin required)"
+        aci_require_login || aci_die "operator auth failed"
+        aci_ok "operator: @${ACI_HANDLE}"
+
+        aci_step 2 2 "Deleting fp=${ACI_C_BOLD}${FP}${ACI_C_RESET}"
+        RESP=$(curl -sS -w '\n__HTTP__:%{http_code}' --max-time 10 \
+            -H "Authorization: Bearer ${ACI_ACCESS_TOKEN}" \
+            -X DELETE "${API}?fp=${FP}" 2>/dev/null) || aci_die "request failed"
+        STATUS=$(printf '%s' "${RESP}" | awk -F: '/^__HTTP__:/{print $2}' | tr -d '\r')
+        case "${STATUS}" in
+            200) aci_ok "deleted" ;;
+            *)   aci_fail "HTTP ${STATUS}" ;;
+        esac
+        ;;
+
+    *)
+        aci_die "unknown command: ${CMD} (try --help)"
+        ;;
+esac

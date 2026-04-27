@@ -36,6 +36,7 @@
 #include "machines.h"
 #include "recorder.h"
 #include "camera.h"
+#include <openssl/sha.h>
 #ifdef USE_WAYLAND
 #include "wayland-display.h"
 #endif
@@ -289,6 +290,96 @@ static void bootpic_capture_boot_async(void) {
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     pthread_create(&t, &attr, bootpic_boot_thread_fn, NULL);
     pthread_attr_destroy(&attr);
+}
+
+// Read a /sys/class/dmi/id/* field, trim trailing whitespace + newlines.
+// Returns the byte count written to dst (0 on missing / empty).
+static size_t read_dmi_field(const char *name, char *dst, size_t dstlen) {
+    char path[128];
+    snprintf(path, sizeof(path), "/sys/class/dmi/id/%s", name);
+    FILE *fp = fopen(path, "r");
+    if (!fp) { dst[0] = '\0'; return 0; }
+    size_t n = fread(dst, 1, dstlen - 1, fp);
+    fclose(fp);
+    dst[n] = '\0';
+    while (n > 0 && (dst[n-1] == '\n' || dst[n-1] == '\r' ||
+                     dst[n-1] == ' '  || dst[n-1] == '\t')) {
+        dst[--n] = '\0';
+    }
+    return n;
+}
+
+// Compute the device fingerprint from DMI fields and cache it in
+// ac_device_fp. Also reads the cached slot from /mnt/.ac-device-slot
+// so the splash can render the badge before the first wifi-connect.
+static void compute_device_fingerprint(void) {
+    char serial[128] = {0}, uuid[128] = {0}, board[128] = {0};
+    read_dmi_field("product_serial", serial, sizeof(serial));
+    read_dmi_field("product_uuid",   uuid,   sizeof(uuid));
+    if (uuid[0] == '\0') read_dmi_field("system_uuid", uuid, sizeof(uuid));
+    read_dmi_field("board_serial",   board,  sizeof(board));
+
+    // Fall back to MAC address when DMI is fully blank (qemu, exotic
+    // hardware) so the fingerprint is at least stable for that
+    // installation. /sys/class/net is the most portable readable path.
+    char mac[64] = {0};
+    if (!serial[0] && !uuid[0] && !board[0]) {
+        DIR *nd = opendir("/sys/class/net");
+        if (nd) {
+            struct dirent *de;
+            while ((de = readdir(nd))) {
+                if (de->d_name[0] == '.') continue;
+                if (strcmp(de->d_name, "lo") == 0) continue;
+                char addrpath[256];
+                snprintf(addrpath, sizeof(addrpath),
+                         "/sys/class/net/%s/address", de->d_name);
+                FILE *af = fopen(addrpath, "r");
+                if (af) {
+                    if (fgets(mac, sizeof(mac), af)) {
+                        size_t L = strlen(mac);
+                        while (L && (mac[L-1] == '\n' || mac[L-1] == ' ')) mac[--L] = 0;
+                    }
+                    fclose(af);
+                    if (mac[0]) break;
+                }
+            }
+            closedir(nd);
+        }
+    }
+
+    char concat[640];
+    snprintf(concat, sizeof(concat), "%s/%s/%s/%s", serial, uuid, board, mac);
+
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256((const unsigned char *)concat, strlen(concat), digest);
+
+    // First 16 hex chars (8 bytes) — plenty unique for ~thousands of
+    // devices, short enough to fit comfortably in a config / URL param.
+    static const char hexc[] = "0123456789abcdef";
+    for (int i = 0; i < 8; i++) {
+        ac_device_fp[i*2]     = hexc[(digest[i] >> 4) & 0xf];
+        ac_device_fp[i*2 + 1] = hexc[digest[i] & 0xf];
+    }
+    ac_device_fp[16] = '\0';
+
+    // Cached slot from previous boot's wifi refresh.
+    FILE *sf = fopen("/mnt/.ac-device-slot", "r");
+    if (sf) {
+        size_t r = fread(ac_device_slot, 1, sizeof(ac_device_slot) - 1, sf);
+        fclose(sf);
+        ac_device_slot[r] = '\0';
+        size_t L = strlen(ac_device_slot);
+        while (L > 0 && (ac_device_slot[L-1] == '\n' ||
+                         ac_device_slot[L-1] == ' '  ||
+                         ac_device_slot[L-1] == '\t' ||
+                         ac_device_slot[L-1] == '\r')) {
+            ac_device_slot[--L] = '\0';
+        }
+    }
+
+    ac_log("[ac-device] fp=%s slot=%s\n",
+           ac_device_fp,
+           ac_device_slot[0] ? ac_device_slot : "(unassigned)");
 }
 
 static void signal_handler(int sig) {
@@ -636,6 +727,15 @@ static int boot_title_colors_len = 0;
 // fresh as the inscription. Empty string disables the mood subtitle
 // and falls back to the original "enjoy <city>!" rendering.
 static char boot_mood[256] = "";
+
+// Hardware device identity. Computed once at boot from DMI fields:
+//   sha256(product_serial + "/" + system_uuid + "/" + board_serial)
+// truncated to 16 hex chars. Server (api/ac-device) maps fingerprint
+// to a curated slot like "ac0", "ac1" so each upcycled laptop has a
+// stable model number across reflashes. Cached in /mnt/.ac-device-slot
+// so the splash can render the badge on the next boot before wifi.
+static char ac_device_fp[24] = "";       // 16 hex chars + room
+static char ac_device_slot[16] = "";     // "ac0".."ac1023"
 
 static uint8_t clamp_u8(int v) {
     if (v < 0) return 0;
@@ -2745,6 +2845,21 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
+        // Device-id badge: small "acN" in the top-right corner. Fades in
+        // with the splash so it's not visible during the dark moment.
+        // Only rendered when a slot is registered — unassigned devices
+        // get no badge (avoids confusing "this is acNothing" noise).
+        if (ac_device_slot[0]) {
+            int badge_alpha = (int)(180.0 * fade_t);
+            graph_ink(graph, is_day
+                ? (ACColor){80, 100, 130, (uint8_t)badge_alpha}
+                : (ACColor){180, 200, 230, (uint8_t)badge_alpha});
+            int bw = font_measure_matrix(ac_device_slot, 1);
+            font_draw_matrix(graph, ac_device_slot,
+                             screen->width - bw - 6,
+                             6, 1);
+        }
+
         // Title — per-handle palette (fallback rainbow), animated pulse
         int alpha = (int)(255.0 * fade_t);
         if (alpha > 0) {
@@ -3381,6 +3496,11 @@ int main(int argc, char *argv[]) {
     // process. Without this, any server-side close during an in-flight
     // SSL_write kills ac-native with exit=141 (observed in crash logs).
     signal(SIGPIPE, SIG_IGN);
+
+    // 🔢 Device fingerprint: read DMI + cached slot synchronously so the
+    // splash can render the badge before wifi comes up. Cheap (~3 file
+    // reads + one sha256 hash on a tiny string).
+    compute_device_fingerprint();
 
     // 📸 Bootpic snapshot: detached thread fires asap. Internally
     // waits 300ms then retries camera_open with backoff so it doesn't
@@ -4165,6 +4285,37 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 }
+                // Device-id response — written by the wifi-connect curl above.
+                // Extract .slot ("ac3" etc.), persist to /mnt/.ac-device-slot
+                // for the next boot's splash. Updates the in-memory slot too
+                // so subsequent renders within this boot can show the badge.
+                FILE *df = fopen("/tmp/ac-device-resp.json", "r");
+                if (df) {
+                    char dbuf[1024] = {0};
+                    fread(dbuf, 1, sizeof(dbuf) - 1, df);
+                    fclose(df);
+                    unlink("/tmp/ac-device-resp.json");
+                    const char *sk = strstr(dbuf, "\"slot\"");
+                    if (sk) {
+                        const char *sv = strchr(sk + 6, ':');
+                        if (sv) {
+                            sv++; while (*sv == ' ' || *sv == '"') sv++;
+                            const char *se = strchr(sv, '"');
+                            if (se && se > sv && (se - sv) < (int)sizeof(ac_device_slot)) {
+                                int len = (int)(se - sv);
+                                memcpy(ac_device_slot, sv, len);
+                                ac_device_slot[len] = '\0';
+                                FILE *out = fopen("/mnt/.ac-device-slot", "w");
+                                if (out) {
+                                    fwrite(ac_device_slot, 1, len, out);
+                                    fclose(out);
+                                    ac_log("[ac-device] slot=%s persisted\n",
+                                           ac_device_slot);
+                                }
+                            }
+                        }
+                    }
+                }
                 // Mood response — written by the wifi-connect curl above.
                 // Parse the .mood string out of {"_id":"...","mood":"...",...}
                 // and persist to /mnt/last-mood for the NEXT boot's subtitle.
@@ -4753,6 +4904,21 @@ int main(int argc, char *argv[]) {
                                 ac_log("[mood] fetching for @%s\n", handle);
                             }
                         }
+                    }
+                    // Device-id refresh: GET /api/ac-device?fp=<fp>. Public read.
+                    // Response is { slot, model, ... } or 404 (we ignore 404 →
+                    // unassigned, splash shows nothing). Parsed in the main
+                    // loop and persisted to /mnt/.ac-device-slot for the next
+                    // boot's badge.
+                    if (ac_device_fp[0]) {
+                        char dcmd[1024];
+                        snprintf(dcmd, sizeof(dcmd),
+                            "curl -fsSL --max-time 10 "
+                            "'https://aesthetic.computer/api/ac-device?fp=%s' "
+                            "-o /tmp/ac-device-resp.json 2>/dev/null &",
+                            ac_device_fp);
+                        system(dcmd);
+                        ac_log("[ac-device] fetching for fp=%s\n", ac_device_fp);
                     }
                     // Clone (or pull) the aesthetic-computer repo to
                     // /mnt/ac-repo so Claude Code has a real project to
