@@ -409,6 +409,22 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       keys and pops them off the stack as keys are lifted.
 //                       (These tones will not necessarily be playing.)
 
+// 🔒 Sustain modifier state — both modifiers are momentary (no latch).
+// SHIFT held during a key press → that voice gets a long decay tail when
+//   released, so it dissipates rather than cuts off. Re-press of the
+//   same voiceId interrupts and restarts.
+// ENTER held during a key press → that voice is held permanently after
+//   release. BACKSPACE clears all held voices.
+// Drum / percussion presses skip both modes (handled at the press site).
+let shiftHeld = false;
+let enterHeld = false;
+// voiceId = `${wave}:${octave}:${noteName}` — stable identity across
+// physical-key reuse and octave/wave changes. Held voices live here
+// after their key is released; re-press of the same voiceId kills the
+// old one and starts a fresh voice.
+const heldVoices = new Map();
+const SHIFT_DECAY_SECONDS = 6.0; // long tail after release in shift-sustain mode
+
 // 🔬 Telemetry: Expose state for stability testing
 if (typeof window !== 'undefined') {
   window.__notepat_sounds = sounds;
@@ -4915,7 +4931,7 @@ function paint({
             // Note label in recital mode
             const meta = btn.meta || {};
             // Natural notes uppercase, black keys (sharps/flats) lowercase
-            const noteLabelText = meta.noteLabelText || (isBlackKey(note) ? note.toLowerCase() : note.toUpperCase());
+            const noteLabelText = meta.noteLabelText || (isBlackKey(note) || !shiftHeld ? note.toLowerCase() : note.toUpperCase());
             const noteFont = meta.noteFont || "MatrixChunky8";
             const glyphWidth = meta.noteGlyphWidth || matrixGlyphMetrics.width;
             const glyphHeight = meta.noteGlyphHeight || matrixGlyphMetrics.height;
@@ -4993,7 +5009,7 @@ function paint({
             const isNextNote = note.toUpperCase() === song?.[songIndex + 1]?.[0];
             if (isCurrentNote || isNextNote) {
               // Natural notes uppercase, black keys (sharps/flats) lowercase
-              noteLabelText = meta.noteLabelText || (isBlackKey(note) ? note.toLowerCase() : note.toUpperCase());
+              noteLabelText = meta.noteLabelText || (isBlackKey(note) || !shiftHeld ? note.toLowerCase() : note.toUpperCase());
               noteLabelBounds = meta.noteLabelBoundsCentered || {
                 x: btn.box.x + btn.box.w / 2 - (noteLabelText.length * glyphWidth) / 2,
                 y: btn.box.y + btn.box.h / 2 - glyphHeight / 2,
@@ -5003,7 +5019,7 @@ function paint({
             }
           } else {
             // Natural notes uppercase, black keys (sharps/flats) lowercase
-            noteLabelText = meta.noteLabelText || (isBlackKey(note) ? note.toLowerCase() : note.toUpperCase());
+            noteLabelText = meta.noteLabelText || (isBlackKey(note) || !shiftHeld ? note.toLowerCase() : note.toUpperCase());
             noteLabelBounds = meta.noteLabelBoundsDefault || {
               x: btn.box.x + 2,
               y: btn.box.y + 1,
@@ -5571,8 +5587,48 @@ function midiNoteToRelayButton(noteNumber) {
   return null;
 }
 
+// Compute a stable voice identity from the current button + global
+// wave/octave state. Used as the key into heldVoices so the same
+// physical button press with a different wave or octave produces a
+// distinct voice id (and re-pressing the same voice id is a re-trigger).
+function computeVoiceId(buttonNote) {
+  let noteName = buttonNote;
+  let targetOctave = lowerBaseOctave();
+  if (buttonNote.startsWith("+")) {
+    noteName = buttonNote.slice(1);
+    targetOctave = upperBaseOctave();
+  }
+  return `${wave}:${targetOctave}:${noteName}`;
+}
+
+// Kill every voice currently in the heldVoices map. Bound to BACKSPACE.
+// Uses a quick fade so the clear feels percussive rather than cut.
+function clearHeldVoices(fade = 0.05) {
+  if (heldVoices.size === 0) return false;
+  for (const [, entry] of heldVoices) {
+    entry?.sound?.kill?.(fade);
+  }
+  heldVoices.clear();
+  return true;
+}
+
+if (typeof window !== "undefined") {
+  window.__notepat_heldVoices = heldVoices;
+}
+
 function startRelayButtonNote(buttonNote, velocity = 127) {
   if (!buttonNote) return false;
+
+  // Re-trigger: if a held voice already exists for this exact voiceId
+  // (same wave + same octave + same note), kill it before we start the
+  // fresh press. This is the "play notes over what is held" rule —
+  // including same note in same octave should restart from attack.
+  const voiceId = computeVoiceId(buttonNote);
+  const existingHeld = heldVoices.get(voiceId);
+  if (existingHeld) {
+    existingHeld.sound?.kill?.(0.02);
+    heldVoices.delete(voiceId);
+  }
 
   const num = soundContext?.num;
   const synth = soundContext?.synth;
@@ -5640,10 +5696,20 @@ function startRelayButtonNote(buttonNote, velocity = 127) {
       });
     }
 
+    // Tag with voiceId + sustainMode so stopRelayButtonNote can decide
+    // whether to kill, long-fade, or move to the heldVoices map. ENTER
+    // wins over SHIFT if both are physically held at the press moment.
+    // Drum kit voices never sustain — percussion is intrinsically transient.
+    const isDrum = wave === "drum";
+    const sustainMode = isDrum
+      ? null
+      : (enterHeld ? "enter" : (shiftHeld ? "shift" : null));
     sounds[buttonNote] = {
       note: buttonNote,
       count: active.length + 1,
       sound: soundHandle,
+      voiceId,
+      sustainMode,
     };
 
     applyPitchBendToNotes([buttonNote], { immediate: true });
@@ -5669,18 +5735,34 @@ function stopRelayButtonNote(buttonNote) {
   if (!buttonNote) return;
 
   const orderedTones = orderedByCount(tonestack);
+  const soundEntry = sounds[buttonNote];
+  const sustainMode = soundEntry?.sustainMode;
 
-  if (slide && orderedTones.length > 1 && sounds[buttonNote]) {
+  // Sustain modes: SHIFT-held → long decay tail; ENTER-held → no kill,
+  // sound persists in heldVoices until BACKSPACE clears it. Skip slide
+  // logic entirely for sustained voices (slide is for legato glide,
+  // sustain is the opposite — let it ring its own length).
+  if (sustainMode && soundEntry?.sound) {
+    if (sustainMode === "shift") {
+      soundEntry.sound.kill?.(SHIFT_DECAY_SECONDS);
+    }
+    // For "enter" mode we don't call kill at all — voice plays until
+    // clearHeldVoices kills it (backspace).
+    heldVoices.set(soundEntry.voiceId, {
+      sound: soundEntry.sound,
+      source: sustainMode,
+      startedAt: soundEntry.sound?.startedAt ?? null,
+    });
+  } else if (slide && orderedTones.length > 1 && soundEntry) {
     const previousKey = orderedTones[orderedTones.length - 2];
     const previousTone = tonestack[previousKey]?.tone;
     if (previousTone) {
-      sounds[buttonNote]?.sound?.update({ tone: previousTone, duration: 0.1 });
-      sounds[previousKey] = sounds[buttonNote];
+      soundEntry.sound?.update?.({ tone: previousTone, duration: 0.1 });
+      sounds[previousKey] = soundEntry;
       if (sounds[previousKey]) sounds[previousKey].note = previousKey;
       applyPitchBendToNotes([previousKey], { immediate: true });
     }
-  } else if (sounds[buttonNote]?.sound) {
-    const soundEntry = sounds[buttonNote];
+  } else if (soundEntry?.sound) {
     const lifespan = soundEntry.sound?.startedAt
       ? performance.now() / 1000 - soundEntry.sound.startedAt
       : 0.1;
@@ -5994,11 +6076,27 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
       tone,
     };
 
+    // Voice id for held tracking. Drum mode never sustains. Same
+    // re-trigger rule as startRelayButtonNote: if a held voice with
+    // this exact id already exists, kill it before starting fresh.
+    const voiceId = `${wave}:${tempOctave}:${noteUpper.toLowerCase()}`;
+    const existingHeld = heldVoices.get(voiceId);
+    if (existingHeld) {
+      existingHeld.sound?.kill?.(0.02);
+      heldVoices.delete(voiceId);
+    }
+    const isDrum = wave === "drum";
+    const sustainMode = isDrum
+      ? null
+      : (enterHeld ? "enter" : (shiftHeld ? "shift" : null));
+
     const pan = getPanForButtonNote(note);
     sounds[note] = {
       note,
       count: active.length + 1,
       sound: makeNoteSound(tone, velocity, pan),
+      voiceId,
+      sustainMode,
     };
 
     applyPitchBendToNotes([note], { immediate: true });
@@ -6022,28 +6120,42 @@ function stopButtonNote(note, { force = false } = {}) {
   if (downs[note]) return false;
 
   const orderedTones = orderedByCount(tonestack);
+  const soundEntry = sounds[note];
+  const sustainMode = soundEntry?.sustainMode;
 
-  if (slide && orderedTones.length > 1 && sounds[note]) {
+  if (sustainMode && soundEntry?.sound) {
+    // Sustained voice — long fade for shift, no kill for enter. Move
+    // into heldVoices keyed by voiceId so re-press of the same id
+    // can interrupt it (and BACKSPACE clears all of these).
+    if (sustainMode === "shift") {
+      soundEntry.sound.kill?.(SHIFT_DECAY_SECONDS);
+    }
+    heldVoices.set(soundEntry.voiceId, {
+      sound: soundEntry.sound,
+      source: sustainMode,
+      startedAt: soundEntry.sound?.startedAt ?? null,
+    });
+  } else if (slide && orderedTones.length > 1 && soundEntry) {
     const previousKey = orderedTones[orderedTones.length - 2];
     const previousTone = tonestack[previousKey]?.tone;
-    
+
     // For sample-based waves, use sampleSpeed; for synths, use tone frequency
     const freq = soundContext?.freq;
     if (wave === "stample" || wave === "sample") {
       const targetFreq = freq ? freq(previousTone) : 440;
       const targetSpeed = targetFreq / 440;
-      sounds[note]?.sound?.update({ sampleSpeed: targetSpeed });
+      soundEntry.sound?.update?.({ sampleSpeed: targetSpeed });
     } else {
-      sounds[note]?.sound?.update({
+      soundEntry.sound?.update?.({
         tone: previousTone,
         duration: 0.1,
       });
     }
-    sounds[previousKey] = sounds[note];
+    sounds[previousKey] = soundEntry;
     if (sounds[previousKey]) sounds[previousKey].note = previousKey;
     applyPitchBendToNotes([previousKey], { immediate: true });
   } else {
-    sounds[note]?.sound.kill(force ? fastFade : quickFade ? fastFade : killFade);
+    soundEntry?.sound?.kill?.(force ? fastFade : quickFade ? fastFade : killFade);
   }
 
   trail[note] = 1;
@@ -6295,12 +6407,28 @@ function act({
     room.toggle();
   }
 
-  // 🧩 Glitch mode toggle (backspace key) - global raw synth effect
+  // 🔇 BACKSPACE — clear all held (shift-decaying / enter-latched) voices.
+  // Falls through to the original glitch-mode toggle when no held voices
+  // exist, so the binding still serves both purposes without surprise.
   if (e.is("keyboard:down:backspace") && !e.repeat) {
-    glitchMode = !glitchMode;
-    glitch?.toggle?.();
-    cleanupOrphanedSounds(pens, true);
+    if (!clearHeldVoices()) {
+      glitchMode = !glitchMode;
+      glitch?.toggle?.();
+      cleanupOrphanedSounds(pens, true);
+    }
   }
+
+  // 🔒 SHIFT held → next press uses short-attack / long-decay envelope.
+  // Both physical shifts qualify; left/right shift's own toggles
+  // (quickFade, slide) still fire on shift-down — they're orthogonal to
+  // the held-state tracking that the press dispatcher reads.
+  if (e.is("keyboard:down:shift")) shiftHeld = true;
+  if (e.is("keyboard:up:shift")) shiftHeld = false;
+
+  // 🔒 ENTER held → next press latches the voice into heldVoices until
+  // backspace clears it. ENTER wins over SHIFT when both are held.
+  if (e.is("keyboard:down:enter")) enterHeld = true;
+  if (e.is("keyboard:up:enter")) enterHeld = false;
 
   if (
     e.is("keyboard:down") &&
