@@ -35,6 +35,7 @@
 #include "js-bindings.h"
 #include "machines.h"
 #include "recorder.h"
+#include "camera.h"
 #ifdef USE_WAYLAND
 #include "wayland-display.h"
 #endif
@@ -159,7 +160,16 @@ static void sigterm_handler(int sig) {
 //   - Under systemd (NixOS): fall back to systemctl.
 static void draw_shutdown_anim(void);
 
+// Forward declarations for ac_poweroff bootpic capture.
+static int bootpic_capture_to(const char *prefix);
+
 static void ac_poweroff(void) {
+    // Off-pic: snap a final frame before the farewell animation. Runs
+    // synchronously — the function is bounded by camera_open's retry
+    // budget so a missing camera can only delay shutdown by a few
+    // hundred ms (one-shot, no retries here vs the boot side).
+    bootpic_capture_to("off");
+
     // Farewell animation (1.5s) — runs only if the display context is
     // available (skipped during early-boot emergency poweroffs before main
     // initializes graphics).
@@ -190,6 +200,93 @@ static void ac_reboot(void) {
     }
     system("systemctl reboot || /sbin/reboot -f || /bin/reboot -f || reboot -f");
     _exit(2);
+}
+
+// 📸 Bootpics — snap a webcam frame at boot and at shutdown, save to
+// /mnt/bootpics/<prefix>-<unix_ts>.pgm. PGM (Portable Gray Map) is a
+// trivial format any decoder can read with no library: a one-line ASCII
+// header ("P5\n<w> <h>\n255\n") followed by w*h raw 8-bit luminance.
+// Grayscale only — that's all the existing camera_grab() exposes (it
+// converts YUYV→Y for QR scanning) and a faithful nostalgia colorspace
+// for these "this happened" snapshots.
+//
+// Bootside runs in a detached pthread so it never blocks the splash:
+//   1. retry camera_open with backoff (USB UVC enumerates lazily)
+//   2. throw away ~3 frames so auto-exposure settles
+//   3. one real grab, write PGM, close
+// Off-side runs synchronously inside ac_poweroff(), bounded by the
+// camera-open retry budget so a missing camera can't hang shutdown.
+static int bootpic_capture_to(const char *prefix) {
+    ACCamera cam = {0};
+    cam.fd = -1;
+    int opened = -1;
+    // Retry up to 20 times with 200ms sleep between (4s total budget).
+    // The camera_open call tries /dev/video0..3 in sequence each time —
+    // gives the kernel time to enumerate USB UVC devices on early boot.
+    for (int attempt = 0; attempt < 20; attempt++) {
+        opened = camera_open(&cam);
+        if (opened == 0) break;
+        usleep(200000);
+    }
+    if (opened != 0) return -1;
+
+    // Warm-up grabs — UVC cameras need a few frames before exposure
+    // and white balance stabilize, otherwise the first frame looks
+    // fully black or fully white.
+    for (int i = 0; i < 3; i++) {
+        if (camera_grab(&cam) != 0) {
+            // First few grabs can fail while the stream is starting;
+            // tolerate up to half the warm-up budget failing.
+            if (i >= 1) {
+                camera_close(&cam);
+                return -1;
+            }
+        }
+    }
+    if (camera_grab(&cam) != 0) {
+        camera_close(&cam);
+        return -1;
+    }
+
+    // Build path: /mnt/bootpics/<prefix>-<unix_ts>.pgm
+    mkdir("/mnt/bootpics", 0755);
+    char path[160];
+    time_t now = time(NULL);
+    snprintf(path, sizeof(path), "/mnt/bootpics/%s-%lld.pgm",
+             prefix, (long long)now);
+
+    FILE *fp = fopen(path, "wb");
+    if (!fp) {
+        camera_close(&cam);
+        return -1;
+    }
+    fprintf(fp, "P5\n%d %d\n255\n", cam.width, cam.height);
+    if (cam.gray) {
+        fwrite(cam.gray, 1, (size_t)cam.width * (size_t)cam.height, fp);
+    }
+    fclose(fp);
+    camera_close(&cam);
+    ac_log("[bootpic] saved %s (%dx%d)\n", path, cam.width, cam.height);
+    return 0;
+}
+
+static void *bootpic_boot_thread_fn(void *arg) {
+    (void)arg;
+    // Detached — no caller waits on us. A small lead-in lets the
+    // kernel finish its USB enumeration without us hammering open()
+    // before the device node appears.
+    usleep(300000);
+    bootpic_capture_to("boot");
+    return NULL;
+}
+
+static void bootpic_capture_boot_async(void) {
+    pthread_t t;
+    pthread_attr_t attr;
+    if (pthread_attr_init(&attr) != 0) return;
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&t, &attr, bootpic_boot_thread_fn, NULL);
+    pthread_attr_destroy(&attr);
 }
 
 static void signal_handler(int sig) {
@@ -3282,6 +3379,14 @@ int main(int argc, char *argv[]) {
     // process. Without this, any server-side close during an in-flight
     // SSL_write kills ac-native with exit=141 (observed in crash logs).
     signal(SIGPIPE, SIG_IGN);
+
+    // 📸 Bootpic snapshot: detached thread fires asap. Internally
+    // waits 300ms then retries camera_open with backoff so it doesn't
+    // hammer before the kernel enumerates /dev/video*. Runs in parallel
+    // with the rest of boot — never blocks the splash, never blocks
+    // input, never blocks audio.
+    bootpic_capture_boot_async();
+
 #ifdef USE_WAYLAND
     // Under Wayland: no DRM handoff signals needed (browser is sibling client)
     if (!getenv("WAYLAND_DISPLAY"))
