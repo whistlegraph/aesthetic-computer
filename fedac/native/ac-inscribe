@@ -1,0 +1,185 @@
+#!/bin/bash
+# ac-inscribe — bind an authenticated session to a flashable AC OS image
+#
+# Pipelined flash flow:
+#   ac-os pull       — download + verify kernel artifacts
+#   ac-inscribe      — gather + validate credentials, write inscription.json
+#   ac-os flash      — read inscription.json + write USB
+#
+# Usage:
+#   ac-inscribe                   # interactive: validate, prompt, write
+#   ac-inscribe --yes             # non-interactive, no confirmation prompt
+#   ac-inscribe --anon            # anonymous USB (no session, no tokens)
+#   ac-inscribe --out <path>      # override output (default: /tmp/ac-os-pull/inscription.json)
+#   ac-inscribe --no-claude       # skip baking local Claude session
+#   ac-inscribe --inspect <path>  # print summary of an existing inscription
+#
+# Exit codes:
+#   0  inscription written and valid
+#   1  generic failure (auth, network, IO)
+#   2  user declined the validation prompt
+#
+# This script never writes to USB. ac-os flash consumes the artifact and
+# is the only path that touches block devices.
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LIB="${SCRIPT_DIR}/scripts/inscribe-lib.sh"
+[ -f "${LIB}" ] || { echo "ac-inscribe: missing ${LIB}" >&2; exit 1; }
+# shellcheck disable=SC1090
+source "${LIB}"
+
+# ─── parse flags ──────────────────────────────────────────────────
+ANON=0
+YES=0
+NO_CLAUDE=0
+OUT="/tmp/ac-os-pull/inscription.json"
+INSPECT=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --anon)        ANON=1 ;;
+        --yes|-y)      YES=1 ;;
+        --no-claude)   NO_CLAUDE=1 ;;
+        --out)         OUT="$2"; shift ;;
+        --inspect)     INSPECT="$2"; shift ;;
+        --help|-h)
+            sed -n '2,18p' "$0" | sed 's/^# *//'
+            exit 0
+            ;;
+        *)
+            aci_die "unknown flag: $1 (try --help)"
+            ;;
+    esac
+    shift
+done
+
+# ─── inspect mode — read an existing inscription, print summary, exit ─
+if [ -n "${INSPECT}" ]; then
+    [ -f "${INSPECT}" ] || aci_die "no inscription at ${INSPECT}"
+    printf '%s[ac-inscribe]%s inspecting %s%s%s\n\n' \
+        "${ACI_C_CYAN}" "${ACI_C_RESET}" \
+        "${ACI_C_BOLD}" "${INSPECT}" "${ACI_C_RESET}"
+    node -e "
+        const d = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+        const c = d.usbConfig || {};
+        const yn = (v) => v ? 'yes' : 'no';
+        process.stdout.write(
+            \`  version    : \${d.version || '?'}\n\` +
+            \`  createdAt  : \${d.createdAt || '?'}\n\` +
+            \`  createdBy  : \${d.createdBy || '?'}\n\` +
+            \`  handle     : \${c.handle || '?'}\n\` +
+            \`  email      : \${c.email || '-'}\n\` +
+            \`  ac-token   : \${yn(c.token)}\n\` +
+            \`  claudeToken: \${yn(c.claudeToken)}\n\` +
+            \`  githubPat  : \${yn(c.githubPat)}\n\` +
+            \`  claudeCreds: \${yn(c.claudeCreds)}\n\` +
+            \`  claudeState: \${yn(c.claudeState)}\n\`
+        );
+    " "${INSPECT}"
+    exit 0
+fi
+
+# ─── anonymous shortcut ───────────────────────────────────────────
+if [ "${ANON}" -eq 1 ]; then
+    aci_step 1 2 "Building anonymous inscription"
+    aci_ok "no token, no session, no claude/github creds"
+    aci_ok "USB will boot into notepat as anonymous"
+
+    aci_step 2 2 "Writing ${OUT}"
+    mkdir -p "$(dirname "${OUT}")" || aci_die "could not create output dir"
+    aci_build_anon_inscription_json > "${OUT}" || aci_die "write failed"
+    chmod 600 "${OUT}" 2>/dev/null || true
+    aci_ok "wrote $(wc -c < "${OUT}" | tr -d ' ') bytes (mode 0600)"
+    printf '\n%s[ac-inscribe]%s ready. run: %sac-os flash%s\n' \
+        "${ACI_C_CYAN}" "${ACI_C_RESET}" "${ACI_C_BOLD}" "${ACI_C_RESET}"
+    exit 0
+fi
+
+# ─── authenticated path ───────────────────────────────────────────
+
+# Step 1 — auth token
+aci_step 1 5 "Validating ~/.ac-token"
+if aci_require_login; then
+    aci_ok "token present and parseable"
+    aci_ok "handle: ${ACI_C_BOLD}@${ACI_HANDLE}${ACI_C_RESET}"
+    aci_ok "email:  ${ACI_EMAIL:-(none)}"
+    aci_ok "sub:    ${ACI_SUB}"
+    [ -n "${ACI_ACCESS_TOKEN}" ] || aci_warn "access_token is empty"
+else
+    aci_die "auth check failed"
+fi
+
+# Step 2 — handle-token API
+aci_step 2 5 "Fetching handle tokens (claude-token API)"
+if aci_fetch_handle_tokens; then
+    aci_ok "API responded"
+    if [ -n "${ACI_HANDLE_API}" ] && [ "${ACI_HANDLE_API}" != "${ACI_HANDLE}" ]; then
+        aci_warn "API handle (@${ACI_HANDLE_API}) ≠ token handle (@${ACI_HANDLE}) — using token handle"
+    fi
+    [ -n "${ACI_CLAUDE_TOKEN}" ] && aci_ok "claudeToken: present" || aci_warn "claudeToken: empty"
+    [ -n "${ACI_GITHUB_PAT}"   ] && aci_ok "githubPat:   present" || aci_warn "githubPat:   empty"
+else
+    aci_warn "handle-token API unavailable — bundle will lack claude/github tokens"
+    ACI_CLAUDE_TOKEN=""
+    ACI_GITHUB_PAT=""
+fi
+
+# Step 3 — local Claude session
+aci_step 3 5 "Local Claude session"
+if [ "${NO_CLAUDE}" -eq 1 ]; then
+    aci_info "skipped (--no-claude)"
+    ACI_CLAUDE_CREDS=""
+    ACI_CLAUDE_STATE=""
+else
+    aci_collect_local_claude
+    if [ -n "${ACI_CLAUDE_STATE}" ]; then
+        aci_ok "~/.claude.json found, email matches — will bake"
+        if [ -n "${ACI_CLAUDE_CREDS}" ]; then
+            aci_ok "~/.claude/.credentials.json bundled"
+        else
+            aci_warn "~/.claude/.credentials.json missing — state without creds"
+        fi
+    elif [ -f "${HOME}/.claude.json" ]; then
+        if [ -n "${ACI_CLAUDE_LOCAL_EMAIL:-}" ]; then
+            aci_warn "skipped — local claude email (${ACI_CLAUDE_LOCAL_EMAIL}) ≠ AC email (${ACI_EMAIL})"
+        else
+            aci_warn "skipped — could not read local claude email"
+        fi
+    else
+        aci_info "no ~/.claude.json found — nothing to bake"
+    fi
+fi
+
+# Step 4 — assemble bundle
+aci_step 4 5 "Assembling inscription bundle"
+BUNDLE=$(aci_build_inscription_json) || aci_die "bundle assembly failed"
+BUNDLE_BYTES=$(printf '%s' "${BUNDLE}" | wc -c | tr -d ' ')
+aci_ok "version 1 envelope, ${BUNDLE_BYTES} bytes"
+aci_ok "fields: handle, sub, email, token$([ -n "${ACI_CLAUDE_TOKEN}" ] && printf ', claudeToken')$([ -n "${ACI_GITHUB_PAT}" ] && printf ', githubPat')$([ -n "${ACI_CLAUDE_CREDS}" ] && printf ', claudeCreds')$([ -n "${ACI_CLAUDE_STATE}" ] && printf ', claudeState')"
+
+# Confirmation gate (interactive only)
+if [ "${YES}" -eq 0 ] && [ -t 0 ]; then
+    printf '\n%sproceed? this writes credentials to %s%s%s [y/N]: ' \
+        "${ACI_C_YELLOW}" "${ACI_C_BOLD}" "${OUT}" "${ACI_C_RESET}"
+    read -r CONFIRM
+    case "${CONFIRM}" in
+        y|Y|yes|YES) ;;
+        *) printf '%s[ac-inscribe]%s declined\n' "${ACI_C_CYAN}" "${ACI_C_RESET}"; exit 2 ;;
+    esac
+fi
+
+# Step 5 — write artifact
+aci_step 5 5 "Writing ${OUT}"
+mkdir -p "$(dirname "${OUT}")" || aci_die "could not create output dir"
+printf '%s' "${BUNDLE}" > "${OUT}" || aci_die "write failed"
+chmod 600 "${OUT}" 2>/dev/null || true
+aci_ok "wrote ${BUNDLE_BYTES} bytes (mode 0600)"
+aci_ok "$(stat -f '%Sp %Su:%Sg' "${OUT}" 2>/dev/null || stat -c '%a %U:%G' "${OUT}" 2>/dev/null || echo permissions checked)"
+
+printf '\n%s[ac-inscribe]%s %sinscribed%s @%s — run: %sac-os flash%s\n' \
+    "${ACI_C_CYAN}" "${ACI_C_RESET}" \
+    "${ACI_C_GREEN}" "${ACI_C_RESET}" \
+    "${ACI_HANDLE}" \
+    "${ACI_C_BOLD}" "${ACI_C_RESET}"

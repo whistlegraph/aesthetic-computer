@@ -906,6 +906,29 @@ write_usb_config_file() {
     local CLAUDE_CREDS=""
     local CLAUDE_STATE=""
 
+    # Pre-built inscription path: ac-inscribe writes a JSON envelope to
+    # AC_INSCRIPTION_FILE (default /tmp/ac-os-pull/inscription.json). When
+    # present, skip the live API fetch and use the artifact's usbConfig
+    # directly. This makes flash deterministic — no network calls during
+    # the USB write — and lets `ac-inscribe` print a separate validation
+    # summary for the operator before block-device work begins.
+    local AC_INSCRIPTION_FILE="${AC_INSCRIPTION_FILE:-/tmp/ac-os-pull/inscription.json}"
+    if [ -f "${AC_INSCRIPTION_FILE}" ]; then
+        local INSCRIBE_LIB="${SCRIPT_DIR}/scripts/inscribe-lib.sh"
+        if [ -f "${INSCRIBE_LIB}" ]; then
+            # shellcheck source=/dev/null
+            source "${INSCRIBE_LIB}"
+            USB_CONFIG=$(aci_extract_usb_config_from_inscription "${AC_INSCRIPTION_FILE}") || {
+                err "Failed to read inscription at ${AC_INSCRIPTION_FILE} (corrupt?)"
+                return 1
+            }
+            ac_media_write_legacy_config "${CONFIG_FILE}" "${USB_CONFIG}"
+            log "USB config: from inscription ${AC_INSCRIPTION_FILE}"
+            log "USB config: $(ac_media_summarize_config_file "${CONFIG_FILE}")"
+            return 0
+        fi
+    fi
+
     # AC_ANON=1 produces a shareable USB — no handle, no tokens, no
     # Claude/GitHub creds. Flash this when giving someone a device to
     # boot into notepat without inscribing your session onto it.
