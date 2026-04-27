@@ -61,8 +61,8 @@
   },
   "arxiv-whistlegraph": {
     "created": "2026-03-21",
-    "revisions": 1415,
-    "updated": "2026-04-27T17:02:37.831Z"
+    "revisions": 1416,
+    "updated": "2026-04-27T17:05:10.844Z"
   },
   "arxiv-plork": {
     "created": "2026-03-21",
@@ -126,7 +126,7 @@
   },
   "arxiv-latency": {
     "created": "2026-04-26",
-    "revisions": 3,
-    "updated": "2026-04-26T07:03:08.542Z"
+    "revisions": 4,
+    "updated": "2026-04-27T17:05:10.844Z"
   }
 }
