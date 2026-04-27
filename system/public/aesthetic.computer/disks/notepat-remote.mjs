@@ -65,6 +65,18 @@ function isBlackKey(p) {
   return [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12);
 }
 
+function clamp8(v) {
+  return max(0, min(255, floor(v)));
+}
+
+// Subtle warm/cool tint per baseOctave so swapping octaves visibly recolors
+// the resting pads + the meter. Negative delta (low octaves) warms toward
+// red/yellow, positive delta cools toward blue/cyan. baseline = 4.
+function octaveTint(oct) {
+  const d = oct - 4;
+  return [-d * 5, -d * 2, d * 8];
+}
+
 let ws = null;
 let wsState = "idle";
 let wsError = "";
@@ -519,28 +531,32 @@ function paint({ wipe, ink, box, line, screen }) {
   const cols = 4;
   const rows = 6;
   const octaveGap = 2;
-  const bezel = 2;      // visible bezel thickness
-  const gridInset = 3;  // bezel + 1px bg so cell-gap-to-bezel matches pad-gap-between (both 2px)
-  // colEdges span the inner area (inside bezel + 1px bg) exactly; last
-  // cell absorbs any horizontal rounding remainder.
-  const innerW = W - gridInset * 2;
-  const innerH = H - gridInset * 2;
+  const bezel = 2;            // visible bezel thickness
+  const TOP_METER_H = 4;      // octave-meter strip lives above the grid
+  const TOP_INSET = bezel + TOP_METER_H;  // grid starts below meter
+  const SIDE_INSET = 3;       // bezel + 1px bg gap, matches pad-gap-between
+  const BOTTOM_INSET = 3;
+  const innerW = W - SIDE_INSET * 2;
+  const innerH = H - TOP_INSET - BOTTOM_INSET;
   const colEdges = [];
-  for (let c = 0; c <= cols; c += 1) colEdges.push(gridInset + floor((c * innerW) / cols));
+  for (let c = 0; c <= cols; c += 1) colEdges.push(SIDE_INSET + floor((c * innerW) / cols));
   // rowHeights distribute the available vertical space evenly and
   // absorb the leftover px into the first few rows so the grid ends
-  // flush with (H - gridInset). Octave gap is inserted between row 2
+  // flush with (H - BOTTOM_INSET). Octave gap is inserted between row 2
   // and row 3.
   const avail = innerH - octaveGap;
   const rowBase = floor(avail / rows);
   const rowRem = avail - rowBase * rows;
   const rowHeights = [];
   for (let r = 0; r < rows; r += 1) rowHeights.push(rowBase + (r < rowRem ? 1 : 0));
-  const rowEdges = [gridInset];
+  const rowEdges = [TOP_INSET];
   for (let r = 0; r < rows; r += 1) {
     const gap = r === 3 ? octaveGap : 0;
     rowEdges.push(rowEdges[r] + rowHeights[r] + gap);
   }
+
+  // Octave tint reused by rest pads + meter — keeps the two visually linked.
+  const octTint = octaveTint(baseOctave);
 
   buttons = [];
   for (let octIdx = 0; octIdx < OCTAVE_GRIDS.length; octIdx += 1) {
@@ -623,8 +639,16 @@ function paint({ wipe, ink, box, line, screen }) {
               floor(base[2] + (liveTrackColor[2] - base[2]) * mix),
             ];
           } else {
-            fill = base;
+            fill = base.slice();
           }
+          // Subtle octave tint — black keys get ~⅓ the shift so they
+          // don't drift away from "near-black".
+          const tintScale = black ? 0.35 : 1;
+          fill = [
+            clamp8(fill[0] + octTint[0] * tintScale),
+            clamp8(fill[1] + octTint[1] * tintScale),
+            clamp8(fill[2] + octTint[2] * tintScale),
+          ];
         } else {
           fill = black ? keyBlack : unfocusedKeyWhite;
         }
@@ -718,12 +742,15 @@ function paint({ wipe, ink, box, line, screen }) {
   if (doorPhase > 0.01) {
     const halfW = floor(W / 2);
     const doorW = floor(halfW * doorPhase);
-    const panel = [18, 12, 18]; // warm near-black case material
-    // Panel bodies — slide in from each edge.
+    // Translucent panel — pads ghost through so the layout stays legible
+    // even when the case is closed. Alpha leans dark; bright/held pads
+    // still poke through clearly.
+    const panel = [18, 12, 18, 195];
     ink(...panel).box(0, 0, doorW, H, "fill");
     ink(...panel).box(W - doorW, 0, doorW, H, "fill");
     // Inner edges of each panel get a chrome stripe that matches the
     // bezel/divider color — becomes a 2px center seam when closed.
+    // Drawn opaque so the seam reads cleanly against the ghosted pads.
     if (doorW > 0) {
       ink(...chrome).line(doorW - 1, 0, doorW - 1, H - 1);
       ink(...chrome).line(W - doorW, 0, W - doorW, H - 1);
@@ -765,6 +792,38 @@ function paint({ wipe, ink, box, line, screen }) {
       if (stale) {
         ty += 2;
         writeCentered("UPDATE AVAILABLE", [255, 180, 90], "MatrixChunky8");
+      }
+    }
+  }
+
+  // ── Octave meter (top strip, above bezel) ────────────────────────
+  // 9 dashes for octaves 1-9 with the current one highlighted. No
+  // text/numbers — the dashes are a non-verbal level indicator that
+  // shifts color slightly per octave to match the pad rest tones.
+  {
+    const NUM_OCTAVES = 9;
+    const meterY = bezel;
+    const meterX = bezel + 1;
+    const meterEndX = W - bezel - 1;
+    const meterW = max(NUM_OCTAVES * 2, meterEndX - meterX);
+    // Stable dark backdrop so the meter doesn't flicker with bg note color.
+    ink(6, 4, 10).box(meterX, meterY, meterW, TOP_METER_H, "fill");
+    const segGap = 1;
+    const segW = max(1, floor((meterW - segGap * (NUM_OCTAVES - 1)) / NUM_OCTAVES));
+    const dashH = 2;
+    const dashY = meterY + floor((TOP_METER_H - dashH) / 2);
+    for (let n = 1; n <= NUM_OCTAVES; n += 1) {
+      const sx = meterX + (n - 1) * (segW + segGap);
+      const tint = octaveTint(n);
+      const isCur = n === baseOctave;
+      if (isCur) {
+        // Active dash: brighter, taller, tinted with the octave's tone.
+        const ah = TOP_METER_H;
+        const col = [clamp8(220 + tint[0]), clamp8(220 + tint[1]), clamp8(230 + tint[2])];
+        ink(...col).box(sx, meterY, segW, ah, "fill");
+      } else {
+        const col = [clamp8(60 + tint[0]), clamp8(50 + tint[1]), clamp8(70 + tint[2])];
+        ink(...col).box(sx, dashY, segW, dashH, "fill");
       }
     }
   }
