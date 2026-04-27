@@ -1,12 +1,15 @@
 // audio.c — ALSA sound engine for ac-native
 // Dedicated audio thread with multi-voice synthesis, envelopes, and effects.
 
+#define _GNU_SOURCE  // pthread_setaffinity_np, CPU_SET, cpu_set_t
+
 #include "audio.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <limits.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <sched.h>
@@ -18,6 +21,12 @@ extern void ac_log(const char *fmt, ...);
 
 // Forward declarations
 static int read_system_volume_card(int card);
+
+// qsort comparator for AC_LATENCY_BENCH percentile computation.
+static int bench_cmp_long(const void *a, const void *b) {
+    long la = *(const long *)a, lb = *(const long *)b;
+    return (la > lb) - (la < lb);
+}
 
 // ============================================================
 // Note frequency table (octave 0 base frequencies)
@@ -1331,6 +1340,51 @@ static void *audio_thread_fn(void *arg) {
     if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp) != 0)
         fprintf(stderr, "[audio] Warning: couldn't set RT priority\n");
 
+    /* Pin the audio thread to the last online CPU. CPU 0 typically
+     * services timer/network/USB IRQs; isolating audio on a separate
+     * core tightens the jitter ceiling without affecting median.
+     * Disable with AC_AUDIO_NO_PIN=1 if it conflicts with isolcpus. */
+    if (!getenv("AC_AUDIO_NO_PIN")) {
+        long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+        if (ncpu > 1) {
+            int target = (int)(ncpu - 1);
+            cpu_set_t cs;
+            CPU_ZERO(&cs);
+            CPU_SET(target, &cs);
+            if (pthread_setaffinity_np(pthread_self(), sizeof(cs), &cs) != 0)
+                fprintf(stderr, "[audio] Warning: couldn't pin audio thread to CPU %d\n", target);
+            else
+                fprintf(stderr, "[audio] Pinned to CPU %d (of %ld online)\n", target, ncpu);
+        }
+    }
+
+    /* Optional jitter benchmark: AC_LATENCY_BENCH=1 makes the audio
+     * thread record per-period wall-clock intervals and emit a
+     * single-line stats summary every PERIODS_PER_REPORT iterations.
+     * Output format (one line per report, parseable by latency.mjs):
+     *   [ac-latency] period_us=<expected> n=<count> min=<us> p50=<us>
+     *     mean=<us> p99=<us> max=<us> over_period_us=<count> xruns=<count>
+     */
+    const int latency_bench = getenv("AC_LATENCY_BENCH") &&
+                              getenv("AC_LATENCY_BENCH")[0] == '1';
+    const int PERIODS_PER_REPORT = 1024;
+    long expected_period_us = (long)(((double)period_frames / (double)rate) * 1e6);
+    /* Keep a small ring of recent intervals so we can compute p50/p99
+     * without storing every sample for the lifetime of the program. */
+    long *bench_us = NULL;
+    int bench_count = 0;
+    long bench_min = LONG_MAX, bench_max = 0, bench_sum = 0;
+    long bench_over_period = 0;  // periods that took > 1.5x expected
+    struct timespec bench_prev_ts = {0};
+    if (latency_bench) {
+        bench_us = (long *)calloc(PERIODS_PER_REPORT, sizeof(long));
+        /* bench_prev_ts left at {0,0} — set on first iteration below
+         * so the first delta is skipped (it would include startup
+         * prefill, not a real period interval). */
+        fprintf(stderr, "[ac-latency] benchmark enabled — period_us=%ld report=%d periods\n",
+                expected_period_us, PERIODS_PER_REPORT);
+    }
+
     while (audio->running) {
         memset(buffer, 0, sizeof(buffer));
 
@@ -1865,7 +1919,12 @@ static void *audio_thread_fn(void *arg) {
             const void *wptr = buffer32
                 ? (const void *)(buffer32 + offset * AUDIO_CHANNELS)
                 : (const void *)(buffer + offset * AUDIO_CHANNELS);
-            int frames = snd_pcm_writei(pcm, wptr, remaining);
+            /* mmap_writei skips a buffer copy versus writei; falls
+             * through to writei when access wasn't negotiated as
+             * MMAP_INTERLEAVED. */
+            int frames = audio->use_mmap
+                ? snd_pcm_mmap_writei(pcm, wptr, remaining)
+                : snd_pcm_writei(pcm, wptr, remaining);
             if (frames == -EAGAIN) continue;
             if (frames < 0) {
                 int rec = snd_pcm_recover(pcm, frames, 1);
@@ -1892,8 +1951,50 @@ static void *audio_thread_fn(void *arg) {
             remaining -= frames;
             offset += frames;
         }
+
+        /* Per-period jitter measurement (AC_LATENCY_BENCH=1).
+         * Time between successive writei completions = actual delivered
+         * period. Compare to expected to expose audio-thread scheduling
+         * jitter — the empirical floor for audio-side latency. */
+        if (latency_bench && bench_us) {
+            struct timespec now_ts;
+            clock_gettime(CLOCK_MONOTONIC, &now_ts);
+            if (bench_prev_ts.tv_sec == 0 && bench_prev_ts.tv_nsec == 0) {
+                /* First iteration — establish the time origin and skip;
+                 * the first delta would include startup prefill. */
+                bench_prev_ts = now_ts;
+            } else {
+                long delta_us = (now_ts.tv_sec - bench_prev_ts.tv_sec) * 1000000L +
+                                (now_ts.tv_nsec - bench_prev_ts.tv_nsec) / 1000L;
+                bench_prev_ts = now_ts;
+                bench_us[bench_count] = delta_us;
+                if (delta_us < bench_min) bench_min = delta_us;
+                if (delta_us > bench_max) bench_max = delta_us;
+                bench_sum += delta_us;
+                if (delta_us > expected_period_us * 3 / 2) bench_over_period++;
+                bench_count++;
+            }
+            if (bench_count >= PERIODS_PER_REPORT) {
+                /* qsort to compute p50/p99. n=1024 → ~10k comparisons,
+                 * runs in tens of µs once per second of audio — well
+                 * under one period budget on the RT audio thread. */
+                int n = bench_count;
+                qsort(bench_us, n, sizeof(long), bench_cmp_long);
+                long p50 = bench_us[n / 2];
+                long p99 = bench_us[(int)(n * 0.99)];
+                long mean = bench_sum / n;
+                fprintf(stderr,
+                        "[ac-latency] period_us=%ld n=%d min=%ld p50=%ld mean=%ld p99=%ld max=%ld over_period=%ld xruns=%lu\n",
+                        expected_period_us, n, bench_min, p50, mean,
+                        p99, bench_max, bench_over_period, xrun_count);
+                bench_count = 0;
+                bench_min = LONG_MAX; bench_max = 0; bench_sum = 0;
+                bench_over_period = 0;
+            }
+        }
     }
 
+    free(bench_us);
     free(buffer);
     free(buffer32);
     return NULL;
@@ -2268,7 +2369,21 @@ ACAudio *audio_init(void) {
     snd_pcm_hw_params_t *params;
     snd_pcm_hw_params_alloca(&params);
     snd_pcm_hw_params_any(pcm, params);
-    snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    /* Prefer MMAP_INTERLEAVED: snd_pcm_mmap_writei skips the kernel
+     * ring-buffer copy that snd_pcm_writei does, saving a fraction
+     * of a millisecond on HDA paths. Fall back to RW_INTERLEAVED if
+     * the hardware/driver doesn't expose mmap (rare on real PCMs;
+     * common on plughw with rate conversion). */
+    audio->use_mmap = 0;
+    if (snd_pcm_hw_params_set_access(pcm, params,
+                                      SND_PCM_ACCESS_MMAP_INTERLEAVED) == 0) {
+        audio->use_mmap = 1;
+        fprintf(stderr, "[audio] Negotiated MMAP_INTERLEAVED access\n");
+    } else {
+        snd_pcm_hw_params_any(pcm, params);
+        snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+        fprintf(stderr, "[audio] Negotiated RW_INTERLEAVED access (no mmap)\n");
+    }
     /* SOF topology FE PCMs use S32_LE internally; the SSP1 BE DAI
      * (MAX98360A) runs S24_LE. Writing S16_LE to this pipeline
      * causes 48dB attenuation + quantization noise ("crunchy quiet").
@@ -2282,8 +2397,13 @@ ACAudio *audio_init(void) {
         audio->use_s32 = 1;
         fprintf(stderr, "[audio] Negotiated S32_LE format (SOF)\n");
     } else {
+        /* Re-negotiate from scratch with S16_LE; preserve the access
+         * mode we picked above. */
         snd_pcm_hw_params_any(pcm, params);
-        snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+        snd_pcm_hw_params_set_access(pcm, params,
+                                     audio->use_mmap
+                                         ? SND_PCM_ACCESS_MMAP_INTERLEAVED
+                                         : SND_PCM_ACCESS_RW_INTERLEAVED);
         snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
         fprintf(stderr, "[audio] Negotiated S16_LE format%s\n",
                 sof_active ? " (S32_LE rejected)" : " (non-SOF, forced)");
@@ -2357,6 +2477,7 @@ ACAudio *audio_init(void) {
         snd_pcm_close(pcm);
         err = snd_pcm_open(&pcm, "plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
         if (err >= 0) {
+            audio->use_mmap = 0;  // plughw rate-conv path: no mmap
             snd_pcm_hw_params_any(pcm, params);
             snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
             snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
