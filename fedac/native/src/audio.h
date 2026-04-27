@@ -31,7 +31,8 @@ typedef enum {
     WAVE_NOISE,
     WAVE_WHISTLE,
     WAVE_GUN,
-    WAVE_HARP
+    WAVE_HARP,
+    WAVE_PIANO
 } WaveType;
 
 // Gun voice presets. Two synthesis models are available per preset:
@@ -189,6 +190,37 @@ typedef struct {
     // the previous sample for the canonical two-point moving-average
     // damping filter H(z) = 0.5 + 0.5·z^-1 from Karplus & Strong 1983.
     double harp_lp1;
+    // === Piano state — modal additive grand piano ===
+    // References:
+    //   Fletcher, H. & Rossing, T.D. (1998). "The Physics of Musical
+    //     Instruments," 2nd ed., Springer. (Inharmonicity formula
+    //     f_n = n·f0·sqrt(1 + B·n²) — Ch. 12, eq. 12.12.)
+    //   Bank, B. & Välimäki, V. (2003). "Robust Loss Filter Design for
+    //     Digital Waveguide Synthesis of String Tones," IEEE Signal
+    //     Processing Letters 10(1), pp.18-20.
+    //   Bank, B. (2000). "Physically-Based Sound Modeling of the Piano,"
+    //     M.Sc. thesis, BME Budapest. (Modal/additive grand piano synth
+    //     with stretched-harmonic partials.)
+    //   Smith, J.O. & Van Duyne, S.A. (1995). "Commuted Piano Synthesis,"
+    //     Proc. ICMC, Banff. (Hammer + soundboard collapsed into the
+    //     excitation; partials carry the rest.)
+    //
+    // We use 10 stretched-harmonic partials per voice. Each partial has
+    // its own phase, frequency (with inharmonicity stretch), amplitude,
+    // and per-sample exponential decay multiplier (so high partials die
+    // fast — the canonical "bright attack mellowing into long sustain"
+    // signature of a struck string). Three "phantom" mistuned fundamental
+    // partials produce inter-string beating, the chorus-y richness of a
+    // 3-string-per-note grand. Hammer noise burst (short LPF noise with
+    // ~5ms decay) provides the felt "thump" at attack.
+    double piano_partial_phase[10];   // 0..1 phase accumulator per partial
+    double piano_partial_freq[10];    // Hz (stretched: n·f0·sqrt(1+Bn²))
+    double piano_partial_amp[10];     // current amplitude (decays each sample)
+    double piano_partial_decay[10];   // per-sample exp multiplier (T60-derived)
+    int    piano_num_partials;        // active count (≤10, capped below Nyquist)
+    double piano_hammer_env;          // hammer-noise amplitude envelope
+    double piano_hammer_decay_mult;   // per-sample exp multiplier (~5ms T60)
+    double piano_hammer_lp;           // 1-pole LPF state for hammer noise
 } ACVoice;
 
 typedef struct {

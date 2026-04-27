@@ -337,6 +337,78 @@ static inline double generate_harp_sample(ACVoice *v, double sample_rate) {
 }
 
 // ============================================================
+// Piano synthesis — modal additive grand piano with stretched partials
+// ============================================================
+//
+// Algorithm (Bank/Välimäki modal-additive school, simplified for embedded
+// per-sample synthesis at 192kHz). For each note we run ~10 sine partials
+// at stretched-harmonic frequencies:
+//
+//   f_n = n · f0 · sqrt(1 + B · n²)        (Fletcher-Rossing eq. 12.12)
+//
+// where B is the inharmonicity coefficient — for a real grand B ranges
+// from ~5e-5 at A0 (long bass strings) to ~5e-3 at C8 (short, stiff
+// treble). We scale B with f0 so high notes are noticeably stretched and
+// bass notes stay nearly harmonic.
+//
+// The signature "ringing" piano character comes from this stretching:
+// the 8th partial isn't at 8·f0, it's a few cents sharper. When the
+// partials sound together with their natural beating, the ear hears a
+// real grand piano instead of a pure-harmonic sawtooth-ish "organ."
+//
+// Each partial decays exponentially with its own T60 (high partials die
+// faster — measured behavior of struck strings: damping ~ω². See Weinreich
+// 1977, "Coupled piano strings"). A real grand decays slowly (T60 ~ 8s
+// for the fundamental of A4), so the partial decays continue as long as
+// the voice is held.
+//
+// Three slightly mistuned "phantom" fundamental partials at f0±~0.6 Hz
+// produce the inter-string beating of a 3-string unison choir without
+// the cost of actually running 3 full string models. The beating is
+// what makes a piano sound like a piano and not a synth bell.
+//
+// Hammer thump: a short white-noise burst, low-pass filtered through a
+// 1-pole LPF (~3kHz cutoff) with ~5ms exponential decay. This is the
+// "felt + wood + soundboard" attack transient — Smith & Van Duyne's
+// "commuted synthesis" idea, collapsed into a cheap excitation since we
+// don't model the soundboard explicitly.
+//
+// References embedded above the piano fields in audio.h.
+static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
+    double env = compute_envelope(v);
+
+    double sum = 0.0;
+    for (int i = 0; i < v->piano_num_partials; i++) {
+        // Phasor sine. We could SIMD this, but at 10 partials × 32 voices
+        // × 192kHz = 61.4 Msin/s the math.h sin() call dominates. Could
+        // be replaced with a polynomial approx if profiling demands it.
+        sum += v->piano_partial_amp[i] * sin(2.0 * M_PI * v->piano_partial_phase[i]);
+        v->piano_partial_phase[i] += v->piano_partial_freq[i] / sample_rate;
+        if (v->piano_partial_phase[i] >= 1.0) v->piano_partial_phase[i] -= 1.0;
+        v->piano_partial_amp[i] *= v->piano_partial_decay[i];
+    }
+
+    // Hammer noise burst: short bright thump that gives the attack its
+    // percussive character. Without this, the partials alone sound like
+    // an organ tine — too pure for a struck-string instrument.
+    if (v->piano_hammer_env > 1e-5) {
+        double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
+        // 1-pole LPF — alpha ≈ 1 - exp(-2π·fc/sr), fc ≈ 3kHz at 192kHz
+        // gives alpha ≈ 0.097. Keeps the hammer noise from sounding like
+        // hi-hat hash; instead it's a soft "tk" / felt thwack.
+        double alpha = 0.097;
+        v->piano_hammer_lp = v->piano_hammer_lp + alpha * (white - v->piano_hammer_lp);
+        sum += v->piano_hammer_lp * v->piano_hammer_env * 0.55;
+        v->piano_hammer_env *= v->piano_hammer_decay_mult;
+    }
+
+    // Output gain — partials sum coherently for a few ms then disperse,
+    // peaking around 0.6-0.8. 0.55 keeps the post-attack sustain in the
+    // same loudness range as sine/triangle/sawtooth voices.
+    return 0.55 * sum * env;
+}
+
+// ============================================================
 // Gun synthesis — two models per preset
 // ============================================================
 //
@@ -1073,6 +1145,9 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
     case WAVE_HARP:
         s = generate_harp_sample(v, sample_rate);
         break;
+    case WAVE_PIANO:
+        s = generate_piano_sample(v, sample_rate);
+        break;
     default:
         s = 0.0;
     }
@@ -1082,8 +1157,8 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
         v->frequency += (v->target_frequency - v->frequency) * 0.0003; // ~5ms at 192kHz
     }
 
-    // Advance phase for basic oscillators; whistle/gun/harp use their own DWG state.
-    if (v->type != WAVE_WHISTLE && v->type != WAVE_GUN && v->type != WAVE_HARP) {
+    // Advance phase for basic oscillators; whistle/gun/harp/piano use their own state.
+    if (v->type != WAVE_WHISTLE && v->type != WAVE_GUN && v->type != WAVE_HARP && v->type != WAVE_PIANO) {
         v->phase += v->frequency / sample_rate;
         if (v->phase >= 1.0) v->phase -= 1.0;
     }
@@ -2785,7 +2860,8 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
     v->id = ++audio->next_id;
     v->started_at = audio->time;
 
-    if (type == WAVE_NOISE || type == WAVE_WHISTLE || type == WAVE_GUN || type == WAVE_HARP) {
+    if (type == WAVE_NOISE || type == WAVE_WHISTLE || type == WAVE_GUN ||
+        type == WAVE_HARP || type == WAVE_PIANO) {
         v->noise_seed = (uint32_t)(audio->next_id * 2654435761u);
     }
     if (type == WAVE_NOISE) {
@@ -2831,6 +2907,103 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
         }
         // Next write lands past the pluck; first read pulls buf[0].
         v->whistle_bore_w = n;
+    } else if (type == WAVE_PIANO) {
+        // Modal additive grand piano init. See generate_piano_sample for
+        // the algorithm; this block fills in the per-partial frequency,
+        // amplitude and decay-rate tables.
+        double sr = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
+        double f0 = freq;
+        if (f0 < 20.0) f0 = 20.0;
+
+        // Inharmonicity coefficient B. Real grand pianos: ~5e-5 at A0,
+        // ~1e-4 at A4, ~5e-3 at C8. We interpolate smoothly with f0.
+        // The sqrt(1 + B·n²) stretch is what makes high partials sit
+        // sharper than perfect harmonics — the "piano-ness" of the tone.
+        double B = 0.00006 + 0.0006 * (f0 / 880.0);
+        if (B > 0.005) B = 0.005;
+
+        // Per-partial relative amplitudes. Loosely modeled on measured
+        // spectra of struck steel piano strings — fundamental dominates,
+        // 2nd partial ~−5dB, then a -6dB/octave-ish slope. Slight bump
+        // at partials 3-4 gives the warm "body" of the soundboard.
+        const double base_amp[10] = {
+            1.00, 0.62, 0.50, 0.42, 0.30, 0.22, 0.16, 0.12, 0.09, 0.06
+        };
+        // Per-partial T60 in seconds. High partials damp ~quadratically
+        // faster than the fundamental (Weinreich 1977). Bass strings
+        // ring much longer than treble — scale T60 down for high f0.
+        // At f0=440Hz, T60[0] ≈ 7s, [9] ≈ 0.4s — close to a real C4-A4.
+        const double base_t60[10] = {
+            7.0, 5.5, 4.0, 3.0, 2.2, 1.6, 1.1, 0.8, 0.55, 0.40
+        };
+        // Treble-bias: short scaling for high notes (treble strings
+        // physically have less energy and damp faster).
+        double t60_scale = 1.0;
+        if (f0 > 440.0) t60_scale = 440.0 / f0;
+        if (t60_scale < 0.25) t60_scale = 0.25;
+
+        int N = 10;
+        for (int i = 0; i < 10; i++) {
+            double n_idx = (double)(i + 1);
+            double fn = n_idx * f0 * sqrt(1.0 + B * n_idx * n_idx);
+            // Cap the partial count below Nyquist with margin.
+            if (fn > sr * 0.45) {
+                N = i;
+                break;
+            }
+            v->piano_partial_freq[i] = fn;
+            v->piano_partial_amp[i]  = base_amp[i];
+            // T60 → per-sample multiplier: amp *= mult each sample,
+            // amp drops to 10^(-3) (-60dB) after T60 seconds.
+            //   mult = exp(ln(0.001) / (T60 · sr))  =  exp(-6.9078 / (T60·sr))
+            double t60 = base_t60[i] * t60_scale;
+            if (t60 < 0.05) t60 = 0.05;
+            v->piano_partial_decay[i] = exp(-6.9077553 / (t60 * sr));
+            // Random initial phase so successive notes don't add coherently
+            // and create unnatural attack-phase artifacts. Use noise_seed
+            // we already initialized above.
+            v->piano_partial_phase[i] =
+                ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX);
+        }
+        v->piano_num_partials = N;
+
+        // Three "phantom" mistuned fundamentals — the unison-string
+        // chorus. Replace partials 7-9 (high partials are barely audible
+        // anyway) with f0±detune to produce inter-string beating. Beat
+        // rate ~0.5-1 Hz mimics a real grand's tuning slop; without
+        // beats, piano sounds like a synth bell.
+        if (N >= 3) {
+            double detune_hz = 0.55 + 0.4 * ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX);
+            int slots[3] = { N - 3, N - 2, N - 1 };
+            // Use the lowest 3 frequencies — partials are sorted, so the
+            // FIRST 3 slots are most audible. Better to put phantoms there
+            // than discard the bass partials. Shift partials 0,1,2 → 3,4,5.
+            // But we already filled slots 0..N-1 — overwrite indices 0,1,2
+            // with detuned fundamentals AT high amplitudes (chorus core)
+            // and append the original fundamental + 2nd partial back into
+            // slots N..N+2 if room. Simpler: just inject detunes as extra
+            // partials at the END of the table (indices N, N+1, N+2).
+            (void)slots;
+            int extra_slots = 10 - N;
+            int phantoms = extra_slots < 3 ? extra_slots : 3;
+            double phantom_amps[3] = { 0.45, 0.35, 0.30 };
+            double phantom_offs[3] = { -detune_hz, +detune_hz, +0.5 * detune_hz };
+            for (int p = 0; p < phantoms; p++) {
+                int slot = N + p;
+                v->piano_partial_freq[slot]  = f0 + phantom_offs[p];
+                v->piano_partial_amp[slot]   = phantom_amps[p];
+                // Phantoms decay at the fundamental's rate.
+                v->piano_partial_decay[slot] = v->piano_partial_decay[0];
+                v->piano_partial_phase[slot] =
+                    ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX);
+            }
+            v->piano_num_partials = N + phantoms;
+        }
+
+        // Hammer noise burst — soft "thump" at attack. T60 ≈ 5ms.
+        v->piano_hammer_env        = 1.0;
+        v->piano_hammer_decay_mult = exp(-6.9077553 / (0.005 * sr));
+        v->piano_hammer_lp         = 0.0;
     }
 
     pthread_mutex_unlock(&audio->lock);

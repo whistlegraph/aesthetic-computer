@@ -822,8 +822,11 @@ static WaveType parse_wave_type(const char *type) {
     // audio.c:generate_harp_sample for algorithm + citations.
     if (strcmp(type, "harp") == 0 || strcmp(type, "pluck") == 0 ||
         strcmp(type, "guitar") == 0 || strcmp(type, "string") == 0) return WAVE_HARP;
+    // Modal-additive grand piano with stretched-harmonic partials. See
+    // audio.c:generate_piano_sample for algorithm + citations.
+    if (strcmp(type, "piano") == 0 || strcmp(type, "grand") == 0) return WAVE_PIANO;
     if (strncmp(type, "gun", 3) == 0) return WAVE_GUN;
-    // composite → treat as sine for now
+    // Unknown / legacy types fall back to sine.
     return WAVE_SINE;
 }
 

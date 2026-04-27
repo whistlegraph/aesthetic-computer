@@ -50,7 +50,7 @@ let octave = 4;
 let wave = "sine";
 let waveIndex = 0;
 let quickMode = false;
-const wavetypes = ["sine", "triangle", "sawtooth", "square", "composite", "harp", "whistle", "sample"];
+const wavetypes = ["sine", "triangle", "sawtooth", "square", "piano", "harp", "whistle", "sample"];
 let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
 let lastLoadedSample = null;  // track which sample object is currently loaded
 let recording = false;     // true while holding REC
@@ -2293,7 +2293,7 @@ function playWaveSound(sound, waveType) {
     sound.synth({ type: "noise", tone: 800, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
     return;
   }
-  const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, harp: 440, whistle: 880 };
+  const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, piano: 440, harp: 440, whistle: 880 };
   sound.synth({
     type: waveType,
     tone: tones[waveType] || 440,
@@ -2322,7 +2322,7 @@ function setWave(nextWave, sound) {
   waveIndex = wavetypes.indexOf(nextWave);
   if (waveIndex < 0) waveIndex = 0;
   // Announce wave type
-  sound?.speak?.(nextWave === "composite" ? "composite" : nextWave);
+  sound?.speak?.(nextWave);
 
   if (wave === "sample") {
     const mic = sound?.microphone || {};
@@ -3301,19 +3301,19 @@ function act({ event: e, sound, wifi, system }) {
             synth = smp;
             rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true }, system, 1);
           }
-        } else if (wave === "composite") {
-          // Rich layered pad: 5 detuned oscillators
-          const detune = () => Math.floor(Math.random() * 13) - 6;
-          const atk = currentAttack(), dcy = currentDecay();
-          const a = sound.synth({ type: "sine", tone: playFreq, duration: Infinity, volume: 0.5, attack: atk, decay: dcy, pan });
-          const b = sound.synth({ type: "sine", tone: playFreq + 9 + detune(), duration: Infinity, volume: 0.17, attack: atk, decay: dcy, pan });
-          const c = sound.synth({ type: "sawtooth", tone: playFreq + detune(), duration: 0.15 + Math.random() * 0.05, volume: 0.01, attack: atk * 1.5, decay: dcy * 0.2, pan });
-          const d = sound.synth({ type: "triangle", tone: playFreq + 8 + detune(), duration: Infinity, volume: 0.016, attack: Math.min(0.999, atk * 20), decay: dcy, pan });
-          const e2 = sound.synth({ type: "square", tone: playFreq + detune(), duration: Infinity, volume: 0.008, attack: atk * 10, decay: dcy, pan });
-          synth = a; // primary handle for kill
+        } else if (wave === "piano") {
+          // Modal-additive grand piano. Single native voice — the engine
+          // runs ~10 stretched-harmonic partials + hammer noise burst
+          // internally (see audio.c:generate_piano_sample). Attack is
+          // intentionally near-instant: real piano hammer strike is ~1ms.
+          const dcy = currentDecay();
+          synth = sound.synth({
+            type: "piano", tone: playFreq,
+            duration: Infinity, volume: 0.55,
+            attack: 0.001, decay: dcy, pan,
+          });
           rememberSound(hitNote.key, {
             synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq,
-            compositeVoices: [a, b, c, d, e2],
           }, system, 1);
         } else {
           // Shift modifiers — per-instrument alternate sound recipes.
@@ -6231,19 +6231,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
   {
-    const waveLabels = ["sine", "tri", "saw", "square", "cmp", "harp", "whist", "sample"];
+    const waveLabels = ["sine", "tri", "saw", "square", "pno", "harp", "whist", "sample"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
 
-    // Wave type colors: sin=blue, tri=green, saw=orange, sq=purple, cmp=pink,
+    // Wave type colors: sin=blue, tri=green, saw=orange, sq=purple, pno=ivory,
     // harp=gold, whistle=bone, sample=cyan
     const WAVE_COLORS = [
       [60, 120, 255],  // sine — blue
       [60, 200, 80],   // triangle — green
       [255, 150, 40],  // sawtooth — orange
       [160, 80, 220],  // square — purple
-      [255, 180, 220], // composite — pink
+      [245, 235, 215], // piano — ivory (key color)
       [220, 170, 70],  // harp — warm gold (bronze string)
       [220, 220, 150], // whistle — bone
       [40, 200, 200],  // sample — cyan
