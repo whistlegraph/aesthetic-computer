@@ -3279,6 +3279,49 @@ static JSValue js_read_file(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return result;
 }
 
+// system.readFileBytes(path) — read a file from disk and return its
+// full contents as an ArrayBuffer. Unlike system.readFile (which is
+// for text logs and caps at 64 KiB), this returns the entire file
+// without size cap, suitable for binary formats (PGM, PNG, raw audio).
+// Returns null on missing/unreadable file.
+static JSValue js_read_file_bytes(JSContext *ctx, JSValueConst this_val,
+                                  int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_NULL;
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NULL;
+    FILE *fp = fopen(path, "rb");
+    if (!fp) { JS_FreeCString(ctx, path); return JS_NULL; }
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        fclose(fp); JS_FreeCString(ctx, path); return JS_NULL;
+    }
+    long sz = ftell(fp);
+    if (sz < 0) {
+        fclose(fp); JS_FreeCString(ctx, path); return JS_NULL;
+    }
+    rewind(fp);
+    JS_FreeCString(ctx, path);
+    if (sz == 0) {
+        fclose(fp);
+        return JS_NewArrayBuffer(ctx, NULL, 0, js_free_array_buffer, NULL, 0);
+    }
+    uint8_t *buf = malloc((size_t)sz);
+    if (!buf) { fclose(fp); return JS_NULL; }
+    size_t rd = fread(buf, 1, (size_t)sz, fp);
+    fclose(fp);
+    if (rd != (size_t)sz) {
+        free(buf);
+        return JS_NULL;
+    }
+    JSValue ab = JS_NewArrayBuffer(ctx, buf, (size_t)sz,
+                                   js_free_array_buffer, NULL, 0);
+    if (JS_IsException(ab)) {
+        free(buf);
+        return JS_NULL;
+    }
+    return ab;
+}
+
 // system.writeFile(path, data) — write a string to disk, returns true/false
 static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -6549,6 +6592,7 @@ static JSValue build_system_obj(JSContext *ctx) {
 
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
+    JS_SetPropertyStr(ctx, sys, "readFileBytes", JS_NewCFunction(ctx, js_read_file_bytes, "readFileBytes", 1));
     JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
     JS_SetPropertyStr(ctx, sys, "deleteFile",JS_NewCFunction(ctx, js_delete_file,"deleteFile",1));
     JS_SetPropertyStr(ctx, sys, "listDir",   JS_NewCFunction(ctx, js_list_dir,   "listDir",   1));
