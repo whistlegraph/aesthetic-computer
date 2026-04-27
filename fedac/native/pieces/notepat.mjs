@@ -2852,6 +2852,13 @@ function act({ event: e, sound, wifi, system }) {
     // If this key is currently recording in per-key mode, suppress playback
     if (perKeyRecording === key) return;
     if (noteName && !sounds[key]) {
+      // Re-arm the audio-history ring before this note hits speakers.
+      // Capture stays paused after a space-release so the ring doesn't
+      // record the silent gap; unpausing here means the next reverse
+      // gesture replays exactly the audio the user generated, with
+      // none of the real-time silence between presses cluttering it.
+      // Idempotent — safe to call when capture is already running.
+      sound?.speaker?.setCapturePaused?.(false);
       // NuPhy detection: analog pressure arrives as a float strictly between
       // 0 and 1 (digital keys get the default 1.0 stamped on). Refresh the
       // "last analog keypress" timestamp whenever we see one so the status
@@ -2985,14 +2992,14 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "space") {
       spaceHeld = false;
       stopReversePlayback(sound);
-      // Unfreeze the output-history ring so live audio resumes being
-      // captured. sim() will animate waveViewOffsetSec back to 0 over
-      // ~20 frames (ease-out lerp) so the needle VISIBLY catches up to
-      // the present — which reads as a smooth "returning to live" sweep
-      // rather than a snap. The ring's write_pos didn't advance during
-      // the hold, so the catch-up target (offset=0) is still exactly the
-      // moment of press; recording picks up from there.
-      sound?.speaker?.setCapturePaused?.(false);
+      // KEEP capture paused on release. If we unpause here, the ring
+      // starts writing real-time silence between this release and the
+      // next note press — which the next reverse press would then play
+      // back as audible silence at the head of the loop ("space adds
+      // time"). Lazily unpaused at the first note-trigger site below
+      // (line ~2854) so the ring only captures content the user
+      // actually plays. Press → release → press again with no notes
+      // in between now reverses the same buffer content as press 1.
       spacePressStartMs = 0;
       return;
     }
