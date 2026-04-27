@@ -1,0 +1,52 @@
+#!/usr/bin/env fish
+# ac-passphrase — request a passphrase from the slab menubar daemon.
+#
+# Usage: ac-passphrase <label> [timeout-seconds]
+#
+# Writes the secret to stdout on success, exits 0.
+# Writes nothing on cancel / daemon unavailable, exits non-zero.
+#
+# The daemon caches by label (default 600s TTL) so repeated calls within
+# a deploy don't re-prompt. See slab/menubar-swift/README.md.
+
+set sock "$HOME/.ac-daemon.sock"
+
+if not test -S $sock
+    echo "ac-passphrase: daemon socket not found at $sock" >&2
+    echo "ac-passphrase: is the slab menubar app running?" >&2
+    exit 2
+end
+
+if test (count $argv) -lt 1
+    echo "usage: ac-passphrase <label> [timeout-seconds]" >&2
+    exit 2
+end
+
+set label $argv[1]
+set timeout 600
+if test (count $argv) -ge 2
+    set timeout $argv[2]
+end
+
+set req (printf '{"op":"passphrase","label":%s,"timeout":%s}' \
+    (echo -n $label | jq -Rs .) $timeout)
+
+set resp (echo -n $req | nc -U $sock)
+if test -z "$resp"
+    echo "ac-passphrase: empty response from daemon" >&2
+    exit 1
+end
+
+set ok (echo -n $resp | jq -r '.ok // false')
+if test "$ok" != "true"
+    set cancelled (echo -n $resp | jq -r '.cancelled // false')
+    if test "$cancelled" = "true"
+        echo "ac-passphrase: cancelled" >&2
+    else
+        set err (echo -n $resp | jq -r '.err // "unknown"')
+        echo "ac-passphrase: $err" >&2
+    end
+    exit 1
+end
+
+echo -n $resp | jq -r '.secret'

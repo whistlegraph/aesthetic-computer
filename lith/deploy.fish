@@ -99,10 +99,46 @@ function get_lith_host_from_do
     echo $fields[2]
 end
 
-# Check for required files
+# Check for required files. If the plaintext key is missing but the GPG-armored
+# vault copy exists, ask the slab menubar daemon for the passphrase and
+# decrypt to a tempfile we use for this run only.
+set DECRYPTED_KEY ""
+function cleanup_decrypted_key --on-event fish_exit
+    if test -n "$DECRYPTED_KEY"; and test -f $DECRYPTED_KEY
+        rm -f $DECRYPTED_KEY
+    end
+end
+
 if not test -f $SSH_KEY
-    echo -e "$RED x SSH key not found: $SSH_KEY$NC"
-    exit 1
+    set GPG_KEY "$SSH_KEY.gpg"
+    if not test -f $GPG_KEY
+        echo -e "$RED x SSH key not found: $SSH_KEY (and no $GPG_KEY to decrypt)$NC"
+        exit 1
+    end
+
+    set HELPER "$REPO_ROOT/slab/bin/ac-passphrase"
+    if not test -x $HELPER
+        echo -e "$RED x Vault is encrypted but $HELPER is missing/not executable.$NC"
+        exit 1
+    end
+
+    echo -e "$GREEN-> Requesting vault passphrase via slab daemon...$NC"
+    set passphrase ($HELPER vault 600)
+    if test -z "$passphrase"
+        echo -e "$RED x No passphrase provided; aborting.$NC"
+        exit 1
+    end
+
+    set DECRYPTED_KEY (mktemp -t ac-lith-key)
+    chmod 600 $DECRYPTED_KEY
+    if not echo -n "$passphrase" | gpg --batch --pinentry-mode loopback \
+            --passphrase-fd 0 --decrypt $GPG_KEY >$DECRYPTED_KEY 2>/dev/null
+        rm -f $DECRYPTED_KEY
+        set DECRYPTED_KEY ""
+        echo -e "$RED x Failed to decrypt $GPG_KEY (wrong passphrase?).$NC"
+        exit 1
+    end
+    set SSH_KEY $DECRYPTED_KEY
 end
 
 # Env upload is optional: if the vault has a lith/.env we upload it, otherwise
