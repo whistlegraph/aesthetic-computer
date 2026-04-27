@@ -279,18 +279,50 @@ class Tape {
     }
   }
 
-  // Update to next frame (called by TapeManager)
+  // Update to next frame (called by TapeManager). Two fixes vs naive
+  // advance:
+  //
+  // 1. Catch up multiple frames per call. If the renderer hiccups and
+  //    we get a `now` that's two or more frame durations past
+  //    lastFrameTime, advance through every frame whose duration has
+  //    fully elapsed. Without this loop the tape silently runs slower
+  //    than real time on every dropped render frame.
+  //
+  // 2. Accumulate scheduled time (`lastFrameTime += frameDuration`),
+  //    don't clobber with `now`. Setting lastFrameTime = now throws
+  //    away the carryover after each advance, so playback drifts
+  //    later by (now - scheduled) on every hiccup. The fix keeps the
+  //    schedule frame-perfect even when individual updateFrame calls
+  //    arrive late.
+  //
+  // 3. Don't gate the whole advance on timingData[frameIndex] existing
+  //    — if a frame is missing its timing entry, fall back to 33.33ms
+  //    so the loop never silently freezes.
+  //
+  // Safety cap on the catch-up loop (worst case: a tab was throttled
+  // for many seconds and we'd otherwise spin advancing thousands of
+  // frames in one call). 256 frames is ~8.5s at 30fps — past that we
+  // jump straight to the wall-clock target.
   updateFrame(now) {
     if (!this.isPlaying || this.frames.length === 0) return;
-    
-    const timeSinceLastFrame = now - this.lastFrameTime;
-    if (this.timingData[this.frameIndex]) {
-      const frameDuration = this.timingData[this.frameIndex].duration || 33.33; // Default 30fps
-      
-      if (timeSinceLastFrame >= frameDuration) {
-        this.frameIndex = (this.frameIndex + 1) % this.frames.length;
-        this.lastFrameTime = now;
-      }
+    if (!this.lastFrameTime) {
+      this.lastFrameTime = now;
+      return;
+    }
+    let safety = 256;
+    while (safety-- > 0) {
+      const entry = this.timingData[this.frameIndex];
+      const frameDuration = entry?.duration || 33.33;
+      if (now - this.lastFrameTime < frameDuration) break;
+      this.lastFrameTime += frameDuration;
+      this.frameIndex = (this.frameIndex + 1) % this.frames.length;
+    }
+    // Bound lastFrameTime to a recent window — if we hit the safety
+    // cap above, we were so far behind that perfect carryover would
+    // chase its tail forever. Snap to the last frame boundary just
+    // before `now` so subsequent calls advance from a clean state.
+    if (now - this.lastFrameTime > 1000) {
+      this.lastFrameTime = now;
     }
   }
 
