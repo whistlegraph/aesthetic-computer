@@ -1406,13 +1406,11 @@ async function fun(event, context) {
           c.addEventListener('mousemove',function(e){if(e.buttons>0)handleInteraction(e.clientX/SCL,e.clientY/SCL);});
           // File cycling - rotate through different files as boot progresses
           var displayFileIdx=0,lastFileSwap=0,FILE_SWAP_INTERVAL=3000;
-          var lastSCL=1;
           function anim(){if(!run||!c)return;f++;var sf=Math.floor(f*0.5);lb*=0.94;touchGlitch*=0.92;var chaos=0.3+bp*0.4+lb*0.3+touchGlitch*0.5;var t=sf*0.05;
             // Error flash decay (slower than connection flash)
             if(errorFlash>0)errorFlash*=0.96;
             // Connection flash decay
             if(connFlash>0)connFlash*=0.92;
-            var newSCL=Math.min(targetSCL,1+Math.floor(bp*(targetSCL-1)));if(newSCL!==lastSCL){lastSCL=newSCL;updateScale(newSCL);}
             x.clearRect(0,0,W,H);var S=targetSCL/SCL;
             // Touch interaction adds directional pull toward touch point
             var touchPull=touchGlitch*15*S,touchDx=(touchX-0.5)*touchPull,touchDy=(touchY-0.5)*touchPull;
