@@ -292,6 +292,17 @@ static void bootpic_capture_boot_async(void) {
     pthread_attr_destroy(&attr);
 }
 
+// Hardware device identity. Computed once at boot from DMI fields:
+//   sha256(product_serial + "/" + system_uuid + "/" + board_serial)
+// truncated to 16 hex chars. Server (api/ac-device) maps fingerprint
+// to a curated slot like "ac0", "ac1" so each upcycled laptop has a
+// stable model number across reflashes. Cached in /mnt/.ac-device-slot
+// so the splash can render the badge on the next boot before wifi.
+// Declared here (above their helpers + above the body of main()) so
+// file order is fingerprint-helpers → other-globals-block → main.
+static char ac_device_fp[24] = "";       // 16 hex chars + room
+static char ac_device_slot[16] = "";     // "ac0".."ac1023"
+
 // Read a /sys/class/dmi/id/* field, trim trailing whitespace + newlines.
 // Returns the byte count written to dst (0 on missing / empty).
 static size_t read_dmi_field(const char *name, char *dst, size_t dstlen) {
@@ -728,14 +739,8 @@ static int boot_title_colors_len = 0;
 // and falls back to the original "enjoy <city>!" rendering.
 static char boot_mood[256] = "";
 
-// Hardware device identity. Computed once at boot from DMI fields:
-//   sha256(product_serial + "/" + system_uuid + "/" + board_serial)
-// truncated to 16 hex chars. Server (api/ac-device) maps fingerprint
-// to a curated slot like "ac0", "ac1" so each upcycled laptop has a
-// stable model number across reflashes. Cached in /mnt/.ac-device-slot
-// so the splash can render the badge on the next boot before wifi.
-static char ac_device_fp[24] = "";       // 16 hex chars + room
-static char ac_device_slot[16] = "";     // "ac0".."ac1023"
+// (Hardware device identity globals are defined further up — before the
+// compute_device_fingerprint() helper that needs them in file order.)
 
 static uint8_t clamp_u8(int v) {
     if (v < 0) return 0;
