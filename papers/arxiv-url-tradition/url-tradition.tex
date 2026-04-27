@@ -189,7 +189,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-Creative computing environments have historically been \emph{opaque}: the state of the machine is accessible only to the person sitting in front of it. HyperCard stacks lived on a single disk. Processing sketches compiled to local executables. Scratch projects required a portal to find. The URL changes this. When every creative artifact is a URL---typeable, shareable, memorizable---the artifact escapes the machine and enters culture as an address. This paper traces a ``URL tradition'' in creative computing: the line from HyperCard's card/stack metaphor through the web's addressable document model, Glitch's instant remix URLs, p5.js's Web Editor links, and Aesthetic Computer's core design decision that every piece is a top-level path. We argue that URL-addressability is not a feature but a \emph{medium property}---one that reshapes authorship, distribution, pedagogy, and social interaction around creative code. AC extends the tradition by making the URL the primary interface: there is no menu, no file picker, no project list. You type a word and you are in the piece. The prompt \emph{is} the address bar.
+Creative computing environments have historically been \emph{opaque}: the state of the machine is accessible only to the person sitting in front of it. HyperCard stacks lived on a single disk. Processing sketches compiled to local executables. Scratch projects required a portal to find. The URL changes this. When every creative artifact is a URL---typeable, shareable, memorizable---the artifact escapes the machine and enters culture as an address. This paper traces a ``URL tradition'' in creative computing whose roots run deeper than the World Wide Web: from Vannevar Bush's Memex trails and Ada Lovelace's networked footnotes through Ted Nelson's Xanadu and the Negro Motorist Green Book, into the web proper, JODI's URL-as-art, single-serving sites, the tilde, Glitch's instant remix URLs, p5.js's Web Editor, and Aesthetic Computer's design decision that every piece is a top-level path. We argue that URL-addressability is not a feature but a \emph{medium property}---one that reshapes authorship, distribution, pedagogy, performance, and political claim around creative code. AC extends the tradition by making the URL the primary interface: there is no menu, no file picker, no project list. You type a word and you are in the piece. The prompt \emph{is} the address bar.
 \end{quote}
 \vspace{0.5em}
 }]
@@ -226,6 +226,33 @@ Processing's contribution was making code \emph{writable} for artists. But it di
 
 Scratch~\citep{resnick2009scratch} solved the sharing problem within its own ecosystem: every project gets a numbered URL on \code{scratch.mit.edu}. But these URLs are opaque---\code{scratch.mit.edu/projects/12345678}---and require the Scratch runtime to view. The address exists but it is not \emph{cool}: it encodes nothing about the content, and it cannot be guessed or remembered.
 
+% ============ 2.5 BEFORE THE URL ============
+\section{Before the Web: Trails, Footnotes, and the Green Book}
+
+The URL did not begin in 1989. It is the operationalized fragment of a much older desire---that words and works should remain reachable across time and across the social-political terrain that words and works have to cross. Before Berners-Lee codified the URL, three traditions had already imagined the address as infrastructure for cultural memory and survival.
+
+\subsection{Bush's Trails (1945)}
+
+Vannevar Bush's \emph{As We May Think}~\citep{bush1945memex} described the Memex: a desk-sized device storing documents on microfilm and capable of preserving \emph{trails}---author-curated paths between documents that another reader could later replay. Bush's insight was that the address-by-location (this shelf, this drawer) was insufficient for thinking; what scholarship needed was the address-by-association, a way to fix a relationship between documents and hand the relationship to someone else. The trail was a portable graph of citations. The Memex was never built, but every URL is a fragment of one of its trails.
+
+\subsection{Lovelace's Footnotes}
+
+Sadie Plant traces the lineage further back~\citep{plant1997zerosones}. Ada Lovelace's 1843 footnotes on the Analytical Engine were already ``a node within a network''---each note pointing to other texts, other diagrams, other speculations. Plant argues that hypertext was \emph{immanent} to the printed page from the start; the digital network only operationalized what footnotes had always been doing. ``All, and everything is naturally related and interconnected,'' Lovelace wrote in her own footnotes. ``A volume I could write on this subject.'' The web is the volume she did not have time to write.
+
+\subsection{Xanadu (1965)}
+
+Ted Nelson named the dream Xanadu in 1965~\citep{nelson1965literary, nelson1974computer}. In Nelson's design every quotation retained a stable address linking back to its source, no matter how often it was cited. Xanadu's transclusion model is more demanding than the URL: a Xanadu link survives copying, splicing, and recontextualization because the source remains addressable. The web settled for a weaker promise---a URL points but does not transclude---but the demand is unchanged. The URL is what we got. Xanadu is what we are still owed.
+
+\subsection{The Negro Motorist Green Book (1936--1966)}
+
+While Bush, Nelson, and (later) Berners-Lee theorized address infrastructure for documents, a different address infrastructure had been in operation for human bodies. From 1936 to 1966, Victor Hugo Green published \emph{The Negro Motorist Green Book}~\citep{green1936greenbook}---an annual directory of restaurants, gas stations, hotels, and barbershops that would safely serve Black travelers crossing Jim Crow America.
+
+Andr\'{e} Brock~\citep{brock2020distributedblackness} argues that the Green Book should be read as a \emph{cultural network browser}. The US highway system was the network. The Green Book was the directory. Black drivers were the browsers. Each entry was an address that promised survival---the inverse of a Sundown Town, the affirmative dual of the redlined map. The Green Book was, Brock writes, ``one of the first cultural network browsers,'' a search engine for those seeking culturally vital information at a time when the wrong wrong turn could be fatal.
+
+This is the URL tradition's deepest root. An address is not a neutral pointer: it is a \emph{promise}, made by someone who knows the territory, that the destination exists and that you will not be turned away. The brilliance of the Green Book and the brilliance of ``cool URIs don't change''~\citep{berners-lee1998cool} are the same brilliance: addresses must be reliable across the social-political terrain they navigate. A broken URL and a missing Green Book entry both betray the same trust.
+
+When Aesthetic Computer commits to memorizable, top-level paths, it inherits from this lineage. The URL is not just a way to find a piece. It is a public claim that the piece will be there when you arrive.
+
 % ============ 3. THE URL ENTERS CREATIVE COMPUTING ============
 \section{The URL Enters Creative Computing}
 
@@ -240,6 +267,10 @@ JODI's \code{wwwwwwwww.jodi.org} (1995) used the domain name itself as an art ob
 Olia Lialina's \emph{My Boyfriend Came Back from the War} (1996) existed at a specific address: \code{teleportacia.org/war/}~\citep{lialina1996boyfriend}. The work was a series of nested frames that fragmented a post-war narrative into clickable shards. You could not separate the piece from its URL. Every copy, every mirror, every screenshot was a degradation. The URL was the original. Later, Lialina documented the personal home page as a form of folk art~\citep{lialina2005vernacular}---the ``under construction'' GIF, the guest book, the hit counter---all artifacts of people learning to occupy an address.
 
 The Art Happens Here anthology documents this moment when the address became the medium~\citep{connor2019artanthology}. What net.art understood, and what creative computing environments repeatedly forget, is that the URL is not a pointer to the work. The URL is a \emph{material} of the work, the way canvas is a material of painting. An environment that generates opaque URLs---\code{/projects/abc123}---is like handing a painter a canvas with no surface texture. Technically functional. Aesthetically dead.
+
+The decay of net.art URLs is itself part of the form. The \emph{glitchbrowser} (2005--2008), built by Beflix, Organised, and Dmtr, was a URL-rewriting tool: you typed a destination and the glitchbrowser served you the destination with its embedded JPEGs and GIFs corrupted into ribbons of color~\citep{menkman2011glitch}. The browser took itself offline in 2008. The URL where the glitchbrowser once lived now returns nothing. The work survives only as documentation. Link rot is not a failure mode of net.art---it is one of its subjects. A piece that lives at an address knows it can lose the address, and many net.art works staged that loss in advance.
+
+Olia Lialina later argued that the personal home page was ``a vernacular of file formats''~\citep{lialina2005vernacular}: a folk vocabulary built from \code{<marquee>} tags, blinking text, MIDI loops, animated buddies, and the under-construction GIF. The under-construction GIF was not embarrassing---it was honest. It admitted that the address was alive, that someone was at work behind it. The opposite of an under-construction GIF is a 404: a frozen page that betrays no one is home.
 
 \subsection{Single-Serving Sites (2000s)}
 
@@ -370,20 +401,61 @@ Wark's \emph{A Hacker Manifesto}~\citep{wark2004hacker} insists that information
 
 The app store reverses this polarity. An iOS app is private by default and public only through the grace of a corporation that takes 30\% of every transaction. The URL tradition says: put it on the web, give it an address, and let anyone who knows the address walk in. No toll booth. No gatekeeper. No cut.
 
+% ============ 5.5 THE URL AS SCORE ============
+\section{The URL as Score}
+
+A score, in the post-1945 sense, is not a record of a performance but its \emph{invocation}: a set of instructions that summon the piece into being. The Scores Project~\citep{gallope2025scores}---an open-access digital edition of postwar graphic and event scores edited by Michael Gallope, Natilee Harren, and Patricia Hicks---makes the argument structurally as well as polemically. The edition is itself organized by URLs: each chapter, each score image, each archival object, each time-based realization has a stable address. The reader does not just read about the score. The reader \emph{follows the URL} into the performance.
+
+Aesthetic Computer pieces extend score logic to its limit. Typing \code{aesthetic.computer/whistlegraph} is not visiting a website---it is invoking a score. The URL contains the entire performance instruction. Anyone who visits the URL re-performs the piece. Many AC pieces are explicitly score-shaped: \code{whistlegraph} is a draw-while-singing score, \code{notepat} is a notation surface, \code{wand} is a movement score for the body, \code{song} is a tap score for the voice. The URL hands you the score; the browser performs it.
+
+This is what HyperCard could never do. HyperCard's stacks were rehearsal materials trapped on a single machine. AC's URLs are world-readable scores: you receive the entire instruction by reading a single word, and the instruction begins to execute the moment you press Enter.
+
+% ============ 5.6 CASUAL CREATORS ============
+\section{Casual Creators and the URL-Encoded Artifact}
+
+Compton and Mateas~\citep{compton2015casual} define \emph{casual creators} as creative systems whose users are casual---no prior domain expertise, no goal beyond exploration of a possibility space. To make their artifacts shareable, casual creators have to retrofit URL encoding. Compton's \emph{Ice-Maker} (2015) embeds an entire snowflake design into a single URL that the user can post or send; the URL becomes the artifact's bearer. Twine games encode story state into URL fragments. Generative tools from \emph{Tracery} bots to color-palette generators serialize their output into shareable links.
+
+Aesthetic Computer makes this retrofit unnecessary. Every piece is already URL-resident. When a \code{kidlisp} user saves a sketch, the source is hashed and stored at \code{aesthetic.computer/\$<code>}. When a \code{prompt} user invokes a piece with parameters, the parameters are part of the URL. The casual creator's friction---``how do I share what I just made?''---is not solved with a Save and Share button. It is dissolved by a property of the medium. The URL-encoded artifact is not a feature added to AC. It is the only thing AC produces.
+
+Compton's casual creators want their users to feel \emph{capable} after a few seconds. The URL is what makes that capability portable. Without the URL, the artifact dies on the user's screen the moment they close the tab.
+
+% ============ 5.7 THE BOT AT THE ADDRESS ============
+\section{The Performer at the Address}
+
+Auslander~\citep{auslander2002cyberspace} argues that the chatterbot is the latest entry in a long history of mediated performance. Each chatterbot lives at an address: a URL, an IRC channel, an email list. The bot's identity is inseparable from where it can be reached. ELIZA at MIT was a destination; Julia on IRC was a presence. Each bot was, in Auslander's terms, a \emph{performer} at a particular \emph{location}.
+
+Aesthetic Computer extends bot-thinking to all pieces. Every AC piece is a kind of performer. \code{notepat} does the same thing every time you visit, but the \emph{thing it does} is a performance: pixels arrive in a particular order, sounds occur on a particular schedule, the screen receives the same wipe. The piece is not a static document. It is a performer waiting at an address. Visiting the URL summons it on stage.
+
+Auslander notes the politically interesting case: the bot inserted into a chatroom without identifying itself as a bot. Visiting an AC URL never produces this ambiguity. The piece declares itself by \emph{being itself}. The URL is the dressing room and the stage at once. There is no green room, no rehearsal hall, no separate venue. The address is the entire theater.
+
+% ============ 5.8 TERRITORY ============
+\section{The URL as Territory}
+
+Lewis, Arista, Pechawis, and Kite argue that Indigenous epistemology must contend with cyberspace as territory~\citep{lewis2018kin}---that the ``archipelago of websites, social media platforms, shared virtual environments, corporate data stores, multiplayer video games, smart devices, and intelligent machines'' is not a separate domain from terrestrial life but situated within and alongside it. The question they raise: how do we \emph{claim} this new territory, knit it into existing life, and make it our own?
+
+The URL is the smallest unit of claim. To register a domain is to take a piece of the network and put a name on it. To publish at \code{aesthetic.computer/@<handle>/<piece>} is to claim a sub-territory inside someone else's address. The handle prefix \code{@} is a flag planted on a parcel. The platform is responsible for keeping the parcel reachable. The piece-maker is responsible for what happens once you arrive.
+
+This is not metaphor. Domain-name policy, name registries, and identifier specifications are real political infrastructure~\citep{galloway2004protocol}. The URL tradition takes a position inside that infrastructure: the address belongs to whoever can claim it; the claim should be possible to make in a single word; and the platform should not be allowed to overwrite the claim. AC's contribution is to make this politics legible at the level of every piece.
+
 % ============ 6. THE TRADITION ============
 \section{The Tradition}
 
 The URL tradition in creative computing runs:
 
 \begin{enumerate}
+\item \textbf{Lovelace's footnotes} (1843): the printed page as a node within a network. Hypertext is immanent.
+\item \textbf{The Negro Motorist Green Book} (1936--1966): an address book as a network browser. The address as promise of safe arrival.
+\item \textbf{Memex} (1945): Bush's trails. The address-by-association, portable between readers.
+\item \textbf{Xanadu} (1965--): Nelson's transclusion model. Every quotation retains its address.
 \item \textbf{HyperCard} (1987): cards and stacks, no address, bound to disk.
 \item \textbf{The Web} (1991): every document is a URL. The address \emph{is} the work.
 \item \textbf{GeoCities} (1994): the personal URL. \code{\textasciitilde{}user/page.html} as creative identity.
 \item \textbf{Net.art} (1995--): artists exploit the URL as material and medium.
 \item \textbf{zombo.com} (1999): the single-serving site. Domain name = content = interface.
 \item \textbf{Processing} (2001): creative coding, but no native URL. Export required.
-\item \textbf{Single-serving sites} (2008): Kottke names the form. The URL \emph{is} the joke, the tool, the artwork.
 \item \textbf{Scratch} (2007): project URLs, but opaque and runtime-dependent.
+\item \textbf{Single-serving sites} (2008): Kottke names the form. The URL \emph{is} the joke, the tool, the artwork.
+\item \textbf{Casual creators} (2015): URL-encoded artifacts as a retrofit for shareability.
 \item \textbf{Neocities} (2013): GeoCities revival. The personal URL fights back.
 \item \textbf{tilde.club} (2014): the tilde as radical simplicity. One page, one person, one address.
 \item \textbf{Glitch} (2017): instant URLs, forkable, live from first keystroke.
@@ -427,13 +499,15 @@ AC pushes back by making the URL the \emph{only} interface. There is no app. The
 % ============ 10. CONCLUSION ============
 \section{Conclusion}
 
-The URL is the most important interface in computing. It is the only universal addressing scheme that works across every device, every platform, every medium. It is the infrastructure of encounter, the minimum unit of information freedom, the material of net.art, the punchline of single-serving sites, and the identity layer of the personal web.
+The URL is the most important interface in computing. It is the only universal addressing scheme that works across every device, every platform, every medium. It is the infrastructure of encounter, the minimum unit of information freedom, the material of net.art, the score that summons the piece, the dressing room of the bot, and the identity layer of the personal web.
+
+The tradition this paper traces did not start with Berners-Lee. It runs from Lovelace's footnotes through Bush's trails, Nelson's Xanadu, and the Negro Motorist Green Book---each a different answer to the same question: \emph{how do words and works remain reachable across time and across the social-political terrain that words and works have to cross?} The web operationalized one answer. Aesthetic Computer extends that answer to creative computing's full surface.
 
 Every force in contemporary computing conspires to kill the URL. Apps hide it. Platforms suppress it. Shorteners mangle it. SPAs hollow it out. Mobile browsers tuck it away. The URL tradition is not a historical curiosity---it is an active resistance.
 
-Creative computing environments that embrace the URL---that make every artifact addressable, shareable, memorizable---participate in a tradition that runs from Berners-Lee's cool URIs through net.art's material URLs, single-serving sites' domain-name-as-content, the tilde's radical personhood, and Glitch's instant forkability.
+Creative computing environments that embrace the URL---that make every artifact addressable, shareable, memorizable---participate in this tradition. Those that don't---that hide work behind login walls, project IDs, app stores, or native containers---break the contract that the URL is supposed to honor.
 
-AC's design makes the URL not just present but \emph{primary}. The prompt is the address bar. The piece name is the URL. The URL is the identity, the distribution channel, the pedagogical entry point, the social object, the authorship claim, and the political stance. There is nothing else.
+AC's design makes the URL not just present but \emph{primary}. The prompt is the address bar. The piece name is the URL. The URL is the identity, the distribution channel, the pedagogical entry point, the score, the social object, the authorship claim, and the political stance. There is nothing else.
 
 Every AC piece is a single-serving site. Every AC user has a tilde. Every AC path is a cool URI that, by design, will never change. The URL tradition does not end. It gets typed into a prompt and pressed Enter.
 

@@ -189,7 +189,6 @@ const PAPER_MAP = {
     base: "url-tradition",
     siteName: "url-tradition-26-arxiv",
     title: "The URL Tradition",
-    psycho: true,
   },
   "arxiv-latency": {
     base: "latency",
@@ -615,9 +614,9 @@ function updateIndex(entries) {
         "The Potter and the Prompt argues that AC independently converges on the core principles of John Holden's 1770 proto-cognitive music theory. It proposes AC as a computational laboratory for advancing Holden's unfinished program on grouping, attention, and the module.",
     },
     "url-tradition-26-arxiv": {
-      detail: "Addressable Creative Computing from HyperCard to Aesthetic Computer &middot; arXiv 5pp",
+      detail: "Addressable Creative Computing from Lovelace's Footnotes to Aesthetic Computer &middot; arXiv",
       abstract:
-        "The URL Tradition traces how URL-addressability reshapes creative computing. From HyperCard's landlocked stacks to AC's prompt-as-address-bar, the paper argues the URL is not a feature but a medium property that transforms pedagogy, distribution, authorship, and social interaction.",
+        "The URL Tradition traces address-thinking from Lovelace's footnotes, Bush's trails, Xanadu, and the Negro Motorist Green Book through net.art, single-serving sites, the tilde, Glitch, and Aesthetic Computer's prompt-as-address-bar. It argues the URL is not a feature but a medium property that reshapes authorship, distribution, pedagogy, performance, and political claim.",
     },
   };
 
