@@ -61,8 +61,30 @@ export async function handler(event) {
       }
 
       if (!fp) return respond(400, { message: "missing fp parameter" });
-      const doc = await col.findOne({ _id: fp });
-      if (!doc) return respond(404, { message: "Device not registered" });
+      // Auto-assign: every new device that contacts the API gets the
+      // next free "ac<N>" on first GET. Admin can rename/annotate via
+      // POST or remove via DELETE later. This keeps the operator out
+      // of the loop when handing out laptops in batches — boot the
+      // device and the slot just appears.
+      let doc = await col.findOne({ _id: fp });
+      if (!doc) {
+        const all = await col.find({}, { projection: { slot: 1 } }).toArray();
+        const slot = nextFreeSlot(all);
+        if (!slot) return respond(500, { message: "no free slot available" });
+        doc = {
+          _id: fp,
+          slot,
+          assignedAt: new Date(),
+          assignedBy: "auto",
+        };
+        try {
+          await col.insertOne(doc);
+        } catch (e) {
+          // Race: two devices booted simultaneously. Re-read.
+          doc = await col.findOne({ _id: fp });
+          if (!doc) throw e;
+        }
+      }
       return respond(200, {
         slot: doc.slot,
         model: doc.model || null,
