@@ -7280,9 +7280,14 @@ function act({
     if (e.is("keyboard:down:space") && !e.repeat) {
       metronomeEnabled = !metronomeEnabled;
       if (metronomeEnabled) {
-        // Seed beat count to current beat so first tick doesn't fire immediately
+        // Seed beat count to (current beat - 1) so the very next sim
+        // tick computes a fresh beatNumber and fires the click on the
+        // press itself. Previously we seeded to the *current* beat,
+        // which made the comparison at line 1844 a no-op and forced a
+        // wait of up-to-one full beat-interval before the first click
+        // (~333ms of silence at 180 BPM, every toggle-on).
         const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
-        metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM));
+        metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM)) - 1;
       } else {
         metronomeVisualPhase = 0;
         metronomeBallPos = 0;

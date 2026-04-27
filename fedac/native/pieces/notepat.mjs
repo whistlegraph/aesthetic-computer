@@ -580,7 +580,7 @@ function djTapTempo() {
     if (avg > 150 && avg < 2000) {
       djDerivedBPM = Math.round(60000 / avg);
       metronomeBPM = Math.max(20, Math.min(300, djDerivedBPM));
-      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
+      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM)) - 1;
       djMsg(`${djDerivedBPM} bpm`);
     }
   }
@@ -2688,7 +2688,7 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "f9") {
       metronomeEnabled = !metronomeEnabled;
       if (metronomeEnabled) {
-        metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
+        metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM)) - 1;
       }
       return;
     }
@@ -2829,12 +2829,12 @@ function act({ event: e, sound, wifi, system }) {
     }
     if (key === "-") {
       metronomeBPM = Math.max(20, metronomeBPM - 5);
-      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
+      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM)) - 1;
       return;
     }
     if (key === "=") {
       metronomeBPM = Math.min(300, metronomeBPM + 5);
-      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
+      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM)) - 1;
       return;
     }
 
