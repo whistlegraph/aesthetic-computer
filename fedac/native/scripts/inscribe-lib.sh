@@ -68,16 +68,33 @@ aci_require_login() {
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local LOGIN_SCRIPT="${script_dir}/../../../tezos/ac-login.mjs"
 
+    # Token is missing OR expired — both need ac-login. Use the same
+    # 60s pre-expiry buffer flash-mac.sh uses so we never bake a token
+    # that's about to flip on first boot.
+    local needs_login=0
     if [ ! -f "${ACI_TOKEN_FILE}" ]; then
+        needs_login=1
+    elif command -v node >/dev/null 2>&1; then
+        needs_login=$(node -e '
+            try {
+                const t = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+                const rawExp = t.expires_at || 0;
+                const expMs  = rawExp > 10_000_000_000 ? rawExp : rawExp * 1000;
+                process.stdout.write((!expMs || Date.now() >= expMs - 60_000) ? "1" : "0");
+            } catch { process.stdout.write("1"); }
+        ' "${ACI_TOKEN_FILE}" 2>/dev/null || echo 1)
+    fi
+
+    if [ "${needs_login}" = "1" ]; then
         if [ "${no_launch}" -eq 1 ]; then
-            aci_fail "no token at ${ACI_TOKEN_FILE} — run: ac-login"
+            aci_fail "token at ${ACI_TOKEN_FILE} is missing or expired — run: ac-login"
             return 1
         fi
         if [ -f "${LOGIN_SCRIPT}" ]; then
-            aci_warn "no token at ${ACI_TOKEN_FILE} — launching ac-login..."
+            aci_warn "token missing/expired — launching ac-login..."
             node "${LOGIN_SCRIPT}" || { aci_fail "ac-login failed"; return 1; }
         else
-            aci_fail "no token and ac-login script not found at ${LOGIN_SCRIPT}"
+            aci_fail "token missing/expired and ac-login script not found at ${LOGIN_SCRIPT}"
             return 1
         fi
     fi

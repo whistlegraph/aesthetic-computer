@@ -1088,7 +1088,39 @@ flash_nixos_image_to_usb() {
     log "NixOS USB ready!"
 }
 
+ensure_inscription() {
+    # Auto-build a credential inscription if none was prepared by
+    # ac-inscribe ahead of time. Both the macOS flash-mac.sh path and
+    # the Linux write_usb_config_file path read from this artifact, so
+    # the inscribe step is the unified credential-gathering point.
+    local INSCRIPTION="${AC_INSCRIPTION_FILE:-/tmp/ac-os-pull/inscription.json}"
+    export AC_INSCRIPTION_FILE="${INSCRIPTION}"
+    if [ -f "${INSCRIPTION}" ]; then
+        log "Using existing inscription: ${INSCRIPTION}"
+        return 0
+    fi
+    local AC_INSCRIBE="${SCRIPT_DIR}/ac-inscribe"
+    if [ ! -x "${AC_INSCRIBE}" ]; then
+        log "ac-inscribe not found at ${AC_INSCRIBE} — falling back to legacy live fetch"
+        return 0
+    fi
+    log "No inscription found — running ac-inscribe..."
+    if [ "${AC_ANON:-0}" = "1" ]; then
+        "${AC_INSCRIBE}" --anon --yes --out "${INSCRIPTION}" || {
+            err "ac-inscribe --anon failed"
+            return 1
+        }
+    else
+        "${AC_INSCRIBE}" --yes --out "${INSCRIPTION}" || {
+            err "ac-inscribe failed — fix above and retry"
+            return 1
+        }
+    fi
+}
+
 flash_usb() {
+    ensure_inscription || exit 1
+
     # macOS path: defer to scripts/flash-mac.sh (uses diskutil + sgdisk; no
     # Docker / no /sys/block). The Linux flow below uses the privileged
     # flash-helper container.

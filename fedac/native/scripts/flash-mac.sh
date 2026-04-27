@@ -100,66 +100,110 @@ command -v sgdisk >/dev/null || die "sgdisk required: brew install gptfdisk"
 [ -f "${SPLASH_EFI}" ]       || die "Missing splash bootloader: ${SPLASH_EFI}"
 [ -f "${SDBOOT_EFI}" ]       || die "Missing systemd-boot: ${SDBOOT_EFI}"
 
-# --- read ac-login token (~/.ac-token) for handle/sub/email injection ---
-# When invoked as root via sudo, $HOME points at /var/root. Use SUDO_USER's
-# home so we read the actual operator's token, not the empty root one.
-TOKEN_HOME="${HOME}"
-[ -n "${SUDO_USER:-}" ] && TOKEN_HOME="$(eval echo ~${SUDO_USER})"
-TOKEN_FILE="${TOKEN_HOME}/.ac-token"
-
+# --- credential gathering ----------------------------------------------
+# Two paths:
+#   1. AC_INSCRIPTION_FILE points to a valid inscription.json
+#      (built by ac-inscribe ahead of flash). Read identity + tokens
+#      from the artifact — no live API calls during the USB write.
+#      This is the unified path matching the Linux flash flow.
+#   2. No inscription artifact: fall back to the legacy live-fetch path
+#      (read ~/.ac-token, hit /api/claude-token). Preserved for back-
+#      compat and for AC_ANON=1.
+INSCRIPTION_FILE="${AC_INSCRIPTION_FILE:-/tmp/ac-os-pull/inscription.json}"
 USER_HANDLE=""; USER_SUB=""; USER_EMAIL=""
 AC_ACCESS_TOKEN=""; AC_TOKEN_EXPIRED=0
-if [ -f "${TOKEN_FILE}" ] && command -v node >/dev/null 2>&1; then
-    eval "$(node -e '
-        const t = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-        let h = t.user?.handle || t.user?.name || "";
-        if (h.startsWith("@")) h = h.slice(1);
-        const now = Date.now();
-        const rawExp = t.expires_at || 0;
-        const expMs  = rawExp > 10_000_000_000 ? rawExp : rawExp * 1000;
-        const fresh  = expMs && now < expMs;
-        const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
-        out("USER_HANDLE",     h);
-        out("USER_SUB",        t.user?.sub);
-        out("USER_EMAIL",      t.user?.email);
-        out("AC_ACCESS_TOKEN", fresh ? (t.access_token || "") : "");
-        process.stdout.write(`AC_TOKEN_EXPIRED=${fresh ? 0 : 1}\n`);
-    ' "${TOKEN_FILE}" 2>/dev/null)"
-    [ -n "${USER_HANDLE}" ] && log "Authenticated as @${USER_HANDLE}"
-fi
-[ -z "${USER_HANDLE}${USER_SUB}${USER_EMAIL}" ] && \
-    log "No ~/.ac-token (run \`ac-login\` first to bake credentials in)"
+CLAUDE_TOKEN=""; GITHUB_PAT=""
+INSCRIBED_CLAUDE_STATE=""
 
-# --- fetch Claude OAuth token + GitHub PAT from MongoDB ---
-# /api/claude-token returns { handle, token, githubPat } from @handles.
-# `token` is the year-long Claude Code OAuth bearer (sk-ant-...) — pty.c
-# reads /claude-token at spawn time and sets CLAUDE_CODE_OAUTH_TOKEN so
-# `claude` launches without interactive login. `githubPat` lets on-device
-# git push to the GitHub mirror without SSH.
-CLAUDE_TOKEN=""
-GITHUB_PAT=""
-if [ -n "${AC_ACCESS_TOKEN}" ]; then
-    log "Fetching Claude token + GitHub PAT from MongoDB…"
-    CT_RESP="$(curl -fsS -H "Authorization: Bearer ${AC_ACCESS_TOKEN}" \
-        "https://aesthetic.computer/api/claude-token" 2>/dev/null || echo "")"
-    if [ -n "${CT_RESP}" ]; then
+if [ -f "${INSCRIPTION_FILE}" ] && command -v node >/dev/null 2>&1; then
+    log "Reading inscription: ${INSCRIPTION_FILE}"
+    eval "$(node -e '
+        try {
+            const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const c = d.usbConfig || {};
+            const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
+            out("USER_HANDLE",  c.handle);
+            out("USER_SUB",     c.sub);
+            out("USER_EMAIL",   c.email);
+            out("CLAUDE_TOKEN", c.claudeToken);
+            out("GITHUB_PAT",   c.githubPat);
+            // Embed claudeState as a JSON string for direct file write below.
+            out("INSCRIBED_CLAUDE_STATE", c.claudeState ? JSON.stringify(c.claudeState) : "");
+        } catch (e) {
+            process.stderr.write("inscription parse failed: " + e.message + "\n");
+        }
+    ' "${INSCRIPTION_FILE}" 2>/dev/null)"
+    if [ -n "${USER_HANDLE}" ]; then
+        log "  inscribed: @${USER_HANDLE}"
+        [ -n "${CLAUDE_TOKEN}" ] && log "  claude token: ${#CLAUDE_TOKEN} bytes" || \
+            log "  claude token: none in inscription"
+        [ -n "${GITHUB_PAT}" ] && log "  github pat:   ${#GITHUB_PAT} bytes" || \
+            log "  github pat:   none in inscription"
+    elif [ "$(node -e '
+        try {
+            const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));
+            process.stdout.write((d.usbConfig||{}).handle === "anonymous" ? "1" : "0");
+        } catch { process.stdout.write("0"); }
+    ' "${INSCRIPTION_FILE}" 2>/dev/null)" = "1" ]; then
+        log "  inscribed: anonymous (no tokens)"
+    fi
+else
+    # --- legacy: read ac-login token (~/.ac-token) for handle/sub/email ---
+    # When invoked as root via sudo, $HOME points at /var/root. Use SUDO_USER's
+    # home so we read the actual operator's token, not the empty root one.
+    TOKEN_HOME="${HOME}"
+    [ -n "${SUDO_USER:-}" ] && TOKEN_HOME="$(eval echo ~${SUDO_USER})"
+    TOKEN_FILE="${TOKEN_HOME}/.ac-token"
+
+    if [ -f "${TOKEN_FILE}" ] && command -v node >/dev/null 2>&1; then
         eval "$(node -e '
-            try {
-                const r = JSON.parse(process.argv[1]);
-                const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
-                out("CLAUDE_TOKEN", r.token);
-                out("GITHUB_PAT",   r.githubPat);
-            } catch {}
-        ' "${CT_RESP}" 2>/dev/null)"
+            const t = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            let h = t.user?.handle || t.user?.name || "";
+            if (h.startsWith("@")) h = h.slice(1);
+            const now = Date.now();
+            const rawExp = t.expires_at || 0;
+            const expMs  = rawExp > 10_000_000_000 ? rawExp : rawExp * 1000;
+            const fresh  = expMs && now < expMs;
+            const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
+            out("USER_HANDLE",     h);
+            out("USER_SUB",        t.user?.sub);
+            out("USER_EMAIL",      t.user?.email);
+            out("AC_ACCESS_TOKEN", fresh ? (t.access_token || "") : "");
+            process.stdout.write(`AC_TOKEN_EXPIRED=${fresh ? 0 : 1}\n`);
+        ' "${TOKEN_FILE}" 2>/dev/null)"
+        [ -n "${USER_HANDLE}" ] && log "Authenticated as @${USER_HANDLE} (legacy fetch)"
     fi
-    if [ -n "${CLAUDE_TOKEN}" ]; then
-        log "  claude token: ${#CLAUDE_TOKEN} bytes"
-    else
-        log "  claude token: none stored in MongoDB (POST to /api/claude-token to save)"
+    [ -z "${USER_HANDLE}${USER_SUB}${USER_EMAIL}" ] && \
+        log "No ~/.ac-token (run \`ac-login\` or \`ac-inscribe\` first to bake credentials in)"
+
+    # /api/claude-token returns { handle, token, githubPat } from @handles.
+    # `token` is the year-long Claude Code OAuth bearer (sk-ant-...) — pty.c
+    # reads /claude-token at spawn time and sets CLAUDE_CODE_OAUTH_TOKEN so
+    # `claude` launches without interactive login. `githubPat` lets on-device
+    # git push to the GitHub mirror without SSH.
+    if [ -n "${AC_ACCESS_TOKEN}" ]; then
+        log "Fetching Claude token + GitHub PAT from MongoDB…"
+        CT_RESP="$(curl -fsS -H "Authorization: Bearer ${AC_ACCESS_TOKEN}" \
+            "https://aesthetic.computer/api/claude-token" 2>/dev/null || echo "")"
+        if [ -n "${CT_RESP}" ]; then
+            eval "$(node -e '
+                try {
+                    const r = JSON.parse(process.argv[1]);
+                    const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
+                    out("CLAUDE_TOKEN", r.token);
+                    out("GITHUB_PAT",   r.githubPat);
+                } catch {}
+            ' "${CT_RESP}" 2>/dev/null)"
+        fi
+        if [ -n "${CLAUDE_TOKEN}" ]; then
+            log "  claude token: ${#CLAUDE_TOKEN} bytes"
+        else
+            log "  claude token: none stored in MongoDB (POST to /api/claude-token to save)"
+        fi
+        [ -n "${GITHUB_PAT}" ] && log "  github pat:   ${#GITHUB_PAT} bytes"
+    elif [ "${AC_TOKEN_EXPIRED}" = "1" ]; then
+        log "  creds fetch: skipped (~/.ac-token expired — run \`ac-login\` or \`ac-inscribe\` to refresh)"
     fi
-    [ -n "${GITHUB_PAT}" ] && log "  github pat:   ${#GITHUB_PAT} bytes"
-elif [ "${AC_TOKEN_EXPIRED}" = "1" ]; then
-    log "  creds fetch: skipped (~/.ac-token expired — run \`ac-login\` to refresh)"
 fi
 
 # --- locate Tangled SSH identity for knot.aesthetic.computer pushes ---
@@ -204,9 +248,17 @@ if [ -n "${CLAUDE_TOKEN}${GITHUB_PAT}${TANGLED_KEY}${DEVICE_CLAUDE_MD}${DEVICE_S
     if [ -n "${CLAUDE_TOKEN}" ]; then
         printf %s "${CLAUDE_TOKEN}" > "${BAKE_DIR}/claude-token"
         chmod 600 "${BAKE_DIR}/claude-token"
-        cat > "${BAKE_DIR}/claude-state.json" <<STATE
+        # Prefer the inscribed claudeState (read from the operator's
+        # actual ~/.claude.json by ac-inscribe — preserves oauthAccount
+        # fields like organizationName/accountUuid). Fall back to the
+        # minimal stub for legacy / no-inscription flashes.
+        if [ -n "${INSCRIBED_CLAUDE_STATE}" ]; then
+            printf '%s\n' "${INSCRIBED_CLAUDE_STATE}" > "${BAKE_DIR}/claude-state.json"
+        else
+            cat > "${BAKE_DIR}/claude-state.json" <<STATE
 {"oauthAccount":{"emailAddress":"${USER_EMAIL}","organizationName":"","accountUuid":""},"hasCompletedOnboarding":true,"installMethod":"manual","numStartups":1,"autoUpdates":false,"autoUpdatesProtectedForNative":true}
 STATE
+        fi
         BAKE_LIST="${BAKE_LIST}claude-token
 claude-state.json
 "
