@@ -11,6 +11,13 @@ const OS_INITRAMFS_URL = OS_BASE_URL + "native-notepat-latest.initramfs.cpio.gz"
 const OS_REPORT_URL = "https://aesthetic.computer/api/os-install-report";
 let remoteSize = 0; // parsed from version file (line 2)
 
+// Initramfs size isn't currently published in the .version file. This
+// constant is the expected ceiling — used by both the preflight space
+// check and the post-download size sanity bound. If the actual download
+// significantly exceeds this, we treat it as a wrong/corrupt fetch.
+const OS_INITRAMFS_EXPECTED = 336_000_000; // 336 MB ceiling
+const OS_PREFLIGHT_MARGIN = 4 * 1048576;   // 4 MB safety margin on ESP
+
 // Kernel no longer embeds initramfs (Phase 2 — loaded externally via EFI stub
 // `initrd=\initramfs.cpio.gz` from the ESP root). OTA must download BOTH the
 // kernel and the initramfs and flash them atomically, otherwise the device
@@ -19,6 +26,7 @@ let initramfsDownloaded = false;
 let initramfsRetried = false; // one-shot retry on transient fetch failure
 
 // States: idle | checking | up-to-date | available
+//         | preflight (NEW: ESP space audit before any writes/downloads)
 //         | downloading (kernel) | downloading-initramfs | flashing
 //         | confirm-reboot | shutting-down | error
 //         | devices | clone-confirm | cloning
@@ -180,9 +188,33 @@ function act({ event: e, sound, system }) {
       const tgt = targets[flashTargetIdx];
       const device = tgt?.device || undefined;
       globalThis.__osFlashDevice = device;
-      state = "downloading";
       progress = 0;
       telemetry.length = 0;
+      // Preflight ESP space audit — refuse the install BEFORE downloading
+      // ~350 MB and BEFORE touching the partition if we can already see the
+      // ESP can't fit kernel + initramfs. Catches the historical brick where
+      // a tight ESP filled mid-write and the on-disk initramfs was silently
+      // truncated. Old kernels lacked diskFreeBytes, so guard with optional
+      // chaining and fall through (the C-side preflight catches it later).
+      const espMount = "/mnt"; // boot ESP is auto-mounted here
+      const espFree = system?.diskFreeBytes?.(espMount);
+      if (typeof espFree === "number" && espFree >= 0) {
+        const kernelNeed = remoteSize || 13_000_000;
+        const need = kernelNeed + OS_INITRAMFS_EXPECTED + OS_PREFLIGHT_MARGIN;
+        const freeMB = (espFree / 1048576).toFixed(0);
+        const needMB = (need / 1048576).toFixed(0);
+        addTelemetry(`preflight ESP=${espMount} free=${freeMB}MB need=${needMB}MB`);
+        if (espFree < need) {
+          addTelemetry("ABORT: insufficient ESP space for OTA");
+          addTelemetry("hint: free space on the boot partition or USB-reflash");
+          setError(`ESP only has ${freeMB}MB free (need ${needMB}MB)`, "preflight");
+          return;
+        }
+        addTelemetry("preflight OK — starting download");
+      } else {
+        addTelemetry("preflight: diskFreeBytes unavailable — skipping (C will retry)");
+      }
+      state = "downloading";
       addTelemetry("fetching " + OS_VMLINUZ_URL.split("/").pop());
       system?.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", (remoteSize || 93_000_000));
       return;
