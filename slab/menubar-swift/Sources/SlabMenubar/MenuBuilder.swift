@@ -8,7 +8,7 @@ enum MenuBuilder {
         menu.addItem(info("Status: \(state.statusLine)"))
         menu.addItem(.separator())
 
-        menu.addItem(info("Prompts in flight: \(state.activePrompts)"))
+        menu.addItem(buildClaude(state: state, target: target))
         menu.addItem(info("Subagents in flight: \(state.activeSubagents)"))
         menu.addItem(.separator())
 
@@ -75,6 +75,64 @@ enum MenuBuilder {
         }
         parent.submenu = sub
         return parent
+    }
+
+    private static func buildClaude(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let sessions = state.claudeSessions
+        let label: String
+        if sessions.isEmpty {
+            label = "Claude: idle"
+        } else if state.anyAwaiting {
+            label = "Claude: \(state.awaitingCount) awaiting · \(sessions.count) active"
+        } else {
+            label = "Claude: \(sessions.count) active"
+        }
+        let parent = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+
+        if sessions.isEmpty {
+            sub.addItem(info("(no active prompts)"))
+        } else {
+            for s in sessions {
+                let dot: String
+                switch s.state {
+                case .awaiting: dot = "◉"
+                case .working:  dot = "●"
+                case .stale:    dot = "○"
+                }
+                let tail = s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)"
+                let title = "\(dot) \(s.shortSubject)\(tail)"
+                let entry = NSMenuItem(
+                    title: title,
+                    action: #selector(AppDelegate.focusClaudeSession(_:)),
+                    keyEquivalent: ""
+                )
+                entry.target = target
+                entry.representedObject = s.tty
+                entry.toolTip = sessionTooltip(s)
+                entry.isEnabled = !s.tty.isEmpty
+                sub.addItem(entry)
+            }
+        }
+
+        parent.submenu = sub
+        return parent
+    }
+
+    private static func sessionTooltip(_ s: ClaudeSession) -> String {
+        var parts: [String] = []
+        switch s.state {
+        case .awaiting:
+            parts.append("awaiting: \(s.awaitingMessage ?? "input")")
+        case .working:
+            parts.append("working")
+        case .stale:
+            parts.append("stale (claude pid gone)")
+        }
+        if !s.cwd.isEmpty { parts.append(s.cwd) }
+        if !s.tty.isEmpty { parts.append("/dev/\(s.tty)") }
+        parts.append("session \(s.sessionId)")
+        return parts.joined(separator: "\n")
     }
 
     private static func buildMail(status: String, target: AppDelegate) -> NSMenuItem {

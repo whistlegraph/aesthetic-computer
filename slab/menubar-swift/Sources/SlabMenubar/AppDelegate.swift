@@ -3,6 +3,8 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var refreshTimer: Timer?
+    private var rainbowTimer: Timer?
+    private var rainbowPhase: CGFloat = 0
     private var mailTickCount = 0
     private var mailPending = false
     private var mailSyncing = false
@@ -37,10 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func refresh() {
         state = StateSnapshot.gather()
 
-        if let button = statusItem.button {
-            button.image = IconRenderer.image(for: state)
-            button.title = state.totalActive > 0 ? " \(state.totalActive)" : ""
-        }
+        updateIcon()
+        updateRainbowTimer()
 
         mailTickCount += 1
         if mailTickCount >= 15 && !mailPending && !mailSyncing {
@@ -49,6 +49,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusItem.menu = MenuBuilder.build(state: state, mailStatus: mailStatus, target: self)
+    }
+
+    private func updateIcon() {
+        guard let button = statusItem.button else { return }
+        // Don't tint our color image — contentTintColor would otherwise
+        // recolor non-template images on macOS 10.14+.
+        button.contentTintColor = nil
+        button.image = IconRenderer.image(for: state, phase: rainbowPhase)
+        // When the stack icon is showing, the bar count communicates the
+        // number — only show a numeric tail for subagents (which the stack
+        // doesn't represent) or the legacy fallback states.
+        if state.claudeSessions.isEmpty && state.totalActive > 0 {
+            button.title = " \(state.totalActive)"
+        } else if state.activeSubagents > 0 {
+            button.title = " +\(state.activeSubagents)"
+        } else {
+            button.title = ""
+        }
+    }
+
+    private func updateRainbowTimer() {
+        if state.anyAwaiting {
+            if rainbowTimer == nil {
+                let t = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
+                    guard let self = self else { return }
+                    self.rainbowPhase = (self.rainbowPhase + 0.025).truncatingRemainder(dividingBy: 1.0)
+                    self.updateIcon()
+                }
+                RunLoop.main.add(t, forMode: .common)
+                rainbowTimer = t
+            }
+        } else if let t = rainbowTimer {
+            t.invalidate()
+            rainbowTimer = nil
+            rainbowPhase = 0
+        }
     }
 
     private func refreshMailCount() {
@@ -115,6 +151,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             notify(title: "slab", subtitle: "Mail sync", body: "No sync log yet.")
         }
+    }
+
+    @objc func focusClaudeSession(_ sender: NSMenuItem) {
+        guard let tty = sender.representedObject as? String, !tty.isEmpty else { return }
+        // tty here is a short name like "ttys003"; AppleScript's `tty of tab`
+        // returns "/dev/ttys003", so suffix-match on the bare name.
+        let escaped = tty.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = """
+        tell application "Terminal"
+            activate
+            set targetTTY to "\(escaped)"
+            repeat with w in windows
+                set tabIndex to 0
+                repeat with t in tabs of w
+                    set tabIndex to tabIndex + 1
+                    try
+                        if (tty of t) ends with targetTTY then
+                            set selected of t to true
+                            set index of w to 1
+                            return
+                        end if
+                    end try
+                end repeat
+            end repeat
+        end tell
+        """
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
     @objc func sshPeer(_ sender: NSMenuItem) {

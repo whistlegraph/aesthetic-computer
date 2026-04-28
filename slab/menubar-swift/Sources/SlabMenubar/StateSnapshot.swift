@@ -7,11 +7,15 @@ struct StateSnapshot {
     var activeSubagents: Int = 0
     var ambientActive: Bool = false
     var tailnetPeers: [TailnetPeer] = []
+    var claudeSessions: [ClaudeSession] = []
 
     var totalActive: Int { activePrompts + activeSubagents }
     var hasWork: Bool { totalActive > 0 }
+    var awaitingCount: Int { claudeSessions.filter { $0.state == .awaiting }.count }
+    var anyAwaiting: Bool { awaitingCount > 0 }
 
     var statusLine: String {
+        if anyAwaiting { return "\(awaitingCount) awaiting · \(totalActive) active" }
         if ambientActive && hasWork { return "ambient — \(totalActive) active" }
         if ambientActive { return "ambient" }
         if !hasWork { return "idle" }
@@ -28,6 +32,7 @@ struct StateSnapshot {
         s.activeSubagents = countFiles(in: Paths.activeSubagentsDir)
         s.ambientActive = FileManager.default.fileExists(atPath: Paths.ambientFlag)
         s.tailnetPeers = TailnetPeer.query()
+        s.claudeSessions = ClaudeSessionReader.active()
         return s
     }
 

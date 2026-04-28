@@ -12,6 +12,7 @@ enum Paths {
     }
 
     static var activePromptsDir: String { "\(slabHome)/state/active-prompts" }
+    static var awaitingPromptsDir: String { "\(slabHome)/state/awaiting-prompts" }
     static var activeSubagentsDir: String { "\(slabHome)/state/active-subagents" }
     static var soundsDir: String { "\(slabHome)/sounds" }
     static var lidLog: String { "\(slabHome)/logs/lidalive.log" }

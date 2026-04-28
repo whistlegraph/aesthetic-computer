@@ -13,15 +13,18 @@ SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
 CH="$SLAB_HOME/sounds"
 LOG=${CLAUDE_STOP_LOG:-$SLAB_HOME/logs/claude-stop.log}
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
+AWAITING_DIR="$SLAB_HOME/state/awaiting-prompts"
 SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
-mkdir -p "$(dirname "$LOG")" "$ACTIVE_DIR" "$SUBAGENT_DIR"
+mkdir -p "$(dirname "$LOG")" "$ACTIVE_DIR" "$AWAITING_DIR" "$SUBAGENT_DIR"
 
 pkill -f claude-ping-repeat.sh 2>/dev/null
 pkill -f claude-sleep-schedule.sh 2>/dev/null
 
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
-[[ -n "$session_id" ]] && rm -f "$ACTIVE_DIR/$session_id"
+if [[ -n "$session_id" ]]; then
+    rm -f "$ACTIVE_DIR/$session_id" "$AWAITING_DIR/$session_id"
+fi
 
 shopt -s nullglob
 prompts=("$ACTIVE_DIR"/*)

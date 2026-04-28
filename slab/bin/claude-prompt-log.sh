@@ -1,10 +1,13 @@
 #!/bin/bash
 # UserPromptSubmit hook: log prompt, mark session as active, set awake.
+# Writes JSON metadata to active-prompts/<session_id> so the menubar can
+# render per-session status (subject, cwd, tty, claude pid).
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
 PROMPT_LOG=${PROMPT_LOG:-$HOME/.claude/prompts.log.jsonl}
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
+AWAITING_DIR="$SLAB_HOME/state/awaiting-prompts"
 
 input=$(cat)
 
@@ -19,9 +22,34 @@ rm -f /tmp/slab-ambient-paused
 "$SLAB_BIN/claude-sleep" awake >/dev/null 2>&1 &
 
 if [[ -n "$input" ]]; then
-    mkdir -p "$ACTIVE_DIR"
+    mkdir -p "$ACTIVE_DIR" "$AWAITING_DIR"
     session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
-    [[ -n "$session_id" ]] && : > "$ACTIVE_DIR/$session_id"
+
+    if [[ -n "$session_id" ]]; then
+        # Walk up the process tree to find the claude pid so the menubar
+        # can verify liveness via pid existence.
+        claude_pid=$$
+        for _ in 1 2 3 4 5 6 7 8; do
+            parent=$(ps -o ppid= -p "$claude_pid" 2>/dev/null | tr -d ' ')
+            [[ -z "$parent" || "$parent" == "1" ]] && break
+            comm=$(ps -o comm= -p "$parent" 2>/dev/null | tr -d ' ')
+            claude_pid=$parent
+            [[ "$comm" == *claude* ]] && break
+        done
+        tty=$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')
+        ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+        echo "$input" | jq -c \
+            --arg sid "$session_id" \
+            --arg tty "$tty" \
+            --arg pid "$claude_pid" \
+            --arg ts "$ts" \
+            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), tty: $tty, claude_pid: ($pid | tonumber? // 0), updated: $ts, state: "working"}' \
+            > "$ACTIVE_DIR/$session_id" 2>/dev/null
+
+        # User responded — clear any awaiting marker for this session.
+        rm -f "$AWAITING_DIR/$session_id"
+    fi
 
     mkdir -p "$(dirname "$PROMPT_LOG")"
     echo "$input" | jq -c --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

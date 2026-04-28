@@ -14,7 +14,8 @@ SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
 LOG=${CLAUDE_NOTIFY_LOG:-$SLAB_HOME/logs/claude-notify.log}
 PAUSE_FLAG=/tmp/slab-ambient-paused
-mkdir -p "$(dirname "$LOG")"
+AWAITING_DIR="$SLAB_HOME/state/awaiting-prompts"
+mkdir -p "$(dirname "$LOG")" "$AWAITING_DIR"
 
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
@@ -23,6 +24,13 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') Notification: session=${session_id:-?} msg=${
 
 # Mark paused before fading so the daemon sees the flag on its next tick.
 : > "$PAUSE_FLAG"
+
+# Per-session awaiting marker — read by the menubar to flash the icon and
+# tag this session in the dropdown. Cleared by the next UserPromptSubmit or
+# by Stop. The message (if any) lands inside as the awaiting reason.
+if [[ -n "$session_id" ]]; then
+    printf '%s\n' "${message:-awaiting input}" > "$AWAITING_DIR/$session_id" 2>/dev/null
+fi
 
 # Fade ambient (mirrors stop_ambient in claude-stop.sh, minus the afplay kill —
 # short chimes like the start stinger can finish naturally).
