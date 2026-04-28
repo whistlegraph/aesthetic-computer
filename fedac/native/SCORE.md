@@ -14,12 +14,30 @@ All of the following must be true:
 
 ## Release Procedure
 
-### Quick commands (fish shell)
+### Default path: remote OTA via oven (preferred)
+
+OTAs are built remotely on `oven.aesthetic.computer`. After landing
+fedac/native/ changes on `origin/main`, the oven git poller auto-triggers
+a build — but you can also trigger and observe explicitly:
 
 ```bash
-ac-os build         # Build binary + initramfs + kernel
+ac-os oven          # Trigger remote OTA build for HEAD (or push to main)
+ac-os oven status   # Show oven build queue + last builds
+ac-os oven watch    # Tail logs for the active oven build (SSE)
+ac-os oven cancel   # Cancel the active oven job
+```
+
+**This is the path agents should use.** Do NOT run `ac-os upload` to ship an
+OTA — that is the legacy local-build-and-push path; it requires a clean tree
+and has historically clobbered uncommitted work via auto-stash. The oven
+flow is the source of truth for `releases.aesthetic.computer/os/`.
+
+### Local commands (rarely needed)
+
+```bash
+ac-os build         # Build binary + initramfs + kernel locally
 ac-os flash         # Build + flash USB
-ac-os upload        # Upload current build as OTA release
+ac-os upload        # Local-build + push to OTA CDN (NOT for routine OTAs — use `ac-os oven`)
 ac-os flash+upload  # Build + flash + upload
 ```
 

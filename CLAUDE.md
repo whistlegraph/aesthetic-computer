@@ -101,6 +101,23 @@ npm run assets:sync:up
 
 ### AC Native OS (fedac/native/)
 
+**Routine OTA releases are built remotely on the oven.** When fedac/native/
+changes land on `origin/main`, oven's git poller auto-triggers a build. To
+trigger or observe a build explicitly:
+
+```bash
+ac-os oven          # Trigger remote OTA build for HEAD
+ac-os oven status   # Show oven queue + recent builds
+ac-os oven watch    # Tail active build logs (SSE)
+ac-os oven cancel   # Cancel active oven job
+```
+
+**Use `ac-os oven` for OTA releases — not `ac-os upload`.** `ac-os upload`
+is a local-build-and-push fallback that requires a clean tree and has
+historically auto-stashed uncommitted work in ways that strand changes.
+
+Local-only commands (rarely needed for OTA):
+
 ```bash
 # Full build pipeline: binary → initramfs → kernel
 ac-os build
@@ -108,7 +125,7 @@ ac-os build
 # Build + flash USB
 ac-os flash
 
-# Build + upload OTA release (ALWAYS rebuilds first)
+# Build + upload OTA release (legacy local path — prefer `ac-os oven`)
 ac-os upload
 
 # Build + flash + upload
