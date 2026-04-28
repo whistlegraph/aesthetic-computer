@@ -183,19 +183,17 @@ enum IconRenderer {
     ring.lineWidth = 1.3
     ring.stroke()
 
-    // Inner dot
+    // Inner dot — always red, alpha varies by state. The X overlay (drawn
+    // below) is what signals "not ready"; the color stays so the pill
+    // reads as a snap button at a glance.
     let dotColor: NSColor = {
       if phase == .snapping {
-        // Hollow look during snap — fade the ring fill.
-        return NSColor.labelColor.withAlphaComponent(0.0)
+        return NSColor.clear
       }
-      if !ready {
-        return NSColor(white: 0.55, alpha: 0.55)
-      }
-      // Ready: red, brighter on hover.
-      return hover
+      let hot = hover
         ? NSColor(calibratedRed: 1.00, green: 0.30, blue: 0.30, alpha: 1.0)
-        : NSColor(calibratedRed: 0.85, green: 0.20, blue: 0.20, alpha: 1.0)
+        : NSColor(calibratedRed: 0.92, green: 0.22, blue: 0.22, alpha: 1.0)
+      return ready ? hot : hot.withAlphaComponent(hover ? 0.55 : 0.40)
     }()
     if phase != .snapping {
       dotColor.setFill()
@@ -209,14 +207,15 @@ enum IconRenderer {
     }
 
     // X overlay when iPhone Mirroring isn't ready (skipped during snap).
+    // Drawn just outside the dot so the red stays visible underneath.
     if !ready && phase != .snapping {
       NSColor.labelColor.withAlphaComponent(0.95).setStroke()
-      let inset: CGFloat = 2.4
+      let xRect = ringRect.insetBy(dx: 0.5, dy: 0.5)
       let x = NSBezierPath()
-      x.move(to: NSPoint(x: dotRect.minX + inset, y: dotRect.minY + inset))
-      x.line(to: NSPoint(x: dotRect.maxX - inset, y: dotRect.maxY - inset))
-      x.move(to: NSPoint(x: dotRect.minX + inset, y: dotRect.maxY - inset))
-      x.line(to: NSPoint(x: dotRect.maxX - inset, y: dotRect.minY + inset))
+      x.move(to: NSPoint(x: xRect.minX, y: xRect.minY))
+      x.line(to: NSPoint(x: xRect.maxX, y: xRect.maxY))
+      x.move(to: NSPoint(x: xRect.minX, y: xRect.maxY))
+      x.line(to: NSPoint(x: xRect.maxX, y: xRect.minY))
       x.lineWidth = 1.4
       x.lineCapStyle = .round
       x.stroke()
