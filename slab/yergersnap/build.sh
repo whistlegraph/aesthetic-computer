@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build.sh — compile, bundle, sign, notarize, staple → MirrorTap.app
+# build.sh — compile, bundle, sign, notarize, staple → YergerSnap.app
 #
 # Pulls the Developer ID cert + notarization creds from the vault at
 # aesthetic-computer-vault/ac-electron/.env. The .p12 is imported into a
@@ -9,7 +9,7 @@
 #   ./build.sh              # build + sign + notarize + staple
 #   ./build.sh --no-notary  # build + sign only (faster; opens with right-click)
 #
-# Output: MirrorTap.app in this directory.
+# Output: YergerSnap.app in this directory.
 
 set -euo pipefail
 
@@ -34,11 +34,11 @@ source "$VAULT_ENV"
 P12="$(cd "$(dirname "$VAULT_ENV")" && pwd)/mac-developer-id.p12"
 [[ -f "$P12" ]] || { echo "missing $P12" >&2; exit 1; }
 
-APP_NAME="MirrorTap"
+APP_NAME="YergerSnap"
 APP_BUNDLE="$SCRIPT_DIR/$APP_NAME.app"
 BUILD_DIR="$SCRIPT_DIR/build"
 KEYCHAIN="$BUILD_DIR/build.keychain"
-KEYCHAIN_PASS="mirrortap-build"
+KEYCHAIN_PASS="yergersnap-build"
 
 rm -rf "$BUILD_DIR" "$APP_BUNDLE"
 mkdir -p "$BUILD_DIR" "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
@@ -49,12 +49,18 @@ swiftc -O -o "$APP_BUNDLE/Contents/MacOS/$APP_NAME" tap.swift \
 
 cp Info.plist "$APP_BUNDLE/Contents/Info.plist"
 
+if [[ -f AppIcon.icns ]]; then
+  cp AppIcon.icns "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+elif [[ -f icon.iconset ]]; then
+  iconutil -c icns -o "$APP_BUNDLE/Contents/Resources/AppIcon.icns" icon.iconset
+fi
+
 echo "==> import cert into ephemeral keychain"
 # Capture the original search list before we touch anything so we can
 # always restore it. If a stale build keychain is registered, drop it.
 ORIG_SEARCH=$(security list-keychains -d user \
   | sed -e 's/"//g' -e 's/^[[:space:]]*//' \
-  | grep -v 'iphone-mirror-tap/build/build.keychain' || true)
+  | grep -v 'yergersnap/build/build.keychain' || true)
 security delete-keychain "$KEYCHAIN" 2>/dev/null || true
 
 security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
@@ -84,11 +90,11 @@ echo "    identity: $IDENTITY"
 
 echo "==> codesign (hardened runtime)"
 codesign --force --options runtime --timestamp \
-  --entitlements MirrorTap.entitlements \
+  --entitlements YergerSnap.entitlements \
   --sign "$IDENTITY" --keychain "$KEYCHAIN" \
   "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 codesign --force --options runtime --timestamp \
-  --entitlements MirrorTap.entitlements \
+  --entitlements YergerSnap.entitlements \
   --sign "$IDENTITY" --keychain "$KEYCHAIN" \
   "$APP_BUNDLE"
 

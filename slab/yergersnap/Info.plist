@@ -5,21 +5,23 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleExecutable</key>
-  <string>MirrorTap</string>
+  <string>YergerSnap</string>
   <key>CFBundleIdentifier</key>
-  <string>computer.aesthetic.mirrortap</string>
+  <string>computer.aesthetic.yergersnap</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>MirrorTap</string>
+  <string>YergerSnap</string>
   <key>CFBundleDisplayName</key>
-  <string>MirrorTap</string>
+  <string>YergerSnap</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
   <string>0.1</string>
   <key>CFBundleVersion</key>
   <string>1</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
   <key>LSUIElement</key>
@@ -27,15 +29,15 @@
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSAppleEventsUsageDescription</key>
-  <string>MirrorTap needs to interact with iPhone Mirroring to send a tap.</string>
+  <string>YergerSnap needs to interact with iPhone Mirroring to send a tap.</string>
   <key>CFBundleURLTypes</key>
   <array>
     <dict>
       <key>CFBundleURLName</key>
-      <string>computer.aesthetic.mirrortap</string>
+      <string>computer.aesthetic.yergersnap</string>
       <key>CFBundleURLSchemes</key>
       <array>
-        <string>mirrortap</string>
+        <string>yergersnap</string>
       </array>
     </dict>
   </array>

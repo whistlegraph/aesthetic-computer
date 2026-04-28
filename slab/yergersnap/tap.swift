@@ -1,11 +1,11 @@
-// tap.swift — MirrorTap menubar app.
+// tap.swift — YergerSnap menubar app.
 //
 // Posts a synthetic click on the iPhone Mirroring window's Capture button
 // in response to two triggers:
 //
 //   1. Dragonframe Action Script (preferred). DF runs a shell script on
 //      every event (Preferences → Advanced → Action Script). On SHOOT
-//      events the script calls `open mirrortap://capture`, which routes
+//      events the script calls `open yergersnap://capture`, which routes
 //      to this running app via the registered URL scheme. Net result:
 //      pressing Enter in Dragonframe captures BOTH the DF camera and the
 //      mirrored iPhone, with no fake keystrokes.
@@ -69,7 +69,7 @@ func clickAt(_ point: CGPoint) {
 
 func tapPhone() {
   guard let frame = iPhoneMirroringFrame() else {
-    NSLog("MirrorTap: iPhone Mirroring window not found.")
+    NSLog("YergerSnap: iPhone Mirroring window not found.")
     return
   }
   let target = CGPoint(x: frame.minX + frame.width  * tapX,
@@ -87,18 +87,18 @@ func tapPhone() {
 // Dragonframe passes 8 positional args; $4 is the event name.
 let actionScriptBody = """
 #!/usr/bin/env bash
-# MirrorTap — Dragonframe action script.
+# YergerSnap — Dragonframe action script.
 # Configured via Dragonframe Preferences → Advanced → Action Script.
 #
 # Args from Dragonframe:
 #   $1 production   $2 scene    $3 take       $4 event
 #   $5 frame        $6 exposure $7 expName    $8 filename
 #
-# On SHOOT (the moment the user triggers capture) we ping MirrorTap via
+# On SHOOT (the moment the user triggers capture) we ping YergerSnap via
 # its URL scheme, which makes the running app tap iPhone Mirroring.
 case "$4" in
   SHOOT)
-    /usr/bin/open "mirrortap://capture" >/dev/null 2>&1
+    /usr/bin/open "yergersnap://capture" >/dev/null 2>&1
     ;;
 esac
 exit 0
@@ -107,7 +107,7 @@ exit 0
 func actionScriptPath() -> String {
   let support = (NSSearchPathForDirectoriesInDomains(
     .applicationSupportDirectory, .userDomainMask, true).first ?? "")
-  return support + "/MirrorTap/dragonframe-action.sh"
+  return support + "/YergerSnap/dragonframe-action.sh"
 }
 
 func installActionScript() -> String? {
@@ -121,7 +121,7 @@ func installActionScript() -> String? {
       [.posixPermissions: NSNumber(value: 0o755)], ofItemAtPath: path)
     return path
   } catch {
-    NSLog("MirrorTap: install failed — \(error)")
+    NSLog("YergerSnap: install failed — \(error)")
     return nil
   }
 }
@@ -137,9 +137,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     _ = AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary)
 
     idleImage   = NSImage(systemSymbolName: "camera.aperture",
-                          accessibilityDescription: "MirrorTap idle")
+                          accessibilityDescription: "YergerSnap idle")
     firingImage = NSImage(systemSymbolName: "circle.inset.filled",
-                          accessibilityDescription: "MirrorTap firing")
+                          accessibilityDescription: "YergerSnap firing")
 
     statusItem = NSStatusBar.system.statusItem(
       withLength: NSStatusItem.variableLength)
@@ -149,11 +149,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       btn.target = self
       btn.action = #selector(handleClick(_:))
       btn.sendAction(on: [.leftMouseUp, .rightMouseUp])
-      btn.toolTip = "MirrorTap — click to tap iPhone Mirroring"
+      btn.toolTip = "YergerSnap — click to tap iPhone Mirroring"
     }
 
     menu = NSMenu()
-    let header = NSMenuItem(title: "MirrorTap", action: nil, keyEquivalent: "")
+    let header = NSMenuItem(title: "YergerSnap", action: nil, keyEquivalent: "")
     header.isEnabled = false
     menu.addItem(header)
     menu.addItem(NSMenuItem.separator())
@@ -172,15 +172,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(installItem)
 
     menu.addItem(NSMenuItem.separator())
-    menu.addItem(NSMenuItem(title: "Quit MirrorTap",
+    menu.addItem(NSMenuItem(title: "Quit YergerSnap",
                             action: #selector(NSApplication.terminate(_:)),
                             keyEquivalent: "q"))
   }
 
   // URL scheme handler — Dragonframe's action script calls this via
-  // `open mirrortap://capture` to ask us to tap iPhone Mirroring.
+  // `open yergersnap://capture` to ask us to tap iPhone Mirroring.
   func application(_ app: NSApplication, open urls: [URL]) {
-    for url in urls where url.scheme == "mirrortap" {
+    for url in urls where url.scheme == "yergersnap" {
       let host = url.host?.lowercased() ?? url.path.replacingOccurrences(
         of: "/", with: "")
       switch host {
@@ -188,7 +188,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         flashIcon()
         tapPhone()
       default:
-        NSLog("MirrorTap: unknown URL \(url)")
+        NSLog("YergerSnap: unknown URL \(url)")
       }
     }
   }
