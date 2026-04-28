@@ -144,17 +144,18 @@ enum IconPhase: Equatable { case idle, snapping }
 enum HoverRegion: Equatable { case none, snap, settings }
 
 enum IconRenderer {
-  static let height: CGFloat = 22
+  static let height: CGFloat = 22       // matches MenuBand image height
 
-  // Snap button geometry
-  static let snapPadX: CGFloat = 4
-  static let snapPadY: CGFloat = 2
-  static let dotSize:  CGFloat = 9
+  // Snap button geometry — button rect = 21pt tall, matching MenuBand
+  // white-key height (whiteH = 21).
+  static let snapPadX: CGFloat = 6
+  static let snapPadY: CGFloat = 0.5
+  static let dotSize:  CGFloat = 11
   static let ringPad:  CGFloat = 2
-  static let dotLabelGap: CGFloat = 4
+  static let dotLabelGap: CGFloat = 5
   static let labelText = "SNAP"
-  static let labelFont = NSFont.systemFont(ofSize: 10.5, weight: .semibold)
-  static let buttonCornerRadius: CGFloat = 4
+  static let labelFont = NSFont.systemFont(ofSize: 11.5, weight: .semibold)
+  static let buttonCornerRadius: CGFloat = 4.5
 
   // Settings chip (sliders icon)
   static let settingsSymbol = "slider.horizontal.3"
@@ -226,7 +227,7 @@ enum IconRenderer {
       if phase == .snapping { return 0.85 }
       return hovered ? 0.85 : 0.55
     }()
-    NSColor.labelColor.withAlphaComponent(strokeAlpha).setStroke()
+    NSColor.white.withAlphaComponent(strokeAlpha).setStroke()
     let outline = NSBezierPath(
       roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
       xRadius: buttonCornerRadius, yRadius: buttonCornerRadius)
@@ -241,7 +242,7 @@ enum IconRenderer {
 
     if phase == .snapping {
       // Hollow look — small inner ring suggests "in flight."
-      NSColor.labelColor.withAlphaComponent(0.55).setStroke()
+      NSColor.white.withAlphaComponent(0.55).setStroke()
       let inner = NSBezierPath(ovalIn: dotRect.insetBy(dx: 1.5, dy: 1.5))
       inner.lineWidth = 1.0
       inner.stroke()
@@ -259,7 +260,7 @@ enum IconRenderer {
     // X overlay when not ready (skipped during snap), drawn over the
     // ring inset so the red dot stays visible.
     if !ready && phase != .snapping {
-      NSColor.labelColor.withAlphaComponent(0.95).setStroke()
+      NSColor.white.withAlphaComponent(0.95).setStroke()
       let xRect = ringRect.insetBy(dx: 0.5, dy: 0.5)
       let x = NSBezierPath()
       x.move(to: NSPoint(x: xRect.minX, y: xRect.minY))
@@ -277,7 +278,7 @@ enum IconRenderer {
       if !ready { return hovered ? 0.70 : 0.45 }
       return hovered ? 1.00 : 0.78
     }()
-    let textColor = NSColor.labelColor.withAlphaComponent(textAlpha)
+    let textColor = NSColor.white.withAlphaComponent(textAlpha)
     let textX = dotRect.maxX + ringPad + dotLabelGap
     let textY = rect.midY - labelSize.height / 2 - 0.5
     labelText.draw(at: NSPoint(x: textX, y: textY),
@@ -289,7 +290,7 @@ enum IconRenderer {
 
   private static func drawSettingsChip(hovered: Bool) {
     let alpha: CGFloat = hovered ? 1.0 : 0.65
-    let color = NSColor.labelColor.withAlphaComponent(alpha)
+    let color = NSColor.white.withAlphaComponent(alpha)
     drawTintedSymbol(settingsSymbol, in: settingsRect,
                      pointSize: settingsPointSize, color: color)
   }
