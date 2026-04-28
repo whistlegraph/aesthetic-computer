@@ -649,9 +649,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func showMenu() {
-    statusItem.menu = menu
-    statusItem.button?.performClick(nil)
-    DispatchQueue.main.async { self.statusItem.menu = nil }
+    guard let btn = statusItem.button else { return }
+    // Pop the menu directly. Setting `statusItem.menu` and calling
+    // `performClick(nil)` would re-fire our action handler and recurse
+    // until the stack overflows.
+    let origin = NSPoint(x: 0, y: btn.bounds.height + 2)
+    menu.popUp(positioning: nil, at: origin, in: btn)
   }
 
   @objc func tapFromMenu() {
