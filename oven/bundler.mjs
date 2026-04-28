@@ -57,6 +57,7 @@ export function refreshGitCommit() {
 
 let coreBundleCache = null;
 let coreBundleCacheCommit = null;
+let coreBundleCacheBuiltAt = 0;
 let skipMinification = false;
 
 // ─── Brotli WASM decoder (loaded once at startup) ──────────────────
@@ -450,7 +451,7 @@ function rewriteImports(code, filepath) {
     }
   );
   code = code.replace(
-    /\(\s*['"](\.\.?\/[^'"]+\.m?js)(\?[^'"]+)?['"]\s*\)/g,
+    /\(\s*['"](\.\.?\/[^'"?]+\.m?js)(\?[^'"]*)?['"]\s*\)/g,
     (match, p) => {
       const resolved = resolvePath(filepath, p);
       return '("' + resolved + '")';
@@ -543,7 +544,23 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
 async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
   const acDir = AC_SOURCE_DIR;
 
-  if (!forceRefresh && coreBundleCache && coreBundleCacheCommit === GIT_COMMIT) {
+  // Auto-invalidate when ac-source has been rsynced since the last cache build
+  // (sync-source.sh runs without restarting this Node process, so the cache
+  // would otherwise serve stale-bundler output until prewarm is hit). Stat one
+  // hot file as a low-cost proxy for "the source tree changed."
+  let stale = false;
+  if (coreBundleCache && coreBundleCacheBuiltAt > 0) {
+    try {
+      const sentinel = path.join(acDir, "lib/disk.mjs");
+      const mtime = fsSync.statSync(sentinel).mtimeMs;
+      if (mtime > coreBundleCacheBuiltAt) {
+        stale = true;
+        console.log(`[bundler] cache stale (disk.mjs mtime ${new Date(mtime).toISOString()} > built ${new Date(coreBundleCacheBuiltAt).toISOString()}) — rebuilding`);
+      }
+    } catch { /* ignore stat errors, fall through to normal cache check */ }
+  }
+
+  if (!forceRefresh && !stale && coreBundleCache && coreBundleCacheCommit === GIT_COMMIT) {
     console.log(`[bundler] cache hit for ${GIT_COMMIT}`);
     onProgress({ stage: "cache-hit", message: "Using cached core files..." });
     return coreBundleCache;
@@ -672,13 +689,14 @@ async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
 
   coreBundleCache = coreFiles;
   coreBundleCacheCommit = GIT_COMMIT;
+  coreBundleCacheBuiltAt = Date.now();
   console.log(`[bundler] cached ${Object.keys(coreFiles).length} core files`);
   return coreFiles;
 }
 
 // ─── KidLisp bundle ─────────────────────────────────────────────────
 
-export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false) {
+export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false, forceRefresh = false) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, "");
   const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
 
@@ -697,7 +715,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   });
   const bundleTimestamp = timestamp();
 
-  const coreFiles = await getCoreBundle(onProgress);
+  const coreFiles = await getCoreBundle(onProgress, forceRefresh);
   const files = { ...coreFiles };
 
   // Inject lightweight stubs for skipped files
@@ -770,7 +788,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 
 // ─── JS piece bundle ────────────────────────────────────────────────
 
-export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false, forceDaw = false) {
+export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false, forceDaw = false, forceRefresh = false) {
   const acDir = AC_SOURCE_DIR;
   onProgress({ stage: "init", message: `Bundling ${pieceName}...` });
 
@@ -781,7 +799,7 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
   });
   const bundleTimestamp = timestamp();
 
-  const coreFiles = await getCoreBundle(onProgress);
+  const coreFiles = await getCoreBundle(onProgress, forceRefresh);
   const files = { ...coreFiles };
 
   // Inject lightweight stubs for skipped files

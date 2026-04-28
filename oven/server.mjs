@@ -2958,8 +2958,8 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
     try {
       const onProgress = (p) => sendEvent('progress', p);
       const { html, filename, sizeKB } = isJSPiece
-        ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel)
-        : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel);
+        ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel, false, nocache)
+        : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel, nocache);
       sendEvent('complete', { filename, content: Buffer.from(html).toString('base64'), sizeKB });
     } catch (error) {
       console.error('Bundle failed:', error);
@@ -2973,8 +2973,8 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
     const progressLog = [];
     const onProgress = (p) => { progressLog.push(p.message); console.log(`[bundler] ${p.stage}: ${p.message}`); };
     const result = isJSPiece
-      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel)
-      : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel);
+      ? await createJSPieceBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel, false, nocache)
+      : await createBundle(bundleTarget, onProgress, nocompress, density, brotli, noboxart, keeplabel, nocache);
     const { html, filename, sizeKB, mainSource, authorHandle, userCode, packDate, depCount } = result;
 
     if (format === 'json' || format === 'base64') {
