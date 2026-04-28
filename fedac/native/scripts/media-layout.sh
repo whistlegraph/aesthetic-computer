@@ -141,6 +141,7 @@ ac_media_write_global_wifi_creds() {
 [
   {"ssid":"aesthetic.computer","pass":"aesthetic.computer"},
   {"ssid":"ATT2AWTpcr","pass":"t84q%7%g2h8u"},
+  {"ssid":"ATTcifXGXi","pass":"dvt%mnk8h6z"},
   {"ssid":"GettyLink","pass":""},
   {"ssid":"Tondo_Guest","pass":"California"},
   {"ssid":"Eightfold Coffee","pass":"wecloseat430"}

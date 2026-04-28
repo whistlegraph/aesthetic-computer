@@ -347,6 +347,7 @@ trap "rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null" EXIT
 WIFI_PRESETS_JSON='[
   {"ssid":"aesthetic.computer","pass":"aesthetic.computer"},
   {"ssid":"ATT2AWTpcr","pass":"t84q%7%g2h8u"},
+  {"ssid":"ATTcifXGXi","pass":"dvt%mnk8h6z"},
   {"ssid":"GettyLink","pass":""},
   {"ssid":"Tondo_Guest","pass":"California"},
   {"ssid":"Eightfold Coffee","pass":"wecloseat430"}
@@ -475,7 +476,7 @@ with open(sys.argv[3], 'w') as f:
         && log "Merged $(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "${WIFI_MERGED}") wifi networks (presets + preserved)"
     else
         printf '%s\n' "${WIFI_PRESETS_JSON}" > "${WIFI_MERGED}"
-        log "Wrote 4 preset wifi networks (no previous USB to preserve from)"
+        log "Wrote 6 preset wifi networks (no previous USB to preserve from)"
     fi
 fi
 cp "${WIFI_MERGED}" "${M1}/wifi_creds.json"

@@ -234,6 +234,21 @@ for web_piece in 3x3.mjs 404.mjs beat.mjs brick-breaker.mjs \
 done
 log "Bundled web pieces: $(ls "${INITRAMFS_DIR}/pieces/" | grep -c '.mjs') total"
 
+# 🎹 Copy piano sample bank into /samples/piano/ for the C-side audio
+# engine to load at startup (audio.c: load_piano_bank). Each .raw is a
+# header-less stream of float32 mono samples at 48kHz; filename is the
+# anchor MIDI note number (e.g. 60.raw = C4). The pre-build script
+# scripts/prep-piano-samples.sh decimates the full Salamander Grand
+# Piano V3 SFZ to these anchor pitches. Total ~14 MB at 26 anchors.
+SAMPLES_SRC="${NATIVE_DIR}/samples/piano"
+if [ -d "${SAMPLES_SRC}" ]; then
+    mkdir -p "${INITRAMFS_DIR}/samples/piano"
+    cp "${SAMPLES_SRC}"/*.raw "${INITRAMFS_DIR}/samples/piano/" 2>/dev/null || true
+    sample_count=$(ls "${INITRAMFS_DIR}/samples/piano/"*.raw 2>/dev/null | wc -l | tr -d ' ')
+    sample_size=$(du -sh "${INITRAMFS_DIR}/samples/piano/" 2>/dev/null | cut -f1)
+    log "Bundled piano samples: ${sample_count} anchors, ${sample_size}"
+fi
+
 # Copy shared JS libraries needed by pieces (pure JS, no browser deps)
 AC_LIB_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/lib"
 mkdir -p "${INITRAMFS_DIR}/lib"
