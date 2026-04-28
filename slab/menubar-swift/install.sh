@@ -23,8 +23,12 @@ REPO_HOME="${HOME}"
 LAUNCH_AGENTS="${REPO_HOME}/Library/LaunchAgents"
 PLIST_PATH="${LAUNCH_AGENTS}/computer.slab.menubar.plist"
 PLIST_TMPL="${SCRIPT_DIR}/computer.slab.menubar.plist.tmpl"
-BIN_DIR="${REPO_HOME}/.local/bin"
-BIN_PATH="${BIN_DIR}/slab-menubar"
+INFO_PLIST="${SCRIPT_DIR}/Info.plist"
+APPS_DIR="${REPO_HOME}/Applications"
+APP_DIR="${APPS_DIR}/SlabMenubar.app"
+APP_BIN_DIR="${APP_DIR}/Contents/MacOS"
+APP_BIN="${APP_BIN_DIR}/slab-menubar"
+LEGACY_BIN="${REPO_HOME}/.local/bin/slab-menubar"
 
 say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
@@ -34,6 +38,68 @@ command -v swift >/dev/null 2>&1 || {
     echo "swift not found — install Xcode Command Line Tools first:"
     echo "    xcode-select --install"
     exit 1
+}
+
+SIGN_CN="Slab Menubar Self-Signed"
+SIGN_KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
+
+ensure_signing_identity() {
+    # find-certificate works for self-signed certs even if untrusted, unlike
+    # `find-identity -p codesigning` which filters by trust.
+    if security find-certificate -c "${SIGN_CN}" "${SIGN_KEYCHAIN}" >/dev/null 2>&1; then
+        return 0
+    fi
+    say "creating self-signed code signing identity '${SIGN_CN}' (one-time)"
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    cat > "${tmpdir}/openssl.cnf" <<EOF
+[req]
+distinguished_name = dn
+prompt = no
+[dn]
+CN = ${SIGN_CN}
+[v3_ext]
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+basicConstraints = critical,CA:FALSE
+EOF
+    if ! openssl req -x509 -newkey rsa:2048 -nodes -days 36500 \
+        -keyout "${tmpdir}/key.pem" \
+        -out "${tmpdir}/cert.pem" \
+        -config "${tmpdir}/openssl.cnf" \
+        -extensions v3_ext >/dev/null 2>&1; then
+        warn "openssl req failed; will fall back to ad-hoc signing"
+        rm -rf "${tmpdir}"
+        return 1
+    fi
+    # Apple's Security framework PKCS12 importer needs SHA1-MAC + 3DES PBE,
+    # AND a non-empty password (empty pass triggers MAC verification quirks
+    # with OpenSSL 3 even with the legacy MAC algorithm).
+    local p12pass="slab-import-$$"
+    if ! openssl pkcs12 -export \
+        -macalg sha1 -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES \
+        -out "${tmpdir}/bundle.p12" \
+        -inkey "${tmpdir}/key.pem" \
+        -in "${tmpdir}/cert.pem" \
+        -name "${SIGN_CN}" \
+        -passout "pass:${p12pass}" >/dev/null 2>&1; then
+        warn "pkcs12 export failed; will fall back to ad-hoc signing"
+        rm -rf "${tmpdir}"
+        return 1
+    fi
+    if ! security import "${tmpdir}/bundle.p12" \
+        -k "${SIGN_KEYCHAIN}" \
+        -P "${p12pass}" \
+        -T /usr/bin/codesign \
+        -T /usr/bin/security >/dev/null 2>&1; then
+        warn "keychain import failed; will fall back to ad-hoc signing"
+        rm -rf "${tmpdir}"
+        return 1
+    fi
+    rm -rf "${tmpdir}"
+    ok "code signing identity created"
+    warn "first signing may prompt for keychain access — click 'Always Allow'"
+    return 0
 }
 
 say "building slab-menubar (swift build -c release)"
@@ -55,11 +121,41 @@ else
     warn "no running menubar to unload — skipping"
 fi
 
-say "installing binary → ${BIN_PATH}"
-mkdir -p "${BIN_DIR}"
-cp "${BUILT}" "${BIN_PATH}"
-chmod +x "${BIN_PATH}"
-ok "binary installed"
+say "installing app bundle → ${APP_DIR}"
+mkdir -p "${APP_BIN_DIR}"
+mkdir -p "${APP_DIR}/Contents/Resources"
+cp "${BUILT}" "${APP_BIN}"
+chmod +x "${APP_BIN}"
+cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
+if [[ -f "${SCRIPT_DIR}/AppIcon.icns" ]]; then
+    cp "${SCRIPT_DIR}/AppIcon.icns" "${APP_DIR}/Contents/Resources/AppIcon.icns"
+fi
+
+# Sign the bundle. Prefer a stable self-signed certificate so the TCC
+# Accessibility grant survives rebuilds (ad-hoc embeds the cdhash in the
+# designated requirement, which changes every build).
+SIGN_OK=0
+if ensure_signing_identity; then
+    if codesign --force --deep --sign "${SIGN_CN}" \
+        --identifier computer.slab.menubar \
+        "${APP_DIR}" >/dev/null 2>&1; then
+        SIGN_OK=1
+        ok "signed with '${SIGN_CN}' (stable identity — TCC grant should persist)"
+    else
+        warn "codesign with '${SIGN_CN}' failed; falling back to ad-hoc"
+    fi
+fi
+if [[ "${SIGN_OK}" -eq 0 ]]; then
+    codesign --force --deep --sign - \
+        --identifier computer.slab.menubar \
+        "${APP_DIR}" >/dev/null 2>&1 || warn "ad-hoc codesign also failed"
+fi
+ok "app bundle installed"
+
+if [[ -e "${LEGACY_BIN}" ]]; then
+    rm -f "${LEGACY_BIN}"
+    warn "removed legacy binary at ${LEGACY_BIN} — you may want to clear its old Accessibility entry in System Settings"
+fi
 
 say "writing launchd plist → ${PLIST_PATH}"
 mkdir -p "${LAUNCH_AGENTS}"
@@ -76,7 +172,8 @@ else
 fi
 
 printf "\n%sdone.%s\n" "${BOLD}" "${RESET}"
-echo "  binary:       ${BIN_PATH}"
+echo "  bundle:       ${APP_DIR}"
+echo "  binary:       ${APP_BIN}"
 echo "  plist:        ${PLIST_PATH}"
 echo "  stdout:       /tmp/slab-menubar.out"
 echo "  stderr:       /tmp/slab-menubar.err"
