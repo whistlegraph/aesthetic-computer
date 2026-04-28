@@ -389,17 +389,23 @@ static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
 
     double mix = 0.0;
     for (int s = 0; s < v->ks_num_strings; s++) {
-        // Fractional delay read with linear interpolation. Without
-        // fractional delay the string would only support pitches whose
-        // delay-line length is an integer sample count → tuning errors
-        // up to half a semitone in the treble at 48kHz.
-        double rp = (double)v->ks_write_pos[s] - v->ks_delay_len[s];
-        while (rp < 0.0) rp += (double)KS_MAX_DELAY;
-        int rp_i = (int)rp;
-        double frac = rp - (double)rp_i;
-        int rp_n = (rp_i + 1) % KS_MAX_DELAY;
-        double tail = (1.0 - frac) * (double)v->ks_delay[s][rp_i] +
-                              frac  * (double)v->ks_delay[s][rp_n];
+        // Standard Karplus-Strong: read AND write at the same ring
+        // position. The value being read was written exactly one full
+        // ring trip ago, which IS the delay line. Each iteration
+        // advances the position by 1, so the loop length = the
+        // (integer-rounded) delay_len. Earlier impl used a separate
+        // read-pos/write-pos pair lagging by delay_len with KS_MAX_DELAY
+        // wrap — that broke at runtime because the hammer impulse
+        // pre-loaded at indices [0, hammer_samples) was overwritten by
+        // the first delay_len samples of zero-filtered feedback before
+        // the read pointer ever circled around to read it. Result:
+        // silent piano. This single-position scheme reads the impulse
+        // on sample 1, energy enters the loop, and the filter chain
+        // sustains it forever after (modulo feedback decay).
+        int dl = v->ks_delay_int[s];
+        if (dl < 4) dl = 4;
+        int wp = v->ks_write_pos[s];
+        double tail = (double)v->ks_delay[s][wp];
 
         // 1st-order all-pass dispersion. Phase delay decreases with
         // frequency → upper partials lag → inharmonicity emerges
@@ -421,10 +427,11 @@ static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
                             v->ks_damper_alpha[s]  * y_ap;
         v->ks_damper_state[s] = y_d;
 
-        // Feedback into the write head and advance.
+        // Feedback at the same position; advance mod the integer ring
+        // length (NOT KS_MAX_DELAY — that's just the buffer cap).
         double fb = y_d * v->ks_feedback[s];
-        v->ks_delay[s][v->ks_write_pos[s]] = (float)fb;
-        v->ks_write_pos[s] = (v->ks_write_pos[s] + 1) % KS_MAX_DELAY;
+        v->ks_delay[s][wp] = (float)fb;
+        v->ks_write_pos[s] = (wp + 1) % dl;
 
         mix += fb * v->ks_string_amp[s];
     }
@@ -3078,13 +3085,21 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
             double cents = (n_strings == 1) ? 0.0 : detune_cents[s];
             double f = f0 * pow(2.0, cents / 1200.0);
             double delay_len = sr / f;
-            // Reserve at least 1 sample for the all-pass + LPF group
-            // delay; cap at buffer size − 2 for fractional read safety.
             if (delay_len < 4.0) delay_len = 4.0;
             if (delay_len > (double)(KS_MAX_DELAY - 2)) {
                 delay_len = (double)(KS_MAX_DELAY - 2);
             }
             v->ks_delay_len[s] = delay_len;
+            // Integer ring length used by the run loop. Rounding to
+            // nearest yields tuning error of at most 0.5 sample at the
+            // delay boundary — at 48kHz × 440Hz that's ~5 cents in the
+            // worst case (treble), inaudible to most ears next to the
+            // unison detune we already apply. Fractional delay (linear
+            // interp) can replace this if tuning becomes a problem.
+            int dl_int = (int)(delay_len + 0.5);
+            if (dl_int < 4) dl_int = 4;
+            if (dl_int > KS_MAX_DELAY) dl_int = KS_MAX_DELAY;
+            v->ks_delay_int[s] = dl_int;
             v->ks_write_pos[s] = 0;
             v->ks_allpass_state[s] = 0.0;
             v->ks_damper_state[s]  = 0.0;
@@ -3124,15 +3139,19 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
             v->ks_string_amp[s] = (n_strings == 1) ? 0.85 :
                                    (n_strings == 2) ? 0.65 : 0.55;
 
-            // Clear the delay buffer, then fill the first ~1.5 ms with
-            // a Hann-windowed band-limited noise burst — this IS the
-            // hammer excitation. The window prevents DC + click; the
-            // length controls attack brightness (1 ms = bright/glassy,
-            // 3 ms = dull/thuddy). Real piano hammer contact ≈ 1-2 ms.
+            // Clear the entire delay buffer, then fill the first
+            // ~1.5 ms (or up to 1/3 of the ring, whichever is smaller)
+            // with a Hann-windowed band-limited noise burst. Position
+            // matters: index 0 must contain impulse[0] because the run
+            // loop reads from ks_write_pos (starting at 0) on its first
+            // sample. Cap at dl_int/3 so a typical bass note (long
+            // ring) still has room to "circulate" without re-entering
+            // the impulse area before the loop has filtered it.
             for (int i = 0; i < KS_MAX_DELAY; i++) v->ks_delay[s][i] = 0.0f;
             int hammer_samples = (int)(0.0015 * sr);
-            int delay_int = (int)delay_len;
-            if (hammer_samples > delay_int - 2) hammer_samples = delay_int - 2;
+            int max_hammer = dl_int / 3;
+            if (max_hammer < 4) max_hammer = 4;
+            if (hammer_samples > max_hammer) hammer_samples = max_hammer;
             if (hammer_samples < 4) hammer_samples = 4;
             for (int i = 0; i < hammer_samples; i++) {
                 double t = (double)i / (double)hammer_samples;
@@ -3141,6 +3160,20 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
                               (double)UINT32_MAX) * 2.0 - 1.0;
                 v->ks_delay[s][i] = (float)(rnd * w * 0.7);
             }
+        }
+        // Emit one log line per piano-voice init so post-flash logs
+        // can confirm the K-S parameters look reasonable. Format is
+        // greppable for tooling; one line per voice means a 32-voice
+        // chord won't flood the log file.
+        if (n_strings > 0) {
+            ac_log("[piano] f0=%.1fHz strs=%d dl0=%d dl1=%d dl2=%d "
+                   "fb0=%.5f a0=%.3f damp0=%.3f sr=%.0f\n",
+                   f0, n_strings,
+                   v->ks_delay_int[0],
+                   n_strings > 1 ? v->ks_delay_int[1] : 0,
+                   n_strings > 2 ? v->ks_delay_int[2] : 0,
+                   v->ks_feedback[0], v->ks_allpass_a[0],
+                   v->ks_damper_alpha[0], sr);
         }
     }
 

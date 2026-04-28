@@ -231,8 +231,9 @@ typedef struct {
 #define KS_MAX_STRINGS 3
 #define KS_MAX_DELAY   8192     // fits A0 (27.5 Hz) at 192kHz with margin
     float  ks_delay[KS_MAX_STRINGS][KS_MAX_DELAY];
-    double ks_delay_len[KS_MAX_STRINGS];      // fractional samples
-    int    ks_write_pos[KS_MAX_STRINGS];      // 0..KS_MAX_DELAY-1
+    double ks_delay_len[KS_MAX_STRINGS];      // fractional samples (ref only)
+    int    ks_delay_int[KS_MAX_STRINGS];      // ROUNDED ring length, used by run loop
+    int    ks_write_pos[KS_MAX_STRINGS];      // 0..ks_delay_int[s]-1
     double ks_feedback[KS_MAX_STRINGS];       // T60-derived loop gain
     double ks_allpass_a[KS_MAX_STRINGS];      // dispersion 0..0.75
     double ks_allpass_state[KS_MAX_STRINGS];  // 1-sample all-pass memory

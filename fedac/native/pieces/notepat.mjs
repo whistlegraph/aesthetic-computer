@@ -788,7 +788,13 @@ function startReversePlayback(sound) {
     base: SAMPLE_BASE_FREQ,
     volume: 1.0,
     pan: 0.0,
-    loop: true,
+    // No loop. Holding space plays the captured window backwards once
+    // and falls into silence when it reaches the oldest moment. The
+    // earlier loop:true behavior wrapped the reversed buffer back to
+    // its start, which read as a stuck "loop mode" the moment the
+    // hold lasted longer than the captured window. Press space again
+    // to re-snapshot and reverse the next window.
+    loop: false,
   });
   return !!reversePlaybackSound;
 }
@@ -5694,7 +5700,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           ink(fg, fg, fg);
         }
 
-        const label = key ? key.toUpperCase() : "";
+        // Caps follow shift: lowercase by default, uppercase only while
+        // SHIFT is physically held. Sharp/black-key labels stay lower-
+        // case regardless of shift (matches the system fork at
+        // disks/notepat.mjs:4934). Cleaner read at a glance and gives
+        // SHIFT a visible affordance beyond its accent / alt-timbre role.
+        const label = key
+          ? (sharp || !shiftHeld ? key.toLowerCase() : key.toUpperCase())
+          : "";
         write(label, { x: x + 2, y: y + 2, size: 1, font: "font_1" });
 
         // Stochastic graphic notation inside drum pads (percussion mode only).
