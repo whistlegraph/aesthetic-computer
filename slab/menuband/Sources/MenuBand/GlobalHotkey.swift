@@ -3,7 +3,7 @@ import Carbon
 
 // Thin wrapper around Carbon's RegisterEventHotKey so we can map a
 // keycode + modifier combination to a closure. Used for the system-wide
-// shortcut that toggles Notepat TYPE mode regardless of which app is
+// shortcut that toggles MenuBand TYPE mode regardless of which app is
 // frontmost.
 final class GlobalHotkey {
     private var hotKeyRef: EventHotKeyRef?
@@ -19,13 +19,13 @@ final class GlobalHotkey {
     @discardableResult
     func register(keyCode: UInt32, modifiers: UInt32) -> Bool {
         unregister()
-        let hotKeyID = EventHotKeyID(signature: OSType(0x4E544B59),  // 'NTKY' (Notepat key)
+        let hotKeyID = EventHotKeyID(signature: OSType(0x4E544B59),  // 'NTKY' (MenuBand key)
                                      id: 1)
         var ref: EventHotKeyRef?
         let regOK = RegisterEventHotKey(keyCode, modifiers, hotKeyID,
                                         GetApplicationEventTarget(), 0, &ref)
         guard regOK == noErr, let ref = ref else {
-            NSLog("Notepat hotkey registration failed: \(regOK)")
+            NSLog("MenuBand hotkey registration failed: \(regOK)")
             return false
         }
         hotKeyRef = ref
@@ -42,7 +42,7 @@ final class GlobalHotkey {
         let installOK = InstallEventHandler(GetApplicationEventTarget(), handler,
                                             1, &spec, opaque, &eventHandler)
         if installOK != noErr {
-            NSLog("Notepat hotkey event handler install failed: \(installOK)")
+            NSLog("MenuBand hotkey event handler install failed: \(installOK)")
             unregister()
             return false
         }

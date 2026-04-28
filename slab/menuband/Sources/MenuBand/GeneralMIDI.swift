@@ -1,7 +1,7 @@
 import Foundation
 
 // General MIDI program names + family taxonomy. Used by the menubar instrument
-// picker. Program order matches NotepatSynth.setMelodicProgram(_:) (bankMSB
+// picker. Program order matches MenuBandSynth.setMelodicProgram(_:) (bankMSB
 // 0x79 in Apple's gs_instruments.dls).
 enum GeneralMIDI {
     static let programNames: [String] = [

@@ -3,24 +3,29 @@ import Carbon
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private let notepat = NotepatController()
+    private let menuBand = MenuBandController()
     private let hoverResponder = HoverResponder()
     private var hoveredElement: KeyboardIconRenderer.HitResult? = nil
     private var trackingArea: NSTrackingArea?
     private var typeModeHotkey: GlobalHotkey?
     private let popover = NSPopover()
-    private var popoverVC: NotepatPopoverViewController?
+    private var popoverVC: MenuBandPopoverViewController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        notepat.onChange = { [weak self] in
+        debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
+        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+            debugLog("heartbeat")
+        }
+        menuBand.onChange = { [weak self] in
             DispatchQueue.main.async { self?.updateIcon() }
         }
-        notepat.onLitChanged = { [weak self] in
+        menuBand.onLitChanged = { [weak self] in
             self?.updateIcon()
         }
-        notepat.bootstrap()
+        menuBand.bootstrap()
 
         statusItem = NSStatusBar.system.statusItem(withLength: KeyboardIconRenderer.imageSize.width)
+        debugLog("statusItem created, button=\(statusItem.button != nil) length=\(statusItem.length)")
         if let button = statusItem.button {
             let cell = NoHighlightStatusBarCell()
             cell.imagePosition = .imageOnly
@@ -48,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Global hotkey: Ctrl+Opt+Cmd+P toggles TYPE.
         let hotkey = GlobalHotkey { [weak self] in
-            self?.notepat.toggleTypeMode()
+            self?.menuBand.toggleTypeMode()
         }
         let modMask: UInt32 = UInt32(cmdKey | controlKey | optionKey)
         hotkey.register(keyCode: UInt32(kVK_ANSI_P), modifiers: modMask)
@@ -56,24 +61,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        notepat.shutdown()
+        menuBand.shutdown()
     }
 
     private func updateIcon() {
         guard let button = statusItem.button else { return }
         statusItem.length = KeyboardIconRenderer.imageSize.width
         button.image = KeyboardIconRenderer.image(
-            litNotes: notepat.litNotes,
-            enabled: notepat.midiMode,
-            typeMode: notepat.typeMode,
-            melodicProgram: notepat.melodicProgram,
+            litNotes: menuBand.litNotes,
+            enabled: menuBand.midiMode,
+            typeMode: menuBand.typeMode,
+            melodicProgram: menuBand.melodicProgram,
             hovered: hoveredElement
         )
     }
 
     // MARK: - Hover
 
+    private var lastHoverLogTime: TimeInterval = 0
     private func handleHover(event: NSEvent) {
+        let now = CACurrentMediaTime()
+        if now - lastHoverLogTime > 1.0 {
+            lastHoverLogTime = now
+            debugLog("handleHover (1Hz throttle)")
+        }
+        handleHoverInner(event: event)
+    }
+
+    private func handleHoverInner(event: NSEvent) {
         guard let button = statusItem.button else { return }
         let imgSize = KeyboardIconRenderer.imageSize
         let bb = button.bounds
@@ -103,6 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let event = NSApp.currentEvent
         let isRight = event?.type == .rightMouseDown
         let isCtrl = event?.modifierFlags.contains(.control) ?? false
+        debugLog("statusClicked type=\(event?.type.rawValue.description ?? "nil") isRight=\(isRight) isCtrl=\(isCtrl) midiMode=\(menuBand.midiMode)")
 
         if hoveredElement != nil {
             hoveredElement = nil
@@ -126,7 +142,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return NSPoint(x: local.x - xOff, y: yLocal - yOff)
         }
 
-        let initial = KeyboardIconRenderer.hit(at: imagePoint(from: downEvent.locationInWindow))
+        let initialHitPt = imagePoint(from: downEvent.locationInWindow)
+        let initial = KeyboardIconRenderer.hit(at: initialHitPt)
+        debugLog("hit pt=(\(initialHitPt.x),\(initialHitPt.y)) -> \(initial)")
         let startNote: UInt8
         switch initial {
         case .openSettings:
@@ -141,7 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let initialPt = imagePoint(from: downEvent.locationInWindow)
         let (vel0, pan0) = expression(for: startNote, at: initialPt)
-        notepat.startTapNote(startNote, velocity: vel0, pan: pan0)
+        menuBand.startTapNote(startNote, velocity: vel0, pan: pan0)
         var current: UInt8? = startNote
         while let next = NSApp.nextEvent(
             matching: [.leftMouseDragged, .leftMouseUp],
@@ -150,21 +168,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dequeue: true
         ) {
             if next.type == .leftMouseUp {
-                if let c = current { notepat.stopTapNote(c) }
+                if let c = current { menuBand.stopTapNote(c) }
                 break
             }
             let pt = imagePoint(from: next.locationInWindow)
             let hovered = KeyboardIconRenderer.noteAt(pt)
             if hovered != current {
-                if let prev = current { notepat.stopTapNote(prev) }
+                if let prev = current { menuBand.stopTapNote(prev) }
                 if let nxt = hovered {
                     let (v, p) = expression(for: nxt, at: pt)
-                    notepat.startTapNote(nxt, velocity: v, pan: p)
+                    menuBand.startTapNote(nxt, velocity: v, pan: p)
                 }
                 current = hovered
             } else if let c = current {
                 let (_, p) = expression(for: c, at: pt)
-                notepat.updateTapPan(c, pan: p)
+                menuBand.updateTapPan(c, pan: p)
             }
         }
     }
@@ -188,8 +206,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showPopover() {
         guard let button = statusItem.button else { return }
         if popoverVC == nil {
-            let vc = NotepatPopoverViewController()
-            vc.notepat = notepat
+            let vc = MenuBandPopoverViewController()
+            vc.menuBand = menuBand
             popoverVC = vc
             popover.contentViewController = vc
             popover.behavior = .transient

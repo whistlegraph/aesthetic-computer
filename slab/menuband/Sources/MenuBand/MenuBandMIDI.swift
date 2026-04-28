@@ -94,8 +94,60 @@ final class MenuBandMIDI {
     private var client: MIDIClientRef = 0
     private var source: MIDIEndpointRef = 0
     private var started = false
+    private var loopbackPort: MIDIPortRef = 0
+    private var loopbackHandler: ((UInt8, UInt8) -> Void)?
 
     deinit { stop() }
+
+    /// Subscribe to our own virtual source from the same process. The
+    /// callback fires for each noteOn (status 0x9X) — used by the
+    /// controller to verify the port works without a DAW in the loop.
+    func startLoopback(onNoteOn: @escaping (UInt8, UInt8) -> Void) {
+        guard started else {
+            debugLog("startLoopback skipped — MIDI not started")
+            return
+        }
+        loopbackHandler = onNoteOn
+        if loopbackPort == 0 {
+            let st = MIDIInputPortCreateWithBlock(client, "loopback" as CFString, &loopbackPort) { [weak self] listPtr, _ in
+                let pkt = listPtr.pointee
+                var p = pkt.packet
+                for _ in 0..<pkt.numPackets {
+                    let len = Int(p.length)
+                    var bytes: [UInt8] = []
+                    withUnsafePointer(to: &p.data) { ptr in
+                        ptr.withMemoryRebound(to: UInt8.self, capacity: len) { b in
+                            for i in 0..<len { bytes.append(b[i]) }
+                        }
+                    }
+                    if bytes.count >= 3, (bytes[0] & 0xF0) == 0x90, bytes[2] != 0 {
+                        self?.loopbackHandler?(bytes[1], bytes[2])
+                    }
+                    p = MIDIPacketNext(&p).pointee
+                }
+            }
+            if st != noErr {
+                debugLog("MIDIInputPortCreateWithBlock failed: \(st)")
+                return
+            }
+        }
+        let cstat = MIDIPortConnectSource(loopbackPort, source, nil)
+        if cstat != noErr {
+            debugLog("MIDIPortConnectSource failed: \(cstat)")
+        } else {
+            debugLog("startLoopback connected")
+        }
+    }
+
+    func stopLoopback() {
+        // Belt-and-suspenders: only disconnect if both port and source are
+        // still live. The port is owned by the client and dies with it, so
+        // calling MIDIPortDisconnectSource on a stale handle crashes.
+        if loopbackPort != 0, source != 0, started {
+            MIDIPortDisconnectSource(loopbackPort, source)
+        }
+        loopbackHandler = nil
+    }
 
     func start() {
         guard !started else { return }
@@ -120,16 +172,32 @@ final class MenuBandMIDI {
         // Best-effort: send all-notes-off so Ableton doesn't hang on stuck notes.
         if started {
             sendAllNotesOff()
+            // Disconnect the loopback port BEFORE disposing the source/client.
+            // Skipping this leaves a dangling port ref that crashes the next
+            // call into stopLoopback (e.g. from the in-flight self-test
+            // timeout that fires after the user toggles MIDI off).
+            if loopbackPort != 0 && source != 0 {
+                MIDIPortDisconnectSource(loopbackPort, source)
+            }
             if source != 0 { MIDIEndpointDispose(source) }
             if client != 0 { MIDIClientDispose(client) }
             source = 0
             client = 0
+            // Ports are owned by the client and freed when the client is
+            // disposed — but we must zero our cached handle so the next
+            // startLoopback recreates instead of reusing a dead reference.
+            loopbackPort = 0
+            loopbackHandler = nil
             started = false
         }
     }
 
     func noteOn(_ note: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
-        guard started else { return }
+        guard started else {
+            debugLog("midi.noteOn dropped (started=false) note=\(note)")
+            return
+        }
+        debugLog("midi.noteOn note=\(note) ch=\(channel)")
         send([0x90 | (channel & 0x0F), note & 0x7F, velocity & 0x7F])
     }
 

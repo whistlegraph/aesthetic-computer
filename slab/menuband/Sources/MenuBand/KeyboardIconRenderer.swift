@@ -35,8 +35,8 @@ enum KeyboardIconRenderer {
         case note(UInt8)
     }
 
-    // Notepat layout key letters keyed by MIDI note. A3 (57) has no label
-    // because notepat assigns it to the Control modifier rather than a letter.
+    // MenuBand layout key letters keyed by MIDI note. A3 (57) has no label
+    // because menuBand assigns it to the Control modifier rather than a letter.
     static let labelByMidi: [Int: String] = [
         58: "z", 59: "x", 60: "c", 61: "v", 62: "d", 63: "s",
         64: "e", 65: "f", 66: "w", 67: "g", 68: "r", 69: "a",

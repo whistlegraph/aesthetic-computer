@@ -67,15 +67,22 @@ final class MenuBandController {
         // Built-in synth is always live. TYPE mode and MIDI mode are now
         // independent toggles: TYPE controls global keyboard capture + key
         // letter overlays; MIDI controls the virtual MIDI port output to
-        // external DAWs.
+        // external DAWs. MIDI mode defaults to ON for fresh installs.
         synth.start()
         synth.setMelodicProgram(melodicProgram)
+        if UserDefaults.standard.object(forKey: midiModeKey) == nil {
+            UserDefaults.standard.set(true, forKey: midiModeKey)
+        }
         if typeMode { enableTypeMode(promptForPermission: false) }
         if midiMode { enableMIDIMode() }
+        // (enableMIDIMode triggers a loopback self-test; result lands in
+        // /tmp/menuband-debug.log and updates the popover's status row.)
     }
 
     func toggleMIDIMode() {
+        debugLog("toggleMIDIMode (currently \(midiMode))")
         if midiMode { disableMIDIMode() } else { enableMIDIMode() }
+        debugLog("toggleMIDIMode DONE (now \(midiMode))")
     }
 
     func toggleTypeMode() {
@@ -99,12 +106,67 @@ final class MenuBandController {
         synth.panic()  // DAW takes over from internal synth
         UserDefaults.standard.set(true, forKey: midiModeKey)
         onChange?()
+        runMIDILoopbackTest()
+    }
+
+    // Last loopback test result, surfaced to the popover as a status line.
+    enum MIDISelfTest {
+        case unknown
+        case running
+        case ok(latencyMs: Int)
+        case failed
+    }
+    private(set) var midiSelfTest: MIDISelfTest = .unknown
+    var onSelfTestChanged: (() -> Void)?
+
+    /// Sends a single test note out the virtual port and listens on the
+    /// process's own input port for it to come back. If it loops back within
+    /// the window, the DAW-facing port is functional. If not, it's blocked
+    /// or the source is broken. Result lands on `midiSelfTest`.
+    private func runMIDILoopbackTest() {
+        midiSelfTest = .running
+        onSelfTestChanged?()
+        let testNote: UInt8 = 60
+        let testVelocity: UInt8 = 1     // velocity 1 — inaudible enough for a DAW
+        let sentAt = CACurrentMediaTime()
+        midi.startLoopback { [weak self] note, velocity in
+            guard let self = self else { return }
+            if note == testNote {
+                let dt = Int((CACurrentMediaTime() - sentAt) * 1000)
+                debugLog("MIDI loopback: received note=\(note) vel=\(velocity) latency=\(dt)ms")
+                DispatchQueue.main.async {
+                    self.midiSelfTest = .ok(latencyMs: dt)
+                    self.onSelfTestChanged?()
+                }
+                self.midi.stopLoopback()
+            }
+        }
+        // Send the test note
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + .milliseconds(50)) { [weak self] in
+            self?.midi.noteOn(testNote, velocity: testVelocity, channel: 0)
+            self?.midi.noteOff(testNote, channel: 0)
+        }
+        // Timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(800)) { [weak self] in
+            guard let self = self else { return }
+            if case .running = self.midiSelfTest {
+                debugLog("MIDI loopback: TIMEOUT — no note received within 800ms")
+                self.midi.stopLoopback()
+                self.midiSelfTest = .failed
+                self.onSelfTestChanged?()
+            }
+        }
     }
 
     private func disableMIDIMode() {
+        debugLog("disableMIDIMode: calling midi.stop()")
         midi.stop()
+        debugLog("disableMIDIMode: midi.stop() returned")
         UserDefaults.standard.set(false, forKey: midiModeKey)
+        midiSelfTest = .unknown
+        onSelfTestChanged?()
         onChange?()
+        debugLog("disableMIDIMode: complete")
     }
 
     // MARK: - TYPE mode (global keyboard capture + letter overlays)
@@ -213,6 +275,7 @@ final class MenuBandController {
     /// hovered key, giving expressive control: y closer to vertical center =
     /// louder, x within key = stereo pan.
     func startTapNote(_ midiNote: UInt8, velocity: UInt8 = 100, pan: UInt8 = 64) {
+        debugLog("startTapNote midi=\(midiNote) midiMode=\(midiMode)")
         if tapHeld.contains(midiNote) { return }
         tapHeld.insert(midiNote)
         let isDrum = midiNote < UInt8(KeyboardIconRenderer.firstMidi)

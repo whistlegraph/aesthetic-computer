@@ -8,6 +8,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
     private var typeSwitch: NSSwitch!
     private var midiSwitch: NSSwitch!
+    private var midiSelfTestLabel: NSTextField!
     private var instrumentPopUp: NSPopUpButton!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
@@ -65,6 +66,15 @@ final class MenuBandPopoverViewController: NSViewController {
             sublabel: "Routes via virtual port",
             switchControl: midiSwitch
         ))
+
+        // MIDI self-test status — populated by the controller after each
+        // toggle-on. Empty when MIDI is off.
+        midiSelfTestLabel = NSTextField(labelWithString: "")
+        midiSelfTestLabel.font = NSFont.systemFont(ofSize: 10.5)
+        midiSelfTestLabel.textColor = .secondaryLabelColor
+        midiSelfTestLabel.lineBreakMode = .byWordWrapping
+        midiSelfTestLabel.maximumNumberOfLines = 2
+        stack.addArrangedSubview(midiSelfTestLabel)
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -213,6 +223,33 @@ final class MenuBandPopoverViewController: NSViewController {
                 instrumentPopUp.select(item)
                 break
             }
+        }
+        updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
+        // Wire up live updates so the label reflects loopback results as
+        // they land (test runs ~50ms after toggle-on; result settles a moment
+        // later).
+        n.onSelfTestChanged = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self, let nn = self.menuBand else { return }
+                self.updateSelfTestLabel(state: nn.midiMode ? nn.midiSelfTest : .unknown)
+            }
+        }
+    }
+
+    private func updateSelfTestLabel(state: MenuBandController.MIDISelfTest) {
+        guard let label = midiSelfTestLabel else { return }
+        switch state {
+        case .unknown:
+            label.stringValue = ""
+        case .running:
+            label.stringValue = "Testing MIDI port…"
+            label.textColor = .secondaryLabelColor
+        case .ok(let ms):
+            label.stringValue = "✓ MIDI port working (loopback \(ms)ms)"
+            label.textColor = .systemGreen
+        case .failed:
+            label.stringValue = "✗ MIDI loopback failed — port may be blocked"
+            label.textColor = .systemRed
         }
     }
 

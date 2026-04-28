@@ -70,7 +70,7 @@ final class KeyEventTap {
             CFRunLoopRun()
         }
         thread.qualityOfService = .userInteractive
-        thread.name = "Notepat-KeyTap"
+        thread.name = "MenuBand-KeyTap"
         thread.start()
         self.thread = thread
         return true
