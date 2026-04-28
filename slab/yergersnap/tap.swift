@@ -10,17 +10,23 @@
 //      Enter in Dragonframe captures BOTH the DF camera and the
 //      mirrored iPhone, with no fake keystrokes.
 //
-//   2. The "SNAP" menu-bar button (manual). Left-click taps the
-//      iPhone immediately; right-click opens the menu.
+//   2. The "SNAP" menu-bar pill (manual). Left-click taps the iPhone
+//      immediately; right-click opens the menu.
 //
-// Visual states the menu-bar pill shows:
-//   • idle      — dim red dot + dim "SNAP"  (hovering brightens both)
-//   • not ready — gray dot with X overlay   (iPhone Mirroring not running)
+// Visual states the pill shows:
+//   • idle      — soft "● SNAP" in system label color
+//   • hover     — same shape, brighter
+//   • not ready — gray dot with X overlay (iPhone Mirroring closed)
 //   • snapping  — 1-second inactive flash while a tap is in flight
 //
-// First launch on a clean Mac: macOS prompts for Accessibility (TCC).
-// Needed both for AX queries on iPhone Mirroring's window and for
-// posting the synthetic mouse click.
+// Sounds (Apple's bundled GM DLS drum kit via AVAudioUnitSampler):
+//   • hover  → closed hi-hat
+//   • down   → hi wood block
+//   • up     → lo wood block (when snap finishes)
+//
+// First launch: macOS prompts for Accessibility (TCC). Required for
+// AX queries on iPhone Mirroring's window and for posting the
+// synthetic mouse click.
 
 import Cocoa
 import ApplicationServices
@@ -30,8 +36,8 @@ import AVFoundation
 // ---- config --------------------------------------------------------------
 let tapX: CGFloat = 0.50
 let tapY: CGFloat = 0.90
-let snapHoldSeconds: TimeInterval = 1.0     // how long the inactive look stays
-let readyPollSeconds: TimeInterval = 1.5    // iPhone Mirroring presence poll
+let snapHoldSeconds: TimeInterval = 1.0
+let readyPollSeconds: TimeInterval = 1.5
 // --------------------------------------------------------------------------
 
 // MARK: - iPhone Mirroring helpers
@@ -131,7 +137,7 @@ func installActionScript() -> String? {
   }
 }
 
-// MARK: - Icon renderer
+// MARK: - Icon renderer (no red, no native highlight)
 
 enum IconPhase: Equatable { case idle, snapping }
 
@@ -160,60 +166,69 @@ enum IconRenderer {
     img.lockFocus()
     defer { img.unlockFocus() }
 
-    // Snapping pill — subtle backdrop signalling "I'm working, ignore clicks"
-    if phase == .snapping {
-      NSColor.white.withAlphaComponent(0.18).setFill()
-      let pill = NSRect(x: 1, y: 1, width: size.width - 2, height: size.height - 2)
-      NSBezierPath(roundedRect: pill, xRadius: 4.5, yRadius: 4.5).fill()
-    }
-
     // Dot + ring geometry
     let dotY = (size.height - dotSize) / 2
     let dotX = leftPad + ringPad
     let dotRect  = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
     let ringRect = dotRect.insetBy(dx: -ringPad, dy: -ringPad)
 
-    // Outer ring
-    let ringAlpha: CGFloat = phase == .snapping
-      ? 1.0
-      : (ready ? (hover ? 0.95 : 0.80) : 0.45)
-    NSColor.white.withAlphaComponent(ringAlpha).setStroke()
+    // Outer ring — system label color (adapts to light/dark menu bar).
+    let ringAlpha: CGFloat = {
+      if phase == .snapping { return 0.85 }
+      if !ready { return hover ? 0.65 : 0.40 }
+      return hover ? 0.95 : 0.75
+    }()
+    NSColor.labelColor.withAlphaComponent(ringAlpha).setStroke()
     let ring = NSBezierPath(ovalIn: ringRect)
     ring.lineWidth = 1.3
     ring.stroke()
 
-    // Inner dot — red when ready (brightens on hover), gray when not, white during snap.
+    // Inner dot
     let dotColor: NSColor = {
-      if phase == .snapping { return NSColor.white }
-      if !ready { return NSColor(white: 0.50, alpha: 1) }
+      if phase == .snapping {
+        // Hollow look during snap — fade the ring fill.
+        return NSColor.labelColor.withAlphaComponent(0.0)
+      }
+      if !ready {
+        return NSColor(white: 0.55, alpha: 0.55)
+      }
+      // Ready: red, brighter on hover.
       return hover
-        ? NSColor(calibratedRed: 1.00, green: 0.30, blue: 0.30, alpha: 1)
-        : NSColor(calibratedRed: 0.78, green: 0.18, blue: 0.18, alpha: 1)
+        ? NSColor(calibratedRed: 1.00, green: 0.30, blue: 0.30, alpha: 1.0)
+        : NSColor(calibratedRed: 0.85, green: 0.20, blue: 0.20, alpha: 1.0)
     }()
-    dotColor.setFill()
-    NSBezierPath(ovalIn: dotRect).fill()
+    if phase != .snapping {
+      dotColor.setFill()
+      NSBezierPath(ovalIn: dotRect).fill()
+    } else {
+      // During snap, draw a smaller secondary ring inside as "in flight."
+      NSColor.labelColor.withAlphaComponent(0.55).setStroke()
+      let inner = NSBezierPath(ovalIn: dotRect.insetBy(dx: 1.5, dy: 1.5))
+      inner.lineWidth = 1.0
+      inner.stroke()
+    }
 
-    // X overlay when iPhone Mirroring isn't ready (doesn't show during snap).
+    // X overlay when iPhone Mirroring isn't ready (skipped during snap).
     if !ready && phase != .snapping {
-      NSColor.white.withAlphaComponent(0.95).setStroke()
-      let inset: CGFloat = 2.5
+      NSColor.labelColor.withAlphaComponent(0.95).setStroke()
+      let inset: CGFloat = 2.4
       let x = NSBezierPath()
       x.move(to: NSPoint(x: dotRect.minX + inset, y: dotRect.minY + inset))
       x.line(to: NSPoint(x: dotRect.maxX - inset, y: dotRect.maxY - inset))
       x.move(to: NSPoint(x: dotRect.minX + inset, y: dotRect.maxY - inset))
       x.line(to: NSPoint(x: dotRect.maxX - inset, y: dotRect.minY + inset))
-      x.lineWidth = 1.5
+      x.lineWidth = 1.4
       x.lineCapStyle = .round
       x.stroke()
     }
 
-    // Label — dim by default, brighter on hover, dimmest while snapping.
+    // "SNAP" label
     let textAlpha: CGFloat = {
       if phase == .snapping { return 0.55 }
-      if !ready { return hover ? 0.75 : 0.50 }
+      if !ready { return hover ? 0.70 : 0.45 }
       return hover ? 1.00 : 0.78
     }()
-    let textColor = NSColor.white.withAlphaComponent(textAlpha)
+    let textColor = NSColor.labelColor.withAlphaComponent(textAlpha)
     let textX = leftPad + dotSize + ringPad * 2 + gap
     let textY = (size.height - labelSize.height) / 2 - 1
     labelText.draw(at: NSPoint(x: textX, y: textY),
@@ -223,57 +238,94 @@ enum IconRenderer {
   }
 }
 
-// MARK: - Click sound — low sine with a tiny front-edge pop.
+// MARK: - NoHighlightStatusBarCell — kills the system click/hover pill.
 
-final class ClickSound {
+// Setting `highlightsBy = []` doesn't suppress it because the pill is
+// drawn by the cell's bezel routine, not the regular highlight state.
+// Swap in a cell that no-ops the bezel and refuses to enter the
+// highlighted state.
+final class NoHighlightStatusBarCell: NSButtonCell {
+  override var isHighlighted: Bool {
+    get { false }
+    set { /* swallow */ }
+  }
+  override func drawBezel(withFrame frame: NSRect, in controlView: NSView) {
+    // Intentionally empty — the menubar pill is painted here by default.
+  }
+  override func highlight(_ flag: Bool, withFrame cellFrame: NSRect,
+                          in controlView: NSView) {
+    super.highlight(false, withFrame: cellFrame, in: controlView)
+  }
+  override func draw(withFrame cellFrame: NSRect, in controlView: NSView) {
+    guard let image = self.image else { return }
+    let imgSize = image.size
+    let x = cellFrame.minX + (cellFrame.width  - imgSize.width)  / 2.0
+    let y = cellFrame.minY + (cellFrame.height - imgSize.height) / 2.0
+    let target = NSRect(x: x, y: y, width: imgSize.width, height: imgSize.height)
+    image.draw(in: target, from: .zero, operation: .sourceOver,
+               fraction: 1.0, respectFlipped: true, hints: nil)
+  }
+}
+
+// MARK: - DrumHits — short percussion via Apple's bundled GM DLS bank.
+
+// gs_instruments.dls ships with every macOS install. Channel 0 of the
+// AVAudioUnitSampler is loaded with the GM percussion kit (bank MSB 0x78);
+// the MIDI note number selects which drum sound plays.
+//   42 — closed hi-hat   (hover)
+//   76 — hi wood block   (mouse down)
+//   77 — lo wood block   (mouse up / snap complete)
+final class DrumHits {
   private let engine = AVAudioEngine()
-  private let player = AVAudioPlayerNode()
-  private var buffer: AVAudioPCMBuffer?
+  private let drums  = AVAudioUnitSampler()
+  private var ready  = false
+
+  static let bankURL = URL(fileURLWithPath:
+    "/System/Library/Components/CoreAudio.component/Contents/Resources/gs_instruments.dls")
 
   init() {
-    engine.attach(player)
-    let format = engine.mainMixerNode.outputFormat(forBus: 0)
-    engine.connect(player, to: engine.mainMixerNode, format: format)
-    buffer = makeBuffer(format: format)
+    engine.attach(drums)
+    engine.connect(drums, to: engine.mainMixerNode, format: nil)
+    engine.prepare()
     do { try engine.start() }
-    catch { NSLog("YergerSnap: audio engine start failed — \(error)") }
-  }
-
-  private func makeBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
-    let sr = format.sampleRate
-    let durationSec = 0.085
-    let frameCount = AVAudioFrameCount(sr * durationSec)
-    guard let buf = AVAudioPCMBuffer(pcmFormat: format,
-                                     frameCapacity: frameCount)
-    else { return nil }
-    buf.frameLength = frameCount
-    let channels = Int(format.channelCount)
-    let f0 = 220.0
-    for ch in 0..<channels {
-      guard let data = buf.floatChannelData?[ch] else { continue }
-      for i in 0..<Int(frameCount) {
-        let t = Double(i) / sr
-        let env: Double
-        if      t < 0.004                { env = t / 0.004 }
-        else if t < durationSec - 0.030  { env = 1.0 }
-        else                             { env = max(0, (durationSec - t) / 0.030) }
-        let body  = sin(2 * .pi * f0 * t)
-        let click = (t < 0.0025)
-          ? sin(2 * .pi * 2400 * t) * (1.0 - t / 0.0025)
-          : 0
-        data[i] = Float((body * 0.6 + click * 0.4) * env * 0.20)
-      }
+    catch {
+      NSLog("YergerSnap: audio engine start failed — \(error)")
+      return
     }
-    return buf
+    if FileManager.default.fileExists(atPath: DrumHits.bankURL.path) {
+      try? drums.loadSoundBankInstrument(
+        at: DrumHits.bankURL, program: 0,
+        bankMSB: 0x78,   // GM percussion bank
+        bankLSB: 0)
+    }
+    ready = true
+    primeForLowLatency()
   }
 
-  func play() {
-    guard let buf = buffer else { return }
-    if !engine.isRunning { try? engine.start() }
-    player.scheduleBuffer(buf, at: nil, options: .interrupts,
-                          completionHandler: nil)
-    if !player.isPlaying { player.play() }
+  // Velocity-1 warmups so the sampler caches its sample data NOW rather
+  // than on the user's first real click.
+  private func primeForLowLatency() {
+    let warmups: [UInt8] = [42, 75, 76, 77]
+    for n in warmups { drums.startNote(n, withVelocity: 1, onChannel: 0) }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+      guard let self else { return }
+      for n in warmups { self.drums.stopNote(n, onChannel: 0) }
+    }
   }
+
+  func hit(_ midi: UInt8, velocity: UInt8) {
+    guard ready else { return }
+    drums.startNote(midi, withVelocity: velocity, onChannel: 0)
+    // Drum samples are one-shots, but stop the note shortly after so
+    // we don't accumulate held-note state in the sampler.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) { [weak self] in
+      self?.drums.stopNote(midi, onChannel: 0)
+    }
+  }
+
+  func hover() { hit(42, velocity: 28) }
+  func down()  { hit(76, velocity: 95) }
+  func up()    { hit(77, velocity: 70) }
 }
 
 // MARK: - Hover responder (NSResponder shim for tracking-area events)
@@ -290,7 +342,7 @@ final class HoverResponder: NSResponder {
 class AppDelegate: NSObject, NSApplicationDelegate {
   var statusItem: NSStatusItem!
   var menu: NSMenu!
-  let sound = ClickSound()
+  let drums = DrumHits()
   let hover = HoverResponder()
   var readyTimer: Timer?
 
@@ -305,7 +357,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let size = IconRenderer.imageSize
     statusItem = NSStatusBar.system.statusItem(withLength: size.width)
     if let btn = statusItem.button {
+      // Replace the default cell so macOS stops drawing its click/hover pill.
+      let cell = NoHighlightStatusBarCell()
+      cell.imagePosition = .imageOnly
+      cell.isBordered = false
+      cell.highlightsBy = []
+      btn.cell = cell
       btn.imagePosition = .imageOnly
+      btn.isBordered = false
+
       btn.target = self
       btn.action = #selector(handleClick(_:))
       btn.sendAction(on: [.leftMouseDown, .rightMouseDown])
@@ -365,6 +425,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func setHovered(_ h: Bool) {
     if isHovered == h { return }
     isHovered = h
+    if h && !isSnapping { drums.hover() }
     if !isSnapping { redraw() }
   }
 
@@ -375,10 +436,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       phase: isSnapping ? .snapping : .idle)
   }
 
-  func startSnap(playSound: Bool) {
+  func startSnap(playSounds: Bool) {
     isSnapping = true
     redraw()
-    if playSound { sound.play() }
+    if playSounds { drums.down() }
 
     DispatchQueue.global(qos: .userInitiated).async { tapPhone() }
 
@@ -388,6 +449,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       self.isSnapping = false
       self.isReady = self.checkReady()
       self.redraw()
+      if playSounds { self.drums.up() }
     }
   }
 
@@ -401,7 +463,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ?? url.path.replacingOccurrences(of: "/", with: "")
       switch host {
       case "capture", "tap":
-        if !isSnapping { startSnap(playSound: false) }
+        if !isSnapping { startSnap(playSounds: false) }
       default:
         NSLog("YergerSnap: unknown URL \(url)")
       }
@@ -414,7 +476,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let isCtrl  = event?.modifierFlags.contains(.control) ?? false
     if isRight || isCtrl { showMenu(); return }
     if isSnapping { return }
-    startSnap(playSound: true)
+    startSnap(playSounds: true)
   }
 
   func showMenu() {
@@ -424,7 +486,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc func tapFromMenu() {
-    if !isSnapping { startSnap(playSound: true) }
+    if !isSnapping { startSnap(playSounds: true) }
   }
 
   @objc func installAndReveal() {
