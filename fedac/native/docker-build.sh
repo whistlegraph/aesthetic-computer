@@ -230,6 +230,17 @@ mkdir -p "$IROOT/pieces"
 cp "$NATIVE/pieces/"*.mjs "$IROOT/pieces/" 2>/dev/null || true
 log "  Pieces: $(ls "$IROOT/pieces/" | wc -l)"
 
+# ── 2d2: Piano sample bank ──
+# audio.c: load_piano_bank reads /samples/piano/<midi>.raw at startup —
+# header-less float32 mono @ 48kHz, filename is the anchor MIDI note.
+# Without these, sound.synth({type:"piano"}) returns silence and notepat's
+# piano voice is mute. ~14 MB / 26 anchors via prep-piano-samples.sh.
+if [ -d "$NATIVE/samples/piano" ]; then
+    mkdir -p "$IROOT/samples/piano"
+    cp "$NATIVE/samples/piano/"*.raw "$IROOT/samples/piano/" 2>/dev/null || true
+    log "  Piano samples: $(ls "$IROOT/samples/piano/" | wc -l) anchors, $(du -sh "$IROOT/samples/piano/" | cut -f1)"
+fi
+
 # ── 2e: /dev nodes (needed before devtmpfs mounts) ──
 mknod "$IROOT/dev/console" c 5 1 2>/dev/null || true
 mknod "$IROOT/dev/null" c 1 3 2>/dev/null || true
