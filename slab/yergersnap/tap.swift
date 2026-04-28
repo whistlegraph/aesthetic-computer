@@ -10,23 +10,21 @@
 //      Enter in Dragonframe captures BOTH the DF camera and the
 //      mirrored iPhone, with no fake keystrokes.
 //
-//   2. The "SNAP" menu-bar pill (manual). Left-click taps the iPhone
-//      immediately; right-click opens the menu.
+//   2. The "[● SNAP]" pill in the menu bar. Left-click taps the
+//      iPhone immediately. The sliders icon to its right opens the
+//      menu (right-click anywhere on the item also opens the menu).
 //
-// Visual states the pill shows:
-//   • idle      — soft "● SNAP" in system label color
-//   • hover     — same shape, brighter
-//   • not ready — gray dot with X overlay (iPhone Mirroring closed)
+// Visual states:
+//   • idle      — red dot + "SNAP" inside a soft outlined button
+//   • hover     — same shape, brighter; settings icon brightens too
+//   • not ready — X overlay on the snap button (iPhone Mirroring closed)
 //   • snapping  — 1-second inactive flash while a tap is in flight
 //
 // Sounds (Apple's bundled GM DLS drum kit via AVAudioUnitSampler):
-//   • hover  → closed hi-hat
-//   • down   → hi wood block
-//   • up     → lo wood block (when snap finishes)
-//
-// First launch: macOS prompts for Accessibility (TCC). Required for
-// AX queries on iPhone Mirroring's window and for posting the
-// synthetic mouse click.
+//   • snap-button hover → closed hi-hat
+//   • mouse down       → hi wood block
+//   • mouse up (snap end) → lo wood block
+// Settings icon hover/clicks are silent.
 
 import Cocoa
 import ApplicationServices
@@ -137,77 +135,129 @@ func installActionScript() -> String? {
   }
 }
 
-// MARK: - Icon renderer (no red, no native highlight)
+// MARK: - Icon renderer
+//
+// Layout (left to right):
+//   [outerPad][ snap button rect ][gap][settings chip][outerPad]
 
 enum IconPhase: Equatable { case idle, snapping }
+enum HoverRegion: Equatable { case none, snap, settings }
 
 enum IconRenderer {
   static let height: CGFloat = 22
-  static let leftPad: CGFloat = 5
-  static let dotSize: CGFloat = 10
-  static let ringPad: CGFloat = 2
-  static let gap: CGFloat = 4
-  static let rightPad: CGFloat = 6
+
+  // Snap button geometry
+  static let snapPadX: CGFloat = 4
+  static let snapPadY: CGFloat = 2
+  static let dotSize:  CGFloat = 9
+  static let ringPad:  CGFloat = 2
+  static let dotLabelGap: CGFloat = 4
   static let labelText = "SNAP"
-  static let font = NSFont.systemFont(ofSize: 11.0, weight: .semibold)
+  static let labelFont = NSFont.systemFont(ofSize: 10.5, weight: .semibold)
+  static let buttonCornerRadius: CGFloat = 4
+
+  // Settings chip (sliders icon)
+  static let settingsSymbol = "slider.horizontal.3"
+  static let settingsW: CGFloat = 18
+  static let settingsH: CGFloat = 21
+  static let settingsPointSize: CGFloat = 11
+
+  // Layout padding
+  static let outerPad: CGFloat = 2
+  static let sectionGap: CGFloat = 4
+
+  // ---- derived sizes -----------------------------------------------------
 
   static var labelSize: NSSize {
-    NSAttributedString(string: labelText, attributes: [.font: font]).size()
+    NSAttributedString(string: labelText, attributes: [.font: labelFont]).size()
+  }
+
+  static var snapRect: NSRect {
+    let innerW = snapPadX + (dotSize + ringPad * 2)
+                  + dotLabelGap + ceil(labelSize.width) + snapPadX
+    return NSRect(x: outerPad,
+                  y: snapPadY,
+                  width: innerW,
+                  height: height - snapPadY * 2)
+  }
+
+  static var settingsRect: NSRect {
+    NSRect(x: snapRect.maxX + sectionGap,
+           y: (height - settingsH) / 2,
+           width: settingsW,
+           height: settingsH)
   }
 
   static var imageSize: NSSize {
-    let w = leftPad + (dotSize + ringPad * 2) + gap + ceil(labelSize.width) + rightPad
-    return NSSize(width: ceil(w), height: height)
+    NSSize(width: ceil(settingsRect.maxX + outerPad), height: height)
   }
 
-  static func image(ready: Bool, hover: Bool, phase: IconPhase) -> NSImage {
+  static func region(at point: NSPoint) -> HoverRegion {
+    if snapRect.contains(point) { return .snap }
+    if settingsRect.contains(point) { return .settings }
+    return .none
+  }
+
+  // ---- rendering ---------------------------------------------------------
+
+  static func image(ready: Bool, hovered: HoverRegion, phase: IconPhase)
+    -> NSImage
+  {
     let size = imageSize
     let img = NSImage(size: size)
     img.lockFocus()
     defer { img.unlockFocus() }
 
-    // Dot + ring geometry
-    let dotY = (size.height - dotSize) / 2
-    let dotX = leftPad + ringPad
+    drawSnapButton(ready: ready,
+                   hovered: hovered == .snap,
+                   phase: phase)
+    drawSettingsChip(hovered: hovered == .settings)
+
+    return img
+  }
+
+  private static func drawSnapButton(ready: Bool, hovered: Bool,
+                                     phase: IconPhase)
+  {
+    let rect = snapRect
+
+    // Button outline — labelColor with alpha based on state.
+    let strokeAlpha: CGFloat = {
+      if phase == .snapping { return 0.85 }
+      return hovered ? 0.85 : 0.55
+    }()
+    NSColor.labelColor.withAlphaComponent(strokeAlpha).setStroke()
+    let outline = NSBezierPath(
+      roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
+      xRadius: buttonCornerRadius, yRadius: buttonCornerRadius)
+    outline.lineWidth = 1.0
+    outline.stroke()
+
+    // Inner dot — always red, alpha by state.
+    let dotY = rect.midY - dotSize / 2
+    let dotX = rect.minX + snapPadX + ringPad
     let dotRect  = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
     let ringRect = dotRect.insetBy(dx: -ringPad, dy: -ringPad)
 
-    // Outer ring — system label color (adapts to light/dark menu bar).
-    let ringAlpha: CGFloat = {
-      if phase == .snapping { return 0.85 }
-      if !ready { return hover ? 0.65 : 0.40 }
-      return hover ? 0.95 : 0.75
-    }()
-    NSColor.labelColor.withAlphaComponent(ringAlpha).setStroke()
-    let ring = NSBezierPath(ovalIn: ringRect)
-    ring.lineWidth = 1.3
-    ring.stroke()
-
-    // Inner dot — always red, alpha varies by state. The X overlay (drawn
-    // below) is what signals "not ready"; the color stays so the pill
-    // reads as a snap button at a glance.
-    let dotColor: NSColor = {
-      if phase == .snapping {
-        return NSColor.clear
-      }
-      let hot = hover
-        ? NSColor(calibratedRed: 1.00, green: 0.30, blue: 0.30, alpha: 1.0)
-        : NSColor(calibratedRed: 0.92, green: 0.22, blue: 0.22, alpha: 1.0)
-      return ready ? hot : hot.withAlphaComponent(hover ? 0.55 : 0.40)
-    }()
-    if phase != .snapping {
-      dotColor.setFill()
-      NSBezierPath(ovalIn: dotRect).fill()
-    } else {
-      // During snap, draw a smaller secondary ring inside as "in flight."
+    if phase == .snapping {
+      // Hollow look — small inner ring suggests "in flight."
       NSColor.labelColor.withAlphaComponent(0.55).setStroke()
       let inner = NSBezierPath(ovalIn: dotRect.insetBy(dx: 1.5, dy: 1.5))
       inner.lineWidth = 1.0
       inner.stroke()
+    } else {
+      let baseRed = hovered
+        ? NSColor(calibratedRed: 1.00, green: 0.30, blue: 0.30, alpha: 1.0)
+        : NSColor(calibratedRed: 0.92, green: 0.22, blue: 0.22, alpha: 1.0)
+      let dotColor = ready
+        ? baseRed
+        : baseRed.withAlphaComponent(hovered ? 0.55 : 0.40)
+      dotColor.setFill()
+      NSBezierPath(ovalIn: dotRect).fill()
     }
 
-    // X overlay when iPhone Mirroring isn't ready (skipped during snap).
-    // Drawn just outside the dot so the red stays visible underneath.
+    // X overlay when not ready (skipped during snap), drawn over the
+    // ring inset so the red dot stays visible.
     if !ready && phase != .snapping {
       NSColor.labelColor.withAlphaComponent(0.95).setStroke()
       let xRect = ringRect.insetBy(dx: 0.5, dy: 0.5)
@@ -224,33 +274,61 @@ enum IconRenderer {
     // "SNAP" label
     let textAlpha: CGFloat = {
       if phase == .snapping { return 0.55 }
-      if !ready { return hover ? 0.70 : 0.45 }
-      return hover ? 1.00 : 0.78
+      if !ready { return hovered ? 0.70 : 0.45 }
+      return hovered ? 1.00 : 0.78
     }()
     let textColor = NSColor.labelColor.withAlphaComponent(textAlpha)
-    let textX = leftPad + dotSize + ringPad * 2 + gap
-    let textY = (size.height - labelSize.height) / 2 - 1
+    let textX = dotRect.maxX + ringPad + dotLabelGap
+    let textY = rect.midY - labelSize.height / 2 - 0.5
     labelText.draw(at: NSPoint(x: textX, y: textY),
-                   withAttributes: [.font: font, .foregroundColor: textColor])
+                   withAttributes: [
+                     .font: labelFont,
+                     .foregroundColor: textColor,
+                   ])
+  }
 
-    return img
+  private static func drawSettingsChip(hovered: Bool) {
+    let alpha: CGFloat = hovered ? 1.0 : 0.65
+    let color = NSColor.labelColor.withAlphaComponent(alpha)
+    drawTintedSymbol(settingsSymbol, in: settingsRect,
+                     pointSize: settingsPointSize, color: color)
+  }
+
+  private static func drawTintedSymbol(_ name: String, in rect: NSRect,
+                                       pointSize: CGFloat, color: NSColor)
+  {
+    guard let base = NSImage(systemSymbolName: name,
+                              accessibilityDescription: nil) else { return }
+    let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)
+    let configured = base.withSymbolConfiguration(cfg) ?? base
+    let s = configured.size
+
+    // Tint: fill rect with color, then mask to symbol's alpha.
+    let tinted = NSImage(size: s)
+    tinted.lockFocus()
+    color.setFill()
+    NSRect(origin: .zero, size: s).fill()
+    configured.draw(in: NSRect(origin: .zero, size: s),
+                    from: .zero, operation: .destinationIn, fraction: 1)
+    tinted.unlockFocus()
+
+    let drawRect = NSRect(
+      x: rect.midX - s.width  / 2,
+      y: rect.midY - s.height / 2,
+      width: s.width, height: s.height)
+    tinted.draw(in: drawRect, from: .zero,
+                operation: .sourceOver, fraction: 1)
   }
 }
 
 // MARK: - NoHighlightStatusBarCell — kills the system click/hover pill.
 
-// Setting `highlightsBy = []` doesn't suppress it because the pill is
-// drawn by the cell's bezel routine, not the regular highlight state.
-// Swap in a cell that no-ops the bezel and refuses to enter the
-// highlighted state.
 final class NoHighlightStatusBarCell: NSButtonCell {
   override var isHighlighted: Bool {
     get { false }
     set { /* swallow */ }
   }
-  override func drawBezel(withFrame frame: NSRect, in controlView: NSView) {
-    // Intentionally empty — the menubar pill is painted here by default.
-  }
+  override func drawBezel(withFrame frame: NSRect, in controlView: NSView) {}
   override func highlight(_ flag: Bool, withFrame cellFrame: NSRect,
                           in controlView: NSView) {
     super.highlight(false, withFrame: cellFrame, in: controlView)
@@ -268,12 +346,6 @@ final class NoHighlightStatusBarCell: NSButtonCell {
 
 // MARK: - DrumHits — short percussion via Apple's bundled GM DLS bank.
 
-// gs_instruments.dls ships with every macOS install. Channel 0 of the
-// AVAudioUnitSampler is loaded with the GM percussion kit (bank MSB 0x78);
-// the MIDI note number selects which drum sound plays.
-//   42 — closed hi-hat   (hover)
-//   76 — hi wood block   (mouse down)
-//   77 — lo wood block   (mouse up / snap complete)
 final class DrumHits {
   private let engine = AVAudioEngine()
   private let drums  = AVAudioUnitSampler()
@@ -294,15 +366,12 @@ final class DrumHits {
     if FileManager.default.fileExists(atPath: DrumHits.bankURL.path) {
       try? drums.loadSoundBankInstrument(
         at: DrumHits.bankURL, program: 0,
-        bankMSB: 0x78,   // GM percussion bank
-        bankLSB: 0)
+        bankMSB: 0x78, bankLSB: 0)
     }
     ready = true
     primeForLowLatency()
   }
 
-  // Velocity-1 warmups so the sampler caches its sample data NOW rather
-  // than on the user's first real click.
   private func primeForLowLatency() {
     let warmups: [UInt8] = [42, 75, 76, 77]
     for n in warmups { drums.startNote(n, withVelocity: 1, onChannel: 0) }
@@ -315,8 +384,6 @@ final class DrumHits {
   func hit(_ midi: UInt8, velocity: UInt8) {
     guard ready else { return }
     drums.startNote(midi, withVelocity: velocity, onChannel: 0)
-    // Drum samples are one-shots, but stop the note shortly after so
-    // we don't accumulate held-note state in the sampler.
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) { [weak self] in
       self?.drums.stopNote(midi, onChannel: 0)
     }
@@ -327,12 +394,65 @@ final class DrumHits {
   func up()    { hit(77, velocity: 70) }
 }
 
-// MARK: - Hover responder (NSResponder shim for tracking-area events)
+// MARK: - Global hotkey (Carbon RegisterEventHotKey)
+
+final class GlobalHotkey {
+  private var hotKeyRef: EventHotKeyRef?
+  private var eventHandler: EventHandlerRef?
+  private let onTrigger: () -> Void
+
+  init(onTrigger: @escaping () -> Void) { self.onTrigger = onTrigger }
+
+  @discardableResult
+  func register(keyCode: UInt32, modifiers: UInt32) -> Bool {
+    unregister()
+    let hotKeyID = EventHotKeyID(signature: OSType(0x59455247),  // 'YERG'
+                                 id: 1)
+    var ref: EventHotKeyRef?
+    let regOK = RegisterEventHotKey(keyCode, modifiers, hotKeyID,
+                                    GetApplicationEventTarget(), 0, &ref)
+    guard regOK == noErr, let ref = ref else {
+      NSLog("YergerSnap hotkey registration failed: \(regOK)")
+      return false
+    }
+    hotKeyRef = ref
+
+    var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                             eventKind: UInt32(kEventHotKeyPressed))
+    let opaque = Unmanaged.passUnretained(self).toOpaque()
+    let handler: EventHandlerUPP = { _, _, userData -> OSStatus in
+      guard let userData = userData else { return noErr }
+      let hk = Unmanaged<GlobalHotkey>.fromOpaque(userData).takeUnretainedValue()
+      DispatchQueue.main.async { hk.onTrigger() }
+      return noErr
+    }
+    let installOK = InstallEventHandler(GetApplicationEventTarget(), handler,
+                                        1, &spec, opaque, &eventHandler)
+    if installOK != noErr {
+      NSLog("YergerSnap event handler install failed: \(installOK)")
+      unregister()
+      return false
+    }
+    return true
+  }
+
+  func unregister() {
+    if let ref = hotKeyRef { UnregisterEventHotKey(ref) }
+    hotKeyRef = nil
+    if let h = eventHandler { RemoveEventHandler(h) }
+    eventHandler = nil
+  }
+
+  deinit { unregister() }
+}
+
+// MARK: - Hover responder
 
 final class HoverResponder: NSResponder {
-  var onEnter: (() -> Void)?
-  var onExit:  (() -> Void)?
-  override func mouseEntered(with event: NSEvent) { onEnter?() }
+  var onMove: ((NSEvent) -> Void)?
+  var onExit: (() -> Void)?
+  override func mouseEntered(with event: NSEvent) { onMove?(event) }
+  override func mouseMoved(with event: NSEvent)   { onMove?(event) }
   override func mouseExited(with event: NSEvent)  { onExit?()  }
 }
 
@@ -344,8 +464,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   let drums = DrumHits()
   let hover = HoverResponder()
   var readyTimer: Timer?
+  var hotkey: GlobalHotkey?
 
-  var isHovered  = false
+  var hoveredRegion: HoverRegion = .none
   var isReady    = false
   var isSnapping = false
 
@@ -356,7 +477,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let size = IconRenderer.imageSize
     statusItem = NSStatusBar.system.statusItem(withLength: size.width)
     if let btn = statusItem.button {
-      // Replace the default cell so macOS stops drawing its click/hover pill.
       let cell = NoHighlightStatusBarCell()
       cell.imagePosition = .imageOnly
       cell.isBordered = false
@@ -368,17 +488,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       btn.target = self
       btn.action = #selector(handleClick(_:))
       btn.sendAction(on: [.leftMouseDown, .rightMouseDown])
-      btn.toolTip = "YergerSnap — click to tap iPhone Mirroring"
+      btn.toolTip = "YergerSnap"
 
-      hover.onEnter = { [weak self] in self?.setHovered(true)  }
-      hover.onExit  = { [weak self] in self?.setHovered(false) }
+      hover.onMove = { [weak self] event in self?.handleHover(event) }
+      hover.onExit = { [weak self] in self?.handleHoverExit() }
       let area = NSTrackingArea(
         rect: btn.bounds,
-        options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+        options: [.mouseEnteredAndExited, .mouseMoved,
+                  .activeAlways, .inVisibleRect],
         owner: hover, userInfo: nil)
       btn.addTrackingArea(area)
     }
 
+    buildMenu()
+
+    isReady = checkReady()
+    redraw()
+    readyTimer = Timer.scheduledTimer(
+      withTimeInterval: readyPollSeconds, repeats: true
+    ) { [weak self] _ in self?.pollReady() }
+
+    // Global hotkey: ⌃⌥⌘S — fires a snap from anywhere on the system.
+    let hk = GlobalHotkey { [weak self] in
+      guard let self = self else { return }
+      if !self.isSnapping { self.startSnap(playSounds: true) }
+    }
+    let mods = UInt32(controlKey | optionKey | cmdKey)
+    hk.register(keyCode: UInt32(kVK_ANSI_S), modifiers: mods)
+    hotkey = hk
+  }
+
+  func buildMenu() {
     menu = NSMenu()
     let header = NSMenuItem(title: "YergerSnap", action: nil, keyEquivalent: "")
     header.isEnabled = false
@@ -386,8 +526,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(NSMenuItem.separator())
     let tapItem = NSMenuItem(title: "Tap iPhone Now",
                              action: #selector(tapFromMenu),
-                             keyEquivalent: "")
+                             keyEquivalent: "s")
     tapItem.target = self
+    tapItem.keyEquivalentModifierMask = [.control, .option, .command]
     menu.addItem(tapItem)
     menu.addItem(NSMenuItem.separator())
     let installItem = NSMenuItem(title: "Install Dragonframe Hook…",
@@ -399,12 +540,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(NSMenuItem(title: "Quit YergerSnap",
                             action: #selector(NSApplication.terminate(_:)),
                             keyEquivalent: "q"))
-
-    isReady = checkReady()
-    redraw()
-    readyTimer = Timer.scheduledTimer(
-      withTimeInterval: readyPollSeconds, repeats: true
-    ) { [weak self] _ in self?.pollReady() }
   }
 
   // MARK: - State
@@ -421,17 +556,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  func setHovered(_ h: Bool) {
-    if isHovered == h { return }
-    isHovered = h
-    if h && !isSnapping { drums.hover() }
-    if !isSnapping { redraw() }
+  func handleHover(_ event: NSEvent) {
+    guard let btn = statusItem.button else { return }
+    let local = btn.convert(event.locationInWindow, from: nil)
+    // The cell centers the drawn image inside the button; its bounds may
+    // be slightly larger. Convert to image-local coords.
+    let pt = imagePoint(from: local, in: btn)
+    let region = IconRenderer.region(at: pt)
+    if hoveredRegion != region {
+      let was = hoveredRegion
+      hoveredRegion = region
+      if region == .snap && was != .snap && !isSnapping { drums.hover() }
+      if !isSnapping { redraw() }
+    }
+  }
+
+  func handleHoverExit() {
+    if hoveredRegion != .none {
+      hoveredRegion = .none
+      if !isSnapping { redraw() }
+    }
+  }
+
+  /// Translate a button-local point into the image's coordinate system,
+  /// since NoHighlightStatusBarCell centers the image in the cell.
+  func imagePoint(from buttonLocal: NSPoint, in button: NSView) -> NSPoint {
+    let imgSize = IconRenderer.imageSize
+    let bb = button.bounds
+    let xOff = (bb.width  - imgSize.width)  / 2.0
+    let yOff = (bb.height - imgSize.height) / 2.0
+    let yLocal = button.isFlipped ? (bb.height - buttonLocal.y) : buttonLocal.y
+    return NSPoint(x: buttonLocal.x - xOff, y: yLocal - yOff)
   }
 
   func redraw() {
     statusItem.button?.image = IconRenderer.image(
       ready: isReady,
-      hover: isHovered,
+      hovered: hoveredRegion,
       phase: isSnapping ? .snapping : .idle)
   }
 
@@ -454,8 +615,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   // MARK: - Triggers
 
-  // URL scheme — Dragonframe action script invokes this via
-  // `open yergersnap://capture`.
   func application(_ app: NSApplication, open urls: [URL]) {
     for url in urls where url.scheme == "yergersnap" {
       let host = url.host?.lowercased()
@@ -474,6 +633,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let isRight = event?.type == .rightMouseDown
     let isCtrl  = event?.modifierFlags.contains(.control) ?? false
     if isRight || isCtrl { showMenu(); return }
+
+    // Hit-test by where the click landed inside the button.
+    if let event = event, let btn = statusItem.button {
+      let local = btn.convert(event.locationInWindow, from: nil)
+      let pt = imagePoint(from: local, in: btn)
+      let region = IconRenderer.region(at: pt)
+      if region == .settings { showMenu(); return }
+      // .none happens between regions — just ignore.
+      if region == .none { return }
+    }
+
     if isSnapping { return }
     startSnap(playSounds: true)
   }
