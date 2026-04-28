@@ -9,7 +9,7 @@
 // keyed on cacheKey, so re-running won't duplicate them. Live ledger
 // rows written by say.js (no `_backfill` field) are unaffected.
 //
-// Env (from system/.env):
+// Env:
 //   ART_ENDPOINT, ART_KEY, ART_SECRET, ART_SPACE_NAME — DO Spaces creds
 //     (falls back to DO_SPACES_ENDPOINT/KEY/SECRET if ART_* missing)
 //   MONGODB_CONNECTION_STRING, MONGODB_NAME — Mongo creds
@@ -17,9 +17,19 @@
 //   DRY_RUN      "true" to scan + log without writing
 //   CONCURRENCY  default 8 (parallel HEAD requests)
 //
-// Run from repo root:
-//   cd system && node backend/backfill-sayings.mjs
-//   PREFIX=tts-cache/jeffrey/ DRY_RUN=true node backend/backfill-sayings.mjs
+// Run (deps live in vault env files; ART_* in vault/.env, MONGODB_* in vault/lith/.env):
+//   cd system
+//   node --env-file=../aesthetic-computer-vault/.env \
+//        --env-file=../aesthetic-computer-vault/lith/.env \
+//        backend/backfill-sayings.mjs
+//
+// Dry-run jeffrey only:
+//   DRY_RUN=true PREFIX=tts-cache/jeffrey/ node --env-file=... backend/backfill-sayings.mjs
+//
+// First-time deps (system/node_modules may be stale; slim install works):
+//   mkdir -p backend/.backfill-deps && cd backend/.backfill-deps
+//   echo '{"type":"module","dependencies":{"@aws-sdk/client-s3":"*","mongodb":"*","dotenv":"*"}}' > package.json
+//   npm install && cd .. && ln -sf .backfill-deps/node_modules node_modules
 
 import { S3Client, ListObjectsV2Command, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { config } from "dotenv";
