@@ -17,6 +17,12 @@
   `tts-cache/` (jeffrey gets its own subfolder `tts-cache/jeffrey/`).
   Each cached MP3 has the original text + voice stamped as S3 metadata,
   so you can rehydrate the catalog later by listing the bucket.
+
+  Every TTS request is also logged to the `sayings` MongoDB collection
+  (one doc per call): { text, provider, voice, voiceSpec, scream,
+  instructions, cacheKey, url, cached, when }. Group by `cacheKey` to
+  get the catalog of unique sayings; filter by `provider: "jeffrey"`
+  to get just Jeffrey's archive.
 #endregion */
 
 let text = "";

@@ -52,6 +52,28 @@ async function checkCache(key) {
   }
 }
 
+// Log every utterance event into the `sayings` MongoDB collection.
+// Modeled after the `moods` collection — ledger of timestamped events.
+// Failures here are swallowed so TTS responses never fail because of logging.
+async function recordSaying(entry) {
+  let database;
+  try {
+    const { connect } = await import("../../backend/database.mjs");
+    database = await connect();
+    const collection = database.db.collection("sayings");
+    await collection.createIndex({ when: -1 });
+    await collection.createIndex({ provider: 1, when: -1 });
+    await collection.createIndex({ cacheKey: 1 });
+    await collection.insertOne({ ...entry, when: new Date() });
+  } catch (err) {
+    console.error("⚠️ sayings log failed:", err?.message || err);
+  } finally {
+    if (database) {
+      try { await database.disconnect(); } catch (_) {}
+    }
+  }
+}
+
 // Save audio to cache. Optional `metadata` is persisted as S3 user metadata
 // so we can browse utterances later (e.g. HeadObject → x-amz-meta-text).
 async function saveToCache(key, audioBuffer, metadata = {}) {
@@ -305,6 +327,17 @@ exports.handler = async (event) => {
 
         if (cachedUrl) {
           console.log(`🎯 TTS cache hit: ${cachedUrl}`);
+          await recordSaying({
+            text,
+            provider,
+            voice: null, // unknown on cache hit; cacheKey ties it to the original
+            voiceSpec,
+            scream,
+            instructions,
+            cacheKey,
+            url: cachedUrl,
+            cached: true,
+          });
           return {
             statusCode: 302,
             headers: {
@@ -356,6 +389,17 @@ exports.handler = async (event) => {
       });
 
       if (cdnUrl) {
+        await recordSaying({
+          text,
+          provider,
+          voice: voiceId,
+          voiceSpec,
+          scream,
+          instructions,
+          cacheKey,
+          url: cdnUrl,
+          cached: false,
+        });
         return {
           statusCode: 302,
           headers: {
