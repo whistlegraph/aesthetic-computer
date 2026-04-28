@@ -45,7 +45,8 @@ mkdir -p "$BUILD_DIR" "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resourc
 
 echo "==> compile"
 swiftc -O -o "$APP_BUNDLE/Contents/MacOS/$APP_NAME" tap.swift \
-  -framework Cocoa -framework ApplicationServices -framework Carbon
+  -framework Cocoa -framework ApplicationServices -framework Carbon \
+  -framework AVFoundation
 
 cp Info.plist "$APP_BUNDLE/Contents/Info.plist"
 
