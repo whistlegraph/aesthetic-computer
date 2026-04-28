@@ -151,6 +151,11 @@ const PAPER_MAP = {
     siteName: "where-the-microseconds-go-26-arxiv",
     paperId: "latency",
   },
+  "arxiv-penrose": {
+    base: "penrose",
+    siteName: "diagrams-from-data-26-arxiv",
+    paperId: "penrose",
+  },
 };
 
 // --- File discovery ---

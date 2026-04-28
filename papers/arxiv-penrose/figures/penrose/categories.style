@@ -1,0 +1,58 @@
+-- categories.style --
+-- Group Functions inside their Category disk; nested layout.
+
+canvas {
+  width = 720
+  height = 480
+}
+
+colors {
+  pink   = rgba(0.706, 0.282, 0.529, 0.18)
+  purple = rgba(0.471, 0.314, 0.706, 1.0)
+  dark   = rgba(0.251, 0.220, 0.290, 1.0)
+  ink    = rgba(0.251, 0.220, 0.290, 0.7)
+}
+
+forall Category c {
+  c.box = Rectangle {
+    width:  140
+    height: 90
+    cornerRadius: 10
+    fillColor: colors.pink
+    strokeColor: colors.purple
+    strokeWidth: 1.2
+  }
+  c.title = Equation {
+    string: c.label
+    center: (c.box.center[0], c.box.center[1] - c.box.height / 2 - 10)
+    fillColor: colors.dark
+    fontSize: "9pt"
+  }
+}
+
+forall Function f {
+  f.dot = Circle {
+    r: 4
+    fillColor: colors.purple
+  }
+}
+
+forall Function f; Category c
+where Member(f, c) {
+  ensure contains(c.box, f.dot)
+  ensure disjoint(f.dot, c.title)
+}
+
+forall Category c1; Category c2 {
+  ensure disjoint(c1.box, c2.box, 12)
+}
+
+-- Tiny labels for individual functions (only fits a few per group).
+forall Function f {
+  f.label = Equation {
+    string: f.label
+    center: (f.dot.center[0] + 10, f.dot.center[1])
+    fillColor: colors.ink
+    fontSize: "6pt"
+  }
+}

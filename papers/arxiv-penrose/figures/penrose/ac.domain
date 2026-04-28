@@ -1,0 +1,45 @@
+-- ac.domain --
+-- Penrose domain describing Aesthetic Computer concepts.
+-- Used by every .substance file in this directory.
+
+-- A Piece is a single .mjs or .lisp file in /disks/.
+type Piece
+
+-- A Library is a shared module under /lib/.
+type Library
+
+-- A Function is a built-in primitive (e.g. a KidLisp word, a disk API).
+type Function
+
+-- A Repo is one of the four successive AC repositories.
+type Repo
+
+-- A Category groups Functions or Pieces (e.g. "graphics", "audio").
+type Category
+
+-- A Player is a participant in a multiplayer session.
+type Player
+
+-- A Session is a session-server room that Players join.
+type Session
+
+-- Subtypes — kept shallow so styles can match by base type.
+Piece <: Category
+Library <: Category
+
+-- Predicates wire the substance graph together.
+predicate Imports(Piece p, Library lib)
+predicate Provides(Library lib, Function fn)
+predicate Member(Function fn, Category c)
+predicate ContainsPiece(Repo r, Piece p)
+predicate Succeeds(Repo earlier, Repo later)
+predicate JoinedSession(Player pl, Session s)
+predicate Plays(Player pl, Piece p)
+
+-- A pair of Pieces sharing a Library is a co-occurrence —
+-- styles use it to draw the soft "neighborhood" edges.
+predicate CoUses(Piece a, Piece b, Library lib)
+
+-- Notation lets substance files write `Library lib := ...` style assignments.
+notation "Imports(p, l)" ~ "p Imports l"
+notation "Member(f, c)" ~ "f Member c"

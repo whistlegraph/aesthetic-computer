@@ -1,0 +1,59 @@
+-- lineage.style --
+-- Render a horizontal repo-evolution timeline.
+
+canvas {
+  width = 720
+  height = 200
+}
+
+-- AC color palette (matches papers/ac-paper-layout.sty).
+colors {
+  pink   = rgba(0.706, 0.282, 0.529, 1.0)
+  purple = rgba(0.471, 0.314, 0.706, 1.0)
+  dark   = rgba(0.251, 0.220, 0.290, 1.0)
+  gray   = rgba(0.467, 0.467, 0.467, 1.0)
+  bg     = rgba(1.0, 1.0, 1.0, 0.0)
+}
+
+global {
+  baseY = ?  -- fixed by constraint below
+  ensure baseY == 110
+}
+
+forall Repo r {
+  r.x = ? in [60, 660]
+
+  r.dot = Circle {
+    center: (r.x, global.baseY)
+    r: 14
+    strokeColor: colors.dark
+    strokeWidth: 1.5
+    fillColor: colors.pink
+  }
+
+  r.label = Equation {
+    string: r.label
+    center: (r.x, global.baseY - 36)
+    fillColor: colors.dark
+    fontSize: "10pt"
+  }
+
+  r.date = Equation {
+    string: r.date
+    center: (r.x, global.baseY + 30)
+    fillColor: colors.gray
+    fontSize: "8pt"
+  }
+}
+
+forall Repo a; Repo b
+where Succeeds(a, b) {
+  arrow = Line {
+    start: (a.x + 14, global.baseY)
+    end:   (b.x - 14, global.baseY)
+    strokeColor: colors.purple
+    strokeWidth: 2.0
+    endArrowhead: "straight"
+  }
+  ensure a.x + 60 < b.x
+}

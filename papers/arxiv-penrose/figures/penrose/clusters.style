@@ -1,0 +1,65 @@
+-- clusters.style --
+-- Force-directed-ish piece graph: Pieces are nodes,
+-- shared Library imports become co-occurrence edges.
+
+canvas {
+  width = 720
+  height = 540
+}
+
+colors {
+  pink   = rgba(0.706, 0.282, 0.529, 1.0)
+  purple = rgba(0.471, 0.314, 0.706, 1.0)
+  dark   = rgba(0.251, 0.220, 0.290, 1.0)
+  ink    = rgba(0.251, 0.220, 0.290, 0.7)
+  edge   = rgba(0.471, 0.314, 0.706, 0.35)
+}
+
+forall Piece p {
+  p.dot = Circle {
+    r: 6
+    fillColor: colors.pink
+    strokeColor: colors.dark
+    strokeWidth: 0.8
+  }
+  p.text = Equation {
+    string: p.label
+    center: (p.dot.center[0] + 14, p.dot.center[1])
+    fillColor: colors.ink
+    fontSize: "7pt"
+  }
+}
+
+forall Library lib {
+  lib.dot = Circle {
+    r: 10
+    fillColor: colors.purple
+    strokeColor: colors.dark
+    strokeWidth: 1.2
+  }
+  lib.text = Equation {
+    string: lib.label
+    center: (lib.dot.center[0], lib.dot.center[1] - 16)
+    fillColor: colors.dark
+    fontSize: "8pt"
+  }
+}
+
+forall Piece p; Library lib
+where Imports(p, lib) {
+  Line {
+    start: p.dot.center
+    end:   lib.dot.center
+    strokeColor: colors.edge
+    strokeWidth: 0.8
+  }
+  encourage norm(p.dot.center - lib.dot.center) == 90
+}
+
+forall Piece a; Piece b {
+  ensure norm(a.dot.center - b.dot.center) > 40
+}
+
+forall Library a; Library b {
+  ensure norm(a.dot.center - b.dot.center) > 120
+}

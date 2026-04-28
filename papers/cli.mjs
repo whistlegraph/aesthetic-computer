@@ -195,6 +195,11 @@ const PAPER_MAP = {
     siteName: "where-the-microseconds-go-26-arxiv",
     title: "Where the Microseconds Go",
   },
+  "arxiv-penrose": {
+    base: "penrose",
+    siteName: "diagrams-from-data-26-arxiv",
+    title: "Diagrams from Data",
+  },
   "cv": {
     base: "cv",
     siteName: "jeffrey-alan-scudder-cv",
