@@ -10,15 +10,17 @@
 //      Enter in Dragonframe captures BOTH the DF camera and the
 //      mirrored iPhone, with no fake keystrokes.
 //
-//   2. The "snap" menu-bar button (manual). Left-click taps the
+//   2. The "SNAP" menu-bar button (manual). Left-click taps the
 //      iPhone immediately; right-click opens the menu.
+//
+// Visual states the menu-bar pill shows:
+//   • idle      — dim red dot + dim "SNAP"  (hovering brightens both)
+//   • not ready — gray dot with X overlay   (iPhone Mirroring not running)
+//   • snapping  — 1-second inactive flash while a tap is in flight
 //
 // First launch on a clean Mac: macOS prompts for Accessibility (TCC).
 // Needed both for AX queries on iPhone Mirroring's window and for
 // posting the synthetic mouse click.
-//
-// Calibration: tapX/tapY are window-relative fractions for where to
-// click inside the iPhone Mirroring window. Default = bottom center.
 
 import Cocoa
 import ApplicationServices
@@ -28,6 +30,8 @@ import AVFoundation
 // ---- config --------------------------------------------------------------
 let tapX: CGFloat = 0.50
 let tapY: CGFloat = 0.90
+let snapHoldSeconds: TimeInterval = 1.0     // how long the inactive look stays
+let readyPollSeconds: TimeInterval = 1.5    // iPhone Mirroring presence poll
 // --------------------------------------------------------------------------
 
 // MARK: - iPhone Mirroring helpers
@@ -129,7 +133,7 @@ func installActionScript() -> String? {
 
 // MARK: - Icon renderer
 
-enum IconState { case idle, hover, pressed }
+enum IconPhase: Equatable { case idle, snapping }
 
 enum IconRenderer {
   static let height: CGFloat = 22
@@ -138,8 +142,8 @@ enum IconRenderer {
   static let ringPad: CGFloat = 2
   static let gap: CGFloat = 4
   static let rightPad: CGFloat = 6
-  static let labelText = "snap"
-  static let font = NSFont.systemFont(ofSize: 11.5, weight: .semibold)
+  static let labelText = "SNAP"
+  static let font = NSFont.systemFont(ofSize: 11.0, weight: .semibold)
 
   static var labelSize: NSSize {
     NSAttributedString(string: labelText, attributes: [.font: font]).size()
@@ -150,48 +154,66 @@ enum IconRenderer {
     return NSSize(width: ceil(w), height: height)
   }
 
-  static func image(_ state: IconState) -> NSImage {
+  static func image(ready: Bool, hover: Bool, phase: IconPhase) -> NSImage {
     let size = imageSize
     let img = NSImage(size: size)
     img.lockFocus()
     defer { img.unlockFocus() }
 
-    // Hover / pressed background pill
-    if state != .idle {
-      let alpha: CGFloat = state == .pressed ? 0.28 : 0.12
-      NSColor.white.withAlphaComponent(alpha).setFill()
+    // Snapping pill — subtle backdrop signalling "I'm working, ignore clicks"
+    if phase == .snapping {
+      NSColor.white.withAlphaComponent(0.18).setFill()
       let pill = NSRect(x: 1, y: 1, width: size.width - 2, height: size.height - 2)
       NSBezierPath(roundedRect: pill, xRadius: 4.5, yRadius: 4.5).fill()
     }
 
-    // Dot + ring
+    // Dot + ring geometry
     let dotY = (size.height - dotSize) / 2
     let dotX = leftPad + ringPad
-    let dotRect = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
+    let dotRect  = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
     let ringRect = dotRect.insetBy(dx: -ringPad, dy: -ringPad)
 
     // Outer ring
-    let ringColor: NSColor = .white.withAlphaComponent(state == .pressed ? 1.0 : 0.85)
-    ringColor.setStroke()
+    let ringAlpha: CGFloat = phase == .snapping
+      ? 1.0
+      : (ready ? (hover ? 0.95 : 0.80) : 0.45)
+    NSColor.white.withAlphaComponent(ringAlpha).setStroke()
     let ring = NSBezierPath(ovalIn: ringRect)
     ring.lineWidth = 1.3
     ring.stroke()
 
-    // Inner dot — red, brighter on hover, white on press.
+    // Inner dot — red when ready (brightens on hover), gray when not, white during snap.
     let dotColor: NSColor = {
-      switch state {
-      case .idle:    return NSColor(calibratedRed: 0.92, green: 0.22, blue: 0.22, alpha: 1)
-      case .hover:   return NSColor(calibratedRed: 1.00, green: 0.32, blue: 0.32, alpha: 1)
-      case .pressed: return NSColor.white
-      }
+      if phase == .snapping { return NSColor.white }
+      if !ready { return NSColor(white: 0.50, alpha: 1) }
+      return hover
+        ? NSColor(calibratedRed: 1.00, green: 0.30, blue: 0.30, alpha: 1)
+        : NSColor(calibratedRed: 0.78, green: 0.18, blue: 0.18, alpha: 1)
     }()
     dotColor.setFill()
     NSBezierPath(ovalIn: dotRect).fill()
 
-    // "snap" label
-    let textColor: NSColor = state == .pressed
-      ? NSColor.white
-      : NSColor.white.withAlphaComponent(0.92)
+    // X overlay when iPhone Mirroring isn't ready (doesn't show during snap).
+    if !ready && phase != .snapping {
+      NSColor.white.withAlphaComponent(0.95).setStroke()
+      let inset: CGFloat = 2.5
+      let x = NSBezierPath()
+      x.move(to: NSPoint(x: dotRect.minX + inset, y: dotRect.minY + inset))
+      x.line(to: NSPoint(x: dotRect.maxX - inset, y: dotRect.maxY - inset))
+      x.move(to: NSPoint(x: dotRect.minX + inset, y: dotRect.maxY - inset))
+      x.line(to: NSPoint(x: dotRect.maxX - inset, y: dotRect.minY + inset))
+      x.lineWidth = 1.5
+      x.lineCapStyle = .round
+      x.stroke()
+    }
+
+    // Label — dim by default, brighter on hover, dimmest while snapping.
+    let textAlpha: CGFloat = {
+      if phase == .snapping { return 0.55 }
+      if !ready { return hover ? 0.75 : 0.50 }
+      return hover ? 1.00 : 0.78
+    }()
+    let textColor = NSColor.white.withAlphaComponent(textAlpha)
     let textX = leftPad + dotSize + ringPad * 2 + gap
     let textY = (size.height - labelSize.height) / 2 - 1
     labelText.draw(at: NSPoint(x: textX, y: textY),
@@ -270,7 +292,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   var menu: NSMenu!
   let sound = ClickSound()
   let hover = HoverResponder()
-  var isHovered = false
+  var readyTimer: Timer?
+
+  var isHovered  = false
+  var isReady    = false
+  var isSnapping = false
 
   func applicationDidFinishLaunching(_ note: Notification) {
     let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
@@ -279,7 +305,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let size = IconRenderer.imageSize
     statusItem = NSStatusBar.system.statusItem(withLength: size.width)
     if let btn = statusItem.button {
-      btn.image = IconRenderer.image(.idle)
       btn.imagePosition = .imageOnly
       btn.target = self
       btn.action = #selector(handleClick(_:))
@@ -315,24 +340,68 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(NSMenuItem(title: "Quit YergerSnap",
                             action: #selector(NSApplication.terminate(_:)),
                             keyEquivalent: "q"))
+
+    isReady = checkReady()
+    redraw()
+    readyTimer = Timer.scheduledTimer(
+      withTimeInterval: readyPollSeconds, repeats: true
+    ) { [weak self] _ in self?.pollReady() }
   }
 
-  func setHovered(_ hovered: Bool) {
-    if isHovered == hovered { return }
-    isHovered = hovered
-    statusItem.button?.image = IconRenderer.image(hovered ? .hover : .idle)
+  // MARK: - State
+
+  func checkReady() -> Bool {
+    runningApp(named: "iPhone Mirroring") != nil
   }
 
-  // URL scheme handler — Dragonframe action script calls this via
-  // `open yergersnap://capture` to request a tap.
+  func pollReady() {
+    let r = checkReady()
+    if r != isReady {
+      isReady = r
+      if !isSnapping { redraw() }
+    }
+  }
+
+  func setHovered(_ h: Bool) {
+    if isHovered == h { return }
+    isHovered = h
+    if !isSnapping { redraw() }
+  }
+
+  func redraw() {
+    statusItem.button?.image = IconRenderer.image(
+      ready: isReady,
+      hover: isHovered,
+      phase: isSnapping ? .snapping : .idle)
+  }
+
+  func startSnap(playSound: Bool) {
+    isSnapping = true
+    redraw()
+    if playSound { sound.play() }
+
+    DispatchQueue.global(qos: .userInitiated).async { tapPhone() }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + snapHoldSeconds) {
+      [weak self] in
+      guard let self else { return }
+      self.isSnapping = false
+      self.isReady = self.checkReady()
+      self.redraw()
+    }
+  }
+
+  // MARK: - Triggers
+
+  // URL scheme — Dragonframe action script invokes this via
+  // `open yergersnap://capture`.
   func application(_ app: NSApplication, open urls: [URL]) {
     for url in urls where url.scheme == "yergersnap" {
       let host = url.host?.lowercased()
         ?? url.path.replacingOccurrences(of: "/", with: "")
       switch host {
       case "capture", "tap":
-        flashClick(playSound: false)   // remote trigger: silent
-        tapPhone()
+        if !isSnapping { startSnap(playSound: false) }
       default:
         NSLog("YergerSnap: unknown URL \(url)")
       }
@@ -344,8 +413,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let isRight = event?.type == .rightMouseDown
     let isCtrl  = event?.modifierFlags.contains(.control) ?? false
     if isRight || isCtrl { showMenu(); return }
-    flashClick(playSound: true)
-    tapPhone()
+    if isSnapping { return }
+    startSnap(playSound: true)
   }
 
   func showMenu() {
@@ -354,17 +423,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     DispatchQueue.main.async { self.statusItem.menu = nil }
   }
 
-  func flashClick(playSound: Bool) {
-    if playSound { sound.play() }
-    statusItem.button?.image = IconRenderer.image(.pressed)
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.13) { [weak self] in
-      guard let self else { return }
-      self.statusItem.button?.image =
-        IconRenderer.image(self.isHovered ? .hover : .idle)
-    }
+  @objc func tapFromMenu() {
+    if !isSnapping { startSnap(playSound: true) }
   }
 
-  @objc func tapFromMenu()      { flashClick(playSound: true); tapPhone() }
   @objc func installAndReveal() {
     guard let path = installActionScript() else {
       let a = NSAlert()
@@ -375,7 +437,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(path, forType: .string)
-    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    NSWorkspace.shared.activateFileViewerSelecting(
+      [URL(fileURLWithPath: path)])
 
     NSApp.activate(ignoringOtherApps: true)
     let a = NSAlert()
