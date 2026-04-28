@@ -805,7 +805,7 @@
     };
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://unpkg.com/@airgap/beacon-sdk@4.6.0/dist/walletbeacon.min.js';
+      s.src = 'https://unpkg.com/@airgap/beacon-sdk@4.8.1/dist/walletbeacon.min.js';
       s.onload = resolve;
       s.onerror = (e) => { Object.defineProperty = origDefProp; reject(e); };
       document.head.appendChild(s);
