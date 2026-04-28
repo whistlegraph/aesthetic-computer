@@ -11,6 +11,7 @@
 #include <time.h>
 #include <limits.h>
 #include <dirent.h>
+#include <sys/stat.h>  // S_ISDIR for piano_bank_dir() probe
 #include <unistd.h>
 #include <sched.h>
 #include <alsa/asoundlib.h>
@@ -383,65 +384,137 @@ static inline double generate_harp_sample(ACVoice *v, double sample_rate) {
 // don't model the soundboard explicitly.
 //
 // References embedded above the piano fields in audio.h.
+// ============================================================
+// Piano sample bank — Salamander Grand Piano V3 (CC0)
+// ============================================================
+// Loaded once at audio_init from /samples/piano/<midi>.raw. Each .raw
+// file is a header-less stream of float32 mono samples at 48 kHz.
+// Filename convention: "<midi>.raw" where MIDI is the anchor pitch
+// (60 = C4 = 261.63 Hz). The pre-build script in
+// fedac/native/scripts/prep-piano-samples decimates the full SFZ to
+// these anchor pitches every 3 semitones (matching Salamander's own
+// anchor density: C, D#, F#, A across each octave).
+//
+// Voice playback: pick the nearest anchor by MIDI distance, set step =
+// 2^((target_midi - anchor_midi)/12) and read with fractional linear
+// interp. Up to ±1.5 semitones from any anchor → minor timbral artifact
+// from pitch shifting, well within psychoacoustic acceptance.
+typedef struct {
+    int    midi;       // anchor MIDI note number
+    int    len;        // sample count
+    float *data;       // mono float32, sample_rate = AUDIO_SAMPLE_RATE
+} PianoSample;
+#define PIANO_BANK_MAX 64
+static PianoSample piano_bank[PIANO_BANK_MAX];
+static int         piano_bank_count = 0;
+
+static const char *piano_bank_dir(void) {
+    // Built into the initramfs by build-and-flash-initramfs.sh. Falls
+    // back to a /mnt path so the same bank can live on the USB data
+    // partition for OTA-2-style large-bank installations.
+    static const char *paths[] = {
+        "/samples/piano",
+        "/mnt/samples/piano",
+        NULL
+    };
+    for (int i = 0; paths[i]; i++) {
+        struct stat st;
+        if (stat(paths[i], &st) == 0 && S_ISDIR(st.st_mode)) return paths[i];
+    }
+    return NULL;
+}
+
+// Parse "<midi>.raw" → midi int. Returns -1 on parse failure.
+static int parse_piano_filename(const char *name) {
+    int n = 0;
+    const char *p = name;
+    while (*p >= '0' && *p <= '9') { n = n * 10 + (*p - '0'); p++; }
+    if (p == name) return -1;
+    if (strcmp(p, ".raw") != 0) return -1;
+    if (n < 0 || n > 127) return -1;
+    return n;
+}
+
+void load_piano_bank(void) {
+    piano_bank_count = 0;
+    const char *dir_path = piano_bank_dir();
+    if (!dir_path) {
+        ac_log("[piano-bank] no samples dir found — piano will be silent\n");
+        return;
+    }
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        ac_log("[piano-bank] opendir failed: %s\n", dir_path);
+        return;
+    }
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL && piano_bank_count < PIANO_BANK_MAX) {
+        if (ent->d_name[0] == '.') continue;
+        int midi = parse_piano_filename(ent->d_name);
+        if (midi < 0) continue;
+        char path[512];
+        snprintf(path, sizeof(path), "%s/%s", dir_path, ent->d_name);
+        FILE *fp = fopen(path, "rb");
+        if (!fp) continue;
+        fseek(fp, 0, SEEK_END);
+        long sz = ftell(fp);
+        rewind(fp);
+        if (sz <= 0 || sz % sizeof(float) != 0) {
+            fclose(fp); continue;
+        }
+        int sample_count = (int)(sz / sizeof(float));
+        float *buf = malloc((size_t)sz);
+        if (!buf) { fclose(fp); continue; }
+        size_t rd = fread(buf, 1, (size_t)sz, fp);
+        fclose(fp);
+        if (rd != (size_t)sz) { free(buf); continue; }
+        piano_bank[piano_bank_count].midi = midi;
+        piano_bank[piano_bank_count].len  = sample_count;
+        piano_bank[piano_bank_count].data = buf;
+        piano_bank_count++;
+    }
+    closedir(dir);
+    ac_log("[piano-bank] loaded %d samples from %s\n",
+           piano_bank_count, dir_path);
+}
+
+// Pick the bank entry closest to the target MIDI note.
+static const PianoSample *pick_piano_anchor(int target_midi) {
+    if (piano_bank_count == 0) return NULL;
+    const PianoSample *best = &piano_bank[0];
+    int best_dist = abs(target_midi - best->midi);
+    for (int i = 1; i < piano_bank_count; i++) {
+        int d = abs(target_midi - piano_bank[i].midi);
+        if (d < best_dist) { best_dist = d; best = &piano_bank[i]; }
+    }
+    return best;
+}
+
 static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
     (void)sample_rate;
     double env = compute_envelope(v);
 
-    double mix = 0.0;
-    for (int s = 0; s < v->ks_num_strings; s++) {
-        // Standard Karplus-Strong: read AND write at the same ring
-        // position. The value being read was written exactly one full
-        // ring trip ago, which IS the delay line. Each iteration
-        // advances the position by 1, so the loop length = the
-        // (integer-rounded) delay_len. Earlier impl used a separate
-        // read-pos/write-pos pair lagging by delay_len with KS_MAX_DELAY
-        // wrap — that broke at runtime because the hammer impulse
-        // pre-loaded at indices [0, hammer_samples) was overwritten by
-        // the first delay_len samples of zero-filtered feedback before
-        // the read pointer ever circled around to read it. Result:
-        // silent piano. This single-position scheme reads the impulse
-        // on sample 1, energy enters the loop, and the filter chain
-        // sustains it forever after (modulo feedback decay).
-        int dl = v->ks_delay_int[s];
-        if (dl < 4) dl = 4;
-        int wp = v->ks_write_pos[s];
-        double tail = (double)v->ks_delay[s][wp];
+    if (!v->piano_sample_data || v->piano_sample_len <= 0) return 0.0;
 
-        // 1st-order all-pass dispersion. Phase delay decreases with
-        // frequency → upper partials lag → inharmonicity emerges
-        // naturally without per-partial stretching math. Coefficient
-        // a in [0, 1) controls amount of dispersion. Standard
-        // direct-form implementation:
-        //     y[n] = a*x[n] + x[n-1] - a*y[n-1]
-        // We store (x[n] - a*y[n]) as state so the next iteration can
-        // form x[n-1] - a*y[n-1] from a single load.
-        double a = v->ks_allpass_a[s];
-        double y_ap = a * tail + v->ks_allpass_state[s];
-        v->ks_allpass_state[s] = tail - a * y_ap;
-
-        // Damping LPF: 1-pole, alpha closer to 1 = brighter (less
-        // damping). Treble strings get higher alpha so high partials
-        // ring longer; bass strings smaller alpha so they don't sound
-        // metallic.
-        double y_d = (1.0 - v->ks_damper_alpha[s]) * v->ks_damper_state[s] +
-                            v->ks_damper_alpha[s]  * y_ap;
-        v->ks_damper_state[s] = y_d;
-
-        // Feedback at the same position; advance mod the integer ring
-        // length (NOT KS_MAX_DELAY — that's just the buffer cap).
-        double fb = y_d * v->ks_feedback[s];
-        v->ks_delay[s][wp] = (float)fb;
-        v->ks_write_pos[s] = (wp + 1) % dl;
-
-        mix += fb * v->ks_string_amp[s];
+    double pos = v->piano_sample_pos;
+    int idx = (int)pos;
+    if (idx >= v->piano_sample_len - 1) {
+        // Sample exhausted — note has run its natural decay length.
+        return 0.0;
     }
-    return mix * env;
+    double frac = pos - (double)idx;
+    double s0 = (double)v->piano_sample_data[idx];
+    double s1 = (double)v->piano_sample_data[idx + 1];
+    double s  = (1.0 - frac) * s0 + frac * s1;
+
+    v->piano_sample_pos = pos + v->piano_sample_step;
+
+    return s * v->piano_sample_amp * env;
 }
 
-// (Old modal-additive piano path removed in favor of the Karplus-Strong
-// banded waveguide above. Reference notes about the previous approach
-// remain in the comment block at the top of generate_piano_sample's
-// section — search for "Bank/Välimäki" if you need to compare.)
+// (Old K-S banded waveguide piano + earlier modal-additive synth both
+// removed in favor of the Salamander sample bank above. Search the git
+// history for "Karplus-Strong" or "Bank/Välimäki" if you need to compare.)
 
 // ============================================================
 // Gun synthesis — two models per preset
@@ -2070,6 +2143,15 @@ ACAudio *audio_init(void) {
     audio->glitch_rate = AUDIO_SAMPLE_RATE / 1600;
     pthread_mutex_init(&audio->lock, NULL);
 
+    // Load piano sample bank from /samples/piano/. Idempotent: safe to
+    // call from both audio_init paths in ac-native.c. Bank is global
+    // (not on the audio struct) since it's read-only once loaded.
+    static int piano_bank_loaded = 0;
+    if (!piano_bank_loaded) {
+        load_piano_bank();
+        piano_bank_loaded = 1;
+    }
+
     // Allocate reverb buffers
     audio->room_size = ROOM_SIZE;
     audio->room_mix = 0.0f;  // Start dry, trackpad Y controls
@@ -3055,125 +3137,39 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
         // Next write lands past the pluck; first read pulls buf[0].
         v->whistle_bore_w = n;
     } else if (type == WAVE_PIANO) {
-        // Karplus-Strong banded waveguide piano init. See the long
-        // comment block above generate_piano_sample for the algorithm
-        // overview. This block instantiates 1-3 strings per note,
-        // computes their delay lengths + filter coefficients, and
-        // primes each delay buffer with a hammer impulse (windowed
-        // band-limited noise). The partials emerge from delay-line
-        // eigenfrequencies + the all-pass dispersion at run time.
-        double sr = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
+        // Sample-bank piano. Find the nearest anchor in piano_bank by
+        // MIDI distance, set step = 2^((target_midi - anchor_midi)/12)
+        // for pitch shift, position = 0 to start playback from the
+        // hammer attack. If no bank loaded (samples missing on the
+        // initramfs), the voice produces silence — non-fatal.
         double f0 = freq < 20.0 ? 20.0 : freq;
+        // Convert frequency to MIDI: midi = 69 + 12*log2(f / 440).
+        double target_midi_d = 69.0 + 12.0 * log2(f0 / 440.0);
+        int    target_midi   = (int)(target_midi_d + 0.5);
 
-        // String count by register, modeled on real piano stringing:
-        //   bass (A0..B1, ~27.5–61 Hz)        → 1 wound string
-        //   transitional (C2..F#3, 65–185 Hz) → 2 strings
-        //   treble (G3+, 196 Hz+)              → 3 strings
-        int n_strings = (f0 < 65.0)  ? 1 :
-                        (f0 < 196.0) ? 2 : 3;
-        if (n_strings > KS_MAX_STRINGS) n_strings = KS_MAX_STRINGS;
-        v->ks_num_strings = n_strings;
-
-        // Per-string detune in cents around f0. Real piano tuners
-        // intentionally leave a slight tuning spread so the unison
-        // strings beat against each other — that beating IS the warm
-        // chorus character. ±0.4 cents is on the subtle side; can be
-        // doubled if it sounds too clean.
-        static const double detune_cents[3] = { -0.4, 0.0, +0.4 };
-
-        for (int s = 0; s < n_strings; s++) {
-            double cents = (n_strings == 1) ? 0.0 : detune_cents[s];
-            double f = f0 * pow(2.0, cents / 1200.0);
-            double delay_len = sr / f;
-            if (delay_len < 4.0) delay_len = 4.0;
-            if (delay_len > (double)(KS_MAX_DELAY - 2)) {
-                delay_len = (double)(KS_MAX_DELAY - 2);
-            }
-            v->ks_delay_len[s] = delay_len;
-            // Integer ring length used by the run loop. Rounding to
-            // nearest yields tuning error of at most 0.5 sample at the
-            // delay boundary — at 48kHz × 440Hz that's ~5 cents in the
-            // worst case (treble), inaudible to most ears next to the
-            // unison detune we already apply. Fractional delay (linear
-            // interp) can replace this if tuning becomes a problem.
-            int dl_int = (int)(delay_len + 0.5);
-            if (dl_int < 4) dl_int = 4;
-            if (dl_int > KS_MAX_DELAY) dl_int = KS_MAX_DELAY;
-            v->ks_delay_int[s] = dl_int;
-            v->ks_write_pos[s] = 0;
-            v->ks_allpass_state[s] = 0.0;
-            v->ks_damper_state[s]  = 0.0;
-
-            // Loop feedback gain. T60 ≈ -3 · delay_len / (sr · log10(fb)).
-            // We pick T60 by register: long ring in the bass (12s),
-            // shorter in the treble (~3s) — matches real piano damping.
-            double t60 = 6.0 * (220.0 / f0);
-            if (t60 < 0.4)  t60 = 0.4;
-            if (t60 > 12.0) t60 = 12.0;
-            // feedback = 10^(-3 · loops_per_T60⁻¹) where loops/sec
-            // = sr/delay_len, so feedback = 10^(-3·delay_len/(t60·sr)).
-            double fb = pow(0.001, delay_len / (t60 * sr));
-            // Keep just below 1 to guarantee the loop decays even on
-            // nearly-instant delay lengths (extreme treble).
-            if (fb > 0.99995) fb = 0.99995;
-            v->ks_feedback[s] = fb;
-
-            // All-pass dispersion strength a ∈ [0, 0.75]. Higher a =
-            // more inharmonicity. Real piano inharmonicity rises with
-            // pitch (shorter, stiffer strings); we mirror that.
-            double a = 0.30 + 0.40 * (f0 / 880.0);
-            if (a < 0.30) a = 0.30;
-            if (a > 0.75) a = 0.75;
-            v->ks_allpass_a[s] = a;
-
-            // Damping LPF coefficient. Higher α = brighter (less HF
-            // damping per loop). Treble strings: ring brightly. Bass:
-            // moderate damping so they don't sound metallic / harsh.
-            double damp_alpha = 0.55 + 0.40 * (f0 / 1760.0);
-            if (damp_alpha < 0.55) damp_alpha = 0.55;
-            if (damp_alpha > 0.97) damp_alpha = 0.97;
-            v->ks_damper_alpha[s] = damp_alpha;
-
-            // Per-string output mix. Single bass string is fuller;
-            // 2-3 strings sum so each individual amplitude is lower.
-            v->ks_string_amp[s] = (n_strings == 1) ? 0.85 :
-                                   (n_strings == 2) ? 0.65 : 0.55;
-
-            // Clear the entire delay buffer, then fill the first
-            // ~1.5 ms (or up to 1/3 of the ring, whichever is smaller)
-            // with a Hann-windowed band-limited noise burst. Position
-            // matters: index 0 must contain impulse[0] because the run
-            // loop reads from ks_write_pos (starting at 0) on its first
-            // sample. Cap at dl_int/3 so a typical bass note (long
-            // ring) still has room to "circulate" without re-entering
-            // the impulse area before the loop has filtered it.
-            for (int i = 0; i < KS_MAX_DELAY; i++) v->ks_delay[s][i] = 0.0f;
-            int hammer_samples = (int)(0.0015 * sr);
-            int max_hammer = dl_int / 3;
-            if (max_hammer < 4) max_hammer = 4;
-            if (hammer_samples > max_hammer) hammer_samples = max_hammer;
-            if (hammer_samples < 4) hammer_samples = 4;
-            for (int i = 0; i < hammer_samples; i++) {
-                double t = (double)i / (double)hammer_samples;
-                double w = 0.5 - 0.5 * cos(2.0 * M_PI * t);
-                double rnd = ((double)xorshift32(&v->noise_seed) /
-                              (double)UINT32_MAX) * 2.0 - 1.0;
-                v->ks_delay[s][i] = (float)(rnd * w * 0.7);
-            }
-        }
-        // Emit one log line per piano-voice init so post-flash logs
-        // can confirm the K-S parameters look reasonable. Format is
-        // greppable for tooling; one line per voice means a 32-voice
-        // chord won't flood the log file.
-        if (n_strings > 0) {
-            ac_log("[piano] f0=%.1fHz strs=%d dl0=%d dl1=%d dl2=%d "
-                   "fb0=%.5f a0=%.3f damp0=%.3f sr=%.0f\n",
-                   f0, n_strings,
-                   v->ks_delay_int[0],
-                   n_strings > 1 ? v->ks_delay_int[1] : 0,
-                   n_strings > 2 ? v->ks_delay_int[2] : 0,
-                   v->ks_feedback[0], v->ks_allpass_a[0],
-                   v->ks_damper_alpha[0], sr);
+        const PianoSample *anchor = pick_piano_anchor(target_midi);
+        if (anchor && anchor->data && anchor->len > 0) {
+            v->piano_sample_data = anchor->data;
+            v->piano_sample_len  = anchor->len;
+            v->piano_sample_pos  = 0.0;
+            // step = 2^((target - anchor)/12). Positive offset → faster
+            // playback → higher pitch. Sample is at AUDIO_SAMPLE_RATE
+            // already (decimated at build time), so no sample-rate
+            // correction is needed beyond the pitch ratio.
+            double semis = target_midi_d - (double)anchor->midi;
+            v->piano_sample_step = pow(2.0, semis / 12.0);
+            v->piano_sample_amp  = 0.85;
+            ac_log("[piano] f0=%.1fHz midi=%d → anchor midi=%d step=%.4f len=%d\n",
+                   f0, target_midi, anchor->midi,
+                   v->piano_sample_step, anchor->len);
+        } else {
+            v->piano_sample_data = NULL;
+            v->piano_sample_len  = 0;
+            v->piano_sample_pos  = 0.0;
+            v->piano_sample_step = 1.0;
+            v->piano_sample_amp  = 0.0;
+            ac_log("[piano] no bank loaded — voice silent (target midi=%d)\n",
+                   target_midi);
         }
     }
 

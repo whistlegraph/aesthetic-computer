@@ -213,34 +213,18 @@ typedef struct {
     // partials produce inter-string beating, the chorus-y richness of a
     // 3-string-per-note grand. Hammer noise burst (short LPF noise with
     // ~5ms decay) provides the felt "thump" at attack.
-    // ── Karplus-Strong banded waveguide piano ──
-    // Each note instantiates 1-3 string voices (bass=1, mid=2, treble=3)
-    // with slightly detuned delay-line lengths. Each string is a short-
-    // circuited delay line:
-    //     tail  = read(delay_len) [fractional, with linear interp]
-    //     y_ap  = first-order all-pass(tail)        ← dispersion → inharmonicity
-    //     y_d   = one-pole LPF(y_ap)                ← damping (high-freq decay)
-    //     write(y_d * feedback)                     ← back into the delay
-    // Hammer impulse = short Hann-windowed band-limited noise written
-    // directly into the delay buffer at note-start. The partials emerge
-    // naturally from the delay-line's eigenfrequencies plus the all-pass
-    // dispersion — no per-partial sin oscillator, no separate hammer
-    // envelope. Refs: Bensa/Bilbao "Hammer-piano model with allpass
-    // dispersion" (2003); Karplus & Strong "Digital Synthesis of Plucked-
-    // String and Drum Timbres" (1983).
-#define KS_MAX_STRINGS 3
-#define KS_MAX_DELAY   8192     // fits A0 (27.5 Hz) at 192kHz with margin
-    float  ks_delay[KS_MAX_STRINGS][KS_MAX_DELAY];
-    double ks_delay_len[KS_MAX_STRINGS];      // fractional samples (ref only)
-    int    ks_delay_int[KS_MAX_STRINGS];      // ROUNDED ring length, used by run loop
-    int    ks_write_pos[KS_MAX_STRINGS];      // 0..ks_delay_int[s]-1
-    double ks_feedback[KS_MAX_STRINGS];       // T60-derived loop gain
-    double ks_allpass_a[KS_MAX_STRINGS];      // dispersion 0..0.75
-    double ks_allpass_state[KS_MAX_STRINGS];  // 1-sample all-pass memory
-    double ks_damper_state[KS_MAX_STRINGS];   // 1-sample LPF memory
-    double ks_damper_alpha[KS_MAX_STRINGS];   // LPF coefficient
-    double ks_string_amp[KS_MAX_STRINGS];     // per-string output volume
-    int    ks_num_strings;                    // 0 means non-piano voice
+    // ── Sample-bank piano (Salamander Grand V3, sfzinstruments fork) ──
+    // Each note plays back a real recorded piano sample, pitch-shifted
+    // to the requested frequency from the nearest anchor in the bank.
+    // The bank itself lives in audio.c (static piano_bank[]) and is
+    // loaded from /samples/piano/<midi>.raw at audio_init — voices just
+    // hold a pointer + read position. Linear-interpolated fractional
+    // read for sub-semitone tuning.
+    const float *piano_sample_data;     // borrowed pointer into piano_bank entry
+    int    piano_sample_len;            // total samples (mono float32)
+    double piano_sample_pos;            // fractional read position
+    double piano_sample_step;           // playback rate (target_f / anchor_f)
+    double piano_sample_amp;            // velocity-derived gain
 } ACVoice;
 
 typedef struct {
