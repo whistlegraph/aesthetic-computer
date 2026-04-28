@@ -954,13 +954,28 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     }
     if (system?.fetchBinaryDone) {
       if (system?.fetchBinaryOk) {
+        // Post-download size verify — catches truncated downloads before we
+        // hand them to the flash writer. If the on-disk size is short, the
+        // C-side flash would still catch it via byte-count match, but
+        // failing here gives a clearer error and avoids touching the ESP.
+        const onDisk = system?.fileSizeBytes?.("/tmp/vmlinuz.new");
+        if (typeof onDisk === "number" && onDisk >= 0 && remoteSize > 0) {
+          const onDiskMB = (onDisk / 1048576).toFixed(2);
+          const expectedMB = (remoteSize / 1048576).toFixed(2);
+          if (onDisk !== remoteSize) {
+            addTelemetry(`kernel size MISMATCH: got ${onDiskMB}MB expected ${expectedMB}MB`);
+            setError(`kernel download truncated (${onDiskMB}MB vs ${expectedMB}MB)`, "downloading");
+            return;
+          }
+          addTelemetry(`kernel size verified: ${onDiskMB}MB matches`);
+        }
         addTelemetry("kernel downloaded, fetching initramfs...");
         state = "downloading-initramfs";
         progress = 0;
         initramfsDownloaded = false;
         // Initramfs size isn't in the .version file today; use a generous
         // default so the progress bar doesn't stall at 100% prematurely.
-        system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", 336_000_000);
+        system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", OS_INITRAMFS_EXPECTED);
       } else {
         setError("kernel download failed", "downloading");
       }
@@ -979,6 +994,26 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     }
     if (system?.fetchBinaryDone) {
       if (system?.fetchBinaryOk) {
+        // Post-download size sanity — initramfs has no published exact size
+        // today, so we only reject the obvious garbage ranges. A real value
+        // appears once upload-release.sh starts publishing an .initramfs.size
+        // sidecar; until then this catches "downloaded 0 bytes" / HTML error
+        // pages saved as the binary.
+        const onDisk = system?.fileSizeBytes?.("/tmp/initramfs.cpio.gz.new");
+        if (typeof onDisk === "number") {
+          const onDiskMB = (onDisk / 1048576).toFixed(2);
+          if (onDisk < 50 * 1048576) {
+            addTelemetry(`initramfs SHORT: only ${onDiskMB}MB on disk`);
+            setError(`initramfs download truncated (${onDiskMB}MB)`, "downloading-initramfs");
+            return;
+          }
+          if (onDisk > 600 * 1048576) {
+            addTelemetry(`initramfs OVERSIZE: ${onDiskMB}MB exceeds 600MB ceiling`);
+            setError(`initramfs oversized (${onDiskMB}MB)`, "downloading-initramfs");
+            return;
+          }
+          addTelemetry(`initramfs size: ${onDiskMB}MB (sanity-ok)`);
+        }
         initramfsDownloaded = true;
         addTelemetry("initramfs downloaded, starting flash...");
         state = "flashing";
@@ -991,7 +1026,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         initramfsRetried = true;
         addTelemetry("initramfs download failed — retrying once");
         progress = 0;
-        system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", 336_000_000);
+        system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", OS_INITRAMFS_EXPECTED);
       } else {
         setError("initramfs download failed (after retry)", "downloading-initramfs");
       }
