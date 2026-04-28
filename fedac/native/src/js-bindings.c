@@ -4592,6 +4592,8 @@ static void *flash_thread_fn(void *arg) {
     flash_trace("same_mount=%d same_as_mnt=%d did_mount=%d", same_mount, same_as_mnt, did_mount);
 
     // Pre-flight: validate source file exists and has reasonable size
+    long kernel_src_size = -1;
+    long initramfs_src_size = -1;
     {
         struct stat src_st;
         if (stat(rt->flash_src, &src_st) != 0 || src_st.st_size < 1048576) {
@@ -4599,6 +4601,8 @@ static void *flash_thread_fn(void *arg) {
                    rt->flash_src, (long)(src_st.st_size), errno);
             flash_trace("ABORT source invalid size=%ld errno=%d",
                         (long)(src_st.st_size), errno);
+            flash_tlog(rt, "ABORT kernel src invalid size=%ld",
+                       (long)(src_st.st_size));
             flash_trace_close_and_archive();
             if (did_mount) umount("/tmp/efi");
             rt->flash_phase = 4;
@@ -4607,8 +4611,76 @@ static void *flash_thread_fn(void *arg) {
             rt->flash_done = 1;
             return NULL;
         }
-        ac_log("[flash] source validated: %ld bytes", (long)src_st.st_size);
-        flash_trace("source validated size=%ld", (long)src_st.st_size);
+        kernel_src_size = (long)src_st.st_size;
+        ac_log("[flash] source validated: %ld bytes", kernel_src_size);
+        flash_trace("source validated size=%ld", kernel_src_size);
+    }
+    if (rt->flash_initramfs_src[0]) {
+        struct stat ir_st;
+        if (stat(rt->flash_initramfs_src, &ir_st) != 0 || ir_st.st_size < 1048576) {
+            ac_log("[flash] ABORT: initramfs source %s invalid (size=%ld errno=%d)",
+                   rt->flash_initramfs_src, (long)(ir_st.st_size), errno);
+            flash_tlog(rt, "ABORT initramfs src invalid size=%ld",
+                       (long)(ir_st.st_size));
+            flash_trace_close_and_archive();
+            if (did_mount) umount("/tmp/efi");
+            rt->flash_phase = 4;
+            rt->flash_ok = 0;
+            rt->flash_pending = 0;
+            rt->flash_done = 1;
+            return NULL;
+        }
+        initramfs_src_size = (long)ir_st.st_size;
+        ac_log("[flash] initramfs source validated: %ld bytes", initramfs_src_size);
+        flash_trace("initramfs source validated size=%ld", initramfs_src_size);
+    }
+
+    // Pre-flight: total-space check. Compute the worst-case footprint of the
+    // operation (kernel + initramfs + 4 MB margin) and abort BEFORE we start
+    // touching the partition. Without this, the kernel write (which uses
+    // rename-old→.prev double-occupancy) can succeed but leave too little
+    // room for the initramfs write, leading to a kernel/initramfs mismatch
+    // that boots black-screen or panics. Existing initramfs counts as
+    // recoverable space because its write path unlinks before writing.
+    {
+        struct statvfs vfs;
+        if (statvfs(efi_mount, &vfs) == 0) {
+            long free_now = (long)vfs.f_bavail * (long)vfs.f_bsize;
+            char ir_dst[512];
+            ir_dst[0] = '\0';
+            long ir_existing = 0;
+            if (rt->flash_initramfs_src[0]) {
+                snprintf(ir_dst, sizeof(ir_dst), "%s/initramfs.cpio.gz", efi_mount);
+                struct stat ir_dst_st;
+                if (stat(ir_dst, &ir_dst_st) == 0)
+                    ir_existing = (long)ir_dst_st.st_size;
+            }
+            // Effective free = free + (initramfs unlink before write)
+            long effective_free = free_now + ir_existing;
+            // Need = kernel-with-backup + initramfs (no backup) + 4 MB margin
+            long need = kernel_src_size + 4 * 1048576;
+            if (initramfs_src_size > 0) need += initramfs_src_size;
+            ac_log("[flash] preflight: free=%ldMB existing_initramfs=%ldMB effective=%ldMB need=%ldMB",
+                   free_now / 1048576, ir_existing / 1048576,
+                   effective_free / 1048576, need / 1048576);
+            flash_tlog(rt, "preflight free=%ldMB need=%ldMB",
+                       effective_free / 1048576, need / 1048576);
+            if (effective_free < need) {
+                ac_log("[flash] ABORT preflight: insufficient ESP space (free %ldMB < need %ldMB)",
+                       effective_free / 1048576, need / 1048576);
+                flash_tlog(rt, "ABORT preflight insufficient space");
+                flash_trace_close_and_archive();
+                if (did_mount) umount("/tmp/efi");
+                rt->flash_phase = 4;
+                rt->flash_ok = 0;
+                rt->flash_pending = 0;
+                rt->flash_done = 1;
+                return NULL;
+            }
+        } else {
+            ac_log("[flash] preflight: statvfs failed errno=%d — proceeding anyway", errno);
+            flash_tlog(rt, "preflight statvfs FAILED errno=%d", errno);
+        }
     }
 
     // Phase 1: Backup previous kernel, then write new one
@@ -4633,6 +4705,33 @@ static void *flash_thread_fn(void *arg) {
     flash_tlog(rt, "writing %s -> %s", rt->flash_src, dst);
     long copied = flash_copy_file(rt->flash_src, dst);
     flash_tlog(rt, "wrote %ld bytes", copied);
+
+    // Kernel size-match verification — mirror the initramfs check so a short
+    // write can never be silently treated as success. If the write was short,
+    // restore the .prev backup so the device can still boot the previous
+    // kernel + (still-intact) initramfs combination.
+    if (copied <= 0 || (kernel_src_size > 0 && copied != kernel_src_size)) {
+        ac_log("[flash] kernel copy SHORT/FAILED (wrote=%ld src=%ld) — restoring .prev",
+               copied, kernel_src_size);
+        flash_tlog(rt, "kernel write SHORT wrote=%ld src=%ld",
+                   copied, kernel_src_size);
+        unlink(dst);
+        char prev_restore[512];
+        snprintf(prev_restore, sizeof(prev_restore), "%s.prev", dst);
+        if (access(prev_restore, F_OK) == 0) {
+            if (rename(prev_restore, dst) == 0) {
+                ac_log("[flash] restored previous kernel from %s", prev_restore);
+                flash_tlog(rt, "restored kernel from .prev");
+            }
+        }
+        flash_trace_close_and_archive();
+        if (did_mount) umount("/tmp/efi");
+        rt->flash_phase = 4;
+        rt->flash_ok = 0;
+        rt->flash_pending = 0;
+        rt->flash_done = 1;
+        return NULL;
+    }
 
     // Also update Microsoft Boot Manager path (ThinkPad BIOS often boots this first)
     // Check available space first — don't write second copy if it won't fit.
@@ -4704,9 +4803,7 @@ static void *flash_thread_fn(void *arg) {
         // verify byte count matches source. If write was short, abort
         // hard so the OS reports failure instead of silently shipping
         // a corrupt boot.
-        struct stat src_st;
-        long src_size = -1;
-        if (stat(rt->flash_initramfs_src, &src_st) == 0) src_size = (long)src_st.st_size;
+        long src_size = initramfs_src_size; // already stat'd in preflight
         // Free space + size of file we're about to delete = effective free.
         struct stat dst_st;
         long dst_existing = (stat(initramfs_dst, &dst_st) == 0) ? (long)dst_st.st_size : 0;
@@ -5252,6 +5349,39 @@ static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, 
         current_rt->flash_done = 1;
     }
     return JS_UNDEFINED;
+}
+
+// system.diskFreeBytes(path) — returns available bytes on the filesystem
+// holding `path`, or -1 on stat failure. Used by os.mjs preflight to refuse
+// an OTA install when the ESP would not fit kernel + initramfs without
+// hitting ENOSPC mid-write (the failure mode that historically silently
+// truncated the on-disk initramfs and panicked on next boot).
+static JSValue js_disk_free_bytes(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_NewInt64(ctx, -1);
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NewInt64(ctx, -1);
+    struct statvfs vfs;
+    int rc = statvfs(path, &vfs);
+    JS_FreeCString(ctx, path);
+    if (rc != 0) return JS_NewInt64(ctx, -1);
+    return JS_NewInt64(ctx, (int64_t)vfs.f_bavail * (int64_t)vfs.f_bsize);
+}
+
+// system.fileSizeBytes(path) — returns size of file at `path`, or -1 if it
+// doesn't exist / cannot be stat'd. Used by os.mjs to verify a downloaded
+// kernel/initramfs matches the size declared in the .version file before
+// handing it to flashUpdate (catches truncated downloads).
+static JSValue js_file_size_bytes(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_NewInt64(ctx, -1);
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NewInt64(ctx, -1);
+    struct stat st;
+    int rc = stat(path, &st);
+    JS_FreeCString(ctx, path);
+    if (rc != 0) return JS_NewInt64(ctx, -1);
+    return JS_NewInt64(ctx, (int64_t)st.st_size);
 }
 
 // system.reboot() — triggers system reboot (direct syscall, no external binary needed)
@@ -6990,6 +7120,13 @@ static JSValue build_system_obj(JSContext *ctx) {
                       JS_NewCFunction(ctx, js_flash_update, "flashUpdate", 1));
     JS_SetPropertyStr(ctx, sys, "reboot",
                       JS_NewCFunction(ctx, js_reboot, "reboot", 0));
+    // Filesystem inspection — used by os.mjs OTA preflight + post-download
+    // size verification so a hopeless install can be aborted before it
+    // touches the ESP, and a truncated download is caught before flash.
+    JS_SetPropertyStr(ctx, sys, "diskFreeBytes",
+                      JS_NewCFunction(ctx, js_disk_free_bytes, "diskFreeBytes", 1));
+    JS_SetPropertyStr(ctx, sys, "fileSizeBytes",
+                      JS_NewCFunction(ctx, js_file_size_bytes, "fileSizeBytes", 1));
     if (current_rt) {
         JS_SetPropertyStr(ctx, sys, "flashDone",
                           JS_NewBool(ctx, current_rt->flash_done));
