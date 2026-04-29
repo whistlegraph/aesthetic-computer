@@ -101,6 +101,7 @@ final class MenuBandSynth {
             NSLog("MenuBand synth engine start failed: \(error)")
             return
         }
+        NSLog("MenuBand: synth engine started — bank load status=\(bankStatus), MIDISynth ready")
 
         configureChannels()
         primeForLowLatency()

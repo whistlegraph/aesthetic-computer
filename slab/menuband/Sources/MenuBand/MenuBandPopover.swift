@@ -102,8 +102,8 @@ final class MenuBandPopoverViewController: NSViewController {
             equalToConstant: InstrumentListView.preferredWidth + 16
         ).isActive = true
 
-        // Top control row: octave + MIDI hugging the right. Brand title
-        // moved into the About section below — fewer wasted rows up top.
+        // Top control row: octave hugs the left, MIDI hugs the right. Brand
+        // title moved into the About section below — fewer wasted rows up top.
         let titleRow = NSStackView()
         titleRow.orientation = .horizontal
         titleRow.alignment = .centerY
@@ -112,13 +112,15 @@ final class MenuBandPopoverViewController: NSViewController {
 
         let titleSpacer = NSView()
         titleSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        titleRow.addArrangedSubview(titleSpacer)
+        // Spacer is added BETWEEN the octave trio and the MIDI pair below
+        // so the octave widget pins to the row's leading edge and MIDI
+        // floats to the trailing edge — no longer center-clustered.
 
         // Compact octave: large monospaced number, then a tight pair of
         // chevron arrows to its right. NSStepper kept invisibly as the
         // value model so the rest of the controller's API doesn't change;
         // the visible buttons just nudge its `integerValue`.
-        octaveLabel = NSTextField(labelWithString: "+0")
+        octaveLabel = NSTextField(labelWithString: "4")
         // Fully monospaced so "+", "-", and digits all carry the same
         // advance — value flips don't slide left or right between the
         // arrows. No fixed width — intrinsic content width hugs the text
@@ -162,27 +164,38 @@ final class MenuBandPopoverViewController: NSViewController {
         rightArrow.target = self
         rightArrow.action = #selector(octaveUp)
 
-        // Arrows flank the number — left arrow, then big number, then
-        // right arrow. Tight 4 px gap on each side so the trio reads as
-        // a single widget instead of three separate buttons.
+        // Octave trio first — left arrow, big number, right arrow — pinned
+        // to the row's leading edge with a tight 4 px gap on each side so
+        // the trio reads as a single widget instead of three buttons. A tiny
+        // "octave" hint label sits to the right of the rightArrow so the
+        // number reads as scientific pitch notation (C4, C5, …) without
+        // taking much room.
+        let octaveHint = NSTextField(labelWithString: "octave")
+        octaveHint.font = NSFont.systemFont(ofSize: 9, weight: .regular)
+        octaveHint.textColor = .tertiaryLabelColor
+
         titleRow.addArrangedSubview(leftArrow)
         titleRow.setCustomSpacing(4, after: leftArrow)
         titleRow.addArrangedSubview(octaveLabel)
         titleRow.setCustomSpacing(4, after: octaveLabel)
         titleRow.addArrangedSubview(rightArrow)
         titleRow.addArrangedSubview(octaveStepper)  // hidden, here for layout-time only
+        titleRow.setCustomSpacing(3, after: rightArrow)
+        titleRow.addArrangedSubview(octaveHint)
+
+        // Spacer lives in the middle so the octave widget pins LEFT and
+        // the MIDI pair pins RIGHT.
+        titleRow.addArrangedSubview(titleSpacer)
 
         // MIDI toggle — tucked into the title row instead of its own panel.
-        // Tiny label + switch, no spacer between (sits flush right of the
-        // octave arrows so the row stays compact).
         midiSwitch = NSSwitch()
         midiSwitch.target = self
         midiSwitch.action = #selector(midiSwitchToggled(_:))
         midiInlineLabel = NSTextField(labelWithString: "MIDI")
         midiInlineLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         midiInlineLabel.textColor = .secondaryLabelColor
-        titleRow.setCustomSpacing(12, after: rightArrow)
         titleRow.addArrangedSubview(midiInlineLabel)
+        titleRow.setCustomSpacing(4, after: midiInlineLabel)
         titleRow.addArrangedSubview(midiSwitch)
 
         stack.addArrangedSubview(titleRow)
@@ -630,11 +643,11 @@ final class MenuBandPopoverViewController: NSViewController {
     }
 
     private func updateOctaveLabel(_ shift: Int) {
-        let s: String
-        if shift == 0 { s = "0" }
-        else if shift > 0 { s = "+\(shift)" }
-        else { s = "\(shift)" }
-        octaveLabel.stringValue = s
+        // Piano starts at C4 (MIDI 60), so an octave shift of 0 shows "4".
+        // Show the absolute octave number — easier to read than ±N for users
+        // who think in scientific pitch notation.
+        let octave = 4 + shift
+        octaveLabel.stringValue = "\(octave)"
     }
 
     // MARK: - Actions
