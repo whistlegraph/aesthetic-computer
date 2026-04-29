@@ -74,7 +74,15 @@
             file_server
         }
 
-        try_files {path} {path}.html {path}/index.html {path}index.html
+        # NOTE: {path} is intentionally absent from the top-level try_files.
+        # Caddy's try_files matches directories as well as files, so including
+        # {path} would silently match a request for /platter (the directory),
+        # short-circuit before {path}/index.html, then file_server would serve
+        # the wrong content rather than canonicalizing to /platter/. Without
+        # {path} here, file_server handles existing regular files itself and
+        # issues a 301 redirect for directory-without-slash to the canonical
+        # /<dir>/ form. (See: 2026-04-29 platter URL move.)
+        try_files {path}.html {path}/index.html {path}index.html
         file_server
     }
 
