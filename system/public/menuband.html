@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Band — Built-in macOS instruments, in the menu bar.</title>
+<meta name="description" content="Menu Band brings the built-in macOS instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI. Free + open source.">
+<meta property="og:title" content="Menu Band">
+<meta property="og:description" content="Built-in macOS instruments, in the menu bar.">
+<meta property="og:image" content="/menuband/icon.png">
+<meta name="theme-color" content="#3d7fd6">
+<link rel="icon" href="/menuband/icon.png">
+<link rel="apple-touch-icon" href="/menuband/icon.png">
+<style>
+  /* ────────────────────────────────────────────────────────────────────────
+     Classic Mac OS X (Tiger / Leopard) indie-app palette + chrome.
+     Hand-styled: pinstripe panels, Aqua jellybean buttons, fake window
+     titlebar with traffic lights, dock-style icon reflection.
+     ──────────────────────────────────────────────────────────────────────── */
+
+  :root {
+    --aqua-sky-top:    #dfe9f2;
+    --aqua-sky-bot:    #b9cfe6;
+    --aqua-blue:       #3d7fd6;
+    --aqua-blue-hi:    #7eaee8;
+    --aqua-blue-edge:  #1f5aa8;
+    --aqua-blue-tint:  #a8c8f0;
+    --panel-bg:        #ededed;
+    --panel-stripe:    #e5e5e5;
+    --panel-edge:      #c4ccd4;
+    --titlebar-top:    #e8e8e8;
+    --titlebar-bot:    #c8c8c8;
+    --ink-body:        #2b2b2b;
+    --ink-head:        #1a1a1a;
+    --ink-soft:        #5a5f66;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--ink-body);
+    font-family: "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background:
+      linear-gradient(
+        to bottom,
+        var(--aqua-sky-top) 0%,
+        var(--aqua-sky-bot) 100%
+      ) fixed;
+    background-attachment: fixed;
+    min-height: 100vh;
+    padding: 36px 16px 64px;
+  }
+
+  .window {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 8px 8px 6px 6px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.5) inset,
+      0 10px 40px rgba(40, 60, 90, 0.18),
+      0 1px 3px rgba(0, 0, 0, 0.12);
+    border: 1px solid var(--panel-edge);
+    overflow: hidden;
+  }
+
+  /* Tiger-era titlebar with traffic lights. Pure cosmetic — non-interactive. */
+  .titlebar {
+    height: 22px;
+    background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
+    border-bottom: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+    display: flex;
+    align-items: center;
+    padding: 0 9px;
+    position: relative;
+    user-select: none;
+  }
+  .lights {
+    display: flex;
+    gap: 7px;
+  }
+  .light {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.55) inset,
+      0 0 0 0.5px rgba(0, 0, 0, 0.25);
+  }
+  .light.r { background: radial-gradient(circle at 35% 35%, #ff8a85, #ff5f57); }
+  .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
+  .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
+  .titlebar h1 {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: #4a4a4a;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.02em;
+  }
+
+  /* Pinstripe section — alternating 1px lines, very subtle. */
+  .pinstripe {
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        var(--panel-bg) 0,
+        var(--panel-bg) 1px,
+        var(--panel-stripe) 1px,
+        var(--panel-stripe) 2px
+      );
+  }
+
+  /* ── Hero ─────────────────────────────────────────────────────────────── */
+
+  .hero {
+    padding: 40px 32px 28px;
+    text-align: center;
+  }
+
+  .icon-stage {
+    position: relative;
+    width: 256px;
+    height: 320px;        /* extra room for the dock reflection */
+    margin: 0 auto 8px;
+  }
+  .icon-stage img.app-icon {
+    width: 256px;
+    height: 256px;
+    display: block;
+    image-rendering: -webkit-optimize-contrast;
+  }
+  /* Classic Leopard dock reflection — vertically mirrored copy fading out. */
+  .icon-stage img.reflection {
+    position: absolute;
+    top: 256px;
+    left: 0;
+    width: 256px;
+    height: 64px;
+    transform: scaleY(-1);
+    object-fit: cover;
+    object-position: top;
+    opacity: 0.35;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0));
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0));
+    pointer-events: none;
+  }
+
+  h2.app-title {
+    margin: 0 0 6px;
+    font-size: 36px;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    color: var(--ink-head);
+  }
+  p.tagline {
+    margin: 0 auto 20px;
+    max-width: 440px;
+    font-size: 15px;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  /* ── Aqua jellybean buttons ───────────────────────────────────────────── */
+
+  .button-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .aqua {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    padding: 10px 22px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    color: #fff;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.28);
+    background: linear-gradient(to bottom, var(--aqua-blue-hi) 0%, var(--aqua-blue) 100%);
+    border: 1px solid var(--aqua-blue-edge);
+    border-radius: 999px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.55) inset,
+      0 2px 4px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    transition: filter 120ms ease, transform 120ms ease;
+    overflow: hidden;
+  }
+  .aqua::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+    border-radius: 999px 999px 0 0;
+    pointer-events: none;
+  }
+  .aqua:hover { filter: brightness(1.08); }
+  .aqua:active { transform: translateY(1px); filter: brightness(0.95); }
+  .aqua small {
+    opacity: 0.78;
+    font-size: 11px;
+    font-weight: 400;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  /* Secondary (white gel) — for the source-link companion. */
+  .aqua.alt {
+    color: #1a1a1a;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    background: linear-gradient(to bottom, #ffffff 0%, #d8dde3 100%);
+    border-color: #a8b0b8;
+  }
+  .aqua.alt::after {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+  }
+
+  /* ── Body sections ────────────────────────────────────────────────────── */
+
+  .divider {
+    height: 14px;
+  }
+
+  section.panel {
+    padding: 22px 32px;
+    border-top: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  }
+  section.panel:first-of-type { border-top: 0; }
+
+  section.panel h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-head);
+    letter-spacing: 0.01em;
+  }
+  section.panel p { margin: 0 0 10px; color: var(--ink-body); }
+  section.panel p:last-child { margin-bottom: 0; }
+
+  ul.modes {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+  }
+  ul.modes li {
+    padding: 6px 0;
+    border-top: 1px solid var(--panel-stripe);
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+  }
+  ul.modes li:first-child { border-top: 0; }
+  ul.modes b {
+    font-weight: 500;
+    color: var(--ink-head);
+    flex: 0 0 80px;
+  }
+  ul.modes span { color: var(--ink-body); }
+
+  /* "What's new" badge — tiny, embossed, Adium-press-quote vibe. */
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    margin-left: 6px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #fff;
+    background: linear-gradient(to bottom, #f08a5d, #d96a3a);
+    border: 1px solid #a4502a;
+    border-radius: 999px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
+    vertical-align: middle;
+  }
+
+  code {
+    font-family: "SF Mono", Monaco, "Courier New", monospace;
+    font-size: 12.5px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  a { color: var(--aqua-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  footer {
+    margin: 18px auto 0;
+    max-width: 720px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  footer a { color: var(--ink-soft); }
+  footer a:hover { color: var(--aqua-blue); }
+
+  /* Narrow viewports — tighten paddings, smaller hero. */
+  @media (max-width: 520px) {
+    body { padding: 16px 8px 48px; }
+    .hero { padding: 28px 18px 22px; }
+    .icon-stage { width: 192px; height: 240px; }
+    .icon-stage img.app-icon { width: 192px; height: 192px; }
+    .icon-stage img.reflection { top: 192px; width: 192px; height: 48px; }
+    h2.app-title { font-size: 28px; }
+    section.panel { padding: 18px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<article class="window" aria-label="Menu Band">
+  <header class="titlebar" aria-hidden="true">
+    <div class="lights">
+      <div class="light r"></div>
+      <div class="light y"></div>
+      <div class="light g"></div>
+    </div>
+    <h1>Menu Band</h1>
+  </header>
+
+  <div class="hero">
+    <div class="icon-stage">
+      <img class="app-icon" src="/menuband/icon.png" alt="Menu Band app icon">
+      <img class="reflection" src="/menuband/icon.png" alt="" aria-hidden="true">
+    </div>
+    <h2 class="app-title">Menu Band</h2>
+    <p class="tagline">Built-in macOS instruments, in the menu bar.</p>
+
+    <div class="button-row">
+      <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.0.dmg" download>
+        Download
+        <small>1.0 · Apple Silicon · 1.1 MB</small>
+      </a>
+      <a class="aqua alt" href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">
+        View source
+      </a>
+    </div>
+  </div>
+
+  <div class="pinstripe divider"></div>
+
+  <section class="panel">
+    <h3>What it does</h3>
+    <p>A tiny piano sits at the right of your menu bar. Click any key to play. Type letters to play. Send notes to your DAW over MIDI.</p>
+    <p>Menu Band publishes a virtual MIDI source named <code>Menu Band</code> — pick it as an input in any DAW and the keys you tap (or letters you type) play through your DAW's instruments. A built‑in General MIDI synth covers hundreds of patches when no DAW is running.</p>
+  </section>
+
+  <section class="panel">
+    <h3>Three input modes</h3>
+    <ul class="modes">
+      <li><b>Pointer</b><span>Mouse only. Two octaves of QWERTY-mapped piano keys. <em>Default.</em></span></li>
+      <li><b>Notepat</b><span>Global keystroke capture, two-octave layout (<code>z x c v d s e f w g r a q b h t i y j k u l o m p n</code>).</span></li>
+      <li><b>Ableton</b><span>Global keystroke capture, Ableton Live's M-mode QWERTY (one octave: <code>a w s e d f t g y h u j k o l p ;</code>).</span></li>
+    </ul>
+    <p style="margin-top:10px;">Hover any segment in the popover to <em>preview</em> it in the menubar piano — letter labels appear, key range adjusts, and tapping keys plays through that mode without committing.</p>
+  </section>
+
+  <section class="panel">
+    <h3>What's new <span class="badge">1.0</span></h3>
+    <p>First release. Three-state input picker (Pointer / Notepat / Ableton) with hover-preview, MIDI loopback self-test, virtual MIDI source for any DAW, instrument picker covering all 128 General MIDI patches.</p>
+  </section>
+
+  <section class="panel">
+    <h3>Requirements</h3>
+    <p>macOS 11 (Big Sur) or later · Apple Silicon · ⌃⌥⌘P toggles the last typing mode · Accessibility permission requested only when you turn on Notepat or Ableton.</p>
+  </section>
+
+  <section class="panel">
+    <h3>About</h3>
+    <p>Menu Band is a political project: accessible music-making is as essential as time, network connectivity, and battery life. Free and open source. By <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+  </section>
+</article>
+
+<footer>
+  © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 ·
+  <a href="https://notepat.com">notepat.com</a> ·
+  <a href="/menuband/privacy">privacy</a>
+</footer>
+
+</body>
+</html>

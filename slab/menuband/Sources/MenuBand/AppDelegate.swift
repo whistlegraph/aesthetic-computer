@@ -66,11 +66,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateIcon() {
         guard let button = statusItem.button else { return }
+        // Use *effective* keymap/typeMode so popover hover-preview can
+        // override the live state without writing to UserDefaults. The
+        // renderer keeps `imageSize` constant across keymaps (always the
+        // 2-octave Notepat layout area) — Ableton is drawn with negative
+        // space on the right — so the status item slot never resizes and
+        // the popover anchor stays put.
+        KeyboardIconRenderer.activeKeymap = menuBand.effectiveKeymap
         statusItem.length = KeyboardIconRenderer.imageSize.width
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
             enabled: menuBand.midiMode,
-            typeMode: menuBand.typeMode,
+            typeMode: menuBand.effectiveTypeMode,
             melodicProgram: menuBand.melodicProgram,
             hovered: hoveredElement
         )

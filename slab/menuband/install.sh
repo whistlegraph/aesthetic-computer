@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# install.sh — build, sign, and install MenuBand.app.
+# install.sh — build, sign, and install Menu Band.app.
 #
 # Steps:
 #   1. swift build -c release
-#   2. Wrap binary in a proper .app bundle at ~/Applications/MenuBand.app
+#   2. Wrap binary in a proper .app bundle at ~/Applications/Menu Band.app
 #   3. Sign with stable identity (Apple Developer ID if available, else
 #      self-signed; configurable via SIGN_IDENTITY env)
-#   4. Install + load LaunchAgent so MenuBand auto-starts at login
+#   4. Install + load LaunchAgent so Menu Band auto-starts at login
 #
 # Idempotent. Safe to re-run after edits.
 
@@ -24,7 +24,7 @@ LAUNCH_AGENTS="${REPO_HOME}/Library/LaunchAgents"
 PLIST_PATH="${LAUNCH_AGENTS}/computer.aestheticcomputer.menuband.plist"
 PLIST_TMPL="${SCRIPT_DIR}/computer.aestheticcomputer.menuband.plist.tmpl"
 INFO_PLIST="${SCRIPT_DIR}/Info.plist"
-APP_DIR="${REPO_HOME}/Applications/MenuBand.app"
+APP_DIR="${REPO_HOME}/Applications/Menu Band.app"
 APP_BIN_DIR="${APP_DIR}/Contents/MacOS"
 APP_BIN="${APP_BIN_DIR}/MenuBand"
 APP_RES="${APP_DIR}/Contents/Resources"
@@ -137,8 +137,16 @@ if [[ -z "${SIGN_ID}" ]]; then
     SIGN_ID="${SELF_SIGN_CN}"
 fi
 say "signing with: ${SIGN_ID}"
+# --options runtime + --entitlements + --timestamp are all required for
+# Apple's notary service to accept the bundle. Without them notarytool
+# rejects with "The signature does not include a secure timestamp" or
+# "The executable does not have the hardened runtime enabled."
+ENTITLEMENTS="${SCRIPT_DIR}/MenuBand.entitlements"
 codesign --force --deep --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menuband \
+    --options runtime \
+    --entitlements "${ENTITLEMENTS}" \
+    --timestamp \
     "${APP_DIR}" >/dev/null 2>&1 || warn "codesign failed"
 ok "signed"
 

@@ -93,11 +93,25 @@ enum MenuBandLayout {
 final class MenuBandMIDI {
     private var client: MIDIClientRef = 0
     private var source: MIDIEndpointRef = 0
+    // `started` = virtual port is published (lifetime bit; once true, stays
+    // true until process exit). `enabled` = outbound sends allowed (the
+    // toggle). Splitting these is what makes the MIDI on/off toggle safe:
+    // disposing the virtual source at runtime while a DAW holds a connection
+    // historically hung the main thread inside MIDIEndpointDispose /
+    // MIDIClientDispose (see /tmp/menuband-debug.log — process died right
+    // after "disableMIDIMode: calling midi.stop()"). Keeping the port alive
+    // for the app's lifetime sidesteps that path entirely; the OS reclaims
+    // it on process exit.
     private var started = false
+    private var enabled = false
     private var loopbackPort: MIDIPortRef = 0
     private var loopbackHandler: ((UInt8, UInt8) -> Void)?
 
-    deinit { stop() }
+    deinit {
+        // Don't dispose CoreMIDI here — see the `started`/`enabled` comment.
+        // Best we can do is flush any held notes so DAWs don't get stuck.
+        if enabled { sendAllNotesOff() }
+    }
 
     /// Subscribe to our own virtual source from the same process. The
     /// callback fires for each noteOn (status 0x9X) — used by the
@@ -149,52 +163,45 @@ final class MenuBandMIDI {
         loopbackHandler = nil
     }
 
+    /// Idempotent: publishes the virtual source on first call, then enables
+    /// outbound sends. Subsequent calls just re-enable. Pairs with `stop()`,
+    /// which only flips `enabled` — the port stays published for the app's
+    /// lifetime.
     func start() {
-        guard !started else { return }
-        let clientName = "MenuBand" as CFString
-        let status = MIDIClientCreate(clientName, nil, nil, &client)
-        guard status == noErr else {
-            NSLog("MenuBand MIDIClientCreate failed: \(status)")
-            return
+        if !started {
+            let clientName = "Menu Band" as CFString
+            let status = MIDIClientCreate(clientName, nil, nil, &client)
+            guard status == noErr else {
+                NSLog("MenuBand MIDIClientCreate failed: \(status)")
+                return
+            }
+            let sourceName = "Menu Band" as CFString
+            let srcStatus = MIDISourceCreate(client, sourceName, &source)
+            guard srcStatus == noErr else {
+                NSLog("MenuBand MIDISourceCreate failed: \(srcStatus)")
+                MIDIClientDispose(client)
+                client = 0
+                return
+            }
+            started = true
+            debugLog("midi.start: virtual source published")
         }
-        let sourceName = "MenuBand" as CFString
-        let srcStatus = MIDISourceCreate(client, sourceName, &source)
-        guard srcStatus == noErr else {
-            NSLog("MenuBand MIDISourceCreate failed: \(srcStatus)")
-            MIDIClientDispose(client)
-            client = 0
-            return
-        }
-        started = true
+        enabled = true
+        debugLog("midi.start: enabled")
     }
 
+    /// Disable outbound sends and flush stuck notes. Does NOT dispose the
+    /// virtual source — runtime CoreMIDI teardown is the bug we're avoiding.
     func stop() {
-        // Best-effort: send all-notes-off so Ableton doesn't hang on stuck notes.
-        if started {
-            sendAllNotesOff()
-            // Disconnect the loopback port BEFORE disposing the source/client.
-            // Skipping this leaves a dangling port ref that crashes the next
-            // call into stopLoopback (e.g. from the in-flight self-test
-            // timeout that fires after the user toggles MIDI off).
-            if loopbackPort != 0 && source != 0 {
-                MIDIPortDisconnectSource(loopbackPort, source)
-            }
-            if source != 0 { MIDIEndpointDispose(source) }
-            if client != 0 { MIDIClientDispose(client) }
-            source = 0
-            client = 0
-            // Ports are owned by the client and freed when the client is
-            // disposed — but we must zero our cached handle so the next
-            // startLoopback recreates instead of reusing a dead reference.
-            loopbackPort = 0
-            loopbackHandler = nil
-            started = false
-        }
+        guard started else { return }
+        sendAllNotesOff()
+        enabled = false
+        debugLog("midi.stop: disabled (port stays published)")
     }
 
     func noteOn(_ note: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
-        guard started else {
-            debugLog("midi.noteOn dropped (started=false) note=\(note)")
+        guard enabled else {
+            debugLog("midi.noteOn dropped (enabled=false) note=\(note)")
             return
         }
         debugLog("midi.noteOn note=\(note) ch=\(channel)")
@@ -202,16 +209,19 @@ final class MenuBandMIDI {
     }
 
     func noteOff(_ note: UInt8, channel: UInt8 = 0) {
-        guard started else { return }
+        guard enabled else { return }
         send([0x80 | (channel & 0x0F), note & 0x7F, 0])
     }
 
     /// Send a Control Change message. CC 10 = pan (0=left, 64=center, 127=right).
     func sendCC(_ cc: UInt8, value: UInt8, channel: UInt8 = 0) {
-        guard started else { return }
+        guard enabled else { return }
         send([0xB0 | (channel & 0x0F), cc & 0x7F, value & 0x7F])
     }
 
+    /// Emergency flush — gated on the published port (`started`), not the
+    /// toggle (`enabled`), so `stop()` can call it after flipping `enabled`
+    /// off and still get the CC#123 out.
     func sendAllNotesOff(channel: UInt8 = 0) {
         guard started else { return }
         // CC 123 = All Notes Off

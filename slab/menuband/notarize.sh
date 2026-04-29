@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# notarize.sh — submit MenuBand.app to Apple's notary service and staple
+# notarize.sh — submit Menu Band.app to Apple's notary service and staple
 # the ticket to the bundle so Gatekeeper accepts it offline.
 #
 # Prerequisites:
@@ -19,7 +19,7 @@
 #   3. Xcode CLT installed (provides notarytool + stapler).
 #
 # Usage:
-#   ./notarize.sh                  # uses ~/Applications/MenuBand.app
+#   ./notarize.sh                  # uses ~/Applications/Menu Band.app
 #   ./notarize.sh path/to/MyApp.app
 
 set -euo pipefail
@@ -32,26 +32,41 @@ say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
 err() { printf "%s✗ %s%s\n" "$RED" "$1" "$RESET"; }
 
-APP="${1:-${HOME}/Applications/MenuBand.app}"
+APP="${1:-${HOME}/Applications/Menu Band.app}"
 if [[ ! -d "${APP}" ]]; then
     err "app bundle not found at ${APP}"
     exit 1
 fi
 
 : "${APPLE_ID:?APPLE_ID env var is required}"
-: "${APPLE_TEAM_ID:?APPLE_TEAM_ID env var is required}"
-: "${APPLE_APP_PASSWORD:?APPLE_APP_PASSWORD env var is required}"
+
+# Vault uses APP_SPECIFIC_PASSWORD (Apple's own terminology); accept either.
+: "${APPLE_APP_PASSWORD:=${APP_SPECIFIC_PASSWORD:-}}"
+: "${APPLE_APP_PASSWORD:?APPLE_APP_PASSWORD (or APP_SPECIFIC_PASSWORD) env var is required}"
+
+# Auto-discover team ID from the Developer ID cert in the keychain so the
+# vault file doesn't have to carry it. Override by exporting APPLE_TEAM_ID.
+if [[ -z "${APPLE_TEAM_ID:-}" ]]; then
+    APPLE_TEAM_ID="$(security find-identity -v -p codesigning 2>/dev/null \
+        | sed -nE 's/.*Developer ID Application: [^(]+\(([A-Z0-9]+)\).*/\1/p' \
+        | head -1)"
+fi
+: "${APPLE_TEAM_ID:?APPLE_TEAM_ID env var is required (or install a Developer ID cert)}"
 
 WORK="$(mktemp -d)"
 trap "rm -rf ${WORK}" EXIT
 ZIP="${WORK}/MenuBand.zip"
 
 say "verifying signature + hardened runtime"
-if ! codesign -dv --verbose=2 "${APP}" 2>&1 | grep -q "flags=.*runtime"; then
+# Capture once instead of `codesign | grep -q`: under `set -o pipefail`,
+# grep -q's early exit SIGPIPEs codesign, which propagates as a failed
+# pipeline even though the pattern matched. Buffering sidesteps the race.
+SIG_OUTPUT="$(codesign -dv --verbose=2 "${APP}" 2>&1)"
+if ! echo "${SIG_OUTPUT}" | grep -q "flags=.*runtime"; then
     err "bundle is not signed with hardened runtime — re-run install.sh with a Developer ID first"
     exit 1
 fi
-codesign -dv --verbose=2 "${APP}" 2>&1 | head -10
+echo "${SIG_OUTPUT}" | head -10
 
 say "zipping bundle for upload"
 ditto -c -k --keepParent "${APP}" "${ZIP}"

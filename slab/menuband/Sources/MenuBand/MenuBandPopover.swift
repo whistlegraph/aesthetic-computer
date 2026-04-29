@@ -1,18 +1,70 @@
 import AppKit
 
+/// NSSegmentedControl subclass that reports the currently-hovered segment
+/// (or nil when the cursor leaves). Used by the input-mode picker so
+/// hovering a segment can preview that mode in the menubar piano without
+/// committing the click. Equal-width segments are assumed.
+final class HoverSegmentedControl: NSSegmentedControl {
+    var onHoverChange: ((Int?) -> Void)?
+    private var trackingArea: NSTrackingArea?
+    private var lastHovered: Int?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let ta = trackingArea { removeTrackingArea(ta) }
+        let ta = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .mouseMoved,
+                      .activeAlways, .inVisibleRect],
+            owner: self, userInfo: nil
+        )
+        addTrackingArea(ta)
+        trackingArea = ta
+    }
+
+    private func segment(at point: NSPoint) -> Int? {
+        let count = segmentCount
+        guard count > 0, bounds.contains(point) else { return nil }
+        let w = bounds.width / CGFloat(count)
+        let idx = Int(point.x / w)
+        return max(0, min(count - 1, idx))
+    }
+
+    private func report(at point: NSPoint) {
+        let seg = segment(at: point)
+        if seg != lastHovered {
+            lastHovered = seg
+            onHoverChange?(seg)
+        }
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        report(at: convert(event.locationInWindow, from: nil))
+    }
+    override func mouseMoved(with event: NSEvent) {
+        report(at: convert(event.locationInWindow, from: nil))
+    }
+    override func mouseExited(with event: NSEvent) {
+        if lastHovered != nil {
+            lastHovered = nil
+            onHoverChange?(nil)
+        }
+    }
+}
+
 /// Settings popover for the menubar piano. Custom NSViewController with
 /// native AppKit controls (NSSwitch / NSPopUpButton / NSStepper) for a
 /// richer feel than a plain NSMenu.
 final class MenuBandPopoverViewController: NSViewController {
     weak var menuBand: MenuBandController?
 
-    private var typeSwitch: NSSwitch!
+    private var inputSegmented: HoverSegmentedControl!
     private var midiSwitch: NSSwitch!
     private var midiSelfTestLabel: NSTextField!
     private var instrumentPopUp: NSPopUpButton!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
-    private var keymapSegmented: NSSegmentedControl!
+    private var keyMonitor: Any?
 
     override func loadView() {
         // Plain solid-color background — no NSVisualEffectView. The visual
@@ -34,7 +86,7 @@ final class MenuBandPopoverViewController: NSViewController {
         root.addSubview(stack)
 
         // Title row.
-        let title = NSTextField(labelWithString: "MenuBand")
+        let title = NSTextField(labelWithString: "Menu Band")
         title.font = NSFont.systemFont(ofSize: 13, weight: .bold)
         title.textColor = .labelColor
         stack.addArrangedSubview(title)
@@ -46,16 +98,38 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(makeSeparator())
 
-        // TYPE switch row — shortcut hint in the sublabel so it's right
-        // next to its target instead of repeated below.
-        typeSwitch = NSSwitch()
-        typeSwitch.target = self
-        typeSwitch.action = #selector(typeSwitchToggled(_:))
-        stack.addArrangedSubview(makeSwitchRow(
-            label: "Capture keystrokes",
-            sublabel: "⌃⌥⌘P to toggle",
-            switchControl: typeSwitch
-        ))
+        // Input mode picker. Three states:
+        //   Pointer  — mouse only, two octaves (Notepat range)
+        //   Notepat  — global keystroke capture, two octaves
+        //   Ableton  — global keystroke capture, one octave (Live's M-mode)
+        // Hovering a segment previews that mode in the menubar piano (range
+        // shrinks/grows, letter labels appear) and lets you tap keys for a
+        // quick demo without committing.
+        let inputLabel = NSTextField(labelWithString: "Input")
+        inputLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        inputLabel.textColor = .labelColor
+        stack.addArrangedSubview(inputLabel)
+
+        inputSegmented = HoverSegmentedControl(
+            labels: ["Pointer", "Notepat", "Ableton"],
+            trackingMode: .selectOne,
+            target: self,
+            action: #selector(inputModeChanged(_:))
+        )
+        inputSegmented.translatesAutoresizingMaskIntoConstraints = false
+        inputSegmented.onHoverChange = { [weak self] seg in
+            self?.handleInputHover(segment: seg)
+        }
+        stack.addArrangedSubview(inputSegmented)
+        inputSegmented.widthAnchor.constraint(equalToConstant: 248).isActive = true
+
+        let inputHint = NSTextField(labelWithString:
+            "Hover to preview · ⌃⌥⌘P toggles last keystrokes mode")
+        inputHint.font = NSFont.systemFont(ofSize: 10)
+        inputHint.textColor = .secondaryLabelColor
+        stack.addArrangedSubview(inputHint)
+
+        stack.addArrangedSubview(makeSeparator())
 
         // MIDI switch row.
         midiSwitch = NSSwitch()
@@ -125,22 +199,6 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(makeSeparator())
 
-        // Keymap toggle (MenuBand / Ableton).
-        let keymapLabel = NSTextField(labelWithString: "Keymap")
-        keymapLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        keymapLabel.textColor = .labelColor
-        stack.addArrangedSubview(keymapLabel)
-
-        keymapSegmented = NSSegmentedControl(labels: ["MenuBand", "Ableton"],
-                                              trackingMode: .selectOne,
-                                              target: self,
-                                              action: #selector(keymapChanged(_:)))
-        keymapSegmented.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(keymapSegmented)
-        keymapSegmented.widthAnchor.constraint(equalToConstant: 240).isActive = true
-
-        stack.addArrangedSubview(makeSeparator())
-
         // About — inline rather than a separate dialog.
         let aboutTitle = NSTextField(labelWithString: "About")
         aboutTitle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
@@ -179,7 +237,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // Quit — red stop button so it's visually distinct from the
         // toggles/links above.
         let quit = NSButton()
-        quit.title = "Quit MenuBand"
+        quit.title = "Quit Menu Band"
         quit.image = NSImage(systemSymbolName: "stop.circle.fill",
                              accessibilityDescription: "Quit")
         quit.imagePosition = .imageLeading
@@ -189,7 +247,7 @@ final class MenuBandPopoverViewController: NSViewController {
         quit.target = self
         quit.action = #selector(quitApp)
         let quitTitle = NSAttributedString(
-            string: "Quit MenuBand",
+            string: "Quit Menu Band",
             attributes: [
                 .foregroundColor: NSColor.systemRed,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
@@ -212,11 +270,11 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Refresh control state from the controller — call right before showing.
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
-        typeSwitch.state = n.typeMode ? .on : .off
         midiSwitch.state = n.midiMode ? .on : .off
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)
-        keymapSegmented.selectedSegment = (n.keymap == .ableton) ? 1 : 0
+        inputSegmented.selectedSegment = inputModeSegment(typeMode: n.typeMode,
+                                                           keymap: n.keymap)
         let target = Int(n.melodicProgram)
         for item in instrumentPopUp.itemArray {
             if item.tag == target {
@@ -336,15 +394,54 @@ final class MenuBandPopoverViewController: NSViewController {
 
     // MARK: - Actions
 
-    @objc private func typeSwitchToggled(_ sender: NSSwitch) {
-        menuBand?.toggleTypeMode()
-        // Re-read in case Accessibility prompt cancelled.
-        syncFromController()
-    }
-
     @objc private func midiSwitchToggled(_ sender: NSSwitch) {
         menuBand?.toggleMIDIMode()
         syncFromController()
+    }
+
+    /// 0 = Pointer, 1 = Notepat, 2 = Ableton. Matches the segmented control
+    /// in `loadView()`.
+    private func inputModeSegment(typeMode: Bool, keymap: Keymap) -> Int {
+        if !typeMode { return 0 }
+        return keymap == .ableton ? 2 : 1
+    }
+
+    @objc private func inputModeChanged(_ sender: NSSegmentedControl) {
+        guard let m = menuBand else { return }
+        // Clicking commits — clear any in-flight hover preview first so the
+        // controller's effective state isn't shadowed by a stale overlay.
+        m.clearHoverPreview()
+        switch sender.selectedSegment {
+        case 0:  // Pointer
+            if m.typeMode { m.toggleTypeMode() }
+            // Pointer mode keeps the existing keymap so the piano range stays
+            // wherever the user last set it (default .notepat = 2 octaves).
+        case 1:  // Notepat
+            m.keymap = .notepat
+            if !m.typeMode { m.toggleTypeMode() }
+        case 2:  // Ableton
+            m.keymap = .ableton
+            if !m.typeMode { m.toggleTypeMode() }
+        default: break
+        }
+        syncFromController()
+    }
+
+    private func handleInputHover(segment: Int?) {
+        guard let m = menuBand else { return }
+        guard let seg = segment else {
+            m.clearHoverPreview()
+            return
+        }
+        switch seg {
+        case 0:  // Pointer — preview as no-typeMode, keep current keymap range
+            m.setHoverPreview(typeMode: false, keymap: m.keymap)
+        case 1:
+            m.setHoverPreview(typeMode: true, keymap: .notepat)
+        case 2:
+            m.setHoverPreview(typeMode: true, keymap: .ableton)
+        default: break
+        }
     }
 
     @objc private func instrumentChanged(_ sender: NSPopUpButton) {
@@ -363,8 +460,35 @@ final class MenuBandPopoverViewController: NSViewController {
         updateOctaveLabel(0)
     }
 
-    @objc private func keymapChanged(_ sender: NSSegmentedControl) {
-        menuBand?.keymap = (sender.selectedSegment == 1) ? .ableton : .notepat
+    // MARK: - Local key demo (only fires while hovering an input segment)
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        // Local monitor: catches keystrokes while the popover window is key.
+        // We only consume them when a hover preview is active, so popover
+        // navigation (Esc, arrows on focused controls) keeps working when
+        // no segment is hovered.
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+            guard let self = self, let m = self.menuBand else { return event }
+            // Modifier combos pass through (Cmd-Q etc still work).
+            let mods: NSEvent.ModifierFlags = [.command, .control, .option]
+            if !event.modifierFlags.intersection(mods).isEmpty { return event }
+            // Only consume while hover-previewing Notepat or Ableton.
+            guard m.isHoveringTypingMode else { return event }
+            if event.isARepeat { return nil }
+            m.previewPlayKey(keyCode: event.keyCode, isDown: event.type == .keyDown)
+            return nil
+        }
+    }
+
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        if let m = keyMonitor {
+            NSEvent.removeMonitor(m)
+            keyMonitor = nil
+        }
+        // Ensure hover preview doesn't survive popover dismissal.
+        menuBand?.clearHoverPreview()
     }
 
     @objc private func openAesthetic() {

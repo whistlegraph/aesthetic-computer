@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Band — Privacy</title>
+<meta name="description" content="Menu Band privacy policy. Short version: nothing leaves your Mac.">
+<link rel="icon" href="/menuband/icon.png">
+<style>
+  :root {
+    --aqua-sky-top: #dfe9f2;
+    --aqua-sky-bot: #b9cfe6;
+    --aqua-blue:    #3d7fd6;
+    --panel-bg:     #ededed;
+    --panel-stripe: #e5e5e5;
+    --panel-edge:   #c4ccd4;
+    --titlebar-top: #e8e8e8;
+    --titlebar-bot: #c8c8c8;
+    --ink-body:     #2b2b2b;
+    --ink-head:     #1a1a1a;
+    --ink-soft:     #5a5f66;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    color: var(--ink-body);
+    font-family: "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: linear-gradient(to bottom, var(--aqua-sky-top), var(--aqua-sky-bot)) fixed;
+    min-height: 100vh;
+    padding: 36px 16px 64px;
+  }
+  .window {
+    max-width: 640px; margin: 0 auto;
+    background: #fff;
+    border-radius: 8px 8px 6px 6px;
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, 0 10px 40px rgba(40,60,90,0.18);
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 22px;
+    background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
+    border-bottom: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+    display: flex; align-items: center; padding: 0 9px;
+    position: relative; user-select: none;
+  }
+  .lights { display: flex; gap: 7px; }
+  .light {
+    width: 11px; height: 11px; border-radius: 50%;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.55) inset, 0 0 0 0.5px rgba(0,0,0,0.25);
+  }
+  .light.r { background: radial-gradient(circle at 35% 35%, #ff8a85, #ff5f57); }
+  .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
+  .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
+  .titlebar h1 {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    margin: 0; font-size: 11px; font-weight: 500; color: #4a4a4a;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7); letter-spacing: 0.02em;
+  }
+  .content { padding: 28px 32px 32px; }
+  h2 {
+    margin: 0 0 4px;
+    font-size: 28px; font-weight: 500; letter-spacing: -0.012em;
+    color: var(--ink-head);
+  }
+  .tagline {
+    margin: 0 0 22px;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink-soft);
+  }
+  h3 {
+    margin: 18px 0 6px;
+    font-size: 14px; font-weight: 500; color: var(--ink-head);
+  }
+  p { margin: 0 0 10px; }
+  code {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12.5px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  a { color: var(--aqua-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    margin: 18px auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
+  footer a { color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<article class="window">
+  <header class="titlebar" aria-hidden="true">
+    <div class="lights">
+      <div class="light r"></div>
+      <div class="light y"></div>
+      <div class="light g"></div>
+    </div>
+    <h1>Privacy — Menu Band</h1>
+  </header>
+
+  <div class="content">
+    <h2>Privacy</h2>
+    <p class="tagline">Short version: nothing leaves your Mac.</p>
+
+    <h3>What Menu Band collects</h3>
+    <p>Nothing. Menu Band makes no network requests. No analytics, no telemetry, no crash reporting, no opt-out checkbox to bury — there's nothing to opt out of.</p>
+
+    <h3>What Menu Band stores locally</h3>
+    <p>A handful of preferences in <code>UserDefaults</code> on your own Mac: which input mode you last used, the selected General MIDI patch, the octave shift, and whether MIDI output is enabled. None of this leaves your machine.</p>
+
+    <h3>Permissions Menu Band may request</h3>
+    <p><b>Accessibility access.</b> Asked for only when you turn on the <em>Notepat</em> or <em>Ableton</em> input modes. macOS requires this permission for any app that wants to receive global keystrokes (the rest of the time, your typing goes wherever it normally goes). Menu Band uses keystrokes solely to play notes; nothing is recorded, logged, or transmitted.</p>
+
+    <h3>Third parties</h3>
+    <p>None. Menu Band uses only Apple's built-in CoreMIDI and AVAudioEngine for sound and MIDI. The virtual MIDI source named <code>Menu Band</code> is published to your Mac's CoreMIDI server so DAWs on your Mac can receive notes — that traffic is local-only.</p>
+
+    <h3>Children</h3>
+    <p>Menu Band does not collect data, so there is nothing to disclose about users of any age.</p>
+
+    <h3>Changes</h3>
+    <p>If this ever changes (say, an update introduces an opt-in cloud feature), this page will be updated and the change called out in the app's release notes. The default will always be: nothing leaves your Mac.</p>
+
+    <h3>Contact</h3>
+    <p>Email: <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> · Web: <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+  </div>
+</article>
+
+<footer>
+  © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 · <a href="/menuband">back to Menu Band</a>
+</footer>
+
+</body>
+</html>

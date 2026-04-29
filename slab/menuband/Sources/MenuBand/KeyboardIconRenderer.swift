@@ -10,9 +10,28 @@ import AppKit
 // buttons are flat (no fill, no border) so they read like native menubar
 // text. Keys are skeuomorphic: white gradient + dark-accent black gradient.
 enum KeyboardIconRenderer {
+    /// Updated by AppDelegate.updateIcon() before each render so the renderer
+    /// can pick the right letter labels and active-range without threading
+    /// the keymap through every static method's signature.
+    static var activeKeymap: Keymap = .notepat
+
+    // Render area is *constant* across keymaps (always 2 octaves: C4..B5).
+    // The Ableton layout only reaches E5 (MIDI 76); rather than shrinking the
+    // image (which jiggles the menubar slot + popover anchor every time the
+    // user hovers a mode), we draw the unmapped keys as negative space and
+    // skip them in hit-testing. `activeRange` is the keymap-aware subset
+    // that's drawn + interactive.
     static let firstMidi: Int = 60   // C4 (middle C)
-    static let lastMidi: Int = 83    // B5 — stop at the last QWERTY-letter key
-                                     // (skip ;, ', ] which sit beyond the row)
+    static let lastMidi: Int = 83    // B5 — render area top (always)
+
+    static var activeRange: ClosedRange<Int> {
+        activeKeymap == .ableton ? 60...76 : 60...83
+    }
+
+    @inline(__always)
+    private static func isActive(_ midi: Int) -> Bool {
+        activeRange.contains(midi)
+    }
 
     // Piano key sizes — wide whites give a generous hit area between black
     // keys (the exposed-white-between-blacks zone is whiteW - blackW).
@@ -35,15 +54,31 @@ enum KeyboardIconRenderer {
         case note(UInt8)
     }
 
-    // MenuBand layout key letters keyed by MIDI note. A3 (57) has no label
-    // because menuBand assigns it to the Control modifier rather than a letter.
-    static let labelByMidi: [Int: String] = [
+    // Letter labels keyed by MIDI note, per layout. The renderer picks
+    // between these via `activeKeymap` so the menubar piano shows the
+    // correct QWERTY hint for whichever mode you're in.
+    private static let labelByMidiNotepat: [Int: String] = [
         58: "z", 59: "x", 60: "c", 61: "v", 62: "d", 63: "s",
         64: "e", 65: "f", 66: "w", 67: "g", 68: "r", 69: "a",
         70: "q", 71: "b", 72: "h", 73: "t", 74: "i", 75: "y",
         76: "j", 77: "k", 78: "u", 79: "l", 80: "o", 81: "m",
         82: "p", 83: "n", 84: ";", 85: "'", 86: "]",
     ]
+
+    // Ableton Live's M-mode QWERTY mapping: A=C, W=C#, S=D, E=D#, D=E,
+    // F=F, T=F#, G=G, Y=G#, H=A, U=A#, J=B, K=C+1, O=C#+1, L=D+1,
+    // P=D#+1, ;=E+1. Mirrors `MenuBandLayout.semitoneByKeyCodeAbleton`
+    // with middle C anchored at MIDI 60.
+    private static let labelByMidiAbleton: [Int: String] = [
+        60: "a", 61: "w", 62: "s", 63: "e", 64: "d",
+        65: "f", 66: "t", 67: "g", 68: "y", 69: "h",
+        70: "u", 71: "j", 72: "k", 73: "o", 74: "l",
+        75: "p", 76: ";",
+    ]
+
+    static var labelByMidi: [Int: String] {
+        activeKeymap == .ableton ? labelByMidiAbleton : labelByMidiNotepat
+    }
 
     @inline(__always)
     private static func isWhite(_ midi: Int) -> Bool {
@@ -98,9 +133,15 @@ enum KeyboardIconRenderer {
             let blackHi = NSColor.controlAccentColor.shadow(withLevel: 0.30) ?? NSColor.controlAccentColor
             let blackLo = NSColor.controlAccentColor.shadow(withLevel: 0.55) ?? NSColor.controlAccentColor
 
-            let leftmostMidi = firstMidi      // C4 is the leftmost drawn white
-            let rightmostMidi = lastMidi      // B5
+            // "Edges" of the *active* range — used for the rounded outer
+            // corners. With negative space on the right (Ableton mode), the
+            // rightmost rounded corner sits on the last active white, not
+            // the geometric end of the render area.
+            let activeWhites = whites.filter { isActive($0) }
+            let leftmostMidi = activeWhites.first ?? firstMidi
+            let rightmostMidi = activeWhites.last ?? lastMidi
             for (idx, m) in whites.enumerated() {
+                if !isActive(m) { continue }   // negative space — skip draw
                 let rect = whiteRect(at: idx)
                 let isLit = litNotes.contains(UInt8(m))
                 let isHover = hovered == .note(UInt8(m))
@@ -131,6 +172,7 @@ enum KeyboardIconRenderer {
                 }
             }
             for m in firstMidi...lastMidi where !isWhite(m) {
+                if !isActive(m) { continue }   // negative space
                 var leftWhite = m - 1
                 while !isWhite(leftWhite) { leftWhite -= 1 }
                 guard let leftIdx = whiteIndex[leftWhite] else { continue }
@@ -157,10 +199,11 @@ enum KeyboardIconRenderer {
             }
             NSGraphicsContext.restoreGraphicsState()
 
-            // Single accent-colored settings chip with a tiny dropdown
-            // chevron — voice/qwerty/midi all live behind this one click.
+            // Single settings chip — glyph + color reflect MIDI/DAW state.
+            // MIDI on → `waveform` tinted accent (signal flowing to DAW);
+            // MIDI off → `slider.horizontal.3` in label color (generic).
             drawSettingsChip(in: settingsRect, hoverRect: settingsHitRect,
-                             anyActive: enabled || typeMode,
+                             midiOn: enabled,
                              hovered: hovered == .openSettings)
             return true
         }
@@ -188,8 +231,10 @@ enum KeyboardIconRenderer {
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
         // Black-key hit area = the visual blackRect. 1:1 mapping with what
         // the user sees on screen — clicking on visible black triggers black,
-        // clicking visible white triggers white.
+        // clicking visible white triggers white. Inactive (negative-space)
+        // keys are non-interactive.
         for m in firstMidi...lastMidi where !isWhite(m) {
+            if !isActive(m) { continue }
             var leftWhite = m - 1
             while !isWhite(leftWhite) { leftWhite -= 1 }
             guard let leftIdx = whiteIndex[leftWhite] else { continue }
@@ -203,6 +248,7 @@ enum KeyboardIconRenderer {
         // register as the underlying white. Black-band check above already
         // claims the black-key region; everything else falls through here.
         for (idx, m) in whites.enumerated() {
+            if !isActive(m) { continue }
             let r = whiteRect(at: idx)
             let relaxed = NSRect(x: r.minX, y: -100,
                                  width: r.width, height: 200)
@@ -233,18 +279,26 @@ enum KeyboardIconRenderer {
     /// the edge key sounding.
     static func noteAt(_ point: NSPoint) -> UInt8? {
         let whites = whiteList()
-        let leftEdge = pianoOriginX
-        let rightEdge = pianoOriginX + CGFloat(whites.count) * whiteW
+        let activeWhites = whites.filter { isActive($0) }
+        guard !activeWhites.isEmpty,
+              let firstActiveIdx = whites.firstIndex(where: { isActive($0) }),
+              let lastActiveIdx = whites.lastIndex(where: { isActive($0) }) else {
+            return nil
+        }
+        let leftEdge = pianoOriginX + CGFloat(firstActiveIdx) * whiteW
+        let rightEdge = pianoOriginX + CGFloat(lastActiveIdx + 1) * whiteW
         let edgeTolerance: CGFloat = whiteW * 0.6
         guard point.x >= leftEdge - edgeTolerance,
               point.x < rightEdge + edgeTolerance else { return nil }
 
-        // Black-key band: matches the visual blackRect exactly.
+        // Black-key band: matches the visual blackRect exactly. Inactive
+        // black keys are negative space — skipped.
         let blackYMin = pad + (whiteH - blackH)
         if point.x >= leftEdge && point.x < rightEdge && point.y >= blackYMin {
             var whiteIndex: [Int: Int] = [:]
             for (i, m) in whites.enumerated() { whiteIndex[m] = i }
             for m in firstMidi...lastMidi where !isWhite(m) {
+                if !isActive(m) { continue }
                 var leftWhite = m - 1
                 while !isWhite(leftWhite) { leftWhite -= 1 }
                 guard let leftIdx = whiteIndex[leftWhite] else { continue }
@@ -252,12 +306,12 @@ enum KeyboardIconRenderer {
                 if point.x >= rect.minX && point.x < rect.maxX { return UInt8(m) }
             }
         }
-        // White by column, clamping x into the piano range so overshoot maps
-        // to the leftmost/rightmost key.
+        // White by column within the active range; overshoot clamps to the
+        // outermost active white.
         let clampedX = max(leftEdge, min(rightEdge - 0.001, point.x))
         let col = Int((clampedX - leftEdge) / whiteW)
-        let clamped = max(0, min(whites.count - 1, col))
-        return UInt8(whites[clamped])
+        let clamped = max(0, min(activeWhites.count - 1, col))
+        return UInt8(activeWhites[clamped])
     }
 
     // MARK: - Layout helpers
@@ -354,20 +408,20 @@ enum KeyboardIconRenderer {
         path.fill()
     }
 
-    /// `slider.horizontal.3` — three audio-mixer-style sliders, generic
-    /// enough to cover TYPE / MIDI / Instrument / Octave / About without
-    /// committing to one specific musical concept. Flat monochrome, blends
-    /// with native menubar icons. Tints accent when any mode is active.
+    /// Music-notation chip — `music.note.list` reads like notes on a staff
+    /// (a tiny scroll of music), more on-brand for a menubar instrument
+    /// than a generic settings glyph. Tints accent + brightens when MIDI
+    /// is sending to a DAW so you can see port status at a glance.
     ///
-    /// Alternates: "ellipsis", "gearshape", "waveform", "music.note",
-    /// "speaker.wave.2", "metronome", "switch.2".
+    /// Alternates considered: "music.quarternote.3", "pianokeys",
+    /// "music.note", "scroll", "speaker.wave.2", "waveform".
     private static func drawSettingsChip(in rect: NSRect, hoverRect _: NSRect,
-                                         anyActive: Bool, hovered: Bool) {
-        let alpha: CGFloat = hovered ? 1.0 : 0.78
-        let color: NSColor = anyActive
+                                         midiOn: Bool, hovered: Bool) {
+        let alpha: CGFloat = hovered ? 1.0 : (midiOn ? 1.0 : 0.78)
+        let color: NSColor = midiOn
             ? NSColor.controlAccentColor
             : NSColor.labelColor.withAlphaComponent(alpha)
-        drawTintedSymbol("slider.horizontal.3", in: rect, pointSize: 11.0, color: color)
+        drawTintedSymbol("music.note.list", in: rect, pointSize: 11.0, color: color)
     }
 
     private static func drawInstrumentLabel(in rect: NSRect, hoverRect: NSRect,

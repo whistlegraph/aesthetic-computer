@@ -31,9 +31,59 @@ final class MenuBandController {
         UserDefaults.standard.bool(forKey: typeModeKey)
     }
 
+    // Hover-preview overlay. The popover's input segmented control sets these
+    // when the user hovers a segment so the menubar piano can render that
+    // mode's range/labels and the local key monitor can play notes through
+    // its keymap — all without committing to UserDefaults. Cleared on hover
+    // exit. Effective getters fall through to the real values when nil.
+    private var previewTypeMode: Bool?
+    private var previewKeymap: Keymap?
+
+    var effectiveTypeMode: Bool { previewTypeMode ?? typeMode }
+    var effectiveKeymap: Keymap { previewKeymap ?? keymap }
+
+    /// True only while the popover is hovering Notepat or Ableton — i.e. a
+    /// preview is active AND it's a typing mode (not Pointer). Used to gate
+    /// the popover's local key monitor so demo keystrokes are consumed
+    /// only when actually previewing.
+    var isHoveringTypingMode: Bool { previewTypeMode == true }
+
+    func setHoverPreview(typeMode tm: Bool, keymap km: Keymap) {
+        previewTypeMode = tm
+        previewKeymap = km
+        onChange?()
+    }
+
+    func clearHoverPreview() {
+        guard previewTypeMode != nil || previewKeymap != nil else { return }
+        previewTypeMode = nil
+        previewKeymap = nil
+        onChange?()
+    }
+
+    /// Local-key demo while the popover is hovering an input mode. Maps the
+    /// keystroke through the preview (or real) keymap and feeds it through
+    /// `startTapNote`/`stopTapNote` so it sounds + lights up + sends MIDI
+    /// just like a real tap.
+    func previewPlayKey(keyCode: UInt16, isDown: Bool) {
+        let km = previewKeymap ?? keymap
+        guard let note = MenuBandLayout.midiNote(forKeyCode: keyCode,
+                                                 octaveShift: octaveShift,
+                                                 keymap: km) else { return }
+        if isDown {
+            startTapNote(note)
+        } else {
+            stopTapNote(note)
+        }
+    }
+
     var keymap: Keymap {
         get {
             let raw = UserDefaults.standard.string(forKey: keymapKey) ?? ""
+            // Default = .notepat (2 octaves). Pointer mode (typeMode off)
+            // uses this keymap purely for piano range, so a fresh install
+            // boots showing the full 2-octave range. Picking Ableton in the
+            // popover narrows to 1 octave + Live's M-mode letters.
             return Keymap(rawValue: raw) ?? .notepat
         }
         set {
@@ -363,9 +413,9 @@ final class MenuBandController {
 
     private func presentAccessibilityAlert() {
         let alert = NSAlert()
-        alert.messageText = "MenuBand needs Accessibility access"
+        alert.messageText = "Menu Band needs Accessibility access"
         alert.informativeText = """
-            To capture keystrokes globally, MenuBand must be enabled in \
+            To capture keystrokes globally, Menu Band must be enabled in \
             System Settings → Privacy & Security → Accessibility.
 
             If you've already enabled it but this keeps prompting, the TCC \
