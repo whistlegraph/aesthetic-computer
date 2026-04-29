@@ -55,13 +55,16 @@
         }
         root * /opt/ac/system/public/papers.aesthetic.computer
 
-        # SPA fallback for unknown paths: if neither {path} nor {path}.html
-        # exists on disk, serve /index.html — but mark it no-cache. Without
-        # this, a request for a not-yet-deployed PDF gets the SPA HTML, and
-        # Cloudflare pins that HTML to the PDF URL for 4h via its default
-        # static-asset cache. (See: 2026-04-26 latency-paper deploy gap.)
+        # SPA fallback for unknown paths: if neither {path}, {path}.html, nor
+        # {path}index.html exists on disk, serve /index.html — but mark it
+        # no-cache. Without this, a request for a not-yet-deployed PDF gets
+        # the SPA HTML, and Cloudflare pins that HTML to the PDF URL for 4h
+        # via its default static-asset cache. (See: 2026-04-26 latency-paper
+        # deploy gap.) The {path}index.html term lets directory-style URLs
+        # like /jeffrey/ resolve to /jeffrey/index.html instead of falling
+        # through to the SPA root. (See: 2026-04-29 jeffrey-platter deploy.)
         @missing not file {
-            try_files {path} {path}.html
+            try_files {path} {path}.html {path}index.html
         }
         handle @missing {
             header Cache-Control "no-cache, must-revalidate, max-age=0"
@@ -69,7 +72,7 @@
             file_server
         }
 
-        try_files {path} {path}.html
+        try_files {path} {path}.html {path}index.html
         file_server
     }
 
