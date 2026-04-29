@@ -37,7 +37,7 @@ const SRC_DIR = join(REPO, "portraits", "jeffrey", "ig-archive", "whistlegraph")
 const DESCRIBED = join(REPO, "portraits", "jeffrey", "curated", "jeffrey-described.jsonl");
 const THUMB_DIR = join(REPO, "system", "public", "assets", "jeffreys", "whistlegraph");
 const MANIFEST_OUT = join(
-  REPO, "system", "public", "papers.aesthetic.computer", "jeffrey", "manifest.json",
+  REPO, "system", "public", "papers.aesthetic.computer", "platter", "jeffrey", "manifest.json",
 );
 const CDN_PREFIX = "https://assets.aesthetic.computer/jeffreys/whistlegraph";
 

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>platter · papers.aesthetic.computer</title>
+<meta name="description" content="Per-platter dashboards for Aesthetic Computer research material — visual indexes that complement the textual platter READMEs in papers/.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+:root {
+  --bg: #111; --bg2: #1a1a1a; --fg: #ddd; --fg2: #888;
+  --accent: #ff6b9d; --accent2: #4ecdc4; --gold: #ffd93d;
+  --border: #333; --hover: #222;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: 'Berkeley Mono Variable', ui-monospace, monospace;
+  font-size: 13px; line-height: 1.5;
+  min-height: 100vh;
+}
+a { color: var(--accent2); text-decoration: none; }
+a:hover { color: var(--accent); }
+
+header {
+  padding: 24px 16px 16px;
+  border-bottom: 1px solid var(--border);
+}
+h1 {
+  font-size: 20px; font-weight: normal; letter-spacing: 5px;
+  margin-bottom: 6px;
+}
+h1 .accent { color: var(--accent); }
+.sub { font-size: 11px; color: var(--fg2); max-width: 640px; }
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 700px) {
+  main { grid-template-columns: 1fr 1fr; }
+}
+
+.platter-card {
+  display: block;
+  background: var(--bg2); border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color 0.1s, transform 0.1s;
+  color: inherit;
+}
+.platter-card:hover { border-color: var(--accent2); }
+.platter-card:active { transform: scale(0.99); }
+
+.platter-card .cover {
+  width: 100%; aspect-ratio: 16/9;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.platter-card .cover img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.platter-card .cover.coming-soon {
+  color: var(--fg2);
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+}
+
+.platter-card .info {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.platter-card .info h2 {
+  font-size: 14px; font-weight: normal; letter-spacing: 2px;
+  color: var(--fg);
+}
+.platter-card .info .meta {
+  font-size: 11px; color: var(--fg2);
+}
+.platter-card .info .desc {
+  font-size: 12px; color: var(--fg);
+  line-height: 1.5;
+}
+.platter-card.disabled {
+  opacity: 0.5; pointer-events: none;
+}
+
+footer {
+  padding: 24px 16px; text-align: center; font-size: 11px;
+  color: var(--fg2); border-top: 1px solid var(--border);
+  margin-top: 32px;
+}
+footer a { color: var(--fg2); }
+footer a:hover { color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>platter<span class="accent">·</span>index</h1>
+  <div class="sub">
+    visual dashboards over Aesthetic Computer's research platters — the source-material collections behind the
+    <a href="../">papers</a>. each platter is an evolving body of references, captures, and notes; these pages are the navigable surface.
+  </div>
+</header>
+
+<main>
+
+  <a class="platter-card" href="./jeffrey/">
+    <div class="cover">
+      <img src="https://assets.aesthetic.computer/jeffreys/whistlegraph/DFtJH9uzU3C.jpg" alt="" loading="lazy">
+    </div>
+    <div class="info">
+      <h2>jeffrey's instagram</h2>
+      <div class="meta">457 confirmed-self selfies · 2014–2026 · face-matched + GPT-4o described</div>
+      <div class="desc">
+        the curated archive of jeffrey alan scudder's selfies from
+        <a href="https://www.instagram.com/whistlegraph/" target="_blank">@whistlegraph</a>,
+        cross-matched against the AV studio shoot for identity and tagged per-image with subject, expression, pose, and tags.
+      </div>
+    </div>
+  </a>
+
+  <div class="platter-card disabled">
+    <div class="cover coming-soon">whistlegraph · soon</div>
+    <div class="info">
+      <h2>whistlegraph</h2>
+      <div class="meta">drawing-while-singing scores · 2019–2026</div>
+      <div class="desc">
+        index of the whistlegraph corpus — pieces, scores, public showings, press, fan submissions. textual platter exists at
+        <a href="https://github.com/digitpain/aesthetic-computer/blob/main/papers/whistlegraph-platter/README.md">papers/whistlegraph-platter</a>.
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <a href="../">papers.aesthetic.computer</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/digitpain/aesthetic-computer/tree/main/papers">papers/ on github</a>
+</footer>
+
+</body>
+</html>
