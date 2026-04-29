@@ -20,6 +20,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// so we don't spam the user every check.
     private var hasAlertedNoSpace = false
 
+    /// Click-away monitor active while the popover is shown. Catches clicks
+    /// on OTHER apps and dismisses the popover. Clicks on our status-item
+    /// button stay in-app and route through `statusClicked`, which only
+    /// closes the popover when the user clicks the settings chip — piano
+    /// taps keep the popover open.
+    private var clickAwayMonitor: Any?
+    private var popoverEscMonitor: Any?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
@@ -76,7 +84,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         vc.menuBand = menuBand
         popoverVC = vc
         popover.contentViewController = vc
-        popover.behavior = .transient
+        // .applicationDefined: never auto-close. We manage closing manually
+        // so clicking a menubar piano key (which would normally count as
+        // "outside" the popover under .transient) doesn't dismiss the
+        // popover while the user is playing.
+        popover.behavior = .applicationDefined
         popover.animates = false
         _ = vc.view
 
@@ -312,13 +324,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Popover
 
+    /// Close the popover and tear down the click-away monitor. Called from
+    /// `statusClicked` (settings-chip toggle) and from the click-away
+    /// monitor itself when the user clicks anywhere outside our app.
+    private func closePopover() {
+        if popover.isShown {
+            popover.performClose(nil)
+        }
+        if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
+        if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
+    }
+
     private func showPopover() {
         guard let button = statusItem.button else { return }
         // popoverVC is pre-built in applicationDidFinishLaunching so the first
         // open is instant — no lazy view inflation here.
         popoverVC?.syncFromController()
         if popover.isShown {
-            popover.performClose(nil)
+            closePopover()
         } else {
             let imgSize = KeyboardIconRenderer.imageSize
             let bb = button.bounds
@@ -339,6 +362,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
             DispatchQueue.main.async {
                 self.popover.contentViewController?.view.window?.makeKey()
+            }
+            // Click-away monitor: clicks on OTHER apps close the popover.
+            // In-app clicks (status item button, the popover itself) don't
+            // fire global monitors and therefore don't dismiss — that's how
+            // we keep the popover open while the user taps menubar piano
+            // keys.
+            if clickAwayMonitor == nil {
+                clickAwayMonitor = NSEvent.addGlobalMonitorForEvents(
+                    matching: [.leftMouseDown, .rightMouseDown]
+                ) { [weak self] _ in
+                    self?.closePopover()
+                }
+            }
+            // Esc closes the popover when it has key focus.
+            if popoverEscMonitor == nil {
+                popoverEscMonitor = NSEvent.addLocalMonitorForEvents(
+                    matching: [.keyDown]
+                ) { [weak self] event in
+                    if event.keyCode == 53 /* kVK_Escape */ {
+                        self?.closePopover()
+                        return nil
+                    }
+                    return event
+                }
             }
         }
     }

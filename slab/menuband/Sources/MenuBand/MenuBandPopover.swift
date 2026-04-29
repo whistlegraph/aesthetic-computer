@@ -69,6 +69,7 @@ final class MenuBandPopoverViewController: NSViewController {
     private var crashSendButton: NSButton!
     private var updateBanner: NSView!
     private var updateLabel: NSTextField!
+    private var waveformView: WaveformView!
 
     override func loadView() {
         // Plain solid-color background — no NSVisualEffectView. The visual
@@ -89,16 +90,57 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(stack)
 
-        // Title row.
+        // Title row: app name on the left, octave control hugging the right.
+        // Octave gets its own row in the popover via this top-anchored
+        // arrangement so we don't need a dedicated "Octave" panel below.
+        let titleRow = NSStackView()
+        titleRow.orientation = .horizontal
+        titleRow.alignment = .centerY
+        titleRow.distribution = .fill
+        titleRow.spacing = 8
+
+        let titleStack = NSStackView()
+        titleStack.orientation = .vertical
+        titleStack.alignment = .leading
+        titleStack.spacing = 0
         let title = NSTextField(labelWithString: "Menu Band")
         title.font = NSFont.systemFont(ofSize: 13, weight: .bold)
         title.textColor = .labelColor
-        stack.addArrangedSubview(title)
-
         let subtitle = NSTextField(labelWithString: "Built-in macOS instruments, in the menu bar.")
         subtitle.font = NSFont.systemFont(ofSize: 10.5)
         subtitle.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(subtitle)
+        titleStack.addArrangedSubview(title)
+        titleStack.addArrangedSubview(subtitle)
+        titleRow.addArrangedSubview(titleStack)
+
+        let titleSpacer = NSView()
+        titleSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        titleRow.addArrangedSubview(titleSpacer)
+
+        // Compact octave: stepper + monospaced label, no "Octave" caption
+        // (small enough that the stepper itself reads). Reset is dropped
+        // — the stepper can walk back to 0 just as fast.
+        octaveLabel = NSTextField(labelWithString: "+0")
+        octaveLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
+        octaveLabel.textColor = .secondaryLabelColor
+        octaveLabel.alignment = .right
+        octaveLabel.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        octaveStepper = NSStepper()
+        octaveStepper.minValue = -4
+        octaveStepper.maxValue = 4
+        octaveStepper.increment = 1
+        octaveStepper.valueWraps = false
+        octaveStepper.target = self
+        octaveStepper.action = #selector(octaveChanged(_:))
+        let octaveCaption = NSTextField(labelWithString: "octave")
+        octaveCaption.font = NSFont.systemFont(ofSize: 10)
+        octaveCaption.textColor = .tertiaryLabelColor
+        titleRow.addArrangedSubview(octaveCaption)
+        titleRow.addArrangedSubview(octaveLabel)
+        titleRow.addArrangedSubview(octaveStepper)
+        stack.addArrangedSubview(titleRow)
+        titleRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
+                                         constant: -32).isActive = true
 
         // Update banner — hidden until UpdateChecker reports a newer
         // release. Tinted accent so the user notices it without it feeling
@@ -166,6 +208,16 @@ final class MenuBandPopoverViewController: NSViewController {
         inputHint.textColor = .secondaryLabelColor
         stack.addArrangedSubview(inputHint)
 
+        // Live waveform of the local synth output. Hidden in MIDI mode
+        // (DAW handles audio there; our local mixer is silent so the line
+        // would just sit flat). Single antialiased path, ~60 Hz redraw.
+        waveformView = WaveformView()
+        waveformView.menuBand = menuBand
+        waveformView.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(waveformView)
+        waveformView.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        waveformView.heightAnchor.constraint(equalToConstant: 64).isActive = true
+
         stack.addArrangedSubview(makeSeparator())
 
         // MIDI switch row.
@@ -216,84 +268,36 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(makeSeparator())
 
-        // Octave row.
-        let octaveRow = NSStackView()
-        octaveRow.orientation = .horizontal
-        octaveRow.alignment = .centerY
-        octaveRow.spacing = 8
-        let octaveTitle = NSTextField(labelWithString: "Octave")
-        octaveTitle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        octaveTitle.textColor = .labelColor
-        octaveLabel = NSTextField(labelWithString: "+0")
-        octaveLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
-        octaveLabel.textColor = .labelColor
-        octaveLabel.alignment = .center
-        octaveLabel.widthAnchor.constraint(equalToConstant: 28).isActive = true
-        octaveStepper = NSStepper()
-        octaveStepper.minValue = -4
-        octaveStepper.maxValue = 4
-        octaveStepper.increment = 1
-        octaveStepper.valueWraps = false
-        octaveStepper.target = self
-        octaveStepper.action = #selector(octaveChanged(_:))
-        let octaveReset = NSButton(title: "Reset", target: self, action: #selector(resetOctave))
-        octaveReset.bezelStyle = .recessed
-        octaveReset.controlSize = .small
-        octaveRow.addArrangedSubview(octaveTitle)
-        octaveRow.addArrangedSubview(octaveLabel)
-        octaveRow.addArrangedSubview(octaveStepper)
-        octaveRow.addArrangedSubview(octaveReset)
-        stack.addArrangedSubview(octaveRow)
+        // About + Crash logs in a side-by-side row to save vertical space.
+        // Each takes half the popover width. Crash column is hidden when
+        // there are no recent reports, leaving About full-width.
+        let aboutCrashRow = NSStackView()
+        aboutCrashRow.orientation = .horizontal
+        aboutCrashRow.alignment = .top
+        aboutCrashRow.distribution = .fillEqually
+        aboutCrashRow.spacing = 12
 
-        stack.addArrangedSubview(makeSeparator())
-
-        // Crash logs — count + opt-in send. Read from
-        // ~/Library/Logs/DiagnosticReports/. macOS deposits MenuBand-*.ips
-        // there automatically when we crash. We never auto-send; this
-        // surfaces the count and lets the user click to ship them up.
-        crashStatusLabel = NSTextField(labelWithString: "")
-        crashStatusLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        crashStatusLabel.textColor = .labelColor
-        stack.addArrangedSubview(crashStatusLabel)
-
-        crashHintLabel = NSTextField(wrappingLabelWithString: "")
-        crashHintLabel.font = NSFont.systemFont(ofSize: 10)
-        crashHintLabel.textColor = .secondaryLabelColor
-        crashHintLabel.maximumNumberOfLines = 0
-        crashHintLabel.preferredMaxLayoutWidth = 248
-        stack.addArrangedSubview(crashHintLabel)
-
-        crashSendButton = NSButton(title: "Send crash reports",
-                                   target: self,
-                                   action: #selector(sendCrashLogs(_:)))
-        crashSendButton.bezelStyle = .recessed
-        crashSendButton.controlSize = .small
-        stack.addArrangedSubview(crashSendButton)
-
-        stack.addArrangedSubview(makeSeparator())
-
-        // About — inline rather than a separate dialog.
+        let aboutCol = NSStackView()
+        aboutCol.orientation = .vertical
+        aboutCol.alignment = .leading
+        aboutCol.spacing = 4
         let aboutTitle = NSTextField(labelWithString: "About")
         aboutTitle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         aboutTitle.textColor = .labelColor
-        stack.addArrangedSubview(aboutTitle)
-
         let aboutBody = NSTextField(wrappingLabelWithString:
             "A political project to bring the built-in macOS instruments — " +
-            "the ones GarageBand uses — into the menu bar. Accessible " +
-            "music-making is as essential as time, network connectivity, " +
-            "and battery life.")
-        aboutBody.font = NSFont.systemFont(ofSize: 10.5)
+            "the ones GarageBand uses — into the menu bar. Free + open source.")
+        aboutBody.font = NSFont.systemFont(ofSize: 10)
         aboutBody.textColor = .secondaryLabelColor
         aboutBody.maximumNumberOfLines = 0
-        aboutBody.preferredMaxLayoutWidth = 248
-        stack.addArrangedSubview(aboutBody)
-
+        aboutBody.preferredMaxLayoutWidth = 200
+        aboutCol.addArrangedSubview(aboutTitle)
+        aboutCol.addArrangedSubview(aboutBody)
         let linksRow = NSStackView()
         linksRow.orientation = .horizontal
         linksRow.alignment = .centerY
-        linksRow.spacing = 8
-        let acLink = NSButton(title: "aesthetic.computer",
+        linksRow.spacing = 6
+        let acLink = NSButton(title: "ac",
                               target: self, action: #selector(openAesthetic))
         acLink.bezelStyle = .recessed
         acLink.controlSize = .small
@@ -303,7 +307,32 @@ final class MenuBandPopoverViewController: NSViewController {
         npLink.controlSize = .small
         linksRow.addArrangedSubview(acLink)
         linksRow.addArrangedSubview(npLink)
-        stack.addArrangedSubview(linksRow)
+        aboutCol.addArrangedSubview(linksRow)
+
+        let crashCol = NSStackView()
+        crashCol.orientation = .vertical
+        crashCol.alignment = .leading
+        crashCol.spacing = 4
+        crashStatusLabel = NSTextField(labelWithString: "")
+        crashStatusLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        crashStatusLabel.textColor = .labelColor
+        crashHintLabel = NSTextField(wrappingLabelWithString: "")
+        crashHintLabel.font = NSFont.systemFont(ofSize: 10)
+        crashHintLabel.textColor = .secondaryLabelColor
+        crashHintLabel.maximumNumberOfLines = 0
+        crashHintLabel.preferredMaxLayoutWidth = 200
+        crashSendButton = NSButton(title: "Send crash reports",
+                                   target: self,
+                                   action: #selector(sendCrashLogs(_:)))
+        crashSendButton.bezelStyle = .recessed
+        crashSendButton.controlSize = .small
+        crashCol.addArrangedSubview(crashStatusLabel)
+        crashCol.addArrangedSubview(crashHintLabel)
+        crashCol.addArrangedSubview(crashSendButton)
+
+        aboutCrashRow.addArrangedSubview(aboutCol)
+        aboutCrashRow.addArrangedSubview(crashCol)
+        stack.addArrangedSubview(aboutCrashRow)
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -361,6 +390,11 @@ final class MenuBandPopoverViewController: NSViewController {
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
         refreshUpdateBanner()
+        // Waveform: live only when local synth is the audible path. MIDI
+        // mode silences the local mixer, so the line would be flat — hide
+        // it instead of showing a misleading dead waveform.
+        waveformView.isHidden = n.midiMode
+        waveformView.isLive = !n.midiMode
         // Wire up live updates so the label reflects loopback results as
         // they land (test runs ~50ms after toggle-on; result settles a moment
         // later).
@@ -431,19 +465,23 @@ final class MenuBandPopoverViewController: NSViewController {
     }
 
     /// Update the crash-log status row from disk. Called on every popover
-    /// open so the count is current.
+    /// open so the count is current. When there are zero crashes, the
+    /// whole crash column hides — About sits side-by-side normally; when
+    /// crashes are present, About narrows to share the row.
     private func refreshCrashStatus() {
         let logs = CrashLogReader.recentLogs()
         let n = logs.count
+        // Walk up to the parent crash column to hide/show the whole panel.
+        let crashCol = crashStatusLabel?.superview
         if n == 0 {
-            crashStatusLabel.stringValue = "Crash logs"
-            crashHintLabel.stringValue = "No recent crashes — Menu Band's been stable since macOS last cleaned the diagnostic reports folder."
+            crashCol?.isHidden = true
             crashSendButton.isHidden = true
         } else {
-            crashStatusLabel.stringValue = n == 1 ? "1 recent crash" : "\(n) recent crashes"
-            crashHintLabel.stringValue = "Send the report to aesthetic.computer? It helps debug the bug. Nothing personal goes — just the macOS crash log."
+            crashCol?.isHidden = false
+            crashStatusLabel.stringValue = n == 1 ? "1 crash" : "\(n) crashes"
+            crashHintLabel.stringValue = "Send to aesthetic.computer to help debug."
             crashSendButton.isHidden = false
-            crashSendButton.title = n == 1 ? "Send 1 report" : "Send all (\(n))"
+            crashSendButton.title = n == 1 ? "Send 1" : "Send all (\(n))"
             crashSendButton.isEnabled = true
         }
     }
@@ -512,6 +550,12 @@ final class MenuBandPopoverViewController: NSViewController {
         // toggles after the first per session) and other panels don't need
         // to refresh.
         menuBand?.toggleMIDIMode()
+        // Waveform follows the new MIDI state directly so it appears /
+        // disappears the moment the user flips the switch.
+        if let m = menuBand {
+            waveformView.isHidden = m.midiMode
+            waveformView.isLive = !m.midiMode
+        }
     }
 
     /// 0 = Pointer, 1 = Notepat, 2 = Ableton. Matches the segmented control
@@ -542,10 +586,16 @@ final class MenuBandPopoverViewController: NSViewController {
         guard let m = menuBand else { return }
         m.setMelodicProgram(UInt8(program))
         instrumentList.selectedProgram = UInt8(program)
-        // Always audition through the local synth — even when MIDI mode is
-        // on (which normally silences the synth). The user wants to hear
-        // the instrument they picked, period.
-        m.auditionCurrentProgram()
+        debugLog("instrument commit prog=\(program)")
+        // setMelodicProgram → loadSoundBankInstrument is synchronous on the
+        // calling thread, but AVAudioUnitSampler briefly drops scheduled
+        // notes on the audio render thread while it swaps banks. Without
+        // this small delay the audition note often falls into that gap and
+        // the user hears nothing. 70 ms is enough for the swap to settle
+        // on every Mac I've tested without feeling laggy.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) { [weak m] in
+            m?.auditionCurrentProgram()
+        }
     }
 
     @objc private func octaveChanged(_ sender: NSStepper) {

@@ -261,7 +261,10 @@ final class InstrumentListView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if let p = program(at: convert(event.locationInWindow, from: nil)) {
+        let pt = convert(event.locationInWindow, from: nil)
+        let p = program(at: pt)
+        debugLog("InstrumentListView.mouseDown pt=(\(pt.x),\(pt.y)) program=\(String(describing: p))")
+        if let p = p {
             onCommit?(p)
         }
     }

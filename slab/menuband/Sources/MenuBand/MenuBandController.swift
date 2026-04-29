@@ -35,11 +35,19 @@ final class MenuBandController {
     /// synth, regardless of MIDI mode. Used by the instrument-list click
     /// handler so the user *always* hears their instrument pick, even when
     /// MIDI is on (which normally silences the local synth and routes to
-    /// the DAW). Plays middle-C for ~600 ms then releases.
+    /// the DAW). Plays middle-C at velocity 100 for ~700 ms then releases.
+    /// Forward the synth's tap-ring snapshot to callers (the WaveformView).
+    /// Routing through the controller keeps MenuBandSynth private to the
+    /// rest of the app while still letting the popover wire up live audio.
+    func synthSnapshotWaveform(into dest: inout [Float]) {
+        synth.snapshotWaveform(into: &dest)
+    }
+
     func auditionCurrentProgram() {
         let note: UInt8 = 60
-        synth.noteOn(note, velocity: 90, channel: 0)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+        debugLog("audition: synth.noteOn 60 (program \(melodicProgram))")
+        synth.noteOn(note, velocity: 100, channel: 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
             self?.synth.noteOff(note, channel: 0)
         }
     }

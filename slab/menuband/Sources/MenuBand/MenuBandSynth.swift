@@ -15,6 +15,15 @@ final class MenuBandSynth {
     private let drums = AVAudioUnitSampler()
     private var started = false
 
+    // Tap-driven ring buffer for the popover's live waveform display. The
+    // tap fires on the audio render thread and writes here; the main thread
+    // reads via `snapshotWaveform(into:)` whenever the WaveformView wants
+    // a fresh frame.
+    private static let waveformRingSize = 4096
+    private var waveformRing = [Float](repeating: 0, count: waveformRingSize)
+    private var waveformWriteIdx: Int = 0
+    private let waveformLock = NSLock()
+
     // Apple's DLS bank — present on every macOS install since 10.x.
     private static let bankURL = URL(
         fileURLWithPath: "/System/Library/Components/CoreAudio.component/Contents/Resources/gs_instruments.dls"
@@ -36,6 +45,50 @@ final class MenuBandSynth {
         }
         loadDefaultPatches()
         primeForLowLatency()
+        installWaveformTap()
+    }
+
+    /// Tap the engine's main mixer so the WaveformView gets a live picture
+    /// of whatever the synth is producing — both melodic and drum hits go
+    /// through the mainMixer. Buffer size 512 frames ≈ 11 ms at 44.1 kHz,
+    /// small enough that the waveform feels live.
+    private func installWaveformTap() {
+        let mixer = engine.mainMixerNode
+        let format = mixer.outputFormat(forBus: 0)
+        mixer.installTap(onBus: 0, bufferSize: 512, format: format) { [weak self] buffer, _ in
+            self?.ingestWaveformBuffer(buffer)
+        }
+    }
+
+    private func ingestWaveformBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard let data = buffer.floatChannelData?[0] else { return }
+        let frames = Int(buffer.frameLength)
+        waveformLock.lock()
+        let ringSize = Self.waveformRingSize
+        var idx = waveformWriteIdx
+        for i in 0..<frames {
+            waveformRing[idx] = data[i]
+            idx += 1
+            if idx >= ringSize { idx = 0 }
+        }
+        waveformWriteIdx = idx
+        waveformLock.unlock()
+    }
+
+    /// Copy the most recent `dest.count` samples from the tap ring (in
+    /// chronological order) into `dest`. Older samples first, newest last.
+    /// Cheap; safe to call from main thread on every screen frame.
+    func snapshotWaveform(into dest: inout [Float]) {
+        let count = Swift.min(dest.count, Self.waveformRingSize)
+        waveformLock.lock()
+        let ringSize = Self.waveformRingSize
+        var readIdx = (waveformWriteIdx - count + ringSize) % ringSize
+        for i in 0..<count {
+            dest[i] = waveformRing[readIdx]
+            readIdx += 1
+            if readIdx >= ringSize { readIdx = 0 }
+        }
+        waveformLock.unlock()
     }
 
     /// Plays inaudible velocity-1 notes through both samplers immediately
