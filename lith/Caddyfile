@@ -56,6 +56,13 @@
         }
         root * /opt/ac/system/public/papers.aesthetic.computer
 
+        # Explicit canonical redirect for top-level /platter — without this,
+        # try_files's interaction with file_server somehow serves the papers
+        # root /index.html for the no-slash form rather than rewriting to
+        # /platter/index.html (one level deeper /platter/jeffrey works fine).
+        # (See: 2026-04-29 platter URL move debugging.)
+        redir /platter /platter/ permanent
+
         # SPA fallback for unknown paths: if none of {path}, {path}.html,
         # {path}/index.html, or {path}index.html exists on disk, serve
         # /index.html — but mark it no-cache. Without this, a request for a
