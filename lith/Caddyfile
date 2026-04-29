@@ -392,8 +392,15 @@
     }
 
     # --- prompt.ac → aesthetic.computer (301 redirect) ---
+    # /menuband is served directly (no redirect) so the landing page
+    # works under either domain. Everything else still bounces.
     @promptac host prompt.ac
     handle @promptac {
+        handle /menuband* {
+            root * /opt/ac/system/public
+            try_files {path} {path}/index.html
+            file_server
+        }
         redir https://aesthetic.computer{uri} 301
     }
 
