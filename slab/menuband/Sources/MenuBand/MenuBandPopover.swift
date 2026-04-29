@@ -62,7 +62,6 @@ final class MenuBandPopoverViewController: NSViewController {
     private var midiSwitch: NSSwitch!
     private var midiSelfTestLabel: NSTextField!
     private var instrumentList: InstrumentListView!
-    private var instrumentReadout: NSTextField!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
     private var keyMonitor: Any?
@@ -299,7 +298,6 @@ final class MenuBandPopoverViewController: NSViewController {
         inputSegmented.selectedSegment = inputModeSegment(typeMode: n.typeMode,
                                                            keymap: n.keymap)
         instrumentList.selectedProgram = n.melodicProgram
-        updateInstrumentReadout(program: nil)
         instrumentList.scrollProgramIntoView(n.melodicProgram)
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         // Wire up live updates so the label reflects loopback results as
@@ -439,14 +437,12 @@ final class MenuBandPopoverViewController: NSViewController {
         } else {
             menuBand?.setInstrumentPreview(nil)
         }
-        updateInstrumentReadout(program: program.map { UInt8($0) })
     }
 
     private func handleInstrumentCommit(_ program: Int) {
         guard let m = menuBand else { return }
         m.setMelodicProgram(UInt8(program))
         instrumentList.selectedProgram = UInt8(program)
-        updateInstrumentReadout(program: nil)
         // Sound the freshly-picked instrument out — a half-second middle-C
         // confirmation note in the new program. Lets the user actually hear
         // their commit instead of just seeing a row highlight.
@@ -455,21 +451,6 @@ final class MenuBandPopoverViewController: NSViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak m] in
             m?.stopTapNote(note)
         }
-    }
-
-    /// Show the hovered program name (or the committed one if not hovering).
-    private func updateInstrumentReadout(program: UInt8?) {
-        let p: Int
-        if let h = program {
-            p = Int(h)
-        } else if let n = menuBand {
-            p = Int(n.melodicProgram)
-        } else {
-            p = 0
-        }
-        let safe = max(0, min(127, p))
-        let name = GeneralMIDI.programNames[safe]
-        instrumentReadout.stringValue = String(format: "%03d  %@", safe, name)
     }
 
     @objc private func octaveChanged(_ sender: NSStepper) {
