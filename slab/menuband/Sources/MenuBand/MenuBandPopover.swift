@@ -60,7 +60,8 @@ final class MenuBandPopoverViewController: NSViewController {
 
     private var inputSegmented: HoverSegmentedControl!
     private var midiSwitch: NSSwitch!
-    private var midiSelfTestLabel: NSTextField!
+    private var midiInlineLabel: NSTextField!
+    private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
     private var instrumentList: InstrumentListView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
@@ -182,7 +183,7 @@ final class MenuBandPopoverViewController: NSViewController {
         midiSwitch = NSSwitch()
         midiSwitch.target = self
         midiSwitch.action = #selector(midiSwitchToggled(_:))
-        let midiInlineLabel = NSTextField(labelWithString: "MIDI")
+        midiInlineLabel = NSTextField(labelWithString: "MIDI")
         midiInlineLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         midiInlineLabel.textColor = .secondaryLabelColor
         titleRow.setCustomSpacing(12, after: rightArrow)
@@ -237,13 +238,13 @@ final class MenuBandPopoverViewController: NSViewController {
         // Hovering a segment previews that mode in the menubar piano (range
         // shrinks/grows, letter labels appear) and lets you tap keys for a
         // quick demo without committing.
-        let inputLabel = NSTextField(labelWithString: "Input")
+        let inputLabel = NSTextField(labelWithString: "Keyboard & Mouse")
         inputLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         inputLabel.textColor = .labelColor
         stack.addArrangedSubview(inputLabel)
 
         inputSegmented = HoverSegmentedControl(
-            labels: ["Pointer", "Notepat.com", "Ableton"],
+            labels: ["Mouse Only", "Notepat.com", "Ableton"],
             trackingMode: .selectOne,
             target: self,
             action: #selector(inputModeChanged(_:))
@@ -275,12 +276,10 @@ final class MenuBandPopoverViewController: NSViewController {
 
         // MIDI self-test status — populated by the controller after each
         // toggle-on. Empty when MIDI is off.
+        // Legacy textual self-test label is allocated but never added to
+        // the popover stack — the test outcome is surfaced as the MIDI
+        // label color in the title row instead (green = ok, red = failed).
         midiSelfTestLabel = NSTextField(labelWithString: "")
-        midiSelfTestLabel.font = NSFont.systemFont(ofSize: 10.5)
-        midiSelfTestLabel.textColor = .secondaryLabelColor
-        midiSelfTestLabel.lineBreakMode = .byWordWrapping
-        midiSelfTestLabel.maximumNumberOfLines = 2
-        stack.addArrangedSubview(midiSelfTestLabel)
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -449,20 +448,17 @@ final class MenuBandPopoverViewController: NSViewController {
         }
     }
 
+    /// Reflect the MIDI loopback self-test status as the inline "MIDI"
+    /// label's color. No textual chrome — the color is the indicator.
     private func updateSelfTestLabel(state: MenuBandController.MIDISelfTest) {
-        guard let label = midiSelfTestLabel else { return }
+        guard let label = midiInlineLabel else { return }
         switch state {
-        case .unknown:
-            label.stringValue = ""
-        case .running:
-            label.stringValue = "Testing MIDI port…"
-            label.textColor = .secondaryLabelColor
-        case .ok(let ms):
-            label.stringValue = "✓ MIDI port working (loopback \(ms)ms)"
+        case .ok:
             label.textColor = .systemGreen
         case .failed:
-            label.stringValue = "✗ MIDI loopback failed — port may be blocked"
             label.textColor = .systemRed
+        case .running, .unknown:
+            label.textColor = .secondaryLabelColor
         }
     }
 
