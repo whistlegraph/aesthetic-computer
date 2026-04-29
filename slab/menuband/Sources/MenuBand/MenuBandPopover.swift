@@ -83,13 +83,13 @@ final class MenuBandPopoverViewController: NSViewController {
         root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
 
-        // Vertical stack of rows. Tight spacing + smaller edge insets so
-        // the popover doesn't carry a lot of negative space.
+        // Vertical stack of rows. Tight spacing + small edge insets so the
+        // popover hugs the 224 px instrument grid with no slack.
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
-        stack.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        stack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         stack.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(stack)
 
@@ -178,7 +178,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(titleRow)
         titleRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
-                                         constant: -24).isActive = true
+                                         constant: -16).isActive = true
 
         // Update banner — hidden until UpdateChecker reports a newer
         // release. Tinted accent so the user notices it without it feeling
@@ -401,7 +401,7 @@ final class MenuBandPopoverViewController: NSViewController {
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
         quitRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
-                                       constant: -24).isActive = true
+                                       constant: -16).isActive = true
 
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),

@@ -86,31 +86,6 @@ enum KeyboardIconRenderer {
                                        // tall enough to drag across easily
     static let pad: CGFloat = 0.5
 
-    // Drum sample pads on the left of the piano — Akai MPC style: rounded
-    // squarish pads with a subtle gradient + colored center, sized to
-    // match white-key width so the row reads as one cohesive instrument.
-    enum DrumPad: Int, CaseIterable {
-        case kick      = 36   // GM Bass Drum 1
-        case snare     = 38   // GM Acoustic Snare
-        case closedHat = 42   // GM Closed Hi-Hat
-
-        var midiNote: UInt8 { UInt8(rawValue) }
-
-        /// Pad accent color — warm Akai orange→pink for kick/snare, cooler
-        /// gold for hi-hat to differentiate at a glance.
-        var color: NSColor {
-            switch self {
-            case .kick:      return NSColor(calibratedRed: 1.00, green: 0.42, blue: 0.20, alpha: 1.0)
-            case .snare:     return NSColor(calibratedRed: 1.00, green: 0.30, blue: 0.50, alpha: 1.0)
-            case .closedHat: return NSColor(calibratedRed: 1.00, green: 0.78, blue: 0.20, alpha: 1.0)
-            }
-        }
-    }
-    static let drumPads: [DrumPad] = [.kick, .snare, .closedHat]
-    static let drumW: CGFloat = whiteW         // match white-key width
-    static let drumH: CGFloat = whiteH
-    static let drumPianoGap: CGFloat = 5.0     // breathing room between pads + piano
-
     // Settings — simple monochrome music note that reads like a native
     // status-bar icon. Click → popup menu with TYPE / MIDI / Instrument /
     // About.
@@ -121,7 +96,6 @@ enum KeyboardIconRenderer {
     enum HitResult: Equatable {
         case openSettings
         case note(UInt8)
-        case drum(UInt8)
     }
 
     // Letter labels keyed by MIDI note, per layout. The renderer picks
@@ -167,31 +141,13 @@ enum KeyboardIconRenderer {
         CGFloat(whiteList().count) * whiteW
     }
 
-    /// Width of the drum pad strip — zero in compact display layout
-    /// (no piano keys, just the chip), full in any layout that draws keys.
-    private static var drumsAreaWidth: CGFloat {
-        displayLayout == .compact ? 0 : CGFloat(drumPads.count) * drumW
-    }
-    private static var drumsTrailingGap: CGFloat {
-        drumsAreaWidth > 0 ? drumPianoGap : 0
-    }
-
     static var imageSize: NSSize {
-        let totalW = ceil(pad + drumsAreaWidth + drumsTrailingGap
-                          + pianoWidth + settingsGap + settingsW + pad)
+        let totalW = ceil(pad + pianoWidth + settingsGap + settingsW + pad)
         let totalH = ceil(whiteH + pad * 2)
         return NSSize(width: totalW, height: totalH)
     }
 
-    private static var drumsOriginX: CGFloat { pad }
-    private static var pianoOriginX: CGFloat {
-        pad + drumsAreaWidth + drumsTrailingGap
-    }
-
-    private static func drumRect(at idx: Int) -> NSRect {
-        let x = drumsOriginX + CGFloat(idx) * drumW
-        return NSRect(x: x, y: pad, width: drumW, height: drumH)
-    }
+    private static var pianoOriginX: CGFloat { pad }
 
     /// Settings chip's visual rect IS its hit-test rect — they're identical
     /// so the user gets visual feedback wherever the click lands.
@@ -289,17 +245,6 @@ enum KeyboardIconRenderer {
             }
             NSGraphicsContext.restoreGraphicsState()
 
-            // Drum sample pads — Akai MPC style. Drawn after piano so any
-            // overlap (none expected, but cheap insurance) sits on top.
-            if drumsAreaWidth > 0 {
-                for (idx, pad) in drumPads.enumerated() {
-                    let r = drumRect(at: idx)
-                    let isLit = litNotes.contains(pad.midiNote)
-                    let isHover = hovered == .drum(pad.midiNote)
-                    drawDrumPad(in: r, pad: pad, lit: isLit, hovered: isHover)
-                }
-            }
-
             // Single settings chip — glyph + color reflect MIDI/DAW state.
             // MIDI on → `waveform` tinted accent (signal flowing to DAW);
             // MIDI off → `slider.horizontal.3` in label color (generic).
@@ -323,81 +268,10 @@ enum KeyboardIconRenderer {
         return NSRect(x: leftX, y: 0, width: rightX - leftX, height: imageSize.height)
     }
 
-    // MARK: - Drum pad drawing
-
-    /// Akai MPC sample-pad look: rounded square, vertical gradient (top
-    /// brighter → bottom darker), thin border, centered glyph. Lit state
-    /// flashes the pad accent color full-strength + bright glyph.
-    private static func drawDrumPad(in rect: NSRect, pad: DrumPad,
-                                     lit: Bool, hovered: Bool) {
-        let inset = rect.insetBy(dx: 1.5, dy: 2.0)
-        let path = NSBezierPath(roundedRect: inset, xRadius: 3, yRadius: 3)
-
-        let baseColor = pad.color
-        // Hover/lit shift the pad lightness so feedback reads instantly.
-        let topColor: NSColor
-        let botColor: NSColor
-        if lit {
-            topColor = baseColor.highlight(withLevel: 0.35) ?? baseColor
-            botColor = baseColor
-        } else if hovered {
-            topColor = baseColor.highlight(withLevel: 0.15) ?? baseColor
-            botColor = baseColor.shadow(withLevel: 0.10) ?? baseColor
-        } else {
-            // Resting: darker so lit feels brighter by contrast.
-            topColor = baseColor.shadow(withLevel: 0.18) ?? baseColor
-            botColor = baseColor.shadow(withLevel: 0.45) ?? baseColor
-        }
-        NSGradient(starting: topColor, ending: botColor)?.draw(in: path, angle: -90)
-
-        // Inner top sheen — 1 px highlight stripe at the top of the pad
-        // gives the MPC "lit from above" feel.
-        let sheen = NSBezierPath(roundedRect: NSRect(x: inset.minX + 0.5,
-                                                      y: inset.maxY - 1.5,
-                                                      width: inset.width - 1,
-                                                      height: 1),
-                                 xRadius: 0.5, yRadius: 0.5)
-        NSColor.white.withAlphaComponent(lit ? 0.55 : 0.30).setFill()
-        sheen.fill()
-
-        // Border.
-        NSColor.black.withAlphaComponent(0.45).setStroke()
-        path.lineWidth = 0.5
-        path.stroke()
-
-        // Glyph — single-letter abbreviation in monospaced bold, centered.
-        let letter: String
-        switch pad {
-        case .kick:      letter = "K"
-        case .snare:     letter = "S"
-        case .closedHat: letter = "H"
-        }
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .heavy),
-            .foregroundColor: lit
-                ? NSColor.white
-                : NSColor.white.withAlphaComponent(0.85),
-        ]
-        let str = NSAttributedString(string: letter, attributes: attrs)
-        let size = str.size()
-        str.draw(at: NSPoint(x: rect.midX - size.width / 2,
-                             y: rect.midY - size.height / 2 - 0.5))
-    }
-
     // MARK: - Hit testing
 
     static func hit(at point: NSPoint) -> HitResult? {
         if settingsHitRect.contains(point) { return .openSettings }
-        // Drum pads — checked before piano so the area to the left of the
-        // keyboard maps to drum hits, not falling through to piano edge
-        // tolerance.
-        if drumsAreaWidth > 0 {
-            for (idx, pad) in drumPads.enumerated() {
-                if drumRect(at: idx).contains(point) {
-                    return .drum(pad.midiNote)
-                }
-            }
-        }
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }

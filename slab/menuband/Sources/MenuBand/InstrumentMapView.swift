@@ -153,8 +153,38 @@ final class InstrumentListView: NSView {
         }
     }
 
+    // mouseDown → mouseDragged → mouseUp lets the user click-drag across
+    // cells to sonically browse: every cell crossed during the drag fires
+    // onHover (preview note); release commits the cell under the cursor.
+    private var dragging = false
+
     override func mouseDown(with event: NSEvent) {
-        if let p = program(at: convert(event.locationInWindow, from: nil)) {
+        dragging = true
+        let pt = convert(event.locationInWindow, from: nil)
+        if let p = program(at: pt) {
+            // Treat the press itself as a hover-into-this-cell so the
+            // preview note starts immediately on click, not only on
+            // dragging away.
+            if hoveredProgram != UInt8(p) {
+                let prev = hoveredProgram
+                hoveredProgram = UInt8(p)
+                if let prev = prev { setNeedsDisplay(cellRect(program: Int(prev))) }
+                setNeedsDisplay(cellRect(program: p))
+            }
+            onHover?(p)
+        }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard dragging else { return }
+        updateHover(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard dragging else { return }
+        dragging = false
+        let pt = convert(event.locationInWindow, from: nil)
+        if let p = program(at: pt) {
             onCommit?(p)
         }
     }

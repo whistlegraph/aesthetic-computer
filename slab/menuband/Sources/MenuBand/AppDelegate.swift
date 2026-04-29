@@ -272,15 +272,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSSound(named: NSSound.Name("Tink"))?.play()
             showPopover()
             return
-        case .drum(let drumNote):
-            // One-shot trigger — drums don't track-drag like piano keys.
-            // 100 ms hold then release is plenty for the GM drum samples
-            // to develop their attack.
-            menuBand.startTapNote(drumNote, velocity: 110, pan: 64)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) { [weak menuBand] in
-                menuBand?.stopTapNote(drumNote)
-            }
-            return
         case .note(let n):
             startNote = n
         case .none:
