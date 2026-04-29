@@ -431,6 +431,36 @@
   a { color: var(--tahoe-blue); text-decoration: none; transition: color 220ms var(--ease-apple); }
   a:hover { text-decoration: underline; }
 
+  /* Testimonial — quote bubble feel, Tahoe-tinted accent stripe. */
+  section.panel.testimonial {
+    background: linear-gradient(to bottom, rgba(10, 132, 255, 0.04), rgba(10, 132, 255, 0.015));
+  }
+  section.panel.testimonial blockquote {
+    margin: 4px 0 10px;
+    padding: 4px 0 4px 14px;
+    border-left: 3px solid var(--tahoe-blue);
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--ink-body);
+    line-height: 1.55;
+  }
+  section.panel.testimonial .attribution {
+    margin: 0;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  section.panel.testimonial .attribution a {
+    color: var(--ink-soft);
+  }
+  section.panel.testimonial .attribution a:hover {
+    color: var(--tahoe-blue);
+    text-decoration: none;
+  }
+
   /* ── Footer — AC ecosystem branding (borrows from give.aesthetic.computer) ── */
 
   footer {
@@ -547,6 +577,11 @@
   <section class="panel">
     <h3>About</h3>
     <p>Menu Band is a political project: accessible music-making is as essential as time, network connectivity, and battery life. Free and open source. By <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+  </section>
+
+  <section class="panel testimonial">
+    <blockquote>“i use it on my macbook neo. ya thats how im using it. still gotta fix up the menus a bit, but it's rly fun — i can practice notepat on my mac, and also play ableton without having to be in ableton, with my own custom layout.”</blockquote>
+    <p class="attribution">— <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>, on his MacBook Neo</p>
   </section>
 
   <section class="panel">

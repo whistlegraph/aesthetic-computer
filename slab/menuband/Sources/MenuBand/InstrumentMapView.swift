@@ -1,37 +1,41 @@
 import AppKit
 
-/// Flat 8 × 16 grid showing all 128 General MIDI programs at once. Rows
-/// correspond to the 16 GM families; columns are the 8 programs in each
-/// family. Hover plays a held preview note in that program (silent when
-/// MIDI mode is on); click commits.
+/// Scrollable named-list of all 128 General MIDI programs. Each row shows
+/// the program number, a family-colored stripe, and the instrument name.
+/// Hover plays a held middle-C preview note in that program (silent in
+/// MIDI mode); click commits.
 ///
-/// Used inside the popover instead of an NSPopUpButton so the user can
-/// scan the whole instrument set at a glance and "skim" instruments by
-/// dragging the cursor across the map.
-final class InstrumentMapView: NSView {
-    static let cellSize: CGFloat = 14
-    static let cellGap: CGFloat = 1
-    static let cols = 8
-    static let rows = 16  // 16 GM families
+/// Wrap in an NSScrollView before adding to the popover so the rows scroll
+/// inside a fixed-height window — keeps the popover compact even though
+/// the full list is ~2300 px tall.
+final class InstrumentListView: NSView {
+    static let rowHeight: CGFloat = 18
+    static let stripeWidth: CGFloat = 4
+    static let totalRows = 128
 
-    static let intrinsicSize = NSSize(
-        width:  cellSize * CGFloat(cols) + cellGap * CGFloat(cols - 1),
-        height: cellSize * CGFloat(rows) + cellGap * CGFloat(rows - 1)
-    )
+    static let intrinsicHeight: CGFloat = rowHeight * CGFloat(totalRows)
+    static let preferredWidth: CGFloat = 248
 
     var selectedProgram: UInt8 = 0 { didSet { needsDisplay = true } }
     private(set) var hoveredProgram: UInt8?
 
-    /// Fires whenever the hovered cell changes (including transitions
-    /// to/from "no hover" → nil). Drives the program preview note.
     var onHover: ((Int?) -> Void)?
-    /// Click-commit. The popover should write this through to the
-    /// controller's `setMelodicProgram(_:)`.
     var onCommit: ((Int) -> Void)?
 
     private var trackingArea: NSTrackingArea?
 
-    override var intrinsicContentSize: NSSize { Self.intrinsicSize }
+    /// Top-down rows: y=0 should be row 0 (Acoustic Grand Piano).
+    override var isFlipped: Bool { true }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setFrameSize(NSSize(width: Self.preferredWidth, height: Self.intrinsicHeight))
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: Self.preferredWidth, height: Self.intrinsicHeight)
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -46,63 +50,80 @@ final class InstrumentMapView: NSView {
         trackingArea = ta
     }
 
-    private func cellRect(program: Int) -> NSRect {
-        let row = program / Self.cols
-        let col = program % Self.cols
-        let stride = Self.cellSize + Self.cellGap
-        let x = CGFloat(col) * stride
-        // Top-down rows in a bottom-left NSView coord space.
-        let y = bounds.height - (CGFloat(row) * stride + Self.cellSize)
-        return NSRect(x: x, y: y, width: Self.cellSize, height: Self.cellSize)
+    private func rowRect(_ program: Int) -> NSRect {
+        NSRect(x: 0, y: CGFloat(program) * Self.rowHeight,
+               width: bounds.width, height: Self.rowHeight)
     }
 
     private func program(at point: NSPoint) -> Int? {
-        let stride = Self.cellSize + Self.cellGap
-        let col = Int(point.x / stride)
-        let yFromTop = bounds.height - point.y
-        let row = Int(yFromTop / stride)
-        guard col >= 0, col < Self.cols, row >= 0, row < Self.rows else { return nil }
-        return row * Self.cols + col
+        let row = Int(point.y / Self.rowHeight)
+        guard row >= 0, row < Self.totalRows else { return nil }
+        guard point.x >= 0, point.x <= bounds.width else { return nil }
+        return row
     }
 
-    /// Family index (0…15) for a program. Each family is 8 programs.
     private func familyIndex(forProgram p: Int) -> Int { p / 8 }
 
-    /// Soft pastel hue per family — 16 hues evenly distributed around the
-    /// color wheel at low saturation so they read as distinct categories
-    /// without clashing.
     private func familyColor(_ idx: Int) -> NSColor {
-        NSColor(hue: CGFloat(idx) / CGFloat(Self.rows),
-                saturation: 0.42, brightness: 0.88, alpha: 1.0)
+        NSColor(hue: CGFloat(idx) / 16.0,
+                saturation: 0.55, brightness: 0.85, alpha: 1.0)
     }
+
+    private static let numberAttrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
+        .foregroundColor: NSColor.secondaryLabelColor,
+    ]
+    private static let nameAttrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: 11, weight: .regular),
+        .foregroundColor: NSColor.labelColor,
+    ]
+    private static let nameAttrsSelected: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+        .foregroundColor: NSColor.labelColor,
+    ]
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        for p in 0..<128 {
-            let r = cellRect(program: p)
-            let famIdx = familyIndex(forProgram: p)
-            var color = familyColor(famIdx)
-            // Brightness ramp within family: lighter at left (program 0
-            // of family) → darker at right (program 7) so each row reads
-            // as a gradient and the user can spot the variant they want.
-            let progInFam = p % 8
-            let darken = CGFloat(progInFam) * 0.038
-            color = color.blended(withFraction: darken, of: .black) ?? color
 
-            color.setFill()
-            NSBezierPath(rect: r).fill()
+        // Only draw rows in dirtyRect for scroll perf.
+        let firstRow = max(0, Int(dirtyRect.minY / Self.rowHeight))
+        let lastRow  = min(Self.totalRows - 1, Int(dirtyRect.maxY / Self.rowHeight))
 
+        for p in firstRow...lastRow {
+            let r = rowRect(p)
+
+            // Hover/selected backgrounds.
             if hoveredProgram == UInt8(p) {
-                NSColor.controlAccentColor.withAlphaComponent(0.45).setFill()
+                NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
+                NSBezierPath(rect: r).fill()
+            } else if selectedProgram == UInt8(p) {
+                NSColor.controlAccentColor.withAlphaComponent(0.10).setFill()
+                NSBezierPath(rect: r).fill()
+            } else if p % 2 == 0 {
+                // Subtle alternating zebra so the list scans easily.
+                NSColor.labelColor.withAlphaComponent(0.025).setFill()
                 NSBezierPath(rect: r).fill()
             }
 
-            if selectedProgram == UInt8(p) {
-                NSColor.controlAccentColor.setStroke()
-                let path = NSBezierPath(rect: r.insetBy(dx: 0.75, dy: 0.75))
-                path.lineWidth = 1.5
-                path.stroke()
-            }
+            // Family-colored stripe on the left.
+            let famIdx = familyIndex(forProgram: p)
+            let stripeRect = NSRect(x: 0, y: r.minY + 2,
+                                    width: Self.stripeWidth, height: r.height - 4)
+            familyColor(famIdx).setFill()
+            NSBezierPath(rect: stripeRect).fill()
+
+            // Program number (000–127), monospaced for clean alignment.
+            let number = NSString(format: "%03d", p)
+            number.draw(at: NSPoint(x: Self.stripeWidth + 6, y: r.minY + 3),
+                        withAttributes: Self.numberAttrs)
+
+            // Name.
+            let name = GeneralMIDI.programNames[p] as NSString
+            let nameAttrs = (selectedProgram == UInt8(p))
+                ? Self.nameAttrsSelected
+                : Self.nameAttrs
+            name.draw(at: NSPoint(x: Self.stripeWidth + 36, y: r.minY + 2),
+                      withAttributes: nameAttrs)
         }
     }
 
@@ -113,9 +134,9 @@ final class InstrumentMapView: NSView {
         updateHover(at: convert(event.locationInWindow, from: nil))
     }
     override func mouseExited(with event: NSEvent) {
-        if hoveredProgram != nil {
+        if let prev = hoveredProgram {
             hoveredProgram = nil
-            needsDisplay = true
+            setNeedsDisplay(rowRect(Int(prev)))
             onHover?(nil)
         }
     }
@@ -123,8 +144,10 @@ final class InstrumentMapView: NSView {
     private func updateHover(at point: NSPoint) {
         let p = program(at: point).map { UInt8($0) }
         if p != hoveredProgram {
+            let prev = hoveredProgram
             hoveredProgram = p
-            needsDisplay = true
+            if let prev = prev { setNeedsDisplay(rowRect(Int(prev))) }
+            if let p = p { setNeedsDisplay(rowRect(Int(p))) }
             onHover?(p.map { Int($0) })
         }
     }
@@ -132,6 +155,31 @@ final class InstrumentMapView: NSView {
     override func mouseDown(with event: NSEvent) {
         if let p = program(at: convert(event.locationInWindow, from: nil)) {
             onCommit?(p)
+        }
+    }
+
+    /// Scroll so the row for `program` is visible. Called after commit so
+    /// the user's selection re-anchors at view center.
+    func scrollProgramIntoView(_ program: UInt8, animated: Bool = false) {
+        let r = rowRect(Int(program))
+        guard let scroll = enclosingScrollView else { return }
+        let visible = scroll.documentVisibleRect
+        if !visible.contains(r) {
+            // Center it if possible.
+            let centerY = r.midY - visible.height / 2
+            let clampedY = max(0, min(bounds.height - visible.height, centerY))
+            let newOrigin = NSPoint(x: 0, y: clampedY)
+            if animated {
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.25
+                    ctx.allowsImplicitAnimation = true
+                    scroll.contentView.animator().setBoundsOrigin(newOrigin)
+                    scroll.reflectScrolledClipView(scroll.contentView)
+                }
+            } else {
+                scroll.contentView.setBoundsOrigin(newOrigin)
+                scroll.reflectScrolledClipView(scroll.contentView)
+            }
         }
     }
 }
