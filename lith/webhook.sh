@@ -130,7 +130,13 @@ if $NEED_NPM_INSTALL; then
 fi
 
 if $NEED_CADDY_RELOAD; then
-  log "reloading caddy..."
+  # Caddy reads /etc/caddy/Caddyfile, not /opt/ac/lith/Caddyfile, so the
+  # checked-out copy has to be installed before the reload — otherwise
+  # `systemctl reload caddy` re-reads the same stale config and the change
+  # silently no-ops. (deploy.fish does the same cp; webhook missed it.)
+  # See: 2026-04-29 jeffrey-platter Caddy try_files fix that didn't apply.
+  log "installing Caddyfile + reloading caddy..."
+  cp "$REMOTE_DIR/lith/Caddyfile" /etc/caddy/Caddyfile
   systemctl reload caddy
 fi
 
