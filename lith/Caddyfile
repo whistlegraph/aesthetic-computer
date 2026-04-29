@@ -388,16 +388,24 @@
         redir https://aesthetic.computer{uri} 301
     }
 
-    # --- prompt.ac → aesthetic.computer (301 redirect) ---
-    # /menuband is served directly (no redirect) so the landing page
-    # works under either domain. Everything else still bounces.
+    # --- prompt.ac/menuband: serve from origin (no redirect) ---
+    # The host+path matcher is more specific than the host-only @promptac
+    # below, so Caddy evaluates this first. Earlier nested-handle attempt
+    # silently fell through to the redirect; named top-level matchers are
+    # the reliable shape.
+    @promptac_menuband {
+        host prompt.ac
+        path /menuband /menuband/*
+    }
+    handle @promptac_menuband {
+        root * /opt/ac/system/public
+        try_files {path} {path}/index.html
+        file_server
+    }
+
+    # --- prompt.ac → aesthetic.computer (everything else, 301) ---
     @promptac host prompt.ac
     handle @promptac {
-        handle /menuband* {
-            root * /opt/ac/system/public
-            try_files {path} {path}/index.html
-            file_server
-        }
         redir https://aesthetic.computer{uri} 301
     }
 
