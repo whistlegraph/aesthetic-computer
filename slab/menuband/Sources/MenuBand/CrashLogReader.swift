@@ -10,7 +10,11 @@ enum CrashLogReader {
 
     static let lithEndpoint = URL(string: "https://aesthetic.computer/menuband-logs")!
 
-    /// All MenuBand crash reports in the diagnostic dir, newest-modified first.
+    /// MenuBand crash reports from the *currently-installed* build, newest
+    /// first. Filter cutoff = the executable's mtime, which install.sh
+    /// updates on every reinstall — so crashes from older, since-fixed
+    /// builds (very common during heavy dev iteration) don't pollute
+    /// the count surfaced to the user.
     static func recentLogs() -> [URL] {
         let dirURL = URL(fileURLWithPath: directoryPath)
         guard let entries = try? FileManager.default.contentsOfDirectory(
@@ -20,12 +24,16 @@ enum CrashLogReader {
         ) else {
             return []
         }
+        let installedAt = bundleInstalledAt()
         return entries
             .filter { url in
                 let name = url.lastPathComponent
                 guard name.hasPrefix("MenuBand-") else { return false }
                 let ext = url.pathExtension
-                return ext == "ips" || ext == "crash"
+                guard ext == "ips" || ext == "crash" else { return false }
+                let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate ?? .distantPast
+                return mtime > installedAt
             }
             .sorted { (a, b) in
                 let ad = (try? a.resourceValues(forKeys: [.contentModificationDateKey]))?
@@ -34,6 +42,14 @@ enum CrashLogReader {
                     .contentModificationDate ?? .distantPast
                 return ad > bd
             }
+    }
+
+    /// mtime of the running executable. install.sh `cp`s the new binary
+    /// into place on every reinstall, so this advances with each build.
+    private static func bundleInstalledAt() -> Date {
+        guard let exe = Bundle.main.executableURL else { return .distantPast }
+        return (try? exe.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate ?? .distantPast
     }
 
     /// Upload one crash report to lith. Calls back on the main thread.

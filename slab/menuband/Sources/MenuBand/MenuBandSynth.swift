@@ -55,7 +55,9 @@ final class MenuBandSynth {
     private func installWaveformTap() {
         let mixer = engine.mainMixerNode
         let format = mixer.outputFormat(forBus: 0)
-        mixer.installTap(onBus: 0, bufferSize: 512, format: format) { [weak self] buffer, _ in
+        // 256 frames ≈ 5.8 ms at 44.1 kHz — small buffer = fresher samples
+        // for the visualizer without burning the audio thread.
+        mixer.installTap(onBus: 0, bufferSize: 256, format: format) { [weak self] buffer, _ in
             self?.ingestWaveformBuffer(buffer)
         }
     }

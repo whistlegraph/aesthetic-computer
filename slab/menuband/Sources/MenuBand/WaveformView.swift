@@ -1,26 +1,21 @@
 import AppKit
 
-/// Live audio visualizer for the local synth output. Single antialiased
-/// line, stroked with a horizontal rainbow gradient (CAGradientLayer +
-/// CAShapeLayer mask) so it reads as a "visualizer" rather than a flat
-/// scope. Hidden when MIDI mode is on (DAW handles audio there; the
-/// local mixer is silent).
-///
-/// Layer-based draw path: the path is updated on a 60 Hz timer with
-/// implicit animations off, so each frame snaps cleanly to the new
-/// shape with no tweening. Cheap enough to keep the popover snappy.
+/// Bottom-anchored audio bars. Single CAShapeLayer with one combined path
+/// of all bar rects, single monochrome fill — no gradient, no glow, no
+/// peak-hold decay. Plain 60 Hz Timer on `.common` runloop drives the
+/// path update. Designed to be as cheap as possible per frame: read
+/// samples, compute 32 peaks, build path, swap path. Hidden when MIDI
+/// mode is on (synth silent there).
 final class WaveformView: NSView {
     weak var menuBand: MenuBandController?
 
-    private static let sampleCount = 512
-    private var samples = [Float](repeating: 0, count: sampleCount)
+    private static let barCount = 32
+    private static let barGap: CGFloat = 2
+    private static let snapshotSize = 512   // samples we look at per frame
 
-    private let gradientLayer = CAGradientLayer()
-    private let lineMask = CAShapeLayer()
-    private let glowLayer = CAShapeLayer()
-
+    private var samples = [Float](repeating: 0, count: snapshotSize)
+    private let barLayer = CAShapeLayer()
     private var refreshTimer: Timer?
-    private var hue: CGFloat = 0  // slowly rotated each frame for shimmer
 
     var isLive: Bool = false {
         didSet {
@@ -33,60 +28,29 @@ final class WaveformView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
         layer?.cornerRadius = 8
-        layer?.borderWidth = 0.5
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.10).cgColor
-
-        // A soft glow under the line — lower opacity, wider stroke.
-        glowLayer.fillColor = nil
-        glowLayer.lineWidth = 4.5
-        glowLayer.lineJoin = .round
-        glowLayer.lineCap = .round
-        glowLayer.strokeColor = NSColor.white.withAlphaComponent(0.20).cgColor
-        glowLayer.shadowColor = NSColor.systemTeal.cgColor
-        glowLayer.shadowOpacity = 0.55
-        glowLayer.shadowRadius = 6
-        glowLayer.shadowOffset = .zero
-        layer?.addSublayer(glowLayer)
-
-        // Sharp foreground line, masked by the rainbow gradient.
-        lineMask.fillColor = nil
-        lineMask.lineWidth = 1.5
-        lineMask.lineJoin = .round
-        lineMask.lineCap = .round
-        lineMask.strokeColor = NSColor.black.cgColor
-
-        gradientLayer.colors = [
-            NSColor.systemPink.cgColor,
-            NSColor.systemOrange.cgColor,
-            NSColor.systemYellow.cgColor,
-            NSColor.systemGreen.cgColor,
-            NSColor.systemTeal.cgColor,
-            NSColor.systemPurple.cgColor,
-        ]
-        gradientLayer.startPoint = CGPoint(x: 0.0, y: 0.5)
-        gradientLayer.endPoint   = CGPoint(x: 1.0, y: 0.5)
-        gradientLayer.mask = lineMask
-        layer?.addSublayer(gradientLayer)
+        barLayer.fillColor = NSColor.systemTeal.cgColor
+        barLayer.strokeColor = nil
+        barLayer.actions = ["path": NSNull()] // no implicit anim on path
+        layer?.addSublayer(barLayer)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override var wantsUpdateLayer: Bool { true }
-
     override func layout() {
         super.layout()
-        gradientLayer.frame = bounds
-        glowLayer.frame = bounds
-        lineMask.frame = bounds
+        barLayer.frame = bounds
     }
+
+    deinit { stopTimer() }
 
     private func startTimer() {
         stopTimer()
-        // 60 Hz. Path update is GPU-accelerated; CPU cost is the sample
-        // walk + path build (512 line segments) — negligible.
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
-        if let t = refreshTimer { RunLoop.main.add(t, forMode: .common) }
+        // .common so it fires while the user is interacting with menus,
+        // dragging, etc. Without this, the timer can stall to ~12 Hz.
+        RunLoop.main.add(t, forMode: .common)
+        refreshTimer = t
     }
 
     private func stopTimer() {
@@ -106,50 +70,28 @@ final class WaveformView: NSView {
         let w = bounds.width
         let h = bounds.height
         guard w > 0, h > 0 else { return }
-        let midY = h * 0.5
 
-        // Auto-gain: scale to ~85% of half-height by peak. Floor the peak
-        // so silence doesn't blow up to look like noise.
-        var peak: Float = 0.05
-        for s in samples {
-            let a = abs(s)
-            if a > peak { peak = a }
-        }
-        let scale = CGFloat(0.88) / CGFloat(min(max(peak, 0.05), 1.0))
+        let n = Self.barCount
+        let chunkSize = samples.count / n
+        let barW = (w - Self.barGap * CGFloat(n - 1)) / CGFloat(n)
+        let stride = barW + Self.barGap
+        let gain: CGFloat = 2.5  // typical synth peak ~0.3–0.4, push toward full height
 
         let path = CGMutablePath()
-        let n = samples.count
-        guard n > 1 else { return }
-        let step = w / CGFloat(n - 1)
-        for i in 0..<n {
-            let x = CGFloat(i) * step
-            let y = midY - CGFloat(samples[i]) * midY * scale
-            if i == 0 {
-                path.move(to: CGPoint(x: x, y: y))
-            } else {
-                path.addLine(to: CGPoint(x: x, y: y))
+        for b in 0..<n {
+            var peak: Float = 0
+            let base = b * chunkSize
+            for i in 0..<chunkSize {
+                let a = abs(samples[base + i])
+                if a > peak { peak = a }
             }
+            let lvl = Swift.min(1.0, CGFloat(peak) * gain)
+            // Bottom-anchored: y=0 is bottom (NSView default coord space).
+            let bh = Swift.max(1.5, lvl * h)
+            let bx = CGFloat(b) * stride
+            path.addRect(CGRect(x: bx, y: 0, width: barW, height: bh))
         }
 
-        // Rotate the gradient hue slowly so quiet content still looks alive.
-        hue += 0.0035
-        if hue > 1.0 { hue -= 1.0 }
-        let h0 = hue
-        let h1 = (hue + 0.16).truncatingRemainder(dividingBy: 1.0)
-        let h2 = (hue + 0.33).truncatingRemainder(dividingBy: 1.0)
-        let h3 = (hue + 0.50).truncatingRemainder(dividingBy: 1.0)
-        let h4 = (hue + 0.66).truncatingRemainder(dividingBy: 1.0)
-        let h5 = (hue + 0.83).truncatingRemainder(dividingBy: 1.0)
-        let cgcolor = { (hue: CGFloat) -> CGColor in
-            NSColor(hue: hue, saturation: 0.85, brightness: 1.0, alpha: 1.0).cgColor
-        }
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        gradientLayer.colors = [cgcolor(h0), cgcolor(h1), cgcolor(h2),
-                                cgcolor(h3), cgcolor(h4), cgcolor(h5)]
-        lineMask.path = path
-        glowLayer.path = path
-        CATransaction.commit()
+        barLayer.path = path
     }
 }
