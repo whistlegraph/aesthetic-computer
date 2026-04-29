@@ -129,13 +129,13 @@ final class MenuBandSynth {
         engine.attach(avUnit)
         engine.connect(avUnit, to: engine.mainMixerNode, format: nil)
 
-        // 3. Set channel 0 to GM Melodic bank + the user's current program.
-        //    Channel 9 to GM Percussion + standard kit. We let MIDISynth
-        //    lazy-load programs on first use rather than preloading the
-        //    full bank — the preload-mode dance was preventing later PC
-        //    messages from actually switching the active program. Lazy
-        //    load gives a few ms of disk warmup per new program but
-        //    program switches Just Work after that.
+        // 3. Load just the programs we need. MIDISynth requires
+        //    EnablePreload(true) → PC → EnablePreload(false) to actually
+        //    fault each program's samples in from the DLS bank; without
+        //    that, the bank URL is set but no instruments load and noteOn
+        //    is silent. The earlier full 128-program sweep used the same
+        //    mechanism but at startup cost; we now load programs lazily on
+        //    first use via setMelodicProgram.
         selectMelodicProgram(au, program: currentMelodicProgram)
         selectDrumKit(au)
 
@@ -150,22 +150,62 @@ final class MenuBandSynth {
         // (Leaving the nodes attached but unrouted is safe.)
     }
 
-    /// Select a melodic program on channel 0 of the MIDISynth via a proper
-    /// GM bank-select + Program Change triplet. CC0 = bank MSB (0x79 for the
-    /// GM Melodic bank), CC32 = bank LSB (0), then PC = program. Without
-    /// the bank-select pair, raw PC messages may end up routing into a
-    /// different bank and produce silent/wrong-program output.
+    /// Set of (bankMSB << 8 | program) keys we've already faulted in. The
+    /// EnablePreload dance only needs to run once per (bank, program) — once
+    /// loaded, subsequent program changes to the same slot are instant.
+    private var loadedPrograms: Set<UInt16> = []
+
+    /// Select a melodic program on channel 0. First time a (bank, program)
+    /// is touched we wrap the bank-select + PC in EnablePreload so MIDISynth
+    /// actually faults the instrument's samples in from the DLS bank.
+    /// Subsequent calls for an already-loaded program skip the preload
+    /// toggle and just send the bank-select + PC for instant switching.
+    /// CC0 = bank MSB (0x79 GM Melodic), CC32 = bank LSB (0).
     private func selectMelodicProgram(_ au: AudioUnit, program: UInt8) {
+        let key: UInt16 = (UInt16(0x79) << 8) | UInt16(program)
+        let needsLoad = !loadedPrograms.contains(key)
+        if needsLoad { setMIDISynthPreload(au, enable: true) }
         sendMIDIEvent(au, status: 0xB0, data1: 0,  data2: 0x79)  // CC0  bank MSB
         sendMIDIEvent(au, status: 0xB0, data1: 32, data2: 0x00)  // CC32 bank LSB
         sendMIDIEvent(au, status: 0xC0, data1: program)          // PC   program
+        if needsLoad {
+            setMIDISynthPreload(au, enable: false)
+            loadedPrograms.insert(key)
+            // After preload-disable, the AU's *active* program is still
+            // unset on this channel — re-send the PC so noteOn lands on the
+            // freshly loaded instrument instead of silence.
+            sendMIDIEvent(au, status: 0xC0, data1: program)
+        }
     }
 
     /// Select the standard GM drum kit on channel 9 (bank MSB 0x78).
     private func selectDrumKit(_ au: AudioUnit) {
+        let key: UInt16 = (UInt16(0x78) << 8) | 0
+        let needsLoad = !loadedPrograms.contains(key)
+        if needsLoad { setMIDISynthPreload(au, enable: true) }
         sendMIDIEvent(au, status: 0xB9, data1: 0,  data2: 0x78)  // CC0  bank MSB
         sendMIDIEvent(au, status: 0xB9, data1: 32, data2: 0x00)  // CC32 bank LSB
         sendMIDIEvent(au, status: 0xC9, data1: 0)                // PC   kit 0
+        if needsLoad {
+            setMIDISynthPreload(au, enable: false)
+            loadedPrograms.insert(key)
+            sendMIDIEvent(au, status: 0xC9, data1: 0)
+        }
+    }
+
+    private func setMIDISynthPreload(_ au: AudioUnit, enable: Bool) {
+        var flag: UInt32 = enable ? 1 : 0
+        let status = AudioUnitSetProperty(
+            au,
+            AudioUnitPropertyID(kAUMIDISynthProperty_EnablePreload),
+            kAudioUnitScope_Global,
+            0,
+            &flag,
+            UInt32(MemoryLayout<UInt32>.size)
+        )
+        if status != noErr {
+            NSLog("MenuBand: MIDISynth EnablePreload(\(enable)) status=\(status)")
+        }
     }
 
     @inline(__always)

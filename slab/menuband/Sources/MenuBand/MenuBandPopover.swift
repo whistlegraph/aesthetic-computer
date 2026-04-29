@@ -57,6 +57,10 @@ final class HoverSegmentedControl: NSSegmentedControl {
 /// richer feel than a plain NSMenu.
 final class MenuBandPopoverViewController: NSViewController {
     weak var menuBand: MenuBandController?
+    /// Owning popover, set by AppDelegate after construction. Held weak so
+    /// we don't extend its lifetime; used to animate `contentSize` when the
+    /// instrument palette collapses / expands.
+    weak var popover: NSPopover?
 
     private var inputSegmented: HoverSegmentedControl!  // legacy reference; no longer added to stack
     private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
@@ -65,6 +69,8 @@ final class MenuBandPopoverViewController: NSViewController {
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
     private var instrumentList: InstrumentListView!
     private var instrumentReadout: NSTextField!
+    private var instrumentLabel: NSTextField!
+    private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
     private var crashStatusLabel: NSTextField!
@@ -319,13 +325,16 @@ final class MenuBandPopoverViewController: NSViewController {
         // label color in the title row instead (green = ok, red = failed).
         midiSelfTestLabel = NSTextField(labelWithString: "")
 
-        stack.addArrangedSubview(makeSeparator())
+        instrumentSeparator = makeSeparator()
+        stack.addArrangedSubview(instrumentSeparator)
 
         // Instrument named-list. All 128 GM programs in a scrollable list,
         // family-colored stripe on the left, name on the right. Hover plays
         // a preview note; click commits. Compact (~180 px window) so the
         // popover stays small even though the full list is much taller.
-        let instrumentLabel = NSTextField(labelWithString: "Instrument")
+        // Hidden in MIDI mode — the DAW picks instruments there, so this
+        // local picker would just be misleading dead UI.
+        instrumentLabel = NSTextField(labelWithString: "Instrument")
         instrumentLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         instrumentLabel.textColor = .labelColor
         stack.addArrangedSubview(instrumentLabel)
@@ -508,6 +517,11 @@ final class MenuBandPopoverViewController: NSViewController {
         // it instead of showing a misleading dead waveform.
         waveformView.isHidden = n.midiMode
         waveformView.isLive = !n.midiMode
+        // Instrument palette: only meaningful when the local synth is the
+        // audio path. In MIDI mode the DAW chooses the instrument, so the
+        // local picker is hidden along with its label, separator, and
+        // selected-program readout.
+        applyInstrumentPaletteVisibility(midiMode: n.midiMode)
         // Wire up live updates so the label reflects loopback results as
         // they land (test runs ~50ms after toggle-on; result settles a moment
         // later).
@@ -667,12 +681,69 @@ final class MenuBandPopoverViewController: NSViewController {
         // toggles after the first per session) and other panels don't need
         // to refresh.
         menuBand?.toggleMIDIMode()
-        // Waveform follows the new MIDI state directly so it appears /
-        // disappears the moment the user flips the switch.
+        // Tactile feedback — short system tick so the flip feels mechanical
+        // even though it's a software switch.
+        NSSound(named: NSSound.Name("Tink"))?.play()
+        // Waveform + instrument palette follow the new MIDI state directly
+        // so they appear / disappear the moment the user flips the switch.
         if let m = menuBand {
-            waveformView.isHidden = m.midiMode
+            waveformView.animator().isHidden = m.midiMode
             waveformView.isLive = !m.midiMode
+            applyInstrumentPaletteVisibility(midiMode: m.midiMode, animated: true)
         }
+    }
+
+    private func applyInstrumentPaletteVisibility(midiMode: Bool, animated: Bool = false) {
+        // Compute the target popover size with the palette toggled. Hide
+        // first inside a layout pass so `fittingSize` reflects the post-
+        // collapse stack — without this the new size would equal the old.
+        let setHidden = {
+            self.instrumentSeparator.isHidden = midiMode
+            self.instrumentLabel.isHidden = midiMode
+            self.instrumentList.isHidden = midiMode
+            self.instrumentReadout.isHidden = midiMode
+        }
+        if !animated {
+            setHidden()
+            view.needsLayout = true
+            view.layoutSubtreeIfNeeded()
+            let fitting = view.fittingSize
+            preferredContentSize = NSSize(width: fitting.width,
+                                           height: fitting.height)
+            return
+        }
+        // Animated path: NSStackView collapses arranged subviews when their
+        // `isHidden` flips inside an animation group, and the popover's
+        // backing window is an NSWindow that animates frame changes via its
+        // animator proxy. We hide the stack rows inside the animation
+        // context (so they fade with the resize) and slide the window's
+        // height in lockstep. `preferredContentSize` is committed at the
+        // end so AppKit's bookkeeping matches the final geometry.
+        setHidden()
+        view.needsLayout = true
+        view.layoutSubtreeIfNeeded()
+        let fitting = view.fittingSize
+        let newSize = NSSize(width: fitting.width, height: fitting.height)
+        guard let window = view.window else {
+            preferredContentSize = newSize
+            return
+        }
+        // NSPopover anchors its arrow to the menubar; on .minY edge the
+        // popover hangs below, so its window's origin.y stays fixed at the
+        // top while only the height changes downward. Resize from the top
+        // by adjusting origin.y to keep the arrow attached.
+        var frame = window.frame
+        let dh = newSize.height - frame.height
+        frame.origin.y -= dh
+        frame.size.height = newSize.height
+        frame.size.width = newSize.width
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.18
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.allowsImplicitAnimation = true
+            window.animator().setFrame(frame, display: true)
+        }
+        preferredContentSize = newSize
     }
 
     /// 0 = Pointer, 1 = Notepat, 2 = Ableton. Matches the segmented control
@@ -705,15 +776,11 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentList.selectedProgram = UInt8(program)
         updateInstrumentReadout(program: UInt8(program))
         debugLog("instrument commit prog=\(program)")
-        // setMelodicProgram → loadSoundBankInstrument is synchronous on the
-        // calling thread, but AVAudioUnitSampler briefly drops scheduled
-        // notes on the audio render thread while it swaps banks. Without
-        // this small delay the audition note often falls into that gap and
-        // the user hears nothing. 70 ms is enough for the swap to settle
-        // on every Mac I've tested without feeling laggy.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) { [weak m] in
-            m?.auditionCurrentProgram()
-        }
+        // No post-release audition: the press-gated rollover already played
+        // a preview note while the mouse was held, so retriggering on
+        // release just doubles the sound. mouseUp paths through onHover(nil)
+        // first which stops the preview cleanly — that's the audio-end the
+        // user expects.
     }
 
     @objc private func octaveChanged(_ sender: NSStepper) {

@@ -82,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // for quickly toggling between the menubar piano and the picker.
         let vc = MenuBandPopoverViewController()
         vc.menuBand = menuBand
+        vc.popover = popover
         popoverVC = vc
         popover.contentViewController = vc
         // .applicationDefined: never auto-close. We manage closing manually
@@ -365,6 +366,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // by default; without this you have to click into the popover
             // once before its controls react.
             NSApp.activate(ignoringOtherApps: true)
+            // Sharp tactile click on open — the settings chip is the only
+            // entry point to the popover, so this becomes the "menu opening"
+            // sound. Tink is short and unmistakable; a richer custom sample
+            // would need an asset bundle, and Tink ships on every macOS.
+            NSSound(named: NSSound.Name("Tink"))?.play()
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
             DispatchQueue.main.async {
                 self.popover.contentViewController?.view.window?.makeKey()
