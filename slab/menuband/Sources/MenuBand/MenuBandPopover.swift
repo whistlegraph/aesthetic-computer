@@ -64,6 +64,9 @@ final class MenuBandPopoverViewController: NSViewController {
     private var instrumentList: InstrumentListView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
+    private var crashStatusLabel: NSTextField!
+    private var crashHintLabel: NSTextField!
+    private var crashSendButton: NSButton!
     private var keyMonitor: Any?
 
     override func loadView() {
@@ -213,6 +216,31 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(makeSeparator())
 
+        // Crash logs — count + opt-in send. Read from
+        // ~/Library/Logs/DiagnosticReports/. macOS deposits MenuBand-*.ips
+        // there automatically when we crash. We never auto-send; this
+        // surfaces the count and lets the user click to ship them up.
+        crashStatusLabel = NSTextField(labelWithString: "")
+        crashStatusLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        crashStatusLabel.textColor = .labelColor
+        stack.addArrangedSubview(crashStatusLabel)
+
+        crashHintLabel = NSTextField(wrappingLabelWithString: "")
+        crashHintLabel.font = NSFont.systemFont(ofSize: 10)
+        crashHintLabel.textColor = .secondaryLabelColor
+        crashHintLabel.maximumNumberOfLines = 0
+        crashHintLabel.preferredMaxLayoutWidth = 248
+        stack.addArrangedSubview(crashHintLabel)
+
+        crashSendButton = NSButton(title: "Send crash reports",
+                                   target: self,
+                                   action: #selector(sendCrashLogs(_:)))
+        crashSendButton.bezelStyle = .recessed
+        crashSendButton.controlSize = .small
+        stack.addArrangedSubview(crashSendButton)
+
+        stack.addArrangedSubview(makeSeparator())
+
         // About — inline rather than a separate dialog.
         let aboutTitle = NSTextField(labelWithString: "About")
         aboutTitle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
@@ -300,6 +328,7 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentList.selectedProgram = n.melodicProgram
         instrumentList.scrollProgramIntoView(n.melodicProgram)
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
+        refreshCrashStatus()
         // Wire up live updates so the label reflects loopback results as
         // they land (test runs ~50ms after toggle-on; result settles a moment
         // later).
@@ -367,6 +396,48 @@ final class MenuBandPopoverViewController: NSViewController {
         row.addArrangedSubview(spacer)
         row.addArrangedSubview(switchControl)
         return row
+    }
+
+    /// Update the crash-log status row from disk. Called on every popover
+    /// open so the count is current.
+    private func refreshCrashStatus() {
+        let logs = CrashLogReader.recentLogs()
+        let n = logs.count
+        if n == 0 {
+            crashStatusLabel.stringValue = "Crash logs"
+            crashHintLabel.stringValue = "No recent crashes — Menu Band's been stable since macOS last cleaned the diagnostic reports folder."
+            crashSendButton.isHidden = true
+        } else {
+            crashStatusLabel.stringValue = n == 1 ? "1 recent crash" : "\(n) recent crashes"
+            crashHintLabel.stringValue = "Send the report to aesthetic.computer? It helps debug the bug. Nothing personal goes — just the macOS crash log."
+            crashSendButton.isHidden = false
+            crashSendButton.title = n == 1 ? "Send 1 report" : "Send all (\(n))"
+            crashSendButton.isEnabled = true
+        }
+    }
+
+    @objc private func sendCrashLogs(_ sender: NSButton) {
+        let logs = CrashLogReader.recentLogs()
+        guard !logs.isEmpty else { return }
+        sender.isEnabled = false
+        sender.title = "Sending…"
+
+        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
+        var remaining = logs.count
+        var ok = 0
+        for log in logs {
+            CrashLogReader.upload(log, version: version) { [weak self] success, _ in
+                guard let self = self else { return }
+                if success { ok += 1 }
+                remaining -= 1
+                if remaining == 0 {
+                    self.crashSendButton.title = ok == logs.count
+                        ? "Sent ✓"
+                        : "Sent \(ok)/\(logs.count) — retry"
+                    self.crashSendButton.isEnabled = ok != logs.count
+                }
+            }
+        }
     }
 
     private func updateOctaveLabel(_ shift: Int) {

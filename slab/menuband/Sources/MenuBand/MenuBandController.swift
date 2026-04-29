@@ -231,11 +231,20 @@ final class MenuBandController {
             if note == testNote {
                 let dt = Int((CACurrentMediaTime() - sentAt) * 1000)
                 debugLog("MIDI loopback: received note=\(note) vel=\(velocity) latency=\(dt)ms")
+                // CRITICAL: stopLoopback() calls MIDIPortDisconnectSource on
+                // the same source whose callback we're inside right now —
+                // CoreMIDI does not allow that, the disconnect blocks the
+                // delivery thread (see usleep loop in
+                // LocalMIDIReceiverList::ReceiverConnectEndpoint) and the
+                // ensuing thread storm crashes the main thread with a wild
+                // timer fire (Code Signature Invalid SIGKILL). Defer the
+                // disconnect to the main run-loop, which runs *after* this
+                // callback returns.
                 DispatchQueue.main.async {
                     self.midiSelfTest = .ok(latencyMs: dt)
                     self.onSelfTestChanged?()
+                    self.midi.stopLoopback()
                 }
-                self.midi.stopLoopback()
             }
         }
         // Send the test note
