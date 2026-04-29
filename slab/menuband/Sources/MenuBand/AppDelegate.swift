@@ -11,6 +11,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let popover = NSPopover()
     private var popoverVC: MenuBandPopoverViewController?
 
+    /// Periodic check that the status item is actually visible in the
+    /// menu bar. macOS silently hides items when there's no room (notch +
+    /// many menubar apps). When that happens we shrink the layout —
+    /// full piano → 1 octave → compact chip — until something fits.
+    private var visibilityTimer: Timer?
+    /// Set to true once we've shown the "no room even for compact" alert
+    /// so we don't spam the user every check.
+    private var hasAlertedNoSpace = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
@@ -70,6 +79,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.behavior = .transient
         popover.animates = false
         _ = vc.view
+
+        startAdaptiveLayoutChecks()
+    }
+
+    // MARK: - Adaptive menubar layout
+
+    /// `true` when the status item button is laid out on a real screen.
+    /// macOS leaves the button's window assigned but with `screen == nil`
+    /// when there's no room for it in the menu bar.
+    private func isStatusItemVisible() -> Bool {
+        guard let button = statusItem.button else { return false }
+        guard let window = button.window else { return false }
+        if window.screen == nil { return false }
+        return NSScreen.screens.contains { $0.frame.intersects(window.frame) }
+    }
+
+    private func startAdaptiveLayoutChecks() {
+        // Initial fit pass — give the system a beat to lay out before
+        // probing visibility.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.adaptLayoutForAvailableSpace()
+        }
+        // Periodic re-check. Menubar real-estate changes throughout the
+        // day as apps come and go; 6s polling is cheap and lets us both
+        // shrink (when squeezed) and re-expand (when room opens up).
+        visibilityTimer?.invalidate()
+        visibilityTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: true) { [weak self] _ in
+            self?.adaptLayoutForAvailableSpace()
+        }
+    }
+
+    private func adaptLayoutForAvailableSpace() {
+        let current = KeyboardIconRenderer.displayLayout
+        let visible = isStatusItemVisible()
+
+        if !visible {
+            // Shrink to the next-smaller layout. If we're already at
+            // .compact and STILL not visible, alert the user once.
+            if let smaller = current.smaller {
+                debugLog("statusItem hidden — shrinking \(current) → \(smaller)")
+                KeyboardIconRenderer.displayLayout = smaller
+                updateIcon()
+            } else if !hasAlertedNoSpace {
+                hasAlertedNoSpace = true
+                DispatchQueue.main.async { [weak self] in self?.alertNoMenuBarSpace() }
+            }
+            return
+        }
+
+        // Visible. If we previously shrunk, try to expand back. Set the
+        // larger layout, force a layout, then re-check; revert if we
+        // lost the slot.
+        guard let bigger = current.larger else { return }
+        KeyboardIconRenderer.displayLayout = bigger
+        updateIcon()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self = self else { return }
+            if !self.isStatusItemVisible() {
+                debugLog("expand \(current) → \(bigger) didn't fit; reverting")
+                KeyboardIconRenderer.displayLayout = current
+                self.updateIcon()
+            } else {
+                debugLog("statusItem expanded \(current) → \(bigger)")
+            }
+        }
+    }
+
+    private func alertNoMenuBarSpace() {
+        let alert = NSAlert()
+        alert.messageText = "Menu Band can't fit in your menu bar"
+        alert.informativeText = """
+            There's no room in your menu bar — even for the compact icon. \
+            Try quitting an app that puts items in the menu bar (slack, \
+            dropbox, etc.), or use Bartender / Hidden Bar to manage them.
+
+            Menu Band will keep trying every few seconds.
+            """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -15,22 +15,55 @@ enum KeyboardIconRenderer {
     /// the keymap through every static method's signature.
     static var activeKeymap: Keymap = .notepat
 
-    // Render area is *constant* across keymaps (always 2 octaves: C4..B5).
-    // The Ableton layout only reaches E5 (MIDI 76); rather than shrinking the
-    // image (which jiggles the menubar slot + popover anchor every time the
-    // user hovers a mode), we draw the unmapped keys as negative space and
-    // skip them in hit-testing. `activeRange` is the keymap-aware subset
-    // that's drawn + interactive.
-    static let firstMidi: Int = 60   // C4 (middle C)
-    static let lastMidi: Int = 83    // B5 — render area top (always)
+    /// Adaptive sizing for menubar overflow. AppDelegate progressively
+    /// shrinks this when the status item can't fit, and tries to expand
+    /// back when there's room. Render math (pianoWidth, imageSize, hit
+    /// rects, slot positions) all derive from `lastMidi`.
+    enum DisplayLayout {
+        case full        // C4..B5 — 2 octaves (default)
+        case oneOctave   // C4..B4 — 1 octave fallback
+        case compact     // chip only, no piano keys
 
-    static var activeRange: ClosedRange<Int> {
-        activeKeymap == .ableton ? 60...76 : 60...83
+        var smaller: DisplayLayout? {
+            switch self {
+            case .full: return .oneOctave
+            case .oneOctave: return .compact
+            case .compact: return nil
+            }
+        }
+        var larger: DisplayLayout? {
+            switch self {
+            case .compact: return .oneOctave
+            case .oneOctave: return .full
+            case .full: return nil
+            }
+        }
+    }
+    static var displayLayout: DisplayLayout = .full
+
+    // Render area shrinks with the layout. Compact has no piano keys at
+    // all — `lastMidi < firstMidi` makes whiteList() empty.
+    static let firstMidi: Int = 60                 // C4 (middle C)
+    static var lastMidi: Int {
+        switch displayLayout {
+        case .full:      return 83                 // B5 — full 2 octaves
+        case .oneOctave: return 71                 // B4 — single octave
+        case .compact:   return firstMidi - 1      // empty range
+        }
+    }
+
+    /// Active subset of the visible range that's drawn + interactive.
+    /// Capped by both the keymap range (Ableton tops out at E5/76) and the
+    /// current display layout. Returns nil when no keys are displayable.
+    static var activeRange: ClosedRange<Int>? {
+        let keymapMax = activeKeymap == .ableton ? 76 : 83
+        let upper = Swift.min(keymapMax, lastMidi)
+        return upper >= firstMidi ? firstMidi...upper : nil
     }
 
     @inline(__always)
     private static func isActive(_ midi: Int) -> Bool {
-        activeRange.contains(midi)
+        activeRange?.contains(midi) ?? false
     }
 
     /// Right-align the active keys in Ableton mode so the negative space
@@ -39,7 +72,8 @@ enum KeyboardIconRenderer {
     /// keymap." `imageSize` doesn't change, so the popover anchor stays put.
     static var activeSlotOffset: Int {
         let allWhites = whiteList()
-        let activeCount = allWhites.filter { activeRange.contains($0) }.count
+        guard let range = activeRange else { return 0 }
+        let activeCount = allWhites.filter { range.contains($0) }.count
         return allWhites.count - activeCount
     }
 
@@ -99,7 +133,8 @@ enum KeyboardIconRenderer {
     }
 
     private static func whiteList() -> [Int] {
-        (firstMidi...lastMidi).filter { isWhite($0) }
+        guard lastMidi >= firstMidi else { return [] }
+        return (firstMidi...lastMidi).filter { isWhite($0) }
     }
 
     private static var pianoWidth: CGFloat {
