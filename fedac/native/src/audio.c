@@ -3158,7 +3158,7 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
             // correction is needed beyond the pitch ratio.
             double semis = target_midi_d - (double)anchor->midi;
             v->piano_sample_step = pow(2.0, semis / 12.0);
-            v->piano_sample_amp  = 0.85;
+            v->piano_sample_amp  = 1.8;
             ac_log("[piano] f0=%.1fHz midi=%d → anchor midi=%d step=%.4f len=%d\n",
                    f0, target_midi, anchor->midi,
                    v->piano_sample_step, anchor->len);
