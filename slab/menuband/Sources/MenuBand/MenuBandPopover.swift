@@ -93,28 +93,13 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(stack)
 
-        // Title row: app name on the left, octave control hugging the right.
-        // Octave gets its own row in the popover via this top-anchored
-        // arrangement so we don't need a dedicated "Octave" panel below.
+        // Top control row: octave + MIDI hugging the right. Brand title
+        // moved into the About section below — fewer wasted rows up top.
         let titleRow = NSStackView()
         titleRow.orientation = .horizontal
         titleRow.alignment = .centerY
         titleRow.distribution = .fill
         titleRow.spacing = 8
-
-        let titleStack = NSStackView()
-        titleStack.orientation = .vertical
-        titleStack.alignment = .leading
-        titleStack.spacing = 0
-        let title = NSTextField(labelWithString: "Menu Band")
-        title.font = NSFont.systemFont(ofSize: 13, weight: .bold)
-        title.textColor = .labelColor
-        let subtitle = NSTextField(labelWithString: "Built-in macOS instruments, in the menu bar.")
-        subtitle.font = NSFont.systemFont(ofSize: 10.5)
-        subtitle.textColor = .secondaryLabelColor
-        titleStack.addArrangedSubview(title)
-        titleStack.addArrangedSubview(subtitle)
-        titleRow.addArrangedSubview(titleStack)
 
         let titleSpacer = NSView()
         titleSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -227,7 +212,7 @@ final class MenuBandPopoverViewController: NSViewController {
             updateLink.bottomAnchor.constraint(equalTo: updateBanner.bottomAnchor, constant: -7),
         ])
         stack.addArrangedSubview(updateBanner)
-        updateBanner.widthAnchor.constraint(equalToConstant: 248).isActive = true
+        updateBanner.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
         updateBanner.isHidden = true
 
         stack.addArrangedSubview(makeSeparator())
@@ -253,7 +238,7 @@ final class MenuBandPopoverViewController: NSViewController {
         inputSegmented.translatesAutoresizingMaskIntoConstraints = false
         // No hover preview — clicks commit the mode directly.
         stack.addArrangedSubview(inputSegmented)
-        inputSegmented.widthAnchor.constraint(equalToConstant: 248).isActive = true
+        inputSegmented.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
 
         let inputHint = NSTextField(labelWithString:
             "⌃⌥⌘P toggles last keystrokes mode")
@@ -298,6 +283,11 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentList.onCommit = { [weak self] prog in
             self?.handleInstrumentCommit(prog)
         }
+        instrumentList.onHover = { [weak self] prog in
+            // Hover plays a continuous preview note in the hovered program;
+            // moving to another cell stops + restarts in the new program.
+            self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
+        }
         stack.addArrangedSubview(instrumentList)
         instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
         instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight).isActive = true
@@ -327,9 +317,16 @@ final class MenuBandPopoverViewController: NSViewController {
         aboutCol.orientation = .vertical
         aboutCol.alignment = .leading
         aboutCol.spacing = 4
-        let aboutTitle = NSTextField(labelWithString: "About")
-        aboutTitle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        // Brand identity now lives here instead of at the top of the
+        // popover — Menu Band heading + subtitle + about body + links all
+        // collapse into one section.
+        let aboutTitle = NSTextField(labelWithString: "Menu Band")
+        aboutTitle.font = NSFont.systemFont(ofSize: 13, weight: .bold)
         aboutTitle.textColor = .labelColor
+        let aboutSubtitle = NSTextField(labelWithString:
+            "Built-in macOS instruments, in the menu bar.")
+        aboutSubtitle.font = NSFont.systemFont(ofSize: 10.5)
+        aboutSubtitle.textColor = .secondaryLabelColor
         let aboutBody = NSTextField(wrappingLabelWithString:
             "A political project to bring the built-in macOS instruments — " +
             "the ones GarageBand uses — into the menu bar. Free + open source.")
@@ -344,7 +341,7 @@ final class MenuBandPopoverViewController: NSViewController {
         linksRow.orientation = .horizontal
         linksRow.alignment = .centerY
         linksRow.spacing = 6
-        let acLink = NSButton(title: "ac",
+        let acLink = NSButton(title: "aesthetic.computer",
                               target: self, action: #selector(openAesthetic))
         acLink.bezelStyle = .recessed
         acLink.controlSize = .small
@@ -421,7 +418,10 @@ final class MenuBandPopoverViewController: NSViewController {
         // the instrument map is added/removed/resized.
         root.layoutSubtreeIfNeeded()
         let fitting = stack.fittingSize
-        preferredContentSize = NSSize(width: max(280, fitting.width),
+        // Width tracks the actual fitting size — the instrument map's
+        // 224 px sets the floor, so the popover is as skinny as the
+        // contents allow.
+        preferredContentSize = NSSize(width: fitting.width,
                                        height: fitting.height)
     }
 

@@ -43,6 +43,34 @@ final class MenuBandController {
         synth.snapshotWaveform(into: &dest)
     }
 
+    // Held preview note for sonic-browse hover over the instrument map.
+    // Continuous tone — switching cells stops the old note + starts a new
+    // one in the new program. Hover-out releases. Silent in MIDI mode
+    // (DAW is the audio path then; we still apply the program change so
+    // it's correct when the user toggles MIDI off).
+    private var previewNote: UInt8?
+
+    /// Hover-preview a program in the instrument map. Pass nil when the
+    /// hover ends to release the held note and restore the committed
+    /// program.
+    func setInstrumentPreview(_ program: UInt8?) {
+        if let prev = previewNote {
+            synth.noteOff(prev, channel: 0)
+            previewNote = nil
+        }
+        guard let prog = program else {
+            // Hover ended — flip back to the committed program so the
+            // menubar piano still plays whatever the user actually picked.
+            synth.setMelodicProgram(melodicProgram)
+            return
+        }
+        synth.setMelodicProgram(prog)
+        guard !midiMode else { return }
+        let note: UInt8 = 60
+        synth.noteOn(note, velocity: 75, channel: 0)
+        previewNote = note
+    }
+
     func auditionCurrentProgram() {
         let note: UInt8 = 60
         debugLog("audition: synth.noteOn 60 (program \(melodicProgram))")

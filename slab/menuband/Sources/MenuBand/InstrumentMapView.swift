@@ -21,6 +21,10 @@ final class InstrumentListView: NSView {
     var selectedProgram: UInt8 = 0 { didSet { needsDisplay = true } }
     private(set) var hoveredProgram: UInt8?
     var onCommit: ((Int) -> Void)?
+    /// Fires whenever the hovered cell changes (including transitions to
+    /// "no hover" → nil). Drives the controller's hover-preview note for
+    /// sonic browsing.
+    var onHover: ((Int?) -> Void)?
 
     private var trackingArea: NSTrackingArea?
 
@@ -134,6 +138,7 @@ final class InstrumentListView: NSView {
         if let prev = hoveredProgram {
             hoveredProgram = nil
             setNeedsDisplay(cellRect(program: Int(prev)))
+            onHover?(nil)
         }
     }
 
@@ -144,6 +149,7 @@ final class InstrumentListView: NSView {
             hoveredProgram = p
             if let prev = prev { setNeedsDisplay(cellRect(program: Int(prev))) }
             if let p = p { setNeedsDisplay(cellRect(program: Int(p))) }
+            onHover?(p.map { Int($0) })
         }
     }
 
