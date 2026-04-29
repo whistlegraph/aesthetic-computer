@@ -16,7 +16,7 @@
 // the repo root.
 
 import { createRequire } from "module";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, copyFileSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 
@@ -36,16 +36,19 @@ try {
 const SRC_DIR = join(REPO, "portraits", "jeffrey", "ig-archive", "whistlegraph");
 const DESCRIBED = join(REPO, "portraits", "jeffrey", "curated", "jeffrey-described.jsonl");
 const THUMB_DIR = join(REPO, "system", "public", "assets", "jeffreys", "whistlegraph");
+const FULL_DIR = join(REPO, "system", "public", "assets", "jeffreys", "whistlegraph-full");
 const MANIFEST_OUT = join(
   REPO, "system", "public", "papers.aesthetic.computer", "platter", "jeffrey", "manifest.json",
 );
 const CDN_PREFIX = "https://assets.aesthetic.computer/jeffreys/whistlegraph";
+const CDN_FULL_PREFIX = "https://assets.aesthetic.computer/jeffreys/whistlegraph-full";
 
 const args = process.argv.slice(2);
 const includeAll = args.includes("--all");
 const force = args.includes("--force");
 
 mkdirSync(THUMB_DIR, { recursive: true });
+mkdirSync(FULL_DIR, { recursive: true });
 mkdirSync(dirname(MANIFEST_OUT), { recursive: true });
 
 const rows = readFileSync(DESCRIBED, "utf8")
@@ -59,9 +62,12 @@ console.log(`source rows: ${rows.length} (${includeAll ? "all described" : "conf
 let made = 0, skipped = 0, missing = 0, failed = 0;
 const manifestRows = [];
 
+let fullCopied = 0, fullSkipped = 0;
+
 for (const row of rows) {
   const src = join(SRC_DIR, row.rel_path);
   const thumb = join(THUMB_DIR, `${row.shortcode}.jpg`);
+  const full = join(FULL_DIR, `${row.shortcode}.jpg`);
 
   if (!existsSync(src)) {
     missing++;
@@ -85,6 +91,19 @@ for (const row of rows) {
     }
   }
 
+  // Full-quality copy: no recompression. Originals are already JPEG, so
+  // copy as-is to preserve maximum fidelity for the lightbox view.
+  if (existsSync(full) && !force && statSync(full).size > 0) {
+    fullSkipped++;
+  } else {
+    try {
+      copyFileSync(src, full);
+      fullCopied++;
+    } catch (e) {
+      console.error(`  full-copy fail ${row.shortcode}: ${e.message}`);
+    }
+  }
+
   manifestRows.push({
     shortcode: row.shortcode,
     date: row.date,
@@ -92,6 +111,7 @@ for (const row of rows) {
     confidence: row.confidence ?? null,
     confirmed: !!row.is_jeffrey_confirmed,
     thumb: `${CDN_PREFIX}/${row.shortcode}.jpg`,
+    full: `${CDN_FULL_PREFIX}/${row.shortcode}.jpg`,
     expression: row.subject?.expression ?? null,
     pose: row.subject?.pose ?? null,
     description: row.subject?.description ?? null,
@@ -126,5 +146,6 @@ writeFileSync(
 );
 
 console.log(`thumbs: made=${made} skipped=${skipped} failed=${failed} missing-source=${missing}`);
+console.log(`full:   copied=${fullCopied} skipped=${fullSkipped}`);
 console.log(`manifest: ${manifestRows.length} rows → ${MANIFEST_OUT}`);
 console.log(`next: npm run assets:sync:up`);

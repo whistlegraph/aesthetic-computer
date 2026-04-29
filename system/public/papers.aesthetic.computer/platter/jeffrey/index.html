@@ -102,17 +102,25 @@ main {
 }
 #lightbox.open { display: flex; align-items: flex-start; justify-content: center; }
 .lb-inner {
-  max-width: 900px; width: 100%;
-  display: grid; grid-template-columns: 1fr; gap: 16px;
+  max-width: 1400px; width: 100%;
+  display: grid; grid-template-columns: 1fr; gap: 20px;
 }
-@media (min-width: 700px) {
-  .lb-inner { grid-template-columns: 360px 1fr; }
+@media (min-width: 800px) {
+  .lb-inner { grid-template-columns: minmax(0, 1fr) 360px; }
 }
 .lb-img {
-  background: #000; aspect-ratio: 1;
-  width: 100%; max-width: 360px;
+  background: #000;
+  width: 100%;
+  max-height: calc(100vh - 80px);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
-.lb-img img { width: 100%; height: 100%; object-fit: contain; }
+.lb-img img {
+  max-width: 100%; max-height: calc(100vh - 80px);
+  width: auto; height: auto;
+  object-fit: contain;
+  transition: filter 0.2s;
+}
 .lb-info {
   font-size: 13px; line-height: 1.5;
   display: flex; flex-direction: column; gap: 10px;
@@ -270,8 +278,13 @@ function render() {
 
 function openLightbox(r) {
   const igUrl = `https://www.instagram.com/p/${r.shortcode}/`;
+  // Show the thumb instantly (it's likely cached from the grid), then swap
+  // to the full-quality original once it loads. Avoids the lightbox flashing
+  // empty for ~200ms on the network round-trip.
+  const initial = r.thumb;
+  const hires = r.full || r.thumb;
   lbBody.innerHTML = `
-    <div class="lb-img"><img src="${r.thumb}" alt=""></div>
+    <div class="lb-img"><img src="${initial}" data-hires="${hires}" alt="" style="filter:saturate(0.95);"></div>
     <div class="lb-info">
       <h2>${r.date}</h2>
       <div class="lb-row"><span class="k">subject</span><span class="v">${escapeHtml(r.description || "—")}</span></div>
@@ -288,6 +301,19 @@ function openLightbox(r) {
     </div>`;
   lightbox.classList.add("open");
   document.body.style.overflow = "hidden";
+
+  // Progressive swap to full-quality once it loads.
+  const lbImg = lbBody.querySelector(".lb-img img");
+  if (lbImg && lbImg.dataset.hires && lbImg.dataset.hires !== lbImg.src) {
+    const probe = new Image();
+    probe.onload = () => {
+      lbImg.src = lbImg.dataset.hires;
+      lbImg.style.filter = "";
+    };
+    probe.src = lbImg.dataset.hires;
+  } else {
+    lbImg.style.filter = "";
+  }
 }
 
 function closeLightbox() {

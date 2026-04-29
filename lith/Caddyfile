@@ -494,9 +494,15 @@
     }
     @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
-        # Assets → DO Spaces CDN
-        handle /assets/* {
-            redir https://assets.aesthetic.computer{uri} 302
+        # Assets → DO Spaces CDN. The bucket root maps directly to
+        # assets.aesthetic.computer (no /assets/ prefix exists in the
+        # bucket), so we use handle_path to strip the matched /assets/
+        # prefix before substituting {path} into the redirect target.
+        # The previous form (`handle /assets/*` + `{uri}`) doubled the
+        # prefix and produced 403s on assets.aesthetic.computer/assets/...
+        # (See: 2026-04-29 platter readings 403 fix.)
+        handle_path /assets/* {
+            redir https://assets.aesthetic.computer{path} 302
         }
         # API → lith
         handle /api/* {

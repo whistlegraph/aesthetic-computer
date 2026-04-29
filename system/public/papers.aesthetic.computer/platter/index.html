@@ -89,6 +89,34 @@ main {
   opacity: 0.5; pointer-events: none;
 }
 
+.opinions {
+  max-width: 880px; margin: 24px auto 0; padding: 0 16px;
+}
+.section-h {
+  font-size: 14px; font-weight: normal; letter-spacing: 3px;
+  color: var(--fg); padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.opinions-sub { font-size: 11px; color: var(--fg2); margin-bottom: 12px; max-width: 640px; }
+.opinion-list { list-style: none; }
+.opinion-list li { padding: 0; }
+.opinion-list li.opinion-loading { color: var(--fg2); font-size: 11px; padding: 8px 0; }
+.opinion-list a {
+  display: grid; grid-template-columns: 110px 1fr;
+  gap: 12px; padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg); transition: background-color 0.1s;
+}
+.opinion-list a:hover { background: var(--hover); color: var(--accent); text-decoration: none; }
+.opinion-list .o-date {
+  color: var(--fg2); font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.opinion-list .o-title { font-size: 13px; }
+.opinion-list .o-author { font-size: 10px; color: var(--fg2); display: block; margin-top: 2px; }
+
 footer {
   padding: 24px 16px; text-align: center; font-size: 11px;
   color: var(--fg2); border-top: 1px solid var(--border);
@@ -139,11 +167,50 @@ footer a:hover { color: var(--accent2); }
 
 </main>
 
+<section class="opinions">
+  <h2 class="section-h">opinions</h2>
+  <div class="opinions-sub">
+    machine-generated essays connecting external ideas to AC's design philosophy.
+    rendered natively at <a href="https://aesthetic.computer/opinion">aesthetic.computer/opinion</a> using pixel text.
+  </div>
+  <ul class="opinion-list" id="opinion-list">
+    <li class="opinion-loading">loading…</li>
+  </ul>
+</section>
+
 <footer>
   <a href="../">papers.aesthetic.computer</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/digitpain/aesthetic-computer/tree/main/papers">papers/ on github</a>
 </footer>
+
+<script>
+(async () => {
+  const list = document.getElementById("opinion-list");
+  try {
+    const res = await fetch("https://aesthetic.computer/opinion/index.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status + " " + res.statusText);
+    const items = (await res.json()).sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (!items.length) { list.innerHTML = `<li class="opinion-loading">no opinions yet</li>`; return; }
+    list.innerHTML = items.map((o) => `
+      <li>
+        <a href="https://aesthetic.computer/opinion/${o.slug}" target="_blank">
+          <span class="o-date">${o.date}</span>
+          <span>
+            <span class="o-title">${escapeHtml(o.title)}</span>
+            <span class="o-author">${escapeHtml(o.author || "")}</span>
+          </span>
+        </a>
+      </li>`).join("");
+  } catch (e) {
+    list.innerHTML = `<li class="opinion-loading">failed to load: ${e.message}</li>`;
+  }
+})();
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
 
 </body>
 </html>
