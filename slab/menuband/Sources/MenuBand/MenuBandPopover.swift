@@ -123,10 +123,14 @@ final class MenuBandPopoverViewController: NSViewController {
         // value model so the rest of the controller's API doesn't change;
         // the visible buttons just nudge its `integerValue`.
         octaveLabel = NSTextField(labelWithString: "+0")
-        octaveLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 18, weight: .bold)
+        // Fully monospaced so "+", "-", and digits all carry the same
+        // advance — value flips don't slide left or right between the
+        // arrows. No fixed width — intrinsic content width hugs the text
+        // tightly so the 4 px spacing on each side stays exactly 4 px,
+        // not "4 + half-of-padding".
+        octaveLabel.font = NSFont.monospacedSystemFont(ofSize: 17, weight: .semibold)
         octaveLabel.textColor = .labelColor
-        octaveLabel.alignment = .right
-        octaveLabel.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        octaveLabel.alignment = .center
 
         octaveStepper = NSStepper()
         octaveStepper.minValue = -4
@@ -137,28 +141,38 @@ final class MenuBandPopoverViewController: NSViewController {
         octaveStepper.action = #selector(octaveChanged(_:))
         octaveStepper.isHidden = true   // value model only — UI is the arrows below
 
+        // Chevrons sized to balance the 17 pt label between them.
+        let chevConfig = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+
         let leftArrow = NSButton()
         leftArrow.image = NSImage(systemSymbolName: "chevron.left",
-                                  accessibilityDescription: "Octave down")
-        leftArrow.bezelStyle = .recessed
+                                  accessibilityDescription: "Octave down")?
+            .withSymbolConfiguration(chevConfig)
+        leftArrow.isBordered = false
         leftArrow.controlSize = .small
         leftArrow.imagePosition = .imageOnly
+        leftArrow.contentTintColor = .secondaryLabelColor
         leftArrow.target = self
         leftArrow.action = #selector(octaveDown)
 
         let rightArrow = NSButton()
         rightArrow.image = NSImage(systemSymbolName: "chevron.right",
-                                   accessibilityDescription: "Octave up")
-        rightArrow.bezelStyle = .recessed
+                                   accessibilityDescription: "Octave up")?
+            .withSymbolConfiguration(chevConfig)
+        rightArrow.isBordered = false
         rightArrow.controlSize = .small
         rightArrow.imagePosition = .imageOnly
+        rightArrow.contentTintColor = .secondaryLabelColor
         rightArrow.target = self
         rightArrow.action = #selector(octaveUp)
 
         // Arrows flank the number — left arrow, then big number, then
-        // right arrow. Reads naturally as a "step left / right" widget.
+        // right arrow. Tight 4 px gap on each side so the trio reads as
+        // a single widget instead of three separate buttons.
         titleRow.addArrangedSubview(leftArrow)
+        titleRow.setCustomSpacing(4, after: leftArrow)
         titleRow.addArrangedSubview(octaveLabel)
+        titleRow.setCustomSpacing(4, after: octaveLabel)
         titleRow.addArrangedSubview(rightArrow)
         titleRow.addArrangedSubview(octaveStepper)  // hidden, here for layout-time only
 
