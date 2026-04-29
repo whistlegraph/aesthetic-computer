@@ -63,6 +63,7 @@ final class MenuBandPopoverViewController: NSViewController {
     private var midiInlineLabel: NSTextField!
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
     private var instrumentList: InstrumentListView!
+    private var instrumentReadout: NSTextField!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
     private var crashStatusLabel: NSTextField!
@@ -293,30 +294,33 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(instrumentLabel)
 
         instrumentList = InstrumentListView()
+        instrumentList.translatesAutoresizingMaskIntoConstraints = false
         instrumentList.onCommit = { [weak self] prog in
             self?.handleInstrumentCommit(prog)
         }
-        let scroll = NSScrollView()
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = false
-        scroll.autohidesScrollers = true
-        scroll.borderType = .lineBorder
-        scroll.scrollerStyle = .overlay
-        scroll.documentView = instrumentList
-        stack.addArrangedSubview(scroll)
-        scroll.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        scroll.heightAnchor.constraint(equalToConstant: 180).isActive = true
+        stack.addArrangedSubview(instrumentList)
+        instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight).isActive = true
+
+        // Readout for the selected program — "078  Whistle" — sits right
+        // below the grid since the cells themselves only show numbers.
+        instrumentReadout = NSTextField(labelWithString: "")
+        instrumentReadout.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        instrumentReadout.textColor = .labelColor
+        instrumentReadout.lineBreakMode = .byTruncatingTail
+        stack.addArrangedSubview(instrumentReadout)
 
         stack.addArrangedSubview(makeSeparator())
 
-        // About + Crash logs in a side-by-side row to save vertical space.
-        // Each takes half the popover width. Crash column is hidden when
-        // there are no recent reports, leaving About full-width.
+        // About + Crash logs in a side-by-side row. About has low hugging
+        // so it expands when the crash column is hidden (no reports) —
+        // takes the whole row instead of leaving negative space on the
+        // right. With reports present, the crash column claims its
+        // intrinsic content width and About fills what's left.
         let aboutCrashRow = NSStackView()
         aboutCrashRow.orientation = .horizontal
         aboutCrashRow.alignment = .top
-        aboutCrashRow.distribution = .fillEqually
+        aboutCrashRow.distribution = .fill
         aboutCrashRow.spacing = 12
 
         let aboutCol = NSStackView()
@@ -329,10 +333,11 @@ final class MenuBandPopoverViewController: NSViewController {
         let aboutBody = NSTextField(wrappingLabelWithString:
             "A political project to bring the built-in macOS instruments — " +
             "the ones GarageBand uses — into the menu bar. Free + open source.")
-        aboutBody.font = NSFont.systemFont(ofSize: 10)
+        aboutBody.font = NSFont.systemFont(ofSize: 10.5)
         aboutBody.textColor = .secondaryLabelColor
         aboutBody.maximumNumberOfLines = 0
-        aboutBody.preferredMaxLayoutWidth = 200
+        aboutBody.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
+        aboutCol.setContentHuggingPriority(.defaultLow, for: .horizontal)
         aboutCol.addArrangedSubview(aboutTitle)
         aboutCol.addArrangedSubview(aboutBody)
         let linksRow = NSStackView()
@@ -362,7 +367,8 @@ final class MenuBandPopoverViewController: NSViewController {
         crashHintLabel.font = NSFont.systemFont(ofSize: 10)
         crashHintLabel.textColor = .secondaryLabelColor
         crashHintLabel.maximumNumberOfLines = 0
-        crashHintLabel.preferredMaxLayoutWidth = 200
+        crashHintLabel.preferredMaxLayoutWidth = 130
+        crashCol.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         crashSendButton = NSButton(title: "Send crash reports",
                                    target: self,
                                    action: #selector(sendCrashLogs(_:)))
@@ -428,7 +434,7 @@ final class MenuBandPopoverViewController: NSViewController {
         inputSegmented.selectedSegment = inputModeSegment(typeMode: n.typeMode,
                                                            keymap: n.keymap)
         instrumentList.selectedProgram = n.melodicProgram
-        instrumentList.scrollProgramIntoView(n.melodicProgram)
+        updateInstrumentReadout(program: n.melodicProgram)
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
         refreshUpdateBanner()
@@ -446,6 +452,13 @@ final class MenuBandPopoverViewController: NSViewController {
                 self.updateSelfTestLabel(state: nn.midiMode ? nn.midiSelfTest : .unknown)
             }
         }
+    }
+
+    /// Format the readout below the numeric grid as "078  Whistle".
+    private func updateInstrumentReadout(program: UInt8) {
+        let safe = max(0, min(127, Int(program)))
+        let name = GeneralMIDI.programNames[safe]
+        instrumentReadout.stringValue = String(format: "%03d  %@", safe, name)
     }
 
     /// Reflect the MIDI loopback self-test status as the inline "MIDI"
@@ -625,6 +638,7 @@ final class MenuBandPopoverViewController: NSViewController {
         guard let m = menuBand else { return }
         m.setMelodicProgram(UInt8(program))
         instrumentList.selectedProgram = UInt8(program)
+        updateInstrumentReadout(program: UInt8(program))
         debugLog("instrument commit prog=\(program)")
         // setMelodicProgram → loadSoundBankInstrument is synchronous on the
         // calling thread, but AVAudioUnitSampler briefly drops scheduled

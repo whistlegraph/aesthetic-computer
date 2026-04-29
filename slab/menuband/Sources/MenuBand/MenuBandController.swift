@@ -96,6 +96,12 @@ final class MenuBandController {
         // most users hear the synth first; DAW routing is the opt-in path
         // they pick after they know they want it. Existing users' choice
         // is preserved (only the default for first-launch changes).
+        // Default instrument: Whistle (GM 078) — playful + breathy, more
+        // distinctive than acoustic grand on a fresh install. Users can
+        // still pick anything from the popover map.
+        if UserDefaults.standard.object(forKey: melodicProgramKey) == nil {
+            UserDefaults.standard.set(78, forKey: melodicProgramKey)
+        }
         synth.start()
         synth.setMelodicProgram(melodicProgram)
         if UserDefaults.standard.object(forKey: midiModeKey) == nil {
