@@ -85,9 +85,13 @@ final class InstrumentListView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        // Only draw rows in dirtyRect for scroll perf.
+        // Only draw rows in dirtyRect for scroll perf. The dirty rect can
+        // sit fully outside the row band (clipped scroll, animator easing
+        // beyond bounds) — when that happens lastRow falls below firstRow
+        // and a closed range crashes. Guard for that.
         let firstRow = max(0, Int(dirtyRect.minY / Self.rowHeight))
         let lastRow  = min(Self.totalRows - 1, Int(dirtyRect.maxY / Self.rowHeight))
+        guard firstRow <= lastRow else { return }
 
         for p in firstRow...lastRow {
             let r = rowRect(p)
