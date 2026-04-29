@@ -31,49 +31,16 @@ final class MenuBandController {
         UserDefaults.standard.bool(forKey: typeModeKey)
     }
 
-    // Hover-preview overlay. The popover's input segmented control sets these
-    // when the user hovers a segment so the menubar piano can render that
-    // mode's range/labels and the local key monitor can play notes through
-    // its keymap — all without committing to UserDefaults. Cleared on hover
-    // exit. Effective getters fall through to the real values when nil.
-    private var previewTypeMode: Bool?
-    private var previewKeymap: Keymap?
-
-    var effectiveTypeMode: Bool { previewTypeMode ?? typeMode }
-    var effectiveKeymap: Keymap { previewKeymap ?? keymap }
-
-    /// True only while the popover is hovering Notepat or Ableton — i.e. a
-    /// preview is active AND it's a typing mode (not Pointer). Used to gate
-    /// the popover's local key monitor so demo keystrokes are consumed
-    /// only when actually previewing.
-    var isHoveringTypingMode: Bool { previewTypeMode == true }
-
-    func setHoverPreview(typeMode tm: Bool, keymap km: Keymap) {
-        previewTypeMode = tm
-        previewKeymap = km
-        onChange?()
-    }
-
-    func clearHoverPreview() {
-        guard previewTypeMode != nil || previewKeymap != nil else { return }
-        previewTypeMode = nil
-        previewKeymap = nil
-        onChange?()
-    }
-
-    /// Local-key demo while the popover is hovering an input mode. Maps the
-    /// keystroke through the preview (or real) keymap and feeds it through
-    /// `startTapNote`/`stopTapNote` so it sounds + lights up + sends MIDI
-    /// just like a real tap.
-    func previewPlayKey(keyCode: UInt16, isDown: Bool) {
-        let km = previewKeymap ?? keymap
-        guard let note = MenuBandLayout.midiNote(forKeyCode: keyCode,
-                                                 octaveShift: octaveShift,
-                                                 keymap: km) else { return }
-        if isDown {
-            startTapNote(note)
-        } else {
-            stopTapNote(note)
+    /// Audition the currently-loaded melodic program through the local
+    /// synth, regardless of MIDI mode. Used by the instrument-list click
+    /// handler so the user *always* hears their instrument pick, even when
+    /// MIDI is on (which normally silences the local synth and routes to
+    /// the DAW). Plays middle-C for ~600 ms then releases.
+    func auditionCurrentProgram() {
+        let note: UInt8 = 60
+        synth.noteOn(note, velocity: 90, channel: 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.synth.noteOff(note, channel: 0)
         }
     }
 
@@ -109,54 +76,7 @@ final class MenuBandController {
     func setMelodicProgram(_ program: UInt8) {
         UserDefaults.standard.set(Int(program), forKey: melodicProgramKey)
         synth.setMelodicProgram(program)
-        // Any in-flight preview is no longer relevant — drop its held note +
-        // saved-program so the next hover restarts cleanly.
-        if let prev = previewNote {
-            synth.noteOff(prev)
-            previewNote = nil
-        }
-        previewSavedProgram = nil
         onChange?()
-    }
-
-    // MARK: - Instrument hover preview (popover flat-map)
-
-    private var previewSavedProgram: UInt8?
-    private var previewNote: UInt8?
-    private let previewVelocity: UInt8 = 80
-
-    /// Hover-preview a program in the instrument flat-map. Pass nil to stop
-    /// preview and restore the user's committed program. Plays a held
-    /// middle-C note in the previewed program through the local synth so
-    /// the user can audition without committing. Silent when MIDI mode is
-    /// on (DAW is in charge of audio).
-    func setInstrumentPreview(_ program: UInt8?) {
-        // Stop any previously playing preview note immediately.
-        if let prev = previewNote {
-            synth.noteOff(prev)
-            previewNote = nil
-        }
-
-        guard let prog = program else {
-            // Hover ended — restore the user's committed program.
-            if let saved = previewSavedProgram {
-                synth.setMelodicProgram(saved)
-                previewSavedProgram = nil
-            }
-            return
-        }
-
-        // Save the user's committed program once so we can restore on exit.
-        if previewSavedProgram == nil {
-            previewSavedProgram = melodicProgram
-        }
-
-        synth.setMelodicProgram(prog)
-        // Don't add audio in MIDI mode — DAW is hearing user input.
-        guard !midiMode else { return }
-        let note: UInt8 = 60
-        synth.noteOn(note, velocity: previewVelocity, channel: 0)
-        previewNote = note
     }
 
 
@@ -206,7 +126,13 @@ final class MenuBandController {
         synth.panic()  // DAW takes over from internal synth
         UserDefaults.standard.set(true, forKey: midiModeKey)
         onChange?()
-        runMIDILoopbackTest()
+        // Self-test runs once per session — first enable. Skipping it on
+        // every toggle removes the 50–800ms perceived lag from the popover
+        // switch.
+        if !loopbackTestRunOnce {
+            loopbackTestRunOnce = true
+            runMIDILoopbackTest()
+        }
     }
 
     // Last loopback test result, surfaced to the popover as a status line.
@@ -218,6 +144,12 @@ final class MenuBandController {
     }
     private(set) var midiSelfTest: MIDISelfTest = .unknown
     var onSelfTestChanged: (() -> Void)?
+
+    /// `true` once the loopback self-test has run successfully for this app
+    /// session. We skip subsequent runs on toggle so the switch flips
+    /// instantly — the test exists to surface CoreMIDI hiccups, and once
+    /// we've confirmed the port works there's no value in re-checking.
+    private var loopbackTestRunOnce = false
 
     /// Sends a single test note out the virtual port and listens on the
     /// process's own input port for it to come back. If it loops back within

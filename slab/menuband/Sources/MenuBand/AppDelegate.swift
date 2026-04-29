@@ -174,12 +174,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 2-octave Notepat layout area) — Ableton is drawn with negative
         // space on the right — so the status item slot never resizes and
         // the popover anchor stays put.
-        KeyboardIconRenderer.activeKeymap = menuBand.effectiveKeymap
+        KeyboardIconRenderer.activeKeymap = menuBand.keymap
         statusItem.length = KeyboardIconRenderer.imageSize.width
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
             enabled: menuBand.midiMode,
-            typeMode: menuBand.effectiveTypeMode,
+            typeMode: menuBand.typeMode,
             melodicProgram: menuBand.melodicProgram,
             hovered: hoveredElement
         )

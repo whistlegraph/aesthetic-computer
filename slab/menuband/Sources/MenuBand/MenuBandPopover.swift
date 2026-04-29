@@ -69,7 +69,6 @@ final class MenuBandPopoverViewController: NSViewController {
     private var crashSendButton: NSButton!
     private var updateBanner: NSView!
     private var updateLabel: NSTextField!
-    private var keyMonitor: Any?
 
     override func loadView() {
         // Plain solid-color background — no NSVisualEffectView. The visual
@@ -157,14 +156,12 @@ final class MenuBandPopoverViewController: NSViewController {
             action: #selector(inputModeChanged(_:))
         )
         inputSegmented.translatesAutoresizingMaskIntoConstraints = false
-        inputSegmented.onHoverChange = { [weak self] seg in
-            self?.handleInputHover(segment: seg)
-        }
+        // No hover preview — clicks commit the mode directly.
         stack.addArrangedSubview(inputSegmented)
         inputSegmented.widthAnchor.constraint(equalToConstant: 248).isActive = true
 
         let inputHint = NSTextField(labelWithString:
-            "Hover to preview · ⌃⌥⌘P toggles last keystrokes mode")
+            "⌃⌥⌘P toggles last keystrokes mode")
         inputHint.font = NSFont.systemFont(ofSize: 10)
         inputHint.textColor = .secondaryLabelColor
         stack.addArrangedSubview(inputHint)
@@ -202,9 +199,6 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(instrumentLabel)
 
         instrumentList = InstrumentListView()
-        instrumentList.onHover = { [weak self] prog in
-            self?.handleInstrumentHover(prog)
-        }
         instrumentList.onCommit = { [weak self] prog in
             self?.handleInstrumentCommit(prog)
         }
@@ -513,8 +507,11 @@ final class MenuBandPopoverViewController: NSViewController {
     // MARK: - Actions
 
     @objc private func midiSwitchToggled(_ sender: NSSwitch) {
+        // Just toggle — don't run the heavy syncFromController. The switch
+        // already shows the user's intent; the loopback test (skipped on
+        // toggles after the first per session) and other panels don't need
+        // to refresh.
         menuBand?.toggleMIDIMode()
-        syncFromController()
     }
 
     /// 0 = Pointer, 1 = Notepat, 2 = Ableton. Matches the segmented control
@@ -526,15 +523,10 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func inputModeChanged(_ sender: NSSegmentedControl) {
         guard let m = menuBand else { return }
-        // Clicking commits — clear any in-flight hover preview first so the
-        // controller's effective state isn't shadowed by a stale overlay.
-        m.clearHoverPreview()
         switch sender.selectedSegment {
         case 0:  // Pointer
             if m.typeMode { m.toggleTypeMode() }
-            // Pointer mode keeps the existing keymap so the piano range stays
-            // wherever the user last set it (default .notepat = 2 octaves).
-        case 1:  // Notepat
+        case 1:  // Notepat.com
             m.keymap = .notepat
             if !m.typeMode { m.toggleTypeMode() }
         case 2:  // Ableton
@@ -542,48 +534,18 @@ final class MenuBandPopoverViewController: NSViewController {
             if !m.typeMode { m.toggleTypeMode() }
         default: break
         }
-        syncFromController()
-    }
-
-    private func handleInputHover(segment: Int?) {
-        guard let m = menuBand else { return }
-        guard let seg = segment else {
-            m.clearHoverPreview()
-            return
-        }
-        switch seg {
-        case 0:  // Pointer — preview as no-typeMode, keep current keymap range
-            m.setHoverPreview(typeMode: false, keymap: m.keymap)
-        case 1:
-            m.setHoverPreview(typeMode: true, keymap: .notepat)
-        case 2:
-            m.setHoverPreview(typeMode: true, keymap: .ableton)
-        default: break
-        }
-    }
-
-    private func handleInstrumentHover(_ program: Int?) {
-        // Forward to controller — handles preview state machine + audio.
-        // Pass UInt8 or nil to clear preview.
-        if let p = program {
-            menuBand?.setInstrumentPreview(UInt8(p))
-        } else {
-            menuBand?.setInstrumentPreview(nil)
-        }
+        // No syncFromController — segmented control already reflects the
+        // user's click and the rest of the popover doesn't need to refresh.
     }
 
     private func handleInstrumentCommit(_ program: Int) {
         guard let m = menuBand else { return }
         m.setMelodicProgram(UInt8(program))
         instrumentList.selectedProgram = UInt8(program)
-        // Sound the freshly-picked instrument out — a half-second middle-C
-        // confirmation note in the new program. Lets the user actually hear
-        // their commit instead of just seeing a row highlight.
-        let note: UInt8 = 60
-        m.startTapNote(note, velocity: 90, pan: 64)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak m] in
-            m?.stopTapNote(note)
-        }
+        // Always audition through the local synth — even when MIDI mode is
+        // on (which normally silences the synth). The user wants to hear
+        // the instrument they picked, period.
+        m.auditionCurrentProgram()
     }
 
     @objc private func octaveChanged(_ sender: NSStepper) {
@@ -595,40 +557,6 @@ final class MenuBandPopoverViewController: NSViewController {
         menuBand?.octaveShift = 0
         octaveStepper.integerValue = 0
         updateOctaveLabel(0)
-    }
-
-    // MARK: - Local key demo (only fires while hovering an input segment)
-
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        // Local monitor: catches keystrokes while the popover window is key.
-        // We only consume them when a hover preview is active, so popover
-        // navigation (Esc, arrows on focused controls) keeps working when
-        // no segment is hovered.
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-            guard let self = self, let m = self.menuBand else { return event }
-            // Modifier combos pass through (Cmd-Q etc still work).
-            let mods: NSEvent.ModifierFlags = [.command, .control, .option]
-            if !event.modifierFlags.intersection(mods).isEmpty { return event }
-            // Only consume while hover-previewing Notepat or Ableton.
-            guard m.isHoveringTypingMode else { return event }
-            if event.isARepeat { return nil }
-            m.previewPlayKey(keyCode: event.keyCode, isDown: event.type == .keyDown)
-            return nil
-        }
-    }
-
-    override func viewWillDisappear() {
-        super.viewWillDisappear()
-        if let m = keyMonitor {
-            NSEvent.removeMonitor(m)
-            keyMonitor = nil
-        }
-        // Ensure hover previews don't survive popover dismissal — clear
-        // both the input-mode preview and the instrument preview, otherwise
-        // a held preview note can keep ringing after the popover closes.
-        menuBand?.clearHoverPreview()
-        menuBand?.setInstrumentPreview(nil)
     }
 
     @objc private func openAesthetic() {
