@@ -155,13 +155,26 @@ final class MenuBandPopoverViewController: NSViewController {
         rightArrow.target = self
         rightArrow.action = #selector(octaveUp)
 
-        let octaveArrows = NSStackView(views: [leftArrow, rightArrow])
-        octaveArrows.orientation = .horizontal
-        octaveArrows.spacing = 1
-
+        // Arrows flank the number — left arrow, then big number, then
+        // right arrow. Reads naturally as a "step left / right" widget.
+        titleRow.addArrangedSubview(leftArrow)
         titleRow.addArrangedSubview(octaveLabel)
-        titleRow.addArrangedSubview(octaveArrows)
+        titleRow.addArrangedSubview(rightArrow)
         titleRow.addArrangedSubview(octaveStepper)  // hidden, here for layout-time only
+
+        // MIDI toggle — tucked into the title row instead of its own panel.
+        // Tiny label + switch, no spacer between (sits flush right of the
+        // octave arrows so the row stays compact).
+        midiSwitch = NSSwitch()
+        midiSwitch.target = self
+        midiSwitch.action = #selector(midiSwitchToggled(_:))
+        let midiInlineLabel = NSTextField(labelWithString: "MIDI")
+        midiInlineLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        midiInlineLabel.textColor = .secondaryLabelColor
+        titleRow.setCustomSpacing(12, after: rightArrow)
+        titleRow.addArrangedSubview(midiInlineLabel)
+        titleRow.addArrangedSubview(midiSwitch)
+
         stack.addArrangedSubview(titleRow)
         titleRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
                                          constant: -24).isActive = true
@@ -244,25 +257,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(makeSeparator())
 
-        // MIDI switch — single-line, just "MIDI" + the switch.
-        midiSwitch = NSSwitch()
-        midiSwitch.target = self
-        midiSwitch.action = #selector(midiSwitchToggled(_:))
-        let midiRow = NSStackView()
-        midiRow.orientation = .horizontal
-        midiRow.alignment = .centerY
-        midiRow.spacing = 8
-        midiRow.distribution = .fill
-        let midiLabel = NSTextField(labelWithString: "MIDI")
-        midiLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
-        midiLabel.textColor = .labelColor
-        let midiSpacer = NSView()
-        midiSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        midiRow.addArrangedSubview(midiLabel)
-        midiRow.addArrangedSubview(midiSpacer)
-        midiRow.addArrangedSubview(midiSwitch)
-        stack.addArrangedSubview(midiRow)
-        midiRow.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
+        // (MIDI switch lives in the title row above — see octave + MIDI block.)
 
         // MIDI self-test status — populated by the controller after each
         // toggle-on. Empty when MIDI is off.
@@ -368,29 +363,29 @@ final class MenuBandPopoverViewController: NSViewController {
         aboutCrashRow.addArrangedSubview(crashCol)
         stack.addArrangedSubview(aboutCrashRow)
 
-        stack.addArrangedSubview(makeSeparator())
-
-        // Quit — red stop button so it's visually distinct from the
-        // toggles/links above.
+        // Quit — small, borderless, bottom-right. Red text only.
         let quit = NSButton()
-        quit.title = "Quit Menu Band"
-        quit.image = NSImage(systemSymbolName: "stop.circle.fill",
-                             accessibilityDescription: "Quit")
-        quit.imagePosition = .imageLeading
-        quit.bezelStyle = .recessed
+        quit.bezelStyle = .inline
+        quit.isBordered = false
         quit.controlSize = .small
-        quit.contentTintColor = NSColor.systemRed
         quit.target = self
         quit.action = #selector(quitApp)
-        let quitTitle = NSAttributedString(
-            string: "Quit Menu Band",
+        quit.attributedTitle = NSAttributedString(
+            string: "Quit",
             attributes: [
                 .foregroundColor: NSColor.systemRed,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
-        quit.attributedTitle = quitTitle
-        stack.addArrangedSubview(quit)
+        let quitRow = NSStackView()
+        quitRow.orientation = .horizontal
+        let quitSpacer = NSView()
+        quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        quitRow.addArrangedSubview(quitSpacer)
+        quitRow.addArrangedSubview(quit)
+        stack.addArrangedSubview(quitRow)
+        quitRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
+                                       constant: -24).isActive = true
 
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
