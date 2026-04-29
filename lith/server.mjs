@@ -1007,36 +1007,12 @@ app.all("/slash", directFn("slash"));
 app.all("/sotce-blog/*rest", directFn("sotce-blog"));
 app.all("/profile/*rest", directFn("profile"));
 
-// Menu Band crash-log intake. The macOS app reads its own crash reports
-// from ~/Library/Logs/DiagnosticReports/ and POSTs them here when the user
-// clicks "Send" in the popover. We never auto-receive — uploads are
-// always user-initiated. Logs are saved to /var/log/menuband-logs/ on the
-// VPS for offline triage. 5MB body cap to keep abuse manageable; a real
-// .ips is ~80–200 KB.
-app.post("/menuband-logs", express.text({ type: "*/*", limit: "5mb" }), (req, res) => {
-  const body = typeof req.body === "string" ? req.body
-             : Buffer.isBuffer(req.body) ? req.body.toString("utf-8")
-             : "";
-  if (!body || body.length === 0) {
-    return res.status(400).json({ ok: false, error: "empty body" });
-  }
-  const filenameHeader = String(req.headers["x-menuband-filename"] || "");
-  const versionHeader  = String(req.headers["x-menuband-version"] || "?");
-  // Strip path separators + length-cap so the user-supplied name can't
-  // escape the logs dir or blow up disk inodes.
-  const safeName = filenameHeader.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 200) || "crash.ips";
-  const stamp = `${Date.now()}-v${versionHeader.replace(/[^0-9.]/g, "")}-${safeName}`;
-  const dir = "/var/log/menuband-logs";
-  try {
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, stamp), body, { mode: 0o644 });
-    console.log(`📝 menuband crash log saved: ${stamp} (${body.length} bytes)`);
-    res.json({ ok: true, file: stamp });
-  } catch (err) {
-    console.error("menuband-logs write failed:", err);
-    res.status(500).json({ ok: false, error: "write failed" });
-  }
-});
+// Menu Band crash-log intake → MongoDB collection "menuband-logs". Body is
+// the raw .ips text; metadata comes from headers. The text-body parser
+// runs only for this route so other routes' JSON parsing stays untouched.
+app.post("/menuband-logs",
+  express.text({ type: "*/*", limit: "5mb" }),
+  directFn("menuband-logs"));
 
 // Static files
 app.use(express.static(PUBLIC, { extensions: ["html"], dotfiles: "allow" }));

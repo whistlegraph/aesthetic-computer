@@ -164,11 +164,14 @@ final class MenuBandController {
         // Built-in synth is always live. TYPE mode and MIDI mode are now
         // independent toggles: TYPE controls global keyboard capture + key
         // letter overlays; MIDI controls the virtual MIDI port output to
-        // external DAWs. MIDI mode defaults to ON for fresh installs.
+        // external DAWs. MIDI mode defaults to *off* for fresh installs —
+        // most users hear the synth first; DAW routing is the opt-in path
+        // they pick after they know they want it. Existing users' choice
+        // is preserved (only the default for first-launch changes).
         synth.start()
         synth.setMelodicProgram(melodicProgram)
         if UserDefaults.standard.object(forKey: midiModeKey) == nil {
-            UserDefaults.standard.set(true, forKey: midiModeKey)
+            UserDefaults.standard.set(false, forKey: midiModeKey)
         }
         if typeMode { enableTypeMode(promptForPermission: false) }
         if midiMode { enableMIDIMode() }

@@ -67,6 +67,8 @@ final class MenuBandPopoverViewController: NSViewController {
     private var crashStatusLabel: NSTextField!
     private var crashHintLabel: NSTextField!
     private var crashSendButton: NSButton!
+    private var updateBanner: NSView!
+    private var updateLabel: NSTextField!
     private var keyMonitor: Any?
 
     override func loadView() {
@@ -99,12 +101,47 @@ final class MenuBandPopoverViewController: NSViewController {
         subtitle.textColor = .secondaryLabelColor
         stack.addArrangedSubview(subtitle)
 
+        // Update banner — hidden until UpdateChecker reports a newer
+        // release. Tinted accent so the user notices it without it feeling
+        // like an alert.
+        updateBanner = NSView()
+        updateBanner.wantsLayer = true
+        updateBanner.layer?.backgroundColor = NSColor.controlAccentColor
+            .withAlphaComponent(0.14).cgColor
+        updateBanner.layer?.cornerRadius = 6
+        updateBanner.translatesAutoresizingMaskIntoConstraints = false
+        updateLabel = NSTextField(labelWithString: "")
+        updateLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        updateLabel.textColor = .labelColor
+        updateLabel.lineBreakMode = .byWordWrapping
+        updateLabel.maximumNumberOfLines = 0
+        updateLabel.translatesAutoresizingMaskIntoConstraints = false
+        let updateLink = NSButton(title: "Open menuband.com",
+                                  target: self,
+                                  action: #selector(openMenuBandSite))
+        updateLink.bezelStyle = .recessed
+        updateLink.controlSize = .small
+        updateLink.translatesAutoresizingMaskIntoConstraints = false
+        updateBanner.addSubview(updateLabel)
+        updateBanner.addSubview(updateLink)
+        NSLayoutConstraint.activate([
+            updateLabel.leadingAnchor.constraint(equalTo: updateBanner.leadingAnchor, constant: 10),
+            updateLabel.topAnchor.constraint(equalTo: updateBanner.topAnchor, constant: 7),
+            updateLabel.trailingAnchor.constraint(equalTo: updateBanner.trailingAnchor, constant: -10),
+            updateLink.leadingAnchor.constraint(equalTo: updateBanner.leadingAnchor, constant: 10),
+            updateLink.topAnchor.constraint(equalTo: updateLabel.bottomAnchor, constant: 4),
+            updateLink.bottomAnchor.constraint(equalTo: updateBanner.bottomAnchor, constant: -7),
+        ])
+        stack.addArrangedSubview(updateBanner)
+        updateBanner.widthAnchor.constraint(equalToConstant: 248).isActive = true
+        updateBanner.isHidden = true
+
         stack.addArrangedSubview(makeSeparator())
 
         // Input mode picker. Three states:
-        //   Pointer  — mouse only, two octaves (Notepat range)
-        //   Notepat  — global keystroke capture, two octaves
-        //   Ableton  — global keystroke capture, one octave (Live's M-mode)
+        //   Pointer      — mouse only, two octaves (Notepat range)
+        //   Notepat.com  — global keystroke capture, two octaves
+        //   Ableton      — global keystroke capture, one octave (Live's M-mode)
         // Hovering a segment previews that mode in the menubar piano (range
         // shrinks/grows, letter labels appear) and lets you tap keys for a
         // quick demo without committing.
@@ -114,7 +151,7 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(inputLabel)
 
         inputSegmented = HoverSegmentedControl(
-            labels: ["Pointer", "Notepat", "Ableton"],
+            labels: ["Pointer", "Notepat.com", "Ableton"],
             trackingMode: .selectOne,
             target: self,
             action: #selector(inputModeChanged(_:))
@@ -329,6 +366,7 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentList.scrollProgramIntoView(n.melodicProgram)
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
+        refreshUpdateBanner()
         // Wire up live updates so the label reflects loopback results as
         // they land (test runs ~50ms after toggle-on; result settles a moment
         // later).
@@ -413,6 +451,30 @@ final class MenuBandPopoverViewController: NSViewController {
             crashSendButton.isHidden = false
             crashSendButton.title = n == 1 ? "Send 1 report" : "Send all (\(n))"
             crashSendButton.isEnabled = true
+        }
+    }
+
+    /// Hit the manifest at assets.aesthetic.computer/menuband/latest.json
+    /// and show the banner if there's a newer version available than the
+    /// one running. Cached for an hour inside UpdateChecker.
+    private func refreshUpdateBanner() {
+        let current = UpdateChecker.currentVersion()
+        UpdateChecker.fetchLatest { [weak self] info in
+            guard let self = self, let info = info else { return }
+            if UpdateChecker.isNewer(info.version, than: current) {
+                let notes = info.notes?.isEmpty == false ? " — \(info.notes!)" : ""
+                self.updateLabel.stringValue =
+                    "Update available: \(info.version)\(notes)"
+                self.updateBanner.isHidden = false
+            } else {
+                self.updateBanner.isHidden = true
+            }
+        }
+    }
+
+    @objc private func openMenuBandSite() {
+        if let url = URL(string: "https://aesthetic.computer/menuband") {
+            NSWorkspace.shared.open(url)
         }
     }
 
