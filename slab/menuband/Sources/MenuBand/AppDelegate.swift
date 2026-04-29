@@ -106,8 +106,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pt = NSPoint(x: local.x - xOff, y: yLocal - yOff)
         let result = KeyboardIconRenderer.hit(at: pt)
         if hoveredElement != result {
+            let prev = hoveredElement
             hoveredElement = result
             updateIcon()
+            playRolloverTick(prev: prev, next: result)
+        }
+    }
+
+    /// Tiny ASMR-y tick on hover boundaries — between two piano keys (edge
+    /// rollover) or onto the settings chip. Respects the user's "Play UI
+    /// sound effects" preference automatically because NSSound routes
+    /// through the macOS UI-effects channel.
+    private func playRolloverTick(prev: KeyboardIconRenderer.HitResult?,
+                                   next: KeyboardIconRenderer.HitResult?) {
+        switch (prev, next) {
+        case (.note, .note):
+            // Edge crossing between two keys — the soft pianistic tick.
+            let s = NSSound(named: NSSound.Name("Tink"))
+            s?.volume = 0.22
+            s?.play()
+        case (_, .openSettings) where prev != .openSettings:
+            // Cursor entered the settings chip from outside or from a key.
+            let s = NSSound(named: NSSound.Name("Pop"))
+            s?.volume = 0.18
+            s?.play()
+        default:
+            break
         }
     }
 
