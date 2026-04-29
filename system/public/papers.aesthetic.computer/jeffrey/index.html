@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>jeffrey · platter</title>
+<meta name="description" content="An index of Jeffrey Alan Scudder's confirmed-self IG selfie corpus from @whistlegraph — 457 photos with face-match scores and per-image GPT-4o descriptions.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+:root {
+  --bg: #111; --bg2: #1a1a1a; --fg: #ddd; --fg2: #888;
+  --accent: #ff6b9d; --accent2: #4ecdc4; --gold: #ffd93d;
+  --border: #333; --hover: #222;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: 'Berkeley Mono Variable', ui-monospace, monospace;
+  font-size: 13px; line-height: 1.4;
+  min-height: 100vh;
+}
+a { color: var(--accent2); text-decoration: none; }
+a:hover { color: var(--accent); text-decoration: underline; }
+
+header {
+  padding: 16px 12px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--bg); z-index: 10;
+}
+h1 {
+  font-size: 18px; font-weight: normal; letter-spacing: 4px;
+  margin-bottom: 4px;
+}
+h1 .accent { color: var(--accent); }
+.sub { font-size: 11px; color: var(--fg2); margin-bottom: 10px; }
+.controls {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+}
+.controls input, .controls select {
+  font-family: inherit; font-size: 12px; padding: 4px 8px;
+  background: var(--bg2); color: var(--fg);
+  border: 1px solid var(--border); outline: none;
+  min-width: 180px;
+}
+.controls input:focus, .controls select:focus { border-color: var(--accent2); }
+.controls .stat {
+  font-size: 11px; color: var(--fg2);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.controls .stat b { color: var(--fg); font-weight: normal; }
+
+main {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  overflow: hidden; cursor: pointer;
+  display: flex; flex-direction: column;
+  transition: border-color 0.1s, transform 0.1s;
+}
+.card:hover { border-color: var(--accent2); }
+.card:active { transform: scale(0.99); }
+.thumb-wrap {
+  width: 100%; aspect-ratio: 1; background: #000;
+  overflow: hidden; position: relative;
+}
+.thumb-wrap img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  background: #222;
+}
+.thumb-wrap .sim {
+  position: absolute; top: 4px; right: 4px;
+  font-size: 10px; padding: 2px 5px;
+  background: rgba(0,0,0,0.7); color: var(--accent2);
+  font-variant-numeric: tabular-nums;
+}
+.meta {
+  padding: 6px 8px; font-size: 11px; color: var(--fg2);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.meta .date { color: var(--fg); font-variant-numeric: tabular-nums; }
+.meta .caption {
+  color: var(--fg2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.meta .tags { color: var(--accent2); font-size: 10px; opacity: 0.8; }
+
+#empty { padding: 40px; text-align: center; color: var(--fg2); }
+#loading { padding: 40px; text-align: center; color: var(--fg2); }
+
+/* lightbox */
+#lightbox {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.95); z-index: 100;
+  padding: 20px; overflow-y: auto;
+}
+#lightbox.open { display: flex; align-items: flex-start; justify-content: center; }
+.lb-inner {
+  max-width: 900px; width: 100%;
+  display: grid; grid-template-columns: 1fr; gap: 16px;
+}
+@media (min-width: 700px) {
+  .lb-inner { grid-template-columns: 360px 1fr; }
+}
+.lb-img {
+  background: #000; aspect-ratio: 1;
+  width: 100%; max-width: 360px;
+}
+.lb-img img { width: 100%; height: 100%; object-fit: contain; }
+.lb-info {
+  font-size: 13px; line-height: 1.5;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.lb-info h2 {
+  font-size: 14px; font-weight: normal; letter-spacing: 2px;
+  color: var(--accent); margin-bottom: 4px;
+}
+.lb-row {
+  display: grid; grid-template-columns: 110px 1fr; gap: 8px;
+  font-size: 12px;
+}
+.lb-row .k { color: var(--fg2); text-transform: uppercase; font-size: 10px; letter-spacing: 1px; padding-top: 1px; }
+.lb-row .v { color: var(--fg); }
+.lb-row .v.tag-list { color: var(--accent2); }
+.lb-close {
+  position: fixed; top: 12px; right: 16px;
+  font-family: inherit; background: none; border: 1px solid var(--border);
+  color: var(--fg); padding: 4px 10px; cursor: pointer;
+}
+.lb-close:hover { border-color: var(--accent); color: var(--accent); }
+.lb-ig-link {
+  font-size: 11px; color: var(--accent2); margin-top: 4px;
+}
+
+footer {
+  padding: 20px 12px; text-align: center; font-size: 11px;
+  color: var(--fg2); border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+footer a { color: var(--fg2); }
+footer a:hover { color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>jeffrey<span class="accent">·</span>platter</h1>
+  <div class="sub">
+    confirmed-self selfie corpus from
+    <a href="https://www.instagram.com/whistlegraph/" target="_blank">@whistlegraph</a>,
+    matched against the AV studio shoot, described per-image by GPT-4o
+  </div>
+  <div class="controls">
+    <input id="search" type="search" placeholder="search descriptions, tags, locations…">
+    <select id="sort">
+      <option value="date-desc">newest first</option>
+      <option value="date-asc">oldest first</option>
+      <option value="sim-desc">highest face-match</option>
+    </select>
+    <select id="domain">
+      <option value="">all domains</option>
+    </select>
+    <span class="stat" id="stat"></span>
+  </div>
+</header>
+
+<main id="grid">
+  <div id="loading">loading manifest…</div>
+</main>
+
+<div id="lightbox">
+  <button class="lb-close" id="lbClose">close ✕</button>
+  <div class="lb-inner" id="lbBody"></div>
+</div>
+
+<footer>
+  <a href="https://github.com/digitpain/aesthetic-computer/blob/main/papers/jeffrey-platter/README.md">jeffrey-platter README</a>
+  &nbsp;·&nbsp;
+  <a href="../">papers.aesthetic.computer</a>
+</footer>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const grid = $("grid");
+const search = $("search");
+const sortSel = $("sort");
+const domainSel = $("domain");
+const stat = $("stat");
+const lightbox = $("lightbox");
+const lbBody = $("lbBody");
+
+let rows = [];
+
+(async () => {
+  try {
+    const res = await fetch("./manifest.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const data = await res.json();
+    rows = data.rows;
+    populateDomains(rows);
+    render();
+  } catch (e) {
+    grid.innerHTML = `<div id="empty">failed to load manifest: ${e.message}</div>`;
+  }
+})();
+
+function populateDomains(rs) {
+  const domains = [...new Set(rs.map((r) => r.domain).filter(Boolean))].sort();
+  for (const d of domains) {
+    const opt = document.createElement("option");
+    opt.value = d; opt.textContent = d;
+    domainSel.appendChild(opt);
+  }
+}
+
+function filterAndSort() {
+  const q = search.value.trim().toLowerCase();
+  const dom = domainSel.value;
+  let out = rows;
+  if (dom) out = out.filter((r) => r.domain === dom);
+  if (q) {
+    out = out.filter((r) => {
+      const hay = [
+        r.description, r.expression, r.pose, r.location, r.caption,
+        r.style, r.framing, r.domain,
+        ...(r.tags || []),
+      ].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  const mode = sortSel.value;
+  if (mode === "date-asc") out = [...out].sort((a, b) => a.date.localeCompare(b.date));
+  else if (mode === "sim-desc") out = [...out].sort((a, b) => b.similarity - a.similarity);
+  else out = [...out].sort((a, b) => b.date.localeCompare(a.date));
+  return out;
+}
+
+function render() {
+  const list = filterAndSort();
+  stat.innerHTML = `<b>${list.length}</b> / ${rows.length}`;
+  if (list.length === 0) {
+    grid.innerHTML = `<div id="empty">no matches</div>`;
+    return;
+  }
+  const html = list.map((r, i) => `
+    <div class="card" data-i="${rows.indexOf(r)}">
+      <div class="thumb-wrap">
+        <img src="${r.thumb}" loading="lazy" alt="">
+        <div class="sim">${(r.similarity).toFixed(2)}</div>
+      </div>
+      <div class="meta">
+        <div class="date">${r.date}</div>
+        ${r.caption ? `<div class="caption">${escapeHtml(r.caption)}</div>` : ""}
+        ${r.tags?.length ? `<div class="tags">${escapeHtml(r.tags.slice(0, 4).join(" · "))}</div>` : ""}
+      </div>
+    </div>`).join("");
+  grid.innerHTML = html;
+  for (const card of grid.querySelectorAll(".card")) {
+    card.addEventListener("click", () => openLightbox(rows[+card.dataset.i]));
+  }
+}
+
+function openLightbox(r) {
+  const igUrl = `https://www.instagram.com/p/${r.shortcode}/`;
+  lbBody.innerHTML = `
+    <div class="lb-img"><img src="${r.thumb}" alt=""></div>
+    <div class="lb-info">
+      <h2>${r.date}</h2>
+      <div class="lb-row"><span class="k">subject</span><span class="v">${escapeHtml(r.description || "—")}</span></div>
+      <div class="lb-row"><span class="k">expression</span><span class="v">${escapeHtml(r.expression || "—")}</span></div>
+      <div class="lb-row"><span class="k">pose</span><span class="v">${escapeHtml(r.pose || "—")}</span></div>
+      <div class="lb-row"><span class="k">location</span><span class="v">${escapeHtml(r.location || "—")}</span></div>
+      <div class="lb-row"><span class="k">style</span><span class="v">${escapeHtml(r.style || "—")} · ${escapeHtml(r.framing || "—")}</span></div>
+      <div class="lb-row"><span class="k">domain</span><span class="v">${escapeHtml(r.domain || "—")}</span></div>
+      ${r.tags?.length ? `<div class="lb-row"><span class="k">tags</span><span class="v tag-list">${escapeHtml(r.tags.join(" · "))}</span></div>` : ""}
+      ${r.caption ? `<div class="lb-row"><span class="k">caption</span><span class="v">${escapeHtml(r.caption)}</span></div>` : ""}
+      <div class="lb-row"><span class="k">face-match</span><span class="v">${r.similarity.toFixed(4)} (conf ${r.confidence ?? "—"})</span></div>
+      <div class="lb-row"><span class="k">others</span><span class="v">${r.n_other_people} other people in frame</span></div>
+      <a class="lb-ig-link" href="${igUrl}" target="_blank">view on instagram ↗</a>
+    </div>`;
+  lightbox.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeLightbox() {
+  lightbox.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+$("lbClose").addEventListener("click", closeLightbox);
+lightbox.addEventListener("click", (e) => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
+
+let t;
+search.addEventListener("input", () => { clearTimeout(t); t = setTimeout(render, 120); });
+sortSel.addEventListener("change", render);
+domainSel.addEventListener("change", render);
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
+
+</body>
+</html>

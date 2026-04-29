@@ -192,6 +192,10 @@ def main() -> int:
     p.add_argument("--input-fidelity", default="high", choices=["low", "high"],
                    help="how closely to preserve identity from refs; high = stronger")
     p.add_argument("--variant", choices=[v["name"] for v in VARIANTS] + ["all"], default="all")
+    p.add_argument("--prompt", default=None,
+                   help="custom prompt; overrides --variant for one-off gens")
+    p.add_argument("--name", default="neo-jeffrey-custom",
+                   help="output filename stem when --prompt is used")
     p.add_argument("--n", type=int, default=1, help="variants per prompt")
     p.add_argument("--model", default="gpt-image-2",
                    help="gpt-image-2 (default, latest) | gpt-image-1.5 | gpt-image-1")
@@ -210,7 +214,10 @@ def main() -> int:
     out_dir = Path(args.out).expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    selected = VARIANTS if args.variant == "all" else [v for v in VARIANTS if v["name"] == args.variant]
+    if args.prompt:
+        selected = [{"name": args.name, "prompt": args.prompt}]
+    else:
+        selected = VARIANTS if args.variant == "all" else [v for v in VARIANTS if v["name"] == args.variant]
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     client = OpenAI(api_key=load_openai_key())
@@ -224,15 +231,18 @@ def main() -> int:
         try:
             files = [open(r, "rb") for r in refs]
             try:
-                response = client.images.edit(
+                edit_kwargs = dict(
                     model=args.model,
                     image=files,
                     prompt=variant["prompt"],
                     size=args.size,
                     quality=args.quality,
-                    input_fidelity=args.input_fidelity,
                     n=args.n,
                 )
+                # input_fidelity is gpt-image-1 only; gpt-image-2 rejects it.
+                if not args.model.startswith("gpt-image-2"):
+                    edit_kwargs["input_fidelity"] = args.input_fidelity
+                response = client.images.edit(**edit_kwargs)
             finally:
                 for f in files:
                     f.close()

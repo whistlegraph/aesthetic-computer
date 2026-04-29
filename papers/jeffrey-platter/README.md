@@ -41,6 +41,19 @@ These are the AC pieces that produce new photographic frames of jeffrey when he 
 
 ## 2. External (assets CDN + sites)
 
+### Hosted dashboard — `papers.aesthetic.computer/jeffrey/`
+
+Public sortable/filterable gallery of the 457 confirmed-jeffrey IG selfies from `@whistlegraph` (face-matched against the AV shoot, described per-image by GPT-4o). Lives at:
+
+- **Dashboard:** https://papers.aesthetic.computer/jeffrey/ (static `index.html`)
+- **Source HTML:** [system/public/papers.aesthetic.computer/jeffrey/index.html](../../system/public/papers.aesthetic.computer/jeffrey/index.html)
+- **Manifest JSON:** [system/public/papers.aesthetic.computer/jeffrey/manifest.json](../../system/public/papers.aesthetic.computer/jeffrey/manifest.json) (slim per-row schema with CDN thumb URL)
+- **Thumbnails:** `assets.aesthetic.computer/jeffreys/whistlegraph/<shortcode>.jpg` (256px, ~30 KB each, ~5 MB total)
+- **Build script:** [`portraits/jeffrey/bin/build-thumbnails.mjs`](../../portraits/jeffrey/bin/build-thumbnails.mjs) — reads `portraits/jeffrey/curated/jeffrey-described.jsonl`, generates thumbs into `system/public/assets/jeffreys/whistlegraph/`, and rewrites `manifest.json`.
+- **Refresh:** `node portraits/jeffrey/bin/build-thumbnails.mjs && npm run assets:sync:up`
+
+Page is **public** — the source images were already public on `instagram.com/whistlegraph/`, and the GPT-4o descriptive layer is treated as part of the public AC research record.
+
 ### `assets.aesthetic.computer/jeffreys/`
 
 Hosted on Digital Ocean Spaces. Sync via `npm run assets:sync:down` / `npm run assets:sync:up` (see [CLAUDE.md](../../CLAUDE.md)).
