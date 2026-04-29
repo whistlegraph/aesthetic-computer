@@ -352,7 +352,13 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentReadout.lineBreakMode = .byTruncatingTail
         stack.addArrangedSubview(instrumentReadout)
 
-        stack.addArrangedSubview(makeSeparator())
+        let bottomSeparator = makeSeparator()
+        stack.addArrangedSubview(bottomSeparator)
+        // Extra breathing room between the visualizer/instruments above and
+        // the brand/about/quit footer below. The default 6 px stack gap
+        // crammed everything together — this gives the bottom block its
+        // own visual section.
+        stack.setCustomSpacing(12, after: bottomSeparator)
 
         // About + Crash logs in a side-by-side row. About has low hugging
         // so it expands when the crash column is hidden (no reports) —
@@ -368,7 +374,7 @@ final class MenuBandPopoverViewController: NSViewController {
         let aboutCol = NSStackView()
         aboutCol.orientation = .vertical
         aboutCol.alignment = .leading
-        aboutCol.spacing = 4
+        aboutCol.spacing = 6
         // Brand identity now lives here instead of at the top of the
         // popover — Menu Band heading + subtitle + about body + links all
         // collapse into one section.
@@ -432,6 +438,9 @@ final class MenuBandPopoverViewController: NSViewController {
         aboutCrashRow.addArrangedSubview(aboutCol)
         aboutCrashRow.addArrangedSubview(crashCol)
         stack.addArrangedSubview(aboutCrashRow)
+        // Air between the About/Crash block and the Quit button below so
+        // Quit reads as its own action, not a list item under About.
+        stack.setCustomSpacing(10, after: aboutCrashRow)
 
         // Quit — small, borderless, bottom-right. Red text only.
         let quit = NSButton()

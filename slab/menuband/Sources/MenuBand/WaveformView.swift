@@ -41,7 +41,10 @@ final class WaveformView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
         layer?.cornerRadius = 8
-        barLayer.fillColor = NSColor.systemTeal.cgColor
+        // Match the menubar piano's lit color: bars use the system accent.
+        // Re-applied in `viewDidChangeEffectiveAppearance` so changing the
+        // user's accent in System Settings updates the bars without restart.
+        barLayer.fillColor = NSColor.controlAccentColor.cgColor
         barLayer.strokeColor = nil
         barLayer.actions = ["path": NSNull()]
         layer?.addSublayer(barLayer)
@@ -51,6 +54,13 @@ final class WaveformView: NSView {
     override func layout() {
         super.layout()
         barLayer.frame = bounds
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        // Accent color is appearance-derived — re-pull when the user flips
+        // light/dark or changes the system accent in Settings.
+        barLayer.fillColor = NSColor.controlAccentColor.cgColor
     }
 
     deinit { stopLink() }
