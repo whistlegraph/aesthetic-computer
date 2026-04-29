@@ -107,6 +107,37 @@
   /* Anything that should sit ABOVE the music drift. */
   .window, footer { position: relative; z-index: 1; }
 
+  /* Uniform AC corner label — same shape as aesthetic-direct.html.
+     Click to return to aesthetic.computer/. */
+  #corner-label {
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-weight: normal;
+    font-size: 18px;
+    margin: 0;
+    position: fixed;
+    top: 12px;
+    left: 16px;
+    z-index: 3;
+    cursor: pointer;
+    user-select: none;
+    color: var(--ink-head);
+    letter-spacing: 0.02em;
+  }
+  #corner-label:hover { color: purple; }
+  #corner-label:active { color: gray; }
+  #corner-label::before {
+    content: "";
+    height: 3em;
+    width: 100vw;
+    position: absolute;
+    z-index: -1;
+    top: -12px;
+    left: -16px;
+    background: linear-gradient(to bottom,
+        var(--aqua-sky-top) 50%,
+        transparent 100%);
+  }
+
   /* Container is just for centering — no chrome, no white plate. The
      hero and panels each become their own floating glass card, with
      gaps that let the music notes peek through. */
@@ -493,6 +524,8 @@
 </head>
 <body>
 
+<h1 id="corner-label">menuband</h1>
+
 <article class="window" aria-label="Menu Band">
   <div class="hero">
     <div class="icon-stage">
@@ -554,6 +587,21 @@
 </footer>
 
 <script>
+  // Corner label click — return to aesthetic.computer/. Mirrors the
+  // pattern from aesthetic-direct.html so behavior is uniform across
+  // AC's html-rendered corner-label paths.
+  (function cornerLabel() {
+    const el = document.getElementById('corner-label');
+    if (!el) return;
+    el.addEventListener('click', () => {
+      if (location.host === 'aesthetic.computer' || location.host === 'www.aesthetic.computer') {
+        location.href = '/';
+      } else {
+        location.href = 'https://aesthetic.computer';
+      }
+    });
+  })();
+
   // ── Live reload via /api/version long-poll. Same mechanism prompt.mjs
   //    uses: ask the server for the deployed commit hash, then long-poll
   //    with ?current=<hash>. The server holds the connection ~4s when the
