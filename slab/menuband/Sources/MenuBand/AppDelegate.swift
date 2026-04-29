@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let menuBand = MenuBandController()
     private let hoverResponder = HoverResponder()
+    private let click = MenuBandClick()
     private var hoveredElement: KeyboardIconRenderer.HitResult? = nil
     private var trackingArea: NSTrackingArea?
     private var typeModeHotkey: GlobalHotkey?
@@ -113,32 +114,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Tiny ASMR-y tick on hover boundaries — between two piano keys (edge
-    /// rollover) or onto the settings chip. Respects the user's "Play UI
-    /// sound effects" preference automatically because NSSound routes
-    /// through the macOS UI-effects channel.
+    /// Tiny synthesized tick on hover boundaries. Both roll-off (the key the
+    /// cursor just left) and roll-on (the key it just entered) fire,
+    /// pitched to each key's MIDI note so the clicks "match" the keyboard
+    /// — higher notes get higher clicks, subtly. Suppressed entirely when
+    /// MIDI mode is on so DAW sessions stay clean.
     private func playRolloverTick(prev: KeyboardIconRenderer.HitResult?,
                                    next: KeyboardIconRenderer.HitResult?) {
-        switch (prev, next) {
-        case (.note, .note):
-            // Edge crossing between two keys — the soft pianistic tick.
-            let s = NSSound(named: NSSound.Name("Tink"))
-            s?.volume = 0.22
-            s?.play()
-        case (_, .openSettings) where prev != .openSettings:
-            // Cursor entered the settings chip from outside or from a key.
-            let s = NSSound(named: NSSound.Name("Pop"))
-            s?.volume = 0.18
-            s?.play()
-        default:
+        if menuBand.midiMode { return }
+
+        // Roll-off: ticks when the cursor leaves a key. Slightly quieter +
+        // shorter than roll-on so the pair reads as "release → press" rather
+        // than two equal events.
+        if case .note(let off) = prev {
+            click.play(frequency: tickFreq(forMidi: off),
+                       durationMs: 3, volume: 0.10)
+        }
+
+        // Roll-on: ticks when the cursor enters a key, OR a fixed-pitch
+        // lower thunk for the settings chip so it stays distinct from
+        // key rollovers.
+        switch next {
+        case .note(let on):
+            click.play(frequency: tickFreq(forMidi: on),
+                       durationMs: 4, volume: 0.16)
+        case .openSettings:
+            click.play(frequency: 5200, durationMs: 5, volume: 0.14)
+        case .none:
             break
         }
     }
 
+    /// Map a MIDI note to a tick frequency. Anchor: middle C → 5.8 kHz, with
+    /// +40 Hz per semitone. Range across the 2-octave Notepat layout
+    /// (60–83) is ~5.8–6.7 kHz — narrow enough to feel like the same kind
+    /// of click, wide enough that you can hear the pitch follow the keys.
+    private func tickFreq(forMidi midi: UInt8) -> Float {
+        let semitonesAbove60 = Float(Int(midi) - 60)
+        return 5800 + semitonesAbove60 * 40
+    }
+
     private func handleHoverExit() {
         if hoveredElement != nil {
+            let prev = hoveredElement
             hoveredElement = nil
             updateIcon()
+            // Roll-off tick when the cursor leaves the menubar item entirely
+            // — the trailing edge of the rollover sequence.
+            playRolloverTick(prev: prev, next: nil)
         }
     }
 
