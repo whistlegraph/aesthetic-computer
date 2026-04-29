@@ -98,7 +98,7 @@
     inset: -120px;       /* overscan so panning never reveals an edge */
     pointer-events: none;
     z-index: 0;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><g fill='%231f5aa8' opacity='0.085' font-family='Georgia,serif'><text x='15' y='38' font-size='30'>♪</text><text x='100' y='32' font-size='34'>♫</text><text x='55' y='90' font-size='28'>♩</text><text x='140' y='105' font-size='32'>♬</text><text x='20' y='130' font-size='22'>♭</text><text x='160' y='55' font-size='20'>♯</text></g></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g fill='%231f5aa8' opacity='0.10' font-family='Georgia,serif'><text x='10' y='34' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
     background-repeat: repeat;
     animation: drift-music 90s linear infinite;
   }
@@ -111,7 +111,7 @@
   .window, footer { position: relative; z-index: 1; }
 
   .window {
-    max-width: 720px;
+    max-width: 520px;
     margin: 0 auto;
     background: #fff;
     border-radius: 8px 8px 6px 6px;
@@ -193,7 +193,7 @@
   .icon-stage::before {
     content: "";
     position: absolute;
-    inset: 18px 18px 80px 18px;
+    inset: 28px 18px 64px 18px;
     background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
@@ -259,6 +259,19 @@
     margin-top: 4px;
   }
 
+  /* Demoted caption beneath the download button — links read as plain
+     text, not as buttons. */
+  p.aux {
+    margin: 14px auto 0;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  p.aux a { color: var(--ink-soft); text-decoration: underline; text-decoration-color: rgba(90, 95, 102, 0.35); text-underline-offset: 2px; }
+  p.aux a:hover { color: var(--tahoe-blue); text-decoration-color: currentColor; }
+
   .aqua {
     display: inline-flex;
     align-items: center;
@@ -313,29 +326,6 @@
     font-size: 11px;
     font-weight: 400;
     text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
-  }
-
-  /* Secondary (white gel). */
-  .aqua.alt {
-    color: #1a1a1a;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
-    background: linear-gradient(to bottom, #ffffff 0%, #d8dde3 100%);
-    border-color: #a8b0b8;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.95) inset,
-      0 0 0 0.5px rgba(255, 255, 255, 0.65) inset,
-      0 8px 20px -8px rgba(20, 30, 50, 0.18),
-      0 1px 2px rgba(20, 30, 50, 0.10);
-  }
-  .aqua.alt::after {
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
-  }
-  .aqua.alt:hover {
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.95) inset,
-      0 0 0 0.5px rgba(255, 255, 255, 0.65) inset,
-      0 12px 28px -8px rgba(20, 30, 50, 0.25),
-      0 2px 4px rgba(20, 30, 50, 0.13);
   }
 
   /* ── Body sections ────────────────────────────────────────────────────── */
@@ -445,7 +435,7 @@
 
   footer {
     margin: 28px auto 0;
-    max-width: 720px;
+    max-width: 520px;
     text-align: center;
     padding: 24px 16px 12px;
   }
@@ -540,7 +530,7 @@
     }
     /* Re-tint the music-drift glyphs so they still read on the dark sky. */
     body::before {
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><g fill='%2379b1ff' opacity='0.08' font-family='Georgia,serif'><text x='15' y='38' font-size='30'>♪</text><text x='100' y='32' font-size='34'>♫</text><text x='55' y='90' font-size='28'>♩</text><text x='140' y='105' font-size='32'>♬</text><text x='20' y='130' font-size='22'>♭</text><text x='160' y='55' font-size='20'>♯</text></g></svg>");
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g fill='%2379b1ff' opacity='0.10' font-family='Georgia,serif'><text x='10' y='34' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
     }
     .window {
       background: #1c1c1e;
@@ -616,30 +606,21 @@
       <img class="reflection" src="/menuband/icon.png" alt="" aria-hidden="true">
     </div>
     <h2 class="app-title">Menu Band</h2>
-    <p class="tagline">Built-in macOS instruments, in the menu bar.</p>
+    <p class="tagline">Taking macOS instruments out of the Garage and putting them back in the menu, where they belong.</p>
 
     <div class="button-row">
       <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.3.dmg" download>
         Download
         <small>0.3 · Apple Silicon · 1.2 MB</small>
       </a>
-      <a class="aqua alt" href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">
-        View source
-      </a>
     </div>
+    <p class="aux">free + open source · <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">view source</a> · by <a href="https://aesthetic.computer">aesthetic.computer</a></p>
   </div>
 
   <div class="pinstripe divider"></div>
 
   <section class="panel">
-    <h3>What it does</h3>
-    <p>A tiny piano in your menu bar. Click keys, type letters, or send to your DAW over MIDI.</p>
-    <p>Publishes a virtual MIDI source named <code>Menu Band</code>. Built-in General MIDI synth when no DAW is listening.</p>
-  </section>
-
-  <section class="panel">
-    <h3>About</h3>
-    <p>Free and open source. By <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+    <p>A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing's listening, a built-in General MIDI synth covers hundreds of patches.</p>
   </section>
 
   <section class="panel testimonial">
