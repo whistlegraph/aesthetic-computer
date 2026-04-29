@@ -128,13 +128,22 @@ final class InstrumentListView: NSView {
 
     // MARK: - Mouse
 
+    // Hover preview is press-gated: passive mouse-over does NOT light cells
+    // or trigger preview audio. The user has to mouseDown first; while held,
+    // dragging across cells lights/sounds each one and unlights it on the
+    // way out. mouseUp stops the sound and commits the cell under the cursor.
+    private var dragging = false
+
     override func mouseEntered(with event: NSEvent) {
+        guard dragging else { return }
         updateHover(at: convert(event.locationInWindow, from: nil))
     }
     override func mouseMoved(with event: NSEvent) {
+        guard dragging else { return }
         updateHover(at: convert(event.locationInWindow, from: nil))
     }
     override func mouseExited(with event: NSEvent) {
+        guard dragging else { return }
         if let prev = hoveredProgram {
             hoveredProgram = nil
             setNeedsDisplay(cellRect(program: Int(prev)))
@@ -153,18 +162,12 @@ final class InstrumentListView: NSView {
         }
     }
 
-    // mouseDown → mouseDragged → mouseUp lets the user click-drag across
-    // cells to sonically browse: every cell crossed during the drag fires
-    // onHover (preview note); release commits the cell under the cursor.
-    private var dragging = false
-
     override func mouseDown(with event: NSEvent) {
         dragging = true
         let pt = convert(event.locationInWindow, from: nil)
         if let p = program(at: pt) {
-            // Treat the press itself as a hover-into-this-cell so the
-            // preview note starts immediately on click, not only on
-            // dragging away.
+            // Treat the press as a hover-into-this-cell so the preview note
+            // and lit highlight start immediately on click.
             if hoveredProgram != UInt8(p) {
                 let prev = hoveredProgram
                 hoveredProgram = UInt8(p)
@@ -184,6 +187,13 @@ final class InstrumentListView: NSView {
         guard dragging else { return }
         dragging = false
         let pt = convert(event.locationInWindow, from: nil)
+        // Release stops the preview note + clears the lit highlight, then
+        // commits the cell that was under the cursor at release time. The
+        // commit path will re-light the cell as the *selected* program.
+        let prevHover = hoveredProgram
+        hoveredProgram = nil
+        if let prev = prevHover { setNeedsDisplay(cellRect(program: Int(prev))) }
+        onHover?(nil)
         if let p = program(at: pt) {
             onCommit?(p)
         }

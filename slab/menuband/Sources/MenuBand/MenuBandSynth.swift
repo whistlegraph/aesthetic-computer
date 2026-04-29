@@ -129,25 +129,15 @@ final class MenuBandSynth {
         engine.attach(avUnit)
         engine.connect(avUnit, to: engine.mainMixerNode, format: nil)
 
-        // 3. Enable preload mode, send Program Change for every program we
-        //    want to use, then disable preload. Each PC during preload mode
-        //    triggers a synchronous bank load for that (bank, program); after
-        //    preload is disabled, subsequent PCs become instant switches.
-        setMIDISynthPreload(au, enable: true)
-        for p: UInt8 in 0...127 {
-            sendMIDIEvent(au, status: 0xC0, data1: p)              // PC ch 0
-        }
-        // Drum kit on channel 9 — bankMSB 0x78 = GM Percussion. Send a
-        // bank-select pair followed by PC 0 to land on the standard kit.
-        sendMIDIEvent(au, status: 0xB9, data1: 0, data2: 0x78)     // CC0 = MSB
-        sendMIDIEvent(au, status: 0xB9, data1: 32, data2: 0)       // CC32 = LSB
-        sendMIDIEvent(au, status: 0xC9, data1: 0)                  // PC ch 9
-        setMIDISynthPreload(au, enable: false)
-
-        // 4. Reset channel 0 to the user's last-picked program. The earlier
-        //    sweep left it on program 127 — we want it to match what the
-        //    user expects.
-        sendMIDIEvent(au, status: 0xC0, data1: currentMelodicProgram)
+        // 3. Set channel 0 to GM Melodic bank + the user's current program.
+        //    Channel 9 to GM Percussion + standard kit. We let MIDISynth
+        //    lazy-load programs on first use rather than preloading the
+        //    full bank — the preload-mode dance was preventing later PC
+        //    messages from actually switching the active program. Lazy
+        //    load gives a few ms of disk warmup per new program but
+        //    program switches Just Work after that.
+        selectMelodicProgram(au, program: currentMelodicProgram)
+        selectDrumKit(au)
 
         midiSynth = avUnit
         midiSynthReady = true
@@ -160,19 +150,22 @@ final class MenuBandSynth {
         // (Leaving the nodes attached but unrouted is safe.)
     }
 
-    private func setMIDISynthPreload(_ au: AudioUnit, enable: Bool) {
-        var flag: UInt32 = enable ? 1 : 0
-        let status = AudioUnitSetProperty(
-            au,
-            AudioUnitPropertyID(kAUMIDISynthProperty_EnablePreload),
-            kAudioUnitScope_Global,
-            0,
-            &flag,
-            UInt32(MemoryLayout<UInt32>.size)
-        )
-        if status != noErr {
-            NSLog("MenuBand: MIDISynth EnablePreload(\(enable)) status=\(status)")
-        }
+    /// Select a melodic program on channel 0 of the MIDISynth via a proper
+    /// GM bank-select + Program Change triplet. CC0 = bank MSB (0x79 for the
+    /// GM Melodic bank), CC32 = bank LSB (0), then PC = program. Without
+    /// the bank-select pair, raw PC messages may end up routing into a
+    /// different bank and produce silent/wrong-program output.
+    private func selectMelodicProgram(_ au: AudioUnit, program: UInt8) {
+        sendMIDIEvent(au, status: 0xB0, data1: 0,  data2: 0x79)  // CC0  bank MSB
+        sendMIDIEvent(au, status: 0xB0, data1: 32, data2: 0x00)  // CC32 bank LSB
+        sendMIDIEvent(au, status: 0xC0, data1: program)          // PC   program
+    }
+
+    /// Select the standard GM drum kit on channel 9 (bank MSB 0x78).
+    private func selectDrumKit(_ au: AudioUnit) {
+        sendMIDIEvent(au, status: 0xB9, data1: 0,  data2: 0x78)  // CC0  bank MSB
+        sendMIDIEvent(au, status: 0xB9, data1: 32, data2: 0x00)  // CC32 bank LSB
+        sendMIDIEvent(au, status: 0xC9, data1: 0)                // PC   kit 0
     }
 
     @inline(__always)
@@ -266,7 +259,7 @@ final class MenuBandSynth {
     func setMelodicProgram(_ program: UInt8) {
         currentMelodicProgram = program
         if midiSynthReady, let au = midiSynth?.audioUnit {
-            sendMIDIEvent(au, status: 0xC0, data1: program)
+            selectMelodicProgram(au, program: program)
             return
         }
         // Sampler fallback.
