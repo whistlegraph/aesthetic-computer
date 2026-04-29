@@ -31,7 +31,7 @@
 <style>
   /* ────────────────────────────────────────────────────────────────────────
      Spine: Tiger/Leopard Aqua (jellybean buttons, pinstripe, traffic lights).
-     Flair: Tahoe/Sonoma (vibrancy plate, frosted strip, layered shadows,
+     Flair: Tahoe/Sonoma (vibrancy plate, layered shadows,
      SF Rounded display, saturated accent, glassy CTA).
      The retro chrome is the canvas; the modern bits float over it.
      ──────────────────────────────────────────────────────────────────────── */
@@ -84,107 +84,9 @@
       linear-gradient(to bottom, var(--aqua-sky-top) 0%, var(--aqua-sky-bot) 100%) fixed;
     background-attachment: fixed;
     min-height: 100vh;
-    padding: 56px 16px 64px;   /* extra top room for the faux menu bar */
+    padding: 32px 16px 64px;
     position: relative;
   }
-
-  /* ── Faux macOS menu bar ──────────────────────────────────────────────── */
-
-  .macbar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 24px;
-    background: rgba(245, 247, 250, 0.72);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border-bottom: 0.5px solid rgba(0, 0, 0, 0.12);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 10px;
-    font-family: var(--display-stack);
-    font-size: 13px;
-    color: #1d1d1f;
-    z-index: 50;
-    user-select: none;
-    cursor: default;
-  }
-  .macbar-left, .macbar-right {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .macbar .apple-logo {
-    width: 13px; height: 16px;
-    fill: #1d1d1f;
-    opacity: 0.9;
-  }
-  .macbar .menu-app { font-weight: 600; }
-  .macbar .menu-item { font-weight: 400; }
-  .macbar .menu-item:hover, .macbar .menu-app:hover {
-    background: rgba(0, 0, 0, 0.08);
-    border-radius: 4px;
-    padding: 1px 4px;
-    margin: -1px -4px;
-  }
-
-  /* The actual graphic — a working Menu Band piano in the menu bar.
-     One full octave, jellybean-keyed and clickable. */
-  .dock-piano {
-    position: relative;
-    display: inline-flex;
-    align-items: flex-start;
-    height: 17px;
-    padding: 1px;
-    background: #131315;
-    border-radius: 3px;
-    box-shadow:
-      0 0 0 0.5px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.4);
-    cursor: pointer;
-    transition: transform 220ms var(--ease-apple), box-shadow 220ms var(--ease-apple);
-  }
-  .dock-piano:hover { transform: translateY(0.5px); }
-  .dock-piano.glow {
-    box-shadow:
-      0 0 0 0.5px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-      0 0 12px 2px rgba(10, 132, 255, 0.55);
-  }
-  .dock-piano .key {
-    display: inline-block;
-    border-radius: 0 0 1.5px 1.5px;
-    transition: background 80ms linear;
-  }
-  .dock-piano .key.w {
-    width: 5px; height: 15px;
-    background: linear-gradient(to bottom, #fafafa 0%, #e2e2e2 80%, #cbcbcb 100%);
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.18);
-    margin-right: 1px;
-  }
-  .dock-piano .key.w:last-child { margin-right: 0; }
-  .dock-piano .key.b {
-    width: 4px; height: 9px;
-    background: linear-gradient(to bottom, #2a2a2c, #050505);
-    margin: 0 -2.5px 0 -2.5px;
-    position: relative;
-    z-index: 2;
-    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.15);
-  }
-  .dock-piano .key:active,
-  .dock-piano .key.lit.w { background: linear-gradient(to bottom, #cfe6ff, #8ec4ff); }
-  .dock-piano .key.lit.b { background: linear-gradient(to bottom, #4a8fd1, #1f5aa8); }
-
-  .macbar-right .menu-extra {
-    font-size: 11px;
-    opacity: 0.85;
-    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
-    letter-spacing: 0.02em;
-  }
-  .macbar-right .menu-extra.clock { font-variant-numeric: tabular-nums; }
-  .macbar-right svg { fill: currentColor; opacity: 0.85; }
 
   /* Subtle musical pattern tiled over the sky — quarter, eighth, beam,
      flat. Tinted Aqua-edge so it reads like a watermark. Pans diagonally
@@ -257,26 +159,6 @@
     transition: color 220ms var(--ease-apple);
   }
   .titlebar h1 a:hover { color: var(--tahoe-blue); }
-
-  /* Tahoe-style frosted toolbar strip just below the Tiger titlebar. The
-     translucency lets a hint of the music drift bleed through, layering
-     the modern OS feel on top of the retro chrome. */
-  .frosted {
-    height: 36px;
-    background: rgba(245, 247, 250, 0.72);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: var(--ink-soft);
-    text-transform: uppercase;
-    user-select: none;
-  }
 
   /* Pinstripe section — alternating 1px lines, very subtle. */
   .pinstripe {
@@ -620,7 +502,6 @@
     .icon-stage img.reflection { top: 192px; width: 192px; height: 48px; }
     h2.app-title { font-size: 30px; }
     section.panel { padding: 18px 18px; }
-    .frosted { height: 30px; font-size: 9px; letter-spacing: 0.16em; }
   }
 
   /* Honor reduced-motion preference — kill the music drift. */
@@ -628,90 +509,6 @@
     body::before { animation: none; }
     .footer-mark { animation: none; }
     .aqua, a, .titlebar h1 a { transition-duration: 1ms; }
-    .app-icon.genie-up, .app-icon.genie-down { animation-duration: 1ms !important; }
-  }
-
-  /* ── Genie effect ─────────────────────────────────────────────────────────
-     Click the hero icon and it funnels UP into the menu-bar piano (the same
-     metaphor the app embodies). The leading edge — the TOP — narrows toward
-     a point, while the bottom corners stay anchored, then the whole shape
-     translates and scales toward the destination. Click again to bring it
-     back. Pure CSS keyframes; JS only sets --gx/--gy and toggles a class. */
-
-  .icon-stage img.app-icon {
-    cursor: pointer;
-    transition: filter 220ms var(--ease-apple);
-  }
-  .icon-stage img.app-icon:hover { filter: brightness(1.04) drop-shadow(0 4px 12px rgba(10, 132, 255, 0.25)); }
-
-  .icon-stage img.app-icon.genie-up {
-    animation: genie-up 720ms cubic-bezier(0.55, 0, 0.2, 1) forwards;
-    pointer-events: none;
-  }
-  .icon-stage img.app-icon.genie-down {
-    animation: genie-down 720ms cubic-bezier(0.8, 0, 0.45, 1) forwards;
-    pointer-events: none;
-  }
-  /* During the trip, drop the reflection so it doesn't trail. */
-  .icon-stage.genied img.reflection { opacity: 0; transition: opacity 260ms linear; }
-
-  @keyframes genie-up {
-    0% {
-      clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-      transform: translate(0, 0) scale(1);
-      opacity: 1;
-      filter: blur(0);
-    }
-    25% {
-      clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
-      transform: translate(calc(var(--gx, 0px) * 0.22), calc(var(--gy, 0px) * 0.22)) scale(0.78);
-    }
-    55% {
-      clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%);
-      transform: translate(calc(var(--gx, 0px) * 0.62), calc(var(--gy, 0px) * 0.62)) scale(0.42);
-      filter: blur(0.3px);
-    }
-    85% {
-      clip-path: polygon(46% 0%, 54% 0%, 100% 100%, 0% 100%);
-      transform: translate(calc(var(--gx, 0px) * 0.92), calc(var(--gy, 0px) * 0.92)) scale(0.12);
-      filter: blur(0.7px);
-    }
-    100% {
-      clip-path: polygon(50% 0%, 50% 0%, 100% 100%, 0% 100%);
-      transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.04);
-      opacity: 0;
-      filter: blur(1.4px);
-    }
-  }
-  @keyframes genie-down {
-    0% {
-      clip-path: polygon(50% 0%, 50% 0%, 100% 100%, 0% 100%);
-      transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.04);
-      opacity: 0;
-      filter: blur(1.4px);
-    }
-    20% {
-      clip-path: polygon(46% 0%, 54% 0%, 100% 100%, 0% 100%);
-      transform: translate(calc(var(--gx, 0px) * 0.92), calc(var(--gy, 0px) * 0.92)) scale(0.12);
-      opacity: 1;
-      filter: blur(0.7px);
-    }
-    50% {
-      clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%);
-      transform: translate(calc(var(--gx, 0px) * 0.62), calc(var(--gy, 0px) * 0.62)) scale(0.42);
-      filter: blur(0.3px);
-    }
-    80% {
-      clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
-      transform: translate(calc(var(--gx, 0px) * 0.22), calc(var(--gy, 0px) * 0.22)) scale(0.78);
-      filter: blur(0);
-    }
-    100% {
-      clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-      transform: translate(0, 0) scale(1);
-      opacity: 1;
-      filter: blur(0);
-    }
   }
 
   /* ── Dark mode ────────────────────────────────────────────────────────── */
@@ -763,11 +560,6 @@
         0 1px 0 rgba(255, 255, 255, 0.25) inset,
         0 0 0 0.5px rgba(0, 0, 0, 0.5);
     }
-    .frosted {
-      background: rgba(28, 28, 30, 0.65);
-      border-bottom-color: rgba(255, 255, 255, 0.06);
-      color: var(--ink-soft);
-    }
     .icon-stage::before {
       background: rgba(40, 50, 70, 0.45);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -804,59 +596,10 @@
     .badge {
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
     }
-    /* Menu bar — dark-mode vibrancy. */
-    .macbar {
-      background: rgba(20, 20, 22, 0.7);
-      color: #f5f5f7;
-      border-bottom-color: rgba(255, 255, 255, 0.08);
-    }
-    .macbar .apple-logo { fill: #f5f5f7; }
-    .macbar .menu-item:hover, .macbar .menu-app:hover {
-      background: rgba(255, 255, 255, 0.10);
-    }
   }
 </style>
 </head>
 <body>
-
-<!-- Faux macOS menu bar with a real, working Menu Band piano on the right.
-     Click the hero icon below and it genie's UP into this piano. -->
-<div class="macbar" role="presentation">
-  <div class="macbar-left">
-    <svg class="apple-logo" viewBox="0 0 14 17" aria-hidden="true">
-      <path d="M9.78 9.27c.02-1.81 1.49-2.67 1.55-2.71-.85-1.24-2.17-1.4-2.64-1.42-1.12-.11-2.19.66-2.76.66-.58 0-1.45-.65-2.39-.63C2.32 5.18 1.22 5.89.62 6.94c-1.31 2.27-.34 5.64.94 7.49.62.91 1.36 1.92 2.32 1.88.93-.04 1.29-.6 2.41-.6 1.12 0 1.45.6 2.43.59 1-.02 1.64-.92 2.25-1.83.71-1.06 1-2.09 1.01-2.14-.03-.01-1.94-.74-1.96-2.96zM7.92 3.85c.51-.62.86-1.49.77-2.35-.74.04-1.64.5-2.17 1.11-.49.55-.91 1.42-.79 2.27.83.06 1.68-.42 2.19-1.03z"/>
-    </svg>
-    <span class="menu-app">Menu Band</span>
-    <span class="menu-item">File</span>
-    <span class="menu-item">Edit</span>
-    <span class="menu-item">View</span>
-    <span class="menu-item">Window</span>
-    <span class="menu-item">Help</span>
-  </div>
-  <div class="macbar-right">
-    <span class="menu-extra" aria-hidden="true">⌘</span>
-    <span class="menu-extra" aria-hidden="true">⏏</span>
-    <span class="menu-extra" aria-hidden="true">◐</span>
-    <span class="menu-extra" aria-hidden="true">▮▮▮</span>
-    <span class="menu-extra" aria-hidden="true">📶</span>
-    <!-- The actual Menu Band piano graphic — one playable octave. -->
-    <div class="dock-piano" id="dock-piano" aria-label="Menu Band piano" title="Menu Band">
-      <span class="key w" data-note="C"></span>
-      <span class="key b" data-note="C#"></span>
-      <span class="key w" data-note="D"></span>
-      <span class="key b" data-note="D#"></span>
-      <span class="key w" data-note="E"></span>
-      <span class="key w" data-note="F"></span>
-      <span class="key b" data-note="F#"></span>
-      <span class="key w" data-note="G"></span>
-      <span class="key b" data-note="G#"></span>
-      <span class="key w" data-note="A"></span>
-      <span class="key b" data-note="A#"></span>
-      <span class="key w" data-note="B"></span>
-    </div>
-    <span class="menu-extra clock" id="macbar-clock" aria-hidden="true">Wed 2:48 PM</span>
-  </div>
-</div>
 
 <article class="window" aria-label="Menu Band">
   <header class="titlebar" aria-hidden="true">
@@ -865,10 +608,7 @@
       <div class="light y"></div>
       <div class="light g"></div>
     </div>
-    <h1><a href="/prompt">menuband</a></h1>
   </header>
-
-  <div class="frosted" aria-hidden="true">an aesthetic computer instrument</div>
 
   <div class="hero">
     <div class="icon-stage">
@@ -879,9 +619,9 @@
     <p class="tagline">Built-in macOS instruments, in the menu bar.</p>
 
     <div class="button-row">
-      <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.2.dmg" download>
+      <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.3.dmg" download>
         Download
-        <small>0.2 · Apple Silicon · 1.1 MB</small>
+        <small>0.3 · Apple Silicon · 1.2 MB</small>
       </a>
       <a class="aqua alt" href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">
         View source
@@ -893,38 +633,37 @@
 
   <section class="panel">
     <h3>What it does</h3>
-    <p>A tiny piano sits at the right of your menu bar. Click any key to play. Type letters to play. Send notes to your DAW over MIDI.</p>
-    <p>Menu Band publishes a virtual MIDI source named <code>Menu Band</code> — pick it as an input in any DAW and the keys you tap (or letters you type) play through your DAW's instruments. A built‑in General MIDI synth covers hundreds of patches when no DAW is running.</p>
+    <p>A tiny piano in your menu bar. Click keys, type letters, or send to your DAW over MIDI.</p>
+    <p>Publishes a virtual MIDI source named <code>Menu Band</code>. Built-in General MIDI synth when no DAW is listening.</p>
   </section>
 
   <section class="panel">
     <h3>About</h3>
-    <p>Menu Band is a political project: accessible music-making is as essential as time, network connectivity, and battery life. Free and open source. By <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+    <p>Free and open source. By <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
   </section>
 
   <section class="panel testimonial">
-    <blockquote>“i use it on my macbook neo. ya thats how im using it. still gotta fix up the menus a bit, but it's rly fun — i can practice notepat on my mac, and also play ableton without having to be in ableton, with my own custom layout.”</blockquote>
-    <p class="attribution">— <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a>, on his MacBook Neo</p>
+    <blockquote>“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”</blockquote>
+    <p class="attribution">— <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a></p>
   </section>
 
   <section class="panel">
-    <h3>Three input modes</h3>
+    <h3>Three modes</h3>
     <ul class="modes">
-      <li><b>Pointer</b><span>Mouse only. Two octaves of QWERTY-mapped piano keys. <em>Default.</em></span></li>
-      <li><b>Notepat</b><span>Global keystroke capture, two-octave layout (<code>z x c v d s e f w g r a q b h t i y j k u l o m p n</code>).</span></li>
-      <li><b>Ableton</b><span>Global keystroke capture, Ableton Live's M-mode QWERTY (one octave: <code>a w s e d f t g y h u j k o l p ;</code>).</span></li>
+      <li><b>Pointer</b><span>Mouse only. Two octaves.</span></li>
+      <li><b>Notepat</b><span>Type to play. Two octaves.</span></li>
+      <li><b>Ableton</b><span>Type to play. Live's M-mode layout.</span></li>
     </ul>
-    <p style="margin-top:10px;">Hover any segment in the popover to <em>preview</em> it in the menubar piano — letter labels appear, key range adjusts, and tapping keys plays through that mode without committing.</p>
   </section>
 
   <section class="panel">
-    <h3>What's new <span class="badge">0.2</span></h3>
-    <p>Octave widget moved to the popover's top-left and reads as scientific pitch (<code>4</code>, <code>5</code>…). Menubar piano keys flash on click again. Audio visualizer redrawn at vsync via <code>CVDisplayLink</code> with frame coalescing. Dragging across the instrument grid sounds each cell with no audible swap latency.</p>
+    <h3>What's new <span class="badge">0.3</span></h3>
+    <p>Audio actually fires (lazy-loaded GM bank). Visualizer rendered in Metal with per-bar ballistics. Instrument palette collapses with the popover in MIDI mode. Click sounds on popover open + MIDI toggle.</p>
   </section>
 
   <section class="panel">
     <h3>Requirements</h3>
-    <p>macOS 11 (Big Sur) or later · Apple Silicon · ⌃⌥⌘P toggles the last typing mode · Accessibility permission requested only when you turn on Notepat or Ableton.</p>
+    <p>macOS 11+ · Apple Silicon · ⌃⌥⌘P toggles typing mode.</p>
   </section>
 </article>
 
@@ -943,87 +682,42 @@
 </footer>
 
 <script>
-  // ── Live menu-bar clock — same format as macOS. ────────────────────────
-  (function clock() {
-    const el = document.getElementById('macbar-clock');
-    if (!el) return;
-    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    function tick() {
-      const d = new Date();
-      let h = d.getHours();
-      const m = d.getMinutes();
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      el.textContent = `${days[d.getDay()]} ${h}:${String(m).padStart(2,'0')} ${ampm}`;
+  // ── Live reload via /api/version long-poll. Same mechanism prompt.mjs
+  //    uses: ask the server for the deployed commit hash, then long-poll
+  //    with ?current=<hash>. The server holds the connection ~4s when the
+  //    hash matches, so a fresh `lith/deploy.fish` (which rewrites
+  //    /system/public/.commit-ref) shows up within seconds. Skipped on
+  //    localhost so dev workflows aren't disturbed. ─────────────────────
+  (function liveReload() {
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return;
+    let deployed = null;
+    async function poll() {
+      try {
+        if (!deployed) {
+          const res = await fetch('/api/version', { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          deployed = data.deployed;
+          if (!deployed || deployed === 'unknown') { deployed = null; throw new Error('no deployed hash'); }
+        } else {
+          const res = await fetch('/api/version?current=' + encodeURIComponent(deployed), { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          if (data.changed === false) { /* same version — loop */ }
+          else if (data.deployed && data.deployed !== deployed) {
+            // New deploy — fly back home before the new bytes land.
+            location.reload();
+            return;
+          }
+        }
+      } catch (_) {
+        await new Promise(r => setTimeout(r, 5000));
+      }
+      poll();
     }
-    tick();
-    setInterval(tick, 15000);
+    poll();
   })();
 
-  // ── Genie effect — click the hero icon to fly it into the menu-bar piano,
-  //    click it again to fly it back. The destination is computed live so
-  //    it survives layout shifts and works on narrow viewports. ───────────
-  (function genie() {
-    const stage = document.querySelector('.icon-stage');
-    const icon  = document.querySelector('.icon-stage img.app-icon');
-    const piano = document.getElementById('dock-piano');
-    if (!stage || !icon || !piano) return;
-
-    let docked = false;
-    let busy   = false;
-
-    function flyTo(dest) {
-      const ir = icon.getBoundingClientRect();
-      const pr = piano.getBoundingClientRect();
-      const targetX = (pr.left + pr.width / 2) - (ir.left + ir.width / 2);
-      const targetY = (pr.top  + pr.height / 2) - (ir.top  + ir.height / 2);
-      icon.style.setProperty('--gx', targetX + 'px');
-      icon.style.setProperty('--gy', targetY + 'px');
-      icon.classList.remove('genie-up', 'genie-down');
-      // Force reflow so a re-trigger restarts the animation cleanly.
-      void icon.offsetWidth;
-      icon.classList.add(dest === 'up' ? 'genie-up' : 'genie-down');
-    }
-
-    function pulsePiano() {
-      piano.classList.add('glow');
-      setTimeout(() => piano.classList.remove('glow'), 600);
-    }
-
-    icon.addEventListener('click', () => {
-      if (busy) return;
-      busy = true;
-      flyTo(docked ? 'down' : 'up');
-      if (!docked) setTimeout(pulsePiano, 560);
-      docked = !docked;
-      setTimeout(() => { busy = false; }, 740);
-    });
-
-    // Click the menu-bar piano to bring the icon back, too.
-    piano.addEventListener('click', (e) => {
-      // Don't intercept individual key plays from bubbling up if the user
-      // wired keys to play notes — this listener only fires for the piano
-      // body itself when the icon is currently docked.
-      if (!docked || busy) return;
-      busy = true;
-      flyTo('down');
-      docked = false;
-      setTimeout(() => { busy = false; }, 740);
-    });
-
-    // Tiny "play" highlight on key click — purely visual. stopPropagation
-    // on both mousedown AND click so pressing a key while the icon is
-    // docked doesn't also fire the piano's "bring back" handler.
-    piano.querySelectorAll('.key').forEach(k => {
-      const swallow = (ev) => ev.stopPropagation();
-      k.addEventListener('click', swallow);
-      k.addEventListener('mousedown', (ev) => {
-        ev.stopPropagation();
-        k.classList.add('lit');
-        setTimeout(() => k.classList.remove('lit'), 140);
-      });
-    });
-  })();
 </script>
 
 </body>
