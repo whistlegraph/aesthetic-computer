@@ -18,7 +18,7 @@ final class MenuBandController {
     // Visual state — accessed only on the main thread.
     private(set) var litNotes: Set<UInt8> = []
     private var litDownAt: [UInt8: CFTimeInterval] = [:]
-    private let minVisibleSeconds: CFTimeInterval = 0.08
+    private let minVisibleSeconds: CFTimeInterval = 0.18
 
     var onChange: (() -> Void)?
     var onLitChanged: (() -> Void)?
@@ -372,13 +372,18 @@ final class MenuBandController {
         midi.sendCC(10, value: pan, channel: midiCh)
         if !midiMode { synth.noteOn(midiNote, velocity: velocity, channel: synthCh) }
         midi.noteOn(midiNote, velocity: velocity, channel: midiCh)
-        DispatchQueue.main.async { [weak self] in
+        // Lit state is main-thread-only; update synchronously so the menubar
+        // redraws within the same runloop pass as the click. Dispatching async
+        // pushed the redraw past the event-tracking loop's next spin and the
+        // blink wasn't visible.
+        let setLit = { [weak self] in
             guard let self = self else { return }
             self.litDownAt[midiNote] = CACurrentMediaTime()
             if self.litNotes.insert(midiNote).inserted {
                 self.onLitChanged?()
             }
         }
+        if Thread.isMainThread { setLit() } else { DispatchQueue.main.async(execute: setLit) }
     }
 
     /// While dragging, update pan in real time as the cursor slides within

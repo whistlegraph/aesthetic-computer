@@ -195,6 +195,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             melodicProgram: menuBand.melodicProgram,
             hovered: hoveredElement
         )
+        // Force a synchronous redraw — the click drag-loop runs the runloop
+        // in `eventTracking` mode and has been swallowing the next CA flush
+        // until mouseUp. Without this, key blinks and hover highlights only
+        // appeared after the user released the mouse.
+        button.needsDisplay = true
+        button.displayIfNeeded()
     }
 
     // MARK: - Hover
@@ -265,7 +271,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let initialHitPt = imagePoint(from: downEvent.locationInWindow)
         let initial = KeyboardIconRenderer.hit(at: initialHitPt)
-        debugLog("hit pt=(\(initialHitPt.x),\(initialHitPt.y)) -> \(initial)")
+        debugLog("hit pt=(\(initialHitPt.x),\(initialHitPt.y)) -> \(String(describing: initial))")
         let startNote: UInt8
         switch initial {
         case .openSettings:

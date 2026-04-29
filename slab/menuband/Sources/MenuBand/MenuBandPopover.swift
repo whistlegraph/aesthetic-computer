@@ -58,7 +58,8 @@ final class HoverSegmentedControl: NSSegmentedControl {
 final class MenuBandPopoverViewController: NSViewController {
     weak var menuBand: MenuBandController?
 
-    private var inputSegmented: HoverSegmentedControl!
+    private var inputSegmented: HoverSegmentedControl!  // legacy reference; no longer added to stack
+    private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
     private var midiSwitch: NSSwitch!
     private var midiInlineLabel: NSTextField!
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
@@ -92,6 +93,14 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         stack.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(stack)
+
+        // Pin the stack to exactly the instrument-grid width plus the
+        // 8 px insets on each side. Without this, NSSegmentedControl's
+        // intrinsic-content-size for "Notepat.com" pushes the stack wider
+        // than 224, which then drags the popover out with it.
+        stack.widthAnchor.constraint(
+            equalToConstant: InstrumentListView.preferredWidth + 16
+        ).isActive = true
 
         // Top control row: octave + MIDI hugging the right. Brand title
         // moved into the About section below — fewer wasted rows up top.
@@ -224,21 +233,51 @@ final class MenuBandPopoverViewController: NSViewController {
         // Hovering a segment previews that mode in the menubar piano (range
         // shrinks/grows, letter labels appear) and lets you tap keys for a
         // quick demo without committing.
-        let inputLabel = NSTextField(labelWithString: "Keyboard & Mouse")
+        let inputLabel = NSTextField(labelWithString: "Keyboard Shortcuts")
         inputLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         inputLabel.textColor = .labelColor
         stack.addArrangedSubview(inputLabel)
 
-        inputSegmented = HoverSegmentedControl(
-            labels: ["Mouse Only", "Notepat.com", "Ableton"],
-            trackingMode: .selectOne,
-            target: self,
-            action: #selector(inputModeChanged(_:))
-        )
-        inputSegmented.translatesAutoresizingMaskIntoConstraints = false
-        // No hover preview — clicks commit the mode directly.
-        stack.addArrangedSubview(inputSegmented)
-        inputSegmented.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        // Vertical mode buttons — full labels fit without truncation, each
+        // button is the full content width with an SF Symbol leading the
+        // text so the mode is recognizable at a glance.
+        let modeSymbolConfig = NSImage.SymbolConfiguration(pointSize: 13,
+                                                           weight: .semibold)
+        let modeSpecs: [(label: String, symbol: String)] = [
+            ("Mouse Only",        "cursorarrow"),
+            ("Notepat.com",       "keyboard"),
+            ("Ableton MIDI Keys", "pianokeys"),
+        ]
+        modeButtons = []
+        let modeStack = NSStackView()
+        modeStack.orientation = .vertical
+        modeStack.alignment = .leading
+        modeStack.spacing = 2
+        modeStack.translatesAutoresizingMaskIntoConstraints = false
+        for (idx, spec) in modeSpecs.enumerated() {
+            let b = NSButton(title: spec.label, target: self,
+                             action: #selector(modeButtonClicked(_:)))
+            b.tag = idx
+            b.bezelStyle = .recessed
+            b.setButtonType(.pushOnPushOff)
+            b.controlSize = .regular
+            b.alignment = .left
+            b.imagePosition = .imageLeading
+            b.imageHugsTitle = true
+            b.image = NSImage(systemSymbolName: spec.symbol,
+                              accessibilityDescription: spec.label)?
+                .withSymbolConfiguration(modeSymbolConfig)
+            b.translatesAutoresizingMaskIntoConstraints = false
+            b.widthAnchor.constraint(
+                equalToConstant: InstrumentListView.preferredWidth
+            ).isActive = true
+            modeButtons.append(b)
+            modeStack.addArrangedSubview(b)
+        }
+        stack.addArrangedSubview(modeStack)
+        modeStack.widthAnchor.constraint(
+            equalToConstant: InstrumentListView.preferredWidth
+        ).isActive = true
 
         let inputHint = NSTextField(labelWithString:
             "⌃⌥⌘P toggles last keystrokes mode")
@@ -323,10 +362,12 @@ final class MenuBandPopoverViewController: NSViewController {
         let aboutTitle = NSTextField(labelWithString: "Menu Band")
         aboutTitle.font = NSFont.systemFont(ofSize: 13, weight: .bold)
         aboutTitle.textColor = .labelColor
-        let aboutSubtitle = NSTextField(labelWithString:
+        let aboutSubtitle = NSTextField(wrappingLabelWithString:
             "Built-in macOS instruments, in the menu bar.")
         aboutSubtitle.font = NSFont.systemFont(ofSize: 10.5)
         aboutSubtitle.textColor = .secondaryLabelColor
+        aboutSubtitle.maximumNumberOfLines = 0
+        aboutSubtitle.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
         let aboutBody = NSTextField(wrappingLabelWithString:
             "A political project to bring the built-in macOS instruments — " +
             "the ones GarageBand uses — into the menu bar. Free + open source.")
@@ -431,8 +472,10 @@ final class MenuBandPopoverViewController: NSViewController {
         midiSwitch.state = n.midiMode ? .on : .off
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)
-        inputSegmented.selectedSegment = inputModeSegment(typeMode: n.typeMode,
-                                                           keymap: n.keymap)
+        let segIdx = inputModeSegment(typeMode: n.typeMode, keymap: n.keymap)
+        for (i, btn) in modeButtons.enumerated() {
+            btn.state = (i == segIdx) ? .on : .off
+        }
         instrumentList.selectedProgram = n.melodicProgram
         updateInstrumentReadout(program: n.melodicProgram)
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
@@ -617,21 +660,21 @@ final class MenuBandPopoverViewController: NSViewController {
         return keymap == .ableton ? 2 : 1
     }
 
-    @objc private func inputModeChanged(_ sender: NSSegmentedControl) {
+    @objc private func modeButtonClicked(_ sender: NSButton) {
         guard let m = menuBand else { return }
-        switch sender.selectedSegment {
-        case 0:  // Pointer
+        // Manual radio behaviour: only the clicked button stays .on.
+        for btn in modeButtons { btn.state = (btn == sender) ? .on : .off }
+        switch sender.tag {
+        case 0:  // Mouse Only
             if m.typeMode { m.toggleTypeMode() }
         case 1:  // Notepat.com
             m.keymap = .notepat
             if !m.typeMode { m.toggleTypeMode() }
-        case 2:  // Ableton
+        case 2:  // Ableton MIDI Keys
             m.keymap = .ableton
             if !m.typeMode { m.toggleTypeMode() }
         default: break
         }
-        // No syncFromController — segmented control already reflects the
-        // user's click and the rest of the popover doesn't need to refresh.
     }
 
     private func handleInstrumentCommit(_ program: Int) {
