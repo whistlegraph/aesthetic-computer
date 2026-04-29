@@ -5,17 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Menu Band — Built-in macOS instruments, in the menu bar.</title>
 <meta name="description" content="Menu Band brings the built-in macOS instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI. Free + open source.">
-<meta property="og:title" content="Menu Band">
-<meta property="og:description" content="Built-in macOS instruments, in the menu bar.">
-<meta property="og:image" content="/menuband/icon.png">
-<meta name="theme-color" content="#3d7fd6">
+
 <link rel="icon" href="/menuband/icon.png">
 <link rel="apple-touch-icon" href="/menuband/icon.png">
+<meta name="theme-color" content="#0A84FF">
+
+<!-- iMessage / Open Graph: absolute URLs + dimensions so the link preview
+     can fetch the image and surface a caption alongside it. -->
+<meta property="og:title" content="Menu Band">
+<meta property="og:description" content="Built-in macOS instruments, in the menu bar.">
+<meta property="og:url" content="https://aesthetic.computer/menuband">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Aesthetic Computer">
+<meta property="og:image" content="https://aesthetic.computer/menuband/icon.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="Menu Band app icon">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Menu Band">
+<meta name="twitter:description" content="Built-in macOS instruments, in the menu bar.">
+<meta name="twitter:image" content="https://aesthetic.computer/menuband/icon.png">
+
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+
 <style>
   /* ────────────────────────────────────────────────────────────────────────
-     Classic Mac OS X (Tiger / Leopard) indie-app palette + chrome.
-     Hand-styled: pinstripe panels, Aqua jellybean buttons, fake window
-     titlebar with traffic lights, dock-style icon reflection.
+     Spine: Tiger/Leopard Aqua (jellybean buttons, pinstripe, traffic lights).
+     Flair: Tahoe/Sonoma (vibrancy plate, frosted strip, layered shadows,
+     SF Rounded display, saturated accent, glassy CTA).
+     The retro chrome is the canvas; the modern bits float over it.
      ──────────────────────────────────────────────────────────────────────── */
 
   :root {
@@ -25,22 +43,29 @@
     --aqua-blue-hi:    #7eaee8;
     --aqua-blue-edge:  #1f5aa8;
     --aqua-blue-tint:  #a8c8f0;
+    --tahoe-blue:      #0A84FF;     /* Sonoma/Tahoe system-blue dark */
+    --tahoe-indigo:    #5E5CE6;
     --panel-bg:        #ededed;
     --panel-stripe:    #e5e5e5;
     --panel-edge:      #c4ccd4;
     --titlebar-top:    #e8e8e8;
     --titlebar-bot:    #c8c8c8;
-    --ink-body:        #2b2b2b;
+    --ink-body:        #1d1d1f;     /* Apple near-black, warmer than #2b2b2b */
     --ink-head:        #1a1a1a;
     --ink-soft:        #5a5f66;
+    --shadow-card:
+      0 1px 2px rgba(15, 30, 60, 0.06),
+      0 4px 12px rgba(15, 30, 60, 0.06),
+      0 24px 48px -12px rgba(15, 30, 60, 0.12);
+    --ease-apple:      cubic-bezier(0.32, 0.72, 0, 1);
+    --display-stack:   ui-rounded, "SF Pro Rounded", "SF Pro Display",
+                       system-ui, "Lucida Grande", sans-serif;
   }
 
   * { box-sizing: border-box; }
 
   html {
-    cursor:
-      url("/aesthetic.computer/cursors/precise.svg") 12 12,
-      auto;
+    cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto;
   }
 
   html, body {
@@ -56,30 +81,48 @@
 
   body {
     background:
-      linear-gradient(
-        to bottom,
-        var(--aqua-sky-top) 0%,
-        var(--aqua-sky-bot) 100%
-      ) fixed;
+      linear-gradient(to bottom, var(--aqua-sky-top) 0%, var(--aqua-sky-bot) 100%) fixed;
     background-attachment: fixed;
     min-height: 100vh;
     padding: 36px 16px 64px;
+    position: relative;
   }
+
+  /* Subtle musical pattern tiled over the sky — quarter, eighth, beam,
+     flat. Tinted Aqua-edge so it reads like a watermark. Pans diagonally
+     over 90s for a slow drift; pointer-events disabled so it can't grab
+     clicks. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -120px;       /* overscan so panning never reveals an edge */
+    pointer-events: none;
+    z-index: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'><g fill='%231f5aa8' opacity='0.085' font-family='Georgia,serif'><text x='15' y='38' font-size='30'>♪</text><text x='100' y='32' font-size='34'>♫</text><text x='55' y='90' font-size='28'>♩</text><text x='140' y='105' font-size='32'>♬</text><text x='20' y='130' font-size='22'>♭</text><text x='160' y='55' font-size='20'>♯</text></g></svg>");
+    background-repeat: repeat;
+    animation: drift-music 90s linear infinite;
+  }
+  @keyframes drift-music {
+    from { background-position: 0 0; }
+    to   { background-position: 400px -300px; }
+  }
+
+  /* Anything that should sit ABOVE the music drift. */
+  .window, footer { position: relative; z-index: 1; }
 
   .window {
     max-width: 720px;
     margin: 0 auto;
     background: #fff;
     border-radius: 8px 8px 6px 6px;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.5) inset,
-      0 10px 40px rgba(40, 60, 90, 0.18),
-      0 1px 3px rgba(0, 0, 0, 0.12);
     border: 1px solid var(--panel-edge);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.65) inset,
+      var(--shadow-card);
     overflow: hidden;
   }
 
-  /* Tiger-era titlebar with traffic lights. Pure cosmetic — non-interactive. */
+  /* Tiger-era titlebar with traffic lights. Pure cosmetic. */
   .titlebar {
     height: 22px;
     background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
@@ -91,13 +134,9 @@
     position: relative;
     user-select: none;
   }
-  .lights {
-    display: flex;
-    gap: 7px;
-  }
+  .lights { display: flex; gap: 7px; }
   .light {
-    width: 11px;
-    height: 11px;
+    width: 11px; height: 11px;
     border-radius: 50%;
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.55) inset,
@@ -117,8 +156,29 @@
     text-decoration: none;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
     cursor: inherit;
+    transition: color 220ms var(--ease-apple);
   }
-  .titlebar h1 a:hover { color: var(--aqua-blue); }
+  .titlebar h1 a:hover { color: var(--tahoe-blue); }
+
+  /* Tahoe-style frosted toolbar strip just below the Tiger titlebar. The
+     translucency lets a hint of the music drift bleed through, layering
+     the modern OS feel on top of the retro chrome. */
+  .frosted {
+    height: 36px;
+    background: rgba(245, 247, 250, 0.72);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    user-select: none;
+  }
 
   /* Pinstripe section — alternating 1px lines, very subtle. */
   .pinstripe {
@@ -137,6 +197,7 @@
   .hero {
     padding: 40px 32px 28px;
     text-align: center;
+    position: relative;
   }
 
   .icon-stage {
@@ -145,13 +206,36 @@
     height: 320px;        /* extra room for the dock reflection */
     margin: 0 auto 8px;
   }
+
+  /* Vibrancy plate behind the hero icon — the single highest-leverage
+     modern touch, per Tahoe's "Liquid Glass" pattern. Sits under the
+     icon, blurs whatever's behind it (the Aqua sky + music drift). */
+  .icon-stage::before {
+    content: "";
+    position: absolute;
+    inset: 18px 18px 80px 18px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -1px 0 rgba(30, 60, 110, 0.08),
+      0 8px 24px -8px rgba(30, 60, 110, 0.18);
+    z-index: 0;
+  }
+  .icon-stage img.app-icon,
+  .icon-stage img.reflection {
+    position: relative;
+    z-index: 1;
+  }
   .icon-stage img.app-icon {
     width: 256px;
     height: 256px;
     display: block;
     image-rendering: -webkit-optimize-contrast;
   }
-  /* Classic Leopard dock reflection — vertically mirrored copy fading out. */
   .icon-stage img.reflection {
     position: absolute;
     top: 256px;
@@ -169,13 +253,14 @@
 
   h2.app-title {
     margin: 0 0 6px;
-    font-size: 36px;
-    font-weight: 500;
-    letter-spacing: -0.012em;
+    font-family: var(--display-stack);
+    font-size: 38px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
     color: var(--ink-head);
   }
   p.tagline {
-    margin: 0 auto 20px;
+    margin: 0 auto 22px;
     max-width: 440px;
     font-size: 15px;
     font-style: italic;
@@ -183,7 +268,7 @@
     font-family: Georgia, "Times New Roman", serif;
   }
 
-  /* ── Aqua jellybean buttons ───────────────────────────────────────────── */
+  /* ── Aqua-Liquid jellybean buttons ────────────────────────────────────── */
 
   .button-row {
     display: flex;
@@ -199,7 +284,7 @@
     align-items: center;
     gap: 8px;
     position: relative;
-    padding: 10px 22px;
+    padding: 11px 24px;
     font: inherit;
     font-size: 13px;
     font-weight: 500;
@@ -209,11 +294,19 @@
     background: linear-gradient(to bottom, var(--aqua-blue-hi) 0%, var(--aqua-blue) 100%);
     border: 1px solid var(--aqua-blue-edge);
     border-radius: 999px;
+    /* Layered Aqua + Liquid Glass: top sheen, inner glass rim, then a
+       *colored* drop shadow tinted to the button (Sonoma signature) plus
+       a tighter darker shadow for grounding. */
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.55) inset,
-      0 2px 4px rgba(0, 0, 0, 0.18);
+      0 1px 0 rgba(255, 255, 255, 0.85) inset,
+      0 0 0 0.5px rgba(255, 255, 255, 0.55) inset,
+      0 8px 24px -6px rgba(61, 127, 214, 0.55),
+      0 2px 4px rgba(31, 90, 168, 0.25);
     cursor: pointer;
-    transition: filter 120ms ease, transform 120ms ease;
+    transition:
+      filter     220ms var(--ease-apple),
+      transform  220ms var(--ease-apple),
+      box-shadow 220ms var(--ease-apple);
     overflow: hidden;
   }
   .aqua::after {
@@ -221,12 +314,20 @@
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 50%;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
     border-radius: 999px 999px 0 0;
     pointer-events: none;
   }
-  .aqua:hover { filter: brightness(1.08); }
-  .aqua:active { transform: translateY(1px); filter: brightness(0.95); }
+  .aqua:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.85) inset,
+      0 0 0 0.5px rgba(255, 255, 255, 0.55) inset,
+      0 12px 32px -6px rgba(61, 127, 214, 0.65),
+      0 2px 6px rgba(31, 90, 168, 0.30);
+  }
+  .aqua:active { transform: translateY(0); filter: brightness(0.95); }
   .aqua small {
     opacity: 0.78;
     font-size: 11px;
@@ -234,22 +335,32 @@
     text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
   }
 
-  /* Secondary (white gel) — for the source-link companion. */
+  /* Secondary (white gel). */
   .aqua.alt {
     color: #1a1a1a;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
     background: linear-gradient(to bottom, #ffffff 0%, #d8dde3 100%);
     border-color: #a8b0b8;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.95) inset,
+      0 0 0 0.5px rgba(255, 255, 255, 0.65) inset,
+      0 8px 20px -8px rgba(20, 30, 50, 0.18),
+      0 1px 2px rgba(20, 30, 50, 0.10);
   }
   .aqua.alt::after {
     background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
   }
+  .aqua.alt:hover {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.95) inset,
+      0 0 0 0.5px rgba(255, 255, 255, 0.65) inset,
+      0 12px 28px -8px rgba(20, 30, 50, 0.25),
+      0 2px 4px rgba(20, 30, 50, 0.13);
+  }
 
   /* ── Body sections ────────────────────────────────────────────────────── */
 
-  .divider {
-    height: 14px;
-  }
+  .divider { height: 14px; }
 
   section.panel {
     padding: 22px 32px;
@@ -260,10 +371,11 @@
 
   section.panel h3 {
     margin: 0 0 8px;
-    font-size: 14px;
-    font-weight: 500;
+    font-family: var(--display-stack);
+    font-size: 15px;
+    font-weight: 600;
     color: var(--ink-head);
-    letter-spacing: 0.01em;
+    letter-spacing: -0.005em;
   }
   section.panel p { margin: 0 0 10px; color: var(--ink-body); }
   section.panel p:last-child { margin-bottom: 0; }
@@ -274,7 +386,7 @@
     margin: 6px 0 0;
   }
   ul.modes li {
-    padding: 6px 0;
+    padding: 8px 0;
     border-top: 1px solid var(--panel-stripe);
     display: flex;
     gap: 12px;
@@ -282,7 +394,8 @@
   }
   ul.modes li:first-child { border-top: 0; }
   ul.modes b {
-    font-weight: 500;
+    font-family: var(--display-stack);
+    font-weight: 600;
     color: var(--ink-head);
     flex: 0 0 80px;
   }
@@ -293,8 +406,9 @@
     display: inline-block;
     padding: 2px 9px;
     margin-left: 6px;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 700;
     color: #fff;
     background: linear-gradient(to bottom, #f08a5d, #d96a3a);
     border: 1px solid #a4502a;
@@ -302,40 +416,90 @@
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset;
     text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
     vertical-align: middle;
+    letter-spacing: 0.04em;
   }
 
   code {
-    font-family: "SF Mono", Monaco, "Courier New", monospace;
+    font-family: "Berkeley Mono Variable", "SF Mono", Monaco, "Courier New", monospace;
     font-size: 12.5px;
     background: var(--panel-bg);
     border: 1px solid var(--panel-edge);
-    border-radius: 3px;
+    border-radius: 4px;
     padding: 1px 5px;
   }
 
-  a { color: var(--aqua-blue); text-decoration: none; }
+  a { color: var(--tahoe-blue); text-decoration: none; transition: color 220ms var(--ease-apple); }
   a:hover { text-decoration: underline; }
 
+  /* ── Footer — AC ecosystem branding (borrows from give.aesthetic.computer) ── */
+
   footer {
-    margin: 18px auto 0;
+    margin: 28px auto 0;
     max-width: 720px;
     text-align: center;
+    padding: 24px 16px 12px;
+  }
+  .footer-mark {
+    display: inline-block;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    background: linear-gradient(90deg, #ff6b9d, #ffd93d, #6bcb77, #4ecdc4, #5f27cd);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+    text-shadow: none;
+    animation: shimmer 14s linear infinite;
+  }
+  @keyframes shimmer {
+    from { background-position: 0% 50%; }
+    to   { background-position: 220% 50%; }
+  }
+  .footer-links {
+    margin: 8px 0 4px;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
     font-size: 11px;
     color: var(--ink-soft);
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.04em;
   }
-  footer a { color: var(--ink-soft); }
-  footer a:hover { color: var(--aqua-blue); }
+  .footer-links a {
+    color: var(--ink-soft);
+    margin: 0 4px;
+    transition: color 220ms var(--ease-apple);
+  }
+  .footer-links a:hover { color: var(--tahoe-blue); text-decoration: none; }
+  .footer-links .dot { opacity: 0.45; margin: 0 2px; }
+  .footer-meta {
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    opacity: 0.7;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .footer-meta a { color: inherit; }
+  .footer-meta a:hover { color: var(--tahoe-blue); text-decoration: none; }
 
   /* Narrow viewports — tighten paddings, smaller hero. */
   @media (max-width: 520px) {
     body { padding: 16px 8px 48px; }
     .hero { padding: 28px 18px 22px; }
     .icon-stage { width: 192px; height: 240px; }
+    .icon-stage::before { inset: 12px 12px 64px 12px; }
     .icon-stage img.app-icon { width: 192px; height: 192px; }
     .icon-stage img.reflection { top: 192px; width: 192px; height: 48px; }
-    h2.app-title { font-size: 28px; }
+    h2.app-title { font-size: 30px; }
     section.panel { padding: 18px 18px; }
+    .frosted { height: 30px; font-size: 9px; letter-spacing: 0.16em; }
+  }
+
+  /* Honor reduced-motion preference — kill the music drift. */
+  @media (prefers-reduced-motion: reduce) {
+    body::before { animation: none; }
+    .footer-mark { animation: none; }
+    .aqua, a, .titlebar h1 a { transition-duration: 1ms; }
   }
 </style>
 </head>
@@ -350,6 +514,8 @@
     </div>
     <h1><a href="/prompt">menuband</a></h1>
   </header>
+
+  <div class="frosted" aria-hidden="true">an aesthetic computer instrument</div>
 
   <div class="hero">
     <div class="icon-stage">
@@ -379,6 +545,11 @@
   </section>
 
   <section class="panel">
+    <h3>About</h3>
+    <p>Menu Band is a political project: accessible music-making is as essential as time, network connectivity, and battery life. Free and open source. By <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+  </section>
+
+  <section class="panel">
     <h3>Three input modes</h3>
     <ul class="modes">
       <li><b>Pointer</b><span>Mouse only. Two octaves of QWERTY-mapped piano keys. <em>Default.</em></span></li>
@@ -389,7 +560,7 @@
   </section>
 
   <section class="panel">
-    <h3>What's new <span class="badge">1.0</span></h3>
+    <h3>What's new <span class="badge">0.1</span></h3>
     <p>First release. Three-state input picker (Pointer / Notepat / Ableton) with hover-preview, MIDI loopback self-test, virtual MIDI source for any DAW, instrument picker covering all 128 General MIDI patches.</p>
   </section>
 
@@ -397,17 +568,20 @@
     <h3>Requirements</h3>
     <p>macOS 11 (Big Sur) or later · Apple Silicon · ⌃⌥⌘P toggles the last typing mode · Accessibility permission requested only when you turn on Notepat or Ableton.</p>
   </section>
-
-  <section class="panel">
-    <h3>About</h3>
-    <p>Menu Band is a political project: accessible music-making is as essential as time, network connectivity, and battery life. Free and open source. By <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
-  </section>
 </article>
 
 <footer>
-  © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 ·
-  <a href="https://notepat.com">notepat.com</a> ·
-  <a href="/menuband/privacy">privacy</a>
+  <div><a class="footer-mark" href="https://aesthetic.computer">aesthetic.computer</a></div>
+  <nav class="footer-links" aria-label="ecosystem">
+    <a href="https://aesthetic.computer">aesthetic.computer</a><span class="dot">·</span>
+    <a href="https://notepat.com">notepat.com</a><span class="dot">·</span>
+    <a href="https://kidlisp.com">kidlisp.com</a><span class="dot">·</span>
+    <a href="/menuband/privacy">privacy</a>
+  </nav>
+  <div class="footer-meta">
+    <span>© 2026</span><span class="dot"> · </span>
+    <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>
+  </div>
 </footer>
 
 </body>
