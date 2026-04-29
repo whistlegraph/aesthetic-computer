@@ -56,18 +56,15 @@
         }
         root * /opt/ac/system/public/papers.aesthetic.computer
 
-        # Explicit canonical redirects for the platter dirs. Two reasons:
-        # (1) without the /platter redirect, try_files's interaction with
-        # file_server somehow serves the papers root /index.html for the
-        # no-slash form rather than rewriting to /platter/index.html.
-        # (2) for /platter/jeffrey, try_files DOES correctly serve the
-        # right index.html — but the page's relative `./manifest.json`
-        # fetch then resolves to /platter/manifest.json (browser treats
-        # `jeffrey` as a file in /platter/, not a dir), which 404s into
-        # the SPA fallback and breaks the dashboard. Forcing a trailing
-        # slash via redir keeps relative URLs honest.
-        # (See: 2026-04-29 platter URL move debugging.)
-        redir /platter /platter/ permanent
+        # /platter is the existing white research-records page (platter.html).
+        # We briefly created /platter/ as a directory with our own index — that
+        # was the wrong call; restored below by deleting the dir's index and
+        # reversing the prior 301 with a 302 to invalidate cached redirects.
+        # /platter/jeffrey/ remains a real directory (the dashboard); its
+        # explicit canonical redirect stays so the page's relative
+        # `./manifest.json` fetch resolves correctly.
+        # (See: 2026-04-29 platter restoration.)
+        redir /platter/ /platter 302
         redir /platter/jeffrey /platter/jeffrey/ permanent
 
         # SPA fallback for unknown paths: if none of {path}, {path}.html,

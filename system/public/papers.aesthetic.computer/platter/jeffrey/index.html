@@ -261,7 +261,7 @@ function render() {
   const html = list.map((r, i) => `
     <div class="card" data-i="${rows.indexOf(r)}">
       <div class="thumb-wrap">
-        <img src="${r.thumb}" loading="lazy" alt="">
+        <img src="${r.full || r.thumb}" loading="lazy" decoding="async" alt="">
         <div class="sim">${(r.similarity).toFixed(2)}</div>
       </div>
       <div class="meta">
@@ -278,13 +278,11 @@ function render() {
 
 function openLightbox(r) {
   const igUrl = `https://www.instagram.com/p/${r.shortcode}/`;
-  // Show the thumb instantly (it's likely cached from the grid), then swap
-  // to the full-quality original once it loads. Avoids the lightbox flashing
-  // empty for ~200ms on the network round-trip.
-  const initial = r.thumb;
+  // Same full-res image the grid uses — the browser already has it cached
+  // from the card click, so the lightbox renders instantly.
   const hires = r.full || r.thumb;
   lbBody.innerHTML = `
-    <div class="lb-img"><img src="${initial}" data-hires="${hires}" alt="" style="filter:saturate(0.95);"></div>
+    <div class="lb-img"><img src="${hires}" alt=""></div>
     <div class="lb-info">
       <h2>${r.date}</h2>
       <div class="lb-row"><span class="k">subject</span><span class="v">${escapeHtml(r.description || "—")}</span></div>
@@ -301,19 +299,6 @@ function openLightbox(r) {
     </div>`;
   lightbox.classList.add("open");
   document.body.style.overflow = "hidden";
-
-  // Progressive swap to full-quality once it loads.
-  const lbImg = lbBody.querySelector(".lb-img img");
-  if (lbImg && lbImg.dataset.hires && lbImg.dataset.hires !== lbImg.src) {
-    const probe = new Image();
-    probe.onload = () => {
-      lbImg.src = lbImg.dataset.hires;
-      lbImg.style.filter = "";
-    };
-    probe.src = lbImg.dataset.hires;
-  } else {
-    lbImg.style.filter = "";
-  }
 }
 
 function closeLightbox() {
