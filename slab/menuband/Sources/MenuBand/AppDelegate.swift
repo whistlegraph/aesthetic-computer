@@ -18,7 +18,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             debugLog("heartbeat")
         }
         menuBand.onChange = { [weak self] in
-            DispatchQueue.main.async { self?.updateIcon() }
+            DispatchQueue.main.async {
+                self?.updateIcon()
+                // Keep the popover's inline piano preview in sync with hover
+                // overlays (input chooser hovers update controller state →
+                // popover preview should reflect them in real time).
+                self?.popoverVC?.refreshPianoPreview()
+            }
         }
         menuBand.onLitChanged = { [weak self] in
             self?.updateIcon()

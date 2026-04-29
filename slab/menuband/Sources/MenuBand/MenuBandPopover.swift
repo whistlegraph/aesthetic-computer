@@ -59,6 +59,7 @@ final class MenuBandPopoverViewController: NSViewController {
     weak var menuBand: MenuBandController?
 
     private var inputSegmented: HoverSegmentedControl!
+    private var pianoPreview: NSImageView!
     private var midiSwitch: NSSwitch!
     private var midiSelfTestLabel: NSTextField!
     private var instrumentMap: InstrumentMapView!
@@ -66,6 +67,10 @@ final class MenuBandPopoverViewController: NSViewController {
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
     private var keyMonitor: Any?
+
+    /// Pixel-art renders of the menubar keyboard scale up cleanly with
+    /// nearest-neighbor — anti-aliasing turns the labels into mush.
+    private static let previewScale: CGFloat = 2.0
 
     override func loadView() {
         // Plain solid-color background — no NSVisualEffectView. The visual
@@ -129,6 +134,20 @@ final class MenuBandPopoverViewController: NSViewController {
         inputHint.font = NSFont.systemFont(ofSize: 10)
         inputHint.textColor = .secondaryLabelColor
         stack.addArrangedSubview(inputHint)
+
+        // Inline piano preview — mirrors the menubar piano image at 2x so
+        // the user can see exactly what each input mode looks like without
+        // having to glance up at the menu bar while interacting with the
+        // popover. Updates on hover/commit/state-change.
+        pianoPreview = NSImageView()
+        pianoPreview.imageScaling = .scaleNone
+        pianoPreview.imageAlignment = .alignCenter
+        pianoPreview.translatesAutoresizingMaskIntoConstraints = false
+        let previewSize = KeyboardIconRenderer.imageSize
+        let scale = Self.previewScale
+        pianoPreview.widthAnchor.constraint(equalToConstant: previewSize.width * scale).isActive = true
+        pianoPreview.heightAnchor.constraint(equalToConstant: previewSize.height * scale).isActive = true
+        stack.addArrangedSubview(pianoPreview)
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -299,6 +318,7 @@ final class MenuBandPopoverViewController: NSViewController {
                                                            keymap: n.keymap)
         instrumentMap.selectedProgram = n.melodicProgram
         updateInstrumentReadout(program: nil)
+        refreshPianoPreview()
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         // Wire up live updates so the label reflects loopback results as
         // they land (test runs ~50ms after toggle-on; result settles a moment
@@ -444,6 +464,41 @@ final class MenuBandPopoverViewController: NSViewController {
         menuBand?.setMelodicProgram(UInt8(program))
         instrumentMap.selectedProgram = UInt8(program)
         updateInstrumentReadout(program: nil)
+    }
+
+    /// Re-render the inline 2x piano preview from the controller's current
+    /// effective state (so hover-preview overlays show through). Called by
+    /// AppDelegate.updateIcon and from local popover events. Save/restores
+    /// the renderer's `activeKeymap` so preview rendering doesn't disturb
+    /// the next menubar render.
+    func refreshPianoPreview() {
+        guard isViewLoaded, let n = menuBand else { return }
+        let saved = KeyboardIconRenderer.activeKeymap
+        KeyboardIconRenderer.activeKeymap = n.effectiveKeymap
+        let img = KeyboardIconRenderer.image(
+            litNotes: n.litNotes,
+            enabled: n.midiMode,
+            typeMode: n.effectiveTypeMode,
+            melodicProgram: n.melodicProgram,
+            hovered: nil
+        )
+        KeyboardIconRenderer.activeKeymap = saved
+        pianoPreview.image = scaledPixelImage(img, scale: Self.previewScale)
+    }
+
+    /// Nearest-neighbor upscale so the menubar's pixel-art keys (and letter
+    /// labels) stay crisp at 2x. NSImageView's default scaling adds bilinear
+    /// interpolation which turns the small text into mush.
+    private func scaledPixelImage(_ src: NSImage, scale: CGFloat) -> NSImage {
+        let newSize = NSSize(width: src.size.width * scale,
+                             height: src.size.height * scale)
+        let scaled = NSImage(size: newSize)
+        scaled.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .none
+        src.draw(in: NSRect(origin: .zero, size: newSize),
+                 from: .zero, operation: .copy, fraction: 1.0)
+        scaled.unlockFocus()
+        return scaled
     }
 
     /// Show the hovered program name (or the committed one if not hovering).
