@@ -170,7 +170,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // "octave" hint label sits to the right of the rightArrow so the
         // number reads as scientific pitch notation (C4, C5, …) without
         // taking much room.
-        let octaveHint = NSTextField(labelWithString: "octave")
+        let octaveHint = NSTextField(labelWithString: "Octave")
         octaveHint.font = NSFont.systemFont(ofSize: 9, weight: .regular)
         octaveHint.textColor = .tertiaryLabelColor
 

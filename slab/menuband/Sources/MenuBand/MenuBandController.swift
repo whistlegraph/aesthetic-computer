@@ -49,11 +49,20 @@ final class MenuBandController {
     // (DAW is the audio path then; we still apply the program change so
     // it's correct when the user toggles MIDI off).
     private var previewNote: UInt8?
+    /// Pending noteOn dispatched after a setMelodicProgram swap. Held so
+    /// a fast hover sequence (cell A → cell B → cell C in <70 ms) cancels
+    /// the not-yet-fired note for B before C's load even starts.
+    private var pendingPreviewWork: DispatchWorkItem?
+    private let previewLoadDelay: TimeInterval = 0.07
 
     /// Hover-preview a program in the instrument map. Pass nil when the
     /// hover ends to release the held note and restore the committed
     /// program.
     func setInstrumentPreview(_ program: UInt8?) {
+        // Always cancel any pending preview noteOn from a prior call —
+        // each hover/click target gets a fresh 70 ms scheduling slot.
+        pendingPreviewWork?.cancel()
+        pendingPreviewWork = nil
         if let prev = previewNote {
             synth.noteOff(prev, channel: 0)
             previewNote = nil
@@ -67,8 +76,26 @@ final class MenuBandController {
         synth.setMelodicProgram(prog)
         guard !midiMode else { return }
         let note: UInt8 = 60
-        synth.noteOn(note, velocity: 75, channel: 0)
         previewNote = note
+        // When the synth supports instant program changes (MIDISynth backend
+        // ready), fire noteOn immediately — the user's mouseDown becomes an
+        // audible click with no perceptible delay. Sampler fallback still
+        // needs the ~70 ms swap-settle window: AVAudioUnitSampler briefly
+        // drops scheduled notes during `loadSoundBankInstrument`, so an
+        // immediate noteOn falls into that gap and goes silent.
+        if synth.supportsInstantProgramChange {
+            synth.noteOn(note, velocity: 75, channel: 0)
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self,
+                  self.previewNote == note,
+                  !self.midiMode else { return }
+            self.synth.noteOn(note, velocity: 75, channel: 0)
+        }
+        pendingPreviewWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + previewLoadDelay,
+                                      execute: work)
     }
 
     func auditionCurrentProgram() {
