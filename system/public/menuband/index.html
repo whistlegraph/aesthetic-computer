@@ -30,10 +30,9 @@
 
 <style>
   /* ────────────────────────────────────────────────────────────────────────
-     Spine: Tiger/Leopard Aqua (jellybean buttons, pinstripe, traffic lights).
-     Flair: Tahoe/Sonoma (vibrancy plate, layered shadows,
-     SF Rounded display, saturated accent, glassy CTA).
-     The retro chrome is the canvas; the modern bits float over it.
+     Tiger Aqua jellybean button + Tahoe-style glass cards floating on a
+     pastel sky scattered with multi-hued music notes. Apple Garamond
+     italic for the wordmark, Berkeley Mono for the captions.
      ──────────────────────────────────────────────────────────────────────── */
 
   :root {
@@ -48,8 +47,6 @@
     --panel-bg:        #ededed;
     --panel-stripe:    #e5e5e5;
     --panel-edge:      #c4ccd4;
-    --titlebar-top:    #e8e8e8;
-    --titlebar-bot:    #c8c8c8;
     --ink-body:        #1d1d1f;     /* Apple near-black, warmer than #2b2b2b */
     --ink-head:        #1a1a1a;
     --ink-soft:        #5a5f66;
@@ -88,17 +85,17 @@
     position: relative;
   }
 
-  /* Subtle musical pattern tiled over the sky — quarter, eighth, beam,
-     flat. Tinted Aqua-edge so it reads like a watermark. Pans diagonally
-     over 90s for a slow drift; pointer-events disabled so it can't grab
-     clicks. */
+  /* Musical pattern tiled over the sky — quarter, eighth, beam, flat.
+     Multi-hued (rainbow nod to the old Apple wordmark) at low opacity so
+     it reads like confetti behind glass. Pans diagonally over 90s for a
+     slow drift; pointer-events disabled so it can't grab clicks. */
   body::before {
     content: "";
     position: fixed;
     inset: -120px;       /* overscan so panning never reveals an edge */
     pointer-events: none;
     z-index: 0;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g fill='%231f5aa8' opacity='0.10' font-family='Georgia,serif'><text x='10' y='34' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g opacity='0.32' font-family='Georgia,serif'><text x='10' y='34' fill='%23ff6b6b' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' fill='%23ffa53d' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' fill='%23e6c200' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' fill='%2363c97c' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' fill='%234e9bff' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' fill='%23a674e8' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' fill='%23ff6b6b' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' fill='%23ffa53d' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' fill='%2363c97c' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' fill='%234e9bff' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' fill='%23a674e8' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' fill='%23ff6b6b' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
     background-repeat: repeat;
     animation: drift-music 90s linear infinite;
   }
@@ -110,134 +107,65 @@
   /* Anything that should sit ABOVE the music drift. */
   .window, footer { position: relative; z-index: 1; }
 
+  /* Container is just for centering — no chrome, no white plate. The
+     hero and panels each become their own floating glass card, with
+     gaps that let the music notes peek through. */
   .window {
     max-width: 520px;
     margin: 0 auto;
-    background: #fff;
-    border-radius: 8px 8px 6px 6px;
-    border: 1px solid var(--panel-edge);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.65) inset,
-      var(--shadow-card);
-    overflow: hidden;
-  }
-
-  /* Tiger-era titlebar with traffic lights. Pure cosmetic. */
-  .titlebar {
-    height: 22px;
-    background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
-    border-bottom: 1px solid var(--panel-edge);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
-    display: flex;
-    align-items: center;
-    padding: 0 9px;
-    position: relative;
-    user-select: none;
-  }
-  .lights { display: flex; gap: 7px; }
-  .light {
-    width: 11px; height: 11px;
-    border-radius: 50%;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.55) inset,
-      0 0 0 0.5px rgba(0, 0, 0, 0.25);
-  }
-  .light.r { background: radial-gradient(circle at 35% 35%, #ff8a85, #ff5f57); }
-  .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
-  .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
-  .titlebar h1 {
-    margin: 0 0 0 10px;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-  }
-  .titlebar h1 a, .titlebar h1 a:visited {
-    color: #4a4a4a;
-    text-decoration: none;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
-    cursor: inherit;
-    transition: color 220ms var(--ease-apple);
-  }
-  .titlebar h1 a:hover { color: var(--tahoe-blue); }
-
-  /* Pinstripe section — alternating 1px lines, very subtle. */
-  .pinstripe {
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        var(--panel-bg) 0,
-        var(--panel-bg) 1px,
-        var(--panel-stripe) 1px,
-        var(--panel-stripe) 2px
-      );
+    background: none;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
   }
 
   /* ── Hero ─────────────────────────────────────────────────────────────── */
 
   .hero {
-    padding: 40px 32px 28px;
+    padding: 36px 32px 28px;
     text-align: center;
     position: relative;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.85) inset,
+      0 12px 32px -14px rgba(15, 30, 60, 0.18);
+    margin-bottom: 14px;
   }
 
   .icon-stage {
     position: relative;
     width: 256px;
-    height: 320px;        /* extra room for the dock reflection */
-    margin: 0 auto 8px;
-  }
-
-  /* Vibrancy plate behind the hero icon — the single highest-leverage
-     modern touch, per Tahoe's "Liquid Glass" pattern. Sits under the
-     icon, blurs whatever's behind it (the Aqua sky + music drift). */
-  .icon-stage::before {
-    content: "";
-    position: absolute;
-    inset: 28px 18px 64px 18px;
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.65);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.8),
-      inset 0 -1px 0 rgba(30, 60, 110, 0.08),
-      0 8px 24px -8px rgba(30, 60, 110, 0.18);
-    z-index: 0;
-  }
-  .icon-stage img.app-icon,
-  .icon-stage img.reflection {
-    position: relative;
-    z-index: 1;
+    height: 256px;
+    margin: 0 auto 14px;
   }
   .icon-stage img.app-icon {
     width: 256px;
     height: 256px;
     display: block;
     image-rendering: -webkit-optimize-contrast;
-  }
-  .icon-stage img.reflection {
-    position: absolute;
-    top: 256px;
-    left: 0;
-    width: 256px;
-    height: 64px;
-    transform: scaleY(-1);
-    object-fit: cover;
-    object-position: top;
-    opacity: 0.35;
-    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0));
-            mask-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0));
-    pointer-events: none;
+    filter:
+      drop-shadow(0 2px 3px rgba(15, 30, 60, 0.20))
+      drop-shadow(0 14px 18px rgba(15, 30, 60, 0.28));
   }
 
+  /* Apple Garamond italic — the "Think different" / classic-product wordmark
+     feel. Falls back through ITC Garamond, Hoefler Text, and Garamond on
+     stock macOS. */
   h2.app-title {
     margin: 0 0 6px;
-    font-family: var(--display-stack);
-    font-size: 38px;
-    font-weight: 600;
-    letter-spacing: -0.015em;
+    font-family: "Apple Garamond", "ITC Garamond Std", "ITC Garamond",
+                 "Garamond Premier Pro", "Hoefler Text", Garamond,
+                 "Times New Roman", serif;
+    font-style: italic;
+    font-size: 52px;
+    font-weight: 400;
+    letter-spacing: 0.005em;
     color: var(--ink-head);
+    line-height: 1.05;
   }
   p.tagline {
     margin: 0 auto 22px;
@@ -330,14 +258,23 @@
 
   /* ── Body sections ────────────────────────────────────────────────────── */
 
-  .divider { height: 14px; }
-
+  /* Each panel is its own floating glass card. The space between cards
+     reveals the music-note drift behind. */
   section.panel {
-    padding: 22px 32px;
-    border-top: 1px solid var(--panel-edge);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+    position: relative;
+    z-index: 1;
+    padding: 20px 28px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.85) inset,
+      0 8px 24px -14px rgba(15, 30, 60, 0.14);
   }
-  section.panel:first-of-type { border-top: 0; }
+  section.panel:last-of-type { margin-bottom: 0; }
 
   section.panel h3 {
     margin: 0 0 8px;
@@ -403,7 +340,9 @@
 
   /* Testimonial — quote bubble feel, Tahoe-tinted accent stripe. */
   section.panel.testimonial {
-    background: linear-gradient(to bottom, rgba(10, 132, 255, 0.04), rgba(10, 132, 255, 0.015));
+    background:
+      linear-gradient(to bottom, rgba(10, 132, 255, 0.10), rgba(10, 132, 255, 0.04)),
+      rgba(255, 255, 255, 0.5);
   }
   section.panel.testimonial blockquote {
     margin: 4px 0 10px;
@@ -485,20 +424,18 @@
   /* Narrow viewports — tighten paddings, smaller hero. */
   @media (max-width: 520px) {
     body { padding: 16px 8px 48px; }
-    .hero { padding: 28px 18px 22px; }
-    .icon-stage { width: 192px; height: 240px; }
-    .icon-stage::before { inset: 12px 12px 64px 12px; }
+    .hero { padding: 24px 18px 20px; border-radius: 14px; }
+    .icon-stage { width: 192px; height: 192px; }
     .icon-stage img.app-icon { width: 192px; height: 192px; }
-    .icon-stage img.reflection { top: 192px; width: 192px; height: 48px; }
-    h2.app-title { font-size: 30px; }
-    section.panel { padding: 18px 18px; }
+    h2.app-title { font-size: 40px; }
+    section.panel { padding: 16px 18px; border-radius: 12px; }
   }
 
   /* Honor reduced-motion preference — kill the music drift. */
   @media (prefers-reduced-motion: reduce) {
     body::before { animation: none; }
     .footer-mark { animation: none; }
-    .aqua, a, .titlebar h1 a { transition-duration: 1ms; }
+    .aqua, a { transition-duration: 1ms; }
   }
 
   /* ── Dark mode ────────────────────────────────────────────────────────── */
@@ -515,8 +452,6 @@
       --panel-bg:        #1c1c1e;
       --panel-stripe:    #232325;
       --panel-edge:      #2c2c2e;
-      --titlebar-top:    #2c2c2e;
-      --titlebar-bot:    #1f1f21;
       --ink-body:        #ebebf0;
       --ink-head:        #ffffff;
       --ink-soft:        #98989d;
@@ -528,52 +463,17 @@
     body {
       color: var(--ink-body);
     }
-    /* Re-tint the music-drift glyphs so they still read on the dark sky. */
+    /* Music-drift glyphs keep their multi-hued fills on the dark sky;
+       opacity stays modest so the page doesn't get loud at night. */
     body::before {
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g fill='%2379b1ff' opacity='0.10' font-family='Georgia,serif'><text x='10' y='34' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g opacity='0.28' font-family='Georgia,serif'><text x='10' y='34' fill='%23ff8a8a' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' fill='%23ffb964' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' fill='%23ffd757' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' fill='%2387dd9c' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' fill='%2379b1ff' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' fill='%23bf95ee' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' fill='%23ff8a8a' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' fill='%23ffb964' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' fill='%2387dd9c' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' fill='%2379b1ff' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' fill='%23bf95ee' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' fill='%23ff8a8a' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
     }
-    .window {
-      background: #1c1c1e;
+    .hero, section.panel {
+      background: rgba(28, 28, 30, 0.55);
+      border-color: rgba(255, 255, 255, 0.08);
       box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.06) inset,
-        var(--shadow-card);
-    }
-    .titlebar {
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
-    }
-    .titlebar h1 a, .titlebar h1 a:visited {
-      color: #d0d0d2;
-      text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
-    }
-    .light {
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.25) inset,
-        0 0 0 0.5px rgba(0, 0, 0, 0.5);
-    }
-    .icon-stage::before {
-      background: rgba(40, 50, 70, 0.45);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-        0 8px 24px -8px rgba(0, 0, 0, 0.5);
-    }
-    section.panel {
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
-    }
-    .aqua.alt {
-      color: #f5f5f7;
-      text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
-      background: linear-gradient(to bottom, #4a4a4d 0%, #2c2c2e 100%);
-      border-color: #1a1a1c;
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.18) inset,
-        0 0 0 0.5px rgba(255, 255, 255, 0.12) inset,
-        0 8px 20px -8px rgba(0, 0, 0, 0.55),
-        0 1px 2px rgba(0, 0, 0, 0.4);
-    }
-    .aqua.alt::after {
-      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+        0 12px 32px -14px rgba(0, 0, 0, 0.55);
     }
     code {
       background: #2c2c2e;
@@ -581,7 +481,9 @@
       color: var(--ink-body);
     }
     section.panel.testimonial {
-      background: linear-gradient(to bottom, rgba(74, 147, 255, 0.07), rgba(74, 147, 255, 0.02));
+      background:
+        linear-gradient(to bottom, rgba(74, 147, 255, 0.14), rgba(74, 147, 255, 0.05)),
+        rgba(28, 28, 30, 0.55);
     }
     .badge {
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
@@ -592,18 +494,9 @@
 <body>
 
 <article class="window" aria-label="Menu Band">
-  <header class="titlebar" aria-hidden="true">
-    <div class="lights">
-      <div class="light r"></div>
-      <div class="light y"></div>
-      <div class="light g"></div>
-    </div>
-  </header>
-
   <div class="hero">
     <div class="icon-stage">
       <img class="app-icon" src="/menuband/icon.png" alt="Menu Band app icon">
-      <img class="reflection" src="/menuband/icon.png" alt="" aria-hidden="true">
     </div>
     <h2 class="app-title">Menu Band</h2>
     <p class="tagline">Taking macOS instruments out of the Garage and putting them back in the menu, where they belong.</p>
@@ -616,8 +509,6 @@
     </div>
     <p class="aux"><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">view source</a> · by <a href="https://aesthetic.computer">aesthetic.computer</a></p>
   </div>
-
-  <div class="pinstripe divider"></div>
 
   <section class="panel">
     <p>A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing's listening, a built-in General MIDI synth covers hundreds of patches.</p>
