@@ -2,6 +2,7 @@
 # Cloudflare handles TLS. Caddy serves HTTP on :80.
 
 # --- papers.aesthetic.computer ---
+# (touched 2026-04-29 to re-fire webhook after the install-Caddyfile-before-reload fix)
 :443 {
     tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
     log {
