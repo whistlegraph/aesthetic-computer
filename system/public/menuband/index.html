@@ -37,6 +37,12 @@
 
   * { box-sizing: border-box; }
 
+  html {
+    cursor:
+      url("/aesthetic.computer/cursors/precise.svg") 12 12,
+      auto;
+  }
+
   html, body {
     margin: 0;
     padding: 0;
@@ -101,16 +107,18 @@
   .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
   .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
   .titlebar h1 {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    margin: 0;
+    margin: 0 0 0 10px;
     font-size: 11px;
     font-weight: 500;
-    color: #4a4a4a;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
     letter-spacing: 0.02em;
   }
+  .titlebar h1 a, .titlebar h1 a:visited {
+    color: #4a4a4a;
+    text-decoration: none;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    cursor: inherit;
+  }
+  .titlebar h1 a:hover { color: var(--aqua-blue); }
 
   /* Pinstripe section — alternating 1px lines, very subtle. */
   .pinstripe {
@@ -340,7 +348,7 @@
       <div class="light y"></div>
       <div class="light g"></div>
     </div>
-    <h1>Menu Band</h1>
+    <h1><a href="/prompt">menuband</a></h1>
   </header>
 
   <div class="hero">
@@ -352,9 +360,9 @@
     <p class="tagline">Built-in macOS instruments, in the menu bar.</p>
 
     <div class="button-row">
-      <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.0.dmg" download>
+      <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.1.dmg" download>
         Download
-        <small>1.0 · Apple Silicon · 1.1 MB</small>
+        <small>0.1 · Apple Silicon · 1.1 MB</small>
       </a>
       <a class="aqua alt" href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">
         View source

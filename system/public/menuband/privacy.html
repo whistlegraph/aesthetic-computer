@@ -21,6 +21,7 @@
     --ink-soft:     #5a5f66;
   }
   * { box-sizing: border-box; }
+  html { cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
   html, body {
     margin: 0; padding: 0;
     color: var(--ink-body);
@@ -58,9 +59,14 @@
   .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
   .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
   .titlebar h1 {
-    margin: 0 0 0 10px; font-size: 11px; font-weight: 500; color: #4a4a4a;
-    text-shadow: 0 1px 0 rgba(255,255,255,0.7); letter-spacing: 0.02em;
+    margin: 0 0 0 10px; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.02em;
   }
+  .titlebar h1 a, .titlebar h1 a:visited {
+    color: #4a4a4a; text-decoration: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7); cursor: inherit;
+  }
+  .titlebar h1 a:hover { color: var(--aqua-blue); }
   .content { padding: 28px 32px 32px; }
   h2 {
     margin: 0 0 4px;
@@ -108,7 +114,7 @@
       <div class="light y"></div>
       <div class="light g"></div>
     </div>
-    <h1>menuband — privacy</h1>
+    <h1><a href="/prompt">menuband</a> — privacy</h1>
   </header>
 
   <div class="content">
