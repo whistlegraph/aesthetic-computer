@@ -33,6 +33,16 @@ enum KeyboardIconRenderer {
         activeRange.contains(midi)
     }
 
+    /// Right-align the active keys in Ableton mode so the negative space
+    /// (the unmapped 4 whites past E5) sits on the *left* — visually it
+    /// reads as "the rightmost portion of the 2-octave area is the playable
+    /// keymap." `imageSize` doesn't change, so the popover anchor stays put.
+    static var activeSlotOffset: Int {
+        let allWhites = whiteList()
+        let activeCount = allWhites.filter { activeRange.contains($0) }.count
+        return allWhites.count - activeCount
+    }
+
     // Piano key sizes — wide whites give a generous hit area between black
     // keys (the exposed-white-between-blacks zone is whiteW - blackW).
     static let whiteW: CGFloat = 23.0
@@ -134,15 +144,16 @@ enum KeyboardIconRenderer {
             let blackLo = NSColor.controlAccentColor.shadow(withLevel: 0.55) ?? NSColor.controlAccentColor
 
             // "Edges" of the *active* range — used for the rounded outer
-            // corners. With negative space on the right (Ableton mode), the
-            // rightmost rounded corner sits on the last active white, not
-            // the geometric end of the render area.
+            // corners. Active range may be right-aligned (Ableton) so the
+            // outer corners sit on the first/last active white in the slot
+            // layout, not the geometric ends of the render area.
             let activeWhites = whites.filter { isActive($0) }
             let leftmostMidi = activeWhites.first ?? firstMidi
             let rightmostMidi = activeWhites.last ?? lastMidi
+            let slotOffset = activeSlotOffset
             for (idx, m) in whites.enumerated() {
                 if !isActive(m) { continue }   // negative space — skip draw
-                let rect = whiteRect(at: idx)
+                let rect = whiteRect(at: idx + slotOffset)
                 let isLit = litNotes.contains(UInt8(m))
                 let isHover = hovered == .note(UInt8(m))
                 let isLeftmost = (m == leftmostMidi)
@@ -176,7 +187,7 @@ enum KeyboardIconRenderer {
                 var leftWhite = m - 1
                 while !isWhite(leftWhite) { leftWhite -= 1 }
                 guard let leftIdx = whiteIndex[leftWhite] else { continue }
-                let rect = blackRect(rightOfWhiteIndex: leftIdx)
+                let rect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
                 let isLit = litNotes.contains(UInt8(m))
                 let isHover = hovered == .note(UInt8(m))
                 let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
@@ -229,6 +240,7 @@ enum KeyboardIconRenderer {
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
+        let slotOffset = activeSlotOffset
         // Black-key hit area = the visual blackRect. 1:1 mapping with what
         // the user sees on screen — clicking on visible black triggers black,
         // clicking visible white triggers white. Inactive (negative-space)
@@ -238,7 +250,7 @@ enum KeyboardIconRenderer {
             var leftWhite = m - 1
             while !isWhite(leftWhite) { leftWhite -= 1 }
             guard let leftIdx = whiteIndex[leftWhite] else { continue }
-            if blackRect(rightOfWhiteIndex: leftIdx).contains(point) {
+            if blackRect(rightOfWhiteIndex: leftIdx + slotOffset).contains(point) {
                 return .note(UInt8(m))
             }
         }
@@ -249,7 +261,7 @@ enum KeyboardIconRenderer {
         // claims the black-key region; everything else falls through here.
         for (idx, m) in whites.enumerated() {
             if !isActive(m) { continue }
-            let r = whiteRect(at: idx)
+            let r = whiteRect(at: idx + slotOffset)
             let relaxed = NSRect(x: r.minX, y: -100,
                                  width: r.width, height: 200)
             if relaxed.contains(point) { return .note(UInt8(m)) }
@@ -262,14 +274,15 @@ enum KeyboardIconRenderer {
     static func keyRect(for midi: UInt8) -> NSRect? {
         let m = Int(midi)
         let whites = whiteList()
+        let slotOffset = activeSlotOffset
         if isWhite(m) {
             guard let idx = whites.firstIndex(of: m) else { return nil }
-            return whiteRect(at: idx)
+            return whiteRect(at: idx + slotOffset)
         } else {
             var leftWhite = m - 1
             while !isWhite(leftWhite) { leftWhite -= 1 }
             guard let leftIdx = whites.firstIndex(of: leftWhite) else { return nil }
-            return blackRect(rightOfWhiteIndex: leftIdx)
+            return blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
         }
     }
 
@@ -280,13 +293,11 @@ enum KeyboardIconRenderer {
     static func noteAt(_ point: NSPoint) -> UInt8? {
         let whites = whiteList()
         let activeWhites = whites.filter { isActive($0) }
-        guard !activeWhites.isEmpty,
-              let firstActiveIdx = whites.firstIndex(where: { isActive($0) }),
-              let lastActiveIdx = whites.lastIndex(where: { isActive($0) }) else {
-            return nil
-        }
-        let leftEdge = pianoOriginX + CGFloat(firstActiveIdx) * whiteW
-        let rightEdge = pianoOriginX + CGFloat(lastActiveIdx + 1) * whiteW
+        guard !activeWhites.isEmpty else { return nil }
+        let slotOffset = activeSlotOffset
+        // Active keys occupy slots [slotOffset, slotOffset + activeWhites.count - 1].
+        let leftEdge  = pianoOriginX + CGFloat(slotOffset) * whiteW
+        let rightEdge = pianoOriginX + CGFloat(slotOffset + activeWhites.count) * whiteW
         let edgeTolerance: CGFloat = whiteW * 0.6
         guard point.x >= leftEdge - edgeTolerance,
               point.x < rightEdge + edgeTolerance else { return nil }
@@ -302,15 +313,15 @@ enum KeyboardIconRenderer {
                 var leftWhite = m - 1
                 while !isWhite(leftWhite) { leftWhite -= 1 }
                 guard let leftIdx = whiteIndex[leftWhite] else { continue }
-                let rect = blackRect(rightOfWhiteIndex: leftIdx)
+                let rect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
                 if point.x >= rect.minX && point.x < rect.maxX { return UInt8(m) }
             }
         }
-        // White by column within the active range; overshoot clamps to the
+        // White by slot within the active range; overshoot clamps to the
         // outermost active white.
         let clampedX = max(leftEdge, min(rightEdge - 0.001, point.x))
-        let col = Int((clampedX - leftEdge) / whiteW)
-        let clamped = max(0, min(activeWhites.count - 1, col))
+        let localCol = Int((clampedX - leftEdge) / whiteW)
+        let clamped = max(0, min(activeWhites.count - 1, localCol))
         return UInt8(activeWhites[clamped])
     }
 

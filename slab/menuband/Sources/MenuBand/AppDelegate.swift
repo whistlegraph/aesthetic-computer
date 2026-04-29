@@ -59,6 +59,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let modMask: UInt32 = UInt32(cmdKey | controlKey | optionKey)
         hotkey.register(keyCode: UInt32(kVK_ANSI_P), modifiers: modMask)
         typeModeHotkey = hotkey
+
+        // Pre-instance the popover + force its view to load now so the
+        // first click pops it instantly. With `animates = false` the
+        // open/close has no transition — it's a snap, much more "playable"
+        // for quickly toggling between the menubar piano and the picker.
+        let vc = MenuBandPopoverViewController()
+        vc.menuBand = menuBand
+        popoverVC = vc
+        popover.contentViewController = vc
+        popover.behavior = .transient
+        popover.animates = false
+        _ = vc.view
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -259,15 +271,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showPopover() {
         guard let button = statusItem.button else { return }
-        if popoverVC == nil {
-            let vc = MenuBandPopoverViewController()
-            vc.menuBand = menuBand
-            popoverVC = vc
-            popover.contentViewController = vc
-            popover.behavior = .transient
-            popover.animates = true
-            _ = vc.view
-        }
+        // popoverVC is pre-built in applicationDidFinishLaunching so the first
+        // open is instant — no lazy view inflation here.
         popoverVC?.syncFromController()
         if popover.isShown {
             popover.performClose(nil)

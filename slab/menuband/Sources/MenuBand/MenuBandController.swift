@@ -109,7 +109,54 @@ final class MenuBandController {
     func setMelodicProgram(_ program: UInt8) {
         UserDefaults.standard.set(Int(program), forKey: melodicProgramKey)
         synth.setMelodicProgram(program)
+        // Any in-flight preview is no longer relevant — drop its held note +
+        // saved-program so the next hover restarts cleanly.
+        if let prev = previewNote {
+            synth.noteOff(prev)
+            previewNote = nil
+        }
+        previewSavedProgram = nil
         onChange?()
+    }
+
+    // MARK: - Instrument hover preview (popover flat-map)
+
+    private var previewSavedProgram: UInt8?
+    private var previewNote: UInt8?
+    private let previewVelocity: UInt8 = 80
+
+    /// Hover-preview a program in the instrument flat-map. Pass nil to stop
+    /// preview and restore the user's committed program. Plays a held
+    /// middle-C note in the previewed program through the local synth so
+    /// the user can audition without committing. Silent when MIDI mode is
+    /// on (DAW is in charge of audio).
+    func setInstrumentPreview(_ program: UInt8?) {
+        // Stop any previously playing preview note immediately.
+        if let prev = previewNote {
+            synth.noteOff(prev)
+            previewNote = nil
+        }
+
+        guard let prog = program else {
+            // Hover ended — restore the user's committed program.
+            if let saved = previewSavedProgram {
+                synth.setMelodicProgram(saved)
+                previewSavedProgram = nil
+            }
+            return
+        }
+
+        // Save the user's committed program once so we can restore on exit.
+        if previewSavedProgram == nil {
+            previewSavedProgram = melodicProgram
+        }
+
+        synth.setMelodicProgram(prog)
+        // Don't add audio in MIDI mode — DAW is hearing user input.
+        guard !midiMode else { return }
+        let note: UInt8 = 60
+        synth.noteOn(note, velocity: previewVelocity, channel: 0)
+        previewNote = note
     }
 
 

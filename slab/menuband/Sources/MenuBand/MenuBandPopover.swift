@@ -61,7 +61,8 @@ final class MenuBandPopoverViewController: NSViewController {
     private var inputSegmented: HoverSegmentedControl!
     private var midiSwitch: NSSwitch!
     private var midiSelfTestLabel: NSTextField!
-    private var instrumentPopUp: NSPopUpButton!
+    private var instrumentMap: InstrumentMapView!
+    private var instrumentReadout: NSTextField!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
     private var keyMonitor: Any?
@@ -152,19 +153,32 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(makeSeparator())
 
-        // Instrument popup row.
+        // Instrument flat-map. 16 GM families × 8 programs = 128 cells in
+        // a row-per-family grid. Hover plays a preview note; click commits.
+        // The readout above shows the hovered (or selected) program name.
         let instrumentLabel = NSTextField(labelWithString: "Instrument")
         instrumentLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         instrumentLabel.textColor = .labelColor
         stack.addArrangedSubview(instrumentLabel)
 
-        instrumentPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
-        instrumentPopUp.target = self
-        instrumentPopUp.action = #selector(instrumentChanged(_:))
-        instrumentPopUp.translatesAutoresizingMaskIntoConstraints = false
-        rebuildInstrumentMenu()
-        stack.addArrangedSubview(instrumentPopUp)
-        instrumentPopUp.widthAnchor.constraint(equalToConstant: 240).isActive = true
+        instrumentReadout = NSTextField(labelWithString: "—")
+        instrumentReadout.font = NSFont.monospacedSystemFont(ofSize: 10.5, weight: .regular)
+        instrumentReadout.textColor = .secondaryLabelColor
+        instrumentReadout.lineBreakMode = .byTruncatingTail
+        stack.addArrangedSubview(instrumentReadout)
+
+        instrumentMap = InstrumentMapView()
+        instrumentMap.translatesAutoresizingMaskIntoConstraints = false
+        instrumentMap.onHover = { [weak self] prog in
+            self?.handleInstrumentHover(prog)
+        }
+        instrumentMap.onCommit = { [weak self] prog in
+            self?.handleInstrumentCommit(prog)
+        }
+        stack.addArrangedSubview(instrumentMap)
+        let mapSize = InstrumentMapView.intrinsicSize
+        instrumentMap.widthAnchor.constraint(equalToConstant: mapSize.width).isActive = true
+        instrumentMap.heightAnchor.constraint(equalToConstant: mapSize.height).isActive = true
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -264,7 +278,15 @@ final class MenuBandPopoverViewController: NSViewController {
         ])
 
         view = root
-        preferredContentSize = NSSize(width: 280, height: 320)
+        // Force layout once so the autolayout fitting size accounts for
+        // the flat-map (the tallest panel). The popover frame tracks
+        // `preferredContentSize`, so we set it from the actual fitting
+        // height rather than guessing — keeps the popover snug whether
+        // the instrument map is added/removed/resized.
+        root.layoutSubtreeIfNeeded()
+        let fitting = stack.fittingSize
+        preferredContentSize = NSSize(width: max(280, fitting.width),
+                                       height: fitting.height)
     }
 
     /// Refresh control state from the controller — call right before showing.
@@ -275,13 +297,8 @@ final class MenuBandPopoverViewController: NSViewController {
         updateOctaveLabel(n.octaveShift)
         inputSegmented.selectedSegment = inputModeSegment(typeMode: n.typeMode,
                                                            keymap: n.keymap)
-        let target = Int(n.melodicProgram)
-        for item in instrumentPopUp.itemArray {
-            if item.tag == target {
-                instrumentPopUp.select(item)
-                break
-            }
-        }
+        instrumentMap.selectedProgram = n.melodicProgram
+        updateInstrumentReadout(program: nil)
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         // Wire up live updates so the label reflects loopback results as
         // they land (test runs ~50ms after toggle-on; result settles a moment
@@ -352,38 +369,6 @@ final class MenuBandPopoverViewController: NSViewController {
         return row
     }
 
-    private func rebuildInstrumentMenu() {
-        let menu = NSMenu()
-        for (familyName, range) in GeneralMIDI.families {
-            let parent = NSMenuItem(title: familyName, action: nil, keyEquivalent: "")
-            let sub = NSMenu()
-            for prog in range {
-                let title = String(format: "%03d  %@", prog, GeneralMIDI.programNames[prog])
-                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-                item.tag = prog
-                sub.addItem(item)
-            }
-            parent.submenu = sub
-            menu.addItem(parent)
-        }
-        // Flatten — NSPopUpButton displays leaf selections better when the
-        // popUp menu has flat items. Build a flat menu instead with section
-        // headers.
-        let flat = NSMenu()
-        for (familyName, range) in GeneralMIDI.families {
-            let header = NSMenuItem(title: familyName.uppercased(), action: nil, keyEquivalent: "")
-            header.isEnabled = false
-            flat.addItem(header)
-            for prog in range {
-                let title = String(format: "  %03d  %@", prog, GeneralMIDI.programNames[prog])
-                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-                item.tag = prog
-                flat.addItem(item)
-            }
-        }
-        instrumentPopUp.menu = flat
-    }
-
     private func updateOctaveLabel(_ shift: Int) {
         let s: String
         if shift == 0 { s = "0" }
@@ -444,9 +429,36 @@ final class MenuBandPopoverViewController: NSViewController {
         }
     }
 
-    @objc private func instrumentChanged(_ sender: NSPopUpButton) {
-        guard let item = sender.selectedItem, item.tag >= 0 else { return }
-        menuBand?.setMelodicProgram(UInt8(item.tag))
+    private func handleInstrumentHover(_ program: Int?) {
+        // Forward to controller — handles preview state machine + audio.
+        // Pass UInt8 or nil to clear preview.
+        if let p = program {
+            menuBand?.setInstrumentPreview(UInt8(p))
+        } else {
+            menuBand?.setInstrumentPreview(nil)
+        }
+        updateInstrumentReadout(program: program.map { UInt8($0) })
+    }
+
+    private func handleInstrumentCommit(_ program: Int) {
+        menuBand?.setMelodicProgram(UInt8(program))
+        instrumentMap.selectedProgram = UInt8(program)
+        updateInstrumentReadout(program: nil)
+    }
+
+    /// Show the hovered program name (or the committed one if not hovering).
+    private func updateInstrumentReadout(program: UInt8?) {
+        let p: Int
+        if let h = program {
+            p = Int(h)
+        } else if let n = menuBand {
+            p = Int(n.melodicProgram)
+        } else {
+            p = 0
+        }
+        let safe = max(0, min(127, p))
+        let name = GeneralMIDI.programNames[safe]
+        instrumentReadout.stringValue = String(format: "%03d  %@", safe, name)
     }
 
     @objc private func octaveChanged(_ sender: NSStepper) {
@@ -487,8 +499,11 @@ final class MenuBandPopoverViewController: NSViewController {
             NSEvent.removeMonitor(m)
             keyMonitor = nil
         }
-        // Ensure hover preview doesn't survive popover dismissal.
+        // Ensure hover previews don't survive popover dismissal — clear
+        // both the input-mode preview and the instrument preview, otherwise
+        // a held preview note can keep ringing after the popover closes.
         menuBand?.clearHoverPreview()
+        menuBand?.setInstrumentPreview(nil)
     }
 
     @objc private func openAesthetic() {
