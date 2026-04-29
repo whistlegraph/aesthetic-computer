@@ -81,12 +81,13 @@ final class MenuBandPopoverViewController: NSViewController {
         root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
 
-        // Vertical stack of rows.
+        // Vertical stack of rows. Tight spacing + smaller edge insets so
+        // the popover doesn't carry a lot of negative space.
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
+        stack.spacing = 6
+        stack.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
         stack.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(stack)
 
@@ -117,14 +118,16 @@ final class MenuBandPopoverViewController: NSViewController {
         titleSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         titleRow.addArrangedSubview(titleSpacer)
 
-        // Compact octave: stepper + monospaced label, no "Octave" caption
-        // (small enough that the stepper itself reads). Reset is dropped
-        // — the stepper can walk back to 0 just as fast.
+        // Compact octave: large monospaced number, then a tight pair of
+        // chevron arrows to its right. NSStepper kept invisibly as the
+        // value model so the rest of the controller's API doesn't change;
+        // the visible buttons just nudge its `integerValue`.
         octaveLabel = NSTextField(labelWithString: "+0")
-        octaveLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
-        octaveLabel.textColor = .secondaryLabelColor
+        octaveLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 18, weight: .bold)
+        octaveLabel.textColor = .labelColor
         octaveLabel.alignment = .right
-        octaveLabel.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        octaveLabel.widthAnchor.constraint(equalToConstant: 30).isActive = true
+
         octaveStepper = NSStepper()
         octaveStepper.minValue = -4
         octaveStepper.maxValue = 4
@@ -132,15 +135,36 @@ final class MenuBandPopoverViewController: NSViewController {
         octaveStepper.valueWraps = false
         octaveStepper.target = self
         octaveStepper.action = #selector(octaveChanged(_:))
-        let octaveCaption = NSTextField(labelWithString: "octave")
-        octaveCaption.font = NSFont.systemFont(ofSize: 10)
-        octaveCaption.textColor = .tertiaryLabelColor
-        titleRow.addArrangedSubview(octaveCaption)
+        octaveStepper.isHidden = true   // value model only — UI is the arrows below
+
+        let leftArrow = NSButton()
+        leftArrow.image = NSImage(systemSymbolName: "chevron.left",
+                                  accessibilityDescription: "Octave down")
+        leftArrow.bezelStyle = .recessed
+        leftArrow.controlSize = .small
+        leftArrow.imagePosition = .imageOnly
+        leftArrow.target = self
+        leftArrow.action = #selector(octaveDown)
+
+        let rightArrow = NSButton()
+        rightArrow.image = NSImage(systemSymbolName: "chevron.right",
+                                   accessibilityDescription: "Octave up")
+        rightArrow.bezelStyle = .recessed
+        rightArrow.controlSize = .small
+        rightArrow.imagePosition = .imageOnly
+        rightArrow.target = self
+        rightArrow.action = #selector(octaveUp)
+
+        let octaveArrows = NSStackView(views: [leftArrow, rightArrow])
+        octaveArrows.orientation = .horizontal
+        octaveArrows.spacing = 1
+
         titleRow.addArrangedSubview(octaveLabel)
-        titleRow.addArrangedSubview(octaveStepper)
+        titleRow.addArrangedSubview(octaveArrows)
+        titleRow.addArrangedSubview(octaveStepper)  // hidden, here for layout-time only
         stack.addArrangedSubview(titleRow)
         titleRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
-                                         constant: -32).isActive = true
+                                         constant: -24).isActive = true
 
         // Update banner — hidden until UpdateChecker reports a newer
         // release. Tinted accent so the user notices it without it feeling
@@ -220,15 +244,25 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.addArrangedSubview(makeSeparator())
 
-        // MIDI switch row.
+        // MIDI switch — single-line, just "MIDI" + the switch.
         midiSwitch = NSSwitch()
         midiSwitch.target = self
         midiSwitch.action = #selector(midiSwitchToggled(_:))
-        stack.addArrangedSubview(makeSwitchRow(
-            label: "Send MIDI to DAW",
-            sublabel: "Routes via virtual port",
-            switchControl: midiSwitch
-        ))
+        let midiRow = NSStackView()
+        midiRow.orientation = .horizontal
+        midiRow.alignment = .centerY
+        midiRow.spacing = 8
+        midiRow.distribution = .fill
+        let midiLabel = NSTextField(labelWithString: "MIDI")
+        midiLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        midiLabel.textColor = .labelColor
+        let midiSpacer = NSView()
+        midiSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        midiRow.addArrangedSubview(midiLabel)
+        midiRow.addArrangedSubview(midiSpacer)
+        midiRow.addArrangedSubview(midiSwitch)
+        stack.addArrangedSubview(midiRow)
+        midiRow.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
 
         // MIDI self-test status — populated by the controller after each
         // toggle-on. Empty when MIDI is off.
@@ -607,6 +641,20 @@ final class MenuBandPopoverViewController: NSViewController {
         menuBand?.octaveShift = 0
         octaveStepper.integerValue = 0
         updateOctaveLabel(0)
+    }
+
+    @objc private func octaveDown() {
+        let new = max(Int(octaveStepper.minValue), octaveStepper.integerValue - 1)
+        octaveStepper.integerValue = new
+        menuBand?.octaveShift = new
+        updateOctaveLabel(new)
+    }
+
+    @objc private func octaveUp() {
+        let new = min(Int(octaveStepper.maxValue), octaveStepper.integerValue + 1)
+        octaveStepper.integerValue = new
+        menuBand?.octaveShift = new
+        updateOctaveLabel(new)
     }
 
     @objc private func openAesthetic() {
