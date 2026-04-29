@@ -28,6 +28,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var clickAwayMonitor: Any?
     private var popoverEscMonitor: Any?
 
+    /// Sandbox-friendly local key capture. Armed when the user clicks the
+    /// menubar piano (without opening the popover). The companion ghost
+    /// timer paints letter labels on the menubar keys briefly when armed
+    /// or when an actual key is pressed — visual signal that "you're
+    /// capturing, type now."
+    private let localCapture = LocalKeyCapture()
+    private var ghostUntil: CFTimeInterval = 0
+    private var ghostRefreshTimer: Timer?
+
+    /// Letter-wave state. Pivot is the most recently lit display note;
+    /// `phaseStartedAt` is when the current direction began; `fadingIn`
+    /// indicates direction. The renderer queries per-cell alpha derived
+    /// from these — fade-in ripples outward from the pivot, fade-out
+    /// retreats inward (far cells fade first, the pivot last).
+    private var letterPivot: UInt8 = 60
+    private var letterPhaseStartedAt: CFTimeInterval = 0
+    private var letterFadingIn: Bool = false
+    private var letterFadeTimer: Timer?
+    private static let letterWaveStep: CFTimeInterval = 0.025  // 25 ms per cell of distance
+    private static let letterFadeInDur: CFTimeInterval = 0.08
+    private static let letterFadeOutDur: CFTimeInterval = 0.18
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
@@ -76,6 +98,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.register(keyCode: UInt32(kVK_ANSI_P), modifiers: modMask)
         typeModeHotkey = hotkey
 
+        // Local key capture wiring. Routes keys to the same note logic the
+        // global tap uses, with the ghost-label flash on every press so the
+        // user sees the layout dynamically appear while typing.
+        localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
+            guard let self = self else { return false }
+            // Escape disarms capture explicitly. Useful when the user
+            // wants to release focus without clicking another app.
+            if isDown && keyCode == 53 /* kVK_Escape */ {
+                NSSound(named: NSSound.Name("Tink"))?.play()
+                self.localCapture.disarm()
+                return true
+            }
+            let consumed = self.menuBand.handleLocalKey(
+                keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
+            )
+            if consumed && isDown {
+                // Use the most-recent lit display note as the wave pivot
+                // so the ripple emanates from whichever key the user just
+                // played. `litNotes` is updated synchronously on this
+                // thread, so it already contains the new note.
+                let pivot = self.menuBand.litNotes.max() ?? 60
+                DispatchQueue.main.async { self.extendGhost(0.4, pivot: pivot) }
+            }
+            return consumed
+        }
+        localCapture.onCaptureEnd = { [weak self] in
+            // Focus lost (user clicked another app). Drop the ghost and
+            // any held notes so we don't leave anything hanging.
+            self?.ghostUntil = 0
+            self?.ghostRefreshTimer?.invalidate()
+            self?.ghostRefreshTimer = nil
+            self?.updateIcon()
+        }
+
         // Pre-instance the popover + force its view to load now so the
         // first click pops it instantly. With `animates = false` the
         // open/close has no transition — it's a snap, much more "playable"
@@ -94,6 +150,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = vc.view
 
         startAdaptiveLayoutChecks()
+
+        // Retint the bundle's Finder icon to the user's accent color.
+        // Stored as an xattr on the bundle folder, so the signed payload
+        // isn't modified. Refreshed whenever the accent changes.
+        IconTinter.applyTintedIcon()
+        NotificationCenter.default.addObserver(
+            forName: NSColor.systemColorsDidChangeNotification,
+            object: nil, queue: .main
+        ) { _ in
+            IconTinter.applyTintedIcon()
+        }
     }
 
     // MARK: - Adaptive menubar layout
@@ -187,6 +254,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 2-octave Notepat layout area) — Ableton is drawn with negative
         // space on the right — so the status item slot never resizes and
         // the popover anchor stays put.
+        //
+        // Ghost-label flash: when the user clicks the menubar piano (or
+        // types while armed), letters render on the keys for ~0.5–0.7 s.
+        // It's a temporal "you're capturing right now" hint, not a
+        // permanent overlay.
         KeyboardIconRenderer.activeKeymap = menuBand.keymap
         statusItem.length = KeyboardIconRenderer.imageSize.width
         button.image = KeyboardIconRenderer.image(
@@ -194,7 +266,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             enabled: menuBand.midiMode,
             typeMode: menuBand.typeMode,
             melodicProgram: menuBand.melodicProgram,
-            hovered: hoveredElement
+            hovered: hoveredElement,
+            letterAlpha: { [weak self] midi in
+                self?.letterAlpha(for: midi) ?? 0
+            }
         )
         // Force a synchronous redraw — the click drag-loop runs the runloop
         // in `eventTracking` mode and has been swallowing the next CA flush
@@ -202,6 +277,81 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // appeared after the user released the mouse.
         button.needsDisplay = true
         button.displayIfNeeded()
+    }
+
+    /// Extend the letter ghost duration and pivot the wave at the given
+    /// display note. Each keypress restarts (or extends) the fade-in
+    /// from that pivot; when the ghost expires the wave reverses outward
+    /// (far cells fade out first). The animation tick drives 60 Hz
+    /// redraws while the fade is in progress, then auto-stops.
+    private func extendGhost(_ duration: CFTimeInterval, pivot: UInt8? = nil) {
+        let now = CACurrentMediaTime()
+        let target = now + duration
+        if target > ghostUntil { ghostUntil = target }
+        if let pivot = pivot { letterPivot = pivot }
+        // Restart the fade-in phase from "now" so cells progressively
+        // re-attack from the new pivot. Already-bright cells stay bright
+        // because the alpha formula is monotonic for time within a phase.
+        if !letterFadingIn {
+            letterFadingIn = true
+            letterPhaseStartedAt = now
+        }
+        ghostRefreshTimer?.invalidate()
+        ghostRefreshTimer = Timer.scheduledTimer(withTimeInterval: duration + 0.02, repeats: false) { [weak self] _ in
+            self?.startLetterFadeOut()
+        }
+        startLetterFadeTickIfNeeded()
+        updateIcon()
+    }
+
+    private func startLetterFadeOut() {
+        letterFadingIn = false
+        letterPhaseStartedAt = CACurrentMediaTime()
+        startLetterFadeTickIfNeeded()
+        updateIcon()
+    }
+
+    private func startLetterFadeTickIfNeeded() {
+        guard letterFadeTimer == nil else { return }
+        letterFadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
+            self?.tickLetterFade()
+        }
+    }
+
+    private func tickLetterFade() {
+        // Stable when fade-out has had enough time for the slowest
+        // (closest-to-pivot) cell to reach 0. Stop the timer there to
+        // avoid burning idle CPU.
+        let now = CACurrentMediaTime()
+        let phase = now - letterPhaseStartedAt
+        let maxDist: CFTimeInterval = 24
+        let stableAt = letterFadingIn
+            ? maxDist * Self.letterWaveStep + Self.letterFadeInDur
+            : maxDist * Self.letterWaveStep + Self.letterFadeOutDur
+        if !letterFadingIn && phase >= stableAt {
+            letterFadeTimer?.invalidate()
+            letterFadeTimer = nil
+        }
+        updateIcon()
+    }
+
+    /// Per-cell alpha based on radial distance from the pivot. Fade-in
+    /// starts at the pivot and ripples outward; fade-out starts at the
+    /// outermost cell and retreats toward the pivot.
+    private func letterAlpha(for midi: UInt8) -> CGFloat {
+        let dist = CFTimeInterval(abs(Int(midi) - Int(letterPivot)))
+        let phase = CACurrentMediaTime() - letterPhaseStartedAt
+        if letterFadingIn {
+            let cellStart = dist * Self.letterWaveStep
+            let t = (phase - cellStart) / Self.letterFadeInDur
+            return CGFloat(max(0, min(1, t)))
+        } else {
+            // Fade-out delay: far cells (large dist) start first.
+            let maxDist: CFTimeInterval = 24
+            let cellStart = (maxDist - dist) * Self.letterWaveStep
+            let t = (phase - cellStart) / Self.letterFadeOutDur
+            return CGFloat(max(0, min(1, 1 - t)))
+        }
     }
 
     // MARK: - Hover
@@ -254,7 +404,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if isRight || isCtrl {
-            NSSound(named: NSSound.Name("Tink"))?.play()
             showPopover()
             return
         }
@@ -276,7 +425,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let startNote: UInt8
         switch initial {
         case .openSettings:
-            NSSound(named: NSSound.Name("Tink"))?.play()
             showPopover()
             return
         case .note(let n):
@@ -288,6 +436,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let initialPt = imagePoint(from: downEvent.locationInWindow)
         let (vel0, pan0) = expression(for: startNote, at: initialPt)
         menuBand.startTapNote(startNote, velocity: vel0, pan: pan0)
+        // Arm sandbox-friendly local capture on a real piano click. We
+        // skip arming when global TYPE mode is already on — the global
+        // tap is already handling keys, doubling up would re-trigger
+        // every note. No letter flash on click: the label overlay is
+        // reserved for actual key presses, so the menubar stays clean
+        // when you're just tapping the piano with the mouse.
+        if !menuBand.typeMode {
+            localCapture.arm()
+        }
         var current: UInt8? = startNote
         while let next = NSApp.nextEvent(
             matching: [.leftMouseDragged, .leftMouseUp],
@@ -366,11 +523,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // by default; without this you have to click into the popover
             // once before its controls react.
             NSApp.activate(ignoringOtherApps: true)
-            // Sharp tactile click on open — the settings chip is the only
-            // entry point to the popover, so this becomes the "menu opening"
-            // sound. Tink is short and unmistakable; a richer custom sample
-            // would need an asset bundle, and Tink ships on every macOS.
-            NSSound(named: NSSound.Name("Tink"))?.play()
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
             DispatchQueue.main.async {
                 self.popover.contentViewController?.view.window?.makeKey()

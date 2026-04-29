@@ -7,6 +7,15 @@ final class MenuBandController {
     private let synth = MenuBandSynth()
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
+    /// Synth channel each held keystroke is voicing on. Mirrors
+    /// `tapNoteChannel` for the menubar-tap path: round-robin across
+    /// melodic channels 0–7 lets fast same-key retriggers overlap as
+    /// distinct voices instead of voice-stealing on channel 0. Same lock.
+    private var heldKeyChannel: [UInt16: UInt8] = [:]
+    /// Display-note (clamped into the menubar piano's C4–C5 range) for
+    /// each held key. Lets keyUp remove the visually-lit cell even when
+    /// the audio note was octave-shifted out of the visible range.
+    private var heldKeyDisplayNote: [UInt16: UInt8] = [:]
     private let heldLock = NSLock()
 
     private let midiModeKey = "notepat.midiMode"
@@ -14,6 +23,7 @@ final class MenuBandController {
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
+    private let mutedKey = "notepat.muted"
 
     // Visual state — accessed only on the main thread.
     private(set) var litNotes: Set<UInt8> = []
@@ -29,6 +39,25 @@ final class MenuBandController {
 
     var typeMode: Bool {
         UserDefaults.standard.bool(forKey: typeModeKey)
+    }
+
+    /// When on, the local synth is silent — note triggers still update lit
+    /// state and (in MIDI mode) still send out the virtual port, but the
+    /// built-in sampler/MIDISynth doesn't sound. Independent of MIDI mode
+    /// so a user can keep MIDI off and still mute the local synth.
+    var muted: Bool {
+        UserDefaults.standard.bool(forKey: mutedKey)
+    }
+
+    func toggleMuted() {
+        let now = !muted
+        UserDefaults.standard.set(now, forKey: mutedKey)
+        if now {
+            // Cut anything currently sounding so a long-tail note doesn't
+            // hang past the moment the user hit mute.
+            synth.panic()
+        }
+        onChange?()
     }
 
     /// Audition the currently-loaded melodic program through the local
@@ -74,7 +103,7 @@ final class MenuBandController {
             return
         }
         synth.setMelodicProgram(prog)
-        guard !midiMode else { return }
+        guard !midiMode, !muted else { return }
         let note: UInt8 = 60
         previewNote = note
         // When the synth supports instant program changes (MIDISynth backend
@@ -99,6 +128,7 @@ final class MenuBandController {
     }
 
     func auditionCurrentProgram() {
+        guard !muted else { return }
         let note: UInt8 = 60
         debugLog("audition: synth.noteOn 60 (program \(melodicProgram))")
         synth.noteOn(note, velocity: 100, channel: 0)
@@ -397,7 +427,7 @@ final class MenuBandController {
         let midiCh: UInt8 = isDrum ? 9 : 0
         tapNoteChannel[midiNote] = synthCh
         midi.sendCC(10, value: pan, channel: midiCh)
-        if !midiMode { synth.noteOn(midiNote, velocity: velocity, channel: synthCh) }
+        if !midiMode && !muted { synth.noteOn(midiNote, velocity: velocity, channel: synthCh) }
         midi.noteOn(midiNote, velocity: velocity, channel: midiCh)
         // Lit state is main-thread-only; update synchronously so the menubar
         // redraws within the same runloop pass as the click. Dispatching async
@@ -437,24 +467,15 @@ final class MenuBandController {
             synth.noteOff(midiNote, channel: synthCh)
         }
         midi.noteOff(midiNote, channel: midiCh)
-        // Visual cleanup deferred so we don't pay image-render cost in the
-        // mouse-up handler.
+        // Release the visual immediately on mouse-up. The earlier
+        // minVisibleSeconds floor read as visual lag — the user
+        // perceives it as the key sticking down past the click. Snap-up
+        // matches the keyboard path now.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            let downAt = self.litDownAt.removeValue(forKey: midiNote) ?? 0
-            let held = CACurrentMediaTime() - downAt
-            let extinguish = { [weak self] in
-                guard let self = self else { return }
-                if self.litNotes.remove(midiNote) != nil {
-                    self.onLitChanged?()
-                }
-            }
-            if held < self.minVisibleSeconds {
-                DispatchQueue.main.asyncAfter(deadline: .now() + (self.minVisibleSeconds - held)) {
-                    extinguish()
-                }
-            } else {
-                extinguish()
+            self.litDownAt.removeValue(forKey: midiNote)
+            if self.litNotes.remove(midiNote) != nil {
+                self.onLitChanged?()
             }
         }
     }
@@ -528,8 +549,28 @@ final class MenuBandController {
             }
             return true
         }
+        let hasMod = flags.contains(.maskCommand) || flags.contains(.maskControl) || flags.contains(.maskAlternate)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod)
+    }
+
+    /// Sandbox-friendly key path: same note logic as the global tap, but
+    /// driven by a local NSEvent monitor on the AppDelegate's invisible
+    /// capture panel. No TYPE-mode escape semantics — this path activates
+    /// and deactivates with the panel's key-window state, so an "exit"
+    /// keystroke isn't needed.
+    @discardableResult
+    func handleLocalKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool, flags: NSEvent.ModifierFlags) -> Bool {
+        let hasMod = flags.contains(.command) || flags.contains(.control) || flags.contains(.option)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod)
+    }
+
+    /// Shared note logic for both the global CGEventTap path and the
+    /// local NSEvent panel path. Returns true if the keystroke was
+    /// consumed (mapped to a note); false if it should pass through.
+    @discardableResult
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool) -> Bool {
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
-        if flags.contains(.maskCommand) || flags.contains(.maskControl) || flags.contains(.maskAlternate) { return false }
+        if hasModifier { return false }
 
         let shift = octaveShift // a single UserDefaults read; cheap
 
@@ -540,60 +581,95 @@ final class MenuBandController {
                 // through to the focused app.
                 return true
             }
+            // Match the menubar-tap path's voice allocation: round-robin
+            // across 8 melodic channels so rapid retriggers don't stomp
+            // each other on channel 0. Without this, keyboard play sounds
+            // noticeably different from mouse play (more voice-stealing,
+            // sharper attack tail-off). MIDI out still goes to channel 0
+            // so DAW tracks listening on one channel get every note.
+            let synthCh = nextMelodicChannel()
+            let displayNote: UInt8 = {
+                let v = Int(note) - shift * 12
+                let clamped = max(60, min(83, v))
+                return UInt8(clamped)
+            }()
             heldLock.lock()
-            let prev = heldNotes[keyCode]
+            let prevNote = heldNotes[keyCode]
+            let prevCh = heldKeyChannel[keyCode]
+            let prevDisplay = heldKeyDisplayNote[keyCode]
             heldNotes[keyCode] = note
+            heldKeyChannel[keyCode] = synthCh
+            heldKeyDisplayNote[keyCode] = displayNote
             heldLock.unlock()
-            if let prev = prev {
-                if !midiMode { synth.noteOff(prev) }
-                midi.noteOff(prev)
+            if let prevNote = prevNote {
+                if !midiMode { synth.noteOff(prevNote, channel: prevCh ?? 0) }
+                midi.noteOff(prevNote)
             }
-            if !midiMode { synth.noteOn(note) }
+            if !midiMode && !muted { synth.noteOn(note, velocity: 100, channel: synthCh) }
             midi.noteOn(note)
-            DispatchQueue.main.async { [weak self] in
+            // The menubar piano renders a fixed C4–C5 window; the audio
+            // path plays at the user's full octave-shifted pitch. To keep
+            // the visual lit state honest, mark the *display* note (note
+            // minus the octave delta, clamped to the visible range) as
+            // pressed — keyboard 'z' at octaveShift=3 plays MIDI 96 but
+            // lights up the visible C4 (MIDI 60). Lit state must update
+            // synchronously when called on main (the local-capture path)
+            // so the menubar redraws within the same runloop pass as the
+            // keystroke; the global tap runs on a CGEventTap background
+            // thread, hop to main there.
+            let setLit = { [weak self] in
                 guard let self = self else { return }
-                self.litDownAt[note] = CACurrentMediaTime()
-                if self.litNotes.insert(note).inserted {
+                if let prevDisplay = prevDisplay, prevDisplay != displayNote {
+                    self.litDownAt.removeValue(forKey: prevDisplay)
+                    if self.litNotes.remove(prevDisplay) != nil {
+                        self.onLitChanged?()
+                    }
+                }
+                self.litDownAt[displayNote] = CACurrentMediaTime()
+                if self.litNotes.insert(displayNote).inserted {
                     self.onLitChanged?()
                 }
             }
+            if Thread.isMainThread { setLit() } else { DispatchQueue.main.async(execute: setLit) }
             return true
         } else {
             heldLock.lock()
             let note = heldNotes.removeValue(forKey: keyCode)
+            let synthCh = heldKeyChannel.removeValue(forKey: keyCode) ?? 0
+            let displayNote = heldKeyDisplayNote.removeValue(forKey: keyCode)
             heldLock.unlock()
             guard let releasedNote = note else { return true }  // consume the up too
-            if !midiMode { synth.noteOff(releasedNote) }
+            if !midiMode { synth.noteOff(releasedNote, channel: synthCh) }
             midi.noteOff(releasedNote)
-            DispatchQueue.main.async { [weak self] in
+            // Extinguish the *display* lit cell, not the played pitch —
+            // the played pitch may be far outside the visible range when
+            // octaveShift > 0, but the lit highlight always lives in 60–83.
+            // No minVisibleSeconds delay: release the visual the instant
+            // the key is released for a snappy press-and-up feel.
+            let visualNote = displayNote ?? releasedNote
+            let extinguish = { [weak self] in
                 guard let self = self else { return }
-                let downAt = self.litDownAt.removeValue(forKey: releasedNote) ?? 0
-                let held = CACurrentMediaTime() - downAt
-                let extinguish = { [weak self] in
-                    guard let self = self else { return }
-                    if self.litNotes.remove(releasedNote) != nil {
-                        self.onLitChanged?()
-                    }
-                }
-                if held < self.minVisibleSeconds {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + (self.minVisibleSeconds - held)) {
-                        extinguish()
-                    }
-                } else {
-                    extinguish()
+                self.litDownAt.removeValue(forKey: visualNote)
+                if self.litNotes.remove(visualNote) != nil {
+                    self.onLitChanged?()
                 }
             }
+            if Thread.isMainThread { extinguish() } else { DispatchQueue.main.async(execute: extinguish) }
             return true
         }
     }
 
     private func releaseAllHeldNotes() {
         heldLock.lock()
-        let snapshot = heldNotes
+        let noteSnapshot = heldNotes
+        let chanSnapshot = heldKeyChannel
         heldNotes.removeAll()
+        heldKeyChannel.removeAll()
+        heldKeyDisplayNote.removeAll()
         heldLock.unlock()
-        for (_, note) in snapshot {
-            synth.noteOff(note)
+        for (keyCode, note) in noteSnapshot {
+            let ch = chanSnapshot[keyCode] ?? 0
+            synth.noteOff(note, channel: ch)
             midi.noteOff(note)
         }
         midi.sendAllNotesOff()

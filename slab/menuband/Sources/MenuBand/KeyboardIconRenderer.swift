@@ -157,7 +157,8 @@ enum KeyboardIconRenderer {
                       enabled: Bool,
                       typeMode: Bool = false,
                       melodicProgram: UInt8 = 0,
-                      hovered: HitResult? = nil) -> NSImage {
+                      hovered: HitResult? = nil,
+                      letterAlpha: ((UInt8) -> CGFloat)? = nil) -> NSImage {
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
@@ -213,8 +214,25 @@ enum KeyboardIconRenderer {
                 groove.setStroke()
                 path.lineWidth = 0.7
                 path.stroke()
-                if typeMode, let letter = labelByMidi[m] {
-                    drawWhiteLabel(letter, in: rect, lit: isLit)
+                // Lit keys always wear their letter at full opacity (a
+                // mouse-press tap reveals just that letter). For unlit
+                // keys, the per-key `letterAlpha` closure drives a wave
+                // fade-in / fade-out that ripples outward from whichever
+                // key the user is currently playing. Falls back to the
+                // legacy binary `typeMode` rendering when no closure is
+                // supplied (e.g., previews that don't drive animation).
+                if let letter = labelByMidi[m] {
+                    let a: CGFloat
+                    if isLit {
+                        a = 1.0
+                    } else if let closure = letterAlpha {
+                        a = closure(UInt8(m))
+                    } else {
+                        a = typeMode ? 1.0 : 0.0
+                    }
+                    if a > 0.01 {
+                        drawWhiteLabel(letter, in: rect, lit: isLit, alpha: a)
+                    }
                 }
             }
             for m in firstMidi...lastMidi where !isWhite(m) {
@@ -239,8 +257,18 @@ enum KeyboardIconRenderer {
                 groove.setStroke()
                 path.lineWidth = 0.6
                 path.stroke()
-                if typeMode, let letter = labelByMidi[m] {
-                    drawBlackLabel(letter, in: rect, lit: isLit)
+                if let letter = labelByMidi[m] {
+                    let a: CGFloat
+                    if isLit {
+                        a = 1.0
+                    } else if let closure = letterAlpha {
+                        a = closure(UInt8(m))
+                    } else {
+                        a = typeMode ? 1.0 : 0.0
+                    }
+                    if a > 0.01 {
+                        drawBlackLabel(letter, in: rect, lit: isLit, alpha: a)
+                    }
                 }
             }
             NSGraphicsContext.restoreGraphicsState()
@@ -405,20 +433,23 @@ enum KeyboardIconRenderer {
 
     // MARK: - Key labels
 
-    private static func drawWhiteLabel(_ text: String, in rect: NSRect, lit: Bool) {
+    private static func drawWhiteLabel(_ text: String, in rect: NSRect, lit: Bool, alpha: CGFloat = 1.0) {
+        guard alpha > 0.01 else { return }
+        let base: NSColor = lit ? .white : NSColor(white: 0.28, alpha: 1.0)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 9.0, weight: .heavy),
-            .foregroundColor: lit ? NSColor.white : NSColor(white: 0.28, alpha: 1.0),
+            .foregroundColor: base.withAlphaComponent(alpha),
         ]
         let str = NSAttributedString(string: text, attributes: attrs)
         let size = str.size()
         str.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.minY + 0.4))
     }
 
-    private static func drawBlackLabel(_ text: String, in rect: NSRect, lit: Bool) {
+    private static func drawBlackLabel(_ text: String, in rect: NSRect, lit: Bool, alpha: CGFloat = 1.0) {
+        guard alpha > 0.01 else { return }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 8.0, weight: .heavy),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.96),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.96 * alpha),
         ]
         let str = NSAttributedString(string: text, attributes: attrs)
         let size = str.size()

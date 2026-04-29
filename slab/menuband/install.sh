@@ -136,18 +136,29 @@ if [[ -z "${SIGN_ID}" ]]; then
     ensure_self_signed_identity
     SIGN_ID="${SELF_SIGN_CN}"
 fi
+# Strip any custom-icon detritus before signing. The IconTinter writes an
+# `Icon\r` file with a resource fork to give the bundle an accent-colored
+# Finder icon at runtime; that resource fork makes codesign refuse the
+# bundle ("resource fork, Finder information, or similar detritus not
+# allowed"), silently leaving an ad-hoc signature behind.
+rm -f "${APP_DIR}/Icon"$'\r'
+xattr -cr "${APP_DIR}" 2>/dev/null || true
+
 say "signing with: ${SIGN_ID}"
 # --options runtime + --entitlements + --timestamp are all required for
 # Apple's notary service to accept the bundle. Without them notarytool
 # rejects with "The signature does not include a secure timestamp" or
 # "The executable does not have the hardened runtime enabled."
 ENTITLEMENTS="${SCRIPT_DIR}/MenuBand.entitlements"
-codesign --force --deep --sign "${SIGN_ID}" \
+if ! codesign --force --deep --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menuband \
     --options runtime \
     --entitlements "${ENTITLEMENTS}" \
     --timestamp \
-    "${APP_DIR}" >/dev/null 2>&1 || warn "codesign failed"
+    "${APP_DIR}" 2>&1; then
+    warn "codesign failed — bundle is not signed with hardened runtime"
+    exit 1
+fi
 ok "signed"
 
 say "writing launchd plist → ${PLIST_PATH}"

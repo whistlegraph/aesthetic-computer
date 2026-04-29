@@ -185,17 +185,12 @@ final class WaveformView: MTKView {
             smoothedPeak = max(0.05, smoothedPeak * 0.92 + framePeak * 0.08)
         }
         let gain = 0.95 / smoothedPeak
-        // Per-bar ballistics — fast attack (snap up on transients), slow
-        // release (bars trail off ~100 ms instead of popping to zero).
-        // Without this the bars look snappy/jumpy at any framerate; with it
-        // they read as a smooth animation even at 60 Hz.
-        let attack: Float = 0.55
-        let release: Float = 0.18
+        // Direct readout — no inter-frame ballistics. The user prefers
+        // raw peak amplitude over smoothed visuals; bars track the
+        // analyzed level exactly so transients land within one display
+        // frame of the audio that triggered them.
         for b in 0..<n {
-            let target = min(1.0, levels[b] * gain)
-            let cur = displayLevels[b]
-            let k = target > cur ? attack : release
-            displayLevels[b] = cur + (target - cur) * k
+            displayLevels[b] = min(1.0, levels[b] * gain)
         }
     }
 

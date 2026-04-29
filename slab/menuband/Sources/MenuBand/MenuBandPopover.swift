@@ -66,10 +66,12 @@ final class MenuBandPopoverViewController: NSViewController {
     private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
     private var midiSwitch: NSSwitch!
     private var midiInlineLabel: NSTextField!
+    private var muteButton: NSButton!
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
     private var instrumentList: InstrumentListView!
     private var instrumentReadout: NSTextField!
     private var instrumentLabel: NSTextField!
+    private var instrumentTitleRow: NSStackView!
     private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
@@ -193,6 +195,27 @@ final class MenuBandPopoverViewController: NSViewController {
         // the MIDI pair pins RIGHT.
         titleRow.addArrangedSubview(titleSpacer)
 
+        // Mute toggle — small speaker icon to the left of MIDI. When on, the
+        // local synth is silent (lit state + MIDI port still update so the
+        // visual + DAW paths keep working — only the built-in instrument is
+        // gagged). Lives in the title row to stay out of the main controls.
+        let speakerConfig = NSImage.SymbolConfiguration(pointSize: 13,
+                                                        weight: .semibold)
+        muteButton = NSButton()
+        muteButton.isBordered = false
+        muteButton.bezelStyle = .inline
+        muteButton.imagePosition = .imageOnly
+        muteButton.imageScaling = .scaleProportionallyDown
+        muteButton.target = self
+        muteButton.action = #selector(muteButtonClicked(_:))
+        muteButton.image = NSImage(systemSymbolName: "speaker.fill",
+                                   accessibilityDescription: "Mute local synth")?
+            .withSymbolConfiguration(speakerConfig)
+        muteButton.contentTintColor = .secondaryLabelColor
+        muteButton.toolTip = "Mute local synth"
+        titleRow.addArrangedSubview(muteButton)
+        titleRow.setCustomSpacing(8, after: muteButton)
+
         // MIDI toggle — tucked into the title row instead of its own panel.
         midiSwitch = NSSwitch()
         midiSwitch.target = self
@@ -262,8 +285,11 @@ final class MenuBandPopoverViewController: NSViewController {
         // text so the mode is recognizable at a glance.
         let modeSymbolConfig = NSImage.SymbolConfiguration(pointSize: 13,
                                                            weight: .semibold)
+        // "Mouse Only" was the way to disable global keyboard capture; with
+        // local capture (click menubar piano → type to play, no Accessibility
+        // needed) that mode is handled implicitly by simply not triggering
+        // global capture. The popover now just picks the keymap layout.
         let modeSpecs: [(label: String, symbol: String)] = [
-            ("Mouse Only",        "cursorarrow"),
             ("Notepat.com",       "keyboard"),
             ("Ableton MIDI Keys", "pianokeys"),
         ]
@@ -334,10 +360,27 @@ final class MenuBandPopoverViewController: NSViewController {
         // popover stays small even though the full list is much taller.
         // Hidden in MIDI mode — the DAW picks instruments there, so this
         // local picker would just be misleading dead UI.
-        instrumentLabel = NSTextField(labelWithString: "Instrument")
+        //
+        // Title row: "Instrument:" left, "078  Whistle" right (greyed). The
+        // readout used to live under the grid; promoting it to the title
+        // row keeps the eye on a single line while browsing cells.
+        instrumentLabel = NSTextField(labelWithString: "Instrument:")
         instrumentLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         instrumentLabel.textColor = .labelColor
-        stack.addArrangedSubview(instrumentLabel)
+        instrumentReadout = NSTextField(labelWithString: "")
+        instrumentReadout.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        instrumentReadout.textColor = .secondaryLabelColor
+        instrumentReadout.lineBreakMode = .byTruncatingTail
+        instrumentTitleRow = NSStackView(views: [instrumentLabel, instrumentReadout])
+        instrumentTitleRow.orientation = .horizontal
+        instrumentTitleRow.alignment = .firstBaseline
+        instrumentTitleRow.spacing = 6
+        // Hugging high on the label, low on the readout, so the readout
+        // expands to fill the trailing space and truncates cleanly.
+        instrumentLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        instrumentReadout.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        instrumentReadout.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        stack.addArrangedSubview(instrumentTitleRow)
 
         instrumentList = InstrumentListView()
         instrumentList.translatesAutoresizingMaskIntoConstraints = false
@@ -352,14 +395,6 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(instrumentList)
         instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
         instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight).isActive = true
-
-        // Readout for the selected program — "078  Whistle" — sits right
-        // below the grid since the cells themselves only show numbers.
-        instrumentReadout = NSTextField(labelWithString: "")
-        instrumentReadout.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
-        instrumentReadout.textColor = .labelColor
-        instrumentReadout.lineBreakMode = .byTruncatingTail
-        stack.addArrangedSubview(instrumentReadout)
 
         let bottomSeparator = makeSeparator()
         stack.addArrangedSubview(bottomSeparator)
@@ -501,9 +536,10 @@ final class MenuBandPopoverViewController: NSViewController {
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
         midiSwitch.state = n.midiMode ? .on : .off
+        updateMuteButton(muted: n.muted)
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)
-        let segIdx = inputModeSegment(typeMode: n.typeMode, keymap: n.keymap)
+        let segIdx = inputModeSegment(keymap: n.keymap)
         for (i, btn) in modeButtons.enumerated() {
             btn.state = (i == segIdx) ? .on : .off
         }
@@ -512,15 +548,13 @@ final class MenuBandPopoverViewController: NSViewController {
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
         refreshUpdateBanner()
-        // Waveform: live only when local synth is the audible path. MIDI
-        // mode silences the local mixer, so the line would be flat — hide
-        // it instead of showing a misleading dead waveform.
-        waveformView.isHidden = n.midiMode
+        // Waveform: live only when local synth is the audible path.
+        // Stays in the layout when MIDI mode is on; the palette
+        // visibility helper greys it out instead of collapsing.
+        waveformView.isHidden = false
         waveformView.isLive = !n.midiMode
-        // Instrument palette: only meaningful when the local synth is the
-        // audio path. In MIDI mode the DAW chooses the instrument, so the
-        // local picker is hidden along with its label, separator, and
-        // selected-program readout.
+        // Instrument palette: stays in the layout but greys out when
+        // MIDI mode owns the audio path. Same physical width either way.
         applyInstrumentPaletteVisibility(midiMode: n.midiMode)
         // Wire up live updates so the label reflects loopback results as
         // they land (test runs ~50ms after toggle-on; result settles a moment
@@ -675,6 +709,27 @@ final class MenuBandPopoverViewController: NSViewController {
 
     // MARK: - Actions
 
+    @objc private func muteButtonClicked(_ sender: NSButton) {
+        menuBand?.toggleMuted()
+        if let m = menuBand {
+            updateMuteButton(muted: m.muted)
+            // Tactile feedback so the icon flip feels confirmed. "Tink" matches
+            // the MIDI switch's feedback so the two toggles read as a pair.
+            NSSound(named: NSSound.Name("Tink"))?.play()
+        }
+    }
+
+    private func updateMuteButton(muted: Bool) {
+        guard let btn = muteButton else { return }
+        let symbol = muted ? "speaker.slash.fill" : "speaker.fill"
+        let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        btn.image = NSImage(systemSymbolName: symbol,
+                            accessibilityDescription: muted ? "Unmute" : "Mute")?
+            .withSymbolConfiguration(cfg)
+        btn.contentTintColor = muted ? .systemRed : .secondaryLabelColor
+        btn.toolTip = muted ? "Unmute local synth" : "Mute local synth"
+    }
+
     @objc private func midiSwitchToggled(_ sender: NSSwitch) {
         // Just toggle — don't run the heavy syncFromController. The switch
         // already shows the user's intent; the loopback test (skipped on
@@ -684,73 +739,39 @@ final class MenuBandPopoverViewController: NSViewController {
         // Tactile feedback — short system tick so the flip feels mechanical
         // even though it's a software switch.
         NSSound(named: NSSound.Name("Tink"))?.play()
-        // Waveform + instrument palette follow the new MIDI state directly
-        // so they appear / disappear the moment the user flips the switch.
+        // Waveform + instrument palette grey out (don't hide) when MIDI
+        // mode is on — the DAW chooses the instrument and the audio path,
+        // so the local controls aren't useful, but keeping them in place
+        // means the popover's geometry stays stable and the user can see
+        // exactly what's available without MIDI engaged.
         if let m = menuBand {
-            waveformView.animator().isHidden = m.midiMode
             waveformView.isLive = !m.midiMode
-            applyInstrumentPaletteVisibility(midiMode: m.midiMode, animated: true)
+            applyInstrumentPaletteVisibility(midiMode: m.midiMode)
         }
     }
 
     private func applyInstrumentPaletteVisibility(midiMode: Bool, animated: Bool = false) {
-        // Compute the target popover size with the palette toggled. Hide
-        // first inside a layout pass so `fittingSize` reflects the post-
-        // collapse stack — without this the new size would equal the old.
-        let setHidden = {
-            self.instrumentSeparator.isHidden = midiMode
-            self.instrumentLabel.isHidden = midiMode
-            self.instrumentList.isHidden = midiMode
-            self.instrumentReadout.isHidden = midiMode
-        }
-        if !animated {
-            setHidden()
-            view.needsLayout = true
-            view.layoutSubtreeIfNeeded()
-            let fitting = view.fittingSize
-            preferredContentSize = NSSize(width: fitting.width,
-                                           height: fitting.height)
-            return
-        }
-        // Animated path: NSStackView collapses arranged subviews when their
-        // `isHidden` flips inside an animation group, and the popover's
-        // backing window is an NSWindow that animates frame changes via its
-        // animator proxy. We hide the stack rows inside the animation
-        // context (so they fade with the resize) and slide the window's
-        // height in lockstep. `preferredContentSize` is committed at the
-        // end so AppKit's bookkeeping matches the final geometry.
-        setHidden()
-        view.needsLayout = true
-        view.layoutSubtreeIfNeeded()
-        let fitting = view.fittingSize
-        let newSize = NSSize(width: fitting.width, height: fitting.height)
-        guard let window = view.window else {
-            preferredContentSize = newSize
-            return
-        }
-        // NSPopover anchors its arrow to the menubar; on .minY edge the
-        // popover hangs below, so its window's origin.y stays fixed at the
-        // top while only the height changes downward. Resize from the top
-        // by adjusting origin.y to keep the arrow attached.
-        var frame = window.frame
-        let dh = newSize.height - frame.height
-        frame.origin.y -= dh
-        frame.size.height = newSize.height
-        frame.size.width = newSize.width
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            ctx.allowsImplicitAnimation = true
-            window.animator().setFrame(frame, display: true)
-        }
-        preferredContentSize = newSize
+        // Greyed-out, not hidden: keep the rows in place so the popover
+        // doesn't reflow when MIDI flips. We dim alpha rather than touching
+        // `isHidden`, which would collapse the row and resize the popover.
+        let dimmed: CGFloat = midiMode ? 0.35 : 1.0
+        instrumentSeparator.alphaValue = dimmed
+        instrumentTitleRow.alphaValue = dimmed
+        instrumentList.alphaValue = dimmed
+        // Waveform stays visible (no longer collapses), just stops
+        // ingesting samples — `isLive = false` (set by the caller) means
+        // the bars freeze at their last value rather than going dark. To
+        // convey "this is inactive," we fade it with the same alpha as
+        // the palette. `_ = animated` keeps the parameter signature
+        // compatible with existing call sites.
+        waveformView.alphaValue = dimmed
+        _ = animated
     }
 
-    /// 0 = Pointer, 1 = Notepat, 2 = Ableton. Matches the segmented control
-    /// in `loadView()`.
-    private func inputModeSegment(typeMode: Bool, keymap: Keymap) -> Int {
-        if !typeMode { return 0 }
-        return keymap == .ableton ? 2 : 1
+    /// 0 = Notepat, 1 = Ableton. Matches the vertical button stack in
+    /// `loadView()` after the "Mouse Only" option was retired.
+    private func inputModeSegment(keymap: Keymap) -> Int {
+        return keymap == .ableton ? 1 : 0
     }
 
     @objc private func modeButtonClicked(_ sender: NSButton) {
@@ -758,12 +779,10 @@ final class MenuBandPopoverViewController: NSViewController {
         // Manual radio behaviour: only the clicked button stays .on.
         for btn in modeButtons { btn.state = (btn == sender) ? .on : .off }
         switch sender.tag {
-        case 0:  // Mouse Only
-            if m.typeMode { m.toggleTypeMode() }
-        case 1:  // Notepat.com
+        case 0:  // Notepat.com
             m.keymap = .notepat
             if !m.typeMode { m.toggleTypeMode() }
-        case 2:  // Ableton MIDI Keys
+        case 1:  // Ableton MIDI Keys
             m.keymap = .ableton
             if !m.typeMode { m.toggleTypeMode() }
         default: break
