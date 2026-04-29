@@ -2115,7 +2115,7 @@ function generateHTMLBundle(opts) {
       await import(window.VFS_BLOB_URLS['boot.mjs']);
     } catch (err) {
       document.body.style.cssText='color:#fff;background:#400;padding:20px;font:12px monospace;white-space:pre-wrap';
-      document.body.textContent='Boot failed: '+err.message+'\n'+(err.stack||'');
+      document.body.textContent='Boot failed: '+err.message+'\\n'+(err.stack||'');
       try { if (window.max && window.max.outlet) window.max.outlet('error', '[boot] ' + err.message + ' :: ' + (err.stack || '')); } catch(_){}
     }
   </script>
