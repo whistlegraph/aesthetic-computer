@@ -1,0 +1,12 @@
+corpus/
+crops/
+out/
+models/
+weights/
+ig-archive/
+curated/
+sessions/
+*.safetensors
+*.ckpt
+*.pt
+*.bin

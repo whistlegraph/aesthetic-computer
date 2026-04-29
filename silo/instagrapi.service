@@ -1,0 +1,22 @@
+[Unit]
+Description=instagrapi-rest (Instagram Private API HTTP shim for silo)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/instagrapi-rest
+## Bind to localhost only — silo/server.mjs is the sole consumer and reaches
+## it over the loopback interface. Public exposure would let anyone with
+## silo's IP scrape via the API.
+ExecStart=/opt/instagrapi-rest/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
