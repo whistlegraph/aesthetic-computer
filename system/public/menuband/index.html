@@ -327,6 +327,54 @@
   }
   ul.modes span { color: var(--ink-body); }
 
+  /* Recent commits — terse, monospaced log lines. */
+  ul.commits {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  ul.commits li {
+    padding: 4px 0;
+    border-top: 1px solid var(--panel-stripe);
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 10px;
+    align-items: baseline;
+    color: var(--ink-body);
+  }
+  ul.commits li:first-child { border-top: 0; }
+  ul.commits .hash {
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  ul.commits .msg {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  ul.commits .commits-empty {
+    grid-template-columns: 1fr;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  /* Inline "deployed @ HEAD" chip next to "Recent changes" header. */
+  .commit-chip {
+    display: inline-block;
+    padding: 1px 7px;
+    margin-left: 6px;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 4px;
+    vertical-align: middle;
+  }
+
   /* "What's new" badge — tiny, embossed, Adium-press-quote vibe. */
   .badge {
     display: inline-block;
@@ -555,6 +603,13 @@
   </section>
 
   <section class="panel">
+    <h3>Recent changes <span id="recent-deployed" class="commit-chip" hidden></span></h3>
+    <ul id="recent-commits" class="commits">
+      <li class="commits-empty">loading…</li>
+    </ul>
+  </section>
+
+  <section class="panel">
     <h3>Requirements</h3>
     <p>macOS 11+ · Apple Silicon · ⌃⌥⌘P toggles typing mode.</p>
   </section>
@@ -624,6 +679,41 @@
       poll();
     }
     poll();
+  })();
+
+  // ── Recent changes — fetch the last 10 commits that touched
+  //    slab/menuband and render them under "Recent changes". The
+  //    `/api/version?path=` filter keeps the list focused on actual
+  //    Menu Band work instead of every commit on the AC monorepo. ───
+  (function recentChanges() {
+    const list = document.getElementById('recent-commits');
+    const chip = document.getElementById('recent-deployed');
+    if (!list) return;
+    fetch('/api/version?path=slab/menuband', { cache: 'no-store' })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then((data) => {
+        if (chip && data && data.deployed && data.deployed !== 'unknown') {
+          chip.hidden = false;
+          chip.textContent = '@ ' + data.deployed;
+          chip.title = data.status === 'behind'
+            ? `${data.behindBy} commits behind tangled`
+            : 'deployed commit';
+        }
+        const commits = (data && Array.isArray(data.recentCommits)) ? data.recentCommits : [];
+        if (!commits.length) {
+          list.innerHTML = '<li class="commits-empty">no recent changes</li>';
+          return;
+        }
+        list.innerHTML = commits.slice(0, 10).map((c) => {
+          const hash = String(c.hash || '').slice(0, 7);
+          const msg  = String(c.message || '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+          const url  = `https://tangled.org/@aesthetic.computer/core/commit/${hash}`;
+          return `<li><a class="hash" href="${url}">${hash}</a><span class="msg" title="${msg}">${msg}</span></li>`;
+        }).join('');
+      })
+      .catch(() => {
+        list.innerHTML = '<li class="commits-empty">couldn\'t load recent changes</li>';
+      });
   })();
 
 </script>

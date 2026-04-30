@@ -93,7 +93,7 @@ async function getPreferredRemote(repoRoot) {
   return remotes[0] || "origin";
 }
 
-async function getLatestFromTangled(repoRoot, deployedCommit) {
+async function getLatestFromTangled(repoRoot, deployedCommit, pathFilter) {
   const gitRemote = await getPreferredRemote(repoRoot);
   await git(["fetch", "--quiet", gitRemote, GIT_BRANCH], repoRoot);
 
@@ -111,12 +111,21 @@ async function getLatestFromTangled(repoRoot, deployedCommit) {
     }
   }
 
-  const recentRaw = await git([
+  // Optional path filter: callers can ask for "only commits that
+  // touched <path>", e.g. ?path=slab/menuband for the Menu Band landing
+  // page's recent-changes section. Validated against a conservative
+  // allowlist so we never invoke `git log -- <user-controlled-path>`
+  // with characters that could escape into git's argument grammar.
+  const logArgs = [
     "log",
     remoteRef,
     `--max-count=${RECENT_COMMIT_COUNT}`,
     "--pretty=format:%H\t%s\t%an\t%cI",
-  ], repoRoot);
+  ];
+  if (pathFilter) {
+    logArgs.push("--", pathFilter);
+  }
+  const recentRaw = await git(logArgs, repoRoot);
 
   return {
     latestCommit,
@@ -157,6 +166,13 @@ export default async (request) => {
   const deployedCommit = await getDeployedCommit(repoRoot);
   const url = new URL(request.url);
   const clientHash = url.searchParams.get("current");
+  const rawPath = url.searchParams.get("path") || "";
+  // Conservative allowlist: alphanumerics, dot, slash, dash, underscore.
+  // This blocks shell metacharacters and `--` injection so a malicious
+  // ?path= value can't slip a flag into the `git log` invocation.
+  const pathFilter = /^[A-Za-z0-9._\/-]{1,128}$/.test(rawPath) && !rawPath.startsWith("-")
+    ? rawPath
+    : "";
 
   // Long-poll mode: if client sends ?current=<hash> matching deployed version,
   // wait ~4 seconds before responding (allows near-instant new-deploy detection)
@@ -181,7 +197,7 @@ export default async (request) => {
       behindBy,
       recentCommits,
     } = repoRoot
-      ? await getLatestFromTangled(repoRoot, deployedCommit)
+      ? await getLatestFromTangled(repoRoot, deployedCommit, pathFilter)
       : await getLatestFromTangledMirror(deployedCommit);
 
     const status = behindBy === 0 ? "current" : "behind";
