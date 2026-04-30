@@ -64,6 +64,10 @@ final class MenuBandPopoverViewController: NSViewController {
     weak var popover: NSPopover?
     var onFocusShortcutChange: ((MenuBandShortcut) -> Bool)?
     var onFocusShortcutRecordingChanged: ((Bool) -> Void)?
+    var onPlayPaletteToggle: (() -> Void)?
+    var onPlayPaletteShortcutChange: ((MenuBandShortcut) -> Bool)?
+    var onPlayPaletteShortcutRecordingChanged: ((Bool) -> Void)?
+    var isPlayPaletteShown: (() -> Bool)?
 
     private var inputSegmented: HoverSegmentedControl!  // legacy reference; no longer added to stack
     private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
@@ -71,6 +75,11 @@ final class MenuBandPopoverViewController: NSViewController {
     private var focusShortcutStatusLabel: NSTextField!
     private var focusShortcutRecorderMonitor: Any?
     private var isRecordingFocusShortcut = false
+    private var playPaletteToggleButton: NSButton!
+    private var playPaletteShortcutButton: NSButton!
+    private var playPaletteShortcutStatusLabel: NSTextField!
+    private var playPaletteShortcutRecorderMonitor: Any?
+    private var isRecordingPlayPaletteShortcut = false
     private var midiSwitch: NSSwitch!
     private var midiInlineLabel: NSTextField!
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
@@ -99,6 +108,9 @@ final class MenuBandPopoverViewController: NSViewController {
 
     deinit {
         if let monitor = focusShortcutRecorderMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = playPaletteShortcutRecorderMonitor {
             NSEvent.removeMonitor(monitor)
         }
     }
@@ -320,6 +332,58 @@ final class MenuBandPopoverViewController: NSViewController {
         focusShortcutStatusLabel.textColor = .secondaryLabelColor
         focusShortcutStatusLabel.lineBreakMode = .byTruncatingTail
         focusShortcutStatusLabel.widthAnchor.constraint(
+            equalToConstant: InstrumentListView.preferredWidth
+        ).isActive = true
+
+        let playPaletteRow = NSStackView()
+        playPaletteRow.orientation = .horizontal
+        playPaletteRow.alignment = .centerY
+        playPaletteRow.distribution = .fill
+        playPaletteRow.spacing = 6
+        playPaletteRow.translatesAutoresizingMaskIntoConstraints = false
+
+        let playPaletteLabel = NSTextField(labelWithString: "Floating piano")
+        playPaletteLabel.font = NSFont.systemFont(ofSize: 11)
+        playPaletteLabel.textColor = .labelColor
+        playPaletteLabel.lineBreakMode = .byTruncatingTail
+        playPaletteLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        playPaletteRow.addArrangedSubview(playPaletteLabel)
+
+        let playPaletteSpacer = NSView()
+        playPaletteSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        playPaletteRow.addArrangedSubview(playPaletteSpacer)
+
+        playPaletteToggleButton = NSButton(
+            title: "Show",
+            target: self,
+            action: #selector(playPaletteToggleButtonClicked(_:))
+        )
+        playPaletteToggleButton.bezelStyle = .recessed
+        playPaletteToggleButton.controlSize = .small
+        playPaletteToggleButton.translatesAutoresizingMaskIntoConstraints = false
+        playPaletteToggleButton.widthAnchor.constraint(equalToConstant: 48).isActive = true
+        playPaletteRow.addArrangedSubview(playPaletteToggleButton)
+
+        playPaletteShortcutButton = NSButton(
+            title: MenuBandShortcutPreferences.playPaletteShortcut.displayString,
+            target: self,
+            action: #selector(playPaletteShortcutButtonClicked(_:))
+        )
+        playPaletteShortcutButton.bezelStyle = .recessed
+        playPaletteShortcutButton.controlSize = .small
+        playPaletteShortcutButton.translatesAutoresizingMaskIntoConstraints = false
+        playPaletteShortcutButton.widthAnchor.constraint(equalToConstant: 88).isActive = true
+        playPaletteRow.addArrangedSubview(playPaletteShortcutButton)
+
+        playPaletteRow.widthAnchor.constraint(
+            equalToConstant: InstrumentListView.preferredWidth
+        ).isActive = true
+
+        playPaletteShortcutStatusLabel = NSTextField(labelWithString: "")
+        playPaletteShortcutStatusLabel.font = NSFont.systemFont(ofSize: 10)
+        playPaletteShortcutStatusLabel.textColor = .secondaryLabelColor
+        playPaletteShortcutStatusLabel.lineBreakMode = .byTruncatingTail
+        playPaletteShortcutStatusLabel.widthAnchor.constraint(
             equalToConstant: InstrumentListView.preferredWidth
         ).isActive = true
 
@@ -671,11 +735,13 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(shortcutLabel)
         stack.addArrangedSubview(shortcuts)
         stack.addArrangedSubview(focusShortcutStatusLabel)
+        stack.addArrangedSubview(playPaletteRow)
+        stack.addArrangedSubview(playPaletteShortcutStatusLabel)
 
         // No divider above the about/brand block — the palette + Layout
         // section above gives plenty of separation. Custom airspace
         // before the about block.
-        stack.setCustomSpacing(14, after: focusShortcutStatusLabel)
+        stack.setCustomSpacing(14, after: playPaletteShortcutStatusLabel)
 
         // About + Crash logs in a side-by-side row. About has low hugging
         // so it expands when the crash column is hidden (no reports) —
@@ -840,6 +906,7 @@ final class MenuBandPopoverViewController: NSViewController {
     override func viewDidDisappear() {
         super.viewDidDisappear()
         stopFocusShortcutRecording(status: nil)
+        stopPlayPaletteShortcutRecording(status: nil)
         waveformView.isLive = false
     }
 
@@ -939,6 +1006,7 @@ final class MenuBandPopoverViewController: NSViewController {
             btn.state = (i == segIdx) ? .on : .off
         }
         updateFocusShortcutControls()
+        updatePlayPaletteShortcutControls()
         instrumentList.selectedProgram = n.melodicProgram
         applyAppearanceToVisualizer()
         updateInstrumentReadout()
@@ -1010,6 +1078,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
     private func startFocusShortcutRecording() {
         guard focusShortcutRecorderMonitor == nil else { return }
+        stopPlayPaletteShortcutRecording(status: nil)
         isRecordingFocusShortcut = true
         onFocusShortcutRecordingChanged?(true)
         updateFocusShortcutControls(status: "Use ⌘, ⌃, or ⌥")
@@ -1051,6 +1120,64 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         let saved = onFocusShortcutChange?(shortcut) ?? false
         stopFocusShortcutRecording(
+            status: saved ? "Saved \(shortcut.displayString)" : "Shortcut unavailable"
+        )
+    }
+    private func updatePlayPaletteShortcutControls(status: String? = nil) {
+        guard playPaletteShortcutButton != nil else { return }
+        playPaletteToggleButton.title = (isPlayPaletteShown?() ?? false) ? "Focus" : "Show"
+        if isRecordingPlayPaletteShortcut {
+            playPaletteShortcutButton.title = "Press"
+        } else {
+            playPaletteShortcutButton.title = MenuBandShortcutPreferences.playPaletteShortcut.displayString
+        }
+        playPaletteShortcutStatusLabel.stringValue = status ?? ""
+    }
+
+    private func startPlayPaletteShortcutRecording() {
+        guard playPaletteShortcutRecorderMonitor == nil else { return }
+        stopFocusShortcutRecording(status: nil)
+        isRecordingPlayPaletteShortcut = true
+        onPlayPaletteShortcutRecordingChanged?(true)
+        updatePlayPaletteShortcutControls(status: "Use ⌘, ⌃, or ⌥")
+        playPaletteShortcutRecorderMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.keyDown]
+        ) { [weak self] event in
+            self?.handlePlayPaletteShortcutRecording(event)
+            return nil
+        }
+    }
+
+    private func stopPlayPaletteShortcutRecording(status: String?) {
+        guard isRecordingPlayPaletteShortcut || playPaletteShortcutRecorderMonitor != nil else { return }
+        if let monitor = playPaletteShortcutRecorderMonitor {
+            NSEvent.removeMonitor(monitor)
+            playPaletteShortcutRecorderMonitor = nil
+        }
+        isRecordingPlayPaletteShortcut = false
+        onPlayPaletteShortcutRecordingChanged?(false)
+        updatePlayPaletteShortcutControls(status: status)
+    }
+
+    private func handlePlayPaletteShortcutRecording(_ event: NSEvent) {
+        if event.keyCode == UInt16(kVK_Escape) {
+            stopPlayPaletteShortcutRecording(status: nil)
+            return
+        }
+        let shortcut = MenuBandShortcut(
+            keyCode: UInt32(event.keyCode),
+            modifiers: MenuBandShortcut.carbonModifiers(from: event.modifierFlags)
+        )
+        guard shortcut.isValidForRecording else {
+            updatePlayPaletteShortcutControls(status: "Use ⌘, ⌃, or ⌥")
+            return
+        }
+        guard !shortcut.isReservedForTypeMode else {
+            updatePlayPaletteShortcutControls(status: "⌃⌥⌘P is reserved")
+            return
+        }
+        let saved = onPlayPaletteShortcutChange?(shortcut) ?? false
+        stopPlayPaletteShortcutRecording(
             status: saved ? "Saved \(shortcut.displayString)" : "Shortcut unavailable"
         )
     }
@@ -1451,6 +1578,19 @@ final class MenuBandPopoverViewController: NSViewController {
             stopFocusShortcutRecording(status: nil)
         } else {
             startFocusShortcutRecording()
+        }
+    }
+
+    @objc private func playPaletteToggleButtonClicked(_ sender: NSButton) {
+        onPlayPaletteToggle?()
+        updatePlayPaletteShortcutControls()
+    }
+
+    @objc private func playPaletteShortcutButtonClicked(_ sender: NSButton) {
+        if isRecordingPlayPaletteShortcut {
+            stopPlayPaletteShortcutRecording(status: nil)
+        } else {
+            startPlayPaletteShortcutRecording()
         }
     }
 

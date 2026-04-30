@@ -919,10 +919,23 @@ final class MenuBandController {
         heldKeyChannel.removeAll()
         heldKeyDisplayNote.removeAll()
         heldLock.unlock()
+        let tapSnapshot = tapHeld
+        let tapChanSnapshot = tapNoteChannel
+        tapHeld.removeAll()
+        tapNoteChannel.removeAll()
         for (keyCode, note) in noteSnapshot {
             let ch = chanSnapshot[keyCode] ?? 0
             synth.noteOff(note, channel: ch)
             midi.noteOff(note)
+        }
+        for note in tapSnapshot {
+            let synthCh = tapChanSnapshot[note] ?? channel(for: note)
+            let isDrum = note < UInt8(KeyboardIconRenderer.firstMidi)
+            let midiCh: UInt8 = isDrum ? 9 : 0
+            if !isDrum {
+                synth.noteOff(note, channel: synthCh)
+            }
+            midi.noteOff(note, channel: midiCh)
         }
         midi.sendAllNotesOff()
         synth.panic()
