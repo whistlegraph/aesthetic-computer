@@ -36,9 +36,12 @@ final class WaveformView: MTKView {
     /// `main`. We drive draws ourselves and call `display()` so the redraw
     /// is synchronous instead of deferred.
     private var displayLink: CVDisplayLink?
+    private let pendingDisplayLock = NSLock()
+    private var pendingDisplay = false
 
     var isLive: Bool = false {
         didSet {
+            guard isLive != oldValue else { return }
             if isLive {
                 stopDotMatrix()
                 startLink()
@@ -90,6 +93,7 @@ final class WaveformView: MTKView {
 
     private func startLink() {
         stopLink()
+        guard window != nil else { return }
         var link: CVDisplayLink?
         CVDisplayLinkCreateWithActiveCGDisplays(&link)
         guard let link = link else { return }
@@ -99,10 +103,18 @@ final class WaveformView: MTKView {
             let view = Unmanaged<WaveformView>.fromOpaque(ctx).takeUnretainedValue()
             // display() is main-thread-only; hop over and draw synchronously
             // so the redraw can't be coalesced by the popover's runloop.
-            DispatchQueue.main.async { view.display() }
+            // Coalesce callbacks while the main queue is busy; otherwise a
+            // slow frame can build a backlog of stale draw requests.
+            guard view.markDisplayPending() else { return kCVReturnSuccess }
+            DispatchQueue.main.async {
+                view.display()
+                view.clearDisplayPending()
+            }
             return kCVReturnSuccess
         }, opaque)
-        CVDisplayLinkStart(link)
+        let status = CVDisplayLinkStart(link)
+        guard status == kCVReturnSuccess else { return }
+        menuBand?.setWaveformCaptureEnabled(true)
         displayLink = link
     }
 
@@ -111,13 +123,33 @@ final class WaveformView: MTKView {
             CVDisplayLinkStop(link)
             displayLink = nil
         }
+        menuBand?.setWaveformCaptureEnabled(false)
+        clearDisplayPending()
+    }
+
+    private func markDisplayPending() -> Bool {
+        pendingDisplayLock.lock()
+        defer { pendingDisplayLock.unlock() }
+        if pendingDisplay { return false }
+        pendingDisplay = true
+        return true
+    }
+
+    private func clearDisplayPending() {
+        pendingDisplayLock.lock()
+        pendingDisplay = false
+        pendingDisplayLock.unlock()
     }
 
     deinit { stopLink() }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window == nil { stopLink() }
+        if window == nil {
+            stopLink()
+        } else if isLive && displayLink == nil {
+            startLink()
+        }
     }
 
     init() {

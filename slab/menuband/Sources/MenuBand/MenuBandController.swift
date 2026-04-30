@@ -131,6 +131,10 @@ final class MenuBandController {
         synth.snapshotWaveform(into: &dest)
     }
 
+    func setWaveformCaptureEnabled(_ enabled: Bool) {
+        synth.setWaveformCaptureEnabled(enabled)
+    }
+
     // Held preview note for sonic-browse hover over the instrument map.
     // Continuous tone — switching cells stops the old note + starts a new
     // one in the new program. Hover-out releases. Silent in MIDI mode

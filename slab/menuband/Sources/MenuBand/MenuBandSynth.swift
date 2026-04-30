@@ -34,6 +34,13 @@ final class MenuBandSynth {
     private let melodic = AVAudioUnitSampler()
     private let drums = AVAudioUnitSampler()
     private var started = false
+    private var melodicConnected = false
+    private var drumsConnected = false
+    private var midiSynthConnected = false
+    private var waveformCaptureEnabled = false
+    private var activeNotes: Set<UInt16> = []
+    private var idleSuspendWorkItem: DispatchWorkItem?
+    private let idleSuspendDelay: TimeInterval = 2.0
     /// True once MIDISynth has loaded its bank, preloaded all programs,
     /// and successfully attached to the engine. `noteOn` and
     /// `setMelodicProgram` route through the MIDISynth when this flips.
@@ -52,6 +59,7 @@ final class MenuBandSynth {
     private var waveformRing = [Float](repeating: 0, count: waveformRingSize)
     private var waveformWriteIdx: Int = 0
     private let waveformLock = NSLock()
+    private var waveformTapInstalled = false
 
     /// Apple's DLS bank — present on every macOS install since 10.x.
     private static let bankURL = URL(
@@ -62,8 +70,8 @@ final class MenuBandSynth {
         guard !started else { return }
         engine.attach(melodic)
         engine.attach(drums)
-        engine.connect(melodic, to: engine.mainMixerNode, format: nil)
-        engine.connect(drums, to: engine.mainMixerNode, format: nil)
+        connectMelodicSamplerIfNeeded()
+        connectDrumsSamplerIfNeeded()
         engine.prepare()
         do {
             try engine.start()
@@ -74,12 +82,12 @@ final class MenuBandSynth {
         }
         loadDefaultPatches()
         primeForLowLatency()
-        installWaveformTap()
 
         // Try to bring up the multi-timbral MIDISynth in the background.
         // If it works, we'll route notes through it for instant program
         // switching. If it doesn't, the user keeps the sampler fallback.
         startMIDISynthBackend()
+        scheduleIdleSuspendIfNeeded()
     }
 
     // MARK: - MIDISynth (multi-timbral, instant switching)
@@ -124,10 +132,10 @@ final class MenuBandSynth {
             return
         }
 
-        // 2. Attach + connect to the engine. Engine is already running so
-        //    this is hot-attach; AVAudioEngine handles graph reconfig.
+        // 2. Attach + connect to the engine. It may be running or paused
+        //    for hidden idle; AVAudioEngine handles graph reconfig.
         engine.attach(avUnit)
-        engine.connect(avUnit, to: engine.mainMixerNode, format: nil)
+        connectMIDISynthIfNeeded(avUnit)
 
         // 3. Load just the programs we need. MIDISynth requires
         //    EnablePreload(true) → PC → EnablePreload(false) to actually
@@ -141,13 +149,105 @@ final class MenuBandSynth {
 
         midiSynth = avUnit
         midiSynthReady = true
+        updateSamplerRoutingForActiveBackend()
+        scheduleIdleSuspendIfNeeded()
         NSLog("MenuBand: MIDISynth ready — instant program switching enabled")
 
-        // The sampler fallback is no longer needed for melodic playback —
-        // disconnect it to avoid double-triggering. Keep `drums` connected
-        // since the MIDISynth's drum-kit voice is on channel 9 of the same
-        // unit, so we'll just stop sending drum notes through `drums`.
-        // (Leaving the nodes attached but unrouted is safe.)
+        // The MIDISynth stays connected so keyboard input remains playable
+        // while the popover is hidden. The inactive sampler outputs are
+        // disconnected from the render graph until a fallback or GarageBand
+        // patch needs them again.
+    }
+
+    private func connectMelodicSamplerIfNeeded() {
+        guard !melodicConnected else { return }
+        engine.connect(melodic, to: engine.mainMixerNode, format: nil)
+        melodicConnected = true
+    }
+
+    private func disconnectMelodicSamplerIfNeeded() {
+        guard melodicConnected else { return }
+        stopAllSamplerNotes(melodic)
+        engine.disconnectNodeOutput(melodic)
+        melodicConnected = false
+    }
+
+    private func connectDrumsSamplerIfNeeded() {
+        guard !drumsConnected else { return }
+        engine.connect(drums, to: engine.mainMixerNode, format: nil)
+        drumsConnected = true
+    }
+
+    private func disconnectDrumsSamplerIfNeeded() {
+        guard drumsConnected else { return }
+        stopAllSamplerNotes(drums)
+        engine.disconnectNodeOutput(drums)
+        drumsConnected = false
+    }
+
+    private func connectMIDISynthIfNeeded(_ avUnit: AVAudioUnit) {
+        guard !midiSynthConnected else { return }
+        engine.connect(avUnit, to: engine.mainMixerNode, format: nil)
+        midiSynthConnected = true
+    }
+
+    private func updateSamplerRoutingForActiveBackend() {
+        guard started else { return }
+        if midiSynthReady {
+            if usingGarageBandPatch {
+                connectMelodicSamplerIfNeeded()
+            } else {
+                disconnectMelodicSamplerIfNeeded()
+            }
+            disconnectDrumsSamplerIfNeeded()
+        } else {
+            connectMelodicSamplerIfNeeded()
+            connectDrumsSamplerIfNeeded()
+        }
+    }
+
+    private func stopAllSamplerNotes(_ sampler: AVAudioUnitSampler) {
+        for note: UInt8 in 0...127 {
+            sampler.stopNote(note, onChannel: 0)
+        }
+    }
+
+    @discardableResult
+    private func resumeAudioEngineIfNeeded() -> Bool {
+        guard started else { return false }
+        idleSuspendWorkItem?.cancel()
+        idleSuspendWorkItem = nil
+        if engine.isRunning {
+            return true
+        }
+        do {
+            try engine.start()
+            return true
+        } catch {
+            NSLog("MenuBand synth engine resume failed: \(error)")
+            return false
+        }
+    }
+
+    private func scheduleIdleSuspendIfNeeded() {
+        guard started, !waveformCaptureEnabled, activeNotes.isEmpty else { return }
+        idleSuspendWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.suspendAudioEngineForHiddenIdleIfNeeded()
+        }
+        idleSuspendWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + idleSuspendDelay, execute: workItem)
+    }
+
+    private func suspendAudioEngineForHiddenIdleIfNeeded() {
+        idleSuspendWorkItem = nil
+        guard started, engine.isRunning, !waveformCaptureEnabled, activeNotes.isEmpty else { return }
+        removeWaveformTapIfNeeded()
+        engine.pause()
+    }
+
+    private func noteKey(_ midi: UInt8, channel: UInt8) -> UInt16 {
+        (UInt16(channel) << 8) | UInt16(midi)
     }
 
     /// Set of (bankMSB << 8 | program) keys we've already faulted in. The
@@ -215,7 +315,23 @@ final class MenuBandSynth {
 
     // MARK: - Audio tap for visualizer
 
-    private func installWaveformTap() {
+    func setWaveformCaptureEnabled(_ enabled: Bool) {
+        guard started else { return }
+        waveformCaptureEnabled = enabled
+        if enabled {
+            guard resumeAudioEngineIfNeeded() else {
+                waveformCaptureEnabled = false
+                return
+            }
+            installWaveformTapIfNeeded()
+        } else {
+            removeWaveformTapIfNeeded()
+            scheduleIdleSuspendIfNeeded()
+        }
+    }
+
+    private func installWaveformTapIfNeeded() {
+        guard !waveformTapInstalled else { return }
         let mixer = engine.mainMixerNode
         let format = mixer.outputFormat(forBus: 0)
         // 256 frames ≈ 5.8 ms at 44.1 kHz — small buffer = fresh samples
@@ -223,6 +339,13 @@ final class MenuBandSynth {
         mixer.installTap(onBus: 0, bufferSize: 256, format: format) { [weak self] buffer, _ in
             self?.ingestWaveformBuffer(buffer)
         }
+        waveformTapInstalled = true
+    }
+
+    private func removeWaveformTapIfNeeded() {
+        guard waveformTapInstalled else { return }
+        engine.mainMixerNode.removeTap(onBus: 0)
+        waveformTapInstalled = false
     }
 
     private func ingestWaveformBuffer(_ buffer: AVAudioPCMBuffer) {
@@ -304,9 +427,11 @@ final class MenuBandSynth {
         usingGarageBandPatch = false
         if midiSynthReady, let au = midiSynth?.audioUnit {
             selectMelodicProgram(au, program: program)
+            updateSamplerRoutingForActiveBackend()
             return
         }
         guard started else { return }
+        connectMelodicSamplerIfNeeded()
         let url = MenuBandSynth.bankURL
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try? melodic.loadSoundBankInstrument(at: url, program: program, bankMSB: 0x79, bankLSB: 0)
@@ -330,6 +455,7 @@ final class MenuBandSynth {
         do {
             try melodic.loadInstrument(at: url)
             usingGarageBandPatch = true
+            updateSamplerRoutingForActiveBackend()
             return true
         } catch {
             NSLog("MenuBand: failed to load GB patch \(url.lastPathComponent): \(error)")
@@ -339,9 +465,14 @@ final class MenuBandSynth {
 
     func stop() {
         guard started else { return }
+        idleSuspendWorkItem?.cancel()
+        idleSuspendWorkItem = nil
+        removeWaveformTapIfNeeded()
         engine.stop()
         started = false
         midiSynthReady = false
+        waveformCaptureEnabled = false
+        activeNotes.removeAll()
     }
 
     /// Send a CC#10 (pan) message on the given channel. Only takes
@@ -357,6 +488,8 @@ final class MenuBandSynth {
 
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
+        guard resumeAudioEngineIfNeeded() else { return }
+        activeNotes.insert(noteKey(midi, channel: channel))
         // Drums (channel 9) always route through MIDISynth/drums sampler
         // — drum kits are GM regardless of melodic backend choice.
         if channel == 9 {
@@ -364,12 +497,14 @@ final class MenuBandSynth {
                 sendMIDIEvent(au, status: 0x99, data1: midi, data2: velocity)
                 return
             }
+            connectDrumsSamplerIfNeeded()
             drums.startNote(midi, withVelocity: velocity, onChannel: 0)
             return
         }
         // Melodic — sampler if a GB patch is loaded, MIDISynth if ready,
         // sampler-with-DLS otherwise.
         if usingGarageBandPatch {
+            connectMelodicSamplerIfNeeded()
             melodic.startNote(midi, withVelocity: velocity, onChannel: 0)
             return
         }
@@ -377,11 +512,14 @@ final class MenuBandSynth {
             sendMIDIEvent(au, status: 0x90, data1: midi, data2: velocity)
             return
         }
+        connectMelodicSamplerIfNeeded()
         melodic.startNote(midi, withVelocity: velocity, onChannel: 0)
     }
 
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
         guard started else { return }
+        activeNotes.remove(noteKey(midi, channel: channel))
+        defer { scheduleIdleSuspendIfNeeded() }
         if channel == 9 {
             if midiSynthReady, let au = midiSynth?.audioUnit {
                 sendMIDIEvent(au, status: 0x89, data1: midi)
@@ -403,15 +541,16 @@ final class MenuBandSynth {
 
     func panic() {
         guard started else { return }
+        activeNotes.removeAll()
+        defer { scheduleIdleSuspendIfNeeded() }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             for ch: UInt8 in 0..<16 {
                 // CC 123 = All Notes Off.
                 sendMIDIEvent(au, status: 0xB0 | ch, data1: 123, data2: 0)
             }
-            return
         }
         for unit in [melodic, drums] {
-            for note: UInt8 in 0...127 { unit.stopNote(note, onChannel: 0) }
+            stopAllSamplerNotes(unit)
         }
     }
 }
