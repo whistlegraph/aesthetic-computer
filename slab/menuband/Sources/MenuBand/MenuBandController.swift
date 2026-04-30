@@ -424,6 +424,7 @@ final class MenuBandController {
         keyTap?.stop()
         keyTap = nil
         releaseAllHeldNotes()
+        voiceDigitBuffer = ""
         UserDefaults.standard.set(false, forKey: typeModeKey)
         if playFeedback {
             NSSound(named: NSSound.Name("Pop"))?.play()
@@ -622,6 +623,38 @@ final class MenuBandController {
         }
     }
 
+    // MARK: - Voice-by-digit picker (TYPE mode)
+
+    /// Buffer of digit keystrokes typed since the last note play / reset.
+    /// Each digit press updates the GM program live (clamped to 0–127);
+    /// after 3 digits the next press starts a fresh sequence so the user
+    /// can keep typing without an explicit "clear." Resets when any note
+    /// key is played, when TYPE mode is disabled, or when the buffer
+    /// reaches its 3-digit cap.
+    private var voiceDigitBuffer: String = ""
+
+    /// Map a hardware key code to the digit on its key cap, or nil for
+    /// non-digit keys. Covers the top number row only — keypad digits
+    /// have separate codes and are intentionally skipped (most laptops
+    /// don't have one and we don't want a numpad press to silently
+    /// repurpose itself).
+    @inline(__always)
+    private static func digitForKeyCode(_ kc: UInt16) -> Int? {
+        switch kc {
+        case 29: return 0
+        case 18: return 1
+        case 19: return 2
+        case 20: return 3
+        case 21: return 4
+        case 23: return 5
+        case 22: return 6
+        case 26: return 7
+        case 28: return 8
+        case 25: return 9
+        default: return nil
+        }
+    }
+
     // MARK: - Key handling (runs on KeyEventTap background thread)
     // Returns true to CONSUME the key event (sink it from the focused app);
     // false to let it pass through.
@@ -657,6 +690,26 @@ final class MenuBandController {
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
         if hasModifier { return false }
 
+        // Number-row digits 0–9 build up a GM program selection (0–127).
+        // Each digit appends to the buffer and applies the new value live;
+        // a 3-digit cap means the 4th press starts over with that digit
+        // alone, so the user can sweep voices without a clear key. Down-
+        // events only — repeats are consumed silently. Always consume so
+        // digit keystrokes never leak through to the focused app.
+        if let digit = Self.digitForKeyCode(keyCode) {
+            if isDown && !isRepeat {
+                if voiceDigitBuffer.count >= 3 { voiceDigitBuffer = "" }
+                voiceDigitBuffer.append(String(digit))
+                if let v = Int(voiceDigitBuffer) {
+                    let program = UInt8(max(0, min(127, v)))
+                    DispatchQueue.main.async { [weak self] in
+                        self?.setMelodicProgram(program)
+                    }
+                }
+            }
+            return true
+        }
+
         let shift = octaveShift // a single UserDefaults read; cheap
 
         if isDown {
@@ -690,6 +743,9 @@ final class MenuBandController {
                 if !midiMode { synth.noteOff(prevNote, channel: prevCh ?? 0) }
                 midi.noteOff(prevNote)
             }
+            // A note press confirms the picked voice — clear so the next
+            // digit starts a fresh sequence instead of extending the old.
+            voiceDigitBuffer = ""
             lastPlayedNote = note
             // Stereo pan from the qwerty key's physical column —
             // mirrors notepat native, so left-hand keys play left and
