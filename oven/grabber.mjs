@@ -2406,17 +2406,44 @@ export async function grabPiece(piece, options = {}) {
         result = await frameToThumbnail(frame, { width: outputWidth, height: outputHeight });
         
       } else {
-        // Animated WebP or GIF
-        const capturedFrames = await captureFrames(piece, {
-          width, height, duration, fps, density, viewportScale, baseUrl, grabId
-        });
-        
-        if (capturedFrames.length === 0) {
-          throw new Error('No frames captured');
+        // Animated WebP or GIF — when caller asked for fresh content
+        // (skipCache:true), retry up to twice on uniform-color duds.
+        // Pinata content-addresses, so a 528-byte black still always
+        // dedups to the same CID; silently returning that downstream
+        // looks like a successful bake but freezes the piece's
+        // thumbnail forever. Surface the dud instead.
+        const MAX_DUD_RETRIES = skipCache ? 2 : 0;
+        let capturedFrames;
+        let isFrozen = false;
+        let uniformCheck = { isUniform: false };
+
+        for (let attempt = 0; attempt <= MAX_DUD_RETRIES; attempt++) {
+          capturedFrames = await captureFrames(piece, {
+            width, height, duration, fps, density, viewportScale, baseUrl, grabId
+          });
+
+          if (capturedFrames.length === 0) {
+            throw new Error('No frames captured');
+          }
+
+          isFrozen = await areFramesIdentical(capturedFrames);
+          // Frozen content (every frame identical) is legitimate; only
+          // uniform-color frames indicate a black-canvas / not-rendered dud.
+          uniformCheck = isFrozen
+            ? { isUniform: false }
+            : await isUniformColorContent(capturedFrames);
+
+          if (!uniformCheck.isUniform) break;
+          if (attempt < MAX_DUD_RETRIES) {
+            console.log(`   🔁 Capture ${attempt + 1}/${MAX_DUD_RETRIES + 1} returned uniform color (${uniformCheck.reason}); retrying...`);
+            await new Promise(r => setTimeout(r, 2000));
+          }
         }
-        
-        // Check if all frames are identical (frozen animation)
-        const isFrozen = await areFramesIdentical(capturedFrames);
+
+        if (uniformCheck.isUniform && skipCache) {
+          throw new Error(`Capture produced uniform-color frames after ${MAX_DUD_RETRIES + 1} attempt(s) (${uniformCheck.reason}); piece may not be rendering`);
+        }
+
         if (isFrozen) {
           // Return the still frame in the requested format (webp/gif/png)
           const outW = width * density;
@@ -2460,8 +2487,10 @@ export async function grabPiece(piece, options = {}) {
           recordFrozenPiece(piece, 'Frozen — still frame returned', frozenPreviewUrl);
           // Skip encoding — result is already in the right format
         } else {
-          // Check for uniform color content (solid color "dud" images)
-          const uniformCheck = await isUniformColorContent(capturedFrames);
+          // uniformCheck already computed above (in the dud-retry loop).
+          // For !skipCache callers, fall back to a still — they explicitly
+          // accepted cached/dedup behavior. skipCache callers were thrown
+          // earlier so they never reach this branch.
           if (uniformCheck.isUniform) {
             // Return still frame in requested format (same as frozen)
             const outW = width * density;

@@ -567,6 +567,12 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     startOvenProgressPoller(OVEN_URL, "thumbnail");
 
     thumbnailPromise = (async () => {
+      // Existing CID we're trying to replace. Pinata content-addresses, so
+      // a silent oven dud (uniform-color black frames re-encoded as a 528-
+      // byte still) always pins to the same CID — looks like a successful
+      // bake but freezes the thumbnail forever. Detect and retry.
+      const previousThumbnailUri = piece.ipfsMedia?.thumbnailUri || null;
+
       const tryOven = async (ovenUrl, timeoutMs) => {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), timeoutMs);
@@ -590,7 +596,10 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
             signal: controller.signal,
           });
           clearTimeout(tid);
-          if (!res.ok) throw new Error(`Oven ${res.status}`);
+          if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            throw new Error(`Oven ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+          }
           const buffer = Buffer.from(await res.arrayBuffer());
           const thumbFilename = `${pieceName}-thumbnail.webp-${pieceSourceHash.slice(0, 16)}`;
           const ipfsUri = await uploadToIPFS(buffer, thumbFilename, "image/webp");
@@ -602,19 +611,48 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
         }
       };
 
-      try {
-        return await tryOven(OVEN_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
-      } catch (err) {
-        log("thumbnail", `Primary oven failed: ${err.message}`);
-        if (OVEN_URL !== OVEN_FALLBACK_URL) {
-          try {
-            return await tryOven(OVEN_FALLBACK_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
-          } catch (fbErr) {
-            return { error: fbErr.message };
+      // forceFresh callers (rebake / regenerate) get one extra retry to
+      // shake out cold-puppeteer warmup flakes; non-fresh callers keep
+      // the legacy single-attempt + fallback-host behavior.
+      const maxAttempts = forceFresh ? 3 : 1;
+      let lastErr;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const result = await tryOven(OVEN_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
+          // Silent dedup detection: if the CID matches what's already on
+          // the piece despite forceFresh, oven returned a uniform-color
+          // dud (post-fix it should throw, but older builds may still
+          // dedup). Treat as a soft failure and retry.
+          if (
+            forceFresh &&
+            previousThumbnailUri &&
+            result.ipfsUri === previousThumbnailUri &&
+            attempt < maxAttempts
+          ) {
+            log("thumbnail", `Attempt ${attempt}/${maxAttempts}: CID matches previous (${result.ipfsUri}); retrying`);
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          if (attempt > 1) log("thumbnail", `Succeeded on attempt ${attempt}/${maxAttempts}`);
+          return result;
+        } catch (err) {
+          lastErr = err;
+          log("thumbnail", `Attempt ${attempt}/${maxAttempts} failed: ${err.message}`);
+          if (attempt < maxAttempts) {
+            await new Promise(r => setTimeout(r, 2000));
           }
         }
-        return { error: err.message };
       }
+
+      // All primary attempts exhausted — fall back to secondary host once.
+      if (OVEN_URL !== OVEN_FALLBACK_URL) {
+        try {
+          return await tryOven(OVEN_FALLBACK_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
+        } catch (fbErr) {
+          return { error: fbErr.message };
+        }
+      }
+      return { error: lastErr?.message || "thumbnail bake failed" };
     })();
   } else {
     thumbnailPromise = Promise.resolve({ ipfsUri: thumbnailUri });
