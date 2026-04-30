@@ -7,7 +7,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "MenuBand",
-            path: "Sources/MenuBand"
+            path: "Sources/MenuBand",
+            resources: [
+                .process("Resources"),
+            ]
         ),
     ]
 )

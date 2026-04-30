@@ -59,6 +59,14 @@ final class MenuBandController {
         return "\(octave)\(pitches[pc])"
     }
 
+    /// Snapshot of hardware key codes currently held. Used by the
+    /// popover's QWERTY layout view to highlight which physical
+    /// keys are sounding right now.
+    func heldKeyCodes() -> Set<UInt16> {
+        heldLock.lock(); defer { heldLock.unlock() }
+        return Set(heldNotes.keys)
+    }
+
     /// Snapshot of currently-held MIDI note names for popover display.
     /// Empty when nothing is sounding.
     func heldNoteNames() -> [String] {
@@ -176,6 +184,68 @@ final class MenuBandController {
         pendingPreviewWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + previewLoadDelay,
                                       execute: work)
+    }
+
+    // MARK: - Octave hold-to-ramp
+
+    /// The keyCode currently driving the octave-hold timer. nil when
+    /// no octave key is held.
+    private var octaveHoldKey: UInt16?
+    private var octaveHoldTimer: Timer?
+    private static let octaveHoldDelay: TimeInterval    = 0.28
+    private static let octaveHoldInterval: TimeInterval = 0.16
+
+    /// Apply a single octave step + percussive click + UI refresh.
+    /// Clamps to ±4 octaves; no-ops once the user is at the limit so
+    /// the click stops giving false feedback while held against the
+    /// stop.
+    private func octaveStepOnce(delta: Int) {
+        let next = max(-4, min(4, octaveShift + delta))
+        if next == octaveShift { return }
+        octaveShift = next
+        playOctaveClick(for: next)
+    }
+
+    private func startOctaveHold(keyCode: UInt16, delta: Int) {
+        octaveHoldKey = keyCode
+        octaveHoldTimer?.invalidate()
+        octaveHoldTimer = Timer.scheduledTimer(
+            withTimeInterval: Self.octaveHoldDelay, repeats: false
+        ) { [weak self] _ in
+            guard let self = self,
+                  self.octaveHoldKey == keyCode else { return }
+            // After the initial hesitation, fire on a steady tempo
+            // until the user lets go.
+            self.octaveHoldTimer = Timer.scheduledTimer(
+                withTimeInterval: Self.octaveHoldInterval, repeats: true
+            ) { [weak self] _ in
+                guard let self = self,
+                      self.octaveHoldKey == keyCode else { return }
+                self.octaveStepOnce(delta: delta)
+            }
+        }
+    }
+
+    private func stopOctaveHold(forKeyCode keyCode: UInt16) {
+        guard octaveHoldKey == keyCode else { return }
+        octaveHoldTimer?.invalidate()
+        octaveHoldTimer = nil
+        octaveHoldKey = nil
+    }
+
+    /// Tiny percussive click for octave shifts. Uses a high-mid drum
+    /// (Tambourine, GM key 54) on the drum channel so it reads as
+    /// punctual rather than tonal — but the velocity is mapped from
+    /// the new octave so each step has its own audible weight,
+    /// scaling brighter / sharper as you move up.
+    private func playOctaveClick(for newShift: Int) {
+        // Velocity range so all octaves are distinct but none are
+        // jarring: −4 → ~50, 0 → ~85, +4 → ~120.
+        let v = max(40, min(127, 85 + newShift * 9))
+        synth.noteOn(54, velocity: UInt8(v), channel: 9)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.synth.noteOff(54, channel: 9)
+        }
     }
 
     func auditionCurrentProgram() {
@@ -706,6 +776,28 @@ final class MenuBandController {
                         self?.setMelodicProgram(program)
                     }
                 }
+            }
+            return true
+        }
+
+        // Octave shift: notepat uses , (43) / . (47); Ableton uses z (6) /
+        // x (7) since those are unmapped in Live's M-mode keymap and the
+        // comma/period live next to mapped notes there. Acts globally —
+        // works the same in TYPE mode and via the popover's local-key
+        // forwarding. Hold-to-ramp: a single tap moves one octave;
+        // holding the key sets up our own metronome (~280 ms initial
+        // delay, then ~160 ms between repeats) so the octave notches
+        // predictably while the key is held — independent of the OS's
+        // key-repeat settings.
+        let (octDownKC, octUpKC) = MenuBandLayout.octaveKeyCodes(for: keymap)
+        if keyCode == octDownKC || keyCode == octUpKC {
+            let delta = (keyCode == octDownKC) ? -1 : +1
+            if isDown {
+                if isRepeat { return true }   // we drive our own repeats
+                octaveStepOnce(delta: delta)
+                startOctaveHold(keyCode: keyCode, delta: delta)
+            } else {
+                stopOctaveHold(forKeyCode: keyCode)
             }
             return true
         }

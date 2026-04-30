@@ -92,6 +92,12 @@ enum KeyboardIconRenderer {
     static let settingsW: CGFloat = 18.0
     static let settingsH: CGFloat = 21.0
     static let settingsGap: CGFloat = 12.0
+    /// Reserved space on the right of the icon for the voice-number
+    /// badge to flow into when the program has 2+ digits. The music
+    /// note + settingsHitRect stay anchored where they were; this
+    /// pad just gives multi-digit numbers somewhere to grow without
+    /// clipping at the image edge.
+    static let voiceBadgeRightPad: CGFloat = 12.0
 
     enum HitResult: Equatable {
         case openSettings
@@ -142,7 +148,7 @@ enum KeyboardIconRenderer {
     }
 
     static var imageSize: NSSize {
-        let totalW = ceil(pad + pianoWidth + settingsGap + settingsW + pad)
+        let totalW = ceil(pad + pianoWidth + settingsGap + settingsW + pad + voiceBadgeRightPad)
         let totalH = ceil(whiteH + pad * 2)
         return NSSize(width: totalW, height: totalH)
     }
@@ -158,7 +164,9 @@ enum KeyboardIconRenderer {
                       typeMode: Bool = false,
                       melodicProgram: UInt8 = 0,
                       hovered: HitResult? = nil,
-                      letterAlpha: ((UInt8) -> CGFloat)? = nil) -> NSImage {
+                      letterAlpha: ((UInt8) -> CGFloat)? = nil,
+                      slideOffsetX: CGFloat = 0,
+                      settingsFlash: CGFloat = 0) -> NSImage {
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
@@ -166,18 +174,52 @@ enum KeyboardIconRenderer {
 
         let img = NSImage(size: size, flipped: false) { _ in
 
+            // Octave slide: translate the WHOLE icon (piano + settings
+            // chip) by the requested offset so the entire menubar
+            // board scrolls left/right as one unit when the user
+            // changes octave. This is intentionally OUTSIDE any
+            // sub-save state so it affects every subsequent draw.
+            if abs(slideOffsetX) > 0.01 {
+                let xform = NSAffineTransform()
+                xform.translateX(by: slideOffsetX, yBy: 0)
+                xform.concat()
+            }
             // Piano.
             NSGraphicsContext.saveGraphicsState()
-            // Touched / active = a brighter version of the user's accent
-            // color (controlAccentColor lightened ~25% toward white) so the
-            // pressed state pops without leaving the accent palette.
+            // Dark-mode awareness: in light mode the piano reads as
+            // a real piano (white keys white, black keys dark
+            // accent). In dark mode we swap the relationship — white
+            // keys go a soft macOS dark-gray, black keys flip to a
+            // brighter accent so they still pop above the white
+            // keys. Lit (active) state always rides the accent
+            // palette so a pressed key contrasts both modes.
+            let isDark = NSApp.effectiveAppearance.bestMatch(
+                from: [.aqua, .darkAqua]) == .darkAqua
             let lit = NSColor.controlAccentColor.highlight(withLevel: 0.30)
                 ?? NSColor.controlAccentColor
-            let groove = NSColor.black.withAlphaComponent(0.55)
-            let whiteHi = NSColor.white
-            let whiteLo = NSColor(white: 0.88, alpha: 1.0)
-            let blackHi = NSColor.controlAccentColor.shadow(withLevel: 0.30) ?? NSColor.controlAccentColor
-            let blackLo = NSColor.controlAccentColor.shadow(withLevel: 0.55) ?? NSColor.controlAccentColor
+            let groove = NSColor.black.withAlphaComponent(isDark ? 0.85 : 0.55)
+            let whiteHi: NSColor
+            let whiteLo: NSColor
+            let blackHi: NSColor
+            let blackLo: NSColor
+            if isDark {
+                // Soft macOS dark-gray for the "white" keys.
+                whiteHi = NSColor(white: 0.20, alpha: 1.0)
+                whiteLo = NSColor(white: 0.13, alpha: 1.0)
+                // Brighter accent for the "black" keys so they
+                // stand out above the dark grays.
+                blackHi = NSColor.controlAccentColor.highlight(withLevel: 0.10)
+                    ?? NSColor.controlAccentColor
+                blackLo = NSColor.controlAccentColor.highlight(withLevel: 0.30)
+                    ?? NSColor.controlAccentColor
+            } else {
+                whiteHi = NSColor.white
+                whiteLo = NSColor(white: 0.88, alpha: 1.0)
+                blackHi = NSColor.controlAccentColor.shadow(withLevel: 0.30)
+                    ?? NSColor.controlAccentColor
+                blackLo = NSColor.controlAccentColor.shadow(withLevel: 0.55)
+                    ?? NSColor.controlAccentColor
+            }
 
             // "Edges" of the *active* range — used for the rounded outer
             // corners. Active range may be right-aligned (Ableton) so the
@@ -278,7 +320,9 @@ enum KeyboardIconRenderer {
             // MIDI off → `slider.horizontal.3` in label color (generic).
             drawSettingsChip(in: settingsRect, hoverRect: settingsHitRect,
                              midiOn: enabled,
-                             hovered: hovered == .openSettings)
+                             hovered: hovered == .openSettings,
+                             flash: settingsFlash,
+                             voiceNumber: Int(melodicProgram))
             return true
         }
         img.isTemplate = false
@@ -290,8 +334,12 @@ enum KeyboardIconRenderer {
     /// up directly below the music note glyph.
     static var settingsRectPublic: NSRect { settingsIconRect }
 
-    // Settings button hit area extends from piano's right edge to the image
-    // edge so the entire right-side region is one big click target.
+    // Settings button hit area extends from the piano's right edge
+    // all the way to the image's right edge — including the voice-
+    // badge pad — so clicking either the music-note glyph OR the
+    // badge digits opens the popover. The icon is positioned via
+    // `settingsIconRect` directly (not via this hit rect) so the
+    // glyph stays put even though the hit zone now covers the pad.
     private static var settingsHitRect: NSRect {
         let leftX = pianoOriginX + pianoWidth
         let rightX = imageSize.width
@@ -305,8 +353,13 @@ enum KeyboardIconRenderer {
     private static var settingsIconRect: NSRect {
         let w = settingsW
         let h = settingsH
-        let cx = settingsHitRect.maxX - w / 2 - pad
-        let cy = settingsHitRect.midY
+        // Anchor the icon to the image's "old" right edge — i.e.
+        // before the voice-badge pad was added. Otherwise the
+        // music-note glyph would drift right whenever the badge pad
+        // claims its slice of the image.
+        let oldRight = imageSize.width - voiceBadgeRightPad
+        let cx = oldRight - w / 2 - pad
+        let cy = imageSize.height / 2
         return NSRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
     }
 
@@ -449,7 +502,17 @@ enum KeyboardIconRenderer {
 
     private static func drawWhiteLabel(_ text: String, in rect: NSRect, lit: Bool, alpha: CGFloat = 1.0) {
         guard alpha > 0.01 else { return }
-        let base: NSColor = lit ? .white : NSColor(white: 0.28, alpha: 1.0)
+        // Lit cells always wear pure-white labels (over the bright
+        // accent fill). Unlit cells need to flip with the
+        // appearance: dark-text in light mode (over a near-white
+        // keycap) becomes light-text in dark mode (over a dark-gray
+        // keycap).
+        let isDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        let unlitBase = isDark
+            ? NSColor(white: 0.85, alpha: 1.0)
+            : NSColor(white: 0.28, alpha: 1.0)
+        let base: NSColor = lit ? .white : unlitBase
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 9.0, weight: .heavy),
             .foregroundColor: base.withAlphaComponent(alpha),
@@ -512,23 +575,69 @@ enum KeyboardIconRenderer {
     /// Alternates considered: "music.quarternote.3", "pianokeys",
     /// "music.note", "scroll", "speaker.wave.2", "waveform".
     private static func drawSettingsChip(in _: NSRect, hoverRect _: NSRect,
-                                         midiOn: Bool, hovered: Bool) {
+                                         midiOn: Bool, hovered: Bool,
+                                         flash: CGFloat = 0,
+                                         voiceNumber: Int = 0) {
         // Standard systray pill: hover/click paints a soft rounded
         // backdrop centered on the icon glyph (NOT the full hit area, so
         // the piano-side empty space stays unhighlighted). Same look as
         // any other status-bar item.
         let iconBox = settingsIconRect
         if hovered {
-            let pill = iconBox.insetBy(dx: -1, dy: 1)
+            // Pill encompasses the music note AND the voice-badge
+            // pad as one target — hovering either part highlights
+            // the same chip, so the user gets unified feedback.
+            let pill = NSRect(
+                x: iconBox.minX - 1,
+                y: iconBox.minY + 1,
+                width: (iconBox.width + Self.voiceBadgeRightPad + 1),
+                height: iconBox.height - 2
+            )
             let path = NSBezierPath(roundedRect: pill, xRadius: 4, yRadius: 4)
             NSColor.labelColor.withAlphaComponent(0.12).setFill()
             path.fill()
         }
         let alpha: CGFloat = hovered ? 1.0 : (midiOn ? 1.0 : 0.78)
-        let color: NSColor = midiOn
+        let baseColor: NSColor = midiOn
             ? NSColor.controlAccentColor
             : NSColor.labelColor.withAlphaComponent(alpha)
+        // Blend toward pure white based on `flash` (0..1). Used to
+        // signal "activity" when the user taps an octave key or
+        // plays a note — the music note icon briefly gets brighter
+        // before settling back.
+        let f = max(0, min(1, flash))
+        let color = (f > 0.001)
+            ? baseColor.blended(withFraction: f, of: .white) ?? baseColor
+            : baseColor
         drawTintedSymbol("music.note.list", in: iconBox, pointSize: 13.0, color: color)
+        // Voice-number subscript: tiny digits in the bottom-right
+        // corner. The first digit sits where the single-digit case
+        // looked good; additional digits FLOW RIGHT from there
+        // (instead of growing leftward across the music-note glyph).
+        // Single digit is the visual anchor; multi-digit values
+        // extend toward / past the menubar slot's right edge.
+        // Skipped for program 0 (default Acoustic Grand) so the
+        // unmodified state stays uncluttered.
+        if voiceNumber > 0 {
+            let label = String(voiceNumber)
+            // Negative kerning tightens the digits so multi-digit
+            // values feel more like a tag than spaced text.
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy),
+                .foregroundColor: color,
+                .kern: -0.4,
+            ]
+            let str = NSAttributedString(string: label, attributes: attrs)
+            // Width of a single "0" — anchor for the first digit.
+            let oneDigit = NSAttributedString(string: "0", attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy),
+            ]).size()
+            // Nudge the first digit a small tad LEFT so it visually
+            // hugs the music-note glyph; remaining digits flow
+            // rightward into the reserved badge pad.
+            let leftX = iconBox.maxX - oneDigit.width - 1
+            str.draw(at: NSPoint(x: leftX, y: iconBox.minY - 1))
+        }
     }
 
     private static func drawInstrumentLabel(in rect: NSRect, hoverRect: NSRect,

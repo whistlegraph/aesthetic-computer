@@ -72,6 +72,12 @@ final class MenuBandPopoverViewController: NSViewController {
     private var instrumentLabel: NSTextField!
     private var instrumentTitleRow: NSStackView!
     private var arrowsHint: ArrowKeysIndicator!
+    private var qwertyMap: QwertyLayoutView!
+    /// Horizontal stack of small floating boxes, one per currently-
+    /// held note. Sits above the visualizer; empty (zero-height) at
+    /// rest so the layout doesn't wobble when notes come and go.
+    private var heldNotesStack: NSStackView!
+    private var heldNotesContainer: NSView!
     private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
@@ -81,6 +87,7 @@ final class MenuBandPopoverViewController: NSViewController {
     private var updateBanner: NSView!
     private var updateLabel: NSTextField!
     private var waveformView: WaveformView!
+    private var waveformBezel: NSView!
 
     override func loadView() {
         // Plain solid-color background — no NSVisualEffectView. The visual
@@ -256,10 +263,12 @@ final class MenuBandPopoverViewController: NSViewController {
         // Hovering a segment previews that mode in the menubar piano (range
         // shrinks/grows, letter labels appear) and lets you tap keys for a
         // quick demo without committing.
-        let inputLabel = NSTextField(labelWithString: "Keyboard Shortcuts")
+        // Layout block — built here, but appended to the stack
+        // *below* the palettePanel so the Layout choice reads as a
+        // configuration knob you reach for after picking a voice.
+        let inputLabel = NSTextField(labelWithString: "Layout")
         inputLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         inputLabel.textColor = .labelColor
-        stack.addArrangedSubview(inputLabel)
 
         // Vertical mode buttons — full labels fit without truncation, each
         // button is the full content width with an SF Symbol leading the
@@ -270,9 +279,17 @@ final class MenuBandPopoverViewController: NSViewController {
         // local capture (click menubar piano → type to play, no Accessibility
         // needed) that mode is handled implicitly by simply not triggering
         // global capture. The popover now just picks the keymap layout.
-        let modeSpecs: [(label: String, symbol: String)] = [
-            ("Notepat.com",       "keyboard"),
-            ("Ableton MIDI Keys", "pianokeys"),
+        // Custom branding: Notepat.com uses the live favicon
+        // (`NotepatFavicon.image`, lazily fetched + cached); Ableton
+        // gets the canonical logo we render programmatically.
+        let modeSpecs: [(label: String, image: NSImage?)] = [
+            ("Notepat.com",
+             NotepatFavicon.image
+                ?? NSImage(systemSymbolName: "keyboard",
+                            accessibilityDescription: "Notepat.com")?
+                    .withSymbolConfiguration(modeSymbolConfig)),
+            ("Ableton Computer Keyboard",
+             AbletonLogo.image(height: 11)),
         ]
         modeButtons = []
         let modeStack = NSStackView()
@@ -290,9 +307,7 @@ final class MenuBandPopoverViewController: NSViewController {
             b.alignment = .left
             b.imagePosition = .imageLeading
             b.imageHugsTitle = true
-            b.image = NSImage(systemSymbolName: spec.symbol,
-                              accessibilityDescription: spec.label)?
-                .withSymbolConfiguration(modeSymbolConfig)
+            b.image = spec.image
             b.translatesAutoresizingMaskIntoConstraints = false
             b.widthAnchor.constraint(
                 equalToConstant: InstrumentListView.preferredWidth
@@ -300,7 +315,6 @@ final class MenuBandPopoverViewController: NSViewController {
             modeButtons.append(b)
             modeStack.addArrangedSubview(b)
         }
-        stack.addArrangedSubview(modeStack)
         modeStack.widthAnchor.constraint(
             equalToConstant: InstrumentListView.preferredWidth
         ).isActive = true
@@ -309,7 +323,10 @@ final class MenuBandPopoverViewController: NSViewController {
             "⌃⌥⌘P toggles last keystrokes mode")
         inputHint.font = NSFont.systemFont(ofSize: 10)
         inputHint.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(inputHint)
+        // Layout label / mode buttons / hint are inserted into the
+        // popover stack farther down — see the `palettePanel`
+        // insertion point.
+        let layoutBlock = (label: inputLabel, picker: modeStack, hint: inputHint)
 
         // Live segmented LED meter of the local synth output. Hidden in
         // MIDI mode (DAW handles audio there; our local mixer is silent
@@ -324,12 +341,13 @@ final class MenuBandPopoverViewController: NSViewController {
         waveformView.menuBand = menuBand
         waveformView.translatesAutoresizingMaskIntoConstraints = false
 
-        let waveformBezel = NSView()
+        waveformBezel = NSView()
         waveformBezel.wantsLayer = true
         waveformBezel.layer?.cornerRadius = 6
         waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
-        waveformBezel.layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.18).cgColor
         waveformBezel.layer?.borderWidth = 1
+        // Border color is set in `updateInstrumentReadout` so the
+        // housing tracks the chosen voice's family hue.
         waveformBezel.translatesAutoresizingMaskIntoConstraints = false
         waveformBezel.addSubview(waveformView)
         let bezelInset: CGFloat = 5
@@ -339,11 +357,29 @@ final class MenuBandPopoverViewController: NSViewController {
             waveformView.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: bezelInset),
             waveformView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
         ])
+        // Held-notes goes ABOVE the visualizer so the actively-
+        // sounding pitches read like a label on the meter housing.
+        // Build the floating-boxes container HERE so the ivar is
+        // populated before we add it to the stack.
+        heldNotesStack = NSStackView()
+        heldNotesStack.orientation = .horizontal
+        heldNotesStack.alignment = .centerY
+        heldNotesStack.spacing = 4
+        heldNotesStack.translatesAutoresizingMaskIntoConstraints = false
+        heldNotesContainer = NSView()
+        heldNotesContainer.translatesAutoresizingMaskIntoConstraints = false
+        heldNotesContainer.addSubview(heldNotesStack)
+        NSLayoutConstraint.activate([
+            heldNotesStack.centerXAnchor.constraint(equalTo: heldNotesContainer.centerXAnchor),
+            heldNotesStack.centerYAnchor.constraint(equalTo: heldNotesContainer.centerYAnchor),
+        ])
+        stack.addArrangedSubview(heldNotesContainer)
+        heldNotesContainer.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        heldNotesContainer.heightAnchor.constraint(equalToConstant: 22).isActive = true
+
         stack.addArrangedSubview(waveformBezel)
         waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
         waveformBezel.heightAnchor.constraint(equalToConstant: 64).isActive = true
-
-        stack.addArrangedSubview(makeSeparator())
 
         // (MIDI switch lives in the title row above — see octave + MIDI block.)
 
@@ -354,8 +390,12 @@ final class MenuBandPopoverViewController: NSViewController {
         // label color in the title row instead (green = ok, red = failed).
         midiSelfTestLabel = NSTextField(labelWithString: "")
 
+        // No divider above the Voice row — the visualizer's lit
+        // bezel below is enough visual separation. Allocate the ivar
+        // anyway so the dim/animation hooks below don't crash; just
+        // never add it to the stack.
         instrumentSeparator = makeSeparator()
-        stack.addArrangedSubview(instrumentSeparator)
+        instrumentSeparator.isHidden = true
 
         // Instrument named-list. All 128 GM programs in a scrollable list,
         // family-colored stripe on the left, name on the right. Hover plays
@@ -367,33 +407,47 @@ final class MenuBandPopoverViewController: NSViewController {
         // Title row: "Instrument:" left, "078  Whistle" right (greyed). The
         // readout used to live under the grid; promoting it to the title
         // row keeps the eye on a single line while browsing cells.
-        instrumentLabel = NSTextField(labelWithString: "Voice:")
-        instrumentLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .semibold)
-        instrumentLabel.textColor = .labelColor
+        // No leading "Voice:" label — the family-tinted chip itself
+        // *is* the voice title now. Bigger, bolder, sits like a
+        // chapter heading under the LED meter.
+        instrumentLabel = NSTextField(labelWithString: "")
+        instrumentLabel.isHidden = true
         instrumentReadout = NSTextField(labelWithString: "")
-        instrumentReadout.font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
+        // Big, bold, family-colored title with a soft drop shadow —
+        // no chip backdrop. Text color carries the GM family hue
+        // (set/refreshed in updateInstrumentReadout); the shadow gives
+        // it presence without the rectangular bg framing it had before.
+        instrumentReadout.font = NSFont.systemFont(ofSize: 18, weight: .black)
         instrumentReadout.textColor = .labelColor
-        // Chip backdrop — colored to match the GM-family hue that
-        // `InstrumentListView.colorForProgram` uses for the cell. The
-        // bg is set/refreshed in `updateInstrumentReadout` so picking
-        // a new instrument visually moves the chip into the same color
-        // tier as the cell that was clicked.
         instrumentReadout.drawsBackground = false
         instrumentReadout.wantsLayer = true
-        instrumentReadout.layer?.cornerRadius = 4
         instrumentReadout.lineBreakMode = .byTruncatingTail
-        instrumentTitleRow = NSStackView(views: [instrumentLabel, instrumentReadout])
+        instrumentReadout.alignment = .center
+        let titleShadow = NSShadow()
+        titleShadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+        titleShadow.shadowBlurRadius = 3
+        titleShadow.shadowOffset = NSSize(width: 0, height: -1)
+        instrumentReadout.shadow = titleShadow
+        // Center the chip in its row by flanking it with greedy
+        // spacers — without these, .fill distribution lets the
+        // (now-shrunken) text hug the leading edge.
+        let titleLeftSpacer = NSView()
+        let titleRightSpacer = NSView()
+        titleLeftSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        titleRightSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        instrumentTitleRow = NSStackView(views: [titleLeftSpacer, instrumentReadout, titleRightSpacer])
         instrumentTitleRow.orientation = .horizontal
-        instrumentTitleRow.alignment = .firstBaseline
-        instrumentTitleRow.spacing = 6
-        // Hugging high on the label, low on the readout, so the readout
-        // expands to fill the trailing space and truncates cleanly.
+        instrumentTitleRow.alignment = .centerY
+        instrumentTitleRow.distribution = .fill
+        instrumentTitleRow.spacing = 0
         instrumentLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        instrumentReadout.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        instrumentReadout.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        instrumentReadout.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        instrumentReadout.setContentCompressionResistancePriority(.required, for: .horizontal)
+        titleLeftSpacer.widthAnchor.constraint(equalTo: titleRightSpacer.widthAnchor).isActive = true
         stack.addArrangedSubview(instrumentTitleRow)
-        // (Held-notes / chord LED panel removed — the empty-pill resting
-        // state added more visual noise than the feature was worth.)
+
+        // (held-notes floating-boxes container is built ABOVE the
+        // visualizer — see the block before `waveformBezel`.)
 
         // GarageBand backend toggle was prototyped here (see
         // GarageBandLibrary + GarageBandPatchView), then deprecated
@@ -437,10 +491,16 @@ final class MenuBandPopoverViewController: NSViewController {
                 return
             }
             let famColor = InstrumentListView.colorForProgram(safe)
-            self.instrumentReadout.stringValue = " \(nameForChip) "
-            self.instrumentReadout.layer?.backgroundColor =
-                famColor.withAlphaComponent(0.32).cgColor
-            self.waveformView.setBaseColor(famColor)
+            self.instrumentReadout.stringValue = nameForChip
+            self.instrumentReadout.textColor = famColor
+            // Don't retint the LED bezel during hover-drag while
+            // MIDI mode is on — it stays accent-colored as a status
+            // badge.
+            if let m = self.menuBand, !m.midiMode {
+                self.waveformView.setBaseColor(famColor)
+                self.waveformBezel?.layer?.borderColor =
+                    famColor.withAlphaComponent(0.55).cgColor
+            }
         }
         // Wrap the grid in a panel that adds an extra strip BELOW the
         // 8×16 cells where the arrow-keys hint glyph lives. The hint
@@ -453,17 +513,44 @@ final class MenuBandPopoverViewController: NSViewController {
         arrowsHint = ArrowKeysIndicator()
         arrowsHint.toolTip = "Arrow keys move the selection."
         arrowsHint.translatesAutoresizingMaskIntoConstraints = false
+        arrowsHint.onClick = { [weak self] dir, isDown in
+            // Drive the same selection path the physical arrow keys
+            // do — preview while pressed, commit on release.
+            self?.simulateArrow(direction: dir, isDown: isDown)
+        }
         palettePanel.addSubview(arrowsHint)
         let cornerInset: CGFloat = 4
-        // Strip below the grid sized to fit the 30 px keycap cluster
-        // plus a generous gap above so the arrows feel like a separate
-        // ornament — not crammed up under the bottom row of voices.
-        let strip: CGFloat = 46
+        // Strip below the grid: full-width QWERTY keymap on top of
+        // the strip, arrow-keys cluster anchored to its bottom-right
+        // corner. Reads like a tiny laptop keyboard glued to the
+        // base of the voice grid.
+        let strip: CGFloat = 100
+        qwertyMap = QwertyLayoutView()
+        qwertyMap.translatesAutoresizingMaskIntoConstraints = false
+        // Pointer-driven play: clicks/drags on caps route through the
+        // same handleLocalKey path the physical keyboard uses, so notes
+        // light up, octave keys shift, and lit-state updates round-trip
+        // back into the layout view automatically.
+        qwertyMap.onKey = { [weak self] kc, isDown in
+            _ = self?.menuBand?.handleLocalKey(
+                keyCode: kc, isDown: isDown, isRepeat: false, flags: []
+            )
+        }
+        palettePanel.addSubview(qwertyMap)
         NSLayoutConstraint.activate([
             instrumentList.topAnchor.constraint(equalTo: palettePanel.topAnchor),
             instrumentList.leadingAnchor.constraint(equalTo: palettePanel.leadingAnchor),
             instrumentList.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor),
             instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight),
+            qwertyMap.centerXAnchor.constraint(equalTo: palettePanel.centerXAnchor),
+            // Anchor the QWERTY map to the BOTTOM of the strip
+            // (just above the arrow keys) instead of the top —
+            // visually clusters it with the arrow-keys cluster as
+            // one keyboard ornament, and frees space above for the
+            // grid to breathe.
+            qwertyMap.bottomAnchor.constraint(equalTo: arrowsHint.topAnchor, constant: -4),
+            qwertyMap.widthAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.width),
+            qwertyMap.heightAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.height),
             arrowsHint.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor, constant: -cornerInset),
             arrowsHint.bottomAnchor.constraint(equalTo: palettePanel.bottomAnchor, constant: -cornerInset),
         ])
@@ -471,13 +558,17 @@ final class MenuBandPopoverViewController: NSViewController {
         palettePanel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
         palettePanel.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight + strip).isActive = true
 
-        let bottomSeparator = makeSeparator()
-        stack.addArrangedSubview(bottomSeparator)
-        // Extra breathing room between the visualizer/instruments above and
-        // the brand/about/quit footer below. The default 6 px stack gap
-        // crammed everything together — this gives the bottom block its
-        // own visual section.
-        stack.setCustomSpacing(12, after: bottomSeparator)
+        // Layout block (built earlier, appended here so it sits below
+        // the voice grid + arrow keys).
+        stack.setCustomSpacing(8, after: palettePanel)
+        stack.addArrangedSubview(layoutBlock.label)
+        stack.addArrangedSubview(layoutBlock.picker)
+        stack.addArrangedSubview(layoutBlock.hint)
+
+        // No divider above the about/brand block — the palette + Layout
+        // section above gives plenty of separation. Custom airspace
+        // before the about block.
+        stack.setCustomSpacing(14, after: layoutBlock.hint)
 
         // About + Crash logs in a side-by-side row. About has low hugging
         // so it expands when the crash column is hidden (no reports) —
@@ -497,12 +588,23 @@ final class MenuBandPopoverViewController: NSViewController {
         // No heading — the prose itself is the about content. The bold
         // "Menu Band" header on top read as a duplicate of the menubar
         // identity above and ate vertical space.
-        let aboutBody = NSTextField(wrappingLabelWithString:
-            "A political project to bring the built-in macOS instruments — " +
-            "the ones GarageBand uses — into the menu bar. Free + open source.")
+        let aboutBody = NSTextField(wrappingLabelWithString: "")
         aboutBody.font = NSFont.systemFont(ofSize: 10.5)
         aboutBody.textColor = .secondaryLabelColor
         aboutBody.maximumNumberOfLines = 0
+        aboutBody.lineBreakMode = .byWordWrapping
+        // "Menu Band" stays bold + label-colored; the rest of the
+        // sentence is regular weight in secondary color so the eye
+        // catches the brand first.
+        let aboutText = NSMutableAttributedString()
+        let bodyFont = NSFont.systemFont(ofSize: 10.5)
+        let boldFont = NSFont.systemFont(ofSize: 10.5, weight: .bold)
+        aboutText.append(NSAttributedString(string: "Menu Band",
+            attributes: [.font: boldFont, .foregroundColor: NSColor.labelColor]))
+        aboutText.append(NSAttributedString(
+            string: " brings the built-in macOS instruments into the menu bar.",
+            attributes: [.font: bodyFont, .foregroundColor: NSColor.secondaryLabelColor]))
+        aboutBody.attributedStringValue = aboutText
         aboutBody.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
         aboutCol.setContentHuggingPriority(.defaultLow, for: .horizontal)
         aboutCol.addArrangedSubview(aboutBody)
@@ -608,11 +710,24 @@ final class MenuBandPopoverViewController: NSViewController {
         super.viewDidAppear()
         guard isViewLoaded, let menuBand = waveformView.menuBand else { return }
         syncFromController()
-        waveformView.isLive = !menuBand.midiMode
+        applyVisualizerForMidiMode(menuBand.midiMode)
         // Make the voice grid first responder on every popover open so
         // arrow keys always step the selection — even before the user
         // has clicked into the grid this session.
         view.window?.makeFirstResponder(instrumentList)
+        // Refresh the Notepat mode button if a freshly-cached
+        // favicon has landed since loadView() ran. One-shot observer
+        // re-installs each time the popover appears so we don't leak
+        // listeners.
+        NotificationCenter.default.removeObserver(self,
+            name: .notepatFaviconLoaded, object: nil)
+        NotificationCenter.default.addObserver(forName: .notepatFaviconLoaded,
+                                                object: nil, queue: .main) { [weak self] _ in
+            guard let self = self,
+                  self.modeButtons.indices.contains(0),
+                  let img = NotepatFavicon.image else { return }
+            self.modeButtons[0].image = img
+        }
     }
 
     override func viewDidDisappear() {
@@ -620,15 +735,95 @@ final class MenuBandPopoverViewController: NSViewController {
         waveformView.isLive = false
     }
 
-    /// Held-notes readout removed. AppDelegate's onLitChanged still
-    /// calls this for back-compat — left as a no-op so we don't have
-    /// to thread the removal through every callsite.
-    func refreshHeldNotes() {}
+    /// Drive the voice grid's selection from the on-screen arrow
+    /// keycaps as if the physical arrow key had been pressed —
+    /// `isDown` triggers the move + preview note, the matching `up`
+    /// commits the cell. Mirrors `InstrumentMapView.keyDown` /
+    /// `keyUp`'s logic so click-on-the-D-pad and arrow-key-on-the-
+    /// keyboard share one code path.
+    private func simulateArrow(direction dir: Int, isDown: Bool) {
+        guard let list = instrumentList else { return }
+        if isDown {
+            let cur = Int(list.selectedProgram)
+            var next = cur
+            switch dir {
+            case 0: next = cur - 1                                // ←
+            case 1: next = cur + 1                                // →
+            case 2: next = cur + InstrumentListView.cols          // ↓
+            case 3: next = cur - InstrumentListView.cols          // ↑
+            default: return
+            }
+            next = max(0, min(127, next))
+            arrowsHint.setHighlight(direction: dir, on: true)
+            if next != cur {
+                list.selectedProgram = UInt8(next)
+                list.onHover?(next)
+            }
+        } else {
+            arrowsHint.setHighlight(direction: dir, on: false)
+            list.onHover?(nil)
+            list.onCommit?(Int(list.selectedProgram))
+        }
+    }
+
+    /// Refresh the active-notes LCD from the controller. Hidden when
+    /// nothing is held; otherwise lit with the held note names in
+    /// the GM family color of the current voice (so the LCD readout
+    /// reads as part of the same instrument).
+    func refreshHeldNotes() {
+        guard isViewLoaded, let m = menuBand else { return }
+        // Mirror the controller's held key codes onto the QWERTY
+        // map so the physical keys light up as the user plays.
+        qwertyMap?.litKeyCodes = m.heldKeyCodes()
+        let names = m.heldNoteNames()
+        // Rebuild the floating-box stack from scratch — at most a
+        // few notes held at any moment, so reusing views isn't worth
+        // the bookkeeping. When nothing is held, the stack has no
+        // arranged subviews and the reserved 22 px row is empty
+        // (no visible chrome).
+        for v in heldNotesStack.arrangedSubviews {
+            heldNotesStack.removeArrangedSubview(v)
+            v.removeFromSuperview()
+        }
+        let safe = max(0, min(127, Int(m.melodicProgram)))
+        let famColor = m.midiMode
+            ? NSColor.controlAccentColor
+            : InstrumentListView.colorForProgram(safe)
+        for name in names {
+            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name,
+                                                               color: famColor))
+        }
+    }
+
+    /// Small floating note badge — rounded layer-painted box with
+    /// the note name in heavy mono. No surrounding bezel; the boxes
+    /// just appear above the visualizer when you press keys.
+    private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
+        let box = NSView()
+        box.wantsLayer = true
+        box.layer?.cornerRadius = 4
+        box.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
+        box.translatesAutoresizingMaskIntoConstraints = false
+        let label = NSTextField(labelWithString: name)
+        label.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .heavy)
+        label.textColor = .black
+        label.drawsBackground = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        box.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
+            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
+            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 1),
+            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -1),
+        ])
+        return box
+    }
 
     /// Refresh control state from the controller — call right before showing.
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
         midiSwitch.state = n.midiMode ? .on : .off
+        refreshHeldNotes()
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)
         let segIdx = inputModeSegment(keymap: n.keymap)
@@ -637,6 +832,14 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         instrumentList.selectedProgram = n.melodicProgram
         updateInstrumentReadout()
+        // Keep the QWERTY layout's keymap + tint synced with the
+        // controller. Voice color picks up the family hue for the
+        // current voice; keymap variant follows the controller.
+        let safe = max(0, min(127, Int(n.melodicProgram)))
+        qwertyMap?.keymap = n.keymap
+        qwertyMap?.voiceColor = n.midiMode
+            ? .controlAccentColor
+            : InstrumentListView.colorForProgram(safe)
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
         refreshUpdateBanner()
@@ -688,14 +891,58 @@ final class MenuBandPopoverViewController: NSViewController {
     private func updateInstrumentReadout() {
         guard let m = menuBand else { return }
         let safe = max(0, min(127, Int(m.melodicProgram)))
-        instrumentReadout.stringValue = " \(GeneralMIDI.programNames[safe]) "
+        let title = GeneralMIDI.programNames[safe]
         let famColor = InstrumentListView.colorForProgram(safe)
-        instrumentReadout.layer?.backgroundColor = famColor
-            .withAlphaComponent(0.32).cgColor
-        // Retint the LED meter to the same hue so the visualizer
-        // signals which instrument is the audible voice at a glance.
-        waveformView.setBaseColor(famColor)
+        // Dark hues (Bass / Strings / Percussive) wash out against
+        // the dark popover background; light hues (Piano ivory) wash
+        // out in light mode. Adjust per-appearance so the title
+        // always has presence.
+        let isDark = view.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        let textColor: NSColor = isDark
+            ? (famColor.highlight(withLevel: 0.35) ?? famColor)
+            : (famColor.shadow(withLevel: 0.25) ?? famColor)
+        // Soft drop shadow opposite the system appearance so the
+        // glyph anchors on the bg without a chip backdrop.
+        let shadow = NSShadow()
+        shadow.shadowColor = (isDark ? NSColor.black : NSColor.white)
+            .withAlphaComponent(0.55)
+        shadow.shadowOffset = NSSize(width: 0, height: -1)
+        shadow.shadowBlurRadius = 2
+        // Try YWFT Processing first (bundled in Resources/), fall
+        // back through the Processing-IDE family, then the system
+        // black-weight as a last resort.
+        let titleFont = NSFont(name: "YWFTProcessing-Bold", size: 18)
+            ?? NSFont(name: "YWFTProcessing-Regular", size: 18)
+            ?? NSFont(name: "Processing-Sans-Pro-Bold", size: 18)
+            ?? NSFont.systemFont(ofSize: 18, weight: .black)
+        instrumentReadout.attributedStringValue = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: titleFont,
+                .foregroundColor: textColor,
+                .shadow: shadow,
+            ]
+        )
+        // The visualizer is the only piece of chrome that does NOT
+        // track the voice color in MIDI mode — there it reads as a
+        // status badge ("MIDI" dot-matrix in system accent), so we
+        // skip the retint when MIDI is on.
+        if m.midiMode {
+            waveformView.setBaseColor(.controlAccentColor)
+            waveformBezel?.layer?.borderColor = NSColor.controlAccentColor
+                .withAlphaComponent(0.55).cgColor
+        } else {
+            waveformView.setBaseColor(famColor)
+            waveformBezel?.layer?.borderColor = famColor
+                .withAlphaComponent(0.55).cgColor
+        }
     }
+
+    // Appearance changes (light/dark toggle) refresh on next popover
+    // open via syncFromController — viewDidChangeEffectiveAppearance
+    // isn't on NSViewController in macOS so we don't try to hook it
+    // mid-session.
 
     /// Reflect the MIDI loopback self-test status as the inline "MIDI"
     /// label's color. No textual chrome — the color is the indicator.
@@ -901,10 +1148,43 @@ final class MenuBandPopoverViewController: NSViewController {
         // means the popover's geometry stays stable and the user can see
         // exactly what's available without MIDI engaged.
         if let m = menuBand {
-            waveformView.isLive = !m.midiMode
+            applyVisualizerForMidiMode(m.midiMode)
             applyInstrumentPaletteVisibility(midiMode: m.midiMode)
         }
     }
+
+    /// 16-bar × 10-segment dot-matrix pattern that spells "MIDI"
+    /// across the full height of the LED bezel. Each letter is 3
+    /// bars wide, with a 1-bar gap between them: 3+1+3+1+3+1+3 = 15
+    /// bars, with a 1-bar right margin. Letters span every segment
+    /// (bits 0–9) so the readout fills the whole display.
+    static let midiDotPattern: [UInt32] = {
+        var p = [UInt32](repeating: 0, count: 16)
+        let FULL   : UInt32 = 0x3FF       // segs 0..9 (all rows)
+        let TOP_BOT: UInt32 = 0x201       // segs 0, 9 only
+        let TOP_ROW: UInt32 = 0x100       // seg 8 (M's middle peak)
+        let MID_BAR: UInt32 = 0x1FE       // segs 1..8 (D's right edge)
+        // M (3 cols): full left + middle peak + full right.
+        p[0]  = FULL
+        p[1]  = TOP_ROW
+        p[2]  = FULL
+        // gap p[3]
+        // I (3 cols)
+        p[4]  = TOP_BOT
+        p[5]  = FULL
+        p[6]  = TOP_BOT
+        // gap p[7]
+        // D (3 cols): full left, top+bottom middle, mid-only right.
+        p[8]  = FULL
+        p[9]  = TOP_BOT
+        p[10] = MID_BAR
+        // gap p[11]
+        // I (3 cols)
+        p[12] = TOP_BOT
+        p[13] = FULL
+        p[14] = TOP_BOT
+        return p
+    }()
 
     private func applyInstrumentPaletteVisibility(midiMode: Bool, animated: Bool = false) {
         // Greyed-out, not hidden: keep the rows in place so the popover
@@ -963,12 +1243,42 @@ final class MenuBandPopoverViewController: NSViewController {
         updateInstrumentReadout()
         debugLog("instrument commit prog=\(program) midiAutoOff=\(wasMidiOn)")
         if wasMidiOn {
+            // Auto-off implicitly re-enables the local-synth audio
+            // path; bring the visualizer back to live VU + voice
+            // color in the same step. Single source of truth: the
+            // controller's `midiMode` boolean drives both the synth
+            // routing AND the meter visual state.
+            applyVisualizerForMidiMode(false)
             m.auditionCurrentProgram()
         }
         // Otherwise no post-release audition: the press-gated rollover
         // already played a preview note while the mouse was held, so
         // retriggering on release just doubles the sound. mouseUp paths
         // through onHover(nil) first which stops the preview cleanly.
+    }
+
+    /// Single source-of-truth wiring between `midiMode` and the
+    /// visualizer's three modes (live VU vs MIDI dot-matrix) plus
+    /// its base color (voice family vs system accent). Called from
+    /// every place that flips midiMode — keeps the meter from
+    /// getting stuck in a stale state when MIDI is auto-disabled by
+    /// picking a new voice.
+    func applyVisualizerForMidiMode(_ midiOn: Bool) {
+        guard let m = menuBand else { return }
+        waveformView.isLive = !midiOn
+        if midiOn {
+            waveformView.setDotMatrix(Self.midiDotPattern)
+            waveformView.setBaseColor(.controlAccentColor)
+            waveformBezel?.layer?.borderColor = NSColor.controlAccentColor
+                .withAlphaComponent(0.55).cgColor
+        } else {
+            waveformView.setDotMatrix(nil)
+            let safe = max(0, min(127, Int(m.melodicProgram)))
+            let famColor = InstrumentListView.colorForProgram(safe)
+            waveformView.setBaseColor(famColor)
+            waveformBezel?.layer?.borderColor = famColor
+                .withAlphaComponent(0.55).cgColor
+        }
     }
 
     @objc private func octaveChanged(_ sender: NSStepper) {

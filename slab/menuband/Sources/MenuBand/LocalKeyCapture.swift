@@ -34,7 +34,18 @@ final class LocalKeyCapture {
         // instead of the previously-foreground app. Without `activate`, our
         // panel can't become key and keys go elsewhere.
         NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
+        // If another window in our app is already key (e.g. the
+        // popover), DON'T steal key — `addLocalMonitorForEvents`
+        // catches keys at the app level regardless of which specific
+        // window is key, so the panel doesn't need to be key for
+        // capture to work. Keeping the popover key prevents its
+        // controls from rendering in the inactive/grey state.
+        let otherKey = NSApp.windows.contains { $0.isKeyWindow && $0 !== panel }
+        if otherKey {
+            panel.orderFront(nil)
+        } else {
+            panel.makeKeyAndOrderFront(nil)
+        }
         if monitor == nil {
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
                 guard let self = self else { return event }

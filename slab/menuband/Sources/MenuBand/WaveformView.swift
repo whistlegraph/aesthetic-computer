@@ -40,6 +40,7 @@ final class WaveformView: MTKView {
     var isLive: Bool = false {
         didSet {
             if isLive {
+                stopDotMatrix()
                 startLink()
             } else {
                 stopLink()
@@ -47,6 +48,43 @@ final class WaveformView: MTKView {
                 for i in 0..<displayLevels.count { displayLevels[i] = 0 }
                 display()  // one final paint to clear bars
             }
+        }
+    }
+
+    /// When true, the bars stop running the live VU and instead
+    /// render the static `dotMasks` pattern (used to spell "MIDI"
+    /// while in MIDI mode). Reset masks + uniform when switching
+    /// out so live mode resumes cleanly.
+    private var dotMatrixActive: Bool = false
+    /// Per-bar 32-bit mask. Bit i = whether segment i (0=bottom,
+    /// 9=top) is lit. Sized to `barCount`.
+    private var dotMasks: [Float] = Array(repeating: 0, count: 32)
+
+    /// Render a static dot-matrix pattern instead of the live VU
+    /// bars. Pass nil to clear and return to live mode.
+    func setDotMatrix(_ mask: [UInt32]?) {
+        if let mask = mask {
+            // Encode UInt32 → Float for transport (Float can hold up
+            // to 2^24 exactly, and our masks are 10 bits).
+            for i in 0..<dotMasks.count {
+                dotMasks[i] = Float(i < mask.count ? mask[i] : 0)
+            }
+            uniforms.dotMatrix = 1
+            dotMatrixActive = true
+            // Static frame — nudge a single redraw so the pattern
+            // appears even when the live link is off.
+            display()
+        } else {
+            stopDotMatrix()
+        }
+    }
+
+    private func stopDotMatrix() {
+        if dotMatrixActive {
+            for i in 0..<dotMasks.count { dotMasks[i] = 0 }
+            uniforms.dotMatrix = 0
+            dotMatrixActive = false
+            display()
         }
     }
 
@@ -262,11 +300,13 @@ final class WaveformView: MTKView {
         float stride;
         float minHeight;
         float4 color;
+        float dotMatrix;
     };
 
     struct VertexOut {
         float4 position [[position]];
         float level;
+        float mask;
     };
 
     // Two triangles spanning the unit square (CCW), shared across all bar
@@ -294,7 +334,8 @@ final class WaveformView: MTKView {
     vertex VertexOut bar_vertex(uint vid [[vertex_id]],
                                  uint iid [[instance_id]],
                                  constant Uniforms &u [[buffer(0)]],
-                                 constant float *levels [[buffer(1)]])
+                                 constant float *levels [[buffer(1)]],
+                                 constant float *masks  [[buffer(2)]])
     {
         float2 local = unitQuad[vid];
         float barX = float(iid) * u.stride;
@@ -308,6 +349,7 @@ final class WaveformView: MTKView {
         VertexOut out;
         out.position = float4(clipX, clipY, 0, 1);
         out.level = levels[iid];
+        out.mask  = masks[iid];
         return out;
     }
 
@@ -336,9 +378,15 @@ final class WaveformView: MTKView {
         float visibleSegPos = segPos / (1.0 - SEG_GAP);
         float segCenterDist = abs(visibleSegPos - 0.5) * 2.0;
         float bloom = pow(1.0 - segCenterDist, 1.6);
-        // Lit = below the level. Above = drawn very faintly so the
-        // unfilled segments still hint at where the column lives.
-        bool lit = y01 < in.level;
+        // Lit = below the level (live VU) OR the corresponding bit
+        // is set in this bar's dot-matrix mask. The mask path lets
+        // us spell static text out of the LED segments — used in
+        // MIDI mode to render "MIDI".
+        uint segIndex = uint(floor(y01 * NSEG));
+        uint mask = uint(in.mask);
+        bool maskLit = (u.dotMatrix > 0.5) && (((mask >> segIndex) & 1u) != 0u);
+        bool levelLit = y01 < in.level;
+        bool lit = maskLit || levelLit;
         float3 color = lit ? (tier + bloom * 0.40) : tier;
         float a = lit ? u.color.a : (u.color.a * UNLIT_ALPHA);
         return float4(min(color, 1.0), a);
@@ -353,6 +401,10 @@ private struct BarUniforms {
     var stride: Float = 0
     var minHeight: Float = 1.5
     var color: SIMD4<Float> = SIMD4<Float>(0, 1, 1, 1)
+    /// Set to 1 when the bars should render the dot-matrix pattern
+    /// (see `dotMasks`) instead of the continuous-level VU. Used in
+    /// MIDI mode to spell "MIDI" out of the LED segments.
+    var dotMatrix: Float = 0
 }
 
 extension WaveformView: MTKViewDelegate {
@@ -395,6 +447,11 @@ extension WaveformView: MTKViewDelegate {
             enc.setVertexBytes(ptr.baseAddress!,
                                length: MemoryLayout<Float>.size * n,
                                index: 1)
+        }
+        dotMasks.withUnsafeBufferPointer { ptr in
+            enc.setVertexBytes(ptr.baseAddress!,
+                               length: MemoryLayout<Float>.size * n,
+                               index: 2)
         }
         enc.drawPrimitives(type: .triangle,
                            vertexStart: 0,

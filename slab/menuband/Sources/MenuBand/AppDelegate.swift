@@ -44,6 +44,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// retreats inward (far cells fade first, the pivot last).
     private var letterPivot: UInt8 = 60
     private var letterFadeTimer: Timer?
+
+    // Menubar-icon "activity" animation: a brief horizontal slide of
+    // the piano + a flash of the music-note glyph whenever the user
+    // shifts octave or plays a note. Driven by a single 60 Hz timer
+    // that runs only while either effect is in progress.
+    private var lastKnownOctaveShift: Int = 0
+    private var lastLitCount: Int = 0
+    private var slideDirection: Int = 0
+    private var slideStartedAt: CFTimeInterval = 0
+    private var flashStrength: CGFloat = 0
+    private var flashStartedAt: CFTimeInterval = 0
+    private var iconAnimTimer: Timer?
+    private static let slideDuration: CFTimeInterval = 0.34
+    private static let flashDuration: CFTimeInterval = 0.18
     /// Per-MIDI displayed alpha. Each tick we smooth this value
     /// toward the cell's target — so transitions are organic
     /// regardless of when keys are pressed (no snap when the user
@@ -69,15 +83,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
+        Self.registerBundledFonts()
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             debugLog("heartbeat")
         }
         menuBand.onChange = { [weak self] in
-            DispatchQueue.main.async { self?.updateIcon() }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                // Trigger the slide + flash whenever the octave shift
+                // changes — acts as the visual feedback for the
+                // ,/. keys (or popover stepper). Direction matches
+                // the change so up=right, down=left.
+                let cur = self.menuBand.octaveShift
+                if cur != self.lastKnownOctaveShift {
+                    // Octave UP → piano slides LEFT (the camera is
+                    // panning right toward higher notes). Octave DOWN
+                    // → piano slides RIGHT (camera pans left). Reads
+                    // like the player physically dragged the
+                    // keyboard sideways under their hand.
+                    let dir = (cur > self.lastKnownOctaveShift) ? -1 : 1
+                    self.lastKnownOctaveShift = cur
+                    self.kickIconAnim(slide: dir, flash: 1.0)
+                }
+                self.updateIcon()
+                // Refresh the popover too so live state changes
+                // (octave shift via , / . , MIDI mode flip, etc.)
+                // reflect immediately while the popover is open.
+                if self.popover.isShown {
+                    self.popoverVC?.syncFromController()
+                }
+            }
         }
         menuBand.onLitChanged = { [weak self] in
-            self?.updateIcon()
-            self?.popoverVC?.refreshHeldNotes()
+            guard let self = self else { return }
+            // Subtle flash on every fresh note hit so the icon
+            // pulses with playing activity. Only on count
+            // increment — releases don't re-fire the flash.
+            let cur = self.menuBand.litNotes.count
+            if cur > self.lastLitCount {
+                self.kickIconAnim(slide: 0, flash: 0.7)
+            }
+            self.lastLitCount = cur
+            self.updateIcon()
+            self.popoverVC?.refreshHeldNotes()
         }
         menuBand.bootstrap()
 
@@ -264,6 +312,119 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.shutdown()
     }
 
+    /// Register the YWFT Processing font files we ship in the SPM
+    /// bundle so AppKit can find them by PostScript name. Called
+    /// once at launch — the system caches the registration for the
+    /// process lifetime. Failures are logged but non-fatal; the
+    /// caller should fall back to the system font.
+    private static func registerBundledFonts() {
+        let bundle = Bundle.module
+        for name in ["ywft-processing-regular", "ywft-processing-bold"] {
+            guard let url = bundle.url(forResource: name, withExtension: "ttf") else {
+                NSLog("MenuBand: bundled font missing — \(name).ttf")
+                continue
+            }
+            var error: Unmanaged<CFError>?
+            if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
+                NSLog("MenuBand: font register failed for \(name): \(error?.takeRetainedValue().localizedDescription ?? "?")")
+            }
+        }
+    }
+
+    // MARK: - Icon animation (slide + flash)
+
+    /// Kick off the icon's transient animation. `slide` ∈ {-1, 0, +1}:
+    /// −1 scrolls the piano left, +1 right, 0 leaves it alone. `flash`
+    /// is the peak brightness boost on the music-note glyph (0…1).
+    /// Either parameter can re-trigger an already-running animation
+    /// — most recent value wins.
+    private func kickIconAnim(slide: Int, flash: CGFloat) {
+        let now = CACurrentMediaTime()
+        if slide != 0 {
+            slideDirection = slide
+            slideStartedAt = now
+        }
+        if flash > 0.001 {
+            flashStrength = max(flashStrength, flash)
+            flashStartedAt = now
+        }
+        startIconAnimTimerIfNeeded()
+        updateIcon()
+    }
+
+    private func startIconAnimTimerIfNeeded() {
+        guard iconAnimTimer == nil else { return }
+        iconAnimTimer = Timer.scheduledTimer(
+            withTimeInterval: 1.0/60.0, repeats: true
+        ) { [weak self] _ in
+            self?.tickIconAnim()
+        }
+    }
+
+    private func tickIconAnim() {
+        let now = CACurrentMediaTime()
+        var slideActive = false
+        var flashActive = false
+        if slideDirection != 0 {
+            if (now - slideStartedAt) >= Self.slideDuration {
+                slideDirection = 0
+            } else {
+                slideActive = true
+            }
+        }
+        if flashStrength > 0.01 {
+            if (now - flashStartedAt) >= Self.flashDuration {
+                flashStrength = 0
+            } else {
+                flashActive = true
+            }
+        }
+        if !slideActive && !flashActive {
+            iconAnimTimer?.invalidate()
+            iconAnimTimer = nil
+        }
+        updateIcon()
+    }
+
+    /// Computed slide offset for the current frame. Two-phase
+    /// "masked scroll" so the whole board reads as physically
+    /// scrolling past the menubar slot:
+    ///   phase 1: image slides off in `slideDirection` until it's
+    ///            fully off the slot (offset = ±imageWidth)
+    ///   phase 2: image enters from the OPPOSITE side and settles
+    ///            back at offset 0
+    /// Result: instead of a back-and-forth shove, the user gets a
+    /// physical sense of the piano scrolling — like dragging a long
+    /// keyboard sideways and seeing one octave's worth slide past.
+    private func currentSlideOffset() -> CGFloat {
+        guard slideDirection != 0 else { return 0 }
+        let elapsed = CACurrentMediaTime() - slideStartedAt
+        if elapsed >= Self.slideDuration { return 0 }
+        let t = elapsed / Self.slideDuration  // 0…1
+        let w = KeyboardIconRenderer.imageSize.width
+        let dir = CGFloat(slideDirection)
+        if t < 0.5 {
+            // Linear slide off — keeps speed constant so the scroll
+            // reads as a real surface moving past.
+            let phase = CGFloat(t / 0.5)
+            return phase * w * dir
+        } else {
+            // Re-entry from the opposite side, easing into rest.
+            let phase = CGFloat((t - 0.5) / 0.5)
+            return -(1 - phase) * w * dir
+        }
+    }
+
+    /// Computed flash strength for the current frame. Linear decay
+    /// from the peak value down to 0 over `flashDuration`.
+    private func currentFlashStrength() -> CGFloat {
+        guard flashStrength > 0.01 else { return 0 }
+        let elapsed = CACurrentMediaTime() - flashStartedAt
+        if elapsed >= Self.flashDuration { return 0 }
+        let t = CGFloat(elapsed / Self.flashDuration)
+        return flashStrength * (1 - t)
+    }
+
     private func updateIcon() {
         guard let button = statusItem.button else { return }
         // Use *effective* keymap/typeMode so popover hover-preview can
@@ -287,7 +448,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hovered: hoveredElement,
             letterAlpha: { [weak self] midi in
                 self?.letterAlpha(for: midi) ?? 0
-            }
+            },
+            slideOffsetX: currentSlideOffset(),
+            settingsFlash: currentFlashStrength()
         )
         // Force a synchronous redraw — the click drag-loop runs the runloop
         // in `eventTracking` mode and has been swallowing the next CA flush

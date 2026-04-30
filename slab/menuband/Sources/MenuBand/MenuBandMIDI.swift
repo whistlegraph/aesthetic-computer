@@ -121,6 +121,19 @@ enum MenuBandLayout {
         return panByKeyCode[Int(keyCode)]
     }
 
+    /// Hardware key codes used as octave-down / octave-up shifters in
+    /// the given keymap. Notepat reserves , (43) and . (47); Ableton
+    /// remaps to z (6) and x (7) because those sit unmapped in Live's
+    /// M-mode layout (where comma and period are right next to mapped
+    /// notes and would steal accidental presses).
+    @inline(__always)
+    static func octaveKeyCodes(for keymap: Keymap) -> (down: UInt16, up: UInt16) {
+        switch keymap {
+        case .ableton: return (6, 7)
+        case .notepat: return (43, 47)
+        }
+    }
+
     @inline(__always)
     static func midiNote(forKeyCode keyCode: UInt16,
                          octaveShift: Int,
