@@ -1,0 +1,490 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; }
+  /* 16:9 — exactly Google Slides widescreen at 2× retina */
+  body {
+    width: 2400px;
+    height: 1350px;
+    background: #ffffff;
+    color: #111;
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    box-sizing: border-box;
+    padding: 32px 40px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .connectors {
+    position: absolute;
+    inset: 0;
+    width: 2400px;
+    height: 1350px;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  /* ---------------- Header ---------------- */
+  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; }
+  .title { font-size: 100px; font-weight: 800; letter-spacing: -0.02em; margin: 0; line-height: 1; }
+  .subtitle { font-size: 34px; color: #444; margin: 12px 0 0 0; font-weight: 400; max-width: 1900px; line-height: 1.25; }
+  .brand { font-size: 26px; color: #888; letter-spacing: 0.18em; text-transform: uppercase; padding-bottom: 12px; white-space: nowrap; }
+
+  /* ---------------- Top half: PIANO (full width) ---------------- */
+  .piano-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .piano {
+    position: relative;
+    height: 320px;
+    width: 2076px;     /* 17 white keys × 120px + 36 gutter */
+    padding-left: 36px;
+    box-sizing: border-box;
+  }
+  .wkey, .bkey {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 0 0 10px 10px;
+    border: 2px solid #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 16px;
+  }
+  .wkey { width: 120px; height: 320px; background: #fff; color: #111; }
+  .wkey .qkey { font-size: 54px; font-weight: 800; line-height: 1; }
+  .wkey .nname { font-size: 22px; color: #777; letter-spacing: 0.05em; margin-top: 8px; font-weight: 600; }
+  .bkey { width: 72px; height: 200px; background: #111; color: #fff; border-color: #000; z-index: 2; }
+  .bkey .qkey { font-size: 36px; font-weight: 800; line-height: 1; }
+  .bkey .nname { font-size: 16px; color: #bbb; letter-spacing: 0.05em; margin-top: 6px; font-weight: 600; }
+  /* Extended-range keys: aged-yellow tint + faded — these are optional
+     "edge" keys, not the core two-octave instrument. Lower: A♯3/B3;
+     upper: C6/C♯6/D6. */
+  .wkey.ext { background: #fff7dc; color: #aa9255; border-color: #d4c075; opacity: 0.78; }
+  .wkey.ext .qkey { color: #aa9255; }
+  .wkey.ext .nname { color: #b09a55; }
+  .bkey.ext { background: #6a5826; color: #f8e7a0; border-color: #4a3814; opacity: 0.78; }
+  .bkey.ext .nname { color: #d8c878; }
+  .wkey.ext .ext-tag, .bkey.ext .ext-tag {
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    opacity: 0.85;
+    font-weight: 700;
+  }
+
+  /* ---------------- Bottom half: QWERTY (left) + RATIONALE+QRs (right) ---------------- */
+  .below { display: flex; gap: 36px; flex: 1; align-items: stretch; min-height: 0; }
+  .below-left { flex: 0 0 1380px; display: flex; flex-direction: column; }
+  .below-right { flex: 1; display: flex; flex-direction: column; }
+
+  /* QWERTY layout. ANSI/MacBook stagger 0 / 0.25u / 0.75u
+     cap = 100px, gap = 12px → slot = 112px
+       0.25 × 112 = 28px
+       0.75 × 112 = 84px */
+  .hand-labels { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 22px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; padding: 0 24px; }
+  .hand-labels .l { color: #2a6cb8; }
+  .hand-labels .r { color: #b8472a; }
+  .qwerty-bg {
+    position: relative;
+    padding: 18px 20px;
+    border-radius: 16px;
+    background: linear-gradient(to right,
+      rgba(74, 130, 200, 0.12) 0%,
+      rgba(74, 130, 200, 0.12) 48%,
+      rgba(200, 110, 74, 0.12) 52%,
+      rgba(200, 110, 74, 0.12) 100%);
+    box-sizing: border-box;
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+  .qwerty-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; }
+  .qrow { display: flex; gap: 12px; }
+  .qrow.r0 { padding-left: 0; }
+  .qrow.r1 { padding-left: 28px; }
+  .qrow.r2 { padding-left: 84px; }
+  .qcap {
+    width: 100px; height: 100px;
+    border-radius: 14px;
+    border: 3px solid #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    font-weight: 800;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .qcap.white { background: #fff; color: #111; }
+  .qcap.black { background: #111; color: #fff; border-color: #000; }
+  /* Extended-range caps: yellowed + faded. Not part of the core two-octave
+     instrument — included as optional reach. */
+  .qcap.ext-white {
+    background: #fff7dc; color: #aa9255;
+    border-color: #d4c075;
+    opacity: 0.78;
+    flex-direction: column;
+  }
+  .qcap.ext-black {
+    background: #6a5826; color: #f8e7a0;
+    border-color: #4a3814;
+    opacity: 0.78;
+    flex-direction: column;
+  }
+  .qcap .ext-tag {
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 5px;
+    opacity: 0.9;
+    font-weight: 700;
+  }
+  .qcap.ghost { background: transparent; color: #c8c8c8; border: 2.5px dashed #d4d4d4; font-weight: 600; font-size: 30px; }
+  .qcap.octshift {
+    background: #f4ecff; color: #6b3fc0;
+    border: 2.5px solid #b89df0;
+    font-weight: 800; font-size: 26px;
+    flex-direction: column;
+  }
+  .qcap.octshift .lbl { font-size: 13px; letter-spacing: 0.1em; opacity: 0.75; margin-top: 3px; }
+
+  /* ---------------- Right side: rationale + impls + QRs ---------------- */
+  .rationale { flex: 1; }
+  .rationale h3, .impls h3 {
+    font-size: 24px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #555;
+    margin: 0 0 14px 0;
+    font-weight: 700;
+  }
+  .rationale h3 .accent { color: #b8472a; }
+  .rationale ul { list-style: none; padding: 0; margin: 0; font-size: 26px; line-height: 1.35; color: #1a1a1a; }
+  .rationale li {
+    padding: 11px 0 11px 32px;
+    border-bottom: 1px solid #eee;
+    position: relative;
+  }
+  .rationale li:last-child { border-bottom: none; }
+  .rationale li::before {
+    content: "▸";
+    position: absolute; left: 0; top: 11px;
+    color: #b8472a;
+    font-weight: 800;
+    font-size: 26px;
+  }
+  .rationale li b { color: #000; font-weight: 800; }
+  .rationale li .keys {
+    font-family: "SF Mono", Menlo, monospace;
+    background: #f4f4f4;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-size: 22px;
+    color: #111;
+  }
+
+  .below-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 18px;
+    border-top: 2px solid #ddd;
+    padding-top: 16px;
+  }
+  .below-bottom .row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .impls { flex: 1; }
+  .impls .impl-list {
+    list-style: none;
+    padding: 0; margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    align-items: stretch;
+  }
+  .impls .impl-list li {
+    background: #f6f5f1;
+    border: 1px solid #e3e0d8;
+    border-radius: 10px;
+    padding: 7px 12px;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.05;
+    min-width: 0;
+  }
+  .impls .impl-list b { font-weight: 800; font-size: 21px; color: #111; white-space: nowrap; }
+  .impls .impl-list .where {
+    color: #777;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    margin-top: 4px;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .qrs { display: flex; gap: 22px; }
+  .qrs .qr { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .qrs .qr img { width: 180px; height: 180px; image-rendering: pixelated; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+  .qrs .qr .label { font-family: "SF Mono", Menlo, monospace; font-size: 17px; color: #111; font-weight: 700; }
+
+  /* PALS watermark + Jeffrey portrait + brand. Stacked images in the
+     top-right corner, text label to their left. */
+  .brand-block {
+    position: absolute;
+    top: 18px;
+    right: 32px;
+    display: flex; align-items: flex-start; gap: 20px;
+  }
+  .brand-block .marks {
+    display: flex; flex-direction: column; gap: 4px; align-items: center;
+  }
+  .brand-block .marks #pals { width: 124px; height: 124px; opacity: 0.95; }
+  .brand-block .marks #jeffrey {
+    width: 124px; height: 124px;
+    border-radius: 6px;
+    object-fit: cover;
+    object-position: center top;
+    border: 2px solid #ddd;
+    /* Pull up into the pals SVG's empty padding so the two marks
+       visually stack flush. */
+    margin-top: -22px;
+  }
+  .brand-block .brand-text {
+    display: flex; flex-direction: column; gap: 6px;
+    align-items: flex-end;
+    padding-top: 6px;
+  }
+  .brand-block .brand-text .top {
+    font-size: 36px; color: #333;
+    letter-spacing: 0.04em;
+    white-space: nowrap; font-weight: 800;
+    line-height: 1;
+  }
+  .brand-block .brand-text .author {
+    font-size: 22px; color: #888;
+    white-space: nowrap; font-weight: 500;
+    font-family: "SF Mono", Menlo, monospace;
+  }
+  .brand-block .brand-text .author b { color: #b8472a; font-weight: 800; }
+</style>
+</head>
+<body>
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="title">notepat.com Keymap</div>
+      <div class="subtitle">A chromatic keyboard instrument. <b>C&middot;D&middot;E&middot;F&middot;G&middot;A&middot;B</b> play the notes they name. Sharps <i>mostly</i> sit one row above their natural — like piano black keys.</div>
+    </div>
+    <div class="brand-block">
+      <div class="brand-text">
+        <div class="top">Aesthetic.Computer</div>
+        <div class="author">by <b>@jeffrey</b></div>
+      </div>
+      <div class="marks">
+        <img id="pals" alt="">
+        <img id="jeffrey" alt="@jeffrey">
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP: PIANO (hero, full width) -->
+  <div class="piano-wrap">
+    <div class="piano">
+      <div class="wkey ext" style="left:36px;">   <div class="qkey">X</div><div class="nname">B3</div><div class="ext-tag">ext</div></div>
+      <div class="wkey" data-pn="c" style="left:156px;">  <div class="qkey">C</div><div class="nname">C4</div></div>
+      <div class="wkey" data-pn="d" style="left:276px;">  <div class="qkey">D</div><div class="nname">D4</div></div>
+      <div class="wkey" data-pn="e" style="left:396px;">  <div class="qkey">E</div><div class="nname">E4</div></div>
+      <div class="wkey" data-pn="f" style="left:516px;">  <div class="qkey">F</div><div class="nname">F4</div></div>
+      <div class="wkey" data-pn="g" style="left:636px;">  <div class="qkey">G</div><div class="nname">G4</div></div>
+      <div class="wkey" data-pn="a" style="left:756px;">  <div class="qkey">A</div><div class="nname">A4</div></div>
+      <div class="wkey" data-pn="b" style="left:876px;">  <div class="qkey">B</div><div class="nname">B4</div></div>
+      <div class="wkey" style="left:996px;">  <div class="qkey">H</div><div class="nname">C5</div></div>
+      <div class="wkey" style="left:1116px;"> <div class="qkey">I</div><div class="nname">D5</div></div>
+      <div class="wkey" style="left:1236px;"> <div class="qkey">J</div><div class="nname">E5</div></div>
+      <div class="wkey" style="left:1356px;"> <div class="qkey">K</div><div class="nname">F5</div></div>
+      <div class="wkey" style="left:1476px;"> <div class="qkey">L</div><div class="nname">G5</div></div>
+      <div class="wkey" style="left:1596px;"> <div class="qkey">M</div><div class="nname">A5</div></div>
+      <div class="wkey" style="left:1716px;"> <div class="qkey">N</div><div class="nname">B5</div></div>
+      <div class="wkey ext" style="left:1836px;"><div class="qkey">;</div><div class="nname">C6</div><div class="ext-tag">ext</div></div>
+      <div class="wkey ext" style="left:1956px;"><div class="qkey">]</div><div class="nname">D6</div><div class="ext-tag">ext</div></div>
+
+      <!-- Black keys: width 72, left = white_left - 36 -->
+      <div class="bkey ext" style="left:0px;">    <div class="qkey">Z</div><div class="nname">A♯3</div></div>
+      <div class="bkey" style="left:240px;">  <div class="qkey">V</div><div class="nname">C♯4</div></div>
+      <div class="bkey" style="left:360px;">  <div class="qkey">S</div><div class="nname">D♯4</div></div>
+      <div class="bkey" style="left:600px;">  <div class="qkey">W</div><div class="nname">F♯4</div></div>
+      <div class="bkey" style="left:720px;">  <div class="qkey">R</div><div class="nname">G♯4</div></div>
+      <div class="bkey" style="left:840px;">  <div class="qkey">Q</div><div class="nname">A♯4</div></div>
+      <div class="bkey" style="left:1080px;"> <div class="qkey">T</div><div class="nname">C♯5</div></div>
+      <div class="bkey" style="left:1200px;"> <div class="qkey">Y</div><div class="nname">D♯5</div></div>
+      <div class="bkey" style="left:1440px;"> <div class="qkey">U</div><div class="nname">F♯5</div></div>
+      <div class="bkey" style="left:1560px;"> <div class="qkey">O</div><div class="nname">G♯5</div></div>
+      <div class="bkey" style="left:1680px;"> <div class="qkey">P</div><div class="nname">A♯5</div></div>
+      <div class="bkey ext" style="left:1920px;"> <div class="qkey">'</div><div class="nname">C♯6</div></div>
+    </div>
+  </div>
+
+  <!-- BELOW: QWERTY (left) + RATIONALE/IMPLS/QRs (right) -->
+  <div class="below">
+    <div class="below-left">
+      <div class="hand-labels">
+        <div class="l">← Left hand · lower octave</div>
+        <div class="r">Right hand · upper octave →</div>
+      </div>
+      <div class="qwerty-bg">
+        <div class="qwerty-wrap">
+          <div class="qrow r0">
+            <div class="qcap black">Q</div>
+            <div class="qcap black">W</div>
+            <div class="qcap white" data-qn="e">E</div>
+            <div class="qcap black">R</div>
+            <div class="qcap black">T</div>
+            <div class="qcap black">Y</div>
+            <div class="qcap black">U</div>
+            <div class="qcap white">I</div>
+            <div class="qcap black">O</div>
+            <div class="qcap black">P</div>
+            <div class="qcap ghost">[</div>
+            <div class="qcap ext-white">]<div class="ext-tag">ext</div></div>
+          </div>
+          <div class="qrow r1">
+            <div class="qcap white" data-qn="a">A</div>
+            <div class="qcap black">S</div>
+            <div class="qcap white" data-qn="d">D</div>
+            <div class="qcap white" data-qn="f">F</div>
+            <div class="qcap white" data-qn="g">G</div>
+            <div class="qcap white">H</div>
+            <div class="qcap white">J</div>
+            <div class="qcap white">K</div>
+            <div class="qcap white">L</div>
+            <div class="qcap ext-white">;<div class="ext-tag">ext</div></div>
+            <div class="qcap ext-black">'<div class="ext-tag">ext</div></div>
+          </div>
+          <div class="qrow r2">
+            <div class="qcap ext-black">Z<div class="ext-tag">ext</div></div>
+            <div class="qcap ext-white">X<div class="ext-tag">ext</div></div>
+            <div class="qcap white" data-qn="c">C</div>
+            <div class="qcap black">V</div>
+            <div class="qcap white" data-qn="b">B</div>
+            <div class="qcap white">N</div>
+            <div class="qcap white">M</div>
+            <div class="qcap octshift">,<div class="lbl">oct−</div></div>
+            <div class="qcap octshift">.<div class="lbl">oct+</div></div>
+            <div class="qcap ghost">/</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="below-right">
+      <div class="rationale">
+        <h3>Why this <span class="accent">layout</span></h3>
+        <ul>
+          <li><b>Notes that name themselves.</b> <span class="keys">C D E F G A B</span> play the notes they name — anyone who knows the Western scale already knows it.</li>
+          <li><b>Sharps <i>mostly</i> sit above their naturals.</b> <span class="keys">V S W R Q</span> = C♯ D♯ F♯ G♯ A♯ — close to piano black keys, with a few exceptions.</li>
+          <li><b>Two-handed by default.</b> Lower octave under the left hand; upper octave (<span class="keys">H J K L ;</span>) mirrors it under the right.</li>
+          <li><b>Social software.</b> The instrument shares the keyboard everyone already owns — musical participation isn't gated by software literacy.</li>
+        </ul>
+      </div>
+
+      <div class="below-bottom">
+        <div class="impls">
+          <h3>Notepat lives in</h3>
+          <ul class="impl-list">
+            <li><b>notepat.com</b><span class="where">web</span></li>
+            <li><b>AC Native</b><span class="where">AC OS</span></li>
+            <li><b>MenuBand</b><span class="where">macOS</span></li>
+            <li><b>AC-Notepat</b><span class="where">Max for Live</span></li>
+            <li><b>Remote</b><span class="where">phone</span></li>
+          </ul>
+        </div>
+        <div class="row">
+          <div class="qrs">
+            <div class="qr">
+              <img id="qr1" alt="notepat.com">
+              <div class="label">https://notepat.com</div>
+            </div>
+            <div class="qr">
+              <img id="qr2" alt="prompt.ac/menuband">
+              <div class="label">https://prompt.ac/menuband</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SVG connector overlay: fading dashed lines from each lower-octave
+       natural on the piano down to the QWERTY key with the same letter.
+       Helps the viewer SEE that C·D·E·F·G·A·B name themselves. -->
+  <svg class="connectors" id="connectors"></svg>
+
+  <script>
+    document.getElementById("qr1").src = "__QR_NOTEPAT__";
+    document.getElementById("qr2").src = "__QR_MENUBAND__";
+    document.getElementById("pals").src = "__PALS_LOGO__";
+    document.getElementById("jeffrey").src = "__JEFFREY_PIC__";
+
+    // Draw the piano→qwerty connectors. Each line uses notepat.mjs's
+    // per-note color (C=red, D=orange, E=yellow, F=green, G=blue,
+    // A=purple, B=brown). Opacity fades as the scale rises so C reads
+    // strongest. Lines run center-to-center, drawn over the keys.
+    function drawConnectors() {
+      const svg = document.getElementById("connectors");
+      // Only the first five naturals — past G the visual gets noisy
+      // and the point ("notes name themselves") is already made.
+      const naturals = [
+        { n: "c", color: "rgb(255, 0, 0)",   op: 0.95 }, // red    — strongest
+        { n: "d", color: "rgb(255, 140, 0)", op: 0.55 }, // orange
+        { n: "e", color: "rgb(212, 180, 0)", op: 0.32 }, // yellow
+        { n: "f", color: "rgb(0, 128, 0)",   op: 0.18 }, // green
+        { n: "g", color: "rgb(0, 0, 220)",   op: 0.10 }, // blue   — barely there
+      ];
+      const NS = "http://www.w3.org/2000/svg";
+      for (const { n, color, op } of naturals) {
+        const piano = document.querySelector(`.wkey[data-pn="${n}"]`);
+        const qwerty = document.querySelector(`.qcap[data-qn="${n}"]`);
+        if (!piano || !qwerty) continue;
+        const pr = piano.getBoundingClientRect();
+        const qr = qwerty.getBoundingClientRect();
+        const x1 = pr.left + pr.width / 2;
+        const y1 = pr.top + pr.height / 2;
+        const x2 = qr.left + qr.width / 2;
+        const y2 = qr.top + qr.height / 2;
+        // The connecting dashed line.
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("stroke", color);
+        line.setAttribute("stroke-width", "5");
+        line.setAttribute("stroke-dasharray", "10 8");
+        line.setAttribute("stroke-linecap", "round");
+        line.setAttribute("opacity", op);
+        svg.appendChild(line);
+        // Endpoint dots — small + see-through so the letter underneath
+        // still reads.
+        const dotOp = Math.min(0.55, op * 0.55);
+        for (const [cx, cy] of [[x1, y1], [x2, y2]]) {
+          const dot = document.createElementNS(NS, "circle");
+          dot.setAttribute("cx", cx);
+          dot.setAttribute("cy", cy);
+          dot.setAttribute("r", 6);
+          dot.setAttribute("fill", color);
+          dot.setAttribute("opacity", dotOp);
+          svg.appendChild(dot);
+        }
+      }
+    }
+    drawConnectors();
+  </script>
+</body>
+</html>
