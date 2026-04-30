@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let popover = NSPopover()
     private var popoverVC: MenuBandPopoverViewController?
     private lazy var floatingPlayPalette = FloatingPlayPaletteController(menuBand: menuBand)
+    private lazy var waveformStrip = MenuBarWaveformStrip(menuBand: menuBand)
     private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
     private var focusCaptureArmedByShortcut = false
@@ -135,11 +136,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.updateIcon()
             self.popoverVC?.refreshHeldNotes()
             self.floatingPlayPalette.refresh()
+            self.updateWaveformStrip()
         }
         menuBand.bootstrap()
         floatingPlayPalette.onDismiss = { [weak self] in
             self?.updateIcon()
             self?.popoverVC?.syncFromController()
+            self?.updateWaveformStripSuppression()
         }
         floatingPlayPalette.isPianoFocusActive = { [weak self] in
             self?.localCapture.isArmed ?? false
@@ -423,6 +426,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if menuBand.typeMode {
             menuBand.disableTypeModeForFocusCapture()
         }
+        updateWaveformStripSuppression()
     }
 
     private func toggleFocusCaptureFromShortcut() {
@@ -568,6 +572,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        waveformStrip.dismiss()
         floatingPlayPalette.dismiss(reason: .programmatic)
         menuBand.shutdown()
     }
@@ -992,6 +997,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
         if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
         appBeforePopover = nil
+        updateWaveformStripSuppression()
     }
 
     /// Distributed-notification entry point for the dev affordance
@@ -1036,6 +1042,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 : frontmost
             NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
+            updateWaveformStripSuppression()
             DispatchQueue.main.async {
                 self.popover.contentViewController?.view.window?.makeKey()
             }
@@ -1064,5 +1071,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+    }
+
+    // MARK: - Menubar waveform strip
+
+    private func updateWaveformStrip() {
+        if !menuBand.litNotes.isEmpty {
+            waveformStrip.reposition(statusItemButton: statusItem.button)
+            waveformStrip.showIfNeeded()
+        } else {
+            waveformStrip.scheduleHide()
+        }
+    }
+
+    private func updateWaveformStripSuppression() {
+        waveformStrip.suppressed = popover.isShown || floatingPlayPalette.isShown
     }
 }
