@@ -571,9 +571,9 @@
     <p class="tagline">Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
 
     <div class="button-row">
-      <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.3.dmg" download>
+      <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.5.dmg" download>
         Download
-        <small>0.3 · Apple Silicon · 1.2 MB</small>
+        <small>0.5 · Apple Silicon · 2.1 MB</small>
       </a>
     </div>
     <p class="aux"><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">view source</a> · by <a href="https://aesthetic.computer">aesthetic.computer</a></p>
@@ -598,8 +598,10 @@
   </section>
 
   <section class="panel">
-    <h3>What's new <span class="badge">0.3</span></h3>
-    <p>Audio actually fires (lazy-loaded GM bank). Visualizer rendered in Metal with per-bar ballistics. Instrument palette collapses with the popover in MIDI mode. Click sounds on popover open + MIDI toggle.</p>
+    <h3>What's new <span class="badge">0.5</span></h3>
+    <p><b>Snappier.</b> Visualizer pauses when the popover is hidden, and the Metal layer no longer waits for vsync — the popover opens instantly and bars track audio with less latency. Big thanks to <a href="https://github.com/estebanuribe">Esteban Uribe</a> for both performance patches.</p>
+    <p><b>No Accessibility prompt.</b> Click the menubar piano and the keys flash their letters; type to play. No system-wide keystroke capture, no permission dialog. (The Notepat / Ableton modes still use global capture for play-while-using-other-apps; that's an opt-in toggle.)</p>
+    <p><b>Plus:</b> a mute toggle, an accent-tinted Finder icon that follows your system color, and the popover keeps the same width when MIDI flips on.</p>
   </section>
 
   <section class="panel">
