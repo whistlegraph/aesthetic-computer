@@ -164,6 +164,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.register(keyCode: UInt32(kVK_ANSI_P), modifiers: modMask)
         typeModeHotkey = hotkey
 
+        // Dev affordance: post the
+        // `computer.aestheticcomputer.menuband.showPopover`
+        // distributed notification to toggle the popover from the
+        // shell. Used during iteration to flash the popover open
+        // after rebuild without hunting for the menubar item.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleShowPopoverNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.showPopover"),
+            object: nil
+        )
+
         // Local key capture wiring. Routes keys to the same note logic the
         // global tap uses, with the ghost-label flash on every press so the
         // user sees the layout dynamically appear while typing.
@@ -717,6 +729,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
         if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
+    }
+
+    /// Distributed-notification entry point for the dev affordance
+    /// registered in `applicationDidFinishLaunching`. Always *opens*
+    /// the popover (never closes) — repeated triggers from a shell
+    /// rebuild loop should leave it visible, not flicker shut.
+    @objc private func handleShowPopoverNotification(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.popover.isShown {
+                self.showPopover()
+            }
+        }
     }
 
     private func showPopover() {

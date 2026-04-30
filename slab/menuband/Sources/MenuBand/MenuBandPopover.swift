@@ -344,6 +344,9 @@ final class MenuBandPopoverViewController: NSViewController {
         waveformBezel = NSView()
         waveformBezel.wantsLayer = true
         waveformBezel.layer?.cornerRadius = 6
+        // Bezel substrate color is set per-appearance in
+        // `applyAppearanceToVisualizer` (called from syncFromController);
+        // start dark so first-paint before sync isn't a flash.
         waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
         waveformBezel.layer?.borderWidth = 1
         // Border color is set in `updateInstrumentReadout` so the
@@ -423,11 +426,10 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentReadout.wantsLayer = true
         instrumentReadout.lineBreakMode = .byTruncatingTail
         instrumentReadout.alignment = .center
-        let titleShadow = NSShadow()
-        titleShadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
-        titleShadow.shadowBlurRadius = 3
-        titleShadow.shadowOffset = NSSize(width: 0, height: -1)
-        instrumentReadout.shadow = titleShadow
+        // No view-level shadow — the per-glyph shadow lives in the
+        // attributed string (set in updateInstrumentReadout) so it
+        // stays crisp. A view shadow on top of that double-shadows
+        // the text and looks like a soft halo.
         // Center the chip in its row by flanking it with greedy
         // spacers — without these, .fill distribution lets the
         // (now-shrunken) text hug the leading edge.
@@ -831,6 +833,7 @@ final class MenuBandPopoverViewController: NSViewController {
             btn.state = (i == segIdx) ? .on : .off
         }
         instrumentList.selectedProgram = n.melodicProgram
+        applyAppearanceToVisualizer()
         updateInstrumentReadout()
         // Keep the QWERTY layout's keymap + tint synced with the
         // controller. Voice color picks up the family hue for the
@@ -899,16 +902,19 @@ final class MenuBandPopoverViewController: NSViewController {
         // always has presence.
         let isDark = view.effectiveAppearance.bestMatch(
             from: [.aqua, .darkAqua]) == .darkAqua
-        let textColor: NSColor = isDark
-            ? (famColor.highlight(withLevel: 0.35) ?? famColor)
-            : (famColor.shadow(withLevel: 0.25) ?? famColor)
-        // Soft drop shadow opposite the system appearance so the
-        // glyph anchors on the bg without a chip backdrop.
+        // Flip the foreground/shadow relationship: max-contrast text
+        // (white in dark, black in light) with the family color as a
+        // hard 1-px shadow. Reads like a Risograph misregister — the
+        // hue still keys the voice but the title stays legible.
+        let textColor: NSColor = isDark ? .white : .black
         let shadow = NSShadow()
-        shadow.shadowColor = (isDark ? NSColor.black : NSColor.white)
-            .withAlphaComponent(0.55)
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        shadow.shadowBlurRadius = 2
+        // Light-tinted family color in both modes — a pastel offset
+        // that reads as a soft Riso-style misregister rather than a
+        // dark drop shadow weighing the title down.
+        shadow.shadowColor = (famColor.highlight(withLevel: isDark ? 0.25 : 0.55)
+            ?? famColor)
+        shadow.shadowOffset = NSSize(width: 1, height: -1)
+        shadow.shadowBlurRadius = 0
         // Try YWFT Processing first (bundled in Resources/), fall
         // back through the Processing-IDE family, then the system
         // black-weight as a last resort.
@@ -943,6 +949,25 @@ final class MenuBandPopoverViewController: NSViewController {
     // open via syncFromController — viewDidChangeEffectiveAppearance
     // isn't on NSViewController in macOS so we don't try to hook it
     // mid-session.
+
+    /// Flip the LED bezel + visualizer between dark-mode (LED-on-black
+    /// glow) and light-mode (ink-on-paper) substrates so the meter
+    /// doesn't look like a black slab pasted onto a white popover.
+    private func applyAppearanceToVisualizer() {
+        let isDark = view.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        waveformView.setLightMode(!isDark)
+        if isDark {
+            waveformBezel?.layer?.backgroundColor =
+                NSColor(white: 0.06, alpha: 1.0).cgColor
+        } else {
+            // Slightly darker than the visualizer's own clear color so
+            // the inset bars read as recessed into the bezel — same
+            // recessed-housing effect as the dark mode 0.06 → 0.0 step.
+            waveformBezel?.layer?.backgroundColor =
+                NSColor(white: 0.82, alpha: 1.0).cgColor
+        }
+    }
 
     /// Reflect the MIDI loopback self-test status as the inline "MIDI"
     /// label's color. No textual chrome — the color is the indicator.

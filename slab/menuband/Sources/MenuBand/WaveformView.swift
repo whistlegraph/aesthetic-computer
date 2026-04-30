@@ -230,6 +230,25 @@ final class WaveformView: MTKView {
                                        1.0)
     }
 
+    /// Switch the meter substrate + lit-bar tonality between the
+    /// glowing-on-black look (dark mode) and an ink-on-paper look
+    /// (light mode). In light mode the clear color flips to a warm
+    /// off-white and the shader's hot-zone mix darkens toward black
+    /// instead of brightening to white, so peak still reads as
+    /// "hotter" without washing out against the light substrate.
+    func setLightMode(_ isLight: Bool) {
+        if isLight {
+            // Warm off-white — closer to a printed page than pure
+            // white, so the colored bars don't vibrate against it.
+            clearColor = MTLClearColor(red: 0.93, green: 0.92, blue: 0.90, alpha: 1.0)
+            uniforms.isLight = 1
+        } else {
+            clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1.0)
+            uniforms.isLight = 0
+        }
+        display()
+    }
+
     // MARK: - Per-frame audio analysis
 
     private func updateLevels() {
@@ -301,6 +320,7 @@ final class WaveformView: MTKView {
         float minHeight;
         float4 color;
         float dotMatrix;
+        float isLight;
     };
 
     struct VertexOut {
@@ -366,12 +386,14 @@ final class WaveformView: MTKView {
             discard_fragment();
         }
         // Bar color = the instrument's chosen base hue, passed in via
-        // u.color. The top of the bar still brightens toward white so
-        // there's a "peaking" cue even when the base is dim — VU
-        // gradient feel without forcing green/amber/red.
+        // u.color. In dark mode the top brightens toward white (LED
+        // glow); in light mode it darkens toward black (ink saturation
+        // at peak) — both read as "this bar is hotter at the top"
+        // against their respective substrates.
         float3 base = u.color.rgb;
         float hot = max(0.0, (y01 - HOT_AT) / (1.0 - HOT_AT));
-        float3 tier = mix(base, float3(1.0, 1.0, 1.0), hot * 0.65);
+        float3 hotTarget = (u.isLight > 0.5) ? float3(0.0, 0.0, 0.0) : float3(1.0, 1.0, 1.0);
+        float3 tier = mix(base, hotTarget, hot * 0.65);
         // Per-segment glow: brighter at the center of each LED cell,
         // falling off toward the gap edges. Reads as a soft bloom on
         // each lit segment without a real blur pass.
@@ -387,9 +409,17 @@ final class WaveformView: MTKView {
         bool maskLit = (u.dotMatrix > 0.5) && (((mask >> segIndex) & 1u) != 0u);
         bool levelLit = y01 < in.level;
         bool lit = maskLit || levelLit;
-        float3 color = lit ? (tier + bloom * 0.40) : tier;
-        float a = lit ? u.color.a : (u.color.a * UNLIT_ALPHA);
-        return float4(min(color, 1.0), a);
+        // Bloom direction also flips with the substrate so the
+        // per-segment glow reinforces "hotter" instead of fighting it.
+        float bloomSign = (u.isLight > 0.5) ? -1.0 : 1.0;
+        float3 color = lit ? (tier + bloomSign * bloom * 0.40) : tier;
+        // In light mode unlit segments fade toward the substrate (warm
+        // off-white) instead of toward black — without this the
+        // "off" rows show as faint colored dots, which reads as a row
+        // of always-on LEDs rather than empty headroom.
+        float unlitAlpha = (u.isLight > 0.5) ? 0.20 : UNLIT_ALPHA;
+        float a = lit ? u.color.a : (u.color.a * unlitAlpha);
+        return float4(clamp(color, float3(0.0), float3(1.0)), a);
     }
     """
 }
@@ -405,6 +435,10 @@ private struct BarUniforms {
     /// (see `dotMasks`) instead of the continuous-level VU. Used in
     /// MIDI mode to spell "MIDI" out of the LED segments.
     var dotMatrix: Float = 0
+    /// Set to 1 when the popover is in light appearance — flips the
+    /// hot-zone mix target from white to black and the unlit fade
+    /// target from black to the warm off-white substrate.
+    var isLight: Float = 0
 }
 
 extension WaveformView: MTKViewDelegate {

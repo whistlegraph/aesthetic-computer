@@ -262,3 +262,15 @@ echo -e "$GREEN-> Restarting lith...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith"
 
 echo -e "$GREEN-> Done. lith deployed to $TARGET_HOST$NC"
+
+# Mirror slab/menuband/ to its standalone GitHub repo. Runs after a
+# successful site deploy so the mirror's release pace matches what's
+# actually live on aesthetic.computer/menuband. Failure here doesn't
+# void the deploy — the mirror is a courtesy surface for external
+# contributors, not a critical path.
+set MIRROR_SYNC "$REPO_ROOT/slab/menuband/bin/mirror-sync.sh"
+if test -x "$MIRROR_SYNC"
+    echo -e "$GREEN-> Syncing menuband mirror...$NC"
+    bash "$MIRROR_SYNC" 2>&1 | tail -3
+    or echo -e "$YELLOW   menuband mirror sync failed (non-fatal)$NC"
+end
