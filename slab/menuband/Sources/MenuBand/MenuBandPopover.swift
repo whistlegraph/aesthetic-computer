@@ -423,7 +423,10 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentReadout.font = NSFont.systemFont(ofSize: 18, weight: .black)
         instrumentReadout.textColor = .labelColor
         instrumentReadout.drawsBackground = false
-        instrumentReadout.wantsLayer = true
+        // No `wantsLayer = true` here — layer-backing this label adds
+        // a CA rasterization step that can soften pixel-aligned glyph
+        // edges and the hard 1-px shadow we set in the attributed
+        // string. Plain non-layered drawing keeps the shadow crisp.
         instrumentReadout.lineBreakMode = .byTruncatingTail
         instrumentReadout.alignment = .center
         // No view-level shadow — the per-glyph shadow lives in the
@@ -909,18 +912,25 @@ final class MenuBandPopoverViewController: NSViewController {
         let textColor: NSColor = isDark ? .white : .black
         let shadow = NSShadow()
         // Light-tinted family color in both modes — a pastel offset
-        // that reads as a soft Riso-style misregister rather than a
-        // dark drop shadow weighing the title down.
-        shadow.shadowColor = (famColor.highlight(withLevel: isDark ? 0.25 : 0.55)
+        // that reads as a Riso misregister rather than a dark drop
+        // shadow weighing the title down. Light mode pushes harder
+        // toward white so the offset stays clearly *lighter* than
+        // the black title sitting on top.
+        shadow.shadowColor = (famColor.highlight(withLevel: isDark ? 0.3 : 0.7)
             ?? famColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)
         shadow.shadowBlurRadius = 0
-        // Try YWFT Processing first (bundled in Resources/), fall
-        // back through the Processing-IDE family, then the system
-        // black-weight as a last resort.
-        let titleFont = NSFont(name: "YWFTProcessing-Bold", size: 18)
-            ?? NSFont(name: "YWFTProcessing-Regular", size: 18)
-            ?? NSFont(name: "Processing-Sans-Pro-Bold", size: 18)
+        // YWFT Processing — both bundled .ttf files share the same
+        // PostScript name ("YWFT-Processing"), so `NSFont(name:)`
+        // only resolves whichever one was registered last. Resolve by
+        // family + bold trait via NSFontDescriptor instead so we
+        // actually get the bold cut, then the regular as a same-family
+        // fallback, then system black as a last resort.
+        let famDesc = NSFontDescriptor(fontAttributes: [.family: "YWFT Processing"])
+        let boldDesc = famDesc.withSymbolicTraits(.bold)
+        let titleFont = NSFont(descriptor: boldDesc, size: 18)
+            ?? NSFont(descriptor: famDesc, size: 18)
+            ?? NSFont(name: "YWFT-Processing", size: 18)
             ?? NSFont.systemFont(ofSize: 18, weight: .black)
         instrumentReadout.attributedStringValue = NSAttributedString(
             string: title,
