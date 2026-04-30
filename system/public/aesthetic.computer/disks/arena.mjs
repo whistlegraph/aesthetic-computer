@@ -202,6 +202,24 @@ function flushCmds() {
   netStats.lastCmdMs = Date.now();
 }
 
+// 🐛 mp-debug — log first snap + roster changes so we can see what's
+// actually arriving on the wire. Drop once mutual-visibility is solid.
+let _mpFirstSnap = false;
+let _mpLastRoster = "";
+function _mpDebug(snap, blobs) {
+  if (!_mpFirstSnap) {
+    _mpFirstSnap = true;
+    console.log(
+      `🏟️  first snap: msg=${snap.messageNum} you=${snap.you} delta=${snap.deltaNum} players=[${blobs.map((p) => p.h).join(",")}]`,
+    );
+  }
+  const roster = Object.keys(others).sort().join(",");
+  if (roster !== _mpLastRoster) {
+    _mpLastRoster = roster;
+    console.log(`🏟️  others roster (me=${myHandle}): [${roster || "—"}]`);
+  }
+}
+
 function onSnap(snap) {
   netStats.snapsRx++;
   netStats.lastSnapMs = Date.now();
@@ -291,6 +309,8 @@ function onSnap(snap) {
     if (seen.has(h)) continue;
     if (snap.serverMs - others[h].lastSeenMs > 2000) delete others[h];
   }
+
+  _mpDebug(snap, blobs);
 
   // M7: client-side prediction reconciliation.
   reconcileLocal();
