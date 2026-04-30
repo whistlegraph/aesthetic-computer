@@ -3158,7 +3158,12 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
             // correction is needed beyond the pitch ratio.
             double semis = target_midi_d - (double)anchor->midi;
             v->piano_sample_step = pow(2.0, semis / 12.0);
-            v->piano_sample_amp  = 1.8;
+            // Salamander samples sit several dB below the ±1 oscillators
+            // (recorded with headroom across velocity layers), so a bare
+            // pass-through reads quieter than sine/square at the same
+            // notepat `volume`. 3.0× brings perceived loudness in line
+            // with the basic waves; soft_clip absorbs any peak excess.
+            v->piano_sample_amp  = 3.0;
             ac_log("[piano] f0=%.1fHz midi=%d → anchor midi=%d step=%.4f len=%d\n",
                    f0, target_midi, anchor->midi,
                    v->piano_sample_step, anchor->len);
