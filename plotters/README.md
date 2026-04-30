@@ -1,19 +1,39 @@
 # Plotters
 
-Helper Fish shell functions for controlling an AxiDraw via `axicli`.
+Per-plotter helpers and configs. Each plotter has its own subdir with a
+README, drivers, and any device profiles it needs. The flat `axi*.fish`
+scripts at this level are the AxiDraw helpers (kept top-level for muscle
+memory; conceptually they belong to AxiDraw).
 
-Place each `.fish` file in `~/.config/fish/functions/` or `source` them in your `~/.config/fish/config.fish` to make the commands available in your shell.
+## Devices
 
-## Commands
-- `axihome` – move to home
-- `axipenup` – raise pen
-- `axipendown` – lower pen
-- `axienable` – enable XY motors
-- `axidisable` – disable XY motors
-- `axicycle` – run the AxiDraw demo cycle
-- `axiplot file.svg [axicli args...]` – plot a file with optional extra `axicli` arguments
+- **AxiDraw** — flat fish helpers (`axihome`, `axipenup`, `axipendown`,
+  `axienable`, `axidisable`, `axicycle`, `axiplot file.svg ...`). Driven via
+  `axicli`. See [Examples](#axidraw-examples) below.
+- **HP 7585B** — `hp7585b/`. A0/E-size 8-pen drafting plotter, driven via
+  vpype (SVG → HPGL) plus serial helpers. See `hp7585b/README.md`.
 
-## Examples
+## Install (fish)
+
+Symlink the helpers you want into `~/.config/fish/functions/` or `source`
+them from `config.fish`. For the AxiDraw helpers:
+
+```fish
+for f in ~/aesthetic-computer/plotters/axi*.fish
+    ln -sf $f ~/.config/fish/functions/(basename $f)
+end
+```
+
+For the HP 7585B helpers:
+
+```fish
+for f in ~/aesthetic-computer/plotters/hp7585b/hp7585b*.fish
+    ln -sf $f ~/.config/fish/functions/(basename $f)
+end
+```
+
+## AxiDraw examples
+
 ```
 axihome
 axipenup

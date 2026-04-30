@@ -1,0 +1,152 @@
+# HP 7585B vpype HPGL device profile.
+#
+# Drop this into ~/.vpype.toml (or pass --config /path/to/this/file on every
+# invocation). vpype merges device tables from the user config into its
+# bundled set, so this adds `hp7585b` without touching anything shipped.
+#
+# Spec sources:
+#   • plotter unit = 0.025 mm  (40 units / mm)            — HP 7585B service spec
+#   • pen carousel = 8                                     — HP 7585B service spec
+#   • plot-area margins = 5 / 5 / 5 / 29 mm                — HP 7585B I&P manual,
+#                                                            Table 1-2 supplemental
+#   • paper range = 203×267 mm  →  927×1190 mm cut sheet   — HP 7585B service spec
+#
+# Plot-area numbers below are derived from (paper_long − 34 mm, paper_short −
+# 10 mm) × 40 units/mm. They are nominal — verify against your actual sheet
+# load and adjust if the plotter clips. Origin is bottom-left of plottable
+# area (HP plotters are y-up natively), and the long edge is X.
+
+[device.hp7585b]
+name = "HP 7585B"
+plotter_unit_length = "0.025mm"
+pen_count = 8
+info = """
+HP 7585B drafting plotter (1983, A0/E-size, 8-pen carousel).
+Default RS-232: 9600 8N1, hardware (Xon/Xoff) flow control.
+Set DIP switches on the rear panel before first use. Always run a confidence
+test (front panel) once after powering on.
+"""
+
+# ---------- ISO sizes ----------
+
+[[device.hp7585b.paper]]
+name = "a4"
+aka_names = ["A4"]
+paper_size = ["297mm", "210mm"]
+x_range = [0, 10520]
+y_range = [0, 8000]
+y_axis_up = true
+origin_location = ["5mm", "205mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ISO A4. Long edge along X. Plotter must be in Metric mode."
+
+[[device.hp7585b.paper]]
+name = "a3"
+aka_names = ["A3"]
+paper_size = ["420mm", "297mm"]
+x_range = [0, 15440]
+y_range = [0, 11480]
+y_axis_up = true
+origin_location = ["5mm", "292mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ISO A3. Plotter must be in Metric mode."
+
+[[device.hp7585b.paper]]
+name = "a2"
+aka_names = ["A2"]
+paper_size = ["594mm", "420mm"]
+x_range = [0, 22400]
+y_range = [0, 16400]
+y_axis_up = true
+origin_location = ["5mm", "415mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ISO A2. Plotter must be in Metric mode."
+
+[[device.hp7585b.paper]]
+name = "a1"
+aka_names = ["A1"]
+paper_size = ["841mm", "594mm"]
+x_range = [0, 32280]
+y_range = [0, 23360]
+y_axis_up = true
+origin_location = ["5mm", "589mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ISO A1. Plotter must be in Metric mode."
+
+[[device.hp7585b.paper]]
+name = "a0"
+aka_names = ["A0"]
+paper_size = ["1189mm", "841mm"]
+x_range = [0, 46200]
+y_range = [0, 33240]
+y_axis_up = true
+origin_location = ["5mm", "836mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ISO A0 (full E-size capacity). Plotter must be in Metric mode."
+
+# ---------- ANSI / ARCH sizes ----------
+
+[[device.hp7585b.paper]]
+name = "a"
+aka_names = ["ansi_a", "letter"]
+paper_size = ["11in", "8.5in"]
+x_range = [0, 9816]
+y_range = [0, 8236]
+y_axis_up = true
+origin_location = ["5mm", "210.9mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ANSI A / US Letter. Plotter must be in Imperial mode."
+
+[[device.hp7585b.paper]]
+name = "b"
+aka_names = ["ansi_b", "tabloid"]
+paper_size = ["17in", "11in"]
+x_range = [0, 15912]
+y_range = [0, 10776]
+y_axis_up = true
+origin_location = ["5mm", "274.4mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ANSI B / Tabloid. Plotter must be in Imperial mode."
+
+[[device.hp7585b.paper]]
+name = "c"
+aka_names = ["ansi_c"]
+paper_size = ["22in", "17in"]
+x_range = [0, 20992]
+y_range = [0, 16872]
+y_axis_up = true
+origin_location = ["5mm", "426.8mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ANSI C. Plotter must be in Imperial mode."
+
+[[device.hp7585b.paper]]
+name = "d"
+aka_names = ["ansi_d"]
+paper_size = ["34in", "22in"]
+x_range = [0, 33184]
+y_range = [0, 21952]
+y_axis_up = true
+origin_location = ["5mm", "553.8mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ANSI D. Plotter must be in Imperial mode."
+
+[[device.hp7585b.paper]]
+name = "e"
+aka_names = ["ansi_e"]
+paper_size = ["44in", "34in"]
+x_range = [0, 43344]
+y_range = [0, 34144]
+y_axis_up = true
+origin_location = ["5mm", "858.6mm"]
+final_pu_params = "0,0"
+set_ps = 4
+info = "ANSI E (full capacity). Plotter must be in Imperial mode."
