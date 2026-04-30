@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 
 /// NSSegmentedControl subclass that reports the currently-hovered segment
 /// (or nil when the cursor leaves). Used by the input-mode picker so
@@ -61,9 +62,15 @@ final class MenuBandPopoverViewController: NSViewController {
     /// we don't extend its lifetime; used to animate `contentSize` when the
     /// instrument palette collapses / expands.
     weak var popover: NSPopover?
+    var onFocusShortcutChange: ((MenuBandShortcut) -> Bool)?
+    var onFocusShortcutRecordingChanged: ((Bool) -> Void)?
 
     private var inputSegmented: HoverSegmentedControl!  // legacy reference; no longer added to stack
     private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
+    private var focusShortcutButton: NSButton!
+    private var focusShortcutStatusLabel: NSTextField!
+    private var focusShortcutRecorderMonitor: Any?
+    private var isRecordingFocusShortcut = false
     private var midiSwitch: NSSwitch!
     private var midiInlineLabel: NSTextField!
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
@@ -89,6 +96,12 @@ final class MenuBandPopoverViewController: NSViewController {
     private var updateLabel: NSTextField!
     private var waveformView: WaveformView!
     private var waveformBezel: NSView!
+
+    deinit {
+        if let monitor = focusShortcutRecorderMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+    }
 
     override func loadView() {
         // Plain solid-color background — no NSVisualEffectView. The visual
@@ -271,6 +284,45 @@ final class MenuBandPopoverViewController: NSViewController {
         inputLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         inputLabel.textColor = .labelColor
 
+        let shortcuts = NSStackView()
+        shortcuts.orientation = .horizontal
+        shortcuts.alignment = .centerY
+        shortcuts.distribution = .fill
+        shortcuts.spacing = 8
+        shortcuts.translatesAutoresizingMaskIntoConstraints = false
+
+        let focusLabel = NSTextField(labelWithString: "Focus menu piano")
+        focusLabel.font = NSFont.systemFont(ofSize: 11)
+        focusLabel.textColor = .labelColor
+        shortcuts.addArrangedSubview(focusLabel)
+
+        let focusSpacer = NSView()
+        focusSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        shortcuts.addArrangedSubview(focusSpacer)
+
+        focusShortcutButton = NSButton(
+            title: MenuBandShortcutPreferences.focusShortcut.displayString,
+            target: self,
+            action: #selector(focusShortcutButtonClicked(_:))
+        )
+        focusShortcutButton.bezelStyle = .recessed
+        focusShortcutButton.controlSize = .small
+        focusShortcutButton.translatesAutoresizingMaskIntoConstraints = false
+        focusShortcutButton.widthAnchor.constraint(equalToConstant: 96).isActive = true
+        shortcuts.addArrangedSubview(focusShortcutButton)
+
+        shortcuts.widthAnchor.constraint(
+            equalToConstant: InstrumentListView.preferredWidth
+        ).isActive = true
+
+        focusShortcutStatusLabel = NSTextField(labelWithString: "")
+        focusShortcutStatusLabel.font = NSFont.systemFont(ofSize: 10)
+        focusShortcutStatusLabel.textColor = .secondaryLabelColor
+        focusShortcutStatusLabel.lineBreakMode = .byTruncatingTail
+        focusShortcutStatusLabel.widthAnchor.constraint(
+            equalToConstant: InstrumentListView.preferredWidth
+        ).isActive = true
+
         // Vertical mode buttons — full labels fit without truncation, each
         // button is the full content width with an SF Symbol leading the
         // text so the mode is recognizable at a glance.
@@ -328,6 +380,10 @@ final class MenuBandPopoverViewController: NSViewController {
         // popover stack farther down — see the `palettePanel`
         // insertion point.
         let layoutBlock = (label: inputLabel, picker: modeStack, hint: inputHint)
+
+        let shortcutLabel = NSTextField(labelWithString: "Key Shortcuts")
+        shortcutLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        shortcutLabel.textColor = .labelColor
 
         // Live segmented LED meter of the local synth output. Hidden in
         // MIDI mode (DAW handles audio there; our local mixer is silent
@@ -612,11 +668,14 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(layoutBlock.label)
         stack.addArrangedSubview(layoutBlock.picker)
         stack.addArrangedSubview(layoutBlock.hint)
+        stack.addArrangedSubview(shortcutLabel)
+        stack.addArrangedSubview(shortcuts)
+        stack.addArrangedSubview(focusShortcutStatusLabel)
 
         // No divider above the about/brand block — the palette + Layout
         // section above gives plenty of separation. Custom airspace
         // before the about block.
-        stack.setCustomSpacing(14, after: layoutBlock.hint)
+        stack.setCustomSpacing(14, after: focusShortcutStatusLabel)
 
         // About + Crash logs in a side-by-side row. About has low hugging
         // so it expands when the crash column is hidden (no reports) —
@@ -780,6 +839,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
     override func viewDidDisappear() {
         super.viewDidDisappear()
+        stopFocusShortcutRecording(status: nil)
         waveformView.isLive = false
     }
 
@@ -878,6 +938,7 @@ final class MenuBandPopoverViewController: NSViewController {
         for (i, btn) in modeButtons.enumerated() {
             btn.state = (i == segIdx) ? .on : .off
         }
+        updateFocusShortcutControls()
         instrumentList.selectedProgram = n.melodicProgram
         applyAppearanceToVisualizer()
         updateInstrumentReadout()
@@ -937,6 +998,62 @@ final class MenuBandPopoverViewController: NSViewController {
     /// (no leading "078" program number — the cell's own backdrop color
     /// is the visual identifier; the number was redundant noise). A
     /// hair space on each side keeps the chip from touching its text.
+    private func updateFocusShortcutControls(status: String? = nil) {
+        guard focusShortcutButton != nil else { return }
+        if isRecordingFocusShortcut {
+            focusShortcutButton.title = "Press keys"
+        } else {
+            focusShortcutButton.title = MenuBandShortcutPreferences.focusShortcut.displayString
+        }
+        focusShortcutStatusLabel.stringValue = status ?? ""
+    }
+
+    private func startFocusShortcutRecording() {
+        guard focusShortcutRecorderMonitor == nil else { return }
+        isRecordingFocusShortcut = true
+        onFocusShortcutRecordingChanged?(true)
+        updateFocusShortcutControls(status: "Use ⌘, ⌃, or ⌥")
+        focusShortcutRecorderMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.keyDown]
+        ) { [weak self] event in
+            self?.handleFocusShortcutRecording(event)
+            return nil
+        }
+    }
+
+    private func stopFocusShortcutRecording(status: String?) {
+        guard isRecordingFocusShortcut || focusShortcutRecorderMonitor != nil else { return }
+        if let monitor = focusShortcutRecorderMonitor {
+            NSEvent.removeMonitor(monitor)
+            focusShortcutRecorderMonitor = nil
+        }
+        isRecordingFocusShortcut = false
+        onFocusShortcutRecordingChanged?(false)
+        updateFocusShortcutControls(status: status)
+    }
+
+    private func handleFocusShortcutRecording(_ event: NSEvent) {
+        if event.keyCode == UInt16(kVK_Escape) {
+            stopFocusShortcutRecording(status: nil)
+            return
+        }
+        let shortcut = MenuBandShortcut(
+            keyCode: UInt32(event.keyCode),
+            modifiers: MenuBandShortcut.carbonModifiers(from: event.modifierFlags)
+        )
+        guard shortcut.isValidForRecording else {
+            updateFocusShortcutControls(status: "Use ⌘, ⌃, or ⌥")
+            return
+        }
+        guard !shortcut.isReservedForTypeMode else {
+            updateFocusShortcutControls(status: "⌃⌥⌘P is reserved")
+            return
+        }
+        let saved = onFocusShortcutChange?(shortcut) ?? false
+        stopFocusShortcutRecording(
+            status: saved ? "Saved \(shortcut.displayString)" : "Shortcut unavailable"
+        )
+    }
     private func updateInstrumentReadout() {
         guard let m = menuBand else { return }
         let safe = max(0, min(127, Int(m.melodicProgram)))
@@ -1326,6 +1443,14 @@ final class MenuBandPopoverViewController: NSViewController {
             m.keymap = .ableton
             if !m.typeMode { m.toggleTypeMode() }
         default: break
+        }
+    }
+
+    @objc private func focusShortcutButtonClicked(_ sender: NSButton) {
+        if isRecordingFocusShortcut {
+            stopFocusShortcutRecording(status: nil)
+        } else {
+            startFocusShortcutRecording()
         }
     }
 

@@ -370,6 +370,11 @@ final class MenuBandController {
         }
     }
 
+    func disableTypeModeForFocusCapture() {
+        guard typeMode else { return }
+        disableTypeMode()
+    }
+
     func shutdown() {
         disableTypeMode()
         disableMIDIMode()
@@ -906,7 +911,7 @@ final class MenuBandController {
         }
     }
 
-    private func releaseAllHeldNotes() {
+    func releaseAllHeldNotes() {
         heldLock.lock()
         let noteSnapshot = heldNotes
         let chanSnapshot = heldKeyChannel

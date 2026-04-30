@@ -8,8 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hoveredElement: KeyboardIconRenderer.HitResult? = nil
     private var trackingArea: NSTrackingArea?
     private var typeModeHotkey: GlobalHotkey?
+    private var focusCaptureHotkey: GlobalHotkey?
     private let popover = NSPopover()
     private var popoverVC: MenuBandPopoverViewController?
+    private var appBeforeFocusCapture: NSRunningApplication?
+    private var focusCaptureArmedByShortcut = false
 
     /// Periodic check that the status item is actually visible in the
     /// menu bar. macOS silently hides items when there's no room (notch +
@@ -156,13 +159,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updateIcon()
 
-        // Global hotkey: Ctrl+Opt+Cmd+P toggles TYPE.
-        let hotkey = GlobalHotkey { [weak self] in
-            self?.menuBand.toggleTypeMode()
-        }
-        let modMask: UInt32 = UInt32(cmdKey | controlKey | optionKey)
-        hotkey.register(keyCode: UInt32(kVK_ANSI_P), modifiers: modMask)
-        typeModeHotkey = hotkey
+        registerTypeModeHotkey()
+        _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
 
         // Dev affordance: post the
         // `computer.aestheticcomputer.menuband.showPopover`
@@ -185,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // wants to release focus without clicking another app.
             if isDown && keyCode == 53 /* kVK_Escape */ {
                 NSSound(named: NSSound.Name("Tink"))?.play()
-                self.localCapture.disarm()
+                self.localCapture.disarm(reason: .cancelled)
                 return true
             }
             let consumed = self.menuBand.handleLocalKey(
@@ -201,13 +199,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return consumed
         }
-        localCapture.onCaptureEnd = { [weak self] in
+        localCapture.onCaptureEnd = { [weak self] reason in
             // Focus lost (user clicked another app). Drop the ghost and
             // any held notes so we don't leave anything hanging.
-            self?.ghostUntil = 0
-            self?.ghostRefreshTimer?.invalidate()
-            self?.ghostRefreshTimer = nil
-            self?.updateIcon()
+            self?.finishLocalCapture(reason: reason)
         }
 
         // Pre-instance the popover + force its view to load now so the
@@ -217,6 +212,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let vc = MenuBandPopoverViewController()
         vc.menuBand = menuBand
         vc.popover = popover
+        vc.onFocusShortcutChange = { [weak self] shortcut in
+            self?.applyFocusShortcut(shortcut) ?? false
+        }
+        vc.onFocusShortcutRecordingChanged = { [weak self] isRecording in
+            self?.setShortcutRecording(isRecording)
+        }
         popoverVC = vc
         popover.contentViewController = vc
         // .applicationDefined: never auto-close. We manage closing manually
@@ -239,6 +240,111 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { _ in
             IconTinter.applyTintedIcon()
         }
+    }
+
+    // MARK: - Global shortcuts
+
+    private func registerTypeModeHotkey() {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4E544B59),  // 'NTKY'
+            id: 1
+        ) { [weak self] in
+            self?.menuBand.toggleTypeMode()
+        }
+        let shortcut = MenuBandShortcut.typeMode
+        if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
+            typeModeHotkey = hotkey
+        }
+    }
+
+    @discardableResult
+    private func registerFocusCaptureHotkey(_ shortcut: MenuBandShortcut) -> Bool {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D42464B),  // 'MBFK'
+            id: 1
+        ) { [weak self] in
+            self?.toggleFocusCaptureFromShortcut()
+        }
+        guard hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) else {
+            return false
+        }
+        focusCaptureHotkey = hotkey
+        localCapture.cancelShortcut = shortcut
+        return true
+    }
+
+    private func applyFocusShortcut(_ shortcut: MenuBandShortcut) -> Bool {
+        guard shortcut.isValidForRecording, !shortcut.isReservedForTypeMode else {
+            return false
+        }
+        let previous = MenuBandShortcutPreferences.focusShortcut
+        focusCaptureHotkey?.unregister()
+        focusCaptureHotkey = nil
+        guard registerFocusCaptureHotkey(shortcut) else {
+            _ = registerFocusCaptureHotkey(previous)
+            return false
+        }
+        MenuBandShortcutPreferences.focusShortcut = shortcut
+        return true
+    }
+
+    private func setShortcutRecording(_ isRecording: Bool) {
+        if isRecording {
+            typeModeHotkey?.unregister()
+            typeModeHotkey = nil
+            focusCaptureHotkey?.unregister()
+            focusCaptureHotkey = nil
+        } else {
+            if typeModeHotkey == nil { registerTypeModeHotkey() }
+            if focusCaptureHotkey == nil {
+                _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
+            }
+        }
+    }
+
+    private func toggleFocusCaptureFromShortcut() {
+        if localCapture.isArmed, focusCaptureArmedByShortcut {
+            localCapture.disarm(reason: .cancelled)
+            return
+        }
+        beginFocusCaptureFromShortcut()
+    }
+
+    private func beginFocusCaptureFromShortcut() {
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        if frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier {
+            appBeforeFocusCapture = nil
+        } else {
+            appBeforeFocusCapture = frontmost
+        }
+        closePopover()
+        if menuBand.typeMode {
+            menuBand.disableTypeModeForFocusCapture()
+        }
+        focusCaptureArmedByShortcut = true
+        localCapture.arm()
+        updateIcon()
+    }
+
+    private func finishLocalCapture(reason: LocalKeyCapture.EndReason) {
+        let shouldRestoreFocus = focusCaptureArmedByShortcut && reason == .cancelled
+        focusCaptureArmedByShortcut = false
+        menuBand.releaseAllHeldNotes()
+        ghostUntil = 0
+        ghostRefreshTimer?.invalidate()
+        ghostRefreshTimer = nil
+        updateIcon()
+        if shouldRestoreFocus {
+            restorePreviousAppFocus()
+        }
+        appBeforeFocusCapture = nil
+    }
+
+    private func restorePreviousAppFocus() {
+        guard let app = appBeforeFocusCapture,
+              !app.isTerminated,
+              app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
+        app.activate(options: [.activateIgnoringOtherApps])
     }
 
     // MARK: - Adaptive menubar layout
@@ -609,6 +715,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// starts at the pivot and ripples outward; fade-out starts at the
     /// outermost cell and retreats toward the pivot.
     private func letterAlpha(for midi: UInt8) -> CGFloat {
+        if focusCaptureArmedByShortcut { return 1.0 }
         return letterAlphas[midi] ?? 0
     }
 

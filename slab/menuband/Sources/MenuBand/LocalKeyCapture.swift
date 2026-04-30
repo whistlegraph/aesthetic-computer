@@ -11,6 +11,11 @@ import AppKit
 /// The current global-tap mode (Notepat / Ableton in the popover) survives
 /// any focus change, but requires Accessibility and isn't App-Store-eligible.
 final class LocalKeyCapture {
+    enum EndReason {
+        case cancelled
+        case resignedKey
+    }
+
     /// Called on every keyDown the panel observes. Return `true` to consume
     /// (so cmd-q etc. can still fall through if false). Receives the same
     /// (keyCode, isDown, isRepeat, flags) shape as the global tap so the
@@ -18,7 +23,8 @@ final class LocalKeyCapture {
     var onKey: ((UInt16, Bool, Bool, NSEvent.ModifierFlags) -> Bool)?
     /// Called when the panel resigns key — capture has ended naturally
     /// because the user clicked another app.
-    var onCaptureEnd: (() -> Void)?
+    var onCaptureEnd: ((EndReason) -> Void)?
+    var cancelShortcut: MenuBandShortcut?
 
     private var panel: NSPanel?
     private var monitor: Any?
@@ -50,6 +56,10 @@ final class LocalKeyCapture {
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
                 guard let self = self else { return event }
                 let isDown = (event.type == .keyDown)
+                if isDown, self.cancelShortcut?.matches(event: event) == true {
+                    self.disarm(reason: .cancelled)
+                    return nil
+                }
                 let consumed = self.onKey?(event.keyCode, isDown, event.isARepeat, event.modifierFlags) ?? false
                 return consumed ? nil : event
             }
@@ -66,7 +76,7 @@ final class LocalKeyCapture {
             ) { [weak self] _ in
                 guard let self = self else { return }
                 let stillKeyInApp = NSApp.windows.contains { $0.isKeyWindow }
-                if !stillKeyInApp { self.disarm() }
+                if !stillKeyInApp { self.disarm(reason: .resignedKey) }
             }
         }
         isArmed = true
@@ -74,7 +84,7 @@ final class LocalKeyCapture {
 
     /// Tear down the panel + monitor. Called when the user clicks another
     /// app (panel resigns key) or explicitly when we want to drop capture.
-    func disarm() {
+    func disarm(reason: EndReason = .cancelled) {
         guard isArmed else { return }
         isArmed = false
         if let m = monitor {
@@ -86,7 +96,7 @@ final class LocalKeyCapture {
             resignKeyObserver = nil
         }
         panel?.orderOut(nil)
-        onCaptureEnd?()
+        onCaptureEnd?(reason)
     }
 
     private func buildPanel() {
@@ -111,7 +121,7 @@ final class LocalKeyCapture {
         panel = p
     }
 
-    deinit { disarm() }
+    deinit { disarm(reason: .cancelled) }
 }
 
 /// `NSPanel` subclass that overrides `canBecomeKey` to return true. Without
