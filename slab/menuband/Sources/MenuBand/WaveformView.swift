@@ -106,6 +106,18 @@ final class WaveformView: MTKView {
         // `enableSetNeedsDisplay = true` puts MTKView in dirty-rect mode;
         // `isPaused = false` so display() actually paints when called.
         enableSetNeedsDisplay = true
+
+        // Disable vsync on the Metal layer so frames are presented immediately
+        // rather than waiting for the next display refresh. Without this, our
+        // CVDisplayLink-driven draw calls can stall for up to one refresh
+        // interval because the layer tries to sync presentation to the display,
+        // creating visible latency between audio input and the rendered
+        // waveform — and adding noticeable delay when the popover first
+        // appears. Patch contributed by Esteban Uribe.
+        if let metalLayer = layer as? CAMetalLayer {
+            metalLayer.displaySyncEnabled = false
+        }
+
         isPaused = false
         preferredFramesPerSecond = 0
 

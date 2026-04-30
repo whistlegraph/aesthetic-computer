@@ -382,6 +382,11 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentReadout.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(instrumentTitleRow)
 
+        // GarageBand backend toggle was prototyped here (see
+        // GarageBandLibrary + GarageBandPatchView), then deprecated
+        // pending UX polish. Source files retained for future revival;
+        // the popover currently exposes only the General MIDI grid.
+
         instrumentList = InstrumentListView()
         instrumentList.translatesAutoresizingMaskIntoConstraints = false
         instrumentList.onCommit = { [weak self] prog in
@@ -532,6 +537,22 @@ final class MenuBandPopoverViewController: NSViewController {
                                        height: fitting.height)
     }
 
+    // Pause the visualizer's display link whenever the popover isn't on
+    // screen. The CVDisplayLink would otherwise keep firing 60 (or 120)
+    // times a second while the popover is hidden, redrawing into a layer
+    // no one can see. Patch contributed by Esteban Uribe.
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        guard isViewLoaded, let menuBand = waveformView.menuBand else { return }
+        syncFromController()
+        waveformView.isLive = !menuBand.midiMode
+    }
+
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        waveformView.isLive = false
+    }
+
     /// Refresh control state from the controller — call right before showing.
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
@@ -544,7 +565,7 @@ final class MenuBandPopoverViewController: NSViewController {
             btn.state = (i == segIdx) ? .on : .off
         }
         instrumentList.selectedProgram = n.melodicProgram
-        updateInstrumentReadout(program: n.melodicProgram)
+        updateInstrumentReadout()
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
         refreshUpdateBanner()
@@ -552,7 +573,8 @@ final class MenuBandPopoverViewController: NSViewController {
         // Stays in the layout when MIDI mode is on; the palette
         // visibility helper greys it out instead of collapsing.
         waveformView.isHidden = false
-        waveformView.isLive = !n.midiMode
+        // isLive is driven from viewDidAppear/viewDidDisappear so the
+        // display link only runs while the popover is actually on screen.
         // Instrument palette: stays in the layout but greys out when
         // MIDI mode owns the audio path. Same physical width either way.
         applyInstrumentPaletteVisibility(midiMode: n.midiMode)
@@ -567,11 +589,11 @@ final class MenuBandPopoverViewController: NSViewController {
         }
     }
 
-    /// Format the readout below the numeric grid as "078  Whistle".
-    private func updateInstrumentReadout(program: UInt8) {
-        let safe = max(0, min(127, Int(program)))
-        let name = GeneralMIDI.programNames[safe]
-        instrumentReadout.stringValue = String(format: "%03d  %@", safe, name)
+    /// Format the readout in the title row as "078  Whistle".
+    private func updateInstrumentReadout() {
+        guard let m = menuBand else { return }
+        let safe = max(0, min(127, Int(m.melodicProgram)))
+        instrumentReadout.stringValue = String(format: "%03d  %@", safe, GeneralMIDI.programNames[safe])
     }
 
     /// Reflect the MIDI loopback self-test status as the inline "MIDI"
@@ -793,7 +815,7 @@ final class MenuBandPopoverViewController: NSViewController {
         guard let m = menuBand else { return }
         m.setMelodicProgram(UInt8(program))
         instrumentList.selectedProgram = UInt8(program)
-        updateInstrumentReadout(program: UInt8(program))
+        updateInstrumentReadout()
         debugLog("instrument commit prog=\(program)")
         // No post-release audition: the press-gated rollover already played
         // a preview note while the mouse was held, so retriggering on

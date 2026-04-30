@@ -24,6 +24,16 @@ final class MenuBandController {
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
     private let mutedKey = "notepat.muted"
+    /// Active instrument backend: `"gm"` for the General MIDI bank, or
+    /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
+    /// string so future backends (Logic, EXS3rd-party, etc.) can be
+    /// added without breaking older saved values.
+    private let instrumentBackendKey = "notepat.instrumentBackend"
+    /// File URL string of the GarageBand patch the user picked. Empty
+    /// when no GB patch has been selected yet (we'll fall back to the
+    /// first scanned patch when the backend is GarageBand and this is
+    /// missing).
+    private let garageBandPatchPathKey = "notepat.garageBandPatchPath"
 
     // Visual state — accessed only on the main thread.
     private(set) var litNotes: Set<UInt8> = []
@@ -168,7 +178,37 @@ final class MenuBandController {
 
     func setMelodicProgram(_ program: UInt8) {
         UserDefaults.standard.set(Int(program), forKey: melodicProgramKey)
+        // Picking a GM program implicitly switches us back to the GM
+        // backend — the user's "Instrument" pick lives on the GM grid,
+        // so committing one means GM is now the active source.
+        UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
         synth.setMelodicProgram(program)
+        onChange?()
+    }
+
+    // MARK: - Instrument backend (GM vs GarageBand)
+
+    enum InstrumentBackend: String { case gm, garageBand = "gb" }
+
+    var instrumentBackend: InstrumentBackend {
+        let raw = UserDefaults.standard.string(forKey: instrumentBackendKey) ?? "gm"
+        return InstrumentBackend(rawValue: raw) ?? .gm
+    }
+
+    /// Currently-selected GarageBand patch URL, or nil if none picked
+    /// yet (or the previously-saved patch is no longer on disk).
+    var garageBandPatchURL: URL? {
+        guard let path = UserDefaults.standard.string(forKey: garageBandPatchPathKey),
+              !path.isEmpty,
+              FileManager.default.fileExists(atPath: path) else { return nil }
+        return URL(fileURLWithPath: path)
+    }
+
+    /// Switch the active backend to GarageBand and load the given patch.
+    func setGarageBandPatch(_ url: URL) {
+        UserDefaults.standard.set("gb", forKey: instrumentBackendKey)
+        UserDefaults.standard.set(url.path, forKey: garageBandPatchPathKey)
+        synth.setGarageBandPatch(at: url)
         onChange?()
     }
 
@@ -194,6 +234,10 @@ final class MenuBandController {
         }
         if typeMode { enableTypeMode(promptForPermission: false) }
         if midiMode { enableMIDIMode() }
+
+        // GarageBand integration deprecated for now — see
+        // GarageBandLibrary.swift / GarageBandPatchView.swift for the
+        // dormant scaffolding.
         // (enableMIDIMode triggers a loopback self-test; result lands in
         // /tmp/menuband-debug.log and updates the popover's status row.)
     }

@@ -298,15 +298,43 @@ final class MenuBandSynth {
     /// (sampler bank reload).
     func setMelodicProgram(_ program: UInt8) {
         currentMelodicProgram = program
+        // Leaving GarageBand mode: route melodic through MIDISynth/sampler
+        // again. Reload the GM bank into `melodic` since the GB patch
+        // load replaced its instrument data.
+        usingGarageBandPatch = false
         if midiSynthReady, let au = midiSynth?.audioUnit {
             selectMelodicProgram(au, program: program)
             return
         }
-        // Sampler fallback.
         guard started else { return }
         let url = MenuBandSynth.bankURL
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try? melodic.loadSoundBankInstrument(at: url, program: program, bankMSB: 0x79, bankLSB: 0)
+    }
+
+    // MARK: - GarageBand patch backend
+
+    /// True while a GarageBand `.exs` patch is loaded into `melodic`. In
+    /// that mode all melodic noteOn/Off route through the sampler instead
+    /// of MIDISynth, even when MIDISynth is otherwise ready. Drum kit
+    /// (channel 9) still uses MIDISynth so percussion keys stay GM.
+    private(set) var usingGarageBandPatch: Bool = false
+
+    /// Load a GarageBand `.exs` patch as the active melodic instrument.
+    /// `loadInstrument(at:)` is synchronous on the calling thread but
+    /// fast (typical 2–20 ms in our benchmark across the loadable patch
+    /// set) so we don't bother with a delayed-playback dance.
+    @discardableResult
+    func setGarageBandPatch(at url: URL) -> Bool {
+        guard started else { return false }
+        do {
+            try melodic.loadInstrument(at: url)
+            usingGarageBandPatch = true
+            return true
+        } catch {
+            NSLog("MenuBand: failed to load GB patch \(url.lastPathComponent): \(error)")
+            return false
+        }
     }
 
     func stop() {
@@ -318,26 +346,48 @@ final class MenuBandSynth {
 
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
-        if midiSynthReady, let au = midiSynth?.audioUnit {
-            // Channel 9 = drums in GM. Otherwise melodic on channel 0.
-            let ch: UInt8 = (channel == 9) ? 9 : 0
-            sendMIDIEvent(au, status: 0x90 | ch, data1: midi, data2: velocity)
+        // Drums (channel 9) always route through MIDISynth/drums sampler
+        // — drum kits are GM regardless of melodic backend choice.
+        if channel == 9 {
+            if midiSynthReady, let au = midiSynth?.audioUnit {
+                sendMIDIEvent(au, status: 0x99, data1: midi, data2: velocity)
+                return
+            }
+            drums.startNote(midi, withVelocity: velocity, onChannel: 0)
             return
         }
-        // Sampler fallback — pick the right unit based on requested channel.
-        let unit = (channel == 9) ? drums : melodic
-        unit.startNote(midi, withVelocity: velocity, onChannel: 0)
+        // Melodic — sampler if a GB patch is loaded, MIDISynth if ready,
+        // sampler-with-DLS otherwise.
+        if usingGarageBandPatch {
+            melodic.startNote(midi, withVelocity: velocity, onChannel: 0)
+            return
+        }
+        if midiSynthReady, let au = midiSynth?.audioUnit {
+            sendMIDIEvent(au, status: 0x90, data1: midi, data2: velocity)
+            return
+        }
+        melodic.startNote(midi, withVelocity: velocity, onChannel: 0)
     }
 
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
         guard started else { return }
-        if midiSynthReady, let au = midiSynth?.audioUnit {
-            let ch: UInt8 = (channel == 9) ? 9 : 0
-            sendMIDIEvent(au, status: 0x80 | ch, data1: midi)
+        if channel == 9 {
+            if midiSynthReady, let au = midiSynth?.audioUnit {
+                sendMIDIEvent(au, status: 0x89, data1: midi)
+                return
+            }
+            drums.stopNote(midi, onChannel: 0)
             return
         }
-        let unit = (channel == 9) ? drums : melodic
-        unit.stopNote(midi, onChannel: 0)
+        if usingGarageBandPatch {
+            melodic.stopNote(midi, onChannel: 0)
+            return
+        }
+        if midiSynthReady, let au = midiSynth?.audioUnit {
+            sendMIDIEvent(au, status: 0x80, data1: midi)
+            return
+        }
+        melodic.stopNote(midi, onChannel: 0)
     }
 
     func panic() {
