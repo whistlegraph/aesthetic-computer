@@ -10,6 +10,11 @@ import AppKit
 // buttons are flat (no fill, no border) so they read like native menubar
 // text. Keys are skeuomorphic: white gradient + dark-accent black gradient.
 enum KeyboardIconRenderer {
+    enum Layout {
+        case fixedCanvas
+        case tightActiveRange
+    }
+
     /// Updated by AppDelegate.updateIcon() before each render so the renderer
     /// can pick the right letter labels and active-range without threading
     /// the keymap through every static method's signature.
@@ -153,6 +158,16 @@ enum KeyboardIconRenderer {
         return NSSize(width: totalW, height: totalH)
     }
 
+    static var pianoImageSize: NSSize {
+        pianoImageSize(layout: .fixedCanvas)
+    }
+
+    static func pianoImageSize(layout: Layout) -> NSSize {
+        let totalW = ceil(pad + pianoWidth(layout: layout) + pad)
+        let totalH = ceil(whiteH + pad * 2)
+        return NSSize(width: totalW, height: totalH)
+    }
+
     private static var pianoOriginX: CGFloat { pad }
 
     /// Settings chip's visual rect IS its hit-test rect — they're identical
@@ -166,11 +181,13 @@ enum KeyboardIconRenderer {
                       hovered: HitResult? = nil,
                       letterAlpha: ((UInt8) -> CGFloat)? = nil,
                       slideOffsetX: CGFloat = 0,
-                      settingsFlash: CGFloat = 0) -> NSImage {
+                      settingsFlash: CGFloat = 0,
+                      includeSettings: Bool = true,
+                      layout: Layout = .fixedCanvas) -> NSImage {
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
-        let size = imageSize
+        let size = includeSettings ? imageSize : pianoImageSize(layout: layout)
 
         let img = NSImage(size: size, flipped: false) { _ in
 
@@ -225,10 +242,10 @@ enum KeyboardIconRenderer {
             // corners. Active range may be right-aligned (Ableton) so the
             // outer corners sit on the first/last active white in the slot
             // layout, not the geometric ends of the render area.
-            let activeWhites = whites.filter { isActive($0) }
+            let activeWhites = activeWhites(layout: layout)
             let leftmostMidi = activeWhites.first ?? firstMidi
             let rightmostMidi = activeWhites.last ?? lastMidi
-            let slotOffset = activeSlotOffset
+            let slotOffset = slotOffset(layout: layout)
             for (idx, m) in whites.enumerated() {
                 if !isActive(m) { continue }   // negative space — skip draw
                 let rect = whiteRect(at: idx + slotOffset)
@@ -315,14 +332,16 @@ enum KeyboardIconRenderer {
             }
             NSGraphicsContext.restoreGraphicsState()
 
-            // Single settings chip — glyph + color reflect MIDI/DAW state.
-            // MIDI on → `waveform` tinted accent (signal flowing to DAW);
-            // MIDI off → `slider.horizontal.3` in label color (generic).
-            drawSettingsChip(in: settingsRect, hoverRect: settingsHitRect,
-                             midiOn: enabled,
-                             hovered: hovered == .openSettings,
-                             flash: settingsFlash,
-                             voiceNumber: Int(melodicProgram))
+            if includeSettings {
+                // Single settings chip — glyph + color reflect MIDI/DAW state.
+                // MIDI on → `waveform` tinted accent (signal flowing to DAW);
+                // MIDI off → `slider.horizontal.3` in label color (generic).
+                drawSettingsChip(in: settingsRect, hoverRect: settingsHitRect,
+                                 midiOn: enabled,
+                                 hovered: hovered == .openSettings,
+                                 flash: settingsFlash,
+                                 voiceNumber: Int(melodicProgram))
+            }
             return true
         }
         img.isTemplate = false
@@ -341,7 +360,7 @@ enum KeyboardIconRenderer {
     // `settingsIconRect` directly (not via this hit rect) so the
     // glyph stays put even though the hit zone now covers the pad.
     private static var settingsHitRect: NSRect {
-        let leftX = pianoOriginX + pianoWidth
+        let leftX = pianoOriginX + pianoWidth(layout: .fixedCanvas)
         let rightX = imageSize.width
         return NSRect(x: leftX, y: 0, width: rightX - leftX, height: imageSize.height)
     }
@@ -370,7 +389,7 @@ enum KeyboardIconRenderer {
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
-        let slotOffset = activeSlotOffset
+        let slotOffset = slotOffset(layout: .fixedCanvas)
         // Black-key hit area = the visual blackRect. 1:1 mapping with what
         // the user sees on screen — clicking on visible black triggers black,
         // clicking visible white triggers white. Inactive (negative-space)
@@ -401,10 +420,10 @@ enum KeyboardIconRenderer {
 
     /// Public lookup so callers (drag handler) can compute cursor-relative
     /// expression — e.g. y→velocity, x→pan within the active key's bounds.
-    static func keyRect(for midi: UInt8) -> NSRect? {
+    static func keyRect(for midi: UInt8, layout: Layout = .fixedCanvas) -> NSRect? {
         let m = Int(midi)
         let whites = whiteList()
-        let slotOffset = activeSlotOffset
+        let slotOffset = slotOffset(layout: layout)
         if isWhite(m) {
             guard let idx = whites.firstIndex(of: m) else { return nil }
             return whiteRect(at: idx + slotOffset)
@@ -420,11 +439,11 @@ enum KeyboardIconRenderer {
     /// can be anywhere); horizontally tolerates a small overshoot past the
     /// leftmost/rightmost white key so a drag rolling past the edge keeps
     /// the edge key sounding.
-    static func noteAt(_ point: NSPoint) -> UInt8? {
+    static func noteAt(_ point: NSPoint, layout: Layout = .fixedCanvas) -> UInt8? {
         let whites = whiteList()
-        let activeWhites = whites.filter { isActive($0) }
+        let activeWhites = activeWhites(layout: layout)
         guard !activeWhites.isEmpty else { return nil }
-        let slotOffset = activeSlotOffset
+        let slotOffset = slotOffset(layout: layout)
         // Active keys occupy slots [slotOffset, slotOffset + activeWhites.count - 1].
         let leftEdge  = pianoOriginX + CGFloat(slotOffset) * whiteW
         let rightEdge = pianoOriginX + CGFloat(slotOffset + activeWhites.count) * whiteW
@@ -456,6 +475,34 @@ enum KeyboardIconRenderer {
     }
 
     // MARK: - Layout helpers
+
+    private static func activeWhites(layout: Layout) -> [Int] {
+        let whites = whiteList()
+        switch layout {
+        case .fixedCanvas:
+            return whites.filter { isActive($0) }
+        case .tightActiveRange:
+            return whites.filter { isActive($0) }
+        }
+    }
+
+    private static func slotOffset(layout: Layout) -> Int {
+        switch layout {
+        case .fixedCanvas:
+            return activeSlotOffset
+        case .tightActiveRange:
+            return 0
+        }
+    }
+
+    private static func pianoWidth(layout: Layout) -> CGFloat {
+        switch layout {
+        case .fixedCanvas:
+            return CGFloat(whiteList().count) * whiteW
+        case .tightActiveRange:
+            return CGFloat(activeWhites(layout: layout).count) * whiteW
+        }
+    }
 
     private static func whiteRect(at index: Int) -> NSRect {
         let x = pianoOriginX + CGFloat(index) * whiteW

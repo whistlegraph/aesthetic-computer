@@ -9,8 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackingArea: NSTrackingArea?
     private var typeModeHotkey: GlobalHotkey?
     private var focusCaptureHotkey: GlobalHotkey?
+    private var playPaletteHotkey: GlobalHotkey?
+    private var layoutToggleHotkey: GlobalHotkey?
     private let popover = NSPopover()
     private var popoverVC: MenuBandPopoverViewController?
+    private lazy var floatingPlayPalette = FloatingPlayPaletteController(menuBand: menuBand)
+    private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
     private var focusCaptureArmedByShortcut = false
 
@@ -109,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.kickIconAnim(slide: dir, flash: 1.0)
                 }
                 self.updateIcon()
+                self.floatingPlayPalette.refresh()
                 // Refresh the popover too so live state changes
                 // (octave shift via , / . , MIDI mode flip, etc.)
                 // reflect immediately while the popover is open.
@@ -129,8 +134,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.lastLitCount = cur
             self.updateIcon()
             self.popoverVC?.refreshHeldNotes()
+            self.floatingPlayPalette.refresh()
         }
         menuBand.bootstrap()
+        floatingPlayPalette.onDismiss = { [weak self] in
+            self?.updateIcon()
+            self?.popoverVC?.syncFromController()
+        }
+        floatingPlayPalette.isPianoFocusActive = { [weak self] in
+            self?.localCapture.isArmed ?? false
+        }
+        floatingPlayPalette.onFocusRelease = { [weak self] in
+            self?.finishFloatingPaletteKeyboardFocus()
+        }
+        floatingPlayPalette.onToggleKeymap = { [weak self] in
+            self?.toggleKeyboardLayoutShortcut()
+        }
 
         statusItem = NSStatusBar.system.statusItem(withLength: KeyboardIconRenderer.imageSize.width)
         debugLog("statusItem created, button=\(statusItem.button != nil) length=\(statusItem.length)")
@@ -161,6 +180,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         registerTypeModeHotkey()
         _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
+        _ = registerPlayPaletteHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
+        registerLayoutToggleHotkey()
 
         // Dev affordance: post the
         // `computer.aestheticcomputer.menuband.showPopover`
@@ -184,6 +205,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if isDown && keyCode == 53 /* kVK_Escape */ {
                 NSSound(named: NSSound.Name("Tink"))?.play()
                 self.localCapture.disarm(reason: .cancelled)
+                return true
+            }
+            if isDown && MenuBandShortcut.layoutToggle.matches(
+                keyCode: UInt32(keyCode),
+                modifiers: MenuBandShortcut.carbonModifiers(from: flags)
+            ) {
+                self.toggleKeyboardLayoutShortcut()
                 return true
             }
             let consumed = self.menuBand.handleLocalKey(
@@ -217,6 +245,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         vc.onFocusShortcutRecordingChanged = { [weak self] isRecording in
             self?.setShortcutRecording(isRecording)
+        }
+        vc.onPlayPaletteToggle = { [weak self] in
+            self?.togglePlayPaletteFromCommand()
+        }
+        vc.onPlayPaletteShortcutChange = { [weak self] shortcut in
+            self?.applyPlayPaletteShortcut(shortcut) ?? false
+        }
+        vc.onPlayPaletteShortcutRecordingChanged = { [weak self] isRecording in
+            self?.setShortcutRecording(isRecording)
+        }
+        vc.isPlayPaletteShown = { [weak self] in
+            self?.floatingPlayPalette.isShown ?? false
         }
         popoverVC = vc
         popover.contentViewController = vc
@@ -257,6 +297,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func registerLayoutToggleHotkey() {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D424C54),  // 'MBLT'
+            id: 1
+        ) { [weak self] in
+            self?.toggleKeyboardLayoutShortcut()
+        }
+        if hotkey.register(
+            keyCode: MenuBandShortcut.layoutToggle.keyCode,
+            modifiers: MenuBandShortcut.layoutToggle.modifiers
+        ) {
+            layoutToggleHotkey = hotkey
+        }
+    }
+
+    @discardableResult
+    private func registerPlayPaletteHotkey(_ shortcut: MenuBandShortcut) -> Bool {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D425050),  // 'MBPP'
+            id: 1
+        ) { [weak self] in
+            self?.togglePlayPaletteFromShortcut()
+        }
+        guard hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) else {
+            return false
+        }
+        playPaletteHotkey = hotkey
+        return true
+    }
+
     @discardableResult
     private func registerFocusCaptureHotkey(_ shortcut: MenuBandShortcut) -> Bool {
         let hotkey = GlobalHotkey(
@@ -274,7 +344,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func applyFocusShortcut(_ shortcut: MenuBandShortcut) -> Bool {
-        guard shortcut.isValidForRecording, !shortcut.isReservedForTypeMode else {
+        guard shortcut.isValidForRecording,
+              !shortcut.isReservedForTypeMode,
+              shortcut != MenuBandShortcutPreferences.playPaletteShortcut else {
             return false
         }
         let previous = MenuBandShortcutPreferences.focusShortcut
@@ -288,21 +360,76 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    private func applyPlayPaletteShortcut(_ shortcut: MenuBandShortcut) -> Bool {
+        guard shortcut.isValidForRecording,
+              !shortcut.isReservedForTypeMode,
+              shortcut != MenuBandShortcutPreferences.focusShortcut else {
+            return false
+        }
+        let previous = MenuBandShortcutPreferences.playPaletteShortcut
+        playPaletteHotkey?.unregister()
+        playPaletteHotkey = nil
+        guard registerPlayPaletteHotkey(shortcut) else {
+            _ = registerPlayPaletteHotkey(previous)
+            return false
+        }
+        MenuBandShortcutPreferences.playPaletteShortcut = shortcut
+        return true
+    }
+
     private func setShortcutRecording(_ isRecording: Bool) {
         if isRecording {
             typeModeHotkey?.unregister()
             typeModeHotkey = nil
             focusCaptureHotkey?.unregister()
             focusCaptureHotkey = nil
+            playPaletteHotkey?.unregister()
+            playPaletteHotkey = nil
+            layoutToggleHotkey?.unregister()
+            layoutToggleHotkey = nil
         } else {
             if typeModeHotkey == nil { registerTypeModeHotkey() }
             if focusCaptureHotkey == nil {
                 _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
             }
+            if playPaletteHotkey == nil {
+                _ = registerPlayPaletteHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
+            }
+            if layoutToggleHotkey == nil { registerLayoutToggleHotkey() }
+        }
+    }
+
+    private func togglePlayPaletteFromShortcut() {
+        if floatingPlayPalette.isShown {
+            floatingPlayPalette.toggleFromShortcut()
+            return
+        }
+        beginFloatingPlayPalette()
+        floatingPlayPalette.toggleFromShortcut()
+    }
+
+    private func togglePlayPaletteFromCommand() {
+        let appToRestore = appBeforePopover
+        beginFloatingPlayPalette()
+        appBeforePopover = nil
+        floatingPlayPalette.showFromCommand(restoringTo: appToRestore)
+    }
+
+    private func beginFloatingPlayPalette() {
+        closePopover()
+        if localCapture.isArmed {
+            localCapture.disarm(reason: .resignedKey)
+        }
+        if menuBand.typeMode {
+            menuBand.disableTypeModeForFocusCapture()
         }
     }
 
     private func toggleFocusCaptureFromShortcut() {
+        if floatingPlayPalette.isKeyboardFocused {
+            finishFloatingPaletteKeyboardFocus()
+            return
+        }
         if localCapture.isArmed, focusCaptureArmedByShortcut {
             localCapture.disarm(reason: .cancelled)
             return
@@ -324,6 +451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         focusCaptureArmedByShortcut = true
         localCapture.arm()
         updateIcon()
+        floatingPlayPalette.refresh()
     }
 
     private func finishLocalCapture(reason: LocalKeyCapture.EndReason) {
@@ -334,6 +462,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ghostRefreshTimer?.invalidate()
         ghostRefreshTimer = nil
         updateIcon()
+        floatingPlayPalette.refresh()
         if shouldRestoreFocus {
             restorePreviousAppFocus()
         }
@@ -345,6 +474,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
               !app.isTerminated,
               app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
         app.activate(options: [.activateIgnoringOtherApps])
+    }
+
+    private func finishFloatingPaletteKeyboardFocus() {
+        menuBand.releaseAllHeldNotes()
+        floatingPlayPalette.clearInteraction()
+        floatingPlayPalette.releaseKeyboardFocus()
+        updateIcon()
+        floatingPlayPalette.refresh()
+    }
+
+    private func toggleKeyboardLayoutShortcut() {
+        menuBand.keymap = (menuBand.keymap == .ableton) ? .notepat : .ableton
     }
 
     // MARK: - Adaptive menubar layout
@@ -427,6 +568,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        floatingPlayPalette.dismiss(reason: .programmatic)
         menuBand.shutdown()
     }
 
@@ -799,7 +941,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let initialPt = imagePoint(from: downEvent.locationInWindow)
-        let (vel0, pan0) = expression(for: startNote, at: initialPt)
+        let (vel0, pan0) = NoteExpression.values(for: startNote, at: initialPt)
         menuBand.startTapNote(startNote, velocity: vel0, pan: pan0)
         // Arm sandbox-friendly local capture on a real piano click. We
         // skip arming when global TYPE mode is already on — the global
@@ -809,6 +951,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // when you're just tapping the piano with the mouse.
         if !menuBand.typeMode {
             localCapture.arm()
+            floatingPlayPalette.refresh()
         }
         var current: UInt8? = startNote
         while let next = NSApp.nextEvent(
@@ -826,29 +969,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if hovered != current {
                 if let prev = current { menuBand.stopTapNote(prev) }
                 if let nxt = hovered {
-                    let (v, p) = expression(for: nxt, at: pt)
+                    let (v, p) = NoteExpression.values(for: nxt, at: pt)
                     menuBand.startTapNote(nxt, velocity: v, pan: p)
                 }
                 current = hovered
             } else if let c = current {
-                let (_, p) = expression(for: c, at: pt)
+                let (_, p) = NoteExpression.values(for: c, at: pt)
                 menuBand.updateTapPan(c, pan: p)
             }
         }
-    }
-
-    private func expression(for midiNote: UInt8, at pt: NSPoint) -> (UInt8, UInt8) {
-        guard let rect = KeyboardIconRenderer.keyRect(for: midiNote) else {
-            return (100, 64)
-        }
-        let xRel = max(0, min(1, (pt.x - rect.minX) / rect.width))
-        let yRel = max(0, min(1, (pt.y - rect.minY) / rect.height))
-        let pan = UInt8(max(0, min(127, Int(round(xRel * 127)))))
-        let yDist = abs(yRel - 0.5) * 2.0
-        let vMin: Double = 60, vMax: Double = 120
-        let vel = vMax - (vMax - vMin) * yDist
-        let velocity = UInt8(max(1, min(127, Int(round(vel)))))
-        return (velocity, pan)
     }
 
     // MARK: - Popover
@@ -862,6 +991,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
         if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
+        appBeforePopover = nil
     }
 
     /// Distributed-notification entry point for the dev affordance
@@ -900,6 +1030,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // register immediately. NSStatusItem popovers don't pull focus
             // by default; without this you have to click into the popover
             // once before its controls react.
+            let frontmost = NSWorkspace.shared.frontmostApplication
+            appBeforePopover = frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier
+                ? nil
+                : frontmost
             NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
             DispatchQueue.main.async {
