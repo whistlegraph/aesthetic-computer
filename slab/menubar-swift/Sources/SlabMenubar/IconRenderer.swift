@@ -87,9 +87,6 @@ enum IconRenderer {
         let visible = Array(sessions.prefix(maxSides))
         let n = visible.count
         let overflow = sessions.count - n
-        // When every session has ended (all stale), the polygon goes
-        // homogeneous and blinks instead of carrying per-session colors.
-        let allStale = !visible.isEmpty && visible.allSatisfy { $0.state == .stale }
 
         let cx = pointsW / 2.0
         let cy = pointsH / 2.0
@@ -98,14 +95,17 @@ enum IconRenderer {
         let radius: CGFloat = 9.5
         let lineWidth: CGFloat = 1.6
 
+        // Color is homogenized across every edge — geometry shows count,
+        // color shows aggregate health.
+        let color = aggregateColor(state: state, phase: phase)
+
         if n == 1 {
             // Single horizontal line, rotated.
-            let session = visible[0]
             drawSegment(
                 center: NSPoint(x: cx, y: cy),
                 length: 2 * radius,
                 angle: rotation,
-                color: colorFor(session: session, indexFromTop: 0, phase: phase, allStale: allStale),
+                color: color,
                 lineWidth: lineWidth
             )
         } else if n == 2 {
@@ -117,22 +117,21 @@ enum IconRenderer {
             let length: CGFloat = 17
             let nx = -sin(rotation)
             let ny = cos(rotation)
-            for (i, session) in visible.enumerated() {
+            for i in 0..<n {
                 let sign: CGFloat = (i == 0) ? 1 : -1
                 let center = NSPoint(x: cx + nx * half * sign, y: cy + ny * half * sign)
                 drawSegment(
                     center: center,
                     length: length,
                     angle: rotation,
-                    color: colorFor(session: session, indexFromTop: i, phase: phase, allStale: allStale),
+                    color: color,
                     lineWidth: lineWidth
                 )
             }
         } else {
             // Regular n-gon. Vertices offset by π/n so the midpoint of edge
             // 0 sits at the top — ensures triangles point up, squares are
-            // squares (not diamonds), etc. Edge i carries session[i]'s
-            // color.
+            // squares (not diamonds), etc.
             var vertices: [NSPoint] = []
             vertices.reserveCapacity(n)
             for k in 0..<n {
@@ -141,17 +140,16 @@ enum IconRenderer {
                     + rotation
                 vertices.append(NSPoint(x: cx + radius * cos(theta), y: cy + radius * sin(theta)))
             }
-            for (i, session) in visible.enumerated() {
-                let a = vertices[i]
-                let b = vertices[(i + 1) % n]
-                let path = NSBezierPath()
-                path.move(to: a)
-                path.line(to: b)
-                path.lineWidth = lineWidth
-                path.lineCapStyle = .round
-                colorFor(session: session, indexFromTop: i, phase: phase, allStale: allStale).setStroke()
-                path.stroke()
+            color.setStroke()
+            let path = NSBezierPath()
+            path.lineWidth = lineWidth
+            path.lineJoinStyle = .round
+            path.move(to: vertices[0])
+            for k in 1..<n {
+                path.line(to: vertices[k])
             }
+            path.close()
+            path.stroke()
         }
 
         if overflow > 0 {
@@ -179,42 +177,27 @@ enum IconRenderer {
         path.stroke()
     }
 
-    private static func colorFor(session: ClaudeSession, indexFromTop: Int, phase: CGFloat, allStale: Bool) -> NSColor {
-        // Hue is anchored to the session's identity — same session keeps
-        // the same color across refreshes and across state changes, so the
-        // ring is readable: "the orange edge that was awaiting is now
-        // working" instead of "everything just got reshuffled."
-        let hue = stableHue(for: session.sessionId)
-        switch session.state {
-        case .awaiting:
-            // Steady hue, pulsing brightness — reads as urgent without
-            // losing identity.
-            let pulse = 0.55 + 0.45 * (0.5 + 0.5 * cos(phase * .pi * 4))
-            return NSColor(deviceHue: hue, saturation: 0.95, brightness: pulse, alpha: 1.0)
-        case .working:
-            // Same hue, calm and steady.
-            return NSColor(deviceHue: hue, saturation: 0.55, brightness: 0.85, alpha: 1.0)
-        case .stale:
-            if allStale {
-                // Every session is over — homogenize color across all
-                // edges and blink so the icon reads as "done, attention
-                // optional" rather than just sitting there gray.
-                let blink = 0.5 + 0.5 * cos(phase * .pi * 2)
-                return NSColor(deviceWhite: 0.30 + 0.45 * blink, alpha: 1.0)
-            }
-            return NSColor(deviceWhite: 0.45, alpha: 1.0)
+    /// One color for the whole polygon, derived from aggregate state. Hue
+    /// slides green → red as the awaiting ratio climbs (overall health),
+    /// brightness pulses harder the more urgent it gets, and an all-stale
+    /// shape blinks gray to signal "done, sessions still on disk."
+    private static func aggregateColor(state: StateSnapshot, phase: CGFloat) -> NSColor {
+        let sessions = state.claudeSessions
+        let allStale = !sessions.isEmpty && sessions.allSatisfy { $0.state == .stale }
+        if allStale {
+            let blink = 0.5 + 0.5 * cos(phase * .pi * 2)
+            return NSColor(deviceWhite: 0.30 + 0.45 * blink, alpha: 1.0)
         }
-    }
-
-    /// Deterministic FNV-1a hash → hue in [0, 1). Stable across launches
-    /// for a given session id.
-    private static func stableHue(for sessionId: String) -> CGFloat {
-        var h: UInt64 = 0xcbf29ce484222325
-        for byte in sessionId.utf8 {
-            h ^= UInt64(byte)
-            h = h &* 0x100000001b3
-        }
-        return CGFloat(h % 360) / 360.0
+        let total = max(1, sessions.count)
+        let urgency = CGFloat(state.awaitingCount) / CGFloat(total)
+        // Health gradient: 0.35 (green) when calm, 0.0 (red) when fully awaiting.
+        let hue = 0.35 * (1 - urgency)
+        let saturation = 0.55 + 0.40 * urgency
+        // Brightness pulses with depth proportional to urgency. At urgency=0
+        // the shape is steady; at urgency=1 it pulses fully.
+        let pulse = 0.5 + 0.5 * cos(phase * .pi * 4)
+        let brightness = 0.85 - 0.35 * urgency * (1 - pulse)
+        return NSColor(deviceHue: hue, saturation: saturation, brightness: brightness, alpha: 1.0)
     }
 
     private static func fallbackImage() -> NSImage {
