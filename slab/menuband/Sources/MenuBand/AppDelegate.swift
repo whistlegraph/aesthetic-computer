@@ -181,6 +181,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updateIcon()
 
+        // Pre-build the waveform strip panel so the first note press
+        // doesn't stall on panel + Metal pipeline construction.
+        waveformStrip.reposition(statusItemButton: statusItem.button)
+        waveformStrip.warmUp()
+
         registerTypeModeHotkey()
         _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
         _ = registerPlayPaletteHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
@@ -405,10 +410,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func togglePlayPaletteFromShortcut() {
         if floatingPlayPalette.isShown {
             floatingPlayPalette.toggleFromShortcut()
+            updateWaveformStripSuppression()
             return
         }
         beginFloatingPlayPalette()
         floatingPlayPalette.toggleFromShortcut()
+        updateWaveformStripSuppression()
     }
 
     private func togglePlayPaletteFromCommand() {
@@ -416,6 +423,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         beginFloatingPlayPalette()
         appBeforePopover = nil
         floatingPlayPalette.showFromCommand(restoringTo: appToRestore)
+        updateWaveformStripSuppression()
     }
 
     private func beginFloatingPlayPalette() {

@@ -56,6 +56,11 @@ final class MenuBarWaveformStrip {
         waveformView.menuBand = menuBand
     }
 
+    /// Pre-build the panel so the first note doesn't pay construction cost.
+    func warmUp() {
+        if panel == nil { buildPanel() }
+    }
+
     deinit {
         stopSlide()
     }
