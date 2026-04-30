@@ -3,8 +3,9 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var refreshTimer: Timer?
-    private var rainbowTimer: Timer?
+    private var animTimer: Timer?
     private var rainbowPhase: CGFloat = 0
+    private var rotationPhase: CGFloat = 0
     private var mailTickCount = 0
     private var mailPending = false
     private var mailSyncing = false
@@ -40,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state = StateSnapshot.gather()
 
         updateIcon()
-        updateRainbowTimer()
+        updateAnimTimer()
 
         mailTickCount += 1
         if mailTickCount >= 15 && !mailPending && !mailSyncing {
@@ -56,9 +57,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Don't tint our color image — contentTintColor would otherwise
         // recolor non-template images on macOS 10.14+.
         button.contentTintColor = nil
-        button.image = IconRenderer.image(for: state, phase: rainbowPhase)
-        // When the stack icon is showing, the bar count communicates the
-        // number — only show a numeric tail for subagents (which the stack
+        button.image = IconRenderer.image(for: state, phase: rainbowPhase, rotation: rotationPhase)
+        // When the polygon icon is showing, the edge count communicates the
+        // number — only show a numeric tail for subagents (which the polygon
         // doesn't represent) or the legacy fallback states.
         if state.claudeSessions.isEmpty && state.totalActive > 0 {
             button.title = " \(state.totalActive)"
@@ -69,21 +70,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func updateRainbowTimer() {
-        if state.anyAwaiting {
-            if rainbowTimer == nil {
+    private func updateAnimTimer() {
+        // Run the animation timer whenever the polygon icon is showing, so
+        // we can drive both the active-session rotation/pulse and the
+        // all-stale blink. Rotation only advances while at least one
+        // session is non-stale; pulse phase always advances (it drives both
+        // awaiting brightness and stale blink). When the polygon goes away
+        // entirely, stop the timer and reset phases.
+        if !state.claudeSessions.isEmpty {
+            if animTimer == nil {
                 let t = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
                     self.rainbowPhase = (self.rainbowPhase + 0.025).truncatingRemainder(dividingBy: 1.0)
+                    if self.state.anyActive {
+                        let rotSpeed = 0.004 + 0.012 * CGFloat(self.state.awaitingCount)
+                        self.rotationPhase = (self.rotationPhase + rotSpeed)
+                            .truncatingRemainder(dividingBy: .pi * 2)
+                    }
                     self.updateIcon()
                 }
                 RunLoop.main.add(t, forMode: .common)
-                rainbowTimer = t
+                animTimer = t
             }
-        } else if let t = rainbowTimer {
+        } else if let t = animTimer {
             t.invalidate()
-            rainbowTimer = nil
+            animTimer = nil
             rainbowPhase = 0
+            rotationPhase = 0
         }
     }
 

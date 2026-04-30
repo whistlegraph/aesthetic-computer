@@ -13,6 +13,7 @@ struct StateSnapshot {
     var hasWork: Bool { totalActive > 0 }
     var awaitingCount: Int { claudeSessions.filter { $0.state == .awaiting }.count }
     var anyAwaiting: Bool { awaitingCount > 0 }
+    var anyActive: Bool { claudeSessions.contains(where: { $0.state != .stale }) }
 
     var statusLine: String {
         if anyAwaiting { return "\(awaitingCount) awaiting · \(totalActive) active" }
