@@ -44,9 +44,13 @@ const pendingCmds = [];     // unacked cmds [{ seq, cmd }], oldest first
 const cmdOutbox = [];       // last CMD_BACKUP cmds only (wire-level backup window)
 
 // Soft reconciliation tuning.
-const RECONCILE_SNAP_THRESHOLD = 0.75;  // > this = hard snap
-const RECONCILE_SOFT_K = 0.2;           // lerp factor toward predicted/frame
-const RECONCILE_DEAD_ZONE = 0.05;        // < this = ignore (no correction noise)
+// cam-doll (local) and pmove (server) use slightly different integrators,
+// so they diverge by a small amount during sustained motion. Keep the dead
+// zone wide enough to ignore that physics-model jitter — otherwise the
+// 30Hz snap loop yanks the cam every frame and forward movement feels choppy.
+const RECONCILE_SNAP_THRESHOLD = 2.0;   // > this = hard snap (real teleport)
+const RECONCILE_SOFT_K = 0.05;          // lerp factor toward predicted/frame
+const RECONCILE_DEAD_ZONE = 0.5;        // < this = ignore (model-jitter noise)
 
 // Arena world cfg — MUST match ARENA_CFG in session-server/arena-manager.mjs.
 // Duplicated (not imported) because lib code shouldn't depend on server code.
