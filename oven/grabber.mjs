@@ -2427,11 +2427,11 @@ export async function grabPiece(piece, options = {}) {
           }
 
           isFrozen = await areFramesIdentical(capturedFrames);
-          // Frozen content (every frame identical) is legitimate; only
-          // uniform-color frames indicate a black-canvas / not-rendered dud.
-          uniformCheck = isFrozen
-            ? { isUniform: false }
-            : await isUniformColorContent(capturedFrames);
+          // Always run the uniform-color check — an all-black capture
+          // is both "frozen" (frames identical) and "uniform-color",
+          // and we need to catch it as a dud rather than treating it
+          // as legitimate frozen art.
+          uniformCheck = await isUniformColorContent(capturedFrames);
 
           if (!uniformCheck.isUniform) break;
           if (attempt < MAX_DUD_RETRIES) {
