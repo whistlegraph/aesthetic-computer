@@ -145,6 +145,17 @@ final class WaveformView: MTKView {
             pd.vertexFunction = vfn
             pd.fragmentFunction = ffn
             pd.colorAttachments[0].pixelFormat = colorPixelFormat
+            // Alpha blending — fragment shader emits alpha < 1 for unlit
+            // segments so the empty rows of the LED meter dim out instead
+            // of staying full-color. Without blending, alpha is ignored
+            // and every "off" segment renders at full intensity.
+            pd.colorAttachments[0].isBlendingEnabled = true
+            pd.colorAttachments[0].rgbBlendOperation = .add
+            pd.colorAttachments[0].alphaBlendOperation = .add
+            pd.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            pd.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+            pd.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            pd.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
             pipelineState = try device.makeRenderPipelineState(descriptor: pd)
         } catch {
             NSLog("MenuBand: visualizer Metal pipeline failed: \(error)")
@@ -164,6 +175,23 @@ final class WaveformView: MTKView {
                                        1.0)
     }
 
+    /// Override the visualizer's base color — used so the LED meter
+    /// matches the chosen GM instrument. Top of the bar still brightens
+    /// toward white in the shader (hot-zone VU feel), so passing in a
+    /// dim mid-tone still reads with peak indication. Pass `nil` to
+    /// revert to the system accent color.
+    func setBaseColor(_ color: NSColor?) {
+        guard let color = color,
+              let c = color.usingColorSpace(.sRGB) else {
+            applyAccentColor()
+            return
+        }
+        uniforms.color = SIMD4<Float>(Float(c.redComponent),
+                                       Float(c.greenComponent),
+                                       Float(c.blueComponent),
+                                       1.0)
+    }
+
     // MARK: - Per-frame audio analysis
 
     private func updateLevels() {
@@ -177,15 +205,21 @@ final class WaveformView: MTKView {
         let n = Self.barCount
         let chunkSize = samples.count / n
         var framePeak: Float = 0
+        // RMS per bin instead of peak. Peak detection makes bars hop
+        // around as zero-crossings drift across chunk boundaries — looks
+        // like the spectrum is "rolling." RMS averages within each chunk
+        // so a small phase shift barely moves the value, and the bars
+        // sit at their true amplitude rather than chasing transients.
         for b in 0..<n {
-            var peak: Float = 0
+            var sumSq: Float = 0
             let base = b * chunkSize
             for i in 0..<chunkSize {
-                let a = abs(samples[base + i])
-                if a > peak { peak = a }
+                let s = samples[base + i]
+                sumSq += s * s
             }
-            levels[b] = peak
-            if peak > framePeak { framePeak = peak }
+            let rms = (chunkSize > 0) ? sqrtf(sumSq / Float(chunkSize)) : 0
+            levels[b] = rms
+            if rms > framePeak { framePeak = rms }
         }
 
         // Auto-gain — same envelope as the old CALayer path. Snap up on
@@ -197,12 +231,21 @@ final class WaveformView: MTKView {
             smoothedPeak = max(0.05, smoothedPeak * 0.92 + framePeak * 0.08)
         }
         let gain = 0.95 / smoothedPeak
-        // Direct readout — no inter-frame ballistics. The user prefers
-        // raw peak amplitude over smoothed visuals; bars track the
-        // analyzed level exactly so transients land within one display
-        // frame of the audio that triggered them.
+        // Per-bar temporal smoothing. RMS over a short chunk still
+        // wobbles when the chunk is shorter than one period of the note
+        // (low pitches especially) — a 30 Hz tone has ~1500 samples per
+        // period, but each bar only sees ~32 samples. Without temporal
+        // smoothing, those phase-induced wobbles drove the LED segment
+        // count up and down frame to frame, reading as the meter
+        // "rolling." Asymmetric smoothing (fast attack, slow decay)
+        // keeps transient response while killing the ripple.
+        let attack: Float = 0.55      // weight on new sample when rising
+        let decay:  Float = 0.18      // weight on new sample when falling
         for b in 0..<n {
-            displayLevels[b] = min(1.0, levels[b] * gain)
+            let raw = min(1.0, levels[b] * gain)
+            let prev = displayLevels[b]
+            let alpha = (raw > prev) ? attack : decay
+            displayLevels[b] = prev * (1.0 - alpha) + raw * alpha
         }
     }
 
@@ -223,6 +266,7 @@ final class WaveformView: MTKView {
 
     struct VertexOut {
         float4 position [[position]];
+        float level;
     };
 
     // Two triangles spanning the unit square (CCW), shared across all bar
@@ -233,6 +277,20 @@ final class WaveformView: MTKView {
         float2(0, 1), float2(1, 0), float2(1, 1)
     };
 
+    // Segmented LED-meter look. Each bar is rendered as a full-height
+    // rect; the fragment shader carves it into stacked segments by
+    // level. Tweak NSEG / SEG_GAP to taste — old stereo VU meters
+    // typically had 10–14 segments with a small dim row above the lit
+    // ones to hint at the headroom.
+    constant float NSEG = 10.0;
+    constant float SEG_GAP = 0.32;
+    constant float UNLIT_ALPHA = 0.12;
+    // Hot-zone: above this fraction of the bar height, the lit color
+    // brightens toward white so the top of the meter still reads as
+    // "peaking" even when the instrument's base color is e.g. a deep
+    // navy bass. Linear ramp from HOT_AT → top.
+    constant float HOT_AT = 0.70;
+
     vertex VertexOut bar_vertex(uint vid [[vertex_id]],
                                  uint iid [[instance_id]],
                                  constant Uniforms &u [[buffer(0)]],
@@ -240,7 +298,8 @@ final class WaveformView: MTKView {
     {
         float2 local = unitQuad[vid];
         float barX = float(iid) * u.stride;
-        float h = max(u.minHeight, levels[iid] * u.viewH);
+        // Full-height geometry — fragment shader masks per-segment.
+        float h = u.viewH;
         float px = barX + local.x * u.barW;
         float py = local.y * h;
         // Pixel space → clip space ([-1, 1] on both axes).
@@ -248,13 +307,41 @@ final class WaveformView: MTKView {
         float clipY = (py / u.viewH) * 2.0 - 1.0;
         VertexOut out;
         out.position = float4(clipX, clipY, 0, 1);
+        out.level = levels[iid];
         return out;
     }
 
     fragment float4 bar_fragment(VertexOut in [[stage_in]],
                                   constant Uniforms &u [[buffer(0)]])
     {
-        return u.color;
+        // [[position]] gives fragment pixel-space y with origin at TOP.
+        // Flip so y01=0 is bottom of the bar (where amplitude starts).
+        float y01 = 1.0 - (in.position.y / u.viewH);
+        // Inter-segment gap: top fraction of each segment cell stays
+        // transparent so the bar reads as a stack rather than a solid.
+        float segPos = fract(y01 * NSEG);
+        if (segPos > (1.0 - SEG_GAP)) {
+            discard_fragment();
+        }
+        // Bar color = the instrument's chosen base hue, passed in via
+        // u.color. The top of the bar still brightens toward white so
+        // there's a "peaking" cue even when the base is dim — VU
+        // gradient feel without forcing green/amber/red.
+        float3 base = u.color.rgb;
+        float hot = max(0.0, (y01 - HOT_AT) / (1.0 - HOT_AT));
+        float3 tier = mix(base, float3(1.0, 1.0, 1.0), hot * 0.65);
+        // Per-segment glow: brighter at the center of each LED cell,
+        // falling off toward the gap edges. Reads as a soft bloom on
+        // each lit segment without a real blur pass.
+        float visibleSegPos = segPos / (1.0 - SEG_GAP);
+        float segCenterDist = abs(visibleSegPos - 0.5) * 2.0;
+        float bloom = pow(1.0 - segCenterDist, 1.6);
+        // Lit = below the level. Above = drawn very faintly so the
+        // unfilled segments still hint at where the column lives.
+        bool lit = y01 < in.level;
+        float3 color = lit ? (tier + bloom * 0.40) : tier;
+        float a = lit ? u.color.a : (u.color.a * UNLIT_ALPHA);
+        return float4(min(color, 1.0), a);
     }
     """
 }

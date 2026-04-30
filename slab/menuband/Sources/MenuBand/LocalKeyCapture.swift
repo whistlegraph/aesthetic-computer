@@ -44,11 +44,18 @@ final class LocalKeyCapture {
             }
         }
         if resignKeyObserver == nil {
+            // Disarm only when our APP loses focus (user clicked another
+            // app). Don't disarm when key passes to another window inside
+            // our own app — opening the popover used to disarm capture
+            // here, killing both the typing-on-piano sound AND the ghost-
+            // letter wave while the popover was visible.
             resignKeyObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didResignKeyNotification,
                 object: panel, queue: .main
             ) { [weak self] _ in
-                self?.disarm()
+                guard let self = self else { return }
+                let stillKeyInApp = NSApp.windows.contains { $0.isKeyWindow }
+                if !stillKeyInApp { self.disarm() }
             }
         }
         isArmed = true

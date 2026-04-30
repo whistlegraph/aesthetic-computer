@@ -76,6 +76,51 @@ enum MenuBandLayout {
         return t
     }()
 
+    /// Pan (MIDI 0–127, 64 = center) per QWERTY position. Derived from
+    /// notepat native's `getPanForQwertyKey` — physical keyboard
+    /// column maps to stereo placement so left-hand keys sit left,
+    /// right-hand keys sit right. Rows offset like a real keyboard
+    /// (top row no offset, middle row 0.5 col over, bottom row 1 col
+    /// over). PAN_RANGE keeps the spread inside ±0.9 so nothing is
+    /// hard-panned to a single ear.
+    static let panByKeyCode: [UInt8] = {
+        var t = [UInt8](repeating: 64, count: 128)
+        // (row, col → keyCode mapping, mirrors notepat.mjs QWERTY rows)
+        let rows: [[UInt16]] = [
+            // Row 0: q w e r t y u i o p ]
+            [12, 13, 14, 15, 17, 16, 32, 34, 31, 35, 30],
+            // Row 1: a s d f g h j k l ; '
+            [0,  1,  2,  3,  5,  4,  38, 40, 37, 41, 39],
+            // Row 2: z x c v b n m   (skipping the modifier bookends)
+            [6,  7,  8,  9,  11, 45, 46],
+        ]
+        let rowOffsets: [Double] = [0.0, 0.5, 1.0]
+        // Match notepat: MAX_SPAN = max(row.length + offset). Rows are
+        // 11, 11.5, 8 here (we drop control / alt vs the JS source) so
+        // MAX_SPAN = 11.5.
+        let maxSpan: Double = 11.5
+        let panRange: Double = 0.9
+        for r in 0..<rows.count {
+            for (col, kc) in rows[r].enumerated() where kc < 128 {
+                let x = Double(col) + rowOffsets[r]
+                let normalized = x / (maxSpan - 1)
+                let pan = (normalized * 2 - 1) * panRange
+                let midi = max(0, min(127, Int((((pan + 1) / 2) * 127.0).rounded())))
+                t[Int(kc)] = UInt8(midi)
+            }
+        }
+        return t
+    }()
+
+    /// Look up the pan (MIDI 0–127) for a given hardware key code.
+    /// Returns 64 (center) for keys that aren't in the QWERTY pan
+    /// table (modifiers, function keys, etc.).
+    @inline(__always)
+    static func panForKeyCode(_ keyCode: UInt16) -> UInt8 {
+        guard keyCode < 128 else { return 64 }
+        return panByKeyCode[Int(keyCode)]
+    }
+
     @inline(__always)
     static func midiNote(forKeyCode keyCode: UInt16,
                          octaveShift: Int,
@@ -183,6 +228,20 @@ final class MenuBandMIDI {
                 client = 0
                 return
             }
+            // Stable identity across launches. Without these, CoreMIDI
+            // mints a fresh kMIDIPropertyUniqueID per process; DAWs cache
+            // their per-input "Track / Sync / Remote" toggles by UID, so
+            // every reinstall or relaunch reads as a new device and the
+            // user has to re-enable Track in Live's MIDI prefs to hear
+            // notes. Pinning UID + manufacturer + model means Ableton's
+            // routing survives reinstalls.
+            // UID is a 32-bit signed int; 0x4D424E44 = ASCII "MBND".
+            MIDIObjectSetIntegerProperty(source, kMIDIPropertyUniqueID,
+                                         Int32(bitPattern: 0x4D424E44))
+            MIDIObjectSetStringProperty(source, kMIDIPropertyManufacturer,
+                                        "aesthetic.computer" as CFString)
+            MIDIObjectSetStringProperty(source, kMIDIPropertyModel,
+                                        "Menu Band" as CFString)
             started = true
             debugLog("midi.start: virtual source published")
         }

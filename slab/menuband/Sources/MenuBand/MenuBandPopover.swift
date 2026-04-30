@@ -66,12 +66,12 @@ final class MenuBandPopoverViewController: NSViewController {
     private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
     private var midiSwitch: NSSwitch!
     private var midiInlineLabel: NSTextField!
-    private var muteButton: NSButton!
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
     private var instrumentList: InstrumentListView!
     private var instrumentReadout: NSTextField!
     private var instrumentLabel: NSTextField!
     private var instrumentTitleRow: NSStackView!
+    private var arrowsHint: ArrowKeysIndicator!
     private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
@@ -135,7 +135,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // tightly so the 4 px spacing on each side stays exactly 4 px,
         // not "4 + half-of-padding".
         octaveLabel.font = NSFont.monospacedSystemFont(ofSize: 17, weight: .semibold)
-        octaveLabel.textColor = .labelColor
+        octaveLabel.textColor = .controlAccentColor
         octaveLabel.alignment = .center
 
         octaveStepper = NSStepper()
@@ -188,35 +188,16 @@ final class MenuBandPopoverViewController: NSViewController {
         titleRow.setCustomSpacing(4, after: octaveLabel)
         titleRow.addArrangedSubview(rightArrow)
         titleRow.addArrangedSubview(octaveStepper)  // hidden, here for layout-time only
-        titleRow.setCustomSpacing(3, after: rightArrow)
+        titleRow.setCustomSpacing(8, after: rightArrow)
         titleRow.addArrangedSubview(octaveHint)
 
         // Spacer lives in the middle so the octave widget pins LEFT and
         // the MIDI pair pins RIGHT.
         titleRow.addArrangedSubview(titleSpacer)
 
-        // Mute toggle — small speaker icon to the left of MIDI. When on, the
-        // local synth is silent (lit state + MIDI port still update so the
-        // visual + DAW paths keep working — only the built-in instrument is
-        // gagged). Lives in the title row to stay out of the main controls.
-        let speakerConfig = NSImage.SymbolConfiguration(pointSize: 13,
-                                                        weight: .semibold)
-        muteButton = NSButton()
-        muteButton.isBordered = false
-        muteButton.bezelStyle = .inline
-        muteButton.imagePosition = .imageOnly
-        muteButton.imageScaling = .scaleProportionallyDown
-        muteButton.target = self
-        muteButton.action = #selector(muteButtonClicked(_:))
-        muteButton.image = NSImage(systemSymbolName: "speaker.fill",
-                                   accessibilityDescription: "Mute local synth")?
-            .withSymbolConfiguration(speakerConfig)
-        muteButton.contentTintColor = .secondaryLabelColor
-        muteButton.toolTip = "Mute local synth"
-        titleRow.addArrangedSubview(muteButton)
-        titleRow.setCustomSpacing(8, after: muteButton)
-
         // MIDI toggle — tucked into the title row instead of its own panel.
+        // Enabling MIDI also silences the local keyboard (notes route to the
+        // DAW instead), so a separate mute button would be redundant.
         midiSwitch = NSSwitch()
         midiSwitch.target = self
         midiSwitch.action = #selector(midiSwitchToggled(_:))
@@ -330,15 +311,37 @@ final class MenuBandPopoverViewController: NSViewController {
         inputHint.textColor = .secondaryLabelColor
         stack.addArrangedSubview(inputHint)
 
-        // Live waveform of the local synth output. Hidden in MIDI mode
-        // (DAW handles audio there; our local mixer is silent so the line
-        // would just sit flat). Single antialiased path, ~60 Hz redraw.
+        // Live segmented LED meter of the local synth output. Hidden in
+        // MIDI mode (DAW handles audio there; our local mixer is silent
+        // so the bars would just sit dark).
+        //
+        // Wrapped in a layer-backed bezel so the meter reads as a
+        // proper VU display housing — dark recessed background, soft
+        // border, uniform inner margin around the bars. Without the
+        // bezel the bars sit flush against the popover walls and feel
+        // unfinished.
         waveformView = WaveformView()
         waveformView.menuBand = menuBand
         waveformView.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(waveformView)
-        waveformView.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        waveformView.heightAnchor.constraint(equalToConstant: 64).isActive = true
+
+        let waveformBezel = NSView()
+        waveformBezel.wantsLayer = true
+        waveformBezel.layer?.cornerRadius = 6
+        waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
+        waveformBezel.layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.18).cgColor
+        waveformBezel.layer?.borderWidth = 1
+        waveformBezel.translatesAutoresizingMaskIntoConstraints = false
+        waveformBezel.addSubview(waveformView)
+        let bezelInset: CGFloat = 5
+        NSLayoutConstraint.activate([
+            waveformView.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor, constant: bezelInset),
+            waveformView.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor, constant: -bezelInset),
+            waveformView.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: bezelInset),
+            waveformView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
+        ])
+        stack.addArrangedSubview(waveformBezel)
+        waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        waveformBezel.heightAnchor.constraint(equalToConstant: 64).isActive = true
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -364,12 +367,20 @@ final class MenuBandPopoverViewController: NSViewController {
         // Title row: "Instrument:" left, "078  Whistle" right (greyed). The
         // readout used to live under the grid; promoting it to the title
         // row keeps the eye on a single line while browsing cells.
-        instrumentLabel = NSTextField(labelWithString: "Instrument:")
-        instrumentLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        instrumentLabel = NSTextField(labelWithString: "Voice:")
+        instrumentLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .semibold)
         instrumentLabel.textColor = .labelColor
         instrumentReadout = NSTextField(labelWithString: "")
-        instrumentReadout.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        instrumentReadout.textColor = .secondaryLabelColor
+        instrumentReadout.font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
+        instrumentReadout.textColor = .labelColor
+        // Chip backdrop — colored to match the GM-family hue that
+        // `InstrumentListView.colorForProgram` uses for the cell. The
+        // bg is set/refreshed in `updateInstrumentReadout` so picking
+        // a new instrument visually moves the chip into the same color
+        // tier as the cell that was clicked.
+        instrumentReadout.drawsBackground = false
+        instrumentReadout.wantsLayer = true
+        instrumentReadout.layer?.cornerRadius = 4
         instrumentReadout.lineBreakMode = .byTruncatingTail
         instrumentTitleRow = NSStackView(views: [instrumentLabel, instrumentReadout])
         instrumentTitleRow.orientation = .horizontal
@@ -381,6 +392,8 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentReadout.setContentHuggingPriority(.defaultLow, for: .horizontal)
         instrumentReadout.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(instrumentTitleRow)
+        // (Held-notes / chord LED panel removed — the empty-pill resting
+        // state added more visual noise than the feature was worth.)
 
         // GarageBand backend toggle was prototyped here (see
         // GarageBandLibrary + GarageBandPatchView), then deprecated
@@ -392,14 +405,71 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentList.onCommit = { [weak self] prog in
             self?.handleInstrumentCommit(prog)
         }
+        instrumentList.onArrowKey = { [weak self] dir, isDown in
+            self?.arrowsHint.setHighlight(direction: dir, on: isDown)
+        }
+        // Forward non-arrow keys through the controller's local-key
+        // handler so notepat / Ableton letter keys still play notes
+        // while the popover holds first-responder focus on the grid.
+        instrumentList.onMusicKey = { [weak self] kc, isDown, isRepeat, flags in
+            return self?.menuBand?.handleLocalKey(
+                keyCode: kc, isDown: isDown, isRepeat: isRepeat, flags: flags
+            ) ?? false
+        }
         instrumentList.onHover = { [weak self] prog in
+            guard let self = self else { return }
             // Hover plays a continuous preview note in the hovered program;
             // moving to another cell stops + restarts in the new program.
-            self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
+            self.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
+            // Live-preview the chrome too — chip backdrop, chip text,
+            // and visualizer base color all retint to whatever cell is
+            // under the cursor while dragging. When hover ends (prog ==
+            // nil) we snap back to the committed instrument.
+            let safe: Int
+            let nameForChip: String
+            if let p = prog {
+                safe = max(0, min(127, p))
+                nameForChip = GeneralMIDI.programNames[safe]
+            } else if let m = self.menuBand {
+                safe = max(0, min(127, Int(m.melodicProgram)))
+                nameForChip = GeneralMIDI.programNames[safe]
+            } else {
+                return
+            }
+            let famColor = InstrumentListView.colorForProgram(safe)
+            self.instrumentReadout.stringValue = " \(nameForChip) "
+            self.instrumentReadout.layer?.backgroundColor =
+                famColor.withAlphaComponent(0.32).cgColor
+            self.waveformView.setBaseColor(famColor)
         }
-        stack.addArrangedSubview(instrumentList)
-        instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight).isActive = true
+        // Wrap the grid in a panel that adds an extra strip BELOW the
+        // 8×16 cells where the arrow-keys hint glyph lives. The hint
+        // is its own bottom-right ornament — never overlaying the
+        // voice cells — so the whole assembly reads like a stepper-
+        // button corner on a stereo's faceplate.
+        let palettePanel = NSView()
+        palettePanel.translatesAutoresizingMaskIntoConstraints = false
+        palettePanel.addSubview(instrumentList)
+        arrowsHint = ArrowKeysIndicator()
+        arrowsHint.toolTip = "Arrow keys move the selection."
+        arrowsHint.translatesAutoresizingMaskIntoConstraints = false
+        palettePanel.addSubview(arrowsHint)
+        let cornerInset: CGFloat = 4
+        // Strip below the grid sized to fit the 30 px keycap cluster
+        // plus a generous gap above so the arrows feel like a separate
+        // ornament — not crammed up under the bottom row of voices.
+        let strip: CGFloat = 46
+        NSLayoutConstraint.activate([
+            instrumentList.topAnchor.constraint(equalTo: palettePanel.topAnchor),
+            instrumentList.leadingAnchor.constraint(equalTo: palettePanel.leadingAnchor),
+            instrumentList.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor),
+            instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight),
+            arrowsHint.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor, constant: -cornerInset),
+            arrowsHint.bottomAnchor.constraint(equalTo: palettePanel.bottomAnchor, constant: -cornerInset),
+        ])
+        stack.addArrangedSubview(palettePanel)
+        palettePanel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        palettePanel.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight + strip).isActive = true
 
         let bottomSeparator = makeSeparator()
         stack.addArrangedSubview(bottomSeparator)
@@ -424,18 +494,9 @@ final class MenuBandPopoverViewController: NSViewController {
         aboutCol.orientation = .vertical
         aboutCol.alignment = .leading
         aboutCol.spacing = 6
-        // Brand identity now lives here instead of at the top of the
-        // popover — Menu Band heading + subtitle + about body + links all
-        // collapse into one section.
-        let aboutTitle = NSTextField(labelWithString: "Menu Band")
-        aboutTitle.font = NSFont.systemFont(ofSize: 13, weight: .bold)
-        aboutTitle.textColor = .labelColor
-        let aboutSubtitle = NSTextField(wrappingLabelWithString:
-            "Built-in macOS instruments, in the menu bar.")
-        aboutSubtitle.font = NSFont.systemFont(ofSize: 10.5)
-        aboutSubtitle.textColor = .secondaryLabelColor
-        aboutSubtitle.maximumNumberOfLines = 0
-        aboutSubtitle.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
+        // No heading — the prose itself is the about content. The bold
+        // "Menu Band" header on top read as a duplicate of the menubar
+        // identity above and ate vertical space.
         let aboutBody = NSTextField(wrappingLabelWithString:
             "A political project to bring the built-in macOS instruments — " +
             "the ones GarageBand uses — into the menu bar. Free + open source.")
@@ -444,71 +505,73 @@ final class MenuBandPopoverViewController: NSViewController {
         aboutBody.maximumNumberOfLines = 0
         aboutBody.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
         aboutCol.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        aboutCol.addArrangedSubview(aboutTitle)
         aboutCol.addArrangedSubview(aboutBody)
-        let linksRow = NSStackView()
-        linksRow.orientation = .horizontal
-        linksRow.alignment = .centerY
-        linksRow.spacing = 6
-        let acLink = NSButton(title: "aesthetic.computer",
-                              target: self, action: #selector(openAesthetic))
-        acLink.bezelStyle = .recessed
-        acLink.controlSize = .small
-        let npLink = NSButton(title: "notepat.com",
-                              target: self, action: #selector(openNotepat))
-        npLink.bezelStyle = .recessed
-        npLink.controlSize = .small
-        linksRow.addArrangedSubview(acLink)
-        linksRow.addArrangedSubview(npLink)
-        aboutCol.addArrangedSubview(linksRow)
+        // Two badge-style links stacked vertically. Aesthetic.Computer
+        // wears its purple-on-pale-purple identity; notepat.com gets a
+        // dark gray slab so the concert-poster white/black shadow play
+        // reads.
+        let linksCol = NSStackView()
+        linksCol.orientation = .vertical
+        linksCol.alignment = .leading
+        linksCol.spacing = 4
+        let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
+        let acLink = Self.makeLinkButton(
+            attr: Self.aestheticComputerTitle(),
+            target: self, action: #selector(openAesthetic),
+            background: acPurple.withAlphaComponent(0.14),
+            border: acPurple.withAlphaComponent(0.55))
+        let npLink = Self.makeLinkButton(
+            attr: Self.notepatComTitle(),
+            target: self, action: #selector(openNotepat),
+            background: NSColor(white: 0.30, alpha: 1),
+            border: nil)
+        linksCol.addArrangedSubview(acLink)
+        linksCol.addArrangedSubview(npLink)
+        aboutCol.addArrangedSubview(linksCol)
 
-        let crashCol = NSStackView()
-        crashCol.orientation = .vertical
-        crashCol.alignment = .leading
-        crashCol.spacing = 4
-        crashStatusLabel = NSTextField(labelWithString: "")
-        crashStatusLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        crashStatusLabel.textColor = .labelColor
-        crashHintLabel = NSTextField(wrappingLabelWithString: "")
-        crashHintLabel.font = NSFont.systemFont(ofSize: 10)
-        crashHintLabel.textColor = .secondaryLabelColor
-        crashHintLabel.maximumNumberOfLines = 0
-        crashHintLabel.preferredMaxLayoutWidth = 130
-        crashCol.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        // Crash-send moved out of this row — it now lives next to Quit
+        // below as a small standalone button. Keeping it here as a side-by-
+        // side column was pushing the about copy and clipping the popover
+        // bottom on multi-line crash hints.
+        crashStatusLabel = NSTextField(labelWithString: "")  // legacy ivar — unused
+        crashHintLabel = NSTextField(labelWithString: "")    // legacy ivar — unused
         crashSendButton = NSButton(title: "Send crash reports",
                                    target: self,
                                    action: #selector(sendCrashLogs(_:)))
         crashSendButton.bezelStyle = .recessed
         crashSendButton.controlSize = .small
-        crashCol.addArrangedSubview(crashStatusLabel)
-        crashCol.addArrangedSubview(crashHintLabel)
-        crashCol.addArrangedSubview(crashSendButton)
+        crashSendButton.isHidden = true  // shown by refreshCrashStatus when n>0
 
         aboutCrashRow.addArrangedSubview(aboutCol)
-        aboutCrashRow.addArrangedSubview(crashCol)
         stack.addArrangedSubview(aboutCrashRow)
         // Air between the About/Crash block and the Quit button below so
         // Quit reads as its own action, not a list item under About.
         stack.setCustomSpacing(10, after: aboutCrashRow)
 
-        // Quit — small, borderless, bottom-right. Red text only.
+        // Quit — red bezel, white bold title. Bottom-right of the footer
+        // row; crash-send button (when present) sits at the left of the
+        // same row.
         let quit = NSButton()
-        quit.bezelStyle = .inline
-        quit.isBordered = false
+        quit.bezelStyle = .rounded
+        quit.isBordered = true
+        quit.bezelColor = .systemRed
         quit.controlSize = .small
         quit.target = self
         quit.action = #selector(quitApp)
         quit.attributedTitle = NSAttributedString(
-            string: "Quit",
+            string: "Quit Menu Band",
             attributes: [
-                .foregroundColor: NSColor.systemRed,
+                .foregroundColor: NSColor.white,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
+        quitRow.alignment = .centerY
+        quitRow.spacing = 8
         let quitSpacer = NSView()
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        quitRow.addArrangedSubview(crashSendButton)
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
@@ -546,6 +609,10 @@ final class MenuBandPopoverViewController: NSViewController {
         guard isViewLoaded, let menuBand = waveformView.menuBand else { return }
         syncFromController()
         waveformView.isLive = !menuBand.midiMode
+        // Make the voice grid first responder on every popover open so
+        // arrow keys always step the selection — even before the user
+        // has clicked into the grid this session.
+        view.window?.makeFirstResponder(instrumentList)
     }
 
     override func viewDidDisappear() {
@@ -553,11 +620,15 @@ final class MenuBandPopoverViewController: NSViewController {
         waveformView.isLive = false
     }
 
+    /// Held-notes readout removed. AppDelegate's onLitChanged still
+    /// calls this for back-compat — left as a no-op so we don't have
+    /// to thread the removal through every callsite.
+    func refreshHeldNotes() {}
+
     /// Refresh control state from the controller — call right before showing.
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
         midiSwitch.state = n.midiMode ? .on : .off
-        updateMuteButton(muted: n.muted)
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)
         let segIdx = inputModeSegment(keymap: n.keymap)
@@ -587,13 +658,43 @@ final class MenuBandPopoverViewController: NSViewController {
                 self.updateSelfTestLabel(state: nn.midiMode ? nn.midiSelfTest : .unknown)
             }
         }
+        // Re-fit the popover after sync. preferredContentSize was locked
+        // in loadView() while the crash column was empty/hidden and the
+        // update banner was not yet shown; both can grow the layout
+        // (multi-line crash hint, banner row) and would otherwise be
+        // clipped at the bottom of the popover.
+        refitContentSize()
     }
 
-    /// Format the readout in the title row as "078  Whistle".
+    /// Re-measure the stack's intrinsic fitting size and update
+    /// `preferredContentSize` to match. Run after any change that can
+    /// add/remove rows or change wrapping height (crash status,
+    /// update banner, instrument palette toggle).
+    private func refitContentSize() {
+        guard isViewLoaded else { return }
+        view.needsLayout = true
+        view.layoutSubtreeIfNeeded()
+        let fitting = view.fittingSize
+        if fitting.height > 0 && fitting.width > 0 {
+            preferredContentSize = NSSize(width: fitting.width,
+                                           height: fitting.height)
+        }
+    }
+
+    /// Format the readout in the title row as just the instrument name
+    /// (no leading "078" program number — the cell's own backdrop color
+    /// is the visual identifier; the number was redundant noise). A
+    /// hair space on each side keeps the chip from touching its text.
     private func updateInstrumentReadout() {
         guard let m = menuBand else { return }
         let safe = max(0, min(127, Int(m.melodicProgram)))
-        instrumentReadout.stringValue = String(format: "%03d  %@", safe, GeneralMIDI.programNames[safe])
+        instrumentReadout.stringValue = " \(GeneralMIDI.programNames[safe]) "
+        let famColor = InstrumentListView.colorForProgram(safe)
+        instrumentReadout.layer?.backgroundColor = famColor
+            .withAlphaComponent(0.32).cgColor
+        // Retint the LED meter to the same hue so the visualizer
+        // signals which instrument is the audible voice at a glance.
+        waveformView.setBaseColor(famColor)
     }
 
     /// Reflect the MIDI loopback self-test status as the inline "MIDI"
@@ -616,6 +717,70 @@ final class MenuBandPopoverViewController: NSViewController {
         let box = NSBox()
         box.boxType = .separator
         return box
+    }
+
+    /// Badge-style link button — flat NSButton with a layer-painted
+    /// fill + optional border, so the per-link attributed title sits
+    /// inside a small chip. `bezelStyle = .inline` strips the system
+    /// chrome; the layer below provides the badge look.
+    static func makeLinkButton(attr: NSAttributedString,
+                               target: AnyObject,
+                               action: Selector,
+                               background: NSColor? = nil,
+                               border: NSColor? = nil) -> NSButton {
+        let btn = NSButton()
+        btn.bezelStyle = .inline
+        btn.isBordered = false
+        btn.controlSize = .small
+        btn.target = target
+        btn.action = action
+        btn.attributedTitle = attr
+        btn.wantsLayer = true
+        btn.layer?.cornerRadius = 5
+        if let bg = background {
+            btn.layer?.backgroundColor = bg.cgColor
+        }
+        if let bd = border {
+            btn.layer?.borderColor = bd.cgColor
+            btn.layer?.borderWidth = 1
+        }
+        return btn
+    }
+
+    /// "Aesthetic.Computer" — purple words flanking a pink connecting
+    /// dot. Padded with hair spaces on each side so the badge has
+    /// breathing room from the layer-painted border.
+    static func aestheticComputerTitle() -> NSAttributedString {
+        let purple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
+        let pink   = NSColor(red: 255/255, green: 107/255, blue: 157/255, alpha: 1)
+        let font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let s = NSMutableAttributedString()
+        s.append(NSAttributedString(string: "Aesthetic",
+            attributes: [.foregroundColor: purple, .font: font]))
+        s.append(NSAttributedString(string: ".",
+            attributes: [.foregroundColor: pink, .font: font]))
+        s.append(NSAttributedString(string: "Computer",
+            attributes: [.foregroundColor: purple, .font: font]))
+        s.append(NSAttributedString(string: "  ",  // trailing badge padding
+            attributes: [.font: font]))
+        return s
+    }
+
+    /// "notepat.com" — all lowercase, heavy white set on the dark
+    /// slab backdrop with a single down-right black drop shadow for
+    /// concert-poster weight. Uniform coloring — no special dot.
+    static func notepatComTitle() -> NSAttributedString {
+        let font = NSFont.systemFont(ofSize: 11, weight: .heavy)
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black
+        shadow.shadowOffset = NSSize(width: 1, height: -1)
+        shadow.shadowBlurRadius = 0
+        return NSAttributedString(string: "notepat.com",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: font,
+                .shadow: shadow,
+            ])
     }
 
     private func makeSwitchRow(label: String,
@@ -651,24 +816,14 @@ final class MenuBandPopoverViewController: NSViewController {
         return row
     }
 
-    /// Update the crash-log status row from disk. Called on every popover
-    /// open so the count is current. When there are zero crashes, the
-    /// whole crash column hides — About sits side-by-side normally; when
-    /// crashes are present, About narrows to share the row.
+    /// Update the crash-send button from disk. Called on every popover
+    /// open so the count is current. The button lives in the quit row
+    /// next to Quit Menu Band and stays hidden when there are no reports.
     private func refreshCrashStatus() {
-        let logs = CrashLogReader.recentLogs()
-        let n = logs.count
-        // Walk up to the parent crash column to hide/show the whole panel.
-        let crashCol = crashStatusLabel?.superview
-        if n == 0 {
-            crashCol?.isHidden = true
-            crashSendButton.isHidden = true
-        } else {
-            crashCol?.isHidden = false
-            crashStatusLabel.stringValue = n == 1 ? "1 crash" : "\(n) crashes"
-            crashHintLabel.stringValue = "Send to aesthetic.computer to help debug."
-            crashSendButton.isHidden = false
-            crashSendButton.title = n == 1 ? "Send 1" : "Send all (\(n))"
+        let n = CrashLogReader.recentLogs().count
+        crashSendButton.isHidden = (n == 0)
+        if n > 0 {
+            crashSendButton.title = n == 1 ? "Send 1 crash" : "Send \(n) crashes"
             crashSendButton.isEnabled = true
         }
     }
@@ -731,27 +886,6 @@ final class MenuBandPopoverViewController: NSViewController {
 
     // MARK: - Actions
 
-    @objc private func muteButtonClicked(_ sender: NSButton) {
-        menuBand?.toggleMuted()
-        if let m = menuBand {
-            updateMuteButton(muted: m.muted)
-            // Tactile feedback so the icon flip feels confirmed. "Tink" matches
-            // the MIDI switch's feedback so the two toggles read as a pair.
-            NSSound(named: NSSound.Name("Tink"))?.play()
-        }
-    }
-
-    private func updateMuteButton(muted: Bool) {
-        guard let btn = muteButton else { return }
-        let symbol = muted ? "speaker.slash.fill" : "speaker.fill"
-        let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-        btn.image = NSImage(systemSymbolName: symbol,
-                            accessibilityDescription: muted ? "Unmute" : "Mute")?
-            .withSymbolConfiguration(cfg)
-        btn.contentTintColor = muted ? .systemRed : .secondaryLabelColor
-        btn.toolTip = muted ? "Unmute local synth" : "Mute local synth"
-    }
-
     @objc private func midiSwitchToggled(_ sender: NSSwitch) {
         // Just toggle — don't run the heavy syncFromController. The switch
         // already shows the user's intent; the loopback test (skipped on
@@ -813,15 +947,28 @@ final class MenuBandPopoverViewController: NSViewController {
 
     private func handleInstrumentCommit(_ program: Int) {
         guard let m = menuBand else { return }
+        // If MIDI mode is on, picking an instrument from the GM palette
+        // is a strong signal the user wants to *hear* their pick — but
+        // MIDI mode silences the local synth (DAW is the audio path).
+        // Auto-flip MIDI off + audition the new program so the click
+        // makes sound immediately. Sync the switch UI to match.
+        let wasMidiOn = m.midiMode
+        if wasMidiOn {
+            m.toggleMIDIMode()
+            midiSwitch.state = .off
+            updateSelfTestLabel(state: .unknown)
+        }
         m.setMelodicProgram(UInt8(program))
         instrumentList.selectedProgram = UInt8(program)
         updateInstrumentReadout()
-        debugLog("instrument commit prog=\(program)")
-        // No post-release audition: the press-gated rollover already played
-        // a preview note while the mouse was held, so retriggering on
-        // release just doubles the sound. mouseUp paths through onHover(nil)
-        // first which stops the preview cleanly — that's the audio-end the
-        // user expects.
+        debugLog("instrument commit prog=\(program) midiAutoOff=\(wasMidiOn)")
+        if wasMidiOn {
+            m.auditionCurrentProgram()
+        }
+        // Otherwise no post-release audition: the press-gated rollover
+        // already played a preview note while the mouse was held, so
+        // retriggering on release just doubles the sound. mouseUp paths
+        // through onHover(nil) first which stops the preview cleanly.
     }
 
     @objc private func octaveChanged(_ sender: NSStepper) {

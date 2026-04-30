@@ -344,6 +344,17 @@ final class MenuBandSynth {
         midiSynthReady = false
     }
 
+    /// Send a CC#10 (pan) message on the given channel. Only takes
+    /// effect when the MIDISynth backend is the audible path —
+    /// AVAudioUnitSampler's pan is per-unit, not per-channel, so we
+    /// no-op the sampler fallback rather than yanking the entire
+    /// melodic mix.
+    func setPan(_ pan: UInt8, channel: UInt8 = 0) {
+        guard started, midiSynthReady, let au = midiSynth?.audioUnit else { return }
+        sendMIDIEvent(au, status: 0xB0 | (channel & 0x0F),
+                      data1: 10, data2: pan & 0x7F)
+    }
+
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
         // Drums (channel 9) always route through MIDISynth/drums sampler

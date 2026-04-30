@@ -91,7 +91,7 @@ enum KeyboardIconRenderer {
     // About.
     static let settingsW: CGFloat = 18.0
     static let settingsH: CGFloat = 21.0
-    static let settingsGap: CGFloat = 4.0
+    static let settingsGap: CGFloat = 12.0
 
     enum HitResult: Equatable {
         case openSettings
@@ -285,8 +285,10 @@ enum KeyboardIconRenderer {
         return img
     }
 
-    /// Public so the popover can anchor its arrow at the latch.
-    static var settingsRectPublic: NSRect { settingsHitRect }
+    /// Public so the popover can anchor its arrow at the latch — point
+    /// at the visible icon, not the wider hit area, so the arrow lines
+    /// up directly below the music note glyph.
+    static var settingsRectPublic: NSRect { settingsIconRect }
 
     // Settings button hit area extends from piano's right edge to the image
     // edge so the entire right-side region is one big click target.
@@ -294,6 +296,18 @@ enum KeyboardIconRenderer {
         let leftX = pianoOriginX + pianoWidth
         let rightX = imageSize.width
         return NSRect(x: leftX, y: 0, width: rightX - leftX, height: imageSize.height)
+    }
+
+    /// Visible icon bounds — a pill-sized region centered on the music
+    /// note glyph itself. Used both as the hover-highlight backdrop and
+    /// as the popover anchor so the popover arrow points right at the
+    /// icon. Width tracks `settingsW`; height tracks `settingsH`.
+    private static var settingsIconRect: NSRect {
+        let w = settingsW
+        let h = settingsH
+        let cx = settingsHitRect.maxX - w / 2 - pad
+        let cy = settingsHitRect.midY
+        return NSRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
     }
 
     // MARK: - Hit testing
@@ -442,7 +456,12 @@ enum KeyboardIconRenderer {
         ]
         let str = NSAttributedString(string: text, attributes: attrs)
         let size = str.size()
-        str.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.minY + 0.4))
+        // White key labels sit a couple pixels off the bottom — high
+        // enough that the descender on `j` doesn't kiss the menubar
+        // edge, low enough that the letters feel anchored in the
+        // bottom of the key rather than floating mid-cell.
+        str.draw(at: NSPoint(x: rect.midX - size.width / 2,
+                             y: rect.minY + 1.8))
     }
 
     private static func drawBlackLabel(_ text: String, in rect: NSRect, lit: Bool, alpha: CGFloat = 1.0) {
@@ -492,13 +511,24 @@ enum KeyboardIconRenderer {
     ///
     /// Alternates considered: "music.quarternote.3", "pianokeys",
     /// "music.note", "scroll", "speaker.wave.2", "waveform".
-    private static func drawSettingsChip(in rect: NSRect, hoverRect _: NSRect,
+    private static func drawSettingsChip(in _: NSRect, hoverRect _: NSRect,
                                          midiOn: Bool, hovered: Bool) {
+        // Standard systray pill: hover/click paints a soft rounded
+        // backdrop centered on the icon glyph (NOT the full hit area, so
+        // the piano-side empty space stays unhighlighted). Same look as
+        // any other status-bar item.
+        let iconBox = settingsIconRect
+        if hovered {
+            let pill = iconBox.insetBy(dx: -1, dy: 1)
+            let path = NSBezierPath(roundedRect: pill, xRadius: 4, yRadius: 4)
+            NSColor.labelColor.withAlphaComponent(0.12).setFill()
+            path.fill()
+        }
         let alpha: CGFloat = hovered ? 1.0 : (midiOn ? 1.0 : 0.78)
         let color: NSColor = midiOn
             ? NSColor.controlAccentColor
             : NSColor.labelColor.withAlphaComponent(alpha)
-        drawTintedSymbol("music.note.list", in: rect, pointSize: 11.0, color: color)
+        drawTintedSymbol("music.note.list", in: iconBox, pointSize: 13.0, color: color)
     }
 
     private static func drawInstrumentLabel(in rect: NSRect, hoverRect: NSRect,

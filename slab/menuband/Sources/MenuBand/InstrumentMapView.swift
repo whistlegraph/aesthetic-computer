@@ -25,6 +25,17 @@ final class InstrumentListView: NSView {
     /// "no hover" → nil). Drives the controller's hover-preview note for
     /// sonic browsing.
     var onHover: ((Int?) -> Void)?
+    /// Fires when an arrow key is processed. Reports the direction (0=←,
+    /// 1=→, 2=↓, 3=↑) and whether the key is going down (true) or up
+    /// (false). Used by the popover so the on-screen arrow-keys hint
+    /// can highlight the specific direction while held.
+    var onArrowKey: ((Int, Bool) -> Void)?
+    /// Forwarded keyDown / keyUp for non-arrow keys. The popover wires
+    /// this to `menuBand.handleLocalKey` so notepat / Ableton letter
+    /// keys still play notes while the user is browsing the voice
+    /// palette. Returns true when the key has been consumed as a
+    /// music event.
+    var onMusicKey: ((UInt16, Bool, Bool, NSEvent.ModifierFlags) -> Bool)?
 
     private var trackingArea: NSTrackingArea?
 
@@ -73,11 +84,58 @@ final class InstrumentListView: NSView {
         return p < 128 ? p : nil
     }
 
+    /// Hand-picked color per GM family (16 families × 8 programs each;
+    /// each row of the 8-col grid is one family). RGB values mirror
+    /// standard CSS named colors so the timbre→color mapping reads
+    /// intuitively: pianos are ivory, brass is gold, strings firebrick,
+    /// synth leads magenta, etc. Compared to the previous hue
+    /// gradient, this gives every family a *meaning* — a glance at the
+    /// grid tells you what kind of instrument lives there.
+    static let familyPalette: [NSColor] = [
+        NSColor(srgbRed: 1.00, green: 0.94, blue: 0.84, alpha: 1), // 0  Piano             — ivory
+        NSColor(srgbRed: 0.28, green: 0.82, blue: 0.80, alpha: 1), // 1  Chromatic Perc.   — mediumturquoise
+        NSColor(srgbRed: 0.58, green: 0.44, blue: 0.86, alpha: 1), // 2  Organ             — mediumpurple
+        NSColor(srgbRed: 0.80, green: 0.52, blue: 0.25, alpha: 1), // 3  Guitar            — peru
+        NSColor(srgbRed: 0.10, green: 0.10, blue: 0.44, alpha: 1), // 4  Bass              — midnightblue
+        NSColor(srgbRed: 0.70, green: 0.13, blue: 0.13, alpha: 1), // 5  Strings           — firebrick
+        NSColor(srgbRed: 1.00, green: 0.41, blue: 0.71, alpha: 1), // 6  Ensemble          — hotpink
+        NSColor(srgbRed: 1.00, green: 0.84, blue: 0.00, alpha: 1), // 7  Brass             — gold
+        NSColor(srgbRed: 0.13, green: 0.55, blue: 0.13, alpha: 1), // 8  Reed              — forestgreen
+        NSColor(srgbRed: 0.53, green: 0.81, blue: 0.98, alpha: 1), // 9  Pipe              — lightskyblue
+        NSColor(srgbRed: 1.00, green: 0.00, blue: 1.00, alpha: 1), // 10 Synth Lead        — magenta
+        NSColor(srgbRed: 0.87, green: 0.63, blue: 0.87, alpha: 1), // 11 Synth Pad         — plum
+        NSColor(srgbRed: 0.12, green: 0.56, blue: 1.00, alpha: 1), // 12 Synth Effects     — dodgerblue
+        NSColor(srgbRed: 1.00, green: 0.39, blue: 0.28, alpha: 1), // 13 Ethnic            — tomato
+        NSColor(srgbRed: 0.41, green: 0.41, blue: 0.41, alpha: 1), // 14 Percussive        — dimgray
+        NSColor(srgbRed: 0.24, green: 0.70, blue: 0.44, alpha: 1), // 15 Sound Effects     — mediumseagreen
+    ]
+
+    /// Public color lookup for any GM program. Each family has a base
+    /// hue (see `familyPalette`); each of the 8 voices inside a family
+    /// gets its own shade derived from that base by walking
+    /// brightness + saturation across the 8 slots. So every program
+    /// (0–127) renders as a distinct, visually distinguishable color
+    /// while still reading as a member of its family row.
+    static func colorForProgram(_ p: Int) -> NSColor {
+        let safe = max(0, min(127, p))
+        let base = familyPalette[safe / 8]
+        let slot = safe % 8
+        // Walk brightness across slots: dimmest at slot 0, brightest at
+        // slot 7. Range ±22% from the base. Saturation alternates so
+        // adjacent shades never collapse to the same tonal value.
+        let bDelta = (CGFloat(slot) - 3.5) / 3.5 * 0.22       // −0.22…+0.22
+        let sDelta: CGFloat = (slot % 2 == 0) ? -0.10 : 0.10  // alternating
+        // Convert to HSB in sRGB, shift, clamp, return.
+        guard let hsb = base.usingColorSpace(.sRGB) else { return base }
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        hsb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let s2 = max(0.05, min(1.0, s + sDelta))
+        let b2 = max(0.10, min(1.0, b + bDelta))
+        return NSColor(hue: h, saturation: s2, brightness: b2, alpha: a)
+    }
+
     private func familyColor(forProgram p: Int) -> NSColor {
-        // 16 families × 8 programs each. Each row IS a family (since cols=8).
-        let famIdx = p / 8
-        return NSColor(hue: CGFloat(famIdx) / 16.0,
-                       saturation: 0.55, brightness: 0.88, alpha: 1.0)
+        Self.colorForProgram(p)
     }
 
     // MARK: - Drawing
@@ -111,15 +169,25 @@ final class InstrumentListView: NSView {
                 NSBezierPath(rect: r).fill()
             }
 
-            // 1px hairline grid.
-            NSColor.black.withAlphaComponent(0.10).setStroke()
-            let path = NSBezierPath(rect: r.insetBy(dx: 0.25, dy: 0.25))
-            path.lineWidth = 0.5
-            path.stroke()
+            // Chiclet-style keycap outline. The cell's hit area is the
+            // full rect (so dragging across stays seamless — no
+            // dead-space gaps between voices), but we draw the visible
+            // outline inset further with a soft corner radius so each
+            // cell reads as its own little keyboard button with
+            // breathing space around it. The outline picks up the
+            // cell's family hue so the button itself signals which
+            // GM family it belongs to even before you read the
+            // number.
+            let capPath = NSBezierPath(roundedRect: r.insetBy(dx: 1.75, dy: 1.5),
+                                        xRadius: 2.5, yRadius: 2.5)
+            fam.withAlphaComponent(0.65).setStroke()
+            capPath.lineWidth = 0.8
+            capPath.stroke()
 
-            // Program number, centered.
+            // Program number, centered. Leading zeros dropped — bare
+            // "0..127" reads cleaner as a keycap label.
             let attrs = (selectedProgram == UInt8(p)) ? Self.numAttrsSelected : Self.numAttrs
-            let str = NSAttributedString(string: String(format: "%03d", p), attributes: attrs)
+            let str = NSAttributedString(string: String(p), attributes: attrs)
             let size = str.size()
             str.draw(at: NSPoint(x: r.midX - size.width / 2,
                                  y: r.midY - size.height / 2))
@@ -164,6 +232,9 @@ final class InstrumentListView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         dragging = true
+        // Take key focus on click so arrow-key navigation works
+        // immediately after the user picks an initial cell.
+        window?.makeFirstResponder(self)
         let pt = convert(event.locationInWindow, from: nil)
         if let p = program(at: pt) {
             // Treat the press as a hover-into-this-cell so the preview note
@@ -202,4 +273,73 @@ final class InstrumentListView: NSView {
     /// No-op kept for API compatibility with the popover (was needed when
     /// the list was scrollable; the numeric map shows everything at once).
     func scrollProgramIntoView(_ program: UInt8, animated: Bool = false) {}
+
+    // MARK: - Keyboard
+
+    override var acceptsFirstResponder: Bool { true }
+
+    /// Arrow-key navigation across the 8 × 16 grid. Each move fires
+    /// `onHover` for the new cell — same path as mouse-drag preview
+    /// — so the held preview note moves with you and the chrome
+    /// retints in real time. Releasing the key commits the cell that's
+    /// currently selected (mirrors mouseDown→drag→mouseUp).
+    override func keyDown(with event: NSEvent) {
+        let cur = Int(selectedProgram)
+        var next = cur
+        var dir = -1
+        switch event.keyCode {
+        case 123: next = cur - 1;        dir = 0   // ←
+        case 124: next = cur + 1;        dir = 1   // →
+        case 125: next = cur + Self.cols; dir = 2  // ↓
+        case 126: next = cur - Self.cols; dir = 3  // ↑
+        default:
+            // Not an arrow — forward to the music-key handler so
+            // notepat letter keys still sound notes while the
+            // popover holds key focus on this view. Pass auto-repeat
+            // through here (the controller handles its own dedupe).
+            let consumed = onMusicKey?(event.keyCode, true,
+                                       event.isARepeat,
+                                       event.modifierFlags) ?? false
+            if !consumed { super.keyDown(with: event) }
+            return
+        }
+        // Arrow path: ignore auto-repeat so each physical press moves
+        // the selection by exactly one cell. The preview note started
+        // on first-press still sustains as long as the key is held
+        // (release in keyUp), satisfying "hold preview while held"
+        // without bundling movement into auto-repeat.
+        if event.isARepeat { return }
+        next = max(0, min(127, next))
+        onArrowKey?(dir, true)
+        if next != cur {
+            // Update the lit cell + fire hover. The popover's onHover
+            // handler already does the heavy lifting: stop the previous
+            // preview note, retint chip + visualizer, start a new
+            // preview note in the new program.
+            selectedProgram = UInt8(next)
+            onHover?(next)
+        }
+    }
+
+    override func keyUp(with event: NSEvent) {
+        switch event.keyCode {
+        case 123, 124, 125, 126:
+            let dir: Int
+            switch event.keyCode {
+            case 123: dir = 0
+            case 124: dir = 1
+            case 125: dir = 2
+            default:  dir = 3
+            }
+            onArrowKey?(dir, false)
+            // Release ends the preview and commits the currently-
+            // selected cell (same mouseUp semantics).
+            onHover?(nil)
+            onCommit?(Int(selectedProgram))
+        default:
+            let consumed = onMusicKey?(event.keyCode, false, false,
+                                       event.modifierFlags) ?? false
+            if !consumed { super.keyUp(with: event) }
+        }
+    }
 }

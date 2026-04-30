@@ -23,7 +23,6 @@ final class MenuBandController {
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
-    private let mutedKey = "notepat.muted"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
     /// string so future backends (Logic, EXS3rd-party, etc.) can be
@@ -43,31 +42,73 @@ final class MenuBandController {
     var onChange: (() -> Void)?
     var onLitChanged: (() -> Void)?
 
+    /// Last MIDI note actually played (mouse tap or keyboard). Used by
+    /// the instrument preview / audition path so the "test" note that
+    /// plays when picking a voice matches whatever the user last
+    /// touched, instead of always defaulting to middle C.
+    /// Defaults to 60 (C4) on a fresh session.
+    private(set) var lastPlayedNote: UInt8 = 60
+
+    /// Format a MIDI note as the user's preferred name pattern —
+    /// "<octave><pitch class>" like 4C, 5D#, 3G. C4 (MIDI 60) is the
+    /// reference octave.
+    static func noteName(_ midi: UInt8) -> String {
+        let pitches = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+        let octave = Int(midi) / 12 - 1
+        let pc = Int(midi) % 12
+        return "\(octave)\(pitches[pc])"
+    }
+
+    /// Snapshot of currently-held MIDI note names for popover display.
+    /// Empty when nothing is sounding.
+    func heldNoteNames() -> [String] {
+        let sorted = litNotes.sorted()
+        return sorted.map { Self.noteName($0) }
+    }
+
+    /// Best-guess chord name from the currently-held pitch classes.
+    /// Returns nil when fewer than 3 pitch classes are held or nothing
+    /// matches a known shape. The patterns cover the most common
+    /// triads + 7ths so casual playing on the menubar piano gets a
+    /// useful readout without dragging in a full chord-theory engine.
+    func currentChordName() -> String? {
+        let pcs = Set(litNotes.map { Int($0) % 12 })
+        guard pcs.count >= 3 else { return nil }
+        // Pattern table — intervals from root + display suffix.
+        let patterns: [(intervals: Set<Int>, suffix: String)] = [
+            ([0, 4, 7],         ""),
+            ([0, 3, 7],         "m"),
+            ([0, 3, 6],         "dim"),
+            ([0, 4, 8],         "aug"),
+            ([0, 2, 7],         "sus2"),
+            ([0, 5, 7],         "sus4"),
+            ([0, 4, 7, 10],     "7"),
+            ([0, 4, 7, 11],     "maj7"),
+            ([0, 3, 7, 10],     "m7"),
+            ([0, 3, 7, 11],     "mMaj7"),
+            ([0, 3, 6, 9],      "dim7"),
+            ([0, 3, 6, 10],     "m7♭5"),
+            ([0, 4, 8, 10],     "aug7"),
+            ([0, 4, 7, 9],      "6"),
+            ([0, 3, 7, 9],      "m6"),
+        ]
+        let pitches = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+        // Try each held pitch class as the candidate root.
+        for root in pcs {
+            let intervals = Set(pcs.map { ($0 - root + 12) % 12 })
+            for (pat, suffix) in patterns where pat == intervals {
+                return "\(pitches[root])\(suffix)"
+            }
+        }
+        return nil
+    }
+
     var midiMode: Bool {
         UserDefaults.standard.bool(forKey: midiModeKey)
     }
 
     var typeMode: Bool {
         UserDefaults.standard.bool(forKey: typeModeKey)
-    }
-
-    /// When on, the local synth is silent — note triggers still update lit
-    /// state and (in MIDI mode) still send out the virtual port, but the
-    /// built-in sampler/MIDISynth doesn't sound. Independent of MIDI mode
-    /// so a user can keep MIDI off and still mute the local synth.
-    var muted: Bool {
-        UserDefaults.standard.bool(forKey: mutedKey)
-    }
-
-    func toggleMuted() {
-        let now = !muted
-        UserDefaults.standard.set(now, forKey: mutedKey)
-        if now {
-            // Cut anything currently sounding so a long-tail note doesn't
-            // hang past the moment the user hit mute.
-            synth.panic()
-        }
-        onChange?()
     }
 
     /// Audition the currently-loaded melodic program through the local
@@ -113,8 +154,8 @@ final class MenuBandController {
             return
         }
         synth.setMelodicProgram(prog)
-        guard !midiMode, !muted else { return }
-        let note: UInt8 = 60
+        guard !midiMode else { return }
+        let note = lastPlayedNote
         previewNote = note
         // When the synth supports instant program changes (MIDISynth backend
         // ready), fire noteOn immediately — the user's mouseDown becomes an
@@ -138,9 +179,8 @@ final class MenuBandController {
     }
 
     func auditionCurrentProgram() {
-        guard !muted else { return }
-        let note: UInt8 = 60
-        debugLog("audition: synth.noteOn 60 (program \(melodicProgram))")
+        let note = lastPlayedNote
+        debugLog("audition: synth.noteOn \(note) (program \(melodicProgram))")
         synth.noteOn(note, velocity: 100, channel: 0)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
             self?.synth.noteOff(note, channel: 0)
@@ -460,6 +500,7 @@ final class MenuBandController {
     /// louder, x within key = stereo pan.
     func startTapNote(_ midiNote: UInt8, velocity: UInt8 = 100, pan: UInt8 = 64) {
         debugLog("startTapNote midi=\(midiNote) midiMode=\(midiMode)")
+        lastPlayedNote = midiNote
         if tapHeld.contains(midiNote) { return }
         tapHeld.insert(midiNote)
         let isDrum = midiNote < UInt8(KeyboardIconRenderer.firstMidi)
@@ -471,7 +512,7 @@ final class MenuBandController {
         let midiCh: UInt8 = isDrum ? 9 : 0
         tapNoteChannel[midiNote] = synthCh
         midi.sendCC(10, value: pan, channel: midiCh)
-        if !midiMode && !muted { synth.noteOn(midiNote, velocity: velocity, channel: synthCh) }
+        if !midiMode { synth.noteOn(midiNote, velocity: velocity, channel: synthCh) }
         midi.noteOn(midiNote, velocity: velocity, channel: midiCh)
         // Lit state is main-thread-only; update synchronously so the menubar
         // redraws within the same runloop pass as the click. Dispatching async
@@ -649,7 +690,17 @@ final class MenuBandController {
                 if !midiMode { synth.noteOff(prevNote, channel: prevCh ?? 0) }
                 midi.noteOff(prevNote)
             }
-            if !midiMode && !muted { synth.noteOn(note, velocity: 100, channel: synthCh) }
+            lastPlayedNote = note
+            // Stereo pan from the qwerty key's physical column —
+            // mirrors notepat native, so left-hand keys play left and
+            // right-hand keys play right. CC10 to both the local
+            // synth (MIDISynth backend) and the outbound MIDI port,
+            // sent BEFORE noteOn so the new note is panned from the
+            // first sample.
+            let pan = MenuBandLayout.panForKeyCode(keyCode)
+            if !midiMode { synth.setPan(pan, channel: synthCh) }
+            midi.sendCC(10, value: pan, channel: 0)
+            if !midiMode { synth.noteOn(note, velocity: 100, channel: synthCh) }
             midi.noteOn(note)
             // The menubar piano renders a fixed C4–C5 window; the audio
             // path plays at the user's full octave-shifted pitch. To keep
