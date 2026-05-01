@@ -605,6 +605,18 @@ const DEBUG_DUMP_INTERVAL = 120; // sim ticks (= 1 s at SIM_HZ=120)
 let playerAlive = true;
 let deathTickAge = 0; // how long we've been dead (sim ticks, for UI fade-in)
 
+// Shared respawn trigger — touch, gamepad A, gamepad Start, and Space all
+// route through this so the "TAP TO RESPAWN" prompt accepts every input.
+function tryRespawn(system) {
+  if (playerAlive || deathTickAge <= 30) return false;
+  playerAlive = true;
+  deathTickAge = 0;
+  walkedTiles.clear();
+  prevPlayerTile = null;
+  system?.fps?.doll?.respawn?.(0, 0);
+  return true;
+}
+
 // 🎮 Gamepad / Xbox controller state.
 // Populated lazily on the first gamepad event, then driven by act() each
 // frame. Connection persists for the session — we don't get disconnect events
@@ -2213,6 +2225,22 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
         } else if (bufferName !== name) {
           console.log(`⚠️  No buffer found for ${name} (looking for ${bufferName})`);
         }
+
+        // 🎮 When a controller is live, hint the corresponding Xbox face
+        // button on jump (A — green) and crouch (B — red) so the player
+        // can map "tap this on screen" → "press this on the pad."
+        if (gamepadState.connected && (name === "jump" || name === "crouch")) {
+          const isA = name === "jump";
+          const color = isA ? [60, 200, 80] : [220, 60, 60];
+          const r = 6;
+          const gx = b.box.x + b.box.w - r - 3;
+          const gy = b.box.y + r + 3;
+          ink(color[0], color[1], color[2], 240).circle(gx, gy, r, true);
+          ink(0, 0, 0, 220).circle(gx, gy, r);
+          // MatrixChunky8 glyphs are ~4px wide × 7px tall.
+          ink(255, 255, 255, 255);
+          write(isA ? "A" : "B", { x: gx - 2, y: gy - 3 }, undefined, undefined, false, "MatrixChunky8");
+        }
       });
     }
   }
@@ -2254,7 +2282,14 @@ function act({ event: e, penLock, system, screen, ui }) {
       if (kind === "button") {
         const pushed = action === "push";
         gamepadState.buttons[idx] = pushed;
-        if (idx === 0 && doll) doll.setMovement("jump", pushed);     // A → jump
+        // A button: when dead, respawn; otherwise drive jump.
+        if (idx === 0) {
+          if (pushed && tryRespawn(system)) {
+            // Consumed by respawn — don't also queue a jump on the new life.
+          } else if (doll) {
+            doll.setMovement("jump", pushed);
+          }
+        }
         if (idx === 1 && doll) doll.setMovement("crouch", pushed);   // B → crouch
         if (idx === 12 && pushed) {                                  // D-pad up → zoom in
           zoomLevel = Math.max(0, zoomLevel - 1);
@@ -2264,13 +2299,7 @@ function act({ event: e, penLock, system, screen, ui }) {
           zoomLevel = Math.min(ZOOM_DISTANCES.length - 1, zoomLevel + 1);
           applyZoom(doll);
         }
-        if (idx === 9 && pushed && !playerAlive && deathTickAge > 30) { // Start → respawn
-          playerAlive = true;
-          deathTickAge = 0;
-          walkedTiles.clear();
-          prevPlayerTile = null;
-          doll?.respawn?.(0, 0);
-        }
+        if (idx === 9 && pushed) tryRespawn(system);                  // Start → respawn
       } else if (kind === "axis") {
         gamepadState.axes[idx] = e.value;
         if ((idx === 0 || idx === 1) && doll) {
@@ -2407,17 +2436,13 @@ function act({ event: e, penLock, system, screen, ui }) {
 
   // While dead, any touch respawns; otherwise the first touch re-locks the pen.
   if (e.is("touch")) {
-    if (!playerAlive && deathTickAge > 30) {
-      playerAlive = true;
-      deathTickAge = 0;
-      walkedTiles.clear();
-      prevPlayerTile = null;
-      system?.fps?.doll?.respawn?.(0, 0);
-      return;
-    }
+    if (tryRespawn(system)) return;
     // Don't re-lock on middle-click (1) or right-click (2) — reserved for camera control.
     if (!penLocked && e.button !== 1 && e.button !== 2) penLock();
   }
+
+  // Space (jump key) also respawns when dead — parallels gamepad A.
+  if (e.is("keyboard:down:space") && tryRespawn(system)) return;
 }
 
 // ⌨️ Helper: Reset all keyboard state to prevent stuck keys

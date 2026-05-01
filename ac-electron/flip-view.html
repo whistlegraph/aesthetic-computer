@@ -954,6 +954,50 @@
         webviewEl.src = url;
       }
     });
+
+    // 🎮 Gamepad bridge — host → guest.
+    // Inside an Electron <webview>, navigator.getGamepads() in the guest
+    // renderer often stays empty (the guest doesn't reliably receive the
+    // user activation Chromium gates the API behind). Poll at the host,
+    // which has activation as soon as the BrowserWindow is interacted
+    // with, and forward a snapshot to the webview where webview-preload
+    // surfaces it via a patched navigator.getGamepads.
+    (function setupGamepadBridge() {
+      let lastSig = '';
+      let logged = false;
+      setInterval(() => {
+        if (!webviewEl || !webviewReady) return;
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const snapshot = [];
+        let any = false;
+        for (let i = 0; i < pads.length; i++) {
+          const g = pads[i];
+          if (!g) { snapshot.push(null); continue; }
+          any = true;
+          snapshot.push({
+            index: g.index,
+            id: g.id,
+            connected: g.connected,
+            timestamp: g.timestamp,
+            mapping: g.mapping,
+            axes: Array.from(g.axes),
+            buttons: Array.from(g.buttons).map((b) => ({
+              pressed: b.pressed,
+              touched: b.touched,
+              value: b.value,
+            })),
+          });
+        }
+        const sig = JSON.stringify(snapshot);
+        if (sig === lastSig) return;
+        lastSig = sig;
+        if (any && !logged) {
+          console.log('[flip] gamepad bridge: forwarding host pad to webview', snapshot.find(Boolean)?.id);
+          logged = true;
+        }
+        try { webviewEl.send('ac:gamepad-state', snapshot); } catch (_) {}
+      }, 16);
+    })();
     
     // Also try did-create-window (Electron 22+)
     webviewEl.addEventListener('did-create-window', (e) => {

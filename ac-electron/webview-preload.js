@@ -40,6 +40,73 @@ ipcRenderer.on('usb:flash-progress', (event, data) => {
   window.dispatchEvent(new CustomEvent('usb:flash-progress', { detail: data }));
 });
 
+// 🎮 Gamepad host → guest bridge.
+// Inside Electron <webview>, navigator.getGamepads() in the guest is often
+// empty because the guest renderer doesn't reliably receive the user
+// activation Chromium gates the Gamepad API behind. The host
+// (flip-view.html) polls navigator.getGamepads() — which works there once
+// the BrowserWindow has activation — and forwards a snapshot to us via
+// the 'ac:gamepad-state' IPC channel. We patch navigator.getGamepads here
+// so that lib/gamepad.mjs (which polls 8ms in the page's main world) sees
+// the controller via the host. We also synthesize gamepadconnected /
+// gamepaddisconnected events so listeners that wait for those see the pad.
+(function () {
+  let hostPads = [];
+  const seen = new Map(); // index → last connected timestamp
+
+  ipcRenderer.on('ac:gamepad-state', (_e, snapshot) => {
+    hostPads = (snapshot || []).map((p) => {
+      if (!p) return null;
+      // Reshape to look like a real Gamepad to consumers (incl. lib/gamepad.mjs).
+      return {
+        index: p.index,
+        id: p.id,
+        connected: p.connected,
+        timestamp: p.timestamp,
+        mapping: p.mapping || 'standard',
+        axes: p.axes || [],
+        buttons: (p.buttons || []).map((b) => ({
+          pressed: !!b.pressed,
+          touched: !!b.touched,
+          value: typeof b.value === 'number' ? b.value : (b.pressed ? 1 : 0),
+        })),
+      };
+    });
+
+    // Synthesize gamepadconnected on first sighting per index.
+    for (const p of hostPads) {
+      if (!p) continue;
+      if (!seen.has(p.index)) {
+        seen.set(p.index, true);
+        try {
+          // GamepadEvent constructor exists in modern Chromium.
+          const evt = new GamepadEvent('gamepadconnected', { gamepad: p });
+          window.dispatchEvent(evt);
+        } catch (_) {
+          const evt = new Event('gamepadconnected');
+          try { evt.gamepad = p; } catch (_) {}
+          window.dispatchEvent(evt);
+        }
+        console.log('[webview-preload] gamepad bridged from host:', p.id);
+      }
+    }
+  });
+
+  // Patch navigator.getGamepads so the guest sees the host's pads when its
+  // own getGamepads is empty. If the guest ever does see a real controller
+  // (e.g. user clicks the webview and presses a button), we defer to that.
+  const native = navigator.getGamepads
+    ? navigator.getGamepads.bind(navigator)
+    : () => [];
+  navigator.getGamepads = function () {
+    let nativePads;
+    try { nativePads = native(); } catch (_) { nativePads = []; }
+    const hasNative = nativePads && Array.from(nativePads).some((g) => g);
+    if (hasNative) return nativePads;
+    return hostPads;
+  };
+})();
+
 // Also listen for messages from the content and forward them
 // This catches postMessage calls from bios.mjs
 window.addEventListener('message', (e) => {

@@ -1,0 +1,348 @@
+#!/usr/bin/env bash
+# ac-desktop — Single command for the Aesthetic Computer Electron app.
+#
+# Usage:
+#   ac-desktop dev [--prod] [--watch] [--shell]   Run locally with hot tools
+#   ac-desktop test                                Quick local launch (no build)
+#   ac-desktop build [--mac|--win|--linux|--all]   Build distributable artifacts
+#   ac-desktop install [--force] [--version=X.Y.Z] Download + install latest published DMG
+#   ac-desktop reinstall                           Build local + replace /Applications copy
+#   ac-desktop release [patch|minor|major|X.Y.Z]   Bump version + tag (no push)
+#   ac-desktop publish                             Build, sign, notarize, upload to releases.aesthetic.computer
+#   ac-desktop status                              Show local / installed / published versions side-by-side
+#   ac-desktop monitor [--interval=SECS]           Poll the release feed and announce new versions
+#   ac-desktop logs                                Tail the running app's stderr
+#   ac-desktop open                                Launch the installed app
+#   ac-desktop kill                                Quit running instances
+#   ac-desktop icons                               Regenerate tray + app icons
+#   ac-desktop doctor                              Check signing creds, electron, dist, installed app
+#
+# Subcommands delegate to existing scripts (dev.fish, install.fish, release.fish,
+# build-all-platforms.fish, scripts/build-publish-host-mac.sh) so behavior stays
+# in one place. Run `ac-desktop` with no args (or `--help`) to see this list.
+
+set -e
+
+# Resolve symlinks so SCRIPT_DIR points at the real ac-electron/ even when
+# this script is invoked through ~/.local/bin/ac-desktop or similar.
+_self="$0"
+while [ -L "${_self}" ]; do
+    _link="$(readlink "${_self}")"
+    case "${_link}" in
+        /*) _self="${_link}" ;;
+        *)  _self="$(cd "$(dirname "${_self}")" && pwd)/${_link}" ;;
+    esac
+done
+SCRIPT_DIR="$(cd "$(dirname "${_self}")" && pwd)"
+APP_NAME="Aesthetic.Computer.app"
+INSTALLED_APP="/Applications/${APP_NAME}"
+RELEASES_URL="https://releases.aesthetic.computer/desktop"
+
+# Colors
+if [ -t 1 ]; then
+    C="\033[0;36m"; G="\033[0;32m"; Y="\033[0;33m"; R="\033[0;31m"; M="\033[0;35m"; D="\033[2m"; N="\033[0m"
+else
+    C=""; G=""; Y=""; R=""; M=""; D=""; N=""
+fi
+
+log()  { printf "${C}[ac-desktop]${N} %s\n" "$*"; }
+ok()   { printf "${G}✓${N} %s\n" "$*"; }
+warn() { printf "${Y}…${N} %s\n" "$*"; }
+err()  { printf "${R}✗${N} %s\n" "$*" >&2; }
+hdr()  { printf "\n${M}━━━ %s ━━━${N}\n" "$*"; }
+
+CMD="${1:-help}"
+shift || true
+
+# ------------------------------------------------------------ helpers
+
+usage() {
+    sed -n 's/^# \{0,1\}//;3,/^$/p' "$0" | head -40
+}
+
+local_version() {
+    node -p "require('${SCRIPT_DIR}/package.json').version" 2>/dev/null || echo "?"
+}
+
+installed_version() {
+    if [ -f "${INSTALLED_APP}/Contents/Info.plist" ]; then
+        defaults read "${INSTALLED_APP}/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "?"
+    else
+        echo "(not installed)"
+    fi
+}
+
+published_version() {
+    curl -fsSL "${RELEASES_URL}/latest-mac.yml" 2>/dev/null \
+        | awk '/^version:/ {print $2; exit}' \
+        | tr -d '\r"'
+}
+
+require_mac() {
+    if [ "$(uname)" != "Darwin" ]; then
+        err "This subcommand requires macOS (host is $(uname))"
+        exit 1
+    fi
+}
+
+cd_repo() { cd "${SCRIPT_DIR}"; }
+
+# ------------------------------------------------------------ subcommands
+
+cmd_help() { usage; }
+
+cmd_dev() {
+    cd_repo
+    log "Delegating to dev.fish $*"
+    exec fish ./dev.fish "$@"
+}
+
+cmd_test() {
+    cd_repo
+    require_mac
+    log "Quick local launch (electron .)"
+    exec npm start
+}
+
+cmd_build() {
+    cd_repo
+    local target="--mac"
+    for arg in "$@"; do
+        case "$arg" in
+            --mac|--win|--linux|--all) target="$arg" ;;
+        esac
+    done
+    case "$target" in
+        --mac)
+            require_mac
+            log "Building macOS DMG (universal)…"
+            npm run build:mac
+            ;;
+        --win)
+            log "Building Windows installer…"
+            npm run build:win
+            ;;
+        --linux)
+            log "Building Linux packages…"
+            npm run build:linux
+            ;;
+        --all)
+            log "Cross-platform build (delegating to build-all-platforms.fish)…"
+            exec fish ./build-all-platforms.fish
+            ;;
+    esac
+    ok "Build complete — see ${SCRIPT_DIR}/dist/"
+    ls -1 dist/ 2>/dev/null | head -10 || true
+}
+
+cmd_install() {
+    require_mac
+    cd_repo
+    log "Delegating to install.fish $*"
+    exec fish ./install.fish "$@"
+}
+
+cmd_reinstall() {
+    require_mac
+    cd_repo
+    hdr "REINSTALL — build local + replace ${INSTALLED_APP}"
+
+    log "Quitting any running instances…"
+    osascript -e 'tell application "Aesthetic.Computer" to quit' >/dev/null 2>&1 || true
+    pkill -f "Aesthetic.Computer" 2>/dev/null || true
+    sleep 0.5
+
+    # Local reinstall path: build the .app but skip notarization (which needs
+    # Apple's notary service over the network) — we strip quarantine ourselves
+    # below so Gatekeeper still opens it cleanly. Use `ac-desktop publish` for
+    # the full signed+notarized release.
+    log "Building macOS app (notarization skipped for local install)…"
+    npx electron-builder --mac --universal -c.mac.notarize=false
+
+    # Locate the built .app — universal target writes to dist/mac-universal/.
+    local built_app
+    for candidate in "dist/mac-universal/${APP_NAME}" "dist/mac/${APP_NAME}" "dist/mac-arm64/${APP_NAME}" "dist/mac-x64/${APP_NAME}"; do
+        if [ -d "${SCRIPT_DIR}/${candidate}" ]; then
+            built_app="${SCRIPT_DIR}/${candidate}"
+            break
+        fi
+    done
+    if [ -z "${built_app}" ]; then
+        err "Could not find the built .app under dist/ — looked in mac-universal, mac, mac-arm64, mac-x64"
+        ls -1 dist/ 2>/dev/null
+        exit 1
+    fi
+    log "Built bundle: ${built_app}"
+
+    if [ -d "${INSTALLED_APP}" ]; then
+        log "Removing old installation…"
+        rm -rf "${INSTALLED_APP}"
+    fi
+
+    log "Copying to /Applications…"
+    cp -R "${built_app}" "${INSTALLED_APP}"
+    xattr -dr com.apple.quarantine "${INSTALLED_APP}" 2>/dev/null || true
+
+    ok "Reinstalled $(installed_version) → ${INSTALLED_APP}"
+    log "Launching…"
+    open "${INSTALLED_APP}"
+}
+
+cmd_release() {
+    cd_repo
+    log "Delegating to release.fish $*"
+    exec fish ./release.fish "$@"
+}
+
+cmd_publish() {
+    require_mac
+    cd_repo
+    hdr "PUBLISH — sign + notarize + upload to releases.aesthetic.computer"
+    log "Local version: $(local_version)"
+    log "Currently published: $(published_version || echo "?")"
+    log "Running npm run publish:mac (electron-builder --publish always)…"
+    npm run publish:mac
+    ok "Publish kicked off — verify with: ac-desktop status"
+}
+
+cmd_status() {
+    local lv iv pv
+    lv=$(local_version)
+    iv=$(installed_version)
+    pv=$(published_version)
+    [ -z "${pv}" ] && pv="(unreachable)"
+    hdr "STATUS"
+    printf "  ${D}local source ${N}: %s\n" "${lv}"
+    printf "  ${D}installed app${N}: %s\n" "${iv}"
+    printf "  ${D}published    ${N}: %s\n" "${pv}"
+    echo ""
+    if [ "${lv}" = "${iv}" ] && [ "${lv}" = "${pv}" ]; then
+        ok "All three versions match"
+    else
+        if [ "${lv}" != "${pv}" ]; then
+            warn "local source (${lv}) differs from published (${pv}) — run 'ac-desktop publish' to ship"
+        fi
+        if [ "${iv}" != "${pv}" ] && [ "${iv}" != "(not installed)" ]; then
+            warn "installed (${iv}) differs from published (${pv}) — run 'ac-desktop install' to update"
+        fi
+        if [ "${iv}" = "(not installed)" ]; then
+            warn "no app in /Applications — run 'ac-desktop install' (published) or 'ac-desktop reinstall' (local build)"
+        fi
+    fi
+}
+
+cmd_monitor() {
+    local interval=30
+    for arg in "$@"; do
+        case "$arg" in
+            --interval=*) interval="${arg#--interval=}" ;;
+        esac
+    done
+    log "Polling ${RELEASES_URL}/latest-mac.yml every ${interval}s. Ctrl-C to stop."
+    local last=""
+    while true; do
+        local cur
+        cur=$(published_version || echo "")
+        if [ -n "${cur}" ] && [ "${cur}" != "${last}" ]; then
+            if [ -z "${last}" ]; then
+                log "Current published version: ${G}${cur}${N}"
+            else
+                ok "New published version: ${last} → ${G}${cur}${N} 🎉"
+            fi
+            last="${cur}"
+        fi
+        sleep "${interval}"
+    done
+}
+
+cmd_logs() {
+    require_mac
+    log "Tailing macOS unified log for Aesthetic.Computer (Ctrl-C to stop)"
+    exec log stream --predicate 'process == "Aesthetic.Computer" OR process == "Aesthetic.Computer Helper"' --style compact
+}
+
+cmd_open() {
+    require_mac
+    if [ ! -d "${INSTALLED_APP}" ]; then
+        err "Not installed. Try: ac-desktop install"
+        exit 1
+    fi
+    log "Launching ${INSTALLED_APP}"
+    open "${INSTALLED_APP}"
+}
+
+cmd_kill() {
+    require_mac
+    log "Quitting running instances…"
+    osascript -e 'tell application "Aesthetic.Computer" to quit' >/dev/null 2>&1 || true
+    pkill -f "Aesthetic.Computer" 2>/dev/null || true
+    sleep 0.3
+    if pgrep -f "Aesthetic.Computer" >/dev/null 2>&1; then
+        warn "Still running — forcing"
+        pkill -9 -f "Aesthetic.Computer" 2>/dev/null || true
+    fi
+    ok "All instances stopped"
+}
+
+cmd_icons() {
+    cd_repo
+    log "Regenerating icons…"
+    npm run icons
+    ok "Icons rebuilt under build/icons/"
+}
+
+cmd_doctor() {
+    cd_repo
+    hdr "DOCTOR"
+
+    # Node + npm
+    if command -v node >/dev/null; then ok "node $(node --version)"; else err "node missing"; fi
+    if command -v npm  >/dev/null; then ok "npm $(npm --version)";   else err "npm missing"; fi
+    if command -v fish >/dev/null; then ok "fish $(fish --version | head -1)"; else warn "fish missing — dev.fish/install.fish/release.fish won't run"; fi
+
+    # Local Electron install
+    if [ -f "${SCRIPT_DIR}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" ] \
+       || [ -f "${SCRIPT_DIR}/node_modules/electron/dist/electron" ]; then
+        ok "electron installed in node_modules"
+    else
+        warn "electron not in node_modules — run: cd ${SCRIPT_DIR} && npm install"
+    fi
+
+    # Vault (signing creds)
+    local vault="${SCRIPT_DIR}/../aesthetic-computer-vault/ac-electron"
+    if [ -d "${vault}" ]; then
+        ok "vault present at ${vault}"
+        [ -f "${vault}/.env" ] && ok "vault .env present" || warn "vault .env missing — signed builds may fail"
+    else
+        warn "vault dir missing (${vault}) — signed/published builds need it"
+    fi
+
+    # Versions
+    cmd_status
+}
+
+# ------------------------------------------------------------ dispatch
+
+case "${CMD}" in
+    help|-h|--help|"")    cmd_help ;;
+    dev)                  cmd_dev "$@" ;;
+    test|run)             cmd_test "$@" ;;
+    build)                cmd_build "$@" ;;
+    install)              cmd_install "$@" ;;
+    reinstall|rebuild)    cmd_reinstall "$@" ;;
+    release|bump)         cmd_release "$@" ;;
+    publish|ship)         cmd_publish "$@" ;;
+    status|st)            cmd_status "$@" ;;
+    monitor|watch)        cmd_monitor "$@" ;;
+    logs|log)             cmd_logs "$@" ;;
+    open|launch)          cmd_open "$@" ;;
+    kill|stop|quit)       cmd_kill "$@" ;;
+    icons)                cmd_icons "$@" ;;
+    doctor|check)         cmd_doctor "$@" ;;
+    *)
+        err "Unknown subcommand: ${CMD}"
+        echo ""
+        cmd_help
+        exit 1
+        ;;
+esac
