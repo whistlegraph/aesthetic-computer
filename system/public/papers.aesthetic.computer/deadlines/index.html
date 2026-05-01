@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>deadlines · papers · Aesthetic Computer</title>
+    <meta name="description" content="Conference, journal, and grant deadlines tracked for Aesthetic Computer papers.">
+    <meta property="og:title" content="deadlines — papers · Aesthetic.Computer" />
+    <meta property="og:description" content="Conference, journal, and grant deadlines tracked for Aesthetic Computer papers." />
+    <meta property="og:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
+    <meta property="og:url" content="https://papers.aesthetic.computer/deadlines" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+        @font-face {
+            font-family: 'YWFT Processing';
+            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #888;
+            --pink: #cd5c9b;
+            --cyan: #4ecdc4;
+            --purple: #7850b4;
+            --gold: #d4a017;
+            --green: #4ecb71;
+            --red: #ff6b6b;
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not(.dark-mode) {
+                --bg: #f5f5f5;
+                --text: #1a1a2e;
+                --dim: #666;
+                --pink: #b4489a;
+                --cyan: #0891b2;
+                --purple: #7850b4;
+                --gold: #a07800;
+                --green: #0a8a3e;
+                --red: #c8312f;
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.12);
+            }
+        }
+
+        :root.light-mode {
+            --bg: #f5f5f5;
+            --text: #1a1a2e;
+            --dim: #666;
+            --pink: #b4489a;
+            --cyan: #0891b2;
+            --purple: #7850b4;
+            --gold: #a07800;
+            --green: #0a8a3e;
+            --red: #c8312f;
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.55;
+            -webkit-text-size-adjust: none;
+            padding: 1.4em 1.6em 2em;
+            min-height: 100vh;
+        }
+        @media (min-width: 1200px) {
+            body { padding: 1.4em 2em 3em; }
+        }
+
+        a { color: var(--cyan); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .top-bar {
+            display: flex;
+            align-items: baseline;
+            gap: 0.6em;
+            margin-bottom: 1.4em;
+            font-size: 0.85em;
+            color: var(--dim);
+        }
+        .top-bar a { color: var(--purple); }
+
+        .header { margin-bottom: 1.6em; }
+
+        h1 {
+            font-family: 'YWFT Processing', monospace;
+            font-size: 2.2em;
+            font-weight: normal;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.3em;
+        }
+        h1 .dot { color: var(--pink); }
+        .subtitle { color: var(--dim); font-size: 0.85em; max-width: 70ch; }
+        .as-of { color: var(--cyan); font-size: 0.78em; margin-top: 0.4em; font-variant-numeric: tabular-nums; }
+
+        .section { margin-bottom: 2em; }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 0.6em;
+            margin-bottom: 0.6em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--box-border);
+        }
+        .section-header h2 {
+            font-size: 1em;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .section-header[data-color="pink"] h2 { color: var(--pink); }
+        .section-header[data-color="cyan"] h2 { color: var(--cyan); }
+        .section-header[data-color="purple"] h2 { color: var(--purple); }
+        .section-header[data-color="gold"] h2 { color: var(--gold); }
+        .section-header[data-color="red"] h2 { color: var(--red); }
+        .section-header .blurb { color: var(--dim); font-size: 0.78em; }
+
+        .row {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) auto auto;
+            gap: 0.4em 1em;
+            align-items: baseline;
+            padding: 0.45em 0.7em;
+            border-radius: 4px;
+            border-bottom: 1px solid var(--box-border);
+            transition: background 0.1s;
+        }
+        .row:nth-child(even) { background: var(--box-bg); }
+        .row:hover { background: var(--box-border); }
+        .row .venue { font-weight: 500; min-width: 0; }
+        .row .venue a { color: var(--text); }
+        .row:hover .venue a { color: var(--cyan); }
+        .row .track { color: var(--dim); font-size: 0.85em; margin-left: 0.4em; }
+        .row .when { font-variant-numeric: tabular-nums; color: var(--dim); font-size: 0.85em; white-space: nowrap; }
+        .row .when .date { color: var(--text); }
+        .row .when .when-extra { display: block; font-size: 0.85em; color: var(--dim); }
+        .row .countdown {
+            font-variant-numeric: tabular-nums;
+            font-size: 0.78em;
+            padding: 0.1em 0.5em;
+            border-radius: 10px;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            white-space: nowrap;
+            text-align: center;
+            min-width: 5.5em;
+        }
+        .row .countdown.urgent { color: var(--red); border-color: var(--red); }
+        .row .countdown.soon { color: var(--gold); border-color: var(--gold); }
+        .row .countdown.ok { color: var(--cyan); border-color: var(--cyan); }
+        .row .countdown.passed { color: var(--dim); border-color: var(--box-border); opacity: 0.7; }
+        .row .countdown.rolling { color: var(--green); border-color: var(--green); }
+
+        .row .notes {
+            grid-column: 1 / -1;
+            color: var(--dim);
+            font-size: 0.78em;
+            margin-top: 0.15em;
+            padding-left: 0.2em;
+            line-height: 1.5;
+        }
+        .row .notes .status {
+            display: inline-block;
+            padding: 0 0.45em;
+            border-radius: 3px;
+            font-size: 0.95em;
+            margin-right: 0.4em;
+            border: 1px solid var(--box-border);
+        }
+        .row .notes .status.go { color: var(--cyan); border-color: var(--cyan); }
+        .row .notes .status.scaffold { color: var(--purple); border-color: var(--purple); }
+        .row .notes .status.candidate { color: var(--gold); border-color: var(--gold); }
+        .row .notes .status.verify { color: var(--red); border-color: var(--red); }
+        .row .notes .status.new { color: var(--dim); }
+        .row .notes a { color: var(--purple); }
+
+        .footer {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            color: var(--dim);
+            font-size: 0.75em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1em;
+            flex-wrap: wrap;
+        }
+        .footer a { color: var(--purple); }
+        .theme-toggle {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: inherit;
+            padding: 0.3em 0.6em;
+            border-radius: 4px;
+        }
+
+        .pals-logo-corner {
+            position: fixed;
+            bottom: 1.5em;
+            right: 1.5em;
+            width: 64px;
+            height: 64px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+        .pals-logo-corner:hover { opacity: 1; }
+
+        @media (max-width: 700px) {
+            body { padding: 1.2em; }
+            h1 { font-size: 1.6em; }
+            .row { grid-template-columns: minmax(0,1fr) auto; }
+            .row .countdown { grid-column: 2; }
+            .row .when { grid-column: 1 / -1; order: 3; }
+            .pals-logo-corner { width: 48px; height: 48px; bottom: 1em; right: 1em; }
+        }
+    </style>
+</head>
+<body>
+    <a href="https://aesthetic.computer" class="pals-logo-corner">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%;height:100%;">
+    </a>
+
+    <div class="top-bar">
+        <a href="/">← papers</a>
+        <span>·</span>
+        <a href="/platter.html">platter</a>
+    </div>
+
+    <div class="header">
+        <h1>deadlines<span class="dot">.</span></h1>
+        <div class="subtitle">Conference, journal, and grant deadlines tracked for Aesthetic Computer papers. Submission state lives in <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/SUBMISSIONS.md">SUBMISSIONS.md</a>; draft state lives in <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/SCORE.md">SCORE.md</a>.</div>
+        <div class="as-of" id="as-of"></div>
+    </div>
+
+    <div id="sections"></div>
+
+    <div class="footer">
+        <div>
+            <a href="/">papers index</a>
+            ·
+            <a href="/platter.html">research platter</a>
+            ·
+            <a href="https://aesthetic.computer">aesthetic.computer</a>
+        </div>
+        <button class="theme-toggle" id="theme-toggle">theme</button>
+    </div>
+
+    <script>
+        // ===== DATA =====
+        // Single source of truth for deadlines. Keep in sync with
+        // papers/SCORE.md and papers/SUBMISSIONS.md.
+        // Dates are ISO YYYY-MM-DD; AoE deadlines treated as end-of-day UTC-12.
+        const DEADLINES = [
+            // --- Verify ---
+            {
+                section: 'verify',
+                venue: 'ACM C&C 2026',
+                venueUrl: 'https://cc.acm.org/2026/demos/',
+                track: 'Demos',
+                deadline: '2026-04-16',
+                conference: 'Jul 13–16, London',
+                status: 'verify',
+                statusLabel: 'Verify',
+                notes: 'Draft ready in <code>cc-demo-2026/</code>. Submission status unconfirmed — log into the C&C portal and verify, then update SCORE.md.',
+            },
+            {
+                section: 'verify',
+                venue: 'ICCC 2026',
+                venueUrl: 'https://computationalcreativity.net/iccc26/short-papers/',
+                track: 'Short Papers',
+                deadline: '2026-04-24',
+                deadlineExtra: '23:59 AoE',
+                conference: 'Jun 29 – Jul 3, Coimbra',
+                status: 'verify',
+                statusLabel: 'Verify',
+                notes: 'Draft ready in <code>iccc-kidlisp/</code> from Apr 19. Check EasyChair for a submission of <code>iccc-kidlisp/iccc.pdf</code>.',
+            },
+
+            // --- Open windows ---
+            {
+                section: 'open',
+                venue: 'SIGGRAPH Asia 2026',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/technical-papers/',
+                track: 'Technical Papers — submission form',
+                deadline: '2026-05-05',
+                conference: 'Dec 1–4, Kuala Lumpur',
+                status: 'scaffold',
+                statusLabel: 'Scaffold',
+                notes: 'Acmtog double-blind, 7pp + ≤2 figures-only pages. Source scaffold in <code>siggraph-asia-2026-tech/</code> adapting <code>arxiv-latency</code>.',
+            },
+            {
+                section: 'open',
+                venue: 'SIGGRAPH Asia 2026',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/technical-papers/',
+                track: 'Technical Papers — full paper',
+                deadline: '2026-05-12',
+                conference: 'Dec 1–4, Kuala Lumpur',
+                status: 'scaffold',
+                statusLabel: 'Scaffold',
+                notes: 'Upload deadline May 13. See <code>siggraph-asia-2026-tech/CONVERSION-NOTES.md</code> for what changes from the arXiv source.',
+            },
+            {
+                section: 'open',
+                venue: 'ICCC 2026',
+                venueUrl: 'https://computationalcreativity.net/iccc26/',
+                track: 'Early Career Symposium',
+                deadline: '2026-05-15',
+                conference: 'Jun 29 – Jul 3, Coimbra',
+                status: 'candidate',
+                statusLabel: 'Candidate',
+                notes: 'Lighter lift than a short paper. Decide whether to pursue if ICCC short paper was missed.',
+            },
+            {
+                section: 'open',
+                venue: 'ArtsIT 2026',
+                venueUrl: 'https://artsit.eai-conferences.org/2026/',
+                track: 'Full Papers',
+                deadline: '2026-06-01',
+                conference: 'Dec 2–4, Bratislava',
+                status: 'new',
+                statusLabel: 'New',
+                notes: 'No directory yet.',
+            },
+            {
+                section: 'open',
+                venue: 'SIGGRAPH Asia 2026',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/',
+                track: 'Art Papers',
+                deadline: '2026-06-08',
+                conference: 'Dec 1–4, Kuala Lumpur',
+                status: 'new',
+                statusLabel: 'New',
+                notes: 'No directory yet.',
+            },
+            {
+                section: 'open',
+                venue: 'SIGGRAPH Asia 2026',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/',
+                track: 'Art Gallery / Emerging Tech / XR',
+                deadline: '2026-06-18',
+                conference: 'Dec 1–4, Kuala Lumpur',
+                status: 'new',
+                statusLabel: 'New',
+            },
+            {
+                section: 'open',
+                venue: 'SIGGRAPH Asia 2026',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/',
+                track: 'Posters',
+                deadline: '2026-07-31',
+                conference: 'Dec 1–4, Kuala Lumpur',
+                status: 'new',
+                statusLabel: 'New',
+            },
+            {
+                section: 'open',
+                venue: 'SIGGRAPH Asia 2026',
+                venueUrl: 'https://asia.siggraph.org/2026/submissions/',
+                track: 'Real-Time Live!',
+                deadline: '2026-08-07',
+                conference: 'Dec 1–4, Kuala Lumpur',
+                status: 'new',
+                statusLabel: 'New',
+            },
+
+            // --- Rolling ---
+            {
+                section: 'rolling',
+                venue: 'JOSS',
+                venueUrl: 'https://joss.theoj.org/',
+                track: 'Software Paper',
+                deadline: null,
+                conference: 'Rolling',
+                status: 'go',
+                statusLabel: 'Drafts',
+                notes: 'Drafts in <code>joss-ac/</code> and <code>joss-kidlisp/</code>. Submit any time.',
+            },
+
+            // --- Passed (track for next year) ---
+            { section: 'passed', venue: 'NIME', track: 'Full / Short', deadline: '2026-02-12', notes: 'Next call: NIME 2027.' },
+            { section: 'passed', venue: 'xCoAx', track: 'Full Papers', deadline: '2026-02-15', notes: 'Next call: xCoAx 2027.' },
+            { section: 'passed', venue: 'Prix Ars Electronica', track: 'Prize entry', deadline: '2026-03-09', notes: 'Annual call.' },
+            { section: 'passed', venue: 'Scores for Social Software', track: 'Open call', deadline: '2026-03-31' },
+            { section: 'passed', venue: 'Creative Capital', track: 'Project grant', deadline: '2026-04-02', notes: 'Annual.' },
+            { section: 'passed', venue: 'ACM CHI', track: 'Papers', deadline: '2026-09-12', notes: 'CHI 2026 main paper window already closed in 2025.' },
+            { section: 'passed', venue: 'SIGGRAPH (main)', track: 'Tech Papers', deadline: '2026-01-23', notes: 'Aug 2026 conference; track 2027.' },
+            { section: 'passed', venue: 'S+T+ARTS', track: 'Open call', deadline: '2026-03-03' },
+            { section: 'passed', venue: 'ISEA', track: 'Papers', deadline: '2025-11-10', notes: 'Track ISEA 2027 call.' },
+
+            // --- Funding sources (no specific date) ---
+            {
+                section: 'funding',
+                venue: 'Gary Marsden Travel Awards',
+                venueUrl: 'https://sigchi.org/resources/gary-marsden-travel-awards/',
+                track: 'Travel grant',
+                deadline: null,
+                conference: 'Per-trip',
+                status: 'go',
+                statusLabel: 'Open',
+                notes: 'Flights, lodging, meals, registration for SIGCHI-sponsored conferences.',
+            },
+            {
+                section: 'funding',
+                venue: 'Foundation for Contemporary Arts',
+                venueUrl: 'https://www.foundationforcontemporaryarts.org/',
+                track: 'Emergency Grant',
+                deadline: null,
+                conference: 'Rolling',
+                status: 'go',
+                statusLabel: 'Rolling',
+                notes: 'For unforeseen pre-existing project expenses.',
+            },
+            {
+                section: 'funding',
+                venue: 'Creative Capital',
+                venueUrl: 'https://creative-capital.org/',
+                track: 'Project grant',
+                deadline: null,
+                conference: 'Annual (next ~Mar 2027)',
+                status: 'candidate',
+                statusLabel: 'Track',
+                notes: 'Up to $50,000.',
+            },
+            {
+                section: 'funding',
+                venue: 'Prix Ars Electronica',
+                venueUrl: 'https://ars.electronica.art/prix/en/',
+                track: 'Prize',
+                deadline: null,
+                conference: 'Annual (next ~Mar 2027)',
+                status: 'candidate',
+                statusLabel: 'Track',
+                notes: '€10,000 (Golden Nica).',
+            },
+        ];
+
+        // ===== RENDER =====
+        const SECTIONS = [
+            { id: 'verify',  title: 'Verify submission', color: 'red',    blurb: 'Deadline already passed; draft was ready but submission status is unconfirmed.' },
+            { id: 'open',    title: 'Open windows',      color: 'pink',   blurb: 'Sorted by closest deadline first.' },
+            { id: 'rolling', title: 'Rolling',           color: 'cyan',   blurb: 'Submit any time.' },
+            { id: 'funding', title: 'Funding sources',   color: 'purple', blurb: 'Grants and travel awards.' },
+            { id: 'passed',  title: 'Recently passed',   color: 'gold',   blurb: 'Track for the next call.' },
+        ];
+
+        function daysBetween(a, b) {
+            const ms = b.getTime() - a.getTime();
+            return Math.round(ms / (1000 * 60 * 60 * 24));
+        }
+
+        function fmtDate(iso) {
+            const d = new Date(iso + 'T12:00:00Z');
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+        }
+
+        function countdown(iso) {
+            if (!iso) return { label: 'rolling', cls: 'rolling' };
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(iso + 'T23:59:59Z');
+            const days = daysBetween(today, target);
+            if (days < 0) return { label: `${-days}d ago`, cls: 'passed' };
+            if (days === 0) return { label: 'today', cls: 'urgent' };
+            if (days <= 7) return { label: `${days}d`, cls: 'urgent' };
+            if (days <= 30) return { label: `${days}d`, cls: 'soon' };
+            return { label: `${days}d`, cls: 'ok' };
+        }
+
+        function render() {
+            const today = new Date();
+            const asOf = today.toISOString().slice(0, 10);
+            document.getElementById('as-of').textContent = `as of ${asOf}`;
+
+            const root = document.getElementById('sections');
+
+            // Sort within sections
+            const open = DEADLINES.filter(d => d.section === 'open').sort((a, b) => a.deadline.localeCompare(b.deadline));
+            const passed = DEADLINES.filter(d => d.section === 'passed').sort((a, b) => b.deadline.localeCompare(a.deadline));
+            const verify = DEADLINES.filter(d => d.section === 'verify').sort((a, b) => a.deadline.localeCompare(b.deadline));
+            const rolling = DEADLINES.filter(d => d.section === 'rolling');
+            const funding = DEADLINES.filter(d => d.section === 'funding');
+
+            const bySection = { verify, open, rolling, funding, passed };
+
+            for (const sec of SECTIONS) {
+                const items = bySection[sec.id] || [];
+                if (items.length === 0) continue;
+                const div = document.createElement('div');
+                div.className = 'section';
+                div.innerHTML = `
+                    <div class="section-header" data-color="${sec.color}">
+                        <h2>${sec.title}</h2>
+                        <span class="blurb">${sec.blurb}</span>
+                    </div>
+                    <div class="rows"></div>
+                `;
+                const rows = div.querySelector('.rows');
+                for (const item of items) {
+                    rows.appendChild(renderRow(item));
+                }
+                root.appendChild(div);
+            }
+        }
+
+        function renderRow(item) {
+            const row = document.createElement('div');
+            row.className = 'row';
+
+            const venueText = item.venueUrl
+                ? `<a href="${item.venueUrl}" target="_blank" rel="noopener">${item.venue}</a>`
+                : item.venue;
+            const trackText = item.track ? `<span class="track">${item.track}</span>` : '';
+
+            const dateBlock = item.deadline
+                ? `<span class="date">${fmtDate(item.deadline)}</span>${item.deadlineExtra ? ` <span class="when-extra">${item.deadlineExtra}</span>` : ''}${item.conference ? ` <span class="when-extra">${item.conference}</span>` : ''}`
+                : (item.conference ? `<span class="when-extra">${item.conference}</span>` : '—');
+
+            const cd = countdown(item.deadline);
+            const statusBadge = item.statusLabel
+                ? `<span class="status ${item.status || 'new'}">${item.statusLabel}</span>`
+                : '';
+
+            row.innerHTML = `
+                <div class="venue">${venueText}${trackText}</div>
+                <div class="when">${dateBlock}</div>
+                <div class="countdown ${cd.cls}">${cd.label}</div>
+                ${(item.notes || statusBadge) ? `<div class="notes">${statusBadge}${item.notes || ''}</div>` : ''}
+            `;
+            return row;
+        }
+
+        // Theme toggle
+        const root = document.documentElement;
+        const saved = localStorage.getItem('papers-theme');
+        if (saved === 'light') root.classList.add('light-mode');
+        if (saved === 'dark') root.classList.add('dark-mode');
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            const isLight = root.classList.contains('light-mode')
+                || (!root.classList.contains('dark-mode') && window.matchMedia('(prefers-color-scheme: light)').matches);
+            root.classList.remove('light-mode', 'dark-mode');
+            root.classList.add(isLight ? 'dark-mode' : 'light-mode');
+            localStorage.setItem('papers-theme', isLight ? 'dark' : 'light');
+        });
+
+        render();
+    </script>
+</body>
+</html>
