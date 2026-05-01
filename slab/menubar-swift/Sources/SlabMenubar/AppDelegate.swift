@@ -154,6 +154,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ShellRunner.runAsync(Paths.claudeSleep, args: ["now"])
     }
 
+    @objc func toggleMute() {
+        let path = Paths.muteFlag
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+            // Stop any in-flight ambient pad / chime so toggling on shuts up
+            // the speakers immediately instead of waiting for the next Stop.
+            ShellRunner.runAsync("/usr/bin/pkill", args: ["-TERM", "-f", "lid-reactive.py"])
+            ShellRunner.runAsync("/usr/bin/pkill", args: ["-x", "afplay"])
+        }
+        refresh()
+    }
+
     @objc func syncBoth() { syncMail(account: nil) }
     @objc func syncAcMail() { syncMail(account: "ac-mail") }
     @objc func syncJasMail() { syncMail(account: "jas-mail") }

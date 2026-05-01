@@ -22,6 +22,7 @@ LOG=${CLAUDE_STOP_LOG:-$SLAB_HOME/logs/claude-stop.log}
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
 AWAITING_DIR="$SLAB_HOME/state/awaiting-prompts"
 SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
+MUTE_FLAG="$SLAB_HOME/state/muted"
 mkdir -p "$(dirname "$LOG")" "$ACTIVE_DIR" "$AWAITING_DIR" "$SUBAGENT_DIR"
 
 pkill -f claude-ping-repeat.sh 2>/dev/null
@@ -102,7 +103,15 @@ tired_stinger() {
     fi
 }
 
-if (( others == 0 )); then
+if [[ -e "$MUTE_FLAG" ]]; then
+    # User asked for silence — keep the lid-aware sleep handoff but skip
+    # every chime / TTS / pentatonic beep. Ambient is force-stopped so a
+    # daemon-restarted pad doesn't sneak back on while muted.
+    stop_ambient
+    if (( others == 0 )) && [[ "$lid" == "Yes" ]]; then
+        "$SLAB_BIN/claude-sleep" now
+    fi
+elif (( others == 0 )); then
     if [[ "$lid" == "Yes" ]]; then
         stop_ambient
         tired_stinger

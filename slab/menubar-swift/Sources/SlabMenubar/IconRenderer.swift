@@ -2,13 +2,13 @@ import AppKit
 
 enum IconRenderer {
     /// Render the menubar icon. When there are any active Claude sessions we
-    /// draw a regular polygon — one edge per session, colored by its state
-    /// (rainbow-pulsing for awaiting, steady cyan for working, dim gray for
-    /// stale). N=1 is a single line, N=2 is two parallel bars, N≥3 is the
-    /// matching n-gon (triangle, square, pentagon, …). The whole shape
-    /// rotates slowly while any session is non-stale, faster with more
-    /// awaiting work. Falls back to SF Symbols for idle / ambient /
-    /// lid-closed states.
+    /// draw a regular polygon — one edge per session, colored by THAT
+    /// session's state: steady cyan for working, pulsing red for awaiting,
+    /// slow-blinking gray for stale. N=1 is a single line, N=2 is two
+    /// parallel bars, N≥3 is the matching n-gon (triangle, square,
+    /// pentagon, …). The whole shape rotates slowly while any session is
+    /// non-stale, faster with more awaiting work. Falls back to SF Symbols
+    /// for idle / ambient / lid-closed states.
     static func image(for state: StateSnapshot, phase: CGFloat = 0, rotation: CGFloat = 0) -> NSImage {
         if !state.claudeSessions.isEmpty {
             return polygonImage(state: state, phase: phase, rotation: rotation)
@@ -95,17 +95,16 @@ enum IconRenderer {
         let radius: CGFloat = 9.5
         let lineWidth: CGFloat = 1.6
 
-        // Color is homogenized across every edge — geometry shows count,
-        // color shows aggregate health.
-        let color = aggregateColor(state: state, phase: phase)
-
+        // Per-edge color: each edge is one session, colored by that
+        // session's own state. Geometry shows count; color shows which
+        // threads are working vs paused vs stale at a glance.
         if n == 1 {
             // Single horizontal line, rotated.
             drawSegment(
                 center: NSPoint(x: cx, y: cy),
                 length: 2 * radius,
                 angle: rotation,
-                color: color,
+                color: sessionColor(visible[0].state, phase: phase),
                 lineWidth: lineWidth
             )
         } else if n == 2 {
@@ -124,7 +123,7 @@ enum IconRenderer {
                     center: center,
                     length: length,
                     angle: rotation,
-                    color: color,
+                    color: sessionColor(visible[i].state, phase: phase),
                     lineWidth: lineWidth
                 )
             }
@@ -140,16 +139,20 @@ enum IconRenderer {
                     + rotation
                 vertices.append(NSPoint(x: cx + radius * cos(theta), y: cy + radius * sin(theta)))
             }
-            color.setStroke()
-            let path = NSBezierPath()
-            path.lineWidth = lineWidth
-            path.lineJoinStyle = .round
-            path.move(to: vertices[0])
-            for k in 1..<n {
-                path.line(to: vertices[k])
+            // Each edge stroked separately so its color reflects its own
+            // session. Round caps make adjacent edges meet without visible
+            // seams at the vertices.
+            for k in 0..<n {
+                let a = vertices[k]
+                let b = vertices[(k + 1) % n]
+                let path = NSBezierPath()
+                path.move(to: a)
+                path.line(to: b)
+                path.lineWidth = lineWidth
+                path.lineCapStyle = .round
+                sessionColor(visible[k].state, phase: phase).setStroke()
+                path.stroke()
             }
-            path.close()
-            path.stroke()
         }
 
         if overflow > 0 {
@@ -177,27 +180,23 @@ enum IconRenderer {
         path.stroke()
     }
 
-    /// One color for the whole polygon, derived from aggregate state. Hue
-    /// slides green → red as the awaiting ratio climbs (overall health),
-    /// brightness pulses harder the more urgent it gets, and an all-stale
-    /// shape blinks gray to signal "done, sessions still on disk."
-    private static func aggregateColor(state: StateSnapshot, phase: CGFloat) -> NSColor {
-        let sessions = state.claudeSessions
-        let allStale = !sessions.isEmpty && sessions.allSatisfy { $0.state == .stale }
-        if allStale {
+    /// Per-session edge color. Working = steady cyan-teal. Awaiting =
+    /// pulsing warm red, the loud "look at me" state. Stale = slow gray
+    /// blink, "thread is dead but the marker's still on disk."
+    private static func sessionColor(_ state: ClaudeSession.State, phase: CGFloat) -> NSColor {
+        switch state {
+        case .working:
+            return NSColor(deviceHue: 0.50, saturation: 0.60, brightness: 0.82, alpha: 1.0)
+        case .awaiting:
+            // Pulse brightness at 2 Hz so paused threads visibly throb
+            // among the steady cyan working ones.
+            let pulse = 0.5 + 0.5 * cos(phase * .pi * 4)
+            let brightness = 0.70 + 0.30 * pulse
+            return NSColor(deviceHue: 0.0, saturation: 0.92, brightness: brightness, alpha: 1.0)
+        case .stale:
             let blink = 0.5 + 0.5 * cos(phase * .pi * 2)
-            return NSColor(deviceWhite: 0.30 + 0.45 * blink, alpha: 1.0)
+            return NSColor(deviceWhite: 0.28 + 0.32 * blink, alpha: 1.0)
         }
-        let total = max(1, sessions.count)
-        let urgency = CGFloat(state.awaitingCount) / CGFloat(total)
-        // Health gradient: 0.35 (green) when calm, 0.0 (red) when fully awaiting.
-        let hue = 0.35 * (1 - urgency)
-        let saturation = 0.55 + 0.40 * urgency
-        // Brightness pulses with depth proportional to urgency. At urgency=0
-        // the shape is steady; at urgency=1 it pulses fully.
-        let pulse = 0.5 + 0.5 * cos(phase * .pi * 4)
-        let brightness = 0.85 - 0.35 * urgency * (1 - pulse)
-        return NSColor(deviceHue: hue, saturation: saturation, brightness: brightness, alpha: 1.0)
     }
 
     private static func fallbackImage() -> NSImage {

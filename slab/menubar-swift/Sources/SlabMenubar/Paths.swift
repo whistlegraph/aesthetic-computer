@@ -29,6 +29,10 @@ enum Paths {
     static var passphraseSocket: String { "\(home)/.ac-daemon.sock" }
 
     static var ambientFlag: String { "/tmp/slab-ambient-active" }
+    /// Persistent mute flag. When this file exists, claude-stop.sh skips
+    /// chimes and stops ambient instead of starting it. Toggled from the
+    /// menubar's "Mute ambient sonification" item.
+    static var muteFlag: String { "\(slabHome)/state/muted" }
 }
 
 enum Tools {

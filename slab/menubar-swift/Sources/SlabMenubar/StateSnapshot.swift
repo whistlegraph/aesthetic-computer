@@ -6,6 +6,7 @@ struct StateSnapshot {
     var activePrompts: Int = 0
     var activeSubagents: Int = 0
     var ambientActive: Bool = false
+    var muted: Bool = false
     var tailnetPeers: [TailnetPeer] = []
     var claudeSessions: [ClaudeSession] = []
 
@@ -32,6 +33,7 @@ struct StateSnapshot {
         s.activePrompts = countFiles(in: Paths.activePromptsDir)
         s.activeSubagents = countFiles(in: Paths.activeSubagentsDir)
         s.ambientActive = FileManager.default.fileExists(atPath: Paths.ambientFlag)
+        s.muted = FileManager.default.fileExists(atPath: Paths.muteFlag)
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         return s

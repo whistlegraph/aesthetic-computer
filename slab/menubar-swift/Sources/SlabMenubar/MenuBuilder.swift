@@ -8,7 +8,7 @@ enum MenuBuilder {
         menu.addItem(info("Status: \(state.statusLine)"))
         menu.addItem(.separator())
 
-        menu.addItem(buildClaude(state: state, target: target))
+        appendClaude(to: menu, state: state, target: target)
         menu.addItem(info("Subagents in flight: \(state.activeSubagents)"))
         menu.addItem(.separator())
 
@@ -20,6 +20,10 @@ enum MenuBuilder {
         stayAwake.state = state.sleepDisabled ? .on : .off
         menu.addItem(stayAwake)
         menu.addItem(item("Sleep now", selector: #selector(AppDelegate.sleepNow), target: target))
+
+        let mute = item("Mute ambient sonification", selector: #selector(AppDelegate.toggleMute), target: target)
+        mute.state = state.muted ? .on : .off
+        menu.addItem(mute)
         menu.addItem(.separator())
 
         menu.addItem(item("Open daemon log", selector: #selector(AppDelegate.openDaemonLog), target: target))
@@ -77,46 +81,65 @@ enum MenuBuilder {
         return parent
     }
 
-    private static func buildClaude(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+    /// Inline the Claude session list straight into the main menu so the
+    /// user can see (and click into) every thread without drilling through
+    /// a submenu. Each row is colored with the same palette as its icon
+    /// edge — cyan for working, red for awaiting, gray for stale — so the
+    /// menubar polygon and the dropdown read as the same picture.
+    private static func appendClaude(to menu: NSMenu, state: StateSnapshot, target: AppDelegate) {
         let sessions = state.claudeSessions
-        let label: String
+        let header: String
         if sessions.isEmpty {
-            label = "Claude: idle"
+            header = "Claude: idle"
         } else if state.anyAwaiting {
-            label = "Claude: \(state.awaitingCount) awaiting · \(sessions.count) active"
+            header = "Claude: \(state.awaitingCount) awaiting · \(sessions.count) active"
         } else {
-            label = "Claude: \(sessions.count) active"
+            header = "Claude: \(sessions.count) active"
         }
-        let parent = NSMenuItem(title: label, action: nil, keyEquivalent: "")
-        let sub = NSMenu()
+        menu.addItem(info(header))
 
-        if sessions.isEmpty {
-            sub.addItem(info("(no active prompts)"))
-        } else {
-            for s in sessions {
-                let dot: String
-                switch s.state {
-                case .awaiting: dot = "◉"
-                case .working:  dot = "●"
-                case .stale:    dot = "○"
-                }
-                let tail = s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)"
-                let title = "\(dot) \(s.shortSubject)\(tail)"
-                let entry = NSMenuItem(
-                    title: title,
-                    action: #selector(AppDelegate.focusClaudeSession(_:)),
-                    keyEquivalent: ""
-                )
-                entry.target = target
-                entry.representedObject = s.tty
-                entry.toolTip = sessionTooltip(s)
-                entry.isEnabled = !s.tty.isEmpty
-                sub.addItem(entry)
+        if sessions.isEmpty { return }
+
+        for s in sessions {
+            let dot: String
+            switch s.state {
+            case .awaiting: dot = "◉"
+            case .working:  dot = "●"
+            case .stale:    dot = "○"
             }
+            let tail = s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)"
+            let entry = NSMenuItem(
+                title: "\(dot) \(s.shortSubject)\(tail)",
+                action: #selector(AppDelegate.focusClaudeSession(_:)),
+                keyEquivalent: ""
+            )
+            entry.target = target
+            entry.representedObject = s.tty
+            entry.toolTip = sessionTooltip(s)
+            entry.isEnabled = !s.tty.isEmpty
+            entry.attributedTitle = coloredTitle(for: s, dot: dot, tail: tail)
+            menu.addItem(entry)
         }
+    }
 
-        parent.submenu = sub
-        return parent
+    private static func coloredTitle(for s: ClaudeSession, dot: String, tail: String) -> NSAttributedString {
+        let full = "\(dot) \(s.shortSubject)\(tail)"
+        let attr = NSMutableAttributedString(string: full)
+        let dotColor: NSColor
+        switch s.state {
+        case .working:  dotColor = NSColor(deviceHue: 0.50, saturation: 0.60, brightness: 0.82, alpha: 1.0)
+        case .awaiting: dotColor = NSColor(deviceHue: 0.0,  saturation: 0.92, brightness: 0.92, alpha: 1.0)
+        case .stale:    dotColor = NSColor(deviceWhite: 0.55, alpha: 1.0)
+        }
+        // Color the status dot strong, the rest of the line in the dot's
+        // hue at lower intensity so the row is glanceable but the text is
+        // still readable in both light and dark menubar themes.
+        let dotRange = NSRange(location: 0, length: (dot as NSString).length)
+        attr.addAttribute(.foregroundColor, value: dotColor, range: dotRange)
+        let textRange = NSRange(location: dotRange.length, length: (full as NSString).length - dotRange.length)
+        let textColor = dotColor.blended(withFraction: 0.55, of: NSColor.labelColor) ?? NSColor.labelColor
+        attr.addAttribute(.foregroundColor, value: textColor, range: textRange)
+        return attr
     }
 
     private static func sessionTooltip(_ s: ClaudeSession) -> String {
