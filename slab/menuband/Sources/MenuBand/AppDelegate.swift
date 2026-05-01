@@ -324,11 +324,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.shutdown()
     }
 
+    /// YWFT Processing descriptors built straight from the .ttf URLs.
+    /// Both bundled cuts share the PostScript name "YWFT-Processing",
+    /// so any name-based lookup (`NSFont(name:)` or
+    /// `NSFontDescriptor(fontAttributes: [.family: ...])` + symbolic
+    /// traits) silently returns the wrong cut or falls through to the
+    /// system font without nil-ing. Loading the descriptor directly
+    /// from the file URL is the only way to be sure a given draw call
+    /// gets that exact .ttf.
+    static var ywftBoldDescriptor: NSFontDescriptor?
+    static var ywftRegularDescriptor: NSFontDescriptor?
+
     /// Register the YWFT Processing font files we ship in the SPM
-    /// bundle so AppKit can find them by PostScript name. Called
-    /// once at launch — the system caches the registration for the
-    /// process lifetime. Failures are logged but non-fatal; the
-    /// caller should fall back to the system font.
+    /// bundle so AppKit can find them by PostScript name, AND cache
+    /// per-cut descriptors built directly from the .ttf URLs.
+    /// Registration alone is unreliable for these specific files
+    /// because both cuts share a PostScript name (the original 0.7/0.8
+    /// title-rendering bug), so callers should prefer the cached
+    /// descriptors. Called once at launch.
     private static func registerBundledFonts() {
         let bundle = Bundle.module
         for name in ["ywft-processing-regular", "ywft-processing-bold"] {
@@ -340,6 +353,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
                 NSLog("MenuBand: font register failed for \(name): \(error?.takeRetainedValue().localizedDescription ?? "?")")
             }
+            guard let descs = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [NSFontDescriptor],
+                  let desc = descs.first else {
+                NSLog("MenuBand: no descriptor parsed for \(name).ttf")
+                continue
+            }
+            if name.hasSuffix("bold") {
+                ywftBoldDescriptor = desc
+            } else {
+                ywftRegularDescriptor = desc
+            }
+        }
+        if ywftBoldDescriptor == nil {
+            NSLog("MenuBand: ywft-processing-bold descriptor unavailable — title will fall back to system font")
         }
     }
 

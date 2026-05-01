@@ -73,6 +73,7 @@ final class MenuBandPopoverViewController: NSViewController {
     private var instrumentTitleRow: NSStackView!
     private var arrowsHint: ArrowKeysIndicator!
     private var qwertyMap: QwertyLayoutView!
+    private var keyboardDeck: NSView!
     /// Horizontal stack of small floating boxes, one per currently-
     /// held note. Sits above the visualizer; empty (zero-height) at
     /// rest so the layout doesn't wobble when notes come and go.
@@ -515,6 +516,36 @@ final class MenuBandPopoverViewController: NSViewController {
         let palettePanel = NSView()
         palettePanel.translatesAutoresizingMaskIntoConstraints = false
         palettePanel.addSubview(instrumentList)
+
+        // MacBook-style keyboard chassis behind the QWERTY map +
+        // arrow keys. Layer-painted rounded slab tinted to read as
+        // brushed silver in light mode and space-gray in dark mode.
+        // Added BEFORE the keycap views so it sits beneath them in
+        // z-order — keys render on top of the chassis. Substrate
+        // colors are applied per-appearance in
+        // `applyAppearanceToKeyboardDeck`.
+        //
+        // Volume + right-side perspective: a soft drop shadow gives
+        // the slab perceived thickness, and a tiny Y-axis rotation
+        // (with m34 perspective) tilts the right edge slightly back,
+        // so the chassis reads as a real laptop angled away from
+        // the viewer. The keys are siblings of the deck (not
+        // children), so they stay flat — only the substrate tilts.
+        keyboardDeck = NSView()
+        keyboardDeck.wantsLayer = true
+        keyboardDeck.layer?.cornerRadius = 7
+        keyboardDeck.layer?.borderWidth = 0.5
+        keyboardDeck.layer?.shadowOpacity = 0.35
+        keyboardDeck.layer?.shadowRadius = 6
+        keyboardDeck.layer?.shadowOffset = CGSize(width: 0, height: -2)
+        keyboardDeck.layer?.shadowColor = NSColor.black.cgColor
+        var deckTransform = CATransform3DIdentity
+        deckTransform.m34 = -1.0 / 900   // perspective foreshortening
+        deckTransform = CATransform3DRotate(deckTransform, -.pi / 36, 0, 1, 0)
+        keyboardDeck.layer?.transform = deckTransform
+        keyboardDeck.translatesAutoresizingMaskIntoConstraints = false
+        palettePanel.addSubview(keyboardDeck)
+
         arrowsHint = ArrowKeysIndicator()
         arrowsHint.toolTip = "Arrow keys move the selection."
         arrowsHint.translatesAutoresizingMaskIntoConstraints = false
@@ -525,11 +556,13 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         palettePanel.addSubview(arrowsHint)
         let cornerInset: CGFloat = 4
-        // Strip below the grid: full-width QWERTY keymap on top of
-        // the strip, arrow-keys cluster anchored to its bottom-right
-        // corner. Reads like a tiny laptop keyboard glued to the
-        // base of the voice grid.
-        let strip: CGFloat = 100
+        // Strip below the grid: keyboard chassis wraps the QWERTY
+        // map on top and the arrow-keys cluster tucked into its
+        // bottom-right corner. Reads like a tiny laptop keyboard
+        // glued to the base of the voice grid. Sized to hug the
+        // qwerty (46h) + arrows (30h) + insets — no trackpad slab
+        // anymore, so the strip can be tighter.
+        let strip: CGFloat = 88
         qwertyMap = QwertyLayoutView()
         qwertyMap.translatesAutoresizingMaskIntoConstraints = false
         // Pointer-driven play: clicks/drags on caps route through the
@@ -547,17 +580,27 @@ final class MenuBandPopoverViewController: NSViewController {
             instrumentList.leadingAnchor.constraint(equalTo: palettePanel.leadingAnchor),
             instrumentList.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor),
             instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight),
-            qwertyMap.centerXAnchor.constraint(equalTo: palettePanel.centerXAnchor),
-            // Anchor the QWERTY map to the BOTTOM of the strip
-            // (just above the arrow keys) instead of the top —
-            // visually clusters it with the arrow-keys cluster as
-            // one keyboard ornament, and frees space above for the
-            // grid to breathe.
-            qwertyMap.bottomAnchor.constraint(equalTo: arrowsHint.topAnchor, constant: -4),
+
+            // Deck wraps the keys + trackpad. Spans the full panel
+            // width so the chassis reads as a real laptop deck under
+            // the voice grid.
+            keyboardDeck.leadingAnchor.constraint(equalTo: palettePanel.leadingAnchor),
+            keyboardDeck.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor),
+            keyboardDeck.topAnchor.constraint(equalTo: instrumentList.bottomAnchor, constant: 6),
+            keyboardDeck.bottomAnchor.constraint(equalTo: palettePanel.bottomAnchor),
+
+            // QWERTY map sits at the top of the chassis with a
+            // small inset from the deck's rounded edge.
+            qwertyMap.centerXAnchor.constraint(equalTo: keyboardDeck.centerXAnchor),
+            qwertyMap.topAnchor.constraint(equalTo: keyboardDeck.topAnchor, constant: 6),
             qwertyMap.widthAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.width),
             qwertyMap.heightAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.height),
-            arrowsHint.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor, constant: -cornerInset),
-            arrowsHint.bottomAnchor.constraint(equalTo: palettePanel.bottomAnchor, constant: -cornerInset),
+
+            // Arrow cluster nestles below the QWERTY rows on the
+            // right edge — same inverted-T position a real laptop
+            // would put it.
+            arrowsHint.trailingAnchor.constraint(equalTo: keyboardDeck.trailingAnchor, constant: -cornerInset),
+            arrowsHint.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: 2),
         ])
         stack.addArrangedSubview(palettePanel)
         palettePanel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
@@ -920,18 +963,25 @@ final class MenuBandPopoverViewController: NSViewController {
             ?? famColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)
         shadow.shadowBlurRadius = 0
-        // YWFT Processing — both bundled .ttf files share the same
-        // PostScript name ("YWFT-Processing"), so `NSFont(name:)`
-        // only resolves whichever one was registered last. Resolve by
-        // family + bold trait via NSFontDescriptor instead so we
-        // actually get the bold cut, then the regular as a same-family
-        // fallback, then system black as a last resort.
-        let famDesc = NSFontDescriptor(fontAttributes: [.family: "YWFT Processing"])
-        let boldDesc = famDesc.withSymbolicTraits(.bold)
-        let titleFont = NSFont(descriptor: boldDesc, size: 18)
-            ?? NSFont(descriptor: famDesc, size: 18)
-            ?? NSFont(name: "YWFT-Processing", size: 18)
-            ?? NSFont.systemFont(ofSize: 18, weight: .black)
+        // YWFT Processing — see AppDelegate.registerBundledFonts.
+        // 0.7/0.8 tried to resolve the bold cut by PostScript name and
+        // by family+symbolic-traits. Both paths returned a non-nil
+        // wrong font (NSFont(descriptor:) silently substitutes the
+        // system font on a miss instead of nil-ing), so the title
+        // shipped in system black for two releases without any
+        // visible signal of the failure. The reliable path is the
+        // descriptor parsed directly from the .ttf URL at launch.
+        // Verify familyName before accepting; log and fall back if
+        // anything is off so the next regression can't hide.
+        let titleFont: NSFont = {
+            if let desc = AppDelegate.ywftBoldDescriptor,
+               let f = NSFont(descriptor: desc, size: 18),
+               f.familyName == "YWFT Processing" {
+                return f
+            }
+            NSLog("MenuBand: YWFT bold descriptor unavailable; title falling back to system font")
+            return NSFont.systemFont(ofSize: 18, weight: .black)
+        }()
         instrumentReadout.attributedStringValue = NSAttributedString(
             string: title,
             attributes: [
@@ -976,6 +1026,25 @@ final class MenuBandPopoverViewController: NSViewController {
             // recessed-housing effect as the dark mode 0.06 → 0.0 step.
             waveformBezel?.layer?.backgroundColor =
                 NSColor(white: 0.82, alpha: 1.0).cgColor
+        }
+        applyAppearanceToKeyboardDeck(isDark: isDark)
+    }
+
+    /// Repaint the keyboard chassis against the current appearance.
+    /// Light mode reads as brushed silver aluminum; dark mode reads
+    /// as space-gray. Shadow tints darker in light mode (more
+    /// contrast against the bright substrate) and a touch lighter
+    /// against the dark popover background.
+    private func applyAppearanceToKeyboardDeck(isDark: Bool) {
+        guard let deck = keyboardDeck?.layer else { return }
+        if isDark {
+            deck.backgroundColor = NSColor(white: 0.18, alpha: 1.0).cgColor
+            deck.borderColor     = NSColor(white: 0.30, alpha: 1.0).cgColor
+            deck.shadowOpacity   = 0.55
+        } else {
+            deck.backgroundColor = NSColor(white: 0.86, alpha: 1.0).cgColor
+            deck.borderColor     = NSColor(white: 0.68, alpha: 1.0).cgColor
+            deck.shadowOpacity   = 0.30
         }
     }
 
