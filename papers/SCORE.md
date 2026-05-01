@@ -40,6 +40,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| Where the Microseconds Go (SIGGRAPH Asia 2026 Tech Papers port) | acmtog (LaTeX, scaffold) | (build pending) | `siggraph-asia-2026-tech/latency-source.tex` |
 | Diagrams from Data: A Penrose Pipeline for AC Illustrations | arXiv (LaTeX) | `arxiv-penrose/penrose.pdf` | `arxiv-penrose/penrose.tex` |
 | Where the Microseconds Go: Input and Audio Latency in AC Native OS | arXiv (LaTeX, 6pp) | `arxiv-latency/latency.pdf` | `arxiv-latency/latency.tex` |
 | Aesthetic Computer Demo (C&C 2026) | ACM Demo (LaTeX) | `cc-demo-2026/demo.pdf` | `cc-demo-2026/demo.tex` |
@@ -117,10 +118,10 @@ Upcoming conferences and journals to submit to.
 
 | Venue | Type | Deadline | Conference Date | Status |
 |-------|------|----------|-----------------|--------|
-| [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | DRAFT READY (`cc-demo-2026/`) — submission status unconfirmed |
-| [ICCC 2026](https://computationalcreativity.net/iccc26/short-papers/) | Short Papers | **Apr 24, 2026 (23:59 AoE)** | Jun 29–Jul 3, Coimbra | GO — 4pp anonymized, EasyChair |
+| [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | **DEADLINE PASSED** — verify submission per `SUBMISSIONS.md` |
+| [ICCC 2026](https://computationalcreativity.net/iccc26/short-papers/) | Short Papers | Apr 24, 2026 (23:59 AoE) | Jun 29–Jul 3, Coimbra | **DEADLINE PASSED** — verify submission per `SUBMISSIONS.md` |
 | [ICCC 2026](https://computationalcreativity.net/iccc26/) | Early Career Symposium | May 15, 2026 | Jun 29–Jul 3, Coimbra | Candidate |
-| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Technical Papers (full) | May 12, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/technical-papers/) | Technical Papers (full) | **May 5 form / May 12 paper / May 13 upload** | Dec 1–4, Kuala Lumpur | SCAFFOLD ready (`siggraph-asia-2026-tech/`) — adapting `arxiv-latency` to acmtog double-blind |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Papers | Jun 8, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Gallery / Emerging Tech / XR | Jun 18, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Posters | Jul 31, 2026 | Dec 1–4, Kuala Lumpur | NEW |

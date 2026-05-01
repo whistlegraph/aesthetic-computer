@@ -1,0 +1,443 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === C/JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Where the Microseconds Go: Input and Audio Latency in AC Native OS},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+% === LISTINGS ===
+\lstdefinelanguage{acc}{
+  morekeywords=[1]{const,static,struct,int,unsigned,void,if,else,return,while,for,sizeof,#define,#include},
+  morekeywords=[2]{snd_pcm_writei,snd_pcm_hw_params_set_period_size_near,read,poll,epoll_wait,clock_gettime,wl_keyboard,wl_display},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+}
+
+\lstdefinestyle{accstyle}{
+  language=acc,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Where the Microseconds Go}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Input and Audio Latency in AC Native OS}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A letter for Parag, on what an interrupt is and how close to physics we already are}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+This paper, inspired by questions from Parag about what an IRQ is and whether stacking display servers makes a computer feel slower, walks the keypress-to-sound path inside \acos{} from the keyboard's USB host controller IRQ down to the audio codec's DMA engine. I quantify each layer the signal must cross, compare the values measured in \acos{} today against the theoretical floor set by physics and minimum kernel work, and trace the commit-by-commit history of how the chromatic keyboard piece \texttt{notepat} arrived at its current numbers --- a story that begins not on bare metal but in the browser, where on 2026-02-15 a measured \textbf{417\,ms} keyboard-to-sound latency in the web build of \texttt{notepat} (against a 30\,ms target) made it clear that no amount of profiling inside Chrome would close the gap. \acos{} was the response. It now runs ALSA at a 192-frame period at 192\,kHz ($\approx$1\,ms hardware turnaround) on HDA-direct codecs, falling back to 10--20\,ms periods on Sound Open Firmware (SOF) platforms whose DAPM models cannot tolerate sub-period scheduling pressure. Wayland was tried (via the \texttt{cage} compositor on a NixOS prototype) and removed --- the bare-metal build runs DRM-direct on \texttt{evdev}, eliminating the entire \texttt{evdev}\,$\rightarrow$\,\texttt{libinput}\,$\rightarrow$\,\texttt{cage}\,$\rightarrow$\,\texttt{wl\_pointer} input chain because each abstraction layer either adds a context switch (\,$\mu$s, harmless) or a buffer turnaround (ms or one frame, audible). The realistic floor is approximately 2\,ms key-to-DAC; we are at roughly 3--4\,ms on HDA hardware and 12--22\,ms on SOF. The macOS sibling port makes the thesis even sharper: switching from SDL3's audio stream to a direct CoreAudio backend dropped the measured median from 6.47\,ms to 0.65\,ms on the same hardware --- a 10$\times$ reduction that no buffer-size change could reach, because the bottleneck was a layer we had not noticed adding. The remaining gap is not algorithmic --- it is the cost of supporting hardware whose firmware demands buffering we do not need.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{Introduction}
+
+Parag, an IRQ --- an \emph{interrupt request} --- is the hardware equivalent of someone tapping the CPU on the shoulder mid-sentence. Every modern CPU is, by default, ignoring almost everything. It runs whatever the kernel's scheduler last placed in front of it, and only stops when a wire is pulled. The keyboard controller pulls a wire when a key changes; the sound card pulls a wire when its DMA buffer has shifted enough samples out the speaker amplifier that it is about to run dry. The kernel responds with an \emph{interrupt service routine} (ISR), reads the device's status, and either consumes the event or wakes a userspace process that was waiting. That, in five sentences, is the entire mechanism by which a press of the spacebar eventually becomes a sound: a piece of physics (the key bottoming out closes a circuit) becomes a USB transaction, becomes an IRQ, becomes a wakeup, becomes a synth voice, becomes another DMA buffer, becomes a vibration in the air.
+
+The interesting question, the one you actually asked, is: how long does that path take, and how much of the time is spent on things we cannot avoid versus things we have chosen to put in the way? This paper answers that question for \acos{}~\citep{scudder2026os}, the bare-metal Linux build that powers the chromatic-keyboard piece \texttt{notepat}~\citep{scudder2026notepat}. The system was designed from the start as a musical instrument: the relevant performance metric is not throughput but the latency of a single keypress reaching the DAC, and the jitter on that latency. Wessel and Wright argued in 2002 that any tool intended for intimate musical control should keep this number below 10\,ms~\citep{wessel2002problems}; McPherson and colleagues showed in 2016 that most general-purpose computing stacks are nowhere close~\citep{mcpherson2016action}, motivating the dedicated Bela platform~\citep{jack2018sub,bela}. \acos{} is not Bela. It runs on whatever surplus laptop you flash it onto. But its design intent is the same: minimize the layers between the key and the DAC, and put visible numbers next to each one that remains.
+
+The instrument did not start on bare metal. It started in a browser tab. \texttt{notepat} shipped first as a web piece, and the entire impetus to build a custom OS came from a specific measurement. On 2026-01-09 the \texttt{notepat} latency-testing harness was added (commit \texttt{001a0769a}); on 2026-01-29 a target was set --- \texttt{window.\_\_acLatencyHint = 0.003} (3\,ms, commit \texttt{22675462f}); on 2026-02-15 the harness measured a mean of \textbf{417.28\,ms} (commit \texttt{578154860}) against that target. That is the moment a custom OS became inevitable: the work to remove 14$\times$ of overhead from a Web Audio + AudioWorklet + browser-event-loop stack would exceed the work to write a Linux runtime that talks ALSA directly. The kiosk-OS scaffolding (FFOS, then FedAC, then ac-native) lands in the next two weeks; the ALSA audio engine itself appears on 2026-03-05 in commit \texttt{a94cc50ea}. By the time this paper is written, the same \texttt{notepat} that was at 417\,ms in a browser is at 3--4\,ms on a flashed surplus ThinkPad.
+
+I describe the keypress path~(\S\ref{sec:keypath}), the audio path~(\S\ref{sec:audiopath}), the current measured numbers against the theoretical floor~(\S\ref{sec:floor}), the role of Wayland and the direct-KMS alternative~(\S\ref{sec:wayland}), the commit history of \texttt{notepat} latency improvements~(\S\ref{sec:history}), and what is left to squeeze~(\S\ref{sec:future}).
+
+% ============ 2. THE KEYPRESS PATH ============
+
+\section{The Keypress Path}
+\label{sec:keypath}
+
+In \texttt{fedac/native/src/input.c}, the chain from key to userspace runs as follows:
+
+\begin{enumerate}
+  \item The user closes a key contact. Mechanical latency (debounce, scan-matrix sweep) is set by the keyboard's own microcontroller --- typically 1--5\,ms.
+  \item The keyboard schedules a USB HID input report. The polling interval is 8\,ms on legacy low-speed devices, 1\,ms on full-speed devices, and 125\,$\mu$s on high-speed gaming keyboards (NuPhy analog HE, used by the development unit, polls at 1\,kHz).
+  \item The xHCI host controller raises an IRQ when the URB completes. The Linux ISR runs in tens of microseconds.
+  \item The USB HID driver decodes the report and posts an \texttt{input\_event} via the \texttt{evdev} subsystem~\citep{evdev}, which makes it readable on \texttt{/dev/input/event*}.
+  \item \acos{}'s main loop, blocking in \texttt{poll()} on those file descriptors, wakes inside another tens of microseconds. The event is dispatched to the active piece's \texttt{act()} function via the QuickJS bridge~\citep{quickjs}.
+  \item The piece updates state. If the event triggers a note, it calls \texttt{system.sound.play()}, which posts a voice descriptor to a lock-protected ring shared with the audio thread.
+\end{enumerate}
+
+The hardware floor on this path is the USB poll interval (1\,ms on a typical keyboard, 125\,$\mu$s on a gaming keyboard). Everything else is microseconds of kernel work plus a single context switch into the ac-native main loop. The runtime carries an extra subtlety: the NuPhy analog keyboard reports both as a generic HID keyboard and as a vendor-specific hidraw device that streams continuous pressure values. \acos{} reads the hidraw stream for analog pressure but suppresses the duplicate evdev events, since processing both would double-trigger every note (\texttt{input.c:478}).
+
+When a Wayland compositor is in the loop, step 5 changes: the compositor reads evdev via \texttt{libinput}~\citep{libinput}, decides which client has focus, and serializes the event into a \texttt{wl\_keyboard.key} message on the per-client Wayland socket~\citep{wayland}. The client wakes, dispatches it through \texttt{wl\_display\_dispatch}, and only then does the piece see it. Each hop is one socket write plus one context switch --- typically under 200\,$\mu$s on a quiet system, but the worst case is bounded by the compositor's own scheduling, not by the input stack. Comments in \texttt{input.c:1135} note that when no compositor advertises a seat, ac-native falls back to reading evdev directly --- the lower-latency path.
+
+% ============ 3. THE AUDIO PATH ============
+
+\section{The Audio Path}
+\label{sec:audiopath}
+
+Audio in \acos{} is ALSA~\citep{alsa} all the way down. The configuration in \texttt{fedac/native/src/audio.h:11} declares:
+
+\begin{lstlisting}[style=accstyle]
+#define AUDIO_SAMPLE_RATE 192000
+#define AUDIO_PERIOD_SIZE 192   // ~1ms at 192kHz
+\end{lstlisting}
+
+The audio thread runs a tight loop: render \texttt{period\_frames} samples of mixed synth output into a buffer, then call \texttt{snd\_pcm\_writei()} to hand them to the codec. The codec's DMA engine consumes those samples on its own clock; when it has shifted out one full period, it raises an IRQ and the kernel wakes \texttt{snd\_pcm\_writei} so the next period can be written. The rendering and writing are double-buffered, so end-to-end latency is approximately \emph{period $\times$ number-of-periods-in-buffer}.
+
+\acos{} configures four periods of buffer (\texttt{audio.c:2275}). At the design rate this is 4\,ms of audio in flight at any moment, plus the analog delay of the codec and amplifier (typically $<$1\,ms).
+
+\subsection{Why two configurations}
+
+The codec landscape on x86\_64 laptops splits cleanly. Older HDA-direct codecs (Realtek ALC257 on a ThinkPad X13, e.g.) accept 192-frame periods without complaint. ChromeOS-era Intel platforms --- specifically Jasper Lake-class devices like the HP Chromebook G7 used as the SOF reference unit --- route audio through Sound Open Firmware (SOF)~\citep{sof}, a DSP coprocessor that runs DAPM (Dynamic Audio Power Management) state machines. The G7's audio path is the \texttt{sof-rt5682} machine driver wired to a Realtek RT5682 codec for headphones plus a MAX98360A I$^{2}$S speaker amplifier. Commit \texttt{3e3608733} (\emph{native: SOF-aware audio period sizing}) records the discovery: with a 1\,ms period and 4\,ms buffer the SOF firmware logged \emph{10{,}686 sdmode toggles per boot} --- once per period, matching the $\sim$5\,ms toggle spacing exactly --- a DAPM amp-storm that desynchronized the speaker and produced silence even though the ALSA layer looked fine. The fix was to detect SOF (presence of \texttt{sound/soc/sof} card and absence of legacy HDA codec97) and back off the period to 10\,ms (480 frames at 48\,kHz) with a 40\,ms buffer.
+
+A second G7-specific bug surfaced the next day: \texttt{sof-rt5682} has no upstream ALSA UCM (Use Case Manager) definitions, so the DAPM graph stayed in the topology's init state and the Speakers path was disabled regardless of mixer state. Commit \texttt{cad9313e4} (\emph{native: bundle ChromeOS UCM + activate Speaker verb}) bundles the downstream \texttt{WeirdTreeThing/alsa-ucm-conf-cros} tree into the initramfs at image-build time and activates the Speaker verb after card open. ``On HDA-direct machines, \texttt{snd\_use\_case\_mgr\_open} returns -ENOENT and we fall through to the existing manual mixer unmute path unchanged.''
+
+Even that turned out to be too tight: commit \texttt{ec143aca7} (\emph{native: bigger SOF buffer 20ms/80ms}) records continuing XRUN messages with short writes of 96 frames out of 480, indicating the buffer was draining faster than the userspace mixer could refill it under boot-time load. The current production setting on SOF hardware is a 20\,ms period in an 80\,ms buffer.
+
+This is the central asymmetry of audio latency on modern laptops: \emph{the kernel can do better, but the firmware cannot}. SOF is not a Linux limitation. It is a hardware-vendor decision to put a coprocessor between the OS and the DAC, and that coprocessor's state machine has its own latency floor.
+
+% ============ 4. CURRENT VS. THEORETICAL FLOOR ============
+
+\section{Current vs. Theoretical Floor}
+\label{sec:floor}
+
+Table~\ref{tab:floor} sums the path. The upper section is the current measured/derived state; the middle is the floor set by physics and minimum kernel work; the lower row is the gap.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Stage} & \textbf{Current} & \textbf{Floor} \\
+\midrule
+Key contact + scan & 1--5\,ms & 1\,ms \\
+USB HID poll & 0.125--1\,ms & 0.125\,ms \\
+Kernel ISR + evdev & $<$50\,$\mu$s & $<$50\,$\mu$s \\
+poll() wake $\rightarrow$ piece & $<$100\,$\mu$s & $<$100\,$\mu$s \\
+QuickJS dispatch + synth voice & $<$100\,$\mu$s & $<$50\,$\mu$s \\
+Voice $\rightarrow$ next ALSA period & up to 1 period & 0 (best case) \\
+ALSA buffer drain & 4 ms (HDA) & 1--2\,ms \\
+                 & 80 ms (SOF) & 80\,ms \\
+DAC + amp & $<$1\,ms & $<$1\,ms \\
+\midrule
+\textbf{Total (HDA-direct)} & \textbf{$\sim$3--4\,ms} & \textbf{$\sim$2\,ms} \\
+\textbf{Total (SOF)} & \textbf{$\sim$12--22\,ms} & \textbf{$\sim$82\,ms*} \\
+\bottomrule
+\end{tabular}
+\caption{Latency budget, key-to-DAC. *SOF floor is dominated by the firmware buffer ac-native cannot shrink without losing audio.}
+\label{tab:floor}
+\end{table}
+
+The HDA-direct number sits within the 5\,ms threshold below which McPherson et al. showed users cannot reliably distinguish action from sound~\citep{mcpherson2016action}. The SOF number does not. There is no software fix on the Linux side: shrinking the SOF buffer reintroduces the DAPM amp-storm. The only paths to a smaller SOF floor are (a) firmware changes upstream, (b) a kernel patch that reroutes the DAPM events out of the audio fast path, or (c) selecting hardware whose codec is HDA-direct.
+
+For comparison, the \texttt{notepat} macOS port (\texttt{fedac/native/macos/}) on Apple Silicon shipped with two backends so they could be A/B tested. The numbers from the \texttt{AC\_LATENCY\_TEST=40} benchmark in commit \texttt{c6e740192}, with \texttt{AC\_AUDIO\_BUFFER=32}:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Backend} & \textbf{min} & \textbf{median} & \textbf{mean} & \textbf{max} \\
+\midrule
+SDL3~\citep{sdl3} & 1.42 & 6.47 & 5.99 & 7.32 \\
+CoreAudio direct & 0.08 & \textbf{0.65} & 0.58 & 0.80 \\
+\bottomrule
+\end{tabular}
+\caption{Mac key-to-sample latency in milliseconds (commit \texttt{c6e740192}).}
+\label{tab:macos}
+\end{table}
+
+That is roughly a 10$\times$ reduction from the same hardware, same buffer size, same synthesizer. The commit message draws the conclusion in plain language: \emph{``the bottleneck wasn't the buffer size, it was SDL3's audio stream layering its own schedule on top of CoreAudio's pipeline.''} The number 0.65\,ms is below the underlying CoreAudio scheduling floor we earlier believed in, because that floor turned out to be SDL's own indirection. This is the cleanest single example of the thesis of this paper: each layer between hardware and the app costs a buffer turnaround, and the layer is often invisible until you remove it.
+
+% ============ 5. WAYLAND, DIRECT KMS, AND DISPLAY ============
+
+\section{Wayland, Direct KMS, and Display}
+\label{sec:wayland}
+
+Wayland does not touch audio --- it is a display and input protocol. The audio path described above runs identically with or without a compositor. So the question ``does Wayland add audio latency'' has a clean answer: no. The PipeWire/PulseAudio user-space audio servers \emph{would} add 5--20\,ms of resampling and buffering, but ac-native deliberately bypasses them. ALSA hw-direct.
+
+Wayland's effect on \emph{input} latency is best illustrated by the project's own choice to remove it. An early NixOS-targeted prototype ran ac-native as a Wayland client under the \texttt{cage} kiosk compositor, with input reaching the runtime via \texttt{evdev}\,$\rightarrow$\,\texttt{libinput}\,$\rightarrow$\,\texttt{cage}\,$\rightarrow$\,\texttt{wl\_pointer}\,/\,\texttt{wl\_keyboard}. On 2026-04-05 commit \texttt{28d7ee374} added a workaround --- ``Late \texttt{input\_poll} after display present halves Wayland pointer latency'' --- because the compositor was flushing motion events only after surface commit. One day later, on 2026-04-06, commit \texttt{104022f30} (\emph{drop cage/Wayland, run ac-native DRM-direct on NixOS}) removed the compositor entirely:
+
+\begin{quote}\small\itshape
+This eliminates the entire Wayland input stack (evdev $\rightarrow$ libinput $\rightarrow$ cage $\rightarrow$ wl\_pointer) that caused trackpad drift, cursor conflicts, and input latency. ac-native now owns DRM and evdev directly, same as the bare-metal build. Net: -59 lines of config, zero abstraction layers between ac-native and the hardware.
+\end{quote}
+
+The codebase still ships \texttt{wayland-display.c} (394 lines) for the case where the OS is embedded in an existing Wayland session, alongside \texttt{drm-display.c} (987 lines) for the no-compositor path. When a compositor is present, \texttt{input.c:441,478} record a sharper concern than mere additional latency: the compositor \emph{grabs} the input devices, and reading them in parallel via evdev produces double-counted keys and progressively drifting cursor positions. The fix is conditional --- if a Wayland seat is advertised, evdev is suppressed; otherwise (\texttt{input.c:1135}) ac-native reads evdev directly. The bare-metal ChromeOS-on-Jasper-Lake build always takes the second path.
+
+For display, the cost of a compositor is one vsync of additional buffering (16.7\,ms at 60\,Hz) on top of whatever the application would otherwise hand to KMS. \texttt{drm-display.c} bypasses this: ac-native talks directly to DRM/KMS~\citep{drmkms} and pageflips its own framebuffer.
+
+The general rule: each layer between hardware and the application costs either a context switch ($\mu$s, free) or a buffer turnaround (one frame or one period, audible/visible). \acos{}'s design is to make the buffering layers \emph{optional}, not structural.
+
+% ============ 6. NOTEPAT LATENCY HISTORY ============
+
+\section{The notepat Latency History}
+\label{sec:history}
+
+The chromatic keyboard piece \texttt{notepat} is the canonical instrument that runs on \acos{}. Its current feel is the result of about \emph{four months} of work spread across the web port, the bare-metal Linux runtime, and the macOS sibling --- not a single April debugging sprint. Read in order, the commits split into nine phases. Reading them as a sequence is the most honest answer to ``where does the present latency come from'' --- because almost none of the work was clever DSP or kernel hacking. It was identifying which layer was secretly buffering, and removing or tuning it.
+
+\subsection{Phase 0: The browser ceiling and the case for an OS (Jan 9 -- Feb 15)}
+
+\texttt{notepat} began as a web piece running inside \texttt{aesthetic.computer}'s browser runtime. The first attempt to measure its key-to-sound latency landed on 2026-01-09 in commit \texttt{001a0769a} (\emph{notepat latency testing + KidLisp boot animation}), which added an \texttt{artery/test-notepat-latency.mjs} harness that drove a headless browser, dispatched a synthetic keypress, and timed the appearance of the first non-zero audio sample via \texttt{\_\_bios\_sound\_telemetry}. Twenty days later, on 2026-01-29, commit \texttt{22675462f} (\emph{$\boldsymbol\lightning$ notepat: Reduce audio latency target to 3ms}) wrote the goal directly into the piece's \texttt{boot()} as a global hint:
+
+\begin{lstlisting}[style=accstyle,basicstyle=\ttfamily\footnotesize]
+window.|\textcolor{jskw}{\_\_acLatencyHint}| = |\textcolor{jsnum}{0.003}|;  // 3ms target
+window.|\textcolor{jskw}{\_\_acSampleRate}| = |\textcolor{jsnum}{48000}|;
+window.|\textcolor{jskw}{\_\_acSpeakerPerformanceMode}| = |\textcolor{jsstr}{"disabled"}|;
+\end{lstlisting}
+
+Then on 2026-02-15, commit \texttt{578154860} (\emph{add test results showing 417ms latency regression in notepat}) recorded the measurement against that target:
+
+\begin{quote}\small\itshape
+Mean latency: 417.28\,ms (keyboard $\rightarrow$ sound detection). Target: $<$30\,ms. Performance degradation: $\sim$14$\times$ slower than target. Status: CRITICAL. Low variance (14\,ms std dev) suggests systematic overhead.
+\end{quote}
+
+The commit's analysis attributed the regression to recent UI work (waveform visualizer, KidLisp visualizer) and proposed Chrome DevTools profiling and OffscreenCanvas migrations. Those changes were made; they did not close the gap meaningfully. The browser stack --- Web Audio + AudioWorklet + cross-origin-isolation requirements + the page event loop + GC pauses --- has a floor that no amount of in-page work could push under tens of milliseconds. By the next week, scaffolding for a custom OS appears in the repo (FFOS on 2026-02-06, FedAC on 2026-02-21), and on 2026-03-05 commit \texttt{a94cc50ea} (\emph{feat(fedac): add ALSA audio engine}) lands the C-side multi-voice synthesizer that becomes the foundation of \acos{}'s current audio path. The native OS exists because the browser ceiling existed.
+
+\subsection{Phase 1: Make the speakers play at all (Apr 14--15)}
+
+Before latency could even be measured on the bare-metal build, the SOF-based HP Chromebook G7 (Jasper Lake, \texttt{sof-rt5682}, RT5682 + MAX98360A) had to actually emit sound. The relevant log line at the time was \emph{``everything else correct, but no audio.''} Commits \texttt{8e1663d72}, \texttt{6247baf17}, \texttt{cad9313e4}, \texttt{410c78476}, \texttt{0d423b19f}, \texttt{1c95ab767} walked through ChromeOS's UCM (Use Case Manager) configuration --- enumerating PCMs, picking the speaker verb, fixing the namespace prefix --- to get audio routed to the right output at all. \texttt{877c2336d} stopped enabling UCM Headphones at boot (was silencing speakers). \texttt{e851f5dce} stopped the mixer walk from re-enabling the headphone jack switch (was silencing the speaker amp). \texttt{eb960efd9} forced runtime power management off after the card probed.
+
+Then the breakthrough: \textbf{\texttt{3e3608733} (Apr 14, \emph{native: SOF-aware audio period sizing})}. The commit message names the bug exactly:
+
+\begin{quote}\small\itshape
+Root cause of silent G7 speakers with everything else correct: the old audio.c config hardcoded $\sim$1\,ms ALSA period (rate/1000 frames) + 4\,ms total buffer. Works fine on HDA-direct codecs (ThinkPad X13 etc.) but on SOF+MAX98360A the boot log shows \textbf{10{,}686 sdmode toggles per boot} --- once per period, matching the $\sim$5\,ms toggle spacing exactly.
+\end{quote}
+
+The 1\,ms period that was a feature on HDA hardware was actively breaking SOF: at 4\,ms buffer depth, the 16\,ms paint-loop submission cadence missed every period, the stream underran constantly, and the MAX98360A amplifier's DAPM event handler flipped \texttt{SD\_MODE} high and low faster than the chip could stabilize. Detection of SOF (presence of \texttt{sound/soc/sof} card and absence of legacy HDA codec97) and a bump to 10\,ms period / 40\,ms buffer fixed it. ``Same shape ChromeOS uses on Dedede'' --- the commit message explicitly borrows ChromeOS's known-good buffer geometry for this hardware family.
+
+\subsection{Phase 1.5: Drop cage, run DRM-direct (Apr 5--6)}
+
+A week before the SOF debugging, the runtime made the bigger structural decision: stop running under a Wayland compositor at all. The NixOS-targeted prototype had been using \texttt{cage} as a single-purpose kiosk compositor. On 2026-04-05, commit \texttt{28d7ee374} (\emph{wifi regulatory db, silent boot, trackpad latency}) landed a workaround --- ``Late \texttt{input\_poll} after display present halves Wayland pointer latency'' --- because the compositor was flushing motion events only after surface commit, doubling effective input latency. One day later, on 2026-04-06, commit \texttt{104022f30} removed the compositor outright: \emph{``This eliminates the entire Wayland input stack (evdev $\rightarrow$ libinput $\rightarrow$ cage $\rightarrow$ wl\_pointer) that caused trackpad drift, cursor conflicts, and input latency. Net: -59 lines of config, zero abstraction layers between ac-native and the hardware.''} \texttt{wayland-display.c} survives in the tree as an embed-into-someone-else's-session option, but the production build is DRM-direct.
+
+\subsection{Phase 2: The Goldilocks dither saga (Apr 15--16)}
+
+Once audio was reaching the amp, a second SOF bug emerged: the silence detector inside the SOF DSP would gate the speaker pipeline whenever the buffer fell below a few dB FS, even briefly. Sustained tones cut off mid-note. The fix was to inject inaudible keepalive dither.
+
+\begin{description}
+  \item[\texttt{319732304}] (Apr 15, evening) injected $\pm$1\,LSB dither when the buffer would otherwise be all zeros. \emph{``Should be inaudible; enough to hold the SSP1 BE DAI active.''}
+  \item[\texttt{e075ebac5}] (Apr 15, $\sim$1\,h later) bumped to $\pm$160. The $\pm$1 dither extended the sustain only to 96\,s before the silence detector gave up.
+  \item[\texttt{7add48bb5}] (Apr 15, evening) reduced back to $\pm$1. \emph{``$\pm$160 was audible as a 24\,kHz fizz.''}
+  \item[\texttt{ec143aca7}] (Apr 16) settled on $\pm$32 (\emph{``-72 dBFS at S32\_LE, still inaudible''}) and at the same time raised the SOF period/buffer from 10/40\,ms to \textbf{20/80\,ms}: the 10\,ms buffer was too tight, producing XRUNs and short writes (96 of 480 frames).
+\end{description}
+
+This is the latency floor for SOF hardware in the current codebase: 80\,ms of buffering, sitting on top of a firmware that requires it. No cleverness in the synth or the JS layer can recover those milliseconds.
+
+\subsection{Phase 3: Format and signal level (Apr 15--16)}
+
+\texttt{f246470ea} preferred \texttt{plughw:} for the speaker PCM and logged the negotiated format. \texttt{72476348f} negotiated \textbf{S32\_LE} for the SOF path (the topology accepts it; converting in userspace eliminated a class of crunchy/quiet artifacts that had been misdiagnosed as XRUNs). \texttt{474237ee4} added a tanh soft-limiter and shaped dither for cleaner peak handling. \texttt{b7ab5a5de}, \texttt{c28b18eef}, \texttt{f6ca477f9}, \texttt{153ce7c09} are the loudness arc: $-80$\,dB attenuation bug fix, then $+4$\,dB peak via a 0.85 soft-clip knee, then default volume tuning on SOF (which came up quieter than HDA). None of these are latency commits per se, but several of them were attempts to fix what \emph{sounded} like latency (sluggish notes, late-arriving transients) and turned out to be amplitude or format problems.
+
+\subsection{Phase 4: Synth quality and perceptual tightness (Apr 17--21)}
+
+A note's perceived onset latency depends as much on the transient shape of the synthesized voice as on the audio buffer. \texttt{cf3ca7f43} replaced the noise-based default voice with a Karplus-Strong plucked string --- a delay-line waveguide whose first half-cycle has the entire excitation in it, so the attack lands inside the first millisecond regardless of buffer size. \texttt{3928613fe} extracted a shared \texttt{synth\_core} so the same model set runs on both bare-metal Linux and the macOS port (parity makes A/B testing meaningful). \texttt{803188b95} fixed harp loudness and sustain, \texttt{93b3568b0} keyed Shift-pluck on duration, \texttt{6a5e6cf3e} added a master volume + drive (tanh soft-sat) FX block.
+
+The two perceptual-only commits are worth calling out:
+
+\begin{description}
+\item[\texttt{608a746fb}] (Apr 21, \emph{reverse replay is locked to visual cursor + capture pauses}). Visual feedback was drifting against the audio playback; the commit pinned the visual cursor directly to elapsed-since-press wall-clock time and paused the capture ring during reverse hold. The synth's audio latency did not change, but the user-reported \emph{``hjanky''} feel went away.
+\item[\texttt{7a2e69f92}] (Apr 21, \emph{wobble/flange FX + snap-release}). Made the envelope's release \emph{snap} to zero instead of easing back over $\sim$20 frames. Quote from the commit: \emph{``those $\sim$333\,ms of sweeping visual had no sound behind them. User reported this as `extra dead silent time at the end of every reverse gesture' and noted it made the snap-back feel unresponsive.''} A pure perceptual fix --- no audio latency reduction, but the instrument felt 333\,ms faster on release.
+\end{description}
+
+\subsection{Phase 5: NuPhy analog input (Apr 18--20)}
+
+The NuPhy HE is an analog Hall-effect keyboard that exposes per-key pressure values via a vendor hidraw report alongside its standard HID keyboard interface. Three commits matter:
+
+\begin{description}
+\item[\texttt{d8b28e65c}] simplified the evdev filter to suppress NuPhy keys when the hidraw stream is active. Without this, every key fired twice (once from evdev, once from the analog handler), audible as a flam.
+\item[\texttt{f27960700}] added analog smoothing, a dark theme, and boot performance and media-key fixes in one batch.
+\item[\textbf{\texttt{18880d7a8}}] (Apr 20, \emph{velocity-capture + pressure smoothing + NuPhy badge/gauge}). Diagnosed audible popping on sustained sine tones: \emph{``raw pressure samples arrive at driver-specific ADC step rates and the sim loop was writing every raw value straight into synth.update() each frame, so discrete pressure steps produced audible clicks.''} Fix: a one-pole lowpass ($\alpha$=0.20, $\sim$80\,ms time constant) plus rate-limit synth.update() to changes $>$0.5\%. This is the single commit where input-side latency was deliberately \emph{added} (80\,ms of pressure smoothing) to remove an audio artifact. The note onset path is unchanged --- key-down still triggers the synth voice on the same frame.
+\end{description}
+
+\subsection{Phase 6: macOS port latency arc (Apr 18)}
+
+The macOS port (\texttt{fedac/native/macos/}, SDL3 + CoreAudio) gave us the cleanest A/B benchmark of the whole project --- and the most surprising finding.
+
+\begin{description}
+\item[\texttt{04dea9da7}] (Apr 18, 16:53) requested a 128-frame device buffer via \texttt{SDL\_HINT\_AUDIO\_DEVICE\_SAMPLE\_FRAMES}. CoreAudio's default was 2048--4096 frames (40--85\,ms). 128 frames at 48\,kHz is $\sim$2.7\,ms.
+\item[\texttt{c8256aa29}] (Apr 18, 17:13) added the \texttt{AC\_LATENCY\_TEST=$n$} benchmark: vsync off, $n$ back-to-back keypress injections, with rearm/settle between each, prints min/median/mean/max + sample list. Tightened the buffer to 64 frames. Median held at $\sim$6.4\,ms; jitter ceiling fell from $\sim$11\,ms to $\sim$7\,ms. The commit message concluded \emph{``smaller buffers don't lower the median further but can hit the min''} --- which we interpreted as the CoreAudio pipeline floor.
+\item[\textbf{\texttt{c6e740192}}] (Apr 18, 17:32) tested that conclusion. A direct \texttt{kAudioUnitSubType\_DefaultOutput} backend was added alongside the SDL3 one, with \texttt{kAudioDevicePropertyBufferFrameSize} set on the device before AU instantiation. The benchmark in Table~\ref{tab:macos} dropped the median from 6.47\,ms to 0.65\,ms --- a 10$\times$ improvement that no buffer-size tweak had been able to reach. The bottleneck was not CoreAudio. It was SDL3's audio-stream abstraction layering its own schedule on top.
+\end{description}
+
+This is the pattern of the entire project condensed into 39 minutes of git history: a buffering layer that no one named was costing more than the layer that was named. The fix was to remove it.
+
+\subsection{Phase 7: Boot acceleration (Apr 20)}
+
+Latency to \emph{first} note also includes how fast the OS reaches a playable state from cold. \texttt{bc16acb76} backgrounded diagnostic dumps and ran USB mount/GPU wait in parallel during init. \texttt{11c6a6ff8} cut the startup-fade boot animation from 3\,s to 2\,s with a matrix-rain background, and explicitly framed the change as \emph{``boot into notepat faster.''} Time from power button to interactive note dropped to 7.3\,s. None of this is per-keypress latency, but it sets the threshold above which the device feels like a tool versus a toy.
+
+\subsection{What the history says}
+
+These seven phases describe maybe 40 commits across nine days, almost all of them merged on the same branch as ordinary product work. There is no separate ``latency project.'' The numbers got better because every time a user-reported feel issue (\emph{popping, crunchy, dead silent time, hjanky}) was investigated, the investigation forced a layer to become visible. Sometimes the answer was buffer size; more often it was a firmware silence detector, an unwanted abstraction, an envelope shape, or a duplicated input device. The instrument is fast not because it was optimized, but because each obstruction was identified and removed in turn.
+
+% ============ 7. WHAT IS LEFT TO SQUEEZE ============
+
+\section{What is Left to Squeeze}
+\label{sec:future}
+
+\begin{itemize}
+  \item \textbf{Direct evdev grab on Wayland.} Currently when a compositor is present, ac-native disables evdev to avoid double-input. A small refactor would let ac-native take an exclusive grab via \texttt{EVIOCGRAB} and skip the Wayland keyboard hop entirely while remaining a Wayland client for display. Saves $\sim$200\,$\mu$s and eliminates an entire scheduling boundary.
+
+  \item \textbf{ALSA mmap mode.} \texttt{snd\_pcm\_writei} copies frames into the kernel's ring; \texttt{snd\_pcm\_mmap\_writei} maps the ring into userspace and removes the copy. On HDA paths this could trim a fraction of a millisecond. On SOF the firmware buffer dominates so the change is invisible.
+
+  \item \textbf{IRQ thread priority and CPU pinning.} Linux RT throttling and IRQ-thread priorities are at default values. Pinning the audio thread to a single CPU and elevating the relevant IRQ thread to \texttt{SCHED\_FIFO} would tighten the jitter ceiling, though probably not the median. The cost is making the system less polite to other workloads, which on a single-piece appliance is acceptable.
+
+  \item \textbf{High-poll-rate keyboards.} A 1\,kHz USB polling rate is already standard on the development NuPhy. Moving to an 8\,kHz polling keyboard shaves another $\sim$0.5\,ms in the worst case.
+
+  \item \textbf{HDA-only build.} An option flag at build time to refuse SOF hardware would let the synth use a 1\,ms period unconditionally. This is a hardware-selection decision dressed up as a software switch, but it is honest about the trade.
+\end{itemize}
+
+None of these will produce a dramatic step change. They will each save microseconds to a few milliseconds. The dramatic step changes are behind us, and they were not where you would think. The single biggest one was leaving the browser: 417\,ms (web) $\rightarrow$ 3--4\,ms (bare-metal HDA), about a 100$\times$ improvement, achieved by writing a Linux runtime instead of trying to optimize Web Audio further. The others, in descending order: removing the SDL3 audio abstraction on macOS (6.47 $\rightarrow$ 0.65\,ms median, 10$\times$); dropping the \texttt{cage} Wayland compositor for DRM-direct on NixOS (saved trackpad drift plus an unbounded compositor-scheduled latency tail); tuning the ALSA period to the codec's ceiling on HDA (4\,ms buffer, $\sim$1\,ms period); identifying the SOF DAPM trap (prevented an entire class of laptops from emitting audio at all). Each of these was an abstraction layer somebody else had quietly added that turned out to cost a buffer turnaround.
+
+% ============ 8. CONCLUSION ============
+
+\section{Conclusion}
+
+So, Parag: an interrupt is a wire that the CPU has agreed to listen to. The keyboard pulls one when a key changes. The sound card pulls one when its DMA buffer is about to run dry. Between those two events the kernel does roughly 100\,$\mu$s of work and userspace does another 100\,$\mu$s --- those are not the latency. The latency is the buffers we keep in flight to absorb scheduling jitter, plus whatever firmware sits between the OS and the silicon, plus whatever userspace abstractions someone added before us. On a ThinkPad with HDA-direct audio, \acos{} is at $\sim$3--4\,ms key-to-DAC, against a $\sim$2\,ms physics floor. On an HP Chromebook G7 with SOF, the floor itself is $\sim$80\,ms. The same instrument was at 417\,ms in a browser earlier this year. The native OS exists because that number could not be moved by working inside the browser; it can be moved by leaving.
+
+The right question for an instrument is never ``how low can the average go,'' it is ``how predictable is the worst case.'' That is what the recent work has been about. The audible thresholds (10\,ms for intimate musical control, 20\,ms before the action-sound bond starts to break) are met on the hardware we recommend. They are not yet met on every laptop in a thrift bin --- not because the kernel cannot deliver, but because the firmware sometimes will not let it.
+
+\vspace{0.5em}
+\noindent\textbf{Acknowledgments.} For Parag, who asked the question that made this paper worth writing. The numbers in this paper are derived from the public commit history of the \texttt{aesthetic-computer} repository as of April 2026.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
