@@ -2926,6 +2926,12 @@ void draw() {
         desc: "Open papers.aesthetic.computer.",
         done: true,
       },
+      deadlines: {
+        sig: "deadlines",
+        desc: "Open papers conference & grant deadlines.",
+        url: "https://papers.aesthetic.computer/deadlines",
+        done: true,
+      },
       nela: {
         sig: "nela",
         desc: "Open NELA Computer Club.",
