@@ -114,9 +114,13 @@ stop_monitor() {
 }
 
 claude_running() {
-    # Matches both the desktop-app-embedded CLI (.../claude.app/Contents/MacOS/claude)
-    # and the terminal CLI (node .../@anthropic-ai/claude-code/cli.js).
-    ps -eo command | grep -qE 'claude\.app/Contents/MacOS/claude |@anthropic-ai/claude-code/.*cli\.js'
+    # Three shapes of "claude is running":
+    #   1. compiled bundled CLI — process name is literally "claude"
+    #   2. legacy node-based CLI — node .../@anthropic-ai/claude-code/cli.js
+    #   3. desktop-app embed     — .../claude.app/Contents/MacOS/claude
+    # pgrep -x catches (1) cheaply; the regex catches (2) and (3).
+    pgrep -x claude >/dev/null 2>&1 \
+        || ps -eo command 2>/dev/null | grep -qE 'claude\.app/Contents/MacOS/claude |@anthropic-ai/claude-code/.*cli\.js'
 }
 
 active_work_count() {

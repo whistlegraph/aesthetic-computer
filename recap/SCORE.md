@@ -12,7 +12,8 @@ production.
 ## Pipeline
 
 ```
-audience/<name>.mjs            (narration + segment markers + slide HTML/queries + voice + transcriptFixes)
+audience/<name>.mjs            (narration + segment markers + slide HTML/queries + voice + transcriptFixes
+                                + optional per-slide `metaphor` for jeffrey-photos)
        │
        ▼  bin/tts.mjs
 out/recap.mp3                  (jeffrey-pvc TTS via /api/say)
@@ -22,6 +23,9 @@ out/words.json                 ([{text, fromMs, toMs}, ...])
        │
        ▼  bin/align.mjs        (matches audience.segments[].marker)
 out/segments.json              ([{name, startSec, endSec, durationSec}, ...])
+       │
+       ▼  bin/jeffrey-photos.mjs   (optional; OpenAI gpt-image-2 + platter SHOOT+SELFIE refs)
+out/jeffrey-photos/<seg>.png   (cached per segment; --force regenerates; failures are soft)
        │
        ▼  bin/scout.mjs        (resolves per-slide content queries; pdftoppm for PDFs)
 out/assets.json                (slide-name → {queryName: dataUrl|commits|paths})
@@ -164,15 +168,18 @@ Then `./pipeline.fish <name>`.
 | File                     | Role                                                          |
 | ------------------------ | ------------------------------------------------------------- |
 | `audience/fia.mjs`       | narration, markers, slide HTML/queries, palette, fixes        |
+| `audience/general.mjs`   | 48-hour public-facing recap (HTML slides, no jeffrey-photos)  |
+| `audience/jeffrey-24h.mjs` | 24-hour jeffrey-as-protagonist recap (full-bleed photos)    |
 | `bin/tts.mjs`            | POST narration → `/api/say` → `out/recap.mp3`                 |
 | `bin/transcribe.mjs`     | `whisper-cli` → `out/words.json`                              |
 | `bin/align.mjs`          | match markers in transcript → `out/segments.json`             |
+| `bin/jeffrey-photos.mjs` | gpt-image-2 + platter refs → `out/jeffrey-photos/<seg>.png`   |
 | `bin/scout.mjs`          | resolve per-slide content queries → `out/assets.json`         |
 | `bin/slides.mjs`         | puppeteer-render slide PNGs (consume assets) + `concat.txt`   |
 | `bin/subtitles.mjs`      | chunk words into pills (apply transcriptFixes) → `subs.json`  |
 | `bin/build-filter.mjs`   | emit ffmpeg filter graph for compose (one overlay per sub)    |
 | `bin/compose.fish`       | ffmpeg compose final mp4                                      |
-| `pipeline.fish`          | runs all six stages                                           |
+| `pipeline.fish`          | runs all seven stages                                         |
 | `models/ggml-base.en.bin`| whisper model (gitignored, downloaded on first run)           |
 | `out/`                   | all generated artifacts (gitignored)                          |
 
@@ -184,3 +191,26 @@ Then `./pipeline.fish <name>`.
 - `node` (uses `oven/node_modules/puppeteer` to avoid extra installs)
 - Google Chrome at `/Applications/Google Chrome.app` (puppeteer driver)
 - Network access to `aesthetic.computer/api/say` (jeffrey-pvc TTS)
+- `OPENAI_API_KEY` (for `jeffrey-photos.mjs`; read from env or
+  `aesthetic-computer-vault/.devcontainer/envs/devcontainer.env`); only required
+  for audiences that declare per-slide `metaphor` prompts.
+
+## Jeffrey photos (optional per-audience)
+
+An audience can opt into full-bleed gpt-image-2 photos by adding a `metaphor`
+field to each content slide and a `queries.photo: { glob: ... }` that points to
+`recap/out/jeffrey-photos/<segment>.png`. `bin/jeffrey-photos.mjs` reads the
+metaphor strings, calls `images.edit` with `gpt-image-2` and the platter
+SHOOT_REFS + SELFIE_REFS for identity grounding, and writes one PNG per segment.
+
+```fish
+# regen all photos for an audience
+node bin/jeffrey-photos.mjs jeffrey-24h --force
+
+# regen one segment only
+node bin/jeffrey-photos.mjs jeffrey-24h --only 04_platter --force
+```
+
+Cost ~$0.30 per high-quality 1024x1536 generation; ~$2-4 per full recap.
+Failures are soft — slides fall back to a dark `${PALETTE.bg}` placeholder when
+the photo glob matches nothing, so the pipeline still produces a runnable mp4.

@@ -1,8 +1,15 @@
 #!/bin/bash
-# Claude Stop hook. Active work is tracked in two dirs under $SLAB_HOME/state/:
-#   active-prompts/<session_id>      — UserPromptSubmit → Stop
+# Claude Stop hook. State under $SLAB_HOME/state/:
+#   active-prompts/<session_id>      — one per live claude session; lives until
+#                                      the claude_pid dies (janitored here).
+#   awaiting-prompts/<session_id>    — paused (turn complete OR awaiting
+#                                      permission). Written here + by
+#                                      claude-notify.sh; cleared by next
+#                                      UserPromptSubmit.
 #   active-subagents/<timestamp>-..  — PreToolUse(Task) → SubagentStop
-# This script removes its own prompt marker and counts whatever remains.
+# Claude Code's Stop fires after every assistant turn — NOT only at session
+# end — so we keep the active marker around (so the menubar can still draw a
+# bar for the live thread) and just flip its state to awaiting.
 #   others > 0 → N distinct ascending pentatonic beeps (capped at 8).
 #   others = 0 → "all done" chime (lid open) OR TTS "i'm tired" with fade-out
 #                tail → `pmset sleepnow` (lid closed: stops ambient first, so
@@ -22,17 +29,47 @@ pkill -f claude-sleep-schedule.sh 2>/dev/null
 
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
+
+# Mark this session as awaiting (turn complete). The active marker stays so
+# the menubar can keep a bar for this thread; the awaiting marker flips its
+# render to rainbow-pulse. Cleared on next UserPromptSubmit.
 if [[ -n "$session_id" ]]; then
-    rm -f "$ACTIVE_DIR/$session_id" "$AWAITING_DIR/$session_id"
+    printf 'turn complete\n' > "$AWAITING_DIR/$session_id" 2>/dev/null
 fi
 
+# Janitor: drop active-prompts whose claude_pid is dead (terminal closed),
+# and any awaiting-prompts orphans (no matching active). Keeps disk state in
+# sync with reality without leaking on terminal close.
 shopt -s nullglob
-prompts=("$ACTIVE_DIR"/*)
+for f in "$ACTIVE_DIR"/*; do
+    [[ -f "$f" ]] || continue
+    pid=$(jq -r '.claude_pid // 0' "$f" 2>/dev/null)
+    [[ -z "$pid" || "$pid" == "0" ]] && continue
+    if ! kill -0 "$pid" 2>/dev/null; then
+        sid=$(basename "$f")
+        rm -f "$f" "$AWAITING_DIR/$sid"
+    fi
+done
+for f in "$AWAITING_DIR"/*; do
+    [[ -f "$f" ]] || continue
+    sid=$(basename "$f")
+    [[ -e "$ACTIVE_DIR/$sid" ]] || rm -f "$f"
+done
+
+# "Working" = active sessions that aren't awaiting. That's what the chime /
+# sleep logic cares about: how many threads are still doing work.
+working=0
+for f in "$ACTIVE_DIR"/*; do
+    [[ -f "$f" ]] || continue
+    sid=$(basename "$f")
+    [[ -e "$AWAITING_DIR/$sid" ]] && continue
+    working=$((working + 1))
+done
 subagents=("$SUBAGENT_DIR"/*)
-others=$((${#prompts[@]} + ${#subagents[@]}))
+others=$((working + ${#subagents[@]}))
 shopt -u nullglob
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') Stop: session=${session_id:-?} prompts=${#prompts[@]} subagents=${#subagents[@]} others=$others" >> "$LOG"
+echo "$(date '+%Y-%m-%d %H:%M:%S') Stop: session=${session_id:-?} working=$working subagents=${#subagents[@]} others=$others" >> "$LOG"
 
 stop_ambient() {
     # Ambient is owned by lid-reactive.py now. Fade gracefully via SIGTERM;

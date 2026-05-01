@@ -21,8 +21,9 @@ KNOT_DOMAIN="knot.aesthetic.computer"
 KNOT_PUBLIC_PORT=5555
 KNOT_INTERNAL_PORT=5444
 APPVIEW_ENDPOINT="https://tangled.org"
-# Tag from https://tangled.org/@tangled.org/core (empty = build master HEAD)
-KNOT_VERSION="${KNOT_VERSION:-v1.13.0-alpha}"
+# Tag or commit SHA from https://tangled.org/@tangled.org/core (empty = build master HEAD).
+# Currently pinned to a master SHA past v1.13.0-alpha — no v1.14 tag exists yet.
+KNOT_VERSION="${KNOT_VERSION:-3ff418dad639a9755b9ef7509ed948578d89be8b}"
 
 # PDS droplet — knot co-hosts here
 PDS_DEPLOY_DIR="$SCRIPT_DIR/../../pds/deployment/digitalocean"

@@ -130,7 +130,7 @@ for (const name of slidesOrder) {
     ${showBug(name) ? `<div class="pals bug"></div>` : ""}
     ${showBug(name) ? `<div class="cornerbug">aesthetic·computer · for ${audience.handle || audience.name}</div>` : ""}
   </body></html>`;
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  await page.setContent(html, { waitUntil: "networkidle0", timeout: 60000 });
   await new Promise((r) => setTimeout(r, 200));
   const png = await page.screenshot({ type: "png", omitBackground: false });
   writeFileSync(`${SLIDE_DIR}/${name}.png`, png);

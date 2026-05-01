@@ -20,20 +20,23 @@ else
   echo "▸ 1/6 tts (skipped — reusing out/recap.mp3)"
 end
 
-echo "▸ 2/6 transcribe + align"
+echo "▸ 2/7 transcribe + align"
 node bin/transcribe.mjs; or exit 1
 node bin/align.mjs $AUDIENCE; or exit 1
 
-echo "▸ 3/6 scout (resolve per-slide content queries)"
+echo "▸ 3/7 jeffrey-photos (gpt-image-2, cached per segment)"
+node bin/jeffrey-photos.mjs $AUDIENCE; or exit 1
+
+echo "▸ 4/7 scout (resolve per-slide content queries)"
 node bin/scout.mjs $AUDIENCE; or exit 1
 
-echo "▸ 4/6 slides"
+echo "▸ 5/7 slides"
 node bin/slides.mjs $AUDIENCE; or exit 1
 
-echo "▸ 5/6 subtitles"
+echo "▸ 6/7 subtitles"
 node bin/subtitles.mjs $AUDIENCE; or exit 1
 
-echo "▸ 6/6 compose"
+echo "▸ 7/7 compose"
 fish bin/compose.fish; or exit 1
 
 echo "━━━ done · $ROOT/out/recap.mp4 ━━━"

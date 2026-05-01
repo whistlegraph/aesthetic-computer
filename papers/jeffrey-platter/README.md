@@ -98,6 +98,36 @@ POI types: `f` = face, `b` = body, `h` = hand. Aspects vary (0.562 / 0.563 / 0.6
 
 TBD: locate the script that generated the existing focal/POI values (OpenCV DNN + Haar cascades, per the give-page comment) and check it in to `portraits/jeffrey/bin/`. The manifest carries the *output* of that pipeline; the pipeline itself isn't in the repo yet.
 
+#### `jeffreys/gens/` — Generated images (gpt-image-2 + platter-grounded identity)
+
+Output bucket for any pipeline that synthesizes a new jeffrey-image conditioned on the platter refs (typically `SHOOT_REFS` + `SELFIE_REFS` from [`portraits/jeffrey/bin/generate-neo.py`](../../portraits/jeffrey/bin/generate-neo.py)). One PNG per successful gen, dated, never overwritten.
+
+**Filename convention:** `<context>-<segment>-<YYYY-MM-DDTHHMM>.png` — e.g. `recap-jeffrey-24h-02_menuband-2026-04-29T1630.png`. `context` says where the gen came from (e.g. `recap-jeffrey-24h`); `segment` is whatever locally-meaningful subdivision the producer cares about; the timestamp keeps regens distinct so we never lose a previous take.
+
+**Producers:**
+- [`recap/bin/jeffrey-photos.mjs`](../../recap/bin/jeffrey-photos.mjs) — auto-archives every gen here as part of the recap pipeline. Tone defaults to real+goofy candid (per memory).
+- [`portraits/jeffrey/bin/generate-neo.py`](../../portraits/jeffrey/bin/generate-neo.py) — currently writes one-offs to `~/Desktop`; promote to this bucket when a take is worth keeping.
+
+**Manifest entry shape** (under `buckets.gens.items[<filename>]`):
+
+```json
+{
+  "model": "gpt-image-2",
+  "size": "1024x1536",
+  "quality": "high",
+  "refs": ["portraits/jeffrey/corpus/shoot/jeffery-av--07.jpg", "..."],
+  "context": "recap-jeffrey-24h",
+  "segment": "02_menuband",
+  "generated": "2026-04-29T16:30:00.000Z",
+  "bytes": 2520266,
+  "prompt": "<full gpt-image-2 prompt — preserved for provenance>"
+}
+```
+
+The full prompt is kept inline so a year from now we can answer "what was the metaphor that produced this take?" without cross-referencing the source audience config (which has likely drifted by then).
+
+**Push to CDN:** `npm run assets:sync:up` after a batch of gens. The bucket is under the standard `system/public/assets/*` gitignore — git tracks the manifest entry, not the PNG bytes.
+
 ### Social silos (canonical public faces)
 
 - **Instagram (jeffrey solo, post-2023)** — https://www.instagram.com/whistlegraph/
