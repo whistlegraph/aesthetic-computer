@@ -4,6 +4,7 @@ DerivedData/
 AppIcon.iconset/
 *.xcodeproj/
 *.swp
+.DS_Store
 # Build artifacts — distribute the DMG via DO Spaces (system/public/assets
 # is the sync source) instead of committing it.
 *.dmg

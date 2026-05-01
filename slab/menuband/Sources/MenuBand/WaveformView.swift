@@ -475,8 +475,8 @@ extension WaveformView: MTKViewDelegate {
         }
 
         enc.setRenderPipelineState(pipeline)
-        enc.setVertexBytes(&uniforms, length: MemoryLayout<BarUniforms>.size, index: 0)
-        enc.setFragmentBytes(&uniforms, length: MemoryLayout<BarUniforms>.size, index: 0)
+        enc.setVertexBytes(&uniforms, length: MemoryLayout<BarUniforms>.stride, index: 0)
+        enc.setFragmentBytes(&uniforms, length: MemoryLayout<BarUniforms>.stride, index: 0)
         displayLevels.withUnsafeBufferPointer { ptr in
             enc.setVertexBytes(ptr.baseAddress!,
                                length: MemoryLayout<Float>.size * n,
