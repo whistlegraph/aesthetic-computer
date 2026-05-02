@@ -12,6 +12,8 @@ final class MenuBarWaveformStrip {
     private let menuBand: MenuBandController
     private let waveformView = WaveformView()
     private let waveformBezel = NSView()
+    private let instrumentLabel = NSTextField(labelWithString: "")
+    private let heldNotesStack = NSStackView()
     private var panel: NSPanel?
     private weak var statusButton: NSStatusBarButton?
 
@@ -20,7 +22,7 @@ final class MenuBarWaveformStrip {
     private var hideWorkItem: DispatchWorkItem?
 
     /// Strip height in points.
-    private static let stripHeight: CGFloat = 36
+    private static let stripHeight: CGFloat = 56
 
     /// Animation duration in seconds.
     private static let slideDuration: TimeInterval = 0.22
@@ -59,6 +61,9 @@ final class MenuBarWaveformStrip {
         waveformBezel.layer?.cornerRadius = 6
         waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
         waveformBezel.layer?.borderWidth = 1
+        heldNotesStack.orientation = .horizontal
+        heldNotesStack.alignment = .centerY
+        heldNotesStack.spacing = 4
     }
 
     /// Pre-build the panel so the first note doesn't pay construction cost.
@@ -107,6 +112,7 @@ final class MenuBarWaveformStrip {
     func refreshAppearance() {
         applyAppearanceToVisualizer()
         applyWaveformTint()
+        refreshReadout()
     }
 
     // MARK: - Geometry
@@ -150,6 +156,7 @@ final class MenuBarWaveformStrip {
                        display: true)
         applyAppearanceToVisualizer()
         applyWaveformTint()
+        refreshReadout()
         waveformView.isLive = true
         panel.orderFrontRegardless()
 
@@ -272,25 +279,34 @@ final class MenuBarWaveformStrip {
 
         waveformView.translatesAutoresizingMaskIntoConstraints = false
         waveformBezel.translatesAutoresizingMaskIntoConstraints = false
+        instrumentLabel.translatesAutoresizingMaskIntoConstraints = false
+        heldNotesStack.translatesAutoresizingMaskIntoConstraints = false
         let content = NSView()
         content.wantsLayer = true
         content.layer?.backgroundColor = NSColor.clear.cgColor
         p.contentView = content
         p.contentView!.addSubview(waveformBezel)
+        p.contentView!.addSubview(instrumentLabel)
+        p.contentView!.addSubview(heldNotesStack)
         waveformBezel.addSubview(waveformView)
         let bezelInset: CGFloat = 5
         NSLayoutConstraint.activate([
             waveformBezel.leadingAnchor.constraint(equalTo: p.contentView!.leadingAnchor),
             waveformBezel.trailingAnchor.constraint(equalTo: p.contentView!.trailingAnchor),
             waveformBezel.topAnchor.constraint(equalTo: p.contentView!.topAnchor),
-            waveformBezel.bottomAnchor.constraint(equalTo: p.contentView!.bottomAnchor),
+            waveformBezel.heightAnchor.constraint(equalToConstant: 36),
             waveformView.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor, constant: bezelInset),
             waveformView.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor, constant: -bezelInset),
             waveformView.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: bezelInset),
             waveformView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
+            instrumentLabel.leadingAnchor.constraint(equalTo: p.contentView!.leadingAnchor, constant: 6),
+            instrumentLabel.bottomAnchor.constraint(equalTo: p.contentView!.bottomAnchor, constant: -4),
+            heldNotesStack.centerXAnchor.constraint(equalTo: p.contentView!.centerXAnchor),
+            heldNotesStack.centerYAnchor.constraint(equalTo: instrumentLabel.centerYAnchor),
         ])
         applyAppearanceToVisualizer()
         applyWaveformTint()
+        refreshReadout()
 
         panel = p
     }
@@ -305,8 +321,10 @@ final class MenuBarWaveformStrip {
         waveformView.setLightMode(!isDark)
         if isDark {
             waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
+            instrumentLabel.textColor = .white
         } else {
             waveformBezel.layer?.backgroundColor = NSColor(white: 0.82, alpha: 1.0).cgColor
+            instrumentLabel.textColor = .black
         }
     }
 
@@ -324,5 +342,42 @@ final class MenuBarWaveformStrip {
             waveformBezel.layer?.borderColor = familyColor
                 .withAlphaComponent(0.55).cgColor
         }
+    }
+
+    private func refreshReadout() {
+        let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
+        let familyColor = menuBand.midiMode
+            ? NSColor.controlAccentColor
+            : InstrumentListView.colorForProgram(safe)
+        instrumentLabel.stringValue = GeneralMIDI.programNames[safe]
+        instrumentLabel.font = NSFont.systemFont(ofSize: 10, weight: .black)
+        for view in heldNotesStack.arrangedSubviews {
+            heldNotesStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        for name in menuBand.heldNoteNames() {
+            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name, color: familyColor))
+        }
+    }
+
+    private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
+        let box = NSView()
+        box.wantsLayer = true
+        box.layer?.cornerRadius = 4
+        box.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
+        box.translatesAutoresizingMaskIntoConstraints = false
+        let label = NSTextField(labelWithString: name)
+        label.font = NSFont.monospacedSystemFont(ofSize: 9, weight: .heavy)
+        label.textColor = .black
+        label.drawsBackground = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        box.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
+            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
+            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 1),
+            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -1),
+        ])
+        return box
     }
 }

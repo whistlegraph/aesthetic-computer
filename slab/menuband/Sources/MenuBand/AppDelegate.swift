@@ -148,6 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.updateIcon()
             self.popoverVC?.refreshHeldNotes()
             self.floatingPlayPalette.refresh()
+            self.waveformStrip.refreshAppearance()
             self.updateWaveformStrip()
         }
         menuBand.onInstrumentVisualChange = { [weak self] in
