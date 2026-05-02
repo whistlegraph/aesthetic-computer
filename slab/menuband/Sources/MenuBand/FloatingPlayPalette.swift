@@ -276,6 +276,10 @@ private final class FloatingPlayPaletteView: NSView {
     private weak var menuBand: MenuBandController?
     private let waveformView = WaveformView()
     private let waveformBezel = NSView()
+    private let heldNotesStack = NSStackView()
+    private let heldNotesContainer = NSView()
+    private let instrumentReadout = NSTextField(labelWithString: "")
+    private let instrumentTitleRow: NSStackView
     private let pianoView: FloatingPianoView
     private let dragHandle = FloatingPaletteDragHandleView()
     private let closeButton = NSButton()
@@ -290,12 +294,22 @@ private final class FloatingPlayPaletteView: NSView {
     private let closeSize: CGFloat = 18
     private let hintHeight: CGFloat = 42
     private var waveformHeightConstraint: NSLayoutConstraint?
+    private var paletteDragStartMouse: NSPoint?
+    private var paletteDragStartWindowOrigin: NSPoint?
+    private var paletteDragActive = false
 
     init(menuBand: MenuBandController) {
         self.menuBand = menuBand
+        let titleLeftSpacer = NSView()
+        let titleRightSpacer = NSView()
+        titleLeftSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        titleRightSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        self.instrumentTitleRow = NSStackView(views: [titleLeftSpacer, instrumentReadout, titleRightSpacer])
         self.pianoView = FloatingPianoView(menuBand: menuBand, pianoScale: pianoScale)
         super.init(frame: NSRect(origin: .zero, size: .zero))
         wantsLayer = true
+        let dragRecognizer = NSPanGestureRecognizer(target: self, action: #selector(handlePalettePan(_:)))
+        addGestureRecognizer(dragRecognizer)
 
         waveformView.menuBand = menuBand
         waveformView.translatesAutoresizingMaskIntoConstraints = false
@@ -304,12 +318,29 @@ private final class FloatingPlayPaletteView: NSView {
         waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
         waveformBezel.layer?.borderWidth = 1
         waveformBezel.translatesAutoresizingMaskIntoConstraints = false
+        heldNotesStack.orientation = .horizontal
+        heldNotesStack.alignment = .centerY
+        heldNotesStack.spacing = 4
+        heldNotesStack.translatesAutoresizingMaskIntoConstraints = false
+        heldNotesContainer.translatesAutoresizingMaskIntoConstraints = false
+        heldNotesContainer.addSubview(heldNotesStack)
+        instrumentReadout.lineBreakMode = .byTruncatingTail
+        instrumentReadout.alignment = .center
+        instrumentReadout.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        instrumentReadout.setContentCompressionResistancePriority(.required, for: .horizontal)
+        instrumentTitleRow.orientation = .horizontal
+        instrumentTitleRow.alignment = .centerY
+        instrumentTitleRow.distribution = .fill
+        instrumentTitleRow.spacing = 0
+        instrumentTitleRow.translatesAutoresizingMaskIntoConstraints = false
         pianoView.translatesAutoresizingMaskIntoConstraints = false
         dragHandle.translatesAutoresizingMaskIntoConstraints = false
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         shortcutHintLabel.translatesAutoresizingMaskIntoConstraints = false
         waveformBezel.addSubview(waveformView)
+        addSubview(heldNotesContainer)
         addSubview(waveformBezel)
+        addSubview(instrumentTitleRow)
         addSubview(pianoView)
         shortcutHintLabel.font = NSFont.systemFont(ofSize: 10)
         shortcutHintLabel.textColor = .secondaryLabelColor
@@ -337,6 +368,7 @@ private final class FloatingPlayPaletteView: NSView {
         )
         self.waveformHeightConstraint = waveformHeightConstraint
         let bezelInset: CGFloat = 5
+        let titleSpacers = instrumentTitleRow.arrangedSubviews
 
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: keyboardSize.width + inset * 2),
@@ -351,7 +383,14 @@ private final class FloatingPlayPaletteView: NSView {
             dragHandle.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             dragHandle.heightAnchor.constraint(equalToConstant: closeSize),
 
-            waveformBezel.topAnchor.constraint(equalTo: closeButton.bottomAnchor, constant: gap),
+            heldNotesStack.centerXAnchor.constraint(equalTo: heldNotesContainer.centerXAnchor),
+            heldNotesStack.centerYAnchor.constraint(equalTo: heldNotesContainer.centerYAnchor),
+            heldNotesContainer.topAnchor.constraint(equalTo: closeButton.bottomAnchor, constant: gap),
+            heldNotesContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            heldNotesContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            heldNotesContainer.heightAnchor.constraint(equalToConstant: 22),
+
+            waveformBezel.topAnchor.constraint(equalTo: heldNotesContainer.bottomAnchor, constant: gap),
             waveformBezel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             waveformBezel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             waveformView.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor, constant: bezelInset),
@@ -360,7 +399,11 @@ private final class FloatingPlayPaletteView: NSView {
             waveformView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
             waveformHeightConstraint,
 
-            pianoView.topAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: gap),
+            instrumentTitleRow.topAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: gap),
+            instrumentTitleRow.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            instrumentTitleRow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+
+            pianoView.topAnchor.constraint(equalTo: instrumentTitleRow.bottomAnchor, constant: gap),
             pianoView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             pianoView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
 
@@ -370,6 +413,9 @@ private final class FloatingPlayPaletteView: NSView {
             shortcutHintLabel.heightAnchor.constraint(equalToConstant: hintHeight),
             shortcutHintLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset)
         ])
+        if titleSpacers.count == 3 {
+            titleSpacers[0].widthAnchor.constraint(equalTo: titleSpacers[2].widthAnchor).isActive = true
+        }
     }
 
     @available(*, unavailable)
@@ -408,6 +454,8 @@ private final class FloatingPlayPaletteView: NSView {
         pianoView.refreshLayout()
         layoutSubtreeIfNeeded()
         applyAppearanceToVisualizer()
+        refreshHeldNotes()
+        updateInstrumentReadout()
         applyWaveformTint()
         updateWaveformLiveState(isPresented: window?.isVisible == true)
         needsDisplay = true
@@ -467,6 +515,73 @@ private final class FloatingPlayPaletteView: NSView {
         keyboard.height * 2.0
     }
 
+    private func refreshHeldNotes() {
+        guard let menuBand else { return }
+        for view in heldNotesStack.arrangedSubviews {
+            heldNotesStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        let names = menuBand.heldNoteNames()
+        let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
+        let familyColor = menuBand.midiMode
+            ? NSColor.controlAccentColor
+            : InstrumentListView.colorForProgram(safe)
+        for name in names {
+            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name, color: familyColor))
+        }
+    }
+
+    private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
+        let box = NSView()
+        box.wantsLayer = true
+        box.layer?.cornerRadius = 4
+        box.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
+        box.translatesAutoresizingMaskIntoConstraints = false
+        let label = NSTextField(labelWithString: name)
+        label.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .heavy)
+        label.textColor = .black
+        label.drawsBackground = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        box.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
+            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
+            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 1),
+            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -1),
+        ])
+        return box
+    }
+
+    private func updateInstrumentReadout() {
+        guard let menuBand else { return }
+        let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
+        let title = GeneralMIDI.programNames[safe]
+        let familyColor = InstrumentListView.colorForProgram(safe)
+        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let textColor: NSColor = isDark ? .white : .black
+        let shadow = NSShadow()
+        shadow.shadowColor = (familyColor.highlight(withLevel: isDark ? 0.3 : 0.7) ?? familyColor)
+        shadow.shadowOffset = NSSize(width: 1, height: -1)
+        shadow.shadowBlurRadius = 0
+        let titleFont: NSFont = {
+            if let desc = AppDelegate.ywftBoldDescriptor,
+               let font = NSFont(descriptor: desc, size: 18),
+               font.familyName == "YWFT Processing" {
+                return font
+            }
+            NSLog("MenuBand: YWFT bold descriptor unavailable; floating title falling back to system font")
+            return NSFont.systemFont(ofSize: 18, weight: .black)
+        }()
+        instrumentReadout.attributedStringValue = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: titleFont,
+                .foregroundColor: textColor,
+                .shadow: shadow,
+            ]
+        )
+    }
+
     private func updateShortcutHint() {
         let floatingShortcut = MenuBandShortcutPreferences.playPaletteShortcut.displayString
         let focusShortcut = MenuBandShortcutPreferences.focusShortcut.displayString
@@ -480,6 +595,52 @@ private final class FloatingPlayPaletteView: NSView {
 
     @objc private func closeClicked(_ sender: NSButton) {
         onClose?()
+    }
+
+    @objc private func handlePalettePan(_ recognizer: NSPanGestureRecognizer) {
+        let location = recognizer.location(in: self)
+        switch recognizer.state {
+        case .began:
+            guard shouldBeginPaletteDrag(at: location) else {
+                paletteDragActive = false
+                return
+            }
+            paletteDragStartMouse = NSEvent.mouseLocation
+            paletteDragStartWindowOrigin = window?.frame.origin
+            paletteDragActive = true
+            NSCursor.closedHand.set()
+        case .changed:
+            guard paletteDragActive,
+                  let window,
+                  let startMouse = paletteDragStartMouse,
+                  let startOrigin = paletteDragStartWindowOrigin else { return }
+            let mouse = NSEvent.mouseLocation
+            let nextOrigin = NSPoint(
+                x: startOrigin.x + mouse.x - startMouse.x,
+                y: startOrigin.y + mouse.y - startMouse.y
+            )
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0
+                context.allowsImplicitAnimation = false
+                window.setFrameOrigin(nextOrigin)
+            }
+        case .ended, .cancelled, .failed:
+            if paletteDragActive {
+                NSCursor.openHand.set()
+            }
+            paletteDragStartMouse = nil
+            paletteDragStartWindowOrigin = nil
+            paletteDragActive = false
+        default:
+            break
+        }
+    }
+
+    private func shouldBeginPaletteDrag(at location: NSPoint) -> Bool {
+        if closeButton.frame.contains(location) || pianoView.frame.contains(location) {
+            return false
+        }
+        return true
     }
 }
 
