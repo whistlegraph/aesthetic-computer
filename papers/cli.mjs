@@ -99,6 +99,11 @@ const PAPER_MAP = {
     siteName: "kidlisp-reference-26-arxiv",
     title: "KidLisp Language Reference",
   },
+  "arxiv-keymaps": {
+    base: "keymaps",
+    siteName: "keymaps-social-software-26-arxiv",
+    title: "Keymaps as Social Software",
+  },
   "arxiv-network-audit": {
     base: "network-audit",
     siteName: "network-audit-26-arxiv",
@@ -204,6 +209,7 @@ const PAPER_MAP = {
     base: "cv",
     siteName: "jeffrey-alan-scudder-cv",
     title: "Jeffrey Alan Scudder — CV",
+    hidden: true,
   },
 };
 
@@ -233,6 +239,7 @@ function findAll(langFilter) {
         title: info.title,
         siteName: info.siteName,
         psycho: !!info.psycho,
+        hidden: !!info.hidden,
         texFile,
         pdfFile,
         texExists: existsSync(texFile),
@@ -644,6 +651,7 @@ function updateIndex(entries) {
   // Build paper entries HTML
   let papersHtml = "";
   for (const p of papers) {
+    if (p.hidden) continue; // built + tracked, but not listed publicly
     const copy = paperCopy(p.siteName);
     const detail = copy.detail || "";
     const abstract = copy.abstract || "";

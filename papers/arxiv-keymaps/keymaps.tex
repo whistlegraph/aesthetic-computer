@@ -1,0 +1,273 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Keymaps as Social Software: Versioned Virtual Objects via Social Contract},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Keymaps as Social Software}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Versioned Virtual Objects via Social Contract}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://notepat.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+A \emph{keymap} --- the small declarative table that says ``QWERTY-\texttt{A} plays MIDI 60'' or ``\texttt{Z X C V B N M} = $C\,D\,E\,F\,G\,A\,B$'' --- is software in every functional sense: it is versioned, it has inventors, it is forked, it propagates across binaries, and users demand cross-tool compatibility with it. But it is not a binary, not a project, not a service, and rarely an asset on anyone's balance sheet. The standard ``open-source vs.\ proprietary'' axis cannot see it. I name this category \emph{social software} --- a deliberate pun on Shirky's 2003 term --- and argue that keymaps are its archetypal instance. Tracing the lineage from Sholes (1873) through Dvorak (1936), Colemak (2006), and the post-2010 GitHub fork ecosystem; through Janko (1882), Wicki--Hayden (1896/1986), and modern isomorphic controllers; and through the de-facto chromatic-staircase QWERTY-piano convention shared by Ableton, Logic, GarageBand, and FL Studio, I show that the category is large, coherent, and politically consequential. Reading the body of evidence through Lialina's \emph{Turing Complete User}~\citep{lialina2012turing}, I argue that the keymap \emph{is} the gap her essay names --- the user-authorable surface whose disappearance is the disappearance of the user as author. I close by reading \texttt{notepat.com} as a deliberate intervention: not an inheritor of the dominant DAW convention but a competing proposal for a better-designed keymap, offered as evidence that the social-software gap remains open for re-authorship.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction: An Artifact}
+
+Figure~\ref{fig:notepat-keymap} is a one-page diagram of the keymap shipped by \texttt{notepat.com}~\citep{scudder2024notepat_keymap}, a chromatic keyboard instrument inside \ac{}~\citep{scudder2026ac}. The diagram shows a piano staff up top, a QWERTY keyboard below, and dashed lines connecting the two. The connecting principle is a slogan printed in the subtitle: \emph{notes that name themselves}. The QWERTY letter \texttt{C} plays C; \texttt{D} plays D; \texttt{E} plays E; and so on through \texttt{B}. The upper octave continues alphabetically (\texttt{H~I~J~K~L~M~N} for $C_5$ through $B_5$). Sharps sit one row above their natural where possible, by analogy to piano black keys (\texttt{V~S~W~R~Q} for $C^\sharp\,D^\sharp\,F^\sharp\,G^\sharp\,A^\sharp$).
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{../../slides/notepat-keymap/notepat-keymap.png}
+\caption{The \texttt{notepat.com} keymap. The QWERTY letter \texttt{C} plays C, \texttt{D} plays D, ..., \texttt{B} plays B; the upper octave continues alphabetically (\texttt{H~I~J~K~L~M~N}); sharps sit above their natural by piano-black-key analogy where possible. Two-handed split: lower octave on left hand, upper on right. Implementations: \texttt{notepat.com} (web), AC Native, MenuBand (macOS menubar), AC-Notepat (Max for Live), Remote (phone).}
+\label{fig:notepat-keymap}
+\end{figure*}
+
+This diagram is the artifact. It is small. It contains no code. It is not a binary, not a service, not a runtime. It is a table. And yet, of every component that constitutes \texttt{notepat}, the table is the one that travels --- the one that anyone who plays a notepat-derived instrument across the web, AC Native, the macOS menubar, Max for Live, or the phone app must know and agree on. The table is what makes \texttt{notepat} \emph{itself} across substrates.
+
+This paper is about that kind of table. I will call it a \emph{keymap}, and I will argue that keymaps form a category of computational artifact that the standard frame of computing scholarship --- a frame organized around binaries, projects, and licenses --- cannot see. The category is not small. Its other members include the QWERTY layout itself, the Dvorak layout, Colemak and its forks, the Wicki--Hayden isomorphic note layout, the chromatic-staircase QWERTY-piano mapping shared by every major digital audio workstation, the Singmaster notation for Rubik's-cube algorithms~\citep{singmaster1981notes}, the Nashville Number System~\citep{matthews1984nashville}, Plover steno theory~\citep{knight2010plover}, fighting-game numpad notation, the Camelot Wheel~\citep{davis1991camelot}, and Vim's keybindings, among many others.
+
+I will call the category \emph{social software}, deliberately punning on Shirky's 2003 term~\citep{shirky2003etech,allen2004socialsoftware}. Where Shirky and his contemporaries used ``social software'' to designate \emph{software that mediates social interaction} --- forums, wikis, chat systems --- I use it to designate \emph{software whose existence \textbf{is} social agreement}. A keymap has no compiler, no runtime, no maintainer organization, and rarely a financial mechanism behind it. It exists because enough people decided to act as if it does. It persists because users demand cross-binary compatibility with it. When that compatibility breaks, users notice; when it is preserved, the keymap propagates further.
+
+The paper proceeds in five movements. \textsection\ref{sec:category} states the category problem: keymaps are software-shaped but not software, and the open-source/proprietary axis cannot see them. \textsection\ref{sec:lineage1}--\ref{sec:lineage2} trace two lineages of keymap invention --- the typewriter-to-computer lineage (Sholes, Dvorak, Colemak) and the musical-instrument lineage (Janko, Wicki--Hayden, the modern hex-isomorphic controllers). \textsection\ref{sec:daw} examines the dominant contemporary case: the chromatic-staircase QWERTY-piano keymap that Ableton, Logic, GarageBand, and FL Studio all ship by default --- an unowned convention that nobody designed, nobody maintains, and everybody implements. \textsection\ref{sec:notepat} reads \texttt{notepat}'s ``notes that name themselves'' keymap as a deliberate intervention against that incumbent: not an inheritance, not a fork, but a competing proposal for what the table should look like. \textsection\ref{sec:corollaries} catalogs the broader genus, showing that input mappings, notation systems, and category labels share a common social-software pattern. \textsection\ref{sec:lialina} reads the body of evidence through Lialina's \emph{Turing Complete User}, arguing that keymaps are the empirical body of her claim that users are programmers in waiting. \textsection\ref{sec:design} closes with what this asks of designers: ship the keymap as a first-class object --- readable, exportable, forkable.
+
+\section{The Category Problem}
+\label{sec:category}
+
+A keymap is a small declarative table. The minimal form is a list of pairs: \emph{(physical-key-event, semantic-output)}. The QWERTY layout is the table that pairs key positions with letters; the Dvorak layout reassigns the same positions to a different set of letters; the chromatic-staircase QWERTY-piano mapping pairs each key with a MIDI note number; the Singmaster cube notation pairs each face label with a rotational operator. In all cases, the table is the artifact. The binary that consumes the table is interchangeable.
+
+This makes keymaps difficult to locate within the prevailing frames of computing scholarship. The open-source/proprietary axis~\citep{galloway2004protocol} sorts software by the legal status of its source. A keymap has no source --- it is a table, not a program. The platform-studies axis~\citep{nieborg2018platformization} sorts software by the platform it sits on. A keymap sits on \emph{every} platform that consumes its shape. The format-theory axis~\citep{sterne2012mp3} sorts software by the spec it implements. A keymap rarely has a spec; the chromatic-staircase QWERTY-piano mapping has none, and yet four of the world's largest DAWs all ship the same one. The protocol axis~\citep{galloway2004protocol} sorts software by the wire format it speaks. A keymap is not a wire format; it is a table consulted at the input boundary.
+
+Sterne's \emph{MP3: The Meaning of a Format}~\citep{sterne2012mp3} comes closest. Sterne argues that ``formats, standards, and infrastructures --- and the need for content to fit inside them --- are every bit as central to communication as the boxes we call `media.'\,'' Substitute \emph{keymap} for \emph{format} and most of his apparatus carries over. But formats have specs (RFCs, ISO documents, reference implementations). Keymaps usually do not. The chromatic-staircase QWERTY-piano mapping is implemented in Ableton Live, Logic Pro, GarageBand, and FL Studio~\citep{ableton_musical_typing,apple_logic_musicaltyping,imageline_typing_piano} without ever having been written down in a binding spec. It exists because the four implementations agree, and the four implementations agree because everybody who learned one expects the next to be the same.
+
+Bowker and Star's \emph{Sorting Things Out}~\citep{bowker1999sorting} treats classifications and standards as social-political objects whose persistence is sociological, not technical. A keymap is a classification: it sorts physical inputs into semantic categories. Star and Griesemer's \emph{boundary object}~\citep{star1989boundary} captures another aspect: keymaps mediate between communities of practice (typist and programmer; pianist and DAW user; cuber and cube-solver) without belonging fully to any one. Star's \emph{ethnography of infrastructure}~\citep{star1999ethnography} captures a third: keymaps are boring, consequential, and largely invisible to the people who depend on them.
+
+What we want to name is the conjunction of these features: a small table that is a classification (Bowker \& Star), a boundary object (Star \& Griesemer), an infrastructure (Star), and a format (Sterne) --- but is none of those things alone. I propose \emph{social software} for the conjunction. The pun on Shirky is the point: in 2003 the term named \emph{software for sociality}; in 2026 it should also name \emph{software of social agreement}. Both readings are real. A keymap is the second.
+
+\section{Lineage I: Keyboard Layouts}
+\label{sec:lineage1}
+
+The earliest sustained example of a keymap-as-social-software is the QWERTY layout itself. Christopher Latham Sholes patented an early typewriter with Carlos Glidden and Samuel Soulé in 1868 (US 79{,}265); the as-shipped QWERTY arrangement was finalized in-house by Remington's mechanics in the spring and summer of 1873 as a manufacturing engineering decision and was \emph{never patented}~\citep{yasuoka2011prehistory}. The standard folkloric account attributes the layout to anti-jam mechanics; Yasuoka and Yasuoka's archival work locates it in the transcription practice of telegraph operators, who needed to type Morse code in real time. Either way, the layout's persistence is sociological: it is the founding empirical case of path-dependence economics~\citep{david1985qwerty,arthur1989competing}, with a counter-tradition arguing the dominance has been overstated~\citep{liebowitz1990fable}. The David--Liebowitz dispute is the primal scene for treating an input mapping as an object whose persistence is an empirical question about social adoption rather than a derivable consequence of technical superiority.
+
+August Dvorak and William Dealey patented the Dvorak Simplified Keyboard in 1936 (US 2{,}040{,}248). They claimed it was faster, less fatiguing, and more pedagogically rational than QWERTY. It propagated unevenly: the US Navy adopted it in studies during World War II; the Apple IIc shipped a Dvorak switch; modern operating systems all ship Dvorak as a selectable layout; and a small but durable community of users have used it for decades. Workman~\citep{bucao2010workman}, Colemak~\citep{coleman2006colemak}, and the post-2010 fork ecosystem (Colemak-DH, Halmak, Norman) constitute a third generation. None of these layouts has a maintainer organization. None has revenue. All are versioned virtual objects propagating across forums, GitHub repositories, and operating-system layout files. The Maltron keyboard~\citep{malt1977keyboard} added a hardware-coupled variant; Plover stenotype theory~\citep{knight2010plover} extended the surface to encompass chorded shorthand. National layouts (AZERTY, QWERTZ, BÉPO) participate in the same logic, with the additional twist of formal state recognition: the French BÉPO layout, designed by a community in 2005, was folded into a 2019 AFNOR national standard --- a literal observable transition from social contract to state contract.
+
+\section{Lineage II: Instrument Layouts}
+\label{sec:lineage2}
+
+Musical-instrument layouts have run a parallel history. Paul von Jankó's six-row isomorphic piano keyboard~\citep{janko1882} was endorsed by Liszt and Rubinstein, manufactured by Decker, Blüthner, and Bösendorfer, and taught at a Janko Conservatory in New York. By every social precondition for adoption it should have replaced the standard piano keyboard. It did not. Fewer than ten Janko pianos are known to survive. The Janko case is the negative pole of the keymap-as-social-software argument: every condition for propagation was met and propagation still failed. Whatever the social-software contract is, it is more than the sum of endorsements, manufacturers, and conservatories.
+
+R.\ H.\ M.\ Bosanquet's generalized keyboard~\citep{bosanquet1875generalized} was a 53-equal-division-of-the-octave (53-EDO) enharmonic harmonium and a 1875 organ in 48-note schismatic and quarter-comma meantone, demonstrated to the South Kensington Museum in 1876. It is the ancestor of essentially every modern isomorphic controller. Kaspar Wicki patented an isomorphic note layout for bandoneon in 1896~\citep{wicki1896}; Brian Hayden, a concertina player, independently re-invented and re-patented essentially the same layout in 1986. The double invention by ninety years is itself an argument: the layout has the character of a \emph{discovery}, the kind of object that recurs because the underlying structure of music makes it useful, not because it is a unique cultural artifact.
+
+The contemporary descendants are commercial products: the C-Thru AXiS-49 (2008)~\citep{cthru2008axis49}, Jim Plamondon's Thummer~\citep{plamondon2003thummer}, the Roger Linn LinnStrument, the ROLI Seaboard, the Lumatone hex grid, and Lippold Haken's Continuum Fingerboard~\citep{haken1998indiscrete}. Andrew Milne, William Sethares, and James Plamondon's papers on isomorphic controllers and tuning continua~\citep{milne2007isomorphic,milne2008tuning} provide the theoretical foundation. What is striking from a keymap-as-social-software view is that these instruments \emph{ship configurable}: the layout is an explicit object the user uploads, and the xenharmonic community shares layouts as files. The Lumatone in particular treats the keymap as the unit of distribution. The instrument is a substrate; the keymap is the artifact that makes it musical.
+
+\section{The DAW Chromatic-Staircase: Convergence Without Ownership}
+\label{sec:daw}
+
+The strongest contemporary case for the keymap-as-social-software argument is the de-facto chromatic-staircase QWERTY-piano keymap shared by every major digital audio workstation. Ableton Live, Logic Pro, GarageBand, and FL Studio all ship the same convention by default~\citep{ableton_musical_typing,apple_logic_musicaltyping,imageline_typing_piano}. The shape of the convention is: take the lower three rows of the QWERTY keyboard; treat one row as the white keys of a chromatic scale, ascending from C; and treat the row above as the black keys, in the gaps where black keys would fall on a piano. Ableton, Logic, and GarageBand use \texttt{A~S~D~F~G~H~J~K} (home row) for the white keys $C\,D\,E\,F\,G\,A\,B\,C$ and \texttt{W~E~T~Y~U} (row above) for the black keys $C^\sharp\,D^\sharp\,F^\sharp\,G^\sharp\,A^\sharp$. FL Studio uses the bottom row \texttt{Z~X~C~V~B~N~M} for the lower octave's white keys and the same row-above pattern for the black keys. The principle is identical. The exact row assignment differs by one row.
+
+No one designed this convention. No spec defines it. There is no governing body, no maintainer, no funding mechanism. The convention exists because the four implementations agree, and the four implementations agree because the convention was already present in the 1990s tracker software that preceded the modern DAW (FastTracker, Renoise, Impulse Tracker), and because every user who has learned one DAW expects the next to behave the same. Tutorial documentation written for one DAW transfers, more or less, to another. This is the \emph{social-software contract} in its purest form: a versioned virtual object that propagates through pedagogy and expectation, with no central authority.
+
+It is also, I will argue, badly designed. The chromatic-staircase keymap has three structural weaknesses. \textbf{First}, the QWERTY letter on each key bears no relation to the note name it produces. \texttt{A} plays C; \texttt{S} plays D; \texttt{D} plays E. A user who has learned the Western seven-note scale gains no purchase on the keymap from that knowledge. \textbf{Second}, the keymap is monohanded by default --- the entire usable range sits on the left side of the keyboard, with the right hand idle. \textbf{Third}, the keymap is illegible without a tutorial: there is no mnemonic, no diagram printed on the physical keys, and no way to derive the mapping from first principles. A keymap that requires a manual is a keymap that has lost its social-software character.
+
+\section{Notepat: Notes That Name Themselves}
+\label{sec:notepat}
+
+Against this incumbent, \texttt{notepat} proposes a different keymap (Figure~\ref{fig:notepat-keymap}). The design principle is single: \emph{notes that name themselves}. The QWERTY letter \texttt{C} plays C. The QWERTY letter \texttt{D} plays D. The seven naturals of the Western scale --- $C\,D\,E\,F\,G\,A\,B$ --- play the notes their letters name. The upper octave continues alphabetically: \texttt{H~I~J~K~L~M~N} for $C_5\,D_5\,E_5\,F_5\,G_5\,A_5\,B_5$. Sharps sit one row above their natural, by analogy to the black keys of a piano, where the QWERTY letters allow it: \texttt{V~S~W~R~Q} for $C^\sharp\,D^\sharp\,F^\sharp\,G^\sharp\,A^\sharp$. The lower octave falls under the left hand; the upper octave falls under the right.
+
+The keymap reverses each of the chromatic-staircase's three weaknesses. \textbf{First}, the letter on each key \emph{is} the note name. Anyone who knows the Western scale already knows the keymap. \textbf{Second}, the layout is two-handed by default: the left hand plays the lower octave; the right hand mirrors it on the upper. \textbf{Third}, the keymap is self-documenting: the diagram in Figure~\ref{fig:notepat-keymap} can be reproduced from memory by anyone who can spell ``CDEFGAB.''
+
+\texttt{notepat}'s contribution is not the implementation. The implementation is, by design, modest~\citep{scudder2024notepat_keymap}: a few hundred lines of JavaScript routing keyboard events to an audio synthesis API. The contribution is the keymap. \texttt{notepat} is presented across six implementations --- the web piece at \texttt{notepat.com}, the AC Native bare-metal port, the MenuBand macOS menubar app, the AC-Notepat Max for Live device, the Remote phone app, and a VST3 scaffold --- and the keymap is the one thing that is identical across all of them. It is the \texttt{notepat}-shaped social-software contract.
+
+This is the move the paper is asking the reader to see. The dominant DAW chromatic-staircase keymap was never \emph{chosen} --- it was \emph{inherited} from tracker software, persisted by user expectation, and locked in by cross-application convention. \texttt{notepat} demonstrates that the gap is open: that a deliberately-designed alternative can be authored by a single developer in a few hundred lines of code, shipped across multiple implementations in a year, and offered to a wider community as a competing social-software contract. The political stake is small in any one instance and large in aggregate: \emph{the gap is open everywhere}.
+
+\section{The Corollary Catalog}
+\label{sec:corollaries}
+
+The keymap is one instance of a much larger genus: \emph{versioned virtual objects that propagate via social contract, not via binaries}. Table~\ref{tab:corollaries} catalogs the major species. The catalog is not exhaustive. Its purpose is to show that the genus is real and large.
+
+\begin{table*}[t]
+\small
+\centering
+\caption{Selected versioned virtual objects propagating via social contract. ``Originator'' lists the named inventor where one exists; ``\emph{conv.}'' indicates a convergent or anonymous origin. ``Propagation'' names the principal mechanism by which the object travels.}
+\label{tab:corollaries}
+\begin{tabularx}{\textwidth}{l l l X}
+\toprule
+\textbf{Object} & \textbf{Originator (year)} & \textbf{Domain} & \textbf{Propagation mechanism} \\
+\midrule
+QWERTY                              & Sholes (1873)                       & Typing       & Manufacturer adoption $\rightarrow$ ISO/AFNOR $\rightarrow$ OS layout files \\
+Dvorak                              & Dvorak \& Dealey (1936)             & Typing       & US Patent $\rightarrow$ US Navy $\rightarrow$ user-installed OS layouts \\
+Colemak                             & Coleman (2006)                      & Typing       & colemak.com + GitHub forks (Workman, Halmak, Colemak-DH) \\
+BÉPO                                & Community (2005) $\rightarrow$ AFNOR (2019) & Typing  & Community $\rightarrow$ state standard \\
+Janko                               & Jankó (1882)                        & Music        & \emph{Failed propagation} --- negative case study \\
+Wicki--Hayden                        & Wicki (1896) / Hayden (1986)        & Music        & Concertina + bandoneon community $\rightarrow$ modern MPE controllers \\
+Bosanquet                           & Bosanquet (1875)                    & Music        & Microtonal community $\rightarrow$ Lumatone \\
+DAW chromatic-staircase             & \emph{conv.} (Trackers, 1990s)      & Music        & Cross-DAW pedagogy; user expectation \\
+Notepat ``names themselves''        & Scudder (2024)                      & Music        & Cross-implementation contract within Aesthetic Computer \\
+Plover steno theory                 & Knight (2010s)                      & Typing       & GitHub + community-forked dictionaries \\
+Vim keybindings                     & Joy (1976) $\rightarrow$ Moolenaar (1991) & Editing & ``Vim keybindings everywhere'' lists; macOS Cocoa text fields \\
+Singmaster cube notation            & Singmaster (1981)                   & Puzzle       & Penguin booklet $\rightarrow$ universal cuber adoption \\
+Algebraic chess notation            & Stamma (1737) $\rightarrow$ FIDE (1981) & Game     & Federation crystallization of competing community conventions \\
+Nashville Number System             & Matthews (1957) / Williams (1988)   & Music        & Nashville session-musician oral tradition + self-published book \\
+ABC notation                        & Walshaw (1980s)                     & Music        & Plain-text folk-tune sharing in mailing lists \\
+Helmholtz / Scientific pitch        & Helmholtz (1863) / Sauveur (1713)   & Music        & Acoustics textbooks + MIDI documentation \\
+Camelot Wheel                       & Davis (1991)                        & DJing        & Mixed In Key + every key-detection tool \\
+Numpad notation (236P, 623K)        & \emph{conv.} (Japanese FGC)         & Fighting games & Wikis, matchmaking subreddits \\
+IPA                                 & IPA Association (1888)              & Phonetics    & Federation-standardized; revised at Kiel 1989 \\
+NATO spelling alphabet              & ICAO (1956)                         & Aviation     & Federation-standardized \\
+Controller buttons (A/B/X/Y, $\triangle$$\bigcirc$$\times$$\square$) & Nintendo (1990) / Goto (1994) & Games & Cross-platform ports must ship both labels \\
+CSS named colors                    & X11 \texttt{rgb.txt} (1987) $\rightarrow$ SVG 1.0 (2001) & Web & Inherited unchanged across browser implementations \\
+Knitting abbreviations              & Craft Yarn Council / UK convention  & Craft        & Printed in every pattern \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+Several patterns emerge. First, the genus spans input mappings (QWERTY, Vim), notational systems (Singmaster, Nashville, IPA), and category labels (controller buttons, CSS colors). What unifies them is not the medium but the \emph{role}: each is a small declarative table consulted at a boundary between human and machine, between communities of practice, or between competing implementations. Second, the named-inventor pattern is highly variable. Some objects have a single named inventor (Singmaster, Coleman, Davis); others have convergent or anonymous origins (DAW chromatic-staircase, fighting-game numpad notation); others are federation-crystallized after a period of community competition (algebraic chess, BÉPO). Third, the propagation mechanism is almost always \emph{not} a binary. It is pedagogy, expectation, citation, or written reference --- the apparatus of a literate community.
+
+The boundary of the category is worth drawing crisply. \textbf{Open formats} like PNG and MP3 are governed by specifications and reference implementations~\citep{sterne2012mp3} --- closer to format than to social software. \textbf{Open protocols} like HTTP and IRC have RFCs and steward bodies --- Galloway's \emph{Protocol}~\citep{galloway2004protocol} covers this terrain. \textbf{Folksonomies} (tags, hashtags) are content-classification rather than interface-as-object. \textbf{Memes} propagate but are content. The keymap is distinct from all of these: \emph{a small declarative table that mediates input/output, with no governing body, that nonetheless behaves as if standardized}.
+
+\section{Reading Through Lialina}
+\label{sec:lialina}
+
+Olia Lialina's essay \emph{Turing Complete User}~\citep{lialina2012turing,lialina2021turingbook} is the load-bearing theoretical anchor for this paper. Lialina argues that the category ``user'' is being quietly eliminated from contemporary software design, replaced by a register that addresses people without acknowledging the agency that made them users in the first place. The argument is moral and political: ``We need to take care of this word because addressing people and not users hides the existence of two classes of people --- developers and users''~\citep{lialina2012turing}. Her thesis is that users are programmers in waiting; the substrate must remain programmable for the agency to be real.
+
+The keymap, I argue, is exactly the surface where Lialina's argument finds material expression. Lialina names the condition that makes user-authorship possible: ``a situation when the work flow of an application has gaps that can be filled by users, where smoothness and seamlessness are broken''~\citep{lialina2012turing}. The keymap is such a gap. The hardware is fixed; the binary is closed; but the table mapping QWERTY-\texttt{A} to MIDI-60 is user-authorable, user-versionable, and user-demanded across applications. When applications close that gap --- bake in one mapping, refuse alternatives, hide the table behind a UX layer that admits no edits --- the user-as-author dies in that surface. This is what Lialina, in her companion essay~\citep{lialina2018rich}, calls \emph{desktopization}: the colonization of user-configurable surfaces by managed UX. The keymap is the canary.
+
+The corollary catalog of \textsection\ref{sec:corollaries} sharpens the point. Each entry in Table~\ref{tab:corollaries} is a surface on which a user community has authored a small declarative table that the underlying technology did not require. The Western scale does not require ABC notation; the QWERTY keyboard does not require Plover steno theory; the Rubik's cube does not require Singmaster notation; the chromatic 12-tone equal-tempered scale does not require notepat's ``names-themselves'' keymap. Each is a piece of user-authored convention that survives and propagates because a community decided it should.
+
+The political stake of \emph{Turing Complete User} is the preservation of these surfaces. The contribution of this paper is to give the surfaces a name --- \emph{social software} --- and to demonstrate, by enumeration, that the category is large enough to be politically consequential. The disappearance of any one keymap is small. The disappearance of the entire user-authorable layer is the disappearance of Lialina's user.
+
+\section{What This Asks of Designers}
+\label{sec:design}
+
+If the argument of \textsection\ref{sec:lialina} is right --- if keymaps are the empirical body of the Turing Complete User --- then a small, concrete request follows for designers of any system that consumes a keymap. \textbf{Ship the keymap as a first-class object.} Make it readable: print the table somewhere a user can see it. Make it exportable: let a user save the table to a file. Make it forkable: let a user load a different table. Make the format documented: prefer a plain-text table to an opaque binary. Prefer a published convention to a private one. Prefer a community-shared keymap to a vendor-only one.
+
+\texttt{notepat} ships its keymap as Figure~\ref{fig:notepat-keymap} --- a one-page diagram, freely reproducible, present in every implementation. The DAW chromatic-staircase ships its keymap as a tutorial buried in a manual, identical across applications by accident, owned by no one and contestable by no one. The difference is not technical. The difference is whether the social-software contract is treated as an explicit object or an implicit one.
+
+\section{Conclusion}
+
+A keymap is a small declarative table. It is not a binary. It is not a service. It is not a project. The standard frames of computing scholarship cannot see it. And yet keymaps are versioned, named, forked, and demanded across applications --- they are software in every sense that matters. I have argued that they constitute a category, called the category \emph{social software}, traced two lineages that produced it, examined the dominant contemporary case (the DAW chromatic-staircase) and a deliberate intervention against it (\texttt{notepat}'s notes-that-name-themselves), enumerated a broader catalog of corollaries, and read the body of evidence through Lialina's \emph{Turing Complete User} as evidence for her claim that users are programmers in waiting. The disappearance of any single keymap is small. The disappearance of the entire user-authorable layer is the political problem Lialina names.
+
+The methodological contribution is a unit of analysis: the keymap as the first-class object of computing scholarship that the binary, the project, the platform, and the format together cannot resolve. The political contribution is a small request: \emph{ship the keymap as a first-class object}.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
