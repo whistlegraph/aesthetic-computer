@@ -73,6 +73,16 @@ for (let i = 0; i < words.length; i++) {
   }
 }
 
+// Full-frame PNGs (1080×1920, transparent except for the pill at y=1690).
+// This replaces the older 1080×220 strip — by baking each subtitle into a
+// full-frame transparent PNG, the compose step can stitch them via the
+// concat demuxer (one timed PNG sequence) and overlay them as a single
+// video stream, eliminating the 135-deep movie= filter chain that
+// bottlenecked the oven encode (see feedback_recap_subtitles_required.md).
+const FRAME_W = 1080;
+const FRAME_H = 1920;
+const PILL_Y_TOP = 1690; // matches the SUB_Y in build-filter.mjs
+
 const cssTemplate = `
 @font-face {
   font-family: 'ProcessingB';
@@ -80,8 +90,18 @@ const cssTemplate = `
   unicode-range: U+0020-007E;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 1080px; height: 220px; background: transparent; -webkit-font-smoothing: antialiased; }
-.wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 0 60px; }
+html, body { width: ${FRAME_W}px; height: ${FRAME_H}px; background: transparent; -webkit-font-smoothing: antialiased; }
+.wrap {
+  position: absolute;
+  left: 0;
+  top: ${PILL_Y_TOP}px;
+  width: ${FRAME_W}px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 60px;
+}
 .pill {
   background: rgba(16, 8, 32, 0.72);
   backdrop-filter: blur(2px);
@@ -111,9 +131,9 @@ for (let i = 0; i < chunks.length; i++) {
   const c = chunks[i];
   const file = `${SUB_DIR}/${String(i).padStart(3, "0")}.png`;
   const page = await browser.newPage();
-  await page.setViewport({ width: 1080, height: 220, deviceScaleFactor: 1 });
+  await page.setViewport({ width: FRAME_W, height: FRAME_H, deviceScaleFactor: 1 });
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>${cssTemplate}</style></head><body><div class="wrap"><div class="pill">${escapeHtml(c.text)}</div></div></body></html>`;
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  await page.setContent(html, { waitUntil: "domcontentloaded" });
   await new Promise((r) => setTimeout(r, 80));
   const png = await page.screenshot({ type: "png", omitBackground: true });
   writeFileSync(file, png);
@@ -125,10 +145,22 @@ for (let i = 0; i < chunks.length; i++) {
     text: c.text,
   });
 }
+
+// Render a single fully-transparent blank frame the concat demuxer can use
+// for gaps between subtitles. One file, reused for every gap entry.
+{
+  const blankPath = `${SUB_DIR}/blank.png`;
+  const page = await browser.newPage();
+  await page.setViewport({ width: FRAME_W, height: FRAME_H, deviceScaleFactor: 1 });
+  await page.setContent(`<!doctype html><html><body style="margin:0;background:transparent;"></body></html>`, { waitUntil: "domcontentloaded" });
+  const blank = await page.screenshot({ type: "png", omitBackground: true });
+  writeFileSync(blankPath, blank);
+  await page.close();
+}
 await browser.close();
 
 writeFileSync(`${ROOT}/out/subs.json`, JSON.stringify(out, null, 2));
-console.log(`✓ ${out.length} subtitle chunks → ${SUB_DIR}/`);
+console.log(`✓ ${out.length} subtitle chunks → ${SUB_DIR}/ (full-frame ${FRAME_W}×${FRAME_H})`);
 for (const s of out.slice(0, 5)) console.log(`  ${s.startSec.toFixed(2)}-${s.endSec.toFixed(2)}  "${s.text}"`);
 if (out.length > 5) console.log(`  ... (+${out.length - 5} more)`);
 
