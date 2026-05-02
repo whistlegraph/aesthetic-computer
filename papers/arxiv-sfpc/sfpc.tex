@@ -1,0 +1,273 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={SFPC: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} School for Poetic Computation}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Structure, History, Programs, People, Money, Footprint --- 2013 to 2026}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about the School for Poetic Computation (SFPC) --- a New York artist-run school founded in 2013 --- across structure, periodized history, programs, people, finances, and cultural footprint. SFPC is unusual in that the institution publishes its own books to GitHub under the banner ``To Radical Openness and Generosity,'' so much of this dossier is a re-presentation of the school's own self-disclosure. There is no thesis, no verdict, and no conclusion section. Where facts run out the dossier stops; gaps are flagged inline.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{The Posture}
+
+The school's founding self-description was published as a letter, not a mission statement. In January 2014, after the close of the first 10-week semester, administrator Casey Gollan wrote to the fifteen students: ``Today I'm happy to present you all with a report on \emph{money}\ldots\ we always intended to give back any money that we didn't spend to you, so today we'd like to offer each of you \$700.''~\citep{sfpc01report} The school's bank balance at that moment was \$15,607.76. After accounting for the refund, accountant fees, interim salary, web work, storage, and software, the school would close out at roughly \$1,357 in reserve --- ``the roundest hundred we can give back.''
+
+The same letter coined the phrase that has stuck to the school: ``To Radical Openness and Generosity.'' That language now titles SFPC's public finance repository on GitHub, where Profit \& Loss statements, salary line items, and visiting-artist fees from 2013--2019 are committed alongside narrative reflections on cash-flow problems, K-1 phantom-income tax burdens, and budgeting decisions made between sessions. The dossier records what is in that repository and what has been disclosed publicly since the repo went quiet at the end of 2019.
+
+\section{Structure}
+
+\begin{description}
+\item[Legal entity] Every Profit \& Loss statement in the school's repo prints the legal name as ``\textbf{SFPC, LLC.}'' --- a passthrough limited liability company, not a 501(c)(3). The 2019 narrative report explicitly explains the K-1 ``phantom income'' mechanic: ``the LLC owners are responsible for paying the taxes on any profits SFPC has at the end of the year\ldots\ SFPC covers the taxes only on that difference. All profits generated by SFPC stay within the school's bank account and are not disbursed to the LLC holders.''~\citep{sfpc2019report}
+\item[Tax-deductible giving] SFPC's FAQ states: ``We are also able to receive tax deductible donation through our fiscal sponsor.'' The fiscal sponsor is not named in public documents.
+\item[ProPublica] No nonprofit entity for ``School for Poetic Computation'' or ``SFPC'' appears in ProPublica's nonprofit database --- consistent with LLC structure plus fiscal-sponsorship for tax-deductible giving.
+\item[Public-facing language (2026)] The current site (\texttt{sfpc.study/about}) describes a Co-Director model and lists a ``Board of Directors.'' The relationship between this nonprofit-style language and the LLC's underlying corporate structure is not explained on the site. Whether the LLC was ever converted to a 501(c)(3) is not publicly disclosed.
+\end{description}
+
+\section{The Organization, 2013--2026}
+
+\subsection{Founding semester (2013)}
+
+Four founders --- Zach Lieberman, Taeyoon Choi, Amit Pitaru, Jen Lowe --- launched SFPC's first 10-week session in fall 2013 with administrator Casey Gollan. The bank account was initially a sub-account of Lieberman's studio YesYesNo, with funds transferred to a dedicated SFPC LLC account once paperwork cleared. Fifteen students enrolled. The first-semester report (\texttt{01/}) is unique in the repo: written as an open letter to the students, rather than as an accounting record.
+
+\subsection{Orbital years (2014--2017)}
+
+In Spring 2014, SFPC moved into Orbital, a coworking community at 155 Rivington Street hosted by Gary Chou. Orbital extended ``full access to the entire building and their facilities at cost\ldots\ a huge gift to the school and its students.''~\citep{sfpc2015report} A first short two-week session ran in Spring 2014; it was not profitable. The Fall 2014 session marked the formation of the SFPC Steering Committee --- Pitaru, Burtch, Benedetto, Gardner, Choi, Brain, Lieberman --- to advise rotating session Organizers.
+
+In May 2015 Casey Gollan departed, and Lauren Gardner joined Choi as co-administrator. In June--July 2015 the school hit a short-term cash-flow problem; Choi loaned \$2,000 from his personal account to keep the balance positive, repaid on July 27 once summer deposits cleared.~\citep{sfpc2015report} Spring 2015 had eighteen students from eleven countries; nine paid full \$5,000 tuition and nine received scholarships of varying levels. Summer 2015 introduced a part-time evening format at Babycastles Gallery (137 W 14th).
+
+The repo skips 2016 and 2017 entirely. The 2019 report references those years only as: ``In 2017, SFPC had an increase of \$47,959 and in 2018, \$43,946, which became a reserved balance after tax.''
+
+\subsection{Westbeth and the expansion (2018--2019)}
+
+By Spring 2018, the school had moved to 155 Bank Street --- a courtyard at Westbeth Artists Housing in the West Village, where it remained through 2024. Spring 2018 enrollment was eighteen students at \$93,500 total tuition; with \$2,500 of bootcamp fees, total income was \$96,060 against \$85,372 expenses for an \$11,015 profit.~\citep{sfpc2018report} A formal staff-agreement and invoice system was introduced.
+
+2019 was the school's biggest and most expensive year. Six 10-week-or-shorter sessions ran in NYC (Code Societies, Code Paper Scissors, Spring, Fall, plus other workshops), and two new sponsored remote programs --- Poetic Computation: Detroit (Knight Foundation) and SFPC Summer in Yamaguchi at YCAM (\$12,500 contracted).~\citep{sfpc2019report} 58 paid people. Year-round administrator stipends of \$1,500/month replaced the previous program-only admin pay structure, ``a decision with the board to\ldots\ start to create paying positions within the organization.'' Total income \$343,816, expenses \$431,291, deficit \textbf{−\$84,475}.
+
+\subsection{COVID rupture and re-organization (2020)}
+
+The Spring 2020 session was cancelled outright due to COVID-19. The 2019 deficit had drained reserves; with no runway, a public GoFundMe was launched to cover immediate overhead.~\citep{sfpcgofundme} The school pivoted to online classes.
+
+In the same year, Wikipedia's entry on the school records, ``the school transitioned to a collective organization. Lieberman publicly stepped down.''~\citep{wikipediasfpc} Five (or six) ``SFPC Stewards'' assumed governance: Zainab Aliyu, Todd Anderson, American Artist, Neta Bomani, Melanie Hoff, and Galen Macdonald. The primary-source SFPC announcement of this restructure has not yet been located.
+
+\subsection{Post-Lieberman, post-Westbeth (2021--2026)}
+
+The finance-and-administration repo has not been updated past 2019. What is disclosed publicly:
+
+\begin{itemize}
+\item Programs continued in mixed online/NYC format.
+\item Mission framing on \texttt{sfpc.study/about} now reads: ``SFPC facilitates the study of art, code, hardware, and critical theory through lenses of decolonization and transformative justice.''
+\item Foundation funding includes \textbf{Ford Foundation} and \textbf{Art for Justice} (Agnes Gund's collateral-art-sale-funded fund administered through Ford). Amounts and date ranges are not disclosed.
+\item Governance is presented as Co-Directors (\textbf{Todd Anderson, Neta Bomani}) supported by Program Coordinator (Ahana Ganguly) and Communications Manager (Sara Mart\'inez), with a seven-person ``Board of Directors'': American Artist, Salome Asega, Tega Brain, Taylor Levy, Che-Wei Wang, Galen Macdonald, Celine Wong Katzman.
+\item The school is in residence at the National Academy of Design (519 West 26th Street) for Summer 2026's ``Future Schools'' programme, June 9 through August 22, 2026.
+\end{itemize}
+
+\section{People}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXl}
+\toprule
+\textbf{Tenure} & \textbf{Role} & \textbf{Name} \\
+\midrule
+2013-- & Co-founder, LLC partner, teacher & Lieberman$^{*}$ \\
+2013-- & Co-founder, teacher, admin & Choi \\
+2013-- & Co-founder, teacher & Pitaru \\
+2013-- & Co-founder, teacher & Lowe \\
+2013--2015 & Founding administrator & Gollan \\
+2015-- & Administrator, Partner & Gardner \\
+2014-- & Steering Committee & (rotating) \\
+2020-- & Steward (per Wikipedia) & Aliyu, Anderson, American Artist, Bomani, Hoff, Macdonald \\
+2024-- (approx) & Co-Director & Anderson, Bomani \\
+2024-- (approx) & Board of Directors & American Artist, Asega, Brain, Levy, C.\,W.\,Wang, Macdonald, Wong Katzman \\
+\bottomrule
+\end{tabularx}
+\\[0.3em]
+\footnotesize $^{*}$Lieberman publicly stepped down in 2020 per Wikipedia.
+\end{table}
+
+Recurring teachers across multiple sessions include Allison Parrish (2015--present), Cori Kresge (Spring + Fall 2019, ``Code Movement''), Melanie Hoff (Code Societies), Tega Brain (longstanding teacher and current Board member). The school works with a large rotating roster of guest artists; the 2019 narrative records 58 paid teaching staff in that year alone.
+
+\section{Programs}
+
+The core program is the \textbf{10-week intensive}, run twice yearly (Spring and Fall) since 2013, with \textbf{2-week} or \textbf{3-week} short sessions interleaved (Code Societies in January, Code Paper Scissors in February, etc.). Programs are tuition-funded, typically \$5,000 for the 10-week with roughly half of every cohort on partial or full scholarship.
+
+The \textbf{remote sponsored sessions} of 2019 --- Detroit and Yamaguchi --- broke the standard tuition-only model: foundation grants and institutional partnerships covered all operational costs and sometimes underwrote travel/housing for staff and students. Both programs ``broke even'' in narrative terms, but together they drove the year's \$84K deficit by displacing the short profit-generating sessions that normally cushioned the 10-week intensives.
+
+Post-2020 \textbf{online classes} are a sustained format. 2026's online summer slate includes ``Media Folklores'' with manuel arturo abreu and Zoe Butler, ``Page Against the Machine'' with Ariel Yelen, and ``Stealing Back the Archive'' with Kandis Williams.
+
+\section{Money}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lrr}
+\toprule
+\textbf{Period} & \textbf{Income} & \textbf{Net} \\
+\midrule
+2013 (partial year) & \$67,448 & + small \\
+2014 (full) & \$107,503 & +\$3,851 \\
+2015 Q1 & \$65,877 & +\$35,146 \\
+2016 (not in repo) & --- & --- \\
+2017 (per 2019 narrative) & --- & +\$47,959 \\
+2018 Spring (semester) & \$96,060 & +\$11,015 \\
+2018 (per 2019 narrative) & --- & +\$43,946 \\
+2019 (full) & \$343,816 & \textbf{−\$84,475} \\
+2020--2026 & not disclosed & --- \\
+\bottomrule
+\end{tabularx}
+\\[0.3em]
+\footnotesize Source: SFPC/finance-and-administration GitHub repo. Some pre-2019 retrospective figures appear only as text in the 2019 narrative.
+\end{table}
+
+\textbf{Income mix}: tuition-dominant. 2018 Spring: tuition was 97\% of income. 2019: tuition 80\%, sponsorship 20\% (the Knight and YCAM sponsored remotes). Event income, rentals, and merch are minor lines.
+
+\textbf{Expense mix}: personnel-dominant. 2018 Spring: personnel was 76\% of expenses (\$65,207 of \$85,372). 2019: 80\% of programmatic expenses were salaries; 50\% of overhead expenses were administrator wages. Rent (Westbeth, rising to \$3,000/month in 2018) is the second-largest overhead line.
+
+\textbf{Disclosed institutional supporters}: Knight Foundation (Detroit 2019), YCAM (Yamaguchi 2019), Ford Foundation (current), Art for Justice (current), The Studio for Creative Inquiry / CMU (one student tuition, Summer 2015). Babycastles donated final-show space and Summer 2015 venue. Orbital provided rent at cost 2014--2017.
+
+\textbf{Disclosed individual supporters} (per \texttt{sfpc.study/about}): Galen MacDonald, Jeffrey Alan Scudder, Maya Man, ``and many others.''
+
+\section{Footprint}
+
+The school's footprint is human, not catalog. SFPC has not commissioned art works in the way Rhizome's Commissions Program has; instead, it has produced fluent practitioners who have gone on to teach, organize, build, and govern across the field. A non-exhaustive cross-section visible in the data:
+
+\begin{itemize}
+\item \textbf{Allison Parrish}: recurring SFPC teacher (Spring 2015 onwards), authored the ``compu-poetry'' lineage that has shaped a generation of practitioners.
+\item \textbf{Mimi Onuoha}: SFPC alumna and frequent collaborator; her work on data and missing datasets connects directly to SFPC's pedagogical posture.
+\item \textbf{Lauren Gardner}: alumna $\to$ administrator $\to$ LLC Partner $\to$ author of the 2019 financial report; a path that exemplifies SFPC's stay-and-shape pattern.
+\item \textbf{Neta Bomani}: alumna trajectory $\to$ current Co-Director.
+\item \textbf{Todd Anderson, American Artist, Tega Brain, Salome Asega}: each present in the school's data trail across teacher / steward / board positions over a decade.
+\end{itemize}
+
+\subsection{Author intersection}
+
+Jeffrey Alan Scudder is named on \texttt{sfpc.study/about} as one of three explicitly-named individual supporters (``Galen MacDonald, Jeffrey Alan Scudder, Maya Man''). Recorded here as a fact, not as positionality.
+
+\section{Reading List}
+
+\subsection{Primary sources (must-read)}
+
+\begin{itemize}
+\item \textbf{The finance-and-administration repo}~\citep{sfpcrepo}: the complete financial-narrative record from 2013--2019, in plain language.
+\item \textbf{The first-semester report (\texttt{01/readme.md})}~\citep{sfpc01report}: the founding posture, written to the students rather than to a board.
+\item \textbf{The 2015, 2018, 2019 financial narratives}~\citep{sfpc2015report,sfpc2018report,sfpc2019report}: each is a brief, candid accounting of one year's decisions and trade-offs.
+\item \textbf{Mission page}, \texttt{sfpc.io/mission}: the school's self-description in 2014--2020 idiom.
+\item \textbf{About page}, \texttt{sfpc.study/about}: the post-2020 governance and mission language.
+\end{itemize}
+
+\subsection{Secondary}
+
+\begin{itemize}
+\item Wikipedia entry~\citep{wikipediasfpc} for governance shifts; sparsely cited.
+\item GoFundMe page~\citep{sfpcgofundme} for the 2020 community-bailout signal.
+\item Creative Applications interview with Spring 2015 teachers (Parrish, Mattu) for pedagogical texture.
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item Not a thesis. There is no question being answered.
+\item Not a critique. The school's structure is surfaced, not judged.
+\item Not a comparison. Other schools (ITP, RISD CD, MIT Media Lab, Recurse Center, Hyperlink) are mentioned only where they directly intersect SFPC.
+\item Not a memoir. The author's appearance in the supporters list is recorded as a fact in the footprint, nothing more.
+\item Not exhaustive. The dossier covers what is publicly recoverable; gaps --- 2016--2017 finances, 2020--2026 finances, fiscal sponsor identity, primary-source 2020 governance announcement, full alumni list --- are flagged inline.
+\end{itemize}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
