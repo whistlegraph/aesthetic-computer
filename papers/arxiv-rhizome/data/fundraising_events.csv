@@ -1,0 +1,15 @@
+fiscal_year_end,event_name,gross_receipts,charitable_contributions_portion,gross_revenue,direct_expenses,net_income,source,note
+2012-06,(unnamed),36114,,,,,ProPublica API,
+2013-06,(unnamed),14633,,,,,ProPublica API,
+2014-06,(unnamed),2322,,,,,ProPublica API,
+2015-06,(unnamed),18656,,,,,ProPublica API,
+2017-06,(unnamed),12300,,,,,ProPublica API,
+2018-06,(unnamed),9400,,,,,ProPublica API,
+2019-06,(unnamed),12097,,,,,ProPublica API,
+2020-06,(unnamed),17888,,,,,ProPublica API,
+2021-06,(no event held),,,,,,ProPublica API,COVID year — no auction
+2022-06,(unnamed),103812,90812,13000,55947,-42947,IRS XML 202341359349313669,first net loss visible in dataset
+2023-06 (original),(no event reported),0,,,,,IRS XML 202421359349313247,original filing reported $0
+2023-06 (amended),(unnamed),123258,105748,17510,86477,-68967,IRS XML 202520359349301517,amendment surfaced the event details after the fact
+2024-06 (original),GALA,89577,89577,0,,0,IRS XML 202541359349310014,recorded entirely as charitable contributions
+2024-06 (amended),GALA,104407,86967,17440,84555,-67115,IRS XML 202521899349301402,direct expenses (food $41098 + entertainment $30268 + rent $9784 + other $3405) ate the gross revenue

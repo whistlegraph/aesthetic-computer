@@ -1,0 +1,17 @@
+fiscal_year_end,executive_director_of_record,officer_compensation_total,officer_compensation_breakdown,other_salaries_wages,payroll_tax,total_personnel,personnel_pct_of_expenses,notes
+2011-06,Lauren Cornell (FY end),75940,Cornell $75940,148727,19722,244389,64.1%,
+2012-06,Heather Corcoran (mid-year transition),0,(officer comp not separately reported),164664,16424,181088,42.0%,
+2013-06,Heather Corcoran,48077,Corcoran $48077,179990,16213,244280,60.6%,
+2014-06,Heather Corcoran,68832,Corcoran $68832,162586,17935,249353,58.6%,
+2015-06,Heather Corcoran,62500,Corcoran $62500,204418,20729,287647,62.5%,
+2016-06,Heather Corcoran → Zachary Kaplan (mid-year),46875,combined,216424,19422,282721,57.0%,Anthology launch year
+2017-06,Zachary Kaplan,73438,Kaplan $73438,403435,35387,512260,59.2%,Anthology midrun; staff doubled
+2018-06,Zachary Kaplan,96675,Kaplan $96675,577732,49384,723791,58.6%,
+2019-06,Zachary Kaplan,101010,Kaplan $101010,701713,62255,864978,64.3%,Anthology conclusion year; peak staff costs
+2020-06,Zachary Kaplan,101010,Kaplan $101010,531626,48679,681315,59.2%,
+2021-06,Zachary Kaplan,96012,Kaplan $96012,531013,,627025,67.0%,"COVID-era; from IRS XML — note prior CSV had $101010 (rounded) and split salaries differently"
+2022-06,Three EDs in transition,241690,Connor (Co-ED) $96855 + Kaplan (ED through 4/2022) $86802 + Bailey (Co-ED) $58032 ≈ $241689,608721,40537,890948,77.5%,"the $241690 'jump' is THREE people during transition — NOT a single severance bump. Schedule J shows Kaplan total comp $97909 (base $86802 + other $11107), no bonus, no deferred"
+2023-06 (original),Bailey + Connor co-EDs,213430,Bailey $107358 + Connor $106072,690516,,903946,68.9%,
+2023-06 (amended),Bailey + Connor co-EDs,213430,Bailey $107358 + Connor $106072,690516,,903946,74.6%,2025 amendment lowered total expenses
+2024-06 (original),Bailey + Connor co-EDs (Bailey departs Spring 2024),216230,Connor $120000 + Bailey $96230 (no other_comp recorded in original),560829,,777059,60.1%,Bailey listed as Co-ED but no other_comp implies departure mid-period
+2024-06 (amended),Bailey + Connor co-EDs,226771,Connor $117733 + Bailey $109038 (each w/ ~$11800 other_comp),554223,,781025,64.5%,"amendment shifted comp between EDs and added other_comp; total reportable comp + other = $250,357"

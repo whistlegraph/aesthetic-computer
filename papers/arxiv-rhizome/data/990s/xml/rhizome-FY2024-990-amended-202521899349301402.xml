@@ -1,0 +1,836 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Return xmlns="http://www.irs.gov/efile" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" returnVersion="2023v6.0" xsi:schemaLocation="http://www.irs.gov/efile">
+  <ReturnHeader binaryAttachmentCnt="0">
+    <ReturnTs>2025-07-08T11:04:00-07:00</ReturnTs>
+    <TaxPeriodEndDt>2024-06-30</TaxPeriodEndDt>
+    <PreparerFirmGrp>
+      <PreparerFirmEIN>202747426</PreparerFirmEIN>
+      <PreparerFirmName>
+        <BusinessNameLine1Txt>RICH AND BANDER LLP</BusinessNameLine1Txt>
+      </PreparerFirmName>
+      <PreparerUSAddress>
+        <AddressLine1Txt>79 MADISON AVE 2ND FLOOR</AddressLine1Txt>
+        <CityNm>NEW YORK</CityNm>
+        <StateAbbreviationCd>NY</StateAbbreviationCd>
+        <ZIPCd>10016</ZIPCd>
+      </PreparerUSAddress>
+    </PreparerFirmGrp>
+    <ReturnTypeCd>990</ReturnTypeCd>
+    <TaxPeriodBeginDt>2023-07-01</TaxPeriodBeginDt>
+    <Filer>
+      <EIN>133995725</EIN>
+      <BusinessName>
+        <BusinessNameLine1Txt>RHIZOME COMMUNICATIONS INC co NEW MUSEUM OF CONTEMPORARY ART</BusinessNameLine1Txt>
+      </BusinessName>
+      <BusinessNameControlTxt>RHIZ</BusinessNameControlTxt>
+      <PhoneNum>2122191288</PhoneNum>
+      <USAddress>
+        <AddressLine1Txt>235 BOWERY</AddressLine1Txt>
+        <CityNm>NEW YORK</CityNm>
+        <StateAbbreviationCd>NY</StateAbbreviationCd>
+        <ZIPCd>10002</ZIPCd>
+      </USAddress>
+    </Filer>
+    <BusinessOfficerGrp>
+      <PersonNm>MICHAEL CONNOR</PersonNm>
+      <PersonTitleTxt>CO-EXECUTIVE DIRECTOR</PersonTitleTxt>
+      <PhoneNum>2122191288</PhoneNum>
+      <SignatureDt>2025-07-08</SignatureDt>
+      <DiscussWithPaidPreparerInd>true</DiscussWithPaidPreparerInd>
+    </BusinessOfficerGrp>
+    <IRSResponsiblePrtyInfoCurrInd>true</IRSResponsiblePrtyInfoCurrInd>
+    <PreparerPersonGrp>
+      <PreparerPersonNm>JONATHAN A BANDER</PreparerPersonNm>
+      <PTIN>P00561220</PTIN>
+      <PhoneNum>2126842470</PhoneNum>
+      <PreparationDt>2025-05-15</PreparationDt>
+      <SelfEmployedInd>X</SelfEmployedInd>
+    </PreparerPersonGrp>
+    <TaxYr>2023</TaxYr>
+    <BuildTS>2025-03-06 01:10:19Z</BuildTS>
+  </ReturnHeader>
+  <ReturnData documentCnt="6">
+    <IRS990 documentId="IRS990-01" referenceDocumentId="IRS990ScheduleO-01" softwareId="23017509">
+      <AmendedReturnInd>X</AmendedReturnInd>
+      <PrincipalOfficerNm>MICHAEL CONNOR</PrincipalOfficerNm>
+      <USAddress>
+        <AddressLine1Txt>235 BOWERY</AddressLine1Txt>
+        <CityNm>NEW YORK</CityNm>
+        <StateAbbreviationCd>NY</StateAbbreviationCd>
+        <ZIPCd>10002</ZIPCd>
+      </USAddress>
+      <GrossReceiptsAmt>907293</GrossReceiptsAmt>
+      <GroupReturnForAffiliatesInd>false</GroupReturnForAffiliatesInd>
+      <Organization501c3Ind>X</Organization501c3Ind>
+      <WebsiteAddressTxt>www.rhizome.org</WebsiteAddressTxt>
+      <TypeOfOrganizationCorpInd>X</TypeOfOrganizationCorpInd>
+      <FormationYr>1998</FormationYr>
+      <LegalDomicileStateCd>NY</LegalDomicileStateCd>
+      <ActivityOrMissionDesc>TO PRESENT NEW MEDIA ART TO THE PUBLIC, FOSTER COMMUNICATION AND CRITICAL DIALOGUE ABOUT NEW ART, AND TO PRESERVE MEDIA ART FOR THE FUTURE.</ActivityOrMissionDesc>
+      <VotingMembersGoverningBodyCnt>18</VotingMembersGoverningBodyCnt>
+      <VotingMembersIndependentCnt>18</VotingMembersIndependentCnt>
+      <TotalEmployeeCnt>6</TotalEmployeeCnt>
+      <TotalVolunteersCnt>6</TotalVolunteersCnt>
+      <TotalGrossUBIAmt>0</TotalGrossUBIAmt>
+      <NetUnrelatedBusTxblIncmAmt>0</NetUnrelatedBusTxblIncmAmt>
+      <PYContributionsGrantsAmt>731464</PYContributionsGrantsAmt>
+      <CYContributionsGrantsAmt>741790</CYContributionsGrantsAmt>
+      <PYProgramServiceRevenueAmt>57303</PYProgramServiceRevenueAmt>
+      <CYProgramServiceRevenueAmt>103821</CYProgramServiceRevenueAmt>
+      <PYInvestmentIncomeAmt>35273</PYInvestmentIncomeAmt>
+      <CYInvestmentIncomeAmt>1293</CYInvestmentIncomeAmt>
+      <PYOtherRevenueAmt>-67066</PYOtherRevenueAmt>
+      <CYOtherRevenueAmt>-24940</CYOtherRevenueAmt>
+      <PYTotalRevenueAmt>756974</PYTotalRevenueAmt>
+      <CYTotalRevenueAmt>821964</CYTotalRevenueAmt>
+      <CYGrantsAndSimilarPaidAmt>0</CYGrantsAndSimilarPaidAmt>
+      <CYBenefitsPaidToMembersAmt>0</CYBenefitsPaidToMembersAmt>
+      <PYSalariesCompEmpBnftPaidAmt>690516</PYSalariesCompEmpBnftPaidAmt>
+      <CYSalariesCompEmpBnftPaidAmt>554223</CYSalariesCompEmpBnftPaidAmt>
+      <CYTotalProfFndrsngExpnsAmt>0</CYTotalProfFndrsngExpnsAmt>
+      <CYTotalFundraisingExpenseAmt>60438</CYTotalFundraisingExpenseAmt>
+      <PYOtherExpensesAmt>521392</PYOtherExpensesAmt>
+      <CYOtherExpensesAmt>656071</CYOtherExpensesAmt>
+      <PYTotalExpensesAmt>1211908</PYTotalExpensesAmt>
+      <CYTotalExpensesAmt>1210294</CYTotalExpensesAmt>
+      <PYRevenuesLessExpensesAmt>-454934</PYRevenuesLessExpensesAmt>
+      <CYRevenuesLessExpensesAmt>-388330</CYRevenuesLessExpensesAmt>
+      <TotalAssetsBOYAmt>1122646</TotalAssetsBOYAmt>
+      <TotalAssetsEOYAmt>363096</TotalAssetsEOYAmt>
+      <TotalLiabilitiesBOYAmt>472423</TotalLiabilitiesBOYAmt>
+      <TotalLiabilitiesEOYAmt>101203</TotalLiabilitiesEOYAmt>
+      <NetAssetsOrFundBalancesBOYAmt>650223</NetAssetsOrFundBalancesBOYAmt>
+      <NetAssetsOrFundBalancesEOYAmt>261893</NetAssetsOrFundBalancesEOYAmt>
+      <MissionDesc>TO CHAMPION BORN-DIGITAL ART AND CULTURE THROUGH COMMISSIONS, EXHIBITION, CRITICAL PUBLISHING, AND PRESERVATION PROGRAMS.</MissionDesc>
+      <SignificantNewProgramSrvcInd>false</SignificantNewProgramSrvcInd>
+      <SignificantChangeInd>false</SignificantChangeInd>
+      <ExpenseAmt>1061792</ExpenseAmt>
+      <GrantAmt>0</GrantAmt>
+      <RevenueAmt>103821</RevenueAmt>
+      <Desc>TO EXPOSE THE PUBLIC TO WORKS OF BOTH EMERGING AND ESTABLISHED MEDIA ARTISTS, THROUGH A WEBSITE, EMAIL LISTS AND PROGRAM EVENTS.</Desc>
+      <TotalProgramServiceExpensesAmt>1061792</TotalProgramServiceExpensesAmt>
+      <DescribedInSection501c3Ind referenceDocumentId="IRS990ScheduleA-01" referenceDocumentName="IRS990ScheduleA">true</DescribedInSection501c3Ind>
+      <ScheduleBRequiredInd referenceDocumentId="IRS990ScheduleB-01" referenceDocumentName="IRS990ScheduleB">true</ScheduleBRequiredInd>
+      <PoliticalCampaignActyInd>false</PoliticalCampaignActyInd>
+      <LobbyingActivitiesInd>false</LobbyingActivitiesInd>
+      <SubjectToProxyTaxInd>false</SubjectToProxyTaxInd>
+      <DonorAdvisedFundInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</DonorAdvisedFundInd>
+      <ConservationEasementsInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</ConservationEasementsInd>
+      <CollectionsOfArtInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</CollectionsOfArtInd>
+      <CreditCounselingInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</CreditCounselingInd>
+      <DonorRstrOrQuasiEndowmentsInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</DonorRstrOrQuasiEndowmentsInd>
+      <ReportLandBuildingEquipmentInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">true</ReportLandBuildingEquipmentInd>
+      <ReportInvestmentsOtherSecInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</ReportInvestmentsOtherSecInd>
+      <ReportProgramRelatedInvstInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</ReportProgramRelatedInvstInd>
+      <ReportOtherAssetsInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</ReportOtherAssetsInd>
+      <ReportOtherLiabilitiesInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">true</ReportOtherLiabilitiesInd>
+      <IncludeFIN48FootnoteInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">true</IncludeFIN48FootnoteInd>
+      <IndependentAuditFinclStmtInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">true</IndependentAuditFinclStmtInd>
+      <ConsolidatedAuditFinclStmtInd referenceDocumentId="IRS990ScheduleD-01" referenceDocumentName="IRS990ScheduleD">false</ConsolidatedAuditFinclStmtInd>
+      <SchoolOperatingInd>false</SchoolOperatingInd>
+      <ForeignOfficeInd>false</ForeignOfficeInd>
+      <ForeignActivitiesInd>false</ForeignActivitiesInd>
+      <MoreThan5000KToOrgInd>false</MoreThan5000KToOrgInd>
+      <MoreThan5000KToIndividualsInd>false</MoreThan5000KToIndividualsInd>
+      <ProfessionalFundraisingInd referenceDocumentId="IRS990ScheduleG-01" referenceDocumentName="IRS990ScheduleG">false</ProfessionalFundraisingInd>
+      <FundraisingActivitiesInd referenceDocumentId="IRS990ScheduleG-01" referenceDocumentName="IRS990ScheduleG">true</FundraisingActivitiesInd>
+      <GamingActivitiesInd referenceDocumentId="IRS990ScheduleG-01" referenceDocumentName="IRS990ScheduleG">false</GamingActivitiesInd>
+      <OperateHospitalInd>false</OperateHospitalInd>
+      <GrantsToOrganizationsInd>false</GrantsToOrganizationsInd>
+      <GrantsToIndividualsInd>false</GrantsToIndividualsInd>
+      <ScheduleJRequiredInd>false</ScheduleJRequiredInd>
+      <TaxExemptBondsInd>false</TaxExemptBondsInd>
+      <EngagedInExcessBenefitTransInd>false</EngagedInExcessBenefitTransInd>
+      <PYExcessBenefitTransInd>false</PYExcessBenefitTransInd>
+      <LoanOutstandingInd>false</LoanOutstandingInd>
+      <GrantToRelatedPersonInd>false</GrantToRelatedPersonInd>
+      <BusinessRlnWithOrgMemInd>false</BusinessRlnWithOrgMemInd>
+      <BusinessRlnWithFamMemInd>false</BusinessRlnWithFamMemInd>
+      <BusinessRlnWith35CtrlEntInd>false</BusinessRlnWith35CtrlEntInd>
+      <DeductibleNonCashContriInd>false</DeductibleNonCashContriInd>
+      <DeductibleArtContributionInd>false</DeductibleArtContributionInd>
+      <TerminateOperationsInd>false</TerminateOperationsInd>
+      <PartialLiquidationInd>false</PartialLiquidationInd>
+      <DisregardedEntityInd>false</DisregardedEntityInd>
+      <RelatedEntityInd>false</RelatedEntityInd>
+      <RelatedOrganizationCtrlEntInd>false</RelatedOrganizationCtrlEntInd>
+      <TrnsfrExmptNonChrtblRltdOrgInd>false</TrnsfrExmptNonChrtblRltdOrgInd>
+      <ActivitiesConductedPrtshpInd>false</ActivitiesConductedPrtshpInd>
+      <ScheduleORequiredInd>true</ScheduleORequiredInd>
+      <IRPDocumentCnt>0</IRPDocumentCnt>
+      <IRPDocumentW2GCnt>0</IRPDocumentW2GCnt>
+      <EmployeeCnt>6</EmployeeCnt>
+      <EmploymentTaxReturnsFiledInd>true</EmploymentTaxReturnsFiledInd>
+      <UnrelatedBusIncmOverLimitInd>false</UnrelatedBusIncmOverLimitInd>
+      <ForeignFinancialAccountInd>false</ForeignFinancialAccountInd>
+      <ProhibitedTaxShelterTransInd>false</ProhibitedTaxShelterTransInd>
+      <TaxablePartyNotificationInd>false</TaxablePartyNotificationInd>
+      <NondeductibleContributionsInd>false</NondeductibleContributionsInd>
+      <QuidProQuoContributionsInd>true</QuidProQuoContributionsInd>
+      <QuidProQuoContriDisclInd>true</QuidProQuoContriDisclInd>
+      <Form8282PropertyDisposedOfInd>false</Form8282PropertyDisposedOfInd>
+      <RcvFndsToPayPrsnlBnftCntrctInd>false</RcvFndsToPayPrsnlBnftCntrctInd>
+      <PayPremiumsPrsnlBnftCntrctInd>false</PayPremiumsPrsnlBnftCntrctInd>
+      <IndoorTanningServicesInd>false</IndoorTanningServicesInd>
+      <InfoInScheduleOPartVIInd>X</InfoInScheduleOPartVIInd>
+      <GoverningBodyVotingMembersCnt>18</GoverningBodyVotingMembersCnt>
+      <IndependentVotingMemberCnt>18</IndependentVotingMemberCnt>
+      <FamilyOrBusinessRlnInd>true</FamilyOrBusinessRlnInd>
+      <DelegationOfMgmtDutiesInd>false</DelegationOfMgmtDutiesInd>
+      <ChangeToOrgDocumentsInd>false</ChangeToOrgDocumentsInd>
+      <MaterialDiversionOrMisuseInd>false</MaterialDiversionOrMisuseInd>
+      <MembersOrStockholdersInd>false</MembersOrStockholdersInd>
+      <ElectionOfBoardMembersInd>false</ElectionOfBoardMembersInd>
+      <DecisionsSubjectToApprovaInd>false</DecisionsSubjectToApprovaInd>
+      <MinutesOfGoverningBodyInd>true</MinutesOfGoverningBodyInd>
+      <MinutesOfCommitteesInd>true</MinutesOfCommitteesInd>
+      <OfficerMailingAddressInd>false</OfficerMailingAddressInd>
+      <LocalChaptersInd>false</LocalChaptersInd>
+      <Form990ProvidedToGvrnBodyInd>true</Form990ProvidedToGvrnBodyInd>
+      <ConflictOfInterestPolicyInd>true</ConflictOfInterestPolicyInd>
+      <AnnualDisclosureCoveredPrsnInd>true</AnnualDisclosureCoveredPrsnInd>
+      <RegularMonitoringEnfrcInd>true</RegularMonitoringEnfrcInd>
+      <WhistleblowerPolicyInd>true</WhistleblowerPolicyInd>
+      <DocumentRetentionPolicyInd>true</DocumentRetentionPolicyInd>
+      <CompensationProcessCEOInd>true</CompensationProcessCEOInd>
+      <CompensationProcessOtherInd>true</CompensationProcessOtherInd>
+      <InvestmentInJointVentureInd>false</InvestmentInJointVentureInd>
+      <StatesWhereCopyOfReturnIsFldCd>NY</StatesWhereCopyOfReturnIsFldCd>
+      <OtherWebsiteInd>X</OtherWebsiteInd>
+      <UponRequestInd>X</UponRequestInd>
+      <BooksInCareOfDetail>
+        <PersonNm>CO NEW MUSEUM</PersonNm>
+        <PhoneNum>2122191288</PhoneNum>
+        <USAddress>
+          <AddressLine1Txt>235 BOWERY</AddressLine1Txt>
+          <CityNm>NEW YORK</CityNm>
+          <StateAbbreviationCd>NY</StateAbbreviationCd>
+          <ZIPCd>10002</ZIPCd>
+        </USAddress>
+      </BooksInCareOfDetail>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>MICHAEL CONNOR</PersonNm>
+        <TitleTxt>CO-EXECUTIVE DIRECTOR</TitleTxt>
+        <AverageHoursPerWeekRt>40.00</AverageHoursPerWeekRt>
+        <OfficerInd>X</OfficerInd>
+        <ReportableCompFromOrgAmt>117733</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>11761</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>MAKAYLA BAILEY</PersonNm>
+        <TitleTxt>CO-EXECUTIVE DIRECTOR</TitleTxt>
+        <AverageHoursPerWeekRt>40.00</AverageHoursPerWeekRt>
+        <OfficerInd>X</OfficerInd>
+        <ReportableCompFromOrgAmt>109038</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>11825</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>GREG PASS</PersonNm>
+        <TitleTxt>CHAIR (LEFT NOVEMBER 2024)</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <OfficerInd>X</OfficerInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>FRED BENENSON</PersonNm>
+        <TitleTxt>VICE CHAIR</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <OfficerInd>X</OfficerInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>LISA ROUMELL</PersonNm>
+        <TitleTxt>TREASURER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <OfficerInd>X</OfficerInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>JK BROWN</PersonNm>
+        <TitleTxt>BOARD PRESIDENT</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <OfficerInd>X</OfficerInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>RENNY GLEESON</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>WILLIAM PALMER</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>LISA PHILLIPS</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>MARK TRIBE</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>KAREN WONG</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>JOHN WOTOWICZ</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>TRACY CHOU</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>HILLARY NEVE</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>KEITH OBADIKE</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>MENDI OBADIKE</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>LINDSAY HOWARD</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>RON ROSENZWEIG</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>SKAWENNATI</PersonNm>
+        <TitleTxt>BOARD MEMBER</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>ALEX CHUNG</PersonNm>
+        <TitleTxt>BOARD MEMBER (LEFT FEBRUARY 2024)</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>TREVOR MCFEDRIES</PersonNm>
+        <TitleTxt>BOARD MEMBER (LEFT SEPTEMBER 2024)</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <Form990PartVIISectionAGrp>
+        <PersonNm>JOSH WOLFE</PersonNm>
+        <TitleTxt>BOARD MEMBER (LEFT OCTOBER 2023)</TitleTxt>
+        <AverageHoursPerWeekRt>1.00</AverageHoursPerWeekRt>
+        <IndividualTrusteeOrDirectorInd>X</IndividualTrusteeOrDirectorInd>
+        <ReportableCompFromOrgAmt>0</ReportableCompFromOrgAmt>
+        <ReportableCompFromRltdOrgAmt>0</ReportableCompFromRltdOrgAmt>
+        <OtherCompensationAmt>0</OtherCompensationAmt>
+      </Form990PartVIISectionAGrp>
+      <TotalReportableCompFromOrgAmt>226771</TotalReportableCompFromOrgAmt>
+      <TotReportableCompRltdOrgAmt>0</TotReportableCompRltdOrgAmt>
+      <TotalOtherCompensationAmt>23586</TotalOtherCompensationAmt>
+      <IndivRcvdGreaterThan100KCnt>2</IndivRcvdGreaterThan100KCnt>
+      <FormerOfcrEmployeesListedInd>false</FormerOfcrEmployeesListedInd>
+      <TotalCompGreaterThan150KInd>false</TotalCompGreaterThan150KInd>
+      <CompensationFromOtherSrcsInd>false</CompensationFromOtherSrcsInd>
+      <MembershipDuesAmt>33644</MembershipDuesAmt>
+      <FundraisingAmt>86967</FundraisingAmt>
+      <GovernmentGrantsAmt>99500</GovernmentGrantsAmt>
+      <AllOtherContributionsAmt>521679</AllOtherContributionsAmt>
+      <TotalContributionsAmt>741790</TotalContributionsAmt>
+      <ProgramServiceRevenueGrp>
+        <Desc>MEMBERSHIP FEES</Desc>
+        <BusinessCd>900099</BusinessCd>
+        <TotalRevenueColumnAmt>2986</TotalRevenueColumnAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>0</ExclusionAmt>
+      </ProgramServiceRevenueGrp>
+      <ProgramServiceRevenueGrp>
+        <Desc>DIGITAL PRESERVATION</Desc>
+        <BusinessCd>900099</BusinessCd>
+        <TotalRevenueColumnAmt>100835</TotalRevenueColumnAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>0</ExclusionAmt>
+      </ProgramServiceRevenueGrp>
+      <TotalProgramServiceRevenueAmt>103821</TotalProgramServiceRevenueAmt>
+      <InvestmentIncomeGrp>
+        <TotalRevenueColumnAmt>1069</TotalRevenueColumnAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>1069</ExclusionAmt>
+      </InvestmentIncomeGrp>
+      <GrossAmountSalesAssetsGrp>
+        <OtherAmt>998</OtherAmt>
+      </GrossAmountSalesAssetsGrp>
+      <LessCostOthBasisSalesExpnssGrp>
+        <OtherAmt>774</OtherAmt>
+      </LessCostOthBasisSalesExpnssGrp>
+      <GainOrLossGrp>
+        <OtherAmt>224</OtherAmt>
+      </GainOrLossGrp>
+      <NetGainOrLossInvestmentsGrp>
+        <TotalRevenueColumnAmt>224</TotalRevenueColumnAmt>
+        <RelatedOrExemptFuncIncomeAmt>0</RelatedOrExemptFuncIncomeAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>224</ExclusionAmt>
+      </NetGainOrLossInvestmentsGrp>
+      <FundraisingGrossIncomeAmt>17440</FundraisingGrossIncomeAmt>
+      <ContriRptFundraisingEventAmt>86967</ContriRptFundraisingEventAmt>
+      <FundraisingDirectExpensesAmt>84555</FundraisingDirectExpensesAmt>
+      <NetIncmFromFundraisingEvtGrp>
+        <TotalRevenueColumnAmt>-67115</TotalRevenueColumnAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>-67115</ExclusionAmt>
+      </NetIncmFromFundraisingEvtGrp>
+      <OtherRevenueMiscGrp>
+        <Desc>EDITIONS INCOME</Desc>
+        <BusinessCd>900099</BusinessCd>
+        <TotalRevenueColumnAmt>41956</TotalRevenueColumnAmt>
+        <RelatedOrExemptFuncIncomeAmt>41956</RelatedOrExemptFuncIncomeAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>0</ExclusionAmt>
+      </OtherRevenueMiscGrp>
+      <OtherRevenueMiscGrp>
+        <Desc>MISCELLANEOUS INCOME</Desc>
+        <BusinessCd>900099</BusinessCd>
+        <TotalRevenueColumnAmt>219</TotalRevenueColumnAmt>
+        <RelatedOrExemptFuncIncomeAmt>219</RelatedOrExemptFuncIncomeAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>0</ExclusionAmt>
+      </OtherRevenueMiscGrp>
+      <OtherRevenueTotalAmt>42175</OtherRevenueTotalAmt>
+      <TotalRevenueGrp>
+        <TotalRevenueColumnAmt>821964</TotalRevenueColumnAmt>
+        <RelatedOrExemptFuncIncomeAmt>145996</RelatedOrExemptFuncIncomeAmt>
+        <UnrelatedBusinessRevenueAmt>0</UnrelatedBusinessRevenueAmt>
+        <ExclusionAmt>-65822</ExclusionAmt>
+      </TotalRevenueGrp>
+      <CompCurrentOfcrDirectorsGrp>
+        <TotalAmt>232455</TotalAmt>
+        <ProgramServicesAmt>202455</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>12000</ManagementAndGeneralAmt>
+        <FundraisingAmt>18000</FundraisingAmt>
+      </CompCurrentOfcrDirectorsGrp>
+      <OtherSalariesAndWagesGrp>
+        <TotalAmt>220391</TotalAmt>
+        <ProgramServicesAmt>188145</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>17849</ManagementAndGeneralAmt>
+        <FundraisingAmt>14397</FundraisingAmt>
+      </OtherSalariesAndWagesGrp>
+      <OtherEmployeeBenefitsGrp>
+        <TotalAmt>65022</TotalAmt>
+        <ProgramServicesAmt>56084</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>4286</ManagementAndGeneralAmt>
+        <FundraisingAmt>4652</FundraisingAmt>
+      </OtherEmployeeBenefitsGrp>
+      <PayrollTaxesGrp>
+        <TotalAmt>36355</TotalAmt>
+        <ProgramServicesAmt>31358</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>2396</ManagementAndGeneralAmt>
+        <FundraisingAmt>2601</FundraisingAmt>
+      </PayrollTaxesGrp>
+      <FeesForServicesManagementGrp>
+        <TotalAmt>50943</TotalAmt>
+        <ProgramServicesAmt>0</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>44348</ManagementAndGeneralAmt>
+        <FundraisingAmt>6595</FundraisingAmt>
+      </FeesForServicesManagementGrp>
+      <FeesForServicesOtherGrp>
+        <TotalAmt>448472</TotalAmt>
+        <ProgramServicesAmt>433728</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>4915</ManagementAndGeneralAmt>
+        <FundraisingAmt>9829</FundraisingAmt>
+      </FeesForServicesOtherGrp>
+      <AdvertisingGrp>
+        <TotalAmt>3008</TotalAmt>
+        <ProgramServicesAmt>3008</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>0</ManagementAndGeneralAmt>
+        <FundraisingAmt>0</FundraisingAmt>
+      </AdvertisingGrp>
+      <InformationTechnologyGrp>
+        <TotalAmt>91113</TotalAmt>
+        <ProgramServicesAmt>79269</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>9111</ManagementAndGeneralAmt>
+        <FundraisingAmt>2733</FundraisingAmt>
+      </InformationTechnologyGrp>
+      <TravelGrp>
+        <TotalAmt>13101</TotalAmt>
+        <ProgramServicesAmt>11590</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>1162</ManagementAndGeneralAmt>
+        <FundraisingAmt>349</FundraisingAmt>
+      </TravelGrp>
+      <DepreciationDepletionGrp>
+        <TotalAmt>15207</TotalAmt>
+        <ProgramServicesAmt>13230</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>1521</ManagementAndGeneralAmt>
+        <FundraisingAmt>456</FundraisingAmt>
+      </DepreciationDepletionGrp>
+      <InsuranceGrp>
+        <TotalAmt>5310</TotalAmt>
+        <ProgramServicesAmt>4620</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>531</ManagementAndGeneralAmt>
+        <FundraisingAmt>159</FundraisingAmt>
+      </InsuranceGrp>
+      <OtherExpensesGrp>
+        <Desc>PRINTING AND PUBLICATION</Desc>
+        <TotalAmt>104</TotalAmt>
+        <ProgramServicesAmt>104</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>0</ManagementAndGeneralAmt>
+        <FundraisingAmt>0</FundraisingAmt>
+      </OtherExpensesGrp>
+      <OtherExpensesGrp>
+        <Desc>POSTAGE AND DELIVERY</Desc>
+        <TotalAmt>542</TotalAmt>
+        <ProgramServicesAmt>542</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>0</ManagementAndGeneralAmt>
+        <FundraisingAmt>0</FundraisingAmt>
+      </OtherExpensesGrp>
+      <OtherExpensesGrp>
+        <Desc>BANK AND OTHER FEES</Desc>
+        <TotalAmt>13841</TotalAmt>
+        <ProgramServicesAmt>12043</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>1383</ManagementAndGeneralAmt>
+        <FundraisingAmt>415</FundraisingAmt>
+      </OtherExpensesGrp>
+      <OtherExpensesGrp>
+        <Desc>SUPPLIES</Desc>
+        <TotalAmt>2850</TotalAmt>
+        <ProgramServicesAmt>2850</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>0</ManagementAndGeneralAmt>
+        <FundraisingAmt>0</FundraisingAmt>
+      </OtherExpensesGrp>
+      <AllOtherExpensesGrp>
+        <TotalAmt>11580</TotalAmt>
+        <ProgramServicesAmt>10488</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>840</ManagementAndGeneralAmt>
+        <FundraisingAmt>252</FundraisingAmt>
+      </AllOtherExpensesGrp>
+      <TotalFunctionalExpensesGrp>
+        <TotalAmt>1210294</TotalAmt>
+        <ProgramServicesAmt>1049514</ProgramServicesAmt>
+        <ManagementAndGeneralAmt>100342</ManagementAndGeneralAmt>
+        <FundraisingAmt>60438</FundraisingAmt>
+      </TotalFunctionalExpensesGrp>
+      <CashNonInterestBearingGrp>
+        <BOYAmt>58973</BOYAmt>
+        <EOYAmt>6622</EOYAmt>
+      </CashNonInterestBearingGrp>
+      <SavingsAndTempCashInvstGrp>
+        <BOYAmt>490751</BOYAmt>
+      </SavingsAndTempCashInvstGrp>
+      <PledgesAndGrantsReceivableGrp>
+        <BOYAmt>507273</BOYAmt>
+        <EOYAmt>330259</EOYAmt>
+      </PledgesAndGrantsReceivableGrp>
+      <AccountsReceivableGrp>
+        <BOYAmt>29061</BOYAmt>
+        <EOYAmt>851</EOYAmt>
+      </AccountsReceivableGrp>
+      <PrepaidExpensesDefrdChargesGrp>
+        <BOYAmt>5566</BOYAmt>
+        <EOYAmt>5324</EOYAmt>
+      </PrepaidExpensesDefrdChargesGrp>
+      <LandBldgEquipCostOrOtherBssAmt>48941</LandBldgEquipCostOrOtherBssAmt>
+      <LandBldgEquipAccumDeprecAmt>46234</LandBldgEquipAccumDeprecAmt>
+      <LandBldgEquipBasisNetGrp>
+        <BOYAmt>6622</BOYAmt>
+        <EOYAmt>2707</EOYAmt>
+      </LandBldgEquipBasisNetGrp>
+      <IntangibleAssetsGrp>
+        <BOYAmt>24400</BOYAmt>
+        <EOYAmt>17333</EOYAmt>
+      </IntangibleAssetsGrp>
+      <TotalAssetsGrp>
+        <BOYAmt>1122646</BOYAmt>
+        <EOYAmt>363096</EOYAmt>
+      </TotalAssetsGrp>
+      <AccountsPayableAccrExpnssGrp>
+        <BOYAmt>62080</BOYAmt>
+        <EOYAmt>30152</EOYAmt>
+      </AccountsPayableAccrExpnssGrp>
+      <OtherLiabilitiesGrp>
+        <BOYAmt>410343</BOYAmt>
+        <EOYAmt>71051</EOYAmt>
+      </OtherLiabilitiesGrp>
+      <TotalLiabilitiesGrp>
+        <BOYAmt>472423</BOYAmt>
+        <EOYAmt>101203</EOYAmt>
+      </TotalLiabilitiesGrp>
+      <OrganizationFollowsFASB117Ind>X</OrganizationFollowsFASB117Ind>
+      <NoDonorRestrictionNetAssetsGrp>
+        <BOYAmt>-65414</BOYAmt>
+        <EOYAmt>-185539</EOYAmt>
+      </NoDonorRestrictionNetAssetsGrp>
+      <DonorRestrictionNetAssetsGrp>
+        <BOYAmt>715637</BOYAmt>
+        <EOYAmt>447432</EOYAmt>
+      </DonorRestrictionNetAssetsGrp>
+      <TotalNetAssetsFundBalanceGrp>
+        <BOYAmt>650223</BOYAmt>
+        <EOYAmt>261893</EOYAmt>
+      </TotalNetAssetsFundBalanceGrp>
+      <TotLiabNetAssetsFundBalanceGrp>
+        <BOYAmt>1122646</BOYAmt>
+        <EOYAmt>363096</EOYAmt>
+      </TotLiabNetAssetsFundBalanceGrp>
+      <ReconcilationRevenueExpnssAmt>-388330</ReconcilationRevenueExpnssAmt>
+      <MethodOfAccountingAccrualInd>X</MethodOfAccountingAccrualInd>
+      <AccountantCompileOrReviewInd>false</AccountantCompileOrReviewInd>
+      <FSAuditedInd>true</FSAuditedInd>
+      <FSAuditedBasisGrp>
+        <SeparateBasisFinclStmtInd>X</SeparateBasisFinclStmtInd>
+      </FSAuditedBasisGrp>
+      <AuditCommitteeInd>true</AuditCommitteeInd>
+      <FederalGrantAuditRequiredInd>false</FederalGrantAuditRequiredInd>
+    </IRS990>
+    <IRS990ScheduleA documentId="IRS990ScheduleA-01" softwareId="23017509">
+      <PublicOrganization170Ind>X</PublicOrganization170Ind>
+      <OtherSupportSumAmt>0</OtherSupportSumAmt>
+      <GiftsGrantsContriRcvd170Grp>
+        <CurrentTaxYearMinus4YearsAmt>695867</CurrentTaxYearMinus4YearsAmt>
+        <CurrentTaxYearMinus3YearsAmt>578659</CurrentTaxYearMinus3YearsAmt>
+        <CurrentTaxYearMinus2YearsAmt>2055310</CurrentTaxYearMinus2YearsAmt>
+        <CurrentTaxYearMinus1YearAmt>731464</CurrentTaxYearMinus1YearAmt>
+        <CurrentTaxYearAmt>741790</CurrentTaxYearAmt>
+        <TotalAmt>4803090</TotalAmt>
+      </GiftsGrantsContriRcvd170Grp>
+      <TaxRevLeviedOrgnztnlBnft170Grp>
+        <TotalAmt>0</TotalAmt>
+      </TaxRevLeviedOrgnztnlBnft170Grp>
+      <GovtFurnSrvcFcltsVl170Grp>
+        <TotalAmt>0</TotalAmt>
+      </GovtFurnSrvcFcltsVl170Grp>
+      <TotalCalendarYear170Grp>
+        <CurrentTaxYearMinus4YearsAmt>695867</CurrentTaxYearMinus4YearsAmt>
+        <CurrentTaxYearMinus3YearsAmt>578659</CurrentTaxYearMinus3YearsAmt>
+        <CurrentTaxYearMinus2YearsAmt>2055310</CurrentTaxYearMinus2YearsAmt>
+        <CurrentTaxYearMinus1YearAmt>731464</CurrentTaxYearMinus1YearAmt>
+        <CurrentTaxYearAmt>741790</CurrentTaxYearAmt>
+        <TotalAmt>4803090</TotalAmt>
+      </TotalCalendarYear170Grp>
+      <SubstantialContributorsTotAmt>1383937</SubstantialContributorsTotAmt>
+      <PublicSupportTotal170Amt>3419153</PublicSupportTotal170Amt>
+      <GrossInvestmentIncome170Grp>
+        <CurrentTaxYearMinus4YearsAmt>161</CurrentTaxYearMinus4YearsAmt>
+        <CurrentTaxYearMinus3YearsAmt>36</CurrentTaxYearMinus3YearsAmt>
+        <CurrentTaxYearMinus2YearsAmt>86</CurrentTaxYearMinus2YearsAmt>
+        <CurrentTaxYearMinus1YearAmt>5602</CurrentTaxYearMinus1YearAmt>
+        <CurrentTaxYearAmt>6589</CurrentTaxYearAmt>
+        <TotalAmt>12474</TotalAmt>
+      </GrossInvestmentIncome170Grp>
+      <UnrelatedBusinessNetIncm170Grp>
+        <TotalAmt>0</TotalAmt>
+      </UnrelatedBusinessNetIncm170Grp>
+      <OtherIncome170Grp>
+        <CurrentTaxYearMinus4YearsAmt>31384</CurrentTaxYearMinus4YearsAmt>
+        <CurrentTaxYearMinus3YearsAmt>20475</CurrentTaxYearMinus3YearsAmt>
+        <CurrentTaxYearMinus2YearsAmt>1136</CurrentTaxYearMinus2YearsAmt>
+        <CurrentTaxYearMinus1YearAmt>7271</CurrentTaxYearMinus1YearAmt>
+        <CurrentTaxYearAmt>219</CurrentTaxYearAmt>
+        <TotalAmt>60485</TotalAmt>
+      </OtherIncome170Grp>
+      <TotalSupportAmt>4876049</TotalSupportAmt>
+      <GrossReceiptsRltdActivitiesAmt>546554</GrossReceiptsRltdActivitiesAmt>
+      <PublicSupportCY170Pct>0.70120</PublicSupportCY170Pct>
+      <PublicSupportPY170Pct>0.71520</PublicSupportPY170Pct>
+      <ThirtyThrPctSuprtTestsCY170Ind>X</ThirtyThrPctSuprtTestsCY170Ind>
+      <PublicSupportTotal509Amt>0</PublicSupportTotal509Amt>
+      <PublicSupportCY509Pct>0</PublicSupportCY509Pct>
+      <InvestmentIncomeCYPct>0</InvestmentIncomeCYPct>
+      <Form990ScheduleAPartVIGrp>
+        <FormAndLineReferenceDesc>Pt II Ln 10</FormAndLineReferenceDesc>
+        <ExplanationTxt>Other Income Part II, Line 10 Description: ADVERTISING INCOME 2019: 6384. 2020: 475. 2021: 650. 2022: 525. Description: MISCELLANEOUS REVENUE 2019: 0. 2020: 0. 2021: 486. 2022: 6746. 2023: 219. Description: LICENSING FEES 2019: 25000. 2020: 20000.</ExplanationTxt>
+      </Form990ScheduleAPartVIGrp>
+    </IRS990ScheduleA>
+    <IRS990ScheduleB documentId="IRS990ScheduleB-01">
+      <ContributorInformationGrp>
+        <ContributorNum>RESTRICTED</ContributorNum>
+        <ContributorBusinessName>
+          <BusinessNameLine1>RESTRICTED</BusinessNameLine1>
+        </ContributorBusinessName>
+        <ContributorUSAddress>
+          <AddressLine1>RESTRICTED</AddressLine1>
+          <AddressLine2>RESTRICTED</AddressLine2>
+          <City>RESTRICTED</City>
+          <State>RESTRICTED</State>
+          <ZIPCode>RESTRICTED</ZIPCode>
+        </ContributorUSAddress>
+        <TotalContributionsAmt>RESTRICTED</TotalContributionsAmt>
+      </ContributorInformationGrp>
+    </IRS990ScheduleB>
+    <IRS990ScheduleD documentId="IRS990ScheduleD-01" softwareId="23017509">
+      <LandGrp>
+        <InvestmentCostOrOtherBasisAmt>0</InvestmentCostOrOtherBasisAmt>
+        <BookValueAmt>0</BookValueAmt>
+      </LandGrp>
+      <EquipmentGrp>
+        <InvestmentCostOrOtherBasisAmt>48941</InvestmentCostOrOtherBasisAmt>
+        <DepreciationAmt>46234</DepreciationAmt>
+        <BookValueAmt>2707</BookValueAmt>
+      </EquipmentGrp>
+      <TotalBookValueLandBuildingsAmt>2707</TotalBookValueLandBuildingsAmt>
+      <OtherLiabilitiesOrgGrp>
+        <Desc>DUE TO THE NEW MUSEUM</Desc>
+        <Amt>71051</Amt>
+      </OtherLiabilitiesOrgGrp>
+      <TotalLiabilityAmt>71051</TotalLiabilityAmt>
+      <FootnoteTextInd>X</FootnoteTextInd>
+      <TotalRevEtcAuditedFinclStmtAmt>854527</TotalRevEtcAuditedFinclStmtAmt>
+      <DonatedServicesAndUseFcltsAmt>32563</DonatedServicesAndUseFcltsAmt>
+      <RevenueNotReportedAmt>32563</RevenueNotReportedAmt>
+      <RevenueSubtotalAmt>821964</RevenueSubtotalAmt>
+      <TotalRevenuePerForm990Amt>821964</TotalRevenuePerForm990Amt>
+      <TotExpnsEtcAuditedFinclStmtAmt>1242857</TotExpnsEtcAuditedFinclStmtAmt>
+      <DonatedServicesUseFcltsAmt>32563</DonatedServicesUseFcltsAmt>
+      <ExpensesNotReportedAmt>32563</ExpensesNotReportedAmt>
+      <ExpensesSubtotalAmt>1210294</ExpensesSubtotalAmt>
+      <TotalExpensesPerForm990Amt>1210294</TotalExpensesPerForm990Amt>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Pt X, Line 2</FormAndLineReferenceDesc>
+        <ExplanationTxt>The Organization has evaluated its current tax positions and has concluded that as of June 30, 2024, the Organization does not have any significant uncertain tax positions for which a reserve would be necessary.</ExplanationTxt>
+      </SupplementalInformationDetail>
+    </IRS990ScheduleD>
+    <IRS990ScheduleG documentId="IRS990ScheduleG-01">
+      <FundraisingEventInformationGrp>
+        <Event1Nm>GALA</Event1Nm>
+        <GrossReceiptsEvent1Amt>104407</GrossReceiptsEvent1Amt>
+        <CharitableContriEvent1Amt>86967</CharitableContriEvent1Amt>
+        <GrossRevenueEvent1Amt>17440</GrossRevenueEvent1Amt>
+        <RentFacilityCostsEvent1Amt>9784</RentFacilityCostsEvent1Amt>
+        <FoodAndBeverageEvent1Amt>41098</FoodAndBeverageEvent1Amt>
+        <EntertainmentEvent1Amt>30268</EntertainmentEvent1Amt>
+        <OtherDirectExpensesEvent1Amt>3405</OtherDirectExpensesEvent1Amt>
+        <GrossReceiptsTotalAmt>104407</GrossReceiptsTotalAmt>
+        <CharitableContributionsTotAmt>86967</CharitableContributionsTotAmt>
+        <GrossRevenueTotalEventsAmt>17440</GrossRevenueTotalEventsAmt>
+        <RentFcltyCostsTotalEventsAmt>9784</RentFcltyCostsTotalEventsAmt>
+        <FoodAndBeverageTotalEventsAmt>41098</FoodAndBeverageTotalEventsAmt>
+        <EntertainmentTotalEventsAmt>30268</EntertainmentTotalEventsAmt>
+        <OthDirectExpnssTotalEventsAmt>3405</OthDirectExpnssTotalEventsAmt>
+        <DirectExpenseSummaryEventsAmt>84555</DirectExpenseSummaryEventsAmt>
+        <NetIncomeSummaryAmt>-67115</NetIncomeSummaryAmt>
+      </FundraisingEventInformationGrp>
+    </IRS990ScheduleG>
+    <IRS990ScheduleO documentId="IRS990ScheduleO-01" softwareId="23017509">
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Pt VI, Line 11b</FormAndLineReferenceDesc>
+        <ExplanationTxt>SENIOR MANAGEMENT REVIEWS AND APPROVES AND SUBMITS TO BOARD OF TRUSTEES.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Pt VI, Line 12c</FormAndLineReferenceDesc>
+        <ExplanationTxt>ALL TRUSTEES AND EMPLOYEES ARE REQUIRED TO SIGN AN ETHICS/CONFLICTS OF INTEREST POLICY, AND THIS IS REVIEWED ANNUALLY FOR COMPLETENESS.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Pt VI, Line 15a</FormAndLineReferenceDesc>
+        <ExplanationTxt>THE DIRECTOR POSITION IS APPROVED BY THE BOARD OF TRUSTEES. A COMPETITIVE SEARCH IS CONDUCTED AND THE BOARD APPROVES THE SALARY OF THE DIRECTOR.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Pt VI, Line 15b</FormAndLineReferenceDesc>
+        <ExplanationTxt>A COMPETITIVE SEARCH IS CONDUCTED FOR ALL POSITIONS. THE DIRECTOR PROPOSES SALARIES FOR ALL OTHER EMPLOYEES, BUT THE SALARY BUDGET IS APPROVED BY THE BOARD OF TRUSTEES.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Pt VI, Line 19</FormAndLineReferenceDesc>
+        <ExplanationTxt>AVAILABLE UPON REQUEST.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Pt VI, Line 2</FormAndLineReferenceDesc>
+        <ExplanationTxt>KEITH OBADIKE AND MENDY OBADIKE ARE MARRIED AND ARTISTIC COLLABORATORS.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Form 990, Part IX, Line 11g</FormAndLineReferenceDesc>
+        <ExplanationTxt>ART AND DESIGN FEES 44099. 44099. 0. 0.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Form 990, Part IX, Line 11g</FormAndLineReferenceDesc>
+        <ExplanationTxt>PROGRAM CONSULTING 306080. 306080. 0. 0.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>Form 990, Part IX, Line 11g</FormAndLineReferenceDesc>
+        <ExplanationTxt>PRESERVATION DIRECTOR 98293. 83549. 4915. 9829.</ExplanationTxt>
+      </SupplementalInformationDetail>
+    </IRS990ScheduleO>
+  </ReturnData>
+</Return>
