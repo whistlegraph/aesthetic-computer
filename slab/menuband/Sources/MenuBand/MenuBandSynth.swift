@@ -265,16 +265,28 @@ final class MenuBandSynth {
         let key: UInt16 = (UInt16(0x79) << 8) | UInt16(program)
         let needsLoad = !loadedPrograms.contains(key)
         if needsLoad { setMIDISynthPreload(au, enable: true) }
-        sendMIDIEvent(au, status: 0xB0, data1: 0,  data2: 0x79)  // CC0  bank MSB
-        sendMIDIEvent(au, status: 0xB0, data1: 32, data2: 0x00)  // CC32 bank LSB
-        sendMIDIEvent(au, status: 0xC0, data1: program)          // PC   program
+        // Broadcast bank+PC to all 8 melodic channels (0-7). The
+        // controller's round-robin voice allocator (live 0-3, doppler
+        // 4-7) needs every channel preloaded with the chosen voice so
+        // a noteOn lands on the user's instrument no matter which
+        // channel it picked. Channel 9 is reserved for drums; 8 and
+        // 10-15 are unused. Without this loop only ch0 played the
+        // selected voice, which collapsed all "rotation" back to a
+        // single channel and let same-note retriggers cut each other.
+        for ch: UInt8 in 0..<8 {
+            sendMIDIEvent(au, status: 0xB0 | ch, data1: 0,  data2: 0x79)
+            sendMIDIEvent(au, status: 0xB0 | ch, data1: 32, data2: 0x00)
+            sendMIDIEvent(au, status: 0xC0 | ch, data1: program)
+        }
         if needsLoad {
             setMIDISynthPreload(au, enable: false)
             loadedPrograms.insert(key)
-            // After preload-disable, the AU's *active* program is still
-            // unset on this channel — re-send the PC so noteOn lands on the
+            // After preload-disable the AU's *active* program is still
+            // unset on each channel — re-send PC so noteOn lands on the
             // freshly loaded instrument instead of silence.
-            sendMIDIEvent(au, status: 0xC0, data1: program)
+            for ch: UInt8 in 0..<8 {
+                sendMIDIEvent(au, status: 0xC0 | ch, data1: program)
+            }
         }
     }
 
@@ -509,7 +521,10 @@ final class MenuBandSynth {
             return
         }
         if midiSynthReady, let au = midiSynth?.audioUnit {
-            sendMIDIEvent(au, status: 0x90, data1: midi, data2: velocity)
+            // Honor the channel argument so same-note voices on
+            // different channels stay independent (essential for the
+            // doppler retrigger tail to layer with a fresh live press).
+            sendMIDIEvent(au, status: 0x90 | (channel & 0x0F), data1: midi, data2: velocity)
             return
         }
         connectMelodicSamplerIfNeeded()
@@ -533,7 +548,7 @@ final class MenuBandSynth {
             return
         }
         if midiSynthReady, let au = midiSynth?.audioUnit {
-            sendMIDIEvent(au, status: 0x80, data1: midi)
+            sendMIDIEvent(au, status: 0x80 | (channel & 0x0F), data1: midi)
             return
         }
         melodic.stopNote(midi, onChannel: 0)

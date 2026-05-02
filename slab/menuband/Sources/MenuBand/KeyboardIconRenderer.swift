@@ -24,14 +24,20 @@ enum KeyboardIconRenderer {
     /// shrinks this when the status item can't fit, and tries to expand
     /// back when there's room. Render math (pianoWidth, imageSize, hit
     /// rects, slot positions) all derive from `lastMidi`.
-    enum DisplayLayout {
-        case full        // C4..B5 — 2 octaves (default)
-        case oneOctave   // C4..B4 — 1 octave fallback
+    enum DisplayLayout: String {
+        case full        // C4..B5 — 2 octaves, normal-width keys (default)
+        case fullSlim    // C4..B5 — 2 octaves, skinnier keys (mid-squeeze)
+        case oneOctave   // C4..B4 — 1 octave, normal-width keys
         case compact     // chip only, no piano keys
 
+        // Shrink path tries to keep the *most notes possible* before
+        // dropping an octave — slim 2-octave reads better than full
+        // 1-octave when the user knows the layout, so we slim before
+        // we truncate.
         var smaller: DisplayLayout? {
             switch self {
-            case .full: return .oneOctave
+            case .full: return .fullSlim
+            case .fullSlim: return .oneOctave
             case .oneOctave: return .compact
             case .compact: return nil
             }
@@ -39,12 +45,24 @@ enum KeyboardIconRenderer {
         var larger: DisplayLayout? {
             switch self {
             case .compact: return .oneOctave
-            case .oneOctave: return .full
+            case .oneOctave: return .fullSlim
+            case .fullSlim: return .full
             case .full: return nil
             }
         }
     }
     static var displayLayout: DisplayLayout = .full
+
+    /// When non-nil, AppDelegate's adaptive resize is a no-op and the
+    /// renderer stays pinned at this value. Driven by the
+    /// `forceLayout` UserDefaults key so users (and we) can verify the
+    /// slim render without needing to actually squeeze the menubar.
+    static var forceLayout: DisplayLayout? = nil
+
+    /// Shift-held → labels render uppercase as the visual cue for
+    /// "linger / bell-ring mode." AppDelegate flips this on .flagsChanged
+    /// and re-issues updateIcon() so the menubar redraws.
+    static var labelsUppercase: Bool = false
 
     // Render area shrinks with the layout. Compact has no piano keys at
     // all — `lastMidi < firstMidi` makes whiteList() empty.
@@ -52,6 +70,7 @@ enum KeyboardIconRenderer {
     static var lastMidi: Int {
         switch displayLayout {
         case .full:      return 83                 // B5 — full 2 octaves
+        case .fullSlim:  return 83                 // B5 — full 2 octaves, slim keys
         case .oneOctave: return 71                 // B4 — single octave
         case .compact:   return firstMidi - 1      // empty range
         }
@@ -84,9 +103,22 @@ enum KeyboardIconRenderer {
 
     // Piano key sizes — wide whites give a generous hit area between black
     // keys (the exposed-white-between-blacks zone is whiteW - blackW).
-    static let whiteW: CGFloat = 23.0
+    // Heights stay constant (menubar height is fixed); widths flex with
+    // the display layout so .fullSlim can keep all 14 whites visible
+    // when the menubar is squeezed instead of dropping an octave.
+    static var whiteW: CGFloat {
+        switch displayLayout {
+        case .fullSlim: return 17.0   // ~74% of full — saves 84px on 14 whites
+        default:        return 23.0
+        }
+    }
     static let whiteH: CGFloat = 21.0
-    static let blackW: CGFloat = 13.5
+    static var blackW: CGFloat {
+        switch displayLayout {
+        case .fullSlim: return 10.0   // proportional to slim white
+        default:        return 13.5
+        }
+    }
     static let blackH: CGFloat = 12.0  // shorter so the white-below strip is
                                        // tall enough to drag across easily
     static let pad: CGFloat = 0.5
@@ -281,6 +313,7 @@ enum KeyboardIconRenderer {
                 // legacy binary `typeMode` rendering when no closure is
                 // supplied (e.g., previews that don't drive animation).
                 if let letter = labelByMidi[m] {
+                    let display = labelsUppercase ? letter.uppercased() : letter
                     let a: CGFloat
                     if isLit {
                         a = 1.0
@@ -290,7 +323,7 @@ enum KeyboardIconRenderer {
                         a = typeMode ? 1.0 : 0.0
                     }
                     if a > 0.01 {
-                        drawWhiteLabel(letter, in: rect, lit: isLit, alpha: a)
+                        drawWhiteLabel(display, in: rect, lit: isLit, alpha: a)
                     }
                 }
             }
@@ -317,6 +350,7 @@ enum KeyboardIconRenderer {
                 path.lineWidth = 0.6
                 path.stroke()
                 if let letter = labelByMidi[m] {
+                    let display = labelsUppercase ? letter.uppercased() : letter
                     let a: CGFloat
                     if isLit {
                         a = 1.0
@@ -326,7 +360,7 @@ enum KeyboardIconRenderer {
                         a = typeMode ? 1.0 : 0.0
                     }
                     if a > 0.01 {
-                        drawBlackLabel(letter, in: rect, lit: isLit, alpha: a)
+                        drawBlackLabel(display, in: rect, lit: isLit, alpha: a)
                     }
                 }
             }
@@ -657,6 +691,27 @@ enum KeyboardIconRenderer {
             ? baseColor.blended(withFraction: f, of: .white) ?? baseColor
             : baseColor
         drawTintedSymbol("music.note.list", in: iconBox, pointSize: 13.0, color: color)
+        // Linger / bell-ring flourish — small accent tilde tucked at
+        // the top-right of the music-note glyph whenever shift is held
+        // or caps lock is latched. Visual cue that any key press will
+        // ring out instead of cutting at release. Uses the system
+        // accent color so it pops against either label-color (off) or
+        // accent-color (MIDI-on) base glyph.
+        if labelsUppercase {
+            let flourishAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9.5, weight: .heavy),
+                .foregroundColor: NSColor.controlAccentColor,
+            ]
+            let flourish = NSAttributedString(string: "~", attributes: flourishAttrs)
+            let fSize = flourish.size()
+            // Anchor the tilde just past the music-note's flag — top
+            // right of iconBox, nudged so it overlaps the empty space
+            // above the glyph rather than sitting on top of strokes.
+            flourish.draw(at: NSPoint(
+                x: iconBox.maxX - fSize.width + 1.5,
+                y: iconBox.maxY - fSize.height + 1.0
+            ))
+        }
         // Voice-number subscript: tiny digits in the bottom-right
         // corner. The first digit sits where the single-digit case
         // looked good; additional digits FLOW RIGHT from there

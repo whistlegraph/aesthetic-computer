@@ -16,6 +16,10 @@ final class MenuBandController {
     /// each held key. Lets keyUp remove the visually-lit cell even when
     /// the audio note was octave-shifted out of the visible range.
     private var heldKeyDisplayNote: [UInt16: UInt8] = [:]
+    /// Per-key linger flag captured at keyDown. We sample shift state
+    /// once on press so a release-shift-mid-hold still rings out the
+    /// note that was started under shift.
+    private var heldKeyLinger: [UInt16: Bool] = [:]
     private let heldLock = NSLock()
 
     private let midiModeKey = "notepat.midiMode"
@@ -592,12 +596,47 @@ final class MenuBandController {
 
     private var tapHeld: Set<UInt8> = []  // notes currently held by mouse drag (main thread)
     private var tapNoteChannel: [UInt8: UInt8] = [:]  // active channel per held note
-    private var melodicVoiceCursor: UInt8 = 0         // round-robin across 8 melodic channels
+    private var tapLinger: [UInt8: UInt8] = [:]       // notes started under shift → noteOn velocity (drives doppler)
+    // Live notes round-robin across channels 0-3; doppler retriggers
+    // use their own 4-7 cursor. The split guarantees a live press
+    // cannot ever land on a channel that a doppler voice is on, so
+    // the live note's noteOff never cuts a still-ringing doppler tail
+    // (and vice versa). 4 voices per side is enough for typical chord
+    // play and ~7 doppler retriggers with their growing intervals.
+    private var melodicVoiceCursor: UInt8 = 0         // round-robin 0..3 for live
+    private var dopplerVoiceCursor: UInt8 = 4         // round-robin 4..7 for doppler retriggers
+
+    /// Linger tail length — how long after key release we hold the
+    /// note before sending the cleanup noteOff. Long enough that the
+    /// synth's natural release envelope can decay to silence (~3-5s on
+    /// most GM voices), short enough that an external DAW doesn't
+    /// accumulate hung notes when the user shift-spams keys.
+    private static let lingerTailSeconds: TimeInterval = 6.0
+
+    // Doppler retrigger tuning for staccato linger. Each retrigger
+    // fires the same midi note on a fresh channel at decaying velocity
+    // and slowly-growing intervals. The user can keep playing live
+    // notes over the tail because retriggers always use a rotating
+    // channel via `nextMelodicChannel()` — they never pin the user's
+    // active voices.
+    private static let dopplerInitialDelay: TimeInterval = 0.30
+    private static let dopplerIntervalGrowth: Double = 1.18
+    private static let dopplerVelocityDecay: Double = 0.78
+    private static let dopplerVelocityFloor: Double = 8.0
+    private static let dopplerMaxSteps: Int = 14
+    private static let dopplerNoteOffWindow: TimeInterval = 0.40
 
     @inline(__always)
     private func nextMelodicChannel() -> UInt8 {
         let c = melodicVoiceCursor
-        melodicVoiceCursor = (melodicVoiceCursor &+ 1) & 0x07
+        melodicVoiceCursor = (melodicVoiceCursor &+ 1) & 0x03
+        return c
+    }
+
+    @inline(__always)
+    private func nextDopplerChannel() -> UInt8 {
+        let c = dopplerVoiceCursor
+        dopplerVoiceCursor = ((dopplerVoiceCursor &+ 1 - 4) & 0x03) + 4
         return c
     }
 
@@ -606,11 +645,12 @@ final class MenuBandController {
     /// handler computes them from the cursor's relative position inside the
     /// hovered key, giving expressive control: y closer to vertical center =
     /// louder, x within key = stereo pan.
-    func startTapNote(_ midiNote: UInt8, velocity: UInt8 = 100, pan: UInt8 = 64) {
-        debugLog("startTapNote midi=\(midiNote) midiMode=\(midiMode)")
+    func startTapNote(_ midiNote: UInt8, velocity: UInt8 = 100, pan: UInt8 = 64, linger: Bool = false) {
+        debugLog("startTapNote midi=\(midiNote) midiMode=\(midiMode) linger=\(linger)")
         lastPlayedNote = midiNote
         if tapHeld.contains(midiNote) { return }
         tapHeld.insert(midiNote)
+        if linger { tapLinger[midiNote] = velocity }
         let isDrum = midiNote < UInt8(KeyboardIconRenderer.firstMidi)
         // Synth: rotate across 8 channels so rapid same-note taps overlap
         // (different channels = different voices, no stealing). MIDI: always
@@ -648,6 +688,7 @@ final class MenuBandController {
     func stopTapNote(_ midiNote: UInt8) {
         guard tapHeld.contains(midiNote) else { return }
         tapHeld.remove(midiNote)
+        let lingerVelocity = tapLinger.removeValue(forKey: midiNote)
         let synthCh = tapNoteChannel.removeValue(forKey: midiNote) ?? channel(for: midiNote)
         let isDrum = midiNote < UInt8(KeyboardIconRenderer.firstMidi)
         let midiCh: UInt8 = isDrum ? 9 : 0
@@ -656,10 +697,15 @@ final class MenuBandController {
         // instead of cutting each other off. The MIDI port still sends noteOff
         // so external sequencers (Ableton drum racks) get a clean event pair.
         // Internal synth is silent in MIDI mode anyway.
-        if !isDrum && !midiMode {
-            synth.noteOff(midiNote, channel: synthCh)
+        if let v = lingerVelocity {
+            releaseLingering(midiNote: midiNote, synthChannel: synthCh, midiChannel: midiCh,
+                             isDrum: isDrum, originalVelocity: v)
+        } else {
+            if !isDrum && !midiMode {
+                synth.noteOff(midiNote, channel: synthCh)
+            }
+            midi.noteOff(midiNote, channel: midiCh)
         }
-        midi.noteOff(midiNote, channel: midiCh)
         // Release the visual immediately on mouse-up. The earlier
         // minVisibleSeconds floor read as visual lag — the user
         // perceives it as the key sticking down past the click. Snap-up
@@ -670,6 +716,90 @@ final class MenuBandController {
             if self.litNotes.remove(midiNote) != nil {
                 self.onLitChanged?()
             }
+        }
+    }
+
+    // MARK: - Linger / bell-ring tail
+
+    /// Shared release path for any note that was started under shift.
+    /// Sustained voices keep their original noteOn alive (the synth's
+    /// release envelope rings out) and get a cleanup noteOff scheduled
+    /// for the end of the tail window. Staccato voices close the
+    /// original immediately and trigger a doppler retrigger tail on
+    /// fresh round-robin channels — this is what lets the user keep
+    /// playing live notes over the linger without stealing voices.
+    /// Drums always skip the synth.noteOff (existing convention) so
+    /// the kit sample plays through.
+    private func releaseLingering(midiNote: UInt8,
+                                  synthChannel: UInt8,
+                                  midiChannel: UInt8,
+                                  isDrum: Bool,
+                                  originalVelocity: UInt8) {
+        if isDrum {
+            // Drums: original noteOn already plays through; no synth
+            // noteOff. Just delay the MIDI noteOff so external DAWs
+            // see a clean pair without truncating the kit sample.
+            let n = midiNote, mc = midiChannel
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.lingerTailSeconds) { [weak self] in
+                self?.midi.noteOff(n, channel: mc)
+            }
+            return
+        }
+        let category = GeneralMIDI.lingerCategory(for: melodicProgram)
+        switch category {
+        case .sustained:
+            // Skip the immediate noteOff so the synth's release
+            // envelope rings out. Cleanup pair lands at +tail.
+            let n = midiNote, ch = synthChannel, mc = midiChannel
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.lingerTailSeconds) { [weak self] in
+                guard let self = self else { return }
+                if !self.midiMode { self.synth.noteOff(n, channel: ch) }
+                self.midi.noteOff(n, channel: mc)
+            }
+        case .staccato:
+            // Close the original cleanly — the staccato sample is
+            // already mostly decayed by the time the user releases
+            // the key, so the noteOff is mostly bookkeeping. Then
+            // schedule the doppler-style retrigger tail.
+            if !midiMode { synth.noteOff(midiNote, channel: synthChannel) }
+            midi.noteOff(midiNote, channel: midiChannel)
+            scheduleStaccatoDoppler(midiNote: midiNote,
+                                    midiChannel: midiChannel,
+                                    startVelocity: originalVelocity)
+        }
+    }
+
+    /// Fire the same midiNote N times on rotating melodic channels,
+    /// each at a smaller velocity and slightly later than the last.
+    /// Stops when velocity drops below the floor or after maxSteps.
+    /// Each retrigger is paired with its own noteOff so MIDI consumers
+    /// get clean event pairs and our synth voice budget recycles.
+    private func scheduleStaccatoDoppler(midiNote: UInt8,
+                                         midiChannel: UInt8,
+                                         startVelocity: UInt8) {
+        var step = 0
+        var interval = Self.dopplerInitialDelay
+        var velocity = Double(startVelocity)
+        var cumulative: TimeInterval = 0
+        while step < Self.dopplerMaxSteps {
+            velocity *= Self.dopplerVelocityDecay
+            if velocity < Self.dopplerVelocityFloor { break }
+            cumulative += interval
+            let v = UInt8(max(1, min(127, Int(velocity.rounded()))))
+            let triggerAt = cumulative
+            DispatchQueue.main.asyncAfter(deadline: .now() + triggerAt) { [weak self] in
+                guard let self = self else { return }
+                let ch = self.nextDopplerChannel()
+                if !self.midiMode { self.synth.noteOn(midiNote, velocity: v, channel: ch) }
+                self.midi.noteOn(midiNote, velocity: v, channel: midiChannel)
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.dopplerNoteOffWindow) { [weak self] in
+                    guard let self = self else { return }
+                    if !self.midiMode { self.synth.noteOff(midiNote, channel: ch) }
+                    self.midi.noteOff(midiNote, channel: midiChannel)
+                }
+            }
+            interval *= Self.dopplerIntervalGrowth
+            step += 1
         }
     }
 
@@ -775,7 +905,11 @@ final class MenuBandController {
             return true
         }
         let hasMod = flags.contains(.maskCommand) || flags.contains(.maskControl) || flags.contains(.maskAlternate)
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod)
+        // Linger armed when EITHER shift is currently held OR caps lock
+        // is on. Caps lock latches the mode so the user can play a
+        // long ambient passage without having to keep shift down.
+        let linger = flags.contains(.maskShift) || flags.contains(.maskAlphaShift)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, linger: linger)
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -786,14 +920,20 @@ final class MenuBandController {
     @discardableResult
     func handleLocalKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool, flags: NSEvent.ModifierFlags) -> Bool {
         let hasMod = flags.contains(.command) || flags.contains(.control) || flags.contains(.option)
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod)
+        // Caps lock latches linger so the user can play hands-free
+        // without holding shift; shift held still works as a momentary.
+        let linger = flags.contains(.shift) || flags.contains(.capsLock)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, linger: linger)
     }
 
     /// Shared note logic for both the global CGEventTap path and the
     /// local NSEvent panel path. Returns true if the keystroke was
     /// consumed (mapped to a note); false if it should pass through.
+    /// `linger` engages bell-ring mode: the note is held by the synth
+    /// past key-up so it rings on its release envelope (sustained
+    /// voices) rather than cutting on release.
     @discardableResult
-    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool) -> Bool {
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, linger: Bool = false) -> Bool {
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
         if hasModifier { return false }
 
@@ -867,6 +1007,7 @@ final class MenuBandController {
             heldNotes[keyCode] = note
             heldKeyChannel[keyCode] = synthCh
             heldKeyDisplayNote[keyCode] = displayNote
+            heldKeyLinger[keyCode] = linger
             heldLock.unlock()
             if let prevNote = prevNote {
                 if !midiMode { synth.noteOff(prevNote, channel: prevCh ?? 0) }
@@ -917,10 +1058,24 @@ final class MenuBandController {
             let note = heldNotes.removeValue(forKey: keyCode)
             let synthCh = heldKeyChannel.removeValue(forKey: keyCode) ?? 0
             let displayNote = heldKeyDisplayNote.removeValue(forKey: keyCode)
+            let wasLinger = heldKeyLinger.removeValue(forKey: keyCode) ?? false
             heldLock.unlock()
             guard let releasedNote = note else { return true }  // consume the up too
-            if !midiMode { synth.noteOff(releasedNote, channel: synthCh) }
-            midi.noteOff(releasedNote)
+            if wasLinger {
+                // Keyboard always plays melodic (QWERTY notes start at
+                // C4); originalVelocity is fixed at 100 in the keyDown
+                // branch. Funnel through the shared sustained/staccato
+                // splitter so the doppler tail engages on plucked GM
+                // voices automatically.
+                releaseLingering(midiNote: releasedNote,
+                                 synthChannel: synthCh,
+                                 midiChannel: 0,
+                                 isDrum: false,
+                                 originalVelocity: 100)
+            } else {
+                if !midiMode { synth.noteOff(releasedNote, channel: synthCh) }
+                midi.noteOff(releasedNote)
+            }
             // Extinguish the *display* lit cell, not the played pitch —
             // the played pitch may be far outside the visible range when
             // octaveShift > 0, but the lit highlight always lives in 60–83.
@@ -946,6 +1101,7 @@ final class MenuBandController {
         heldNotes.removeAll()
         heldKeyChannel.removeAll()
         heldKeyDisplayNote.removeAll()
+        heldKeyLinger.removeAll()
         heldLock.unlock()
         let tapSnapshot = tapHeld
         let tapChanSnapshot = tapNoteChannel

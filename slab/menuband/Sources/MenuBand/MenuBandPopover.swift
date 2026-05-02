@@ -617,8 +617,10 @@ final class MenuBandPopoverViewController: NSViewController {
                 return
             }
             let famColor = InstrumentListView.colorForProgram(safe)
-            self.instrumentReadout.stringValue = nameForChip
-            self.instrumentReadout.textColor = famColor
+            // Funnel through the shared styler — assigning `.stringValue`
+            // here would wipe the field's attributedStringValue (font +
+            // shadow), snapping the title back to system black mid-drag.
+            self.applyInstrumentReadoutStyle(title: nameForChip, famColor: famColor)
             // Don't retint the LED bezel during hover-drag while
             // MIDI mode is on — it stays accent-colored as a status
             // badge.
@@ -1186,6 +1188,28 @@ final class MenuBandPopoverViewController: NSViewController {
         let safe = max(0, min(127, Int(m.melodicProgram)))
         let title = GeneralMIDI.programNames[safe]
         let famColor = InstrumentListView.colorForProgram(safe)
+        applyInstrumentReadoutStyle(title: title, famColor: famColor)
+        // The visualizer is the only piece of chrome that does NOT
+        // track the voice color in MIDI mode — there it reads as a
+        // status badge ("MIDI" dot-matrix in system accent), so we
+        // skip the retint when MIDI is on.
+        if m.midiMode {
+            waveformView.setBaseColor(.controlAccentColor)
+            waveformBezel?.layer?.borderColor = NSColor.controlAccentColor
+                .withAlphaComponent(0.55).cgColor
+        } else {
+            waveformView.setBaseColor(famColor)
+            waveformBezel?.layer?.borderColor = famColor
+                .withAlphaComponent(0.55).cgColor
+        }
+    }
+
+    /// Paint the title chip with YWFT Processing + Riso-misregister
+    /// shadow keyed to the family color. Both the committed-update path
+    /// (`updateInstrumentReadout`) and the hover-drag preview path
+    /// (`instrumentList.onHover`) funnel through here so the typeface +
+    /// shadow can never get wiped by a stray `.stringValue` assignment.
+    private func applyInstrumentReadoutStyle(title: String, famColor: NSColor) {
         // Dark hues (Bass / Strings / Percussive) wash out against
         // the dark popover background; light hues (Piano ivory) wash
         // out in light mode. Adjust per-appearance so the title
@@ -1234,19 +1258,6 @@ final class MenuBandPopoverViewController: NSViewController {
                 .shadow: shadow,
             ]
         )
-        // The visualizer is the only piece of chrome that does NOT
-        // track the voice color in MIDI mode — there it reads as a
-        // status badge ("MIDI" dot-matrix in system accent), so we
-        // skip the retint when MIDI is on.
-        if m.midiMode {
-            waveformView.setBaseColor(.controlAccentColor)
-            waveformBezel?.layer?.borderColor = NSColor.controlAccentColor
-                .withAlphaComponent(0.55).cgColor
-        } else {
-            waveformView.setBaseColor(famColor)
-            waveformBezel?.layer?.borderColor = famColor
-                .withAlphaComponent(0.55).cgColor
-        }
     }
 
     // Appearance changes (light/dark toggle) refresh on next popover

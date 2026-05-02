@@ -59,6 +59,38 @@ enum GeneralMIDI {
         ("Sound FX",    120...127),
     ]
 
+    /// How a voice should behave when held under shift / linger mode.
+    /// Sustained voices ring out via the synth's release envelope when
+    /// we skip the noteOff. Staccato voices have ~1-2s natural decay
+    /// and would just go silent — those get a doppler-style retrigger
+    /// tail (decaying velocity, growing intervals) instead so the
+    /// linger has audible texture.
+    enum LingerCategory { case sustained, staccato }
+
+    static func lingerCategory(for program: UInt8) -> LingerCategory {
+        switch Int(program) {
+        case 0...7:    return .sustained   // Pianos: long natural release
+        case 8...15:   return .staccato    // Chromatic Percussion (mallets, bells)
+        case 16...23:  return .sustained   // Organs hold forever
+        case 24...31:  return .staccato    // Guitars (plucked)
+        case 32...37:  return .staccato    // Acoustic / Electric / Slap basses
+        case 38...39:  return .sustained   // Synth basses
+        case 40...44:  return .sustained   // Bowed strings
+        case 45...47:  return .staccato    // Pizzicato, Harp, Timpani
+        case 48...55:  return .sustained   // Ensembles + choir
+        case 56...63:  return .sustained   // Brass
+        case 64...71:  return .sustained   // Reeds
+        case 72...79:  return .sustained   // Pipes
+        case 80...95:  return .sustained   // Synth lead + pad
+        case 96...103: return .sustained   // Synth FX (long ambient tails)
+        case 104...108: return .staccato   // Sitar, Banjo, Shamisen, Koto, Kalimba
+        case 109...111: return .sustained  // Bagpipe, Fiddle, Shanai
+        case 112...119: return .staccato   // Percussive family (woodblock, taiko, etc.)
+        case 120...127: return .sustained  // Sound FX (mostly long)
+        default:        return .sustained
+        }
+    }
+
     /// Three-letter family abbreviation for the menubar picker label.
     static func familyAbbrev(for program: UInt8) -> String {
         switch Int(program) / 8 {

@@ -34,6 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// closes the popover when the user clicks the settings chip — piano
     /// taps keep the popover open.
     private var clickAwayMonitor: Any?
+
+    /// Global + local .flagsChanged monitors that drive the shift →
+    /// uppercase-label cue. Stored so we can clean them up if needed
+    /// (NSEvent monitors are otherwise leaked on app exit, which is
+    /// fine here but we keep the references for symmetry).
+    private var globalShiftMonitor: Any?
+    private var localShiftMonitor: Any?
     private var popoverEscMonitor: Any?
 
     /// Sandbox-friendly local key capture. Armed when the user clicks the
@@ -92,6 +99,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
         Self.registerBundledFonts()
+        // Apply forceLayout *before* statusItem creation so the initial
+        // status-item length matches the pinned layout's imageSize.
+        // Otherwise the icon flashes the default `.full` width until
+        // the next updateIcon() catches up.
+        applyForcedLayoutIfAny()
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             debugLog("heartbeat")
         }
@@ -285,6 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = vc.view
 
         startAdaptiveLayoutChecks()
+        startShiftStateMonitors()
 
         // Retint the bundle's Finder icon to the user's accent color.
         // Stored as an xattr on the bundle folder, so the signed payload
@@ -520,6 +533,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return NSScreen.screens.contains { $0.frame.intersects(window.frame) }
     }
 
+    /// `forceLayout` UserDefaults key: lets the user pin the layout to
+    /// `full` / `fullSlim` / `oneOctave` / `compact` regardless of how
+    /// much menubar room exists. Intended both as a dev/QA aid and as
+    /// a preference for users who like a specific footprint.
+    ///
+    ///   defaults write computer.aestheticcomputer.menuband forceLayout fullSlim
+    ///   launchctl kickstart -k gui/$(id -u)/computer.aestheticcomputer.menuband
+    ///
+    /// Clear with `defaults delete ... forceLayout`.
+    /// Watch shift state globally + locally so the menubar piano can
+    /// uppercase its letter labels while the user holds shift. The
+    /// uppercase letters are the visual cue that linger / bell-ring
+    /// mode is armed; lowercase = normal.
+    private func startShiftStateMonitors() {
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            // Caps lock latches the mode; shift is the momentary. Either
+            // arms linger and shows uppercase labels.
+            let armed = event.modifierFlags.contains(.shift)
+                || event.modifierFlags.contains(.capsLock)
+            if KeyboardIconRenderer.labelsUppercase != armed {
+                KeyboardIconRenderer.labelsUppercase = armed
+                self.updateIcon()
+            }
+        }
+        globalShiftMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: .flagsChanged
+        ) { event in handler(event) }
+        localShiftMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .flagsChanged
+        ) { event in handler(event); return event }
+        // Initial-state sync: .flagsChanged only fires on changes, so
+        // a caps-lock already on at launch wouldn't paint uppercase
+        // until something toggles. Read the current modifier mask once
+        // at startup to seed the renderer correctly.
+        let initial = NSEvent.modifierFlags
+        let initialArmed = initial.contains(.shift) || initial.contains(.capsLock)
+        if KeyboardIconRenderer.labelsUppercase != initialArmed {
+            KeyboardIconRenderer.labelsUppercase = initialArmed
+            updateIcon()
+        }
+    }
+
+    private func applyForcedLayoutIfAny() {
+        let raw = UserDefaults.standard.string(forKey: "forceLayout") ?? ""
+        guard !raw.isEmpty,
+              let layout = KeyboardIconRenderer.DisplayLayout(rawValue: raw) else {
+            KeyboardIconRenderer.forceLayout = nil
+            return
+        }
+        KeyboardIconRenderer.forceLayout = layout
+        KeyboardIconRenderer.displayLayout = layout
+        debugLog("forceLayout pinned to \(raw)")
+    }
+
     private func startAdaptiveLayoutChecks() {
         // Initial fit pass — give the system a beat to lay out before
         // probing visibility.
@@ -536,6 +604,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func adaptLayoutForAvailableSpace() {
+        // Forced layouts disable auto-resize entirely — the renderer
+        // stays pinned to whatever the user (or QA) chose.
+        if KeyboardIconRenderer.forceLayout != nil { return }
         let current = KeyboardIconRenderer.displayLayout
         let visible = isStatusItemVisible()
 
@@ -963,7 +1034,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let initialPt = imagePoint(from: downEvent.locationInWindow)
         let (vel0, pan0) = NoteExpression.values(for: startNote, at: initialPt)
-        menuBand.startTapNote(startNote, velocity: vel0, pan: pan0)
+        let initialShift = downEvent.modifierFlags.contains(.shift)
+            || downEvent.modifierFlags.contains(.capsLock)
+        menuBand.startTapNote(startNote, velocity: vel0, pan: pan0, linger: initialShift)
         // Arm sandbox-friendly local capture on a real piano click. We
         // skip arming when global TYPE mode is already on — the global
         // tap is already handling keys, doubling up would re-trigger
@@ -991,7 +1064,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let prev = current { menuBand.stopTapNote(prev) }
                 if let nxt = hovered {
                     let (v, p) = NoteExpression.values(for: nxt, at: pt)
-                    menuBand.startTapNote(nxt, velocity: v, pan: p)
+                    // Sample shift+capslock state per-note during the drag
+                    // so the user can shift-press, release shift mid-drag,
+                    // and still get linger from a latched caps lock.
+                    let shiftNow = next.modifierFlags.contains(.shift)
+                        || next.modifierFlags.contains(.capsLock)
+                    menuBand.startTapNote(nxt, velocity: v, pan: p, linger: shiftNow)
                 }
                 current = hovered
             } else if let c = current {
