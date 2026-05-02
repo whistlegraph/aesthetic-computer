@@ -247,7 +247,45 @@ The strongest contemporary case for the keymap-as-social-software argument is th
 
 No one designed this convention. No spec defines it. There is no governing body, no maintainer, no funding mechanism. The convention exists because the four implementations agree, and the four implementations agree because the convention was already present in the 1990s tracker software that preceded the modern DAW (FastTracker, Renoise, Impulse Tracker), and because every user who has learned one DAW expects the next to behave the same. Tutorial documentation written for one DAW transfers, more or less, to another. This is the \emph{social-software contract} in its purest form: a versioned virtual object that propagates through pedagogy and expectation, with no central authority.
 
-It is also, I will argue, badly designed. The chromatic-staircase keymap has three structural weaknesses. \textbf{First}, the QWERTY letter on each key bears no relation to the note name it produces. \texttt{A} plays C; \texttt{S} plays D; \texttt{D} plays E. A user who has learned the Western seven-note scale gains no purchase on the keymap from that knowledge. \textbf{Second}, the keymap is monohanded by default --- the entire usable range sits on the left side of the keyboard, with the right hand idle. \textbf{Third}, the keymap is illegible without a tutorial: there is no mnemonic, no diagram printed on the physical keys, and no way to derive the mapping from first principles. A keymap that requires a manual is a keymap that has lost its social-software character.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+% Upper QWERTY row (sharps in DAW chromatic-staircase). Only 5 keys
+% are mapped (W E T Y U); R and I sit in the gaps with no note.
+\foreach \l/\note/\mapped [count=\i] in {%
+  Q/{}/0, W/$C^\sharp$/1, E/$D^\sharp$/1, R/{}/0, T/$F^\sharp$/1,
+  Y/$G^\sharp$/1, U/$A^\sharp$/1, I/{}/0, O/{}/0, P/{}/0%
+}{
+  \ifnum\mapped=1
+    \node[kcap sharp] (k\i) at ({(\i-1)*0.45}, 1.8) {\strut\l};
+    \node[font=\tiny\sffamily, text=keysharp, anchor=south]
+      at ({(\i-1)*0.45}, 2.2) {\note};
+  \else
+    \node[kcap, text=keystroke!60] (k\i) at ({(\i-1)*0.45}, 1.8) {\strut\l};
+  \fi
+}
+% Home row (whites). 8 of 10 keys mapped (A through K = C..C).
+\foreach \l/\note/\mapped [count=\i] in {%
+  A/C/1, S/D/1, D/E/1, F/F/1, G/G/1, H/A/1, J/B/1, K/C/1, L/{}/0, {;}/{}/0%
+}{
+  \ifnum\mapped=1
+    \node[kcap mapped] at ({(\i-1)*0.45+0.225}, 1.35) {\strut\l};
+    \node[font=\tiny\sffamily, text=keymapped, anchor=north]
+      at ({(\i-1)*0.45+0.225}, 0.95) {\note};
+  \else
+    \node[kcap, text=keystroke!60] at ({(\i-1)*0.45+0.225}, 1.35) {\strut\l};
+  \fi
+}
+% Bottom row — unmapped in the home-row variant; FL Studio uses it
+% for whites, but at this scale the comparison stays clean.
+\foreach \l [count=\i] in {Z,X,C,V,B,N,M}
+  \node[kcap, text=keystroke!60] at ({(\i-1)*0.45+0.45}, 0.0) {\strut\l};
+\end{tikzpicture}
+\caption{The DAW chromatic-staircase QWERTY-piano keymap (Ableton, Logic, GarageBand variant). Home row \texttt{A~S~D~F~G~H~J~K} plays the white keys $C$ through $C$; the row above places sharps in the gaps where the piano black keys would fall ($C^\sharp\,D^\sharp$ then a gap at \texttt{R}, $F^\sharp\,G^\sharp\,A^\sharp$, then gaps). The QWERTY letter on each cap bears no relation to the note name it produces.}
+\label{fig:daw-staircase}
+\end{figure}
+
+It is also, I will argue, badly designed. The chromatic-staircase keymap has three structural weaknesses. \textbf{First}, the QWERTY letter on each key bears no relation to the note name it produces. \texttt{A} plays C; \texttt{S} plays D; \texttt{D} plays E (Figure~\ref{fig:daw-staircase}). A user who has learned the Western seven-note scale gains no purchase on the keymap from that knowledge. \textbf{Second}, the keymap is monohanded by default --- the entire usable range sits on the left side of the keyboard, with the right hand idle. \textbf{Third}, the keymap is illegible without a tutorial: there is no mnemonic, no diagram printed on the physical keys, and no way to derive the mapping from first principles. A keymap that requires a manual is a keymap that has lost its social-software character.
 
 A useful contrast is the \emph{WASD} convention in PC gaming. WASD has the same structural shape as the chromatic-staircase --- an unowned, unspecified, cross-application user-input convention --- but a different propagation history. Pre-WASD, PC games defaulted to arrow keys (Wolfenstein 3D, Doom, the Quake series through 1997)~\citep{wikipedia_arrow_keys}; intermediate experiments included System Shock's ASDX (1994) and Descent's AZ+QE. Dennis ``Thresh'' Fong, a competitive Quake player, popularized the WASD layout through his self-published configuration guide~\citep{thresh_quake_bible} and won the first nationwide Quake tournament in 1997. Valve's Half-Life shipped WASD as default in 1998, and by the early 2000s the convention had saturated PC games~\citep{fenlon2016wasd}. WASD persists for a reason the DAW chromatic-staircase does not: it is genuinely better than the official default. It frees the right hand for the mouse, sits adjacent to Shift / Space / Ctrl / Tab, and exploits home-row finger placement on a QWERTY keyboard. The structural lesson is that propagation is a function of social mediation \emph{and} fitness: WASD propagated because Fong's pedagogy reached players \emph{and} the mapping won on the merits. The chromatic-staircase propagated through pedagogy alone, despite the merits running the other way. Both cases sit in the same category --- unowned conventions that govern user input across applications. They demonstrate that the category is large enough to span both the well-designed and the badly-designed, the user-validated and the inherited-by-inertia.
 
