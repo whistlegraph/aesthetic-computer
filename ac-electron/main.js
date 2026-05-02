@@ -1577,7 +1577,16 @@ async function openAcPaneWindowInternal(options = {}) {
   const win = new BrowserWindow(winOpts);
 
   win.loadFile(getAppPath('renderer/flip-view.html'), isPaperWM ? { query: { wm: 'paper' } } : undefined);
-  
+
+  // 🎮 Grant sticky user activation to the host page so navigator.getGamepads()
+  // works without the user clicking host chrome first. Chromium gates the
+  // Gamepad API behind sticky activation; in a <webview>-host setup the user
+  // typically clicks inside the webview and the host never receives one,
+  // which made the host→guest gamepad bridge silently send empty snapshots.
+  win.webContents.once('did-finish-load', () => {
+    win.webContents.executeJavaScript('1', true).catch(() => {});
+  });
+
   // Track it
   const windowId = windowIdCounter++;
   windows.set(windowId, { window: win, mode: 'ac-pane' });

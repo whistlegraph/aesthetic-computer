@@ -687,6 +687,11 @@
     webviewEl.addEventListener('dom-ready', () => {
       console.log('[volume] dom-ready - syncing volume')
       webviewReady = true;
+      // 🎮 Grant the guest renderer sticky user activation so its own
+      // navigator.getGamepads() returns real pads. Chromium gates the
+      // Gamepad API behind sticky activation; without this, pads are
+      // invisible until the user clicks inside the webview.
+      try { webviewEl.executeJavaScript('1', true); } catch (_) {}
       if (pendingMasterVolume !== null) {
         appliedMasterVolume = clampVolume(pendingMasterVolume);
         sendMasterVolume(appliedMasterVolume);
@@ -702,6 +707,65 @@
         syncMasterVolume();
       }, 5000);
     });
+
+    // 🎮 Gamepad bridge — host → guest.
+    // Inside an Electron <webview>, navigator.getGamepads() in the guest
+    // renderer often stays empty (the guest doesn't reliably receive the
+    // user activation Chromium gates the API behind). Poll at the host,
+    // which has activation as soon as the BrowserWindow is interacted
+    // with (or via the executeJavaScript('1', true) call from main.js),
+    // and forward a snapshot to the webview where webview-preload.js
+    // surfaces it via a patched navigator.getGamepads.
+    (function setupGamepadBridge() {
+      let lastSig = '';
+      let loggedSeen = false;
+      let loggedConnect = new Set();
+      window.addEventListener('gamepadconnected', (e) => {
+        console.log('[flip] gamepadconnected at host:', e.gamepad?.id, 'index', e.gamepad?.index);
+      });
+      window.addEventListener('gamepaddisconnected', (e) => {
+        console.log('[flip] gamepaddisconnected at host:', e.gamepad?.id, 'index', e.gamepad?.index);
+      });
+      setInterval(() => {
+        if (!webviewEl || !webviewReady) return;
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const snapshot = [];
+        let any = false;
+        for (let i = 0; i < pads.length; i++) {
+          const g = pads[i];
+          if (!g) { snapshot.push(null); continue; }
+          any = true;
+          snapshot.push({
+            index: g.index,
+            id: g.id,
+            connected: g.connected,
+            timestamp: g.timestamp,
+            mapping: g.mapping,
+            axes: Array.from(g.axes),
+            buttons: Array.from(g.buttons).map((b) => ({
+              pressed: b.pressed,
+              touched: b.touched,
+              value: b.value,
+            })),
+          });
+        }
+        const sig = JSON.stringify(snapshot);
+        if (sig === lastSig) return;
+        lastSig = sig;
+        if (any && !loggedSeen) {
+          loggedSeen = true;
+          const first = snapshot.find(Boolean);
+          console.log('[flip] gamepad bridge: host detected pad, forwarding to webview:', first?.id);
+        }
+        for (const p of snapshot) {
+          if (p && !loggedConnect.has(p.index)) {
+            loggedConnect.add(p.index);
+            console.log('[flip] gamepad bridge: forwarding new pad index', p.index, p.id);
+          }
+        }
+        try { webviewEl.send('ac:gamepad-state', snapshot); } catch (_) {}
+      }, 16);
+    })();
     
     // Handle IPC from main process to open devtools
     ipcRenderer.on('open-devtools', () => {
