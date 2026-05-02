@@ -190,6 +190,28 @@
         .row .notes .status.new { color: var(--dim); }
         .row .notes a { color: var(--purple); }
 
+        .row .notes .draft-link {
+            display: inline-block;
+            padding: 0 0.45em;
+            border-radius: 3px;
+            font-size: 0.95em;
+            margin-right: 0.4em;
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            text-decoration: none;
+        }
+        .row .notes .draft-link:hover { text-decoration: underline; }
+
+        .review-banner {
+            margin: 0.6em 0 1.4em;
+            padding: 0.5em 0.8em;
+            border: 1px solid var(--cyan);
+            border-radius: 4px;
+            color: var(--cyan);
+            font-size: 0.78em;
+        }
+        .review-banner code { color: var(--text); }
+
         .footer {
             margin-top: 3em;
             padding-top: 1em;
@@ -308,6 +330,7 @@
                 conference: 'Online exhibition; works due Oct 30, 2026',
                 status: 'candidate',
                 statusLabel: 'Candidate',
+                draftPath: 'error-406-netstalgia/DRAFT.md',
                 notes: '€1,500–€7,000 grant + mentoring + online exhibition. Critical approaches to internet protocols, infrastructures, governance, archives, and user agency on networked technologies — not "old internet" nostalgia.',
             },
             {
@@ -319,6 +342,7 @@
                 conference: 'NYABF 2026, MoMA PS1',
                 status: 'verify',
                 statusLabel: 'Verify',
+                draftPath: 'printed-matter-project-space-2026/DRAFT.md',
                 notes: 'Fia flagged a Project Space track with a $3,500 grant and May 8 deadline. Public NYABF table/project-space application closed Mar 30 — confirm whether this is a separate program (DM Printed Matter or check Fia\'s source) before drafting.',
             },
             {
@@ -331,6 +355,7 @@
                 conference: 'Sept–Dec 2026, Downtown LA',
                 status: 'candidate',
                 statusLabel: 'Candidate',
+                draftPath: 'oracle-egg-broiler-2026/DRAFT.md',
                 notes: '3–7 days unrestricted access to a 3,000 sq ft loft, high-quality documentation, culminating in a public ticketed performance. For ambitious sound and performance work; priority to projects in early development.',
             },
             {
@@ -343,6 +368,7 @@
                 conference: 'CultureHub LA',
                 status: 'candidate',
                 statusLabel: 'Candidate',
+                draftPath: 'culturehub-la-2026/DRAFT.md',
                 notes: '1–2 week residency with reconfigurable lighting/audio/video/projection, technical support, $2,000 stipend, marketing, documentation, and a culminating public presentation. LA-based artists; emerging tech focus (VR, AI, robotics, creative coding, telepresence). NY hybrid track also available.',
             },
             {
@@ -452,6 +478,7 @@
                 conference: 'Rolling',
                 status: 'candidate',
                 statusLabel: 'Track',
+                draftPath: 'smarthistory-essay/PITCH.md',
                 notes: '800–1,500 words on a single artwork or monument, conversational tone, no AI-authored prose. Email <code>beth@smarthistory.org</code> + <code>steven@smarthistory.org</code> with CV; topics claimed via Trello. See <a href="https://smarthistory.org/contribute-an-essay/essay-checklist/" target="_blank" rel="noopener">style checklist</a>.',
             },
 
@@ -558,6 +585,13 @@
             const asOf = today.toISOString().slice(0, 10);
             document.getElementById('as-of').textContent = `as of ${asOf}`;
 
+            if (REVIEW_MODE) {
+                const banner = document.createElement('div');
+                banner.className = 'review-banner';
+                banner.innerHTML = `Review mode on. Draft links open files in VS Code via <code>vscode://</code>. Append <code>?review</code> to bookmark.`;
+                document.getElementById('as-of').after(banner);
+            }
+
             const root = document.getElementById('sections');
 
             // Sort within sections
@@ -589,6 +623,12 @@
             }
         }
 
+        // Review mode: ?review on the URL surfaces vscode:// links to local
+        // draft files in the vault. Off by default so the public page stays
+        // clean (visitors don't see vault paths or which calls are drafted).
+        const REVIEW_MODE = new URLSearchParams(location.search).has('review');
+        const VAULT_GRANTS_PREFIX = '/Users/jas/aesthetic-computer/aesthetic-computer-vault/grants/';
+
         function renderRow(item) {
             const row = document.createElement('div');
             row.className = 'row';
@@ -607,11 +647,16 @@
                 ? `<span class="status ${item.status || 'new'}">${item.statusLabel}</span>`
                 : '';
 
+            const draftLink = (REVIEW_MODE && item.draftPath)
+                ? `<a class="draft-link" href="vscode://file${VAULT_GRANTS_PREFIX}${item.draftPath}">📝 review draft</a>`
+                : '';
+
+            const hasNotes = item.notes || statusBadge || draftLink;
             row.innerHTML = `
                 <div class="venue">${venueText}${trackText}</div>
                 <div class="when">${dateBlock}</div>
                 <div class="countdown ${cd.cls}">${cd.label}</div>
-                ${(item.notes || statusBadge) ? `<div class="notes">${statusBadge}${item.notes || ''}</div>` : ''}
+                ${hasNotes ? `<div class="notes">${statusBadge}${draftLink}${item.notes || ''}</div>` : ''}
             `;
             return row;
         }
