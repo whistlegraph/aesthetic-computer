@@ -41668,3 +41668,13 @@ Built:
 - Internet Archive — A Dossier [en] → internet-archive-dossier-26-arxiv.pdf
 - Mellon Foundation — A Dossier [en] → mellon-dossier-26-arxiv.pdf
 - Pioneer Works — A Dossier [en] → pioneer-works-dossier-26-arxiv.pdf
+
+## 2026-05-02 21:32
+
+Built:
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
