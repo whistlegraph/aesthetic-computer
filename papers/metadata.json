@@ -61,8 +61,8 @@
   },
   "arxiv-whistlegraph": {
     "created": "2026-03-21",
-    "revisions": 3412,
-    "updated": "2026-05-02T02:07:15.943Z"
+    "revisions": 3413,
+    "updated": "2026-05-02T02:09:25.997Z"
   },
   "arxiv-plork": {
     "created": "2026-03-21",
@@ -138,5 +138,10 @@
     "created": "2026-04-28",
     "revisions": 1,
     "updated": "2026-04-28T17:51:40.783Z"
+  },
+  "arxiv-keymaps": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T02:09:25.997Z"
   }
 }
