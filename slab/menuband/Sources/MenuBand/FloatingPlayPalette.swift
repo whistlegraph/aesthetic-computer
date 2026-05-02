@@ -275,6 +275,7 @@ private final class FloatingPlayPaletteViewController: NSViewController {
 private final class FloatingPlayPaletteView: NSView {
     private weak var menuBand: MenuBandController?
     private let waveformView = WaveformView()
+    private let waveformBezel = NSView()
     private let pianoView: FloatingPianoView
     private let dragHandle = FloatingPaletteDragHandleView()
     private let closeButton = NSButton()
@@ -298,11 +299,17 @@ private final class FloatingPlayPaletteView: NSView {
 
         waveformView.menuBand = menuBand
         waveformView.translatesAutoresizingMaskIntoConstraints = false
+        waveformBezel.wantsLayer = true
+        waveformBezel.layer?.cornerRadius = 6
+        waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
+        waveformBezel.layer?.borderWidth = 1
+        waveformBezel.translatesAutoresizingMaskIntoConstraints = false
         pianoView.translatesAutoresizingMaskIntoConstraints = false
         dragHandle.translatesAutoresizingMaskIntoConstraints = false
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         shortcutHintLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(waveformView)
+        waveformBezel.addSubview(waveformView)
+        addSubview(waveformBezel)
         addSubview(pianoView)
         shortcutHintLabel.font = NSFont.systemFont(ofSize: 10)
         shortcutHintLabel.textColor = .secondaryLabelColor
@@ -329,6 +336,7 @@ private final class FloatingPlayPaletteView: NSView {
             equalToConstant: waveformHeight(for: keyboardSize)
         )
         self.waveformHeightConstraint = waveformHeightConstraint
+        let bezelInset: CGFloat = 5
 
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: keyboardSize.width + inset * 2),
@@ -343,12 +351,16 @@ private final class FloatingPlayPaletteView: NSView {
             dragHandle.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             dragHandle.heightAnchor.constraint(equalToConstant: closeSize),
 
-            waveformView.topAnchor.constraint(equalTo: closeButton.bottomAnchor, constant: gap),
-            waveformView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            waveformView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            waveformBezel.topAnchor.constraint(equalTo: closeButton.bottomAnchor, constant: gap),
+            waveformBezel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            waveformBezel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            waveformView.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor, constant: bezelInset),
+            waveformView.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor, constant: -bezelInset),
+            waveformView.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: bezelInset),
+            waveformView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
             waveformHeightConstraint,
 
-            pianoView.topAnchor.constraint(equalTo: waveformView.bottomAnchor, constant: gap),
+            pianoView.topAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: gap),
             pianoView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             pianoView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
 
@@ -366,6 +378,11 @@ private final class FloatingPlayPaletteView: NSView {
     }
 
     override var acceptsFirstResponder: Bool { true }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyAppearanceToVisualizer()
+    }
 
     override var fittingSize: NSSize {
         pianoView.refreshLayout()
@@ -390,6 +407,8 @@ private final class FloatingPlayPaletteView: NSView {
         waveformHeightConstraint?.constant = waveformHeight(for: keyboardSize)
         pianoView.refreshLayout()
         layoutSubtreeIfNeeded()
+        applyAppearanceToVisualizer()
+        applyWaveformTint()
         updateWaveformLiveState(isPresented: window?.isVisible == true)
         needsDisplay = true
         pianoView.needsDisplay = true
@@ -400,12 +419,41 @@ private final class FloatingPlayPaletteView: NSView {
     }
 
     func setPresented(_ isPresented: Bool) {
+        applyAppearanceToVisualizer()
+        applyWaveformTint()
         updateWaveformLiveState(isPresented: isPresented)
     }
 
     private func updateWaveformLiveState(isPresented: Bool) {
         waveformView.isLive = isPresented && !(menuBand?.midiMode ?? false)
         waveformView.alphaValue = (menuBand?.midiMode ?? false) ? 0.35 : 1.0
+    }
+
+    private func applyAppearanceToVisualizer() {
+        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        waveformView.setLightMode(!isDark)
+        if isDark {
+            waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
+        } else {
+            waveformBezel.layer?.backgroundColor = NSColor(white: 0.82, alpha: 1.0).cgColor
+        }
+    }
+
+    private func applyWaveformTint() {
+        guard let menuBand else { return }
+        if menuBand.midiMode {
+            waveformView.setDotMatrix(MenuBandPopoverViewController.midiDotPattern)
+            waveformView.setBaseColor(.controlAccentColor)
+            waveformBezel.layer?.borderColor = NSColor.controlAccentColor
+                .withAlphaComponent(0.55).cgColor
+        } else {
+            waveformView.setDotMatrix(nil)
+            let safe = max(0, min(127, Int(menuBand.melodicProgram)))
+            let familyColor = InstrumentListView.colorForProgram(safe)
+            waveformView.setBaseColor(familyColor)
+            waveformBezel.layer?.borderColor = familyColor
+                .withAlphaComponent(0.55).cgColor
+        }
     }
 
     private func keyboardSize() -> NSSize {
