@@ -144,7 +144,13 @@ for (const name of slidesOrder) {
     ${showBug(name) ? `<div class="pals bug"></div>` : ""}
     ${showBug(name) ? `<div class="cornerbug">aesthetic·computer · for ${audience.handle || audience.name}</div>` : ""}
   </body></html>`;
-  await page.setContent(html, { waitUntil: "networkidle0", timeout: 60000 });
+  // `domcontentloaded` instead of `networkidle0` — with multi-MB base64
+  // photos embedded inline, networkidle0 sometimes hangs waiting for the
+  // browser to settle. domcontentloaded fires once the DOM is parsed,
+  // which is all we need before screenshotting (data URLs render
+  // synchronously). 90s timeout for safety on slow oven CPU.
+  await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await new Promise((r) => setTimeout(r, 400));
   await new Promise((r) => setTimeout(r, 200));
   const png = await page.screenshot({ type: "png", omitBackground: false });
   writeFileSync(`${SLIDE_DIR}/${name}.png`, png);
