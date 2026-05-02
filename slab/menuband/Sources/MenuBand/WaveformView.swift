@@ -38,6 +38,12 @@ final class WaveformView: MTKView {
     private var displayLink: CVDisplayLink?
     private let pendingDisplayLock = NSLock()
     private var pendingDisplay = false
+    /// True only after this view has successfully enabled synth waveform
+    /// capture for its own live session. `stopLink()` can be reached from
+    /// multiple lifecycle paths, including ones where no link was started, so
+    /// we need a per-view lease bit to avoid over-releasing the controller's
+    /// shared capture refcount.
+    private var hasCaptureLease = false
 
     var isLive: Bool = false {
         didSet {
@@ -115,6 +121,7 @@ final class WaveformView: MTKView {
         let status = CVDisplayLinkStart(link)
         guard status == kCVReturnSuccess else { return }
         menuBand?.setWaveformCaptureEnabled(true)
+        hasCaptureLease = true
         displayLink = link
     }
 
@@ -123,7 +130,10 @@ final class WaveformView: MTKView {
             CVDisplayLinkStop(link)
             displayLink = nil
         }
-        menuBand?.setWaveformCaptureEnabled(false)
+        if hasCaptureLease {
+            menuBand?.setWaveformCaptureEnabled(false)
+            hasCaptureLease = false
+        }
         clearDisplayPending()
     }
 

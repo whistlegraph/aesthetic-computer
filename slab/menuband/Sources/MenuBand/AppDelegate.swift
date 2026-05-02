@@ -138,6 +138,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.floatingPlayPalette.refresh()
             self.updateWaveformStrip()
         }
+        menuBand.onInstrumentVisualChange = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.updateIcon()
+                self.floatingPlayPalette.refresh()
+                self.waveformStrip.refreshAppearance()
+            }
+        }
         menuBand.bootstrap()
         floatingPlayPalette.onDismiss = { [weak self] in
             self?.updateIcon()
@@ -743,7 +751,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             litNotes: menuBand.litNotes,
             enabled: menuBand.midiMode,
             typeMode: menuBand.typeMode,
-            melodicProgram: menuBand.melodicProgram,
+            melodicProgram: menuBand.effectiveMelodicProgram,
             hovered: hoveredElement,
             letterAlpha: { [weak self] midi in
                 self?.letterAlpha(for: midi) ?? 0

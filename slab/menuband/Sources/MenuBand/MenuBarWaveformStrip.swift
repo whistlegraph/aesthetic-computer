@@ -104,6 +104,11 @@ final class MenuBarWaveformStrip {
         positionPanel(panel)
     }
 
+    func refreshAppearance() {
+        applyAppearanceToVisualizer()
+        applyWaveformTint()
+    }
+
     // MARK: - Geometry
 
     /// Compute the target frame for the strip: directly below the menubar,
@@ -313,7 +318,7 @@ final class MenuBarWaveformStrip {
                 .withAlphaComponent(0.55).cgColor
         } else {
             waveformView.setDotMatrix(nil)
-            let safe = max(0, min(127, Int(menuBand.melodicProgram)))
+            let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
             let familyColor = InstrumentListView.colorForProgram(safe)
             waveformView.setBaseColor(familyColor)
             waveformBezel.layer?.borderColor = familyColor
