@@ -279,97 +279,40 @@ R.\ H.\ M.\ Bosanquet's generalized keyboard~\citep{bosanquet1875generalized} wa
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}[
-  brass/.style={draw=acdark, line width=0.7pt, fill=keyfill},
-  vcap/.style={draw=acdark, line width=0.5pt, fill=keymapped!40},
-  hole/.style={draw=acdark, fill=acdark!90, circle,
-                minimum size=0.14cm, inner sep=0pt},
-  string/.style={draw=keystroke, line width=0.7pt},
-  vlabel/.style={font=\tiny\sffamily, text=keymapped!90}
+  string/.style={draw=keystroke, line width=0.7pt}
 ]
-% =============== TRUMPET (top-left) =================================
-\begin{scope}[shift={(0, 1.3)}]
+% Guitar tuning (left): 6 strings, with the M3 between G and B
+% highlighted to make the irregularity visible.
+\begin{scope}[shift={(0, 0)}]
   \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-    at (-0.05, 0.45) {Trumpet};
-  % Mouthpiece (small cup on far left)
-  \draw[brass] (-0.30, -0.05) -- (-0.18, -0.08) -- (-0.18, 0.08) -- (-0.30, 0.05) -- cycle;
-  \draw[brass] (-0.18, -0.06) rectangle (-0.05, 0.06);
-  % Lead pipe to valves
-  \draw[brass] (-0.05, -0.06) rectangle (0.40, 0.06);
-  % 3 valve casings (vertical cylinders rising above the tube)
-  \foreach \x in {0.40, 0.58, 0.76} {
-    \draw[brass] (\x, -0.06) rectangle ({\x+0.13}, 0.32);
-    \draw[vcap] ({\x+0.065}, 0.32) ellipse (0.075 and 0.026);
-  }
-  % Tubing from valves to bell
-  \draw[brass] (0.89, -0.06) rectangle (1.35, 0.06);
-  % Bell (flared cone)
-  \draw[brass] (1.35, -0.08)
-     -- (1.78, -0.30) -- (1.82, -0.28) -- (1.82, 0.28)
-     -- (1.78, 0.30) -- (1.35, 0.08) -- cycle;
-\end{scope}
-% Note offsets per valve
-\node[vlabel, anchor=north] at (0.465, 1.18) {1: $-2$};
-\node[vlabel, anchor=north] at (0.645, 1.18) {2: $-1$};
-\node[vlabel, anchor=north] at (0.825, 1.18) {3: $-3$};
-\node[font=\tiny\sffamily, text=keystroke, anchor=north]
-  at (0.7, 1.0) {semitones from open};
-
-% =============== OCARINA (top-right) ================================
-\begin{scope}[shift={(3.6, 1.3)}]
-  \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-    at (-0.05, 0.45) {Ocarina};
-  % Body — teardrop / egg silhouette
-  \draw[brass]
-    (-0.10, -0.10) .. controls (-0.10, 0.30) and (0.45, 0.42) ..
-    (1.20, 0.32) .. controls (1.85, 0.20) and (1.95, -0.05) ..
-    (1.85, -0.20) .. controls (1.50, -0.32) and (0.50, -0.34) ..
-    (-0.05, -0.25) .. controls (-0.18, -0.18) and (-0.16, -0.08) ..
-    (-0.10, -0.10) -- cycle;
-  % Mouthpiece (protrusion at the lower-left)
-  \draw[brass]
-    (-0.10, -0.20) -- (-0.32, -0.22) -- (-0.32, -0.05) -- (-0.10, -0.10);
-  % Labium / sound window (small dark slit on top of body)
-  \draw[draw=acdark, fill=acdark] (0.05, 0.18) rectangle (0.18, 0.22);
-  % Asymmetric finger holes — top side cluster of 4, bottom side 2
-  \foreach \x/\y/\r in {0.45/0.16/0.05, 0.65/0.20/0.05, 0.90/0.15/0.04,
-                         1.10/0.18/0.04, 0.55/-0.05/0.04, 0.85/-0.10/0.04}
-    \draw[draw=acdark, fill=acdark!85] (\x, \y) circle (\r);
-\end{scope}
-\node[font=\tiny\sffamily, text=keystroke, anchor=north]
-  at (4.4, 1.0) {hole pattern asymmetric};
-
-% =============== GUITAR strings (bottom-left) =======================
-\begin{scope}[shift={(0, -0.05)}]
-  \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-    at (-0.05, 0.50) {Guitar (EADGBE)};
+    at (-0.05, 0.78) {Guitar (EADGBE)};
   \foreach \i/\note/\hl in {1/E/0, 2/A/0, 3/D/0, 4/G/0, 5/B/1, 6/E/0} {
-    \draw[string] (0, {0.40 - (\i-1)*0.10}) -- (1.95, {0.40 - (\i-1)*0.10});
+    \draw[string] (0, {0.65 - (\i-1)*0.13}) -- (1.85, {0.65 - (\i-1)*0.13});
     \ifnum\hl=1
       \node[font=\tiny\sffamily\bfseries, text=keymapped!90, anchor=east]
-        at (-0.04, {0.40 - (\i-1)*0.10}) {\note};
+        at (-0.04, {0.65 - (\i-1)*0.13}) {\note};
     \else
       \node[font=\tiny\sffamily, text=acdark, anchor=east]
-        at (-0.04, {0.40 - (\i-1)*0.10}) {\note};
+        at (-0.04, {0.65 - (\i-1)*0.13}) {\note};
     \fi
   }
   \node[font=\tiny\sffamily, text=keymapped!90, anchor=west]
-    at (1.97, 0.0) {$\leftarrow$ M3 (others P4)};
+    at (1.92, 0.13) {$\leftarrow$ M3 (others P4)};
 \end{scope}
-
-% =============== VIOLIN strings (bottom-right) ======================
-\begin{scope}[shift={(3.6, -0.05)}]
+% Violin tuning (right): 4 strings in uniform P5s
+\begin{scope}[shift={(4.0, 0)}]
   \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-    at (-0.05, 0.50) {Violin (GDAE)};
+    at (-0.05, 0.78) {Violin (GDAE)};
   \foreach \i/\note in {1/G, 2/D, 3/A, 4/E} {
-    \draw[string] (0, {0.40 - (\i-1)*0.13}) -- (1.85, {0.40 - (\i-1)*0.13});
+    \draw[string] (0, {0.65 - (\i-1)*0.18}) -- (1.85, {0.65 - (\i-1)*0.18});
     \node[font=\tiny\sffamily, text=acdark, anchor=east]
-      at (-0.04, {0.40 - (\i-1)*0.13}) {\note};
+      at (-0.04, {0.65 - (\i-1)*0.18}) {\note};
   }
   \node[font=\tiny\sffamily, text=keystroke, anchor=west]
-    at (1.90, 0.01) {uniform P5};
+    at (1.92, 0.11) {uniform P5};
 \end{scope}
 \end{tikzpicture}
-\caption{Asymmetric pitch interfaces across instrument families. Trumpet valves produce non-uniform semitone offsets ($-2, -1, -3$); ocarina finger holes cluster asymmetrically across the egg-shaped body to fit the player's grasp; guitar's 6-string EADGBE tuning is uniform in perfect fourths \emph{except} for the M3 between G and B; violin keeps strict P5s but each string is a different absolute pitch. The standard piano keyboard is one member of a larger family in which the physical-to-pitch interface is irregular by design — the diatonic naming keymap is embodied in many surfaces, each with its own asymmetry.}
+\caption{Two stringed-instrument tunings as a small case study in asymmetric pitch interfaces. Guitar EADGBE is uniform in perfect fourths \emph{except} the major-third between G and B (the irregularity that lets standard chord shapes lie under the hand). Violin keeps strict P5s but each open string is a different absolute pitch. Trumpet (valves with semitone offsets $-2$, $-1$, $-3$ from open), ocarina (finger holes asymmetrically clustered to fit the player's grasp), and the standard piano all belong to the same family: the diatonic naming keymap embodied in many surfaces, each with its own asymmetry.}
 \label{fig:asymmetric-instruments}
 \end{figure}
 
@@ -515,12 +458,14 @@ The same orality-literacy axis explains a feature of the keymap literature: ther
 
 The keymap is one instance of a much larger genus: \emph{versioned virtual objects that propagate via social contract, not via binaries}. Table~\ref{tab:corollaries} catalogs the major species. The catalog is not exhaustive. Its purpose is to show that the genus is real and large.
 
-\begin{table*}[t]
-\small
+\begin{table*}[!htbp]
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
 \centering
 \caption{Selected versioned virtual objects propagating via social contract. ``Originator'' lists the named inventor where one exists; ``\emph{conv.}'' indicates a convergent or anonymous origin. ``Propagation'' names the principal mechanism by which the object travels.}
 \label{tab:corollaries}
-\begin{tabularx}{\textwidth}{l l l X}
+\begin{tabularx}{\textwidth}{@{}>{\RaggedRight}p{0.18\textwidth}>{\RaggedRight}p{0.21\textwidth}>{\RaggedRight}p{0.13\textwidth}>{\RaggedRight\arraybackslash}X@{}}
 \toprule
 \textbf{Object} & \textbf{Originator (year)} & \textbf{Domain} & \textbf{Propagation mechanism} \\
 \midrule
