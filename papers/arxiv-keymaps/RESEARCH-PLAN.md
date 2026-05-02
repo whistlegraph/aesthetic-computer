@@ -153,20 +153,64 @@ Organized into "high confidence — can cite as-is from dossier" and "needs veri
 - **Galloway 2004** — *Protocol*. *(Already in `arxiv-url-tradition`; reuse.)*
 - **Emerson 2014** — *Reading Writing Interfaces*, Minnesota.
 
-### 6.2 Needs verification before citing
+### 6.2 Verification log (2026-05-02)
 
-(Verify before drafting; flagged in the dossier as such.)
+All §6.2 items used in the current draft have been verified against
+primary sources. Items not used in the draft are marked PARKED.
 
-- Sholes 1873 patent number for the QWERTY arrangement specifically.
-- Maltron — Lillian Malt PIRA Symposium 1977 paper as primary source.
-- Lippens layout dating.
-- AXiS-49 / C-Thru / Thummer dates.
-- Continuum Fingerboard (Lippold Haken) primary date.
-- Hohner harmonica blow/draw notation first canonical citation.
-- Whether FL Studio's QWERTY-piano default *actually* differs from Ableton/Logic/GarageBand (the paper's strongest counter-example, so this matters).
-- Bratton "stack of conventions" — the closer attested phrase is "accidental megastructure"; either reword our usage or find primary text.
-- Star "Ethnography of Infrastructure" (1999) full citation.
-- Cohost authorship on the AI-era extension of "Turing Complete User."
+- **Maltron — Malt 1977 PIRA paper.** ✓ VERIFIED. *Keyboard Design in
+  the Electronic Era*, Printing Industry Research Association
+  Symposium Paper No. 6, September 1977. Bib `malt1977keyboard` is
+  correct.
+- **AXiS-49 / C-Thru.** ✓ VERIFIED. Released June 2008; layout
+  ("Harmonic Table") devised 1983 by Peter Davies. Bib
+  `cthru2008axis49` is correct.
+- **Plamondon Thummer.** ✓ VERIFIED. Thumtronics founded September
+  2003 by Plamondon. Bib `plamondon2003thummer` is correct.
+- **Continuum Fingerboard / Haken.** ✓ VERIFIED. Haken, Tellman &
+  Wolfe, *An Indiscrete Music Keyboard*, *Computer Music Journal*
+  22(1):30--48, 1998. Bib `haken1998indiscrete` is correct.
+- **Star *Ethnography of Infrastructure* (1999).** ✓ VERIFIED.
+  *American Behavioral Scientist* 43(3):377--391, DOI
+  10.1177/00027649921955326. Bib `star1999ethnography` is correct.
+- **FL Studio chromatic-staircase row choice.** ✓ VERIFIED in prose
+  via `imageline_typing_piano`. Paper distinguishes FL's bottom-row
+  use from Ableton/Logic/GarageBand's home-row use.
+- **Sholes 1873 patent.** PARKED. Paper cites the 1868 patent (US
+  79,265 — Sholes, Glidden, Soulé) and follows Yasuoka & Yasuoka
+  2011 for the post-1868 in-house finalization at Remington. The
+  1873-specific patent reference was not needed once Yasuoka was
+  load-bearing.
+- **Lippens layout dating.** PARKED. Not used in current draft.
+- **Hohner harmonica blow/draw.** PARKED. Not used in current draft.
+- **Bratton "stack of conventions."** PARKED. `bratton2016stack` is
+  in the bib but not cited in current draft.
+- **Cohost AI-era *Turing Complete User* extension.** PARKED. Not
+  used in current draft. Reconsider if/when a v2 expansion brings the
+  AI-era user back into scope.
+
+### 6.3 Added during drafting (2026-05-02)
+
+Verified before adding to the bib:
+
+- **Peres et al. 2004** — *Keyboard Shortcut Usage: The Roles of
+  Social Factors and Computer Experience*, HFES Annual Meeting
+  proceedings 48(5):803--807. Empirical foundation for the
+  social-software propagation claim.
+- **Wang, Tory & Forbes 2020** — *KeyMap: Improving Keyboard Shortcut
+  Vocabulary Using Norman's Mapping*, CHI '20. "Vocabulary" framing.
+- **Lozhkina, Anslow & Marquardt 2025** — *The Role of Social
+  Interactions in the Interaction Discovery of Keyboard Shortcuts*,
+  IHM '25. Recent extension of Peres.
+- **Beaudouin-Lafon et al. 2021** — *AZERTY amélioré: Computational
+  Design on a National Scale*, *Communications of the ACM* 64(2).
+  Federation-crystallization case for the BÉPO/AZERTY-amélioré line.
+- **McLean & Wiggins 2010** — *Tidal: Pattern Language for the Live
+  Coding of Music*, SMC '10. Original TidalCycles mini-notation.
+- **Roos & McLean 2023** — *Strudel: Live Coding on the Web*, ICLC
+  '23. Tidal's mini-notation ported to JavaScript.
+- **Jack 2018** — *Hydra*, browser-based live-coding visuals.
+  Notation-as-transform-chain analogue for visuals.
 
 ---
 
