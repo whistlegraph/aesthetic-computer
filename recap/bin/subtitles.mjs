@@ -7,13 +7,24 @@
 // + `overlay enable=between(t,a,b)` chain.
 // Usage: node bin/subtitles.mjs
 
-import puppeteer from "/Users/jas/aesthetic-computer/oven/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js";
-import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
+const REPO = resolve(HERE, "../..");
+
+// Resolve puppeteer from one of the known node_modules locations.
+const __PUPPETEER_DIR = [
+  resolve(HERE, "../../oven/node_modules/puppeteer"),
+  "/opt/oven/node_modules/puppeteer",
+  resolve(HERE, "../node_modules/puppeteer"),
+].find((p) => existsSync(p));
+if (!__PUPPETEER_DIR) {
+  throw new Error("puppeteer not found in any known node_modules location");
+}
+const puppeteer = (await import(`${__PUPPETEER_DIR}/lib/esm/puppeteer/puppeteer.js`)).default;
 const SUB_DIR = `${ROOT}/out/subs`;
 mkdirSync(SUB_DIR, { recursive: true });
 
@@ -29,7 +40,7 @@ function applyFixes(text) {
   return out;
 }
 
-const FONT_BOLD = "/Users/jas/aesthetic-computer/system/public/type/webfonts/ywft-processing-bold.ttf";
+const FONT_BOLD = `${REPO}/system/public/type/webfonts/ywft-processing-bold.ttf`;
 const fontBoldB64 = readFileSync(FONT_BOLD).toString("base64");
 
 const words = JSON.parse(readFileSync(`${ROOT}/out/words.json`, "utf8"));
@@ -91,7 +102,7 @@ html, body { width: 1080px; height: 220px; background: transparent; -webkit-font
 `;
 
 const browser = await puppeteer.launch({
-  executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  // Use puppeteer's bundled Chromium — works on local Mac + oven Linux.
   args: ["--no-sandbox"],
 });
 

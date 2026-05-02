@@ -3,10 +3,22 @@
 // out/concat.txt with per-slide durations from out/segments.json.
 // Usage: node bin/slides.mjs [audience-name]
 
-import puppeteer from "/Users/jas/aesthetic-computer/oven/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js";
-import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// Resolve puppeteer from one of the known node_modules locations. Local dev
+// uses ../../oven/node_modules; oven prod uses /opt/oven/node_modules.
+const __HERE = dirname(fileURLToPath(import.meta.url));
+const __PUPPETEER_DIR = [
+  resolve(__HERE, "../../oven/node_modules/puppeteer"),
+  "/opt/oven/node_modules/puppeteer",
+  resolve(__HERE, "../node_modules/puppeteer"),
+].find((p) => existsSync(p));
+if (!__PUPPETEER_DIR) {
+  throw new Error("puppeteer not found in any known node_modules location");
+}
+const puppeteer = (await import(`${__PUPPETEER_DIR}/lib/esm/puppeteer/puppeteer.js`)).default;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -16,9 +28,10 @@ const { audience, PALETTE } = await import(`${ROOT}/audience/${audienceName}.mjs
 const SLIDE_DIR = `${ROOT}/out/slides`;
 mkdirSync(SLIDE_DIR, { recursive: true });
 
-const FONT_BOLD = "/Users/jas/aesthetic-computer/system/public/type/webfonts/ywft-processing-bold.ttf";
-const FONT_REG = "/Users/jas/aesthetic-computer/system/public/type/webfonts/ywft-processing-regular.ttf";
-const PALS_SVG = "/Users/jas/aesthetic-computer/system/public/purple-pals.svg";
+const REPO = resolve(HERE, "../..");
+const FONT_BOLD = `${REPO}/system/public/type/webfonts/ywft-processing-bold.ttf`;
+const FONT_REG = `${REPO}/system/public/type/webfonts/ywft-processing-regular.ttf`;
+const PALS_SVG = `${REPO}/system/public/purple-pals.svg`;
 
 const fontBoldB64 = readFileSync(FONT_BOLD).toString("base64");
 const fontRegB64 = readFileSync(FONT_REG).toString("base64");
@@ -104,7 +117,8 @@ body { background: ${PALETTE.bg}; padding: 80px 70px; position: relative; overfl
 `;
 
 const browser = await puppeteer.launch({
-  executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  // Use puppeteer's bundled Chromium — works on both local Mac (uses
+  // ~/.cache/puppeteer/...) and oven Linux (same).
   args: ["--no-sandbox"],
 });
 
