@@ -16,7 +16,7 @@ set -l OUT $ROOT/out
 set -l TOTAL (cat $OUT/duration.txt)
 set -l AUDIO $OUT/recap.mp3
 set -l WALTZ $OUT/waltz.mp3
-set -l SUBTRACK $OUT/subtitle-track.txt
+set -l SUBTRACK $OUT/subtitle-track.webm
 set -l VIDEO $OUT/recap.mp4
 set -l FILTER $OUT/filter.txt
 
@@ -50,7 +50,7 @@ if test -f $WALTZ
   ffmpeg -hide_banner -y \
     -f concat -safe 0 -i $OUT/concat.txt \
     -i $AUDIO \
-    -f concat -safe 0 -i $SUBTRACK \
+    -i $SUBTRACK \
     -stream_loop -1 -i $WALTZ \
     -filter_complex_script $FILTER \
     -map "[final]" -map "[mix]" \
@@ -63,7 +63,7 @@ else
   ffmpeg -hide_banner -y \
     -f concat -safe 0 -i $OUT/concat.txt \
     -i $AUDIO \
-    -f concat -safe 0 -i $SUBTRACK \
+    -i $SUBTRACK \
     -filter_complex_script $FILTER \
     -map "[final]" -map "[a1]" \
     -c:v libx264 -preset ultrafast -crf 22 -pix_fmt yuv420p \

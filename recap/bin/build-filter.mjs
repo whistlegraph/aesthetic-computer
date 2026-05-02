@@ -29,8 +29,10 @@ lines.push(`[1:a]apad=whole_dur=${TOTAL},asplit=2[a1][a2]`);
 lines.push(`[a2]showwaves=s=1080x96:colors=0xff70d0|0x70f0e0:mode=cline:rate=30,format=rgba,colorchannelmixer=aa=0.55[wave]`);
 lines.push(`[bg][wave]overlay=x=0:y=${WAVE_Y}:format=auto[bg2]`);
 lines.push(`[bg2]drawbox=x=0:y=1912:w='iw*t/${TOTAL}':h=8:color=0xff69b4:t=fill[v0]`);
-// Single subtitle-track overlay (was a 135-deep movie= chain).
-lines.push(`[2:v]format=rgba,fps=30,scale=1080:1920[subs]`);
+// Single subtitle-track overlay. Input #2 is a pre-encoded webm with
+// alpha (vp9 / yuva420p) produced by subtitle-track.mjs — see comments
+// there. Format the alpha track to match the slide pipeline and overlay.
+lines.push(`[2:v]fps=30,format=rgba,scale=1080:1920[subs]`);
 lines.push(`[v0][subs]overlay=x=0:y=0:format=auto:shortest=0[final]`);
 
 process.stdout.write(lines.join(";\n") + "\n");
