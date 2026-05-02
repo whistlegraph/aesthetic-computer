@@ -41651,3 +41651,20 @@ Built:
 - Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
 - Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
 - Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+
+## 2026-05-02 21:30
+
+Built:
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+- Rhizome.org — A Dossier [en] → rhizome-dossier-26-arxiv.pdf
+- School for Poetic Computation — A Dossier [en] → sfpc-dossier-26-arxiv.pdf
+- Eyebeam — A Dossier [en] → eyebeam-dossier-26-arxiv.pdf
+- Recurse Center — A Dossier [en] → recurse-dossier-26-arxiv.pdf
+- Internet Archive — A Dossier [en] → internet-archive-dossier-26-arxiv.pdf
+- Mellon Foundation — A Dossier [en] → mellon-dossier-26-arxiv.pdf
+- Pioneer Works — A Dossier [en] → pioneer-works-dossier-26-arxiv.pdf
