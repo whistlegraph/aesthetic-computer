@@ -31,6 +31,29 @@
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
+\usepackage{tikz}
+\usetikzlibrary{calc,positioning,shapes.geometric}
+
+% --- TikZ helpers for inline keyboard / hex / mapping diagrams ---
+\definecolor{keyfill}{RGB}{248,248,250}
+\definecolor{keystroke}{RGB}{160,156,170}
+\definecolor{keymapped}{RGB}{180,72,135}
+\definecolor{keysharp}{RGB}{52,52,64}
+\tikzset{
+  kcap/.style={draw=keystroke, fill=keyfill, rounded corners=0.6pt,
+               minimum width=0.32cm, minimum height=0.32cm,
+               inner sep=0pt, font=\tiny\sffamily},
+  kcap mapped/.style={kcap, fill=keymapped!18, draw=keymapped!60,
+                       text=keymapped!90},
+  kcap sharp/.style={kcap, fill=keysharp, draw=keysharp,
+                      text=white, font=\tiny\sffamily\bfseries},
+  hexkey/.style={regular polygon, regular polygon sides=6,
+                  draw=keystroke, fill=keyfill, rounded corners=0pt,
+                  minimum size=0.55cm, inner sep=0pt,
+                  font=\tiny\sffamily},
+  hexkey mapped/.style={hexkey, fill=keymapped!22, draw=keymapped!70,
+                          text=keymapped!90},
+}
 \usepackage[colorspec=0.92]{draftwatermark}
 
 % === COLORS ===
@@ -168,6 +191,43 @@ What we want to name is the conjunction of these features: a small table that is
 The earliest sustained example of a keymap-as-social-software is the QWERTY layout itself. Christopher Latham Sholes patented an early typewriter with Carlos Glidden and Samuel Soulé in 1868 (US 79{,}265); the as-shipped QWERTY arrangement was finalized in-house by Remington's mechanics in the spring and summer of 1873 as a manufacturing engineering decision and was \emph{never patented}~\citep{yasuoka2011prehistory}. The standard folkloric account attributes the layout to anti-jam mechanics; Yasuoka and Yasuoka's archival work locates it in the transcription practice of telegraph operators, who needed to type Morse code in real time. Either way, the layout's persistence is sociological: it is the founding empirical case of path-dependence economics~\citep{david1985qwerty,arthur1989competing}, with a counter-tradition arguing the dominance has been overstated~\citep{liebowitz1990fable}. The David--Liebowitz dispute is the primal scene for treating an input mapping as an object whose persistence is an empirical question about social adoption rather than a derivable consequence of technical superiority.
 
 August Dvorak and William Dealey patented the Dvorak Simplified Keyboard in 1936 (US 2{,}040{,}248). They claimed it was faster, less fatiguing, and more pedagogically rational than QWERTY. It propagated unevenly: the US Navy adopted it in studies during World War II; the Apple IIc shipped a Dvorak switch; modern operating systems all ship Dvorak as a selectable layout; and a small but durable community of users have used it for decades. Workman~\citep{bucao2010workman}, Colemak~\citep{coleman2006colemak}, and the post-2010 fork ecosystem (Colemak-DH, Halmak, Norman) constitute a third generation. None of these layouts has a maintainer organization. None has revenue. All are versioned virtual objects propagating across forums, GitHub repositories, and operating-system layout files. The Maltron keyboard~\citep{malt1977keyboard} added a hardware-coupled variant; Plover stenotype theory~\citep{knight2010plover} extended the surface to encompass chorded shorthand. National layouts (AZERTY, QWERTZ, BÉPO) participate in the same logic, with the additional twist of formal state recognition: the French BÉPO layout, designed by a community in 2005, was folded into a 2019 AFNOR national standard --- a literal observable transition from social contract to state contract.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+% Three keyboards stacked. Same 30 physical key positions; each layout
+% reassigns the letters at those positions. Visual comparison highlights
+% how a keymap is a re-binding of an unchanged physical substrate.
+% Three keyboards stacked. Punctuation chars are wrapped in {} so
+% TikZ's \foreach parser doesn't treat them as separators.
+\foreach \layoutY/\name in {3.0/QWERTY, 1.5/Dvorak, 0.0/Colemak} {
+  \node[anchor=east, font=\footnotesize\bfseries] at (-0.1, \layoutY+0.36) {\name};
+}
+% QWERTY rows
+\foreach \l [count=\i] in {Q,W,E,R,T,Y,U,I,O,P}
+  \node[kcap] at ({(\i-1)*0.36}, 3.72) {\strut\l};
+\foreach \l [count=\i] in {A,S,D,F,G,H,J,K,L,{;}}
+  \node[kcap] at ({(\i-1)*0.36+0.18}, 3.36) {\strut\l};
+\foreach \l [count=\i] in {Z,X,C,V,B,N,M}
+  \node[kcap] at ({(\i-1)*0.36+0.36}, 3.0) {\strut\l};
+% Dvorak rows
+\foreach \l [count=\i] in {{'},{,},{.},P,Y,F,G,C,R,L}
+  \node[kcap] at ({(\i-1)*0.36}, 2.22) {\strut\l};
+\foreach \l [count=\i] in {A,O,E,U,I,D,H,T,N,S}
+  \node[kcap] at ({(\i-1)*0.36+0.18}, 1.86) {\strut\l};
+\foreach \l [count=\i] in {{;},Q,J,K,X,B,M}
+  \node[kcap] at ({(\i-1)*0.36+0.36}, 1.5) {\strut\l};
+% Colemak rows
+\foreach \l [count=\i] in {Q,W,F,P,G,J,L,U,Y,{;}}
+  \node[kcap] at ({(\i-1)*0.36}, 0.72) {\strut\l};
+\foreach \l [count=\i] in {A,R,S,T,D,H,N,E,I,O}
+  \node[kcap] at ({(\i-1)*0.36+0.18}, 0.36) {\strut\l};
+\foreach \l [count=\i] in {Z,X,C,V,B,K,M}
+  \node[kcap] at ({(\i-1)*0.36+0.36}, 0) {\strut\l};
+\end{tikzpicture}
+\caption{Three typing keymaps over the same physical substrate. Each layout is a re-binding of identical key positions to a different set of letters. QWERTY (Sholes 1873, never patented), Dvorak (Dvorak \& Dealey 1936, US 2{,}040{,}248), Colemak (Coleman 2006, public domain). The post-2010 fork ecosystem extends this line.}
+\label{fig:typing-layouts}
+\end{figure}
 
 \section{Lineage II: Instrument Layouts}
 \label{sec:lineage2}
