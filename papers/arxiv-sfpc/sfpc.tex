@@ -69,11 +69,16 @@
 \emergencystretch=1em
 \hyphenpenalty=50
 
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+
 \begin{document}
 
 \twocolumn[{%
+\noindent\hfill\raisebox{-1.2em}[0pt][0pt]{\includegraphics[height=3.5em]{pals}}\par\vspace{-2.6em}
 \begin{center}
-\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+\includegraphics[height=15em]{figures/cover}\par\vspace{0.6em}
 {\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} School for Poetic Computation}\par
 \vspace{0.2em}
 {\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Dossier}\par
@@ -83,8 +88,10 @@
 {\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-\vspace{0.3em}
+\vspace{0.2em}
 {\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
 \vspace{0.6em}
 \rule{\textwidth}{1.5pt}
 \vspace{0.5em}
@@ -157,9 +164,10 @@ The finance-and-administration repo has not been updated past 2019. What is disc
 \section{People}
 
 \begin{table}[h]
-\small
+\footnotesize
 \centering
-\begin{tabularx}{\columnwidth}{lXl}
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
 \toprule
 \textbf{Tenure} & \textbf{Role} & \textbf{Name} \\
 \midrule

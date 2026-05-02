@@ -4,6 +4,41 @@
     "revisions": 3,
     "updated": "2026-04-06T22:52:45.200Z"
   },
+  "arxiv-rhizome": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T22:00:00.000Z"
+  },
+  "arxiv-sfpc": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T22:00:00.000Z"
+  },
+  "arxiv-eyebeam": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T22:00:00.000Z"
+  },
+  "arxiv-recurse": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T22:00:00.000Z"
+  },
+  "arxiv-internet-archive": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T22:00:00.000Z"
+  },
+  "arxiv-mellon": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T22:00:00.000Z"
+  },
+  "arxiv-pioneer-works": {
+    "created": "2026-05-02",
+    "revisions": 1,
+    "updated": "2026-05-02T22:00:00.000Z"
+  },
   "arxiv-api": {
     "created": "2026-03-21",
     "revisions": 3,

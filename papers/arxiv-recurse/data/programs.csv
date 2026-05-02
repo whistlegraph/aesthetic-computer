@@ -1,0 +1,9 @@
+program,format,duration,location,tuition,notes,source
+Full Batch,in-person / online / hybrid,12 weeks,397 Bridge St Brooklyn + online,$0 (free; recruiting-funded),"original core program since July 2011; new batches start every six weeks year-round; core hours M-F 11am-5pm ET; full-time commitment required; open-source code only",rcmanual + rcabout
+Half Batch,in-person / online / hybrid,6 weeks,397 Bridge St Brooklyn + online,$0,"6-week alternative; can be extended to 12 weeks during the batch; introduced as a flexibility option",rcmanual + rcabout
+Mini Batch,in-person / online,1 week,397 Bridge St Brooklyn + online,$0,"intermittent shorter on-ramp / alumni-reunion format",rcmanual
+Variable-length experiments,various,3--6 weeks,(historical),$0,"per Wikipedia: variable batch lengths in the 3--6 week range have been experimented with",Wikipedia
+Virtual RC / RC Together,fully online,(continuous),(2D-map + Zoom),$0,"persistent online layer launched 2020 during COVID; custom tool that mirrors the physical space; remains a first-class participation mode after the 2023 reopening",rcvirtualpage + RC blog 187
+Residents program,visiting / part-time,varies,397 Bridge St Brooklyn,$0,"experienced programmers / researchers come for short stints to share work and pair-program; e.g. Michael Nielsen joined as Resident in May 2015",RC blog 2015 + Wikipedia
+Maintainers initiative,(intermittent),varies,(remote / in-person),$0,"experiment to support open-source maintainers per Wikipedia",Wikipedia
+Code Words journal,publication (community-run),(intermittent),(online),n/a,"community journal; now-quiet",Wikipedia

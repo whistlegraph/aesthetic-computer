@@ -1,0 +1,24 @@
+fiscal_year_end,filing_status,total_revenue,contributions_grants,government_grants,program_service_revenue,investment_income,total_expenses,brewster_kahle_compensation,total_assets,total_liabilities,net_assets,source
+2002-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2003-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2004-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2005-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2006-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2007-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2008-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2009-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2010-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2011-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF (990-PF; line items partial)
+2012-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF (990-PF; line items partial)
+2013-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2014-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2015-12,filed,---,---,---,---,---,---,---,---,---,---,ProPublica PDF only (990-PF)
+2016-12,filed,17530524,7981032,---,9366299,---,16433357,---,3556529,1046689,2509840,ProPublica API v2 (first Form 990 filing)
+2017-12,filed,17811981,10578515,---,7211374,---,18468621,---,4015421,2149767,1865654,ProPublica API v2
+2018-12,filed,20329263,12273854,---,8086862,---,18746743,---,4873111,1478286,3394825,ProPublica API v2
+2019-12,filed,36715474,29117560,---,7563418,---,37255498,---,7117821,4333576,2784245,ProPublica API v2
+2020-12,filed,21753624,15113225,---,6623570,---,19950582,---,9168473,4424410,4744063,ProPublica API v2
+2021-12,filed,29414365,22120338,---,7229276,---,25327789,---,10754395,7654396,3099999,ProPublica API v2
+2022-12,filed,30547311,23120084,---,6837834,---,25827598,---,7320849,3108617,4212232,ProPublica API v2
+2023-12,filed,23678074,16069951,---,7302441,---,32674667,---,16585711,20115729,-3530018,ProPublica API v2 (Hachette judgment year)
+2024-12,filed,26831969,18287478,---,7376394,405747,23501138,0,10704807,9750000,953608,ProPublica + CauseIQ (Brewster Kahle reported $0 comp on 2024 990)

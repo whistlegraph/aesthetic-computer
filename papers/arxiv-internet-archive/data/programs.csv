@@ -1,0 +1,20 @@
+program,launched,status,description,key_funders,source
+Web crawl / preservation,1996,Active,Continuous archiving of the public web; foundation of all subsequent web programs,Alexa-derived initial dumps then independent crawl,Wikipedia
+Wayback Machine,2001-10,Active,Public-facing UI to the web archive; reached 1 trillion pages 2025; ~99 PB storage as of October 2025,Mellon recurring; Knight; many,Wikipedia / archive.org
+Archive-It,2005-12,Active,Subscription-based web archiving for libraries / archives / museums; 800+ partner institutions by 2021; primary program-service-revenue line,subscription clients (earned income),Wikipedia
+Open Library,2006,Active,One web page for every book ever published; ~25M catalog records; ~1.4M books available for digital lending; co-founded by Aaron Swartz,Mellon / California State Library / Kahle Austin,Wikipedia
+Open Content Alliance,2006,Active (network),Multi-library partnership for non-restrictive book digitization; counter-program to Google Books,member contributions,blog.archive.org
+TV News Search & Borrow,2012-09,Active,Closed-caption-indexed national US TV news; daily ingest of major US news channels,Knight $1M (2013),Wikipedia / blog.archive.org
+Software Library / MS-DOS,~2013,Active,Browser-emulated runs of legacy software (MS-DOS games console games etc); JS-MAME / DOSBox in browser,(operational),Wikipedia
+Television News Archive (broader),2009-2014,Active,Foundation work for TV News Search & Borrow; political TV ad tracking expansion via Knight pilots 2014-2016,Knight,blog.archive.org
+NSA-archive / 9-11 collections,various,Active,Topical collections including the 9/11 Television News Archive (with Vanderbilt),(varies),blog.archive.org
+The Great 78 Project,2017,Active (settled),Digitization of pre-1972 78rpm singles; 400000+ digitized by 2025; partnership with ARChive of Contemporary Music + George Blood Audio,private donations / IA general,Wikipedia
+Internet Archive Scholar,2020-09,Active,Full-text search over preserved scholarly publications; outgrowth of Long Tail journals work,Mellon,scholar.archive.org
+Community Webs,2017,Active,Cohort-based professional training in web archiving for US public libraries; expansion 2020 + 2023 phases,Mellon ($1.13M 2020 + $750K 2023),mellon.org
+Long Tail Journal Preservation,2017,Active,R&D to identify and preserve at-risk small-publisher open-access scholarly content,Mellon (2017 + 2018 + 2020),blog.archive.org
+National Emergency Library,2020-03 to 2020-06,Discontinued,Emergency open access to scanned books during COVID-19 pandemic; one-to-one CDL ratio temporarily suspended; principal trigger for Hachette suit,(operational),blog.archive.org
+Controlled Digital Lending (CDL) / Open Libraries,2018,Discontinued for in-print titles after Sept 2024,Lending program tying digital scans to physical-copy ownership; one-digital-loan-per-physical-copy model; Hachette injunction limits to titles without current ebook editions,(operational),blog.archive.org / Hachette ruling
+PetaBox infrastructure,2004,Active,Custom-built rack systems for petabyte-scale storage; foundation of all archive storage,(internal),Wikipedia
+Scanning operations / book digitization,~2004,Active,33 scanning centers in 5 countries as of 2013; partner-paid model is core program-service-revenue stream,partner libraries pay,internetarchive.archiveteam.org
+Political TV Ad Archive,2014,Active,Detection and tracking of political TV ads; pilot Philadelphia 2014; expanded to 28 markets 2016,Knight Foundation,blog.archive.org
+DWeb / Decentralized Web,2016,Active (events series),Conference and advocacy series for decentralized web protocols,(varies),archive.org

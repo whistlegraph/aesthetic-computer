@@ -1,0 +1,17 @@
+period,scope,metric,value,kind,notes,source
+2010-Summer,seed,Y Combinator seed for Hackruiter,(undisclosed),disclosed-existence,"check size and equity terms not public; YC company page confirms lineage",YC company profile + Wikipedia
+2011,full year,Hacker School launches,n/a,disclosed-existence,"first batch July 2011; recruiting-funded model from day one",Wikipedia
+2012,full year,Etsy Hacker Grants Summer 2012,$50000,disclosed,"10x $5000 grants for women in Summer 2012; $50K initial commitment expanded over the year",Forbes 2012 + RC blog
+2014,full year,Self-sufficiency from recruiting,n/a,disclosed-event,"per Wikipedia; recruiting fees from hiring partners cover operations without external grants",Wikipedia
+2014,cumulative,Etsy committed grants,$200000+,disclosed,"by Sep 2014 Etsy had committed $200K+ in grants; Juniper pledged additional $100K",RC blog 43-building-better-and-more-diverse-community
+2015,full year,Grant funding switches to self-funded,n/a,disclosed-event,"2015 transition from corporate-funded grants to RC operating-budget grants; leadership took 60% pay cuts for four months",RC blog 148 (seven years post)
+2019,cumulative,Grants disbursed (cumulative),$1500000+,disclosed,"$1.5M+ in need-based living-expense grants by the time of the seven-years post",RC blog 148
+present (manual),per-head,Internal cost per Recurser,~$12000,disclosed,"per Wikipedia citing the User's Manual",Wikipedia + rcmanual
+present (hire page),fee,Standard recruiting fee,25%,disclosed,"25% of first-year salary excluding bonuses, due day-of-start",rchirepage
+present (hire page),fee,Nonprofit recruiting fee,20%,disclosed,"discounted rate for 501(c)(3) hiring partners",rchirepage
+present (hire page),guarantee,90-day placement guarantee,full refund,disclosed,"full refund if placement does not last 90 days",rchirepage
+present (hire page),internship,Internship placement fee,$0,disclosed,"free; conversion to full-time triggers standard 25%",rchirepage
+present (manual),scale,Hiring partners (current),100+,disclosed,"per the User's Manual",rcmanual
+present (about),scale,Alumni community,3000+,disclosed,"per the About page",rcabout
+2024 (approx),annual,Latka revenue figure (UNVERIFIED),~$11100000,estimated,"Latka.com third-party listing; methodology and measurement date undisclosed; treat as single low-confidence anchor",getlatka.com/companies/recurse.com
+2024 (approx),scale,Latka headcount figure (UNVERIFIED),~72,estimated,"Latka.com third-party; the team page lists 8 named",getlatka.com/companies/recurse.com

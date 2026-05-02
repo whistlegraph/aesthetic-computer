@@ -1,0 +1,330 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Mellon Foundation: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+
+\begin{document}
+
+\twocolumn[{%
+\noindent\hfill\raisebox{-1.2em}[0pt][0pt]{\includegraphics[height=3.5em]{pals}}\par\vspace{-2.6em}
+\begin{center}
+\includegraphics[height=15em]{figures/cover}\par\vspace{0.6em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Mellon Foundation}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Genealogy, Programs, Giving, People, Politics --- 1969 to 2026}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about the Mellon Foundation --- the New York-based private foundation formed in 1969 from the merger of two earlier Mellon-family foundations and rebranded from ``The Andrew W. Mellon Foundation'' to simply ``Mellon Foundation'' in June 2020 --- across genealogy, presidents, programs, finances, and giving record. Mellon is unusual among private foundations because of its scale relative to the field it funds: in arts and humanities grant-making it is, by Atlantic-quoted measure, larger than ``any other single entity, including the federal government.''~\citep{atlantic2023mellon} This dossier records that fact without judging it. There is no thesis, no verdict, and no conclusion section. Where facts run out the dossier stops; gaps are flagged inline. The companion data folder \texttt{papers/arxiv-mellon/data/} contains the underlying CSVs.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Origin}
+
+The Mellon Foundation is the legal successor of two foundations formed by the children of Andrew W. Mellon (1855--1937) --- banker, founder of Mellon Bank and the Aluminum Company of America (Alcoa), and Secretary of the Treasury under Harding, Coolidge, and Hoover.
+
+\textbf{Avalon Foundation} was established in 1940 by Andrew Mellon's daughter Ailsa Mellon Bruce.\footnote{Reported founding dates for Avalon vary in secondary sources; 1940 is the date given by InfluenceWatch~\citep{influencewatchmellon} and is consistent with the Wikipedia entry's account of Bruce as the founder.~\citep{wikipediamellon}} \textbf{Old Dominion Foundation} was established in 1941 by Andrew Mellon's son Paul Mellon. The two foundations operated in parallel, supporting overlapping fields, for roughly three decades. They merged on \textbf{June 30, 1969}, with Avalon as the surviving legal entity, renamed The Andrew W. Mellon Foundation in honor of the father whose fortune had funded both.~\citep{mellonhistory,influencewatchmellon}
+
+At the time of merger, combined assets were approximately \$273 million, and combined giving in 1968 had been about \$11 million.~\citep{influencewatchmellon} The legal continuity of Avalon means the foundation's IRS recognition predates 1969: tax-exempt status traces to September 1956 under EIN 13-1879954,~\citep{propublicamellon} and the foundation's 990-PF filings have been continuous since.
+
+By 1980, total assets had grown to roughly \$880 million.~\citep{mellonfinancials} The endowment crossed \$1 billion in the early 1980s, \$5 billion in the early 2010s, and was reported at approximately \$7.7 billion in the 2024 financial summary.~\citep{mellonfinancials} Cumulative grant-making 1969--2023 is reported by the foundation as ``\textasciitilde \$9.1 billion.''~\citep{mellonfinancials}
+
+\section{The Organization}
+
+\subsection{Legal form}
+
+Andrew W. Mellon Foundation, d/b/a ``Mellon Foundation'' since June 2020, EIN 13-1879954.~\citep{propublicamellon} A 501(c)(3) \textbf{private non-operating foundation} domiciled in New York. As a private foundation it files Form \textbf{990-PF} (not the 990 used by public charities like Rhizome or operating museums). The 990-PF format reflects the underlying legal structure: a private foundation's revenue is dominated by investment return on a permanent endowment, and the IRS imposes a \textbf{minimum 5\% qualifying-distribution requirement} on assets each year, enforced via excise tax on shortfalls. The foundation is therefore primarily a portfolio --- managed by a Chief Investment Officer reporting to a board investment committee --- that is required by law to deploy at least 5\% of its assets each year into charitable purposes.
+
+\subsection{Headquarters}
+
+\textbf{140 East 62nd Street, New York, NY 10065.}~\citep{wikipediamellon,influencewatchmellon} A townhouse-form office building on Manhattan's Upper East Side, between Park and Lexington. Mellon has occupied 140 E 62nd through every recent presidency.
+
+\subsection{Board}
+
+The board has 11 voting members in 2026, plus the President as ex-officio.~\citep{mellontrustees} \textbf{Kathryn A. Hall} (founder, Hall Capital Partners) is Chair, having succeeded \textbf{Danielle S. Allen} in 2019.~\citep{mellontrustees,mellonprnewswire2019} The full current roster: Kathryn A. Hall (Chair); Elizabeth Alexander (President, ex-officio); Margaret Anadu (The Vistria Group); Paul Farber (Director, Monument Lab); Patrick Gaspard (Center for American Progress); Melissa Gilliam (President, Boston University); Thelma Golden (Director, Studio Museum in Harlem); Kelly Granat (Lone Pine Capital); Sherrilyn Ifill (NAACP LDF, Emeritus); Maryana Iskander (CEO, Wikimedia Foundation); Gaurav Kapadia (XN). Several of the board's professional affiliations point to live grant-making relationships --- notably Golden (Studio Museum, a recurring grantee), Iskander (Wikimedia, a Public-Knowledge constituency), and Farber (Monument Lab, an explicit Monuments Project grantee).
+
+\subsection{Program areas (Alexander era)}
+
+The current grant-making is organized into \textbf{five areas},~\citep{mellonprograms,mellongrantprograms} all in their current shape since the 2020 strategic shift:
+
+\begin{description}
+\item[Higher Learning] Investment in colleges and universities, with explicit emphasis on minority-serving institutions (HBCUs, tribal colleges, Hispanic-Serving Institutions). Successor to the historic ``Higher Education \& Scholarship in the Humanities'' program.
+\item[Arts and Culture] Performing-arts, visual-arts, and museum support, with emphasis on artist-centred organizations and racial-justice priorities.
+\item[Public Knowledge] Libraries, archives, scholarly communications, and digital preservation. The home program for grants to JSTOR/ITHAKA, HathiTrust, Internet Archive, and Rhizome's Webrecorder line.
+\item[Humanities in Place] Place-specific cultural and humanities work --- public history, historic-site reinterpretation, oral history, regional storytelling. New as a named area in 2020.
+\item[Presidential Initiatives] Signature programs originating from the President's office, including the Monuments Project, Creatives Rebuild New York, and Affirming Multivocal Humanities. Used as the home for cross-cutting flagship commitments.
+\end{description}
+
+\section{People}
+
+\subsection{Presidents, 1969--present}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{tabularx}{\columnwidth}{lXl}
+\toprule
+\textbf{Tenure} & \textbf{President} & \textbf{Prior} \\
+\midrule
+1969--1971 & Charles S. Hamilton, Jr. & Avalon Found. \\
+1971--1975 & Nathan M. Pusey & Pres., Harvard \\
+1975--1987 & John E. Sawyer & Pres., Williams \\
+1988--2006 & William G. Bowen & Pres., Princeton \\
+2006--2013 & Don Michael Randel & Pres., Univ. of Chicago \\
+2013--2018 & Earl Lewis & Provost, Emory \\
+2018-- & Elizabeth Alexander & Poet, scholar; Yale, Columbia \\
+\bottomrule
+\end{tabularx}
+\caption{Mellon Foundation Presidents. Source: \texttt{mellon.org/history}.~\citep{mellonhistory}}
+\label{tab:presidents}
+\end{table}
+
+The presidency has historically passed from university president to university president; Lewis (2013) was the first non-presidential incumbent (he had been Provost of Emory and the founding director of the National Center for Institutional Diversity at Michigan), and Alexander (2018) the first poet/scholar without a university-presidency credential. The shift in selection profile, together with the appointments of Lewis and Alexander, marks the foundation's transition out of its historic ``higher education and humanities'' identity and toward the social-justice posture announced in 2020.
+
+\subsection{Board chairs}
+
+A partial chair lineage from secondary sources: \textbf{Hanna Holborn Gray} (chair through approximately 2003, after a 23-year board tenure); \textbf{Anne M. Tatlock} (chair approximately 2003--2012, nine-year tenure); \textbf{W. Taylor Reveley III} (chair from $\sim$2012); \textbf{Danielle S. Allen} (chair $\sim$2015--2019, 11 years on the board total, four as chair); \textbf{Kathryn A. Hall} (chair from 2019).~\citep{mellonprnewswire2019} Gaps and exact handover dates remain TBD.
+
+\subsection{Notable program officers and senior staff}
+
+Vanessa Corr\^ea (Chief Communications Officer, led the 2020 rebrand). Don Waters and Helen Cullyer were long-tenure officers in the historic Scholarly Communications strand that became Public Knowledge. The current senior staff page on mellon.org is the canonical living roster; this dossier does not snapshot it.
+
+\section{Programs}
+
+A non-exhaustive listing of named programs and signature initiatives.
+
+\textbf{Mellon Mays Undergraduate Fellowship} (1988--) --- the foundation's longest-running named program in higher education; targets students from underrepresented backgrounds for the academic professoriate. Renamed in 2003 to honor Benjamin E. Mays.
+
+\textbf{New Directions Fellowships} --- mid-career humanities-faculty fellowships supporting cross-disciplinary training.
+
+\textbf{Scholarly Communications} (now Public Knowledge) --- the historical strand that incubated \textbf{JSTOR} (1995, born inside the foundation as a journal-digitization initiative; later spun out as ITHAKA, the parent of JSTOR and Portico), and supported HathiTrust, Internet Archive, the Digital Public Library of America, and Open Access publishing infrastructure.
+
+\textbf{Monuments Project} (Oct 2020--) --- five-year commitment, originally \$250M, doubled to \textbf{\$500M} in November 2023.~\citep{mellonmonuments,nprmonuments2023} The largest single commitment in the foundation's history. As of November 2023, \$170M+ had been distributed across 80+ projects.~\citep{mellonmonuments}
+
+\textbf{Creatives Rebuild New York} (June 2021--) --- 36-month, \$115M Mellon-anchored grant routed through Tides Center; combined with \$5M each from Ford and Stavros Niarchos for a \$125M total. Provided guaranteed-income and employment funding for 2,700 New York State artists post-COVID.~\citep{crnymellon}
+
+\textbf{Affirming Multivocal Humanities} (2024) --- grants to public colleges/universities awarding degrees in women's/gender/sexuality studies or US ethnic studies; \$18M+ across the inaugural cohort.
+
+\textbf{Frontera Culture Fund} (2024) --- new place-based fund for the US--Mexico borderlands; under Humanities in Place.
+
+\textbf{Writing Freedom Fellowship} --- support for writers affected by the criminal-legal system.
+
+\textbf{Higher Learning paid internships} (2024) --- \$25M to humanities-internship programs at five large public universities.
+
+\textbf{Endowment challenge grants} (longstanding) --- the historic vehicle. Example: 2016 \$30M challenge to the National Gallery of Art on its 75th anniversary, which the NGA met with \$50M of matching gifts for an \$80M total endowment lift.~\citep{ngamellon2021}
+
+\section{Money}\label{sec:money}
+
+The federal-tax record is the cleanest source. As a private foundation Mellon files \textbf{Form 990-PF}, with line-item disclosure of investment portfolio, qualifying distributions, grants paid, and operating expenses. Filings are public on ProPublica's Nonprofit Explorer (EIN 13-1879954) for at least the last decade and back further; machine-readable XML is available from the IRS for tax years 2017+.
+
+\subsection{Top-line, FY2014--FY2024}
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{Xrrrrr}
+\toprule
+\textbf{FY} & \textbf{Total assets} & \textbf{Total revenue} & \textbf{Investment income} & \textbf{Grants paid} & \textbf{Total expenses} \\
+\midrule
+2014 & 6{,}430{,}000{,}000 & 438{,}100{,}000 & 18{,}400{,}000 & 257{,}000{,}000 & 292{,}000{,}000 \\
+2015 & 6{,}180{,}000{,}000 & 380{,}200{,}000 & 17{,}400{,}000 & 227{,}100{,}000 & 331{,}400{,}000 \\
+2016 & 6{,}250{,}000{,}000 & 310{,}800{,}000 & 23{,}500{,}000 & 319{,}800{,}000 & 346{,}900{,}000 \\
+2017 & 6{,}860{,}000{,}000 & 428{,}000{,}000 & 23{,}300{,}000 & 327{,}000{,}000 & 335{,}300{,}000 \\
+2018 & 6{,}560{,}000{,}000 & 483{,}600{,}000 & 27{,}600{,}000 & 345{,}600{,}000 & 368{,}400{,}000 \\
+2019 & 6{,}990{,}000{,}000 & 446{,}800{,}000 & 30{,}800{,}000 & 345{,}900{,}000 & 376{,}100{,}000 \\
+2020 & 8{,}220{,}000{,}000 & 505{,}900{,}000 & 18{,}800{,}000 & 456{,}400{,}000 & 528{,}000{,}000 \\
+2021 & 9{,}550{,}000{,}000 & 1{,}150{,}000{,}000 & 16{,}900{,}000 & 460{,}200{,}000 & 558{,}000{,}000 \\
+2022 & 8{,}190{,}000{,}000 & 320{,}700{,}000 & 22{,}000{,}000 & 560{,}700{,}000 & 688{,}700{,}000 \\
+2023 & 8{,}030{,}000{,}000 & 450{,}400{,}000 & 32{,}300{,}000 & 596{,}100{,}000 & 654{,}000{,}000 \\
+2024 & 7{,}820{,}000{,}000 & 1{,}060{,}000{,}000 & 43{,}400{,}000 & 635{,}400{,}000 & 584{,}700{,}000 \\
+\bottomrule
+\end{tabularx}
+\caption{Mellon Foundation --- top-line Form 990-PF figures by fiscal year (USD; FY ends December 31). Source: ProPublica Nonprofit Explorer (EIN 13-1879954)~\citep{propublicamellon}; 2020/2024 cross-checks against \texttt{mellon.org/financials}~\citep{mellonfinancials}. ``Total revenue'' on a 990-PF is dominated by realized gains on investment-asset sales; ``Investment income'' is dividends + interest only. ``Grants paid'' is Part I line 25, charitable disbursements; not identical to ``qualifying distributions'' (Part XII), which also includes program-related investments and qualifying admin costs.}
+\label{tab:financials}
+\end{table*}
+
+The shape, in plain English: \textbf{the endowment is the source of all giving}. Investment-portfolio dynamics dominate every line. Total assets ranged from \$6.18B (FY2015) to \$9.55B (FY2021, market peak); the total in FY2024 was \$7.82B. Annual grants paid grew from \$227M (FY2015) to \$635M (FY2024) --- a 2.8\(\times\) expansion over the decade. The expansion accelerates with Alexander's tenure: \$345M (FY2018, last Lewis-era year) $\to$ \$456M (FY2020, COVID + first full Alexander year) $\to$ \$635M (FY2024). Mellon used a 2020 social bond issuance to raise \$300M of additional borrowed capital for COVID emergency grants;~\citep{mellonfinancials} this is unusual for a private foundation and is part of why the FY2020--FY2022 grants-paid lines are elevated relative to the historic 5\%-of-assets minimum.
+
+\subsection{Qualifying distributions vs. grants paid}
+
+For a private foundation the regulatory floor is the \textbf{qualifying distributions} line on Part XII of the 990-PF, not the grants-paid line. Qualifying distributions includes (i) charitable grants paid, (ii) qualifying program-related investments, (iii) qualifying administrative expenses tied to charitable purpose, and (iv) amounts set aside. Mellon's grants-paid line in Table~\ref{tab:financials} is therefore a \emph{floor} on its qualifying distributions, not the full figure. The full Part XII line is in the underlying 990-PFs; integrating it into the table is deferred for a second pass.
+
+\section{Giving}
+
+The grant record is the heart of any foundation dossier. This section assembles two views: a small-N table of \textbf{flagship initiatives} that move \$10M+ in one announcement, and a long table of \textbf{individual recipients} pulled from the Mellon grants database via \texttt{mellon.org/grant-details/} per-grant URLs. The full row-by-row list of identified grants is in \texttt{data/grantees.csv} (top recipients) and \texttt{data/recipient-spotlight.csv} (every Mellon grant we found to a fixed list of digital-arts-adjacent recipient orgs).
+
+\subsection{Flagship commitments}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{tabularx}{\columnwidth}{lXr}
+\toprule
+\textbf{Year} & \textbf{Initiative} & \textbf{Amount} \\
+\midrule
+2016 & National Gallery of Art --- 75th-anniv. endowment challenge & 30{,}000{,}000 \\
+2020 & Monuments Project (initial) & 250{,}000{,}000 \\
+2020 & Social bond issuance for COVID emergency grants & 300{,}000{,}000 \\
+2021 & Creatives Rebuild New York (3 yr; via Tides) & 115{,}000{,}000 \\
+2023 & Monuments Project (doubling) & 250{,}000{,}000 \\
+2024 & Higher Learning paid internships (5 universities) & 25{,}000{,}000 \\
+2024 & Affirming Multivocal Humanities (inaug.) & 18{,}000{,}000 \\
+\bottomrule
+\end{tabularx}
+\caption{Flagship Mellon commitments of the Alexander era. Sources cited inline in Section 4.}
+\label{tab:flagships}
+\end{table}
+
+\subsection{Recipient spotlight: digital-arts-adjacent orgs}
+
+The dossier holds a recipient-spotlight CSV at \texttt{data/recipient-spotlight.csv} with every Mellon grant found across 2010--2025 for: \textbf{Rhizome}, Internet Archive, ITHAKA (JSTOR), HathiTrust, Eyebeam, Studio Museum in Harlem, Whitney Museum, National Gallery of Art, Smithsonian, MIT (incl. MIT Press strand), and Wikimedia. Grant counts in that file are necessarily incomplete --- the Mellon grants database is searchable but does not expose a stable JSON-export endpoint, so each row represents a manually-confirmed grant from a per-grant URL or a press release.
+
+The Rhizome row is the most fully-mapped of any spotlight org: \textbf{seven grants totaling \$4.011M between 2015 and 2025},~\citep{rhizomedossier} cross-referenced against the Rhizome dossier's Section 4.2 (``Named grants'') and \texttt{papers/arxiv-rhizome/data/grants.csv}. Mellon is, on the public record, the dominant institutional funder of Rhizome's last decade. The spotlight rows for Internet Archive (at least \$1.33M across 2020 alone, across two confirmed grants for Community Webs and machine-learning preservation research),~\citep{mellonia2020a,mellonia2020b} Eyebeam (\$600K Presidential Initiatives general-operating support 2021, plus a 2020 Rapid Response grant)~\citep{mellonebeam2021}, ITHAKA (\$1.5M for JSTOR-in-Prison, 2021)~\citep{mellonjstor2021}, HathiTrust (\$1M over 5yr, 2023)~\citep{mellonhathitrust2023}, and the Studio Museum in Harlem (multiple Curatorial Fund phases over a decade, plus a 2018 \$5M capital campaign grant) sit alongside.
+
+\subsection{What's missing}
+
+\textbf{SFPC (School for Poetic Computation)} does not appear directly in the Mellon database. SFPC is structured as an LLC, with tax-deductible giving routed through an unnamed fiscal sponsor.~\citep{sfpcdossier} If Mellon has supported SFPC, it would have flowed through that sponsor and would be disclosed as a Mellon grant to the sponsor with SFPC as the named project. As of this draft, no such grant has been located. \textbf{Pioneer Works}: not located in the Mellon database despite multiple targeted searches. \textbf{MIT Press / Direct to Open}: known scholarly-communications context, but no per-grant URL located in this pull.
+
+\section{Footprint}
+
+Mellon's peer foundations in the same arts/humanities/higher-education niche, in rough order of overlap: \textbf{Ford Foundation} (much larger overall but with overlapping social-justice posture; co-funder on Creatives Rebuild New York and Advancing Latinx Art in Museums); \textbf{Rockefeller Foundation} (overlapping in higher-ed, less in arts); \textbf{Knight Foundation} (overlapping on libraries and digital-civic-infrastructure); \textbf{Getty Foundation} (overlapping on visual-arts and conservation; co-funder on ALAM); \textbf{Hewlett, Carnegie, Sloan, MacArthur} (overlapping fragments). Of these, \textbf{Ford} is the closest peer in mission and budget profile under Walker (2013--) and Alexander (2018--).
+
+In the digital-arts and net-art-preservation niche specifically, Mellon's reach is unusually concentrated: it is the principal funder of all four of the major US web-archiving programs (Webrecorder/Rhizome, Internet Archive Community Webs, Internet Archive Wayback infrastructure indirectly, HathiTrust). The 2015--2025 funding line for net-art preservation runs through Mellon's Public Knowledge program almost without exception.
+
+The Atlantic's framing --- ``larger than any other single entity, including the federal government'' in arts and humanities --- is supported by the comparison: NEA total grant-making in FY2024 was approximately \$200M, NEH approximately \$240M, while Mellon FY2024 grants paid were \$635M.~\citep{atlantic2023mellon,propublicamellon}
+
+\section{Reading list}
+
+\subsection{Primary sources}
+
+\textbf{mellon.org/history}~\citep{mellonhistory} --- foundation's own history page, with the canonical presidents list.\\
+\textbf{mellon.org/financials}~\citep{mellonfinancials} --- audited financial summaries 2022--2024, social bond disclosures, cumulative-giving figures.\\
+\textbf{mellon.org/grants/grants-database/}~\citep{mellongrantsdb} --- the searchable grant database.\\
+\textbf{mellon.org/people/trustees}~\citep{mellontrustees} --- current board roster.\\
+\textbf{Annual reports} 2010--2024 at \texttt{mellon.org/annual-report/}.
+
+\subsection{Federal records}
+
+\textbf{ProPublica Nonprofit Explorer, EIN 13-1879954}~\citep{propublicamellon} --- 990-PF filings, top-line by year.\\
+\textbf{IRS apps.irs.gov/pub/epostcard/990/xml/} --- machine-readable XML for FY2017+ 990-PFs.
+
+\subsection{Press}
+
+\textbf{Atlantic profile of Alexander's tenure}~\citep{atlantic2023mellon}.\\
+\textbf{Pentagram rebrand case study}~\citep{pentagramrebrand} --- the 2020 visual-identity restatement, with Alexander and Corr\^ea credited.\\
+\textbf{NPR Monuments Project coverage} 2020 + 2023~\citep{nprmonuments2020,nprmonuments2023}.\\
+\textbf{InfluenceWatch profile}~\citep{influencewatchmellon} --- right-of-centre angle on the foundation's politics; useful for the merger date and assets-at-merger figure.\\
+\textbf{Yale News on Alexander appointment}~\citep{yalealexander2018}.
+
+\subsection{Sister dossiers}
+
+\textbf{arxiv-rhizome}~\citep{rhizomedossier} --- the recipient-side view of \$4.011M in Mellon grants, 2015--2025.\\
+\textbf{arxiv-sfpc}~\citep{sfpcdossier} --- the LLC + fiscal-sponsor case, where Mellon may or may not appear.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item Not a thesis. There is no question being answered.
+\item Not a critique. The giving record is surfaced, not judged. The Andrew W. Mellon family-wealth lineage --- aluminum, banking, oil, the 1932 impeachment-resolution-against-Mellon-as-Treasury-Secretary that did not pass --- is well-documented elsewhere; this dossier surfaces it without moralizing.
+\item Not exhaustive. The grant record on Mellon's own database includes 1969--present and runs into the tens of thousands of awards; this dossier captures the flagship initiatives of the last decade and a recipient-spotlight of about a dozen digital-arts-adjacent orgs. The full list is the database itself.
+\item Not a comparison. Adjacent funders (Ford, Rockefeller, Knight, Getty, Carnegie, Hewlett, MacArthur, Sloan) are mentioned only where they directly intersect Mellon.
+\item Not a memoir. The author is a 2022 Rhizome commissioned artist, which puts him at one remove from a Mellon-funded archive (ArtBase / Webrecorder); this is recorded in the Rhizome dossier and not repeated here as a positionality argument.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

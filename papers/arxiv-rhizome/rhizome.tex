@@ -69,11 +69,16 @@
 \emergencystretch=1em
 \hyphenpenalty=50
 
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+
 \begin{document}
 
 \twocolumn[{%
+\noindent\hfill\raisebox{-1.2em}[0pt][0pt]{\includegraphics[height=3.5em]{pals}}\par\vspace{-2.6em}
 \begin{center}
-\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+\includegraphics[height=15em]{figures/cover}\par\vspace{0.6em}
 {\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Rhizome.org}\par
 \vspace{0.2em}
 {\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Dossier}\par
@@ -83,8 +88,10 @@
 {\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-\vspace{0.3em}
+\vspace{0.2em}
 {\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
 \vspace{0.6em}
 \rule{\textwidth}{1.5pt}
 \vspace{0.5em}
@@ -187,9 +194,10 @@ The organization's federal tax record is the cleanest source. Filings are public
 \begin{table*}[t]
 \footnotesize
 \centering
-\begin{tabularx}{\textwidth}{lrrrrrrr}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{Xrrrrrrr}
 \toprule
-\textbf{FY end} & \textbf{Revenue} & \textbf{Contri.} & \textbf{Govt grants} & \textbf{Prog. svc.} & \textbf{Expenses} & \textbf{ED comp.} & \textbf{Net assets} \\
+\textbf{FY end} & \textbf{Revenue} & \textbf{Contri.} & \textbf{Govt} & \textbf{Prog.\,svc.} & \textbf{Expenses} & \textbf{ED comp.} & \textbf{Net assets} \\
 \midrule
 2011-06 & 371,188 & 297,145 & --- & 69,215 & 381,261 & 75,940 & -41,350 \\
 2012-06 & 437,058 & 312,219 & --- & 80,339 & 431,581 & --- & -35,873 \\

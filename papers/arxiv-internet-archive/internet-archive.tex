@@ -1,0 +1,342 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Internet Archive: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+
+\begin{document}
+
+\twocolumn[{%
+\noindent\hfill\raisebox{-1.2em}[0pt][0pt]{\includegraphics[height=3.5em]{pals}}\par\vspace{-2.6em}
+\begin{center}
+\includegraphics[height=15em]{figures/cover}\par\vspace{0.6em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Internet Archive}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Genealogy, History, Programs, People, Money, Footprint --- 1996 to 2026}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about the Internet Archive --- the San Francisco-based digital library founded by Brewster Kahle in 1996 --- across genealogy, periodized history, programs, people, finances, litigation, and footprint. There is no thesis, no verdict, and no conclusion section. Where facts run out the dossier stops; gaps are flagged inline. The Hachette and UMG cases are politically charged; this paper presents the public-record facts (filing dates, court rulings, dollar amounts asked, settlements where disclosed) without taking a position on the underlying copyright questions.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Origin}
+
+The Internet Archive opens in May 1996 in a small office in the Presidio of San Francisco. Brewster Kahle, a 1982 MIT computer-science graduate who had built the WAIS (Wide Area Information Server) system at Thinking Machines and then sold WAIS Inc.~to AOL for \$15M in 1995, founds two organizations the same year: \emph{Alexa Internet}, a for-profit web-traffic company that will be sold to Amazon for \$250M in stock in 1999, and \emph{Internet Archive}, a non-profit dedicated to ``universal access to all knowledge.'' Alexa's web crawls are the original feedstock of the IA archive. The two share an office.
+
+The mission statement is borrowed from the ancient Library of Alexandria: a single repository of all writing, accessible to all. The 1996 essay \emph{Preserving the Internet}~\citep{kahle1996preserving} is the founding statement; Kahle's 2007 TED talk~\citep{kahle2007universal} is its public restatement. The org files as a private operating foundation (Form 990-PF) initially, reflecting Kahle's personal funding role; a 2017 IRS reclassification will move it to public-charity 501(c)(3) status (Form 990) once the public-support test is met.
+
+\section{The Organization, 1996--2026}
+
+\subsection{Private foundation era (1996--2008)}
+
+The first decade is structurally a Kahle / Kahle-Austin operation. The Wayback Machine launches publicly at UC Berkeley in October 2001 with 10+ billion archived pages already in storage. Archive-It, a subscription web-archiving service for libraries and museums, launches in late 2005 and becomes the org's first significant earned-revenue line. The Open Content Alliance forms in 2006 as a non-restrictive book-digitization counter-program to Google Books, with Microsoft as an early backer until its 2008 withdrawal. Open Library, co-founded by Aaron Swartz with Kahle and others, also launches in 2006.
+
+\subsection{Funston Avenue (2009--)}
+
+In September 2009 the Internet Archive purchases 300 Funston Avenue in San Francisco's Richmond District for \$4.5M. The building is the former Fourth Church of Christ, Scientist --- a 1923 Greek-Revival sanctuary by architect Carl Werner, with Corinthian columns whose silhouette already resembled the IA's Library-of-Alexandria logo. The main sanctuary becomes the primary workspace; HTTP status codes are used as hymn numbers; servers in the back house roughly one-tenth of the archive on premises. Brewster Kahle gives a public tour every Friday after lunch. By 2024 the archive itself runs to ~99 PB of data across multiple distributed data centers.
+
+\subsection{Programmatic expansion (2009--2019)}
+
+The TV News Search \& Borrow service launches in September 2012, funded in part by a \$1M Knight Foundation grant~\citep{knight2013tvnews}. The Software Library --- browser-emulated MS-DOS, console games, and abandonware --- comes online around 2013. The Great 78 Project, a partnership with the ARChive of Contemporary Music and engineer George Blood's Philadelphia studio, launches in 2017 to digitize pre-1972 78~rpm singles. A series of Mellon grants from 2017 onward supports ``Long Tail'' journal preservation; the work culminates in \emph{Internet Archive Scholar}, launched September 2020. By FY2019 IA's Form 990 reports peak revenue of \$36.7M.
+
+\subsection{The litigation decade (2020--)}
+
+In March 2020 the National Emergency Library (NEL) opens during the COVID-19 pandemic shutdown of physical libraries: the one-loan-per-physical-copy ratio of Controlled Digital Lending is temporarily suspended for the duration of the emergency. The NEL closes that June. On June 1, 2020 four major publishers (Hachette, Penguin Random House, HarperCollins, Wiley) file the suit that will become the central fact of IA's next half-decade. In August 2023, while Hachette is on appeal, three major record labels file a parallel suit over the Great 78 Project. The Hachette district-court ruling lands in March 2023; the 2nd Circuit affirmation in September 2024; IA declines to petition the Supreme Court in December 2024. The Great 78 case is settled confidentially in September 2025. (See \S\ref{sec:litigation}.)
+
+\subsection{The 2024 cyberattacks}
+
+In May 2024 a DDoS campaign attributed to the SN\_BLACKMETA hacktivist group begins. On October 9, 2024 a major data breach exposes Bcrypt-hashed authentication data for ~31 million IA user accounts; the root cause is a GitLab access token left exposed in a public-ish repository for ~22 months~\citep{ia2024databreach}. A second breach on October 20 compromises the Zendesk support email system. Public service is partially restored October 21--25; full restoration takes weeks. The 2024 attacks land in the same calendar quarter as the 2nd Circuit Hachette ruling.
+
+\section{Programs}
+
+\textbf{Wayback Machine} (2001--) --- the org's flagship public service. 1+ trillion archived web pages by 2025; ~99 PB of total storage. Director: Mark Graham.
+
+\textbf{Archive-It} (2005--) --- subscription web-archiving for institutions; 800+ partner libraries / archives / museums by 2021. The principal earned-revenue line on the 990 (program-service revenue: \$7.4M in FY2024).
+
+\textbf{Open Library} (2006--) --- ``one web page for every book ever published''; ~25M catalog records, ~1.4M lending titles. Co-founded by Aaron Swartz; the program at the centre of the Hachette litigation.
+
+\textbf{Open Content Alliance} (2006--) --- multi-library digitization network founded as a non-restrictive counter-program to Google Books.
+
+\textbf{Software Library} (~2013--) --- browser-emulated MS-DOS, console games, and historical software via JS-MAME / DOSBox.
+
+\textbf{TV News Search \& Borrow / Television News Archive} (Sept 2012--) --- closed-caption-indexed national US TV news, daily ingest. Knight-funded.
+
+\textbf{Political TV Ad Archive} (2014--) --- Knight-funded pilot in Philadelphia 2014; expanded to 28 markets for the 2016 election cycle.
+
+\textbf{The Great 78 Project} (2017--) --- digitization of pre-1972 78~rpm singles. 400{,}000+ recordings digitized by September 2025. Partners: ARChive of Contemporary Music, George Blood Audio. Subject of UMG~v.~Internet Archive (2023--2025).
+
+\textbf{Community Webs} (2017--) --- cohort-based web-archiving training for US public libraries; expanded with Mellon \$1.13M (2020) and \$750K (2023) grants.
+
+\textbf{Long Tail Journal Preservation} (2017--) --- Mellon-funded R\&D~\citep{ialongtail2018} to identify and preserve at-risk small-publisher open-access scholarly content. Outgrowth becomes IA Scholar.
+
+\textbf{Internet Archive Scholar} (Sept 2020--) --- full-text search over preserved scholarly publications.
+
+\textbf{Controlled Digital Lending / Open Libraries} (2018--) --- one-digital-loan-per-physical-copy lending model. Permanently restricted by the Hachette injunction (Sept 2024) to titles \emph{without} commercial e-book editions.
+
+\textbf{National Emergency Library} (Mar--Jun 2020) --- discontinued; pandemic-era suspension of CDL ratio.
+
+\textbf{DWeb / Decentralized Web} (2016--) --- conference and advocacy series for decentralized-web protocols.
+
+\textbf{PetaBox} (2004--) --- in-house storage rack design that underwrites all IA infrastructure.
+
+\textbf{Scanning operations} (~2004--) --- ~33 scanning centers across 5 countries by 2013, including Cebu (Philippines), Toronto (Robarts Library), Boston Public Library, Andover MA, Latrobe PA, Champaign-Urbana, London, Hong Kong, and others. Partner libraries pay per-page; IA retains a copy. The model is a major program-service-revenue stream.
+
+\section{People}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXl}
+\toprule
+\textbf{Role} & \textbf{Name} & \textbf{Note} \\
+\midrule
+Founder / Digital Librarian & Brewster Kahle & 1996--; Board Chair \\
+Board President & Rick Prelinger & Prelinger Archives founder \\
+Board & David Rumsey & Map collection \\
+Board & Kathleen Burch & SF Center for the Book \\
+Secretary & Scott Fong & 2024 990 \\
+Dir.~Wayback Machine & Mark Graham & \\
+Dir.~Web Archiving & Jefferson Bailey & Archive-It oversight \\
+Dir.~Philanthropy & Joy Chesbrough & FY2024 highest paid \\
+Dir.~Library Services & Chris Freeland & Hachette spokesperson \\
+\bottomrule
+\end{tabularx}
+\caption{Key roles of record (2024 990).}
+\label{tab:people}
+\end{table}
+
+The Internet Archive's leadership chain has been remarkably stable: Brewster Kahle has been the founder, digital librarian, and (current) board chair continuously since 1996. The 30-year tenure is unusual at this scale and is structurally enabled by Kahle's independent wealth (Alexa~$\to$~Amazon 1999) and the Kahle/Austin Foundation's recurring transfers to IA.
+
+The senior staff layer is operationally led by program directors with named-program portfolios: Mark Graham (Wayback Machine), Jefferson Bailey (Web Archiving / Archive-It), Joy Chesbrough (Philanthropy), Chris Freeland (Library Services / Open Libraries; principal external voice during Hachette). Senior engineering: Samuel Stoller and Kenji Nagahashi (each \$218K--\$222K reportable comp on the FY2024 990). The board includes a small set of long-tenure figures aligned with adjacent preservation institutions: Rick Prelinger (Prelinger Archives, gifted to the Library of Congress in 2002), David Rumsey (David Rumsey Map Collection at Stanford), and Kathleen Burch (San Francisco Center for the Book co-founder). The FY2024 990 reports \$0 reportable compensation for Brewster Kahle and the named board members.
+
+Aaron Swartz, Open Library co-founder (2006), died in 2013. George Blood, the Philadelphia audio engineer who runs Great 78 digitization, is a long-running independent contractor partner.
+
+\section{Money}\label{sec:money}
+
+The federal tax record is the cleanest source. ProPublica's Nonprofit Explorer (EIN 94-3242767) carries Form 990-PF PDFs back to FY2002 and structured Form 990 line items for FY2016 onwards, after the org's 2017 reclassification to public-charity status (IRS ruling date 2017-04-01). The fiscal year is calendar (Jan--Dec), unlike Rhizome's June year-end, so the Hachette district-court ruling of March 24, 2023 and any associated legal costs land squarely in the FY2023 990.
+
+\subsection{Top-line, FY2016--FY2024}
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{Xrrrrrrr}
+\toprule
+\textbf{FY end} & \textbf{Revenue} & \textbf{Contri./grants} & \textbf{Prog.~svc.} & \textbf{Expenses} & \textbf{Net income} & \textbf{Total assets} & \textbf{Net assets} \\
+\midrule
+2016-12 & 17,530,524 & 7,981,032 & 9,366,299 & 16,433,357 & 1,097,167 & 3,556,529 & 2,509,840 \\
+2017-12 & 17,811,981 & 10,578,515 & 7,211,374 & 18,468,621 & -656,640 & 4,015,421 & 1,865,654 \\
+2018-12 & 20,329,263 & 12,273,854 & 8,086,862 & 18,746,743 & 1,582,520 & 4,873,111 & 3,394,825 \\
+2019-12 & \textbf{36,715,474} & 29,117,560 & 7,563,418 & 37,255,498 & -540,024 & 7,117,821 & 2,784,245 \\
+2020-12 & 21,753,624 & 15,113,225 & 6,623,570 & 19,950,582 & 1,803,042 & 9,168,473 & 4,744,063 \\
+2021-12 & 29,414,365 & 22,120,338 & 7,229,276 & 25,327,789 & 4,086,576 & 10,754,395 & 3,099,999 \\
+2022-12 & \textbf{30,547,311} & 23,120,084 & 6,837,834 & 25,827,598 & 4,719,713 & 7,320,849 & 4,212,232 \\
+2023-12 & 23,678,074 & 16,069,951 & 7,302,441 & \textbf{32,674,667} & \textbf{-8,996,593} & 16,585,711 & \textbf{-3,530,018} \\
+2024-12 & 26,831,969 & 18,287,478 & 7,376,394 & 23,501,138 & 3,330,831 & 10,704,807 & 953,608 \\
+\bottomrule
+\end{tabularx}
+\caption{Internet Archive --- top-line Form 990 figures by fiscal year (USD; FY ends December 31). Sources: ProPublica Nonprofit Explorer API v2; CauseIQ. FY2002--FY2015 are 990-PF (private foundation) filings; structured line items not pulled in this first pass.}
+\label{tab:financials}
+\end{table*}
+
+The shape, in plain English. Internet Archive runs at roughly the \$20--\$30M annual scale, an order of magnitude larger than Rhizome's \$0.4--\$2.2M, two orders of magnitude larger than SFPC. Three structural facts distinguish its money from a typical preservation 501(c)(3):
+
+\textbf{(i)~Earned program-service revenue is a real line.} Archive-It subscriptions plus partner-library scanning fees deliver a stable \$6.6M--\$9.4M annually since FY2016. Most preservation nonprofits have program-service revenue under 10\% of total revenue; IA's runs 25--53\% in the years before FY2019.
+
+\textbf{(ii)~The FY2019 spike (\$36.7M) is the largest year on record} and reflects an unusually large contribution year (\$29.1M of contributions/grants on the line). The FY2022 \$30.5M peak similarly reflects \$23.1M in contributions; FY2024's \$6.6M Permanent Archive Fund grant for Open Library is the kind of large-named gift that spikes the contribution line.
+
+\textbf{(iii)~The FY2023 net-asset cliff} is the single most consequential financial event in the org's recent history. Net assets fall from +\$4.21M (FY2022) to \textbf{-\$3.53M (FY2023)}, a swing of -\$7.7M. FY2023 expenses ran \$32.7M against \$23.7M revenue --- a \$9.0M loss on a single year. The Hachette district-court ruling came down in March 2023 (the third month of FY2023), and the swing is consistent with material legal-judgment costs landing in that fiscal year, though the actual settlement terms are not in the public record. By FY2024 net assets recover to \$953K --- positive but a fraction of the FY2022 high.
+
+\subsection{Named grants}\label{sec:grants}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{tabularx}{\columnwidth}{lXr}
+\toprule
+\textbf{Year} & \textbf{Project (funder)} & \textbf{Amount} \\
+\midrule
+2006-09 & General support (Mellon) & 100,000 \\
+2007-12 & unspecified (Mellon) & TBD \\
+2012-03 & Audio book software (Mellon) & 50,000 \\
+2017-10 & Long Tail journals (Mellon) & TBD \\
+2018-03 & Long Tail R\&D (Mellon) & TBD \\
+2020-03 & ML for journal preservation (Mellon) & 200,000 \\
+2020-09 & Community Webs (Mellon) & 1,130,000 \\
+2023-11 & Community Webs final phase (Mellon) & 750,000 \\
+\midrule
+2013 & TV News Search expansion (Knight) & 1,000,000 \\
+~~--- & 5-library digitization (Sloan) & 1,000,000 \\
+2024-12 & Open Library (Permanent Archive Fund) & 6,600,000 \\
+2024-06 & General (Fidelity Charitable) & 2,821,543 \\
+\bottomrule
+\end{tabularx}
+\caption{Named institutional grants to Internet Archive. Mellon total is at least \$2.23M in confirmed amounts; several earlier grants are in the Mellon database without dollar figures in this pass.}
+\label{tab:grants}
+\end{table}
+
+\textbf{Re-contextualizing Rhizome's Webrecorder grants}: Rhizome received \$1.74M from Mellon between 2015 and 2019 to develop Webrecorder, the open-source web-archiving software. Internet Archive in the same period received roughly \$1.13M (2020 alone) for a parallel program (Community Webs) that does training and infrastructure for public-library web archiving. Webrecorder eventually spun out from Rhizome (2020) as an independent open-source project. The two programs are complementary rather than competing: Webrecorder makes the recorder; Community Webs trains librarians to use such tools at the public-library scale; Wayback Machine and Archive-It are IA's industrial-scale crawl/host infrastructure. The Mellon-funded preservation map across IA + Rhizome + the Webrecorder spin-out forms a continuous infrastructure picture.
+
+\textbf{Knight Foundation's \$1M for TV News Search \& Borrow} is the clearest single non-Mellon institutional fingerprint on an IA program; the Sloan \$1M for library digitization is a separate but parallel commitment.
+
+\textbf{Donor-advised funds and pooled foundations} are an increasingly large share. The 2024 Permanent Archive Fund \$6.6M for Open Library is exceptional and worth flagging separately; Fidelity Charitable's \$2.82M (2024-06) is the kind of pooled-DAF gift that routes individual donor money. American Online Giving Foundation's \$381K (2025-03) is in the same category.
+
+\subsection{Brewster Kahle's compensation line}
+
+The FY2024 Form 990 reports \textbf{\$0 reportable compensation} for Brewster Kahle (Founder / Digital Librarian / Board Chair) and \$0 for the named board members (Rick Prelinger, David Rumsey, Kathleen Burch, Scott Fong). The five highest-paid individuals in FY2024 are program / engineering staff: Joy Chesbrough \$246K, Mark Graham \$229K, Jefferson Bailey \$229K, Samuel Stoller \$222K, Kenji Nagahashi \$218K. Kahle's \$0 reportable line reflects the structural fact that he is independently wealthy from the 1999 sale of Alexa Internet to Amazon and runs a separate private foundation (Kahle/Austin) that has been a recurring funder of IA in an unknown ratio across the org's three decades. ``Compensation'' in the IA case is best read as a distinct line from the executive's economic relationship to the org.
+
+\section{Litigation}\label{sec:litigation}
+
+Two simultaneous federal copyright suits dominate IA's recent legal record. The first ended adversely; the second settled.
+
+\subsection{Hachette v.~Internet Archive}
+
+\textbf{Filed:} June 1, 2020 (S.D.N.Y.~No.~1:20-cv-04160). \textbf{Plaintiffs:} Hachette Book Group, Penguin Random House, HarperCollins, Wiley. \textbf{Subject:} The Open Library's Controlled Digital Lending program and the National Emergency Library (March--June 2020).
+
+\textbf{District-court ruling.} On March 24, 2023, Judge John G.~Koeltl ruled that IA's scanning and lending of complete copies constituted copyright infringement and that all four fair-use factors favored the publishers. The decision rejected the fair-use defense for both the National Emergency Library and the underlying CDL practice with its one-to-one ratio. The court found IA's use was \emph{not transformative} because it ``did not add new expression, meaning, or message to the original works'' and ``served the same purpose as the originals.''
+
+\textbf{2nd Circuit ruling.} On September 4, 2024 the United States Court of Appeals for the Second Circuit affirmed (No.~23-1260)~\citep{hachette2024affirm}, writing that ``authors have a right to be compensated in connection with the copying and distribution of their original creations.''
+
+\textbf{Outcome.} On December 4, 2024 the Internet Archive announced it would not petition for Supreme Court review~\citep{iablog2024endhachette}. A permanent injunction prevents IA from lending the publishers' books in full through CDL except for titles \emph{without} current commercial e-book editions. The monetary settlement to publishers was undisclosed; FY2023 saw a \$9.0M operating loss and net assets falling \$7.7M to -\$3.53M, consistent with material legal-judgment costs landing in that fiscal year.
+
+\subsection{UMG v.~Internet Archive (Great 78)}
+
+\textbf{Filed:} August 11, 2023 (N.D.~Cal.~No.~3:23-cv-06522). \textbf{Plaintiffs:} Universal Music Group, Sony Music Entertainment, Concord, ABKCO. \textbf{Subject:} The Great 78 Project's digitization and online streaming of 2{,}749 pre-1972 recordings, including works by Frank Sinatra, Bing Crosby, Chuck Berry, Duke Ellington, Ella Fitzgerald, and Louis Armstrong.
+
+\textbf{Damages asked.} Initial complaint sought up to \$621M (Rolling Stone) / \$412M (Silicon Republic) in statutory damages. Motion to dismiss denied May 16, 2024.
+
+\textbf{Outcome.} A confidential settlement was announced in September 2025~\citep{iablog2025great78}. Joint notice was filed in California federal court; case dismissal expected within 45 days of the notice. Settlement terms remain confidential.
+
+\section{Footprint}
+
+\textbf{The Wayback Machine} is, by every measure of scale, the most consequential program in the org's portfolio: 1+ trillion archived web pages by 2025; ~99 PB of storage; the de-facto reference link for any URL that has gone offline; cited tens of thousands of times per year in academic and journalistic contexts. The cultural footprint of having a single trillion-page time machine of the public web cannot be cleanly summarized in a footprint section --- it is, in effect, a public utility.
+
+\textbf{Open Library} catalogs ~25M books and lends ~1.4M digitally (post-Hachette: only those without commercial e-book editions). Cited daily in library-science work and used heavily by readers without local-library access.
+
+\textbf{Television News Archive} is the largest publicly-searchable corpus of US TV news, used routinely by GDELT, fact-check organizations, journalism schools, and the Stanford Cable TV News Analyzer.
+
+\textbf{The Great 78 Project} is the largest publicly-accessible digitization of pre-1972 78~rpm recordings. The UMG settlement constrains its public-streaming surface but the digitization itself continues.
+
+\textbf{Mirror site at the Bibliotheca Alexandrina} (Egypt). A symbolic and operational gift: a full off-site mirror of the IA archive at the modern reconstruction of the Library of Alexandria from which the org takes its mission.
+
+\textbf{300 Funston Avenue} as a building has its own footprint --- public Friday tours by Brewster Kahle, weekly Decentralized Web events, and the architectural fact of a former Greek-Revival church now functioning as a server room.
+
+\section{Reading list}
+
+\textbf{Kahle, \emph{Preserving the Internet} (1996)}~\citep{kahle1996preserving} --- founding statement.\\
+\textbf{Kahle, \emph{Universal Access to All Knowledge} (TED, 2007)}~\citep{kahle2007universal} --- public mission restatement.\\
+\textbf{Internet Archive, \emph{25th Anniversary} (2021)}~\citep{ia25anniversary} --- self-curated history.\\
+\textbf{Bailey, \emph{Web Archiving in the United States} (2018)}~\citep{bailey2018web} --- field-wide survey by IA's Director of Web Archiving.\\
+\textbf{Hachette v.~Internet Archive (2nd Cir.~2024)}~\citep{hachette2024affirm} --- the CDL ruling.\\
+\textbf{Internet Archive, \emph{End of Hachette v.~Internet Archive} (2024)}~\citep{iablog2024endhachette} --- IA's own statement on declining SCOTUS review.\\
+\textbf{Sisario (Rolling Stone), \emph{Inside the \$621M Legal Battle}}~\citep{rollingstone2024great78} --- Great 78 narrative.
+
+\textbf{To acquire.} Coyle, \emph{FRBR Before and After} (on Open Library's catalog model). Lessig's \emph{Free Culture} and \emph{Code} for the underlying CDL fair-use theory the courts rejected. Greene's \emph{Internet Art} for early IA / Wayback adoption by net artists. The full IRS XML pull (FY2017+) for line-item detail not in the API v2 dump used in this pass.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The litigation record is surfaced, not judged. The Hachette ruling is a fact; whether the court was correct on the underlying copyright question is not a question this paper takes up.
+  \item Not a comparison. Adjacent organizations (Rhizome with Webrecorder, the HathiTrust digital library, Project Gutenberg, the Library of Congress's NDIIPP, anna's-archive) are mentioned only where they directly intersect IA.
+  \item Not a memoir.
+  \item Not exhaustive. The dossier covers what is publicly recoverable in a first pass; gaps are flagged inline. Pre-FY2016 financials (the 990-PF era) are deferred. The Hachette settlement amount is confidential. The companion data folder (\texttt{papers/arxiv-internet-archive/data/}) contains the underlying CSVs.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

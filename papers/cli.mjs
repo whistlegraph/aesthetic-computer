@@ -211,6 +211,41 @@ const PAPER_MAP = {
     title: "Jeffrey Alan Scudder — CV",
     hidden: true,
   },
+  "arxiv-rhizome": {
+    base: "rhizome",
+    siteName: "rhizome-dossier-26-arxiv",
+    title: "Rhizome.org — A Dossier",
+  },
+  "arxiv-sfpc": {
+    base: "sfpc",
+    siteName: "sfpc-dossier-26-arxiv",
+    title: "School for Poetic Computation — A Dossier",
+  },
+  "arxiv-eyebeam": {
+    base: "eyebeam",
+    siteName: "eyebeam-dossier-26-arxiv",
+    title: "Eyebeam — A Dossier",
+  },
+  "arxiv-recurse": {
+    base: "recurse",
+    siteName: "recurse-dossier-26-arxiv",
+    title: "Recurse Center — A Dossier",
+  },
+  "arxiv-internet-archive": {
+    base: "internet-archive",
+    siteName: "internet-archive-dossier-26-arxiv",
+    title: "Internet Archive — A Dossier",
+  },
+  "arxiv-mellon": {
+    base: "mellon",
+    siteName: "mellon-dossier-26-arxiv",
+    title: "Mellon Foundation — A Dossier",
+  },
+  "arxiv-pioneer-works": {
+    base: "pioneer-works",
+    siteName: "pioneer-works-dossier-26-arxiv",
+    title: "Pioneer Works — A Dossier",
+  },
 };
 
 function texName(base, lang) {

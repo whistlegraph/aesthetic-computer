@@ -1,0 +1,19 @@
+location,role,start_year,end_year,address_or_city,notes,source
+Internet Archive HQ,Headquarters,2009,,300 Funston Avenue San Francisco CA 94118,Former Fourth Church of Christ Scientist (1923 Greek Revival by Carl Werner); 23000 sqft; bought 2009 for $4.5M; main sanctuary is primary workspace; servers house ~1/10 of archive on premises (rest in distributed storage); HTTP status codes used as hymn numbers; weekly Friday tours led by Brewster Kahle,Wikipedia / archive.org
+Presidio (original),Earlier office,1996,2009,Presidio of San Francisco,IA's first office space pre-Funston move; Alexa Internet cohabited,Wikipedia
+Richmond District scanning,Scanning center,,2013,300 Funston Ave annex,On-site scanning center; damaged in 2013 fire ($600K loss),Wikipedia
+Cebu Philippines,Scanning center,,,Cebu City,One of largest IA international scanning operations; book digitization,internetarchive.archiveteam.org
+University of Toronto,Scanning center,,,Toronto Canada,Robarts Library partnership,internetarchive.archiveteam.org
+Boston Public Library,Scanning partner,,,Copley Square Boston MA,Long-running scanning partnership at the BPL,bpl.org
+Andover Massachusetts,Scanning center,,,Andover MA,Northeast US scanning hub,internetarchive.archiveteam.org
+Latrobe Pennsylvania,Scanning center,,,Latrobe PA,Mid-Atlantic scanning hub,internetarchive.archiveteam.org
+Champaign-Urbana,Scanning center,,,Urbana IL,U of Illinois scanning partnership,internetarchive.archiveteam.org
+New York,Scanning center,,,---,One of multiple US scanning sites,internetarchive.archiveteam.org
+Chapel Hill NC,Scanning center,,,Chapel Hill NC,UNC scanning partnership,internetarchive.archiveteam.org
+Los Angeles,Scanning center,,,Los Angeles CA,Western US scanning site,internetarchive.archiveteam.org
+London,Scanning center,,,London UK,European partner scanning operations (Wellcome Library among partners),internetarchive.archiveteam.org
+Edinburgh,Scanning center,,,Edinburgh Scotland,Partner scanning (specifics TBD),internetarchive.archiveteam.org
+Hong Kong,Scanning center,,,Hong Kong,Asia scanning partnership (specifics TBD),internetarchive.archiveteam.org
+Library of Congress (FedScan),Federal contract,,,Washington DC,Federal scanning contractor relationship,loc.gov
+Richmond CA data center (Pair Networks),Off-site mirror,,,Richmond CA,One historical off-site mirror; PetaBox infrastructure distributed across multiple data centers,Wikipedia
+Bibliotheca Alexandrina,International mirror,,,Alexandria Egypt,Original off-site mirror of full IA archive (gifted as part of Egypt-IA partnership),Wikipedia

@@ -1,0 +1,39 @@
+year,event,category,source
+1996,Brewster Kahle founds Internet Archive in San Francisco (May 10),org,Wikipedia / archive.org
+1996,Web crawling begins; first archived pages saved,program,Wikipedia
+1996,Alexa Internet co-founded by Kahle (sister project),org,Wikipedia
+1999,Alexa Internet sold to Amazon for $250M in stock,org,Wikipedia
+1999,Internet Archive begins receiving Alexa's web crawl data,program,Wikipedia
+2001,Wayback Machine launched publicly (October) at UC Berkeley,program,Wikipedia
+2002,First Form 990 on public record (FY2002 990-PF),org,ProPublica
+2005-12,Archive-It web archiving subscription service launched (late 2005),program,Wikipedia
+2006,Open Library founded by Aaron Swartz / Brewster Kahle / Alexis Rossi,program,Wikipedia
+2006,Open Content Alliance forms (multi-library partnership),program,blog.archive.org
+2009-09,300 Funston Avenue (former Fourth Church of Christ Scientist) purchased for $4.5M,org,Wikipedia / archive.org
+2009-12,Move-in to Funston building; main sanctuary becomes primary workspace,org,Wikipedia
+2012-09,TV News Search & Borrow service launched,program,Wikipedia
+2012,IA classified as 501(c)(3) public charity (transition from private foundation 990-PF to 990 begins),org,IRS / ProPublica
+2013,$600K fire at one of the IA scanning centers (one of approx 30 worldwide at the time),org,Wikipedia
+2013,Aaron Swartz dies; Open Library co-founder,people,Wikipedia
+2017-04-01,IRS reclassifies IA as 501(c)(3) public charity (current ruling date),org,IRS / ProPublica
+2017,The Great 78 Project formally launched (78rpm digitization w/ ARChive of Contemporary Music + George Blood Audio),program,Wikipedia
+2018-03,Mellon Long Tail journal preservation R&D grant (24mo),funding,blog.archive.org
+2019-12,FY2019 revenue spikes to $36.7M (largest year on record through 2024),funding,IRS 990
+2020-03,National Emergency Library opens (March 24) -- pandemic response; CDL one-to-one ratio suspended,program,blog.archive.org
+2020-06-01,Hachette / Penguin Random House / HarperCollins / Wiley file copyright suit,litigation,Wikipedia
+2020-06,National Emergency Library closes,program,blog.archive.org
+2020-09,Mellon $1.13M grant for Community Webs nationwide public library web archives network,funding,mellon.org
+2020-09,Internet Archive Scholar launched,program,scholar.archive.org
+2023-03-25,District court rules for publishers in Hachette v. Internet Archive,litigation,Wikipedia
+2023-08-11,UMG / Sony / Concord file Great 78 Project copyright suit (initially $621M; later $412M),litigation,Wikipedia / Rolling Stone
+2023-11,Mellon $750K grant for final phase of Community Webs,funding,mellon.org
+2023-12,FY2023 reports $32.7M expenses against $23.7M revenue: legal/judgment costs surface,funding,IRS 990
+2024-05,DDoS attacks attributed to SN_BLACKMETA group begin,security,bleepingcomputer.com
+2024-09-04,2nd Circuit affirms Hachette ruling against IA,litigation,Justia / blog.archive.org
+2024-10-09,Major data breach: ~31 million user accounts exposed via leaked GitLab auth tokens,security,bleepingcomputer.com / NPR
+2024-10-20,Second breach: Zendesk support email system compromised,security,bleepingcomputer.com
+2024-10-21,Public site begins partial restoration,security,blog.archive.org
+2024-12-04,IA announces it will not seek Supreme Court review of Hachette decision,litigation,blog.archive.org
+2025-09,UMG v. Internet Archive (Great 78) settled; confidential resolution,litigation,musictech.com / Bloomberg
+2025,Wayback Machine reaches 1 trillion archived web pages,program,Wikipedia
+2026,Internet Archive turns 30,org,---

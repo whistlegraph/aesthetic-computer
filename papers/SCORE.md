@@ -40,6 +40,14 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| Pioneer Works: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 2012–2026) | arXiv (LaTeX, dossier) | `arxiv-pioneer-works/pioneer-works.pdf` | `arxiv-pioneer-works/pioneer-works.tex` |
+| Mellon Foundation: A Dossier (Genealogy, Programs, Giving, People, Politics, 1969–2026) | arXiv (LaTeX, dossier) | `arxiv-mellon/mellon.pdf` | `arxiv-mellon/mellon.tex` |
+| Internet Archive: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 1996–2026) | arXiv (LaTeX, dossier) | `arxiv-internet-archive/internet-archive.pdf` | `arxiv-internet-archive/internet-archive.tex` |
+| Recurse Center: A Dossier (Structure, History, Programs, People, Money, Footprint, 2011–2026) | arXiv (LaTeX, dossier) | `arxiv-recurse/recurse.pdf` | `arxiv-recurse/recurse.tex` |
+| Eyebeam: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 1996–2026) | arXiv (LaTeX, dossier) | `arxiv-eyebeam/eyebeam.pdf` | `arxiv-eyebeam/eyebeam.tex` |
+| School for Poetic Computation: A Dossier (Structure, History, Programs, People, Money, Footprint, 2013–2026) | arXiv (LaTeX, dossier) | `arxiv-sfpc/sfpc.pdf` | `arxiv-sfpc/sfpc.tex` |
+| Rhizome.org: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 1996–2026) | arXiv (LaTeX, dossier) | `arxiv-rhizome/rhizome.pdf` | `arxiv-rhizome/rhizome.tex` |
+| Keymaps as Social Software: Versioned Virtual Objects via Social Contract | arXiv (LaTeX) | `arxiv-keymaps/keymaps.pdf` | `arxiv-keymaps/keymaps.tex` |
 | Where the Microseconds Go (SIGGRAPH Asia 2026 Tech Papers port) | acmtog (LaTeX, scaffold) | (build pending) | `siggraph-asia-2026-tech/latency-source.tex` |
 | Diagrams from Data: A Penrose Pipeline for AC Illustrations | arXiv (LaTeX) | `arxiv-penrose/penrose.pdf` | `arxiv-penrose/penrose.tex` |
 | Where the Microseconds Go: Input and Audio Latency in AC Native OS | arXiv (LaTeX, 6pp) | `arxiv-latency/latency.pdf` | `arxiv-latency/latency.tex` |
