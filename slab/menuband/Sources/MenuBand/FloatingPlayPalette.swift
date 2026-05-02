@@ -294,9 +294,6 @@ private final class FloatingPlayPaletteView: NSView {
     private let closeSize: CGFloat = 18
     private let hintHeight: CGFloat = 42
     private var waveformHeightConstraint: NSLayoutConstraint?
-    private var paletteDragStartMouse: NSPoint?
-    private var paletteDragStartWindowOrigin: NSPoint?
-    private var paletteDragActive = false
 
     init(menuBand: MenuBandController) {
         self.menuBand = menuBand
@@ -308,8 +305,6 @@ private final class FloatingPlayPaletteView: NSView {
         self.pianoView = FloatingPianoView(menuBand: menuBand, pianoScale: pianoScale)
         super.init(frame: NSRect(origin: .zero, size: .zero))
         wantsLayer = true
-        let dragRecognizer = NSPanGestureRecognizer(target: self, action: #selector(handlePalettePan(_:)))
-        addGestureRecognizer(dragRecognizer)
 
         waveformView.menuBand = menuBand
         waveformView.translatesAutoresizingMaskIntoConstraints = false
@@ -595,52 +590,6 @@ private final class FloatingPlayPaletteView: NSView {
 
     @objc private func closeClicked(_ sender: NSButton) {
         onClose?()
-    }
-
-    @objc private func handlePalettePan(_ recognizer: NSPanGestureRecognizer) {
-        let location = recognizer.location(in: self)
-        switch recognizer.state {
-        case .began:
-            guard shouldBeginPaletteDrag(at: location) else {
-                paletteDragActive = false
-                return
-            }
-            paletteDragStartMouse = NSEvent.mouseLocation
-            paletteDragStartWindowOrigin = window?.frame.origin
-            paletteDragActive = true
-            NSCursor.closedHand.set()
-        case .changed:
-            guard paletteDragActive,
-                  let window,
-                  let startMouse = paletteDragStartMouse,
-                  let startOrigin = paletteDragStartWindowOrigin else { return }
-            let mouse = NSEvent.mouseLocation
-            let nextOrigin = NSPoint(
-                x: startOrigin.x + mouse.x - startMouse.x,
-                y: startOrigin.y + mouse.y - startMouse.y
-            )
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0
-                context.allowsImplicitAnimation = false
-                window.setFrameOrigin(nextOrigin)
-            }
-        case .ended, .cancelled, .failed:
-            if paletteDragActive {
-                NSCursor.openHand.set()
-            }
-            paletteDragStartMouse = nil
-            paletteDragStartWindowOrigin = nil
-            paletteDragActive = false
-        default:
-            break
-        }
-    }
-
-    private func shouldBeginPaletteDrag(at location: NSPoint) -> Bool {
-        if closeButton.frame.contains(location) || pianoView.frame.contains(location) {
-            return false
-        }
-        return true
     }
 }
 
