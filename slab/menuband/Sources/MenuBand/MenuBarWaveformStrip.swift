@@ -11,6 +11,7 @@ import AppKit
 final class MenuBarWaveformStrip {
     private let menuBand: MenuBandController
     private let waveformView = WaveformView()
+    private let waveformBezel = NSView()
     private var panel: NSPanel?
     private weak var statusButton: NSStatusBarButton?
 
@@ -54,6 +55,10 @@ final class MenuBarWaveformStrip {
     init(menuBand: MenuBandController) {
         self.menuBand = menuBand
         waveformView.menuBand = menuBand
+        waveformBezel.wantsLayer = true
+        waveformBezel.layer?.cornerRadius = 6
+        waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
+        waveformBezel.layer?.borderWidth = 1
     }
 
     /// Pre-build the panel so the first note doesn't pay construction cost.
@@ -138,6 +143,8 @@ final class MenuBarWaveformStrip {
         panel.setFrame(NSRect(x: target.origin.x, y: hiddenY,
                               width: target.width, height: target.height),
                        display: true)
+        applyAppearanceToVisualizer()
+        applyWaveformTint()
         waveformView.isLive = true
         panel.orderFrontRegardless()
 
@@ -259,14 +266,26 @@ final class MenuBarWaveformStrip {
         p.acceptsMouseMovedEvents = false
 
         waveformView.translatesAutoresizingMaskIntoConstraints = false
-        p.contentView = NSView()
-        p.contentView!.addSubview(waveformView)
+        waveformBezel.translatesAutoresizingMaskIntoConstraints = false
+        let content = NSView()
+        content.wantsLayer = true
+        content.layer?.backgroundColor = NSColor.clear.cgColor
+        p.contentView = content
+        p.contentView!.addSubview(waveformBezel)
+        waveformBezel.addSubview(waveformView)
+        let bezelInset: CGFloat = 5
         NSLayoutConstraint.activate([
-            waveformView.leadingAnchor.constraint(equalTo: p.contentView!.leadingAnchor),
-            waveformView.trailingAnchor.constraint(equalTo: p.contentView!.trailingAnchor),
-            waveformView.topAnchor.constraint(equalTo: p.contentView!.topAnchor),
-            waveformView.bottomAnchor.constraint(equalTo: p.contentView!.bottomAnchor),
+            waveformBezel.leadingAnchor.constraint(equalTo: p.contentView!.leadingAnchor),
+            waveformBezel.trailingAnchor.constraint(equalTo: p.contentView!.trailingAnchor),
+            waveformBezel.topAnchor.constraint(equalTo: p.contentView!.topAnchor),
+            waveformBezel.bottomAnchor.constraint(equalTo: p.contentView!.bottomAnchor),
+            waveformView.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor, constant: bezelInset),
+            waveformView.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor, constant: -bezelInset),
+            waveformView.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: bezelInset),
+            waveformView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
         ])
+        applyAppearanceToVisualizer()
+        applyWaveformTint()
 
         panel = p
     }
@@ -274,5 +293,31 @@ final class MenuBarWaveformStrip {
     private func positionPanel(_ panel: NSPanel) {
         guard let target = targetFrame() else { return }
         panel.setFrame(target, display: true)
+    }
+
+    private func applyAppearanceToVisualizer() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        waveformView.setLightMode(!isDark)
+        if isDark {
+            waveformBezel.layer?.backgroundColor = NSColor(white: 0.06, alpha: 1.0).cgColor
+        } else {
+            waveformBezel.layer?.backgroundColor = NSColor(white: 0.82, alpha: 1.0).cgColor
+        }
+    }
+
+    private func applyWaveformTint() {
+        if menuBand.midiMode {
+            waveformView.setDotMatrix(MenuBandPopoverViewController.midiDotPattern)
+            waveformView.setBaseColor(.controlAccentColor)
+            waveformBezel.layer?.borderColor = NSColor.controlAccentColor
+                .withAlphaComponent(0.55).cgColor
+        } else {
+            waveformView.setDotMatrix(nil)
+            let safe = max(0, min(127, Int(menuBand.melodicProgram)))
+            let familyColor = InstrumentListView.colorForProgram(safe)
+            waveformView.setBaseColor(familyColor)
+            waveformBezel.layer?.borderColor = familyColor
+                .withAlphaComponent(0.55).cgColor
+        }
     }
 }
