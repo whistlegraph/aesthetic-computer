@@ -276,6 +276,68 @@ R.\ H.\ M.\ Bosanquet's generalized keyboard~\citep{bosanquet1875generalized} wa
 \label{fig:wicki}
 \end{figure}
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  valve/.style={draw=keystroke, fill=keyfill, circle,
+                 minimum size=0.55cm, inner sep=0pt,
+                 font=\tiny\sffamily\bfseries},
+  vlabel/.style={font=\tiny\sffamily, text=keymapped!90},
+  string/.style={draw=keystroke, line width=0.7pt},
+  slabel/.style={font=\tiny\sffamily\bfseries, text=keymapped!90},
+  hole/.style={draw=keystroke, fill=acdark!85, circle,
+                minimum size=0.16cm, inner sep=0pt}
+]
+% --- Trumpet valves (top-left): 3 valves with semitone offsets ---
+\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+  at (0, 1.7) {Trumpet};
+\foreach \x/\n/\semi in {0/1/-2, 0.7/2/-1, 1.4/3/-3} {
+  \node[valve] at (\x, 1.05) {\n};
+  \node[vlabel, anchor=north] at (\x, 0.75) {\semi};
+}
+\node[font=\tiny\sffamily, text=keystroke, anchor=south]
+  at (0.7, 0.45) {(semitones from open)};
+% --- Ocarina (top-right): oval with asymmetric hole arrangement ---
+\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+  at (3.4, 1.7) {Ocarina};
+\draw[draw=keystroke, fill=keyfill, rounded corners=8pt]
+  (3.3, 0.55) rectangle (5.4, 1.4);
+% Asymmetric hole positions (4-hole "English" pattern simplified)
+\foreach \x/\y in {3.55/1.05, 3.85/0.75, 4.20/1.05, 4.50/0.75, 4.85/1.05, 5.15/0.75}
+  \node[hole] at (\x, \y) {};
+\node[font=\tiny\sffamily, text=keystroke, anchor=south]
+  at (4.35, 0.30) {(holes asymmetric across body)};
+% --- Guitar tuning (bottom-left): 6 strings, irregular B interval ---
+\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+  at (0, -0.2) {Guitar};
+\foreach \i/\note/\hl in {1/E/0, 2/A/0, 3/D/0, 4/G/0, 5/B/1, 6/E/0} {
+  \draw[string] (0, {-0.5 - (\i-1)*0.18}) -- (1.85, {-0.5 - (\i-1)*0.18});
+  \ifnum\hl=1
+    \node[slabel, anchor=east] at (-0.05, {-0.5 - (\i-1)*0.18}) {\note};
+  \else
+    \node[font=\tiny\sffamily, text=acdark, anchor=east]
+      at (-0.05, {-0.5 - (\i-1)*0.18}) {\note};
+  \fi
+}
+\node[font=\tiny\sffamily, text=keymapped!90, anchor=west]
+  at (1.95, -0.86) {$\leftarrow$ M3 (others P4)};
+% --- Violin tuning (bottom-right): 4 strings, all P5 ---
+\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+  at (3.4, -0.2) {Violin};
+\foreach \i/\note in {1/G, 2/D, 3/A, 4/E} {
+  \draw[string] (3.4, {-0.5 - (\i-1)*0.21}) -- (5.4, {-0.5 - (\i-1)*0.21});
+  \node[font=\tiny\sffamily, text=acdark, anchor=east]
+    at (3.35, {-0.5 - (\i-1)*0.21}) {\note};
+}
+\node[font=\tiny\sffamily, text=keystroke, anchor=west]
+  at (5.45, -0.92) {(uniform P5)};
+\end{tikzpicture}
+\caption{Asymmetric pitch interfaces across instrument families. Trumpet valves produce non-uniform semitone offsets ($-2, -1, -3$); ocarina holes are placed asymmetrically across the body to fit the player's grasp; guitar's 6-string tuning is uniform in perfect fourths \emph{except} for the B-string irregularity (a major-third interval); violin keeps strict P5s but each string is a different absolute pitch. The standard piano keyboard is one member of a larger family in which the physical-to-pitch interface is irregular by design — the diatonic naming keymap is embodied in many surfaces, each with its own asymmetry.}
+\label{fig:asymmetric-instruments}
+\end{figure}
+
+Each of these surfaces carries its own genealogy. The modern three-valve trumpet (Stölzel and Blühmel, c.\ 1814) standardized after a century of natural-trumpet practice; the Vienna and rotary variants retain different valve mechanisms tied to specific orchestral traditions, and each of those mechanisms is its own keymap-over-pitch with its own pedagogical literature. The ocarina lineage runs from Mesoamerican vessel flutes through Giuseppe Donati's 1853 standardization at Budrio, where the asymmetric finger-hole placement was the design choice that made the 10-hole pattern teachable to amateur players and propagated into Italian, then Asian, then global traditions. The guitar's six-string EADGBE tuning crystallized in the 1700s out of Renaissance lute tunings: the B-string irregularity is itself a path-dependence story --- a compromise that lets the open chord shapes lie under the hand at the cost of breaking the otherwise-uniform fourths, and the entire literature of folk, blues, jazz, and rock guitar has been authored against that single irregular interval. The violin's strict perfect-fifths tuning (G D A E) anchors it in the Italian luthier tradition (Amati, Stradivari, Guarneri) and in the fifths-based string-section conventions that the orchestral repertoire has been written into. Each instrument's asymmetry is not a flaw the music tolerates but an inheritance the music has been authored around. Each \emph{shapes culture}: it determines what a beginner learns first, what a virtuoso practice exercise looks like, what teachers say to students, what notation traveled most easily. The standard piano keyboard sits inside this larger tradition, not above it; the isomorphic alternatives propose something more radical than they sometimes admit, which is the dissolution of the keymap-of-pitch-naming that connects all of these instrument families to one another.
+
 The standard reading of Jankó's failure --- and the marginality of the Wicki--Hayden / hex-grid family more broadly --- is path-dependence on the David--Liebowitz model: the piano persists by lock-in alone. A harder reading is available. The white-and-black asymmetry of the standard piano keyboard is itself a feature the repertoire has been written into. The visual-tactile alternation is a chromatic-circle landmark map --- the player knows where $C$ is because it sits left of two blacks, where $F$ sits left of three --- and this offloads absolute pitch position from memory to the eye and the proprioceptive feel of the hand. Strip the asymmetry, and the offloaded information has nowhere to land: transposition becomes translation, but absolute location becomes recall. Four centuries of Western keyboard repertoire have absorbed the asymmetry into a notion of \emph{key character}: the physical fingering of $F^\sharp$ major differs from the fingering of $C$ major, and the music has been written to that differing. Isomorphism is sometimes pitched as removing an accident of history; on this reading the accident has become productive, and removing it flattens an axis of musical meaning the literature has been authored along. This does not dissolve the David--Liebowitz path-dependence story so much as cut along it from the other side: the standard piano is path-dependent \emph{and} the path has produced an object that is not strictly equivalent to its alternatives. The deeper move available here is to treat the Western tonal system itself as a keymap --- the seven-letter diatonic naming $C\,D\,E\,F\,G\,A\,B$ is already a social-software contract over pitch space, written into musical theory, pedagogy, sheet-music conventions, and the language of every key signature. The standard piano's white-key arrangement is the physical realization of that keymap; the black keys are the chromatic alterations notation already names with $\sharp$ and $\flat$. On this reading the asymmetry of the keyboard is not an accident the music has been composed around but the literal mechanical embodiment of the underlying pitch-naming convention. Reading Jankó, Wicki, and the hex-grid family as pure lock-in on the QWERTY model misses that the standard piano is doing two jobs at once --- physical interface and notational encoding --- and that the alternatives propose to dissolve the second to optimize the first. The argument is scoped, however, to the 12-tone-equal-tempered repertoire that names pitches with the diatonic letters. Outside that scope --- microtonal and xenharmonic music in 19-, 22-, 31-, 53-EDO; Maqam and other non-Western tonal systems where the pitch-naming keymap differs --- the standard piano is actively obstructive, and the isomorphic line from Bosanquet through the Lumatone has a strong, repertoire-grounded claim. The asymmetry-as-feature reading is a defense of the standard piano \emph{within} the keymap-of-pitch-naming it embodies; it is not a defense of the standard piano as the universal solution to keyboard layout. Within that scope, the same keymap-of-pitch-naming is what \texttt{notepat} (\textsection\ref{sec:notepat}) preserves: the diatonic letters $C\,D\,E\,F\,G\,A\,B$ travel from the standard piano's white-key arrangement onto QWERTY's letter caps, where pressing the letter \texttt{C} plays the note $C$. The standard piano embodies the pitch-naming keymap with white keys and a black-key asymmetry that signals chromatic alteration; \texttt{notepat} embodies the same keymap with QWERTY letters and the row-above convention for sharps. Both are realizations of the same underlying social-software contract over Western pitch space; only the physical interface differs. Where Jankó dissolves the naming keymap to optimize the physical interface, and the chromatic-staircase DAW convention dissolves \emph{both} (\textsection\ref{sec:daw}), \texttt{notepat} continues the spirit of the diatonic naming convention unchanged --- the seven letters $C\,D\,E\,F\,G\,A\,B$ still mean the seven notes they have named for centuries --- and re-asks only the question Sholes' 1873 mechanics asked: what physical surface is the right one to carry the naming keymap forward on. The pitch-naming contract endures; the substrate underneath it is the open question, and the standard piano's white-key arrangement is one answer in a longer historical line that QWERTY's letter caps can also serve.
 
 The contemporary descendants are commercial products: the C-Thru AXiS-49 (2008)~\citep{cthru2008axis49}, Jim Plamondon's Thummer~\citep{plamondon2003thummer}, the Roger Linn LinnStrument, the ROLI Seaboard, the Lumatone hex grid, and Lippold Haken's Continuum Fingerboard~\citep{haken1998indiscrete}. Andrew Milne, William Sethares, and James Plamondon's papers on isomorphic controllers and tuning continua~\citep{milne2007isomorphic,milne2008tuning} provide the theoretical foundation. What is striking from a keymap-as-social-software view is that these instruments \emph{ship configurable}: the layout is an explicit object the user uploads, and the xenharmonic community shares layouts as files. The Lumatone in particular treats the keymap as the unit of distribution. The instrument is a substrate; the keymap is the artifact that makes it musical.
