@@ -1,0 +1,12 @@
+funder,type,years,amount_usd_total,program_supported,notes,source
+Mellon Foundation,foundation,2023,2000000,Infrastructure and staffing under Legacy Russell,"$2M / 36 months / Arts and Culture program; described as the largest single gift in The Kitchen's 50-year history",https://www.mellon.org/grant-details/the-kitchen-20453597
+Andy Warhol Foundation for the Visual Arts,foundation,(recurring),(partial),Multi-year Program Support; Hurricane Sandy recovery in 2012,"Fall 2023 grant of $80,000 for Multi-year Program Support documented; previously supported Hurricane Sandy recovery in 2012",https://warholfoundation.org/grants/archive/the-kitchen/
+NEA,government,(recurring),TBD,Music / Dance / Media Arts programs,Recurring discipline funder; year-by-year amounts blocked behind JS-rendered grant search; not extracted in this pass,https://grantsearch.nea.gov/
+NYSCA,government,(recurring),TBD,General operating + program support,New York State Council on the Arts; recurring,https://arts.ny.gov/
+NYC Department of Cultural Affairs (DCLA),government,(recurring),TBD,Cultural Development Fund + program support,Recurring NYC government support,https://www.nyc.gov/site/dcla/
+Ford Foundation,foundation,TBD,TBD,General operations,Plausible recurring funder for an org of this scale; not yet confirmed by grant ID,inferred (TBD)
+Time Warner,corporate,2012,(part of ~$450K Sandy aid),Hurricane Sandy recovery,Among the named recovery funders cited on the Wikipedia entry,Wikipedia
+Art Dealers Association of America,trade association,2012,(part of ~$450K Sandy aid),Hurricane Sandy recovery,Among the named recovery funders for Sandy damage,Wikipedia
+Robert Soros (board chair),individual board,(current),TBD,General / capital,Current Chairperson of the Board,The Kitchen About
+Empire State Development (NYS) / NYC capital programs,government,TBD,TBD,Capital / building,Plausible source for the Chelsea capital renovation; not confirmed in this pass,inferred (TBD)
+Capital campaign donors (collective),individual / institutional,2021-,~28000000+,The Next 50 capital campaign for the W 19th Street renovation,"Public goal stated as $40M (thenext50.thekitchen.org); $28M / 5-year campaign cited at announcement; ArchPaper reported $19M pledged at launch; donor breakdown not public",https://www.thenext50.thekitchen.org / archpaper.com 2021

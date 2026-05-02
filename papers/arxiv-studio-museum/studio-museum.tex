@@ -1,0 +1,316 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tikz}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Studio Museum in Harlem: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{studio-museum-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\begin{document}
+
+\twocolumn[{%
+% Top header row: pals (left) + QR + label (right)
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+\begin{tabular}{@{}r@{}}
+{\footnotesize\acbold\color{acpink} \,\,Read this paper now!}\\[0.18em]
+\href{\paperurl}{\includegraphics[height=2.4cm]{figures/qr}}
+\end{tabular}
+\end{minipage}\par
+\vspace{0.4em}
+
+% Hero illustration with title floating over the bottom vignette
+\begin{center}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (cover) at (0,0) {\includegraphics[width=0.86\textwidth]{figures/cover}};
+  \node[anchor=south, align=center, inner sep=0pt] at ([yshift=2.4em]cover.south) {%
+    \begin{tabular}{c}
+      {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}\strut Studio Museum in Harlem}\\[0.05em]
+      {\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}\strut A Dossier}\\[0.2em]
+      {\aclight\fontsize{9.5pt}{11pt}\selectfont\color{acgray}\strut Genealogy, History, Programs, People, Money, Footprint --- 1968 to 2026}\\
+    \end{tabular}
+  };
+\end{tikzpicture}
+\par\vspace{0.4em}
+
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about the Studio Museum in Harlem --- the New York-based contemporary-art museum founded in 1968 as the first museum in the United States dedicated to artists of African descent --- across genealogy, periodized history, programs, people, finances, and cultural footprint. There is no thesis, no verdict, and no conclusion section. The capital campaign for the new building (closed 2018, opened 2025) attracted politically charged coverage; this dossier surfaces named donors and dollar amounts without editorializing. Where facts run out the dossier stops; gaps are flagged inline.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Origin}
+
+The Studio Museum opens in September 1968 on the second floor of 2033 Fifth Avenue, at the corner of 125th Street, in a rented loft above a liquor store. It is the first museum in the United States chartered to collect, exhibit and contextualize the work of artists of African descent. Six founders are named in the museum's own founding record~\citep{smh2026history}: \textbf{Eleanor Holmes Norton} (lawyer, civil-rights organizer, later D.C.~delegate to Congress); \textbf{Carter Burden} (New York City councilman and bibliophile); \textbf{Charles E. Inniss} (insurance executive, founding director); \textbf{Campbell Wylly} (banker); \textbf{Betty Blayton-Taylor} (artist; the first African-American woman trustee of the Art Students League); and \textbf{Frank Donnelly}. The painter Mahler B.~Ryder serves as founding secretary.
+
+The museum's name is intentional and load-bearing. The founding initiative is not a gallery or a kunsthalle but a \emph{studio} --- a working space for artists --- coupled with public exhibition. The Studio Program (later renamed the Artist-in-Residence Program) is proposed by the artist William T.~Williams in 1968 and launched in 1969 with Tom Lloyd as the first artist in residence. Lloyd's exhibition \emph{Electronic Refractions II}, a body of programmable light sculpture, opens the museum on 24 September 1968~\citep{smh2026history,wikipedia2026smh}.
+
+\section{The Organization, 1968--2026}
+
+\subsection{Loft years (1968--1981)}
+
+Inniss serves as founding director through 1969. Edward S.~Spriggs --- poet, painter and filmmaker --- becomes director in 1969 and leads the institution through the heart of the Black Arts Movement, instituting the Film Unit and the Studio Program. Courtney Callender follows (1975--1977). The museum operates throughout this period in rented loft space.
+
+\subsection{144 West 125th (1981--2018)}
+
+In 1979 the New York Bank of Savings donates a former bank building at 144 West 125th Street to the museum. Mary Schmidt Campbell becomes director in 1977 and leads the move; the architect J.~Max Bond Jr.~--- a leading figure in the second generation of African-American modernist architects --- designs the renovation. The new home opens in 1982 with \emph{Ritual and Myth: A Survey of African American Art}. Campbell's twenty-year tenure (1977--1987 as director, then continuing organizational role; recorded by the museum as 1977--2000~\citep{smh2026history}) institutionalizes the AIR culminating-exhibition format and grows the permanent collection.
+
+Kinshasha Holman Conwill becomes deputy director under Campbell and is widely associated with the directorship of the late 1980s and 1990s. Lowery Stokes Sims, formerly a curator of modern and contemporary art at the Metropolitan Museum, takes the directorship in 2000.
+
+\subsection{Golden directorship (2005--present)}
+
+\textbf{Thelma Golden} succeeds Sims in 2005. Golden, a former Whitney curator who had organized the controversial \emph{Black Male} exhibition there in 1994, reframes the museum's curatorial program around what her catalog essay for \emph{Freestyle} (2001, organized at the Studio Museum while Golden was a deputy director under Sims) names ``post-Black''~\citep{golden2001freestyle}: a generation of artists who refuse the demand to make work primarily \emph{about} race even as their practices remain entangled with it. Under Golden the F-show series (\emph{Freestyle} 2001, \emph{Frequency} 2005, \emph{Flow} 2008, \emph{Fore} 2012, \emph{Fictions} 2017) becomes the museum's central periodizing curatorial gesture~\citep{artsy2017fictions}.
+
+\subsection{Closure and rebuild (2018--2025)}
+
+The museum closes its 144 West 125th Street home in 2018 to demolish the bank-conversion building and erect a purpose-built museum on the same lot. The Adjaye Associates design --- the first ground-up museum building of its scale designed for a Black-art institution --- breaks ground in 2018 with Cooper Robertson as executive architect. During the seven-year construction period the museum operates without a permanent home, programming offsite with MoMA PS1 (Artist-in-Residence culminating exhibitions), the Metropolitan Museum (the James Van Der Zee Archive partnership announced 2021), and the \emph{inHarlem} initiative (outdoor sculpture installations across Harlem, 2016--).
+
+In July 2023, after three former Adjaye Associates employees publicly accuse David Adjaye of sexual misconduct in a \emph{Financial Times} investigation~\citep{ft2023adjaye}, the Studio Museum's Board of Trustees severs ties with Adjaye personally while keeping Adjaye Associates' New York office on the project~\citep{artnews2023adjaye}. Pascale Sablan, CEO of Adjaye Associates' New York office, leads the project to completion. The new 82{,}000 sq.~ft, seven-story building opens to the public on 15 November 2025~\citep{smh2025opening}.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Tenure} & \textbf{Director} & \textbf{Note} \\
+\midrule
+1968--1969 & Charles E. Inniss & Founding director \\
+1969--1975 & Edward S. Spriggs & Black Arts Movement \\
+1975--1977 & Courtney Callender & \\
+1977--2000 & Mary Schmidt Campbell & 144 W 125th move \\
+1988--1999 & Kinshasha Holman Conwill & Deputy director / acting \\
+2000--2005 & Lowery Stokes Sims & Ex-Met curator \\
+2005--present & Thelma Golden & Ford Foundation Director and Chief Curator \\
+\bottomrule
+\end{tabularx}
+\caption{Directors of record. The Conwill (1988--1999) tenure overlaps the Campbell tenure on the museum's own historical narration; Conwill is consistently identified as deputy director / acting director rather than as a formally appointed director. Campbell's directorship is recorded by the museum as 1977--2000~\citep{smh2026history}; this dossier follows that record.}
+\label{tab:directors}
+\end{table}
+
+The Board of Trustees, in 2026, is chaired by \textbf{Kathryn C.~Chenault}, with Raymond J.~McGuire (former Chair, now Chair Emeritus). Vice-chairs: Dr.~Anita Blanchard, Damien R.~Dwin, Carol Sutton Lewis. Treasurer: Rodney M.~Miller, Sr. Secretary: Jacqueline L.~Bradley. Trustees include Henry Louis Gates Jr., Holly Peterson, Bernard I.~Lumpkin, Gordon J.~Davis, Reginald Van Lee, Andrew Marks, Suzanne McFayden, and Dr.~Michael L.~Lomax. Ex-officio: the Mayor of New York (Hon.~Zohran K.~Mamdani in 2026), the NYC Cultural Affairs Commissioner (Diya Vij), and Thelma Golden as Ford Foundation Director and Chief Curator. Trustee Emerita: Nancy L.~Lane (in memoriam). Legacy Trustees: George L.~Knox, Reginald Van Lee~\citep{smh2026board}.
+
+\section{Programs}
+
+\textbf{Artist-in-Residence Program} (1969--). The museum's longest-running founding initiative. Three artists annually receive an eleven-month studio residency, a stipend, and a culminating exhibition. Over 150 artists have completed the program. Notable alumni include David Hammons (1980--81), Maren Hassinger, Kerry James Marshall, Kehinde Wiley (2001--02), Wangechi Mutu (2003--04), Mickalene Thomas, Julie Mehretu, Njideka Akunyili Crosby (2011--12), Jordan Casteel (2015--16), Lauren Halsey, Simone Leigh, Tschabalala Self, Titus Kaphar, Sanford Biggers, and many others. Funded since at least the 2010s by the Glenstone Foundation, the Jerome Foundation, and the Joyce Alexander Wein Endowment. The 2026 cohort --- the first to occupy the J.~Bruce Llewellyn Artist in Residence Center in the new building --- comprises Derriann Pharr, Simonette Quamina, and Taylor Simmons~\citep{smh2026air}.
+
+\textbf{The ``F'' Shows} (2001--2018). A series of five thematic surveys of emerging artists of African descent, organized at five-year-or-so intervals: \emph{Freestyle} (2001, curated by Thelma Golden with Christine Y.~Kim) --- the show that introduced the term ``post-Black''; \emph{Frequency} (2005--06, Golden + Kim, 35 emerging artists); \emph{Flow} (2008); \emph{Fore} (2012--13, co-curated by Naima Keith, Lauren Haynes, Thomas J.~Lax); \emph{Fictions} (2017--18). The five F-shows together are widely treated as the canonical inventory of two decades of emerging Black contemporary art in the United States~\citep{artsy2017fictions}.
+
+\textbf{Expanding the Walls} (2000--). High-school photography program inspired by the James Van Der Zee Archive; pairs Harlem teenagers with the museum's collection and exhibits the resulting work annually.
+
+\textbf{Joyce Alexander Wein Artist Prize} (2006--). \$50{,}000 annual prize established by jazz impresario George Wein in honor of his late wife Joyce Alexander Wein, a longtime trustee. Recipients include Lorna Simpson (2006), Trenton Doyle Hancock (2007), Nadine Robinson (2008), Glenn Ligon (2009), Leslie Hewitt (2010), Leonardo Drew (2011), Jennie C.~Jones (2012), Gary Simmons (2013), Samuel Levi Jones (2014), Njideka Akunyili Crosby (2015), Derrick Adams (2016), Simone Leigh (2017), Diedrick Brackens (2018), Torkwase Dyson (2019), Cy Gavin (2023), Toyin Ojih Odutola (2024), Kenturah Davis (2025).
+
+\textbf{\emph{Studio} Magazine} (2005--). Biannual print publication. Won the AAM Museum Publications Design Competition first prize in 2015 (Magazines / Scholarly Journals).
+
+\textbf{Target Free Sundays} (2009--). Free public-admission program; corporate-named after Target's underwriting.
+
+\textbf{inHarlem} (2016--). Citywide installation initiative siting outdoor sculpture and performance throughout Harlem, primarily during the construction-period diaspora.
+
+\textbf{StudioSound} (2004--). Music-commissioning series.
+
+\textbf{Harlem Postcards} (2002--). Quarterly photographic commission of Harlem street life.
+
+\textbf{Black Masters / Hale Woodruff Memorial / The Bearden Project} (1974, 1986, 2011 respectively). Recurring named-artist tribute series.
+
+\textbf{James Van Der Zee Archive} (1979 acquisition; 2021 partnership with the Metropolitan Museum to research, conserve, and publicly access). The museum holds the world's largest collection of work by the Harlem Renaissance photographer.
+
+\textbf{MoMA / Studio Museum Curatorial Fellowship} (2015--). Joint training fellowship with the Museum of Modern Art.
+
+\section{Money}\label{sec:money}
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{Xrrrrrr}
+\toprule
+\textbf{FY end} & \textbf{Revenue} & \textbf{Contri.\,/\,grants} & \textbf{Prog.\,svc.} & \textbf{Expenses} & \textbf{Officer comp.} & \textbf{Net assets} \\
+\midrule
+2011-06 & 5,757,895 & 4,003,836 & 71,643 & 4,808,127 & 206,693 & 9,576,727 \\
+2012-06 & 4,845,383 & 3,085,801 & 74,042 & 5,266,181 & 408,388 & 9,040,405 \\
+2013-06 & 6,703,088 & 4,499,968 & 99,107 & 5,316,271 & 386,744 & 10,430,186 \\
+2014-06 & 9,611,899 & 7,686,926 & 89,029 & 5,723,286 & 381,594 & 14,603,618 \\
+2015-06 & 7,100,072 & 4,757,133 & 224,420 & 6,351,044 & 437,456 & 14,928,886 \\
+2016-06 & 18,501,821 & 16,245,379 & 114,369 & 7,054,205 & 455,239 & 26,391,360 \\
+2017-06 & 31,021,557 & 28,640,744 & 135,800 & 7,761,083 & 457,975 & 49,697,175 \\
+2018-06 & \textbf{61,730,334} & 59,783,251 & 47,868 & 9,173,832 & 424,818 & 102,408,601 \\
+2019-06 & 17,946,629 & 17,853,024 & 2,600 & 12,454,332 & 457,670 & 108,361,383 \\
+2020-06 & 14,931,743 & 11,906,180 & 6,250 & 10,615,641 & 658,509 & 114,078,470 \\
+2021-06 & 40,471,884 & 38,093,942 & 0 & 11,496,543 & 560,116 & 145,112,053 \\
+2022-06 & \textbf{59,914,680} & 57,770,204 & 72,000 & 13,414,272 & 1,222,054 & 182,888,223 \\
+2023-06 & 47,220,609 & 42,821,762 & 271,955 & 16,164,729 & 1,564,012 & 215,688,944 \\
+2024-06 & 43,385,519 & 38,443,941 & 217,590 & 17,603,871 & 1,326,455 & 244,780,417 \\
+\bottomrule
+\end{tabularx}
+\caption{The Studio Museum in Harlem, EIN 13-2590805 --- top-line Form 990 figures by fiscal year (USD; FY ends June 30). Source: ProPublica Nonprofit Explorer. The shape: pre-campaign baseline (FY2011--FY2015) at \$5--10M/yr revenue; capital-campaign era (FY2016--FY2024) regularly above \$15M, with three peaks --- FY2018 (\$61.7M), FY2021 (\$40.5M), FY2022 (\$59.9M) --- corresponding to large concentrated capital-campaign and endowment gifts. Net assets grow from \$9.6M (FY2011) to \$244.8M (FY2024).}
+\label{tab:financials}
+\end{table*}
+
+The capital campaign for the new building --- branded \emph{Creating Space} --- closed at over \$300 million, exceeding the original \$175M goal and the later \$250M extended target. The headline composition (per the museum's reopening press release and \emph{The Art Newspaper}~\citep{tan2021studiomuseum,smh2025opening}):
+
+\begin{itemize}
+  \item \textbf{City of New York: \$62 million} (NYC Department of Cultural Affairs through capital allocations).
+  \item \textbf{Ford Foundation: \$10 million} (October 2024) --- permanent endowment of the position of Director and Chief Curator, now styled the \emph{Ford Foundation Director and Chief Curator}; announced at the 2024 gala on the occasion of Thelma Golden's twentieth anniversary~\citep{smh2024ford}.
+  \item \textbf{Mellon Foundation: \$10 million} (December 2022) --- Presidential Initiatives line, dedicated to construction of the new building~\citep{mellon2022capital}. (Note: an earlier internal cross-reference in the Mellon dossier listed this as a 2018 \$5M gift; the canonical Mellon database record is \$10M dated 2022. Both figures may reflect different tranches of the same multi-year commitment; this dossier records the figure on the Mellon database as authoritative.)
+  \item \textbf{MacKenzie Scott} (June 2021) --- ``extraordinary and transformative'' endowment gift; specific dollar amount not publicly disclosed by the museum in its press release~\citep{smh2021scott}. Scott's broader 2021 disbursement totaled \$2.74B across hundreds of nonprofits.
+  \item \textbf{Bank of America} --- lead opening sponsor; amount not disclosed.
+  \item \textbf{Henry Luce Foundation} --- inaugural exhibitions and publications; amount not disclosed.
+  \item \textbf{The 2025 Pre-Opening Gala} raised over \$3.7M.
+  \item \textbf{Lead individual gift.} The dossier brief at intake referenced a \$25M lead gift from Fred Eychaner. This dossier could \textbf{not confirm} that figure in the public record on the working-draft pass --- Eychaner does not appear on the museum's published donor wall as captured in press materials, and his Wikipedia page does not mention the Studio Museum. The figure is recorded here as \textbf{TBD / unverified} pending direct examination of the 2025 reopening donor wall, the museum's 2025 Annual Report, or named-gift recognition in the building's interior signage.
+\end{itemize}
+
+Mellon's recurring \emph{Curatorial Fund} grants (Phases I, II and III) and the \emph{Critical Collections}, \emph{Collections Management}, \emph{Studio Museum Sustainability Plan / Art Museum Futures Fund}, and \emph{VanDerZee Collection} grants together represent a multi-decade institutional partnership; per-grant amounts are tabulated in \texttt{data/grants.csv} where they have been confirmed.
+
+\section{The New Building}
+
+\begin{description}
+\item[\textbf{Architect of record.}] Adjaye Associates (David Adjaye, lead designer until July 2023; Pascale Sablan, NYC office CEO, project lead 2023--2025). \textbf{Executive architect:} Cooper Robertson.
+\item[\textbf{Site.}] 144 West 125th Street --- the same lot as the 1981 J.~Max Bond Jr.~conversion. The Bond building was demolished as part of the project.
+\item[\textbf{Footprint.}] 82{,}000 sq.~ft.~over seven floors, including five floors of exhibition space (\(\sim\)17{,}000 sq.~ft, roughly double the previous home), a roof terrace, expanded education and AIR studios, an inverted ``stoop'' entrance with glass doors~\citep{archpaper2025smh}.
+\item[\textbf{Construction.}] Groundbreaking 2018; completion 2025. Total construction cost approximately \$160M; full project cost (incl.~endowment, operating reserves, programming) approximately \$300M+.
+\item[\textbf{Adjaye separation (July 2023).}] Following a \emph{Financial Times} investigation reporting sexual-misconduct allegations from three former Adjaye Associates employees, the Studio Museum trustees announced they were ``concerned'' and that David Adjaye personally was stepping back from the project~\citep{ft2023adjaye,artnews2023adjaye}. The firm's NYC team continued. Adjaye has denied the allegations.
+\item[\textbf{Opening.}] Saturday, 15 November 2025, with free admission and a Community Day; inaugural exhibition is a comprehensive survey of \textbf{Tom Lloyd}, the artist of the 1968 inaugural show.
+\item[\textbf{Renaming.}] Press materials and signage at opening retain the historical name \emph{The Studio Museum in Harlem}. The dossier brief at intake referenced a renaming to ``Studio Museum 125''; this could not be confirmed in 2025--2026 press materials and is recorded here as \textbf{not present in current public-facing usage}.
+\end{description}
+
+\section{Footprint}
+
+The Studio Museum's footprint, as publicly recoverable, divides cleanly:
+
+\begin{description}
+\item[\textbf{Permanent collection.}] $\sim$8{,}000+ works by African-American, African, and Caribbean artists from the nineteenth century to the present. Augmented by the 2018 \textbf{Peggy Cooper Cafritz bequest} of over 400 contemporary works.
+\item[\textbf{The James Van Der Zee Archive.}] The world's largest collection of the Harlem Renaissance photographer's work, acquired 1979; 2021 partnership with the Metropolitan Museum (Mellon-funded at \$2M to the Met) to research, conserve, and publicly access.
+\item[\textbf{AIR alumni network.}] 150+ alumni; the program is widely cited as the formative training ground for two generations of African-American contemporary artists. Alumni cited above (David Hammons, Kerry James Marshall, Wangechi Mutu, Kehinde Wiley, Njideka Akunyili Crosby, Simone Leigh, Jordan Casteel, Lauren Halsey) are individually among the most-collected and highest-priced living artists in the global market.
+\item[\textbf{F-show curatorial canon.}] The five F-shows (2001--2018) are routinely cited in survey volumes of 21st-century American art as the canonical inventory of emerging Black contemporary art for that period.
+\item[\textbf{Recurring critics and publications.}] \emph{Studio} magazine (2005--), the F-show catalogues (issued as the ``F-Show Box Set''), Thelma Golden's ``post-Black'' essay (2001), and the ongoing \emph{Studio Museum Magazine} online editorial.
+\end{description}
+
+A finer-grained footprint --- year-by-year exhibition list, full Cafritz bequest accession list, complete AIR alumni roster cross-walked with cohort exhibitions --- is partly captured in \texttt{data/residents.csv} and \texttt{data/programs.csv} but is incomplete; the museum's own published timeline at \href{https://www.studiomuseuminharlem.org/timeline}{studiomuseuminharlem.org/timeline} was unreachable on the working-draft pass.
+
+\section{Reading list}
+
+\subsection{Already in the AC readings library}
+
+\textbf{Golden, ``Post-\dots'' (\emph{Freestyle} catalog, 2001)}~\citep{golden2001freestyle} --- People, the curatorial premise of the Golden directorship.
+
+\subsection{To acquire}
+
+\textbf{Mary Schmidt Campbell, \emph{An American Odyssey: The Life and Work of Romare Bearden} (Oxford UP, 2018)} --- People, by the longest-tenured director.\\
+\textbf{Thelma Golden, \emph{Black Male: Representations of Masculinity in Contemporary American Art} (Whitney Museum, 1994)} --- People, the curatorial pre-history.\\
+\textbf{Kellie Jones, \emph{EyeMinded: Living and Writing Contemporary Art} (Duke UP, 2011)} --- adjacent.\\
+\textbf{Huey Copeland, \emph{Bound to Appear} (Chicago, 2013)} --- adjacent.\\
+\textbf{Lauren Haynes \& Thomas Lax, \emph{Fore} catalog (2012)} --- Programs.\\
+\textbf{Connie H.~Choi, ed., \emph{The Studio Museum in Harlem: 50 Years of Collecting and Exhibiting Black Art} (2018)} --- the museum's own anniversary volume.\\
+\textbf{The Five F-Show Box Set} (Freestyle / Frequency / Flow / Fore / Fictions) --- Programs.\\
+\textbf{Architectural Record \& \emph{The Art Newspaper} reopening coverage} (Nov 2025) --- The New Building.\\
+\textbf{\emph{Financial Times}, ``Star architect Sir David Adjaye accused of sexual assault, harassment and misconduct'' (4 Jul 2023)} --- The New Building, the Adjaye separation.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The capital-campaign donor record and the Adjaye separation are surfaced, not judged.
+  \item Not a comparison. Adjacent institutions (the Schomburg Center, MoCADA, the Whitney's African-American collection, the Smithsonian NMAAHC) are mentioned only where they directly intersect the Studio Museum.
+  \item Not a curatorial history. The F-shows are inventoried, not interpreted.
+  \item Not exhaustive. The dossier covers what is publicly recoverable; gaps are flagged inline. The companion data folder (\texttt{papers/arxiv-studio-museum/data/}) contains the underlying CSVs.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

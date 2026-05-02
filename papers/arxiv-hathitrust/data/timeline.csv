@@ -1,0 +1,27 @@
+year,event,category,source
+2004,Google Books / Google Library Project launches; partner libraries (Michigan UC etc) begin contributing scans of print collections,context,Wikipedia
+2005,Open Content Alliance forms (Internet Archive-led counter-program); same partner-library digitization work flows there too,context,blog.archive.org
+2008-10-13,HathiTrust launches as shared digital repository; founding members include 12 CIC universities + 11 UC libraries + University of Virginia,org,cdl2008launch / um2008launch
+2008,IMLS National Leadership Grant launches Copyright Review Management System (CRMS),funding,hathicrms
+2008,John Wilkin (UMich Associate University Librarian) becomes founding Executive Director,people,wilkin2013illinois
+2011-09-12,Authors Guild and others file copyright suit against HathiTrust and member universities (S.D.N.Y.),litigation,authorsguildwiki
+2011,HathiTrust Research Center (HTRC) launches as Indiana U + U Illinois Urbana-Champaign + HathiTrust partnership,program,iuhtrc2011
+2011,HathiTrust voluntarily suspends Orphan Works Project,program,authorsguildwiki
+2012,HathiTrust governance bylaws established; Board of Governors and Program Steering Committee formalized,org,hathigovern
+2012-10-10,District court (Judge Harold Baer Jr.) grants summary judgment for HathiTrust on full-text-search and accessibility uses,litigation,hathirulingdistrict
+2013,Founding Director John Wilkin leaves HathiTrust to become Dean of Libraries at U Illinois Urbana-Champaign,people,wilkin2013illinois
+2014,Mike Furlough succeeds Wilkin as Executive Director,people,hathiteam
+2014-06-10,Second Circuit (Judges Parker Walker Cabranes; opinion by Parker) affirms district court; full-text search and accessibility uses are fair use; preservation-copy claim remanded for standing,litigation,hathirulingappeal
+2015-01-06,Authors Guild settles remaining preservation-copy claim with HathiTrust,litigation,authorsguildwiki
+2016,Committee on Institutional Cooperation (CIC) renamed Big Ten Academic Alliance (BTAA),context,btaagovernance
+2019,Projected annual budget $3,777,445; corpus ~17M volumes,funding,wikipediahathi
+2020-03,Emergency Temporary Access Service (ETAS) launches in response to COVID-19 library closures,program,hathicovid2020
+2020-05,Within ~2 months of launch ETAS in use at 171 campuses; ~300K accesses,program,hathicovid2020
+2023-02,Andrew W. Mellon Foundation awards $1M grant for core preservation and portfolio management staffing,funding,hathimellon2023
+2023,Cost-per-volume $0.2294; Tier 2 baseline public-domain fee $7414,funding,hathicost
+2024,HathiTrust Board votes to end HTRC funding at end of 2026; HTRC Transition FAQ posted,program,htrctransition
+2024-07,Hofstra University Library joins HathiTrust,members,hofstranews2024
+2024-09,Corpus passes 18M volumes; 6.7M in US public domain; 219+ member libraries,program,wikipediahathi
+2025,Corpus passes 19M volumes; 290+ member libraries,program,wikipediahathi
+2025,Members vote to approve 2026 budget; Mary-Jo K. Romaniuk (U Calgary) elected to Board for 2026-2028; Lorrie McAllister (Hofstra) re-elected,org,hathi2026budget
+2026,Cost-per-volume $0.2403; HTRC funding ends end of year (planned closure),org,hathi2026budget / htrctransition

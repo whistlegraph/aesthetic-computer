@@ -1,0 +1,7 @@
+funder,date,amount_usd,program_area,project,term_months,source_url,notes
+Mellon Foundation,2023-02,1000000,Public Knowledge,Strengthen preservation and access mission; portfolio management staffing,60,https://www.hathitrust.org/hathitrust-receives-1-million-mellon-grant-to-enhance-core-operations,Cross-referenced in papers/arxiv-mellon/data/recipient-spotlight.csv
+Sloan Foundation,2011,600000,Digital Information Technology,Investigation of non-consumptive research for mass digitized collection (to IU Data to Insight Center),,https://newsinfo.iu.edu/news/page/normal/19252.html,IU-led grant supporting HTRC research direction
+Sloan Foundation,---,---,Digital Information Technology,HTRC Data Capsule -- secure VM environment for non-consumptive research on copyrighted content,,---,Specific year and amount TBD; underwrites the HTRC secure-compute infrastructure
+IMLS,2008,---,National Leadership Grants,Copyright Review Management System (CRMS) -- US determination of public-domain status 1923-1963 works,36,https://www.imls.gov,Original CRMS grant; specific amount TBD
+IMLS,2011-12,---,National Leadership Grants,CRMS-World extension; copyright determination for non-US works,36,https://www.imls.gov,Ran December 2011 to November 2014; 50+ partner institution reviewers
+NEH,---,---,Digital Humanities Advancement,Periodic support for HTRC corpus tooling,,https://www.neh.gov,Specific year and amount TBD

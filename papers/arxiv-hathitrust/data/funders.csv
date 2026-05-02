@@ -1,0 +1,10 @@
+funder,role,notes,source
+Andrew W. Mellon Foundation,Major institutional funder,$1M grant Feb 2023 (Public Knowledge program) for portfolio management staffing and core preservation/access mission; cross-referenced in arxiv-mellon/data/recipient-spotlight.csv,hathimellon2023 / mellon.org
+Alfred P. Sloan Foundation,Major institutional funder,Funded HTRC Data Capsule (secure VM environment for non-consumptive research over copyrighted text); $600K to Indiana University Data to Insight Center for non-consumptive research investigation 2011,iudata2011 / plale2016educause
+Institute of Museum and Library Services (IMLS),Federal grant agency,Multiple National Leadership Grants supporting Copyright Review Management System (CRMS) 2008-2011 (US) and 2011-2014 (CRMS-World); 50+ individual reviewers across partner institutions,hathicrms
+University of Michigan,Founding host institution,Hosts HathiTrust staff infrastructure and operations; UMich Library budget contains the operational core,wikipediahathi
+Big Ten Academic Alliance (formerly CIC),Founding consortium,12-university consortium contributing 2 Board of Governors seats and ongoing programmatic alignment,btaagovernance
+University of California (system),Founding consortium,11 libraries plus California Digital Library; 2 Board of Governors seats,cdl2008launch
+Member libraries (annual dues),Primary funding source,219+ libraries (2024) paying annual dues based on cost-per-volume rate ($0.2294 in 2023; $0.2403 in 2026); split into public-domain (common-good) tier fees and copyright-portion fees,hathicost
+Google (in-kind via Google Library Project),Initial digitization partner,Most of the founding corpus was digitized by Google through partner-library agreements; HathiTrust receives the scans and preserves them,wikipediahathi
+National Endowment for the Humanities (NEH),Federal grant agency,Periodic grants tied to digital humanities scholarship over the corpus,---

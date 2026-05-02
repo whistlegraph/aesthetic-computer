@@ -31,13 +31,20 @@ for (const a of argv) {
 }
 
 const STYLE_PREFIX =
-  "Colored pencil illustration on warm cream-colored paper, soft layered " +
-  "strokes with visible pencil texture, art-school sketchbook aesthetic, " +
-  "muted natural color palette (terracotta, sage, ochre, dusty pink, slate " +
-  "blue, warm grey), gentle hand-drawn linework, no text, no logos, no " +
-  "lettering, no signage, vertical composition that fills the frame edge to " +
-  "edge, balanced negative space, intimate and contemplative tone. " +
-  "The subject: ";
+  "Colored pencil illustration on warm cream-colored paper. Single iconic " +
+  "subject as a centered VIGNETTE with very softly faded edges that DISSOLVE " +
+  "INTO PURE CREAM PAPER on all four sides — the corners and edges of the " +
+  "image must be the same warm cream as the paper itself, with NO hard " +
+  "frame, NO border, NO background scene, NO environmental context. The " +
+  "subject must be a single floating object, form, or symbolic shape — " +
+  "bold and simple enough to be READ FROM ACROSS A ROOM. Use thick, " +
+  "confident pencil strokes and high tonal contrast where the subject " +
+  "is densest, gradually softening to nothing at the periphery. Muted " +
+  "natural palette (terracotta, sage, ochre, dusty pink, slate blue, warm " +
+  "grey), gentle hand-drawn linework, no text, no logos, no lettering, no " +
+  "signage. Square 1:1 composition. The vignette should look like a single " +
+  "iconic motif floating on the page, intimate and contemplative, more " +
+  "like a logo-illustration than a scene. The subject: ";
 
 function loadOpenAIKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
@@ -69,13 +76,6 @@ async function genCover(paperDir, { force }) {
   const subject = readFileSync(promptPath, "utf8").trim();
   const fullPrompt = STYLE_PREFIX + subject;
 
-  const fd = new FormData();
-  fd.append("model", "gpt-image-2");
-  fd.append("prompt", fullPrompt);
-  fd.append("size", "1024x1536");
-  fd.append("quality", "high");
-  fd.append("n", "1");
-
   const t0 = Date.now();
   const apiKey = loadOpenAIKey();
   const res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -87,7 +87,7 @@ async function genCover(paperDir, { force }) {
     body: JSON.stringify({
       model: "gpt-image-2",
       prompt: fullPrompt,
-      size: "1024x1536",
+      size: "1024x1024",
       quality: "high",
       n: 1,
     }),

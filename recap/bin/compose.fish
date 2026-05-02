@@ -45,7 +45,7 @@ if test -f $WALTZ
     -stream_loop -1 -i $WALTZ \
     -filter_complex_script $FILTER \
     -map "[final]" -map "[mix]" \
-    -c:v h264_videotoolbox -b:v 5M -pix_fmt yuv420p \
+    -c:v libx264 -preset ultrafast -crf 22 -pix_fmt yuv420p \
     -c:a aac -b:a 192k \
     -movflags +faststart \
     -t $TOTAL \
@@ -56,7 +56,7 @@ else
     -i $AUDIO \
     -filter_complex_script $FILTER \
     -map "[final]" -map "[a1]" \
-    -c:v h264_videotoolbox -b:v 5M -pix_fmt yuv420p \
+    -c:v libx264 -preset ultrafast -crf 22 -pix_fmt yuv420p \
     -c:a aac -b:a 192k \
     -movflags +faststart \
     -t $TOTAL \

@@ -1,0 +1,306 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tikz}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Machine Project: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{machine-project-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\begin{document}
+
+\twocolumn[{%
+% Top header row: pals (left) + QR + label (right)
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+\begin{tabular}{@{}r@{}}
+{\footnotesize\acbold\color{acpink} \,\,Read this paper now!}\\[0.18em]
+\href{\paperurl}{\includegraphics[height=2.4cm]{figures/qr}}
+\end{tabular}
+\end{minipage}\par
+\vspace{0.4em}
+
+% Hero illustration with title floating over the bottom vignette
+\begin{center}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (cover) at (0,0) {\includegraphics[width=0.86\textwidth]{figures/cover}};
+  \node[anchor=south, align=center, inner sep=0pt] at ([yshift=2.4em]cover.south) {%
+    \begin{tabular}{c}
+      {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}\strut Machine Project}\\[0.05em]
+      {\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}\strut A Dossier}\\[0.2em]
+      {\aclight\fontsize{9.5pt}{11pt}\selectfont\color{acgray}\strut Genealogy, History, Programs, People, Money, Footprint --- 2003 to 2026}\\
+    \end{tabular}
+  };
+\end{tikzpicture}
+\par\vspace{0.4em}
+
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about Machine Project --- the Echo Park, Los Angeles artist-run nonprofit founded by Mark Allen in 2003 --- across origin, the storefront years, programs, people, finances, and the 2017--18 closure of the physical space. Machine Project's tone has always been wry, affectionate, and curious; this dossier tries to surface the facts without imitating the voice. Where facts run out the dossier stops; gaps are flagged inline.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Origin}
+
+Machine Project opens at \textbf{1200 D North Alvarado Street}, Echo Park, Los Angeles, on \textbf{December 6, 2003} with a single show: \emph{Tom Jennings -- Story Teller}, an installation by the FidoNet pioneer and zinester Tom Jennings, on view through January 24, 2004.~\citep{wikipediamachine,machineproject}
+
+The space is the project of \textbf{Mark Allen}, an artist and educator who had moved to Los Angeles to teach in the Art Department at Pomona College in Claremont, after running informal artist-run spaces in Houston.~\citep{ltimesclosure} In a 2010 CalArts interview, Allen describes the founding intuition as institutional rather than aesthetic: he wanted to ``recreate the flow of ideas and creative work that happens so organically someplace like CalArts'' --- not a school, not a gallery, but a storefront where electronics, sewing, pickling, and computer programming sit on the same class schedule.~\citep{calarts2010}
+
+The legal entity follows the storefront. Machine Project was \textbf{incorporated as an educational nonprofit in 2005}, two years after the doors opened, and received its IRS 501(c)(3) determination in \textbf{May 2006}.~\citep{calarts2010,propublicamachine}
+
+\section{The Echo Park Space}
+
+The storefront occupies one half of a small commercial strip at the corner of N Alvarado Street and Sunset Boulevard, in a building constructed in 1932 and re-outfitted in 1972.~\citep{heavymanners} Its self-description, on the \texttt{about} page archived through closure, was deliberately undramatic: ``Machine Project is a storefront space in the echo park neighborhood of Los Angeles that hosts events about all kinds of things we find interesting.''~\citep{machinearchivalabout}
+
+The space functioned as both venue and pedagogical engine. The same about page describes the org as ``an informal educational institution'' offering classes in subjects like ``electronics, sewing, pickling, computer programming''~\citep{machinearchivalabout}, and a 2010 \emph{Hyperallergic} interview adds operas for dogs, vacations for visitors' houseplants, and concerts for dentists to the same continuum.~\citep{tangbook} In its first year alone the storefront hosted six exhibitions; by the mid-2010s the cadence had settled at roughly two free, free-of-charge events per week.~\citep{wikipediamachine,heavymanners}
+
+The aesthetic was unmistakable from the sidewalk: handlettered signage, a roll-up shop window, and a programme of titles that read like a benign cult flyer. The 2018 \emph{LA Times} closure piece headlined the space's iconography as ``a forest, a pig and a giant tongue,''~\citep{ltimesclosure} a one-line summary of the kinds of installations that filled the room.
+
+\section{Programs}
+
+Machine Project's programmatic shape is best understood as three concentric rings: the storefront (free, weekly, neighbourhood-facing); the institutional commissions (single events at major museums); and the publications (which periodise the work).
+
+\subsection{The storefront workshops and performances}
+
+The recurring workshops were the public face: cyanotype, synthesizer-building, crochet, taxidermy, electronics, hot-air-balloon-making, instrument fabrication, lucid-dreaming meditation. The storefront also hosted scientific talks, poetry readings, music performances, and theatre, ``usually doing about two events a week, open to the general public and free of charge.''~\citep{heavymanners} Artist residencies inside the storefront produced sustained installations rather than one-night events --- the 2015 Patrick Ballard \emph{Return to Foreverhouse} ran a two-month programming series inside a kinetic sculptural environment, supported by a Pasadena Art Alliance grant.~\citep{paamachine}
+
+\subsection{A Machine Project Field Guide to LACMA (Nov 15, 2008)}
+
+On \textbf{November 15, 2008}, Machine Project orchestrated a one-day, ten-hour takeover of the Los Angeles County Museum of Art: 60+ performances, workshops, and installations across LACMA's grounds and collection, free, led by 35 artists in Mark Allen's count.~\citep{lacmafieldguide} The catalog, \emph{Machine Project: A Field Guide to the Los Angeles County Museum of Art} (Machine Project Press, 2010, ISBN 978-0-9753140-4-3), edited by Mark Allen, Jason Brown, and Liz Glynn, documents over 50 of the day's projects with interviews and essays.~\citep{fieldguidebook} The credit line on the org's own event page is concise: ``co-funded by LACMA's public programs, the Ralph M Parsons endowment, and machine project's much beloved funders.''~\citep{lacmafieldguide}
+
+\subsection{The Hammer residency (June 2009 -- Dec 2010)}
+
+In 2009 the Hammer Museum at UCLA received a \textbf{\$1,000,000 Arts Innovation Fund grant from the James Irvine Foundation} to invent ``a new model for visitor engagement, conceived and driven by artists.''~\citep{hammerresidency,artmuseumteaching} Machine Project was named the first \textbf{Public Engagement Artist in Residence} (A.I.R.). A research phase ran June--October 2009; the official residency ran November 2009 through December 2010, producing \textbf{nearly 80 onsite programs}: the Houseplant Vacation, two-minute performances under the staircase, an overnight Dream-In, a Giant Animatronic Hand pointing visitors around the museum, A Year in the Life of a Coatroom, an Enormous Microscope Evening, a Fungi Fest, and the Soundings bell series.~\citep{hammerresidency,hammerreport,artmuseumteaching}
+
+The residency closed with a \emph{Public Engagement Artist in Residence Report} co-authored by Allen and Hammer Director of Public Engagement \textbf{Allison Agsten}, published February 20, 2012. The report is itself a Machine Project artifact: introductory essays from both directors, a project-by-project production roadmap, and ``extensive interviews with both the artists and museum staff.''~\citep{hammerreport}
+
+\subsection{The Gamble House and other site-specific takeovers}
+
+In 2014 Machine Project staged an intervention at the historic Greene \& Greene Craftsman \textbf{Gamble House} in Pasadena, including a secret basement restaurant by Bob Dornberger and a vortex sculpture / puppet by Patrick Ballard.~\citep{wikipediamachine} The pattern --- a single-site, multi-artist, time-bounded takeover of a non-Machine institution --- recurs across the org's catalogue: shows with the Museum of Contemporary Art Denver, the Contemporary Art Museum St Louis, the Walker Art Center in Minneapolis, and the Frances Young Tang Teaching Museum at Skidmore College.~\citep{calarts2010,tangbook}
+
+\subsection{The Tang retrospective and the Platinum Collection (2015--2017)}
+
+\emph{Machine Project --- The Platinum Collection (Live by Special Request)} ran at the Tang Teaching Museum at Skidmore College from \textbf{September 19, 2015} through \textbf{January 3, 2016}: a multi-month re-staging of past Machine projects on commission. The accompanying 318-page hardcover \emph{Machine Project} (Tang/DelMonico Prestel, 2016, ISBN 978-3-7913-5619-8), edited by Mark Allen and Rachel Seligman, designed by Kimberly Varella of Content Object Design Studio, with essays by Charlotte Cotton, Ian Berry, and others, is the org's longest-form self-documentation. A book-launch \emph{Extravaganza} ran at the storefront in 2017.~\citep{tangbook,platinumbook,tangpress}
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Tenure} & \textbf{Role} & \textbf{Name} \\
+\midrule
+2003-- & Founder, Executive Director & Mark Allen \\
+2011-- (visible) & Operations Manager & Michele Yu \\
+2008-- (visible) & Co-editor, Field Guide & Jason Brown \\
+2008-- (visible) & Co-editor, Field Guide & Liz Glynn \\
+$\sim$2010-- (visible) & Board, per CalArts interview & Sara Roberts \\
+2017 (Form 990) & Chair & Mary Fagot \\
+2017 (Form 990) & Treasurer & Kerry Hannawell \\
+2017 (Form 990) & Secretary & Jimmy Fusil \\
+2017 (Form 990) & Director & Tatiana Hernandez \\
+2017 (Form 990) & Director & Ken Bensinger \\
+2017 (Form 990) & Director & Sarah Schultz \\
+2017 (Form 990) & Director & Thas Naseemuddeen \\
+2017 (Form 990) & Director & Ava Bromberg \\
+2010--2011 & Hammer A.I.R. counterpart & Allison Agsten \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Mark Allen is the throughline. He has been Executive Director since 2003 and remains an Associate Professor of Art at Pomona College in Claremont; his curatorial reach extends beyond Machine through service on the Board of Directors of the \textbf{Andy Warhol Foundation for the Visual Arts} and a three-year term on the Artist Advisory Board of the Hammer Museum.~\citep{calarts2010,markallensite}
+
+The collaborator network the storefront drew on is large and rotating; the \emph{Platinum Collection} catalogue lists Joshua Beckman, Carmina Escobar, Asher Hartman, Cliff Hengst, Chris Kallmyer, Dawn Kasper, Hana van der Kolk, Krystal Krunch, Kamau Amu Patton, and Haruko Tanaka among its named contributors.~\citep{tangbook} The 2008 LACMA Field Guide credits 35 artists led by Allen --- a partial list at the storefront's archived event page includes Fritz Haeg, Anthony McCann, Lucky Dragons, Fol Chen, Emily Lacy, Adam Overton, Joshua Beckman, Dawn Kasper, Takeshi Murata, and Fatal Farm.~\citep{lacmafieldguide}
+
+\section{Money}\label{sec:money}
+
+Machine Project, Inc. (EIN \textbf{75-3193159}) is a 501(c)(3) public charity classified by the IRS under NTEE ``Arts Education,'' tax-exempt since May 2006. ProPublica's Nonprofit Explorer holds eight years of public Form 990 filings (FY2011 through FY2018); the FY2018 return is the last one on file.~\citep{propublicamachine,charitynavmachine}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\columnwidth}{Xrrrr}
+\toprule
+\textbf{FY} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Net} & \textbf{Net assets} \\
+\midrule
+2011 & 296,718 & 293,162 & +3,556 & 116,680 \\
+2012 & 299,681 & 288,458 & +11,223 & 127,903 \\
+2013 & 315,167 & 314,699 & +468 & 128,371 \\
+2014 & 397,667 & 398,131 & -464 & 127,907 \\
+2015 & 337,572 & 331,944 & +5,628 & 133,535 \\
+2016 & 313,258 & 322,865 & -9,607 & 123,928 \\
+2017 & 312,505 & 305,347 & +7,158 & 131,086 \\
+2018 & 115,048 & 211,467 & \textbf{-96,419} & 34,666 \\
+\bottomrule
+\end{tabularx}
+\\[0.3em]
+\footnotesize Source: ProPublica Nonprofit Explorer, EIN 75-3193159.
+\end{table}
+
+The shape, in plain English: Machine Project ran for most of its life on a budget in the \$290K--\$400K range, year over year close to break-even. FY2014 is the peak revenue year (\$397,667), coinciding with the Gamble House intervention. FY2018 is the closure year --- a half-year operational run with a \$96,419 deficit that drew net assets down from \$131,086 to \$34,666.
+
+\textbf{Executive compensation} for Mark Allen on the public 990s is small and intentionally so: \$3,445 (FY2015), \$6,000 (FY2016), \$14,751 (FY2017), and zero in board director seats. The model presumes Allen's primary salary line is his Pomona College faculty appointment, with Machine compensation a partial reimbursement.
+
+\textbf{Disclosed institutional supporters} (across the dossier's source pulls): \textbf{LACMA Public Programs} and the \textbf{Ralph M.\ Parsons endowment} (Field Guide 2008); the \textbf{James Irvine Foundation} (the Hammer Museum's grantor for the Public Engagement A.I.R.); the \textbf{Pasadena Art Alliance} (Patrick Ballard's \emph{Return to Foreverhouse}, 2015); the \textbf{Frances Young Tang Teaching Museum at Skidmore College} (commissioned the 2015--16 Platinum Collection retrospective); and \textbf{LA County Department of Arts and Culture}, which lists Machine Project among its profiled grantees.~\citep{lacmafieldguide,hammerresidency,paamachine,tangpress,laacarts}
+
+\textbf{Membership / individual donor base}: the about page's account is, ``Machine Project keeps its doors open thanks to our members and volunteers.''~\citep{machinearchivalabout} A discrete grants-line breakdown is not in any public document; the FY2018 990 is the last filing on file.
+
+\textbf{California compliance status (2026):} Charity Navigator's profile records Machine Project as appearing on California's delinquent nonprofit registrations list; donations to the org are disabled on the platform per California AB 488 compliance.~\citep{charitynavmachine} The legal entity persists; what has lapsed is regular state-level registration, consistent with a nonprofit that no longer programs publicly.
+
+\section{The 2017--18 Closure and Reformation}
+
+The closure was announced in late 2017 and executed at a single farewell event on \textbf{Saturday, January 13, 2018, 2--9pm} at the storefront: a print sale of limited-edition silkscreen event posters from 2--6pm and a wrap party from 6--9pm, ``with secret performances from Machine Project favorites.''~\citep{hyperallergicclosure,artforumclosure} Posters were priced from \$40, and the announcement noted that the run of limited-edition posters ``will be acquired by an institutional archive later this year.''~\citep{hyperallergicclosure}
+
+Mark Allen's framing of the closure, in his own words, was generative rather than terminal. To \emph{Artforum}: the venue was ``an exploratory and research project'' that ``kind of emerges and shares knowledge and information and then dissolves so that the next thing can emerge.''~\citep{artforumclosure} To \emph{Hyperallergic}, on the original mission: ``coalescing large groups of artists who weren't represented by galleries and who weren't being shown in museums.''~\citep{hyperallergicclosure}
+
+The current Machine Project website (\texttt{machineproject.com}, 2026) carries the closure language without ambiguity: ``After fifteen years of experimentation, delirium, and joy, the project of Machine Project (2003--2018) is now concluded.''~\citep{machineproject} The site remains live as an archive, with a poster archive, a publications page, and the press archive intact.
+
+The legal nonprofit shell, EIN 75-3193159, has not been formally dissolved on the public record; the FY2018 Form 990 is the last federal filing visible on ProPublica.~\citep{propublicamachine} The post-closure organisation has no publicly disclosed program slate, no current staff page, and no current programming announced for 2019--2026 on its own channels. Mark Allen has continued to teach at Pomona College and to sit on the board of the Andy Warhol Foundation; whether ``Machine Project'' as an itinerant practice has continued in any non-public form is not disclosed.
+
+\subsection{The building, after Machine}
+
+The storefront at \textbf{1200 D N Alvarado} did not stay empty. In 2021 the photographer and editor \textbf{Matthew James-Wilson} founded \textbf{Heavy Manners Library} at the same address: a lending library, bookstore, and event space whose programming model --- screenings, workshops, performances, free-or-cheap admission --- self-consciously continues the storefront's neighbourhood-facing pattern.~\citep{heavymanners} Heavy Manners' own self-description names the lineage directly: ``Heavy Manners is located in the former site of Machine Project, the intrepid community arts organization active from 2003--2018.''~\citep{heavymanners} A separate dossier in this batch covers Heavy Manners as its own entity.
+
+\section{Footprint}
+
+Machine Project's footprint is institutional rather than catalog-shaped --- the org did not collect, did not commission for an archive, and did not maintain a permanent collection. What it produced and propagated:
+
+\begin{description}
+\item[\textbf{A storefront workshop pedagogy.}] The model of free or near-free, two-events-per-week neighbourhood programming where electronics class sits next to lucid-dreaming workshop sits next to scientific lecture sits next to performance --- documented across 15 years on the still-live press and event archive at \texttt{machineproject.com}.
+\item[\textbf{Two methodological documents.}] The 2010 \emph{Field Guide to LACMA} (ISBN 978-0-9753140-4-3) and the 2016 \emph{Machine Project} Tang/Prestel hardcover (ISBN 978-3-7913-5619-8) are the org's two long-form self-documents, the closest equivalents Machine has to Rhizome's \emph{Mass Effect} or SFPC's GitHub finance repo.
+\item[\textbf{The Hammer A.I.R.\ template.}] The 2010--11 residency report~\citep{hammerreport} became a working document for other museums' public-engagement programs --- explicitly cited in the Hammer's own ``Five Years of Public Engagement'' retrospective.
+\item[\textbf{A collaborator pool.}] 35 artists in the LACMA day, dozens more across the storefront years and Tang retrospective, recur as nodes across the LA experimental-art scene of the 2010s.
+\item[\textbf{The successor at the same address.}] Heavy Manners Library (2021--), at 1200 D N Alvarado, names Machine Project as its predecessor in its own about page.~\citep{heavymanners}
+\end{description}
+
+\section{Reading list}
+
+\subsection{Primary sources}
+
+\begin{itemize}
+\item \textbf{The Machine Project website archive}~\citep{machineproject,machinearchivalabout} --- the press, news, events, and projects pages are intact through closure.
+\item \textbf{\emph{A Machine Project Field Guide to the Los Angeles County Museum of Art}} (Machine Project Press, 2010)~\citep{fieldguidebook}.
+\item \textbf{\emph{Machine Project: The Platinum Collection (Live by Special Request)}} (Tang Museum / DelMonico Prestel, 2016)~\citep{platinumbook}.
+\item \textbf{\emph{Machine Project Hammer Museum Public Engagement Artist in Residence Report}} (2012)~\citep{hammerreport}.
+\item \textbf{The IRS Form 990 series}~\citep{propublicamachine}, FY2011--FY2018.
+\end{itemize}
+
+\subsection{Secondary}
+
+\begin{itemize}
+\item Carolina Miranda, \emph{LA Times} closure piece (East of Borneo mirror)~\citep{ltimesclosure}.
+\item \emph{Hyperallergic}~\citep{hyperallergicclosure} and \emph{Artforum}~\citep{artforumclosure} closure announcements.
+\item CalArts blog Q\&A with Mark Allen (Nov 2010)~\citep{calarts2010}.
+\item Wikipedia entry on Machine Project~\citep{wikipediamachine}.
+\item Hammer Museum residency page~\citep{hammerresidency} and \emph{Art Museum Teaching} dispatch~\citep{artmuseumteaching}.
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The funding record and closure are surfaced, not judged.
+  \item Not a comparison. Adjacent organisations (Heavy Manners Library, Echo Park Film Center, Clockshop, Coaxial Arts) are mentioned only where they directly intersect Machine.
+  \item Not a memoir. The author has no disclosed prior intersection with Machine Project.
+  \item Not exhaustive. The dossier covers what is publicly recoverable; gaps --- the post-2018 status of the legal entity, the full grants ledger, the alumni-collaborator full list, the disposition of the storefront's archive --- are flagged inline. The companion data folder (\texttt{papers/arxiv-machine-project/data/}) holds the underlying CSVs.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

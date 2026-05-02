@@ -18,21 +18,116 @@ Each paper starts from a question or observation inside the Aesthetic Computer p
 platter (raw material: notes, code, conversations, references)
   → thread (a question or observation worth following)
     → draft (a paper that tries to answer or frame it)
-      → formats (arXiv two-column, cards single-sheet, JOSS software paper)
+      → formats (arXiv two-column, cards single-sheet, JOSS software paper, dossier)
         → targets (conferences, journals, submissions, mail art)
 ```
 
-The platter feeds everything. Threads get pulled from it. Some threads become papers, some become code, some stay threads. Papers can be rendered in multiple formats — the same .tex source produces both a full arXiv-style PDF and a single-sheet index card via `cards-convert.mjs`.
+The platter feeds everything. Threads get pulled from it. Some threads become papers, some become code, some stay threads. Papers can be rendered in multiple formats — the same `.tex` source produces both a full arXiv-style PDF and a single-sheet index card via `cards-convert.mjs`.
+
+## Swimlanes
+
+The mill runs several parallel tracks. Each lane is a different shape of artifact, with its own posture, its own audience, and its own pipeline.
+
+### 1. arXiv-format papers (`arxiv-*/`)
+
+The main lane. Two-column LaTeX with AC custom fonts (`ywft-processing-bold`, `ywft-processing-light` + Latin Modern). Roughly **30 active titles** ranging from 3 to 8 pages. Subjects: KidLisp internals, AC native OS, network audits, latency, identity, sustainability — all derived from things actually built inside AC. Source lives next to the artifact: `arxiv-<slug>/<slug>.tex` + `references.bib` + per-paper `figures/`.
+
+### 2. Dossiers (`arxiv-<org>/`, dossier subset)
+
+A sub-lane of arXiv format with a different posture: **fact-surfacing, not argumentative**. The dossier records what is publicly recoverable about a digital-arts organization (or its funder) — financials, governance, programs, people, locations, named grants — and stops where the facts run out. Each dossier folder includes a structured `data/` directory (CSVs + a README of what's solid / soft / missing) that sits alongside the `.tex`. The dossier swimlane started **2026-05-02** with Rhizome and SFPC; current set of 13:
+
+| Dossier | Posture | Status |
+|---|---|---|
+| Rhizome.org | 501(c)(3) recipient, IRS XML pipeline | first-pass |
+| School for Poetic Computation | LLC, public github finance repo | first-pass |
+| Eyebeam | 501(c)(3) recipient, IRS XML pipeline | first-pass |
+| Recurse Center | for-profit, founder interviews + recruiting model | first-pass |
+| Internet Archive | 501(c)(3) recipient + litigation track | first-pass |
+| Mellon Foundation | **funder flip** — 990-PF + grants database | first-pass |
+| Pioneer Works | 501(c)(3) recipient, founder-as-funder | first-pass |
+| NEW INC | embedded in New Museum 990 | first-pass |
+| Studio Museum in Harlem | 501(c)(3) recipient, capital campaign | first-pass |
+| HathiTrust | UMich library service, no separate 990 | first-pass |
+| The Kitchen | 501(c)(3) recipient, 50+ year arc | first-pass |
+| Machine Project | 501(c)(3) recipient (until 2018), Echo Park | first-pass |
+| Heavy Manners Library | small space, status-undisclosed | first-pass |
+
+Candidates queued in [`papers/hitlist.md`](hitlist.md).
+
+### 3. JOSS papers (`joss-*/`)
+
+Condensed software papers for the [Journal of Open Source Software](https://joss.theoj.org/). Markdown with LaTeX includes. JOSS review process focuses on software quality, documentation, and community impact — distinct from academic-novelty review. Current: `joss-ac/`, `joss-kidlisp/`.
+
+### 4. Cards (`*-cards.tex`, generated)
+
+Single-sheet index-card layout reformatted from arXiv source via [`cards-convert.mjs`](cards-convert.mjs). Designed for printing, passing hand-to-hand, pinning on walls. The same `.tex` source produces both the full arXiv PDF and the card.
+
+### 5. Conference-specific scaffolds (`<venue>-*/`)
+
+Venue-specific submissions that don't fit arXiv format:
+- `siggraph-asia-2026-tech/` — `acmtog` LaTeX class for SIGGRAPH Asia Technical Papers (double-blind)
+- `cc-demo-2026/` — ACM Demo format for Creativity & Cognition
+- `iccc-kidlisp/`, `els-kidlisp/` — ICCC and ELS submission packages
+- `ars-electronica-2026/` — Prix Ars Electronica entry materials
+
+### 6. Lectures (`lectures/`)
+
+Lecture transcripts paired with commentary and references. Material that started as spoken-word and was captured for later citation.
+
+### 7. Platters (sub-platters)
+
+Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
+- [`jeffrey-platter/`](jeffrey-platter/) — biographical materials, image corpus, archival sources for Jeffrey-as-subject
+- [`whistlegraph-platter/`](whistlegraph-platter/) — Whistlegraph-specific artifacts and references
+- [`people-platter/`](people-platter/) — TODO; will hold AC-adjacent people biographies
+
+### 8. CV (`cv/`)
+
+Jeffrey's CV is built through the same pipeline (LaTeX → PDF → site deploy) and treated as a long-form paper for tooling purposes. Hidden from the public index.
+
+## Tooling
+
+The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts are runnable as `node papers/bin/<name>.mjs`.
+
+### Top-level (build, deploy, index)
+
+| Script | Purpose |
+|---|---|
+| [`cli.mjs`](cli.mjs) | Primary build CLI. `build`, `deploy`, `publish`, `status`, `log`. Multi-pass xelatex per paper × 4 languages. Auto-bumps `metadata.json` revisions on each build. |
+| [`papermill.mjs`](papermill.mjs) | Older translation-build pipeline (still used for `--format cards`). |
+| [`sync-platter.mjs`](sync-platter.mjs) | Refresh `system/public/papers.aesthetic.computer/platter.html` (the rendered index of reports / plans / studies / paper count). |
+| [`cards-convert.mjs`](cards-convert.mjs) | Convert an arxiv `.tex` source into the single-sheet card layout. |
+| [`metadata.json`](metadata.json) | Per-paper `created` date + `revisions` counter + `updated` ISO timestamp. Auto-bumped by `cli.mjs publish`. |
+
+### `bin/` (dossier-cycle utilities, added 2026-05)
+
+| Script | Purpose |
+|---|---|
+| [`bin/build-dossier.mjs`](bin/build-dossier.mjs) | Multi-pass xelatex + bibtex build for a single dossier or `--all`. Reports undefined citations. |
+| [`bin/gen-cover.mjs`](bin/gen-cover.mjs) | Generate the colored-pencil vignette cover illustration for a dossier from `figures/cover-prompt.txt` via OpenAI gpt-image-2 (1024×1024 square, faded edges). |
+| [`bin/gen-qrs.mjs`](bin/gen-qrs.mjs) | Generate per-paper QR-code PNG pointing to the deployed permalink at `papers.aesthetic.computer/<siteName>.pdf`. Uses `qrencode` CLI. |
+| [`bin/migrate-cover.mjs`](bin/migrate-cover.mjs) | One-shot migration: rewrite an old-style cover block (4em pals + 15em hero) into the new vignette layout (pals top-left + QR top-right + TikZ-overlaid title floating over faded illustration). Idempotent. |
+| [`bin/fix-people-tables.mjs`](bin/fix-people-tables.mjs) | One-shot: convert `tabularx{lXl}` people tables to `tabularx{lXX}` so the third column wraps and stops overflowing the column width. |
+
+### Style files
+
+| File | Purpose |
+|---|---|
+| [`ac-paper-layout.sty`](ac-paper-layout.sty) | Shared visual identity for arxiv papers: AC color palette, font commands, draft watermark, pals logo watermark, section formatting, header/footer. |
+| [`ac-paper-cards.sty`](ac-paper-cards.sty) | Cards-format layout. |
 
 ## Formats
 
 - **arXiv**: Two-column academic layout with AC custom fonts, syntax-highlighted code, development history, adoption metrics. For preprint submission and sharing.
+- **Dossier**: arXiv-format twocolumn but with a vignette cover, AI-generated colored-pencil illustration as hero, QR top-right pointing to permalink, structured `data/` folder with raw CSVs alongside the `.tex`. Posture is fact-surfacing, not argumentative.
 - **Cards**: Single-sheet index-card layout reformatted from arXiv source. Designed for printing, passing hand to hand, pinning on walls.
 - **JOSS**: Condensed software papers for Journal of Open Source Software. Markdown with LaTeX includes. JOSS reviews focus on software quality, documentation, and community impact.
 
 ## Translations
 
-Every paper exists in four languages: English, Danish, Spanish, and Chinese. Translations are generated and maintained alongside the English source. This is not decoration — it reflects a commitment to the work being accessible beyond the anglophone academic world.
+Every paper exists in four languages: English, Danish, Spanish, and Chinese (and increasingly Japanese). Translations are generated and maintained alongside the English source. This is not decoration — it reflects a commitment to the work being accessible beyond the anglophone academic world.
+
+The `cli.mjs build` pipeline runs xelatex × 4 languages per paper. `metadata.json` tracks revision counts per English build only (to avoid double-counting translations).
 
 ## Papers
 
@@ -40,6 +135,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| A Fraserin' Art + Tech (methodology essay + prior-art survey, labor-folk register) | arXiv (LaTeX, PLAN only) | (build pending) | `arxiv-fraserin/PLAN.md` |
 | Pioneer Works: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 2012–2026) | arXiv (LaTeX, dossier) | `arxiv-pioneer-works/pioneer-works.pdf` | `arxiv-pioneer-works/pioneer-works.tex` |
 | Mellon Foundation: A Dossier (Genealogy, Programs, Giving, People, Politics, 1969–2026) | arXiv (LaTeX, dossier) | `arxiv-mellon/mellon.pdf` | `arxiv-mellon/mellon.tex` |
 | Internet Archive: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 1996–2026) | arXiv (LaTeX, dossier) | `arxiv-internet-archive/internet-archive.pdf` | `arxiv-internet-archive/internet-archive.tex` |
@@ -82,6 +178,33 @@ Sorted by most recently edited/added.
 | Aesthetic Computer '26 | JOSS (Markdown) | `joss-ac/paper.pdf` | `joss-ac/paper.md` |
 | KidLisp '26 | JOSS (Markdown) | `joss-kidlisp/paper.pdf` | `joss-kidlisp/paper.md` |
 
+## Cover-prompt doctrine
+
+Every dossier cover illustration must be **sourced**, not blind-prompted. The colored-pencil vignette is generated from `figures/cover-prompt.txt` via [`bin/gen-cover.mjs`](bin/gen-cover.mjs), but the *contents* of that prompt are research-driven: each visual element must trace to a real photograph, building, founder portrait, signature product, brand identity, or environmental detail of the organization being dossiered. The point is that the resolved image carries information density, not generic associations.
+
+For each dossier, `figures/` carries two files:
+- `cover-prompt.txt` — the prompt fed to gpt-image-2, with rich specificity (the actual building's facade, the founder's recurring outfit, the org's signature object).
+- `cover-sources.md` — the citation log. For every visual element in the prompt, a line of attribution: which photo, which interview, which physical object, which brand asset. Source URLs included. This is the dossier's audit trail for the cover.
+
+This rule is non-optional: a cover is the dossier's most-shared artifact (it's the IG-screenshot vector), so its visual claims need to be defensible the same way the dossier's text claims are footnoted.
+
+## Dossier cover gallery
+
+Each dossier opens with a colored-pencil vignette illustration generated via [`bin/gen-cover.mjs`](bin/gen-cover.mjs). The covers share a visual identity: cream paper, single floating iconic form, faded edges. Click through to the dossier `.tex` to read the source, or scan the in-PDF QR code to fetch the deployed permalink.
+
+| | | |
+|---|---|---|
+| ![Rhizome](arxiv-rhizome/figures/cover.png) | ![SFPC](arxiv-sfpc/figures/cover.png) | ![Eyebeam](arxiv-eyebeam/figures/cover.png) |
+| **Rhizome.org** | **School for Poetic Computation** | **Eyebeam** |
+| ![Recurse](arxiv-recurse/figures/cover.png) | ![Internet Archive](arxiv-internet-archive/figures/cover.png) | ![Mellon](arxiv-mellon/figures/cover.png) |
+| **Recurse Center** | **Internet Archive** | **Mellon Foundation** |
+| ![Pioneer Works](arxiv-pioneer-works/figures/cover.png) | ![NEW INC](arxiv-new-inc/figures/cover.png) | ![Studio Museum](arxiv-studio-museum/figures/cover.png) |
+| **Pioneer Works** | **NEW INC** | **Studio Museum in Harlem** |
+| ![HathiTrust](arxiv-hathitrust/figures/cover.png) | ![The Kitchen](arxiv-the-kitchen/figures/cover.png) | ![Machine Project](arxiv-machine-project/figures/cover.png) |
+| **HathiTrust** | **The Kitchen** | **Machine Project** |
+| ![Heavy Manners](arxiv-heavy-manners-library/figures/cover.png) | | |
+| **Heavy Manners Library** | | |
+
 ## Building
 
 ### Automatic (Oven Papermill)
@@ -112,6 +235,32 @@ node papers/cli.mjs status
 
 # Individual paper (manual 3-pass build)
 cd papers/arxiv-ac && xelatex ac.tex && bibtex ac && xelatex ac.tex && xelatex ac.tex
+```
+
+### Dossier-specific (Local)
+
+```bash
+# Build all 13 dossiers (multi-pass xelatex + bibtex with citation report)
+node papers/bin/build-dossier.mjs --all
+
+# Build a single dossier
+node papers/bin/build-dossier.mjs arxiv-rhizome
+
+# Generate the colored-pencil vignette cover from cover-prompt.txt
+node papers/bin/gen-cover.mjs arxiv-rhizome --force
+
+# Generate ALL dossier covers (slow — calls OpenAI gpt-image-2 for each)
+node papers/bin/gen-cover.mjs --all --force
+
+# Generate per-paper QR code pointing to the deployed permalink
+node papers/bin/gen-qrs.mjs --all
+node papers/bin/gen-qrs.mjs --all --langs    # also generate da/es/zh/ja variants
+```
+
+### After publish: refresh the platter
+
+```bash
+node papers/sync-platter.mjs
 ```
 
 ## Subdomain

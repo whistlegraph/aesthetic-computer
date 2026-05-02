@@ -32,6 +32,7 @@
 \usepackage{fancyhdr}
 \usepackage{hyperref}
 \usepackage{graphicx}
+\usepackage{tikz}
 \graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
 \usepackage{ragged2e}
 \usepackage{microtype}
@@ -72,19 +73,39 @@
 % --- paper metadata (created/revision shown on cover) ---
 \newcommand{\papercreated}{2026-05-02}
 \newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{pioneer-works-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
 
 \begin{document}
 
 \twocolumn[{%
-\noindent\hfill\raisebox{-1.2em}[0pt][0pt]{\includegraphics[height=3.5em]{pals}}\par\vspace{-2.6em}
+% Top header row: pals (left) + QR + label (right)
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+\begin{tabular}{@{}r@{}}
+{\footnotesize\acbold\color{acpink} \,\,Read this paper now!}\\[0.18em]
+\href{\paperurl}{\includegraphics[height=2.4cm]{figures/qr}}
+\end{tabular}
+\end{minipage}\par
+\vspace{0.4em}
+
+% Hero illustration with title floating over the bottom vignette
 \begin{center}
-\includegraphics[height=15em]{figures/cover}\par\vspace{0.6em}
-{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Pioneer Works}\par
-\vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Dossier}\par
-\vspace{0.3em}
-{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Genealogy, History, Programs, People, Money, Footprint --- 2012 to 2026}\par
-\vspace{0.6em}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (cover) at (0,0) {\includegraphics[width=0.86\textwidth]{figures/cover}};
+  \node[anchor=south, align=center, inner sep=0pt] at ([yshift=2.4em]cover.south) {%
+    \begin{tabular}{c}
+      {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}\strut Pioneer Works}\\[0.05em]
+      {\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}\strut A Dossier}\\[0.2em]
+      {\aclight\fontsize{9.5pt}{11pt}\selectfont\color{acgray}\strut Genealogy, History, Programs, People, Money, Footprint --- 2012 to 2026}\\
+    \end{tabular}
+  };
+\end{tikzpicture}
+\par\vspace{0.4em}
+
 {\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
@@ -141,9 +162,10 @@ The annual \textbf{Village F\^ete} spring benefit launches 4 May 2014~\citep{pio
 \section{People}
 
 \begin{table}[h]
-\small
+\footnotesize
 \centering
-\begin{tabularx}{\columnwidth}{lXl}
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
 \toprule
 \textbf{Tenure} & \textbf{Top exec.} & \textbf{Title} \\
 \midrule

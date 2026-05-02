@@ -1,0 +1,323 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tikz}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Heavy Manners Library: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{heavy-manners-library-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\begin{document}
+
+\twocolumn[{%
+% Top header row: pals (left) + QR + label (right)
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+\begin{tabular}{@{}r@{}}
+{\footnotesize\acbold\color{acpink} \,\,Read this paper now!}\\[0.18em]
+\href{\paperurl}{\includegraphics[height=2.4cm]{figures/qr}}
+\end{tabular}
+\end{minipage}\par
+\vspace{0.4em}
+
+% Hero illustration with title floating over the bottom vignette
+\begin{center}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (cover) at (0,0) {\includegraphics[width=0.86\textwidth]{figures/cover}};
+  \node[anchor=south, align=center, inner sep=0pt] at ([yshift=2.4em]cover.south) {%
+    \begin{tabular}{c}
+      {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}\strut Heavy Manners Library}\\[0.05em]
+      {\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}\strut A Dossier}\\[0.2em]
+      {\aclight\fontsize{9.5pt}{11pt}\selectfont\color{acgray}\strut Genealogy, History, Programs, People, Money, Footprint --- 2018 to 2026}\\
+    \end{tabular}
+  };
+\end{tikzpicture}
+\par\vspace{0.4em}
+
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about Heavy Manners Library (HML) --- a small artist-run reading room, gallery, and bookstore at 1200 N Alvarado St Unit D in Echo Park, Los Angeles --- across origin, building lineage, programs, people, money, and footprint. HML's public footprint is genuinely thin; the bulk of the recoverable record is its own about page, an Eventbrite history, two podcast appearances, three print profiles, and an Instagram feed. Where the record is silent the dossier is silent. There is no thesis, no verdict, and no conclusion section.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Origin}
+
+The library opened in 2021. Its founder, Matthew James-Wilson, had spent the previous seven years (2012--2018) self-publishing the 300-page art quarterly \emph{FORGE}~\citep{hyperallergic2024indie} and was a working writer (Pitchfork, VICE) and curator. Its co-founder and co-curator, the artist Molly Soda, had been collaborating with James-Wilson on a never-completed book about ``the impact of the internet on contemporary art for the last 30 years.''~\citep{sjsuischool, flipboardpodcast} The book stalled. The unsolicited donations they had received in support of it kept arriving. The two decided to keep them and to build a public reading room around them rather than return them. That stalled book project's incoming donation pile is the founding shelf of the library.
+
+The name is a 1976 quotation. \emph{Under Heavy Manners}~\citep{wikipediaprincefari} is a Prince Far I LP produced by Joe Gibbs and Errol Thompson (the Mighty Two) at Joe Gibbs Recording Studio in Kingston; the title refers to the State of Emergency declared by Prime Minister Michael Manley in Jamaica that year. James-Wilson has described the name in interviews as drawing on ``reggae and punk culture traditions''~\citep{flipboardpodcast} --- a posture rather than a thesis.
+
+\section{The Building}
+
+HML's address is the most distinctive fact in this file. \textbf{1200 N Alvarado Street} sits at the northeast corner of Sunset Boulevard and Alvarado in Echo Park, Los Angeles. Two of the city's most-cited artist-run organizations of the early 2000s operated out of this same address, in adjacent units, before HML's founder ever held a key:
+
+\begin{description}
+\item[Echo Park Film Center, 2002--January 2022.] Founded by Paolo Davanzo and Lisa Marr in 2002. A 55-seat microcinema and free or low-cost Super-8 / 16mm filmmaking school. Lease expired end of January 2022; the org dissolved its storefront and continued as the itinerant ``EPFC Collective.''~\citep{eastsiderepfc2022}
+\item[Machine Project, 2003--January 13, 2018.] Founded by Mark Allen in 2003. Fifteen years of art / technology / natural history / music programming in the storefront. Closed with a farewell event on January 13, 2018, with limited-edition posters from past events ``acquired by an institutional archive later this year.''~\citep{hyperallergicmachine2018, wikipediamachine}
+\end{description}
+
+\textbf{HML occupies the Machine Project unit} (Unit D). There is a roughly three-year gap between Machine Project's January 2018 closure and HML's 2021 opening; what happened to the unit during those years is not publicly documented. By the time HML opened its doors, EPFC was still operating in the adjacent unit; the two were neighbours for several months until EPFC's lease expired at the end of January 2022. The two prior tenancies remain in HML's basement: the \textbf{EPFC Collective hosts screenings in HML's basement microcinema}~\citep{hyperallergic2024indie}, including a documented benefit screening of Craig Baldwin's films in 2024. So the building's programmatic lineage between Machine Project, Echo Park Film Center, and Heavy Manners Library is documented, not inferred.
+
+The dossier records this lineage and stops. Whether HML is or is not ``the new Machine Project,'' or ``the heir to EPFC,'' is not a question this paper takes up.
+
+\section{The Space}
+
+The unit itself is a multi-room storefront on a busy commercial corner. Per the founder's interviews~\citep{eastsider2023, hyperallergic2024indie} and the about page~\citep{hmlsite}, the public spaces include:
+
+\begin{itemize}
+\item a street-level shop and reading area where the catalog can be browsed and members can check out books;
+\item an upstairs gallery used for the rotating exhibits;
+\item a basement performance / screening room used for live music, poetry readings, comedy nights, and the EPFC Collective's screenings;
+\item a small risograph print room (RZ390) acquired around 2024 for the Risograph Printing 101 workshop series~\citep{hyperallergic2024indie}.
+\end{itemize}
+
+The published hours on \texttt{heavymannerslibrary.com/about} are Sun--Sat 11am--7pm with Tue/Wed closed and Mon/Thu shifted to 1pm--7pm. Hyperallergic's 2024 reporting~\citep{hyperallergic2024indie} lists later evening hours (Fri--Sat 7--11pm, Sun 1--11pm) which appear to describe event-night activity rather than general operations.
+
+\section{The Collection}
+
+HML's mission, in its own words, is to ``provide a space for developing, sharing, and discussing artwork and creative practice''~\citep{hmlsite} with a particular focus on \textbf{self-published and independently published artists' books, zines, and small-press materials}. The catalog (\texttt{heavymannerslibrary.com/catalog}) supports filters across at least magazines, books, audiobooks, and essays~\citep{sjsuischool}. The collection size is not published.
+
+The shop carries a mixture of titles by HML-affiliated artists (e.g.\ Molly Soda's \emph{Chick Magnet}~\citep{hmlsite}) and by collaborators visible elsewhere in the program (Patrick Kyle's published comics, Tiny Splendor's tenth-anniversary risograph anthology, Aidan Koch's \emph{Spiral and Other Stories}). No \emph{named} donor collection has been publicly attributed --- the library's catalog does not appear to track provenance the way a museum-style accessions ledger would. Book donations are solicited via \texttt{heavymannerslibrary.com/donate}, ``primarily art books, zines, comics, and small press publications''~\citep{hmldonate}, with no language about tax-deductibility.
+
+\section{Programs}
+
+The recurring program shape, as visible from \texttt{heavymannerslibrary.com/events}, the Eventbrite organizer page, and third-party reporting:
+
+\begin{description}
+\item[Gallery exhibits.] Monthly-to-quarterly upstairs exhibits of work by single artists or collectives. Documented examples: Kendra Yee's \emph{halfway between noon and midnight} (May--Jun 2022), Jesse Moynihan's \emph{Major Arcana Tarot} (Jun--Jul 2022), the group exhibit \emph{Emerging} (Jul--Aug 2022), Tiny Splendor's 10th Anniversary (Oct 2022)~\citep{hmlsite}.
+\item[Heavy Manners Zine Fair (annual, spring).] Two-day fair; 2026 edition Apr 11--12, 12--6pm PST; free; open application with March 2 deadline~\citep{hmlzinefair2026}.
+\item[Heavy Manners Comics Fair.] Spring 2023 + Fall 2025 visible; recurrence at least semi-annual.
+\item[Heavy Manners Spring Fundraiser.] First edition opened June 5 of either 2024 or 2025; two-week-long fundraiser exhibit + classes + gatherings.
+\item[Risograph Printing 101.] Recurring intro workshop on the RZ390; ~monthly cadence visible on Eventbrite from 2024 forward.
+\item[EPFC Collective screenings.] Recurring 16mm / Super-8 / experimental film screenings in the basement, hosted by the Echo Park Film Center Collective. The Craig Baldwin benefit screening is documented~\citep{hyperallergic2024indie}.
+\item[dublab Channels live broadcasts.] Live music + interview broadcasts of the dublab series \emph{Channels}, hosted by Jordan Collins, Lewis Thompson, and Nia Michelle. At least one HML episode (May 10, 2025)~\citep{dublabchannels2025}.
+\item[Comedy nights.] Listed via The Comedy Bureau; cadence not surfaced.
+\item[``Overnight @ Heavy Manners Library.''] Late-night Hollywood Entertainment series listings.
+\item[DIY workshops.] Figure drawing, stitching, comics, and similar; rotating instructors; ticketed via Eventbrite.
+\item[LAMAG ``Friday Art Nights'' guest residency (2024).] Four-week zine-vendor pop-up at Barnsdall Park's pine grove, Sep 5/12/19/26 2024, 5--8pm~\citep{lamag2024} --- a documented institutional partnership.
+\end{description}
+
+The Journal, a slowly-updated editorial sub-site~\citep{hmljournal}, has published two visible posts: James-Wilson's launch editorial (2022-02-18) and Patrick Kyle's Recommended Reading (2023-03-16). It is not the library's primary public output.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Tenure} & \textbf{Role} & \textbf{Name} \\
+\midrule
+2021-- & Founder & Matthew James-Wilson \\
+2021-- & Co-Founder, Co-Curator & Molly Soda \\
+?-- & Head Librarian & Yulia Cymbura \\
+?-- & Programming Director & Jane Shin \\
+?-- & Librarian & Saria Dang \\
+?-- & Archiving Consultant & Brock Stuessi \\
+?-- & Web Designer & Maya Man \\
+?-- & Web Developer & Lucas Vocos \\
+\bottomrule
+\end{tabularx}
+\\[0.3em]
+\footnotesize Source: \texttt{heavymannerslibrary.com/about}, accessed 2026-05-02. Start dates for non-founder staff are not disclosed.
+\end{table}
+
+The eight publicly-listed staff are the entire visible operating team. The roles read more like a small magazine masthead than a museum org chart. There is no published board, no listed advisory committee, no fiscal-sponsor liaison, and no executive director title separate from ``Founder.''
+
+Recurring outside collaborators visible in the data: the EPFC Collective screening series team (descended from EPFC co-founders Paolo Davanzo and Lisa Marr); the dublab \emph{Channels} hosts (Jordan Collins, Lewis Thompson, Nia Michelle); exhibiting artists across 2022 (Kendra Yee, Jesse Moynihan, Tiny Splendor); and Aidan Koch on the 2025 Skylight Books co-presentation of \emph{Spiral and Other Stories}.
+
+\section{Money}
+
+\textbf{HML publishes no financial document.} ProPublica's Nonprofit Explorer returns no entity for ``Heavy Manners.'' No 501(c)(3) language appears on the donate or join pages. No EIN is exposed. No fiscal-sponsor name is exposed. No tax-deductibility statement appears anywhere on the site. The legal entity behind HML is therefore \emph{not publicly disclosed}: it could be a sole proprietorship, an LLC (single- or multi-member), a fiscally-sponsored project, or an unincorporated association --- none of those is publicly confirmed and the dossier does not infer one.
+
+What is visible on the public site as \emph{income channels}:
+
+\begin{itemize}
+\item Two-tier paid membership: Cyan and Magenta~\citep{hmljoin}. Tier pricing is not exposed without entering the join flow. Membership grants borrowing privileges (6 books, 6 weeks, 50\% replacement-cost damage fee, 100\% loss/destruction fee).
+\item E-commerce shop (\texttt{shop.heavymannerslibrary.com}) selling books, zines, prints, merch.
+\item Eventbrite-ticketed workshops: Risograph Printing 101 (\$\,?) and the rotating DIY workshop slate.
+\item Ticketed live programming: comedy nights via The Comedy Bureau, ``Overnight'' series via Hollywood Entertainment, music + readings.
+\item Annual Heavy Manners Spring Fundraiser exhibition with sales of art + prints + class + gathering tickets.
+\item Book-donation in-kind support (\texttt{/donate})~\citep{hmldonate}.
+\end{itemize}
+
+What is \emph{not} visible: any institutional or foundation grant. No NEA, NEH, Mellon, Andy Warhol Foundation, Knight, California Arts Council, City of LA Department of Cultural Affairs, Hammer Museum, or LACMA grant has been disclosed in the surfaced record. The LAMAG ``Friday Art Nights'' 2024 residency is the only documented \emph{institutional} program partnership; it was a venue partnership rather than a grant.
+
+In comparison with the two adjacent dossiers in this series:
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{Xll}
+\toprule
+\textbf{Org} & \textbf{Legal} & \textbf{Disclosure} \\
+\midrule
+Rhizome.org & 501(c)(3) (1999) & 14+ years of Form 990s \\
+SFPC & LLC + fiscal sponsor & 2013--2019 GitHub repo \\
+Heavy Manners Library & not disclosed & none \\
+\bottomrule
+\end{tabularx}
+\\[0.3em]
+\footnotesize Disclosure ladder of small artist-run orgs in the AC papers project.
+\end{table}
+
+This is a documentary observation, not a normative one. HML's scale is small enough that a one-person sole proprietorship plus collaborators is plausible; so is fiscal sponsorship under a larger LA arts host such as Fulcrum Arts or Community Partners; so is an unincorporated association running through the founder's existing entities. None of these is confirmed.
+
+\section{Footprint}
+
+HML's footprint is local and convivial rather than institutional. A non-exhaustive cross-section visible in the data:
+
+\begin{itemize}
+\item \textbf{The building.} HML's tenancy at 1200 N Alvarado --- alongside the EPFC Collective's continued screening presence in HML's basement --- means that the corner of Sunset and Alvarado has hosted continuous artist-run programming, across three named organizations, from 2002 to today. That continuity is itself the most legible footprint claim available.
+\item \textbf{The fairs.} The Heavy Manners Zine Fair and Comics Fair have become recurring open-call fixtures on LA's small-press calendar.
+\item \textbf{The library function as such.} A ~6-week / 6-book free-checkout rhythm makes HML one of a small handful of LA reading rooms where art-school-priced reference material can be borrowed by people without art-school enrollment. SFPC's tuition discussion (``California Institute of the Arts costs \$58,318 annually for undergraduates,'' per the SJSU iSchool profile~\citep{sjsuischool}) is the implicit framing the library operates against.
+\item \textbf{Cross-org appearances.} HML has appeared in the LAMAG ``Friday Art Nights'' Barnsdall Park residency (2024); has been broadcast via dublab's \emph{Channels} (2025); and has been included in Hyperallergic's 2024 indie-art-spaces feature.
+\end{itemize}
+
+\subsection{Author intersection}
+
+Maya Man, listed on \texttt{heavymannerslibrary.com/about} as Web Designer, is also one of three explicitly-named individual supporters on \texttt{sfpc.study/about} (alongside Galen MacDonald and Jeffrey Alan Scudder). Recorded across the AC papers project as a fact, not as positionality.
+
+\section{Reading List}
+
+\subsection{Primary sources}
+
+\begin{itemize}
+\item \textbf{The about page}~\citep{hmlsite} --- the only canonical institutional self-disclosure (founder + co-founder + six staff + mission).
+\item \textbf{The events page}~\citep{hmlsite} and the Eventbrite organizer history --- the most reliable record of the program shape.
+\item \textbf{The Heavy Manners Journal}~\citep{hmljournal} --- two posts, infrequent; founder voice + curated reading lists.
+\item \textbf{Donate} and \textbf{Join} pages~\citep{hmldonate, hmljoin} --- the only public surface where money / membership / governance language appears.
+\end{itemize}
+
+\subsection{Secondary}
+
+\begin{itemize}
+\item \textbf{The Eastsider LA, 2023}~\citep{eastsider2023} --- founder profile.
+\item \textbf{Hyperallergic, 2024}~\citep{hyperallergic2024indie} --- ``Seven Indie Art Spaces to Check Out in Los Angeles''; surfaces the basement-microcinema / EPFC handoff.
+\item \textbf{Flipboard / Storyboard podcast, 2024}~\citep{flipboardpodcast} --- founder interview with Mia Quagliarello.
+\item \textbf{SJSU iSchool SLA Student Chapter profile}~\citep{sjsuischool} --- the only library-science-framed write-up surfaced.
+\item \textbf{LA Municipal Art Gallery program partner page}~\citep{lamag2024} --- documents the 2024 ``Friday Art Nights'' residency.
+\item \textbf{dublab \emph{Channels} archive}~\citep{dublabchannels2025} --- 2025-05-10 broadcast.
+\end{itemize}
+
+\subsection{Lineage / building}
+
+\begin{itemize}
+\item \textbf{Hyperallergic on Machine Project closure}~\citep{hyperallergicmachine2018} --- January 2018; same address.
+\item \textbf{The Eastsider LA on EPFC closure}~\citep{eastsiderepfc2022} --- January 2022; same address; org continues itinerant.
+\item \textbf{Wikipedia on Machine Project}~\citep{wikipediamachine}.
+\end{itemize}
+
+\subsection{Name}
+
+\begin{itemize}
+\item \textbf{Wikipedia on \emph{Under Heavy Manners}}~\citep{wikipediaprincefari} --- 1976 album; the title-as-State-of-Emergency reference Manley declared in Jamaica.
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item \textbf{Not a thesis.} There is no question being answered. The library / zine-as-political-act framing is part of HML's self-presentation; the dossier records that framing rather than projecting onto it.
+\item \textbf{Not a critique.} HML's silence on legal status, financials, and named funders is observed, not judged.
+\item \textbf{Not a comparison.} Adjacent LA spaces (Skylight Books, Ooga Booga, Hauser \& Wirth's bookstore, Stories Books \& Cafe, Tom of Finland Foundation Library, Reanimation Library outposts) are mentioned only where they directly intersect HML.
+\item \textbf{Not a Machine Project obituary.} The companion dossier in this batch (\texttt{papers/arxiv-machine-project/}) handles Machine Project on its own terms; this dossier surfaces only the building lineage.
+\item \textbf{Not exhaustive.} The dossier covers what is publicly recoverable; gaps --- legal entity, fiscal sponsor, financials, foundation grants, collection size, member count, full event history --- are flagged inline. The companion data folder (\texttt{papers/arxiv-heavy-manners-library/data/}) holds the underlying CSVs.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

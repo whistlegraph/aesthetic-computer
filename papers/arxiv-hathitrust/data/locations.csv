@@ -1,0 +1,7 @@
+location,role,start_year,end_year,address_or_city,notes,source
+University of Michigan Library,Headquarters / operational host,2008,,1001 N. Buhr Building 200 Hill Street Ann Arbor MI 48109,Hosts HathiTrust staff and core repository infrastructure; embedded inside UMich Library organization,wikipediahathi / hathiteam
+Indiana University,HTRC co-host,2011,2026,Bloomington IN,Co-hosts HathiTrust Research Center; Beth Plale's Data to Insight Center; HTRC sunsetting end 2026,iuhtrc2011 / htrctransition
+University of Illinois at Urbana-Champaign,HTRC co-host,2011,2026,Urbana-Champaign IL,Co-hosts HathiTrust Research Center; J. Stephen Downie iSchool; HTRC sunsetting end 2026,iuhtrc2011 / htrctransition
+Big Ten Academic Alliance,Co-located coordinating consortium,2008,,Champaign IL,Programmatic alignment with HathiTrust on shared library programs; founding consortium contributing 2 Board seats,btaagovernance
+California Digital Library,Founding consortium coordinator,2008,,Oakland CA,Coordinates the 11 UC libraries' relationship to HathiTrust; 2 Board seats,cdl2008launch
+Distributed storage,Storage infrastructure,2008,,---,Multiple sites; UMich operates the primary infrastructure with mirrors,wikipediahathi

@@ -1,0 +1,12 @@
+program,launched,status,description,key_funders,source
+HathiTrust Digital Library,2008-10,Active,Core preservation-and-access service; trusted repository for member-library scans; full-text searchable; public-domain volumes readable in full; 19M+ volumes by 2025,member dues / Mellon / Sloan,wikipediahathi
+PageTurner,2008,Active,Web reader for in-copyright and public-domain volumes; PDF download for public domain,member dues,wikipediahathi
+Bibliographic Catalog / API,2008,Active,Shared catalog records; OAI-PMH feeds; institution identifiers; persistent IDs,member dues,hathitrust.org
+HathiTrust Research Center (HTRC),2011,Sunsetting end 2026,Computational text and data mining over the corpus; non-consumptive research; HTRC Data Capsule secure VM environment for in-copyright analysis; 2024 Board vote to end funding,Sloan / Mellon / IMLS,iuhtrc2011 / htrctransition / plale2016educause
+Copyright Review Management System (CRMS),2008,Active,Production system for human-reviewed determination of public-domain status (US 1923-1963); CRMS-World extension for non-US works; 50+ partner institution reviewers,IMLS National Leadership Grants,hathicrms
+Emergency Temporary Access Service (ETAS),2020-03,Discontinued (post-COVID),Time-limited online access for member libraries with closed physical collections during emergencies; one-digital-loan-per-physical-copy model gated by emergency declaration; reached 171 campuses in 2 months,member dues / operational,hathicovid2020 / etasterms
+Shared Print Program,~2017,Active,Print monograph retention compact; participating libraries commit to retain ~18M monograph volumes for 25-year term; distributes physical preservation footprint across consortium,member dues,wikipediahathi
+US Federal Documents Program,~2010,Active,Targeted preservation of US government publications,member dues,hathitrust.org
+Cataloging Hub / Print Holdings Database,~2012,Active,Shared cataloging infrastructure across membership,member dues,hathitrust.org
+Disability Access (print-disabled users),2008,Active,Accessible-format access for users with certified print disabilities; central use upheld in Authors Guild ruling,operational,hathirulingappeal
+Orphan Works Project,2011,Discontinued,Voluntary suspension during Authors Guild litigation; never resumed at scale,operational,authorsguildwiki

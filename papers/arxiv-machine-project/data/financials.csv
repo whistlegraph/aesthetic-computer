@@ -1,0 +1,10 @@
+fiscal_year,revenue,expenses,net,net_assets,ed_compensation,notes,source
+2011,296718,293162,3556,116680,,"first year in ProPublica's standardized extract; org in steady-state storefront cadence",ProPublica EIN 75-3193159
+2012,299681,288458,11223,127903,,"steady-state",ProPublica EIN 75-3193159
+2013,315167,314699,468,128371,,"steady-state",ProPublica EIN 75-3193159
+2014,397667,398131,-464,127907,,"peak revenue year coinciding with Gamble House intervention",ProPublica EIN 75-3193159
+2015,337572,331944,5628,133535,3445,"Tang exhibition opens Sep 2015; Patrick Ballard Return to Foreverhouse with PAA grant",ProPublica EIN 75-3193159
+2016,313258,322865,-9607,123928,6000,"Tang Platinum Collection book published",ProPublica EIN 75-3193159
+2017,312505,305347,7158,131086,14751,"final full year of operations; book launch Extravaganza",ProPublica EIN 75-3193159
+2018,115048,211467,-96419,34666,,"closure year; Jan 13 2018 farewell event; half-year operational; net assets drawn down",ProPublica EIN 75-3193159
+2019-2026,,,,,,"no Form 990 filed visible in ProPublica's extract; org appears on California AB 488 delinquent registrations list per Charity Navigator","Charity Navigator EIN 75-3193159 + ProPublica"

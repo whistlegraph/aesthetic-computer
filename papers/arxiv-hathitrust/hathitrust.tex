@@ -1,0 +1,272 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tikz}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={HathiTrust: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{hathitrust-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\begin{document}
+
+\twocolumn[{%
+% Top header row: pals (left) + QR + label (right)
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+\begin{tabular}{@{}r@{}}
+{\footnotesize\acbold\color{acpink} \,\,Read this paper now!}\\[0.18em]
+\href{\paperurl}{\includegraphics[height=2.4cm]{figures/qr}}
+\end{tabular}
+\end{minipage}\par
+\vspace{0.4em}
+
+% Hero illustration with title floating over the bottom vignette
+\begin{center}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (cover) at (0,0) {\includegraphics[width=0.86\textwidth]{figures/cover}};
+  \node[anchor=south, align=center, inner sep=0pt] at ([yshift=2.4em]cover.south) {%
+    \begin{tabular}{c}
+      {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}\strut HathiTrust}\\[0.05em]
+      {\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}\strut A Dossier}\\[0.2em]
+      {\aclight\fontsize{9.5pt}{11pt}\selectfont\color{acgray}\strut Structure, History, Programs, People, Money, Litigation --- 2008 to 2026}\\
+    \end{tabular}
+  };
+\end{tikzpicture}
+\par\vspace{0.4em}
+
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about HathiTrust --- the academic-library digital-preservation consortium founded in October 2008 by the University of Michigan together with the twelve members of the Committee on Institutional Cooperation (CIC, now the Big Ten Academic Alliance) and the eleven libraries of the University of California --- across origin, structure, programs, people, finances, and litigation. There is no thesis, no verdict, and no conclusion section. Where facts run out the dossier stops; gaps are flagged inline. The Authors Guild v.~HathiTrust outcome --- HathiTrust won at the district level (2012), and the Second Circuit affirmed (2014), establishing the precedent that full-text search and accessibility uses of a digitized scholarly library are fair use --- is presented factually with court rulings cited.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Origin}
+
+HathiTrust opens publicly in October 2008 as a shared digital repository for the research libraries that had been feeding their print collections into the Google Library Project (begun 2004) and the Open Content Alliance (founded 2005). The founding partnership joined three pre-existing consortia: the twelve member universities of the \emph{Committee on Institutional Cooperation} (CIC, the academic consortium of the Big Ten plus the University of Chicago, since 2016 renamed the \emph{Big Ten Academic Alliance}), the eleven libraries of the \emph{University of California} system (including the California Digital Library), and the \emph{University of Virginia}. Together those founding members had, by 2008, accumulated more than two million digitized volumes between them and faced a common practical problem: where to put the bits.
+
+The name \emph{hathi} is the Hindi word for \emph{elephant} (from Sanskrit \emph{hastin}); the figure of speech is the elephant's proverbial memory and the elephant's size as an emblem of long-term, large-scale storage. The launch announcement of October 13, 2008 framed HathiTrust as ``a shared digital repository'' and a ``trusted'' archive, not as a consumer-facing book service in the manner of Google Books~\citep{cdl2008launch,um2008launch}. The University of Michigan, which had built and continues to operate the underlying repository infrastructure, is the founding administrative host and has remained so ever since~\citep{wikipediahathi}.
+
+The structural decision that distinguishes HathiTrust from the Internet Archive, and that this dossier returns to throughout, is that HathiTrust did not incorporate as a standalone 501(c)(3). It is a \emph{service of the University of Michigan} run on behalf of a member consortium, with member dues funding most operations and a member-elected Board of Governors directing strategy. The federal-tax footprint of HathiTrust therefore lives inside the University of Michigan's Form 990 family rather than as a separate Form 990 of its own.
+
+\section{Structure}
+
+HathiTrust's governance was formalized in 2012, four years after its 2008 launch, in the \emph{HathiTrust Bylaws}. Three bodies sit on top of the consortium~\citep{hathigovern,btaagovernance}:
+
+\textbf{The Members.} A set (over 219 research libraries as of 2024; over 290 by 2025) that pays annual dues, votes on the budget, and elects representatives to the governing bodies. Membership tiers are based on the size of the library's print holdings; the \emph{cost-per-volume} number, recalculated annually, is the rate at which costs are allocated~\citep{hathicost}.
+
+\textbf{The Board of Governors.} 12 voting members. Six seats are reserved for founding members: two for the University of California System, one for Indiana University, one for the University of Michigan, and two rotating among the remaining founding institutions of the Big Ten Academic Alliance. Six seats are filled by election of the voting members. The Chief Executive Officer (Executive Director) and the Program Steering Committee Chair sit as non-voting members. The Board has final responsibility for HathiTrust's activities, functions, operations, and the long-term integrity of deposited materials~\citep{hathigovern}.
+
+\textbf{The Program Steering Committee (PSC).} Members serve three-year terms via a nominating-and-appointment process. The PSC reviews HathiTrust's development agenda, shapes initiatives and strategies for Board discussion, and works with the Board to develop policy~\citep{hathipsc}.
+
+A small operational staff, led by the Executive Director and embedded inside the University of Michigan Library, runs the day-to-day repository, member services, partnerships, and the (now-sunsetting) HathiTrust Research Center. The Big Ten Academic Alliance has a co-located coordinating role with HathiTrust on shared library programs.
+
+The structural punchline: \textbf{HathiTrust is not a 501(c)(3) Form 990 filer in its own name}; it is a service of the University of Michigan, a public-university body. Its peer comparator in this respect is not the Internet Archive (which is a standalone California 501(c)(3) at EIN 94-3242767) but rather an academic shared service like a state library cooperative or a research-library consortium.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Role} & \textbf{Name} & \textbf{Note} \\
+\midrule
+Founding Director & John Wilkin & 2008--2013 \\
+Executive Director & Mike Furlough & 2014-- \\
+Co-creator (UMich) & Paul Courant & UMich provost / dean of libraries \\
+Board (UMich) & Mike Furlough & ex officio (CEO) \\
+PSC Chair & rotating & ex officio (Board non-voting) \\
+HTRC co-PI & Beth Plale & Indiana University \\
+HTRC co-PI & J.~Stephen Downie & U Illinois iSchool \\
+\bottomrule
+\end{tabularx}
+\caption{Key roles of record. Board membership rotates; full roster in \texttt{data/people.csv}.}
+\label{tab:people}
+\end{table}
+
+\textbf{John Wilkin} served as the founding Executive Director from 2008 to 2013, alongside his role as Associate University Librarian for Publishing and Technology at the University of Michigan, where he had been a senior library administrator for two decades. In 2013 he left HathiTrust to become Dean of Libraries and University Librarian at the University of Illinois at Urbana-Champaign~\citep{wilkin2013illinois}; in 2024 he became CEO of Lyrasis~\citep{wilkin2024lyrasis}. \textbf{Mike Furlough} succeeded him as Executive Director and remains in that role as of 2026~\citep{hathiteam}.
+
+\textbf{Paul Courant}, University of Michigan provost (2002--2005) and Arthur F. Thurnau Professor of Public Policy and Economics, was University Librarian and Dean of Libraries at UMich during the launch period and is widely credited as the senior administrator who made the institutional commitment for Michigan to host HathiTrust~\citep{courantfordschool}.
+
+The HathiTrust Research Center (HTRC), launched in 2011, was led by \textbf{Beth Plale} (Indiana University, Data to Insight Center) and \textbf{J.~Stephen Downie} (University of Illinois at Urbana-Champaign, iSchool) as co-PIs. HTRC funding ends at the close of 2026 per a 2024 board decision~\citep{htrctransition}.
+
+The Board of Governors and Program Steering Committee rotate. As of January 2026, recent elections placed Mary-Jo K. Romaniuk (University of Calgary) on the Board for a 2026--2028 term, with Lorrie McAllister (Hofstra University) re-elected for an additional two years~\citep{hathi2026budget}. The full roster across years is partial in this first pass.
+
+\section{Programs}
+
+\textbf{HathiTrust Digital Library} (2008--) --- the core preservation-and-access service: a single trusted repository for the digital scans contributed by member libraries, with full-text search, cataloguing, and (for public-domain works) full-text reading. By September 2024 the collection holds 18M+ volumes; by 2025 over 19M~\citep{wikipediahathi}.
+
+\textbf{Bibliographic API / Catalog} --- shared catalog records, public-domain determination, persistent identifiers, OAI-PMH feeds.
+
+\textbf{Page\-Turner} --- web reader for in-copyright and public-domain volumes; supports PDF download for public-domain works.
+
+\textbf{HathiTrust Research Center (HTRC)} (2011--end of 2026) --- a partnership with Indiana University and the University of Illinois at Urbana-Champaign for non-consumptive computational text and data mining over the HathiTrust corpus. Includes the \emph{HTRC Data Capsule}, a Sloan-funded secure-VM environment for analysis of in-copyright text. HathiTrust voted in 2024 to end HTRC funding at the close of 2026, transitioning text-mining services~\citep{htrctransition,iuhtrc2011}.
+
+\textbf{Emergency Temporary Access Service (ETAS)} (March 2020--) --- the COVID-19-pandemic response: member libraries whose physical buildings were closed could grant their patrons time-limited online access to digital copies of in-copyright books that the library held in its physical collection. Within two months of launch, ETAS was active at 171 campuses and had been used nearly 300{,}000 times~\citep{hathicovid2020,etasterms}. ETAS is a \emph{controlled digital lending}-style service: one digital loan tied to a held physical copy, gated by an active emergency.
+
+\textbf{Copyright Review Management System (CRMS)} (2008--) --- the production system for human-reviewed determination of public-domain status for works published 1923--1963 (US) and parallel batches for non-US works under CRMS-World. Funded by a series of IMLS National Leadership Grants from 2008 onward~\citep{hathicrms}.
+
+\textbf{Shared Print Program} --- a print-monograph retention compact: participating libraries commit to retaining roughly 18M monograph volumes for a 25-year term, distributing the physical-preservation footprint across the consortium~\citep{wikipediahathi}.
+
+\textbf{US Federal Documents Program} --- targeted preservation of US government publications.
+
+\textbf{Cataloging Hub / Print Holdings Database} --- shared cataloging infrastructure across the membership.
+
+\textbf{Disability access} (2008--) --- accessible-format access for HathiTrust users with certified print disabilities, the use that was central to the Authors Guild ruling (\S\ref{sec:litigation}).
+
+\section{Money}\label{sec:money}
+
+HathiTrust's finances are unusual among large preservation infrastructures because the org is not a standalone 501(c)(3) and does not file its own Form 990. Funding is dominantly \emph{member dues}, with \emph{external grants} (Mellon, Sloan, IMLS) layered on top for specific programs. The annual budget is voted on by the membership.
+
+\textbf{Cost model.} HathiTrust calculates an annual \emph{cost-per-volume} = total budget ÷ total volumes. In 2023 the cost-per-volume was \$0.2294; in 2026 it is \$0.2403~\citep{hathicost,hathi2026budget}. Total budget is approximately cost-per-volume times the corpus size; on an 18M-volume corpus at the 2023 rate, the implied annual budget is on the order of \$4M, consistent with the publicly cited 2019 projected budget of \$3{,}777{,}445~\citep{wikipediahathi}.
+
+\textbf{Fee structure.} 40\% of HathiTrust's collection was in the public domain on July 1, 2022 when the 2023 fees were calculated. Fees are split into a \emph{public-domain (common-good) portion}, which is allocated across all members in tiers, and a \emph{copyright portion}, which is allocated based on each member library's share of the in-copyright corpus. Tier 2 libraries (the majority of members) paid a \$7{,}414 baseline public-domain fee in 2023~\citep{hathicost}.
+
+\textbf{External grants.} The Andrew W.~Mellon Foundation made a \$1{,}000{,}000 grant in February 2023 (Public Knowledge program) titled \emph{Strengthen Preservation and Access Mission; Portfolio Management Staffing}~\citep{hathimellon2023}. The Alfred P.~Sloan Foundation funded the HTRC Data Capsule (specifics in \texttt{data/grants.csv}). The Institute of Museum and Library Services (IMLS) funded the Copyright Review Management System through National Leadership Grants beginning in 2008 (US-only) and continuing 2011--2014 (CRMS-World). Indiana University's Data to Insight Center received a \$600{,}000 Sloan grant for non-consumptive-research investigation of the corpus~\citep{iudata2011}.
+
+\textbf{The path is legibly different from a 501(c)(3).} The Internet Archive runs at roughly the \$20--\$30M annual scale on a Form 990 with two-thirds contributions and one-third earned program-service revenue. HathiTrust runs at roughly the \$4--\$5M scale, with most revenue coming through member dues that flow as ordinary university expenses on each member library's budget rather than as charitable contributions to a separate nonprofit. There is no Brewster Kahle figure; there is no founder family foundation; there is, instead, a 219-library consortium and a member-elected Board.
+
+\section{Litigation}\label{sec:litigation}
+
+\subsection{Authors Guild v.~HathiTrust}
+
+\textbf{Filed:} September 12, 2011 (S.D.N.Y.). \textbf{Plaintiffs:} The Authors Guild, the Authors' Licensing and Collecting Society (UK), Writers' Union of Canada, Australian Society of Authors, and individual authors. \textbf{Defendants:} HathiTrust and member universities (University of Michigan, University of California, University of Wisconsin-Madison, Indiana University, Cornell University). \textbf{Subject:} HathiTrust's full-text search index, accessible-format access for the print-disabled, and library preservation copies of works digitized through the Google Library Project~\citep{authorsguildwiki,hathirulingdistrict}.
+
+\textbf{District-court ruling.} On October 10, 2012, Judge Harold Baer Jr.~granted summary judgment for HathiTrust. The court held that two principal uses --- (i) creation of a full-text search index, and (ii) accessibility for users with certified print disabilities --- were transformative fair uses and that the four-factor analysis favored HathiTrust. The court rejected the Authors Guild's preservation-copy challenge on standing grounds at the district level. \emph{Authors Guild, Inc.~v.~HathiTrust}, 902 F.~Supp.~2d 445 (S.D.N.Y.~2012)~\citep{hathirulingdistrict}.
+
+\textbf{Second Circuit ruling.} On June 10, 2014, the United States Court of Appeals for the Second Circuit (Judges Barrington Daniels Parker Jr., John M.~Walker Jr., José A.~Cabranes; opinion by Parker) largely affirmed. The Second Circuit held that the full-text search use is transformative fair use, and that the print-disabled access use is also fair use. The preservation-copy claim was remanded for the district court to consider whether the plaintiffs had standing to sue, the Second Circuit having concluded that the record on standing was insufficient. \emph{Authors Guild, Inc.~v.~HathiTrust}, 755 F.3d 87 (2d Cir.~2014)~\citep{hathirulingappeal,arlblog2014}.
+
+\textbf{Settlement.} The remaining preservation-copy claim and the orphan-works program (which HathiTrust had voluntarily suspended in 2011) were resolved by settlement on January 6, 2015~\citep{authorsguildwiki}.
+
+\textbf{Precedent.} The 2014 Second Circuit ruling is cited as the foundational fair-use precedent for full-text search and accessibility uses of mass-digitized scholarly libraries. It set the doctrinal frame that \emph{Authors Guild v.~Google} (2nd Cir.~2015) followed in upholding Google Book Search's snippet view. It is the same fair-use frame that the Internet Archive's Controlled Digital Lending program later relied on in \emph{Hachette v.~Internet Archive} --- and that the Second Circuit, in 2024, declined to extend to whole-book lending~\citep{hachettecourt2024}. HathiTrust's wins (search, accessibility) and the Internet Archive's loss (whole-book lending) sit on the same legal corridor and turn on whether a use is, in the Second Circuit's words, ``transformative.''
+
+\section{Footprint}
+
+\textbf{The corpus} is the headline footprint: 18M+ volumes (Sept 2024); 19M+ (2025); 6.7M of which are in the US public domain. The collection draws principally from the Google Library Project digitization of partner-library print collections, plus contributions from the Internet Archive's Open Content Alliance work and from member-library local digitization. As a single trusted repository for the scanned print holdings of every major US public-research-university library, HathiTrust is the default backstop for the Google-era digitization wave.
+
+\textbf{The members.} 219+ libraries (2024); 290+ (2025) across the United States, Canada, and Europe. Including all of the Big Ten, all of the University of California, the Library of Congress (as a content contributor), and a long tail of liberal arts colleges and government libraries.
+
+\textbf{Reading and lending.} Public-domain volumes are readable in full via PageTurner; in-copyright volumes are full-text searchable but only excerpts are returned. ETAS opened a brief, member-gated reading window during COVID-19. The HathiTrust Research Center, until end-of-2026, supports non-consumptive computational research on the in-copyright corpus.
+
+\textbf{The Authors Guild ruling} is itself a footprint: it is the doctrinal foundation that allowed both HathiTrust and Google Books to operate at scale, and the ruling is cited far beyond library digitization (machine-learning training-data fair-use arguments since 2023 routinely cite the case).
+
+\textbf{Headquarters.} 1001 N.~Buhr Building, 200 Hill Street, Ann Arbor, MI --- the University of Michigan Library complex.
+
+\section{Reading list}
+
+\textbf{York, \emph{This is HathiTrust} (2010)}~\citep{york2010thisis} --- early self-description.\\
+\textbf{Authors Guild v.~HathiTrust (2d Cir.~2014)}~\citep{hathirulingappeal} --- the precedent ruling.\\
+\textbf{Hathitrust district-court opinion, 902 F.~Supp.~2d 445 (S.D.N.Y.~2012)}~\citep{hathirulingdistrict}.\\
+\textbf{Christenson, \emph{HathiTrust: A Research Library at Web Scale} (2011)}~\citep{christenson2011} --- early library-science framing.\\
+\textbf{HathiTrust 2008 launch announcement}~\citep{cdl2008launch,um2008launch} --- founding documents.\\
+\textbf{HathiTrust governance bylaws} --- the 2012 governance instrument~\citep{hathigovern}.\\
+\textbf{HathiTrust Research Center (EDUCAUSE Review, 2016)}~\citep{plale2016educause} --- HTRC frame.
+
+\textbf{To acquire.} A copy of the full HathiTrust Bylaws (2012, with amendments). Year-by-year budget filings and member-vote outcomes from the HathiTrust Newsletters. The full Mellon grant detail page for the 2023 \$1M grant. The IMLS grant detail pages for all CRMS / CRMS-World awards. The University of Michigan Library's annual report sections that surface HathiTrust expenditures inside the host budget.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The Authors Guild ruling is surfaced as fact, not endorsed or challenged.
+  \item Not a comparison. Adjacent organizations (Internet Archive, Google Books, Big Ten Academic Alliance, Lyrasis, ITHAKA / JSTOR, Project Gutenberg, DPLA) are mentioned only where they directly intersect HathiTrust.
+  \item Not exhaustive. The dossier covers what is publicly recoverable in a first pass; gaps are flagged inline. Year-by-year HathiTrust budget figures, the full member roster across years, and IMLS grant amounts are partial. The companion data folder (\texttt{papers/arxiv-hathitrust/data/}) contains the underlying CSVs.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

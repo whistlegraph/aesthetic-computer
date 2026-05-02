@@ -1,0 +1,368 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern via OTF filenames so the same preamble renders identically under
+% macOS xelatex (Core Text, no fontconfig) and the oven's Linux xelatex (uses
+% fontconfig). kpathsea finds the OTFs in texmf-dist on both platforms.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tikz}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={The Kitchen: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% --- paper metadata (created/revision shown on cover) ---
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{the-kitchen-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\begin{document}
+
+\twocolumn[{%
+% Top header row: pals (left) + QR + label (right)
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+\begin{tabular}{@{}r@{}}
+{\footnotesize\acbold\color{acpink} \,\,Read this paper now!}\\[0.18em]
+\href{\paperurl}{\includegraphics[height=2.4cm]{figures/qr}}
+\end{tabular}
+\end{minipage}\par
+\vspace{0.4em}
+
+% Hero illustration with title floating over the bottom vignette
+\begin{center}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (cover) at (0,0) {\includegraphics[width=0.86\textwidth]{figures/cover}};
+  \node[anchor=south, align=center, inner sep=0pt] at ([yshift=2.4em]cover.south) {%
+    \begin{tabular}{c}
+      {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}\strut The Kitchen}\\[0.05em]
+      {\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}\strut A Dossier}\\[0.2em]
+      {\aclight\fontsize{9.5pt}{11pt}\selectfont\color{acgray}\strut Genealogy, History, Programs, People, Money, Footprint --- 1971 to 2026}\\
+    \end{tabular}
+  };
+\end{tikzpicture}
+\par\vspace{0.4em}
+
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about The Kitchen --- the New York-based experimental-arts institution founded by Steina and Woody Vasulka in 1971 in the literal kitchen of the Mercer Arts Center --- across genealogy, periodized history, programs, people, finances, and cultural footprint. There is no thesis, no verdict, and no conclusion section. Where facts run out the dossier stops; gaps are flagged inline. The Kitchen is the oldest organization in the AC dossier series at fifty-five years, and the only one that takes its name literally from a former room.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Origin}
+
+The Kitchen begins on June 15, 1971, when Steina Vasulka and Woody Vasulka --- an Icelandic-born violinist and a Czech-born filmmaker, married, video artists, frustrated by the lack of presentation outlets for the new medium --- rent the disused thirty-foot-wide kitchen of the Mercer Arts Center, on the second floor of the former Broadway Central Hotel at 240 Mercer Street in Greenwich Village~\citep{thekitchen_about,wikipedia_kitchen}. The room has running water and a tile floor and that is the joke and the name. They equip it with reel-to-reel videotape machines, tape recorders, television monitors, loudspeakers, a piano, and the working signal chain of an early-1970s downtown video studio~\citep{thekitchen_fieldnotes}. The space hosts weekly performances and Wednesday open-house screenings.
+
+The Vasulkas operate the original Kitchen as an artist collective under the fiscal sponsorship of Electronic Arts Intermix, alongside co-directors Rhys Chatham (music), Shridhar Bapat, Dimitri Devyatkin, and Tom Bowes (video)~\citep{thekitchen_about,thekitchen_fieldnotes}. There is no permanent staff. Performances split admissions with the artists; the rest is charitable donation.
+
+On August 3, 1973 the Mercer Arts Center building --- the former Broadway Central Hotel --- collapses. The Vasulkas, by then operationally departed, hand the project off. In November 1973 the project re-opens as a freestanding 501(c)(3) under the name \textbf{Haleakala, Inc.}~(``house of the sun'' in Hawaiian; an early-collective coinage) doing business as The Kitchen. Robert Stearns, previously of Paula Cooper Gallery, is the first Executive Director. The founding board lists Paula Cooper, Caroline Stone, and Philip Glass~\citep{thekitchen_fieldnotes}. The new home is a second-floor loft at 484 Broome Street in SoHo, leased for approximately ten thousand dollars a year.
+
+\section{The Long Arc, 1971--2026}
+
+\subsection{Video-art era (1971--1979)}
+
+The first decade is dominated by the founding discipline. Music programming is interleaved with the video work --- Rhys Chatham steers a music director seat, Arthur Russell takes it from 1974, Garrett List from 1975 --- and the music director sequence becomes the most legible chain of authorship in the institution's first fifteen years. Mary MacArthur (n\'ee Griffin) becomes Executive Director in 1978 and launches \emph{The Kitchen Presents}, a broadcast-television initiative for which producer Carlota Schoolman makes video for TV. The same year Leonardo Katz starts \emph{Filmworks}; \emph{Dancing In The Kitchen} adds a dance line. The \emph{Contemporary Music Series} starts in 1979.
+
+\subsection{No-wave and downtown-music years (1979--1985)}
+
+\emph{New Music/New York}, founded 1979, expands into \emph{New Music America} in 1980 and travels --- a model multi-city contemporary-music festival that ran through the 1980s and into the early 1990s. Music directors George E. Lewis (AACM-affiliated, 1980--1982) and Ann DeMarinis (1982--1985) overlap with the no-wave era. The 1981 tenth-anniversary celebration is \emph{Aluminum Nights}. Programs documented across the period feature Glenn Branca, Lydia Lunch, James Chance, Brian Eno, Meredith Monk, Steve Reich, David Byrne / Talking Heads, Laurie Anderson, Philip Glass, Cindy Sherman, and a 1983 early-Beastie-Boys show~\citep{wikipedia_kitchen}.
+
+\subsection{Chelsea / 1920s ice house (1985--1991)}
+
+In 1985 the org moves from SoHo to 512 West 19th Street --- a three-story 1920s former ice house in Chelsea --- and inaugurates the Chelsea programming run as \emph{New Ice Nights} in 1986. Arto Lindsay (DNA / no wave) is the first music director after the move. In 1987 the org buys the building from the Dia Art Foundation, becoming an owner-occupant. The 1991 twentieth-anniversary celebration is \emph{The Kitchen Turns Twenty}.
+
+\subsection{Choreography and the long-running dance line (1990--2004)}
+
+\emph{Dance and Process} begins in 1990 under the name \emph{Working in The Kitchen} and is renamed in 1995. It is the institution's longest-running named program. Lauren Dyer Amazeen takes the executive directorship in 1991 and runs through 1997. Elise Bernhardt arrives in 1998 and runs through 2004; her programs include the long-running \emph{TV Dinner} (1998--2004; vegetarian buffet plus an evening of time-based art) and \emph{Kitchen House Blend} (2000--2005).
+
+\subsection{Multidisciplinary consolidation (2004--2011)}
+
+In 2004 Debra Singer arrives from the Whitney Museum and is the first to combine the titles \emph{Executive Director and Chief Curator} --- a structural shift that gives the lead role both fiscal and artistic authority and that has stayed in place ever since. The fortieth-anniversary 2011 programs include \emph{Aluminum Music} and \emph{Pioneers of the Downtown Sound}. Singer departs in 2011.
+
+\subsection{Griffin era and digital posture (2011--2021)}
+
+Tim Griffin --- formerly editor-in-chief of \emph{Artforum} 2003--2010 --- arrives as Executive Director and Chief Curator and runs the institution for a full decade. Griffin's signature initiatives are the interdisciplinary talk series \emph{The Kitchen L.A.B.} and the electronic-music series \emph{Synth Nights}~\citep{wikipedia_kitchen}. Griffin's tenure includes the Hurricane Sandy disaster of October 2012 (approximately \$450{,}000 in damage; recovery support arrives from Time Warner, the Art Dealers Association, and the Andy Warhol Foundation), and the 2014 sale of the institutional archive to the Getty Research Institute --- 5{,}410 videotapes, 600+ audiotapes, photographs, and 246 artist-designed posters covering 1971--1999~\citep{getty_kitchen_archive}. Griffin announces his departure in September 2020~\citep{artforum_griffin_depart}.
+
+\subsection{Russell era and the renovation (2021--present)}
+
+Legacy Russell --- author of \emph{Glitch Feminism}~\citep{russell2020glitch} (2020) and later \emph{Black Meme}~\citep{russell2024blackmeme} (2024), most recently Associate Curator at the Studio Museum in Harlem --- is named ED \& Chief Curator in June 2021 and starts in September~\citep{culturetype_russell}. She is the first Black executive director and chief curator in The Kitchen's history. Coincident with her arrival the institution announces \emph{The Next 50}, a capital campaign for the renovation of the W 19th Street building (architect: Rice+Lipka Architects, principal Lyn Rice). Public goal: \$40 million~\citep{thenext50}. \emph{Architects Newspaper} reports a \$28 million / five-year initial framing with \$19 million pledged at the September 2021 launch~\citep{archpaper2021}. The building closes for renovation in fall 2022; programming relocates to Westbeth Artists Housing at 163B Bank Street and to a network of NYC partner venues under the banner \emph{Without Walls}.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Tenure} & \textbf{Director} & \textbf{Note} \\
+\midrule
+1971--1973 & Steina + Woody Vasulka & Founders, collective \\
+1973-- & Robert Stearns & 1st ED, Haleakala Inc \\
+1978--1984 & Mary MacArthur & ED, n\'ee Griffin \\
+1985--1991 & (gap in record) & ED unidentified here \\
+1991--1997 & Lauren Dyer Amazeen & ED \\
+1998--2004 & Elise Bernhardt & ED \\
+2004--2011 & Debra Singer & ED + Chief Curator (1st) \\
+2011--2021 & Tim Griffin & ED + Chief Curator \\
+2021-- & Legacy Russell & ED + Chief Curator \\
+\bottomrule
+\end{tabularx}
+\caption{Executive directors of record. The 1985--1991 ED is not identified in the public record consulted for this dossier; cross-reference with \texttt{data/people.csv}.}
+\label{tab:eds}
+\end{table}
+
+The music-director chain is its own institutional history: Rhys Chatham (1971--1973, 1977--1980), Arthur Russell (1974--1975), Garrett List (1975--1977), George E. Lewis (1980--1982), Ann DeMarinis (1982--1985), Arto Lindsay (1986--1987). After 1987 the music programming role is folded into the broader curatorial structure rather than carried by a single named music director.
+
+The current curatorial team (per The Kitchen's About page) is Robyn Farrell (Director of Curatorial Affairs and Senior Curator), Matthew Lyons (Curator; on staff since 2007), and Angelique Rosales Salgado (Assistant Curator). The most consequential recent staff departure was Lumi Tan, twelve-year senior curator, who organized over a hundred exhibitions and performances at The Kitchen and left in 2022 to take the Focus curatorship at Frieze New York.
+
+The current Board Chair is \textbf{Robert Soros}. The Kitchen's About page lists \textbf{Paula Cooper} and \textbf{Philip Glass} --- both on the 1973 founding board --- as Chairperson Emeritus. The full FY2024 board roster (per IRS XML) is not extracted in this pass.
+
+\section{Programs}
+
+\textbf{Video / Media Art (1971--).} Founding discipline. Continuous from the original Mercer kitchen.
+
+\textbf{Music programming (1971--).} A continuous line that runs through six named music directors before being subsumed into general curation in the late 1980s. Foundational role in the no-wave / downtown-music history.
+
+\textbf{The Kitchen Presents (1978--).} Mary MacArthur's broadcast-television initiative; producer Carlota Schoolman.
+
+\textbf{Filmworks (1978--).} Curated by Leonardo Katz; Amy Taubin curates \emph{Filmworks '82}.
+
+\textbf{Contemporary Music Series (1979--).} Year-round programming of contemporary composition and experimental music.
+
+\textbf{New Music/New York $\to$ New Music America (1979/1980).} Festival format launched as \emph{New Music/New York} 1979; expanded into \emph{New Music America} in 1980 as a multi-city contemporary-music festival.
+
+\textbf{Dance and Process (1990--).} Originally \emph{Working in The Kitchen}; renamed 1995. \emph{The longest-running named program} at The Kitchen.
+
+\textbf{TV Dinner (1998--2004).} Bernhardt's vegetarian-buffet-plus-evening-of-time-based-art program.
+
+\textbf{Kitchen House Blend (2000--2005).} Music series during the Bernhardt / Singer transition.
+
+\textbf{The Kitchen L.A.B.\ ($\sim$2011--).} Tim Griffin's interdisciplinary talks series.
+
+\textbf{Synth Nights ($\sim$2010s--).} Tim Griffin's electronic-music series.
+
+\textbf{Without Walls (2022--).} Distributed presentation model during the W 19th Street renovation; programs are split between Westbeth at 163B Bank Street and a rotating set of NYC partner venues.
+
+\textbf{The Next 50 (2021--).} The fiftieth-anniversary capital campaign for the renovation of the W 19th Street building (see Section~\ref{sec:reno}).
+
+\textbf{OnScreen archive (\url{onscreen.thekitchen.org}).} Online-archive site of program history including oral histories with Carlota Schoolman, Cynthia Hedstrom, and others.
+
+\section{Money}\label{sec:money}
+
+The Kitchen files Form 990 as \textbf{Haleakala, Inc.}~(EIN 13-2829756). IRS tax-exempt status is effective May 1975. Filings are public on ProPublica's Nonprofit Explorer back to FY2002~\citep{propublica_kitchen}. The line items below are taken from ProPublica's summary view for FY2011--FY2024; pre-FY2011 filings are PDF-only and not extracted in this pass.
+
+\subsection{Top-line, FY2011--FY2024}
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{Xrrrrrrr}
+\toprule
+\textbf{FY end} & \textbf{Revenue} & \textbf{Contri.} & \textbf{Prog.\,svc.} & \textbf{Expenses} & \textbf{Top exec.~comp} & \textbf{Net assets} & \textbf{Total assets} \\
+\midrule
+2011-06 & 2,195,066 & 2,012,587 & 105,103 & 1,823,293 & --- & 3,481,335 & 3,640,813 \\
+2012-06 & 1,634,428 & 1,401,499 & 149,861 & 1,937,560 & --- & 3,176,010 & 3,231,558 \\
+2013-06 & 1,954,573 & 1,443,632 & 127,938 & 1,854,137 & --- & 3,285,746 & 3,452,494 \\
+2014-06 & 2,608,816 & 1,750,221 & \textbf{714,937} & 2,097,982 & 157,000 & 3,867,141 & 3,966,410 \\
+2015-06 & 2,328,380 & 1,669,750 & 464,268 & 2,115,172 & 160,500 & 4,086,123 & 4,224,319 \\
+2016-06 & \textbf{3,477,618} & 1,728,050 & 172,150 & 2,125,650 & 164,223 & 5,379,223 & 5,443,639 \\
+2017-06 & 2,009,793 & 1,624,416 & 172,974 & 2,262,508 & 163,601 & 5,264,960 & 5,368,441 \\
+2018-06 & 2,061,516 & 1,603,600 & 253,815 & 2,214,582 & 163,476 & 5,346,980 & 5,464,016 \\
+2019-06 & 3,609,571 & 3,105,849 & 251,000 & 2,504,156 & 174,146 & 6,479,676 & 6,637,621 \\
+2020-06 & 2,495,219 & 2,281,939 & 109,230 & 2,105,927 & 174,146 & 7,025,583 & 7,516,061 \\
+2021-06 & \textbf{5,093,956} & 4,456,815 & 169,234 & 2,050,182 & 161,787 & 10,532,707 & 11,182,217 \\
+2022-06 & 4,058,600 & 3,855,026 & 160,467 & 2,229,097 & 119,475 & 11,740,811 & 11,979,550 \\
+2023-06 & \textbf{6,742,034} & 6,378,084 & 133,115 & 2,910,677 & 173,465 & 15,957,611 & 18,231,252 \\
+2024-06 & 4,323,450 & 3,702,005 & 16,686 & 3,388,609 & 185,462 & 16,642,902 & 17,824,102 \\
+\bottomrule
+\end{tabularx}
+\caption{Haleakala Inc.~(DBA The Kitchen) --- top-line Form 990 figures by fiscal year (USD; FY ends June 30). Source: ProPublica Nonprofit Explorer summary table~\citep{propublica_kitchen}. Top exec.~compensation is the highest-paid officer reported on Part VII; missing entries indicate the field was not separately surfaced in the ProPublica summary for that year.}
+\label{tab:financials}
+\end{table*}
+
+The shape, in plain English: revenue is contribution-driven (typically 80--95\% in any given year); program-service revenue is small and uneven, with two-year visible-spike at FY2014 (\$715K) and FY2015 (\$464K) most plausibly tied to the Getty archive accession of 2014. Three other revenue spikes are visible: FY2016 (\$3.48M --- possibly a one-time gift), FY2021 (\$5.09M --- the capital-campaign launch year), and FY2023 (\$6.74M --- the Mellon \$2M plus continued capital-campaign inflow). Top-exec compensation has run \$157K--\$185K through the Singer / Griffin / Russell era. Total expenses have grown from \$1.8M in FY2011 to \$3.4M in FY2024, almost doubling.
+
+The most striking line is \textbf{net assets}: \$3.5M in FY2011, \$5.4M by FY2016, \$11.7M after FY2022, and \$16.6M after FY2024 --- a near-five-times growth across the dataset, almost entirely attributable to the capital campaign. The Kitchen has shifted in this period from being an operating-budget-driven org to being a balance-sheet org, with most of the new value concentrated in the capital-renovation reserve.
+
+\subsection{Mellon}
+
+The Mellon Foundation's grants database lists exactly one grant to Haleakala Inc.: \textbf{\$2{,}000{,}000 / 36 months / Arts and Culture}, dated June 8, 2023, supporting ``infrastructure and staffing under Legacy Russell's leadership for an inclusive space for the next avant-garde and its expanded audiences''~\citep{mellon_kitchen2023}. The Kitchen's own July 25, 2023 press release describes this as the largest single gift in the institution's fifty-year history~\citep{kitchen_mellon_press2023}. This is unusual for the AC dossier series --- in contrast to Rhizome (\$4.0M in seven Mellon grants 2015--2025) and Pioneer Works (no Mellon grants visible), The Kitchen has only entered the Mellon orbit once, late, and at the largest scale of any AC-tracked institution.
+
+\subsection{Other named grants}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{Funder} & \textbf{Year} & \textbf{Amount} \\
+\midrule
+Mellon Foundation & 2023 & 2,000,000 \\
+Andy Warhol Foundation & 2023 & 80,000 \\
+Time Warner (Sandy recovery) & 2012--13 & TBD \\
+Art Dealers Association of America & 2012--13 & TBD \\
+Andy Warhol Foundation (Sandy) & 2012--13 & TBD \\
+NEA (recurring) & multi & TBD \\
+NYSCA (recurring) & multi & TBD \\
+NYC DCLA (recurring) & multi & TBD \\
+\bottomrule
+\end{tabularx}
+\caption{Named funders. Year-by-year amounts for NEA / NYSCA / NYC DCLA and the Sandy recovery breakdown are not extracted in this pass --- the NEA's grant search interface is JS-blocked; NYSCA and NYC DCLA published-records searches were not run. See \texttt{data/grants.csv}.}
+\label{tab:grants}
+\end{table}
+
+\subsection{The 2014 archive sale}
+
+In 2014 the Getty Research Institute acquired The Kitchen's institutional archive --- 5{,}410 videotapes, more than 600 audiotapes, photographs, ephemera, and 246 artist-designed posters spanning 1971--1999~\citep{getty_kitchen_archive}. The acquisition price has not been publicly disclosed. The FY2014 program-service revenue line jumped to \$714{,}937 (from \$127{,}938 the year before), and FY2015 program-service revenue stayed elevated at \$464{,}268 before reverting in FY2016. The most plausible explanation for the line-item move is the Getty accession recognized over those two years; primary documentation would be needed to confirm.
+
+\subsection{Hurricane Sandy (2012)}
+
+Hurricane Sandy hit Chelsea on October 29, 2012; the W 19th Street building suffered approximately \$450{,}000 in damages~\citep{wikipedia_kitchen}. Recovery support arrived from Time Warner, the Art Dealers Association of America, and the Andy Warhol Foundation. Specific amounts are not consolidated in the public record consulted.
+
+\section{The Renovation}\label{sec:reno}
+
+In September 2021, coincident with both the fiftieth anniversary and Legacy Russell's announcement, The Kitchen launched \textbf{The Next 50} --- a capital campaign for the renovation of the 512 West 19th Street building. The architect of record is \textbf{Rice+Lipka Architects} (Lyn Rice, principal). At the public launch \emph{Architects Newspaper} characterized it as a \$28 million, five-year campaign with \$19 million pledged~\citep{archpaper2021}; the campaign website at \url{thenext50.thekitchen.org} states a public goal of \$40 million~\citep{thenext50}.
+
+The building is a three-story 1920s former ice house that The Kitchen has occupied since 1985 and owned (after a purchase from Dia Art Foundation) since 1987. Lyn Rice's stated design intentions, per the announcement: maintain the industrial character of the icehouse; double the program capacity; allow more cross-disciplinary flexibility; create a sustainable foundation for the next fifty years. The building closed for construction in fall 2022.
+
+The closure has not been frictionless. The early-phase \emph{Without Walls} programming at Westbeth and partner venues has been read in some critical coverage as a productive distributed model, in others as a long stretch of exile from the home space. As of this dossier (May 2026), no public reopening date has been fixed. Programming continues at Westbeth and at NYC partner venues. The capital-campaign drawdown is visible on the balance sheet: net assets jumped from \$10.5M (FY2021) to \$11.7M (FY2022) to \$16.0M (FY2023) to \$16.6M (FY2024) --- the renovation budget appears to be sitting in restricted assets.
+
+\section{Footprint}
+
+The Kitchen's cultural footprint over fifty-five years is wider than this dossier covers. What is publicly recoverable from this pass:
+
+\begin{description}
+\item[\textbf{Founding artist generation.}] Steina and Woody Vasulka are themselves video-art canon, with extensive holdings at the Vasulka Archive~\citep{vasulka_archive}.
+\item[\textbf{Music history.}] The institution is a primary site of the no-wave / downtown-music canon: Glenn Branca, Lydia Lunch, James Chance, Arto Lindsay, Brian Eno, Meredith Monk, Steve Reich, David Byrne, Talking Heads, Laurie Anderson, Philip Glass, AACM-affiliated work via George E.~Lewis. The 1979/1980 \emph{New Music/New York} $\to$ \emph{New Music America} festival was a national-scale model for contemporary-music presenting.
+\item[\textbf{Visual-art canon.}] Cindy Sherman, Robert Longo (later Pictures Generation), and many others passed through. The Beastie Boys played an early show in 1983.
+\item[\textbf{Dance.}] The \emph{Dance and Process} program (1990--, longest-running named series) has commissioned and presented decades of choreography in a research-process-forward frame.
+\item[\textbf{Archive at the Getty.}] The 2014 acquisition put The Kitchen's first three decades of records into the Getty Research Institute's collections, where they are now consultable as scholarly material rather than as the institution's own internal record.
+\item[\textbf{Editorial / OnScreen.}] The institution maintains an online archive at \url{onscreen.thekitchen.org} including oral histories with longtime staff and artists.
+\item[\textbf{Russell's writing.}] \emph{Glitch Feminism}~\citep{russell2020glitch} and \emph{Black Meme}~\citep{russell2024blackmeme} both arrived during her ED tenure; they are read alongside The Kitchen's curatorial direction in this period.
+\end{description}
+
+A more granular footprint --- accession-by-year, commissioned-artists-by-year, exhibition partners with dates --- would require a primary archival sweep at the Getty, where the 1971--1999 records are now lodged.
+
+\section{Reading list}
+
+\subsection{Primary sources}
+
+\textbf{The Kitchen, About}~\citep{thekitchen_about} --- official organizational history.\\
+\textbf{The Kitchen, \emph{Field Notes 2021--2022}}~\citep{thekitchen_fieldnotes} --- transition-period reflection with primary-source detail on founding board and original lease.\\
+\textbf{Vasulka Archive}~\citep{vasulka_archive} --- the Kitchen Letter-Mailouts and other primary documents.\\
+\textbf{Getty Research Institute, Kitchen Records}~\citep{getty_kitchen_archive} --- the 1971--1999 archive.
+
+\subsection{Secondary}
+
+\textbf{Wikipedia, The Kitchen (art institution)}~\citep{wikipedia_kitchen} --- structural overview; artist + director chronology.\\
+\textbf{ProPublica Nonprofit Explorer (Haleakala Inc.)}~\citep{propublica_kitchen} --- Form 990 line items.\\
+\textbf{\emph{Architects Newspaper}, ``Legendary New York arts center The Kitchen announces an expansive renovation''}~\citep{archpaper2021} --- the campaign-launch reporting.\\
+\textbf{Mellon Foundation grant detail page}~\citep{mellon_kitchen2023} --- 2023 \$2M grant.\\
+\textbf{Russell, \emph{Glitch Feminism}}~\citep{russell2020glitch} and \emph{Black Meme}~\citep{russell2024blackmeme} --- the current ED's books.
+
+\subsection{To acquire}
+
+\textbf{Carlota Schoolman / Cynthia Hedstrom oral histories} (on OnScreen).\\
+\textbf{Tim Griffin --- L.A.B.~programming notes}.\\
+\textbf{The Kitchen Letter-Mailouts (KLM)} (Vasulka archive) --- primary documents from the 1970s.\\
+\textbf{Pre-FY2011 Form 990 PDFs} for FY2002--FY2010 line items.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The funding record and the renovation timeline are surfaced, not judged.
+  \item Not a comparison. Adjacent organizations (Rhizome, Eyebeam, Pioneer Works, MoMA PS1, Performance Space New York) are mentioned only where they directly intersect The Kitchen.
+  \item Not exhaustive. The dossier covers what is publicly recoverable in a first pass; gaps are flagged inline. The companion data folder (\texttt{papers/arxiv-the-kitchen/data/}) contains the underlying CSVs.
+  \item Not a Getty-archive dive. The 1971--1999 institutional record is now at the Getty Research Institute and was not consulted directly here.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

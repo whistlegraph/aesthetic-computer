@@ -1,0 +1,18 @@
+# NEW INC financials are EMBEDDED in the parent organization's Form 990.
+# NEW INC has no separate EIN. The legal entity is The New Museum of Contemporary Art (EIN 13-2986881).
+# What follows are the New Museum's parent-org top-line numbers per fiscal year.
+# NEW INC line items are NOT separately broken out in any year. NEW INC sponsorship/membership
+# revenue plausibly flows through the contributions line and (where members pay fees) through
+# program-service revenue. There is no public 990 schedule that splits NEW INC out.
+# Sources: ProPublica Nonprofit Explorer (132986881); FY ends June 30.
+fiscal_year_end,total_revenue,contributions_grants,program_service_revenue,investment_income,other_revenue,total_expenses,total_assets,total_liabilities,net_assets,director_compensation,notes,source
+2016-06,38200000,,,,,15100000,,,80000000,,Capital-campaign year — contributions spike from expansion fundraising,ProPublica summary
+2017-06,24300000,,,,,16800000,,,87900000,,,ProPublica summary
+2018-06,16400000,,,,,16900000,,,87900000,,Stephanie Pereira appointed Director of NEW INC (May 2018),ProPublica summary
+2019-06,14900000,,,,,17500000,,,86000000,,,ProPublica summary
+2020-06,11700000,,,,,16000000,,,92400000,,COVID year — revenue down from prior year,ProPublica summary
+2021-06,11600000,,,,,15100000,,,89100000,563875,Lisa Phillips comp $563875 (Toby Devan Lewis Director); Asega named NEW INC Director July 2021,ProPublica summary
+2022-06,41900000,,,,,17000000,,,97000000,,Capital-campaign year — Mellon $1.5M NEW INC grant awarded December 2022,ProPublica summary
+2023-06,22800000,,,,,19300000,,,101500000,,,ProPublica summary
+2024-06,30600000,,,,,19100000,,,113600000,,,ProPublica summary
+2025-06,25700000,22500000,1800000,651000,837000,18700000,143300000,21500000,121800000,825030,Lisa Phillips comp ~$825030; OMA expansion completes; Phillips retires April 2026,ProPublica summary

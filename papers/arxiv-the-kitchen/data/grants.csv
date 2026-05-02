@@ -1,0 +1,10 @@
+funder,date,amount_usd,program_area,project,term_months,source_url,notes
+Mellon Foundation,2023-06-08,2000000,Arts and Culture,Infrastructure and staffing under Legacy Russell's leadership for an inclusive space for the next avant-garde and its expanded audiences,36,https://www.mellon.org/grant-details/the-kitchen-20453597,Largest single gift in The Kitchen's 50-year history per The Kitchen press release
+Andy Warhol Foundation,2023-fall,80000,Visual Arts,Multi-year Program Support,24,https://warholfoundation.org/grants/archive/the-kitchen/,Single grant currently visible on Warhol Foundation grants archive page for The Kitchen
+Time Warner,2012-2013,,Disaster recovery,Hurricane Sandy recovery,,Wikipedia,Part of the recovery effort after $450K in Sandy damage; specific amount TBD
+Art Dealers Association of America,2012-2013,,Disaster recovery,Hurricane Sandy recovery,,Wikipedia,Part of the recovery effort after $450K in Sandy damage; specific amount TBD
+Andy Warhol Foundation,2012-2013,,Disaster recovery,Hurricane Sandy recovery,,Wikipedia,Part of the recovery effort after Sandy damage
+Getty Research Institute,2014,,Acquisition,"Acquired The Kitchen's archive — 5,410 videotapes, 600+ audiotapes, photographs, 246 artist-designed posters from 1971-1999",,https://www.getty.edu/research/collections/group/10RB8S,Acquisition price not disclosed publicly; possible source of FY2014 program-service revenue spike to $714K
+NEA,(recurring),,,Discipline grants (Music / Dance / Media Arts),,https://grantsearch.nea.gov/,Recurring funder; year-by-year amounts blocked behind JS-rendered grant search and not extracted in this pass
+NYSCA,(recurring),,,General operating support,,https://arts.ny.gov/,Recurring NYS funder; year-by-year amounts not extracted in this pass
+NYC DCLA,(recurring),,,Cultural Development Fund,,https://www.nyc.gov/site/dcla/,Recurring NYC funder; year-by-year amounts not extracted in this pass
