@@ -279,60 +279,97 @@ R.\ H.\ M.\ Bosanquet's generalized keyboard~\citep{bosanquet1875generalized} wa
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}[
-  valve/.style={draw=keystroke, fill=keyfill, circle,
-                 minimum size=0.55cm, inner sep=0pt,
-                 font=\tiny\sffamily\bfseries},
-  vlabel/.style={font=\tiny\sffamily, text=keymapped!90},
+  brass/.style={draw=acdark, line width=0.7pt, fill=keyfill},
+  vcap/.style={draw=acdark, line width=0.5pt, fill=keymapped!40},
+  hole/.style={draw=acdark, fill=acdark!90, circle,
+                minimum size=0.14cm, inner sep=0pt},
   string/.style={draw=keystroke, line width=0.7pt},
-  slabel/.style={font=\tiny\sffamily\bfseries, text=keymapped!90},
-  hole/.style={draw=keystroke, fill=acdark!85, circle,
-                minimum size=0.16cm, inner sep=0pt}
+  vlabel/.style={font=\tiny\sffamily, text=keymapped!90}
 ]
-% --- Trumpet valves (top-left): 3 valves with semitone offsets ---
-\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-  at (0, 1.7) {Trumpet};
-\foreach \x/\n/\semi in {0/1/-2, 0.7/2/-1, 1.4/3/-3} {
-  \node[valve] at (\x, 1.05) {\n};
-  \node[vlabel, anchor=north] at (\x, 0.75) {\semi};
-}
-\node[font=\tiny\sffamily, text=keystroke, anchor=south]
-  at (0.7, 0.45) {(semitones from open)};
-% --- Ocarina (top-right): oval with asymmetric hole arrangement ---
-\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-  at (3.4, 1.7) {Ocarina};
-\draw[draw=keystroke, fill=keyfill, rounded corners=8pt]
-  (3.3, 0.55) rectangle (5.4, 1.4);
-% Asymmetric hole positions (4-hole "English" pattern simplified)
-\foreach \x/\y in {3.55/1.05, 3.85/0.75, 4.20/1.05, 4.50/0.75, 4.85/1.05, 5.15/0.75}
-  \node[hole] at (\x, \y) {};
-\node[font=\tiny\sffamily, text=keystroke, anchor=south]
-  at (4.35, 0.30) {(holes asymmetric across body)};
-% --- Guitar tuning (bottom-left): 6 strings, irregular B interval ---
-\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-  at (0, -0.2) {Guitar};
-\foreach \i/\note/\hl in {1/E/0, 2/A/0, 3/D/0, 4/G/0, 5/B/1, 6/E/0} {
-  \draw[string] (0, {-0.5 - (\i-1)*0.18}) -- (1.85, {-0.5 - (\i-1)*0.18});
-  \ifnum\hl=1
-    \node[slabel, anchor=east] at (-0.05, {-0.5 - (\i-1)*0.18}) {\note};
-  \else
+% =============== TRUMPET (top-left) =================================
+\begin{scope}[shift={(0, 1.3)}]
+  \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+    at (-0.05, 0.45) {Trumpet};
+  % Mouthpiece (small cup on far left)
+  \draw[brass] (-0.30, -0.05) -- (-0.18, -0.08) -- (-0.18, 0.08) -- (-0.30, 0.05) -- cycle;
+  \draw[brass] (-0.18, -0.06) rectangle (-0.05, 0.06);
+  % Lead pipe to valves
+  \draw[brass] (-0.05, -0.06) rectangle (0.40, 0.06);
+  % 3 valve casings (vertical cylinders rising above the tube)
+  \foreach \x in {0.40, 0.58, 0.76} {
+    \draw[brass] (\x, -0.06) rectangle ({\x+0.13}, 0.32);
+    \draw[vcap] ({\x+0.065}, 0.32) ellipse (0.075 and 0.026);
+  }
+  % Tubing from valves to bell
+  \draw[brass] (0.89, -0.06) rectangle (1.35, 0.06);
+  % Bell (flared cone)
+  \draw[brass] (1.35, -0.08)
+     -- (1.78, -0.30) -- (1.82, -0.28) -- (1.82, 0.28)
+     -- (1.78, 0.30) -- (1.35, 0.08) -- cycle;
+\end{scope}
+% Note offsets per valve
+\node[vlabel, anchor=north] at (0.465, 1.18) {1: $-2$};
+\node[vlabel, anchor=north] at (0.645, 1.18) {2: $-1$};
+\node[vlabel, anchor=north] at (0.825, 1.18) {3: $-3$};
+\node[font=\tiny\sffamily, text=keystroke, anchor=north]
+  at (0.7, 1.0) {semitones from open};
+
+% =============== OCARINA (top-right) ================================
+\begin{scope}[shift={(3.6, 1.3)}]
+  \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+    at (-0.05, 0.45) {Ocarina};
+  % Body — teardrop / egg silhouette
+  \draw[brass]
+    (-0.10, -0.10) .. controls (-0.10, 0.30) and (0.45, 0.42) ..
+    (1.20, 0.32) .. controls (1.85, 0.20) and (1.95, -0.05) ..
+    (1.85, -0.20) .. controls (1.50, -0.32) and (0.50, -0.34) ..
+    (-0.05, -0.25) .. controls (-0.18, -0.18) and (-0.16, -0.08) ..
+    (-0.10, -0.10) -- cycle;
+  % Mouthpiece (protrusion at the lower-left)
+  \draw[brass]
+    (-0.10, -0.20) -- (-0.32, -0.22) -- (-0.32, -0.05) -- (-0.10, -0.10);
+  % Labium / sound window (small dark slit on top of body)
+  \draw[draw=acdark, fill=acdark] (0.05, 0.18) rectangle (0.18, 0.22);
+  % Asymmetric finger holes — top side cluster of 4, bottom side 2
+  \foreach \x/\y/\r in {0.45/0.16/0.05, 0.65/0.20/0.05, 0.90/0.15/0.04,
+                         1.10/0.18/0.04, 0.55/-0.05/0.04, 0.85/-0.10/0.04}
+    \draw[draw=acdark, fill=acdark!85] (\x, \y) circle (\r);
+\end{scope}
+\node[font=\tiny\sffamily, text=keystroke, anchor=north]
+  at (4.4, 1.0) {hole pattern asymmetric};
+
+% =============== GUITAR strings (bottom-left) =======================
+\begin{scope}[shift={(0, -0.05)}]
+  \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+    at (-0.05, 0.50) {Guitar (EADGBE)};
+  \foreach \i/\note/\hl in {1/E/0, 2/A/0, 3/D/0, 4/G/0, 5/B/1, 6/E/0} {
+    \draw[string] (0, {0.40 - (\i-1)*0.10}) -- (1.95, {0.40 - (\i-1)*0.10});
+    \ifnum\hl=1
+      \node[font=\tiny\sffamily\bfseries, text=keymapped!90, anchor=east]
+        at (-0.04, {0.40 - (\i-1)*0.10}) {\note};
+    \else
+      \node[font=\tiny\sffamily, text=acdark, anchor=east]
+        at (-0.04, {0.40 - (\i-1)*0.10}) {\note};
+    \fi
+  }
+  \node[font=\tiny\sffamily, text=keymapped!90, anchor=west]
+    at (1.97, 0.0) {$\leftarrow$ M3 (others P4)};
+\end{scope}
+
+% =============== VIOLIN strings (bottom-right) ======================
+\begin{scope}[shift={(3.6, -0.05)}]
+  \node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
+    at (-0.05, 0.50) {Violin (GDAE)};
+  \foreach \i/\note in {1/G, 2/D, 3/A, 4/E} {
+    \draw[string] (0, {0.40 - (\i-1)*0.13}) -- (1.85, {0.40 - (\i-1)*0.13});
     \node[font=\tiny\sffamily, text=acdark, anchor=east]
-      at (-0.05, {-0.5 - (\i-1)*0.18}) {\note};
-  \fi
-}
-\node[font=\tiny\sffamily, text=keymapped!90, anchor=west]
-  at (1.95, -0.86) {$\leftarrow$ M3 (others P4)};
-% --- Violin tuning (bottom-right): 4 strings, all P5 ---
-\node[font=\footnotesize\sffamily\bfseries, anchor=south west, text=acdark]
-  at (3.4, -0.2) {Violin};
-\foreach \i/\note in {1/G, 2/D, 3/A, 4/E} {
-  \draw[string] (3.4, {-0.5 - (\i-1)*0.21}) -- (5.4, {-0.5 - (\i-1)*0.21});
-  \node[font=\tiny\sffamily, text=acdark, anchor=east]
-    at (3.35, {-0.5 - (\i-1)*0.21}) {\note};
-}
-\node[font=\tiny\sffamily, text=keystroke, anchor=west]
-  at (5.45, -0.92) {(uniform P5)};
+      at (-0.04, {0.40 - (\i-1)*0.13}) {\note};
+  }
+  \node[font=\tiny\sffamily, text=keystroke, anchor=west]
+    at (1.90, 0.01) {uniform P5};
+\end{scope}
 \end{tikzpicture}
-\caption{Asymmetric pitch interfaces across instrument families. Trumpet valves produce non-uniform semitone offsets ($-2, -1, -3$); ocarina holes are placed asymmetrically across the body to fit the player's grasp; guitar's 6-string tuning is uniform in perfect fourths \emph{except} for the B-string irregularity (a major-third interval); violin keeps strict P5s but each string is a different absolute pitch. The standard piano keyboard is one member of a larger family in which the physical-to-pitch interface is irregular by design — the diatonic naming keymap is embodied in many surfaces, each with its own asymmetry.}
+\caption{Asymmetric pitch interfaces across instrument families. Trumpet valves produce non-uniform semitone offsets ($-2, -1, -3$); ocarina finger holes cluster asymmetrically across the egg-shaped body to fit the player's grasp; guitar's 6-string EADGBE tuning is uniform in perfect fourths \emph{except} for the M3 between G and B; violin keeps strict P5s but each string is a different absolute pitch. The standard piano keyboard is one member of a larger family in which the physical-to-pitch interface is irregular by design — the diatonic naming keymap is embodied in many surfaces, each with its own asymmetry.}
 \label{fig:asymmetric-instruments}
 \end{figure}
 
