@@ -32,7 +32,7 @@
 \usepackage{microtype}
 \usepackage{natbib}
 \usepackage{tikz}
-\usetikzlibrary{calc,positioning,shapes.geometric}
+\usetikzlibrary{calc,positioning,shapes.geometric,arrows.meta}
 
 % --- TikZ helpers for inline keyboard / hex / mapping diagrams ---
 \definecolor{keyfill}{RGB}{248,248,250}
@@ -236,6 +236,46 @@ Musical-instrument layouts have run a parallel history. Paul von Jankó's six-ro
 
 R.\ H.\ M.\ Bosanquet's generalized keyboard~\citep{bosanquet1875generalized} was a 53-equal-division-of-the-octave (53-EDO) enharmonic harmonium and a 1875 organ in 48-note schismatic and quarter-comma meantone, demonstrated to the South Kensington Museum in 1876. It is the ancestor of essentially every modern isomorphic controller. Kaspar Wicki patented an isomorphic note layout for bandoneon in 1896~\citep{wicki1896}; Brian Hayden, a concertina player, independently re-invented and re-patented essentially the same layout in 1986. The double invention by ninety years is itself an argument: the layout has the character of a \emph{discovery}, the kind of object that recurs because the underlying structure of music makes it useful, not because it is a unique cultural artifact.
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  hexnode/.style={regular polygon, regular polygon sides=6,
+                   draw=keystroke, fill=keyfill,
+                   minimum size=0.78cm, inner sep=0pt,
+                   font=\tiny\sffamily},
+  hexnode mapped/.style={hexnode, fill=keymapped!25,
+                          draw=keymapped!70, text=keymapped!90}
+]
+% Compact Wicki-Hayden-style hex schematic. Same-row neighbors
+% differ by a whole tone; up-and-right neighbors differ by a P4.
+% C major triad (C-E-G) highlighted; the same shape transposes to
+% any key by translation across the surface ("isomorphism" claim).
+\def\hp{0.68}      % horizontal pitch (same-row hex centers)
+\def\vp{0.59}      % vertical pitch (row-to-row spacing)
+\def\offx{0.34}    % horizontal offset for alternate rows
+% Row 0 (bottom)
+\node[hexnode] at (0, 0) {C};
+\node[hexnode] at (\hp, 0) {D};
+\node[hexnode mapped] at (2*\hp, 0) {E};
+\node[hexnode] at (3*\hp, 0) {F$\sharp$};
+\node[hexnode] at (4*\hp, 0) {G$\sharp$};
+% Row 1 (middle, offset)
+\node[hexnode] at (\offx + 0, \vp) {F};
+\node[hexnode mapped] at (\offx + \hp, \vp) {G};
+\node[hexnode] at (\offx + 2*\hp, \vp) {A};
+\node[hexnode] at (\offx + 3*\hp, \vp) {B};
+\node[hexnode] at (\offx + 4*\hp, \vp) {C$\sharp$};
+% Row 2 (top)
+\node[hexnode] at (0, 2*\vp) {B$\flat$};
+\node[hexnode mapped] at (\hp, 2*\vp) {C};
+\node[hexnode] at (2*\hp, 2*\vp) {D};
+\node[hexnode] at (3*\hp, 2*\vp) {E};
+\node[hexnode] at (4*\hp, 2*\vp) {F$\sharp$};
+\end{tikzpicture}
+\caption{Wicki--Hayden hex layout (Wicki 1896 / Hayden 1986). Same-row neighbors differ by a whole tone; up-and-right neighbors by a perfect fourth. The C major triad ($C\,E\,G$) is highlighted: the chord is a fixed three-cell shape on the surface, and translating that shape transposes the chord to any key. ``Transposition is translation'' is the central isomorphic-keyboard claim, and the property the standard piano's white-and-black asymmetry sacrifices.}
+\label{fig:wicki}
+\end{figure}
+
 The standard reading of Jankó's failure --- and the marginality of the Wicki--Hayden / hex-grid family more broadly --- is path-dependence on the David--Liebowitz model: the piano persists by lock-in alone. A harder reading is available. The white-and-black asymmetry of the standard piano keyboard is itself a feature the repertoire has been written into. The visual-tactile alternation is a chromatic-circle landmark map --- the player knows where $C$ is because it sits left of two blacks, where $F$ sits left of three --- and this offloads absolute pitch position from memory to the eye and the proprioceptive feel of the hand. Strip the asymmetry, and the offloaded information has nowhere to land: transposition becomes translation, but absolute location becomes recall. Four centuries of Western keyboard repertoire have absorbed the asymmetry into a notion of \emph{key character}: the physical fingering of $F^\sharp$ major differs from the fingering of $C$ major, and the music has been written to that differing. Isomorphism is sometimes pitched as removing an accident of history; on this reading the accident has become productive, and removing it flattens an axis of musical meaning the literature has been authored along. This does not dissolve the David--Liebowitz path-dependence story so much as cut along it from the other side: the standard piano is path-dependent \emph{and} the path has produced an object that is not strictly equivalent to its alternatives. The deeper move available here is to treat the Western tonal system itself as a keymap --- the seven-letter diatonic naming $C\,D\,E\,F\,G\,A\,B$ is already a social-software contract over pitch space, written into musical theory, pedagogy, sheet-music conventions, and the language of every key signature. The standard piano's white-key arrangement is the physical realization of that keymap; the black keys are the chromatic alterations notation already names with $\sharp$ and $\flat$. On this reading the asymmetry of the keyboard is not an accident the music has been composed around but the literal mechanical embodiment of the underlying pitch-naming convention. Reading Jankó, Wicki, and the hex-grid family as pure lock-in on the QWERTY model misses that the standard piano is doing two jobs at once --- physical interface and notational encoding --- and that the alternatives propose to dissolve the second to optimize the first. The argument is scoped, however, to the 12-tone-equal-tempered repertoire that names pitches with the diatonic letters. Outside that scope --- microtonal and xenharmonic music in 19-, 22-, 31-, 53-EDO; Maqam and other non-Western tonal systems where the pitch-naming keymap differs --- the standard piano is actively obstructive, and the isomorphic line from Bosanquet through the Lumatone has a strong, repertoire-grounded claim. The asymmetry-as-feature reading is a defense of the standard piano \emph{within} the keymap-of-pitch-naming it embodies; it is not a defense of the standard piano as the universal solution to keyboard layout. Within that scope, the same keymap-of-pitch-naming is what \texttt{notepat} (\textsection\ref{sec:notepat}) preserves: the diatonic letters $C\,D\,E\,F\,G\,A\,B$ travel from the standard piano's white-key arrangement onto QWERTY's letter caps, where pressing the letter \texttt{C} plays the note $C$. The standard piano embodies the pitch-naming keymap with white keys and a black-key asymmetry that signals chromatic alteration; \texttt{notepat} embodies the same keymap with QWERTY letters and the row-above convention for sharps. Both are realizations of the same underlying social-software contract over Western pitch space; only the physical interface differs. Where Jankó dissolves the naming keymap to optimize the physical interface, and the chromatic-staircase DAW convention dissolves \emph{both} (\textsection\ref{sec:daw}), \texttt{notepat} continues the spirit of the diatonic naming convention unchanged --- the seven letters $C\,D\,E\,F\,G\,A\,B$ still mean the seven notes they have named for centuries --- and re-asks only the question Sholes' 1873 mechanics asked: what physical surface is the right one to carry the naming keymap forward on. The pitch-naming contract endures; the substrate underneath it is the open question, and the standard piano's white-key arrangement is one answer in a longer historical line that QWERTY's letter caps can also serve.
 
 The contemporary descendants are commercial products: the C-Thru AXiS-49 (2008)~\citep{cthru2008axis49}, Jim Plamondon's Thummer~\citep{plamondon2003thummer}, the Roger Linn LinnStrument, the ROLI Seaboard, the Lumatone hex grid, and Lippold Haken's Continuum Fingerboard~\citep{haken1998indiscrete}. Andrew Milne, William Sethares, and James Plamondon's papers on isomorphic controllers and tuning continua~\citep{milne2007isomorphic,milne2008tuning} provide the theoretical foundation. What is striking from a keymap-as-social-software view is that these instruments \emph{ship configurable}: the layout is an explicit object the user uploads, and the xenharmonic community shares layouts as files. The Lumatone in particular treats the keymap as the unit of distribution. The instrument is a substrate; the keymap is the artifact that makes it musical.
@@ -305,9 +345,61 @@ This is the move the paper is asking the reader to see. The dominant DAW chromat
 
 The argument so far has treated the keymap as a table. But a keymap is not only a table. It also has a \emph{notation} --- a textual form in which usage of the keymap is read, written, taught, cited, and argued over. The notation is the discursive surface of the keymap. It is also, I will argue, the half of the keymap that actually travels. A keymap whose notation is portable propagates as text; a keymap whose notation is awkward or absent propagates only as muscle memory. The quality of the notation is therefore a designable property of the keymap, not a derivative artifact. A designer who ships only the binding-table has shipped half of the object.
 
-The canonical case is Vim. Vim's underlying keymap is a table mapping keystrokes to editor commands: \texttt{d} initiates a delete operator, \texttt{i} an inner text-object, \texttt{w} a word motion. What travels in Vim discourse, however, is not the table. What travels is a \emph{notation}: \texttt{dd}, \texttt{ciw}, \texttt{gg}, \texttt{:wq}, \texttt{<C-w>}. Tutorials, blog posts, README files, vimtutor, and the long-running vim-vs-emacs argument are all conducted in this notation. The notation is so portable that it survives outside Vim entirely: \emph{vim mode} appears in Visual Studio Code, in JupyterLab, in shells via \texttt{set -o vi}, in macOS Cocoa text fields, in browsers via Vimium. What is being ported is the notation. The runtime is contingent.
+The canonical case is Vim. Vim's underlying keymap is a table mapping keystrokes to editor commands: \texttt{d} initiates a delete operator, \texttt{i} an inner text-object, \texttt{w} a word motion. What travels in Vim discourse, however, is not the table. What travels is a \emph{notation}: \texttt{dd}, \texttt{ciw}, \texttt{gg}, \texttt{:wq}, \texttt{<C-w>} (Figure~\ref{fig:vim-modes}). Tutorials, blog posts, README files, vimtutor, and the long-running vim-vs-emacs argument are all conducted in this notation. The notation is so portable that it survives outside Vim entirely: \emph{vim mode} appears in Visual Studio Code, in JupyterLab, in shells via \texttt{set -o vi}, in macOS Cocoa text fields, in browsers via Vimium. What is being ported is the notation. The runtime is contingent.
 
-The DAW chromatic-staircase is the negative case. There is no portable notation for it. Writing a melody played on Ableton's musical typing requires falling back to event-sequence prose --- ``press \texttt{A}, then \texttt{S}, then \texttt{D}'' --- which describes input rather than music. Compare to Singmaster cube notation~\citep{singmaster1981notes}, where \texttt{R U R' U' R U2 R'} lets a Rubik's-cube algorithm travel intact between cubers; or to the Nashville Number System~\citep{matthews1984nashville,williams1988nashville}, where ``1--4--5'' lets a chord progression travel between session musicians; or to Plover steno theory~\citep{knight2010plover}, where the chord notation lets stenographic patterns travel through a community-edited dictionary. The DAW staircase has no such handle. Its keys are addressable only by their physical position. The keymap therefore exists in muscle memory and rarely on the page --- which is exactly why it has lower discursive presence than Vim despite an arguably larger user base.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  modebox/.style={draw=keymapped!70, fill=keymapped!12,
+                   rounded corners=2pt, minimum width=1.45cm,
+                   minimum height=0.55cm, font=\footnotesize\sffamily,
+                   text=keymapped!90, inner sep=2pt},
+  arrow/.style={-{Stealth[length=4pt,width=4pt]}, draw=keystroke!90,
+                 line width=0.5pt},
+  cmd/.style={font=\tiny\ttfamily, text=acdark}
+]
+% Three Vim modes wired by their command-notation transitions.
+\node[modebox] (normal) at (0, 0) {NORMAL};
+\node[modebox] (insert) at (3.0, 0) {INSERT};
+\node[modebox] (visual) at (-3.0, 0) {VISUAL};
+\draw[arrow] ([yshift=4pt]normal.east) -- node[above, cmd] {\texttt{i}\,/\,\texttt{a}\,/\,\texttt{o}} ([yshift=4pt]insert.west);
+\draw[arrow] ([yshift=-4pt]insert.west) -- node[below, cmd] {\texttt{<Esc>}} ([yshift=-4pt]normal.east);
+\draw[arrow] ([yshift=4pt]normal.west) -- node[above, cmd] {\texttt{v}\,/\,\texttt{V}\,/\,\texttt{<C-v>}} ([yshift=4pt]visual.east);
+\draw[arrow] ([yshift=-4pt]visual.east) -- node[below, cmd] {\texttt{<Esc>}} ([yshift=-4pt]normal.west);
+% A row of canonical commands underneath
+\node[font=\tiny\ttfamily, text=acdark, anchor=north] at (0, -1.0)
+  {\texttt{dd}\,\,\texttt{ciw}\,\,\texttt{gg}\,\,\texttt{:wq}\,\,\texttt{<C-w>v}\,\,\texttt{y2}\$};
+\end{tikzpicture}
+\caption{Vim's modal keymap and its travelling notation. Modes (NORMAL, INSERT, VISUAL) are connected by labeled keystroke transitions; common commands (\texttt{dd} delete-line, \texttt{ciw} change-inner-word, \texttt{gg} go-top, \texttt{:wq} write-and-quit, etc.) are the discursive currency of the keymap. The notation is so portable it has been re-implemented in VS~Code, JupyterLab, Vimium, the macOS Cocoa text system, and \texttt{set -o vi}.}
+\label{fig:vim-modes}
+\end{figure}
+
+The DAW chromatic-staircase is the negative case. There is no portable notation for it. Writing a melody played on Ableton's musical typing requires falling back to event-sequence prose --- ``press \texttt{A}, then \texttt{S}, then \texttt{D}'' --- which describes input rather than music. Compare to Singmaster cube notation~\citep{singmaster1981notes} (Figure~\ref{fig:singmaster}), where \texttt{R U R' U' R U2 R'} lets a Rubik's-cube algorithm travel intact between cubers; or to the Nashville Number System~\citep{matthews1984nashville,williams1988nashville}, where ``1--4--5'' lets a chord progression travel between session musicians; or to Plover steno theory~\citep{knight2010plover}, where the chord notation lets stenographic patterns travel through a community-edited dictionary. The DAW staircase has no such handle. Its keys are addressable only by their physical position. The keymap therefore exists in muscle memory and rarely on the page --- which is exactly why it has lower discursive presence than Vim despite an arguably larger user base.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  face/.style={draw=keystroke, fill=keyfill, rounded corners=1pt,
+                minimum width=0.55cm, minimum height=0.55cm,
+                font=\small\sffamily\bfseries, inner sep=0pt},
+  facelabel/.style={font=\footnotesize\sffamily\bfseries, text=keymapped!90}
+]
+% Six face labels of the cube, the basic Singmaster axes:
+% U(p), D(own), L(eft), R(ight), F(ront), B(ack). Diagram shows
+% three visible faces of a cube from a 3/4 angle in flat 2.5D layout.
+\foreach \x in {0,1,2} \foreach \y in {0,1,2} \node[face] at (\x*0.6, \y*0.6) {};
+\node[facelabel, anchor=south] at (0.6, 1.95) {U};
+\node[facelabel, anchor=west] at (1.95, 0.6) {R};
+\node[facelabel, anchor=east] at (-0.15, 0.6) {F};
+% Notation row underneath
+\node[font=\small\ttfamily, anchor=north, text=acdark] at (0.6, -0.25)
+  {R\,U\,R$'$\,U$'$\,R\,U2\,R$'$};
+\node[font=\tiny\sffamily, anchor=north, text=keystroke] at (0.6, -0.7)
+  {a 7-move algorithm};
+\end{tikzpicture}
+\caption{Singmaster's cube notation~\citep{singmaster1981notes}. Each capital letter names a face (\textsf{U}p, \textsf{D}own, \textsf{L}eft, \textsf{R}ight, \textsf{F}ront, \textsf{B}ack); a bare letter is a clockwise quarter-turn, a primed letter ($\,'$) a counter-clockwise quarter-turn, and a digit-2 a half-turn. The seven-token string \texttt{R U R$'$ U$'$ R U2 R$'$} is a complete algorithm portable between cubers, GitHub repos, and YouTube tutorials --- the keymap-notation pair traveling as text.}
+\label{fig:singmaster}
+\end{figure}
 
 \texttt{notepat}'s ``notes-name-themselves'' design has, as a structural side-effect, a notation that costs nothing to learn. To write a notepat sequence, one writes \texttt{C D E F G A B} --- which is also standard music notation. The notation is not invented for \texttt{notepat}; it is \emph{inherited} from an existing literacy. A pianist who has never seen a notepat keymap can read a notepat score; conversely, a notepat performer who learns the keymap is also rehearsing standard pitch-letter literacy. This is what a well-designed notation surface looks like: the notation is so trivially derivable from prior knowledge that learning the notation costs nothing. Ableton's chromatic-staircase, in contrast, would require a notepat-like score to be re-coded as \texttt{A S D F G H J} --- a private notation tethered to one keymap, useful nowhere else.
 
