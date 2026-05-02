@@ -95,6 +95,12 @@ final class MenuBandPopoverViewController: NSViewController {
     /// rest so the layout doesn't wobble when notes come and go.
     private var heldNotesStack: NSStackView!
     private var heldNotesContainer: NSView!
+    /// Chord-candidate cards live in their own row directly below the
+    /// visualizer bezel, mirroring the floating play palette so the
+    /// popover gets the same searchable chord readout.
+    private var chordCandidatesStack: NSStackView!
+    private var chordCandidatesRow: NSView!
+    private var lastCompleteChordNames: Set<String> = []
     private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
@@ -461,6 +467,15 @@ final class MenuBandPopoverViewController: NSViewController {
         waveformView = WaveformView()
         waveformView.menuBand = menuBand
         waveformView.translatesAutoresizingMaskIntoConstraints = false
+        // Click on the visualizer → toggle the floating play palette
+        // (the "big overlay"). Same target the menubar mini-meter
+        // routes to, so users discover the overlay from either entry
+        // point. Settings-button toggle still works from its own row.
+        let waveformClick = NSClickGestureRecognizer(
+            target: self,
+            action: #selector(waveformViewClicked(_:))
+        )
+        waveformView.addGestureRecognizer(waveformClick)
 
         waveformBezel = NSView()
         waveformBezel.wantsLayer = true
@@ -497,13 +512,48 @@ final class MenuBandPopoverViewController: NSViewController {
             heldNotesStack.centerXAnchor.constraint(equalTo: heldNotesContainer.centerXAnchor),
             heldNotesStack.centerYAnchor.constraint(equalTo: heldNotesContainer.centerYAnchor),
         ])
-        stack.addArrangedSubview(heldNotesContainer)
-        heldNotesContainer.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        heldNotesContainer.heightAnchor.constraint(equalToConstant: 22).isActive = true
 
+        // Visualizer bezel doubles as the chord-finder canvas: held-
+        // note pills overlay the top of the meter, chord-candidate
+        // cards overlay the bottom, both translucent enough that the
+        // live waveform peeks through underneath. Bezel grows tall
+        // enough to host both — same integrated layout the floating
+        // play palette uses, so the two surfaces feel identical.
         stack.addArrangedSubview(waveformBezel)
         waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        waveformBezel.heightAnchor.constraint(equalToConstant: 64).isActive = true
+        waveformBezel.heightAnchor.constraint(equalToConstant: 80).isActive = true
+        waveformBezel.layer?.masksToBounds = false
+        waveformBezel.addSubview(heldNotesContainer)
+        NSLayoutConstraint.activate([
+            heldNotesContainer.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor),
+            heldNotesContainer.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor),
+            heldNotesContainer.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: 4),
+            heldNotesContainer.heightAnchor.constraint(equalToConstant: 22),
+        ])
+
+        chordCandidatesStack = NSStackView()
+        chordCandidatesStack.orientation = .horizontal
+        chordCandidatesStack.alignment = .centerY
+        chordCandidatesStack.spacing = 5
+        chordCandidatesStack.translatesAutoresizingMaskIntoConstraints = false
+        chordCandidatesRow = NSView()
+        chordCandidatesRow.translatesAutoresizingMaskIntoConstraints = false
+        chordCandidatesRow.wantsLayer = true
+        chordCandidatesRow.layer?.masksToBounds = false
+        chordCandidatesRow.addSubview(chordCandidatesStack)
+        NSLayoutConstraint.activate([
+            chordCandidatesStack.centerXAnchor.constraint(equalTo: chordCandidatesRow.centerXAnchor),
+            chordCandidatesStack.centerYAnchor.constraint(equalTo: chordCandidatesRow.centerYAnchor),
+            chordCandidatesStack.leadingAnchor.constraint(greaterThanOrEqualTo: chordCandidatesRow.leadingAnchor, constant: 6),
+            chordCandidatesStack.trailingAnchor.constraint(lessThanOrEqualTo: chordCandidatesRow.trailingAnchor, constant: -6),
+        ])
+        waveformBezel.addSubview(chordCandidatesRow)
+        NSLayoutConstraint.activate([
+            chordCandidatesRow.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor),
+            chordCandidatesRow.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor),
+            chordCandidatesRow.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -4),
+            chordCandidatesRow.heightAnchor.constraint(equalToConstant: 28),
+        ])
 
         // (MIDI switch lives in the title row above — see octave + MIDI block.)
 
@@ -949,15 +999,8 @@ final class MenuBandPopoverViewController: NSViewController {
     /// reads as part of the same instrument).
     func refreshHeldNotes() {
         guard isViewLoaded, let m = menuBand else { return }
-        // Mirror the controller's held key codes onto the QWERTY
-        // map so the physical keys light up as the user plays.
         qwertyMap?.litKeyCodes = m.heldKeyCodes()
         let names = m.heldNoteNames()
-        // Rebuild the floating-box stack from scratch — at most a
-        // few notes held at any moment, so reusing views isn't worth
-        // the bookkeeping. When nothing is held, the stack has no
-        // arranged subviews and the reserved 22 px row is empty
-        // (no visible chrome).
         for v in heldNotesStack.arrangedSubviews {
             heldNotesStack.removeArrangedSubview(v)
             v.removeFromSuperview()
@@ -966,10 +1009,51 @@ final class MenuBandPopoverViewController: NSViewController {
         let famColor = m.midiMode
             ? NSColor.controlAccentColor
             : InstrumentListView.colorForProgram(safe)
-        for name in names {
-            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name,
+        // When 3+ notes form a recognized triad/seventh, the controller's
+        // chord-detector returns a name like "Cmaj7" — show that as a
+        // single banner box on top of the meter instead of three
+        // separate note labels. Falls back to per-note boxes for
+        // anything that doesn't resolve to a known shape (and for
+        // 1-2 note plays where there's no chord to compute).
+        if let chord = m.currentChordName() {
+            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: chord,
                                                                color: famColor))
+        } else {
+            for name in names {
+                heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name,
+                                                                   color: famColor))
+            }
         }
+
+        // Chord-candidate cards: every chord shape that contains the
+        // held pitch classes and whose missing notes are reachable on
+        // the active keymap. Same shared builder + chromatic root
+        // coloring as the floating palette so both surfaces feel like
+        // one tool. Only show a few in the popover — it's narrower
+        // than the floating overlay.
+        guard let chordRow = chordCandidatesStack else { return }
+        for v in chordRow.arrangedSubviews {
+            chordRow.removeArrangedSubview(v)
+            v.removeFromSuperview()
+        }
+        let candidates = m.chordCandidates(maxResults: 3)
+        let isDark = view.effectiveAppearance
+            .bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let newComplete = Set(candidates.filter(\.isComplete).map(\.name))
+        let justCompleted = newComplete.subtracting(lastCompleteChordNames)
+        for candidate in candidates {
+            let card = FloatingChordCandidateCard.build(candidate: candidate, isDark: isDark)
+            chordRow.addArrangedSubview(card)
+            if candidate.isComplete && justCompleted.contains(candidate.name) {
+                let shake = CAKeyframeAnimation(keyPath: "transform.translation.x")
+                shake.values = [0, -7, 7, -5, 5, -3, 3, 0]
+                shake.keyTimes = [0, 0.12, 0.27, 0.42, 0.57, 0.72, 0.87, 1.0]
+                shake.duration = 0.46
+                shake.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                card.layer?.add(shake, forKey: "shake")
+            }
+        }
+        lastCompleteChordNames = newComplete
     }
 
     /// Small floating note badge — rounded layer-painted box with
@@ -979,10 +1063,12 @@ final class MenuBandPopoverViewController: NSViewController {
         let box = NSView()
         box.wantsLayer = true
         box.layer?.cornerRadius = 4
-        box.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
+        box.layer?.backgroundColor = color.withAlphaComponent(0.92).cgColor
+        box.layer?.borderWidth = 1
+        box.layer?.borderColor = color.shadow(withLevel: 0.35)?.cgColor ?? color.cgColor
         box.translatesAutoresizingMaskIntoConstraints = false
         let label = NSTextField(labelWithString: name)
-        label.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .heavy)
+        label.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .heavy)
         label.textColor = .black
         label.drawsBackground = false
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -1593,6 +1679,15 @@ final class MenuBandPopoverViewController: NSViewController {
     }
 
     @objc private func playPaletteToggleButtonClicked(_ sender: NSButton) {
+        onPlayPaletteToggle?()
+        updatePlayPaletteShortcutControls()
+    }
+
+    @objc private func waveformViewClicked(_ sender: NSClickGestureRecognizer) {
+        // Route through the same callback the explicit toggle button
+        // uses — keep one source of truth for "open big overlay" so
+        // future changes (e.g., suppress when already shown) only need
+        // to touch onPlayPaletteToggle, not multiple call sites.
         onPlayPaletteToggle?()
         updatePlayPaletteShortcutControls()
     }

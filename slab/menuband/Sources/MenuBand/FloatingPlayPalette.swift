@@ -277,22 +277,31 @@ private final class FloatingPlayPaletteView: NSView {
     private let waveformView = WaveformView()
     private let waveformBezel = NSView()
     private let heldNotesStack = NSStackView()
-    private let heldNotesContainer = NSView()
+    private let heldNotesRow = NSView()
+    private let chordCandidatesStack = NSStackView()
+    private let chordCandidatesRow = NSView()
+    private var lastCompleteChordNames: Set<String> = []
     private let instrumentReadout = NSTextField(labelWithString: "")
     private let instrumentTitleRow: NSStackView
     private let pianoView: FloatingPianoView
     private let dragHandle = FloatingPaletteDragHandleView()
     private let closeButton = NSButton()
     private let shortcutHintLabel = NSTextField(labelWithString: "")
+    /// Large QWERTY keymap shown beneath the piano so the user can
+    /// see at a glance which physical keys play which notes. Driven
+    /// at 2× scale so it's legible at the floating palette's size.
+    private let qwertyView = QwertyLayoutView()
 
     var onClose: (() -> Void)?
     var isPianoFocusActive: (() -> Bool)?
 
-    private let pianoScale: CGFloat = 2.0
+    private let pianoScale: CGFloat = 1.6
     private let inset: CGFloat = 14
     private let gap: CGFloat = 8
     private let closeSize: CGFloat = 18
     private let hintHeight: CGFloat = 42
+    private let heldNotesRowHeight: CGFloat = 26
+    private let chordCandidatesRowHeight: CGFloat = 30
     private var waveformHeightConstraint: NSLayoutConstraint?
 
     init(menuBand: MenuBandController) {
@@ -315,10 +324,16 @@ private final class FloatingPlayPaletteView: NSView {
         waveformBezel.translatesAutoresizingMaskIntoConstraints = false
         heldNotesStack.orientation = .horizontal
         heldNotesStack.alignment = .centerY
-        heldNotesStack.spacing = 4
+        heldNotesStack.spacing = 6
         heldNotesStack.translatesAutoresizingMaskIntoConstraints = false
-        heldNotesContainer.translatesAutoresizingMaskIntoConstraints = false
-        heldNotesContainer.addSubview(heldNotesStack)
+        heldNotesRow.translatesAutoresizingMaskIntoConstraints = false
+        heldNotesRow.addSubview(heldNotesStack)
+        chordCandidatesStack.orientation = .horizontal
+        chordCandidatesStack.alignment = .centerY
+        chordCandidatesStack.spacing = 6
+        chordCandidatesStack.translatesAutoresizingMaskIntoConstraints = false
+        chordCandidatesRow.translatesAutoresizingMaskIntoConstraints = false
+        chordCandidatesRow.addSubview(chordCandidatesStack)
         instrumentReadout.lineBreakMode = .byTruncatingTail
         instrumentReadout.alignment = .center
         instrumentReadout.setContentHuggingPriority(.defaultHigh, for: .horizontal)
@@ -332,11 +347,35 @@ private final class FloatingPlayPaletteView: NSView {
         dragHandle.translatesAutoresizingMaskIntoConstraints = false
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         shortcutHintLabel.translatesAutoresizingMaskIntoConstraints = false
+        qwertyView.scale = 1.4
+        qwertyView.keymap = menuBand.keymap
+        qwertyView.translatesAutoresizingMaskIntoConstraints = false
+        // Mouse-tap on a keycap → route through the controller's
+        // local-key handler so the floating palette's QWERTY map
+        // plays the same notes the physical keyboard would.
+        qwertyView.onKey = { [weak self] keyCode, isDown in
+            guard let self = self, let menuBand = self.menuBand else { return }
+            menuBand.handleLocalKey(keyCode: keyCode, isDown: isDown,
+                                    isRepeat: false, flags: [])
+            self.refresh()
+        }
+        // Held-note pills and chord-suggestion cards overlay the metal
+        // visualizer directly so the waveform doubles as the canvas
+        // for the chord readout. Stack vertically: pills on top, cards
+        // beneath, both centered. Waveform draws underneath, peeking
+        // through the translucent card backgrounds.
         waveformBezel.addSubview(waveformView)
-        addSubview(heldNotesContainer)
+        waveformBezel.layer?.masksToBounds = false
+        heldNotesRow.wantsLayer = true
+        heldNotesRow.layer?.masksToBounds = false
+        chordCandidatesRow.wantsLayer = true
+        chordCandidatesRow.layer?.masksToBounds = false
+        waveformBezel.addSubview(heldNotesRow)
+        waveformBezel.addSubview(chordCandidatesRow)
         addSubview(waveformBezel)
         addSubview(instrumentTitleRow)
         addSubview(pianoView)
+        addSubview(qwertyView)
         shortcutHintLabel.font = NSFont.systemFont(ofSize: 10)
         shortcutHintLabel.textColor = .secondaryLabelColor
         shortcutHintLabel.alignment = .center
@@ -378,14 +417,19 @@ private final class FloatingPlayPaletteView: NSView {
             dragHandle.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             dragHandle.heightAnchor.constraint(equalToConstant: closeSize),
 
-            heldNotesStack.centerXAnchor.constraint(equalTo: heldNotesContainer.centerXAnchor),
-            heldNotesStack.centerYAnchor.constraint(equalTo: heldNotesContainer.centerYAnchor),
-            heldNotesContainer.topAnchor.constraint(equalTo: closeButton.bottomAnchor, constant: gap),
-            heldNotesContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            heldNotesContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            heldNotesContainer.heightAnchor.constraint(equalToConstant: 22),
+            heldNotesStack.centerXAnchor.constraint(equalTo: heldNotesRow.centerXAnchor),
+            heldNotesStack.centerYAnchor.constraint(equalTo: heldNotesRow.centerYAnchor),
+            heldNotesStack.leadingAnchor.constraint(greaterThanOrEqualTo: heldNotesRow.leadingAnchor, constant: 6),
+            heldNotesStack.trailingAnchor.constraint(lessThanOrEqualTo: heldNotesRow.trailingAnchor, constant: -6),
+            heldNotesRow.heightAnchor.constraint(equalToConstant: heldNotesRowHeight),
 
-            waveformBezel.topAnchor.constraint(equalTo: heldNotesContainer.bottomAnchor, constant: gap),
+            chordCandidatesStack.centerXAnchor.constraint(equalTo: chordCandidatesRow.centerXAnchor),
+            chordCandidatesStack.centerYAnchor.constraint(equalTo: chordCandidatesRow.centerYAnchor),
+            chordCandidatesStack.leadingAnchor.constraint(greaterThanOrEqualTo: chordCandidatesRow.leadingAnchor, constant: 6),
+            chordCandidatesStack.trailingAnchor.constraint(lessThanOrEqualTo: chordCandidatesRow.trailingAnchor, constant: -6),
+            chordCandidatesRow.heightAnchor.constraint(equalToConstant: chordCandidatesRowHeight),
+
+            waveformBezel.topAnchor.constraint(equalTo: closeButton.bottomAnchor, constant: gap),
             waveformBezel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             waveformBezel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             waveformView.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor, constant: bezelInset),
@@ -393,6 +437,14 @@ private final class FloatingPlayPaletteView: NSView {
             waveformView.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: bezelInset),
             waveformView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
             waveformHeightConstraint,
+
+            heldNotesRow.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor),
+            heldNotesRow.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor),
+            heldNotesRow.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: 8),
+
+            chordCandidatesRow.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor),
+            chordCandidatesRow.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor),
+            chordCandidatesRow.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -8),
 
             instrumentTitleRow.topAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: gap),
             instrumentTitleRow.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
@@ -402,7 +454,16 @@ private final class FloatingPlayPaletteView: NSView {
             pianoView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             pianoView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
 
-            shortcutHintLabel.topAnchor.constraint(equalTo: pianoView.bottomAnchor, constant: gap),
+            qwertyView.topAnchor.constraint(equalTo: pianoView.bottomAnchor, constant: gap),
+            qwertyView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            qwertyView.widthAnchor.constraint(
+                equalToConstant: QwertyLayoutView.intrinsicSize.width * 1.4
+            ),
+            qwertyView.heightAnchor.constraint(
+                equalToConstant: QwertyLayoutView.intrinsicSize.height * 1.4
+            ),
+
+            shortcutHintLabel.topAnchor.constraint(equalTo: qwertyView.bottomAnchor, constant: gap),
             shortcutHintLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             shortcutHintLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             shortcutHintLabel.heightAnchor.constraint(equalToConstant: hintHeight),
@@ -459,6 +520,7 @@ private final class FloatingPlayPaletteView: NSView {
 
     func clearInteraction() {
         pianoView.clearInteraction()
+        lastCompleteChordNames = []
     }
 
     func setPresented(_ isPresented: Bool) {
@@ -507,7 +569,7 @@ private final class FloatingPlayPaletteView: NSView {
     }
 
     private func waveformHeight(for keyboard: NSSize) -> CGFloat {
-        keyboard.height * 2.0
+        keyboard.height * 1.25
     }
 
     private func refreshHeldNotes() {
@@ -516,24 +578,59 @@ private final class FloatingPlayPaletteView: NSView {
             heldNotesStack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
-        let names = menuBand.heldNoteNames()
+        for view in chordCandidatesStack.arrangedSubviews {
+            chordCandidatesStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        // Live state for the QWERTY keymap below the piano: light up
+        // the physical keys the user is currently holding, and route
+        // the qwertyView's onKey (mouse taps on caps) through the
+        // same handleLocalKey path the keyboard uses so the overlay
+        // is fully interactive.
+        qwertyView.litKeyCodes = menuBand.heldKeyCodes()
+        qwertyView.keymap = menuBand.keymap
         let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
         let familyColor = menuBand.midiMode
             ? NSColor.controlAccentColor
             : InstrumentListView.colorForProgram(safe)
+        qwertyView.voiceColor = familyColor
+
+        // Held-notes row: each currently sounding note as its own large
+        // pill so the chord shape reads at-a-glance. Always per-note —
+        // chord recognition lives in the candidates row below.
+        let names = menuBand.heldNoteNames()
         for name in names {
             heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name, color: familyColor))
         }
+
+        // Chord candidates: every chord shape that contains the held
+        // pitch classes and whose missing notes are reachable on the
+        // active keymap. Cards re-render every refresh; transitions
+        // from incomplete → complete trigger a brief shake on the new
+        // complete card so the user feels the chord "lock in".
+        let candidates = menuBand.chordCandidates(maxResults: 8)
+        let newComplete = Set(candidates.filter(\.isComplete).map(\.name))
+        let justCompleted = newComplete.subtracting(lastCompleteChordNames)
+        for candidate in candidates {
+            let card = makeChordCandidateCard(candidate: candidate, color: familyColor)
+            chordCandidatesStack.addArrangedSubview(card)
+            if candidate.isComplete && justCompleted.contains(candidate.name) {
+                applyShake(to: card)
+            }
+        }
+        lastCompleteChordNames = newComplete
     }
 
     private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
         let box = NSView()
         box.wantsLayer = true
         box.layer?.cornerRadius = 4
-        box.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
+        box.layer?.backgroundColor = color.withAlphaComponent(0.92).cgColor
+        box.layer?.borderWidth = 1
+        box.layer?.borderColor = color.shadow(withLevel: 0.35)?.cgColor ?? color.cgColor
         box.translatesAutoresizingMaskIntoConstraints = false
         let label = NSTextField(labelWithString: name)
-        label.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .heavy)
+        label.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .heavy)
         label.textColor = .black
         label.drawsBackground = false
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -541,10 +638,28 @@ private final class FloatingPlayPaletteView: NSView {
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
             label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
-            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 1),
-            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -1),
+            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 2),
+            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -2),
+            box.heightAnchor.constraint(equalToConstant: 20),
         ])
         return box
+    }
+
+    private func makeChordCandidateCard(candidate: MenuBandController.ChordCandidate,
+                                        color: NSColor) -> NSView {
+        FloatingChordCandidateCard.build(candidate: candidate,
+                                          isDark: effectiveAppearance
+                                              .bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
+    }
+
+    private func applyShake(to view: NSView) {
+        guard let layer = view.layer else { return }
+        let shake = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        shake.values = [0, -7, 7, -5, 5, -3, 3, 0]
+        shake.keyTimes = [0, 0.12, 0.27, 0.42, 0.57, 0.72, 0.87, 1.0]
+        shake.duration = 0.46
+        shake.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(shake, forKey: "shake")
     }
 
     private func updateInstrumentReadout() {
@@ -858,16 +973,24 @@ private final class FloatingPaletteDragHandleView: NSView {
     }
 }
 
+/// Tall traditional-piano aspect for the floating overlay. Multiplies
+/// white-key height (and black-key height proportionally) so the keys
+/// read like a real keyboard instead of menubar squares.
+private let floatingPaletteKeyHeightScale: CGFloat = 2.4
+
 private func withFloatingPaletteKeyboard<T>(menuBand: MenuBandController?, _ body: () -> T) -> T {
     let oldLayout = KeyboardIconRenderer.displayLayout
     let oldKeymap = KeyboardIconRenderer.activeKeymap
+    let oldScale = KeyboardIconRenderer.keyHeightScale
     KeyboardIconRenderer.displayLayout = .full
+    KeyboardIconRenderer.keyHeightScale = floatingPaletteKeyHeightScale
     if let menuBand = menuBand {
         KeyboardIconRenderer.activeKeymap = menuBand.keymap
     }
     defer {
         KeyboardIconRenderer.displayLayout = oldLayout
         KeyboardIconRenderer.activeKeymap = oldKeymap
+        KeyboardIconRenderer.keyHeightScale = oldScale
     }
     return body()
 }

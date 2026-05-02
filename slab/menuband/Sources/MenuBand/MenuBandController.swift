@@ -79,41 +79,113 @@ final class MenuBandController {
         return sorted.map { Self.noteName($0) }
     }
 
+    /// One possible chord matching the currently held notes. `missing`
+    /// lists pitch classes (0..11) the user still needs to add to
+    /// finish the chord; empty when the chord is fully held.
+    struct ChordCandidate {
+        let name: String
+        let rootPitchClass: Int
+        let pitchClasses: Set<Int>
+        let missingPitchClasses: [Int]
+        let missingNoteNames: [String]
+        var isComplete: Bool { missingPitchClasses.isEmpty }
+    }
+
+    /// Pitch-class names indexed 0=C..11=B. Shared across the chord
+    /// readout APIs so display strings stay consistent.
+    static let pitchClassNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+
+    /// Chord-pattern table — intervals from root + display suffix.
+    /// Covers common triads + 6/7ths so casual menubar playing gets a
+    /// useful readout without dragging in a full chord-theory engine.
+    private static let chordPatterns: [(intervals: Set<Int>, suffix: String)] = [
+        ([0, 4, 7],         ""),
+        ([0, 3, 7],         "m"),
+        ([0, 3, 6],         "dim"),
+        ([0, 4, 8],         "aug"),
+        ([0, 2, 7],         "sus2"),
+        ([0, 5, 7],         "sus4"),
+        ([0, 4, 7, 10],     "7"),
+        ([0, 4, 7, 11],     "maj7"),
+        ([0, 3, 7, 10],     "m7"),
+        ([0, 3, 7, 11],     "mMaj7"),
+        ([0, 3, 6, 9],      "dim7"),
+        ([0, 3, 6, 10],     "m7♭5"),
+        ([0, 4, 8, 10],     "aug7"),
+        ([0, 4, 7, 9],      "6"),
+        ([0, 3, 7, 9],      "m6"),
+    ]
+
     /// Best-guess chord name from the currently-held pitch classes.
     /// Returns nil when fewer than 3 pitch classes are held or nothing
-    /// matches a known shape. The patterns cover the most common
-    /// triads + 7ths so casual playing on the menubar piano gets a
-    /// useful readout without dragging in a full chord-theory engine.
+    /// matches a known shape exactly.
     func currentChordName() -> String? {
         let pcs = Set(litNotes.map { Int($0) % 12 })
         guard pcs.count >= 3 else { return nil }
-        // Pattern table — intervals from root + display suffix.
-        let patterns: [(intervals: Set<Int>, suffix: String)] = [
-            ([0, 4, 7],         ""),
-            ([0, 3, 7],         "m"),
-            ([0, 3, 6],         "dim"),
-            ([0, 4, 8],         "aug"),
-            ([0, 2, 7],         "sus2"),
-            ([0, 5, 7],         "sus4"),
-            ([0, 4, 7, 10],     "7"),
-            ([0, 4, 7, 11],     "maj7"),
-            ([0, 3, 7, 10],     "m7"),
-            ([0, 3, 7, 11],     "mMaj7"),
-            ([0, 3, 6, 9],      "dim7"),
-            ([0, 3, 6, 10],     "m7♭5"),
-            ([0, 4, 8, 10],     "aug7"),
-            ([0, 4, 7, 9],      "6"),
-            ([0, 3, 7, 9],      "m6"),
-        ]
-        let pitches = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
-        // Try each held pitch class as the candidate root.
         for root in pcs {
             let intervals = Set(pcs.map { ($0 - root + 12) % 12 })
-            for (pat, suffix) in patterns where pat == intervals {
-                return "\(pitches[root])\(suffix)"
+            for (pat, suffix) in Self.chordPatterns where pat == intervals {
+                return "\(Self.pitchClassNames[root])\(suffix)"
             }
         }
         return nil
+    }
+
+    /// Pitch classes (0..11) reachable in the active keymap, octave-
+    /// independent. Used to filter chord suggestions down to ones the
+    /// user could actually finish playing on the current QWERTY layout.
+    func keymapPitchClasses() -> Set<Int> {
+        let table = (keymap == .ableton)
+            ? MenuBandLayout.semitoneByKeyCodeAbleton
+            : MenuBandLayout.semitoneByKeyCode
+        var pcs: Set<Int> = []
+        for st in table where st != Int8.min {
+            pcs.insert(((Int(st) % 12) + 12) % 12)
+        }
+        return pcs
+    }
+
+    /// Possible chord completions for the currently-held notes. Each
+    /// candidate carries its full pitch-class set and the notes still
+    /// needed to finish the chord. Filters to chords whose missing
+    /// notes are reachable on the active keymap so the suggestions stay
+    /// actionable. Sorted: complete first, then by ascending missing-
+    /// note count, triads before 7ths, alphabetical tiebreaker.
+    func chordCandidates(maxResults: Int = 6) -> [ChordCandidate] {
+        let heldPCs = Set(litNotes.map { Int($0) % 12 })
+        guard !heldPCs.isEmpty else { return [] }
+        let availablePCs = keymapPitchClasses()
+        var out: [ChordCandidate] = []
+        for root in 0..<12 {
+            for (intervals, suffix) in Self.chordPatterns {
+                let pcs = Set(intervals.map { (root + $0) % 12 })
+                if !heldPCs.isSubset(of: pcs) { continue }
+                let missing = pcs.subtracting(heldPCs)
+                if !missing.isSubset(of: availablePCs) { continue }
+                let sortedMissing = missing.sorted()
+                let names = sortedMissing.map { Self.pitchClassNames[$0] }
+                let name = "\(Self.pitchClassNames[root])\(suffix)"
+                out.append(ChordCandidate(
+                    name: name,
+                    rootPitchClass: root,
+                    pitchClasses: pcs,
+                    missingPitchClasses: sortedMissing,
+                    missingNoteNames: names
+                ))
+            }
+        }
+        out.sort { a, b in
+            if a.isComplete != b.isComplete { return a.isComplete && !b.isComplete }
+            if a.missingPitchClasses.count != b.missingPitchClasses.count {
+                return a.missingPitchClasses.count < b.missingPitchClasses.count
+            }
+            if a.pitchClasses.count != b.pitchClasses.count {
+                return a.pitchClasses.count < b.pitchClasses.count
+            }
+            return a.name < b.name
+        }
+        if out.count > maxResults { out = Array(out.prefix(maxResults)) }
+        return out
     }
 
     var midiMode: Bool {

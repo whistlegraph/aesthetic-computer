@@ -38,7 +38,23 @@ final class QwertyLayoutView: NSView {
     private var heldByPointer: UInt16?
 
     static let intrinsicSize = NSSize(width: 180, height: 46)
-    override var intrinsicContentSize: NSSize { Self.intrinsicSize }
+    /// Multiplier applied to all keycap dimensions + label font size.
+    /// Default 1.0 = popover layout (compact). The floating play
+    /// palette sets a larger value so the keymap fills the overlay.
+    var scale: CGFloat = 1.0 {
+        didSet {
+            invalidateIntrinsicContentSize()
+            needsDisplay = true
+        }
+    }
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: Self.intrinsicSize.width * scale,
+               height: Self.intrinsicSize.height * scale)
+    }
+    private var scaledKeySize: CGFloat { Self.keySize * scale }
+    private var scaledKeyGap: CGFloat { Self.keyGap * scale }
+    private var scaledCornerRadius: CGFloat { Self.cornerRadius * scale }
+    private var scaledLabelFontSize: CGFloat { 8.5 * scale }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -89,23 +105,25 @@ final class QwertyLayoutView: NSView {
     /// that isn't there.
     private func forEachVisibleCap(_ body: (_ cap: (kc: UInt16, label: String), _ rect: NSRect) -> Void) {
         let r = bounds
+        let kSize = scaledKeySize
+        let kGap = scaledKeyGap
         let totalRows = CGFloat(Self.rows.count)
-        let rowSpan = totalRows * Self.keySize + (totalRows - 1) * Self.keyGap
-        let topY = r.midY + rowSpan / 2 - Self.keySize
-        let homeRowSpan = CGFloat(Self.rows[1].count) * Self.keySize +
-            CGFloat(Self.rows[1].count - 1) * Self.keyGap +
-            Self.rowOffsets[1] * Self.keySize
+        let rowSpan = totalRows * kSize + (totalRows - 1) * kGap
+        let topY = r.midY + rowSpan / 2 - kSize
+        let homeRowSpan = CGFloat(Self.rows[1].count) * kSize +
+            CGFloat(Self.rows[1].count - 1) * kGap +
+            Self.rowOffsets[1] * kSize
         let leftX = r.midX - homeRowSpan / 2
         let octaves = MenuBandLayout.octaveKeyCodes(for: keymap)
         for (rIdx, row) in Self.rows.enumerated() {
-            let y = topY - CGFloat(rIdx) * (Self.keySize + Self.keyGap)
-            let xOffset = Self.rowOffsets[rIdx] * Self.keySize
+            let y = topY - CGFloat(rIdx) * (kSize + kGap)
+            let xOffset = Self.rowOffsets[rIdx] * kSize
             for (cIdx, cap) in row.enumerated() {
                 let st = semitone(cap.kc)
                 let isOctaveKey = (cap.kc == octaves.down || cap.kc == octaves.up)
                 if keymap == .ableton && st == nil && !isOctaveKey { continue }
-                let x = leftX + xOffset + CGFloat(cIdx) * (Self.keySize + Self.keyGap)
-                let kr = NSRect(x: x, y: y, width: Self.keySize, height: Self.keySize)
+                let x = leftX + xOffset + CGFloat(cIdx) * (kSize + kGap)
+                let kr = NSRect(x: x, y: y, width: kSize, height: kSize)
                 body(cap, kr)
             }
         }
@@ -178,8 +196,8 @@ final class QwertyLayoutView: NSView {
                              mapped: Bool, isBlack: Bool, lit: Bool,
                              isOctaveKey: Bool = false) {
         let path = NSBezierPath(roundedRect: rect,
-                                 xRadius: Self.cornerRadius,
-                                 yRadius: Self.cornerRadius)
+                                 xRadius: scaledCornerRadius,
+                                 yRadius: scaledCornerRadius)
         // Fills mirror the menubar piano: white-key-mapped letters
         // get a near-white cap, black-key-mapped letters get a
         // near-black cap. Octave-shift keys get a muted accent fill
@@ -230,7 +248,7 @@ final class QwertyLayoutView: NSView {
             textColor = NSColor.labelColor.withAlphaComponent(0.55)
         }
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 8.5, weight: .heavy),
+            .font: NSFont.systemFont(ofSize: scaledLabelFontSize, weight: .heavy),
             .foregroundColor: textColor,
         ]
         let s = NSAttributedString(string: label, attributes: attrs)
