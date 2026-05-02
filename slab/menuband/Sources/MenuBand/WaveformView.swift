@@ -215,7 +215,22 @@ final class WaveformView: MTKView {
 
     private func buildPipeline(device: MTLDevice) {
         do {
-            let library = try device.makeDefaultLibrary(bundle: .module)
+            // SwiftPM's executableTarget doesn't compile bundled .metal
+            // files into a default.metallib (the auto-compile path is
+            // an Xcode build-phase, not an SPM rule). We declare the
+            // .metal file as a `.process()` resource so SPM copies the
+            // SOURCE into the module bundle, then compile it here at
+            // first-pipeline-build via `makeLibrary(source:)`. Cost is
+            // ~10ms once on launch — invisible next to the popover
+            // animation. Without this the visualizer ships solid black:
+            // makeDefaultLibrary throws "no default library was found".
+            let library: MTLLibrary
+            if let url = Bundle.module.url(forResource: "WaveformShaders", withExtension: "metal"),
+               let source = try? String(contentsOf: url, encoding: .utf8) {
+                library = try device.makeLibrary(source: source, options: nil)
+            } else {
+                library = try device.makeDefaultLibrary(bundle: .module)
+            }
             guard let vfn = library.makeFunction(name: "bar_vertex"),
                   let ffn = library.makeFunction(name: "bar_fragment") else {
                 NSLog("MenuBand: visualizer shader functions missing")
