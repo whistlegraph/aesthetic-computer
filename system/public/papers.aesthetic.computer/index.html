@@ -409,9 +409,23 @@
             height: 100%;
             display: block;
             opacity: 0;
-            transition: opacity 1.2s ease-in;
+            transition: opacity 1.8s ease-out;
         }
         .hero-canvas.loaded { opacity: 1; }
+        /* Bottom linear fade into the page background. Sits above the canvas
+           so the hero dissolves into the body color rather than ending on a
+           hard edge. */
+        .hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(to bottom,
+                transparent 0%,
+                transparent 55%,
+                var(--bg) 100%);
+            z-index: 2;
+        }
 
         /* === Prompt-HUD corner label (modeled after give.aesthetic.computer) === */
         .top-bar {
@@ -906,7 +920,16 @@
                 return easeInOutSine(x);
             }
 
-            const start = performance.now();
+            // Front-layer slide is offset by half the slide count so the
+            // foreground image is *never* the same one currently dominating
+            // the background. With 4 slides this means: while back blends
+            // 0↔1, front shows 2↔3, etc.
+            const FRONT_OFFSET = Math.floor(SLIDES.length / 2);
+            // Half-cycle phase shift so the front layer is also peaking
+            // between back-layer transitions instead of in lockstep.
+            const FRONT_PHASE_SHIFT = (FRONT_OFFSET * SLIDE_DUR) + (SLIDE_DUR / 2);
+
+            let start = 0;
             let lastFrame = 0;
             function frame(now) {
                 if (cssW === 0 || cssH === 0) { resize(); }
@@ -915,12 +938,19 @@
                 const elapsed = reduced ? 0 : (now - start);
                 const cyclePos = ((elapsed % CYCLE) + CYCLE) % CYCLE;
 
+                // Track which slide indices are active in BACK so we can
+                // guarantee FRONT never picks the same one (defence in
+                // depth — the offset already enforces this for 4 slides
+                // but the check keeps the invariant if SLIDES grows).
+                const backActive = new Set();
+
                 // BACK LAYER — covered, fills full bleed. Each slide gets a
                 // triangular alpha envelope so neighbours always blend.
                 for (let i = 0; i < SLIDES.length; i++) {
                     const slotStart = i * SLIDE_DUR;
                     const a = alphaFor(cyclePos, slotStart, SLIDE_DUR);
                     if (a <= 0.001) continue;
+                    backActive.add(i);
                     const localProg = ((cyclePos - slotStart + CYCLE) % CYCLE) / SLIDE_DUR;
                     const prog = Math.max(0, Math.min(1, localProg));
                     drawSlide(images[i], SLIDES[i].focal, SLIDES[i].pan, prog, a, 'cover');
@@ -928,30 +958,41 @@
 
                 // FRONT LAYER — smaller, multiply-blended so the cream paper
                 // edges of the colored-pencil scans dissolve into the back
-                // layer instead of stamping a hard rectangle. Half a slot
-                // out of phase so the foreground composition is always a
-                // *different* slide than the dominant background.
+                // layer instead of stamping a hard rectangle. Slide indices
+                // are remapped via FRONT_OFFSET so the foreground is always
+                // a *different* image than the background.
                 ctx.globalCompositeOperation = 'multiply';
-                const frontPhase = (cyclePos + SLIDE_DUR / 2) % CYCLE;
+                const frontPhase = (cyclePos + FRONT_PHASE_SHIFT) % CYCLE;
                 for (let i = 0; i < SLIDES.length; i++) {
                     const slotStart = i * SLIDE_DUR;
                     const a = alphaFor(frontPhase, slotStart, SLIDE_DUR);
                     if (a <= 0.001) continue;
+                    const slideIdx = (i + FRONT_OFFSET) % SLIDES.length;
+                    if (backActive.has(slideIdx)) continue; // never duplicate
                     const localProg = ((frontPhase - slotStart + CYCLE) % CYCLE) / SLIDE_DUR;
                     const prog = Math.max(0, Math.min(1, localProg));
-                    drawSlide(images[i], SLIDES[i].focal, SLIDES[i].pan, prog, a * 0.85, 'contain-small');
+                    drawSlide(
+                        images[slideIdx],
+                        SLIDES[slideIdx].focal,
+                        SLIDES[slideIdx].pan,
+                        prog,
+                        a * 0.85,
+                        'contain-small'
+                    );
                 }
                 ctx.globalCompositeOperation = 'source-over';
 
-                // Soft vignette mask — fade canvas alpha to 0 at edges so
-                // the purple letterbox bleeds in around the imagery.
+                // Soft side/top vignette — fades the canvas to transparent at
+                // the corners so the purple letterbox bleeds in. The bottom
+                // fade-to-page-bg is handled by .hero::after in CSS so it
+                // hits the page background even when imagery is opaque here.
                 const grad = ctx.createRadialGradient(
-                    cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.28,
-                    cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.72
+                    cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.32,
+                    cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.78
                 );
                 grad.addColorStop(0, 'rgba(0,0,0,0)');
-                grad.addColorStop(0.7, 'rgba(0,0,0,0.35)');
-                grad.addColorStop(1, 'rgba(0,0,0,1)');
+                grad.addColorStop(0.75, 'rgba(0,0,0,0.30)');
+                grad.addColorStop(1, 'rgba(0,0,0,0.85)');
                 ctx.globalCompositeOperation = 'destination-out';
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, cssW, cssH);
@@ -967,8 +1008,19 @@
             function kick() {
                 if (kicked) return;
                 kicked = true;
-                canvas.classList.add('loaded');
-                requestAnimationFrame(frame);
+                // Start the cycle clock *now* so slide 0 begins at its
+                // peak with the canvas still invisible — by the time the
+                // opacity fade-in starts, the bitmap is already fully
+                // painted, so the user sees a smooth alpha rise rather
+                // than content snapping in mid-transition.
+                start = performance.now();
+                // Paint one frame before triggering the CSS fade-in so the
+                // canvas has real pixels the moment opacity begins ramping.
+                frame(start);
+                requestAnimationFrame(() => {
+                    canvas.classList.add('loaded');
+                    requestAnimationFrame(frame);
+                });
             }
             let pending = images.length;
             images.forEach(img => {
