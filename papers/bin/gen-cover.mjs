@@ -31,20 +31,36 @@ for (const a of argv) {
 }
 
 const STYLE_PREFIX =
-  "Colored pencil illustration on warm cream-colored paper. Single iconic " +
-  "subject as a centered VIGNETTE with very softly faded edges that DISSOLVE " +
-  "INTO PURE CREAM PAPER on all four sides — the corners and edges of the " +
-  "image must be the same warm cream as the paper itself, with NO hard " +
-  "frame, NO border, NO background scene, NO environmental context. The " +
-  "subject must be a single floating object, form, or symbolic shape — " +
-  "bold and simple enough to be READ FROM ACROSS A ROOM. Use thick, " +
-  "confident pencil strokes and high tonal contrast where the subject " +
-  "is densest, gradually softening to nothing at the periphery. Muted " +
-  "natural palette (terracotta, sage, ochre, dusty pink, slate blue, warm " +
-  "grey), gentle hand-drawn linework, no text, no logos, no lettering, no " +
-  "signage. Square 1:1 composition. The vignette should look like a single " +
-  "iconic motif floating on the page, intimate and contemplative, more " +
-  "like a logo-illustration than a scene. The subject: ";
+  "Hand-rendered emblem on warm cream-colored paper — designed to read " +
+  "like a record-label seal, a band-tee print, or a hand-painted shop " +
+  "sign. ONE singular subject only: no clusters, no tangles, no " +
+  "arrangements, no cornucopias, no sets of multiple objects. The " +
+  "emblem fills the central two-thirds of the square and floats; " +
+  "corners and periphery DISSOLVE INTO PURE CREAM PAPER on all four " +
+  "sides with NO hard frame, NO border, NO background scene, NO " +
+  "environmental context. Bold, simple, recognizable from across a " +
+  "room. Drawn in colored pencil and gouache with thick confident " +
+  "strokes and high tonal contrast at the subject's center, gradually " +
+  "softening to nothing at the periphery. Hand-lettered text, proper " +
+  "nouns, brand wordmarks, address numbers, and logo iconography ARE " +
+  "WELCOME — render them with the visible imperfection of a silkscreen " +
+  "DO NOT NAME THE SUBJECT INSTITUTION ANYWHERE IN THE IMAGE — no " +
+  "hand-lettered names, no carved wordmarks, no chalk lettering, no " +
+  "stamped or painted institution names, no readable signage spelling " +
+  "out the paper's subject. Incidental product or manufacturer text " +
+  "already physically belonging to a depicted object (a SONY mark on " +
+  "the body of a vintage camera, a small disk-brand logo, the printed " +
+  "model number on a floppy's metal shutter) is acceptable when it is " +
+  "NOT the institution being illustrated. Letterforms may appear as " +
+  "illegible scribble-gestalt where the form of letters is part of the " +
+  "object's character (a stencil sleeve, a typed page, a chalkboard, " +
+  "the rhythm of engraved name-bands on a plaque) but they must NEVER " +
+  "spell readable institutional names. The institution's identity is " +
+  "carried entirely by ICONOGRAPHIC EMBLEM, FORM, SILHOUETTE, COLOR, " +
+  "and ERA (the elephant, the temple, the pixel-burst, the hexagon, " +
+  "the inverted stoop, the brick arch, the brass seal). Muted natural " +
+  "palette (terracotta, sage, ochre, dusty pink, slate blue, brick red, " +
+  "warm grey, oxblood, brass). Square 1:1 composition. The subject: ";
 
 function loadOpenAIKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;

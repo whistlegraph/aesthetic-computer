@@ -8,6 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// to Terminal, so the per-tick refresh only fires osascript when
     /// something actually changed.
     private var lastTerminalDecor: [String: String] = [:]
+    /// Base font size from the most recent `tileNow()` pass. `applyTerminalDecor`
+    /// scales typography off this — `.awaiting` ("orange") tiles get bumped
+    /// up so focus reads typographically while the cell geometry stays put.
+    private var lastTiledFontSize: Int?
     private var rainbowPhase: CGFloat = 0
     private var rotationPhase: CGFloat = 0
     private var mailTickCount = 0
@@ -351,29 +355,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // applying a profile resets the tab's font + the window's pixel
         // size to the profile default, causing a brief reframe-flicker
         // even when we save/restore around it.
-        struct Assignment { let tty: String; let bg: (Int, Int, Int)?; let title: String }
+        struct Assignment { let tty: String; let bg: (Int, Int, Int)?; let title: String; let fontSize: Int? }
         var changes: [Assignment] = []
         var seen = Set<String>()
+        // Typographic gradient by state — green smallest (calm), red largest
+        // (escalate). The base size comes from the most recent tile pass, so
+        // the global Near/Far toggle naturally shifts every tier in lockstep.
+        // Tweak these freely — the goal is that a sweep across the wall reads
+        // its priority just from the size.
+        //   working   (green)  1.00× — head-down, default
+        //   complete  (slate)  1.10× — turn done, gentle "look when ready"
+        //   awaiting  (orange) 1.25× — paused for input, focus here
+        //   stale     (red)    1.45× — process dead, biggest call for cleanup
+        let baseFont = self.lastTiledFontSize
+        func sizeFor(_ scale: Double) -> Int? {
+            baseFont.map { Int((Double($0) * scale).rounded()) }
+        }
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
             let bg: (Int, Int, Int)?
             let glyph: String
+            let fontSize: Int?
             switch s.state {
             // Working = green (active/healthy), complete = calm slate
             // (turn done, idle), awaiting = amber (needs you to continue),
-            // stale = no bg change. RGBs are 0–65535 AppleScript colorspace,
-            // dark enough that the profile's default light text still reads.
-            case .working:  bg = (1500,  14000, 4000);  glyph = "● working"    // deep forest green
-            case .complete: bg = (5000,  7000,  12000); glyph = "✓ complete"   // muted slate
-            case .awaiting: bg = (32000, 18000, 1500);  glyph = "◉ awaiting"   // warm amber — attention!
-            case .stale:    bg = nil;                   glyph = "○ stale"      // leave bg alone
+            // stale = deep red (process dead, escalate). RGBs are 0–65535
+            // AppleScript colorspace, dark enough that the profile's default
+            // light text still reads on top.
+            case .working:  bg = (1500,  14000, 4000);  glyph = "● working";   fontSize = sizeFor(1.00)  // green — smallest
+            case .complete: bg = (5000,  7000,  12000); glyph = "✓ complete";  fontSize = sizeFor(1.10)  // slate — between green and orange
+            case .awaiting: bg = (32000, 18000, 1500);  glyph = "◉ awaiting";  fontSize = sizeFor(1.25)  // orange — focus pop
+            case .stale:    bg = (30000, 2500,  4000);  glyph = "○ stale";     fontSize = sizeFor(1.45)  // red — largest, escalate
             }
             let title = "\(glyph) · \(s.titleString)"
             let bgKey = bg.map { "\($0.0),\($0.1),\($0.2)" } ?? "-"
-            let key = "\(bgKey)|\(title)"
+            let key = "\(bgKey)|\(title)|\(fontSize.map(String.init) ?? "-")"
             if lastTerminalDecor[s.sessionId] == key { continue }
             lastTerminalDecor[s.sessionId] = key
-            changes.append(Assignment(tty: s.tty, bg: bg, title: title))
+            changes.append(Assignment(tty: s.tty, bg: bg, title: title, fontSize: fontSize))
         }
         // Reap entries for sessions that disappeared since last tick — they
         // either died or got reaped by the janitor; either way our memo is
@@ -404,6 +423,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 lines.append("                    set background color of t to {\(bg.0), \(bg.1), \(bg.2)}")
             }
             lines.append("                    set custom title of t to \"\(escTitle)\"")
+            // Font sets snap Terminal to the row/col grid, so save the window's
+            // bounds and restore them — typography changes per state, geometry
+            // stays put with the tile.
+            if let fs = a.fontSize {
+                lines.append("                    set savedBounds to bounds of w")
+                lines.append("                    set font size of t to \(fs)")
+                lines.append("                    set bounds of w to savedBounds")
+            }
             lines.append("                end if")
         }
         lines.append(contentsOf: [
@@ -560,6 +587,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ).output.trimmingCharacters(in: .whitespacesAndNewlines)
             guard let n = Int(countOut), n > 0 else { return }
             guard let layout = Self.computeTileLayout(count: n, geom: geom, near: near) else { return }
+
+            // Remember the tile's base font + reset decor memo. The script
+            // below resets every window to base; without this, a session
+            // already in `.awaiting` would still match its old "we pushed
+            // the bumped font" key and skip the re-bump on the next refresh.
+            DispatchQueue.main.async { [weak self] in
+                self?.lastTiledFontSize = layout.fontSize
+                self?.lastTerminalDecor.removeAll()
+            }
 
             var lines: [String] = ["tell application \"Terminal\"", "    activate"]
             for i in 0..<n {

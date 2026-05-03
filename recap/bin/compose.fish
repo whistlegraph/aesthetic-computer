@@ -44,15 +44,17 @@ node $ROOT/bin/build-filter.mjs $TOTAL > $FILTER
 # we don't need a second -filter_complex flag (only the last one wins).
 # Slides=0, narration=1, subs=2, waltz=3 — input order matters.
 if test -f $WALTZ
-  echo "  + bed: $WALTZ (waltz)"
-  # printf — fish parses $TOTAL[bed] as a slice index; %s sidesteps that.
-  # Slides=0, narration=1, waltz=2 (subtitles are baked in via the libass
-  # filter inside the filter graph — no extra input).
-  printf ';[2:a]volume=0.42,atrim=duration=%s[bed];[a1][bed]amix=inputs=2:duration=first:dropout_transition=0:weights=1.0 0.55[mix]\n' "$TOTAL" >> $FILTER
+  echo "  + bed: $WALTZ (waltz, content-length, no loop)"
+  # waltz.mjs is auto-sized to the recap duration via out/duration.txt,
+  # so the bed plays once through and resolves with the narration. We
+  # apad to TOTAL to handle any tiny rounding gap at the tail, then atrim
+  # to the exact length. NO -stream_loop — looping the bed produced
+  # awkward seam jumps in the middle of the show.
+  printf ';[2:a]apad=whole_dur=%s,atrim=duration=%s,volume=0.42[bed];[a1][bed]amix=inputs=2:duration=first:dropout_transition=0:weights=1.0 0.55[mix]\n' "$TOTAL" "$TOTAL" >> $FILTER
   ffmpeg -hide_banner -y \
     -f concat -safe 0 -i $OUT/concat.txt \
     -i $AUDIO \
-    -stream_loop -1 -i $WALTZ \
+    -i $WALTZ \
     -filter_complex_script $FILTER \
     -map "[final]" -map "[mix]" \
     -c:v libx264 -preset ultrafast -crf 22 -pix_fmt yuv420p \

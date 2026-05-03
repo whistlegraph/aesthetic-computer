@@ -49,6 +49,10 @@ echo "▸ 7/8 waltz (piano bed; harmless if audience.waltz is absent)"
 node bin/waltz.mjs $AUDIENCE
 or echo "  ↳ waltz step skipped or failed — compose falls back to narration-only"
 
+echo "▸ 7.5/8 waltz piano-roll overlay (ASS drawings)"
+node bin/waltz-overlay.mjs
+or echo "  ↳ waltz-overlay skipped (no events.json) — compose without piano bug"
+
 echo "▸ 8/8 compose"
 fish bin/compose.fish; or exit 1
 
