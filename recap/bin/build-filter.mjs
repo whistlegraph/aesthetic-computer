@@ -25,18 +25,20 @@ const WAVE_Y = 1752; // y-band for the audio waveform under the subtitle pill
 
 const lines = [];
 // NOTE: do NOT add an `fps=30` filter to inputs that come from a concat
-// demuxer with `duration` directives (slides + subtitle webm here). The
-// fps filter mis-handles the sparse PTS that the demuxer emits and
-// truncates the output stream at ~half length. ffmpeg honors the
-// duration directives natively when the encoder consumes them directly.
+// demuxer with `duration` directives (slides input #0). The fps filter
+// mis-handles the sparse PTS the demuxer emits and truncates the output
+// stream. ffmpeg honors the duration directives natively at the encoder.
 lines.push(`[0:v]format=yuv420p,scale=1080:1920,setsar=1[bg]`);
 lines.push(`[1:a]apad=whole_dur=${TOTAL},asplit=2[a1][a2]`);
 lines.push(`[a2]showwaves=s=1080x96:colors=0xff70d0|0x70f0e0:mode=cline:rate=30,format=rgba,colorchannelmixer=aa=0.55[wave]`);
 lines.push(`[bg][wave]overlay=x=0:y=${WAVE_Y}:format=auto[bg2]`);
 lines.push(`[bg2]drawbox=x=0:y=1912:w='iw*t/${TOTAL}':h=8:color=0xff69b4:t=fill[v0]`);
-// Single subtitle-track overlay. Input #2 is a pre-encoded 30 fps webm
-// with alpha (vp9 / yuva420p) produced by subtitle-track.mjs.
-lines.push(`[2:v]scale=1080:1920,format=rgba[subs]`);
-lines.push(`[v0][subs]overlay=x=0:y=0:format=auto:shortest=0[final]`);
+// Subtitles via libass — single filter pass, no pre-encode, no alpha
+// codec dance. fontsdir picks up the YWFT face shipped in the repo so
+// the .ass `Style: YWFTProcessing` resolves. The .ass path is escaped
+// for ffmpeg's filter parser (`:` and `\` need it inside subtitles=...).
+const ASS = `${ROOT}/out/subs.ass`.replace(/:/g, "\\:").replace(/\\/g, "/");
+const FONTSDIR = `${REPO}/system/public/type/webfonts`.replace(/:/g, "\\:");
+lines.push(`[v0]subtitles='${ASS}':fontsdir='${FONTSDIR}'[final]`);
 
 process.stdout.write(lines.join(";\n") + "\n");

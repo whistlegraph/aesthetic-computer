@@ -1,113 +1,95 @@
 #!/usr/bin/env node
-// subtitle-track.mjs — emit a proper subtitle-track video (constant 30 fps,
-// transparent alpha) so the main compose can include subtitles via a single
-// `-i subtitle-track.webm` input + one overlay filter — instead of the old
-// 135-deep `movie=...` chain.
+// subtitle-track.mjs — emit `out/subs.ass` (Advanced SubStation Alpha)
+// from `out/subs.json`. The main compose then renders subtitles via
+// ffmpeg's `subtitles=` filter (libass) — single filter, sub-second
+// overhead, no alpha-codec gymnastics, frame-perfect timing.
 //
-// Two-step process:
-//   1. Build a concat-demuxer text file (`out/subtitle-track.txt`) listing
-//      subtitle PNGs and blank-gap PNGs with their durations.
-//   2. Run ffmpeg to convert that timeline into a 30 fps alpha WebM
-//      (`out/subtitle-track.webm`). Without this pre-encode, the concat
-//      demuxer feeds the main compose as a sparse PTS stream (one frame
-//      per `file` entry), which ffmpeg's `overlay` interprets weirdly and
-//      truncates the output. The pre-encoded webm presents continuous
-//      30 fps frames just like the slides input.
+// Why ASS over the pre-rendered PNG track:
+//   - libvpx-vp9 silently dropped alpha on the oven (pix_fmt=yuv420p
+//     instead of yuva420p), so the overlaid track came through opaque
+//     black and covered the slides.
+//   - Even with alpha working, the concat-demuxer + fps filter pattern
+//     was sparse-PTS-prone and truncated the output stream.
+//   - ASS bypasses both problems: ffmpeg renders text directly into the
+//     video stream at composite time using the libass subtitle library.
 //
-// Output webm is small (a few hundred KB at most — mostly transparent
-// frames + tiny pill images). Encode is fast (1-3 seconds).
+// Pill styling — translucent dark background + cream text + magenta
+// border — replicates the look of the previous PNG pill via ASS box
+// drawing primitives (BorderStyle=4 = opaque box).
 //
-// Usage: node bin/subtitle-track.mjs
+// Usage: node bin/subtitle-track.mjs [audience-name]
 
-import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
+const audienceName = process.argv[2] || "fia";
 const subsPath = `${ROOT}/out/subs.json`;
-const blankPath = `${ROOT}/out/subs/blank.png`;
-const listPath = `${ROOT}/out/subtitle-track.txt`;
-const webmPath = `${ROOT}/out/subtitle-track.webm`;
-const hashFile = `${webmPath}.hash`;
-const durPath = `${ROOT}/out/duration.txt`;
-const force = process.argv.includes("--force");
+const assPath = `${ROOT}/out/subs.ass`;
 
 const subs = JSON.parse(readFileSync(subsPath, "utf8"));
 if (!subs.length) {
   console.error(`✗ no subtitle chunks in ${subsPath}`);
   process.exit(1);
 }
-if (!existsSync(blankPath)) {
-  console.error(`✗ missing ${blankPath} — re-run bin/subtitles.mjs`);
-  process.exit(1);
+
+// ── ASS time format: H:MM:SS.cc ────────────────────────────────────────
+function assTime(t) {
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = (t % 60).toFixed(2);
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(5, "0")}`;
 }
 
-let total;
-try { total = parseFloat(readFileSync(durPath, "utf8")); }
-catch { total = subs[subs.length - 1].endSec; }
+// ASS color = &HAABBGGRR (alpha + BGR, hex). For opaque colors use AA=00.
+// Style maps:
+//   PrimaryColour   → text fill
+//   OutlineColour   → text outline
+//   BackColour      → translucent pill background (BorderStyle=4 enables a box)
+//   BorderStyle=1   → outline + shadow only (no box)
+//   BorderStyle=4   → opaque box behind the text (our pill)
+//   Outline         → border thickness in pixels
+//   Shadow          → drop shadow distance
+//   Alignment       → 1..9 numpad: 2 = bottom-center, 5 = middle-center,
+//                     8 = top-center
+//   MarginV         → vertical margin from the corresponding edge
+//
+// We want a magenta border (3px) around a translucent dark-purple pill
+// with cream-yellow text, anchored at the bottom of a 1080×1920 frame.
+// Bottom anchor (Alignment=2) + MarginV=215 puts the pill base around
+// y=1700 of 1920 (matches the prior PNG pill's y=1690 area).
+const PRIMARY = "&H00C5F7FC"; // cream #FCF7C5
+const OUTLINE = "&H00B469FF"; // magenta outline #FF69B4
+const BACK    = "&H80200810"; // dark purple translucent ~50% (#100820 + alpha 80)
 
-// ── 1. write the concat-demuxer timeline ───────────────────────────────
-const lines = [];
-let cursor = 0;
-for (const s of subs) {
-  if (s.startSec > cursor + 0.001) {
-    lines.push(`file '${blankPath}'`);
-    lines.push(`duration ${(s.startSec - cursor).toFixed(3)}`);
-  }
-  lines.push(`file '${s.file}'`);
-  lines.push(`duration ${(s.endSec - s.startSec).toFixed(3)}`);
-  cursor = s.endSec;
+const lines = [
+  "[Script Info]",
+  "ScriptType: v4.00+",
+  "PlayResX: 1080",
+  "PlayResY: 1920",
+  "WrapStyle: 0",
+  "ScaledBorderAndShadow: yes",
+  "",
+  "[V4+ Styles]",
+  "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+  `Style: Default,YWFTProcessing,64,${PRIMARY},&H00FFFFFF,${OUTLINE},${BACK},1,0,0,0,100,100,-1,0,4,3,0,2,60,60,215,1`,
+  "",
+  "[Events]",
+  "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+];
+
+for (const c of subs) {
+  // Sanitize: ASS uses \N for newlines and treats { ... } as override blocks
+  const text = (c.text || "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\{/g, "(")
+    .replace(/\}/g, ")")
+    .trim();
+  if (!text) continue;
+  lines.push(`Dialogue: 0,${assTime(c.startSec)},${assTime(c.endSec)},Default,,0,0,0,,${text}`);
 }
-if (total > cursor + 0.001) {
-  lines.push(`file '${blankPath}'`);
-  lines.push(`duration ${(total - cursor).toFixed(3)}`);
-}
-// Concat demuxer requires the last `file` line repeated for its duration
-// to apply (https://trac.ffmpeg.org/wiki/Slideshow).
-const lastFileLine = [...lines].reverse().find((l) => l.startsWith("file "));
-lines.push(lastFileLine);
 
-writeFileSync(listPath, lines.join("\n") + "\n");
-
-// ── 2. cache check + encode ─────────────────────────────────────────────
-const inputHash = createHash("sha256")
-  .update(JSON.stringify(subs.map((s) => ({ f: s.file, a: s.startSec, b: s.endSec }))))
-  .update(`total=${total.toFixed(3)}`)
-  .digest("hex")
-  .slice(0, 16);
-
-if (!force && existsSync(webmPath) && existsSync(hashFile)) {
-  const cached = readFileSync(hashFile, "utf8").trim();
-  if (cached === inputHash) {
-    const size = (readFileSync(webmPath).length / 1024).toFixed(0);
-    console.log(`✓ ${webmPath} cached (${size} KB · hash ${inputHash}) — skipping ffmpeg`);
-    console.log(`✓ ${listPath} · ${subs.length} chunks · total ${total.toFixed(2)}s`);
-    process.exit(0);
-  }
-}
-
-// libvpx-vp9 with yuva420p preserves the alpha channel through to the
-// main compose's overlay filter. -t pins the output to the cut's total
-// length so any concat-demuxer rounding doesn't bleed past the end.
-console.log(`→ encoding subtitle track · ${subs.length} chunks · ${total.toFixed(2)}s`);
-execFileSync("ffmpeg", [
-  "-hide_banner", "-y", "-loglevel", "error",
-  "-f", "concat", "-safe", "0", "-i", listPath,
-  "-vf", "fps=30,format=yuva420p",
-  "-c:v", "libvpx-vp9",
-  "-pix_fmt", "yuva420p",
-  "-b:v", "2M",
-  "-deadline", "realtime",
-  "-cpu-used", "8",
-  "-auto-alt-ref", "0",
-  "-t", String(total),
-  webmPath,
-], { stdio: ["ignore", "ignore", "inherit"] });
-
-writeFileSync(hashFile, inputHash + "\n");
-const size = (readFileSync(webmPath).length / 1024).toFixed(0);
-console.log(`✓ ${webmPath} (${size} KB · hash ${inputHash})`);
-console.log(`✓ ${listPath} · ${subs.length} chunks · total ${total.toFixed(2)}s`);
+writeFileSync(assPath, lines.join("\n") + "\n");
+console.log(`✓ ${assPath} · ${subs.length} cues`);

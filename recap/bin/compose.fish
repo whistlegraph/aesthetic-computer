@@ -16,7 +16,7 @@ set -l OUT $ROOT/out
 set -l TOTAL (cat $OUT/duration.txt)
 set -l AUDIO $OUT/recap.mp3
 set -l WALTZ $OUT/waltz.mp3
-set -l SUBTRACK $OUT/subtitle-track.webm
+set -l SUBSASS $OUT/subs.ass
 set -l VIDEO $OUT/recap.mp4
 set -l FILTER $OUT/filter.txt
 
@@ -28,8 +28,8 @@ if not test -f $OUT/subs.json
   echo "✗ missing $OUT/subs.json — run bin/subtitles.mjs first"
   exit 1
 end
-if not test -f $SUBTRACK
-  echo "✗ missing $SUBTRACK — run bin/subtitle-track.mjs first"
+if not test -f $SUBSASS
+  echo "✗ missing $SUBSASS — run bin/subtitle-track.mjs first"
   exit 1
 end
 
@@ -46,11 +46,12 @@ node $ROOT/bin/build-filter.mjs $TOTAL > $FILTER
 if test -f $WALTZ
   echo "  + bed: $WALTZ (waltz)"
   # printf — fish parses $TOTAL[bed] as a slice index; %s sidesteps that.
-  printf ';[3:a]volume=0.42,atrim=duration=%s[bed];[a1][bed]amix=inputs=2:duration=first:dropout_transition=0:weights=1.0 0.55[mix]\n' "$TOTAL" >> $FILTER
+  # Slides=0, narration=1, waltz=2 (subtitles are baked in via the libass
+  # filter inside the filter graph — no extra input).
+  printf ';[2:a]volume=0.42,atrim=duration=%s[bed];[a1][bed]amix=inputs=2:duration=first:dropout_transition=0:weights=1.0 0.55[mix]\n' "$TOTAL" >> $FILTER
   ffmpeg -hide_banner -y \
     -f concat -safe 0 -i $OUT/concat.txt \
     -i $AUDIO \
-    -i $SUBTRACK \
     -stream_loop -1 -i $WALTZ \
     -filter_complex_script $FILTER \
     -map "[final]" -map "[mix]" \
@@ -63,7 +64,6 @@ else
   ffmpeg -hide_banner -y \
     -f concat -safe 0 -i $OUT/concat.txt \
     -i $AUDIO \
-    -i $SUBTRACK \
     -filter_complex_script $FILTER \
     -map "[final]" -map "[a1]" \
     -c:v libx264 -preset ultrafast -crf 22 -pix_fmt yuv420p \
