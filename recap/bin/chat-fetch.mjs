@@ -27,12 +27,14 @@ async function fetchInstance(instance) {
     return [];
   }
   const data = await res.json();
-  // Response shape varies; coerce to {handle, text, when} for the slide.
-  const arr = Array.isArray(data) ? data : (data.messages || []);
+  // The API returns { instance, count, messages: [{ id, from, text, when, hearts }], nextBefore }.
+  // `from` is already the @handle (or "anon"), so coerce straight through.
+  const arr = data.messages || [];
   return arr.map((m) => ({
-    handle: m.handle || m.user_handle || m.user || "anon",
-    text: m.text || m.content || m.message || "",
-    when: m.when || m.timestamp || null,
+    handle: m.from || "anon",
+    text: m.text || "",
+    when: m.when || null,
+    hearts: m.hearts || 0,
   }));
 }
 

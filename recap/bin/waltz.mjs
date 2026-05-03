@@ -80,11 +80,39 @@ const SEED_STR     = flags.seed || W.seed || audience.name || audienceName;
 const BPM          = Number(flags.bpm  ?? W.bpm  ?? 80);
 const SCALE_NAME   = flags.scale || W.scale || "major";
 const PROGRESSION  = parseProgression(flags.progression) || W.progression || [0, 5, 3, 4]; // I vi IV V
-const BARS         = Number(flags.bars ?? W.bars ?? 24);
 const VOICE_GAIN   = Number(flags.gain ?? W.voiceGain ?? 0.18);
 const DENSITY      = Number(flags.density ?? W.density ?? 0.5); // 0..1, melody/passing density
 const ROOT_OFFSET  = Number(flags.transpose ?? W.transpose ?? 0); // semitones (default C)
 const OUT_PATH     = expandHome(flags.out) || `${ROOT}/out/waltz.mp3`;
+
+// Bar count is normally fixed (`--bars` / audience.waltz.bars / 24), but if
+// a target duration is given we auto-size BARS so the bed plays once
+// through and ends with the narration (no looping in compose). This is
+// the desired behavior for the recap pipeline — the waltz is composed,
+// not stream-looped, so the cadence resolves musically with the content.
+const _beatSecPre = 60 / BPM;
+const _barSecPre  = _beatSecPre * 3;
+let DURATION_SEC = null;
+if (flags.duration !== undefined) {
+  DURATION_SEC = Number(flags.duration);
+} else if (W.duration !== undefined) {
+  DURATION_SEC = Number(W.duration);
+} else {
+  // Fall back to out/duration.txt (written by align.mjs) when present, so
+  // a bare `node bin/waltz.mjs <audience>` after the rest of the pipeline
+  // produces a content-length bed without an explicit flag.
+  const durFile = `${ROOT}/out/duration.txt`;
+  if (existsSync(durFile)) {
+    const t = Number(readFileSync(durFile, "utf8").trim());
+    if (Number.isFinite(t) && t > 0) DURATION_SEC = t;
+  }
+}
+const BARS = (() => {
+  if (flags.bars !== undefined) return Number(flags.bars);
+  if (W.bars !== undefined && DURATION_SEC === null) return Number(W.bars);
+  if (DURATION_SEC !== null) return Math.max(1, Math.ceil(DURATION_SEC / _barSecPre));
+  return 24;
+})();
 
 function parseProgression(s) {
   if (!s || s === true) return null;

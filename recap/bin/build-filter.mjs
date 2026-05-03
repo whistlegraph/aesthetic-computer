@@ -30,11 +30,15 @@ if (!TOTAL) {
 const WAVE_Y = 1752; // y-band for the audio waveform under the subtitle pill
 
 const lines = [];
-// NOTE: do NOT add an `fps=30` filter to inputs that come from a concat
-// demuxer with `duration` directives (slides input #0). The fps filter
-// mis-handles the sparse PTS the demuxer emits and truncates the output
-// stream. ffmpeg honors the duration directives natively at the encoder.
-lines.push(`[0:v]format=yuv420p,scale=1080:1920,setsar=1[bg]`);
+// IMPORTANT: include `fps=25` here so the libass `subtitles=` filters
+// downstream see one frame per output tick (25 fps × 281 s = ~7000
+// frames). Without it, the concat demuxer emits ONE frame per slide,
+// libass renders that single frame, and the encoder dups it forward —
+// so animated overlays (waltz piano-roll) only flash on the rare frames
+// that happen to coincide with a slide transition. The earlier "do NOT
+// add fps" warning was about adding it AFTER the libass chain or to the
+// wrong stream — applied to [bg] up front, it's correct and necessary.
+lines.push(`[0:v]format=yuv420p,scale=1080:1920,setsar=1,fps=25[bg]`);
 lines.push(`[1:a]apad=whole_dur=${TOTAL},asplit=2[a1][a2]`);
 lines.push(`[a2]showwaves=s=1080x96:colors=0xff70d0|0x70f0e0:mode=cline:rate=30,format=rgba,colorchannelmixer=aa=0.55[wave]`);
 lines.push(`[bg][wave]overlay=x=0:y=${WAVE_Y}:format=auto[bg2]`);
@@ -49,7 +53,12 @@ lines.push(`[bg2]drawbox=x=0:y=1912:w='iw*t/${TOTAL}':h=8:color=0xff69b4:t=fill[
 // those. Single-quote the values for safety.
 const escFilter = (p) => p.replace(/:/g, "\\:");
 const ASS = escFilter(`${ROOT}/out/subs.ass`);
+const KEYS = escFilter(`${ROOT}/out/waltz-keys.ass`);
 const FONTSDIR = escFilter(`${REPO}/system/public/type/webfonts`);
-lines.push(`[v0]subtitles='${ASS}':fontsdir='${FONTSDIR}'[final]`);
+lines.push(`[v0]subtitles='${ASS}':fontsdir='${FONTSDIR}'[v1]`);
+// Waltz piano-roll bug, bottom-left — chained as a second libass pass.
+// Drawing-only ASS, no fonts needed; libass renders independently of
+// the dialog subs above.
+lines.push(`[v1]subtitles='${KEYS}'[final]`);
 
 process.stdout.write(lines.join(";\n") + "\n");
