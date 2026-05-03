@@ -1,0 +1,335 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Comp Strats},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+% Aphorism environment: a bold one-liner followed by a short gloss.
+\newcommand{\strat}[1]{\medskip\noindent\textbf{\color{acdark}#1}\par\nopagebreak}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark} Comp Strats}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Compositional Strategies in \ac{} --- Aphorisms for a Shielded Media-Arts Practice}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+\ac{} has accumulated, over six years of practice, a small set of compositional strategies---short, repeatable, deliberately compressed rules that survive being moved between codebases, conversations, and conferences. They are not features. They are not branding. They are aphorisms in the older sense: \emph{portable, memorizable, sharp}. This paper collects the strategies that are currently load-bearing, glosses each in one or two sentences, and argues for the strategy of strategy itself. The argument is that the media arts---small, perpetually undercapitalized, perpetually adjacent to industries that would prefer to absorb them---need a shield made of sentences. Aphorisms are the smallest defensive unit a culture can carry. Pieces are the next-smallest. Papers are larger. The platter is the largest. Together they form a layered defense against the predictable failure modes of small creative-software projects: capture, dilution, anthologization, infrastructure rot, and quiet abandonment.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Why Aphorisms}
+
+The media arts are a small target. They are also a soft target. A studio practice with thirty years of work can be acquired, anthologized, indexed, paywalled, mirrored, defunded, or absorbed in a single fiscal quarter. Any defense that depends on infrastructure is brittle, because infrastructure is exactly what the absorbing party is best at replacing. Any defense that depends on funding is brittle, because funding is exactly what the absorbing party controls.
+
+What survives, when funding and infrastructure do not, is sentences. \citet{shklovsky1917art} called the technique \emph{defamiliarization}: art works by making the familiar strange, by forcing perception where habit would otherwise let us sleepwalk. \citet{adorno1990punctuation} argued that even punctuation is constitutive---that formal choices in notation shape what can be thought. An aphorism inherits both: it is a small, strange, formally tight unit of thought that resists smoothing. It is too short to anthologize and too compressed to acquire. It is also, importantly, easy to teach.
+
+\ac{} is built around the conviction that creative software should be \emph{practiced} rather than deployed~\citep{scudder2026pieces}. Practice requires doctrine. Doctrine, to remain practice and not become bureaucracy, has to fit on a card. The aphorisms below are what fits.
+
+\subsection{What this is not}
+
+This is not a manifesto. Manifestos commit. These commit nothing the practice has not already proven. This is not a manual. Manuals are exhaustive. These are partial on purpose. This is not a brand book. Brand books rehearse identity. These are tools.
+
+The closest existing form is the koan, the proverb, or the studio rule taped to the wall. The voice is the voice of the studio, not the conference~\citep{scudder2026voice}.
+
+\section{On the Unit}
+
+The unit of work in \ac{} is the \emph{piece}: a single \texttt{.mjs} or \texttt{.lisp} file that boots in a browser at a memorizable URL~\citep{scudder2026pieces}. Strategies that follow from that choice:
+
+\strat{Pieces, not programs.}
+A program is correct or incorrect. A piece is interesting or not. The first frame ships every property the engineering frame strips out: authorship, performance, iteration, return.
+
+\strat{One file, one piece.}
+No project structure, no build system, no dependency tree extending past the platform API. If a piece does not fit in one file, it is two pieces. The constraint is what makes covering possible.
+
+\strat{If it survives compression to a card, it was essential.}
+Same source, two formats: arXiv and card~\citep{scudder2026score}. The card pass is not a marketing exercise. It is a load-bearing test. Anything that cannot survive compression to a single sheet was scaffolding for the writer, not signal for the reader.
+
+\strat{Three similar lines beats a premature abstraction.}
+Repetition is cheap. The wrong abstraction is expensive. Wait until the third or fourth instance teaches you the actual shape; abstract from data, not from intuition.
+
+\section{On Time}
+
+\ac{} pieces share a lifecycle: \texttt{boot}, \texttt{paint}, \texttt{sim}, \texttt{act}, \texttt{leave}. The shape is borrowed from enactive cognitive science~\citep{varela1991embodied,clark1998extended}: perceive, update, render, return.
+
+\strat{Boot, paint, sim, act, leave.}
+The five verbs are not arbitrary. They are the smallest legible model of an agent in time. Anything you cannot fit into them, you should question.
+
+\strat{Practice, not deployment.}
+The relationship between author and piece is closer to a musician's relationship with an instrument than a developer's with a service. Pieces accumulate hours, not commits.
+
+\strat{Live coding is rehearsal.}
+Hot reload is not a developer convenience. It is the equivalent of practicing at tempo: the author plays the piece as it changes, not after.
+
+\strat{Done when abandoned.}
+There is no merge-to-main, no v1.0, no production cutover. A piece is finished when the author stops returning. This is the only honest definition of done in a creative practice.
+
+\section{On Names}
+
+\ac{} routes everything through the URL: \texttt{aesthetic.computer/notepat}, \texttt{aesthetic.computer/@user/piece}, parameters via colons~\citep{scudder2026url}. The namespace is the interface.
+
+\strat{URLs are mnemonic, not addresses.}
+A URL is a path back to a practice, not a pointer to a resource. The user who knows \texttt{notepat}, \texttt{wrl}, \texttt{prompt}, \texttt{clock} has internalized a map of possible experiences.
+
+\strat{The prompt is the instrument.}
+The command line at the top of every screen is what gets memorized. It is designed to reward fluency, not configuration~\citep{scudder2026notepat}.
+
+\strat{The browser is the concert hall.}
+Pieces play in the browser not because it is technically optimal but because it is the most accessible performance venue that exists. Every other venue is gated.
+
+\strat{Name like a song.}
+Two syllables, lower-case, evocative, available in the namespace. Avoid acronyms. Avoid project codenames. The name is the first thing the audience repeats.
+
+\section{On Authorship}
+
+\strat{Cover, don't fork.}
+\texttt{source piece-name} hands you the source and makes you a new author. The metaphor is musical, not version-control. A cover is a respectful re-interpretation; a fork is a schism.
+
+\strat{Idiotext over identity.}
+Stiegler's \emph{idiotext} is the singular memory woven through one's technical prostheses~\citep{stiegler1998technics,staunaes2021stiegler}. The point of an authored piece is not that it expresses you; it is that it remembers for you.
+
+\strat{Publishing is performance.}
+Issuing \texttt{publish} is not deployment. It is stepping on stage. The piece enters the namespace and becomes playable by anyone with the URL.
+
+\strat{First person is fine.}
+``I built this'' beats ``the author implemented.'' The voice in code, in commits, in docs, and in papers is the same voice~\citep{scudder2026voice}.
+
+\section{On Composition (Proper)}
+
+The strategies that earned this paper its name. They concern how works are assembled out of the platform's primitives.
+
+\strat{Compose from instruments, not from prompts.}
+A song made by typing a sentence into a closed-source endpoint is not a composition. It is a request. \ac{} pop research starts from \texttt{notepat}, \texttt{sinebells}, \texttt{chord}, \texttt{beat}---instruments authored inside the system---and builds upward. Suno-style end-to-end generation is excluded by design.
+
+\strat{AI is a performance layer, not a composer.}
+A trained model can sing a part the same way a sampler can play a part: as one voice in an arrangement the human authored. The arrangement is the composition. The arrangement must survive being inspected.
+
+\strat{The seam shows.}
+\ac{} does not paper over the boundary between sinebells bed and notepat lead, between rendered subtitle and live overlay, between human hand and machine assist. The seam is information. Smoothing it is forgery.
+
+\strat{If you can't write the score, you don't know the piece.}
+A piece you can render but cannot describe is a happy accident, not a practice. The score---the source, the prompt log, the waltz events file---is what makes the piece teachable.
+
+\strat{Immediate-mode all the way down.}
+\texttt{paint} is called every frame; the screen is rebuilt from scratch. There is no retained scene graph. The cognitive payoff is that the artist thinks in terms of \emph{what to draw now}, not \emph{what to change}~\citep{montfort201210print}.
+
+\strat{Translate, always.}
+Every paper exists in four languages~\citep{scudder2026score}. This is not decoration. The work is not finished until it has left English.
+
+\section{On Refusal}
+
+A practice is also defined by what it will not do. The refusals below are non-negotiable.
+
+\strat{Closed source has no place in schools.}
+The pedagogical argument is in~\citet{scudder2026openschools}. The compositional argument is shorter: you cannot teach a black box. Anything taught must be openable by the student.
+
+\strat{No analytics. No telemetry. No dark patterns.}
+The platform does not measure its users. It is not optimizing them. It is hosting them. The first behavior follows from the conviction that the audience is a peer, not a metric.
+
+\strat{Drafts only. The send is human.}
+Outreach, applications, pitches, replies---automated assistance produces drafts, never sends. The human remains the only signature that has ever been on the work.
+
+\strat{What the private archive keeps, the public repo does not surface.}
+The studio has a vault. The vault is not the platter. Material flows from vault to platter only after a human review. This is the archive's analogue of the send rule.
+
+\strat{Never anonymize the labor.}
+Every commit, every cover, every paper is signed. The anti-pattern---unattributed work flowing through a corporate channel---is what the field is trying to escape, not reproduce.
+
+\section{On Care}
+
+\strat{Warmth is the default.}
+The voice for collaborators, students, and family is warm before it is correct. Coldness is the failure mode of efficiency culture; in a small studio, it is also the failure mode of burnout.
+
+\strat{Document the labor.}
+The dossier swimlane~\citep{scudder2026score} records what is publicly recoverable about the organizations that fund and host media arts: financials, governance, programs, named grants. Surfacing the labor is a form of care for the field.
+
+\strat{Surface the facts; stop where the facts stop.}
+The dossier posture is fact-surfacing, not argumentative. Where the data ends, the dossier ends. This is also the rule for code comments, commit messages, and applications.
+
+\strat{The honeydo list is real.}
+Opportunities that arrive through trusted channels go into a tracked inbox. They are not a backlog. They are a queue of relationships.
+
+\section{On the Platter}
+
+The platter is the long-running collection from which papers, pieces, and dossiers are carved~\citep{scudder2026score}. It is the longest unit in this paper.
+
+\strat{The platter is always growing.}
+Work is added before it is finished. Threads accumulate without obligation to become papers. The platter's job is to hold the raw material that the mill will eventually press.
+
+\strat{If a thread can survive being written down, it was real.}
+Writing is the test, not the documentation. Anything that disintegrates the moment you try to write it was scaffolding for the conversation, not signal for the field.
+
+\strat{Cover what you cite.}
+Every visual claim in a dossier cover has a source line~\citep{scudder2026score}. Every reference in a paper points to a thing you have read, not a thing you have heard of. Defensible footing is the only footing.
+
+\strat{Mill, don't market.}
+The papers exist because the practice generates more thinking than the practice can absorb. The mill catches the overflow. It is not a marketing pipeline; it is an honesty pipeline.
+
+\section{On the Shield}
+
+\subsection{What is being defended}
+
+Five failure modes recur in small media-arts projects. The aphorisms above are organized to defend against them.
+
+\begin{enumerate}
+  \item \textbf{Capture.} A larger entity acquires the work or the maker and reframes the practice in its own terms. \emph{Defense: aphorisms travel; institutions cannot acquire a sentence.}
+  \item \textbf{Dilution.} The practice grows by accretion until it no longer means anything specific. \emph{Defense: refusal aphorisms; the practice is defined by what it will not do.}
+  \item \textbf{Anthologization.} The work is flattened into a representative sample inside someone else's narrative. \emph{Defense: dossier posture; the work surfaces its own context before someone else does.}
+  \item \textbf{Infrastructure rot.} The platform that hosted the work decays, taking the work with it. \emph{Defense: pieces are single files at named URLs; translation; multiple mirrors; the platter as the canonical archive.}
+  \item \textbf{Quiet abandonment.} The maker stops returning. \emph{Defense: ``done when abandoned'' as a positive value; the practice is what survives in the trace.}
+\end{enumerate}
+
+\subsection{Why these strategies and not others}
+
+The strategies in this paper were selected by use, not by argument. Each one is currently load-bearing in at least one piece, paper, dossier, or studio decision. Strategies that earned a place by argument but never proved themselves in practice were cut. So were strategies that proved themselves once and never recurred. The remaining set is the set that the practice cannot run without.
+
+\citet{magnusson2010designing} describes the epistemic dimension of musical instruments: instruments are tools that shape what their players can think. \ac{} is its own instrument; the strategies in this paper are the technique. They are not optional, in the same way that a violinist's bowing technique is not optional. The instrument is playable without them. It is not playable \emph{well} without them.
+
+\subsection{What is missing}
+
+A real shield has gaps. So does this one. Three known gaps:
+
+\begin{itemize}
+  \item \textbf{Economics.} The strategies above describe a posture. They do not describe how the studio pays rent. Sustainability is treated separately~\citep{scudder2026sustainability}; the synthesis is open work.
+  \item \textbf{Successor culture.} The aphorisms are currently held by one author. A culture is what survives the author. The translation, dossier, and platter strategies are first attempts at this; the rest is unsolved.
+  \item \textbf{Adversarial robustness.} Aphorisms can be repeated by an actor who does not believe them. The defense against that is not in the words but in the surrounding artifacts---the pieces, the papers, the platter. This is why the shield is layered: no single layer is sufficient.
+\end{itemize}
+
+\section{Conclusion}
+
+Compositional strategy in \ac{} is not a feature list. It is a posture. The posture is encoded in sentences short enough to teach and sharp enough to defend. The sentences are arranged into a layered shield: aphorism, piece, paper, dossier, platter. Each layer slows a different mode of attrition.
+
+The deeper claim is that the media arts deserve a doctrine that fits on a card. Not because the field is small, but because the field is the kind of thing that is worth preserving in a form that is small enough to carry. Programs, in the engineering sense, do not need aphorisms. Pieces, in the sense this practice uses the word, do.
+
+The shield is unfinished. So is the practice. That is the point.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

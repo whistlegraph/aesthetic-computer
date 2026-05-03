@@ -251,6 +251,11 @@ const PAPER_MAP = {
     siteName: "fraserin-essay-26-arxiv",
     title: "A Fraserin' Art + Tech",
   },
+  "arxiv-comp-strats": {
+    base: "comp-strats",
+    siteName: "comp-strats-26-arxiv",
+    title: "Comp Strats",
+  },
 };
 
 function texName(base, lang) {
