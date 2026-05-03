@@ -14,6 +14,11 @@ final class ArrowKeysIndicator: NSView {
         case horizontalPair
     }
 
+    enum Style {
+        case standard
+        case prominent
+    }
+
     private var pressed: Set<Int> = []
     private var hovered: Int?
     private var trackingArea: NSTrackingArea?
@@ -24,6 +29,9 @@ final class ArrowKeysIndicator: NSView {
     /// keyboard arrows drive (preview note while held, commit on
     /// release).
     var onClick: ((Int, Bool) -> Void)?
+    var accentColor: NSColor = .controlAccentColor { didSet { needsDisplay = true } }
+    var style: Style = .standard { didSet { needsDisplay = true } }
+    var isDarkAppearance: Bool = false { didSet { needsDisplay = true } }
 
     var displayMode: DisplayMode = .cluster {
         didSet {
@@ -68,7 +76,10 @@ final class ArrowKeysIndicator: NSView {
         needsDisplay = true
     }
 
+    override var mouseDownCanMoveWindow: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var isFlipped: Bool { false }
+
 
     // MARK: - Geometry
 
@@ -150,28 +161,37 @@ final class ArrowKeysIndicator: NSView {
             let isHover = (!lit && hovered == idx)
             let path = NSBezierPath(roundedRect: kr, xRadius: radius, yRadius: radius)
             if lit {
-                NSColor.controlAccentColor.withAlphaComponent(0.85).setFill()
+                accentColor.withAlphaComponent(0.9).setFill()
                 path.fill()
             } else if isHover {
-                // Rollover wash — soft accent tint behind the glyph,
-                // no fill on the rest of the cap so it reads as a
-                // "ready to click" state, not "selected".
-                NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
+                accentColor.withAlphaComponent(style == .prominent ? 0.24 : 0.18).setFill()
+                path.fill()
+            } else if style == .prominent {
+                let idleFill = isDarkAppearance
+                    ? NSColor.white.withAlphaComponent(0.08)
+                    : NSColor.black.withAlphaComponent(0.06)
+                idleFill.setFill()
                 path.fill()
             }
             let stroke: NSColor = lit
-                ? NSColor.controlAccentColor
+                ? accentColor
                 : isHover
-                    ? NSColor.controlAccentColor.withAlphaComponent(0.75)
-                    : NSColor.labelColor.withAlphaComponent(0.55)
+                    ? accentColor.withAlphaComponent(style == .prominent ? 0.9 : 0.75)
+                    : style == .prominent
+                        ? accentColor.withAlphaComponent(0.58)
+                        : NSColor.labelColor.withAlphaComponent(0.55)
             stroke.setStroke()
-            path.lineWidth = 0.8
+            path.lineWidth = style == .prominent ? 1.0 : 0.8
             path.stroke()
             let glyphColor: NSColor = lit
                 ? .black
-                : (isHover ? .controlAccentColor : NSColor.labelColor)
+                : isHover
+                    ? accentColor
+                    : style == .prominent
+                        ? (isDarkAppearance ? NSColor.white.withAlphaComponent(0.96) : NSColor.black.withAlphaComponent(0.9))
+                        : NSColor.labelColor
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 10, weight: .heavy),
+                .font: NSFont.systemFont(ofSize: style == .prominent ? 10.5 : 10, weight: .heavy),
                 .foregroundColor: glyphColor,
             ]
             let s = NSAttributedString(string: glyphs[idx], attributes: attrs)

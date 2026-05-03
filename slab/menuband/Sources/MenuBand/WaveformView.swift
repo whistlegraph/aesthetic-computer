@@ -61,7 +61,7 @@ final class WaveformView: MTKView {
                 stopLink()
                 for i in 0..<levels.count { levels[i] = 0 }
                 for i in 0..<displayLevels.count { displayLevels[i] = 0 }
-                display()  // one final paint to clear bars
+                requestDisplay()  // one final paint to clear bars
             }
         }
     }
@@ -88,7 +88,7 @@ final class WaveformView: MTKView {
             dotMatrixActive = true
             // Static frame — nudge a single redraw so the pattern
             // appears even when the live link is off.
-            display()
+            requestDisplay()
         } else {
             stopDotMatrix()
         }
@@ -99,7 +99,7 @@ final class WaveformView: MTKView {
             for i in 0..<dotMasks.count { dotMasks[i] = 0 }
             uniforms.dotMatrix = 0
             dotMatrixActive = false
-            display()
+            requestDisplay()
         }
     }
 
@@ -119,7 +119,7 @@ final class WaveformView: MTKView {
             // slow frame can build a backlog of stale draw requests.
             guard view.markDisplayPending() else { return kCVReturnSuccess }
             DispatchQueue.main.async {
-                view.display()
+                view.requestDisplay()
                 view.clearDisplayPending()
             }
             return kCVReturnSuccess
@@ -155,6 +155,27 @@ final class WaveformView: MTKView {
         pendingDisplayLock.lock()
         pendingDisplay = false
         pendingDisplayLock.unlock()
+    }
+
+    private var canDrawSurface: Bool {
+        guard window?.isVisible == true,
+              !isHiddenOrHasHiddenAncestor,
+              bounds.width > 0,
+              bounds.height > 0 else {
+            return false
+        }
+        return true
+    }
+
+    private func requestDisplay() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.requestDisplay()
+            }
+            return
+        }
+        guard canDrawSurface else { return }
+        display()
     }
 
     deinit { stopLink() }
@@ -318,7 +339,7 @@ final class WaveformView: MTKView {
             clearColor = MTLClearColor(red: 0.06, green: 0.08, blue: 0.10, alpha: 1.0)
             uniforms.isLight = 0
         }
-        display()
+        requestDisplay()
     }
 
     func setSurfaceStyle(_ style: SurfaceStyle) {
@@ -407,6 +428,7 @@ extension WaveformView: MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     func draw(in view: MTKView) {
+        guard canDrawSurface else { return }
         updateLevels()
 
         let drawableSize = view.drawableSize

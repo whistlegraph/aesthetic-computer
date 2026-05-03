@@ -13,9 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var layoutToggleHotkey: GlobalHotkey?
     private let popover = NSPopover()
     private var popoverVC: MenuBandPopoverViewController?
-    private lazy var pianoWaveformPalette = PianoWaveformPalette(menuBand: menuBand)
-    private var floatingPlayPalette: PianoWaveformPalette { pianoWaveformPalette }
-    private var waveformStrip: PianoWaveformPalette { pianoWaveformPalette }
+    private lazy var pianoWaveformPalette = UnifiedPianoWaveformPalette(menuBand: menuBand)
+    private var floatingPlayPalette: UnifiedPianoWaveformPalette { pianoWaveformPalette }
+    private var waveformStrip: UnifiedPianoWaveformPalette { pianoWaveformPalette }
     private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
     private var focusCaptureArmedByShortcut = false
@@ -172,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.updateIcon()
             self.popoverVC?.refreshHeldNotes()
             self.floatingPlayPalette.refresh()
-            self.waveformStrip.refreshAppearance()
+            self.waveformStrip.refresh()
             self.updateWaveformStrip()
         }
         menuBand.onInstrumentVisualChange = { [weak self] in
@@ -314,6 +314,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
             )
             if consumed && isDown {
+                if !self.menuBand.litNotes.isEmpty {
+                    self.waveformStrip.showIfNeeded()
+                }
                 // Use the most-recent lit display note as the wave pivot
                 // so the ripple emanates from whichever key the user just
                 // played. `litNotes` is updated synchronously on this

@@ -63,6 +63,7 @@ final class QwertyLayoutView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override var isFlipped: Bool { false }
+    override var mouseDownCanMoveWindow: Bool { false }
 
     /// Three-row macOS QWERTY layout — keys identified by `kVK_*`
     /// codes, mirroring `MenuBandLayout.panByKeyCode` so the visual
