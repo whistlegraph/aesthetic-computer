@@ -186,10 +186,10 @@ const ext = (p) => {
   const i = p.lastIndexOf("."); const s = p.lastIndexOf("/");
   return (i > s && i !== -1) ? p.slice(i).toLowerCase() : "";
 };
-const top = (p) => p.split("/")[0];
+const topDir = (p) => p.split("/")[0];
 
 // Pre-compute decorated entries
-for (const f of FILES) { f.t = top(f.p); f.x = ext(f.p); }
+for (const f of FILES) { f.t = topDir(f.p); f.x = ext(f.p); }
 
 // === Folder summary table ===
 function renderFolders() {
