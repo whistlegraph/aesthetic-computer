@@ -362,6 +362,39 @@ window.acHIDE_BOOT_LOG = hideBootLog;
 // Expose bootLog globally so bios and disk can update the overlay
 window.acBOOT_LOG = bootLog;
 
+// 📱 iOS native heartbeat — lets the WKWebView host detect a stalled boot
+// (e.g. a half-loaded module that never throws because the underlying
+// fetch silently hangs on a flaky cell connection). The Swift host runs a
+// watchdog that surfaces a "Reload" overlay if no heartbeat arrives for
+// ~25 seconds; we ping every second during boot, then once on `ready`.
+(() => {
+  const ios = window.webkit?.messageHandlers?.iOSApp;
+  if (!ios) return;
+  const send = (type) => {
+    try {
+      const elapsed = Math.round(performance.now() - bootStartTime);
+      ios.postMessage(JSON.stringify({ type, elapsed }));
+    } catch {}
+  };
+  send("boot:heartbeat");
+  const beat = setInterval(() => {
+    if (bootLogHidden) {
+      send("boot:ready");
+      clearInterval(beat);
+      // After ready, fall back to a slow pulse so a deadlocked piece is
+      // still recoverable from the host (every 8s; cheap).
+      setInterval(() => send("boot:heartbeat"), 8000);
+      return;
+    }
+    send("boot:heartbeat");
+  }, 1000);
+  // Safety net: if hideBootLog never fires (catastrophic boot failure),
+  // stop the boot-phase pings after 90s so we don't keep masking the stall.
+  setTimeout(() => {
+    if (!bootLogHidden) clearInterval(beat);
+  }, 90000);
+})();
+
 // Fetch moods-of-the-day for the boot canvas (fallback in case HTML boot didn't set it)
 async function fetchBootMoodOfDay() {
   if (!window.acBootCanvas || window.acBootCanvas.motd) return;
