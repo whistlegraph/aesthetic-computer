@@ -396,6 +396,10 @@
             aspect-ratio: 1536 / 1024;
             max-height: 78vh;
             min-height: 280px;
+            /* Warm cream letterbox — matches the cream paper the colored-pencil
+               images fade into, so contain-mode gaps on wide viewports read as
+               intentional paper margin rather than negative space. */
+            background-color: #efe2c8;
         }
         .hero-canvas {
             position: absolute;
@@ -811,10 +815,17 @@
             const ctx = canvas.getContext('2d');
             const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+            // focal: normalized (0-1) image-space anchor that stays centered on screen
+            //   v2 = Johnny Appleseed   — jeffrey center-right, head upper-mid
+            //   v3 = grad students POV  — green laptop foreground-center
+            //   v4 = cafe POV           — green laptop foreground-center, students through window
+            //   v1 = washington-crossing — jeffrey upper-mid, slightly left of center
+            // pan.s = zoom multiplier on top of contain baseline (1.0 = full image visible)
             const SLIDES = [
-                { src: '/papers-header.png',    pan: { from: { s: 1.00, x:  0.00, y:  0.00 }, to: { s: 1.08, x: -0.04, y:  0.02 } } },
-                { src: '/papers-header-v3.png', pan: { from: { s: 1.06, x: -0.03, y: -0.02 }, to: { s: 1.00, x:  0.03, y:  0.02 } } },
-                { src: '/papers-header-v1.png', pan: { from: { s: 1.04, x:  0.02, y: -0.02 }, to: { s: 1.10, x: -0.02, y:  0.03 } } },
+                { src: '/papers-header.png',    focal: { x: 0.55, y: 0.40 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.10, x: -0.02, y:  0.01 } } },
+                { src: '/papers-header-v4.png', focal: { x: 0.48, y: 0.62 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.08, x:  0.01, y: -0.02 } } },
+                { src: '/papers-header-v3.png', focal: { x: 0.50, y: 0.62 }, pan: { from: { s: 1.06, x: 0, y: 0 }, to: { s: 1.00, x:  0.02, y: -0.01 } } },
+                { src: '/papers-header-v1.png', focal: { x: 0.46, y: 0.42 }, pan: { from: { s: 1.04, x: 0, y: 0 }, to: { s: 1.10, x: -0.01, y:  0.02 } } },
             ];
             const SLIDE_DUR = 7000;
             const FADE_DUR = 1500;
@@ -836,18 +847,22 @@
 
             function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
 
-            function drawSlide(img, pan, progress, alpha) {
+            function drawSlide(img, focal, pan, progress, alpha) {
                 if (!img.complete || !img.naturalWidth) return;
                 const t = easeInOutSine(progress);
                 const sc = pan.from.s + (pan.to.s - pan.from.s) * t;
                 const tx = pan.from.x + (pan.to.x - pan.from.x) * t;
                 const ty = pan.from.y + (pan.to.y - pan.from.y) * t;
-                const baseScale = Math.max(cssW / img.naturalWidth, cssH / img.naturalHeight);
+                // CONTAIN baseline so the entire image is visible at sc=1.0;
+                // sc > 1.0 zooms past contain, the focal anchor keeps the
+                // important content (face / laptop) centered on screen.
+                const baseScale = Math.min(cssW / img.naturalWidth, cssH / img.naturalHeight);
                 const scale = baseScale * sc;
                 const dw = img.naturalWidth * scale;
                 const dh = img.naturalHeight * scale;
-                const dx = (cssW - dw) / 2 + tx * cssW;
-                const dy = (cssH - dh) / 2 + ty * cssH;
+                // Anchor focal point at canvas center, then add small pan delta
+                const dx = (cssW / 2) - (img.naturalWidth  * focal.x * scale) + tx * cssW;
+                const dy = (cssH / 2) - (img.naturalHeight * focal.y * scale) + ty * cssH;
                 ctx.save();
                 ctx.globalAlpha = alpha;
                 ctx.drawImage(img, dx, dy, dw, dh);
@@ -872,10 +887,10 @@
                     // current slide on top fading out
                     const fadeT = (slideProg - fadeStartProg) / (1 - fadeStartProg);
                     const nextIdx = (idx + 1) % SLIDES.length;
-                    drawSlide(images[nextIdx], SLIDES[nextIdx].pan, 0, 1);
-                    drawSlide(images[idx], SLIDES[idx].pan, slideProg, 1 - fadeT);
+                    drawSlide(images[nextIdx], SLIDES[nextIdx].focal, SLIDES[nextIdx].pan, 0, 1);
+                    drawSlide(images[idx], SLIDES[idx].focal, SLIDES[idx].pan, slideProg, 1 - fadeT);
                 } else {
-                    drawSlide(images[idx], SLIDES[idx].pan, slideProg, 1);
+                    drawSlide(images[idx], SLIDES[idx].focal, SLIDES[idx].pan, slideProg, 1);
                 }
 
                 if (!reduced || lastFrame === 0) requestAnimationFrame(frame);

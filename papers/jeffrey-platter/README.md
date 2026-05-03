@@ -98,6 +98,12 @@ POI types: `f` = face, `b` = body, `h` = hand. Aspects vary (0.562 / 0.563 / 0.6
 
 TBD: locate the script that generated the existing focal/POI values (OpenCV DNN + Haar cascades, per the give-page comment) and check it in to `portraits/jeffrey/bin/`. The manifest carries the *output* of that pipeline; the pipeline itself isn't in the repo yet.
 
+#### `screenshots/images/` — First-person POV "selfies" (90 environmental webp captures)
+
+90 webp screenshots of jeffrey's working environment — laptop screens, hands on the keyboard, desk surfaces, ambient development moments. Captured live while making AC. Treated as canonical **first-person POV reference imagery** for any pipeline that wants a POV-from-jeffrey look (vs the third-person headshots in `shoot/`). Mostly portrait orientation (`aspect: 0.75`), each item has a `focal` coordinate and `pois` boxes (`t: "s"` = scene region).
+
+URL pattern: `https://assets.aesthetic.computer/screenshots/images/<name>.webp`. Cataloged in [manifest.json](manifest.json) under `buckets.screenshots.items` (imported from `give.aesthetic.computer/index.html` 2026-05-02). Currently consumed by the give Ken Burns slideshow (merged into `allImagesData`) and available to image-gen pipelines via `--refs`.
+
 #### `jeffreys/gens/` — Generated images (gpt-image-2 + platter-grounded identity)
 
 Output bucket for any pipeline that synthesizes a new jeffrey-image conditioned on the platter refs (typically `SHOOT_REFS` + `SELFIE_REFS` from [`portraits/jeffrey/bin/generate-neo.py`](../../portraits/jeffrey/bin/generate-neo.py)). One PNG per successful gen, dated, never overwritten.
