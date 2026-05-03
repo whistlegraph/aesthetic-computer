@@ -246,6 +246,11 @@ const PAPER_MAP = {
     siteName: "pioneer-works-dossier-26-arxiv",
     title: "Pioneer Works — A Dossier",
   },
+  "arxiv-fraserin": {
+    base: "fraserin",
+    siteName: "fraserin-essay-26-arxiv",
+    title: "A Fraserin' Art + Tech",
+  },
 };
 
 function texName(base, lang) {

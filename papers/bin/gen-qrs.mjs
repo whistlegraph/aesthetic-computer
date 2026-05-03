@@ -40,6 +40,7 @@ const PAPERS = {
   "arxiv-the-kitchen": "the-kitchen-dossier-26-arxiv",
   "arxiv-machine-project": "machine-project-dossier-26-arxiv",
   "arxiv-heavy-manners-library": "heavy-manners-library-dossier-26-arxiv",
+  "arxiv-fraserin": "fraserin-essay-26-arxiv",
 };
 
 const argv = process.argv.slice(2);

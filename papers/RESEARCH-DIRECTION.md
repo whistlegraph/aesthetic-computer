@@ -18,16 +18,17 @@
 ## Per-Paper Revision Plans
 
 ### 0a. PLORKing the Planet (arXiv — `arxiv-plork/plork.tex`)
-**Status**: Working draft, ~8 pages, WORKING DRAFT watermark
-**Current citations**: ~25 (PLOrk, L2Ork, SLOrk, Attali, Turino, Illich, OLPC, e-waste, surplus pricing)
+**Status**: Working draft, 14 pages with figures, WORKING DRAFT watermark
+**Current citations**: ~30 (PLOrk, L2Ork, SLOrk, Attali, Turino, Illich, OLPC, e-waste, surplus pricing, Luckey/Anduril arc)
 **Core argument**: PLOrk proved laptop orchestras are musically legitimate but the model is trapped in universities at $1,500+/seat. AC Native OS + surplus hardware ($50/seat) removes the economic barrier entirely — 240M Windows 10 EOL machines = raw material for a planetary laptop orchestra.
 **What's needed**:
-- [ ] Add figures: PLOrk vs AC OS cost scaling chart, surplus hardware photo grid, ensemble network diagram
+- [x] Add figures: cost scaling chart (TikZ "cost cliff"), hardware-yoga hero, ensemble network diagram, KidLisp cards strip, KidLisp piece screenshot — 5 figures landed 2026-05-02
 - [ ] Get exact PLOrk equipment cost figures from Trueman 2006/2007 papers (currently estimated)
 - [ ] Add real AC OS ensemble performance test results (latency, voice count, network throughput)
 - [x] Cite Ge Wang's ChucK papers more specifically for SLOrk technical details — prose strengthened 2026-03-28
 - [ ] Add section on software-defined spatialization (distributed speakers as emergent hemispherical speaker)
 - [x] Research and cite post-COVID laptop orchestra status (many dissolved?) — prose added in Related Work 2026-03-28
+- [x] Add Palmer Luckey / Oculus → Anduril subsection to dedicated-device landscape (§5.4) — political-economy counter-arc to the AC OS proposition; 5 new BibTeX entries (Levy 2019 CNBC, Solana 2024 Tablet, Pelley 2024 60 Min, anduril.com product pages, Wikipedia: Anduril Industries) — added 2026-05-02
 - [ ] Consider NIME 2027 submission (laptop orchestras + new instruments = core NIME topic)
 
 ### 0b. AC Native OS '26 (arXiv — `arxiv-os/os.tex`)
@@ -162,6 +163,21 @@
 - Consider: notepat live performance, KidLisp collaborative drawing, AC piece gallery walkthrough
 - Hardware: phone + laptop + projector (URL-addressable = easy demo)
 
+### A Fraserin' Art + Tech (arxiv-fraserin)
+- New research track opened 2026-05-02. Folder: `papers/arxiv-fraserin/`. **First-pass 7-page draft built same day** (`fraserin.pdf`); PLAN.md tracks the remaining acquisition + revision work.
+- Methodology essay + literature survey, written in a labor-folk register. Asks: what would it mean to apply Andrea Fraser's institutional-critique grammar to the art-and-tech cluster, and to what extent has it already been done?
+- Names the dossier series (`arxiv-rhizome`, `-eyebeam`, `-sfpc`, `-recurse`, `-pioneer-works`, `-mellon`, `-internet-archive`, `-new-inc`, `-machine-project`, `-the-kitchen`, `-studio-museum`, `-heavy-manners-library`, `-hathitrust`, `-calarts`, `-ucla-arts`) as a single coherent project under that lens.
+- Six-move grammar drawn from Fraser 2005 Artforum + *Museums, Money, and Politics* (2018). Folk-tune voice draws on Ukeles, W.A.G.E., Almanac Singers, and the 2019–2024 art-museum staff unionizations.
+- Prior-art survey strands: Fraser herself (Strand A), critics inside the cluster (B — Quaranta, Lovink, Bosma, Bazzichelli, Cornell+Halter, Paul, Arns, Baumgärtel), artists doing IC works in art-and-tech venues (C — Dullaart, Cirio, Bitnik, Lialina, Wilson, Steyerl, Paglen, Arcangel, Goldin+Senneby), activist/archival/list work (D — Decolonize This Place, Forensic Architecture, W.A.G.E., MTL), academic IC writing (E — Alberro+Stimson, Bourdieu, Becker, Haacke), AC dossier series (F — proto-Fraser corpus already in the platter), labor / cultural-worker tradition (G — Ukeles, Davis, Ross, Lorusso, Molesworth).
+- **Next**: read Fraser 2005 Artforum essay; inventory existing AC dossier folders for §F status table; draft §2 (grammar) and §F (what's already built) first.
+
+### Dedicated-Device Political Economy
+- Thread platterized 2026-05-02 (cited in `arxiv-plork/plork.tex` §5.4)
+- Core observation: "dedicated computing device" is not a politics, it is an architectural pattern. Same fast-boot / single-purpose / sensor-rich / network-native shape can produce Switch, Steam Deck, OP-1, AC OS — or Anduril's Sentry Tower, Roadrunner, Lattice OS, Seabed Sentry.
+- Palmer Luckey arc as the canonical case: Oculus VR (2012, consumer creative dedicated device) → \$2B Facebook acquisition (2014) → fired over \$10K Trump-PAC donation (2017) → \$100M buyout → Anduril Industries (June 2017) → \$6B+ in government contracts by 2026, IVAS takeover from Microsoft.
+- BibTeX in `arxiv-plork/references.bib`: `cnbc2019luckey` (Levy / CNBC), `tablet2024vulcan` (Solana / Tablet "American Vulcan"), `cbs2024luckey` (Pelley / 60 Minutes), `anduril2026products` (anduril.com Mission Autonomy + product pages), `wiki2026anduril` (Wikipedia consulted May 2026).
+- **Next**: Could expand into a stand-alone short paper or extend §8 (Music, Access, and Political Economy) with a parallel "Devices, Authorship, and Political Economy" subsection. Worth tracking adjacent companies (Saronic, Shield AI, Skydio) if the thread grows.
+
 ---
 
 ## Platter Corpus Summary
@@ -204,6 +220,27 @@ As of 2026-04-06, we have acquired 18 (14 full-text + 4 SoSoft doc digests). ~55
 | 12 | Raymond | *Cathedral and the Bazaar* (rev. ed.) | 11,446 | Monoskop (OPL) |
 | 13 | Goriunova | *Readme 100* (2006) | 5,366 | Monoskop |
 | 14 | Wagenknecht | *Deep Lab* (2014) | 5,482 | Frank-Ratchye STUDIO |
+
+### Pending — Fraser track (arxiv-fraserin), added 2026-05-02
+
+Cited in `arxiv-fraserin/fraserin.tex`; none yet extracted to the platter. Priority order (per PLAN.md):
+
+- [ ] Fraser, "From the Critique of Institutions to an Institution of Critique" (Artforum, Sept 2005) — try Marian Goodman, Whitney ISP archive, Fraser's site, art-and-education.net
+- [ ] Fraser & Westreich, *2016 in Museums, Money, and Politics* (MIT/Whitney ISP, 2018) — Archive.org lending library
+- [ ] Alberro & Stimson, *Institutional Critique: An Anthology of Artists' Writings* (MIT Press, 2009) — Archive.org lending
+- [ ] Lovink, *Networks Without a Cause* (Polity, 2011), *Social Media Abyss* (Polity, 2016), *Sad by Design* (Pluto, 2019) — INC may have free PDFs
+- [ ] Quaranta, *Beyond New Media Art* (LINK, 2013) + *In Your Computer* (LINK, 2011) — Link Editions CC; ~5-min extraction job
+- [ ] Bosma, *Nettitudes* (NAi/INC, 2011) — INC free PDF likely
+- [ ] Bazzichelli, *Networked Disruption* (Aarhus, 2013) — open access
+- [ ] Cornell & Halter (eds), *Mass Effect* (MIT Press, 2015) — already on SoSoft Tier 2 list
+- [ ] Steyerl, *Duty Free Art* (Verso, 2017); freeport essay also via e-flux journal
+- [ ] Bourdieu, *The Rules of Art* (Stanford UP, 1996) — commercial
+- [ ] Becker, *Art Worlds* (UC Press, 1982) — commercial
+- [ ] Haacke, *Shapolsky et al.* documentation (1971) — Monoskop / Guggenheim archive
+- [ ] Davis, *9.5 Theses on Art and Class* (Haymarket, 2013) — chapters likely posted free
+- [ ] Lorusso, *Entreprecariat* (Onomatopee, 2019) — CC license, free PDF on publisher site
+- [ ] Ross, *Nice Work If You Can Get It* (NYU, 2009) + *No-Collar* (Temple, 2003) — commercial
+- [ ] Molesworth (ed), *Work Ethic* (Penn State / BMA, 2003) — exhibition catalogue
 
 ### Pending (known open-access, need different extraction)
 

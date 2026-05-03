@@ -135,7 +135,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
-| A Fraserin' Art + Tech (methodology essay + prior-art survey, labor-folk register) | arXiv (LaTeX, PLAN only) | (build pending) | `arxiv-fraserin/PLAN.md` |
+| A Fraserin' Art + Tech (methodology essay + prior-art survey, labor-folk register) | arXiv (LaTeX, 7pp first-pass) | `arxiv-fraserin/fraserin.pdf` | `arxiv-fraserin/fraserin.tex` |
 | Pioneer Works: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 2012–2026) | arXiv (LaTeX, dossier) | `arxiv-pioneer-works/pioneer-works.pdf` | `arxiv-pioneer-works/pioneer-works.tex` |
 | Mellon Foundation: A Dossier (Genealogy, Programs, Giving, People, Politics, 1969–2026) | arXiv (LaTeX, dossier) | `arxiv-mellon/mellon.pdf` | `arxiv-mellon/mellon.tex` |
 | Internet Archive: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 1996–2026) | arXiv (LaTeX, dossier) | `arxiv-internet-archive/internet-archive.pdf` | `arxiv-internet-archive/internet-archive.tex` |

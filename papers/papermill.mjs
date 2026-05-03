@@ -156,6 +156,11 @@ const PAPER_MAP = {
     siteName: "diagrams-from-data-26-arxiv",
     paperId: "penrose",
   },
+  "arxiv-keymaps": {
+    base: "keymaps",
+    siteName: "keymaps-as-social-software-26-arxiv",
+    paperId: "keymaps",
+  },
 };
 
 // --- File discovery ---
