@@ -33,6 +33,8 @@ ok()   { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
 warn() { printf "%s! %s%s\n" "$YELLOW" "$1" "$RESET"; }
 err()  { printf "%s✗ %s%s\n" "$RED" "$1" "$RESET" 1>&2; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "${REPO_ROOT}" ]]; then
     err "not inside a git repository"
@@ -46,6 +48,15 @@ MIRROR_BRANCH="main"
 
 if [[ ! -d "${PREFIX}" ]]; then
     err "${PREFIX}/ not found in ${REPO_ROOT}"
+    exit 1
+fi
+
+# Refuse if the working tree under PREFIX has uncommitted changes — otherwise
+# we'd push files to the mirror that aren't yet committed in the monorepo,
+# making the mirror tip ahead of (and inconsistent with) the canonical source.
+if ! git diff --quiet -- "${PREFIX}" || ! git diff --cached --quiet -- "${PREFIX}"; then
+    err "${PREFIX}/ has uncommitted changes — commit them before syncing"
+    git status -s -- "${PREFIX}" 1>&2
     exit 1
 fi
 
@@ -67,11 +78,62 @@ trap "rm -rf ${WORK}" EXIT
 
 if git ls-remote --heads "${MIRROR_URL}" "${MIRROR_BRANCH}" 2>/dev/null | grep -q "refs/heads/${MIRROR_BRANCH}"; then
     say "cloning mirror"
-    git clone --depth=1 --branch="${MIRROR_BRANCH}" "${MIRROR_URL}" "${WORK}" >/dev/null 2>&1
+    # Need enough depth to walk back to the previous "Mirror of <hash>" commit
+    # for the unlanded-contributor pre-flight check below. Shallow=50 is plenty;
+    # snapshots happen often enough that the last marker is always near the tip.
+    git clone --depth=50 --branch="${MIRROR_BRANCH}" "${MIRROR_URL}" "${WORK}" >/dev/null 2>&1
 else
     say "initialising empty mirror"
     git init -q -b "${MIRROR_BRANCH}" "${WORK}"
     git -C "${WORK}" remote add origin "${MIRROR_URL}"
+fi
+
+# Pre-flight: refuse to snapshot if the mirror has contributor commits since
+# the last "Mirror of <hash>" point that haven't been landed in the monorepo
+# yet. Without this check, the snapshot's tree would silently regress that
+# contributor work — exactly what happened with Esteban's PR #2: the mirror
+# had his consolidated palette merged, the monorepo didn't yet, and a sync
+# from monorepo blew his work out of the tip tree.
+#
+# Override with SYNC_FORCE=1 if you really mean it (e.g. you've decided to
+# revert a contributor change). Don't make this a habit.
+LAST_MIRROR_COMMIT="$(git -C "${WORK}" log --format='%H' --grep='^Mirror of [0-9a-f]\{7\}:' -1 || true)"
+if [[ -n "${LAST_MIRROR_COMMIT}" ]]; then
+    LAST_MIRROR_MONO_HASH="$(git -C "${WORK}" log -1 --format='%s' "${LAST_MIRROR_COMMIT}" \
+        | sed -nE 's/^Mirror of ([0-9a-f]+):.*/\1/p')"
+
+    UNLANDED_COUNT=0
+    UNLANDED_LINES=""
+    while IFS=$'\t' read -r contrib_sha contrib_subj; do
+        [[ -z "${contrib_sha}" ]] && continue
+        # Skip future "Mirror of …" snapshots — those are our own.
+        [[ "${contrib_subj}" == "Mirror of "* ]] && continue
+        # Has this subject appeared in the monorepo's slab/menuband history
+        # since the last sync? If yes, treat as landed (authorship/hash differ
+        # because of git am rewrites, but the content is what matters).
+        if ! git log --format='%s' -- "${PREFIX}" | grep -Fxq "${contrib_subj}"; then
+            UNLANDED_COUNT=$((UNLANDED_COUNT + 1))
+            UNLANDED_LINES+="    ${contrib_sha:0:9}  ${contrib_subj}"$'\n'
+        fi
+    done < <(git -C "${WORK}" log --no-merges --format='%H%x09%s' \
+                "${LAST_MIRROR_COMMIT}..HEAD" 2>/dev/null)
+
+    if [[ ${UNLANDED_COUNT} -gt 0 ]]; then
+        err "mirror has ${UNLANDED_COUNT} contributor commit(s) not landed in monorepo:"
+        printf '%s' "${UNLANDED_LINES}" 1>&2
+        echo 1>&2
+        echo "  Land them first (preserves authorship, handles overlap):" 1>&2
+        echo "    ${SCRIPT_DIR}/mirror-pull.sh" 1>&2
+        echo 1>&2
+        echo "  Override (DANGEROUS — will regress contributor work in mirror tip):" 1>&2
+        echo "    SYNC_FORCE=1 $0" 1>&2
+        if [[ "${SYNC_FORCE:-}" != "1" ]]; then
+            exit 1
+        fi
+        warn "SYNC_FORCE=1 set — proceeding despite unlanded commits"
+    else
+        ok "no unlanded contributor commits on mirror"
+    fi
 fi
 
 # Replace the mirror's working tree with the current snapshot of

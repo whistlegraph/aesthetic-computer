@@ -23,21 +23,32 @@ if one is available, or generate a self-signed identity for local testing.
 
 ## Mirror notice
 
-This repository is a **read-only mirror** of `slab/menuband/` from the
+This repository is a **snapshot mirror** of `slab/menuband/` from the
 [aesthetic.computer monorepo](https://tangled.org/@aesthetic.computer/core).
-The monorepo is canonical; this mirror is force-pushed by a `git subtree split`
-hook every time the upstream Menu Band code changes.
+The monorepo is canonical; the maintainer pushes new "Mirror of `<hash>`"
+commits onto `main` whenever upstream code changes.
 
-Force-push only affects `main`. Your forks and feature branches are not
-disturbed by upstream sync.
+Your forks and feature branches are not disturbed by upstream sync — only
+`main` advances.
 
 ### Submitting changes
 
 Forks + pull requests work normally on GitHub. When the maintainer accepts
-your PR, the changes get applied back to the monorepo via `git format-patch`
-+ `git am`, preserving your authorship in the commit log. The next mirror
-sync after that lands those commits here too — so your hash on the mirror
-will eventually match a hash in the upstream monorepo's history.
+your PR:
+
+1. The maintainer runs `slab/menuband/bin/mirror-pull.sh` from the monorepo.
+   That script walks every contributor commit on `main` since the last
+   "Mirror of …" snapshot and applies them via
+   `git format-patch | git am --3way --directory=slab/menuband/`,
+   preserving your authorship.
+2. Then `slab/menuband/bin/mirror-sync.sh` snapshots back to `main`. The
+   sync script **refuses to push** if any contributor commit on the mirror
+   hasn't been landed in the monorepo first — so your work can't get
+   silently regressed by an out-of-order sync.
+
+The mirror's commit hash for your work won't match the monorepo's (git am
+rewrites hashes), but the author and subject do. After the next sync, the
+mirror's tip tree will contain your changes.
 
 ## Acknowledgements
 
