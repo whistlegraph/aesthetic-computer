@@ -965,7 +965,8 @@ private final class FloatingPianoView: NSView {
     private weak var menuBand: MenuBandController?
     private var trackingArea: NSTrackingArea?
     private var hoveredNote: UInt8?
-    private var currentNote: UInt8?
+    private var currentDisplayNote: UInt8?
+    private var currentPlayedNote: UInt8?
 
     private let pianoScale: CGFloat
     private var widthConstraint: NSLayoutConstraint!
@@ -1055,17 +1056,24 @@ private final class FloatingPianoView: NSView {
         window?.makeKey()
         guard let menuBand = menuBand,
               let point = rendererPoint(from: event),
-              let note = withFloatingPaletteKeyboard(
+              let displayNote = withFloatingPaletteKeyboard(
                   menuBand: menuBand,
                   { KeyboardIconRenderer.noteAt(point, layout: Self.rendererLayout) }
-              )
+              ),
+              let playedNote = playedNote(for: displayNote, menuBand: menuBand)
         else { return }
         let expression = withFloatingPaletteKeyboard(menuBand: menuBand) {
-            NoteExpression.values(for: note, at: point, layout: Self.rendererLayout)
+            NoteExpression.values(for: displayNote, at: point, layout: Self.rendererLayout)
         }
-        currentNote = note
-        hoveredNote = note
-        menuBand.startTapNote(note, velocity: expression.velocity, pan: expression.pan)
+        currentDisplayNote = displayNote
+        currentPlayedNote = playedNote
+        hoveredNote = displayNote
+        menuBand.startTapNote(
+            playedNote,
+            velocity: expression.velocity,
+            pan: expression.pan,
+            displayNote: displayNote
+        )
         needsDisplay = true
     }
 
@@ -1078,36 +1086,50 @@ private final class FloatingPianoView: NSView {
         )
         hoveredNote = hovered
 
-        if hovered != currentNote {
-            if let previous = currentNote {
+        if hovered != currentDisplayNote {
+            if let previous = currentPlayedNote {
                 menuBand.stopTapNote(previous)
             }
-            if let next = hovered {
+            if let nextDisplay = hovered,
+               let nextPlayed = playedNote(for: nextDisplay, menuBand: menuBand) {
                 let expression = withFloatingPaletteKeyboard(menuBand: menuBand) {
-                    NoteExpression.values(for: next, at: point, layout: Self.rendererLayout)
+                    NoteExpression.values(for: nextDisplay, at: point, layout: Self.rendererLayout)
                 }
-                menuBand.startTapNote(next, velocity: expression.velocity, pan: expression.pan)
+                menuBand.startTapNote(
+                    nextPlayed,
+                    velocity: expression.velocity,
+                    pan: expression.pan,
+                    displayNote: nextDisplay
+                )
+                currentPlayedNote = nextPlayed
+            } else {
+                currentPlayedNote = nil
             }
-            currentNote = hovered
-        } else if let current = currentNote {
+            currentDisplayNote = hovered
+        } else if let current = currentDisplayNote,
+                  currentPlayedNote != nil {
             let expression = withFloatingPaletteKeyboard(menuBand: menuBand) {
                 NoteExpression.values(for: current, at: point, layout: Self.rendererLayout)
             }
-            menuBand.updateTapPan(current, pan: expression.pan)
+            if let playedNote = currentPlayedNote {
+                menuBand.updateTapPan(playedNote, pan: expression.pan)
+            }
         }
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
-        if let note = currentNote {
+        if let note = currentPlayedNote {
             menuBand?.stopTapNote(note)
         }
-        currentNote = nil
+        currentDisplayNote = nil
+        currentPlayedNote = nil
         updateHover(with: event)
     }
 
     func clearInteraction() {
-        currentNote = nil
+        currentDisplayNote = nil
+        currentPlayedNote = nil
         hoveredNote = nil
         needsDisplay = true
     }
@@ -1158,6 +1180,12 @@ private final class FloatingPianoView: NSView {
             width: size.width,
             height: size.height
         )
+    }
+
+    private func playedNote(for displayNote: UInt8, menuBand: MenuBandController) -> UInt8? {
+        let value = Int(displayNote) + menuBand.octaveShift * 12
+        guard value >= 0, value <= 127 else { return nil }
+        return UInt8(value)
     }
 }
 

@@ -1189,7 +1189,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let initialHitPt = imagePoint(from: downEvent.locationInWindow)
         let initial = KeyboardIconRenderer.hit(at: initialHitPt)
         debugLog("hit pt=(\(initialHitPt.x),\(initialHitPt.y)) -> \(String(describing: initial))")
-        let startNote: UInt8
+        let startDisplayNote: UInt8
         switch initial {
         case .openSettings:
             showPopover()
@@ -1202,16 +1202,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             floatingPlayPalette.show()
             return
         case .note(let n):
-            startNote = n
+            startDisplayNote = n
         case .none:
             return
         }
 
+        guard let startNote = playedNote(for: startDisplayNote) else { return }
+
         let initialPt = imagePoint(from: downEvent.locationInWindow)
-        let (vel0, pan0) = NoteExpression.values(for: startNote, at: initialPt)
+        let (vel0, pan0) = NoteExpression.values(for: startDisplayNote, at: initialPt)
         let initialShift = downEvent.modifierFlags.contains(.shift)
             || downEvent.modifierFlags.contains(.capsLock)
-        menuBand.startTapNote(startNote, velocity: vel0, pan: pan0, linger: initialShift)
+        menuBand.startTapNote(
+            startNote,
+            velocity: vel0,
+            pan: pan0,
+            displayNote: startDisplayNote,
+            linger: initialShift
+        )
         waveformStrip.showIfNeeded()
         // Arm sandbox-friendly local capture on a real piano click. We
         // skip arming when global TYPE mode is already on — the global
@@ -1223,7 +1231,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             localCapture.arm()
             floatingPlayPalette.refresh()
         }
-        var current: UInt8? = startNote
+        var currentDisplay: UInt8? = startDisplayNote
+        var currentPlayed: UInt8? = startNote
         while let next = NSApp.nextEvent(
             matching: [.leftMouseDragged, .leftMouseUp],
             until: .distantFuture,
@@ -1231,29 +1240,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dequeue: true
         ) {
             if next.type == .leftMouseUp {
-                if let c = current { menuBand.stopTapNote(c) }
+                if let c = currentPlayed { menuBand.stopTapNote(c) }
                 break
             }
             let pt = imagePoint(from: next.locationInWindow)
-            let hovered = KeyboardIconRenderer.noteAt(pt)
-            if hovered != current {
-                if let prev = current { menuBand.stopTapNote(prev) }
-                if let nxt = hovered {
-                    let (v, p) = NoteExpression.values(for: nxt, at: pt)
+            let hoveredDisplay = KeyboardIconRenderer.noteAt(pt)
+            if hoveredDisplay != currentDisplay {
+                if let prev = currentPlayed { menuBand.stopTapNote(prev) }
+                if let nxtDisplay = hoveredDisplay,
+                   let nxtPlayed = playedNote(for: nxtDisplay) {
+                    let (v, p) = NoteExpression.values(for: nxtDisplay, at: pt)
                     // Sample shift+capslock state per-note during the drag
                     // so the user can shift-press, release shift mid-drag,
                     // and still get linger from a latched caps lock.
                     let shiftNow = next.modifierFlags.contains(.shift)
                         || next.modifierFlags.contains(.capsLock)
-                    menuBand.startTapNote(nxt, velocity: v, pan: p, linger: shiftNow)
+                    menuBand.startTapNote(
+                        nxtPlayed,
+                        velocity: v,
+                        pan: p,
+                        displayNote: nxtDisplay,
+                        linger: shiftNow
+                    )
                     waveformStrip.showIfNeeded()
+                    currentPlayed = nxtPlayed
+                } else {
+                    currentPlayed = nil
                 }
-                current = hovered
-            } else if let c = current {
-                let (_, p) = NoteExpression.values(for: c, at: pt)
+                currentDisplay = hoveredDisplay
+            } else if let c = currentPlayed, let display = currentDisplay {
+                let (_, p) = NoteExpression.values(for: display, at: pt)
                 menuBand.updateTapPan(c, pan: p)
             }
         }
+    }
+
+    private func playedNote(for displayNote: UInt8) -> UInt8? {
+        let value = Int(displayNote) + menuBand.octaveShift * 12
+        guard value >= 0, value <= 127 else { return nil }
+        return UInt8(value)
     }
 
     // MARK: - Popover
