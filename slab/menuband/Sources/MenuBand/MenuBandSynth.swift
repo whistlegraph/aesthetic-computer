@@ -34,10 +34,29 @@ final class MenuBandSynth {
     /// Fallback backend, always available immediately.
     private let melodic = AVAudioUnitSampler()
     private let drums = AVAudioUnitSampler()
+    /// Sums every backend before the limiter so simultaneous voices share one
+    /// gain stage. Without this, each backend would feed `mainMixerNode`
+    /// directly and a chord across melodic + drums + midiSynth could exceed
+    /// 0 dBFS at the output (audible clipping/crackle).
+    private let preLimiterMixer = AVAudioMixerNode()
+    /// Apple PeakLimiter on the master path. Catches transient peaks from
+    /// chords or stacked sustains and holds output below 0 dBFS regardless
+    /// of how many notes are pressed simultaneously. Parameters tuned for
+    /// transparency on instrument samples (fast attack, gentle release).
+    private let limiter: AVAudioUnitEffect = {
+        var desc = AudioComponentDescription(
+            componentType: kAudioUnitType_Effect,
+            componentSubType: kAudioUnitSubType_PeakLimiter,
+            componentManufacturer: kAudioUnitManufacturer_Apple,
+            componentFlags: 0,
+            componentFlagsMask: 0)
+        return AVAudioUnitEffect(audioComponentDescription: desc)
+    }()
     private var started = false
     private var melodicConnected = false
     private var drumsConnected = false
     private var midiSynthConnected = false
+    private var limiterConnected = false
     private var waveformCaptureEnabled = false
     private var activeNotes: Set<UInt16> = []
     private var idleSuspendWorkItem: DispatchWorkItem?
@@ -69,8 +88,11 @@ final class MenuBandSynth {
 
     func start() {
         guard !started else { return }
+        engine.attach(preLimiterMixer)
+        engine.attach(limiter)
         engine.attach(melodic)
         engine.attach(drums)
+        connectLimiterIfNeeded()
         connectMelodicSamplerIfNeeded()
         connectDrumsSamplerIfNeeded()
         engine.prepare()
@@ -161,9 +183,30 @@ final class MenuBandSynth {
         // patch needs them again.
     }
 
+    /// Wire preLimiterMixer → limiter → mainMixerNode and tune the limiter
+    /// for transparent peak control on instrument samples. Called once from
+    /// `start()` before any backend is connected so backends can route
+    /// straight to `preLimiterMixer`.
+    private func connectLimiterIfNeeded() {
+        guard !limiterConnected else { return }
+        engine.connect(preLimiterMixer, to: limiter, format: nil)
+        engine.connect(limiter, to: engine.mainMixerNode, format: nil)
+        let au = limiter.audioUnit
+        // Fast attack catches chord/transient peaks; medium release avoids
+        // pumping on sustained notes. Pre-gain stays at 0 so quiet input
+        // doesn't get squashed into the limiter unnecessarily.
+        AudioUnitSetParameter(au, kLimiterParam_AttackTime,
+                              kAudioUnitScope_Global, 0, 0.002, 0)
+        AudioUnitSetParameter(au, kLimiterParam_DecayTime,
+                              kAudioUnitScope_Global, 0, 0.050, 0)
+        AudioUnitSetParameter(au, kLimiterParam_PreGain,
+                              kAudioUnitScope_Global, 0, 0.0, 0)
+        limiterConnected = true
+    }
+
     private func connectMelodicSamplerIfNeeded() {
         guard !melodicConnected else { return }
-        engine.connect(melodic, to: engine.mainMixerNode, format: nil)
+        engine.connect(melodic, to: preLimiterMixer, format: nil)
         melodicConnected = true
     }
 
@@ -176,7 +219,7 @@ final class MenuBandSynth {
 
     private func connectDrumsSamplerIfNeeded() {
         guard !drumsConnected else { return }
-        engine.connect(drums, to: engine.mainMixerNode, format: nil)
+        engine.connect(drums, to: preLimiterMixer, format: nil)
         drumsConnected = true
     }
 
@@ -189,7 +232,7 @@ final class MenuBandSynth {
 
     private func connectMIDISynthIfNeeded(_ avUnit: AVAudioUnit) {
         guard !midiSynthConnected else { return }
-        engine.connect(avUnit, to: engine.mainMixerNode, format: nil)
+        engine.connect(avUnit, to: preLimiterMixer, format: nil)
         midiSynthConnected = true
     }
 
