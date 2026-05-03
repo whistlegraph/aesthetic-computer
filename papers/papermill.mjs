@@ -301,6 +301,7 @@ function extractTitleFromTex(texPath) {
 
 function cleanLatex(text) {
   return text
+    .replace(/\\acrandname\{\}/g, "Aesthetic Computer")
     .replace(/\\ac\{\}/g, "Aesthetic Computer")
     .replace(/\\acos\{\}/g, "AC Native OS")
     .replace(/\\np\{\}/g, "notepat")
@@ -314,6 +315,42 @@ function cleanLatex(text) {
     .replace(/\\emph\{([^}]+)\}/g, "$1")
     .replace(/\\url\{([^}]+)\}/g, "$1")
     .replace(/\\href\{[^}]+\}\{([^}]+)\}/g, "$1")
+    // Accented letters (Spanish) — longer patterns first
+    .replace(/\\'\{\\i\}/g, "í") // \'{\i} → í
+    .replace(/\\'\{a\}/g, "á")
+    .replace(/\\'\{e\}/g, "é")
+    .replace(/\\'\{i\}/g, "í")
+    .replace(/\\'\{o\}/g, "ó")
+    .replace(/\\'\{u\}/g, "ú")
+    .replace(/\\'a/g, "á")
+    .replace(/\\'e/g, "é")
+    .replace(/\\'i/g, "í")
+    .replace(/\\'o/g, "ó")
+    .replace(/\\'u/g, "ú")
+    .replace(/\\~\{n\}/g, "ñ")
+    .replace(/\\~n/g, "ñ")
+    // Danish letters. LaTeX rule: a letter-command like `\ae` gobbles one
+    // following space, so `\ae re` → `ære`. Forms handled: {\x}, \x{}, \x\<sp>
+    // (explicit space — keeps space), \x followed by space+letter (gobble),
+    // \x followed by other non-letter (keep).
+    .replace(/\{\\aa\}/g, "å")
+    .replace(/\\aa\{\}/g, "å")
+    .replace(/\\aa\\ /g, "å ")
+    .replace(/\\aa /g, "å")
+    .replace(/\\aa(?=[^a-zA-Z])/g, "å")
+    .replace(/\{\\AA\}/g, "Å")
+    .replace(/\{\\o\}/g, "ø")
+    .replace(/\\o\{\}/g, "ø")
+    .replace(/\\o\\ /g, "ø ")
+    .replace(/\\o (?=[a-zA-Z])/g, "ø")
+    .replace(/\\o(?=[^a-zA-Z])/g, "ø")
+    .replace(/\{\\O\}/g, "Ø")
+    .replace(/\{\\ae\}/g, "æ")
+    .replace(/\\ae\{\}/g, "æ")
+    .replace(/\\ae\\ /g, "æ ")
+    .replace(/\\ae /g, "æ")
+    .replace(/\\ae(?=[^a-zA-Z])/g, "æ")
+    .replace(/\{\\AE\}/g, "Æ")
     .replace(/\\\\/g, "")
     .replace(/\\,/g, "")
     .replace(/\\&/g, "&")

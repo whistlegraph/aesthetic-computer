@@ -1,7 +1,7 @@
 {
   "ac": {
     "en": {
-      "title": "\\acrandname{} '26",
+      "title": "Aesthetic Computer '26",
       "subtitle": "A Mobile-First Runtime for Creative Computing"
     },
     "da": {
@@ -15,6 +15,10 @@
     "zh": {
       "title": "Aesthetic. Computer '26",
       "subtitle": "面向创意计算的移动优先运行时"
+    },
+    "ja": {
+      "title": "Aesthetic. Computer '26",
+      "subtitle": "クリエイティブコンピューティングのためのモバイルファーストランタイム"
     }
   },
   "api": {
@@ -33,12 +37,16 @@
     "zh": {
       "title": "从 setup() 到 boot()",
       "subtitle": "Processing在作品API核心中的延续"
+    },
+    "ja": {
+      "title": "setup() から boot() へ",
+      "subtitle": "ピースAPIの核心におけるProcessingの継承"
     }
   },
   "archaeology": {
     "en": {
       "title": "Repository Archaeology",
-      "subtitle": "Tracing the Evolution of \\acrandname{} Through Its Git History"
+      "subtitle": "Tracing the Evolution of Aesthetic Computer Through Its Git History"
     },
     "da": {
       "title": "Repository-arkæologi",
@@ -51,6 +59,10 @@
     "zh": {
       "title": "仓库考古学",
       "subtitle": "通过 Git 历史追溯 Aesthetic Computer 的演变"
+    },
+    "ja": {
+      "title": "リポジトリ考古学",
+      "subtitle": "Git履歴を通じてAesthetic Computerの進化を追跡する"
     }
   },
   "dead-ends": {
@@ -69,12 +81,16 @@
     "zh": {
       "title": "残留功能",
       "subtitle": "休眠路径、进化分支和废弃方法"
+    },
+    "ja": {
+      "title": "痕跡的機能",
+      "subtitle": "休眠パス、進化的分岐、廃止メソッド"
     }
   },
   "diversity": {
     "en": {
       "title": "Citation Diversity Audit",
-      "subtitle": "\\acrandname{} Paper Series, March 2026"
+      "subtitle": "Aesthetic Computer Paper Series, March 2026"
     },
     "da": {
       "title": "Citationsdiversitetsrevision",
@@ -87,12 +103,16 @@
     "zh": {
       "title": "引用多样性审计",
       "subtitle": "Aesthetic Computer 论文系列，2026年3月"
+    },
+    "ja": {
+      "title": "引用多様性監査",
+      "subtitle": "Aesthetic Computer 論文シリーズ、2026年3月"
     }
   },
   "folk-songs": {
     "en": {
       "title": "Playable Folk Songs",
-      "subtitle": "Oral Tradition Meets the Browser Keyboard"
+      "subtitle": "Oral Tradition Meets the Browser Keyboard on notepat.com"
     },
     "da": {
       "title": "Spillbare folkesange",
@@ -105,12 +125,16 @@
     "zh": {
       "title": "可演奏的 民歌",
       "subtitle": "口头传统遇上浏览器键盘"
+    },
+    "ja": {
+      "title": "演奏可能な 民謡",
+      "subtitle": "口承伝統とブラウザキーボードの出会い"
     }
   },
   "goodiepal": {
     "en": {
       "title": "Radical Computer Art",
-      "subtitle": "Goodiepalian Approaches in \\acrandname{}"
+      "subtitle": "Goodiepalian Approaches in Aesthetic Computer"
     },
     "da": {
       "title": "Radikal computerkunst",
@@ -123,6 +147,10 @@
     "zh": {
       "title": "激进计算机艺术",
       "subtitle": "Aesthetic Computer 中的 Goodiepal 方法"
+    },
+    "ja": {
+      "title": "ラディカル・コンピュータ・アート",
+      "subtitle": "Aesthetic Computer における Goodiepal メソッド"
     }
   },
   "kidlisp": {
@@ -141,6 +169,10 @@
     "zh": {
       "title": "KidLisp '26",
       "subtitle": "面向生成艺术的极简Lisp"
+    },
+    "ja": {
+      "title": "KidLisp '26",
+      "subtitle": "ジェネラティブアートのためのミニマルLisp"
     }
   },
   "kidlisp-ref": {
@@ -159,12 +191,16 @@
     "zh": {
       "title": "KidLisp 语言参考",
       "subtitle": "12 个类别中的 118 个生成艺术内置函数"
+    },
+    "ja": {
+      "title": "KidLisp 言語リファレンス",
+      "subtitle": "12カテゴリ118個のジェネラティブアート組み込み関数"
     }
   },
   "network-audit": {
     "en": {
       "title": "Network Audit",
-      "subtitle": "Who Uses \\acrandname{} and What Do They Make?"
+      "subtitle": "Who Uses Aesthetic Computer and What Do They Make?"
     },
     "da": {
       "title": "Netværksrevision",
@@ -177,6 +213,10 @@
     "zh": {
       "title": "网络审计",
       "subtitle": "谁在使用 Aesthetic Computer，他们创作了什么？"
+    },
+    "ja": {
+      "title": "ネットワーク監査",
+      "subtitle": "Aesthetic Computerを誰が使い、何を作っているか？"
     }
   },
   "notepat": {
@@ -195,6 +235,10 @@
     "zh": {
       "title": "notepat.com",
       "subtitle": "从键盘玩具到系统前门"
+    },
+    "ja": {
+      "title": "notepat.com",
+      "subtitle": "キーボード玩具からシステムの正面玄関へ"
     }
   },
   "os": {
@@ -213,6 +257,10 @@
     "zh": {
       "title": "AC Native OS '26",
       "subtitle": "一个裸机创意计算操作系统"
+    },
+    "ja": {
+      "title": "AC Native OS '26",
+      "subtitle": "ベアメタルクリエイティブコンピューティングOS"
     }
   },
   "pieces": {
@@ -231,6 +279,10 @@
     "zh": {
       "title": "作品而非程序",
       "subtitle": "作品作为 Aesthetic Computer 中创意认知的单位"
+    },
+    "ja": {
+      "title": "プログラムではなくピース",
+      "subtitle": "Aesthetic Computer における創造的認知の単位としてのピース"
     }
   },
   "who-pays": {
@@ -249,6 +301,10 @@
     "zh": {
       "title": "谁为创意工具买单？",
       "subtitle": "开源创意计算中的资金、倦怠与生存"
+    },
+    "ja": {
+      "title": "誰がクリエイティブツールの代金を払うのか？",
+      "subtitle": "オープンソース・クリエイティブコンピューティングにおける資金、燃え尽き、そして生存"
     }
   },
   "whistlegraph": {
@@ -267,6 +323,10 @@
     "zh": {
       "title": "Whistlegraph",
       "subtitle": "绘画、歌唱与图形乐谱作为病毒式传播形式"
+    },
+    "ja": {
+      "title": "Whistlegraph",
+      "subtitle": "ドローイング、歌唱、そしてバイラルな形式としてのグラフィックスコア"
     }
   },
   "complex": {
@@ -276,21 +336,25 @@
     },
     "da": {
       "title": "Sucking on the Complex",
-      "subtitle": "Platformhegemoni, kritik-som-indhold og behovet for anti-milj{\\o}er"
+      "subtitle": "Platformhegemoni, kritik-som-indhold og behovet for anti-miljøer"
     },
     "es": {
       "title": "Sucking on the Complex",
-      "subtitle": "Hegemon\\'{\\i}a de plataformas, cr\\'{\\i}tica-como-contenido y la necesidad de anti-entornos"
+      "subtitle": "Hegemonía de plataformas, crítica-como-contenido y la necesidad de anti-entornos"
     },
     "zh": {
       "title": "Sucking on the Complex",
       "subtitle": "平台霸权、批评即内容与反环境的需要"
+    },
+    "ja": {
+      "title": "Sucking on the Complex",
+      "subtitle": "プラットフォーム覇権、批評としてのコンテンツ、反環境の必要性"
     }
   },
   "plork": {
     "en": {
       "title": "PLOrk'ing the Planet",
-      "subtitle": "From Laptop Orchestra to Planetary Organ"
+      "subtitle": "From Ivy League Laptop Orchestra to Kid-Friendly Planetary Organ"
     },
     "da": {
       "title": "PLOrk'ing the Planet",
@@ -303,24 +367,32 @@
     "zh": {
       "title": "PLOrk'ing the Planet",
       "subtitle": "从笔记本电脑管弦乐团到行星乐器"
+    },
+    "ja": {
+      "title": "PLOrk'ing the Planet",
+      "subtitle": "アイビーリーグのラップトップオーケストラから子どもにやさしい地球規模のオルガンへ"
     }
   },
-  "identity": {
+  "calarts": {
     "en": {
-      "title": "Handle Identity on the AT Protocol",
-      "subtitle": "From Auth0 to Decentralized Sign-In on Aesthetic Computer"
+      "title": "CalArts, Callouts, and Papers",
+      "subtitle": "Art School as Operating System"
     },
     "da": {
-      "title": "Handle-identitet p\\aa{} AT-protokollen",
-      "subtitle": "Fra Auth0 til decentraliseret login p\\aa{} Aesthetic Computer"
+      "title": "CalArts, Callouts og Papers",
+      "subtitle": "Kunstskolen som operativsystem"
     },
     "es": {
-      "title": "Identidad de Handle en el Protocolo AT",
-      "subtitle": "De Auth0 al inicio de sesi\\'on descentralizado en Aesthetic Computer"
+      "title": "CalArts, Callouts y Papers",
+      "subtitle": "La escuela de arte como sistema operativo"
     },
     "zh": {
-      "title": "AT 协议上的 Handle 身份",
-      "subtitle": "从 Auth0 到 Aesthetic Computer 上的去中心化登录"
+      "title": "CalArts、Callouts与论文",
+      "subtitle": "作为操作系统的艺术学院"
+    },
+    "ja": {
+      "title": "CalArts、コールアウトと論文",
+      "subtitle": "オペレーティングシステムとしての芸術大学"
     }
   },
   "futures": {
@@ -329,52 +401,59 @@
       "subtitle": "What Aesthetic Computer Probably Becomes"
     },
     "da": {
-      "title": "Om fem \\aa{}r",
+      "title": "Fem år fra nu",
       "subtitle": "Hvad Aesthetic Computer sandsynligvis bliver"
     },
     "es": {
-      "title": "Dentro de cinco a\\~nos",
-      "subtitle": "En qu\\'e probablemente se convierte Aesthetic Computer"
+      "title": "Cinco años a partir de ahora",
+      "subtitle": "En qué probablemente se convierte Aesthetic Computer"
     },
     "zh": {
       "title": "五年之后",
       "subtitle": "Aesthetic Computer 可能会变成什么"
+    },
+    "ja": {
+      "title": "5年後",
+      "subtitle": "Aesthetic Computer が何になりうるか"
     }
   },
-  "score-analysis": {
+  "identity": {
     "en": {
-      "title": "Reading the Score",
-      "subtitle": "A Critical Analysis of SCORE.md as Governance, Interface, and Creative Form"
+      "title": "Handle Identity on the AT Protocol",
+      "subtitle": "From Auth0 to Decentralized Sign-In on Aesthetic Computer"
     },
     "da": {
-      "title": "At l\\ae{}se partituret",
-      "subtitle": "En kritisk analyse af SCORE.md som styring, gr\\ae{}nseflade og kreativ form"
+      "title": "Handle-identitet på AT Protocol",
+      "subtitle": "Fra Auth0 til decentraliseret login på Aesthetic Computer"
     },
     "es": {
-      "title": "Leyendo la partitura",
-      "subtitle": "Un an\\'alisis cr\\'itico de SCORE.md como gobernanza, interfaz y forma creativa"
+      "title": "Identidad de handle en el AT Protocol",
+      "subtitle": "De Auth0 al inicio de sesión descentralizado en Aesthetic Computer"
     },
     "zh": {
-      "title": "阅读乐谱",
-      "subtitle": "对 SCORE.md 作为治理、界面和创意形式的批判性分析"
+      "title": "AT Protocol上的Handle身份",
+      "subtitle": "从Auth0到Aesthetic Computer上的去中心化登录"
+    },
+    "ja": {
+      "title": "AT Protocol上のHandle ID",
+      "subtitle": "Auth0からAesthetic Computerの分散型ログインへ"
     }
   },
   "open-schools": {
     "en": {
-      "title": "Get Closed Source Out of Schools",
-      "subtitle": "Every Chromebook Is a Gateway Denied"
+      "title": "Get Closed Source Out of Schools"
     },
     "da": {
-      "title": "F\\aa{} lukket kildekode ud af skolerne",
-      "subtitle": "Hver Chromebook er en n\\ae{}gtet adgang"
+      "title": "Få lukket kildekode ud af skolerne"
     },
     "es": {
-      "title": "Saquen el c\\'odigo cerrado de las escuelas",
-      "subtitle": "Cada Chromebook es una puerta negada"
+      "title": "Saquen el código cerrado de las escuelas"
     },
     "zh": {
-      "title": "让闭源软件离开学校",
-      "subtitle": "每台 Chromebook 都是一扇被拒绝的大门"
+      "title": "让闭源软件离开学校"
+    },
+    "ja": {
+      "title": "クローズドソフトウェアを学校から追い出せ"
     }
   },
   "kidlisp-cards": {
@@ -384,33 +463,40 @@
     },
     "da": {
       "title": "KidLisp-kort",
-      "subtitle": "Programmer der kan v\\ae{}re p\\aa{} et kort"
+      "subtitle": "Programmer der kan være på et kort"
     },
     "es": {
-      "title": "Tarjetas KidLisp",
+      "title": "KidLisp Tarjetas",
       "subtitle": "Programas que caben en una tarjeta"
     },
     "zh": {
       "title": "KidLisp 卡片",
-      "subtitle": "能放在一张卡片上的程序"
+      "subtitle": "一张卡片装得下的程序"
+    },
+    "ja": {
+      "title": "KidLisp カード",
+      "subtitle": "1枚のカードに収まるプログラム"
     }
   },
-  "calarts": {
+  "score-analysis": {
+    "en": {}
+  },
+  "latency": {
     "en": {
-      "title": "CalArts, Callouts, and Papers",
-      "subtitle": "Art School as Operating System"
-    },
-    "da": {
-      "title": "CalArts, callouts og artikler",
-      "subtitle": "Kunstskole som styresystem"
-    },
-    "es": {
-      "title": "CalArts, callouts y art\\'iculos",
-      "subtitle": "La escuela de arte como sistema operativo"
-    },
-    "zh": {
-      "title": "CalArts、批评与论文",
-      "subtitle": "艺术学校作为操作系统"
+      "title": "Where the Microseconds Go",
+      "subtitle": "Input and Audio Latency in AC Native OS"
+    }
+  },
+  "penrose": {
+    "en": {
+      "title": "Diagrams from Data",
+      "subtitle": "A Penrose Pipeline for Aesthetic Computer Illustrations"
+    }
+  },
+  "keymaps": {
+    "en": {
+      "title": "Keymaps as Social Software",
+      "subtitle": "Versioned Virtual Objects via Social Contract"
     }
   }
 }

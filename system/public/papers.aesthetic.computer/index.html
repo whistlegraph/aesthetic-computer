@@ -394,46 +394,15 @@
             padding: 0;
             overflow: hidden;
             aspect-ratio: 1536 / 1024;
-            max-height: 320px;
-            min-height: 220px;
+            max-height: 78vh;
+            min-height: 280px;
         }
-        .hero::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
-            z-index: 1;
-            pointer-events: none;
-        }
-        .hero-bg {
-            position: absolute; inset: 0;
-            background-position: center top;
-            background-size: cover;
-            background-repeat: no-repeat;
-            z-index: 0;
-            will-change: opacity;
-        }
-        .hero-bg-a { background-image: url('/papers-header.png'); }       /* v2: Johnny Appleseed */
-        .hero-bg-b { background-image: url('/papers-header-v3.png'); }    /* v3: first-person POV */
-        .hero-bg-c { background-image: url('/papers-header-v1.png'); }    /* v1: Washington crossing */
-        @media (prefers-reduced-motion: no-preference) {
-            .hero-bg-a { animation: hero-fade-3a 24s ease-in-out infinite; }
-            .hero-bg-b { animation: hero-fade-3b 24s ease-in-out infinite; }
-            .hero-bg-c { animation: hero-fade-3c 24s ease-in-out infinite; }
-        }
-        @keyframes hero-fade-3a {
-            0%, 29% { opacity: 1; }
-            33%, 91% { opacity: 0; }
-            95%, 100% { opacity: 1; }
-        }
-        @keyframes hero-fade-3b {
-            0%, 29% { opacity: 0; }
-            33%, 62% { opacity: 1; }
-            66%, 100% { opacity: 0; }
-        }
-        @keyframes hero-fade-3c {
-            0%, 62% { opacity: 0; }
-            66%, 91% { opacity: 1; }
-            95%, 100% { opacity: 0; }
+        .hero-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
         }
 
         /* === Prompt-HUD corner label (modeled after give.aesthetic.computer) === */
@@ -445,9 +414,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 16px 20px;
+            padding: 10px 16px;
             z-index: 1000;
-            background: linear-gradient(to bottom, var(--bg) 0%, var(--bg) 60%, transparent 100%);
             pointer-events: none;
         }
         .top-bar > * { pointer-events: auto; }
@@ -528,14 +496,13 @@
                 <div class="lang-option" data-lang="da" data-flag="dk"><span class="fi fi-dk"></span> Dansk</div>
                 <div class="lang-option" data-lang="es" data-flag="es"><span class="fi fi-es"></span> Espa&ntilde;ol</div>
                 <div class="lang-option" data-lang="zh" data-flag="cn"><span class="fi fi-cn"></span> 中文</div>
+                <div class="lang-option" data-lang="ja" data-flag="jp"><span class="fi fi-jp"></span> 日本語</div>
             </div>
         </div>
     </div>
 
     <header class="hero" aria-label="papers">
-        <div class="hero-bg hero-bg-a"></div>
-        <div class="hero-bg hero-bg-b"></div>
-        <div class="hero-bg hero-bg-c"></div>
+        <canvas class="hero-canvas" id="heroCanvas" aria-hidden="true"></canvas>
     </header>
 
     <div class="sub">@jeffrey &middot; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
@@ -837,6 +804,93 @@
     </div>
 
     <script>
+        // === Hero Ken Burns slideshow (canvas, modeled after give.aesthetic.computer) ===
+        (function initHeroSlideshow() {
+            const canvas = document.getElementById('heroCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            const SLIDES = [
+                { src: '/papers-header.png',    pan: { from: { s: 1.00, x:  0.00, y:  0.00 }, to: { s: 1.08, x: -0.04, y:  0.02 } } },
+                { src: '/papers-header-v3.png', pan: { from: { s: 1.06, x: -0.03, y: -0.02 }, to: { s: 1.00, x:  0.03, y:  0.02 } } },
+                { src: '/papers-header-v1.png', pan: { from: { s: 1.04, x:  0.02, y: -0.02 }, to: { s: 1.10, x: -0.02, y:  0.03 } } },
+            ];
+            const SLIDE_DUR = 7000;
+            const FADE_DUR = 1500;
+            const CYCLE = SLIDES.length * SLIDE_DUR;
+
+            const images = SLIDES.map(s => { const i = new Image(); i.src = s.src; return i; });
+
+            let cssW = 0, cssH = 0;
+            function resize() {
+                const rect = canvas.getBoundingClientRect();
+                cssW = rect.width; cssH = rect.height;
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width  = Math.max(1, Math.round(cssW * dpr));
+                canvas.height = Math.max(1, Math.round(cssH * dpr));
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            resize();
+            window.addEventListener('resize', resize, { passive: true });
+
+            function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
+
+            function drawSlide(img, pan, progress, alpha) {
+                if (!img.complete || !img.naturalWidth) return;
+                const t = easeInOutSine(progress);
+                const sc = pan.from.s + (pan.to.s - pan.from.s) * t;
+                const tx = pan.from.x + (pan.to.x - pan.from.x) * t;
+                const ty = pan.from.y + (pan.to.y - pan.from.y) * t;
+                const baseScale = Math.max(cssW / img.naturalWidth, cssH / img.naturalHeight);
+                const scale = baseScale * sc;
+                const dw = img.naturalWidth * scale;
+                const dh = img.naturalHeight * scale;
+                const dx = (cssW - dw) / 2 + tx * cssW;
+                const dy = (cssH - dh) / 2 + ty * cssH;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.drawImage(img, dx, dy, dw, dh);
+                ctx.restore();
+            }
+
+            const start = performance.now();
+            let lastFrame = 0;
+            function frame(now) {
+                if (cssW === 0 || cssH === 0) { resize(); }
+                ctx.clearRect(0, 0, cssW, cssH);
+
+                const elapsed = reduced ? 0 : (now - start);
+                const cyclePos = ((elapsed % CYCLE) + CYCLE) % CYCLE;
+                const idx = Math.floor(cyclePos / SLIDE_DUR);
+                const slideElapsed = cyclePos - idx * SLIDE_DUR;
+                const slideProg = slideElapsed / SLIDE_DUR;
+                const fadeStartProg = (SLIDE_DUR - FADE_DUR) / SLIDE_DUR;
+
+                if (slideProg > fadeStartProg) {
+                    // Crossfade: draw incoming next slide underneath at full alpha,
+                    // current slide on top fading out
+                    const fadeT = (slideProg - fadeStartProg) / (1 - fadeStartProg);
+                    const nextIdx = (idx + 1) % SLIDES.length;
+                    drawSlide(images[nextIdx], SLIDES[nextIdx].pan, 0, 1);
+                    drawSlide(images[idx], SLIDES[idx].pan, slideProg, 1 - fadeT);
+                } else {
+                    drawSlide(images[idx], SLIDES[idx].pan, slideProg, 1);
+                }
+
+                if (!reduced || lastFrame === 0) requestAnimationFrame(frame);
+                lastFrame = now;
+            }
+
+            // Kick off as soon as ANY image is ready (others load progressively)
+            let kicked = false;
+            function kick() { if (!kicked) { kicked = true; requestAnimationFrame(frame); } }
+            images.forEach(img => {
+                if (img.complete && img.naturalWidth) kick();
+                else img.addEventListener('load', kick, { once: true });
+            });
+        })();
+
         // Cache-bust version — updated by papermill deploy
         window.__papersVersion = '20260328';
 
@@ -858,109 +912,12 @@
             el.textContent = relativeTime(el.dataset.time);
         });
 
-        // Translations loaded from translations.json (generated by: node papermill.mjs sync-index)
-        let translations = {
-            'who-pays': {
-                da: { title: 'Hvem betaler for kreative v\u00e6rkt\u00f8jer?', detail: 'Finansiering, udtr\u00e6ndthed og overlevelse i open source kreativ computing \u00b7 arXiv 5pp' },
-                es: { title: '\u00bfQui\u00e9n paga por las herramientas creativas?', detail: 'Financiaci\u00f3n, agotamiento y supervivencia en computaci\u00f3n creativa de c\u00f3digo abierto \u00b7 arXiv 5pp' },
-                zh: { title: '\u8c01\u4e3a\u521b\u610f\u5de5\u5177\u4ed8\u8d39\uff1f', detail: '\u5f00\u6e90\u521b\u610f\u8ba1\u7b97\u4e2d\u7684\u8d44\u91d1\u3001\u5026\u6020\u4e0e\u751f\u5b58 \u00b7 arXiv 5pp' }
-            },
-            'whistlegraph': {
-                da: { title: 'Whistlegraph', detail: 'Tegning, sang og det grafiske partitur som viral form \u00b7 arXiv 4pp' },
-                es: { title: 'Whistlegraph', detail: 'Dibujo, canto y la partitura gr\u00e1fica como forma viral \u00b7 arXiv 4pp' },
-                zh: { title: 'Whistlegraph', detail: '\u7ed8\u753b\u3001\u6b4c\u5531\u4e0e\u56fe\u5f62\u4e50\u8c31\u4f5c\u4e3a\u75c5\u6bd2\u5f0f\u4f20\u64ad\u5f62\u5f0f \u00b7 arXiv 4pp' }
-            },
-            'archaeology': {
-                da: { title: 'Repository-ark\u00e6ologi', detail: 'Sp\u00f8ring af ACs udvikling gennem dens Git-historie \u00b7 arXiv 3pp' },
-                es: { title: 'Arqueolog\u00eda de repositorios', detail: 'Rastreando la evoluci\u00f3n de AC a trav\u00e9s de su historial Git \u00b7 arXiv 3pp' },
-                zh: { title: '\u4ed3\u5e93\u8003\u53e4\u5b66', detail: '\u901a\u8fc7Git\u5386\u53f2\u8ffd\u6eafAC\u7684\u6f14\u53d8 \u00b7 arXiv 3pp' }
-            },
-            'pieces': {
-                da: { title: 'St\u00fckker, ikke programmer', detail: 'St\u00fckket som enhed for kreativ erkendelse \u00b7 arXiv 4pp' },
-                es: { title: 'Piezas, no programas', detail: 'La pieza como unidad de cognici\u00f3n creativa \u00b7 arXiv 4pp' },
-                zh: { title: '\u4f5c\u54c1\uff0c\u800c\u975e\u7a0b\u5e8f', detail: '\u4f5c\u54c1\u4f5c\u4e3a\u521b\u610f\u8ba4\u77e5\u7684\u5355\u5143 \u00b7 arXiv 4pp' }
-            },
-            'network-audit': {
-                da: { title: 'Netv\u00e6rksrevision', detail: 'Hvem bruger Aesthetic Computer og hvad laver de? \u00b7 arXiv 4pp' },
-                es: { title: 'Auditor\u00eda de red', detail: '\u00bfQui\u00e9n usa Aesthetic Computer y qu\u00e9 crean? \u00b7 arXiv 4pp' },
-                zh: { title: '\u7f51\u7edc\u5ba1\u8ba1', detail: '\u8c01\u5728\u4f7f\u7528Aesthetic Computer\uff0c\u4ed6\u4eec\u521b\u4f5c\u4e86\u4ec0\u4e48\uff1f \u00b7 arXiv 4pp' }
-            },
-            'kidlisp-ref': {
-                da: { title: 'KidLisp sprogreference', detail: '118 indbyggede funktioner i 12 kategorier \u00b7 arXiv 4pp' },
-                es: { title: 'Referencia del lenguaje KidLisp', detail: '118 funciones integradas en 12 categor\u00edas \u00b7 arXiv 4pp' },
-                zh: { title: 'KidLisp \u8bed\u8a00\u53c2\u8003', detail: '12\u4e2a\u7c7b\u522b\u7684118\u4e2a\u5185\u7f6e\u51fd\u6570 \u00b7 arXiv 4pp' }
-            },
-            'kidlisp': {
-                da: { title: "KidLisp '26", detail: 'En minimal Lisp til generativ kunst p\u00e5 en social platform \u00b7 arXiv 6pp' },
-                es: { title: "KidLisp '26", detail: 'Un Lisp m\u00ednimo para arte generativo en una plataforma social \u00b7 arXiv 6pp' },
-                zh: { title: "KidLisp '26", detail: '\u793e\u4ea4\u5e73\u53f0\u4e0a\u7528\u4e8e\u751f\u6210\u827a\u672f\u7684\u6700\u7b80Lisp \u00b7 arXiv 6pp' }
-            },
-            'dead-ends': {
-                da: { title: 'Vestigiale funktioner', detail: 'Sovende stier, evolution\u00e6re grene og opgivne tilgange \u00b7 arXiv 4pp' },
-                es: { title: 'Caracter\u00edsticas vestigiales', detail: 'Caminos dormidos, ramas evolutivas y enfoques abandonados \u00b7 arXiv 4pp' },
-                zh: { title: '\u6b8b\u7559\u7279\u5f81', detail: '\u4f11\u7720\u8def\u5f84\u3001\u8fdb\u5316\u5206\u652f\u4e0e\u653e\u5f03\u7684\u65b9\u6cd5 \u00b7 arXiv 4pp' }
-            },
-            'diversity': {
-                da: { title: 'Revision af citatdiversitet', detail: 'Diversitet og inklusion i AC-artikelcitater \u00b7 4pp' },
-                es: { title: 'Auditor\u00eda de diversidad de citas', detail: 'Diversidad e inclusi\u00f3n en las citas de art\u00edculos de AC \u00b7 4pp' },
-                zh: { title: '\u5f15\u7528\u591a\u6837\u6027\u5ba1\u8ba1', detail: 'AC\u8bba\u6587\u5f15\u7528\u4e2d\u7684\u591a\u6837\u6027\u4e0e\u5305\u5bb9\u6027 \u00b7 4pp' }
-            },
-            'os': {
-                da: { title: 'AC Native OS', detail: 'Et bare-metal kreativt computing-operativsystem \u00b7 arXiv 5pp' },
-                es: { title: 'AC Native OS', detail: 'Un sistema operativo bare-metal para computaci\u00f3n creativa \u00b7 arXiv 5pp' },
-                zh: { title: 'AC Native OS', detail: '\u88f8\u673a\u521b\u610f\u8ba1\u7b97\u64cd\u4f5c\u7cfb\u7edf \u00b7 arXiv 5pp' }
-            },
-            'ac': {
-                da: { title: "Aesthetic Computer '26", detail: 'En mobil-f\u00f8rst k\u00f8retid til kreativ computing \u00b7 arXiv 5pp' },
-                es: { title: "Aesthetic Computer '26", detail: 'Un entorno de ejecuci\u00f3n m\u00f3vil para computaci\u00f3n creativa \u00b7 arXiv 5pp' },
-                zh: { title: "Aesthetic Computer '26", detail: '\u79fb\u52a8\u4f18\u5148\u7684\u521b\u610f\u8ba1\u7b97\u8fd0\u884c\u65f6 \u00b7 arXiv 5pp' }
-            },
-            'goodiepal': {
-                da: { title: 'Radikal computerkunst', detail: 'Goodiepalianske tilgange i Aesthetic Computer \u00b7 arXiv 5pp' },
-                es: { title: 'Arte computacional radical', detail: 'Enfoques Goodiepalianos en Aesthetic Computer \u00b7 arXiv 5pp' },
-                zh: { title: '\u6fc0\u8fdb\u8ba1\u7b97\u673a\u827a\u672f', detail: 'Aesthetic Computer\u4e2d\u7684Goodiepal\u5f0f\u65b9\u6cd5 \u00b7 arXiv 5pp' }
-            },
-            'api': {
-                da: { title: 'Fra setup() til boot()', detail: 'Processing i kernen af Piece API \u00b7 arXiv 7pp' },
-                es: { title: 'De setup() a boot()', detail: 'Processing en el n\u00facleo de la Piece API \u00b7 arXiv 7pp' },
-                zh: { title: '\u4ece setup() \u5230 boot()', detail: 'Piece API\u6838\u5fc3\u4e2d\u7684Processing \u00b7 arXiv 7pp' }
-            },
-            'notepat': {
-                da: { title: 'notepat.com', detail: 'Fra tastaturleget\u00f8j til systemets hovedd\u00f8r \u00b7 arXiv 5pp' },
-                es: { title: 'notepat.com', detail: 'De juguete de teclado a puerta principal del sistema \u00b7 arXiv 5pp' },
-                zh: { title: 'notepat.com', detail: '\u4ece\u952e\u76d8\u73a9\u5177\u5230\u7cfb\u7edf\u524d\u95e8 \u00b7 arXiv 5pp' }
-            },
-            'folk-songs': {
-                da: { title: 'Spillbare folkesange', detail: 'Mundtlig tradition m\u00f8der browsertastaturet \u00b7 kort 21pp' },
-                es: { title: 'Canciones populares tocables', detail: 'La tradici\u00f3n oral se encuentra con el teclado del navegador \u00b7 tarjetas 21pp' },
-                zh: { title: '\u53ef\u6f14\u594f\u7684\u6c11\u6b4c', detail: '\u53e3\u5934\u4f20\u7edf\u4e0e\u6d4f\u89c8\u5668\u952e\u76d8\u7684\u76f8\u9047 \u00b7 \u5361\u7247 21pp' }
-            },
-            'joss-kidlisp': {
-                da: { title: "KidLisp '26", detail: 'JOSS-sammendrag \u00b7 3pp' },
-                es: { title: "KidLisp '26", detail: 'Resumen JOSS \u00b7 3pp' },
-                zh: { title: "KidLisp '26", detail: 'JOSS\u6458\u8981 \u00b7 3pp' }
-            },
-            'joss-ac': {
-                da: { title: "Aesthetic Computer '26", detail: 'JOSS-sammendrag \u00b7 2pp' },
-                es: { title: "Aesthetic Computer '26", detail: 'Resumen JOSS \u00b7 2pp' },
-                zh: { title: "Aesthetic Computer '26", detail: 'JOSS\u6458\u8981 \u00b7 2pp' }
-            },
-            'complex': {
-                da: { title: 'Sucking on the Complex', detail: 'Platformhegemoni, kritik-som-indhold og behovet for anti-milj\u00f8er \u00b7 arXiv 5pp' },
-                es: { title: 'Sucking on the Complex', detail: 'Hegemon\u00eda de plataformas, cr\u00edtica-como-contenido y la necesidad de anti-entornos \u00b7 arXiv 5pp' },
-                zh: { title: 'Sucking on the Complex', detail: '\u5e73\u53f0\u9738\u6743\u3001\u6279\u5224\u4f5c\u4e3a\u5185\u5bb9\u4e0e\u53cd\u73af\u5883\u7684\u9700\u8981 \u00b7 arXiv 5pp' }
-            },
-            'plork': {
-                da: { title: "PLOrk'ing the Planet", detail: 'Bærbare orkestre, PLOrk-arven og Aesthetic Computer \u00b7 arXiv' },
-                es: { title: "PLOrk'ing the Planet", detail: 'Orquestas de port\u00e1tiles, herencia PLOrk y Aesthetic Computer \u00b7 arXiv' },
-                zh: { title: "PLOrk'ing the Planet", detail: '\u7b14\u8bb0\u672c\u7535\u8111\u4e50\u961f\u3001PLOrk\u9057\u4ea7\u4e0eAesthetic Computer \u00b7 arXiv' }
-            },
-            'els': {
-                da: { title: 'KidLisp (ELS 2026)', detail: 'En minimal Lisp til generativ kunst med social komposition \u00b7 ELS ACM SIGS 4pp' },
-                es: { title: 'KidLisp (ELS 2026)', detail: 'Un Lisp m\u00ednimo para arte generativo con composici\u00f3n social \u00b7 ELS ACM SIGS 4pp' },
-                zh: { title: 'KidLisp (ELS 2026)', detail: '\u7528\u4e8e\u751f\u6210\u827a\u672f\u548c\u793e\u4ea4\u521b\u4f5c\u7684\u6700\u7b80Lisp \u00b7 ELS ACM SIGS 4pp' }
-            }
-        };
+        // Translations fetched from translations.json (regenerate via: node papers/papermill.mjs sync-index)
+        let translations = {};
+        const translationsReady = fetch("/translations.json?v=" + window.__papersVersion)
+            .then(r => r.ok ? r.json() : {})
+            .then(j => { translations = j || {}; return translations; })
+            .catch(() => ({}));
 
         // Store original English text on first load
         document.querySelectorAll('.p[data-paper-id]').forEach(el => {
@@ -975,9 +932,22 @@
             en: { flag: 'us', name: 'English' },
             da: { flag: 'dk', name: 'Dansk' },
             es: { flag: 'es', name: 'Espa\u00f1ol' },
-            zh: { flag: 'cn', name: '\u4e2d\u6587' }
+            zh: { flag: 'cn', name: '\u4e2d\u6587' },
+            ja: { flag: 'jp', name: '\u65e5\u672c\u8a9e' }
         };
         let currentLang = 'en';
+
+        // Split detail into [subtitle, suffix] at the first middot \u2014 the suffix
+        // (e.g. "\u00b7 arXiv 5pp" or "\u00b7 <a href=...>timeline</a>") is language-agnostic
+        // and gets re-appended to translated subtitles. innerHTML decodes &middot;
+        // to U+00B7, so match either form.
+        function splitDetail(html) {
+            if (!html) return ['', ''];
+            const m = html.match(/(?:&middot;|\u00b7)/);
+            if (!m) return [html.trim(), ''];
+            const idx = m.index;
+            return [html.slice(0, idx).trim(), html.slice(idx).trim()];
+        }
 
         const selector = document.getElementById('langSelector');
         const flagEl = document.getElementById('lang-flag');
@@ -1030,25 +1000,46 @@
                 if (!titleA || !detail) return;
 
                 if (lang === 'en') {
-                    // Restore original English
                     titleA.childNodes[0].textContent = el.dataset.titleEn;
                     detail.innerHTML = el.dataset.detailEn;
-                } else {
-                    const t = translations[id]?.[lang];
-                    if (t) {
-                        titleA.childNodes[0].textContent = t.title;
-                        detail.innerHTML = t.detail;
-                    }
+                    return;
+                }
+
+                const t = translations[id] && translations[id][lang];
+                if (!t) {
+                    // No translation available — fall back to English content
+                    titleA.childNodes[0].textContent = el.dataset.titleEn;
+                    detail.innerHTML = el.dataset.detailEn;
+                    return;
+                }
+
+                if (t.title) titleA.childNodes[0].textContent = t.title;
+
+                // Translate the subtitle but keep the format/link suffix from English
+                const [, suffix] = splitDetail(el.dataset.detailEn);
+                if (t.subtitle) {
+                    detail.innerHTML = suffix
+                        ? t.subtitle + ' ' + suffix
+                        : t.subtitle;
+                } else if (suffix) {
+                    detail.innerHTML = suffix.replace(/^(?:&middot;|·)\s*/, '');
                 }
             });
         }
 
-        // Read language from URL path (/da, /cn, /es) or query param (?lang=da)
+        // Read language from URL path (/da, /es, /zh|/cn, /ja|/jp) or query param (?lang=da)
         const cleanPath = location.pathname.replace(/\/+$/, '');
-        const pathLang = { '/da': 'da', '/es': 'es', '/cn': 'zh', '/en': 'en', '/zh': 'zh' }[cleanPath];
+        const pathLang = {
+            '/da': 'da', '/es': 'es',
+            '/cn': 'zh', '/en': 'en', '/zh': 'zh',
+            '/ja': 'ja', '/jp': 'ja'
+        }[cleanPath];
         const paramLang = new URLSearchParams(location.search).get('lang');
         const initLang = pathLang || paramLang;
-        if (initLang && langs[initLang]) setLang(initLang);
+        if (initLang && langs[initLang] && initLang !== 'en') {
+            // Wait for the JSON before swapping so non-English titles render correctly
+            translationsReady.then(() => setLang(initLang));
+        }
 
         // SVG icon templates
         const pageSvg = (color) => `<svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
