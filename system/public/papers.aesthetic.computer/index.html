@@ -15,6 +15,10 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="preload" as="image" href="/papers-header.png" fetchpriority="high" />
+    <link rel="preload" as="image" href="/papers-header-v4.png" />
+    <link rel="preload" as="image" href="/papers-header-v3.png" />
+    <link rel="preload" as="image" href="/papers-header-v1.png" />
     <link rel="alternate" type="application/atom+xml" title="papers · Aesthetic Computer" href="/feed.xml" />
     <link rel="alternate" type="application/rss+xml" title="papers · Aesthetic Computer" href="/rss.xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
@@ -862,10 +866,21 @@
                 { src: '/papers-header-v3.png', focal: { x: 0.50, y: 0.62 }, pan: { from: { s: 1.06, x: 0, y: 0 }, to: { s: 1.00, x:  0.02, y: -0.01 } } },
                 { src: '/papers-header-v1.png', focal: { x: 0.46, y: 0.42 }, pan: { from: { s: 1.04, x: 0, y: 0 }, to: { s: 1.10, x: -0.01, y:  0.02 } } },
             ];
-            const SLIDE_DUR = 9000;
+            const SLIDE_DUR = 7000;
+            const FADE_DUR = 1800;
+            const IMG_FADE_IN = 900;  // per-image dissolve once it loads
             const CYCLE = SLIDES.length * SLIDE_DUR;
 
-            const images = SLIDES.map(s => { const i = new Image(); i.src = s.src; return i; });
+            const images = SLIDES.map(s => {
+                const i = new Image();
+                i._loadedAt = 0;
+                const stamp = () => { if (!i._loadedAt) i._loadedAt = performance.now(); };
+                i.addEventListener('load',  stamp, { once: true });
+                i.addEventListener('error', stamp, { once: true });
+                i.src = s.src;
+                if (i.complete && i.naturalWidth) i._loadedAt = performance.now();
+                return i;
+            });
 
             let cssW = 0, cssH = 0;
             function resize() {
@@ -881,20 +896,15 @@
 
             function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
 
-            // mode: 'cover' fills the canvas (background layer),
-            //       'contain-small' is a smaller in-front composition
-            function drawSlide(img, focal, pan, progress, alpha, mode) {
+            // Cover-fill the canvas with a single image; focal anchor keeps
+            // the subject centered as the slow Ken Burns pan zooms in/out.
+            function drawSlide(img, focal, pan, progress, alpha) {
                 if (!img.complete || !img.naturalWidth) return;
                 const t = easeInOutSine(progress);
                 const sc = pan.from.s + (pan.to.s - pan.from.s) * t;
                 const tx = pan.from.x + (pan.to.x - pan.from.x) * t;
                 const ty = pan.from.y + (pan.to.y - pan.from.y) * t;
-                let baseScale;
-                if (mode === 'cover') {
-                    baseScale = Math.max(cssW / img.naturalWidth, cssH / img.naturalHeight) * 1.18;
-                } else {
-                    baseScale = Math.min(cssW / img.naturalWidth, cssH / img.naturalHeight) * 0.82;
-                }
+                const baseScale = Math.max(cssW / img.naturalWidth, cssH / img.naturalHeight);
                 const scale = baseScale * sc;
                 const dw = img.naturalWidth * scale;
                 const dh = img.naturalHeight * scale;
@@ -906,28 +916,14 @@
                 ctx.restore();
             }
 
-            // Triangular envelope peaking at center of each slide window —
-            // every layer is always crossfading with its neighbours.
-            function alphaFor(globalT, slotStart, slotDur) {
-                const half = slotDur / 2;
-                const d = Math.min(
-                    Math.abs(globalT - slotStart),
-                    Math.abs(globalT - slotStart - CYCLE),
-                    Math.abs(globalT - slotStart + CYCLE)
-                );
-                if (d >= slotDur) return 0;
-                const x = 1 - d / slotDur;
-                return easeInOutSine(x);
+            // Per-image fade-in so a slide that finishes loading mid-cycle
+            // ramps from 0→1 over IMG_FADE_IN ms instead of popping at full
+            // alpha the first frame after load.
+            function imgAlpha(img, now) {
+                if (!img._loadedAt) return 0;
+                const t = (now - img._loadedAt) / IMG_FADE_IN;
+                return Math.min(1, Math.max(0, t));
             }
-
-            // Front-layer slide is offset by half the slide count so the
-            // foreground image is *never* the same one currently dominating
-            // the background. With 4 slides this means: while back blends
-            // 0↔1, front shows 2↔3, etc.
-            const FRONT_OFFSET = Math.floor(SLIDES.length / 2);
-            // Half-cycle phase shift so the front layer is also peaking
-            // between back-layer transitions instead of in lockstep.
-            const FRONT_PHASE_SHIFT = (FRONT_OFFSET * SLIDE_DUR) + (SLIDE_DUR / 2);
 
             let start = 0;
             let lastFrame = 0;
@@ -937,101 +933,50 @@
 
                 const elapsed = reduced ? 0 : (now - start);
                 const cyclePos = ((elapsed % CYCLE) + CYCLE) % CYCLE;
+                const idx = Math.floor(cyclePos / SLIDE_DUR);
+                const slideElapsed = cyclePos - idx * SLIDE_DUR;
+                const slideProg = slideElapsed / SLIDE_DUR;
+                const fadeStartProg = (SLIDE_DUR - FADE_DUR) / SLIDE_DUR;
 
-                // Track which slide indices are active in BACK so we can
-                // guarantee FRONT never picks the same one (defence in
-                // depth — the offset already enforces this for 4 slides
-                // but the check keeps the invariant if SLIDES grows).
-                const backActive = new Set();
-
-                // BACK LAYER — covered, fills full bleed. Each slide gets a
-                // triangular alpha envelope so neighbours always blend.
-                for (let i = 0; i < SLIDES.length; i++) {
-                    const slotStart = i * SLIDE_DUR;
-                    const a = alphaFor(cyclePos, slotStart, SLIDE_DUR);
-                    if (a <= 0.001) continue;
-                    backActive.add(i);
-                    const localProg = ((cyclePos - slotStart + CYCLE) % CYCLE) / SLIDE_DUR;
-                    const prog = Math.max(0, Math.min(1, localProg));
-                    drawSlide(images[i], SLIDES[i].focal, SLIDES[i].pan, prog, a, 'cover');
+                if (slideProg > fadeStartProg) {
+                    // End of the slot — crossfade current → next.
+                    const fadeT = (slideProg - fadeStartProg) / (1 - fadeStartProg);
+                    const nextIdx = (idx + 1) % SLIDES.length;
+                    const nextImg = images[nextIdx];
+                    const curImg  = images[idx];
+                    drawSlide(nextImg, SLIDES[nextIdx].focal, SLIDES[nextIdx].pan, 0,         imgAlpha(nextImg, now));
+                    drawSlide(curImg,  SLIDES[idx].focal,     SLIDES[idx].pan,     slideProg, (1 - fadeT) * imgAlpha(curImg, now));
+                } else {
+                    // Holding on the current slide — single image fills the canvas.
+                    const curImg = images[idx];
+                    drawSlide(curImg, SLIDES[idx].focal, SLIDES[idx].pan, slideProg, imgAlpha(curImg, now));
                 }
-
-                // FRONT LAYER — smaller, multiply-blended so the cream paper
-                // edges of the colored-pencil scans dissolve into the back
-                // layer instead of stamping a hard rectangle. Slide indices
-                // are remapped via FRONT_OFFSET so the foreground is always
-                // a *different* image than the background.
-                ctx.globalCompositeOperation = 'multiply';
-                const frontPhase = (cyclePos + FRONT_PHASE_SHIFT) % CYCLE;
-                for (let i = 0; i < SLIDES.length; i++) {
-                    const slotStart = i * SLIDE_DUR;
-                    const a = alphaFor(frontPhase, slotStart, SLIDE_DUR);
-                    if (a <= 0.001) continue;
-                    const slideIdx = (i + FRONT_OFFSET) % SLIDES.length;
-                    if (backActive.has(slideIdx)) continue; // never duplicate
-                    const localProg = ((frontPhase - slotStart + CYCLE) % CYCLE) / SLIDE_DUR;
-                    const prog = Math.max(0, Math.min(1, localProg));
-                    drawSlide(
-                        images[slideIdx],
-                        SLIDES[slideIdx].focal,
-                        SLIDES[slideIdx].pan,
-                        prog,
-                        a * 0.85,
-                        'contain-small'
-                    );
-                }
-                ctx.globalCompositeOperation = 'source-over';
-
-                // Soft side/top vignette — fades the canvas to transparent at
-                // the corners so the purple letterbox bleeds in. The bottom
-                // fade-to-page-bg is handled by .hero::after in CSS so it
-                // hits the page background even when imagery is opaque here.
-                const grad = ctx.createRadialGradient(
-                    cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.32,
-                    cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.78
-                );
-                grad.addColorStop(0, 'rgba(0,0,0,0)');
-                grad.addColorStop(0.75, 'rgba(0,0,0,0.30)');
-                grad.addColorStop(1, 'rgba(0,0,0,0.85)');
-                ctx.globalCompositeOperation = 'destination-out';
-                ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, cssW, cssH);
-                ctx.globalCompositeOperation = 'source-over';
 
                 if (!reduced || lastFrame === 0) requestAnimationFrame(frame);
                 lastFrame = now;
             }
 
-            // Wait for ALL images before kicking off — prevents pop-in of
-            // late-arriving slides as they load mid-cycle.
+            // Kick the loop on the FIRST decoded image so something appears
+            // ASAP; later slides ride in on imgAlpha when they finish loading.
             let kicked = false;
             function kick() {
                 if (kicked) return;
                 kicked = true;
-                // Start the cycle clock *now* so slide 0 begins at its
-                // peak with the canvas still invisible — by the time the
-                // opacity fade-in starts, the bitmap is already fully
-                // painted, so the user sees a smooth alpha rise rather
-                // than content snapping in mid-transition.
                 start = performance.now();
-                // Paint one frame before triggering the CSS fade-in so the
-                // canvas has real pixels the moment opacity begins ramping.
+                // Paint one frame so the canvas has real pixels before the
+                // CSS opacity ramp begins — this prevents the perception of
+                // a global "fade-in pop" from empty purple to content.
                 frame(start);
                 requestAnimationFrame(() => {
                     canvas.classList.add('loaded');
                     requestAnimationFrame(frame);
                 });
             }
-            let pending = images.length;
             images.forEach(img => {
-                const done = () => { if (--pending <= 0) kick(); };
-                if (img.complete && img.naturalWidth) done();
-                else {
-                    img.addEventListener('load', done, { once: true });
-                    img.addEventListener('error', done, { once: true });
-                }
+                if (img.complete && img.naturalWidth) kick();
+                else img.addEventListener('load', kick, { once: true });
             });
-            // Safety fallback — if something stalls, kick after 4s anyway.
+            // Safety fallback — if all loads stall, still kick after 4s.
             setTimeout(kick, 4000);
         })();
 
