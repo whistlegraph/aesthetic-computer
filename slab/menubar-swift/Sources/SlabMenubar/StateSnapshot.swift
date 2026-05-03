@@ -7,6 +7,9 @@ struct StateSnapshot {
     var activeSubagents: Int = 0
     var ambientActive: Bool = false
     var muted: Bool = false
+    var autoTile: Bool = false
+    var nearText: Bool = false
+    var themeByStatus: Bool = false
     var tailnetPeers: [TailnetPeer] = []
     var claudeSessions: [ClaudeSession] = []
 
@@ -34,6 +37,9 @@ struct StateSnapshot {
         s.activeSubagents = countFiles(in: Paths.activeSubagentsDir)
         s.ambientActive = FileManager.default.fileExists(atPath: Paths.ambientFlag)
         s.muted = FileManager.default.fileExists(atPath: Paths.muteFlag)
+        s.autoTile = FileManager.default.fileExists(atPath: Paths.autoTileFlag)
+        s.nearText = FileManager.default.fileExists(atPath: Paths.nearTextFlag)
+        s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         return s

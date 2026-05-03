@@ -4,6 +4,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var refreshTimer: Timer?
     private var animTimer: Timer?
+    /// `sessionId → "<state>|<subject>"` of the last theme/title we pushed
+    /// to Terminal, so the per-tick refresh only fires osascript when
+    /// something actually changed.
+    private var lastTerminalDecor: [String: String] = [:]
     private var rainbowPhase: CGFloat = 0
     private var rotationPhase: CGFloat = 0
     private var mailTickCount = 0
@@ -50,6 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusItem.menu = MenuBuilder.build(state: state, mailStatus: mailStatus, target: self)
+
+        applyTerminalDecor()
     }
 
     private func updateIcon() {
@@ -214,6 +220,362 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let host = sender.representedObject as? String else { return }
         let script = "tell application \"Terminal\" to do script \"ssh \(host)\""
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+    }
+
+    /// Open N fresh Terminal windows, each resuming one of the most-recently-
+    /// modified Claude sessions on disk that isn't already live. Built for
+    /// the "Terminal.app crashed and took every Claude with it" case.
+    @objc func restoreRecentThreads(_ sender: NSMenuItem) {
+        guard let n = sender.representedObject as? Int, n > 0 else { return }
+        let liveIds = Set(state.claudeSessions.map { $0.sessionId })
+        let tile = state.autoTile
+        let near = state.nearText
+        // Snapshot screen geometry on main; NSScreen reads off-main can
+        // return nil on first hit and were the silent failure mode for the
+        // first auto-tile pass.
+        let geom = tile ? Self.screenGeom() : nil
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let entries = ClaudeHistoryReader.recent(limit: n, excluding: liveIds)
+            if entries.isEmpty {
+                DispatchQueue.main.async {
+                    self?.notify(title: "slab", subtitle: "Restore threads", body: "No restorable Claude sessions found.")
+                }
+                return
+            }
+            let layout = geom.flatMap { Self.computeTileLayout(count: entries.count, geom: $0, near: near) }
+            for (i, entry) in entries.enumerated() {
+                let cell = layout?.cellAt(index: i)
+                Self.openTerminalRunningClaude(
+                    cwd: entry.cwd,
+                    sessionId: entry.sessionId,
+                    bounds: cell?.bounds,
+                    fontSize: layout?.fontSize
+                )
+            }
+        }
+    }
+
+    /// Stop every live Claude session, then relaunch each in a fresh Terminal
+    /// window with `--resume`. Confirms first because it kills in-flight work.
+    @objc func restartAllActive() {
+        let sessions = state.claudeSessions
+        if sessions.isEmpty { return }
+        let alert = NSAlert()
+        alert.messageText = "Restart all active Claude sessions?"
+        alert.informativeText = "This will stop \(sessions.count) running session\(sessions.count == 1 ? "" : "s") and relaunch each in a fresh Terminal window. In-flight work will be interrupted."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Restart All")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        // Snapshot what we need before SIGTERM races the active-prompts
+        // janitor — once the pid dies, the marker file gets reaped.
+        let payloads = sessions.map { (sid: $0.sessionId, cwd: $0.cwd, pid: $0.claudePid) }
+        let geom = state.autoTile ? Self.screenGeom() : nil
+        let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, near: state.nearText) }
+        DispatchQueue.global(qos: .userInitiated).async {
+            for p in payloads where p.pid > 0 {
+                kill(pid_t(p.pid), SIGTERM)
+            }
+            // Brief grace period so the old TTY/process tree tears down
+            // before the resumed session tries to grab the keyring etc.
+            Thread.sleep(forTimeInterval: 0.5)
+            for (i, p) in payloads.enumerated() where !p.cwd.isEmpty {
+                let cell = layout?.cellAt(index: i)
+                Self.openTerminalRunningClaude(
+                    cwd: p.cwd,
+                    sessionId: p.sid,
+                    bounds: cell?.bounds,
+                    fontSize: layout?.fontSize
+                )
+            }
+        }
+    }
+
+    @objc func toggleAutoTile() {
+        let path = Paths.autoTileFlag
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+        }
+        refresh()
+    }
+
+    @objc func setTextNear() {
+        let path = Paths.nearTextFlag
+        let dir = (path as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: path, contents: nil)
+        refresh()
+        tileNow()
+    }
+
+    @objc func setTextFar() {
+        try? FileManager.default.removeItem(atPath: Paths.nearTextFlag)
+        refresh()
+        tileNow()
+    }
+
+    @objc func toggleThemeByStatus() {
+        let path = Paths.themeByStatusFlag
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+            // Forget what we pushed so re-enabling later starts from a
+            // clean slate (no "we already themed this session" memory
+            // surviving across an off→on cycle).
+            lastTerminalDecor.removeAll()
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+        }
+        refresh()
+        applyTerminalDecor()
+    }
+
+    /// Push the per-status Terminal profile + custom title to each window
+    /// matching a live Claude session. Called from `refresh()`, but only
+    /// emits an osascript when something actually changed since the last
+    /// pass (state flipped, subject moved, or new session appeared).
+    private func applyTerminalDecor() {
+        guard state.themeByStatus else { return }
+        // {R, G, B} in AppleScript color space (each component 0–65535).
+        // Picked to read at a glance on dark monospace text without
+        // requiring a profile swap. We avoid `set current settings` because
+        // applying a profile resets the tab's font + the window's pixel
+        // size to the profile default, causing a brief reframe-flicker
+        // even when we save/restore around it.
+        struct Assignment { let tty: String; let bg: (Int, Int, Int)?; let title: String }
+        var changes: [Assignment] = []
+        var seen = Set<String>()
+        for s in state.claudeSessions where !s.tty.isEmpty {
+            seen.insert(s.sessionId)
+            let bg: (Int, Int, Int)?
+            let glyph: String
+            switch s.state {
+            // Working = green (active/healthy), complete = calm slate
+            // (turn done, idle), awaiting = amber (needs you to continue),
+            // stale = no bg change. RGBs are 0–65535 AppleScript colorspace,
+            // dark enough that the profile's default light text still reads.
+            case .working:  bg = (1500,  14000, 4000);  glyph = "● working"    // deep forest green
+            case .complete: bg = (5000,  7000,  12000); glyph = "✓ complete"   // muted slate
+            case .awaiting: bg = (32000, 18000, 1500);  glyph = "◉ awaiting"   // warm amber — attention!
+            case .stale:    bg = nil;                   glyph = "○ stale"      // leave bg alone
+            }
+            let title = "\(glyph) · \(s.titleString)"
+            let bgKey = bg.map { "\($0.0),\($0.1),\($0.2)" } ?? "-"
+            let key = "\(bgKey)|\(title)"
+            if lastTerminalDecor[s.sessionId] == key { continue }
+            lastTerminalDecor[s.sessionId] = key
+            changes.append(Assignment(tty: s.tty, bg: bg, title: title))
+        }
+        // Reap entries for sessions that disappeared since last tick — they
+        // either died or got reaped by the janitor; either way our memo is
+        // stale.
+        for sid in lastTerminalDecor.keys where !seen.contains(sid) {
+            lastTerminalDecor.removeValue(forKey: sid)
+        }
+        if changes.isEmpty { return }
+
+        // One osascript pass that walks every window×tab once and applies
+        // every change in this batch. We only touch `background color` and
+        // `custom title` — neither resets font or window size, so there's
+        // nothing to save/restore and nothing to flicker.
+        var lines = [
+            "tell application \"Terminal\"",
+            "    repeat with w in windows",
+            "        repeat with t in tabs of w",
+            "            try",
+            "                set ttyName to tty of t",
+        ]
+        for a in changes {
+            let escTty = a.tty.replacingOccurrences(of: "\"", with: "\\\"")
+            let escTitle = a.title
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+            lines.append("                if ttyName ends with \"\(escTty)\" then")
+            if let bg = a.bg {
+                lines.append("                    set background color of t to {\(bg.0), \(bg.1), \(bg.2)}")
+            }
+            lines.append("                    set custom title of t to \"\(escTitle)\"")
+            lines.append("                end if")
+        }
+        lines.append(contentsOf: [
+            "            end try",
+            "        end repeat",
+            "    end repeat",
+            "end tell",
+        ])
+        let script = lines.joined(separator: "\n")
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+    }
+
+    /// Spawn a new Terminal.app window that cd's into `cwd` and resumes the
+    /// given session. Optionally sets bounds + font size so the caller can
+    /// tile the windows. Single-quoted shell args are escaped so a path with
+    /// apostrophes can't break out.
+    private static func openTerminalRunningClaude(
+        cwd: String,
+        sessionId: String,
+        bounds: (left: Int, top: Int, right: Int, bottom: Int)? = nil,
+        fontSize: Int? = nil
+    ) {
+        let safeCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
+        let safeSid = sessionId.replacingOccurrences(of: "'", with: "'\\''")
+        let shellCmd = "cd '\(safeCwd)' && claude -r '\(safeSid)'"
+        let escapedCmd = shellCmd.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        var lines = ["tell application \"Terminal\"", "    activate", "    do script \"\(escapedCmd)\""]
+        // Order matters: setting font size makes Terminal snap the window to
+        // the nearest whole row/col grid, which can shrink it. So we set
+        // bounds, then font, then bounds again — the second `set bounds`
+        // forces the pixel size we actually want, even if Terminal would
+        // rather round it.
+        if let b = bounds {
+            lines.append("    set bounds of front window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+        }
+        if let fs = fontSize {
+            lines.append("    set font size of selected tab of front window to \(fs)")
+        }
+        if let b = bounds {
+            lines.append("    set bounds of front window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+        }
+        lines.append("end tell")
+        let script = lines.joined(separator: "\n")
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+    }
+
+    // MARK: - Auto tile layout
+
+    /// One cell in the tiled grid, in AppleScript's top-left-origin pixel
+    /// coordinates (Terminal.app's `bounds` property uses this space).
+    /// Per-side gutter between tiled windows (and at the edge of the visible
+    /// frame). Total inter-window gap is 2*gutter; total edge gap = gutter.
+    static let tileGutter = 2
+
+    struct TileLayout {
+        let cols: Int
+        let rows: Int
+        let cellWidth: Int
+        let cellHeight: Int
+        let originX: Int  // visible-frame left edge
+        let originY: Int  // visible-frame top edge (below menu bar), AS coords
+        let fontSize: Int
+
+        struct Cell {
+            let bounds: (left: Int, top: Int, right: Int, bottom: Int)
+        }
+
+        func cellAt(index: Int) -> Cell {
+            let row = index / cols
+            let col = index % cols
+            let left = originX + col * cellWidth + tileGutter
+            let top = originY + row * cellHeight + tileGutter
+            let right = originX + (col + 1) * cellWidth - tileGutter
+            let bottom = originY + (row + 1) * cellHeight - tileGutter
+            return Cell(bounds: (left, top, right, bottom))
+        }
+    }
+
+    /// Snapshot of the main display's geometry, in AppleScript's top-left-
+    /// origin pixel coordinates. Captured on the main thread so layout math
+    /// can run safely off-main.
+    struct ScreenGeom {
+        let originX: Int  // visible-frame left edge (AS coords)
+        let originY: Int  // visible-frame top edge (below menu bar, AS coords)
+        let width: Int
+        let height: Int
+    }
+
+    static func screenGeom() -> ScreenGeom? {
+        guard let screen = NSScreen.main else { return nil }
+        let visible = screen.visibleFrame
+        let fullHeight = screen.frame.height
+        let asTopOfVisible = Int(fullHeight - (visible.origin.y + visible.size.height))
+        return ScreenGeom(
+            originX: Int(visible.origin.x),
+            originY: asTopOfVisible,
+            width: Int(visible.size.width),
+            height: Int(visible.size.height)
+        )
+    }
+
+    /// Pack `count` windows into the most-square grid that fits the main
+    /// display's visible frame. Font size scales down for denser grids so
+    /// even N=10 stays legible.
+    private static func computeTileLayout(count: Int, geom: ScreenGeom, near: Bool = false) -> TileLayout? {
+        guard count > 0 else { return nil }
+        let cols = max(1, Int(ceil(Double(count).squareRoot())))
+        let rows = max(1, Int(ceil(Double(count) / Double(cols))))
+        let cellW = geom.width / cols
+        let cellH = geom.height / rows
+        // Inner pixels available per window after the gutter is taken out.
+        let innerW = max(1, cellW - 2 * tileGutter)
+        let innerH = max(1, cellH - 2 * tileGutter)
+
+        // Pick the largest font that fits ~24 rows × ~80 cols of monospace
+        // in the inner area. A char cell is roughly fontSize * 0.6 wide and
+        // fontSize * 1.2 tall in Menlo/SF Mono. Enlarging is fine — for low
+        // N the cells are huge, so the font scales up rather than us
+        // wasting empty pixels at a fixed default.
+        let fontByH = Double(innerH) / (24.0 * 1.2)
+        let fontByW = Double(innerW) / (80.0 * 0.6)
+        let raw = min(fontByH, fontByW)
+        // Near = "I'm sitting close, give me density" → 60% of the
+        // legible-from-typical-distance size, floored at 6pt.
+        let scaled = near ? raw * 0.6 : raw
+        let fontSize = max(near ? 6 : 8, Int(scaled.rounded()))
+
+        return TileLayout(
+            cols: cols,
+            rows: rows,
+            cellWidth: cellW,
+            cellHeight: cellH,
+            originX: geom.originX,
+            originY: geom.originY,
+            fontSize: fontSize
+        )
+    }
+
+    /// Tile every currently-open Terminal.app window into the same grid the
+    /// auto-tile path uses. Independent of the auto-tile flag — this is the
+    /// "I forgot to enable it" / "I want to re-pack what's open" button.
+    @objc func tileNow() {
+        guard let geom = Self.screenGeom() else { return }
+        let near = state.nearText
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Ask Terminal for its window count first so we can size the
+            // grid to what's actually on screen.
+            let countOut = ShellRunner.run(
+                "/usr/bin/osascript",
+                args: ["-e", "tell application \"Terminal\" to count windows"],
+                timeout: 5
+            ).output.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let n = Int(countOut), n > 0 else { return }
+            guard let layout = Self.computeTileLayout(count: n, geom: geom, near: near) else { return }
+
+            var lines: [String] = ["tell application \"Terminal\"", "    activate"]
+            for i in 0..<n {
+                let cell = layout.cellAt(index: i)
+                let asIndex = i + 1  // AppleScript is 1-based
+                let boundsLine = "    set bounds of window \(asIndex) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}"
+                // bounds → font → bounds: same pattern as the restore path
+                // so Terminal's row/col snap can't shrink the cell.
+                lines.append(boundsLine)
+                lines.append("    set font size of selected tab of window \(asIndex) to \(layout.fontSize)")
+                lines.append(boundsLine)
+            }
+            lines.append("end tell")
+            let script = lines.joined(separator: "\n")
+            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+        }
     }
 
     private func syncMail(account: String?) {

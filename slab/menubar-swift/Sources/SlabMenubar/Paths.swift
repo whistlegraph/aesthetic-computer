@@ -33,6 +33,18 @@ enum Paths {
     /// chimes and stops ambient instead of starting it. Toggled from the
     /// menubar's "Mute ambient sonification" item.
     static var muteFlag: String { "\(slabHome)/state/muted" }
+    /// When this file exists, restored / restarted Claude windows are
+    /// auto-tiled across the main display in a grid sized by the window
+    /// count, with the Terminal font scaled so no cell is too cramped.
+    static var autoTileFlag: String { "\(slabHome)/state/auto-tile" }
+    /// When this file exists, the tile font is shrunk well below the
+    /// "comfortable from typical distance" size — for sitting close to the
+    /// screen and wanting more content per pane.
+    static var nearTextFlag: String { "\(slabHome)/state/tile-near" }
+    /// When this file exists, each Terminal window matching a live Claude
+    /// session is re-themed by status (working/awaiting), so a wall of
+    /// terminals reads as a status display at a glance.
+    static var themeByStatusFlag: String { "\(slabHome)/state/theme-by-status" }
 }
 
 enum Tools {

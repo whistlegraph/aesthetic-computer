@@ -180,19 +180,22 @@ enum IconRenderer {
         path.stroke()
     }
 
-    /// Per-session edge color. Working = steady cyan-teal. Awaiting =
-    /// pulsing warm red, the loud "look at me" state. Stale = slow gray
-    /// blink, "thread is dead but the marker's still on disk."
+    /// Per-session edge color. Working = steady green ("active and healthy").
+    /// Complete = soft slate (turn done, idle — quiet). Awaiting = pulsing
+    /// amber, the loud "look at me, continue" state. Stale = slow gray blink,
+    /// "thread is dead but the marker's still on disk."
     private static func sessionColor(_ state: ClaudeSession.State, phase: CGFloat) -> NSColor {
         switch state {
         case .working:
-            return NSColor(deviceHue: 0.50, saturation: 0.60, brightness: 0.82, alpha: 1.0)
+            return NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
+        case .complete:
+            return NSColor(deviceHue: 0.58, saturation: 0.30, brightness: 0.70, alpha: 1.0)
         case .awaiting:
             // Pulse brightness at 2 Hz so paused threads visibly throb
-            // among the steady cyan working ones.
+            // among the steady green working ones.
             let pulse = 0.5 + 0.5 * cos(phase * .pi * 4)
             let brightness = 0.70 + 0.30 * pulse
-            return NSColor(deviceHue: 0.0, saturation: 0.92, brightness: brightness, alpha: 1.0)
+            return NSColor(deviceHue: 0.10, saturation: 0.95, brightness: brightness, alpha: 1.0)
         case .stale:
             let blink = 0.5 + 0.5 * cos(phase * .pi * 2)
             return NSColor(deviceWhite: 0.28 + 0.32 * blink, alpha: 1.0)

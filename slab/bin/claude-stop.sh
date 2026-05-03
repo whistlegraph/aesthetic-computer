@@ -117,7 +117,14 @@ elif (( others == 0 )); then
         tired_stinger
         "$SLAB_BIN/claude-sleep" now
     else
-        /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null &
+        # Lid open + everything settled → sinebells waltz phrase. Falls back
+        # to the legacy chime if the rendered file is missing (e.g. fresh
+        # checkout that hasn't run waltz.mjs yet).
+        if [[ -f "$CH/all-done-waltz.mp3" ]]; then
+            /usr/bin/afplay "$CH/all-done-waltz.mp3" 2>/dev/null &
+        else
+            /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null &
+        fi
     fi
 else
     max=8

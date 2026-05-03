@@ -39,13 +39,36 @@ if [[ -n "$input" ]]; then
         tty=$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')
         ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+        # 4–8 word summary used as the live Terminal title and the menubar's
+        # short subject. We collapse whitespace, take the first 7 words, and
+        # cap at 48 chars so it fits in a window-title bar.
+        summary=$(echo "$input" | jq -r '.prompt // ""' \
+            | tr '\n\r\t' '   ' \
+            | awk '{
+                gsub(/^ +| +$/, "");
+                n = (NF > 7) ? 7 : NF;
+                out = "";
+                for (i = 1; i <= n; i++) out = (i == 1 ? $i : out " " $i);
+                if (length(out) > 48) out = substr(out, 1, 45) "…";
+                print out;
+            }')
+
         echo "$input" | jq -c \
             --arg sid "$session_id" \
             --arg tty "$tty" \
             --arg pid "$claude_pid" \
             --arg ts "$ts" \
-            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), tty: $tty, claude_pid: ($pid | tonumber? // 0), updated: $ts, state: "working"}' \
+            --arg sum "$summary" \
+            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), updated: $ts, state: "working"}' \
             > "$ACTIVE_DIR/$session_id" 2>/dev/null
+
+        # Live terminal title: write OSC 0 ("set window + icon name") direct
+        # to the controlling TTY. Terminal.app picks it up unless the
+        # menubar's "Theme by status" has set a custom title — that wins,
+        # and reads the same `summary` field from active-prompts.
+        if [[ -n "$tty" && -e "/dev/$tty" && -n "$summary" ]]; then
+            printf '\033]0;%s\007' "$summary" > "/dev/$tty" 2>/dev/null
+        fi
 
         # User responded — clear any awaiting marker for this session.
         rm -f "$AWAITING_DIR/$session_id"

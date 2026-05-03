@@ -98,6 +98,17 @@ enum MenuBuilder {
         }
         menu.addItem(info(header))
 
+        menu.addItem(buildRestoreSubmenu(state: state, target: target))
+
+        if !sessions.isEmpty {
+            let restartAll = item(
+                "Restart all active (\(sessions.count))",
+                selector: #selector(AppDelegate.restartAllActive),
+                target: target
+            )
+            menu.addItem(restartAll)
+        }
+
         if sessions.isEmpty { return }
 
         for s in sessions {
@@ -105,6 +116,7 @@ enum MenuBuilder {
             switch s.state {
             case .awaiting: dot = "◉"
             case .working:  dot = "●"
+            case .complete: dot = "✓"
             case .stale:    dot = "○"
             }
             let tail = s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)"
@@ -122,13 +134,66 @@ enum MenuBuilder {
         }
     }
 
+    /// "Restore threads" submenu — recovery hatch for the case where
+    /// Terminal.app dies and takes every Claude tab with it. Each item opens
+    /// N fresh Terminal windows running `claude -r <session-id>` for the
+    /// most-recently-modified sessions on disk that aren't already live.
+    private static func buildRestoreSubmenu(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Restore threads", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+
+        let tile = item("Auto tile windows", selector: #selector(AppDelegate.toggleAutoTile), target: target)
+        tile.state = state.autoTile ? .on : .off
+        sub.addItem(tile)
+        sub.addItem(item("Tile now", selector: #selector(AppDelegate.tileNow), target: target))
+
+        // Text size — radio pair so the active mode is visible at a glance.
+        // Near = denser (close to screen), Far = auto-fit "suitable" size.
+        let textParent = NSMenuItem(title: "Text size", action: nil, keyEquivalent: "")
+        let textSub = NSMenu()
+        let farItem = NSMenuItem(title: "Far (suitable)", action: #selector(AppDelegate.setTextFar), keyEquivalent: "")
+        farItem.target = target
+        farItem.state = state.nearText ? .off : .on
+        textSub.addItem(farItem)
+        let nearItem = NSMenuItem(title: "Near (small)", action: #selector(AppDelegate.setTextNear), keyEquivalent: "")
+        nearItem.target = target
+        nearItem.state = state.nearText ? .on : .off
+        textSub.addItem(nearItem)
+        textParent.submenu = textSub
+        sub.addItem(textParent)
+
+        let theme = item("Theme by status", selector: #selector(AppDelegate.toggleThemeByStatus), target: target)
+        theme.state = state.themeByStatus ? .on : .off
+        theme.toolTip = "Re-skin Terminal windows by Claude state — Ocean for working, Red Sands for awaiting, custom title shows the subject"
+        sub.addItem(theme)
+
+        sub.addItem(.separator())
+
+        for n in 1...10 {
+            let entry = NSMenuItem(
+                title: "Restore last \(n)",
+                action: #selector(AppDelegate.restoreRecentThreads(_:)),
+                keyEquivalent: ""
+            )
+            entry.target = target
+            entry.representedObject = n
+            entry.isEnabled = true
+            sub.addItem(entry)
+        }
+        parent.submenu = sub
+        return parent
+    }
+
     private static func coloredTitle(for s: ClaudeSession, dot: String, tail: String) -> NSAttributedString {
         let full = "\(dot) \(s.shortSubject)\(tail)"
         let attr = NSMutableAttributedString(string: full)
         let dotColor: NSColor
         switch s.state {
-        case .working:  dotColor = NSColor(deviceHue: 0.50, saturation: 0.60, brightness: 0.82, alpha: 1.0)
-        case .awaiting: dotColor = NSColor(deviceHue: 0.0,  saturation: 0.92, brightness: 0.92, alpha: 1.0)
+        // Working = green (active/healthy), complete = soft slate (calm),
+        // awaiting = warm amber (needs you), stale = gray.
+        case .working:  dotColor = NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
+        case .complete: dotColor = NSColor(deviceHue: 0.58, saturation: 0.30, brightness: 0.70, alpha: 1.0)
+        case .awaiting: dotColor = NSColor(deviceHue: 0.10, saturation: 0.95, brightness: 0.95, alpha: 1.0)
         case .stale:    dotColor = NSColor(deviceWhite: 0.55, alpha: 1.0)
         }
         // Color the status dot strong, the rest of the line in the dot's
@@ -147,6 +212,8 @@ enum MenuBuilder {
         switch s.state {
         case .awaiting:
             parts.append("awaiting: \(s.awaitingMessage ?? "input")")
+        case .complete:
+            parts.append("turn complete (idle)")
         case .working:
             parts.append("working")
         case .stale:

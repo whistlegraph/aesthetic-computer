@@ -74,6 +74,11 @@ swiftc -O -o "$SLAB_BIN/lid-ambient-synth" "$SLAB_REPO/bin/lid-ambient-synth.swi
 # ------------ sounds ------------
 say "copying sounds to $SLAB_HOME/sounds"
 cp -f "$SLAB_REPO/sounds/"*.wav "$SLAB_HOME/sounds/"
+# Pre-rendered waltz phrases (e.g. all-done-waltz.mp3 from recap/bin/waltz.mjs).
+shopt -s nullglob
+mp3s=("$SLAB_REPO/sounds/"*.mp3)
+(( ${#mp3s[@]} > 0 )) && cp -f "${mp3s[@]}" "$SLAB_HOME/sounds/"
+shopt -u nullglob
 
 # ------------ python venv (numpy + sounddevice for reactive listener) ------------
 if [[ ! -x "$SLAB_HOME/venv/bin/python3" ]]; then
