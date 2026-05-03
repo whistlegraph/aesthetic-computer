@@ -22,7 +22,9 @@ import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeB
 import { startPoller as startNativeGitPoller, getPollerStatus as getNativePollerStatus } from './native-git-poller.mjs';
 import { startPapersBuild, getPapersBuild, getPapersBuildsSummary, cancelPapersBuild } from './papers-builder.mjs';
 import { startPoller as startPapersGitPoller, getPollerStatus as getPapersPollerStatus } from './papers-git-poller.mjs';
-import { join, dirname } from 'path';
+import { startRecapBuild, getRecapBuild, getRecapBuildsSummary, cancelRecapBuild, getRecapMp4Path } from './recap-builder.mjs';
+import { startPoller as startRecapGitPoller, getPollerStatus as getRecapPollerStatus } from './recap-git-poller.mjs';
+import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
 
@@ -3840,6 +3842,113 @@ app.post('/papers-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
   return res.json(result);
 });
 
+// ── Recap Builds ───────────────────────────────────────────────────────────
+// Builds a recap mp4 from a single audience config (e.g. jeffrey-73h-2026-05-02).
+// Auth: same OS_BUILD_ADMIN_KEY used for /native-build / /papers-build.
+// Auto-triggered by recap-git-poller.mjs when recap/audience/*.mjs changes
+// land on origin/main. Manual trigger: POST /recap-build with { audience }.
+
+app.get('/recap-build', (req, res) => {
+  res.json({ ...getRecapBuildsSummary(), poller: getRecapPollerStatus() });
+});
+
+app.get('/recap-build/:jobId', (req, res) => {
+  const tail = Math.max(0, Math.min(2000, parseInt(req.query.tail, 10) || 200));
+  const includeLogs = req.query.logs === '1' || req.query.logs === 'true';
+  const job = getRecapBuild(req.params.jobId, { includeLogs, tail });
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json(job);
+});
+
+app.get('/recap-build/:jobId/stream', (req, res) => {
+  const jobId = req.params.jobId;
+  const initial = getRecapBuild(jobId, { includeLogs: true, tail: 500 });
+  if (!initial) return res.status(404).json({ error: 'Job not found' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+
+  let sentLogs = 0;
+  const sendEvent = (type, data) => {
+    res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (typeof res.flush === 'function') res.flush();
+  };
+
+  if (Array.isArray(initial.logs) && initial.logs.length > 0) {
+    sendEvent('logs', { logs: initial.logs });
+    sentLogs = initial.logs.length;
+  }
+  sendEvent('status', { id: initial.id, status: initial.status, stage: initial.stage, percent: initial.percent });
+
+  const timer = setInterval(() => {
+    const job = getRecapBuild(jobId, { includeLogs: true, tail: 2000 });
+    if (!job) { clearInterval(timer); res.end(); return; }
+    const logs = Array.isArray(job.logs) ? job.logs : [];
+    if (logs.length > sentLogs) {
+      sendEvent('logs', { logs: logs.slice(sentLogs) });
+      sentLogs = logs.length;
+    }
+    sendEvent('status', { id: job.id, status: job.status, stage: job.stage, percent: job.percent, error: job.error });
+    if (job.status === 'success' || job.status === 'failed' || job.status === 'cancelled') {
+      sendEvent('complete', { status: job.status, error: job.error, mp4Path: job.mp4Path, mp4Bytes: job.mp4Bytes });
+      clearInterval(timer);
+      res.end();
+    }
+  }, 1000);
+
+  req.on('close', () => clearInterval(timer));
+});
+
+// Stream the resulting mp4 for a successful job. Public — anyone with
+// the (random) jobId can download. Recap mp4s aren't committed to git.
+app.get('/recap-build/:jobId/mp4', async (req, res) => {
+  const mp4Path = getRecapMp4Path(req.params.jobId);
+  if (!mp4Path) return res.status(404).json({ error: 'mp4 not available (job not finished or not found)' });
+  res.setHeader('Content-Type', 'video/mp4');
+  res.setHeader('Content-Disposition', `inline; filename="${basename(mp4Path)}"`);
+  const { createReadStream, statSync } = await import('fs');
+  try {
+    const stat = statSync(mp4Path);
+    res.setHeader('Content-Length', stat.size);
+    createReadStream(mp4Path).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/recap-build', requireOSBuildAdmin, async (req, res) => {
+  try {
+    const audience = req.body?.audience;
+    if (!audience) return res.status(400).json({ error: 'Missing `audience` in body' });
+    const job = await startRecapBuild({
+      audience,
+      ref: req.body?.ref || 'unknown',
+    });
+    addServerLog('info', '🎬', `Recap build started: ${job.id} (audience=${audience})`);
+    return res.status(202).json(job);
+  } catch (err) {
+    if (err.code === 'RECAP_BUILD_BUSY') {
+      return res.status(409).json({ error: err.message, activeJobId: err.activeJobId });
+    }
+    if (err.code === 'RECAP_BUILD_BAD_AUDIENCE') {
+      return res.status(400).json({ error: err.message });
+    }
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/recap-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
+  const result = cancelRecapBuild(req.params.jobId);
+  if (!result.ok) return res.status(400).json(result);
+  addServerLog('info', '🛑', `Recap build cancel requested: ${req.params.jobId}`);
+  return res.json(result);
+});
+
 // ── OS Release Upload ──────────────────────────────────────────────────────
 // Accepts a vmlinuz binary + metadata, uploads to DO Spaces as OTA release.
 // Auth: AC token (Bearer) verified against Auth0 userinfo.
@@ -4087,6 +4196,7 @@ if (dev) {
 
     // Start papers PDF git poller — watches for papers/ changes
     startPapersGitPoller({ startPapersBuild, addServerLog });
+    startRecapGitPoller({ startRecapBuild, addServerLog });
   });
 }
 

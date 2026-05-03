@@ -5,6 +5,10 @@
 //   { glob: "...pdf", pdfPage: 1, pdfWidth: 800 }                   → first PDF page
 //   { commits: "<git --grep regex>", since: "48 hours" }            → commit list strings
 //   { files: "<glob>", since: "48 hours", limit: 8 }                → recent matching paths
+//   { json: "<repo-relative path>" }                                → parsed JSON value
+//   { screenshot: "<URL>", ... }                                    → pre-baked PNG
+//                                                                     (cached at out/screenshots/<seg>-<name>.png
+//                                                                      by `bin/screenshots.mjs`)
 // Output: out/assets.json mapping slide-name → resolved values keyed by query name.
 // Usage: node bin/scout.mjs [audience-name]
 
@@ -79,7 +83,15 @@ function recentFiles(glob, sinceHours = 168, limit = 12) {
   return matches.map((x) => x.f);
 }
 
-function resolveQuery(name, q) {
+function resolveQuery(segName, name, q) {
+  if (q.screenshot) {
+    const cached = `${ROOT}/out/screenshots/${segName}-${name}.png`;
+    if (!expandGlob(cached).length) {
+      console.warn(`  ⚠ ${name}: screenshot '${q.screenshot}' not cached at ${cached.replace(REPO + "/", "")} — run bin/screenshots.mjs first`);
+      return null;
+    }
+    return imageToDataUrl(cached);
+  }
   if (q.glob) {
     const matches = expandGlob(q.glob);
     if (!matches.length) {
@@ -92,6 +104,11 @@ function resolveQuery(name, q) {
   }
   if (q.commits) return recentCommits(q.commits, q.since, q.limit);
   if (q.files) return recentFiles(q.files, q.sinceHours || 168, q.limit || 12);
+  if (q.json) {
+    const abs = q.json.startsWith("/") ? q.json : join(REPO, q.json);
+    try { return JSON.parse(readFileSync(abs, "utf8")); }
+    catch (e) { console.warn(`  ⚠ ${name}: json '${q.json}' read failed: ${e.message}`); return null; }
+  }
   console.warn(`  ⚠ ${name}: unknown query shape`);
   return null;
 }
@@ -103,7 +120,7 @@ for (const seg of audience.segments) {
   console.log(`▸ ${seg.name}`);
   out[seg.name] = {};
   for (const [name, q] of Object.entries(slide.queries)) {
-    const value = resolveQuery(name, q);
+    const value = resolveQuery(seg.name, name, q);
     if (value !== null) {
       out[seg.name][name] = value;
       const desc = typeof value === "string" && value.startsWith("data:")
