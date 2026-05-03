@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import AudioToolbox
+import CoreAudio
 
 /// Built-in soft-synth using Apple's bundled GM DLS sound bank
 /// (`gs_instruments.dls`).
@@ -80,6 +81,7 @@ final class MenuBandSynth {
             NSLog("MenuBand synth engine start failed: \(error)")
             return
         }
+        applyOutputDeviceOverride()
         loadDefaultPatches()
         primeForLowLatency()
 
@@ -222,6 +224,7 @@ final class MenuBandSynth {
         }
         do {
             try engine.start()
+            applyOutputDeviceOverride()
             return true
         } catch {
             NSLog("MenuBand synth engine resume failed: \(error)")
@@ -323,6 +326,33 @@ final class MenuBandSynth {
     @inline(__always)
     private func sendMIDIEvent(_ au: AudioUnit, status: UInt8, data1: UInt8, data2: UInt8 = 0) {
         MusicDeviceMIDIEvent(au, UInt32(status), UInt32(data1), UInt32(data2), 0)
+    }
+
+    // MARK: - Output device
+
+    /// AVAudioEngine's AUHAL layer bypasses Multi-Output / Aggregate devices
+    /// and connects directly to the underlying clock-source hardware device,
+    /// so audio never reaches secondary members (e.g. BlackHole). Explicitly
+    /// setting CurrentDevice to the system default after every engine start
+    /// forces the engine to honour the full virtual device and its routing.
+    private func applyOutputDeviceOverride() {
+        guard let au = engine.outputNode.audioUnit else { return }
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceID
+        ) == noErr, deviceID != 0 else { return }
+        let status = AudioUnitSetProperty(
+            au, kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global, 0,
+            &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size))
+        if status != noErr {
+            NSLog("MenuBand: output device override failed: \(status)")
+        }
     }
 
     // MARK: - Audio tap for visualizer
