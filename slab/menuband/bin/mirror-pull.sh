@@ -78,6 +78,10 @@ if [[ -z "${LAST_MIRROR_COMMIT}" ]]; then
 fi
 say "last sync point: $(git log -1 --format='%h %s' "${LAST_MIRROR_COMMIT}")"
 
+# Cache the monorepo's landed subjects once (avoid per-iteration pipe — see
+# mirror-sync.sh for the pipefail+grep -q SIGPIPE trap that bit us).
+LANDED_SUBJECTS="$(git log --format='%s' -- "${PREFIX}")"
+
 # Collect contributor commits in chronological order. Skip merges (format-patch
 # can't represent them anyway) and our own snapshot commits.
 CONTRIB_SHAS=()
@@ -85,7 +89,7 @@ while IFS=$'\t' read -r contrib_sha contrib_subj; do
     [[ -z "${contrib_sha}" ]] && continue
     [[ "${contrib_subj}" == "Mirror of "* ]] && continue
     # Skip if subject already exists in monorepo's slab/menuband history.
-    if git log --format='%s' -- "${PREFIX}" | grep -Fxq "${contrib_subj}"; then
+    if grep -Fxq -- "${contrib_subj}" <<< "${LANDED_SUBJECTS}"; then
         continue
     fi
     CONTRIB_SHAS+=("${contrib_sha}")

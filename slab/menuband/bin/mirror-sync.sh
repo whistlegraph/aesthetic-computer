@@ -102,16 +102,22 @@ if [[ -n "${LAST_MIRROR_COMMIT}" ]]; then
     LAST_MIRROR_MONO_HASH="$(git -C "${WORK}" log -1 --format='%s' "${LAST_MIRROR_COMMIT}" \
         | sed -nE 's/^Mirror of ([0-9a-f]+):.*/\1/p')"
 
+    # Cache the monorepo's landed subjects once. We can't pipe directly into
+    # `grep -Fxq` per-iteration: with `set -o pipefail`, grep -q exits early
+    # on first match, git log catches SIGPIPE → exit 141, and the pipeline
+    # reports failure even though the match succeeded. Cache + here-string
+    # avoids the pipe entirely.
+    LANDED_SUBJECTS="$(git log --format='%s' -- "${PREFIX}")"
+
     UNLANDED_COUNT=0
     UNLANDED_LINES=""
     while IFS=$'\t' read -r contrib_sha contrib_subj; do
         [[ -z "${contrib_sha}" ]] && continue
         # Skip future "Mirror of …" snapshots — those are our own.
         [[ "${contrib_subj}" == "Mirror of "* ]] && continue
-        # Has this subject appeared in the monorepo's slab/menuband history
-        # since the last sync? If yes, treat as landed (authorship/hash differ
-        # because of git am rewrites, but the content is what matters).
-        if ! git log --format='%s' -- "${PREFIX}" | grep -Fxq "${contrib_subj}"; then
+        # Treat as landed (authorship/hash differ because of git am rewrites,
+        # but subject is the stable identity).
+        if ! grep -Fxq -- "${contrib_subj}" <<< "${LANDED_SUBJECTS}"; then
             UNLANDED_COUNT=$((UNLANDED_COUNT + 1))
             UNLANDED_LINES+="    ${contrib_sha:0:9}  ${contrib_subj}"$'\n'
         fi
