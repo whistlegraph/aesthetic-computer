@@ -13,6 +13,11 @@ import simd
 /// driven by MTKView's internal CVDisplayLink at the screen's native
 /// refresh. Hidden when MIDI mode is on.
 final class WaveformView: MTKView {
+    enum SurfaceStyle {
+        case standard
+        case glassEmbedded
+    }
+
     weak var menuBand: MenuBandController?
 
     private static let barCount = 16
@@ -44,6 +49,7 @@ final class WaveformView: MTKView {
     /// we need a per-view lease bit to avoid over-releasing the controller's
     /// shared capture refcount.
     private var hasCaptureLease = false
+    private var surfaceStyle: SurfaceStyle = .standard
 
     var isLive: Bool = false {
         didSet {
@@ -212,6 +218,8 @@ final class WaveformView: MTKView {
     }
 
     override var isOpaque: Bool { true }
+    override var mouseDownCanMoveWindow: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     private func buildPipeline(device: MTLDevice) {
         do {
@@ -294,16 +302,30 @@ final class WaveformView: MTKView {
     /// instead of brightening to white, so peak still reads as
     /// "hotter" without washing out against the light substrate.
     func setLightMode(_ isLight: Bool) {
-        if isLight {
+        switch (surfaceStyle, isLight) {
+        case (.standard, true):
             // Warm off-white — closer to a printed page than pure
             // white, so the colored bars don't vibrate against it.
             clearColor = MTLClearColor(red: 0.93, green: 0.92, blue: 0.90, alpha: 1.0)
             uniforms.isLight = 1
-        } else {
+        case (.standard, false):
             clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1.0)
+            uniforms.isLight = 0
+        case (.glassEmbedded, true):
+            clearColor = MTLClearColor(red: 0.86, green: 0.88, blue: 0.90, alpha: 1.0)
+            uniforms.isLight = 1
+        case (.glassEmbedded, false):
+            clearColor = MTLClearColor(red: 0.06, green: 0.08, blue: 0.10, alpha: 1.0)
             uniforms.isLight = 0
         }
         display()
+    }
+
+    func setSurfaceStyle(_ style: SurfaceStyle) {
+        guard surfaceStyle != style else { return }
+        surfaceStyle = style
+        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        setLightMode(!isDark)
     }
 
     // MARK: - Per-frame audio analysis

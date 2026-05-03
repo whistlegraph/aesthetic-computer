@@ -404,6 +404,16 @@ final class MenuBandController {
         onInstrumentVisualChange?()
     }
 
+    func stepMelodicProgram(delta: Int) {
+        let next = max(0, min(127, Int(melodicProgram) + delta))
+        guard next != Int(melodicProgram) else { return }
+        setMelodicProgram(UInt8(next))
+    }
+
+    func stepOctave(delta: Int) {
+        octaveStepOnce(delta: delta)
+    }
+
     // MARK: - Instrument backend (GM vs GarageBand)
 
     enum InstrumentBackend: String { case gm, garageBand = "gb" }

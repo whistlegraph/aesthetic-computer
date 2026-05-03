@@ -13,8 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var layoutToggleHotkey: GlobalHotkey?
     private let popover = NSPopover()
     private var popoverVC: MenuBandPopoverViewController?
-    private lazy var floatingPlayPalette = FloatingPlayPaletteController(menuBand: menuBand)
-    private lazy var waveformStrip = MenuBarWaveformStrip(menuBand: menuBand)
+    private lazy var pianoWaveformPalette = PianoWaveformPalette(menuBand: menuBand)
+    private var floatingPlayPalette: PianoWaveformPalette { pianoWaveformPalette }
+    private var waveformStrip: PianoWaveformPalette { pianoWaveformPalette }
     private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
     private var focusCaptureArmedByShortcut = false
@@ -171,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.updateIcon()
             self.popoverVC?.refreshHeldNotes()
             self.floatingPlayPalette.refresh()
-            // strip retired — no-op
+            self.waveformStrip.refreshAppearance()
             self.updateWaveformStrip()
         }
         menuBand.onInstrumentVisualChange = { [weak self] in
@@ -179,10 +180,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self = self else { return }
                 self.updateIcon()
                 self.floatingPlayPalette.refresh()
-                // strip retired — no-op
+                self.waveformStrip.refreshAppearance()
             }
         }
         menuBand.bootstrap()
+        lastKnownOctaveShift = menuBand.octaveShift
         floatingPlayPalette.onDismiss = { [weak self] in
             self?.updateIcon()
             self?.popoverVC?.syncFromController()
@@ -225,7 +227,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updateIcon()
 
-        // Strip retired — no warmup needed.
+        // Pre-build the waveform strip panel so the first note press
+        // doesn't stall on panel + Metal pipeline construction.
+        waveformStrip.reposition(statusItemButton: statusItem.button)
+        waveformStrip.onStepBackward = { [weak self] in
+            self?.menuBand.stepMelodicProgram(delta: -1)
+        }
+        waveformStrip.onStepForward = { [weak self] in
+            self?.menuBand.stepMelodicProgram(delta: +1)
+        }
+        waveformStrip.onStepUp = { [weak self] in
+            self?.menuBand.stepMelodicProgram(delta: -InstrumentListView.cols)
+        }
+        waveformStrip.onStepDown = { [weak self] in
+            self?.menuBand.stepMelodicProgram(delta: +InstrumentListView.cols)
+        }
+        waveformStrip.warmUp()
 
         registerTypeModeHotkey()
         _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
@@ -262,6 +279,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ) {
                 self.toggleKeyboardLayoutShortcut()
                 return true
+            }
+            if self.popover.isShown == false && self.floatingPlayPalette.isShown == false {
+                switch keyCode {
+                case 123: // kVK_LeftArrow
+                    if isDown {
+                        self.waveformStrip.registerArrowInput()
+                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: -1) }
+                    }
+                    return true
+                case 124: // kVK_RightArrow
+                    if isDown {
+                        self.waveformStrip.registerArrowInput()
+                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: +1) }
+                    }
+                    return true
+                case 125: // kVK_DownArrow
+                    if isDown {
+                        self.waveformStrip.registerArrowInput()
+                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: +InstrumentListView.cols) }
+                    }
+                    return true
+                case 126: // kVK_UpArrow
+                    if isDown {
+                        self.waveformStrip.registerArrowInput()
+                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: -InstrumentListView.cols) }
+                    }
+                    return true
+                default:
+                    break
+                }
             }
             let consumed = self.menuBand.handleLocalKey(
                 keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
@@ -1162,6 +1209,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let initialShift = downEvent.modifierFlags.contains(.shift)
             || downEvent.modifierFlags.contains(.capsLock)
         menuBand.startTapNote(startNote, velocity: vel0, pan: pan0, linger: initialShift)
+        waveformStrip.showIfNeeded()
         // Arm sandbox-friendly local capture on a real piano click. We
         // skip arming when global TYPE mode is already on — the global
         // tap is already handling keys, doubling up would re-trigger
@@ -1195,6 +1243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let shiftNow = next.modifierFlags.contains(.shift)
                         || next.modifierFlags.contains(.capsLock)
                     menuBand.startTapNote(nxt, velocity: v, pan: p, linger: shiftNow)
+                    waveformStrip.showIfNeeded()
                 }
                 current = hovered
             } else if let c = current {
@@ -1295,17 +1344,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Menubar waveform strip
 
     private func updateWaveformStrip() {
-        // Strip retired — the menubar mini meter replaces it. We keep
-        // this method as a no-op so the call sites elsewhere stay
-        // wired without each one having to know about the retirement.
+        guard waveformStrip.isCollapsedState else { return }
+        if !menuBand.litNotes.isEmpty {
+            waveformStrip.showIfNeeded()
+        } else {
+            waveformStrip.scheduleHide()
+        }
     }
 
     private func updateWaveformStripSuppression() {
-        // Strip retired. The mini meter now stays animating at all
-        // times (including when the popover or palette is open) so
-        // the menubar icon always feels "live." When silent, the
-        // bars fall to a short floor instead of disappearing — see
-        // KeyboardIconRenderer.drawChipVisualizer for the silent-
-        // floor handling. This method is intentionally a no-op now.
+        waveformStrip.suppressed = waveformStrip.isDocked && (popover.isShown || floatingPlayPalette.isShown)
     }
 }
