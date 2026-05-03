@@ -1,6 +1,51 @@
 import AppKit
 import Carbon
 
+/// NSButton subclass for chip-shaped link buttons — paints a layer-backed
+/// fill/border, swaps to a brighter "hover" pair when the cursor enters,
+/// and switches the cursor to a pointing hand. Used by the Why-this-Keymap
+/// chip and the Aesthetic.Computer / notepat.com brand badges so they all
+/// behave like real links instead of mute-looking buttons.
+final class HoverLinkButton: NSButton {
+    var idleBackground: NSColor?
+    var idleBorder: NSColor?
+    var hoverBackground: NSColor?
+    var hoverBorder: NSColor?
+    private var trackingArea: NSTrackingArea?
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let ta = trackingArea { removeTrackingArea(ta) }
+        let ta = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self, userInfo: nil
+        )
+        addTrackingArea(ta)
+        trackingArea = ta
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        applyState(hovered: true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        applyState(hovered: false)
+    }
+
+    private func applyState(hovered: Bool) {
+        let bg = hovered ? hoverBackground : idleBackground
+        let bd = hovered ? hoverBorder : idleBorder
+        layer?.backgroundColor = bg?.cgColor
+        layer?.borderColor = bd?.cgColor
+    }
+}
+
 /// NSSegmentedControl subclass that reports the currently-hovered segment
 /// (or nil when the cursor leaves). Used by the input-mode picker so
 /// hovering a segment can preview that mode in the menubar piano without
@@ -95,6 +140,12 @@ final class MenuBandPopoverViewController: NSViewController {
     /// rest so the layout doesn't wobble when notes come and go.
     private var heldNotesStack: NSStackView!
     private var heldNotesContainer: NSView!
+    /// Held so `viewDidChangeEffectiveAppearance` can repaint the
+    /// layer-painted background when the user toggles light/dark
+    /// mode mid-session — `NSColor.windowBackgroundColor.cgColor`
+    /// is resolved once at loadView, so we have to re-resolve it on
+    /// each appearance change.
+    private weak var rootBackgroundView: NSView?
     /// Chord-candidate cards live in their own row directly below the
     /// visualizer bezel, mirroring the floating play palette so the
     /// popover gets the same searchable chord readout.
@@ -126,10 +177,14 @@ final class MenuBandPopoverViewController: NSViewController {
         // effect view sampled the surrounding context and shifted appearance
         // when focus moved between the menu bar and the popover. A flat
         // background keeps the popover homogeneous in all states.
-        let root = NSView()
+        let root = MenuBandPopoverRootView()
         root.wantsLayer = true
         root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
+        root.onAppearanceChange = { [weak self] in
+            self?.handleEffectiveAppearanceChange()
+        }
+        rootBackgroundView = root
 
         // Vertical stack of rows. Tight spacing + small edge insets so the
         // popover hugs the 224 px instrument grid with no slack.
@@ -191,7 +246,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
         let leftArrow = NSButton()
         leftArrow.image = NSImage(systemSymbolName: "chevron.left",
-                                  accessibilityDescription: "Octave down")?
+                                  accessibilityDescription: L("popover.octave.down"))?
             .withSymbolConfiguration(chevConfig)
         leftArrow.isBordered = false
         leftArrow.controlSize = .small
@@ -202,7 +257,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
         let rightArrow = NSButton()
         rightArrow.image = NSImage(systemSymbolName: "chevron.right",
-                                   accessibilityDescription: "Octave up")?
+                                   accessibilityDescription: L("popover.octave.up"))?
             .withSymbolConfiguration(chevConfig)
         rightArrow.isBordered = false
         rightArrow.controlSize = .small
@@ -217,7 +272,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // "octave" hint label sits to the right of the rightArrow so the
         // number reads as scientific pitch notation (C4, C5, …) without
         // taking much room.
-        let octaveHint = NSTextField(labelWithString: "Octave")
+        let octaveHint = NSTextField(labelWithString: L("popover.octave"))
         octaveHint.font = NSFont.systemFont(ofSize: 9, weight: .regular)
         octaveHint.textColor = .tertiaryLabelColor
 
@@ -240,7 +295,7 @@ final class MenuBandPopoverViewController: NSViewController {
         midiSwitch = NSSwitch()
         midiSwitch.target = self
         midiSwitch.action = #selector(midiSwitchToggled(_:))
-        midiInlineLabel = NSTextField(labelWithString: "MIDI")
+        midiInlineLabel = NSTextField(labelWithString: L("popover.midi.label"))
         midiInlineLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         midiInlineLabel.textColor = .secondaryLabelColor
         titleRow.addArrangedSubview(midiInlineLabel)
@@ -266,7 +321,7 @@ final class MenuBandPopoverViewController: NSViewController {
         updateLabel.lineBreakMode = .byWordWrapping
         updateLabel.maximumNumberOfLines = 0
         updateLabel.translatesAutoresizingMaskIntoConstraints = false
-        let updateLink = NSButton(title: "Open menuband.com",
+        let updateLink = NSButton(title: L("popover.update.button"),
                                   target: self,
                                   action: #selector(openMenuBandSite))
         updateLink.bezelStyle = .recessed
@@ -298,7 +353,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // Layout block — built here, but appended to the stack
         // *below* the palettePanel so the Layout choice reads as a
         // configuration knob you reach for after picking a voice.
-        let inputLabel = NSTextField(labelWithString: "Layout")
+        let inputLabel = NSTextField(labelWithString: L("popover.layout.label"))
         inputLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         inputLabel.textColor = .labelColor
 
@@ -309,7 +364,7 @@ final class MenuBandPopoverViewController: NSViewController {
         shortcuts.spacing = 8
         shortcuts.translatesAutoresizingMaskIntoConstraints = false
 
-        let focusLabel = NSTextField(labelWithString: "Focus menu piano")
+        let focusLabel = NSTextField(labelWithString: L("popover.shortcuts.focus"))
         focusLabel.font = NSFont.systemFont(ofSize: 11)
         focusLabel.textColor = .labelColor
         shortcuts.addArrangedSubview(focusLabel)
@@ -348,7 +403,7 @@ final class MenuBandPopoverViewController: NSViewController {
         playPaletteRow.spacing = 6
         playPaletteRow.translatesAutoresizingMaskIntoConstraints = false
 
-        let playPaletteLabel = NSTextField(labelWithString: "Floating piano")
+        let playPaletteLabel = NSTextField(labelWithString: L("popover.shortcuts.floating"))
         playPaletteLabel.font = NSFont.systemFont(ofSize: 11)
         playPaletteLabel.textColor = .labelColor
         playPaletteLabel.lineBreakMode = .byTruncatingTail
@@ -360,7 +415,7 @@ final class MenuBandPopoverViewController: NSViewController {
         playPaletteRow.addArrangedSubview(playPaletteSpacer)
 
         playPaletteToggleButton = NSButton(
-            title: "Show",
+            title: L("popover.shortcuts.show"),
             target: self,
             action: #selector(playPaletteToggleButtonClicked(_:))
         )
@@ -406,12 +461,12 @@ final class MenuBandPopoverViewController: NSViewController {
         // (`NotepatFavicon.image`, lazily fetched + cached); Ableton
         // gets the canonical logo we render programmatically.
         let modeSpecs: [(label: String, image: NSImage?)] = [
-            ("Notepat.com",
+            (L("popover.layout.notepat"),
              NotepatFavicon.image
                 ?? NSImage(systemSymbolName: "keyboard",
-                            accessibilityDescription: "Notepat.com")?
+                            accessibilityDescription: L("popover.layout.notepat"))?
                     .withSymbolConfiguration(modeSymbolConfig)),
-            ("Ableton Computer Keyboard",
+            (L("popover.layout.ableton"),
              AbletonLogo.image(height: 11)),
         ]
         modeButtons = []
@@ -443,15 +498,36 @@ final class MenuBandPopoverViewController: NSViewController {
         ).isActive = true
 
         let inputHint = NSTextField(labelWithString:
-            "⌃⌥⌘P toggles last keystrokes mode")
+            L("popover.layout.hint"))
         inputHint.font = NSFont.systemFont(ofSize: 10)
         inputHint.textColor = .secondaryLabelColor
+
+        // "Why this Keymap?" — small chip-link to the keymaps paper.
+        // Sits right under the layout-mode picker so the user has a
+        // one-tap path from "what is this layout" to the writeup
+        // explaining the chromatic notepat keymap, the Ableton M-mode
+        // overlap, and why the popover defaults to notepat.com.
+        let whyKeymapAttr = NSMutableAttributedString(
+            string: L("popover.layout.why"),
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                .foregroundColor: NSColor.linkColor,
+            ]
+        )
+        let whyKeymapButton = MenuBandPopoverViewController.makeLinkButton(
+            attr: whyKeymapAttr,
+            target: self,
+            action: #selector(openKeymapsPaper(_:))
+        )
+        whyKeymapButton.toolTip = L("popover.layout.why.tooltip")
+
         // Layout label / mode buttons / hint are inserted into the
         // popover stack farther down — see the `palettePanel`
         // insertion point.
-        let layoutBlock = (label: inputLabel, picker: modeStack, hint: inputHint)
+        let layoutBlock = (label: inputLabel, picker: modeStack,
+                            hint: inputHint, link: whyKeymapButton)
 
-        let shortcutLabel = NSTextField(labelWithString: "Key Shortcuts")
+        let shortcutLabel = NSTextField(labelWithString: L("popover.shortcuts.label"))
         shortcutLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         shortcutLabel.textColor = .labelColor
 
@@ -719,7 +795,7 @@ final class MenuBandPopoverViewController: NSViewController {
         palettePanel.addSubview(keyboardDeck)
 
         arrowsHint = ArrowKeysIndicator()
-        arrowsHint.toolTip = "Arrow keys move the selection."
+        arrowsHint.toolTip = L("popover.arrows.tooltip")
         arrowsHint.translatesAutoresizingMaskIntoConstraints = false
         arrowsHint.onClick = { [weak self] dir, isDown in
             // Drive the same selection path the physical arrow keys
@@ -731,10 +807,10 @@ final class MenuBandPopoverViewController: NSViewController {
         // Strip below the grid: keyboard chassis wraps the QWERTY
         // map on top and the arrow-keys cluster tucked into its
         // bottom-right corner. Reads like a tiny laptop keyboard
-        // glued to the base of the voice grid. Sized to hug the
-        // qwerty (46h) + arrows (30h) + insets — no trackpad slab
-        // anymore, so the strip can be tighter.
-        let strip: CGFloat = 88
+        // glued to the base of the voice grid. Tuned to hug the
+        // qwerty (46h) + arrows (30h) with the qwerty/arrows gap
+        // squeezed to 0 — no dead vertical band between rows.
+        let strip: CGFloat = 82
         qwertyMap = QwertyLayoutView()
         qwertyMap.translatesAutoresizingMaskIntoConstraints = false
         // Pointer-driven play: clicks/drags on caps route through the
@@ -755,24 +831,27 @@ final class MenuBandPopoverViewController: NSViewController {
 
             // Deck wraps the keys + trackpad. Spans the full panel
             // width so the chassis reads as a real laptop deck under
-            // the voice grid.
+            // the voice grid. Sits 4 pt below the instrument palette
+            // (was 6) so the chassis reads as flush-mounted to the
+            // grid above instead of floating with a wide gutter.
             keyboardDeck.leadingAnchor.constraint(equalTo: palettePanel.leadingAnchor),
             keyboardDeck.trailingAnchor.constraint(equalTo: palettePanel.trailingAnchor),
-            keyboardDeck.topAnchor.constraint(equalTo: instrumentList.bottomAnchor, constant: 6),
+            keyboardDeck.topAnchor.constraint(equalTo: instrumentList.bottomAnchor, constant: 4),
             keyboardDeck.bottomAnchor.constraint(equalTo: palettePanel.bottomAnchor),
 
             // QWERTY map sits at the top of the chassis with a
             // small inset from the deck's rounded edge.
             qwertyMap.centerXAnchor.constraint(equalTo: keyboardDeck.centerXAnchor),
-            qwertyMap.topAnchor.constraint(equalTo: keyboardDeck.topAnchor, constant: 6),
+            qwertyMap.topAnchor.constraint(equalTo: keyboardDeck.topAnchor, constant: 4),
             qwertyMap.widthAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.width),
             qwertyMap.heightAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.height),
 
-            // Arrow cluster nestles below the QWERTY rows on the
-            // right edge — same inverted-T position a real laptop
-            // would put it.
+            // Arrow cluster nestles directly below the QWERTY rows on
+            // the right edge — inverted-T position, no vertical gap so
+            // the cluster reads as a continuation of the qwerty deck
+            // instead of a stranded floating widget.
             arrowsHint.trailingAnchor.constraint(equalTo: keyboardDeck.trailingAnchor, constant: -cornerInset),
-            arrowsHint.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: 2),
+            arrowsHint.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: 0),
         ])
         stack.addArrangedSubview(palettePanel)
         palettePanel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
@@ -784,6 +863,7 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(layoutBlock.label)
         stack.addArrangedSubview(layoutBlock.picker)
         stack.addArrangedSubview(layoutBlock.hint)
+        stack.addArrangedSubview(layoutBlock.link)
         stack.addArrangedSubview(shortcutLabel)
         stack.addArrangedSubview(shortcuts)
         stack.addArrangedSubview(focusShortcutStatusLabel)
@@ -824,10 +904,10 @@ final class MenuBandPopoverViewController: NSViewController {
         let aboutText = NSMutableAttributedString()
         let bodyFont = NSFont.systemFont(ofSize: 10.5)
         let boldFont = NSFont.systemFont(ofSize: 10.5, weight: .bold)
-        aboutText.append(NSAttributedString(string: "Menu Band",
+        aboutText.append(NSAttributedString(string: L("popover.about.lead"),
             attributes: [.font: boldFont, .foregroundColor: NSColor.labelColor]))
         aboutText.append(NSAttributedString(
-            string: " brings the built-in macOS instruments into the menu bar.",
+            string: L("popover.about.body"),
             attributes: [.font: bodyFont, .foregroundColor: NSColor.secondaryLabelColor]))
         aboutBody.attributedStringValue = aboutText
         aboutBody.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
@@ -862,7 +942,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // bottom on multi-line crash hints.
         crashStatusLabel = NSTextField(labelWithString: "")  // legacy ivar — unused
         crashHintLabel = NSTextField(labelWithString: "")    // legacy ivar — unused
-        crashSendButton = NSButton(title: "Send crash reports",
+        crashSendButton = NSButton(title: L("popover.about.crash.send"),
                                    target: self,
                                    action: #selector(sendCrashLogs(_:)))
         crashSendButton.bezelStyle = .recessed
@@ -875,6 +955,56 @@ final class MenuBandPopoverViewController: NSViewController {
         // Quit reads as its own action, not a list item under About.
         stack.setCustomSpacing(10, after: aboutCrashRow)
 
+        // Language switcher — compact flag-chip row, same pattern as the
+        // kidlisp.com / help.aesthetic.computer pickers. The active language
+        // is solid; the others are flat. Tapping a chip flips the locale and
+        // posts `Localization.didChange`, which the AppDelegate observes to
+        // rebuild the popover with translated strings.
+        let langRow = NSStackView()
+        langRow.orientation = .horizontal
+        langRow.alignment = .centerY
+        langRow.spacing = 6
+        let langLabel = NSTextField(labelWithString: L("popover.language.label"))
+        langLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        langLabel.textColor = .secondaryLabelColor
+        langRow.addArrangedSubview(langLabel)
+        for lang in Localization.supported {
+            let isActive = (lang.code == Localization.current)
+            let attr = NSMutableAttributedString(
+                string: "\(lang.flag)  \(lang.label)",
+                attributes: [
+                    .font: NSFont.systemFont(
+                        ofSize: 11,
+                        weight: isActive ? .semibold : .regular),
+                    .foregroundColor: isActive
+                        ? NSColor.labelColor
+                        : NSColor.secondaryLabelColor,
+                ]
+            )
+            let accent = NSColor.controlAccentColor
+            let chip = MenuBandPopoverViewController.makeLinkButton(
+                attr: attr,
+                target: self,
+                action: #selector(languageChipClicked(_:)),
+                background: isActive
+                    ? accent.withAlphaComponent(0.18)
+                    : NSColor.clear,
+                border: isActive
+                    ? accent.withAlphaComponent(0.55)
+                    : NSColor.separatorColor.withAlphaComponent(0.5))
+            chip.identifier = NSUserInterfaceItemIdentifier(
+                rawValue: "menuband.lang.\(lang.code)")
+            chip.toolTip = lang.label
+            langRow.addArrangedSubview(chip)
+        }
+        let langSpacer = NSView()
+        langSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        langRow.addArrangedSubview(langSpacer)
+        stack.addArrangedSubview(langRow)
+        langRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
+                                        constant: -16).isActive = true
+        stack.setCustomSpacing(10, after: langRow)
+
         // Quit — red bezel, white bold title. Bottom-right of the footer
         // row; crash-send button (when present) sits at the left of the
         // same row.
@@ -886,7 +1016,7 @@ final class MenuBandPopoverViewController: NSViewController {
         quit.target = self
         quit.action = #selector(quitApp)
         quit.attributedTitle = NSAttributedString(
-            string: "Quit Menu Band",
+            string: L("popover.about.quit"),
             attributes: [
                 .foregroundColor: NSColor.white,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
@@ -1157,7 +1287,7 @@ final class MenuBandPopoverViewController: NSViewController {
     private func updateFocusShortcutControls(status: String? = nil) {
         guard focusShortcutButton != nil else { return }
         if isRecordingFocusShortcut {
-            focusShortcutButton.title = "Press keys"
+            focusShortcutButton.title = L("popover.shortcuts.pressKeys")
         } else {
             focusShortcutButton.title = MenuBandShortcutPreferences.focusShortcut.displayString
         }
@@ -1169,7 +1299,7 @@ final class MenuBandPopoverViewController: NSViewController {
         stopPlayPaletteShortcutRecording(status: nil)
         isRecordingFocusShortcut = true
         onFocusShortcutRecordingChanged?(true)
-        updateFocusShortcutControls(status: "Use ⌘, ⌃, or ⌥")
+        updateFocusShortcutControls(status: L("popover.shortcuts.use"))
         focusShortcutRecorderMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.keyDown]
         ) { [weak self] event in
@@ -1199,23 +1329,27 @@ final class MenuBandPopoverViewController: NSViewController {
             modifiers: MenuBandShortcut.carbonModifiers(from: event.modifierFlags)
         )
         guard shortcut.isValidForRecording else {
-            updateFocusShortcutControls(status: "Use ⌘, ⌃, or ⌥")
+            updateFocusShortcutControls(status: L("popover.shortcuts.use"))
             return
         }
         guard !shortcut.isReservedForTypeMode else {
-            updateFocusShortcutControls(status: "⌃⌥⌘P is reserved")
+            updateFocusShortcutControls(status: L("popover.shortcuts.reserved"))
             return
         }
         let saved = onFocusShortcutChange?(shortcut) ?? false
         stopFocusShortcutRecording(
-            status: saved ? "Saved \(shortcut.displayString)" : "Shortcut unavailable"
+            status: saved
+                ? L("popover.shortcuts.saved", shortcut.displayString)
+                : L("popover.shortcuts.unavailable")
         )
     }
     private func updatePlayPaletteShortcutControls(status: String? = nil) {
         guard playPaletteShortcutButton != nil else { return }
-        playPaletteToggleButton.title = (isPlayPaletteShown?() ?? false) ? "Focus" : "Show"
+        playPaletteToggleButton.title = (isPlayPaletteShown?() ?? false)
+            ? L("popover.shortcuts.focusButton")
+            : L("popover.shortcuts.show")
         if isRecordingPlayPaletteShortcut {
-            playPaletteShortcutButton.title = "Press"
+            playPaletteShortcutButton.title = L("popover.shortcuts.press")
         } else {
             playPaletteShortcutButton.title = MenuBandShortcutPreferences.playPaletteShortcut.displayString
         }
@@ -1257,16 +1391,18 @@ final class MenuBandPopoverViewController: NSViewController {
             modifiers: MenuBandShortcut.carbonModifiers(from: event.modifierFlags)
         )
         guard shortcut.isValidForRecording else {
-            updatePlayPaletteShortcutControls(status: "Use ⌘, ⌃, or ⌥")
+            updatePlayPaletteShortcutControls(status: L("popover.shortcuts.use"))
             return
         }
         guard !shortcut.isReservedForTypeMode else {
-            updatePlayPaletteShortcutControls(status: "⌃⌥⌘P is reserved")
+            updatePlayPaletteShortcutControls(status: L("popover.shortcuts.reserved"))
             return
         }
         let saved = onPlayPaletteShortcutChange?(shortcut) ?? false
         stopPlayPaletteShortcutRecording(
-            status: saved ? "Saved \(shortcut.displayString)" : "Shortcut unavailable"
+            status: saved
+                ? L("popover.shortcuts.saved", shortcut.displayString)
+                : L("popover.shortcuts.unavailable")
         )
     }
     private func updateInstrumentReadout() {
@@ -1346,10 +1482,22 @@ final class MenuBandPopoverViewController: NSViewController {
         )
     }
 
-    // Appearance changes (light/dark toggle) refresh on next popover
-    // open via syncFromController — viewDidChangeEffectiveAppearance
-    // isn't on NSViewController in macOS so we don't try to hook it
-    // mid-session.
+    // Appearance changes (light/dark toggle) repaint live: the
+    // popover root + the visualizer bezel + the keyboard deck all
+    // hold layer-painted CGColors that were resolved once at
+    // loadView, so a system-wide light/dark flip wouldn't otherwise
+    // propagate to them. `viewDidChangeEffectiveAppearance` is
+    // declared on NSResponder but not on NSViewController in our
+    // SDK target — the popover's custom root view (which IS an
+    // NSView and does inherit the override) drives this callback
+    // for us. See `MenuBandPopoverRootView` below.
+    fileprivate func handleEffectiveAppearanceChange() {
+        rootBackgroundView?.layer?.backgroundColor =
+            NSColor.windowBackgroundColor.cgColor
+        applyAppearanceToVisualizer()
+        refreshHeldNotes()
+        updateInstrumentReadout()
+    }
 
     /// Flip the LED bezel + visualizer between dark-mode (LED-on-black
     /// glow) and light-mode (ink-on-paper) substrates so the meter
@@ -1411,16 +1559,17 @@ final class MenuBandPopoverViewController: NSViewController {
         return box
     }
 
-    /// Badge-style link button — flat NSButton with a layer-painted
+    /// Badge-style link button — flat HoverLinkButton with a layer-painted
     /// fill + optional border, so the per-link attributed title sits
     /// inside a small chip. `bezelStyle = .inline` strips the system
-    /// chrome; the layer below provides the badge look.
+    /// chrome; the layer below provides the badge look. On hover the
+    /// background/border brighten and the cursor flips to pointing hand.
     static func makeLinkButton(attr: NSAttributedString,
                                target: AnyObject,
                                action: Selector,
                                background: NSColor? = nil,
                                border: NSColor? = nil) -> NSButton {
-        let btn = NSButton()
+        let btn = HoverLinkButton()
         btn.bezelStyle = .inline
         btn.isBordered = false
         btn.controlSize = .small
@@ -1429,12 +1578,24 @@ final class MenuBandPopoverViewController: NSViewController {
         btn.attributedTitle = attr
         btn.wantsLayer = true
         btn.layer?.cornerRadius = 5
-        if let bg = background {
-            btn.layer?.backgroundColor = bg.cgColor
-        }
-        if let bd = border {
+        let idleBg = background
+            ?? NSColor.controlAccentColor.withAlphaComponent(0.06)
+        let idleBd = border
+        let hoverBg = idleBg.withAlphaComponent(
+            min(1.0, idleBg.alphaComponent + 0.18))
+        let hoverBd = idleBd?.withAlphaComponent(
+            min(1.0, (idleBd?.alphaComponent ?? 0.5) + 0.25))
+            ?? NSColor.controlAccentColor.withAlphaComponent(0.55)
+        btn.idleBackground = idleBg
+        btn.idleBorder = idleBd
+        btn.hoverBackground = hoverBg
+        btn.hoverBorder = hoverBd
+        btn.layer?.backgroundColor = idleBg.cgColor
+        if let bd = idleBd {
             btn.layer?.borderColor = bd.cgColor
             btn.layer?.borderWidth = 1
+        } else {
+            btn.layer?.borderWidth = 0
         }
         return btn
     }
@@ -1515,7 +1676,9 @@ final class MenuBandPopoverViewController: NSViewController {
         let n = CrashLogReader.recentLogs().count
         crashSendButton.isHidden = (n == 0)
         if n > 0 {
-            crashSendButton.title = n == 1 ? "Send 1 crash" : "Send \(n) crashes"
+            crashSendButton.title = n == 1
+                ? L("popover.about.crash.sendOne")
+                : L("popover.about.crash.sendMany", String(n))
             crashSendButton.isEnabled = true
         }
     }
@@ -1530,7 +1693,7 @@ final class MenuBandPopoverViewController: NSViewController {
             if UpdateChecker.isNewer(info.version, than: current) {
                 let notes = info.notes?.isEmpty == false ? " — \(info.notes!)" : ""
                 self.updateLabel.stringValue =
-                    "Update available: \(info.version)\(notes)"
+                    L("popover.update.available", "\(info.version)\(notes)")
                 self.updateBanner.isHidden = false
             } else {
                 self.updateBanner.isHidden = true
@@ -1544,11 +1707,37 @@ final class MenuBandPopoverViewController: NSViewController {
         }
     }
 
+    @objc private func languageChipClicked(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        let prefix = "menuband.lang."
+        guard id.hasPrefix(prefix) else { return }
+        let code = String(id.dropFirst(prefix.count))
+        guard code != Localization.current else { return }
+        Localization.current = code
+    }
+
+    @objc private func openKeymapsPaper(_ sender: NSButton) {
+        // Prefer the copy bundled inside the app — opens in Preview offline,
+        // no network round-trip — then fall back to the public hosted PDF if
+        // the bundled resource somehow goes missing.
+        if let url = Bundle.module.url(
+            forResource: "keymaps-social-software-26-arxiv",
+            withExtension: "pdf")
+        {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        if let url = URL(string:
+            "https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     @objc private func sendCrashLogs(_ sender: NSButton) {
         let logs = CrashLogReader.recentLogs()
         guard !logs.isEmpty else { return }
         sender.isEnabled = false
-        sender.title = "Sending…"
+        sender.title = L("popover.about.crash.sending")
 
         let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
         var remaining = logs.count
@@ -1560,8 +1749,9 @@ final class MenuBandPopoverViewController: NSViewController {
                 remaining -= 1
                 if remaining == 0 {
                     self.crashSendButton.title = ok == logs.count
-                        ? "Sent ✓"
-                        : "Sent \(ok)/\(logs.count) — retry"
+                        ? L("popover.about.crash.sentAll")
+                        : L("popover.about.crash.sentSome",
+                            String(ok), String(logs.count))
                     self.crashSendButton.isEnabled = ok != logs.count
                 }
             }
@@ -1803,5 +1993,19 @@ final class MenuBandPopoverViewController: NSViewController {
         try? task.run()
         task.waitUntilExit()
         NSApp.terminate(nil)
+    }
+}
+
+/// Custom NSView used as the popover root so we can repaint layer-
+/// painted CGColors when the system flips light/dark mid-session.
+/// NSView (via NSResponder) receives viewDidChangeEffectiveAppearance
+/// callbacks; NSViewController in our SDK target does not, so the
+/// root view forwards them through `onAppearanceChange` to the
+/// popover view controller.
+final class MenuBandPopoverRootView: NSView {
+    var onAppearanceChange: (() -> Void)?
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        onAppearanceChange?()
     }
 }

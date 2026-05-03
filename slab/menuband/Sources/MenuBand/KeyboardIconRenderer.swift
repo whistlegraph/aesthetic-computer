@@ -831,13 +831,30 @@ enum KeyboardIconRenderer {
         // any other status-bar item.
         let iconBox = settingsIconRect
         if hovered {
-            // Pill encompasses the music note AND the voice-badge
-            // pad as one target — hovering either part highlights
-            // the same chip, so the user gets unified feedback.
+            // Pill hugs the actual drawn content: just the music note
+            // when voiceNumber is 0, expanding rightward only as far as
+            // the voice-number digits actually flow when present. Avoids
+            // a chunky 12pt of empty pad on the right when the user is
+            // on the default Acoustic Grand (program 0).
+            var pillRightExtra: CGFloat = 1
+            if voiceNumber > 0 {
+                let digitFont = NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy)
+                let label = NSAttributedString(string: String(voiceNumber), attributes: [
+                    .font: digitFont, .kern: -0.4,
+                ])
+                let oneDigitW = NSAttributedString(string: "0", attributes: [
+                    .font: digitFont,
+                ]).size().width
+                // First digit hugs iconBox's right edge (see digit-draw
+                // logic below); additional digits flow rightward into
+                // the badge pad. Pad just enough to cover them + a 2pt
+                // breathing margin past the rightmost digit.
+                pillRightExtra = max(1, label.size().width - oneDigitW + 2)
+            }
             let pill = NSRect(
                 x: iconBox.minX - 1,
                 y: iconBox.minY + 1,
-                width: (iconBox.width + Self.voiceBadgeRightPad + 1),
+                width: iconBox.width + pillRightExtra,
                 height: iconBox.height - 2
             )
             let path = NSBezierPath(roundedRect: pill, xRadius: 4, yRadius: 4)
