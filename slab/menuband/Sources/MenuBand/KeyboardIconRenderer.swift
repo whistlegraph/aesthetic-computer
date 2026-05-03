@@ -10,6 +10,8 @@ import AppKit
 // buttons are flat (no fill, no border) so they read like native menubar
 // text. Keys are skeuomorphic: white gradient + dark-accent black gradient.
 enum KeyboardIconRenderer {
+    private static let pianoWaveformKeyHeightScale: CGFloat = 2.4
+
     enum Layout {
         case fixedCanvas
         case tightActiveRange
@@ -157,6 +159,23 @@ enum KeyboardIconRenderer {
     /// per-bar phase offset so bars wiggle independently — reads as
     /// live audio metering rather than three identical pulses.
     static var miniVisualizerPhase: CFTimeInterval = 0
+
+    static func withPianoWaveformKeyboard<T>(keymap: Keymap?, _ body: () -> T) -> T {
+        let oldLayout = displayLayout
+        let oldKeymap = activeKeymap
+        let oldScale = keyHeightScale
+        displayLayout = .full
+        keyHeightScale = pianoWaveformKeyHeightScale
+        if let keymap {
+            activeKeymap = keymap
+        }
+        defer {
+            displayLayout = oldLayout
+            activeKeymap = oldKeymap
+            keyHeightScale = oldScale
+        }
+        return body()
+    }
 
     // Settings — simple monochrome music note that reads like a native
     // status-bar icon. Click → popup menu with TYPE / MIDI / Instrument /

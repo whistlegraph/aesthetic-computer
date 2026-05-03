@@ -35,6 +35,9 @@ enum FloatingChordCandidateCard {
         )
         nameLabel.drawsBackground = false
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        nameLabel.lineBreakMode = .byTruncatingTail
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        nameLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         if candidate.isComplete {
             // Active chord: solid root-color fill + colored glow.
@@ -64,6 +67,8 @@ enum FloatingChordCandidateCard {
         row.alignment = .centerY
         row.spacing = 4
         row.translatesAutoresizingMaskIntoConstraints = false
+        row.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        row.setContentHuggingPriority(.defaultLow, for: .horizontal)
         row.addArrangedSubview(nameLabel)
         if !candidate.isComplete {
             for pc in candidate.missingPitchClasses {
@@ -71,6 +76,8 @@ enum FloatingChordCandidateCard {
             }
         }
         card.addSubview(row)
+        card.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        card.setContentHuggingPriority(.defaultLow, for: .horizontal)
         NSLayoutConstraint.activate([
             row.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 7),
             row.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -7),

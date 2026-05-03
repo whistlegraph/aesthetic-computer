@@ -152,6 +152,7 @@ final class MenuBandPopoverViewController: NSViewController {
     private var chordCandidatesStack: NSStackView!
     private var chordCandidatesRow: NSView!
     private var lastCompleteChordNames: Set<String> = []
+    private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
@@ -620,8 +621,8 @@ final class MenuBandPopoverViewController: NSViewController {
         NSLayoutConstraint.activate([
             chordCandidatesStack.centerXAnchor.constraint(equalTo: chordCandidatesRow.centerXAnchor),
             chordCandidatesStack.centerYAnchor.constraint(equalTo: chordCandidatesRow.centerYAnchor),
-            chordCandidatesStack.leadingAnchor.constraint(greaterThanOrEqualTo: chordCandidatesRow.leadingAnchor, constant: 6),
-            chordCandidatesStack.trailingAnchor.constraint(lessThanOrEqualTo: chordCandidatesRow.trailingAnchor, constant: -6),
+            chordCandidatesStack.leadingAnchor.constraint(greaterThanOrEqualTo: chordCandidatesRow.leadingAnchor, constant: chordCandidatesRowHorizontalInset),
+            chordCandidatesStack.trailingAnchor.constraint(lessThanOrEqualTo: chordCandidatesRow.trailingAnchor, constant: -chordCandidatesRowHorizontalInset),
         ])
         waveformBezel.addSubview(chordCandidatesRow)
         NSLayoutConstraint.activate([
@@ -1175,9 +1176,18 @@ final class MenuBandPopoverViewController: NSViewController {
             .bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let newComplete = Set(candidates.filter(\.isComplete).map(\.name))
         let justCompleted = newComplete.subtracting(lastCompleteChordNames)
+        let availableChordWidth = max(chordCandidatesRow.bounds.width - chordCandidatesRowHorizontalInset * 2, 0)
+        var consumedChordWidth: CGFloat = 0
         for candidate in candidates {
             let card = FloatingChordCandidateCard.build(candidate: candidate, isDark: isDark)
+            card.layoutSubtreeIfNeeded()
+            let cardWidth = card.fittingSize.width
+            let nextWidth = consumedChordWidth == 0
+                ? cardWidth
+                : consumedChordWidth + chordRow.spacing + cardWidth
+            guard consumedChordWidth == 0 || nextWidth <= availableChordWidth else { break }
             chordRow.addArrangedSubview(card)
+            consumedChordWidth = nextWidth
             if candidate.isComplete && justCompleted.contains(candidate.name) {
                 let shake = CAKeyframeAnimation(keyPath: "transform.translation.x")
                 shake.values = [0, -7, 7, -5, 5, -3, 3, 0]
