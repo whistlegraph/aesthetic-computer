@@ -1,6 +1,6 @@
 import AppKit
 
-final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
+final class PianoWaveformPalette: NSObject, NSWindowDelegate {
     enum State {
         case collapsed
         case expanded
@@ -22,11 +22,11 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
     }
 
     private let menuBand: MenuBandController
-    private let paletteController: FloatingPlayPaletteViewController
-    private var panel: UnifiedPianoWaveformPalettePanel?
+    private let pianoWaveformViewController: PianoWaveformViewController
+    private var panel: PianoWaveformPanel?
     private weak var statusItemButton: NSStatusBarButton?
-    private var state: State = .collapsed
-    private var preferredState: State
+    private var presentationState: State = .collapsed
+    private var preferredPresentationState: State
     private var keyMonitor: Any?
     private var appBeforeOpen: NSRunningApplication?
     private var dismissHandler: (() -> Void)?
@@ -55,46 +55,46 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
     var onToggleKeymap: (() -> Void)?
 
     var isPianoFocusActive: (() -> Bool)? {
-        get { paletteController.isPianoFocusActive }
-        set { paletteController.isPianoFocusActive = newValue }
+        get { pianoWaveformViewController.isPianoFocusActive }
+        set { pianoWaveformViewController.isPianoFocusActive = newValue }
     }
 
     var isShown: Bool {
-        state == .expanded && panel?.isVisible == true
+        presentationState == .expanded && panel?.isVisible == true
     }
 
     var isKeyboardFocused: Bool {
-        state == .expanded && panel?.isKeyWindow == true
+        presentationState == .expanded && panel?.isKeyWindow == true
     }
 
-    var isCollapsedState: Bool { state == .collapsed }
+    var isCollapsedState: Bool { presentationState == .collapsed }
 
     var isFeatureEnabled: Bool { isEnabled }
 
     var onStepBackward: (() -> Void)? {
-        get { paletteController.onStepBackward }
-        set { paletteController.onStepBackward = newValue }
+        get { pianoWaveformViewController.onStepBackward }
+        set { pianoWaveformViewController.onStepBackward = newValue }
     }
 
     var onStepForward: (() -> Void)? {
-        get { paletteController.onStepForward }
-        set { paletteController.onStepForward = newValue }
+        get { pianoWaveformViewController.onStepForward }
+        set { pianoWaveformViewController.onStepForward = newValue }
     }
 
     var onStepUp: (() -> Void)? {
-        get { paletteController.onStepUp }
-        set { paletteController.onStepUp = newValue }
+        get { pianoWaveformViewController.onStepUp }
+        set { pianoWaveformViewController.onStepUp = newValue }
     }
 
     var onStepDown: (() -> Void)? {
-        get { paletteController.onStepDown }
-        set { paletteController.onStepDown = newValue }
+        get { pianoWaveformViewController.onStepDown }
+        set { pianoWaveformViewController.onStepDown = newValue }
     }
 
-    var suppressed: Bool = false {
+    var isCollapsedPresentationSuppressed: Bool = false {
         didSet {
-            guard suppressed != oldValue else { return }
-            if suppressed && state == .collapsed {
+            guard isCollapsedPresentationSuppressed != oldValue else { return }
+            if isCollapsedPresentationSuppressed && presentationState == .collapsed {
                 dismissCollapsedPanel()
             }
         }
@@ -104,8 +104,8 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     init(menuBand: MenuBandController) {
         self.menuBand = menuBand
-        self.paletteController = FloatingPlayPaletteViewController(menuBand: menuBand)
-        self.preferredState = Self.loadPreferredState()
+        self.pianoWaveformViewController = PianoWaveformViewController(menuBand: menuBand)
+        self.preferredPresentationState = Self.loadPreferredState()
         self.isEnabled = Self.loadEnabledState()
         self.savedExpandedOrigin = Self.loadOrigin(
             xKey: Self.expandedOriginXKey,
@@ -117,13 +117,13 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
         )
         super.init()
 
-        paletteController.onCloseRequested = { [weak self] in
+        pianoWaveformViewController.onCloseRequested = { [weak self] in
             self?.disable(reason: .closeButton)
         }
-        paletteController.onDockRequested = { [weak self] in
+        pianoWaveformViewController.onDockRequested = { [weak self] in
             self?.dockOnMenu()
         }
-        paletteController.onTogglePresentationMode = { [weak self] in
+        pianoWaveformViewController.onTogglePresentationMode = { [weak self] in
             self?.togglePresentationMode()
         }
     }
@@ -138,7 +138,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     func showFromCommand(restoringTo previousApp: NSRunningApplication? = nil) {
         setEnabled(true)
-        preferredState = .expanded
+        preferredPresentationState = .expanded
         persistPreferredState()
         transitionToExpanded()
         showExpanded(restoringTo: previousApp)
@@ -146,43 +146,43 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     func show(restoringTo previousApp: NSRunningApplication? = nil) {
         setEnabled(true)
-        preferredState = .expanded
+        preferredPresentationState = .expanded
         persistPreferredState()
         transitionToExpanded()
         showExpanded(restoringTo: previousApp)
     }
 
     func dismiss(reason: DismissReason = .programmatic) {
-        guard state == .expanded else { return }
+        guard presentationState == .expanded else { return }
         dismissExpanded(reason: reason)
     }
 
     func refresh() {
-        switch state {
+        switch presentationState {
         case .expanded:
-            paletteController.setDisplayMode(.expanded)
-            paletteController.refresh()
+            pianoWaveformViewController.setPresentationMode(.expanded)
+            pianoWaveformViewController.refresh()
             if let panel, panel.isVisible {
                 setPanelFrame(expandedFrame(
-                    size: paletteController.preferredContentSize,
+                    size: pianoWaveformViewController.preferredContentSize,
                     fallbackOrigin: panel.frame.origin
                 ))
             }
         case .collapsed:
-            paletteController.setDisplayMode(.collapsed)
-            paletteController.refresh()
+            pianoWaveformViewController.setPresentationMode(.collapsed)
+            pianoWaveformViewController.refresh()
             if let panel, panel.isVisible {
-                setPanelFrame(collapsedFrame(size: paletteController.preferredContentSize))
+                setPanelFrame(collapsedFrame(size: pianoWaveformViewController.preferredContentSize))
             }
         }
     }
 
     func clearInteraction() {
-        paletteController.clearInteraction()
+        pianoWaveformViewController.clearInteraction()
     }
 
     func releaseKeyboardFocus() {
-        guard state == .expanded else { return }
+        guard presentationState == .expanded else { return }
         restorePreviousAppFocus()
     }
 
@@ -190,18 +190,18 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
         if panel == nil {
             buildPanel()
         }
-        paletteController.setDisplayMode(.collapsed)
-        paletteController.refresh()
+        pianoWaveformViewController.setPresentationMode(.collapsed)
+        pianoWaveformViewController.refresh()
     }
 
     func showIfNeeded() {
-        guard state == .collapsed, !suppressed, isEnabled, preferredState == .collapsed else { return }
+        guard presentationState == .collapsed, !isCollapsedPresentationSuppressed, isEnabled, preferredPresentationState == .collapsed else { return }
         cancelPendingHide()
         if panel == nil {
             buildPanel()
         }
-        paletteController.setDisplayMode(.collapsed)
-        paletteController.refresh()
+        pianoWaveformViewController.setPresentationMode(.collapsed)
+        pianoWaveformViewController.refresh()
         showCollapsedIfNeeded()
         if !menuBand.litNotes.isEmpty {
             focusCollapsedPaletteIfNeeded()
@@ -209,7 +209,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
     }
 
     func scheduleHide() {
-        guard state == .collapsed else { return }
+        guard presentationState == .collapsed else { return }
         cancelPendingHide()
         let work = DispatchWorkItem { [weak self] in
             self?.dismissCollapsedPanel()
@@ -220,23 +220,23 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     func reposition(statusItemButton: NSStatusBarButton?) {
         self.statusItemButton = statusItemButton
-        guard state == .collapsed, let panel, panel.isVisible else { return }
-        setPanelFrame(collapsedFrame(size: paletteController.preferredContentSize))
+        guard presentationState == .collapsed, let panel, panel.isVisible else { return }
+        setPanelFrame(collapsedFrame(size: pianoWaveformViewController.preferredContentSize))
     }
 
     func refreshAppearance() {
-        guard state == .collapsed else { return }
-        paletteController.setDisplayMode(.collapsed)
-        paletteController.refresh()
+        guard presentationState == .collapsed else { return }
+        pianoWaveformViewController.setPresentationMode(.collapsed)
+        pianoWaveformViewController.refresh()
         if let panel, panel.isVisible {
-            setPanelFrame(collapsedFrame(size: paletteController.preferredContentSize))
+            setPanelFrame(collapsedFrame(size: pianoWaveformViewController.preferredContentSize))
         }
     }
 
     func registerArrowInput() {
-        guard state == .collapsed, !suppressed, isEnabled else { return }
+        guard presentationState == .collapsed, !isCollapsedPresentationSuppressed, isEnabled else { return }
         showIfNeeded()
-        paletteController.refresh()
+        pianoWaveformViewController.refresh()
         focusCollapsedPaletteIfNeeded()
         if menuBand.litNotes.isEmpty {
             scheduleHide()
@@ -245,7 +245,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     func windowDidMove(_ notification: Notification) {
         guard let panel, !isPositioningPanel else { return }
-        switch state {
+        switch presentationState {
         case .expanded:
             savedExpandedOrigin = panel.frame.origin
             persistOrigin(savedExpandedOrigin, xKey: Self.expandedOriginXKey, yKey: Self.expandedOriginYKey)
@@ -256,8 +256,8 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
     }
 
     private func buildPanel() {
-        let panel = UnifiedPianoWaveformPalettePanel(
-            contentRect: NSRect(origin: .zero, size: paletteController.preferredContentSize),
+        let panel = PianoWaveformPanel(
+            contentRect: NSRect(origin: .zero, size: pianoWaveformViewController.preferredContentSize),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -276,7 +276,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isReleasedWhenClosed = false
-        panel.contentViewController = paletteController
+        panel.contentViewController = pianoWaveformViewController
         if let button = panel.standardWindowButton(.closeButton) {
             button.isHidden = true
         }
@@ -297,35 +297,35 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
         cancelPendingHide()
         setEnabled(true)
         appBeforeOpen = previousApp ?? currentFrontmostOtherApp()
-        paletteController.setDisplayMode(.expanded)
-        paletteController.refresh()
+        pianoWaveformViewController.setPresentationMode(.expanded)
+        pianoWaveformViewController.refresh()
         panel.ignoresMouseEvents = false
         setPanelFrame(expandedFrame(
-            size: paletteController.preferredContentSize,
+            size: pianoWaveformViewController.preferredContentSize,
             fallbackOrigin: panel.frame.origin
         ))
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
-        paletteController.setPresented(true)
+        pianoWaveformViewController.setPresented(true)
         installMonitors()
     }
 
     private func showCollapsedIfNeeded() {
         guard let panel else { return }
-        paletteController.setDisplayMode(.collapsed)
+        pianoWaveformViewController.setPresentationMode(.collapsed)
         panel.ignoresMouseEvents = false
-        setPanelFrame(collapsedFrame(size: paletteController.preferredContentSize))
+        setPanelFrame(collapsedFrame(size: pianoWaveformViewController.preferredContentSize))
         if !panel.isVisible {
             panel.orderFrontRegardless()
         }
-        paletteController.setPresented(true)
+        pianoWaveformViewController.setPresented(true)
     }
 
     private func focusCollapsedPaletteIfNeeded() {
-        guard state == .collapsed, let panel else { return }
+        guard presentationState == .collapsed, let panel else { return }
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
-        paletteController.setPresented(true)
+        pianoWaveformViewController.setPresented(true)
     }
 
     private func dismissExpanded(reason: DismissReason) {
@@ -333,12 +333,12 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
         guard panel?.isVisible == true || keyMonitor != nil else { return }
         isDismissing = true
         removeMonitors()
-        paletteController.setPresented(false)
-        paletteController.clearInteraction()
+        pianoWaveformViewController.setPresented(false)
+        pianoWaveformViewController.clearInteraction()
         menuBand.releaseAllHeldNotes()
         panel?.ignoresMouseEvents = false
         panel?.orderOut(nil)
-        state = .collapsed
+        presentationState = .collapsed
         dismissHandler?()
         if reason.shouldRestoreFocus {
             restorePreviousAppFocus()
@@ -349,13 +349,13 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     private func dismissCollapsedPanel() {
         cancelPendingHide()
-        paletteController.setPresented(false)
+        pianoWaveformViewController.setPresented(false)
         panel?.ignoresMouseEvents = false
         panel?.orderOut(nil)
     }
 
     private func togglePresentationMode() {
-        switch state {
+        switch presentationState {
         case .collapsed:
             expandFromStrip()
         case .expanded:
@@ -368,7 +368,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
         persistOrigin(nil, xKey: Self.collapsedOriginXKey, yKey: Self.collapsedOriginYKey)
         collapseToStrip()
         if let panel, panel.isVisible {
-            setPanelFrame(collapsedFrame(size: paletteController.preferredContentSize))
+            setPanelFrame(collapsedFrame(size: pianoWaveformViewController.preferredContentSize))
         }
     }
 
@@ -376,19 +376,19 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
         if panel == nil {
             buildPanel()
         }
-        state = .expanded
-        preferredState = .expanded
+        presentationState = .expanded
+        preferredPresentationState = .expanded
         persistPreferredState()
         panel?.ignoresMouseEvents = false
-        paletteController.setDisplayMode(.expanded)
+        pianoWaveformViewController.setPresentationMode(.expanded)
     }
 
     private func collapseToStrip() {
-        guard state != .collapsed else {
-            preferredState = .collapsed
+        guard presentationState != .collapsed else {
+            preferredPresentationState = .collapsed
             persistPreferredState()
-            paletteController.setDisplayMode(.collapsed)
-            paletteController.refresh()
+            pianoWaveformViewController.setPresentationMode(.collapsed)
+            pianoWaveformViewController.refresh()
             showIfNeeded()
             if menuBand.litNotes.isEmpty {
                 scheduleHide()
@@ -396,13 +396,13 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
             return
         }
         removeMonitors()
-        paletteController.setPresented(false)
-        paletteController.clearInteraction()
-        state = .collapsed
-        preferredState = .collapsed
+        pianoWaveformViewController.setPresented(false)
+        pianoWaveformViewController.clearInteraction()
+        presentationState = .collapsed
+        preferredPresentationState = .collapsed
         persistPreferredState()
-        paletteController.setDisplayMode(.collapsed)
-        paletteController.refresh()
+        pianoWaveformViewController.setPresentationMode(.collapsed)
+        pianoWaveformViewController.refresh()
         showCollapsedIfNeeded()
         if menuBand.litNotes.isEmpty {
             scheduleHide()
@@ -417,7 +417,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
     private func installMonitors() {
         if keyMonitor == nil {
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-                guard let self, self.state == .expanded, self.panel?.isKeyWindow == true else { return event }
+                guard let self, self.presentationState == .expanded, self.panel?.isKeyWindow == true else { return event }
                 let isDown = event.type == .keyDown
                 if isDown && event.keyCode == 53 {
                     self.onFocusRelease?()
@@ -544,12 +544,12 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     private func enableAndShowPreferred(restoringTo previousApp: NSRunningApplication?) {
         setEnabled(true)
-        switch preferredState {
+        switch preferredPresentationState {
         case .expanded:
             transitionToExpanded()
             showExpanded(restoringTo: previousApp)
         case .collapsed:
-            state = .collapsed
+            presentationState = .collapsed
             showIfNeeded()
             focusCollapsedPaletteIfNeeded()
         }
@@ -557,7 +557,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
 
     private func disable(reason: DismissReason) {
         setEnabled(false)
-        switch state {
+        switch presentationState {
         case .expanded:
             dismissExpanded(reason: reason)
         case .collapsed:
@@ -572,7 +572,7 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
     }
 
     private func persistPreferredState() {
-        let value = preferredState == .expanded ? "expanded" : "collapsed"
+        let value = preferredPresentationState == .expanded ? "expanded" : "collapsed"
         UserDefaults.standard.set(value, forKey: Self.preferredStateKey)
     }
 
@@ -621,17 +621,17 @@ final class UnifiedPianoWaveformPalette: NSObject, NSWindowDelegate {
     }
 }
 
-private final class UnifiedPianoWaveformPalettePanel: NSPanel {
+private final class PianoWaveformPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
 
 @available(macOS 26.0, *)
-private final class UnifiedWaveformStripGlassEffectView: NSGlassEffectView {
+private final class PianoWaveformStripGlassEffectView: NSGlassEffectView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-final class UnifiedWaveformStripView: NSView {
+final class CollapsedPianoWaveformView: NSView {
     private static var shouldUseLiquidGlass: Bool {
         if #available(macOS 26.0, *) { return true }
         return false
@@ -933,7 +933,7 @@ final class UnifiedWaveformStripView: NSView {
     private func installLiquidGlassBackgrounds() {
         guard Self.shouldUseLiquidGlass, #available(macOS 26.0, *) else { return }
 
-        let paletteGlassView = UnifiedWaveformStripGlassEffectView()
+        let paletteGlassView = PianoWaveformStripGlassEffectView()
         paletteGlassView.translatesAutoresizingMaskIntoConstraints = false
         paletteGlassView.cornerRadius = 10
         addSubview(paletteGlassView, positioned: .below, relativeTo: contentContainer)
@@ -961,7 +961,7 @@ final class UnifiedWaveformStripView: NSView {
     private func installGlassBackground(matchedTo target: NSView,
                                         below anchor: NSView,
                                         cornerRadius: CGFloat) -> NSView {
-        let glassView = UnifiedWaveformStripGlassEffectView()
+        let glassView = PianoWaveformStripGlassEffectView()
         glassView.translatesAutoresizingMaskIntoConstraints = false
         glassView.cornerRadius = cornerRadius
         addSubview(glassView, positioned: .below, relativeTo: anchor)
