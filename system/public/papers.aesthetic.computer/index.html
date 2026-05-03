@@ -207,11 +207,13 @@
         .p .detail a:hover { text-decoration: underline; }
         .p .abstract {
             color: var(--text);
-            opacity: 0.6;
-            font-size: 0.72em;
-            margin-top: 0.15em;
-            line-height: 1.4;
-            max-width: 78ch;
+            opacity: 0.72;
+            font-family: 'Times New Roman', Times, Georgia, serif;
+            font-style: italic;
+            font-size: 0.92em;
+            margin-top: 0.2em;
+            line-height: 1.45;
+            max-width: 72ch;
         }
         .p .meta-row { display: flex; gap: 0.7em; font-size: 0.7em; margin-bottom: 0.05em; align-items: center; flex-wrap: wrap; }
         .p .meta-row .hits { color: var(--cyan); }
@@ -239,8 +241,9 @@
             padding-top: 1.2em;
             border-top: 1px solid var(--sep);
             color: var(--dim);
-            font-size: 0.85em;
-            line-height: 1.8;
+            font-family: 'Times New Roman', Times, Georgia, serif;
+            font-size: 1em;
+            line-height: 1.7;
         }
         .colophon p { margin-bottom: 0.8em; }
         .colophon p:last-child { margin-bottom: 0; }
@@ -379,10 +382,103 @@
         }
         .build-bar.fail { background: #e53935; }
 
+        /* === HERO BANNER (Grant-Wood broadsheet, full-bleed) === */
+        .hero {
+            position: relative;
+            isolation: isolate;
+            /* Full-bleed across viewport regardless of body max-width / padding */
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+            margin-top: -1em;
+            margin-bottom: 1.4em;
+            padding: 0;
+            overflow: hidden;
+            aspect-ratio: 1536 / 1024;
+            max-height: 320px;
+            min-height: 220px;
+        }
+        .hero::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
+            z-index: 1;
+            pointer-events: none;
+        }
+        .hero-bg {
+            position: absolute; inset: 0;
+            background-position: center top;
+            background-size: cover;
+            background-repeat: no-repeat;
+            z-index: 0;
+            will-change: opacity;
+        }
+        .hero-bg-a { background-image: url('/papers-header.png'); }       /* v2: Johnny Appleseed */
+        .hero-bg-b { background-image: url('/papers-header-v3.png'); }    /* v3: first-person POV */
+        .hero-bg-c { background-image: url('/papers-header-v1.png'); }    /* v1: Washington crossing */
+        @media (prefers-reduced-motion: no-preference) {
+            .hero-bg-a { animation: hero-fade-3a 24s ease-in-out infinite; }
+            .hero-bg-b { animation: hero-fade-3b 24s ease-in-out infinite; }
+            .hero-bg-c { animation: hero-fade-3c 24s ease-in-out infinite; }
+        }
+        @keyframes hero-fade-3a {
+            0%, 29% { opacity: 1; }
+            33%, 91% { opacity: 0; }
+            95%, 100% { opacity: 1; }
+        }
+        @keyframes hero-fade-3b {
+            0%, 29% { opacity: 0; }
+            33%, 62% { opacity: 1; }
+            66%, 100% { opacity: 0; }
+        }
+        @keyframes hero-fade-3c {
+            0%, 62% { opacity: 0; }
+            66%, 91% { opacity: 1; }
+            95%, 100% { opacity: 0; }
+        }
+
+        /* === Prompt-HUD corner label (modeled after give.aesthetic.computer) === */
+        .top-bar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            max-width: 100vw;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px 20px;
+            z-index: 1000;
+            background: linear-gradient(to bottom, var(--bg) 0%, var(--bg) 60%, transparent 100%);
+            pointer-events: none;
+        }
+        .top-bar > * { pointer-events: auto; }
+        .top-bar .logo {
+            font-size: 18px;
+            line-height: 1;
+        }
+        .top-bar .logo-papers {
+            font-family: 'Times New Roman', Times, Georgia, serif;
+            font-style: italic;
+            font-weight: 700;
+            font-size: 1.05em;
+            color: var(--text);
+        }
+        .top-bar .logo-sep {
+            font-family: 'Berkeley Mono Variable', monospace;
+            color: var(--dim);
+            margin: 0 0.3em;
+        }
+        .top-bar .logo-ac {
+            font-family: 'YWFTProcessing-Regular', sans-serif;
+            font-size: 1.15em;
+            color: var(--pink);
+        }
+        .top-bar .logo-dot { color: var(--cyan); }
+
         /* === MOBILE (<600px) === */
         @media (max-width: 599px) {
             body { padding: 0.6em 0.9em; }
-            .logo { font-size: 1.3em; }
+            .hero { margin-top: -0.6em; margin-bottom: 1em; max-height: 220px; }
+            .top-bar .logo { font-size: 13px; white-space: nowrap; }
             .lang-selector .lang-text { display: none; }
             .p .title { font-size: 0.98em; }
             .p .detail { font-size: 0.7em; }
@@ -396,8 +492,7 @@
                 padding: 2em 3em;
                 font-size: 16px;
             }
-            .logo { font-size: 2.2em; }
-            .sub { font-size: 1em; margin-bottom: 1em; }
+            .hero { margin-top: -2em; margin-bottom: 1.6em; max-height: 380px; }
             .p .title { font-size: 1.15em; }
             .p .detail { font-size: 0.82em; }
             .p { padding: 0.45em 0.6em; }
@@ -411,8 +506,7 @@
                 padding: 2.5em 4em;
                 font-size: 17px;
             }
-            .logo { font-size: 2.6em; }
-            .sub { font-size: 1.1em; }
+            .hero { margin-top: -2.5em; margin-bottom: 2em; max-height: 460px; }
             .p .title { font-size: 1.22em; }
             .p .detail { font-size: 0.85em; }
             .pals { width: 64px; }
@@ -438,7 +532,13 @@
         </div>
     </div>
 
-    <div class="sub">@jeffrey &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
+    <header class="hero" aria-label="papers">
+        <div class="hero-bg hero-bg-a"></div>
+        <div class="hero-bg hero-bg-b"></div>
+        <div class="hero-bg hero-bg-c"></div>
+    </header>
+
+    <div class="sub">@jeffrey &middot; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
 
     <div class="sort-bar" id="sortBar">
         <button class="sort-btn active" data-sort="hits">top hits</button>
