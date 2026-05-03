@@ -1,0 +1,1198 @@
+{
+  "generatedAt": "2026-05-03T02:40:20.855Z",
+  "root": "/Whistlegraph",
+  "totalEntries": 14225,
+  "totalFiles": 12903,
+  "totalBytes": 421664265863,
+  "byTop": {
+    "(root)": {
+      "subdirs": 1,
+      "files": 0,
+      "bytes": 0,
+      "samples": []
+    },
+    "Sex Magazine Launch": {
+      "subdirs": 12,
+      "files": 101,
+      "bytes": 226307627,
+      "samples": [
+        {
+          "path": "Sex Magazine Launch/Shopify Product Page Materials (Photos + Text)/The Whistlegraph Zine/IMG_7412.heic",
+          "size": 2422072,
+          "modified": "2023-05-13T22:12:41Z"
+        },
+        {
+          "path": "Sex Magazine Launch/Shopify Product Page Materials (Photos + Text)/The Whistlegraph Zine/IMG_7413.heic",
+          "size": 2547836,
+          "modified": "2023-05-13T22:13:00Z"
+        },
+        {
+          "path": "Sex Magazine Launch/Shopify Product Page Materials (Photos + Text)/The Whistlegraph Zine/IMG_7415.heic",
+          "size": 2450830,
+          "modified": "2023-05-13T22:13:31Z"
+        },
+        {
+          "path": "Sex Magazine Launch/Shopify Product Page Materials (Photos + Text)/The Whistlegraph Zine/IMG_7421.heic",
+          "size": 2287401,
+          "modified": "2023-05-13T22:21:59Z"
+        }
+      ]
+    },
+    "Taxes": {
+      "subdirs": 3,
+      "files": 29,
+      "bytes": 6285494,
+      "samples": [
+        {
+          "path": "Taxes/2022 Fillable BUSINESS EXT RQST 11172022.pdf",
+          "size": 286506,
+          "modified": "2023-01-22T18:36:43Z"
+        },
+        {
+          "path": "Taxes/2022 Entity Questionnaire.pdf",
+          "size": 1043561,
+          "modified": "2023-01-22T21:32:28Z"
+        },
+        {
+          "path": "Taxes/2022 Eng Ltr-Partnership.pdf",
+          "size": 344526,
+          "modified": "2023-01-23T16:55:47Z"
+        },
+        {
+          "path": "Taxes/2022 Financial Records/Whistlegraph PayPal.IIF",
+          "size": 102717,
+          "modified": "2023-02-15T22:02:21Z"
+        }
+      ]
+    },
+    "Whistlegraph Minutes": {
+      "subdirs": 1,
+      "files": 4,
+      "bytes": 470135315,
+      "samples": [
+        {
+          "path": "Whistlegraph Minutes/March 25 w: Ella, Camille, Alex & Jeffrey/audio_only.m4a",
+          "size": 46599728,
+          "modified": "2021-03-25T22:35:55Z"
+        },
+        {
+          "path": "Whistlegraph Minutes/March 25 w: Ella, Camille, Alex & Jeffrey/zoom_0.mp4",
+          "size": 423535291,
+          "modified": "2021-03-25T22:35:55Z"
+        },
+        {
+          "path": "Whistlegraph Minutes/March 25 w: Ella, Camille, Alex & Jeffrey/chat.txt",
+          "size": 181,
+          "modified": "2021-03-25T22:31:36Z"
+        },
+        {
+          "path": "Whistlegraph Minutes/March 25 w: Ella, Camille, Alex & Jeffrey/playback.m3u",
+          "size": 115,
+          "modified": "2021-03-25T22:35:55Z"
+        }
+      ]
+    },
+    "Moon Paintings": {
+      "subdirs": 2,
+      "files": 16,
+      "bytes": 2495709873,
+      "samples": [
+        {
+          "path": "Moon Paintings/21.11.30.21.12 ALEX F. JAS CK Moon III.png",
+          "size": 76704961,
+          "modified": "2021-12-01T09:23:44Z"
+        },
+        {
+          "path": "Moon Paintings/psds/21.11.30.17.37 JAS CK ALEX F. Moon I.psd",
+          "size": 382933831,
+          "modified": "2021-12-01T08:25:33Z"
+        },
+        {
+          "path": "Moon Paintings/psds/21.11.30.18.31 ALEX F. CK JAS Moon II.psd",
+          "size": 379219663,
+          "modified": "2021-12-01T08:27:26Z"
+        },
+        {
+          "path": "Moon Paintings/psds/21.11.30.22.17 JAS ALEX F. CK Moon IV.psd",
+          "size": 392506219,
+          "modified": "2021-12-01T08:31:59Z"
+        }
+      ]
+    },
+    "TikTok": {
+      "subdirs": 73,
+      "files": 233,
+      "bytes": 10936828282,
+      "samples": [
+        {
+          "path": "TikTok/Collabs/bo en/Video Jan 30, 10 14 49 AM.mov",
+          "size": 16504794,
+          "modified": "2020-01-30T18:15:45Z"
+        },
+        {
+          "path": "TikTok/Collabs/bo en/Video Feb 05, 1 23 35 PM.mov",
+          "size": 5859540,
+          "modified": "2020-02-05T22:11:10Z"
+        },
+        {
+          "path": "TikTok/Collabs/bo en/Video Jan 25, 9 41 48 AM.mov",
+          "size": 10572987,
+          "modified": "2020-01-25T14:43:22Z"
+        },
+        {
+          "path": "TikTok/Collabs/bo en/Video Jan 25, 9 42 07 AM.mov",
+          "size": 7891923,
+          "modified": "2020-01-25T14:43:40Z"
+        }
+      ]
+    },
+    "No Paint": {
+      "subdirs": 335,
+      "files": 2202,
+      "bytes": 139918443,
+      "samples": [
+        {
+          "path": "No Paint/Alex's last few No Paint Assets:Backups/Adelaide Portrait.png",
+          "size": 4676,
+          "modified": "2021-06-08T21:25:29Z"
+        },
+        {
+          "path": "No Paint/Alex's last few No Paint Assets:Backups/IMG_6134.PNG",
+          "size": 84100,
+          "modified": "2021-09-28T23:21:02Z"
+        },
+        {
+          "path": "No Paint/Alex's last few No Paint Assets:Backups/Sean Portrait.png",
+          "size": 2607,
+          "modified": "2021-06-08T21:25:45Z"
+        },
+        {
+          "path": "No Paint/Alex's last few No Paint Assets:Backups/Wilsans Portrait.png",
+          "size": 2175,
+          "modified": "2021-06-08T21:25:39Z"
+        }
+      ]
+    },
+    "YouTube": {
+      "subdirs": 25,
+      "files": 278,
+      "bytes": 43475389428,
+      "samples": [
+        {
+          "path": "YouTube/Videos/IMG_7329.mov",
+          "size": 3378891930,
+          "modified": "2020-02-29T21:00:56Z"
+        },
+        {
+          "path": "YouTube/Videos/Improv.MOV",
+          "size": 1322409285,
+          "modified": "2020-03-09T06:13:26Z"
+        },
+        {
+          "path": "YouTube/Videos/relaxing-horror-nightmare-show-s1e2.MOV",
+          "size": 1538767527,
+          "modified": "2020-02-10T00:48:59Z"
+        },
+        {
+          "path": "YouTube/Videos/relaxing-horror-nightmare-show-s1e1.mov",
+          "size": 1523855922,
+          "modified": "2020-02-06T04:10:31Z"
+        }
+      ]
+    },
+    "Lectures": {
+      "subdirs": 3,
+      "files": 12,
+      "bytes": 3594604137,
+      "samples": [
+        {
+          "path": "Lectures/Art for Covid Relief/Photo May 27, 10 20 03 PM.heic",
+          "size": 781673,
+          "modified": "2021-05-28T05:43:15Z"
+        },
+        {
+          "path": "Lectures/Art for Covid Relief/Video May 27, 10 13 21 PM.mov",
+          "size": 23097754,
+          "modified": "2021-05-28T05:43:08Z"
+        },
+        {
+          "path": "Lectures/Art for Covid Relief/Photo May 27, 10 19 24 PM.heic",
+          "size": 353684,
+          "modified": "2021-05-28T05:43:11Z"
+        },
+        {
+          "path": "Lectures/Art Beyond/Art Beyond Promo.mp4",
+          "size": 74606754,
+          "modified": "2021-05-08T02:52:44Z"
+        }
+      ]
+    },
+    "Assets": {
+      "subdirs": 12,
+      "files": 132,
+      "bytes": 312215608,
+      "samples": [
+        {
+          "path": "Assets/Web Assets/hello (hi res).png",
+          "size": 567976,
+          "modified": "2021-11-24T03:42:47Z"
+        },
+        {
+          "path": "Assets/Web Assets/nuthin but the hole (hi res).PNG",
+          "size": 555604,
+          "modified": "2021-04-20T05:16:31Z"
+        },
+        {
+          "path": "Assets/Web Assets/ITME crop 3.png",
+          "size": 190838,
+          "modified": "2021-11-06T21:34:38Z"
+        },
+        {
+          "path": "Assets/Web Assets/Learn Your First Whistlegraph!.png",
+          "size": 231488,
+          "modified": "2021-11-06T22:06:37Z"
+        }
+      ]
+    },
+    "Research": {
+      "subdirs": 4,
+      "files": 78,
+      "bytes": 217720533,
+      "samples": [
+        {
+          "path": "Research/Whistlegraphs for GAN/IMG_3190.jpeg",
+          "size": 2383384,
+          "modified": "2020-12-02T02:19:31Z"
+        },
+        {
+          "path": "Research/Whistlegraphs for GAN/IMG_3177.jpeg",
+          "size": 2527367,
+          "modified": "2020-12-02T02:19:28Z"
+        },
+        {
+          "path": "Research/Whistlegraphs for GAN/IMG_3231.jpeg",
+          "size": 2085472,
+          "modified": "2020-12-02T02:19:39Z"
+        },
+        {
+          "path": "Research/Whistlegraphs for GAN/IMG_3233.jpeg",
+          "size": 2221390,
+          "modified": "2020-12-02T02:19:39Z"
+        }
+      ]
+    },
+    "Instagram": {
+      "subdirs": 6,
+      "files": 14,
+      "bytes": 27176813,
+      "samples": [
+        {
+          "path": "Instagram/Dead/Posted/IMG_6936.jpg",
+          "size": 2238875,
+          "modified": "2020-02-15T04:01:18Z"
+        },
+        {
+          "path": "Instagram/Dead/Drafts/playlist stats.PNG",
+          "size": 867401,
+          "modified": "2021-12-03T23:13:36Z"
+        },
+        {
+          "path": "Instagram/Dead/Drafts/whistlegraph slur.JPG",
+          "size": 119748,
+          "modified": "2021-12-03T23:15:14Z"
+        },
+        {
+          "path": "Instagram/Dead/Drafts/hashtag triangle.PNG",
+          "size": 8207422,
+          "modified": "2021-12-03T23:13:36Z"
+        }
+      ]
+    },
+    "NFTs": {
+      "subdirs": 6,
+      "files": 14,
+      "bytes": 205943372,
+      "samples": [
+        {
+          "path": "NFTs/Ten Minute Painting - Video Edition 2-3.mp4",
+          "size": 75049735,
+          "modified": "2021-03-02T06:24:13Z"
+        },
+        {
+          "path": "NFTs/Digital Paintings/Spiral_Smile.png",
+          "size": 35291479,
+          "modified": "2021-02-24T07:24:54Z"
+        },
+        {
+          "path": "NFTs/Scared of Stairs #1/Adobe Premiere Pro Audio Previews/NFT1.PRV/Peak Files/ff348aed-4061-42a6-8736-5221fe034bb8+e10280eb-2b19-67b3-4b60-8fef00000036 44100.pek",
+          "size": 14404,
+          "modified": "2021-02-22T04:28:46Z"
+        },
+        {
+          "path": "NFTs/Scared of Stairs #1/Adobe Premiere Pro Audio Previews/NFT1.PRV/ff348aed-4061-42a6-8736-5221fe034bb8+e10280eb-2b19-67b3-4b60-8fef00000036 44100.cfa",
+          "size": 3670016,
+          "modified": "2021-02-22T04:28:46Z"
+        }
+      ]
+    },
+    "Media from Fans": {
+      "subdirs": 3,
+      "files": 43,
+      "bytes": 635442382,
+      "samples": [
+        {
+          "path": "Media from Fans/The Wonderful World Of Whistlegraphs I_ A Documentary.mp4",
+          "size": 166305274,
+          "modified": "2021-02-13T09:41:21Z"
+        },
+        {
+          "path": "Media from Fans/Fan WG Drafts/Video Feb 23, 7 36 25 PM.mov",
+          "size": 5340265,
+          "modified": "2020-02-24T03:46:05Z"
+        },
+        {
+          "path": "Media from Fans/Fan WG Drafts/Yeah Yeah Yeah I.MOV",
+          "size": 32981699,
+          "modified": "2020-02-24T03:58:09Z"
+        },
+        {
+          "path": "Media from Fans/Fan WG Drafts/Jazz Woah Woah Yeah WOah.MOV",
+          "size": 38294716,
+          "modified": "2020-02-24T04:03:05Z"
+        }
+      ]
+    },
+    "Media from Friends": {
+      "subdirs": 10,
+      "files": 301,
+      "bytes": 13045406363,
+      "samples": [
+        {
+          "path": "Media from Friends/From Katrín Helga Ólafsdóttir Whistlegraph Copenhagen Sept 3 2021/DJI_0743.JPG",
+          "size": 5559871,
+          "modified": "2021-09-05T15:13:28Z"
+        },
+        {
+          "path": "Media from Friends/From Katrín Helga Ólafsdóttir Whistlegraph Copenhagen Sept 3 2021/DJI_0695.JPG",
+          "size": 5575775,
+          "modified": "2021-09-03T13:43:52Z"
+        },
+        {
+          "path": "Media from Friends/From Katrín Helga Ólafsdóttir Whistlegraph Copenhagen Sept 3 2021/DJI_0699.JPG",
+          "size": 5566909,
+          "modified": "2021-09-03T13:45:00Z"
+        },
+        {
+          "path": "Media from Friends/From Katrín Helga Ólafsdóttir Whistlegraph Copenhagen Sept 3 2021/DJI_0711.JPG",
+          "size": 5991558,
+          "modified": "2021-09-03T14:02:02Z"
+        }
+      ]
+    },
+    "Commercials": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 30638541,
+      "samples": [
+        {
+          "path": "Commercials/Pilot.mov",
+          "size": 30638541,
+          "modified": "2021-12-18T04:56:46Z"
+        }
+      ]
+    },
+    "Live": {
+      "subdirs": 12,
+      "files": 151,
+      "bytes": 11447953559,
+      "samples": [
+        {
+          "path": "Live/Streaming Assets/Gameboy Outline.png",
+          "size": 1909,
+          "modified": "2021-02-03T02:18:47Z"
+        },
+        {
+          "path": "Live/Streaming Assets/Main Scenes.json",
+          "size": 51503,
+          "modified": "2021-02-03T01:54:30Z"
+        },
+        {
+          "path": "Live/Streaming Assets/Frog Tiara.png",
+          "size": 1778,
+          "modified": "2021-01-22T00:13:38Z"
+        },
+        {
+          "path": "Live/Streaming Assets/Mask 2.png",
+          "size": 212156,
+          "modified": "2021-01-23T21:24:27Z"
+        }
+      ]
+    },
+    "Music": {
+      "subdirs": 96,
+      "files": 1569,
+      "bytes": 23835063308,
+      "samples": [
+        {
+          "path": "Music/Goodiepal Recording Session/prut mixene/ghost.wav",
+          "size": 167821322,
+          "modified": "2000-12-31T16:11:24Z"
+        },
+        {
+          "path": "Music/Goodiepal Recording Session/prut mixene/whistle montage compressed.wav",
+          "size": 196907222,
+          "modified": "2000-12-31T16:26:06Z"
+        },
+        {
+          "path": "Music/Goodiepal Recording Session/prut mixene/flowe eater compressed.wav",
+          "size": 199363832,
+          "modified": "2000-12-31T16:14:48Z"
+        },
+        {
+          "path": "Music/Goodiepal Recording Session/prut mixene/whistle montage.WAV",
+          "size": 201869324,
+          "modified": "2008-01-02T17:50:52Z"
+        }
+      ]
+    },
+    "Press": {
+      "subdirs": 3,
+      "files": 18,
+      "bytes": 5178875,
+      "samples": [
+        {
+          "path": "Press/Perfectly Imperfect #136 Asher Penn/#136_ Asher Penn - Perfectly Imperfect.html",
+          "size": 156794,
+          "modified": "2022-01-21T03:45:55Z"
+        },
+        {
+          "path": "Press/Perfectly Imperfect #136 Asher Penn/#136_ Asher Penn - Perfectly Imperfect_files/main.bundle.js",
+          "size": 1254119,
+          "modified": "2022-01-21T03:45:55Z"
+        },
+        {
+          "path": "Press/Perfectly Imperfect #136 Asher Penn/#136_ Asher Penn - Perfectly Imperfect_files/substack.bundle.js",
+          "size": 1304009,
+          "modified": "2022-01-21T03:45:53Z"
+        },
+        {
+          "path": "Press/Perfectly Imperfect #136 Asher Penn/#136_ Asher Penn - Perfectly Imperfect_files/c41771aeccbb43fbbffbc4755e65c9be.min.js",
+          "size": 1868,
+          "modified": "2022-01-21T03:45:53Z"
+        }
+      ]
+    },
+    "Scholarly Articles:Academia": {
+      "subdirs": 0,
+      "files": 2,
+      "bytes": 67635,
+      "samples": [
+        {
+          "path": "Scholarly Articles:Academia/Uditi's Whistlegraph Interview.docx",
+          "size": 17865,
+          "modified": "2022-01-21T02:26:40Z"
+        },
+        {
+          "path": "Scholarly Articles:Academia/Merle Nunneley on Whistlegraphs (UCL London).pdf",
+          "size": 49770,
+          "modified": "2022-03-08T02:36:04Z"
+        }
+      ]
+    },
+    "Sex Magazine": {
+      "subdirs": 80,
+      "files": 2522,
+      "bytes": 10969705697,
+      "samples": [
+        {
+          "path": "Sex Magazine/FINAL INDD/Document fonts/AdobeFnt22.lst",
+          "size": 3432,
+          "modified": "2022-07-15T07:33:18Z"
+        },
+        {
+          "path": "Sex Magazine/FINAL INDD/Document fonts/Courier.dfont",
+          "size": 1649525,
+          "modified": "2019-02-23T01:52:56Z"
+        },
+        {
+          "path": "Sex Magazine/FINAL INDD/Document fonts/Courier.ttc",
+          "size": 1148048,
+          "modified": "2022-04-03T08:44:16Z"
+        },
+        {
+          "path": "Sex Magazine/FINAL INDD/Links/07.png",
+          "size": 1060650,
+          "modified": "2022-03-14T13:01:32Z"
+        }
+      ]
+    },
+    "Write a Whistlegraph Workshop": {
+      "subdirs": 7,
+      "files": 43,
+      "bytes": 867739527,
+      "samples": [
+        {
+          "path": "Write a Whistlegraph Workshop/Social Media Promo/Butterfly Cosplayer Score.jpg",
+          "size": 2559598,
+          "modified": "2022-02-28T22:00:41Z"
+        },
+        {
+          "path": "Write a Whistlegraph Workshop/Social Media Promo/Triangle.mov",
+          "size": 24776035,
+          "modified": "2022-02-28T21:39:20Z"
+        },
+        {
+          "path": "Write a Whistlegraph Workshop/Social Media Promo/Factory.mov",
+          "size": 24292234,
+          "modified": "2022-02-28T21:39:49Z"
+        },
+        {
+          "path": "Write a Whistlegraph Workshop/Social Media Promo/Puzzle.mov",
+          "size": 21735961,
+          "modified": "2022-02-28T21:40:13Z"
+        }
+      ]
+    },
+    "Signed Documents": {
+      "subdirs": 1,
+      "files": 2,
+      "bytes": 667806,
+      "samples": [
+        {
+          "path": "Signed Documents/2022-03-22 Signed Whistlegraph Retainer Agreement.pdf",
+          "size": 385453,
+          "modified": "2022-03-23T01:44:00Z"
+        },
+        {
+          "path": "Signed Documents/Signed_whistlegraph_ Statement of Work _ YouTube Shorts Creator Collective 2 _ XX Artists.docx.pdf",
+          "size": 282353,
+          "modified": "2022-02-12T21:19:26Z"
+        }
+      ]
+    },
+    "Manuscripts": {
+      "subdirs": 3,
+      "files": 22,
+      "bytes": 86298643,
+      "samples": [
+        {
+          "path": "Manuscripts/slinky dog manuscripts/IMG_7425.jpeg",
+          "size": 1725777,
+          "modified": "2022-04-04T21:05:40Z"
+        },
+        {
+          "path": "Manuscripts/slinky dog manuscripts/IMG_7423.jpeg",
+          "size": 2152017,
+          "modified": "2022-04-04T21:05:41Z"
+        },
+        {
+          "path": "Manuscripts/slinky dog manuscripts/IMG_7421.jpeg",
+          "size": 1918055,
+          "modified": "2022-04-04T21:05:41Z"
+        },
+        {
+          "path": "Manuscripts/slinky dog manuscripts/IMG_7424.jpeg",
+          "size": 2003541,
+          "modified": "2022-04-04T21:05:41Z"
+        }
+      ]
+    },
+    "Scores": {
+      "subdirs": 4,
+      "files": 39,
+      "bytes": 51351994,
+      "samples": [
+        {
+          "path": "Scores/Score Rev1 PDF/i-dont-need-an-iphone.pdf",
+          "size": 468354,
+          "modified": "2022-04-30T08:35:20Z"
+        },
+        {
+          "path": "Scores/Score Rev1 PDF/its-time-to-grow.pdf",
+          "size": 735289,
+          "modified": "2022-04-30T08:35:20Z"
+        },
+        {
+          "path": "Scores/Score Rev1 PDF/lately-when-i-fly.pdf",
+          "size": 468351,
+          "modified": "2022-04-30T08:35:20Z"
+        },
+        {
+          "path": "Scores/Score Rev1 PDF/loner.pdf",
+          "size": 697730,
+          "modified": "2022-04-30T08:35:20Z"
+        }
+      ]
+    },
+    "LLC": {
+      "subdirs": 0,
+      "files": 6,
+      "bytes": 1341983,
+      "samples": [
+        {
+          "path": "LLC/ARTICLES OF ORGANIZATION.pdf",
+          "size": 9964,
+          "modified": "2022-06-15T19:51:26Z"
+        },
+        {
+          "path": "LLC/whistlegraph_ein confirmation.pdf",
+          "size": 15347,
+          "modified": "2022-06-22T21:03:51Z"
+        },
+        {
+          "path": "LLC/Whistlegraph LLC f8832 (2022).pdf",
+          "size": 362412,
+          "modified": "2022-06-27T21:47:12Z"
+        },
+        {
+          "path": "LLC/Whistlegraph LLC W9 (2022).pdf",
+          "size": 212312,
+          "modified": "2022-07-01T02:08:52Z"
+        }
+      ]
+    },
+    "Invoices, Bills & Contracts": {
+      "subdirs": 4,
+      "files": 19,
+      "bytes": 17744216,
+      "samples": [
+        {
+          "path": "Invoices, Bills & Contracts/Sent Invoices/Rejected Invoice #1 for Rhizome.pdf",
+          "size": 694297,
+          "modified": "2022-06-10T20:49:18Z"
+        },
+        {
+          "path": "Invoices, Bills & Contracts/Sent Invoices/Invoice #1 for Rhizome.pdf",
+          "size": 657020,
+          "modified": "2022-06-24T22:45:30Z"
+        },
+        {
+          "path": "Invoices, Bills & Contracts/Recieved Invoices/invoice_106156.pdf",
+          "size": 95508,
+          "modified": "2022-06-26T00:50:45Z"
+        },
+        {
+          "path": "Invoices, Bills & Contracts/Bills/bill_107675.pdf",
+          "size": 97108,
+          "modified": "2022-06-26T00:51:20Z"
+        }
+      ]
+    },
+    "Audio Drafts": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 375169,
+      "samples": [
+        {
+          "path": "Audio Drafts/camille run 22.7.12.m4a",
+          "size": 375169,
+          "modified": "2022-07-12T21:33:51Z"
+        }
+      ]
+    },
+    "iPad Procreate Backups": {
+      "subdirs": 0,
+      "files": 33,
+      "bytes": 6382170283,
+      "samples": [
+        {
+          "path": "iPad Procreate Backups/Untitled_Artwork 11.procreate",
+          "size": 3254023,
+          "modified": "2022-07-31T01:47:20Z"
+        },
+        {
+          "path": "iPad Procreate Backups/Untitled_Artwork 1.procreate",
+          "size": 5426187,
+          "modified": "2022-07-31T01:46:18Z"
+        },
+        {
+          "path": "iPad Procreate Backups/0035_11_1089_0035.procreate",
+          "size": 9882023,
+          "modified": "2022-07-31T01:46:45Z"
+        },
+        {
+          "path": "iPad Procreate Backups/Untitled_Artwork 10.procreate",
+          "size": 20007294,
+          "modified": "2022-07-31T01:47:19Z"
+        }
+      ]
+    },
+    "Pixaki Updates": {
+      "subdirs": 55,
+      "files": 87,
+      "bytes": 279496,
+      "samples": [
+        {
+          "path": "Pixaki Updates/Untitled 5.pixaki/images/drawings/A54E3C80-1E04-41AB-AFE3-4E0EAEA6F500.png",
+          "size": 18452,
+          "modified": "2021-06-19T07:00:09Z"
+        },
+        {
+          "path": "Pixaki Updates/Untitled 5.pixaki/images/drawings/A6C85F43-DA21-48AB-AD58-3E207FB07FF1.png",
+          "size": 13334,
+          "modified": "2021-06-19T07:02:29Z"
+        },
+        {
+          "path": "Pixaki Updates/Untitled 5.pixaki/images/drawings/EAB90144-B6D8-4018-BCBA-4A845127213D.png",
+          "size": 1763,
+          "modified": "2021-06-19T06:39:57Z"
+        },
+        {
+          "path": "Pixaki Updates/Untitled 5.pixaki/images/preview.png",
+          "size": 13334,
+          "modified": "2021-06-19T07:02:29Z"
+        }
+      ]
+    },
+    "Large iPad Procreate Update": {
+      "subdirs": 0,
+      "files": 5,
+      "bytes": 824466800,
+      "samples": [
+        {
+          "path": "Large iPad Procreate Update/Untitled_Artwork 29.procreate",
+          "size": 236100,
+          "modified": "2022-07-31T02:18:20Z"
+        },
+        {
+          "path": "Large iPad Procreate Update/Untitled_Artwork 30.procreate",
+          "size": 209115,
+          "modified": "2022-07-31T02:18:20Z"
+        },
+        {
+          "path": "Large iPad Procreate Update/Untitled_Artwork 24.procreate",
+          "size": 20125870,
+          "modified": "2022-07-31T02:18:18Z"
+        },
+        {
+          "path": "Large iPad Procreate Update/Spiral_Smile.procreate",
+          "size": 114973368,
+          "modified": "2022-07-31T02:19:08Z"
+        }
+      ]
+    },
+    "Hand Health": {
+      "subdirs": 0,
+      "files": 8,
+      "bytes": 5856350986,
+      "samples": [
+        {
+          "path": "Hand Health/AFFG-PartB.m4v",
+          "size": 642716021,
+          "modified": "2019-02-13T04:26:06Z"
+        },
+        {
+          "path": "Hand Health/CHW-PartB.m4v",
+          "size": 667326533,
+          "modified": "2019-02-13T04:12:30Z"
+        },
+        {
+          "path": "Hand Health/KIDS-PerformanceMode.m4v",
+          "size": 734449159,
+          "modified": "2019-02-13T04:48:48Z"
+        },
+        {
+          "path": "Hand Health/Kids-Voice.Instruction.m4v",
+          "size": 745337227,
+          "modified": "2019-02-13T04:42:38Z"
+        }
+      ]
+    },
+    "Rhizome - Workshops Blog Post.zip": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 8231408,
+      "samples": [
+        {
+          "path": "Rhizome - Workshops Blog Post.zip",
+          "size": 8231408,
+          "modified": "2022-08-31T21:41:14Z"
+        }
+      ]
+    },
+    "playbuttons.png": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 14242549,
+      "samples": [
+        {
+          "path": "playbuttons.png",
+          "size": 14242549,
+          "modified": "2022-09-06T01:34:34Z"
+        }
+      ]
+    },
+    "playbuttonassets.ai": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 164980,
+      "samples": [
+        {
+          "path": "playbuttonassets.ai",
+          "size": 164980,
+          "modified": "2022-09-06T02:04:42Z"
+        }
+      ]
+    },
+    "Exhibitions": {
+      "subdirs": 507,
+      "files": 4426,
+      "bytes": 253932772064,
+      "samples": [
+        {
+          "path": "Exhibitions/Rhizome Presents The Longest Whistlegraph Ever/Microsite Media/Manuscript Selects/Papers/papers-3.png",
+          "size": 9601334,
+          "modified": "2022-09-01T21:48:44Z"
+        },
+        {
+          "path": "Exhibitions/Rhizome Presents The Longest Whistlegraph Ever/Microsite Media/Manuscript Selects/Papers/papers-6.png",
+          "size": 9578114,
+          "modified": "2022-09-01T21:49:57Z"
+        },
+        {
+          "path": "Exhibitions/Rhizome Presents The Longest Whistlegraph Ever/Microsite Media/Manuscript Selects/Papers/papers-2.png",
+          "size": 10466129,
+          "modified": "2022-09-12T20:27:52Z"
+        },
+        {
+          "path": "Exhibitions/Rhizome Presents The Longest Whistlegraph Ever/Microsite Media/Manuscript Selects/Papers/papers-5.png",
+          "size": 10308497,
+          "modified": "2022-09-12T20:29:15Z"
+        }
+      ]
+    },
+    "Comments Screenshots": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 230941,
+      "samples": [
+        {
+          "path": "Comments Screenshots/Screen Shot 2022-10-31 at 12.36.19 PM.png",
+          "size": 230941,
+          "modified": "2022-10-31T19:36:27Z"
+        }
+      ]
+    },
+    "Whistlegraph Halloween Hoodie Shoot": {
+      "subdirs": 0,
+      "files": 87,
+      "bytes": 201116098,
+      "samples": [
+        {
+          "path": "Whistlegraph Halloween Hoodie Shoot/IMG_2085.HEIC",
+          "size": 2303491,
+          "modified": "2022-11-06T22:47:54Z"
+        },
+        {
+          "path": "Whistlegraph Halloween Hoodie Shoot/IMG_2089.HEIC",
+          "size": 2291714,
+          "modified": "2022-11-06T22:48:11Z"
+        },
+        {
+          "path": "Whistlegraph Halloween Hoodie Shoot/IMG_2080.HEIC",
+          "size": 1285893,
+          "modified": "2022-11-06T22:47:35Z"
+        },
+        {
+          "path": "Whistlegraph Halloween Hoodie Shoot/IMG_2052.HEIC",
+          "size": 2522230,
+          "modified": "2022-11-06T22:36:28Z"
+        }
+      ]
+    },
+    "Recorder": {
+      "subdirs": 0,
+      "files": 3,
+      "bytes": 519381,
+      "samples": [
+        {
+          "path": "Recorder/WGR Stamps.png",
+          "size": 22118,
+          "modified": "2023-01-10T19:00:48Z"
+        },
+        {
+          "path": "Recorder/Account.png",
+          "size": 6556,
+          "modified": "2023-01-11T06:48:28Z"
+        },
+        {
+          "path": "Recorder/WGR Stamps.psd",
+          "size": 490707,
+          "modified": "2023-01-17T17:44:23Z"
+        }
+      ]
+    },
+    "Stamps": {
+      "subdirs": 0,
+      "files": 8,
+      "bytes": 2969224,
+      "samples": [
+        {
+          "path": "Stamps/Whistlegraph-4.jpg",
+          "size": 164388,
+          "modified": "2023-03-24T20:12:48Z"
+        },
+        {
+          "path": "Stamps/Whistlegraph-2.jpg",
+          "size": 298941,
+          "modified": "2023-03-24T20:12:13Z"
+        },
+        {
+          "path": "Stamps/Whistlegraph-3.jpg",
+          "size": 195676,
+          "modified": "2023-03-24T20:12:36Z"
+        },
+        {
+          "path": "Stamps/Whistlegraph-6.jpg",
+          "size": 394144,
+          "modified": "2023-03-24T20:14:05Z"
+        }
+      ]
+    },
+    "Bumbling Bumperfly.mp4": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 29877847,
+      "samples": [
+        {
+          "path": "Bumbling Bumperfly.mp4",
+          "size": 29877847,
+          "modified": "2022-11-01T06:44:32Z"
+        }
+      ]
+    },
+    "whistlegraph-tiktok.mov": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 7050107,
+      "samples": [
+        {
+          "path": "whistlegraph-tiktok.mov",
+          "size": 7050107,
+          "modified": "2022-09-08T20:05:54Z"
+        }
+      ]
+    },
+    "Whistlegraph Account Screenshot (Dark).jpg": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 1056555,
+      "samples": [
+        {
+          "path": "Whistlegraph Account Screenshot (Dark).jpg",
+          "size": 1056555,
+          "modified": "2022-09-03T20:44:02Z"
+        }
+      ]
+    },
+    "Shop": {
+      "subdirs": 13,
+      "files": 166,
+      "bytes": 416749796,
+      "samples": [
+        {
+          "path": "Shop/Merchandise/Butterfly Cosplayer Hoodies/Photos/Blue transparency.png",
+          "size": 11644911,
+          "modified": "2022-02-12T00:07:05Z"
+        },
+        {
+          "path": "Shop/Merchandise/Butterfly Cosplayer Hoodies/Photos/Blue.jpg",
+          "size": 3832718,
+          "modified": "2022-02-11T23:33:11Z"
+        },
+        {
+          "path": "Shop/Merchandise/Butterfly Cosplayer Hoodies/Photos/Yellow.jpg",
+          "size": 4515362,
+          "modified": "2022-02-11T23:31:18Z"
+        },
+        {
+          "path": "Shop/Merchandise/Butterfly Cosplayer Hoodies/Photos/IMG_4994.heic",
+          "size": 2387621,
+          "modified": "2022-02-11T23:20:42Z"
+        }
+      ]
+    },
+    "Misc. Videos": {
+      "subdirs": 0,
+      "files": 0,
+      "bytes": 0,
+      "samples": []
+    },
+    "Whistlegraph Full Cover Ad Shoot": {
+      "subdirs": 2,
+      "files": 218,
+      "bytes": 11639384776,
+      "samples": [
+        {
+          "path": "Whistlegraph Full Cover Ad Shoot/CLIP/C0086M01.XML",
+          "size": 1936,
+          "modified": "2022-10-29T00:44:56Z"
+        },
+        {
+          "path": "Whistlegraph Full Cover Ad Shoot/100MSDCF/DSC00153.JPG",
+          "size": 3512985,
+          "modified": "2022-03-30T00:07:58Z"
+        },
+        {
+          "path": "Whistlegraph Full Cover Ad Shoot/100MSDCF/DSC00300.JPG",
+          "size": 3391238,
+          "modified": "2022-03-30T00:59:47Z"
+        },
+        {
+          "path": "Whistlegraph Full Cover Ad Shoot/CLIP/C0075M01.XML",
+          "size": 1932,
+          "modified": "2022-03-15T02:50:07Z"
+        }
+      ]
+    },
+    "The Longest Whistlegraph Ever (so far) Media Archive.zip": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 19243106226,
+      "samples": [
+        {
+          "path": "The Longest Whistlegraph Ever (so far) Media Archive.zip",
+          "size": 19243106226,
+          "modified": "2022-09-15T03:22:12Z"
+        }
+      ]
+    },
+    "Whistlegraph.png": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 319,
+      "samples": [
+        {
+          "path": "Whistlegraph.png",
+          "size": 319,
+          "modified": "2021-07-29T00:18:28Z"
+        }
+      ]
+    },
+    "Capture.PNG": {
+      "subdirs": 0,
+      "files": 1,
+      "bytes": 315404,
+      "samples": [
+        {
+          "path": "Capture.PNG",
+          "size": 315404,
+          "modified": "2021-05-30T19:40:14Z"
+        }
+      ]
+    }
+  },
+  "extCounts": {
+    ".heic": 439,
+    ".jpg": 3167,
+    ".pdf": 120,
+    ".iif": 1,
+    ".csv": 7,
+    ".qbo": 1,
+    ".m4a": 21,
+    ".mp4": 503,
+    ".txt": 124,
+    ".m3u": 1,
+    ".png": 2364,
+    ".psd": 51,
+    ".mov": 655,
+    ".c3p": 2,
+    ".html": 31,
+    ".webm": 384,
+    ".js": 818,
+    ".wasm": 10,
+    ".css": 18,
+    ".json": 1006,
+    ".gif": 26,
+    ".woff2": 12,
+    ".wav": 933,
+    ".rtf": 6,
+    ".ch8": 3,
+    ".fzx": 3,
+    ".ttf": 9,
+    ".bdf": 3,
+    ".psf": 3,
+    ".tap": 1,
+    ".md": 2,
+    ".mobileprovision": 1,
+    ".p12": 2,
+    ".aab": 1,
+    ".certsigningrequest": 1,
+    ".jks": 1,
+    ".yml": 2,
+    ".xcconfig": 12,
+    ".project/podfile": 2,
+    ".storyboard": 2,
+    ".h": 94,
+    ".gitignore": 5,
+    ".pch": 4,
+    ".m": 78,
+    ".plist": 12,
+    ".sh": 2,
+    ".xib": 2,
+    ".project/no paint/plugins/readme": 2,
+    ".swift": 2,
+    ".xml": 13,
+    ".pbxproj": 4,
+    ".project/cordovalib/version": 2,
+    ".xcscheme": 2,
+    ".xcworkspacedata": 4,
+    ".xcuserstate": 2,
+    ".project/cordova/apple_osx_version": 2,
+    ".project/cordova/build": 2,
+    ".bat": 12,
+    ".project/cordova/clean": 2,
+    ".project/cordova/apple_xcode_version": 2,
+    ".project/cordova/apple_ios_version": 2,
+    ".project/cordova/check_reqs": 2,
+    ".project/cordova/run": 2,
+    ".project/cordova/log": 2,
+    ".project/cordova/version": 2,
+    ".project/cordova/lib/start-emulator": 2,
+    ".project/cordova/lib/list-started-emulators": 2,
+    ".project/cordova/lib/list-devices": 2,
+    ".project/cordova/lib/list-emulator-images": 2,
+    ".project/cordova/lib/list-emulator-build-targets": 2,
+    ".cer": 1,
+    ".ai": 5,
+    ".srt": 26,
+    ".jpeg": 131,
+    ".pek": 28,
+    ".cfa": 30,
+    ".prproj": 197,
+    ".aif": 323,
+    ".cfg": 2,
+    ".asd": 608,
+    ".als": 66,
+    ".mp3": 53,
+    ".docx": 1,
+    "(none)": 3,
+    ".docx alias": 1,
+    ".webp": 98,
+    ".svg": 84,
+    ".procreate": 40,
+    ".m4v": 9,
+    ".zip": 29,
+    ".jam": 2,
+    ".fig": 1,
+    ".wacz": 1,
+    ".warc": 1,
+    ".sol": 1,
+    ".xmp": 9,
+    ".mpeg": 4,
+    ".glsl": 70,
+    ".otf": 2,
+    ".aac": 1,
+    ".mxf": 2,
+    ".aep": 5,
+    ".lst": 12,
+    ".dfont": 6,
+    ".ttc": 3,
+    ".eps": 7,
+    ".indd": 9,
+    ".idml": 6,
+    ".idlk": 2,
+    ".avi": 4,
+    ".thm": 4
+  }
+}
