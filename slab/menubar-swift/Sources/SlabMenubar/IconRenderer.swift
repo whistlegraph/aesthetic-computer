@@ -186,6 +186,11 @@ enum IconRenderer {
     /// "thread is dead but the marker's still on disk."
     private static func sessionColor(_ state: ClaudeSession.State, phase: CGFloat) -> NSColor {
         switch state {
+        case .blank:
+            // Cool, low-saturation gray — present in the polygon ring (so the
+            // window is counted) but not attention-grabbing. A fresh window
+            // shouldn't read like an active or paused session.
+            return NSColor(deviceWhite: 0.55, alpha: 1.0)
         case .working:
             return NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
         case .complete:

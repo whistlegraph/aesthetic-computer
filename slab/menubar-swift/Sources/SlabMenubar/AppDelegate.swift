@@ -371,12 +371,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         func sizeFor(_ scale: Double) -> Int? {
             baseFont.map { Int((Double($0) * scale).rounded()) }
         }
+        let darkAppearance = Self.isDarkAppearance()
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
             let bg: (Int, Int, Int)?
             let glyph: String
             let fontSize: Int?
             switch s.state {
+            // Blank = pure macOS appearance (white in light mode, black in
+            // dark mode) so a fresh window reads as a blank page until the
+            // first prompt fires. No glyph, no title chrome — wholly clean.
+            case .blank:
+                bg = darkAppearance ? (0, 0, 0) : (65535, 65535, 65535)
+                glyph = ""
+                fontSize = sizeFor(1.00)
             // Working = green (active/healthy), complete = calm slate
             // (turn done, idle), awaiting = amber (needs you to continue),
             // stale = deep red (process dead, escalate). RGBs are 0–65535
@@ -387,7 +395,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .awaiting: bg = (32000, 18000, 1500);  glyph = "◉ awaiting";  fontSize = sizeFor(1.25)  // orange — focus pop
             case .stale:    bg = (30000, 2500,  4000);  glyph = "○ stale";     fontSize = sizeFor(1.45)  // red — largest, escalate
             }
-            let title = "\(glyph) · \(s.titleString)"
+            // Blank windows get an empty custom title so Terminal shows just
+            // its default tty/process line — no "● working · …" badge while
+            // the page is meant to look blank.
+            let title = (s.state == .blank) ? "" : "\(glyph) · \(s.titleString)"
             let bgKey = bg.map { "\($0.0),\($0.1),\($0.2)" } ?? "-"
             let key = "\(bgKey)|\(title)|\(fontSize.map(String.init) ?? "-")"
             if lastTerminalDecor[s.sessionId] == key { continue }
@@ -631,6 +642,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.refreshMailCount()
             }
         }
+    }
+
+    /// True when the system is currently in Dark mode. Reads NSApp's
+    /// effectiveAppearance so live appearance flips (Auto / sunset switch /
+    /// manual toggle) propagate without an explicit observer — the next
+    /// refresh tick (~2s) recomputes the blank-window bg key and repaints.
+    static func isDarkAppearance() -> Bool {
+        let appearance = NSApp.effectiveAppearance
+        let match = appearance.bestMatch(from: [.darkAqua, .aqua])
+        return match == .darkAqua
     }
 
     private func notify(title: String, subtitle: String?, body: String) {

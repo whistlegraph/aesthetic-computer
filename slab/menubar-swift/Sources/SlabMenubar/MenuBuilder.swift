@@ -117,11 +117,20 @@ enum MenuBuilder {
             case .awaiting: dot = "◉"
             case .working:  dot = "●"
             case .complete: dot = "✓"
+            case .blank:    dot = "·"   // tiny midpoint — fresh, nothing yet
             case .stale:    dot = "○"
             }
             let tail = s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)"
+            // Blank sessions have no subject yet — substitute a placeholder
+            // so the menu row reads as "· (new) · aesthetic-computer" instead
+            // of the awkward "·   ·  aesthetic-computer".
+            let subjectText: String = {
+                let s2 = s.shortSubject.trimmingCharacters(in: .whitespaces)
+                if !s2.isEmpty { return s2 }
+                return s.state == .blank ? "(new)" : s2
+            }()
             let entry = NSMenuItem(
-                title: "\(dot) \(s.shortSubject)\(tail)",
+                title: "\(dot) \(subjectText)\(tail)",
                 action: #selector(AppDelegate.focusClaudeSession(_:)),
                 keyEquivalent: ""
             )
@@ -129,7 +138,7 @@ enum MenuBuilder {
             entry.representedObject = s.tty
             entry.toolTip = sessionTooltip(s)
             entry.isEnabled = !s.tty.isEmpty
-            entry.attributedTitle = coloredTitle(for: s, dot: dot, tail: tail)
+            entry.attributedTitle = coloredTitle(for: s, dot: dot, subject: subjectText, tail: tail)
             menu.addItem(entry)
         }
     }
@@ -184,16 +193,18 @@ enum MenuBuilder {
         return parent
     }
 
-    private static func coloredTitle(for s: ClaudeSession, dot: String, tail: String) -> NSAttributedString {
-        let full = "\(dot) \(s.shortSubject)\(tail)"
+    private static func coloredTitle(for s: ClaudeSession, dot: String, subject: String, tail: String) -> NSAttributedString {
+        let full = "\(dot) \(subject)\(tail)"
         let attr = NSMutableAttributedString(string: full)
         let dotColor: NSColor
         switch s.state {
         // Working = green (active/healthy), complete = soft slate (calm),
-        // awaiting = warm amber (needs you), stale = gray.
+        // awaiting = warm amber (needs you), blank = quiet gray (fresh, no
+        // input yet), stale = gray.
         case .working:  dotColor = NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
         case .complete: dotColor = NSColor(deviceHue: 0.58, saturation: 0.30, brightness: 0.70, alpha: 1.0)
         case .awaiting: dotColor = NSColor(deviceHue: 0.10, saturation: 0.95, brightness: 0.95, alpha: 1.0)
+        case .blank:    dotColor = NSColor.tertiaryLabelColor
         case .stale:    dotColor = NSColor(deviceWhite: 0.55, alpha: 1.0)
         }
         // Color the status dot strong, the rest of the line in the dot's
@@ -216,6 +227,8 @@ enum MenuBuilder {
             parts.append("turn complete (idle)")
         case .working:
             parts.append("working")
+        case .blank:
+            parts.append("blank (no prompt yet)")
         case .stale:
             parts.append("stale (claude pid gone)")
         }

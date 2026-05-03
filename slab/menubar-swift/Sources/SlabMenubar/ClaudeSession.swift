@@ -1,13 +1,17 @@
 import Foundation
 
 struct ClaudeSession {
+    /// `blank`    — SessionStart fired but no UserPromptSubmit yet; window
+    ///              is open with the welcome screen, awaiting the first input.
+    ///              Painted in the macOS appearance color (pure white/black) so
+    ///              fresh windows read as "blank pages" until you type.
     /// `working`  — Claude is actively running a turn.
     /// `complete` — Stop fired ("turn complete"); session is alive but idle,
     ///              waiting for the next user prompt. Calm, no attention needed.
     /// `awaiting` — Notification fired; Claude paused mid-task and needs the
     ///              user (permission prompt, idle-on-input). Attention!
     /// `stale`    — claude_pid is gone; about to be reaped.
-    enum State { case working, complete, awaiting, stale }
+    enum State { case blank, working, complete, awaiting, stale }
 
     let sessionId: String
     let cwd: String
@@ -102,6 +106,11 @@ enum ClaudeSessionReader {
                     s.state = .awaiting
                 }
                 s.awaitingMessage = msg
+            } else if s.state == .blank {
+                // Marker says blank (SessionStart wrote it, no UserPromptSubmit
+                // has overwritten it yet) — preserve so applyTerminalDecor
+                // paints the appearance-matched bg.
+                // (no-op: keep s.state == .blank)
             } else {
                 s.state = .working
             }
@@ -112,14 +121,16 @@ enum ClaudeSessionReader {
         reapOrphanAwaiting(awaitingDir: awaitingDir, validIds: liveIds)
 
         // Sort: attention-needed first (awaiting), then complete, then
-        // working, all most-recent first within each band.
+        // working, then blank (fresh window, nothing to look at), all
+        // most-recent first within each band.
         return sessions.sorted { a, b in
             func rank(_ st: ClaudeSession.State) -> Int {
                 switch st {
                 case .awaiting: return 0
                 case .complete: return 1
                 case .working:  return 2
-                case .stale:    return 3
+                case .blank:    return 3
+                case .stale:    return 4
                 }
             }
             let ra = rank(a.state), rb = rank(b.state)
@@ -169,6 +180,13 @@ enum ClaudeSessionReader {
             return (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date) ?? Date()
         }()
 
+        // Only `blank` is read from the marker — every other state comes
+        // from the awaiting-prompts cross-check in `active()`. We surface
+        // blank early so the reducer can preserve it (as opposed to
+        // promoting to .working when no awaiting marker is present).
+        let parsedState: ClaudeSession.State =
+            ((obj["state"] as? String) == "blank") ? .blank : .working
+
         return ClaudeSession(
             sessionId: (obj["session_id"] as? String) ?? fallbackId,
             cwd: (obj["cwd"] as? String) ?? "",
@@ -177,7 +195,7 @@ enum ClaudeSessionReader {
             tty: (obj["tty"] as? String) ?? "",
             claudePid: (obj["claude_pid"] as? Int) ?? 0,
             updated: updated,
-            state: .working,
+            state: parsedState,
             awaitingMessage: nil
         )
     }
