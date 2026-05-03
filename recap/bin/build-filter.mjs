@@ -15,6 +15,12 @@
 //
 // Usage: node bin/build-filter.mjs <totalSec>  (writes graph to stdout)
 
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, "..");
+const REPO = resolve(ROOT, "..");
 const TOTAL = process.argv[2];
 if (!TOTAL) {
   console.error("usage: build-filter.mjs <totalSec>");
@@ -37,8 +43,13 @@ lines.push(`[bg2]drawbox=x=0:y=1912:w='iw*t/${TOTAL}':h=8:color=0xff69b4:t=fill[
 // codec dance. fontsdir picks up the YWFT face shipped in the repo so
 // the .ass `Style: YWFTProcessing` resolves. The .ass path is escaped
 // for ffmpeg's filter parser (`:` and `\` need it inside subtitles=...).
-const ASS = `${ROOT}/out/subs.ass`.replace(/:/g, "\\:").replace(/\\/g, "/");
-const FONTSDIR = `${REPO}/system/public/type/webfonts`.replace(/:/g, "\\:");
+// Inside ffmpeg's `filter_complex_script`, the `subtitles=` argument
+// uses `:` as a filter-arg separator. Path colons must be escaped with
+// `\:`. Backslashes don't appear in Linux paths so we don't worry about
+// those. Single-quote the values for safety.
+const escFilter = (p) => p.replace(/:/g, "\\:");
+const ASS = escFilter(`${ROOT}/out/subs.ass`);
+const FONTSDIR = escFilter(`${REPO}/system/public/type/webfonts`);
 lines.push(`[v0]subtitles='${ASS}':fontsdir='${FONTSDIR}'[final]`);
 
 process.stdout.write(lines.join(";\n") + "\n");
