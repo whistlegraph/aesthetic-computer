@@ -32,6 +32,7 @@
             --box-bg: rgba(255,255,255,0.03);
             --box-border: rgba(255,255,255,0.1);
             --col-divider: rgba(255,255,255,0.08);
+            --logo-shadow: #000;
         }
 
         @media (prefers-color-scheme: light) {
@@ -42,6 +43,7 @@
                 --box-bg: rgba(0,0,0,0.03);
                 --box-border: rgba(0,0,0,0.1);
                 --col-divider: rgba(0,0,0,0.08);
+                --logo-shadow: #fff;
             }
         }
         :root.light-mode {
@@ -51,6 +53,7 @@
             --box-bg: rgba(0,0,0,0.03);
             --box-border: rgba(0,0,0,0.1);
             --col-divider: rgba(0,0,0,0.08);
+            --logo-shadow: #fff;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -396,10 +399,8 @@
             aspect-ratio: 1536 / 1024;
             max-height: 78vh;
             min-height: 280px;
-            /* Warm cream letterbox — matches the cream paper the colored-pencil
-               images fade into, so contain-mode gaps on wide viewports read as
-               intentional paper margin rather than negative space. */
-            background-color: #efe2c8;
+            /* Purple letterbox the colored-pencil images soft-fade into. */
+            background-color: var(--purple);
         }
         .hero-canvas {
             position: absolute;
@@ -407,7 +408,10 @@
             width: 100%;
             height: 100%;
             display: block;
+            opacity: 0;
+            transition: opacity 1.2s ease-in;
         }
+        .hero-canvas.loaded { opacity: 1; }
 
         /* === Prompt-HUD corner label (modeled after give.aesthetic.computer) === */
         .top-bar {
@@ -433,16 +437,33 @@
             font-weight: 700;
             font-size: 1.05em;
             color: var(--text);
+            text-shadow:
+                1px 1px 0 var(--logo-shadow),
+                -1px 1px 0 var(--logo-shadow),
+                1px -1px 0 var(--logo-shadow),
+                -1px -1px 0 var(--logo-shadow),
+                0 0 8px rgba(0,0,0,0.35);
         }
         .top-bar .logo-sep {
             font-family: 'Berkeley Mono Variable', monospace;
             color: var(--dim);
             margin: 0 0.3em;
+            text-shadow:
+                1px 1px 0 var(--logo-shadow),
+                -1px 1px 0 var(--logo-shadow),
+                1px -1px 0 var(--logo-shadow),
+                -1px -1px 0 var(--logo-shadow);
         }
         .top-bar .logo-ac {
             font-family: 'YWFTProcessing-Regular', sans-serif;
             font-size: 1.15em;
             color: var(--pink);
+            text-shadow:
+                1px 1px 0 var(--logo-shadow),
+                -1px 1px 0 var(--logo-shadow),
+                1px -1px 0 var(--logo-shadow),
+                -1px -1px 0 var(--logo-shadow),
+                0 0 8px rgba(0,0,0,0.35);
         }
         .top-bar .logo-dot { color: var(--cyan); }
 
@@ -827,8 +848,7 @@
                 { src: '/papers-header-v3.png', focal: { x: 0.50, y: 0.62 }, pan: { from: { s: 1.06, x: 0, y: 0 }, to: { s: 1.00, x:  0.02, y: -0.01 } } },
                 { src: '/papers-header-v1.png', focal: { x: 0.46, y: 0.42 }, pan: { from: { s: 1.04, x: 0, y: 0 }, to: { s: 1.10, x: -0.01, y:  0.02 } } },
             ];
-            const SLIDE_DUR = 7000;
-            const FADE_DUR = 1500;
+            const SLIDE_DUR = 9000;
             const CYCLE = SLIDES.length * SLIDE_DUR;
 
             const images = SLIDES.map(s => { const i = new Image(); i.src = s.src; return i; });
@@ -847,26 +867,43 @@
 
             function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
 
-            function drawSlide(img, focal, pan, progress, alpha) {
+            // mode: 'cover' fills the canvas (background layer),
+            //       'contain-small' is a smaller in-front composition
+            function drawSlide(img, focal, pan, progress, alpha, mode) {
                 if (!img.complete || !img.naturalWidth) return;
                 const t = easeInOutSine(progress);
                 const sc = pan.from.s + (pan.to.s - pan.from.s) * t;
                 const tx = pan.from.x + (pan.to.x - pan.from.x) * t;
                 const ty = pan.from.y + (pan.to.y - pan.from.y) * t;
-                // CONTAIN baseline so the entire image is visible at sc=1.0;
-                // sc > 1.0 zooms past contain, the focal anchor keeps the
-                // important content (face / laptop) centered on screen.
-                const baseScale = Math.min(cssW / img.naturalWidth, cssH / img.naturalHeight);
+                let baseScale;
+                if (mode === 'cover') {
+                    baseScale = Math.max(cssW / img.naturalWidth, cssH / img.naturalHeight) * 1.18;
+                } else {
+                    baseScale = Math.min(cssW / img.naturalWidth, cssH / img.naturalHeight) * 0.82;
+                }
                 const scale = baseScale * sc;
                 const dw = img.naturalWidth * scale;
                 const dh = img.naturalHeight * scale;
-                // Anchor focal point at canvas center, then add small pan delta
                 const dx = (cssW / 2) - (img.naturalWidth  * focal.x * scale) + tx * cssW;
                 const dy = (cssH / 2) - (img.naturalHeight * focal.y * scale) + ty * cssH;
                 ctx.save();
                 ctx.globalAlpha = alpha;
                 ctx.drawImage(img, dx, dy, dw, dh);
                 ctx.restore();
+            }
+
+            // Triangular envelope peaking at center of each slide window —
+            // every layer is always crossfading with its neighbours.
+            function alphaFor(globalT, slotStart, slotDur) {
+                const half = slotDur / 2;
+                const d = Math.min(
+                    Math.abs(globalT - slotStart),
+                    Math.abs(globalT - slotStart - CYCLE),
+                    Math.abs(globalT - slotStart + CYCLE)
+                );
+                if (d >= slotDur) return 0;
+                const x = 1 - d / slotDur;
+                return easeInOutSine(x);
             }
 
             const start = performance.now();
@@ -877,33 +914,73 @@
 
                 const elapsed = reduced ? 0 : (now - start);
                 const cyclePos = ((elapsed % CYCLE) + CYCLE) % CYCLE;
-                const idx = Math.floor(cyclePos / SLIDE_DUR);
-                const slideElapsed = cyclePos - idx * SLIDE_DUR;
-                const slideProg = slideElapsed / SLIDE_DUR;
-                const fadeStartProg = (SLIDE_DUR - FADE_DUR) / SLIDE_DUR;
 
-                if (slideProg > fadeStartProg) {
-                    // Crossfade: draw incoming next slide underneath at full alpha,
-                    // current slide on top fading out
-                    const fadeT = (slideProg - fadeStartProg) / (1 - fadeStartProg);
-                    const nextIdx = (idx + 1) % SLIDES.length;
-                    drawSlide(images[nextIdx], SLIDES[nextIdx].focal, SLIDES[nextIdx].pan, 0, 1);
-                    drawSlide(images[idx], SLIDES[idx].focal, SLIDES[idx].pan, slideProg, 1 - fadeT);
-                } else {
-                    drawSlide(images[idx], SLIDES[idx].focal, SLIDES[idx].pan, slideProg, 1);
+                // BACK LAYER — covered, fills full bleed. Each slide gets a
+                // triangular alpha envelope so neighbours always blend.
+                for (let i = 0; i < SLIDES.length; i++) {
+                    const slotStart = i * SLIDE_DUR;
+                    const a = alphaFor(cyclePos, slotStart, SLIDE_DUR);
+                    if (a <= 0.001) continue;
+                    const localProg = ((cyclePos - slotStart + CYCLE) % CYCLE) / SLIDE_DUR;
+                    const prog = Math.max(0, Math.min(1, localProg));
+                    drawSlide(images[i], SLIDES[i].focal, SLIDES[i].pan, prog, a, 'cover');
                 }
+
+                // FRONT LAYER — smaller, multiply-blended so the cream paper
+                // edges of the colored-pencil scans dissolve into the back
+                // layer instead of stamping a hard rectangle. Half a slot
+                // out of phase so the foreground composition is always a
+                // *different* slide than the dominant background.
+                ctx.globalCompositeOperation = 'multiply';
+                const frontPhase = (cyclePos + SLIDE_DUR / 2) % CYCLE;
+                for (let i = 0; i < SLIDES.length; i++) {
+                    const slotStart = i * SLIDE_DUR;
+                    const a = alphaFor(frontPhase, slotStart, SLIDE_DUR);
+                    if (a <= 0.001) continue;
+                    const localProg = ((frontPhase - slotStart + CYCLE) % CYCLE) / SLIDE_DUR;
+                    const prog = Math.max(0, Math.min(1, localProg));
+                    drawSlide(images[i], SLIDES[i].focal, SLIDES[i].pan, prog, a * 0.85, 'contain-small');
+                }
+                ctx.globalCompositeOperation = 'source-over';
+
+                // Soft vignette mask — fade canvas alpha to 0 at edges so
+                // the purple letterbox bleeds in around the imagery.
+                const grad = ctx.createRadialGradient(
+                    cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.28,
+                    cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.72
+                );
+                grad.addColorStop(0, 'rgba(0,0,0,0)');
+                grad.addColorStop(0.7, 'rgba(0,0,0,0.35)');
+                grad.addColorStop(1, 'rgba(0,0,0,1)');
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, cssW, cssH);
+                ctx.globalCompositeOperation = 'source-over';
 
                 if (!reduced || lastFrame === 0) requestAnimationFrame(frame);
                 lastFrame = now;
             }
 
-            // Kick off as soon as ANY image is ready (others load progressively)
+            // Wait for ALL images before kicking off — prevents pop-in of
+            // late-arriving slides as they load mid-cycle.
             let kicked = false;
-            function kick() { if (!kicked) { kicked = true; requestAnimationFrame(frame); } }
+            function kick() {
+                if (kicked) return;
+                kicked = true;
+                canvas.classList.add('loaded');
+                requestAnimationFrame(frame);
+            }
+            let pending = images.length;
             images.forEach(img => {
-                if (img.complete && img.naturalWidth) kick();
-                else img.addEventListener('load', kick, { once: true });
+                const done = () => { if (--pending <= 0) kick(); };
+                if (img.complete && img.naturalWidth) done();
+                else {
+                    img.addEventListener('load', done, { once: true });
+                    img.addEventListener('error', done, { once: true });
+                }
             });
+            // Safety fallback — if something stalls, kick after 4s anyway.
+            setTimeout(kick, 4000);
         })();
 
         // Cache-bust version — updated by papermill deploy
