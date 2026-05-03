@@ -556,11 +556,79 @@
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
     }
   }
+
+  /* Language switcher — corner chip pair, same vibe as kidlisp.com /
+     help.aesthetic.computer. Tucks into the top-right so it doesn't fight
+     the hero icon for attention. Active language is filled, the other is
+     a flat outline; both share the precise-cursor hand on hover. */
+  #lang-switch {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 4;
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 1px 4px rgba(15, 30, 60, 0.08);
+  }
+  #lang-switch button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 6px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 120ms var(--ease-apple), color 120ms var(--ease-apple);
+  }
+  #lang-switch button:hover { color: var(--ink-head); }
+  #lang-switch button[aria-pressed="true"] {
+    background: var(--tahoe-blue);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(10, 132, 255, 0.35);
+  }
+  #lang-switch button .flag { font-size: 13px; }
+  @media (max-width: 520px) {
+    #lang-switch button .label { display: none; }
+    #lang-switch button { padding: 6px 8px; }
+  }
+  @media (prefers-color-scheme: dark) {
+    #lang-switch {
+      background: rgba(28, 28, 30, 0.65);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.06) inset,
+        0 1px 6px rgba(0, 0, 0, 0.4);
+    }
+    #lang-switch button { color: rgba(235, 235, 245, 0.6); }
+    #lang-switch button:hover { color: rgba(235, 235, 245, 0.95); }
+  }
 </style>
 </head>
 <body>
 
 <h1 id="corner-label">menuband</h1>
+
+<div id="lang-switch" role="group" aria-label="Language">
+  <button type="button" data-lang="en" aria-pressed="true">
+    <span class="flag" aria-hidden="true">🇺🇸</span><span class="label">EN</span>
+  </button>
+  <button type="button" data-lang="es" aria-pressed="false">
+    <span class="flag" aria-hidden="true">🇪🇸</span><span class="label">ES</span>
+  </button>
+</div>
 
 <article class="window" aria-label="Menu Band">
   <div class="hero">
@@ -568,52 +636,52 @@
       <img class="app-icon" src="/menuband/icon.png" alt="Menu Band app icon">
     </div>
     <h2 class="app-title">Menu Band</h2>
-    <p class="tagline">Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
+    <p class="tagline" data-i18n="tagline">Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
 
     <div class="button-row">
       <a class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.9.dmg" download>
-        Download
-        <small>0.9 · Apple Silicon · 2.1 MB</small>
+        <span data-i18n="downloadCta">Download</span>
+        <small data-i18n="downloadMeta">0.9 · Apple Silicon · 2.1 MB</small>
       </a>
     </div>
-    <p class="aux"><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">view source</a> · by <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <p class="aux"><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a> · <span data-i18n="by">by</span> <a href="https://aesthetic.computer">aesthetic.computer</a></p>
   </div>
 
   <section class="panel">
-    <p>A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing's listening, a built-in General MIDI synth covers hundreds of patches.</p>
+    <p data-i18n="lede" data-i18n-html="true">A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing's listening, a built-in General MIDI synth covers hundreds of patches.</p>
   </section>
 
   <section class="panel testimonial">
-    <blockquote>“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”</blockquote>
+    <blockquote data-i18n="testimonial">“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”</blockquote>
     <p class="attribution">— <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a></p>
   </section>
 
   <section class="panel">
-    <h3>Three modes</h3>
+    <h3 data-i18n="modesTitle">Three modes</h3>
     <ul class="modes">
-      <li><b>Pointer</b><span>Mouse only. Two octaves.</span></li>
-      <li><b>Notepat</b><span>Type to play. Two octaves.</span></li>
-      <li><b>Ableton</b><span>Type to play. Live's M-mode layout.</span></li>
+      <li><b data-i18n="modePointer">Pointer</b><span data-i18n="modePointerBody">Mouse only. Two octaves.</span></li>
+      <li><b data-i18n="modeNotepat">Notepat</b><span data-i18n="modeNotepatBody">Type to play. Two octaves.</span></li>
+      <li><b data-i18n="modeAbleton">Ableton</b><span data-i18n="modeAbletonBody">Type to play. Live's M-mode layout.</span></li>
     </ul>
   </section>
 
   <section class="panel">
-    <h3>What's new <span class="badge">0.5</span></h3>
-    <p><b>Snappier.</b> Visualizer pauses when the popover is hidden, and the Metal layer no longer waits for vsync — the popover opens instantly and bars track audio with less latency. Big thanks to <a href="https://github.com/estebanuribe">Esteban Uribe</a> for both performance patches.</p>
-    <p><b>No Accessibility prompt.</b> Click the menubar piano and the keys flash their letters; type to play. No system-wide keystroke capture, no permission dialog. (The Notepat / Ableton modes still use global capture for play-while-using-other-apps; that's an opt-in toggle.)</p>
-    <p><b>Plus:</b> a mute toggle, an accent-tinted Finder icon that follows your system color, and the popover keeps the same width when MIDI flips on.</p>
+    <h3><span data-i18n="whatsNewTitle">What's new</span> <span class="badge">0.5</span></h3>
+    <p data-i18n="whatsNew1" data-i18n-html="true"><b>Snappier.</b> Visualizer pauses when the popover is hidden, and the Metal layer no longer waits for vsync — the popover opens instantly and bars track audio with less latency. Big thanks to <a href="https://github.com/estebanuribe">Esteban Uribe</a> for both performance patches.</p>
+    <p data-i18n="whatsNew2" data-i18n-html="true"><b>No Accessibility prompt.</b> Click the menubar piano and the keys flash their letters; type to play. No system-wide keystroke capture, no permission dialog. (The Notepat / Ableton modes still use global capture for play-while-using-other-apps; that's an opt-in toggle.)</p>
+    <p data-i18n="whatsNew3" data-i18n-html="true"><b>Plus:</b> a mute toggle, an accent-tinted Finder icon that follows your system color, and the popover keeps the same width when MIDI flips on.</p>
   </section>
 
   <section class="panel">
-    <h3>Recent changes <span id="recent-deployed" class="commit-chip" hidden></span></h3>
+    <h3><span data-i18n="recentTitle">Recent changes</span> <span id="recent-deployed" class="commit-chip" hidden></span></h3>
     <ul id="recent-commits" class="commits">
-      <li class="commits-empty">loading…</li>
+      <li class="commits-empty" data-i18n="loading">loading…</li>
     </ul>
   </section>
 
   <section class="panel">
-    <h3>Requirements</h3>
-    <p>macOS 11+ · Apple Silicon · ⌃⌥⌘P toggles typing mode.</p>
+    <h3 data-i18n="requirementsTitle">Requirements</h3>
+    <p data-i18n="requirementsBody">macOS 11+ · Apple Silicon · ⌃⌥⌘P toggles typing mode.</p>
   </section>
 </article>
 
@@ -623,7 +691,7 @@
     <a href="https://aesthetic.computer">aesthetic.computer</a><span class="dot">·</span>
     <a href="https://notepat.com">notepat.com</a><span class="dot">·</span>
     <a href="https://kidlisp.com">kidlisp.com</a><span class="dot">·</span>
-    <a href="/menuband/privacy">privacy</a>
+    <a href="/menuband/privacy" data-i18n="privacy">privacy</a>
   </nav>
   <div class="footer-meta">
     <span>© 2026</span><span class="dot"> · </span>
@@ -632,6 +700,131 @@
 </footer>
 
 <script>
+  // ── i18n. Same plug-and-play shape as kidlisp.com / help.aesthetic.computer:
+  //    one table per language, `data-i18n` attributes on every translatable
+  //    element, and `data-i18n-html="true"` for strings that need to keep
+  //    inline markup (links, <b>, <code>). The pref is persisted under
+  //    `menuband-lang` so the user lands in their last language on return.
+  (function menubandI18n() {
+    const i18n = {
+      en: {
+        title: "Menu Band — Built-in macOS instruments, in the menu bar.",
+        description: "Menu Band brings the built-in macOS instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.",
+        tagline: "Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!",
+        downloadCta: "Download",
+        downloadMeta: "0.9 · Apple Silicon · 2.1 MB",
+        viewSource: "view source",
+        by: "by",
+        lede: 'A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing\'s listening, a built-in General MIDI synth covers hundreds of patches.',
+        testimonial: "“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”",
+        modesTitle: "Three modes",
+        modePointer: "Pointer",
+        modePointerBody: "Mouse only. Two octaves.",
+        modeNotepat: "Notepat",
+        modeNotepatBody: "Type to play. Two octaves.",
+        modeAbleton: "Ableton",
+        modeAbletonBody: "Type to play. Live's M-mode layout.",
+        whatsNewTitle: "What's new",
+        whatsNew1: '<b>Snappier.</b> Visualizer pauses when the popover is hidden, and the Metal layer no longer waits for vsync — the popover opens instantly and bars track audio with less latency. Big thanks to <a href="https://github.com/estebanuribe">Esteban Uribe</a> for both performance patches.',
+        whatsNew2: "<b>No Accessibility prompt.</b> Click the menubar piano and the keys flash their letters; type to play. No system-wide keystroke capture, no permission dialog. (The Notepat / Ableton modes still use global capture for play-while-using-other-apps; that's an opt-in toggle.)",
+        whatsNew3: "<b>Plus:</b> a mute toggle, an accent-tinted Finder icon that follows your system color, and the popover keeps the same width when MIDI flips on.",
+        recentTitle: "Recent changes",
+        loading: "loading…",
+        recentEmpty: "no recent changes",
+        recentError: "couldn't load recent changes",
+        requirementsTitle: "Requirements",
+        requirementsBody: "macOS 11+ · Apple Silicon · ⌃⌥⌘P toggles typing mode.",
+        privacy: "privacy",
+      },
+      es: {
+        title: "Menu Band — Los instrumentos integrados de macOS, en la barra de menús.",
+        description: "Menu Band trae los instrumentos integrados de macOS — los que usa GarageBand — a tu barra de menús. Toca, escribe o envíalos a tu DAW por MIDI.",
+        tagline: "¡Sacando los instrumentos clásicos de macOS del 🎸 Garage para tocarlos en la acera!",
+        downloadCta: "Descargar",
+        downloadMeta: "0.9 · Apple Silicon · 2,1 MB",
+        viewSource: "ver código",
+        by: "por",
+        lede: 'Un piano diminuto vive a la derecha de tu barra de menús. Toca las teclas, escribe letras o envía notas a tu DAW por MIDI — Menu Band publica una fuente MIDI virtual llamada <code>Menu Band</code> que cualquier DAW puede tomar como entrada. Cuando nadie escucha, un sintetizador General MIDI integrado cubre cientos de timbres.',
+        testimonial: "«lo uso en mi macbook neo. practico notepat y toco ableton sin salir de la barra de menús».",
+        modesTitle: "Tres modos",
+        modePointer: "Puntero",
+        modePointerBody: "Solo ratón. Dos octavas.",
+        modeNotepat: "Notepat",
+        modeNotepatBody: "Escribe para tocar. Dos octavas.",
+        modeAbleton: "Ableton",
+        modeAbletonBody: "Escribe para tocar. Disposición M-mode de Live.",
+        whatsNewTitle: "Novedades",
+        whatsNew1: '<b>Más ágil.</b> El visualizador se pausa cuando el popover está oculto, y la capa Metal ya no espera al vsync — el popover abre al instante y las barras siguen el audio con menos latencia. Mil gracias a <a href="https://github.com/estebanuribe">Esteban Uribe</a> por ambos parches de rendimiento.',
+        whatsNew2: "<b>Sin permiso de Accesibilidad.</b> Pulsa el piano de la barra y las teclas muestran sus letras; escribe para tocar. Sin captura global de teclas, sin diálogo de permisos. (Los modos Notepat / Ableton aún usan captura global para tocar mientras usas otras apps; ese es un interruptor opcional.)",
+        whatsNew3: "<b>Además:</b> un interruptor de silencio, un icono de Finder tintado al color de acento del sistema, y el popover mantiene el mismo ancho cuando se enciende MIDI.",
+        recentTitle: "Cambios recientes",
+        loading: "cargando…",
+        recentEmpty: "sin cambios recientes",
+        recentError: "no se pudieron cargar los cambios recientes",
+        requirementsTitle: "Requisitos",
+        requirementsBody: "macOS 11+ · Apple Silicon · ⌃⌥⌘P alterna el modo de escritura.",
+        privacy: "privacidad",
+      },
+    };
+
+    const supported = Object.keys(i18n);
+    function detectDefault() {
+      const stored = localStorage.getItem("menuband-lang");
+      if (stored && supported.includes(stored)) return stored;
+      const pref = (navigator.language || "en").toLowerCase();
+      for (const code of supported) if (pref.startsWith(code)) return code;
+      return "en";
+    }
+
+    let currentLang = detectDefault();
+
+    window.menubandT = function (key) {
+      return (i18n[currentLang] && i18n[currentLang][key])
+        || i18n.en[key]
+        || key;
+    };
+
+    function applyLanguage() {
+      document.documentElement.lang = currentLang;
+      const pack = i18n[currentLang] || i18n.en;
+      if (pack.title) document.title = pack.title;
+      const desc = document.querySelector('meta[name="description"]');
+      if (desc && pack.description) desc.setAttribute("content", pack.description);
+
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        const val = pack[key];
+        if (typeof val !== "string") return;
+        if (el.getAttribute("data-i18n-html") === "true") {
+          el.innerHTML = val;
+        } else {
+          el.textContent = val;
+        }
+      });
+
+      document.querySelectorAll("#lang-switch button").forEach((btn) => {
+        const isActive = btn.getAttribute("data-lang") === currentLang;
+        btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+    }
+
+    function setLanguage(code) {
+      if (!supported.includes(code) || code === currentLang) return;
+      currentLang = code;
+      localStorage.setItem("menuband-lang", code);
+      applyLanguage();
+      window.dispatchEvent(new CustomEvent("menuband-lang-change", { detail: code }));
+    }
+
+    document.querySelectorAll("#lang-switch button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setLanguage(btn.getAttribute("data-lang"));
+      });
+    });
+
+    applyLanguage();
+  })();
+
   // Corner label click — return to aesthetic.computer/. Mirrors the
   // pattern from aesthetic-direct.html so behavior is uniform across
   // AC's html-rendered corner-label paths.
@@ -702,8 +895,9 @@
             : 'deployed commit';
         }
         const commits = (data && Array.isArray(data.recentCommits)) ? data.recentCommits : [];
+        const t = (k) => (window.menubandT ? window.menubandT(k) : k);
         if (!commits.length) {
-          list.innerHTML = '<li class="commits-empty">no recent changes</li>';
+          list.innerHTML = '<li class="commits-empty">' + t('recentEmpty') + '</li>';
           return;
         }
         list.innerHTML = commits.slice(0, 10).map((c) => {
@@ -714,7 +908,8 @@
         }).join('');
       })
       .catch(() => {
-        list.innerHTML = '<li class="commits-empty">couldn\'t load recent changes</li>';
+        const t = (k) => (window.menubandT ? window.menubandT(k) : k);
+        list.innerHTML = '<li class="commits-empty">' + t('recentError') + '</li>';
       });
   })();
 

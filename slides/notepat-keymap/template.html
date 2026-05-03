@@ -189,18 +189,14 @@
 
   .below-bottom {
     display: flex;
-    flex-direction: column;
-    gap: 14px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 28px;
     margin-top: 18px;
     border-top: 2px solid #ddd;
     padding-top: 16px;
   }
-  .below-bottom .row {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-  }
-  .impls { flex: 1; }
+  .impls { flex: 1; min-width: 0; }
   .impls .impl-list {
     list-style: none;
     padding: 0; margin: 0;
@@ -229,13 +225,14 @@
     letter-spacing: 0.02em;
   }
 
-  .qrs { display: flex; gap: 22px; }
+  .qrs { display: flex; gap: 22px; flex-shrink: 0; }
   .qrs .qr { display: flex; flex-direction: column; align-items: center; gap: 7px; }
-  .qrs .qr img { width: 180px; height: 180px; image-rendering: pixelated; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
-  .qrs .qr .label { font-family: "SF Mono", Menlo, monospace; font-size: 17px; color: #111; font-weight: 700; }
+  .qrs .qr img { width: 150px; height: 150px; image-rendering: pixelated; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+  .qrs .qr .label { font-family: "SF Mono", Menlo, monospace; font-size: 15px; color: #111; font-weight: 700; }
 
-  /* PALS watermark + Jeffrey portrait + brand. Stacked images in the
-     top-right corner, text label to their left. */
+  /* PALS watermark composited ON TOP of the Jeffrey portrait, in the
+     top-right corner with text label to their left. The portrait sits
+     behind so pals reads as a stamped mark over jeffrey's face. */
   .brand-block {
     position: absolute;
     top: 18px;
@@ -243,18 +240,30 @@
     display: flex; align-items: flex-start; gap: 20px;
   }
   .brand-block .marks {
-    display: flex; flex-direction: column; gap: 4px; align-items: center;
+    position: relative;
+    width: 160px; height: 160px;
   }
-  .brand-block .marks #pals { width: 124px; height: 124px; opacity: 0.95; }
   .brand-block .marks #jeffrey {
-    width: 124px; height: 124px;
-    border-radius: 6px;
+    position: absolute;
+    inset: 0;
+    width: 160px; height: 160px;
+    border-radius: 8px;
     object-fit: cover;
     object-position: center top;
     border: 2px solid #ddd;
-    /* Pull up into the pals SVG's empty padding so the two marks
-       visually stack flush. */
-    margin-top: -22px;
+    z-index: 1;
+  }
+  .brand-block .marks #pals {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 150px; height: 150px;
+    opacity: 0.95;
+    z-index: 2;
+    /* white halo so the silhouette stays legible against the photo */
+    filter: drop-shadow(0 0 6px rgba(255,255,255,0.95))
+            drop-shadow(0 0 2px rgba(255,255,255,1));
   }
   .brand-block .brand-text {
     display: flex; flex-direction: column; gap: 6px;
@@ -288,8 +297,8 @@
         <div class="author">by <b>@jeffrey</b></div>
       </div>
       <div class="marks">
-        <img id="pals" alt="">
         <img id="jeffrey" alt="@jeffrey">
+        <img id="pals" alt="">
       </div>
     </div>
   </div>
@@ -405,16 +414,14 @@
             <li><b>Remote</b><span class="where">phone</span></li>
           </ul>
         </div>
-        <div class="row">
-          <div class="qrs">
-            <div class="qr">
-              <img id="qr1" alt="notepat.com">
-              <div class="label">https://notepat.com</div>
-            </div>
-            <div class="qr">
-              <img id="qr2" alt="prompt.ac/menuband">
-              <div class="label">https://prompt.ac/menuband</div>
-            </div>
+        <div class="qrs">
+          <div class="qr">
+            <img id="qr1" alt="notepat.com">
+            <div class="label">notepat.com</div>
+          </div>
+          <div class="qr">
+            <img id="qr2" alt="prompt.ac/menuband">
+            <div class="label">prompt.ac/menuband</div>
           </div>
         </div>
       </div>

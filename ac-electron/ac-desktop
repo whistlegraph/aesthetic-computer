@@ -15,6 +15,7 @@
 #   ac-desktop open                                Launch the installed app
 #   ac-desktop kill                                Quit running instances
 #   ac-desktop icons                               Regenerate tray + app icons
+#   ac-desktop autodeploy [--interval=SECS]        Retry push + publish + install until network cooperates
 #   ac-desktop doctor                              Check signing creds, electron, dist, installed app
 #
 # Subcommands delegate to existing scripts (dev.fish, install.fish, release.fish,
@@ -291,6 +292,67 @@ cmd_icons() {
     ok "Icons rebuilt under build/icons/"
 }
 
+cmd_autodeploy() {
+    require_mac
+    cd_repo
+    local interval=120
+    for arg in "$@"; do
+        case "$arg" in
+            --interval=*) interval="${arg#--interval=}" ;;
+        esac
+    done
+    hdr "AUTODEPLOY — retry push + publish + install until reachable"
+    log "Probe interval: ${interval}s. Ctrl-C to stop."
+    log "Will: 1) git push origin main  2) ac-desktop publish  3) ac-desktop install"
+    echo ""
+
+    # Step 1: push to knot. We don't merge/force — just retry until knot's
+    # SSH is reachable. (knot.aesthetic.computer:22 is what airline wifi
+    # typically blocks.)
+    while true; do
+        log "[1/3] Probing knot SSH…"
+        if timeout 15 ssh -o BatchMode=yes -o ConnectTimeout=10 \
+                git@knot.aesthetic.computer 2>&1 \
+                | grep -qE "(does not provide shell access|Welcome|gitea|git)"; then
+            ok "knot reachable"
+            break
+        fi
+        # Some hosts hang up cleanly with no banner — accept that too if SSH exited 0.
+        timeout 15 ssh -o BatchMode=yes -o ConnectTimeout=10 \
+            git@knot.aesthetic.computer true >/dev/null 2>&1 && { ok "knot reachable (silent)"; break; }
+        warn "knot not reachable yet — sleeping ${interval}s"
+        sleep "${interval}"
+    done
+
+    log "Pushing to origin/main…"
+    if ! git push origin main; then
+        err "push failed — bailing. Resolve manually then rerun: ac-desktop autodeploy"
+        exit 1
+    fi
+    ok "pushed"
+
+    # Step 2: publish (signs + notarizes + uploads). Will fail without
+    # internet to Apple TSA / notary service / releases bucket — retry the
+    # whole thing if so.
+    while true; do
+        log "[2/3] Running publish…"
+        if PYTHON=/opt/homebrew/bin/python3.12 npm_config_python=/opt/homebrew/bin/python3.12 \
+            npm run publish:mac; then
+            ok "published"
+            break
+        fi
+        warn "publish failed (likely network) — sleeping ${interval}s and retrying"
+        sleep "${interval}"
+    done
+
+    # Step 3: install the now-published version.
+    log "[3/3] Installing published version locally…"
+    fish ./install.fish --force || warn "install step failed — try manually: ac-desktop install --force"
+
+    ok "autodeploy complete"
+    cmd_status
+}
+
 cmd_doctor() {
     cd_repo
     hdr "DOCTOR"
@@ -338,6 +400,7 @@ case "${CMD}" in
     open|launch)          cmd_open "$@" ;;
     kill|stop|quit)       cmd_kill "$@" ;;
     icons)                cmd_icons "$@" ;;
+    autodeploy|adeploy)   cmd_autodeploy "$@" ;;
     doctor|check)         cmd_doctor "$@" ;;
     *)
         err "Unknown subcommand: ${CMD}"
