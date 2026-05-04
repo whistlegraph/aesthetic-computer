@@ -349,13 +349,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// pass (state flipped, subject moved, or new session appeared).
     private func applyTerminalDecor() {
         guard state.themeByStatus else { return }
-        // {R, G, B} in AppleScript color space (each component 0–65535).
-        // Picked to read at a glance on dark monospace text without
-        // requiring a profile swap. We avoid `set current settings` because
-        // applying a profile resets the tab's font + the window's pixel
-        // size to the profile default, causing a brief reframe-flicker
-        // even when we save/restore around it.
-        struct Assignment { let tty: String; let bg: (Int, Int, Int)?; let title: String; let fontSize: Int? }
+        // Each state ships a coordinated palette (bg + normal text + bold
+        // text + cursor) so the whole window shifts as one tone — not a
+        // new background fighting Pro's default light text. ANSI table
+        // colors live on the profile (`settings set`) and applying a
+        // profile resets font + window size, so we touch only the per-tab
+        // knobs AppleScript exposes directly. RGB triples are AppleScript
+        // colorspace 0–65535.
+        typealias RGB = (Int, Int, Int)
+        struct Palette { let bg: RGB?; let text: RGB?; let bold: RGB?; let cursor: RGB? }
+        struct Assignment { let tty: String; let palette: Palette; let title: String; let fontSize: Int? }
         var changes: [Assignment] = []
         var seen = Set<String>()
         // Typographic gradient by state — green smallest (calm), red largest
@@ -374,36 +377,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let darkAppearance = Self.isDarkAppearance()
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
-            let bg: (Int, Int, Int)?
+            let palette: Palette
             let glyph: String
             let fontSize: Int?
             switch s.state {
             // Blank = pure macOS appearance (white in light mode, black in
             // dark mode) so a fresh window reads as a blank page until the
-            // first prompt fires. No glyph, no title chrome — wholly clean.
+            // first prompt fires. Text/cursor flip with appearance so
+            // default ANSI output stays legible on either page color.
             case .blank:
-                bg = darkAppearance ? (0, 0, 0) : (65535, 65535, 65535)
+                if darkAppearance {
+                    palette = Palette(
+                        bg:     (0, 0, 0),
+                        text:   (60000, 60000, 60000),
+                        bold:   (65535, 65535, 65535),
+                        cursor: (50000, 50000, 50000))
+                } else {
+                    palette = Palette(
+                        bg:     (65535, 65535, 65535),
+                        text:   (8000,  8000,  8000),
+                        bold:   (0,     0,     0),
+                        cursor: (20000, 20000, 20000))
+                }
                 glyph = ""
                 fontSize = sizeFor(1.00)
-            // Working = green (active/healthy), complete = calm slate
-            // (turn done, idle), awaiting = amber (needs you to continue),
-            // stale = deep red (process dead, escalate). RGBs are 0–65535
-            // AppleScript colorspace, dark enough that the profile's default
-            // light text still reads on top.
-            case .working:  bg = (1500,  14000, 4000);  glyph = "● working";   fontSize = sizeFor(1.00)  // green — smallest
-            case .complete: bg = (5000,  7000,  12000); glyph = "✓ complete";  fontSize = sizeFor(1.10)  // slate — between green and orange
-            case .awaiting: bg = (32000, 18000, 1500);  glyph = "◉ awaiting";  fontSize = sizeFor(1.25)  // orange — focus pop
-            case .stale:    bg = (30000, 2500,  4000);  glyph = "○ stale";     fontSize = sizeFor(1.45)  // red — largest, escalate
+            // Working = green (active/healthy): pale mint text on dark forest.
+            case .working:
+                palette = Palette(
+                    bg:     (1500,  14000, 4000),
+                    text:   (42000, 60000, 46000),
+                    bold:   (55000, 65535, 58000),
+                    cursor: (22000, 55000, 32000))
+                glyph = "● working"
+                fontSize = sizeFor(1.00)
+            // Complete = slate (turn done, calm "look when ready"):
+            // pale lavender text on deep slate.
+            case .complete:
+                palette = Palette(
+                    bg:     (5000,  7000,  12000),
+                    text:   (46000, 50000, 60000),
+                    bold:   (58000, 60000, 65535),
+                    cursor: (30000, 40000, 55000))
+                glyph = "✓ complete"
+                fontSize = sizeFor(1.10)
+            // Awaiting = warm amber (needs input, focus pop): cream text on
+            // amber so the warm tone reads coherently rather than fighting
+            // the default light gray.
+            case .awaiting:
+                palette = Palette(
+                    bg:     (32000, 18000, 1500),
+                    text:   (65535, 58000, 38000),
+                    bold:   (65535, 65535, 50000),
+                    cursor: (65535, 45000, 8000))
+                glyph = "◉ awaiting"
+                fontSize = sizeFor(1.25)
+            // Stale = deep red (process dead, escalate): pale rose text on
+            // deep red — readable but unmistakably alert.
+            case .stale:
+                palette = Palette(
+                    bg:     (30000, 2500,  4000),
+                    text:   (65535, 42000, 42000),
+                    bold:   (65535, 55000, 55000),
+                    cursor: (65535, 18000, 18000))
+                glyph = "○ stale"
+                fontSize = sizeFor(1.45)
             }
             // Blank windows get an empty custom title so Terminal shows just
             // its default tty/process line — no "● working · …" badge while
             // the page is meant to look blank.
             let title = (s.state == .blank) ? "" : "\(glyph) · \(s.titleString)"
-            let bgKey = bg.map { "\($0.0),\($0.1),\($0.2)" } ?? "-"
-            let key = "\(bgKey)|\(title)|\(fontSize.map(String.init) ?? "-")"
+            func keyOf(_ c: RGB?) -> String { c.map { "\($0.0),\($0.1),\($0.2)" } ?? "-" }
+            let key = [
+                keyOf(palette.bg),
+                keyOf(palette.text),
+                keyOf(palette.bold),
+                keyOf(palette.cursor),
+                title,
+                fontSize.map(String.init) ?? "-",
+            ].joined(separator: "|")
             if lastTerminalDecor[s.sessionId] == key { continue }
             lastTerminalDecor[s.sessionId] = key
-            changes.append(Assignment(tty: s.tty, bg: bg, title: title, fontSize: fontSize))
+            changes.append(Assignment(tty: s.tty, palette: palette, title: title, fontSize: fontSize))
         }
         // Reap entries for sessions that disappeared since last tick — they
         // either died or got reaped by the janitor; either way our memo is
@@ -414,8 +468,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if changes.isEmpty { return }
 
         // One osascript pass that walks every window×tab once and applies
-        // every change in this batch. We only touch `background color` and
-        // `custom title` — neither resets font or window size, so there's
+        // every change in this batch. We only touch the per-tab color knobs
+        // and `custom title` — none reset font or window size, so there's
         // nothing to save/restore and nothing to flicker.
         var lines = [
             "tell application \"Terminal\"",
@@ -424,14 +478,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "            try",
             "                set ttyName to tty of t",
         ]
+        func rgbStr(_ c: RGB) -> String { "{\(c.0), \(c.1), \(c.2)}" }
         for a in changes {
             let escTty = a.tty.replacingOccurrences(of: "\"", with: "\\\"")
             let escTitle = a.title
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
             lines.append("                if ttyName ends with \"\(escTty)\" then")
-            if let bg = a.bg {
-                lines.append("                    set background color of t to {\(bg.0), \(bg.1), \(bg.2)}")
+            if let bg = a.palette.bg {
+                lines.append("                    set background color of t to \(rgbStr(bg))")
+            }
+            if let text = a.palette.text {
+                lines.append("                    set normal text color of t to \(rgbStr(text))")
+            }
+            if let bold = a.palette.bold {
+                lines.append("                    set bold text color of t to \(rgbStr(bold))")
+            }
+            if let cursor = a.palette.cursor {
+                lines.append("                    set cursor color of t to \(rgbStr(cursor))")
             }
             lines.append("                    set custom title of t to \"\(escTitle)\"")
             // Font sets snap Terminal to the row/col grid, so save the window's
@@ -652,6 +716,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appearance = NSApp.effectiveAppearance
         let match = appearance.bestMatch(from: [.darkAqua, .aqua])
         return match == .darkAqua
+    }
+
+    // MARK: - Background overlay (experimental)
+
+    /// Toggle a translucent tint overlay over the focused Terminal window.
+    /// Proof-of-concept: AppleScript can't set Terminal's own bg image or
+    /// transparency, so Slab paints over the window via a borderless NSWindow
+    /// tracked to its bounds. Click again on the same window to turn off.
+    @objc func toggleBackgroundOverlay() {
+        let dark = Self.isDarkAppearance()
+        // Cool indigo tint dark mode, warm peach in light mode — visible on
+        // both default profiles without obliterating the text underneath.
+        let tint = dark
+            ? NSColor(red: 0.30, green: 0.45, blue: 0.95, alpha: 1.0)
+            : NSColor(red: 1.00, green: 0.80, blue: 0.50, alpha: 1.0)
+        BackgroundOverlayController.shared.toggleFrontTerminal(tint: tint, alpha: 0.35)
+    }
+
+    @objc func clearBackgroundOverlays() {
+        BackgroundOverlayController.shared.clearAll()
     }
 
     private func notify(title: String, subtitle: String?, body: String) {
