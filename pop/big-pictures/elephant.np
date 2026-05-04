@@ -1,0 +1,9 @@
+# elephant × 4 — C minor i–VI–iv–V arpeggio progression
+# 3 syllables per word: el-e-phant
+# rep 1: i  (Cm)  → C3  Eb3  G3
+# rep 2: VI (Ab)  → Ab3  C4   Eb3
+# rep 3: iv (Fm)  → F3   Ab3  C4
+# rep 4: V  (G)   → G3   Bb3  F3   (resolves back to root next bar)
+
+verse 1
+C3:el- Eb3:-e- G3:-phant Ab3:el- C4:-e- Eb3:-phant F3:el- Ab3:-e- C4:-phant G3:el- Bb3:-e- F3:-phant

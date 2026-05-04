@@ -1,0 +1,18 @@
+# Amazing Grace — full verse 1. "New Britain" tune, William Walker 1835.
+# notation: NOTE:syllable*beats
+# Phrase 1+2 melody from papers/arxiv-folk-songs/folk-songs.tex:181
+# (the canonical pentatonic transcription).
+#
+# key: G major pentatonic. octave 3 — sits in jeffrey-pvc's natural
+# baritone. Climax at D4 on "blind" (line 4) is the highest note.
+# Beat values follow the dotted-half / quarter pattern of 3/4 hymn
+# delivery. Each line ends with an extended hold (5 beats) for the
+# phrase-end breath.
+#
+# Use --beat-mode --bpm 70.
+
+verse 1
+D3:a-*1 G3:-ma-*3 B3:-zing*1 G3:grace*3 B3:how*1 A3:sweet*3 G3:the*1 B3:sound*5
+D3:that*1 E3:saved*3 D3:a*1 B3:wretch*3 G3:like*1 B3:me*5
+D3:i*1 G3:once*3 D4:was*1 D4:lost*3 B3:but*1 D4:now*3 A3:am*1 G3:found*5
+B3:was*1 D4:blind*3 D4:but*1 B3:now*3 A3:i*1 G3:see*5

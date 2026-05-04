@@ -1,0 +1,29 @@
+hook
+hvert stykke er en url
+hver url er et nodeark
+tryk enter — så er du inde
+æstetisk dot computer
+
+verse 1
+kidlisp i browseren
+notepat på qwerty
+samme samples, native og statisk
+dual-channel, under femti millisek
+hvert stykke — én mjs-fil
+adressen er kilden
+
+hook
+
+verse 2
+en mand alene, ingen runway
+jeg ville bare mine venner kunne male
+kildekoden er på github
+cachen holder altid
+jeg bygger ikke et produkt
+jeg bygger et lille sted
+
+hook
+
+outro
+tryk enter
+du er inde i det

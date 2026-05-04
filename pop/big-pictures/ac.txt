@@ -1,0 +1,31 @@
+hook
+every piece a url
+every url a score
+push enter — you're inside
+aesthetic dot computer
+
+verse 1
+kidlisp evaluates parens live in the browser
+notepat — qwerty, chromatic, two octaves over
+sample bank's the same on native and the static
+half-meg of api, every event with a purpose
+mjs is the unit, the address is the score
+i write a piece, i save it — that's the whole move
+
+hook
+
+verse 2
+one-person stack, no runway, no dream
+no investors, no playbook, no series-a scheme
+i wanted a place my friends could just paint
+where the paint was the piece, the piece was the wave
+the source is on github, the cache stays the cache
+fork the whole runtime — same kid, same shape
+i'm not pitching a product, i'm holding a stand
+the music is real and it works in your hand
+
+hook
+
+outro
+push enter
+you're inside it

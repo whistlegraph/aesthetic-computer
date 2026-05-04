@@ -1,0 +1,10 @@
+# Row Row Row Your Boat — notepat score
+# notation: NOTE:syllable, hyphens for syllable continuation
+# canonical c major round melody. octave 4 (middle C up to C5 on the
+# "merrily" peak).
+
+verse 1
+C4:row C4:row C4:row D4:your E4:boat*3
+E4:gen- D4:-tly E4:down F4:the G4:stream*3
+C5:mer- C5:-ri- C5:-ly G4:mer- G4:-ri- G4:-ly E4:mer- E4:-ri- E4:-ly C4:mer- C4:-ri- C4:-ly
+G4:life F4:is E4:but D4:a C4:dream*4

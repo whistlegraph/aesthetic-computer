@@ -1,0 +1,6 @@
+# reference corpus stays vault-only — never commit third-party lyrics
+references/*
+!references/README.md
+
+# track outputs
+big-pictures/out/

@@ -1,0 +1,33 @@
+# Mary Had a Little Lamb — notepat score, all 4 traditional verses
+# plus the gen-alpha "chick chick BOOM no more lamb" outro.
+# notation: NOTE:syllable, hyphens for syllable continuation
+# (folk-songs paper §3, papers/arxiv-folk-songs/folk-songs.tex:152)
+#
+# key: C major. classic kindergarten melody. octave 4 — middle C and
+# above. WORLD engine keeps voice timbre intact even with the +12 to
+# +16 semitone shift from jeffrey-pvc's natural baritone. Same E-D-C-D-
+# E-E-E phrase repeats across all four verses.
+#
+# The closing "chick chick BOOM" verse triggers a gunshot SFX on the
+# BOOM syllable (folk_backing.py overlays a synthesized PISTOL preset
+# gunshot wherever the syllable text matches /^boom$/i).
+
+verse 1
+E4:mar- D4:-y C4:had D4:a E4:lit- E4:-tle E4:lamb
+D4:lit- D4:-tle E4:lamb D4:lit- D4:-tle E4:lamb
+E4:mar- D4:-y C4:had D4:a E4:lit- E4:-tle E4:lamb
+E4:its D4:fleece D4:was E4:white D4:as C4:snow
+E4:ev- D4:-ery- C4:-where D4:that E4:mar- E4:-y E4:went
+D4:mar- D4:-y E4:went D4:mar- D4:-y E4:went
+E4:ev- D4:-ery- C4:-where D4:that E4:mar- E4:-y E4:went
+E4:the D4:lamb D4:was E4:sure D4:to C4:go
+E4:fol- D4:-lowed C4:her D4:to E4:school E4:one E4:day
+D4:school D4:one E4:day D4:school D4:one E4:day
+E4:fol- D4:-lowed C4:her D4:to E4:school E4:one E4:day
+E4:which D4:was D4:a- E4:-gainst D4:the C4:rules
+E4:made D4:the C4:chil- D4:-dren E4:laugh E4:and E4:play
+D4:laugh D4:and E4:play D4:laugh D4:and E4:play
+E4:made D4:the C4:chil- D4:-dren E4:laugh E4:and E4:play
+E4:to D4:see D4:a E4:lamb D4:at C4:school
+E4:mar- D4:-y C4:had D4:a E4:lit- E4:-tle E4:lamb
+D4:chick D4:chick E4:boom D4:no D4:more E4:lamb*2
