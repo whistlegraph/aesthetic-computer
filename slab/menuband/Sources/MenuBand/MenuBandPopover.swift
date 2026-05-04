@@ -1522,9 +1522,32 @@ final class MenuBandPopoverViewController: NSViewController {
     fileprivate func handleEffectiveAppearanceChange() {
         rootBackgroundView?.layer?.backgroundColor =
             NSColor.windowBackgroundColor.cgColor
+        // Update banner uses controlAccentColor.cgColor at build time —
+        // accent doesn't normally re-tone with light/dark, but the
+        // semi-transparent fill reads visibly different over a flipped
+        // window background, so re-resolve it against the current
+        // appearance to keep the cached cgColor honest.
+        updateBanner?.layer?.backgroundColor = NSColor.controlAccentColor
+            .withAlphaComponent(0.14).cgColor
         applyAppearanceToVisualizer()
         refreshHeldNotes()
         updateInstrumentReadout()
+        // Most popover children (QwertyLayoutView, InstrumentListView,
+        // chord cards' draw passes) paint via `draw(_:)` using
+        // dynamically-resolving NSColors like .labelColor and
+        // .controlAccentColor. Those resolve against effectiveAppearance
+        // *at draw time*, but AppKit doesn't auto-invalidate display
+        // when appearance changes — so the views keep showing stale
+        // light-mode glyphs over a dark-mode background until something
+        // else nudges them. Walk the subtree once and force a redraw so
+        // the whole popover lands on the new appearance in one beat.
+        forceRedrawSubtree(rootBackgroundView)
+    }
+
+    private func forceRedrawSubtree(_ root: NSView?) {
+        guard let root = root else { return }
+        root.needsDisplay = true
+        for sub in root.subviews { forceRedrawSubtree(sub) }
     }
 
     /// Flip the LED bezel + visualizer between dark-mode (LED-on-black
