@@ -86,13 +86,16 @@ for (let i = sectionStart + 1; i < scoreLines.length; i++) {
   if (line.startsWith("#")) continue;
   if (/^[a-z]+ \d/i.test(line)) break;  // next section header
   for (const tok of line.split(/\s+/)) {
-    // Match note:syllable*weight, where note is something like D3, G#3, Eb4
-    const m = tok.match(/^([A-Ga-g][#b]?-?\d):(.+?)\*(\d+(?:\.\d+)?)$/);
+    // Match note:syllable[*weight] — weight is optional, defaults to 1
+    // beat. Aligns with folk_backing.py's parser; otherwise scores
+    // like mary.np (bare tokens, only the held final syllable carries
+    // *N) collapse to a single slide instead of one-per-syllable.
+    const m = tok.match(/^([A-Ga-g][#b]?-?\d):(.+?)(?:\*(\d+(?:\.\d+)?))?$/);
     if (!m) continue;
     syllables.push({
       note: m[1],
       raw: m[2],
-      weight: Number(m[3]),
+      weight: Number(m[3] ?? 1),
     });
   }
 }
