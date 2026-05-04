@@ -11,24 +11,15 @@ final class PianoWaveformViewController: NSViewController {
     private let containerView = NSView()
     private let expandedView: ExpandedPianoWaveformView
     private let collapsedView: CollapsedPianoWaveformView
-    private let closeButton = NSButton()
-    private let dockButton = NSButton()
     private let expandCollapseButton = NSButton()
     private var activeContentView: NSView?
     private var presentationMode: PresentationMode = .expanded
     private var isPresented = false
     private var trackingArea: NSTrackingArea?
     private var isMouseInsideView = false
-    private weak var closeButtonGlassView: NSView?
-    private weak var dockButtonGlassView: NSView?
     private weak var expandCollapseButtonGlassView: NSView?
-    private let closeButtonSize: CGFloat = 30
+    private let closeButtonSize: CGFloat = 22
     private let closeButtonCornerInset: CGFloat = 3
-    private let gap: CGFloat = 8
-
-    var onCloseRequested: (() -> Void)?
-
-    var onDockRequested: (() -> Void)?
 
     var onTogglePresentationMode: (() -> Void)?
 
@@ -72,52 +63,29 @@ final class PianoWaveformViewController: NSViewController {
     override func loadView() {
         view = containerView
         containerView.wantsLayer = true
-        configureOverlayButton(
-            closeButton,
-            symbolName: "xmark",
-            toolTip: "Close",
-            action: #selector(closeClicked(_:))
-        )
-        configureOverlayButton(
-            dockButton,
-            symbolName: "menubar.dock.rectangle",
-            toolTip: "Dock Below Menubar Piano",
-            action: #selector(dockClicked(_:))
-        )
+        // Only one overlay control — the expand/collapse toggle in the
+        // top-right. Close and dock buttons were retired; the panel
+        // is paired with the popover (closes when the popover closes)
+        // and always docks against the popover's left edge.
         configureOverlayButton(
             expandCollapseButton,
-            symbolName: "square.resize.down",
+            symbolName: "arrow.up.left.and.arrow.down.right",
             toolTip: "Collapse",
             action: #selector(expandCollapseClicked(_:))
         )
-        containerView.addSubview(closeButton)
-        containerView.addSubview(dockButton)
         containerView.addSubview(expandCollapseButton)
         installOverlayGlassBackgrounds()
         NSLayoutConstraint.activate([
-            closeButton.topAnchor.constraint(
-                equalTo: containerView.topAnchor,
-                constant: PianoWaveformViewController.panelCornerRadius - closeButtonSize / 2 + closeButtonCornerInset
+            expandCollapseButton.bottomAnchor.constraint(
+                equalTo: containerView.bottomAnchor,
+                constant: -(PianoWaveformViewController.panelCornerRadius - closeButtonSize / 2 + closeButtonCornerInset)
             ),
-            closeButton.leadingAnchor.constraint(
+            expandCollapseButton.leadingAnchor.constraint(
                 equalTo: containerView.leadingAnchor,
                 constant: PianoWaveformViewController.panelCornerRadius - closeButtonSize / 2 + closeButtonCornerInset
             ),
-            closeButton.widthAnchor.constraint(equalToConstant: closeButtonSize),
-            closeButton.heightAnchor.constraint(equalToConstant: closeButtonSize),
-
-            expandCollapseButton.topAnchor.constraint(equalTo: closeButton.topAnchor),
-            expandCollapseButton.trailingAnchor.constraint(
-                equalTo: containerView.trailingAnchor,
-                constant: -(PianoWaveformViewController.panelCornerRadius - closeButtonSize / 2 + closeButtonCornerInset)
-            ),
             expandCollapseButton.widthAnchor.constraint(equalToConstant: closeButtonSize),
             expandCollapseButton.heightAnchor.constraint(equalToConstant: closeButtonSize),
-
-            dockButton.topAnchor.constraint(equalTo: closeButton.topAnchor),
-            dockButton.trailingAnchor.constraint(equalTo: expandCollapseButton.leadingAnchor, constant: -gap),
-            dockButton.widthAnchor.constraint(equalToConstant: closeButtonSize),
-            dockButton.heightAnchor.constraint(equalToConstant: closeButtonSize),
         ])
         installTrackingArea()
         installDisplayedView()
@@ -187,11 +155,10 @@ final class PianoWaveformViewController: NSViewController {
 
     private func updatePresentationState() {
         expandedView.setPresented(isPresented && presentationMode == .expanded)
-        collapsedView.setLive(isPresented && presentationMode == .collapsed)
-        let controlsHidden = false
-        [closeButton, dockButton, expandCollapseButton, closeButtonGlassView, dockButtonGlassView, expandCollapseButtonGlassView]
+        // collapsed view no longer hosts a live visualizer; nothing to gate.
+        [expandCollapseButton, expandCollapseButtonGlassView]
             .compactMap { $0 }
-            .forEach { $0.isHidden = controlsHidden }
+            .forEach { $0.isHidden = false }
         updateExpandCollapseButtonAppearance()
         isMouseInsideView = isMouseInsideContainer()
         setOverlayControlsVisible(isMouseInsideView, animated: false)
@@ -204,7 +171,7 @@ final class PianoWaveformViewController: NSViewController {
         toolTip: String,
         action: Selector
     ) {
-        let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        let config = NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: toolTip)?
             .withSymbolConfiguration(config)
@@ -214,7 +181,10 @@ final class PianoWaveformViewController: NSViewController {
         button.toolTip = toolTip
         button.target = self
         button.action = action
-        button.alphaValue = 0
+        // Always visible (no hover fade) — `setOverlayControlsVisible`
+        // is now a no-op. Start at 1 so the button paints on first
+        // appearance instead of waiting for the tracking-area enter.
+        button.alphaValue = 1
         button.wantsLayer = true
         button.layer?.cornerRadius = closeButtonSize / 2
         button.layer?.borderWidth = 1
@@ -225,8 +195,6 @@ final class PianoWaveformViewController: NSViewController {
 
     private func installOverlayGlassBackgrounds() {
         guard ExpandedPianoWaveformView.shouldUseLiquidGlass, #available(macOS 26.0, *) else { return }
-        self.closeButtonGlassView = installGlassBackground(for: closeButton)
-        self.dockButtonGlassView = installGlassBackground(for: dockButton)
         self.expandCollapseButtonGlassView = installGlassBackground(for: expandCollapseButton)
     }
 
@@ -246,22 +214,14 @@ final class PianoWaveformViewController: NSViewController {
     }
 
     private func setOverlayControlsVisible(_ isVisible: Bool, animated: Bool = true) {
-        let alpha: CGFloat = isVisible ? 1.0 : 0.0
-        let views = [closeButton, dockButton, expandCollapseButton, closeButtonGlassView, dockButtonGlassView, expandCollapseButtonGlassView]
-            .compactMap { $0 }
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.12
-                closeButton.animator().alphaValue = alpha
-                dockButton.animator().alphaValue = alpha
-                expandCollapseButton.animator().alphaValue = alpha
-                closeButtonGlassView?.animator().alphaValue = alpha
-                dockButtonGlassView?.animator().alphaValue = alpha
-                expandCollapseButtonGlassView?.animator().alphaValue = alpha
-            }
-        } else {
-            views.forEach { $0.alphaValue = alpha }
-        }
+        // Expand/collapse button is always visible now — keep the
+        // method around so existing call sites still compile but
+        // pin alpha to 1 regardless of hover state. `_ = isVisible`
+        // / `_ = animated` swallow the parameters cleanly.
+        _ = isVisible
+        _ = animated
+        expandCollapseButton.alphaValue = 1
+        expandCollapseButtonGlassView?.alphaValue = 1
     }
 
     private func installTrackingArea() {
@@ -305,39 +265,30 @@ final class PianoWaveformViewController: NSViewController {
         let isDark = effectiveView.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let tintColor = expandedView.paletteTintColor
         if ExpandedPianoWaveformView.shouldUseLiquidGlass, #available(macOS 26.0, *) {
-            for view in [closeButtonGlassView, dockButtonGlassView, expandCollapseButtonGlassView] {
-                (view as? NSGlassEffectView)?.style = .clear
-                (view as? NSGlassEffectView)?.tintColor = tintColor.withAlphaComponent(0.34)
-            }
-            for button in [closeButton, dockButton, expandCollapseButton] {
-                button.layer?.backgroundColor = NSColor.clear.cgColor
-                button.layer?.borderColor = NSColor.clear.cgColor
-            }
+            (expandCollapseButtonGlassView as? NSGlassEffectView)?.style = .clear
+            (expandCollapseButtonGlassView as? NSGlassEffectView)?.tintColor = tintColor.withAlphaComponent(0.34)
+            expandCollapseButton.layer?.backgroundColor = NSColor.clear.cgColor
+            expandCollapseButton.layer?.borderColor = NSColor.clear.cgColor
         } else {
             let border = NSColor.white.withAlphaComponent(0.28).cgColor
             let background = NSColor.windowBackgroundColor.withAlphaComponent(isDark ? 0.18 : 0.22).cgColor
-            for button in [closeButton, dockButton, expandCollapseButton] {
-                button.layer?.backgroundColor = background
-                button.layer?.borderColor = border
-            }
+            expandCollapseButton.layer?.backgroundColor = background
+            expandCollapseButton.layer?.borderColor = border
         }
     }
 
     private func updateExpandCollapseButtonAppearance() {
-        let symbolName = presentationMode == .expanded ? "square.resize.down" : "square.resize.up"
+        // Quick Look-style fullscreen toggle: diagonal corner arrows
+        // pointing outward when collapsed (= "expand"), pointing
+        // inward when expanded (= "exit fullscreen").
+        let symbolName = presentationMode == .expanded
+            ? "arrow.down.right.and.arrow.up.left"
+            : "arrow.up.left.and.arrow.down.right"
         let toolTip = presentationMode == .expanded ? "Collapse" : "Expand floating piano"
-        let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        let config = NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
         expandCollapseButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: toolTip)?
             .withSymbolConfiguration(config)
         expandCollapseButton.toolTip = toolTip
-    }
-
-    @objc private func closeClicked(_ sender: NSButton) {
-        onCloseRequested?()
-    }
-
-    @objc private func dockClicked(_ sender: NSButton) {
-        onDockRequested?()
     }
 
     @objc private func expandCollapseClicked(_ sender: NSButton) {

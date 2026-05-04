@@ -49,4 +49,12 @@ enum PianoWaveformWindowStyle {
 final class PianoWaveformPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    /// Keep the glass + control chrome painted in "active" state at
+    /// all times. The popover steals key focus when it opens, which
+    /// would otherwise shift NSGlassEffectView into a desaturated/
+    /// reduced-blur "inactive" appearance — visually the panel
+    /// looked thicker the moment the popover went up. Pinning
+    /// `isMainWindow` to true keeps the glass uniform regardless of
+    /// focus state.
+    override var isMainWindow: Bool { true }
 }

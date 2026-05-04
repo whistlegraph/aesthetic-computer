@@ -185,6 +185,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.popoverVC?.syncFromController()
             self?.updatePianoWaveformWindowSuppression()
         }
+        // While the popover is on screen, the floating panel's
+        // collapsed frame snaps right-aligned to the popover's
+        // left edge. The closure returns nil when the popover
+        // isn't visible, falling the panel back to the menubar
+        // status-item anchor.
+        pianoWaveformWindowDelegate.popoverFrameProvider = { [weak self] in
+            guard let self = self, self.popover.isShown else { return nil }
+            return self.popover.contentViewController?.view.window?.frame
+        }
         pianoWaveformWindowDelegate.isPianoFocusActive = { [weak self] in
             self?.localCapture.isArmed ?? false
         }
@@ -239,9 +248,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         pianoWaveformWindowDelegate.warmUp()
 
-        registerTypeModeHotkey()
+        // Type-mode (cmd-ctrl-opt-P) and floating-piano (cmd-ctrl-opt-
+        // space) shortcuts retired — they were undocumented power-user
+        // affordances and overlap with the menubar piano + popover
+        // flow. Layout toggle stays; focus shortcut (K) is repurposed
+        // below to open the expanded floating panel centered.
         _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
-        _ = registerPianoWaveformHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
         registerLayoutToggleHotkey()
 
         // Dev affordance: post the
@@ -275,35 +287,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.toggleKeyboardLayoutShortcut()
                 return true
             }
-            if self.popover.isShown == false && self.pianoWaveformWindowDelegate.isShown == false {
-                switch keyCode {
-                case 123: // kVK_LeftArrow
-                    if isDown {
-                        self.pianoWaveformWindowDelegate.registerArrowInput()
-                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: -1) }
-                    }
-                    return true
-                case 124: // kVK_RightArrow
-                    if isDown {
-                        self.pianoWaveformWindowDelegate.registerArrowInput()
-                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: +1) }
-                    }
-                    return true
-                case 125: // kVK_DownArrow
-                    if isDown {
-                        self.pianoWaveformWindowDelegate.registerArrowInput()
-                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: +InstrumentListView.cols) }
-                    }
-                    return true
-                case 126: // kVK_UpArrow
-                    if isDown {
-                        self.pianoWaveformWindowDelegate.registerArrowInput()
-                        if !isRepeat { self.menuBand.stepMelodicProgram(delta: -InstrumentListView.cols) }
-                    }
-                    return true
-                default:
-                    break
+            // Spacebar toggles the metronome whenever the popover is
+            // open. Consumed in both directions so the keystroke
+            // never falls through to the focused app or to the note
+            // path (where space would otherwise behave like an
+            // unmapped key consume).
+            if keyCode == 49 /* kVK_Space */, self.popover.isShown {
+                if isDown && !isRepeat {
+                    self.popoverVC?.toggleMetronome()
                 }
+                return true
+            }
+            // Arrow keys always step the GM program — the chooser
+            // grid lives in the floating panel that pairs with the
+            // popover, so when either is open the user expects ←/→/
+            // ↑/↓ to drive the bee-vision center. Each press both
+            // commits the new program AND auditions a preview note
+            // so the user hears the new voice without manually
+            // pressing a piano key.
+            let arrowDelta: Int? = {
+                switch keyCode {
+                case 123: return -1
+                case 124: return +1
+                case 125: return +InstrumentListView.cols
+                case 126: return -InstrumentListView.cols
+                default:  return nil
+                }
+            }()
+            if let delta = arrowDelta {
+                if isDown {
+                    self.pianoWaveformWindowDelegate.registerArrowInput()
+                    if !isRepeat {
+                        self.menuBand.stepMelodicProgram(delta: delta)
+                        self.menuBand.auditionCurrentProgram()
+                    }
+                }
+                return true
             }
             let consumed = self.menuBand.handleLocalKey(
                 keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
@@ -561,6 +580,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func toggleFocusCaptureFromShortcut() {
+        // Cmd-Ctrl-Opt-K now opens (or toggles) the expanded
+        // floating piano centered on the active display. With the
+        // popover closed, `popoverFrameProvider` returns nil and
+        // `expandedFrame` falls back to a `centeredOrigin`, so the
+        // panel pops up dead-center.
+        closePopover()
+        if pianoWaveformWindowDelegate.isShown {
+            pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
+        } else {
+            pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
+    }
+
+    /// Legacy focus-capture path — preserved as a stub so the
+    /// existing `focusCaptureArmedByShortcut` callers keep
+    /// compiling. The shortcut itself was repurposed above.
+    private func _unusedLegacyFocusCapture() {
         if pianoWaveformWindowDelegate.isKeyboardFocused {
             finishPianoWaveformKeyboardFocus()
             return
@@ -717,12 +753,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             // Caps lock latches the mode; shift is the momentary. Either
             // arms linger and shows uppercase labels.
-            let armed = event.modifierFlags.contains(.shift)
-                || event.modifierFlags.contains(.capsLock)
+            let caps = event.modifierFlags.contains(.capsLock)
+            let armed = event.modifierFlags.contains(.shift) || caps
+            var dirty = false
             if KeyboardIconRenderer.labelsUppercase != armed {
                 KeyboardIconRenderer.labelsUppercase = armed
-                self.updateIcon()
+                dirty = true
             }
+            if KeyboardIconRenderer.lingerCapsLatched != caps {
+                KeyboardIconRenderer.lingerCapsLatched = caps
+                dirty = true
+            }
+            if dirty { self.updateIcon() }
         }
         globalShiftMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -735,11 +777,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // until something toggles. Read the current modifier mask once
         // at startup to seed the renderer correctly.
         let initial = NSEvent.modifierFlags
-        let initialArmed = initial.contains(.shift) || initial.contains(.capsLock)
+        let initialCaps = initial.contains(.capsLock)
+        let initialArmed = initial.contains(.shift) || initialCaps
+        var initialDirty = false
         if KeyboardIconRenderer.labelsUppercase != initialArmed {
             KeyboardIconRenderer.labelsUppercase = initialArmed
-            updateIcon()
+            initialDirty = true
         }
+        if KeyboardIconRenderer.lingerCapsLatched != initialCaps {
+            KeyboardIconRenderer.lingerCapsLatched = initialCaps
+            initialDirty = true
+        }
+        if initialDirty { updateIcon() }
     }
 
     private func applyForcedLayoutIfAny() {
@@ -976,6 +1025,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // It's a temporal "you're capturing right now" hint, not a
         // permanent overlay.
         KeyboardIconRenderer.activeKeymap = menuBand.keymap
+        // Sync the playing flag so the chip's linger fermata can hide
+        // when the user is just resting on shift between phrases.
+        KeyboardIconRenderer.playingActive = !menuBand.litNotes.isEmpty
         // Note: miniVisualizerLevel + miniVisualizerPhase are driven by
         // the visualizerAnimTimer (24fps smoothed VU motion), not from
         // here — overriding them on every note-event redraw would
@@ -1215,7 +1267,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             displayNote: startDisplayNote,
             linger: initialShift
         )
-        pianoWaveformWindowDelegate.showIfNeeded()
+        // Menubar piano taps no longer auto-open the floating panel —
+        // it's reserved for the popover-paired flow (and the explicit
+        // mini-visualizer chip / shortcut). Earlier this called
+        // showIfNeeded here, which surprised users who just wanted to
+        // play a quick note in the menubar.
         // Arm sandbox-friendly local capture on a real piano click. We
         // skip arming when global TYPE mode is already on — the global
         // tap is already handling keys, doubling up would re-trigger
@@ -1257,7 +1313,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         displayNote: nxtDisplay,
                         linger: shiftNow
                     )
-                    pianoWaveformWindowDelegate.showIfNeeded()
                     currentPlayed = nxtPlayed
                 } else {
                     currentPlayed = nil
@@ -1288,6 +1343,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
         if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
         appBeforePopover = nil
+        // Floating window is paired with the popover — close together.
+        pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
         updatePianoWaveformWindowSuppression()
     }
 
@@ -1333,7 +1390,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 : frontmost
             NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
+            // Pair the popover with the COLLAPSED floating panel —
+            // that's where the GM chooser lives. Expanded is only
+            // reachable by user action (the expand button on the
+            // collapsed panel).
+            pianoWaveformWindowDelegate.showCollapsedForPopover()
             updatePianoWaveformWindowSuppression()
+            // Arm local key capture so arrow keys + spacebar reach
+            // our handler while the popover is up. The InstrumentList
+            // used to be in the popover and grabbed keys via its
+            // first-responder; once it moved to the floating panel
+            // nothing was capturing arrows for the controller.
+            if !localCapture.isArmed { localCapture.arm() }
             DispatchQueue.main.async {
                 self.popover.contentViewController?.view.window?.makeKey()
             }
@@ -1371,8 +1439,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard pianoWaveformWindowDelegate.isCollapsedState else { return }
         if !menuBand.litNotes.isEmpty {
             pianoWaveformWindowDelegate.showIfNeeded()
-        } else {
+        } else if !popover.isShown {
+            // Auto-hide the collapsed strip only when it's standalone.
+            // While the popover is up the panel is paired with it and
+            // must stay visible — scheduleHide would otherwise fire
+            // ~2s after any silent state change (e.g., arrow-key
+            // stepping) and dismiss the panel mid-popover.
             pianoWaveformWindowDelegate.scheduleHide()
+        } else {
+            pianoWaveformWindowDelegate.cancelPendingHide()
         }
     }
 

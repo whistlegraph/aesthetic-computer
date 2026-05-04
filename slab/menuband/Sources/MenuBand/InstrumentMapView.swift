@@ -48,31 +48,27 @@ final class InstrumentListView: NSView {
     private var trackingArea: NSTrackingArea?
 
     // MARK: - Visualizer state
-    /// One smoothed display level per column (0…1), updated every display-
-    /// link tick via the same RMS+auto-gain+asymmetric-smoothing pipeline
-    /// the Metal `WaveformView` uses, so the grid meter and the dedicated
-    /// visualizer read identically. Renderer maps each value to a lit
-    /// half-height around the grid midline.
+    /// One smoothed display level per column (0…1), driving the
+    /// per-column LED bars that bloom outward from the grid midline.
     private var columnPeaks = [Float](repeating: 0, count: cols)
-    /// Per-tick raw RMS per column, before gain + smoothing. Kept as a
-    /// member so it doesn't reallocate every frame.
+    /// Per-tick raw RMS per column, before gain + smoothing.
     private var columnLevels = [Float](repeating: 0, count: cols)
-    /// Reusable buffer the synth fills during snapshotWaveform — allocated
-    /// once at init so the per-frame tick doesn't churn the heap.
+    /// Reusable buffer the synth fills during snapshotWaveform.
     private var sampleScratch = [Float](repeating: 0, count: 1024)
-    /// Auto-gain envelope. Snaps up on attack, decays slowly on release so
-    /// a sustained quiet voice still climbs into useful range. Floor of
-    /// 0.05 prevents infinite gain on near-silence.
+    /// Auto-gain envelope.
     private var smoothedPeak: Float = 0.05
+    /// Slow blink phase for the selected cell — independent of audio
+    /// so the chosen instrument still breathes during silence.
+    private var blinkPhase: Double = 0
     private var visualizerLink: CVDisplayLink?
     private var hasCaptureLease = false
-    /// Coalesce display callbacks in case main thread runs slow — same
-    /// pattern WaveformView uses to keep its display link from queueing
-    /// stale draw requests.
     private var pendingTickLock = NSLock()
     private var pendingTick = false
 
     override var isFlipped: Bool { true }   // top-down rows, reading order
+    /// Cells are clickable + drag-target — let `panel.isMovableByWindowBackground`
+    /// kick in only on truly empty surfaces, not on the chooser.
+    override var mouseDownCanMoveWindow: Bool { false }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -127,9 +123,8 @@ final class InstrumentListView: NSView {
         pendingTickLock.lock()
         pendingTick = false
         pendingTickLock.unlock()
-        // Drop the lit cells back to baseline so the popover doesn't flash a
-        // frozen meter the next time it opens.
         for c in 0..<columnPeaks.count { columnPeaks[c] = 0 }
+        blinkPhase = 0
     }
 
     private func tickVisualizer() {
@@ -141,10 +136,6 @@ final class InstrumentListView: NSView {
         mb.synthSnapshotWaveform(into: &sampleScratch)
         let perCol = sampleScratch.count / Self.cols
         guard perCol > 0 else { return }
-        // RMS per column instead of peak — peak detection makes the meter
-        // hop around as zero-crossings drift across chunk boundaries; RMS
-        // sits at the column's true amplitude. Same call WaveformView
-        // makes, so the two surfaces stay synchronized in feel.
         var framePeak: Float = 0
         for c in 0..<Self.cols {
             let base = c * perCol
@@ -157,17 +148,12 @@ final class InstrumentListView: NSView {
             columnLevels[c] = rms
             if rms > framePeak { framePeak = rms }
         }
-        // Auto-gain — snap up on attack, decay slowly so a sustained quiet
-        // note still pushes the meter into visible range.
         if framePeak > smoothedPeak {
             smoothedPeak = framePeak
         } else {
             smoothedPeak = max(0.05, smoothedPeak * 0.92 + framePeak * 0.08)
         }
         let gain = 0.95 / smoothedPeak
-        // Asymmetric per-column smoothing — fast attack to keep transient
-        // bite, slow decay to suppress phase-induced wobble. Values match
-        // WaveformView so the two visualizers behave identically.
         let attack: Float = 0.55
         let decay:  Float = 0.18
         var changed = false
@@ -181,7 +167,13 @@ final class InstrumentListView: NSView {
                 changed = true
             }
         }
-        if changed { needsDisplay = true }
+        // Steady ~1.6Hz breathe phase for the selected cell, independent
+        // of audio so the chosen voice keeps gently pulsing during silence.
+        blinkPhase += 1.0 / 60.0 * 1.6
+        if blinkPhase > 1000 { blinkPhase -= 1000 }
+        if changed || Int(blinkPhase * 15) % 4 == 0 {
+            needsDisplay = true
+        }
     }
 
     override var intrinsicContentSize: NSSize {
@@ -277,83 +269,125 @@ final class InstrumentListView: NSView {
 
     // MARK: - Drawing
 
-    private static let numAttrs: [NSAttributedString.Key: Any] = [
-        .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium),
-        .foregroundColor: NSColor.labelColor.withAlphaComponent(0.85),
-    ]
-    private static let numAttrsSelected: [NSAttributedString.Key: Any] = [
-        .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .bold),
-        .foregroundColor: NSColor.white,
-    ]
+    /// Bee-vision typography: program numbers grow toward the
+    /// selected cell and shrink toward the edges of the grid. The
+    /// selected cell renders biggest with a heavy weight; cells one
+    /// step away render slightly smaller; faraway cells fall to the
+    /// minimum size so the eye is drawn to the active voice.
+    private static func numberFont(forDistance d: CGFloat, isSelected: Bool) -> NSFont {
+        if isSelected {
+            return NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .black)
+        }
+        // Continuous falloff so neighbors of any direction get
+        // proportional emphasis. Tuned so dist 1 ≈ 11pt, dist 4 ≈ 9pt
+        // and the floor (dist 8+) stays at the original 8.5pt.
+        let size = max(8.5, 12.0 - d * 0.85)
+        let weight: NSFont.Weight = d <= 1.5 ? .bold : (d <= 3.0 ? .semibold : .medium)
+        return NSFont.monospacedDigitSystemFont(ofSize: size, weight: weight)
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        let selectedRow = Int(selectedProgram) / Self.cols
+        let selectedCol = Int(selectedProgram) % Self.cols
+        // Selected cell breathes in alpha at ~1.6 Hz regardless of
+        // audio; on top of that, the loudest column's level boosts the
+        // gain so the chosen voice pulses with playing too.
+        let blinkAmount = 0.5 + 0.5 * CGFloat(sin(blinkPhase * 2 * .pi))
+        let amp = CGFloat(columnPeaks.max() ?? 0)
+
         for p in 0..<128 {
             let r = cellRect(program: p)
             guard r.intersects(dirtyRect) else { continue }
             let fam = familyColor(forProgram: p)
+            let row = p / Self.cols
+            let col = p % Self.cols
+            let dx = CGFloat(col - selectedCol)
+            let dy = CGFloat(row - selectedRow)
+            let dist = sqrt(dx * dx + dy * dy)
+            let isSelected = (selectedProgram == UInt8(p))
 
-            // Background — family-tinted at low opacity so the grid reads
-            // as 16 rainbow rows.
-            fam.withAlphaComponent(0.20).setFill()
-            NSBezierPath(rect: r).fill()
-
-            if selectedProgram == UInt8(p) {
-                fam.setFill()
+            if isSelected {
+                // Selected cell: family color pulsing toward white,
+                // tracking both the steady blink and audio amplitude.
+                let pulse = min(1.0, 0.55 + blinkAmount * 0.30 + amp * 0.5)
+                let bg = fam.blended(withFraction: amp * 0.4, of: .white) ?? fam
+                bg.withAlphaComponent(pulse).setFill()
                 NSBezierPath(rect: r).fill()
-            } else if hoveredProgram == UInt8(p) {
-                NSColor.controlAccentColor.withAlphaComponent(0.35).setFill()
+            } else {
+                // Family-tinted bed at low opacity so the grid still
+                // reads as 16 rainbow rows.
+                fam.withAlphaComponent(0.20).setFill()
                 NSBezierPath(rect: r).fill()
+                if hoveredProgram == UInt8(p) {
+                    NSColor.controlAccentColor.withAlphaComponent(0.35).setFill()
+                    NSBezierPath(rect: r).fill()
+                }
             }
 
-            // Chiclet-style keycap outline. The cell's hit area is the
-            // full rect (so dragging across stays seamless — no
-            // dead-space gaps between voices), but we draw the visible
-            // outline inset further with a soft corner radius so each
-            // cell reads as its own little keyboard button with
-            // breathing space around it. The outline picks up the
-            // cell's family hue so the button itself signals which
-            // GM family it belongs to even before you read the
-            // number.
+            // Chiclet-style keycap outline.
             let capPath = NSBezierPath(roundedRect: r.insetBy(dx: 1.75, dy: 1.5),
                                         xRadius: 2.5, yRadius: 2.5)
-            fam.withAlphaComponent(0.65).setStroke()
-            capPath.lineWidth = 0.8
+            // Selected cell gets a brighter ring so it reads as the
+            // visual focus even without the radial pulse on top.
+            let strokeAlpha: CGFloat = isSelected ? 1.0 : 0.65
+            fam.withAlphaComponent(strokeAlpha).setStroke()
+            capPath.lineWidth = isSelected ? 1.4 : 0.8
             capPath.stroke()
 
-            // Program number, centered. Leading zeros dropped — bare
-            // "0..127" reads cleaner as a keycap label.
-            let attrs = (selectedProgram == UInt8(p)) ? Self.numAttrsSelected : Self.numAttrs
+            // Bee-vision program number — biggest at the selected
+            // cell, tapering with distance. Shadow on the selected
+            // cell so the giant glyph lifts cleanly off the bg.
+            let font = Self.numberFont(forDistance: dist, isSelected: isSelected)
+            let textColor: NSColor
+            let textAlpha: CGFloat
+            if isSelected {
+                textColor = .white
+                textAlpha = 1.0
+            } else {
+                textColor = NSColor.labelColor
+                // Distant cells fade toward gridroom-tone so the
+                // selected one stays visually loudest.
+                textAlpha = max(0.45, 0.95 - dist * 0.10)
+            }
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: textColor.withAlphaComponent(textAlpha),
+            ]
+            if isSelected {
+                let shadow = NSShadow()
+                shadow.shadowColor = NSColor.black.withAlphaComponent(0.6)
+                shadow.shadowOffset = NSSize(width: 0, height: -1)
+                shadow.shadowBlurRadius = 2
+                attrs[.shadow] = shadow
+            }
             let str = NSAttributedString(string: String(p), attributes: attrs)
             let size = str.size()
             str.draw(at: NSPoint(x: r.midX - size.width / 2,
                                  y: r.midY - size.height / 2))
         }
-        drawVisualizerOverlay(in: dirtyRect)
+        drawColumnBars(in: dirtyRect)
     }
 
-    /// Per-column center-out meter overlay. Each column's normalized peak
-    /// (0…1) maps to a half-height; the meter fills rows symmetrically
-    /// above and below the grid's midline. A silent column shows nothing,
-    /// a peak of 1 lights the full height. Lit cells glow in a saturated
-    /// version of the row's own family color (sat → 1.0, brightness → 1.0)
-    /// so the meter reads as the family palette firing up rather than a
-    /// neutral white wash. Brightest at the center (newest energy), softer
-    /// toward the edges.
-    private func drawVisualizerOverlay(in dirtyRect: NSRect) {
-        let halfRows = Self.rows / 2   // 8 rows above + 8 below center
+    /// Per-column center-out LED bars — each column's smoothed peak
+    /// maps to a half-height of lit cells, blooming above and below
+    /// the grid's midline. Lit cells glow in a saturated derivative
+    /// of their family color so the meter reads as the family palette
+    /// firing up. The selected cell is skipped (the main draw loop
+    /// already paints it with a brighter pulse).
+    private func drawColumnBars(in dirtyRect: NSRect) {
+        let halfRows = Self.rows / 2
         for c in 0..<Self.cols {
             let peak = columnPeaks[c]
             let litHalf = Int((CGFloat(peak) * CGFloat(halfRows)).rounded(.up))
             guard litHalf > 0 else { continue }
             for offset in 0..<litHalf {
-                // isFlipped = true → row 0 is visual top. Midline between
-                // rows 7 and 8; light (7-offset) above and (8+offset) below.
                 let intensity = 0.65 - 0.30 * (CGFloat(offset) / CGFloat(halfRows))
                 for row in [halfRows - 1 - offset, halfRows + offset] {
                     guard row >= 0, row < Self.rows else { continue }
                     let p = row * Self.cols + c
                     guard p >= 0, p < 128 else { continue }
+                    if UInt8(p) == selectedProgram { continue }
                     let r = cellRect(program: p)
                     guard r.intersects(dirtyRect) else { continue }
                     saturatedGlow(for: p, alpha: intensity).setFill()

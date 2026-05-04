@@ -770,7 +770,15 @@ final class MenuBandController {
         let visualNote = displayNote ?? midiNote
         tapDisplayNote[midiNote] = visualNote
         if linger { tapLinger[midiNote] = velocity }
-        let isDrum = midiNote < UInt8(KeyboardIconRenderer.firstMidi)
+        // Drum routing is decided by the *visual* key (the cell the user
+        // tapped), not the post-octave played pitch. Without this, a
+        // melodic tap at octaveShift < 0 plays below MIDI 60 and the old
+        // played-pitch test mis-routed it to channel 9 (drum kit) — so
+        // the same key on the QWERTY (which has no isDrum check) and the
+        // on-screen piano played different patches. The menubar piano's
+        // visible range is melodic-only (60–83), so visual-based routing
+        // keeps both input methods consistent at any octave.
+        let isDrum = visualNote < UInt8(KeyboardIconRenderer.firstMidi)
         // Synth: rotate across 8 channels so rapid same-note taps overlap
         // (different channels = different voices, no stealing). MIDI: always
         // land on channel 1 (drums on 10) so an Ableton track listening on
@@ -779,6 +787,11 @@ final class MenuBandController {
         let midiCh: UInt8 = isDrum ? 9 : 0
         tapNoteChannel[midiNote] = synthCh
         midi.sendCC(10, value: pan, channel: midiCh)
+        // Mirror the keyboard path: also send pan to the local synth's
+        // per-channel state so synth state stays symmetric across input
+        // methods. Without this, channels written by keyboard carry over
+        // their pan into subsequent taps on the same channel.
+        if !midiMode && !isDrum { synth.setPan(pan, channel: synthCh) }
         if !midiMode { synth.noteOn(midiNote, velocity: velocity, channel: synthCh) }
         midi.noteOn(midiNote, velocity: velocity, channel: midiCh)
         // Lit state is main-thread-only; update synchronously so the menubar
@@ -799,7 +812,10 @@ final class MenuBandController {
     /// the held note. Doesn't retrigger the note.
     func updateTapPan(_ midiNote: UInt8, pan: UInt8) {
         guard tapHeld.contains(midiNote) else { return }
-        let midiCh: UInt8 = midiNote < UInt8(KeyboardIconRenderer.firstMidi) ? 9 : 0
+        // Mirror startTapNote: drum routing follows the *visual* key,
+        // not the played pitch.
+        let visualNote = tapDisplayNote[midiNote] ?? midiNote
+        let midiCh: UInt8 = visualNote < UInt8(KeyboardIconRenderer.firstMidi) ? 9 : 0
         midi.sendCC(10, value: pan, channel: midiCh)
     }
 
@@ -810,7 +826,8 @@ final class MenuBandController {
         let visualNote = tapDisplayNote.removeValue(forKey: midiNote) ?? midiNote
         let lingerVelocity = tapLinger.removeValue(forKey: midiNote)
         let synthCh = tapNoteChannel.removeValue(forKey: midiNote) ?? channel(for: midiNote)
-        let isDrum = midiNote < UInt8(KeyboardIconRenderer.firstMidi)
+        // Drum routing follows the visual key (see startTapNote).
+        let isDrum = visualNote < UInt8(KeyboardIconRenderer.firstMidi)
         let midiCh: UInt8 = isDrum ? 9 : 0
         // Drums are one-shot percussion: do NOT send synth.noteOff. Letting
         // the sample play through is what makes rapid taps overlap correctly
@@ -1161,7 +1178,7 @@ final class MenuBandController {
             if !midiMode { synth.setPan(pan, channel: synthCh) }
             midi.sendCC(10, value: pan, channel: 0)
             if !midiMode { synth.noteOn(note, velocity: 100, channel: synthCh) }
-            midi.noteOn(note)
+            midi.noteOn(note, velocity: 100, channel: 0)
             // The menubar piano renders a fixed C4–C5 window; the audio
             // path plays at the user's full octave-shifted pitch. To keep
             // the visual lit state honest, mark the *display* note (note
@@ -1239,6 +1256,7 @@ final class MenuBandController {
         heldLock.unlock()
         let tapSnapshot = tapHeld
         let tapChanSnapshot = tapNoteChannel
+        let tapDisplaySnapshot = tapDisplayNote
         tapHeld.removeAll()
         tapNoteChannel.removeAll()
         tapDisplayNote.removeAll()
@@ -1249,7 +1267,9 @@ final class MenuBandController {
         }
         for note in tapSnapshot {
             let synthCh = tapChanSnapshot[note] ?? channel(for: note)
-            let isDrum = note < UInt8(KeyboardIconRenderer.firstMidi)
+            // Drum routing follows the visual key (see startTapNote).
+            let visualNote = tapDisplaySnapshot[note] ?? note
+            let isDrum = visualNote < UInt8(KeyboardIconRenderer.firstMidi)
             let midiCh: UInt8 = isDrum ? 9 : 0
             if !isDrum {
                 synth.noteOff(note, channel: synthCh)

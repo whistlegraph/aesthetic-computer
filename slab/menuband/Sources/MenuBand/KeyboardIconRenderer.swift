@@ -66,6 +66,19 @@ enum KeyboardIconRenderer {
     /// and re-issues updateIcon() so the menubar redraws.
     static var labelsUppercase: Bool = false
 
+    /// Caps-lock latched (as opposed to a momentary shift). Drawn
+    /// state in the chip is gated differently for the two: caps
+    /// always paints the linger fermata mark (the user has
+    /// committed to the mode), shift only paints it while at least
+    /// one note is held (so resting on shift doesn't add chrome).
+    static var lingerCapsLatched: Bool = false
+
+    /// True while at least one menubar piano note is currently held.
+    /// Used to gate the shift-momentary linger fermata so it appears
+    /// only during active play, not while the user is just resting
+    /// on shift between phrases.
+    static var playingActive: Bool = false
+
     // Render area shrinks with the layout. Compact has no piano keys at
     // all — `lastMidi < firstMidi` makes whiteList() empty.
     static let firstMidi: Int = 60                 // C4 (middle C)
@@ -913,26 +926,46 @@ enum KeyboardIconRenderer {
                                hovered: visualizerHovered,
                                color: color, baseAlpha: alpha)
         }
-        // Linger / bell-ring flourish — small accent tilde tucked at
-        // the top-right of the music-note glyph whenever shift is held
-        // or caps lock is latched. Visual cue that any key press will
-        // ring out instead of cutting at release. Uses the system
-        // accent color so it pops against either label-color (off) or
-        // accent-color (MIDI-on) base glyph.
-        if labelsUppercase {
-            let flourishAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 9.5, weight: .heavy),
-                .foregroundColor: NSColor.controlAccentColor,
-            ]
-            let flourish = NSAttributedString(string: "~", attributes: flourishAttrs)
-            let fSize = flourish.size()
-            // Anchor the tilde just past the music-note's flag — top
-            // right of iconBox, nudged so it overlaps the empty space
-            // above the glyph rather than sitting on top of strokes.
-            flourish.draw(at: NSPoint(
-                x: iconBox.maxX - fSize.width + 1.5,
-                y: iconBox.maxY - fSize.height + 1.0
+        // Linger / bell-ring flourish — a fermata mark (the music
+        // notation for "let ring / hold this note") drawn above the
+        // music-note glyph. Caps lock latches the mode and always
+        // paints the mark; momentary shift only paints while at
+        // least one note is actively held, so resting on shift
+        // between phrases doesn't add visual chrome.
+        let lingerVisible = lingerCapsLatched
+            || (labelsUppercase && playingActive)
+        if lingerVisible, let ctx = NSGraphicsContext.current {
+            ctx.saveGraphicsState()
+            NSColor.white.set()
+            // Anchor the fermata so it overlaps the upper-right of the
+            // music-note glyph — pushed past the right edge and dropped
+            // down a few points, so the arc reads as a fat round canopy
+            // sitting on top of the note rather than floating above it.
+            // Chunkier arc + bigger dot for a softer, cuter feel.
+            let fW: CGFloat = 7.5
+            let fH: CGFloat = 3.5
+            let fX = iconBox.maxX - fW + 1.5
+            let fY = iconBox.maxY - fH - 3.0
+            let arc = NSBezierPath()
+            arc.appendArc(
+                withCenter: NSPoint(x: fX + fW / 2, y: fY),
+                radius: fW / 2,
+                startAngle: 0,
+                endAngle: 180
+            )
+            arc.lineWidth = 1.4
+            arc.lineCapStyle = .round
+            arc.stroke()
+            // Bigger dot under the arc — reads as a cartoony round
+            // bead instead of a single stipple.
+            let dot = NSBezierPath(ovalIn: NSRect(
+                x: fX + fW / 2 - 0.95,
+                y: fY - 0.4,
+                width: 1.9,
+                height: 1.9
             ))
+            dot.fill()
+            ctx.restoreGraphicsState()
         }
         // Voice-number subscript: tiny digits in the bottom-right
         // corner. The first digit sits where the single-digit case

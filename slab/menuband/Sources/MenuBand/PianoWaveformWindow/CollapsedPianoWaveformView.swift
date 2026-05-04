@@ -15,18 +15,31 @@ final class CollapsedPianoWaveformView: NSView {
 
     private weak var menuBand: MenuBandController?
     private let contentContainer = NSView()
-    private let waveformContainer = NSView()
-    private let waveformClipView = NSView()
-    private let waveformView = WaveformView()
-    private let heldNotesContainer = NSView()
-    private let heldNotesStack = NSStackView()
-    private let instrumentRow = NSView()
-    private let instrumentArrows = ArrowKeysIndicator()
-    private let instrumentLabel = NSTextField(labelWithString: "")
+    /// GM instrument chooser — embedded as the audio-reactive
+    /// bee-vision picker in the collapsed floating panel. Held-note
+    /// pills + chord-candidate cards live in the popover and
+    /// expanded view only; the collapsed strip stays compact.
+    private let instrumentList = InstrumentListView()
+    /// QWERTY keymap visualization — moved out of the popover so
+    /// the user can see which physical keys play which notes while
+    /// the chooser is open. Lit cells reflect held keys.
+    private let qwertyMap = QwertyLayoutView()
+    /// Four-arrow cluster below the chooser — preview while held,
+    /// commit on release. Mirrors the popover's old arrows hint
+    /// position (under the keyboard) one level down.
+    private let arrowsCluster = ArrowKeysIndicator()
+    /// Notepat / Ableton mode picker — moved out of the popover so
+    /// the liquid panel reads as the operational/physical "extended
+    /// instrument," and the popover stays a music-theory surface.
+    private let modeStack = NSStackView()
+    private var modeButtons: [NSButton] = []
+    /// Compact "About" row at the panel's bottom — Menu Band
+    /// description + aesthetic.computer link. Moved out of the
+    /// popover so the popover stays a music-theory surface.
+    private let aboutBody = NSTextField(wrappingLabelWithString: "")
+    private let aboutLinkButton = NSButton()
     private var trackingArea: NSTrackingArea?
     private weak var paletteGlassView: NSView?
-    private weak var waveformGlassView: NSView?
-    private weak var instrumentRowGlassView: NSView?
 
     var onHoverChanged: ((Bool) -> Void)?
     var onStepBackward: (() -> Void)?
@@ -34,9 +47,18 @@ final class CollapsedPianoWaveformView: NSView {
     var onStepUp: (() -> Void)?
     var onStepDown: (() -> Void)?
 
-    private static let waveformHeight: CGFloat = 64
-    private static let heldNotesRowHeight: CGFloat = 16
-    private static let instrumentRowHeight: CGFloat = 22
+    private static let arrowsRowHeight: CGFloat = 34
+    private static let modeRowHeight: CGFloat = 22
+    private static let aboutRowHeight: CGFloat = 36
+    private static let edgePadding: CGFloat = 6
+    private static let rowGap: CGFloat = 4
+    /// Reserved at the top — hosts the chord-candidate row above
+    /// the chooser. 30pt fits the FloatingChordCandidateCard's
+    /// intrinsic height.
+    private static let topInset: CGFloat = 6
+    /// Reserved at the bottom so the arrows cluster doesn't sit
+    /// under the bottom-leading fullscreen toggle button.
+    private static let bottomInset: CGFloat = 28
 
     init(menuBand: MenuBandController) {
         self.menuBand = menuBand
@@ -46,39 +68,85 @@ final class CollapsedPianoWaveformView: NSView {
         layer?.masksToBounds = true
 
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
-        waveformView.menuBand = menuBand
-        waveformView.translatesAutoresizingMaskIntoConstraints = false
-        waveformView.setSurfaceStyle(.standard)
 
-        waveformContainer.wantsLayer = true
-        waveformContainer.translatesAutoresizingMaskIntoConstraints = false
-        waveformContainer.layer?.cornerRadius = 8
-        waveformContainer.layer?.masksToBounds = false
-
-        waveformClipView.wantsLayer = true
-        waveformClipView.translatesAutoresizingMaskIntoConstraints = false
-        waveformClipView.layer?.cornerRadius = 8
-        waveformClipView.layer?.masksToBounds = true
-
-        heldNotesContainer.translatesAutoresizingMaskIntoConstraints = false
-        heldNotesStack.orientation = .horizontal
-        heldNotesStack.alignment = .centerY
-        heldNotesStack.spacing = 4
-        heldNotesStack.translatesAutoresizingMaskIntoConstraints = false
-
-        instrumentRow.translatesAutoresizingMaskIntoConstraints = false
-        instrumentRow.wantsLayer = true
-        instrumentRow.layer?.cornerRadius = 7
-        if #available(macOS 10.15, *) {
-            instrumentRow.layer?.cornerCurve = .continuous
+        instrumentList.menuBand = menuBand
+        instrumentList.translatesAutoresizingMaskIntoConstraints = false
+        instrumentList.onCommit = { [weak self] prog in
+            guard let self = self, let m = self.menuBand else { return }
+            if m.midiMode { m.toggleMIDIMode() }
+            m.setMelodicProgram(UInt8(prog))
+            self.refresh()
         }
-        instrumentArrows.translatesAutoresizingMaskIntoConstraints = false
-        instrumentArrows.setContentHuggingPriority(.required, for: .horizontal)
-        instrumentArrows.setContentCompressionResistancePriority(.required, for: .horizontal)
-        instrumentArrows.displayMode = .horizontalPair
-        instrumentArrows.style = .prominent
-        instrumentArrows.toolTip = "Change instrument"
-        instrumentArrows.onClick = { [weak self] direction, isDown in
+        instrumentList.onHover = { [weak self] prog in
+            self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
+            self?.refresh()
+        }
+        instrumentList.onMusicKey = { [weak self] kc, isDown, isRepeat, flags in
+            return self?.menuBand?.handleLocalKey(
+                keyCode: kc, isDown: isDown, isRepeat: isRepeat, flags: flags
+            ) ?? false
+        }
+
+        qwertyMap.translatesAutoresizingMaskIntoConstraints = false
+        qwertyMap.scale = 1.0
+        qwertyMap.keymap = menuBand.keymap
+        qwertyMap.onKey = { [weak self] kc, isDown in
+            _ = self?.menuBand?.handleLocalKey(
+                keyCode: kc, isDown: isDown, isRepeat: false, flags: []
+            )
+        }
+
+        modeStack.orientation = .horizontal
+        modeStack.alignment = .centerY
+        modeStack.spacing = 6
+        modeStack.translatesAutoresizingMaskIntoConstraints = false
+        let modeSymbolConfig = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
+        let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
+            ("Notepat",
+             NotepatFavicon.image
+                ?? NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Notepat")?
+                    .withSymbolConfiguration(modeSymbolConfig),
+             0),
+            ("Ableton", AbletonLogo.image(height: 11), 1),
+        ]
+        for (idx, spec) in modeSpecs.enumerated() {
+            let b = NSButton(title: spec.label, target: self,
+                             action: #selector(modeButtonClicked(_:)))
+            b.tag = spec.tag
+            b.bezelStyle = .recessed
+            b.setButtonType(.pushOnPushOff)
+            b.controlSize = .small
+            b.imagePosition = .imageLeading
+            b.imageHugsTitle = true
+            b.image = spec.image
+            b.translatesAutoresizingMaskIntoConstraints = false
+            modeButtons.append(b)
+            modeStack.addArrangedSubview(b)
+            // "?" help button immediately after the Notepat (idx 0)
+            // button — opens the keymaps paper so the user can read
+            // why notepat looks the way it does.
+            if idx == 0 {
+                let helpConfig = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+                let help = NSButton()
+                help.image = NSImage(systemSymbolName: "questionmark.circle",
+                                     accessibilityDescription: "Why this layout?")?
+                    .withSymbolConfiguration(helpConfig)
+                help.imagePosition = .imageOnly
+                help.bezelStyle = .recessed
+                help.controlSize = .small
+                help.toolTip = "Why this layout?"
+                help.target = self
+                help.action = #selector(whyKeymapClicked(_:))
+                help.translatesAutoresizingMaskIntoConstraints = false
+                modeStack.addArrangedSubview(help)
+            }
+        }
+
+        arrowsCluster.translatesAutoresizingMaskIntoConstraints = false
+        arrowsCluster.displayMode = .cluster
+        arrowsCluster.style = .prominent
+        arrowsCluster.toolTip = "Step instruments — ←/→ one at a time, ↑/↓ by row"
+        arrowsCluster.onClick = { [weak self] direction, isDown in
             guard let self, isDown else { return }
             switch direction {
             case 0:
@@ -94,64 +162,103 @@ final class CollapsedPianoWaveformView: NSView {
             }
         }
 
-        instrumentLabel.translatesAutoresizingMaskIntoConstraints = false
-        instrumentLabel.lineBreakMode = .byTruncatingTail
-        instrumentLabel.drawsBackground = false
-        instrumentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // About row — bold "Menu Band" lead + secondary copy +
+        // aesthetic.computer chip link. Replicates the popover's
+        // about block in compact form.
+        aboutBody.font = NSFont.systemFont(ofSize: 10)
+        aboutBody.textColor = .secondaryLabelColor
+        aboutBody.maximumNumberOfLines = 2
+        aboutBody.lineBreakMode = .byTruncatingTail
+        aboutBody.translatesAutoresizingMaskIntoConstraints = false
+        let aboutText = NSMutableAttributedString()
+        let bodyFont = NSFont.systemFont(ofSize: 10)
+        let boldFont = NSFont.systemFont(ofSize: 10, weight: .bold)
+        aboutText.append(NSAttributedString(
+            string: "Menu Band",
+            attributes: [.font: boldFont, .foregroundColor: NSColor.labelColor]))
+        aboutText.append(NSAttributedString(
+            string: " — your menubar piano, an instrument woven into ",
+            attributes: [.font: bodyFont, .foregroundColor: NSColor.secondaryLabelColor]))
+        aboutBody.attributedStringValue = aboutText
+
+        let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
+        let acTitle = NSAttributedString(
+            string: "aesthetic.computer",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+                .foregroundColor: acPurple,
+            ])
+        aboutLinkButton.attributedTitle = acTitle
+        aboutLinkButton.bezelStyle = .recessed
+        aboutLinkButton.controlSize = .small
+        aboutLinkButton.translatesAutoresizingMaskIntoConstraints = false
+        aboutLinkButton.target = self
+        aboutLinkButton.action = #selector(openAestheticClicked(_:))
+        aboutLinkButton.toolTip = "https://aesthetic.computer"
 
         addSubview(contentContainer)
-        contentContainer.addSubview(waveformContainer)
-        contentContainer.addSubview(heldNotesContainer)
-        contentContainer.addSubview(instrumentRow)
-        waveformContainer.addSubview(waveformClipView)
-        waveformClipView.addSubview(waveformView)
-        heldNotesContainer.addSubview(heldNotesStack)
-        instrumentRow.addSubview(instrumentArrows)
-        instrumentRow.addSubview(instrumentLabel)
+        contentContainer.addSubview(instrumentList)
+        contentContainer.addSubview(qwertyMap)
+        contentContainer.addSubview(arrowsCluster)
+        contentContainer.addSubview(modeStack)
+        contentContainer.addSubview(aboutBody)
+        contentContainer.addSubview(aboutLinkButton)
         installLiquidGlassBackgrounds()
 
+        // Panel widens to fit either the chooser or the keyboard
+        // row (qwerty + gap + arrows cluster), whichever is larger.
+        let chooserRowWidth = Self.edgePadding + InstrumentListView.preferredWidth + Self.edgePadding
+        let arrowsClusterWidth: CGFloat = 46
+        let keyboardRowWidth = Self.edgePadding + QwertyLayoutView.intrinsicSize.width
+            + Self.rowGap + arrowsClusterWidth + Self.edgePadding
+        let totalWidth = max(chooserRowWidth, keyboardRowWidth)
+
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: KeyboardIconRenderer.imageSize.width),
+            widthAnchor.constraint(equalToConstant: totalWidth),
             contentContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
             contentContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
             contentContainer.topAnchor.constraint(equalTo: topAnchor),
             contentContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            waveformContainer.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
-            waveformContainer.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
-            waveformContainer.topAnchor.constraint(equalTo: contentContainer.topAnchor),
-            waveformContainer.heightAnchor.constraint(equalToConstant: Self.waveformHeight),
+            instrumentList.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: Self.edgePadding),
+            instrumentList.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: Self.topInset),
+            instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth),
+            instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight),
 
-            waveformClipView.leadingAnchor.constraint(equalTo: waveformContainer.leadingAnchor, constant: 5),
-            waveformClipView.trailingAnchor.constraint(equalTo: waveformContainer.trailingAnchor, constant: -5),
-            waveformClipView.topAnchor.constraint(equalTo: waveformContainer.topAnchor, constant: 5),
-            waveformClipView.bottomAnchor.constraint(equalTo: waveformContainer.bottomAnchor, constant: -5),
+            // Qwerty + arrows row centered horizontally in the panel
+            // — looked too left-shoved when flush against the leading
+            // edge. The cluster (qwerty + gap + arrows) is treated
+            // as one unit so it sits balanced under the chooser.
+            qwertyMap.topAnchor.constraint(equalTo: instrumentList.bottomAnchor, constant: Self.rowGap),
+            qwertyMap.widthAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.width),
+            qwertyMap.heightAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.height),
+            qwertyMap.leadingAnchor.constraint(
+                equalTo: contentContainer.leadingAnchor,
+                constant: (totalWidth - QwertyLayoutView.intrinsicSize.width - Self.rowGap - arrowsClusterWidth) / 2
+            ),
 
-            waveformView.leadingAnchor.constraint(equalTo: waveformClipView.leadingAnchor),
-            waveformView.trailingAnchor.constraint(equalTo: waveformClipView.trailingAnchor),
-            waveformView.topAnchor.constraint(equalTo: waveformClipView.topAnchor),
-            waveformView.bottomAnchor.constraint(equalTo: waveformClipView.bottomAnchor),
+            arrowsCluster.leadingAnchor.constraint(equalTo: qwertyMap.trailingAnchor, constant: Self.rowGap),
+            arrowsCluster.bottomAnchor.constraint(equalTo: qwertyMap.bottomAnchor),
+            arrowsCluster.heightAnchor.constraint(equalToConstant: Self.arrowsRowHeight),
 
-            heldNotesContainer.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
-            heldNotesContainer.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
-            heldNotesContainer.topAnchor.constraint(equalTo: waveformContainer.bottomAnchor, constant: 2),
-            heldNotesContainer.heightAnchor.constraint(equalToConstant: Self.heldNotesRowHeight),
+            // Mode picker (Notepat / Ableton) sits below the qwerty
+            // row. Centered horizontally; the about row beneath it
+            // pads the panel's bottom-leading fullscreen toggle.
+            modeStack.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: Self.rowGap),
+            modeStack.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
+            modeStack.heightAnchor.constraint(equalToConstant: Self.modeRowHeight),
 
-            heldNotesStack.centerXAnchor.constraint(equalTo: heldNotesContainer.centerXAnchor),
-            heldNotesStack.centerYAnchor.constraint(equalTo: heldNotesContainer.centerYAnchor),
+            // About row — wrapped Menu Band description on one line,
+            // aesthetic.computer link on the next. Pinned at the
+            // bottom inset so the fullscreen button stays visible
+            // bottom-leading.
+            aboutBody.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: Self.edgePadding + 32),
+            aboutBody.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -Self.edgePadding),
+            aboutBody.topAnchor.constraint(equalTo: modeStack.bottomAnchor, constant: Self.rowGap),
 
-            instrumentRow.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
-            instrumentRow.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
-            instrumentRow.topAnchor.constraint(equalTo: heldNotesContainer.bottomAnchor, constant: 2),
-            instrumentRow.heightAnchor.constraint(equalToConstant: Self.instrumentRowHeight),
-            instrumentRow.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: -2),
-
-            instrumentArrows.leadingAnchor.constraint(equalTo: instrumentRow.leadingAnchor, constant: 6),
-            instrumentArrows.centerYAnchor.constraint(equalTo: instrumentRow.centerYAnchor),
-
-            instrumentLabel.leadingAnchor.constraint(equalTo: instrumentArrows.trailingAnchor, constant: 6),
-            instrumentLabel.centerYAnchor.constraint(equalTo: instrumentRow.centerYAnchor),
-            instrumentLabel.trailingAnchor.constraint(equalTo: instrumentRow.trailingAnchor, constant: -8),
+            aboutLinkButton.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: Self.edgePadding + 32),
+            aboutLinkButton.topAnchor.constraint(equalTo: aboutBody.bottomAnchor, constant: 2),
+            aboutLinkButton.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: -Self.edgePadding),
         ])
 
         refresh()
@@ -192,86 +299,39 @@ final class CollapsedPianoWaveformView: NSView {
     func refresh() {
         guard let menuBand else { return }
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        waveformView.setLightMode(!isDark)
 
         let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
         let familyColor = menuBand.midiMode
             ? NSColor.controlAccentColor
             : InstrumentListView.colorForProgram(safe)
 
-        let waveformBackground = isDark
-            ? NSColor(white: 0.06, alpha: 1.0)
-            : NSColor(white: 0.82, alpha: 1.0)
-        let glassWaveformBackground = isDark
-            ? NSColor.white.withAlphaComponent(0.04)
-            : NSColor.white.withAlphaComponent(0.18)
-        let instrumentRowBackground = isDark
-            ? NSColor.white.withAlphaComponent(0.08)
-            : NSColor.white.withAlphaComponent(0.3)
-        waveformContainer.layer?.backgroundColor = NSColor.clear.cgColor
-        waveformClipView.layer?.backgroundColor = Self.shouldUseLiquidGlass
-            ? glassWaveformBackground.cgColor
-            : waveformBackground.cgColor
-        waveformContainer.layer?.borderWidth = 1
-        waveformContainer.layer?.borderColor = familyColor.withAlphaComponent(
-            Self.shouldUseLiquidGlass ? 0.22 : 0.55
-        ).cgColor
-        instrumentRow.layer?.backgroundColor = Self.shouldUseLiquidGlass
-            ? NSColor.clear.cgColor
-            : instrumentRowBackground.cgColor
-        instrumentRow.layer?.borderWidth = 1
-        instrumentRow.layer?.borderColor = familyColor.withAlphaComponent(
-            Self.shouldUseLiquidGlass ? 0.22 : 0.35
-        ).cgColor
-        instrumentLabel.textColor = isDark ? .white : .black
-        instrumentArrows.accentColor = familyColor
-        instrumentArrows.isDarkAppearance = isDark
+        // Follow the *effective* program (preview ?? committed) so the
+        // bee-vision typographic center shifts live during hover-drag
+        // through the grid and during arrow-key stepping. Without this
+        // the giant selected number stays anchored to the committed
+        // voice while the preview note plays a different program.
+        instrumentList.selectedProgram = menuBand.effectiveMelodicProgram
 
-        if menuBand.midiMode {
-            waveformView.setDotMatrix(MenuBandPopoverViewController.midiDotPattern)
-            waveformView.setBaseColor(.controlAccentColor)
-        } else {
-            waveformView.setDotMatrix(nil)
-            waveformView.setBaseColor(familyColor)
-        }
+        arrowsCluster.accentColor = familyColor
+        arrowsCluster.isDarkAppearance = isDark
 
-        let shadow = NSShadow()
-        shadow.shadowColor = familyColor.withAlphaComponent(isDark ? 0.9 : 0.55)
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        shadow.shadowBlurRadius = 3
-        let titleFont: NSFont = {
-            if let descriptor = AppDelegate.ywftBoldDescriptor,
-               let font = NSFont(descriptor: descriptor, size: 14),
-               font.familyName == "YWFT Processing" {
-                return font
-            }
-            return NSFont.systemFont(ofSize: 14, weight: .black)
-        }()
-        instrumentLabel.attributedStringValue = NSAttributedString(
-            string: GeneralMIDI.programNames[safe],
-            attributes: [
-                .font: titleFont,
-                .foregroundColor: isDark ? NSColor.white : NSColor.black,
-                .shadow: shadow,
-            ]
-        )
+        qwertyMap.keymap = menuBand.keymap
+        qwertyMap.voiceColor = familyColor
+        qwertyMap.litKeyCodes = menuBand.heldKeyCodes()
 
-        for view in heldNotesStack.arrangedSubviews {
-            heldNotesStack.removeArrangedSubview(view)
-            view.removeFromSuperview()
-        }
-        for name in menuBand.heldNoteNames() {
-            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name, color: familyColor))
+        // Mirror the keymap selection on the mode-picker buttons.
+        let activeTag = (menuBand.keymap == .ableton) ? 1 : 0
+        for button in modeButtons {
+            button.state = (button.tag == activeTag) ? .on : .off
         }
 
         if Self.shouldUseLiquidGlass, #available(macOS 26.0, *) {
-            let paletteTint = familyColor.withAlphaComponent(menuBand.midiMode ? 0.20 : 0.16)
+            // Tinting is disabled for the collapsed view — even a
+            // normalized hue tint perceptibly shifted the glass blur
+            // between voices. Leaving NSGlassEffectView at its
+            // default style keeps the panel visually identical from
+            // open to close, no matter which instrument is active.
             (paletteGlassView as? NSGlassEffectView)?.style = .clear
-            (paletteGlassView as? NSGlassEffectView)?.tintColor = paletteTint
-            (waveformGlassView as? NSGlassEffectView)?.style = .clear
-            (waveformGlassView as? NSGlassEffectView)?.tintColor = paletteTint.withAlphaComponent(0.55)
-            (instrumentRowGlassView as? NSGlassEffectView)?.style = .clear
-            (instrumentRowGlassView as? NSGlassEffectView)?.tintColor = paletteTint.withAlphaComponent(0.42)
             layer?.backgroundColor = NSColor.clear.cgColor
         } else {
             layer?.backgroundColor = (isDark
@@ -280,30 +340,38 @@ final class CollapsedPianoWaveformView: NSView {
         }
     }
 
-    func setLive(_ isLive: Bool) {
-        waveformView.isLive = isLive
+    @objc private func openAestheticClicked(_ sender: NSButton) {
+        if let url = URL(string: "https://aesthetic.computer") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
-    private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
-        let box = NSView()
-        box.translatesAutoresizingMaskIntoConstraints = false
-        box.wantsLayer = true
-        box.layer?.cornerRadius = 4
-        box.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
+    @objc private func whyKeymapClicked(_ sender: NSButton) {
+        // Same fallback chain as the popover's whyKeymapButton —
+        // bundled PDF first (offline-friendly), then the public URL.
+        if let url = Bundle.module.url(
+            forResource: "keymaps-social-software-26-arxiv",
+            withExtension: "pdf")
+        {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        if let url = URL(string:
+            "https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf") {
+            NSWorkspace.shared.open(url)
+        }
+    }
 
-        let label = NSTextField(labelWithString: name)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = NSFont.monospacedSystemFont(ofSize: 9, weight: .heavy)
-        label.textColor = .black
-        box.addSubview(label)
-
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
-            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
-            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 1),
-            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -1),
-        ])
-        return box
+    @objc private func modeButtonClicked(_ sender: NSButton) {
+        guard let menuBand else { return }
+        let next: Keymap = (sender.tag == 1) ? .ableton : .notepat
+        if menuBand.keymap != next {
+            menuBand.keymap = next
+        }
+        // Manual radio behaviour: only the clicked button stays .on.
+        for button in modeButtons {
+            button.state = (button == sender) ? .on : .off
+        }
     }
 
     private func installLiquidGlassBackgrounds() {
@@ -320,36 +388,7 @@ final class CollapsedPianoWaveformView: NSView {
             paletteGlassView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         self.paletteGlassView = paletteGlassView
-
-        self.waveformGlassView = installGlassBackground(
-            matchedTo: waveformContainer,
-            below: waveformContainer,
-            cornerRadius: 8
-        )
-        self.instrumentRowGlassView = installGlassBackground(
-            matchedTo: instrumentRow,
-            below: instrumentRow,
-            cornerRadius: 7
-        )
     }
-
-    @available(macOS 26.0, *)
-    private func installGlassBackground(matchedTo target: NSView,
-                                        below anchor: NSView,
-                                        cornerRadius: CGFloat) -> NSView {
-        let glassView = CollapsedPianoWaveformGlassEffectView()
-        glassView.translatesAutoresizingMaskIntoConstraints = false
-        glassView.cornerRadius = cornerRadius
-        addSubview(glassView, positioned: .below, relativeTo: anchor)
-        NSLayoutConstraint.activate([
-            glassView.leadingAnchor.constraint(equalTo: target.leadingAnchor),
-            glassView.trailingAnchor.constraint(equalTo: target.trailingAnchor),
-            glassView.topAnchor.constraint(equalTo: target.topAnchor),
-            glassView.bottomAnchor.constraint(equalTo: target.bottomAnchor),
-        ])
-        return glassView
-    }
-
 }
 
 @available(macOS 26.0, *)
