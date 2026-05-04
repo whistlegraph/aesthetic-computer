@@ -34,6 +34,11 @@ final class MenuBandSynth {
     /// Fallback backend, always available immediately.
     private let melodic = AVAudioUnitSampler()
     private let drums = AVAudioUnitSampler()
+    /// Live KPBJ.FM radio backend — pads play the live stream pitched by
+    /// 2^((note-60)/12), with stalls fading into AM-style static driven
+    /// by real-time NIC byte counters. Attached to the engine on
+    /// `start()`; AVPlayer only spins up while `usingRadioBackend` is on.
+    private let radio = KPBJRadioStream()
     /// Sums every backend before the limiter so simultaneous voices share one
     /// gain stage. Without this, each backend would feed `mainMixerNode`
     /// directly and a chord across melodic + drums + midiSynth could exceed
@@ -95,6 +100,10 @@ final class MenuBandSynth {
         connectLimiterIfNeeded()
         connectMelodicSamplerIfNeeded()
         connectDrumsSamplerIfNeeded()
+        // Wire the radio's static graph into the same pre-limiter sum
+        // bus. The AVPlayer stays paused until `setRadioBackend(true)`,
+        // so this just adds idle nodes — no CPU cost while inactive.
+        radio.attach(to: engine, output: preLimiterMixer)
         engine.prepare()
         do {
             try engine.start()
@@ -510,6 +519,12 @@ final class MenuBandSynth {
         // again. Reload the GM bank into `melodic` since the GB patch
         // load replaced its instrument data.
         usingGarageBandPatch = false
+        // Picking any GM voice exits radio mode. Goes silent immediately
+        // (master gate closed) but keeps the stream warm for the linger
+        // window so a quick flip back avoids a reconnect.
+        if usingRadioBackend {
+            leaveRadioWithLinger()
+        }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             selectMelodicProgram(au, program: program)
             updateSamplerRoutingForActiveBackend()
@@ -540,11 +555,81 @@ final class MenuBandSynth {
         do {
             try melodic.loadInstrument(at: url)
             usingGarageBandPatch = true
+            // GB and radio are mutually exclusive — the GB sampler eats
+            // the melodic note path that radio would otherwise take.
+            if usingRadioBackend {
+                leaveRadioWithLinger()
+            }
             updateSamplerRoutingForActiveBackend()
             return true
         } catch {
             NSLog("MenuBand: failed to load GB patch \(url.lastPathComponent): \(error)")
             return false
+        }
+    }
+
+    // MARK: - KPBJ radio backend
+
+    /// True while the live KPBJ stream is the active melodic source.
+    /// Drum keys (channel 9) still go to GM — drums never go through
+    /// the radio path.
+    private(set) var usingRadioBackend: Bool = false
+
+    /// Shared "leaving radio mode" helper used by setRadioBackend(false)
+    /// and any other path that picks a non-radio voice. Closes the master
+    /// gate immediately so the user hears silence the instant they pick
+    /// a GM/GB voice, but keeps the AVPlayer streaming for the linger
+    /// window so a quick flip back is instant (no reconnect).
+    private func leaveRadioWithLinger() {
+        usingRadioBackend = false
+        radio.setOutputEnabled(false)
+        radio.panic()
+        radioLingerWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.radio.stopStreaming()
+        }
+        radioLingerWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + radioLingerSeconds,
+                                      execute: work)
+    }
+
+    /// Pending radio teardown. We keep the AVPlayer streaming for ~15 s
+    /// after leaving voice −1 so toggling back in is instant — no
+    /// reconnect, no buffer rewarm. Coming back within the window cancels
+    /// this and reopens the master gate.
+    private var radioLingerWorkItem: DispatchWorkItem?
+    private let radioLingerSeconds: TimeInterval = 15.0
+
+    /// Switch the active melodic source between the local synth and the
+    /// live KPBJ stream. Enabling silences any in-flight sampler /
+    /// MIDISynth notes so we don't double-trigger; disabling closes the
+    /// radio's master gate immediately (no stuck audio when picking a GM
+    /// voice mid-play) and schedules a 15 s teardown — so a quick flip
+    /// back finds the stream still warm.
+    func setRadioBackend(_ enabled: Bool) {
+        if enabled {
+            // Cancel any pending teardown — we're back in voice −1.
+            radioLingerWorkItem?.cancel()
+            radioLingerWorkItem = nil
+            usingRadioBackend = true
+            usingGarageBandPatch = false
+            for unit in [melodic, drums] {
+                stopAllSamplerNotes(unit)
+            }
+            if midiSynthReady, let au = midiSynth?.audioUnit {
+                for ch: UInt8 in 0..<16 {
+                    sendMIDIEvent(au, status: 0xB0 | ch, data1: 123, data2: 0)
+                }
+            }
+            if started {
+                _ = resumeAudioEngineIfNeeded()
+                radio.setOutputEnabled(true)
+                radio.startStreaming() // idempotent if already running
+            }
+        } else {
+            // Close the master gate immediately and start the linger
+            // teardown — see `leaveRadioWithLinger` for details.
+            leaveRadioWithLinger()
         }
     }
 
@@ -575,6 +660,13 @@ final class MenuBandSynth {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
         activeNotes.insert(noteKey(midi, channel: channel))
+        // Radio backend takes melodic ahead of GM/sampler/MIDISynth.
+        // Drums still pass through to GM below — the KPBJ pads are a
+        // melodic-only voice.
+        if usingRadioBackend && channel != 9 {
+            radio.noteOn(midi, velocity: velocity, channel: channel)
+            return
+        }
         // Drums (channel 9) always route through MIDISynth/drums sampler
         // — drum kits are GM regardless of melodic backend choice.
         if channel == 9 {
@@ -608,6 +700,10 @@ final class MenuBandSynth {
         guard started else { return }
         activeNotes.remove(noteKey(midi, channel: channel))
         defer { scheduleIdleSuspendIfNeeded() }
+        if usingRadioBackend && channel != 9 {
+            radio.noteOff(midi, channel: channel)
+            return
+        }
         if channel == 9 {
             if midiSynthReady, let au = midiSynth?.audioUnit {
                 sendMIDIEvent(au, status: 0x89, data1: midi)
@@ -640,5 +736,6 @@ final class MenuBandSynth {
         for unit in [melodic, drums] {
             stopAllSamplerNotes(unit)
         }
+        radio.panic()
     }
 }

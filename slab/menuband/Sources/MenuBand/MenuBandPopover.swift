@@ -708,6 +708,10 @@ final class MenuBandPopoverViewController: NSViewController {
 
         instrumentList = InstrumentListView()
         instrumentList.translatesAutoresizingMaskIntoConstraints = false
+        // Wire the controller so the grid can snapshot the synth tap ring
+        // for the audio-reactive overlay (treats the 8×16 cells as a
+        // low-res LED matrix sweeping the recent waveform).
+        instrumentList.menuBand = menuBand
         instrumentList.onCommit = { [weak self] prog in
             self?.handleInstrumentCommit(prog)
         }
@@ -733,16 +737,25 @@ final class MenuBandPopoverViewController: NSViewController {
             // nil) we snap back to the committed instrument.
             let safe: Int
             let nameForChip: String
+            let famColor: NSColor
             if let p = prog {
+                // Live hover: always show the GM cell under the cursor.
                 safe = max(0, min(127, p))
                 nameForChip = GeneralMIDI.programNames[safe]
+                famColor = InstrumentListView.colorForProgram(safe)
             } else if let m = self.menuBand {
-                safe = max(0, min(127, Int(m.melodicProgram)))
-                nameForChip = GeneralMIDI.programNames[safe]
+                if m.instrumentBackend == .kpbj {
+                    safe = 0
+                    nameForChip = "−1 KPBJ"
+                    famColor = NSColor.systemOrange
+                } else {
+                    safe = max(0, min(127, Int(m.melodicProgram)))
+                    nameForChip = GeneralMIDI.programNames[safe]
+                    famColor = InstrumentListView.colorForProgram(safe)
+                }
             } else {
                 return
             }
-            let famColor = InstrumentListView.colorForProgram(safe)
             // Funnel through the shared styler — assigning `.stringValue`
             // here would wipe the field's attributedStringValue (font +
             // shadow), snapping the title back to system black mid-drag.
@@ -913,28 +926,14 @@ final class MenuBandPopoverViewController: NSViewController {
         aboutBody.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
         aboutCol.setContentHuggingPriority(.defaultLow, for: .horizontal)
         aboutCol.addArrangedSubview(aboutBody)
-        // Two badge-style links stacked vertically. Aesthetic.Computer
-        // wears its purple-on-pale-purple identity; notepat.com gets a
-        // dark gray slab so the concert-poster white/black shadow play
-        // reads.
-        let linksCol = NSStackView()
-        linksCol.orientation = .vertical
-        linksCol.alignment = .leading
-        linksCol.spacing = 4
+        // Aesthetic.Computer brand badge — purple-on-pale-purple chip.
         let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
         let acLink = Self.makeLinkButton(
             attr: Self.aestheticComputerTitle(),
             target: self, action: #selector(openAesthetic),
             background: acPurple.withAlphaComponent(0.14),
             border: acPurple.withAlphaComponent(0.55))
-        let npLink = Self.makeLinkButton(
-            attr: Self.notepatComTitle(),
-            target: self, action: #selector(openNotepat),
-            background: NSColor(white: 0.30, alpha: 1),
-            border: nil)
-        linksCol.addArrangedSubview(acLink)
-        linksCol.addArrangedSubview(npLink)
-        aboutCol.addArrangedSubview(linksCol)
+        aboutCol.addArrangedSubview(acLink)
 
         // Crash-send moved out of this row — it now lives next to Quit
         // below as a small standalone button. Keeping it here as a side-by-
@@ -1136,9 +1135,14 @@ final class MenuBandPopoverViewController: NSViewController {
             v.removeFromSuperview()
         }
         let safe = max(0, min(127, Int(m.melodicProgram)))
-        let famColor = m.midiMode
-            ? NSColor.controlAccentColor
-            : InstrumentListView.colorForProgram(safe)
+        let famColor: NSColor
+        if m.midiMode {
+            famColor = NSColor.controlAccentColor
+        } else if m.instrumentBackend == .kpbj {
+            famColor = NSColor.systemOrange
+        } else {
+            famColor = InstrumentListView.colorForProgram(safe)
+        }
         // When 3+ notes form a recognized triad/seventh, the controller's
         // chord-detector returns a name like "Cmaj7" — show that as a
         // single banner box on top of the meter instead of three
@@ -1233,9 +1237,13 @@ final class MenuBandPopoverViewController: NSViewController {
         // current voice; keymap variant follows the controller.
         let safe = max(0, min(127, Int(n.melodicProgram)))
         qwertyMap?.keymap = n.keymap
-        qwertyMap?.voiceColor = n.midiMode
-            ? .controlAccentColor
-            : InstrumentListView.colorForProgram(safe)
+        if n.midiMode {
+            qwertyMap?.voiceColor = .controlAccentColor
+        } else if n.instrumentBackend == .kpbj {
+            qwertyMap?.voiceColor = NSColor.systemOrange
+        } else {
+            qwertyMap?.voiceColor = InstrumentListView.colorForProgram(safe)
+        }
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
         refreshUpdateBanner()
@@ -1408,8 +1416,18 @@ final class MenuBandPopoverViewController: NSViewController {
     private func updateInstrumentReadout() {
         guard let m = menuBand else { return }
         let safe = max(0, min(127, Int(m.melodicProgram)))
-        let title = GeneralMIDI.programNames[safe]
-        let famColor = InstrumentListView.colorForProgram(safe)
+        let title: String
+        let famColor: NSColor
+        if m.instrumentBackend == .kpbj {
+            // Voice −1: live KPBJ stream replaces the GM grid. Distinct
+            // amber lets the user spot it immediately and fits the
+            // KPBJ web piece's sunrise palette.
+            title = "−1 KPBJ"
+            famColor = NSColor.systemOrange
+        } else {
+            title = GeneralMIDI.programNames[safe]
+            famColor = InstrumentListView.colorForProgram(safe)
+        }
         applyInstrumentReadoutStyle(title: title, famColor: famColor)
         // The visualizer is the only piece of chrome that does NOT
         // track the voice color in MIDI mode — there it reads as a

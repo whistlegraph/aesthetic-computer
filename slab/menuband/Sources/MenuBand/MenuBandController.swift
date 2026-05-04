@@ -416,7 +416,7 @@ final class MenuBandController {
 
     // MARK: - Instrument backend (GM vs GarageBand)
 
-    enum InstrumentBackend: String { case gm, garageBand = "gb" }
+    enum InstrumentBackend: String { case gm, garageBand = "gb", kpbj = "kpbj" }
 
     var instrumentBackend: InstrumentBackend {
         let raw = UserDefaults.standard.string(forKey: instrumentBackendKey) ?? "gm"
@@ -440,6 +440,30 @@ final class MenuBandController {
         onChange?()
     }
 
+    /// Switch the active backend to the live KPBJ.FM radio stream
+    /// (conceptually "voice −1"). The piano keys play the live audio
+    /// pitched by 2^((note−60)/12) — middle C is unpitched, every other
+    /// note is varispeed-shifted off the same buffer. Disabling restores
+    /// whichever GM program was last selected.
+    func setRadioBackend(_ enabled: Bool) {
+        if enabled {
+            UserDefaults.standard.set("kpbj", forKey: instrumentBackendKey)
+            synth.setRadioBackend(true)
+        } else {
+            UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
+            synth.setRadioBackend(false)
+            // Reload whatever GM voice was last picked so the user lands
+            // back on a familiar instrument instead of silence.
+            synth.setMelodicProgram(melodicProgram)
+        }
+        onChange?()
+        onInstrumentVisualChange?()
+    }
+
+    func toggleRadioBackend() {
+        setRadioBackend(instrumentBackend != .kpbj)
+    }
+
 
     func bootstrap() {
         // Built-in synth is always live. TYPE mode and MIDI mode are now
@@ -457,6 +481,12 @@ final class MenuBandController {
         }
         synth.start()
         synth.setMelodicProgram(melodicProgram)
+        // Restore radio backend if it was active in the previous session.
+        // Done after setMelodicProgram so the GM voice is primed underneath
+        // — toggling radio off later returns the user to that voice.
+        if instrumentBackend == .kpbj {
+            synth.setRadioBackend(true)
+        }
         if UserDefaults.standard.object(forKey: midiModeKey) == nil {
             UserDefaults.standard.set(false, forKey: midiModeKey)
         }
@@ -1026,6 +1056,20 @@ final class MenuBandController {
     private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, linger: Bool = false) -> Bool {
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
         if hasModifier { return false }
+
+        // Minus key (`-`, keyCode 27) toggles the live KPBJ radio backend
+        // — conceptually "voice −1": the piano plays the live stream
+        // pitched by 2^((note−60)/12), with stalls fading into AM-style
+        // static. Consumed in both directions so it never leaks to the
+        // focused app, but only the down-event flips the mode.
+        if keyCode == 27 {
+            if isDown && !isRepeat {
+                DispatchQueue.main.async { [weak self] in
+                    self?.toggleRadioBackend()
+                }
+            }
+            return true
+        }
 
         // Number-row digits 0–9 build up a GM program selection (0–127).
         // Each digit appends to the buffer and applies the new value live;

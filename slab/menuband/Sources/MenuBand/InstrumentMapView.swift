@@ -1,4 +1,5 @@
 import AppKit
+import CoreVideo
 
 /// Tiny numeric flat-map of all 128 General MIDI programs. 8 columns × 16
 /// rows, one cell per program — number-only, family-colored background.
@@ -6,10 +7,17 @@ import AppKit
 /// Click a cell → onCommit; the popover commits the program and plays a
 /// preview note in it.
 ///
+/// Doubles as a low-resolution audio-reactive LED matrix: while the popover
+/// is visible, each column shows the recent peak amplitude of one slice of
+/// the live waveform, lighting cells from the bottom upward as a vintage
+/// segmented meter. The grid stays clickable underneath.
+///
 /// Replaces the scrollable named-list because the named list ate the
 /// popover's vertical real estate. The numeric map is ~224 × 224 px and
 /// fits comfortably alongside the rest of the controls.
 final class InstrumentListView: NSView {
+    /// Set by the popover so the view can snapshot the synth's tap ring.
+    weak var menuBand: MenuBandController?
     static let cols = 8
     static let rows = 16
     static let cellW: CGFloat = 28
@@ -39,6 +47,31 @@ final class InstrumentListView: NSView {
 
     private var trackingArea: NSTrackingArea?
 
+    // MARK: - Visualizer state
+    /// One smoothed display level per column (0…1), updated every display-
+    /// link tick via the same RMS+auto-gain+asymmetric-smoothing pipeline
+    /// the Metal `WaveformView` uses, so the grid meter and the dedicated
+    /// visualizer read identically. Renderer maps each value to a lit
+    /// half-height around the grid midline.
+    private var columnPeaks = [Float](repeating: 0, count: cols)
+    /// Per-tick raw RMS per column, before gain + smoothing. Kept as a
+    /// member so it doesn't reallocate every frame.
+    private var columnLevels = [Float](repeating: 0, count: cols)
+    /// Reusable buffer the synth fills during snapshotWaveform — allocated
+    /// once at init so the per-frame tick doesn't churn the heap.
+    private var sampleScratch = [Float](repeating: 0, count: 1024)
+    /// Auto-gain envelope. Snaps up on attack, decays slowly on release so
+    /// a sustained quiet voice still climbs into useful range. Floor of
+    /// 0.05 prevents infinite gain on near-silence.
+    private var smoothedPeak: Float = 0.05
+    private var visualizerLink: CVDisplayLink?
+    private var hasCaptureLease = false
+    /// Coalesce display callbacks in case main thread runs slow — same
+    /// pattern WaveformView uses to keep its display link from queueing
+    /// stale draw requests.
+    private var pendingTickLock = NSLock()
+    private var pendingTick = false
+
     override var isFlipped: Bool { true }   // top-down rows, reading order
 
     override init(frame frameRect: NSRect) {
@@ -46,6 +79,110 @@ final class InstrumentListView: NSView {
         setFrameSize(NSSize(width: Self.preferredWidth, height: Self.preferredHeight))
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit { stopVisualizer() }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            stopVisualizer()
+        } else {
+            startVisualizer()
+        }
+    }
+
+    private func startVisualizer() {
+        guard visualizerLink == nil, menuBand != nil else { return }
+        var link: CVDisplayLink?
+        guard CVDisplayLinkCreateWithActiveCGDisplays(&link) == kCVReturnSuccess,
+              let link = link else { return }
+        let opaque = Unmanaged.passUnretained(self).toOpaque()
+        CVDisplayLinkSetOutputCallback(link, { _, _, _, _, _, ctx -> CVReturn in
+            guard let ctx = ctx else { return kCVReturnSuccess }
+            let view = Unmanaged<InstrumentListView>.fromOpaque(ctx).takeUnretainedValue()
+            // Coalesce pending ticks the same way WaveformView does — slow
+            // main runloop shouldn't build a backlog of stale draws.
+            view.pendingTickLock.lock()
+            if view.pendingTick { view.pendingTickLock.unlock(); return kCVReturnSuccess }
+            view.pendingTick = true
+            view.pendingTickLock.unlock()
+            DispatchQueue.main.async { view.tickVisualizer() }
+            return kCVReturnSuccess
+        }, opaque)
+        guard CVDisplayLinkStart(link) == kCVReturnSuccess else { return }
+        menuBand?.setWaveformCaptureEnabled(true)
+        hasCaptureLease = true
+        visualizerLink = link
+    }
+
+    private func stopVisualizer() {
+        if let link = visualizerLink {
+            CVDisplayLinkStop(link)
+            visualizerLink = nil
+        }
+        if hasCaptureLease {
+            menuBand?.setWaveformCaptureEnabled(false)
+            hasCaptureLease = false
+        }
+        pendingTickLock.lock()
+        pendingTick = false
+        pendingTickLock.unlock()
+        // Drop the lit cells back to baseline so the popover doesn't flash a
+        // frozen meter the next time it opens.
+        for c in 0..<columnPeaks.count { columnPeaks[c] = 0 }
+    }
+
+    private func tickVisualizer() {
+        pendingTickLock.lock()
+        pendingTick = false
+        pendingTickLock.unlock()
+        guard let mb = menuBand else { return }
+        guard window?.isVisible == true, !isHiddenOrHasHiddenAncestor else { return }
+        mb.synthSnapshotWaveform(into: &sampleScratch)
+        let perCol = sampleScratch.count / Self.cols
+        guard perCol > 0 else { return }
+        // RMS per column instead of peak — peak detection makes the meter
+        // hop around as zero-crossings drift across chunk boundaries; RMS
+        // sits at the column's true amplitude. Same call WaveformView
+        // makes, so the two surfaces stay synchronized in feel.
+        var framePeak: Float = 0
+        for c in 0..<Self.cols {
+            let base = c * perCol
+            var sumSq: Float = 0
+            for i in 0..<perCol {
+                let s = sampleScratch[base + i]
+                sumSq += s * s
+            }
+            let rms = sqrtf(sumSq / Float(perCol))
+            columnLevels[c] = rms
+            if rms > framePeak { framePeak = rms }
+        }
+        // Auto-gain — snap up on attack, decay slowly so a sustained quiet
+        // note still pushes the meter into visible range.
+        if framePeak > smoothedPeak {
+            smoothedPeak = framePeak
+        } else {
+            smoothedPeak = max(0.05, smoothedPeak * 0.92 + framePeak * 0.08)
+        }
+        let gain = 0.95 / smoothedPeak
+        // Asymmetric per-column smoothing — fast attack to keep transient
+        // bite, slow decay to suppress phase-induced wobble. Values match
+        // WaveformView so the two visualizers behave identically.
+        let attack: Float = 0.55
+        let decay:  Float = 0.18
+        var changed = false
+        for c in 0..<Self.cols {
+            let raw = Swift.min(1.0, columnLevels[c] * gain)
+            let prev = columnPeaks[c]
+            let alpha = (raw > prev) ? attack : decay
+            let next = prev * (1.0 - alpha) + raw * alpha
+            if abs(next - prev) > 0.005 {
+                columnPeaks[c] = next
+                changed = true
+            }
+        }
+        if changed { needsDisplay = true }
+    }
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: Self.preferredWidth, height: Self.preferredHeight)
@@ -192,6 +329,58 @@ final class InstrumentListView: NSView {
             str.draw(at: NSPoint(x: r.midX - size.width / 2,
                                  y: r.midY - size.height / 2))
         }
+        drawVisualizerOverlay(in: dirtyRect)
+    }
+
+    /// Per-column center-out meter overlay. Each column's normalized peak
+    /// (0…1) maps to a half-height; the meter fills rows symmetrically
+    /// above and below the grid's midline. A silent column shows nothing,
+    /// a peak of 1 lights the full height. Lit cells glow in a saturated
+    /// version of the row's own family color (sat → 1.0, brightness → 1.0)
+    /// so the meter reads as the family palette firing up rather than a
+    /// neutral white wash. Brightest at the center (newest energy), softer
+    /// toward the edges.
+    private func drawVisualizerOverlay(in dirtyRect: NSRect) {
+        let halfRows = Self.rows / 2   // 8 rows above + 8 below center
+        for c in 0..<Self.cols {
+            let peak = columnPeaks[c]
+            let litHalf = Int((CGFloat(peak) * CGFloat(halfRows)).rounded(.up))
+            guard litHalf > 0 else { continue }
+            for offset in 0..<litHalf {
+                // isFlipped = true → row 0 is visual top. Midline between
+                // rows 7 and 8; light (7-offset) above and (8+offset) below.
+                let intensity = 0.65 - 0.30 * (CGFloat(offset) / CGFloat(halfRows))
+                for row in [halfRows - 1 - offset, halfRows + offset] {
+                    guard row >= 0, row < Self.rows else { continue }
+                    let p = row * Self.cols + c
+                    guard p >= 0, p < 128 else { continue }
+                    let r = cellRect(program: p)
+                    guard r.intersects(dirtyRect) else { continue }
+                    saturatedGlow(for: p, alpha: intensity).setFill()
+                    NSBezierPath(rect: r.insetBy(dx: 1.75, dy: 1.5)).fill()
+                }
+            }
+        }
+    }
+
+    /// Take the cell's family color and crank saturation + brightness so
+    /// the lit overlay reads as a glowing version of the cell's own hue.
+    /// Returns nil-safe via fallback to the base family color if HSB
+    /// conversion fails (shouldn't happen for sRGB-defined palette
+    /// entries, but guards against future palette changes).
+    private func saturatedGlow(for program: Int, alpha: CGFloat) -> NSColor {
+        let base = Self.colorForProgram(program)
+        guard let hsb = base.usingColorSpace(.sRGB) else {
+            return base.withAlphaComponent(alpha)
+        }
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        hsb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        // Push saturation toward 1, brightness toward 1 — same hue, much
+        // hotter rendering. Half-step toward max to keep colors that are
+        // already vivid (magenta, gold) from clipping into nonsense.
+        let s2 = s + (1 - s) * 0.85
+        let b2 = b + (1 - b) * 0.55
+        return NSColor(hue: h, saturation: s2, brightness: b2, alpha: alpha)
     }
 
     // MARK: - Mouse
