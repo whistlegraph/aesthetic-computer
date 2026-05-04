@@ -190,12 +190,28 @@ async function generateElevenLabs(text, gender, set, scream) {
 // Usage from the piece: `say:jeffrey hello world`
 const JEFFREY_VOICE_ID = "dYNGZ848Oo6DtNBoeqgh";
 
-async function generateJeffrey(text, scream) {
+async function generateJeffrey(text, scream, speed = 1.0, styleOverride = null,
+                                stabilityOverride = null, similarityOverride = null) {
   // Calmer, more natural delivery than the premade "scream" preset.
   // Same knobs as the grant-video pipeline for homogeneity.
-  const voiceSettings = scream
-    ? { stability: 0.2, similarity_boost: 0.85, style: 0.9, use_speaker_boost: true }
-    : { stability: 0.65, similarity_boost: 0.9, style: 0.15, use_speaker_boost: true };
+  // ElevenLabs voice_settings exposed (eleven_multilingual_v2):
+  //   speed       0.7-1.2     speech rate
+  //   style       0-1         emotional exaggeration (higher = more dramatic)
+  //   stability   0-1         lower = more expressive variation, higher = uniform
+  //   similarity  0-1         closeness to source clone (default 0.9)
+  const baseStyle      = scream ? 0.9  : 0.15;
+  const baseStability  = scream ? 0.2  : 0.65;
+  const baseSimilarity = scream ? 0.85 : 0.9;
+  const style       = (styleOverride      !== null) ? styleOverride      : baseStyle;
+  const stability   = (stabilityOverride  !== null) ? stabilityOverride  : baseStability;
+  const similarity  = (similarityOverride !== null) ? similarityOverride : baseSimilarity;
+  const voiceSettings = {
+    stability,
+    similarity_boost: similarity,
+    style,
+    use_speaker_boost: true,
+    speed,
+  };
 
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${JEFFREY_VOICE_ID}`,
@@ -304,6 +320,27 @@ exports.handler = async (event) => {
     // Scream mode for ElevenLabs (low stability, max style)
     const scream = body.scream === true;
 
+    // Speed for ElevenLabs voice_settings.speed (0.7-1.2 range,
+    // supported by eleven_multilingual_v2 + newer models). Default 1.
+    const speed = (typeof body.speed === "number")
+      ? Math.max(0.7, Math.min(1.2, body.speed))
+      : 1.0;
+    // Style exaggeration for ElevenLabs voice_settings.style (0-1).
+    // Higher = more emotional / dramatic delivery. null = use defaults.
+    const styleOverride = (typeof body.style === "number")
+      ? Math.max(0, Math.min(1, body.style))
+      : null;
+    // Stability (0-1). Lower = more variable / expressive, higher =
+    // more uniform / calm. null = use defaults.
+    const stabilityOverride = (typeof body.stability === "number")
+      ? Math.max(0, Math.min(1, body.stability))
+      : null;
+    // Similarity boost (0-1). Higher = closer to original voice clone.
+    // Default stays 0.9 — don't drop it without good reason.
+    const similarityOverride = (typeof body.similarity === "number")
+      ? Math.max(0, Math.min(1, body.similarity))
+      : null;
+
     // Cache bust: if true, skip cache lookup and regenerate
     const bustCache = body.bust === true;
 
@@ -316,8 +353,14 @@ exports.handler = async (event) => {
       text = text.replace(/<[^>]*>/g, "").trim();
     }
 
-    // Build voice identifier for cache key
-    const voiceSpec = `${provider}-${gender}-${set}${scream ? "-scream" : ""}`;
+    // Build voice identifier for cache key. Speed becomes part of the
+    // cache key so a slow-render and a fast-render produce different
+    // cached entries.
+    const speedSuffix = (speed !== 1.0) ? `-spd${speed.toFixed(2)}` : "";
+    const styleSuffix = (styleOverride !== null) ? `-sty${styleOverride.toFixed(2)}` : "";
+    const stabSuffix = (stabilityOverride !== null) ? `-stb${stabilityOverride.toFixed(2)}` : "";
+    const simSuffix = (similarityOverride !== null) ? `-sim${similarityOverride.toFixed(2)}` : "";
+    const voiceSpec = `${provider}-${gender}-${set}${scream ? "-scream" : ""}${speedSuffix}${styleSuffix}${stabSuffix}${simSuffix}`;
     const cacheKey = getCacheKey(provider, voiceSpec, text, instructions);
 
     try {
@@ -361,7 +404,7 @@ exports.handler = async (event) => {
       } else if (provider === "eleven") {
         result = await generateElevenLabs(text, gender, set, scream);
       } else if (provider === "jeffrey") {
-        result = await generateJeffrey(text, scream);
+        result = await generateJeffrey(text, scream, speed, styleOverride, stabilityOverride, similarityOverride);
       } else {
         result = await generateOpenAI(text, gender, set, instructions);
       }
