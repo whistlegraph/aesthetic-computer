@@ -171,10 +171,50 @@ fi
 cd "${WORK}"
 git add -A
 
-# No-op if the snapshot tree matches the previous commit's tree.
-if git diff --cached --quiet; then
-    ok "mirror already up-to-date (${MONO_SHORT})"
+# Compare staged tree to current HEAD tree by hash — unambiguous no-op
+# detection. Earlier this branch relied on `git diff --cached --quiet` and
+# the operator couldn't tell, after the fact, whether a "mirror already
+# up-to-date" line meant "diff was empty" or "diff check went sideways
+# but we never got around to actually pushing." Tree-hash compare leaves
+# no room for that ambiguity, and we print both hashes so a future
+# debugger can replay the decision from the log alone.
+HEAD_TREE="$(git rev-parse HEAD^{tree} 2>/dev/null || echo "")"
+STAGED_TREE="$(git write-tree)"
+say "snapshot tree ${STAGED_TREE:0:12} ↔ mirror HEAD tree ${HEAD_TREE:0:12}"
+
+# Stat the staged delta (A/M/D counts) so even the up-to-date branch
+# proves the diff was actually computed. `git diff --cached --numstat`
+# lists one line per changed file; counting lines is good enough for a
+# headline, and we surface a few exemplar paths so a 0/0/0 sync isn't
+# silently skipped without showing why.
+DELTA_RAW="$(git diff --cached --name-status)"
+DELTA_COUNT="$(printf '%s\n' "${DELTA_RAW}" | grep -c . || true)"
+ADDED="$(printf '%s\n' "${DELTA_RAW}" | grep -c '^A' || true)"
+MODIFIED="$(printf '%s\n' "${DELTA_RAW}" | grep -c '^M' || true)"
+DELETED="$(printf '%s\n' "${DELTA_RAW}" | grep -c '^D' || true)"
+
+if [[ "${HEAD_TREE}" == "${STAGED_TREE}" ]]; then
+    if [[ "${DELTA_COUNT}" -ne 0 ]]; then
+        # Tree-hash equality and a non-empty numstat would mean git is
+        # lying to one of the two callers — bail loudly rather than
+        # silently exiting "up-to-date" with a real diff sitting in the
+        # index. This branch should be unreachable; if it ever fires,
+        # the script needs a closer look before trusting another sync.
+        err "tree hashes match but ${DELTA_COUNT} staged change(s) reported — refusing to skip"
+        printf '%s\n' "${DELTA_RAW}" 1>&2
+        exit 1
+    fi
+    ok "mirror already up-to-date (tip ${MONO_SHORT}, tree ${STAGED_TREE:0:12})"
     exit 0
+fi
+
+ok "${DELTA_COUNT} change(s) staged — added=${ADDED} modified=${MODIFIED} deleted=${DELETED}"
+# Show up to 6 exemplar paths so the operator can sanity-check that the
+# right files are about to land before push. Anything beyond that gets
+# summarised — full list is in the resulting commit anyway.
+printf '%s\n' "${DELTA_RAW}" | head -6 | sed 's/^/    /'
+if [[ "${DELTA_COUNT}" -gt 6 ]]; then
+    printf '    … and %d more\n' "$((DELTA_COUNT - 6))"
 fi
 
 # Mirror commit message: human-readable header naming the upstream
@@ -189,6 +229,18 @@ git -c "user.name=${MONO_AUTHOR%% <*}" \
         -m "Mirror of ${MONO_SHORT}: ${MONO_SUBJECT}" \
         -m "Snapshot of slab/menuband/ from aesthetic.computer/core @ ${MONO_HASH}." >/dev/null
 
-say "pushing to ${MIRROR_URL}"
+LOCAL_NEW_HEAD="$(git rev-parse HEAD)"
+say "pushing ${LOCAL_NEW_HEAD:0:9} to ${MIRROR_URL}"
 git push -q origin "${MIRROR_BRANCH}"
-ok "mirror updated → github.com/whistlegraph/menuband (${MONO_SHORT})"
+
+# Verify-after-push: re-query the remote tip and confirm it matches the
+# commit we just made. Catches the "push silently no-op'd" failure mode
+# (auth fallback to a stale credential, network hiccup that exited 0 on
+# a retry, etc.) where the script otherwise would happily print
+# "mirror updated" without the mirror actually advancing.
+REMOTE_NEW_HEAD="$(git ls-remote "${MIRROR_URL}" "${MIRROR_BRANCH}" 2>/dev/null | awk '{print $1}')"
+if [[ "${REMOTE_NEW_HEAD}" != "${LOCAL_NEW_HEAD}" ]]; then
+    err "push appeared to succeed but mirror tip is ${REMOTE_NEW_HEAD:0:9}, not ${LOCAL_NEW_HEAD:0:9}"
+    exit 1
+fi
+ok "mirror updated → github.com/whistlegraph/menuband (${LOCAL_NEW_HEAD:0:9}, mono ${MONO_SHORT})"
