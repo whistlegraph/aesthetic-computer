@@ -248,9 +248,15 @@ final class MenuBandMIDI {
             // user has to re-enable Track in Live's MIDI prefs to hear
             // notes. Pinning UID + manufacturer + model means Ableton's
             // routing survives reinstalls.
-            // UID is a 32-bit signed int; 0x4D424E44 = ASCII "MBND".
+            // UID is a 32-bit signed int. Originally 0x4D424E44 ("MBND")
+            // for stability across reinstalls. Bumped once after Ableton
+            // Live 12.3.8's cached entry for the original UID went stale
+            // (Track On wouldn't stick / audio dropped) — forcing a new
+            // UID makes Live treat it as a fresh device and write a
+            // clean MidiInDevicePreferences entry. Bump again the next
+            // time a DAW's per-port cache gets wedged.
             MIDIObjectSetIntegerProperty(source, kMIDIPropertyUniqueID,
-                                         Int32(bitPattern: 0x4D424E44))
+                                         Int32(bitPattern: 0x4D424E45))
             MIDIObjectSetStringProperty(source, kMIDIPropertyManufacturer,
                                         "aesthetic.computer" as CFString)
             MIDIObjectSetStringProperty(source, kMIDIPropertyModel,

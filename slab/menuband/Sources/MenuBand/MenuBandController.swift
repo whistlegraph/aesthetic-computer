@@ -1088,21 +1088,28 @@ final class MenuBandController {
             return true
         }
 
-        // Number-row digits 0–9 build up a GM program selection (0–127).
-        // Each digit appends to the buffer and applies the new value live;
-        // a 3-digit cap means the 4th press starts over with that digit
-        // alone, so the user can sweep voices without a clear key. Down-
-        // events only — repeats are consumed silently. Always consume so
-        // digit keystrokes never leak through to the focused app.
+        // Number-row digits 0–9 select a voice using the chooser
+        // grid's 1-based numbering: 0 / 00 / 000 is the MIDI
+        // passthrough slot, "1" picks GM program 0 (Acoustic Grand,
+        // displayed as voice 1), …, "128" picks program 127. Picking
+        // a non-zero voice forces the backend back to internal-synth
+        // playback so the user can sweep out of MIDI mode by typing.
+        // 3-digit cap means the 4th press starts a fresh sequence.
+        // Down-events only.
         if let digit = Self.digitForKeyCode(keyCode) {
             if isDown && !isRepeat {
                 if voiceDigitBuffer.count >= 3 { voiceDigitBuffer = "" }
                 voiceDigitBuffer.append(String(digit))
-                if let v = Int(voiceDigitBuffer) {
-                    let program = UInt8(max(0, min(127, v)))
-                    DispatchQueue.main.async { [weak self] in
-                        self?.setMelodicProgram(program)
+                let buffer = voiceDigitBuffer
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, let v = Int(buffer) else { return }
+                    if v == 0 {
+                        if !self.midiMode { self.toggleMIDIMode() }
+                        return
                     }
+                    if self.midiMode { self.toggleMIDIMode() }
+                    let program = UInt8(max(0, min(127, v - 1)))
+                    self.setMelodicProgram(program)
                 }
             }
             return true

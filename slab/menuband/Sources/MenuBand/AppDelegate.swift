@@ -11,8 +11,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var focusCaptureHotkey: GlobalHotkey?
     private var pianoWaveformHotkey: GlobalHotkey?
     private var layoutToggleHotkey: GlobalHotkey?
-    private let popover = NSPopover()
+    private var popoverPanel: MenuBandPopoverPanel?
     private var popoverVC: MenuBandPopoverViewController?
+
+    private var isPopoverPanelShown: Bool { popoverPanel?.isVisible == true }
     private lazy var pianoWaveformWindowDelegate = PianoWaveformWindowDelegate(menuBand: menuBand)
     private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
@@ -152,7 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Refresh the popover too so live state changes
                 // (octave shift via , / . , MIDI mode flip, etc.)
                 // reflect immediately while the popover is open.
-                if self.popover.isShown {
+                if self.isPopoverPanelShown {
                     self.popoverVC?.syncFromController()
                 }
             }
@@ -191,8 +193,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // isn't visible, falling the panel back to the menubar
         // status-item anchor.
         pianoWaveformWindowDelegate.popoverFrameProvider = { [weak self] in
-            guard let self = self, self.popover.isShown else { return nil }
-            return self.popover.contentViewController?.view.window?.frame
+            guard let self = self, self.isPopoverPanelShown else { return nil }
+            return self.popoverPanel?.frame
         }
         pianoWaveformWindowDelegate.isPianoFocusActive = { [weak self] in
             self?.localCapture.isArmed ?? false
@@ -292,7 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // never falls through to the focused app or to the note
             // path (where space would otherwise behave like an
             // unmapped key consume).
-            if keyCode == 49 /* kVK_Space */, self.popover.isShown {
+            if keyCode == 49 /* kVK_Space */, self.isPopoverPanelShown {
                 if isDown && !isRepeat {
                     self.popoverVC?.toggleMetronome()
                 }
@@ -328,9 +330,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
             )
             if consumed && isDown {
-                if !self.menuBand.litNotes.isEmpty {
-                    self.pianoWaveformWindowDelegate.showIfNeeded()
-                }
+                // Note plays only — the floating panel is reserved
+                // for explicit triggers (LED chip / gear popover).
+                // Earlier this called `showIfNeeded()` so a typed
+                // letter would auto-open the panel; the surprise
+                // pop-up was not what the user wanted while playing.
                 // Use the most-recent lit display note as the wave pivot
                 // so the ripple emanates from whichever key the user just
                 // played. `litNotes` is updated synchronously on this
@@ -346,17 +350,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.finishLocalCapture(reason: reason)
         }
 
-        // Pre-instance the popover + force its view to load now so the
-        // first click pops it instantly. With `animates = false` the
-        // open/close has no transition — it's a snap, much more "playable"
-        // for quickly toggling between the menubar piano and the picker.
+        // Pre-instance the popover VC + force its view to load now so the
+        // first click pops it instantly. The actual NSPanel host is
+        // built lazily in `showPopover()` (panel position depends on
+        // the floating piano panel's frame, which only exists once the
+        // status item is on screen).
         installPopoverVC()
-        // .applicationDefined: never auto-close. We manage closing manually
-        // so clicking a menubar piano key (which would normally count as
-        // "outside" the popover under .transient) doesn't dismiss the
-        // popover while the user is playing.
-        popover.behavior = .applicationDefined
-        popover.animates = false
 
         // Language change → rebuild the popover with the new translations.
         // Cheaper than walking every label with a setter, and means future
@@ -393,7 +392,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installPopoverVC() {
         let vc = MenuBandPopoverViewController()
         vc.menuBand = menuBand
-        vc.popover = popover
         vc.onFocusShortcutChange = { [weak self] shortcut in
             self?.applyFocusShortcut(shortcut) ?? false
         }
@@ -413,7 +411,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pianoWaveformWindowDelegate.isShown ?? false
         }
         popoverVC = vc
-        popover.contentViewController = vc
         _ = vc.view
     }
 
@@ -421,15 +418,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// re-reads from the current locale. Preserves whether the popover was
     /// open — re-shows it relative to the status item if so.
     private func rebuildPopoverForLanguageChange() {
-        let wasShown = popover.isShown
-        if wasShown { popover.performClose(nil) }
+        let wasShown = isPopoverPanelShown
+        if wasShown { closePopover() }
         installPopoverVC()
         popoverVC?.syncFromController()
-        if wasShown, let button = statusItem.button {
-            popover.show(relativeTo: button.bounds,
-                         of: button,
-                         preferredEdge: .minY)
-        }
+        if wasShown { showPopover() }
     }
 
     // MARK: - Global shortcuts
@@ -585,9 +578,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // popover closed, `popoverFrameProvider` returns nil and
         // `expandedFrame` falls back to a `centeredOrigin`, so the
         // panel pops up dead-center.
+        let popoverWasOpen = isPopoverPanelShown
+        let panelWasOpen = pianoWaveformWindowDelegate.isShown
         closePopover()
-        if pianoWaveformWindowDelegate.isShown {
+        if panelWasOpen {
             pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
+            return
+        }
+        // Defer the panel open by one runloop tick so AppKit can finish
+        // tearing down the popover window first. Without this, the popover
+        // and the expanded panel both render on screen simultaneously
+        // (both wear liquid-glass material → reads as "two large popovers").
+        if popoverWasOpen {
+            DispatchQueue.main.async { [weak self] in
+                self?.pianoWaveformWindowDelegate.showExpandedForPopover()
+            }
         } else {
             pianoWaveformWindowDelegate.showExpandedForPopover()
         }
@@ -1267,20 +1272,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             displayNote: startDisplayNote,
             linger: initialShift
         )
-        // Menubar piano taps no longer auto-open the floating panel —
-        // it's reserved for the popover-paired flow (and the explicit
-        // mini-visualizer chip / shortcut). Earlier this called
-        // showIfNeeded here, which surprised users who just wanted to
-        // play a quick note in the menubar.
-        // Arm sandbox-friendly local capture on a real piano click. We
-        // skip arming when global TYPE mode is already on — the global
-        // tap is already handling keys, doubling up would re-trigger
-        // every note. No letter flash on click: the label overlay is
-        // reserved for actual key presses, so the menubar stays clean
-        // when you're just tapping the piano with the mouse.
+        // Menubar piano taps play the note ONLY — no floating
+        // panel pop-up. Reserve the panel for the popover-paired
+        // flow and the explicit LED-chip / shortcut entry points.
+        // Arm sandbox-friendly local capture on a real piano click;
+        // skip arming when global TYPE mode is already on so the
+        // global tap doesn't double-trigger.
         if !menuBand.typeMode {
             localCapture.arm()
-            updatePianoWaveformWindow()
+            // Refresh the panel's lit state in case it's already
+            // visible (popover-paired), but do not call
+            // `updatePianoWaveformWindow()` — that path runs
+            // `showIfNeeded()` which would auto-open the panel
+            // here, which is exactly what the user doesn't want.
+            pianoWaveformWindowDelegate.refresh()
         }
         var currentDisplay: UInt8? = startDisplayNote
         var currentPlayed: UInt8? = startNote
@@ -1337,9 +1342,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `statusClicked` (settings-chip toggle) and from the click-away
     /// monitor itself when the user clicks anywhere outside our app.
     private func closePopover() {
-        if popover.isShown {
-            popover.performClose(nil)
+        if let panel = popoverPanel {
+            // Reparent the VC's view OUT of the panel before tearing
+            // it down so the next show can re-embed it cleanly.
+            popoverVC?.view.removeFromSuperview()
+            panel.orderOut(nil)
         }
+        popoverPanel = nil
         if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
         if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
         appBeforePopover = nil
@@ -1355,55 +1364,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleShowPopoverNotification(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if !self.popover.isShown {
+            if !self.isPopoverPanelShown {
                 self.showPopover()
             }
         }
     }
 
     private func showPopover() {
-        guard let button = statusItem.button else { return }
-        // popoverVC is pre-built in applicationDidFinishLaunching so the first
-        // open is instant — no lazy view inflation here.
+        guard let button = statusItem.button,
+              let buttonWindow = button.window else { return }
         popoverVC?.syncFromController()
-        if popover.isShown {
+        if isPopoverPanelShown {
             closePopover()
         } else {
+            guard let vc = popoverVC else { return }
+            // Force the VC's view to lay out so we have its real
+            // preferredContentSize before stuffing it into the panel.
+            _ = vc.view
+            vc.view.layoutSubtreeIfNeeded()
+            let contentSize = vc.preferredContentSize.width > 0
+                ? vc.preferredContentSize
+                : vc.view.fittingSize
+
+            let panel = MenuBandPopoverPanel(
+                content: vc.view,
+                contentSize: contentSize)
+
+            // Show the floating piano FIRST so its frame is known and
+            // we can flush the popover's left edge against the
+            // floating panel's right edge.
+            pianoWaveformWindowDelegate.showCollapsedForPopover()
+            updatePianoWaveformWindowSuppression()
+
+            // Compute screen positions:
+            //  • leftScreenX  = right edge of the floating piano panel
+            //                  (so the popover sits flush against it)
+            //  • topScreenY   = bottom of the menubar
+            //  • arrowScreenX = horizontal center of the gear/note icon
             let imgSize = KeyboardIconRenderer.imageSize
             let bb = button.bounds
             let xOff = (bb.width - imgSize.width) / 2.0
-            let yOff = (bb.height - imgSize.height) / 2.0
             let latch = KeyboardIconRenderer.settingsRectPublic
-            let anchor = NSRect(
-                x: xOff + latch.minX,
-                y: yOff + latch.minY,
-                width: latch.width,
-                height: latch.height
-            )
-            // Activate the app + make the popover key so hover and clicks
-            // register immediately. NSStatusItem popovers don't pull focus
-            // by default; without this you have to click into the popover
-            // once before its controls react.
+            let gearLocal = NSPoint(x: xOff + latch.midX, y: 0)
+            let gearWindow = button.convert(gearLocal, to: nil)
+            let gearScreen = buttonWindow.convertPoint(toScreen: gearWindow)
+            let buttonScreenFrame = buttonWindow.convertToScreen(button.frame)
+            let topScreenY = buttonScreenFrame.minY
+
+            // Always anchor so the arrow tip lands a single corner-inset
+            // from the popover's LEFT edge — the popover then extends
+            // rightward from the gear, regardless of where the floating
+            // piano panel happens to sit. Anchoring to `pianoFrame.maxX`
+            // (the older behavior) could push the popover's left edge
+            // past the gear when the piano panel was wide, which forced
+            // the arrow to clamp at the corner instead of pointing at
+            // the gear icon.
+            let leftScreenX: CGFloat = gearScreen.x
+                - MenuBandPopoverPanel.cornerRadius
+                - MenuBandPopoverPanel.arrowWidth / 2 - 2
+
+            panel.position(
+                leftScreenX: leftScreenX,
+                topScreenY: topScreenY,
+                arrowScreenX: gearScreen.x)
+
+            // Pair-and-show: panel goes up first, then we record the
+            // ownership reference + arm focus/click-away monitors.
             let frontmost = NSWorkspace.shared.frontmostApplication
             appBeforePopover = frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier
                 ? nil
                 : frontmost
             NSApp.activate(ignoringOtherApps: true)
-            popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
-            // Pair the popover with the COLLAPSED floating panel —
-            // that's where the GM chooser lives. Expanded is only
-            // reachable by user action (the expand button on the
-            // collapsed panel).
-            pianoWaveformWindowDelegate.showCollapsedForPopover()
-            updatePianoWaveformWindowSuppression()
+            panel.makeKeyAndOrderFront(nil)
+            popoverPanel = panel
+
             // Arm local key capture so arrow keys + spacebar reach
             // our handler while the popover is up. The InstrumentList
             // used to be in the popover and grabbed keys via its
             // first-responder; once it moved to the floating panel
             // nothing was capturing arrows for the controller.
             if !localCapture.isArmed { localCapture.arm() }
-            DispatchQueue.main.async {
-                self.popover.contentViewController?.view.window?.makeKey()
+            DispatchQueue.main.async { [weak panel] in
+                panel?.makeKey()
             }
             // Click-away monitor: clicks on OTHER apps close the popover.
             // In-app clicks (status item button, the popover itself) don't
@@ -1437,14 +1479,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updatePianoWaveformWindow() {
         pianoWaveformWindowDelegate.refresh()
         guard pianoWaveformWindowDelegate.isCollapsedState else { return }
-        if !menuBand.litNotes.isEmpty {
-            pianoWaveformWindowDelegate.showIfNeeded()
-        } else if !popover.isShown {
-            // Auto-hide the collapsed strip only when it's standalone.
-            // While the popover is up the panel is paired with it and
-            // must stay visible — scheduleHide would otherwise fire
-            // ~2s after any silent state change (e.g., arrow-key
-            // stepping) and dismiss the panel mid-popover.
+        // Show is intentionally NOT triggered here — `onChange`
+        // fires for every menubar piano tap, and auto-opening on
+        // a click was the source of the surprise pop-up. The panel
+        // stays a deliberate-trigger surface (LED chip, gear
+        // popover, typed-key showIfNeeded). All this path does is
+        // manage hide-timer state for an already-visible panel.
+        if menuBand.litNotes.isEmpty && !isPopoverPanelShown {
+            // Auto-hide the collapsed strip only when it's
+            // standalone. While the popover is up the panel is
+            // paired with it and must stay visible.
             pianoWaveformWindowDelegate.scheduleHide()
         } else {
             pianoWaveformWindowDelegate.cancelPendingHide()
@@ -1453,6 +1497,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updatePianoWaveformWindowSuppression() {
         pianoWaveformWindowDelegate.isCollapsedPresentationSuppressed =
-            pianoWaveformWindowDelegate.isDocked && (popover.isShown || pianoWaveformWindowDelegate.isShown)
+            pianoWaveformWindowDelegate.isDocked && (isPopoverPanelShown || pianoWaveformWindowDelegate.isShown)
     }
 }

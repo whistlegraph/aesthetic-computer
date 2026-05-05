@@ -22,13 +22,28 @@ final class InstrumentListView: NSView {
     static let rows = 16
     static let cellW: CGFloat = 28
     static let cellH: CGFloat = 14
+    /// Special "instrument 0" addressable slot that lives above the
+    /// 1-128 grid. Picking it engages MIDI passthrough mode (notes go
+    /// out the virtual port instead of the internal synth). Replaces
+    /// the old in-popover MIDI toggle switch with a visual peer of the
+    /// patch slots, so the chooser is the single addressing surface.
+    static let midiOutH: CGFloat = 18
+    static let midiOutGap: CGFloat = 3
 
     static let preferredWidth:  CGFloat = cellW * CGFloat(cols)    // 224
-    static let preferredHeight: CGFloat = cellH * CGFloat(rows)    // 224
+    static let preferredHeight: CGFloat = midiOutH + midiOutGap
+        + cellH * CGFloat(rows)                                    // 245
 
     var selectedProgram: UInt8 = 0 { didSet { needsDisplay = true } }
     private(set) var hoveredProgram: UInt8?
+    /// Lit when the controller's `midiMode` is on. Drives the
+    /// MIDI-OUT cell's filled/outlined appearance and tints the
+    /// rest of the grid as deselected.
+    var midiModeActive: Bool = false { didSet { needsDisplay = true } }
     var onCommit: ((Int) -> Void)?
+    /// Fires when the user clicks the MIDI-OUT cell at the top of the
+    /// grid. The popover wires this to `menuBand.toggleMIDIMode()`.
+    var onMidiOutCommit: (() -> Void)?
     /// Fires whenever the hovered cell changes (including transitions to
     /// "no hover" → nil). Drives the controller's hover-preview note for
     /// sonic browsing.
@@ -47,24 +62,6 @@ final class InstrumentListView: NSView {
 
     private var trackingArea: NSTrackingArea?
 
-    // MARK: - Visualizer state
-    /// One smoothed display level per column (0…1), driving the
-    /// per-column LED bars that bloom outward from the grid midline.
-    private var columnPeaks = [Float](repeating: 0, count: cols)
-    /// Per-tick raw RMS per column, before gain + smoothing.
-    private var columnLevels = [Float](repeating: 0, count: cols)
-    /// Reusable buffer the synth fills during snapshotWaveform.
-    private var sampleScratch = [Float](repeating: 0, count: 1024)
-    /// Auto-gain envelope.
-    private var smoothedPeak: Float = 0.05
-    /// Slow blink phase for the selected cell — independent of audio
-    /// so the chosen instrument still breathes during silence.
-    private var blinkPhase: Double = 0
-    private var visualizerLink: CVDisplayLink?
-    private var hasCaptureLease = false
-    private var pendingTickLock = NSLock()
-    private var pendingTick = false
-
     override var isFlipped: Bool { true }   // top-down rows, reading order
     /// Cells are clickable + drag-target — let `panel.isMovableByWindowBackground`
     /// kick in only on truly empty surfaces, not on the chooser.
@@ -75,106 +72,6 @@ final class InstrumentListView: NSView {
         setFrameSize(NSSize(width: Self.preferredWidth, height: Self.preferredHeight))
     }
     required init?(coder: NSCoder) { fatalError() }
-
-    deinit { stopVisualizer() }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window == nil {
-            stopVisualizer()
-        } else {
-            startVisualizer()
-        }
-    }
-
-    private func startVisualizer() {
-        guard visualizerLink == nil, menuBand != nil else { return }
-        var link: CVDisplayLink?
-        guard CVDisplayLinkCreateWithActiveCGDisplays(&link) == kCVReturnSuccess,
-              let link = link else { return }
-        let opaque = Unmanaged.passUnretained(self).toOpaque()
-        CVDisplayLinkSetOutputCallback(link, { _, _, _, _, _, ctx -> CVReturn in
-            guard let ctx = ctx else { return kCVReturnSuccess }
-            let view = Unmanaged<InstrumentListView>.fromOpaque(ctx).takeUnretainedValue()
-            // Coalesce pending ticks the same way WaveformView does — slow
-            // main runloop shouldn't build a backlog of stale draws.
-            view.pendingTickLock.lock()
-            if view.pendingTick { view.pendingTickLock.unlock(); return kCVReturnSuccess }
-            view.pendingTick = true
-            view.pendingTickLock.unlock()
-            DispatchQueue.main.async { view.tickVisualizer() }
-            return kCVReturnSuccess
-        }, opaque)
-        guard CVDisplayLinkStart(link) == kCVReturnSuccess else { return }
-        menuBand?.setWaveformCaptureEnabled(true)
-        hasCaptureLease = true
-        visualizerLink = link
-    }
-
-    private func stopVisualizer() {
-        if let link = visualizerLink {
-            CVDisplayLinkStop(link)
-            visualizerLink = nil
-        }
-        if hasCaptureLease {
-            menuBand?.setWaveformCaptureEnabled(false)
-            hasCaptureLease = false
-        }
-        pendingTickLock.lock()
-        pendingTick = false
-        pendingTickLock.unlock()
-        for c in 0..<columnPeaks.count { columnPeaks[c] = 0 }
-        blinkPhase = 0
-    }
-
-    private func tickVisualizer() {
-        pendingTickLock.lock()
-        pendingTick = false
-        pendingTickLock.unlock()
-        guard let mb = menuBand else { return }
-        guard window?.isVisible == true, !isHiddenOrHasHiddenAncestor else { return }
-        mb.synthSnapshotWaveform(into: &sampleScratch)
-        let perCol = sampleScratch.count / Self.cols
-        guard perCol > 0 else { return }
-        var framePeak: Float = 0
-        for c in 0..<Self.cols {
-            let base = c * perCol
-            var sumSq: Float = 0
-            for i in 0..<perCol {
-                let s = sampleScratch[base + i]
-                sumSq += s * s
-            }
-            let rms = sqrtf(sumSq / Float(perCol))
-            columnLevels[c] = rms
-            if rms > framePeak { framePeak = rms }
-        }
-        if framePeak > smoothedPeak {
-            smoothedPeak = framePeak
-        } else {
-            smoothedPeak = max(0.05, smoothedPeak * 0.92 + framePeak * 0.08)
-        }
-        let gain = 0.95 / smoothedPeak
-        let attack: Float = 0.55
-        let decay:  Float = 0.18
-        var changed = false
-        for c in 0..<Self.cols {
-            let raw = Swift.min(1.0, columnLevels[c] * gain)
-            let prev = columnPeaks[c]
-            let alpha = (raw > prev) ? attack : decay
-            let next = prev * (1.0 - alpha) + raw * alpha
-            if abs(next - prev) > 0.005 {
-                columnPeaks[c] = next
-                changed = true
-            }
-        }
-        // Steady ~1.6Hz breathe phase for the selected cell, independent
-        // of audio so the chosen voice keeps gently pulsing during silence.
-        blinkPhase += 1.0 / 60.0 * 1.6
-        if blinkPhase > 1000 { blinkPhase -= 1000 }
-        if changed || Int(blinkPhase * 15) % 4 == 0 {
-            needsDisplay = true
-        }
-    }
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: Self.preferredWidth, height: Self.preferredHeight)
@@ -195,22 +92,36 @@ final class InstrumentListView: NSView {
 
     // MARK: - Geometry
 
+    private static var gridYOffset: CGFloat { midiOutH + midiOutGap }
+
     private func cellRect(program p: Int) -> NSRect {
         let col = p % Self.cols
         let row = p / Self.cols
         return NSRect(x: CGFloat(col) * Self.cellW,
-                      y: CGFloat(row) * Self.cellH,
+                      y: Self.gridYOffset + CGFloat(row) * Self.cellH,
                       width: Self.cellW,
                       height: Self.cellH)
     }
 
+    /// Full-width "0 MIDI OUT" cell at the top of the chooser. Hit-test
+    /// is exclusive of the patch grid below.
+    private var midiOutRect: NSRect {
+        NSRect(x: 0, y: 0, width: bounds.width, height: Self.midiOutH)
+    }
+
     private func program(at point: NSPoint) -> Int? {
         guard bounds.contains(point) else { return nil }
+        let yInGrid = point.y - Self.gridYOffset
+        guard yInGrid >= 0 else { return nil }
         let col = Int(point.x / Self.cellW)
-        let row = Int(point.y / Self.cellH)
+        let row = Int(yInGrid / Self.cellH)
         guard col >= 0, col < Self.cols, row >= 0, row < Self.rows else { return nil }
         let p = row * Self.cols + col
         return p < 128 ? p : nil
+    }
+
+    private func isMidiOutHit(_ point: NSPoint) -> Bool {
+        midiOutRect.contains(point)
     }
 
     /// Hand-picked color per GM family (16 families × 8 programs each;
@@ -288,13 +199,41 @@ final class InstrumentListView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        // MIDI OUT cell (slot 0) — accent-filled when active, outlined
+        // when inactive. Draws first so the patch grid renders below.
+        let midiR = midiOutRect
+        if midiR.intersects(dirtyRect) {
+            let accent = NSColor.controlAccentColor
+            let cap = NSBezierPath(roundedRect: midiR.insetBy(dx: 1.75, dy: 1.5),
+                                   xRadius: 3, yRadius: 3)
+            if midiModeActive {
+                accent.withAlphaComponent(0.85).setFill()
+                cap.fill()
+                accent.setStroke()
+                cap.lineWidth = 1.4
+                cap.stroke()
+            } else {
+                accent.withAlphaComponent(0.10).setFill()
+                cap.fill()
+                accent.withAlphaComponent(0.55).setStroke()
+                cap.lineWidth = 0.8
+                cap.stroke()
+            }
+            let labelText = "0  MIDI OUT"
+            let labelColor: NSColor = midiModeActive ? .white : .labelColor
+            let labelAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
+                .foregroundColor: labelColor.withAlphaComponent(midiModeActive ? 1.0 : 0.85),
+                .kern: 0.4,
+            ]
+            let str = NSAttributedString(string: labelText, attributes: labelAttrs)
+            let size = str.size()
+            str.draw(at: NSPoint(x: midiR.midX - size.width / 2,
+                                 y: midiR.midY - size.height / 2))
+        }
+
         let selectedRow = Int(selectedProgram) / Self.cols
         let selectedCol = Int(selectedProgram) % Self.cols
-        // Selected cell breathes in alpha at ~1.6 Hz regardless of
-        // audio; on top of that, the loudest column's level boosts the
-        // gain so the chosen voice pulses with playing too.
-        let blinkAmount = 0.5 + 0.5 * CGFloat(sin(blinkPhase * 2 * .pi))
-        let amp = CGFloat(columnPeaks.max() ?? 0)
 
         for p in 0..<128 {
             let r = cellRect(program: p)
@@ -308,11 +247,9 @@ final class InstrumentListView: NSView {
             let isSelected = (selectedProgram == UInt8(p))
 
             if isSelected {
-                // Selected cell: family color pulsing toward white,
-                // tracking both the steady blink and audio amplitude.
-                let pulse = min(1.0, 0.55 + blinkAmount * 0.30 + amp * 0.5)
-                let bg = fam.blended(withFraction: amp * 0.4, of: .white) ?? fam
-                bg.withAlphaComponent(pulse).setFill()
+                // Selected cell: solid family color so the chosen
+                // voice reads as the brightest cell in the grid.
+                fam.withAlphaComponent(0.85).setFill()
                 NSBezierPath(rect: r).fill()
             } else {
                 // Family-tinted bed at low opacity so the grid still
@@ -361,60 +298,15 @@ final class InstrumentListView: NSView {
                 shadow.shadowBlurRadius = 2
                 attrs[.shadow] = shadow
             }
-            let str = NSAttributedString(string: String(p), attributes: attrs)
+            // Display 1-based labels (1-128) — internal program index
+            // stays 0-127 for synth/MIDI compatibility. Slot 0 is the
+            // virtual "MIDI OUT" address (handled by the toggle below
+            // the grid); patches occupy 1-128.
+            let str = NSAttributedString(string: String(p + 1), attributes: attrs)
             let size = str.size()
             str.draw(at: NSPoint(x: r.midX - size.width / 2,
                                  y: r.midY - size.height / 2))
         }
-        drawColumnBars(in: dirtyRect)
-    }
-
-    /// Per-column center-out LED bars — each column's smoothed peak
-    /// maps to a half-height of lit cells, blooming above and below
-    /// the grid's midline. Lit cells glow in a saturated derivative
-    /// of their family color so the meter reads as the family palette
-    /// firing up. The selected cell is skipped (the main draw loop
-    /// already paints it with a brighter pulse).
-    private func drawColumnBars(in dirtyRect: NSRect) {
-        let halfRows = Self.rows / 2
-        for c in 0..<Self.cols {
-            let peak = columnPeaks[c]
-            let litHalf = Int((CGFloat(peak) * CGFloat(halfRows)).rounded(.up))
-            guard litHalf > 0 else { continue }
-            for offset in 0..<litHalf {
-                let intensity = 0.65 - 0.30 * (CGFloat(offset) / CGFloat(halfRows))
-                for row in [halfRows - 1 - offset, halfRows + offset] {
-                    guard row >= 0, row < Self.rows else { continue }
-                    let p = row * Self.cols + c
-                    guard p >= 0, p < 128 else { continue }
-                    if UInt8(p) == selectedProgram { continue }
-                    let r = cellRect(program: p)
-                    guard r.intersects(dirtyRect) else { continue }
-                    saturatedGlow(for: p, alpha: intensity).setFill()
-                    NSBezierPath(rect: r.insetBy(dx: 1.75, dy: 1.5)).fill()
-                }
-            }
-        }
-    }
-
-    /// Take the cell's family color and crank saturation + brightness so
-    /// the lit overlay reads as a glowing version of the cell's own hue.
-    /// Returns nil-safe via fallback to the base family color if HSB
-    /// conversion fails (shouldn't happen for sRGB-defined palette
-    /// entries, but guards against future palette changes).
-    private func saturatedGlow(for program: Int, alpha: CGFloat) -> NSColor {
-        let base = Self.colorForProgram(program)
-        guard let hsb = base.usingColorSpace(.sRGB) else {
-            return base.withAlphaComponent(alpha)
-        }
-        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        hsb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-        // Push saturation toward 1, brightness toward 1 — same hue, much
-        // hotter rendering. Half-step toward max to keep colors that are
-        // already vivid (magenta, gold) from clipping into nonsense.
-        let s2 = s + (1 - s) * 0.85
-        let b2 = b + (1 - b) * 0.55
-        return NSColor(hue: h, saturation: s2, brightness: b2, alpha: alpha)
     }
 
     // MARK: - Mouse
@@ -454,11 +346,18 @@ final class InstrumentListView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        dragging = true
         // Take key focus on click so arrow-key navigation works
         // immediately after the user picks an initial cell.
         window?.makeFirstResponder(self)
         let pt = convert(event.locationInWindow, from: nil)
+        // MIDI OUT cell — slot 0. Click toggles MIDI passthrough mode
+        // via the controller. Bypasses the drag/preview path because
+        // there's no audible preview to start.
+        if isMidiOutHit(pt) {
+            onMidiOutCommit?()
+            return
+        }
+        dragging = true
         if let p = program(at: pt) {
             // Treat the press as a hover-into-this-cell so the preview note
             // and lit highlight start immediately on click.
@@ -510,6 +409,25 @@ final class InstrumentListView: NSView {
         let cur = Int(selectedProgram)
         var next = cur
         var dir = -1
+        // Digit keys address slots directly: '0' picks MIDI OUT, '1'-'9'
+        // pick programs 0-8 (display 1-9). Auto-repeat is suppressed so
+        // a held digit doesn't re-toggle MIDI mode every tick. Multi-
+        // digit entry for patches 10-128 isn't wired yet — single-digit
+        // covers the common "0/1 quick toggle" case the user described.
+        if !event.isARepeat,
+           !event.modifierFlags.contains(.shift),
+           let ch = event.charactersIgnoringModifiers, ch.count == 1,
+           let digit = Int(ch), (0...9).contains(digit) {
+            if digit == 0 {
+                onMidiOutCommit?()
+            } else {
+                // onCommit's existing path turns MIDI off (if on) before
+                // setting the program — same path the chooser click
+                // uses, so the keyboard "1" matches "click slot 1".
+                onCommit?(digit - 1)
+            }
+            return
+        }
         switch event.keyCode {
         case 123: next = cur - 1;        dir = 0   // ←
         case 124: next = cur + 1;        dir = 1   // →

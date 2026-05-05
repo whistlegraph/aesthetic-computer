@@ -83,7 +83,6 @@ enum Localization {
         "popover.octave.down": "Octave down",
         "popover.octave.up": "Octave up",
         "popover.midi.label": "MIDI",
-        "popover.update.button": "Open menuband.com",
         "popover.update.available": "Update available: %@",
 
         // Popover — layout block
@@ -112,7 +111,8 @@ enum Localization {
 
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
-        "popover.about.body": " brings the built-in macOS instruments into the menu bar.",
+        "popover.about.body": " makes the built-in macOS MIDI instruments playable right from the menu bar.",
+        "popover.about.link": "About",
         "popover.about.quit": "Quit Menu Band",
         "popover.about.crash.send": "Send crash reports",
         "popover.about.crash.sending": "Sending…",
@@ -140,7 +140,6 @@ enum Localization {
         "popover.octave.down": "Bajar octava",
         "popover.octave.up": "Subir octava",
         "popover.midi.label": "MIDI",
-        "popover.update.button": "Abrir menuband.com",
         "popover.update.available": "Actualización disponible: %@",
 
         // Popover — layout block
@@ -170,7 +169,8 @@ enum Localization {
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
         "popover.about.body":
-            " trae los instrumentos integrados de macOS a la barra de menús.",
+            " hace tocables los instrumentos MIDI integrados de macOS directamente desde la barra de menús.",
+        "popover.about.link": "Acerca de",
         "popover.about.quit": "Salir de Menu Band",
         "popover.about.crash.send": "Enviar informes de fallos",
         "popover.about.crash.sending": "Enviando…",

@@ -33,11 +33,6 @@ final class CollapsedPianoWaveformView: NSView {
     /// instrument," and the popover stays a music-theory surface.
     private let modeStack = NSStackView()
     private var modeButtons: [NSButton] = []
-    /// Compact "About" row at the panel's bottom — Menu Band
-    /// description + aesthetic.computer link. Moved out of the
-    /// popover so the popover stays a music-theory surface.
-    private let aboutBody = NSTextField(wrappingLabelWithString: "")
-    private let aboutLinkButton = NSButton()
     private var trackingArea: NSTrackingArea?
     private weak var paletteGlassView: NSView?
 
@@ -49,7 +44,6 @@ final class CollapsedPianoWaveformView: NSView {
 
     private static let arrowsRowHeight: CGFloat = 34
     private static let modeRowHeight: CGFloat = 22
-    private static let aboutRowHeight: CGFloat = 36
     private static let edgePadding: CGFloat = 6
     private static let rowGap: CGFloat = 4
     /// Reserved at the top — hosts the chord-candidate row above
@@ -76,6 +70,13 @@ final class CollapsedPianoWaveformView: NSView {
             if m.midiMode { m.toggleMIDIMode() }
             m.setMelodicProgram(UInt8(prog))
             self.refresh()
+        }
+        // Slot 0 — "MIDI OUT" addressable cell at the top of the
+        // grid. Toggles MIDI passthrough mode on the controller; the
+        // refresh() call repaints the cell in its new state.
+        instrumentList.onMidiOutCommit = { [weak self] in
+            self?.menuBand?.toggleMIDIMode()
+            self?.refresh()
         }
         instrumentList.onHover = { [weak self] prog in
             self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
@@ -162,47 +163,11 @@ final class CollapsedPianoWaveformView: NSView {
             }
         }
 
-        // About row — bold "Menu Band" lead + secondary copy +
-        // aesthetic.computer chip link. Replicates the popover's
-        // about block in compact form.
-        aboutBody.font = NSFont.systemFont(ofSize: 10)
-        aboutBody.textColor = .secondaryLabelColor
-        aboutBody.maximumNumberOfLines = 2
-        aboutBody.lineBreakMode = .byTruncatingTail
-        aboutBody.translatesAutoresizingMaskIntoConstraints = false
-        let aboutText = NSMutableAttributedString()
-        let bodyFont = NSFont.systemFont(ofSize: 10)
-        let boldFont = NSFont.systemFont(ofSize: 10, weight: .bold)
-        aboutText.append(NSAttributedString(
-            string: "Menu Band",
-            attributes: [.font: boldFont, .foregroundColor: NSColor.labelColor]))
-        aboutText.append(NSAttributedString(
-            string: " — your menubar piano, an instrument woven into ",
-            attributes: [.font: bodyFont, .foregroundColor: NSColor.secondaryLabelColor]))
-        aboutBody.attributedStringValue = aboutText
-
-        let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
-        let acTitle = NSAttributedString(
-            string: "aesthetic.computer",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-                .foregroundColor: acPurple,
-            ])
-        aboutLinkButton.attributedTitle = acTitle
-        aboutLinkButton.bezelStyle = .recessed
-        aboutLinkButton.controlSize = .small
-        aboutLinkButton.translatesAutoresizingMaskIntoConstraints = false
-        aboutLinkButton.target = self
-        aboutLinkButton.action = #selector(openAestheticClicked(_:))
-        aboutLinkButton.toolTip = "https://aesthetic.computer"
-
         addSubview(contentContainer)
         contentContainer.addSubview(instrumentList)
         contentContainer.addSubview(qwertyMap)
         contentContainer.addSubview(arrowsCluster)
         contentContainer.addSubview(modeStack)
-        contentContainer.addSubview(aboutBody)
-        contentContainer.addSubview(aboutLinkButton)
         installLiquidGlassBackgrounds()
 
         // Panel widens to fit either the chooser or the keyboard
@@ -242,23 +207,13 @@ final class CollapsedPianoWaveformView: NSView {
             arrowsCluster.heightAnchor.constraint(equalToConstant: Self.arrowsRowHeight),
 
             // Mode picker (Notepat / Ableton) sits below the qwerty
-            // row. Centered horizontally; the about row beneath it
-            // pads the panel's bottom-leading fullscreen toggle.
+            // row. Centered horizontally and pinned to the bottom inset
+            // so the contentContainer's height resolves and the
+            // bottom-leading fullscreen toggle still has its strip.
             modeStack.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: Self.rowGap),
             modeStack.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
             modeStack.heightAnchor.constraint(equalToConstant: Self.modeRowHeight),
-
-            // About row — wrapped Menu Band description on one line,
-            // aesthetic.computer link on the next. Pinned at the
-            // bottom inset so the fullscreen button stays visible
-            // bottom-leading.
-            aboutBody.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: Self.edgePadding + 32),
-            aboutBody.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -Self.edgePadding),
-            aboutBody.topAnchor.constraint(equalTo: modeStack.bottomAnchor, constant: Self.rowGap),
-
-            aboutLinkButton.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: Self.edgePadding + 32),
-            aboutLinkButton.topAnchor.constraint(equalTo: aboutBody.bottomAnchor, constant: 2),
-            aboutLinkButton.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: -Self.edgePadding),
+            modeStack.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: -Self.bottomInset),
         ])
 
         refresh()
@@ -311,6 +266,7 @@ final class CollapsedPianoWaveformView: NSView {
         // the giant selected number stays anchored to the committed
         // voice while the preview note plays a different program.
         instrumentList.selectedProgram = menuBand.effectiveMelodicProgram
+        instrumentList.midiModeActive = menuBand.midiMode
 
         arrowsCluster.accentColor = familyColor
         arrowsCluster.isDarkAppearance = isDark
@@ -337,12 +293,6 @@ final class CollapsedPianoWaveformView: NSView {
             layer?.backgroundColor = (isDark
                 ? NSColor(white: 0.06, alpha: 0.96)
                 : NSColor(white: 0.88, alpha: 0.96)).cgColor
-        }
-    }
-
-    @objc private func openAestheticClicked(_ sender: NSButton) {
-        if let url = URL(string: "https://aesthetic.computer") {
-            NSWorkspace.shared.open(url)
         }
     }
 

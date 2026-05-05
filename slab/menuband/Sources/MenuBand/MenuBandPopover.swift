@@ -106,7 +106,6 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Owning popover, set by AppDelegate after construction. Held weak so
     /// we don't extend its lifetime; used to animate `contentSize` when the
     /// instrument palette collapses / expands.
-    weak var popover: NSPopover?
     var onFocusShortcutChange: ((MenuBandShortcut) -> Bool)?
     var onFocusShortcutRecordingChanged: ((Bool) -> Void)?
     var onPlayPaletteToggle: (() -> Void)?
@@ -158,8 +157,15 @@ final class MenuBandPopoverViewController: NSViewController {
     private var crashStatusLabel: NSTextField!
     private var crashHintLabel: NSTextField!
     private var crashSendButton: NSButton!
-    private var updateBanner: NSView!
-    private var updateLabel: NSTextField!
+    /// Cached result of the most recent UpdateChecker fetch. Populated
+    /// asynchronously after view load; surfaced inside the custom About
+    /// window when the user opens it.
+    private var latestRemoteVersion: UpdateChecker.VersionInfo?
+
+    /// Retained so the floating About window stays alive after
+    /// `showAboutPanel` returns. Recreated on each open so the update
+    /// state reflects the latest manifest fetch.
+    private var aboutWindowController: AboutWindowController?
     /// Layered substrate for the held-notes pills + chord cards. The
     /// MTL waveform that used to live inside this bezel has been
     /// retired; the housing stays for visual continuity (rounded
@@ -306,57 +312,20 @@ final class MenuBandPopoverViewController: NSViewController {
         titleRow.addArrangedSubview(metronome)
         titleRow.setCustomSpacing(8, after: metronome)
 
-        // MIDI toggle — tucked into the title row instead of its own panel.
-        // Enabling MIDI also silences the local keyboard (notes route to the
-        // DAW instead), so a separate mute button would be redundant.
+        // MIDI toggle is now slot 0 in the chooser ("0 MIDI OUT"). The
+        // ivars below stay so existing references (status sync, the
+        // legacy controller-on-change handler) keep compiling without
+        // touching every callsite — they're driven invisibly.
         midiSwitch = NSSwitch()
         midiSwitch.target = self
         midiSwitch.action = #selector(midiSwitchToggled(_:))
-        midiInlineLabel = NSTextField(labelWithString: L("popover.midi.label"))
-        midiInlineLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        midiInlineLabel.textColor = .secondaryLabelColor
-        titleRow.addArrangedSubview(midiInlineLabel)
-        titleRow.setCustomSpacing(4, after: midiInlineLabel)
-        titleRow.addArrangedSubview(midiSwitch)
+        midiSwitch.isHidden = true
+        midiInlineLabel = NSTextField(labelWithString: "")
+        midiInlineLabel.isHidden = true
 
         stack.addArrangedSubview(titleRow)
         titleRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
                                          constant: -16).isActive = true
-
-        // Update banner — hidden until UpdateChecker reports a newer
-        // release. Tinted accent so the user notices it without it feeling
-        // like an alert.
-        updateBanner = NSView()
-        updateBanner.wantsLayer = true
-        updateBanner.layer?.backgroundColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.14).cgColor
-        updateBanner.layer?.cornerRadius = 6
-        updateBanner.translatesAutoresizingMaskIntoConstraints = false
-        updateLabel = NSTextField(labelWithString: "")
-        updateLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        updateLabel.textColor = .labelColor
-        updateLabel.lineBreakMode = .byWordWrapping
-        updateLabel.maximumNumberOfLines = 0
-        updateLabel.translatesAutoresizingMaskIntoConstraints = false
-        let updateLink = NSButton(title: L("popover.update.button"),
-                                  target: self,
-                                  action: #selector(openMenuBandSite))
-        updateLink.bezelStyle = .recessed
-        updateLink.controlSize = .small
-        updateLink.translatesAutoresizingMaskIntoConstraints = false
-        updateBanner.addSubview(updateLabel)
-        updateBanner.addSubview(updateLink)
-        NSLayoutConstraint.activate([
-            updateLabel.leadingAnchor.constraint(equalTo: updateBanner.leadingAnchor, constant: 10),
-            updateLabel.topAnchor.constraint(equalTo: updateBanner.topAnchor, constant: 7),
-            updateLabel.trailingAnchor.constraint(equalTo: updateBanner.trailingAnchor, constant: -10),
-            updateLink.leadingAnchor.constraint(equalTo: updateBanner.leadingAnchor, constant: 10),
-            updateLink.topAnchor.constraint(equalTo: updateLabel.bottomAnchor, constant: 4),
-            updateLink.bottomAnchor.constraint(equalTo: updateBanner.bottomAnchor, constant: -7),
-        ])
-        stack.addArrangedSubview(updateBanner)
-        updateBanner.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        updateBanner.isHidden = true
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -811,57 +780,10 @@ final class MenuBandPopoverViewController: NSViewController {
 
         stack.setCustomSpacing(14, after: waveformBezel)
 
-        // About + Crash logs in a side-by-side row. About has low hugging
-        // so it expands when the crash column is hidden (no reports) —
-        // takes the whole row instead of leaving negative space on the
-        // right. With reports present, the crash column claims its
-        // intrinsic content width and About fills what's left.
-        let aboutCrashRow = NSStackView()
-        aboutCrashRow.orientation = .horizontal
-        aboutCrashRow.alignment = .top
-        aboutCrashRow.distribution = .fill
-        aboutCrashRow.spacing = 12
-
-        let aboutCol = NSStackView()
-        aboutCol.orientation = .vertical
-        aboutCol.alignment = .leading
-        aboutCol.spacing = 6
-        // No heading — the prose itself is the about content. The bold
-        // "Menu Band" header on top read as a duplicate of the menubar
-        // identity above and ate vertical space.
-        let aboutBody = NSTextField(wrappingLabelWithString: "")
-        aboutBody.font = NSFont.systemFont(ofSize: 10.5)
-        aboutBody.textColor = .secondaryLabelColor
-        aboutBody.maximumNumberOfLines = 0
-        aboutBody.lineBreakMode = .byWordWrapping
-        // "Menu Band" stays bold + label-colored; the rest of the
-        // sentence is regular weight in secondary color so the eye
-        // catches the brand first.
-        let aboutText = NSMutableAttributedString()
-        let bodyFont = NSFont.systemFont(ofSize: 10.5)
-        let boldFont = NSFont.systemFont(ofSize: 10.5, weight: .bold)
-        aboutText.append(NSAttributedString(string: L("popover.about.lead"),
-            attributes: [.font: boldFont, .foregroundColor: NSColor.labelColor]))
-        aboutText.append(NSAttributedString(
-            string: L("popover.about.body"),
-            attributes: [.font: bodyFont, .foregroundColor: NSColor.secondaryLabelColor]))
-        aboutBody.attributedStringValue = aboutText
-        aboutBody.preferredMaxLayoutWidth = InstrumentListView.preferredWidth
-        aboutCol.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        aboutCol.addArrangedSubview(aboutBody)
-        // Aesthetic.Computer brand badge — purple-on-pale-purple chip.
-        let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
-        let acLink = Self.makeLinkButton(
-            attr: Self.aestheticComputerTitle(),
-            target: self, action: #selector(openAesthetic),
-            background: acPurple.withAlphaComponent(0.14),
-            border: acPurple.withAlphaComponent(0.55))
-        aboutCol.addArrangedSubview(acLink)
-
-        // Crash-send moved out of this row — it now lives next to Quit
-        // below as a small standalone button. Keeping it here as a side-by-
-        // side column was pushing the about copy and clipping the popover
-        // bottom on multi-line crash hints.
+        // Description + brand chip moved out of the popover proper —
+        // they now live in the standard macOS About panel reachable via
+        // the small "About" link at bottom-left. Frees the popover to
+        // be operational chrome.
         crashStatusLabel = NSTextField(labelWithString: "")  // legacy ivar — unused
         crashHintLabel = NSTextField(labelWithString: "")    // legacy ivar — unused
         crashSendButton = NSButton(title: L("popover.about.crash.send"),
@@ -870,12 +792,6 @@ final class MenuBandPopoverViewController: NSViewController {
         crashSendButton.bezelStyle = .recessed
         crashSendButton.controlSize = .small
         crashSendButton.isHidden = true  // shown by refreshCrashStatus when n>0
-
-        aboutCrashRow.addArrangedSubview(aboutCol)
-        stack.addArrangedSubview(aboutCrashRow)
-        // Air between the About/Crash block and the Quit button below so
-        // Quit reads as its own action, not a list item under About.
-        stack.setCustomSpacing(10, after: aboutCrashRow)
 
         // Language switcher — compact flag-chip row, same pattern as the
         // kidlisp.com / help.aesthetic.computer pickers. The active language
@@ -944,12 +860,31 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
+        // Small "About" link, bottom-left. Opens the standard macOS
+        // about panel — name, icon, version, credits (description +
+        // aesthetic.computer link). Replaces the inline AC chip that
+        // used to live in the body.
+        let aboutLink = NSButton()
+        aboutLink.bezelStyle = .recessed
+        aboutLink.isBordered = false
+        aboutLink.controlSize = .small
+        aboutLink.attributedTitle = NSAttributedString(
+            string: L("popover.about.link"),
+            attributes: [
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+            ]
+        )
+        aboutLink.target = self
+        aboutLink.action = #selector(showAboutPanel(_:))
+
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
         quitRow.alignment = .centerY
         quitRow.spacing = 8
         let quitSpacer = NSView()
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        quitRow.addArrangedSubview(aboutLink)
         quitRow.addArrangedSubview(crashSendButton)
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
@@ -1172,7 +1107,7 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
         refreshCrashStatus()
-        refreshUpdateBanner()
+        refreshUpdateInfo()
         // Instrument palette: stays in the layout but greys out when
         // MIDI mode owns the audio path. Same physical width either way.
         applyInstrumentPaletteVisibility(midiMode: n.midiMode)
@@ -1186,17 +1121,16 @@ final class MenuBandPopoverViewController: NSViewController {
             }
         }
         // Re-fit the popover after sync. preferredContentSize was locked
-        // in loadView() while the crash column was empty/hidden and the
-        // update banner was not yet shown; both can grow the layout
-        // (multi-line crash hint, banner row) and would otherwise be
-        // clipped at the bottom of the popover.
+        // in loadView() while the crash column was empty/hidden; a
+        // multi-line crash hint can grow the layout and would otherwise
+        // be clipped at the bottom of the popover.
         refitContentSize()
     }
 
     /// Re-measure the stack's intrinsic fitting size and update
     /// `preferredContentSize` to match. Run after any change that can
     /// add/remove rows or change wrapping height (crash status,
-    /// update banner, instrument palette toggle).
+    /// instrument palette toggle).
     private func refitContentSize() {
         guard isViewLoaded else { return }
         view.needsLayout = true
@@ -1338,7 +1272,13 @@ final class MenuBandPopoverViewController: NSViewController {
         let safe = max(0, min(127, Int(m.melodicProgram)))
         let title: String
         let famColor: NSColor
-        if m.instrumentBackend == .kpbj {
+        if m.midiMode {
+            // MIDI mode = "instrument 0" in the addressable system.
+            // Title reads simply "MIDI" — short enough to fit and
+            // makes the routing instantly legible.
+            title = "MIDI"
+            famColor = NSColor.controlAccentColor
+        } else if m.instrumentBackend == .kpbj {
             // Voice −1: live KPBJ stream replaces the GM grid. Distinct
             // amber lets the user spot it immediately and fits the
             // KPBJ web piece's sunrise palette.
@@ -1430,13 +1370,6 @@ final class MenuBandPopoverViewController: NSViewController {
     fileprivate func handleEffectiveAppearanceChange() {
         rootBackgroundView?.layer?.backgroundColor =
             NSColor.windowBackgroundColor.cgColor
-        // Update banner uses controlAccentColor.cgColor at build time —
-        // accent doesn't normally re-tone with light/dark, but the
-        // semi-transparent fill reads visibly different over a flipped
-        // window background, so re-resolve it against the current
-        // appearance to keep the cached cgColor honest.
-        updateBanner?.layer?.backgroundColor = NSColor.controlAccentColor
-            .withAlphaComponent(0.14).cgColor
         applyAppearanceToVisualizer()
         refreshHeldNotes()
         updateInstrumentReadout()
@@ -1642,25 +1575,16 @@ final class MenuBandPopoverViewController: NSViewController {
     }
 
     /// Hit the manifest at assets.aesthetic.computer/menuband/latest.json
-    /// and show the banner if there's a newer version available than the
-    /// one running. Cached for an hour inside UpdateChecker.
-    private func refreshUpdateBanner() {
-        let current = UpdateChecker.currentVersion()
+    /// and stash the result for the About panel to surface. Cached for
+    /// an hour inside UpdateChecker.
+    private func refreshUpdateInfo() {
         UpdateChecker.fetchLatest { [weak self] info in
-            guard let self = self, let info = info else { return }
-            if UpdateChecker.isNewer(info.version, than: current) {
-                let notes = info.notes?.isEmpty == false ? " — \(info.notes!)" : ""
-                self.updateLabel.stringValue =
-                    L("popover.update.available", "\(info.version)\(notes)")
-                self.updateBanner.isHidden = false
-            } else {
-                self.updateBanner.isHidden = true
-            }
+            self?.latestRemoteVersion = info
         }
     }
 
     @objc private func openMenuBandSite() {
-        if let url = URL(string: "https://aesthetic.computer/menuband") {
+        if let url = URL(string: "https://prompt.ac/menuband") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -1921,6 +1845,24 @@ final class MenuBandPopoverViewController: NSViewController {
         if let url = URL(string: "https://aesthetic.computer") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    /// Classic macOS About panel — bundle icon, name, version, plus a
+    /// credits block carrying the "Menu Band brings the built-in macOS
+    /// instruments…" line and a clickable aesthetic.computer link.
+    /// Replaces the inline AC chip that used to live in the popover.
+    @objc private func showAboutPanel(_ sender: Any?) {
+        // Kick off a fresh update check; if it lands before the user
+        // dismisses the window the next open will reflect it. The first
+        // open after launch shows whatever sync-time call cached.
+        refreshUpdateInfo()
+
+        // Rebuild every open so the flashing button (and version row)
+        // pick up the most recent update info instead of going stale.
+        aboutWindowController?.close()
+        let ctrl = AboutWindowController(updateInfo: latestRemoteVersion)
+        aboutWindowController = ctrl
+        ctrl.present()
     }
 
     @objc private func openNotepat() {

@@ -71,6 +71,14 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
 
     var isFeatureEnabled: Bool { isEnabled }
 
+    /// Screen-coordinate frame of the floating panel when visible.
+    /// Used by AppDelegate's custom popover panel to align its left
+    /// edge against the floating panel's right edge.
+    var visiblePanelFrame: NSRect? {
+        guard let panel, panel.isVisible else { return nil }
+        return panel.frame
+    }
+
     var onStepBackward: (() -> Void)? {
         get { pianoWaveformViewController.onStepBackward }
         set { pianoWaveformViewController.onStepBackward = newValue }
@@ -304,15 +312,28 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.level = .floating
+        // .statusBar level + cross-space + full-screen-aux collection
+        // behavior keeps the floating piano panel rendered + clickable
+        // when the user swipes between Spaces or pulls Mission Control
+        // up over a focused fullscreen app — same trick clock /
+        // calculator widgets use to stay reachable from anywhere.
+        panel.level = .statusBar
         panel.animationBehavior = .none
-        panel.collectionBehavior = [.transient]
+        panel.collectionBehavior = [
+            .transient,
+            .canJoinAllSpaces,
+            .fullScreenAuxiliary,
+            .stationary,
+            .ignoresCycle,
+        ]
         panel.hidesOnDeactivate = false
         panel.canHide = false
-        // Drag-by-background is off — the panel always pairs with the
-        // popover (snug-left), so a draggable body just lets clicks
-        // on the chooser / held-notes / button area accidentally
-        // move the window.
+        // Locked in place for now — positioning logic is in flux
+        // and a draggable panel just lets clicks on the chooser /
+        // held-notes / button area drift it off snug-pair with
+        // the popover. Both background-drag and title-bar drag
+        // are disabled.
+        panel.isMovable = false
         panel.isMovableByWindowBackground = false
         panel.acceptsMouseMovedEvents = true
         panel.titleVisibility = .hidden
@@ -505,16 +526,14 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     private func expandedFrame(size: NSSize, fallbackOrigin: NSPoint?) -> NSRect {
-        // Popover-snug positioning wins over the saved drag origin so
-        // the expanded panel pairs cleanly with the popover when both
-        // are on screen.
-        if let popoverRect = popoverFrameProvider?(), !popoverRect.isEmpty {
-            return NSRect(
-                x: popoverRect.minX - size.width,
-                y: popoverRect.maxY - size.height,
-                width: size.width,
-                height: size.height
-            )
+        // When paired with the popover OR with a status item button
+        // available, snap the expanded panel to be centered under the
+        // piano keys section of the menubar piano. This keeps the
+        // panel + popover reading as parallel surfaces under the same
+        // menubar image rather than a fused strip beside the popover.
+        if popoverFrameProvider?() != nil,
+           let pianoFrame = anchoredCollapsedFrame(size: size) {
+            return pianoFrame
         }
         let origin = fallbackOrigin ?? savedExpandedOrigin
         return clampedFrame(
@@ -525,24 +544,20 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     private func collapsedFrame(size: NSSize) -> NSRect {
-        // Popover-snug positioning always wins over the user's
-        // dragged-to position. The floating panel pairs with the
-        // popover; honoring a stale custom origin while the popover
-        // is up would scatter the two surfaces.
-        if let popoverRect = popoverFrameProvider?(), !popoverRect.isEmpty {
-            return NSRect(
-                x: popoverRect.minX - size.width,
-                y: popoverRect.maxY - size.height,
-                width: size.width,
-                height: size.height
-            )
-        }
+        // Always anchor under the piano keys section when we have a
+        // status item button — the user's dragged-to origin only
+        // applies when the panel is fully detached (no popover).
         guard let anchoredFrame = anchoredCollapsedFrame(size: size) else {
             return clampedFrame(
                 origin: collapsedCustomOrigin ?? centeredOrigin(for: size),
                 size: size,
                 preferredScreen: panel?.screen ?? NSScreen.main
             )
+        }
+        // If the popover is up, ignore the saved custom origin so the
+        // panel pairs cleanly under the piano keys.
+        if popoverFrameProvider?() != nil {
+            return anchoredFrame
         }
         guard let collapsedCustomOrigin else { return anchoredFrame }
         return clampedFrame(
@@ -553,39 +568,47 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     private func anchoredCollapsedFrame(size: NSSize) -> NSRect? {
-        // Snug-left-of-popover takes precedence whenever the popover is
-        // on screen — the floating panel's right edge sits flush
-        // against the popover's left edge, tops aligned, so the two
-        // surfaces read as one continuous strip with the popover on
-        // the right and the floating piano on the left.
-        if let popoverRect = popoverFrameProvider?(), !popoverRect.isEmpty {
-            return NSRect(
-                x: popoverRect.minX - size.width,
-                y: popoverRect.maxY - size.height,
-                width: size.width,
-                height: size.height
-            )
-        }
-
+        // Single anchor for every show path: the panel's right edge
+        // sits at (predicted) popover-left minus a 6pt gap, top-
+        // aligned to the bottom of the menubar. Whether or not the
+        // popover is currently visible, the position is identical —
+        // so opening the panel via the LED chip and via the gear
+        // popover land it in the *same* spot, and a binary toggle
+        // never makes the panel hop.
         guard let button = statusItemButton,
               let buttonWindow = button.window else { return nil }
 
         let imgSize = KeyboardIconRenderer.imageSize
         let buttonBounds = button.bounds
         let xOffset = (buttonBounds.width - imgSize.width) / 2.0
-        let pianoOriginX = xOffset + KeyboardIconRenderer.pad
-        let pianoWidth = imgSize.width - KeyboardIconRenderer.settingsW
-            - KeyboardIconRenderer.settingsGap - KeyboardIconRenderer.pad * 2
+        let buttonScreenFrame = buttonWindow.convertToScreen(button.frame)
+        let menubarBottom = buttonScreenFrame.minY
 
-        let localRect = NSRect(x: pianoOriginX, y: 0, width: pianoWidth, height: buttonBounds.height)
-        let windowRect = button.convert(localRect, to: nil)
-        let screenRect = buttonWindow.convertToScreen(windowRect)
-        return NSRect(
-            x: screenRect.origin.x,
-            y: screenRect.origin.y - size.height,
-            width: screenRect.width,
-            height: size.height
-        )
+        // Predicted popover.minX — derived from the gear icon's
+        // screen position the same way AppDelegate.showPopover()
+        // computes leftScreenX. Reuse the live popover frame when
+        // we have it (so a custom-positioned popover stays the
+        // anchor); otherwise fall back to the prediction.
+        let predictedPopoverLeft: CGFloat = {
+            if let popoverFrame = popoverFrameProvider?() {
+                return popoverFrame.minX
+            }
+            let latch = KeyboardIconRenderer.settingsRectPublic
+            let gearLocal = NSPoint(x: xOffset + latch.midX, y: 0)
+            let gearWindow = button.convert(gearLocal, to: nil)
+            let gearScreen = buttonWindow.convertPoint(toScreen: gearWindow)
+            return gearScreen.x
+                - MenuBandPopoverPanel.cornerRadius
+                - MenuBandPopoverPanel.arrowWidth / 2 - 2
+        }()
+        // Negative gap = panel slides RIGHT past the popover-left
+        // anchor; positive gap = panel pulls left of it. -40 lands
+        // the panel snug under the right side of the menubar piano
+        // image, which is what reads best paired with the popover.
+        let gap: CGFloat = -40
+        let x = predictedPopoverLeft - size.width - gap
+        let y = menubarBottom - size.height
+        return NSRect(x: x, y: y, width: size.width, height: size.height)
     }
 
     private func centeredOrigin(for size: NSSize) -> NSPoint {

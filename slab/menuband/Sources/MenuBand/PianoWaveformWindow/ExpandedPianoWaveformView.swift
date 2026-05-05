@@ -48,7 +48,7 @@ final class ExpandedPianoWaveformView: NSView {
     var isPianoFocusActive: (() -> Bool)?
     var onHoverChanged: ((Bool) -> Void)?
 
-    private let pianoScale: CGFloat = 1.6
+    private let pianoScale: CGFloat
     private let inset: CGFloat = 14
     private let gap: CGFloat = 8
     private let hintHeight: CGFloat = 20
@@ -69,7 +69,15 @@ final class ExpandedPianoWaveformView: NSView {
         titleLeftSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         titleRightSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         self.instrumentTitleRow = NSStackView(views: [titleLeftSpacer, instrumentReadout, titleRightSpacer])
-        self.pianoView = PianoKeyboardView(menuBand: menuBand, pianoScale: pianoScale)
+        // Scale so the piano spans the right column of the panel
+        // exactly. Previously a fixed 1.6 scale made the keyboard
+        // wider than the glass panel and forced the panel to grow.
+        let basePianoWidth = KeyboardIconRenderer.withPianoWaveformKeyboard(keymap: menuBand.keymap) {
+            KeyboardIconRenderer.pianoImageSize(layout: .tightActiveRange).width
+        }
+        let computedPianoScale = Self.expandedPanelWidth / max(1, basePianoWidth)
+        self.pianoScale = computedPianoScale
+        self.pianoView = PianoKeyboardView(menuBand: menuBand, pianoScale: computedPianoScale)
         super.init(frame: NSRect(origin: .zero, size: .zero))
         wantsLayer = true
 
@@ -206,11 +214,11 @@ final class ExpandedPianoWaveformView: NSView {
         let bezelInset: CGFloat = 5
         let titleSpacers = instrumentTitleRow.arrangedSubviews
 
-        // Total width is chooser (224) + gap + max(panel default, keyboard).
-        // The right column gets at least expandedPanelWidth so the keyboard
-        // and chord readout still feel roomy when the panel is paired with
-        // the chooser on the left.
-        let rightColumnWidth = max(keyboardSize.width + inset * 2, Self.expandedPanelWidth)
+        // Right column is fixed at the panel's intended width; the
+        // keyboard scales (above) to fit it, never the other way
+        // around — that keeps the keys visually inside the glass.
+        _ = keyboardSize  // keep helper warm; sizing is column-driven now
+        let rightColumnWidth = Self.expandedPanelWidth
         let totalWidth = InstrumentListView.preferredWidth + gap + rightColumnWidth
 
         NSLayoutConstraint.activate([
@@ -580,8 +588,13 @@ final class ExpandedPianoWaveformView: NSView {
     private func updateInstrumentReadout() {
         guard let menuBand else { return }
         let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
-        let title = GeneralMIDI.programNames[safe]
-        let familyColor = InstrumentListView.colorForProgram(safe)
+        // MIDI mode replaces the GM voice name with a MIDI label so
+        // the panel title matches the popover's "0 MIDI OUT" cue
+        // instead of leaving a stale instrument name on screen.
+        let title = menuBand.midiMode ? "MIDI" : GeneralMIDI.programNames[safe]
+        let familyColor = menuBand.midiMode
+            ? NSColor.controlAccentColor
+            : InstrumentListView.colorForProgram(safe)
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let textColor: NSColor = isDark ? .white : .black
         let shadow = NSShadow()
