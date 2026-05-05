@@ -629,6 +629,32 @@ function playBoom(sound) {
   sound.synth({ type: "sine",     tone: 75,   duration: 0.55,  volume: 1.1, attack: 0.003, decay: 0.54,  pan: 0 });
   sound.synth({ type: "triangle", tone: 45,   duration: 0.40,  volume: 0.6, attack: 0.005, decay: 0.39,  pan: 0 });
 }
+// "Ouch/ow" — a brief layered yelp. Vocal-ish: noise breath + sine "ah" body
+// + triangle undertone, randomised per hit so back-to-back blasts don't read
+// as a sample loop. Volume scales with damage so a graze sounds smaller.
+function playOuch(sound, severity = 1) {
+  if (!sound?.synth) return;
+  const t = 300 + Math.random() * 90;
+  const v = Math.max(0.25, Math.min(1, severity));
+  sound.synth({ type: "noise",    tone: 900,    duration: 0.04, volume: 0.35 * v, attack: 0.005, decay: 0.035, pan: 0 });
+  sound.synth({ type: "sine",     tone: t,      duration: 0.10, volume: 0.65 * v, attack: 0.005, decay: 0.092, pan: 0 });
+  sound.synth({ type: "sine",     tone: t * 1.5,duration: 0.07, volume: 0.30 * v, attack: 0.005, decay: 0.064, pan: 0 });
+  sound.synth({ type: "triangle", tone: t * 0.7,duration: 0.22, volume: 0.55 * v, attack: 0.010, decay: 0.205, pan: 0 });
+}
+
+function damagePlayer(amount, doll) {
+  if (!playerAlive || amount <= 0) return;
+  playerHP = Math.max(0, playerHP - amount);
+  lastDamageMs = Date.now();
+  playOuch(soundRef, amount / BLAST_DAMAGE_MAX);
+  if (playerHP <= 0) {
+    // HP-zero death stays on the platform — no lava plunge required.
+    playerAlive = false;
+    deathTickAge = 0;
+    doll?.setFrozen?.(true);
+    doll?.clearHeldKeys?.();
+  }
+}
 
 function fireGrenade(cam) {
   if (!cam || myGrenade || !playerAlive || netSpectator) return;
@@ -731,6 +757,9 @@ function detonate(x, y, z, doll, cam) {
     y: vertImpulse,
     z: -nz * horForce,
   });
+  // 💖 Splash damage — linear falloff with a small floor so even a graze stings.
+  const dmg = BLAST_DAMAGE_FLOOR + (BLAST_DAMAGE_MAX - BLAST_DAMAGE_FLOOR) * falloff;
+  damagePlayer(dmg, doll);
   // Suspend pmove reconciliation briefly so the local knockback isn't yanked
   // back to the server's prediction (server doesn't know about the blast).
   knockbackGraceUntil = Date.now() + 1200;
@@ -838,6 +867,8 @@ function tryRespawn(system) {
   myGrenade = null;
   activeExplosion = null;
   knockbackGraceUntil = 0;
+  playerHP = MAX_HP;
+  lastDamageMs = 0;
   system?.fps?.doll?.respawn?.(0, 0);
   return true;
 }
@@ -896,22 +927,36 @@ let perfSamplesSinceSwitch = 0;
 // shaped blast that knocks the firer (and the cam-doll) outward. The blast
 // can punt the player off the platform and into the lava — that's the trick.
 const GRENADE_RADIUS = 0.18;
-const GRENADE_SPEED = 18;             // initial m/s along the view dir
+const GRENADE_SPEED = 8;              // initial m/s — slow enough that a forward
+                                      // shot still detonates within EXPLOSION_RADIUS
+                                      // of the firer (the arena is only ±14u wide)
 const GRENADE_GRAVITY = 22;           // m/s² (lighter than player gravity → arcs)
 const GRENADE_BOUNCE_RESTITUTION = 0.55;
 const GRENADE_BOUNCE_FRICTION = 0.78; // horizontal vel scaling per bounce
-const GRENADE_FUSE = 1.0;             // seconds before detonation
+const GRENADE_FUSE = 0.9;             // seconds before detonation
 const GRENADE_REST_VY = 1.0;          // settle threshold (avoid eternal jitter)
-const EXPLOSION_RADIUS = 4.5;         // world units; blast falloff distance
+const EXPLOSION_RADIUS = 7.5;         // world units; generous so forward shots
+                                      // still rocket-jump the firer
 const EXPLOSION_DURATION = 0.45;      // seconds the pill stays visible
-const EXPLOSION_KICK_HOR = 1.6;       // dolly impulse → ~14u horizontal flight
+const EXPLOSION_KICK_HOR = 1.3;       // dolly impulse → ~12u horizontal flight
 const EXPLOSION_KICK_VERT = 14;       // worldYVel impulse (+ is up), units/sec
-const EXPLOSION_VERT_BIAS = 6;        // baseline upward bump even at edge
+const EXPLOSION_VERT_BIAS = 5;        // baseline upward bump even at edge
 
 let myGrenade = null;        // { x, y, z, vx, vy, vz, t } — local single-shot
 let activeExplosion = null;  // { x, y, z, age } — local visual effect
 let knockbackGraceUntil = 0; // ms timestamp; while < now() pmove reconcile is suspended
 let soundRef = null;         // captured in boot for synth access
+
+// 💖 Player HP — blast splash damage with linear falloff to the radius edge.
+// Center hits (~feet-stomp) score lethal damage, edge hits sting but survive,
+// so multiple self-blasts on the platform can kill you without ever touching
+// the lava. Reset on respawn.
+const MAX_HP = 100;
+const BLAST_DAMAGE_MAX = 90;        // direct-hit damage at falloff = 1
+const BLAST_DAMAGE_FLOOR = 6;       // edge-of-radius minimum (so a graze hurts)
+let playerHP = MAX_HP;
+let lastDamageMs = 0;               // wall-clock; drives the red flash overlay
+const HP_FLASH_DURATION = 0.35;     // seconds the screen tints red after a hit
 
 // 🔎 Camera zoom — wheel scroll steps between 1P and 3P at discrete distances.
 // Level 0 = first person. Levels 1..N = third person, pulling the camera back
@@ -937,6 +982,14 @@ function applyZoom(doll) {
   const d = ZOOM_DISTANCES[zoomLevel];
   if (zoomLevel === 0) doll.setThirdPerson(false);
   else doll.setThirdPerson(true, d);
+  // Drop any leftover orbit state when zoom changes. Otherwise a previous
+  // right-drag's orbitAngle + orbitDistance keep the orbit branch (in sim)
+  // displacing the camera around the player every frame, which reads as the
+  // character "flying" sideways the next time you scroll into 3P.
+  orbiting = false;
+  orbitAngle = 0;
+  orbitDistance = 0;
+  orbitSnapped = false;
 }
 
 function tileKey(row, col) { return row * GRID + col; }
@@ -2256,6 +2309,16 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     advance();
   }
 
+  // 💖 HP bar — number tinted by remaining health (green → yellow → red).
+  {
+    const pct = Math.max(0, Math.min(1, playerHP / MAX_HP));
+    const hpClr = pct > 0.5 ? [180, 230, 180]
+                : pct > 0.25 ? [230, 200, 110]
+                : [230, 110, 100];
+    rightLabelMulti([[dim, "hp "], [hpClr, `${Math.ceil(playerHP)}`]], lineY);
+    advance();
+  }
+
   // Connection: transport + how stale snaps are + lag.
   {
     const wsOk = !!netServer;
@@ -2348,6 +2411,17 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     ink("magenta");
     box(px - 6, py, 13, 1);
     box(px, py - 6, 1, 13);
+  }
+
+  // 💢 Damage flash — quick red vignette on the most recent hit so the player
+  // gets a hit-feedback pulse beyond the HP number ticking down.
+  if (lastDamageMs > 0 && playerAlive) {
+    const ageS = (Date.now() - lastDamageMs) / 1000;
+    if (ageS < HP_FLASH_DURATION) {
+      const k = 1 - ageS / HP_FLASH_DURATION;
+      ink(220, 40, 30, Math.floor(k * 90));
+      box(0, 0, screen.width, screen.height);
+    }
   }
 
   // --- 💀 Death screen overlay (fade-in) ---
