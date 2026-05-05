@@ -241,6 +241,11 @@ function reconcileLocal() {
   // yanked to wherever they are. So just skip local pmove reconciliation
   // (we still update cam to follow them below if we want spectator-follow).
   if (netSpectator) return;
+  // 🎆 Knockback grace: a grenade explosion just punted us via applyImpulse.
+  // The server doesn't know about that impulse (it sees only WASD cmds), so
+  // its predicted state will diverge by several units. Skip reconciliation
+  // briefly so the blast actually launches us instead of being snapped back.
+  if (Date.now() < knockbackGraceUntil) return;
   const cam = reconCamRef;
 
   // Build a pmove-compatible state from the wire blob.
@@ -605,6 +610,213 @@ const DEBUG_DUMP_INTERVAL = 120; // sim ticks (= 1 s at SIM_HZ=120)
 let playerAlive = true;
 let deathTickAge = 0; // how long we've been dead (sim ticks, for UI fade-in)
 
+// 🎆 Grenade SFX — synthesis informed by lib/percussion.mjs's TR-808 kick:
+// `gonk` is a wood-tom-like thunk for the launcher (high noise tick + tonal
+// mid-low pop); `boom` is a stacked noise/sine burst for the detonation.
+// Voiced through sound.synth (same surface notepat.mjs uses).
+function playGonk(sound) {
+  if (!sound?.synth) return;
+  const tone = 420 + Math.random() * 80;
+  sound.synth({ type: "noise",    tone: 4500,    duration: 0.005, volume: 0.45, attack: 0.0001, decay: 0.0049, pan: 0 });
+  sound.synth({ type: "square",   tone,          duration: 0.025, volume: 0.55, attack: 0.0005, decay: 0.024,  pan: 0 });
+  sound.synth({ type: "sine",     tone: tone*0.5,duration: 0.060, volume: 0.95, attack: 0.001,  decay: 0.058,  pan: 0 });
+  sound.synth({ type: "sine",     tone: 90,      duration: 0.18,  volume: 0.55, attack: 0.002,  decay: 0.175,  pan: 0 });
+}
+function playBoom(sound) {
+  if (!sound?.synth) return;
+  sound.synth({ type: "noise",    tone: 1800, duration: 0.18,  volume: 1.0, attack: 0.001, decay: 0.18,  pan: 0 });
+  sound.synth({ type: "noise",    tone: 600,  duration: 0.45,  volume: 0.7, attack: 0.005, decay: 0.44,  pan: 0 });
+  sound.synth({ type: "sine",     tone: 75,   duration: 0.55,  volume: 1.1, attack: 0.003, decay: 0.54,  pan: 0 });
+  sound.synth({ type: "triangle", tone: 45,   duration: 0.40,  volume: 0.6, attack: 0.005, decay: 0.39,  pan: 0 });
+}
+
+function fireGrenade(cam) {
+  if (!cam || myGrenade || !playerAlive || netSpectator) return;
+  // Camera world position (cam stores negated world coords for x,z; cam.y is
+  // the eye world-Y inverted). Spawning at cam (not the 3P offset) means the
+  // grenade leaves the muzzle, not the chase cam.
+  const cx = -cam.x, cy = -cam.y, cz = -cam.z;
+  // View forward in world space — same convention as the hover-ray (see sim).
+  const yaw = cam.rotY * Math.PI / 180;
+  const pit = cam.rotX * Math.PI / 180;
+  const cy2 = Math.cos(yaw), sy = Math.sin(yaw);
+  const cp = Math.cos(pit), sp = Math.sin(pit);
+  const flipX = (hoverFlipMode & 1) !== 0;
+  const flipZ = (hoverFlipMode & 2) !== 0;
+  let fx = sy * cp;
+  let fy = sp;
+  let fz = cy2 * cp;
+  if (flipX) fx = -fx;
+  if (flipZ) fz = -fz;
+  myGrenade = {
+    x: cx + fx * 0.6,
+    y: cy + fy * 0.6 - 0.25,           // muzzle just below eye
+    z: cz + fz * 0.6,
+    vx: fx * GRENADE_SPEED,
+    vy: fy * GRENADE_SPEED + 2.0,      // gentle upward arc
+    vz: fz * GRENADE_SPEED,
+    t: 0,
+  };
+  playGonk(soundRef);
+}
+
+function simGrenade(dt, doll, cam) {
+  if (!myGrenade) return;
+  myGrenade.t += dt;
+  myGrenade.vy -= GRENADE_GRAVITY * dt;
+  myGrenade.x += myGrenade.vx * dt;
+  myGrenade.y += myGrenade.vy * dt;
+  myGrenade.z += myGrenade.vz * dt;
+
+  // Floor bounce — only on top of the platform; outside groundBounds the
+  // grenade falls into the pit and silently dies.
+  const b = ARENA_CFG.groundBounds;
+  const onPlatform = myGrenade.x >= b.xMin && myGrenade.x <= b.xMax &&
+                     myGrenade.z >= b.zMin && myGrenade.z <= b.zMax;
+  const floorY = ARENA_CFG.groundY + GRENADE_RADIUS;
+  if (onPlatform && myGrenade.y <= floorY && myGrenade.vy < 0) {
+    myGrenade.y = floorY;
+    myGrenade.vy = -myGrenade.vy * GRENADE_BOUNCE_RESTITUTION;
+    myGrenade.vx *= GRENADE_BOUNCE_FRICTION;
+    myGrenade.vz *= GRENADE_BOUNCE_FRICTION;
+    if (Math.abs(myGrenade.vy) < GRENADE_REST_VY) myGrenade.vy = 0;
+  }
+
+  // Bounce off platform edge walls (treat the platform XZ rect like solid box).
+  if (myGrenade.y < ARENA_CFG.groundY + 0.5) {
+    if (myGrenade.x < b.xMin && myGrenade.vx < 0) { myGrenade.x = b.xMin; myGrenade.vx = -myGrenade.vx * GRENADE_BOUNCE_RESTITUTION; }
+    if (myGrenade.x > b.xMax && myGrenade.vx > 0) { myGrenade.x = b.xMax; myGrenade.vx = -myGrenade.vx * GRENADE_BOUNCE_RESTITUTION; }
+    if (myGrenade.z < b.zMin && myGrenade.vz < 0) { myGrenade.z = b.zMin; myGrenade.vz = -myGrenade.vz * GRENADE_BOUNCE_RESTITUTION; }
+    if (myGrenade.z > b.zMax && myGrenade.vz > 0) { myGrenade.z = b.zMax; myGrenade.vz = -myGrenade.vz * GRENADE_BOUNCE_RESTITUTION; }
+  }
+
+  // Fell into the lava → fizzle, no big boom (and no knockback either).
+  if (myGrenade.y < ARENA_CFG.deathFloorY) {
+    myGrenade = null;
+    return;
+  }
+
+  if (myGrenade.t >= GRENADE_FUSE) {
+    detonate(myGrenade.x, myGrenade.y, myGrenade.z, doll, cam);
+    myGrenade = null;
+  }
+}
+
+function detonate(x, y, z, doll, cam) {
+  activeExplosion = { x, y, z, age: 0 };
+  playBoom(soundRef);
+  if (!doll || !cam) return;
+  const phys = doll.physics;
+  const pcx = phys?.playerCamX ?? cam.x;
+  const pcy = phys?.playerCamY ?? cam.y;
+  const pcz = phys?.playerCamZ ?? cam.z;
+  const wx = -pcx, wy = -pcy, wz = -pcz;
+  const dx = wx - x, dy = wy - y, dz = wz - z;
+  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  if (dist >= EXPLOSION_RADIUS) return;
+  const t = 1 - dist / EXPLOSION_RADIUS;       // 1 at center → 0 at edge
+  const minD = Math.max(dist, 0.4);
+  const nx = dx / minD;
+  const nz = dz / minD;
+  const horForce = EXPLOSION_KICK_HOR * (0.4 + 0.6 * t);
+  const vertForce = EXPLOSION_KICK_VERT * (0.3 + 0.7 * t) + EXPLOSION_VERT_BIAS;
+  doll.applyImpulse?.({
+    x: nx * horForce,
+    y: vertForce,
+    z: nz * horForce,
+  });
+  // Suspend pmove reconciliation briefly so the local knockback isn't yanked
+  // back to the server's prediction (server doesn't know about the blast).
+  knockbackGraceUntil = Date.now() + 1200;
+}
+
+function buildGrenadeForm(g) {
+  if (!FormRef) return null;
+  const r = GRENADE_RADIUS;
+  const heat = Math.min(1, g.t / GRENADE_FUSE);
+  const blink = (Math.sin(g.t * 36) * 0.5 + 0.5) * heat;
+  const col = [
+    1.0,
+    0.85 - heat * 0.55 + blink * 0.2,
+    0.25 - heat * 0.2 + blink * 0.05,
+    1.0,
+  ];
+  // Octahedron — 6 verts, 8 triangles. Reads as a small spinning shell.
+  const v = [
+    [ 0,  r, 0, 1], [ 0, -r, 0, 1],
+    [ r,  0, 0, 1], [-r,  0, 0, 1],
+    [ 0,  0, r, 1], [ 0,  0,-r, 1],
+  ];
+  const tris = [
+    [0,2,4],[0,4,3],[0,3,5],[0,5,2],
+    [1,4,2],[1,3,4],[1,5,3],[1,2,5],
+  ];
+  const positions = [], colors = [];
+  for (const [a, b, c] of tris) {
+    positions.push(v[a], v[b], v[c]);
+    colors.push(col, col, col);
+  }
+  // Form.position uses (-worldX, worldY, -worldZ) — same as remote bodies.
+  const f = new FormRef(
+    { type: "triangle", positions, colors },
+    { pos: [-g.x, g.y, -g.z], rot: [0, g.t * 240, 0], scale: 1 },
+  );
+  f.noFade = true;
+  return f;
+}
+
+function buildExplosionPill(ex) {
+  if (!FormRef) return null;
+  const t = ex.age / EXPLOSION_DURATION;
+  if (t >= 1) return null;
+  const ease = 1 - (1 - t) * (1 - t); // ease-out grow
+  const scale = EXPLOSION_RADIUS * (0.35 + ease * 0.65);
+  const alpha = Math.max(0, 1 - t);
+  const R = scale * 0.55;
+  const H = scale * 0.7;
+  const ringSegs = 14;
+  const hemiSegs = 4;
+
+  const ringPoints = (y, r) => {
+    const pts = [];
+    for (let i = 0; i < ringSegs; i++) {
+      const a = (i / ringSegs) * Math.PI * 2;
+      pts.push([Math.cos(a) * r, y, Math.sin(a) * r, 1]);
+    }
+    return pts;
+  };
+  const allRings = [];
+  for (let i = 0; i <= hemiSegs; i++) {
+    const phi = -Math.PI / 2 + (i / hemiSegs) * (Math.PI / 2);
+    allRings.push(ringPoints(-H / 2 + R * Math.sin(phi), R * Math.cos(phi)));
+  }
+  for (let i = 1; i <= hemiSegs; i++) {
+    const phi = (i / hemiSegs) * (Math.PI / 2);
+    allRings.push(ringPoints( H / 2 + R * Math.sin(phi), R * Math.cos(phi)));
+  }
+  const positions = [], colors = [];
+  const orange = [1.0, 0.65, 0.2, alpha];
+  const yellow = [1.0, 0.95, 0.55, alpha * 0.85];
+  for (const ring of allRings) {
+    for (let i = 0; i < ringSegs; i++) {
+      positions.push(ring[i], ring[(i + 1) % ringSegs]);
+      colors.push(orange, orange);
+    }
+  }
+  for (let i = 0; i < ringSegs; i += 2) {
+    for (let r = 0; r < allRings.length - 1; r++) {
+      positions.push(allRings[r][i], allRings[r + 1][i]);
+      colors.push(yellow, yellow);
+    }
+  }
+  const f = new FormRef(
+    { type: "line", positions, colors },
+    { pos: [-ex.x, ex.y, -ex.z], rot: [0, 0, 0], scale: 1 },
+  );
+  f.noFade = true;
+  return f;
+}
+
 // Shared respawn trigger — touch, gamepad A, gamepad Start, and Space all
 // route through this so the "TAP TO RESPAWN" prompt accepts every input.
 function tryRespawn(system) {
@@ -665,6 +877,28 @@ const PERF_LOW_MS = 25;   // below ~40fps → drop to LOW
 const PERF_MED_MS = 18;   // below ~55fps → drop to MED
 const PERF_HIGH_MS = 14;  // above ~70fps → return to HIGH
 let perfSamplesSinceSwitch = 0;
+
+// 🎆 Grenade launcher — Q3-style projectile, click to fire one at a time.
+// One in-flight grenade per player; fuse-detonates after a beat into a pill-
+// shaped blast that knocks the firer (and the cam-doll) outward. The blast
+// can punt the player off the platform and into the lava — that's the trick.
+const GRENADE_RADIUS = 0.18;
+const GRENADE_SPEED = 18;             // initial m/s along the view dir
+const GRENADE_GRAVITY = 22;           // m/s² (lighter than player gravity → arcs)
+const GRENADE_BOUNCE_RESTITUTION = 0.55;
+const GRENADE_BOUNCE_FRICTION = 0.78; // horizontal vel scaling per bounce
+const GRENADE_FUSE = 1.0;             // seconds before detonation
+const GRENADE_REST_VY = 1.0;          // settle threshold (avoid eternal jitter)
+const EXPLOSION_RADIUS = 4.5;         // world units; blast falloff distance
+const EXPLOSION_DURATION = 0.45;      // seconds the pill stays visible
+const EXPLOSION_KICK_HOR = 1.6;       // dolly impulse → ~14u horizontal flight
+const EXPLOSION_KICK_VERT = 14;       // worldYVel impulse (+ is up), units/sec
+const EXPLOSION_VERT_BIAS = 6;        // baseline upward bump even at edge
+
+let myGrenade = null;        // { x, y, z, vx, vy, vz, t } — local single-shot
+let activeExplosion = null;  // { x, y, z, age } — local visual effect
+let knockbackGraceUntil = 0; // ms timestamp; while < now() pmove reconcile is suspended
+let soundRef = null;         // captured in boot for synth access
 
 // 🔎 Camera zoom — wheel scroll steps between 1P and 3P at discrete distances.
 // Level 0 = first person. Levels 1..N = third person, pulling the camera back
@@ -855,10 +1089,11 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug }) {
+function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug, sound }) {
   penLock();
   FormRef = Form;
   paintingRef = painting;
+  soundRef = sound;
 
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
@@ -1510,6 +1745,14 @@ function sim({ system, pen, screen }) {
   // 🏟️ Multiplayer: compose usercmd, batch & flush at CMD_RATE.
   netSim(cam);
 
+  // 🎆 Grenade physics — integrate position, bounce, detonate after fuse.
+  // Runs at SIM_HZ so the trajectory is identical regardless of paint FPS.
+  simGrenade(1 / SIM_HZ, doll, cam);
+  if (activeExplosion) {
+    activeExplosion.age += 1 / SIM_HZ;
+    if (activeExplosion.age >= EXPLOSION_DURATION) activeExplosion = null;
+  }
+
   // 📱 Update mobile button states
   if (mobileButtons && doll) {
     for (const [name, btnData] of Object.entries(mobileButtons)) {
@@ -1878,6 +2121,17 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
 
   // 🏟️ Remote players (interpolated from server snapshots, rendered ~100ms behind).
   paintRemotes(ink, undefined, FormRef);
+
+  // 🎆 Local grenade + pill-shaped explosion. Rebuilt per-frame because color
+  // alpha is baked into the geometry (matches the lava-floor approach above).
+  if (myGrenade) {
+    const gf = buildGrenadeForm(myGrenade);
+    if (gf) ink(255).form(gf);
+  }
+  if (activeExplosion) {
+    const ef = buildExplosionPill(activeExplosion);
+    if (ef) ink(255).form(ef);
+  }
 
   // --- HUD (top-right) ---
   // Layout, top to bottom:
@@ -2439,6 +2693,12 @@ function act({ event: e, penLock, system, screen, ui }) {
     if (tryRespawn(system)) return;
     // Don't re-lock on middle-click (1) or right-click (2) — reserved for camera control.
     if (!penLocked && e.button !== 1 && e.button !== 2) penLock();
+    // 🎆 Click-to-fire grenade — only after pen is locked, only when alive,
+    // and only one in-flight grenade at a time. The first click of a session
+    // locks the pen (above) and does not fire; subsequent left-clicks launch.
+    else if (e.button === 0 && playerAlive && !myGrenade && !netSpectator) {
+      fireGrenade(system?.fps?.doll?.cam);
+    }
   }
 
   // Space (jump key) also respawns when dead — parallels gamepad A.
@@ -2504,6 +2764,9 @@ function initMobileButtons(screen, ui) {
 // deleted immediately instead of waiting for the 30s stale sweep.
 function leave() {
   try { netServer?.send("arena:bye", { handle: myHandle }); } catch {}
+  myGrenade = null;
+  activeExplosion = null;
+  knockbackGraceUntil = 0;
 }
 
 export const system = "fps";

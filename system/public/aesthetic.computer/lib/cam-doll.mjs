@@ -185,6 +185,20 @@ export class CamDoll {
   /** True if third-person mode is currently active. */
   get thirdPerson() { return this.#thirdPerson; }
 
+  /** Apply a one-shot impulse in world space. Horizontal goes through the
+   *  dolly (decay-driven, so it fades over ~10 frames); vertical adds to
+   *  worldYVel directly. Used by external systems like grenade explosions. */
+  applyImpulse({ x = 0, y = 0, z = 0 } = {}) {
+    // cam.x = -worldX, cam.z = -worldZ; dolly applies xVel directly to cam.x,
+    // so to push +worldX we feed -x into the dolly.
+    if (x) this.#dolly.xVel += -x;
+    if (z) this.#dolly.zVel += -z;
+    if (y) {
+      this.#worldYVel += y;
+      if (y > 0) this.#onGround = false;
+    }
+  }
+
   /** Set movement key state directly (for mobile UI buttons). */
   setMovement(dir, pressed) {
     if (dir === "forward") this.#W = pressed;
