@@ -632,20 +632,19 @@ function playBoom(sound) {
 
 function fireGrenade(cam) {
   if (!cam || myGrenade || !playerAlive || netSpectator) return;
-  // Camera world position (cam stores negated world coords for x,z; cam.y is
-  // the eye world-Y inverted). Spawning at cam (not the 3P offset) means the
-  // grenade leaves the muzzle, not the chase cam.
-  const cx = -cam.x, cy = -cam.y, cz = -cam.z;
-  // View forward in world space — same convention as the hover-ray (see sim).
+  // Match the hover-ray exactly. Arena uses (cam.x, -cam.y, cam.z) as the
+  // logical "world" position (same coord that Form.position and tileAt accept),
+  // and the ray direction is (-fx, fy, -fz) when hoverFlipMode = 3.
+  const cx = cam.x, cy = -cam.y, cz = cam.z;
   const yaw = cam.rotY * Math.PI / 180;
   const pit = cam.rotX * Math.PI / 180;
-  const cy2 = Math.cos(yaw), sy = Math.sin(yaw);
-  const cp = Math.cos(pit), sp = Math.sin(pit);
+  const cyR = Math.cos(yaw), syR = Math.sin(yaw);
+  const cpR = Math.cos(pit), spR = Math.sin(pit);
   const flipX = (hoverFlipMode & 1) !== 0;
   const flipZ = (hoverFlipMode & 2) !== 0;
-  let fx = sy * cp;
-  let fy = sp;
-  let fz = cy2 * cp;
+  let fx = syR * cpR;
+  let fy = spR;
+  let fz = cyR * cpR;
   if (flipX) fx = -fx;
   if (flipZ) fz = -fz;
   myGrenade = {
@@ -706,24 +705,31 @@ function detonate(x, y, z, doll, cam) {
   activeExplosion = { x, y, z, age: 0 };
   playBoom(soundRef);
   if (!doll || !cam) return;
+  // Player position in arena's logical world (same coord as the grenade).
   const phys = doll.physics;
-  const pcx = phys?.playerCamX ?? cam.x;
-  const pcy = phys?.playerCamY ?? cam.y;
-  const pcz = phys?.playerCamZ ?? cam.z;
-  const wx = -pcx, wy = -pcy, wz = -pcz;
-  const dx = wx - x, dy = wy - y, dz = wz - z;
+  const ax = phys?.playerCamX ?? cam.x;
+  const ay = -(phys?.playerCamY ?? cam.y);
+  const az = phys?.playerCamZ ?? cam.z;
+  const dx = ax - x, dy = ay - y, dz = az - z;
   const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
   if (dist >= EXPLOSION_RADIUS) return;
-  const t = 1 - dist / EXPLOSION_RADIUS;       // 1 at center → 0 at edge
+  const falloff = 1 - dist / EXPLOSION_RADIUS;   // 1 at center → 0 at edge
   const minD = Math.max(dist, 0.4);
   const nx = dx / minD;
+  const ny = dy / minD;
   const nz = dz / minD;
-  const horForce = EXPLOSION_KICK_HOR * (0.4 + 0.6 * t);
-  const vertForce = EXPLOSION_KICK_VERT * (0.3 + 0.7 * t) + EXPLOSION_VERT_BIAS;
+  const horForce = EXPLOSION_KICK_HOR * (0.4 + 0.6 * falloff);
+  // Vertical = radial component scaled by falloff + a flat upward bias so
+  // ground-level blasts still launch you (ny ≈ 0 when grenade and feet share Y).
+  const vertImpulse = ny * EXPLOSION_KICK_VERT * (0.3 + 0.7 * falloff)
+                    + EXPLOSION_VERT_BIAS * falloff;
+  // cam-doll's applyImpulse takes "world" velocity in its own convention where
+  // cam.x = -worldX. Arena's logical X is just cam.x — so to push the player
+  // in arena's +X we feed the negated value here.
   doll.applyImpulse?.({
-    x: nx * horForce,
-    y: vertForce,
-    z: nz * horForce,
+    x: -nx * horForce,
+    y: vertImpulse,
+    z: -nz * horForce,
   });
   // Suspend pmove reconciliation briefly so the local knockback isn't yanked
   // back to the server's prediction (server doesn't know about the blast).
@@ -756,10 +762,11 @@ function buildGrenadeForm(g) {
     positions.push(v[a], v[b], v[c]);
     colors.push(col, col, col);
   }
-  // Form.position uses (-worldX, worldY, -worldZ) — same as remote bodies.
+  // Form.position uses arena's logical world (cam.x → pos[0], cam.z → pos[2],
+  // true world Y → pos[1]) — same convention as bodyFeet/shadows above.
   const f = new FormRef(
     { type: "triangle", positions, colors },
-    { pos: [-g.x, g.y, -g.z], rot: [0, g.t * 240, 0], scale: 1 },
+    { pos: [g.x, g.y, g.z], rot: [0, g.t * 240, 0], scale: 1 },
   );
   f.noFade = true;
   return f;
@@ -811,7 +818,7 @@ function buildExplosionPill(ex) {
   }
   const f = new FormRef(
     { type: "line", positions, colors },
-    { pos: [-ex.x, ex.y, -ex.z], rot: [0, 0, 0], scale: 1 },
+    { pos: [ex.x, ex.y, ex.z], rot: [0, 0, 0], scale: 1 },
   );
   f.noFade = true;
   return f;
@@ -825,6 +832,12 @@ function tryRespawn(system) {
   deathTickAge = 0;
   walkedTiles.clear();
   prevPlayerTile = null;
+  // 🎆 Drop any in-flight grenade and resume server reconciliation right away,
+  // otherwise the suspended reconcile from a fatal blast keeps the camera
+  // glued to the lava view even after cam-doll teleported back to spawn.
+  myGrenade = null;
+  activeExplosion = null;
+  knockbackGraceUntil = 0;
   system?.fps?.doll?.respawn?.(0, 0);
   return true;
 }
