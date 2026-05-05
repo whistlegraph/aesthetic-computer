@@ -14467,10 +14467,17 @@ async function makeFrame({ data: { type, content } }) {
               );
 
               const superscriptX = hudTextX + firstLineWidth + 2;
-              const superscriptY = 2; // Moved down 2px
+              const superscriptY = 0; // Baseline-aligned with the HUD label
 
               // Special handling for ".com" - color the "." based on connection status
               if (currentHUDSuperscript === ".com") {
+                const dotWidth = cachedAPI.text.width(".", "MatrixChunky8");
+
+                // Drop shadow (1px down/right) matching the HUD label shadow
+                $.ink("black");
+                $.write(".", { x: superscriptX + 1, y: superscriptY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                $.write("com", { x: superscriptX + dotWidth + 1, y: superscriptY + 1 }, undefined, undefined, false, "MatrixChunky8");
+
                 // Color dot based on socket connection: green if connected, red if not
                 if (socket?.connected) {
                   $.ink(0, 255, 100); // Green for connected
@@ -14480,11 +14487,12 @@ async function makeFrame({ data: { type, content } }) {
                 $.write(".", { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
 
                 // Render "com" in bright cyan
-                const dotWidth = cachedAPI.text.width(".", "MatrixChunky8");
                 $.ink(0, 220, 255); // Bright cyan
                 $.write("com", { x: superscriptX + dotWidth, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
               } else {
-                // Default rendering for other superscripts
+                // Default rendering for other superscripts (with drop shadow)
+                $.ink("black");
+                $.write(currentHUDSuperscript, { x: superscriptX + 1, y: superscriptY + 1 }, undefined, undefined, false, "MatrixChunky8");
                 $.ink(0, 220, 255); // Bright cyan
                 $.write(currentHUDSuperscript, { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
               }

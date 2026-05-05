@@ -1167,7 +1167,7 @@ let autopatConfig = {
   ignoreInput: false,
   hudLabel: "autopat",
   paused: false,
-  showTrack: true,
+  showTrack: false,
   sidePanelWidth: 0,
 };
 
@@ -5280,9 +5280,10 @@ function paint({
     }
 
     // 🎩👩 Piano Man + Sample Sally watch from above the keys.
-    if (!projector && !paintPictureOverlay) {
-      paintCharacters({ ink });
-    }
+    // Disabled for now — character faces removed from the web version.
+    // if (!projector && !paintPictureOverlay) {
+    //   paintCharacters({ ink });
+    // }
 
     if (!projector && !usePadsBase) {
       const gridAlpha = 40;
