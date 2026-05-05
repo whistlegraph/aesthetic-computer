@@ -656,12 +656,16 @@ function damagePlayer(amount, doll) {
   }
 }
 
-function fireGrenade(cam) {
+function fireGrenade(cam, doll) {
   if (!cam || myGrenade || !playerAlive || netSpectator) return;
-  // Match the hover-ray exactly. Arena uses (cam.x, -cam.y, cam.z) as the
-  // logical "world" position (same coord that Form.position and tileAt accept),
-  // and the ray direction is (-fx, fy, -fz) when hoverFlipMode = 3.
-  const cx = cam.x, cy = -cam.y, cz = cam.z;
+  // Spawn from the LOGICAL player position, not the chase-camera position.
+  // In 3P, cam.x/y/z include the 3P offset, so a naive `cam.x` would launch
+  // the grenade from behind/above the avatar — and as the blast knocks you
+  // around, the camera follows, making the explosion look pinned to you.
+  const phys = doll?.physics;
+  const cx = phys?.playerCamX ?? cam.x;
+  const cy = -(phys?.playerCamY ?? cam.y);
+  const cz = phys?.playerCamZ ?? cam.z;
   const yaw = cam.rotY * Math.PI / 180;
   const pit = cam.rotX * Math.PI / 180;
   const cyR = Math.cos(yaw), syR = Math.sin(yaw);
@@ -806,12 +810,13 @@ function buildExplosionPill(ex) {
   const t = ex.age / EXPLOSION_DURATION;
   if (t >= 1) return null;
   const ease = 1 - (1 - t) * (1 - t); // ease-out grow
-  const scale = EXPLOSION_RADIUS * (0.35 + ease * 0.65);
+  // Sphere whose radius matches the physics blast radius — visual lines up
+  // with what actually pushes / damages you.
+  const R = EXPLOSION_RADIUS * (0.35 + ease * 0.65);
+  const H = 0;                          // pill → sphere
   const alpha = Math.max(0, 1 - t);
-  const R = scale * 0.55;
-  const H = scale * 0.7;
-  const ringSegs = 14;
-  const hemiSegs = 4;
+  const ringSegs = 16;
+  const hemiSegs = 5;
 
   const ringPoints = (y, r) => {
     const pts = [];
@@ -869,7 +874,16 @@ function tryRespawn(system) {
   knockbackGraceUntil = 0;
   playerHP = MAX_HP;
   lastDamageMs = 0;
-  system?.fps?.doll?.respawn?.(0, 0);
+  const doll = system?.fps?.doll;
+  doll?.respawn?.(0, 0);
+  // Force the 3P lerp to re-snap. Otherwise tpCurrent (which last lerped
+  // toward the falling-into-lava camera position) keeps the visual camera
+  // floating near the death floor for ~half a second after respawn — looks
+  // like the player is "still falling" even though logical pos teleported.
+  if (doll && zoomLevel > 0) {
+    doll.setThirdPerson(false);
+    doll.setThirdPerson(true, ZOOM_DISTANCES[zoomLevel]);
+  }
   return true;
 }
 
@@ -2784,7 +2798,7 @@ function act({ event: e, penLock, system, screen, ui }) {
     // and only one in-flight grenade at a time. The first click of a session
     // locks the pen (above) and does not fire; subsequent left-clicks launch.
     else if (e.button === 0 && playerAlive && !myGrenade && !netSpectator) {
-      fireGrenade(system?.fps?.doll?.cam);
+      fireGrenade(system?.fps?.doll?.cam, system?.fps?.doll);
     }
   }
 
