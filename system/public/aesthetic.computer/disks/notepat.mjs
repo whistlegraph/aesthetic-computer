@@ -13,6 +13,7 @@ import {
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
+import * as gm from "../lib/gm.mjs";
 
 // 🎹 NuPhy Air60 HE — WebHID analog pressure support
 // Sends activation commands then reads 0xA0 analog reports with per-key pressure.
@@ -378,15 +379,16 @@ TODO: 💮 Daisy
 
 let STARTING_OCTAVE = "4";
 const wavetypes = [
-  "sine", // 0
-  "triangle", // 1
-  "sawtooth", // 2
-  "square", // 3
-  "harp", // 4 - Karplus-Strong plucked string (Karplus & Strong 1983)
-  "whistle", // 5 - digital waveguide flute (Cook/STK)
-  "composite", // 6
-  "stample", // 7
-  "drum", // 8 - shared 12-drum kit (lib/percussion.mjs), both octaves
+  "gm", // 0 - General MIDI (lib/gm.mjs); number-row digits pick programs 0-127
+  "sine", // 1
+  "triangle", // 2
+  "sawtooth", // 3
+  "square", // 4
+  "harp", // 5 - Karplus-Strong plucked string (Karplus & Strong 1983)
+  "whistle", // 6 - digital waveguide flute (Cook/STK)
+  "composite", // 7
+  "stample", // 8
+  "drum", // 9 - shared 12-drum kit (lib/percussion.mjs), both octaves
 ];
 let waveIndex = 0; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
@@ -398,6 +400,43 @@ let roomMode = false; // 🏠 Global reverb toggle
 let roomAmount = 0.5; // 🎚️ Room/reverb amount (0-1)
 let glitchMode = false; // 🧩 Global glitch toggle
 let octave = STARTING_OCTAVE;
+
+// 🎼 GM (General MIDI) state — see lib/gm.mjs
+// Number-row digits 0-9 type into a 1-3 digit decimal buffer that picks GM
+// program 0-127 live (mirrors menuband). 700ms pause auto-clears the buffer.
+// "0" / "00" / "000" map to program 0 (Acoustic Grand Piano) — notepat has
+// no MIDI-passthrough slot like menuband does.
+let gmReady = false;
+let gmProgram = 0;
+let gmPatch = null;
+let gmPatchLoading = false;
+let gmInitStarted = false;
+let gmDigitBuffer = "";
+let gmDigitBufferDeadline = 0;
+const GM_DIGIT_TIMEOUT_MS = 700;
+
+// Fire the GM bootstrap exactly once, as soon as window.audioContext is
+// available. Browsers gate audio creation behind the first user gesture,
+// so this can't run at boot — it has to wait for setSoundContext to see
+// a real context.
+function maybeInitGM() {
+  if (gmInitStarted) return;
+  if (typeof window === "undefined" || !(/** @type {any} */ (window).audioContext)) return;
+  gmInitStarted = true;
+  (async () => {
+    try {
+      await gm.loadManifest();
+      const patch = await gm.loadPatch(gmProgram);
+      if (patch) {
+        gmPatch = patch;
+        gmReady = true;
+      }
+    } catch (err) {
+      console.warn("🎼 GM init failed — staying on oscillator fallback:", err);
+    }
+  })();
+}
+
 let keys = "";
 let tap = false;
 let tapIndex = 0;
@@ -1662,6 +1701,7 @@ async function boot({
   // }
 
   const wavetypes = [
+    "gm",
     "square",
     "sine",
     "triangle",
@@ -5683,6 +5723,7 @@ let soundContext = null;
 
 function setSoundContext(ctx) {
   soundContext = ctx;
+  maybeInitGM();
 }
 
 function lowerBaseOctave() {
@@ -5964,6 +6005,28 @@ function flushRelayMidiQueue() {
   }
 }
 
+// 🎼 Switch the live GM patch. Awaitable; safely no-ops if a newer call
+// supersedes this one mid-load. Triggered by the digit-buffered picker
+// in `act()` and by incoming MIDI program-change messages.
+async function setGmProgram(program, apiRef) {
+  const next = Math.max(0, Math.min(127, program | 0));
+  gmProgram = next;
+  if (gmPatchLoading) return;
+  gmPatchLoading = true;
+  try {
+    const patch = await gm.loadPatch(next);
+    if (gmProgram === next) {
+      gmPatch = patch;
+      gmReady = true;
+    }
+    if (apiRef) buildWaveButton(apiRef);
+  } catch (err) {
+    console.warn("🎼 GM: loadPatch failed for", next, err);
+  } finally {
+    gmPatchLoading = false;
+  }
+}
+
 function makeNoteSound(tone, velocity = 127, pan = 0) {
   const synth = soundContext?.synth;
   const play = soundContext?.play;
@@ -5991,7 +6054,38 @@ function makeNoteSound(tone, velocity = 127, pan = 0) {
   const minVelocityVolume = 0.05; // Keep a subtle floor so very light taps still play.
   const volumeScale = minVelocityVolume + (1 - minVelocityVolume) * velocityRatio;
 
-  if (wave === "stample" || wave === "sample") {
+  if (wave === "gm") {
+    // 🎼 GM playback via lib/gm.mjs. Falls back to a sine oscillator if the
+    // patch isn't ready yet (manifest still loading, or asset host down).
+    // The shim mimics the synth handle shape — { startedAt, kill, update } —
+    // so the rest of notepat (panic, sustain, pitch-bend) doesn't have to
+    // care which backend played the note. Pitch-bend update is a no-op for
+    // GM voices in v1; gm.mjs doesn't expose a per-voice frequency setter.
+    if (gmReady && gmPatch) {
+      const hz = freq(tone);
+      const midi = Math.round(12 * Math.log2(hz / 440) + 69);
+      const ctx =
+        typeof window !== "undefined" ? /** @type {any} */ (window).audioContext : null;
+      const startedAt = ctx?.currentTime ?? performance.now() / 1000;
+      const noteHandle = gmPatch.play(midi, {
+        velocity: Math.round(velocityRatio * 127),
+      });
+      return {
+        startedAt,
+        kill: (_fade) => noteHandle.release(),
+        update: () => {},
+      };
+    }
+    // Fallback while GM is still loading or unavailable.
+    return synth({
+      type: "sine",
+      attack: quickFade ? 0.0015 : attack,
+      tone,
+      duration: "🔁",
+      volume: toneVolume * volumeScale,
+      pan,
+    });
+  } else if (wave === "stample" || wave === "sample") {
     const sampleId = stampleSampleId || startupSfx;
     return play(sampleId, {
       volume: volumeScale,
@@ -6619,6 +6713,54 @@ function act({
     buildOsButton(api);
   }
 
+  // 🎼 GM digit-buffered patch picker — top-row 0-9 like menuband. Each
+  // digit press updates the live GM program; the buffer auto-clears after
+  // GM_DIGIT_TIMEOUT_MS of inactivity or when a non-digit key arrives.
+  // NuPhy WebHID also delivers digits through this channel, so hardware
+  // presses pick patches too.
+  {
+    const isKbdDown = e.is("keyboard:down") && !e.repeat;
+    const digit = isKbdDown && /^[0-9]$/.test(e.key) ? e.key : null;
+    const now = performance.now();
+
+    if (gmDigitBuffer && now > gmDigitBufferDeadline) {
+      gmDigitBuffer = "";
+    }
+
+    if (digit) {
+      if (gmDigitBuffer.length >= 3) gmDigitBuffer = "";
+      gmDigitBuffer += digit;
+      gmDigitBufferDeadline = now + GM_DIGIT_TIMEOUT_MS;
+
+      // "0" / "00" / "000" → program 0; otherwise typed value clamped 0-127.
+      const v = parseInt(gmDigitBuffer, 10);
+      const program = Math.max(0, Math.min(127, v));
+
+      // Friendly auto-switch: typing a digit while in a legacy wave snaps
+      // the wave switcher to "gm" so the user actually hears the program
+      // they just picked.
+      if (wave !== "gm") {
+        waveIndex = wavetypes.indexOf("gm");
+        if (waveIndex >= 0) {
+          wave = "gm";
+          buildAbletonButton(api);
+          buildOsButton(api);
+        }
+      }
+
+      setGmProgram(program, api);
+      buildWaveButton(api); // Immediate label refresh — shows the buffer live.
+      api.beep();
+      return;
+    }
+
+    // Non-digit keypress clears any pending buffer (the live program was
+    // already applied per-digit, so nothing to commit).
+    if (isKbdDown && gmDigitBuffer) {
+      gmDigitBuffer = "";
+    }
+  }
+
   // if (e.is("keyboard:down:shift") && !e.repeat) {
   //   lowerOctaveShift -= 1;
   // }
@@ -7016,6 +7158,7 @@ function act({
   const MIDI_NOTE_ON = 0x90;
   const MIDI_NOTE_OFF = 0x80;
   const MIDI_PITCH_BEND = 0xe0;
+  const MIDI_PROGRAM_CHANGE = 0xc0;
 
   const midiNoteToButton = (noteNumber) => {
       if (!midiUtil?.note || typeof noteNumber !== "number") return null;
@@ -7252,6 +7395,21 @@ function act({
         applyPitchBendToNotes(undefined, { immediate: true });
       }
 
+      return;
+    }
+
+    // 🎼 Incoming GM program-change → switch the active GM patch. Auto-
+    // snaps the wave switcher to "gm" so the user hears the new voice.
+    if (command === MIDI_PROGRAM_CHANGE) {
+      const program = noteNumber ?? 0;
+      if (wave !== "gm") {
+        const idx = wavetypes.indexOf("gm");
+        if (idx >= 0) {
+          waveIndex = idx;
+          wave = "gm";
+        }
+      }
+      setGmProgram(program, api);
       return;
     }
 
@@ -8510,8 +8668,17 @@ function buildWaveButton({ screen, ui, typeface }) {
     composite: "cmp",
     stample: "stp",
     drum: "drm",
+    gm: "gm",
   };
-  const displayWave = isNarrow ? (shortWaveNames[wave] || wave.slice(0, 3)) : wave;
+  // GM wave shows the live program/buffer so the user always knows what's
+  // loaded and what they're partway through typing.
+  let displayWave;
+  if (wave === "gm") {
+    const shown = gmDigitBuffer || String(gmProgram).padStart(3, "0");
+    displayWave = isNarrow ? `g${shown}` : `GM:${shown}`;
+  } else {
+    displayWave = isNarrow ? (shortWaveNames[wave] || wave.slice(0, 3)) : wave;
+  }
   const waveWidth = displayWave.length * glyphWidth;
   const margin = isNarrow ? 2 : 4;
   waveBtn = new ui.Button(

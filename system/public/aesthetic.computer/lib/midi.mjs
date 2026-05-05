@@ -4,13 +4,19 @@ const activeInputs = new Map();
 const NOTE_ON = 0x90;
 const NOTE_OFF = 0x80;
 const PITCH_BEND = 0xe0;
+const PROGRAM_CHANGE = 0xc0;
 
 function handleMidiMessage(message) {
   const [status, note, velocity] = message.data || [];
   if (status === undefined) return;
 
   const command = status & 0xf0;
-  if (command !== NOTE_ON && command !== NOTE_OFF && command !== PITCH_BEND) {
+  if (
+    command !== NOTE_ON &&
+    command !== NOTE_OFF &&
+    command !== PITCH_BEND &&
+    command !== PROGRAM_CHANGE
+  ) {
     return;
   }
 
