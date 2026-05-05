@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "generated": "2026-05-04",
+  "sentences": [
+    {
+      "text": "The birch canoe slid on the smooth planks.",
+      "id": "c000",
+      "chars": 42
+    },
+    {
+      "text": "Glue the sheet to the dark blue background.",
+      "id": "c001",
+      "chars": 43
+    },
+    {
+      "text": "It's easy to tell the depth of a well.",
+      "id": "c002",
+      "chars": 38
+    },
+    {
+      "text": "These days a chicken leg is a rare dish.",
+      "id": "c003",
+      "chars": 40
+    },
+    {
+      "text": "Rice is often served in round bowls.",
+      "id": "c004",
+      "chars": 36
+    },
+    {
+      "text": "The juice of lemons makes fine punch.",
+      "id": "c005",
+      "chars": 37
+    },
+    {
+      "text": "The box was thrown beside the parked truck.",
+      "id": "c006",
+      "chars": 43
+    },
+    {
+      "text": "The hogs were fed chopped corn and garbage.",
+      "id": "c007",
+      "chars": 43
+    },
+    {
+      "text": "Four hours of steady work faced us.",
+      "id": "c008",
+      "chars": 35
+    },
+    {
+      "text": "Large size in stockings is hard to sell.",
+      "id": "c009",
+      "chars": 40
+    },
+    {
+      "text": "The boy was there when the sun rose.",
+      "id": "c010",
+      "chars": 36
+    },
+    {
+      "text": "A rod is used to catch pink salmon.",
+      "id": "c011",
+      "chars": 35
+    },
+    {
+      "text": "The source of the huge river is the clear spring.",
+      "id": "c012",
+      "chars": 49
+    },
+    {
+      "text": "Kick the ball straight and follow through.",
+      "id": "c013",
+      "chars": 42
+    },
+    {
+      "text": "Help the woman get back to her feet.",
+      "id": "c014",
+      "chars": 36
+    },
+    {
+      "text": "A pot of tea helps to pass the evening.",
+      "id": "c015",
+      "chars": 39
+    },
+    {
+      "text": "Smoky fires lack flame and heat.",
+      "id": "c016",
+      "chars": 32
+    },
+    {
+      "text": "The soft cushion broke the man's fall.",
+      "id": "c017",
+      "chars": 38
+    },
+    {
+      "text": "The salt breeze came across from the sea.",
+      "id": "c018",
+      "chars": 41
+    },
+    {
+      "text": "The girl at the booth sold fifty bonds.",
+      "id": "c019",
+      "chars": 39
+    },
+    {
+      "text": "The small pup gnawed a hole in the sock.",
+      "id": "c020",
+      "chars": 40
+    },
+    {
+      "text": "The fish twisted and turned on the bent hook.",
+      "id": "c021",
+      "chars": 45
+    },
+    {
+      "text": "Press the pants and sew a button on the vest.",
+      "id": "c022",
+      "chars": 45
+    },
+    {
+      "text": "The swan dive was far short of perfect.",
+      "id": "c023",
+      "chars": 39
+    },
+    {
+      "text": "The beauty of the view stunned the young boy.",
+      "id": "c024",
+      "chars": 45
+    },
+    {
+      "text": "Two blue fish swam in the tank.",
+      "id": "c025",
+      "chars": 31
+    },
+    {
+      "text": "Her purse was full of useless trash.",
+      "id": "c026",
+      "chars": 36
+    },
+    {
+      "text": "The colt reared and threw the tall rider.",
+      "id": "c027",
+      "chars": 41
+    },
+    {
+      "text": "It snowed, rained, and hailed the same morning.",
+      "id": "c028",
+      "chars": 47
+    },
+    {
+      "text": "Read verse out loud for pleasure.",
+      "id": "c029",
+      "chars": 33
+    },
+    {
+      "text": "Kidlisp pieces play in the browser.",
+      "id": "c030",
+      "chars": 35
+    },
+    {
+      "text": "Notepat keys glow when you tap them.",
+      "id": "c031",
+      "chars": 36
+    },
+    {
+      "text": "Aesthetic computer plays every shape.",
+      "id": "c032",
+      "chars": 37
+    },
+    {
+      "text": "Push enter to load the new piece.",
+      "id": "c033",
+      "chars": 33
+    },
+    {
+      "text": "Whistlegraph traces a song in light.",
+      "id": "c034",
+      "chars": 36
+    },
+    {
+      "text": "Ship a kernel from a USB stick.",
+      "id": "c035",
+      "chars": 31
+    },
+    {
+      "text": "Every URL is a score.",
+      "id": "c036",
+      "chars": 21
+    },
+    {
+      "text": "Type a word and watch it run.",
+      "id": "c037",
+      "chars": 29
+    },
+    {
+      "text": "Plork the planet, build a school.",
+      "id": "c038",
+      "chars": 33
+    },
+    {
+      "text": "Render audio at the edge.",
+      "id": "c039",
+      "chars": 25
+    }
+  ],
+  "totals": {
+    "n_sentences": 40,
+    "total_chars": 1502,
+    "median_chars": 38,
+    "estimated_elevenlabs_dollars_at_30k_per_5usd": 0.25
+  },
+  "diphone_coverage_pending": true,
+  "notes": [
+    "Coverage validation against diphone-targets.json is TBD \u2014 needs a CMU-style phoneme dictionary (g2p_en or similar) to map each word to ARPABet.",
+    "Starter set: 30 Harvard sentences (IEEE 1969 lists 1-3, public domain) for phonetic balance, plus 10 AC-tuned sentences for AC vocabulary diphones.",
+    "If coverage of tier-1 (532 pairs) is below ~90%, top up with nonsense carriers (e.g. \"pa pa pa, pe pe pe, pi pi pi\") to hit gaps."
+  ]
+}

@@ -1,0 +1,9223 @@
+{
+  "version": 1,
+  "generated": "2026-05-04",
+  "phones": {
+    "vowels": [
+      "AA",
+      "AE",
+      "AH",
+      "AO",
+      "AW",
+      "AY",
+      "EH",
+      "ER",
+      "EY",
+      "IH",
+      "IY",
+      "OW",
+      "OY",
+      "UH",
+      "UW"
+    ],
+    "consonants": [
+      "B",
+      "CH",
+      "D",
+      "DH",
+      "F",
+      "G",
+      "HH",
+      "JH",
+      "K",
+      "L",
+      "M",
+      "N",
+      "NG",
+      "P",
+      "R",
+      "S",
+      "SH",
+      "T",
+      "TH",
+      "V",
+      "W",
+      "Y",
+      "Z",
+      "ZH"
+    ],
+    "boundary": [
+      "#B",
+      "#E"
+    ]
+  },
+  "n_pairs": 1527,
+  "tiers": {
+    "tier1_vv_cv": 532,
+    "tier2_clusters": 306,
+    "tier3_long_tail": 689
+  },
+  "pairs": [
+    {
+      "a": "AA",
+      "b": "AA",
+      "id": "AA_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "AE",
+      "id": "AA_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "AH",
+      "id": "AA_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "AO",
+      "id": "AA_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "AW",
+      "id": "AA_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "AY",
+      "id": "AA_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "EH",
+      "id": "AA_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "ER",
+      "id": "AA_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "EY",
+      "id": "AA_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "IH",
+      "id": "AA_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "IY",
+      "id": "AA_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "OW",
+      "id": "AA_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "OY",
+      "id": "AA_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "UH",
+      "id": "AA_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "AA",
+      "b": "UW",
+      "id": "AA_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "AA",
+      "id": "AE_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "AE",
+      "id": "AE_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "AH",
+      "id": "AE_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "AO",
+      "id": "AE_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "AW",
+      "id": "AE_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "AY",
+      "id": "AE_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "EH",
+      "id": "AE_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "ER",
+      "id": "AE_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "EY",
+      "id": "AE_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "IH",
+      "id": "AE_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "IY",
+      "id": "AE_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "OW",
+      "id": "AE_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "OY",
+      "id": "AE_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "UH",
+      "id": "AE_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "AE",
+      "b": "UW",
+      "id": "AE_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "AA",
+      "id": "AH_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "AE",
+      "id": "AH_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "AH",
+      "id": "AH_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "AO",
+      "id": "AH_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "AW",
+      "id": "AH_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "AY",
+      "id": "AH_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "EH",
+      "id": "AH_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "ER",
+      "id": "AH_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "EY",
+      "id": "AH_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "IH",
+      "id": "AH_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "IY",
+      "id": "AH_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "OW",
+      "id": "AH_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "OY",
+      "id": "AH_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "UH",
+      "id": "AH_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "AH",
+      "b": "UW",
+      "id": "AH_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "AA",
+      "id": "AO_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "AE",
+      "id": "AO_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "AH",
+      "id": "AO_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "AO",
+      "id": "AO_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "AW",
+      "id": "AO_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "AY",
+      "id": "AO_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "EH",
+      "id": "AO_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "ER",
+      "id": "AO_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "EY",
+      "id": "AO_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "IH",
+      "id": "AO_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "IY",
+      "id": "AO_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "OW",
+      "id": "AO_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "OY",
+      "id": "AO_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "UH",
+      "id": "AO_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "AO",
+      "b": "UW",
+      "id": "AO_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "AA",
+      "id": "AW_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "AE",
+      "id": "AW_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "AH",
+      "id": "AW_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "AO",
+      "id": "AW_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "AW",
+      "id": "AW_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "AY",
+      "id": "AW_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "EH",
+      "id": "AW_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "ER",
+      "id": "AW_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "EY",
+      "id": "AW_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "IH",
+      "id": "AW_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "IY",
+      "id": "AW_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "OW",
+      "id": "AW_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "OY",
+      "id": "AW_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "UH",
+      "id": "AW_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "AW",
+      "b": "UW",
+      "id": "AW_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "AA",
+      "id": "AY_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "AE",
+      "id": "AY_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "AH",
+      "id": "AY_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "AO",
+      "id": "AY_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "AW",
+      "id": "AY_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "AY",
+      "id": "AY_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "EH",
+      "id": "AY_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "ER",
+      "id": "AY_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "EY",
+      "id": "AY_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "IH",
+      "id": "AY_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "IY",
+      "id": "AY_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "OW",
+      "id": "AY_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "OY",
+      "id": "AY_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "UH",
+      "id": "AY_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "AY",
+      "b": "UW",
+      "id": "AY_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "AA",
+      "id": "EH_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "AE",
+      "id": "EH_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "AH",
+      "id": "EH_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "AO",
+      "id": "EH_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "AW",
+      "id": "EH_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "AY",
+      "id": "EH_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "EH",
+      "id": "EH_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "ER",
+      "id": "EH_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "EY",
+      "id": "EH_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "IH",
+      "id": "EH_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "IY",
+      "id": "EH_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "OW",
+      "id": "EH_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "OY",
+      "id": "EH_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "UH",
+      "id": "EH_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "EH",
+      "b": "UW",
+      "id": "EH_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "AA",
+      "id": "ER_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "AE",
+      "id": "ER_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "AH",
+      "id": "ER_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "AO",
+      "id": "ER_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "AW",
+      "id": "ER_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "AY",
+      "id": "ER_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "EH",
+      "id": "ER_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "ER",
+      "id": "ER_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "EY",
+      "id": "ER_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "IH",
+      "id": "ER_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "IY",
+      "id": "ER_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "OW",
+      "id": "ER_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "OY",
+      "id": "ER_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "UH",
+      "id": "ER_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "ER",
+      "b": "UW",
+      "id": "ER_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "AA",
+      "id": "EY_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "AE",
+      "id": "EY_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "AH",
+      "id": "EY_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "AO",
+      "id": "EY_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "AW",
+      "id": "EY_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "AY",
+      "id": "EY_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "EH",
+      "id": "EY_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "ER",
+      "id": "EY_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "EY",
+      "id": "EY_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "IH",
+      "id": "EY_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "IY",
+      "id": "EY_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "OW",
+      "id": "EY_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "OY",
+      "id": "EY_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "UH",
+      "id": "EY_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "EY",
+      "b": "UW",
+      "id": "EY_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "AA",
+      "id": "IH_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "AE",
+      "id": "IH_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "AH",
+      "id": "IH_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "AO",
+      "id": "IH_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "AW",
+      "id": "IH_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "AY",
+      "id": "IH_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "EH",
+      "id": "IH_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "ER",
+      "id": "IH_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "EY",
+      "id": "IH_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "IH",
+      "id": "IH_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "IY",
+      "id": "IH_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "OW",
+      "id": "IH_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "OY",
+      "id": "IH_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "UH",
+      "id": "IH_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "IH",
+      "b": "UW",
+      "id": "IH_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "AA",
+      "id": "IY_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "AE",
+      "id": "IY_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "AH",
+      "id": "IY_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "AO",
+      "id": "IY_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "AW",
+      "id": "IY_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "AY",
+      "id": "IY_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "EH",
+      "id": "IY_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "ER",
+      "id": "IY_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "EY",
+      "id": "IY_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "IH",
+      "id": "IY_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "IY",
+      "id": "IY_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "OW",
+      "id": "IY_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "OY",
+      "id": "IY_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "UH",
+      "id": "IY_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "IY",
+      "b": "UW",
+      "id": "IY_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "AA",
+      "id": "OW_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "AE",
+      "id": "OW_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "AH",
+      "id": "OW_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "AO",
+      "id": "OW_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "AW",
+      "id": "OW_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "AY",
+      "id": "OW_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "EH",
+      "id": "OW_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "ER",
+      "id": "OW_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "EY",
+      "id": "OW_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "IH",
+      "id": "OW_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "IY",
+      "id": "OW_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "OW",
+      "id": "OW_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "OY",
+      "id": "OW_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "UH",
+      "id": "OW_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "OW",
+      "b": "UW",
+      "id": "OW_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "AA",
+      "id": "OY_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "AE",
+      "id": "OY_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "AH",
+      "id": "OY_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "AO",
+      "id": "OY_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "AW",
+      "id": "OY_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "AY",
+      "id": "OY_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "EH",
+      "id": "OY_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "ER",
+      "id": "OY_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "EY",
+      "id": "OY_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "IH",
+      "id": "OY_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "IY",
+      "id": "OY_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "OW",
+      "id": "OY_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "OY",
+      "id": "OY_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "UH",
+      "id": "OY_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "OY",
+      "b": "UW",
+      "id": "OY_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "AA",
+      "id": "UH_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "AE",
+      "id": "UH_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "AH",
+      "id": "UH_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "AO",
+      "id": "UH_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "AW",
+      "id": "UH_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "AY",
+      "id": "UH_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "EH",
+      "id": "UH_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "ER",
+      "id": "UH_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "EY",
+      "id": "UH_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "IH",
+      "id": "UH_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "IY",
+      "id": "UH_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "OW",
+      "id": "UH_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "OY",
+      "id": "UH_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "UH",
+      "id": "UH_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "UH",
+      "b": "UW",
+      "id": "UH_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "AA",
+      "id": "UW_AA",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "AE",
+      "id": "UW_AE",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "AH",
+      "id": "UW_AH",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "AO",
+      "id": "UW_AO",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "AW",
+      "id": "UW_AW",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "AY",
+      "id": "UW_AY",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "EH",
+      "id": "UW_EH",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "ER",
+      "id": "UW_ER",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "EY",
+      "id": "UW_EY",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "IH",
+      "id": "UW_IH",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "IY",
+      "id": "UW_IY",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "OW",
+      "id": "UW_OW",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "OY",
+      "id": "UW_OY",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "UH",
+      "id": "UW_UH",
+      "weight": 1.0
+    },
+    {
+      "a": "UW",
+      "b": "UW",
+      "id": "UW_UW",
+      "weight": 1.0
+    },
+    {
+      "a": "#B",
+      "b": "AA",
+      "id": "#B_AA",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "AE",
+      "id": "#B_AE",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "AH",
+      "id": "#B_AH",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "AO",
+      "id": "#B_AO",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "AW",
+      "id": "#B_AW",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "AY",
+      "id": "#B_AY",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "EH",
+      "id": "#B_EH",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "ER",
+      "id": "#B_ER",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "EY",
+      "id": "#B_EY",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "IH",
+      "id": "#B_IH",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "IY",
+      "id": "#B_IY",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "OW",
+      "id": "#B_OW",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "OY",
+      "id": "#B_OY",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "UH",
+      "id": "#B_UH",
+      "weight": 0.95
+    },
+    {
+      "a": "#B",
+      "b": "UW",
+      "id": "#B_UW",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "AA",
+      "id": "B_AA",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "AE",
+      "id": "B_AE",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "AH",
+      "id": "B_AH",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "AO",
+      "id": "B_AO",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "AW",
+      "id": "B_AW",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "AY",
+      "id": "B_AY",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "EH",
+      "id": "B_EH",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "ER",
+      "id": "B_ER",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "EY",
+      "id": "B_EY",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "IH",
+      "id": "B_IH",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "IY",
+      "id": "B_IY",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "OW",
+      "id": "B_OW",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "OY",
+      "id": "B_OY",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "UH",
+      "id": "B_UH",
+      "weight": 0.95
+    },
+    {
+      "a": "B",
+      "b": "UW",
+      "id": "B_UW",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "AA",
+      "id": "D_AA",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "AE",
+      "id": "D_AE",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "AH",
+      "id": "D_AH",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "AO",
+      "id": "D_AO",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "AW",
+      "id": "D_AW",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "AY",
+      "id": "D_AY",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "EH",
+      "id": "D_EH",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "ER",
+      "id": "D_ER",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "EY",
+      "id": "D_EY",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "IH",
+      "id": "D_IH",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "IY",
+      "id": "D_IY",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "OW",
+      "id": "D_OW",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "OY",
+      "id": "D_OY",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "UH",
+      "id": "D_UH",
+      "weight": 0.95
+    },
+    {
+      "a": "D",
+      "b": "UW",
+      "id": "D_UW",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "AA",
+      "id": "G_AA",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "AE",
+      "id": "G_AE",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "AH",
+      "id": "G_AH",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "AO",
+      "id": "G_AO",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "AW",
+      "id": "G_AW",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "AY",
+      "id": "G_AY",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "EH",
+      "id": "G_EH",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "ER",
+      "id": "G_ER",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "EY",
+      "id": "G_EY",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "IH",
+      "id": "G_IH",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "IY",
+      "id": "G_IY",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "OW",
+      "id": "G_OW",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "OY",
+      "id": "G_OY",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "UH",
+      "id": "G_UH",
+      "weight": 0.95
+    },
+    {
+      "a": "G",
+      "b": "UW",
+      "id": "G_UW",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "AA",
+      "id": "K_AA",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "AE",
+      "id": "K_AE",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "AH",
+      "id": "K_AH",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "AO",
+      "id": "K_AO",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "AW",
+      "id": "K_AW",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "AY",
+      "id": "K_AY",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "EH",
+      "id": "K_EH",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "ER",
+      "id": "K_ER",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "EY",
+      "id": "K_EY",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "IH",
+      "id": "K_IH",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "IY",
+      "id": "K_IY",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "OW",
+      "id": "K_OW",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "OY",
+      "id": "K_OY",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "UH",
+      "id": "K_UH",
+      "weight": 0.95
+    },
+    {
+      "a": "K",
+      "b": "UW",
+      "id": "K_UW",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "AA",
+      "id": "P_AA",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "AE",
+      "id": "P_AE",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "AH",
+      "id": "P_AH",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "AO",
+      "id": "P_AO",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "AW",
+      "id": "P_AW",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "AY",
+      "id": "P_AY",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "EH",
+      "id": "P_EH",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "ER",
+      "id": "P_ER",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "EY",
+      "id": "P_EY",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "IH",
+      "id": "P_IH",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "IY",
+      "id": "P_IY",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "OW",
+      "id": "P_OW",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "OY",
+      "id": "P_OY",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "UH",
+      "id": "P_UH",
+      "weight": 0.95
+    },
+    {
+      "a": "P",
+      "b": "UW",
+      "id": "P_UW",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "AA",
+      "id": "T_AA",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "AE",
+      "id": "T_AE",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "AH",
+      "id": "T_AH",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "AO",
+      "id": "T_AO",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "AW",
+      "id": "T_AW",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "AY",
+      "id": "T_AY",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "EH",
+      "id": "T_EH",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "ER",
+      "id": "T_ER",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "EY",
+      "id": "T_EY",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "IH",
+      "id": "T_IH",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "IY",
+      "id": "T_IY",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "OW",
+      "id": "T_OW",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "OY",
+      "id": "T_OY",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "UH",
+      "id": "T_UH",
+      "weight": 0.95
+    },
+    {
+      "a": "T",
+      "b": "UW",
+      "id": "T_UW",
+      "weight": 0.95
+    },
+    {
+      "a": "AA",
+      "b": "B",
+      "id": "AA_B",
+      "weight": 0.9
+    },
+    {
+      "a": "AA",
+      "b": "D",
+      "id": "AA_D",
+      "weight": 0.9
+    },
+    {
+      "a": "AA",
+      "b": "G",
+      "id": "AA_G",
+      "weight": 0.9
+    },
+    {
+      "a": "AA",
+      "b": "K",
+      "id": "AA_K",
+      "weight": 0.9
+    },
+    {
+      "a": "AA",
+      "b": "P",
+      "id": "AA_P",
+      "weight": 0.9
+    },
+    {
+      "a": "AA",
+      "b": "T",
+      "id": "AA_T",
+      "weight": 0.9
+    },
+    {
+      "a": "AE",
+      "b": "B",
+      "id": "AE_B",
+      "weight": 0.9
+    },
+    {
+      "a": "AE",
+      "b": "D",
+      "id": "AE_D",
+      "weight": 0.9
+    },
+    {
+      "a": "AE",
+      "b": "G",
+      "id": "AE_G",
+      "weight": 0.9
+    },
+    {
+      "a": "AE",
+      "b": "K",
+      "id": "AE_K",
+      "weight": 0.9
+    },
+    {
+      "a": "AE",
+      "b": "P",
+      "id": "AE_P",
+      "weight": 0.9
+    },
+    {
+      "a": "AE",
+      "b": "T",
+      "id": "AE_T",
+      "weight": 0.9
+    },
+    {
+      "a": "AH",
+      "b": "B",
+      "id": "AH_B",
+      "weight": 0.9
+    },
+    {
+      "a": "AH",
+      "b": "D",
+      "id": "AH_D",
+      "weight": 0.9
+    },
+    {
+      "a": "AH",
+      "b": "G",
+      "id": "AH_G",
+      "weight": 0.9
+    },
+    {
+      "a": "AH",
+      "b": "K",
+      "id": "AH_K",
+      "weight": 0.9
+    },
+    {
+      "a": "AH",
+      "b": "P",
+      "id": "AH_P",
+      "weight": 0.9
+    },
+    {
+      "a": "AH",
+      "b": "T",
+      "id": "AH_T",
+      "weight": 0.9
+    },
+    {
+      "a": "AO",
+      "b": "B",
+      "id": "AO_B",
+      "weight": 0.9
+    },
+    {
+      "a": "AO",
+      "b": "D",
+      "id": "AO_D",
+      "weight": 0.9
+    },
+    {
+      "a": "AO",
+      "b": "G",
+      "id": "AO_G",
+      "weight": 0.9
+    },
+    {
+      "a": "AO",
+      "b": "K",
+      "id": "AO_K",
+      "weight": 0.9
+    },
+    {
+      "a": "AO",
+      "b": "P",
+      "id": "AO_P",
+      "weight": 0.9
+    },
+    {
+      "a": "AO",
+      "b": "T",
+      "id": "AO_T",
+      "weight": 0.9
+    },
+    {
+      "a": "AW",
+      "b": "B",
+      "id": "AW_B",
+      "weight": 0.9
+    },
+    {
+      "a": "AW",
+      "b": "D",
+      "id": "AW_D",
+      "weight": 0.9
+    },
+    {
+      "a": "AW",
+      "b": "G",
+      "id": "AW_G",
+      "weight": 0.9
+    },
+    {
+      "a": "AW",
+      "b": "K",
+      "id": "AW_K",
+      "weight": 0.9
+    },
+    {
+      "a": "AW",
+      "b": "P",
+      "id": "AW_P",
+      "weight": 0.9
+    },
+    {
+      "a": "AW",
+      "b": "T",
+      "id": "AW_T",
+      "weight": 0.9
+    },
+    {
+      "a": "AY",
+      "b": "B",
+      "id": "AY_B",
+      "weight": 0.9
+    },
+    {
+      "a": "AY",
+      "b": "D",
+      "id": "AY_D",
+      "weight": 0.9
+    },
+    {
+      "a": "AY",
+      "b": "G",
+      "id": "AY_G",
+      "weight": 0.9
+    },
+    {
+      "a": "AY",
+      "b": "K",
+      "id": "AY_K",
+      "weight": 0.9
+    },
+    {
+      "a": "AY",
+      "b": "P",
+      "id": "AY_P",
+      "weight": 0.9
+    },
+    {
+      "a": "AY",
+      "b": "T",
+      "id": "AY_T",
+      "weight": 0.9
+    },
+    {
+      "a": "EH",
+      "b": "B",
+      "id": "EH_B",
+      "weight": 0.9
+    },
+    {
+      "a": "EH",
+      "b": "D",
+      "id": "EH_D",
+      "weight": 0.9
+    },
+    {
+      "a": "EH",
+      "b": "G",
+      "id": "EH_G",
+      "weight": 0.9
+    },
+    {
+      "a": "EH",
+      "b": "K",
+      "id": "EH_K",
+      "weight": 0.9
+    },
+    {
+      "a": "EH",
+      "b": "P",
+      "id": "EH_P",
+      "weight": 0.9
+    },
+    {
+      "a": "EH",
+      "b": "T",
+      "id": "EH_T",
+      "weight": 0.9
+    },
+    {
+      "a": "ER",
+      "b": "B",
+      "id": "ER_B",
+      "weight": 0.9
+    },
+    {
+      "a": "ER",
+      "b": "D",
+      "id": "ER_D",
+      "weight": 0.9
+    },
+    {
+      "a": "ER",
+      "b": "G",
+      "id": "ER_G",
+      "weight": 0.9
+    },
+    {
+      "a": "ER",
+      "b": "K",
+      "id": "ER_K",
+      "weight": 0.9
+    },
+    {
+      "a": "ER",
+      "b": "P",
+      "id": "ER_P",
+      "weight": 0.9
+    },
+    {
+      "a": "ER",
+      "b": "T",
+      "id": "ER_T",
+      "weight": 0.9
+    },
+    {
+      "a": "EY",
+      "b": "B",
+      "id": "EY_B",
+      "weight": 0.9
+    },
+    {
+      "a": "EY",
+      "b": "D",
+      "id": "EY_D",
+      "weight": 0.9
+    },
+    {
+      "a": "EY",
+      "b": "G",
+      "id": "EY_G",
+      "weight": 0.9
+    },
+    {
+      "a": "EY",
+      "b": "K",
+      "id": "EY_K",
+      "weight": 0.9
+    },
+    {
+      "a": "EY",
+      "b": "P",
+      "id": "EY_P",
+      "weight": 0.9
+    },
+    {
+      "a": "EY",
+      "b": "T",
+      "id": "EY_T",
+      "weight": 0.9
+    },
+    {
+      "a": "IH",
+      "b": "B",
+      "id": "IH_B",
+      "weight": 0.9
+    },
+    {
+      "a": "IH",
+      "b": "D",
+      "id": "IH_D",
+      "weight": 0.9
+    },
+    {
+      "a": "IH",
+      "b": "G",
+      "id": "IH_G",
+      "weight": 0.9
+    },
+    {
+      "a": "IH",
+      "b": "K",
+      "id": "IH_K",
+      "weight": 0.9
+    },
+    {
+      "a": "IH",
+      "b": "P",
+      "id": "IH_P",
+      "weight": 0.9
+    },
+    {
+      "a": "IH",
+      "b": "T",
+      "id": "IH_T",
+      "weight": 0.9
+    },
+    {
+      "a": "IY",
+      "b": "B",
+      "id": "IY_B",
+      "weight": 0.9
+    },
+    {
+      "a": "IY",
+      "b": "D",
+      "id": "IY_D",
+      "weight": 0.9
+    },
+    {
+      "a": "IY",
+      "b": "G",
+      "id": "IY_G",
+      "weight": 0.9
+    },
+    {
+      "a": "IY",
+      "b": "K",
+      "id": "IY_K",
+      "weight": 0.9
+    },
+    {
+      "a": "IY",
+      "b": "P",
+      "id": "IY_P",
+      "weight": 0.9
+    },
+    {
+      "a": "IY",
+      "b": "T",
+      "id": "IY_T",
+      "weight": 0.9
+    },
+    {
+      "a": "OW",
+      "b": "B",
+      "id": "OW_B",
+      "weight": 0.9
+    },
+    {
+      "a": "OW",
+      "b": "D",
+      "id": "OW_D",
+      "weight": 0.9
+    },
+    {
+      "a": "OW",
+      "b": "G",
+      "id": "OW_G",
+      "weight": 0.9
+    },
+    {
+      "a": "OW",
+      "b": "K",
+      "id": "OW_K",
+      "weight": 0.9
+    },
+    {
+      "a": "OW",
+      "b": "P",
+      "id": "OW_P",
+      "weight": 0.9
+    },
+    {
+      "a": "OW",
+      "b": "T",
+      "id": "OW_T",
+      "weight": 0.9
+    },
+    {
+      "a": "OY",
+      "b": "B",
+      "id": "OY_B",
+      "weight": 0.9
+    },
+    {
+      "a": "OY",
+      "b": "D",
+      "id": "OY_D",
+      "weight": 0.9
+    },
+    {
+      "a": "OY",
+      "b": "G",
+      "id": "OY_G",
+      "weight": 0.9
+    },
+    {
+      "a": "OY",
+      "b": "K",
+      "id": "OY_K",
+      "weight": 0.9
+    },
+    {
+      "a": "OY",
+      "b": "P",
+      "id": "OY_P",
+      "weight": 0.9
+    },
+    {
+      "a": "OY",
+      "b": "T",
+      "id": "OY_T",
+      "weight": 0.9
+    },
+    {
+      "a": "UH",
+      "b": "B",
+      "id": "UH_B",
+      "weight": 0.9
+    },
+    {
+      "a": "UH",
+      "b": "D",
+      "id": "UH_D",
+      "weight": 0.9
+    },
+    {
+      "a": "UH",
+      "b": "G",
+      "id": "UH_G",
+      "weight": 0.9
+    },
+    {
+      "a": "UH",
+      "b": "K",
+      "id": "UH_K",
+      "weight": 0.9
+    },
+    {
+      "a": "UH",
+      "b": "P",
+      "id": "UH_P",
+      "weight": 0.9
+    },
+    {
+      "a": "UH",
+      "b": "T",
+      "id": "UH_T",
+      "weight": 0.9
+    },
+    {
+      "a": "UW",
+      "b": "B",
+      "id": "UW_B",
+      "weight": 0.9
+    },
+    {
+      "a": "UW",
+      "b": "D",
+      "id": "UW_D",
+      "weight": 0.9
+    },
+    {
+      "a": "UW",
+      "b": "G",
+      "id": "UW_G",
+      "weight": 0.9
+    },
+    {
+      "a": "UW",
+      "b": "K",
+      "id": "UW_K",
+      "weight": 0.9
+    },
+    {
+      "a": "UW",
+      "b": "P",
+      "id": "UW_P",
+      "weight": 0.9
+    },
+    {
+      "a": "UW",
+      "b": "T",
+      "id": "UW_T",
+      "weight": 0.9
+    },
+    {
+      "a": "#B",
+      "b": "B",
+      "id": "#B_B",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "CH",
+      "id": "#B_CH",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "D",
+      "id": "#B_D",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "DH",
+      "id": "#B_DH",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "F",
+      "id": "#B_F",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "G",
+      "id": "#B_G",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "HH",
+      "id": "#B_HH",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "JH",
+      "id": "#B_JH",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "K",
+      "id": "#B_K",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "L",
+      "id": "#B_L",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "M",
+      "id": "#B_M",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "N",
+      "id": "#B_N",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "P",
+      "id": "#B_P",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "R",
+      "id": "#B_R",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "S",
+      "id": "#B_S",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "SH",
+      "id": "#B_SH",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "T",
+      "id": "#B_T",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "TH",
+      "id": "#B_TH",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "V",
+      "id": "#B_V",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "W",
+      "id": "#B_W",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "Y",
+      "id": "#B_Y",
+      "weight": 0.85
+    },
+    {
+      "a": "#B",
+      "b": "Z",
+      "id": "#B_Z",
+      "weight": 0.85
+    },
+    {
+      "a": "AA",
+      "b": "M",
+      "id": "AA_M",
+      "weight": 0.85
+    },
+    {
+      "a": "AA",
+      "b": "N",
+      "id": "AA_N",
+      "weight": 0.85
+    },
+    {
+      "a": "AA",
+      "b": "NG",
+      "id": "AA_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "AE",
+      "b": "M",
+      "id": "AE_M",
+      "weight": 0.85
+    },
+    {
+      "a": "AE",
+      "b": "N",
+      "id": "AE_N",
+      "weight": 0.85
+    },
+    {
+      "a": "AE",
+      "b": "NG",
+      "id": "AE_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "AH",
+      "b": "M",
+      "id": "AH_M",
+      "weight": 0.85
+    },
+    {
+      "a": "AH",
+      "b": "N",
+      "id": "AH_N",
+      "weight": 0.85
+    },
+    {
+      "a": "AH",
+      "b": "NG",
+      "id": "AH_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "AO",
+      "b": "M",
+      "id": "AO_M",
+      "weight": 0.85
+    },
+    {
+      "a": "AO",
+      "b": "N",
+      "id": "AO_N",
+      "weight": 0.85
+    },
+    {
+      "a": "AO",
+      "b": "NG",
+      "id": "AO_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "AW",
+      "b": "M",
+      "id": "AW_M",
+      "weight": 0.85
+    },
+    {
+      "a": "AW",
+      "b": "N",
+      "id": "AW_N",
+      "weight": 0.85
+    },
+    {
+      "a": "AW",
+      "b": "NG",
+      "id": "AW_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "AY",
+      "b": "M",
+      "id": "AY_M",
+      "weight": 0.85
+    },
+    {
+      "a": "AY",
+      "b": "N",
+      "id": "AY_N",
+      "weight": 0.85
+    },
+    {
+      "a": "AY",
+      "b": "NG",
+      "id": "AY_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "EH",
+      "b": "M",
+      "id": "EH_M",
+      "weight": 0.85
+    },
+    {
+      "a": "EH",
+      "b": "N",
+      "id": "EH_N",
+      "weight": 0.85
+    },
+    {
+      "a": "EH",
+      "b": "NG",
+      "id": "EH_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "ER",
+      "b": "M",
+      "id": "ER_M",
+      "weight": 0.85
+    },
+    {
+      "a": "ER",
+      "b": "N",
+      "id": "ER_N",
+      "weight": 0.85
+    },
+    {
+      "a": "ER",
+      "b": "NG",
+      "id": "ER_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "EY",
+      "b": "M",
+      "id": "EY_M",
+      "weight": 0.85
+    },
+    {
+      "a": "EY",
+      "b": "N",
+      "id": "EY_N",
+      "weight": 0.85
+    },
+    {
+      "a": "EY",
+      "b": "NG",
+      "id": "EY_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "IH",
+      "b": "M",
+      "id": "IH_M",
+      "weight": 0.85
+    },
+    {
+      "a": "IH",
+      "b": "N",
+      "id": "IH_N",
+      "weight": 0.85
+    },
+    {
+      "a": "IH",
+      "b": "NG",
+      "id": "IH_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "IY",
+      "b": "M",
+      "id": "IY_M",
+      "weight": 0.85
+    },
+    {
+      "a": "IY",
+      "b": "N",
+      "id": "IY_N",
+      "weight": 0.85
+    },
+    {
+      "a": "IY",
+      "b": "NG",
+      "id": "IY_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "AA",
+      "id": "M_AA",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "AE",
+      "id": "M_AE",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "AH",
+      "id": "M_AH",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "AO",
+      "id": "M_AO",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "AW",
+      "id": "M_AW",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "AY",
+      "id": "M_AY",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "EH",
+      "id": "M_EH",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "ER",
+      "id": "M_ER",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "EY",
+      "id": "M_EY",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "IH",
+      "id": "M_IH",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "IY",
+      "id": "M_IY",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "OW",
+      "id": "M_OW",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "OY",
+      "id": "M_OY",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "UH",
+      "id": "M_UH",
+      "weight": 0.85
+    },
+    {
+      "a": "M",
+      "b": "UW",
+      "id": "M_UW",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "AA",
+      "id": "N_AA",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "AE",
+      "id": "N_AE",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "AH",
+      "id": "N_AH",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "AO",
+      "id": "N_AO",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "AW",
+      "id": "N_AW",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "AY",
+      "id": "N_AY",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "EH",
+      "id": "N_EH",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "ER",
+      "id": "N_ER",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "EY",
+      "id": "N_EY",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "IH",
+      "id": "N_IH",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "IY",
+      "id": "N_IY",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "OW",
+      "id": "N_OW",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "OY",
+      "id": "N_OY",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "UH",
+      "id": "N_UH",
+      "weight": 0.85
+    },
+    {
+      "a": "N",
+      "b": "UW",
+      "id": "N_UW",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "AA",
+      "id": "NG_AA",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "AE",
+      "id": "NG_AE",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "AH",
+      "id": "NG_AH",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "AO",
+      "id": "NG_AO",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "AW",
+      "id": "NG_AW",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "AY",
+      "id": "NG_AY",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "EH",
+      "id": "NG_EH",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "ER",
+      "id": "NG_ER",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "EY",
+      "id": "NG_EY",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "IH",
+      "id": "NG_IH",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "IY",
+      "id": "NG_IY",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "OW",
+      "id": "NG_OW",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "OY",
+      "id": "NG_OY",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "UH",
+      "id": "NG_UH",
+      "weight": 0.85
+    },
+    {
+      "a": "NG",
+      "b": "UW",
+      "id": "NG_UW",
+      "weight": 0.85
+    },
+    {
+      "a": "OW",
+      "b": "M",
+      "id": "OW_M",
+      "weight": 0.85
+    },
+    {
+      "a": "OW",
+      "b": "N",
+      "id": "OW_N",
+      "weight": 0.85
+    },
+    {
+      "a": "OW",
+      "b": "NG",
+      "id": "OW_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "OY",
+      "b": "M",
+      "id": "OY_M",
+      "weight": 0.85
+    },
+    {
+      "a": "OY",
+      "b": "N",
+      "id": "OY_N",
+      "weight": 0.85
+    },
+    {
+      "a": "OY",
+      "b": "NG",
+      "id": "OY_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "UH",
+      "b": "M",
+      "id": "UH_M",
+      "weight": 0.85
+    },
+    {
+      "a": "UH",
+      "b": "N",
+      "id": "UH_N",
+      "weight": 0.85
+    },
+    {
+      "a": "UH",
+      "b": "NG",
+      "id": "UH_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "UW",
+      "b": "M",
+      "id": "UW_M",
+      "weight": 0.85
+    },
+    {
+      "a": "UW",
+      "b": "N",
+      "id": "UW_N",
+      "weight": 0.85
+    },
+    {
+      "a": "UW",
+      "b": "NG",
+      "id": "UW_NG",
+      "weight": 0.85
+    },
+    {
+      "a": "AA",
+      "b": "DH",
+      "id": "AA_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "F",
+      "id": "AA_F",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "HH",
+      "id": "AA_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "S",
+      "id": "AA_S",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "SH",
+      "id": "AA_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "TH",
+      "id": "AA_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "V",
+      "id": "AA_V",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "Z",
+      "id": "AA_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "ZH",
+      "id": "AA_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "DH",
+      "id": "AE_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "F",
+      "id": "AE_F",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "HH",
+      "id": "AE_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "S",
+      "id": "AE_S",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "SH",
+      "id": "AE_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "TH",
+      "id": "AE_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "V",
+      "id": "AE_V",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "Z",
+      "id": "AE_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "AE",
+      "b": "ZH",
+      "id": "AE_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "DH",
+      "id": "AH_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "F",
+      "id": "AH_F",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "HH",
+      "id": "AH_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "S",
+      "id": "AH_S",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "SH",
+      "id": "AH_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "TH",
+      "id": "AH_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "V",
+      "id": "AH_V",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "Z",
+      "id": "AH_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "AH",
+      "b": "ZH",
+      "id": "AH_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "DH",
+      "id": "AO_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "F",
+      "id": "AO_F",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "HH",
+      "id": "AO_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "S",
+      "id": "AO_S",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "SH",
+      "id": "AO_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "TH",
+      "id": "AO_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "V",
+      "id": "AO_V",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "Z",
+      "id": "AO_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "AO",
+      "b": "ZH",
+      "id": "AO_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "DH",
+      "id": "AW_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "F",
+      "id": "AW_F",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "HH",
+      "id": "AW_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "S",
+      "id": "AW_S",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "SH",
+      "id": "AW_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "TH",
+      "id": "AW_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "V",
+      "id": "AW_V",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "Z",
+      "id": "AW_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "AW",
+      "b": "ZH",
+      "id": "AW_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "DH",
+      "id": "AY_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "F",
+      "id": "AY_F",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "HH",
+      "id": "AY_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "S",
+      "id": "AY_S",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "SH",
+      "id": "AY_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "TH",
+      "id": "AY_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "V",
+      "id": "AY_V",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "Z",
+      "id": "AY_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "AY",
+      "b": "ZH",
+      "id": "AY_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "AA",
+      "id": "DH_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "AE",
+      "id": "DH_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "AH",
+      "id": "DH_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "AO",
+      "id": "DH_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "AW",
+      "id": "DH_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "AY",
+      "id": "DH_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "EH",
+      "id": "DH_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "ER",
+      "id": "DH_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "EY",
+      "id": "DH_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "IH",
+      "id": "DH_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "IY",
+      "id": "DH_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "OW",
+      "id": "DH_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "OY",
+      "id": "DH_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "UH",
+      "id": "DH_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "DH",
+      "b": "UW",
+      "id": "DH_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "DH",
+      "id": "EH_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "F",
+      "id": "EH_F",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "HH",
+      "id": "EH_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "S",
+      "id": "EH_S",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "SH",
+      "id": "EH_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "TH",
+      "id": "EH_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "V",
+      "id": "EH_V",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "Z",
+      "id": "EH_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "EH",
+      "b": "ZH",
+      "id": "EH_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "DH",
+      "id": "ER_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "F",
+      "id": "ER_F",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "HH",
+      "id": "ER_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "S",
+      "id": "ER_S",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "SH",
+      "id": "ER_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "TH",
+      "id": "ER_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "V",
+      "id": "ER_V",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "Z",
+      "id": "ER_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "ER",
+      "b": "ZH",
+      "id": "ER_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "DH",
+      "id": "EY_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "F",
+      "id": "EY_F",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "HH",
+      "id": "EY_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "S",
+      "id": "EY_S",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "SH",
+      "id": "EY_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "TH",
+      "id": "EY_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "V",
+      "id": "EY_V",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "Z",
+      "id": "EY_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "EY",
+      "b": "ZH",
+      "id": "EY_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "AA",
+      "id": "F_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "AE",
+      "id": "F_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "AH",
+      "id": "F_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "AO",
+      "id": "F_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "AW",
+      "id": "F_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "AY",
+      "id": "F_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "EH",
+      "id": "F_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "ER",
+      "id": "F_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "EY",
+      "id": "F_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "IH",
+      "id": "F_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "IY",
+      "id": "F_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "OW",
+      "id": "F_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "OY",
+      "id": "F_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "UH",
+      "id": "F_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "F",
+      "b": "UW",
+      "id": "F_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "AA",
+      "id": "HH_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "AE",
+      "id": "HH_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "AH",
+      "id": "HH_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "AO",
+      "id": "HH_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "AW",
+      "id": "HH_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "AY",
+      "id": "HH_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "EH",
+      "id": "HH_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "ER",
+      "id": "HH_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "EY",
+      "id": "HH_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "IH",
+      "id": "HH_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "IY",
+      "id": "HH_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "OW",
+      "id": "HH_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "OY",
+      "id": "HH_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "UH",
+      "id": "HH_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "HH",
+      "b": "UW",
+      "id": "HH_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "DH",
+      "id": "IH_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "F",
+      "id": "IH_F",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "HH",
+      "id": "IH_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "S",
+      "id": "IH_S",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "SH",
+      "id": "IH_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "TH",
+      "id": "IH_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "V",
+      "id": "IH_V",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "Z",
+      "id": "IH_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "IH",
+      "b": "ZH",
+      "id": "IH_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "DH",
+      "id": "IY_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "F",
+      "id": "IY_F",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "HH",
+      "id": "IY_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "S",
+      "id": "IY_S",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "SH",
+      "id": "IY_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "TH",
+      "id": "IY_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "V",
+      "id": "IY_V",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "Z",
+      "id": "IY_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "IY",
+      "b": "ZH",
+      "id": "IY_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "DH",
+      "id": "OW_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "F",
+      "id": "OW_F",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "HH",
+      "id": "OW_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "S",
+      "id": "OW_S",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "SH",
+      "id": "OW_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "TH",
+      "id": "OW_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "V",
+      "id": "OW_V",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "Z",
+      "id": "OW_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "OW",
+      "b": "ZH",
+      "id": "OW_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "DH",
+      "id": "OY_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "F",
+      "id": "OY_F",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "HH",
+      "id": "OY_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "S",
+      "id": "OY_S",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "SH",
+      "id": "OY_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "TH",
+      "id": "OY_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "V",
+      "id": "OY_V",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "Z",
+      "id": "OY_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "OY",
+      "b": "ZH",
+      "id": "OY_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "AA",
+      "id": "S_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "AE",
+      "id": "S_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "AH",
+      "id": "S_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "AO",
+      "id": "S_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "AW",
+      "id": "S_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "AY",
+      "id": "S_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "EH",
+      "id": "S_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "ER",
+      "id": "S_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "EY",
+      "id": "S_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "IH",
+      "id": "S_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "IY",
+      "id": "S_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "OW",
+      "id": "S_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "OY",
+      "id": "S_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "UH",
+      "id": "S_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "S",
+      "b": "UW",
+      "id": "S_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "AA",
+      "id": "SH_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "AE",
+      "id": "SH_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "AH",
+      "id": "SH_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "AO",
+      "id": "SH_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "AW",
+      "id": "SH_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "AY",
+      "id": "SH_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "EH",
+      "id": "SH_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "ER",
+      "id": "SH_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "EY",
+      "id": "SH_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "IH",
+      "id": "SH_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "IY",
+      "id": "SH_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "OW",
+      "id": "SH_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "OY",
+      "id": "SH_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "UH",
+      "id": "SH_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "SH",
+      "b": "UW",
+      "id": "SH_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "AA",
+      "id": "TH_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "AE",
+      "id": "TH_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "AH",
+      "id": "TH_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "AO",
+      "id": "TH_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "AW",
+      "id": "TH_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "AY",
+      "id": "TH_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "EH",
+      "id": "TH_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "ER",
+      "id": "TH_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "EY",
+      "id": "TH_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "IH",
+      "id": "TH_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "IY",
+      "id": "TH_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "OW",
+      "id": "TH_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "OY",
+      "id": "TH_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "UH",
+      "id": "TH_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "TH",
+      "b": "UW",
+      "id": "TH_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "DH",
+      "id": "UH_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "F",
+      "id": "UH_F",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "HH",
+      "id": "UH_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "S",
+      "id": "UH_S",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "SH",
+      "id": "UH_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "TH",
+      "id": "UH_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "V",
+      "id": "UH_V",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "Z",
+      "id": "UH_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "UH",
+      "b": "ZH",
+      "id": "UH_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "DH",
+      "id": "UW_DH",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "F",
+      "id": "UW_F",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "HH",
+      "id": "UW_HH",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "S",
+      "id": "UW_S",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "SH",
+      "id": "UW_SH",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "TH",
+      "id": "UW_TH",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "V",
+      "id": "UW_V",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "Z",
+      "id": "UW_Z",
+      "weight": 0.8
+    },
+    {
+      "a": "UW",
+      "b": "ZH",
+      "id": "UW_ZH",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "AA",
+      "id": "V_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "AE",
+      "id": "V_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "AH",
+      "id": "V_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "AO",
+      "id": "V_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "AW",
+      "id": "V_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "AY",
+      "id": "V_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "EH",
+      "id": "V_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "ER",
+      "id": "V_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "EY",
+      "id": "V_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "IH",
+      "id": "V_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "IY",
+      "id": "V_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "OW",
+      "id": "V_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "OY",
+      "id": "V_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "UH",
+      "id": "V_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "V",
+      "b": "UW",
+      "id": "V_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "AA",
+      "id": "Z_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "AE",
+      "id": "Z_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "AH",
+      "id": "Z_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "AO",
+      "id": "Z_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "AW",
+      "id": "Z_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "AY",
+      "id": "Z_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "EH",
+      "id": "Z_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "ER",
+      "id": "Z_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "EY",
+      "id": "Z_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "IH",
+      "id": "Z_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "IY",
+      "id": "Z_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "OW",
+      "id": "Z_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "OY",
+      "id": "Z_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "UH",
+      "id": "Z_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "Z",
+      "b": "UW",
+      "id": "Z_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "AA",
+      "id": "ZH_AA",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "AE",
+      "id": "ZH_AE",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "AH",
+      "id": "ZH_AH",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "AO",
+      "id": "ZH_AO",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "AW",
+      "id": "ZH_AW",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "AY",
+      "id": "ZH_AY",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "EH",
+      "id": "ZH_EH",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "ER",
+      "id": "ZH_ER",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "EY",
+      "id": "ZH_EY",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "IH",
+      "id": "ZH_IH",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "IY",
+      "id": "ZH_IY",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "OW",
+      "id": "ZH_OW",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "OY",
+      "id": "ZH_OY",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "UH",
+      "id": "ZH_UH",
+      "weight": 0.8
+    },
+    {
+      "a": "ZH",
+      "b": "UW",
+      "id": "ZH_UW",
+      "weight": 0.8
+    },
+    {
+      "a": "AA",
+      "b": "#E",
+      "id": "AA_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "AE",
+      "b": "#E",
+      "id": "AE_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "AH",
+      "b": "#E",
+      "id": "AH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "AO",
+      "b": "#E",
+      "id": "AO_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "AW",
+      "b": "#E",
+      "id": "AW_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "AY",
+      "b": "#E",
+      "id": "AY_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "B",
+      "b": "#E",
+      "id": "B_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "CH",
+      "b": "#E",
+      "id": "CH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "D",
+      "b": "#E",
+      "id": "D_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "DH",
+      "b": "#E",
+      "id": "DH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "EH",
+      "b": "#E",
+      "id": "EH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "ER",
+      "b": "#E",
+      "id": "ER_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "EY",
+      "b": "#E",
+      "id": "EY_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "F",
+      "b": "#E",
+      "id": "F_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "G",
+      "b": "#E",
+      "id": "G_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "IH",
+      "b": "#E",
+      "id": "IH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "IY",
+      "b": "#E",
+      "id": "IY_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "JH",
+      "b": "#E",
+      "id": "JH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "K",
+      "b": "#E",
+      "id": "K_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "L",
+      "b": "#E",
+      "id": "L_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "M",
+      "b": "#E",
+      "id": "M_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "N",
+      "b": "#E",
+      "id": "N_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "NG",
+      "b": "#E",
+      "id": "NG_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "OW",
+      "b": "#E",
+      "id": "OW_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "OY",
+      "b": "#E",
+      "id": "OY_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "P",
+      "b": "#E",
+      "id": "P_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "R",
+      "b": "#E",
+      "id": "R_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "S",
+      "b": "#E",
+      "id": "S_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "SH",
+      "b": "#E",
+      "id": "SH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "T",
+      "b": "#E",
+      "id": "T_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "TH",
+      "b": "#E",
+      "id": "TH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "UH",
+      "b": "#E",
+      "id": "UH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "UW",
+      "b": "#E",
+      "id": "UW_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "V",
+      "b": "#E",
+      "id": "V_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "Z",
+      "b": "#E",
+      "id": "Z_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "ZH",
+      "b": "#E",
+      "id": "ZH_#E",
+      "weight": 0.7
+    },
+    {
+      "a": "AA",
+      "b": "CH",
+      "id": "AA_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "AA",
+      "b": "JH",
+      "id": "AA_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "AA",
+      "b": "L",
+      "id": "AA_L",
+      "weight": 0.5
+    },
+    {
+      "a": "AA",
+      "b": "R",
+      "id": "AA_R",
+      "weight": 0.5
+    },
+    {
+      "a": "AA",
+      "b": "W",
+      "id": "AA_W",
+      "weight": 0.5
+    },
+    {
+      "a": "AA",
+      "b": "Y",
+      "id": "AA_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "AE",
+      "b": "CH",
+      "id": "AE_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "AE",
+      "b": "JH",
+      "id": "AE_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "AE",
+      "b": "L",
+      "id": "AE_L",
+      "weight": 0.5
+    },
+    {
+      "a": "AE",
+      "b": "R",
+      "id": "AE_R",
+      "weight": 0.5
+    },
+    {
+      "a": "AE",
+      "b": "W",
+      "id": "AE_W",
+      "weight": 0.5
+    },
+    {
+      "a": "AE",
+      "b": "Y",
+      "id": "AE_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "AH",
+      "b": "CH",
+      "id": "AH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "AH",
+      "b": "JH",
+      "id": "AH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "AH",
+      "b": "L",
+      "id": "AH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "AH",
+      "b": "R",
+      "id": "AH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "AH",
+      "b": "W",
+      "id": "AH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "AH",
+      "b": "Y",
+      "id": "AH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "AO",
+      "b": "CH",
+      "id": "AO_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "AO",
+      "b": "JH",
+      "id": "AO_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "AO",
+      "b": "L",
+      "id": "AO_L",
+      "weight": 0.5
+    },
+    {
+      "a": "AO",
+      "b": "R",
+      "id": "AO_R",
+      "weight": 0.5
+    },
+    {
+      "a": "AO",
+      "b": "W",
+      "id": "AO_W",
+      "weight": 0.5
+    },
+    {
+      "a": "AO",
+      "b": "Y",
+      "id": "AO_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "AW",
+      "b": "CH",
+      "id": "AW_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "AW",
+      "b": "JH",
+      "id": "AW_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "AW",
+      "b": "L",
+      "id": "AW_L",
+      "weight": 0.5
+    },
+    {
+      "a": "AW",
+      "b": "R",
+      "id": "AW_R",
+      "weight": 0.5
+    },
+    {
+      "a": "AW",
+      "b": "W",
+      "id": "AW_W",
+      "weight": 0.5
+    },
+    {
+      "a": "AW",
+      "b": "Y",
+      "id": "AW_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "AY",
+      "b": "CH",
+      "id": "AY_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "AY",
+      "b": "JH",
+      "id": "AY_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "AY",
+      "b": "L",
+      "id": "AY_L",
+      "weight": 0.5
+    },
+    {
+      "a": "AY",
+      "b": "R",
+      "id": "AY_R",
+      "weight": 0.5
+    },
+    {
+      "a": "AY",
+      "b": "W",
+      "id": "AY_W",
+      "weight": 0.5
+    },
+    {
+      "a": "AY",
+      "b": "Y",
+      "id": "AY_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "B",
+      "id": "B_B",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "CH",
+      "id": "B_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "D",
+      "id": "B_D",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "DH",
+      "id": "B_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "F",
+      "id": "B_F",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "G",
+      "id": "B_G",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "JH",
+      "id": "B_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "K",
+      "id": "B_K",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "L",
+      "id": "B_L",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "M",
+      "id": "B_M",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "N",
+      "id": "B_N",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "NG",
+      "id": "B_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "P",
+      "id": "B_P",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "R",
+      "id": "B_R",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "S",
+      "id": "B_S",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "SH",
+      "id": "B_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "T",
+      "id": "B_T",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "TH",
+      "id": "B_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "V",
+      "id": "B_V",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "W",
+      "id": "B_W",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "Y",
+      "id": "B_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "B",
+      "b": "Z",
+      "id": "B_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "AA",
+      "id": "CH_AA",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "AE",
+      "id": "CH_AE",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "AH",
+      "id": "CH_AH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "AO",
+      "id": "CH_AO",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "AW",
+      "id": "CH_AW",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "AY",
+      "id": "CH_AY",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "B",
+      "id": "CH_B",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "CH",
+      "id": "CH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "D",
+      "id": "CH_D",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "DH",
+      "id": "CH_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "EH",
+      "id": "CH_EH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "ER",
+      "id": "CH_ER",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "EY",
+      "id": "CH_EY",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "F",
+      "id": "CH_F",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "G",
+      "id": "CH_G",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "IH",
+      "id": "CH_IH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "IY",
+      "id": "CH_IY",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "JH",
+      "id": "CH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "K",
+      "id": "CH_K",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "L",
+      "id": "CH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "M",
+      "id": "CH_M",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "N",
+      "id": "CH_N",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "NG",
+      "id": "CH_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "OW",
+      "id": "CH_OW",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "OY",
+      "id": "CH_OY",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "P",
+      "id": "CH_P",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "R",
+      "id": "CH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "S",
+      "id": "CH_S",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "SH",
+      "id": "CH_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "T",
+      "id": "CH_T",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "TH",
+      "id": "CH_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "UH",
+      "id": "CH_UH",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "UW",
+      "id": "CH_UW",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "V",
+      "id": "CH_V",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "W",
+      "id": "CH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "Y",
+      "id": "CH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "CH",
+      "b": "Z",
+      "id": "CH_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "B",
+      "id": "D_B",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "CH",
+      "id": "D_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "D",
+      "id": "D_D",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "DH",
+      "id": "D_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "F",
+      "id": "D_F",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "G",
+      "id": "D_G",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "JH",
+      "id": "D_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "K",
+      "id": "D_K",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "L",
+      "id": "D_L",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "M",
+      "id": "D_M",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "N",
+      "id": "D_N",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "NG",
+      "id": "D_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "P",
+      "id": "D_P",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "R",
+      "id": "D_R",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "S",
+      "id": "D_S",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "SH",
+      "id": "D_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "T",
+      "id": "D_T",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "TH",
+      "id": "D_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "V",
+      "id": "D_V",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "W",
+      "id": "D_W",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "Y",
+      "id": "D_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "D",
+      "b": "Z",
+      "id": "D_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "B",
+      "id": "DH_B",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "CH",
+      "id": "DH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "D",
+      "id": "DH_D",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "DH",
+      "id": "DH_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "F",
+      "id": "DH_F",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "G",
+      "id": "DH_G",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "JH",
+      "id": "DH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "K",
+      "id": "DH_K",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "L",
+      "id": "DH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "M",
+      "id": "DH_M",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "N",
+      "id": "DH_N",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "NG",
+      "id": "DH_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "P",
+      "id": "DH_P",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "R",
+      "id": "DH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "S",
+      "id": "DH_S",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "SH",
+      "id": "DH_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "T",
+      "id": "DH_T",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "TH",
+      "id": "DH_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "V",
+      "id": "DH_V",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "W",
+      "id": "DH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "Y",
+      "id": "DH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "DH",
+      "b": "Z",
+      "id": "DH_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "EH",
+      "b": "CH",
+      "id": "EH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "EH",
+      "b": "JH",
+      "id": "EH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "EH",
+      "b": "L",
+      "id": "EH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "EH",
+      "b": "R",
+      "id": "EH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "EH",
+      "b": "W",
+      "id": "EH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "EH",
+      "b": "Y",
+      "id": "EH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "ER",
+      "b": "CH",
+      "id": "ER_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "ER",
+      "b": "JH",
+      "id": "ER_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "ER",
+      "b": "L",
+      "id": "ER_L",
+      "weight": 0.5
+    },
+    {
+      "a": "ER",
+      "b": "R",
+      "id": "ER_R",
+      "weight": 0.5
+    },
+    {
+      "a": "ER",
+      "b": "W",
+      "id": "ER_W",
+      "weight": 0.5
+    },
+    {
+      "a": "ER",
+      "b": "Y",
+      "id": "ER_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "EY",
+      "b": "CH",
+      "id": "EY_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "EY",
+      "b": "JH",
+      "id": "EY_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "EY",
+      "b": "L",
+      "id": "EY_L",
+      "weight": 0.5
+    },
+    {
+      "a": "EY",
+      "b": "R",
+      "id": "EY_R",
+      "weight": 0.5
+    },
+    {
+      "a": "EY",
+      "b": "W",
+      "id": "EY_W",
+      "weight": 0.5
+    },
+    {
+      "a": "EY",
+      "b": "Y",
+      "id": "EY_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "B",
+      "id": "F_B",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "CH",
+      "id": "F_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "D",
+      "id": "F_D",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "DH",
+      "id": "F_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "F",
+      "id": "F_F",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "G",
+      "id": "F_G",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "JH",
+      "id": "F_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "K",
+      "id": "F_K",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "L",
+      "id": "F_L",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "M",
+      "id": "F_M",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "N",
+      "id": "F_N",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "NG",
+      "id": "F_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "P",
+      "id": "F_P",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "R",
+      "id": "F_R",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "S",
+      "id": "F_S",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "SH",
+      "id": "F_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "T",
+      "id": "F_T",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "TH",
+      "id": "F_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "V",
+      "id": "F_V",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "W",
+      "id": "F_W",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "Y",
+      "id": "F_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "F",
+      "b": "Z",
+      "id": "F_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "B",
+      "id": "G_B",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "CH",
+      "id": "G_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "D",
+      "id": "G_D",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "DH",
+      "id": "G_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "F",
+      "id": "G_F",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "G",
+      "id": "G_G",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "JH",
+      "id": "G_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "K",
+      "id": "G_K",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "L",
+      "id": "G_L",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "M",
+      "id": "G_M",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "N",
+      "id": "G_N",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "NG",
+      "id": "G_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "P",
+      "id": "G_P",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "R",
+      "id": "G_R",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "S",
+      "id": "G_S",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "SH",
+      "id": "G_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "T",
+      "id": "G_T",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "TH",
+      "id": "G_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "V",
+      "id": "G_V",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "W",
+      "id": "G_W",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "Y",
+      "id": "G_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "G",
+      "b": "Z",
+      "id": "G_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "B",
+      "id": "HH_B",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "CH",
+      "id": "HH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "D",
+      "id": "HH_D",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "DH",
+      "id": "HH_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "F",
+      "id": "HH_F",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "G",
+      "id": "HH_G",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "JH",
+      "id": "HH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "K",
+      "id": "HH_K",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "L",
+      "id": "HH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "M",
+      "id": "HH_M",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "N",
+      "id": "HH_N",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "NG",
+      "id": "HH_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "P",
+      "id": "HH_P",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "R",
+      "id": "HH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "S",
+      "id": "HH_S",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "SH",
+      "id": "HH_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "T",
+      "id": "HH_T",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "TH",
+      "id": "HH_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "V",
+      "id": "HH_V",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "W",
+      "id": "HH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "Y",
+      "id": "HH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "HH",
+      "b": "Z",
+      "id": "HH_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "IH",
+      "b": "CH",
+      "id": "IH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "IH",
+      "b": "JH",
+      "id": "IH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "IH",
+      "b": "L",
+      "id": "IH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "IH",
+      "b": "R",
+      "id": "IH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "IH",
+      "b": "W",
+      "id": "IH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "IH",
+      "b": "Y",
+      "id": "IH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "IY",
+      "b": "CH",
+      "id": "IY_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "IY",
+      "b": "JH",
+      "id": "IY_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "IY",
+      "b": "L",
+      "id": "IY_L",
+      "weight": 0.5
+    },
+    {
+      "a": "IY",
+      "b": "R",
+      "id": "IY_R",
+      "weight": 0.5
+    },
+    {
+      "a": "IY",
+      "b": "W",
+      "id": "IY_W",
+      "weight": 0.5
+    },
+    {
+      "a": "IY",
+      "b": "Y",
+      "id": "IY_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "AA",
+      "id": "JH_AA",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "AE",
+      "id": "JH_AE",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "AH",
+      "id": "JH_AH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "AO",
+      "id": "JH_AO",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "AW",
+      "id": "JH_AW",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "AY",
+      "id": "JH_AY",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "B",
+      "id": "JH_B",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "CH",
+      "id": "JH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "D",
+      "id": "JH_D",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "DH",
+      "id": "JH_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "EH",
+      "id": "JH_EH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "ER",
+      "id": "JH_ER",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "EY",
+      "id": "JH_EY",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "F",
+      "id": "JH_F",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "G",
+      "id": "JH_G",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "IH",
+      "id": "JH_IH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "IY",
+      "id": "JH_IY",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "JH",
+      "id": "JH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "K",
+      "id": "JH_K",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "L",
+      "id": "JH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "M",
+      "id": "JH_M",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "N",
+      "id": "JH_N",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "NG",
+      "id": "JH_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "OW",
+      "id": "JH_OW",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "OY",
+      "id": "JH_OY",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "P",
+      "id": "JH_P",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "R",
+      "id": "JH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "S",
+      "id": "JH_S",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "SH",
+      "id": "JH_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "T",
+      "id": "JH_T",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "TH",
+      "id": "JH_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "UH",
+      "id": "JH_UH",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "UW",
+      "id": "JH_UW",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "V",
+      "id": "JH_V",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "W",
+      "id": "JH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "Y",
+      "id": "JH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "JH",
+      "b": "Z",
+      "id": "JH_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "B",
+      "id": "K_B",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "CH",
+      "id": "K_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "D",
+      "id": "K_D",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "DH",
+      "id": "K_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "F",
+      "id": "K_F",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "G",
+      "id": "K_G",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "JH",
+      "id": "K_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "K",
+      "id": "K_K",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "L",
+      "id": "K_L",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "M",
+      "id": "K_M",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "N",
+      "id": "K_N",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "NG",
+      "id": "K_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "P",
+      "id": "K_P",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "R",
+      "id": "K_R",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "S",
+      "id": "K_S",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "SH",
+      "id": "K_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "T",
+      "id": "K_T",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "TH",
+      "id": "K_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "V",
+      "id": "K_V",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "W",
+      "id": "K_W",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "Y",
+      "id": "K_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "K",
+      "b": "Z",
+      "id": "K_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "AA",
+      "id": "L_AA",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "AE",
+      "id": "L_AE",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "AH",
+      "id": "L_AH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "AO",
+      "id": "L_AO",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "AW",
+      "id": "L_AW",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "AY",
+      "id": "L_AY",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "B",
+      "id": "L_B",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "CH",
+      "id": "L_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "D",
+      "id": "L_D",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "DH",
+      "id": "L_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "EH",
+      "id": "L_EH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "ER",
+      "id": "L_ER",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "EY",
+      "id": "L_EY",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "F",
+      "id": "L_F",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "G",
+      "id": "L_G",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "IH",
+      "id": "L_IH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "IY",
+      "id": "L_IY",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "JH",
+      "id": "L_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "K",
+      "id": "L_K",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "L",
+      "id": "L_L",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "M",
+      "id": "L_M",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "N",
+      "id": "L_N",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "NG",
+      "id": "L_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "OW",
+      "id": "L_OW",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "OY",
+      "id": "L_OY",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "P",
+      "id": "L_P",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "R",
+      "id": "L_R",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "S",
+      "id": "L_S",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "SH",
+      "id": "L_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "T",
+      "id": "L_T",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "TH",
+      "id": "L_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "UH",
+      "id": "L_UH",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "UW",
+      "id": "L_UW",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "V",
+      "id": "L_V",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "W",
+      "id": "L_W",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "Y",
+      "id": "L_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "Z",
+      "id": "L_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "L",
+      "b": "ZH",
+      "id": "L_ZH",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "B",
+      "id": "M_B",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "CH",
+      "id": "M_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "D",
+      "id": "M_D",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "DH",
+      "id": "M_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "F",
+      "id": "M_F",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "G",
+      "id": "M_G",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "JH",
+      "id": "M_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "K",
+      "id": "M_K",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "L",
+      "id": "M_L",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "M",
+      "id": "M_M",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "N",
+      "id": "M_N",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "NG",
+      "id": "M_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "P",
+      "id": "M_P",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "R",
+      "id": "M_R",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "S",
+      "id": "M_S",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "SH",
+      "id": "M_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "T",
+      "id": "M_T",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "TH",
+      "id": "M_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "V",
+      "id": "M_V",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "W",
+      "id": "M_W",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "Y",
+      "id": "M_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "M",
+      "b": "Z",
+      "id": "M_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "B",
+      "id": "N_B",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "CH",
+      "id": "N_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "D",
+      "id": "N_D",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "DH",
+      "id": "N_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "F",
+      "id": "N_F",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "G",
+      "id": "N_G",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "JH",
+      "id": "N_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "K",
+      "id": "N_K",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "L",
+      "id": "N_L",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "M",
+      "id": "N_M",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "N",
+      "id": "N_N",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "NG",
+      "id": "N_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "P",
+      "id": "N_P",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "R",
+      "id": "N_R",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "S",
+      "id": "N_S",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "SH",
+      "id": "N_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "T",
+      "id": "N_T",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "TH",
+      "id": "N_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "V",
+      "id": "N_V",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "W",
+      "id": "N_W",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "Y",
+      "id": "N_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "N",
+      "b": "Z",
+      "id": "N_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "NG",
+      "b": "G",
+      "id": "NG_G",
+      "weight": 0.5
+    },
+    {
+      "a": "NG",
+      "b": "K",
+      "id": "NG_K",
+      "weight": 0.5
+    },
+    {
+      "a": "OW",
+      "b": "CH",
+      "id": "OW_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "OW",
+      "b": "JH",
+      "id": "OW_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "OW",
+      "b": "L",
+      "id": "OW_L",
+      "weight": 0.5
+    },
+    {
+      "a": "OW",
+      "b": "R",
+      "id": "OW_R",
+      "weight": 0.5
+    },
+    {
+      "a": "OW",
+      "b": "W",
+      "id": "OW_W",
+      "weight": 0.5
+    },
+    {
+      "a": "OW",
+      "b": "Y",
+      "id": "OW_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "OY",
+      "b": "CH",
+      "id": "OY_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "OY",
+      "b": "JH",
+      "id": "OY_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "OY",
+      "b": "L",
+      "id": "OY_L",
+      "weight": 0.5
+    },
+    {
+      "a": "OY",
+      "b": "R",
+      "id": "OY_R",
+      "weight": 0.5
+    },
+    {
+      "a": "OY",
+      "b": "W",
+      "id": "OY_W",
+      "weight": 0.5
+    },
+    {
+      "a": "OY",
+      "b": "Y",
+      "id": "OY_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "B",
+      "id": "P_B",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "CH",
+      "id": "P_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "D",
+      "id": "P_D",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "DH",
+      "id": "P_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "F",
+      "id": "P_F",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "G",
+      "id": "P_G",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "JH",
+      "id": "P_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "K",
+      "id": "P_K",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "L",
+      "id": "P_L",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "M",
+      "id": "P_M",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "N",
+      "id": "P_N",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "NG",
+      "id": "P_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "P",
+      "id": "P_P",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "R",
+      "id": "P_R",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "S",
+      "id": "P_S",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "SH",
+      "id": "P_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "T",
+      "id": "P_T",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "TH",
+      "id": "P_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "V",
+      "id": "P_V",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "W",
+      "id": "P_W",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "Y",
+      "id": "P_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "P",
+      "b": "Z",
+      "id": "P_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "AA",
+      "id": "R_AA",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "AE",
+      "id": "R_AE",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "AH",
+      "id": "R_AH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "AO",
+      "id": "R_AO",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "AW",
+      "id": "R_AW",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "AY",
+      "id": "R_AY",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "B",
+      "id": "R_B",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "CH",
+      "id": "R_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "D",
+      "id": "R_D",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "DH",
+      "id": "R_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "EH",
+      "id": "R_EH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "ER",
+      "id": "R_ER",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "EY",
+      "id": "R_EY",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "F",
+      "id": "R_F",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "G",
+      "id": "R_G",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "IH",
+      "id": "R_IH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "IY",
+      "id": "R_IY",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "JH",
+      "id": "R_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "K",
+      "id": "R_K",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "L",
+      "id": "R_L",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "M",
+      "id": "R_M",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "N",
+      "id": "R_N",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "NG",
+      "id": "R_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "OW",
+      "id": "R_OW",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "OY",
+      "id": "R_OY",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "P",
+      "id": "R_P",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "R",
+      "id": "R_R",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "S",
+      "id": "R_S",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "SH",
+      "id": "R_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "T",
+      "id": "R_T",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "TH",
+      "id": "R_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "UH",
+      "id": "R_UH",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "UW",
+      "id": "R_UW",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "V",
+      "id": "R_V",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "W",
+      "id": "R_W",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "Y",
+      "id": "R_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "R",
+      "b": "Z",
+      "id": "R_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "B",
+      "id": "S_B",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "CH",
+      "id": "S_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "D",
+      "id": "S_D",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "DH",
+      "id": "S_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "F",
+      "id": "S_F",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "G",
+      "id": "S_G",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "JH",
+      "id": "S_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "K",
+      "id": "S_K",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "L",
+      "id": "S_L",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "M",
+      "id": "S_M",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "N",
+      "id": "S_N",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "NG",
+      "id": "S_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "P",
+      "id": "S_P",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "R",
+      "id": "S_R",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "S",
+      "id": "S_S",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "SH",
+      "id": "S_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "T",
+      "id": "S_T",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "TH",
+      "id": "S_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "V",
+      "id": "S_V",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "W",
+      "id": "S_W",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "Y",
+      "id": "S_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "S",
+      "b": "Z",
+      "id": "S_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "B",
+      "id": "SH_B",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "CH",
+      "id": "SH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "D",
+      "id": "SH_D",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "DH",
+      "id": "SH_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "F",
+      "id": "SH_F",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "G",
+      "id": "SH_G",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "JH",
+      "id": "SH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "K",
+      "id": "SH_K",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "L",
+      "id": "SH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "M",
+      "id": "SH_M",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "N",
+      "id": "SH_N",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "NG",
+      "id": "SH_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "P",
+      "id": "SH_P",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "R",
+      "id": "SH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "S",
+      "id": "SH_S",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "SH",
+      "id": "SH_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "T",
+      "id": "SH_T",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "TH",
+      "id": "SH_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "V",
+      "id": "SH_V",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "W",
+      "id": "SH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "Y",
+      "id": "SH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "SH",
+      "b": "Z",
+      "id": "SH_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "B",
+      "id": "T_B",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "CH",
+      "id": "T_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "D",
+      "id": "T_D",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "DH",
+      "id": "T_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "F",
+      "id": "T_F",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "G",
+      "id": "T_G",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "JH",
+      "id": "T_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "K",
+      "id": "T_K",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "L",
+      "id": "T_L",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "M",
+      "id": "T_M",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "N",
+      "id": "T_N",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "NG",
+      "id": "T_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "P",
+      "id": "T_P",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "R",
+      "id": "T_R",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "S",
+      "id": "T_S",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "SH",
+      "id": "T_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "T",
+      "id": "T_T",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "TH",
+      "id": "T_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "V",
+      "id": "T_V",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "W",
+      "id": "T_W",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "Y",
+      "id": "T_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "T",
+      "b": "Z",
+      "id": "T_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "B",
+      "id": "TH_B",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "CH",
+      "id": "TH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "D",
+      "id": "TH_D",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "DH",
+      "id": "TH_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "F",
+      "id": "TH_F",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "G",
+      "id": "TH_G",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "JH",
+      "id": "TH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "K",
+      "id": "TH_K",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "L",
+      "id": "TH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "M",
+      "id": "TH_M",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "N",
+      "id": "TH_N",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "NG",
+      "id": "TH_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "P",
+      "id": "TH_P",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "R",
+      "id": "TH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "S",
+      "id": "TH_S",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "SH",
+      "id": "TH_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "T",
+      "id": "TH_T",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "TH",
+      "id": "TH_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "V",
+      "id": "TH_V",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "W",
+      "id": "TH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "Y",
+      "id": "TH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "TH",
+      "b": "Z",
+      "id": "TH_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "UH",
+      "b": "CH",
+      "id": "UH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "UH",
+      "b": "JH",
+      "id": "UH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "UH",
+      "b": "L",
+      "id": "UH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "UH",
+      "b": "R",
+      "id": "UH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "UH",
+      "b": "W",
+      "id": "UH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "UH",
+      "b": "Y",
+      "id": "UH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "UW",
+      "b": "CH",
+      "id": "UW_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "UW",
+      "b": "JH",
+      "id": "UW_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "UW",
+      "b": "L",
+      "id": "UW_L",
+      "weight": 0.5
+    },
+    {
+      "a": "UW",
+      "b": "R",
+      "id": "UW_R",
+      "weight": 0.5
+    },
+    {
+      "a": "UW",
+      "b": "W",
+      "id": "UW_W",
+      "weight": 0.5
+    },
+    {
+      "a": "UW",
+      "b": "Y",
+      "id": "UW_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "B",
+      "id": "V_B",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "CH",
+      "id": "V_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "D",
+      "id": "V_D",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "DH",
+      "id": "V_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "F",
+      "id": "V_F",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "G",
+      "id": "V_G",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "JH",
+      "id": "V_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "K",
+      "id": "V_K",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "L",
+      "id": "V_L",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "M",
+      "id": "V_M",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "N",
+      "id": "V_N",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "NG",
+      "id": "V_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "P",
+      "id": "V_P",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "R",
+      "id": "V_R",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "S",
+      "id": "V_S",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "SH",
+      "id": "V_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "T",
+      "id": "V_T",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "TH",
+      "id": "V_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "V",
+      "id": "V_V",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "W",
+      "id": "V_W",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "Y",
+      "id": "V_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "V",
+      "b": "Z",
+      "id": "V_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "AA",
+      "id": "W_AA",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "AE",
+      "id": "W_AE",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "AH",
+      "id": "W_AH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "AO",
+      "id": "W_AO",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "AW",
+      "id": "W_AW",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "AY",
+      "id": "W_AY",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "B",
+      "id": "W_B",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "CH",
+      "id": "W_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "D",
+      "id": "W_D",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "DH",
+      "id": "W_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "EH",
+      "id": "W_EH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "ER",
+      "id": "W_ER",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "EY",
+      "id": "W_EY",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "F",
+      "id": "W_F",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "G",
+      "id": "W_G",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "IH",
+      "id": "W_IH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "IY",
+      "id": "W_IY",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "JH",
+      "id": "W_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "K",
+      "id": "W_K",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "L",
+      "id": "W_L",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "M",
+      "id": "W_M",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "N",
+      "id": "W_N",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "NG",
+      "id": "W_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "OW",
+      "id": "W_OW",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "OY",
+      "id": "W_OY",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "P",
+      "id": "W_P",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "R",
+      "id": "W_R",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "S",
+      "id": "W_S",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "SH",
+      "id": "W_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "T",
+      "id": "W_T",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "TH",
+      "id": "W_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "UH",
+      "id": "W_UH",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "UW",
+      "id": "W_UW",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "V",
+      "id": "W_V",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "W",
+      "id": "W_W",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "Y",
+      "id": "W_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "W",
+      "b": "Z",
+      "id": "W_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "AA",
+      "id": "Y_AA",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "AE",
+      "id": "Y_AE",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "AH",
+      "id": "Y_AH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "AO",
+      "id": "Y_AO",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "AW",
+      "id": "Y_AW",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "AY",
+      "id": "Y_AY",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "B",
+      "id": "Y_B",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "CH",
+      "id": "Y_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "D",
+      "id": "Y_D",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "DH",
+      "id": "Y_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "EH",
+      "id": "Y_EH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "ER",
+      "id": "Y_ER",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "EY",
+      "id": "Y_EY",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "F",
+      "id": "Y_F",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "G",
+      "id": "Y_G",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "IH",
+      "id": "Y_IH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "IY",
+      "id": "Y_IY",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "JH",
+      "id": "Y_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "K",
+      "id": "Y_K",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "L",
+      "id": "Y_L",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "M",
+      "id": "Y_M",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "N",
+      "id": "Y_N",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "NG",
+      "id": "Y_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "OW",
+      "id": "Y_OW",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "OY",
+      "id": "Y_OY",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "P",
+      "id": "Y_P",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "R",
+      "id": "Y_R",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "S",
+      "id": "Y_S",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "SH",
+      "id": "Y_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "T",
+      "id": "Y_T",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "TH",
+      "id": "Y_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "UH",
+      "id": "Y_UH",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "UW",
+      "id": "Y_UW",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "V",
+      "id": "Y_V",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "W",
+      "id": "Y_W",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "Y",
+      "id": "Y_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "Y",
+      "b": "Z",
+      "id": "Y_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "B",
+      "id": "Z_B",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "CH",
+      "id": "Z_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "D",
+      "id": "Z_D",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "DH",
+      "id": "Z_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "F",
+      "id": "Z_F",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "G",
+      "id": "Z_G",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "JH",
+      "id": "Z_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "K",
+      "id": "Z_K",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "L",
+      "id": "Z_L",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "M",
+      "id": "Z_M",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "N",
+      "id": "Z_N",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "NG",
+      "id": "Z_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "P",
+      "id": "Z_P",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "R",
+      "id": "Z_R",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "S",
+      "id": "Z_S",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "SH",
+      "id": "Z_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "T",
+      "id": "Z_T",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "TH",
+      "id": "Z_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "V",
+      "id": "Z_V",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "W",
+      "id": "Z_W",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "Y",
+      "id": "Z_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "Z",
+      "b": "Z",
+      "id": "Z_Z",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "B",
+      "id": "ZH_B",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "CH",
+      "id": "ZH_CH",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "D",
+      "id": "ZH_D",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "DH",
+      "id": "ZH_DH",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "F",
+      "id": "ZH_F",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "G",
+      "id": "ZH_G",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "JH",
+      "id": "ZH_JH",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "K",
+      "id": "ZH_K",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "L",
+      "id": "ZH_L",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "M",
+      "id": "ZH_M",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "N",
+      "id": "ZH_N",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "NG",
+      "id": "ZH_NG",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "P",
+      "id": "ZH_P",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "R",
+      "id": "ZH_R",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "S",
+      "id": "ZH_S",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "SH",
+      "id": "ZH_SH",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "T",
+      "id": "ZH_T",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "TH",
+      "id": "ZH_TH",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "V",
+      "id": "ZH_V",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "W",
+      "id": "ZH_W",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "Y",
+      "id": "ZH_Y",
+      "weight": 0.5
+    },
+    {
+      "a": "ZH",
+      "b": "Z",
+      "id": "ZH_Z",
+      "weight": 0.5
+    }
+  ]
+}

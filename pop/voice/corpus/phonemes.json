@@ -1,0 +1,62 @@
+{
+  "$schema": "./phonemes.schema.json",
+  "version": 1,
+  "generated": "2026-05-04",
+  "note": "Machine-readable phoneme target list for the jeffrey harness. See pop/voice/CORPUS.md for the design rationale. Each entry has an IPA symbol, an arpabet alias for tools that don't speak IPA, three carrier prompts (iso/digit/cvc), and a 'class' tag for analysis grouping. The 'iso_speed' field is per-entry because diphthongs sustain awkwardly at 0.85 — they need 1.0 to keep the glide audible.",
+  "settings": {
+    "voice": { "provider": "jeffrey", "voice": "neutral:0" },
+    "stability": 0.5,
+    "similarity": 0.9,
+    "style": 0.0,
+    "default_speed": 1.0,
+    "iso_default_speed": 0.85
+  },
+  "phonemes": [
+    { "id": "ae", "ipa": "æ", "arpa": "AE", "class": "short_vowel", "iso": "aaaaa as in cat", "digit": "the cat sat at bat", "cvc": "bat" },
+    { "id": "eh", "ipa": "ɛ", "arpa": "EH", "class": "short_vowel", "iso": "eeeee as in bet", "digit": "let met set bet", "cvc": "bet" },
+    { "id": "ih", "ipa": "ɪ", "arpa": "IH", "class": "short_vowel", "iso": "iiiii as in bit", "digit": "hit fit lit bit", "cvc": "bit" },
+    { "id": "ah", "ipa": "ɒ", "arpa": "AA", "class": "short_vowel", "iso": "ahhhh as in bot", "digit": "got hot lot bot", "cvc": "bot" },
+    { "id": "uh", "ipa": "ʊ", "arpa": "UH", "class": "short_vowel", "iso": "uuuuu as in book", "digit": "look took cook book", "cvc": "book" },
+
+    { "id": "iy", "ipa": "iː", "arpa": "IY", "class": "long_vowel", "iso": "eeeee as in see", "digit": "see me three be", "cvc": "see" },
+    { "id": "uw", "ipa": "uː", "arpa": "UW", "class": "long_vowel", "iso": "ooooo as in soup", "digit": "soup loop you do", "cvc": "soup" },
+    { "id": "aa", "ipa": "ɑː", "arpa": "AA2", "class": "long_vowel", "iso": "aaaaa as in spa", "digit": "spa la pa ah", "cvc": "spa" },
+    { "id": "ao", "ipa": "ɔː", "arpa": "AO", "class": "long_vowel", "iso": "aw aw aw as in saw", "digit": "saw paw raw thaw", "cvc": "saw" },
+    { "id": "er", "ipa": "ɜː", "arpa": "ER", "class": "long_vowel", "iso": "errrr as in surf", "digit": "her per stir surf", "cvc": "surf" },
+
+    { "id": "ay", "ipa": "aɪ", "arpa": "AY", "class": "diphthong", "iso": "ay ay ay as in eye",  "digit": "eye my pie tie",  "cvc": "pie",  "iso_speed": 1.0 },
+    { "id": "aw", "ipa": "aʊ", "arpa": "AW", "class": "diphthong", "iso": "ow ow ow as in owl",  "digit": "owl how now cow",  "cvc": "cow",  "iso_speed": 1.0 },
+    { "id": "ey", "ipa": "eɪ", "arpa": "EY", "class": "diphthong", "iso": "ay ay ay as in ate",  "digit": "ate late date gate", "cvc": "ate", "iso_speed": 1.0 },
+    { "id": "ow", "ipa": "oʊ", "arpa": "OW", "class": "diphthong", "iso": "oh oh oh as in owe",  "digit": "owe go so no",     "cvc": "owe", "iso_speed": 1.0 },
+    { "id": "oy", "ipa": "ɔɪ", "arpa": "OY", "class": "diphthong", "iso": "oy oy oy as in oil",  "digit": "oil boy toy joy",  "cvc": "oil", "iso_speed": 1.0 },
+
+    { "id": "v",  "ipa": "v",  "arpa": "V",  "class": "voiced_fricative",   "iso": "vvvvv as in van",    "digit": "van vine vow vote",    "cvc": "van" },
+    { "id": "dh", "ipa": "ð",  "arpa": "DH", "class": "voiced_fricative",   "iso": "this this this",     "digit": "this that thus those",  "cvc": "this" },
+    { "id": "z",  "ipa": "z",  "arpa": "Z",  "class": "voiced_fricative",   "iso": "zzzzz as in zoo",    "digit": "zoo buzz fizz haze",    "cvc": "zoo" },
+    { "id": "zh", "ipa": "ʒ",  "arpa": "ZH", "class": "voiced_fricative",   "iso": "zh zh zh as in vision", "digit": "vision azure beige garage", "cvc": "vision" },
+
+    { "id": "f",  "ipa": "f",  "arpa": "F",  "class": "unvoiced_fricative", "iso": "fffff as in fan",    "digit": "fan fine fee fun",     "cvc": "fan" },
+    { "id": "th", "ipa": "θ",  "arpa": "TH", "class": "unvoiced_fricative", "iso": "thin thin thin",     "digit": "thin think thaw thug", "cvc": "thin" },
+    { "id": "s",  "ipa": "s",  "arpa": "S",  "class": "unvoiced_fricative", "iso": "sssss as in see",    "digit": "see say sip sun",      "cvc": "see" },
+    { "id": "sh", "ipa": "ʃ",  "arpa": "SH", "class": "unvoiced_fricative", "iso": "sh sh sh as in ship", "digit": "ship show sheen shut", "cvc": "ship" },
+
+    { "id": "b", "ipa": "b", "arpa": "B", "class": "voiced_plosive",   "iso": "buh buh buh", "digit": "buy bee bay bow",    "cvc": "buy" },
+    { "id": "d", "ipa": "d", "arpa": "D", "class": "voiced_plosive",   "iso": "duh duh duh", "digit": "do day die dough",   "cvc": "do" },
+    { "id": "g", "ipa": "g", "arpa": "G", "class": "voiced_plosive",   "iso": "guh guh guh", "digit": "go gay guy gum",     "cvc": "go" },
+    { "id": "p", "ipa": "p", "arpa": "P", "class": "unvoiced_plosive", "iso": "puh puh puh", "digit": "pie pay pee pow",    "cvc": "pie" },
+    { "id": "t", "ipa": "t", "arpa": "T", "class": "unvoiced_plosive", "iso": "tuh tuh tuh", "digit": "two tea tie toe",    "cvc": "two" },
+    { "id": "k", "ipa": "k", "arpa": "K", "class": "unvoiced_plosive", "iso": "kuh kuh kuh", "digit": "key cue cow car",    "cvc": "key" },
+
+    { "id": "m",  "ipa": "m",  "arpa": "M",  "class": "nasal",  "iso": "mmmmm as in me",   "digit": "me my mow moon",    "cvc": "me" },
+    { "id": "n",  "ipa": "n",  "arpa": "N",  "class": "nasal",  "iso": "nnnnn as in no",   "digit": "no know new neat",  "cvc": "no" },
+    { "id": "ng", "ipa": "ŋ",  "arpa": "NG", "class": "nasal",  "iso": "nggg nggg nggg",   "digit": "sing ring king song", "cvc": "sing" },
+
+    { "id": "l", "ipa": "l", "arpa": "L", "class": "liquid", "iso": "lllll as in lo", "digit": "lo low lay lip", "cvc": "lo" },
+    { "id": "r", "ipa": "ɹ", "arpa": "R", "class": "liquid", "iso": "rrrrr as in row", "digit": "row ray rye red", "cvc": "row" },
+
+    { "id": "w", "ipa": "w", "arpa": "W", "class": "glide",  "iso": "wwwww as in we",  "digit": "we way why wow",  "cvc": "we" },
+    { "id": "y", "ipa": "j", "arpa": "Y", "class": "glide",  "iso": "yyyyy as in you", "digit": "you yes yay yam", "cvc": "you" },
+
+    { "id": "schwa", "ipa": "ə", "arpa": "AX", "class": "schwa", "iso": "uhhhh", "digit": "the a but um", "cvc": "the" }
+  ]
+}

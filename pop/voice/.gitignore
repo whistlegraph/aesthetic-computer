@@ -1,0 +1,25 @@
+# vendored third-party (fetch via bin/vendor-pt.sh)
+vendor/pinktrombone/
+
+# PT lane — corpus WAVs (jeffrey-pvc derivatives, regenerable)
+corpus/raw/
+corpus/cropped/
+corpus/manifest.json
+
+# PT lane — fit outputs (regenerable from corpus + anthropometry)
+fits/
+
+# Diphones lane — carrier mp3s + alignment + bank (jeffrey-pvc
+# derivatives + regenerable from raw via bin/{align,extract}-*.py)
+diphones/raw/
+diphones/aligned/
+diphones/bank/
+diphones/manifest.json
+
+# Cached model files (mediapipe FaceLandmarker, etc.)
+.cache/
+
+# python bytecode + venv crumbs
+__pycache__/
+*.pyc
+.venv/

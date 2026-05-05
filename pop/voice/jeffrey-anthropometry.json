@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "generated": "2026-05-04",
+  "generator": "pop/voice/bin/measure-jeffrey.py v0.2",
+  "source_glob": "/Users/jas/aesthetic-computer/portraits/jeffrey/corpus/shoot/*.jpg",
+  "source_corpus": {
+    "whistlegraph": 521
+  },
+  "rejected": {
+    "no_face": 158
+  },
+  "measurements_cm": {
+    "forehead_to_chin_cm": {
+      "median": 15.82,
+      "iqr": [
+        15.18,
+        16.78
+      ],
+      "n": 363
+    },
+    "bizygomatic_width_cm": {
+      "median": 12.31,
+      "iqr": [
+        11.94,
+        12.8
+      ],
+      "n": 363
+    },
+    "mandible_length_cm": {
+      "median": 6.38,
+      "iqr": [
+        5.77,
+        7.43
+      ],
+      "n": 363
+    },
+    "lip_width_cm": {
+      "median": 4.99,
+      "iqr": [
+        4.67,
+        5.41
+      ],
+      "n": 363
+    },
+    "lip_aperture_cm": {
+      "median": 2.02,
+      "iqr": [
+        1.61,
+        2.68
+      ],
+      "n": 363
+    },
+    "philtrum_cm": {
+      "median": 2.06,
+      "iqr": [
+        1.82,
+        2.25
+      ],
+      "n": 363
+    },
+    "nose_to_chin_cm": {
+      "median": 6.72,
+      "iqr": [
+        6.23,
+        7.32
+      ],
+      "n": 363
+    },
+    "nostril_width_cm": {
+      "median": 2.95,
+      "iqr": [
+        2.77,
+        3.16
+      ],
+      "n": 363
+    }
+  },
+  "derived": {
+    "vtl_cm": {
+      "central": 17.5,
+      "ci95": [
+        15.93,
+        19.07
+      ],
+      "model": "fitch-giedd-1999",
+      "input": "population-median-male"
+    },
+    "tract_segments_44": {
+      "segment_length_cm": 0.3977
+    },
+    "lip_aperture_max_cm": 2.68,
+    "lip_mul_upper_bound": 1.0,
+    "mandible_rotation_max_deg": 22,
+    "notes": [
+      "VTL central uses Fitch+Giedd 1999 body-height regression.",
+      "Photo-derived measurements (forehead-to-chin, bizygomatic, mandible) are not yet wired into a closed-form VTL \u2014 Lammert-Narayanan 2015 needs MRI-derived inputs we don't have.",
+      "Lip aperture upper bound comes from corpus 75th percentile (max would be too sensitive to selfie outliers)."
+    ]
+  },
+  "scale_anchor": {
+    "method": "interpupillary distance",
+    "ipd_cm_used": 6.3,
+    "ipd_px_median": 120.8,
+    "rationale": "Adult-population mean (Dodgson 2004). Replace with stated height + Lammert 2015 if/when --height-cm is provided."
+  },
+  "notes": [
+    "Single-pass mediapipe FaceMesh on local AV-shoot cache.",
+    "Identity validation skipped (AV shoot is jeffrey by construction). Wire --identity-jsonl when running against IG archive."
+  ]
+}

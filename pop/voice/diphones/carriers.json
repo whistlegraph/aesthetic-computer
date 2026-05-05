@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "format": "paragraphs",
+  "generated": "2026-05-04",
+  "note": "Replaces the v1 short-sentence list. Paragraph-length carriers give ElevenLabs prosodic context; jeffrey-pvc reads them in his natural voice instead of robotically pronouncing isolated phrases. Shorter total char count + denser per-request diphone coverage.",
+  "sentences": [
+    {
+      "text": "i build aesthetic computer. every piece is a url. type a name, push enter \u2014 you're inside. kidlisp pieces play in the browser. notepat keys glow when you tap them. there's no install, no app store, no auth at the door. just the address.",
+      "id": "p000",
+      "chars": 236
+    },
+    {
+      "text": "the music is real. the laptop orchestra was a beautiful idea that reached almost no one. the gear was the gate. the gate was the price tag. now there are two-forty million surplus laptops and windows ten is retired. flash a kernel from a usb stick and call it a school.",
+      "id": "p001",
+      "chars": 269
+    },
+    {
+      "text": "kidlisp is my own lisp dialect. a hundred and eighteen built-in functions across twelve categories. you can paint, you can play sound, you can run it from your phone. every line is a piece. every piece is a url. fork the whole runtime \u2014 same kid, same shape.",
+      "id": "p002",
+      "chars": 258
+    },
+    {
+      "text": "this is aesthetic twenty-four, episode two. a daily news cast about jeffrey making aesthetic computer. today menuband shipped six releases in a row. kidlisp got bare-token scores. the recap pipeline learned how to snap to waltz beats. it's a quiet conviction kind of day.",
+      "id": "p003",
+      "chars": 271
+    },
+    {
+      "text": "the boy was there when the sun rose. four hours of steady work faced us. press the pants and sew a button on the vest. the small pup gnawed a hole in the sock. the soft cushion broke the man's fall. read verse out loud for pleasure.",
+      "id": "p004",
+      "chars": 232
+    },
+    {
+      "text": "is it real? yes, it's real. does it ship? yes, it ships. does it scale? sublinearly with complexity. how much did it cost? fifty dollars and two months. how many people? one \u2014 one-person stack, no runway, no dream.",
+      "id": "p005",
+      "chars": 214
+    },
+    {
+      "text": "aesthetic computer, kidlisp, notepat, fedac, plork, whistlegraph, nopaint, sotce, prompt, paint, line, box, circle. every piece a url. every url a score. push enter and you're inside.",
+      "id": "p006",
+      "chars": 183
+    },
+    {
+      "text": "i made a piece called row. it sings row your boat. another called amazing. it sings amazing grace. another called mary. it sings mary had a little lamb. each one is a url, each url is a score, each score is a song the laptop already knows.",
+      "id": "p007",
+      "chars": 239
+    },
+    {
+      "text": "every morning i wake up and check the build. menuband, the slab, the website. the oven runs cron at three seventeen utc. fia forwards calls and grants from the inbox. lacma is on the calendar for june. honeydo dot txt holds the rest.",
+      "id": "p008",
+      "chars": 233
+    },
+    {
+      "text": "that's it for today. tomorrow we record more diphones. tomorrow we ship the next release. tomorrow we make the planet a little smaller. the music is real. the logistics got cheap. push enter.",
+      "id": "p009",
+      "chars": 191
+    }
+  ],
+  "totals": {
+    "n_paragraphs": 10,
+    "total_chars": 2326,
+    "median_chars": 236,
+    "estimated_elevenlabs_dollars_at_30k_per_5usd": 0.39
+  }
+}
