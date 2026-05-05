@@ -20,7 +20,22 @@
 // runtime. It does not modify disk.mjs, midi.mjs, or any disk file; the
 // program-change wiring will be hooked up elsewhere.
 
-const ASSET_BASE = "https://assets.aesthetic.computer/gm";
+// Local dev (`npm run site`) serves system/public/assets/ at /assets/, so
+// the bake output dropped into system/public/assets/gm/ is reachable
+// without uploading to the CDN. On prod we hit the Spaces-backed CDN.
+function resolveAssetBase() {
+  if (typeof window === "undefined") return "https://assets.aesthetic.computer/gm";
+  const host = window.location?.hostname || "";
+  const isLocal =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "" ||
+    host.endsWith(".local") ||
+    host.endsWith(".github.dev") ||
+    host.endsWith(".gitpod.io");
+  return isLocal ? "/assets/gm" : "https://assets.aesthetic.computer/gm";
+}
+const ASSET_BASE = resolveAssetBase();
 const MANIFEST_URL = `${ASSET_BASE}/manifest.json`;
 
 // ─── AudioContext access ──────────────────────────────────────────────
@@ -189,6 +204,13 @@ function drumDir(kitId) {
 // Build the URL for a single rendered note (e.g. midi 60 -> ".../C4.mp3").
 function noteUrl(dir, midi) {
   return `${dir}/${midiToNoteName(midi)}.mp3`;
+}
+
+// Drum samples are filed by raw MIDI number (e.g. 35 = Acoustic Bass Drum)
+// because drum kits aren't pitched — scientific-pitch names ("B1") would be
+// semantically wrong. Matches the bake script's output convention.
+function drumNoteUrl(dir, midi) {
+  return `${dir}/${midi}.mp3`;
 }
 
 // Pick the closest rendered MIDI note to a target.
@@ -409,7 +431,7 @@ export async function loadDrumKit(kitId = 0, audioContext) {
 
     function getSample(midi) {
       if (samples.has(midi)) return samples.get(midi);
-      const promise = fetchAndDecode(noteUrl(dir, midi), ctx);
+      const promise = fetchAndDecode(drumNoteUrl(dir, midi), ctx);
       samples.set(midi, promise);
       return promise;
     }

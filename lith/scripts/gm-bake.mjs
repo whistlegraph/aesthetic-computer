@@ -178,8 +178,10 @@ if (!DRY_RUN) {
 }
 
 // ─── SoundFont resolution ───────────────────────────────────────────────────
+// Christian Collins's official GitHub mirror — stable raw download, unlike
+// the schristiancollins.com page (now an SPA whose download URLs flux).
 const GENERALUSER_URL =
-  "https://schristiancollins.com/soundfonts/GeneralUser_GS_1.471.zip";
+  "https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/GeneralUser-GS.sf2";
 const GENERALUSER_NAME = "GeneralUser GS v1.471";
 const GENERALUSER_LICENSE = `${GENERALUSER_NAME}
 by S. Christian Collins (https://schristiancollins.com/generaluser.php)
@@ -218,10 +220,11 @@ function resolveSoundFont() {
     return { path: cachedSf2, name: GENERALUSER_NAME };
   }
   log(`downloading ${GENERALUSER_NAME} → ${cachedSf2}`);
-  const zip = join(CACHE_DIR, "GeneralUser_GS.zip");
+  const isDirectSf2 = /\.sf2$/i.test(GENERALUSER_URL);
+  const downloadPath = isDirectSf2 ? cachedSf2 : join(CACHE_DIR, "GeneralUser_GS.zip");
   const curl = spawnSync(
     "curl",
-    ["-fsSL", "-o", zip, GENERALUSER_URL],
+    ["-fsSL", "-o", downloadPath, GENERALUSER_URL],
     { stdio: "inherit" },
   );
   if (curl.status !== 0) {
@@ -230,15 +233,18 @@ function resolveSoundFont() {
         `  Upstream page: https://schristiancollins.com/generaluser.php`,
     );
   }
-  // Try both unzip and bsdtar; locate the .sf2 inside.
+  if (isDirectSf2) {
+    log(`downloaded: ${cachedSf2}`);
+    return { path: cachedSf2, name: GENERALUSER_NAME };
+  }
+  // Archive case: unzip and locate the .sf2 inside.
   const extractDir = join(CACHE_DIR, "extract");
   rmSync(extractDir, { recursive: true, force: true });
   mkdirSync(extractDir, { recursive: true });
-  const unzip = spawnSync("unzip", ["-q", "-o", zip, "-d", extractDir], {
+  const unzip = spawnSync("unzip", ["-q", "-o", downloadPath, "-d", extractDir], {
     stdio: "inherit",
   });
   if (unzip.status !== 0) die("unzip failed; install `unzip` or extract manually");
-  // Find the SF2 file recursively.
   const found = execFileSync("find", [extractDir, "-name", "*.sf2"])
     .toString()
     .trim()
