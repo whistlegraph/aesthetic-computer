@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aesthetic.Computer at the Bandstand · CultureHub 2026 · WIP DRAFT</title>
+<meta name="description" content="Jeffrey Alan Scudder's WIP proposal for CultureHub at La MaMa (2026): a residency that turns the menuband overlay, the AC Native OS, and the notepat polyphonic instrument into a small living bandstand for performance, teaching, and cross-site KidLisp jam sessions.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #1c1812;
+    --text: #e4d8bc;
+    --dim: #907d5e;
+    --pink: #c38098;
+    --cyan: #8fa5ad;
+    --purple: #9b8dc0;
+    --gold: #cda870;
+    --green: #a6b48a;
+    --red: #c58c86;
+    --box-bg: rgba(228,216,188,0.035);
+    --box-border: rgba(228,216,188,0.13);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f0e6cf;
+      --text: #3d2e1f;
+      --dim: #8a7356;
+      --pink: #a54969;
+      --cyan: #456777;
+      --purple: #604d85;
+      --gold: #8a6520;
+      --green: #556838;
+      --red: #8e3a36;
+      --box-bg: rgba(61,46,31,0.045);
+      --box-border: rgba(61,46,31,0.18);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.58;
+    -webkit-text-size-adjust: none;
+    padding: 1.4em 1.6em 4em;
+    min-height: 100vh;
+  }
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  .mono, code, .eyebrow, .meta, .stat .l, .count, .channel-status, .stats-status, footer {
+    font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--pink); }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  .wip-banner {
+    background: var(--gold);
+    color: #1c1208;
+    padding: 0.7em 1em;
+    margin: -1em -1em 1.6em -1em;
+    font-family: 'YWFT Processing', monospace;
+    font-size: 0.95em;
+    letter-spacing: 0.04em;
+    text-align: center;
+    border-radius: 4px;
+  }
+  .wip-banner strong { font-size: 1.05em; }
+  .wip-banner .blink {
+    display: inline-block;
+    color: #5a3a08;
+    animation: blink 1.4s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.35; } }
+
+  .mast { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--dim);
+    font-size: 0.75em;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .eyebrow .tag { color: var(--purple); }
+  .eyebrow .wip { color: var(--gold); }
+
+  h1 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: clamp(32px, 5.6vw, 56px);
+    font-weight: normal;
+    letter-spacing: -0.01em;
+    line-height: 1.02;
+    margin: 0.2em 0 0.2em;
+  }
+  h1 .dot { color: var(--pink); }
+  h1 em { font-style: normal; color: var(--cyan); }
+
+  .sub {
+    color: var(--dim);
+    font-size: 0.95em;
+    margin-bottom: 1.1em;
+  }
+  .sub strong { color: var(--text); font-weight: normal; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.15em 1.2em;
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  .meta dt { color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.85em; padding-top: 0.18em; }
+  .meta dd { margin: 0; }
+  .meta .due { color: var(--gold); }
+  .meta .partner { color: var(--purple); }
+
+  section { margin: 2.4em 0; }
+  h2 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: 1.4em;
+    font-weight: normal;
+    color: var(--text);
+    letter-spacing: 0;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--box-border);
+    margin-bottom: 1em;
+  }
+  h2 .ord {
+    color: var(--pink);
+    margin-right: 0.4em;
+    font-family: 'Berkeley Mono Variable', monospace;
+  }
+  h2 .count { float: right; color: var(--dim); font-size: 0.7em; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 0.6em; font-family: 'Berkeley Mono Variable', monospace; }
+
+  .glance {
+    margin: 1.4em 0 2.2em;
+    padding: 1em 1.2em;
+    background: linear-gradient(180deg, var(--box-bg) 0%, transparent 100%);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+  }
+  .glance .hint { color: var(--dim); font-size: 0.85em; margin-bottom: 1em; font-style: italic; }
+  .glance dl {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.8em 1.2em;
+    margin: 0;
+  }
+  .glance dt {
+    color: var(--dim);
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-top: 0.3em;
+    align-self: start;
+  }
+  .glance dt .cap {
+    display: block;
+    color: var(--gold);
+    font-size: 0.85em;
+    letter-spacing: 0.08em;
+    margin-top: 0.2em;
+    font-weight: normal;
+  }
+  .glance dd {
+    margin: 0;
+    padding-bottom: 0.85em;
+    border-bottom: 1px dotted var(--box-border);
+    line-height: 1.5;
+    font-size: 0.94em;
+  }
+  .glance dl > div:last-of-type dd,
+  .glance dd:last-child { border-bottom: none; padding-bottom: 0; }
+  .glance dd strong { color: var(--text); }
+  .glance dd em { color: var(--pink); font-style: normal; }
+  .glance .statement { font-size: 0.9em; color: var(--text); line-height: 1.5; }
+  .glance .excerpt { color: var(--dim); font-size: 0.9em; margin: 0 0 0.35em; line-height: 1.5; }
+  .glance .jump {
+    display: inline-block;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.78em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .glance .jump:hover { color: var(--pink); }
+  @media (max-width: 640px) {
+    .glance dl { grid-template-columns: 1fr; gap: 0.3em 0; }
+    .glance dt { padding-top: 0.8em; font-size: 0.7em; }
+    .glance dd { padding-bottom: 0.6em; }
+  }
+
+  .pitch p { margin: 0 0 0.9em; font-size: 0.98em; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .pitch .drop {
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.25em;
+    color: var(--cyan);
+    display: block;
+    margin: 1.4em 0 0.6em;
+  }
+  .pitch em { color: var(--pink); font-style: normal; }
+  .pitch strong { color: var(--text); }
+  .pitch code {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.9em;
+    padding: 0 0.25em;
+    background: var(--box-bg);
+    border-radius: 2px;
+    color: var(--cyan);
+  }
+
+  .anchors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .anchor {
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 2px solid var(--pink);
+    border-radius: 3px;
+  }
+  .anchor b {
+    display: block;
+    color: var(--pink);
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.05em;
+    font-weight: normal;
+    margin-bottom: 0.2em;
+  }
+  .anchor p { margin: 0; color: var(--text); font-size: 0.88em; line-height: 1.5; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .stat {
+    padding: 0.9em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    text-align: left;
+  }
+  .stat .n {
+    display: block;
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.8em;
+    color: var(--cyan);
+    line-height: 1;
+    margin-bottom: 0.15em;
+  }
+  .stat .l { color: var(--dim); font-size: 0.75em; letter-spacing: 0.1em; text-transform: uppercase; }
+  .stat.loaded .n { color: var(--pink); }
+  .stats-status { font-size: 0.8em; color: var(--dim); margin-top: 0.4em; }
+  .stats-status .ok { color: var(--green); }
+  .stats-status .err { color: var(--red); }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.5em;
+    margin: 1em 0;
+  }
+  .feat {
+    padding: 0.6em 0.8em;
+    border-left: 2px solid var(--purple);
+    background: var(--box-bg);
+    border-radius: 0 3px 3px 0;
+    font-size: 0.88em;
+  }
+  .feat b { color: var(--purple); font-family: 'YWFT Processing', monospace; font-weight: normal; display: block; margin-bottom: 0.15em; }
+  .feat.planned { border-left-color: var(--gold); }
+  .feat.planned b { color: var(--gold); }
+
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--pink); font-style: normal; }
+
+  .check { list-style: none; padding: 0; font-size: 0.9em; }
+  .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
+  .check li::before { font-family: 'Berkeley Mono Variable', monospace; width: 1em; text-align: center; }
+  .check .done { color: var(--dim); }
+  .check .done::before { content: "✓"; color: var(--green); }
+  .check .todo::before { content: "▸"; color: var(--gold); }
+  .check .todo { color: var(--text); }
+  .check .todo em { color: var(--gold); font-style: normal; }
+
+  footer {
+    margin-top: 4em;
+    padding-top: 1em;
+    border-top: 1px solid var(--box-border);
+    color: var(--dim);
+    font-size: 0.75em;
+    letter-spacing: 0.08em;
+  }
+  footer a { color: var(--dim); }
+  footer a:hover { color: var(--cyan); }
+
+  @media (max-width: 560px) {
+    body { padding: 1.2em 1em 3em; font-size: 13px; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
+    .meta { grid-template-columns: 1fr; gap: 0.05em; }
+    .meta dt { padding-top: 0.6em; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="wip-banner">
+    <strong>▸ WIP PROPOSAL · NOT YET SUBMITTED</strong> · drafting toward <strong>CultureHub Open Call · 2026 cycle</strong> · <span class="blink">●</span> <em>this page is an evolving draft and will be trimmed once the form opens</em>
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">CultureHub at La MaMa</span> · 2026 · <span class="wip">wip draft</span></div>
+    <h1>Aesthetic<span class="dot">.</span>Computer<br>at the<br><em>Bandstand</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">A residency pitch · menuband · AC Native · notepat · KidLisp jam</p>
+    <p class="sub">Proposal by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Deadline</dt><dd class="due">2026 cycle · <span style="color:var(--gold)">drafting · confirm exact date when call opens</span></dd>
+      <dt>Venue</dt><dd>CultureHub · La MaMa Experimental Theatre Club · 47 Great Jones St, NYC</dd>
+      <dt>Format</dt><dd><span class="partner">Residency</span> · networked-performance studio · public Re-Fest showcase</dd>
+      <dt>Ask</dt><dd>2-week residency · technical support · networked-performance space · public showing</dd>
+      <dt>Call</dt><dd><a href="https://www.culturehub.org/">culturehub.org</a> · <a href="https://www.culturehub.org/programs">programs</a> · <a href="https://www.culturehub.org/refest">Re-Fest</a></dd>
+      <dt>Submit</dt><dd>via CultureHub Open Call · form TBD when 2026 cycle opens</dd>
+      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/culturehub-2026">grants/culturehub-2026/</a> <em>(folder TBD)</em> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/slab/menuband">slab/menuband/</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/fedac/native">fedac/native/</a></dd>
+    </dl>
+  </header>
+
+  <!-- ── APPLICATION AT A GLANCE (form mirror) ─────── -->
+  <section class="glance" id="glance">
+    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft v0 · trims to fit form when opened</span></h2>
+    <p class="hint">Standard residency-form fields drafted from the Aesthetic Computer side, ready to be tightened against the live CultureHub Open Call once it posts.</p>
+
+    <dl>
+      <dt>Project title</dt>
+      <dd><strong>Aesthetic.Computer at the Bandstand</strong> <em>· (working — alts: "the AC Bandstand," "menuband · live")</em></dd>
+
+      <dt>Three words</dt>
+      <dd>perform · teach · jam</dd>
+
+      <dt>One-sentence description</dt>
+      <dd>A residency that turns CultureHub's networked-performance studio into a small bandstand: <em>menuband</em> as the live conductor, AC Native as the operating system, <em>notepat</em> as the polyphonic instrument, and KidLisp as the score that anyone in the room can write.</dd>
+
+      <dt>Project description<span class="cap">~400 w · drafting</span></dt>
+      <dd>
+        <p class="excerpt">Aesthetic.Computer is a creative computing system that boots a Linux laptop directly into art software with no desktop and no browser. The proposed residency stages it as a bandstand: two AC Blank laptops on stage, a menuband overlay pinned to the top of each screen scoring every keystroke, notepat playing the actual notes, and an open invitation for the audience to sit down and write a piece in KidLisp. CultureHub's networked-performance infrastructure connects the room to a remote AC station — La MaMa to a UCLA Social Software session, or to NELA Computer Club at Plot.Place — for cross-site jam sessions where each side plays into the same composition over UDP MIDI.</p>
+        <a class="jump" href="#pitch">Read the full pitch ↓</a>
+      </dd>
+
+      <dt>Artist bio</dt>
+      <dd>Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles. He builds instruments and tools for other artists, with a live practice across performance painting, software writing, and teaching. Yale MFA. Author in Residence at UCLA Social Software with Casey Reas and Lauren Lee McCarthy. Creator of <em>Aesthetic.Computer</em>, <em>Whistlegraph</em>, and <em>No Paint</em>; <em>No Paint</em> and <em>notepat</em> each reached the front page of Hacker News. Work in the collections of KADIST and SMK. Hosts biweekly NELA Computer Club demos at Plot.Place, Chinatown LA. Toured Europe with Goodiepal in 2018 — that performance lineage feeds this proposal directly.</dd>
+
+      <dt>Why CultureHub<span class="cap">~100 w · drafting</span></dt>
+      <dd class="statement">CultureHub's <em>networked-performance</em> mission is the rare match for a system whose pieces are URL-addressable from the kernel up. Aesthetic.Computer was built for cross-site play (WebSocket + UDP channels, USB+UDP MIDI, real-time multiplayer) but it has not yet had a stage with that mission baked in. The residency is the chance to score the system <em>against</em> a remote room — to take the menuband, notepat, and KidLisp out of the studio and into a public, networked, two-room composition.</dd>
+
+      <dt>Public engagement<span class="cap">~100 w · drafting</span></dt>
+      <dd class="statement">Three public moments inside the residency: <strong>(1)</strong> a <em>Bandstand Concert</em> with one AC station at La MaMa and one across the country, networked over UDP MIDI; <strong>(2)</strong> a <em>KidLisp Jam</em> open to the public, where anyone walking in can write five lines and have them join the running composition; <strong>(3)</strong> a <em>Flash Day</em> where ten participants leave with a USB stick that turns any UEFI laptop into the same instrument they just played. Documentation released open-source.</dd>
+
+      <dt>Budget<span class="cap">draft · scales to confirmed support</span></dt>
+      <dd>Artist fee · travel LA↔NYC · lodging · equipment ship (2 AC Blanks + Mini Rig + USB MIDI gear) · print materials (KidLisp reference cards, programs) · networking infra · documentation. Detailed once the support level is confirmed by the call. <a class="jump" href="#budget">Sketch budget ↓</a></dd>
+
+      <dt>Timeline<span class="cap">2 weeks · 1 public weekend</span></dt>
+      <dd>Week 1: build-in, networked-performance tests, two cross-site rehearsals, KidLisp curriculum tune-up. Public weekend: Bandstand Concert (Fri), KidLisp Jam (Sat afternoon), Flash Day (Sat evening), open studio (Sun). Week 2: documentation, follow-up, UDP MIDI release, public retro at NELA Computer Club.</dd>
+
+      <dt>Tech rider<span class="cap">light</span></dt>
+      <dd>Stable wifi · 1 PA + 1 mixer · 2 AC Blanks (artist) · 2 Mini Rig speakers (artist) · 1 USB MIDI hub + cables (artist) · projector (CultureHub) · 1 networked machine on the remote side (UCLA / Plot.Place). No special staging. Quiet enough for a black-box.</dd>
+
+      <dt>Documentation<span class="cap">delivered to CultureHub on close</span></dt>
+      <dd>Concert recording (multitrack audio + screen capture both rooms) · KidLisp Jam piece archive (every program a permanent URL) · Flash Day USB image · open-source release of the cross-site UDP MIDI bridge · a 5-minute documentation video.</dd>
+    </dl>
+  </section>
+
+  <!-- ── PITCH ───────────────────────────────── -->
+  <section class="pitch" id="pitch">
+    <h2><span class="ord">§</span>Pitch</h2>
+
+    <p>Aesthetic.Computer is a creative computing system: a Linux kernel that boots a custom C runtime as PID 1 on x86_64 UEFI laptops, with no desktop, no compositor, no browser. It exists because the personal computer, after forty years of platform consolidation, stopped being a personal instrument. <strong>The residency at CultureHub puts the instrument back on a stage.</strong></p>
+
+    <span class="drop">menuband — the conductor sits in the menu bar.</span>
+
+    <p>A small Swift app in <code>slab/menuband/</code> pins a glass status-bar above whatever the artist is doing. It listens to keys the way a band listens to a count-off: <strong>deliberate-only triggers, dark-mode piano theme, family-color shadow on the title</strong>. At the residency, menuband sits at the top of every screen on the stage and on every screen in the audience. When a visitor presses a key, it appears as a piano-roll note above the editor — visible, public, scored. It turns a laptop into a sitting-down instrument with a transparent score.</p>
+
+    <span class="drop">AC Native — the OS as ensemble member.</span>
+
+    <p>The two laptops on stage are <strong>AC Blanks</strong>: refurbished ThinkPad 11e Yoga Gen 6s flashed with Aesthetic.Computer at $128/seat. AC Native renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at <strong>192 kHz with 32-voice polyphony</strong>. There is a built-in <code>code</code> command that drops into a native terminal running an AI coding partner — so the residency can also explore <em>improvisation between an artist and a model</em>, on stage, inside the same OS.</p>
+
+    <span class="drop">notepat — the actual instrument.</span>
+
+    <p>The default piece on the AC Blank is <em>notepat</em>: an 8,466-line polyphonic instrument with eight waveforms (sine, triangle, sawtooth, square, composite, harp, whistle, sample), 12 simultaneous sample voices, USB and UDP MIDI in/out. The keyboard is the keys; the menuband is the score; the speakers are the band. <strong>UDP MIDI is what makes the residency networked:</strong> two AC stations across the internet can hear each other's notes inside ~50 ms over geckos.io, so a player at La MaMa and a player at UCLA Social Software can hold the same chord.</p>
+
+    <span class="drop">KidLisp — the audience writes the score.</span>
+
+    <p>KidLisp is a minimal Lisp dialect for generative art: 118 built-in functions, no build step, no imports, accessible to non-programmers. There are already <strong>17,000+ KidLisp programs</strong> on the platform, written by 2,800+ handles. At the residency, a public <em>KidLisp Jam</em> opens the bandstand to the audience: five lines, a permanent URL, and the running composition picks up the new piece. A jam is what happens when a score is written in the same room as the music.</p>
+
+    <span class="drop">Cross-site — La MaMa to LA, every night.</span>
+
+    <p>CultureHub's networked-performance studio is the only reason this proposal exists. The residency stages a <strong>two-room composition</strong>: one AC station at La MaMa, one at UCLA Social Software (or NELA Computer Club at Plot.Place), bridged over UDP MIDI. Both rooms run the same OS, the same instrument, the same menuband. The audience at La MaMa can see — projected on the back wall — the menuband from the other room, scoring the keys of a player they cannot see. The two rooms hold one chord.</p>
+
+    <span class="drop">Learning Aesthetic.Computer — Flash Day on Saturday.</span>
+
+    <p>The residency closes its public weekend with a <em>Flash Day</em>: ten participants are walked through flashing a USB stick that turns any UEFI laptop into the same instrument they just heard played. Each participant leaves with the OS, the editor, the menuband, notepat, and a KidLisp reference card set. The instrument is contagious by design.</p>
+
+    <p>This is the live edge of an argument the studio has been making elsewhere: <em>the personal computer is an unfinished instrument, and performance is part of how it gets finished.</em> CultureHub is where the instrument gets to play to a room with a partner across the country.</p>
+  </section>
+
+  <!-- ── FOUR ANCHORS ──────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Four Registers</h2>
+    <div class="anchors">
+      <div class="anchor">
+        <b>menuband</b>
+        <p>A pinned glass status-bar overlay (Swift app, <code>slab/menuband/</code>) that scores every keystroke as a piano-roll note above the editor. Deliberate-only triggers. Dark-mode piano theme.</p>
+      </div>
+      <div class="anchor">
+        <b>AC Native</b>
+        <p>A Linux kernel that boots a custom C runtime as PID 1 on x86_64 laptops. 192 kHz audio, 32-voice polyphony, DRM graphics, USB+UDP MIDI. Per-seat cost ~$50.</p>
+      </div>
+      <div class="anchor">
+        <b>notepat</b>
+        <p>An 8,466-line polyphonic instrument: 8 waveforms, 12 sample voices, USB + UDP MIDI in/out. The default piece. Hacker News front page. The voice of the bandstand.</p>
+      </div>
+      <div class="anchor">
+        <b>KidLisp</b>
+        <p>118-function minimal Lisp for generative art. 17,000+ programs already written. 2,800+ handles. Five-line pieces; permanent URLs. The audience's score language.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LIVE STATS ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Network, Right Now<span class="count">live from aesthetic.computer/api/metrics</span></h2>
+    <div class="stats" id="stats">
+      <div class="stat" data-k="handles"><span class="n">…</span><span class="l">Handles</span></div>
+      <div class="stat" data-k="kidlisp"><span class="n">…</span><span class="l">KidLisp pieces</span></div>
+      <div class="stat" data-k="pieces"><span class="n">…</span><span class="l">User pieces</span></div>
+      <div class="stat" data-k="paintings"><span class="n">…</span><span class="l">Paintings</span></div>
+      <div class="stat" data-k="moods"><span class="n">…</span><span class="l">Moods</span></div>
+      <div class="stat" data-k="chatMessages"><span class="n">…</span><span class="l">Chat msgs</span></div>
+      <div class="stat" data-k="active"><span class="n">…</span><span class="l">Active now</span></div>
+      <div class="stat" data-k="printsOrdered"><span class="n">…</span><span class="l">Prints ordered</span></div>
+    </div>
+    <div class="stats-status" id="stats-status">Fetching <span class="ok">api/metrics</span> …</div>
+  </section>
+
+  <!-- ── WHAT THE RESIDENCY MAKES ──────────────── -->
+  <section>
+    <h2><span class="ord">§</span>What the Residency Makes<span class="count">2 weeks · 1 public weekend</span></h2>
+    <div class="features">
+      <div class="feat"><b>Bandstand Concert</b>One night, two rooms (La MaMa + a remote AC station at UCLA Social Software or NELA Computer Club). One composition, held across the network over UDP MIDI. Menuband from both rooms projected on the back wall.</div>
+      <div class="feat"><b>KidLisp Jam</b>A public afternoon. Anyone in the room sits down at an AC Blank, writes 5 lines, and joins the running composition. Each program receives a permanent URL the moment it parses. We print the day's pieces as cards on a small printer at the back.</div>
+      <div class="feat"><b>Flash Day</b>Saturday evening. Ten participants are walked through flashing a USB stick that turns any UEFI laptop into the AC editor + menuband + notepat. Everyone leaves with the instrument they just played.</div>
+      <div class="feat"><b>Open studio (Sun)</b>The bandstand is left running with the menuband, notepat, and a KidLisp prompt. Visitors drop in, write, leave with a card. Quiet, slow, public.</div>
+      <div class="feat planned"><b>UDP MIDI bridge release</b>The cross-site networking code used by the concert ships open-source. Other CultureHub residents and other AC stations can use it the next week.</div>
+      <div class="feat planned"><b>Documentation pack</b>Multitrack recording from both rooms · screen capture both rooms · KidLisp Jam archive (every URL) · Flash Day USB image · 5-minute mini-doc.</div>
+    </div>
+  </section>
+
+  <!-- ── BUDGET ─────────────────────────────── -->
+  <section id="budget">
+    <h2><span class="ord">§</span>Budget Sketch<span class="count">scales to support level</span></h2>
+    <p style="color:var(--dim);margin-bottom:1em">Held at sketch level until the call's support amount is confirmed. Public-event line items in pink (the Bandstand Concert, the KidLisp Jam, the Flash Day). Equipment shipping is the LA-to-NYC variable.</p>
+    <div class="features">
+      <div class="feat"><b>Artist fee</b>2 weeks · residency rate</div>
+      <div class="feat"><b>Travel LA ↔ NYC</b>economy · 2 weeks</div>
+      <div class="feat"><b>Lodging</b>2 weeks · modest</div>
+      <div class="feat"><b>Equipment shipping</b>2 AC Blanks + 2 Mini Rigs + USB MIDI hub + cables · round trip</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Bandstand Concert</b>PA support, signal capture, 2 cross-site rehearsals</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">KidLisp Jam</b>card printer + cardstock · KidLisp reference set for the room</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Flash Day</b>10 USB sticks · 10 KidLisp card sets · 10 reference packets</div>
+      <div class="feat"><b>Documentation</b>multitrack record + capture + edit + 5-minute mini-doc</div>
+      <div class="feat"><b>Per diem</b>2 weeks</div>
+      <div class="feat"><b>Contingency</b>10%</div>
+    </div>
+  </section>
+
+  <!-- ── LINEAGE ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Lineage<span class="count">specific, not canonical</span></h2>
+    <div class="lineage">
+      <div class="row"><div class="who">PLOrk · Princeton</div><div class="claim">The original laptop orchestra (2005–). $1,500+/seat hand-fabricated. The artistic question was settled in year one; what failed was access. AC's per-seat cost lands ~$50 — two orders of magnitude below — and is the substance of <em>papers/arxiv-plork</em>.</div></div>
+      <div class="row"><div class="who">Goodiepal</div><div class="claim"><em>Radical Computer Music</em>. A parallel argument that the computer itself is under-designed as an artistic instrument. I toured Europe with him in 2018 — the residency descends from that tour.</div></div>
+      <div class="row"><div class="who">CultureHub · Re-Fest lineage</div><div class="claim">Networked-performance work staged across rooms — exactly the substrate this proposal is designed for. The bandstand idea is ours; the network it crosses is yours.</div></div>
+      <div class="row"><div class="who">SuperCollider / Max</div><div class="claim">Real-time sample-level synthesis as a composable medium. AC's audio ring buffer at 192 kHz is downstream of this tradition, reimagined as a piece's native voice rather than a separate DAW.</div></div>
+      <div class="row"><div class="who">HyperCard · Bill Atkinson</div><div class="claim">The last mainstream system where anyone on a computer could author a complete interactive thing. AC reconstructs that social contract for 2026; KidLisp is the script language; the URL is the stack.</div></div>
+      <div class="row"><div class="who">Cornelius Cardew · Scratch Orchestra</div><div class="claim">An artist-led collective attempt to build the system that would perform their scores. AC is this pattern in software; the residency stages it for one weekend at La MaMa.</div></div>
+    </div>
+  </section>
+
+  <!-- ── CALENDAR ─────────────────────────── -->
+  <section id="calendar">
+    <h2><span class="ord">§</span>Residency Calendar<span class="count">~2 weeks · public weekend in the middle</span></h2>
+    <div class="features">
+      <div class="feat"><b>Days 1–3 · build-in</b>Set up the bandstand. Test networked UDP MIDI with the remote AC station. Tune menuband for the room's projector. Cross-site sound check.</div>
+      <div class="feat"><b>Days 4–5 · rehearsals</b>Two full cross-site rehearsals with the remote room. Refine the menuband-on-back-wall projection. Lock the concert program (3 pieces).</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Day 6 (Fri) · Bandstand Concert</b>Two-room, networked notepat-and-KidLisp concert. La MaMa and the remote station hold one composition over UDP MIDI. 45 minutes + Q&A.</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Day 7 (Sat) · KidLisp Jam + Flash Day</b>Afternoon: public KidLisp Jam (5-line pieces, permanent URLs, on-the-spot card prints). Evening: Flash Day for 10 participants.</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Day 8 (Sun) · open studio</b>Bandstand left running. Drop-in writing, slow afternoon. Card printer on the back wall.</div>
+      <div class="feat"><b>Days 9–14 · documentation</b>Multitrack edit, mini-doc cut, UDP MIDI bridge release, public retro at NELA Computer Club post-residency.</div>
+    </div>
+  </section>
+
+  <!-- ── STATUS ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Status<span class="count">▸ wip · drafting</span></h2>
+    <ul class="check">
+      <li class="done">Concept stake-out · menuband + AC Native + notepat + KidLisp Jam framing</li>
+      <li class="done">Source code present and shippable: <code>slab/menuband/</code>, <code>fedac/native/</code>, <code>aesthetic.computer/disks/notepat.mjs</code>, KidLisp evaluator</li>
+      <li class="done">Prior public performance lineage: 2018 European tour with Goodiepal · biweekly NELA Computer Club at Plot.Place</li>
+      <li class="todo">Confirm <em>2026 CultureHub Open Call</em> deadline + form structure when the cycle posts</li>
+      <li class="todo">Create <code>grants/culturehub-2026/</code> folder with <code>RESEARCH.md</code> + <code>DRAFT.md</code> mirroring the other applications</li>
+      <li class="todo">Identify a remote AC station partner for the cross-site night (UCLA Social Software default; NELA Computer Club fallback)</li>
+      <li class="todo">UDP MIDI bridge: prove the &lt;50 ms cross-site latency target with a live LA↔NYC rehearsal before submission</li>
+      <li class="todo">Pull a 30-second concert demo video using the menuband overlay + notepat on an AC Blank</li>
+      <li class="todo">Stage 5 documentation images: menuband on screen, AC Blank in performance, notepat keyboard map, KidLisp 5-line piece, Flash Day USB stick</li>
+      <li class="todo">Trim the 400-word description to whatever the form's word cap turns out to be</li>
+      <li class="todo">Submit · before <em>the 2026 cycle deadline</em> (date TBD when call posts)</li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/culture-hub-2026">aesthetic.computer/culture-hub-2026</a> · WIP draft · live metrics from <a href="https://aesthetic.computer/api/metrics">aesthetic.computer/api/metrics</a> · venue: <a href="https://www.culturehub.org/">culturehub.org</a> at <a href="https://www.lamama.org/">La MaMa</a>
+  </footer>
+
+</main>
+
+<script>
+(async () => {
+  const STATS_API = "https://aesthetic.computer/api/metrics";
+  const statusEl = document.getElementById("stats-status");
+  const root = document.getElementById("stats");
+
+  function fmt(n) {
+    if (typeof n !== "number") return "…";
+    return n.toLocaleString("en-US");
+  }
+
+  try {
+    const r = await fetch(STATS_API);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const data = await r.json();
+    for (const stat of root.querySelectorAll(".stat")) {
+      const key = stat.dataset.k;
+      const val = data[key];
+      const n = stat.querySelector(".n");
+      if (typeof val === "number") {
+        n.textContent = fmt(val);
+        stat.classList.add("loaded");
+      }
+    }
+    const when = data.time ? `(${data.time})` : "";
+    statusEl.innerHTML = `<span class="ok">● Live</span> · pulled from <a href="${STATS_API}">api/metrics</a> · ${when}`;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="err">● API error</span> · ${err.message}`;
+  }
+})();
+</script>
+</body>
+</html>
