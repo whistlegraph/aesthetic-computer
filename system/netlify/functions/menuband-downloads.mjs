@@ -28,11 +28,13 @@ const COLLECTION = "menuband-downloads";
 const CACHE_KEY = "menuband:downloads";
 const CACHE_TTL_SECONDS = 60;
 
-// Read the deployed manifest from disk (it ships with the static site under
-// system/public/menuband/manifest.json, so it's right next to the bundled
-// function in production). Falls back to a permissive empty allowlist if the
-// file is missing or malformed — the caller will still get a 400 for any
-// version they send, just with an explicit `manifestMissing` reason.
+// Read the deployed manifest from disk (system/public/menuband/manifest.json
+// — committed, served by lith at /menuband/manifest.json same-origin, so no
+// CORS dance for the website's fetch). The macOS app reads a smaller-schema
+// sibling at assets.aesthetic.computer/menuband/latest.json; both are kept
+// in sync by slab/menuband/bin/publish-release.fish. Falls back to an empty
+// allowlist if the file is missing or malformed; the caller still gets a
+// 400 for any version they send (with `manifestMissing` reason).
 function loadManifest() {
   const candidates = [
     path.join(process.cwd(), "public", "menuband", "manifest.json"),

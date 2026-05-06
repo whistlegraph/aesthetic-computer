@@ -28,7 +28,15 @@
 set -l SCRIPT_DIR (cd (dirname (status filename)); and pwd)
 set -l MB_DIR (cd $SCRIPT_DIR/..; and pwd)
 set -l REPO_ROOT (cd $MB_DIR/../..; and pwd)
+# Two-manifest pipeline:
+#   • $MANIFEST   — committed, lith-served, big-schema (versions[]).
+#                   Powers the website's download button + the
+#                   /api/menuband-downloads counter's allowlist.
+#   • $LATEST     — gitignored, CDN-synced, small-schema. The macOS
+#                   UpdateChecker polls assets.aesthetic.computer/...
 set -l MANIFEST $REPO_ROOT/system/public/menuband/manifest.json
+set -l LATEST   $REPO_ROOT/system/public/assets/menuband/latest.json
+set -l ASSETS_DIR $REPO_ROOT/system/public/assets/menuband
 
 set -l CYAN (set_color cyan)
 set -l GREEN (set_color green)
@@ -102,20 +110,29 @@ ok "  released: $RELEASED"
 #    ordering stay stable; doing it in awk would invite drift. ──────────
 set -l URL "https://assets.aesthetic.computer/menuband/Menu-Band-$VERSION.dmg"
 
+# Read optional release notes from --notes flag or NOTES env. The notes
+# get written to the top-level `notes` field (Swift app reads it for the
+# in-popover update banner) and aren't duplicated into versions[].
+set -l NOTES (set -q MB_NOTES; and echo $MB_NOTES; or echo "")
+
 env MB_MANIFEST=$MANIFEST \
+    MB_LATEST=$LATEST \
     MB_VERSION=$VERSION \
     MB_URL=$URL \
     MB_SIZE=$SIZE \
     MB_SHA256=$SHA256 \
     MB_RELEASED=$RELEASED \
+    MB_NOTES=$NOTES \
     node -e '
 const fs = require("fs");
-const path = process.env.MB_MANIFEST;
-const manifest = JSON.parse(fs.readFileSync(path, "utf8"));
+
+// — Big manifest (web) —
+const manifestPath = process.env.MB_MANIFEST;
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
 const entry = {
   version: process.env.MB_VERSION,
-  url: process.env.MB_URL,
+  dmg: process.env.MB_URL,
   size: Number(process.env.MB_SIZE),
   sha256: process.env.MB_SHA256,
   releasedAt: process.env.MB_RELEASED,
@@ -127,26 +144,49 @@ const ix = manifest.versions.findIndex(v => v && v.version === entry.version);
 if (ix === -1) {
   manifest.versions.unshift(entry);
 } else {
-  // Preserve any extra fields a human added by hand (e.g. notes).
+  // Preserve any extra fields a human added by hand (e.g. release notes).
   manifest.versions[ix] = { ...manifest.versions[ix], ...entry };
-  // Move it to the front so the latest is always first.
   const [updated] = manifest.versions.splice(ix, 1);
   manifest.versions.unshift(updated);
 }
 manifest.latest = entry.version;
+fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+console.log("✓ web manifest updated: latest=" + manifest.latest);
 
-fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + "\n");
-console.log("✓ manifest updated: latest=" + manifest.latest);
+// — Small manifest (macOS app / CDN) —
+const latestPath = process.env.MB_LATEST;
+let latest = {};
+try { latest = JSON.parse(fs.readFileSync(latestPath, "utf8")); } catch {}
+latest.version = entry.version;
+latest.url = latest.url || "https://aesthetic.computer/menuband";
+const newNotes = process.env.MB_NOTES;
+if (newNotes) latest.notes = newNotes;
+fs.writeFileSync(latestPath, JSON.stringify(latest, null, 2) + "\n");
+console.log("✓ CDN latest.json updated: version=" + latest.version);
 '
 
-ok "manifest written"
+ok "manifests written"
+ok "  web:   $MANIFEST"
+ok "  CDN:   $LATEST"
+
+# Mirror the DMG into system/public/assets/menuband/ so `npm run
+# assets:sync:up` picks it up on the next sync. We copy instead of
+# moving so re-running the script is safe and the original stays in
+# slab/menuband/ for archival.
+set -l ASSET_TARGET $ASSETS_DIR/(basename $DMG)
+if not test "$DMG" = "$ASSET_TARGET"
+    cp $DMG $ASSET_TARGET
+    ok "DMG copied to $ASSET_TARGET"
+end
+
 echo
 echo "Next steps:"
-echo "  1. Upload the DMG to Spaces:"
-echo "       (publish via your usual asset sync — assets.aesthetic.computer/menuband/)"
-echo "  2. Commit + push manifest.json so the site flips over:"
-echo "       git add system/public/menuband/manifest.json"
+echo "  1. Sync assets up to Spaces:"
+echo "       npm run assets:sync:up"
+echo "  2. Commit the manifest + DMG:"
+echo "       git add system/public/assets/menuband/"
 echo "       git commit -m \"menuband: release $VERSION\""
 echo "       git push"
 echo "  3. /api/menuband-downloads will start accepting POST { version: \"$VERSION\" }"
-echo "     once the new manifest is live."
+echo "     once the new manifest is live (and the macOS app's UpdateChecker"
+echo "     will surface a 'new version' banner)."

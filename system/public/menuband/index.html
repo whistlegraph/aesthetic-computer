@@ -974,17 +974,24 @@
       requestAnimationFrame(() => counter.classList.add('ready'));
     }
 
-    // Pull the latest version + URL into the download button. If the
-    // manifest is missing or malformed we leave the hardcoded fallback
-    // attributes alone so the page still works.
+    // Pull the latest version + URL into the download button. The
+    // manifest at /menuband/manifest.json is committed in-repo and
+    // served by lith same-origin (so no CORS dance). The macOS app
+    // polls a smaller-schema sibling at
+    // https://assets.aesthetic.computer/menuband/latest.json and
+    // both files are kept in sync by bin/publish-release.fish.
+    // If the manifest is missing or malformed we leave the hardcoded
+    // fallback attributes alone so the page still works.
     fetch('/menuband/manifest.json', { cache: 'no-store' })
       .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
       .then((m) => {
-        if (!m || !Array.isArray(m.versions) || !m.latest) return;
-        const entry = m.versions.find((v) => v && v.version === m.latest);
-        if (!entry || !entry.url || !entry.version) return;
+        if (!m || !Array.isArray(m.versions)) return;
+        const latestVersion = m.latest || m.version;
+        if (!latestVersion) return;
+        const entry = m.versions.find((v) => v && v.version === latestVersion);
+        if (!entry || !entry.dmg || !entry.version) return;
         if (link) {
-          link.href = entry.url;
+          link.href = entry.dmg;
           link.setAttribute('data-version', entry.version);
         }
         if (meta) {

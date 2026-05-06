@@ -1,10 +1,18 @@
 {
-  "_comment": "Single source of truth for the Menu Band download. The website fetches this on load to set the download button + version meta, and /api/menuband-downloads validates POST {version} bodies against the `versions[].version` allowlist so callers can't inflate counters with arbitrary strings. Update via slab/menuband/bin/publish-release.fish after each new DMG.",
-  "latest": "0.9.1",
+  "_comment": "Source of truth for the Menu Band downloads page (committed, served by lith at /menuband/manifest.json). The macOS app reads a smaller-schema sibling at https://assets.aesthetic.computer/menuband/latest.json — both are written by slab/menuband/bin/publish-release.fish so they stay in sync. /api/menuband-downloads validates POST {version} against this file's `versions[].version` allowlist.",
+  "latest": "0.9.2",
   "versions": [
     {
+      "version": "0.9.2",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.9.2.dmg",
+      "size": 2483151,
+      "sha256": "4cd5ec01fb2a9224f51a2f1607288550a0211740d5bb7482305a0fdd758962c6",
+      "releasedAt": "2026-05-06",
+      "requirements": "macOS 11+ · Apple Silicon"
+    },
+    {
       "version": "0.9.1",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.9.1.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.9.1.dmg",
       "size": 2396038,
       "sha256": "1d0db5fff7a39ef698883c17716ac57159fae82d560a026d9750441f9181b1b0",
       "releasedAt": "2026-05-05",
@@ -12,43 +20,43 @@
     },
     {
       "version": "0.9",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.9.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.9.dmg",
       "releasedAt": "2026-05-04",
       "requirements": "macOS 11+ · Apple Silicon"
     },
     {
       "version": "0.8",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.8.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.8.dmg",
       "requirements": "macOS 11+ · Apple Silicon"
     },
     {
       "version": "0.7",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.7.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.7.dmg",
       "requirements": "macOS 11+ · Apple Silicon"
     },
     {
       "version": "0.6",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.6.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.6.dmg",
       "requirements": "macOS 11+ · Apple Silicon"
     },
     {
       "version": "0.5",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.5.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.5.dmg",
       "requirements": "macOS 11+ · Apple Silicon"
     },
     {
       "version": "0.3",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.3.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.3.dmg",
       "requirements": "macOS 11+ · Apple Silicon"
     },
     {
       "version": "0.2",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.2.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.2.dmg",
       "requirements": "macOS 11+ · Apple Silicon"
     },
     {
       "version": "0.1",
-      "url": "https://assets.aesthetic.computer/menuband/Menu-Band-0.1.dmg",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.1.dmg",
       "requirements": "macOS 11+ · Apple Silicon"
     }
   ]
