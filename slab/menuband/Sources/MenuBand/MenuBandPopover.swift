@@ -859,55 +859,10 @@ final class MenuBandPopoverViewController: NSViewController {
         crashSendButton.controlSize = .small
         crashSendButton.isHidden = true  // shown by refreshCrashStatus when n>0
 
-        // Language switcher — compact flag-chip row, same pattern as the
-        // kidlisp.com / help.aesthetic.computer pickers. The active language
-        // is solid; the others are flat. Tapping a chip flips the locale and
-        // posts `Localization.didChange`, which the AppDelegate observes to
-        // rebuild the popover with translated strings.
-        let langRow = NSStackView()
-        langRow.orientation = .horizontal
-        langRow.alignment = .centerY
-        langRow.spacing = 6
-        let langLabel = NSTextField(labelWithString: L("popover.language.label"))
-        langLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        langLabel.textColor = .secondaryLabelColor
-        langRow.addArrangedSubview(langLabel)
-        for lang in Localization.supported {
-            let isActive = (lang.code == Localization.current)
-            let attr = NSMutableAttributedString(
-                string: "\(lang.flag)  \(lang.label)",
-                attributes: [
-                    .font: NSFont.systemFont(
-                        ofSize: 11,
-                        weight: isActive ? .semibold : .regular),
-                    .foregroundColor: isActive
-                        ? NSColor.labelColor
-                        : NSColor.secondaryLabelColor,
-                ]
-            )
-            let accent = NSColor.controlAccentColor
-            let chip = MenuBandPopoverViewController.makeLinkButton(
-                attr: attr,
-                target: self,
-                action: #selector(languageChipClicked(_:)),
-                background: isActive
-                    ? accent.withAlphaComponent(0.18)
-                    : NSColor.clear,
-                border: isActive
-                    ? accent.withAlphaComponent(0.55)
-                    : NSColor.separatorColor.withAlphaComponent(0.5))
-            chip.identifier = NSUserInterfaceItemIdentifier(
-                rawValue: "menuband.lang.\(lang.code)")
-            chip.toolTip = lang.label
-            langRow.addArrangedSubview(chip)
-        }
-        let langSpacer = NSView()
-        langSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        langRow.addArrangedSubview(langSpacer)
-        stack.addArrangedSubview(langRow)
-        langRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
-                                        constant: -16).isActive = true
-        stack.setCustomSpacing(10, after: langRow)
+        // Language picker moved into the About window — the popover
+        // stays a tight music-theory surface. The "About" link in
+        // the footer row gets a flag emoji prepended so users know
+        // there are options behind it (language + plugins + version).
 
         // Quit — red bezel, white bold title. Bottom-right of the footer
         // row; crash-send button (when present) sits at the left of the
@@ -926,23 +881,33 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
-        // Small "About" link, bottom-left. Opens the standard macOS
-        // about panel — name, icon, version, credits (description +
-        // aesthetic.computer link). Replaces the inline AC chip that
-        // used to live in the body.
+        // Small "About" link, bottom-left. Opens the custom About
+        // window which now hosts the language picker + plugins
+        // chip + version. The current language flag is prepended
+        // to the link so the chip reads as "settings hide here"
+        // rather than just a version button.
         let aboutLink = NSButton()
         aboutLink.bezelStyle = .recessed
         aboutLink.isBordered = false
         aboutLink.controlSize = .small
-        aboutLink.attributedTitle = NSAttributedString(
+        let flag = Localization.language(for: Localization.current).flag
+        let aboutTitle = NSMutableAttributedString(
+            string: "\(flag)  ",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11),
+            ]
+        )
+        aboutTitle.append(NSAttributedString(
             string: L("popover.about.link"),
             attributes: [
                 .foregroundColor: NSColor.secondaryLabelColor,
                 .font: NSFont.systemFont(ofSize: 10, weight: .medium),
             ]
-        )
+        ))
+        aboutLink.attributedTitle = aboutTitle
         aboutLink.target = self
         aboutLink.action = #selector(showAboutPanel(_:))
+        aboutLink.toolTip = "About / language / plugins"
 
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
