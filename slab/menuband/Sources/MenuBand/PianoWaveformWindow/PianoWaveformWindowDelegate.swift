@@ -244,13 +244,12 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func scheduleHide() {
-        guard presentationState == .collapsed else { return }
+        // Auto-hide is disabled — once the floating panel is up it
+        // stays up until the user explicitly dismisses it (popover
+        // dismiss, shortcut toggle, or close click). The earlier
+        // 2-second timer was firing whenever held notes drained,
+        // which felt like the panel was "timing out" mid-play.
         cancelPendingHide()
-        let work = DispatchWorkItem { [weak self] in
-            self?.dismissCollapsedPanel()
-        }
-        hideWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.collapsedHideDelay, execute: work)
     }
 
     func reposition(statusItemButton: NSStatusBarButton?) {
@@ -268,15 +267,29 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         }
     }
 
+    /// Mirror a keyboard arrow press onto the on-screen arrow
+    /// cluster so the easter-egg keyboard nav feels physical.
+    /// Direction matches `ArrowKeysIndicator`: 0 ←, 1 →, 2 ↓, 3 ↑.
+    func setArrowHighlight(direction: Int, on: Bool) {
+        pianoWaveformViewController.setArrowHighlight(direction: direction, on: on)
+    }
+
     func registerArrowInput() {
         guard presentationState == .collapsed, !isCollapsedPresentationSuppressed, isEnabled else { return }
-        showIfNeeded()
+        // Only nudge visibility / focus when already paired with
+        // the popover — arrow-key stepping shouldn't be the trigger
+        // that pops the panel up; only the music-note icon does.
+        let pairedWithPopover = (popoverFrameProvider?() != nil)
+        if pairedWithPopover {
+            showIfNeeded()
+        }
         pianoWaveformViewController.refresh()
-        focusCollapsedPaletteIfNeeded()
+        if pairedWithPopover {
+            focusCollapsedPaletteIfNeeded()
+        }
         // Only auto-hide if we're standalone; when paired with the
         // popover (popoverFrameProvider returns a frame), the panel
         // must stay until the popover closes.
-        let pairedWithPopover = (popoverFrameProvider?() != nil)
         if menuBand.litNotes.isEmpty && !pairedWithPopover {
             scheduleHide()
         } else {
@@ -312,12 +325,14 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        // .statusBar level + cross-space + full-screen-aux collection
-        // behavior keeps the floating piano panel rendered + clickable
-        // when the user swipes between Spaces or pulls Mission Control
-        // up over a focused fullscreen app — same trick clock /
-        // calculator widgets use to stay reachable from anywhere.
-        panel.level = .statusBar
+        // popUpMenu level + cross-space + full-screen-aux collection
+        // behavior keeps the floating piano panel rendered above
+        // everything (system menus included) and clickable across
+        // Spaces / Mission Control / fullscreen apps. Same trick
+        // clock / calculator widgets use to stay reachable from
+        // anywhere; the expanded surface in particular is meant to
+        // be a "displays always, on top of everything" instrument.
+        panel.level = .popUpMenu
         panel.animationBehavior = .none
         panel.collectionBehavior = [
             .transient,
@@ -414,15 +429,21 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
 
     private func dismissCollapsedPanel() {
         cancelPendingHide()
-        // Hard close — popover dismiss is the canonical "go away"
-        // signal for the paired panel. Earlier this guarded on held
-        // notes (kept the panel open while you were still pressing
-        // a chooser cell), but that left a stale panel on screen
-        // when the popover came back, doubling instances.
+        // Popover dismiss is the canonical "go away" signal for
+        // the paired panel. Fade out (~140 ms) instead of
+        // cutting so the panel dissolves alongside the popover.
         menuBand.releaseAllHeldNotes()
         pianoWaveformViewController.setPresented(false)
         panel?.ignoresMouseEvents = false
-        panel?.orderOut(nil)
+        guard let panel = panel else { return }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.14
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak panel] in
+            panel?.orderOut(nil)
+            panel?.alphaValue = 1
+        })
     }
 
     private func togglePresentationMode() {
@@ -526,18 +547,15 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     private func expandedFrame(size: NSSize, fallbackOrigin: NSPoint?) -> NSRect {
-        // When paired with the popover OR with a status item button
-        // available, snap the expanded panel to be centered under the
-        // piano keys section of the menubar piano. This keeps the
-        // panel + popover reading as parallel surfaces under the same
-        // menubar image rather than a fused strip beside the popover.
-        if popoverFrameProvider?() != nil,
-           let pianoFrame = anchoredCollapsedFrame(size: size) {
-            return pianoFrame
-        }
-        let origin = fallbackOrigin ?? savedExpandedOrigin
+        // The expanded "large" panel is a full-display surface — it
+        // always centers on the active screen, no matter where the
+        // popover sits or which entry path opened it. (Earlier this
+        // shared the small-panel anchoring logic, which dragged the
+        // expanded panel sideways when the popover moved.) The
+        // popover-paired small panel keeps the relative anchor.
+        _ = fallbackOrigin
         return clampedFrame(
-            origin: origin ?? centeredOrigin(for: size),
+            origin: centeredOrigin(for: size),
             size: size,
             preferredScreen: panel?.screen ?? NSScreen.main
         )
@@ -568,13 +586,11 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     private func anchoredCollapsedFrame(size: NSSize) -> NSRect? {
-        // Single anchor for every show path: the panel's right edge
-        // sits at (predicted) popover-left minus a 6pt gap, top-
-        // aligned to the bottom of the menubar. Whether or not the
-        // popover is currently visible, the position is identical —
-        // so opening the panel via the LED chip and via the gear
-        // popover land it in the *same* spot, and a binary toggle
-        // never makes the panel hop.
+        // Right edge of the panel aligns with the LEFT edge of the
+        // popover: panel.maxX = popover.minX. Top-aligned to
+        // popover.maxY. Panel hangs off the popover's left side
+        // forming a single horizontal strip with the popover on
+        // the right.
         guard let button = statusItemButton,
               let buttonWindow = button.window else { return nil }
 
@@ -583,33 +599,38 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         let xOffset = (buttonBounds.width - imgSize.width) / 2.0
         let buttonScreenFrame = buttonWindow.convertToScreen(button.frame)
         let menubarBottom = buttonScreenFrame.minY
+        let latch = KeyboardIconRenderer.settingsRectPublic
+        let gearLocal = NSPoint(x: xOffset + latch.midX, y: 0)
+        let gearWindow = button.convert(gearLocal, to: nil)
+        let gearScreen = buttonWindow.convertPoint(toScreen: gearWindow)
+        let popoverWidth = popoverFrameProvider?()?.width
+            ?? popoverPreferredWidth
+            ?? 360
 
-        // Predicted popover.minX — derived from the gear icon's
-        // screen position the same way AppDelegate.showPopover()
-        // computes leftScreenX. Reuse the live popover frame when
-        // we have it (so a custom-positioned popover stays the
-        // anchor); otherwise fall back to the prediction.
-        let predictedPopoverLeft: CGFloat = {
-            if let popoverFrame = popoverFrameProvider?() {
-                return popoverFrame.minX
-            }
-            let latch = KeyboardIconRenderer.settingsRectPublic
-            let gearLocal = NSPoint(x: xOffset + latch.midX, y: 0)
-            let gearWindow = button.convert(gearLocal, to: nil)
-            let gearScreen = buttonWindow.convertPoint(toScreen: gearWindow)
-            return gearScreen.x
-                - MenuBandPopoverPanel.cornerRadius
-                - MenuBandPopoverPanel.arrowWidth / 2 - 2
-        }()
-        // Negative gap = panel slides RIGHT past the popover-left
-        // anchor; positive gap = panel pulls left of it. -40 lands
-        // the panel snug under the right side of the menubar piano
-        // image, which is what reads best paired with the popover.
-        let gap: CGFloat = -40
-        let x = predictedPopoverLeft - size.width - gap
-        let y = menubarBottom - size.height
+        // popover.minX = gear.x - popoverWidth/2 (live or predicted).
+        let popoverLeft: CGFloat = popoverFrameProvider?()?.minX
+            ?? (gearScreen.x - popoverWidth / 2)
+        // Match the panel's top to the popover BODY's top, not its
+        // arrow tip. The popover frame includes the arrow strip
+        // (arrowHeight points above the body), so subtract that
+        // to land the panel's top edge flush with the body.
+        let popoverTop: CGFloat = popoverFrameProvider?()?.maxY ?? menubarBottom
+        let bodyTop = popoverTop - MenuBandPopoverPanel.arrowHeight
+
+        // Small horizontal gap so the panel doesn't pixel-touch the
+        // popover — reads as a paired-but-discrete duo.
+        let gap: CGFloat = 6
+        let x = popoverLeft - size.width - gap
+        let y = bodyTop - size.height
         return NSRect(x: x, y: y, width: size.width, height: size.height)
     }
+
+    /// Optional popover-width hint set by AppDelegate when it
+    /// builds the popover VC. Falls back to a reasonable default
+    /// (360pt) when the hint isn't available — keeps the predicted
+    /// right edge close enough to the live one that the panel
+    /// doesn't visibly hop the first time the popover opens.
+    var popoverPreferredWidth: CGFloat?
 
     private func centeredOrigin(for size: NSSize) -> NSPoint {
         let mouse = NSEvent.mouseLocation
@@ -656,16 +677,22 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     private func enableAndShowPreferred(restoringTo previousApp: NSRunningApplication?) {
         setEnabled(true)
         cancelPendingHide()
-        switch preferredPresentationState {
-        case .expanded:
-            transitionToExpanded()
-            showExpanded(restoringTo: previousApp)
-        case .collapsed:
-            presentationState = .collapsed
-            showIfNeeded()
-            if !menuBand.litNotes.isEmpty {
-                focusCollapsedPaletteIfNeeded()
-            }
+        // Always show the collapsed panel for click-driven entry.
+        // Earlier this honored the saved `preferredPresentationState`,
+        // which meant once the user opened the expanded surface
+        // even once, every later click on the LED chip dumped them
+        // back into it — surprising when they were just trying to
+        // peek at the small panel. Expanded is now only reachable
+        // via the explicit expand button + dedicated focus
+        // shortcut, so a casual chip click can't blow it up.
+        _ = previousApp
+        if presentationState == .expanded {
+            dismissExpanded(reason: .programmatic)
+        }
+        presentationState = .collapsed
+        showIfNeeded()
+        if !menuBand.litNotes.isEmpty {
+            focusCollapsedPaletteIfNeeded()
         }
     }
 

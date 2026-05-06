@@ -42,6 +42,13 @@ final class CollapsedPianoWaveformView: NSView {
     var onStepUp: (() -> Void)?
     var onStepDown: (() -> Void)?
 
+    /// Light up an arrow cap as if the keyboard was pressing it.
+    /// Direction indices match `ArrowKeysIndicator`:
+    /// 0 = ←, 1 = →, 2 = ↓, 3 = ↑.
+    func setArrowHighlight(direction: Int, on: Bool) {
+        arrowsCluster.setHighlight(direction: direction, on: on)
+    }
+
     private static let arrowsRowHeight: CGFloat = 34
     private static let modeRowHeight: CGFloat = 22
     private static let edgePadding: CGFloat = 6

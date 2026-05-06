@@ -33,10 +33,13 @@ final class MetronomeWidget: NSView {
     }
 
     /// Tint color for the metronome body, needle, and arrows. The
-    /// popover tints to white so the widget pops against the
-    /// translucent title row.
+    /// popover passes a dynamic NSColor (.labelColor) so the widget
+    /// inverts with the system theme.
     var tint: NSColor = .white {
-        didSet { needsDisplay = true }
+        didSet {
+            applyTintToNeedle()
+            needsDisplay = true
+        }
     }
 
     var onToggle: (() -> Void)?
@@ -46,6 +49,7 @@ final class MetronomeWidget: NSView {
     private let bpmLabel = NSTextField(labelWithString: "")
     private let bpmSlider = NSSlider()
     private let needleLayer = CAShapeLayer()
+    private let bobLayer = CAShapeLayer()
 
     private static let minBPM = 40
     private static let maxBPM = 240
@@ -83,52 +87,97 @@ final class MetronomeWidget: NSView {
     // MARK: - Layout
 
     private func buildSubviews() {
-        // Body button — invisible NSButton overlaid on the metronome
-        // body region so the system handles hit testing + click
-        // feedback. The actual graphic is drawn in `draw(_:)`.
-        bodyButton.isBordered = false
-        bodyButton.title = ""
-        bodyButton.target = self
-        bodyButton.action = #selector(bodyClicked)
-        bodyButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(bodyButton)
-
-        bpmLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
-        bpmLabel.textColor = .white
+        // The body is drawn directly in `draw(_:)` and mouse events
+        // hit the view (no NSButton in the way). Earlier versions
+        // had an invisible bodyButton overlaid on the trapezoid,
+        // which swallowed mouseDragged so the BPM scrub never
+        // fired — only the button action did. Drop the button.
+        bpmLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .bold)
+        bpmLabel.textColor = .labelColor
         bpmLabel.alignment = .center
         bpmLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(bpmLabel)
 
+        // Slider stays declared (so external setters that referenced
+        // bpmSlider don't break) but is hidden + skipped from layout.
         bpmSlider.minValue = Double(Self.minBPM)
         bpmSlider.maxValue = Double(Self.maxBPM)
         bpmSlider.doubleValue = Double(bpm)
-        bpmSlider.controlSize = .mini
-        bpmSlider.target = self
-        bpmSlider.action = #selector(sliderChanged(_:))
-        bpmSlider.toolTip = "Tempo"
-        bpmSlider.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(bpmSlider)
+        bpmSlider.isHidden = true
+
+        // Tracking area for the cursor swap on hover — only fires
+        // pointingHand while the mouse is over the metronome body,
+        // so the user gets a "this is interactive" affordance.
+        let trackingOptions: NSTrackingArea.Options = [
+            .mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect, .cursorUpdate,
+        ]
+        addTrackingArea(NSTrackingArea(
+            rect: bounds, options: trackingOptions, owner: self, userInfo: nil
+        ))
 
         NSLayoutConstraint.activate([
-            // Body sits flush left, vertically centered with the row.
-            bodyButton.leadingAnchor.constraint(equalTo: leadingAnchor),
-            bodyButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            bodyButton.widthAnchor.constraint(equalToConstant: Self.bodySize.width),
-            bodyButton.heightAnchor.constraint(equalToConstant: Self.bodySize.height),
-
-            // BPM number floats above the slider, both anchored to the
-            // right of the body. Compact stack so the whole widget
-            // stays inside the row's vertical bounds.
-            bpmLabel.leadingAnchor.constraint(equalTo: bodyButton.trailingAnchor, constant: Self.bodyToStepperGap),
+            // BPM number to the right of the body, vertically centered.
+            bpmLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.bodySize.width + Self.bodyToStepperGap),
             bpmLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            bpmLabel.topAnchor.constraint(equalTo: topAnchor),
-            bpmLabel.heightAnchor.constraint(equalToConstant: 9),
-
-            bpmSlider.leadingAnchor.constraint(equalTo: bpmLabel.leadingAnchor),
-            bpmSlider.trailingAnchor.constraint(equalTo: bpmLabel.trailingAnchor),
-            bpmSlider.topAnchor.constraint(equalTo: bpmLabel.bottomAnchor, constant: 1),
-            bpmSlider.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
+            bpmLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            bpmLabel.heightAnchor.constraint(equalToConstant: 11),
         ])
+    }
+
+    /// Cursor-swap hint while hovering: a friendly pointing-hand
+    /// finger so the metronome reads as something to tap or
+    /// drag, with the same affordance as a clickable link.
+    override func cursorUpdate(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        if bodyRect.contains(p) {
+            NSCursor.pointingHand.set()
+        } else {
+            super.cursorUpdate(with: event)
+        }
+    }
+
+    private var dragStartLocation: NSPoint?
+    private var dragStartBPM: Int = 0
+
+    override func mouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        guard bodyRect.contains(p) else {
+            super.mouseDown(with: event)
+            return
+        }
+        dragStartLocation = p
+        dragStartBPM = bpm
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let start = dragStartLocation else {
+            super.mouseDragged(with: event)
+            return
+        }
+        let p = convert(event.locationInWindow, from: nil)
+        // 2 BPM per pixel of horizontal drag — fast enough to
+        // sweep the full 40..240 range in ~100pt of motion, slow
+        // enough that fine adjustments are achievable.
+        let dx = p.x - start.x
+        let target = dragStartBPM + Int((dx * 2).rounded())
+        let clamped = max(Self.minBPM, min(Self.maxBPM, target))
+        if clamped != bpm {
+            bpm = clamped
+            onBPMChange?(clamped)
+        }
+        NSCursor.pointingHand.set()
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let drag = dragStartLocation
+        dragStartLocation = nil
+        // If the cursor barely moved, treat it as a click → toggle
+        // play/pause. Threshold is ~2pt to allow a sloppy click.
+        if let drag = drag, abs(p.x - drag.x) < 2, abs(p.y - drag.y) < 2 {
+            isPlaying.toggle()
+            onToggle?()
+        }
     }
 
     private func configureNeedleLayer() {
@@ -153,14 +202,12 @@ final class MetronomeWidget: NSView {
         needlePath.move(to: NSPoint(x: 2, y: 0))
         needlePath.line(to: NSPoint(x: 2, y: needleLength))
         needleLayer.path = needlePath.cgPath
-        needleLayer.strokeColor = NSColor.white.cgColor
         needleLayer.lineWidth = 1.4
         needleLayer.lineCap = .round
         needleLayer.fillColor = nil
         needleLayer.frame = host.bounds
         // Counterweight bob at the tip — small filled disc so the
         // needle reads as a real metronome arm, not a tick mark.
-        let bob = CAShapeLayer()
         let bobR: CGFloat = 1.6
         let bobPath = NSBezierPath(ovalIn: NSRect(
             x: 2 - bobR,
@@ -168,13 +215,33 @@ final class MetronomeWidget: NSView {
             width: bobR * 2,
             height: bobR * 2
         ))
-        bob.path = bobPath.cgPath
-        bob.fillColor = NSColor.white.cgColor
-        bob.frame = host.bounds
+        bobLayer.path = bobPath.cgPath
+        bobLayer.frame = host.bounds
         host.addSublayer(needleLayer)
-        host.addSublayer(bob)
+        host.addSublayer(bobLayer)
         layer.addSublayer(host)
         self.needleHost = host
+        applyTintToNeedle()
+    }
+
+    /// Re-resolve the tint NSColor against the current effective
+    /// appearance and push the result into the CAShapeLayers.
+    /// CALayer caches CGColors at assignment time, and dynamic
+    /// NSColors (.labelColor) need to be evaluated under the
+    /// view's actual appearance — `performAsCurrent` makes the
+    /// system resolver pick the right variant for dark vs light.
+    private func applyTintToNeedle() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let cg = tint.cgColor
+            needleLayer.strokeColor = cg
+            bobLayer.fillColor = cg
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTintToNeedle()
+        needsDisplay = true
     }
 
     private weak var needleHost: CALayer?

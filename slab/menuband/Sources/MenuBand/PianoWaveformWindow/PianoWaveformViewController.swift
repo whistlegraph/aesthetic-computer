@@ -43,6 +43,10 @@ final class PianoWaveformViewController: NSViewController {
         set { collapsedView.onStepDown = newValue }
     }
 
+    func setArrowHighlight(direction: Int, on: Bool) {
+        collapsedView.setArrowHighlight(direction: direction, on: on)
+    }
+
     var isPianoFocusActive: (() -> Bool)? {
         get { expandedView.isPianoFocusActive }
         set { expandedView.isPianoFocusActive = newValue }
@@ -63,30 +67,12 @@ final class PianoWaveformViewController: NSViewController {
     override func loadView() {
         view = containerView
         containerView.wantsLayer = true
-        // Only one overlay control — the expand/collapse toggle in the
-        // top-right. Close and dock buttons were retired; the panel
-        // is paired with the popover (closes when the popover closes)
-        // and always docks against the popover's left edge.
-        configureOverlayButton(
-            expandCollapseButton,
-            symbolName: "arrow.up.left.and.arrow.down.right",
-            toolTip: "Collapse",
-            action: #selector(expandCollapseClicked(_:))
-        )
-        containerView.addSubview(expandCollapseButton)
-        installOverlayGlassBackgrounds()
-        NSLayoutConstraint.activate([
-            expandCollapseButton.bottomAnchor.constraint(
-                equalTo: containerView.bottomAnchor,
-                constant: -(PianoWaveformViewController.panelCornerRadius - closeButtonSize / 2 + closeButtonCornerInset)
-            ),
-            expandCollapseButton.leadingAnchor.constraint(
-                equalTo: containerView.leadingAnchor,
-                constant: PianoWaveformViewController.panelCornerRadius - closeButtonSize / 2 + closeButtonCornerInset
-            ),
-            expandCollapseButton.widthAnchor.constraint(equalToConstant: closeButtonSize),
-            expandCollapseButton.heightAnchor.constraint(equalToConstant: closeButtonSize),
-        ])
+        // Overlay expand/collapse button retired — the panel is now
+        // chrome-free. Mode toggle still happens via the popover and
+        // the Cmd-Ctrl-Opt-K shortcut. Button object kept around so
+        // the rest of the controller (visibility cycling, KVO) keeps
+        // compiling without changes.
+        expandCollapseButton.isHidden = true
         installTrackingArea()
         installDisplayedView()
         isMouseInsideView = isMouseInsideContainer()

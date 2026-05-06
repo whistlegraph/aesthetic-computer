@@ -149,6 +149,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// popover gets the same searchable chord readout.
     private var chordCandidatesStack: NSStackView!
     private var chordCandidatesRow: NSView!
+    private var staffView: StaffView!
     private var lastCompleteChordNames: Set<String> = []
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var instrumentSeparator: NSView!
@@ -287,14 +288,14 @@ final class MenuBandPopoverViewController: NSViewController {
         octaveHint.font = NSFont.systemFont(ofSize: 9, weight: .regular)
         octaveHint.textColor = .tertiaryLabelColor
 
-        titleRow.addArrangedSubview(leftArrow)
-        titleRow.setCustomSpacing(4, after: leftArrow)
-        titleRow.addArrangedSubview(octaveLabel)
-        titleRow.setCustomSpacing(4, after: octaveLabel)
-        titleRow.addArrangedSubview(rightArrow)
-        titleRow.addArrangedSubview(octaveStepper)  // hidden, here for layout-time only
-        titleRow.setCustomSpacing(8, after: rightArrow)
-        titleRow.addArrangedSubview(octaveHint)
+        // Octave widget temporarily retired from the popover — the
+        // chevrons + active-octave readout are gone but the stepper
+        // stays in the row (hidden) as the value model so the rest
+        // of the controller bindings keep working unchanged.
+        _ = leftArrow
+        _ = rightArrow
+        _ = octaveHint
+        titleRow.addArrangedSubview(octaveStepper)  // hidden, value model only
 
         // Spacer lives in the middle so the octave widget pins LEFT and
         // the MIDI pair pins RIGHT.
@@ -307,10 +308,25 @@ final class MenuBandPopoverViewController: NSViewController {
         // look. Click the body to toggle play; chevrons step BPM.
         metronome = MetronomeWidget()
         metronome.translatesAutoresizingMaskIntoConstraints = false
-        metronome.tint = .white
+        // Use the dynamic label color so the body / needle / arrows
+        // invert with the system theme — was hardcoded to white,
+        // which left the icon invisible against the popover's
+        // light-mode background.
+        metronome.tint = .labelColor
         metronome.toolTip = "Metronome — space to start / stop"
         titleRow.addArrangedSubview(metronome)
         titleRow.setCustomSpacing(8, after: metronome)
+        // Right-side spacer to balance `titleSpacer` on the left,
+        // so the metronome floats horizontally centered in the
+        // title row (sandwiched between two flex spacers).
+        let trailingSpacer = NSView()
+        trailingSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        titleRow.addArrangedSubview(trailingSpacer)
+        if let titleSpacer = titleRow.arrangedSubviews.first(where: {
+            $0.contentHuggingPriority(for: .horizontal) == .defaultLow && $0 !== trailingSpacer
+        }) {
+            trailingSpacer.widthAnchor.constraint(equalTo: titleSpacer.widthAnchor).isActive = true
+        }
 
         // MIDI toggle is now slot 0 in the chooser ("0 MIDI OUT"). The
         // ivars below stay so existing references (status sync, the
@@ -558,22 +574,25 @@ final class MenuBandPopoverViewController: NSViewController {
         // play palette uses, so the two surfaces feel identical.
         stack.addArrangedSubview(waveformBezel)
         waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        // Just tall enough to host the held-notes pills (22pt) +
-        // chord cards (28pt) + a small gap. No visual chrome —
-        // pure layout wrapper.
-        waveformBezel.heightAnchor.constraint(equalToConstant: 60).isActive = true
-        waveformBezel.addSubview(heldNotesContainer)
-        NSLayoutConstraint.activate([
-            heldNotesContainer.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor),
-            heldNotesContainer.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor),
-            heldNotesContainer.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: 4),
-            heldNotesContainer.heightAnchor.constraint(equalToConstant: 22),
-        ])
+        // Bezel hosts the staff only — the big held-notes pill row
+        // (key-over-letter pills) was retired in favor of the
+        // staff being the single notation surface. Tall enough
+        // to fit the extended A3..B5 range with breathing room.
+        waveformBezel.heightAnchor.constraint(equalToConstant: 150).isActive = true
+        // Pill container is allocated but unused (kept so any
+        // legacy refresh path doesn't crash); not added to the
+        // bezel.
+        _ = heldNotesContainer
 
+        // Chord candidates — every recognized chord shape that
+        // contains the user's held pitch classes, plus partial
+        // candidates whose missing notes are reachable on the
+        // active keymap. Displayed as a wrapping flow row so
+        // *all* available chords stay visible (not just three).
         chordCandidatesStack = NSStackView()
-        chordCandidatesStack.orientation = .horizontal
-        chordCandidatesStack.alignment = .centerY
-        chordCandidatesStack.spacing = 5
+        chordCandidatesStack.orientation = .vertical
+        chordCandidatesStack.alignment = .centerX
+        chordCandidatesStack.spacing = 4
         chordCandidatesStack.translatesAutoresizingMaskIntoConstraints = false
         chordCandidatesRow = NSView()
         chordCandidatesRow.translatesAutoresizingMaskIntoConstraints = false
@@ -582,16 +601,36 @@ final class MenuBandPopoverViewController: NSViewController {
         chordCandidatesRow.addSubview(chordCandidatesStack)
         NSLayoutConstraint.activate([
             chordCandidatesStack.centerXAnchor.constraint(equalTo: chordCandidatesRow.centerXAnchor),
-            chordCandidatesStack.centerYAnchor.constraint(equalTo: chordCandidatesRow.centerYAnchor),
+            chordCandidatesStack.topAnchor.constraint(equalTo: chordCandidatesRow.topAnchor, constant: 2),
             chordCandidatesStack.leadingAnchor.constraint(greaterThanOrEqualTo: chordCandidatesRow.leadingAnchor, constant: chordCandidatesRowHorizontalInset),
             chordCandidatesStack.trailingAnchor.constraint(lessThanOrEqualTo: chordCandidatesRow.trailingAnchor, constant: -chordCandidatesRowHorizontalInset),
+            chordCandidatesStack.bottomAnchor.constraint(lessThanOrEqualTo: chordCandidatesRow.bottomAnchor, constant: -2),
         ])
         waveformBezel.addSubview(chordCandidatesRow)
         NSLayoutConstraint.activate([
             chordCandidatesRow.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor),
             chordCandidatesRow.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor),
+            // Anchor to the bezel itself — heldNotesContainer used
+            // to be a sibling but was retired with the big-pill
+            // row, so referencing its bottomAnchor here crashed
+            // the popover load (no common ancestor).
+            chordCandidatesRow.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: 4),
             chordCandidatesRow.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -4),
-            chordCandidatesRow.heightAnchor.constraint(equalToConstant: 28),
+        ])
+        // Single traditional staff view in the lower half of the
+        // bezel. Held notes draw as solid heads; *all* chord
+        // candidates' missing notes are ghosted on top of the
+        // SAME staff, each chord's notes connected with a colored
+        // path keyed to the chord family — major routes are green,
+        // minor blue, dom7 orange, etc. Routes overlap on the
+        // staff; the user reads the suggestions visually rather
+        // than as a list.
+        staffView = StaffView()
+        staffView.translatesAutoresizingMaskIntoConstraints = false
+        chordCandidatesStack.addArrangedSubview(staffView)
+        NSLayoutConstraint.activate([
+            staffView.widthAnchor.constraint(equalToConstant: 220),
+            staffView.heightAnchor.constraint(equalToConstant: 138),
         ])
 
         // (MIDI switch lives in the title row above — see octave + MIDI block.)
@@ -982,7 +1021,6 @@ final class MenuBandPopoverViewController: NSViewController {
     func refreshHeldNotes() {
         guard isViewLoaded, let m = menuBand else { return }
         qwertyMap?.litKeyCodes = m.heldKeyCodes()
-        let names = m.heldNoteNames()
         for v in heldNotesStack.arrangedSubviews {
             heldNotesStack.removeArrangedSubview(v)
             v.removeFromSuperview()
@@ -1004,76 +1042,134 @@ final class MenuBandPopoverViewController: NSViewController {
         // 1-2 note plays where there's no chord to compute).
         if let chord = m.currentChordName() {
             heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: chord,
+                                                               key: nil,
                                                                color: famColor))
         } else {
-            for name in names {
-                heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name,
-                                                                   color: famColor))
+            // Use the keyed entries so each held note shows the
+            // bare pitch class (no octave) with the keyboard key
+            // that played it stacked above.
+            let entries = m.heldNoteEntries()
+            for entry in entries {
+                heldNotesStack.addArrangedSubview(
+                    makeHeldNoteBox(name: entry.pitchClass,
+                                    key: entry.keyLabel,
+                                    color: famColor))
             }
         }
 
-        // Chord-candidate cards: every chord shape that contains the
-        // held pitch classes and whose missing notes are reachable on
-        // the active keymap. Same shared builder + chromatic root
-        // coloring as the floating palette so both surfaces feel like
-        // one tool. Only show a few in the popover — it's narrower
-        // than the floating overlay.
-        guard let chordRow = chordCandidatesStack else { return }
-        for v in chordRow.arrangedSubviews {
-            chordRow.removeArrangedSubview(v)
-            v.removeFromSuperview()
+        // Staff sheet: held notes drawn as solid heads. The top
+        // few not-yet-complete chord candidates' missing notes
+        // are ghosted on the SAME staff with each chord's family
+        // color, so the staff shows the played notes plus a
+        // small set of colored "next options" the user can play
+        // to land on a known chord shape.
+        guard let staff = staffView else { lastCompleteChordNames = []; return }
+        var entries: [StaffView.Note] = []
+        for entry in m.heldNoteEntries() {
+            entries.append(.init(
+                midi: entry.midi,
+                pitchClass: entry.pitchClass,
+                keyLabel: entry.keyLabel,
+                ghost: false,
+                color: nil
+            ))
         }
-        let candidates = m.chordCandidates(maxResults: 3)
-        let isDark = view.effectiveAppearance
-            .bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        let newComplete = Set(candidates.filter(\.isComplete).map(\.name))
-        let justCompleted = newComplete.subtracting(lastCompleteChordNames)
-        let availableChordWidth = max(chordCandidatesRow.bounds.width - chordCandidatesRowHorizontalInset * 2, 0)
-        var consumedChordWidth: CGFloat = 0
-        for candidate in candidates {
-            let card = FloatingChordCandidateCard.build(candidate: candidate, isDark: isDark)
-            card.layoutSubtreeIfNeeded()
-            let cardWidth = card.fittingSize.width
-            let nextWidth = consumedChordWidth == 0
-                ? cardWidth
-                : consumedChordWidth + chordRow.spacing + cardWidth
-            guard consumedChordWidth == 0 || nextWidth <= availableChordWidth else { break }
-            chordRow.addArrangedSubview(card)
-            consumedChordWidth = nextWidth
-            if candidate.isComplete && justCompleted.contains(candidate.name) {
-                let shake = CAKeyframeAnimation(keyPath: "transform.translation.x")
-                shake.values = [0, -7, 7, -5, 5, -3, 3, 0]
-                shake.keyTimes = [0, 0.12, 0.27, 0.42, 0.57, 0.72, 0.87, 1.0]
-                shake.duration = 0.46
-                shake.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                card.layer?.add(shake, forKey: "shake")
+        let candidates = m.chordCandidates(maxResults: 6)
+        let heldPitchSet = Set(entries.map { Int($0.midi) % 12 })
+        let labels = KeyboardIconRenderer.labelByMidi
+        let baseOctave = entries.first.map { Int($0.midi) / 12 } ?? 5
+        // Ghost the next 3 incomplete candidates so the staff
+        // doesn't get drowned in outlined heads.
+        let nextOptions = candidates.filter { !$0.isComplete }.prefix(3)
+        for candidate in nextOptions {
+            let color = chordFamilyColor(for: candidate.name)
+            for missing in candidate.missingPitchClasses where !heldPitchSet.contains(missing) {
+                let target = UInt8(max(0, min(127, baseOctave * 12 + missing)))
+                entries.append(.init(
+                    midi: target,
+                    pitchClass: MenuBandController.pitchClassNames[missing],
+                    keyLabel: labels[Int(target)],
+                    ghost: true,
+                    color: color
+                ))
             }
         }
-        lastCompleteChordNames = newComplete
+        staff.notes = entries
+        lastCompleteChordNames = Set(candidates.filter(\.isComplete).map(\.name))
     }
 
-    /// Small floating note badge — rounded layer-painted box with
-    /// the note name in heavy mono. No surrounding bezel; the boxes
-    /// just appear above the visualizer when you press keys.
-    private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
+    /// Per-chord-family color, for ghost notes on the staff.
+    /// Major = green, minor = blue, dim = purple, dom7 = orange,
+    /// maj7 = teal, sus = pink, fallback = gray.
+    private func chordFamilyColor(for name: String) -> NSColor {
+        let lower = name.lowercased()
+        if lower.contains("maj7") {
+            return NSColor(srgbRed: 0.18, green: 0.72, blue: 0.62, alpha: 1)
+        }
+        if lower.contains("min7") || lower.contains("m7") {
+            return NSColor(srgbRed: 0.18, green: 0.40, blue: 0.85, alpha: 1)
+        }
+        if lower.contains("dim") {
+            return NSColor(srgbRed: 0.62, green: 0.30, blue: 0.85, alpha: 1)
+        }
+        if lower.contains("aug") {
+            return NSColor(srgbRed: 0.92, green: 0.32, blue: 0.78, alpha: 1)
+        }
+        if lower.contains("sus") {
+            return NSColor(srgbRed: 0.95, green: 0.40, blue: 0.60, alpha: 1)
+        }
+        if lower.contains("7") {
+            return NSColor(srgbRed: 0.96, green: 0.55, blue: 0.18, alpha: 1)
+        }
+        if lower.contains("min") || lower.hasSuffix("m") {
+            return NSColor(srgbRed: 0.22, green: 0.52, blue: 0.95, alpha: 1)
+        }
+        return NSColor(srgbRed: 0.30, green: 0.78, blue: 0.36, alpha: 1)
+    }
+
+    /// Floating note badge — rounded layer-painted box with the
+    /// pressed-key letter on top (smaller) and the bare pitch
+    /// class on the bottom (large + heavy). `key` is optional
+    /// because chord-name banners (e.g. "Cmaj7") don't have a
+    /// single key letter.
+    private func makeHeldNoteBox(name: String, key: String?, color: NSColor) -> NSView {
         let box = NSView()
         box.wantsLayer = true
-        box.layer?.cornerRadius = 4
+        box.layer?.cornerRadius = 6
         box.layer?.backgroundColor = color.withAlphaComponent(0.92).cgColor
         box.layer?.borderWidth = 1
         box.layer?.borderColor = color.shadow(withLevel: 0.35)?.cgColor ?? color.cgColor
         box.translatesAutoresizingMaskIntoConstraints = false
-        let label = NSTextField(labelWithString: name)
-        label.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .heavy)
-        label.textColor = .black
-        label.drawsBackground = false
-        label.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(label)
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 0
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        if let key = key, !key.isEmpty {
+            let keyLabel = NSTextField(labelWithString: key)
+            keyLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
+            keyLabel.textColor = NSColor.white.withAlphaComponent(0.85)
+            keyLabel.drawsBackground = false
+            keyLabel.alignment = .center
+            stack.addArrangedSubview(keyLabel)
+        }
+
+        let noteLabel = NSTextField(labelWithString: name)
+        noteLabel.font = NSFont.monospacedSystemFont(ofSize: 22, weight: .heavy)
+        noteLabel.textColor = .black
+        noteLabel.drawsBackground = false
+        noteLabel.alignment = .center
+        stack.addArrangedSubview(noteLabel)
+
+        box.addSubview(stack)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
-            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
-            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 1),
-            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -1),
+            stack.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
+            stack.topAnchor.constraint(equalTo: box.topAnchor, constant: 3),
+            stack.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -3),
+            box.heightAnchor.constraint(equalToConstant: 52),
         ])
         return box
     }
@@ -1367,6 +1463,15 @@ final class MenuBandPopoverViewController: NSViewController {
     // SDK target — the popover's custom root view (which IS an
     // NSView and does inherit the override) drives this callback
     // for us. See `MenuBandPopoverRootView` below.
+    /// Public entry point so AppDelegate's system-appearance
+    /// observer can trigger a full retint directly. The
+    /// `viewDidChangeEffectiveAppearance` propagation through
+    /// `MenuBandPopoverRootView` is best-effort and sometimes
+    /// drops on a system flip while the app is in the background.
+    func forceAppearanceRetint() {
+        handleEffectiveAppearanceChange()
+    }
+
     fileprivate func handleEffectiveAppearanceChange() {
         rootBackgroundView?.layer?.backgroundColor =
             NSColor.windowBackgroundColor.cgColor
@@ -1391,22 +1496,15 @@ final class MenuBandPopoverViewController: NSViewController {
         for sub in root.subviews { forceRedrawSubtree(sub) }
     }
 
-    /// Flip the held-notes/chord bezel between dark-mode (LED-on-black
-    /// glow) and light-mode (ink-on-paper) substrates so the housing
-    /// doesn't look like a black slab pasted onto a white popover.
+    /// Held-notes / chord bezel — bg is now transparent so the
+    /// pills + chord cards float over the popover material rather
+    /// than sitting on a slate slab. The border still tracks
+    /// appearance via `updateInstrumentReadout` so the family
+    /// color stays visible as a hairline frame.
     private func applyAppearanceToVisualizer() {
         let isDark = view.effectiveAppearance.bestMatch(
             from: [.aqua, .darkAqua]) == .darkAqua
-        if isDark {
-            waveformBezel?.layer?.backgroundColor =
-                NSColor(white: 0.06, alpha: 1.0).cgColor
-        } else {
-            // Slightly darker than the visualizer's own clear color so
-            // the inset bars read as recessed into the bezel — same
-            // recessed-housing effect as the dark mode 0.06 → 0.0 step.
-            waveformBezel?.layer?.backgroundColor =
-                NSColor(white: 0.82, alpha: 1.0).cgColor
-        }
+        waveformBezel?.layer?.backgroundColor = NSColor.clear.cgColor
         applyAppearanceToKeyboardDeck(isDark: isDark)
     }
 
@@ -1860,7 +1958,12 @@ final class MenuBandPopoverViewController: NSViewController {
         // Rebuild every open so the flashing button (and version row)
         // pick up the most recent update info instead of going stale.
         aboutWindowController?.close()
-        let ctrl = AboutWindowController(updateInfo: latestRemoteVersion)
+        let ctrl = AboutWindowController(
+            updateInfo: latestRemoteVersion,
+            onOpenPlugins: { [weak self] in
+                self?.menuBand?.presentPluginPicker()
+            }
+        )
         aboutWindowController = ctrl
         ctrl.present()
     }

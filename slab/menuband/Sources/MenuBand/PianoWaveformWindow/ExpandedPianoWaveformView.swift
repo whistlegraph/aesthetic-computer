@@ -52,7 +52,7 @@ final class ExpandedPianoWaveformView: NSView {
     private let inset: CGFloat = 14
     private let gap: CGFloat = 8
     private let hintHeight: CGFloat = 20
-    private let heldNotesRowHeight: CGFloat = 26
+    private let heldNotesRowHeight: CGFloat = 58
     private let chordCandidatesRowHeight: CGFloat = 30
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var isPresented = false
@@ -426,14 +426,13 @@ final class ExpandedPianoWaveformView: NSView {
     }
 
     private func applyAppearanceToVisualizer() {
-        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        if isDark {
-            waveformSection.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
-            waveformBezel.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.04).cgColor
-        } else {
-            waveformSection.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.22).cgColor
-            waveformBezel.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.18).cgColor
-        }
+        // Held-notes / chord housing is now transparent — let the
+        // panel's glass material show through behind the pills +
+        // chord cards instead of pasting a slate slab over it.
+        // Border + tint still update via applyWaveformTint() so
+        // the family color stays as a hairline frame.
+        waveformSection.layer?.backgroundColor = NSColor.clear.cgColor
+        waveformBezel.layer?.backgroundColor = NSColor.clear.cgColor
     }
 
     private func applyWaveformTint() {
@@ -496,9 +495,12 @@ final class ExpandedPianoWaveformView: NSView {
         // Held-notes row: each currently sounding note as its own large
         // pill so the chord shape reads at-a-glance. Always per-note —
         // chord recognition lives in the candidates row below.
-        let names = menuBand.heldNoteNames()
-        for name in names {
-            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name, color: familyColor))
+        let entries = menuBand.heldNoteEntries()
+        for entry in entries {
+            heldNotesStack.addArrangedSubview(
+                makeHeldNoteBox(name: entry.pitchClass,
+                                 key: entry.keyLabel,
+                                 color: familyColor))
         }
 
         // Chord candidates: every chord shape that contains the held
@@ -544,26 +546,48 @@ final class ExpandedPianoWaveformView: NSView {
         lastCompleteChordNames = []
     }
 
-    private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
+    private func makeHeldNoteBox(name: String, key: String?, color: NSColor) -> NSView {
         let box = NSView()
         box.wantsLayer = true
-        box.layer?.cornerRadius = 4
+        box.layer?.cornerRadius = 6
         box.layer?.backgroundColor = color.withAlphaComponent(0.92).cgColor
         box.layer?.borderWidth = 1
         box.layer?.borderColor = color.shadow(withLevel: 0.35)?.cgColor ?? color.cgColor
         box.translatesAutoresizingMaskIntoConstraints = false
-        let label = NSTextField(labelWithString: name)
-        label.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .heavy)
-        label.textColor = .black
-        label.drawsBackground = false
-        label.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(label)
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 0
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        // Top: keyboard key the user pressed. Smaller, tinted so it
+        // reads as a label above the louder note name.
+        if let key = key, !key.isEmpty {
+            let keyLabel = NSTextField(labelWithString: key)
+            keyLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
+            keyLabel.textColor = NSColor.white.withAlphaComponent(0.85)
+            keyLabel.drawsBackground = false
+            keyLabel.alignment = .center
+            stack.addArrangedSubview(keyLabel)
+        }
+
+        // Bottom: the bare pitch-class. Big + heavy so the played
+        // note is the dominant element of each pill.
+        let noteLabel = NSTextField(labelWithString: name)
+        noteLabel.font = NSFont.monospacedSystemFont(ofSize: 22, weight: .heavy)
+        noteLabel.textColor = .black
+        noteLabel.drawsBackground = false
+        noteLabel.alignment = .center
+        stack.addArrangedSubview(noteLabel)
+
+        box.addSubview(stack)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
-            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
-            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 2),
-            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -2),
-            box.heightAnchor.constraint(equalToConstant: 20),
+            stack.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
+            stack.topAnchor.constraint(equalTo: box.topAnchor, constant: 3),
+            stack.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -3),
+            box.heightAnchor.constraint(equalToConstant: 52),
         ])
         return box
     }

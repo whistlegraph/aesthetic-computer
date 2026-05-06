@@ -12,9 +12,21 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     private weak var flashButton: NSButton?
     private var flashOn = false
     private let updateInfo: UpdateChecker.VersionInfo?
+    private let onOpenPlugins: (() -> Void)?
 
-    init(updateInfo: UpdateChecker.VersionInfo?) {
+    /// Live-updating chrome — rebuilt against the current system accent
+    /// whenever `NSColor.systemColorsDidChangeNotification` fires. The icon
+    /// and Plugins chip are the two surfaces that take their tint from
+    /// `controlAccentColor`; everything else in the About window is brand
+    /// art (AC purple, NELA secondary label) and stays put.
+    private weak var iconView: NSImageView?
+    private weak var pluginsButton: HoverLinkButton?
+    private var accentObserver: NSObjectProtocol?
+
+    init(updateInfo: UpdateChecker.VersionInfo?,
+         onOpenPlugins: (() -> Void)? = nil) {
         self.updateInfo = updateInfo
+        self.onOpenPlugins = onOpenPlugins
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 340),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -36,6 +48,18 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         buildContent()
+        // Live accent-color updates: refresh the tinted icon and the
+        // Plugins chip whenever the user changes the system accent in
+        // System Settings → Appearance. NSImageView with a non-template
+        // image won't auto-redraw, and HoverLinkButton's layer caches
+        // the cgColor it baked at creation, so both need an explicit
+        // poke on every accent change.
+        accentObserver = NotificationCenter.default.addObserver(
+            forName: NSColor.systemColorsDidChangeNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.refreshAccentChrome()
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -44,6 +68,9 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     deinit {
         flashTimer?.invalidate()
+        if let observer = accentObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     func present() {
@@ -85,16 +112,21 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
         ])
 
-        // App icon — try the bundled artwork first, then walk up to
-        // a known repo location for `swift run` dev builds where
-        // there's no .app bundle to host AppIcon.icns.
-        if let icon = Self.loadAppIcon() {
+        // App icon — prefer the hue-rotated tint that IconTinter
+        // generates against the current accent (matches the Finder
+        // icon the user sees everywhere else); fall back to the
+        // un-tinted bundle icon if the tinter can't reach the source
+        // (e.g. swift-run dev builds without an .app wrapper, where
+        // Bundle.main.url(forResource: "AppIcon") resolves but the
+        // CIHueAdjust chain might not).
+        if let icon = IconTinter.tintedIcon() ?? Self.loadAppIcon() {
             let view = NSImageView(image: icon)
             view.imageScaling = .scaleProportionallyUpOrDown
             view.translatesAutoresizingMaskIntoConstraints = false
             view.widthAnchor.constraint(equalToConstant: 96).isActive = true
             view.heightAnchor.constraint(equalToConstant: 96).isActive = true
             stack.addArrangedSubview(view)
+            iconView = view
         }
 
         let nameLabel = NSTextField(labelWithString: "Menu Band")
@@ -140,10 +172,66 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         )
         stack.addArrangedSubview(acLink)
 
+        // NELA Computer Club invite — wrapping clickable line
+        // beneath the AC chip. Click → opens
+        // https://nelacomputer.club in the user's default browser.
+        // Wraps to multi-line so the full sentence fits the
+        // narrow About panel width.
+        stack.setCustomSpacing(8, after: acLink)
+        let para = NSMutableParagraphStyle()
+        para.alignment = .center
+        para.lineBreakMode = .byWordWrapping
+        let nelaText = NSAttributedString(
+            string: "Say hello to the Menu Band developers in person at the NELA Computer Club, Tuesday evenings @ plot.place in Los Angeles, CA",
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .paragraphStyle: para,
+            ]
+        )
+        let nelaButton = NSButton(title: "",
+                                   target: self,
+                                   action: #selector(openNELA))
+        nelaButton.attributedTitle = nelaText
+        nelaButton.bezelStyle = .regularSquare
+        nelaButton.isBordered = false
+        nelaButton.cell?.wraps = true
+        nelaButton.cell?.lineBreakMode = .byWordWrapping
+        if let cell = nelaButton.cell as? NSButtonCell {
+            cell.imageScaling = .scaleNone
+        }
+        nelaButton.translatesAutoresizingMaskIntoConstraints = false
+        nelaButton.toolTip = "https://nelacomputer.club"
+        nelaButton.widthAnchor.constraint(equalToConstant: 264).isActive = true
+        stack.addArrangedSubview(nelaButton)
+
+        // Plugins chip — opens the AU instrument picker. Beta surface
+        // for testing third-party AUs (angelsaw etc.) routed through
+        // Menu Band's audio engine. Hidden when no host is wired up.
+        // Tinted with `controlAccentColor` so the chip tracks whatever
+        // accent the user has set in System Settings (refreshed live
+        // by `refreshAccentChrome`).
+        if onOpenPlugins != nil {
+            stack.setCustomSpacing(10, after: nelaButton)
+            let pluginsBtn = MenuBandPopoverViewController.makeLinkButton(
+                attr: pluginsLabel(for: NSColor.controlAccentColor),
+                target: self,
+                action: #selector(openPlugins),
+                background: NSColor.controlAccentColor.withAlphaComponent(0.14),
+                border: NSColor.controlAccentColor.withAlphaComponent(0.55)
+            )
+            pluginsBtn.toolTip = "Beta — engage a Liam Hall pedal"
+            stack.addArrangedSubview(pluginsBtn)
+            // makeLinkButton always returns a HoverLinkButton — cast so
+            // we can refresh idle/hover NSColor refs on accent changes.
+            pluginsButton = pluginsBtn as? HoverLinkButton
+        }
+
         if let info = updateInfo,
            UpdateChecker.isNewer(info.version, than: UpdateChecker.currentVersion()) {
             stack.setCustomSpacing(16, after: acLink)
-            let btn = NSButton(title: "New Menu Band Available!",
+            let btn = NSButton(title: "Menu Band \(info.version) Now Available!",
                                target: self,
                                action: #selector(openUpdateLink))
             btn.bezelStyle = .rounded
@@ -157,23 +245,28 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Icon loader
 
-    /// Look for the app icon, falling back to the repo's
-    /// `AppIcon.icns` when running via `swift run` (no .app bundle).
+    /// Look for the app icon. Tries explicit AppIcon.icns paths
+    /// FIRST (the .app bundle's Resources/, and the SwiftPM dev
+    /// repo location) so we don't get stuck with the generic
+    /// SwiftPM folder icon that `NSImage.applicationIconName`
+    /// returns for `swift run` debug binaries.
     private static func loadAppIcon() -> NSImage? {
-        if let icon = NSImage(named: NSImage.applicationIconName),
-           icon.size != .zero {
-            return icon
-        }
-        // SwiftPM debug binary lives under .build/<arch>/debug/MenuBand.
-        // Walk up to the project root and grab the source icon.
         let exec = Bundle.main.executablePath ?? ""
         let url = URL(fileURLWithPath: exec)
         let candidates = [
+            // Bundled .app: .app/Contents/MacOS/MenuBand →
+            // ../Resources/AppIcon.icns
+            url.deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Resources/AppIcon.icns"),
+            // Dev (`swift run`): .build-debug/<arch>/debug/MenuBand
+            // → ../../../../AppIcon.icns under slab/menuband/.
             url.deletingLastPathComponent()
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
                 .appendingPathComponent("AppIcon.icns"),
+            // Same-dir fallback for any unusual layout.
             url.deletingLastPathComponent()
                 .appendingPathComponent("AppIcon.icns"),
         ]
@@ -183,7 +276,11 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
                 return img
             }
         }
-        return nil
+        // Last resort: the system's idea of our app icon (works for
+        // properly bundled installs, returns a folder for raw
+        // SwiftPM debug binaries — hence trying the explicit path
+        // candidates first).
+        return NSImage(named: NSImage.applicationIconName)
     }
 
     // MARK: - Actions
@@ -201,6 +298,55 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     @objc private func openUpdateLink() {
         if let url = URL(string: "https://prompt.ac/menuband") {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func openNELA() {
+        if let url = URL(string: "https://nelacomputer.club") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func openPlugins() {
+        onOpenPlugins?()
+    }
+
+    // MARK: - Accent-color refresh
+
+    /// Build the Pedals chip's title against the given accent. Pulled
+    /// out so `init` and `refreshAccentChrome` use the same recipe.
+    private func pluginsLabel(for accent: NSColor) -> NSAttributedString {
+        NSAttributedString(
+            string: "Pedals",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                .foregroundColor: accent,
+            ]
+        )
+    }
+
+    /// Re-tint everything that was painted against the previous accent.
+    /// HoverLinkButton keeps its idle/hover backgrounds as NSColor refs
+    /// but bakes a CGColor into the layer on construction; we re-bake
+    /// after refreshing the NSColor sources.
+    private func refreshAccentChrome() {
+        if let iconView = iconView,
+           let tinted = IconTinter.tintedIcon() ?? Self.loadAppIcon() {
+            iconView.image = tinted
+        }
+        if let btn = pluginsButton {
+            let accent = NSColor.controlAccentColor
+            let bg = accent.withAlphaComponent(0.14)
+            let bd = accent.withAlphaComponent(0.55)
+            let hoverBg = accent.withAlphaComponent(0.32)
+            let hoverBd = accent.withAlphaComponent(0.80)
+            btn.idleBackground = bg
+            btn.idleBorder = bd
+            btn.hoverBackground = hoverBg
+            btn.hoverBorder = hoverBd
+            btn.attributedTitle = pluginsLabel(for: accent)
+            btn.layer?.backgroundColor = bg.cgColor
+            btn.layer?.borderColor = bd.cgColor
         }
     }
 
@@ -223,8 +369,12 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         flashOn.toggle()
         let pink = NSColor(red: 255/255, green: 107/255, blue: 157/255, alpha: 1)
         let purple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
+        let version = updateInfo?.version ?? ""
+        let title = version.isEmpty
+            ? "Menu Band Update Available!"
+            : "Menu Band \(version) Now Available!"
         let attr = NSMutableAttributedString(
-            string: "New Menu Band Available!",
+            string: title,
             attributes: [
                 .foregroundColor: flashOn ? pink : purple,
                 .font: NSFont.systemFont(ofSize: 13, weight: .bold),

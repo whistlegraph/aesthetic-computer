@@ -297,6 +297,16 @@ final class MenuBandMIDI {
         send([0xB0 | (channel & 0x0F), cc & 0x7F, value & 0x7F])
     }
 
+    /// Send a 14-bit pitch-bend message. `value` is signed:
+    /// -8192 (full down) … 0 (center) … +8191 (full up). Default
+    /// MIDI bend range is ±2 semitones; receivers can configure
+    /// wider ranges via RPN if needed.
+    func sendPitchBend(value: Int16, channel: UInt8 = 0) {
+        guard enabled else { return }
+        let v = max(-8192, min(8191, Int(value))) + 8192
+        send([0xE0 | (channel & 0x0F), UInt8(v & 0x7F), UInt8((v >> 7) & 0x7F)])
+    }
+
     /// Emergency flush — gated on the published port (`started`), not the
     /// toggle (`enabled`), so `stop()` can call it after flipping `enabled`
     /// off and still get the CC#123 out.

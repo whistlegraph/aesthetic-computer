@@ -94,6 +94,14 @@ enum KeyboardIconRenderer {
     /// on shift between phrases.
     static var playingActive: Bool = false
 
+    /// True while the sample-voice backend is capturing audio from
+    /// the input device (user holding `). When set, the settings
+    /// chip's music-note glyph + VU bars switch to a red tint so the
+    /// menubar reads as "REC ON" at a glance. AppDelegate flips this
+    /// in `updateIcon()` based on the controller's
+    /// `sampleRecordingActive` proxy.
+    static var recordingActive: Bool = false
+
     // Render area shrinks with the layout. Compact has no piano keys at
     // all — `lastMidi < firstMidi` makes whiteList() empty.
     static let firstMidi: Int = 60                 // C4 (middle C)
@@ -187,6 +195,12 @@ enum KeyboardIconRenderer {
     /// per-bar phase offset so bars wiggle independently — reads as
     /// live audio metering rather than three identical pulses.
     static var miniVisualizerPhase: CFTimeInterval = 0
+    /// 0..1 fill brightness of the MIDI activity square. While
+    /// MIDI mode is on the bars slot becomes an empty square that
+    /// briefly fills on every outbound MIDI event (Ableton-style
+    /// activity indicator). AppDelegate spikes this to 1 on each
+    /// noteOn and decays it at ~80% per animation tick.
+    static var midiActivityFlash: CGFloat = 0
 
     static func withPianoWaveformKeyboard<T>(keymap: Keymap?, _ body: () -> T) -> T {
         let oldLayout = displayLayout
@@ -321,6 +335,7 @@ enum KeyboardIconRenderer {
                       enabled: Bool,
                       typeMode: Bool = false,
                       melodicProgram: UInt8 = 0,
+                      voiceLabel: String? = nil,
                       hovered: HitResult? = nil,
                       letterAlpha: ((UInt8) -> CGFloat)? = nil,
                       slideOffsetX: CGFloat = 0,
@@ -334,18 +349,25 @@ enum KeyboardIconRenderer {
 
         let img = NSImage(size: size, flipped: false) { _ in
 
-            // Octave slide: translate the WHOLE icon (piano + settings
-            // chip) by the requested offset so the entire menubar
-            // board scrolls left/right as one unit when the user
-            // changes octave. This is intentionally OUTSIDE any
-            // sub-save state so it affects every subsequent draw.
+            // Piano.
+            NSGraphicsContext.saveGraphicsState()
+            // Octave slide: scroll ONLY the piano keys behind a
+            // fixed mask. The settings chip + visualizer stay
+            // anchored, so changing octave reads as the piano
+            // moving past a window cut into the menubar — physical
+            // continuity (no whole-icon shift, no chip jiggle).
+            // Clip first (in unmoved coords), then apply the
+            // translation so keys slide behind the clip edges.
+            let pianoMaskWidth = ceil(pad + pianoWidth(layout: layout) + pad)
+            let pianoMaskRect = NSRect(x: 0, y: 0,
+                                        width: pianoMaskWidth,
+                                        height: size.height)
+            NSBezierPath(rect: pianoMaskRect).addClip()
             if abs(slideOffsetX) > 0.01 {
                 let xform = NSAffineTransform()
                 xform.translateX(by: slideOffsetX, yBy: 0)
                 xform.concat()
             }
-            // Piano.
-            NSGraphicsContext.saveGraphicsState()
             // Piano theme: notepat's cool off-white naturals in light
             // mode (RGB 215,225,230 → 195,205,210), dropped to a deep
             // slate in dark mode so the keys feel native against a
@@ -596,11 +618,17 @@ enum KeyboardIconRenderer {
                 // the bars now actually pulse with note activity instead
                 // of being decorative staff lines.
                 let chipHovered = (hovered == .openSettings) || (hovered == .openVisualizer)
+                // 1-based voice display — pressing the digit '1' picks
+                // GM program 0 (Acoustic Grand) and the badge reads
+                // "1" to match what the user typed. 0 is the MIDI
+                // passthrough slot, surfaced as `midiOn` rather than
+                // a digit, so there's no off-by-one ambiguity.
                 drawSettingsChip(in: settingsRect, hoverRect: settingsHitRect,
                                  midiOn: enabled,
                                  hovered: chipHovered,
                                  flash: settingsFlash,
-                                 voiceNumber: Int(melodicProgram),
+                                 voiceNumber: Int(melodicProgram) + 1,
+                                 voiceLabel: voiceLabel,
                                  visualizerHovered: hovered == .openVisualizer,
                                  visualizerVisible: miniVisualizerVisible,
                                  visualizerLevel: miniVisualizerLevel)
@@ -980,6 +1008,35 @@ enum KeyboardIconRenderer {
     /// pushes the lines outward into bars; audio decay slides them
     /// back into staff lines. Same drawer handles every t in [0, 1],
     /// so the transition is continuous and reversible.
+    /// Empty square outline that pops a fill on each MIDI event.
+    /// Used in place of the 3-bar VU when the chip is in MIDI
+    /// mode — same visual language as Ableton's MIDI indicator
+    /// dot.
+    private static func drawChipMidiSquare(in rect: NSRect,
+                                            flash: CGFloat,
+                                            hovered: Bool,
+                                            color: NSColor,
+                                            baseAlpha: CGFloat) {
+        // Square fits the band's smaller dimension, centered.
+        let side = min(rect.width, rect.height)
+        let frame = NSRect(
+            x: rect.midX - side / 2,
+            y: rect.midY - side / 2,
+            width: side,
+            height: side
+        )
+        let alpha: CGFloat = hovered ? 1.0 : baseAlpha
+        // No outline at rest — the slot is empty until a MIDI event
+        // hits, at which point a solid filled square pops in and
+        // decays back to nothing. (Ableton-style activity blip.)
+        let f = max(0, min(1, flash))
+        if f > 0.02 {
+            let fill = NSBezierPath(rect: frame)
+            color.withAlphaComponent(alpha * f).setFill()
+            fill.fill()
+        }
+    }
+
     private static func drawChipVisualizer(in rect: NSRect, level: CGFloat,
                                            hovered: Bool, color: NSColor,
                                            baseAlpha: CGFloat) {
@@ -1017,6 +1074,7 @@ enum KeyboardIconRenderer {
                                          midiOn: Bool, hovered: Bool,
                                          flash: CGFloat = 0,
                                          voiceNumber: Int = 0,
+                                         voiceLabel: String? = nil,
                                          visualizerHovered: Bool = false,
                                          visualizerVisible: Bool = true,
                                          visualizerLevel: CGFloat = 0) {
@@ -1032,9 +1090,12 @@ enum KeyboardIconRenderer {
             // a chunky 12pt of empty pad on the right when the user is
             // on the default Acoustic Grand (program 0).
             var pillRightExtra: CGFloat = 1
-            if voiceNumber > 0 {
+            // The active subscript: explicit label (e.g. "`" for the
+            // sample backend) wins over the numeric voice slot.
+            let activeLabel: String? = voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
+            if let activeLabel = activeLabel {
                 let digitFont = NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy)
-                let label = NSAttributedString(string: String(voiceNumber), attributes: [
+                let label = NSAttributedString(string: activeLabel, attributes: [
                     .font: digitFont, .kern: -0.4,
                 ])
                 let oneDigitW = NSAttributedString(string: "0", attributes: [
@@ -1057,9 +1118,19 @@ enum KeyboardIconRenderer {
             path.fill()
         }
         let alpha: CGFloat = hovered ? 1.0 : (midiOn ? 1.0 : 0.78)
-        let baseColor: NSColor = midiOn
-            ? NSColor.controlAccentColor
-            : NSColor.labelColor.withAlphaComponent(alpha)
+        // Recording overrides everything else: the music-note glyph
+        // and the VU bars both flip to a saturated red so the
+        // menubar reads as "REC ON" the moment the user starts
+        // holding the input key. Linger fermata + voice subscript
+        // ride the same color so the chip stays visually unified.
+        // MIDI mode tints the whole chip in the accent color so the
+        // menubar reads as "routing OUT" at a glance.
+        let recordingTint = NSColor.systemRed
+        let baseColor: NSColor = recordingActive
+            ? recordingTint
+            : (midiOn
+                ? NSColor.controlAccentColor
+                : NSColor.labelColor.withAlphaComponent(alpha))
         // Blend toward pure white based on `flash` (0..1). Used to
         // signal "activity" when the user taps an octave key or
         // plays a note — the music note icon briefly gets brighter
@@ -1094,9 +1165,21 @@ enum KeyboardIconRenderer {
                 NSColor.labelColor.withAlphaComponent(0.12).setFill()
                 miniVisualizerPunchRect.fill()
             }
-            drawChipVisualizer(in: miniVisualizerRect, level: visualizerLevel,
-                               hovered: visualizerHovered,
-                               color: color, baseAlpha: alpha)
+            // While MIDI mode is on, the bars slot becomes an
+            // empty square that fills on every outbound MIDI
+            // event (Ableton-style activity indicator). When
+            // MIDI is off the slot keeps its 3-bar visualizer.
+            if midiOn {
+                drawChipMidiSquare(in: miniVisualizerRect,
+                                    flash: midiActivityFlash,
+                                    hovered: visualizerHovered,
+                                    color: color,
+                                    baseAlpha: alpha)
+            } else {
+                drawChipVisualizer(in: miniVisualizerRect, level: visualizerLevel,
+                                   hovered: visualizerHovered,
+                                   color: color, baseAlpha: alpha)
+            }
         }
         // Linger / bell-ring flourish — a fermata mark (the music
         // notation for "let ring / hold this note") drawn above the
@@ -1145,10 +1228,13 @@ enum KeyboardIconRenderer {
         // (instead of growing leftward across the music-note glyph).
         // Single digit is the visual anchor; multi-digit values
         // extend toward / past the menubar slot's right edge.
-        // Skipped for program 0 (default Acoustic Grand) so the
-        // unmodified state stays uncluttered.
-        if voiceNumber > 0 {
-            let label = String(voiceNumber)
+        // Always rendered (badge is now 1-based; voice 1 is the
+        // baseline GM Acoustic Grand and reads as "1"). When
+        // `voiceLabel` is supplied (e.g. "`" while the sample backend
+        // is active) we draw that string verbatim instead of the
+        // numeric program slot.
+        let subscriptText: String? = voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
+        if let subscriptText = subscriptText {
             // Negative kerning tightens the digits so multi-digit
             // values feel more like a tag than spaced text.
             let attrs: [NSAttributedString.Key: Any] = [
@@ -1156,7 +1242,7 @@ enum KeyboardIconRenderer {
                 .foregroundColor: color,
                 .kern: -0.4,
             ]
-            let str = NSAttributedString(string: label, attributes: attrs)
+            let str = NSAttributedString(string: subscriptText, attributes: attrs)
             // Width of a single "0" — anchor for the first digit.
             let oneDigit = NSAttributedString(string: "0", attributes: [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy),

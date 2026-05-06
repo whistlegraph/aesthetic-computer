@@ -24,6 +24,8 @@
 	<string>11.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

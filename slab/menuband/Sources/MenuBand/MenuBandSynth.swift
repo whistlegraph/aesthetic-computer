@@ -39,6 +39,11 @@ final class MenuBandSynth {
     /// by real-time NIC byte counters. Attached to the engine on
     /// `start()`; AVPlayer only spins up while `usingRadioBackend` is on.
     private let radio = KPBJRadioStream()
+    /// Microphone-sampled "voice": user holds backtick to record a clip,
+    /// then plays it back as a varispeed-pitched piano voice. Same
+    /// melodic-only routing semantics as the radio backend (channel 9
+    /// drums always pass through to GM).
+    private let sampleVoice = MenuBandSampleVoice()
     /// Sums every backend before the limiter so simultaneous voices share one
     /// gain stage. Without this, each backend would feed `mainMixerNode`
     /// directly and a chord across melodic + drums + midiSynth could exceed
@@ -57,6 +62,13 @@ final class MenuBandSynth {
             componentFlagsMask: 0)
         return AVAudioUnitEffect(audioComponentDescription: desc)
     }()
+    /// Third-party AU instrument hosted via the Plugins picker. When non-nil
+    /// and `usingPluginInstrument` is true, melodic notes route through this
+    /// AU instead of MIDISynth/sampler. Drums (channel 9) still go to GM —
+    /// the picker is intentionally a melodic-only override.
+    private var pluginUnit: AVAudioUnit?
+    private var pluginConnected = false
+    private(set) var usingPluginInstrument: Bool = false
     private var started = false
     private var melodicConnected = false
     private var drumsConnected = false
@@ -104,6 +116,10 @@ final class MenuBandSynth {
         // bus. The AVPlayer stays paused until `setRadioBackend(true)`,
         // so this just adds idle nodes — no CPU cost while inactive.
         radio.attach(to: engine, output: preLimiterMixer)
+        // Sample voice: same pre-limiter sum bus. Master gate stays
+        // closed until the user records a clip and `setSampleBackend`
+        // opens it. Voice nodes attach lazily on first noteOn.
+        sampleVoice.attach(to: engine, output: preLimiterMixer)
         engine.prepare()
         do {
             try engine.start()
@@ -285,7 +301,8 @@ final class MenuBandSynth {
     }
 
     private func scheduleIdleSuspendIfNeeded() {
-        guard started, !waveformCaptureEnabled, activeNotes.isEmpty else { return }
+        guard started, !waveformCaptureEnabled, activeNotes.isEmpty,
+              !sampleRecordingActive else { return }
         idleSuspendWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.suspendAudioEngineForHiddenIdleIfNeeded()
@@ -296,10 +313,16 @@ final class MenuBandSynth {
 
     private func suspendAudioEngineForHiddenIdleIfNeeded() {
         idleSuspendWorkItem = nil
-        guard started, engine.isRunning, !waveformCaptureEnabled, activeNotes.isEmpty else { return }
+        guard started, engine.isRunning, !waveformCaptureEnabled, activeNotes.isEmpty,
+              !sampleRecordingActive else { return }
         removeWaveformTapIfNeeded()
         engine.pause()
     }
+
+    /// True between `startSampleRecording` and `stopSampleRecording` —
+    /// keeps the engine awake during a held backtick even when no
+    /// notes are sounding so the input tap keeps delivering frames.
+    private var sampleRecordingActive: Bool = false
 
     private func noteKey(_ midi: UInt8, channel: UInt8) -> UInt16 {
         (UInt16(channel) << 8) | UInt16(midi)
@@ -525,6 +548,11 @@ final class MenuBandSynth {
         if usingRadioBackend {
             leaveRadioWithLinger()
         }
+        // Same exit story for the sample backend — picking a GM voice
+        // means "the voice picker takes over again."
+        if usingSampleBackend {
+            leaveSampleBackend()
+        }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             selectMelodicProgram(au, program: program)
             updateSamplerRoutingForActiveBackend()
@@ -559,6 +587,9 @@ final class MenuBandSynth {
             // the melodic note path that radio would otherwise take.
             if usingRadioBackend {
                 leaveRadioWithLinger()
+            }
+            if usingSampleBackend {
+                leaveSampleBackend()
             }
             updateSamplerRoutingForActiveBackend()
             return true
@@ -613,6 +644,11 @@ final class MenuBandSynth {
             radioLingerWorkItem = nil
             usingRadioBackend = true
             usingGarageBandPatch = false
+            // Radio + sample are mutually exclusive — same melodic
+            // note path.
+            if usingSampleBackend {
+                leaveSampleBackend()
+            }
             for unit in [melodic, drums] {
                 stopAllSamplerNotes(unit)
             }
@@ -630,6 +666,139 @@ final class MenuBandSynth {
             // Close the master gate immediately and start the linger
             // teardown — see `leaveRadioWithLinger` for details.
             leaveRadioWithLinger()
+        }
+    }
+
+    // MARK: - Third-party AU instrument backend
+
+    /// Install (or clear) a third-party AU as the active melodic instrument.
+    /// Pass `nil` to unload. The plugin sits on the same `preLimiterMixer`
+    /// bus as every other backend, so master limiter + waveform tap apply.
+    /// Mutually exclusive with radio/sample/GB — picking a plugin exits
+    /// those, identical to `setMelodicProgram`'s mutex semantics.
+    func setPluginInstrument(_ avUnit: AVAudioUnit?) {
+        // Tear down any previously-loaded plugin first.
+        if let prev = pluginUnit {
+            if pluginConnected {
+                engine.disconnectNodeOutput(prev)
+                pluginConnected = false
+            }
+            engine.detach(prev)
+            pluginUnit = nil
+        }
+
+        guard let avUnit = avUnit else {
+            usingPluginInstrument = false
+            updateSamplerRoutingForActiveBackend()
+            return
+        }
+
+        // Same exit dance as setMelodicProgram — these backends share the
+        // melodic note path with the plugin.
+        usingGarageBandPatch = false
+        if usingRadioBackend { leaveRadioWithLinger() }
+        if usingSampleBackend { leaveSampleBackend() }
+
+        engine.attach(avUnit)
+        engine.connect(avUnit, to: preLimiterMixer, format: nil)
+        pluginConnected = true
+        pluginUnit = avUnit
+        usingPluginInstrument = true
+        // Drop the sampler off the bus while the plugin is the melodic
+        // voice — drums (ch 9) still need their sampler/MIDISynth path.
+        disconnectMelodicSamplerIfNeeded()
+        if started {
+            _ = resumeAudioEngineIfNeeded()
+        }
+    }
+
+    /// Live AU handle so callers (e.g. the picker) can request its UI
+    /// view controller via `auAudioUnit.requestViewController`.
+    var pluginInstrument: AVAudioUnit? { pluginUnit }
+
+    // MARK: - Sample voice recording control
+
+    /// Begin recording into the sample voice's buffer. Wakes the audio
+    /// engine first if it was suspended for idle, since the input-node
+    /// tap won't deliver frames against a paused graph.
+    func startSampleRecording() {
+        guard started else { return }
+        _ = resumeAudioEngineIfNeeded()
+        sampleRecordingActive = true
+        sampleVoice.startRecording()
+    }
+
+    /// Stop recording. Returns true iff a usable buffer (≥100 ms) was
+    /// captured; the caller flips the active backend to `.sample` only
+    /// in that case.
+    @discardableResult
+    func stopSampleRecording() -> Bool {
+        let ok = sampleVoice.stopRecording()
+        sampleRecordingActive = false
+        scheduleIdleSuspendIfNeeded()
+        return ok
+    }
+
+    /// Public read of the underlying sample voice's recording flag —
+    /// used by the AppDelegate to drive the menubar icon's red
+    /// "recording" tint.
+    var sampleRecording: Bool { sampleVoice.isRecording }
+
+    /// Forwarded RMS callback. Set by the AppDelegate so the menubar
+    /// VU meter can pulse with the user's voice during recording. The
+    /// underlying tap fires this on the main queue (see
+    /// `MenuBandSampleVoice.ingestInput`).
+    var onSampleLevel: ((Float) -> Void)? {
+        get { sampleVoice.onLevel }
+        set { sampleVoice.onLevel = newValue }
+    }
+
+    // MARK: - Sample voice backend
+
+    /// True while microphone-recorded samples are the active melodic
+    /// source. Drum keys (channel 9) still go to GM, identical to the
+    /// radio-backend path.
+    private(set) var usingSampleBackend: Bool = false
+
+    /// Leave the sample backend, restoring whichever GM/sampler voice
+    /// was last selected. Mirrors `leaveRadioWithLinger` minus the
+    /// linger window — there's no expensive resource (network stream)
+    /// to keep warm here, so we just close the gate and let the GM
+    /// path take over.
+    private func leaveSampleBackend() {
+        guard usingSampleBackend else { return }
+        usingSampleBackend = false
+        sampleVoice.setOutputEnabled(false)
+        sampleVoice.panic()
+    }
+
+    /// Switch the active melodic source between the local synth and
+    /// the user-recorded sample voice. Enabling silences any in-flight
+    /// MIDISynth / sampler notes so we don't double-trigger; disabling
+    /// closes the master gate immediately.
+    func setSampleBackend(_ enabled: Bool) {
+        if enabled {
+            usingSampleBackend = true
+            usingGarageBandPatch = false
+            // Sample + radio are mutually exclusive — same melodic
+            // note path.
+            if usingRadioBackend {
+                leaveRadioWithLinger()
+            }
+            for unit in [melodic, drums] {
+                stopAllSamplerNotes(unit)
+            }
+            if midiSynthReady, let au = midiSynth?.audioUnit {
+                for ch: UInt8 in 0..<16 {
+                    sendMIDIEvent(au, status: 0xB0 | ch, data1: 123, data2: 0)
+                }
+            }
+            if started {
+                _ = resumeAudioEngineIfNeeded()
+                sampleVoice.setOutputEnabled(true)
+            }
+        } else {
+            leaveSampleBackend()
         }
     }
 
@@ -660,11 +829,24 @@ final class MenuBandSynth {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
         activeNotes.insert(noteKey(midi, channel: channel))
+        // Plugin instrument wins on melodic — picked deliberately via the
+        // About → Plugins picker, so it overrides every other melodic
+        // backend. Drums (ch 9) still flow to GM below.
+        if usingPluginInstrument && channel != 9, let au = pluginUnit?.audioUnit {
+            sendMIDIEvent(au, status: 0x90 | (channel & 0x0F), data1: midi, data2: velocity)
+            return
+        }
         // Radio backend takes melodic ahead of GM/sampler/MIDISynth.
         // Drums still pass through to GM below — the KPBJ pads are a
         // melodic-only voice.
         if usingRadioBackend && channel != 9 {
             radio.noteOn(midi, velocity: velocity, channel: channel)
+            return
+        }
+        // Sample backend — same melodic-only routing semantics as
+        // radio. Drums always continue down to the GM path.
+        if usingSampleBackend && channel != 9 {
+            sampleVoice.noteOn(midi, velocity: velocity, channel: channel)
             return
         }
         // Drums (channel 9) always route through MIDISynth/drums sampler
@@ -696,12 +878,36 @@ final class MenuBandSynth {
         melodic.startNote(midi, withVelocity: velocity, onChannel: 0)
     }
 
+    /// Send a 14-bit pitch-bend value to the active synth on the
+    /// given channel. `value` is signed: -8192 (full down) to +8191
+    /// (full up); 0 = center. Only the MIDISynth path supports
+    /// pitch-bend natively; the AVAudioUnitSampler fallback is a
+    /// no-op (and the trackpad gesture caller checks midiMode).
+    func sendPitchBend(value: Int16, channel: UInt8 = 0) {
+        guard started else { return }
+        let v = max(-8192, min(8191, Int(value))) + 8192   // 0…16383
+        let lsb = UInt8(v & 0x7F)
+        let msb = UInt8((v >> 7) & 0x7F)
+        let status: UInt8 = 0xE0 | (channel & 0x0F)
+        if midiSynthReady, let au = midiSynth?.audioUnit {
+            sendMIDIEvent(au, status: status, data1: lsb, data2: msb)
+        }
+    }
+
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
         guard started else { return }
         activeNotes.remove(noteKey(midi, channel: channel))
         defer { scheduleIdleSuspendIfNeeded() }
+        if usingPluginInstrument && channel != 9, let au = pluginUnit?.audioUnit {
+            sendMIDIEvent(au, status: 0x80 | (channel & 0x0F), data1: midi)
+            return
+        }
         if usingRadioBackend && channel != 9 {
             radio.noteOff(midi, channel: channel)
+            return
+        }
+        if usingSampleBackend && channel != 9 {
+            sampleVoice.noteOff(midi, channel: channel)
             return
         }
         if channel == 9 {
@@ -736,6 +942,12 @@ final class MenuBandSynth {
         for unit in [melodic, drums] {
             stopAllSamplerNotes(unit)
         }
+        if usingPluginInstrument, let au = pluginUnit?.audioUnit {
+            for ch: UInt8 in 0..<16 {
+                sendMIDIEvent(au, status: 0xB0 | ch, data1: 123, data2: 0)
+            }
+        }
         radio.panic()
+        sampleVoice.panic()
     }
 }
