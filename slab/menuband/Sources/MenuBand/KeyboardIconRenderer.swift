@@ -201,6 +201,16 @@ enum KeyboardIconRenderer {
     /// activity indicator). AppDelegate spikes this to 1 on each
     /// noteOn and decays it at ~80% per animation tick.
     static var midiActivityFlash: CGFloat = 0
+    /// 0..1 metronome-tick flash — driven by the popover metronome
+    /// each audible beat. Tints the music-note glyph yellow for a
+    /// fraction of a second, decaying smoothly so the menubar
+    /// "blinks" in time with the tempo.
+    static var metronomeFlash: CGFloat = 0
+    /// When true the visualizer slot inside the music-note chip
+    /// renders a continuous sine wave instead of the 3 VU bars —
+    /// reads as the metronome's "carrier" running, with the
+    /// per-tick yellow flash riding on top.
+    static var metronomeOn: Bool = false
 
     static func withPianoWaveformKeyboard<T>(keymap: Keymap?, _ body: () -> T) -> T {
         let oldLayout = displayLayout
@@ -1037,6 +1047,36 @@ enum KeyboardIconRenderer {
         }
     }
 
+    /// Single sine wave across the visualizer slot — drawn while
+    /// the metronome is running so the chip reads as a live tempo
+    /// indicator. Phase advances with wall-clock time; amplitude
+    /// briefly swells with `metronomeFlash` so the wave "thickens"
+    /// on every audible tick.
+    private static func drawChipMetronomeWave(in rect: NSRect,
+                                                hovered: Bool,
+                                                color: NSColor,
+                                                baseAlpha: CGFloat) {
+        let alpha: CGFloat = hovered ? 1.0 : baseAlpha
+        let f = max(0, min(1, metronomeFlash))
+        // Wave sits centered vertically; amplitude pulses 35–55% of
+        // the slot's half-height with the per-tick flash.
+        let halfH = rect.height / 2
+        let amp = halfH * (0.35 + 0.20 * f)
+        let phase = CGFloat(miniVisualizerPhase) * 4.5
+        let path = NSBezierPath()
+        path.lineWidth = 1.0
+        let steps = 16
+        for i in 0...steps {
+            let t = CGFloat(i) / CGFloat(steps)
+            let x = rect.minX + t * rect.width
+            let y = rect.midY + sin(t * .pi * 2 + phase) * amp
+            if i == 0 { path.move(to: NSPoint(x: x, y: y)) }
+            else { path.line(to: NSPoint(x: x, y: y)) }
+        }
+        color.withAlphaComponent(alpha).setStroke()
+        path.stroke()
+    }
+
     private static func drawChipVisualizer(in rect: NSRect, level: CGFloat,
                                            hovered: Bool, color: NSColor,
                                            baseAlpha: CGFloat) {
@@ -1134,11 +1174,16 @@ enum KeyboardIconRenderer {
         // Blend toward pure white based on `flash` (0..1). Used to
         // signal "activity" when the user taps an octave key or
         // plays a note — the music note icon briefly gets brighter
-        // before settling back.
+        // before settling back. Metronome ticks add a yellow blink
+        // on top so the icon visibly pulses with the beat.
         let f = max(0, min(1, flash))
-        let color = (f > 0.001)
+        var color = (f > 0.001)
             ? baseColor.blended(withFraction: f, of: .white) ?? baseColor
             : baseColor
+        let mF = max(0, min(1, metronomeFlash))
+        if mF > 0.01, let yellowed = color.blended(withFraction: mF * 0.85, of: .systemYellow) {
+            color = yellowed
+        }
         // Draw the SF Symbol music.note.list at its original pointSize
         // (13) over the full chip. At rest the staff lines should
         // remain visible (the chip reads as the natural system glyph).
@@ -1175,6 +1220,11 @@ enum KeyboardIconRenderer {
                                     hovered: visualizerHovered,
                                     color: color,
                                     baseAlpha: alpha)
+            } else if metronomeOn {
+                drawChipMetronomeWave(in: miniVisualizerRect,
+                                       hovered: visualizerHovered,
+                                       color: color,
+                                       baseAlpha: alpha)
             } else {
                 drawChipVisualizer(in: miniVisualizerRect, level: visualizerLevel,
                                    hovered: visualizerHovered,

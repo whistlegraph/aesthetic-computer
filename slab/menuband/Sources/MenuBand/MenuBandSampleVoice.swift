@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import AppKit
 
 /// Microphone-sampled voice — the user holds backtick (`) to capture a
 /// short clip from the default input device, then plays it back as a
@@ -137,13 +138,42 @@ final class MenuBandSampleVoice {
             NSLog("MenuBand SampleVoice: startRecording without engine attached")
             return
         }
+        // TCC: on macOS the very first attempt to access the default
+        // input device only succeeds after the user has granted
+        // microphone permission. Trigger the system prompt explicitly
+        // here — without this, `inputNode.outputFormat(forBus:)` can
+        // return a 0-channel format and the recording silently fails.
+        let authStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        switch authStatus {
+        case .denied, .restricted:
+            NSLog("MenuBand SampleVoice: microphone access denied (status \(authStatus.rawValue))")
+            DispatchQueue.main.async { Self.showMicPermissionAlert(denied: true) }
+            return
+        case .notDetermined:
+            NSLog("MenuBand SampleVoice: requesting microphone permission")
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+                NSLog("MenuBand SampleVoice: microphone permission granted=\(granted)")
+                DispatchQueue.main.async {
+                    if granted {
+                        self?.startRecording()
+                    } else {
+                        Self.showMicPermissionAlert(denied: true)
+                    }
+                }
+            }
+            return
+        case .authorized:
+            break
+        @unknown default:
+            break
+        }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         // Some virtual input devices return a 0-channel / 0-Hz format
         // when no real device is selected. Bail loudly so the synth
         // doesn't think it has a usable buffer when the user releases.
         guard format.channelCount > 0, format.sampleRate > 0 else {
-            NSLog("MenuBand SampleVoice: input format unusable (ch=\(format.channelCount) sr=\(format.sampleRate))")
+            NSLog("MenuBand SampleVoice: input format unusable (ch=\(format.channelCount) sr=\(format.sampleRate)) — engine running=\(engine.isRunning)")
             return
         }
         inputFormat = format
@@ -453,5 +483,32 @@ final class MenuBandSampleVoice {
     var hasRecording: Bool {
         bufferLock.lock(); defer { bufferLock.unlock() }
         return recordedBuffer != nil
+    }
+
+    /// Show an NSAlert explaining how to enable microphone access for
+    /// Menu Band. Called when TCC has already denied the request, OR
+    /// after the user clicks "Don't Allow" on the system prompt.
+    /// Includes a button that opens System Settings → Privacy →
+    /// Microphone directly so the fix is one click away.
+    private static var alertVisible = false
+    private static func showMicPermissionAlert(denied: Bool) {
+        guard !alertVisible else { return }
+        alertVisible = true
+        defer { alertVisible = false }
+        let alert = NSAlert()
+        alert.messageText = "Menu Band can't reach the microphone"
+        alert.informativeText = denied
+            ? "Microphone access has been denied. Open System Settings → Privacy & Security → Microphone and toggle Menu Band on, then try the sample voice again."
+            : "Menu Band needs microphone access to record sample notes. Grant permission when macOS asks, or open System Settings → Privacy & Security → Microphone to enable it manually."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            // x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 }

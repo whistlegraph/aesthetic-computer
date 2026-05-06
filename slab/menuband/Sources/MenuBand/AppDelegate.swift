@@ -907,6 +907,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if KeyboardIconRenderer.midiActivityFlash < 0.01 {
                 KeyboardIconRenderer.midiActivityFlash = 0
             }
+            // Metronome blink — popover's metronome spikes this to
+            // 1 on each beat; decay slow enough that the yellow
+            // tint reads as a clear pulse, not a flicker.
+            KeyboardIconRenderer.metronomeFlash *= 0.88
+            if KeyboardIconRenderer.metronomeFlash < 0.01 {
+                KeyboardIconRenderer.metronomeFlash = 0
+            }
             self.updateIcon()
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -933,7 +940,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 KeyboardIconRenderer.lingerCapsLatched = caps
                 dirty = true
             }
-            if dirty { self.updateIcon() }
+            if dirty {
+                self.updateIcon()
+                // Staff view's note letters honor labelsUppercase too;
+                // repaint held notes so capitalization flips along
+                // with the menubar piano + qwerty map.
+                self.popoverVC?.refreshHeldNotes()
+            }
         }
         globalShiftMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -1180,7 +1193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return flashStrength * (1 - t)
     }
 
-    private func updateIcon() {
+    func updateIcon() {
         guard let button = statusItem.button else { return }
         // Use *effective* keymap/typeMode so popover hover-preview can
         // override the live state without writing to UserDefaults. The
