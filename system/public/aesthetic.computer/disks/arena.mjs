@@ -698,7 +698,7 @@ function simGrenade(dt, doll, cam) {
   myGrenade.z += myGrenade.vz * dt;
 
   // Floor bounce — only on top of the platform; outside groundBounds the
-  // grenade falls into the pit and silently dies.
+  // grenade flies off the edge and falls toward the lava (no edge wall).
   const b = ARENA_CFG.groundBounds;
   const onPlatform = myGrenade.x >= b.xMin && myGrenade.x <= b.xMax &&
                      myGrenade.z >= b.zMin && myGrenade.z <= b.zMax;
@@ -711,22 +711,15 @@ function simGrenade(dt, doll, cam) {
     if (Math.abs(myGrenade.vy) < GRENADE_REST_VY) myGrenade.vy = 0;
   }
 
-  // Bounce off platform edge walls (treat the platform XZ rect like solid box).
-  if (myGrenade.y < ARENA_CFG.groundY + 0.5) {
-    if (myGrenade.x < b.xMin && myGrenade.vx < 0) { myGrenade.x = b.xMin; myGrenade.vx = -myGrenade.vx * GRENADE_BOUNCE_RESTITUTION; }
-    if (myGrenade.x > b.xMax && myGrenade.vx > 0) { myGrenade.x = b.xMax; myGrenade.vx = -myGrenade.vx * GRENADE_BOUNCE_RESTITUTION; }
-    if (myGrenade.z < b.zMin && myGrenade.vz < 0) { myGrenade.z = b.zMin; myGrenade.vz = -myGrenade.vz * GRENADE_BOUNCE_RESTITUTION; }
-    if (myGrenade.z > b.zMax && myGrenade.vz > 0) { myGrenade.z = b.zMax; myGrenade.vz = -myGrenade.vz * GRENADE_BOUNCE_RESTITUTION; }
-  }
-
-  // Fell into the lava → fizzle, no big boom (and no knockback either).
-  if (myGrenade.y < ARENA_CFG.deathFloorY) {
+  if (myGrenade.t >= GRENADE_FUSE) {
+    detonate(myGrenade.x, myGrenade.y, myGrenade.z, doll, cam);
     myGrenade = null;
     return;
   }
 
-  if (myGrenade.t >= GRENADE_FUSE) {
-    detonate(myGrenade.x, myGrenade.y, myGrenade.z, doll, cam);
+  // Past the lava floor without having detonated — fizzle so we don't render
+  // a grenade falling forever into the abyss.
+  if (myGrenade.y < ARENA_CFG.deathFloorY - 5) {
     myGrenade = null;
   }
 }
@@ -781,10 +774,21 @@ function buildGrenadeForm(g) {
     1.0,
   ];
   // Octahedron — 6 verts, 8 triangles. Reads as a small spinning shell.
+  // Bake spin + world position straight into vertex coords (matches the
+  // lava/ground/platform pattern); fresh forms with `pos: [...]` were not
+  // sticking to their world position when the player WASD'd.
+  const yaw = (g.t * 240) * Math.PI / 180;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const place = (lx, ly, lz) => [
+    g.x + (lx * cy - lz * sy),
+    g.y + ly,
+    g.z + (lx * sy + lz * cy),
+    1,
+  ];
   const v = [
-    [ 0,  r, 0, 1], [ 0, -r, 0, 1],
-    [ r,  0, 0, 1], [-r,  0, 0, 1],
-    [ 0,  0, r, 1], [ 0,  0,-r, 1],
+    place( 0,  r, 0), place( 0, -r, 0),
+    place( r,  0, 0), place(-r,  0, 0),
+    place( 0,  0, r), place( 0,  0,-r),
   ];
   const tris = [
     [0,2,4],[0,4,3],[0,3,5],[0,5,2],
@@ -795,11 +799,9 @@ function buildGrenadeForm(g) {
     positions.push(v[a], v[b], v[c]);
     colors.push(col, col, col);
   }
-  // Form.position uses arena's logical world (cam.x → pos[0], cam.z → pos[2],
-  // true world Y → pos[1]) — same convention as bodyFeet/shadows above.
   const f = new FormRef(
     { type: "triangle", positions, colors },
-    { pos: [g.x, g.y, g.z], rot: [0, g.t * 240, 0], scale: 1 },
+    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
   );
   f.noFade = true;
   return f;
@@ -818,11 +820,20 @@ function buildExplosionPill(ex) {
   const ringSegs = 16;
   const hemiSegs = 5;
 
+  // Bake the world position straight into each vertex (use pos:[0,0,0])
+  // — fresh per-frame forms with non-zero `pos` weren't tracking the
+  // detonation point when the player moved, and absolute coords also let
+  // the platform's depth-buffer occlude wireframe behind it.
   const ringPoints = (y, r) => {
     const pts = [];
     for (let i = 0; i < ringSegs; i++) {
       const a = (i / ringSegs) * Math.PI * 2;
-      pts.push([Math.cos(a) * r, y, Math.sin(a) * r, 1]);
+      pts.push([
+        ex.x + Math.cos(a) * r,
+        ex.y + y,
+        ex.z + Math.sin(a) * r,
+        1,
+      ]);
     }
     return pts;
   };
@@ -852,7 +863,7 @@ function buildExplosionPill(ex) {
   }
   const f = new FormRef(
     { type: "line", positions, colors },
-    { pos: [ex.x, ex.y, ex.z], rot: [0, 0, 0], scale: 1 },
+    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
   );
   f.noFade = true;
   return f;
@@ -1490,6 +1501,180 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       box(5, 18, 1, 1);
     });
 
+    // 💣 Grenade button — fuse unlit (idle)
+    buttonBuffers.grenade_normal = painting(28, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(140, 50, 40, 255); // Deep TNT red
+      // Pineapple body (olive drab)
+      ink(70, 95, 70);
+      box(9, 12, 10, 11);
+      // Body shading (right side darker)
+      ink(50, 75, 50);
+      box(17, 12, 2, 11);
+      // Cross-hatch texture
+      ink(40, 65, 40);
+      line(9, 15, 18, 15);
+      line(9, 19, 18, 19);
+      line(12, 12, 12, 22);
+      line(15, 12, 15, 22);
+      // Highlight glint on body
+      ink(120, 150, 120);
+      box(10, 13, 1, 1);
+      // Top cap (steel)
+      ink(120, 120, 130);
+      box(11, 9, 6, 3);
+      ink(160, 160, 170);
+      box(11, 9, 6, 1);
+      // Pin ring (yellow)
+      ink(220, 200, 80);
+      line(17, 10, 22, 7);
+      box(21, 5, 3, 3);
+      ink(180, 160, 60);
+      box(22, 6, 1, 1);
+    });
+
+    // 💣 Grenade button — fuse lit (pressed/launching)
+    buttonBuffers.grenade_active = painting(28, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(220, 80, 50, 255); // Hot warning red
+      // Body
+      ink(90, 125, 90);
+      box(9, 12, 10, 11);
+      ink(60, 90, 60);
+      box(17, 12, 2, 11);
+      // Cross-hatch
+      ink(50, 80, 50);
+      line(9, 15, 18, 15);
+      line(9, 19, 18, 19);
+      line(12, 12, 12, 22);
+      line(15, 12, 15, 22);
+      // Brighter highlight
+      ink(160, 200, 160);
+      box(10, 13, 1, 1);
+      box(11, 13, 1, 1);
+      // Top cap (brighter)
+      ink(180, 180, 190);
+      box(11, 9, 6, 3);
+      // Spark trail rising from cap
+      ink(255, 220, 60);
+      line(14, 9, 14, 5);
+      box(13, 6, 1, 1);
+      box(15, 6, 1, 1);
+      // Flame burst
+      ink(255, 140, 40);
+      box(12, 2, 5, 3);
+      ink(255, 240, 120);
+      box(13, 3, 3, 1);
+      box(14, 1, 1, 1);
+      // Sparks flying outward
+      ink(255, 200, 100);
+      box(7, 7, 1, 1);
+      box(20, 9, 1, 1);
+      box(22, 4, 1, 1);
+    });
+
+    // 🎥 View toggle — 1st person (default normal state)
+    buttonBuffers.view_normal = painting(56, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(50, 105, 140, 255); // Deep teal — matches "1st" HUD family
+      ink(255, 255, 200); // Skin
+
+      // Big close-up head (filling the strip — "you ARE this character")
+      box(20, 4, 16, 14);
+
+      // Eyes — wide & looking right at the viewer (the camera IS the eyes)
+      ink(50, 50, 50);
+      box(24, 9, 2, 2);
+      box(30, 9, 2, 2);
+
+      // Cyan glint pupils — POV signal
+      ink(120, 220, 230);
+      box(24, 9, 1, 1);
+      box(30, 9, 1, 1);
+
+      // Smile
+      ink(255, 100, 100);
+      line(25, 14, 31, 14);
+      box(25, 13, 1, 1);
+      box(31, 13, 1, 1);
+
+      // Cheek blush
+      ink(255, 180, 180);
+      box(21, 12, 1, 1);
+      box(34, 12, 1, 1);
+
+      // Forward gaze brackets — chevron radiating right (POV cone)
+      ink(180, 230, 240);
+      line(40, 11, 47, 8);
+      line(40, 11, 47, 14);
+      line(40, 16, 47, 13);
+      line(40, 16, 47, 19);
+
+      // Tiny "1" badge bottom-left
+      ink(255, 255, 255);
+      box(7, 19, 1, 5);
+      box(8, 19, 1, 1);
+
+      // Hint of shoulders (peeking up)
+      ink(255, 255, 200);
+      line(20, 18, 17, 22);
+      line(36, 18, 39, 22);
+    });
+
+    // 🎥 View toggle — 3rd person (active state)
+    buttonBuffers.view_active = painting(56, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(140, 95, 180, 255); // Lavender — matches "3rd" HUD family
+      ink(255, 255, 200); // Skin
+
+      // Full-body cute character on the right (seen from behind/side)
+      // Head
+      box(34, 4, 8, 7);
+
+      // Tiny back-of-head dots (no facing eyes — facing away)
+      ink(50, 50, 50);
+      box(36, 7, 1, 1);
+      box(39, 7, 1, 1);
+
+      // Body
+      ink(255, 255, 200);
+      line(38, 11, 38, 17);
+
+      // Arms
+      line(34, 13, 31, 16);
+      line(42, 13, 45, 16);
+
+      // Legs
+      line(36, 17, 34, 23);
+      line(40, 17, 42, 23);
+
+      // Floating camera behind the character (left side)
+      ink(40, 40, 50);
+      box(7, 9, 10, 8); // body
+      ink(80, 80, 95);
+      box(7, 9, 10, 1); // top edge highlight
+      // Lens
+      ink(50, 50, 60);
+      box(13, 11, 4, 4);
+      ink(120, 220, 230);
+      box(14, 12, 2, 2);
+      ink(255, 255, 255);
+      box(14, 12, 1, 1);
+      // Tally light (recording)
+      ink(255, 80, 80);
+      box(8, 10, 1, 1);
+
+      // Sight line camera → character
+      ink(220, 200, 240, 200);
+      line(17, 13, 33, 13);
+
+      // Tiny "3" badge bottom-right (3 stacked dots)
+      ink(255, 255, 255);
+      box(50, 19, 2, 1);
+      box(50, 21, 2, 1);
+      box(50, 23, 2, 1);
+    });
+
     console.log("✓ Button buffers created successfully");
   }
 
@@ -1833,9 +2018,11 @@ function sim({ system, pen, screen }) {
     if (activeExplosion.age >= EXPLOSION_DURATION) activeExplosion = null;
   }
 
-  // 📱 Update mobile button states
+  // 📱 Update mobile button states (movement only — grenade/view fire from
+  // act() so we don't get double triggers).
   if (mobileButtons && doll) {
     for (const [name, btnData] of Object.entries(mobileButtons)) {
+      if (btnData.isGrenade || btnData.isView) continue;
       const isPressed = btnData.btn?.down ?? false;
       const wasPressed = mobileButtonStates[name] ?? false;
 
@@ -2562,9 +2749,13 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
 
         // Determine which buffer to render based on button state
         let bufferName = name;
-        if (name === "jump" || name === "crouch" || name === "up" || name === "down" || name === "left" || name === "right") {
-          // Jump/Crouch/Arrow buttons have animation states
+        if (name === "jump" || name === "crouch" || name === "up" || name === "down" || name === "left" || name === "right" || name === "grenade") {
+          // Jump/Crouch/Arrow/Grenade buttons have press-driven animation states
           bufferName = isPressed ? `${name}_active` : `${name}_normal`;
+        } else if (name === "view") {
+          // View toggle reflects the camera mode itself, not the momentary tap:
+          // _active = 3rd-person, _normal = 1st-person.
+          bufferName = zoomLevel > 0 ? "view_active" : "view_normal";
         }
 
         const buffer = buttonBuffers[bufferName];
@@ -2714,11 +2905,26 @@ function act({ event: e, penLock, system, screen, ui }) {
       btnData.btn?.act(e, {
         down: () => {
           mobileButtonHit = true;
-          doll.setMovement(btnData.key, true);
+          if (btnData.isGrenade) {
+            // 💣 Mobile grenade trigger — single fire on tap; gated identically
+            // to the click-to-fire path so we never double-spawn.
+            if (playerAlive && !myGrenade && !netSpectator) {
+              fireGrenade(doll.cam, doll);
+            }
+          } else if (btnData.isView) {
+            // 🎥 First/third-person toggle — flip between 1P (level 0) and the
+            // default shoulder-cam (level 2).
+            zoomLevel = zoomLevel === 0 ? 2 : 0;
+            applyZoom(doll);
+          } else {
+            doll.setMovement(btnData.key, true);
+          }
         },
         push: () => {},
         cancel: () => {
-          doll.setMovement(btnData.key, false);
+          if (!btnData.isGrenade && !btnData.isView) {
+            doll.setMovement(btnData.key, false);
+          }
         },
       });
     }
@@ -2843,21 +3049,23 @@ function initMobileButtons(screen, ui) {
   const moveX = padding;
   const moveY = screen.height - (btnSize * 3 + gap * 2 + bottomMargin);
 
-  // Action buttons (bottom-right): wider layout
+  // Action buttons (bottom-right): wider layout, three rows: view / jump / crouch.
   const actionX = screen.width - btnSizeWide - padding;
-  const actionY = screen.height - (btnSize * 2 + gap + bottomMargin);
+  const actionY = screen.height - (btnSize * 3 + gap * 2 + bottomMargin);
 
-  // D-pad layout:
+  // D-pad layout (center cell is the grenade trigger):
   //     ↑
-  //  ← ● →
+  //  ← 💣 →
   //     ↓
   mobileButtons = {
     up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "↑", isArrow: true },
     down: { btn: new ui.Button(moveX + btnSize + gap, moveY + (btnSize + gap) * 2, btnSize, btnSize), key: "back", label: "↓", isArrow: true },
     left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "←", isArrow: true },
     right: { btn: new ui.Button(moveX + (btnSize + gap) * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "→", isArrow: true },
-    jump: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: "jump", label: "JUMP", color: [50, 200, 100] },
-    crouch: { btn: new ui.Button(actionX, actionY + btnSize + gap, btnSizeWide, btnSize), key: "crouch", label: "CROUCH", color: [220, 150, 40] },
+    grenade: { btn: new ui.Button(moveX + btnSize + gap, moveY + btnSize + gap, btnSize, btnSize), key: "grenade", label: "💣", color: [200, 60, 50], isGrenade: true },
+    view: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: "view", label: "VIEW", color: [150, 110, 200], isView: true },
+    jump: { btn: new ui.Button(actionX, actionY + btnSize + gap, btnSizeWide, btnSize), key: "jump", label: "JUMP", color: [50, 200, 100] },
+    crouch: { btn: new ui.Button(actionX, actionY + (btnSize + gap) * 2, btnSizeWide, btnSize), key: "crouch", label: "CROUCH", color: [220, 150, 40] },
   };
 }
 
