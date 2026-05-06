@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The AC Papermill, Live · NYABF Project Space 2026 · WIP DRAFT</title>
-<meta name="description" content="Jeffrey Alan Scudder's WIP proposal for the NY Art Book Fair Project Space 2026: a live publishing booth where visitors write KidLisp programs that print themselves as single-sheet cards in real time, framed by the menuband performance overlay and the Aesthetic.Computer native OS that produced them.">
+<title>The AC Papermill · A New-Media Expert System, Live · NYABF Project Space 2026 · WIP DRAFT</title>
+<meta name="description" content="Jeffrey Alan Scudder's WIP proposal for the NY Art Book Fair Project Space 2026: a reference-desk booth where visitors ask their own new-media research questions of a locally hosted 137 MB Aesthetic.Computer papers platter — 44 papers, 14 organizational dossiers, the bound AC Reader — and walk away with a printed, footnoted answer card. The papermill, after five years, has crossed into a classical-expert-system register.">
 <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
 <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
 <style>
@@ -224,6 +224,7 @@
   }
   .pitch em { color: var(--pink); font-style: normal; }
   .pitch strong { color: var(--text); }
+  .pitch q { quotes: "“" "”"; color: var(--gold); font-style: italic; }
   .pitch code {
     font-family: 'Berkeley Mono Variable', monospace;
     font-size: 0.9em;
@@ -256,32 +257,53 @@
   }
   .anchor p { margin: 0; color: var(--text); font-size: 0.88em; line-height: 1.5; }
 
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.6em;
-    margin: 1em 0;
-  }
-  .stat {
-    padding: 0.9em 1em;
-    background: var(--box-bg);
+  /* Platter inventory bar — visual byte-budget */
+  .platter-bar {
+    display: flex;
+    width: 100%;
+    height: 2.4em;
     border: 1px solid var(--box-border);
-    border-radius: 3px;
-    text-align: left;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.6em 0 0.4em;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.7em;
   }
-  .stat .n {
-    display: block;
-    font-family: 'YWFT Processing', monospace;
-    font-size: 1.8em;
-    color: var(--cyan);
-    line-height: 1;
-    margin-bottom: 0.15em;
+  .platter-bar .seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1c1208;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 1px solid rgba(28,18,8,0.25);
+    padding: 0 0.4em;
+    letter-spacing: 0.04em;
   }
-  .stat .l { color: var(--dim); font-size: 0.75em; letter-spacing: 0.1em; text-transform: uppercase; }
-  .stat.loaded .n { color: var(--pink); }
-  .stats-status { font-size: 0.8em; color: var(--dim); margin-top: 0.4em; }
-  .stats-status .ok { color: var(--green); }
-  .stats-status .err { color: var(--red); }
+  .platter-bar .seg:last-child { border-right: none; }
+  .platter-bar .seg.papers { background: var(--gold); }
+  .platter-bar .seg.figures { background: var(--cyan); }
+  .platter-bar .seg.dossiers { background: var(--purple); color: #fffef5; }
+  .platter-bar .seg.reader { background: var(--pink); color: #fffef5; }
+  .platter-bar .seg.subplatters { background: var(--green); }
+  .platter-bar .seg.lectures-cv { background: var(--red); color: #fffef5; }
+  .platter-bar .seg.scaffolds { background: var(--dim); color: #1c1208; }
+  .platter-legend {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.78em;
+    color: var(--dim);
+    margin-top: 0.3em;
+    line-height: 1.7;
+  }
+  .platter-legend .swatch {
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: 0.3em;
+    vertical-align: -1px;
+    border-radius: 2px;
+  }
 
   .features {
     display: grid;
@@ -299,6 +321,61 @@
   .feat b { color: var(--purple); font-family: 'YWFT Processing', monospace; font-weight: normal; display: block; margin-bottom: 0.15em; }
   .feat.planned { border-left-color: var(--gold); }
   .feat.planned b { color: var(--gold); }
+  .feat.gold { border-left-color: var(--gold); }
+  .feat.gold b { color: var(--gold); }
+  .feat.cyan { border-left-color: var(--cyan); }
+  .feat.cyan b { color: var(--cyan); }
+  .feat .meta-line {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.8em;
+    color: var(--dim);
+    margin-top: 0.2em;
+  }
+
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--pink); font-style: normal; }
+
+  /* Sample queries — looks like a card index */
+  .queries { display: grid; gap: 0.4em; margin: 1em 0; }
+  .query {
+    padding: 0.7em 0.9em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--cyan);
+    border-radius: 3px;
+    font-size: 0.92em;
+  }
+  .query .q {
+    font-family: 'YWFT Processing', monospace;
+    color: var(--cyan);
+    margin-bottom: 0.15em;
+    font-size: 1.02em;
+  }
+  .query .a {
+    color: var(--text);
+    font-size: 0.88em;
+    line-height: 1.5;
+  }
+  .query .a code { color: var(--gold); }
+  .query .src {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.78em;
+    color: var(--dim);
+    margin-top: 0.3em;
+    letter-spacing: 0.04em;
+  }
+  .query .src .pin { color: var(--pink); }
 
   .check { list-style: none; padding: 0; font-size: 0.9em; }
   .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
@@ -324,6 +401,7 @@
     body { padding: 1.2em 1em 3em; font-size: 13px; }
     .meta { grid-template-columns: 1fr; gap: 0.05em; }
     .meta dt { padding-top: 0.6em; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
   }
 </style>
 </head>
@@ -336,173 +414,214 @@
 
   <header class="mast">
     <div class="eyebrow"><span class="tag">NY Art Book Fair · Project Space</span> · 2026 · <span class="wip">wip draft</span></div>
-    <h1>The AC<br>Papermill<span class="dot">,</span><br><em>Live</em><span class="dot">.</span></h1>
-    <p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Aesthetic<span style="color:var(--pink)">.</span>Computer — a Project Space pitch for NYABF 2026</p>
+    <h1>The AC<br>Papermill<span class="dot">,</span><br><em>Asked Live</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">A reference desk at NYABF · ask the platter your new-media research questions · take home the footnoted answer</p>
     <p class="sub">Proposal by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
     <dl class="meta">
       <dt>Deadline</dt><dd class="due">Fri, 8 May 2026 · <span style="color:var(--gold)">drafting</span></dd>
       <dt>Fair</dt><dd>NY Art Book Fair · MoMA PS1 · fall 2026</dd>
       <dt>Stipend</dt><dd>$3,500 · footprint inside the fair</dd>
       <dt>Format</dt><dd><span class="partner">Project Space</span> · expanded presentation, not a table</dd>
-      <dt>Call</dt><dd><a href="https://printedmatterartbookfairs.org/faq">printedmatterartbookfairs.org · FAQ</a> · <a href="https://printedmatterartbookfairs.org/are-there-opportunities-for-financial-support">financial-support page</a></dd>
+      <dt>Platter size</dt><dd><strong>137 MB</strong> on disk · 44 papers · 14 dossiers · 1 bound Reader · 3 sub-platters · all four languages (EN / DA / ES / ZH)</dd>
+      <dt>Call</dt><dd><a href="https://printedmatterartbookfairs.org/faq">printedmatterartbookfairs.org · FAQ</a></dd>
       <dt>Submit</dt><dd><a href="https://docs.google.com/forms/d/e/1FAIpQLSdgkY1vM_7eIBYN58OfjptF8HQlPwIioX6Zvst-Mccg1RWBVw/viewform">Project Space proposal form</a></dd>
-      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/printed-matter-project-space-2026">grants/printed-matter-project-space-2026/</a> · <a href="https://aesthetic.computer/papers">papers/</a></dd>
+      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/printed-matter-project-space-2026">grants/printed-matter-project-space-2026/</a> · <a href="https://aesthetic.computer/papers">papers/</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/SCORE.md">papers/SCORE.md</a></dd>
     </dl>
   </header>
 
   <!-- ── APPLICATION AT A GLANCE (form mirror) ─────── -->
   <section class="glance" id="glance">
-    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft v0 · trims to fit form once opened</span></h2>
-    <p class="hint">Every Project Space form field with a current best-answer inline. Numbers and word counts will be tightened against the live form.</p>
+    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft v1 · trims to fit form once opened</span></h2>
+    <p class="hint">Project Space form fields with current best-answers inline. Numbers tighten against the live form.</p>
 
     <dl>
       <dt>Project title</dt>
-      <dd><strong>The AC Papermill, Live</strong> <em>· (working — alts: "Programs as Cards," "The URL as Edition," "Aesthetic Computer Press")</em></dd>
+      <dd><strong>The AC Papermill, Asked Live</strong> <em>· (alts: "The Platter as Reference Desk," "Ask the Papers")</em></dd>
 
       <dt>Three words</dt>
-      <dd>publish · perform · learn</dd>
+      <dd>papers · query · footnote</dd>
 
       <dt>One-sentence description</dt>
-      <dd>A live publishing booth at the NY Art Book Fair where visitors write KidLisp programs at a refurbished AC Blank laptop, watch a small <em>menuband</em> overlay turn the keys they press into musical notation, and walk away with a printed single-sheet card whose QR code re-runs their piece at <code>aesthetic.computer</code> forever.</dd>
+      <dd>A reference desk at the NY Art Book Fair where visitors ask their own new-media research questions of a locally hosted, 137 MB Aesthetic.Computer papers platter — and walk away with a printed, footnoted answer card.</dd>
 
       <dt>What you'll show<span class="cap">~250 w · drafting</span></dt>
       <dd>
-        <p class="excerpt">A small booth runs continuously through the fair: one wall, one table, two AC Blank laptops, one networked printer, a small library of free take-home reader, papers, cards, and pamphlets. Two daily "press runs" compile that day's KidLisp programs into a 16-page newsprint zine in a 50–100 short edition. The booth is a working press; the print is the point.</p>
+        <p class="excerpt">A small booth. A wall of the existing Aesthetic.Computer papers — 44 arXiv-format titles, 14 organizational dossiers, the bound <em>AC Reader</em> — free to take. In front of the wall, a desk with a laptop running a fully-local copy of the platter (137 MB on disk). A visitor sits down and asks a question — anything in the new-media research register: <q>what's the funding genealogy of artist-run residencies in NYC?</q>, <q>what's the per-seat cost arc of laptop orchestras since 2005?</q>, <q>which institutions co-occur in the citation graph of this corpus?</q>. The platter answers, with footnotes, from its own pages. The answer prints as a single-sheet card; the visitor takes it home.</p>
         <a class="jump" href="#pitch">Read the full pitch ↓</a> · <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/printed-matter-project-space-2026/DRAFT.md">DRAFT.md</a>
       </dd>
 
       <dt>Imprint / artist bio</dt>
-      <dd>Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles. He builds instruments and tools for other artists, and keeps a live practice across performance painting, software writing, and teaching. Yale MFA. Author in Residence at UCLA Social Software with Casey Reas and Lauren Lee McCarthy. Creator of <em>Aesthetic.Computer</em>, <em>Whistlegraph</em>, and <em>No Paint</em>; <em>No Paint</em> and <em>notepat</em> each reached the front page of Hacker News. Work in the collections of KADIST and SMK. Hosts biweekly NELA Computer Club demos at Plot.Place, Chinatown LA. Applies as the <strong>Aesthetic Computer</strong> imprint.</dd>
+      <dd>Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles. He builds instruments and tools for other artists, with a live practice across performance painting, software writing, and teaching. Yale MFA. Author in Residence at UCLA Social Software with Casey Reas and Lauren Lee McCarthy. Creator of <em>Aesthetic.Computer</em>, <em>Whistlegraph</em>, and <em>No Paint</em>. Work in the collections of KADIST and SMK. Hosts biweekly NELA Computer Club demos at Plot.Place, Chinatown LA. Applies as the <strong>Aesthetic Computer</strong> imprint.</dd>
 
       <dt>Why Project Space<span class="cap">~100 w · drafting</span></dt>
-      <dd class="statement">A regular table sells finished books; a Project Space stages the press itself. Aesthetic Computer's publishing practice is unusual: a printed card and the live KidLisp piece are the same artifact, the URL is the citation, the QR code is the delivery. The booth makes that visible by <em>running</em> the press at the fair, and ends each day by binding the new pieces into a free zine. The published artifact is the cultural object; the software underneath is just the mechanism that produced it.</dd>
+      <dd class="statement">A regular table sells finished books; a Project Space stages the reference desk those books were trying to be. Aesthetic Computer's papermill is a working knowledge base — every claim sourced, every dossier audit-trailed, every cover footnoted — that has, after five years, crossed into the register of a <em>classical expert system</em>. The booth lets the printed thing answer the visitor back. The publication is the cultural object; the ability to query it is what the booth demonstrates.</dd>
 
       <dt>What visitors take home<span class="cap">in the print pile</span></dt>
-      <dd>Their own KidLisp card (printed on the spot) · a copy of <em>The AC Reader</em> (one volume, all current AC papers) · a <em>dis-order</em> pamphlet · a curated stack of KidLisp reference cards from the UCLA Social Software course · the daily zine of that day's pieces · everything free.</dd>
+      <dd>The answer card from their own query (printed on the spot, with footnotes back to specific papers + page numbers) · a copy of <em>The AC Reader</em> · individual arXiv papers from the wall · all free.</dd>
 
       <dt>Budget<span class="cap">$3,500 stipend · ours: $3,500</span></dt>
-      <dd>Travel LA↔NYC $700 · lodging 4 nights $600 · equipment ship $350 · print supplies (cards, zine, ink) $800 · pre-printed inventory (Reader, pamphlet, cards) $600 · per diem $250 · contingency $200. <strong>Total $3,500</strong>, the full stipend. <a class="jump" href="#budget">Full budget ↓</a></dd>
+      <dd>Travel LA↔NYC $700 · lodging 4 nights $600 · equipment ship $350 · print supplies (answer cards + paper inventory) $800 · pre-printed inventory (Reader, arXiv papers) $600 · per diem $250 · contingency $200. <strong>Total $3,500</strong>, the full stipend. <a class="jump" href="#budget">Full budget ↓</a></dd>
 
       <dt>Other support</dt>
       <dd>Open-source sponsorship via GitHub Sponsors and Liberapay supplements ongoing infrastructure (hosting, domains, CI). Awaiting decision on LACMA Art + Technology Lab 2026 (notification July 2026); independent of this proposal.</dd>
 
-      <dt>Logistics<span class="cap">solo · plus 1 helper if budget allows</span></dt>
-      <dd>Artist runs the booth solo for the fair's duration, with possible 1-helper support on the busiest two days. Provides: laptops, printer, cables, wall display strips, pre-printed inventory. Needs from the fair: footprint, power, wifi, table.</dd>
+      <dt>Logistics<span class="cap">solo</span></dt>
+      <dd>Artist runs the desk solo. Provides: laptop, printer, cables, wall display strips, pre-printed inventory of papers + Readers. Needs from the fair: footprint, power, wifi, table.</dd>
 
       <dt>Images<span class="cap">staged · 5 JPEG</span></dt>
-      <dd>1) AC Reader cover · 2) KidLisp cards in use at UCLA Social Software · 3) the dis-order pamphlet · 4) menuband overlay running on a Mac during a notepat performance · 5) AC Blank laptop on a desk, printing a card.</dd>
+      <dd>1) wall of arXiv papers + dossiers · 2) the bound <em>AC Reader</em> cover · 3) the 137 MB inventory bar (this page's chart) · 4) a sample answer card with footnote box · 5) a visitor at the desk mid-query.</dd>
 
       <dt>Video<span class="cap">~30 s · drafting</span></dt>
-      <dd>A visitor at an AC Blank · types five lines of KidLisp · watches the menuband score the keys · accepts the card slipping out of the printer. Same vo-pipeline as the LACMA video; voice clone in jeffrey-pvc.</dd>
+      <dd>Visitor sits, types a research question, the platter renders an answer with three footnotes pulling from <code>arxiv-plork</code>, <code>arxiv-rhizome</code>, and <code>arxiv-the-kitchen</code>; the answer prints as a card; the visitor scans the card's QR back to the live page.</dd>
     </dl>
+  </section>
+
+  <!-- ── PLATTER INVENTORY ───────────────────── -->
+  <section id="inventory">
+    <h2><span class="ord">§</span>The Platter, Sized<span class="count">137 MB · 44 papers · 14 dossiers</span></h2>
+    <p style="color:var(--dim);margin-bottom:0.4em;font-size:0.9em">What sits on the laptop's disk at the booth — the actual byte budget of the corpus the visitor's question runs against.</p>
+
+    <div class="platter-bar" aria-label="137 MB platter inventory">
+      <div class="seg figures" style="width:10.2%;" title="figures/ — 14 MB">figures · 14 MB</div>
+      <div class="seg reader" style="width:8.8%;" title="reader.pdf — 12 MB">Reader · 12 MB</div>
+      <div class="seg papers" style="width:46%;" title="44 arXiv papers — ~63 MB">arXiv papers · 44</div>
+      <div class="seg dossiers" style="width:25%;" title="14 organizational dossiers — ~34 MB">dossiers · 14</div>
+      <div class="seg subplatters" style="width:5%;" title="sub-platters — ~7 MB">sub-platters</div>
+      <div class="seg lectures-cv" style="width:2.5%;" title="lectures + CV">CV + L</div>
+      <div class="seg scaffolds" style="width:2.5%;" title="conference scaffolds">scaff</div>
+    </div>
+    <div class="platter-legend">
+      <span><span class="swatch" style="background:var(--gold)"></span><strong style="color:var(--text)">arXiv papers (44)</strong> — KidLisp, AC OS, latency, identity, sustainability, music, education, history; ~63 MB · </span>
+      <span><span class="swatch" style="background:var(--purple)"></span><strong style="color:var(--text)">organizational dossiers (14)</strong> — Rhizome, SFPC, Eyebeam, Recurse, Internet Archive, Mellon, Pioneer Works, NEW INC, Studio Museum, HathiTrust, The Kitchen, Machine Project, Heavy Manners, MicroVision; ~34 MB · </span>
+      <span><span class="swatch" style="background:var(--cyan)"></span><strong style="color:var(--text)">figures/</strong> — generated covers, diagrams, screenshots; 14 MB · </span>
+      <span><span class="swatch" style="background:var(--pink)"></span><strong style="color:var(--text)">AC Reader</strong> — bound single-volume of all current papers; 12 MB · </span>
+      <span><span class="swatch" style="background:var(--green)"></span><strong style="color:var(--text)">sub-platters</strong> — Jeffrey, Whistlegraph, people; ~7 MB · </span>
+      <span><span class="swatch" style="background:var(--red)"></span><strong style="color:var(--text)">lectures + CV</strong> · </span>
+      <span><span class="swatch" style="background:var(--dim)"></span><strong style="color:var(--text)">conference scaffolds</strong> — SIGGRAPH Asia, C&amp;C, ICCC, ELS, Ars Electronica.</span>
+    </div>
+  </section>
+
+  <!-- ── EXPERT KNOWLEDGE ─────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>What the Platter Knows<span class="count">eight knowledge categories</span></h2>
+    <div class="features">
+      <div class="feat gold"><b>1 · AC system internals</b>Kernel architecture, KidLisp evaluator, audio synthesis at 192 kHz, input latency, identity on the AT Protocol.<div class="meta-line">arxiv-os · arxiv-kidlisp · arxiv-latency · arxiv-identity</div></div>
+      <div class="feat" style="border-left-color:var(--purple)"><b style="color:var(--purple)">2 · org genealogies</b>14 dossiers with 990-PF / IRS XML data, founders, programs, money, footprint. Rhizome, SFPC, Eyebeam, Recurse, Internet Archive, Mellon, Pioneer Works, NEW INC, Studio Museum, HathiTrust, The Kitchen, Machine Project, Heavy Manners, MicroVision.<div class="meta-line">arxiv-rhizome … arxiv-microvision · structured data/ in each</div></div>
+      <div class="feat cyan"><b>3 · computer & art-tech history</b>PARC, Papert, Reas/Fry, Atkinson, Goodiepal, Cardew, demoscene, HyperCard. Lineage and prior-art surfaces.<div class="meta-line">arxiv-goodiepal · arxiv-archaeology · arxiv-comp-strats</div></div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">4 · language design</b>KidLisp internals, the 118-function reference, microworld theory, language-as-medium.<div class="meta-line">arxiv-kidlisp · arxiv-kidlisp-reference · arxiv-kidlisp-cards</div></div>
+      <div class="feat gold"><b>5 · music & performance</b>notepat, folk songs, sampling-as-painting, PLOrk economics, Whistlegraph as graphic score.<div class="meta-line">arxiv-notepat · arxiv-folk-songs · arxiv-plork · arxiv-whistlegraph · arxiv-sampling</div></div>
+      <div class="feat" style="border-left-color:var(--purple)"><b style="color:var(--purple)">6 · art education & criticism</b>Open schools, Social Software, CalArts, UCLA arts, dead ends and abandoned approaches.<div class="meta-line">arxiv-open-schools · arxiv-calarts · arxiv-ucla-arts · arxiv-dead-ends</div></div>
+      <div class="feat cyan"><b>7 · sustainability & funding</b>Who pays for creative tools, the URL tradition, A Fraserin' Art + Tech (methodology + labor-folk register).<div class="meta-line">arxiv-sustainability · arxiv-url-tradition · arxiv-fraserin</div></div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">8 · critical analysis</b>Score analysis (reading SCORE.md), diversity in citations, futures, repository archaeology.<div class="meta-line">arxiv-score-analysis · arxiv-diversity · arxiv-futures · arxiv-archaeology</div></div>
+    </div>
   </section>
 
   <!-- ── PITCH ───────────────────────────────── -->
   <section class="pitch" id="pitch">
     <h2><span class="ord">§</span>Pitch</h2>
 
-    <p>The fair celebrates the printed thing. Aesthetic Computer's publishing practice is unusual — the printed card and the live software are <em>the same artifact</em>. A KidLisp piece has a permanent URL the moment it is written; the printed card carries that URL as a QR code; scanning the card re-runs the piece. <strong>The card is the edition; the URL is the run.</strong></p>
+    <p>The AC Papermill has been writing things down for five years. Forty-four arXiv-format papers across the system, the language, the network, the music. Fourteen organizational dossiers — Rhizome, SFPC, Eyebeam, Recurse, Internet Archive, Mellon, Pioneer Works, NEW INC, Studio Museum, HathiTrust, The Kitchen, Machine Project, Heavy Manners, MicroVision — each with structured 990-PF / IRS XML data tables in <code>data/</code> alongside the prose. A bound Reader collecting all of it. Translations into four languages. <strong>137 MB on disk.</strong></p>
 
-    <p>For four years the project has run a quiet papermill alongside the software. Thirty arxiv-format papers. A bound <em>AC Reader</em>. A <em>dis-order</em> pamphlet. A growing set of single-sheet KidLisp cards designed for Casey Reas and Lauren Lee McCarthy's Social Software course at UCLA. The mill exists to press the thinking inside Aesthetic Computer into forms that can leave the building. <strong>The Project Space is the live edge of that mill.</strong></p>
+    <p>At a certain point a corpus this sourced, this footnoted, with this many cross-references, stops being <em>a stack of papers you read sequentially</em> and starts being <em>a knowledge base you query</em>. The Project Space is the night the platter hosts a reference desk.</p>
 
-    <span class="drop">menuband — performing the keys.</span>
+    <span class="drop">A new-media expert system, in the classical sense.</span>
 
-    <p>Above the booth's two laptops a small status-bar overlay called <em>menuband</em> runs across the top of the screen. It is a working AC subsystem: <strong>a pinned glass panel</strong> that turns whatever the player types into a piano-roll of the notes pressed, with a deliberate-only trigger (no accidental toots) and a dark-mode piano theme. At the fair it does two jobs: it makes the act of writing a piece visible to the viewer behind the visitor, and it scores the keystrokes back as music — the piece prints, but it also <em>plays</em>.</p>
+    <p>Mid-twentieth-century AI's first real public win was the <strong>expert system</strong> — DENDRAL diagnosed mass spectra, MYCIN diagnosed bacterial infections, R1 configured VAX minicomputers. The recipe: a <em>knowledge base</em> hand-built from domain experts, an <em>inference engine</em> that ran rules over it, and an <em>explanation facility</em> that traced every answer back to the rules and facts that produced it. Expert systems were narrow and footnoted; large language models are general and unfootnoted. The interesting territory in 2026 is the <em>narrow, sourced</em> middle ground.</p>
 
-    <span class="drop">AC Native — the OS the page came from.</span>
+    <p>The AC papermill, because every paper is built from sourced material, every dossier ships a <code>data/</code> README that lists <em>solid / soft / missing</em>, and every cover image's prompt is research-cited in <code>cover-sources.md</code>, satisfies the classical expert-system demands more than most generative systems do: <strong>knowledge base, inference engine (a small local retrieval step + Claude Code), and an explanation facility (the answer comes back with the file paths, page numbers, and dataset rows it used).</strong> The booth at NYABF is where that machine sits down at a public reference desk.</p>
 
-    <p>The two laptops at the booth are <strong>AC Blanks</strong> — refurbished ThinkPad 11e Yoga Gen 6s flashed with Aesthetic.Computer at $128/seat. AC Native is a Linux kernel that boots a custom C runtime as PID 1 directly into the editor: no desktop, no compositor, no browser. <strong>32-voice audio at 192 kHz, raw evdev input, USB+UDP MIDI, a built-in <code>code</code> command for an AI coding partner inside the OS.</strong> The visitor at the booth never sees a window manager. They see the editor, the menuband across the top, and the printer next to the keyboard. The OS is the press.</p>
+    <span class="drop">What the visitor does.</span>
 
-    <span class="drop">Performing music — the booth as a small instrument.</span>
+    <p>They sit down, type a question in their own words, and watch the platter answer. The answer is footnoted: each claim points to a paper, a page, and (for dossier claims) a row of structured data. <strong>The answer prints as a single-sheet card</strong> — query at top, answer mid, footnote ledger at bottom, QR linking to a permanent URL where the same query is hosted online. The visitor walks away with the card, the cited papers from the wall, and a copy of the Reader.</p>
 
-    <p>Visitors compose at <em>notepat</em>, AC's default polyphonic instrument (8,466 lines: eight waveforms, sample recording, USB+UDP MIDI). At the booth, notepat is wired to a small portable speaker so what you write is heard by the visitor next to you. Twice a day the artist runs a <strong>scheduled "press concert"</strong>: a 6-minute live KidLisp + notepat performance from the booth, after which the day's pieces are bound into a 16-page newsprint zine and stacked on the wall.</p>
+    <p>The booth is <em>quiet</em> on purpose. No daily zines, no concerts, no flashing of laptops. A wall of papers; one laptop; one printer; the visitor's question.</p>
 
-    <span class="drop">Learning Aesthetic.Computer — the curriculum is on the wall.</span>
+    <span class="drop">Why this works as a Project Space.</span>
 
-    <p>Behind the booth, the wall holds the curriculum used in <strong>UCLA Social Software (Spring 2026)</strong>: KidLisp reference cards, lesson sheets, and a pinned poster that takes a brand-new visitor from "no code" to "your piece is on the wall and on the internet" in fifteen minutes. The teaching layer is honest: <strong>the booth's whole point is that anyone walking in the door can publish before they leave.</strong></p>
-
-    <p>This is the printed-matter version of an argument the studio has been making elsewhere: <em>the personal computer is an unfinished instrument, and publishing is part of how it gets finished.</em> A Project Space lets us run the press in front of the readers.</p>
+    <p>NYABF Project Spaces frame a publication or printed-matter practice rather than just selling books from a table. Aesthetic Computer's printed matter <em>is</em> a knowledge base, and the booth is the demonstration that it has accumulated to the threshold of being one. <strong>The cultural object is the platter; the demonstration is that it can answer back.</strong></p>
   </section>
 
-  <!-- ── FOUR ANCHORS ──────────────────────── -->
+  <!-- ── SAMPLE QUERIES ─────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Sample Visitor Queries<span class="count">imagined · drawn from real platter content</span></h2>
+    <div class="queries">
+      <div class="query">
+        <div class="q">Q · "What's the funding genealogy of artist-run residencies in NYC?"</div>
+        <div class="a">Pulls the founding dates, founders, 990 series, and program arcs of <em>Pioneer Works</em>, <em>NEW INC</em>, <em>The Kitchen</em>, <em>Studio Museum</em>, <em>Eyebeam</em>, <em>Heavy Manners</em>, <em>Rhizome</em>; cross-references with the <em>Mellon</em> grants database to surface which Mellon dollars hit which residency in which years.</div>
+        <div class="src"><span class="pin">▸</span> arxiv-pioneer-works · arxiv-new-inc · arxiv-the-kitchen · arxiv-studio-museum · arxiv-eyebeam · arxiv-heavy-manners-library · arxiv-rhizome · arxiv-mellon/data/grants.csv</div>
+      </div>
+      <div class="query">
+        <div class="q">Q · "What's the per-seat cost arc of laptop orchestras since 2005?"</div>
+        <div class="a">Pulls <em>arxiv-plork</em>'s economic table: PLOrk ($1,500+/seat hand-fabricated, 2005), L2Ork ($750/seat Linux, 2009), AC Blank ($128/seat refurbished + flashed, 2026). Frames the trajectory and surfaces the access argument.</div>
+        <div class="src"><span class="pin">▸</span> arxiv-plork · arxiv-os · arxiv-sustainability</div>
+      </div>
+      <div class="query">
+        <div class="q">Q · "How does KidLisp compare to Processing as an artist-first language?"</div>
+        <div class="a">Pulls the design history of Processing (Reas + Fry, 2001), the constraints that drove KidLisp's 118-function surface, and the microworld lineage from Papert. Surfaces the <em>arxiv-pieces</em> argument that the piece, not the program, is the unit of creative cognition.</div>
+        <div class="src"><span class="pin">▸</span> arxiv-kidlisp · arxiv-kidlisp-reference · arxiv-pieces · arxiv-api · arxiv-comp-strats</div>
+      </div>
+      <div class="query">
+        <div class="q">Q · "Which institutions co-occur most in this corpus's citation graph?"</div>
+        <div class="a">Runs over the .bib files across all 44 arXiv papers, surfaces the dense clusters: UCLA / Yale / SFPC / KADIST / Plot.Place / Mellon / Princeton (PLOrk) / MIT Media Lab. Visualizes the network as a small printable diagram on the back of the answer card.</div>
+        <div class="src"><span class="pin">▸</span> all 44 arxiv-* references.bib files · arxiv-diversity · arxiv-archaeology</div>
+      </div>
+      <div class="query">
+        <div class="q">Q · "What's been tried and abandoned inside Aesthetic Computer?"</div>
+        <div class="a">Pulls <em>arxiv-dead-ends</em> directly: failed sampler designs, abandoned KidLisp dialects, ditched UI patterns. Frames the methodology (write down what didn't work) and surfaces the most-recent abandonments from the BUILDLOG.</div>
+        <div class="src"><span class="pin">▸</span> arxiv-dead-ends · papers/BUILDLOG.md · arxiv-comp-strats</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOUR REGISTERS ──────────────────────── -->
   <section>
     <h2><span class="ord">§</span>Four Registers</h2>
     <div class="anchors">
       <div class="anchor">
-        <b>Card</b>
-        <p>Single-sheet, monochrome, 2.75″ × 4.75″. Pixel render at top, full source mid, QR to the live URL at bottom. The piece fits in your hand.</p>
+        <b>Knowledge base</b>
+        <p>137 MB on disk. 44 sourced arXiv papers, 14 audit-trailed dossiers, 1 bound Reader, 3 sub-platters, in 4 languages. Everything has a citation; every dossier has a <code>data/</code>.</p>
       </div>
       <div class="anchor">
-        <b>Reader</b>
-        <p>One bound volume (<code>papers/reader.pdf</code>) collecting all current AC arxiv papers. Free copy per visitor while supply lasts. Translated EN / DA / ES / ZH.</p>
+        <b>Inference engine</b>
+        <p>A small local retrieval step over the platter's .tex / .md / .bib / .csv files, paired with Claude Code as the answering shell. Wifi-up at the booth; a fallback embedding-search index is cached on the disk.</p>
       </div>
       <div class="anchor">
-        <b>Zine</b>
-        <p>A 16-page newsprint zine bound twice a day from that morning's KidLisp pieces. Edition of 50–100. Stack stays on the wall, refilled from the press.</p>
+        <b>Explanation facility</b>
+        <p>Every answer comes back with file paths, page numbers, and (for dossiers) row-level data citations. The card the visitor takes home <em>shows its work</em>.</p>
       </div>
       <div class="anchor">
-        <b>Wall</b>
-        <p>The curriculum used in UCLA Social Software (Spring 2026): reference cards, lesson sheets, posters. The visitor borrows the syllabus on the way out.</p>
+        <b>Reference desk</b>
+        <p>One laptop. One printer. One artist behind the desk. A wall of papers free to take. A visitor's question, in their own words, gets a footnoted answer they can hold.</p>
       </div>
     </div>
   </section>
 
-  <!-- ── LIVE STATS ─────────────────────────── -->
+  <!-- ── EXPERT-SYSTEM LINEAGE ────────────────── -->
   <section>
-    <h2><span class="ord">§</span>The Network, Right Now<span class="count">live from aesthetic.computer/api/metrics</span></h2>
-    <div class="stats" id="stats">
-      <div class="stat" data-k="handles"><span class="n">…</span><span class="l">Handles</span></div>
-      <div class="stat" data-k="kidlisp"><span class="n">…</span><span class="l">KidLisp pieces</span></div>
-      <div class="stat" data-k="pieces"><span class="n">…</span><span class="l">User pieces</span></div>
-      <div class="stat" data-k="paintings"><span class="n">…</span><span class="l">Paintings</span></div>
-      <div class="stat" data-k="moods"><span class="n">…</span><span class="l">Moods</span></div>
-      <div class="stat" data-k="chatMessages"><span class="n">…</span><span class="l">Chat msgs</span></div>
-      <div class="stat" data-k="active"><span class="n">…</span><span class="l">Active now</span></div>
-      <div class="stat" data-k="printsOrdered"><span class="n">…</span><span class="l">Prints ordered</span></div>
-    </div>
-    <div class="stats-status" id="stats-status">Fetching <span class="ok">api/metrics</span> …</div>
-  </section>
-
-  <!-- ── WHAT THE BOOTH SHIPS ──────────────── -->
-  <section>
-    <h2><span class="ord">§</span>What the Booth Ships<span class="count">running, all-day, free to take</span></h2>
-    <div class="features">
-      <div class="feat"><b>Two AC Blanks</b>Laptop A is the writing station (KidLisp editor + notepat). Laptop B is the print station: takes the latest URL and renders the card.</div>
-      <div class="feat"><b>menuband overlay</b>Pinned glass status-bar above the editor showing each keystroke as a piano-roll note. Deliberate-only triggers. Dark-mode piano theme. Same Swift app shipping as <code>slab/menuband/</code>.</div>
-      <div class="feat"><b>Networked printer</b>Single-sheet card output. 2.75″ × 4.75″. Monochrome, fast, quiet. Fed by the Laptop B watcher: every committed piece prints once.</div>
-      <div class="feat"><b>Daily zine bind</b>2× per day: the artist compiles the morning's KidLisp pieces into a 16-page newsprint zine. Edition of 50–100. Free.</div>
-      <div class="feat"><b>Mini Rig speaker</b>One small portable speaker so notepat compositions are audible to the visitor and the next person in line. Quiet enough not to fight the fair.</div>
-      <div class="feat"><b>Wall library</b><em>The AC Reader</em>, the dis-order pamphlet, KidLisp reference cards (Social Software set), the day's zines. Restocked from the press.</div>
-      <div class="feat planned"><b>Press concerts (planned)</b>Two daily 6-minute notepat-and-KidLisp live performances from the booth, with the menuband overlay projected onto the back wall. Schedule posted at the booth.</div>
-      <div class="feat planned"><b>Optional: Flash mini-segment</b>If a USB flashing station fits the footprint, visitors can take an AC Native USB stick home and boot any UEFI laptop into the same editor.</div>
+    <h2><span class="ord">§</span>The Expert-System Lineage<span class="count">specific, not canonical</span></h2>
+    <div class="lineage">
+      <div class="row"><div class="who">DENDRAL · Stanford</div><div class="claim">Feigenbaum, Buchanan, Lederberg (1965–). The first widely cited expert system; diagnosed mass spectra. <em>The recipe was knowledge base + inference engine + explanation</em> — and the platter satisfies all three.</div></div>
+      <div class="row"><div class="who">MYCIN · Shortliffe</div><div class="claim">1972–. Bacterial-infection diagnosis with explicit certainty factors. Precedent for <em>narrow, footnoted machine answers</em> in a domain where being wrong was expensive.</div></div>
+      <div class="row"><div class="who">R1 / XCON · DEC</div><div class="claim">McDermott, 1980. Configured VAX minicomputers; the first expert system to make money. Proof that a corpus with rules can do real, narrow work better than a generalist.</div></div>
+      <div class="row"><div class="who">Cyc · Lenat</div><div class="claim">1984–. The most ambitious knowledge-base project of the 20th century. The platter is the opposite scope (140 MB, hand-curated, single-domain) but the same posture — <em>encode it so a machine can answer with it</em>.</div></div>
+      <div class="row"><div class="who">CLIPS · NASA</div><div class="claim">1985–. Open-source expert-system shell; still ships in classrooms. The precedent for the <em>shell-plus-knowledge-base</em> separation the booth runs.</div></div>
+      <div class="row"><div class="who">Wiki / WikiData</div><div class="claim">2001 / 2012. Crowdsourced, footnoted knowledge as a public infrastructure. The platter is the artist-run version — narrower, single-author, more opinionated, sourced the same way.</div></div>
+      <div class="row"><div class="who">RAG (retrieval-augmented generation)</div><div class="claim">2020–. The contemporary recipe: <em>local corpus + retrieval + LLM</em>. The platter qualifies as the corpus; what's new at the booth is that it's been pressed into print first, then read back as a machine query.</div></div>
     </div>
   </section>
 
   <!-- ── BUDGET ─────────────────────────────── -->
   <section id="budget">
     <h2><span class="ord">§</span>Budget<span class="count">$3,500 stipend · full ask</span></h2>
-    <p style="color:var(--dim);margin-bottom:1em">Booth-build line items in pink (the daily press runs and the inventory the booth gives away). Travel and per diem are the LA-to-NYC variable; if the stipend is confirmed at a different number, the inventory and press-run lines scale first.</p>
+    <p style="color:var(--dim);margin-bottom:1em">Booth-build line items in pink (the answer-card supplies and the inventory the booth gives away). Travel is the LA-to-NYC variable. If the stipend is confirmed at a different number, the inventory and card-printing lines scale first.</p>
     <div class="features">
       <div class="feat"><b>Travel LA ↔ NYC</b>$700 · 4 days · economy</div>
       <div class="feat"><b>Lodging</b>$600 · 4 nights · modest</div>
-      <div class="feat"><b>Equipment shipping</b>$350 · 2 laptops + printer + cards · round trip</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Print supplies</b>$800 · cardstock for daily card runs + newsprint paper for daily zine + ink</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Pre-printed inventory</b>$600 · The AC Reader (qty), dis-order pamphlets (qty), KidLisp reference cards (Social Software set)</div>
+      <div class="feat"><b>Equipment shipping</b>$350 · laptop + printer + papers · round trip</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Answer-card supplies</b>$800 · cardstock + ink for the per-visitor printed answer card across the fair</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Pre-printed inventory</b>$600 · The AC Reader (qty), individual arXiv papers (qty), free for the wall</div>
       <div class="feat"><b>Per diem / meals</b>$250 · 4 days</div>
       <div class="feat"><b>Contingency (~6%)</b>$200</div>
-    </div>
-  </section>
-
-  <!-- ── PUBLICATIONS ──────────────────────── -->
-  <section>
-    <h2><span class="ord">§</span>What Is Already Published<span class="count">five-year publishing arc</span></h2>
-    <div class="features">
-      <div class="feat"><b>The AC Reader</b>One bound volume of all current AC papers · <a href="https://aesthetic.computer/papers/reader.pdf">reader.pdf</a> · 4 languages</div>
-      <div class="feat"><b>arxiv series</b>30+ arxiv-format papers across <code>papers/arxiv-*/</code> · auto-built on the oven · <a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a></div>
-      <div class="feat"><b>KidLisp cards</b>Single-sheet pieces designed for the Social Software course at UCLA · <code>papers/arxiv-kidlisp-cards/</code></div>
-      <div class="feat"><b>dis-order pamphlet</b>Recent printed pamphlet · 8.5×11 bifold · <code>gigs/dis-order-pamphlet-8.5x11-folded/</code></div>
-      <div class="feat"><b>cards-convert.mjs</b>The actual code that turns arxiv source into single-sheet card layout · the fair booth runs this live</div>
-      <div class="feat"><b>kidlisp.com</b>The hosting layer that already runs the URL side · 17,000+ existing user-written programs</div>
     </div>
   </section>
 
@@ -510,56 +629,25 @@
   <section>
     <h2><span class="ord">§</span>Status<span class="count">▸ wip · drafting toward 2026-05-08</span></h2>
     <ul class="check">
-      <li class="done">Research file compiled · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/printed-matter-project-space-2026/RESEARCH.md">RESEARCH.md</a> · format, fit, source-material map</li>
-      <li class="done">Draft v0 · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/printed-matter-project-space-2026/DRAFT.md">DRAFT.md</a> · narrative + budget sketch + logistics</li>
+      <li class="done">Research file compiled · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/printed-matter-project-space-2026/RESEARCH.md">RESEARCH.md</a></li>
+      <li class="done">Platter sized · 137 MB · 44 papers + 14 dossiers + Reader + 3 sub-platters · 4 languages</li>
+      <li class="done">Knowledge-category audit complete · 8 categories surfaced</li>
       <li class="done">Identity decision · apply as the <strong>Aesthetic Computer</strong> imprint (not solo)</li>
       <li class="todo">Open the Google Form, capture <em>exact</em> field structure + word caps + confirm $3,500 stipend</li>
       <li class="todo">Trim Project Space description to the form's word cap</li>
+      <li class="todo">Build the local-platter retrieval shell · embed all .tex / .md / .bib / .csv files into a single on-disk index that a Claude Code session at the booth can ground answers in offline-fallback</li>
       <li class="todo">Source a thermal or laser printer suitable for booth use (research models)</li>
-      <li class="todo">Pre-print inventory: estimate Reader + pamphlet + card quantities for the fair</li>
-      <li class="todo">Confirm fair travel dates against other LA / NYC commitments (Oracle Egg residency window if accepted)</li>
-      <li class="todo">Pull the visitor-flow demo video from an AC Blank · same vo-pipeline as the LACMA video</li>
-      <li class="todo">Stage 5 JPEGs for the form (Reader, cards-in-use, pamphlet, menuband, AC Blank printing)</li>
+      <li class="todo">Pre-print inventory: estimate Reader + paper quantities for the fair</li>
+      <li class="todo">Pull the visitor-query demo video · same vo-pipeline as the LACMA video</li>
+      <li class="todo">Stage 5 JPEGs (paper wall, Reader, inventory bar, sample answer card, visitor at desk)</li>
       <li class="todo">Submit to the Google Form before <em>2026-05-08</em></li>
     </ul>
   </section>
 
   <footer>
-    <a href="https://aesthetic.computer/printed-matter-2026">aesthetic.computer/printed-matter-2026</a> · WIP draft · live metrics from <a href="https://aesthetic.computer/api/metrics">aesthetic.computer/api/metrics</a> · source: <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/printed-matter-project-space-2026">grants/printed-matter-project-space-2026/</a>
+    <a href="https://aesthetic.computer/printed-matter-2026">aesthetic.computer/printed-matter-2026</a> · WIP draft · platter index <a href="https://aesthetic.computer/papers">papers.aesthetic.computer</a> · score <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/SCORE.md">papers/SCORE.md</a> · source <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/printed-matter-project-space-2026">grants/printed-matter-project-space-2026/</a>
   </footer>
 
 </main>
-
-<script>
-(async () => {
-  const STATS_API = "https://aesthetic.computer/api/metrics";
-  const statusEl = document.getElementById("stats-status");
-  const root = document.getElementById("stats");
-
-  function fmt(n) {
-    if (typeof n !== "number") return "…";
-    return n.toLocaleString("en-US");
-  }
-
-  try {
-    const r = await fetch(STATS_API);
-    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-    const data = await r.json();
-    for (const stat of root.querySelectorAll(".stat")) {
-      const key = stat.dataset.k;
-      const val = data[key];
-      const n = stat.querySelector(".n");
-      if (typeof val === "number") {
-        n.textContent = fmt(val);
-        stat.classList.add("loaded");
-      }
-    }
-    const when = data.time ? `(${data.time})` : "";
-    statusEl.innerHTML = `<span class="ok">● Live</span> · pulled from <a href="${STATS_API}">api/metrics</a> · ${when}`;
-  } catch (err) {
-    statusEl.innerHTML = `<span class="err">● API error</span> · ${err.message}`;
-  }
-})();
-</script>
 </body>
 </html>
