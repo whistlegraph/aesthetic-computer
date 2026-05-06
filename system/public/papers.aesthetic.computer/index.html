@@ -15,10 +15,9 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
-    <link rel="preload" as="image" href="/papers-header.png" fetchpriority="high" />
-    <link rel="preload" as="image" href="/papers-header-v4.png" />
-    <link rel="preload" as="image" href="/papers-header-v3.png" />
-    <link rel="preload" as="image" href="/papers-header-v1.png" />
+    <link rel="preload" as="image" href="/papers-header-v5.png" fetchpriority="high" />
+    <link rel="preload" as="image" href="/papers-header-v6.png" />
+    <link rel="preload" as="image" href="/papers-header-v7.png" />
     <link rel="alternate" type="application/atom+xml" title="papers · Aesthetic Computer" href="/feed.xml" />
     <link rel="alternate" type="application/rss+xml" title="papers · Aesthetic Computer" href="/rss.xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
@@ -855,16 +854,14 @@
             const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
             // focal: normalized (0-1) image-space anchor that stays centered on screen
-            //   v2 = Johnny Appleseed   — jeffrey center-right, head upper-mid
-            //   v3 = grad students POV  — green laptop foreground-center
-            //   v4 = cafe POV           — green laptop foreground-center, students through window
-            //   v1 = washington-crossing — jeffrey upper-mid, slightly left of center
+            //   v5 = library reading room   — six jeffreys at oak table, faces band mid-frame
+            //   v6 = town-square news stand — kiosk handoff left-of-center, steps reader right
+            //   v7 = cafe reading circle    — six jeffreys at far side of long communal table
             // pan.s = zoom multiplier on top of contain baseline (1.0 = full image visible)
             const SLIDES = [
-                { src: '/papers-header.png',    focal: { x: 0.55, y: 0.40 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.10, x: -0.02, y:  0.01 } } },
-                { src: '/papers-header-v4.png', focal: { x: 0.48, y: 0.62 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.08, x:  0.01, y: -0.02 } } },
-                { src: '/papers-header-v3.png', focal: { x: 0.50, y: 0.62 }, pan: { from: { s: 1.06, x: 0, y: 0 }, to: { s: 1.00, x:  0.02, y: -0.01 } } },
-                { src: '/papers-header-v1.png', focal: { x: 0.46, y: 0.42 }, pan: { from: { s: 1.04, x: 0, y: 0 }, to: { s: 1.10, x: -0.01, y:  0.02 } } },
+                { src: '/papers-header-v5.png', focal: { x: 0.50, y: 0.45 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.08, x: -0.01, y:  0.01 } } },
+                { src: '/papers-header-v6.png', focal: { x: 0.45, y: 0.50 }, pan: { from: { s: 1.06, x: 0, y: 0 }, to: { s: 1.00, x:  0.02, y: -0.01 } } },
+                { src: '/papers-header-v7.png', focal: { x: 0.50, y: 0.42 }, pan: { from: { s: 1.04, x: 0, y: 0 }, to: { s: 1.10, x: -0.01, y:  0.01 } } },
             ];
             const SLIDE_DUR = 7000;
             const FADE_DUR = 1800;
