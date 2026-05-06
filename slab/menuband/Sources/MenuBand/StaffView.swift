@@ -106,6 +106,21 @@ final class StaffView: NSView {
         startScrollTimer()
         needsDisplay = true
     }
+
+    /// Live pitch shift in SEMITONES (octave shift + trackpad bend
+    /// combined). The whole staff drawing translates vertically by
+    /// `shift * (lineSpacing / 2)` so a +1 semitone bend kicks the
+    /// staff visibly upward, +12 (one octave) slides it a full
+    /// 7-half-line jump. Updated by AppDelegate from the controller's
+    /// bend + octave hooks; eased internally so changes feel
+    /// continuous instead of snapping.
+    var targetPitchShiftSemitones: CGFloat = 0 {
+        didSet {
+            guard targetPitchShiftSemitones != oldValue else { return }
+            startScrollTimer()
+        }
+    }
+    private var displayedPitchShiftSemitones: CGFloat = 0
     /// Points per second a released note rides leftward across the
     /// staff. Tuned so a freshly-released note takes ~1.5 s to
     /// glide from the play column past the clef.
@@ -225,6 +240,17 @@ final class StaffView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        // Translate the entire drawing by the displayed pitch shift
+        // so an octave change or trackpad bend visibly slides the
+        // staff up / down — gives the user a feel for the shift in
+        // addition to the audible pitch change. +1 semitone = +half
+        // a staff-line of vertical translation.
+        NSGraphicsContext.current?.saveGraphicsState()
+        defer { NSGraphicsContext.current?.restoreGraphicsState() }
+        let pitchShiftY = displayedPitchShiftSemitones * (Self.baseLineSpacing / 2)
+        let xform = NSAffineTransform()
+        xform.translateX(by: 0, yBy: pitchShiftY)
+        xform.concat()
         let staffLeftX = bounds.minX + Self.leftPad
         let staffRightX = bounds.maxX - Self.rightPad
 
@@ -410,12 +436,14 @@ final class StaffView: NSView {
         let playColumnX = bounds.midX
         let trailHeight = lineSpacing * 0.42
 
-        // Per-note draw pass — each scrollNote becomes a horizontal
-        // colored bar (the "trail") + an optional shaking letter at
-        // the play column for held notes. Trails grow leftward
-        // while held; on release the right-end pins to where the
-        // note was let go and slides off with the rest of the
-        // history.
+        // Per-note draw pass — each scrollNote becomes one solid
+        // colored PILL extending from where the note first sounded
+        // (leftX) to where it currently leads (rightX). The leading
+        // cap of the pill IS the bubble — same chromatic color, and
+        // the keyboard letter sits inside it. While the note is
+        // held the leading cap pins to the play column and shakes;
+        // once released the whole pill slides off leftward.
+        let noteHeadDiameter: CGFloat = lineSpacing * 0.66
         for snap in scrollNotes.sorted(by: { $0.note.midi < $1.note.midi }) {
             let note = snap.note
             let pc = Int(note.midi) % 12
@@ -424,29 +452,77 @@ final class StaffView: NSView {
             let bornAge = CGFloat(now - snap.appearedAt)
             let leftX = playColumnX - bornAge * Self.scrollSpeed
             let rightX: CGFloat
+            let isHeld: Bool
             if let releasedAt = snap.releasedAt {
                 let releasedAge = CGFloat(now - releasedAt)
                 rightX = playColumnX - releasedAge * Self.scrollSpeed
+                isHeld = false
             } else {
                 rightX = playColumnX
+                isHeld = true
             }
-            let barRect = NSRect(
-                x: leftX, y: y - trailHeight / 2,
-                width: max(0, rightX - leftX),
-                height: trailHeight
+            // Held notes shake the leading cap — applied as a small
+            // offset on rightX + pill-vertical center so the bubble
+            // wobbles in place while the trailing pill body stays
+            // pinned to its time-driven left edge.
+            var leadX = rightX
+            var bubbleYOffset: CGFloat = 0
+            if isHeld {
+                let phase = CGFloat(snap.appearedAt) + CGFloat(snap.note.midi)
+                let t = CGFloat(now)
+                let amp = lineSpacing * 0.10
+                leadX += sin(t * 30.0 + phase * 1.7) * amp
+                bubbleYOffset = cos(t * 26.0 + phase) * amp
+            }
+            // Solid pill — rounded rect spanning leftX → leadX,
+            // height = noteHeadDiameter, fully rounded ends.
+            let pillLeft = min(leftX, leadX - noteHeadDiameter)
+            let pillRect = NSRect(
+                x: pillLeft,
+                y: y - noteHeadDiameter / 2 + bubbleYOffset,
+                width: max(noteHeadDiameter, leadX - pillLeft),
+                height: noteHeadDiameter
             )
-            if barRect.maxX < bounds.minX { continue }
-            // Colored trail — solid chromatic at the leading edge
-            // (right, where the note is currently sounding or just
-            // released) fading to translucent at the tail (left,
-            // older). Drawn as a gradient so the trail reads as
-            // motion smear rather than a hard bar.
-            if let gradient = NSGradient(starting: chroma.withAlphaComponent(0.10),
-                                          ending: chroma.withAlphaComponent(0.95)) {
-                gradient.draw(in: barRect, angle: 0)
-            } else {
-                chroma.withAlphaComponent(0.6).setFill()
-                NSBezierPath(rect: barRect).fill()
+            if pillRect.maxX < bounds.minX { continue }
+            let pill = NSBezierPath(roundedRect: pillRect,
+                                     xRadius: noteHeadDiameter / 2,
+                                     yRadius: noteHeadDiameter / 2)
+            chroma.setFill()
+            pill.fill()
+            drawLedgerLines(at: y + bubbleYOffset,
+                             centerX: leadX,
+                             staffBottomY: staffBottomY)
+            // Keyboard letter inside the leading cap of the pill —
+            // small enough that it reads as a tag rather than the
+            // dominant element of the pill.
+            if let rawKey = note.keyLabel, !rawKey.isEmpty {
+                let key = KeyboardIconRenderer.labelsUppercase
+                    ? rawKey.uppercased()
+                    : rawKey
+                let keyAttr = NSAttributedString(
+                    string: key,
+                    attributes: [
+                        .font: NSFont.monospacedSystemFont(ofSize: lineSpacing * 0.40,
+                                                            weight: .heavy),
+                        .foregroundColor: NSColor(white: 0.10, alpha: 1),
+                    ]
+                )
+                // Cap center is at leadX - noteHeadDiameter/2 (the
+                // leading cap's right edge sits at leadX). Letter
+                // anchors centered on that.
+                let capCenterX = leadX - noteHeadDiameter / 2
+                let keySize = keyAttr.size()
+                // Optical centering — `size.height` is the line box
+                // (ascent + descent + leading), but the visible glyph
+                // sits inside that box biased upward. Shift the
+                // anchor down by a small fudge so the letter looks
+                // visually centered on the cap rather than mathematically
+                // centered on the line-box midpoint.
+                let opticalFudge: CGFloat = 1.5
+                keyAttr.draw(at: NSPoint(
+                    x: capCenterX - keySize.width / 2,
+                    y: y + bubbleYOffset - keySize.height / 2 + opticalFudge
+                ))
             }
         }
 
@@ -525,9 +601,20 @@ final class StaffView: NSView {
                 return (now - releasedAt) > leftCutoffAge
             }
             self.beatMarkers.removeAll { (now - $0.capturedAt) > leftCutoffAge }
+            // Ease the displayed pitch shift toward target each tick
+            // — staff slides smoothly between octaves / under bend
+            // rather than snapping.
+            let pitchDiff = self.targetPitchShiftSemitones - self.displayedPitchShiftSemitones
+            if abs(pitchDiff) > 0.005 {
+                self.displayedPitchShiftSemitones += pitchDiff * 0.18
+            } else {
+                self.displayedPitchShiftSemitones = self.targetPitchShiftSemitones
+            }
+            let stillEasingPitch = self.displayedPitchShiftSemitones != self.targetPitchShiftSemitones
             // Keep ticking while ANY note is alive OR any metronome
-            // beat marker is still on screen.
-            if self.scrollNotes.isEmpty && self.beatMarkers.isEmpty {
+            // beat marker is still on screen OR pitch is still
+            // animating.
+            if self.scrollNotes.isEmpty && self.beatMarkers.isEmpty && !stillEasingPitch {
                 timer.invalidate()
                 self.scrollTimer = nil
             }

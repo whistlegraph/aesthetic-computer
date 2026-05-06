@@ -149,7 +149,11 @@ final class MenuBandPopoverViewController: NSViewController {
     /// popover gets the same searchable chord readout.
     private var chordCandidatesStack: NSStackView!
     private var chordCandidatesRow: NSView!
-    private var staffView: StaffView!
+    /// Internal but exposed so AppDelegate can push the pitch-shift
+    /// value (octave + bend) directly when those change — the staff
+    /// translates vertically by that amount so the user feels the
+    /// shift visually too.
+    private(set) var staffView: StaffView!
     private var lastCompleteChordNames: Set<String> = []
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var instrumentSeparator: NSView!

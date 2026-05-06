@@ -205,6 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.lastKnownOctaveShift = cur
                     self.kickIconAnim(slide: dir, flash: 1.0)
                 }
+                self.pushStaffPitchShift()
                 self.updateIcon()
                 self.updatePianoWaveformWindow()
                 // Refresh the popover too so live state changes
@@ -1707,6 +1708,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bendAmount += bendDelta
         bendAmount = max(-1, min(1, bendAmount))
         menuBand.setBend(amount: bendAmount)
+        pushStaffPitchShift()
         if !pitchBendCursorPushed {
             PitchBendCursor.neutral.push()
             pitchBendCursorPushed = true
@@ -1721,6 +1723,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.startBendDecay()
         }
         debugLog("bend cursor dy=\(dy) lit=\(menuBand.litNotes.count) amt=\(bendAmount)")
+    }
+
+    /// Forward the current effective pitch shift (octave + bend)
+    /// into the popover's staff view so the staff visibly slides
+    /// up/down on every shift. ±1 of bendAmount = ±2 semitones; 1
+    /// octave = 12 semitones. The staff eases its displayed shift
+    /// toward this target so changes glide instead of snapping.
+    private func pushStaffPitchShift() {
+        let bendSemitones = CGFloat(bendAmount) * 2
+        let octaveSemitones = CGFloat(menuBand.octaveShift) * 12
+        popoverVC?.staffView?.targetPitchShiftSemitones = bendSemitones + octaveSemitones
     }
 
     private func cancelBendDecay() {
@@ -1746,6 +1759,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.bendVelocity += force * dt
             self.bendAmount += self.bendVelocity * dt
             self.menuBand.setBend(amount: self.bendAmount)
+            self.pushStaffPitchShift()
             // Cursor follows the spring so the wheel un-stretches
             // in lockstep with the audio bend — the visual is
             // always in sync with what the user hears.
