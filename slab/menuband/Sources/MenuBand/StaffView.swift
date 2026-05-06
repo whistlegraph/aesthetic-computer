@@ -190,9 +190,9 @@ final class StaffView: NSView {
         layer?.masksToBounds = true
     }
 
-    private static let baseLineSpacing: CGFloat = 22.0    // ideal spacing when only one note is held
+    private static let baseLineSpacing: CGFloat = 24.0    // wide enough that "full-size" natural pills clear the sharp guides
     private static let minLineSpacing: CGFloat = 9.0      // collapses when many notes span multiple octaves
-    private static let lineWidth: CGFloat = 1.1
+    private static let lineWidth: CGFloat = 1.6   // thicker traditional staff lines so the 5-line skeleton reads clearly above the faint ghost guides
     // Horizontal padding chosen so the visible staff (left clef +
     // labels + 5-line range) sits horizontally centered in the
     // view. leftPad reserves room for the clef + pitch labels;
@@ -272,12 +272,23 @@ final class StaffView: NSView {
 
         _ = heldHalfLines  // unused in fixed-staff layout, kept for clarity
 
-        // Standard fixed staff — B4 (the middle line) sits at the
-        // view's vertical center, lineSpacing is constant. No
-        // scrolling and no per-frame zoom; reads exactly like the
-        // staff would on a printed page.
+        // Standard fixed staff. Anchor staffBottomY so the LOWEST
+        // slot's pill sits with a small pad above the view's
+        // bottom — eliminates the asymmetric whitespace we had
+        // when forcing B4 onto bounds.midY (the slot range is
+        // bigger below E4 than above F5, so center-anchoring
+        // wasted ~12pt of headroom up top).
         lineSpacing = Self.baseLineSpacing
-        let staffBottomY = bounds.midY - 2 * lineSpacing
+        let lowestSlotStep: CGFloat = -4
+        // Match the natural pill diameter the per-note loop uses
+        // below so the lowest slot's pill clears the bottom edge
+        // exactly. Using a stale ratio here was leaving the dots
+        // slightly off from the bar (the bar drew through markerX
+        // exactly, but the staff anchor was computed assuming a
+        // different pill size).
+        let pillRadiusForLayout: CGFloat = lineSpacing * 0.30 / 2
+        let staffBottomY = bounds.minY + 4 + pillRadiusForLayout
+            - lowestSlotStep * (lineSpacing / 2)
 
         // Slot table: every diatonic position the user can play
         // across the C4..B5 range, ordered low → high. Each entry
@@ -294,14 +305,17 @@ final class StaffView: NSView {
             /// we know whether to draw a faint guide line.
             let isLedger: Bool
         }
-        let slots: [Slot] = [
-            // Below the staff — extends down to A3 so the
-            // notepat z (A♯3) and x (B3) keys have visual slots.
+        // Slot table (pc, halfLineSteps, label, onLine, isLedger).
+        // We then derive each slot's MIDI value and filter against
+        // the active keymap's labelByMidi so notes the user can't
+        // physically reach (e.g. notes outside the Ableton 60–76
+        // range, or A3 in Notepat which lacks a key) are hidden
+        // from the staff entirely — letters, lines, bands, gaps.
+        let allSlots: [Slot] = [
             Slot(pc: 9,  halfLineSteps: -4, label: "A", onLine: true,  isLedger: true),  // A3 ledger
             Slot(pc: 11, halfLineSteps: -3, label: "B", onLine: false, isLedger: true),  // B3 below
             Slot(pc: 0,  halfLineSteps: -2, label: "C", onLine: true,  isLedger: true),  // C4 ledger
             Slot(pc: 2,  halfLineSteps: -1, label: "D", onLine: false, isLedger: true),  // D4 below
-            // The staff itself — E4 G4 B4 D5 F5 lines, F4 A4 C5 E5 spaces
             Slot(pc: 4,  halfLineSteps: 0,  label: "E", onLine: true,  isLedger: false),
             Slot(pc: 5,  halfLineSteps: 1,  label: "F", onLine: false, isLedger: false),
             Slot(pc: 7,  halfLineSteps: 2,  label: "G", onLine: true,  isLedger: false),
@@ -311,11 +325,18 @@ final class StaffView: NSView {
             Slot(pc: 2,  halfLineSteps: 6,  label: "D", onLine: true,  isLedger: false),
             Slot(pc: 4,  halfLineSteps: 7,  label: "E", onLine: false, isLedger: false),
             Slot(pc: 5,  halfLineSteps: 8,  label: "F", onLine: true,  isLedger: false),
-            // Above the staff
             Slot(pc: 7,  halfLineSteps: 9,  label: "G", onLine: false, isLedger: true),  // G5 above
             Slot(pc: 9,  halfLineSteps: 10, label: "A", onLine: true,  isLedger: true),  // A5 ledger
             Slot(pc: 11, halfLineSteps: 11, label: "B", onLine: false, isLedger: true),  // B5 above
         ]
+        let labels = KeyboardIconRenderer.labelByMidi
+        let slots: [Slot] = allSlots.filter { slot in
+            // MIDI = (octave + 1) * 12 + pc, where octave derives
+            // from how far above E4 the slot's halfLineSteps sit.
+            let octave = 4 + (slot.halfLineSteps - Self.pitchClassStep[slot.pc]) / 7
+            let midi = (octave + 1) * 12 + slot.pc
+            return labels[midi] != nil
+        }
 
         // Pass 1 — paint translucent chromatic bands behind any
         // SPACE that's currently lit (so it sits behind the lines
@@ -336,23 +357,73 @@ final class StaffView: NSView {
             NSBezierPath(rect: band).fill()
         }
 
-        // Pass 2 — five traditional staff lines only. Off-staff
-        // pitches still render with their own short ledger
-        // strokes through the note head (drawLedgerLines), but
-        // we don't paint always-visible dashed guides for the
-        // ledger positions — the staff stays a clean 5-line
-        // notation surface.
-        // Pass 1.5 — subtle gray "ghost" lines at every staff
-        // SPACE (the four positions between the 5 traditional
-        // lines). Reads as a faint guide so the rolling notes can
-        // be placed visually even when sitting in a space, without
-        // overpowering the real 5-line staff.
-        for slot in slots where !slot.onLine && !slot.isLedger {
+        // Pass 1.5 — very faint "ghost" guides at every slot that
+        // ISN'T one of the 5 traditional staff lines: in-staff
+        // spaces (F4, A4, C5, E5) and ledger positions (above
+        // and below). Lets the user track a rolling note's pitch
+        // even when it sits between the proper lines, without
+        // letting those guides compete with the staff itself.
+        // Pre-compute per-slot activity so ledger / off-staff
+        // positions can fade in when notes are on them and fade
+        // out when notes leave (full-width fixed lines, no
+        // horizontal scrolling). Held = full strength;
+        // recently-released = decays over `fadeDuration`.
+        let now = CACurrentMediaTime()
+        let fadeDuration: CGFloat = 0.6
+        var slotActivity: [Int: CGFloat] = [:]
+        for snap in scrollNotes {
+            let step = Self.halfLineSteps(forMidi: snap.note.midi)
+            let active: CGFloat
+            if let releasedAt = snap.releasedAt {
+                let age = CGFloat(now - releasedAt)
+                active = max(0, 1 - age / fadeDuration)
+            } else {
+                active = 1
+            }
+            if let cur = slotActivity[step] {
+                slotActivity[step] = max(cur, active)
+            } else {
+                slotActivity[step] = active
+            }
+        }
+
+        for slot in slots where !(slot.onLine && !slot.isLedger) {
             let y = staffBottomY
                 + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
-            staffColor.withAlphaComponent(0.16).setStroke()
+            // Ledger guides ghost-faint at rest; brighten under
+            // active notes and fade back out after release. In-
+            // staff space guides stay at their fixed faint level
+            // (they sit between the 5 lines and don't need to call
+            // attention to themselves).
+            let baseAlpha: CGFloat = slot.isLedger ? 0.06 : 0.10
+            let active = slotActivity[slot.halfLineSteps] ?? 0
+            let alpha = slot.isLedger
+                ? baseAlpha + (0.55 - baseAlpha) * active
+                : baseAlpha
+            staffColor.withAlphaComponent(alpha).setStroke()
             let path = NSBezierPath()
-            path.lineWidth = 0.5
+            path.lineWidth = slot.isLedger ? Self.lineWidth * 0.7 : 0.5
+            path.move(to: NSPoint(x: bounds.minX, y: y))
+            path.line(to: NSPoint(x: bounds.maxX, y: y))
+            path.stroke()
+        }
+
+        // Always-on accent-color hairlines at every SHARP position
+        // that's mapped on the active keymap (sharps live half a
+        // half-line above their natural neighbor, so y = natural's y
+        // + lineSpacing/4). Reads as a permanent "chromatic ladder"
+        // running between the diatonic slots — independent of
+        // whether anything is sounding.
+        let sharpRoots: Set<Int> = [0, 2, 5, 7, 9]   // C, D, F, G, A → sharps above
+        for slot in slots where sharpRoots.contains(slot.pc) {
+            let sharpMidi = Self.midi(forSlotPc: slot.pc, halfLineSteps: slot.halfLineSteps) + 1
+            guard labels[sharpMidi] != nil else { continue }
+            let y = staffBottomY
+                + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
+                + lineSpacing / 4
+            NSColor.controlAccentColor.setStroke()
+            let path = NSBezierPath()
+            path.lineWidth = 0.7
             path.move(to: NSPoint(x: bounds.minX, y: y))
             path.line(to: NSPoint(x: bounds.maxX, y: y))
             path.stroke()
@@ -388,39 +459,72 @@ final class StaffView: NSView {
         // each held note (drawn in the scroll-notes pass below)
         // emanates from each shaking letter.
 
-        // Beat markers dropped by the metronome scroll left at the
-        // same `scrollSpeed` as released notes. Drawn as a small
-        // filled circle on EACH of the 5 staff lines — looks like
-        // the metronome dropped a row of dots straight down onto
-        // the staff in time with the beat. Spawned at the metronome
-        // icon's projected x so the dots fall exactly under the
-        // needle.
-        let now = CACurrentMediaTime()
+        // Beat markers shoot down out of the popover's metronome
+        // needle as it crosses center: each tick spawns a vertical
+        // line at the needle's projected x. Over `dropDuration`
+        // the line extends from the top of the view all the way
+        // down to the bottom, creating a permanent vertical mark.
+        // Once fully extended, the marker scrolls leftward along
+        // with the rolling note timeline. The descending edge
+        // also "lights" each staff line as it passes, leaving a
+        // dot at the intersection — reads like the metronome is
+        // physically marking time on every staff line below it.
+        let dropDuration: CGFloat = 0.18
         let lineHalfLineSteps: [Int] = [0, 2, 4, 6, 8]
         let dotRadius: CGFloat = 1.6
         for marker in beatMarkers {
-            let markerX = marker.originX
-                - CGFloat(now - marker.capturedAt) * Self.scrollSpeed
-            if markerX < bounds.minX || markerX > bounds.maxX { continue }
-            // Faint connecting hairline so the dots read as a
-            // single dropped beat, not five disconnected pixels.
+            let age = CGFloat(now - marker.capturedAt)
+            // X stays put during the drop, then scrolls left
+            // afterward so the line "settles" into the timeline
+            // before the camera starts carrying it away.
+            let scrollAge = max(0, age - dropDuration)
+            let markerX = marker.originX - scrollAge * Self.scrollSpeed
+            if markerX < bounds.minX - 2 || markerX > bounds.maxX + 2 { continue }
+            // Drop progress eases from 0→1 over dropDuration.
+            // Smoothstep so the leading edge accelerates into the
+            // staff and decelerates as it settles at the bottom.
+            let raw = min(1, age / dropDuration)
+            let progress = raw * raw * (3 - 2 * raw)
+            let bottomY = bounds.maxY - (bounds.maxY - bounds.minY) * progress
+            // Color sequence: yellow during the drop → orange just
+            // after → red for ~3 frames → settles to staffColor.
+            // Reads as the beat "striking" the staff incandescently
+            // and cooling down into the regular rolling timeline.
+            let yellowEnd: CGFloat = 0.10
+            let orangeEnd: CGFloat = 0.20
+            let redEnd: CGFloat = 0.25  // ~3 frames at 60Hz past orange
+            let strokeColor: NSColor
+            if age < yellowEnd {
+                strokeColor = NSColor.systemYellow
+            } else if age < orangeEnd {
+                strokeColor = NSColor.systemOrange
+            } else if age < redEnd {
+                strokeColor = NSColor.systemRed
+            } else {
+                strokeColor = staffColor.withAlphaComponent(0.55)
+            }
             let connector = NSBezierPath()
-            connector.move(to: NSPoint(x: markerX,
-                                        y: staffBottomY - 1))
-            connector.line(to: NSPoint(x: markerX,
-                                        y: staffBottomY + 4 * lineSpacing + 1))
-            connector.lineWidth = 0.4
-            staffColor.withAlphaComponent(0.18).setStroke()
+            connector.move(to: NSPoint(x: markerX, y: bounds.maxY))
+            connector.line(to: NSPoint(x: markerX, y: bottomY))
+            connector.lineWidth = raw < 1 ? 1.1 : 0.6
+            strokeColor.setStroke()
             connector.stroke()
+            // Dots paint at each staff line as the descending
+            // edge passes through it, so the strike visibly
+            // "marks" each line in turn. Dots inherit the same
+            // yellow → orange → red → settle color sequence as
+            // the connector line so the strike reads as one
+            // unified flash.
             for step in lineHalfLineSteps {
-                let y = staffBottomY + CGFloat(step) * (lineSpacing / 2)
+                let dotY = staffBottomY + CGFloat(step) * (lineSpacing / 2)
+                if bottomY > dotY { continue }
                 let dot = NSBezierPath(ovalIn: NSRect(
                     x: markerX - dotRadius,
-                    y: y - dotRadius,
+                    y: dotY - dotRadius,
                     width: dotRadius * 2,
                     height: dotRadius * 2
                 ))
-                staffColor.withAlphaComponent(0.55).setFill()
+                strokeColor.setFill()
                 dot.fill()
             }
         }
@@ -443,12 +547,39 @@ final class StaffView: NSView {
         // the keyboard letter sits inside it. While the note is
         // held the leading cap pins to the play column and shakes;
         // once released the whole pill slides off leftward.
-        let noteHeadDiameter: CGFloat = lineSpacing * 0.66
+        // Geometry: sharp pills sit ±lineSpacing/4 from their
+        // natural neighbors, so naturalRadius + sharpRadius MUST
+        // be <lineSpacing/4 for the two not to overlap. With these
+        // ratios:
+        //   natural radius = 0.30 / 2 × lineSpacing = 0.15 × LS
+        //   sharp   radius = 0.10 / 2 × lineSpacing = 0.05 × LS
+        //   sum            = 0.20 × LS < 0.25 × LS ✓
+        // (≈1.2pt clearance at lineSpacing=24, scales with LS.)
+        // Sharp pill ends up looking like a small dot riding on
+        // the accent guide line — distinct enough that you can
+        // see the chromatic step, small enough that it never
+        // crowds the natural pill on the line directly above or
+        // below it.
+        let naturalDiameter: CGFloat = lineSpacing * 0.30
+        let sharpDiameter: CGFloat = lineSpacing * 0.10
+        let noteHeadDiameter: CGFloat = naturalDiameter
         for snap in scrollNotes.sorted(by: { $0.note.midi < $1.note.midi }) {
             let note = snap.note
             let pc = Int(note.midi) % 12
-            let chroma = Self.chromaticColor(forPitchClass: pc)
-            let y = staffY(for: note.midi, staffBottomY: staffBottomY)
+            let isSharp = Self.pitchIsSharp[pc]
+            // Naturals get their ROYGBIV chromatic hue. SEMITONES
+            // (sharps / flats) all paint in the system accent color
+            // so they read as "off-staff chromatic" against the
+            // diatonic palette of the naturals.
+            let chroma: NSColor = isSharp
+                ? NSColor.controlAccentColor
+                : Self.chromaticColor(forPitchClass: pc)
+            // Sharps sit a quarter staff-step ABOVE their natural's
+            // y position so they don't overlap the natural pill at
+            // the same diatonic slot — reads as "raised half step
+            // above the staff line you'd notate it on."
+            var y = staffY(for: note.midi, staffBottomY: staffBottomY)
+            if isSharp { y += lineSpacing / 4 }
             let bornAge = CGFloat(now - snap.appearedAt)
             let leftX = playColumnX - bornAge * Self.scrollSpeed
             let rightX: CGFloat
@@ -461,112 +592,49 @@ final class StaffView: NSView {
                 rightX = playColumnX
                 isHeld = true
             }
-            // Held notes shake the leading cap — applied as a small
-            // offset on rightX + pill-vertical center so the bubble
-            // wobbles in place while the trailing pill body stays
-            // pinned to its time-driven left edge.
-            var leadX = rightX
-            var bubbleYOffset: CGFloat = 0
-            if isHeld {
-                let phase = CGFloat(snap.appearedAt) + CGFloat(snap.note.midi)
-                let t = CGFloat(now)
-                let amp = lineSpacing * 0.10
-                leadX += sin(t * 30.0 + phase * 1.7) * amp
-                bubbleYOffset = cos(t * 26.0 + phase) * amp
-            }
-            // Solid pill — rounded rect spanning leftX → leadX,
-            // height = noteHeadDiameter, fully rounded ends.
-            let pillLeft = min(leftX, leadX - noteHeadDiameter)
+            // Pill body stays solid + pinned. While held, the
+            // letter shaking happens on the CENTER-COLUMN slot
+            // letter, not on the pill cap — so "the actual letter
+            // shakes in the stripe" without the stripe itself
+            // jiggling. After release the leading cap inherits a
+            // copy of the letter that scrolls leftward with the
+            // pill.
+            let leadX = rightX
+            let bubbleYOffset: CGFloat = 0
+            // Naturals draw at the larger "full size" diameter;
+            // sharps render as a smaller satellite pill riding on
+            // the accent-color guide line that marks their
+            // position.
+            let pillHeight = isSharp ? sharpDiameter : naturalDiameter
+            let pillLeft = min(leftX, leadX - pillHeight)
             let pillRect = NSRect(
                 x: pillLeft,
-                y: y - noteHeadDiameter / 2 + bubbleYOffset,
-                width: max(noteHeadDiameter, leadX - pillLeft),
-                height: noteHeadDiameter
+                y: y - pillHeight / 2 + bubbleYOffset,
+                width: max(pillHeight, leadX - pillLeft),
+                height: pillHeight
             )
             if pillRect.maxX < bounds.minX { continue }
             let pill = NSBezierPath(roundedRect: pillRect,
-                                     xRadius: noteHeadDiameter / 2,
-                                     yRadius: noteHeadDiameter / 2)
+                                     xRadius: pillHeight / 2,
+                                     yRadius: pillHeight / 2)
             chroma.setFill()
             pill.fill()
-            drawLedgerLines(at: y + bubbleYOffset,
-                             centerX: leadX,
-                             staffBottomY: staffBottomY)
-            // Keyboard letter inside the leading cap of the pill —
-            // small enough that it reads as a tag rather than the
-            // dominant element of the pill.
-            if let rawKey = note.keyLabel, !rawKey.isEmpty {
-                let key = KeyboardIconRenderer.labelsUppercase
-                    ? rawKey.uppercased()
-                    : rawKey
-                let keyAttr = NSAttributedString(
-                    string: key,
-                    attributes: [
-                        .font: NSFont.monospacedSystemFont(ofSize: lineSpacing * 0.40,
-                                                            weight: .heavy),
-                        .foregroundColor: NSColor(white: 0.10, alpha: 1),
-                    ]
-                )
-                // Cap center is at leadX - noteHeadDiameter/2 (the
-                // leading cap's right edge sits at leadX). Letter
-                // anchors centered on that.
-                let capCenterX = leadX - noteHeadDiameter / 2
-                let keySize = keyAttr.size()
-                // Optical centering — `size.height` is the line box
-                // (ascent + descent + leading), but the visible glyph
-                // sits inside that box biased upward. Shift the
-                // anchor down by a small fudge so the letter looks
-                // visually centered on the cap rather than mathematically
-                // centered on the line-box midpoint.
-                let opticalFudge: CGFloat = 1.5
-                keyAttr.draw(at: NSPoint(
-                    x: capCenterX - keySize.width / 2,
-                    y: y + bubbleYOffset - keySize.height / 2 + opticalFudge
-                ))
-            }
+            // Short ledger strokes through off-staff note heads
+            // were retired — they scrolled horizontally with the
+            // pill and read as visual noise on the upper/lower
+            // edges. The full-width fading ledger lines in the
+            // staff-line pass already mark off-staff pitches
+            // without needing a per-note dash through the head.
+            // Cap letter retired alongside the chart letters. The
+            // pill is just chromatic color now — the position on
+            // the staff identifies the pitch.
         }
 
-        // Center-column letter chart — every slot's pitch-class
-        // letter at the play column X, gray by default. Held
-        // letters flip to chromatic + shake; resting letters stay
-        // calm. Drawn AFTER trails so the letter reads on top.
-        let centerFont = NSFont.monospacedSystemFont(
-            ofSize: lineSpacing * 0.65, weight: .heavy
-        )
-        for slot in slots {
-            let y = staffBottomY
-                + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
-            let held = heldNaturalSteps.contains(slot.halfLineSteps)
-            // Held slot: chromatic + shake. Resting: dark gray.
-            let color: NSColor = held
-                ? Self.chromaticColor(forPitchClass: slot.pc)
-                : NSColor(white: 0.32, alpha: 0.95)
-            var jitterX: CGFloat = 0
-            var jitterY: CGFloat = 0
-            if held {
-                let phase = CGFloat(slot.halfLineSteps) * 1.7
-                let t = CGFloat(now)
-                let amp = lineSpacing * 0.10
-                jitterX = sin(t * 30.0 + phase) * amp
-                jitterY = cos(t * 26.0 + phase * 0.7) * amp
-            }
-            let rawLabel = slot.label
-            let label = KeyboardIconRenderer.labelsUppercase
-                ? rawLabel.uppercased()
-                : rawLabel.lowercased()
-            let attr = NSAttributedString(
-                string: label,
-                attributes: [
-                    .font: centerFont,
-                    .foregroundColor: color,
-                ]
-            )
-            let size = attr.size()
-            attr.draw(at: NSPoint(
-                x: playColumnX - size.width / 2 + jitterX,
-                y: y - size.height / 2 + jitterY
-            ))
-        }
+        // Center-column letter chart retired — the staff reads
+        // cleaner as just colored pills + lines + dots without
+        // pitch labels at every slot. The QWERTY map below the
+        // popover already disambiguates which key plays which
+        // pitch, so the staff doesn't need to repeat that.
     }
 
     /// Half-line offset from E4 (the staff's bottom line). C4 = -2,
@@ -575,6 +643,15 @@ final class StaffView: NSView {
         let pc = Int(midi) % 12
         let octave = Int(midi) / 12 - 1
         return pitchClassStep[pc] + (octave - 4) * 7
+    }
+
+    /// Inverse of `halfLineSteps(forMidi:)` for a known pitch class —
+    /// recovers the MIDI value of the slot at `(pc, halfLineSteps)`.
+    /// Used by the sharp-guide pass to look up whether the natural's
+    /// neighboring sharp is mapped on the active keymap.
+    private static func midi(forSlotPc pc: Int, halfLineSteps: Int) -> Int {
+        let octave = 4 + (halfLineSteps - pitchClassStep[pc]) / 7
+        return (octave + 1) * 12 + pc
     }
 
     /// Drive the per-frame redraw for scrolling released notes.

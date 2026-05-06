@@ -270,6 +270,18 @@ final class MetronomeWidget: NSView {
         needsDisplay = true
     }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // The popover ditches our window when it closes; reopening
+        // re-attaches us. CALayer animations are stripped on
+        // window detach, so the swing freezes mid-stride. Restart
+        // the animation here so a still-playing metronome keeps
+        // ticking visibly across popover open/close cycles.
+        if window != nil && isPlaying {
+            restartSwing()
+        }
+    }
+
     // MARK: - Swing animation (continuous while playing)
 
     private func startSwing() { restartSwing() }
@@ -284,6 +296,12 @@ final class MetronomeWidget: NSView {
     private func restartSwing() {
         guard let host = needleHost else { return }
         host.removeAnimation(forKey: Self.swingAnimationKey)
+        // Publish the BPM + start time so the menubar chip's
+        // needle can compute its swing phase against the same
+        // clock the popover trapezoid uses — keeps the two
+        // needles in lockstep as the user scrubs BPM.
+        KeyboardIconRenderer.metronomeBPM = bpm
+        KeyboardIconRenderer.metronomeStartTime = CACurrentMediaTime()
         let period = 60.0 / Double(bpm) * 2.0
         let anim = CAKeyframeAnimation(keyPath: "transform.rotation.z")
         anim.values = [0, Self.maxSwingAngle, 0, -Self.maxSwingAngle, 0]
@@ -306,7 +324,13 @@ final class MetronomeWidget: NSView {
         let timer = Timer(timeInterval: beatInterval, repeats: true) { [weak self] _ in
             self?.playBeat()
         }
-        timer.tolerance = beatInterval * 0.05
+        // Tighter tolerance than the AppKit default — beat
+        // timing is dead-reckoned against the swing animation, so
+        // letting the timer drift 5% wastes the visual sync. 1%
+        // (~5ms at 120 BPM) keeps the click on the center
+        // crossing without forcing the timer subsystem to fire
+        // sub-millisecond accurate.
+        timer.tolerance = beatInterval * 0.01
         // Animation goes 0 → +amp → 0 → -amp → 0 over `period`,
         // so the needle is at CENTER (angle = 0) at t = 0,
         // period/2, period, … Schedule the first beat at t =
@@ -339,7 +363,21 @@ final class MetronomeWidget: NSView {
     private func playBeat() {
         Self.beatSound?.stop()
         Self.beatSound?.play()
+        flashNeedleYellow()
         onTick?()
+    }
+
+    /// Briefly tint the needle + bob systemYellow at the moment of
+    /// the beat — gives a visual "this is exactly NOW" cue so the
+    /// user can sync hitting a note to the metronome's center
+    /// crossing. Restores to `tint` after ~80 ms.
+    private func flashNeedleYellow() {
+        let yellow = NSColor.systemYellow.cgColor
+        needleLayer.strokeColor = yellow
+        bobLayer.fillColor = yellow
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            self?.applyTintToNeedle()
+        }
     }
 
     private func playScrubClick() {

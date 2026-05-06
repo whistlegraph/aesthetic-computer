@@ -211,6 +211,14 @@ enum KeyboardIconRenderer {
     /// reads as the metronome's "carrier" running, with the
     /// per-tick yellow flash riding on top.
     static var metronomeOn: Bool = false
+    /// BPM + swing-start timestamp pushed by the popover's
+    /// metronome on every restart. The chip's needle uses these
+    /// to compute its swing phase from CACurrentMediaTime so the
+    /// chip animation stays in lockstep with the trapezoid in
+    /// the popover (instead of running at a fixed wall-clock
+    /// rate that drifts apart from the actual BPM).
+    static var metronomeBPM: Int = 60
+    static var metronomeStartTime: CFTimeInterval = 0
 
     static func withPianoWaveformKeyboard<T>(keymap: Keymap?, _ body: () -> T) -> T {
         let oldLayout = displayLayout
@@ -1047,34 +1055,47 @@ enum KeyboardIconRenderer {
         }
     }
 
-    /// Single sine wave across the visualizer slot — drawn while
-    /// the metronome is running so the chip reads as a live tempo
-    /// indicator. Phase advances with wall-clock time; amplitude
-    /// briefly swells with `metronomeFlash` so the wave "thickens"
-    /// on every audible tick.
+    /// Tiny rotating needle inside the chip's visualizer slot —
+    /// pivots from the bottom-center, swings ±25° at ~1 Hz, just
+    /// like the popover's metronome trapezoid. Reads as "metronome
+    /// running" without competing with the music-note glyph.
     private static func drawChipMetronomeWave(in rect: NSRect,
                                                 hovered: Bool,
                                                 color: NSColor,
                                                 baseAlpha: CGFloat) {
         let alpha: CGFloat = hovered ? 1.0 : baseAlpha
-        let f = max(0, min(1, metronomeFlash))
-        // Wave sits centered vertically; amplitude pulses 35–55% of
-        // the slot's half-height with the per-tick flash.
-        let halfH = rect.height / 2
-        let amp = halfH * (0.35 + 0.20 * f)
-        let phase = CGFloat(miniVisualizerPhase) * 4.5
+        // Sync to the popover's metronome by computing phase from
+        // (now − metronomeStartTime) / period, where period =
+        // 60/BPM × 2. Same formula the popover uses for its own
+        // CAKeyframeAnimation duration, so the two needles stay
+        // in lockstep regardless of BPM changes.
+        let period = 60.0 / Double(max(1, metronomeBPM)) * 2.0
+        let elapsed = CACurrentMediaTime() - metronomeStartTime
+        let phase = CGFloat(elapsed.truncatingRemainder(dividingBy: period) / period) * .pi * 2
+        let maxAngle: CGFloat = 25.0 * .pi / 180.0
+        let angle = sin(phase) * maxAngle
+        let pivotX = rect.midX
+        let pivotY = rect.minY + 0.5
+        let length = rect.height - 1.5
+        let tipX = pivotX + sin(angle) * length
+        let tipY = pivotY + cos(angle) * length
         let path = NSBezierPath()
-        path.lineWidth = 1.0
-        let steps = 16
-        for i in 0...steps {
-            let t = CGFloat(i) / CGFloat(steps)
-            let x = rect.minX + t * rect.width
-            let y = rect.midY + sin(t * .pi * 2 + phase) * amp
-            if i == 0 { path.move(to: NSPoint(x: x, y: y)) }
-            else { path.line(to: NSPoint(x: x, y: y)) }
-        }
+        path.lineWidth = 1.1
+        path.lineCapStyle = .round
+        path.move(to: NSPoint(x: pivotX, y: pivotY))
+        path.line(to: NSPoint(x: tipX, y: tipY))
         color.withAlphaComponent(alpha).setStroke()
         path.stroke()
+        // Tiny bob at the tip so the needle reads as a real
+        // pendulum and not just a tick mark — matches the dot the
+        // popover's metronome carries.
+        let bobR: CGFloat = 0.9
+        let bob = NSBezierPath(ovalIn: NSRect(
+            x: tipX - bobR, y: tipY - bobR,
+            width: bobR * 2, height: bobR * 2
+        ))
+        color.withAlphaComponent(alpha).setFill()
+        bob.fill()
     }
 
     private static func drawChipVisualizer(in rect: NSRect, level: CGFloat,

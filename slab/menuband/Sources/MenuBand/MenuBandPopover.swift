@@ -605,7 +605,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // (key-over-letter pills) was retired in favor of the
         // staff being the single notation surface. Tall enough
         // to fit the extended A3..B5 range with breathing room.
-        waveformBezel.heightAnchor.constraint(equalToConstant: 184).isActive = true
+        waveformBezel.heightAnchor.constraint(equalToConstant: 212).isActive = true
         // Pill container is allocated but unused (kept so any
         // legacy refresh path doesn't crash); not added to the
         // bezel.
@@ -657,7 +657,7 @@ final class MenuBandPopoverViewController: NSViewController {
         chordCandidatesStack.addArrangedSubview(staffView)
         NSLayoutConstraint.activate([
             staffView.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth + 16),
-            staffView.heightAnchor.constraint(equalToConstant: 168),
+            staffView.heightAnchor.constraint(equalToConstant: 196),
         ])
 
         // (MIDI switch lives in the title row above — see octave + MIDI block.)
@@ -1183,6 +1183,10 @@ final class MenuBandPopoverViewController: NSViewController {
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
         midiSwitch.state = n.midiMode ? .on : .off
+        // Force the staff to repaint — keymap toggles change which
+        // slots show as letters/lines on the chart even when the
+        // held-note set is unchanged.
+        staffView?.needsDisplay = true
         refreshHeldNotes()
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)

@@ -428,6 +428,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
             object: nil
         )
+        // Sleep/wake recovery: when the system suspends, KVO +
+        // distributed-notification + the polling timer can all
+        // miss the theme flip that happened during sleep. Reset
+        // our cached state on wake and force a retint so the
+        // popover comes back in sync with the system theme.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
 
         // Local key capture wiring. Routes keys to the same note logic the
         // global tap uses, with the ghost-label flash on every press so the
@@ -1577,6 +1588,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showPopover() {
         guard let button = statusItem.button,
               let buttonWindow = button.window else { return }
+        // If we slept since the last open, the cached theme may be
+        // stale — re-evaluate against the live system appearance
+        // and trigger a retint pass before the popover is shown so
+        // the colors are fresh on this open.
+        let nowDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        if nowDark != lastObservedDarkMode {
+            lastObservedDarkMode = nowDark
+            systemAppearanceChanged()
+        }
         popoverVC?.syncFromController()
         if isPopoverPanelShown {
             closePopover()
@@ -1784,6 +1805,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // thread; bounce to main before hitting any AppKit state.
         DispatchQueue.main.async { [weak self] in
             self?.systemAppearanceChanged()
+        }
+    }
+
+    @objc private func systemDidWake(_ note: Notification) {
+        // After sleep/wake the polling timer + KVO observers can
+        // miss the theme flip that happened while we were
+        // suspended, leaving the popover painted in the old theme.
+        // Reset our cached `lastObservedDarkMode` so the next poll
+        // tick treats the current state as fresh, and run a retint
+        // immediately in case the theme changed during sleep.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let nowDark = NSApp.effectiveAppearance.bestMatch(
+                from: [.aqua, .darkAqua]) == .darkAqua
+            self.lastObservedDarkMode = nowDark
+            self.systemAppearanceChanged()
         }
     }
 
