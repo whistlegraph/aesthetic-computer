@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Aesthetic.Computer at the Bandstand · CultureHub 2026 · WIP DRAFT</title>
-<meta name="description" content="Jeffrey Alan Scudder's WIP proposal for CultureHub at La MaMa (2026): a residency that turns the menuband overlay, the AC Native OS, and the notepat polyphonic instrument into a small living bandstand for performance, teaching, and cross-site KidLisp jam sessions.">
+<title>Menuband Jam · NELA Computer Club at CultureHub · 2026 · WIP DRAFT</title>
+<meta name="description" content="Jeffrey Alan Scudder's WIP proposal for CultureHub at La MaMa (2026 cycle): a one-week residency that brings the NELA Computer Club to NYC for a Menuband Jam — six players at six laptops, each menubar promoted into a piano-roll score, jamming together as one collective keyboard.">
 <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
 <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
 <style>
@@ -192,7 +192,6 @@
     line-height: 1.5;
     font-size: 0.94em;
   }
-  .glance dl > div:last-of-type dd,
   .glance dd:last-child { border-bottom: none; padding-bottom: 0; }
   .glance dd strong { color: var(--text); }
   .glance dd em { color: var(--pink); font-style: normal; }
@@ -224,6 +223,7 @@
   }
   .pitch em { color: var(--pink); font-style: normal; }
   .pitch strong { color: var(--text); }
+  .pitch q { quotes: "“" "”"; color: var(--gold); font-style: italic; }
   .pitch code {
     font-family: 'Berkeley Mono Variable', monospace;
     font-size: 0.9em;
@@ -255,6 +255,66 @@
     margin-bottom: 0.2em;
   }
   .anchor p { margin: 0; color: var(--text); font-size: 0.88em; line-height: 1.5; }
+
+  /* Stage diagram — six menubars side by side */
+  .stage {
+    margin: 1em 0;
+    padding: 0.9em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.4em;
+    margin-bottom: 0.5em;
+  }
+  @media (max-width: 720px) {
+    .stage-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .player {
+    background: rgba(28, 24, 18, 0.7);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    padding: 0.4em 0.5em 0.5em;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.7em;
+    color: var(--text);
+  }
+  .player .menubar {
+    height: 0.9em;
+    background: linear-gradient(90deg,
+      transparent 0 12%,
+      var(--pink) 12% 13%,
+      transparent 13% 28%,
+      var(--cyan) 28% 29%,
+      transparent 29% 32%,
+      var(--cyan) 32% 33%,
+      transparent 33% 56%,
+      var(--gold) 56% 57%,
+      transparent 57% 70%,
+      var(--green) 70% 71%,
+      transparent 71% 88%,
+      var(--purple) 88% 89%,
+      transparent 89% 100%);
+    border-radius: 1px;
+    margin-bottom: 0.3em;
+    opacity: 0.85;
+  }
+  .player .role { color: var(--pink); display: block; }
+  .player .who { color: var(--dim); }
+  .player .where { color: var(--cyan); display: block; font-size: 0.92em; }
+  .stage-floor {
+    border-top: 1px dashed var(--box-border);
+    padding-top: 0.5em;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.78em;
+    color: var(--dim);
+    text-align: center;
+  }
+  .stage-floor .pin { color: var(--pink); }
 
   .stats {
     display: grid;
@@ -299,11 +359,15 @@
   .feat b { color: var(--purple); font-family: 'YWFT Processing', monospace; font-weight: normal; display: block; margin-bottom: 0.15em; }
   .feat.planned { border-left-color: var(--gold); }
   .feat.planned b { color: var(--gold); }
+  .feat.gold { border-left-color: var(--gold); }
+  .feat.gold b { color: var(--gold); }
+  .feat.cyan { border-left-color: var(--cyan); }
+  .feat.cyan b { color: var(--cyan); }
 
   .lineage { display: grid; gap: 0.5em; }
   .lineage .row {
     display: grid;
-    grid-template-columns: 160px 1fr;
+    grid-template-columns: 180px 1fr;
     gap: 1em;
     padding: 0.5em 0;
     border-bottom: 1px dotted var(--box-border);
@@ -351,116 +415,158 @@
 
   <header class="mast">
     <div class="eyebrow"><span class="tag">CultureHub at La MaMa</span> · 2026 · <span class="wip">wip draft</span></div>
-    <h1>Aesthetic<span class="dot">.</span>Computer<br>at the<br><em>Bandstand</em><span class="dot">.</span></h1>
-    <p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">A residency pitch · menuband · AC Native · notepat · KidLisp jam</p>
+    <h1>Menuband<br><em>Jam</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Hosted by <span style="color:var(--pink)">NELA Computer Club</span> · a touring node of the LA biweekly demo show, brought to CultureHub for one residency week</p>
     <p class="sub">Proposal by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
     <dl class="meta">
       <dt>Deadline</dt><dd class="due">2026 cycle · <span style="color:var(--gold)">drafting · confirm exact date when call opens</span></dd>
       <dt>Venue</dt><dd>CultureHub · La MaMa Experimental Theatre Club · 47 Great Jones St, NYC</dd>
-      <dt>Format</dt><dd><span class="partner">Residency</span> · networked-performance studio · public Re-Fest showcase</dd>
-      <dt>Ask</dt><dd>2-week residency · technical support · networked-performance space · public showing</dd>
+      <dt>Host</dt><dd><span class="partner">NELA Computer Club</span> · biweekly demos at Plot.Place, Chinatown LA · touring its first NYC residency</dd>
+      <dt>Format</dt><dd>1-week residency · 1 public Menuband Jam concert</dd>
+      <dt>Players</dt><dd>6 laptops · 5 in the room · 1 remote from Plot.Place over WiFi MIDI · all running <code>slab/menuband/</code> v0.9.1+</dd>
       <dt>Call</dt><dd><a href="https://www.culturehub.org/">culturehub.org</a> · <a href="https://www.culturehub.org/programs">programs</a> · <a href="https://www.culturehub.org/refest">Re-Fest</a></dd>
       <dt>Submit</dt><dd>via CultureHub Open Call · form TBD when 2026 cycle opens</dd>
-      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/culturehub-2026">grants/culturehub-2026/</a> <em>(folder TBD)</em> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/slab/menuband">slab/menuband/</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/fedac/native">fedac/native/</a></dd>
+      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/slab/menuband">slab/menuband/</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/culturehub-2026">grants/culturehub-2026/</a> <em>(folder TBD)</em></dd>
     </dl>
   </header>
 
   <!-- ── APPLICATION AT A GLANCE (form mirror) ─────── -->
   <section class="glance" id="glance">
-    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft v0 · trims to fit form when opened</span></h2>
-    <p class="hint">Standard residency-form fields drafted from the Aesthetic Computer side, ready to be tightened against the live CultureHub Open Call once it posts.</p>
+    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft v1 · trims to fit form when opened</span></h2>
+    <p class="hint">Standard residency-form fields with current best-answers inline. Tightens against the live CultureHub Open Call once it posts.</p>
 
     <dl>
       <dt>Project title</dt>
-      <dd><strong>Aesthetic.Computer at the Bandstand</strong> <em>· (working — alts: "the AC Bandstand," "menuband · live")</em></dd>
+      <dd><strong>Menuband Jam</strong> · hosted by NELA Computer Club</dd>
 
       <dt>Three words</dt>
-      <dd>perform · teach · jam</dd>
+      <dd>menubar · keyboard · jam</dd>
 
       <dt>One-sentence description</dt>
-      <dd>A residency that turns CultureHub's networked-performance studio into a small bandstand: <em>menuband</em> as the live conductor, AC Native as the operating system, <em>notepat</em> as the polyphonic instrument, and KidLisp as the score that anyone in the room can write.</dd>
+      <dd>Six players, six laptops; each laptop's macOS menubar is taken over by <em>menuband</em> — a Swift overlay that turns each keystroke into a piano-roll note — and the six menubars, projected side by side on the back wall, are the score the audience reads while the room jams as one collective keyboard.</dd>
 
-      <dt>Project description<span class="cap">~400 w · drafting</span></dt>
+      <dt>What you'll show<span class="cap">~250 w · drafting</span></dt>
       <dd>
-        <p class="excerpt">Aesthetic.Computer is a creative computing system that boots a Linux laptop directly into art software with no desktop and no browser. The proposed residency stages it as a bandstand: two AC Blank laptops on stage, a menuband overlay pinned to the top of each screen scoring every keystroke, notepat playing the actual notes, and an open invitation for the audience to sit down and write a piece in KidLisp. CultureHub's networked-performance infrastructure connects the room to a remote AC station — La MaMa to a UCLA Social Software session, or to NELA Computer Club at Plot.Place — for cross-site jam sessions where each side plays into the same composition over UDP MIDI.</p>
+        <p class="excerpt">A one-week residency culminating in a single public concert. NELA Computer Club — the biweekly Aesthetic.Computer demo show that runs at Plot.Place in Chinatown LA — comes to CultureHub for a touring engagement. We bring six laptops, install <em>menuband</em> on each, and rehearse a single piece for the week. On the night, five players take the stage at La MaMa; one player remains in LA at Plot.Place and joins over WiFi MIDI through CultureHub's networked-performance studio. Each player's menubar is captured and projected as a horizontal strip on the back wall, six strips stacked. The keys press, the menubars score, the room hears it. <strong>The whole concert is one piece, ~30 minutes.</strong></p>
         <a class="jump" href="#pitch">Read the full pitch ↓</a>
       </dd>
 
-      <dt>Artist bio</dt>
-      <dd>Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles. He builds instruments and tools for other artists, with a live practice across performance painting, software writing, and teaching. Yale MFA. Author in Residence at UCLA Social Software with Casey Reas and Lauren Lee McCarthy. Creator of <em>Aesthetic.Computer</em>, <em>Whistlegraph</em>, and <em>No Paint</em>; <em>No Paint</em> and <em>notepat</em> each reached the front page of Hacker News. Work in the collections of KADIST and SMK. Hosts biweekly NELA Computer Club demos at Plot.Place, Chinatown LA. Toured Europe with Goodiepal in 2018 — that performance lineage feeds this proposal directly.</dd>
+      <dt>Artist / host bio</dt>
+      <dd>Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles. He builds instruments and tools for other artists. Yale MFA. Author in Residence at UCLA Social Software with Casey Reas and Lauren Lee McCarthy. Creator of <em>Aesthetic.Computer</em>, <em>Whistlegraph</em>, <em>menuband</em>. <strong>Hosts NELA Computer Club</strong>, a biweekly demo night at Plot.Place in Chinatown LA where artists show works-in-progress on each other's machines. The Computer Club is the social substrate this proposal travels with.</dd>
 
       <dt>Why CultureHub<span class="cap">~100 w · drafting</span></dt>
-      <dd class="statement">CultureHub's <em>networked-performance</em> mission is the rare match for a system whose pieces are URL-addressable from the kernel up. Aesthetic.Computer was built for cross-site play (WebSocket + UDP channels, USB+UDP MIDI, real-time multiplayer) but it has not yet had a stage with that mission baked in. The residency is the chance to score the system <em>against</em> a remote room — to take the menuband, notepat, and KidLisp out of the studio and into a public, networked, two-room composition.</dd>
+      <dd class="statement">CultureHub's networked-performance studio is the only venue in NYC built to handle a sixth player who's still in Los Angeles. The Menuband Jam needs exactly that: five laptops on stage and one on the other side of the country, all six menubars stacked on the back wall, all six in time. The piece doesn't work without the network, but it also doesn't <em>need</em> a sprawling production — one concert, one week of rehearsal, one streamable archive. It's a small, dense use of CultureHub's mission.</dd>
 
-      <dt>Public engagement<span class="cap">~100 w · drafting</span></dt>
-      <dd class="statement">Three public moments inside the residency: <strong>(1)</strong> a <em>Bandstand Concert</em> with one AC station at La MaMa and one across the country, networked over UDP MIDI; <strong>(2)</strong> a <em>KidLisp Jam</em> open to the public, where anyone walking in can write five lines and have them join the running composition; <strong>(3)</strong> a <em>Flash Day</em> where ten participants leave with a USB stick that turns any UEFI laptop into the same instrument they just played. Documentation released open-source.</dd>
+      <dt>Public engagement<span class="cap">one night</span></dt>
+      <dd>One public Menuband Jam concert at La MaMa during the residency week (~45 min program with 30 min set + Q&A). Live-streamed; archive released open-source. NELA Computer Club's existing audience travels to NYC; the New York audience sees a touring version of a working LA show.</dd>
 
-      <dt>Budget<span class="cap">draft · scales to confirmed support</span></dt>
-      <dd>Artist fee · travel LA↔NYC · lodging · equipment ship (2 AC Blanks + Mini Rig + USB MIDI gear) · print materials (KidLisp reference cards, programs) · networking infra · documentation. Detailed once the support level is confirmed by the call. <a class="jump" href="#budget">Sketch budget ↓</a></dd>
+      <dt>Budget<span class="cap">draft · scales to support level</span></dt>
+      <dd>Artist fee · travel for 5 NELA players LA↔NYC · 1 LA-side technician at Plot.Place for the remote-player setup · lodging · 6 laptops + cables (artist-owned, shipped) · WiFi MIDI test infra · projector + 6 capture HDMIs · documentation. Detailed once support level is confirmed. <a class="jump" href="#budget">Sketch budget ↓</a></dd>
 
-      <dt>Timeline<span class="cap">2 weeks · 1 public weekend</span></dt>
-      <dd>Week 1: build-in, networked-performance tests, two cross-site rehearsals, KidLisp curriculum tune-up. Public weekend: Bandstand Concert (Fri), KidLisp Jam (Sat afternoon), Flash Day (Sat evening), open studio (Sun). Week 2: documentation, follow-up, UDP MIDI release, public retro at NELA Computer Club.</dd>
+      <dt>Timeline<span class="cap">1 week · 1 public concert</span></dt>
+      <dd>Mon–Wed: build-in, install menuband on all 6 laptops, rehearsal blocks, lock the piece. Thu: full dress rehearsal with the LA-side player joining over WiFi MIDI. Fri: <strong>public Menuband Jam concert.</strong> Sat: documentation, edit the multitrack, ship the archive.</dd>
 
       <dt>Tech rider<span class="cap">light</span></dt>
-      <dd>Stable wifi · 1 PA + 1 mixer · 2 AC Blanks (artist) · 2 Mini Rig speakers (artist) · 1 USB MIDI hub + cables (artist) · projector (CultureHub) · 1 networked machine on the remote side (UCLA / Plot.Place). No special staging. Quiet enough for a black-box.</dd>
+      <dd>5 laptops on stage (artist) · 1 remote laptop at Plot.Place LA (NELA tech, shipped from artist's existing fleet) · 6 USB-C → HDMI captures into a CultureHub video switcher · 1 projector (CultureHub) · 1 PA + 1 small mixer · stable wifi at both rooms · WiFi MIDI / RTP-MIDI bridge between rooms.</dd>
 
       <dt>Documentation<span class="cap">delivered to CultureHub on close</span></dt>
-      <dd>Concert recording (multitrack audio + screen capture both rooms) · KidLisp Jam piece archive (every program a permanent URL) · Flash Day USB image · open-source release of the cross-site UDP MIDI bridge · a 5-minute documentation video.</dd>
+      <dd>Multitrack audio + 6-stripe menubar capture · single concert recording · one short doc video · open-source release notes for the WiFi MIDI bridge built during the week.</dd>
     </dl>
+  </section>
+
+  <!-- ── STAGE DIAGRAM ───────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Stage<span class="count">six menubars, one piece</span></h2>
+    <p style="color:var(--dim);margin-bottom:0.4em;font-size:0.9em">Behind the players, six horizontal menubar captures projected as stacked strips. The audience reads the piece off the wall the way you'd read the top of your own menubar — except now there are six of them, all in time.</p>
+    <div class="stage">
+      <div class="stage-grid" aria-label="six players, each with their own menubar capture">
+        <div class="player">
+          <span class="role">Player 1</span>
+          <div class="menubar"></div>
+          <span class="who">@jeffrey</span>
+          <span class="where">on stage · La MaMa</span>
+        </div>
+        <div class="player">
+          <span class="role">Player 2</span>
+          <div class="menubar"></div>
+          <span class="who">NELA regular</span>
+          <span class="where">on stage · La MaMa</span>
+        </div>
+        <div class="player">
+          <span class="role">Player 3</span>
+          <div class="menubar"></div>
+          <span class="who">NELA regular</span>
+          <span class="where">on stage · La MaMa</span>
+        </div>
+        <div class="player">
+          <span class="role">Player 4</span>
+          <div class="menubar"></div>
+          <span class="who">NELA regular</span>
+          <span class="where">on stage · La MaMa</span>
+        </div>
+        <div class="player">
+          <span class="role">Player 5</span>
+          <div class="menubar"></div>
+          <span class="who">NELA regular</span>
+          <span class="where">on stage · La MaMa</span>
+        </div>
+        <div class="player" style="border-color:var(--pink); border-left: 2px solid var(--pink);">
+          <span class="role" style="color:var(--gold)">Player 6 · remote</span>
+          <div class="menubar"></div>
+          <span class="who">NELA tech</span>
+          <span class="where" style="color:var(--gold)">@ Plot.Place LA</span>
+        </div>
+      </div>
+      <div class="stage-floor">
+        <span class="pin">▸</span> back wall: 6 captured menubars stacked &nbsp;·&nbsp; floor: 5 laptops in a row, 1 empty seat for the remote &nbsp;·&nbsp; PA: 6 voices, summed
+      </div>
+    </div>
   </section>
 
   <!-- ── PITCH ───────────────────────────────── -->
   <section class="pitch" id="pitch">
     <h2><span class="ord">§</span>Pitch</h2>
 
-    <p>Aesthetic.Computer is a creative computing system: a Linux kernel that boots a custom C runtime as PID 1 on x86_64 UEFI laptops, with no desktop, no compositor, no browser. It exists because the personal computer, after forty years of platform consolidation, stopped being a personal instrument. <strong>The residency at CultureHub puts the instrument back on a stage.</strong></p>
+    <p>NELA Computer Club is a biweekly demo night at <em>Plot.Place</em> in Chinatown, Los Angeles, where artists show works-in-progress on each other's machines. The Computer Club is small, regular, and unambitious in the right way — people show up, plug in, take a turn. It is the working scene that Aesthetic.Computer's other claims are built on top of.</p>
 
-    <span class="drop">menuband — the conductor sits in the menu bar.</span>
+    <p>The proposal is to take that scene to NYC for one week. <strong>Menuband Jam</strong> is the piece NELA brings.</p>
 
-    <p>A small Swift app in <code>slab/menuband/</code> pins a glass status-bar above whatever the artist is doing. It listens to keys the way a band listens to a count-off: <strong>deliberate-only triggers, dark-mode piano theme, family-color shadow on the title</strong>. At the residency, menuband sits at the top of every screen on the stage and on every screen in the audience. When a visitor presses a key, it appears as a piano-roll note above the editor — visible, public, scored. It turns a laptop into a sitting-down instrument with a transparent score.</p>
+    <span class="drop">menuband — the menubar promoted to instrument.</span>
 
-    <span class="drop">AC Native — the OS as ensemble member.</span>
+    <p>Menuband (<code>slab/menuband/</code>, currently at <strong>v0.9.1</strong>) is a Swift app that pins a glass panel into the macOS menubar at the very top of the screen. It listens to keystrokes — deliberate-only, no accidental toots — and renders each one as a piano-roll note ticking across the bar. There is a dark-mode piano theme; the title carries a sharp colored shadow for max contrast against any desktop. Underneath, MenuBandSynth + MenuBandSampleVoice + MenuBandMIDI route the keys to actual sound, with USB MIDI in/out and (in development for this residency) WiFi MIDI between machines. <strong>The menubar is no longer chrome; it is the score.</strong></p>
 
-    <p>The two laptops on stage are <strong>AC Blanks</strong>: refurbished ThinkPad 11e Yoga Gen 6s flashed with Aesthetic.Computer at $128/seat. AC Native renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at <strong>192 kHz with 32-voice polyphony</strong>. There is a built-in <code>code</code> command that drops into a native terminal running an AI coding partner — so the residency can also explore <em>improvisation between an artist and a model</em>, on stage, inside the same OS.</p>
+    <span class="drop">The jam — six players, one piece.</span>
 
-    <span class="drop">notepat — the actual instrument.</span>
+    <p>Six laptops. Each runs menuband. Each player has their own keyboard, their own role, their own range of notes. <strong>The audience reads the score off the back wall:</strong> six captured menubars stacked horizontally, every keystroke from every player visible the moment it's pressed. The piece is not improvised from nothing — we rehearse all week — but it is not click-tracked either. <em>It's a jam in the live-jazz sense:</em> a written head, an open middle, a written tail.</p>
 
-    <p>The default piece on the AC Blank is <em>notepat</em>: an 8,466-line polyphonic instrument with eight waveforms (sine, triangle, sawtooth, square, composite, harp, whistle, sample), 12 simultaneous sample voices, USB and UDP MIDI in/out. The keyboard is the keys; the menuband is the score; the speakers are the band. <strong>UDP MIDI is what makes the residency networked:</strong> two AC stations across the internet can hear each other's notes inside ~50 ms over geckos.io, so a player at La MaMa and a player at UCLA Social Software can hold the same chord.</p>
+    <span class="drop">The sixth player is in LA.</span>
 
-    <span class="drop">KidLisp — the audience writes the score.</span>
+    <p>One menuband stays at Plot.Place in Chinatown, played by a NELA regular at the home venue. WiFi MIDI carries the notes between rooms; the captured menubar from LA is the sixth strip on the back wall at La MaMa. <strong>This is the only part of the proposal that needs CultureHub's networked-performance studio</strong> — and it is exactly the part that justifies the residency. The piece does not work without the network; the network is not an embellishment.</p>
 
-    <p>KidLisp is a minimal Lisp dialect for generative art: 118 built-in functions, no build step, no imports, accessible to non-programmers. There are already <strong>17,000+ KidLisp programs</strong> on the platform, written by 2,800+ handles. At the residency, a public <em>KidLisp Jam</em> opens the bandstand to the audience: five lines, a permanent URL, and the running composition picks up the new piece. A jam is what happens when a score is written in the same room as the music.</p>
+    <span class="drop">Why this and not more.</span>
 
-    <span class="drop">Cross-site — La MaMa to LA, every night.</span>
-
-    <p>CultureHub's networked-performance studio is the only reason this proposal exists. The residency stages a <strong>two-room composition</strong>: one AC station at La MaMa, one at UCLA Social Software (or NELA Computer Club at Plot.Place), bridged over UDP MIDI. Both rooms run the same OS, the same instrument, the same menuband. The audience at La MaMa can see — projected on the back wall — the menuband from the other room, scoring the keys of a player they cannot see. The two rooms hold one chord.</p>
-
-    <span class="drop">Learning Aesthetic.Computer — Flash Day on Saturday.</span>
-
-    <p>The residency closes its public weekend with a <em>Flash Day</em>: ten participants are walked through flashing a USB stick that turns any UEFI laptop into the same instrument they just heard played. Each participant leaves with the OS, the editor, the menuband, notepat, and a KidLisp reference card set. The instrument is contagious by design.</p>
-
-    <p>This is the live edge of an argument the studio has been making elsewhere: <em>the personal computer is an unfinished instrument, and performance is part of how it gets finished.</em> CultureHub is where the instrument gets to play to a room with a partner across the country.</p>
+    <p>Aesthetic.Computer has many subsystems — KidLisp, notepat, AC Native, the device library, the papermill. None of them are at this booth. <strong>The Menuband Jam is one piece, six players, one week, one concert.</strong> NELA Computer Club is the working community that hosts it; menuband is the working instrument that carries it; CultureHub is the working venue that lets the sixth chair stay home in LA. The residency is a single dense fit, not a survey of everything we make.</p>
   </section>
 
-  <!-- ── FOUR ANCHORS ──────────────────────── -->
+  <!-- ── FOUR REGISTERS ──────────────────────── -->
   <section>
     <h2><span class="ord">§</span>Four Registers</h2>
     <div class="anchors">
       <div class="anchor">
         <b>menuband</b>
-        <p>A pinned glass status-bar overlay (Swift app, <code>slab/menuband/</code>) that scores every keystroke as a piano-roll note above the editor. Deliberate-only triggers. Dark-mode piano theme.</p>
+        <p>A Swift menubar app at <code>slab/menuband/</code>, v0.9.1+. Pinned glass panel, dark-mode piano theme, deliberate-only triggers, MenuBandMIDI for inter-machine play. The instrument.</p>
       </div>
       <div class="anchor">
-        <b>AC Native</b>
-        <p>A Linux kernel that boots a custom C runtime as PID 1 on x86_64 laptops. 192 kHz audio, 32-voice polyphony, DRM graphics, USB+UDP MIDI. Per-seat cost ~$50.</p>
+        <b>NELA Computer Club</b>
+        <p>Biweekly demo night at Plot.Place, Chinatown LA. The working scene. Travels to NYC for one week as the host of the jam.</p>
       </div>
       <div class="anchor">
-        <b>notepat</b>
-        <p>An 8,466-line polyphonic instrument: 8 waveforms, 12 sample voices, USB + UDP MIDI in/out. The default piece. Hacker News front page. The voice of the bandstand.</p>
+        <b>The Jam</b>
+        <p>Six players, six laptops, one ~30-minute piece. Rehearsed all week. Public concert at La MaMa on Friday night.</p>
       </div>
       <div class="anchor">
-        <b>KidLisp</b>
-        <p>118-function minimal Lisp for generative art. 17,000+ programs already written. 2,800+ handles. Five-line pieces; permanent URLs. The audience's score language.</p>
+        <b>The Network</b>
+        <p>The sixth menubar is in LA. WiFi MIDI between rooms. CultureHub's networked-performance studio is exactly the substrate that lets the sixth chair stay home.</p>
       </div>
     </div>
   </section>
@@ -472,42 +578,24 @@
       <div class="stat" data-k="handles"><span class="n">…</span><span class="l">Handles</span></div>
       <div class="stat" data-k="kidlisp"><span class="n">…</span><span class="l">KidLisp pieces</span></div>
       <div class="stat" data-k="pieces"><span class="n">…</span><span class="l">User pieces</span></div>
-      <div class="stat" data-k="paintings"><span class="n">…</span><span class="l">Paintings</span></div>
-      <div class="stat" data-k="moods"><span class="n">…</span><span class="l">Moods</span></div>
-      <div class="stat" data-k="chatMessages"><span class="n">…</span><span class="l">Chat msgs</span></div>
       <div class="stat" data-k="active"><span class="n">…</span><span class="l">Active now</span></div>
-      <div class="stat" data-k="printsOrdered"><span class="n">…</span><span class="l">Prints ordered</span></div>
     </div>
     <div class="stats-status" id="stats-status">Fetching <span class="ok">api/metrics</span> …</div>
-  </section>
-
-  <!-- ── WHAT THE RESIDENCY MAKES ──────────────── -->
-  <section>
-    <h2><span class="ord">§</span>What the Residency Makes<span class="count">2 weeks · 1 public weekend</span></h2>
-    <div class="features">
-      <div class="feat"><b>Bandstand Concert</b>One night, two rooms (La MaMa + a remote AC station at UCLA Social Software or NELA Computer Club). One composition, held across the network over UDP MIDI. Menuband from both rooms projected on the back wall.</div>
-      <div class="feat"><b>KidLisp Jam</b>A public afternoon. Anyone in the room sits down at an AC Blank, writes 5 lines, and joins the running composition. Each program receives a permanent URL the moment it parses. We print the day's pieces as cards on a small printer at the back.</div>
-      <div class="feat"><b>Flash Day</b>Saturday evening. Ten participants are walked through flashing a USB stick that turns any UEFI laptop into the AC editor + menuband + notepat. Everyone leaves with the instrument they just played.</div>
-      <div class="feat"><b>Open studio (Sun)</b>The bandstand is left running with the menuband, notepat, and a KidLisp prompt. Visitors drop in, write, leave with a card. Quiet, slow, public.</div>
-      <div class="feat planned"><b>UDP MIDI bridge release</b>The cross-site networking code used by the concert ships open-source. Other CultureHub residents and other AC stations can use it the next week.</div>
-      <div class="feat planned"><b>Documentation pack</b>Multitrack recording from both rooms · screen capture both rooms · KidLisp Jam archive (every URL) · Flash Day USB image · 5-minute mini-doc.</div>
-    </div>
   </section>
 
   <!-- ── BUDGET ─────────────────────────────── -->
   <section id="budget">
     <h2><span class="ord">§</span>Budget Sketch<span class="count">scales to support level</span></h2>
-    <p style="color:var(--dim);margin-bottom:1em">Held at sketch level until the call's support amount is confirmed. Public-event line items in pink (the Bandstand Concert, the KidLisp Jam, the Flash Day). Equipment shipping is the LA-to-NYC variable.</p>
+    <p style="color:var(--dim);margin-bottom:1em">Held at sketch level until the call's support amount is confirmed. Concert-tied items in pink (the player travel, the LA-side technician, the WiFi MIDI work). Six-laptop fleet is artist-owned (existing AC fleet); shipping is the LA↔NYC variable.</p>
     <div class="features">
-      <div class="feat"><b>Artist fee</b>2 weeks · residency rate</div>
-      <div class="feat"><b>Travel LA ↔ NYC</b>economy · 2 weeks</div>
-      <div class="feat"><b>Lodging</b>2 weeks · modest</div>
-      <div class="feat"><b>Equipment shipping</b>2 AC Blanks + 2 Mini Rigs + USB MIDI hub + cables · round trip</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Bandstand Concert</b>PA support, signal capture, 2 cross-site rehearsals</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">KidLisp Jam</b>card printer + cardstock · KidLisp reference set for the room</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Flash Day</b>10 USB sticks · 10 KidLisp card sets · 10 reference packets</div>
-      <div class="feat"><b>Documentation</b>multitrack record + capture + edit + 5-minute mini-doc</div>
-      <div class="feat"><b>Per diem</b>2 weeks</div>
+      <div class="feat"><b>Artist fee</b>1 week · residency rate</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Player travel</b>5× LA↔NYC economy · NELA regulars on stage at La MaMa</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Player lodging</b>5× modest · 1 week</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">LA-side technician</b>NELA tech runs the sixth player station at Plot.Place during the dress + concert</div>
+      <div class="feat"><b>Equipment shipping</b>6 laptops + cables + 6 USB-C→HDMI capture sticks · round trip</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">WiFi MIDI bridge</b>Build the cross-site latency target into menuband (~50 ms LA↔NYC); shipped with v0.10</div>
+      <div class="feat"><b>Documentation</b>multitrack audio + 6-strip menubar capture + 1 short doc video</div>
+      <div class="feat"><b>Per diem (6 ppl)</b>1 week</div>
       <div class="feat"><b>Contingency</b>10%</div>
     </div>
   </section>
@@ -516,25 +604,25 @@
   <section>
     <h2><span class="ord">§</span>The Lineage<span class="count">specific, not canonical</span></h2>
     <div class="lineage">
-      <div class="row"><div class="who">PLOrk · Princeton</div><div class="claim">The original laptop orchestra (2005–). $1,500+/seat hand-fabricated. The artistic question was settled in year one; what failed was access. AC's per-seat cost lands ~$50 — two orders of magnitude below — and is the substance of <em>papers/arxiv-plork</em>.</div></div>
-      <div class="row"><div class="who">Goodiepal</div><div class="claim"><em>Radical Computer Music</em>. A parallel argument that the computer itself is under-designed as an artistic instrument. I toured Europe with him in 2018 — the residency descends from that tour.</div></div>
-      <div class="row"><div class="who">CultureHub · Re-Fest lineage</div><div class="claim">Networked-performance work staged across rooms — exactly the substrate this proposal is designed for. The bandstand idea is ours; the network it crosses is yours.</div></div>
-      <div class="row"><div class="who">SuperCollider / Max</div><div class="claim">Real-time sample-level synthesis as a composable medium. AC's audio ring buffer at 192 kHz is downstream of this tradition, reimagined as a piece's native voice rather than a separate DAW.</div></div>
-      <div class="row"><div class="who">HyperCard · Bill Atkinson</div><div class="claim">The last mainstream system where anyone on a computer could author a complete interactive thing. AC reconstructs that social contract for 2026; KidLisp is the script language; the URL is the stack.</div></div>
-      <div class="row"><div class="who">Cornelius Cardew · Scratch Orchestra</div><div class="claim">An artist-led collective attempt to build the system that would perform their scores. AC is this pattern in software; the residency stages it for one weekend at La MaMa.</div></div>
+      <div class="row"><div class="who">PLOrk · Princeton</div><div class="claim">The original laptop orchestra (2005–). Six laptops, one piece. Hand-fabricated speaker hemispheres. The working precedent for this format; menuband's ambition is the same musicality at consumer-laptop access.</div></div>
+      <div class="row"><div class="who">The Hub · Bischoff, Brown, Gresham-Lancaster, Perkis, Stone, Trayle</div><div class="claim">Bay Area network-music ensemble (1986–). Cross-machine MIDI as composition. Six players each, sometimes in different rooms. <em>The Hub is the closest direct precedent for the Menuband Jam.</em></div></div>
+      <div class="row"><div class="who">Cornelius Cardew · Scratch Orchestra</div><div class="claim">An artist-led collective attempt to build the system that would perform their scores. NELA Computer Club is this pattern, biweekly, in Chinatown LA.</div></div>
+      <div class="row"><div class="who">Mark Fell · Multistability</div><div class="claim">Tight gridded notation as compositional material. Menuband's piano-roll-on-the-menubar inherits that notation-as-instrument posture.</div></div>
+      <div class="row"><div class="who">Goodiepal</div><div class="claim"><em>Radical Computer Music</em>. The argument that the computer itself is under-designed as an artistic instrument. I toured Europe with him in 2018; menuband's <q>menubar as score</q> idea descends from those conversations.</div></div>
+      <div class="row"><div class="who">CultureHub · Re-Fest lineage</div><div class="claim">Networked-performance work staged across rooms. The Menuband Jam keeps that lineage tight: one remote chair, no extra production, the network used because the piece needs it.</div></div>
     </div>
   </section>
 
   <!-- ── CALENDAR ─────────────────────────── -->
   <section id="calendar">
-    <h2><span class="ord">§</span>Residency Calendar<span class="count">~2 weeks · public weekend in the middle</span></h2>
+    <h2><span class="ord">§</span>Residency Calendar<span class="count">1 week · 1 concert</span></h2>
     <div class="features">
-      <div class="feat"><b>Days 1–3 · build-in</b>Set up the bandstand. Test networked UDP MIDI with the remote AC station. Tune menuband for the room's projector. Cross-site sound check.</div>
-      <div class="feat"><b>Days 4–5 · rehearsals</b>Two full cross-site rehearsals with the remote room. Refine the menuband-on-back-wall projection. Lock the concert program (3 pieces).</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Day 6 (Fri) · Bandstand Concert</b>Two-room, networked notepat-and-KidLisp concert. La MaMa and the remote station hold one composition over UDP MIDI. 45 minutes + Q&A.</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Day 7 (Sat) · KidLisp Jam + Flash Day</b>Afternoon: public KidLisp Jam (5-line pieces, permanent URLs, on-the-spot card prints). Evening: Flash Day for 10 participants.</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Day 8 (Sun) · open studio</b>Bandstand left running. Drop-in writing, slow afternoon. Card printer on the back wall.</div>
-      <div class="feat"><b>Days 9–14 · documentation</b>Multitrack edit, mini-doc cut, UDP MIDI bridge release, public retro at NELA Computer Club post-residency.</div>
+      <div class="feat"><b>Mon · install</b>Six laptops set up at La MaMa. Menuband installed and signed on each. WiFi MIDI handshake test with the LA-side machine at Plot.Place.</div>
+      <div class="feat"><b>Tue · part-writing</b>Roles for each of the six players locked. Note ranges divided. The piece's head + tail written; middle-section structure agreed.</div>
+      <div class="feat"><b>Wed · rehearsal</b>Two full run-throughs with all six players. Capture pass to back-wall projection. Latency tuning on the LA leg.</div>
+      <div class="feat"><b>Thu · dress</b>Full dress with technical crew, lighting, and PA. LA-side player and tech join from Plot.Place over WiFi MIDI for the whole rehearsal.</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fri · Menuband Jam</b>Public concert. ~30-minute piece + Q&amp;A. Streamed; multitrack + back-wall capture archived.</div>
+      <div class="feat"><b>Sat · ship</b>Multitrack edit, doc-video cut, WiFi MIDI bridge release notes pushed to <code>slab/menuband/</code>.</div>
     </div>
   </section>
 
@@ -542,22 +630,24 @@
   <section>
     <h2><span class="ord">§</span>Status<span class="count">▸ wip · drafting</span></h2>
     <ul class="check">
-      <li class="done">Concept stake-out · menuband + AC Native + notepat + KidLisp Jam framing</li>
-      <li class="done">Source code present and shippable: <code>slab/menuband/</code>, <code>fedac/native/</code>, <code>aesthetic.computer/disks/notepat.mjs</code>, KidLisp evaluator</li>
-      <li class="done">Prior public performance lineage: 2018 European tour with Goodiepal · biweekly NELA Computer Club at Plot.Place</li>
+      <li class="done">Concept lock · single-spine: Menuband Jam, hosted by NELA Computer Club</li>
+      <li class="done">Instrument shipping · <code>slab/menuband/</code> v0.9.1 · pinned glass panel, dark-mode piano theme, deliberate-only triggers</li>
+      <li class="done">Working community · NELA Computer Club at Plot.Place, biweekly · regulars known + reachable for the touring lineup</li>
+      <li class="done">Networked-performance fit · CultureHub justified by the LA-side sixth player, not by sprawl</li>
       <li class="todo">Confirm <em>2026 CultureHub Open Call</em> deadline + form structure when the cycle posts</li>
-      <li class="todo">Create <code>grants/culturehub-2026/</code> folder with <code>RESEARCH.md</code> + <code>DRAFT.md</code> mirroring the other applications</li>
-      <li class="todo">Identify a remote AC station partner for the cross-site night (UCLA Social Software default; NELA Computer Club fallback)</li>
-      <li class="todo">UDP MIDI bridge: prove the &lt;50 ms cross-site latency target with a live LA↔NYC rehearsal before submission</li>
-      <li class="todo">Pull a 30-second concert demo video using the menuband overlay + notepat on an AC Blank</li>
-      <li class="todo">Stage 5 documentation images: menuband on screen, AC Blank in performance, notepat keyboard map, KidLisp 5-line piece, Flash Day USB stick</li>
-      <li class="todo">Trim the 400-word description to whatever the form's word cap turns out to be</li>
-      <li class="todo">Submit · before <em>the 2026 cycle deadline</em> (date TBD when call posts)</li>
+      <li class="todo">Lock the 5-player NELA touring lineup (commitments + travel windows)</li>
+      <li class="todo">Build the WiFi MIDI bridge into menuband · prove &lt;50 ms LA↔NYC over RTP-MIDI before submission</li>
+      <li class="todo">Write the head + tail of the jam piece; rehearse with NELA at Plot.Place once before submission</li>
+      <li class="todo">Capture-rig research · 6× USB-C→HDMI menubar grabs into one switcher</li>
+      <li class="todo">Pull a 30-second teaser video · 4 menubars at NELA, ticking together at Plot.Place</li>
+      <li class="todo">Stage 5 documentation images: menubar close-up, NELA at Plot.Place, 4-machine rehearsal still, capture rig diagram, 6-stripe back wall mock</li>
+      <li class="todo">Create <code>grants/culturehub-2026/</code> folder with <code>RESEARCH.md</code> + <code>DRAFT.md</code></li>
+      <li class="todo">Submit before <em>the 2026 cycle deadline</em> (date TBD when call posts)</li>
     </ul>
   </section>
 
   <footer>
-    <a href="https://aesthetic.computer/culture-hub-2026">aesthetic.computer/culture-hub-2026</a> · WIP draft · live metrics from <a href="https://aesthetic.computer/api/metrics">aesthetic.computer/api/metrics</a> · venue: <a href="https://www.culturehub.org/">culturehub.org</a> at <a href="https://www.lamama.org/">La MaMa</a>
+    <a href="https://aesthetic.computer/culture-hub-2026">aesthetic.computer/culture-hub-2026</a> · WIP draft · venue <a href="https://www.culturehub.org/">culturehub.org</a> at <a href="https://www.lamama.org/">La MaMa</a> · host NELA Computer Club at Plot.Place LA · instrument <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/slab/menuband">slab/menuband/</a>
   </footer>
 
 </main>
