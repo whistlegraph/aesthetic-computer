@@ -1,61 +1,82 @@
-A wide horizontal tableau on warm cream-colored paper, drawn in colored
-pencil and gouache in a Hockney register: heavy hatching for shading,
-visible perceptual-breakdown marks (optical-mixing dots, striping,
-moiré in the printed surfaces), tapered confident strokes, the
+A wide horizontal tableau on warm cream-colored paper, drawn in
+colored pencil and gouache in a Hockney register: heavy hatching
+for shading, optical-mixing dots and striping for tonal blends,
+moiré in printed surfaces, tapered confident strokes, the
 composition gradually softening to nothing at all four edges so the
 periphery DISSOLVES INTO PURE CREAM PAPER with no border, no frame,
-no environmental vignette. Muted natural palette throughout
-(terracotta, sage, ochre, dusty pink, slate blue, brick red, warm
-grey, oxblood, brass) accented only by ONE saturated pop colour: the
-Citrus-green of an Apple MacBook Neo (the official Citrus colorway
-— a clean lime-yellow shell with the white apple emblem on the lid,
-the laptop sitting open at a precise 110° angle).
+no framing rectangle. Muted natural palette (terracotta, sage,
+ochre, dusty pink, slate blue, brick red, warm grey, brass) with
+TWO saturated pop-color zones: (1) the Citrus-green of a single
+Apple MacBook Neo (Apple's official Citrus colorway — clean
+lime-yellow shell with the white apple emblem, lid open at ~110°);
+(2) the screen of that laptop showing a vivid KidLisp piece in
+mid-render — a chunky-pixel generative-art composition, hot pink
+recursive wires tangling against a deep slate-blue field, blocks
+of zebra-striped fill, a hurricane spiral mid-zoom, the kind of
+six-line piece on the AC platform.
 
-THE SCENE: a humble plywood reference desk inside a converted
-industrial hall (NYABF-at-MoMA-PS1 atmosphere, late afternoon light
-through high steel-mullion windows). On the desk, the single Citrus-
-green MacBook Neo, mid-keystroke. Stacked next to it: three or four
-arxiv-format papers in two-column print, hand-lettered titles
-dissolving into illegible scribble-gestalt at the edges. A small
-thermal printer sits beside the laptop, with a single 2.75″ × 4.75″
-KidLisp card sliding out of its slot — the card showing a tiny pixel-
-render at top, a few lines of source mid, and a QR code at bottom.
+Format: 1536×1024 horizontal (3:2). Subject is the act of
+publishing a piece — KidLisp on screen, card on its way out of
+the press. Less booth, less wall, less institutional context;
+more the close, immediate aesthetic of a single piece becoming
+print.
 
-BEHIND THE DESK, a tacked-up wall of papers with binder-clips, like
-a row of trading cards: fourteen small dossier emblems already in the
-AC papermill lineage — an elephant spine, a Greek temple, a brass
-seal with a lyre, a hex pin with crossed iron and brush, a brick arch
-with an Edison bulb, a typed index card, a floppy with a rhizome
-doodle, a chalkboard schematic, an inverted stoop, a Sony Portapak,
-a stencilled 7" sleeve, a pixel-burst badge, a clenched-fist picket
-sign, a glass museum vitrine. To the left of the dossier wall, a
-small hand-drawn bar chart: seven horizontal segments labelled
-"137 MB" in pencil, no other readable text.
+THE FRAME: a tight medium shot at table-height, low natural
+late-afternoon light from the right. Two figures at peer eye-
+level on either side of the laptop, both leaning in toward the
+screen, attention all flowing TO THE PIECE on the green Neo —
+the laptop is the visual centre, not the people.
 
-AT THE DESK, three figures at peer eye-level — a horizontal reading-
-circle composition, NEVER centred or elevated, the kind of casual
-peer composition you'd find in a 1970s public library photo or a
-Hockney pool-side group sketch. The middle figure is a deadpan
-attentive man, ~5'10", short brown hair, wearing a navy thrift-shop
-button-down over a faded printed tee, leaning forward to look at the
-laptop screen — this is jeffrey. On his left, a young woman visitor
-with reading glasses pointing at the screen and asking a question.
-On his right, an older bearded visitor reading a card he just
-received from the printer. All three at the same eye-line. None of
-them centred; jeffrey is offset slightly right of centre.
+LEFT FIGURE (visitor 1): A young woman in her late twenties,
+medium-brown hair pulled back, round wire-frame reading glasses,
+wearing a rust-colored cable-knit sweater over a thin grey tee.
+She is leaning in, finger pointing softly at a specific pixel
+cluster on the screen, deadpan attentive. Index in motion, head
+slightly cocked.
 
-DO NOT NAME THE INSTITUTION ANYWHERE — no hand-lettered "Aesthetic
-Computer", "Printed Matter", "AC Reader", or "NYABF" anywhere in the
-image. Identity carried entirely by emblem (the wall of singular
-dossier icons, the Citrus-green Neo, the printed card, the thermal
-printer). Incidental product or manufacturer text already physically
-belonging to a depicted object is acceptable when it is NOT the
-institution being illustrated (a small "BROTHER" or generic printer
-mark on the printer body, an "M" on the apple emblem, a typed
-copyright line on a paper, the blurred title-stripe on an arxiv
-front-page). Letterforms may appear as illegible scribble-gestalt
-where the form of letters is part of the object's character.
+CENTER (the laptop is the centre, NOT a person): the open
+Citrus-green MacBook Neo. The screen is the brightest surface in
+the image and dominates the eye — a chunky-pixel KidLisp piece
+mid-frame, hot pink recursive lines tangling against deep slate
+blue, with a small monochrome render-source block visible at the
+bottom of the screen showing a few lines of parens-prefixed code
+in scribble-gestalt.
 
-Format: 1536×1024 horizontal (3:2). The whole composition reads from
-across a room as: green laptop + wall of dossier emblems + three
-people at peer height + one card mid-air leaving the printer.
+RIGHT FIGURE (jeffrey, no halo, not centred): visibly to the
+right of the laptop, head and shoulder cropped at the right edge.
+Render him from the jeffrey-platter's KidLisp-domain reference
+frames: short-to-medium brown hair, no beard, wearing a faded
+bright green sweatshirt over a thin denim shirt visible at the
+collar (cf. 2019-06-21 Kid-Pix/floppy reference), a small beaded
+bracelet on one wrist. Expression: focused, deadpan attentive —
+exactly the same eye-line as the visitor on the left, never
+elevated.
+
+ON THE TABLE in front of the laptop: a small thermal-style
+printer (humble, generic, unbranded) is mid-eject of a single
+2.75″ × 4.75″ card. The card carries a tiny pixel render at the
+top (the same KidLisp piece on the laptop screen, captured), a
+few lines of source mid, and a QR code at the bottom. The card
+catches the screen light. ONE card only — no stack, no mess.
+
+NO institutional context: no tacked-up paper-wall behind the
+figures, no row of dossier emblems, no chart, no civic library
+register. The background fades to soft cream paper a few feet
+behind the laptop, with only one or two subtle grace notes — a
+half-visible wooden shelf at the upper right with a single
+houseplant, a tiny crooked QR-card pinned to the wall — both
+dissolving into the cream paper at the edges.
+
+DO NOT NAME THE INSTITUTION ANYWHERE — no hand-lettered
+"Aesthetic Computer", "Printed Matter", "AC Reader", "NYABF",
+"KidLisp", or any spelled-out brand. Identity is carried by:
+the saturated-Citrus laptop, the chunky-pixel KidLisp aesthetic,
+the printed card, the peer-eye-level composition. Incidental
+product or manufacturer text on physical objects is fine when
+NOT the institution being illustrated (the apple emblem, a
+generic small "PRINT" stamp on the printer body, faintly
+illegible code-stub on the screen). Letterforms anywhere else
+appear as illegible scribble-gestalt only.
+
+Hockney colored-pencil + gouache, cream paper, all four corners
+dissolve to nothing.
