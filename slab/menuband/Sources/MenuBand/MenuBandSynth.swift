@@ -726,6 +726,8 @@ final class MenuBandSynth {
         NSLog("MenuBand SampleVoice: synth startSampleRecording (playbackEngineRunning=\(engine.isRunning))")
         _ = resumeAudioEngineIfNeeded()
         sampleRecordingActive = true
+        sampleVoice.setOutputEnabled(false)
+        sampleVoice.panic()
         sampleVoice.startRecording()
     }
 
@@ -738,6 +740,9 @@ final class MenuBandSynth {
         let ok = sampleVoice.stopRecording()
         sampleRecordingActive = false
         onSampleLevel?(0)
+        if usingSampleBackend {
+            sampleVoice.setOutputEnabled(true)
+        }
         NSLog("MenuBand SampleVoice: synth stopSampleRecording result usable=\(ok)")
         scheduleIdleSuspendIfNeeded()
         return ok

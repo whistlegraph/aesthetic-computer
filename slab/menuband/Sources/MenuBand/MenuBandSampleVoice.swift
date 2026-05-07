@@ -385,7 +385,9 @@ final class MenuBandSampleVoice {
 
     private func trimmedStartFrame(scratch: AVAudioPCMBuffer, frames: Int) -> Int {
         guard let data = scratch.floatChannelData?[0], frames > 0 else { return 0 }
-        let window = 128
+        let window = 256
+        let requiredHotWindows = 2
+        var hotWindows = 0
         var i = 0
         while i < frames {
             let end = min(frames, i + window)
@@ -396,7 +398,12 @@ final class MenuBandSampleVoice {
             }
             let rms = sqrt(sumSq / Float(end - i))
             if rms >= trimThreshold {
-                return max(0, i - trimPrerollFrames)
+                hotWindows += 1
+                if hotWindows >= requiredHotWindows {
+                    return max(0, i - window * (requiredHotWindows - 1) - trimPrerollFrames)
+                }
+            } else {
+                hotWindows = 0
             }
             i += window
         }
