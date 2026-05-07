@@ -524,6 +524,20 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
                     self.onToggleKeymap?()
                     return nil
                 }
+                switch event.keyCode {
+                case 123: // kVK_LeftArrow
+                    if isDown, !event.isARepeat {
+                        self.onStepBackward?()
+                    }
+                    return nil
+                case 124: // kVK_RightArrow
+                    if isDown, !event.isARepeat {
+                        self.onStepForward?()
+                    }
+                    return nil
+                default:
+                    break
+                }
                 let consumed = self.menuBand.handleLocalKey(
                     keyCode: event.keyCode,
                     isDown: isDown,
