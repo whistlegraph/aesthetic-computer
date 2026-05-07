@@ -32,7 +32,10 @@ const MU_DB = process.env.AC_MAIL_MU_DB || join(HOME, ".cache", "mu", "xapian");
 const ACCOUNTS = {
   "ac-mail": "mail@aesthetic.computer",
   "jas-mail": "me@jas.life",
+  "sotce-mail": "mail@sotce.net",
 };
+const ACCOUNT_NAMES = Object.keys(ACCOUNTS);
+const INBOX_QUERY_ALL = ACCOUNT_NAMES.map((a) => `maildir:/${a}/INBOX`).join(" OR ");
 const DEFAULT_ACCOUNT = "ac-mail";
 const FROM_ADDRESS = ACCOUNTS[DEFAULT_ACCOUNT];
 const STYLE_GUIDE_PATH =
@@ -146,7 +149,7 @@ const server = new McpServer({
 server.tool("mail_sync", "Sync mail from Gmail using mbsync", {}, async () => {
   try {
     const results = [];
-    for (const channel of ["ac-mail", "jas-mail"]) {
+    for (const channel of ACCOUNT_NAMES) {
       try {
         const { stdout, stderr } = await run(MBSYNC, [channel], {
           timeout: 120_000,
@@ -249,7 +252,7 @@ server.tool(
 // --- mail_inbox ---
 server.tool(
   "mail_inbox",
-  "List recent inbox messages sorted by date descending. Default covers both accounts; pass account='ac-mail' or 'jas-mail' to filter.",
+  `List recent inbox messages sorted by date descending. Default covers all accounts; pass account=${ACCOUNT_NAMES.map((a) => `'${a}'`).join(" | ")} to filter.`,
   {
     count: z
       .number()
@@ -257,7 +260,7 @@ server.tool(
       .default(20)
       .describe("Number of messages to return (default 20)"),
     account: z
-      .enum(["ac-mail", "jas-mail", "all"])
+      .enum([...ACCOUNT_NAMES, "all"])
       .optional()
       .default("all")
       .describe("Which account inbox to list (default all)"),
@@ -266,11 +269,9 @@ server.tool(
     try {
       await ensureMuIndex();
       const query =
-        account === "ac-mail"
-          ? "maildir:/ac-mail/INBOX"
-          : account === "jas-mail"
-            ? "maildir:/jas-mail/INBOX"
-            : "(maildir:/ac-mail/INBOX OR maildir:/jas-mail/INBOX)";
+        account === "all"
+          ? `(${INBOX_QUERY_ALL})`
+          : `maildir:/${account}/INBOX`;
       const { stdout } = await run(MU, [
         "find",
         "--format=json",
@@ -319,10 +320,10 @@ server.tool(
       .optional()
       .describe("Optional sign-off override; defaults to style-guide signature"),
     from_account: z
-      .enum(["ac-mail", "jas-mail"])
+      .enum(ACCOUNT_NAMES)
       .optional()
       .default("ac-mail")
-      .describe("Which msmtp account to send from (ac-mail or jas-mail)"),
+      .describe(`Which msmtp account to send from (${ACCOUNT_NAMES.join(" | ")})`),
     attachments: z
       .array(z.string())
       .optional()
@@ -427,7 +428,7 @@ server.tool(
 // --- mail_count ---
 server.tool(
   "mail_count",
-  "Return count of unread inbox messages (both accounts, avoids Gmail All Mail duplication)",
+  "Return count of unread inbox messages (all accounts, avoids Gmail All Mail duplication)",
   {},
   async () => {
     try {
@@ -436,7 +437,7 @@ server.tool(
         "find",
         "--format=plain",
         "--fields=l",
-        "flag:unread AND (maildir:/ac-mail/INBOX OR maildir:/jas-mail/INBOX)",
+        `flag:unread AND (${INBOX_QUERY_ALL})`,
       ]);
       const count = stdout ? stdout.split("\n").filter(Boolean).length : 0;
       return {
