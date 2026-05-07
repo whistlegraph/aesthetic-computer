@@ -92,6 +92,8 @@ final class MenuBandSampleVoice {
     /// other output-only hardware.
     private let recordEngine = AVAudioEngine()
     private var inputTapInstalled = false
+    private var hotMicStopWork: DispatchWorkItem?
+    private let hotMicIdleSeconds: TimeInterval = 3.0
 
     /// Per-note voice slot. Pool keyed by (channel, midi) so a note
     /// retriggered on the same channel reuses the same player + varispeed
@@ -148,9 +150,6 @@ final class MenuBandSampleVoice {
                 _ = ensureVoice(channel: channel, slot: slot)
             }
         }
-        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized {
-            _ = ensureHotMicRunning()
-        }
     }
 
     func setOutputEnabled(_ enabled: Bool) {
@@ -204,6 +203,8 @@ final class MenuBandSampleVoice {
         @unknown default:
             break
         }
+        hotMicStopWork?.cancel()
+        hotMicStopWork = nil
         guard ensureHotMicRunning() else {
             recordingRequested = false
             return
@@ -267,6 +268,24 @@ final class MenuBandSampleVoice {
         return true
     }
 
+    private func scheduleHotMicStop() {
+        hotMicStopWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self, !self.recording else { return }
+            if self.inputTapInstalled {
+                self.recordEngine.inputNode.removeTap(onBus: 0)
+                self.inputTapInstalled = false
+            }
+            self.recordEngine.stop()
+            self.inputConverter = nil
+            self.inputFormat = nil
+            NSLog("MenuBand SampleVoice: hot mic idled off")
+        }
+        hotMicStopWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + hotMicIdleSeconds,
+                                      execute: work)
+    }
+
     /// Stop capture and promote scratch to the active recording.
     /// Returns true iff at least 100 ms of usable samples were captured.
     /// On false, the synth should not switch to the sample backend —
@@ -279,6 +298,7 @@ final class MenuBandSampleVoice {
             return false
         }
         recording = false
+        scheduleHotMicStop()
         guard let scratch = recordScratch else {
             recordScratch = nil
             return false
