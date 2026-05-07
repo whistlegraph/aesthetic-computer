@@ -55,11 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// substitutes it for the synth-output RMS while
     /// `menuBand.sampleRecordingActive` is true.
     private var latestMicLevel: Float = 0
-    /// Set to true once we've shown the "no room even for compact" alert
-    /// so we don't spam the user every check.
-    private var hasAlertedNoSpace = false
+    /// Consecutive checks where macOS reports the compact status item
+    /// hidden. This can be transient during SystemUIServer layout, so
+    /// we track it for logs/retries instead of surfacing a modal.
     private var compactHiddenCheckCount = 0
-    private static let compactHiddenAlertThreshold = 3
 
     /// Click-away monitor active while the popover is shown. Catches clicks
     /// on OTHER apps and dismisses the popover. Clicks on our status-item
@@ -1121,25 +1120,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if !visible {
             // Shrink to the next-smaller layout. If we're already at
-            // .compact and STILL not visible, alert the user once.
+            // .compact and STILL not visible, keep retrying quietly.
+            // SystemUIServer can report a compact status item as
+            // hidden during transient relayout even when the menu bar
+            // has room; a modal here reads as accusatory and is often
+            // simply wrong.
             if let smaller = current.smaller {
                 compactHiddenCheckCount = 0
                 debugLog("statusItem hidden — shrinking \(current) → \(smaller)")
                 KeyboardIconRenderer.displayLayout = smaller
                 updateIcon()
-            } else if !hasAlertedNoSpace {
+            } else {
                 compactHiddenCheckCount += 1
-                debugLog("statusItem hidden at compact check \(compactHiddenCheckCount)/\(Self.compactHiddenAlertThreshold)")
-                if compactHiddenCheckCount >= Self.compactHiddenAlertThreshold {
-                    hasAlertedNoSpace = true
-                    DispatchQueue.main.async { [weak self] in self?.alertNoMenuBarSpace() }
+                if compactHiddenCheckCount == 1 || compactHiddenCheckCount % 10 == 0 {
+                    debugLog("statusItem hidden at compact; retrying quietly check=\(compactHiddenCheckCount)")
                 }
+                updateIcon()
             }
             return
         }
 
         compactHiddenCheckCount = 0
-        hasAlertedNoSpace = false
 
         // Visible. If we previously shrunk, try to expand back. Set the
         // larger layout, force a layout, then re-check; revert if we
