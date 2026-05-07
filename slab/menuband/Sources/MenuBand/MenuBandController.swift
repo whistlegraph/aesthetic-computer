@@ -7,6 +7,12 @@ final class MenuBandController {
     private let synth = MenuBandSynth()
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
+    private var sampleRecordStartWorkItem: DispatchWorkItem?
+    private let sampleRecordCueSound: NSSound? = {
+        let sound = NSSound(named: NSSound.Name("Tink"))
+        sound?.volume = 0.45
+        return sound
+    }()
     /// Synth channel each held keystroke is voicing on. Mirrors
     /// `tapNoteChannel` for the menubar-tap path: round-robin across
     /// melodic channels 0–7 lets fast same-key retriggers overlap as
@@ -45,8 +51,10 @@ final class MenuBandController {
     private let minVisibleSeconds: CFTimeInterval = 0.18
 
     var onChange: (() -> Void)?
+    var onOctaveLimitNudge: ((Int) -> Void)?
     var onLitChanged: (() -> Void)?
     var onInstrumentVisualChange: (() -> Void)?
+    private(set) var sampleInputLevel: Float = 0
 
     /// Last MIDI note actually played (mouse tap or keyboard). Used by
     /// the instrument preview / audition path so the "test" note that
@@ -357,7 +365,10 @@ final class MenuBandController {
     /// stop.
     private func octaveStepOnce(delta: Int) {
         let next = max(-4, min(4, octaveShift + delta))
-        if next == octaveShift { return }
+        if next == octaveShift {
+            onOctaveLimitNudge?(delta)
+            return
+        }
         octaveShift = next
         playOctaveClick(for: next)
     }
@@ -630,7 +641,10 @@ final class MenuBandController {
     /// `applicationDidFinishLaunching` and stashes the latest value
     /// for the visualizer animation tick to read on its next frame.
     func setSampleLevelHandler(_ handler: ((Float) -> Void)?) {
-        synth.onSampleLevel = handler
+        synth.onSampleLevel = { [weak self] level in
+            self?.sampleInputLevel = level
+            handler?(level)
+        }
     }
 
     /// Switch the active backend to the user-recorded sample voice.
@@ -848,6 +862,42 @@ final class MenuBandController {
             NSSound(named: NSSound.Name("Pop"))?.play()
         }
         onChange?()
+    }
+
+    private func handleSampleRecordKey(isDown: Bool, isRepeat: Bool, source: String) -> Bool {
+        if isDown && isRepeat { return true }
+        NSLog("MenuBand SampleVoice: backtick \(isDown ? "down" : "up") received via \(source)")
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if isDown {
+                self.sampleRecordStartWorkItem?.cancel()
+                self.sampleRecordCueSound?.stop()
+                self.sampleRecordCueSound?.currentTime = 0
+                self.sampleRecordCueSound?.play()
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    self.sampleRecordStartWorkItem = nil
+                    self.synth.startSampleRecording()
+                    // Nudge the AppDelegate so the menubar icon immediately
+                    // picks up the red "REC" tint on the chip.
+                    self.onInstrumentVisualChange?()
+                }
+                self.sampleRecordStartWorkItem = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: work)
+            } else {
+                self.sampleRecordStartWorkItem?.cancel()
+                self.sampleRecordStartWorkItem = nil
+                let usable = self.synth.stopSampleRecording()
+                if usable {
+                    self.setSampleBackend(true)
+                } else {
+                    // Recording was too short / discarded — still need to
+                    // repaint so the icon drops the red tint.
+                    self.onInstrumentVisualChange?()
+                }
+            }
+        }
+        return true
     }
 
     // MARK: - Click-away auto-disable
@@ -1290,32 +1340,7 @@ final class MenuBandController {
         // 2^((midi−60)/12)). Pressing any number key flips back to a
         // GM voice (`setMelodicProgram` exits sample mode internally).
         if keyCode == 50 {
-            if isDown && !isRepeat {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    self.synth.startSampleRecording()
-                    // Nudge the AppDelegate so the menubar icon
-                    // immediately picks up the red "REC" tint on the
-                    // chip — sampleRecordingActive flipped, but the
-                    // icon won't repaint without a callback.
-                    self.onInstrumentVisualChange?()
-                }
-            } else if !isDown {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    let usable = self.synth.stopSampleRecording()
-                    if usable {
-                        self.setSampleBackend(true)
-                    } else {
-                        // Recording was too short / discarded — still
-                        // need to repaint so the icon drops the red
-                        // tint. setSampleBackend would have done this
-                        // for us in the usable branch.
-                        self.onInstrumentVisualChange?()
-                    }
-                }
-            }
-            return true
+            return handleSampleRecordKey(isDown: isDown, isRepeat: isRepeat, source: typeMode ? "type" : "local")
         }
 
         // Number-row digits 0–9 select a voice using the chooser

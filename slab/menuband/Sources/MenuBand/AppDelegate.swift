@@ -99,10 +99,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastLitCount: Int = 0
     private var slideDirection: Int = 0
     private var slideStartedAt: CFTimeInterval = 0
+    private var slideIsLimitNudge = false
     private var flashStrength: CGFloat = 0
     private var flashStartedAt: CFTimeInterval = 0
     private var iconAnimTimer: Timer?
     private static let slideDuration: CFTimeInterval = 0.34
+    private static let limitNudgeDistance: CGFloat = 16
     private static let flashDuration: CFTimeInterval = 0.18
     /// Per-MIDI displayed alpha. Each tick we smooth this value
     /// toward the cell's target — so transitions are organic
@@ -216,6 +218,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+        menuBand.onOctaveLimitNudge = { [weak self] delta in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let dir = delta > 0 ? -1 : 1
+                self.kickIconAnim(slide: dir, flash: 0.55, limitNudge: true)
+            }
+        }
         menuBand.onLitChanged = { [weak self] in
             guard let self = self else { return }
             // Subtle flash on every fresh note hit so the icon
@@ -239,6 +248,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 CGAssociateMouseAndMouseCursorPosition(0)
                 self.pitchBendCursorLocked = true
             } else if !kbHeld && self.pitchBendCursorLocked {
+                self.stopPitchBendCursorPin()
                 if self.pitchBendCursorPushed {
                     NSCursor.pop()
                     self.pitchBendCursorPushed = false
@@ -256,6 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.updateIcon()
+                self.popoverVC?.refreshInstrumentVisuals()
                 self.updatePianoWaveformWindow()
             }
         }
@@ -534,6 +545,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             self?.rebuildPopoverForLanguageChange()
         }
+        NotificationCenter.default.addObserver(
+            forName: .menuBandMicPermissionAlertWillShow,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.prepareForModalAlert()
+        }
 
         startAdaptiveLayoutChecks()
         startShiftStateMonitors()
@@ -578,6 +595,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         vc.isPlayPaletteShown = { [weak self] in
             self?.pianoWaveformWindowDelegate.isShown ?? false
         }
+        // Click on the mini visualizer strip → hide the popover
+        // (without dismissing the floating panel — `closePopover`'s
+        // default tears down both) and transition the floating
+        // panel into Esteban's full-screen liquid expanded view.
+        vc.onMiniVisualizerExpand = { [weak self] in
+            guard let self = self else { return }
+            if self.isPopoverPanelShown {
+                self.closePopover(dismissFloatingPanel: false)
+            }
+            self.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
         popoverVC = vc
         _ = vc.view
     }
@@ -591,6 +619,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installPopoverVC()
         popoverVC?.syncFromController()
         if wasShown { showPopover() }
+    }
+
+    private func prepareForModalAlert() {
+        if isPopoverPanelShown {
+            closePopover()
+        }
+        pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
     }
 
     // MARK: - Global shortcuts
@@ -1182,11 +1217,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// is the peak brightness boost on the music-note glyph (0…1).
     /// Either parameter can re-trigger an already-running animation
     /// — most recent value wins.
-    private func kickIconAnim(slide: Int, flash: CGFloat) {
+    private func kickIconAnim(slide: Int, flash: CGFloat, limitNudge: Bool = false) {
         let now = CACurrentMediaTime()
         if slide != 0 {
             slideDirection = slide
             slideStartedAt = now
+            slideIsLimitNudge = limitNudge
         }
         if flash > 0.001 {
             flashStrength = max(flashStrength, flash)
@@ -1212,6 +1248,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if slideDirection != 0 {
             if (now - slideStartedAt) >= Self.slideDuration {
                 slideDirection = 0
+                slideIsLimitNudge = false
             } else {
                 slideActive = true
             }
@@ -1230,33 +1267,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateIcon()
     }
 
-    /// Computed slide offset for the current frame. Two-phase
-    /// "masked scroll" so the whole board reads as physically
-    /// scrolling past the menubar slot:
-    ///   phase 1: image slides off in `slideDirection` until it's
-    ///            fully off the slot (offset = ±imageWidth)
-    ///   phase 2: image enters from the OPPOSITE side and settles
-    ///            back at offset 0
-    /// Result: instead of a back-and-forth shove, the user gets a
-    /// physical sense of the piano scrolling — like dragging a long
-    /// keyboard sideways and seeing one octave's worth slide past.
+    /// Computed slide offset for the current frame. The status item acts as
+    /// a fixed viewport over a longer piano strip; changing octaves scrolls
+    /// the keys by exactly one octave underneath that mask.
     private func currentSlideOffset() -> CGFloat {
         guard slideDirection != 0 else { return 0 }
         let elapsed = CACurrentMediaTime() - slideStartedAt
         if elapsed >= Self.slideDuration { return 0 }
         let t = elapsed / Self.slideDuration  // 0…1
-        let w = KeyboardIconRenderer.imageSize.width
         let dir = CGFloat(slideDirection)
-        if t < 0.5 {
-            // Linear slide off — keeps speed constant so the scroll
-            // reads as a real surface moving past.
-            let phase = CGFloat(t / 0.5)
-            return phase * w * dir
-        } else {
-            // Re-entry from the opposite side, easing into rest.
-            let phase = CGFloat((t - 0.5) / 0.5)
-            return -(1 - phase) * w * dir
+        if slideIsLimitNudge {
+            let phase = CGFloat(t)
+            return sin(.pi * phase) * Self.limitNudgeDistance * dir
         }
+        let w = KeyboardIconRenderer.octaveSlideDistance
+        let phase = CGFloat(t)
+        let eased = 1 - pow(1 - phase, 3)
+        return (eased - 1) * w * dir
     }
 
     /// Computed flash strength for the current frame. Linear decay
@@ -1608,7 +1635,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// monitor itself when the user clicks anywhere outside our app.
     /// Closes with a short fade-out (~140 ms) so the popover dissolves
     /// the way standard macOS menu pop-ups do, instead of cutting away.
-    private func closePopover() {
+    private func closePopover(dismissFloatingPanel: Bool = true) {
         // Tear down monitors immediately so a stray click during the
         // fade can't re-trigger close.
         if let m = clickAwayMonitor { NSEvent.removeMonitor(m); clickAwayMonitor = nil }
@@ -1631,8 +1658,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panel.alphaValue = 1
             })
         }
-        // Floating window pairs with the popover — fade alongside.
-        pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
+        // Floating window normally pairs with the popover — fade
+        // alongside. Skip when caller is about to switch the panel
+        // into expanded mode (mini-visualizer click), where we want
+        // the panel to STAY UP and just transition presentation.
+        if dismissFloatingPanel {
+            pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
+        }
         updatePianoWaveformWindowSuppression()
     }
 
@@ -1650,8 +1682,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPopover() {
+        debugLog("showPopover entry; isPopoverPanelShown=\(isPopoverPanelShown)")
         guard let button = statusItem.button,
-              let buttonWindow = button.window else { return }
+              let buttonWindow = button.window else {
+            debugLog("showPopover: no button/window — bail")
+            return
+        }
         // If we slept since the last open, the cached theme may be
         // stale — re-evaluate against the live system appearance
         // and trigger a retint pass before the popover is shown so
@@ -1726,6 +1762,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.activate(ignoringOtherApps: true)
             panel.makeKeyAndOrderFront(nil)
             popoverPanel = panel
+            debugLog("popover panel ordered front; visible=\(panel.isVisible) frame=\(panel.frame)")
             // Now that the popover's live frame is available
             // (popoverFrameProvider can read popoverPanel.frame),
             // re-anchor the floating piano panel so it lands at
@@ -1797,6 +1834,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !pitchBendCursorPushed {
             PitchBendCursor.neutral.push()
             pitchBendCursorPushed = true
+            // Custom pitch-bend wheel stays visible after the first
+            // real scroll delta. The floating panel's tracking areas
+            // can re-issue `cursorUpdate`, so pin the wheel at 60Hz
+            // only once the user has actually moved the trackpad.
+            startPitchBendCursorPin()
         }
         PitchBendCursor.cursor(forBend: bendAmount).set()
         // Re-arm the idle-detection timer; if 150 ms goes by
@@ -1819,6 +1861,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let bendSemitones = CGFloat(bendAmount) * 2
         let octaveSemitones = CGFloat(menuBand.octaveShift) * 12
         popoverVC?.staffView?.targetPitchShiftSemitones = bendSemitones + octaveSemitones
+    }
+
+    /// 60Hz timer used to overwrite the floating panel's
+    /// `cursorUpdate`-driven cursor sets while pitch-bend is locked.
+    /// Without this the bend wheel visibly flickers because
+    /// AppKit's cursor stack races our explicit `set()` calls.
+    private var pitchBendCursorPinTimer: Timer?
+
+    private func startPitchBendCursorPin() {
+        pitchBendCursorPinTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 60.0,
+                          repeats: true) { [weak self] _ in
+            guard let self = self,
+                  self.pitchBendCursorLocked,
+                  self.pitchBendCursorPushed else { return }
+            PitchBendCursor.cursor(forBend: self.bendAmount).set()
+        }
+        timer.tolerance = 1.0 / 120.0
+        RunLoop.main.add(timer, forMode: .common)
+        pitchBendCursorPinTimer = timer
+    }
+
+    private func stopPitchBendCursorPin() {
+        pitchBendCursorPinTimer?.invalidate()
+        pitchBendCursorPinTimer = nil
     }
 
     private func cancelBendDecay() {
@@ -1962,7 +2029,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // paired with it and must stay visible.
             pianoWaveformWindowDelegate.scheduleHide()
         } else {
-            pianoWaveformWindowDelegate.cancelPendingHidePublic()
+            pianoWaveformWindowDelegate.cancelPendingHide()
         }
     }
 

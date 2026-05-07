@@ -297,6 +297,7 @@ final class WaveformView: MTKView {
                                        Float(c.greenComponent),
                                        Float(c.blueComponent),
                                        1.0)
+        requestDisplay()
     }
 
     /// Override the visualizer's base color — used so the LED meter
@@ -342,6 +343,10 @@ final class WaveformView: MTKView {
         requestDisplay()
     }
 
+    func showRecordingTint(_ recording: Bool) {
+        setBaseColor(recording ? .systemRed : nil)
+    }
+
     func setSurfaceStyle(_ style: SurfaceStyle) {
         guard surfaceStyle != style else { return }
         surfaceStyle = style
@@ -357,9 +362,40 @@ final class WaveformView: MTKView {
             for i in 0..<displayLevels.count { displayLevels[i] = 0 }
             return
         }
+        let n = Self.barCount
+        if m.sampleRecordingActive {
+            if let red = NSColor.systemRed.usingColorSpace(.sRGB) {
+                uniforms.color = SIMD4<Float>(Float(red.redComponent),
+                                               Float(red.greenComponent),
+                                               Float(red.blueComponent),
+                                               1.0)
+            }
+            let rms = max(0, min(1, m.sampleInputLevel))
+            let now = Float(CACurrentMediaTime())
+            let framePeak: Float = rms
+            if framePeak > smoothedPeak {
+                smoothedPeak = framePeak
+            } else {
+                smoothedPeak = max(0.05, smoothedPeak * 0.90 + framePeak * 0.10)
+            }
+            let gain = 0.95 / smoothedPeak
+            let base = min(1.0, rms * gain)
+            for b in 0..<n {
+                let phase = now * 7.0 + Float(b) * 0.65
+                let ripple = 0.78 + 0.22 * (0.5 + 0.5 * sinf(phase))
+                levels[b] = min(1.0, base * ripple)
+            }
+            for b in 0..<n {
+                let raw = levels[b]
+                let prev = displayLevels[b]
+                let alpha: Float = raw > prev ? 0.70 : 0.22
+                displayLevels[b] = prev * (1.0 - alpha) + raw * alpha
+            }
+            return
+        }
+
         m.synthSnapshotWaveform(into: &samples)
 
-        let n = Self.barCount
         let chunkSize = samples.count / n
         var framePeak: Float = 0
         // RMS per bin instead of peak. Peak detection makes bars hop

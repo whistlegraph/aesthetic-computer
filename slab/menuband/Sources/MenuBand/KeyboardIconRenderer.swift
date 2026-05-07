@@ -299,6 +299,13 @@ enum KeyboardIconRenderer {
         CGFloat(whiteList().count) * whiteW
     }
 
+    /// Pixel distance for one octave of natural keys. AppDelegate uses this
+    /// for octave-shift animation so the menubar piano moves like a long
+    /// masked instrument, not like the whole status item is paging sideways.
+    static var octaveSlideDistance: CGFloat {
+        7 * whiteW
+    }
+
     static var imageSize: NSSize {
         let totalW = ceil(pad + pianoWidth + settingsGap + settingsW + pad + voiceBadgeRightPad)
         let totalH = ceil(whiteH + pad * 2)
@@ -444,187 +451,201 @@ enum KeyboardIconRenderer {
             let leftmostMidi = activeWhites.first ?? firstMidi
             let rightmostMidi = activeWhites.last ?? lastMidi
             let slotOffset = slotOffset(layout: layout)
-            for (idx, m) in whites.enumerated() {
-                if !isActive(m) { continue }   // negative space — skip draw
-                let rect = whiteRect(at: idx + slotOffset)
-                let isLit = litNotes.contains(UInt8(m))
-                let isHover = hovered == .note(UInt8(m))
-                let isLeftmost = (m == leftmostMidi)
-                let isRightmost = (m == rightmostMidi)
-                let path = roundedKeyPath(
-                    rect: rect,
-                    tl: isLeftmost ? 2.5 : 0,
-                    tr: isRightmost ? 2.5 : 0,
-                    br: isRightmost ? 2.5 : 0,
-                    bl: isLeftmost ? 2.5 : 0
-                )
-                if isLit {
-                    // Pressed: whole keycap turns the system accent
-                    // — the rainbow stripe stays hidden while the
-                    // key's down so the press reads as a single
-                    // saturated event, not a stripe-grow animation.
-                    lit.setFill()
-                    path.fill()
-                } else {
-                    NSGradient(starting: whiteHi, ending: whiteLo)!.draw(in: path, angle: -90)
+            let sliding = abs(slideOffsetX) > 0.01
+            let tileWidth = pianoWidth(layout: layout)
+            let tileOffsets: [CGFloat] = sliding
+                ? [-tileWidth, 0, tileWidth]
+                : [0]
+            for tileOffset in tileOffsets {
+                NSGraphicsContext.saveGraphicsState()
+                if abs(tileOffset) > 0.01 {
+                    let tileTransform = NSAffineTransform()
+                    tileTransform.translateX(by: tileOffset, yBy: 0)
+                    tileTransform.concat()
                 }
-                if isHover && !isLit {
-                    NSColor.controlAccentColor.withAlphaComponent(0.50).setFill()
-                    path.fill()
-                }
-                // Chromatic stripe — thin flat ROYGBIV band along
-                // the bottom of each natural key, idle only. Hidden
-                // on press so the lit accent fill reads cleanly.
-                // Dark mode dims the chroma toward black so it
-                // doesn't read as neon against dark slate keys.
-                let stripeH: CGFloat = keyHeightScale > 1.0 ? 3.0 : 2.0
-                if let chroma = Self.chromaticColorByPitchClass[m % 12], !isLit {
-                    let stripeChroma: NSColor = isDark
-                        ? (chroma.blended(withFraction: 0.18, of: .black) ?? chroma)
-                        : chroma
-                    NSGraphicsContext.saveGraphicsState()
-                    path.addClip()
-                    let stripeRect = NSRect(
-                        x: rect.minX,
-                        y: rect.minY,
-                        width: rect.width,
-                        height: stripeH
+                for (idx, m) in whites.enumerated() {
+                    if !isActive(m) { continue }   // negative space — skip draw
+                    let rect = whiteRect(at: idx + slotOffset)
+                    let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
+                    let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
+                    let isLeftmost = !sliding && (m == leftmostMidi)
+                    let isRightmost = !sliding && (m == rightmostMidi)
+                    let path = roundedKeyPath(
+                        rect: rect,
+                        tl: isLeftmost ? 2.5 : 0,
+                        tr: isRightmost ? 2.5 : 0,
+                        br: isRightmost ? 2.5 : 0,
+                        bl: isLeftmost ? 2.5 : 0
                     )
-                    if isDark {
-                        // Backlit-organ glow — clipped to the lower
-                        // portion of the keycap so the halo radiates
-                        // sideways + downward without bleeding up
-                        // into the key's top edge.
+                    if isLit {
+                        // Pressed: whole keycap turns the system accent
+                        // — the rainbow stripe stays hidden while the
+                        // key's down so the press reads as a single
+                        // saturated event, not a stripe-grow animation.
+                        lit.setFill()
+                        path.fill()
+                    } else {
+                        NSGradient(starting: whiteHi, ending: whiteLo)!.draw(in: path, angle: -90)
+                    }
+                    if isHover && !isLit {
+                        NSColor.controlAccentColor.withAlphaComponent(0.50).setFill()
+                        path.fill()
+                    }
+                    // Chromatic stripe — thin flat ROYGBIV band along
+                    // the bottom of each natural key, idle only. Hidden
+                    // on press so the lit accent fill reads cleanly.
+                    // Dark mode dims the chroma toward black so it
+                    // doesn't read as neon against dark slate keys.
+                    let stripeH: CGFloat = keyHeightScale > 1.0 ? 3.0 : 2.0
+                    if let chroma = Self.chromaticColorByPitchClass[m % 12], !isLit {
+                        let stripeChroma: NSColor = isDark
+                            ? (chroma.blended(withFraction: 0.18, of: .black) ?? chroma)
+                            : chroma
                         NSGraphicsContext.saveGraphicsState()
-                        let glowClipH = stripeH + 4
-                        let glowBox = NSRect(
-                            x: rect.minX - 8,
-                            y: rect.minY - 8,
-                            width: rect.width + 16,
-                            height: glowClipH + 8
+                        path.addClip()
+                        let stripeRect = NSRect(
+                            x: rect.minX,
+                            y: rect.minY,
+                            width: rect.width,
+                            height: stripeH
                         )
-                        NSBezierPath(rect: glowBox).addClip()
-                        Self.withGlow(color: chroma, blur: 4.5, alpha: 0.85) {
+                        if isDark {
+                            // Backlit-organ glow — clipped to the lower
+                            // portion of the keycap so the halo radiates
+                            // sideways + downward without bleeding up
+                            // into the key's top edge.
+                            NSGraphicsContext.saveGraphicsState()
+                            let glowClipH = stripeH + 4
+                            let glowBox = NSRect(
+                                x: rect.minX - 8,
+                                y: rect.minY - 8,
+                                width: rect.width + 16,
+                                height: glowClipH + 8
+                            )
+                            NSBezierPath(rect: glowBox).addClip()
+                            Self.withGlow(color: chroma, blur: 4.5, alpha: 0.85) {
+                                stripeChroma.setFill()
+                                NSBezierPath(rect: stripeRect).fill()
+                            }
+                            NSGraphicsContext.restoreGraphicsState()
+                        } else {
                             stripeChroma.setFill()
                             NSBezierPath(rect: stripeRect).fill()
                         }
+                        // Top-edge faux lighting — light mode catches a
+                        // soft white sheen from above (ambient lamp);
+                        // dark mode flips to a thin dark vignette so
+                        // the keycap top reads as a pulled-down crown
+                        // rather than a glowy halo, which would fight
+                        // with the chromatic glow at the bottom.
+                        let topH: CGFloat = min(5, rect.height * 0.30)
+                        let topRect = NSRect(
+                            x: rect.minX,
+                            y: rect.maxY - topH,
+                            width: rect.width,
+                            height: topH
+                        )
+                        let topGradient: NSGradient? = isDark
+                            ? NSGradient(
+                                starting: NSColor.black.withAlphaComponent(0.30),
+                                ending: NSColor.black.withAlphaComponent(0)
+                            )
+                            : NSGradient(
+                                starting: NSColor.white.withAlphaComponent(0.55),
+                                ending: NSColor.white.withAlphaComponent(0)
+                            )
+                        topGradient?.draw(in: topRect, angle: -90)
                         NSGraphicsContext.restoreGraphicsState()
-                    } else {
-                        stripeChroma.setFill()
-                        NSBezierPath(rect: stripeRect).fill()
                     }
-                    // Top-edge faux lighting — light mode catches a
-                    // soft white sheen from above (ambient lamp);
-                    // dark mode flips to a thin dark vignette so
-                    // the keycap top reads as a pulled-down crown
-                    // rather than a glowy halo, which would fight
-                    // with the chromatic glow at the bottom.
-                    let topH: CGFloat = min(5, rect.height * 0.30)
-                    let topRect = NSRect(
-                        x: rect.minX,
-                        y: rect.maxY - topH,
-                        width: rect.width,
-                        height: topH
-                    )
-                    let topGradient: NSGradient? = isDark
-                        ? NSGradient(
-                            starting: NSColor.black.withAlphaComponent(0.30),
-                            ending: NSColor.black.withAlphaComponent(0)
-                        )
-                        : NSGradient(
-                            starting: NSColor.white.withAlphaComponent(0.55),
-                            ending: NSColor.white.withAlphaComponent(0)
-                        )
-                    topGradient?.draw(in: topRect, angle: -90)
-                    NSGraphicsContext.restoreGraphicsState()
+                    groove.setStroke()
+                    path.lineWidth = 0.7
+                    path.stroke()
+                    // Lit keys always wear their letter at full opacity (a
+                    // mouse-press tap reveals just that letter). For unlit
+                    // keys, the per-key `letterAlpha` closure drives a wave
+                    // fade-in / fade-out that ripples outward from whichever
+                    // key the user is currently playing. Falls back to the
+                    // legacy binary `typeMode` rendering when no closure is
+                    // supplied (e.g., previews that don't drive animation).
+                    if tileOffset == 0, let letter = labelByMidi[m] {
+                        let display = labelsUppercase ? letter.uppercased() : letter
+                        let a: CGFloat
+                        if isLit {
+                            a = 1.0
+                        } else if let closure = letterAlpha {
+                            a = closure(UInt8(m))
+                        } else {
+                            a = typeMode ? 1.0 : 0.0
+                        }
+                        if a > 0.01 {
+                            // Labels stay anchored at the bottom of each
+                            // key — the chromatic stripe paints behind
+                            // them, so the letter reads on the colored
+                            // band rather than floating above it.
+                            drawWhiteLabel(display, in: rect, lit: isLit, alpha: a,
+                                           chroma: Self.chromaticColorByPitchClass[m % 12])
+                        }
+                    }
                 }
-                groove.setStroke()
-                path.lineWidth = 0.7
-                path.stroke()
-                // Lit keys always wear their letter at full opacity (a
-                // mouse-press tap reveals just that letter). For unlit
-                // keys, the per-key `letterAlpha` closure drives a wave
-                // fade-in / fade-out that ripples outward from whichever
-                // key the user is currently playing. Falls back to the
-                // legacy binary `typeMode` rendering when no closure is
-                // supplied (e.g., previews that don't drive animation).
-                if let letter = labelByMidi[m] {
-                    let display = labelsUppercase ? letter.uppercased() : letter
-                    let a: CGFloat
+                for m in (firstMidi...max(firstMidi, lastMidi)) where lastMidi >= firstMidi && !isWhite(m) {
+                    if !isActive(m) { continue }   // negative space
+                    var leftWhite = m - 1
+                    while !isWhite(leftWhite) { leftWhite -= 1 }
+                    guard let leftIdx = whiteIndex[leftWhite] else { continue }
+                    let rect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
+                    let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
+                    let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
+                    let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
                     if isLit {
-                        a = 1.0
-                    } else if let closure = letterAlpha {
-                        a = closure(UInt8(m))
+                        if isDark {
+                            // Invert in dark mode — the saturated bright
+                            // sharp flips to a deep slate notch on press
+                            // so the key feels recessed into the keybed
+                            // instead of getting brighter on top of an
+                            // already-glowing surface.
+                            NSColor(srgbRed: 22/255, green: 30/255,
+                                    blue: 36/255, alpha: 1).setFill()
+                            path.fill()
+                        } else {
+                            lit.setFill()
+                            path.fill()
+                        }
+                    } else if isDark {
+                        // Sharps glow with the system color in dark
+                        // mode — same backlit-organ feel as the
+                        // chromatic stripe under the naturals.
+                        Self.withGlow(color: NSColor.controlAccentColor,
+                                      blur: 3.5,
+                                      alpha: 0.55) {
+                            NSGradient(starting: blackHi, ending: blackLo)!
+                                .draw(in: path, angle: -90)
+                        }
                     } else {
-                        a = typeMode ? 1.0 : 0.0
+                        NSGradient(starting: blackHi, ending: blackLo)!.draw(in: path, angle: -90)
                     }
-                    if a > 0.01 {
-                        // Labels stay anchored at the bottom of each
-                        // key — the chromatic stripe paints behind
-                        // them, so the letter reads on the colored
-                        // band rather than floating above it.
-                        drawWhiteLabel(display, in: rect, lit: isLit, alpha: a,
-                                       chroma: Self.chromaticColorByPitchClass[m % 12])
-                    }
-                }
-            }
-            for m in (firstMidi...max(firstMidi, lastMidi)) where lastMidi >= firstMidi && !isWhite(m) {
-                if !isActive(m) { continue }   // negative space
-                var leftWhite = m - 1
-                while !isWhite(leftWhite) { leftWhite -= 1 }
-                guard let leftIdx = whiteIndex[leftWhite] else { continue }
-                let rect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
-                let isLit = litNotes.contains(UInt8(m))
-                let isHover = hovered == .note(UInt8(m))
-                let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
-                if isLit {
-                    if isDark {
-                        // Invert in dark mode — the saturated bright
-                        // sharp flips to a deep slate notch on press
-                        // so the key feels recessed into the keybed
-                        // instead of getting brighter on top of an
-                        // already-glowing surface.
-                        NSColor(srgbRed: 22/255, green: 30/255,
-                                blue: 36/255, alpha: 1).setFill()
-                        path.fill()
-                    } else {
-                        lit.setFill()
+                    if isHover && !isLit {
+                        NSColor.white.withAlphaComponent(0.20).setFill()
                         path.fill()
                     }
-                } else if isDark {
-                    // Sharps glow with the system color in dark
-                    // mode — same backlit-organ feel as the
-                    // chromatic stripe under the naturals.
-                    Self.withGlow(color: NSColor.controlAccentColor,
-                                  blur: 3.5,
-                                  alpha: 0.55) {
-                        NSGradient(starting: blackHi, ending: blackLo)!
-                            .draw(in: path, angle: -90)
-                    }
-                } else {
-                    NSGradient(starting: blackHi, ending: blackLo)!.draw(in: path, angle: -90)
-                }
-                if isHover && !isLit {
-                    NSColor.white.withAlphaComponent(0.20).setFill()
-                    path.fill()
-                }
-                groove.setStroke()
-                path.lineWidth = 0.6
-                path.stroke()
-                if let letter = labelByMidi[m] {
-                    let display = labelsUppercase ? letter.uppercased() : letter
-                    let a: CGFloat
-                    if isLit {
-                        a = 1.0
-                    } else if let closure = letterAlpha {
-                        a = closure(UInt8(m))
-                    } else {
-                        a = typeMode ? 1.0 : 0.0
-                    }
-                    if a > 0.01 {
-                        drawBlackLabel(display, in: rect, lit: isLit, alpha: a)
+                    groove.setStroke()
+                    path.lineWidth = 0.6
+                    path.stroke()
+                    if tileOffset == 0, let letter = labelByMidi[m] {
+                        let display = labelsUppercase ? letter.uppercased() : letter
+                        let a: CGFloat
+                        if isLit {
+                            a = 1.0
+                        } else if let closure = letterAlpha {
+                            a = closure(UInt8(m))
+                        } else {
+                            a = typeMode ? 1.0 : 0.0
+                        }
+                        if a > 0.01 {
+                            drawBlackLabel(display, in: rect, lit: isLit, alpha: a)
+                        }
                     }
                 }
+                NSGraphicsContext.restoreGraphicsState()
             }
             NSGraphicsContext.restoreGraphicsState()
 
@@ -1213,6 +1234,26 @@ enum KeyboardIconRenderer {
         let mF = max(0, min(1, metronomeFlash))
         if mF > 0.01, let yellowed = color.blended(withFraction: mF * 0.85, of: .systemYellow) {
             color = yellowed
+            // Loudness lines — small horizontal blips radiating
+            // left and right from the chip, fading with the
+            // metronome flash. Reads as the icon visibly "ticking"
+            // each beat, like a peripheral pulse around the
+            // music-note glyph.
+            let blipColor = NSColor.systemYellow.withAlphaComponent(mF * 0.85)
+            blipColor.setStroke()
+            let blip = NSBezierPath()
+            blip.lineWidth = 1.0
+            blip.lineCapStyle = .round
+            let midY = iconBox.midY
+            let outer: CGFloat = 4 + 4 * mF       // distance grows with flash
+            let inner: CGFloat = 1.5
+            let leftStart = NSPoint(x: iconBox.minX - inner, y: midY)
+            let leftEnd = NSPoint(x: iconBox.minX - outer, y: midY)
+            let rightStart = NSPoint(x: iconBox.maxX + inner, y: midY)
+            let rightEnd = NSPoint(x: iconBox.maxX + outer, y: midY)
+            blip.move(to: leftStart);  blip.line(to: leftEnd)
+            blip.move(to: rightStart); blip.line(to: rightEnd)
+            blip.stroke()
         }
         // Draw the SF Symbol music.note.list at its original pointSize
         // (13) over the full chip. At rest the staff lines should

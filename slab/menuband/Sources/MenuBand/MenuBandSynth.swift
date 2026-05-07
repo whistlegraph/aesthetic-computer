@@ -723,6 +723,7 @@ final class MenuBandSynth {
     /// tap won't deliver frames against a paused graph.
     func startSampleRecording() {
         guard started else { return }
+        NSLog("MenuBand SampleVoice: synth startSampleRecording (playbackEngineRunning=\(engine.isRunning))")
         _ = resumeAudioEngineIfNeeded()
         sampleRecordingActive = true
         sampleVoice.startRecording()
@@ -733,8 +734,11 @@ final class MenuBandSynth {
     /// in that case.
     @discardableResult
     func stopSampleRecording() -> Bool {
+        NSLog("MenuBand SampleVoice: synth stopSampleRecording")
         let ok = sampleVoice.stopRecording()
         sampleRecordingActive = false
+        onSampleLevel?(0)
+        NSLog("MenuBand SampleVoice: synth stopSampleRecording result usable=\(ok)")
         scheduleIdleSuspendIfNeeded()
         return ok
     }
@@ -742,7 +746,7 @@ final class MenuBandSynth {
     /// Public read of the underlying sample voice's recording flag —
     /// used by the AppDelegate to drive the menubar icon's red
     /// "recording" tint.
-    var sampleRecording: Bool { sampleVoice.isRecording }
+    var sampleRecording: Bool { sampleRecordingActive || sampleVoice.isRecording }
 
     /// Forwarded RMS callback. Set by the AppDelegate so the menubar
     /// VU meter can pulse with the user's voice during recording. The
@@ -846,6 +850,7 @@ final class MenuBandSynth {
         // Sample backend — same melodic-only routing semantics as
         // radio. Drums always continue down to the GM path.
         if usingSampleBackend && channel != 9 {
+            NSLog("MenuBand SampleVoice: routing noteOn to sample midi=\(midi) channel=\(channel)")
             sampleVoice.noteOn(midi, velocity: velocity, channel: channel)
             return
         }

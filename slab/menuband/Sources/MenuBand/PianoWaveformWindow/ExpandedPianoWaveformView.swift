@@ -25,7 +25,12 @@ final class ExpandedPianoWaveformView: NSView {
     private let chordCandidatesRow = NSView()
     private var lastCompleteChordNames: Set<String> = []
     private let instrumentReadout = NSTextField(labelWithString: "")
-    private let instrumentArrows = ArrowKeysIndicator()
+    /// Program number shown to the left of the instrument readout
+    /// (replaces the arrow-keys stepper that used to live there).
+    /// Renders as the 1-based GM program slot ("001", "042", "MIDI"
+    /// when in MIDI mode) so the user can read which voice is loaded
+    /// at-a-glance without needing the stepper widget.
+    private let instrumentNumberLabel = NSTextField(labelWithString: "")
     private let instrumentTitleRow = NSView()
     private let hapticsControls = NSStackView()
     private let hapticsLabel = NSTextField(labelWithString: "Haptics")
@@ -59,8 +64,8 @@ final class ExpandedPianoWaveformView: NSView {
     private let inset: CGFloat = 14
     private let gap: CGFloat = 8
     private let hintHeight: CGFloat = 20
-    private let heldNotesRowHeight: CGFloat = 26
-    private let chordCandidatesRowHeight: CGFloat = 30
+    private let heldNotesRowHeight: CGFloat = 0   // held-note pills retired
+    private let chordCandidatesRowHeight: CGFloat = 0   // chord cards retired
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var widthConstraint: NSLayoutConstraint?
     private var waveformHeightConstraint: NSLayoutConstraint?
@@ -69,7 +74,7 @@ final class ExpandedPianoWaveformView: NSView {
     private static let panelCornerRadius: CGFloat = 18
     private static let sectionCornerRadius: CGFloat = 14
     private static let waveformClipCornerRadius: CGFloat = 12
-    private static let expandedPanelWidth: CGFloat = 440
+    private static let expandedPanelWidth: CGFloat = 400
 
     init(menuBand: MenuBandController) {
         self.menuBand = menuBand
@@ -123,27 +128,17 @@ final class ExpandedPianoWaveformView: NSView {
         instrumentReadout.translatesAutoresizingMaskIntoConstraints = false
         instrumentReadout.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         instrumentReadout.setContentCompressionResistancePriority(.required, for: .horizontal)
-        instrumentArrows.translatesAutoresizingMaskIntoConstraints = false
-        instrumentArrows.setContentHuggingPriority(.required, for: .horizontal)
-        instrumentArrows.setContentCompressionResistancePriority(.required, for: .horizontal)
-        instrumentArrows.displayMode = .horizontalPair
-        instrumentArrows.style = .prominent
-        instrumentArrows.toolTip = "Change instrument"
-        instrumentArrows.onClick = { [weak self] direction, isDown in
-            guard let self, isDown else { return }
-            switch direction {
-            case 0:
-                self.onStepBackward?()
-            case 1:
-                self.onStepForward?()
-            case 2:
-                self.onStepDown?()
-            case 3:
-                self.onStepUp?()
-            default:
-                break
-            }
-        }
+        instrumentNumberLabel.translatesAutoresizingMaskIntoConstraints = false
+        instrumentNumberLabel.setContentHuggingPriority(.required, for: .horizontal)
+        instrumentNumberLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        instrumentNumberLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 14, weight: .heavy)
+        instrumentNumberLabel.textColor = .secondaryLabelColor
+        instrumentNumberLabel.alignment = .center
+        instrumentNumberLabel.drawsBackground = false
+        instrumentNumberLabel.isBordered = false
+        instrumentNumberLabel.isEditable = false
+        instrumentNumberLabel.isSelectable = false
+        instrumentNumberLabel.toolTip = "Current GM voice number"
         instrumentTitleRow.translatesAutoresizingMaskIntoConstraints = false
         hapticsControls.orientation = .horizontal
         hapticsControls.alignment = .centerY
@@ -208,7 +203,7 @@ final class ExpandedPianoWaveformView: NSView {
         waveformBezel.addSubview(chordCandidatesRow)
         waveformSection.addSubview(waveformBezel)
         waveformSection.addSubview(instrumentTitleRow)
-        instrumentTitleRow.addSubview(instrumentArrows)
+        instrumentTitleRow.addSubview(instrumentNumberLabel)
         instrumentTitleRow.addSubview(instrumentReadout)
         instrumentTitleRow.addSubview(hapticsControls)
         addSubview(contentStack)
@@ -290,16 +285,23 @@ final class ExpandedPianoWaveformView: NSView {
             instrumentTitleRow.trailingAnchor.constraint(equalTo: waveformSection.trailingAnchor, constant: -6),
             instrumentTitleRow.bottomAnchor.constraint(equalTo: waveformSection.bottomAnchor, constant: -6),
 
-            instrumentArrows.leadingAnchor.constraint(equalTo: instrumentTitleRow.leadingAnchor, constant: 2),
-            instrumentArrows.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
+            instrumentNumberLabel.leadingAnchor.constraint(equalTo: instrumentTitleRow.leadingAnchor, constant: 2),
+            instrumentNumberLabel.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
             hapticsControls.trailingAnchor.constraint(equalTo: instrumentTitleRow.trailingAnchor, constant: -2),
             hapticsControls.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
+            // Width-match the number label to the haptics row so
+            // the two wings are symmetric — readout's centerX
+            // pinned to titleRow.centerX then lands at the
+            // OPTICAL midpoint between them, not just the
+            // geometric midpoint.
+            instrumentNumberLabel.widthAnchor.constraint(
+                greaterThanOrEqualTo: hapticsControls.widthAnchor),
             instrumentReadout.centerXAnchor.constraint(equalTo: instrumentTitleRow.centerXAnchor),
             instrumentReadout.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
             instrumentReadout.topAnchor.constraint(greaterThanOrEqualTo: instrumentTitleRow.topAnchor),
             instrumentReadout.bottomAnchor.constraint(lessThanOrEqualTo: instrumentTitleRow.bottomAnchor),
             instrumentReadout.leadingAnchor.constraint(
-                greaterThanOrEqualTo: instrumentArrows.trailingAnchor,
+                greaterThanOrEqualTo: instrumentNumberLabel.trailingAnchor,
                 constant: 6
             ),
             instrumentReadout.trailingAnchor.constraint(
@@ -465,8 +467,10 @@ final class ExpandedPianoWaveformView: NSView {
     }
 
     private func updateWaveformLiveState(isPresented: Bool) {
-        waveformView.isLive = isPresented && !(menuBand?.midiMode ?? false)
-        waveformView.alphaValue = (menuBand?.midiMode ?? false) ? 0.35 : 1.0
+        let recording = menuBand?.sampleRecordingActive ?? false
+        let midiMode = menuBand?.midiMode ?? false
+        waveformView.isLive = isPresented && (recording || !midiMode)
+        waveformView.alphaValue = (midiMode && !recording) ? 0.35 : 1.0
     }
 
     private func updateHapticsControl() {
@@ -487,7 +491,13 @@ final class ExpandedPianoWaveformView: NSView {
 
     private func applyWaveformTint() {
         guard let menuBand else { return }
-        if menuBand.midiMode {
+        if menuBand.sampleRecordingActive {
+            waveformView.setDotMatrix(nil)
+            waveformView.setBaseColor(.systemRed)
+            waveformSection.layer?.borderColor = NSColor.systemRed
+                .withAlphaComponent(0.55).cgColor
+            outlineBorderColor = NSColor.systemRed.withAlphaComponent(0.70)
+        } else if menuBand.midiMode {
             waveformView.setDotMatrix(MenuBandPopoverViewController.midiDotPattern)
             waveformView.setBaseColor(.controlAccentColor)
             waveformSection.layer?.borderColor = NSColor.controlAccentColor
@@ -550,42 +560,15 @@ final class ExpandedPianoWaveformView: NSView {
             : InstrumentListView.colorForProgram(safe)
         qwertyView.voiceColor = familyColor
 
-        // Held-notes row: each currently sounding note as its own large
-        // pill so the chord shape reads at-a-glance. Always per-note —
-        // chord recognition lives in the candidates row below.
-        let names = menuBand.heldNoteNames()
-        for name in names {
-            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name, color: familyColor))
-        }
+        // Held-note pills retired from the fullscreen liquid panel —
+        // the visualizer + piano + qwerty already make the active
+        // notes legible without a redundant readout row.
 
-        // Chord candidates: every chord shape that contains the held
-        // pitch classes and whose missing notes are reachable on the
-        // active keymap. Cards re-render every refresh; transitions
-        // from incomplete → complete trigger a brief shake on the new
-        // complete card so the user feels the chord "lock in".
-        let candidates = menuBand.chordCandidates(maxResults: 8)
-        let newComplete = Set(candidates.filter(\.isComplete).map(\.name))
-        let justCompleted = newComplete.subtracting(lastCompleteChordNames)
-        let availableChordWidth = max(
-            chordCandidatesRow.bounds.width - chordCandidatesRowHorizontalInset * 2,
-            Self.expandedPanelWidth - inset * 2 - 20 - chordCandidatesRowHorizontalInset * 2
-        )
-        var consumedChordWidth: CGFloat = 0
-        for candidate in candidates {
-            let card = makeChordCandidateCard(candidate: candidate, color: familyColor)
-            card.layoutSubtreeIfNeeded()
-            let cardWidth = card.fittingSize.width
-            let nextWidth = consumedChordWidth == 0
-                ? cardWidth
-                : consumedChordWidth + chordCandidatesStack.spacing + cardWidth
-            guard consumedChordWidth == 0 || nextWidth <= availableChordWidth else { break }
-            chordCandidatesStack.addArrangedSubview(card)
-            consumedChordWidth = nextWidth
-            if candidate.isComplete && justCompleted.contains(candidate.name) {
-                applyShake(to: card)
-            }
-        }
-        lastCompleteChordNames = newComplete
+        // Chord-candidate cards retired from the full-screen liquid
+        // panel — chord theory lives in the popover's staff view
+        // now, the floating panel stays focused on the live
+        // playable surfaces (visualizer + piano + qwerty + chooser).
+        lastCompleteChordNames = []
     }
 
     private func clearHeldNotes() {
@@ -645,12 +628,21 @@ final class ExpandedPianoWaveformView: NSView {
     private func updateInstrumentReadout() {
         guard let menuBand else { return }
         let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
-        let title = GeneralMIDI.programNames[safe]
-        let familyColor = InstrumentListView.colorForProgram(safe)
+        // Title swaps to "MIDI" when the controller is routing to a
+        // hardware MIDI port; otherwise show the GM program name.
+        let title = menuBand.midiMode ? "MIDI" : GeneralMIDI.programNames[safe]
+        let familyColor = menuBand.midiMode
+            ? NSColor.controlAccentColor
+            : InstrumentListView.colorForProgram(safe)
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let textColor: NSColor = isDark ? .white : .black
-        instrumentArrows.accentColor = familyColor
-        instrumentArrows.isDarkAppearance = isDark
+        // Number badge — 1-based slot ("001"…"128") so users can spot
+        // the program by number AND by name. Renders "MIDI" when the
+        // controller is in MIDI-OUT routing mode.
+        instrumentNumberLabel.stringValue = menuBand.midiMode
+            ? "MIDI"
+            : String(format: "%03d", safe + 1)
+        instrumentNumberLabel.textColor = familyColor
         let shadow = NSShadow()
         shadow.shadowColor = (familyColor.highlight(withLevel: isDark ? 0.3 : 0.7) ?? familyColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)

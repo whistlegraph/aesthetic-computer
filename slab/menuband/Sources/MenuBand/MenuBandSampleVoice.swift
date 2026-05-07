@@ -2,12 +2,17 @@ import Foundation
 import AVFoundation
 import AppKit
 
+extension Notification.Name {
+    static let menuBandMicPermissionAlertWillShow =
+        Notification.Name("MenuBandMicPermissionAlertWillShow")
+}
+
 /// Microphone-sampled voice — the user holds backtick (`) to capture a
 /// short clip from the default input device, then plays it back as a
 /// pitched piano voice via per-note AVAudioPlayerNode + Varispeed pairs.
 ///
 /// Architecture:
-///   AVAudioEngine.inputNode ──(tap)──► recordBuffer (mono float32, ≤10 s)
+///   recordEngine.inputNode ──(tap)──► recordBuffer (mono float32, ≤10 s)
 ///                                              │
 ///                  per active note             ▼
 ///              AVAudioPlayerNode ──► Varispeed ──► voiceMixer ──► output
@@ -36,6 +41,8 @@ final class MenuBandSampleVoice {
     /// recording length now, just whatever the in-process float
     /// buffer can hold.
     private let initialScratchFrames: Int
+    private let trimThreshold: Float = 0.012
+    private let trimPrerollFrames = Int(44_100 * 0.012)
 
     /// The currently-stored recording. nil until a successful capture.
     /// Reads from the audio thread (player schedules) are safe because
@@ -48,6 +55,11 @@ final class MenuBandSampleVoice {
     /// scratch buffer; on `stopRecording` we trim to actual length and
     /// promote to `recordedBuffer`.
     private var recording = false
+    /// True while the record key is still logically held. This protects
+    /// the first-run microphone permission path: if the user releases
+    /// the key while the TCC prompt is open, the async grant callback
+    /// must not start a surprise recording afterwards.
+    private var recordingRequested = false
     private var recordWriteFrame: Int = 0
     private var recordScratch: AVAudioPCMBuffer?
 
@@ -64,6 +76,7 @@ final class MenuBandSampleVoice {
     /// Used to build a converter into our storage format.
     private var inputFormat: AVAudioFormat?
     private var inputConverter: AVAudioConverter?
+    private var debugTapBlocksLogged = 0
 
     /// Mix bus for all per-note voices. Connects to the host's
     /// pre-limiter mixer once on attach. Master gate lives here.
@@ -72,6 +85,11 @@ final class MenuBandSampleVoice {
     private weak var engine: AVAudioEngine?
     private weak var output: AVAudioNode?
     private var attached = false
+    /// Dedicated input-only engine for microphone capture. Keeping this
+    /// separate from the synth/playback engine avoids AUHAL device-routing
+    /// conflicts when the output graph is pinned to a Multi-Output device or
+    /// other output-only hardware.
+    private let recordEngine = AVAudioEngine()
     private var inputTapInstalled = false
 
     /// Per-note voice slot. Pool keyed by (channel, midi) so a note
@@ -121,6 +139,14 @@ final class MenuBandSampleVoice {
         // Mirrors `KPBJRadioStream.crossfadeMixer.outputVolume`.
         voiceMixer.outputVolume = 0.0
         attached = true
+        // Pre-build the melodic sample playback graph before the host
+        // engine starts. Lazy attachment after AVAudioEngine is already
+        // running can produce silent player nodes on some CoreAudio graphs.
+        for channel: UInt8 in 0..<8 {
+            for slot in 0..<voicesPerChannel {
+                _ = ensureVoice(channel: channel, slot: slot)
+            }
+        }
     }
 
     func setOutputEnabled(_ enabled: Bool) {
@@ -133,11 +159,15 @@ final class MenuBandSampleVoice {
     /// calling while already recording is a no-op. Recording state is
     /// kept in a scratch buffer until `stopRecording` finalizes it.
     func startRecording() {
+        recordingRequested = true
         guard !recording else { return }
-        guard let engine = engine else {
+        guard engine != nil else {
             NSLog("MenuBand SampleVoice: startRecording without engine attached")
+            recordingRequested = false
             return
         }
+        let captureDevice = AVCaptureDevice.default(for: .audio)
+        NSLog("MenuBand SampleVoice: startRecording auth=\(AVCaptureDevice.authorizationStatus(for: .audio).rawValue) captureDevice=\(captureDevice?.localizedName ?? "nil") id=\(captureDevice?.uniqueID ?? "nil")")
         // TCC: on macOS the very first attempt to access the default
         // input device only succeeds after the user has granted
         // microphone permission. Trigger the system prompt explicitly
@@ -147,6 +177,7 @@ final class MenuBandSampleVoice {
         switch authStatus {
         case .denied, .restricted:
             NSLog("MenuBand SampleVoice: microphone access denied (status \(authStatus.rawValue))")
+            recordingRequested = false
             DispatchQueue.main.async { Self.showMicPermissionAlert(denied: true) }
             return
         case .notDetermined:
@@ -154,9 +185,11 @@ final class MenuBandSampleVoice {
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                 NSLog("MenuBand SampleVoice: microphone permission granted=\(granted)")
                 DispatchQueue.main.async {
-                    if granted {
-                        self?.startRecording()
-                    } else {
+                    guard let self = self else { return }
+                    if granted, self.recordingRequested {
+                        self.startRecording()
+                    } else if !granted {
+                        self.recordingRequested = false
                         Self.showMicPermissionAlert(denied: true)
                     }
                 }
@@ -167,19 +200,24 @@ final class MenuBandSampleVoice {
         @unknown default:
             break
         }
-        let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
+        if recordEngine.isRunning {
+            recordEngine.stop()
+        }
+        let input = recordEngine.inputNode
+        let format = input.inputFormat(forBus: 0)
         // Some virtual input devices return a 0-channel / 0-Hz format
         // when no real device is selected. Bail loudly so the synth
         // doesn't think it has a usable buffer when the user releases.
         guard format.channelCount > 0, format.sampleRate > 0 else {
-            NSLog("MenuBand SampleVoice: input format unusable (ch=\(format.channelCount) sr=\(format.sampleRate)) — engine running=\(engine.isRunning)")
+            NSLog("MenuBand SampleVoice: input format unusable (ch=\(format.channelCount) sr=\(format.sampleRate)) — recordEngine running=\(recordEngine.isRunning)")
+            recordingRequested = false
             return
         }
         inputFormat = format
         inputConverter = AVAudioConverter(from: format, to: storageFormat)
         guard inputConverter != nil else {
             NSLog("MenuBand SampleVoice: failed to build converter from \(format) to \(storageFormat)")
+            recordingRequested = false
             return
         }
         // Pre-allocate the scratch buffer to ~10 s so a typical record
@@ -188,23 +226,40 @@ final class MenuBandSampleVoice {
         guard let scratch = AVAudioPCMBuffer(pcmFormat: storageFormat,
                                              frameCapacity: AVAudioFrameCount(initialScratchFrames)) else {
             NSLog("MenuBand SampleVoice: failed to allocate scratch buffer")
+            recordingRequested = false
             return
         }
         scratch.frameLength = 0
         recordScratch = scratch
         recordWriteFrame = 0
+        debugTapBlocksLogged = 0
 
-        // 4096-frame tap is a good balance: ~93 ms at 44.1k, plenty of
-        // jitter slack without making the recording feel laggy on key
-        // release.
+        // Smaller tap buffer keeps the visualizer responsive while
+        // recording and makes debugging obvious: even a short hold
+        // should deliver many callbacks. Passing `nil` lets CoreAudio
+        // choose the exact mic stream format; `ingestInput` converts
+        // or direct-copies based on the delivered buffer format.
         if !inputTapInstalled {
-            input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+            input.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buffer, _ in
                 self?.ingestInput(buffer)
             }
             inputTapInstalled = true
         }
         recording = true
-        NSLog("MenuBand SampleVoice: recording started (input format ch=\(format.channelCount) sr=\(format.sampleRate))")
+        do {
+            recordEngine.prepare()
+            try recordEngine.start()
+        } catch {
+            recording = false
+            recordingRequested = false
+            if inputTapInstalled {
+                input.removeTap(onBus: 0)
+                inputTapInstalled = false
+            }
+            NSLog("MenuBand SampleVoice: record engine start failed: \(error)")
+            return
+        }
+        NSLog("MenuBand SampleVoice: recording started (input format ch=\(format.channelCount) sr=\(format.sampleRate) recordEngineRunning=\(recordEngine.isRunning))")
     }
 
     /// Stop capture and promote scratch to the active recording.
@@ -213,21 +268,32 @@ final class MenuBandSampleVoice {
     /// the user likely tapped the key without recording anything real.
     @discardableResult
     func stopRecording() -> Bool {
-        guard recording else { return false }
+        recordingRequested = false
+        guard recording else {
+            NSLog("MenuBand SampleVoice: stopRecording called while not recording")
+            return false
+        }
         recording = false
-        if inputTapInstalled, let engine = engine {
-            engine.inputNode.removeTap(onBus: 0)
+        if inputTapInstalled {
+            recordEngine.inputNode.removeTap(onBus: 0)
             inputTapInstalled = false
         }
+        recordEngine.stop()
         guard let scratch = recordScratch else {
             recordScratch = nil
             return false
         }
         recordScratch = nil
-        let frames = recordWriteFrame
+        let rawFrames = recordWriteFrame
         let minFrames = Int(sampleRate * 0.1) // 100 ms
+        guard rawFrames >= minFrames else {
+            NSLog("MenuBand SampleVoice: recording too short (\(rawFrames) frames < \(minFrames)) — discarding")
+            return false
+        }
+        let startFrame = trimmedStartFrame(scratch: scratch, frames: rawFrames)
+        let frames = rawFrames - startFrame
         guard frames >= minFrames else {
-            NSLog("MenuBand SampleVoice: recording too short (\(frames) frames < \(minFrames)) — discarding")
+            NSLog("MenuBand SampleVoice: recording too short after trim (\(frames) frames < \(minFrames)) — discarding")
             return false
         }
         // Copy into a right-sized buffer so playback doesn't drag a
@@ -239,13 +305,33 @@ final class MenuBandSampleVoice {
         out.frameLength = AVAudioFrameCount(frames)
         if let src = scratch.floatChannelData?[0],
            let dst = out.floatChannelData?[0] {
-            memcpy(dst, src, frames * MemoryLayout<Float>.size)
+            memcpy(dst, src.advanced(by: startFrame), frames * MemoryLayout<Float>.size)
         }
         bufferLock.lock()
         recordedBuffer = out
         bufferLock.unlock()
-        NSLog("MenuBand SampleVoice: recording captured \(frames) frames (\(Double(frames) / sampleRate) s)")
+        NSLog("MenuBand SampleVoice: recording captured \(frames) frames (\(Double(frames) / sampleRate) s), trimmed \(startFrame) leading frames")
         return true
+    }
+
+    private func trimmedStartFrame(scratch: AVAudioPCMBuffer, frames: Int) -> Int {
+        guard let data = scratch.floatChannelData?[0], frames > 0 else { return 0 }
+        let window = 128
+        var i = 0
+        while i < frames {
+            let end = min(frames, i + window)
+            var sumSq: Float = 0
+            for j in i..<end {
+                let s = data[j]
+                sumSq += s * s
+            }
+            let rms = sqrt(sumSq / Float(end - i))
+            if rms >= trimThreshold {
+                return max(0, i - trimPrerollFrames)
+            }
+            i += window
+        }
+        return 0
     }
 
     /// Tap-side: convert the input node's buffer into our storage
@@ -255,7 +341,53 @@ final class MenuBandSampleVoice {
     /// real ceiling). Also computes per-block RMS and forwards to
     /// `onLevel` for the menubar VU meter.
     private func ingestInput(_ buffer: AVAudioPCMBuffer) {
-        guard recording, let converter = inputConverter else { return }
+        guard recording else { return }
+
+        // Fast path for the common macOS case: built-in/default mics
+        // usually deliver non-interleaved float32 at 44.1k/48k. When the
+        // sample rate already matches our storage format, bypass
+        // AVAudioConverter entirely. The old path drove one persistent
+        // converter with `.endOfStream` for every tap block, which can
+        // leave subsequent blocks producing zero frames; that manifested
+        // as "recording started" followed by "0 frames".
+        if abs(buffer.format.sampleRate - storageFormat.sampleRate) < 0.5,
+           let channelData = buffer.floatChannelData {
+            let frames = Int(buffer.frameLength)
+            guard frames > 0 else { return }
+            logTapBlockIfNeeded(buffer: buffer, path: "direct")
+            ensureScratchCapacity(forFramesToAppend: frames)
+            guard let scratch = recordScratch,
+                  let dst = scratch.floatChannelData?[0] else { return }
+            let channelCount = max(1, Int(buffer.format.channelCount))
+            var sumSq: Float = 0
+            if channelCount == 1 {
+                let src = channelData[0]
+                memcpy(dst.advanced(by: recordWriteFrame), src,
+                       frames * MemoryLayout<Float>.size)
+                for i in 0..<frames {
+                    let s = src[i]
+                    sumSq += s * s
+                }
+            } else {
+                for i in 0..<frames {
+                    var mixed: Float = 0
+                    for ch in 0..<channelCount {
+                        mixed += channelData[ch][i]
+                    }
+                    mixed /= Float(channelCount)
+                    dst[recordWriteFrame + i] = mixed
+                    sumSq += mixed * mixed
+                }
+            }
+            publishLevel(sumSq: sumSq, frames: frames)
+            recordWriteFrame += frames
+            scratch.frameLength = AVAudioFrameCount(recordWriteFrame)
+            return
+        }
+
+        guard let converter = inputConverter else { return }
+        converter.reset()
+        logTapBlockIfNeeded(buffer: buffer, path: "converter")
 
         // Estimate output frames the converter will produce. For
         // sample-rate conversion the ratio matters; use ceiling +
@@ -311,14 +443,28 @@ final class MenuBandSampleVoice {
                 sumSq += s * s
             }
             let rms = sqrt(sumSq / Float(producedFrames))
-            if let cb = self.onLevel {
-                // Hop to main — the renderer reads on its own tick;
-                // we just publish.
-                DispatchQueue.main.async { cb(rms) }
-            }
+            publishLevel(rms)
             recordWriteFrame += producedFrames
             scratch.frameLength = AVAudioFrameCount(recordWriteFrame)
         }
+    }
+
+    private func publishLevel(sumSq: Float, frames: Int) {
+        guard frames > 0 else { return }
+        publishLevel(sqrt(sumSq / Float(frames)))
+    }
+
+    private func publishLevel(_ rms: Float) {
+        if let cb = self.onLevel {
+            // Hop to main — the renderer reads on its own tick; we just publish.
+            DispatchQueue.main.async { cb(rms) }
+        }
+    }
+
+    private func logTapBlockIfNeeded(buffer: AVAudioPCMBuffer, path: String) {
+        guard debugTapBlocksLogged < 4 else { return }
+        debugTapBlocksLogged += 1
+        NSLog("MenuBand SampleVoice: tap block \(debugTapBlocksLogged) path=\(path) frames=\(buffer.frameLength) ch=\(buffer.format.channelCount) sr=\(buffer.format.sampleRate) written=\(recordWriteFrame)")
     }
 
     /// Grow `recordScratch` so it can hold `forFramesToAppend` more
@@ -380,6 +526,7 @@ final class MenuBandSampleVoice {
         engine.connect(v.node, to: v.varispeed, format: storageFormat)
         engine.connect(v.varispeed, to: voiceMixer, format: storageFormat)
         voices[key] = v
+        NSLog("MenuBand SampleVoice: attached playback voice channel=\(channel) slot=\(slot)")
         return v
     }
 
@@ -396,11 +543,18 @@ final class MenuBandSampleVoice {
         guard let buf = buf else {
             // No recording yet — silent noteOn. The synth shouldn't
             // route to this backend in that state, but defend anyway.
+            NSLog("MenuBand SampleVoice: noteOn ignored — no recorded buffer")
             return
         }
-        guard attached, engine != nil else { return }
+        guard attached, engine != nil else {
+            NSLog("MenuBand SampleVoice: noteOn ignored — voice not attached")
+            return
+        }
         let slot = nextSlot(channel: channel, midi: midi)
-        guard let voice = ensureVoice(channel: channel, slot: slot) else { return }
+        guard let voice = ensureVoice(channel: channel, slot: slot) else {
+            NSLog("MenuBand SampleVoice: noteOn ignored — failed to allocate voice")
+            return
+        }
 
         // Cancel any pending release-fade — we're retriggering the
         // slot before the previous tail finished.
@@ -410,6 +564,7 @@ final class MenuBandSampleVoice {
         voice.midi = midi
         voice.varispeed.rate = ratio(forNote: midi)
         voice.node.volume = Float(velocity) / 127.0
+        NSLog("MenuBand SampleVoice: noteOn midi=\(midi) channel=\(channel) rate=\(voice.varispeed.rate) frames=\(buf.frameLength)")
 
         if voice.node.isPlaying {
             voice.node.stop()
@@ -495,14 +650,26 @@ final class MenuBandSampleVoice {
         guard !alertVisible else { return }
         alertVisible = true
         defer { alertVisible = false }
+        NotificationCenter.default.post(name: .menuBandMicPermissionAlertWillShow,
+                                        object: nil)
         let alert = NSAlert()
         alert.messageText = "Menu Band can't reach the microphone"
         alert.informativeText = denied
-            ? "Microphone access has been denied. Open System Settings → Privacy & Security → Microphone and toggle Menu Band on, then try the sample voice again."
-            : "Menu Band needs microphone access to record sample notes. Grant permission when macOS asks, or open System Settings → Privacy & Security → Microphone to enable it manually."
+            ? "Microphone access has been denied. Open System Settings → Privacy & Security → Microphone and toggle Menu Band on, then try the sample voice again. If this debug build was launched from Terminal or Codex, macOS may list Terminal/Codex instead of Menu Band; the installed app bundle will appear as Menu Band after it asks once."
+            : "Menu Band needs microphone access to record sample notes. Grant permission when macOS asks. If this debug build was launched from Terminal or Codex, macOS may list Terminal/Codex instead of Menu Band; the installed app bundle will appear as Menu Band after it asks once."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Cancel")
+        // Menu Band keeps its popovers/floating piano at pop-up levels.
+        // A vanilla `runModal()` alert can appear behind those surfaces,
+        // which is especially confusing for a permission failure. Lift
+        // the alert window one notch above our popovers before entering
+        // the modal loop so it is the frontmost Menu Band surface.
+        let window = alert.window
+        window.level = .screenSaver
+        window.collectionBehavior.insert(.canJoinAllSpaces)
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             // x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone

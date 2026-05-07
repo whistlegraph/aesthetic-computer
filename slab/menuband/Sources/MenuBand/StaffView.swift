@@ -554,44 +554,84 @@ final class StaffView: NSView {
             let windowEnd = now + traverseTime + 0.5
             let i_start = max(0, Int(floor((windowStart - firstClickTime) / tickInterval)))
             let i_end = max(i_start, Int(ceil((windowEnd - firstClickTime) / tickInterval)))
+            // Drop animation phase windows for the moment the bar
+            // arrives at center. Mirrors the original retired drop
+            // sequence: bar holds at center while a vertical line
+            // sweeps top → bottom, dots paint as it crosses each
+            // staff line, and the color sweeps yellow → orange →
+            // red → settle.
+            let dropDuration: CGFloat = 0.18
+            let yellowEnd: CGFloat = 0.10
+            let orangeEnd: CGFloat = 0.20
+            let redEnd: CGFloat = 0.25
+            let topY = bounds.maxY
+            let viewHeight = bounds.maxY - bounds.minY
             for i in i_start...i_end {
                 let clickTime = firstClickTime + Double(i) * tickInterval
                 let dropTime = clickTime - traverseTime
                 let age = now - dropTime
                 if age < 0 { continue }
-                let x = rightEdge - CGFloat(age) * Self.scrollSpeed
-                if x < bounds.minX - 2 || x > bounds.maxX + 2 { continue }
-                let centerArrival = now - clickTime
+                let centerArrival = CGFloat(now - clickTime)
                 let isApproaching = centerArrival < 0
+                let inDrop = !isApproaching && centerArrival < dropDuration
+                // X position: while approaching, slide from right
+                // toward center. While in the drop phase, hold at
+                // center. After drop completes, scroll left.
+                let x: CGFloat
+                if isApproaching {
+                    x = rightEdge - CGFloat(age) * Self.scrollSpeed
+                } else if inDrop {
+                    x = centerX
+                } else {
+                    let scrollAge = centerArrival - dropDuration
+                    x = centerX - scrollAge * Self.scrollSpeed
+                }
+                if x < bounds.minX - 2 || x > bounds.maxX + 2 { continue }
+                // Color band — incandescent strike that cools as it
+                // ages out of the drop phase.
                 let strokeColor: NSColor
                 let lineWidth: CGFloat
                 if isApproaching {
-                    // Ghosted while approaching center — fades up
-                    // smoothly from right edge so the user sees
-                    // "incoming" rather than a hard pop-in.
                     strokeColor = approachingColor
                     lineWidth = 0.6
-                } else if centerArrival < 0.18 {
-                    // Slot-in flash: bright yellow as the bar
-                    // crosses the play column, holding for ~3
-                    // frames before settling to the resting tone.
-                    strokeColor = slotInColor
+                } else if centerArrival < yellowEnd {
+                    strokeColor = NSColor.systemYellow
                     lineWidth = 1.2
+                } else if centerArrival < orangeEnd {
+                    strokeColor = NSColor.systemOrange
+                    lineWidth = 1.0
+                } else if centerArrival < redEnd {
+                    strokeColor = NSColor.systemRed
+                    lineWidth = 0.9
                 } else {
                     strokeColor = restColor
                     lineWidth = 0.6
                 }
+                _ = slotInColor
+                // Vertical bar — height varies by phase. While in
+                // the drop window the leading edge sweeps from top
+                // down to the bottom; after the drop the bar is
+                // full height and just scrolls.
+                let bottomY: CGFloat
+                if inDrop {
+                    let raw = centerArrival / dropDuration
+                    let progress = raw * raw * (3 - 2 * raw)
+                    bottomY = topY - viewHeight * progress
+                } else {
+                    bottomY = bounds.minY
+                }
                 let connector = NSBezierPath()
-                connector.move(to: NSPoint(x: x, y: bounds.minY))
-                connector.line(to: NSPoint(x: x, y: bounds.maxY))
+                connector.move(to: NSPoint(x: x, y: topY))
+                connector.line(to: NSPoint(x: x, y: bottomY))
                 connector.lineWidth = lineWidth
                 strokeColor.setStroke()
                 connector.stroke()
-                // Dots only after the bar has slotted in — keeps
-                // the approaching ghost bar from carrying noise.
+                // Dots paint at each staff line as the descending
+                // edge passes through during drop, and stay
+                // painted afterwards while the bar scrolls left.
                 if !isApproaching {
                     strokeColor.setFill()
-                    for dotY in dotYs {
+                    for dotY in dotYs where bottomY <= dotY {
                         let dot = NSBezierPath(ovalIn: NSRect(
                             x: x - dotRadius,
                             y: dotY - dotRadius,

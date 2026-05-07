@@ -3,6 +3,9 @@
 <plist version="1.0">
 <dict>
     <!-- Hardened Runtime — required for notarization. -->
+    <!-- Microphone sampler: holding ` records from the default input. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
     <!-- We don't need any of the Hardened Runtime exceptions; CoreMIDI,
          AVAudioEngine, CGEventTap, and Carbon RegisterEventHotKey all work
          under default Hardened Runtime. -->

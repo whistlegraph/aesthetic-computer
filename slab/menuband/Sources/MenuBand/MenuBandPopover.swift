@@ -658,6 +658,29 @@ final class MenuBandPopoverViewController: NSViewController {
             miniWaveformView.topAnchor.constraint(equalTo: miniWaveformBezel.topAnchor, constant: miniBezelInset),
             miniWaveformView.bottomAnchor.constraint(equalTo: miniWaveformBezel.bottomAnchor, constant: -miniBezelInset),
         ])
+        // Hover affordance: brighten the bezel border + nudge alpha
+        // so the strip reads as "click to expand." On click, jump
+        // to Esteban's full-screen liquid panel via the popover's
+        // expand entry point.
+        miniWaveformBezel.onHoverChanged = { [weak self] hovered in
+            guard let self = self, let bezel = self.miniWaveformBezel else { return }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.18
+                ctx.allowsImplicitAnimation = true
+                bezel.layer?.borderColor = (hovered
+                    ? NSColor.controlAccentColor.withAlphaComponent(0.85)
+                    : NSColor.separatorColor.withAlphaComponent(0.5)).cgColor
+                bezel.layer?.borderWidth = hovered ? 1.2 : 0.6
+                bezel.alphaValue = hovered ? 1.0 : 0.85
+            })
+            NSCursor.pointingHand.set()
+        }
+        let miniViewClick = NSClickGestureRecognizer(
+            target: self,
+            action: #selector(miniVisualizerClicked(_:))
+        )
+        miniWaveformBezel.addGestureRecognizer(miniViewClick)
+        miniWaveformBezel.toolTip = "Click to open the full-screen piano"
         stack.setCustomSpacing(8, after: waveformBezel)
         stack.addArrangedSubview(miniWaveformBezel)
         miniWaveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
@@ -1556,6 +1579,26 @@ final class MenuBandPopoverViewController: NSViewController {
         forceRedrawSubtree(rootBackgroundView)
     }
 
+    /// Preview/commit changes can originate outside the popover
+    /// (for example, dragging the chooser in the floating liquid
+    /// panel). Keep the popover's voice-colored chrome in lockstep
+    /// with the controller's effective program while that drag is
+    /// still in progress, not just after mouse-up commits it.
+    func refreshInstrumentVisuals() {
+        guard isViewLoaded else { return }
+        updateInstrumentReadout()
+        applyAppearanceToVisualizer()
+        qwertyMap?.voiceColor = currentVoiceColor()
+    }
+
+    private func currentVoiceColor() -> NSColor {
+        guard let m = menuBand else { return .controlAccentColor }
+        if m.midiMode { return .controlAccentColor }
+        if m.instrumentBackend == .kpbj { return .systemOrange }
+        let safe = max(0, min(127, Int(m.effectiveMelodicProgram)))
+        return InstrumentListView.colorForProgram(safe)
+    }
+
     private func forceRedrawSubtree(_ root: NSView?) {
         guard let root = root else { return }
         root.needsDisplay = true
@@ -1577,9 +1620,14 @@ final class MenuBandPopoverViewController: NSViewController {
         // strip reads as part of "this voice's chrome" rather than a
         // generic visualizer.
         if let m = menuBand, let mini = miniWaveformView {
-            if m.midiMode {
+            if m.sampleRecordingActive {
+                mini.setDotMatrix(nil)
+                mini.setBaseColor(.systemRed)
+            } else if m.midiMode {
+                mini.setDotMatrix(Self.midiDotPattern)
                 mini.setBaseColor(NSColor.controlAccentColor)
             } else {
+                mini.setDotMatrix(nil)
                 let safe = max(0, min(127, Int(m.effectiveMelodicProgram)))
                 mini.setBaseColor(InstrumentListView.colorForProgram(safe))
             }
@@ -1763,6 +1811,16 @@ final class MenuBandPopoverViewController: NSViewController {
         if let url = URL(string: "https://prompt.ac/menuband") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    /// Closure called when the user clicks the mini visualizer
+    /// strip — AppDelegate hooks this to bring up the floating
+    /// piano panel in expanded (Esteban's full-screen liquid)
+    /// mode.
+    var onMiniVisualizerExpand: (() -> Void)?
+
+    @objc private func miniVisualizerClicked(_ sender: Any?) {
+        onMiniVisualizerExpand?()
     }
 
     @objc private func languageChipClicked(_ sender: NSButton) {
