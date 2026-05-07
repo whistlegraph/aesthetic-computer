@@ -867,7 +867,6 @@ final class MenuBandPopoverViewController: NSViewController {
         // glued to the base of the voice grid. Tuned to hug the
         // qwerty (46h) + arrows (30h) with the qwerty/arrows gap
         // squeezed to 0 — no dead vertical band between rows.
-        let strip: CGFloat = 82
         qwertyMap = QwertyLayoutView()
         qwertyMap.translatesAutoresizingMaskIntoConstraints = false
         // Pointer-driven play: clicks/drags on caps route through the

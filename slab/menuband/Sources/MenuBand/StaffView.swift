@@ -288,7 +288,6 @@ final class StaffView: NSView {
         xform.translateX(by: 0, yBy: pitchShiftY)
         xform.concat()
         let staffLeftX = bounds.minX + Self.leftPad
-        let staffRightX = bounds.maxX - Self.rightPad
 
         // Half-line steps of each held note (sharp + natural alike).
         // Used to size the camera so a chord that spans an octave
@@ -653,7 +652,6 @@ final class StaffView: NSView {
         // Play column at the view's centerline so beat markers and
         // notes share the same vertical axis as the metronome icon.
         let playColumnX = bounds.midX
-        let trailHeight = lineSpacing * 0.42
 
         // Per-note draw pass — each scrollNote becomes one solid
         // colored PILL extending from where the note first sounded
@@ -677,7 +675,6 @@ final class StaffView: NSView {
         // below it.
         let naturalDiameter: CGFloat = lineSpacing * 0.30
         let sharpDiameter: CGFloat = lineSpacing * 0.10
-        let noteHeadDiameter: CGFloat = naturalDiameter
         for snap in scrollNotes.sorted(by: { $0.note.midi < $1.note.midi }) {
             let note = snap.note
             let pc = Int(note.midi) % 12
@@ -698,14 +695,11 @@ final class StaffView: NSView {
             let bornAge = CGFloat(now - snap.appearedAt)
             let leftX = playColumnX - bornAge * Self.scrollSpeed
             let rightX: CGFloat
-            let isHeld: Bool
             if let releasedAt = snap.releasedAt {
                 let releasedAge = CGFloat(now - releasedAt)
                 rightX = playColumnX - releasedAge * Self.scrollSpeed
-                isHeld = false
             } else {
                 rightX = playColumnX
-                isHeld = true
             }
             // Pill body stays solid + pinned. While held, the
             // letter shaking happens on the CENTER-COLUMN slot
