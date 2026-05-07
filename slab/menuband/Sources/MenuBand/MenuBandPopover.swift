@@ -728,7 +728,12 @@ final class MenuBandPopoverViewController: NSViewController {
         staffView.translatesAutoresizingMaskIntoConstraints = false
         chordCandidatesStack.addArrangedSubview(staffView)
         NSLayoutConstraint.activate([
-            staffView.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth + 16),
+            // The centered stack keeps a horizontal inset inside the bezel,
+            // so the staff width must respect that available space.
+            staffView.widthAnchor.constraint(
+                equalTo: chordCandidatesRow.widthAnchor,
+                constant: -chordCandidatesRowHorizontalInset * 2
+            ),
             staffView.heightAnchor.constraint(equalToConstant: 196),
         ])
 
@@ -999,7 +1004,6 @@ final class MenuBandPopoverViewController: NSViewController {
         // `preferredContentSize`, so we set it from the actual fitting
         // height rather than guessing — keeps the popover snug whether
         // the instrument map is added/removed/resized.
-        root.layoutSubtreeIfNeeded()
         let fitting = stack.fittingSize
         // Width tracks the actual fitting size — the instrument map's
         // 224 px sets the floor, so the popover is as skinny as the
@@ -1301,12 +1305,13 @@ final class MenuBandPopoverViewController: NSViewController {
     /// instrument palette toggle).
     private func refitContentSize() {
         guard isViewLoaded else { return }
-        view.needsLayout = true
-        view.layoutSubtreeIfNeeded()
-        let fitting = view.fittingSize
-        if fitting.height > 0 && fitting.width > 0 {
-            preferredContentSize = NSSize(width: fitting.width,
-                                           height: fitting.height)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.isViewLoaded else { return }
+            let fitting = self.view.fittingSize
+            if fitting.height > 0 && fitting.width > 0 {
+                self.preferredContentSize = NSSize(width: fitting.width,
+                                                   height: fitting.height)
+            }
         }
     }
 

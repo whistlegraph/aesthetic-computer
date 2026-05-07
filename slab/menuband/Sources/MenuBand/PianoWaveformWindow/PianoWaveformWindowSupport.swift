@@ -18,7 +18,6 @@ enum PianoWaveformVisualStyleOverride: String {
 }
 
 enum PianoWaveformWindowStyle {
-    private static let defaultsDomain = "computer.aestheticcomputer.menuband"
     private static let styleOverrideDefaultsKey = "MenuBandFloatingPlayPaletteStyle"
     private static let styleOverrideEnvironmentKey = "MENUBAND_FLOATING_PLAY_PALETTE_STYLE"
 
@@ -27,7 +26,7 @@ enum PianoWaveformWindowStyle {
         if environmentValue != nil {
             return PianoWaveformVisualStyleOverride(rawValue: environmentValue)
         }
-        let defaultsValue = UserDefaults(suiteName: defaultsDomain)?.string(forKey: styleOverrideDefaultsKey)
+        let defaultsValue = UserDefaults.standard.string(forKey: styleOverrideDefaultsKey)
             ?? UserDefaults.standard.string(forKey: styleOverrideDefaultsKey)
         return PianoWaveformVisualStyleOverride(rawValue: defaultsValue)
     }

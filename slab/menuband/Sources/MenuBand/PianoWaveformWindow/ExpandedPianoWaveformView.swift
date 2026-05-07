@@ -416,7 +416,6 @@ final class ExpandedPianoWaveformView: NSView {
 
     override var fittingSize: NSSize {
         pianoView.refreshLayout()
-        layoutSubtreeIfNeeded()
         return super.fittingSize
     }
 
