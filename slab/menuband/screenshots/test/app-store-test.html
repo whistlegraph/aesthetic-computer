@@ -1,0 +1,354 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Menu Band App Store Test Frames</title>
+<style>
+  :root {
+    --ink: #151515;
+    --muted: #4f4f4f;
+    --paper: #f7f6f2;
+    --line: #d9d5cc;
+    --accent: #2878ff;
+    --red: #ff5f57;
+    --yellow: #ffbd2e;
+    --green: #28c840;
+  }
+  html, body {
+    margin: 0;
+    width: 2880px;
+    height: 1800px;
+    overflow: hidden;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  }
+  .frame {
+    position: relative;
+    width: 2880px;
+    height: 1800px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,0.86), rgba(255,255,255,0.36)),
+      radial-gradient(circle at 18% 28%, rgba(255, 215, 91, 0.12), transparent 34%),
+      radial-gradient(circle at 28% 74%, rgba(40, 120, 255, 0.10), transparent 34%),
+      #f4f2ed;
+  }
+  .brand {
+    position: absolute;
+    left: 182px;
+    top: 128px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    font-size: 38px;
+    font-weight: 750;
+    letter-spacing: 0;
+  }
+  .logo {
+    width: 62px;
+    height: 62px;
+    border-radius: 14px;
+    background: #111;
+    box-shadow: inset 0 -10px 0 rgba(255,255,255,0.08);
+    position: relative;
+  }
+  .logo:before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 28px;
+    height: 9px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #fff 0 12%, #ffd44d 12% 24%, #fff 24% 38%, #2f83ff 38% 52%, #fff 52% 66%, #ff6262 66% 80%, #fff 80%);
+  }
+  .screen {
+    position: absolute;
+    left: -80px;
+    top: 316px;
+    width: 1540px;
+    height: 1024px;
+    border: 34px solid #222;
+    border-radius: 78px 78px 0 0;
+    background: #101010;
+    box-shadow: 0 46px 110px rgba(0,0,0,0.18);
+    overflow: hidden;
+  }
+  .desktop {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(140deg, rgba(47,132,255,0.58), transparent 52%),
+      linear-gradient(20deg, rgba(255,196,71,0.58), transparent 48%),
+      linear-gradient(180deg, #d8edf4, #c7d8c9 42%, #2d4b36 100%);
+  }
+  .menubar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 72px;
+    background: rgba(245,247,248,0.82);
+    backdrop-filter: blur(30px);
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 26px;
+    padding: 0 38px;
+    box-sizing: border-box;
+    font-size: 30px;
+    font-weight: 650;
+  }
+  .menu-icon {
+    width: 42px;
+    height: 28px;
+    border-radius: 8px;
+    background: repeating-linear-gradient(90deg, #111 0 7px, transparent 7px 12px);
+    opacity: 0.88;
+  }
+  .chip {
+    width: 256px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.28);
+    background: #fff;
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    overflow: hidden;
+  }
+  .key {
+    border-right: 1px solid rgba(0,0,0,0.17);
+    background: #f8f7f4;
+  }
+  .key:nth-child(4), .key:nth-child(7), .key:nth-child(11) {
+    background: var(--accent);
+  }
+  .popover {
+    position: absolute;
+    left: 402px;
+    top: 76px;
+    width: 610px;
+    min-height: 728px;
+    border-radius: 28px;
+    background: rgba(250,250,250,0.92);
+    box-shadow: 0 28px 70px rgba(0,0,0,0.24), 0 0 0 1px rgba(0,0,0,0.12);
+    padding: 26px;
+    box-sizing: border-box;
+  }
+  .popover:before {
+    content: "";
+    position: absolute;
+    top: -19px;
+    left: 440px;
+    border-left: 24px solid transparent;
+    border-right: 24px solid transparent;
+    border-bottom: 24px solid rgba(250,250,250,0.92);
+  }
+  .toprow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+  .octave {
+    font-size: 38px;
+    color: var(--accent);
+    font-weight: 800;
+  }
+  .midi {
+    font-size: 22px;
+    font-weight: 720;
+    padding: 9px 15px;
+    border-radius: 999px;
+    background: #e9f1ff;
+    color: #145dca;
+  }
+  .staff {
+    height: 128px;
+    border-radius: 18px;
+    background: #1f1f22;
+    margin-bottom: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .staff:before {
+    content: "";
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    top: 26px;
+    height: 76px;
+    background: repeating-linear-gradient(180deg, transparent 0 16px, rgba(255,255,255,0.28) 16px 18px);
+  }
+  .note {
+    position: absolute;
+    width: 34px;
+    height: 24px;
+    border-radius: 50%;
+    background: #ffd44d;
+    box-shadow: 0 0 18px rgba(255,212,77,0.8);
+  }
+  .note.n1 { left: 150px; top: 58px; }
+  .note.n2 { left: 248px; top: 38px; background: #ff6262; }
+  .note.n3 { left: 348px; top: 68px; background: #2f83ff; }
+  .held {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .pill {
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid var(--line);
+    font-size: 28px;
+    font-weight: 800;
+    padding: 12px 18px;
+    min-width: 54px;
+    text-align: center;
+  }
+  .keyboard {
+    height: 220px;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 22px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .kbd {
+    border-radius: 10px;
+    background: #efede8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 800;
+    color: #333;
+  }
+  .kbd.on { background: #151515; color: white; }
+  .modes {
+    display: grid;
+    gap: 10px;
+  }
+  .mode {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    font-size: 24px;
+    font-weight: 720;
+  }
+  .mode.active {
+    background: #151515;
+    color: #fff;
+  }
+  .palette {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .sound {
+    border-radius: 15px;
+    min-height: 82px;
+    padding: 16px;
+    color: white;
+    font-size: 21px;
+    font-weight: 800;
+    display: flex;
+    align-items: end;
+  }
+  .s1 { background: #2878ff; }
+  .s2 { background: #ff5f57; }
+  .s3 { background: #28a86d; }
+  .s4 { background: #8d59ff; }
+  .copy {
+    position: absolute;
+    left: 1622px;
+    top: 520px;
+    width: 980px;
+  }
+  h1 {
+    font-size: 136px;
+    line-height: 1.05;
+    letter-spacing: 0;
+    margin: 0 0 70px;
+    font-weight: 830;
+  }
+  p {
+    margin: 0;
+    font-size: 61px;
+    line-height: 1.24;
+    letter-spacing: 0;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .footer {
+    position: absolute;
+    left: 182px;
+    bottom: 118px;
+    font-size: 30px;
+    color: #67635e;
+    font-weight: 650;
+  }
+</style>
+<div class="frame">
+  <div class="brand"><div class="logo"></div><span>Menu Band</span></div>
+  <div class="screen">
+    <div class="desktop"></div>
+    <div class="menubar">
+      <span class="menu-icon"></span>
+      <span class="chip">
+        <span class="key"></span><span class="key"></span><span class="key"></span><span class="key"></span>
+        <span class="key"></span><span class="key"></span><span class="key"></span><span class="key"></span>
+        <span class="key"></span><span class="key"></span><span class="key"></span><span class="key"></span>
+        <span class="key"></span><span class="key"></span>
+      </span>
+      <span>Thu May 7 4:42 PM</span>
+    </div>
+    <div class="popover">
+      <div class="toprow"><div class="octave">4</div><div class="midi">MIDI on</div></div>
+      <div class="staff"><span class="note n1"></span><span class="note n2"></span><span class="note n3"></span></div>
+      <div class="held"><span class="pill">C</span><span class="pill">E</span><span class="pill">G</span><span class="pill">Cmaj</span></div>
+      <div class="keyboard" id="keyboard"></div>
+      <div class="modes" id="modes"></div>
+      <div class="palette" id="palette" hidden></div>
+    </div>
+  </div>
+  <main class="copy">
+    <h1 id="headline"></h1>
+    <p id="body"></p>
+  </main>
+  <div class="footer">Mac App Store screenshot test frame · 2880 × 1800</div>
+</div>
+<script>
+  const frames = [
+    ["Built-in instruments, in your menu bar", "Tap the tiny piano, pick a sound, and start playing without opening a studio.", "Pointer"],
+    ["Type letters. Hear notes.", "Pointer, Notepat, and Ableton-style layouts turn your keyboard into an instrument.", "Notepat"],
+    ["Send MIDI to your studio", "Menu Band publishes a virtual MIDI source for DAWs and instrument plugins.", "Ableton"],
+    ["A pocket orchestra of sounds", "Jump from piano to strings, brass, synths, drums, and more.", "Palette"],
+    ["Small enough to stay open", "Notes, chords, levels, and octave changes stay visible while you work.", "Live"]
+  ];
+  const idx = Math.max(0, Math.min(frames.length - 1, Number(new URLSearchParams(location.search).get("frame") || 0)));
+  const [headline, body, active] = frames[idx];
+  document.querySelector("#headline").textContent = headline;
+  document.querySelector("#body").textContent = body;
+  const letters = ["Q","W","E","R","T","Y","U","I","O","P","A","S","D","F","G","H","J","K","L",";"];
+  document.querySelector("#keyboard").innerHTML = letters.map((l, i) =>
+    `<span class="kbd ${[2,5,12,14,17].includes(i) ? "on" : ""}">${l}</span>`
+  ).join("");
+  document.querySelector("#modes").innerHTML = ["Pointer","Notepat","Ableton"].map(name =>
+    `<div class="mode ${active === name ? "active" : ""}">${name}</div>`
+  ).join("");
+  if (active === "Palette") {
+    document.querySelector("#modes").hidden = true;
+    const sounds = ["Grand Piano", "Nylon Guitar", "Strings", "Synth Pad"];
+    document.querySelector("#palette").hidden = false;
+    document.querySelector("#palette").innerHTML = sounds.map((s, i) => `<div class="sound s${i + 1}">${s}</div>`).join("");
+  }
+</script>

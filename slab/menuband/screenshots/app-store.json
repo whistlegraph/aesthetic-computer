@@ -1,0 +1,32 @@
+[
+  {
+    "slug": "01-menubar-instrument",
+    "headline": "Built-in instruments, in your menu bar",
+    "body": "Tap the tiny piano, pick a sound, and start playing without opening a studio.",
+    "mode": "Pointer"
+  },
+  {
+    "slug": "02-type-to-play",
+    "headline": "Type letters. Hear notes.",
+    "body": "Pointer, Notepat, and Ableton-style layouts turn your keyboard into an instrument.",
+    "mode": "Notepat"
+  },
+  {
+    "slug": "03-send-midi",
+    "headline": "Send MIDI to your studio",
+    "body": "Menu Band publishes a virtual MIDI source for DAWs and instrument plugins.",
+    "mode": "Ableton"
+  },
+  {
+    "slug": "04-instrument-palette",
+    "headline": "A pocket orchestra of sounds",
+    "body": "Jump from piano to strings, brass, synths, drums, and more.",
+    "mode": "Palette"
+  },
+  {
+    "slug": "05-live-feedback",
+    "headline": "Small enough to stay open",
+    "body": "Notes, chords, levels, and octave changes stay visible while you work.",
+    "mode": "Live"
+  }
+]

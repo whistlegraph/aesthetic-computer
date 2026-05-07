@@ -386,6 +386,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Sibling remote: open the About window directly. Lets the
+        // shell verify (or screenshot) that the About panel renders
+        // correctly without first walking through the popover.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleShowAboutNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.showAbout"),
+            object: nil
+        )
+
         // Trackpad pitch-bend: while local capture is armed (the
         // user is playing notes via the keyboard), single-finger
         // trackpad cursor-Y movement bends the pitch of every
@@ -926,15 +936,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startVisualizerAnimation() {
         visualizerAnimTimer?.invalidate()
         menuBand.setWaveformCaptureEnabled(true)
-        // 120fps tick — half the perceptual latency of the prior 60fps
-        // path. Combined with the 256-sample RMS window (~5.8ms),
-        // adaptive auto-gain (matches the main visualizer's envelope),
-        // and a snap-instant attack, the bars now move within ~10ms
-        // of a note hitting the synth and reach full height even for
-        // quiet voices. Bars are ALWAYS animating (popover or palette
-        // open or not); when silent they fall to a flat/short floor
-        // instead of vanishing, so the menubar always looks "alive."
-        let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) { [weak self] _ in
+        // 24fps is enough for the tiny menubar VU meter and avoids
+        // spending a full CPU core on synchronous status-item redraws.
+        // Bars are ALWAYS animating (popover or palette open or not);
+        // when silent they fall to a flat/short floor instead of
+        // vanishing, so the menubar still looks "alive."
+        let frameRate: CGFloat = 24
+        let timer = Timer(timeInterval: TimeInterval(1.0 / frameRate), repeats: true) { [weak self] _ in
             guard let self = self else { return }
             // Two RMS sources, one consumer:
             //   • While the user is recording (holding `), the bars
@@ -974,8 +982,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // silent floor — gives the meter a satisfying "needle
             // hangs" feel instead of cutting back to flat the
             // instant a key releases.
-            let holdFramesAtPeak = 30        // 250ms at 120fps
-            let releaseAlpha: CGFloat = 0.012 // ~480ms half-life
+            let holdFramesAtPeak = Int(round(frameRate * 0.25))
+            let releaseAlpha: CGFloat = 0.056 // ~480ms half-life at 24fps
             if target >= self.visualizerSmoothedLevel {
                 self.visualizerSmoothedLevel = target
                 self.visualizerHoldFrames = holdFramesAtPeak
@@ -1678,6 +1686,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !self.isPopoverPanelShown {
                 self.showPopover()
             }
+        }
+    }
+
+    /// Remote entry point for opening the About window. Mirrors the
+    /// showPopover dev affordance — used by tooling/screenshots to
+    /// verify chrome that lives only in the About panel (the
+    /// crash-report send button, the language picker, the plugins
+    /// chip) without driving the menubar.
+    @objc private func handleShowAboutNotification(_ note: Notification) {
+        debugLog("handleShowAboutNotification received")
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                debugLog("handleShowAboutNotification: self gone")
+                return
+            }
+            guard let vc = self.popoverVC else {
+                debugLog("handleShowAboutNotification: popoverVC nil")
+                return
+            }
+            // showAboutPanel rebuilds the AboutWindowController each
+            // call, so repeated triggers are safe — they swap a fresh
+            // window in and toss the previous one.
+            debugLog("handleShowAboutNotification: presenting About")
+            vc.showAboutPanel(nil)
         }
     }
 

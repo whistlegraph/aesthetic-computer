@@ -8,6 +8,11 @@ import AppKit
 /// that needs to be its own NSButton (custom hover, animated tint) has
 /// to live in a window we own.
 final class AboutWindowController: NSWindowController, NSWindowDelegate {
+    /// Self-retain so a language-switch-triggered popoverVC rebuild
+    /// (which drops every strong ref the popover held) doesn't tear
+    /// the window out mid-interaction. Cleared in `windowWillClose`.
+    private static var active: AboutWindowController?
+
     private var flashTimer: Timer?
     private weak var flashButton: NSButton?
     private var flashOn = false
@@ -22,6 +27,10 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     private weak var iconView: NSImageView?
     private weak var pluginsButton: HoverLinkButton?
     private var accentObserver: NSObjectProtocol?
+
+    /// Strong ref so the viewer window stays alive while it's open —
+    /// AboutWindowController is the only thing that holds it.
+    private var crashViewer: CrashViewerWindowController?
 
     init(updateInfo: UpdateChecker.VersionInfo?,
          onOpenPlugins: (() -> Void)? = nil) {
@@ -73,8 +82,25 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// Open or refocus the singleton About window. Dedupes via the
+    /// static `active` registry so callers don't have to track the
+    /// instance — and so a popoverVC rebuild can't accidentally
+    /// orphan a live window.
+    @discardableResult
+    static func show(updateInfo: UpdateChecker.VersionInfo?,
+                     onOpenPlugins: (() -> Void)? = nil) -> AboutWindowController {
+        active?.close()
+        let ctrl = AboutWindowController(updateInfo: updateInfo,
+                                         onOpenPlugins: onOpenPlugins)
+        ctrl.present()
+        return ctrl
+    }
+
     func present() {
         guard let window = window else { return }
+        // Park ourselves in the static registry — keeps this controller
+        // alive even if the popoverVC that opened us gets thrown away.
+        AboutWindowController.active = self
         window.center()
         // The Menu Band popover panel runs at .popUpMenu (101); sit one
         // step above it so the About window paints over the popover
@@ -88,6 +114,9 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         flashTimer?.invalidate()
         flashTimer = nil
+        if AboutWindowController.active === self {
+            AboutWindowController.active = nil
+        }
     }
 
     // MARK: - Layout
@@ -237,6 +266,50 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         let langRow = buildLanguagePicker()
         stack.addArrangedSubview(langRow)
 
+        // Crash-report summary — single orange ⚠️ button reading
+        // "Menu Band crashed N times". Opens the scroll viewer where
+        // the user can review the .ips contents and click Send to
+        // Aesthetic.Computer. Lives bottom-left of the About window
+        // (secondary-action position) so it never crowds the
+        // primary brand chrome.
+        let logs = CrashLogReader.recentLogs()
+        if !logs.isEmpty {
+            stack.setCustomSpacing(14, after: langRow)
+            let summary = logs.count == 1
+                ? L("popover.about.crash.summaryOne")
+                : L("popover.about.crash.summaryMany", String(logs.count))
+            let btn = NSButton(title: "",
+                               target: self,
+                               action: #selector(viewCrashLogs(_:)))
+            btn.bezelStyle = .rounded
+            btn.isBordered = true
+            btn.bezelColor = .systemOrange
+            btn.controlSize = .mini
+            btn.attributedTitle = NSAttributedString(
+                string: "⚠️  \(summary)",
+                attributes: [
+                    .foregroundColor: NSColor.white,
+                    .font: NSFont.systemFont(ofSize: 9, weight: .medium),
+                ]
+            )
+
+            let crashRow = NSStackView()
+            crashRow.orientation = .horizontal
+            crashRow.alignment = .centerY
+            crashRow.spacing = 0
+            crashRow.translatesAutoresizingMaskIntoConstraints = false
+            let spacer = NSView()
+            spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            crashRow.addArrangedSubview(btn)
+            crashRow.addArrangedSubview(spacer)
+            stack.addArrangedSubview(crashRow)
+            // Match the inner content width — stack's edgeInsets are
+            // 28 left + 28 right, so the row spans the same inset
+            // area the body label uses.
+            crashRow.widthAnchor.constraint(
+                equalTo: stack.widthAnchor, constant: -56).isActive = true
+        }
+
         if let info = updateInfo,
            UpdateChecker.isNewer(info.version, than: UpdateChecker.currentVersion()) {
             stack.setCustomSpacing(16, after: langRow)
@@ -253,19 +326,32 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func buildLanguagePicker() -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 6
-        row.translatesAutoresizingMaskIntoConstraints = false
+        // Outer column: "Language" label on top, then chips wrapped
+        // into rows of three. Wrapping is necessary because the About
+        // window is narrow (320pt) and 5+ language chips with native
+        // labels overflow a single row.
+        let outer = NSStackView()
+        outer.orientation = .vertical
+        outer.alignment = .centerX
+        outer.spacing = 6
+        outer.translatesAutoresizingMaskIntoConstraints = false
+
         let label = NSTextField(labelWithString: L("popover.language.label"))
         label.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         label.textColor = .secondaryLabelColor
-        row.addArrangedSubview(label)
-        for lang in Localization.supported {
+        outer.addArrangedSubview(label)
+
+        // Build all chips first so we can pack them three-per-row.
+        let chips: [NSButton] = Localization.supported.map { lang in
             let isActive = (lang.code == Localization.current)
+            // Spaces inside the title give the chip visible breathing
+            // room around its layer-painted bezel — the chip's
+            // intrinsic width tracks the rendered text, so adding
+            // pad-spaces is the simplest way to enlarge the touch
+            // target without touching makeLinkButton's geometry.
+            let padded = "  \(lang.flag)  \(lang.label)  "
             let attr = NSAttributedString(
-                string: "\(lang.flag)  \(lang.label)",
+                string: padded,
                 attributes: [
                     .font: NSFont.systemFont(
                         ofSize: 11,
@@ -289,9 +375,25 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             chip.identifier = NSUserInterfaceItemIdentifier(
                 rawValue: "menuband.about.lang.\(lang.code)")
             chip.toolTip = lang.label
-            row.addArrangedSubview(chip)
+            return chip
         }
-        return row
+
+        // Three chips per row keeps each chip readable at the
+        // narrower About-window width even with longer native
+        // labels like "Русский" / "日本語".
+        let perRow = 3
+        var index = 0
+        while index < chips.count {
+            let slice = Array(chips[index..<min(index + perRow, chips.count)])
+            let row = NSStackView(views: slice)
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 6
+            row.translatesAutoresizingMaskIntoConstraints = false
+            outer.addArrangedSubview(row)
+            index += perRow
+        }
+        return outer
     }
 
     @objc private func languageChipClicked(_ sender: NSButton) {
@@ -376,6 +478,19 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     @objc private func openPlugins() {
         onOpenPlugins?()
     }
+
+    /// Open a scroll panel containing the .ips text for every pending
+    /// diagnostic report. Built fresh each time so it always reflects
+    /// the current contents of `~/Library/Logs/DiagnosticReports/`.
+    @objc private func viewCrashLogs(_ sender: NSButton) {
+        let logs = CrashLogReader.recentLogs()
+        guard !logs.isEmpty else { return }
+        crashViewer?.close()
+        let ctrl = CrashViewerWindowController(logs: logs)
+        crashViewer = ctrl
+        ctrl.present()
+    }
+
 
     // MARK: - Accent-color refresh
 

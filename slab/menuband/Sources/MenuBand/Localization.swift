@@ -21,6 +21,9 @@ enum Localization {
     static let supported: [Language] = [
         Language(code: "en", label: "English", flag: "🇺🇸"),
         Language(code: "es", label: "Español", flag: "🇪🇸"),
+        Language(code: "zh", label: "中文", flag: "🇨🇳"),
+        Language(code: "ja", label: "日本語", flag: "🇯🇵"),
+        Language(code: "ru", label: "Русский", flag: "🇷🇺"),
     ]
 
     static let didChange = Notification.Name("MenuBandLanguageDidChange")
@@ -75,6 +78,9 @@ enum Localization {
     static let tables: [String: [String: String]] = [
         "en": en,
         "es": es,
+        "zh": zh,
+        "ja": ja,
+        "ru": ru,
     ]
 
     private static let en: [String: String] = [
@@ -120,6 +126,12 @@ enum Localization {
         "popover.about.crash.sentSome": "Sent %@/%@ — retry",
         "popover.about.crash.sendOne": "Send 1 crash",
         "popover.about.crash.sendMany": "Send %@ crashes",
+        "popover.about.crash.viewOne": "View 1 crash",
+        "popover.about.crash.viewMany": "View %@ crashes",
+        "popover.about.crash.summaryOne": "Menu Band crashed 1 time",
+        "popover.about.crash.summaryMany": "Menu Band crashed %@ times",
+        "popover.about.crash.viewerTitle": "Crash reports",
+        "popover.about.crash.sendToAC": "Send to Aesthetic.Computer",
 
         // Popover — language switcher
         "popover.language.label": "Language",
@@ -178,6 +190,12 @@ enum Localization {
         "popover.about.crash.sentSome": "Enviados %@/%@ — reintentar",
         "popover.about.crash.sendOne": "Enviar 1 fallo",
         "popover.about.crash.sendMany": "Enviar %@ fallos",
+        "popover.about.crash.viewOne": "Ver 1 fallo",
+        "popover.about.crash.viewMany": "Ver %@ fallos",
+        "popover.about.crash.summaryOne": "Menu Band falló 1 vez",
+        "popover.about.crash.summaryMany": "Menu Band falló %@ veces",
+        "popover.about.crash.viewerTitle": "Informes de fallos",
+        "popover.about.crash.sendToAC": "Enviar a Aesthetic.Computer",
 
         // Popover — language switcher
         "popover.language.label": "Idioma",
@@ -191,6 +209,197 @@ enum Localization {
             "etc.), o usa Bartender / Hidden Bar para gestionarlas." +
             "\n\nMenu Band seguirá intentándolo cada pocos segundos.",
         "alert.ok": "Aceptar",
+    ]
+
+    private static let zh: [String: String] = [
+        // Popover — header / banner
+        "popover.octave": "八度",
+        "popover.octave.down": "降低八度",
+        "popover.octave.up": "升高八度",
+        "popover.midi.label": "MIDI",
+        "popover.update.available": "可用更新:%@",
+
+        // Popover — layout block
+        "popover.layout.label": "键位",
+        "popover.layout.notepat": "Notepat.com",
+        "popover.layout.ableton": "Ableton 计算机键盘",
+        "popover.layout.hint": "⌃⌥⌘P 切换最近按键模式",
+        "popover.layout.why": "为什么是这个键位?",
+        "popover.layout.why.tooltip": "打开《作为社交软件的键位》论文",
+
+        // Popover — shortcut rows
+        "popover.shortcuts.label": "键盘快捷键",
+        "popover.shortcuts.focus": "聚焦菜单钢琴",
+        "popover.shortcuts.floating": "浮动钢琴",
+        "popover.shortcuts.show": "显示",
+        "popover.shortcuts.focusButton": "聚焦",
+        "popover.shortcuts.press": "按下",
+        "popover.shortcuts.pressKeys": "按下按键",
+        "popover.shortcuts.use": "使用 ⌘、⌃ 或 ⌥",
+        "popover.shortcuts.saved": "已保存 %@",
+        "popover.shortcuts.unavailable": "快捷键不可用",
+        "popover.shortcuts.reserved": "⌃⌥⌘P 已被保留",
+
+        // Popover — palette helpers
+        "popover.arrows.tooltip": "方向键移动选择。",
+
+        // Popover — about / footer
+        "popover.about.lead": "Menu Band",
+        "popover.about.body": " 让 macOS 内置的 MIDI 乐器可以直接从菜单栏弹奏。",
+        "popover.about.link": "关于",
+        "popover.about.quit": "退出 Menu Band",
+        "popover.about.crash.send": "发送崩溃报告",
+        "popover.about.crash.sending": "发送中…",
+        "popover.about.crash.sentAll": "已发送 ✓",
+        "popover.about.crash.sentSome": "已发送 %@/%@ — 重试",
+        "popover.about.crash.sendOne": "发送 1 个崩溃",
+        "popover.about.crash.sendMany": "发送 %@ 个崩溃",
+        "popover.about.crash.viewOne": "查看 1 个崩溃",
+        "popover.about.crash.viewMany": "查看 %@ 个崩溃",
+        "popover.about.crash.summaryOne": "Menu Band 崩溃了 1 次",
+        "popover.about.crash.summaryMany": "Menu Band 崩溃了 %@ 次",
+        "popover.about.crash.viewerTitle": "崩溃报告",
+        "popover.about.crash.sendToAC": "发送至 Aesthetic.Computer",
+
+        // Popover — language switcher
+        "popover.language.label": "语言",
+
+        // Alerts
+        "alert.noMenuBarSpace.title": "Menu Band 无法放入菜单栏",
+        "alert.noMenuBarSpace.body":
+            "菜单栏没有空间——连紧凑图标也放不下。请退出占用菜单栏的应用 " +
+            "(slack、dropbox 等),或使用 Bartender / Hidden Bar 管理它们。" +
+            "\n\nMenu Band 会每隔几秒重试。",
+        "alert.ok": "好",
+    ]
+
+    private static let ja: [String: String] = [
+        // Popover — header / banner
+        "popover.octave": "オクターブ",
+        "popover.octave.down": "オクターブダウン",
+        "popover.octave.up": "オクターブアップ",
+        "popover.midi.label": "MIDI",
+        "popover.update.available": "アップデートあり:%@",
+
+        // Popover — layout block
+        "popover.layout.label": "キーマップ",
+        "popover.layout.notepat": "Notepat.com",
+        "popover.layout.ableton": "Ableton コンピュータキーボード",
+        "popover.layout.hint": "⌃⌥⌘P で最後の入力モードを切替",
+        "popover.layout.why": "このキーマップの理由は?",
+        "popover.layout.why.tooltip": "「Keymaps as Social Software」を開く",
+
+        // Popover — shortcut rows
+        "popover.shortcuts.label": "キーボードショートカット",
+        "popover.shortcuts.focus": "メニューピアノにフォーカス",
+        "popover.shortcuts.floating": "フローティングピアノ",
+        "popover.shortcuts.show": "表示",
+        "popover.shortcuts.focusButton": "フォーカス",
+        "popover.shortcuts.press": "押す",
+        "popover.shortcuts.pressKeys": "キーを押す",
+        "popover.shortcuts.use": "⌘、⌃、⌥ を使う",
+        "popover.shortcuts.saved": "保存しました %@",
+        "popover.shortcuts.unavailable": "ショートカット利用不可",
+        "popover.shortcuts.reserved": "⌃⌥⌘P は予約済み",
+
+        // Popover — palette helpers
+        "popover.arrows.tooltip": "矢印キーで選択を移動。",
+
+        // Popover — about / footer
+        "popover.about.lead": "Menu Band",
+        "popover.about.body": " は macOS 内蔵の MIDI 楽器をメニューバーから直接演奏できます。",
+        "popover.about.link": "概要",
+        "popover.about.quit": "Menu Band を終了",
+        "popover.about.crash.send": "クラッシュレポートを送信",
+        "popover.about.crash.sending": "送信中…",
+        "popover.about.crash.sentAll": "送信済み ✓",
+        "popover.about.crash.sentSome": "%@/%@ 件送信 — 再試行",
+        "popover.about.crash.sendOne": "1 件のクラッシュを送信",
+        "popover.about.crash.sendMany": "%@ 件のクラッシュを送信",
+        "popover.about.crash.viewOne": "1 件のクラッシュを表示",
+        "popover.about.crash.viewMany": "%@ 件のクラッシュを表示",
+        "popover.about.crash.summaryOne": "Menu Band は 1 回クラッシュしました",
+        "popover.about.crash.summaryMany": "Menu Band は %@ 回クラッシュしました",
+        "popover.about.crash.viewerTitle": "クラッシュレポート",
+        "popover.about.crash.sendToAC": "Aesthetic.Computer に送信",
+
+        // Popover — language switcher
+        "popover.language.label": "言語",
+
+        // Alerts
+        "alert.noMenuBarSpace.title": "Menu Band がメニューバーに入りません",
+        "alert.noMenuBarSpace.body":
+            "メニューバーに空きがありません — コンパクトアイコンも入りません。 " +
+            "slack や dropbox などメニューバーを占有しているアプリを終了するか、 " +
+            "Bartender / Hidden Bar で整理してください。" +
+            "\n\nMenu Band は数秒ごとに再試行します。",
+        "alert.ok": "OK",
+    ]
+
+    private static let ru: [String: String] = [
+        // Popover — header / banner
+        "popover.octave": "Октава",
+        "popover.octave.down": "На октаву ниже",
+        "popover.octave.up": "На октаву выше",
+        "popover.midi.label": "MIDI",
+        "popover.update.available": "Доступно обновление: %@",
+
+        // Popover — layout block
+        "popover.layout.label": "Раскладка",
+        "popover.layout.notepat": "Notepat.com",
+        "popover.layout.ableton": "Клавиатура Ableton",
+        "popover.layout.hint": "⌃⌥⌘P переключает режим последних нажатий",
+        "popover.layout.why": "Почему такая раскладка?",
+        "popover.layout.why.tooltip":
+            "Открыть статью «Keymaps as Social Software»",
+
+        // Popover — shortcut rows
+        "popover.shortcuts.label": "Сочетания клавиш",
+        "popover.shortcuts.focus": "Фокус на пианино меню",
+        "popover.shortcuts.floating": "Плавающее пианино",
+        "popover.shortcuts.show": "Показать",
+        "popover.shortcuts.focusButton": "Фокус",
+        "popover.shortcuts.press": "Нажать",
+        "popover.shortcuts.pressKeys": "Нажмите клавиши",
+        "popover.shortcuts.use": "Используйте ⌘, ⌃ или ⌥",
+        "popover.shortcuts.saved": "Сохранено %@",
+        "popover.shortcuts.unavailable": "Сочетание недоступно",
+        "popover.shortcuts.reserved": "⌃⌥⌘P зарезервировано",
+
+        // Popover — palette helpers
+        "popover.arrows.tooltip": "Стрелки перемещают выбор.",
+
+        // Popover — about / footer
+        "popover.about.lead": "Menu Band",
+        "popover.about.body":
+            " даёт играть на встроенных MIDI-инструментах macOS прямо из строки меню.",
+        "popover.about.link": "О программе",
+        "popover.about.quit": "Выйти из Menu Band",
+        "popover.about.crash.send": "Отправить отчёты о сбоях",
+        "popover.about.crash.sending": "Отправка…",
+        "popover.about.crash.sentAll": "Отправлено ✓",
+        "popover.about.crash.sentSome": "Отправлено %@/%@ — повторить",
+        "popover.about.crash.sendOne": "Отправить 1 отчёт",
+        "popover.about.crash.sendMany": "Отправить %@ отчётов",
+        "popover.about.crash.viewOne": "Просмотреть 1 отчёт",
+        "popover.about.crash.viewMany": "Просмотреть %@ отчётов",
+        "popover.about.crash.summaryOne": "Menu Band падал 1 раз",
+        "popover.about.crash.summaryMany": "Menu Band падал %@ раз",
+        "popover.about.crash.viewerTitle": "Отчёты о сбоях",
+        "popover.about.crash.sendToAC": "Отправить на Aesthetic.Computer",
+
+        // Popover — language switcher
+        "popover.language.label": "Язык",
+
+        // Alerts
+        "alert.noMenuBarSpace.title":
+            "Menu Band не помещается в строке меню",
+        "alert.noMenuBarSpace.body":
+            "В строке меню нет места — даже для компактного значка. " +
+            "Закройте приложение, занимающее строку меню (slack, dropbox " +
+            "и т. п.), или используйте Bartender / Hidden Bar для управления." +
+            "\n\nMenu Band продолжит попытки каждые несколько секунд.",
+        "alert.ok": "ОК",
     ]
 }
 

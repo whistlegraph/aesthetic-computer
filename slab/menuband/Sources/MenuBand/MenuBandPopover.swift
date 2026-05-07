@@ -159,18 +159,11 @@ final class MenuBandPopoverViewController: NSViewController {
     private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
-    private var crashStatusLabel: NSTextField!
-    private var crashHintLabel: NSTextField!
-    private var crashSendButton: NSButton!
     /// Cached result of the most recent UpdateChecker fetch. Populated
     /// asynchronously after view load; surfaced inside the custom About
     /// window when the user opens it.
     private var latestRemoteVersion: UpdateChecker.VersionInfo?
 
-    /// Retained so the floating About window stays alive after
-    /// `showAboutPanel` returns. Recreated on each open so the update
-    /// state reflects the latest manifest fetch.
-    private var aboutWindowController: AboutWindowController?
     /// Layered substrate for the held-notes pills + chord cards. The
     /// MTL waveform that used to live inside this bezel has been
     /// retired; the housing stays for visual continuity (rounded
@@ -927,15 +920,8 @@ final class MenuBandPopoverViewController: NSViewController {
         // Description + brand chip moved out of the popover proper —
         // they now live in the standard macOS About panel reachable via
         // the small "About" link at bottom-left. Frees the popover to
-        // be operational chrome.
-        crashStatusLabel = NSTextField(labelWithString: "")  // legacy ivar — unused
-        crashHintLabel = NSTextField(labelWithString: "")    // legacy ivar — unused
-        crashSendButton = NSButton(title: L("popover.about.crash.send"),
-                                   target: self,
-                                   action: #selector(sendCrashLogs(_:)))
-        crashSendButton.bezelStyle = .recessed
-        crashSendButton.controlSize = .small
-        crashSendButton.isHidden = true  // shown by refreshCrashStatus when n>0
+        // be operational chrome. Crash-report send button likewise
+        // moved into AboutWindow (see AboutWindow.swift).
 
         // Language picker moved into the About window — the popover
         // stays a tight music-theory surface. The "About" link in
@@ -994,7 +980,6 @@ final class MenuBandPopoverViewController: NSViewController {
         let quitSpacer = NSView()
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         quitRow.addArrangedSubview(aboutLink)
-        quitRow.addArrangedSubview(crashSendButton)
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
@@ -1290,7 +1275,6 @@ final class MenuBandPopoverViewController: NSViewController {
             qwertyMap?.voiceColor = InstrumentListView.colorForProgram(safe)
         }
         updateSelfTestLabel(state: n.midiMode ? n.midiSelfTest : .unknown)
-        refreshCrashStatus()
         refreshUpdateInfo()
         // Instrument palette: stays in the layout but greys out when
         // MIDI mode owns the audio path. Same physical width either way.
@@ -1783,20 +1767,6 @@ final class MenuBandPopoverViewController: NSViewController {
         return row
     }
 
-    /// Update the crash-send button from disk. Called on every popover
-    /// open so the count is current. The button lives in the quit row
-    /// next to Quit Menu Band and stays hidden when there are no reports.
-    private func refreshCrashStatus() {
-        let n = CrashLogReader.recentLogs().count
-        crashSendButton.isHidden = (n == 0)
-        if n > 0 {
-            crashSendButton.title = n == 1
-                ? L("popover.about.crash.sendOne")
-                : L("popover.about.crash.sendMany", String(n))
-            crashSendButton.isEnabled = true
-        }
-    }
-
     /// Hit the manifest at assets.aesthetic.computer/menuband/latest.json
     /// and stash the result for the About panel to surface. Cached for
     /// an hour inside UpdateChecker.
@@ -1845,31 +1815,6 @@ final class MenuBandPopoverViewController: NSViewController {
         if let url = URL(string:
             "https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf") {
             NSWorkspace.shared.open(url)
-        }
-    }
-
-    @objc private func sendCrashLogs(_ sender: NSButton) {
-        let logs = CrashLogReader.recentLogs()
-        guard !logs.isEmpty else { return }
-        sender.isEnabled = false
-        sender.title = L("popover.about.crash.sending")
-
-        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
-        var remaining = logs.count
-        var ok = 0
-        for log in logs {
-            CrashLogReader.upload(log, version: version) { [weak self] success, _ in
-                guard let self = self else { return }
-                if success { ok += 1 }
-                remaining -= 1
-                if remaining == 0 {
-                    self.crashSendButton.title = ok == logs.count
-                        ? L("popover.about.crash.sentAll")
-                        : L("popover.about.crash.sentSome",
-                            String(ok), String(logs.count))
-                    self.crashSendButton.isEnabled = ok != logs.count
-                }
-            }
         }
     }
 
@@ -2084,23 +2029,25 @@ final class MenuBandPopoverViewController: NSViewController {
     /// credits block carrying the "Menu Band brings the built-in macOS
     /// instruments…" line and a clickable aesthetic.computer link.
     /// Replaces the inline AC chip that used to live in the popover.
-    @objc private func showAboutPanel(_ sender: Any?) {
+    /// Internal so AppDelegate can open it programmatically when the
+    /// `computer.aestheticcomputer.menuband.showAbout` distributed
+    /// notification fires.
+    @objc func showAboutPanel(_ sender: Any?) {
         // Kick off a fresh update check; if it lands before the user
         // dismisses the window the next open will reflect it. The first
         // open after launch shows whatever sync-time call cached.
         refreshUpdateInfo()
 
-        // Rebuild every open so the flashing button (and version row)
-        // pick up the most recent update info instead of going stale.
-        aboutWindowController?.close()
-        let ctrl = AboutWindowController(
+        // Static factory dedupes against any window already on screen
+        // — important because language switches rebuild popoverVC and
+        // would otherwise drop our strong ref mid-interaction.
+        let menuBand = self.menuBand
+        AboutWindowController.show(
             updateInfo: latestRemoteVersion,
-            onOpenPlugins: { [weak self] in
-                self?.menuBand?.presentPluginPicker()
+            onOpenPlugins: { [weak menuBand] in
+                menuBand?.presentPluginPicker()
             }
         )
-        aboutWindowController = ctrl
-        ctrl.present()
     }
 
     @objc private func openNotepat() {

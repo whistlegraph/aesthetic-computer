@@ -18,51 +18,47 @@
 
 ## One-Sentence Description
 
-The AC Papermill is a live press at the fair: visitors write small KidLisp
-programs, receive a permanent URL, and leave with a printed card of the code
-they just authored.
+The AC Papermill is Aesthetic Computer's working artistic-publishing press,
+set up in public for four days at MoMA PS1: five years of accumulated pages
+on free display, the press still operating, and new pages added to the wall
+each day of the fair.
 
 ---
 
 ## Short Project Description
 
-The AC Papermill is a working press in the room. A visitor sits at a laptop,
-writes a short KidLisp program, and watches it run. The program is saved at a
-permanent URL. A second station prints it as a small card: image, source
-code, title, and a QR back to the live work. The visitor takes one copy. A
-second copy joins a wall that grows over the four days of the fair into a
-collective edition of programs made at NYABF.
+The AC Papermill is a working press in the room. One wall holds five years of
+Aesthetic Computer's published work — the bound AC Reader, individual papers,
+organizational dossiers, cards, and pamphlets — free to take. In front of the
+wall is a small workstation: the artist sits down each day and operates the
+press in public, doing what the papermill normally does in private. Each day's
+output is added to the wall.
 
-The Project Space is not a demo of Aesthetic Computer. It is one of its
-presses, doing what it normally does, in public.
+The Project Space is not a demo of Aesthetic Computer's software. It is one
+of its presses, doing what it normally does, where people can watch.
 
 ---
 
 ## Project Space Proposal
 
-**The AC Papermill** is a compact live press for the NY Art Book Fair. One
-table, one wall, two laptops, and a small printer make the relationship
-between code, URL, and printed matter visible in a single encounter.
+**The AC Papermill** brings Aesthetic Computer's small artist-run publishing
+press to NYABF for four days. The booth is divided in two.
 
-At the first laptop, visitors write short KidLisp programs. KidLisp is a tiny
-creative language inside Aesthetic Computer, built for drawings and generative
-pieces that fit in a few lines. Each program runs in the browser and is
-assigned a permanent URL. The URL is not documentation. It is the edition.
+On one side, a wall of five years of accumulated work: the bound AC Reader,
+the forty-plus individual papers, the organizational dossiers, sets of cards,
+and the recent pamphlets. All of it is pinned up and free for visitors to
+take.
 
-At the second station, the program becomes a printed card: a still from the
-piece, the source code, a title or handle, and a QR code back to the live URL.
-The card is small enough to carry, trade, or tuck inside another book.
-
-The wall is the work over time. Each visitor's second copy is pinned up. Over
-four days the Project Space accumulates into a single growing edition: the
-NYABF Papermill Wall, hundreds of small programs by hundreds of authors,
-addressable individually and legible together. The closing image of the fair
-is the wall full.
+On the other side, a workstation: a laptop, a small printer, and the artist.
+Each day during the fair, the press is operated in public on whatever is
+currently in production — typesetting a paper, generating a cover, drafting a
+dossier, laying out a pamphlet, binding a fresh Reader. The day's output is
+added to the wall before close. By the last day of the fair, the wall holds
+both the past five years and the four days at PS1.
 
 The project belongs at NYABF because it treats the fair as a place where
 publishing can happen, not only a place where finished publications are sold.
-It asks a simple question in public: what if an artist's book could be
-written, run, printed, and permanently addressed in the same encounter?
+It puts the press on the gallery floor.
 
 ---
 
@@ -70,34 +66,37 @@ written, run, printed, and permanently addressed in the same encounter?
 
 Printed Matter's Project Spaces foreground expanded presentations of books,
 prints, and ephemera. The AC Papermill fits because the printed thing is the
-work: every card on the wall is an artist's book in miniature, authored,
-addressable, archived, and given away.
+practice: a small press has been running for five years and the booth is its
+public operation.
 
-The software is the press. The card is the publication. The wall is the
-catalog. Visitors are not an audience around a demo, they are contributors to
-the edition that will leave PS1 with them.
+The wall is the catalog. The workstation is the press. The artist is the host.
+Visitors are not an audience around a demo, they are people walking through a
+working publishing operation and taking some of it home.
 
 ---
 
-## Visitor Flow
+## What the Press Makes During the Fair
 
-1. Visitor sits at the writing laptop.
-2. Picks a prompt card or edits a tiny example program.
-3. The program runs in the browser.
-4. The system assigns it a permanent URL.
-5. The print station outputs a card: image, source, title, QR.
-6. Visitor takes one copy.
-7. A second copy is pinned to the wall.
-8. At the end of each day, the day's cards are gathered into a single sheet
-   for the wall and the next day begins fresh below it.
+Each day the artist works on something the papermill normally produces. Real
+examples drawn from current production:
+
+- Day 1 — a new paper typeset and proofed: cover from the figures pipeline,
+  references resolved, footnotes cross-checked, single copy printed and pinned.
+- Day 2 — a new dossier section drafted in public: sources read, structured
+  data updated, paragraph rewritten, page exported.
+- Day 3 — a short single-sheet pamphlet laid out, printed, and folded by hand
+  at the table.
+- Day 4 — a fresh edition of the bound AC Reader with the four days' new
+  pages folded in, printed, and bound at the booth as the closing act.
 
 ---
 
 ## What Visitors Take Home
 
-- A printed card of the program they wrote.
-- A permanent URL where the program continues to run.
-- A piece of an edition that NYABF authored collectively over four days.
+- Any paper from the wall they want.
+- A copy of the AC Reader.
+- Cards and pamphlets from the takeaway pile.
+- The day's freshly printed page, while supplies last.
 
 ---
 
@@ -168,24 +167,25 @@ reached broad public audiences online.
 
 ## Media Samples To Prepare
 
-1. Short screen recording: writing KidLisp → permanent URL → card render.
-2. Photo of an existing KidLisp card (front + back, code + image + QR).
-3. Mockup of the wall on day 1 vs day 4 (sparse vs full).
-4. Photo of the writing + print station setup.
-5. One installation drawing showing footprint, table, wall, and visitor flow.
+1. The wall on day one — five years of pages laid out.
+2. The bound AC Reader cover.
+3. The workstation: laptop + printer + a paper mid-press.
+4. A fresh page coming off the press.
+5. A visitor at the wall, mid-browse.
 
 ---
 
 ## Form Copy: Tiny Version
 
-**The AC Papermill** is a live press at NYABF. Visitors write small KidLisp
-programs, receive permanent URLs, and leave with a printed card of the code
-they just authored. One laptop is the writing environment; a second station
-prints the edition. Each card holds an image, source code, title, and a QR
-back to the live URL. A second copy of every card joins a wall that grows
-across the four days into a collective edition of programs made at the fair.
-The software is the press, the card is the publication, the wall is the
-catalog, and visitors are the authors.
+**The AC Papermill** is Aesthetic Computer's working artistic-publishing
+press, set up in public for four days at MoMA PS1. One wall holds five years
+of pages — the bound AC Reader, papers, dossiers, cards, pamphlets — free to
+take. In front of it, a small workstation where the artist operates the press
+each day on whatever's currently in production: typesetting a paper, drafting
+a dossier, laying out a pamphlet, binding a fresh Reader. New pages go up on
+the wall as they come off the press. By the close of the fair, the wall holds
+both the past five years and the four days at PS1. The booth is quiet on
+purpose. The cultural object is the press itself, still running.
 
 ---
 
