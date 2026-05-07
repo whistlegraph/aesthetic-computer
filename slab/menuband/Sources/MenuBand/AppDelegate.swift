@@ -58,6 +58,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Set to true once we've shown the "no room even for compact" alert
     /// so we don't spam the user every check.
     private var hasAlertedNoSpace = false
+    private var compactHiddenCheckCount = 0
+    private static let compactHiddenAlertThreshold = 3
 
     /// Click-away monitor active while the popover is shown. Catches clicks
     /// on OTHER apps and dismisses the popover. Clicks on our status-item
@@ -1121,15 +1123,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Shrink to the next-smaller layout. If we're already at
             // .compact and STILL not visible, alert the user once.
             if let smaller = current.smaller {
+                compactHiddenCheckCount = 0
                 debugLog("statusItem hidden — shrinking \(current) → \(smaller)")
                 KeyboardIconRenderer.displayLayout = smaller
                 updateIcon()
             } else if !hasAlertedNoSpace {
-                hasAlertedNoSpace = true
-                DispatchQueue.main.async { [weak self] in self?.alertNoMenuBarSpace() }
+                compactHiddenCheckCount += 1
+                debugLog("statusItem hidden at compact check \(compactHiddenCheckCount)/\(Self.compactHiddenAlertThreshold)")
+                if compactHiddenCheckCount >= Self.compactHiddenAlertThreshold {
+                    hasAlertedNoSpace = true
+                    DispatchQueue.main.async { [weak self] in self?.alertNoMenuBarSpace() }
+                }
             }
             return
         }
+
+        compactHiddenCheckCount = 0
+        hasAlertedNoSpace = false
 
         // Visible. If we previously shrunk, try to expand back. Set the
         // larger layout, force a layout, then re-check; revert if we
