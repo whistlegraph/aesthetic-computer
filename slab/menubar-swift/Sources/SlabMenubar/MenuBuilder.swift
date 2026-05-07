@@ -178,6 +178,20 @@ enum MenuBuilder {
 
         sub.addItem(.separator())
 
+        // Experimental: tint overlay over the focused Terminal window. Toggles
+        // on/off for the front window. Mostly here to prove the
+        // overlay-window-tracks-Terminal approach works before we sink time
+        // into the real plist-rewrite-for-bg-image path.
+        let overlay = item("Tint overlay on front window", selector: #selector(AppDelegate.toggleBackgroundOverlay), target: target)
+        overlay.toolTip = "Park a translucent NSWindow over the front Terminal — proof of concept for bg image / transparency. Click again on the same window to remove."
+        sub.addItem(overlay)
+
+        let clearOverlays = item("Clear all overlays", selector: #selector(AppDelegate.clearBackgroundOverlays), target: target)
+        clearOverlays.toolTip = "Remove every active tint overlay across all Terminal windows."
+        sub.addItem(clearOverlays)
+
+        sub.addItem(.separator())
+
         for n in 1...10 {
             let entry = NSMenuItem(
                 title: "Restore last \(n)",

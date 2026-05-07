@@ -205,6 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.lastKnownOctaveShift = cur
                     self.kickIconAnim(slide: dir, flash: 1.0)
                 }
+                self.pushStaffPitchShift()
                 self.updateIcon()
                 self.updatePianoWaveformWindow()
                 // Refresh the popover too so live state changes
@@ -323,6 +324,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             button.addTrackingArea(area)
             trackingArea = area
+            // Drag-drop a .mid / .midi file onto the menubar icon
+            // to play it back through the synth as if a player
+            // piano was striking the keys. Drop target is a
+            // transparent subview that fills the button so the
+            // button still receives clicks normally.
+            let dropTarget = MidiDropTargetView(frame: button.bounds)
+            dropTarget.autoresizingMask = [.width, .height]
+            dropTarget.onDrop = { [weak self] url in
+                self?.handleMidiFileDrop(url: url)
+            }
+            button.addSubview(dropTarget)
         }
         updateIcon()
 
@@ -425,6 +437,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(systemAppearanceChangedNotification(_:)),
             name: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil
+        )
+        // Sleep/wake recovery: when the system suspends, KVO +
+        // distributed-notification + the polling timer can all
+        // miss the theme flip that happened during sleep. Reset
+        // our cached state on wake and force a retint so the
+        // popover comes back in sync with the system theme.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake(_:)),
+            name: NSWorkspace.didWakeNotification,
             object: nil
         )
 
@@ -809,6 +832,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.keymap = (menuBand.keymap == .ableton) ? .notepat : .ableton
     }
 
+    /// Drag-and-drop entry point — replays the file's notes
+    /// through `startTapNote` / `stopTapNote` so the popover
+    /// staff + the menubar icon light up alongside the audio,
+    /// like a player piano performing the file.
+    private func handleMidiFileDrop(url: URL) {
+        // Cancel any previous playback and silence held notes
+        // before kicking off the new file — superseding playback
+        // shouldn't leave stuck notes from the old one.
+        MidiFilePlayer.stop()
+        menuBand.releaseAllHeldNotes()
+        let started = MidiFilePlayer.play(
+            url: url,
+            onNoteOn: { [weak self] midi, velocity in
+                self?.menuBand.startTapNote(midi, velocity: velocity,
+                                            pan: 0, displayNote: midi)
+            },
+            onNoteOff: { [weak self] midi in
+                self?.menuBand.stopTapNote(midi)
+            },
+            onFinish: { [weak self] in
+                self?.menuBand.releaseAllHeldNotes()
+            }
+        )
+        if !started {
+            NSLog("MenuBand: MIDI drop \(url.lastPathComponent) had no playable events")
+        }
+    }
+
     // MARK: - Adaptive menubar layout
 
     /// `true` when the status item button is laid out on a real screen.
@@ -907,6 +958,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if KeyboardIconRenderer.midiActivityFlash < 0.01 {
                 KeyboardIconRenderer.midiActivityFlash = 0
             }
+            // Metronome blink — popover's metronome spikes this to
+            // 1 on each beat; decay slow enough that the yellow
+            // tint reads as a clear pulse, not a flicker.
+            KeyboardIconRenderer.metronomeFlash *= 0.88
+            if KeyboardIconRenderer.metronomeFlash < 0.01 {
+                KeyboardIconRenderer.metronomeFlash = 0
+            }
             self.updateIcon()
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -933,7 +991,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 KeyboardIconRenderer.lingerCapsLatched = caps
                 dirty = true
             }
-            if dirty { self.updateIcon() }
+            if dirty {
+                self.updateIcon()
+                // Staff view's note letters honor labelsUppercase too;
+                // repaint held notes so capitalization flips along
+                // with the menubar piano + qwerty map.
+                self.popoverVC?.refreshHeldNotes()
+            }
         }
         globalShiftMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -978,19 +1042,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             self?.adaptLayoutForAvailableSpace()
         }
-        // Periodic re-check. Menubar real-estate changes throughout the
-        // day as apps come and go; 6s polling is cheap and lets us both
-        // shrink (when squeezed) and re-expand (when room opens up).
+        // Periodic re-check. Was 6s — bumped to 2s so when an app
+        // quits and frees menubar room, we re-expand within a
+        // couple seconds instead of feeling stuck in thin-keys
+        // mode for half a minute.
         visibilityTimer?.invalidate()
-        visibilityTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: true) { [weak self] _ in
+        visibilityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.adaptLayoutForAvailableSpace()
         }
     }
 
+    /// Rank used by the adaptive layout to compare DisplayLayouts.
+    /// `.full` is the widest variant, `.compact` the smallest.
+    private static func layoutRank(_ layout: KeyboardIconRenderer.DisplayLayout) -> Int {
+        switch layout {
+        case .full: return 4
+        case .fullSlim: return 3
+        case .oneOctave: return 2
+        case .compact: return 1
+        }
+    }
+
     private func adaptLayoutForAvailableSpace() {
-        // Forced layouts disable auto-resize entirely — the renderer
-        // stays pinned to whatever the user (or QA) chose.
-        if KeyboardIconRenderer.forceLayout != nil { return }
+        // `forceLayout` used to hard-pin and disable adapt entirely
+        // — that left the icon stuck in whatever layout was chosen
+        // even after the user freed up menubar space. Treat it as
+        // a CEILING instead: the adapter can shrink below it under
+        // pressure but never expands past it.
+        let ceiling: KeyboardIconRenderer.DisplayLayout? =
+            KeyboardIconRenderer.forceLayout
         let current = KeyboardIconRenderer.displayLayout
         let visible = isStatusItemVisible()
 
@@ -1012,9 +1092,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // larger layout, force a layout, then re-check; revert if we
         // lost the slot.
         guard let bigger = current.larger else { return }
+        // Respect the ceiling — never expand past forceLayout.
+        if let ceiling = ceiling, Self.layoutRank(bigger) > Self.layoutRank(ceiling) {
+            return
+        }
         KeyboardIconRenderer.displayLayout = bigger
         updateIcon()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+        // Verify after 0.6s — was 0.25s, but the menubar's slot
+        // recompute is async and 0.25s sometimes caught a transient
+        // "no screen" state that wasn't real, causing us to revert
+        // and feel stuck in the smaller layout. 0.6s gives the OS
+        // a beat to settle without making the user wait.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self = self else { return }
             if !self.isStatusItemVisible() {
                 debugLog("expand \(current) → \(bigger) didn't fit; reverting")
@@ -1180,7 +1269,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return flashStrength * (1 - t)
     }
 
-    private func updateIcon() {
+    func updateIcon() {
         guard let button = statusItem.button else { return }
         // Use *effective* keymap/typeMode so popover hover-preview can
         // override the live state without writing to UserDefaults. The
@@ -1563,6 +1652,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showPopover() {
         guard let button = statusItem.button,
               let buttonWindow = button.window else { return }
+        // If we slept since the last open, the cached theme may be
+        // stale — re-evaluate against the live system appearance
+        // and trigger a retint pass before the popover is shown so
+        // the colors are fresh on this open.
+        let nowDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        if nowDark != lastObservedDarkMode {
+            lastObservedDarkMode = nowDark
+            systemAppearanceChanged()
+        }
         popoverVC?.syncFromController()
         if isPopoverPanelShown {
             closePopover()
@@ -1694,6 +1793,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bendAmount += bendDelta
         bendAmount = max(-1, min(1, bendAmount))
         menuBand.setBend(amount: bendAmount)
+        pushStaffPitchShift()
         if !pitchBendCursorPushed {
             PitchBendCursor.neutral.push()
             pitchBendCursorPushed = true
@@ -1708,6 +1808,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.startBendDecay()
         }
         debugLog("bend cursor dy=\(dy) lit=\(menuBand.litNotes.count) amt=\(bendAmount)")
+    }
+
+    /// Forward the current effective pitch shift (octave + bend)
+    /// into the popover's staff view so the staff visibly slides
+    /// up/down on every shift. ±1 of bendAmount = ±2 semitones; 1
+    /// octave = 12 semitones. The staff eases its displayed shift
+    /// toward this target so changes glide instead of snapping.
+    private func pushStaffPitchShift() {
+        let bendSemitones = CGFloat(bendAmount) * 2
+        let octaveSemitones = CGFloat(menuBand.octaveShift) * 12
+        popoverVC?.staffView?.targetPitchShiftSemitones = bendSemitones + octaveSemitones
     }
 
     private func cancelBendDecay() {
@@ -1733,6 +1844,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.bendVelocity += force * dt
             self.bendAmount += self.bendVelocity * dt
             self.menuBand.setBend(amount: self.bendAmount)
+            self.pushStaffPitchShift()
             // Cursor follows the spring so the wheel un-stretches
             // in lockstep with the audio bend — the visual is
             // always in sync with what the user hears.
@@ -1760,6 +1872,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func systemDidWake(_ note: Notification) {
+        // After sleep/wake the polling timer + KVO observers can
+        // miss the theme flip that happened while we were
+        // suspended, leaving the popover painted in the old theme.
+        // Reset our cached `lastObservedDarkMode` so the next poll
+        // tick treats the current state as fresh, and run a retint
+        // immediately in case the theme changed during sleep.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let nowDark = NSApp.effectiveAppearance.bestMatch(
+                from: [.aqua, .darkAqua]) == .darkAqua
+            self.lastObservedDarkMode = nowDark
+            self.systemAppearanceChanged()
+        }
+    }
+
     /// Coalesce + propagate a full retint pass after the system
     /// flips dark↔light. Touches every surface that caches
     /// theme-aware colors: the menubar status item, the popover
@@ -1774,6 +1902,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // off-white / slate body, the chromatic stripes, and the
         // labels all swap to the new theme atomically.
         updateIcon()
+        // Popover background — NSVisualEffectView with `.popover`
+        // material can latch onto the appearance it had at
+        // construction time. Nudge the chrome's visual-effect
+        // view explicitly so the glass tint flips with the system
+        // theme even if the panel is currently showing.
+        popoverPanel?.appearance = nil
+        popoverPanel?.contentView?.appearance = nil
+        popoverPanel?.chrome.refreshAppearance()
         // Force the popover's MenuBandPopoverRootView through its
         // explicit retint path (rebuilds layer-painted CGColors
         // that don't auto-track NSColor changes).

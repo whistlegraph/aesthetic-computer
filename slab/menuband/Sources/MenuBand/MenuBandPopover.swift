@@ -149,7 +149,11 @@ final class MenuBandPopoverViewController: NSViewController {
     /// popover gets the same searchable chord readout.
     private var chordCandidatesStack: NSStackView!
     private var chordCandidatesRow: NSView!
-    private var staffView: StaffView!
+    /// Internal but exposed so AppDelegate can push the pitch-shift
+    /// value (octave + bend) directly when those change — the staff
+    /// translates vertically by that amount so the user feels the
+    /// shift visually too.
+    private(set) var staffView: StaffView!
     private var lastCompleteChordNames: Set<String> = []
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var instrumentSeparator: NSView!
@@ -314,6 +318,29 @@ final class MenuBandPopoverViewController: NSViewController {
         // light-mode background.
         metronome.tint = .labelColor
         metronome.toolTip = "Metronome — space to start / stop"
+        metronome.onTick = { [weak self] in
+            // Yellow-flash the menubar music-note icon on every
+            // metronome beat. AppDelegate's animation tick decays
+            // it back to zero between beats.
+            KeyboardIconRenderer.metronomeFlash = 1
+            // Drop a beat marker on the staff DIRECTLY UNDER the
+            // metronome icon — projects the needle anchor point
+            // through metronome → staff coordinates so each bar
+            // literally tumbles out of the metronome.
+            guard let self = self,
+                  let staffView = self.staffView,
+                  let metronome = self.metronome else { return }
+            let anchor = metronome.needleAnchorPoint
+            let inStaff = staffView.convert(anchor, from: metronome)
+            staffView.dropBeatMarker(atX: inStaff.x)
+        }
+        metronome.onRunningChanged = { [weak self] in
+            // Repaint the menubar icon as soon as the running state
+            // flips so the wave indicator appears (or vanishes)
+            // even while the popover stays open.
+            (NSApp.delegate as? AppDelegate)?.updateIcon()
+            _ = self
+        }
         titleRow.addArrangedSubview(metronome)
         titleRow.setCustomSpacing(8, after: metronome)
         // Right-side spacer to balance `titleSpacer` on the left,
@@ -578,7 +605,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // (key-over-letter pills) was retired in favor of the
         // staff being the single notation surface. Tall enough
         // to fit the extended A3..B5 range with breathing room.
-        waveformBezel.heightAnchor.constraint(equalToConstant: 150).isActive = true
+        waveformBezel.heightAnchor.constraint(equalToConstant: 212).isActive = true
         // Pill container is allocated but unused (kept so any
         // legacy refresh path doesn't crash); not added to the
         // bezel.
@@ -629,8 +656,8 @@ final class MenuBandPopoverViewController: NSViewController {
         staffView.translatesAutoresizingMaskIntoConstraints = false
         chordCandidatesStack.addArrangedSubview(staffView)
         NSLayoutConstraint.activate([
-            staffView.widthAnchor.constraint(equalToConstant: 220),
-            staffView.heightAnchor.constraint(equalToConstant: 138),
+            staffView.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth + 16),
+            staffView.heightAnchor.constraint(equalToConstant: 196),
         ])
 
         // (MIDI switch lives in the title row above — see octave + MIDI block.)
@@ -832,55 +859,10 @@ final class MenuBandPopoverViewController: NSViewController {
         crashSendButton.controlSize = .small
         crashSendButton.isHidden = true  // shown by refreshCrashStatus when n>0
 
-        // Language switcher — compact flag-chip row, same pattern as the
-        // kidlisp.com / help.aesthetic.computer pickers. The active language
-        // is solid; the others are flat. Tapping a chip flips the locale and
-        // posts `Localization.didChange`, which the AppDelegate observes to
-        // rebuild the popover with translated strings.
-        let langRow = NSStackView()
-        langRow.orientation = .horizontal
-        langRow.alignment = .centerY
-        langRow.spacing = 6
-        let langLabel = NSTextField(labelWithString: L("popover.language.label"))
-        langLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        langLabel.textColor = .secondaryLabelColor
-        langRow.addArrangedSubview(langLabel)
-        for lang in Localization.supported {
-            let isActive = (lang.code == Localization.current)
-            let attr = NSMutableAttributedString(
-                string: "\(lang.flag)  \(lang.label)",
-                attributes: [
-                    .font: NSFont.systemFont(
-                        ofSize: 11,
-                        weight: isActive ? .semibold : .regular),
-                    .foregroundColor: isActive
-                        ? NSColor.labelColor
-                        : NSColor.secondaryLabelColor,
-                ]
-            )
-            let accent = NSColor.controlAccentColor
-            let chip = MenuBandPopoverViewController.makeLinkButton(
-                attr: attr,
-                target: self,
-                action: #selector(languageChipClicked(_:)),
-                background: isActive
-                    ? accent.withAlphaComponent(0.18)
-                    : NSColor.clear,
-                border: isActive
-                    ? accent.withAlphaComponent(0.55)
-                    : NSColor.separatorColor.withAlphaComponent(0.5))
-            chip.identifier = NSUserInterfaceItemIdentifier(
-                rawValue: "menuband.lang.\(lang.code)")
-            chip.toolTip = lang.label
-            langRow.addArrangedSubview(chip)
-        }
-        let langSpacer = NSView()
-        langSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        langRow.addArrangedSubview(langSpacer)
-        stack.addArrangedSubview(langRow)
-        langRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
-                                        constant: -16).isActive = true
-        stack.setCustomSpacing(10, after: langRow)
+        // Language picker moved into the About window — the popover
+        // stays a tight music-theory surface. The "About" link in
+        // the footer row gets a flag emoji prepended so users know
+        // there are options behind it (language + plugins + version).
 
         // Quit — red bezel, white bold title. Bottom-right of the footer
         // row; crash-send button (when present) sits at the left of the
@@ -899,23 +881,33 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
-        // Small "About" link, bottom-left. Opens the standard macOS
-        // about panel — name, icon, version, credits (description +
-        // aesthetic.computer link). Replaces the inline AC chip that
-        // used to live in the body.
+        // Small "About" link, bottom-left. Opens the custom About
+        // window which now hosts the language picker + plugins
+        // chip + version. The current language flag is prepended
+        // to the link so the chip reads as "settings hide here"
+        // rather than just a version button.
         let aboutLink = NSButton()
         aboutLink.bezelStyle = .recessed
         aboutLink.isBordered = false
         aboutLink.controlSize = .small
-        aboutLink.attributedTitle = NSAttributedString(
+        let flag = Localization.language(for: Localization.current).flag
+        let aboutTitle = NSMutableAttributedString(
+            string: "\(flag)  ",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11),
+            ]
+        )
+        aboutTitle.append(NSAttributedString(
             string: L("popover.about.link"),
             attributes: [
                 .foregroundColor: NSColor.secondaryLabelColor,
                 .font: NSFont.systemFont(ofSize: 10, weight: .medium),
             ]
-        )
+        ))
+        aboutLink.attributedTitle = aboutTitle
         aboutLink.target = self
         aboutLink.action = #selector(showAboutPanel(_:))
+        aboutLink.toolTip = "About / language / plugins"
 
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
@@ -1057,12 +1049,12 @@ final class MenuBandPopoverViewController: NSViewController {
             }
         }
 
-        // Staff sheet: held notes drawn as solid heads. The top
-        // few not-yet-complete chord candidates' missing notes
-        // are ghosted on the SAME staff with each chord's family
-        // color, so the staff shows the played notes plus a
-        // small set of colored "next options" the user can play
-        // to land on a known chord shape.
+        // Staff sheet: held notes as solid heads + two ghost
+        // suggestions for the circle-of-fifths neighbors of the
+        // currently-played lowest note. Forward = +7 semitones (one
+        // step CW round the circle, e.g. C → G), backward = -7
+        // (one step CCW, e.g. C → F). Two faded letters at the
+        // preview column, no chord-shape ghosting.
         guard let staff = staffView else { lastCompleteChordNames = []; return }
         var entries: [StaffView.Note] = []
         for entry in m.heldNoteEntries() {
@@ -1074,28 +1066,41 @@ final class MenuBandPopoverViewController: NSViewController {
                 color: nil
             ))
         }
-        let candidates = m.chordCandidates(maxResults: 6)
-        let heldPitchSet = Set(entries.map { Int($0.midi) % 12 })
-        let labels = KeyboardIconRenderer.labelByMidi
-        let baseOctave = entries.first.map { Int($0.midi) / 12 } ?? 5
-        // Ghost the next 3 incomplete candidates so the staff
-        // doesn't get drowned in outlined heads.
-        let nextOptions = candidates.filter { !$0.isComplete }.prefix(3)
-        for candidate in nextOptions {
-            let color = chordFamilyColor(for: candidate.name)
-            for missing in candidate.missingPitchClasses where !heldPitchSet.contains(missing) {
-                let target = UInt8(max(0, min(127, baseOctave * 12 + missing)))
+        if let root = entries.min(by: { $0.midi < $1.midi }) {
+            let labels = KeyboardIconRenderer.labelByMidi
+            let pitchNames = MenuBandController.pitchClassNames
+            // Wrap the suggestion into the playable two-octave
+            // keymap range so each circle-of-fifths neighbor lands
+            // on a real key the user can press. Outside the labeled
+            // set we fold by octaves until we find one — if nothing
+            // fits (range too narrow), we skip the ghost rather
+            // than show an unreachable suggestion.
+            let labeledMidis = labels.keys.sorted()
+            guard let lo = labeledMidis.first,
+                  let hi = labeledMidis.last else {
+                staff.notes = entries
+                lastCompleteChordNames = Set(m.chordCandidates(maxResults: 6)
+                    .filter(\.isComplete).map(\.name))
+                return
+            }
+            for delta in [7, -7] {
+                var target = Int(root.midi) + delta
+                while target < lo { target += 12 }
+                while target > hi { target -= 12 }
+                guard target >= lo, target <= hi else { continue }
+                let mid = UInt8(target)
+                let pc = target % 12
                 entries.append(.init(
-                    midi: target,
-                    pitchClass: MenuBandController.pitchClassNames[missing],
-                    keyLabel: labels[Int(target)],
+                    midi: mid,
+                    pitchClass: pitchNames[pc],
+                    keyLabel: labels[target],
                     ghost: true,
-                    color: color
+                    color: nil
                 ))
             }
         }
         staff.notes = entries
-        lastCompleteChordNames = Set(candidates.filter(\.isComplete).map(\.name))
+        lastCompleteChordNames = Set(m.chordCandidates(maxResults: 6).filter(\.isComplete).map(\.name))
     }
 
     /// Per-chord-family color, for ghost notes on the staff.
@@ -1178,6 +1183,10 @@ final class MenuBandPopoverViewController: NSViewController {
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
         midiSwitch.state = n.midiMode ? .on : .off
+        // Force the staff to repaint — keymap toggles change which
+        // slots show as letters/lines on the chart even when the
+        // held-note set is unchanged.
+        staffView?.needsDisplay = true
         refreshHeldNotes()
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)

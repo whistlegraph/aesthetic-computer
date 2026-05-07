@@ -228,9 +228,18 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             pluginsButton = pluginsBtn as? HoverLinkButton
         }
 
+        // Language picker — same flag-chip pattern the popover used
+        // to host. Lives in About now so the popover stays a tight
+        // music-theory surface; the About link in the popover gets
+        // a flag-emoji indicator next to it so the user knows
+        // language settings live in here.
+        stack.setCustomSpacing(16, after: stack.arrangedSubviews.last ?? stack)
+        let langRow = buildLanguagePicker()
+        stack.addArrangedSubview(langRow)
+
         if let info = updateInfo,
            UpdateChecker.isNewer(info.version, than: UpdateChecker.currentVersion()) {
-            stack.setCustomSpacing(16, after: acLink)
+            stack.setCustomSpacing(16, after: langRow)
             let btn = NSButton(title: "Menu Band \(info.version) Now Available!",
                                target: self,
                                action: #selector(openUpdateLink))
@@ -241,6 +250,63 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             stack.addArrangedSubview(btn)
             flashButton = btn
         }
+    }
+
+    private func buildLanguagePicker() -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 6
+        row.translatesAutoresizingMaskIntoConstraints = false
+        let label = NSTextField(labelWithString: L("popover.language.label"))
+        label.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        label.textColor = .secondaryLabelColor
+        row.addArrangedSubview(label)
+        for lang in Localization.supported {
+            let isActive = (lang.code == Localization.current)
+            let attr = NSAttributedString(
+                string: "\(lang.flag)  \(lang.label)",
+                attributes: [
+                    .font: NSFont.systemFont(
+                        ofSize: 11,
+                        weight: isActive ? .semibold : .regular),
+                    .foregroundColor: isActive
+                        ? NSColor.labelColor
+                        : NSColor.secondaryLabelColor,
+                ]
+            )
+            let accent = NSColor.controlAccentColor
+            let chip = MenuBandPopoverViewController.makeLinkButton(
+                attr: attr,
+                target: self,
+                action: #selector(languageChipClicked(_:)),
+                background: isActive
+                    ? accent.withAlphaComponent(0.18)
+                    : NSColor.clear,
+                border: isActive
+                    ? accent.withAlphaComponent(0.55)
+                    : NSColor.separatorColor.withAlphaComponent(0.5))
+            chip.identifier = NSUserInterfaceItemIdentifier(
+                rawValue: "menuband.about.lang.\(lang.code)")
+            chip.toolTip = lang.label
+            row.addArrangedSubview(chip)
+        }
+        return row
+    }
+
+    @objc private func languageChipClicked(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        let prefix = "menuband.about.lang."
+        guard id.hasPrefix(prefix) else { return }
+        let code = String(id.dropFirst(prefix.count))
+        guard code != Localization.current else { return }
+        Localization.current = code
+        // Rebuild the About content to apply the new strings + chip
+        // selection. Cheaper than tearing down the window.
+        if let content = window?.contentView {
+            for sub in content.subviews { sub.removeFromSuperview() }
+        }
+        buildContent()
     }
 
     // MARK: - Icon loader

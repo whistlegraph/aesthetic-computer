@@ -201,6 +201,24 @@ enum KeyboardIconRenderer {
     /// activity indicator). AppDelegate spikes this to 1 on each
     /// noteOn and decays it at ~80% per animation tick.
     static var midiActivityFlash: CGFloat = 0
+    /// 0..1 metronome-tick flash — driven by the popover metronome
+    /// each audible beat. Tints the music-note glyph yellow for a
+    /// fraction of a second, decaying smoothly so the menubar
+    /// "blinks" in time with the tempo.
+    static var metronomeFlash: CGFloat = 0
+    /// When true the visualizer slot inside the music-note chip
+    /// renders a continuous sine wave instead of the 3 VU bars —
+    /// reads as the metronome's "carrier" running, with the
+    /// per-tick yellow flash riding on top.
+    static var metronomeOn: Bool = false
+    /// BPM + swing-start timestamp pushed by the popover's
+    /// metronome on every restart. The chip's needle uses these
+    /// to compute its swing phase from CACurrentMediaTime so the
+    /// chip animation stays in lockstep with the trapezoid in
+    /// the popover (instead of running at a fixed wall-clock
+    /// rate that drifts apart from the actual BPM).
+    static var metronomeBPM: Int = 60
+    static var metronomeStartTime: CFTimeInterval = 0
 
     static func withPianoWaveformKeyboard<T>(keymap: Keymap?, _ body: () -> T) -> T {
         let oldLayout = displayLayout
@@ -903,8 +921,12 @@ enum KeyboardIconRenderer {
         // edge and that the letter floats clearly above the
         // chromatic stripe at the keycap's foot. Caps drop ~1pt
         // lower so the taller uppercase glyphs don't bump into the
-        // black-key label band above.
-        let baseY: CGFloat = labelsUppercase ? 2.0 : 3.0
+        // black-key label band above. In fullSlim (thin-keys)
+        // mode the whole keycap stack is squashed; the labels were
+        // floating too high inside the cap, so push them down 2pt
+        // so they sit grounded on the chromatic stripe.
+        let slim = displayLayout == .fullSlim
+        let baseY: CGFloat = (labelsUppercase ? 2.0 : 3.0) - (slim ? 2.0 : 0)
         str.draw(at: NSPoint(x: rect.midX - size.width / 2,
                              y: rect.minY + baseY + bottomOffset))
     }
@@ -1037,6 +1059,54 @@ enum KeyboardIconRenderer {
         }
     }
 
+    /// Tiny rotating needle inside the chip's visualizer slot —
+    /// pivots from the bottom-center, swings ±25° at ~1 Hz, just
+    /// like the popover's metronome trapezoid. Reads as "metronome
+    /// running" without competing with the music-note glyph.
+    private static func drawChipMetronomeWave(in rect: NSRect,
+                                                hovered: Bool,
+                                                color: NSColor,
+                                                baseAlpha: CGFloat) {
+        let alpha: CGFloat = hovered ? 1.0 : baseAlpha
+        // Sync to the popover's metronome by computing phase from
+        // (now − metronomeStartTime) / period, where period =
+        // 60/BPM × 2. Same formula the popover uses for its own
+        // CAKeyframeAnimation duration, so the two needles stay
+        // in lockstep regardless of BPM changes.
+        let period = 60.0 / Double(max(1, metronomeBPM)) * 2.0
+        let elapsed = CACurrentMediaTime() - metronomeStartTime
+        let phase = CGFloat(elapsed.truncatingRemainder(dividingBy: period) / period) * .pi * 2
+        let maxAngle: CGFloat = 25.0 * .pi / 180.0
+        let angle = sin(phase) * maxAngle
+        let pivotX = rect.midX
+        let pivotY = rect.minY + 0.5
+        let length = rect.height - 1.5
+        // CALayer.transform.rotation.z rotates COUNTER-CLOCKWISE for
+        // positive angles, so the popover needle tilts LEFT at +amp.
+        // Mirror that here — without the sign flip, the chip needle
+        // ends up swinging the exact opposite direction from the
+        // popover's trapezoid.
+        let tipX = pivotX - sin(angle) * length
+        let tipY = pivotY + cos(angle) * length
+        let path = NSBezierPath()
+        path.lineWidth = 1.1
+        path.lineCapStyle = .round
+        path.move(to: NSPoint(x: pivotX, y: pivotY))
+        path.line(to: NSPoint(x: tipX, y: tipY))
+        color.withAlphaComponent(alpha).setStroke()
+        path.stroke()
+        // Tiny bob at the tip so the needle reads as a real
+        // pendulum and not just a tick mark — matches the dot the
+        // popover's metronome carries.
+        let bobR: CGFloat = 0.9
+        let bob = NSBezierPath(ovalIn: NSRect(
+            x: tipX - bobR, y: tipY - bobR,
+            width: bobR * 2, height: bobR * 2
+        ))
+        color.withAlphaComponent(alpha).setFill()
+        bob.fill()
+    }
+
     private static func drawChipVisualizer(in rect: NSRect, level: CGFloat,
                                            hovered: Bool, color: NSColor,
                                            baseAlpha: CGFloat) {
@@ -1134,11 +1204,16 @@ enum KeyboardIconRenderer {
         // Blend toward pure white based on `flash` (0..1). Used to
         // signal "activity" when the user taps an octave key or
         // plays a note — the music note icon briefly gets brighter
-        // before settling back.
+        // before settling back. Metronome ticks add a yellow blink
+        // on top so the icon visibly pulses with the beat.
         let f = max(0, min(1, flash))
-        let color = (f > 0.001)
+        var color = (f > 0.001)
             ? baseColor.blended(withFraction: f, of: .white) ?? baseColor
             : baseColor
+        let mF = max(0, min(1, metronomeFlash))
+        if mF > 0.01, let yellowed = color.blended(withFraction: mF * 0.85, of: .systemYellow) {
+            color = yellowed
+        }
         // Draw the SF Symbol music.note.list at its original pointSize
         // (13) over the full chip. At rest the staff lines should
         // remain visible (the chip reads as the natural system glyph).
@@ -1175,6 +1250,11 @@ enum KeyboardIconRenderer {
                                     hovered: visualizerHovered,
                                     color: color,
                                     baseAlpha: alpha)
+            } else if metronomeOn {
+                drawChipMetronomeWave(in: miniVisualizerRect,
+                                       hovered: visualizerHovered,
+                                       color: color,
+                                       baseAlpha: alpha)
             } else {
                 drawChipVisualizer(in: miniVisualizerRect, level: visualizerLevel,
                                    hovered: visualizerHovered,
