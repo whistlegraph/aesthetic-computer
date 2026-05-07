@@ -43,29 +43,76 @@ enum KeyboardIconRenderer {
     /// rects, slot positions) all derive from `lastMidi`.
     enum DisplayLayout: String {
         case full        // C4..B5 — 2 octaves, normal-width keys (default)
-        case fullSlim    // C4..B5 — 2 octaves, skinnier keys (mid-squeeze)
+        case fullSlim    // Legacy/dev override — 2 octaves, skinnier keys
+        case thirteenKeys
+        case twelveKeys
+        case elevenKeys
+        case tenKeys
+        case nineKeys
+        case eightKeys
         case oneOctave   // C4..B4 — 1 octave, normal-width keys
+        case sixKeys
+        case fiveKeys
+        case fourKeys
+        case threeKeys
+        case twoKeys
+        case oneKey
         case compact     // chip only, no piano keys
 
-        // Shrink path tries to keep the *most notes possible* before
-        // dropping an octave — slim 2-octave reads better than full
-        // 1-octave when the user knows the layout, so we slim before
-        // we truncate.
-        var smaller: DisplayLayout? {
+        private static let adaptiveOrder: [DisplayLayout] = [
+            .compact,
+            .oneKey,
+            .twoKeys,
+            .threeKeys,
+            .fourKeys,
+            .fiveKeys,
+            .sixKeys,
+            .oneOctave,
+            .eightKeys,
+            .nineKeys,
+            .tenKeys,
+            .elevenKeys,
+            .twelveKeys,
+            .thirteenKeys,
+            .full,
+        ]
+
+        var visibleWhiteKeyCount: Int {
             switch self {
-            case .full: return .fullSlim
-            case .fullSlim: return .oneOctave
-            case .oneOctave: return .compact
-            case .compact: return nil
+            case .full, .fullSlim: return 14
+            case .thirteenKeys: return 13
+            case .twelveKeys: return 12
+            case .elevenKeys: return 11
+            case .tenKeys: return 10
+            case .nineKeys: return 9
+            case .eightKeys: return 8
+            case .oneOctave: return 7
+            case .sixKeys: return 6
+            case .fiveKeys: return 5
+            case .fourKeys: return 4
+            case .threeKeys: return 3
+            case .twoKeys: return 2
+            case .oneKey: return 1
+            case .compact: return 0
             }
         }
+
+        var adaptiveRank: Int {
+            Self.adaptiveOrder.firstIndex(of: self) ?? Self.adaptiveOrder.count - 1
+        }
+
+        // Shrink by cropping high keys from the right edge. This
+        // preserves the left-hand C anchor and keeps as much of the
+        // playable keyboard visible as the menu bar will accept.
+        var smaller: DisplayLayout? {
+            let order = Self.adaptiveOrder
+            guard let index = order.firstIndex(of: self), index > 0 else { return nil }
+            return order[index - 1]
+        }
         var larger: DisplayLayout? {
-            switch self {
-            case .compact: return .oneOctave
-            case .oneOctave: return .fullSlim
-            case .fullSlim: return .full
-            case .full: return nil
-            }
+            let order = Self.adaptiveOrder
+            guard let index = order.firstIndex(of: self), index < order.count - 1 else { return nil }
+            return order[index + 1]
         }
     }
     static var displayLayout: DisplayLayout = .full
@@ -105,13 +152,15 @@ enum KeyboardIconRenderer {
     // Render area shrinks with the layout. Compact has no piano keys at
     // all — `lastMidi < firstMidi` makes whiteList() empty.
     static let firstMidi: Int = 60                 // C4 (middle C)
+    private static let visibleWhiteMidiUpperBounds = [
+        60, 62, 64, 65, 67, 69, 71,
+        72, 74, 76, 77, 79, 81, 83,
+    ]
+
     static var lastMidi: Int {
-        switch displayLayout {
-        case .full:      return 83                 // B5 — full 2 octaves
-        case .fullSlim:  return 83                 // B5 — full 2 octaves, slim keys
-        case .oneOctave: return 71                 // B4 — single octave
-        case .compact:   return firstMidi - 1      // empty range
-        }
+        let count = displayLayout.visibleWhiteKeyCount
+        guard count > 0 else { return firstMidi - 1 }
+        return visibleWhiteMidiUpperBounds[count - 1]
     }
 
     /// Active subset of the visible range that's drawn + interactive.

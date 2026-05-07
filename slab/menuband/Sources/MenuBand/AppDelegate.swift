@@ -1096,17 +1096,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Rank used by the adaptive layout to compare DisplayLayouts.
-    /// `.full` is the widest variant, `.compact` the smallest.
-    private static func layoutRank(_ layout: KeyboardIconRenderer.DisplayLayout) -> Int {
-        switch layout {
-        case .full: return 4
-        case .fullSlim: return 3
-        case .oneOctave: return 2
-        case .compact: return 1
-        }
-    }
-
     private func adaptLayoutForAvailableSpace() {
         // `forceLayout` used to hard-pin and disable adapt entirely
         // — that left the icon stuck in whatever layout was chosen
@@ -1130,6 +1119,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 debugLog("statusItem hidden — shrinking \(current) → \(smaller)")
                 KeyboardIconRenderer.displayLayout = smaller
                 updateIcon()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                    self?.adaptLayoutForAvailableSpace()
+                }
             } else {
                 compactHiddenCheckCount += 1
                 if compactHiddenCheckCount == 1 || compactHiddenCheckCount % 10 == 0 {
@@ -1147,7 +1139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // lost the slot.
         guard let bigger = current.larger else { return }
         // Respect the ceiling — never expand past forceLayout.
-        if let ceiling = ceiling, Self.layoutRank(bigger) > Self.layoutRank(ceiling) {
+        if let ceiling = ceiling, bigger.adaptiveRank > ceiling.adaptiveRank {
             return
         }
         KeyboardIconRenderer.displayLayout = bigger
@@ -1165,6 +1157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.updateIcon()
             } else {
                 debugLog("statusItem expanded \(current) → \(bigger)")
+                self.adaptLayoutForAvailableSpace()
             }
         }
     }
