@@ -67,6 +67,13 @@ final class QwertyLayoutView: NSView {
     override var isFlipped: Bool { false }
     override var mouseDownCanMoveWindow: Bool { false }
 
+    /// Accept first-click events even if the host window isn't yet
+    /// key — without this the floating piano panel would swallow
+    /// the first mouseDown that activates it, breaking
+    /// click-and-drag-across-keys when the user starts on the
+    /// QWERTY map after another window had focus.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     /// Cap descriptor — `width` is in standard-key units (1.0 = a
     /// regular letter cap; shift = 1.5, space = 5.0). `altLabel`
     /// stacks above `label` (smaller) so caps that double as

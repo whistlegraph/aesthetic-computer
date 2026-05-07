@@ -515,77 +515,92 @@ final class StaffView: NSView {
         // each held note (drawn in the scroll-notes pass below)
         // emanates from each shaking letter.
 
-        // Beat markers shoot down out of the popover's metronome
-        // needle as it crosses center. Performance-tuned: cache
-        // colors + line-width once per marker, precompute dot Y
-        // positions outside the loop, bail early on off-screen
-        // markers, and use a single allocated path per stroke
-        // family so the inner loop is mostly arithmetic + GPU
-        // submission rather than NSColor / NSBezierPath churn.
-        let dropDuration: CGFloat = 0.18
-        let yellowEnd: CGFloat = 0.10
-        let orangeEnd: CGFloat = 0.20
-        let redEnd: CGFloat = 0.25
+        // Predictive beat lines — incoming from the RIGHT edge of
+        // the staff, sliding leftward toward the play column at
+        // `scrollSpeed`. Each upcoming click is materialized at
+        // the moment the bar is dropped (= clickTime − traverseTime)
+        // so by the time the audible click fires, the bar has
+        // arrived AT the play column. While the bar is approaching
+        // (right → center) it's GHOSTED; once it crosses center
+        // it pops to opaque (the "slot in" cue) and continues
+        // scrolling left as history.
         let dotRadius: CGFloat = 1.6
         let lineHalfLineSteps: [Int] = [0, 2, 4, 6, 8]
-        // Precompute the per-line dot y-positions once.
         let dotYs: [CGFloat] = lineHalfLineSteps.map {
             staffBottomY + CGFloat($0) * (lineSpacing / 2)
         }
-        let topY = bounds.maxY
-        let viewHeight = bounds.maxY - bounds.minY
-        // Cache colors that don't change across markers.
-        let yellowColor = NSColor.systemYellow
-        let orangeColor = NSColor.systemOrange
-        let redColor = NSColor.systemRed
+        let centerX = bounds.midX
+        let rightEdge = bounds.maxX
+        let approachDistance = rightEdge - centerX
+        let traverseTime = TimeInterval(approachDistance / Self.scrollSpeed)
+        let approachingColor = staffColor.withAlphaComponent(0.18)
+        let slotInColor = NSColor.systemYellow
         let restColor = staffColor.withAlphaComponent(0.55)
-        for marker in beatMarkers {
-            let age = CGFloat(now - marker.capturedAt)
-            // Bar scrolls left at age=0 (same instant the pill's
-            // leftEdge starts scrolling). The drop animation is
-            // purely vertical now — without this the bar held its
-            // X for the full dropDuration while the pill's
-            // trailing edge raced past, making notes pressed
-            // exactly on the beat appear "further left" than the
-            // bar even though their leading caps were aligned.
-            let markerX = marker.originX - age * Self.scrollSpeed
-            if markerX < bounds.minX - 2 || markerX > bounds.maxX + 2 { continue }
-            // Smoothstep drop progress.
-            let raw = age < dropDuration ? age / dropDuration : 1
-            let progress = raw * raw * (3 - 2 * raw)
-            let bottomY = topY - viewHeight * progress
-            // Color band by age — pick once per marker, no
-            // alloc, no conditional inside the dot loop.
-            let strokeColor: NSColor
-            if age < yellowEnd {
-                strokeColor = yellowColor
-            } else if age < orangeEnd {
-                strokeColor = orangeColor
-            } else if age < redEnd {
-                strokeColor = redColor
-            } else {
-                strokeColor = restColor
-            }
-            // Connector — one line per marker per frame.
-            // lineWidth eases from 1.1 → 0.6 over the drop so
-            // there's no abrupt thickness jump at progress=1.
-            let connector = NSBezierPath()
-            connector.move(to: NSPoint(x: markerX, y: topY))
-            connector.line(to: NSPoint(x: markerX, y: bottomY))
-            connector.lineWidth = raw < 1 ? (1.1 - 0.5 * raw) : 0.6
-            strokeColor.setStroke()
-            connector.stroke()
-            // Dots — only those the descending edge has reached.
-            // Single setFill per marker, then fill each dot.
-            strokeColor.setFill()
-            for dotY in dotYs where bottomY <= dotY {
-                let dot = NSBezierPath(ovalIn: NSRect(
-                    x: markerX - dotRadius,
-                    y: dotY - dotRadius,
-                    width: dotRadius * 2,
-                    height: dotRadius * 2
-                ))
-                dot.fill()
+
+        if KeyboardIconRenderer.metronomeOn {
+            let bpm = max(20, KeyboardIconRenderer.metronomeBPM)
+            let period = 60.0 / Double(bpm) * 2.0
+            let tickInterval = period / 2.0
+            let metronomeStart = KeyboardIconRenderer.metronomeStartTime
+            // First audible tick lands at start + period * 0.5 (see
+            // MetronomeWidget.restartSwing). Subsequent ticks every
+            // tickInterval.
+            let firstClickTime = metronomeStart + period * 0.5
+            // Render bars whose center-arrival times fall inside
+            // [now - 2s, now + traverseTime + 0.5s]. Clamp index to
+            // ≥0 so we don't try to render bars before the metronome
+            // started.
+            let windowStart = now - 2.0
+            let windowEnd = now + traverseTime + 0.5
+            let i_start = max(0, Int(floor((windowStart - firstClickTime) / tickInterval)))
+            let i_end = max(i_start, Int(ceil((windowEnd - firstClickTime) / tickInterval)))
+            for i in i_start...i_end {
+                let clickTime = firstClickTime + Double(i) * tickInterval
+                let dropTime = clickTime - traverseTime
+                let age = now - dropTime
+                if age < 0 { continue }
+                let x = rightEdge - CGFloat(age) * Self.scrollSpeed
+                if x < bounds.minX - 2 || x > bounds.maxX + 2 { continue }
+                let centerArrival = now - clickTime
+                let isApproaching = centerArrival < 0
+                let strokeColor: NSColor
+                let lineWidth: CGFloat
+                if isApproaching {
+                    // Ghosted while approaching center — fades up
+                    // smoothly from right edge so the user sees
+                    // "incoming" rather than a hard pop-in.
+                    strokeColor = approachingColor
+                    lineWidth = 0.6
+                } else if centerArrival < 0.18 {
+                    // Slot-in flash: bright yellow as the bar
+                    // crosses the play column, holding for ~3
+                    // frames before settling to the resting tone.
+                    strokeColor = slotInColor
+                    lineWidth = 1.2
+                } else {
+                    strokeColor = restColor
+                    lineWidth = 0.6
+                }
+                let connector = NSBezierPath()
+                connector.move(to: NSPoint(x: x, y: bounds.minY))
+                connector.line(to: NSPoint(x: x, y: bounds.maxY))
+                connector.lineWidth = lineWidth
+                strokeColor.setStroke()
+                connector.stroke()
+                // Dots only after the bar has slotted in — keeps
+                // the approaching ghost bar from carrying noise.
+                if !isApproaching {
+                    strokeColor.setFill()
+                    for dotY in dotYs {
+                        let dot = NSBezierPath(ovalIn: NSRect(
+                            x: x - dotRadius,
+                            y: dotY - dotRadius,
+                            width: dotRadius * 2,
+                            height: dotRadius * 2
+                        ))
+                        dot.fill()
+                    }
+                }
             }
         }
 

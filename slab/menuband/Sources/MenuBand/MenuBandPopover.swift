@@ -178,6 +178,14 @@ final class MenuBandPopoverViewController: NSViewController {
     /// chord candidate cards (bottom).
     private var waveformBezel: NSView!
     private var metronome: MetronomeWidget!
+    /// Small Metal-rendered audio bar visualizer, placed in its own
+    /// dedicated strip BELOW the staff bezel. Restored after the
+    /// `4f4f333a6` rc1 reshape retired the inline visualizer —
+    /// keeps the staff timeline as the dominant surface but gives
+    /// users an at-a-glance audio reactive readout without losing
+    /// vertical popover space to a full visualizer block.
+    private var miniWaveformView: WaveformView!
+    private var miniWaveformBezel: HoverTrackingView!
 
     deinit {
         if let monitor = focusShortcutRecorderMonitor {
@@ -600,12 +608,48 @@ final class MenuBandPopoverViewController: NSViewController {
         // enough to host both — same integrated layout the floating
         // play palette uses, so the two surfaces feel identical.
         stack.addArrangedSubview(waveformBezel)
-        waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        // Bezel extends to match the popover stack's full width (= preferredWidth + 16)
+        // so the staff lines + scrolling notes paint EDGE TO EDGE of
+        // the popover, ignoring the chooser-row's interior margins.
+        waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth + 16).isActive = true
         // Bezel hosts the staff only — the big held-notes pill row
         // (key-over-letter pills) was retired in favor of the
         // staff being the single notation surface. Tall enough
         // to fit the extended A3..B5 range with breathing room.
         waveformBezel.heightAnchor.constraint(equalToConstant: 212).isActive = true
+
+        // Mini visualizer strip — dedicated short box below the
+        // staff bezel. Reads as a separate audio-reactive readout
+        // sitting under the popover's main content rather than
+        // crowding the bezel that holds the staff.
+        miniWaveformView = WaveformView()
+        miniWaveformView.menuBand = menuBand
+        // Flip live so the WaveformView starts its CVDisplayLink and
+        // calls `setWaveformCaptureEnabled(true)` on the synth — bars
+        // stay flat at 0 until this lands.
+        miniWaveformView.isLive = true
+        miniWaveformView.translatesAutoresizingMaskIntoConstraints = false
+        miniWaveformBezel = HoverTrackingView()
+        miniWaveformBezel.wantsLayer = true
+        miniWaveformBezel.layer?.cornerRadius = 6
+        miniWaveformBezel.layer?.borderWidth = 0.6
+        miniWaveformBezel.layer?.backgroundColor = NSColor(white: 0.06,
+                                                            alpha: 0.25).cgColor
+        miniWaveformBezel.layer?.borderColor = NSColor.separatorColor
+            .withAlphaComponent(0.5).cgColor
+        miniWaveformBezel.translatesAutoresizingMaskIntoConstraints = false
+        miniWaveformBezel.addSubview(miniWaveformView)
+        let miniBezelInset: CGFloat = 4
+        NSLayoutConstraint.activate([
+            miniWaveformView.leadingAnchor.constraint(equalTo: miniWaveformBezel.leadingAnchor, constant: miniBezelInset),
+            miniWaveformView.trailingAnchor.constraint(equalTo: miniWaveformBezel.trailingAnchor, constant: -miniBezelInset),
+            miniWaveformView.topAnchor.constraint(equalTo: miniWaveformBezel.topAnchor, constant: miniBezelInset),
+            miniWaveformView.bottomAnchor.constraint(equalTo: miniWaveformBezel.bottomAnchor, constant: -miniBezelInset),
+        ])
+        stack.setCustomSpacing(8, after: waveformBezel)
+        stack.addArrangedSubview(miniWaveformBezel)
+        miniWaveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
+        miniWaveformBezel.heightAnchor.constraint(equalToConstant: 56).isActive = true
         // Pill container is allocated but unused (kept so any
         // legacy refresh path doesn't crash); not added to the
         // bezel.
