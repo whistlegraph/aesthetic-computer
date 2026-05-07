@@ -7,12 +7,6 @@ final class MenuBandController {
     private let synth = MenuBandSynth()
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
-    private var sampleRecordStartWorkItem: DispatchWorkItem?
-    private let sampleRecordCueSound: NSSound? = {
-        let sound = NSSound(named: NSSound.Name("Tink"))
-        sound?.volume = 0.45
-        return sound
-    }()
     /// Synth channel each held keystroke is voicing on. Mirrors
     /// `tapNoteChannel` for the menubar-tap path: round-robin across
     /// melodic channels 0–7 lets fast same-key retriggers overlap as
@@ -870,23 +864,11 @@ final class MenuBandController {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if isDown {
-                self.sampleRecordStartWorkItem?.cancel()
-                self.sampleRecordCueSound?.stop()
-                self.sampleRecordCueSound?.currentTime = 0
-                self.sampleRecordCueSound?.play()
-                let work = DispatchWorkItem { [weak self] in
-                    guard let self = self else { return }
-                    self.sampleRecordStartWorkItem = nil
-                    self.synth.startSampleRecording()
-                    // Nudge the AppDelegate so the menubar icon immediately
-                    // picks up the red "REC" tint on the chip.
-                    self.onInstrumentVisualChange?()
-                }
-                self.sampleRecordStartWorkItem = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: work)
+                self.synth.startSampleRecording()
+                // Nudge the AppDelegate so the menubar icon immediately
+                // picks up the red "REC" tint on the chip.
+                self.onInstrumentVisualChange?()
             } else {
-                self.sampleRecordStartWorkItem?.cancel()
-                self.sampleRecordStartWorkItem = nil
                 let usable = self.synth.stopSampleRecording()
                 if usable {
                     self.setSampleBackend(true)

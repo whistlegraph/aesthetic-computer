@@ -77,6 +77,7 @@ final class MenuBandSampleVoice {
     private var inputFormat: AVAudioFormat?
     private var inputConverter: AVAudioConverter?
     private var debugTapBlocksLogged = 0
+    private let inputTapBufferFrames: AVAudioFrameCount = 256
 
     /// Mix bus for all per-note voices. Connects to the host's
     /// pre-limiter mixer once on attach. Master gate lives here.
@@ -147,6 +148,9 @@ final class MenuBandSampleVoice {
                 _ = ensureVoice(channel: channel, slot: slot)
             }
         }
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized {
+            _ = ensureHotMicRunning()
+        }
     }
 
     func setOutputEnabled(_ enabled: Bool) {
@@ -200,23 +204,7 @@ final class MenuBandSampleVoice {
         @unknown default:
             break
         }
-        if recordEngine.isRunning {
-            recordEngine.stop()
-        }
-        let input = recordEngine.inputNode
-        let format = input.inputFormat(forBus: 0)
-        // Some virtual input devices return a 0-channel / 0-Hz format
-        // when no real device is selected. Bail loudly so the synth
-        // doesn't think it has a usable buffer when the user releases.
-        guard format.channelCount > 0, format.sampleRate > 0 else {
-            NSLog("MenuBand SampleVoice: input format unusable (ch=\(format.channelCount) sr=\(format.sampleRate)) — recordEngine running=\(recordEngine.isRunning)")
-            recordingRequested = false
-            return
-        }
-        inputFormat = format
-        inputConverter = AVAudioConverter(from: format, to: storageFormat)
-        guard inputConverter != nil else {
-            NSLog("MenuBand SampleVoice: failed to build converter from \(format) to \(storageFormat)")
+        guard ensureHotMicRunning() else {
             recordingRequested = false
             return
         }
@@ -234,32 +222,49 @@ final class MenuBandSampleVoice {
         recordWriteFrame = 0
         debugTapBlocksLogged = 0
 
-        // Smaller tap buffer keeps the visualizer responsive while
-        // recording and makes debugging obvious: even a short hold
-        // should deliver many callbacks. Passing `nil` lets CoreAudio
-        // choose the exact mic stream format; `ingestInput` converts
-        // or direct-copies based on the delivered buffer format.
+        recording = true
+        let format = inputFormat ?? recordEngine.inputNode.inputFormat(forBus: 0)
+        NSLog("MenuBand SampleVoice: recording started instantly (input format ch=\(format.channelCount) sr=\(format.sampleRate) recordEngineRunning=\(recordEngine.isRunning))")
+    }
+
+    private func ensureHotMicRunning() -> Bool {
+        if inputTapInstalled, recordEngine.isRunning { return true }
+        let input = recordEngine.inputNode
+        let format = input.inputFormat(forBus: 0)
+        // Some virtual input devices return a 0-channel / 0-Hz format
+        // when no real device is selected. Bail loudly so the synth
+        // doesn't think it has a usable buffer when the user releases.
+        guard format.channelCount > 0, format.sampleRate > 0 else {
+            NSLog("MenuBand SampleVoice: input format unusable (ch=\(format.channelCount) sr=\(format.sampleRate)) — recordEngine running=\(recordEngine.isRunning)")
+            return false
+        }
+        inputFormat = format
+        inputConverter = AVAudioConverter(from: format, to: storageFormat)
+        guard inputConverter != nil else {
+            NSLog("MenuBand SampleVoice: failed to build converter from \(format) to \(storageFormat)")
+            return false
+        }
         if !inputTapInstalled {
-            input.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buffer, _ in
+            input.installTap(onBus: 0, bufferSize: inputTapBufferFrames, format: nil) { [weak self] buffer, _ in
                 self?.ingestInput(buffer)
             }
             inputTapInstalled = true
         }
-        recording = true
-        do {
-            recordEngine.prepare()
-            try recordEngine.start()
-        } catch {
-            recording = false
-            recordingRequested = false
-            if inputTapInstalled {
-                input.removeTap(onBus: 0)
-                inputTapInstalled = false
+        if !recordEngine.isRunning {
+            do {
+                recordEngine.prepare()
+                try recordEngine.start()
+            } catch {
+                if inputTapInstalled {
+                    input.removeTap(onBus: 0)
+                    inputTapInstalled = false
+                }
+                NSLog("MenuBand SampleVoice: hot mic start failed: \(error)")
+                return false
             }
-            NSLog("MenuBand SampleVoice: record engine start failed: \(error)")
-            return
         }
-        NSLog("MenuBand SampleVoice: recording started (input format ch=\(format.channelCount) sr=\(format.sampleRate) recordEngineRunning=\(recordEngine.isRunning))")
+        NSLog("MenuBand SampleVoice: hot mic ready (input format ch=\(format.channelCount) sr=\(format.sampleRate) buffer=\(inputTapBufferFrames))")
+        return true
     }
 
     /// Stop capture and promote scratch to the active recording.
@@ -274,11 +279,6 @@ final class MenuBandSampleVoice {
             return false
         }
         recording = false
-        if inputTapInstalled {
-            recordEngine.inputNode.removeTap(onBus: 0)
-            inputTapInstalled = false
-        }
-        recordEngine.stop()
         guard let scratch = recordScratch else {
             recordScratch = nil
             return false
@@ -306,12 +306,61 @@ final class MenuBandSampleVoice {
         if let src = scratch.floatChannelData?[0],
            let dst = out.floatChannelData?[0] {
             memcpy(dst, src.advanced(by: startFrame), frames * MemoryLayout<Float>.size)
+            let stats = shapeCapturedSample(dst, frames: frames)
+            NSLog("MenuBand SampleVoice: sample shaped peak \(stats.peakBefore) -> \(stats.peakAfter), rms \(stats.rmsBefore) -> \(stats.rmsAfter), gain=\(stats.gain)")
         }
         bufferLock.lock()
         recordedBuffer = out
         bufferLock.unlock()
         NSLog("MenuBand SampleVoice: recording captured \(frames) frames (\(Double(frames) / sampleRate) s), trimmed \(startFrame) leading frames")
         return true
+    }
+
+    private func shapeCapturedSample(_ data: UnsafeMutablePointer<Float>, frames: Int)
+        -> (peakBefore: Float, peakAfter: Float, rmsBefore: Float, rmsAfter: Float, gain: Float)
+    {
+        guard frames > 0 else { return (0, 0, 0, 0, 1) }
+        var dc: Float = 0
+        var peakBefore: Float = 0
+        var sumSqBefore: Float = 0
+        for i in 0..<frames {
+            let s = data[i]
+            dc += s
+            let a = abs(s)
+            peakBefore = max(peakBefore, a)
+            sumSqBefore += s * s
+        }
+        dc /= Float(frames)
+        let rmsBefore = sqrt(sumSqBefore / Float(frames))
+        let targetPeak: Float = 0.82
+        let targetRMS: Float = 0.18
+        let peakGain = peakBefore > 0.000_001 ? targetPeak / peakBefore : 1
+        let rmsGain = rmsBefore > 0.000_001 ? targetRMS / rmsBefore : 1
+        let gain = min(max(1, min(peakGain, rmsGain)), 8)
+        let threshold: Float = 0.22
+        let ratio: Float = 4.0
+        let limiter: Float = 0.92
+        var peakAfter: Float = 0
+        var sumSqAfter: Float = 0
+        for i in 0..<frames {
+            var s = (data[i] - dc) * gain
+            let sign: Float = s < 0 ? -1 : 1
+            var a = abs(s)
+            if a > threshold {
+                a = threshold + (a - threshold) / ratio
+                s = sign * a
+            }
+            if s > limiter {
+                s = limiter
+            } else if s < -limiter {
+                s = -limiter
+            }
+            data[i] = s
+            peakAfter = max(peakAfter, abs(s))
+            sumSqAfter += s * s
+        }
+        let rmsAfter = sqrt(sumSqAfter / Float(frames))
+        return (peakBefore, peakAfter, rmsBefore, rmsAfter, gain)
     }
 
     private func trimmedStartFrame(scratch: AVAudioPCMBuffer, frames: Int) -> Int {
@@ -525,6 +574,7 @@ final class MenuBandSampleVoice {
         engine.attach(v.varispeed)
         engine.connect(v.node, to: v.varispeed, format: storageFormat)
         engine.connect(v.varispeed, to: voiceMixer, format: storageFormat)
+        v.node.prepare(withFrameCount: 512)
         voices[key] = v
         NSLog("MenuBand SampleVoice: attached playback voice channel=\(channel) slot=\(slot)")
         return v
@@ -564,7 +614,6 @@ final class MenuBandSampleVoice {
         voice.midi = midi
         voice.varispeed.rate = ratio(forNote: midi)
         voice.node.volume = Float(velocity) / 127.0
-        NSLog("MenuBand SampleVoice: noteOn midi=\(midi) channel=\(channel) rate=\(voice.varispeed.rate) frames=\(buf.frameLength)")
 
         if voice.node.isPlaying {
             voice.node.stop()
