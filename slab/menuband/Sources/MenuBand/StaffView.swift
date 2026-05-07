@@ -95,6 +95,17 @@ final class StaffView: NSView {
     }
     private var beatMarkers: [BeatMarker] = []
 
+    /// Wall-clock timestamp of the most recent perfect-on-beat hit
+    /// (note pressed within ~50 ms of a beat tick). Drives the
+    /// brief white flash across the staff line that the user
+    /// landed on — looks like a tiny "bonus" reward for nailing
+    /// the timing.
+    private struct PerfectHit {
+        let halfLineSteps: Int
+        let firedAt: TimeInterval
+    }
+    private var perfectHits: [PerfectHit] = []
+
     /// Drop a beat marker at a specific x in this view's coordinate
     /// space. Called from the popover whenever the metronome's
     /// `onTick` fires; the popover passes the metronome icon's
@@ -138,14 +149,39 @@ final class StaffView: NSView {
                 scrollNotes[i].releasedAt = now
             }
         }
+        // Beat snap: if the user hits a key within `beatSnapWindow`
+        // of the most recent metronome tick, anchor the new pill's
+        // appearedAt to the beat's capturedAt instead of `now`.
+        // That way a hit "right on the beat" lines up its leading
+        // cap exactly with the metronome bar (compensates for the
+        // user's reaction-time latency between hearing the click
+        // and pressing the key — typically ~50–120ms).
+        let beatSnapWindow: TimeInterval = 0.13
+        // Tighter window for the "perfect hit" reward — only the
+        // very-on-beat presses get the white-flash bonus.
+        let perfectWindow: TimeInterval = 0.06
+        let recentBeat = beatMarkers
+            .map { $0.capturedAt }
+            .filter { now - $0 <= beatSnapWindow && now >= $0 }
+            .max()
+        let snapTo: TimeInterval = recentBeat ?? now
         // Add freshly-pressed notes — anything in newHeld that
         // isn't already a held entry in scrollNotes.
         let alreadyHeld: Set<UInt8> = Set(scrollNotes
             .filter { $0.releasedAt == nil }
             .map { $0.note.midi })
         for n in newHeld where !alreadyHeld.contains(n.midi) {
-            scrollNotes.append(ScrollNote(note: n, appearedAt: now,
+            scrollNotes.append(ScrollNote(note: n, appearedAt: snapTo,
                                           releasedAt: nil))
+            // Perfect-hit reward: if the press landed within
+            // `perfectWindow` of a beat, queue a white-flash on the
+            // staff line for this pitch.
+            if let beat = recentBeat, now - beat <= perfectWindow {
+                perfectHits.append(PerfectHit(
+                    halfLineSteps: Self.halfLineSteps(forMidi: n.midi),
+                    firedAt: now
+                ))
+            }
         }
         _ = oldKeys
         startScrollTimer()
@@ -429,13 +465,33 @@ final class StaffView: NSView {
             path.stroke()
         }
 
+        // Per-line "perfect hit" flash strength. Lasts ~120ms and
+        // fades smoothly — looks like the staff line briefly
+        // glows white when a note hits exactly on the beat.
+        let perfectFlashDuration: CGFloat = 0.18
+        var flashByStep: [Int: CGFloat] = [:]
+        for hit in perfectHits {
+            let age = CGFloat(now - hit.firedAt)
+            if age >= perfectFlashDuration { continue }
+            let strength = max(0, 1 - age / perfectFlashDuration)
+            flashByStep[hit.halfLineSteps] = max(flashByStep[hit.halfLineSteps] ?? 0,
+                                                  strength)
+        }
+
         for slot in slots where slot.onLine && !slot.isLedger {
             let y = staffBottomY
                 + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
             let lit = heldNaturalSteps.contains(slot.halfLineSteps)
-            let drawColor = lit
+            let baseColor: NSColor = lit
                 ? Self.chromaticColor(forPitchClass: slot.pc).withAlphaComponent(0.95)
                 : staffColor
+            // Blend toward white based on the perfect-hit strength
+            // for this line — the line glows for ~2 frames after a
+            // tight on-beat press, settling back to its base color.
+            let flash = flashByStep[slot.halfLineSteps] ?? 0
+            let drawColor: NSColor = flash > 0.01
+                ? (baseColor.blended(withFraction: flash, of: .white) ?? baseColor)
+                : baseColor
             drawColor.setStroke()
             let path = NSBezierPath()
             path.lineWidth = lit ? Self.lineWidth + 0.8 : Self.lineWidth
@@ -682,6 +738,9 @@ final class StaffView: NSView {
                 return (now - releasedAt) > leftCutoffAge
             }
             self.beatMarkers.removeAll { (now - $0.capturedAt) > leftCutoffAge }
+            // Drop perfect-hit flashes once they've fully decayed
+            // so the activity tracker can suspend cleanly.
+            self.perfectHits.removeAll { now - $0.firedAt > 0.20 }
             // Ease the displayed pitch shift toward target each tick
             // — staff slides smoothly between octaves / under bend
             // rather than snapping.
@@ -695,7 +754,10 @@ final class StaffView: NSView {
             // Keep ticking while ANY note is alive OR any metronome
             // beat marker is still on screen OR pitch is still
             // animating.
-            if self.scrollNotes.isEmpty && self.beatMarkers.isEmpty && !stillEasingPitch {
+            if self.scrollNotes.isEmpty
+                && self.beatMarkers.isEmpty
+                && self.perfectHits.isEmpty
+                && !stillEasingPitch {
                 timer.invalidate()
                 self.scrollTimer = nil
             }

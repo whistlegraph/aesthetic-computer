@@ -246,15 +246,24 @@ final class InstrumentListView: NSView {
             let dist = sqrt(dx * dx + dy * dy)
             let isSelected = (selectedProgram == UInt8(p))
 
+            // Opaque base so the grid reads as a solid panel
+            // sitting ON the popover's glass material rather than
+            // letting the glass bleed through every cell. Window-
+            // background → family-tinted overlay gives each cell
+            // its rainbow-row identity without sacrificing
+            // legibility against the liquid-glass behind.
+            NSColor.windowBackgroundColor.setFill()
+            NSBezierPath(rect: r).fill()
             if isSelected {
                 // Selected cell: solid family color so the chosen
                 // voice reads as the brightest cell in the grid.
-                fam.withAlphaComponent(0.85).setFill()
+                fam.withAlphaComponent(0.95).setFill()
                 NSBezierPath(rect: r).fill()
             } else {
-                // Family-tinted bed at low opacity so the grid still
-                // reads as 16 rainbow rows.
-                fam.withAlphaComponent(0.20).setFill()
+                // Family-tinted overlay at higher opacity now that
+                // the cell has its own solid backdrop — chiclets
+                // pop instead of fading into the glass.
+                fam.withAlphaComponent(0.55).setFill()
                 NSBezierPath(rect: r).fill()
                 if hoveredProgram == UInt8(p) {
                     NSColor.controlAccentColor.withAlphaComponent(0.35).setFill()
