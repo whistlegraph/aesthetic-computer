@@ -14,28 +14,29 @@ final class ExpandedPianoWaveformView: NSView {
     }
 
     private weak var menuBand: MenuBandController?
-    private let outerStack = NSStackView()
     private let contentStack = NSStackView()
-    /// GM instrument chooser — same view the popover uses, embedded
-    /// here on the left of the floating panel so the panel pairs
-    /// with the popover (popover on the right, chooser on the left
-    /// of the floating window). Doubles as an audio-reactive
-    /// LED-grid visualizer.
-    private let instrumentList = InstrumentListView()
     private let waveformSection = NSView()
+    private let waveformView = WaveformView()
     private let waveformBezel = NSView()
+    private let waveformClipView = NSView()
     private let heldNotesStack = NSStackView()
     private let heldNotesRow = NSView()
     private let chordCandidatesStack = NSStackView()
     private let chordCandidatesRow = NSView()
     private var lastCompleteChordNames: Set<String> = []
     private let instrumentReadout = NSTextField(labelWithString: "")
-    private let instrumentTitleRow: NSStackView
+    private let instrumentArrows = ArrowKeysIndicator()
+    private let instrumentTitleRow = NSView()
+    private let hapticsControls = NSStackView()
+    private let hapticsLabel = NSTextField(labelWithString: "Haptics")
+    private let hapticsSwitch = NSSwitch()
+    private let hapticsInfoButton = NSButton()
     private let pianoView: PianoKeyboardView
     private let shortcutHintRow = NSStackView()
     private let focusHintLabel = NSTextField(labelWithString: "")
     private let layoutHintLabel = NSTextField(labelWithString: "")
     private weak var paletteGlassView: NSView?
+    private weak var waveformGlassView: NSView?
     private weak var waveformSectionGlassView: NSView?
     private weak var pianoGlassView: NSView?
     private weak var keymapGlassView: NSView?
@@ -45,16 +46,24 @@ final class ExpandedPianoWaveformView: NSView {
     /// at 2× scale so it's legible at the floating palette's size.
     private let qwertyView = QwertyLayoutView()
 
+    private var outlineBorderColor: NSColor = .separatorColor.withAlphaComponent(0.55)
+
     var isPianoFocusActive: (() -> Bool)?
     var onHoverChanged: ((Bool) -> Void)?
+    var onStepBackward: (() -> Void)?
+    var onStepForward: (() -> Void)?
+    var onStepUp: (() -> Void)?
+    var onStepDown: (() -> Void)?
 
-    private let pianoScale: CGFloat
+    private let pianoScale: CGFloat = 1.6
     private let inset: CGFloat = 14
     private let gap: CGFloat = 8
     private let hintHeight: CGFloat = 20
-    private let heldNotesRowHeight: CGFloat = 58
+    private let heldNotesRowHeight: CGFloat = 26
     private let chordCandidatesRowHeight: CGFloat = 30
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
+    private var widthConstraint: NSLayoutConstraint?
+    private var waveformHeightConstraint: NSLayoutConstraint?
     private var isPresented = false
     private var trackingArea: NSTrackingArea?
     private static let panelCornerRadius: CGFloat = 18
@@ -64,61 +73,18 @@ final class ExpandedPianoWaveformView: NSView {
 
     init(menuBand: MenuBandController) {
         self.menuBand = menuBand
-        let titleLeftSpacer = NSView()
-        let titleRightSpacer = NSView()
-        titleLeftSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        titleRightSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        self.instrumentTitleRow = NSStackView(views: [titleLeftSpacer, instrumentReadout, titleRightSpacer])
-        // Scale so the piano spans the right column of the panel
-        // exactly. Previously a fixed 1.6 scale made the keyboard
-        // wider than the glass panel and forced the panel to grow.
-        let basePianoWidth = KeyboardIconRenderer.withPianoWaveformKeyboard(keymap: menuBand.keymap) {
-            KeyboardIconRenderer.pianoImageSize(layout: .tightActiveRange).width
-        }
-        let computedPianoScale = Self.expandedPanelWidth / max(1, basePianoWidth)
-        self.pianoScale = computedPianoScale
-        self.pianoView = PianoKeyboardView(menuBand: menuBand, pianoScale: computedPianoScale)
+        self.pianoView = PianoKeyboardView(menuBand: menuBand, pianoScale: pianoScale)
         super.init(frame: NSRect(origin: .zero, size: .zero))
         wantsLayer = true
 
+        waveformView.menuBand = menuBand
+        waveformView.translatesAutoresizingMaskIntoConstraints = false
+        waveformView.setSurfaceStyle(.glassEmbedded)
         contentStack.orientation = .vertical
         contentStack.alignment = .centerX
         contentStack.distribution = .fill
         contentStack.spacing = gap
         contentStack.translatesAutoresizingMaskIntoConstraints = false
-
-        // Outer horizontal split: instrument chooser on the left,
-        // existing piano + held-notes / chord-cards / qwerty stack
-        // on the right. Aligned to top so a tall chooser doesn't
-        // float in the vertical middle while the right column
-        // sits at the top.
-        outerStack.orientation = .horizontal
-        outerStack.alignment = .top
-        outerStack.distribution = .fill
-        outerStack.spacing = gap
-        outerStack.translatesAutoresizingMaskIntoConstraints = false
-
-        // Wire the chooser the same way the popover does — commit
-        // sets the program (auto-flips out of MIDI mode), hover
-        // previews the program, music keys passthrough so qwerty
-        // still plays while the chooser holds focus.
-        instrumentList.menuBand = menuBand
-        instrumentList.translatesAutoresizingMaskIntoConstraints = false
-        instrumentList.onCommit = { [weak self] prog in
-            guard let self = self, let m = self.menuBand else { return }
-            if m.midiMode { m.toggleMIDIMode() }
-            m.setMelodicProgram(UInt8(prog))
-            self.refresh()
-        }
-        instrumentList.onHover = { [weak self] prog in
-            self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
-            self?.refresh()
-        }
-        instrumentList.onMusicKey = { [weak self] kc, isDown, isRepeat, flags in
-            return self?.menuBand?.handleLocalKey(
-                keyCode: kc, isDown: isDown, isRepeat: isRepeat, flags: flags
-            ) ?? false
-        }
         waveformSection.wantsLayer = true
         waveformSection.layer?.cornerRadius = Self.sectionCornerRadius
         waveformSection.layer?.borderWidth = 0.8
@@ -133,6 +99,13 @@ final class ExpandedPianoWaveformView: NSView {
             waveformBezel.layer?.cornerCurve = .continuous
         }
         waveformBezel.translatesAutoresizingMaskIntoConstraints = false
+        waveformClipView.wantsLayer = true
+        waveformClipView.translatesAutoresizingMaskIntoConstraints = false
+        waveformClipView.layer?.cornerRadius = Self.waveformClipCornerRadius
+        waveformClipView.layer?.masksToBounds = true
+        if #available(macOS 10.15, *) {
+            waveformClipView.layer?.cornerCurve = .continuous
+        }
         heldNotesStack.orientation = .horizontal
         heldNotesStack.alignment = .centerY
         heldNotesStack.spacing = 6
@@ -147,13 +120,58 @@ final class ExpandedPianoWaveformView: NSView {
         chordCandidatesRow.addSubview(chordCandidatesStack)
         instrumentReadout.lineBreakMode = .byTruncatingTail
         instrumentReadout.alignment = .center
+        instrumentReadout.translatesAutoresizingMaskIntoConstraints = false
         instrumentReadout.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         instrumentReadout.setContentCompressionResistancePriority(.required, for: .horizontal)
-        instrumentTitleRow.orientation = .horizontal
-        instrumentTitleRow.alignment = .centerY
-        instrumentTitleRow.distribution = .fill
-        instrumentTitleRow.spacing = 0
+        instrumentArrows.translatesAutoresizingMaskIntoConstraints = false
+        instrumentArrows.setContentHuggingPriority(.required, for: .horizontal)
+        instrumentArrows.setContentCompressionResistancePriority(.required, for: .horizontal)
+        instrumentArrows.displayMode = .horizontalPair
+        instrumentArrows.style = .prominent
+        instrumentArrows.toolTip = "Change instrument"
+        instrumentArrows.onClick = { [weak self] direction, isDown in
+            guard let self, isDown else { return }
+            switch direction {
+            case 0:
+                self.onStepBackward?()
+            case 1:
+                self.onStepForward?()
+            case 2:
+                self.onStepDown?()
+            case 3:
+                self.onStepUp?()
+            default:
+                break
+            }
+        }
         instrumentTitleRow.translatesAutoresizingMaskIntoConstraints = false
+        hapticsControls.orientation = .horizontal
+        hapticsControls.alignment = .centerY
+        hapticsControls.spacing = 4
+        hapticsControls.translatesAutoresizingMaskIntoConstraints = false
+        hapticsControls.setContentHuggingPriority(.required, for: .horizontal)
+        hapticsControls.setContentCompressionResistancePriority(.required, for: .horizontal)
+        hapticsLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        hapticsLabel.textColor = .secondaryLabelColor
+        hapticsLabel.lineBreakMode = .byClipping
+        hapticsSwitch.controlSize = .mini
+        hapticsSwitch.target = self
+        hapticsSwitch.action = #selector(hapticsSwitchChanged(_:))
+        let infoConfig = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        hapticsInfoButton.image = NSImage(
+            systemSymbolName: "info.circle",
+            accessibilityDescription: "About trackpad haptics"
+        )?.withSymbolConfiguration(infoConfig)
+        hapticsInfoButton.isBordered = false
+        hapticsInfoButton.imagePosition = .imageOnly
+        hapticsInfoButton.contentTintColor = .secondaryLabelColor
+        hapticsInfoButton.toolTip = "Force Touch must be enabled in System Settings > Trackpad > Point & Click > Force Click and haptic feedback."
+        hapticsInfoButton.target = self
+        hapticsInfoButton.action = #selector(showHapticsInfo(_:))
+        hapticsInfoButton.setButtonType(.momentaryPushIn)
+        hapticsControls.addArrangedSubview(hapticsLabel)
+        hapticsControls.addArrangedSubview(hapticsSwitch)
+        hapticsControls.addArrangedSubview(hapticsInfoButton)
         pianoView.translatesAutoresizingMaskIntoConstraints = false
         shortcutHintRow.orientation = .horizontal
         shortcutHintRow.alignment = .centerY
@@ -174,10 +192,13 @@ final class ExpandedPianoWaveformView: NSView {
                                     isRepeat: false, flags: [])
             self.refresh()
         }
-        // Held-note pills and chord-suggestion cards live in the
-        // bezel housing. The Metal visualizer that used to sit
-        // underneath them was retired — the bezel is just the
-        // pills+cards housing now.
+        // Held-note pills and chord-suggestion cards overlay the metal
+        // visualizer directly so the waveform doubles as the canvas
+        // for the chord readout. Stack vertically: pills on top, cards
+        // beneath, both centered. Waveform draws underneath, peeking
+        // through the translucent card backgrounds.
+        waveformBezel.addSubview(waveformClipView)
+        waveformClipView.addSubview(waveformView)
         waveformBezel.layer?.masksToBounds = false
         heldNotesRow.wantsLayer = true
         heldNotesRow.layer?.masksToBounds = false
@@ -187,9 +208,10 @@ final class ExpandedPianoWaveformView: NSView {
         waveformBezel.addSubview(chordCandidatesRow)
         waveformSection.addSubview(waveformBezel)
         waveformSection.addSubview(instrumentTitleRow)
-        addSubview(outerStack)
-        outerStack.addArrangedSubview(instrumentList)
-        outerStack.addArrangedSubview(contentStack)
+        instrumentTitleRow.addSubview(instrumentArrows)
+        instrumentTitleRow.addSubview(instrumentReadout)
+        instrumentTitleRow.addSubview(hapticsControls)
+        addSubview(contentStack)
         contentStack.addArrangedSubview(waveformSection)
         contentStack.addArrangedSubview(pianoView)
         shortcutHintRow.addArrangedSubview(layoutHintLabel)
@@ -206,33 +228,26 @@ final class ExpandedPianoWaveformView: NSView {
         layoutHintLabel.alignment = .left
         focusHintLabel.alignment = .right
         updateShortcutHint()
+        updateHapticsControl()
         installLiquidGlassBackgrounds()
 
         let keyboardSize = self.keyboardSize()
-        // Bezel is now sized purely by its content (held-notes pills
-        // + chord cards) — the Metal canvas it used to host is gone.
+        let widthConstraint = widthAnchor.constraint(
+            equalToConstant: max(keyboardSize.width + inset * 2, Self.expandedPanelWidth)
+        )
+        self.widthConstraint = widthConstraint
+        let waveformHeightConstraint = waveformView.heightAnchor.constraint(
+            equalToConstant: waveformHeight(for: keyboardSize)
+        )
+        self.waveformHeightConstraint = waveformHeightConstraint
         let bezelInset: CGFloat = 5
-        let titleSpacers = instrumentTitleRow.arrangedSubviews
-
-        // Right column is fixed at the panel's intended width; the
-        // keyboard scales (above) to fit it, never the other way
-        // around — that keeps the keys visually inside the glass.
-        _ = keyboardSize  // keep helper warm; sizing is column-driven now
-        let rightColumnWidth = Self.expandedPanelWidth
-        let totalWidth = InstrumentListView.preferredWidth + gap + rightColumnWidth
-
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: totalWidth),
+            widthConstraint,
 
-            outerStack.topAnchor.constraint(equalTo: topAnchor, constant: inset),
-            outerStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            outerStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            outerStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
-
-            instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth),
-            instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight),
-
-            contentStack.widthAnchor.constraint(equalToConstant: rightColumnWidth),
+            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: inset),
+            contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
 
             waveformSection.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor),
             waveformSection.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor),
@@ -252,6 +267,15 @@ final class ExpandedPianoWaveformView: NSView {
             waveformBezel.topAnchor.constraint(equalTo: waveformSection.topAnchor, constant: bezelInset),
             waveformBezel.leadingAnchor.constraint(equalTo: waveformSection.leadingAnchor, constant: bezelInset),
             waveformBezel.trailingAnchor.constraint(equalTo: waveformSection.trailingAnchor, constant: -bezelInset),
+            waveformClipView.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor, constant: bezelInset),
+            waveformClipView.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor, constant: -bezelInset),
+            waveformClipView.topAnchor.constraint(equalTo: waveformBezel.topAnchor, constant: bezelInset),
+            waveformClipView.bottomAnchor.constraint(equalTo: waveformBezel.bottomAnchor, constant: -bezelInset),
+            waveformView.leadingAnchor.constraint(equalTo: waveformClipView.leadingAnchor),
+            waveformView.trailingAnchor.constraint(equalTo: waveformClipView.trailingAnchor),
+            waveformView.topAnchor.constraint(equalTo: waveformClipView.topAnchor),
+            waveformView.bottomAnchor.constraint(equalTo: waveformClipView.bottomAnchor),
+            waveformHeightConstraint,
 
             heldNotesRow.leadingAnchor.constraint(equalTo: waveformBezel.leadingAnchor),
             heldNotesRow.trailingAnchor.constraint(equalTo: waveformBezel.trailingAnchor),
@@ -266,11 +290,28 @@ final class ExpandedPianoWaveformView: NSView {
             instrumentTitleRow.trailingAnchor.constraint(equalTo: waveformSection.trailingAnchor, constant: -6),
             instrumentTitleRow.bottomAnchor.constraint(equalTo: waveformSection.bottomAnchor, constant: -6),
 
+            instrumentArrows.leadingAnchor.constraint(equalTo: instrumentTitleRow.leadingAnchor, constant: 2),
+            instrumentArrows.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
+            hapticsControls.trailingAnchor.constraint(equalTo: instrumentTitleRow.trailingAnchor, constant: -2),
+            hapticsControls.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
+            instrumentReadout.centerXAnchor.constraint(equalTo: instrumentTitleRow.centerXAnchor),
+            instrumentReadout.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
+            instrumentReadout.topAnchor.constraint(greaterThanOrEqualTo: instrumentTitleRow.topAnchor),
+            instrumentReadout.bottomAnchor.constraint(lessThanOrEqualTo: instrumentTitleRow.bottomAnchor),
+            instrumentReadout.leadingAnchor.constraint(
+                greaterThanOrEqualTo: instrumentArrows.trailingAnchor,
+                constant: 6
+            ),
+            instrumentReadout.trailingAnchor.constraint(
+                lessThanOrEqualTo: hapticsControls.leadingAnchor,
+                constant: -6
+            ),
+
             shortcutHintRow.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor),
             shortcutHintRow.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor),
             shortcutHintRow.heightAnchor.constraint(equalToConstant: hintHeight),
 
-            qwertyView.centerXAnchor.constraint(equalTo: contentStack.centerXAnchor),
+            qwertyView.centerXAnchor.constraint(equalTo: centerXAnchor),
             qwertyView.widthAnchor.constraint(
                 equalToConstant: QwertyLayoutView.intrinsicSize.width * 1.4
             ),
@@ -278,9 +319,6 @@ final class ExpandedPianoWaveformView: NSView {
                 equalToConstant: QwertyLayoutView.intrinsicSize.height * 1.4
             ),
         ])
-        if titleSpacers.count == 3 {
-            titleSpacers[0].widthAnchor.constraint(equalTo: titleSpacers[2].widthAnchor).isActive = true
-        }
     }
 
     @available(*, unavailable)
@@ -389,24 +427,24 @@ final class ExpandedPianoWaveformView: NSView {
         let path = NSBezierPath(roundedRect: background, xRadius: 13, yRadius: 13)
         NSColor.windowBackgroundColor.withAlphaComponent(0.96).setFill()
         path.fill()
-        NSColor.separatorColor.withAlphaComponent(0.55).setStroke()
+        outlineBorderColor.setStroke()
         path.lineWidth = 1
         path.stroke()
     }
 
     func refresh() {
         updateShortcutHint()
+        updateHapticsControl()
+        let keyboardSize = keyboardSize()
+        widthConstraint?.constant = max(keyboardSize.width + inset * 2, Self.expandedPanelWidth)
+        waveformHeightConstraint?.constant = waveformHeight(for: keyboardSize)
         pianoView.refreshLayout()
         layoutSubtreeIfNeeded()
         applyAppearanceToVisualizer()
         refreshHeldNotes()
         updateInstrumentReadout()
         applyWaveformTint()
-        if let m = menuBand {
-            // Follow the *effective* program so the bee-vision center
-            // tracks hover-drag previews + arrow-key stepping live.
-            instrumentList.selectedProgram = m.effectiveMelodicProgram
-        }
+        updateWaveformLiveState(isPresented: isPresented)
         needsDisplay = true
         pianoView.needsDisplay = true
     }
@@ -423,30 +461,46 @@ final class ExpandedPianoWaveformView: NSView {
         }
         applyAppearanceToVisualizer()
         applyWaveformTint()
+        updateWaveformLiveState(isPresented: isPresented)
+    }
+
+    private func updateWaveformLiveState(isPresented: Bool) {
+        waveformView.isLive = isPresented && !(menuBand?.midiMode ?? false)
+        waveformView.alphaValue = (menuBand?.midiMode ?? false) ? 0.35 : 1.0
+    }
+
+    private func updateHapticsControl() {
+        hapticsSwitch.state = (menuBand?.hapticsEnabled ?? true) ? .on : .off
     }
 
     private func applyAppearanceToVisualizer() {
-        // Held-notes / chord housing is now transparent — let the
-        // panel's glass material show through behind the pills +
-        // chord cards instead of pasting a slate slab over it.
-        // Border + tint still update via applyWaveformTint() so
-        // the family color stays as a hairline frame.
-        waveformSection.layer?.backgroundColor = NSColor.clear.cgColor
-        waveformBezel.layer?.backgroundColor = NSColor.clear.cgColor
+        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        waveformView.setLightMode(!isDark)
+        if isDark {
+            waveformSection.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+            waveformBezel.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.04).cgColor
+        } else {
+            waveformSection.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.22).cgColor
+            waveformBezel.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.18).cgColor
+        }
     }
 
     private func applyWaveformTint() {
         guard let menuBand else { return }
-        // The visualizer is gone; this only retints the section
-        // border so MIDI mode still reads as accent-colored chrome.
         if menuBand.midiMode {
+            waveformView.setDotMatrix(MenuBandPopoverViewController.midiDotPattern)
+            waveformView.setBaseColor(.controlAccentColor)
             waveformSection.layer?.borderColor = NSColor.controlAccentColor
                 .withAlphaComponent(0.24).cgColor
+            outlineBorderColor = NSColor.controlAccentColor.withAlphaComponent(0.45)
         } else {
+            waveformView.setDotMatrix(nil)
             let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
             let familyColor = InstrumentListView.colorForProgram(safe)
+            waveformView.setBaseColor(familyColor)
             waveformSection.layer?.borderColor = familyColor
                 .withAlphaComponent(0.22).cgColor
+            outlineBorderColor = familyColor.withAlphaComponent(0.45)
         }
         if #available(macOS 26.0, *) {
             let paletteTint = paletteTintColor
@@ -472,6 +526,10 @@ final class ExpandedPianoWaveformView: NSView {
         }
     }
 
+    private func waveformHeight(for keyboard: NSSize) -> CGFloat {
+        keyboard.height * 1.25
+    }
+
     private func refreshHeldNotes() {
         guard isPresented else {
             clearHeldNotes()
@@ -495,12 +553,9 @@ final class ExpandedPianoWaveformView: NSView {
         // Held-notes row: each currently sounding note as its own large
         // pill so the chord shape reads at-a-glance. Always per-note —
         // chord recognition lives in the candidates row below.
-        let entries = menuBand.heldNoteEntries()
-        for entry in entries {
-            heldNotesStack.addArrangedSubview(
-                makeHeldNoteBox(name: entry.pitchClass,
-                                 key: entry.keyLabel,
-                                 color: familyColor))
+        let names = menuBand.heldNoteNames()
+        for name in names {
+            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: name, color: familyColor))
         }
 
         // Chord candidates: every chord shape that contains the held
@@ -546,48 +601,26 @@ final class ExpandedPianoWaveformView: NSView {
         lastCompleteChordNames = []
     }
 
-    private func makeHeldNoteBox(name: String, key: String?, color: NSColor) -> NSView {
+    private func makeHeldNoteBox(name: String, color: NSColor) -> NSView {
         let box = NSView()
         box.wantsLayer = true
-        box.layer?.cornerRadius = 6
+        box.layer?.cornerRadius = 4
         box.layer?.backgroundColor = color.withAlphaComponent(0.92).cgColor
         box.layer?.borderWidth = 1
         box.layer?.borderColor = color.shadow(withLevel: 0.35)?.cgColor ?? color.cgColor
         box.translatesAutoresizingMaskIntoConstraints = false
-
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = 0
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        // Top: keyboard key the user pressed. Smaller, tinted so it
-        // reads as a label above the louder note name.
-        if let key = key, !key.isEmpty {
-            let keyLabel = NSTextField(labelWithString: key)
-            keyLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
-            keyLabel.textColor = NSColor.white.withAlphaComponent(0.85)
-            keyLabel.drawsBackground = false
-            keyLabel.alignment = .center
-            stack.addArrangedSubview(keyLabel)
-        }
-
-        // Bottom: the bare pitch-class. Big + heavy so the played
-        // note is the dominant element of each pill.
-        let noteLabel = NSTextField(labelWithString: name)
-        noteLabel.font = NSFont.monospacedSystemFont(ofSize: 22, weight: .heavy)
-        noteLabel.textColor = .black
-        noteLabel.drawsBackground = false
-        noteLabel.alignment = .center
-        stack.addArrangedSubview(noteLabel)
-
-        box.addSubview(stack)
+        let label = NSTextField(labelWithString: name)
+        label.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .heavy)
+        label.textColor = .black
+        label.drawsBackground = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        box.addSubview(label)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
-            stack.topAnchor.constraint(equalTo: box.topAnchor, constant: 3),
-            stack.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -3),
-            box.heightAnchor.constraint(equalToConstant: 52),
+            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 5),
+            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -5),
+            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 2),
+            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -2),
+            box.heightAnchor.constraint(equalToConstant: 20),
         ])
         return box
     }
@@ -612,15 +645,12 @@ final class ExpandedPianoWaveformView: NSView {
     private func updateInstrumentReadout() {
         guard let menuBand else { return }
         let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
-        // MIDI mode replaces the GM voice name with a MIDI label so
-        // the panel title matches the popover's "0 MIDI OUT" cue
-        // instead of leaving a stale instrument name on screen.
-        let title = menuBand.midiMode ? "MIDI" : GeneralMIDI.programNames[safe]
-        let familyColor = menuBand.midiMode
-            ? NSColor.controlAccentColor
-            : InstrumentListView.colorForProgram(safe)
+        let title = GeneralMIDI.programNames[safe]
+        let familyColor = InstrumentListView.colorForProgram(safe)
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let textColor: NSColor = isDark ? .white : .black
+        instrumentArrows.accentColor = familyColor
+        instrumentArrows.isDarkAppearance = isDark
         let shadow = NSShadow()
         shadow.shadowColor = (familyColor.highlight(withLevel: isDark ? 0.3 : 0.7) ?? familyColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)
@@ -651,6 +681,22 @@ final class ExpandedPianoWaveformView: NSView {
         focusHintLabel.stringValue = (isPianoFocusActive?() ?? false)
             ? "Exit Focus: \(focusShortcut)"
             : "Focus Piano: \(focusShortcut)"
+    }
+
+    @objc private func hapticsSwitchChanged(_ sender: NSSwitch) {
+        menuBand?.hapticsEnabled = (sender.state == .on)
+    }
+
+    @objc private func showHapticsInfo(_ sender: NSButton) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Trackpad Haptics"
+        alert.informativeText = """
+        Haptics use the Force Touch trackpad. If you don't feel feedback, open System Settings > Trackpad > Point & Click and turn on “Force Click and haptic feedback.”
+        """
+        alert.addButton(withTitle: "OK")
+        alert.beginSheetModal(for: window)
     }
 
 }

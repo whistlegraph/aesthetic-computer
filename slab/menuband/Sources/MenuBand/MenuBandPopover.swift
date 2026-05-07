@@ -351,6 +351,18 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         titleRow.addArrangedSubview(metronome)
         titleRow.setCustomSpacing(8, after: metronome)
+        // Inline "MIDI" badge — only visible when MIDI mode is on.
+        // Restores the legacy at-a-glance routing readout from the
+        // popover title row that the chooser-cell-based "0 MIDI OUT"
+        // was supposed to replace but felt easy to miss.
+        midiInlineLabel = NSTextField(labelWithString: "MIDI")
+        midiInlineLabel.font = NSFont.systemFont(ofSize: 11, weight: .heavy)
+        midiInlineLabel.textColor = .controlAccentColor
+        midiInlineLabel.alignment = .center
+        midiInlineLabel.translatesAutoresizingMaskIntoConstraints = false
+        midiInlineLabel.isHidden = !(menuBand?.midiMode ?? false)
+        titleRow.addArrangedSubview(midiInlineLabel)
+        titleRow.setCustomSpacing(8, after: midiInlineLabel)
         // Right-side spacer to balance `titleSpacer` on the left,
         // so the metronome floats horizontally centered in the
         // title row (sandwiched between two flex spacers).
@@ -1227,6 +1239,7 @@ final class MenuBandPopoverViewController: NSViewController {
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
         midiSwitch.state = n.midiMode ? .on : .off
+        midiInlineLabel?.isHidden = !n.midiMode
         // Force the staff to repaint — keymap toggles change which
         // slots show as letters/lines on the chart even when the
         // held-note set is unchanged.
@@ -1559,6 +1572,18 @@ final class MenuBandPopoverViewController: NSViewController {
             from: [.aqua, .darkAqua]) == .darkAqua
         waveformBezel?.layer?.backgroundColor = NSColor.clear.cgColor
         applyAppearanceToKeyboardDeck(isDark: isDark)
+        // Tint the mini visualizer's bars to the active instrument's
+        // family color (or the system accent in MIDI mode) so the
+        // strip reads as part of "this voice's chrome" rather than a
+        // generic visualizer.
+        if let m = menuBand, let mini = miniWaveformView {
+            if m.midiMode {
+                mini.setBaseColor(NSColor.controlAccentColor)
+            } else {
+                let safe = max(0, min(127, Int(m.effectiveMelodicProgram)))
+                mini.setBaseColor(InstrumentListView.colorForProgram(safe))
+            }
+        }
     }
 
     /// Repaint the keyboard chassis against the current appearance.

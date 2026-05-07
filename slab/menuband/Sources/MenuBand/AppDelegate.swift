@@ -1962,7 +1962,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // paired with it and must stay visible.
             pianoWaveformWindowDelegate.scheduleHide()
         } else {
-            pianoWaveformWindowDelegate.cancelPendingHide()
+            pianoWaveformWindowDelegate.cancelPendingHidePublic()
         }
     }
 
