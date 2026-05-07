@@ -134,6 +134,9 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         pianoWaveformViewController.onTogglePresentationMode = { [weak self] in
             self?.togglePresentationMode()
         }
+        pianoWaveformViewController.onClose = { [weak self] in
+            self?.dismiss(reason: .closeButton)
+        }
     }
 
     func toggleFromShortcut() {
@@ -198,6 +201,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
             pianoWaveformViewController.setPresentationMode(.expanded)
             pianoWaveformViewController.refresh()
             if let panel, panel.isVisible {
+                panel.allowsSurfaceDrag = true
                 setPanelFrame(expandedFrame(
                     size: pianoWaveformViewController.preferredContentSize,
                     fallbackOrigin: panel.frame.origin
@@ -207,6 +211,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
             pianoWaveformViewController.setPresentationMode(.collapsed)
             pianoWaveformViewController.refresh()
             if let panel, panel.isVisible {
+                panel.allowsSurfaceDrag = false
                 setPanelFrame(collapsedFrame(size: pianoWaveformViewController.preferredContentSize))
             }
         }
@@ -343,13 +348,12 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         ]
         panel.hidesOnDeactivate = false
         panel.canHide = false
-        // Locked in place for now — positioning logic is in flux
-        // and a draggable panel just lets clicks on the chooser /
-        // held-notes / button area drift it off snug-pair with
-        // the popover. Both background-drag and title-bar drag
-        // are disabled.
-        panel.isMovable = false
+        // Surface dragging is gated by `PianoWaveformPanel`: passive
+        // expanded-view areas move the window, while keys, keymaps,
+        // switches, and buttons keep their own clicks.
+        panel.isMovable = true
         panel.isMovableByWindowBackground = false
+        panel.allowsSurfaceDrag = presentationState == .expanded
         panel.acceptsMouseMovedEvents = true
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
@@ -378,9 +382,10 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         pianoWaveformViewController.setPresentationMode(.expanded)
         pianoWaveformViewController.refresh()
         panel.ignoresMouseEvents = false
+        panel.allowsSurfaceDrag = true
         setPanelFrame(expandedFrame(
             size: pianoWaveformViewController.preferredContentSize,
-            fallbackOrigin: panel.frame.origin
+            fallbackOrigin: savedExpandedOrigin ?? panel.frame.origin
         ))
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
@@ -393,6 +398,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         cancelPendingHide()
         pianoWaveformViewController.setPresentationMode(.collapsed)
         panel.ignoresMouseEvents = false
+        panel.allowsSurfaceDrag = false
         setPanelFrame(collapsedFrame(size: pianoWaveformViewController.preferredContentSize))
         if !panel.isVisible {
             panel.orderFrontRegardless()
@@ -417,6 +423,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         pianoWaveformViewController.clearInteraction()
         menuBand.releaseAllHeldNotes()
         panel?.ignoresMouseEvents = false
+        panel?.allowsSurfaceDrag = false
         panel?.orderOut(nil)
         presentationState = .collapsed
         dismissHandler?()
@@ -472,6 +479,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         preferredPresentationState = .expanded
         persistPreferredState()
         panel?.ignoresMouseEvents = false
+        panel?.allowsSurfaceDrag = true
         pianoWaveformViewController.setPresentationMode(.expanded)
     }
 
@@ -479,6 +487,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         guard presentationState != .collapsed else {
             preferredPresentationState = .collapsed
             persistPreferredState()
+            panel?.allowsSurfaceDrag = false
             pianoWaveformViewController.setPresentationMode(.collapsed)
             pianoWaveformViewController.refresh()
             showIfNeeded()
@@ -494,6 +503,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         presentationState = .collapsed
         preferredPresentationState = .collapsed
         persistPreferredState()
+        panel?.allowsSurfaceDrag = false
         pianoWaveformViewController.setPresentationMode(.collapsed)
         pianoWaveformViewController.refresh()
         showCollapsedIfNeeded()
@@ -547,15 +557,13 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     private func expandedFrame(size: NSSize, fallbackOrigin: NSPoint?) -> NSRect {
-        // The expanded "large" panel is a full-display surface — it
-        // always centers on the active screen, no matter where the
-        // popover sits or which entry path opened it. (Earlier this
-        // shared the small-panel anchoring logic, which dragged the
-        // expanded panel sideways when the popover moved.) The
-        // popover-paired small panel keeps the relative anchor.
-        _ = fallbackOrigin
+        // The expanded panel opens from the user's last dragged
+        // position when one exists, otherwise it centers on the
+        // active screen. The popover-paired small panel keeps the
+        // relative anchor separately in `collapsedFrame`.
+        let origin = savedExpandedOrigin ?? fallbackOrigin ?? centeredOrigin(for: size)
         return clampedFrame(
-            origin: centeredOrigin(for: size),
+            origin: origin,
             size: size,
             preferredScreen: panel?.screen ?? NSScreen.main
         )
@@ -761,4 +769,3 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
             : .collapsed
     }
 }
-

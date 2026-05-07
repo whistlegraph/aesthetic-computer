@@ -46,6 +46,8 @@ enum PianoWaveformWindowStyle {
 }
 
 final class PianoWaveformPanel: NSPanel {
+    var allowsSurfaceDrag = false
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
     /// Keep the glass + control chrome painted in "active" state at
@@ -56,4 +58,36 @@ final class PianoWaveformPanel: NSPanel {
     /// `isMainWindow` to true keeps the glass uniform regardless of
     /// focus state.
     override var isMainWindow: Bool { true }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown,
+           allowsSurfaceDrag,
+           shouldBeginSurfaceDrag(with: event) {
+            performDrag(with: event)
+            return
+        }
+        super.sendEvent(event)
+    }
+
+    private func shouldBeginSurfaceDrag(with event: NSEvent) -> Bool {
+        guard let contentView else { return false }
+        let location = event.locationInWindow
+        guard let hitView = contentView.hitTest(location) else { return false }
+
+        var view: NSView? = hitView
+        while let current = view {
+            if (current is NSControl && !(current is NSTextField)) ||
+                current is PianoKeyboardView ||
+                current is QwertyLayoutView {
+                return false
+            }
+            if current is ExpandedPianoWaveformView ||
+                current is CollapsedPianoWaveformView ||
+                current is WaveformView {
+                return true
+            }
+            view = current.superview
+        }
+        return false
+    }
 }

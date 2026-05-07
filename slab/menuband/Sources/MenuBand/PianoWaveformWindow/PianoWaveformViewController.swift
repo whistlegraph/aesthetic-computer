@@ -11,16 +11,19 @@ final class PianoWaveformViewController: NSViewController {
     private let containerView = NSView()
     private let expandedView: ExpandedPianoWaveformView
     private let collapsedView: CollapsedPianoWaveformView
+    private let closeButton = NSButton()
     private let expandCollapseButton = NSButton()
     private var activeContentView: NSView?
     private var presentationMode: PresentationMode = .expanded
     private var isPresented = false
     private var trackingArea: NSTrackingArea?
     private var isMouseInsideView = false
+    private weak var closeButtonGlassView: NSView?
     private weak var expandCollapseButtonGlassView: NSView?
     private let closeButtonSize: CGFloat = 22
     private let closeButtonCornerInset: CGFloat = 3
 
+    var onClose: (() -> Void)?
     var onTogglePresentationMode: (() -> Void)?
 
     var onStepBackward: (() -> Void)? {
@@ -67,14 +70,9 @@ final class PianoWaveformViewController: NSViewController {
     override func loadView() {
         view = containerView
         containerView.wantsLayer = true
-        // Overlay expand/collapse button retired — the panel is now
-        // chrome-free. Mode toggle still happens via the popover and
-        // the Cmd-Ctrl-Opt-K shortcut. Button object kept around so
-        // the rest of the controller (visibility cycling, KVO) keeps
-        // compiling without changes.
-        expandCollapseButton.isHidden = true
         installTrackingArea()
         installDisplayedView()
+        installOverlayControls()
         isMouseInsideView = isMouseInsideContainer()
         setOverlayControlsVisible(isMouseInsideView, animated: false)
     }
@@ -142,13 +140,44 @@ final class PianoWaveformViewController: NSViewController {
     private func updatePresentationState() {
         expandedView.setPresented(isPresented && presentationMode == .expanded)
         // collapsed view no longer hosts a live visualizer; nothing to gate.
-        [expandCollapseButton, expandCollapseButtonGlassView]
-            .compactMap { $0 }
-            .forEach { $0.isHidden = false }
+        let isExpanded = presentationMode == .expanded
+        closeButton.isHidden = !isExpanded
+        closeButtonGlassView?.isHidden = !isExpanded
+        expandCollapseButton.isHidden = false
+        expandCollapseButtonGlassView?.isHidden = false
         updateExpandCollapseButtonAppearance()
         isMouseInsideView = isMouseInsideContainer()
         setOverlayControlsVisible(isMouseInsideView, animated: false)
         applyOverlayButtonAppearance()
+    }
+
+    private func installOverlayControls() {
+        configureOverlayButton(
+            closeButton,
+            symbolName: "xmark",
+            toolTip: "Close floating piano",
+            action: #selector(closeClicked(_:))
+        )
+        configureOverlayButton(
+            expandCollapseButton,
+            symbolName: "arrow.up.left.and.arrow.down.right",
+            toolTip: "Expand floating piano",
+            action: #selector(expandCollapseClicked(_:))
+        )
+        containerView.addSubview(closeButton)
+        containerView.addSubview(expandCollapseButton)
+        NSLayoutConstraint.activate([
+            closeButton.widthAnchor.constraint(equalToConstant: closeButtonSize),
+            closeButton.heightAnchor.constraint(equalToConstant: closeButtonSize),
+            closeButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: closeButtonCornerInset),
+            closeButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: closeButtonCornerInset),
+
+            expandCollapseButton.widthAnchor.constraint(equalToConstant: closeButtonSize),
+            expandCollapseButton.heightAnchor.constraint(equalToConstant: closeButtonSize),
+            expandCollapseButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -closeButtonCornerInset),
+            expandCollapseButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: closeButtonCornerInset),
+        ])
+        installOverlayGlassBackgrounds()
     }
 
     private func configureOverlayButton(
@@ -181,6 +210,7 @@ final class PianoWaveformViewController: NSViewController {
 
     private func installOverlayGlassBackgrounds() {
         guard ExpandedPianoWaveformView.shouldUseLiquidGlass, #available(macOS 26.0, *) else { return }
+        self.closeButtonGlassView = installGlassBackground(for: closeButton)
         self.expandCollapseButtonGlassView = installGlassBackground(for: expandCollapseButton)
     }
 
@@ -206,6 +236,8 @@ final class PianoWaveformViewController: NSViewController {
         // / `_ = animated` swallow the parameters cleanly.
         _ = isVisible
         _ = animated
+        closeButton.alphaValue = 1
+        closeButtonGlassView?.alphaValue = 1
         expandCollapseButton.alphaValue = 1
         expandCollapseButtonGlassView?.alphaValue = 1
     }
@@ -251,13 +283,19 @@ final class PianoWaveformViewController: NSViewController {
         let isDark = effectiveView.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let tintColor = expandedView.paletteTintColor
         if ExpandedPianoWaveformView.shouldUseLiquidGlass, #available(macOS 26.0, *) {
+            (closeButtonGlassView as? NSGlassEffectView)?.style = .clear
+            (closeButtonGlassView as? NSGlassEffectView)?.tintColor = tintColor.withAlphaComponent(0.34)
             (expandCollapseButtonGlassView as? NSGlassEffectView)?.style = .clear
             (expandCollapseButtonGlassView as? NSGlassEffectView)?.tintColor = tintColor.withAlphaComponent(0.34)
+            closeButton.layer?.backgroundColor = NSColor.clear.cgColor
+            closeButton.layer?.borderColor = NSColor.clear.cgColor
             expandCollapseButton.layer?.backgroundColor = NSColor.clear.cgColor
             expandCollapseButton.layer?.borderColor = NSColor.clear.cgColor
         } else {
             let border = NSColor.white.withAlphaComponent(0.28).cgColor
             let background = NSColor.windowBackgroundColor.withAlphaComponent(isDark ? 0.18 : 0.22).cgColor
+            closeButton.layer?.backgroundColor = background
+            closeButton.layer?.borderColor = border
             expandCollapseButton.layer?.backgroundColor = background
             expandCollapseButton.layer?.borderColor = border
         }
@@ -279,5 +317,9 @@ final class PianoWaveformViewController: NSViewController {
 
     @objc private func expandCollapseClicked(_ sender: NSButton) {
         onTogglePresentationMode?()
+    }
+
+    @objc private func closeClicked(_ sender: NSButton) {
+        onClose?()
     }
 }
