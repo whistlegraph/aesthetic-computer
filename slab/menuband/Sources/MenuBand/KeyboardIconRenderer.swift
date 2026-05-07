@@ -921,8 +921,12 @@ enum KeyboardIconRenderer {
         // edge and that the letter floats clearly above the
         // chromatic stripe at the keycap's foot. Caps drop ~1pt
         // lower so the taller uppercase glyphs don't bump into the
-        // black-key label band above.
-        let baseY: CGFloat = labelsUppercase ? 2.0 : 3.0
+        // black-key label band above. In fullSlim (thin-keys)
+        // mode the whole keycap stack is squashed; the labels were
+        // floating too high inside the cap, so push them down 2pt
+        // so they sit grounded on the chromatic stripe.
+        let slim = displayLayout == .fullSlim
+        let baseY: CGFloat = (labelsUppercase ? 2.0 : 3.0) - (slim ? 2.0 : 0)
         str.draw(at: NSPoint(x: rect.midX - size.width / 2,
                              y: rect.minY + baseY + bottomOffset))
     }
@@ -1077,7 +1081,12 @@ enum KeyboardIconRenderer {
         let pivotX = rect.midX
         let pivotY = rect.minY + 0.5
         let length = rect.height - 1.5
-        let tipX = pivotX + sin(angle) * length
+        // CALayer.transform.rotation.z rotates COUNTER-CLOCKWISE for
+        // positive angles, so the popover needle tilts LEFT at +amp.
+        // Mirror that here — without the sign flip, the chip needle
+        // ends up swinging the exact opposite direction from the
+        // popover's trapezoid.
+        let tipX = pivotX - sin(angle) * length
         let tipY = pivotY + cos(angle) * length
         let path = NSBezierPath()
         path.lineWidth = 1.1

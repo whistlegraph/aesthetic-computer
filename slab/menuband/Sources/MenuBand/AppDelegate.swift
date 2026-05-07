@@ -324,6 +324,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             button.addTrackingArea(area)
             trackingArea = area
+            // Drag-drop a .mid / .midi file onto the menubar icon
+            // to play it back through the synth as if a player
+            // piano was striking the keys. Drop target is a
+            // transparent subview that fills the button so the
+            // button still receives clicks normally.
+            let dropTarget = MidiDropTargetView(frame: button.bounds)
+            dropTarget.autoresizingMask = [.width, .height]
+            dropTarget.onDrop = { [weak self] url in
+                self?.handleMidiFileDrop(url: url)
+            }
+            button.addSubview(dropTarget)
         }
         updateIcon()
 
@@ -821,6 +832,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.keymap = (menuBand.keymap == .ableton) ? .notepat : .ableton
     }
 
+    /// Drag-and-drop entry point — replays the file's notes
+    /// through `startTapNote` / `stopTapNote` so the popover
+    /// staff + the menubar icon light up alongside the audio,
+    /// like a player piano performing the file.
+    private func handleMidiFileDrop(url: URL) {
+        // Cancel any previous playback and silence held notes
+        // before kicking off the new file — superseding playback
+        // shouldn't leave stuck notes from the old one.
+        MidiFilePlayer.stop()
+        menuBand.releaseAllHeldNotes()
+        let started = MidiFilePlayer.play(
+            url: url,
+            onNoteOn: { [weak self] midi, velocity in
+                self?.menuBand.startTapNote(midi, velocity: velocity,
+                                            pan: 0, displayNote: midi)
+            },
+            onNoteOff: { [weak self] midi in
+                self?.menuBand.stopTapNote(midi)
+            },
+            onFinish: { [weak self] in
+                self?.menuBand.releaseAllHeldNotes()
+            }
+        )
+        if !started {
+            NSLog("MenuBand: MIDI drop \(url.lastPathComponent) had no playable events")
+        }
+    }
+
     // MARK: - Adaptive menubar layout
 
     /// `true` when the status item button is laid out on a real screen.
@@ -1003,19 +1042,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             self?.adaptLayoutForAvailableSpace()
         }
-        // Periodic re-check. Menubar real-estate changes throughout the
-        // day as apps come and go; 6s polling is cheap and lets us both
-        // shrink (when squeezed) and re-expand (when room opens up).
+        // Periodic re-check. Was 6s — bumped to 2s so when an app
+        // quits and frees menubar room, we re-expand within a
+        // couple seconds instead of feeling stuck in thin-keys
+        // mode for half a minute.
         visibilityTimer?.invalidate()
-        visibilityTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: true) { [weak self] _ in
+        visibilityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.adaptLayoutForAvailableSpace()
         }
     }
 
+    /// Rank used by the adaptive layout to compare DisplayLayouts.
+    /// `.full` is the widest variant, `.compact` the smallest.
+    private static func layoutRank(_ layout: KeyboardIconRenderer.DisplayLayout) -> Int {
+        switch layout {
+        case .full: return 4
+        case .fullSlim: return 3
+        case .oneOctave: return 2
+        case .compact: return 1
+        }
+    }
+
     private func adaptLayoutForAvailableSpace() {
-        // Forced layouts disable auto-resize entirely — the renderer
-        // stays pinned to whatever the user (or QA) chose.
-        if KeyboardIconRenderer.forceLayout != nil { return }
+        // `forceLayout` used to hard-pin and disable adapt entirely
+        // — that left the icon stuck in whatever layout was chosen
+        // even after the user freed up menubar space. Treat it as
+        // a CEILING instead: the adapter can shrink below it under
+        // pressure but never expands past it.
+        let ceiling: KeyboardIconRenderer.DisplayLayout? =
+            KeyboardIconRenderer.forceLayout
         let current = KeyboardIconRenderer.displayLayout
         let visible = isStatusItemVisible()
 
@@ -1037,9 +1092,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // larger layout, force a layout, then re-check; revert if we
         // lost the slot.
         guard let bigger = current.larger else { return }
+        // Respect the ceiling — never expand past forceLayout.
+        if let ceiling = ceiling, Self.layoutRank(bigger) > Self.layoutRank(ceiling) {
+            return
+        }
         KeyboardIconRenderer.displayLayout = bigger
         updateIcon()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+        // Verify after 0.6s — was 0.25s, but the menubar's slot
+        // recompute is async and 0.25s sometimes caught a transient
+        // "no screen" state that wasn't real, causing us to revert
+        // and feel stuck in the smaller layout. 0.6s gives the OS
+        // a beat to settle without making the user wait.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self = self else { return }
             if !self.isStatusItemVisible() {
                 debugLog("expand \(current) → \(bigger) didn't fit; reverting")
@@ -1838,6 +1902,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // off-white / slate body, the chromatic stripes, and the
         // labels all swap to the new theme atomically.
         updateIcon()
+        // Popover background — NSVisualEffectView with `.popover`
+        // material can latch onto the appearance it had at
+        // construction time. Nudge the chrome's visual-effect
+        // view explicitly so the glass tint flips with the system
+        // theme even if the panel is currently showing.
+        popoverPanel?.appearance = nil
+        popoverPanel?.contentView?.appearance = nil
+        popoverPanel?.chrome.refreshAppearance()
         // Force the popover's MenuBandPopoverRootView through its
         // explicit retint path (rebuilds layer-painted CGColors
         // that don't auto-track NSColor changes).

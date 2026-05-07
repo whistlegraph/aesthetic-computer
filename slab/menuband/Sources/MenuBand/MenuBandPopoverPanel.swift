@@ -122,6 +122,28 @@ final class MenuBandPopoverChrome: NSView {
         visualEffect.layer?.mask = maskLayer
     }
 
+    /// Force the underlying NSVisualEffectView to re-tint against
+    /// the current effective appearance. AppDelegate calls this
+    /// from `systemAppearanceChanged()` because NSVisualEffectView
+    /// can latch on to the appearance present at construction time
+    /// — without this nudge, the popover's "popover" material
+    /// keeps showing the old light tint after a system flip.
+    func refreshAppearance() {
+        visualEffect.appearance = nil
+        // Toggling the state forces AppKit to rebuild the
+        // material's CALayer backing, picking up the new
+        // effectiveAppearance as a side-effect.
+        visualEffect.state = .inactive
+        visualEffect.state = .active
+        visualEffect.needsDisplay = true
+        needsDisplay = true
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshAppearance()
+    }
+
     required init?(coder: NSCoder) { fatalError() }
 
     override var isFlipped: Bool { false }

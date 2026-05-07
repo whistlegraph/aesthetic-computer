@@ -460,71 +460,75 @@ final class StaffView: NSView {
         // emanates from each shaking letter.
 
         // Beat markers shoot down out of the popover's metronome
-        // needle as it crosses center: each tick spawns a vertical
-        // line at the needle's projected x. Over `dropDuration`
-        // the line extends from the top of the view all the way
-        // down to the bottom, creating a permanent vertical mark.
-        // Once fully extended, the marker scrolls leftward along
-        // with the rolling note timeline. The descending edge
-        // also "lights" each staff line as it passes, leaving a
-        // dot at the intersection — reads like the metronome is
-        // physically marking time on every staff line below it.
+        // needle as it crosses center. Performance-tuned: cache
+        // colors + line-width once per marker, precompute dot Y
+        // positions outside the loop, bail early on off-screen
+        // markers, and use a single allocated path per stroke
+        // family so the inner loop is mostly arithmetic + GPU
+        // submission rather than NSColor / NSBezierPath churn.
         let dropDuration: CGFloat = 0.18
-        let lineHalfLineSteps: [Int] = [0, 2, 4, 6, 8]
+        let yellowEnd: CGFloat = 0.10
+        let orangeEnd: CGFloat = 0.20
+        let redEnd: CGFloat = 0.25
         let dotRadius: CGFloat = 1.6
+        let lineHalfLineSteps: [Int] = [0, 2, 4, 6, 8]
+        // Precompute the per-line dot y-positions once.
+        let dotYs: [CGFloat] = lineHalfLineSteps.map {
+            staffBottomY + CGFloat($0) * (lineSpacing / 2)
+        }
+        let topY = bounds.maxY
+        let viewHeight = bounds.maxY - bounds.minY
+        // Cache colors that don't change across markers.
+        let yellowColor = NSColor.systemYellow
+        let orangeColor = NSColor.systemOrange
+        let redColor = NSColor.systemRed
+        let restColor = staffColor.withAlphaComponent(0.55)
         for marker in beatMarkers {
             let age = CGFloat(now - marker.capturedAt)
-            // X stays put during the drop, then scrolls left
-            // afterward so the line "settles" into the timeline
-            // before the camera starts carrying it away.
-            let scrollAge = max(0, age - dropDuration)
-            let markerX = marker.originX - scrollAge * Self.scrollSpeed
+            // Bar scrolls left at age=0 (same instant the pill's
+            // leftEdge starts scrolling). The drop animation is
+            // purely vertical now — without this the bar held its
+            // X for the full dropDuration while the pill's
+            // trailing edge raced past, making notes pressed
+            // exactly on the beat appear "further left" than the
+            // bar even though their leading caps were aligned.
+            let markerX = marker.originX - age * Self.scrollSpeed
             if markerX < bounds.minX - 2 || markerX > bounds.maxX + 2 { continue }
-            // Drop progress eases from 0→1 over dropDuration.
-            // Smoothstep so the leading edge accelerates into the
-            // staff and decelerates as it settles at the bottom.
-            let raw = min(1, age / dropDuration)
+            // Smoothstep drop progress.
+            let raw = age < dropDuration ? age / dropDuration : 1
             let progress = raw * raw * (3 - 2 * raw)
-            let bottomY = bounds.maxY - (bounds.maxY - bounds.minY) * progress
-            // Color sequence: yellow during the drop → orange just
-            // after → red for ~3 frames → settles to staffColor.
-            // Reads as the beat "striking" the staff incandescently
-            // and cooling down into the regular rolling timeline.
-            let yellowEnd: CGFloat = 0.10
-            let orangeEnd: CGFloat = 0.20
-            let redEnd: CGFloat = 0.25  // ~3 frames at 60Hz past orange
+            let bottomY = topY - viewHeight * progress
+            // Color band by age — pick once per marker, no
+            // alloc, no conditional inside the dot loop.
             let strokeColor: NSColor
             if age < yellowEnd {
-                strokeColor = NSColor.systemYellow
+                strokeColor = yellowColor
             } else if age < orangeEnd {
-                strokeColor = NSColor.systemOrange
+                strokeColor = orangeColor
             } else if age < redEnd {
-                strokeColor = NSColor.systemRed
+                strokeColor = redColor
             } else {
-                strokeColor = staffColor.withAlphaComponent(0.55)
+                strokeColor = restColor
             }
+            // Connector — one line per marker per frame.
+            // lineWidth eases from 1.1 → 0.6 over the drop so
+            // there's no abrupt thickness jump at progress=1.
             let connector = NSBezierPath()
-            connector.move(to: NSPoint(x: markerX, y: bounds.maxY))
+            connector.move(to: NSPoint(x: markerX, y: topY))
             connector.line(to: NSPoint(x: markerX, y: bottomY))
-            connector.lineWidth = raw < 1 ? 1.1 : 0.6
+            connector.lineWidth = raw < 1 ? (1.1 - 0.5 * raw) : 0.6
             strokeColor.setStroke()
             connector.stroke()
-            // Dots paint at each staff line as the descending
-            // edge passes through it, so the strike visibly
-            // "marks" each line in turn. Dots inherit the same
-            // yellow → orange → red → settle color sequence as
-            // the connector line so the strike reads as one
-            // unified flash.
-            for step in lineHalfLineSteps {
-                let dotY = staffBottomY + CGFloat(step) * (lineSpacing / 2)
-                if bottomY > dotY { continue }
+            // Dots — only those the descending edge has reached.
+            // Single setFill per marker, then fill each dot.
+            strokeColor.setFill()
+            for dotY in dotYs where bottomY <= dotY {
                 let dot = NSBezierPath(ovalIn: NSRect(
                     x: markerX - dotRadius,
                     y: dotY - dotRadius,
                     width: dotRadius * 2,
                     height: dotRadius * 2
                 ))
-                strokeColor.setFill()
                 dot.fill()
             }
         }

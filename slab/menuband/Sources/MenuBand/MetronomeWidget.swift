@@ -296,27 +296,41 @@ final class MetronomeWidget: NSView {
     private func restartSwing() {
         guard let host = needleHost else { return }
         host.removeAnimation(forKey: Self.swingAnimationKey)
+        let now = CACurrentMediaTime()
         // Publish the BPM + start time so the menubar chip's
         // needle can compute its swing phase against the same
         // clock the popover trapezoid uses — keeps the two
         // needles in lockstep as the user scrubs BPM.
         KeyboardIconRenderer.metronomeBPM = bpm
-        KeyboardIconRenderer.metronomeStartTime = CACurrentMediaTime()
+        KeyboardIconRenderer.metronomeStartTime = now
         let period = 60.0 / Double(bpm) * 2.0
+        // Sample a true sine curve into many keyframes — the chip
+        // uses sin(t) for its angle, and matching that exactly
+        // here means the chip and popover needles stay in sync
+        // through the whole cycle (not just at the four corner
+        // keyframes the previous easeOut/easeIn build approximated).
+        let sampleCount = 60
+        var values: [NSNumber] = []
+        var keyTimes: [NSNumber] = []
+        values.reserveCapacity(sampleCount + 1)
+        keyTimes.reserveCapacity(sampleCount + 1)
+        for i in 0...sampleCount {
+            let t = Double(i) / Double(sampleCount)
+            let angle = sin(t * 2 * .pi) * Double(Self.maxSwingAngle)
+            values.append(NSNumber(value: angle))
+            keyTimes.append(NSNumber(value: t))
+        }
         let anim = CAKeyframeAnimation(keyPath: "transform.rotation.z")
-        anim.values = [0, Self.maxSwingAngle, 0, -Self.maxSwingAngle, 0]
-        anim.keyTimes = [0, 0.25, 0.5, 0.75, 1]
+        anim.values = values
+        anim.keyTimes = keyTimes
         anim.duration = period
         anim.repeatCount = .infinity
-        // Pendulum motion: max velocity at the zero crossings,
-        // momentary pause at each extreme. Per-segment ease curves
-        // give that natural physical feel — center → extreme
-        // decelerates (ease-out) and extreme → center accelerates
-        // (ease-in). A single global ease made the start of every
-        // cycle look paused instead of swinging.
-        let easeOut = CAMediaTimingFunction(name: .easeOut)
-        let easeIn = CAMediaTimingFunction(name: .easeIn)
-        anim.timingFunctions = [easeOut, easeIn, easeOut, easeIn]
+        anim.calculationMode = .linear
+        // Anchor the animation to the same wall-clock instant the
+        // chip reads from — host.convertTime maps system media
+        // time into the layer's local time domain so beginTime
+        // matches metronomeStartTime exactly.
+        anim.beginTime = host.convertTime(now, from: nil)
         host.add(anim, forKey: Self.swingAnimationKey)
 
         tickTimer?.invalidate()
