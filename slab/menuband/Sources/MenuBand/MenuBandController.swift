@@ -27,6 +27,7 @@ final class MenuBandController {
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
+    private let hapticsEnabledKey = "notepat.hapticsEnabled"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
     /// string so future backends (Logic, EXS3rd-party, etc.) can be
@@ -432,6 +433,19 @@ final class MenuBandController {
         set {
             UserDefaults.standard.set(newValue, forKey: octaveShiftKey)
             releaseAllHeldNotes()
+            onChange?()
+        }
+    }
+
+    var hapticsEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: hapticsEnabledKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: hapticsEnabledKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: hapticsEnabledKey)
             onChange?()
         }
     }

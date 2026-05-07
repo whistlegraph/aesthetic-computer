@@ -10,12 +10,19 @@ import AppKit
 
 final class PianoKeyboardView: NSView {
     private static let rendererLayout: KeyboardIconRenderer.Layout = .tightActiveRange
+    private static let hapticCooldown: TimeInterval = 0.035
+    private static let initialTapEchoDelay: TimeInterval = 0.016
+    private static let hoverHapticCooldown: TimeInterval = 0.06
+    private static let hapticHintDefaultsKey = "notepat.hapticsHintShown"
 
     private weak var menuBand: MenuBandController?
     private var trackingArea: NSTrackingArea?
     private var hoveredNote: UInt8?
     private var currentDisplayNote: UInt8?
     private var currentPlayedNote: UInt8?
+    private var lastHapticTime: TimeInterval = 0
+    private var lastHoverHapticTime: TimeInterval = 0
+    private var pendingHapticEcho: DispatchWorkItem?
 
     private let pianoScale: CGFloat
     private var widthConstraint: NSLayoutConstraint!
@@ -123,6 +130,8 @@ final class PianoKeyboardView: NSView {
             pan: expression.pan,
             displayNote: displayNote
         )
+        presentHapticsSetupHintIfNeeded()
+        performKeyTapHaptic(isInitialTap: true)
         needsDisplay = true
     }
 
@@ -150,6 +159,7 @@ final class PianoKeyboardView: NSView {
                     pan: expression.pan,
                     displayNote: nextDisplay
                 )
+                performKeyTapHaptic(isInitialTap: false)
                 currentPlayedNote = nextPlayed
             } else {
                 currentPlayedNote = nil
@@ -177,6 +187,8 @@ final class PianoKeyboardView: NSView {
     }
 
     func clearInteraction() {
+        pendingHapticEcho?.cancel()
+        pendingHapticEcho = nil
         currentDisplayNote = nil
         currentPlayedNote = nil
         hoveredNote = nil
@@ -196,6 +208,9 @@ final class PianoKeyboardView: NSView {
             { KeyboardIconRenderer.noteAt(point, layout: Self.rendererLayout) }
         )
         if next != hoveredNote {
+            if currentPlayedNote == nil, let next {
+                performHoverHaptic(for: next)
+            }
             hoveredNote = next
             needsDisplay = true
         }
@@ -235,5 +250,51 @@ final class PianoKeyboardView: NSView {
         let value = Int(displayNote) + menuBand.octaveShift * 12
         guard value >= 0, value <= 127 else { return nil }
         return UInt8(value)
+    }
+
+    private func performKeyTapHaptic(isInitialTap: Bool) {
+        guard menuBand?.hapticsEnabled != false else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastHapticTime >= Self.hapticCooldown else { return }
+        lastHapticTime = now
+        pendingHapticEcho?.cancel()
+        pendingHapticEcho = nil
+
+        let performer = NSHapticFeedbackManager.defaultPerformer
+        if isInitialTap {
+            performer.perform(.alignment, performanceTime: .now)
+            let echo = DispatchWorkItem {
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            }
+            pendingHapticEcho = echo
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialTapEchoDelay, execute: echo)
+        } else {
+            performer.perform(.levelChange, performanceTime: .now)
+        }
+    }
+
+    private func presentHapticsSetupHintIfNeeded() {
+        guard menuBand?.hapticsEnabled != false else { return }
+        guard UserDefaults.standard.bool(forKey: Self.hapticHintDefaultsKey) == false,
+              let window
+        else { return }
+        UserDefaults.standard.set(true, forKey: Self.hapticHintDefaultsKey)
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Trackpad Haptics"
+        alert.informativeText = """
+        If you don't feel feedback when clicking piano keys, open System Settings > Trackpad > Point & Click and turn on “Force Click and haptic feedback.”
+        """
+        alert.addButton(withTitle: "OK")
+        alert.beginSheetModal(for: window)
+    }
+
+    private func performHoverHaptic(for note: UInt8) {
+        guard menuBand?.hapticsEnabled != false else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastHoverHapticTime >= Self.hoverHapticCooldown else { return }
+        lastHoverHapticTime = now
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .default)
     }
 }
