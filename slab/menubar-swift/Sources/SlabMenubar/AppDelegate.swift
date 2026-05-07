@@ -184,6 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func syncBoth() { syncMail(account: nil) }
     @objc func syncAcMail() { syncMail(account: "ac-mail") }
     @objc func syncJasMail() { syncMail(account: "jas-mail") }
+    @objc func syncSotceMail() { syncMail(account: "sotce-mail") }
 
     @objc func openSyncLog() {
         if FileManager.default.fileExists(atPath: Paths.mailSyncLog) {
