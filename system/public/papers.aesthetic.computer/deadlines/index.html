@@ -202,6 +202,24 @@
         }
         .row .notes .draft-link:hover { text-decoration: underline; }
 
+        .row .notes .proposal-link {
+            display: inline-block;
+            padding: 0.05em 0.55em;
+            border-radius: 3px;
+            font-size: 0.95em;
+            margin-right: 0.4em;
+            background: var(--pink);
+            color: var(--bg);
+            border: 1px solid var(--pink);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .row .notes .proposal-link:hover {
+            background: transparent;
+            color: var(--pink);
+            text-decoration: none;
+        }
+
         .review-banner {
             margin: 0.6em 0 1.4em;
             padding: 0.5em 0.8em;
@@ -334,16 +352,18 @@
                 notes: '€1,500–€7,000 grant + mentoring + online exhibition. Critical approaches to internet protocols, infrastructures, governance, archives, and user agency on networked technologies — not "old internet" nostalgia.',
             },
             {
-                section: 'open',
+                section: 'active',
                 venue: 'Printed Matter — NY Art Book Fair',
                 venueUrl: 'https://www.printedmatter.org/opencall',
-                track: 'Project Space (Fia, unverified)',
+                track: 'Project Space (Fia)',
                 deadline: '2026-05-08',
-                conference: 'NYABF 2026, MoMA PS1',
-                status: 'verify',
-                statusLabel: 'Verify',
+                conference: 'NYABF 2026, MoMA PS1, Sep 24–27',
+                status: 'go',
+                statusLabel: 'Active',
+                proposalUrl: 'https://aesthetic.computer/printed-matter-2026',
+                proposalLabel: 'The AC Papermill, Asked Live',
                 draftPath: 'printed-matter-project-space-2026/DRAFT.md',
-                notes: 'Fia flagged a Project Space track with a $3,500 grant and May 8 deadline. Public NYABF table/project-space application closed Mar 30 — confirm whether this is a separate program (DM Printed Matter or check Fia\'s source) before drafting.',
+                notes: 'A reference desk at NYABF where visitors query the 137 MB platter and walk away with a footnoted answer card. Project Space fee covered by Aesthetic Inc; self-funded application, not a fee-relief request.',
             },
             {
                 section: 'open',
@@ -359,17 +379,19 @@
                 notes: '3–7 days unrestricted access to a 3,000 sq ft loft, high-quality documentation, culminating in a public ticketed performance. For ambitious sound and performance work; priority to projects in early development.',
             },
             {
-                section: 'open',
-                venue: 'CultureHub',
+                section: 'active',
+                venue: 'CultureHub @ La MaMa',
                 venueUrl: 'https://www.culturehub.org/residency',
-                track: 'LA Residency (Fia)',
+                track: 'NYC Residency (Fia)',
                 deadline: '2026-05-20',
                 deadlineExtra: '23:59 PT',
-                conference: 'CultureHub LA',
-                status: 'candidate',
-                statusLabel: 'Candidate',
-                draftPath: 'culturehub-la-2026/DRAFT.md',
-                notes: '1–2 week residency with reconfigurable lighting/audio/video/projection, technical support, $2,000 stipend, marketing, documentation, and a culminating public presentation. LA-based artists; emerging tech focus (VR, AI, robotics, creative coding, telepresence). NY hybrid track also available.',
+                conference: 'CultureHub at La MaMa, NYC',
+                status: 'go',
+                statusLabel: 'Active',
+                proposalUrl: 'https://aesthetic.computer/culture-hub-2026',
+                proposalLabel: 'Menuband Jam · NELA Computer Club',
+                draftPath: 'culturehub-2026/DRAFT.md',
+                notes: '1–2 week residency with reconfigurable lighting/audio/video/projection, technical support, $2,000 stipend, marketing, documentation, and a culminating public presentation. Bringing six NELA Computer Club players to NYC for a Menuband Jam.',
             },
             {
                 section: 'open',
@@ -550,6 +572,7 @@
 
         // ===== RENDER =====
         const SECTIONS = [
+            { id: 'active',  title: 'Active proposals',  color: 'cyan',   blurb: 'Live public previews. Going to submit.' },
             { id: 'verify',  title: 'Verify submission', color: 'red',    blurb: 'Deadline already passed; draft was ready but submission status is unconfirmed.' },
             { id: 'open',    title: 'Open windows',      color: 'pink',   blurb: 'Sorted by closest deadline first.' },
             { id: 'rolling', title: 'Rolling',           color: 'cyan',   blurb: 'Submit any time.' },
@@ -595,13 +618,14 @@
             const root = document.getElementById('sections');
 
             // Sort within sections
+            const active = DEADLINES.filter(d => d.section === 'active').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const open = DEADLINES.filter(d => d.section === 'open').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const passed = DEADLINES.filter(d => d.section === 'passed').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const verify = DEADLINES.filter(d => d.section === 'verify').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const rolling = DEADLINES.filter(d => d.section === 'rolling');
             const funding = DEADLINES.filter(d => d.section === 'funding');
 
-            const bySection = { verify, open, rolling, funding, passed };
+            const bySection = { active, verify, open, rolling, funding, passed };
 
             for (const sec of SECTIONS) {
                 const items = bySection[sec.id] || [];
@@ -651,12 +675,16 @@
                 ? `<a class="draft-link" href="vscode://file${VAULT_GRANTS_PREFIX}${item.draftPath}">📝 review draft</a>`
                 : '';
 
-            const hasNotes = item.notes || statusBadge || draftLink;
+            const proposalLink = item.proposalUrl
+                ? `<a class="proposal-link" href="${item.proposalUrl}" target="_blank" rel="noopener">▸ ${item.proposalLabel || 'view proposal'}</a>`
+                : '';
+
+            const hasNotes = item.notes || statusBadge || draftLink || proposalLink;
             row.innerHTML = `
                 <div class="venue">${venueText}${trackText}</div>
                 <div class="when">${dateBlock}</div>
                 <div class="countdown ${cd.cls}">${cd.label}</div>
-                ${hasNotes ? `<div class="notes">${statusBadge}${draftLink}${item.notes || ''}</div>` : ''}
+                ${hasNotes ? `<div class="notes">${statusBadge}${proposalLink}${draftLink}${item.notes || ''}</div>` : ''}
             `;
             return row;
         }

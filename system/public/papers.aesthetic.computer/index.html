@@ -165,6 +165,75 @@
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.6em; }
         .sub a { color: var(--cyan); text-decoration: none; }
 
+        /* Active proposals — pinned strip at top of papers index */
+        .active-proposals {
+            margin: 0.4em 0 1.2em;
+            padding: 0.7em 0.85em 0.85em;
+            border: 1px solid var(--box-border);
+            border-left: 3px solid var(--pink);
+            border-radius: 4px;
+            background: var(--box-bg);
+        }
+        .ap-header {
+            display: flex; align-items: baseline; justify-content: space-between;
+            margin-bottom: 0.55em;
+            font-size: 0.75em;
+        }
+        .ap-eyebrow {
+            color: var(--pink);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+        .ap-all { color: var(--dim); text-decoration: none; }
+        .ap-all:hover { color: var(--cyan); }
+        .ap-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 0.45em;
+        }
+        .ap-card {
+            display: block;
+            padding: 0.55em 0.7em;
+            background: var(--bg);
+            border: 1px solid var(--box-border);
+            border-radius: 3px;
+            text-decoration: none;
+            transition: border-color 0.15s, transform 0.15s;
+        }
+        .ap-card:hover {
+            border-color: var(--pink);
+            transform: translateY(-1px);
+        }
+        .ap-card .ap-title {
+            font-family: 'YWFTProcessing-Regular', 'Berkeley Mono Variable', monospace;
+            color: var(--text);
+            font-size: 1.05em;
+            line-height: 1.2;
+            margin-bottom: 0.15em;
+        }
+        .ap-card .ap-venue {
+            color: var(--dim);
+            font-size: 0.78em;
+            line-height: 1.3;
+        }
+        .ap-card .ap-meta {
+            display: flex; gap: 0.5em; align-items: center;
+            margin-top: 0.4em;
+            font-size: 0.72em;
+            font-variant-numeric: tabular-nums;
+        }
+        .ap-card .ap-countdown {
+            padding: 0.05em 0.4em;
+            border: 1px solid var(--box-border);
+            border-radius: 10px;
+            color: var(--dim);
+        }
+        .ap-card .ap-countdown.urgent { color: var(--pink); border-color: var(--pink); }
+        .ap-card .ap-countdown.soon { color: var(--purple); border-color: var(--purple); }
+        .ap-card .ap-countdown.ok { color: var(--cyan); border-color: var(--cyan); }
+        .ap-card .ap-deadline { color: var(--dim); }
+
         /* Sort bar */
         .sort-bar {
             display: flex;
@@ -549,6 +618,15 @@
 
     <div class="sub">@jeffrey &middot; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
 
+    <!-- ===== ACTIVE PROPOSALS (live public previews, sorted by closest deadline) ===== -->
+    <div class="active-proposals" id="activeProposals">
+        <div class="ap-header">
+            <span class="ap-eyebrow">Active proposals</span>
+            <a class="ap-all" href="/deadlines">all deadlines &rarr;</a>
+        </div>
+        <div class="ap-list" id="apList"></div>
+    </div>
+
     <div class="sort-bar" id="sortBar">
         <button class="sort-btn active" data-sort="hits">top hits</button>
         <button class="sort-btn" data-sort="updated">newly updated</button>
@@ -854,14 +932,22 @@
             const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
             // focal: normalized (0-1) image-space anchor that stays centered on screen
-            //   v5 = library reading room   — six jeffreys at oak table, faces band mid-frame
+            //   v5 = library reading room   — six AC freaks at oak table, faces band mid-frame
             //   v6 = town-square news stand — kiosk handoff left-of-center, steps reader right
-            //   v7 = cafe reading circle    — six jeffreys at far side of long communal table
-            // pan.s = zoom multiplier on top of contain baseline (1.0 = full image visible)
+            //   v7 = elementary classroom   — kids + teacher around the music room
+            //   v8 = field jam session      — meadow horseshoe with notepats + papers
+            //   w1 = portrait: kid hands jeffrey a paper they wrote (faces upper-mid)
+            //   w2 = portrait: mid-life pro shows jeffrey her Surface (faces upper-mid)
+            //   w3 = portrait: elder shows jeffrey her PowerBook on the porch
+            // pan.s = zoom multiplier on top of cover baseline (1.0 = bare cover)
             const SLIDES = [
                 { src: '/papers-header-v5.png', focal: { x: 0.50, y: 0.45 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.08, x: -0.01, y:  0.01 } } },
+                { src: '/papers-header-w1.png', focal: { x: 0.50, y: 0.38 }, pan: { from: { s: 1.04, x: 0, y: 0 }, to: { s: 1.10, x:  0.01, y:  0.01 } } },
                 { src: '/papers-header-v6.png', focal: { x: 0.45, y: 0.50 }, pan: { from: { s: 1.06, x: 0, y: 0 }, to: { s: 1.00, x:  0.02, y: -0.01 } } },
+                { src: '/papers-header-w2.png', focal: { x: 0.50, y: 0.38 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.08, x: -0.01, y:  0.01 } } },
                 { src: '/papers-header-v7.png', focal: { x: 0.50, y: 0.42 }, pan: { from: { s: 1.04, x: 0, y: 0 }, to: { s: 1.10, x: -0.01, y:  0.01 } } },
+                { src: '/papers-header-w3.png', focal: { x: 0.50, y: 0.40 }, pan: { from: { s: 1.06, x: 0, y: 0 }, to: { s: 1.00, x:  0.01, y: -0.01 } } },
+                { src: '/papers-header-v8.png', focal: { x: 0.50, y: 0.55 }, pan: { from: { s: 1.00, x: 0, y: 0 }, to: { s: 1.10, x:  0.00, y: -0.02 } } },
             ];
             const SLIDE_DUR = 7000;
             const FADE_DUR = 1800;
@@ -895,18 +981,31 @@
 
             // Cover-fill the canvas with a single image; focal anchor keeps
             // the subject centered as the slow Ken Burns pan zooms in/out.
+            //
+            // Coverage invariant: the canvas must NEVER show empty margin on
+            // any edge, even at the wide end of the pan. Two guarantees:
+            //   1. baseScale carries 5% overscan so sc=1.0 + small translate
+            //      still has room before the image edge clears the canvas.
+            //   2. dx/dy are clamped so a stray translate value can never
+            //      shift the image past a canvas edge.
+            const COVER_OVERSCAN = 1.05;
             function drawSlide(img, focal, pan, progress, alpha) {
                 if (!img.complete || !img.naturalWidth) return;
                 const t = easeInOutSine(progress);
                 const sc = pan.from.s + (pan.to.s - pan.from.s) * t;
                 const tx = pan.from.x + (pan.to.x - pan.from.x) * t;
                 const ty = pan.from.y + (pan.to.y - pan.from.y) * t;
-                const baseScale = Math.max(cssW / img.naturalWidth, cssH / img.naturalHeight);
+                const baseScale = Math.max(cssW / img.naturalWidth, cssH / img.naturalHeight) * COVER_OVERSCAN;
                 const scale = baseScale * sc;
                 const dw = img.naturalWidth * scale;
                 const dh = img.naturalHeight * scale;
-                const dx = (cssW / 2) - (img.naturalWidth  * focal.x * scale) + tx * cssW;
-                const dy = (cssH / 2) - (img.naturalHeight * focal.y * scale) + ty * cssH;
+                let dx = (cssW / 2) - (img.naturalWidth  * focal.x * scale) + tx * cssW;
+                let dy = (cssH / 2) - (img.naturalHeight * focal.y * scale) + ty * cssH;
+                // Clamp so the image always covers the entire canvas. dw/dh
+                // are guaranteed >= cssW/cssH because baseScale is the cover
+                // fit times 1.05, so the clamp range is non-empty.
+                dx = Math.min(0, Math.max(cssW - dw, dx));
+                dy = Math.min(0, Math.max(cssH - dh, dy));
                 ctx.save();
                 ctx.globalAlpha = alpha;
                 ctx.drawImage(img, dx, dy, dw, dh);
@@ -1399,6 +1498,55 @@
             else if (r.classList.contains('dark-mode')) { r.classList.replace('dark-mode', 'light-mode'); }
             else { r.classList.add(matchMedia('(prefers-color-scheme:dark)').matches ? 'light-mode' : 'dark-mode'); }
         }
+
+        // Active proposals — pinned strip at top of papers index.
+        // Mirror of the active section in /deadlines, sorted by closest deadline.
+        const ACTIVE_PROPOSALS = [
+            {
+                title: 'The AC Papermill, Asked Live',
+                venue: 'Printed Matter — NY Art Book Fair · Project Space',
+                deadline: '2026-05-08',
+                url: 'https://aesthetic.computer/printed-matter-2026',
+            },
+            {
+                title: 'Menuband Jam · NELA Computer Club',
+                venue: 'CultureHub @ La MaMa · NYC Residency',
+                deadline: '2026-05-20',
+                url: 'https://aesthetic.computer/culture-hub-2026',
+            },
+        ];
+
+        (function renderActiveProposals() {
+            const list = document.getElementById('apList');
+            const container = document.getElementById('activeProposals');
+            if (!list || !container) return;
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const items = ACTIVE_PROPOSALS
+                .map(p => ({ ...p, target: new Date(p.deadline + 'T23:59:59Z') }))
+                .filter(p => p.target.getTime() >= today.getTime() - 86400000)
+                .sort((a, b) => a.target - b.target);
+
+            if (items.length === 0) { container.style.display = 'none'; return; }
+
+            list.innerHTML = items.map(p => {
+                const days = Math.round((p.target - today) / 86400000);
+                let cls = 'ok', label = `${days}d`;
+                if (days < 0) { cls = 'passed'; label = `${-days}d ago`; }
+                else if (days === 0) { cls = 'urgent'; label = 'today'; }
+                else if (days <= 7) { cls = 'urgent'; label = `${days}d`; }
+                else if (days <= 30) { cls = 'soon'; label = `${days}d`; }
+                const dateStr = p.target.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+                return `<a class="ap-card" href="${p.url}">
+                    <div class="ap-title">${p.title}</div>
+                    <div class="ap-venue">${p.venue}</div>
+                    <div class="ap-meta">
+                        <span class="ap-countdown ${cls}">${label}</span>
+                        <span class="ap-deadline">due ${dateStr}</span>
+                    </div>
+                </a>`;
+            }).join('');
+        })();
     </script>
 </body>
 </html>
