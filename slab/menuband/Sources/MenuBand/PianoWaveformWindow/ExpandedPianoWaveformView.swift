@@ -72,6 +72,7 @@ final class ExpandedPianoWaveformView: NSView {
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var widthConstraint: NSLayoutConstraint?
     private var waveformHeightConstraint: NSLayoutConstraint?
+    private var hapticsWidthConstraint: NSLayoutConstraint?
     private var isPresented = false
     private var trackingArea: NSTrackingArea?
     private static let panelCornerRadius: CGFloat = 18
@@ -162,6 +163,7 @@ final class ExpandedPianoWaveformView: NSView {
         hapticsControls.translatesAutoresizingMaskIntoConstraints = false
         hapticsControls.setContentHuggingPriority(.required, for: .horizontal)
         hapticsControls.setContentCompressionResistancePriority(.required, for: .horizontal)
+        hapticsWidthConstraint = hapticsControls.widthAnchor.constraint(equalToConstant: 0)
         hapticsLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         hapticsLabel.textColor = .secondaryLabelColor
         hapticsLabel.lineBreakMode = .byClipping
@@ -495,6 +497,12 @@ final class ExpandedPianoWaveformView: NSView {
     }
 
     private func updateHapticsControl() {
+        let available = MenuBandHaptics.isAvailable
+        hapticsControls.isHidden = !available
+        hapticsWidthConstraint?.isActive = !available
+        hapticsSwitch.isEnabled = available
+        hapticsInfoButton.isEnabled = available
+        guard available else { return }
         hapticsSwitch.state = (menuBand?.hapticsEnabled ?? true) ? .on : .off
     }
 
@@ -742,10 +750,12 @@ final class ExpandedPianoWaveformView: NSView {
     }
 
     @objc private func hapticsSwitchChanged(_ sender: NSSwitch) {
+        guard MenuBandHaptics.isAvailable else { return }
         menuBand?.hapticsEnabled = (sender.state == .on)
     }
 
     @objc private func showHapticsInfo(_ sender: NSButton) {
+        guard MenuBandHaptics.isAvailable else { return }
         guard let window else { return }
         let alert = NSAlert()
         alert.alertStyle = .informational

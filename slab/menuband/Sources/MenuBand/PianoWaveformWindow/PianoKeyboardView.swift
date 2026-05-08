@@ -254,6 +254,7 @@ final class PianoKeyboardView: NSView {
 
     private func performKeyTapHaptic(isInitialTap: Bool) {
         guard menuBand?.hapticsEnabled != false else { return }
+        guard MenuBandHaptics.isAvailable else { return }
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastHapticTime >= Self.hapticCooldown else { return }
         lastHapticTime = now
@@ -275,6 +276,7 @@ final class PianoKeyboardView: NSView {
 
     private func presentHapticsSetupHintIfNeeded() {
         guard menuBand?.hapticsEnabled != false else { return }
+        guard MenuBandHaptics.isAvailable else { return }
         guard UserDefaults.standard.bool(forKey: Self.hapticHintDefaultsKey) == false,
               let window
         else { return }
@@ -292,6 +294,7 @@ final class PianoKeyboardView: NSView {
 
     private func performHoverHaptic(for note: UInt8) {
         guard menuBand?.hapticsEnabled != false else { return }
+        guard MenuBandHaptics.isAvailable else { return }
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastHoverHapticTime >= Self.hoverHapticCooldown else { return }
         lastHoverHapticTime = now

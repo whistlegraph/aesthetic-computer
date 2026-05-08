@@ -20,6 +20,7 @@ let package = Package(
                 .process("WaveformShaders.metal"),
             ],
             linkerSettings: [
+                .linkedFramework("IOKit"),
                 // Embed the package-root Info.plist into the dev
                 // binary so macOS TCC has an
                 // NSMicrophoneUsageDescription to show when
