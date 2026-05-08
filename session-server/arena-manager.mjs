@@ -12,6 +12,7 @@
 // them on is additive.
 
 import { newState, pmove, unpackCmd, DEFAULT_CFG, BTN } from "../system/public/aesthetic.computer/lib/pmove.mjs";
+import { ARENA_OBSTACLES, ARENA_PHYSICS } from "../system/public/aesthetic.computer/lib/arena-world.mjs";
 
 const PLAYER_FIELDS = ["h","x","y","z","vx","vy","vz","yaw","pitch","c","g","a"];
 
@@ -35,6 +36,14 @@ export const ARENA_CFG = Object.freeze({
   groundBounds: { xMin: -14, xMax: 14, zMin: -14, zMax: 14 },
   deathFloorY: -30,
   simHz: TICK_RATE,
+  // 🏃 Quake-style strafe-jumping + bunny-hop.
+  airAccel: ARENA_PHYSICS.airAccel,
+  groundAccel: ARENA_PHYSICS.groundAccel,
+  airCapSpeed: ARENA_PHYSICS.airCapSpeed,
+  groundFriction: ARENA_PHYSICS.groundFriction,
+  // 🧱 Static walls + pillars (shared with the client).
+  obstacles: ARENA_OBSTACLES,
+  playerRadius: ARENA_PHYSICS.playerRadius,
 });
 
 // Spawn ring — spread players around the arena.

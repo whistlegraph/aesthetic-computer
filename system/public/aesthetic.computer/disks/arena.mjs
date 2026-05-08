@@ -2,14 +2,15 @@
 // Quake-style arena with large tessellated ground, player shadow, and speedometer.
 
 /* #region 🏁 TODO
-  - [] Add more arena geometry (walls, pillars)
-  - [] Strafe-jumping / bunny-hop acceleration
   + Done
   - [x] Fork from fps.mjs
   - [x] Large pre-tessellated ground plane
   - [x] Speed meter HUD + FPS counter
   - [x] Gravity + space-to-jump + shift-to-crouch (Quake-style)
   - [x] Multiuser: WS+UDP wiring to session-server/arena-manager.mjs
+  - [x] Walls + pillars (solid meshes, shared client/server collision)
+  - [x] Strafe-jumping / bunny-hop acceleration (Q3 friction + air-accel)
+  - [x] Solid humanoid meshes for remote players
 #endregion */
 
 // ---------------------------------------------------------------------------
@@ -18,6 +19,7 @@
 // ---------------------------------------------------------------------------
 
 import { BTN, packCmd, pmove } from "../lib/pmove.mjs";
+import { ARENA_OBSTACLES, ARENA_OBSTACLE_COLORS, ARENA_PHYSICS } from "../lib/arena-world.mjs";
 
 let myHandle = "guest";
 let netServer = null;       // WebSocket (reliable)
@@ -60,6 +62,14 @@ const ARENA_CFG = Object.freeze({
   groundBounds: { xMin: -14, xMax: 14, zMin: -14, zMax: 14 },
   deathFloorY: -30, deathFloorClearance: 0.3,
   simHz: 60, hVelDecay: 0.9,
+  // 🏃 Q3 air-physics (mirrors server) — enables strafe-jump / bunny-hop.
+  airAccel: ARENA_PHYSICS.airAccel,
+  groundAccel: ARENA_PHYSICS.groundAccel,
+  airCapSpeed: ARENA_PHYSICS.airCapSpeed,
+  groundFriction: ARENA_PHYSICS.groundFriction,
+  // 🧱 Static walls + pillars (shared geometry).
+  obstacles: ARENA_OBSTACLES,
+  playerRadius: ARENA_PHYSICS.playerRadius,
 });
 
 // Remote players (everyone except me)
@@ -485,31 +495,96 @@ function isGuestHandle(h) {
   return typeof h === "string" && (h.startsWith("guest_") || h.startsWith("swarm_"));
 }
 
-// Build a small humanoid stick-figure as a single line Form. Cheap to clone
-// per remote (handful of verts) and matches the arena's visual language.
+// Build a solid boxy humanoid mesh (head, torso, arms, legs) as a single
+// triangle Form so remote players read as bodies, not line drawings. The
+// origin sits at eye height so paintRemotes can place body.position at the
+// remote's eye coords without offset gymnastics. Face-side (+Z in body-local)
+// gets a darker visor tone so you can tell which way the player is looking.
 function buildRemoteBody(Form, colorRGB, watcher = false) {
-  const [r, g, b] = colorRGB;
-  const a = watcher ? 0.35 : 0.9;
-  const aDim = watcher ? 0.18 : 0.5;
-  const col = [r / 255, g / 255, b / 255, a];
-  const colDim = [r / 255, g / 255, b / 255, aDim];
-  const head = 0.3, shoulder = -0.4, hip = -1.1, foot = -2.0;
-  // coords are (x, y, z, w); y is "up" in the form's local space.
-  const pts = [
-    // spine
-    [0,  head,    0, 1], [0, hip,    0, 1],
-    // shoulders
-    [-0.35, shoulder, 0, 1], [0.35, shoulder, 0, 1],
-    // arms (slightly forward)
-    [-0.35, shoulder, 0, 1], [-0.45, -0.9, 0.25, 1],
-    [ 0.35, shoulder, 0, 1], [ 0.45, -0.9, 0.25, 1],
-    // hips → feet
-    [-0.18, hip, 0, 1], [-0.18, foot, 0, 1],
-    [ 0.18, hip, 0, 1], [ 0.18, foot, 0, 1],
+  const [R, G, B] = colorRGB;
+  const a = watcher ? 0.55 : 1.0;
+  const r = R / 255, g = G / 255, b = B / 255;
+  // Tone tiers from the deterministic per-handle hue.
+  const main = [r, g, b, a];
+  const dark = [r * 0.55, g * 0.55, b * 0.55, a];
+  const light = [Math.min(1, r * 1.18), Math.min(1, g * 1.18), Math.min(1, b * 1.18), a];
+  const skinHead = [
+    Math.min(1, r * 0.4 + 0.5),
+    Math.min(1, g * 0.4 + 0.45),
+    Math.min(1, b * 0.4 + 0.4),
+    a,
   ];
-  const cols = [col, col, col, col, col, colDim, col, colDim, col, col, col, col];
-  const f = new Form({ type: "line", positions: pts, colors: cols },
-                     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 });
+  const visor = watcher
+    ? [0.55, 0.6, 0.7, a]
+    : [0.08, 0.08, 0.12, a];
+
+  const positions = [];
+  const colors = [];
+  // Push one axis-aligned box (in body-local coords). `faces` can override
+  // each face individually; missing faces fall back to `main`.
+  const pushBox = (xMin, yMin, zMin, xMax, yMax, zMax, faces) => {
+    const top = faces.top ?? faces.main;
+    const bot = faces.bot ?? faces.main;
+    const north = faces.north ?? faces.side ?? faces.main; // -Z
+    const south = faces.south ?? faces.side ?? faces.main; // +Z (face/forward)
+    const east  = faces.east  ?? faces.side ?? faces.main; // +X
+    const west  = faces.west  ?? faces.side ?? faces.main; // -X
+    const v = (x, y, z) => [x, y, z, 1];
+    const quad = (A, B, C, D, c) => {
+      positions.push(A, B, C, A, C, D);
+      for (let i = 0; i < 6; i++) colors.push(c);
+    };
+    quad(v(xMin,yMax,zMin), v(xMin,yMax,zMax), v(xMax,yMax,zMax), v(xMax,yMax,zMin), top);
+    quad(v(xMin,yMin,zMin), v(xMax,yMin,zMin), v(xMax,yMin,zMax), v(xMin,yMin,zMax), bot);
+    quad(v(xMin,yMin,zMin), v(xMin,yMax,zMin), v(xMax,yMax,zMin), v(xMax,yMin,zMin), north);
+    quad(v(xMax,yMin,zMax), v(xMax,yMax,zMax), v(xMin,yMax,zMax), v(xMin,yMin,zMax), south);
+    quad(v(xMax,yMin,zMin), v(xMax,yMax,zMin), v(xMax,yMax,zMax), v(xMax,yMin,zMax), east);
+    quad(v(xMin,yMin,zMax), v(xMin,yMax,zMax), v(xMin,yMax,zMin), v(xMin,yMin,zMin), west);
+  };
+
+  // Body coordinate convention (matches the prior stick figure):
+  //   y=+0.35 head top, y=0 shoulder/eye, y=-1.1 hip, y=-2.0 feet.
+  // +Z is the player's forward direction (they face +Z at yaw=0).
+
+  // Torso — primary handle color.
+  pushBox(-0.30, -1.10, -0.18, 0.30, -0.40, 0.18, {
+    main, top: light, bot: dark, north: dark, south: main,
+  });
+
+  // Head — neutral skin tone with a darker visor on the front (+Z) so the
+  // facing direction reads at a glance.
+  pushBox(-0.22, -0.05, -0.20, 0.22, 0.35, 0.20, {
+    main: skinHead,
+    top: [
+      Math.min(1, skinHead[0] * 1.05),
+      Math.min(1, skinHead[1] * 1.05),
+      Math.min(1, skinHead[2] * 1.05),
+      a,
+    ],
+    bot: dark,
+    south: visor, // +Z = face
+  });
+
+  // Arms — thin boxes on either side of the torso.
+  pushBox(-0.50, -1.05, -0.12, -0.32, -0.40, 0.12, {
+    main: dark, top: main, bot: dark,
+  });
+  pushBox( 0.32, -1.05, -0.12,  0.50, -0.40, 0.12, {
+    main: dark, top: main, bot: dark,
+  });
+
+  // Legs — squarer boxes from hip to feet.
+  pushBox(-0.22, -2.00, -0.14, -0.04, -1.10, 0.14, {
+    main: dark, top: main, bot: [0, 0, 0, a],
+  });
+  pushBox( 0.04, -2.00, -0.14,  0.22, -1.10, 0.14, {
+    main: dark, top: main, bot: [0, 0, 0, a],
+  });
+
+  const f = new Form(
+    { type: "triangle", positions, colors },
+    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+  );
   f.noFade = true;
   return f;
 }
@@ -581,6 +656,8 @@ let plumbLine;     // vertical line from ground to the player's feet
 let bodyFeet;      // two foot wireframes, anchored to ground + yaw
 let bodyArms;      // two arm wireframes, anchored to eye + yaw
 let platformEdge;  // bright outline at the ground's perimeter
+let obstacleForms = []; // solid pillar + wall meshes (one Form per shape)
+let obstacleEdges = []; // bright top-rim line forms paired with obstacleForms
 let FormRef;       // captured at boot so sim/paint can build transient forms
 let penLocked = false;
 
@@ -1102,6 +1179,18 @@ export const fpsOpts = {
   },
   // Dead players stop on the lava instead of falling forever.
   deathFloorY: DEATH_FLOOR_Y,
+  // 🏃 Quake-style local prediction: cam-doll runs the same friction +
+  // air-accel model as pmove on the server, so strafe-jump speed survives
+  // reconciliation.
+  airAccel: ARENA_PHYSICS.airAccel,
+  groundAccel: ARENA_PHYSICS.groundAccel,
+  airCapSpeed: ARENA_PHYSICS.airCapSpeed,
+  groundFriction: ARENA_PHYSICS.groundFriction,
+  // 🧱 Solid obstacle list resolved client-side too (matches server) so
+  // local motion stays in sync with pmove without depending on the
+  // reconciler to push the player back out of walls.
+  obstacles: ARENA_OBSTACLES,
+  playerRadius: ARENA_PHYSICS.playerRadius,
 };
 
 const BG = [45 / 255, 48 / 255, 55 / 255];
@@ -1855,6 +1944,141 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   );
   platformEdge.noFade = true;
 
+  // 🧱 Pillars + walls — solid triangle meshes built from ARENA_OBSTACLES.
+  // The same list drives client/server collision (see lib/arena-world.mjs),
+  // so what you see is what blocks you.
+  obstacleForms = [];
+  obstacleEdges = [];
+  for (let i = 0; i < ARENA_OBSTACLES.length; i++) {
+    const o = ARENA_OBSTACLES[i];
+    const baseColor = ARENA_OBSTACLE_COLORS[i] ?? [0.4, 0.4, 0.45, 1.0];
+    if (o.type === "cylinder") {
+      const segs = 14;
+      const positions = [];
+      const colors = [];
+      const yLo = o.yMin, yHi = o.yMax;
+      // Lighter top, darker bottom for depth.
+      const top = baseColor;
+      const bot = [baseColor[0] * 0.55, baseColor[1] * 0.55, baseColor[2] * 0.55, 1.0];
+      for (let s = 0; s < segs; s++) {
+        const a0 = (s / segs) * Math.PI * 2;
+        const a1 = ((s + 1) / segs) * Math.PI * 2;
+        const x0 = o.x + Math.cos(a0) * o.r, z0 = o.z + Math.sin(a0) * o.r;
+        const x1 = o.x + Math.cos(a1) * o.r, z1 = o.z + Math.sin(a1) * o.r;
+        // Side quad as two triangles. Slight per-segment shade variation
+        // so the curvature reads instead of looking like a flat hexagon.
+        const shade = 0.85 + 0.15 * Math.cos(a0 * 1.5);
+        const sCol = [top[0] * shade, top[1] * shade, top[2] * shade, 1.0];
+        const sBot = [bot[0] * shade, bot[1] * shade, bot[2] * shade, 1.0];
+        positions.push(
+          [x0, yLo, z0, 1], [x1, yLo, z1, 1], [x1, yHi, z1, 1],
+          [x0, yLo, z0, 1], [x1, yHi, z1, 1], [x0, yHi, z0, 1],
+        );
+        colors.push(sBot, sBot, sCol, sBot, sCol, sCol);
+        // Top cap fan triangle.
+        positions.push([o.x, yHi, o.z, 1], [x0, yHi, z0, 1], [x1, yHi, z1, 1]);
+        colors.push(top, sCol, sCol);
+      }
+      const f = new Form(
+        { type: "triangle", positions, colors },
+        { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+      );
+      f.noFade = true;
+      obstacleForms.push(f);
+
+      // Top rim outline so the pillar reads in depth even in fog.
+      const rimPos = [];
+      const rimCol = [];
+      const rim = [1, 0.85, 0.5, 0.85];
+      for (let s = 0; s < segs; s++) {
+        const a0 = (s / segs) * Math.PI * 2;
+        const a1 = ((s + 1) / segs) * Math.PI * 2;
+        rimPos.push(
+          [o.x + Math.cos(a0) * o.r, yHi + 0.01, o.z + Math.sin(a0) * o.r, 1],
+          [o.x + Math.cos(a1) * o.r, yHi + 0.01, o.z + Math.sin(a1) * o.r, 1],
+        );
+        rimCol.push(rim, rim);
+      }
+      const fe = new Form(
+        { type: "line", positions: rimPos, colors: rimCol },
+        { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+      );
+      fe.noFade = true;
+      obstacleEdges.push(fe);
+    } else if (o.type === "box") {
+      const yLo = o.yMin, yHi = o.yMax;
+      const x0 = o.xMin, x1 = o.xMax;
+      const z0 = o.zMin, z1 = o.zMax;
+      const top = baseColor;
+      const sideN = [baseColor[0] * 0.78, baseColor[1] * 0.78, baseColor[2] * 0.78, 1.0];
+      const sideE = [baseColor[0] * 0.92, baseColor[1] * 0.92, baseColor[2] * 0.92, 1.0];
+      const sideS = sideN;
+      const sideW = sideE;
+      const bot = [baseColor[0] * 0.5, baseColor[1] * 0.5, baseColor[2] * 0.5, 1.0];
+      const positions = [];
+      const colors = [];
+      const quad = (a, b, c, d, col) => {
+        positions.push(a, b, c, a, c, d);
+        for (let k = 0; k < 6; k++) colors.push(col);
+      };
+      // Top
+      quad(
+        [x0, yHi, z0, 1], [x0, yHi, z1, 1], [x1, yHi, z1, 1], [x1, yHi, z0, 1],
+        top,
+      );
+      // Bottom (visible if you peek under, also shields lava bleed)
+      quad(
+        [x0, yLo, z0, 1], [x1, yLo, z0, 1], [x1, yLo, z1, 1], [x0, yLo, z1, 1],
+        bot,
+      );
+      // North (-Z)
+      quad(
+        [x0, yLo, z0, 1], [x0, yHi, z0, 1], [x1, yHi, z0, 1], [x1, yLo, z0, 1],
+        sideN,
+      );
+      // South (+Z)
+      quad(
+        [x1, yLo, z1, 1], [x1, yHi, z1, 1], [x0, yHi, z1, 1], [x0, yLo, z1, 1],
+        sideS,
+      );
+      // East (+X)
+      quad(
+        [x1, yLo, z0, 1], [x1, yHi, z0, 1], [x1, yHi, z1, 1], [x1, yLo, z1, 1],
+        sideE,
+      );
+      // West (-X)
+      quad(
+        [x0, yLo, z1, 1], [x0, yHi, z1, 1], [x0, yHi, z0, 1], [x0, yLo, z0, 1],
+        sideW,
+      );
+      const f = new Form(
+        { type: "triangle", positions, colors },
+        { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+      );
+      f.noFade = true;
+      obstacleForms.push(f);
+
+      // Top edge outline — four lines around the wall's roof.
+      const rim = [1, 0.85, 0.5, 0.85];
+      const ey = yHi + 0.01;
+      const fe = new Form(
+        {
+          type: "line",
+          positions: [
+            [x0, ey, z0, 1], [x1, ey, z0, 1],
+            [x1, ey, z0, 1], [x1, ey, z1, 1],
+            [x1, ey, z1, 1], [x0, ey, z1, 1],
+            [x0, ey, z1, 1], [x0, ey, z0, 1],
+          ],
+          colors: [rim, rim, rim, rim, rim, rim, rim, rim],
+        },
+        { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+      );
+      fe.noFade = true;
+      obstacleEdges.push(fe);
+    }
+  }
+
   // 🫥 Feet reference — three shadow symbols swapped based on physics state,
   // plus a vertical plumb line from the ring up to the eye.
   const ringR = 0.35;
@@ -2354,6 +2578,10 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   if (platformBlock) ink(255).form(platformBlock);  // bottom and side faces
   if (groundSkirt) ink(255).form(groundSkirt);
   ink(255).form(groundPlane);
+  // 🧱 Walls + pillars — solid bodies first, glowing rims on top so the
+  // silhouette reads even when fog dims the body color.
+  for (const f of obstacleForms) ink(255).form(f);
+  for (const f of obstacleEdges) ink(255).form(f);
   if (hiPos.length > 0 && FormRef) {
     const hi = new FormRef(
       { type: "triangle", positions: hiPos, colors: hiCol },

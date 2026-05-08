@@ -6,6 +6,7 @@
 //       unwanted resets of state / ✨ allow disabling of state... ✨ - 24.07.03.02.50
 
 import { GAMEPAD_MAPPINGS } from "./gamepad-mappings.mjs";
+import { resolveObstacles } from "./pmove.mjs";
 
 const { abs } = Math;
 
@@ -98,6 +99,19 @@ export class CamDoll {
   // 💀 Death floor clamp — when set, a frozen (dead) player lands on this
   // world Y instead of falling forever.
   #deathFloorY = null;
+
+  // 🏃 Quake-style air physics. Set to a number to enable strafe-jumping /
+  // bunny-hop: in air the dolly's horizontal decay is replaced by an
+  // air-accelerate primitive that adds velocity along wishdir without
+  // touching perpendicular speed. On the ground a friction+accelerate model
+  // takes over. Must mirror lib/pmove.mjs so the server arrives at the same
+  // state.
+  #airAccel = null;
+  #groundAccel = 80;
+  #airCapSpeed = 1.5;
+  #groundFriction = 6;
+  #obstacles = null;
+  #playerRadius = 0.4;
   #deathFloorEyeClearance = 0.3;
 
   // 🖖 Disable built-in touch controls for pieces that implement custom mobile UI
@@ -129,6 +143,16 @@ export class CamDoll {
       this.#moveDamp = this.#runSpeed / this.#simHz / 10;
       if (opts.groundBounds) this.#groundBounds = opts.groundBounds;
       if (typeof opts.deathFloorY === "number") this.#deathFloorY = opts.deathFloorY;
+      // 🏃 Quake-style physics — opt-in. When enabled the dolly stops decaying
+      // (we own velocity) and friction/air-accel run inline below.
+      if (typeof opts.airAccel === "number") {
+        this.#airAccel = opts.airAccel;
+        if (typeof opts.groundAccel === "number") this.#groundAccel = opts.groundAccel;
+        if (typeof opts.airCapSpeed === "number") this.#airCapSpeed = opts.airCapSpeed;
+        if (typeof opts.groundFriction === "number") this.#groundFriction = opts.groundFriction;
+      }
+      if (Array.isArray(opts.obstacles)) this.#obstacles = opts.obstacles;
+      if (typeof opts.playerRadius === "number") this.#playerRadius = opts.playerRadius;
       // Snap camera onto the floor at boot.
       this.cam.y = -(this.#groundY + this.#eyeHeight);
     }
@@ -191,8 +215,11 @@ export class CamDoll {
   applyImpulse({ x = 0, y = 0, z = 0 } = {}) {
     // cam.x = -worldX, cam.z = -worldZ; dolly applies xVel directly to cam.x,
     // so to push +worldX we feed -x into the dolly.
-    if (x) this.#dolly.xVel += -x;
-    if (z) this.#dolly.zVel += -z;
+    // In Q3 mode our dolly.xVel is per-frame (= worldVel/simHz), so scale
+    // accordingly. Legacy mode keeps the old per-tick convention untouched.
+    const scale = this.#airAccel !== null ? 1 / this.#simHz : 1;
+    if (x) this.#dolly.xVel += -x * scale;
+    if (z) this.#dolly.zVel += -z * scale;
     if (y) {
       this.#worldYVel += y;
       if (y > 0) this.#onGround = false;
@@ -257,7 +284,9 @@ export class CamDoll {
       if (this.#A) strafe = push;
       if (this.#D) strafe = -push;
       // SPACE and SHIFT no longer push Y — handled in the physics pass below.
-      if (this.#W || this.#S || this.#A || this.#D) {
+      // In Q3 mode we own horizontal velocity directly (qStep below); skip
+      // dolly.push so we don't double-apply input.
+      if ((this.#W || this.#S || this.#A || this.#D) && this.#airAccel === null) {
         this.#dolly.push({ x: strafe, y: 0, z: forward });
       }
     } else {
@@ -280,7 +309,10 @@ export class CamDoll {
       }
     }
 
-    if (abs(this.#ANALOG.move.z) > 0 || abs(this.#ANALOG.move.x) > 0) {
+    if (
+      (abs(this.#ANALOG.move.z) > 0 || abs(this.#ANALOG.move.x) > 0) &&
+      this.#airAccel === null
+    ) {
       // console.log("Over zero:", this.#ANALOG.move.z);
       this.#dolly.push({
         x: this.#ANALOG.move.x,
@@ -337,7 +369,102 @@ export class CamDoll {
     if (this.cam.rotX > maxPitch) this.cam.rotX = maxPitch;
     if (this.cam.rotX < -maxPitch) this.cam.rotX = -maxPitch;
 
+    // 🏃 Q3 step: when airAccel is enabled we own the dolly's horizontal
+    // velocity. Read previous-frame world velocity from the dolly, run
+    // friction (ground) + accelerate (ground/air), and write back. The
+    // dolly's decay is set to 1 so dolly.sim() acts as pure integration.
+    if (this.#physicsEnabled && this.#airAccel !== null) {
+      this.#dolly.dec = 1;
+      const dt = 1 / this.#simHz;
+
+      // Per-frame dolly velocities are camera-coords (cam.x = -worldX),
+      // so worldVel = -dollyVel * simHz. Convert in & out.
+      let wvx = -this.#dolly.xVel * this.#simHz;
+      let wvz = -this.#dolly.zVel * this.#simHz;
+
+      // Wishvel from W/S/A/D + analog (camera-local → world by yaw).
+      let ix = 0, iz = 0;
+      if (this.#D) ix += 1;
+      if (this.#A) ix -= 1;
+      if (this.#W) iz += 1;
+      if (this.#S) iz -= 1;
+      if (this.#moveDamp > 0) {
+        const ax = this.#ANALOG.move.x / this.#moveDamp;
+        const az = this.#ANALOG.move.z / this.#moveDamp;
+        // Analog convention: dolly.push x = camera-local +x (A→strafe-left),
+        // z = -forward (W → -push). Our ix is "right=+1", iz is "fwd=+1", so
+        // negate to map.
+        ix += -ax > 1 ? 1 : -ax < -1 ? -1 : -ax;
+        iz += -az > 1 ? 1 : -az < -1 ? -1 : -az;
+      }
+      const ilen = Math.hypot(ix, iz);
+      if (ilen > 1) { ix /= ilen; iz /= ilen; }
+
+      const speed = this.#SHIFT ? this.#walkSpeed : this.#runSpeed;
+      const yr = this.cam.rotY * Math.PI / 180;
+      const sy = Math.sin(yr), cy = Math.cos(yr);
+      const wx = (ix * cy + iz * sy) * speed;
+      const wz = (-ix * sy + iz * cy) * speed;
+      const wishLen = Math.hypot(wx, wz);
+      const wdx = wishLen > 1e-6 ? wx / wishLen : 0;
+      const wdz = wishLen > 1e-6 ? wz / wishLen : 0;
+
+      // Edge-trigger jump BEFORE friction so a bhop landing keeps speed.
+      if (!this.#frozen && this.#SPACE && this.#onGround) {
+        this.#worldYVel = this.#jumpVelocity;
+        this.#onGround = false;
+      }
+
+      // Friction (ground only).
+      if (this.#onGround && !this.#frozen) {
+        const sp = Math.hypot(wvx, wvz);
+        if (sp < 1e-4) { wvx = 0; wvz = 0; }
+        else {
+          const stop = Math.max(sp, this.#runSpeed * 0.5);
+          const drop = stop * this.#groundFriction * dt;
+          const k = Math.max(0, sp - drop) / sp;
+          wvx *= k; wvz *= k;
+        }
+      }
+
+      // Accelerate.
+      if (wishLen > 1e-6 && !this.#frozen) {
+        const accel = this.#onGround ? this.#groundAccel : this.#airAccel;
+        const cap = this.#onGround ? wishLen : Math.min(wishLen, this.#airCapSpeed);
+        const cur = wvx * wdx + wvz * wdz;
+        const addspeed = cap - cur;
+        if (addspeed > 0) {
+          let mag = accel * dt * cap;
+          if (mag > addspeed) mag = addspeed;
+          wvx += wdx * mag; wvz += wdz * mag;
+        }
+      }
+
+      // Write back as per-frame cam-coords for dolly.sim() to integrate.
+      this.#dolly.xVel = -wvx / this.#simHz;
+      this.#dolly.zVel = -wvz / this.#simHz;
+    }
+
     this.#dolly.sim();
+
+    // Static obstacle push-out (after horizontal integration).
+    if (this.#airAccel !== null && this.#obstacles) {
+      const ws = {
+        x: -this.cam.x, z: -this.cam.z,
+        y: -this.cam.y,
+        vx: -this.#dolly.xVel * this.#simHz,
+        vz: -this.#dolly.zVel * this.#simHz,
+      };
+      resolveObstacles(ws, {
+        obstacles: this.#obstacles,
+        playerRadius: this.#playerRadius,
+        eyeHeight: this.#eyeHeight,
+      });
+      this.cam.x = -ws.x;
+      this.cam.z = -ws.z;
+      this.#dolly.xVel = -ws.vx / this.#simHz;
+      this.#dolly.zVel = -ws.vz / this.#simHz;
+    }
 
     // 🌍 Grounded physics pass — only when opted-in via opts.gravity.
     if (this.#physicsEnabled) {
