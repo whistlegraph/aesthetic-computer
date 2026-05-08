@@ -204,8 +204,25 @@ final class CollapsedPianoWaveformView: NSView {
             contentContainer.topAnchor.constraint(equalTo: topAnchor),
             contentContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
 
+            // QWERTY moved ABOVE the chooser so the keyboard sits
+            // at the top of the left sidebar, with the chooser grid
+            // and mode picker below. Arrow cluster stays glued to
+            // the qwerty's bottom-right corner.
+            qwertyMap.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: Self.topInset),
+            qwertyMap.widthAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.width),
+            qwertyMap.heightAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.height),
+            qwertyMap.leadingAnchor.constraint(
+                equalTo: contentContainer.leadingAnchor,
+                constant: (totalWidth - QwertyLayoutView.intrinsicSize.width - Self.rowGap - arrowsClusterWidth) / 2
+            ),
+
+            arrowsCluster.leadingAnchor.constraint(equalTo: qwertyMap.trailingAnchor, constant: Self.rowGap),
+            arrowsCluster.bottomAnchor.constraint(equalTo: qwertyMap.bottomAnchor),
+            arrowsCluster.heightAnchor.constraint(equalToConstant: Self.arrowsRowHeight),
+
+            // Instrument chooser grid sits BELOW the qwerty row.
             instrumentGridContainer.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
-            instrumentGridContainer.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: Self.topInset),
+            instrumentGridContainer.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: Self.rowGap),
             instrumentGridContainer.widthAnchor.constraint(
                 equalToConstant: InstrumentListView.preferredWidth + Self.gridPadding * 2
             ),
@@ -220,27 +237,10 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth),
             instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight),
 
-            // Qwerty + arrows row centered horizontally in the panel
-            // — looked too left-shoved when flush against the leading
-            // edge. The cluster (qwerty + gap + arrows) is treated
-            // as one unit so it sits balanced under the chooser.
-            qwertyMap.topAnchor.constraint(equalTo: instrumentGridContainer.bottomAnchor, constant: Self.rowGap),
-            qwertyMap.widthAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.width),
-            qwertyMap.heightAnchor.constraint(equalToConstant: QwertyLayoutView.intrinsicSize.height),
-            qwertyMap.leadingAnchor.constraint(
-                equalTo: contentContainer.leadingAnchor,
-                constant: (totalWidth - QwertyLayoutView.intrinsicSize.width - Self.rowGap - arrowsClusterWidth) / 2
-            ),
-
-            arrowsCluster.leadingAnchor.constraint(equalTo: qwertyMap.trailingAnchor, constant: Self.rowGap),
-            arrowsCluster.bottomAnchor.constraint(equalTo: qwertyMap.bottomAnchor),
-            arrowsCluster.heightAnchor.constraint(equalToConstant: Self.arrowsRowHeight),
-
-            // Mode picker (Notepat / Ableton) sits below the qwerty
-            // row. Centered horizontally and pinned to the bottom inset
-            // so the contentContainer's height resolves and the
-            // bottom-leading fullscreen toggle still has its strip.
-            modeStack.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: Self.modeRowTopGap),
+            // Mode picker (Notepat / Ableton) sits below the chooser
+            // grid. Centered horizontally and pinned to the bottom
+            // inset so the contentContainer's height resolves.
+            modeStack.topAnchor.constraint(equalTo: instrumentGridContainer.bottomAnchor, constant: Self.modeRowTopGap),
             modeStack.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
             modeStack.heightAnchor.constraint(equalToConstant: Self.modeRowHeight),
             modeStack.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: -Self.bottomInset),

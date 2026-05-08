@@ -129,6 +129,18 @@ cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
 if [[ -f "${SCRIPT_DIR}/AppIcon.icns" ]]; then
     cp "${SCRIPT_DIR}/AppIcon.icns" "${APP_RES}/AppIcon.icns"
 fi
+# Copy the SwiftPM-generated module resource bundle so files
+# accessed via `Bundle.module.url(forResource:)` resolve at
+# runtime. SwiftPM emits a `MenuBand_MenuBand.bundle` next to
+# the binary; without this the verovio toolkit / sheet harness
+# never load (Bundle.module returns nil) and SheetMusicView
+# silently shows an empty WKWebView.
+PKG_BUNDLE_DIR="$(dirname "${BUILT}")"
+PKG_BUNDLE_NAME="MenuBand_MenuBand.bundle"
+if [[ -d "${PKG_BUNDLE_DIR}/${PKG_BUNDLE_NAME}" ]]; then
+    rm -rf "${APP_RES}/${PKG_BUNDLE_NAME}"
+    cp -R "${PKG_BUNDLE_DIR}/${PKG_BUNDLE_NAME}" "${APP_RES}/${PKG_BUNDLE_NAME}"
+fi
 
 # Sign with the best available identity.
 SIGN_ID="$(discover_identity)"

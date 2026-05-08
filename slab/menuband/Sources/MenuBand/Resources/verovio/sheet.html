@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Score</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: #1a1410;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      overflow: hidden;
+    }
+    #page {
+      /* US-letter aspect ratio; sized via JS so it fills the host. */
+      background: #f8efd9;
+      box-shadow: 0 1px 0 rgba(120, 95, 60, 0.18) inset,
+                  0 0 0 0.5px rgba(120, 95, 60, 0.35);
+      border-radius: 6px;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
+    }
+    #page::before {
+      /* Subtle paper grain — SVG noise, no external assets. */
+      content: '';
+      position: absolute; inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55  0 0 0 0 0.45  0 0 0 0 0.30  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      mix-blend-mode: multiply;
+      opacity: 0.7;
+    }
+    #score {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    #score svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    #status {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 9px;
+      color: rgba(60, 40, 20, 0.45);
+      font-feature-settings: "tnum";
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="page">
+    <div id="score"></div>
+    <div id="status">loading…</div>
+  </div>
+  <script src="verovio-toolkit-wasm.js"></script>
+  <script>
+    /*
+     * Live-transcription bridge. Swift posts events via:
+     *   window.webkit.messageHandlers ... NO — we use the simpler
+     *   path of evaluateJavaScript('Sheet.noteOn(...)') from Swift.
+     *
+     * Each note onset gets pushed onto a flat list; the score is
+     * rendered as one part with continuous quarter notes (treated
+     * as a single 4/4 stream that auto-wraps at the page width).
+     * Held duration determines `type` (whole/half/quarter/eighth/16th).
+     */
+    const Sheet = (function () {
+      let toolkit = null;
+      const notes = []; // [{pitch, isSharp, onsetAt, releasedAt, beatAtOnset?}]
+      let renderQueued = false;
+      let lastRenderAt = 0;
+      // Metronome clock — Swift calls Sheet.beat() on every
+      // metronome tick (= one quarter note). Free-tempo if no
+      // beats have arrived in the last 4 seconds.
+      let beatIndex = 0;          // total beats observed
+      let lastBeatAt = 0;         // performance.now()/1000 of last tick
+      let beatInterval = 0;       // seconds between the last two beats
+      const BEAT_TIMEOUT = 4.0;   // free-tempo fallback after this gap
+
+      function metronomeActive(now) {
+        if (lastBeatAt <= 0) return false;
+        return (now - lastBeatAt) <= BEAT_TIMEOUT && beatInterval > 0;
+      }
+
+      function midiToStep(m) {
+        const sharps = [false, true, false, true, false, false, true, false, true, false, true, false];
+        const stepLetters = ['C','C','D','D','E','F','F','G','G','A','A','B'];
+        const pc = m % 12;
+        const oct = Math.floor(m / 12) - 1;
+        return {
+          letter: stepLetters[pc],
+          alter: sharps[pc] ? 1 : 0,
+          octave: oct,
+        };
+      }
+
+      // Map a held-duration in seconds to MusicXML type + tick count
+      // (divisions=4 → quarter=4 ticks, 16th=1 tick, whole=16 ticks).
+      // When the metronome is running we use beat-relative thresholds
+      // (fractions of a beat); otherwise wall-clock thresholds tuned
+      // for ~120bpm-ish playing.
+      function durationOf(secs, now) {
+        if (metronomeActive(now)) {
+          const beats = secs / beatInterval;
+          if (beats < 0.375) return { type: '16th',    ticks: 1 };
+          if (beats < 0.75)  return { type: 'eighth',  ticks: 2 };
+          if (beats < 1.5)   return { type: 'quarter', ticks: 4 };
+          if (beats < 3.0)   return { type: 'half',    ticks: 8 };
+          return                    { type: 'whole',   ticks: 16 };
+        }
+        if (secs < 0.18) return { type: '16th',    ticks: 1 };
+        if (secs < 0.40) return { type: 'eighth',  ticks: 2 };
+        if (secs < 0.85) return { type: 'quarter', ticks: 4 };
+        if (secs < 1.60) return { type: 'half',    ticks: 8 };
+        return                  { type: 'whole',   ticks: 16 };
+      }
+
+      function buildMusicXML() {
+        const PARTS_HEAD = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <part-list>
+    <score-part id="P1"><part-name>Live</part-name></score-part>
+  </part-list>
+  <part id="P1">`;
+
+        const TICKS_PER_BEAT = 4;
+        const TICKS_PER_MEASURE = 16;
+        const now = performance.now() / 1000;
+        // Sparse map of placed events keyed by absolute tick.
+        // tick → array of items at that position (chords share a tick).
+        const placed = {};
+        let totalTicks = 0;
+
+        for (const n of notes) {
+          const heldFor = (n.releasedAt ?? now) - n.onsetAt;
+          const d = durationOf(heldFor, now);
+          let onsetTick;
+          if (metronomeActive(now) && n.beatAtOnset != null) {
+            // Snap onset to the nearest 16th within its captured beat.
+            const fracIntoBeat = clamp((n.onsetAt - n.beatStartedAt) / beatInterval, 0, 0.999);
+            const subBeat = Math.round(fracIntoBeat * TICKS_PER_BEAT);
+            onsetTick = n.beatAtOnset * TICKS_PER_BEAT + subBeat;
+          } else {
+            // Free-tempo fallback — pack notes back-to-back.
+            onsetTick = totalTicks;
+            totalTicks += d.ticks;
+          }
+          if (!placed[onsetTick]) placed[onsetTick] = { items: [], duration: d.ticks };
+          placed[onsetTick].items.push({ ...n });
+          // For a chord (multiple onsets at same tick) keep the
+          // longest duration so the bar doesn't get truncated.
+          placed[onsetTick].duration = Math.max(placed[onsetTick].duration, d.ticks);
+        }
+
+        const ticks = Object.keys(placed).map(Number).sort((a, b) => a - b);
+        const lastTick = ticks.length
+          ? ticks[ticks.length - 1] + (placed[ticks[ticks.length - 1]].duration || 1)
+          : 0;
+        // Always reserve at least one measure of space.
+        const measureCount = Math.max(1, Math.ceil(lastTick / TICKS_PER_MEASURE));
+
+        let measuresXml = '';
+        let cursor = 0;
+        for (let m = 0; m < measureCount; m++) {
+          const measureStart = m * TICKS_PER_MEASURE;
+          const measureEnd = measureStart + TICKS_PER_MEASURE;
+          let body = '';
+          while (cursor < measureEnd) {
+            if (placed[cursor]) {
+              const slot = placed[cursor];
+              const useTicks = Math.min(slot.duration, measureEnd - cursor);
+              body += chordOrNoteXml(slot.items, useTicks);
+              cursor += useTicks;
+            } else {
+              // Find next placed tick within this measure (or measure end).
+              let next = measureEnd;
+              for (const t of ticks) {
+                if (t > cursor && t < measureEnd) { next = t; break; }
+              }
+              const restTicks = next - cursor;
+              body += `
+      <note>
+        <rest/>
+        <duration>${restTicks}</duration>
+        <type>${ticksToType(restTicks)}</type>
+      </note>`;
+              cursor = next;
+            }
+          }
+          const head = (m === 0) ? `
+      <attributes>
+        <divisions>${TICKS_PER_BEAT}</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>` : '';
+          measuresXml += `\n    <measure number="${m + 1}">${head}${body}\n    </measure>`;
+        }
+
+        return PARTS_HEAD + measuresXml + '\n  </part>\n</score-partwise>';
+      }
+
+      function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+      // Render a chord (multiple items) or single note at the given
+      // tick span. Subsequent notes inside a chord get the <chord/>
+      // marker so MusicXML stacks them on the same beat.
+      function chordOrNoteXml(items, ticks) {
+        const type = ticksToType(ticks);
+        return items.map((n, i) => {
+          const s = midiToStep(n.pitch);
+          const chordTag = (i > 0) ? '\n        <chord/>' : '';
+          const accTag = s.alter ? '\n        <accidental>sharp</accidental>' : '';
+          return `
+      <note>${chordTag}
+        <pitch>
+          <step>${s.letter}</step>${s.alter ? `<alter>${s.alter}</alter>` : ''}
+          <octave>${s.octave}</octave>
+        </pitch>
+        <duration>${ticks}</duration>
+        <type>${type}</type>${accTag}
+      </note>`;
+        }).join('');
+      }
+
+      function ticksToType(t) {
+        if (t >= 16) return 'whole';
+        if (t >=  8) return 'half';
+        if (t >=  4) return 'quarter';
+        if (t >=  2) return 'eighth';
+        return '16th';
+      }
+
+      function rerender() {
+        if (!toolkit) return;
+        const t0 = performance.now();
+        try {
+          const xml = buildMusicXML();
+          toolkit.loadData(xml);
+          const svg = toolkit.renderToSVG(1, {});
+          document.getElementById('score').innerHTML = svg;
+          const dt = (performance.now() - t0).toFixed(0);
+          document.getElementById('status').textContent =
+            `${notes.length} notes · ${dt}ms`;
+          lastRenderAt = performance.now();
+        } catch (e) {
+          document.getElementById('status').textContent = 'render error: ' + e.message;
+          console.error(e);
+        }
+      }
+
+      function queueRender() {
+        if (renderQueued) return;
+        renderQueued = true;
+        // Coalesce rapid bursts (chords). 30ms gives chords time to
+        // assemble into one render pass without feeling laggy.
+        setTimeout(() => {
+          renderQueued = false;
+          rerender();
+        }, 30);
+      }
+
+      // ---- public API (called via webview.evaluateJavaScript) ----
+
+      function noteOn(pitch) {
+        const now = performance.now() / 1000;
+        notes.push({
+          pitch,
+          isSharp: midiToStep(pitch).alter === 1,
+          onsetAt: now,
+          releasedAt: null,
+          beatAtOnset: metronomeActive(now) ? beatIndex - 1 : null,
+          beatStartedAt: lastBeatAt || now,
+        });
+        queueRender();
+      }
+
+      // Called once per metronome tick from Swift. Each tick is one
+      // quarter note in 4/4 time. The interval between successive
+      // calls feeds the duration estimator + the onset-snap logic.
+      function beat() {
+        const now = performance.now() / 1000;
+        if (lastBeatAt > 0) {
+          beatInterval = now - lastBeatAt;
+        }
+        lastBeatAt = now;
+        beatIndex += 1;
+        // No re-render needed on bare ticks — we re-render whenever
+        // the next note onset/release fires.
+      }
+
+      function noteOff(pitch) {
+        for (let i = notes.length - 1; i >= 0; i--) {
+          if (notes[i].pitch === pitch && notes[i].releasedAt == null) {
+            notes[i].releasedAt = performance.now() / 1000;
+            break;
+          }
+        }
+        queueRender();
+      }
+
+      function clear() {
+        notes.length = 0;
+        queueRender();
+      }
+
+      // Verovio render options. Tuned for a small live page —
+      // tight margins, a single system, and the system width
+      // capped to the page so multi-measure scores wrap.
+      function setOptions() {
+        // Verovio internal page units are tenths of a millimeter.
+        // The CSS layer scales the resulting SVG to fill the host
+        // (`#score svg { width:100%; height:100% }`), so to make
+        // the engraving READ LARGER inside the popover we use a
+        // small logical page (= each glyph covers more % of the
+        // page) and let CSS upscale to the host. Bigger logical
+        // page would do the opposite (engraving shrinks).
+        const aspect = 11 / 8.5;
+        const logicalW = 900;                // ~9 cm
+        const logicalH = Math.round(logicalW * aspect);  // ~11.6 cm
+        toolkit.setOptions({
+          pageWidth: logicalW,
+          pageHeight: logicalH,
+          pageMarginTop: 30,
+          pageMarginLeft: 35,
+          pageMarginRight: 35,
+          pageMarginBottom: 30,
+          scale: 60,
+          adjustPageHeight: false,
+          breaks: 'auto',
+          font: 'Bravura',
+        });
+      }
+
+      function ready() {
+        if (typeof verovio === 'undefined') {
+          document.getElementById('status').textContent = 'verovio missing';
+          return;
+        }
+        verovio.module.onRuntimeInitialized = function () {
+          toolkit = new verovio.toolkit();
+          setOptions();
+          rerender();
+          window.addEventListener('resize', () => {
+            setOptions();
+            rerender();
+          });
+        };
+      }
+
+      return { noteOn, noteOff, beat, clear, ready };
+    }());
+
+    Sheet.ready();
+    window.Sheet = Sheet;
+  </script>
+</body>
+</html>
