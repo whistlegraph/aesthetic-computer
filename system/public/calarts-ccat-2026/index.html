@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio Hand · Technical Director, BB6 · CalArts CCAT · 2026 · WIP DRAFT</title>
+<meta name="description" content="Jeffrey Alan Scudder's WIP application for the Technical Director role at CCAT (BB6 studio + lab) at CalArts. Drafting toward the live Paycom posting; the spine is five years of running Aesthetic Computer's working creative-computing infrastructure.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #11161e;
+    --text: #e6ecf2;
+    --dim: #93a0b3;
+    --pink: #d4929d;
+    --cyan: #7fc2d6;
+    --purple: #b3a4ce;
+    --gold: #dab87e;
+    --green: #b8c895;
+    --red: #d6a098;
+    --citrus: #c8e25f;
+    --box-bg: rgba(228,236,242,0.05);
+    --box-border: rgba(228,236,242,0.16);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f3f6fa;
+      --text: #14202c;
+      --dim: #4a5a6e;
+      --pink: #8e3a5b;
+      --cyan: #1e5566;
+      --purple: #4a3878;
+      --gold: #6e4f10;
+      --green: #3f4f25;
+      --red: #762522;
+      --citrus: #5a7d12;
+      --box-bg: rgba(20,32,44,0.05);
+      --box-border: rgba(20,32,44,0.20);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: none;
+    padding: 1.4em 1.6em 4em;
+    min-height: 100vh;
+    font-feature-settings: "ss01", "cv11";
+  }
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  .mono, code, .eyebrow, .meta, .stat .l, .count, .stage-floor, footer {
+    font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--pink); }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  .wip-banner {
+    background: var(--gold);
+    color: #1c1208;
+    padding: 0.7em 1em;
+    margin: -1em -1em 1.6em -1em;
+    font-family: 'YWFT Processing', monospace;
+    font-size: 0.95em;
+    letter-spacing: 0.04em;
+    text-align: center;
+    border-radius: 4px;
+  }
+  .wip-banner strong { font-size: 1.05em; }
+  .wip-banner .blink {
+    display: inline-block;
+    color: #5a3a08;
+    animation: blink 1.4s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.35; } }
+
+  .mast { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--dim);
+    font-size: 0.78em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .eyebrow .tag { color: var(--purple); }
+  .eyebrow .wip { color: var(--gold); }
+
+  h1 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: clamp(32px, 5.6vw, 56px);
+    font-weight: normal;
+    letter-spacing: -0.01em;
+    line-height: 1.02;
+    margin: 0.2em 0 0.2em;
+  }
+  h1 .dot { color: var(--pink); }
+  h1 em { font-style: normal; color: var(--citrus); }
+
+  .sub {
+    color: var(--dim);
+    font-size: 0.95em;
+    margin-bottom: 1.1em;
+  }
+  .sub strong { color: var(--text); font-weight: normal; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.3em 1.4em;
+    padding: 1em 1.2em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    font-size: 0.94em;
+  }
+  .meta dt { color: var(--dim); font-size: 0.92em; padding-top: 0.12em; font-weight: 500; }
+  .meta dd { margin: 0; }
+  .meta .due { color: var(--gold); }
+  .meta .partner { color: var(--purple); }
+
+  section { margin: 2.4em 0; }
+  h2 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: 1.4em;
+    font-weight: normal;
+    color: var(--text);
+    letter-spacing: 0;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--box-border);
+    margin-bottom: 1em;
+  }
+  h2 .ord {
+    color: var(--pink);
+    margin-right: 0.4em;
+    font-family: 'Berkeley Mono Variable', monospace;
+  }
+  h2 .count { float: right; color: var(--dim); font-size: 0.78em; padding-top: 0.7em; font-family: 'Berkeley Mono Variable', monospace; font-weight: normal; letter-spacing: 0; }
+
+  .glance {
+    margin: 1.4em 0 2.2em;
+    padding: 1em 1.2em;
+    background: linear-gradient(180deg, var(--box-bg) 0%, transparent 100%);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+  }
+  .glance .hint { color: var(--dim); font-size: 0.85em; margin-bottom: 1em; font-style: italic; }
+  .glance dl {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.8em 1.2em;
+    margin: 0;
+  }
+  .glance dt {
+    color: var(--dim);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 0.86em;
+    font-weight: 600;
+    padding-top: 0.32em;
+    align-self: start;
+    letter-spacing: 0;
+  }
+  .glance dt .cap {
+    display: block;
+    color: var(--gold);
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.82em;
+    margin-top: 0.2em;
+    font-weight: normal;
+    letter-spacing: 0;
+  }
+  .glance dd {
+    margin: 0;
+    padding-bottom: 1em;
+    border-bottom: 1px dotted var(--box-border);
+    line-height: 1.6;
+    font-size: 1em;
+  }
+  .glance dd:last-child { border-bottom: none; padding-bottom: 0; }
+  .glance dd strong { color: var(--text); }
+  .glance dd em { color: var(--citrus); font-style: normal; }
+  .glance .statement { font-size: 0.96em; color: var(--text); line-height: 1.6; }
+  .glance .excerpt { color: var(--dim); font-size: 0.96em; margin: 0 0 0.5em; line-height: 1.6; }
+  .glance .jump {
+    display: inline-block;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.84em;
+    color: var(--cyan);
+    letter-spacing: 0;
+  }
+  .glance .jump:hover { color: var(--pink); }
+  @media (max-width: 640px) {
+    .glance dl { grid-template-columns: 1fr; gap: 0.3em 0; }
+    .glance dt { padding-top: 0.8em; font-size: 0.7em; }
+    .glance dd { padding-bottom: 0.6em; }
+  }
+
+  .pitch p { margin: 0 0 1em; font-size: 1.02em; line-height: 1.65; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .pitch .drop {
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.25em;
+    color: var(--cyan);
+    display: block;
+    margin: 1.4em 0 0.6em;
+  }
+  .pitch em { color: var(--citrus); font-style: normal; }
+  .pitch strong { color: var(--text); }
+  .pitch q { quotes: "“" "”"; color: var(--gold); font-style: italic; }
+  .pitch code {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.9em;
+    padding: 0 0.25em;
+    background: var(--box-bg);
+    border-radius: 2px;
+    color: var(--cyan);
+  }
+
+  .anchors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .anchor {
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 2px solid var(--pink);
+    border-radius: 3px;
+  }
+  .anchor b {
+    display: block;
+    color: var(--pink);
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.1em;
+    font-weight: normal;
+    margin-bottom: 0.3em;
+  }
+  .anchor p { margin: 0; color: var(--text); font-size: 0.94em; line-height: 1.55; }
+
+  /* Infrastructure stack diagram — AC's working layers */
+  .stack {
+    margin: 1em 0;
+    padding: 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 80px;
+    gap: 0.6em;
+    align-items: stretch;
+    padding: 0.6em 0.4em;
+    border-bottom: 1px dotted var(--box-border);
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.88em;
+    line-height: 1.4;
+  }
+  .stack-row:last-child { border-bottom: none; }
+  .stack-row .label { color: var(--pink); font-weight: 600; }
+  .stack-row .what { color: var(--text); }
+  .stack-row .what em { color: var(--citrus); font-style: normal; }
+  .stack-row .role {
+    color: var(--dim);
+    text-align: right;
+    font-size: 0.82em;
+    align-self: center;
+  }
+  .stack-row.gpu .label { color: var(--citrus); }
+  .stack-row.metal .label { color: var(--gold); }
+  .stack-row.client .label { color: var(--purple); }
+  @media (max-width: 700px) {
+    .stack-row { grid-template-columns: 1fr; gap: 0.1em; }
+    .stack-row .role { text-align: left; }
+  }
+  .stack-floor {
+    border-top: 1px dashed var(--box-border);
+    padding-top: 0.6em;
+    margin-top: 0.4em;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.84em;
+    color: var(--dim);
+    text-align: center;
+    letter-spacing: 0;
+  }
+  .stack-floor .pin { color: var(--pink); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .stat {
+    padding: 0.9em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    text-align: left;
+  }
+  .stat .n {
+    display: block;
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.8em;
+    color: var(--cyan);
+    line-height: 1;
+    margin-bottom: 0.15em;
+  }
+  .stat .l { color: var(--dim); font-size: 0.86em; font-weight: 500; letter-spacing: 0; }
+  .stat.loaded .n { color: var(--citrus); }
+  .stats-status { font-size: 0.88em; color: var(--dim); margin-top: 0.5em; }
+  .stats-status .ok { color: var(--green); }
+  .stats-status .err { color: var(--red); }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.5em;
+    margin: 1em 0;
+  }
+  .feat {
+    padding: 0.75em 0.95em;
+    border-left: 2px solid var(--purple);
+    background: var(--box-bg);
+    border-radius: 0 3px 3px 0;
+    font-size: 0.94em;
+    line-height: 1.55;
+  }
+  .feat b { color: var(--purple); font-family: 'YWFT Processing', monospace; font-weight: normal; display: block; margin-bottom: 0.25em; font-size: 1.06em; }
+  .feat.gold { border-left-color: var(--gold); }
+  .feat.gold b { color: var(--gold); }
+  .feat.cyan { border-left-color: var(--cyan); }
+  .feat.cyan b { color: var(--cyan); }
+  .feat.citrus { border-left-color: var(--citrus); }
+  .feat.citrus b { color: var(--citrus); }
+
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--citrus); font-style: normal; }
+
+  .check { list-style: none; padding: 0; font-size: 0.96em; line-height: 1.6; }
+  .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
+  .check li::before { font-family: 'Berkeley Mono Variable', monospace; width: 1em; text-align: center; }
+  .check .done { color: var(--dim); }
+  .check .done::before { content: "✓"; color: var(--green); }
+  .check .todo::before { content: "▸"; color: var(--gold); }
+  .check .todo { color: var(--text); }
+  .check .todo em { color: var(--gold); font-style: normal; }
+
+  footer {
+    margin-top: 4em;
+    padding-top: 1em;
+    border-top: 1px solid var(--box-border);
+    color: var(--dim);
+    font-size: 0.86em;
+    letter-spacing: 0;
+    line-height: 1.6;
+  }
+  footer a { color: var(--dim); }
+  footer a:hover { color: var(--cyan); }
+
+  @media (max-width: 560px) {
+    body { padding: 1.2em 1em 3em; font-size: 13px; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
+    .meta { grid-template-columns: 1fr; gap: 0.05em; }
+    .meta dt { padding-top: 0.6em; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="wip-banner">
+    <strong>▸ WIP APPLICATION · NOT YET SUBMITTED</strong> · drafting toward <strong>CalArts CCAT · Technical Director · BB6</strong> · <span class="blink">●</span> <em>this page is an evolving draft and will be trimmed once the Paycom form is open</em>
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">CalArts · CCAT · BB6</span> · 2026 · <span class="wip">wip draft</span></div>
+    <h1>Studio<br><em>Hand</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Applying to be the <span style="color:var(--pink)">Technical Director</span> of BB6 — the studio &amp; lab CCAT runs at CalArts</p>
+    <p class="sub">Application by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Posting</dt><dd><a href="https://www.paycomonline.net/v4/ats/web.php/portal/CAF0FE2BC5A458C654822EC0474C8E21/jobs/154720" target="_blank" rel="noopener">Paycom · CCAT · job 154720</a></dd>
+      <dt>Title</dt><dd>Technical Director · BB6 studio &amp; lab · CCAT</dd>
+      <dt>Location</dt><dd>Santa Clarita, CA 91355 · CalArts campus, Valencia · <strong>fully on-site, every day</strong></dd>
+      <dt>Salary</dt><dd>$100,000 – $125,000 / year · full-time</dd>
+      <dt>Funder</dt><dd><span class="partner">CHANEL Culture Fund</span> · grant-funded; continuation tied to fund availability</dd>
+      <dt>Reports to</dt><dd>Directors of Machine Learning &amp; Moving Image · Project Manager · liaises with CalArts IT, facilities, campus safety</dd>
+      <dt>Start date</dt><dd class="due">Listed 2026-04-13 · already past · treating as <em>rolling, ASAP</em></dd>
+      <dt>Submit via</dt><dd>Paycom ATS portal · CV + cover letter (form fields TBC when starting application)</dd>
+      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-calarts">papers/arxiv-calarts/</a> · the <em>Art School as Operating System</em> paper this application leans on</dd>
+    </dl>
+  </header>
+
+  <!-- ── ONE-LINE SPINE ─────────────────────── -->
+  <section style="margin: 0 0 2.4em">
+    <div style="padding: 1.2em 1.4em; background: linear-gradient(135deg, rgba(200,226,95,0.08), transparent); border: 1px solid var(--box-border); border-left: 3px solid var(--citrus); border-radius: 4px;">
+      <p style="font-family: 'YWFT Processing', monospace; font-size: 1.3em; line-height: 1.45; color: var(--text); margin: 0;">
+        I have been the technical director of <em style="color:var(--citrus);font-style:normal">a working creative-computing platform</em> for five years, in public, on bare metal. <strong style="color:var(--pink);font-weight:normal">BB6 is the same job at a different address.</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- ── APPLICATION AT A GLANCE ─────── -->
+  <section class="glance" id="glance">
+    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft v1 · trims to fit Paycom form</span></h2>
+    <p class="hint">Standard hiring-form fields with current best-answers inline. Tightens against the live Paycom application once it's open.</p>
+
+    <dl>
+      <dt>Role</dt>
+      <dd><strong>Technical Director</strong> · CCAT · BB6 studio &amp; lab</dd>
+
+      <dt>Three words</dt>
+      <dd>infrastructure · hospitality · curiosity</dd>
+
+      <dt>One-sentence pitch</dt>
+      <dd>I run <em>aesthetic.computer</em>'s working infrastructure end-to-end — Linux monolith on DigitalOcean, GPU build farm for OTA video gen, AC Native OS on bare-metal — and I host a biweekly demo night where artists show works-in-progress on each other's machines, which is the same posture the BB6 posting describes when it asks for someone equally happy troubleshooting a hardware failure at 9am and walking a first-year through projection mapping at 2pm.</dd>
+
+      <dt>Cover letter<span class="cap">~450 w · drafting</span></dt>
+      <dd>
+        <p class="excerpt">For five years I've been the technical director of <em>Aesthetic Computer</em> — a creative-computing platform that runs as a working public artwork: <strong>lith</strong> (Express + Caddy + systemd on a DigitalOcean VPS), <strong>oven</strong> (a GPU build farm for OTA video-gen pipelines — whisper, FLUX, ffmpeg, Docker, with cron-driven cleanup so the disk doesn't fill), a real-time-rendering runtime in the browser, a session server with a UDP/WebSocket dual-channel multiplayer relay, and <strong>AC Native OS</strong>, a bare-metal Linux build whose kernel embeds the git hash at compile time and ships via OTA. I run the equipment, the licensing, the deploys, and the post-incident clean-ups. I host the demo nights. I'd bring that posture to BB6 every day.</p>
+        <a class="jump" href="#pitch">Read the full cover letter ↓</a>
+      </dd>
+
+      <dt>Bio</dt>
+      <dd>Jeffrey Alan Scudder is an artist, educator, and technologist based in Los Angeles. Yale MFA (2013), Ringling BFA (2011). Author in Residence at <strong>UCLA Social Software</strong>, hosted by Casey Reas. Creator of <em>Aesthetic Computer</em>, <em>Whistlegraph</em>, <em>No Paint</em>, <em>notepat</em>. Work in the collections of <strong>KADIST</strong> (San Francisco) and <strong>SMK</strong> (Copenhagen). Hosts <strong>NELA Computer Club</strong>, a biweekly demo night at Plot.Place in Chinatown LA where artists show works-in-progress on each other's machines.</dd>
+
+      <dt>Why CCAT<span class="cap">~150 w · drafting</span></dt>
+      <dd class="statement">CCAT is asking for a Technical Director who treats infrastructure as service to creative inquiry, not the other way around. That is the entire posture of my practice. The arxiv-format paper I just wrote — <em>"CalArts, Callouts, and Papers: Art School as Operating System"</em> (in <code>papers/arxiv-calarts/</code>) — argues that an art school is at its best when its infrastructure is pedagogy, when the studio is a runtime that students learn to read. BB6, as described in the posting, is exactly that runtime. I'd be on-site every day, by the door, with the espresso on.</dd>
+
+      <dt>Tooling fit<span class="cap">named in the posting</span></dt>
+      <dd><strong>Strong:</strong> Linux/Unix sysadmin, GPU compute, Docker/containerization, networked storage, CalArts-IT-style coordination (already do this for AC's vendor stack). <strong>Working:</strong> projection mapping (AC pieces have been performed under projection; ready to ramp on Resolume / MadMapper / Disguise specifically). <strong>Ramping fast:</strong> XR/spatial computing headset configuration; LED-volume virtual-production pipelines.</dd>
+
+      <dt>References<span class="cap">3 · confirming consent before listing</span></dt>
+      <dd>Casey Reas (UCLA Social Software AIR host; co-creator of Processing) · second + third TBD — possibilities include Lauren Lee McCarthy (Social Software cofounder; creator of p5.js), a Yale MFA faculty reference, Plot.Place / NELA host, or a KADIST/SMK acquisition contact.</dd>
+
+      <dt>Logistics</dt>
+      <dd>Fully on-site at Valencia. NELA → BB6 commute is ~45 min on the 5/14; daily, not occasional. Available as soon as needed; the role's listed start date of 2026-04-13 has already passed and I'm reading the posting as still actively rolling.</dd>
+
+      <dt>Submission status</dt>
+      <dd><span style="color:var(--gold)">▸ DRAFT</span> · CV refresh + form review pending · <strong>not yet submitted</strong>. This page tracks the application's state until it is.</dd>
+    </dl>
+  </section>
+
+  <!-- ── INFRA STACK DIAGRAM ───────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Stack I Already Run<span class="count">in production · for five years</span></h2>
+    <p style="color:var(--dim);margin-bottom:0.6em;font-size:0.9em">Each row is a layer of <em>aesthetic.computer</em>'s working infrastructure that I am the technical director of. The right-hand column is what the same competency does for BB6.</p>
+    <div class="stack">
+
+      <div class="stack-row">
+        <div class="label">lith</div>
+        <div class="what">Linux monolith on DigitalOcean · Express + Caddy + systemd · <em>fish deploy</em> · embeds <code>.env</code> via systemd EnvironmentFile</div>
+        <div class="role">→ studio servers</div>
+      </div>
+
+      <div class="stack-row gpu">
+        <div class="label">oven</div>
+        <div class="what">GPU build farm · OTA video-gen pipelines (whisper / FLUX / ffmpeg / Docker) · disk-fill cleanup cron at 3:17 UTC for orphaned tmp_pack files · <em>ac-os oven</em> CLI for remote builds</div>
+        <div class="role">→ ML / HPC compute</div>
+      </div>
+
+      <div class="stack-row metal">
+        <div class="label">AC Native OS</div>
+        <div class="what">Bare-metal Linux build · kernel embeds git hash + build name at compile time · OTA released via oven · <em>ac-os flash+upload</em> for USB delivery</div>
+        <div class="role">→ studio hardware</div>
+      </div>
+
+      <div class="stack-row">
+        <div class="label">session-server</div>
+        <div class="what">Realtime backend · Geckos.io UDP relay + WebSocket reliable channel · Redis state · Jamsocket per-session ephemeral deploys</div>
+        <div class="role">→ networked install</div>
+      </div>
+
+      <div class="stack-row client">
+        <div class="label">disk runtime</div>
+        <div class="what">Browser real-time renderer · 572&nbsp;KB Disk API · graphics primitives, audio, input, multiplayer · hot-reload over WebSocket · the runtime <em>aesthetic.computer</em> pieces target</div>
+        <div class="role">→ projection / XR</div>
+      </div>
+
+      <div class="stack-row">
+        <div class="label">slab/menuband</div>
+        <div class="what">Swift macOS menubar app · v0.9.1 · pinned glass panel + dark-mode piano theme · MenuBandMIDI USB + WiFi · ships via signed builds</div>
+        <div class="role">→ studio software</div>
+      </div>
+
+      <div class="stack-row">
+        <div class="label">papermill</div>
+        <div class="what">12-paper publication pipeline · <code>papers/cli.mjs</code> · incremental LaTeX builds · QR-coded permanent URLs · KidLisp reference cards</div>
+        <div class="role">→ documentation</div>
+      </div>
+
+      <div class="stack-row">
+        <div class="label">NELA Computer Club</div>
+        <div class="what">Biweekly demo night at Plot.Place, Chinatown LA · artists show works-in-progress on each other's machines · the working version of <em>"the lab serves the cohort"</em></div>
+        <div class="role">→ user enablement</div>
+      </div>
+
+      <div class="stack-floor">
+        <span class="pin">▸</span> all of this is daily, public, and currently shipping &nbsp;·&nbsp; the same posture transfers cleanly to BB6
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COVER LETTER ─────────────────────── -->
+  <section class="pitch" id="pitch">
+    <h2><span class="ord">§</span>Cover Letter<span class="count">~450 w · drafting</span></h2>
+
+    <p>To the CCAT search committee,</p>
+
+    <p>I'm writing to apply for the Technical Director role at BB6. I think this is a job I am already doing — just at a different address.</p>
+
+    <span class="drop">A working creative-computing platform.</span>
+
+    <p>For the last five years I have been the technical director of <strong>Aesthetic Computer</strong> (<a href="https://aesthetic.computer">aesthetic.computer</a>), a creative-computing platform that runs as a working public artwork. AC is, at the infrastructure layer, exactly the kind of thing CCAT is asking someone to keep alive: a Linux monolith on DigitalOcean (the <code>lith</code> server, deployed via a <code>fish</code> script + systemd, fronted by Caddy); a <strong>GPU build farm</strong> I call <code>oven</code> that runs OTA video-generation pipelines (whisper, FLUX, ffmpeg, Docker, with cron-driven <code>tmp_pack</code> cleanup so the disk doesn't fill); a real-time-rendering runtime in the browser; a multiplayer relay with a UDP/WebSocket dual-channel pattern; a session server, an AT-protocol bridge, a Cloudflare Worker feed; and <strong>AC Native OS</strong>, a bare-metal Linux build whose kernel embeds the git hash at compile time and ships via an oven-driven OTA. I run the equipment, the licensing, the deploys, the renames, and the post-incident clean-ups. I write the onboarding materials. I host the demo nights.</p>
+
+    <span class="drop">Why this specific job.</span>
+
+    <p>The reason I want this job is that BB6 is the closest thing I have seen to a <em>physical version of what I already maintain remotely</em> — a rotating room of artists, researchers, fellows, and students who need their tools to <strong>just work</strong> so they can think about the work, not the wires. That is the whole posture of my practice. I host <strong>NELA Computer Club</strong>, a biweekly demo night at Plot.Place in Chinatown LA where artists show works-in-progress on each other's machines. I am the Author in Residence at <strong>UCLA Social Software</strong>, hosted by Casey Reas, where the working tool is the curriculum. I just published a paper called <q>CalArts, Callouts, and Papers: Art School as Operating System.</q> The thesis is that an art school is at its best when its infrastructure is pedagogy, when the studio is a runtime that the students learn to read. <strong>BB6, as described in the posting, is that runtime.</strong></p>
+
+    <span class="drop">What I'd bring.</span>
+
+    <p>Hands-on Linux/GPU/Docker administration. Working familiarity with real-time rendering, projection, and immersive pipelines (and a willingness to ramp fast on the specific named tools — Resolume, MadMapper, Disguise, the LED-volume stack). A genuinely scrappy approach to budget-aware equipment expansion. And a five-year record of being patient with users at every skill level, from first-year students at UCLA to senior collaborators in the KADIST and SMK collections.</p>
+
+    <p>I would be on-site every day, by the door, with the espresso on.</p>
+
+    <p style="color:var(--dim);font-size:0.92em;margin-top:1.6em">— Jeffrey Alan Scudder · <code>@jeffrey</code> · Los Angeles, CA</p>
+  </section>
+
+  <!-- ── FOUR REGISTERS ──────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Four Registers<span class="count">how I'd hold the role</span></h2>
+    <div class="anchors">
+      <div class="anchor">
+        <b>The Floor</b>
+        <p>Equipment up, room labelled, schedule visible, safety policies posted. The Technical Director is the steady presence who shows up before the artists and stays until the lab is back to neutral. <strong>The work is the work.</strong></p>
+      </div>
+      <div class="anchor">
+        <b>The Help</b>
+        <p>Patient with users at every skill level — first-year students through visiting senior researchers. Patience is non-negotiable. <strong>No condescension, no jargon-as-gatekeep.</strong> If the help isn't useful to a beginner, it isn't help.</p>
+      </div>
+      <div class="anchor">
+        <b>The Stack</b>
+        <p>GPU compute, real-time rendering, projection, XR — kept current, kept documented, kept budget-aware. <strong>Scrappy</strong> means: pursue grants, in-kind partnerships, industry loans, vendor relationships <em>before</em> the purchase order.</p>
+      </div>
+      <div class="anchor">
+        <b>The Liaison</b>
+        <p>CalArts IT, facilities, campus safety, and the Directors of ML and Moving Image are <strong>collaborators, not obstacles</strong>. The lab is inside the school, not next to it. The technical director is the seam.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LIVE STATS ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>What I Already Run, Right Now<span class="count">live from aesthetic.computer/api/metrics</span></h2>
+    <p style="color:var(--dim);margin-bottom:0.6em;font-size:0.9em">These numbers are fetched live from the platform I am the technical director of. They're the proof point that the infrastructure described above is real, populated, and currently up.</p>
+    <div class="stats" id="stats">
+      <div class="stat" data-k="handles"><span class="n">…</span><span class="l">Registered handles</span></div>
+      <div class="stat" data-k="kidlisp"><span class="n">…</span><span class="l">KidLisp pieces</span></div>
+      <div class="stat" data-k="pieces"><span class="n">…</span><span class="l">User pieces</span></div>
+      <div class="stat" data-k="active"><span class="n">…</span><span class="l">Active now</span></div>
+    </div>
+    <div class="stats-status" id="stats-status">Fetching <span class="ok">api/metrics</span> …</div>
+  </section>
+
+  <!-- ── COMPETENCY MAP ──────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Competency Map<span class="count">posting line ↔ AC evidence</span></h2>
+    <p style="color:var(--dim);margin-bottom:0.6em;font-size:0.9em">The Paycom posting lists desired competencies. Each one maps to an existing piece of the AC stack.</p>
+    <div class="features">
+      <div class="feat citrus"><b>Linux/Unix sysadmin</b><code>lith/deploy.fish</code> · DigitalOcean VPS · systemd · Caddy · daily.</div>
+      <div class="feat citrus"><b>GPU compute · HPC cluster admin</b>oven runs whisper / FLUX / ffmpeg under Docker · cleanup cron at 3:17 UTC for orphaned tmp_pack files · <code>ac-os oven</code> remote-build CLI.</div>
+      <div class="feat citrus"><b>Containerization (Docker)</b>oven build pipelines · session-server ephemeral deploys via Jamsocket.</div>
+      <div class="feat citrus"><b>Networked storage</b>DigitalOcean Spaces (CDN) · MongoDB / Redis / Firebase across services · documented in <code>CLAUDE.md</code>.</div>
+      <div class="feat"><b>Real-time rendering</b>AC's <code>disk.mjs</code> runtime is a 572 KB browser-native immediate-mode renderer · piece lifecycle (boot/paint/sim/act).</div>
+      <div class="feat"><b>Projection mapping</b>AC pieces have been performed under projection (Whistlegraph, NELA Computer Club nights). <em>Ramping fast on Resolume / MadMapper / Disguise specifically.</em></div>
+      <div class="feat"><b>Virtual production · LED volume / camera tracking</b>UE5 builder env in vault for <code>false.work</code>; ready to ramp on the BB6-specific volume stack on day one.</div>
+      <div class="feat"><b>XR / spatial computing</b>AC pieces handle pen/hand input. <em>Ramping on VR/AR/MR headset configs as a stated learning area.</em></div>
+      <div class="feat gold"><b>Equipment inventory · maintenance · asset tracking</b>Plot.Place / NELA fleet inventory · the AC dev-machine inventory in <code>aesthetic-computer-vault/machines.json</code>.</div>
+      <div class="feat gold"><b>Scrappy, budget-aware acquisition</b>Five years of running AC on tiny budgets · half the compute is donated or bartered · grant-aware operator.</div>
+      <div class="feat gold"><b>Onboarding materials · reference guides</b><code>papers/arxiv-kidlisp-reference</code> · <code>papers/arxiv-ac</code> · UCLA Social Software course materials · the <em>init</em> skill that initializes a new repo.</div>
+      <div class="feat"><b>Cross-institutional collaboration</b>UCLA Social Software AIR · KADIST · SMK · Plot.Place / NELA · Yale MFA / Ringling network.</div>
+      <div class="feat"><b>Genuine support orientation</b>NELA Computer Club is the working evidence. Weekly proof.</div>
+    </div>
+  </section>
+
+  <!-- ── LINEAGE ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Lineage<span class="count">technical-direction precedents</span></h2>
+    <div class="lineage">
+      <div class="row"><div class="who">Bell Labs · Murray Hill</div><div class="claim">Studio-as-lab, technical staff who treat the room as the medium. <em>The shop floor is the work.</em></div></div>
+      <div class="row"><div class="who">The Studio for Creative Inquiry · CMU</div><div class="claim">An art-tech research studio whose technical direction is famously hospitality-first. The closest direct precedent for what BB6 is being built to be.</div></div>
+      <div class="row"><div class="who">EMPAC · Rensselaer</div><div class="claim">Theater-scale media-arts venue with a technical staff that supports residencies as a primary mode. Demonstrates that <em>support is a leadership posture</em>, not a service tier.</div></div>
+      <div class="row"><div class="who">PLOrk · Princeton Laptop Orchestra</div><div class="claim">Technical direction as <em>what makes the ensemble possible</em>. The instrument and the operations are not separate.</div></div>
+      <div class="row"><div class="who">Casey Reas · UCLA Social Software</div><div class="claim">Processing as a long-running infrastructure project whose technical direction <em>is</em> the curriculum. Currently hosting my Author in Residence position at Social Software.</div></div>
+      <div class="row"><div class="who">Goodiepal · <em>Radical Computer Music</em></div><div class="claim">The argument that the computer itself is under-designed as an artistic instrument. I toured Europe with him in 2018; AC's whole infra posture descends from those conversations.</div></div>
+    </div>
+  </section>
+
+  <!-- ── STATUS ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Status<span class="count">▸ wip · drafting</span></h2>
+    <ul class="check">
+      <li class="done">Concept lock · single-spine: AC's working infrastructure as evidence of fit for BB6 Technical Director</li>
+      <li class="done">Cover letter v1 · drafted in <code>aesthetic-computer-vault/grants/calarts-ccat-tech-director-2026/DRAFT.md</code></li>
+      <li class="done">Research notes · <code>RESEARCH.md</code> in the same folder · CCAT facts + competency-mapping</li>
+      <li class="done">Public WIP page · this URL · pinned on the deadlines tracker</li>
+      <li class="todo">Refresh <code>papers/cv/cv.pdf</code> with 2026 entries (UCLA AIR, NELA, AC Native OS, oven, lith)</li>
+      <li class="todo">Confirm exact CCAT name + Executive Director, Director of ML, Director of Moving Image · address letter directly if found</li>
+      <li class="todo">Decide commute vs. relocation framing with <em>Fia</em> before submitting (NELA → Valencia is daily, not occasional)</li>
+      <li class="todo">Confirm three references (Casey, Lauren, third TBD) with consent</li>
+      <li class="todo">Open the actual Paycom application form · capture exact required fields + caps</li>
+      <li class="todo">Trim the cover letter to whatever the Paycom field actually accepts</li>
+      <li class="todo">Stage portfolio links: <a href="https://aesthetic.computer">aesthetic.computer</a>, <a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a>, the CalArts paper PDF, NELA reel, menuband</li>
+      <li class="todo">Submit via the Paycom portal · capture confirmation #</li>
+      <li class="todo">Log SUBMITTED row in <code>papers/SUBMISSIONS.md</code> · update the deadlines tracker row</li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/calarts-ccat-2026">aesthetic.computer/calarts-ccat-2026</a> · WIP application · posting <a href="https://www.paycomonline.net/v4/ats/web.php/portal/CAF0FE2BC5A458C654822EC0474C8E21/jobs/154720">Paycom job 154720</a> · CCAT · BB6 · CalArts · funder <strong>CHANEL Culture Fund</strong> · companion paper <a href="https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf">CalArts, Callouts, and Papers</a>
+  </footer>
+
+</main>
+
+<script>
+(async () => {
+  const STATS_API = "https://aesthetic.computer/api/metrics";
+  const statusEl = document.getElementById("stats-status");
+  const root = document.getElementById("stats");
+
+  function fmt(n) {
+    if (typeof n !== "number") return "…";
+    return n.toLocaleString("en-US");
+  }
+
+  try {
+    const r = await fetch(STATS_API);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const data = await r.json();
+    for (const stat of root.querySelectorAll(".stat")) {
+      const key = stat.dataset.k;
+      const val = data[key];
+      const n = stat.querySelector(".n");
+      if (typeof val === "number") {
+        n.textContent = fmt(val);
+        stat.classList.add("loaded");
+      }
+    }
+    const when = data.time ? `(${data.time})` : "";
+    statusEl.innerHTML = `<span class="ok">● Live</span> · pulled from <a href="${STATS_API}">api/metrics</a> · ${when}`;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="err">● API error</span> · ${err.message}`;
+  }
+})();
+</script>
+</body>
+</html>
