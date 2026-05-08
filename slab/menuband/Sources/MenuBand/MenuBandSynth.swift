@@ -769,6 +769,9 @@ final class MenuBandSynth {
     /// radio-backend path.
     private(set) var usingSampleBackend: Bool = false
 
+    /// True after the microphone sampler has captured a playable buffer.
+    var hasSampleRecording: Bool { sampleVoice.hasRecording }
+
     /// Leave the sample backend, restoring whichever GM/sampler voice
     /// was last selected. Mirrors `leaveRadioWithLinger` minus the
     /// linger window — there's no expensive resource (network stream)

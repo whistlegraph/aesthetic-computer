@@ -645,6 +645,16 @@ final class MenuBandController {
     /// synth-output RMS to mic-input RMS.
     var sampleRecordingActive: Bool { synth.sampleRecording }
 
+    var sampleVoiceHasRecording: Bool { synth.hasSampleRecording }
+
+    var audioRoutingContextLabel: String? {
+        if midiMode { return "Local synth muted - MIDI OUT" }
+        if instrumentBackend == .sample && !sampleVoiceHasRecording {
+            return "No sample yet - hold ` to record"
+        }
+        return nil
+    }
+
     /// Forward an RMS callback to the underlying sample voice's input
     /// tap. Called once per recording block (~93 ms) on the main queue
     /// with that block's RMS. AppDelegate hooks this up in

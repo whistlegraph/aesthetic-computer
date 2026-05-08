@@ -1387,7 +1387,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsFlash: currentFlashStrength()
         )
         let layoutName = menuBand.keymap == .ableton ? "Ableton" : "Notepat"
-        button.toolTip = "\(menuBand.octaveContextLabel) - \(layoutName) layout"
+        let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
+        button.toolTip = "\(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)"
         // Force a synchronous redraw — the click drag-loop runs the runloop
         // in `eventTracking` mode and has been swallowing the next CA flush
         // until mouseUp. Without this, key blinks and hover highlights only

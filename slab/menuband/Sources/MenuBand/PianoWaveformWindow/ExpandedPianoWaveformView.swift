@@ -32,6 +32,8 @@ final class ExpandedPianoWaveformView: NSView {
     /// at-a-glance without needing the stepper widget.
     private let instrumentNumberLabel = NSTextField(labelWithString: "")
     private let instrumentTitleRow = NSView()
+    private let instrumentReadoutStack = NSStackView()
+    private let audioRoutingLabel = NSTextField(labelWithString: "")
     private let hapticsControls = NSStackView()
     private let hapticsLabel = NSTextField(labelWithString: "Haptics")
     private let hapticsSwitch = NSSwitch()
@@ -129,6 +131,19 @@ final class ExpandedPianoWaveformView: NSView {
         instrumentReadout.translatesAutoresizingMaskIntoConstraints = false
         instrumentReadout.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         instrumentReadout.setContentCompressionResistancePriority(.required, for: .horizontal)
+        audioRoutingLabel.font = NSFont.systemFont(ofSize: 8.5, weight: .black)
+        audioRoutingLabel.textColor = .systemOrange
+        audioRoutingLabel.alignment = .center
+        audioRoutingLabel.lineBreakMode = .byTruncatingTail
+        audioRoutingLabel.maximumNumberOfLines = 1
+        audioRoutingLabel.translatesAutoresizingMaskIntoConstraints = false
+        audioRoutingLabel.isHidden = true
+        instrumentReadoutStack.orientation = .vertical
+        instrumentReadoutStack.alignment = .centerX
+        instrumentReadoutStack.spacing = -1
+        instrumentReadoutStack.translatesAutoresizingMaskIntoConstraints = false
+        instrumentReadoutStack.addArrangedSubview(instrumentReadout)
+        instrumentReadoutStack.addArrangedSubview(audioRoutingLabel)
         instrumentNumberLabel.translatesAutoresizingMaskIntoConstraints = false
         instrumentNumberLabel.setContentHuggingPriority(.required, for: .horizontal)
         instrumentNumberLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -206,7 +221,7 @@ final class ExpandedPianoWaveformView: NSView {
         waveformSection.addSubview(waveformBezel)
         waveformSection.addSubview(instrumentTitleRow)
         instrumentTitleRow.addSubview(instrumentNumberLabel)
-        instrumentTitleRow.addSubview(instrumentReadout)
+        instrumentTitleRow.addSubview(instrumentReadoutStack)
         instrumentTitleRow.addSubview(hapticsControls)
         addSubview(contentStack)
         contentStack.addArrangedSubview(waveformSection)
@@ -302,15 +317,15 @@ final class ExpandedPianoWaveformView: NSView {
             // geometric midpoint.
             instrumentNumberLabel.widthAnchor.constraint(
                 greaterThanOrEqualTo: hapticsControls.widthAnchor),
-            instrumentReadout.centerXAnchor.constraint(equalTo: instrumentTitleRow.centerXAnchor),
-            instrumentReadout.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
-            instrumentReadout.topAnchor.constraint(greaterThanOrEqualTo: instrumentTitleRow.topAnchor),
-            instrumentReadout.bottomAnchor.constraint(lessThanOrEqualTo: instrumentTitleRow.bottomAnchor),
-            instrumentReadout.leadingAnchor.constraint(
+            instrumentReadoutStack.centerXAnchor.constraint(equalTo: instrumentTitleRow.centerXAnchor),
+            instrumentReadoutStack.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
+            instrumentReadoutStack.topAnchor.constraint(greaterThanOrEqualTo: instrumentTitleRow.topAnchor),
+            instrumentReadoutStack.bottomAnchor.constraint(lessThanOrEqualTo: instrumentTitleRow.bottomAnchor),
+            instrumentReadoutStack.leadingAnchor.constraint(
                 greaterThanOrEqualTo: instrumentNumberLabel.trailingAnchor,
                 constant: 6
             ),
-            instrumentReadout.trailingAnchor.constraint(
+            instrumentReadoutStack.trailingAnchor.constraint(
                 lessThanOrEqualTo: hapticsControls.leadingAnchor,
                 constant: -6
             ),
@@ -634,21 +649,47 @@ final class ExpandedPianoWaveformView: NSView {
     private func updateInstrumentReadout() {
         guard let menuBand else { return }
         let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
-        // Title swaps to "MIDI" when the controller is routing to a
-        // hardware MIDI port; otherwise show the GM program name.
-        let title = menuBand.midiMode ? "MIDI" : GeneralMIDI.programNames[safe]
-        let familyColor = menuBand.midiMode
-            ? NSColor.controlAccentColor
-            : InstrumentListView.colorForProgram(safe)
+        let title: String
+        let numberLabel: String
+        let familyColor: NSColor
+        if menuBand.midiMode {
+            title = "MIDI OUT"
+            numberLabel = "MIDI"
+            familyColor = .controlAccentColor
+        } else {
+            switch menuBand.instrumentBackend {
+            case .sample:
+                title = "Sample Voice"
+                numberLabel = "`"
+                familyColor = .systemRed
+            case .kpbj:
+                title = "KPBJ.FM"
+                numberLabel = "RADIO"
+                familyColor = .systemOrange
+            case .garageBand:
+                title = "GarageBand"
+                numberLabel = "GB"
+                familyColor = .systemPurple
+            case .gm:
+                title = GeneralMIDI.programNames[safe]
+                numberLabel = String(format: "%03d", safe + 1)
+                familyColor = InstrumentListView.colorForProgram(safe)
+            }
+        }
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let textColor: NSColor = isDark ? .white : .black
         // Number badge — 1-based slot ("001"…"128") so users can spot
         // the program by number AND by name. Renders "MIDI" when the
         // controller is in MIDI-OUT routing mode.
-        instrumentNumberLabel.stringValue = menuBand.midiMode
-            ? "MIDI"
-            : String(format: "%03d", safe + 1)
+        instrumentNumberLabel.stringValue = numberLabel
         instrumentNumberLabel.textColor = familyColor
+        let routing = menuBand.audioRoutingContextLabel
+        audioRoutingLabel.stringValue = routing?.uppercased() ?? ""
+        audioRoutingLabel.isHidden = routing == nil
+        audioRoutingLabel.textColor = menuBand.midiMode ? .systemOrange : .systemRed
+        audioRoutingLabel.toolTip = routing
+        instrumentReadout.toolTip = routing ?? title
+        instrumentNumberLabel.toolTip = routing ?? "Current voice"
         let shadow = NSShadow()
         shadow.shadowColor = (familyColor.highlight(withLevel: isDark ? 0.3 : 0.7) ?? familyColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)
