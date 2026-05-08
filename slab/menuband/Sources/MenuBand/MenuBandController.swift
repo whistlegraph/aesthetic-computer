@@ -442,6 +442,22 @@ final class MenuBandController {
         }
     }
 
+    var octaveShiftLabel: String {
+        if octaveShift == 0 { return "0" }
+        return octaveShift > 0 ? "+\(octaveShift)" : "\(octaveShift)"
+    }
+
+    var playableNoteRangeLabel: String {
+        let upper = keymap == .ableton ? 76 : 83
+        let lowerNote = UInt8(max(0, min(127, 60 + octaveShift * 12)))
+        let upperNote = UInt8(max(0, min(127, upper + octaveShift * 12)))
+        return "\(Self.noteName(lowerNote))-\(Self.noteName(upperNote))"
+    }
+
+    var octaveContextLabel: String {
+        "Octave \(octaveShiftLabel) \(playableNoteRangeLabel)"
+    }
+
     var hapticsEnabled: Bool {
         get {
             if UserDefaults.standard.object(forKey: hapticsEnabledKey) == nil {

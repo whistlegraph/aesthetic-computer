@@ -39,6 +39,7 @@ final class ExpandedPianoWaveformView: NSView {
     private let pianoView: PianoKeyboardView
     private let shortcutHintRow = NSStackView()
     private let focusHintLabel = NSTextField(labelWithString: "")
+    private let octaveHintLabel = NSTextField(labelWithString: "")
     private let layoutHintLabel = NSTextField(labelWithString: "")
     private weak var paletteGlassView: NSView?
     private weak var waveformGlassView: NSView?
@@ -174,6 +175,7 @@ final class ExpandedPianoWaveformView: NSView {
         shortcutHintRow.spacing = gap
         shortcutHintRow.translatesAutoresizingMaskIntoConstraints = false
         focusHintLabel.translatesAutoresizingMaskIntoConstraints = false
+        octaveHintLabel.translatesAutoresizingMaskIntoConstraints = false
         layoutHintLabel.translatesAutoresizingMaskIntoConstraints = false
         qwertyView.scale = 1.4
         qwertyView.keymap = menuBand.keymap
@@ -211,18 +213,22 @@ final class ExpandedPianoWaveformView: NSView {
         contentStack.addArrangedSubview(pianoView)
         shortcutHintRow.addArrangedSubview(layoutHintLabel)
         shortcutHintRow.addArrangedSubview(NSView())
+        shortcutHintRow.addArrangedSubview(octaveHintLabel)
+        shortcutHintRow.addArrangedSubview(NSView())
         shortcutHintRow.addArrangedSubview(focusHintLabel)
         contentStack.addArrangedSubview(shortcutHintRow)
         contentStack.addArrangedSubview(qwertyView)
-        for label in [focusHintLabel, layoutHintLabel] {
+        for label in [focusHintLabel, octaveHintLabel, layoutHintLabel] {
             label.font = NSFont.systemFont(ofSize: 10, weight: .bold)
             label.textColor = .secondaryLabelColor
             label.maximumNumberOfLines = 1
             label.lineBreakMode = .byTruncatingTail
         }
         layoutHintLabel.alignment = .left
+        octaveHintLabel.alignment = .center
         focusHintLabel.alignment = .right
         updateShortcutHint()
+        updateOctaveContext()
         updateHapticsControl()
         installLiquidGlassBackgrounds()
 
@@ -435,6 +441,7 @@ final class ExpandedPianoWaveformView: NSView {
 
     func refresh() {
         updateShortcutHint()
+        updateOctaveContext()
         updateHapticsControl()
         let keyboardSize = keyboardSize()
         widthConstraint?.constant = max(keyboardSize.width + inset * 2, Self.expandedPanelWidth)
@@ -673,6 +680,24 @@ final class ExpandedPianoWaveformView: NSView {
         focusHintLabel.stringValue = (isPianoFocusActive?() ?? false)
             ? "Exit Focus: \(exitFocusShortcut)"
             : "Focus Piano: \(focusShortcut)"
+    }
+
+    private func updateOctaveContext() {
+        guard let menuBand else {
+            octaveHintLabel.stringValue = ""
+            octaveHintLabel.toolTip = nil
+            return
+        }
+        octaveHintLabel.stringValue = menuBand.octaveContextLabel
+        octaveHintLabel.toolTip = "Visible keyboard sounds \(menuBand.playableNoteRangeLabel)"
+        let shift = menuBand.octaveShift
+        if shift > 0 {
+            octaveHintLabel.textColor = NSColor.systemBlue.withAlphaComponent(0.86)
+        } else if shift < 0 {
+            octaveHintLabel.textColor = NSColor.systemOrange.withAlphaComponent(0.90)
+        } else {
+            octaveHintLabel.textColor = .secondaryLabelColor
+        }
     }
 
     @objc private func hapticsSwitchChanged(_ sender: NSSwitch) {
