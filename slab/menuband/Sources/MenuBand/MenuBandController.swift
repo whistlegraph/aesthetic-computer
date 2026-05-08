@@ -655,6 +655,21 @@ final class MenuBandController {
         return nil
     }
 
+    var voiceContextLabel: String {
+        if midiMode { return "0 MIDI OUT" }
+        switch instrumentBackend {
+        case .sample:
+            return sampleVoiceHasRecording ? "Sample Voice" : "Sample Voice - no recording"
+        case .kpbj:
+            return "KPBJ.FM radio"
+        case .garageBand:
+            return garageBandPatchURL?.deletingPathExtension().lastPathComponent ?? "GarageBand patch"
+        case .gm:
+            let safe = max(0, min(127, Int(effectiveMelodicProgram)))
+            return String(format: "%03d %@", safe + 1, GeneralMIDI.programNames[safe])
+        }
+    }
+
     /// Forward an RMS callback to the underlying sample voice's input
     /// tap. Called once per recording block (~93 ms) on the main queue
     /// with that block's RMS. AppDelegate hooks this up in

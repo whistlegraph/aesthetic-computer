@@ -697,7 +697,7 @@ final class ExpandedPianoWaveformView: NSView {
         audioRoutingLabel.textColor = menuBand.midiMode ? .systemOrange : .systemRed
         audioRoutingLabel.toolTip = routing
         instrumentReadout.toolTip = routing ?? title
-        instrumentNumberLabel.toolTip = routing ?? "Current voice"
+        instrumentNumberLabel.toolTip = routing ?? menuBand.voiceContextLabel
         let shadow = NSShadow()
         shadow.shadowColor = (familyColor.highlight(withLevel: isDark ? 0.3 : 0.7) ?? familyColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)

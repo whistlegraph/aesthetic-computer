@@ -80,6 +80,8 @@ final class InstrumentListView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let ta = trackingArea { removeTrackingArea(ta) }
+        removeAllToolTips()
+        addToolTip(bounds, owner: self, userData: nil)
         let ta = NSTrackingArea(
             rect: bounds,
             options: [.mouseEnteredAndExited, .mouseMoved,
@@ -88,6 +90,21 @@ final class InstrumentListView: NSView {
         )
         addTrackingArea(ta)
         trackingArea = ta
+    }
+
+    func view(
+        _ view: NSView,
+        stringForToolTip tag: NSView.ToolTipTag,
+        point: NSPoint,
+        userData data: UnsafeMutableRawPointer?
+    ) -> String {
+        if isMidiOutHit(point) {
+            return "0 MIDI OUT - route notes to the virtual MIDI port; local synth is muted"
+        }
+        if let program = program(at: point) {
+            return "\(program + 1) \(GeneralMIDI.programNames[program]) - click to choose, drag to audition"
+        }
+        return "1-128 are General MIDI voices; 0 is MIDI OUT"
     }
 
     // MARK: - Geometry
