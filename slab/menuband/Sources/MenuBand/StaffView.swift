@@ -373,23 +373,40 @@ final class StaffView: NSView {
             return labels[midi] != nil
         }
 
+        // Diatonic octave step in points — distance one octave
+        // covers vertically on the staff. Used to tile lines /
+        // guides / ladder / highlight bands across all visible
+        // octaves so the bezel always reads as the same 5-line
+        // skeleton no matter which octave the user shifts to.
+        let octaveStep: CGFloat = 7 * (lineSpacing / 2)
+        // Visible region in pre-translation coordinates — anything
+        // we draw in here will land somewhere in the bezel after
+        // the pitch-shift transform. Used to bound every per-octave
+        // tiling loop below so we never paint off-screen.
+        let visibleMinY = bounds.minY - pitchShiftY
+        let visibleMaxY = bounds.maxY - pitchShiftY
+
         // Pass 1 — paint translucent chromatic bands behind any
-        // SPACE that's currently lit (so it sits behind the lines
-        // rather than overdrawing them).
+        // SPACE that's currently lit. Tiled per octave so the
+        // played pitch class lights up at the same staff position
+        // regardless of which octave it actually sounds in.
         for slot in slots where !slot.onLine && heldNaturalSteps.contains(slot.halfLineSteps) {
-            let yMid = staffBottomY
+            let baseY = staffBottomY
                 + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
-            // Highlight bands span the full view width so the lit
-            // space reads as a stripe through the rolling timeline,
-            // matching the full-width staff lines above and below.
-            let band = NSRect(
-                x: bounds.minX,
-                y: yMid - lineSpacing / 2 + 0.5,
-                width: bounds.width,
-                height: lineSpacing - 1
-            )
-            Self.chromaticColor(forPitchClass: slot.pc).withAlphaComponent(0.18).setFill()
-            NSBezierPath(rect: band).fill()
+            var k = Int(floor((visibleMinY - baseY) / octaveStep)) - 1
+            let kMax = Int(ceil((visibleMaxY - baseY) / octaveStep)) + 1
+            while k <= kMax {
+                let yMid = baseY + CGFloat(k) * octaveStep
+                let band = NSRect(
+                    x: bounds.minX,
+                    y: yMid - lineSpacing / 2 + 0.5,
+                    width: bounds.width,
+                    height: lineSpacing - 1
+                )
+                Self.chromaticColor(forPitchClass: slot.pc).withAlphaComponent(0.18).setFill()
+                NSBezierPath(rect: band).fill()
+                k += 1
+            }
         }
 
         // Pass 1.5 — very faint "ghost" guides at every slot that
@@ -423,45 +440,56 @@ final class StaffView: NSView {
         }
 
         for slot in slots where !(slot.onLine && !slot.isLedger) {
-            let y = staffBottomY
+            let baseY = staffBottomY
                 + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
             // Ledger guides ghost-faint at rest; brighten under
             // active notes and fade back out after release. In-
             // staff space guides stay at their fixed faint level
             // (they sit between the 5 lines and don't need to call
-            // attention to themselves).
+            // attention to themselves). Tiled per octave so the
+            // visible window always shows the in-octave guides.
             let baseAlpha: CGFloat = slot.isLedger ? 0.06 : 0.10
             let active = slotActivity[slot.halfLineSteps] ?? 0
             let alpha = slot.isLedger
                 ? baseAlpha + (0.55 - baseAlpha) * active
                 : baseAlpha
-            staffColor.withAlphaComponent(alpha).setStroke()
-            let path = NSBezierPath()
-            path.lineWidth = slot.isLedger ? Self.lineWidth * 0.7 : 0.5
-            path.move(to: NSPoint(x: bounds.minX, y: y))
-            path.line(to: NSPoint(x: bounds.maxX, y: y))
-            path.stroke()
+            var k = Int(floor((visibleMinY - baseY) / octaveStep)) - 1
+            let kMax = Int(ceil((visibleMaxY - baseY) / octaveStep)) + 1
+            while k <= kMax {
+                let y = baseY + CGFloat(k) * octaveStep
+                staffColor.withAlphaComponent(alpha).setStroke()
+                let path = NSBezierPath()
+                path.lineWidth = slot.isLedger ? Self.lineWidth * 0.7 : 0.5
+                path.move(to: NSPoint(x: bounds.minX, y: y))
+                path.line(to: NSPoint(x: bounds.maxX, y: y))
+                path.stroke()
+                k += 1
+            }
         }
 
         // Always-on accent-color hairlines at every SHARP position
-        // that's mapped on the active keymap (sharps live half a
-        // half-line above their natural neighbor, so y = natural's y
-        // + lineSpacing/4). Reads as a permanent "chromatic ladder"
-        // running between the diatonic slots — independent of
-        // whether anything is sounding.
+        // that's mapped on the active keymap. Tiled per octave so
+        // the chromatic ladder is visible at every visible octave —
+        // not just the base one.
         let sharpRoots: Set<Int> = [0, 2, 5, 7, 9]   // C, D, F, G, A → sharps above
         for slot in slots where sharpRoots.contains(slot.pc) {
             let sharpMidi = Self.midi(forSlotPc: slot.pc, halfLineSteps: slot.halfLineSteps) + 1
             guard labels[sharpMidi] != nil else { continue }
-            let y = staffBottomY
+            let baseY = staffBottomY
                 + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
                 + lineSpacing / 4
-            NSColor.controlAccentColor.setStroke()
-            let path = NSBezierPath()
-            path.lineWidth = 0.7
-            path.move(to: NSPoint(x: bounds.minX, y: y))
-            path.line(to: NSPoint(x: bounds.maxX, y: y))
-            path.stroke()
+            var k = Int(floor((visibleMinY - baseY) / octaveStep)) - 1
+            let kMax = Int(ceil((visibleMaxY - baseY) / octaveStep)) + 1
+            while k <= kMax {
+                let y = baseY + CGFloat(k) * octaveStep
+                NSColor.controlAccentColor.setStroke()
+                let path = NSBezierPath()
+                path.lineWidth = 0.7
+                path.move(to: NSPoint(x: bounds.minX, y: y))
+                path.line(to: NSPoint(x: bounds.maxX, y: y))
+                path.stroke()
+                k += 1
+            }
         }
 
         // Per-line "perfect hit" flash strength. Lasts ~120ms and
@@ -477,29 +505,44 @@ final class StaffView: NSView {
                                                   strength)
         }
 
+        // Tile the 5 main staff lines at every octave that lands in
+        // the visible region. Lit highlight + on-beat flash apply
+        // only to the base copy (k=0); other octave copies render
+        // in the plain staff tint so the eye still anchors on the
+        // actual sounding line. octaveStep + visibleMinY/MaxY were
+        // computed earlier in this draw pass.
         for slot in slots where slot.onLine && !slot.isLedger {
-            let y = staffBottomY
+            let baseY = staffBottomY
                 + CGFloat(slot.halfLineSteps) * (lineSpacing / 2)
             let lit = heldNaturalSteps.contains(slot.halfLineSteps)
             let baseColor: NSColor = lit
                 ? Self.chromaticColor(forPitchClass: slot.pc).withAlphaComponent(0.95)
                 : staffColor
-            // Blend toward white based on the perfect-hit strength
-            // for this line — the line glows for ~2 frames after a
-            // tight on-beat press, settling back to its base color.
             let flash = flashByStep[slot.halfLineSteps] ?? 0
             let drawColor: NSColor = flash > 0.01
                 ? (baseColor.blended(withFraction: flash, of: .white) ?? baseColor)
                 : baseColor
-            drawColor.setStroke()
-            let path = NSBezierPath()
-            path.lineWidth = lit ? Self.lineWidth + 0.8 : Self.lineWidth
-            // Staff lines span the full view width — no left/right
-            // padding — so the rolling timeline reads as a continuous
-            // strip rather than a boxed-in staff.
-            path.move(to: NSPoint(x: bounds.minX, y: y))
-            path.line(to: NSPoint(x: bounds.maxX, y: y))
-            path.stroke()
+            let baseWidth: CGFloat = lit ? Self.lineWidth + 0.8 : Self.lineWidth
+
+            var k = Int(floor((visibleMinY - baseY) / octaveStep)) - 1
+            let kMax = Int(ceil((visibleMaxY - baseY) / octaveStep)) + 1
+            while k <= kMax {
+                let y = baseY + CGFloat(k) * octaveStep
+                let path = NSBezierPath()
+                if k == 0 {
+                    drawColor.setStroke()
+                    path.lineWidth = baseWidth
+                } else {
+                    staffColor.setStroke()
+                    path.lineWidth = Self.lineWidth
+                }
+                // Full view width — the rolling timeline reads as a
+                // continuous strip, no left/right padding.
+                path.move(to: NSPoint(x: bounds.minX, y: y))
+                path.line(to: NSPoint(x: bounds.maxX, y: y))
+                path.stroke()
+                k += 1
+            }
         }
 
         // Treble clef glyph fully retired — the staff is just five
@@ -692,6 +735,20 @@ final class StaffView: NSView {
             // above the staff line you'd notate it on."
             var y = staffY(for: note.midi, staffBottomY: staffBottomY)
             if isSharp { y += lineSpacing / 4 }
+            // Wrap the note's drawn Y into the visible region by
+            // an integer number of octaves. The staff tiles its
+            // 5-line skeleton at every octave (see line / guide /
+            // ladder loops above), so any pitch class always has
+            // an equivalent staff position somewhere in view —
+            // even when octaveShift takes the absolute halfLineStep
+            // far above or below the standard treble range. Without
+            // this wrap, played notes drift off the bezel as the
+            // pitch-shift transform translates the world; now they
+            // always land on the staff in their pitch-class slot.
+            let yPostRaw = y + pitchShiftY
+            let visibleMidY = bounds.midY
+            let wrapDelta = ((yPostRaw - visibleMidY) / octaveStep).rounded()
+            y -= wrapDelta * octaveStep
             let bornAge = CGFloat(now - snap.appearedAt)
             let leftX = playColumnX - bornAge * Self.scrollSpeed
             let rightX: CGFloat
@@ -726,8 +783,59 @@ final class StaffView: NSView {
             let pill = NSBezierPath(roundedRect: pillRect,
                                      xRadius: pillHeight / 2,
                                      yRadius: pillHeight / 2)
-            chroma.setFill()
-            pill.fill()
+            // Aqua-style gloss: vertical chromatic gradient (light
+            // crown → base → deeper foot) plus a translucent white
+            // specular cap in the upper half of the pill, clipped
+            // to the pill's rounded rect. Reads like a candy-button
+            // marble. Sharps stay flat — the 5pt diameter is too
+            // small for the gradient to register.
+            if isSharp {
+                chroma.setFill()
+                pill.fill()
+            } else {
+                let topColor = chroma.blended(withFraction: 0.45, of: .white) ?? chroma
+                let bottomColor = chroma.blended(withFraction: 0.22, of: .black) ?? chroma
+                if let body = NSGradient(colors: [topColor, chroma, bottomColor],
+                                          atLocations: [0.0, 0.55, 1.0],
+                                          colorSpace: .deviceRGB) {
+                    body.draw(in: pill, angle: 270)  // top → bottom in non-flipped coords
+                } else {
+                    chroma.setFill()
+                    pill.fill()
+                }
+                NSGraphicsContext.current?.saveGraphicsState()
+                pill.addClip()
+                let hlInset = pillHeight * 0.18
+                let hlMinY = pillRect.minY + pillHeight * 0.50
+                let hlMaxY = pillRect.minY + pillHeight * 0.95
+                let hlRect = NSRect(
+                    x: pillRect.minX + hlInset,
+                    y: hlMinY,
+                    width: pillRect.width - hlInset * 2,
+                    height: hlMaxY - hlMinY
+                )
+                let hl = NSBezierPath(roundedRect: hlRect,
+                                       xRadius: hlRect.height / 2,
+                                       yRadius: hlRect.height / 2)
+                let hlGradient = NSGradient(colors: [
+                    NSColor.white.withAlphaComponent(0.78),
+                    NSColor.white.withAlphaComponent(0.00),
+                ])
+                hlGradient?.draw(in: hl, angle: 270)
+                NSGraphicsContext.current?.restoreGraphicsState()
+                // Soft inner rim — very faint dark line along the
+                // bottom half so the bubble reads as 3D against
+                // the staff lines.
+                NSGraphicsContext.current?.saveGraphicsState()
+                pill.addClip()
+                NSColor.black.withAlphaComponent(0.18).setStroke()
+                let rim = NSBezierPath(roundedRect: pillRect.insetBy(dx: 0.5, dy: 0.5),
+                                        xRadius: pillHeight / 2,
+                                        yRadius: pillHeight / 2)
+                rim.lineWidth = 0.6
+                rim.stroke()
+                NSGraphicsContext.current?.restoreGraphicsState()
+            }
             // Short ledger strokes through off-staff note heads
             // were retired — they scrolled horizontally with the
             // pill and read as visual noise on the upper/lower
