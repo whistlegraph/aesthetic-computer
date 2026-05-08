@@ -1,7 +1,15 @@
 {
   "_comment": "Source of truth for the Menu Band downloads page (committed, served by lith at /menuband/manifest.json). The macOS app reads a smaller-schema sibling at https://assets.aesthetic.computer/menuband/latest.json — both are written by slab/menuband/bin/publish-release.fish so they stay in sync. /api/menuband-downloads validates POST {version} against this file's `versions[].version` allowlist.",
-  "latest": "0.9.2",
+  "latest": "0.9.3",
   "versions": [
+    {
+      "version": "0.9.3",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.9.3.dmg",
+      "size": 2549637,
+      "sha256": "5262934e4655c2f0c4ef4ec557bf020da2d0e5473cf48710d17b59501beff6c5",
+      "releasedAt": "2026-05-08",
+      "requirements": "macOS 11+ · Apple Silicon"
+    },
     {
       "version": "0.9.2",
       "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-0.9.2.dmg",
