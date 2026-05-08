@@ -11,17 +11,19 @@ final class PianoWaveformViewController: NSViewController {
     private let containerView = NSView()
     private let expandedView: ExpandedPianoWaveformView
     private let collapsedView: CollapsedPianoWaveformView
-    private let closeButton = NSButton()
+    private let closeButton = OverlayCircleButton()
     private var activeContentView: NSView?
     private var presentationMode: PresentationMode = .expanded
     private var isPresented = false
     private var trackingArea: NSTrackingArea?
     private var isMouseInsideView = false
+    private let closeButtonCircle = CircleBackgroundView()
     private weak var closeButtonGlassView: NSView?
-    private let closeButtonSize: CGFloat = 22
+    private let closeButtonSize: CGFloat = 30
     private let closeButtonCornerInset: CGFloat = 3
 
     var onClose: (() -> Void)?
+    var onTogglePresentationMode: (() -> Void)?
 
     var onStepBackward: (() -> Void)? {
         get { collapsedView.onStepBackward }
@@ -152,14 +154,25 @@ final class PianoWaveformViewController: NSViewController {
             toolTip: "Close floating piano",
             action: #selector(closeClicked(_:))
         )
+
+        closeButtonCircle.translatesAutoresizingMaskIntoConstraints = false
+        closeButtonCircle.alphaValue = 0
+        containerView.addSubview(closeButtonCircle)
         containerView.addSubview(closeButton)
+        installOverlayGlassBackgrounds()
+
+        let buttonInset = Self.panelCornerRadius - closeButtonSize / 2 + closeButtonCornerInset
         NSLayoutConstraint.activate([
             closeButton.widthAnchor.constraint(equalToConstant: closeButtonSize),
             closeButton.heightAnchor.constraint(equalToConstant: closeButtonSize),
-            closeButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: closeButtonCornerInset),
-            closeButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: closeButtonCornerInset),
+            closeButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: buttonInset),
+            closeButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: buttonInset),
+
+            closeButtonCircle.centerXAnchor.constraint(equalTo: closeButton.centerXAnchor),
+            closeButtonCircle.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            closeButtonCircle.widthAnchor.constraint(equalToConstant: closeButtonSize),
+            closeButtonCircle.heightAnchor.constraint(equalToConstant: closeButtonSize),
         ])
-        installOverlayGlassBackgrounds()
     }
 
     private func configureOverlayButton(
@@ -168,7 +181,7 @@ final class PianoWaveformViewController: NSViewController {
         toolTip: String,
         action: Selector
     ) {
-        let config = NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
+        let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: toolTip)?
             .withSymbolConfiguration(config)
@@ -178,16 +191,7 @@ final class PianoWaveformViewController: NSViewController {
         button.toolTip = toolTip
         button.target = self
         button.action = action
-        // Always visible (no hover fade) — `setOverlayControlsVisible`
-        // is now a no-op. Start at 1 so the button paints on first
-        // appearance instead of waiting for the tracking-area enter.
-        button.alphaValue = 1
-        button.wantsLayer = true
-        button.layer?.cornerRadius = closeButtonSize / 2
-        button.layer?.borderWidth = 1
-        if #available(macOS 10.15, *) {
-            button.layer?.cornerCurve = .continuous
-        }
+        button.alphaValue = 0
     }
 
     private func installOverlayGlassBackgrounds() {
@@ -211,14 +215,21 @@ final class PianoWaveformViewController: NSViewController {
     }
 
     private func setOverlayControlsVisible(_ isVisible: Bool, animated: Bool = true) {
-        // Expand/collapse button is always visible now — keep the
-        // method around so existing call sites still compile but
-        // pin alpha to 1 regardless of hover state. `_ = isVisible`
-        // / `_ = animated` swallow the parameters cleanly.
-        _ = isVisible
-        _ = animated
-        closeButton.alphaValue = 1
-        closeButtonGlassView?.alphaValue = 1
+        let alpha: CGFloat = isVisible ? 1 : 0
+        let allViews: [NSView] = [
+            closeButton,
+            closeButtonCircle,
+            closeButtonGlassView,
+        ].compactMap { $0 }
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.12
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                allViews.forEach { $0.animator().alphaValue = alpha }
+            }
+        } else {
+            allViews.forEach { $0.alphaValue = alpha }
+        }
     }
 
     private func installTrackingArea() {
@@ -264,17 +275,39 @@ final class PianoWaveformViewController: NSViewController {
         if ExpandedPianoWaveformView.shouldUseLiquidGlass, #available(macOS 26.0, *) {
             (closeButtonGlassView as? NSGlassEffectView)?.style = .clear
             (closeButtonGlassView as? NSGlassEffectView)?.tintColor = tintColor.withAlphaComponent(0.34)
-            closeButton.layer?.backgroundColor = NSColor.clear.cgColor
-            closeButton.layer?.borderColor = NSColor.clear.cgColor
+            closeButtonCircle.fillColor = .clear
+            closeButtonCircle.strokeColor = .clear
         } else {
-            let border = NSColor.white.withAlphaComponent(0.28).cgColor
-            let background = NSColor.windowBackgroundColor.withAlphaComponent(isDark ? 0.18 : 0.22).cgColor
-            closeButton.layer?.backgroundColor = background
-            closeButton.layer?.borderColor = border
+            closeButtonCircle.fillColor = NSColor.windowBackgroundColor.withAlphaComponent(isDark ? 0.18 : 0.22)
+            closeButtonCircle.strokeColor = NSColor.white.withAlphaComponent(0.28)
         }
     }
 
     @objc private func closeClicked(_ sender: NSButton) {
         onClose?()
+    }
+}
+
+private final class OverlayCircleButton: NSButton {
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
+}
+
+private final class CircleBackgroundView: NSView {
+    var fillColor: NSColor = .clear { didSet { needsDisplay = true } }
+    var strokeColor: NSColor = .clear { didSet { needsDisplay = true } }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: 0.5, dy: 0.5))
+        fillColor.setFill()
+        circle.fill()
+        strokeColor.setStroke()
+        circle.lineWidth = 1
+        circle.stroke()
     }
 }
