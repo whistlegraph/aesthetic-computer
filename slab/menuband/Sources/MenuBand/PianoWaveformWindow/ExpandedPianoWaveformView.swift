@@ -66,7 +66,7 @@ final class ExpandedPianoWaveformView: NSView {
     private let pianoScale: CGFloat = 1.6
     private let inset: CGFloat = 14
     private let gap: CGFloat = 8
-    private let hintHeight: CGFloat = 20
+    private let hintHeight: CGFloat = 24
     private let heldNotesRowHeight: CGFloat = 0   // held-note pills retired
     private let chordCandidatesRowHeight: CGFloat = 0   // chord cards retired
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
@@ -167,7 +167,9 @@ final class ExpandedPianoWaveformView: NSView {
         hapticsLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         hapticsLabel.textColor = .secondaryLabelColor
         hapticsLabel.lineBreakMode = .byClipping
+        hapticsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         hapticsSwitch.controlSize = .mini
+        hapticsSwitch.setContentCompressionResistancePriority(.required, for: .horizontal)
         hapticsSwitch.target = self
         hapticsSwitch.action = #selector(hapticsSwitchChanged(_:))
         let infoConfig = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
@@ -175,13 +177,17 @@ final class ExpandedPianoWaveformView: NSView {
             systemSymbolName: "info.circle",
             accessibilityDescription: "About trackpad haptics"
         )?.withSymbolConfiguration(infoConfig)
+        hapticsInfoButton.translatesAutoresizingMaskIntoConstraints = false
         hapticsInfoButton.isBordered = false
         hapticsInfoButton.imagePosition = .imageOnly
+        hapticsInfoButton.imageScaling = .scaleProportionallyDown
         hapticsInfoButton.contentTintColor = .secondaryLabelColor
         hapticsInfoButton.toolTip = "Force Touch must be enabled in System Settings > Trackpad > Point & Click > Force Click and haptic feedback."
         hapticsInfoButton.target = self
         hapticsInfoButton.action = #selector(showHapticsInfo(_:))
         hapticsInfoButton.setButtonType(.momentaryPushIn)
+        hapticsInfoButton.setContentHuggingPriority(.required, for: .horizontal)
+        hapticsInfoButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         hapticsControls.addArrangedSubview(hapticsLabel)
         hapticsControls.addArrangedSubview(hapticsSwitch)
         hapticsControls.addArrangedSubview(hapticsInfoButton)
@@ -243,6 +249,12 @@ final class ExpandedPianoWaveformView: NSView {
         }
         layoutHintLabel.alignment = .left
         octaveHintLabel.alignment = .center
+        octaveHintLabel.font = NSFont.systemFont(ofSize: 14, weight: .heavy)
+        octaveHintLabel.setContentHuggingPriority(.required, for: .horizontal)
+        octaveHintLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let octaveResetClick = NSClickGestureRecognizer(target: self, action: #selector(resetOctaveFromLabel(_:)))
+        octaveResetClick.numberOfClicksRequired = 2
+        octaveHintLabel.addGestureRecognizer(octaveResetClick)
         focusHintLabel.alignment = .right
         updateShortcutHint()
         updateOctaveContext()
@@ -310,8 +322,10 @@ final class ExpandedPianoWaveformView: NSView {
 
             instrumentNumberLabel.leadingAnchor.constraint(equalTo: instrumentTitleRow.leadingAnchor, constant: 2),
             instrumentNumberLabel.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
-            hapticsControls.trailingAnchor.constraint(equalTo: instrumentTitleRow.trailingAnchor, constant: -2),
+            hapticsControls.trailingAnchor.constraint(equalTo: instrumentTitleRow.trailingAnchor, constant: -8),
             hapticsControls.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
+            hapticsInfoButton.widthAnchor.constraint(equalToConstant: 18),
+            hapticsInfoButton.heightAnchor.constraint(equalToConstant: 18),
             // Width-match the number label to the haptics row so
             // the two wings are symmetric — readout's centerX
             // pinned to titleRow.centerX then lands at the
@@ -335,6 +349,7 @@ final class ExpandedPianoWaveformView: NSView {
             shortcutHintRow.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor),
             shortcutHintRow.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor),
             shortcutHintRow.heightAnchor.constraint(equalToConstant: hintHeight),
+            octaveHintLabel.centerXAnchor.constraint(equalTo: shortcutHintRow.centerXAnchor),
 
             qwertyView.centerXAnchor.constraint(equalTo: centerXAnchor),
             qwertyView.widthAnchor.constraint(
@@ -738,7 +753,7 @@ final class ExpandedPianoWaveformView: NSView {
             return
         }
         octaveHintLabel.stringValue = menuBand.octaveContextLabel
-        octaveHintLabel.toolTip = "Visible keyboard sounds \(menuBand.playableNoteRangeLabel)"
+        octaveHintLabel.toolTip = "Visible keyboard sounds \(menuBand.playableNoteRangeLabel).\nDouble-click to reset octave."
         let shift = menuBand.octaveShift
         if shift > 0 {
             octaveHintLabel.textColor = NSColor.systemBlue.withAlphaComponent(0.86)
@@ -747,6 +762,12 @@ final class ExpandedPianoWaveformView: NSView {
         } else {
             octaveHintLabel.textColor = .secondaryLabelColor
         }
+    }
+
+    @objc private func resetOctaveFromLabel(_ sender: NSClickGestureRecognizer) {
+        guard sender.state == .ended, let menuBand, menuBand.octaveShift != 0 else { return }
+        menuBand.octaveShift = 0
+        refresh()
     }
 
     @objc private func hapticsSwitchChanged(_ sender: NSSwitch) {
