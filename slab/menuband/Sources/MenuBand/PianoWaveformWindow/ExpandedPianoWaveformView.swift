@@ -667,10 +667,11 @@ final class ExpandedPianoWaveformView: NSView {
 
     private func updateShortcutHint() {
         let focusShortcut = MenuBandShortcutPreferences.focusShortcut.displayString
-        let layoutShortcut = MenuBandShortcut.layoutToggle.displayString
+        let exitFocusShortcut = MenuBandShortcutPreferences.exitFocusShortcut.displayString
+        let layoutShortcut = MenuBandShortcutPreferences.layoutShortcut.displayString
         layoutHintLabel.stringValue = "Toggle Layout: \(layoutShortcut)"
         focusHintLabel.stringValue = (isPianoFocusActive?() ?? false)
-            ? "Exit Focus: \(focusShortcut)"
+            ? "Exit Focus: \(exitFocusShortcut)"
             : "Focus Piano: \(focusShortcut)"
     }
 

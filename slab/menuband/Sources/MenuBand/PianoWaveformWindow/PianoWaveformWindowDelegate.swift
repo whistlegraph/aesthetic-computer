@@ -526,11 +526,11 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
                     self.onFocusRelease?()
                     return nil
                 }
-                if isDown && MenuBandShortcutPreferences.focusShortcut.matches(event: event) {
+                if isDown && MenuBandShortcutPreferences.exitFocusShortcut.matches(event: event) {
                     self.onFocusRelease?()
                     return nil
                 }
-                if isDown && MenuBandShortcut.layoutToggle.matches(event: event) {
+                if isDown && MenuBandShortcutPreferences.layoutShortcut.matches(event: event) {
                     self.onToggleKeymap?()
                     return nil
                 }

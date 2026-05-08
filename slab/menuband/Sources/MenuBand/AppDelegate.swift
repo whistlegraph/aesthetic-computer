@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var typeModeHotkey: GlobalHotkey?
     private var focusCaptureHotkey: GlobalHotkey?
     private var pianoWaveformHotkey: GlobalHotkey?
+    private var exitFocusHotkey: GlobalHotkey?
     private var layoutToggleHotkey: GlobalHotkey?
     private var popoverPanel: MenuBandPopoverPanel?
     private var popoverVC: MenuBandPopoverViewController?
@@ -303,7 +304,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return self.popoverPanel?.frame
         }
         pianoWaveformWindowDelegate.isPianoFocusActive = { [weak self] in
-            self?.localCapture.isArmed ?? false
+            guard let self = self else { return false }
+            return self.localCapture.isArmed || self.pianoWaveformWindowDelegate.isKeyboardFocused
         }
         pianoWaveformWindowDelegate.onFocusRelease = { [weak self] in
             self?.finishPianoWaveformKeyboardFocus()
@@ -367,12 +369,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         pianoWaveformWindowDelegate.warmUp()
 
-        // Type-mode (cmd-ctrl-opt-P) and floating-piano (cmd-ctrl-opt-
-        // space) shortcuts retired — they were undocumented power-user
-        // affordances and overlap with the menubar piano + popover
-        // flow. Layout toggle stays; focus shortcut (K) is repurposed
-        // below to open the expanded floating panel centered.
+        // Four independent global controls: show the floating piano,
+        // focus its keys, exit that focus, and switch the keyboard layout.
         _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
+        _ = registerPianoWaveformHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
+        _ = registerExitFocusHotkey(MenuBandShortcutPreferences.exitFocusShortcut)
         registerLayoutToggleHotkey()
 
         // Dev affordance: post the
@@ -485,7 +486,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.localCapture.disarm(reason: .cancelled)
                 return true
             }
-            if isDown && MenuBandShortcut.layoutToggle.matches(
+            if isDown && MenuBandShortcutPreferences.layoutShortcut.matches(
                 keyCode: UInt32(keyCode),
                 modifiers: MenuBandShortcut.carbonModifiers(from: flags)
             ) {
@@ -661,9 +662,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] in
             self?.toggleKeyboardLayoutShortcut()
         }
+        let shortcut = MenuBandShortcutPreferences.layoutShortcut
         if hotkey.register(
-            keyCode: MenuBandShortcut.layoutToggle.keyCode,
-            modifiers: MenuBandShortcut.layoutToggle.modifiers
+            keyCode: shortcut.keyCode,
+            modifiers: shortcut.modifiers
         ) {
             layoutToggleHotkey = hotkey
         }
@@ -696,14 +698,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return false
         }
         focusCaptureHotkey = hotkey
+        return true
+    }
+
+    @discardableResult
+    private func registerExitFocusHotkey(_ shortcut: MenuBandShortcut) -> Bool {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D425846),  // 'MBXF'
+            id: 1
+        ) { [weak self] in
+            self?.exitPianoFocusFromShortcut()
+        }
+        guard hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) else {
+            return false
+        }
+        exitFocusHotkey = hotkey
         localCapture.cancelShortcut = shortcut
         return true
+    }
+
+    private func shortcutConflictsWithAssignedRole(
+        _ shortcut: MenuBandShortcut,
+        excluding current: MenuBandShortcut
+    ) -> Bool {
+        [
+            MenuBandShortcutPreferences.focusShortcut,
+            MenuBandShortcutPreferences.playPaletteShortcut,
+            MenuBandShortcutPreferences.exitFocusShortcut,
+            MenuBandShortcutPreferences.layoutShortcut
+        ].contains { $0 != current && $0 == shortcut }
     }
 
     private func applyFocusShortcut(_ shortcut: MenuBandShortcut) -> Bool {
         guard shortcut.isValidForRecording,
               !shortcut.isReservedForTypeMode,
-              shortcut != MenuBandShortcutPreferences.playPaletteShortcut else {
+              !shortcutConflictsWithAssignedRole(shortcut, excluding: MenuBandShortcutPreferences.focusShortcut) else {
             return false
         }
         let previous = MenuBandShortcutPreferences.focusShortcut
@@ -720,7 +749,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func applyPlayPaletteShortcut(_ shortcut: MenuBandShortcut) -> Bool {
         guard shortcut.isValidForRecording,
               !shortcut.isReservedForTypeMode,
-              shortcut != MenuBandShortcutPreferences.focusShortcut else {
+              !shortcutConflictsWithAssignedRole(shortcut, excluding: MenuBandShortcutPreferences.playPaletteShortcut) else {
             return false
         }
         let previous = MenuBandShortcutPreferences.playPaletteShortcut
@@ -742,6 +771,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             focusCaptureHotkey = nil
             pianoWaveformHotkey?.unregister()
             pianoWaveformHotkey = nil
+            exitFocusHotkey?.unregister()
+            exitFocusHotkey = nil
             layoutToggleHotkey?.unregister()
             layoutToggleHotkey = nil
         } else {
@@ -751,6 +782,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if pianoWaveformHotkey == nil {
                 _ = registerPianoWaveformHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
+            }
+            if exitFocusHotkey == nil {
+                _ = registerExitFocusHotkey(MenuBandShortcutPreferences.exitFocusShortcut)
             }
             if layoutToggleHotkey == nil { registerLayoutToggleHotkey() }
         }
@@ -787,22 +821,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func toggleFocusCaptureFromShortcut() {
-        // Cmd-Ctrl-Opt-K now opens (or toggles) the expanded
-        // floating piano centered on the active display. With the
-        // popover closed, `popoverFrameProvider` returns nil and
-        // `expandedFrame` falls back to a `centeredOrigin`, so the
-        // panel pops up dead-center.
+        // Focus is separate from show/hide: K brings the expanded piano
+        // forward and leaves it ready for keyboard play. E exits focus.
         let popoverWasOpen = isPopoverPanelShown
-        let panelWasOpen = pianoWaveformWindowDelegate.isShown
         closePopover()
-        if panelWasOpen {
-            pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
-            return
+        if menuBand.typeMode {
+            menuBand.disableTypeModeForFocusCapture()
         }
-        // Defer the panel open by one runloop tick so AppKit can finish
-        // tearing down the popover window first. Without this, the popover
-        // and the expanded panel both render on screen simultaneously
-        // (both wear liquid-glass material → reads as "two large popovers").
         if popoverWasOpen {
             DispatchQueue.main.async { [weak self] in
                 self?.pianoWaveformWindowDelegate.showExpandedForPopover()
@@ -810,6 +835,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             pianoWaveformWindowDelegate.showExpandedForPopover()
         }
+    }
+
+    private func exitPianoFocusFromShortcut() {
+        if localCapture.isArmed {
+            localCapture.disarm(reason: .cancelled)
+            return
+        }
+        finishPianoWaveformKeyboardFocus()
     }
 
     /// Legacy focus-capture path — preserved as a stub so the

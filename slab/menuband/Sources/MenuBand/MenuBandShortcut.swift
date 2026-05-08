@@ -15,15 +15,22 @@ struct MenuBandShortcut: Equatable {
         modifiers: UInt32(cmdKey | controlKey | optionKey)
     )
 
+    static let defaultExitFocus = MenuBandShortcut(
+        keyCode: UInt32(kVK_ANSI_E),
+        modifiers: UInt32(cmdKey | controlKey | optionKey)
+    )
+
+    static let defaultLayoutToggle = MenuBandShortcut(
+        keyCode: UInt32(kVK_ANSI_L),
+        modifiers: UInt32(cmdKey | controlKey | optionKey)
+    )
+
     static let typeMode = MenuBandShortcut(
         keyCode: UInt32(kVK_ANSI_P),
         modifiers: UInt32(cmdKey | controlKey | optionKey)
     )
 
-    static let layoutToggle = MenuBandShortcut(
-        keyCode: UInt32(kVK_ANSI_L),
-        modifiers: UInt32(cmdKey | controlKey | optionKey)
-    )
+    static let layoutToggle = defaultLayoutToggle
 
     var isValidForRecording: Bool {
         (modifiers & UInt32(cmdKey | controlKey | optionKey)) != 0
@@ -111,46 +118,88 @@ enum MenuBandShortcutPreferences {
     private static let focusModifiersKey = "notepat.focusShortcut.modifiers"
     private static let playPaletteKeyCodeKey = "notepat.playPaletteShortcut.keyCode"
     private static let playPaletteModifiersKey = "notepat.playPaletteShortcut.modifiers"
+    private static let exitFocusKeyCodeKey = "notepat.exitFocusShortcut.keyCode"
+    private static let exitFocusModifiersKey = "notepat.exitFocusShortcut.modifiers"
+    private static let layoutKeyCodeKey = "notepat.layoutShortcut.keyCode"
+    private static let layoutModifiersKey = "notepat.layoutShortcut.modifiers"
+
+    private static func loadShortcut(
+        keyCodeKey: String,
+        modifiersKey: String,
+        fallback: MenuBandShortcut
+    ) -> MenuBandShortcut {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: keyCodeKey) != nil,
+              defaults.object(forKey: modifiersKey) != nil else {
+            return fallback
+        }
+        let shortcut = MenuBandShortcut(
+            keyCode: UInt32(defaults.integer(forKey: keyCodeKey)),
+            modifiers: UInt32(defaults.integer(forKey: modifiersKey))
+        )
+        return shortcut.isValidForRecording && !shortcut.isReservedForTypeMode
+            ? shortcut
+            : fallback
+    }
+
+    private static func saveShortcut(
+        _ shortcut: MenuBandShortcut,
+        keyCodeKey: String,
+        modifiersKey: String
+    ) {
+        UserDefaults.standard.set(Int(shortcut.keyCode), forKey: keyCodeKey)
+        UserDefaults.standard.set(Int(shortcut.modifiers), forKey: modifiersKey)
+    }
 
     static var focusShortcut: MenuBandShortcut {
         get {
-            let defaults = UserDefaults.standard
-            guard defaults.object(forKey: focusKeyCodeKey) != nil,
-                  defaults.object(forKey: focusModifiersKey) != nil else {
-                return .defaultFocus
-            }
-            let shortcut = MenuBandShortcut(
-                keyCode: UInt32(defaults.integer(forKey: focusKeyCodeKey)),
-                modifiers: UInt32(defaults.integer(forKey: focusModifiersKey))
+            loadShortcut(
+                keyCodeKey: focusKeyCodeKey,
+                modifiersKey: focusModifiersKey,
+                fallback: .defaultFocus
             )
-            return shortcut.isValidForRecording && !shortcut.isReservedForTypeMode
-                ? shortcut
-                : .defaultFocus
         }
         set {
-            UserDefaults.standard.set(Int(newValue.keyCode), forKey: focusKeyCodeKey)
-            UserDefaults.standard.set(Int(newValue.modifiers), forKey: focusModifiersKey)
+            saveShortcut(newValue, keyCodeKey: focusKeyCodeKey, modifiersKey: focusModifiersKey)
         }
     }
 
     static var playPaletteShortcut: MenuBandShortcut {
         get {
-            let defaults = UserDefaults.standard
-            guard defaults.object(forKey: playPaletteKeyCodeKey) != nil,
-                  defaults.object(forKey: playPaletteModifiersKey) != nil else {
-                return .defaultPlayPalette
-            }
-            let shortcut = MenuBandShortcut(
-                keyCode: UInt32(defaults.integer(forKey: playPaletteKeyCodeKey)),
-                modifiers: UInt32(defaults.integer(forKey: playPaletteModifiersKey))
+            loadShortcut(
+                keyCodeKey: playPaletteKeyCodeKey,
+                modifiersKey: playPaletteModifiersKey,
+                fallback: .defaultPlayPalette
             )
-            return shortcut.isValidForRecording && !shortcut.isReservedForTypeMode
-                ? shortcut
-                : .defaultPlayPalette
         }
         set {
-            UserDefaults.standard.set(Int(newValue.keyCode), forKey: playPaletteKeyCodeKey)
-            UserDefaults.standard.set(Int(newValue.modifiers), forKey: playPaletteModifiersKey)
+            saveShortcut(newValue, keyCodeKey: playPaletteKeyCodeKey, modifiersKey: playPaletteModifiersKey)
+        }
+    }
+
+    static var exitFocusShortcut: MenuBandShortcut {
+        get {
+            loadShortcut(
+                keyCodeKey: exitFocusKeyCodeKey,
+                modifiersKey: exitFocusModifiersKey,
+                fallback: .defaultExitFocus
+            )
+        }
+        set {
+            saveShortcut(newValue, keyCodeKey: exitFocusKeyCodeKey, modifiersKey: exitFocusModifiersKey)
+        }
+    }
+
+    static var layoutShortcut: MenuBandShortcut {
+        get {
+            loadShortcut(
+                keyCodeKey: layoutKeyCodeKey,
+                modifiersKey: layoutModifiersKey,
+                fallback: .defaultLayoutToggle
+            )
+        }
+        set {
+            saveShortcut(newValue, keyCodeKey: layoutKeyCodeKey, modifiersKey: layoutModifiersKey)
         }
     }
 }
