@@ -23,7 +23,6 @@ final class PianoWaveformViewController: NSViewController {
     private let closeButtonCornerInset: CGFloat = 3
 
     var onClose: (() -> Void)?
-    var onTogglePresentationMode: (() -> Void)?
 
     var onStepBackward: (() -> Void)? {
         get { collapsedView.onStepBackward }

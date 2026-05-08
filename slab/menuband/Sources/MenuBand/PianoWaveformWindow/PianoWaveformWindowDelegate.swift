@@ -450,15 +450,6 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         })
     }
 
-    private func togglePresentationMode() {
-        switch presentationState {
-        case .collapsed:
-            expandFromStrip()
-        case .expanded:
-            collapseToStrip()
-        }
-    }
-
     private func dockOnMenu() {
         collapsedCustomOrigin = nil
         persistOrigin(nil, xKey: Self.collapsedOriginXKey, yKey: Self.collapsedOriginYKey)
@@ -507,11 +498,6 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         if menuBand.litNotes.isEmpty {
             scheduleHide()
         }
-    }
-
-    private func expandFromStrip() {
-        transitionToExpanded()
-        showExpanded(restoringTo: nil)
     }
 
     private func installMonitors() {
