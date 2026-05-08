@@ -1,0 +1,5 @@
+# marketing — keep prompts + processes, skip outputs.
+# gens/ holds gpt-image-2 PNGs (large, regen-able from cover-prompt.txt + refs).
+# captures/ holds local puppeteer captures from `bin/capture-ac-native.mjs`.
+campaigns/*/gens/
+captures/

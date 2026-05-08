@@ -1,0 +1,105 @@
+a photograph of a colored-pencil and gouache drawing on warm cream
+paper. tall vertical portrait. confident hatching. tapered pencil
+edges. visible paper grain. the drawing dissolves to bare cream paper
+at the edges — no hard frame, no app ui, no overlays.
+
+i'm sitting on top of a mast-arm traffic signal in los angeles, working
+on my laptop. this is what i see.
+
+first-person pov. my face and body are not in the frame. only my hands
+on the keys, and a thin sliver of my cobalt-blue wide-leg trousers and
+the toes of my black canvas low-top sneakers at the very bottom corners.
+between my knees, the weathered grey-painted aluminum of the signal
+cabinet i'm sitting on.
+
+the laptop is the chartreuse-citrus-green ac neo clamshell — saturated
+chartreuse-green body, hinge in the middle of the frame, keyboard
+foreshortened along the bottom, screen tilted up and FACING me — i'm
+looking right at it. the screen fills a wide band across the middle of
+the picture. both my hands rest on the keyboard mid-typing, fluid and
+calm. no motion-blur frenzy.
+
+on the screen — notepat. the real ac-native instrument, drawn in
+the same colored-pencil hatching as everything else, never a glossy
+ui render. match the layout from the ac-native-notepat.png reference
+exactly:
+
+– top-left, a small qr code square next to the lowercase pixel-text
+  word "notepat.com" and a faint "try space" hint
+– a thin status strip across the top right: small dim chips reading
+  "usb off", "udp", "fps60", a tiny "vol" with a faint level bar,
+  and a pixel time stamp like "12:48:41p"
+– a left-side effects column in dim pixel monospace: lines that
+  read "fx 100%", "echo 0%", "pitch +0c", "crush 0%", "vol 100%",
+  "drive 0%", "wobble 0%". a soft pale-green horizontal bar runs
+  alongside "fx 100%" and a soft mint bar runs alongside "vol 100%".
+  small "x y 0" controls down the right edge of that column
+– a thin row of sound-chip tab labels across the upper-middle,
+  hand-lettered in pixel monospace: sine, tri, saw, square, pno,
+  harp, whist, sample. the leftmost — "sine" — sits in a soft
+  cyan-blue active pill. an "o:4" tag and a small red "REC" button
+  at the right end of the row
+– a thin transport strip below the chips with a tiny ▶ play glyph,
+  the words "no usb" in pixel monospace, and on the right
+  "0:00/0:00 1.00x  --bpm"
+– most of the screen is a calm light-cream field — empty staff/play
+  area, the same warm cream as the surrounding paper
+– a chunky pixel mascot character mid-screen — a small round-headed
+  figure with a chunky royal-blue cap, blue overalls, a tiny pale
+  face, dot eyes and a tiny open mouth. just the notepat character,
+  sitting on a faint horizontal staff line
+– a two-octave qwerty piano panel running across the bottom of the
+  screen — chunky color-block keys with a single pixel letter in
+  the upper-left of each key (C V D S H T I Y / E F W G J K U L /
+  R A Q B O M P N) and the note name in the lower-left in a smaller
+  pixel font (c4 c#4 d4 d#4 / e4 f4 f#4 g4 / etc.). soft-coral and
+  mint-green and butter-yellow and lavender keys, hand-hatched in
+  colored pencil, slightly desaturated. a tiny "z x" pair of glyphs
+  at the bottom-left corner
+– a tiny "+ –" pair at the bottom-right corner
+
+NEVER a thumbnail of the la intersection below. notepat is its own
+quiet little world running on his lap.
+
+past the laptop the world drops away. the long horizontal mast arm
+extends out to one side of the frame. three round signal heads hang
+from it — red, yellow, green lenses, seen from above and slightly
+behind so the tops of the visors read. a pedestrian-signal head and a
+small camera box clip onto the arm. utility wires sag toward a power
+pole off-frame.
+
+an la intersection eighteen to twenty-two feet below. crosswalk stripes.
+faded lane lines. cars stopped at the red — a couple of sedans, a
+delivery truck, a beat-up pickup. diagonal palm-tree shadows stretching
+across the asphalt. mexican fan palms at the corners — bare trunks,
+feathery crowns. a low strip of la storefronts on the far corner: an
+auto-body sign hand-painted on stucco, a faded mid-century cursive
+marquee, a taquería awning in red-and-yellow stripes. power lines
+crisscrossing the upper sky. late-afternoon golden hour, warm and low,
+long shadows.
+
+a hazed ridge of the la basin at the very top horizon.
+
+the laptop is the only saturated bright in the frame — everything else
+sun-bleached.
+
+the read: i'm calmly working from the top of a traffic light like it's
+just another desk. the city below carries on without noticing me. quiet
+deadpan la absurdity. the conviction is in the composure, not in any
+hero pose.
+
+palette: warm cream paper as the ground. sun-bleached asphalt grey.
+warm late-afternoon la gold. dusty olive on palm trunks. muted brick
+and stucco pink for storefront walls. faded red and amber on signage
+and awnings. one chartreuse-citrus pop on the laptop. cobalt blue on
+the trouser hems. matte near-black on sneakers and laptop keys.
+weathered slate on the signal cabinet and signal heads. hand-drawn,
+hatched, print-tech-aware, print-comic restraint.
+
+avoid: photoreal automotive or architectural rendering. cinematic
+golden-hour glow as a css overlay — the warmth comes from diegetic
+sun hatched into the marks. any visible laptop or phone screen
+content. my face. any text labeling apps or signs that names a real
+brand outright. cartoon exaggeration. fish-eye distortion. keep the
+perspective believable — someone calmly cross-legged on top of a
+signal cabinet, working on a laptop, looking down past it at la.
