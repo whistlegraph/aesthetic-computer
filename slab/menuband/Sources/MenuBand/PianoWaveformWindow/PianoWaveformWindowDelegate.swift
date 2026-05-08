@@ -131,9 +131,6 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         )
         super.init()
 
-        pianoWaveformViewController.onTogglePresentationMode = { [weak self] in
-            self?.togglePresentationMode()
-        }
         pianoWaveformViewController.onClose = { [weak self] in
             self?.dismiss(reason: .closeButton)
         }

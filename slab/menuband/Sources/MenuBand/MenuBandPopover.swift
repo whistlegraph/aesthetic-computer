@@ -179,8 +179,6 @@ final class MenuBandPopoverViewController: NSViewController {
     /// vertical popover space to a full visualizer block.
     private var miniWaveformView: WaveformView!
     private var miniWaveformBezel: HoverTrackingView!
-    private var miniWaveformExpandButton: NSButton!
-    private var isMiniWaveformHovered = false
 
     deinit {
         if let monitor = focusShortcutRecorderMonitor {
@@ -646,45 +644,19 @@ final class MenuBandPopoverViewController: NSViewController {
             .withAlphaComponent(0.5).cgColor
         miniWaveformBezel.translatesAutoresizingMaskIntoConstraints = false
         miniWaveformBezel.addSubview(miniWaveformView)
-        miniWaveformExpandButton = NSButton()
-        miniWaveformExpandButton.translatesAutoresizingMaskIntoConstraints = false
-        miniWaveformExpandButton.isBordered = false
-        miniWaveformExpandButton.imagePosition = .imageOnly
-        miniWaveformExpandButton.contentTintColor = .white.withAlphaComponent(0.86)
-        miniWaveformExpandButton.toolTip = "Open floating piano"
-        miniWaveformExpandButton.target = self
-        miniWaveformExpandButton.action = #selector(miniVisualizerClicked(_:))
-        miniWaveformExpandButton.setButtonType(.momentaryPushIn)
-        miniWaveformExpandButton.wantsLayer = true
-        miniWaveformExpandButton.layer?.cornerRadius = 9
-        miniWaveformExpandButton.layer?.borderWidth = 0.6
-        if #available(macOS 10.15, *) {
-            miniWaveformExpandButton.layer?.cornerCurve = .continuous
-        }
-        let expandConfig = NSImage.SymbolConfiguration(pointSize: 9, weight: .bold)
-        miniWaveformExpandButton.image = NSImage(
-            systemSymbolName: "arrow.up.left.and.arrow.down.right",
-            accessibilityDescription: "Open floating piano"
-        )?.withSymbolConfiguration(expandConfig)
-        miniWaveformBezel.addSubview(miniWaveformExpandButton)
         let miniBezelInset: CGFloat = 4
         NSLayoutConstraint.activate([
             miniWaveformView.leadingAnchor.constraint(equalTo: miniWaveformBezel.leadingAnchor, constant: miniBezelInset),
             miniWaveformView.trailingAnchor.constraint(equalTo: miniWaveformBezel.trailingAnchor, constant: -miniBezelInset),
             miniWaveformView.topAnchor.constraint(equalTo: miniWaveformBezel.topAnchor, constant: miniBezelInset),
             miniWaveformView.bottomAnchor.constraint(equalTo: miniWaveformBezel.bottomAnchor, constant: -miniBezelInset),
-            miniWaveformExpandButton.widthAnchor.constraint(equalToConstant: 18),
-            miniWaveformExpandButton.heightAnchor.constraint(equalToConstant: 18),
-            miniWaveformExpandButton.trailingAnchor.constraint(equalTo: miniWaveformBezel.trailingAnchor, constant: -7),
-            miniWaveformExpandButton.topAnchor.constraint(equalTo: miniWaveformBezel.topAnchor, constant: 7),
         ])
         // Hover affordance: brighten the bezel border + nudge alpha
         // so the strip reads as "click to expand." On click, jump
         // to Esteban's full-screen liquid panel via the popover's
         // expand entry point.
         miniWaveformBezel.onHoverChanged = { [weak self] hovered in
-            guard let self = self, let bezel = self.miniWaveformBezel else { return }
-            self.isMiniWaveformHovered = hovered
+            guard let bezel = self?.miniWaveformBezel else { return }
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = 0.18
                 ctx.allowsImplicitAnimation = true
@@ -693,7 +665,6 @@ final class MenuBandPopoverViewController: NSViewController {
                     : NSColor.separatorColor.withAlphaComponent(0.5)).cgColor
                 bezel.layer?.borderWidth = hovered ? 1.2 : 0.6
                 bezel.alphaValue = hovered ? 1.0 : 0.85
-                self.updateMiniWaveformAffordance(hovered: hovered)
             })
             NSCursor.pointingHand.set()
         }
@@ -703,7 +674,6 @@ final class MenuBandPopoverViewController: NSViewController {
         )
         miniWaveformBezel.addGestureRecognizer(miniViewClick)
         miniWaveformBezel.toolTip = "Click to open the full-screen piano"
-        updateMiniWaveformAffordance(hovered: false)
         stack.setCustomSpacing(8, after: waveformBezel)
         stack.addArrangedSubview(miniWaveformBezel)
         miniWaveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
@@ -1660,22 +1630,6 @@ final class MenuBandPopoverViewController: NSViewController {
                 mini.setBaseColor(InstrumentListView.colorForProgram(safe))
             }
         }
-        updateMiniWaveformAffordance(hovered: isMiniWaveformHovered)
-    }
-
-    private func updateMiniWaveformAffordance(hovered: Bool) {
-        guard let button = miniWaveformExpandButton else { return }
-        let appearance = miniWaveformBezel?.effectiveAppearance ?? NSApp.effectiveAppearance
-        let isDark = appearance.bestMatch(
-            from: [.aqua, .darkAqua]) == .darkAqua
-        let voiceColor = currentVoiceColor()
-        button.alphaValue = hovered ? 1.0 : 0.68
-        button.contentTintColor = (isDark ? NSColor.white : NSColor.black)
-            .withAlphaComponent(hovered ? 0.94 : 0.76)
-        button.layer?.backgroundColor = voiceColor
-            .withAlphaComponent(hovered ? 0.28 : 0.16).cgColor
-        button.layer?.borderColor = voiceColor
-            .withAlphaComponent(hovered ? 0.70 : 0.38).cgColor
     }
 
     /// Repaint the keyboard chassis against the current appearance.

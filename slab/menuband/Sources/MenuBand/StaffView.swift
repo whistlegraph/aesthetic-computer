@@ -735,20 +735,20 @@ final class StaffView: NSView {
             // above the staff line you'd notate it on."
             var y = staffY(for: note.midi, staffBottomY: staffBottomY)
             if isSharp { y += lineSpacing / 4 }
-            // Wrap the note's drawn Y into the visible region by
-            // an integer number of octaves. The staff tiles its
-            // 5-line skeleton at every octave (see line / guide /
-            // ladder loops above), so any pitch class always has
-            // an equivalent staff position somewhere in view —
-            // even when octaveShift takes the absolute halfLineStep
-            // far above or below the standard treble range. Without
-            // this wrap, played notes drift off the bezel as the
-            // pitch-shift transform translates the world; now they
-            // always land on the staff in their pitch-class slot.
+            // Wrap the note's drawn Y into the visible window by
+            // an integer number of TWO-octave spans, not one. Single-
+            // octave wrap collapsed C5 and C6 onto the same Y, which
+            // hid the natural 2-octave layout of the Notepat / Ableton
+            // playable range. With a 2-octave wrap, the bezel always
+            // shows ~2 octaves of distinct vertical positions while
+            // still pulling the played octave into view when octaveShift
+            // takes the absolute halfLineStep far above or below the
+            // standard treble window.
+            let wrapStep = octaveStep * 2
             let yPostRaw = y + pitchShiftY
             let visibleMidY = bounds.midY
-            let wrapDelta = ((yPostRaw - visibleMidY) / octaveStep).rounded()
-            y -= wrapDelta * octaveStep
+            let wrapDelta = ((yPostRaw - visibleMidY) / wrapStep).rounded()
+            y -= wrapDelta * wrapStep
             let bornAge = CGFloat(now - snap.appearedAt)
             let leftX = playColumnX - bornAge * Self.scrollSpeed
             let rightX: CGFloat
