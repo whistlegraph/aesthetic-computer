@@ -132,6 +132,7 @@ enum Localization {
         "popover.about.crash.summaryMany": "Menu Band crashed %@ times",
         "popover.about.crash.viewerTitle": "Crash reports",
         "popover.about.crash.sendToAC": "Send to Aesthetic.Computer",
+        "popover.about.nela": "Say hi at NELA Computer Club — Tuesdays in LA",
 
         // Popover — language switcher
         "popover.language.label": "Language",
@@ -196,6 +197,7 @@ enum Localization {
         "popover.about.crash.summaryMany": "Menu Band falló %@ veces",
         "popover.about.crash.viewerTitle": "Informes de fallos",
         "popover.about.crash.sendToAC": "Enviar a Aesthetic.Computer",
+        "popover.about.nela": "Saluda en NELA Computer Club — los martes en LA",
 
         // Popover — language switcher
         "popover.language.label": "Idioma",
@@ -260,6 +262,7 @@ enum Localization {
         "popover.about.crash.summaryMany": "Menu Band 崩溃了 %@ 次",
         "popover.about.crash.viewerTitle": "崩溃报告",
         "popover.about.crash.sendToAC": "发送至 Aesthetic.Computer",
+        "popover.about.nela": "周二来 NELA 电脑俱乐部打个招呼 — 洛杉矶",
 
         // Popover — language switcher
         "popover.language.label": "语言",
@@ -322,6 +325,7 @@ enum Localization {
         "popover.about.crash.summaryMany": "Menu Band は %@ 回クラッシュしました",
         "popover.about.crash.viewerTitle": "クラッシュレポート",
         "popover.about.crash.sendToAC": "Aesthetic.Computer に送信",
+        "popover.about.nela": "火曜は NELA Computer Club へ — ロサンゼルス",
 
         // Popover — language switcher
         "popover.language.label": "言語",
@@ -387,6 +391,7 @@ enum Localization {
         "popover.about.crash.summaryMany": "Menu Band падал %@ раз",
         "popover.about.crash.viewerTitle": "Отчёты о сбоях",
         "popover.about.crash.sendToAC": "Отправить на Aesthetic.Computer",
+        "popover.about.nela": "Заходите в NELA Computer Club — по вторникам в Лос-Анджелесе",
 
         // Popover — language switcher
         "popover.language.label": "Язык",

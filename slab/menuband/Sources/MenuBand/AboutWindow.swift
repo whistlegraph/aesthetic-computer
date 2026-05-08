@@ -211,7 +211,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         para.alignment = .center
         para.lineBreakMode = .byWordWrapping
         let nelaText = NSAttributedString(
-            string: "Say hello to the Menu Band developers in person at the NELA Computer Club, Tuesday evenings @ plot.place in Los Angeles, CA",
+            string: L("popover.about.nela"),
             attributes: [
                 .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
                 .foregroundColor: NSColor.secondaryLabelColor,
