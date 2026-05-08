@@ -192,18 +192,18 @@ final class MenuBandPopoverViewController: NSViewController {
     }
 
     override func loadView() {
-        // Plain solid-color background — no NSVisualEffectView. The visual
-        // effect view sampled the surrounding context and shifted appearance
-        // when focus moved between the menu bar and the popover. A flat
-        // background keeps the popover homogeneous in all states.
+        // The panel chrome supplies the NSVisualEffectView material; keep
+        // the content root translucent so the popover reads as glass, then
+        // tint that material lightly with the active instrument family.
         let root = MenuBandPopoverRootView()
         root.wantsLayer = true
-        root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        root.layer?.backgroundColor = NSColor.clear.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
         root.onAppearanceChange = { [weak self] in
             self?.handleEffectiveAppearanceChange()
         }
         rootBackgroundView = root
+        applyPopoverRootChrome()
 
         // Vertical stack of rows. Tight spacing + small edge insets so the
         // popover hugs the 224 px instrument grid with no slack.
@@ -1294,6 +1294,7 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         updateFocusShortcutControls()
         updatePlayPaletteShortcutControls()
+        applyPopoverRootChrome()
         applyAppearanceToVisualizer()
         updateInstrumentReadout()
         // Keep the QWERTY layout's keymap + tint synced with the
@@ -1580,8 +1581,7 @@ final class MenuBandPopoverViewController: NSViewController {
     }
 
     fileprivate func handleEffectiveAppearanceChange() {
-        rootBackgroundView?.layer?.backgroundColor =
-            NSColor.windowBackgroundColor.cgColor
+        applyPopoverRootChrome()
         applyAppearanceToVisualizer()
         refreshHeldNotes()
         updateInstrumentReadout()
@@ -1604,6 +1604,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// still in progress, not just after mouse-up commits it.
     func refreshInstrumentVisuals() {
         guard isViewLoaded else { return }
+        applyPopoverRootChrome()
         updateInstrumentReadout()
         applyAppearanceToVisualizer()
         qwertyMap?.voiceColor = currentVoiceColor()
@@ -1615,6 +1616,15 @@ final class MenuBandPopoverViewController: NSViewController {
         if m.instrumentBackend == .kpbj { return .systemOrange }
         let safe = max(0, min(127, Int(m.effectiveMelodicProgram)))
         return InstrumentListView.colorForProgram(safe)
+    }
+
+    private func applyPopoverRootChrome() {
+        guard let root = rootBackgroundView else { return }
+        let appearance = root.effectiveAppearance
+        let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let alpha: CGFloat = isDark ? 0.13 : 0.08
+        root.layer?.backgroundColor = currentVoiceColor()
+            .withAlphaComponent(alpha).cgColor
     }
 
     private func forceRedrawSubtree(_ root: NSView?) {
@@ -2011,6 +2021,7 @@ final class MenuBandPopoverViewController: NSViewController {
             updateSelfTestLabel(state: .unknown)
         }
         m.setMelodicProgram(UInt8(program))
+        applyPopoverRootChrome()
         updateInstrumentReadout()
         debugLog("instrument commit prog=\(program) midiAutoOff=\(wasMidiOn)")
         if wasMidiOn {
@@ -2034,6 +2045,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// as "accent-colored" while voice mode reads as family-colored.
     func applyVisualizerForMidiMode(_ midiOn: Bool) {
         guard let m = menuBand else { return }
+        applyPopoverRootChrome()
         if midiOn {
             waveformBezel?.layer?.borderColor = NSColor.controlAccentColor
                 .withAlphaComponent(0.55).cgColor
