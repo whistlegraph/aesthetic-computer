@@ -292,6 +292,9 @@ enum KeyboardIconRenderer {
     static let settingsW: CGFloat = 18.0
     static let settingsH: CGFloat = 21.0
     static let settingsGap: CGFloat = 12.0
+    private static var settingsLeadGap: CGFloat {
+        displayLayout == .compact ? 0 : settingsGap
+    }
     /// Reserved space on the right of the icon for the voice-number
     /// badge to flow into when the program has 2+ digits. The music
     /// note + settingsHitRect stay anchored where they were; this
@@ -356,7 +359,7 @@ enum KeyboardIconRenderer {
     }
 
     static var imageSize: NSSize {
-        let totalW = ceil(pad + pianoWidth + settingsGap + settingsW + pad + voiceBadgeRightPad)
+        let totalW = ceil(pad + pianoWidth + settingsLeadGap + settingsW + pad + voiceBadgeRightPad)
         let totalH = ceil(whiteH + pad * 2)
         return NSSize(width: totalW, height: totalH)
     }
@@ -739,7 +742,9 @@ enum KeyboardIconRenderer {
     // `settingsIconRect` directly (not via this hit rect) so the
     // glyph stays put even though the hit zone now covers the pad.
     private static var settingsHitRect: NSRect {
-        let leftX = pianoOriginX + pianoWidth(layout: .fixedCanvas)
+        let leftX = displayLayout == .compact
+            ? 0
+            : pianoOriginX + pianoWidth(layout: .fixedCanvas)
         let rightX = imageSize.width
         return NSRect(x: leftX, y: 0, width: rightX - leftX, height: imageSize.height)
     }
