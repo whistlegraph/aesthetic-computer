@@ -38,31 +38,43 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
 
     // MARK: - "Menu Band PDF" embedded-score format
     //
-    // A Menu Band PDF is a regular PDF whose Info dictionary
-    // (PDFKit's `documentAttributes`) carries two extra keys:
+    // A Menu Band PDF is a regular PDF whose standard Info
+    // dictionary carries the round-trip payload:
     //
-    //   • MenuBandFormat   — schema version string. "1" today.
-    //                         Bump on any incompatible change to
-    //                         the embedded payload.
-    //   • MenuBandMusicXML — full MusicXML representation of the
-    //                         score. Verovio's MusicXML output, so
-    //                         it round-trips through `loadData` →
-    //                         `renderToSVG` and `renderToMIDI`
-    //                         losslessly.
+    //   • Subject  — full MusicXML representation of the score
+    //                (Verovio's MusicXML output; round-trips
+    //                losslessly through `loadData` → SVG/MIDI).
+    //   • Keywords — `["MenuBandFormat:1"]`. Identifies the PDF
+    //                as a Menu Band score and carries the schema
+    //                version. Bump on any incompatible change.
+    //   • Title    — "Menu Band score" (cosmetic, shown by Finder).
+    //   • Creator  — "Menu Band" (cosmetic, shown by Finder).
+    //
+    // Why standard fields and not custom Info keys: an earlier
+    // version stored the XML under `/MenuBandMusicXML` and the
+    // version under `/MenuBandFormat`. PDFKit's
+    // `documentAttributes` setter happily wrote those, but the
+    // SERIALIZER emitted them as PDF *strings* — `(MenuBandMusicXML)`
+    // — instead of PDF *names* — `/MenuBandMusicXML`. PDF spec
+    // requires Info dict keys to be names, so CoreGraphics's
+    // stricter parser rejected the whole dict on read with
+    // "found non-name key while building dictionary". `Subject`
+    // and `Keywords` are predefined PDFDocumentAttribute keys that
+    // PDFKit serializes correctly, so the round-trip works.
     //
     // Round-trip:
-    //   drag OUT — `schedulePDFRefresh` writes both keys via
+    //   drag OUT — `schedulePDFRefresh` writes the four fields via
     //              `PDFDocument.documentAttributes` + `write(to:)`.
-    //              PDFKit serializes the Info dict literal as
-    //              `(MenuBandMusicXML)<...> (MenuBandFormat)(1)`
-    //              inside the PDF; verified with `grep -a` on the
-    //              binary.
-    //   drag IN  — `performDragOperation` reads back the same keys,
-    //              hands the XML to `Sheet.loadXMLAndExportMIDI`,
-    //              and routes Verovio's MIDI render through
-    //              `MidiFilePlayer.play` so the score auto-plays.
-    private static let pdfFormatKey = "MenuBandFormat"
-    private static let pdfFormatVersion = "1"
+    //   drag IN  — `loadAndPlay` reads `Subject` (with a legacy-
+    //              format fallback that grep-extracts the old
+    //              `/MenuBandMusicXML` parenthesis-string from the
+    //              raw bytes), hands the XML to
+    //              `Sheet.loadXMLAndExportMIDI`, and routes
+    //              Verovio's MIDI render through `MidiFilePlayer`
+    //              so the score auto-plays.
+    private static let pdfFormatKeyword = "MenuBandFormat:1"
+    /// Legacy custom-key fallback — read-only, for PDFs exported
+    /// by versions before the move to standard Info fields.
     private static let pdfMusicXMLKey = "MenuBandMusicXML"
 
     /// 8.5×11 letter aspect ratio so the card looks like a real
@@ -245,13 +257,32 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         let pdfURL = tmpDir.appendingPathComponent("Menu-Band-\(stamp).pdf")
         NSLog("SheetMusicView: PDF refresh starting → \(pdfURL.lastPathComponent), webView.bounds=\(webView.bounds), xml=\(xmlAtRender.count) chars")
 
-        // Toggle the export-only stylesheet (kills the SVG noise
-        // filter + box shadows, which can't be vectorized into PDF
-        // and otherwise rasterize to 200+ MB at Retina DPI). The
-        // class is removed in the completion handler.
-        webView.evaluateJavaScript("document.body.classList.add('exporting')",
-                                   completionHandler: nil)
+        // Fetch the wall-clock event list FIRST so it's available
+        // when we write the PDF. Chained to avoid a race between
+        // the async eval and the async createPDF — without this
+        // chain the events JSON could be missing or stale when
+        // the file is finalised.
+        webView.evaluateJavaScript("Sheet.getPlaybackEvents()") { [weak self] eventsResult, _ in
+            guard let self = self else { return }
+            let eventsJSON = (eventsResult as? String) ?? "[]"
+            // Toggle the export-only stylesheet (kills the SVG noise
+            // filter + box shadows, which can't be vectorized into
+            // PDF and otherwise rasterize to 200+ MB at Retina DPI).
+            // Removed in the createPDF completion below.
+            self.webView.evaluateJavaScript(
+                "document.body.classList.add('exporting')",
+                completionHandler: nil)
+            self.runCreatePDF(to: pdfURL,
+                              eventsJSON: eventsJSON,
+                              xmlAtRender: xmlAtRender)
+        }
+    }
 
+    /// Inner half of the async chain — performs the actual PDF
+    /// render once the events list has been captured.
+    private func runCreatePDF(to pdfURL: URL,
+                              eventsJSON: String,
+                              xmlAtRender: String) {
         // Modern WKWebView async API — renders the page to a PDF
         // off the main runloop without entering a nested event
         // loop, so calling this during tracking is safe.
@@ -272,18 +303,24 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
                 }
                 if let pdf = PDFDocument(url: pdfURL) {
                     var attrs = pdf.documentAttributes ?? [:]
-                    attrs[Self.pdfFormatKey] = Self.pdfFormatVersion
-                    attrs[Self.pdfMusicXMLKey] = xmlAtRender
+                    attrs[PDFDocumentAttribute.subjectAttribute] = xmlAtRender
+                    attrs[PDFDocumentAttribute.keywordsAttribute] = [
+                        Self.pdfFormatKeyword,
+                        "events:\(eventsJSON)",
+                    ]
                     attrs[PDFDocumentAttribute.creatorAttribute] = "Menu Band"
                     attrs[PDFDocumentAttribute.titleAttribute] = "Menu Band score"
                     pdf.documentAttributes = attrs
                     pdf.write(to: pdfURL)
                 }
-                // Drop the previous cached file so /tmp doesn't grow
-                // unbounded across many renders.
-                if let old = self.cachedPDFURL, old != pdfURL {
-                    try? FileManager.default.removeItem(at: old)
-                }
+                // Don't delete the previous cached file even though
+                // it's superseded — `cachedPDFURL` is what the
+                // pasteboard writer hands to the OS at drag-start,
+                // and the drop target may not consult it until tens
+                // of ms later (especially for cross-app drops). A
+                // delete here races with that read and turns the
+                // dropped PDF into a "file not found" silent fail.
+                // /tmp is cleaned at boot, so the leak is bounded.
                 self.cachedPDFURL = pdfURL
             case .failure(let error):
                 NSLog("SheetMusicView: createPDF failed — \(error)")
@@ -306,6 +343,20 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         sourceOperationMaskFor context: NSDraggingContext
     ) -> NSDragOperation {
         return .copy
+    }
+
+    /// Clear the staff once the drag ends — only on a successful
+    /// drop (operation != []), so an aborted drag (drop on the
+    /// originating popover, drop outside any target, Esc-cancel)
+    /// leaves the in-progress score untouched. Treat the drop as
+    /// "I'm done with this take, start the next one fresh."
+    func draggingSession(
+        _ session: NSDraggingSession,
+        endedAt screenPoint: NSPoint,
+        operation: NSDragOperation
+    ) {
+        guard operation != [] else { return }
+        clearScore()
     }
 
     // NSFilePromiseProviderDelegate is no longer needed (eager render
@@ -347,10 +398,35 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         guard let url = acceptablePDFURL(from: sender) else { return false }
-        guard let pdf = PDFDocument(url: url),
-              let attrs = pdf.documentAttributes,
-              let xml = attrs[Self.pdfMusicXMLKey] as? String,
-              !xml.isEmpty else { return false }
+        return loadAndPlay(pdfURL: url)
+    }
+
+    /// Public entry point for "PDF score → re-render staff + auto-
+    /// play through the synth." Used by both `performDragOperation`
+    /// (drop on the score area inside the popover) AND by
+    /// AppDelegate's status-item drop handler (drop on the menubar
+    /// piano icon, mirroring the .mid drag-onto-menubar flow). Returns
+    /// false on any failure (not a Menu Band PDF, no MusicXML, JS
+    /// eval errored). The visual side renders best-effort even when
+    /// MIDI export fails — the user at least sees the staff redrawn.
+    @discardableResult
+    func loadAndPlay(pdfURL: URL) -> Bool {
+        let exists = FileManager.default.fileExists(atPath: pdfURL.path)
+        guard exists else {
+            NSLog("SheetMusicView: drop \(pdfURL.lastPathComponent) — file no longer exists at \(pdfURL.path)")
+            return false
+        }
+        guard let xml = Self.extractMusicXML(from: pdfURL), !xml.isEmpty else {
+            NSLog("SheetMusicView: drop \(pdfURL.lastPathComponent) — no Menu Band MusicXML found in PDF (neither /Subject nor legacy /MenuBandMusicXML)")
+            return false
+        }
+        NSLog("SheetMusicView: loadAndPlay \(pdfURL.lastPathComponent) — \(xml.count) chars of MusicXML")
+        // Read the wall-clock event list (Format v2). Verovio's MIDI
+        // render quantises onsets to the 16th-grid which throws
+        // playback timing off — the events list is what the user
+        // actually played, sample-accurate. Falls back to MIDI route
+        // when the PDF predates the events embedding.
+        let events = Self.extractPlaybackEvents(from: pdfURL)
         // Hand the embedded MusicXML to Verovio: it re-renders the
         // staff (same code path as the live transcription, just
         // seeded from XML instead of accumulated noteOn events) and
@@ -378,13 +454,129 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
                 NSLog("SheetMusicView: drag-in eval failed — \(error)")
                 return
             }
-            guard let base64 = result as? String, !base64.isEmpty else {
-                NSLog("SheetMusicView: drag-in returned no MIDI — playback skipped")
+            // Prefer exact-timing playback from the embedded events list.
+            if let events = events, !events.isEmpty {
+                NSLog("SheetMusicView: drag-in playing \(events.count) events with sample-accurate timing")
+                self.playEvents(events)
                 return
             }
+            // Legacy fallback: route Verovio's quantised MIDI through
+            // MidiFilePlayer. Only used for PDFs exported before the
+            // events list was embedded.
+            guard let base64 = result as? String, !base64.isEmpty else {
+                NSLog("SheetMusicView: drag-in returned no MIDI — playback skipped (Verovio renderToMIDI may have failed; staff still re-rendered)")
+                return
+            }
+            NSLog("SheetMusicView: drag-in produced \(base64.count) chars of base64 MIDI — handing to player (legacy path)")
             self.playImportedMIDI(base64: base64)
         }
         return true
+    }
+
+    /// One auto-play event extracted from a Menu Band PDF.
+    /// Times are seconds-from-first-onset (relative); replay
+    /// converts them to wall-clock deadlines via DispatchQueue.
+    struct PlaybackEvent {
+        let midi: UInt8
+        let on: TimeInterval
+        let off: TimeInterval
+    }
+
+    private var pendingPlaybackWork: [DispatchWorkItem] = []
+
+    /// Wall-clock-accurate replay. Each event is a single
+    /// `asyncAfter` for note-on plus another for note-off, so the
+    /// menubar piano lights red at exactly the moment the user
+    /// originally played the note. Supersedes any in-flight
+    /// playback (.mid drop, prior PDF, etc) before scheduling.
+    private func playEvents(_ events: [PlaybackEvent]) {
+        guard let menuBand = self.menuBand else {
+            NSLog("SheetMusicView: no MenuBandController — can't auto-play")
+            return
+        }
+        // Stop everything in flight — MIDI player events, prior
+        // PDF events, and any held playback notes — before we
+        // schedule the new run.
+        MidiFilePlayer.stop()
+        for w in pendingPlaybackWork { w.cancel() }
+        pendingPlaybackWork.removeAll()
+        menuBand.releaseAllPlaybackNotes()
+
+        let now = DispatchTime.now()
+        var lastOff: TimeInterval = 0
+        for event in events {
+            let midi = event.midi
+            let onWork = DispatchWorkItem { [weak menuBand] in
+                menuBand?.startPlaybackNote(midi, velocity: 100, displayNote: midi)
+            }
+            let offWork = DispatchWorkItem { [weak menuBand] in
+                menuBand?.stopPlaybackNote(midi, displayNote: midi)
+            }
+            pendingPlaybackWork.append(onWork)
+            pendingPlaybackWork.append(offWork)
+            // Nanosecond-precision DispatchTime arithmetic — the
+            // earlier `.milliseconds(Int(...))` rounded sub-ms
+            // detail off every onset/release.
+            DispatchQueue.main.asyncAfter(
+                deadline: now + .nanoseconds(Int(event.on * 1_000_000_000)),
+                execute: onWork)
+            DispatchQueue.main.asyncAfter(
+                deadline: now + .nanoseconds(Int(event.off * 1_000_000_000)),
+                execute: offWork)
+            lastOff = max(lastOff, event.off)
+        }
+        // Tail panic in case any note's off scheduling slipped.
+        let tail = DispatchWorkItem { [weak menuBand] in
+            menuBand?.releaseAllPlaybackNotes()
+        }
+        pendingPlaybackWork.append(tail)
+        DispatchQueue.main.asyncAfter(
+            deadline: now + .nanoseconds(Int((lastOff + 0.05) * 1_000_000_000)),
+            execute: tail)
+        NSLog("SheetMusicView: scheduled \(events.count) playback events over \(String(format: "%.2f", lastOff))s")
+    }
+
+    private static func extractPlaybackEvents(from url: URL) -> [PlaybackEvent]? {
+        // Format v2 stores the JSON event list as a Keyword entry
+        // prefixed with "events:". PDFKit returns Keywords as either
+        // an array of strings or a single comma-joined string
+        // depending on how the PDF was authored — handle both.
+        guard let pdf = PDFDocument(url: url),
+              let attrs = pdf.documentAttributes else { return nil }
+        let raw = attrs[PDFDocumentAttribute.keywordsAttribute]
+        var keywords: [String] = []
+        if let arr = raw as? [String] {
+            keywords = arr
+        } else if let s = raw as? String {
+            keywords = s.split(separator: ",").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+        }
+        guard let entry = keywords.first(where: { $0.hasPrefix("events:") }) else {
+            return nil
+        }
+        let json = String(entry.dropFirst("events:".count))
+        guard let data = json.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return nil }
+        // "Still held at export time" notes carry off: null. Take
+        // them as "held until the latest released-note's release"
+        // so the sustain matches what the user actually held until
+        // they grabbed the drag. Falls back to on + 0.5s when no
+        // other note has a release timestamp to anchor against.
+        let maxRelease = arr.compactMap { $0["off"] as? Double }.max() ?? 0
+        return arr.compactMap { dict -> PlaybackEvent? in
+            guard let m = dict["midi"] as? Int,
+                  let on = dict["on"] as? Double else { return nil }
+            let off: Double
+            if let explicit = dict["off"] as? Double {
+                off = explicit
+            } else {
+                off = max(maxRelease, on + 0.5)
+            }
+            return PlaybackEvent(midi: UInt8(max(0, min(127, m))),
+                                 on: on, off: off)
+        }
     }
 
     /// Decode Verovio's base64-encoded MIDI rendering into a temp
@@ -436,6 +628,98 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         if !started {
             NSLog("SheetMusicView: imported MIDI had no playable events")
         }
+    }
+
+    /// Pull the MusicXML payload out of a Menu Band PDF.
+    /// Modern format: `documentAttributes[.subjectAttribute]` carries
+    /// the XML directly. Legacy format (early prototypes): the XML
+    /// was written under a custom `/MenuBandMusicXML` key — PDFKit
+    /// serialized those incorrectly so PDFDocument can't read them
+    /// back, but the bytes ARE in the file. As a fallback we scan
+    /// the raw PDF for the legacy parenthesis-string form. Returns
+    /// nil if neither form yields a non-empty payload that looks
+    /// like MusicXML.
+    private static func extractMusicXML(from url: URL) -> String? {
+        // Modern path: standard /Subject Info field.
+        if let pdf = PDFDocument(url: url),
+           let attrs = pdf.documentAttributes,
+           let subject = attrs[PDFDocumentAttribute.subjectAttribute] as? String,
+           subject.contains("score-partwise") || subject.contains("<score") {
+            return subject
+        }
+        // Legacy fallback: grep the raw bytes for the old custom
+        // key that PDFKit wrote as a (string) instead of /Name.
+        // Format on disk:
+        //   (MenuBandMusicXML) (<?xml ...>...) /Title (...) ...
+        // We find the literal "(MenuBandMusicXML)", skip whitespace
+        // + the next "(" that opens the value, then collect until
+        // the matching ")" — handling escaped \( and \) along the way.
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let needle = "(MenuBandMusicXML)".data(using: .ascii),
+              let needleRange = data.range(of: needle) else { return nil }
+
+        // Walk forward looking for the opening '(' of the value.
+        var i = needleRange.upperBound
+        while i < data.count, data[i] == 0x20 || data[i] == 0x0A
+                          || data[i] == 0x0D || data[i] == 0x09 {
+            i += 1
+        }
+        guard i < data.count, data[i] == UInt8(ascii: "(") else { return nil }
+        i += 1
+        let valueStart = i
+
+        // Collect bytes until we hit the matching unescaped ')'.
+        // PDF strings allow \\, \(, \) escapes plus nested balanced
+        // parens (rare in practice). Track depth defensively.
+        var depth = 1
+        var bytes: [UInt8] = []
+        while i < data.count {
+            let b = data[i]
+            if b == UInt8(ascii: "\\") && i + 1 < data.count {
+                let next = data[i + 1]
+                // PDF string escapes: \n \r \t \b \f \( \) \\ + octal
+                switch next {
+                case UInt8(ascii: "n"): bytes.append(0x0A)
+                case UInt8(ascii: "r"): bytes.append(0x0D)
+                case UInt8(ascii: "t"): bytes.append(0x09)
+                case UInt8(ascii: "b"): bytes.append(0x08)
+                case UInt8(ascii: "f"): bytes.append(0x0C)
+                case UInt8(ascii: "("), UInt8(ascii: ")"), UInt8(ascii: "\\"):
+                    bytes.append(next)
+                default:
+                    // Octal escape \ddd — collect up to 3 octal digits.
+                    if next >= UInt8(ascii: "0") && next <= UInt8(ascii: "7") {
+                        var octal = 0
+                        var consumed = 0
+                        var j = i + 1
+                        while j < data.count, consumed < 3,
+                              data[j] >= UInt8(ascii: "0"),
+                              data[j] <= UInt8(ascii: "7") {
+                            octal = octal * 8 + Int(data[j] - UInt8(ascii: "0"))
+                            j += 1
+                            consumed += 1
+                        }
+                        bytes.append(UInt8(octal & 0xFF))
+                        i = j
+                        continue
+                    }
+                    // Unknown escape → drop the backslash, keep next.
+                    bytes.append(next)
+                }
+                i += 2
+                continue
+            }
+            if b == UInt8(ascii: "(") { depth += 1 }
+            if b == UInt8(ascii: ")") {
+                depth -= 1
+                if depth == 0 { break }
+            }
+            bytes.append(b)
+            i += 1
+        }
+        _ = valueStart
+        guard !bytes.isEmpty else { return nil }
+        return String(data: Data(bytes), encoding: .utf8)
     }
 
     private func acceptablePDFURL(from sender: NSDraggingInfo) -> URL? {
@@ -533,12 +817,39 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
 
     // MARK: - Public API (called by MenuBandPopover)
 
+    // FIXME(timing/octaves): playback fidelity is still rough.
+    //
+    // Today's flow records each onset as a quarter (or whatever
+    // `durationOf` rounds it to) and Verovio's renderToMIDI replays
+    // them sequentially at 120 BPM. Two visible failures:
+    //
+    //   • Sparse playing → notes back-to-back during playback, so
+    //     a slow performance plays back fast.
+    //   • Verovio's MIDI octaves can drift from what the user
+    //     played (under investigation — see MidiFilePlayer log).
+    //
+    // Planned fix (jas, 2026-05-09): anchor the score timeline to
+    // the FIRST note onset, start a measure timer (4/4, default
+    // 120 BPM unless metronome is active), quantize all subsequent
+    // onsets to a 16th-note grid, and run a sliding 15-second
+    // buffer (~7.5 measures at 120 BPM = roughly one staff page).
+    // The MusicXML then carries a `<sound tempo="…"/>` directive
+    // so Verovio's renderToMIDI replays at the same tempo the user
+    // performed at, with rests preserving inter-note silences.
     func recordNote(pitch: UInt8) {
-        send("Sheet.noteOn(\(pitch))")
+        // Capture wall-clock at the moment Swift sees the input,
+        // not when the JS bridge delivers our message. The bridge
+        // latency is variable (5–50ms) — without an explicit time
+        // every recorded onset jitters by that amount and replay
+        // sounds sloppy.
+        let t = CACurrentMediaTime()
+        NSLog("SheetMusicView: recordNote midi=\(pitch) t=\(String(format: "%.4f", t))")
+        send("Sheet.noteOn(\(pitch), \(t))")
     }
 
     func releaseNote(pitch: UInt8) {
-        send("Sheet.noteOff(\(pitch))")
+        let t = CACurrentMediaTime()
+        send("Sheet.noteOff(\(pitch), \(t))")
     }
 
     /// Forward a metronome beat both to the JS layer (so it can

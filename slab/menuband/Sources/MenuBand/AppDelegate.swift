@@ -340,13 +340,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             trackingArea = area
             // Drag-drop a .mid / .midi file onto the menubar icon
             // to play it back through the synth as if a player
-            // piano was striking the keys. Drop target is a
+            // piano was striking the keys. A Menu Band-authored
+            // .pdf works the same way — its embedded MusicXML is
+            // round-tripped through Verovio to produce playable
+            // MIDI, the popover opens to show the staff, and the
+            // synth plays the score back. Drop target is a
             // transparent subview that fills the button so the
             // button still receives clicks normally.
             let dropTarget = MidiDropTargetView(frame: button.bounds)
             dropTarget.autoresizingMask = [.width, .height]
             dropTarget.onDrop = { [weak self] url in
-                self?.handleMidiFileDrop(url: url)
+                let ext = url.pathExtension.lowercased()
+                if ext == "pdf" {
+                    self?.handlePDFFileDrop(url: url)
+                } else {
+                    self?.handleMidiFileDrop(url: url)
+                }
             }
             button.addSubview(dropTarget)
         }
@@ -942,6 +951,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Drag-and-drop entry point for Menu Band PDFs onto the
+    /// menubar piano icon. Opens the popover so the user sees the
+    /// score render as it auto-plays, then hands the URL to the
+    /// sheet view — same `loadAndPlay` code path as dropping the
+    /// PDF onto the score area inside an already-open popover.
+    private func handlePDFFileDrop(url: URL) {
+        // Open the popover first so the SheetMusicView is laid out
+        // and its WKWebView is in a window — `loadAndPlay` evaluates
+        // JS through that webView, which silently no-ops if it has
+        // no host. `showPopover` is idempotent when the popover is
+        // already up.
+        showPopover()
+        // Defer to the next runloop pass so the popover's view
+        // hierarchy + initial layout finish before we shove a new
+        // score through the JS bridge. Without this hop the first
+        // drag-onto-menubar after launch lands while the sheet
+        // hasn't loaded yet, and the eval fires into a not-ready
+        // toolkit.
+        DispatchQueue.main.async { [weak self] in
+            guard let sheet = self?.popoverVC?.sheetView else {
+                NSLog("MenuBand: PDF drop \(url.lastPathComponent) — no sheet view available")
+                return
+            }
+            if !sheet.loadAndPlay(pdfURL: url) {
+                NSLog("MenuBand: PDF drop \(url.lastPathComponent) wasn't a Menu Band score — ignoring")
+            }
+        }
+    }
+
     // MARK: - Adaptive menubar layout
 
     /// `true` when the status item button is laid out on a real screen.
@@ -1378,6 +1416,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let voiceLabel: String? = (menuBand.instrumentBackend == .sample) ? "`" : nil
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
+            playbackLitNotes: menuBand.playbackLitNotes,
             enabled: menuBand.midiMode,
             typeMode: menuBand.typeMode,
             melodicProgram: menuBand.effectiveMelodicProgram,

@@ -41,7 +41,14 @@ final class MenuBandController {
 
     // Visual state — accessed only on the main thread.
     private(set) var litNotes: Set<UInt8> = []
+    /// Notes currently lit because they're being auto-played from a
+    /// dragged-in PDF. Rendered in red by KeyboardIconRenderer to
+    /// distinguish "the score is playing me back" from "I'm pressing
+    /// keys right now." Disjoint from `litNotes` because the source
+    /// of truth differs (synth callback vs user input pipeline).
+    private(set) var playbackLitNotes: Set<UInt8> = []
     private var litDownAt: [UInt8: CFTimeInterval] = [:]
+    private var playbackChannel: [UInt8: UInt8] = [:]
     private let minVisibleSeconds: CFTimeInterval = 0.18
 
     var onChange: (() -> Void)?
@@ -1100,6 +1107,67 @@ final class MenuBandController {
             guard let self = self else { return }
             self.litDownAt.removeValue(forKey: visualNote)
             if self.litNotes.remove(visualNote) != nil {
+                self.onLitChanged?()
+            }
+        }
+    }
+
+    // MARK: - Playback notes (PDF drag-in auto-play)
+    //
+    // Keep a separate channel so a dragged-in score's playback
+    // can light up the menubar piano in red without touching the
+    // normal `litNotes` user-input set. Sound emits the same way
+    // a tap would; only the visual state is parallel.
+
+    /// Sound + light a note as part of an auto-playback session.
+    /// `displayNote` is the menubar-clamped key the renderer should
+    /// draw red — defaults to the played pitch when the caller
+    /// doesn't have an explicit display.
+    func startPlaybackNote(_ midiNote: UInt8, velocity: UInt8 = 100,
+                           displayNote: UInt8? = nil) {
+        let synthCh = nextMelodicChannel()
+        playbackChannel[midiNote] = synthCh
+        let mc: UInt8 = 0
+        if !midiMode {
+            synth.noteOn(midiNote, velocity: velocity, channel: synthCh)
+        }
+        midiNoteOn(midiNote, velocity: velocity, channel: mc)
+        let visualNote = displayNote ?? midiNote
+        let setLit = { [weak self] in
+            guard let self = self else { return }
+            if self.playbackLitNotes.insert(visualNote).inserted {
+                self.onLitChanged?()
+            }
+        }
+        if Thread.isMainThread { setLit() } else { DispatchQueue.main.async(execute: setLit) }
+    }
+
+    /// Release a note previously started with `startPlaybackNote`.
+    func stopPlaybackNote(_ midiNote: UInt8, displayNote: UInt8? = nil) {
+        let synthCh = playbackChannel.removeValue(forKey: midiNote) ?? channel(for: midiNote)
+        if !midiMode { synth.noteOff(midiNote, channel: synthCh) }
+        midi.noteOff(midiNote, channel: 0)
+        let visualNote = displayNote ?? midiNote
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.playbackLitNotes.remove(visualNote) != nil {
+                self.onLitChanged?()
+            }
+        }
+    }
+
+    /// Panic — called when superseding a playback session so the
+    /// previous take doesn't strand notes.
+    func releaseAllPlaybackNotes() {
+        for (note, ch) in playbackChannel {
+            if !midiMode { synth.noteOff(note, channel: ch) }
+            midi.noteOff(note, channel: 0)
+        }
+        playbackChannel.removeAll()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.playbackLitNotes.isEmpty {
+                self.playbackLitNotes.removeAll()
                 self.onLitChanged?()
             }
         }

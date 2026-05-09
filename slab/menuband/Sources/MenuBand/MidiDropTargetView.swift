@@ -1,10 +1,13 @@
 import AppKit
 
-/// Transparent overlay that accepts a dragged `.mid` / `.midi` file
-/// and forwards it to `onDrop`. Installed as a subview of the
-/// menubar status item button (and, optionally, the popover content
-/// view) so dragging a MIDI file onto Menu Band auto-plays it
-/// through the synth.
+/// Transparent overlay that accepts a dragged music file
+/// (`.mid` / `.midi` for direct MIDI playback, or a Menu Band-
+/// authored `.pdf` whose Info dictionary embeds the score's
+/// MusicXML) and forwards it to `onDrop`. Installed as a subview
+/// of the menubar status item button (and, optionally, the popover
+/// content view) so dragging a music file onto Menu Band auto-
+/// plays it through the synth — MIDI directly, PDFs after a
+/// MusicXML→MIDI round-trip handled by AppDelegate.
 final class MidiDropTargetView: NSView {
 
     var onDrop: ((URL) -> Void)?
@@ -34,7 +37,11 @@ final class MidiDropTargetView: NSView {
         return true
     }
 
-    /// Pull the first `.mid` / `.midi` URL off the drag pasteboard.
+    /// Pull the first acceptable music-file URL off the drag
+    /// pasteboard. Accepts `.mid`, `.midi`, and `.pdf` — extension
+    /// dispatch happens in the `onDrop` handler (AppDelegate
+    /// validates the PDF actually carries Menu Band metadata
+    /// before kicking off a render).
     private static func dragURL(from sender: NSDraggingInfo) -> URL? {
         let pb = sender.draggingPasteboard
         guard let urls = pb.readObjects(forClasses: [NSURL.self],
@@ -43,7 +50,7 @@ final class MidiDropTargetView: NSView {
         }
         return urls.first(where: { url in
             let ext = url.pathExtension.lowercased()
-            return ext == "mid" || ext == "midi"
+            return ext == "mid" || ext == "midi" || ext == "pdf"
         })
     }
 }

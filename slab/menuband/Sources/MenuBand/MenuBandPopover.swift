@@ -1104,7 +1104,19 @@ final class MenuBandPopoverViewController: NSViewController {
         // a separate event subscription. Released notes do nothing
         // here — the sheet is append-only by design (the user said
         // "as the user plays it plops them down").
-        let currentHeld = Set(m.heldNoteEntries().map(\.midi))
+        //
+        // Reverse the controller's `display = played - shift*12`
+        // clamp so the staff records the *played* pitch (what the
+        // synth actually sounded), not the menubar icon's clamped
+        // C4–B5 display window. Without this, the dragged-out PDF
+        // round-trips back to playback at the staff octave instead
+        // of the original octave — sounded wrong by 12 semitones
+        // every time the user had a non-zero octave shift.
+        let shiftSemitones = m.octaveShift * 12
+        let currentHeld = Set(m.heldNoteEntries().map { entry -> UInt8 in
+            let played = Int(entry.midi) + shiftSemitones
+            return UInt8(max(0, min(127, played)))
+        })
         let newOnsets = currentHeld.subtracting(lastSeenHeldMidis)
         let newReleases = lastSeenHeldMidis.subtracting(currentHeld)
         if let sheet = sheetView {

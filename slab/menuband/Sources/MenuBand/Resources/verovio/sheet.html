@@ -225,13 +225,61 @@
               }
             }
           }
+          // Emit a tempo directive in measure 1 so Verovio's
+          // renderToMIDI plays back at the right speed. Without
+          // this Verovio defaults to 120 BPM and notes get packed
+          // back-to-back at their notated duration — which doesn't
+          // match the wall-clock spacing the user actually played.
+          //
+          // Two sources of truth for "the user's tempo":
+          //   1. Active metronome → 60 / beatInterval gives BPM
+          //      directly. Most accurate when running.
+          //   2. Free play → for each consecutive note pair,
+          //      compute the ratio of real-time onset gap to the
+          //      notated tick duration of the first note (in
+          //      seconds at 120 BPM). The median ratio scales
+          //      120 BPM into the right playback tempo, so each
+          //      notated quarter/eighth/16th lasts as long as the
+          //      user's actual onset spacing demanded.
+          let inferredBpm = 120;
+          if (metronomeActive(now) && beatInterval > 0) {
+            inferredBpm = Math.round(60 / beatInterval);
+          } else if (notes.length >= 2) {
+            // 1 tick @ 120 BPM with TICKS_PER_BEAT=4:
+            //   secs/tick = 60 / 120 / 4 = 0.125
+            const SECS_PER_TICK_AT_120 = 0.125;
+            const ratios = [];
+            for (let i = 1; i < notes.length; i++) {
+              const real = notes[i].onsetAt - notes[i - 1].onsetAt;
+              if (real <= 0.05 || real > 4.0) continue;
+              const heldFor = (notes[i - 1].releasedAt ?? notes[i - 1].onsetAt + real) - notes[i - 1].onsetAt;
+              const ticks = durationOf(heldFor, now).ticks;
+              const notated = ticks * SECS_PER_TICK_AT_120;
+              if (notated <= 0) continue;
+              ratios.push(real / notated);
+            }
+            if (ratios.length >= 1) {
+              ratios.sort((a, b) => a - b);
+              const median = ratios[Math.floor(ratios.length / 2)];
+              // ratio > 1 means real time was longer than notated
+              // → playback should be slower → lower BPM.
+              const bpm = Math.round(120 / median);
+              inferredBpm = Math.max(40, Math.min(200, bpm));
+            }
+          }
           const head = (m === 0) ? `
       <attributes>
         <divisions>${TICKS_PER_BEAT}</divisions>
         <key><fifths>0</fifths></key>
         <time><beats>4</beats><beat-type>4</beat-type></time>
         <clef><sign>G</sign><line>2</line></clef>
-      </attributes>` : '';
+      </attributes>
+      <direction placement="above">
+        <direction-type>
+          <metronome><beat-unit>quarter</beat-unit><per-minute>${inferredBpm}</per-minute></metronome>
+        </direction-type>
+        <sound tempo="${inferredBpm}"/>
+      </direction>` : '';
           measuresXml += `\n    <measure number="${m + 1}">${head}${body}\n    </measure>`;
         }
 
@@ -364,8 +412,16 @@
 
       // ---- public API (called via webview.evaluateJavaScript) ----
 
-      function noteOn(pitch) {
-        const now = performance.now() / 1000;
+      // `t` is an optional Swift-supplied timestamp (seconds in
+      // CACurrentMediaTime base). Swift captures the time at the
+      // input event itself — passing it in avoids the WebKit
+      // bridge's variable 5-50ms delivery latency, which otherwise
+      // jitters every recorded onsetAt and ruins playback timing.
+      // Falls back to performance.now() for callers that don't
+      // supply a time (test harnesses, future direct-from-JS
+      // input paths).
+      function noteOn(pitch, t) {
+        const now = (typeof t === 'number') ? t : performance.now() / 1000;
         notes.push({
           pitch,
           isSharp: midiToStep(pitch).alter === 1,
@@ -391,10 +447,11 @@
         // the next note onset/release fires.
       }
 
-      function noteOff(pitch) {
+      function noteOff(pitch, t) {
+        const now = (typeof t === 'number') ? t : performance.now() / 1000;
         for (let i = notes.length - 1; i >= 0; i--) {
           if (notes[i].pitch === pitch && notes[i].releasedAt == null) {
-            notes[i].releasedAt = performance.now() / 1000;
+            notes[i].releasedAt = now;
             break;
           }
         }
@@ -459,6 +516,36 @@
         return buildMusicXML();
       }
 
+      // Sample-accurate playback events. The notation system
+      // quantises durations to the 16th-grid which is great for
+      // legibility but loses the user's wall-clock timing on
+      // playback (notes pack back-to-back at their notated
+      // duration). Swift uses this list to schedule note-on/off
+      // at the EXACT relative seconds the user actually played,
+      // so dragging a PDF back in replays the original
+      // performance precisely — even when no notation could
+      // capture that rhythm. Times are seconds-from-first-onset.
+      function getPlaybackEvents() {
+        if (notes.length === 0) return '[]';
+        const t0 = notes[0].onsetAt;
+        const out = notes.map(n => {
+          // Held notes export with off:null so Swift can clamp
+          // the duration at extract time (= "still held until
+          // the user dragged the score off"). Without this the
+          // exported sustain was a hardcoded 0.25s placeholder
+          // and held notes played back as staccatos.
+          const offRel = (n.releasedAt != null)
+            ? +(n.releasedAt - t0).toFixed(4)
+            : null;
+          return {
+            midi: n.pitch,
+            on: +(n.onsetAt - t0).toFixed(4),
+            off: offRel,
+          };
+        });
+        return JSON.stringify(out);
+      }
+
       // Drag-back-in entry: parse a MusicXML payload (from a
       // previously-exported Menu Band PDF), re-render the staff
       // visually, and emit a MIDI rendering of the same content
@@ -467,7 +554,15 @@
       // empty string signals a Verovio failure (we still render
       // the SVG best-effort so the staff at least shows the
       // notation, but playback is skipped).
+      //
+      // Important: clear the local `notes` buffer FIRST so the
+      // dropped score replaces (not overlays) what was on screen.
+      // We bypass `clear()`'s queueRender so the next rerender
+      // doesn't overwrite our directly-loaded XML with an empty
+      // build from the (now-empty) notes array — the rebuild
+      // races with our renderToSVG and the staff goes blank.
       function loadXMLAndExportMIDI(xml) {
+        notes.length = 0;
         try {
           toolkit.loadData(xml);
           document.getElementById('score').innerHTML =
@@ -505,7 +600,7 @@
       }
 
       return { noteOn, noteOff, beat, clear, ready, getMusicXML,
-               loadXMLAndExportMIDI, loadNotes };
+               getPlaybackEvents, loadXMLAndExportMIDI, loadNotes };
     }());
 
     Sheet.ready();

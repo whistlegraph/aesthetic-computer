@@ -409,6 +409,7 @@ enum KeyboardIconRenderer {
     private static var settingsRect: NSRect { settingsHitRect }
 
     static func image(litNotes: Set<UInt8>,
+                      playbackLitNotes: Set<UInt8> = [],
                       enabled: Bool,
                       typeMode: Bool = false,
                       melodicProgram: UInt8 = 0,
@@ -462,6 +463,12 @@ enum KeyboardIconRenderer {
                     ?? NSColor.controlAccentColor)
                 : (NSColor.controlAccentColor.highlight(withLevel: 0.30)
                     ?? NSColor.controlAccentColor)
+            // Playback fill — red, distinct from the system-accent
+            // press color so the user can tell "the score is playing
+            // me back" from "I'm pressing keys right now."
+            let playbackLit: NSColor = isDark
+                ? NSColor(srgbRed: 230/255, green: 60/255, blue: 60/255, alpha: 1)
+                : NSColor(srgbRed: 220/255, green: 35/255, blue: 35/255, alpha: 1)
             let groove: NSColor
             let whiteHi: NSColor
             let whiteLo: NSColor
@@ -519,6 +526,7 @@ enum KeyboardIconRenderer {
                     if !isActive(m) { continue }   // negative space — skip draw
                     let rect = whiteRect(at: idx + slotOffset)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
+                    let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
                     let isLeftmost = !sliding && (m == leftmostMidi)
                     let isRightmost = !sliding && (m == rightmostMidi)
@@ -529,7 +537,13 @@ enum KeyboardIconRenderer {
                         br: isRightmost ? 2.5 : 0,
                         bl: isLeftmost ? 2.5 : 0
                     )
-                    if isLit {
+                    if isPlaybackLit {
+                        // Auto-playback from a dragged-in PDF — red
+                        // wins over the user's accent press color so
+                        // the source of the sound stays unambiguous.
+                        playbackLit.setFill()
+                        path.fill()
+                    } else if isLit {
                         // Pressed: whole keycap turns the system accent
                         // — the rainbow stripe stays hidden while the
                         // key's down so the press reads as a single
@@ -646,9 +660,13 @@ enum KeyboardIconRenderer {
                     guard let leftIdx = whiteIndex[leftWhite] else { continue }
                     let rect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
+                    let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
                     let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
-                    if isLit {
+                    if isPlaybackLit {
+                        playbackLit.setFill()
+                        path.fill()
+                    } else if isLit {
                         if isDark {
                             // Invert in dark mode — the saturated bright
                             // sharp flips to a deep slate notch on press

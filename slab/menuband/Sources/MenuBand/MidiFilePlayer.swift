@@ -184,6 +184,15 @@ final class MidiFilePlayer {
             if lhs.time != rhs.time { return lhs.time < rhs.time }
             return !lhs.isOn && rhs.isOn
         }
+        // Dump first few events so a noteOn-only summary lands in
+        // the log — invaluable for diagnosing PDF-drag playback
+        // (octaves wrong / tempo off / etc) without hooking up a
+        // MIDI monitor. Only the first 8 ons.
+        let firstOns = events.filter(\.isOn).prefix(8)
+        let summary = firstOns
+            .map { String(format: "%.2fs:%d", $0.time, Int($0.midi)) }
+            .joined(separator: ", ")
+        NSLog("MidiFilePlayer: first onsets — \(summary)")
         return events
     }
 }
