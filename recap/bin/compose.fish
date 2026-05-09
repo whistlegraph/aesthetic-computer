@@ -20,6 +20,15 @@ set -l SUBSASS $OUT/subs.ass
 set -l VIDEO $OUT/recap.mp4
 set -l FILTER $OUT/filter.txt
 
+# Prefer ffmpeg-full (built with libass) when present — Homebrew's plain
+# `ffmpeg` formula now ships without libass, so the `subtitles=` filter
+# fails as "Filter not found." Fall back to PATH ffmpeg otherwise (e.g.
+# the oven, where ffmpeg is built with libass directly).
+set -l FFMPEG ffmpeg
+if test -x /opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
+  set FFMPEG /opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
+end
+
 if not test -f $OUT/concat.txt
   echo "✗ missing $OUT/concat.txt — run bin/slides.mjs first"
   exit 1
@@ -51,7 +60,7 @@ if test -f $WALTZ
   # to the exact length. NO -stream_loop — looping the bed produced
   # awkward seam jumps in the middle of the show.
   printf ';[2:a]apad=whole_dur=%s,atrim=duration=%s,volume=0.42[bed];[a1][bed]amix=inputs=2:duration=first:dropout_transition=0:weights=1.0 0.55[mix]\n' "$TOTAL" "$TOTAL" >> $FILTER
-  ffmpeg -hide_banner -y \
+  $FFMPEG -hide_banner -y \
     -f concat -safe 0 -i $OUT/concat.txt \
     -i $AUDIO \
     -i $WALTZ \
@@ -63,7 +72,7 @@ if test -f $WALTZ
     -t $TOTAL \
     $VIDEO
 else
-  ffmpeg -hide_banner -y \
+  $FFMPEG -hide_banner -y \
     -f concat -safe 0 -i $OUT/concat.txt \
     -i $AUDIO \
     -filter_complex_script $FILTER \

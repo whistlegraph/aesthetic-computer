@@ -81,9 +81,39 @@ for (let i = 0; i < words.length; i++) {
 // bottlenecked the oven encode (see feedback_recap_subtitles_required.md).
 const FRAME_W = 1080;
 const FRAME_H = 1920;
-const PILL_Y_TOP = 1690; // matches the SUB_Y in build-filter.mjs
+// Bottom-chrome stack (no bounding-box overlaps, top-down):
+//   subtitle pill : y=1480..1640  (160 tall — slimmer than the old 220)
+//   waveform      : y=1660..1740  (80 tall, full width)
+//   piano + pals  : y=1760..1850  (90 tall, split left/right)
+//   progress bar  : y=1900..1908  (8 tall)
+// build-filter.mjs and waltz-overlay.mjs match these bands.
+const PILL_Y_DEFAULT = 1480;
+const PILL_HEIGHT = 160;
 
-const cssTemplate = `
+// Per-segment pill y comes from out/layouts.json (written by bin/layout.mjs).
+// Maps each chunk to a segment by start time, then to the segment's
+// subtitle.y. Falls back to default when layouts.json is missing.
+const layoutsPath = `${ROOT}/out/layouts.json`;
+const segmentsPath = `${ROOT}/out/segments.json`;
+let layouts = {};
+let segments = [];
+if (existsSync(layoutsPath)) layouts = JSON.parse(readFileSync(layoutsPath, "utf8"));
+if (existsSync(segmentsPath)) segments = JSON.parse(readFileSync(segmentsPath, "utf8"));
+function pillYAt(startSec) {
+  for (const seg of segments) {
+    if (startSec >= seg.startSec && startSec < seg.endSec) {
+      const layout = layouts[seg.name];
+      if (layout && layout.subtitle && Number.isFinite(layout.subtitle.y)) {
+        return layout.subtitle.y;
+      }
+      break;
+    }
+  }
+  return PILL_Y_DEFAULT;
+}
+
+function buildCss(pillY) {
+  return `
 @font-face {
   font-family: 'ProcessingB';
   src: url(data:font/ttf;base64,${fontBoldB64}) format('truetype');
@@ -94,9 +124,9 @@ html, body { width: ${FRAME_W}px; height: ${FRAME_H}px; background: transparent;
 .wrap {
   position: absolute;
   left: 0;
-  top: ${PILL_Y_TOP}px;
+  top: ${pillY}px;
   width: ${FRAME_W}px;
-  height: 220px;
+  height: ${PILL_HEIGHT}px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -107,11 +137,11 @@ html, body { width: ${FRAME_W}px; height: ${FRAME_H}px; background: transparent;
   backdrop-filter: blur(2px);
   border: 3px solid rgba(255, 105, 180, 0.55);
   border-radius: 14px;
-  padding: 26px 44px;
+  padding: 18px 40px;
   max-width: 100%;
   text-align: center;
   font-family: 'ProcessingB', 'Helvetica Neue', 'Hiragino Sans', monospace;
-  font-size: 64px;
+  font-size: 56px;
   line-height: 1.15;
   color: #fcf7c5;
   letter-spacing: -1px;
@@ -120,6 +150,7 @@ html, body { width: ${FRAME_W}px; height: ${FRAME_H}px; background: transparent;
 }
 .pill em { font-style: normal; color: #ff70d0; }
 `;
+}
 
 const browser = await puppeteer.launch({
   // Use puppeteer's bundled Chromium — works on local Mac + oven Linux.
@@ -130,9 +161,11 @@ const out = [];
 for (let i = 0; i < chunks.length; i++) {
   const c = chunks[i];
   const file = `${SUB_DIR}/${String(i).padStart(3, "0")}.png`;
+  const pillY = pillYAt(c.startMs / 1000);
+  const css = buildCss(pillY);
   const page = await browser.newPage();
   await page.setViewport({ width: FRAME_W, height: FRAME_H, deviceScaleFactor: 1 });
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${cssTemplate}</style></head><body><div class="wrap"><div class="pill">${escapeHtml(c.text)}</div></div></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div class="wrap"><div class="pill">${escapeHtml(c.text)}</div></div></body></html>`;
   await page.setContent(html, { waitUntil: "domcontentloaded" });
   await new Promise((r) => setTimeout(r, 80));
   const png = await page.screenshot({ type: "png", omitBackground: true });

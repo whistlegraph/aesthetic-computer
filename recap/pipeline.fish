@@ -27,6 +27,22 @@ node bin/align.mjs $AUDIENCE; or exit 1
 echo "▸ 3/8 jeffrey-photos (gpt-image-2, cached per segment)"
 node bin/jeffrey-photos.mjs $AUDIENCE; or exit 1
 
+echo "▸ 3.3/8 cv (face + laptop + shirt-logo bboxes)"
+if test -x .venv/bin/python3
+  .venv/bin/python3 bin/debug-composition.py
+  or echo "  ↳ cv step failed — layout solver will fall back to defaults"
+else
+  echo "  ↳ no .venv — skipping cv (layout will fall back to defaults)"
+end
+
+echo "▸ 3.4/8 layout (per-segment chrome positions for chapter / subs / piano)"
+node bin/layout.mjs $AUDIENCE
+or echo "  ↳ layout step skipped or failed — subs/piano use static positions"
+
+echo "▸ 3.45/8 qrs (per-segment QR → tangled.sh commit)"
+node bin/qrs.mjs $AUDIENCE
+or echo "  ↳ qrs step skipped or failed — slides will render without commit QR"
+
 echo "▸ 3.5/8 chat-fetch (laer-klokken + system snapshots)"
 node bin/chat-fetch.mjs
 or echo "  ↳ chat-fetch step skipped or failed — chat slide will render empty"

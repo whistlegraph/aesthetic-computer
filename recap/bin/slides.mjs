@@ -69,7 +69,25 @@ body { background: ${PALETTE.bg}; padding: 80px 70px; position: relative; overfl
 }
 .pals.big { width: 720px; height: 720px; align-self: center; margin-top: 60px; }
 .pals.med { width: 480px; height: 480px; align-self: center; margin-top: 80px; }
-.pals.bug { position: absolute; bottom: 180px; right: 70px; width: 120px; height: 120px; opacity: 0.55; }
+.pals.bug {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  width: 200px;
+  height: 200px;
+  opacity: 1;
+  /* Rainbow drop shadow — multi-step layered shadows in cycling hues
+   * give a soft chromatic aberration / risograph misregister feel. */
+  filter:
+    drop-shadow(3px  3px 0 rgba(255, 80, 180, 0.85))
+    drop-shadow(-3px 3px 0 rgba(80, 200, 255, 0.85))
+    drop-shadow(0 -3px 0 rgba(255, 220, 80, 0.85))
+    drop-shadow(6px  0  0 rgba(140, 80, 255, 0.55))
+    drop-shadow(-6px 0  0 rgba(80, 255, 160, 0.55))
+    drop-shadow(0 8px 22px rgba(0, 0, 0, 0.5));
+}
+/* PALS bug — top-LEFT corner, large with rainbow drop shadow. Top-right
+ * is owned by the QR code (audience photoSlide renders that). */
 .kicker { font-family: 'ProcessingB'; font-size: 38px; letter-spacing: 8px; text-transform: uppercase; text-align: center; }
 .huge { font-family: 'ProcessingB'; font-size: 240px; letter-spacing: -8px; text-align: center; line-height: 0.95; margin-top: 10px; }
 .sub { font-family: 'ProcessingB'; font-size: 46px; letter-spacing: 2px; text-align: center; margin-top: 24px; }
@@ -97,7 +115,9 @@ body { background: ${PALETTE.bg}; padding: 80px 70px; position: relative; overfl
 .rhyme .line2 { margin-top: 60px; }
 .endline { font-family: 'ProcessingB'; font-size: 92px; letter-spacing: -2px; text-align: center; margin-top: 40px; }
 .endsub { font-family: 'ProcessingR'; font-size: 36px; letter-spacing: 4px; text-align: center; margin-top: 14px; }
-.cornerbug { position: absolute; bottom: 200px; left: 70px; font-family: 'ProcessingR'; font-size: 22px; color: ${PALETTE.dim}; letter-spacing: 4px; text-transform: uppercase; }
+/* .cornerbug retired — was overlapping the subtitle pill in the new
+ * bottom-chrome layout. The PALS bug + chapter prompt stack handle
+ * branding now (rendered in audience photoSlide). */
 
 /* asset-driven slide additions */
 .title-row { display: flex; align-items: center; gap: 24px; }
@@ -141,8 +161,9 @@ for (const name of slidesOrder) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 1 });
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>${cssTemplate}</style></head><body>${body}
-    ${showBug(name) ? `<div class="pals bug"></div>` : ""}
-    ${showBug(name) ? `<div class="cornerbug">aesthetic·computer · for ${audience.handle || audience.name}</div>` : ""}
+    ${/* PALS bug + cornerbug are rendered inside audience photoSlide() now
+        so they can carry per-slide chapter color (drop shadow, scrim).
+        Title + end slide skip them via their own templates. */ ""}
   </body></html>`;
   // `domcontentloaded` instead of `networkidle0` — with multi-MB base64
   // photos embedded inline, networkidle0 sometimes hangs waiting for the

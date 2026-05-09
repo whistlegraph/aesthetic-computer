@@ -175,7 +175,8 @@ export const audience = {
     { name: "11_papers_infra",         marker: "a deadlines page" },
     { name: "12_electron_arena",       marker: "the xbox controller bridge" },
     { name: "13_recap_pipeline",       marker: "and the recap pipeline" },
-    { name: "14_chat",                 marker: "from the chats" },
+    { name: "14a_chat_clock",          marker: "from the chats" },
+    { name: "14b_chat_system",         marker: "the main thread" },
     { name: "15_outro",                marker: "thanks for watching" },
     { name: "16_end",                  marker: "__END__", trailingSilenceSec: 3 },
   ],
@@ -295,7 +296,7 @@ bedheaded. Shirt word (visible under the open hoodie): \`menuband\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/02_menuband_arc.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "01 / 14 · menuband · 0.4 → today",
+        chapter: "01 / 15 · menuband · 0.4 → today",
         title: "six releases,\nvoice palette\n→ chord finder",
         cap: "chord finder · rainbow keys · slim meter · sharp title",
         color: colorAddress("orangered"),
@@ -323,7 +324,7 @@ rim. Evening, kitchen, lived-in. Shirt word: \`menuband\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/03_waveform_strip.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "02 / 14 · menuband · audio strip",
+        chapter: "02 / 15 · menuband · audio strip",
         title: "slides under\nthe piano,\non note activity",
         cap: "shared meter · menubar · popover · palette",
         color: colorAddress("deeppink"),
@@ -353,7 +354,7 @@ behind the monitor, washing his face and the floating window in soft \
       queries: { photo: { glob: "recap/out/jeffrey-photos/04_floating_palette.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "03 / 14 · floating palette",
+        chapter: "03 / 15 · floating palette",
         title: "tear it off,\ntake it\nwith you",
         cap: "grab the top strip · floats over anything",
         color: colorAddress("mediumspringgreen"),
@@ -385,7 +386,7 @@ the kind of detail you'd only notice if you leaned in.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/05_menuband_engineering.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "04 / 14 · engine room",
+        chapter: "04 / 15 · engine room",
         title: "shader compiles\nitself,\neight voices,\nhold to ring",
         cap: "quiet when hidden · shift / caps-lock linger",
         color: colorAddress("royalblue"),
@@ -412,7 +413,7 @@ quiet, one houseplant casting a long shadow. Shirt word: \`chat\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/06_slab_polygon_lid.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "05 / 14 · slab · one shape, one hue",
+        chapter: "05 / 15 · slab · one shape, one hue",
         title: "n tabs,\nn-sided shape,\ngreen slides red\nas the queue grows",
         cap: "closed lid hums when claude is waiting",
         color: colorAddress("slateblue"),
@@ -445,7 +446,7 @@ Shirt word: \`line\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/07_hp_plotter.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "06 / 14 · hp 7585b plotter",
+        chapter: "06 / 15 · hp 7585b plotter",
         title: "hp 7585b,\nover serial",
         cap: "first plot: the pals mark, in purple",
         color: colorAddress("olivedrab"),
@@ -482,7 +483,7 @@ hand-tailored feeling, perfect for the workshop.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/08_fedac_native.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "07 / 14 · ac native os",
+        chapter: "07 / 15 · ac native os",
         title: "piano level,\ntoughbook\nbench open",
         cap: "piano sits with sine + square · toughbook is next",
         color: colorAddress("sienna"),
@@ -513,7 +514,7 @@ only colored light. Shirt word: \`papers\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/09_arxiv_figures.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "08 / 14 · arxiv-keymaps · figures",
+        chapter: "08 / 15 · arxiv-keymaps · figures",
         title: "qwerty/dvorak,\ndaw chromatic,\nwicki-hayden,\nvim, singmaster",
         cap: "asymmetric instruments · guitar + violin tunings",
         color: colorAddress("indigo"),
@@ -546,7 +547,7 @@ quiet, scholarly, fits the reading-chair register.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/10_arxiv_prose.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "09 / 14 · arxiv-keymaps · prose",
+        chapter: "09 / 15 · arxiv-keymaps · prose",
         title: "ong + wasd,\nnotation surface,\nlgbtq+ framing",
         cap: "live-coding mini-notations · tidal, strudel, hydra, abc",
         color: colorAddress("darksalmon"),
@@ -583,7 +584,7 @@ game-show host revealing a board. Shirt word: \`papers\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/11_papers_infra.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "10 / 14 · papers · infrastructure",
+        chapter: "10 / 15 · papers · infrastructure",
         title: "deadlines page,\ndraft links,\nvenue list,\nplatter back",
         cap: "fia's opportunities · cv hidden · keymaps on the books",
         color: colorAddress("mediumaquamarine"),
@@ -616,7 +617,7 @@ word (visible under the open hoodie): \`arena\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/12_electron_arena.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "11 / 14 · ac-electron + arena",
+        chapter: "11 / 15 · ac-electron + arena",
         title: "xbox bridge\nactually loads,\nA + space\nrespawn",
         cap: "ac-desktop cli · arena dead zone widened",
         color: colorAddress("crimson"),
@@ -653,25 +654,101 @@ slightly bedheaded. Shirt word (visible under the open hoodie): \`tapes\`.`,
       queries: { photo: { glob: "recap/out/jeffrey-photos/13_recap_pipeline.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "12 / 14 · recap pipeline",
+        chapter: "12 / 15 · recap pipeline",
         title: "portraits\npre-baked,\nsine-bells\nwaltz bed",
         cap: "each cut gets its own soft bell waltz",
         color: colorAddress("palevioletred"),
       }),
     },
 
-    "14_chat": {
+    // Chat slides ALWAYS come in pairs: one for laer-klokken (clock) and one
+    // for the main chat (system). Each gets its own laptop-series first-person
+    // POV portrait so the viewer feels like they're looking out from inside
+    // jeffrey's screen mid-conversation. The chat instance is named on the
+    // slide config so jeffrey-photos.mjs picks the laptop-POV arc beat.
+    "14a_chat_clock": {
       colorAddress: colorAddress("khaki"),
-      // No metaphor — chat slide is text-only. Renders the latest messages
-      // pulled by `bin/chat-fetch.mjs` from /api/chat-messages?instance=clock
-      // (laer-klokken) and instance=system (main chat) into out/chat-snapshot.json.
-      queries: { snapshot: { json: "recap/out/chat-snapshot.json" } },
-      body: ({ snapshot }) => chatSlide({
-        snapshot: snapshot || { clock: [], system: [] },
-        chapter: "13 / 14 · chat",
-        title: "what people\nare saying",
-        cap: "laer-klokken · chat · last 73 hours",
+      chatInstance: "clock",
+      // Laptop-series first-person POV. The camera IS the laptop screen.
+      // Per-scene: jeffrey is reading laer-klokken (the Danish chat) — light
+      // smile, head slightly tilted, eyes scanning the messages. He's at a
+      // home desk. Khaki diegetic light: a small khaki-shaded reading lamp
+      // on the left edge of the desk pours warm khaki across his face.
+      metaphor: `${REAL}
+
+Scene: this is a LAPTOP-SERIES FIRST-PERSON SHOT — the camera is where the \
+laptop's webcam would be, looking UP at jeffrey from chest height, screen-side \
+perspective. He is at a home desk facing the laptop, eyes flicking down at \
+the screen reading a chat. The Citrus-green Apple MacBook Neo's bottom bezel \
+edge is just visible at the FOOT of the frame, with the AC's smiley bug logo \
+peeking up. He is mid-read, head slightly tilted, a small genuine smile \
+forming — the kind of expression you have when a friend across the world is \
+saying something funny in another language. His mouth is slightly open like \
+he's about to half-laugh, eyebrows raised in mild surprise. Diegetic khaki \
+(#f0e68c) light: a small khaki-fabric-shaded reading lamp on the left edge \
+of his desk pours warm khaki light across the left side of his face and \
+catches the rim of a coffee mug just out of focus on the desk surface. The \
+right side of his face is in cooler ambient room light. Hoodie, slightly \
+bedheaded. Shirt word: \`chat\`. Late-afternoon home desk vibe. \
+\
+COMPOSITION: head and shoulders fill the upper-middle band of the frame; \
+his face is centered horizontally with his eyes near y=750 of the 1024x1536 \
+photo. The TOP 25% (y=0..380) is quiet ceiling / wall — the chapter title \
+overlays there. The BOTTOM 25% (y=1150..1536) is the desk surface and the \
+peeking bottom edge of the green Neo's bezel.`,
+      queries: {
+        photo: { glob: "recap/out/jeffrey-photos/14a_chat_clock.png" },
+        snapshot: { json: "recap/out/chat-snapshot.json" },
+      },
+      body: ({ photo, snapshot }) => chatSlide({
+        photo,
+        instance: "clock",
+        messages: (snapshot && snapshot.clock) || [],
+        chapter: "13 / 15 · laer-klokken",
+        title: "from the\nclock chat",
+        cap: "in danish, mostly · last 73 hours",
         color: colorAddress("khaki"),
+      }),
+    },
+
+    "14b_chat_system": {
+      colorAddress: colorAddress("gold"),
+      chatInstance: "system",
+      // Companion to 14a: same first-person laptop-POV setup, but he's now
+      // reading the main thread — bigger laugh, more engaged, gold lamp.
+      metaphor: `${REAL}
+
+Scene: this is a LAPTOP-SERIES FIRST-PERSON SHOT — the camera is where the \
+laptop's webcam would be, looking UP at jeffrey from chest height, screen-side \
+perspective. He is at the same home desk facing the laptop, but now mid-laugh \
+at something on the main chat — a hyperbolic open-mouth laugh, head tipped \
+slightly back, eyebrows up, eyes crinkled. The Citrus-green MacBook Neo's \
+bottom bezel edge is just visible at the FOOT of the frame, with the smiley \
+bug logo peeking up. Diegetic gold (#ffd700) light: a small gold-shaded brass \
+desk lamp on the right edge of the desk pours warm gold across the right \
+side of his face — slightly different angle from the clock-chat scene so \
+the two paired portraits read as a matched pair (left lamp / right lamp). \
+A faint puff of vape vapor curls in from the right margin (he just put the \
+USB-stick pen down, its tiny LED still glowing on the desk just out of focus). \
+Hoodie. Shirt word: \`chat\`. Same late-afternoon vibe as 14a — these two \
+slides are the same minute of the same afternoon, just two different chats. \
+\
+COMPOSITION: head and shoulders fill the upper-middle band of the frame; \
+face centered horizontally with eyes near y=750 of the 1024x1536 photo. \
+TOP 25% quiet ceiling / wall (chapter title overlays there). BOTTOM 25% \
+shows the desk surface and the peeking bottom edge of the green Neo's bezel.`,
+      queries: {
+        photo: { glob: "recap/out/jeffrey-photos/14b_chat_system.png" },
+        snapshot: { json: "recap/out/chat-snapshot.json" },
+      },
+      body: ({ photo, snapshot }) => chatSlide({
+        photo,
+        instance: "system",
+        messages: (snapshot && snapshot.system) || [],
+        chapter: "14 / 15 · chat",
+        title: "from the\nmain thread",
+        cap: "main chat · last 73 hours",
+        color: colorAddress("gold"),
       }),
     },
 
@@ -690,7 +767,7 @@ or two visible. Real iPhone candid snapshot energy. He's in a relaxed button-dow
       queries: { photo: { glob: "recap/out/jeffrey-photos/15_outro.png" } },
       body: ({ photo }) => photoSlide({
         photo,
-        chapter: "14 / 14 · outro",
+        chapter: "15 / 15 · outro",
         title: "thanks for\nwatching",
         cap: "aesthetic.computer · @jeffrey",
         color: colorAddress("lavenderblush"),
@@ -767,7 +844,7 @@ function titleSlide({ photo, color }) {
     </div>`;
 }
 
-function photoSlide({ photo, chapter, title, cap, color }) {
+function photoSlide({ photo, title, cap, color }) {
   const titleHtml = (title || "").split("\n").map((l) => `<div>${l}</div>`).join("");
   const code = slideCode(color);
   // Slide code in chapter color (luma-aware shadow). Title + cap in cream
@@ -790,41 +867,45 @@ function photoSlide({ photo, chapter, title, cap, color }) {
     </div>`;
 }
 
-// Chat slide — text-only, no photo. Renders the latest messages from the
-// 'system' and 'clock' chat instances pulled by `bin/chat-fetch.mjs`
-// into `recap/out/chat-snapshot.json`. Two columns side-by-side: laer-
-// klokken (clock) on the left, the main chat (system) on the right.
-function chatSlide({ snapshot, chapter, title, cap, color }) {
+// Chat slide — single-instance variant. Renders ONE chat (clock OR system)
+// over a laptop-POV portrait backdrop. The episode includes two of these
+// per cut: 14a (clock = laer-klokken) and 14b (system = main chat). The
+// `messages` array is pre-resolved by the caller from `chat-snapshot.json`.
+//
+// Layout: the photo fills the frame (laptop-POV first-person of jeffrey
+// reading), with a top gradient holding the chapter line + title + cap,
+// and a bottom-right "card" panel listing the messages over a smoked
+// scrim so they stay readable against any photo. The slide-code chip
+// uses the chapter color (luma-aware shadow).
+function chatSlide({ photo, instance, messages, title, cap, color }) {
+  const code = slideCode(color);
+  const codeShadow = readabilityShadow(color.rgb);
+  const creamShadow = "2px 2px 0 rgba(0,0,0,0.95), -1px -1px 0 rgba(0,0,0,0.7), 0 0 18px rgba(0,0,0,0.55)";
+  const capShadow = "1px 1px 0 rgba(0,0,0,0.92), 0 0 14px rgba(0,0,0,0.6)";
+  const titleHtml = (title || "").split("\n").map((l) => `<div>${l}</div>`).join("");
+  const label = instance === "clock" ? "laer-klokken" : "chat";
+  // Trim to the most recent messages that fit in the panel (~10 fits comfortably
+  // at the chosen panel size); use slice(-10) to keep the FRESHEST.
   const fmt = (m) => `
-    <div style="display:flex; gap: 14px; align-items: baseline; padding: 6px 0;">
-      <div style="font-family:'ProcessingB'; font-size: 24px; color: ${color.hex}; min-width: 160px; flex-shrink: 0;">${escape(m.handle || "anon")}</div>
-      <div style="font-family:'ProcessingR'; font-size: 24px; color: ${PALETTE.cream}; line-height: 1.3; word-break: break-word;">${escape(m.text || "")}</div>
+    <div style="display:flex; gap: 12px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+      <div style="font-family:'ProcessingB'; font-size: 22px; color: ${color.hex}; min-width: 150px; flex-shrink: 0;">${escape(m.handle || "anon")}</div>
+      <div style="font-family:'ProcessingR'; font-size: 22px; color: ${PALETTE.cream}; line-height: 1.3; word-break: break-word;">${escape(m.text || "")}</div>
     </div>`;
-  const leftHtml = (snapshot?.clock || []).slice(-14).map(fmt).join("");
-  const rightHtml = (snapshot?.system || []).slice(-14).map(fmt).join("");
+  const list = (messages || []).slice(-10).map(fmt).join("")
+    || `<div style="color:${PALETTE.dim}; font-size:22px;">(quiet day)</div>`;
   return `
-    <div style="position: fixed; inset: 0; padding: 0; overflow: hidden; background: ${PALETTE.bg};">
-      <div style="position: absolute; top: 80px; left: 70px; right: 70px;">
-        <div style="font-family: 'ProcessingR'; font-size: 30px; letter-spacing: 6px; text-transform: uppercase; color: ${color.hex};">${chapter}</div>
-        <div style="font-family: 'ProcessingB'; font-size: 110px; line-height: 1.0; letter-spacing: -2px; color: ${color.hex}; margin-top: 18px;">${title.split("\n").map((l) => `<div>${l}</div>`).join("")}</div>
-        <div style="font-family: 'ProcessingR'; font-size: 32px; color: ${PALETTE.off}; margin-top: 22px; letter-spacing: 1px;">${cap}</div>
+    <div style="position: fixed; inset: 0; padding: 0; overflow: hidden;">
+      ${photo
+        ? `<img src="${photo}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" />`
+        : `<div style="position: absolute; inset: 0; background: ${PALETTE.bg};"></div>`}
+      <div style="position: absolute; top: 0; left: 0; right: 0; padding: 130px 70px 90px; background: linear-gradient(to bottom, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0) 100%);">
+        <div style="font-family: 'ProcessingB'; font-size: 38px; letter-spacing: 2px; color: ${color.hex}; text-shadow: ${codeShadow};">${code}</div>
+        <div style="font-family: 'ProcessingB'; font-size: 110px; line-height: 1.0; letter-spacing: -2px; color: ${PALETTE.cream}; margin-top: 22px; text-shadow: ${creamShadow};">${titleHtml}</div>
+        <div style="font-family: 'ProcessingR'; font-size: 38px; color: ${PALETTE.off}; margin-top: 26px; letter-spacing: 1px; text-shadow: ${capShadow};">${cap || ""}</div>
       </div>
-      <div style="position: absolute; top: 540px; bottom: 220px; left: 70px; right: 70px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
-        <div style="border-left: 4px solid ${color.hex}; padding-left: 22px; overflow: hidden;">
-          <div style="font-family:'ProcessingB'; font-size:28px; letter-spacing:4px; color:${color.hex}; text-transform:uppercase; margin-bottom: 18px;">laer-klokken</div>
-          ${leftHtml || `<div style="color:${PALETTE.dim}; font-size:24px;">(no recent messages)</div>`}
-        </div>
-        <div style="border-left: 4px solid ${color.hex}; padding-left: 22px; overflow: hidden;">
-          <div style="font-family:'ProcessingB'; font-size:28px; letter-spacing:4px; color:${color.hex}; text-transform:uppercase; margin-bottom: 18px;">chat</div>
-          ${rightHtml || `<div style="color:${PALETTE.dim}; font-size:24px;">(no recent messages)</div>`}
-        </div>
-      </div>
-      <div style="position: absolute; bottom: 110px; right: 70px; display: flex; align-items: center; gap: 22px; padding: 18px 26px 18px 22px; background: rgba(0,0,0,0.72); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px;">
-        <div style="width: 56px; height: 56px; background: ${color.hex}; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px;"></div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <div style="font-family: 'ProcessingB'; font-size: 30px; letter-spacing: 1px; color: ${PALETTE.cream};">${color.name}</div>
-          <div style="font-family: 'ProcessingR'; font-size: 22px; letter-spacing: 1px; color: ${PALETTE.dim};">${color.caption}</div>
-        </div>
+      <div style="position: absolute; left: 70px; right: 70px; bottom: 280px; padding: 28px 32px 26px 28px; background: rgba(8, 12, 30, 0.78); border-left: 6px solid ${color.hex}; border-radius: 4px; backdrop-filter: blur(6px);">
+        <div style="font-family:'ProcessingB'; font-size:28px; letter-spacing:4px; color:${color.hex}; text-transform:uppercase; margin-bottom: 16px;">${label}</div>
+        ${list}
       </div>
     </div>`;
 }

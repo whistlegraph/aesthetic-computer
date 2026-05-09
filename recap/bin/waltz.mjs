@@ -149,22 +149,6 @@ const SCALES = {
   lydian: [0, 2, 4, 6, 7, 9, 11],
 };
 const SCALE = SCALES[SCALE_NAME] || SCALES.major;
-const ROOT_MIDI = 60 + ROOT_OFFSET; // C4 by default
-
-function scaleNoteMidi(degree, octaveOffset = 0) {
-  const len = SCALE.length;
-  const idx = ((degree % len) + len) % len;
-  const octShift = Math.floor(degree / len);
-  return ROOT_MIDI + 12 * (octaveOffset + octShift) + SCALE[idx];
-}
-
-function chordMidis(rootDegree, octaveOffset = 0) {
-  return [
-    scaleNoteMidi(rootDegree,     octaveOffset),
-    scaleNoteMidi(rootDegree + 2, octaveOffset),
-    scaleNoteMidi(rootDegree + 4, octaveOffset),
-  ];
-}
 
 // ── voice: piano (sample bank) ────────────────────────────────────────
 const PIANO_SAMPLE_DIR = resolve(REPO, "fedac/native/samples/piano");
@@ -286,6 +270,82 @@ if (VOICE === "piano") {
   process.exit(1);
 }
 
+// ── morph sections ─────────────────────────────────────────────────────
+// audience.waltz.morph (optional) is a list of sections the bed walks
+// through across the duration. Each section can override progression /
+// scale / density / transpose. Sections are weighted by `weight` (default
+// 1) and the total bars get distributed proportionally so the whole bed
+// resolves at the end of the narration. If `morph` is absent, behavior
+// is identical to the prior fixed-progression mode (one virtual section
+// using the top-level progression / scale / density / transpose).
+//
+// Example (in audience.waltz):
+//   morph: [
+//     { progression: [0, 5, 3, 4],     scale: "major",  density: 0.4 },
+//     { progression: [3, 0, 4, 5],     scale: "lydian", density: 0.55, transpose: 2 },
+//     { progression: [5, 4, 0, 3],     scale: "dorian", density: 0.65 },
+//     { progression: [0, 3, 4, 0, 5, 0], scale: "major", density: 0.5 },
+//   ]
+const MORPH_RAW = (Array.isArray(W.morph) && W.morph.length > 0) ? W.morph : null;
+const MORPH = MORPH_RAW
+  ? MORPH_RAW.map((s) => ({
+      progression: Array.isArray(s.progression) && s.progression.length > 0 ? s.progression : PROGRESSION,
+      scale: SCALES[s.scale] || SCALE,
+      scaleName: s.scale || SCALE_NAME,
+      density: s.density !== undefined ? Number(s.density) : DENSITY,
+      transpose: s.transpose !== undefined ? Number(s.transpose) : ROOT_OFFSET,
+      weight: s.weight !== undefined ? Math.max(0.001, Number(s.weight)) : 1,
+    }))
+  : [
+      {
+        progression: PROGRESSION,
+        scale: SCALE,
+        scaleName: SCALE_NAME,
+        density: DENSITY,
+        transpose: ROOT_OFFSET,
+        weight: 1,
+      },
+    ];
+
+// Distribute BARS across sections by weight. We use floor + fix-up on the
+// last section so the sum stays exactly BARS.
+const TOTAL_WEIGHT = MORPH.reduce((a, s) => a + s.weight, 0);
+const SECTION_BARS = (() => {
+  const out = MORPH.map((s) => Math.max(1, Math.floor((s.weight / TOTAL_WEIGHT) * BARS)));
+  const sum = out.reduce((a, b) => a + b, 0);
+  if (sum !== BARS) out[out.length - 1] += (BARS - sum);
+  return out;
+})();
+
+function sectionForBar(barIdx) {
+  let acc = 0;
+  for (let i = 0; i < MORPH.length; i++) {
+    acc += SECTION_BARS[i];
+    if (barIdx < acc) {
+      // Bar offset within the section — used to walk the section's progression.
+      const localBar = barIdx - (acc - SECTION_BARS[i]);
+      return { section: MORPH[i], localBar, sectionIndex: i };
+    }
+  }
+  // Defensive: last section if we somehow run past the end.
+  const last = MORPH[MORPH.length - 1];
+  return { section: last, localBar: barIdx, sectionIndex: MORPH.length - 1 };
+}
+
+function midiInScale(scale, rootOffset, degree, octaveOffset = 0) {
+  const len = scale.length;
+  const idx = ((degree % len) + len) % len;
+  const octShift = Math.floor(degree / len);
+  return (60 + rootOffset) + 12 * (octaveOffset + octShift) + scale[idx];
+}
+function chordMidisIn(scale, rootOffset, rootDegree, octaveOffset = 0) {
+  return [
+    midiInScale(scale, rootOffset, rootDegree,     octaveOffset),
+    midiInScale(scale, rootOffset, rootDegree + 2, octaveOffset),
+    midiInScale(scale, rootOffset, rootDegree + 4, octaveOffset),
+  ];
+}
+
 // ── build event list ───────────────────────────────────────────────────
 const beatSec = 60 / BPM;
 const barSec = beatSec * 3;
@@ -294,9 +354,15 @@ const events = []; // { startSec, midi, gain, durSec }
 
 for (let bar = 0; bar < BARS; bar++) {
   const barStart = bar * barSec;
-  const deg = PROGRESSION[bar % PROGRESSION.length];
-  const triad = chordMidis(deg, 0);
-  const bass  = scaleNoteMidi(deg, -2);
+  const { section, localBar } = sectionForBar(bar);
+  const prog = section.progression;
+  const scl = section.scale;
+  const transpose = section.transpose;
+  const density = section.density;
+
+  const deg = prog[localBar % prog.length];
+  const triad = chordMidisIn(scl, transpose, deg, 0);
+  const bass  = midiInScale(scl, transpose, deg, -2);
 
   // Beat 1 — bass
   events.push({ startSec: barStart, midi: bass, gain: 0.55, durSec: beatSec * 1.1 });
@@ -310,30 +376,34 @@ for (let bar = 0; bar < BARS; bar++) {
     events.push({ startSec: barStart + 2 * beatSec, midi: m, gain: 0.26, durSec: beatSec * 0.9 });
   }
 
-  // Melody on beat 1, frequency tunable via DENSITY (0 = sparse, 1 = every bar)
-  const melodyEveryBar = DENSITY >= 0.85;
-  const wantMelody = melodyEveryBar || (bar % 2 === 0) || rng() < DENSITY * 0.5;
+  // Melody on beat 1, frequency tunable via density (0 = sparse, 1 = every bar)
+  const melodyEveryBar = density >= 0.85;
+  const wantMelody = melodyEveryBar || (bar % 2 === 0) || rng() < density * 0.5;
   if (wantMelody) {
     const melDeg = deg + (rng() < 0.5 ? 4 : 2); // 5th or 3rd of chord
-    const melMidi = scaleNoteMidi(melDeg, 1);
+    const melMidi = midiInScale(scl, transpose, melDeg, 1);
     events.push({ startSec: barStart + beatSec * 0.05, midi: melMidi, gain: 0.40, durSec: beatSec * 2.0 });
   }
 
-  // Passing tone on beat 3 — chance scales with DENSITY
-  if (rng() < 0.25 + DENSITY * 0.5) {
+  // Passing tone on beat 3 — chance scales with density
+  if (rng() < 0.25 + density * 0.5) {
     const passDeg = deg + 1 + Math.floor(rng() * 3);
-    const passMidi = scaleNoteMidi(passDeg, 1);
+    const passMidi = midiInScale(scl, transpose, passDeg, 1);
     events.push({ startSec: barStart + 2 * beatSec + beatSec * 0.5, midi: passMidi, gain: 0.30, durSec: beatSec * 0.6 });
   }
 
   // Optional: extra melodic ornament at high density
-  if (DENSITY > 0.65 && rng() < 0.5) {
+  if (density > 0.65 && rng() < 0.5) {
     const ornDeg = deg + (rng() < 0.5 ? 3 : 5);
-    const ornMidi = scaleNoteMidi(ornDeg, 1);
+    const ornMidi = midiInScale(scl, transpose, ornDeg, 1);
     events.push({ startSec: barStart + beatSec * 1.5, midi: ornMidi, gain: 0.28, durSec: beatSec * 0.5 });
   }
 }
 
+if (MORPH_RAW) {
+  const summary = MORPH.map((s, i) => `${SECTION_BARS[i]}b·${s.scaleName}·d${s.density.toFixed(2)}·t${s.transpose}`).join(" → ");
+  console.log(`→ morph · ${MORPH.length} sections: ${summary}`);
+}
 console.log(`→ waltz · voice=${VOICE} · ${BARS} bars · ${BPM} bpm · ${SCALE_NAME} · ${(totalSec).toFixed(1)}s · ${events.length} notes · seed=${SEED_STR}`);
 
 // Export the deterministic event list so other tools (waltz-overlay.mjs,

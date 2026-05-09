@@ -115,6 +115,68 @@ def merge_close_boxes(boxes: list[tuple[int, int, int, int]], gap: int = 30):
     return [tuple(b) for b in merged]
 
 
+def detect_laptop(bgr: np.ndarray, face: tuple | None) -> tuple[int, int, int, int] | None:
+    """Find the largest chartreuse / dark-rect region in the lower 2/3 of the
+    frame — that's almost always the laptop (chartreuse Neo or black ThinkPad).
+    Returns (x, y, w, h) of the laptop bbox, or None if nothing convincing.
+
+    The chartreuse pass dominates when present (Apple's bright yellow-green
+    is unmistakable in HSV). For ThinkPad scenes (no chartreuse) we fall back
+    to a dark-rect detector inside the lower-2/3 band: closed contour, large
+    area, mostly horizontal aspect.
+    """
+    h_img, w_img = bgr.shape[:2]
+    # Search band: from face_bottom (or 1/3) down to 95% of frame height.
+    if face is not None:
+        fx, fy, fw, fh = face
+        y0 = max(int(h_img * 0.30), fy + int(fh * 0.6))
+    else:
+        y0 = int(h_img * 0.30)
+    y1 = int(h_img * 0.95)
+    if y1 <= y0 + 100:
+        return None
+    crop = bgr[y0:y1, :]
+
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    # Chartreuse / Apple bright-yellow-green range. H is OpenCV 0–179.
+    chartreuse_mask = cv2.inRange(hsv, (28, 100, 110), (60, 255, 255))
+    chartreuse_area = int(chartreuse_mask.sum() // 255)
+    crop_area = crop.shape[0] * crop.shape[1]
+
+    if chartreuse_area > crop_area * 0.04:
+        # Strong chartreuse signal — that's the Neo.
+        contours, _ = cv2.findContours(chartreuse_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            biggest = max(contours, key=cv2.contourArea)
+            x, y, bw, bh = cv2.boundingRect(biggest)
+            return (int(x), int(y + y0), int(bw), int(bh))
+
+    # No chartreuse — try dark-rectangle (ThinkPad / closed lid).
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    # Threshold on darkness — anything below 60 luma is "very dark."
+    _, dark = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY_INV)
+    # Clean up noise.
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
+    dark = cv2.morphologyEx(dark, cv2.MORPH_OPEN, kernel)
+    dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE, kernel)
+    contours, _ = cv2.findContours(dark, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    candidates = []
+    for c in contours:
+        x, y, bw, bh = cv2.boundingRect(c)
+        if bw < w_img * 0.25 or bh < 80:
+            continue
+        # Prefer wide-ish (laptop-shaped) rects.
+        aspect = bw / max(1, bh)
+        if aspect < 0.7 or aspect > 4.0:
+            continue
+        area = bw * bh
+        candidates.append((area, x, y + y0, bw, bh))
+    if candidates:
+        _, x, y, bw, bh = max(candidates, key=lambda t: t[0])
+        return (int(x), int(y), int(bw), int(bh))
+    return None
+
+
 def safe_bands(face: tuple | None, logos: list, w: int, h: int):
     """Return cyan bands that are clear of face + logos.
     Currently: top band above face, bottom band below logos (or mid-thigh)."""
@@ -139,7 +201,7 @@ def safe_bands(face: tuple | None, logos: list, w: int, h: int):
     return bands
 
 
-def draw_debug(bgr: np.ndarray, face, logos, bands, label: str, dst: Path):
+def draw_debug(bgr: np.ndarray, face, logos, bands, label: str, dst: Path, laptop=None):
     pil = Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)).convert("RGB")
     draw = ImageDraw.Draw(pil)
 
@@ -156,6 +218,12 @@ def draw_debug(bgr: np.ndarray, face, logos, bands, label: str, dst: Path):
     if face is not None:
         x, y, bw, bh = face
         draw.rectangle([x, y, x + bw, y + bh], outline=(255, 50, 80), width=5)
+
+    # Magenta laptop bbox (the chartreuse Neo or ThinkPad — chrome MUST stay
+    # off this rectangle)
+    if laptop is not None:
+        x, y, bw, bh = laptop
+        draw.rectangle([x, y, x + bw, y + bh], outline=(255, 0, 200), width=4)
 
     # Caption strip
     cap = f"{label}  face={'yes' if face else 'no'}  logos={len(logos)}  safe-bands={len(bands)}"
@@ -183,6 +251,7 @@ def run():
             continue
         h, w = bgr.shape[:2]
         face = detect_face(bgr)
+        laptop = detect_laptop(bgr, face)
         logos = detect_shirt_logos(bgr, face)
         bands = safe_bands(face, logos, w, h)
 
@@ -191,15 +260,16 @@ def run():
             "image": png.name,
             "size": [w, h],
             "face": list(face) if face else None,
+            "laptop": list(laptop) if laptop else None,
             "shirtLogos": [list(b) for b in logos],
             "safeBands": [list(b) for b in bands],
         }, indent=2))
 
         dbg_path = DEBUG_DIR / f"{png.stem}.png"
-        draw_debug(bgr, face, logos, bands, png.stem, dbg_path)
+        draw_debug(bgr, face, logos, bands, png.stem, dbg_path, laptop=laptop)
 
-        summary.append((png.name, "face" if face else "no-face", len(logos), len(bands)))
-        print(f"  ✓ {png.name}: face={'yes' if face else 'no'}  logos={len(logos)}  safe={len(bands)}")
+        summary.append((png.name, "face" if face else "no-face", "laptop" if laptop else "no-laptop", len(logos), len(bands)))
+        print(f"  ✓ {png.name}: face={'yes' if face else 'no'}  laptop={'yes' if laptop else 'no'}  logos={len(logos)}  safe={len(bands)}")
 
     print()
     print(f"→ wrote {len(summary)} cv/*.json + debug/*.png")

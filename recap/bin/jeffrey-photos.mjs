@@ -45,7 +45,12 @@ const PLATTER_MANIFEST = `${REPO}/papers/jeffrey-platter/manifest.json`;
 mkdirSync(PLATTER_GENS_DIR, { recursive: true });
 
 // Mirrors generate-neo.py refs.
-const SHOOT_DIR = `${REPO}/portraits/jeffrey/corpus/shoot`;
+// 2k-downscaled shoot refs — full-size JPGs (~24MB each) reliably tripped
+// gpt-image-2's multipart upload with "fetch failed" at the connection
+// layer; these are 2048px-wide, ~0.5MB each, identity-grounding still
+// works fine. Generate with:
+//   ffmpeg -i shoot/<name>.jpg -vf "scale='min(2048,iw)':-1" -q:v 3 shoot-2k/<name>.jpg
+const SHOOT_DIR = `${REPO}/portraits/jeffrey/corpus/shoot-2k`;
 const ARCHIVE_DIR = `${REPO}/portraits/jeffrey/ig-archive/whistlegraph`;
 const SHOOT_REFS = [
   `${SHOOT_DIR}/jeffery-av--07.jpg`,
@@ -84,16 +89,29 @@ const MODEL = "gpt-image-2";
 const SIZE = "1024x1536";
 const QUALITY = "high";
 
-async function generate(metaphor, outPath) {
+async function generate(metaphor, outPath, extraRefs = []) {
   const fd = new FormData();
   fd.append("model", MODEL);
   fd.append("prompt", metaphor);
   fd.append("size", SIZE);
   fd.append("quality", QUALITY);
   fd.append("n", "1");
-  for (const ref of REFS) {
+  // Identity refs first (jeffrey's face/wardrobe), then per-segment extras.
+  // Extras are scene-specific assets the prompt explicitly references —
+  // e.g. the actual VFC painting for slide 10, real AC screenshots for
+  // chapters that need a UI in shot. Each extra is identified by its
+  // FILE NAME in the multipart upload so the prompt can reference it.
+  const allRefs = [...REFS, ...extraRefs];
+  for (const ref of allRefs) {
+    if (!existsSync(ref)) {
+      console.warn(`  ⚠ extra ref missing, dropping: ${ref}`);
+      continue;
+    }
     const buf = readFileSync(ref);
-    const ext = ref.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+    const lower = ref.toLowerCase();
+    const ext = lower.endsWith(".png") ? "png"
+              : lower.endsWith(".webp") ? "webp"
+              : "jpeg";
     fd.append("image[]", new Blob([buf], { type: `image/${ext}` }), ref.split("/").pop());
   }
   const res = await fetch("https://api.openai.com/v1/images/edits", {
@@ -152,20 +170,81 @@ function archiveToPlatter({ segName, metaphor, sourcePath, context }) {
 
 const context = `recap-${audienceName}`;
 
+// Per-episode arc: every recap moves jeffrey through a day —
+//   title  → cozy wake-up morning (always, regardless of chapter index)
+//   first third → fresh morning energy, focused but unhurried
+//   middle third → midday work state, engaged + varied micro-emotion
+//   last third → subtle evening fatigue + occasional vape, warm/dim light
+//   final → deep-night exhaustion or wired second wind
+//   chat-instance → laptop-POV addendum (the photo's POV is the screen)
+//
+// The arc beat is APPENDED to the per-scene metaphor — per-scene specifics
+// (diegetic chapter color, props, expressions) still win where they conflict;
+// the arc beat just tints energy / fatigue / time-of-day.
+function photoSegmentsInOrder() {
+  return audience.segments
+    .map((s) => ({ seg: s, slide: audience.slides[s.name] }))
+    .filter(({ slide }) => slide && typeof slide === "object" && slide.metaphor);
+}
+
+function arcBeatFor(slide, idx, total) {
+  if (slide.fixedArc) return ARC_BEATS[slide.fixedArc];
+  // Slides explicitly tagged as a chat instance get the laptop-POV addendum
+  // regardless of their position; the per-scene metaphor still drives the
+  // composition, the arc beat just reinforces tone.
+  if (slide.chatInstance) {
+    return ARC_BEATS.chat;
+  }
+  // First photo-bearing segment is always title-morning; last is outro.
+  if (idx === 0) return ARC_BEATS.title;
+  if (idx === total - 1) return ARC_BEATS.outro;
+  // Middle slides arc through the day in equal thirds. Use the index AMONG
+  // photo-bearing segments (excluding title + outro) so the daily arc is
+  // independent of how many chapters the episode happens to have.
+  const middleIdx = idx - 1;
+  const middleTotal = Math.max(1, total - 2);
+  const t = middleIdx / middleTotal; // 0 (just after morning) → 1 (pre-outro)
+  if (t < 1 / 3) return ARC_BEATS.fresh;
+  if (t < 2 / 3) return ARC_BEATS.midday;
+  return ARC_BEATS.late;
+}
+
+// ARC BEATS apply ENERGY / FATIGUE / VAPE-VISIBILITY only — they do NOT
+// override per-scene time-of-day or lighting. If the per-scene metaphor
+// is explicitly a night scene, the arc beat respects that and contributes
+// only the body-language / mood / vape-prop cues. The "PER-SCENE WINS"
+// preamble in each beat tells the model so.
+const ARC_BEATS = {
+  title:  `\n\nARC BEAT — DAY ARC, OPENING (per-scene wins for time-of-day / lighting): "cozy wake-up" energy. Just-woken: hopeful, soft, unhurried, slightly bedheaded but pleased. Eyes bright, posture relaxed, ZERO fatigue, NO vape pen visible. Color palette of the morning beat (pale-peach + warm-cream + soft pink dawn) layers over the per-scene lighting where they don't conflict.`,
+  fresh:  `\n\nARC BEAT — DAY ARC, EARLY (per-scene wins for time-of-day / lighting): awake-and-focused energy. Posture engaged, expression alert without strain. NO fatigue. NO vape pen visible (he hasn't gotten there yet today). Body language reads "fresh".`,
+  midday: `\n\nARC BEAT — DAY ARC, MIDDLE (per-scene wins for time-of-day / lighting): mid-work engaged state. Hands at the keyboard or mid-conversation. Expression stays hyperbolic-but-varied per scene (shock / mock-detective / smug / laugh). NO fatigue yet, vape pen is fine to appear if scene dictates but it's not the focus.`,
+  late:   `\n\nARC BEAT — DAY ARC, LATER (per-scene wins for time-of-day / lighting): subtle fatigue setting in the BODY LANGUAGE. Slightly heavier eyelids, slight slump in shoulders, longer hair-pull, leftover food/drink visible somewhere in frame, the laptop's screen glow more dominant on his face than earlier in the day. The Stiiizy-style USB-stick vape pen with its tiny LED is MORE LIKELY visible — sometimes mid-puff with a faint vapor wisp, sometimes resting on the desk. Mood: frayed-but-funny, second-thought, weary affection. The per-scene metaphor still controls the actual room light + props; this beat just tilts the energy.`,
+  outro:  `\n\nARC BEAT — DAY ARC, END (per-scene wins for time-of-day / lighting): end-of-day. Either deep exhaustion or wired second-wind — whichever fits the per-scene mood. Body posture either slumped + mug-in-hand satisfied, or alert eyebrows + closing-strong. Color palette of cobalt indigo + screen-glow cyan + a pool of warm lamp where it doesn't clash with the per-scene light.`,
+  chat:   `\n\nARC BEAT — POV ADDENDUM (overrides camera position, NOT scene content): laptop-series FIRST-PERSON shot. The camera is where the laptop's webcam would be — looking UP at jeffrey from chest height, SCREEN-SIDE perspective, as if the laptop itself caught the still mid-conversation. He looks forward AT the camera (= at the screen), focused or mid-laugh per scene. The bottom edge of the Citrus-green MacBook Neo is just visible at the FOOT of the frame. His hands are out of frame on the keyboard, or at chest level. Soft natural room light + screen glow on his face. Phone-snapshot tone, not cinematic.`,
+};
+
+const photoSegs = photoSegmentsInOrder();
+const photoTotal = photoSegs.length;
+
 console.log(`refs: ${REFS.length} (${REFS.length} found)`);
 console.log(`out:  ${PHOTOS_DIR}`);
 console.log(`platter archive: ${PLATTER_GENS_DIR.replace(REPO + "/", "")}`);
+console.log(`arc:  title → fresh → midday → late → outro · ${photoTotal} portraits`);
 
 let generated = 0, cached = 0, failed = 0;
-for (const seg of audience.segments) {
+for (let i = 0; i < photoSegs.length; i++) {
+  const { seg, slide } = photoSegs[i];
   if (only && seg.name !== only) continue;
-  const slide = audience.slides[seg.name];
-  const metaphor = slide && typeof slide === "object" ? slide.metaphor : null;
-  if (!metaphor) {
-    console.log(`  · ${seg.name}: no metaphor, skipping`);
-    continue;
-  }
+  const arc = arcBeatFor(slide, i, photoTotal);
+  const metaphor = slide.metaphor + (arc || "");
   const outPath = `${PHOTOS_DIR}/${seg.name}.png`;
+  // Per-segment extra refs (relative to repo root) — passed to gpt-image-2
+  // alongside the standard SHOOT + SELFIE identity refs. Used for
+  // baking real artifacts into the scene (e.g. the VFC painting,
+  // calarts header illustration, AC screenshots for chapters that
+  // need real UI in shot). Source: audience.slides[seg.name].extraRefs.
+  const extraRefRels = (slide && Array.isArray(slide.extraRefs)) ? slide.extraRefs : [];
+  const extraRefs = extraRefRels.map((rel) => rel.startsWith("/") ? rel : `${REPO}/${rel}`);
   if (existsSync(outPath) && !force) {
     console.log(`  ✓ ${seg.name}.png (cached)`);
     cached++;
@@ -174,7 +253,7 @@ for (const seg of audience.segments) {
   process.stdout.write(`▸ ${seg.name}… `);
   const t0 = Date.now();
   try {
-    const usage = await generate(metaphor, outPath);
+    const usage = await generate(metaphor, outPath, extraRefs);
     const archive = archiveToPlatter({ segName: seg.name, metaphor, sourcePath: outPath, context });
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     const tok = usage.tokens_in

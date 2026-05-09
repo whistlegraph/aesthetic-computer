@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..");
 
-const SHOOT_DIR = `${REPO}/portraits/jeffrey/corpus/shoot`;
+// 2k-downscaled shoot refs — see recap/bin/jeffrey-photos.mjs for context.
+// Full-size 24MB JPGs trip gpt-image-2 multipart uploads at the connection
+// layer; these are 2048px-wide, ~0.5MB each, identity-grounding identical.
+const SHOOT_DIR = `${REPO}/portraits/jeffrey/corpus/shoot-2k`;
 const ARCHIVE_DIR = `${REPO}/portraits/jeffrey/ig-archive/whistlegraph`;
 
 export const SHOOT_REFS = [
