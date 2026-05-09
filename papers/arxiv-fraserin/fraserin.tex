@@ -105,30 +105,18 @@
 \end{minipage}\par
 \vspace{0.4em}
 
-% Hero illustration with title floating over the bottom vignette. Cover and QR
-% are generated separately (`node papers/bin/gen-cover.mjs arxiv-fraserin` and
-% `node papers/bin/gen-qrs.mjs arxiv-fraserin`); \IfFileExists guards keep the
-% build green before they exist.
+% Hero illustration above title block (no overlap)
 \begin{center}
-\begin{tikzpicture}
-  \node[inner sep=0pt] (cover) at (0,0) {%
-    \IfFileExists{figures/cover.png}{\includegraphics[width=0.86\textwidth]{figures/cover}}{%
-      \begin{tikzpicture}
-        \draw[draw=acgray!30, dash pattern=on 2pt off 3pt, line width=0.4pt]
-          (0,0) rectangle (0.86\textwidth, 0.86\textwidth);
-        \node[anchor=north, text=acgray!60] at (0.43\textwidth, 0.86\textwidth-0.6em)
-          {\tiny\itshape cover pending --- \texttt{node papers/bin/gen-cover.mjs arxiv-fraserin}};
-      \end{tikzpicture}}};
-  \node[anchor=south, align=center, inner sep=0pt] at ([yshift=2.4em]cover.south) {%
-    \begin{tabular}{c}
-      {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}\strut A Fraserin' Art + Tech}\\[0.05em]
-      {\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}\strut An Essay and Survey}\\[0.2em]
-      {\aclight\fontsize{9pt}{10.5pt}\selectfont\color{acgray}\strut Andrea-Fraser as a verb, sung at art-and-tech.}\\
-      {\aclight\fontsize{9pt}{10.5pt}\selectfont\color{acgray}\strut What the move would mean, and to what extent it's already been done.}\\
-    \end{tabular}
-  };
-\end{tikzpicture}
-\par\vspace{0.4em}
+\includegraphics[width=0.62\textwidth]{figures/cover}\par
+\vspace{0.6em}
+{\acbold\fontsize{44pt}{50pt}\selectfont\color{acdark} A Fraserin' Art + Tech}\par
+\vspace{0.2em}
+{\aclight\fontsize{20pt}{24pt}\selectfont\color{acpink} An Essay and Survey}\par
+\vspace{0.4em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acgray} Andrea-Fraser as a verb, sung at art-and-tech.}\par
+\vspace{0.1em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acgray} What the move would mean, and to what extent it's already been done.}\par
+\vspace{0.4em}
 
 {\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
@@ -284,7 +272,7 @@ The dossier series in the platter, as of \papercreated, is a thirteen-institutio
 \centering
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{lXl}
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash\hspace{0pt}}Xl}
 \toprule
 \textbf{Dossier} & \textbf{Posture} & \textbf{Source} \\
 \midrule

@@ -1,0 +1,419 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tikz}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{datecyan}{RGB}{0,120,140}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={MicroVision: A Dossier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[description]{nosep, leftmargin=0pt, itemindent=0pt, labelsep=0.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% Allow URL line-breaking at many more characters so bibliography URLs wrap
+% cleanly inside the narrow two-column layout instead of truncating off the
+% column edge.
+\usepackage{url}
+\Urlmuskip=0mu plus 1mu\relax
+\def\UrlBreaks{\do\/\do\-\do\.\do\_\do\?\do\&\do\=\do\:\do\#\do\+\do\,\do\;\do\@\do\!\do\(\do\)}
+\def\UrlBigBreaks{\do\:\do\/\do\-}
+
+\newcommand{\papercreated}{2026-05-04}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{microvision-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\begin{document}
+
+\twocolumn[{%
+% Top header row: pals (left) + QR + label (right)
+\noindent
+\begin{minipage}[t]{0.5\textwidth}\raggedright
+\includegraphics[height=3em]{pals}
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}\raggedleft
+\begin{tabular}{@{}r@{}}
+{\footnotesize\acbold\color{acpink} \,\,Read this paper now!}\\[0.18em]
+\href{\paperurl}{\includegraphics[height=2.4cm]{figures/qr}}
+\end{tabular}
+\end{minipage}\par
+\vspace{0.4em}
+
+% Hero illustration with title placed below the cover (not overlapping)
+\begin{center}
+\includegraphics[width=0.62\textwidth]{figures/cover}\par
+\vspace{0.6em}
+{\acbold\fontsize{44pt}{50pt}\selectfont\color{acdark} MicroVision}\par
+\vspace{0.2em}
+{\aclight\fontsize{20pt}{24pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acgray} Genealogy, Products, People, Money, Dilution Mechanics, Takeover Theory --- 1993 to 2026}\par
+\vspace{0.4em}
+
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.2em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.4em}
+{\footnotesize\color{acgray}Created \papercreated{} \,\textbullet\, Revision \paperrevision}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Note.} This is a dossier, not an argument. It assembles, in one place, what is publicly recoverable about MicroVision, Inc.\ (NASDAQ: MVIS) --- the Redmond, Washington-based MEMS laser-scanning and lidar company founded in 1993 --- across genealogy, products, people, finances, dilution mechanics, and the partner ecosystem.\ It is also the eleven-year private archive of one shareholder family's research --- correspondence, calls, models, blog posts --- now made legible to anyone reading along. Where facts run out the dossier stops; gaps are flagged inline.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Why this dossier exists}
+
+There are two readers in mind. The first is a retail shareholder who has held MVIS for a decade or more, in a household where the position is large enough to matter and the cushion of cash savings is small enough to matter more. The second is a younger family member trying to assess, in good faith, whether their parents' shareholding still makes sense after the April 2026 registration of 61.3 million potentially dilutive shares~\citep{mvis2026s3}.
+
+The dossier exists because both readings have been happening in our family in real time, separately, and neither has had the same set of facts in front of them at once. What follows is the union of the two records --- the bull case as held over eleven years of MVIS-blog research by Walter Scudder, and the bear case as held in late-April 2026 by his daughter --- without resolving them. The point is not to decide. The point is that both readers, before they decide anything, are looking at the same sheet.
+
+\section{The Company, 1993--2026}
+
+\subsection{Founding and the laser-scanning thesis (1993--2014)}
+
+MicroVision is founded in 1993 in Bothell, Washington, around a single optical idea: scan a laser beam in two axes using a Micro-Electro-Mechanical-System (MEMS) mirror, and you get a pixel-by-pixel image without a fixed pixel grid --- no LCD panel, no lens stack, no focal plane. The output is a true vector raster; the engine fits in a smaller volume than any panel-based projector at comparable brightness. The thesis carries the company through two decades of pico-projection demos --- HUDs, eyewear prototypes, partnerships with Sharp and Sony --- without ever reaching consumer scale~\citep{microvision2026site}.
+
+\subsection{The pico-projection era (2014--2017)}
+
+The Sony MPCL1 pico projector ships at CES 2016 with a MicroVision engine inside, alongside the Celluon PicoPro and PicoAir at \$299--\$450 retail price points; the same year, Sharp's Robohon companion robot uses MicroVision projection, and Foxconn acquires Sharp~\citep{scudder2016ces,scudder2016q4}. In March 2017, a bullish RDI report links MicroVision to STM's rumored 3D-sensor order from Apple~\citep{scudder2017rdi}, and in July 2017, the VOGA V phone ships in China with a MicroVision laser-projection engine~\citep{scudder2017voga}. None of these scale. The HoloLens-suspected \$25.2 million contract --- \$15.2 million engineering plus \$10 million components --- is announced and absorbed without a public confirmation of the customer~\citep{scudder2018q2,scudder2019pps}.
+
+\subsection{The Amazon and HoloLens speculation (2018--2020)}
+
+In August 2018, retail-investor analysis of the Q2 conference call concludes that "two of the big ones MVIS has been working with are MSFT and AMZN"~\citep{scudder2018q2}. In January 2020, an MVIS interactive-display data sheet surfaces with a "poached salmon platter" stock image whose description is identical to a Whole Foods Bellevue listing; the projector housing resembles the Amazon Echo form factor, and an MVIS blogger reports that an Amazon Alexa engineer reacts with "shock and startle" when asked about the interactive laser projector timeline~\citep{scudder2020amazon}. None of these speculations is confirmed by either MicroVision or Amazon, but they organize a decade of retail-investor "mystery customer" reading.
+
+In April--May 2020, trading volume explodes: 842 million shares trade in the two months, against 14.9 million in the same period of 2019 (a 56\(\times\) increase); in six trading days, volume reaches five times the entire 130-million-share float~\citep{scudder2020volume}. The company emerges from this period with a much larger retail shareholder base.
+
+\subsection{The lidar pivot (2020--2024)}
+
+MicroVision repositions its MEMS-scanning IP for automotive lidar. The first product line, MAVIN, targets long-range advanced-driver-assistance systems (ADAS); the MOVIA family targets short-and-mid-range industrial sensing. Walter Scudder's interactive-spreadsheet model of the lidar opportunity, first shared with the MVIS blog community in March 2024 and updated in October 2024 to include industrial robotics, models scenarios at 5--10\% market share~\citep{scudder2024lidar1,scudder2024lidar2}.
+
+\subsection{The Lidar 2.0 era (2025--2026)}
+
+In 2025, MicroVision adds three high-profile partnerships: \emph{Anduril} (defense), \emph{ZF} (automotive Tier 1), and \emph{NVIDIA} (compute / AI integration of MAVIN with NVIDIA DRIVE)~\citep{scudder2025anduril}. The retail investor day in July 2025 marks the public framing of the new strategy~\citep{scudder2025rid}.
+
+In November 2025, MicroVision agrees to acquire the FMCW (frequency-modulated continuous-wave) lidar business of Germany-based \emph{Scantinel Photonics GmbH} --- a 1550nm long-range platform developed with backing from Zeiss, Scania, and PhotonVentures, with a roughly 20-engineer team in Ulm~\citep{mvis2025scantinel,investing2025scantinel}. The new vehicle is a German entity, Scantinel GmbH, jointly funded with a partner.
+
+In January 2026, MicroVision wins a Section-363 bankruptcy auction for the lidar assets of \emph{Luminar Technologies, Inc.} --- IP and inventory for the Iris and Halo sensors, key engineering and operations talent, and certain commercial contracts --- bidding \$33 million in cash, eclipsing Quantum Computing Inc.'s \$22 million stalking-horse bid; the deal closes February 3, 2026, funded entirely from cash on hand~\citep{mvis2026luminar,techcrunch2026luminar,wardsauto2026luminar}.
+
+In February 2026, MicroVision refinances and extends its debt structure with a \$43 million senior secured zero-coupon convertible note maturing March 1, 2028~\citep{mvis2026notes,investing2026notes,tradingview2026notes}. Section~\ref{sec:dilution} treats this transaction in detail.
+
+\section{Products, 2026}
+
+\subsection{Sensor portfolio}
+
+\begin{description}
+  \item[\textbf{MAVIN}] Long-range time-of-flight ADAS lidar, integrated with NVIDIA DRIVE; low-profile one-box form factor designed to fit roof, windshield, hood, or headlamp packaging~\citep{microvision2026mavin}.
+  \item[\textbf{MOVIA L}] Short/mid-range automotive-grade time-of-flight sensor; 7.5 watts total system power including perception software; available in 60\(^\circ\) and 120\(^\circ\) optics~\citep{microvision2026movial}.
+  \item[\textbf{MOVIA S}] 180\(^\circ\) solid-state near-field lidar for parking, blind-spot, and low-speed autonomy; smaller, lower-power, and lower-cost than MOVIA L. Production launch targeted Q4 2026~\citep{microvision2026movias}.
+  \item[\textbf{Iris / Halo}] Long-range and ultra-short-range sensors acquired from Luminar; revenue streams retained through existing commercial contracts~\citep{mvis2026luminar}.
+  \item[\textbf{FMCW long-range}] 1550nm coherent lidar from Scantinel team in Ulm; targets commercial vehicles; productization roadmap not yet public~\citep{mvis2025scantinel}.
+  \item[\textbf{NED (Near-Eye Display)}] MEMS laser-scanning AR projector --- the founding technology, retained as a licensable IP block for consumer AR glasses use~\citep{scudder2026grok}.
+\end{description}
+
+\subsection{Strategy: Lidar 2.0}
+
+CEO Glen DeVos's framing distinguishes "Lidar 1.0" (technology-led, demo-driven, automotive-OEM-funded) from "Lidar 2.0" (value- and economics-driven, shipping-revenue-led, cost-controlled). The pillars: scalable product portfolio, software-driven cost reduction, design-to-cost discipline, and automotive-grade quality~\citep{mvis2026lidar20,seekingalpha2026guidance}. Calendar-year 2026 revenue guidance is \$10--15 million, weighted toward industrial autonomy with continuing Luminar streams.
+
+\subsection{Defense traction (2025--2026)}
+
+In December 2025, MicroVision begins shipping MOVIA L sensors with integrated software to an EU defense original-equipment manufacturer for "mission-critical systems," with repeat orders following~\citep{mvis2025defense}. By April 2026, the same defense customer has integrated 200+ MOVIA L units and reorders another 200~\citep{mvis2026defense}. MicroVision establishes a Defense Industry Advisory Board, naming \emph{Major General Scott Goldstein} (most recent role at Anduril) to it~\citep{mvis2026goldstein} --- the most concrete on-paper Anduril link to date, though there is no formal MicroVision--Anduril partnership agreement on public record.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Role} & \textbf{Person} & \textbf{Note} \\
+\midrule
+CEO & Glen DeVos & "Pivot to Profit" / "Lidar 2.0" \\
+Defense Advisory Board & Maj.\ Gen.\ Scott Goldstein & ex-Anduril \\
+Founder lineage & Rick Rutkowski (CEO 2008--16) & MEMS-scanning era \\
+Shareholder ownership & 27.5\% inst.\ / 9.8\% ins.\ / 62.7\% retail & Mar 2026 \\
+\bottomrule
+\end{tabularx}
+\caption{Selected roles and ownership composition.}
+\label{tab:people}
+\end{table}
+
+In March 2026, MicroVision's CEO, U.S. directors, and executive officers commit to direct purchases from the company at \$0.5322/share, totalling \$310{,}000 aggregate~\citep{stocktitan2026insiders}. These are direct issuances, not open-market buys, and are filed as 8-K material events.
+
+\section{Money}\label{sec:money}
+
+\subsection{Top-line, FY2024--FY2025}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Item} & \textbf{FY2024} & \textbf{FY2025} \\
+\midrule
+Revenue & \$4.7M & \$1.2M \\
+Q4 revenue & \$1.7M & \$0.2M \\
+Net loss (incl.\ impairment) & --- & with \$29.4M impairment \\
+Cash on hand (year-end) & --- & \$74.8M \\
+2026 revenue guidance & --- & \$10--15M \\
+2026 cash burn guidance & --- & \$65--70M \\
+\bottomrule
+\end{tabularx}
+\caption{MicroVision financial top-line, FY2024--FY2025, sourced from Q4/Full-Year 2025 earnings (March 4, 2026).}
+\label{tab:financials}
+\end{table}
+
+The implied runway, holding cash burn at the high end of the \$65--70M guidance and not assuming any further raises, is approximately 12 months from the start of FY2026 --- consistent with the company's own forward-looking statement that "additional capital beyond the next 12 months" will be required~\citep{seekingalpha2026guidance}.
+
+\subsection{Market position}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\columnwidth}{lXr}
+\toprule
+\textbf{Company} & \textbf{Focus} & \textbf{Cap} \\
+\midrule
+Hesai Group & Auto / Industrial lidar & \$3.8B \\
+Ouster & Multi-sector lidar & \$1.3B \\
+Aeva Technologies & Automotive lidar & \$0.9B \\
+Himax Technologies & Display tech (AR) & \$1.7B \\
+Kopin Corporation & Microdisplays for AR & \$0.4B \\
+\textbf{MicroVision} & \textbf{Lidar + NED + AR} & \textbf{\$0.19B} \\
+\bottomrule
+\end{tabularx}
+\caption{Comparable lidar / near-eye-display companies, market caps (2026Q1).}
+\label{tab:peers}
+\end{table}
+
+\section{Dilution Mechanics: the February 2026 Note}\label{sec:dilution}
+
+\subsection{The transaction}
+
+On February 23, 2026, MicroVision entered into a Securities Purchase and Exchange Agreement with the institutional investor \emph{High Trail Capital}~\citep{mvis2026notes,stocktitan2026notes}. The structure has two components:
+
+\begin{itemize}
+  \item An \textbf{exchange} of approximately \$20.6 million of an existing 2026 senior secured convertible note for a new note maturing March 1, 2028.
+  \item A \textbf{purchase} of approximately \$22.4 million of a new note (also maturing March 1, 2028).
+\end{itemize}
+
+The aggregate principal of the new note structure is approximately \$43 million. Of this, only the \$22.4 million component represents fresh capital; the \$20.6 million component is a rollover.
+
+\subsection{Note terms}
+
+\begin{description}
+  \item[Coupon] Zero (no periodic interest payments).
+  \item[Maturity] March 1, 2028.
+  \item[Seniority] Senior to all other debt; first-priority lien on the company's and subsidiaries' bank and securities accounts.
+  \item[Conversion price] \$0.8819 per share, subject to customary anti-dilution adjustments.
+  \item[Share cap] 61{,}315{,}970 shares maximum until and unless the company secures stockholder approval per Nasdaq Listing Rule 5635(d)(2).
+  \item[Beneficial ownership cap] 4.99\% per holder, increaseable to 9.99\% with notice.
+  \item[Redemption schedule] Holder may partially redeem on the issuance date and on the first day of each month from April 1, 2026 through March 1, 2028.
+  \item[Forced conversion floor] Company can force conversion only if the stock has closed above \$2.00 per share for the immediately preceding 20 consecutive VWAP trading days.
+  \item[Stockholder-approval deadline] By June 30, 2026.
+  \item[Resale registration] Form S-3 filed April 24, 2026 covering all 61.3M shares for resale by the noteholders.
+\end{description}
+
+\subsection{Dilution arithmetic}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\columnwidth}{lr}
+\toprule
+\textbf{Quantity} & \textbf{Value} \\
+\midrule
+Shares outstanding (April 20, 2026) & 326{,}982{,}727 \\
+Shares registered for resale & 61{,}315{,}970 \\
+Pro forma shares fully converted & 388{,}298{,}697 \\
+\textbf{Dilution if fully converted} & \textbf{$\sim$18.75\%} \\
+Conversion price & \$0.8819 \\
+Forced-conversion floor & \$2.00 \\
+\bottomrule
+\end{tabularx}
+\caption{Pro-forma dilution under the February 2026 note. The actual dilution depends on the spot price at the time of conversion and on whether stockholder approval is granted to remove the share cap.}
+\label{tab:dilution}
+\end{table}
+
+\subsection{What the structure constrains}
+
+Three features of the note moderate, though they do not eliminate, the dilution risk that the headline 61.3-million figure suggests~\citep{simplywallst2026notes}:
+
+\begin{enumerate}
+  \item \textbf{Out-of-the-money conversion.} At MVIS's late-April 2026 spot of approximately \$0.65~\citep{yahoo2026mvis}, the \$0.8819 conversion price is out of the money. Voluntary conversion would be loss-taking for the noteholder; conversion is therefore not currently an exit path for High Trail.
+  \item \textbf{Beneficial-ownership cap.} The 4.99\% per-holder cap (raisable to 9.99\%) prevents any single noteholder from converting and selling enough at once to drop the share price more than incrementally. Mass conversion requires either a syndicate or a sustained price move above \$0.8819.
+  \item \textbf{Forced-conversion floor.} The company's right to force conversion does not engage until 20 consecutive trading days above \$2.00 --- a roughly 3$\times$ move from the late-April 2026 price. Above \$2.00, dilution becomes mathematically certain, but at that point the absolute value of each share has roughly tripled.
+\end{enumerate}
+
+The pure-debt-mechanics view of the transaction is: noteholders receive 4.6\% fixed-discount equity kickers (61.3M shares / 1{,}312M = 4.6\% of fully-diluted at the cap) in exchange for accepting zero coupon and 24 months of redemption optionality. The pure-equity view is: the company has registered 18.75\% pro-forma dilution at a known strike. Both views are correct.
+
+\section{The AIM Intelligent Machines Theory}\label{sec:aim}
+
+\subsection{Co-location signal}
+
+\textbf{AIM Intelligent Machines} is a Bellevue, Washington autonomous-earthmoving startup founded in 2021, with operations in Bellevue and Redmond and approximately 40 employees~\citep{aim2026site,geekwire2025aim}. It retrofits existing loaders, excavators, dozers, backhoes, compactors, graders, and scrapers with AI-driven autonomy, and is commercially deployed at mine and construction sites globally. AIM raised \$50 million in 2025 from Khosla Ventures, General Catalyst, Human Capital, Ironspring Ventures, Mantis, and DCVC~\citep{businesswire2025aim,425business2025aim}.
+
+\textbf{MicroVision's} Redmond headquarters is a few miles from AIM's Bellevue/Redmond engineering footprint. Family research --- specifically a tip from Walter Scudder in March 2026 --- holds that AIM and MicroVision now share office space in the area, a signal that, if confirmed, would imply joint engineering integration, pre-acquisition due diligence, or both~\citep{scudder2026aim}. The shared-office report has not been confirmed in public press as of this dossier's publication date; the dossier records the claim and flags the gap.
+
+\subsection{Product fit}
+
+The fit, on paper, is structural rather than rumored. AIM's deployments require:
+
+\begin{itemize}
+  \item Compact, mass-producible, weather- and dust-rated lidar for harsh outdoor environments --- MOVIA L (and the 2026 successor MOVIA S) are designed for exactly this profile, including the 7.5W power envelope.
+  \item Bolt-on retrofit integration with existing heavy-equipment hydraulic and drive systems --- compatible with MicroVision's small-housing form factor and ZF-partnered industrial-grade interfaces.
+  \item Multi-machine autonomy at unit economics that survive a single operator running multiple machines --- consistent with the \$250-class price point implied by Grok's blind valuation~\citep{scudder2026grok}.
+  \item Defense overlap --- AIM has defense contracts; MicroVision has the Anduril-linked advisory board and the EU-defense-OEM MOVIA L program.
+\end{itemize}
+
+\subsection{Acquisition arithmetic}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\columnwidth}{lr}
+\toprule
+\textbf{Quantity} & \textbf{Value} \\
+\midrule
+MVIS market cap (Mar 2026) & $\sim$\$190M \\
+MVIS market cap (Apr 28, 2026) & $\sim$\$208M \\
+NED licensing alone (Grok est.) & \$200--500M \\
+AIM cash raised (2025) & \$50M \\
+Comparable lidar peer cap (Hesai) & \$3.8B \\
+\bottomrule
+\end{tabularx}
+\caption{Acquirability arithmetic. AIM's own \$50M raise is small for an outright \$190M acquisition; a syndicate-led deal led by DCVC and one or more of AIM's other backers is more likely, or a deep partnership / licensing arrangement that precedes an acquisition.}
+\label{tab:aim}
+\end{table}
+
+\section{The Blind Valuation}
+
+In March 2026, Walter Scudder ran a blind-prompt valuation experiment using Grok, prompting the model to value a hypothetical company matching MVIS's exact capabilities --- mass-produced compact lidar at \$250/unit, four-units-per-vehicle 360\(^\circ\) coverage, bolt-on forklift / heavy-equipment integration, and a HD low-power 3D laser projection engine for AR glasses --- without naming MicroVision~\citep{scudder2026grok}.
+
+The technique --- attributed in the email correspondence to a longtime MVIS-blog contributor --- was: "If you tell Grok to eliminate certain biased sources it will do that, and the answers are often very different\,\ldots\,as Microvision has gotten a lot of bad/biased press, eliminating that will give a better answer." The blind valuation returned a \$2--5 billion fair-market-cap range (bull case \$5--10B by 2028), an NED-licensing-deal estimate of \$200--500M (comparable to Microsoft/Osterhout 2014 at \$150M, Google/HTC 2025 at \$250M, Infinite Reality/Touchcast 2025 at \$500M), and an implied per-share price target of \$6--16 against MVIS's \$0.61 spot price.
+
+The dossier does not endorse the valuation. It records the methodology and the result, and notes the obvious epistemological caveat: removing "biased sources" from an AI prompt is itself a bias, and one that systematically favors the bull case.
+
+\section{What the Eleven-Year Record Shows}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Year} & \textbf{Asserted catalyst} & \textbf{Outcome} \\
+\midrule
+2015 & PicoP-driven big screens & Delayed; Sony MPCL1 ships at small scale \\
+2016 & Sharp Robohon, Foxconn-Sharp & Robohon flops commercially \\
+2017 & Apple-STM-MVIS 3D sensor & Never confirmed \\
+2018 & MSFT + AMZN mystery customers & Never confirmed by either \\
+2019 & 1B units/year, \$1.70 bear, \$0.33 EPS & Neither realized \\
+2020 & Amazon Echo / Alexa interactive display & Never confirmed; data sheet retracted \\
+2021 & PPS \$40 rebuy thesis & PPS reaches \$28 then declines \\
+2024 & Lidar industrial scale-up & MOVIA L ramp begins \\
+2025 & Anduril / ZF / NVIDIA partnerships & Confirmed (defense advisory only for Anduril) \\
+2026 & AIM takeover, Lidar 2.0, \$10--15M revenue & Open \\
+\bottomrule
+\end{tabularx}
+\caption{Eleven-year ledger of the assertions on record in this dossier's source material. The pattern is consistent: each year offers a real, often technically credible catalyst, and very few of the asserted commercial outcomes materialize at the predicted scale within the predicted window.}
+\label{tab:ledger}
+\end{table}
+
+The pattern has two readings, neither of which the dossier resolves. The first: the technology is real, the partnerships are real, the customer pipeline is improving year over year, and only patience and survival to a tipping-point quarter are missing. The second: a company that has been "next year is the year" for eleven years, against a backdrop of recurring dilution events and a cash position that requires periodic refinancing, is structurally a perpetual option on a future that does not arrive.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not financial advice. The dossier is a record, not a recommendation.
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique of any family member's reading of the position.
+  \item Not exhaustive. The dossier covers what is publicly recoverable, supplemented by family correspondence on file in \texttt{microvision/}; gaps are flagged inline.
+  \item Not a takeover prediction. The AIM section records the structural fit and the co-location tip; it does not assert that an acquisition is imminent or even likely.
+  \item Not a substitute for talking to a fiduciary. The presence of a 12-month-runway company in a household portfolio is exactly the kind of question a fiduciary is for, and the dossier's most useful function is to give a fiduciary the same record both family readers have.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\sloppy
+\renewcommand{\bibfont}{\footnotesize}
+\setlength{\bibsep}{0.35em}
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
