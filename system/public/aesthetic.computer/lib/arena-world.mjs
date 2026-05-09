@@ -53,10 +53,14 @@ export const ARENA_OBSTACLE_COLORS = Object.freeze([
 ]);
 
 // 🏃 Quake-style movement tuning for the arena (shared client/server).
+// `groundFriction` is intentionally heavier than Q3's pm_friction=6 so that
+// turning the camera while moving doesn't carry world velocity for half a
+// second and read as "the camera is dragging me sideways". Air-accel is
+// untouched so strafe-jumping still pays.
 export const ARENA_PHYSICS = Object.freeze({
   airAccel: 70,        // u/s² along wishdir while airborne
   groundAccel: 80,     // u/s² along wishdir on the ground
   airCapSpeed: 1.5,    // Q3 air-control window
-  groundFriction: 6,
+  groundFriction: 10,  // higher than Q3 default — kills slide-on-turn
   playerRadius: 0.4,
 });

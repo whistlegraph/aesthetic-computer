@@ -767,6 +767,62 @@ function fireGrenade(cam, doll) {
   playGonk(soundRef);
 }
 
+// Bounce a live grenade off the static walls + pillars. Restitution +
+// friction match the floor bounce so behaviour is consistent: hit a wall
+// hard, lose ~45% of inward speed; hit at a glancing angle, mostly slide.
+function resolveGrenadeObstacles(g) {
+  const r = GRENADE_RADIUS;
+  for (const o of ARENA_OBSTACLES) {
+    // Vertical filter — let the grenade arc above a low wall.
+    if (typeof o.yMax === "number" && g.y - r > o.yMax) continue;
+    if (typeof o.yMin === "number" && g.y + r < o.yMin) continue;
+    if (o.type === "cylinder") {
+      const dx = g.x - o.x;
+      const dz = g.z - o.z;
+      const d  = Math.hypot(dx, dz);
+      const minD = (o.r ?? 1) + r;
+      if (d >= minD) continue;
+      if (d < 1e-4) { g.x += minD; continue; }
+      const nx = dx / d, nz = dz / d;
+      g.x += nx * (minD - d);
+      g.z += nz * (minD - d);
+      const vd = g.vx * nx + g.vz * nz;
+      if (vd < 0) {
+        // Reflect with restitution, plus a touch of tangential friction.
+        g.vx -= (1 + GRENADE_BOUNCE_RESTITUTION) * vd * nx;
+        g.vz -= (1 + GRENADE_BOUNCE_RESTITUTION) * vd * nz;
+        g.vx *= GRENADE_BOUNCE_FRICTION;
+        g.vz *= GRENADE_BOUNCE_FRICTION;
+      }
+    } else if (o.type === "box") {
+      const cx = (o.xMin + o.xMax) * 0.5;
+      const cz = (o.zMin + o.zMax) * 0.5;
+      const hx = (o.xMax - o.xMin) * 0.5 + r;
+      const hz = (o.zMax - o.zMin) * 0.5 + r;
+      const dx = g.x - cx;
+      const dz = g.z - cz;
+      const ox = hx - Math.abs(dx);
+      const oz = hz - Math.abs(dz);
+      if (ox <= 0 || oz <= 0) continue;
+      if (ox < oz) {
+        g.x += dx >= 0 ? ox : -ox;
+        const inward = (dx >= 0 && g.vx < 0) || (dx < 0 && g.vx > 0);
+        if (inward) {
+          g.vx = -g.vx * GRENADE_BOUNCE_RESTITUTION;
+          g.vz *= GRENADE_BOUNCE_FRICTION;
+        }
+      } else {
+        g.z += dz >= 0 ? oz : -oz;
+        const inward = (dz >= 0 && g.vz < 0) || (dz < 0 && g.vz > 0);
+        if (inward) {
+          g.vz = -g.vz * GRENADE_BOUNCE_RESTITUTION;
+          g.vx *= GRENADE_BOUNCE_FRICTION;
+        }
+      }
+    }
+  }
+}
+
 function simGrenade(dt, doll, cam) {
   if (!myGrenade) return;
   myGrenade.t += dt;
@@ -774,6 +830,11 @@ function simGrenade(dt, doll, cam) {
   myGrenade.x += myGrenade.vx * dt;
   myGrenade.y += myGrenade.vy * dt;
   myGrenade.z += myGrenade.vz * dt;
+
+  // 🧱 Wall + pillar bounces — same obstacle list the player collides with.
+  // Done before floor bounce so a grenade that hits a wall low can still
+  // settle on the platform afterwards.
+  resolveGrenadeObstacles(myGrenade);
 
   // Floor bounce — only on top of the platform; outside groundBounds the
   // grenade flies off the edge and falls toward the lava (no edge wall).
@@ -783,9 +844,16 @@ function simGrenade(dt, doll, cam) {
   const floorY = ARENA_CFG.groundY + GRENADE_RADIUS;
   if (onPlatform && myGrenade.y <= floorY && myGrenade.vy < 0) {
     myGrenade.y = floorY;
-    myGrenade.vy = -myGrenade.vy * GRENADE_BOUNCE_RESTITUTION;
-    myGrenade.vx *= GRENADE_BOUNCE_FRICTION;
-    myGrenade.vz *= GRENADE_BOUNCE_FRICTION;
+    const incomingVy = myGrenade.vy;
+    myGrenade.vy = -incomingVy * GRENADE_BOUNCE_RESTITUTION;
+    // Apply ground friction only on real bounces. Otherwise gravity pulling
+    // a settled grenade barely below floorY each frame counts as a "bounce"
+    // and friction-kills horizontal momentum — the grenade dies on the spot
+    // instead of rolling to the platform edge.
+    if (Math.abs(incomingVy) > GRENADE_REST_VY * 2) {
+      myGrenade.vx *= GRENADE_BOUNCE_FRICTION;
+      myGrenade.vz *= GRENADE_BOUNCE_FRICTION;
+    }
     if (Math.abs(myGrenade.vy) < GRENADE_REST_VY) myGrenade.vy = 0;
   }
 
