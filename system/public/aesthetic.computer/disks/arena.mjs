@@ -653,8 +653,9 @@ let shadowGround;  // ring + cross — standing on the ground
 let shadowAir;     // diagonal X — airborne
 let shadowCrouch;  // dense inner dot + outer ring — crouched
 let plumbLine;     // vertical line from ground to the player's feet
-let bodyFeet;      // two foot wireframes, anchored to ground + yaw
-let bodyArms;      // two arm wireframes, anchored to eye + yaw
+let bodyFeet;      // two foot wireframes, anchored to ground + yaw (1P only)
+let bodyArms;      // two arm wireframes, anchored to eye + yaw (1P only)
+let myBody;        // solid humanoid mesh (3P only — same shape as remotes)
 let platformEdge;  // bright outline at the ground's perimeter
 let obstacleForms = []; // solid pillar + wall meshes (one Form per shape)
 let obstacleEdges = []; // bright top-rim line forms paired with obstacleForms
@@ -2220,6 +2221,12 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
   );
   bodyArms.noFade = true;
+
+  // 🧍 Solid humanoid for 3rd-person. Same builder as remote players so the
+  // local avatar matches what other tabs see. Only painted when zoomLevel > 0
+  // (1P uses the bodyFeet/bodyArms wireframe helpers instead).
+  const myColor = isGuestHandle(myHandle) ? specColor(myHandle) : handleColor(myHandle);
+  myBody = buildRemoteBody(Form, myColor, isGuestHandle(myHandle));
 }
 
 function sim({ system, pen, screen }) {
@@ -2439,6 +2446,12 @@ function sim({ system, pen, screen }) {
     bodyArms.position[2] = playerCamZ;
     bodyArms.rotation[1] = playerFacing;
   }
+  if (myBody) {
+    myBody.position[0] = playerCamX;
+    myBody.position[1] = playerWorldY;
+    myBody.position[2] = playerCamZ;
+    myBody.rotation[1] = playerFacing;
+  }
 
   // 🐛 Once-per-second debug dump. Paste this back into chat to diagnose.
   debugDumpTimer += 1;
@@ -2606,9 +2619,12 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     if (plumbLine && onSolidGround && plumbLine.scale[1] > 0.05) {
       ink(255, 255, 255).form(plumbLine);
     }
-    // Feet + arms render regardless of ground state (they fall with you).
-    // Dropped entirely in LOW perf mode — wireframes are nice-to-have.
-    if (!perfLowMode) {
+    // 1P: thin wireframes for hands/feet (your own POV references).
+    // 3P: solid humanoid mesh — same builder as remote players, so what
+    // other tabs see is what you see of yourself.
+    if (zoomLevel > 0 && myBody) {
+      ink(255).form(myBody);
+    } else if (!perfLowMode) {
       if (bodyFeet) ink(255).form(bodyFeet);
       if (bodyArms) ink(255).form(bodyArms);
     }

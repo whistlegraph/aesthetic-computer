@@ -35,4 +35,48 @@ if git diff-tree --no-commit-id --name-only -r HEAD | grep -qE "^($AT_FRONTEND_F
   bash "$REPO_ROOT/at/scripts/deploy-at-frontend.sh" 2>&1 | tail -3 &
 fi
 
+# 🏟️ Auto-deploy arena: lith (client) + session-server (multiplayer authority)
+# when any arena-touching file changes on main. Set AC_NO_AUTO_DEPLOY=1 in the
+# env to skip (e.g. while bisecting / hotfixing without going live).
+#
+# Pipeline:
+#   1. push HEAD to knot (origin) so lith's pull matches local
+#   2. fire lith/deploy.fish — pulls knot, restarts service
+#   3. wait for the knot→github mirror (lith's 60s systemd timer)
+#   4. fire session-server/deploy.fish — VPS git pull + node restart
+#
+# Both deploys run async so they don't block the commit. Logs land in
+# .git/arena-auto-deploy.log for postmortems.
+CURRENT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --short HEAD 2>/dev/null || true)"
+if [ "${AC_NO_AUTO_DEPLOY:-}" != "1" ] && [ "$CURRENT_BRANCH" = "main" ]; then
+  ARENA_TOUCH_RE='^(system/public/aesthetic.computer/disks/arena\.mjs|system/public/aesthetic.computer/lib/(arena-world|pmove|cam-doll)\.mjs|session-server/(arena-manager|session)\.mjs|shared/.*)$'
+  if git diff-tree --no-commit-id --name-only -r HEAD | grep -qE "$ARENA_TOUCH_RE"; then
+    echo "🏟️ arena change on main — auto-deploying lith + session-server in background…"
+    DEPLOY_LOG="$REPO_ROOT/.git/arena-auto-deploy.log"
+    (
+      printf "\n=== %s commit=%s ===\n" "$(date -Iseconds)" "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" >> "$DEPLOY_LOG"
+      # 1. Push to knot if local is ahead (idempotent if already pushed).
+      LOCAL_HEAD=$(git -C "$REPO_ROOT" rev-parse HEAD)
+      REMOTE_HEAD=$(git -C "$REPO_ROOT" rev-parse origin/main 2>/dev/null || echo none)
+      if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
+        echo "→ pushing $LOCAL_HEAD to origin/main" >> "$DEPLOY_LOG"
+        git -C "$REPO_ROOT" push origin main >> "$DEPLOY_LOG" 2>&1 || \
+          echo "⚠ push to knot failed — skipping deploys" >> "$DEPLOY_LOG"
+      fi
+      # 2. lith (pulls from knot directly).
+      echo "→ fish lith/deploy.fish" >> "$DEPLOY_LOG"
+      fish "$REPO_ROOT/lith/deploy.fish" >> "$DEPLOY_LOG" 2>&1 || \
+        echo "⚠ lith deploy failed" >> "$DEPLOY_LOG"
+      # 3. give knot→github mirror time to sync (lith systemd timer = 60s).
+      sleep 75
+      # 4. session-server (pulls from github via VPS).
+      echo "→ fish session-server/deploy.fish" >> "$DEPLOY_LOG"
+      fish "$REPO_ROOT/session-server/deploy.fish" >> "$DEPLOY_LOG" 2>&1 || \
+        echo "⚠ session-server deploy failed" >> "$DEPLOY_LOG"
+      echo "→ done" >> "$DEPLOY_LOG"
+    ) &
+    disown 2>/dev/null || true
+  fi
+fi
+
 exit 0

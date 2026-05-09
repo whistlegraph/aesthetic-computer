@@ -57,10 +57,19 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
   - `lib/*.mjs` — Shared libraries and utilities
 
 **Backend**
-- `session-server/` — Real-time multiplayer (Socket.io)
+- `session-server/` — Real-time multiplayer (Socket.io + geckos.io UDP). Hosted on its own DigitalOcean VPS; deployed via `fish session-server/deploy.fish` (sshes to the box, `git pull` from github main, restart node `session.mjs`). Houses `arena-manager.mjs` which is the authoritative pmove + snapshot pipeline for `disks/arena.mjs`.
 - `lith/` — Production monolith deploy (Express + Caddy on a DigitalOcean VPS, pulled from the tangled knot `git@knot.aesthetic.computer:aesthetic.computer/core` via `lith/deploy.fish`). Express adapts the handlers in `system/netlify/functions/` as routes — the `netlify/functions/` path is historical; Netlify is no longer the host.
+- `lith/mirror/` — knot↔github bidirectional mirror (systemd timer, every 60s). Lets us push to knot only while still letting downstream consumers (session-server VPS, mirrors) pull from github.
 - `help/bridge/` — Local Express bridge on @jeffrey's macbook that spawns the host `claude` CLI and streams it as SSE; reached publicly through `help.aesthetic.computer` via the existing droplet proxy + autossh reverse tunnel. Powers the `aa` piece (admin-only phone-side chat with the macbook's claude). Auto-runs under launchd as `computer.aesthetic.aa-bridge` and `computer.aesthetic.aa-tunnel`.
 - Authentication and data storage
+
+**Arena auto-deploy (post-commit hook)** — Any commit on `main` that touches `disks/arena.mjs`, `lib/{arena-world,pmove,cam-doll}.mjs`, `session-server/{arena-manager,session}.mjs`, or `shared/` triggers a paired deploy in the background:
+1. push HEAD to knot (`origin`) so lith pulls the right commit
+2. `fish lith/deploy.fish` — pulls knot, restarts the monolith
+3. wait ~75s for the knot→github mirror
+4. `fish session-server/deploy.fish` — VPS pull from github + node restart
+
+This is critical because `lib/pmove.mjs` is shared physics: client (lith) and server (session-server) MUST match, otherwise `arena-manager.mjs`'s reconciler will fight the client's prediction and movement glitches. Logs land in `.git/arena-auto-deploy.log`. Set `AC_NO_AUTO_DEPLOY=1` to skip (e.g. while bisecting).
 
 **Languages**
 - `kidlisp/` — KidLisp dialect (Lisp for generative art)
