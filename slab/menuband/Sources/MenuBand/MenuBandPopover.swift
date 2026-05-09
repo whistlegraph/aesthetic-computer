@@ -624,11 +624,13 @@ final class MenuBandPopoverViewController: NSViewController {
         // so the staff lines + scrolling notes paint EDGE TO EDGE of
         // the popover, ignoring the chooser-row's interior margins.
         waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth + 16).isActive = true
-        // Bezel hosts the staff only — the big held-notes pill row
-        // (key-over-letter pills) was retired in favor of the
-        // staff being the single notation surface. Tall enough
-        // to fit the extended A3..B5 range with breathing room.
-        waveformBezel.heightAnchor.constraint(equalToConstant: 212).isActive = true
+        // Bezel grows to fit the sheet view inside (chordCandidates
+        // row pads top/bottom by 4pt, stack pads inner 2pt). Sheet
+        // is letter portrait at popover width — bezel ends up
+        // ~bezelWidth × 11/8.5 + 12pt for the pad chrome.
+        let sheetIntrinsicWidth = InstrumentListView.preferredWidth + 16
+        let sheetIntrinsicHeight = sheetIntrinsicWidth * 11.0 / 8.5
+        waveformBezel.heightAnchor.constraint(equalToConstant: sheetIntrinsicHeight + 12).isActive = true
 
         // Mini visualizer strip — dedicated short box below the
         // staff bezel. Reads as a separate audio-reactive readout
@@ -744,40 +746,15 @@ final class MenuBandPopoverViewController: NSViewController {
         sheetView.menuBand = menuBand
         sheetView.translatesAutoresizingMaskIntoConstraints = false
         chordCandidatesStack.addArrangedSubview(sheetView)
-        // 8.5×11 letter aspect ratio so the card looks like a real
-        // sheet of paper. Height comes from the bezel (~196pt of
-        // usable vertical), width is height × 8.5/11. Sheet sits
-        // centered inside the wider bezel; surrounding popover
-        // background reads as a desktop the page is laid on.
-        let sheetHeight: CGFloat = 196
+        // Sheet is the dominant popover element — fills the bezel
+        // edge-to-edge horizontally and runs at letter portrait
+        // aspect (8.5×11). The popover lengthens to host it. No
+        // inset around the page; the cream paper sits flush with
+        // the bezel's bounds.
+        let sheetWidth = InstrumentListView.preferredWidth + 16
         NSLayoutConstraint.activate([
-            sheetView.heightAnchor.constraint(equalToConstant: sheetHeight),
-            sheetView.widthAnchor.constraint(equalToConstant: sheetHeight * 8.5 / 11.0),
-        ])
-
-        // Printer button, parked just to the right of the page.
-        // Anchored to the sheet's trailing edge so it sits at the
-        // page corner regardless of where the bezel resizes the
-        // sheet horizontally. Triggers NSPrintOperation on the
-        // sheet view itself.
-        let printerButton = NSButton()
-        printerButton.translatesAutoresizingMaskIntoConstraints = false
-        printerButton.image = NSImage(
-            systemSymbolName: "printer",
-            accessibilityDescription: "Print score"
-        )?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .regular))
-        printerButton.isBordered = false
-        printerButton.imagePosition = .imageOnly
-        printerButton.contentTintColor = .secondaryLabelColor
-        printerButton.toolTip = "Print score"
-        printerButton.target = self
-        printerButton.action = #selector(printScoreClicked(_:))
-        chordCandidatesRow.addSubview(printerButton)
-        NSLayoutConstraint.activate([
-            printerButton.widthAnchor.constraint(equalToConstant: 18),
-            printerButton.heightAnchor.constraint(equalToConstant: 18),
-            printerButton.leadingAnchor.constraint(equalTo: sheetView.trailingAnchor, constant: 6),
-            printerButton.topAnchor.constraint(equalTo: sheetView.topAnchor, constant: 0),
+            sheetView.widthAnchor.constraint(equalToConstant: sheetWidth),
+            sheetView.heightAnchor.constraint(equalToConstant: sheetWidth * 11.0 / 8.5),
         ])
 
         // (MIDI switch lives in the title row above — see octave + MIDI block.)
@@ -1863,10 +1840,6 @@ final class MenuBandPopoverViewController: NSViewController {
     /// piano panel in expanded (Esteban's full-screen liquid)
     /// mode.
     var onMiniVisualizerExpand: (() -> Void)?
-
-    @objc private func printScoreClicked(_ sender: NSButton) {
-        sheetView?.printScore()
-    }
 
     @objc private func miniVisualizerClicked(_ sender: Any?) {
         onMiniVisualizerExpand?()

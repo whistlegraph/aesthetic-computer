@@ -31,6 +31,19 @@
       mix-blend-mode: multiply;
       opacity: 0.7;
     }
+    /* `.exporting` is toggled on <body> by Swift right before
+       createPDF / printOperation. SVG filters and box-shadows can
+       only be represented in PDFs as rasterized bitmaps, and at
+       Retina DPI the feTurbulence above blew up to 270+ MB. Hiding
+       the paper-grain pseudo-element and dropping the shadow keeps
+       the exported PDF a clean vector under ~50 KB. */
+    body.exporting #page {
+      background: #ffffff;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    body.exporting #page::before { display: none; }
+    body.exporting #status { display: none; }
     #score {
       position: relative;
       width: 100%;
@@ -162,8 +175,16 @@
         const lastTick = ticks.length
           ? ticks[ticks.length - 1] + (placed[ticks[ticks.length - 1]].duration || 1)
           : 0;
-        // Always reserve at least one measure of space.
-        const measureCount = Math.max(1, Math.ceil(lastTick / TICKS_PER_MEASURE));
+        // Predraw enough empty measures to fill the page roughly
+        // 4 rows deep at the current scale. Fewer measures = more
+        // breathing room per bar (bigger notes after CSS upscales),
+        // which the user explicitly asked for. Page grows beyond
+        // this when the user plays past the end.
+        const MIN_MEASURES = 8;
+        const measureCount = Math.max(
+          MIN_MEASURES,
+          Math.ceil(lastTick / TICKS_PER_MEASURE)
+        );
 
         let measuresXml = '';
         let cursor = 0;
@@ -183,14 +204,25 @@
               for (const t of ticks) {
                 if (t > cursor && t < measureEnd) { next = t; break; }
               }
-              const restTicks = next - cursor;
-              body += `
+              // Fill the gap with beat-aligned rests (one per
+              // quarter beat) so each beat has its own SVG element
+              // for the playhead to anchor against. Otherwise an
+              // empty bar collapses to a single whole-rest glyph
+              // and the playhead has to interpolate on a single
+              // box instead of snapping to per-beat positions.
+              while (cursor < next) {
+                const beatBoundary =
+                  cursor + (TICKS_PER_BEAT - (cursor % TICKS_PER_BEAT));
+                const segEnd = Math.min(beatBoundary, next);
+                const restTicks = segEnd - cursor;
+                body += `
       <note>
         <rest/>
         <duration>${restTicks}</duration>
         <type>${ticksToType(restTicks)}</type>
       </note>`;
-              cursor = next;
+                cursor = segEnd;
+              }
             }
           }
           const head = (m === 0) ? `
@@ -249,10 +281,74 @@
           document.getElementById('status').textContent =
             `${notes.length} notes · ${dt}ms`;
           lastRenderAt = performance.now();
+          postMeasureBoxes();
         } catch (e) {
           document.getElementById('status').textContent = 'render error: ' + e.message;
           console.error(e);
         }
+      }
+
+      // For each rendered measure, post both the FULL measure
+      // bounding box (used for staff Y/height) AND the inner
+      // <g class="layer"> box (used for the playhead's X range).
+      // The layer is the actual notation content — excludes the
+      // leading clef/key/time signature and the trailing barline
+      // padding, so the playhead's left/right edges match where
+      // beats actually live. Called after every render.
+      function postMeasureBoxes() {
+        const handler = window.webkit?.messageHandlers?.sheet;
+        if (!handler) return;
+        const score = document.getElementById('score');
+        const svg = score.querySelector('svg');
+        if (!svg) return;
+        const pageRect = document.getElementById('page').getBoundingClientRect();
+        const measures = [];
+        svg.querySelectorAll('g.measure').forEach((m, idx) => {
+          const mRect = m.getBoundingClientRect();
+          const layer = m.querySelector('g.layer');
+          const lRect = (layer ? layer.getBoundingClientRect() : mRect);
+          const staff = m.querySelector('g.staff');
+          const sRect = (staff ? staff.getBoundingClientRect() : mRect);
+          // Per-beat anchor X — the x of each note/rest/chord
+          // element in this measure. Predraw fills empty bars
+          // with one rest per beat, so this gives 4 anchors per
+          // 4/4 measure that exactly match where notation lands.
+          // Falls back to evenly-divided layer width when the
+          // measure is shorter than 4 musical events.
+          const beats = [];
+          if (layer) {
+            layer.querySelectorAll(
+              'g.note, g.rest, g.chord, g.mRest'
+            ).forEach((el) => {
+              const r = el.getBoundingClientRect();
+              beats.push(r.left + r.width / 2 - pageRect.left);
+            });
+          }
+          measures.push({
+            index: idx,
+            layerX: lRect.left - pageRect.left,
+            layerWidth: lRect.width,
+            staffY: sRect.top - pageRect.top,
+            staffHeight: sRect.height,
+            beats,
+            x: mRect.left - pageRect.left,
+            y: mRect.top - pageRect.top,
+            width: mRect.width,
+            height: mRect.height,
+          });
+        });
+        handler.postMessage({
+          type: 'layout',
+          pageWidth: pageRect.width,
+          pageHeight: pageRect.height,
+          measures,
+          // Snapshot MusicXML on every layout so Swift always has
+          // a fresh cached copy when the user drags the page off.
+          // Eager export means the drag-source no longer depends on
+          // an async getMusicXML() round-trip after the popover
+          // (and the WKWebView) may have already torn down.
+          musicXML: buildMusicXML(),
+        });
       }
 
       function queueRender() {
@@ -314,27 +410,29 @@
       // tight margins, a single system, and the system width
       // capped to the page so multi-measure scores wrap.
       function setOptions() {
-        // Verovio internal page units are tenths of a millimeter.
-        // The CSS layer scales the resulting SVG to fill the host
-        // (`#score svg { width:100%; height:100% }`), so to make
-        // the engraving READ LARGER inside the popover we use a
-        // small logical page (= each glyph covers more % of the
-        // page) and let CSS upscale to the host. Bigger logical
-        // page would do the opposite (engraving shrinks).
-        const aspect = 11 / 8.5;
-        const logicalW = 900;                // ~9 cm
-        const logicalH = Math.round(logicalW * aspect);  // ~11.6 cm
+        // Letter portrait (8.5×11") = 2159×2794 1/10 mm. CSS
+        // layer scales the SVG to fill the popover host (which
+        // is also at 8.5:11 aspect), so the page reads as a real
+        // sheet of paper at popover width.
         toolkit.setOptions({
-          pageWidth: logicalW,
-          pageHeight: logicalH,
-          pageMarginTop: 30,
-          pageMarginLeft: 35,
-          pageMarginRight: 35,
-          pageMarginBottom: 30,
-          scale: 60,
+          // Aggressive scale-up: small logical page at scale 100
+          // means each glyph takes a big % of the page, and CSS
+          // stretches that to the popover host. Combined with a
+          // small MIN_MEASURES below, the staff reads big and
+          // breathy — fewer notes per row, more room per measure.
+          pageWidth: 1100,
+          pageHeight: 1424,
+          pageMarginTop: 60,
+          pageMarginLeft: 60,
+          pageMarginRight: 60,
+          pageMarginBottom: 60,
+          scale: 100,
           adjustPageHeight: false,
           breaks: 'auto',
           font: 'Bravura',
+          // Strip Verovio's default footer + header watermarks.
+          footer: 'none',
+          header: 'none',
         });
       }
 
@@ -354,7 +452,60 @@
         };
       }
 
-      return { noteOn, noteOff, beat, clear, ready };
+      // Expose the current MusicXML representation so Swift can
+      // embed it in exported PDFs (drag-out → desktop) and later
+      // restore the score from a PDF dragged back in.
+      function getMusicXML() {
+        return buildMusicXML();
+      }
+
+      // Drag-back-in entry: parse a MusicXML payload (from a
+      // previously-exported Menu Band PDF), re-render the staff
+      // visually, and emit a MIDI rendering of the same content
+      // so Swift can replay it through the synth (mirrors the
+      // .mid drop flow). Returns base64-encoded MIDI bytes; an
+      // empty string signals a Verovio failure (we still render
+      // the SVG best-effort so the staff at least shows the
+      // notation, but playback is skipped).
+      function loadXMLAndExportMIDI(xml) {
+        try {
+          toolkit.loadData(xml);
+          document.getElementById('score').innerHTML =
+            toolkit.renderToSVG(1, {});
+        } catch (e) {
+          console.error('loadXMLAndExportMIDI: SVG render failed', e);
+          return '';
+        }
+        try {
+          return toolkit.renderToMIDI();
+        } catch (e) {
+          console.error('loadXMLAndExportMIDI: MIDI render failed', e);
+          return '';
+        }
+      }
+
+      // Replace the current note buffer with a list parsed from a
+      // re-imported PDF. Items are {pitch, onsetAt, releasedAt,
+      // beatAtOnset, beatStartedAt}; we accept relative timestamps
+      // (anchored at performance.now()) and rerender immediately.
+      function loadNotes(items) {
+        notes.length = 0;
+        const base = performance.now() / 1000;
+        for (const n of items) {
+          notes.push({
+            pitch: n.pitch,
+            isSharp: midiToStep(n.pitch).alter === 1,
+            onsetAt: base + (n.onset || 0),
+            releasedAt: n.release != null ? base + n.release : null,
+            beatAtOnset: n.beatAtOnset ?? null,
+            beatStartedAt: n.beatStartedAt != null ? base + n.beatStartedAt : 0,
+          });
+        }
+        rerender();
+      }
+
+      return { noteOn, noteOff, beat, clear, ready, getMusicXML,
+               loadXMLAndExportMIDI, loadNotes };
     }());
 
     Sheet.ready();

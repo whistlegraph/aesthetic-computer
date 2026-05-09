@@ -235,6 +235,36 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         nelaButton.widthAnchor.constraint(equalToConstant: 264).isActive = true
         stack.addArrangedSubview(nelaButton)
 
+        // Mikey's prompt to start your own — same wrapping style as
+        // the NELA invite, click → startacomputer.club. Sits directly
+        // below NELA so the two reads as a pair: "come hang out / or
+        // start your own."
+        stack.setCustomSpacing(4, after: nelaButton)
+        let startClubText = NSAttributedString(
+            string: L("popover.about.startaclub"),
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .paragraphStyle: para,
+            ]
+        )
+        let startClubButton = NSButton(title: "",
+                                        target: self,
+                                        action: #selector(openStartAClub))
+        startClubButton.attributedTitle = startClubText
+        startClubButton.bezelStyle = .regularSquare
+        startClubButton.isBordered = false
+        startClubButton.cell?.wraps = true
+        startClubButton.cell?.lineBreakMode = .byWordWrapping
+        if let cell = startClubButton.cell as? NSButtonCell {
+            cell.imageScaling = .scaleNone
+        }
+        startClubButton.translatesAutoresizingMaskIntoConstraints = false
+        startClubButton.toolTip = "https://startacomputer.club"
+        startClubButton.widthAnchor.constraint(equalToConstant: 264).isActive = true
+        stack.addArrangedSubview(startClubButton)
+
         // Plugins chip — opens the AU instrument picker. Beta surface
         // for testing third-party AUs (angelsaw etc.) routed through
         // Menu Band's audio engine. Hidden when no host is wired up.
@@ -471,6 +501,12 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func openNELA() {
         if let url = URL(string: "https://nelacomputer.club") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func openStartAClub() {
+        if let url = URL(string: "https://startacomputer.club") {
             NSWorkspace.shared.open(url)
         }
     }
