@@ -94,6 +94,18 @@ if test -z "$VERSION"
     exit 1
 end
 
+# Pre-promotion gate: verify the DMG is self-contained. Menu-Band-1.0.dmg
+# shipped without MenuBand_MenuBand.bundle inside the .app, so every fresh
+# install crashed on `Bundle.module` lookups falling back to the
+# /Users/<dev>/... build path. Refuse to flip the manifest until the DMG
+# passes verification.
+if not $MB_DIR/bin/verify-bundle.sh --dmg $DMG
+    err "DMG failed bundle verification — refusing to promote to manifest"
+    err "rebuild with ./install.sh && ./notarize.sh && ./dmg.sh"
+    exit 1
+end
+ok "DMG verified self-contained"
+
 say "promoting Menu Band $VERSION → manifest"
 say "  DMG: $DMG"
 

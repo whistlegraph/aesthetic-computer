@@ -36,6 +36,16 @@ VERSION="$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "${APP}
 VOLNAME="Menu Band ${VERSION}"
 OUT="${SCRIPT_DIR}/Menu-Band-${VERSION}.dmg"
 
+# Refuse to package a .app whose Resources/ is missing the SwiftPM module
+# bundle — that's the bug that shipped in Menu-Band-1.0.dmg, where the
+# Bundle.module accessor crashed on every fresh machine looking for
+# /Users/<dev>/.../.build/.../MenuBand_MenuBand.bundle.
+if ! "${SCRIPT_DIR}/bin/verify-bundle.sh" "${APP}"; then
+    err "${APP} failed self-containment check — refusing to build DMG"
+    err "re-run ./install.sh first"
+    exit 1
+fi
+
 # Check the inner .app's notarization staple before packaging — distributing
 # an unstapled bundle inside a DMG works but gives a network-required first-run
 # Gatekeeper check; stapled is smoother.
@@ -70,6 +80,15 @@ if [[ -n "${SIGN_HASH}" ]]; then
 else
     err "no Developer ID Application identity found — DMG is unsigned"
     err "users will see a Gatekeeper warning on download"
+fi
+
+# Belt-and-braces: also verify the final DMG mounts to a self-contained
+# .app. Catches packaging mistakes (wrong staging dir, missing copy step)
+# even when the source .app was clean.
+if ! "${SCRIPT_DIR}/bin/verify-bundle.sh" --dmg "${OUT}"; then
+    err "DMG failed post-build verification — DO NOT upload"
+    err "the .app passed but something inside the DMG is broken"
+    exit 1
 fi
 
 SIZE="$(du -h "${OUT}" | awk '{print $1}')"

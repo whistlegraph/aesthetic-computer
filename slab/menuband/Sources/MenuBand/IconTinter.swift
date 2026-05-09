@@ -1,18 +1,26 @@
 import AppKit
 import CoreImage
 
-/// Retints the app's Finder/About/Applications icon to match the user's
-/// system accent color. The shipped `AppIcon.icns` is a purple gradient
-/// with a white piano in the middle; we hue-rotate the entire icon by
+/// Retints the app's About/Dock icon to match the user's system accent
+/// color. The shipped `AppIcon.icns` is a purple gradient with a white
+/// piano in the middle; we hue-rotate the entire icon by
 /// `(accentHue − purpleHue)` so the gradient adopts the accent while
 /// the white/black piano stays untouched (hue rotation is a no-op on
 /// achromatic pixels).
 ///
-/// Application is via `NSWorkspace.setIcon(_:forFile:)` on the bundle
-/// path. On macOS that stores the icon resource as extended attributes
-/// on the bundle directory itself — not inside the signed payload — so
-/// the Developer ID signature stays valid. We re-verify after each
-/// retint just in case Apple ever changes that.
+/// Application is via `NSApp.applicationIconImage = tinted`, which
+/// retints the *running* app's About panel + Dock entry without
+/// touching the bundle on disk. Earlier versions of this file wrote
+/// the icon back via `NSWorkspace.setIcon(_:forFile:)` on the bundle
+/// path — that turned out to write `com.apple.FinderInfo` xattrs +
+/// an `Icon\r` resource fork onto the bundle root, which invalidates
+/// the Developer ID signature. macOS catches the broken seal lazily
+/// when later code pages get loaded (notably the PDFKit/print path
+/// taken when dragging the score off the popover) and SIGKILLs the
+/// process with `CODESIGNING / Invalid Page`. The Finder icon stays
+/// the bundled purple as a result — that's the trade for stable
+/// signing. The About window pulls `tintedIcon()` directly, so the
+/// in-app surface still tints.
 enum IconTinter {
     /// Approximate hue of the shipped icon's purple gradient. The icon
     /// design is symmetric enough that any value in 280–300° looks fine,
@@ -20,12 +28,12 @@ enum IconTinter {
     private static let originalHueDeg: CGFloat = 290
 
     /// Idempotent: read the bundled icon, hue-rotate to current accent,
-    /// write back via NSWorkspace. Safe to call repeatedly (e.g., after
+    /// install on the running app. Safe to call repeatedly (e.g., after
     /// every accent-color change notification). No-op if the bundle's
     /// AppIcon.icns can't be loaded.
     static func applyTintedIcon() {
         guard let tinted = tintedIcon() else { return }
-        NSWorkspace.shared.setIcon(tinted, forFile: Bundle.main.bundlePath, options: [])
+        NSApp.applicationIconImage = tinted
     }
 
     /// Build the retinted NSImage. Returned image carries every

@@ -568,9 +568,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startShiftStateMonitors()
         startVisualizerAnimation()
 
-        // Retint the bundle's Finder icon to the user's accent color.
-        // Stored as an xattr on the bundle folder, so the signed payload
-        // isn't modified. Refreshed whenever the accent changes.
+        // Retint the running app's icon (About panel + Dock) to the
+        // user's accent color. Sets NSApp.applicationIconImage rather
+        // than mutating the bundle on disk — writing FinderInfo xattrs
+        // to the bundle invalidated the signature and SIGKILLed the
+        // process on lazy code-page loads (notably during PDF drag).
+        // Refreshed whenever the accent changes.
         IconTinter.applyTintedIcon()
         NotificationCenter.default.addObserver(
             forName: NSColor.systemColorsDidChangeNotification,

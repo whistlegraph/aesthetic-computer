@@ -125,6 +125,13 @@ say "installing app bundle → ${APP_DIR}"
 mkdir -p "${APP_BIN_DIR}" "${APP_RES}"
 cp "${BUILT}" "${APP_BIN}"
 chmod +x "${APP_BIN}"
+# Strip DWARF debug symbols from the shipped binary. Without this the
+# release binary embeds every source file's absolute path under
+# /Users/<dev>/aesthetic-computer/slab/menuband/Sources/... — harmless
+# at runtime but a privacy leak in shipped DMGs and a tripwire for the
+# verify-bundle.sh /Users/... scan. `-S` removes debug symbols only and
+# leaves regular symbols intact for crash report symbolication.
+strip -S "${APP_BIN}"
 cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
 if [[ -f "${SCRIPT_DIR}/AppIcon.icns" ]]; then
     cp "${SCRIPT_DIR}/AppIcon.icns" "${APP_RES}/AppIcon.icns"
@@ -172,6 +179,23 @@ if ! codesign --force --deep --sign "${SIGN_ID}" \
     exit 1
 fi
 ok "signed"
+
+# Verify the signed bundle BEFORE launchctl load. IconTinter.swift calls
+# NSWorkspace.setIcon(forFile:) on the bundle path at startup, which
+# writes a com.apple.FinderInfo xattr + Icon\r resource fork onto the
+# .app — that's a known cosmetic detritus that fails codesign --strict
+# but is harmless to users (Apple's notarytool already accepted the
+# bundle). If we verify after launch, the strict check fails on a
+# bundle we just signed cleanly. Verifying here catches the problems
+# that actually matter (missing resource bundle, /Users/... runtime
+# leaks) on a still-pristine signed tree.
+say "verifying bundle is self-contained (no /Users/<dev>/... runtime deps)"
+if "${SCRIPT_DIR}/bin/verify-bundle.sh" "${APP_DIR}"; then
+    ok "bundle verification passed"
+else
+    warn "bundle verification failed — DO NOT package or ship this build"
+    exit 1
+fi
 
 say "writing launchd plist → ${PLIST_PATH}"
 mkdir -p "${LAUNCH_AGENTS}"
