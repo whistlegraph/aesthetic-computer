@@ -36,6 +36,7 @@ const SITE_DIR = join(
   PAPERS_DIR,
   "../system/public/papers.aesthetic.computer",
 );
+const THUMBS_DIR = join(SITE_DIR, "thumbs");
 const BUILDLOG = join(PAPERS_DIR, "BUILDLOG.md");
 const METADATA_PATH = join(PAPERS_DIR, "metadata.json");
 const LANGS = ["en", "da", "es", "zh", "ja"];
@@ -256,6 +257,11 @@ const PAPER_MAP = {
     siteName: "comp-strats-26-arxiv",
     title: "Comp Strats",
   },
+  "arxiv-microvision": {
+    base: "microvision",
+    siteName: "microvision-dossier-26-arxiv",
+    title: "MicroVision — A Dossier",
+  },
 };
 
 function texName(base, lang) {
@@ -419,6 +425,52 @@ function deployOne(entry) {
   copyFileSync(entry.pdfFile, entry.sitePdf);
   console.log(`  DEPLOY ${basename(entry.sitePdf)}`);
   return true;
+}
+
+// Render page 1 of a deployed PDF as a JPEG thumbnail. Lazy: skip if the
+// thumb is newer than the PDF. Returns true if a thumb exists after the call.
+function genThumbnail(pdfPath, siteName) {
+  if (!existsSync(pdfPath)) return false;
+  mkdirSync(THUMBS_DIR, { recursive: true });
+  const out = join(THUMBS_DIR, `${siteName}.jpg`);
+  if (existsSync(out)) {
+    const pdfM = statSync(pdfPath).mtimeMs;
+    const thumbM = statSync(out).mtimeMs;
+    if (thumbM >= pdfM) return true;
+  }
+  const tmpPrefix = join(THUMBS_DIR, `${siteName}.tmp`);
+  try {
+    execSync(
+      `pdftoppm -jpeg -jpegopt quality=72,progressive=y -r 60 -f 1 -l 1 "${pdfPath}" "${tmpPrefix}"`,
+      { stdio: "pipe", timeout: 30000 },
+    );
+    // pdftoppm appends -1 (or -01) for single page output
+    const candidates = [`${tmpPrefix}-1.jpg`, `${tmpPrefix}-01.jpg`];
+    const produced = candidates.find((p) => existsSync(p));
+    if (!produced) {
+      console.warn(`  THUMB miss ${siteName} (no pdftoppm output)`);
+      return false;
+    }
+    if (existsSync(out)) execSync(`rm "${out}"`);
+    execSync(`mv "${produced}" "${out}"`);
+    return true;
+  } catch (e) {
+    console.warn(`  THUMB fail ${siteName}: ${String(e.message).slice(0, 120)}`);
+    return false;
+  }
+}
+
+// Generate thumbs for every PDF in SITE_DIR (covers PAPER_MAP papers, JOSS
+// extras, ELS, guest PDFs — anything published).
+function genAllThumbnails() {
+  if (!existsSync(SITE_DIR)) return 0;
+  let count = 0;
+  for (const name of readdirSync(SITE_DIR)) {
+    if (!name.endsWith(".pdf")) continue;
+    const siteName = name.slice(0, -4);
+    if (genThumbnail(join(SITE_DIR, name), siteName)) count++;
+  }
+  return count;
 }
 
 function now() {
@@ -705,24 +757,38 @@ function updateIndex(entries) {
     const revStr = p.revisions > 0 ? `r${p.revisions}` : "";
     const tKey = translationKey(p.dir);
     const updatedISO = p.mtime.toISOString();
+    const thumbName = `${p.siteName}.jpg`;
+    const thumbExists = existsSync(join(THUMBS_DIR, thumbName));
+    const thumbHtml = thumbExists
+      ? `<a class="thumb" href="/${p.siteName}.pdf" tabindex="-1" aria-hidden="true"><img src="/thumbs/${thumbName}" alt="" loading="lazy" decoding="async"></a>`
+      : "";
     papersHtml += `
     <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
+        ${thumbHtml}<div class="body">
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
         <div class="abstract">${abstract}</div>
         <div class="meta-row"><span class="author">@jeffrey</span>${createdStr ? `<span class="created" title="Created">${createdStr}</span>` : ""}<span class="revisions" title="Revision count">revision ${p.revisions || 1}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
+        </div>
     </div>\n`;
   }
   for (const ex of extras) {
     const createdStr = ex.created ? fmtDate(ex.created) : "";
     const revStr = ex.revisions > 0 ? `r${ex.revisions}` : "";
     const exKey = { "joss-ac": "joss-ac", "joss-kidlisp": "joss-kidlisp", "els-kidlisp": "els" }[ex.metaKey] || ex.metaKey;
+    const exSiteName = ex.file.replace(/\.pdf$/, "");
+    const exThumbExists = existsSync(join(THUMBS_DIR, `${exSiteName}.jpg`));
+    const exThumbHtml = exThumbExists
+      ? `<a class="thumb" href="/${ex.file}" tabindex="-1" aria-hidden="true"><img src="/thumbs/${exSiteName}.jpg" alt="" loading="lazy" decoding="async"></a>`
+      : "";
     papersHtml += `
     <div class="p" data-paper-id="${exKey}">
+        ${exThumbHtml}<div class="body">
         <div class="title"><a href="/${ex.file}">${ex.title}</a></div>
         <div class="detail">${ex.detail}</div>
         <div class="abstract">${ex.abstract}</div>
         <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(ex.mtime)}</span></div>
+        </div>
     </div>\n`;
   }
 
@@ -998,7 +1064,14 @@ if (cmd === "status" || !cmd) {
   for (const entry of toDeploy) {
     deployOne(entry);
   }
-  console.log("\nDone.\n");
+  console.log("\nGenerating thumbnails...\n");
+  const thumbCount = genAllThumbnails();
+  console.log(`  THUMBS ${thumbCount} JPEG previews in thumbs/.\n`);
+  console.log("Done.\n");
+} else if (cmd === "thumbs") {
+  console.log("\nGenerating thumbnails for every deployed PDF...\n");
+  const thumbCount = genAllThumbnails();
+  console.log(`\nDone. ${thumbCount} thumbs in thumbs/.\n`);
 } else if (cmd === "publish") {
   // Full pipeline: build (incremental) → deploy → update index → verify
   const mode = force ? " (forced)" : " (incremental)";
@@ -1038,6 +1111,11 @@ if (cmd === "status" || !cmd) {
   }
   saveMetadata(meta);
   console.log(`  METADATA updated (${builtDirs.size} papers incremented).\n`);
+
+  // Page-1 JPEG thumbnails for the index
+  console.log("Generating thumbnails...\n");
+  const thumbCount = genAllThumbnails();
+  console.log(`  THUMBS ${thumbCount} JPEG previews in thumbs/.\n`);
 
   // Update index
   console.log("Updating index...\n");
