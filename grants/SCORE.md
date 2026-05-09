@@ -22,7 +22,9 @@ draft to fit, fill in unanswered questions, and submit.
 
 ## Submitted / Decided
 
-(none yet — see `grants/lacma-2026/` for prior reference.)
+| Application | Submitted | Decided | Outcome | Folder |
+|---|---|---|---|---|
+| Are.na Annual Vol. 8 — pitch (theme "Score.") | 2026-04-20 | 2026-05-08 | **Rejected** — Meg Miller (editorial director). Channel `aesthetic-computer/self-teaching-scores` (68 blocks) + pitch page stay live; track for Vol. 9. | `gigs/are-na-annual-vol-8/` |
 
 ## Personal Logistics (not grants but tracked here)
 

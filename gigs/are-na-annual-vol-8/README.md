@@ -2,6 +2,7 @@
 
 Pitch package for Are.na's Annual Vol. 8, themed **"Score."**
 
+- **Status:** **Rejected 2026-05-08** by Meg Miller (editorial director, are.na). Channel + public pitch page stay live; track for Vol. 9.
 - **Call:** [Open Call for Pitches — Are.na Annual Vol. 8](https://www.are.na/editorial/open-call-for-pitches-for-the-are-na-annual-vol-8)
 - **Submission form:** https://aredotna.notion.site/3178a0f816d9815abdf3cb1624bb9e88
 - **Deadline:** Monday, April 20, 2026 — 11:59pm EST
