@@ -3,10 +3,15 @@
 # Exits automatically once the lid is reopened.
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
+SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
 
 INTERVAL=${INTERVAL:-30}
-CHORDS=(C F G D A Eb Bb Ab)
 DIR="$SLAB_HOME/sounds"
+# Fallback pitch classes if jeffrey-say is unavailable.
+CHORDS=(C F G D A Eb Bb Ab)
+
+JEFFREY_PY="$SLAB_HOME/venv/bin/python3"
+JEFFREY_SAY="$SLAB_BIN/jeffrey-say.py"
 
 lid_closed() {
     local s
@@ -19,6 +24,10 @@ while true; do
     if ! lid_closed; then
         exit 0
     fi
-    chord=${CHORDS[$((RANDOM % ${#CHORDS[@]}))]}
-    /usr/bin/afplay "$DIR/ping_${chord}.wav" 2>/dev/null
+    if [[ -x "$JEFFREY_PY" && -f "$JEFFREY_SAY" ]]; then
+        "$JEFFREY_PY" "$JEFFREY_SAY" ping 2>/dev/null
+    else
+        chord=${CHORDS[$((RANDOM % ${#CHORDS[@]}))]}
+        "$SLAB_BIN/slab-afplay" "$DIR/ping_${chord}.wav"
+    fi
 done

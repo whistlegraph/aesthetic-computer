@@ -175,8 +175,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fm.createFile(atPath: path, contents: nil)
             // Stop any in-flight ambient pad / chime so toggling on shuts up
             // the speakers immediately instead of waiting for the next Stop.
-            ShellRunner.runAsync("/usr/bin/pkill", args: ["-TERM", "-f", "lid-reactive.py"])
-            ShellRunner.runAsync("/usr/bin/pkill", args: ["-x", "afplay"])
+            // Routes through slab-fade-ambient so we only silence slab's own
+            // afplay processes, not every afplay on the system.
+            ShellRunner.runAsync("\(Paths.slabBin)/slab-fade-ambient",
+                                 args: ["--kill-slab-afplay"])
         }
         refresh()
     }

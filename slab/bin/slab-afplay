@@ -1,0 +1,25 @@
+#!/bin/bash
+# Slab-scoped afplay wrapper. Records the inner afplay PID in
+# /tmp/slab-afplay/<pid> for the lifetime of the playback so a fade /
+# mute / Stop hook can silence ONLY the sounds slab spawned, not every
+# afplay on the system (`pkill -x afplay` historically killed user music).
+#
+# Drop-in replacement for /usr/bin/afplay: same arg conventions, same
+# blocking semantics. Background it with `&` if you don't want to wait.
+set -u
+SOUND="${1:-}"
+[[ -z "$SOUND" ]] && exit 0
+
+REG_DIR=/tmp/slab-afplay
+mkdir -p "$REG_DIR" 2>/dev/null
+
+/usr/bin/afplay "$SOUND" 2>/dev/null &
+afpid=$!
+marker="$REG_DIR/$afpid"
+: > "$marker" 2>/dev/null
+
+cleanup() { rm -f "$marker" 2>/dev/null; }
+trap cleanup EXIT TERM INT
+
+wait "$afpid" 2>/dev/null
+exit 0

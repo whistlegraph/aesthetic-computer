@@ -25,8 +25,7 @@ SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
 MUTE_FLAG="$SLAB_HOME/state/muted"
 mkdir -p "$(dirname "$LOG")" "$ACTIVE_DIR" "$AWAITING_DIR" "$SUBAGENT_DIR"
 
-pkill -f claude-ping-repeat.sh 2>/dev/null
-pkill -f claude-sleep-schedule.sh 2>/dev/null
+"$SLAB_BIN/slab-cancel-pending" 2>/dev/null || true
 
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
@@ -73,34 +72,33 @@ shopt -u nullglob
 echo "$(date '+%Y-%m-%d %H:%M:%S') Stop: session=${session_id:-?} working=$working subagents=${#subagents[@]} others=$others" >> "$LOG"
 
 stop_ambient() {
-    # Ambient is owned by lid-reactive.py now. Fade gracefully via SIGTERM;
-    # the process ramps to silence over ~2s and exits itself. We also pkill
-    # any stray afplay (e.g. the short start chime).
-    local pid
-    if [[ -f /tmp/lidreactive.pid ]]; then
-        pid=$(cat /tmp/lidreactive.pid 2>/dev/null)
-        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
-        rm -f /tmp/lidreactive.pid
-    else
-        pkill -TERM -f lid-reactive.py 2>/dev/null
-    fi
-    rm -f /tmp/slab-ambient-active /tmp/slab-ambient-paused
-    pkill -x afplay 2>/dev/null
+    # Fade both ambient processes (Python reactive + Swift drone) and
+    # silence slab-spawned afplay. Clears the pause flag so a stalled
+    # Notification→Stop sequence can't leave ambient stuck off.
+    "$SLAB_BIN/slab-fade-ambient" --clear-pause --kill-slab-afplay
 }
 
 lid=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
 
+JEFFREY_PY="$SLAB_HOME/venv/bin/python3"
+JEFFREY_SAY="$SLAB_BIN/jeffrey-say.py"
+
+jeffrey_say() {
+    # Speak via Jeffrey ElevenLabs voice. First arg = category (or --phrase),
+    # remaining args passed through. Returns non-zero if helper missing so
+    # callers can fall back to the legacy wav chime.
+    [[ -x "$JEFFREY_PY" && -f "$JEFFREY_SAY" ]] || return 1
+    "$JEFFREY_PY" "$JEFFREY_SAY" "$@" 2>>"$LOG"
+}
+
 tired_stinger() {
-    # Speak "i'm tired" with a cosine fade-out tail, so the transition to
-    # sleep is a gentle dissolve rather than an abrupt cut. Falls back to
-    # the all-done chime if the venv/helper is missing for any reason.
-    local py="$SLAB_HOME/venv/bin/python3"
-    local helper="$SLAB_BIN/claude-tired.py"
-    if [[ -x "$py" && -f "$helper" ]]; then
-        "$py" "$helper" 2>>"$LOG" || /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null
-    else
-        /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null
-    fi
+    # Lid-CLOSED completion: Jeffrey "i'm tired" before pmset sleepnow.
+    jeffrey_say tired || "$SLAB_BIN/slab-afplay" "$CH/all-done.wav"
+}
+
+done_stinger() {
+    # Lid-OPEN completion: Jeffrey "i'm all done".
+    jeffrey_say done || "$SLAB_BIN/slab-afplay" "$CH/all-done.wav" &
 }
 
 if [[ -e "$MUTE_FLAG" ]]; then
@@ -117,23 +115,22 @@ elif (( others == 0 )); then
         tired_stinger
         "$SLAB_BIN/claude-sleep" now
     else
-        # Lid open + everything settled → sinebells waltz phrase. Falls back
-        # to the legacy chime if the rendered file is missing (e.g. fresh
-        # checkout that hasn't run waltz.mjs yet).
-        if [[ -f "$CH/all-done-waltz.mp3" ]]; then
-            /usr/bin/afplay "$CH/all-done-waltz.mp3" 2>/dev/null &
-        else
-            /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null &
-        fi
+        # Lid open + everything settled → Jeffrey "i'm all done".
+        done_stinger
     fi
 else
-    max=8
+    # Speak the count once — "one" .. "eight" in Jeffrey's voice.
+    # >8 active still says "eight" (matches the original beep cap).
     n=$others
-    (( n > max )) && n=$max
-    for ((i=1; i<=n; i++)); do
-        /usr/bin/afplay "$CH/beep_${i}.wav" 2>/dev/null
-        sleep 0.08
-    done
+    (( n > 8 )) && n=8
+    jeffrey_say count "$n" || {
+        max=8
+        (( others > max )) && others=$max
+        for ((i=1; i<=others; i++)); do
+            "$SLAB_BIN/slab-afplay" "$CH/beep_${i}.wav"
+            sleep 0.08
+        done
+    }
 fi
 
 exit 0

@@ -32,23 +32,11 @@ if [[ -n "$session_id" ]]; then
     printf '%s\n' "${message:-awaiting input}" > "$AWAITING_DIR/$session_id" 2>/dev/null
 fi
 
-# Fade ambient (mirrors stop_ambient in claude-stop.sh, minus the afplay kill —
-# short chimes like the start stinger can finish naturally).
-if [[ -f /tmp/lidreactive.pid ]]; then
-    pid=$(cat /tmp/lidreactive.pid 2>/dev/null)
-    [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
-    rm -f /tmp/lidreactive.pid
-else
-    pkill -TERM -f lid-reactive.py 2>/dev/null
-fi
-if [[ -f /tmp/lidsynth.pid ]]; then
-    pid=$(cat /tmp/lidsynth.pid 2>/dev/null)
-    [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
-    rm -f /tmp/lidsynth.pid
-else
-    pkill -TERM -f lid-ambient-synth 2>/dev/null
-fi
-rm -f /tmp/slab-ambient-active
+# Fade ambient. Short chimes (e.g. the start stinger) can finish naturally,
+# so we do NOT --kill-slab-afplay. We also do NOT --clear-pause — we just
+# set the pause flag above and want it to persist until UserPromptSubmit
+# or Stop clears it.
+"$SLAB_BIN/slab-fade-ambient"
 
 py="$SLAB_HOME/venv/bin/python3"
 helper="$SLAB_BIN/claude-help.py"

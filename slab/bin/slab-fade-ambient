@@ -1,0 +1,50 @@
+#!/bin/bash
+# Single source of truth for "fade the ambient bed". Previously this
+# logic lived (with small divergences) in claude-stop.sh:stop_ambient,
+# claude-notify.sh, and lid-ambient.sh:fade_reactive — including a bug
+# where stop_ambient only reaped lid-reactive.py and left lid-ambient-synth
+# running until the daemon's next tick.
+#
+# Sends SIGTERM to both synth processes (each ramps to silence over ~2s
+# in their own handlers) and removes the active flag. Flags below opt in
+# to clearing the pause flag and to silencing slab-spawned afplay.
+#
+#   --clear-pause       also remove /tmp/slab-ambient-paused
+#   --kill-slab-afplay  SIGTERM every slab-owned afplay registered in
+#                       /tmp/slab-afplay/ (does NOT touch other afplay)
+set -u
+
+CLEAR_PAUSE=0
+KILL_AFPLAY=0
+for arg in "$@"; do
+    case "$arg" in
+        --clear-pause)      CLEAR_PAUSE=1 ;;
+        --kill-slab-afplay) KILL_AFPLAY=1 ;;
+    esac
+done
+
+term_pid_file() {
+    local file=$1 pid
+    if [[ -f "$file" ]]; then
+        pid=$(cat "$file" 2>/dev/null)
+        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
+        rm -f "$file"
+    fi
+}
+
+term_pid_file /tmp/lidreactive.pid
+term_pid_file /tmp/lidsynth.pid
+
+rm -f /tmp/slab-ambient-active
+(( CLEAR_PAUSE == 1 )) && rm -f /tmp/slab-ambient-paused
+
+if (( KILL_AFPLAY == 1 )) && [[ -d /tmp/slab-afplay ]]; then
+    for marker in /tmp/slab-afplay/*; do
+        [[ -f "$marker" ]] || continue
+        pid=$(basename "$marker")
+        kill -TERM "$pid" 2>/dev/null
+        rm -f "$marker"
+    done
+fi
+
+exit 0

@@ -55,16 +55,6 @@ start_synth() {
     fi
 }
 
-# Ask the synth to fade and exit (SIGTERM → graceful fade-to-silence).
-fade_synth() {
-    local pid
-    if [[ -f "$synth_pid_file" ]]; then
-        pid=$(cat "$synth_pid_file" 2>/dev/null)
-        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
-        rm -f "$synth_pid_file"
-    fi
-}
-
 start_reactive() {
     start_synth
     if [[ -x "$reactive_py" && -f "$reactive_script" ]]; then
@@ -78,14 +68,7 @@ start_reactive() {
 # Ask the listener AND synth to fade out and exit (SIGTERM → graceful fade).
 # Returns immediately; both take ~FADE_DUR seconds to actually exit.
 fade_reactive() {
-    fade_synth
-    local pid
-    if [[ -f "$reactive_pid_file" ]]; then
-        pid=$(cat "$reactive_pid_file" 2>/dev/null)
-        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
-        rm -f "$reactive_pid_file"
-    fi
-    rm -f "$AMBIENT_FLAG"
+    "$SLAB_BIN/slab-fade-ambient"
 }
 
 # Hard-stop (safety net for cleanup paths).
@@ -176,8 +159,8 @@ while true; do
         log_msg "lid OPENED (ambient_running=$ambient_running)"
         if (( ambient_running == 1 )); then
             fade_reactive
-            /usr/bin/afplay "$open_ding"  2>/dev/null &
-            /usr/bin/afplay "$return_wav" 2>/dev/null &
+            "$SLAB_BIN/slab-afplay" "$open_ding"  &
+            "$SLAB_BIN/slab-afplay" "$return_wav" &
             (sleep "$return_dur"
              cur=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
              if [[ "$cur" == "No" ]]; then
@@ -200,7 +183,7 @@ while true; do
 
     if (( ambient_wanted == 1 && ambient_running == 0 )); then
         log_msg "ambient START (active=$active_count)"
-        /usr/bin/afplay "$start_wav" 2>/dev/null &
+        "$SLAB_BIN/slab-afplay" "$start_wav" &
         start_reactive
         ambient_running=1
     elif (( ambient_wanted == 0 && ambient_running == 1 )) && [[ "$lid_state" == "Yes" ]]; then

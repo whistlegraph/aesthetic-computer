@@ -1,0 +1,8 @@
+#!/bin/bash
+# Cancel slab's pending lid-closed timers — the ping-repeat loop and the
+# sleep-schedule grace timer. Called from UserPromptSubmit, Stop, and
+# SessionStart hooks; previously each hook ran its own pair of pkill lines.
+exit_code=0
+pkill -f claude-ping-repeat.sh 2>/dev/null || true
+pkill -f claude-sleep-schedule.sh 2>/dev/null || true
+exit "$exit_code"

@@ -11,8 +11,7 @@ AWAITING_DIR="$SLAB_HOME/state/awaiting-prompts"
 
 input=$(cat)
 
-pkill -f claude-ping-repeat.sh 2>/dev/null
-pkill -f claude-sleep-schedule.sh 2>/dev/null
+"$SLAB_BIN/slab-cancel-pending" 2>/dev/null || true
 
 # User responded to a pending Notification (or started fresh work) — clear
 # the ambient pause flag so the daemon can re-arm ambient on its next tick.

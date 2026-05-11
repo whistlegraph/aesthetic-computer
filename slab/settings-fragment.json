@@ -39,7 +39,7 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "pkill -f claude-ping-repeat.sh 2>/dev/null; pkill -f claude-sleep-schedule.sh 2>/dev/null; true", "async": true }
+          { "type": "command", "command": "@HOME@/.local/bin/slab-cancel-pending", "async": true }
         ]
       }
     ]
