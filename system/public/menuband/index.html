@@ -661,9 +661,9 @@
     <p class="tagline" data-i18n="tagline">Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
 
     <div class="button-row">
-      <a id="download-link" class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-0.9.1.dmg" data-version="0.9.1" download>
+      <a id="download-link" class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.1.dmg" data-version="1.1" download>
         <span data-i18n="downloadCta">Download</span>
-        <small id="download-meta" data-i18n="downloadMeta">0.9.1 · Apple Silicon · 2.3 MB</small>
+        <small id="download-meta" data-i18n="downloadMeta">1.1 · Apple Silicon · 2.4 MB</small>
       </a>
     </div>
     <p id="downloads-counter" class="downloads" aria-live="polite" hidden></p>
@@ -735,7 +735,7 @@
         description: "Menu Band brings the built-in macOS instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.",
         tagline: "Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!",
         downloadCta: "Download",
-        downloadMeta: "0.9 · Apple Silicon · 2.1 MB",
+        downloadMeta: "1.1 · Apple Silicon · 2.4 MB",
         viewSource: "view source",
         by: "by",
         lede: 'A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing\'s listening, a built-in General MIDI synth covers hundreds of patches.',
@@ -747,10 +747,10 @@
         modeNotepatBody: "Type to play. Two octaves.",
         modeAbleton: "Ableton",
         modeAbletonBody: "Type to play. Live's M-mode layout.",
-        whatsNewTitle: "What's new",
-        whatsNew1: '<b>Snappier.</b> Visualizer pauses when the popover is hidden, and the Metal layer no longer waits for vsync — the popover opens instantly and bars track audio with less latency. Big thanks to <a href="https://github.com/estebanuribe">Esteban Uribe</a> for both performance patches.',
-        whatsNew2: "<b>No Accessibility prompt.</b> Click the menubar piano and the keys flash their letters; type to play. No system-wide keystroke capture, no permission dialog. (The Notepat / Ableton modes still use global capture for play-while-using-other-apps; that's an opt-in toggle.)",
-        whatsNew3: "<b>Plus:</b> a mute toggle, an accent-tinted Finder icon that follows your system color, and the popover keeps the same width when MIDI flips on.",
+        whatsNewTitle: "What's new in 1.1",
+        whatsNew1: '<b>MIDI to your DAW actually works.</b> Three CoreMIDI packet-construction bugs were silently eating every outbound note before it left the source — fixed. Ableton, Logic, GarageBand and any other host pick up Menu Band\'s notes cleanly now, and pitch-bend announces a ±12-semitone range via RPN so a full trackpad swipe slides an octave.',
+        whatsNew2: '<b>Faster sampler.</b> Hold backtick to record from the mic and play notes back at varispeed-pitched intervals — release is now sub-buffer instant, the record engine prewarms at launch when mic permission is already granted, and the front-of-buffer keyboard-click transient is trimmed automatically.',
+        whatsNew3: '<b>Plus:</b> SHIFT-held notes fade with a real volume envelope (locally + outbound to your DAW via CC11/CC7), arrow keys step through the GM grid with audition previews, a play/stop transport for re-imported PDF scores, drag-to-Trash to clear the staff, and a floating pitch-bend cursor that no longer flickers over other apps.',
         recentTitle: "Recent changes",
         loading: "loading…",
         recentEmpty: "no recent changes",
@@ -766,7 +766,7 @@
         description: "Menu Band trae los instrumentos integrados de macOS — los que usa GarageBand — a tu barra de menús. Toca, escribe o envíalos a tu DAW por MIDI.",
         tagline: "¡Sacando los instrumentos clásicos de macOS del 🎸 Garage para tocarlos en la acera!",
         downloadCta: "Descargar",
-        downloadMeta: "0.9 · Apple Silicon · 2,1 MB",
+        downloadMeta: "1.1 · Apple Silicon · 2,4 MB",
         viewSource: "ver código",
         by: "por",
         lede: 'Un piano diminuto vive a la derecha de tu barra de menús. Toca las teclas, escribe letras o envía notas a tu DAW por MIDI — Menu Band publica una fuente MIDI virtual llamada <code>Menu Band</code> que cualquier DAW puede tomar como entrada. Cuando nadie escucha, un sintetizador General MIDI integrado cubre cientos de timbres.',
