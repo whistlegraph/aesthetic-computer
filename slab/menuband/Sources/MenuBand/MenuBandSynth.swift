@@ -907,6 +907,39 @@ final class MenuBandSynth {
         }
     }
 
+    /// Trackpad pitch-bend passthrough for the sample voice backend.
+    /// `amount` is the same -1...+1 signed value the controller
+    /// hands to `sendPitchBend` — sample voice multiplies it by ±2
+    /// semitones to drive its AVAudioUnitVarispeed nodes. AVAudio's
+    /// varispeed doesn't respond to MIDI pitch-bend so we have to
+    /// route this signal in-process.
+    func setSamplePitchBend(amount: Float) {
+        sampleVoice.setBend(amount: amount)
+    }
+
+    /// Per-channel Expression (CC 11), 0–127. Used by the linger
+    /// fade so sustained patches (organ, pad, brass) ramp down
+    /// audibly over the tail instead of holding at full volume and
+    /// then snapping silent at the cleanup noteOff.
+    func sendExpression(value: UInt8, channel: UInt8 = 0) {
+        guard started, midiSynthReady, let au = midiSynth?.audioUnit else { return }
+        sendMIDIEvent(au, status: 0xB0 | (channel & 0x0F),
+                      data1: 11, data2: value & 0x7F)
+    }
+
+    /// Per-voice volume hook for the sample backend. Used by the
+    /// linger fade — CC 11 doesn't reach AVAudioPlayerNode, so we
+    /// ramp the per-note player volume directly.
+    func setSampleNoteVolume(midi: UInt8, channel: UInt8, value: UInt8) {
+        sampleVoice.setNoteVolume(midi: midi, channel: channel, value: value)
+    }
+
+    /// Snap every sample voice on `channel` back to full volume so a
+    /// new noteOn isn't dragged under by a leftover linger fade.
+    func resetSampleChannelVolumes(channel: UInt8) {
+        sampleVoice.resetChannelVolumes(channel: channel)
+    }
+
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
         guard started else { return }
         activeNotes.remove(noteKey(midi, channel: channel))

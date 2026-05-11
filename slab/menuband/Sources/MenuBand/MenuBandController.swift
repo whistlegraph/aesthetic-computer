@@ -360,10 +360,11 @@ final class MenuBandController {
     private static let octaveHoldDelay: TimeInterval    = 0.28
     private static let octaveHoldInterval: TimeInterval = 0.16
 
-    /// Apply a single octave step + percussive click + UI refresh.
-    /// Clamps to ±4 octaves; no-ops once the user is at the limit so
-    /// the click stops giving false feedback while held against the
-    /// stop.
+    /// Apply a single octave step + UI refresh. Clamps to ±4
+    /// octaves; no-ops at the limit so a clamped key press is
+    /// silent. The old percussive click was tied to held-key
+    /// auto-repeat — both removed at jas's request so `,` / `.`
+    /// behaves like a discrete one-press-one-step toggle.
     private func octaveStepOnce(delta: Int) {
         let next = max(-4, min(4, octaveShift + delta))
         if next == octaveShift {
@@ -371,7 +372,6 @@ final class MenuBandController {
             return
         }
         octaveShift = next
-        playOctaveClick(for: next)
     }
 
     private func startOctaveHold(keyCode: UInt16, delta: Int) {
@@ -528,8 +528,20 @@ final class MenuBandController {
     /// of bend. Internal synth + MIDI out are both updated so a
     /// DAW receiving the MIDI sees the same bend as the user
     /// hears.
+    /// Trackpad bend → semitone scale. ±1 of bendAmount = one
+    /// octave. Picked over the old ±2 semitones so dramatic pitch
+    /// shifts are reachable inside a single trackpad throw; the
+    /// MIDI side announces the same range via RPN 0/0 = 12 on
+    /// `midi.start()` so receivers (Live) scale matched.
+    static let bendSemitonesPerUnit: CGFloat = 12
+
     func setBend(amount: Float) {
-        let clamped = max(-1, min(1, amount))
+        // No clamp here — the trackpad accumulator can swing past
+        // ±1 and the sample voice can vari-speed an arbitrary
+        // amount; the MIDI value saturates naturally inside
+        // `sendPitchBend` (14-bit signed limit, receiver-side bend
+        // range determines audible cap).
+        let clamped = amount
         let value = Int16(clamped * 8192)
         // Channels currently sounding via either input path. Use
         // sets to dedupe — same channel can host both a tap and a
@@ -546,6 +558,11 @@ final class MenuBandController {
         debugLog("setBend amt=\(clamped) value=\(value) channels=\(channels) midiMode=\(midiMode)")
         if !midiMode {
             for ch in channels { synth.sendPitchBend(value: value, channel: ch) }
+            // Sample voice runs through AVAudioUnitVarispeed and
+            // ignores MIDI pitch-bend — route the signed amount
+            // separately so trackpad pitch-bend slides the looping
+            // sample alongside the MIDISynth-based voices.
+            synth.setSamplePitchBend(amount: Float(clamped))
         }
         for ch in channels { midi.sendPitchBend(value: value, channel: ch) }
     }
@@ -561,6 +578,42 @@ final class MenuBandController {
         let next = max(0, min(127, Int(melodicProgram) + delta))
         guard next != Int(melodicProgram) else { return }
         setMelodicProgram(UInt8(next))
+    }
+
+    /// Arrow-key entry point: step the program AND fire a short
+    /// audition blip in the newly-selected voice so the user can
+    /// scan instruments by ear, just like dragging through the
+    /// palette grid. Skipped when the step gets clamped (already
+    /// at slot 0 / 127) so the user doesn't hear repeated blips
+    /// on the same voice when holding the arrow past the end.
+    func stepMelodicProgramWithBlip(delta: Int) {
+        let prev = melodicProgram
+        stepMelodicProgram(delta: delta)
+        guard prev != melodicProgram else { return }
+        firePreviewBlip()
+    }
+
+    /// Tail-released audition note used by arrow-key stepping. The
+    /// preview note matches the user's most recent played pitch —
+    /// same convention as the palette's hover-preview path.
+    private var previewBlipWork: DispatchWorkItem?
+    private static let previewBlipDuration: TimeInterval = 0.30
+
+    private func firePreviewBlip() {
+        guard !midiMode else { return }
+        let note = lastPlayedNote
+        // Cancel any in-flight blip release and silence the prior
+        // note before retriggering so rapid arrow auto-repeats
+        // produce a continuous audition stream, not stacked notes.
+        previewBlipWork?.cancel()
+        synth.noteOff(note, channel: 0)
+        synth.noteOn(note, velocity: 75, channel: 0)
+        let work = DispatchWorkItem { [weak self] in
+            self?.synth.noteOff(note, channel: 0)
+        }
+        previewBlipWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.previewBlipDuration,
+                                      execute: work)
     }
 
     func stepOctave(delta: Int) {
@@ -999,7 +1052,7 @@ final class MenuBandController {
     /// synth's natural release envelope can decay to silence (~3-5s on
     /// most GM voices), short enough that an external DAW doesn't
     /// accumulate hung notes when the user shift-spams keys.
-    private static let lingerTailSeconds: TimeInterval = 6.0
+    private static let lingerTailSeconds: TimeInterval = 4.0
 
     // Doppler retrigger tuning for staccato linger. Each retrigger
     // fires the same midi note on a fresh channel at decaying velocity
@@ -1052,6 +1105,12 @@ final class MenuBandController {
         let synthCh: UInt8 = nextMelodicChannel()
         let midiCh: UInt8 = 0
         tapNoteChannel[midiNote] = synthCh
+        // Reuse a recently-faded channel? Cancel its in-flight
+        // Expression ramp + reset to 127 so this attack starts at
+        // full volume. Otherwise the new note inherits the prior
+        // fade's running value and "sustains in" only as the ramp
+        // tail completes.
+        cancelLingerFade(channel: synthCh)
         midi.sendCC(10, value: pan, channel: midiCh)
         // Mirror the keyboard path: also send pan to the local synth's
         // per-channel state so synth state stays symmetric across input
@@ -1202,14 +1261,18 @@ final class MenuBandController {
         let category = GeneralMIDI.lingerCategory(for: melodicProgram)
         switch category {
         case .sustained:
-            // Skip the immediate noteOff so the synth's release
-            // envelope rings out. Cleanup pair lands at +tail.
-            let n = midiNote, ch = synthChannel, mc = midiChannel
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.lingerTailSeconds) { [weak self] in
-                guard let self = self else { return }
-                if !self.midiMode { self.synth.noteOff(n, channel: ch) }
-                self.midi.noteOff(n, channel: mc)
-            }
+            // Sustained patches (organ, pad, brass, choir) hold at
+            // full volume until noteOff — the synth's release
+            // envelope barely tapers them, so simply deferring the
+            // noteOff produced a flat hold followed by a hard cut.
+            // Run an explicit volume envelope from 127 → 0 over the
+            // linger tail so the user hears every voice fade, then
+            // send the cleanup noteOff at the end and reset
+            // Expression to 127 so the next note starts at full
+            // volume.
+            scheduleSustainedLingerFade(midiNote: midiNote,
+                                        synthChannel: synthChannel,
+                                        midiChannel: midiChannel)
         case .staccato:
             // Close the original cleanly — the staccato sample is
             // already mostly decayed by the time the user releases
@@ -1221,6 +1284,122 @@ final class MenuBandController {
                                     midiChannel: midiChannel,
                                     startVelocity: originalVelocity)
         }
+    }
+
+    /// In-flight Expression ramp work items per synth channel, so a
+    /// new noteOn arriving on a channel mid-fade can cancel the
+    /// remaining ramp (and reset Expression to 127) BEFORE playing
+    /// — otherwise the new note starts at the fade's current value
+    /// and you hear it "sustain into" full volume only as the prior
+    /// fade naturally completes. Drove the user's "sustain comes
+    /// after the press" complaint.
+    private var lingerFadeWork: [UInt8: [DispatchWorkItem]] = [:]
+
+    /// Cancel an in-flight Expression fade on `synthChannel` (if
+    /// any) and immediately restore Expression to 127 so the next
+    /// note on the channel plays at full volume. Call before every
+    /// melodic noteOn that might reuse a recently-faded channel.
+    private func cancelLingerFade(channel synthChannel: UInt8) {
+        if let items = lingerFadeWork.removeValue(forKey: synthChannel) {
+            for w in items { w.cancel() }
+        }
+        if !midiMode {
+            synth.sendExpression(value: 127, channel: synthChannel)
+            synth.resetSampleChannelVolumes(channel: synthChannel)
+        }
+        // CC11 (Expression) AND CC7 (channel Volume) — Expression is
+        // the MIDI-correct envelope-fade CC, Volume is the brute-
+        // force one that every DAW instrument always respects.
+        // Sending both means the linger fade reaches Live whether
+        // the active patch maps Expression to its amp envelope or
+        // ignores it entirely.
+        midi.sendCC(11, value: 127, channel: synthChannel)
+        midi.sendCC(7, value: 127, channel: synthChannel)
+    }
+
+    /// Run a smooth Expression-controlled fade over `lingerTailSeconds`
+    /// on the channel holding `midiNote`, then send the cleanup
+    /// noteOff and restore Expression to 127 so subsequent notes on
+    /// the channel come back at full volume. Routes both the
+    /// MIDISynth path (CC 11) and the sample-voice path (direct
+    /// player volume) so every melodic backend audibly fades — same
+    /// experience whether the user is on a GM organ, a pad, or
+    /// their own recorded sample.
+    private func scheduleSustainedLingerFade(midiNote: UInt8,
+                                             synthChannel: UInt8,
+                                             midiChannel: UInt8) {
+        // 100 hops over 10 s = every 100 ms. Linear ramp:
+        // Ableton's stock devices (and most third-party plugins)
+        // map CC7/CC11 to a near-linear audible volume curve, so
+        // a linear CC drop reads as a steady, audible fade.
+        // Squared/ease-out curves dropped to "almost silent" by
+        // the midpoint and read as a sharp early cutoff with a
+        // long inaudible tail.
+        let steps = 100
+        let stepInterval = Self.lingerTailSeconds / TimeInterval(steps)
+        var items: [DispatchWorkItem] = []
+        for i in 0..<steps {
+            let t = Float(i + 1) / Float(steps)
+            let remaining = 1.0 - t
+            let value = UInt8(max(0, min(127, Int((127.0 * remaining).rounded()))))
+            let work = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                if !self.midiMode {
+                    self.synth.sendExpression(value: value, channel: synthChannel)
+                    self.synth.setSampleNoteVolume(midi: midiNote,
+                                                   channel: synthChannel,
+                                                   value: value)
+                }
+                // Belt + suspenders for DAW instruments: ramp both
+                // CC11 (Expression — correct envelope mapping) AND
+                // CC7 (Volume — universal). Live's stock devices
+                // (Operator/Wavetable/Drum Rack) all respond to one
+                // or both; sending both means the SHIFT-held tail
+                // audibly fades regardless of which mapping the
+                // active patch uses.
+                self.midi.sendCC(11, value: value, channel: midiChannel)
+                self.midi.sendCC(7,  value: value, channel: midiChannel)
+            }
+            items.append(work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + stepInterval * Double(i + 1),
+                                          execute: work)
+        }
+        // Final cleanup noteOff lands a comfortable margin AFTER
+        // the last ramp tick so the synth sees CC=0 land cleanly
+        // before the noteOff arrives — and CRITICALLY we do NOT
+        // snap CC11/CC7 back to 127 here. That snap-back was the
+        // "sharp cutoff" the user heard: noteOff with the release
+        // envelope still ringing, then instantly setting Volume
+        // back to 127 punched the residual tail through at full
+        // gain. The reset is now deferred to `cancelLingerFade`,
+        // which fires only when a NEW note starts on this channel
+        // — by which point any release envelope has run its
+        // natural course and a fresh attack is what we're scaling.
+        let tail = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            if !self.midiMode { self.synth.noteOff(midiNote, channel: synthChannel) }
+            self.midi.noteOff(midiNote, channel: midiChannel)
+            // Don't clear lingerFadeWork[synthChannel] here — leave
+            // it so a future noteOn knows the channel is in a faded
+            // state and runs cancelLingerFade to restore CC=127.
+            // (Cancelled items are harmless if cancel()-ed again.)
+        }
+        items.append(tail)
+        // 200 ms breathing room past the last ramp tick. AVAudio's
+        // dispatch queue and CoreMIDI both tolerate this fine; the
+        // delay is below the perceptual threshold for "the note
+        // ended" because volume is already 0 from the ramp.
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.lingerTailSeconds + 0.2,
+            execute: tail)
+        // If a prior fade was still in flight on this channel,
+        // cancel it before swapping the tracker — otherwise the old
+        // ramp keeps stepping down Expression while the new note
+        // tries to ring out.
+        if let prev = lingerFadeWork[synthChannel] {
+            for w in prev { w.cancel() }
+        }
+        lingerFadeWork[synthChannel] = items
     }
 
     /// Fire the same midiNote N times on rotating melodic channels,
@@ -1391,6 +1570,48 @@ final class MenuBandController {
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
         if hasModifier { return false }
 
+        // Arrow keys step through the GM instrument grid: ←/→ by one
+        // slot, ↑/↓ by one row (= InstrumentListView.cols). Mirrors
+        // the floating panel's arrow cluster clicks. Each step also
+        // fires a short audition blip — same sound the palette plays
+        // while the user drags through cells — so the user can scan
+        // voices by ear, not just by name. Auto-repeat is allowed so
+        // holding an arrow streams through voices.
+        switch keyCode {
+        case 123:
+            if isDown {
+                DispatchQueue.main.async { [weak self] in
+                    self?.stepMelodicProgramWithBlip(delta: -1)
+                }
+            }
+            return true
+        case 124:
+            if isDown {
+                DispatchQueue.main.async { [weak self] in
+                    self?.stepMelodicProgramWithBlip(delta: +1)
+                }
+            }
+            return true
+        case 125:
+            if isDown {
+                let cols = InstrumentListView.cols
+                DispatchQueue.main.async { [weak self] in
+                    self?.stepMelodicProgramWithBlip(delta: cols)
+                }
+            }
+            return true
+        case 126:
+            if isDown {
+                let cols = InstrumentListView.cols
+                DispatchQueue.main.async { [weak self] in
+                    self?.stepMelodicProgramWithBlip(delta: -cols)
+                }
+            }
+            return true
+        default:
+            break
+        }
+
         // Minus key (`-`, keyCode 27) toggles the live KPBJ radio backend
         // — conceptually "voice −1": the piano plays the live stream
         // pitched by 2^((note−60)/12), with stalls fading into AM-style
@@ -1453,6 +1674,10 @@ final class MenuBandController {
                         if !self.midiMode { self.toggleMIDIMode() }
                         return
                     }
+                    // Typing a non-zero voice number is the user's
+                    // explicit "play this voice locally" gesture —
+                    // exit MIDI mode so the local synth is audible.
+                    // (`0` is the inverse gesture, kept above.)
                     if self.midiMode { self.toggleMIDIMode() }
                     let program = UInt8(max(0, min(127, v - 1)))
                     self.setMelodicProgram(program)
@@ -1473,12 +1698,12 @@ final class MenuBandController {
         let (octDownKC, octUpKC) = MenuBandLayout.octaveKeyCodes(for: keymap)
         if keyCode == octDownKC || keyCode == octUpKC {
             let delta = (keyCode == octDownKC) ? -1 : +1
-            if isDown {
-                if isRepeat { return true }   // we drive our own repeats
+            // One press = one octave step. Auto-repeat (system AND
+            // our own hold timer) is disabled per jas's preference:
+            // chained octaves jumped the keyboard further than
+            // intended on a single sustained press.
+            if isDown && !isRepeat {
                 octaveStepOnce(delta: delta)
-                startOctaveHold(keyCode: keyCode, delta: delta)
-            } else {
-                stopOctaveHold(forKeyCode: keyCode)
             }
             return true
         }
@@ -1529,6 +1754,10 @@ final class MenuBandController {
             // first sample.
             let pan = MenuBandLayout.panForKeyCode(keyCode)
             if !midiMode { synth.setPan(pan, channel: synthCh) }
+            // Cancel any leftover linger fade on this channel so the
+            // new note attacks at full volume (see startTapNote for
+            // the parallel call site / rationale).
+            cancelLingerFade(channel: synthCh)
             midi.sendCC(10, value: pan, channel: 0)
             if !midiMode { synth.noteOn(note, velocity: 100, channel: synthCh) }
             midiNoteOn(note, velocity: 100, channel: 0)

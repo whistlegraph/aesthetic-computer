@@ -248,24 +248,75 @@ final class MenuBandMIDI {
             // user has to re-enable Track in Live's MIDI prefs to hear
             // notes. Pinning UID + manufacturer + model means Ableton's
             // routing survives reinstalls.
-            // UID is a 32-bit signed int. Originally 0x4D424E44 ("MBND")
-            // for stability across reinstalls. Bumped once after Ableton
-            // Live 12.3.8's cached entry for the original UID went stale
-            // (Track On wouldn't stick / audio dropped) — forcing a new
-            // UID makes Live treat it as a fresh device and write a
-            // clean MidiInDevicePreferences entry. Bump again the next
-            // time a DAW's per-port cache gets wedged.
-            MIDIObjectSetIntegerProperty(source, kMIDIPropertyUniqueID,
-                                         Int32(bitPattern: 0x4D424E45))
+            // UID is a 32-bit signed int.
+            //   • 0x4D424E44 "MBND" — original
+            //   • 0x4D424E45 "MBNE" — bump for Live 12.3.8 stale cache
+            //   • 0x4D424E46 "MBNF" — current; bump for Live 12.4 +
+            //                          rebuild-shifted-UID symptom (Live's
+            //                          MidiInDevicePreferences entry was
+            //                          wedged onto a transient per-process
+            //                          UID that CoreMIDI minted before our
+            //                          pin landed)
+            // Bump again the next time a DAW's per-port cache gets wedged.
+            let pinnedUID = Int32(bitPattern: 0x4D424E46)
+            let uidStatus = MIDIObjectSetIntegerProperty(source,
+                                                         kMIDIPropertyUniqueID,
+                                                         pinnedUID)
+            if uidStatus != noErr {
+                NSLog("MenuBand MIDI: pin UID failed status=\(uidStatus) (CoreMIDI may keep its auto-minted UID)")
+            }
+            // Read back and log the UID we actually got so a future
+            // "Live can't see Menu Band" can be diagnosed straight
+            // from /tmp/menuband-debug.log — if this doesn't match
+            // pinnedUID, CoreMIDI rejected our pin and Live is
+            // tracking a transient ID instead.
+            var actualUID: Int32 = 0
+            MIDIObjectGetIntegerProperty(source, kMIDIPropertyUniqueID, &actualUID)
+            NSLog("MenuBand MIDI: virtual source UID actual=0x\(String(actualUID, radix: 16)) pinned=0x\(String(pinnedUID, radix: 16))")
             MIDIObjectSetStringProperty(source, kMIDIPropertyManufacturer,
                                         "aesthetic.computer" as CFString)
             MIDIObjectSetStringProperty(source, kMIDIPropertyModel,
+                                        "Menu Band" as CFString)
+            // Mark the source as a hardware-style endpoint that Live
+            // surfaces in its MIDI prefs panel under "Input". Without
+            // these, Live treats the source as "generic" and hides
+            // it behind the "Show Hidden" toggle, which the user
+            // typically doesn't think to check.
+            MIDIObjectSetIntegerProperty(source, kMIDIPropertyTransmitsNotes, 1)
+            MIDIObjectSetIntegerProperty(source, kMIDIPropertyTransmitsProgramChanges, 1)
+            MIDIObjectSetIntegerProperty(source, kMIDIPropertyMaxTransmitChannels, 16)
+            // Explicitly visible — CoreMIDI defaults to non-hidden,
+            // but a misconfigured DAW filter can read a missing
+            // property as "use the cached/default" and Live's been
+            // observed to hide undeclared sources. Setting Hidden=0
+            // forces it into the visible list. Same logic for
+            // Private/Offline which sometimes get inherited from
+            // the (nil) Device parent.
+            MIDIObjectSetIntegerProperty(source, kMIDIPropertyPrivate, 0)
+            MIDIObjectSetIntegerProperty(source, kMIDIPropertyOffline, 0)
+            // Embedded-entity name so Live's display reads "Menu Band"
+            // and not "Untitled Source" / "Menu Band - port 1".
+            MIDIObjectSetStringProperty(source, kMIDIPropertyDisplayName,
                                         "Menu Band" as CFString)
             started = true
             debugLog("midi.start: virtual source published")
         }
         enabled = true
         debugLog("midi.start: enabled")
+        // Announce a 12-semitone pitch-bend range on every melodic
+        // channel via RPN 0 (Pitch Bend Sensitivity). The trackpad
+        // accumulator scales ±1 = ±12 semitones; without this the
+        // receiver (Ableton et al.) interprets our full-scale 14-bit
+        // bend as ±2 semitones, so dragging across an octave on the
+        // trackpad sounded like a quarter-tone wobble in Live.
+        for ch: UInt8 in 0..<16 {
+            send([0xB0 | ch, 101, 0])    // RPN MSB = 0
+            send([0xB0 | ch, 100, 0])    // RPN LSB = 0  (Pitch Bend Sensitivity)
+            send([0xB0 | ch, 6, 12])     // Data Entry MSB = 12 semitones
+            send([0xB0 | ch, 38, 0])     // Data Entry LSB = 0 cents
+            send([0xB0 | ch, 101, 127])  // RPN Null (MSB)
+            send([0xB0 | ch, 100, 127])  // RPN Null (LSB)
+        }
     }
 
     /// Disable outbound sends and flush stuck notes. Does NOT dispose the
@@ -319,12 +370,31 @@ final class MenuBandMIDI {
     // MARK: - Internal
 
     private func send(_ bytes: [UInt8]) {
+        // CRITICAL — three things have to be right for MIDIPacketListAdd
+        // to actually insert the packet (it silently no-ops on failure
+        // and Live then sees the source but never receives notes):
+        //   • `var packet` (not `let`) — must be reassigned from the
+        //     return of MIDIPacketListAdd, which advances the cursor.
+        //     With `let` the second call (or even the first under some
+        //     Swift import paths) writes onto the wrong slot.
+        //   • Pass a real buffer size (1024) for `listSize`, not
+        //     `MemoryLayout<MIDIPacketList>.size`. The latter is the
+        //     Swift-reported struct stride and CoreMIDI compared it
+        //     against the bytes needed for the packet INCLUDING its
+        //     header, often rounding our struct-sized value below
+        //     threshold and rejecting the add.
+        //   • `mach_absolute_time()` as the timestamp. `0` is documented
+        //     as "now" but CoreMIDI on macOS 14+ treats it as past-due
+        //     in some routing contexts (notably Live's MIDI input
+        //     thread) and drops the packet entirely.
+        // This three-bug combo was the entire reason Menu Band's
+        // notes reached the source but never reached Live's track.
         var packetList = MIDIPacketList()
-        let packet = MIDIPacketListInit(&packetList)
-        // Timestamp 0 → "deliver as soon as possible, no scheduling." For live
-        // play this is lower latency than scheduling against mach_absolute_time().
+        var packet = MIDIPacketListInit(&packetList)
         bytes.withUnsafeBufferPointer { buf in
-            _ = MIDIPacketListAdd(&packetList, MemoryLayout<MIDIPacketList>.size, packet, 0, bytes.count, buf.baseAddress!)
+            packet = MIDIPacketListAdd(&packetList, 1024, packet,
+                                       mach_absolute_time(),
+                                       bytes.count, buf.baseAddress!)
         }
         let status = MIDIReceived(source, &packetList)
         if status != noErr {

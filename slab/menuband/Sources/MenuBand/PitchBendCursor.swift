@@ -11,13 +11,36 @@ enum PitchBendCursor {
     /// Centered, no-bend cursor — used as the push baseline.
     static let neutral: NSCursor = cursor(forBend: 0)
 
+    /// Hot-spot used by both `cursor(forBend:)` and the floating
+    /// overlay window — keeps the bend wheel anchored over the
+    /// frozen cursor position when CGAssociateMouseAndMouseCursorPosition
+    /// detaches the system cursor.
+    static let hotSpot = NSPoint(x: 16, y: 20)
+    static let cursorSize = NSSize(width: 32, height: 40)
+
+    /// Same bitmap the `cursor(forBend:)` factory uses, exposed
+    /// so a floating overlay window can draw the wheel itself
+    /// while the system cursor is hidden via CGDisplayHideCursor.
+    /// That hide-and-draw approach is what kills the cross-app
+    /// cursor flicker — other apps' cursorUpdate handlers
+    /// can't fight us if there's no system cursor for them to
+    /// reset.
+    static func image(forBend amount: Float) -> NSImage {
+        return buildImage(forBend: amount)
+    }
+
     /// Build a cursor whose internal grip ridges + body extension
     /// reflect a normalized bend amount in [-1, +1]. +1 = full
     /// pitch up (ridges shift up, top of wheel stretched), −1 =
     /// full pitch down (mirror).
     static func cursor(forBend amount: Float) -> NSCursor {
+        let image = buildImage(forBend: amount)
+        return NSCursor(image: image, hotSpot: hotSpot)
+    }
+
+    private static func buildImage(forBend amount: Float) -> NSImage {
         let bend = max(-1, min(1, CGFloat(amount)))
-        let size = NSSize(width: 32, height: 40)
+        let size = cursorSize
         let image = NSImage(size: size, flipped: false) { rect in
             let center = NSPoint(x: rect.midX, y: rect.midY)
             let bodyW: CGFloat = 12
@@ -106,9 +129,63 @@ enum PitchBendCursor {
             ))
             return true
         }
-        // Hot spot pinned to the static frame center so cursor
-        // position is stable as the wheel stretches.
-        return NSCursor(image: image, hotSpot: NSPoint(x: 16, y: 20))
+        return image
+    }
+}
+
+/// Borderless transparent panel that draws the pitch-bend wheel
+/// at the cursor's locked screen position. Floats above every
+/// app so the wheel stays visible regardless of which window the
+/// mouse is over — pair with `CGDisplayHideCursor` to hide the
+/// real system cursor and you get a flicker-free custom cursor
+/// that doesn't fight other apps' cursorUpdate handlers.
+final class PitchBendCursorOverlayWindow: NSPanel {
+    private let imageView = NSImageView()
+
+    init() {
+        let frame = NSRect(origin: .zero, size: PitchBendCursor.cursorSize)
+        super.init(contentRect: frame,
+                   styleMask: [.borderless, .nonactivatingPanel],
+                   backing: .buffered,
+                   defer: false)
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
+        // Float above every other window in every space, never
+        // steal focus, never accept mouse clicks (so the trackpad
+        // gesture still routes to whatever app is below).
+        level = .screenSaver
+        ignoresMouseEvents = true
+        hidesOnDeactivate = false
+        collectionBehavior = [.canJoinAllSpaces,
+                              .stationary,
+                              .ignoresCycle,
+                              .fullScreenAuxiliary]
+        imageView.frame = frame
+        imageView.imageScaling = .scaleNone
+        contentView?.addSubview(imageView)
+    }
+
+    /// `screenPoint` is the absolute screen position the cursor
+    /// is currently locked at. The panel is repositioned so the
+    /// wheel image lands centered on the hot spot at that point.
+    func show(image: NSImage, atScreenPoint screenPoint: NSPoint) {
+        imageView.image = image
+        let hot = PitchBendCursor.hotSpot
+        let origin = NSPoint(x: screenPoint.x - hot.x,
+                             y: screenPoint.y - hot.y)
+        setFrameOrigin(origin)
+        if !isVisible { orderFrontRegardless() }
+    }
+
+    /// Update only the wheel image; position stays put. Used by
+    /// the bend-amount changes and the rubber-band decay tick.
+    func update(image: NSImage) {
+        imageView.image = image
+    }
+
+    func dismiss() {
+        orderOut(nil)
     }
 }
 

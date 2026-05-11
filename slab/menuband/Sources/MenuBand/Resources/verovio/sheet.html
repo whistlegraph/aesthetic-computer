@@ -48,6 +48,13 @@
       position: relative;
       width: 100%;
       height: 100%;
+      /* Isolate paint + layout so each rerender doesn't bubble up
+         and repaint #page's noise filter / inset box-shadow on
+         every keypress — that's the flicker source. */
+      contain: layout paint style;
+      transform: translateZ(0);
+      will-change: contents;
+      backface-visibility: hidden;
     }
     #score svg {
       width: 100%;
@@ -62,6 +69,15 @@
       color: rgba(60, 40, 20, 0.45);
       font-feature-settings: "tnum";
       pointer-events: none;
+    }
+    /* PDF drag-back-in playback highlight. `.playback-on` is toggled
+       on a `g.note` (and its descendants) by Sheet.playbackOn / Off
+       in step with the synth — gives the user visual sync between
+       the audio replay and the staff. */
+    #score svg g.note.playback-on,
+    #score svg g.note.playback-on * {
+      fill: #d33a2c !important;
+      stroke: #d33a2c;
     }
   </style>
 </head>
@@ -87,6 +103,19 @@
       const notes = []; // [{pitch, isSharp, onsetAt, releasedAt, beatAtOnset?}]
       let renderQueued = false;
       let lastRenderAt = 0;
+      // Drag-back-in state. When a PDF carrying MusicXML is dropped in,
+      // we render the staff DIRECTLY from that XML (bypassing the
+      // notes[] buffer). Until the user records a fresh live note we
+      // freeze the rerender path — otherwise a coalesced live-render
+      // queued from a recent recordNote fires 30ms later, sees the
+      // empty notes buffer, and overwrites the loaded staff with a
+      // blank XML build.
+      let staticLoaded = false;
+      // Per-pitch index of rendered g.note SVG elements, populated by
+      // loadXMLAndExportMIDI. Lets playbackOn(midi)/playbackOff(midi)
+      // light up successive notes of the same pitch in source order.
+      let playbackElements = []; // [{midi, el}], document order
+      let playbackCursor = {};   // midi → index of next on/off target
       // Metronome clock — Swift calls Sheet.beat() on every
       // metronome tick (= one quarter note). Free-tempo if no
       // beats have arrived in the last 4 seconds.
@@ -145,33 +174,90 @@
         const TICKS_PER_BEAT = 4;
         const TICKS_PER_MEASURE = 16;
         const now = performance.now() / 1000;
-        // Sparse map of placed events keyed by absolute tick.
-        // tick → array of items at that position (chords share a tick).
+
+        // ---- Tempo first. Onset positions AND held-duration tick
+        // counts both depend on seconds-per-tick at the inferred
+        // BPM, so we have to fix the grid before placing notes.
+        //
+        // Two sources of truth for "the user's tempo":
+        //   1. Active metronome → 60 / beatInterval is the BPM.
+        //   2. Free play → take the median real-time onset gap as
+        //      a quarter note. This makes "the user's most common
+        //      pulse" map to a quarter regardless of whether they
+        //      were playing at 60 or 180 BPM. Earlier inference
+        //      compared real time against `durationOf(heldFor)`
+        //      which itself uses 120 BPM thresholds — circular,
+        //      and badly wrong on slow legato playing.
+        let inferredBpm = 120;
+        if (metronomeActive(now) && beatInterval > 0) {
+          inferredBpm = Math.round(60 / beatInterval);
+        } else if (notes.length >= 2) {
+          const realGaps = [];
+          for (let i = 1; i < notes.length; i++) {
+            const real = notes[i].onsetAt - notes[i - 1].onsetAt;
+            // Drop chord-mate co-onsets (~0) and absurd pauses
+            // (>4s) so they don't pull the median around.
+            if (real <= 0.05 || real > 4.0) continue;
+            realGaps.push(real);
+          }
+          if (realGaps.length >= 1) {
+            realGaps.sort((a, b) => a - b);
+            const median = realGaps[Math.floor(realGaps.length / 2)];
+            const bpm = Math.round(60 / median);
+            inferredBpm = Math.max(40, Math.min(200, bpm));
+          }
+        }
+        const SECS_PER_TICK = 60 / inferredBpm / TICKS_PER_BEAT;
+
+        // ---- Place each note on the tick grid.
+        // Sparse map keyed by absolute tick → chord items + duration.
         const placed = {};
-        let totalTicks = 0;
+        const firstOnset = notes.length > 0 ? notes[0].onsetAt : 0;
 
         for (const n of notes) {
-          const heldFor = (n.releasedAt ?? now) - n.onsetAt;
-          const d = durationOf(heldFor, now);
+          const heldFor = Math.max(0, (n.releasedAt ?? now) - n.onsetAt);
           let onsetTick;
           if (metronomeActive(now) && n.beatAtOnset != null) {
-            // Snap onset to the nearest 16th within its captured beat.
+            // Metronome path: snap onset to the nearest 16th
+            // within its captured beat (preserves bar/beat sync).
             const fracIntoBeat = clamp((n.onsetAt - n.beatStartedAt) / beatInterval, 0, 0.999);
             const subBeat = Math.round(fracIntoBeat * TICKS_PER_BEAT);
             onsetTick = n.beatAtOnset * TICKS_PER_BEAT + subBeat;
           } else {
-            // Free-tempo fallback — pack notes back-to-back.
-            onsetTick = totalTicks;
-            totalTicks += d.ticks;
+            // Free-tempo: anchor to the first onset and round each
+            // subsequent onset to the nearest 16th. Sparse playing
+            // now spreads across the staff with rests between
+            // notes — used to pack tight back-to-back regardless
+            // of the wall-clock gap.
+            onsetTick = Math.max(0, Math.round((n.onsetAt - firstOnset) / SECS_PER_TICK));
           }
-          if (!placed[onsetTick]) placed[onsetTick] = { items: [], duration: d.ticks };
+          // Held duration → ticks → snap to the nearest standard
+          // note value (16th/eighth/quarter/half/whole). Using a
+          // raw rounded tick count would emit non-standard
+          // durations (3, 5, 7) that ticksToType lies about.
+          let durTicks = Math.max(1, Math.round(heldFor / SECS_PER_TICK));
+          durTicks = snapToStandardDuration(durTicks);
+          if (!placed[onsetTick]) placed[onsetTick] = { items: [], duration: durTicks };
           placed[onsetTick].items.push({ ...n });
           // For a chord (multiple onsets at same tick) keep the
           // longest duration so the bar doesn't get truncated.
-          placed[onsetTick].duration = Math.max(placed[onsetTick].duration, d.ticks);
+          placed[onsetTick].duration = Math.max(placed[onsetTick].duration, durTicks);
         }
 
         const ticks = Object.keys(placed).map(Number).sort((a, b) => a - b);
+
+        // Truncate each placed slot's duration so it never overruns
+        // the next placed onset. Without this an over-held note
+        // chews through the rest of the bar and the next onset
+        // gets skipped by the cursor walk below.
+        for (let i = 0; i < ticks.length - 1; i++) {
+          const t = ticks[i];
+          const next = ticks[i + 1];
+          placed[t].duration = Math.min(placed[t].duration, next - t);
+          // Re-snap so the truncated value stays a valid note type.
+          placed[t].duration = snapToStandardDuration(placed[t].duration);
+        }
+
         const lastTick = ticks.length
           ? ticks[ticks.length - 1] + (placed[ticks[ticks.length - 1]].duration || 1)
           : 0;
@@ -225,48 +311,6 @@
               }
             }
           }
-          // Emit a tempo directive in measure 1 so Verovio's
-          // renderToMIDI plays back at the right speed. Without
-          // this Verovio defaults to 120 BPM and notes get packed
-          // back-to-back at their notated duration — which doesn't
-          // match the wall-clock spacing the user actually played.
-          //
-          // Two sources of truth for "the user's tempo":
-          //   1. Active metronome → 60 / beatInterval gives BPM
-          //      directly. Most accurate when running.
-          //   2. Free play → for each consecutive note pair,
-          //      compute the ratio of real-time onset gap to the
-          //      notated tick duration of the first note (in
-          //      seconds at 120 BPM). The median ratio scales
-          //      120 BPM into the right playback tempo, so each
-          //      notated quarter/eighth/16th lasts as long as the
-          //      user's actual onset spacing demanded.
-          let inferredBpm = 120;
-          if (metronomeActive(now) && beatInterval > 0) {
-            inferredBpm = Math.round(60 / beatInterval);
-          } else if (notes.length >= 2) {
-            // 1 tick @ 120 BPM with TICKS_PER_BEAT=4:
-            //   secs/tick = 60 / 120 / 4 = 0.125
-            const SECS_PER_TICK_AT_120 = 0.125;
-            const ratios = [];
-            for (let i = 1; i < notes.length; i++) {
-              const real = notes[i].onsetAt - notes[i - 1].onsetAt;
-              if (real <= 0.05 || real > 4.0) continue;
-              const heldFor = (notes[i - 1].releasedAt ?? notes[i - 1].onsetAt + real) - notes[i - 1].onsetAt;
-              const ticks = durationOf(heldFor, now).ticks;
-              const notated = ticks * SECS_PER_TICK_AT_120;
-              if (notated <= 0) continue;
-              ratios.push(real / notated);
-            }
-            if (ratios.length >= 1) {
-              ratios.sort((a, b) => a - b);
-              const median = ratios[Math.floor(ratios.length / 2)];
-              // ratio > 1 means real time was longer than notated
-              // → playback should be slower → lower BPM.
-              const bpm = Math.round(120 / median);
-              inferredBpm = Math.max(40, Math.min(200, bpm));
-            }
-          }
           const head = (m === 0) ? `
       <attributes>
         <divisions>${TICKS_PER_BEAT}</divisions>
@@ -284,6 +328,24 @@
         }
 
         return PARTS_HEAD + measuresXml + '\n  </part>\n</score-partwise>';
+      }
+
+      // Snap a raw tick count to the nearest power-of-two duration
+      // so the emitted <duration> always matches a single, valid
+      // note type (16th/eighth/quarter/half/whole). Verovio renders
+      // off-grid durations as tied notes which complicate the
+      // playback-highlight index (one onset → multiple g.note
+      // elements). Power-of-two only is the simplest invariant
+      // that keeps the index 1:1.
+      function snapToStandardDuration(t) {
+        const standards = [1, 2, 4, 8, 16];
+        let best = standards[0];
+        let bestDist = Math.abs(t - best);
+        for (const s of standards) {
+          const d = Math.abs(t - s);
+          if (d < bestDist) { best = s; bestDist = d; }
+        }
+        return best;
       }
 
       function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -319,12 +381,37 @@
 
       function rerender() {
         if (!toolkit) return;
+        // Don't wipe a directly-loaded staff with an empty live build.
+        // See `staticLoaded` doc — coalesced live rerenders pile up
+        // under recordNote bursts and would overwrite the loaded XML
+        // immediately after a PDF drop.
+        if (staticLoaded && notes.length === 0) return;
         const t0 = performance.now();
         try {
           const xml = buildMusicXML();
           toolkit.loadData(xml);
           const svg = toolkit.renderToSVG(1, {});
-          document.getElementById('score').innerHTML = svg;
+          // Atomic swap. innerHTML is *mostly* atomic, but in
+          // WKWebView a long Verovio render combined with the
+          // surrounding paper-noise filter on #page was leaking a
+          // visible flash on every keypress. Parsing the SVG into
+          // a detached fragment and swapping with replaceChild
+          // (or appending when the score div is still empty)
+          // keeps the new SVG fully formed before it enters the
+          // DOM, so the old SVG stays on screen until the new one
+          // takes its place in a single layout pass.
+          const score = document.getElementById('score');
+          const tmp = document.createElement('div');
+          tmp.innerHTML = svg;
+          const newSvg = tmp.firstElementChild;
+          if (newSvg) {
+            const oldSvg = score.firstElementChild;
+            if (oldSvg) {
+              score.replaceChild(newSvg, oldSvg);
+            } else {
+              score.appendChild(newSvg);
+            }
+          }
           const dt = (performance.now() - t0).toFixed(0);
           document.getElementById('status').textContent =
             `${notes.length} notes · ${dt}ms`;
@@ -421,6 +508,12 @@
       // supply a time (test harnesses, future direct-from-JS
       // input paths).
       function noteOn(pitch, t) {
+        // First fresh live note after a PDF drag-in: drop out of
+        // static mode so subsequent recordings rerender normally.
+        if (staticLoaded) {
+          staticLoaded = false;
+          playbackResetHighlight();
+        }
         const now = (typeof t === 'number') ? t : performance.now() / 1000;
         notes.push({
           pitch,
@@ -460,6 +553,8 @@
 
       function clear() {
         notes.length = 0;
+        staticLoaded = false;
+        playbackResetHighlight();
         queueRender();
       }
 
@@ -563,6 +658,7 @@
       // races with our renderToSVG and the staff goes blank.
       function loadXMLAndExportMIDI(xml) {
         notes.length = 0;
+        playbackResetHighlight();
         try {
           toolkit.loadData(xml);
           document.getElementById('score').innerHTML =
@@ -570,6 +666,18 @@
         } catch (e) {
           console.error('loadXMLAndExportMIDI: SVG render failed', e);
           return '';
+        }
+        // Freeze the rerender path so a stale queueRender from prior
+        // live activity doesn't blank the staff after this returns.
+        staticLoaded = true;
+        // Build the pitch-ordered g.note index so playbackOn / Off
+        // can light up successive notes in step with the synth.
+        indexPlaybackElements(xml);
+        // Push fresh layout to Swift so the playhead overlay + the
+        // drag-out cache see the loaded score (rerender is the usual
+        // call site — we bypassed it via renderToSVG).
+        try { postMeasureBoxes(); } catch (e) {
+          console.warn('loadXMLAndExportMIDI: postMeasureBoxes failed', e);
         }
         try {
           return toolkit.renderToMIDI();
@@ -579,12 +687,87 @@
         }
       }
 
+      // Parse the loaded MusicXML to recover pitch-in-source-order, then
+      // pair each pitch with the corresponding rendered g.note SVG
+      // element. Verovio emits notes in source order so the i-th
+      // <pitch> matches the i-th g.note in the rendered SVG.
+      function indexPlaybackElements(xml) {
+        playbackElements = [];
+        playbackCursor = {};
+        const stepMidi = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+        let pitches = [];
+        try {
+          const doc = new DOMParser().parseFromString(xml, 'application/xml');
+          const noteEls = doc.querySelectorAll('part note');
+          noteEls.forEach((n) => {
+            // Skip rests + chord-inner attachments (chord <note>s with
+            // <chord/> still carry their own pitch and Verovio renders
+            // them as their own g.note, so include them).
+            if (n.querySelector('rest')) return;
+            const pitch = n.querySelector('pitch');
+            if (!pitch) return;
+            const step = (pitch.querySelector('step')?.textContent || 'C').toUpperCase();
+            const alter = parseInt(pitch.querySelector('alter')?.textContent || '0', 10);
+            const oct = parseInt(pitch.querySelector('octave')?.textContent || '4', 10);
+            const base = stepMidi[step] ?? 0;
+            pitches.push((oct + 1) * 12 + base + alter);
+          });
+        } catch (e) {
+          console.warn('indexPlaybackElements: parse failed', e);
+          return;
+        }
+        const els = document.querySelectorAll('#score svg g.note');
+        const n = Math.min(els.length, pitches.length);
+        for (let i = 0; i < n; i++) {
+          els[i].setAttribute('data-midi', String(pitches[i]));
+          playbackElements.push({ midi: pitches[i], el: els[i] });
+        }
+      }
+
+      // Light up the next un-lit g.note matching `midi` in source
+      // order. Per-pitch cursor advances on each call so a repeated
+      // pitch hits successive notes instead of re-flashing the first.
+      function playbackOn(midi) {
+        if (!staticLoaded || playbackElements.length === 0) return;
+        const start = playbackCursor[midi] || 0;
+        for (let i = start; i < playbackElements.length; i++) {
+          const e = playbackElements[i];
+          if (e.midi === midi && !e.el.classList.contains('playback-on')) {
+            e.el.classList.add('playback-on');
+            playbackCursor[midi] = i + 1;
+            return;
+          }
+        }
+      }
+
+      // Release the most-recent on for `midi`. Walks back from the
+      // cursor so chords + overlapping releases unwind cleanly.
+      function playbackOff(midi) {
+        if (!staticLoaded || playbackElements.length === 0) return;
+        const cursor = playbackCursor[midi] || 0;
+        for (let i = cursor - 1; i >= 0; i--) {
+          const e = playbackElements[i];
+          if (e.midi === midi && e.el.classList.contains('playback-on')) {
+            e.el.classList.remove('playback-on');
+            return;
+          }
+        }
+      }
+
+      function playbackResetHighlight() {
+        document.querySelectorAll('#score svg g.note.playback-on')
+          .forEach((el) => el.classList.remove('playback-on'));
+        playbackCursor = {};
+      }
+
       // Replace the current note buffer with a list parsed from a
       // re-imported PDF. Items are {pitch, onsetAt, releasedAt,
       // beatAtOnset, beatStartedAt}; we accept relative timestamps
       // (anchored at performance.now()) and rerender immediately.
       function loadNotes(items) {
         notes.length = 0;
+        staticLoaded = false;
+        playbackResetHighlight();
         const base = performance.now() / 1000;
         for (const n of items) {
           notes.push({
@@ -600,7 +783,8 @@
       }
 
       return { noteOn, noteOff, beat, clear, ready, getMusicXML,
-               getPlaybackEvents, loadXMLAndExportMIDI, loadNotes };
+               getPlaybackEvents, loadXMLAndExportMIDI, loadNotes,
+               playbackOn, playbackOff };
     }());
 
     Sheet.ready();

@@ -21,6 +21,10 @@ final class CollapsedPianoWaveformView: NSView {
     /// expanded view only; the collapsed strip stays compact.
     private let instrumentList = InstrumentListView()
     private let instrumentGridContainer = NSView()
+    /// Active program number + name, sitting right above the GM
+    /// chooser grid. Uses YWFT Processing so the readout matches
+    /// the popover's title typography. Color-keyed to the family.
+    private let instrumentReadoutLabel = NSTextField(labelWithString: "")
     /// QWERTY keymap visualization — moved out of the popover so
     /// the user can see which physical keys play which notes while
     /// the chooser is open. Lit cells reflect held keys.
@@ -180,11 +184,25 @@ final class CollapsedPianoWaveformView: NSView {
             }
         }
 
+        instrumentReadoutLabel.translatesAutoresizingMaskIntoConstraints = false
+        instrumentReadoutLabel.alignment = .center
+        instrumentReadoutLabel.maximumNumberOfLines = 1
+        instrumentReadoutLabel.lineBreakMode = .byTruncatingTail
+        instrumentReadoutLabel.drawsBackground = false
+        instrumentReadoutLabel.isBordered = false
+        instrumentReadoutLabel.isEditable = false
+        instrumentReadoutLabel.isSelectable = false
+        // Don't layer-back — a CA rasterization step softens the
+        // 1px Riso-misregister shadow we apply in refresh().
+        instrumentReadoutLabel.setContentHuggingPriority(.required, for: .vertical)
+        instrumentReadoutLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
         addSubview(contentContainer)
         contentContainer.addSubview(instrumentGridContainer)
         instrumentGridContainer.addSubview(instrumentList)
         contentContainer.addSubview(qwertyMap)
         contentContainer.addSubview(arrowsCluster)
+        contentContainer.addSubview(instrumentReadoutLabel)
         contentContainer.addSubview(modeStack)
         installLiquidGlassBackgrounds()
 
@@ -220,9 +238,24 @@ final class CollapsedPianoWaveformView: NSView {
             arrowsCluster.bottomAnchor.constraint(equalTo: qwertyMap.bottomAnchor),
             arrowsCluster.heightAnchor.constraint(equalToConstant: Self.arrowsRowHeight),
 
-            // Instrument chooser grid sits BELOW the qwerty row.
+            // Active-instrument readout — pinned ABOVE the chooser
+            // grid (and BELOW the qwerty row) so the user can read
+            // the program number + name without opening the popover.
+            instrumentReadoutLabel.leadingAnchor.constraint(
+                greaterThanOrEqualTo: contentContainer.leadingAnchor,
+                constant: Self.edgePadding),
+            instrumentReadoutLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: contentContainer.trailingAnchor,
+                constant: -Self.edgePadding),
+            instrumentReadoutLabel.centerXAnchor.constraint(
+                equalTo: contentContainer.centerXAnchor),
+            instrumentReadoutLabel.topAnchor.constraint(
+                equalTo: qwertyMap.bottomAnchor,
+                constant: Self.rowGap),
+
+            // Instrument chooser grid sits BELOW the readout row.
             instrumentGridContainer.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
-            instrumentGridContainer.topAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: Self.rowGap),
+            instrumentGridContainer.topAnchor.constraint(equalTo: instrumentReadoutLabel.bottomAnchor, constant: Self.rowGap),
             instrumentGridContainer.widthAnchor.constraint(
                 equalToConstant: InstrumentListView.preferredWidth + Self.gridPadding * 2
             ),
@@ -298,12 +331,17 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentList.selectedProgram = menuBand.effectiveMelodicProgram
         instrumentList.midiModeActive = menuBand.midiMode
 
+        applyInstrumentReadout(safe: safe, familyColor: familyColor, isDark: isDark)
+
         arrowsCluster.accentColor = familyColor
         arrowsCluster.isDarkAppearance = isDark
 
         qwertyMap.keymap = menuBand.keymap
         qwertyMap.voiceColor = familyColor
         qwertyMap.litKeyCodes = menuBand.heldKeyCodes()
+        // Forward the active octave shift so out-of-MIDI-range caps
+        // render dimmed — visual cue that those keys won't sound.
+        qwertyMap.octaveShift = menuBand.octaveShift
 
         // Mirror the keymap selection on the mode-picker buttons.
         let activeTag = (menuBand.keymap == .ableton) ? 1 : 0
@@ -334,6 +372,62 @@ final class CollapsedPianoWaveformView: NSView {
                 ? NSColor(white: 0.06, alpha: 0.96)
                 : NSColor(white: 0.88, alpha: 0.96)).cgColor
         }
+    }
+
+    /// Mirror of `ExpandedPianoWaveformView.updateInstrumentReadout`
+    /// — keep the two floating panels titled identically. Format:
+    /// "078  Acoustic Grand Piano". Number + name in YWFT Processing
+    /// with a 1-px family-colored Riso shadow under the title text.
+    private func applyInstrumentReadout(safe: Int,
+                                        familyColor: NSColor,
+                                        isDark: Bool) {
+        guard let menuBand else { return }
+        let title: String
+        let badgeColor: NSColor
+        if menuBand.midiMode {
+            title = "MIDI · MIDI OUT"
+            badgeColor = .controlAccentColor
+        } else {
+            switch menuBand.instrumentBackend {
+            case .sample:
+                title = "`  Sample Voice"
+                badgeColor = .systemRed
+            case .kpbj:
+                title = "RADIO  KPBJ.FM"
+                badgeColor = .systemOrange
+            case .garageBand:
+                title = "GB  GarageBand"
+                badgeColor = .systemPurple
+            case .gm:
+                title = String(format: "%03d  %@",
+                               safe + 1,
+                               GeneralMIDI.programNames[safe])
+                badgeColor = familyColor
+            }
+        }
+        let titleFont: NSFont = {
+            if let desc = AppDelegate.ywftBoldDescriptor,
+               let font = NSFont(descriptor: desc, size: 13),
+               font.familyName == "YWFT Processing" {
+                return font
+            }
+            NSLog("MenuBand: YWFT bold descriptor unavailable; collapsed-panel readout falling back to system font")
+            return NSFont.systemFont(ofSize: 13, weight: .black)
+        }()
+        let textColor: NSColor = isDark ? .white : .black
+        let shadow = NSShadow()
+        shadow.shadowColor = (badgeColor.highlight(withLevel: isDark ? 0.3 : 0.7) ?? badgeColor)
+        shadow.shadowOffset = NSSize(width: 1, height: -1)
+        shadow.shadowBlurRadius = 0
+        instrumentReadoutLabel.attributedStringValue = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: titleFont,
+                .foregroundColor: textColor,
+                .shadow: shadow,
+            ]
+        )
+        instrumentReadoutLabel.toolTip = title
     }
 
     @objc private func whyKeymapClicked(_ sender: NSButton) {

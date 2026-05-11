@@ -62,6 +62,18 @@ final class MenuBandSampleVoice {
     private var recordingRequested = false
     private var recordWriteFrame: Int = 0
     private var recordScratch: AVAudioPCMBuffer?
+    /// Frames to drop from the very front of every record. The first
+    /// tens of ms of input typically capture the mechanical click of
+    /// the physical record key (and its acoustic decay through the
+    /// laptop body) — discarding ~35 ms / 1543 frames at 44.1 kHz
+    /// cleans that out for nearly every mechanical/scissor switch
+    /// without eating into actual performance. `trimmedStartFrame`
+    /// runs AFTER this and additionally rejects any leading
+    /// transient burst that survives the fixed window.
+    private let recordKeyClickSkipFrames: Int = Int(44_100 * 0.035)
+    /// Decremented on each ingestInput block until zero. Set fresh
+    /// at every `startRecording` call.
+    private var framesRemainingToSkip: Int = 0
 
     /// Live callback fired once per input-tap block with that block's
     /// RMS [0, 1]. Wired up from `MenuBandSynth` so the menubar VU
@@ -77,7 +89,10 @@ final class MenuBandSampleVoice {
     private var inputFormat: AVAudioFormat?
     private var inputConverter: AVAudioConverter?
     private var debugTapBlocksLogged = 0
-    private let inputTapBufferFrames: AVAudioFrameCount = 256
+    // Smaller tap buffer = faster handoff from CoreAudio HAL into
+    // our ingest loop, so the recording captures from the *first*
+    // ms the user holds the key. 128 frames @ 44.1 kHz ≈ 2.9 ms.
+    private let inputTapBufferFrames: AVAudioFrameCount = 128
 
     /// Mix bus for all per-note voices. Connects to the host's
     /// pre-limiter mixer once on attach. Master gate lives here.
@@ -93,7 +108,12 @@ final class MenuBandSampleVoice {
     private let recordEngine = AVAudioEngine()
     private var inputTapInstalled = false
     private var hotMicStopWork: DispatchWorkItem?
-    private let hotMicIdleSeconds: TimeInterval = 3.0
+    // Mic stays hot for 30 s after the last record so the
+    // *second* and subsequent record key presses get zero start
+    // latency. Lifted from 3 s — a typical record/audition/record
+    // cycle is longer than that and the user was hitting the
+    // cold-start path every iteration.
+    private let hotMicIdleSeconds: TimeInterval = 30.0
 
     /// Per-note voice slot. Pool keyed by (channel, midi) so a note
     /// retriggered on the same channel reuses the same player + varispeed
@@ -113,6 +133,12 @@ final class MenuBandSampleVoice {
     /// channel so back-to-back noteOns on the same key still get fresh
     /// players (no scheduling-collision gap).
     private let voicesPerChannel: Int = 4
+
+    /// Current pitch-bend, in semitones. ±2 by convention (matches
+    /// `MenuBandController.setBend`), applied on top of every voice's
+    /// note-pitch ratio. Driven by `setBend(amount:)` from the
+    /// controller while the trackpad pitch-bend cursor is active.
+    private var bendSemitones: Float = 0
 
     init() {
         guard let fmt = AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -148,6 +174,21 @@ final class MenuBandSampleVoice {
         for channel: UInt8 in 0..<8 {
             for slot in 0..<voicesPerChannel {
                 _ = ensureVoice(channel: channel, slot: slot)
+            }
+        }
+        // Prewarm the record engine if the user has already granted
+        // microphone permission. Cold AVAudioEngine.start() on an
+        // input graph takes 50–200 ms on Apple Silicon — that lag
+        // shows up as a noticeable gap between hitting the record
+        // key and the first audible sample. Lifting it to launch
+        // time makes every backtick press feel instant.
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized {
+            DispatchQueue.main.async { [weak self] in
+                _ = self?.ensureHotMicRunning()
+                // Don't leave the mic hot forever — schedule the
+                // normal idle-off timer so we drop the engine if
+                // the user never actually records.
+                self?.scheduleHotMicStop()
             }
         }
     }
@@ -221,6 +262,10 @@ final class MenuBandSampleVoice {
         scratch.frameLength = 0
         recordScratch = scratch
         recordWriteFrame = 0
+        // Arm the keyboard-click skip — first ~12 ms of input is
+        // dropped so the recording doesn't open with the record
+        // key's mechanical transient.
+        framesRemainingToSkip = recordKeyClickSkipFrames
         debugTapBlocksLogged = 0
 
         recording = true
@@ -252,6 +297,19 @@ final class MenuBandSampleVoice {
             inputTapInstalled = true
         }
         if !recordEngine.isRunning {
+            // CRITICAL: silence the record engine's output path BEFORE
+            // start(). AVAudioEngine lazily attaches mainMixerNode and
+            // wires it to outputNode the moment the property is first
+            // accessed (or prepare/start touches it under the hood).
+            // On some CoreAudio routings — notably built-in mic +
+            // speaker on Apple Silicon — that creates an implicit
+            // input → mainMixer → output path while the input tap is
+            // running, producing audible echo of the user's voice
+            // through the speakers during recording. Pinning
+            // outputVolume to 0 (and reasserting on every restart)
+            // kills the loopback. The tap callback runs independent
+            // of the output graph, so recording data is unaffected.
+            recordEngine.mainMixerNode.outputVolume = 0
             do {
                 recordEngine.prepare()
                 try recordEngine.start()
@@ -263,6 +321,10 @@ final class MenuBandSampleVoice {
                 NSLog("MenuBand SampleVoice: hot mic start failed: \(error)")
                 return false
             }
+            // Belt + suspenders: assert silence again after start in
+            // case AVAudioEngine's internal connect happened during
+            // start() and reset the volume.
+            recordEngine.mainMixerNode.outputVolume = 0
         }
         NSLog("MenuBand SampleVoice: hot mic ready (input format ch=\(format.channelCount) sr=\(format.sampleRate) buffer=\(inputTapBufferFrames))")
         return true
@@ -387,7 +449,17 @@ final class MenuBandSampleVoice {
         guard let data = scratch.floatChannelData?[0], frames > 0 else { return 0 }
         let window = 256
         let requiredHotWindows = 2
+        // If a SHORT hot burst (≤6 windows ≈ 35 ms at 44.1 kHz) is
+        // followed by quiet, treat it as the residual keyboard
+        // transient that survived the fixed skip and resume the
+        // sustained-hot scan AFTER it. This is the difference
+        // between "click + the user starts playing 40 ms later" and
+        // "click runs into the user's first note" — the former gets
+        // a clean leading edge; the latter passes straight through.
+        let maxTransientWindows = 6
         var hotWindows = 0
+        var transientStart = -1
+        var transientLen = 0
         var i = 0
         while i < frames {
             let end = min(frames, i + window)
@@ -398,12 +470,21 @@ final class MenuBandSampleVoice {
             }
             let rms = sqrt(sumSq / Float(end - i))
             if rms >= trimThreshold {
+                if hotWindows == 0 { transientStart = i }
                 hotWindows += 1
                 if hotWindows >= requiredHotWindows {
                     return max(0, i - window * (requiredHotWindows - 1) - trimPrerollFrames)
                 }
             } else {
+                // Drop a short hot run as transient and keep scanning;
+                // anything longer counts as the actual onset and the
+                // hotWindows tracker already locked in above.
+                if hotWindows > 0 && hotWindows <= maxTransientWindows {
+                    transientLen = i - transientStart
+                    NSLog("MenuBand SampleVoice: dropping leading transient at \(transientStart) (\(transientLen) frames)")
+                }
                 hotWindows = 0
+                transientStart = -1
             }
             i += window
         }
@@ -428,16 +509,29 @@ final class MenuBandSampleVoice {
         // as "recording started" followed by "0 frames".
         if abs(buffer.format.sampleRate - storageFormat.sampleRate) < 0.5,
            let channelData = buffer.floatChannelData {
-            let frames = Int(buffer.frameLength)
+            var frames = Int(buffer.frameLength)
             guard frames > 0 else { return }
             logTapBlockIfNeeded(buffer: buffer, path: "direct")
+            // Drop the keyboard-click prefix transparently. Whole
+            // blocks land entirely inside the skip window for the
+            // first 1–2 callbacks; we advance the source pointer
+            // and shrink the effective frame count when the skip
+            // straddles a block boundary.
+            var srcOffset = 0
+            if framesRemainingToSkip > 0 {
+                let skip = min(framesRemainingToSkip, frames)
+                framesRemainingToSkip -= skip
+                srcOffset = skip
+                frames -= skip
+                if frames <= 0 { return }
+            }
             ensureScratchCapacity(forFramesToAppend: frames)
             guard let scratch = recordScratch,
                   let dst = scratch.floatChannelData?[0] else { return }
             let channelCount = max(1, Int(buffer.format.channelCount))
             var sumSq: Float = 0
             if channelCount == 1 {
-                let src = channelData[0]
+                let src = channelData[0].advanced(by: srcOffset)
                 memcpy(dst.advanced(by: recordWriteFrame), src,
                        frames * MemoryLayout<Float>.size)
                 for i in 0..<frames {
@@ -448,7 +542,7 @@ final class MenuBandSampleVoice {
                 for i in 0..<frames {
                     var mixed: Float = 0
                     for ch in 0..<channelCount {
-                        mixed += channelData[ch][i]
+                        mixed += channelData[ch][i + srcOffset]
                     }
                     mixed /= Float(channelCount)
                     dst[recordWriteFrame + i] = mixed
@@ -492,8 +586,19 @@ final class MenuBandSampleVoice {
             NSLog("MenuBand SampleVoice: convert failed: \(String(describing: error))")
             return
         }
-        let producedFrames = Int(staging.frameLength)
+        var producedFrames = Int(staging.frameLength)
         guard producedFrames > 0 else { return }
+
+        // Same key-click skip as the direct path — drop the leading
+        // transient before it lands in scratch.
+        var srcOffset = 0
+        if framesRemainingToSkip > 0 {
+            let skip = min(framesRemainingToSkip, producedFrames)
+            framesRemainingToSkip -= skip
+            srcOffset = skip
+            producedFrames -= skip
+            if producedFrames <= 0 { return }
+        }
 
         // Grow the scratch buffer if this block would overflow. AVAudio
         // PCM buffers don't resize in place, so we re-allocate at 2×
@@ -505,8 +610,9 @@ final class MenuBandSampleVoice {
         // Mix down to mono if the input is multichannel — pick channel
         // 0 (most macOS mics deliver mono on bus 0 anyway). Storage is
         // single-channel so we only ever write into channelData[0].
-        if let src = staging.floatChannelData?[0],
+        if let srcBase = staging.floatChannelData?[0],
            let dst = scratch.floatChannelData?[0] {
+            let src = srcBase.advanced(by: srcOffset)
             memcpy(dst.advanced(by: recordWriteFrame), src,
                    producedFrames * MemoryLayout<Float>.size)
             // Compute RMS of the just-converted block for the level
@@ -601,7 +707,12 @@ final class MenuBandSampleVoice {
         engine.attach(v.varispeed)
         engine.connect(v.node, to: v.varispeed, format: storageFormat)
         engine.connect(v.varispeed, to: voiceMixer, format: storageFormat)
-        v.node.prepare(withFrameCount: 512)
+        // Prepare with a small frame count — AVAudioPlayerNode
+        // pre-fetches this many frames before play() and that
+        // pre-fetch is on the noteOn critical path. 256 frames @
+        // 44.1 kHz ≈ 5.8 ms keeps onset latency tight without
+        // starving the audio render thread.
+        v.node.prepare(withFrameCount: 256)
         voices[key] = v
         NSLog("MenuBand SampleVoice: attached playback voice channel=\(channel) slot=\(slot)")
         return v
@@ -611,6 +722,60 @@ final class MenuBandSampleVoice {
     @inline(__always)
     private func ratio(forNote midi: UInt8) -> Float {
         Float(pow(2.0, Double(Int(midi) - 60) / 12.0))
+    }
+
+    /// Multiplicative pitch factor for the current trackpad bend.
+    /// `bendSemitones = 0` → 1.0 (no change).
+    @inline(__always)
+    private func bendRateFactor() -> Float {
+        Float(pow(2.0, Double(bendSemitones) / 12.0))
+    }
+
+    /// Linger fade hook. Adjust every currently-playing voice that
+    /// matches `midi` (on `channel`) to volume `value/127`. The
+    /// MIDISynth path uses CC 11 for the same effect — sample
+    /// voice ignores CC 11 so we ramp the player node directly.
+    func setNoteVolume(midi: UInt8, channel: UInt8, value: UInt8) {
+        let vol = Float(value) / 127.0
+        for slot in 0..<voicesPerChannel {
+            let key = voiceKey(channel: channel, slot: slot)
+            if let voice = voices[key], voice.midi == midi {
+                voice.node.volume = vol
+            }
+        }
+    }
+
+    /// Snap every voice on `channel` back to full volume. Used by the
+    /// controller when a new noteOn arrives mid-linger-fade — the
+    /// channel might have voices at 0.05 volume from the ramp, and
+    /// the new note inherits that until the fade resets at the
+    /// end (matching CC11 reset on the MIDISynth side).
+    func resetChannelVolumes(channel: UInt8) {
+        for slot in 0..<voicesPerChannel {
+            let key = voiceKey(channel: channel, slot: slot)
+            if let voice = voices[key] {
+                voice.node.volume = 1.0
+            }
+        }
+    }
+
+    /// Trackpad pitch-bend hook. `amount` is the controller-side
+    /// signed bend; one unit = one octave (12 semitones). No clamp
+    /// — the trackpad accumulator can swing far past ±1, and
+    /// AVAudioUnitVarispeed will pitch-shift the loop accordingly
+    /// until the rate hits its own internal range (~0.25×–4.0× ≈
+    /// ±2 octaves). Updates every currently playing voice's
+    /// varispeed.rate live so the bend slides audible pitch in
+    /// real time, and stashes the bend so notes triggered after
+    /// this call inherit it.
+    func setBend(amount: Float) {
+        bendSemitones = amount * 12.0
+        let factor = bendRateFactor()
+        for (_, v) in voices {
+            if v.node.isPlaying {
+                v.varispeed.rate = ratio(forNote: v.midi) * factor
+            }
+        }
     }
 
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
@@ -627,6 +792,16 @@ final class MenuBandSampleVoice {
             NSLog("MenuBand SampleVoice: noteOn ignored — voice not attached")
             return
         }
+        // The controller rotates `nextMelodicChannel()` 0..3 on every
+        // press, so the same midi can land on a fresh channel while
+        // the previous channel's slot is still mid-release (~80ms
+        // fade). For a looping sample buffer that produces a
+        // perceptible echo — the same loop ringing out at the same
+        // pitch on two voices simultaneously. Hard-stop every voice
+        // already playing this midi (any channel, any slot) BEFORE
+        // we kick off the new one so only one loop ever sounds per
+        // pitch. No fade — the new attack masks the cut.
+        stopAllVoices(playing: midi)
         let slot = nextSlot(channel: channel, midi: midi)
         guard let voice = ensureVoice(channel: channel, slot: slot) else {
             NSLog("MenuBand SampleVoice: noteOn ignored — failed to allocate voice")
@@ -639,7 +814,11 @@ final class MenuBandSampleVoice {
         voice.releaseWork = nil
 
         voice.midi = midi
-        voice.varispeed.rate = ratio(forNote: midi)
+        // Compose the pitch ratio from the note's base ratio AND the
+        // current trackpad pitch bend so dragging the cursor while a
+        // sample voice rings shifts pitch in real time — mirror of
+        // the MIDISynth pitch-bend path.
+        voice.varispeed.rate = ratio(forNote: midi) * bendRateFactor()
         voice.node.volume = Float(velocity) / 127.0
 
         if voice.node.isPlaying {
@@ -656,16 +835,33 @@ final class MenuBandSampleVoice {
         voice.node.play()
     }
 
+    /// Immediately silence every Voice currently playing `midi`
+    /// regardless of channel/slot. Used at noteOn to prevent stacking
+    /// echoes from the controller's per-press channel rotation; the
+    /// fresh attack starts on a clean slate.
+    private func stopAllVoices(playing midi: UInt8) {
+        for (_, v) in voices where v.midi == midi && v.node.isPlaying {
+            v.releaseWork?.cancel()
+            v.releaseWork = nil
+            v.node.stop()
+        }
+    }
+
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
-        // Fade out + stop every slot on this channel that's currently
-        // playing the matched midi note. Per-note round-robin means
-        // the same key may live in several slots at once when the user
-        // re-presses faster than the release tail.
+        // Hard-stop: short attack / short decay is the desired
+        // default for this sampler — no 80ms scheduleRelease fade,
+        // no main-thread volume ramp. AVAudioPlayerNode.stop()
+        // halts the render synchronously so the loop dies on the
+        // current buffer slice. Per-note round-robin can leave the
+        // same midi in several slots at once when the user
+        // re-presses faster than this release; stop them all.
         for slot in 0..<voicesPerChannel {
             let key = voiceKey(channel: channel, slot: slot)
             guard let voice = voices[key], voice.midi == midi,
                   voice.node.isPlaying else { continue }
-            scheduleRelease(voice)
+            voice.releaseWork?.cancel()
+            voice.releaseWork = nil
+            voice.node.stop()
         }
     }
 

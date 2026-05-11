@@ -160,6 +160,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Avoids spurious calls on every onLitChanged tick — only
     /// flips on the keyboard-held edges.
     private var pitchBendCursorLocked = false
+    /// Floating window that draws the bend wheel above every app.
+    /// Used in lockstep with `CGDisplayHideCursor` so the real
+    /// system cursor is invisible during pitch bend — that's what
+    /// stops the cross-app flicker (other apps' cursorUpdate
+    /// handlers can't fight a cursor that isn't being drawn).
+    private var pitchBendOverlay: PitchBendCursorOverlayWindow?
+    /// True while the system cursor is hidden via CGDisplayHideCursor.
+    /// CGDisplayHide/Show calls are reference-counted — unbalanced
+    /// hides leak across app sessions, so this guards a 1-to-1
+    /// pairing.
+    private var pitchBendSystemCursorHidden = false
+    /// Screen position the cursor was at when the bend lock
+    /// engaged. The overlay window anchors here for the duration
+    /// of the gesture (the real cursor is detached by
+    /// CGAssociateMouseAndMouseCursorPosition so position doesn't
+    /// drift).
+    private var pitchBendLockScreenPoint: NSPoint = .zero
     /// Fires when no cursor-Y delta has come in for the idle
     /// window — synthesizes a "finger lifted off the trackpad"
     /// edge. mouseMoved has no .ended phase, so we infer it from
@@ -249,12 +266,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if kbHeld && !self.pitchBendCursorLocked {
                 CGAssociateMouseAndMouseCursorPosition(0)
                 self.pitchBendCursorLocked = true
+                // Snapshot the cursor's screen position so the
+                // overlay window can anchor there for the duration
+                // of the gesture. NSEvent.mouseLocation is in
+                // bottom-left-origin screen coords — same space
+                // NSWindow.setFrameOrigin expects.
+                self.pitchBendLockScreenPoint = NSEvent.mouseLocation
             } else if !kbHeld && self.pitchBendCursorLocked {
                 self.stopPitchBendCursorPin()
                 if self.pitchBendCursorPushed {
                     NSCursor.pop()
                     self.pitchBendCursorPushed = false
                 }
+                // Tear down the overlay first, THEN show the system
+                // cursor — order matters so the user never sees the
+                // bend wheel and the real cursor on screen at the
+                // same time during the handoff.
+                self.pitchBendOverlay?.dismiss()
+                self.showSystemCursorIfNeeded()
                 CGAssociateMouseAndMouseCursorPosition(1)
                 self.pitchBendCursorLocked = false
                 self.startBendDecay()
@@ -1249,6 +1278,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
         menuBand.shutdown()
+        // If we crashed (or were killed) mid-pitch-bend, the system
+        // cursor stays hidden across sessions because CGDisplayHide/Show
+        // are reference-counted globally. Restore here so the user never
+        // ends up with an invisible cursor on next launch.
+        showSystemCursorIfNeeded()
+        pitchBendOverlay?.dismiss()
     }
 
     /// YWFT Processing descriptors built straight from the .ttf URLs.
@@ -1942,19 +1977,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let bendDelta = -dy * Self.bendSensitivityPerPoint
         cancelBendDecay()
         bendAmount += bendDelta
-        bendAmount = max(-1, min(1, bendAmount))
+        // No clamp — the trackpad accumulator can swing past ±1 so
+        // the sample voice (vari-speed) and the staff display
+        // continue scaling beyond an octave. MIDI bend message
+        // saturates naturally at the 14-bit boundary inside
+        // `sendPitchBend`; receiver-side bend range determines the
+        // audible cap (RPN 0/0 = 12 announces an octave on start).
         menuBand.setBend(amount: bendAmount)
         pushStaffPitchShift()
         if !pitchBendCursorPushed {
+            // Hide the real system cursor and show the floating
+            // overlay wheel — the overlay paints over every app, so
+            // there's nothing for other apps' cursorUpdate handlers
+            // to flicker against. NSCursor.push of the neutral
+            // cursor is kept as a fallback for any in-app surface
+            // that does its own NSCursor stack manipulation.
             PitchBendCursor.neutral.push()
             pitchBendCursorPushed = true
-            // Custom pitch-bend wheel stays visible after the first
-            // real scroll delta. The floating panel's tracking areas
-            // can re-issue `cursorUpdate`, so pin the wheel at 60Hz
-            // only once the user has actually moved the trackpad.
-            startPitchBendCursorPin()
+            hideSystemCursorIfNeeded()
+            showPitchBendOverlay()
         }
-        PitchBendCursor.cursor(forBend: bendAmount).set()
+        updatePitchBendOverlayImage()
         // Re-arm the idle-detection timer; if 150 ms goes by
         // without another delta we treat the finger as lifted
         // and start the spring rubber-band.
@@ -1968,11 +2011,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Forward the current effective pitch shift (octave + bend)
     /// into the popover's staff view so the staff visibly slides
-    /// up/down on every shift. ±1 of bendAmount = ±2 semitones; 1
-    /// octave = 12 semitones. The staff eases its displayed shift
-    /// toward this target so changes glide instead of snapping.
+    /// up/down on every shift. ±1 of bendAmount = ±12 semitones
+    /// (one octave); the staff eases its displayed shift toward
+    /// this target so changes glide instead of snapping.
     private func pushStaffPitchShift() {
-        let bendSemitones = CGFloat(bendAmount) * 2
+        let bendSemitones = CGFloat(bendAmount) * MenuBandController.bendSemitonesPerUnit
         let octaveSemitones = CGFloat(menuBand.octaveShift) * 12
         popoverVC?.staffView?.targetPitchShiftSemitones = bendSemitones + octaveSemitones
     }
@@ -2002,6 +2045,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendCursorPinTimer = nil
     }
 
+    private func hideSystemCursorIfNeeded() {
+        guard !pitchBendSystemCursorHidden else { return }
+        CGDisplayHideCursor(CGMainDisplayID())
+        pitchBendSystemCursorHidden = true
+    }
+
+    private func showSystemCursorIfNeeded() {
+        guard pitchBendSystemCursorHidden else { return }
+        CGDisplayShowCursor(CGMainDisplayID())
+        pitchBendSystemCursorHidden = false
+    }
+
+    private func ensurePitchBendOverlay() -> PitchBendCursorOverlayWindow {
+        if let existing = pitchBendOverlay { return existing }
+        let overlay = PitchBendCursorOverlayWindow()
+        pitchBendOverlay = overlay
+        return overlay
+    }
+
+    private func showPitchBendOverlay() {
+        let overlay = ensurePitchBendOverlay()
+        let image = PitchBendCursor.image(forBend: bendAmount)
+        overlay.show(image: image, atScreenPoint: pitchBendLockScreenPoint)
+    }
+
+    private func updatePitchBendOverlayImage() {
+        guard let overlay = pitchBendOverlay, overlay.isVisible else { return }
+        overlay.update(image: PitchBendCursor.image(forBend: bendAmount))
+    }
+
     private func cancelBendDecay() {
         bendDecayTimer?.invalidate()
         bendDecayTimer = nil
@@ -2026,19 +2099,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.bendAmount += self.bendVelocity * dt
             self.menuBand.setBend(amount: self.bendAmount)
             self.pushStaffPitchShift()
-            // Cursor follows the spring so the wheel un-stretches
-            // in lockstep with the audio bend — the visual is
-            // always in sync with what the user hears.
-            if self.pitchBendCursorPushed {
-                PitchBendCursor.cursor(forBend: self.bendAmount).set()
-            }
+            // Cursor wheel follows the spring so the visual
+            // un-stretches in lockstep with the audio bend.
+            // Update the floating overlay (which sits above all
+            // apps) so the visual never flickers against other
+            // apps' cursor handlers during the decay.
+            self.updatePitchBendOverlayImage()
             if abs(self.bendAmount) < 0.001 && abs(self.bendVelocity) < 0.001 {
                 self.bendAmount = 0
                 self.bendVelocity = 0
                 self.menuBand.setBend(amount: 0)
-                if self.pitchBendCursorPushed {
-                    PitchBendCursor.neutral.set()
-                }
+                self.updatePitchBendOverlayImage()
                 timer.invalidate()
                 self.bendDecayTimer = nil
             }

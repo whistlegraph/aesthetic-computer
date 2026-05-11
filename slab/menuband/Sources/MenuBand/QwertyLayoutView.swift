@@ -24,6 +24,14 @@ final class QwertyLayoutView: NSView {
     var voiceColor: NSColor = .controlAccentColor {
         didSet { needsDisplay = true }
     }
+    /// Active octave shift. Combined with the keymap's semitone table
+    /// to decide whether each cap would produce a valid MIDI note
+    /// (0…127) at the current shift — out-of-range caps get a dimmed
+    /// fill so the user can see at a glance which keys are "dead"
+    /// when they push the octave to the extremes.
+    var octaveShift: Int = 0 {
+        didSet { needsDisplay = true }
+    }
 
     /// Pointer-driven key event. Fires on mouseDown over a cap (isDown=true),
     /// when the cursor drags off that cap onto another (isDown=false for the
@@ -141,6 +149,15 @@ final class QwertyLayoutView: NSView {
             let isVoiceKey = Self.voiceKeyCodes.contains(cap.kc)
             let black = (st.map { Self.isBlackKey(semitone: $0) }) ?? false
             let isLit = litKeyCodes.contains(cap.kc)
+            // Out-of-range: this key is mapped to a note, but at the
+            // current octave shift that note would fall outside
+            // MIDI 0…127. Dim the cap so the user can see at a
+            // glance which keys won't sound at the extremes.
+            let outOfRange: Bool = {
+                guard let st = st else { return false }
+                let value = 60 + st + (octaveShift * 12)
+                return value < 0 || value > 127
+            }()
             drawKeycap(rect: rect, label: cap.label, altLabel: cap.altLabel,
                         mapped: st != nil, isBlack: black, lit: isLit,
                         // Both octave keys and voice (number-row) keys
@@ -148,7 +165,8 @@ final class QwertyLayoutView: NSView {
                         // accent treatment so the user can tell at a
                         // glance which presses change state vs play
                         // a note.
-                        isOctaveKey: isOctaveKey || isVoiceKey)
+                        isOctaveKey: isOctaveKey || isVoiceKey,
+                        outOfRange: outOfRange)
         }
     }
 
@@ -291,10 +309,20 @@ final class QwertyLayoutView: NSView {
     private func drawKeycap(rect: NSRect, label: String,
                              altLabel: String? = nil,
                              mapped: Bool, isBlack: Bool, lit: Bool,
-                             isOctaveKey: Bool = false) {
+                             isOctaveKey: Bool = false,
+                             outOfRange: Bool = false) {
         let path = NSBezierPath(roundedRect: rect,
                                  xRadius: scaledCornerRadius,
                                  yRadius: scaledCornerRadius)
+        // Dimmed when the mapped note would be out of MIDI 0…127
+        // range at the active octave shift. Render with the
+        // "unmapped" treatment so the cap reads as dead just like
+        // a non-note letter would. Skip the dim if the cap is
+        // currently lit — held keys should still light up even at
+        // the extreme limit (the controller no-ops the noteOn so
+        // there's no audible event, but the visual confirms what
+        // the user pressed).
+        let isDead = outOfRange && !lit
         // Fills mirror the menubar piano: white-key-mapped letters
         // get a near-white cap, black-key-mapped letters get a
         // near-black cap. Octave-shift keys get a muted accent fill
@@ -311,6 +339,11 @@ final class QwertyLayoutView: NSView {
         } else if isOctaveKey && !mapped {
             NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
             path.fill()
+        } else if isDead {
+            // Out-of-MIDI-range — dim slate fill, no white/black
+            // piano-key treatment, so the cap reads as inert.
+            NSColor.labelColor.withAlphaComponent(0.06).setFill()
+            path.fill()
         } else if mapped && isBlack {
             NSColor(white: 0.08, alpha: 1.0).setFill()
             path.fill()
@@ -323,6 +356,8 @@ final class QwertyLayoutView: NSView {
             stroke = NSColor.controlAccentColor
         } else if isOctaveKey && !mapped {
             stroke = NSColor.controlAccentColor.withAlphaComponent(0.65)
+        } else if isDead {
+            stroke = NSColor.labelColor.withAlphaComponent(0.18)
         } else {
             stroke = NSColor.labelColor.withAlphaComponent(mapped ? 0.45 : 0.30)
         }
@@ -337,6 +372,10 @@ final class QwertyLayoutView: NSView {
             textColor = .black
         } else if isOctaveKey && !mapped {
             textColor = .controlAccentColor
+        } else if isDead {
+            // Soft ghosted glyph so the user can still read the
+            // letter but instantly tells the cap is dead.
+            textColor = NSColor.labelColor.withAlphaComponent(0.30)
         } else if mapped && isBlack {
             textColor = .white
         } else if mapped {

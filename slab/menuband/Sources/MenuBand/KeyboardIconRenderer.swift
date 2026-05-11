@@ -1255,7 +1255,14 @@ enum KeyboardIconRenderer {
             var pillRightExtra: CGFloat = 1
             // The active subscript: explicit label (e.g. "`" for the
             // sample backend) wins over the numeric voice slot.
-            let activeLabel: String? = voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
+            let activeLabel: String? = {
+                // MIDI mode replaces the GM program number with a
+                // bold "M" — the GM index is meaningless once the
+                // route is going to a DAW, so the badge instead
+                // signals the routing state.
+                if midiOn { return "M" }
+                return voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
+            }()
             if let activeLabel = activeLabel {
                 let digitFont = NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy)
                 let label = NSAttributedString(string: activeLabel, attributes: [
@@ -1426,7 +1433,13 @@ enum KeyboardIconRenderer {
         // `voiceLabel` is supplied (e.g. "`" while the sample backend
         // is active) we draw that string verbatim instead of the
         // numeric program slot.
-        let subscriptText: String? = voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
+        // Same priority as the hover-pill computation above: in
+        // MIDI mode the subscript reads as a bold "M" because the
+        // GM program slot is irrelevant once the synth route is
+        // pointed at the DAW.
+        let subscriptText: String? = midiOn
+            ? "M"
+            : voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
         if let subscriptText = subscriptText {
             // Negative kerning tightens the digits so multi-digit
             // values feel more like a tag than spaced text.
