@@ -1,0 +1,21 @@
+{
+  "slug": "stories-2024",
+  "name": "Stories 2024",
+  "description": "Stories from 2024.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2024-01-01",
+      "to": "2024-12-31"
+    },
+    {
+      "type": "media_kind",
+      "values": [
+        "story"
+      ]
+    }
+  ],
+  "order": "date",
+  "manual_include": [],
+  "manual_exclude": []
+}

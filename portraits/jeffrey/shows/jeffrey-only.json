@@ -1,0 +1,10 @@
+{
+  "slug": "jeffrey-only",
+  "name": "Just Jeffrey",
+  "description": "Posts where jeffrey's face is confirmed by face-match.",
+  "selectors": [
+    { "type": "face_match", "subject": "jeffrey" }
+  ],
+  "manual_include": [],
+  "manual_exclude": []
+}

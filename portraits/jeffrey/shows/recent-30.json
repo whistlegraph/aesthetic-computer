@@ -1,0 +1,10 @@
+{
+  "slug": "recent-30",
+  "name": "Last 30 Days",
+  "description": "Rolling window of the most recent month of posts.",
+  "selectors": [
+    { "type": "recent_days", "n": 30 }
+  ],
+  "manual_include": [],
+  "manual_exclude": []
+}

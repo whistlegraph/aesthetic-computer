@@ -1,0 +1,21 @@
+{
+  "slug": "most-commented-100",
+  "name": "Most Commented (Top 100)",
+  "description": "100 most commented posts of all time on @whistlegraph.",
+  "selectors": [
+    {
+      "type": "media_kind",
+      "values": [
+        "post"
+      ]
+    },
+    {
+      "type": "top_n_by",
+      "metric": "comments",
+      "n": 100
+    }
+  ],
+  "order": "comments_desc",
+  "manual_include": [],
+  "manual_exclude": []
+}

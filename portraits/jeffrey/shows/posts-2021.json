@@ -1,0 +1,21 @@
+{
+  "slug": "posts-2021",
+  "name": "Posts 2021",
+  "description": "Grid posts (image/video/carousel) from 2021.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2021-01-01",
+      "to": "2021-12-31"
+    },
+    {
+      "type": "media_kind",
+      "values": [
+        "post"
+      ]
+    }
+  ],
+  "order": "date",
+  "manual_include": [],
+  "manual_exclude": []
+}

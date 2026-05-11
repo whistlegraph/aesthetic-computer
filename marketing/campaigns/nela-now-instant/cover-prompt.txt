@@ -1,0 +1,116 @@
+a documentary-style horizontal photograph of a small chinatown cinema
+on a packed sold-out night. natural lighting, editorial / journalistic
+framing — like a magazine feature shot. shallow but honest depth,
+full-frame digital camera feel, no heavy filtering. every figure on
+roughly the same eye-line — peers among peers, no lone-centered figure.
+
+— the space —
+
+inside now instant image hall, chinatown LA. one of the campaign refs
+is a photograph of the actual room: render the architecture faithfully
+from that ref. mossy / sage green polished-plaster walls and ceiling,
+faintly cloudy and hand-troweled. matching sage-green carpet. tidy
+rows of plush sage-green velvet club armchairs (not red, not brown —
+green velvet). a dark-framed single cinema screen mounted high on the
+front wall, with a dark wall-mount speaker on each side. small
+recessed white ceiling downlights overhead. on the right side wall:
+two warm brass sconces throwing soft starburst flares against the
+green plaster. intimate room — about thirty seats.
+
+view: from the back-side, three-quarter angle, looking toward the
+screen. house lights are at low glow.
+
+— the screen —
+
+on the screen: tall friendly hand-lettered block letters reading
+"BIG SCREEN COMPUTER CLUB", and nothing else. each individual letter
+is a different bright color — playful kidlisp-style multi-color
+typography (cherry red, marigold yellow, electric blue, magenta,
+lime, orange, violet, etc.), each letter chunky and confident on a
+clean black ground inside the dark frame. no subtitle, no monospace
+tagline, no rule blocks, no pixel-art shape, no logo, no date — only
+that one phrase. the screen is the dominant light source: its
+multi-colored wash spills out across the room, catching the cheekbones,
+foreheads, and shoulders of the audience in soft streaks of red,
+yellow, blue, magenta, green. faces glow with mixed colored light,
+mingling with the warm gold from the brass sconces on the side wall.
+diegetic light only — every color visible on a face traces back to a
+real source in the scene.
+
+a single presenter stands beside a small folding table directly
+beneath the screen, a laptop in front of them, a thick coiled cable
+running up to the projection booth. relaxed, gesturing gently at the
+screen with one hand.
+
+— the crowd —
+
+the house is PACKED. every seat full, a few people standing along the
+back wall and side aisles. a sold-out feel.
+
+the mix is mostly cool LA — fashion-aware locals in their 20s–40s, a
+chinatown-meets-eastside crowd: well-cut vintage tees, oversized
+button-downs, leather jackets, tank tops layered under cardigans,
+delicate gold jewelry, dyed hair, varied skin tones and body types,
+people who look like they came for the cinema and the night out.
+many of them are eating and drinking — small striped cardboard
+popcorn boxes, half-eaten pretzels, snack bags, tallboy beer cans,
+plastic cups of natural wine, sparkling water, the occasional asian
+snack (haw flakes, shrimp chips). casual, unposed, paying attention
+to the screen.
+
+scattered among the cool LA crowd, and especially clustered in the
+front two rows, are the NELA computer club members — a quieter,
+nerdier subset. they're the ones with small open clamshell laptops on
+their laps, in a friendly assortment of different makes and ages —
+thinkpads, frameworks, older macbooks, pinebooks, stickers visible on
+lids. their laptop screens show varied real content in glancing
+perspective: a terminal window in green-on-black, a tiny pixel sprite
+editor, a music notation staff, a paint program, an oscilloscope
+sketch, a small line of code, a chat window. never a thumbnail of the
+surrounding scene. clubbers wear plainer gear — flannels, hoodies,
+printed tees, soft sweaters, monospace-energy outfits — and read as
+peers, not stars.
+
+the cool LA folks have NO laptops — they're here for the show, with
+snacks and drinks instead.
+
+— jeffrey, peer —
+
+jeffrey is one of the clubbers (use the SHOOT + SELFIE identity refs
+for likeness — face must be readable). he sits in or near the front
+two rows of clubbers, off-center, slightly turned toward the camera
+so his face is recognizable. short dark hair, slim build, an everyday
+outfit — a printed tee under an open flannel, or a soft hoodie.
+casual, unposed, attentive to the screen. on his lap: an ordinary
+clamshell laptop, same league as the other clubbers' — no special
+color, no logos called out. on his armrest: a folded paper program
+hand-set in plain monospace type, with the words "NOW INSTANT IMAGE
+HALL" clearly printed across the top of the program, and a row of
+rule blocks (▒▒▒▒▒) along its bottom edge. a small ticket stub
+peeks beside the program. tucked beside the program: a slim
+usb-stick-shaped vape pen with a tiny LED dot.
+
+— palette —
+
+dominant: mossy / sage green velvet seats, walls, carpet — deeply
+saturated, the whole room reads green. on top of that green, a riot
+of multi-colored screen-light spilling across faces — red, yellow,
+blue, magenta, lime, orange, violet — each pinned to a letter on the
+screen. accents: bone whites and ivory; warm gold from the brass
+sconces; cool white from the recessed ceiling downlights. muted,
+photographic, naturalistic — but the screen-light is genuinely
+colorful and lively.
+
+— avoid —
+
+cartoon or illustrated styling. heavy filters or HDR. cinematic neon
+glow that doesn't trace back to a source. red or chocolate-brown
+cinema seats (the real seats are sage green velvet — match the venue
+ref). pendant lamps (use the recessed downlights + brass sconces).
+recursive screens (laptops show varied real content, never thumbnails
+of this scene). extra text on the cinema screen — only the phrase
+"BIG SCREEN COMPUTER CLUB" appears there, in multi-colored letters.
+empty seats (the house is packed). everyone holding a laptop (only
+the clubbers — front rows and scattered — have laptops; cool LA
+folks have snacks and drinks). centering jeffrey or any single
+figure as the host.

@@ -1,0 +1,10 @@
+{
+  "slug": "no-jeffrey",
+  "name": "Without Jeffrey",
+  "description": "The complement: works, collaborators, screen captures, no confirmed jeffrey face.",
+  "selectors": [
+    { "type": "face_excludes", "subject": "jeffrey" }
+  ],
+  "manual_include": [],
+  "manual_exclude": []
+}

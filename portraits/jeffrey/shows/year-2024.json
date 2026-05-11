@@ -1,0 +1,14 @@
+{
+  "slug": "year-2024",
+  "name": "2024",
+  "description": "All @whistlegraph posts from 2024.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2024-01-01",
+      "to": "2024-12-31"
+    }
+  ],
+  "manual_include": [],
+  "manual_exclude": []
+}

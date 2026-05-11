@@ -1,0 +1,62 @@
+A horizontal colored-pencil and gouache tableau on warm cream paper, in the
+style of David Hockney's print work — basic palette built from confident
+hatching and striping for tone, tapered edges, optical-mixing and gentle moiré
+in the patterned surfaces. Editorial, satirical-of-historical-group-paintings
+horizontality: a cross-section of an underground Chinatown art-house cinema at
+night, lit warmly by lamps and a single big screen. ALL FIGURES SHARE EYE-LINE
+— no central cult-leader composition, peers among peers.
+
+Setting: a small intimate cinema lobby + auditorium fused in the same
+panoramic frame. STAGE LEFT, a tiny lobby with a hand-lettered marquee whose
+serif wordmark reads "NOW INSTANT" in deep emerald-green ink (#007A33) on
+white, with a small typewritten paper slip pasted under it that says "TONIGHT
+— NELA COMPUTER CLUB" framed in ASCII rules of light grey blocks (░░░). A
+narrow ticket window where two people are accepting mimeographed black-on-
+white tickets stamped once with a green NOW INSTANT seal. A short queue of
+maybe four warmly-dressed twenty-and-thirty-somethings holding old-school
+tickets — button-downs, cardigans, hoodies, printed tees — clutching real
+laptops (a Lenovo ThinkPad with stickers, a Framework, a beat-up unibody
+MacBook, a Pinebook).
+
+STAGE CENTER and RIGHT, the auditorium — six rows of mismatched plush red and
+chocolate cinema seats already partly filled, a faded velvet curtain pulled
+aside. The big screen at the back of the frame is glowing a flat #007A33
+emerald green showing a single line of monospace KidLisp code and a small
+pixel-art shape (the screen is the diegetic light source — the green wash on
+the front-row faces and the seat backs comes from THIS screen, not from any
+overlay). A presenter at a small folding table beneath the screen — laptop
+plugged into a thick projector cable — is mid-demo, smiling, mouth slightly
+open, gesturing at the screen. Audience members are visibly delighted: one
+laughing, one leaning forward, one squinting in mock-detective curiosity, one
+taking notes on a paper program.
+
+JEFFREY appears somewhere in the auditorium row, NOT centered, NOT presenting
+this round — a peer in the audience holding HIS chartreuse-citrus-green
+MacBook Neo on his lap, the four-stroke whistlegraph butterfly (replacing the
+apple logo) glowing softly on the lid; he is grinning, mid-laugh,
+chest-level gesture toward the screen, sharing the moment with the person
+next to him. He wears a printed tee under an open flannel; a small
+USB-stick-shaped vape pen with a tiny LED rests on the armrest beside him.
+
+Background: a tall wooden bookshelf against stage-right wall stocked with
+zines and paperbacks — the bookstore half of the venue — and one peer
+flipping through a book. A narrow strip of Chinatown red lanterns visible
+through the open lobby door at far stage left.
+
+Typography on objects (allowed, hand-lettered, silkscreen-imperfect):
+- Marquee: "NOW INSTANT" in green serif on white
+- Pasted slip: "TONIGHT — NELA COMPUTER CLUB" in monospace
+- Ticket stub in a hand: "BIG SCREEN COMPUTER CLUB" with the date
+- A NELA ASCII fragment "▛▚ ▌ ▞▔▔▚ ▞▔▔▚" along the bottom of the program
+  pamphlet on a lap
+
+Palette: warm cream paper, ivory and bone whites, soft chocolate browns,
+brick red of cinema seats, lamp-amber, deep emerald #007A33 as the dominant
+accent, jeffrey's chartreuse Neo as a single secondary citrus pop. Muted,
+print-tech-aware, hatched, hand-drawn. NO neon, NO cinematic glow, NO
+photoreal rendering — colored pencil and gouache, visible paper grain, gentle
+dissolve at the edges into pure cream paper.
+
+NEVER: recursive screens (other laptops show terminals / paint / scopes /
+notation, not thumbnails of this scene); tank tops; costumes; lone-centered
+jeffrey; cult-leader composition.

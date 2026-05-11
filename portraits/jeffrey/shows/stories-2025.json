@@ -1,0 +1,21 @@
+{
+  "slug": "stories-2025",
+  "name": "Stories 2025",
+  "description": "Stories from 2025.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2025-01-01",
+      "to": "2025-12-31"
+    },
+    {
+      "type": "media_kind",
+      "values": [
+        "story"
+      ]
+    }
+  ],
+  "order": "date",
+  "manual_include": [],
+  "manual_exclude": []
+}

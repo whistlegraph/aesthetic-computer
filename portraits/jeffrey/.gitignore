@@ -10,3 +10,4 @@ sessions/
 *.ckpt
 *.pt
 *.bin
+shows/*.jpg

@@ -1,0 +1,21 @@
+{
+  "slug": "posts-2017",
+  "name": "Posts 2017",
+  "description": "Grid posts (image/video/carousel) from 2017.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2017-01-01",
+      "to": "2017-12-31"
+    },
+    {
+      "type": "media_kind",
+      "values": [
+        "post"
+      ]
+    }
+  ],
+  "order": "date",
+  "manual_include": [],
+  "manual_exclude": []
+}

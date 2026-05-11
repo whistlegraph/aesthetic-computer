@@ -1,0 +1,21 @@
+{
+  "slug": "stories-2018",
+  "name": "Stories 2018",
+  "description": "Stories from 2018.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2018-01-01",
+      "to": "2018-12-31"
+    },
+    {
+      "type": "media_kind",
+      "values": [
+        "story"
+      ]
+    }
+  ],
+  "order": "date",
+  "manual_include": [],
+  "manual_exclude": []
+}

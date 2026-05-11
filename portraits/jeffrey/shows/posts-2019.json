@@ -1,0 +1,21 @@
+{
+  "slug": "posts-2019",
+  "name": "Posts 2019",
+  "description": "Grid posts (image/video/carousel) from 2019.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2019-01-01",
+      "to": "2019-12-31"
+    },
+    {
+      "type": "media_kind",
+      "values": [
+        "post"
+      ]
+    }
+  ],
+  "order": "date",
+  "manual_include": [],
+  "manual_exclude": []
+}

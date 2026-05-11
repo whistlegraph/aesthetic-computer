@@ -1,0 +1,250 @@
+{
+  "Ada Lovelace": {
+    "local": "people-platter-assets/wiki/ada-lovelace.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Ada_Lovelace"
+  },
+  "Alan Turing": {
+    "local": "people-platter-assets/wiki/alan-turing.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Alan_Turing"
+  },
+  "Larry Wall": {
+    "local": "people-platter-assets/wiki/larry-wall.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Larry_Wall"
+  },
+  "Marshall McLuhan": {
+    "local": "people-platter-assets/wiki/marshall-mcluhan.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Marshall_McLuhan"
+  },
+  "Seymour Papert": {
+    "local": "people-platter-assets/wiki/seymour-papert.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Seymour_Papert"
+  },
+  "Theodor W. Adorno": {
+    "local": "people-platter-assets/wiki/theodor-w-adorno.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Theodor_W._Adorno"
+  },
+  "Terry Riley": {
+    "local": "people-platter-assets/wiki/terry-riley.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Terry_Riley"
+  },
+  "Walt Disney": {
+    "local": "people-platter-assets/wiki/walt-disney.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Walt_Disney"
+  },
+  "Yoko Ono": {
+    "local": "people-platter-assets/wiki/yoko-ono.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Yoko_Ono"
+  },
+  "John Cage": {
+    "local": "people-platter-assets/wiki/john-cage.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/John_Cage"
+  },
+  "Morton Feldman": {
+    "local": "people-platter-assets/wiki/morton-feldman.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Morton_Feldman"
+  },
+  "La Monte Young": {
+    "local": "people-platter-assets/wiki/la-monte-young.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/La_Monte_Young"
+  },
+  "Pierre Bourdieu": {
+    "local": "people-platter-assets/wiki/pierre-bourdieu.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Pierre_Bourdieu"
+  },
+  "György Ligeti": {
+    "local": "people-platter-assets/wiki/gyorgy-ligeti.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Gy%C3%B6rgy_Ligeti"
+  },
+  "Nam June Paik": {
+    "local": "people-platter-assets/wiki/nam-june-paik.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Nam_June_Paik"
+  },
+  "Iannis Xenakis": {
+    "local": "people-platter-assets/wiki/iannis-xenakis.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Iannis_Xenakis"
+  },
+  "Cornelius Cardew": {
+    "local": "people-platter-assets/wiki/cornelius-cardew.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Cornelius_Cardew"
+  },
+  "Christian Wolff": {
+    "local": "people-platter-assets/wiki/christian-wolff.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Christian_Wolff_(composer)"
+  },
+  "Alvin Lucier": {
+    "local": "people-platter-assets/wiki/alvin-lucier.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Alvin_Lucier"
+  },
+  "Pauline Oliveros": {
+    "local": "people-platter-assets/wiki/pauline-oliveros.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Pauline_Oliveros"
+  },
+  "Judy Chicago": {
+    "local": "people-platter-assets/wiki/judy-chicago.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Judy_Chicago"
+  },
+  "Devendra Banhart": {
+    "local": "people-platter-assets/wiki/devendra-banhart.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Devendra_Banhart"
+  },
+  "Allan Kaprow": {
+    "local": "people-platter-assets/wiki/allan-kaprow.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Allan_Kaprow"
+  },
+  "Alison Knowles": {
+    "local": "people-platter-assets/wiki/alison-knowles.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Alison_Knowles"
+  },
+  "Stan Douglas": {
+    "local": "people-platter-assets/wiki/stan-douglas.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Stan_Douglas"
+  },
+  "Friedrich Kittler": {
+    "local": "people-platter-assets/wiki/friedrich-kittler.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Friedrich_Kittler"
+  },
+  "Goodiepal": {
+    "local": "people-platter-assets/wiki/goodiepal.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Goodiepal"
+  },
+  "Tom Sachs": {
+    "local": "people-platter-assets/wiki/tom-sachs.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Tom_Sachs"
+  },
+  "John Maeda": {
+    "local": "people-platter-assets/wiki/john-maeda.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/John_Maeda"
+  },
+  "Casey Reas": {
+    "local": "people-platter-assets/wiki/casey-reas.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Casey_Reas"
+  },
+  "Brian Eno": {
+    "local": "people-platter-assets/wiki/brian-eno.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Brian_Eno"
+  },
+  "Tahir Hemphill": {
+    "local": "people-platter-assets/wiki/tahir-hemphill.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Tahir_Hemphill"
+  },
+  "Bret Victor": {
+    "local": "people-platter-assets/wiki/bret-victor.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Bret_Victor"
+  },
+  "Jen Liu": {
+    "local": "people-platter-assets/wiki/jen-liu.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Jen_Liu"
+  },
+  "Andy Warhol": {
+    "local": "people-platter-assets/wiki/andy-warhol.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Andy_Warhol"
+  },
+  "Philip Glass": {
+    "local": "people-platter-assets/wiki/philip-glass.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Philip_Glass"
+  },
+  "Tim Berners-Lee": {
+    "local": "people-platter-assets/wiki/tim-berners-lee.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Tim_Berners-Lee"
+  },
+  "David Byrne": {
+    "local": "people-platter-assets/wiki/david-byrne.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/David_Byrne"
+  },
+  "Brewster Kahle": {
+    "local": "people-platter-assets/wiki/brewster-kahle.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Brewster_Kahle"
+  },
+  "Joseph Beuys": {
+    "local": "people-platter-assets/wiki/joseph-beuys.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Joseph_Beuys"
+  },
+  "Janna Levin": {
+    "local": "people-platter-assets/wiki/janna-levin.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Janna_Levin"
+  },
+  "George E. Lewis": {
+    "local": "people-platter-assets/wiki/george-e-lewis.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/George_E._Lewis"
+  },
+  "Rhys Chatham": {
+    "local": "people-platter-assets/wiki/rhys-chatham.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Rhys_Chatham"
+  },
+  "Erik Demaine": {
+    "local": "people-platter-assets/wiki/erik-demaine.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Erik_Demaine"
+  },
+  "John Baldessari": {
+    "local": "people-platter-assets/wiki/john-baldessari.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/John_Baldessari"
+  },
+  "Mitchel Resnick": {
+    "local": "people-platter-assets/wiki/mitchel-resnick.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Mitchel_Resnick"
+  },
+  "Aaron Swartz": {
+    "local": "people-platter-assets/wiki/aaron-swartz.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Aaron_Swartz"
+  },
+  "Tim Griffin": {
+    "local": "people-platter-assets/wiki/tim-griffin.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Tim_Griffin"
+  },
+  "Woody Vasulka": {
+    "local": "people-platter-assets/wiki/woody-vasulka.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Steina_and_Woody_Vasulka"
+  },
+  "Mark Tribe": {
+    "local": "people-platter-assets/wiki/mark-tribe.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Mark_Tribe"
+  },
+  "Zach Lieberman": {
+    "local": "people-platter-assets/wiki/zach-lieberman.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Zachary_Lieberman"
+  },
+  "Elizabeth Alexander": {
+    "local": "people-platter-assets/wiki/elizabeth-alexander.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Elizabeth_Alexander_(poet)"
+  },
+  "Dustin Yellin": {
+    "local": "people-platter-assets/wiki/dustin-yellin.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Dustin_Yellin"
+  },
+  "Trevor McFedries": {
+    "local": "people-platter-assets/wiki/trevor-mcfedries.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Trevor_McFedries"
+  },
+  "Tavares Strachan": {
+    "local": "people-platter-assets/wiki/tavares-strachan.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Tavares_Strachan"
+  },
+  "Auriea Harvey": {
+    "local": "people-platter-assets/wiki/auriea-harvey.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Auriea_Harvey_%26_Micha%C3%ABl_Samyn"
+  },
+  "Nonny de la Peña": {
+    "local": "people-platter-assets/wiki/nonny-de-la-pena.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Nonny_de_la_Pe%C3%B1a"
+  },
+  "Timnit Gebru": {
+    "local": "people-platter-assets/wiki/timnit-gebru.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Timnit_Gebru"
+  },
+  "Tega Brain": {
+    "local": "people-platter-assets/wiki/tega-brain.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Tega_Brain"
+  },
+  "Greg Brockman": {
+    "local": "people-platter-assets/wiki/greg-brockman.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Greg_Brockman"
+  },
+  "Sahil Lavingia": {
+    "local": "people-platter-assets/wiki/sahil-lavingia.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Network_of_the_Department_of_Government_Efficiency"
+  },
+  "Salome Asega": {
+    "local": "people-platter-assets/wiki/salome-asega.jpg",
+    "wikiUrl": "https://en.wikipedia.org/wiki/Salome_Asega"
+  }
+}

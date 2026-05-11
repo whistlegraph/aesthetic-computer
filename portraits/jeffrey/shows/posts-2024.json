@@ -1,0 +1,21 @@
+{
+  "slug": "posts-2024",
+  "name": "Posts 2024",
+  "description": "Grid posts (image/video/carousel) from 2024.",
+  "selectors": [
+    {
+      "type": "date_range",
+      "from": "2024-01-01",
+      "to": "2024-12-31"
+    },
+    {
+      "type": "media_kind",
+      "values": [
+        "post"
+      ]
+    }
+  ],
+  "order": "date",
+  "manual_include": [],
+  "manual_exclude": []
+}

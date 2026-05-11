@@ -1,0 +1,21 @@
+{
+  "slug": "most-liked-100",
+  "name": "Most Liked (Top 100)",
+  "description": "100 most liked posts of all time on @whistlegraph.",
+  "selectors": [
+    {
+      "type": "media_kind",
+      "values": [
+        "post"
+      ]
+    },
+    {
+      "type": "top_n_by",
+      "metric": "likes",
+      "n": 100
+    }
+  ],
+  "order": "likes_desc",
+  "manual_include": [],
+  "manual_exclude": []
+}

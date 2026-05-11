@@ -1,0 +1,10 @@
+{
+  "slug": "era-2014",
+  "name": "2014",
+  "description": "The first year of the @whistlegraph grid.",
+  "selectors": [
+    { "type": "date_range", "from": "2014-01-01", "to": "2014-12-31" }
+  ],
+  "manual_include": [],
+  "manual_exclude": []
+}
