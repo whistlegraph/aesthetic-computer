@@ -47,6 +47,8 @@ NO_CLAUDE=0
 OUT="/tmp/ac-os-pull/inscription.json"
 INSPECT=""
 FOR_HANDLE=""
+MOOD_OVERRIDE=""
+MOOD_OVERRIDE_SET=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -56,6 +58,7 @@ while [ $# -gt 0 ]; do
         --out)         OUT="$2"; shift ;;
         --inspect)     INSPECT="$2"; shift ;;
         --for-handle)  FOR_HANDLE="${2#@}"; shift ;;
+        --mood)        MOOD_OVERRIDE="$2"; MOOD_OVERRIDE_SET=1; shift ;;
         --help|-h)
             sed -n '2,28p' "$0" | sed 's/^# *//'
             exit 0
@@ -150,6 +153,10 @@ if [ -n "${FOR_HANDLE}" ]; then
     # too). C boot renderer reads these from config.json on next boot.
     aci_fetch_handle_colors "${ACI_HANDLE}"
     aci_fetch_mood "${ACI_HANDLE}"
+    if [ "${MOOD_OVERRIDE_SET}" -eq 1 ]; then
+        ACI_MOOD="${MOOD_OVERRIDE}"
+        aci_ok "mood override: ${ACI_C_BOLD}${ACI_MOOD:-(cleared)}${ACI_C_RESET}"
+    fi
 
     aci_step 3 4 "Assembling inscription bundle for @${ACI_HANDLE}"
     BUNDLE=$(aci_build_inscription_json) || aci_die "bundle assembly failed"
@@ -244,6 +251,10 @@ fi
 # no auth needed. C boot renderer reads them from config.json.
 aci_fetch_handle_colors "${ACI_HANDLE}"
 aci_fetch_mood "${ACI_HANDLE}"
+if [ "${MOOD_OVERRIDE_SET}" -eq 1 ]; then
+    ACI_MOOD="${MOOD_OVERRIDE}"
+    aci_ok "mood override: ${ACI_C_BOLD}${ACI_MOOD:-(cleared)}${ACI_C_RESET}"
+fi
 
 # Step 4 — assemble bundle
 aci_step 4 5 "Assembling inscription bundle"
