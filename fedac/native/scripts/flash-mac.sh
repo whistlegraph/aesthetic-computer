@@ -444,8 +444,12 @@ log "Writing ACBOOT (kernel-direct boot tree)…"
 mkdir -p "${M1}/EFI/BOOT"
 cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
-printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s","udpMidiBroadcast":true}\n' \
-    "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M1}/config.json" >/dev/null
+# Boot piece: notepat by default. Override per-flash with AC_BOOT_PIECE
+# (e.g. AC_BOOT_PIECE=babypat flash-mac.sh ...). Kernel resolves the
+# name to /pieces/<piece>.mjs at boot — see ac-native.c:3853.
+BOOT_PIECE="${AC_BOOT_PIECE:-notepat}"
+printf '{"handle":"%s","piece":"%s","sub":"%s","email":"%s","udpMidiBroadcast":true}\n' \
+    "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M1}/config.json" >/dev/null
 
 # Build merged wifi_creds.json (presets + preserved + optional override)
 # once, reuse for both partitions.
@@ -499,8 +503,8 @@ linux /EFI/BOOT/KERNEL.EFI
 initrd /initramfs.cpio.gz
 options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init nomodeset efi=noruntime
 EOF
-printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s"}\n' \
-    "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M2}/config.json" >/dev/null
+printf '{"handle":"%s","piece":"%s","sub":"%s","email":"%s"}\n' \
+    "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M2}/config.json" >/dev/null
 [ -f "${WIFI_MERGED}" ] && cp "${WIFI_MERGED}" "${M2}/wifi_creds.json"
 
 # --- verify (sha256 round-trip on every kernel + initramfs copy) ---
