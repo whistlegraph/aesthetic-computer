@@ -1081,6 +1081,7 @@ static JSValue js_sound_kill(JSContext *ctx, JSValueConst this_val, int argc, JS
     // Check if it's a sample voice
     int is_sample = 0;
     int is_replay = 0;
+    int is_zoo = 0;
     if (JS_IsObject(argv[0])) {
         JSValue is_v = JS_GetPropertyStr(ctx, argv[0], "isSample");
         is_sample = JS_ToBool(ctx, is_v);
@@ -1088,12 +1089,17 @@ static JSValue js_sound_kill(JSContext *ctx, JSValueConst this_val, int argc, JS
         is_v = JS_GetPropertyStr(ctx, argv[0], "isReplay");
         is_replay = JS_ToBool(ctx, is_v);
         JS_FreeValue(ctx, is_v);
+        is_v = JS_GetPropertyStr(ctx, argv[0], "isZoo");
+        is_zoo = JS_ToBool(ctx, is_v);
+        JS_FreeValue(ctx, is_v);
     }
 
     if (is_replay) {
         audio_replay_kill(audio, id, fade);
     } else if (is_sample) {
         audio_sample_kill(audio, id, fade);
+    } else if (is_zoo) {
+        audio_oneshot_kill(audio, id, fade);
     } else {
         audio_kill(audio, id, fade);
     }
@@ -1465,6 +1471,58 @@ static JSValue js_sample_kill(JSContext *ctx, JSValueConst this_val, int argc, J
     if (argc >= 2 && JS_IsNumber(argv[1])) JS_ToFloat64(ctx, &fade, argv[1]);
 
     audio_sample_kill(audio, (uint64_t)id_d, fade);
+    return JS_UNDEFINED;
+}
+
+// sound.zoo.play(name, { volume, pan, pitch }) — fire a named one-shot
+// sample from the zoo/lasers bank (see audio.c: audio_oneshot_play).
+// Returns an object { id, isZoo: true } so sound.kill() can route it
+// to audio_oneshot_kill the same way isSample / isReplay are handled.
+static JSValue js_zoo_play(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->audio || argc < 1) return JS_UNDEFINED;
+    const char *name = JS_ToCString(ctx, argv[0]);
+    if (!name) return JS_UNDEFINED;
+
+    double volume = 1.0, pan = 0.0, pitch = 1.0;
+    if (argc > 1 && JS_IsObject(argv[1])) {
+        JSValue v;
+        v = JS_GetPropertyStr(ctx, argv[1], "volume");
+        if (JS_IsNumber(v)) JS_ToFloat64(ctx, &volume, v);
+        JS_FreeValue(ctx, v);
+        v = JS_GetPropertyStr(ctx, argv[1], "pan");
+        if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
+        JS_FreeValue(ctx, v);
+        v = JS_GetPropertyStr(ctx, argv[1], "pitch");
+        if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pitch, v);
+        JS_FreeValue(ctx, v);
+    }
+
+    uint64_t id = audio_oneshot_play(current_rt->audio, name, volume, pan, pitch);
+    JS_FreeCString(ctx, name);
+    if (id == 0) return JS_UNDEFINED;
+
+    JSValue snd = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, snd, "id", JS_NewFloat64(ctx, (double)id));
+    JS_SetPropertyStr(ctx, snd, "isZoo", JS_TRUE);
+    return snd;
+}
+
+// sound.zoo.kill(idOrObj, fade)
+static JSValue js_zoo_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->audio || argc < 1) return JS_UNDEFINED;
+    double id_d = 0;
+    if (JS_IsNumber(argv[0])) {
+        JS_ToFloat64(ctx, &id_d, argv[0]);
+    } else if (JS_IsObject(argv[0])) {
+        JSValue id_v = JS_GetPropertyStr(ctx, argv[0], "id");
+        if (JS_IsNumber(id_v)) JS_ToFloat64(ctx, &id_d, id_v);
+        JS_FreeValue(ctx, id_v);
+    }
+    double fade = 0.1;
+    if (argc >= 2 && JS_IsNumber(argv[1])) JS_ToFloat64(ctx, &fade, argv[1]);
+    audio_oneshot_kill(current_rt->audio, (uint64_t)id_d, fade);
     return JS_UNDEFINED;
 }
 
@@ -3037,6 +3095,14 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, samp, "saveTo", JS_NewCFunction(ctx, js_sample_save_to, "saveTo", 1));
     JS_SetPropertyStr(ctx, samp, "loadFrom", JS_NewCFunction(ctx, js_sample_load_from, "loadFrom", 1));
     JS_SetPropertyStr(ctx, sound, "sample", samp);
+
+    // sound.zoo — named one-shot bank (zoo + lasers kits). play() takes
+    // a string name ("dog", "cat", …) and returns a handle that can be
+    // passed to sound.kill() for sustained sounds (e.g. snake hiss).
+    JSValue zoo = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, zoo, "play", JS_NewCFunction(ctx, js_zoo_play, "play", 2));
+    JS_SetPropertyStr(ctx, zoo, "kill", JS_NewCFunction(ctx, js_zoo_kill, "kill", 2));
+    JS_SetPropertyStr(ctx, sound, "zoo", zoo);
 
     // dedicated global replay voice/buffer
     JSValue replay = JS_NewObject(ctx);

@@ -5,8 +5,6 @@ import {
   PERCUSSION_LABELS,
   PERCUSSION_COLORS,
   PERCUSSION_NOTATION,
-  NOTATION_WAVE_RGB,
-  HAT_FREQS,
   playPercussion as sharedPlayPercussion,
 } from "/lib/percussion.mjs";
 
@@ -1181,255 +1179,42 @@ const ZOO_COLORS = {
   "g#": [170, 230, 130], // snake — lime-olive
   "a#": [100, 180, 230], // whale — ocean blue
 };
-const ZOO_NOTATION = {
-  c:  [["w",180,0.8],["n",2500,0.3]],                    // dog
-  d:  [["s",500,0.6],["s",350,0.4]],                     // cat
-  e:  [["t",90,1.2],["s",45,0.8]],                       // cow
-  f:  [["t",380,0.5]],                                   // sheep
-  g:  [["s",2500,0.5],["s",3500,0.4]],                   // bird
-  a:  [["w",140,0.7],["w",180,0.5]],                     // pig
-  b:  [["n",400,1.0],["w",70,1.2]],                      // lion
-  "c#": [["s",320,0.6]],                                 // owl
-  "d#": [["w",110,0.6]],                                 // frog
-  "f#": [["q",450,0.5],["s",500,0.3]],                   // horse
-  "g#": [["n",2000,0.8]],                                // snake
-  "a#": [["s",100,1.2]],                                 // whale
-};
 // Which zoo sounds sustain while held (release kills the voice).
 const ZOO_SUSTAIN = {
   "g#": true, // snake — long hiss
-};
-const ZOO_DURATION = {
-  c: 0.12, d: 0.45, e: 0.60, f: 0.35,
-  g: 0.16, a: 0.25, b: 0.90,
-  "c#": 0.55, "d#": 0.18,
-  "f#": 0.55, "a#": 2.0,
 };
 const ZOO_RELEASE = {
   "g#": 0.25,
 };
 
-// Fire a zoo-kit animal sound. Classic subtractive recipes, one-shot or
-// sustained. `pitchFactor` scales all tonal voices so the kit bends
-// with octave/pitch like perc does.
+// Fire a zoo-kit animal sound. Sample-based — plays a recording from
+// the named one-shot bank (audio.c: load_oneshot_bank). `pitchFactor`
+// is forwarded to the C engine so octave shifts speed up / slow down
+// the playback the same way they do for the perc kit. Sustained sounds
+// (e.g. snake hiss) push their handle into `holdVoices` so the matching
+// "up" phase can kill them via sound.zoo.kill().
 function playZoo(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both", holdVoices = null) {
-  if (!sound?.synth) return;
-  if (phase === "up") return;
+  if (!sound?.zoo?.play) return;
+  if (phase === "up") {
+    // Release any sustained zoo voices (e.g. snake hiss) registered
+    // by an earlier "down" phase.
+    if (Array.isArray(holdVoices) && holdVoices.length > 0) {
+      for (const h of holdVoices) {
+        if (h?.handle && sound?.zoo?.kill) {
+          sound.zoo.kill(h.handle, h.releaseFade ?? 0.1);
+        }
+      }
+      holdVoices.length = 0;
+    }
+    return;
+  }
+  const name = ZOO_NAMES[letter];
+  if (!name) return;
   const v = Math.max(0.1, Math.min(2.2, volume));
   const pf = Math.max(0.25, Math.min(4, pitchFactor));
-  const isLive = phase === "down" && Array.isArray(holdVoices);
-  const rj = (c, f) => c * (1 + (Math.random() - 0.5) * 2 * f);
-  const fire = (params, dur, sustainLen) => {
-    if (isLive && ZOO_SUSTAIN[letter]) {
-      const h = sound.synth({ ...params, duration: Infinity });
-      if (h) holdVoices.push({ handle: h, releaseFade: ZOO_RELEASE[letter] ?? 0.1 });
-    } else {
-      sound.synth({ ...params, duration: dur ?? sustainLen ?? 0.2 });
-    }
-  };
-  switch (letter) {
-    case "c": {
-      // DOG BARK — Bruce's Pure Data recipe + Farnell Ch. 52 formant
-      // frame. Primary energy 400-700 Hz (Indian wolf harmonic data,
-      // Sadhukhan PLOS One). Saw source sweeping 700 → 400 Hz over ~15 ms
-      // (approximated with 3 staggered voices) + narrow-band noise
-      // burst at ~200 Hz (simulating BPF Q≈1 throat resonance) +
-      // high-frequency noise crack on attack. Percussive envelope
-      // (<5 ms attack, 80-150 ms decay, zero sustain).
-      const p1 = 700 * pf, p2 = 500 * pf, p3 = 400 * pf;
-      sound.synth({ type: "sawtooth", tone: p1, duration: 0.012, volume: rj(0.80, 0.08) * v, attack: 0.001, decay: 0.011, pan });
-      sound.synth({ type: "sawtooth", tone: p2, duration: 0.040, volume: rj(0.72, 0.08) * v, attack: 0.008, decay: 0.032, pan });
-      sound.synth({ type: "sawtooth", tone: p3, duration: 0.100, volume: rj(0.68, 0.08) * v, attack: 0.022, decay: 0.080, pan });
-      // Throat resonance (approx. BPF-noise at ~200 Hz)
-      sound.synth({ type: "triangle", tone: 210 * pf, duration: 0.12, volume: rj(0.35, 0.08) * v, attack: 0.003, decay: 0.11, pan });
-      // High-freq click on attack
-      sound.synth({ type: "noise", tone: 2800 * pf, duration: 0.006, volume: 0.40 * v, attack: 0.0003, decay: 0.005, pan });
-      break;
-    }
-    case "d": {
-      // CAT MEOW — MeowSynth / Farnell vowel-interpolation recipe.
-      // Arched F0 rises from 500 → 750 Hz, then falls to 400 Hz —
-      // food-context meow, per Schötz & Eklund. Four staggered
-      // saw-ish stages approximate the pitch arch. Vowel transition
-      // from /e/ (F1=400, F2=1900) → /o/ (F1=500, F2=900) sketched
-      // with two parallel formant-tracker sine voices that also
-      // sweep. ADSR ~30 ms A, 400 ms R, total 500-700 ms.
-      const atkBase = 0.025;
-      sound.synth({ type: "sawtooth", tone: 500 * pf, duration: 0.18, volume: rj(0.45, 0.08) * v, attack: atkBase, decay: 0.14, pan });
-      sound.synth({ type: "sawtooth", tone: 700 * pf, duration: 0.18, volume: rj(0.50, 0.08) * v, attack: atkBase + 0.08, decay: 0.14, pan });
-      sound.synth({ type: "sawtooth", tone: 550 * pf, duration: 0.18, volume: rj(0.48, 0.08) * v, attack: atkBase + 0.22, decay: 0.16, pan });
-      sound.synth({ type: "sawtooth", tone: 400 * pf, duration: 0.24, volume: rj(0.40, 0.08) * v, attack: atkBase + 0.36, decay: 0.22, pan });
-      // F1 / F2 formant singers — sine voices sweeping from /e/ to /o/
-      sound.synth({ type: "sine", tone: 1900 * pf, duration: 0.22, volume: rj(0.15, 0.05) * v, attack: atkBase, decay: 0.18, pan });
-      sound.synth({ type: "sine", tone: 900 * pf,  duration: 0.28, volume: rj(0.18, 0.05) * v, attack: atkBase + 0.20, decay: 0.22, pan });
-      break;
-    }
-    case "e": {
-      // COW MOO — Green et al. formant measurements: F0 80-150 Hz,
-      // F1 ~790 Hz, F2 ~1942 Hz. Low F0 drifts slightly downward,
-      // F1 opens ~600 → ~900 Hz over the tail ("mmm → ooo"). Saw
-      // source for harmonic richness + slow sine LFO (via a detuned
-      // voice) for vocal-fold ripple.
-      const base = 110 * pf;
-      sound.synth({ type: "sawtooth", tone: base, duration: 1.4, volume: rj(0.70, 0.06) * v, attack: 0.08, decay: 1.0, pan });
-      sound.synth({ type: "sawtooth", tone: base * 0.93, duration: 1.4, volume: rj(0.45, 0.06) * v, attack: 0.10, decay: 1.0, pan });
-      // F1 — mouth-closed to mouth-open
-      sound.synth({ type: "sine", tone: 600 * pf, duration: 0.7, volume: rj(0.35, 0.05) * v, attack: 0.10, decay: 0.5, pan });
-      sound.synth({ type: "sine", tone: 900 * pf, duration: 0.9, volume: rj(0.30, 0.05) * v, attack: 0.50, decay: 0.7, pan });
-      // F2 always-on
-      sound.synth({ type: "sine", tone: 1942 * pf, duration: 1.3, volume: rj(0.10, 0.03) * v, attack: 0.12, decay: 1.0, pan });
-      break;
-    }
-    case "f": {
-      // SHEEP BAA — Briefer et al. *Current Biology* 2017: sheep
-      // vocalizations evolved a characteristic 5-8 Hz vibrato (±15%).
-      // Approximated with 6 staggered saw voices alternating between
-      // F0 and F0×1.15, ~50 ms each = 7 Hz vibrato. Base F0 ~280 Hz.
-      const base = 280 * pf;
-      const hi = base * 1.15;
-      const vibDur = 0.05;
-      for (let i = 0; i < 7; i++) {
-        const tone = (i & 1) ? hi : base;
-        sound.synth({ type: "sawtooth", tone, duration: vibDur + 0.03,
-          volume: rj(0.50, 0.08) * v,
-          attack: i * vibDur + 0.002, decay: vibDur + 0.02, pan });
-      }
-      // Lamb/nasal harmonic
-      sound.synth({ type: "triangle", tone: base * 2, duration: 0.5, volume: rj(0.18, 0.05) * v, attack: 0.01, decay: 0.45, pan });
-      break;
-    }
-    case "g": {
-      // BIRD CHIRP — Van Hunter Adams' Pico recipe: "swoop + chirp".
-      // Swoop = sine sinusoidal F0 contour 1740 → 2000 → 1740 Hz over
-      // 130 ms. Chirp = sine sweeping 2 → 7 kHz in 40-80 ms. Silence
-      // ~50 ms between primitives.
-      // Swoop approximation (3 stages around the peak)
-      sound.synth({ type: "sine", tone: 1740 * pf, duration: 0.045, volume: rj(0.52, 0.1) * v, attack: 0.002, decay: 0.04, pan });
-      sound.synth({ type: "sine", tone: 2000 * pf, duration: 0.045, volume: rj(0.58, 0.1) * v, attack: 0.045, decay: 0.04, pan });
-      sound.synth({ type: "sine", tone: 1740 * pf, duration: 0.045, volume: rj(0.52, 0.1) * v, attack: 0.090, decay: 0.04, pan });
-      // Chirp — 2 → 7 kHz exponential sweep in 60 ms (5 stages)
-      for (let i = 0; i < 5; i++) {
-        const t = i / 4;
-        const tone = 2000 * Math.pow(3.5, t) * pf; // 2k → 7k
-        sound.synth({ type: "sine", tone, duration: 0.012 + 0.015,
-          volume: rj(0.50 - t * 0.08, 0.1) * v,
-          attack: 0.20 + i * 0.012 + 0.0005,
-          decay: 0.012, pan });
-      }
-      break;
-    }
-    case "a": {
-      // PIG OINK — Garcia et al. ventricular-fold study: F0 bounces
-      // between grunt ~93 Hz (folds engaged) and squeal ~409 Hz
-      // (folds disengaged). Classic oink = two staccato bursts, 100 ms
-      // each, 80 ms gap. Random F0 toggle mimics chaos.
-      const grunt = 93 * pf, squeal = 300 * pf;
-      // Burst 1
-      sound.synth({ type: "sawtooth", tone: grunt, duration: 0.09, volume: rj(0.72, 0.08) * v, attack: 0.005, decay: 0.08, pan });
-      sound.synth({ type: "sawtooth", tone: squeal, duration: 0.04, volume: rj(0.50, 0.08) * v, attack: 0.03, decay: 0.03, pan });
-      // Gap + burst 2
-      sound.synth({ type: "sawtooth", tone: grunt * 1.05, duration: 0.09, volume: rj(0.68, 0.08) * v, attack: 0.18, decay: 0.08, pan });
-      sound.synth({ type: "sawtooth", tone: squeal * 0.92, duration: 0.04, volume: rj(0.48, 0.08) * v, attack: 0.21, decay: 0.03, pan });
-      // Breath noise
-      sound.synth({ type: "noise", tone: 800 * pf, duration: 0.25, volume: rj(0.15, 0.05) * v, attack: 0.01, decay: 0.23, pan });
-      break;
-    }
-    case "b": {
-      // LION ROAR — Klemuk et al. PLOS ONE + Anikin et al. RSB 2025.
-      // Two coupled oscillators + forced subharmonic at F0/2 produce
-      // the characteristic chaos. F0 ~130 Hz sliding down to ~90 Hz
-      // over the roar; subharmonic layer kicks in at 40% through.
-      // Filtered noise 600-1200 Hz for breathy growl. 2-4 s total.
-      const f0a = 130 * pf, f0b = 90 * pf;
-      sound.synth({ type: "sawtooth", tone: f0a, duration: 2.0, volume: rj(0.75, 0.08) * v, attack: 0.20, decay: 1.5, pan });
-      sound.synth({ type: "sawtooth", tone: f0b, duration: 2.0, volume: rj(0.65, 0.08) * v, attack: 0.40, decay: 1.4, pan });
-      // Forced subharmonic — emerges later, gives the growl ending
-      sound.synth({ type: "sawtooth", tone: f0a * 0.5, duration: 1.4, volume: rj(0.40, 0.08) * v, attack: 0.80, decay: 1.2, pan });
-      // Filtered-noise breath band (600-1200 Hz approximated by
-      // band-limited noise at 900 Hz)
-      sound.synth({ type: "noise", tone: 900 * pf, duration: 1.8, volume: rj(0.28, 0.06) * v, attack: 0.30, decay: 1.4, pan });
-      break;
-    }
-    case "c#": {
-      // OWL HOOT — Cornell Lab Great Horned Owl data: near-pure sine,
-      // F0 250-350 Hz, slight 5% droop at tail. Call pattern often
-      // 4-5 hoots in 5 s; we do single hoot here (grid key = 1 hoot).
-      sound.synth({ type: "sine", tone: 300 * pf, duration: 0.5, volume: rj(0.72, 0.06) * v, attack: 0.10, decay: 0.35, pan });
-      sound.synth({ type: "sine", tone: 285 * pf, duration: 0.2, volume: rj(0.45, 0.06) * v, attack: 0.40, decay: 0.15, pan });
-      // Low body harmonic (great horned owls have faint F2 ~600 Hz)
-      sound.synth({ type: "sine", tone: 600 * pf, duration: 0.55, volume: rj(0.10, 0.04) * v, attack: 0.12, decay: 0.40, pan });
-      break;
-    }
-    case "d#": {
-      // FROG RIBBIT — Yamaguchi *Xenopus* pulse-train research +
-      // Dinacon Túngara recipe. Fast trill = 60 Hz click rate, energy
-      // 100-500 Hz. Approximated with 8 quick sawtooth bursts at
-      // 60 Hz (~17 ms spacing) + a narrow-band resonance peak at 1 kHz.
-      const base = 180 * pf;
-      for (let i = 0; i < 8; i++) {
-        sound.synth({ type: "sawtooth", tone: base, duration: 0.012,
-          volume: rj(0.55, 0.08) * v * (1 - i * 0.05),
-          attack: 0.001, decay: 0.010, pan });
-        // Stagger via accumulated attack — next voice starts ~17 ms later
-        const nextBase = base + (Math.random() - 0.5) * 20;
-        sound.synth({ type: "sawtooth", tone: nextBase, duration: 0.012,
-          volume: rj(0.50, 0.08) * v * (1 - i * 0.05),
-          attack: 0.016 * (i + 1), decay: 0.010, pan });
-      }
-      // Species-specific 1 kHz resonance (vocal sac Helmholtz)
-      sound.synth({ type: "sine", tone: 1000 * pf, duration: 0.25, volume: rj(0.20, 0.05) * v, attack: 0.002, decay: 0.22, pan });
-      break;
-    }
-    case "f#": {
-      // HORSE WHINNY — Stoeger et al. *Current Biology* 2026: whinnies
-      // are BIPHONIC — two independent non-harmonic fundamentals.
-      // Voice 1: F0 ~400 Hz, saw with 7 Hz vibrato ±15 %, descending.
-      // Voice 2: G0 ~1500 Hz, pure sine aerodynamic whistle (horse
-      // literally whistles through voice box), parallel descent.
-      // Overlap ~80%, stagger attacks by ~150 ms.
-      const f0 = 400 * pf, g0 = 1500 * pf;
-      // Voice 1 — biphonic low with vibrato (3 vibrato cycles)
-      for (let i = 0; i < 5; i++) {
-        const vibMul = (i & 1) ? 1.15 : 0.85;
-        sound.synth({ type: "sawtooth", tone: f0 * vibMul * (1 - i * 0.04), duration: 0.18,
-          volume: rj(0.55, 0.06) * v * (1 - i * 0.06),
-          attack: 0.05 + i * 0.14, decay: 0.15, pan });
-      }
-      // Voice 2 — high aerodynamic whistle (joins 150 ms later, descends parallel)
-      for (let i = 0; i < 4; i++) {
-        sound.synth({ type: "sine", tone: g0 * (1 - i * 0.08), duration: 0.22,
-          volume: rj(0.35, 0.06) * v * (1 - i * 0.10),
-          attack: 0.15 + i * 0.18, decay: 0.20, pan });
-      }
-      break;
-    }
-    case "g#": {
-      // SNAKE HISS — Aubret & Mangin: vipers hiss low (200-400 Hz
-      // BPF), grass/colubrid snakes hiss high (5-10 kHz). "Cartoon"
-      // cobra hiss combines both. Slow 0.5 Hz amplitude wobble for
-      // breath rhythm. Sustained while held.
-      const low = { type: "noise", tone: 300 * pf, volume: rj(0.40, 0.06) * v, attack: 0.08, decay: 0.2, pan };
-      const high = { type: "noise", tone: 6000 * pf, volume: rj(0.22, 0.05) * v, attack: 0.12, decay: 0.3, pan };
-      fire(low, 1.2, 1.2);
-      fire(high, 1.2, 1.2);
-      break;
-    }
-    case "a#": {
-      // WHALE SONG — Cazau additive-resynthesis approach: multiple
-      // sines with slow FM (1-3 Hz vibrato) + long glide 600 → 1000
-      // → 400 Hz over 4 s. Long reverb tail would help but not in
-      // this kit. Approximate with 3 sine stages tracing the glide
-      // + a lower octave drone.
-      const p1 = 600 * pf, p2 = 1000 * pf, p3 = 400 * pf;
-      sound.synth({ type: "sine", tone: p1, duration: 1.4, volume: rj(0.60, 0.06) * v, attack: 0.4, decay: 0.9, pan });
-      sound.synth({ type: "sine", tone: p2, duration: 1.4, volume: rj(0.55, 0.06) * v, attack: 1.3, decay: 0.9, pan });
-      sound.synth({ type: "sine", tone: p3, duration: 1.4, volume: rj(0.50, 0.06) * v, attack: 2.4, decay: 1.1, pan });
-      // Lower-octave drone for sub presence
-      sound.synth({ type: "sine", tone: p1 * 0.5, duration: 3.0, volume: rj(0.25, 0.05) * v, attack: 0.6, decay: 2.2, pan });
-      // Subtle 2 Hz tremolo approximated by mid-call amplitude voice
-      sound.synth({ type: "sine", tone: p1 * 1.01, duration: 2.5, volume: rj(0.20, 0.05) * v, attack: 1.0, decay: 1.5, pan });
-      break;
-    }
+  const handle = sound.zoo.play(name, { volume: v, pan, pitch: pf });
+  if (handle && Array.isArray(holdVoices) && ZOO_SUSTAIN[letter]) {
+    holdVoices.push({ handle, releaseFade: ZOO_RELEASE[letter] ?? 0.1 });
   }
 }
 
@@ -1707,14 +1492,6 @@ function kitColorsFor(kit) {
   if (kit === "lasers") return LASER_COLORS;
   return null;
 }
-function kitNotationFor(kit) {
-  if (isWarKit(kit)) return WAR_NOTATION;
-  if (kit === "perc") return PERCUSSION_NOTATION;
-  if (kit === "zoo") return ZOO_NOTATION;
-  if (kit === "lasers") return LASER_NOTATION;
-  return null;
-}
-
 // Cycle the kit state for a side: off → perc → warA → warB → zoo → lasers → off.
 // warA = preset-default model per weapon (mostly classic); warB forces
 // physical/DWG synthesis for direct A/B comparison; zoo + lasers are
@@ -5619,7 +5396,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const kitNames = kitNamesFor(kit);
     const kitLabels = kitLabelsFor(kit);
     const kitColors = kitColorsFor(kit);
-    const kitNotation = kitNotationFor(kit);
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const noteName = grid[r][c];
@@ -5710,90 +5486,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           : "";
         write(label, { x: x + 2, y: y + 2, size: 1, font: "font_1" });
 
-        // Stochastic graphic notation inside drum pads (percussion mode only).
-        // Each drum's voices are plotted as horizontal lines (tonal) or noise
-        // dots (noise-based) at log-frequency Y positions. Every frame, the
-        // positions jitter by ±1 px and noise dots are re-scattered, so the
-        // viewer sees the randomness mechanism animating even when idle.
-        if (drumActive) {
-          const sig = kitNotation && kitNotation[letter];
-          if (sig) {
-            // Usable plot area inside the pad (leave room for label at top
-            // and bottom-label area).
-            const pxMin = x + 3;
-            const pxMax = x + btnW - 4;
-            const pyMin = y + 11; // below top label
-            const pyMax = y + btnH - 13; // above bottom label
-            if (pxMax > pxMin && pyMax > pyMin + 4) {
-              const plotW = pxMax - pxMin;
-              const plotH = pyMax - pyMin;
-              const logLo = Math.log(30);
-              const logHi = Math.log(10000);
-              // Per-pad PRNG. Previously seeded with `frame` so the
-              // scatter shimmered every frame ("shake constantly")
-              // even when nothing was being played — visually noisy
-              // and confusing about what the pad represents. Now the
-              // seed is purely per-key, so each pad's scatter is a
-              // STATIC fingerprint of that drum's voice signature.
-              // Hit feedback comes from per-pad highlighting (see
-              // padHitUntil[letter]) and the screen-wide drumFlashes
-              // bg pulse, not from notation animation.
-              const seed = ((key ? key.charCodeAt(0) : 0) * 374761393) >>> 0;
-              const prng = (n) => {
-                let s = (seed ^ (n * 2246822519)) >>> 0;
-                s ^= s << 13; s >>>= 0;
-                s ^= s >>> 17;
-                s ^= s << 5;  s >>>= 0;
-                return (s >>> 0) / 4294967296;
-              };
-              for (let i = 0; i < sig.length; i++) {
-                const [t, f, vol] = sig[i];
-                const logF = Math.log(Math.max(30, Math.min(10000, f)));
-                const yNorm = 1 - (logF - logLo) / (logHi - logLo);
-                const py = pyMin + Math.round(yNorm * plotH);
-                const rgb = NOTATION_WAVE_RGB[t] || [180, 180, 200];
-                const alpha = isActive ? 220 : 130;
-                if (t === "n") {
-                  // Scatter ~vol*8 random dots around py
-                  const count = Math.max(2, Math.round(vol * 8));
-                  for (let d = 0; d < count; d++) {
-                    const dx = pxMin + Math.floor(prng(i * 31 + d) * plotW);
-                    const dy = py + Math.floor((prng(i * 31 + d + 17) - 0.5) * 5);
-                    if (dx >= pxMin && dx <= pxMax && dy >= pyMin && dy <= pyMax) {
-                      ink(rgb[0], rgb[1], rgb[2], alpha);
-                      box(dx, dy, 1, 1, true);
-                    }
-                  }
-                } else {
-                  // Horizontal line (tonal voice); thickness ∝ volume
-                  const jitterY = Math.floor((prng(i) - 0.5) * 2);
-                  const lineY = Math.max(pyMin, Math.min(pyMax - 1, py + jitterY));
-                  const thickness = Math.max(1, Math.min(2, Math.round(vol * 0.9)));
-                  ink(rgb[0], rgb[1], rgb[2], alpha);
-                  box(pxMin, lineY, plotW, thickness, true);
-                }
-              }
-            }
-          }
-        } else if (btnH > 12) {
+        if (!drumActive && btnH > 12) {
           if (isActive) ink(255, 255, 255, 180);
           else { const sl = dark ? (sharp ? 80 : 120) : (sharp ? 160 : 110); ink(sl, sl, sl); }
           write(letter + noteOctave, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
         }
 
-        // In drum mode the bottom label is the drum name, not the note.
-        // Prefer the full name ("kick", "snare", "splash") when the pad
-        // has space; fall back to the 3-char abbreviation when tight.
-        // font_1 is 6px per char, so "kick"=26px, "snare"=32px, "splash"=38px,
-        // "cowbell"=44px. Pick full name when btnW >= label width + padding.
+        // In drum mode the bottom label is the drum's full name.
         if (drumActive && btnH > 12) {
           if (isActive) ink(255, 255, 255, 210);
           else { const sl = dark ? (sharp ? 100 : 150) : (sharp ? 120 : 80); ink(sl, sl, sl); }
-          const fullName = (kitNames && kitNames[letter]) || "";
-          const shortLabel = (kitLabels && kitLabels[letter]) || (letter + noteOctave);
-          const fullPx = fullName.length * 6 + 4;
-          const bottomLabel = (fullName && btnW >= fullPx) ? fullName : shortLabel;
-          write(bottomLabel, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
+          const fullName = (kitNames && kitNames[letter]) || (kitLabels && kitLabels[letter]) || (letter + noteOctave);
+          write(fullName, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
         }
 
         // Pressure bar — fills from bottom of pad proportional to analog pressure

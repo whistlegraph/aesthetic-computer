@@ -517,6 +517,256 @@ static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
 // history for "Karplus-Strong" or "Bank/Välimäki" if you need to compare.)
 
 // ============================================================
+// One-shot named-buffer bank (zoo / lasers / future kits)
+// ============================================================
+// Mirrors the piano bank above but indexed by string name and addressed
+// per-voice (each concurrent voice can play a different buffer). This
+// is what notepat's `zoo` and `lasers` kits route through — they trigger
+// pre-recorded one-shot files instead of synthesizing each animal/laser
+// from oscillators.
+//
+// File layout on disk: <bank_root>/<name>.raw — header-less float32
+// mono at AUDIO_SAMPLE_RATE. The pre-build scripts
+// (scripts/prep-zoo-samples.sh) generate these and check them into the
+// repo; build-and-flash-initramfs.sh copies them to /samples/<kit>/.
+//
+// At load time we scan both /samples/zoo and /samples/lasers (if
+// present) and merge into one flat name-keyed table. Names collide at
+// peril of last-write-wins — keep them unique across kits.
+typedef struct {
+    char     name[16];    // lowercase stem, NUL-terminated, max 15 chars
+    int      len;         // sample count
+    float   *data;        // mono float32 at AUDIO_SAMPLE_RATE
+} OneShotSample;
+#define ONESHOT_BANK_MAX 64
+static OneShotSample oneshot_bank[ONESHOT_BANK_MAX];
+static int           oneshot_bank_count = 0;
+
+typedef struct {
+    int             active;
+    const OneShotSample *sample;  // points into oneshot_bank
+    double          position;     // fractional sample index
+    double          speed;        // 1.0 = original pitch
+    double          volume;
+    double          pan;
+    double          fade;
+    double          fade_target;
+    uint64_t        id;
+} OneShotVoice;
+#define ONESHOT_MAX_VOICES 16
+static OneShotVoice oneshot_voices[ONESHOT_MAX_VOICES];
+static uint64_t     oneshot_next_id = 1;
+static pthread_mutex_t oneshot_lock = PTHREAD_MUTEX_INITIALIZER;
+
+// Lowercase-copy up to dst_max-1 chars. Returns dst.
+static char *oneshot_lowercase_copy(char *dst, size_t dst_max, const char *src) {
+    size_t i = 0;
+    for (; src[i] && i + 1 < dst_max; i++) {
+        char c = src[i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        dst[i] = c;
+    }
+    dst[i] = '\0';
+    return dst;
+}
+
+// Load any *.raw files from `dir_path` into oneshot_bank[]. Stops if
+// the bank fills (rare — 64 entries is plenty for two kits).
+static void load_oneshot_bank_dir(const char *dir_path) {
+    DIR *dir = opendir(dir_path);
+    if (!dir) return;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL && oneshot_bank_count < ONESHOT_BANK_MAX) {
+        if (ent->d_name[0] == '.') continue;
+        size_t nlen = strlen(ent->d_name);
+        if (nlen < 5 || strcmp(ent->d_name + nlen - 4, ".raw") != 0) continue;
+
+        char stem[32];
+        size_t stem_len = nlen - 4;
+        if (stem_len >= sizeof(stem)) stem_len = sizeof(stem) - 1;
+        memcpy(stem, ent->d_name, stem_len);
+        stem[stem_len] = '\0';
+
+        char path[512];
+        snprintf(path, sizeof(path), "%s/%s", dir_path, ent->d_name);
+        FILE *fp = fopen(path, "rb");
+        if (!fp) continue;
+        fseek(fp, 0, SEEK_END);
+        long sz = ftell(fp);
+        rewind(fp);
+        if (sz <= 0 || sz % (long)sizeof(float) != 0) {
+            fclose(fp); continue;
+        }
+        int sample_count = (int)(sz / (long)sizeof(float));
+        float *buf = malloc((size_t)sz);
+        if (!buf) { fclose(fp); continue; }
+        size_t rd = fread(buf, 1, (size_t)sz, fp);
+        fclose(fp);
+        if (rd != (size_t)sz) { free(buf); continue; }
+
+        // If a sample by this name already exists, replace it (lasers
+        // overrides zoo if names ever collide). Keeps bank flat.
+        char lc_name[16];
+        oneshot_lowercase_copy(lc_name, sizeof(lc_name), stem);
+        int slot = -1;
+        for (int i = 0; i < oneshot_bank_count; i++) {
+            if (strcmp(oneshot_bank[i].name, lc_name) == 0) { slot = i; break; }
+        }
+        if (slot < 0) {
+            slot = oneshot_bank_count++;
+        } else {
+            free(oneshot_bank[slot].data);
+        }
+        strncpy(oneshot_bank[slot].name, lc_name, sizeof(oneshot_bank[slot].name) - 1);
+        oneshot_bank[slot].name[sizeof(oneshot_bank[slot].name) - 1] = '\0';
+        oneshot_bank[slot].len  = sample_count;
+        oneshot_bank[slot].data = buf;
+    }
+    closedir(dir);
+}
+
+void load_oneshot_bank(void) {
+    oneshot_bank_count = 0;
+    // Scan known kit dirs. /mnt fallback mirrors the piano bank pattern
+    // so an OTA-2-style USB data partition can carry larger sample sets.
+    static const char *paths[] = {
+        "/samples/zoo",
+        "/samples/lasers",
+        "/mnt/samples/zoo",
+        "/mnt/samples/lasers",
+        NULL,
+    };
+    for (int i = 0; paths[i]; i++) {
+        struct stat st;
+        if (stat(paths[i], &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+        load_oneshot_bank_dir(paths[i]);
+    }
+    if (oneshot_bank_count == 0) {
+        ac_log("[oneshot-bank] no samples found — zoo/lasers will be silent\n");
+        return;
+    }
+    ac_log("[oneshot-bank] loaded %d samples\n", oneshot_bank_count);
+}
+
+static const OneShotSample *find_oneshot(const char *name) {
+    if (!name || !*name) return NULL;
+    char lc[16];
+    oneshot_lowercase_copy(lc, sizeof(lc), name);
+    for (int i = 0; i < oneshot_bank_count; i++) {
+        if (strcmp(oneshot_bank[i].name, lc) == 0) return &oneshot_bank[i];
+    }
+    return NULL;
+}
+
+uint64_t audio_oneshot_play(ACAudio *audio, const char *name,
+                            double volume, double pan, double pitch_factor) {
+    (void)audio;
+    const OneShotSample *s = find_oneshot(name);
+    if (!s) {
+        ac_log("[oneshot] play '%s' — sample not in bank\n", name ? name : "(null)");
+        return 0;
+    }
+    if (pitch_factor <= 0.0) pitch_factor = 1.0;
+    if (volume < 0.0) volume = 0.0;
+    if (pan < -1.0) pan = -1.0;
+    if (pan >  1.0) pan =  1.0;
+
+    pthread_mutex_lock(&oneshot_lock);
+    // Find a free slot, or steal the oldest (lowest id) active voice.
+    int slot = -1;
+    uint64_t oldest_id = (uint64_t)-1;
+    int oldest_slot = 0;
+    for (int i = 0; i < ONESHOT_MAX_VOICES; i++) {
+        if (!oneshot_voices[i].active) { slot = i; break; }
+        if (oneshot_voices[i].id < oldest_id) {
+            oldest_id = oneshot_voices[i].id;
+            oldest_slot = i;
+        }
+    }
+    if (slot < 0) slot = oldest_slot;
+
+    OneShotVoice *v = &oneshot_voices[slot];
+    v->active      = 1;
+    v->sample      = s;
+    v->position    = 0.0;
+    v->speed       = pitch_factor;
+    v->volume      = volume;
+    v->pan         = pan;
+    v->fade        = 1.0;   // no attack ramp for one-shots
+    v->fade_target = 1.0;
+    v->id          = oneshot_next_id++;
+    uint64_t id = v->id;
+    pthread_mutex_unlock(&oneshot_lock);
+    return id;
+}
+
+void audio_oneshot_kill(ACAudio *audio, uint64_t id, double fade) {
+    (void)audio;
+    if (id == 0) return;
+    pthread_mutex_lock(&oneshot_lock);
+    for (int i = 0; i < ONESHOT_MAX_VOICES; i++) {
+        OneShotVoice *v = &oneshot_voices[i];
+        if (!v->active || v->id != id) continue;
+        if (fade <= 0.001) {
+            v->active = 0;
+        } else {
+            v->fade_target = 0.0;
+        }
+        break;
+    }
+    pthread_mutex_unlock(&oneshot_lock);
+}
+
+// Mix all active one-shot voices into the (mix_l, mix_r) bus. Called
+// from the audio thread alongside the SampleVoice mixer.
+static void mix_oneshot_voices(double rate, double *mix_l, double *mix_r) {
+    // 5 ms fade ramp at output rate — matches mix_sample_voice fade speed.
+    double fade_speed = 1.0 / (0.005 * rate);
+    pthread_mutex_lock(&oneshot_lock);
+    for (int i = 0; i < ONESHOT_MAX_VOICES; i++) {
+        OneShotVoice *v = &oneshot_voices[i];
+        if (!v->active || !v->sample || !v->sample->data || v->sample->len < 2) continue;
+
+        // Fade envelope (release ramp for sustained kills).
+        if (v->fade < v->fade_target) {
+            v->fade += fade_speed;
+            if (v->fade > v->fade_target) v->fade = v->fade_target;
+        } else if (v->fade > v->fade_target) {
+            v->fade -= fade_speed;
+            if (v->fade <= 0.0) { v->fade = 0.0; v->active = 0; continue; }
+        }
+
+        int slen = v->sample->len;
+        const float *buf = v->sample->data;
+        double pos = v->position;
+        if (pos < 0.0) pos = 0.0;
+        if (pos >= (double)(slen - 1)) {
+            v->active = 0;
+            continue;
+        }
+        int p0 = (int)pos;
+        int p1 = p0 + 1;
+        if (p1 >= slen) p1 = p0;
+        double frac = pos - (double)p0;
+        double s = (double)buf[p0] * (1.0 - frac) + (double)buf[p1] * frac;
+
+        double vol = v->volume * v->fade;
+        // Equal-power-ish pan: SampleVoice uses a 0.6 cosine-approx; mirror
+        // that here so zoo voices sit at consistent levels with the rest.
+        double l_gain = v->pan <= 0 ? 1.0 : 1.0 - v->pan * 0.6;
+        double r_gain = v->pan >= 0 ? 1.0 : 1.0 + v->pan * 0.6;
+        *mix_l += s * vol * l_gain;
+        *mix_r += s * vol * r_gain;
+
+        v->position += v->speed;
+        if (v->position >= (double)(slen - 1)) {
+            v->active = 0;
+        }
+    }
+    pthread_mutex_unlock(&oneshot_lock);
+}
+
+// ============================================================
 // Gun synthesis — two models per preset
 // ============================================================
 //
@@ -1595,6 +1845,11 @@ static void *audio_thread_fn(void *arg) {
                              rate, &mix_l, &mix_r);
             // (lock released at end of buffer loop)
 
+            // Mix the named one-shot bank voices (zoo / lasers). Each voice
+            // points at its own buffer in oneshot_bank[]; up to
+            // ONESHOT_MAX_VOICES concurrent.
+            mix_oneshot_voices(rate, &mix_l, &mix_r);
+
             // Mix DJ deck audio (lock-free: single consumer = audio thread)
             // Speed control: advance ring read by `speed` samples per output sample
             // with linear interpolation for smooth pitch shifting / scratching.
@@ -2150,6 +2405,18 @@ ACAudio *audio_init(void) {
     if (!piano_bank_loaded) {
         load_piano_bank();
         piano_bank_loaded = 1;
+    }
+
+    // Load the named one-shot bank (zoo + lasers + future kits). Global,
+    // process-lifetime, idempotent — same pattern as the piano bank.
+    static int oneshot_bank_loaded = 0;
+    if (!oneshot_bank_loaded) {
+        load_oneshot_bank();
+        oneshot_bank_loaded = 1;
+    }
+    // Voice slots are static, just make sure no stale state leaks in.
+    for (int i = 0; i < ONESHOT_MAX_VOICES; i++) {
+        oneshot_voices[i].active = 0;
     }
 
     // Allocate reverb buffers

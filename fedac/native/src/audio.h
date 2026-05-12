@@ -479,6 +479,15 @@ void audio_replay_kill(ACAudio *audio, uint64_t id, double fade);
 void audio_replay_update(ACAudio *audio, uint64_t id, double freq,
                          double base_freq, double volume, double pan);
 
+// Named one-shot sample bank (zoo / lasers / other kits). Buffers are
+// loaded from /samples/zoo/ and /samples/lasers/ at audio_init by
+// load_oneshot_bank() — keyed by filename stem ("dog", "cat", …).
+// Each play allocates one of ONESHOT_MAX_VOICES voice slots and renders
+// from the named buffer at pitch_factor speed.
+uint64_t audio_oneshot_play(ACAudio *audio, const char *name,
+                            double volume, double pan, double pitch_factor);
+void     audio_oneshot_kill(ACAudio *audio, uint64_t id, double fade);
+
 // Sample bank: get/load data for per-key sample storage
 int audio_sample_get_data(ACAudio *audio, float *out, int max_len);
 void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate);
