@@ -391,12 +391,31 @@ function buildOne(entry) {
   const paperDir = join(PAPERS_DIR, entry.dir);
   const tex = texName(entry.base, entry.lang);
   console.log(`  BUILD ${entry.dir}/${tex}.tex ...`);
+
+  // Deterministic PDFs: derive SOURCE_DATE_EPOCH from the newest source mtime.
+  // xelatex + xdvipdfmx honor this for /CreationDate, /ModDate, and the /ID
+  // trailer, so identical input bytes produce identical output bytes — which
+  // stops the oven auto-build commit loop on the 2 PDFs whose only diff
+  // between runs was wall-clock metadata baked into the trailer.
+  const newestMs = sourcesMtime(entry);
+  const sourceDateEpoch = Number.isFinite(newestMs)
+    ? Math.floor(newestMs / 1000).toString()
+    : Math.floor(Date.now() / 1000).toString();
+
   try {
     // Run xelatex 3-pass with bibtex. Use semicolons (not &&) so bibtex
     // warnings don't kill the chain. Check for PDF existence, not exit code.
     execSync(
       `cd "${paperDir}" && xelatex -interaction=nonstopmode "${tex}.tex"; bibtex "${tex}" 2>/dev/null; xelatex -interaction=nonstopmode "${tex}.tex"; xelatex -interaction=nonstopmode "${tex}.tex"`,
-      { stdio: "pipe", timeout: 180000 },
+      {
+        stdio: "pipe",
+        timeout: 180000,
+        env: {
+          ...process.env,
+          SOURCE_DATE_EPOCH: sourceDateEpoch,
+          FORCE_SOURCE_DATE: "1",
+        },
+      },
     );
   } catch (e) {
     // xelatex may return non-zero on warnings but still produce a PDF.

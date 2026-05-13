@@ -85,6 +85,7 @@ async function writeLastBuiltHash(hash) {
 }
 
 async function poll() {
+  if (process.env.PAPERS_POLLER_DISABLED === "1") return;
   if (polling) return;
   polling = true;
 
@@ -133,6 +134,36 @@ async function poll() {
       return;
     }
 
+    // Self-commit skip: if every commit in lastBuilt..remoteHead was authored
+    // by the oven itself, this is just our own auto-build push echoing back.
+    // Don't re-trigger — that's the positive-feedback loop. We only reach this
+    // branch when isSourceChange() let some path through (e.g. a non-deterministic
+    // PDF that landed inside papers/ rather than the IGNORE_PATTERNS prefix).
+    if (lastBuilt) {
+      try {
+        const authorOutput = await git([
+          "log",
+          `${lastBuilt}..${remoteHead}`,
+          "--format=%ae",
+        ]);
+        const authors = new Set(
+          authorOutput.split("\n").map((a) => a.trim()).filter(Boolean),
+        );
+        if (authors.size > 0 && authors.size === 1 && authors.has("oven@aesthetic.computer")) {
+          logFn(
+            "info",
+            "⏭️",
+            `Commits ${lastBuilt.slice(0, 8)}..${remoteHead.slice(0, 8)} are all oven auto-builds — skipping`,
+          );
+          await writeLastBuiltHash(remoteHead);
+          polling = false;
+          return;
+        }
+      } catch (authorErr) {
+        logFn("error", "⚠️", `Self-commit author check failed: ${authorErr.message}`);
+      }
+    }
+
     // Pull the changes so cli.mjs works on up-to-date code
     await git(["checkout", BRANCH, "--quiet"]);
     await git(["merge", `origin/${BRANCH}`, "--ff-only", "--quiet"]);
@@ -142,6 +173,12 @@ async function poll() {
       "📄",
       `Papers changes detected (${remoteHead.slice(0, 8)}): ${papersPaths.length} file(s) — triggering PDF build`
     );
+
+    // Defensive: write the hash BEFORE starting the build so we don't retry
+    // the same commit if startBuildFn throws PAPERS_BUILD_BUSY or any other
+    // error path leaves writeLastBuiltHash unreached. A failed build can be
+    // re-triggered by pushing a new commit or deleting the hash file.
+    await writeLastBuiltHash(remoteHead);
 
     // Trigger build
     const job = await startBuildFn({
@@ -154,9 +191,6 @@ async function poll() {
       "🚀",
       `Papers build ${job.id} started`
     );
-
-    // Update hash after successfully starting the build
-    await writeLastBuiltHash(remoteHead);
   } catch (err) {
     if (err?.code === "PAPERS_BUILD_BUSY") {
       logFn("info", "⏳", "Papers build already running — will retry next poll");
@@ -177,6 +211,11 @@ async function poll() {
 export function startPoller({ startPapersBuild, addServerLog }) {
   startBuildFn = startPapersBuild;
   if (addServerLog) logFn = addServerLog;
+
+  if (process.env.PAPERS_POLLER_DISABLED === "1") {
+    logFn("info", "⏸️", "Papers git poller disabled via PAPERS_POLLER_DISABLED=1 — not starting");
+    return;
+  }
 
   // Check that GIT_REPO_DIR exists before starting
   fs.access(GIT_REPO_DIR)
