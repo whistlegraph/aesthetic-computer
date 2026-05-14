@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import AppKit
+import CoreAudio
 
 extension Notification.Name {
     static let menuBandMicPermissionAlertWillShow =
@@ -177,12 +178,17 @@ final class MenuBandSampleVoice {
             }
         }
         // Prewarm the record engine if the user has already granted
-        // microphone permission. Cold AVAudioEngine.start() on an
-        // input graph takes 50–200 ms on Apple Silicon — that lag
-        // shows up as a noticeable gap between hitting the record
-        // key and the first audible sample. Lifting it to launch
-        // time makes every backtick press feel instant.
-        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized {
+        // microphone permission AND the default input isn't a
+        // Bluetooth headset. Pre-warming on a BT mic (AirPods, etc.)
+        // forces the headset into bidirectional voice mode — locks
+        // the output to 24 kHz stereo, kills the 48 kHz music
+        // profile, and the user immediately hears the degraded
+        // "FaceTime call" sound quality even though no recording is
+        // happening. Skip prewarm on BT and accept ~50–200 ms on
+        // the first record-key press; the device stays in music
+        // mode the rest of the time. See `defaultInputIsBluetooth`.
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
+           !Self.defaultInputIsBluetooth() {
             DispatchQueue.main.async { [weak self] in
                 _ = self?.ensureHotMicRunning()
                 // Don't leave the mic hot forever — schedule the
@@ -198,6 +204,36 @@ final class MenuBandSampleVoice {
     }
 
     // MARK: - Recording
+
+    /// True when the current system-default input device is connected
+    /// over Bluetooth (AirPods, BT headsets, etc.). Used to skip the
+    /// launch-time hot-mic prewarm — touching a BT mic forces the
+    /// matching output into bidirectional voice mode (~24 kHz stereo,
+    /// FaceTime-call sound quality) and the user hears it instantly
+    /// even though no recording is happening. Better to pay the
+    /// 50–200 ms cold-start on first record press than to degrade
+    /// every minute of music playback before any sample is captured.
+    fileprivate static func defaultInputIsBluetooth() -> Bool {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        var dev = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &dev
+        ) == noErr, dev != 0 else { return false }
+        var ttAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        var tt: UInt32 = 0
+        var ttSize = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(dev, &ttAddr, 0, nil, &ttSize, &tt) == noErr
+        else { return false }
+        return tt == kAudioDeviceTransportTypeBluetooth
+            || tt == kAudioDeviceTransportTypeBluetoothLE
+    }
 
     /// Begin capturing audio from the default input. Idempotent —
     /// calling while already recording is a no-op. Recording state is
