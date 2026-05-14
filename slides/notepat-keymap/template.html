@@ -3,14 +3,34 @@
 <head>
 <meta charset="utf-8">
 <style>
+  /* AC web fonts — YWFT Processing for display, Berkeley Mono for keys.
+     Loaded from system/public/type/webfonts via the build script. */
+  @font-face {
+    font-family: "YWFT Processing";
+    src: url("__YWFT_BOLD__") format("woff2");
+    font-weight: 800;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: "YWFT Processing";
+    src: url("__YWFT_LIGHT__") format("woff2");
+    font-weight: 300;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: "Berkeley Mono";
+    src: url("__BERKELEY__") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+  }
+
   html, body { margin: 0; padding: 0; }
-  /* 16:9 — exactly Google Slides widescreen at 2× retina */
   body {
     width: 2400px;
     height: 1350px;
-    background: #ffffff;
-    color: #111;
-    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    background: #fafafa;
+    color: #121012;
+    font-family: "YWFT Processing", -apple-system, "Helvetica Neue", sans-serif;
     box-sizing: border-box;
     padding: 32px 40px;
     overflow: hidden;
@@ -28,17 +48,46 @@
   }
 
   /* ---------------- Header ---------------- */
-  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; }
-  .title { font-size: 100px; font-weight: 800; letter-spacing: -0.02em; margin: 0; line-height: 1; }
-  .subtitle { font-size: 34px; color: #444; margin: 12px 0 0 0; font-weight: 400; max-width: 1900px; line-height: 1.25; }
-  .brand { font-size: 26px; color: #888; letter-spacing: 0.18em; text-transform: uppercase; padding-bottom: 12px; white-space: nowrap; }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 18px;
+  }
+  .title {
+    font-family: "YWFT Processing";
+    font-weight: 800;
+    font-size: 110px;
+    letter-spacing: -0.015em;
+    margin: 0;
+    line-height: 0.95;
+    color: #121012;
+  }
+  .title .dot { color: #cd5c9b; }
+  .title .accent-r { color: #c8324b; }
+  .title .accent-o { color: #ff9000; }
+  .title .accent-y { color: #d4b400; }
+  .title .accent-g { color: #2a9a3a; }
+  .title .accent-b { color: #2a64d4; }
+  .title .accent-p { color: #8232c8; }
+  .title .accent-v { color: #b450ff; }
+  .subtitle {
+    font-family: "YWFT Processing";
+    font-weight: 300;
+    font-size: 30px;
+    color: #444;
+    margin: 14px 0 0 0;
+    max-width: 1900px;
+    line-height: 1.3;
+  }
+  .subtitle b { font-weight: 800; color: #121012; }
 
-  /* ---------------- Top half: PIANO (full width) ---------------- */
-  .piano-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  /* ---------------- Piano ---------------- */
+  .piano-wrap { display: flex; justify-content: center; margin-bottom: 18px; }
   .piano {
     position: relative;
-    height: 320px;
-    width: 2076px;     /* 17 white keys × 120px + 36 gutter */
+    height: 340px;
+    width: 2076px;
     padding-left: 36px;
     box-sizing: border-box;
   }
@@ -46,29 +95,103 @@
     position: absolute;
     box-sizing: border-box;
     border-radius: 0 0 10px 10px;
-    border: 2px solid #111;
+    border: 2px solid #121012;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
     padding-bottom: 16px;
   }
-  .wkey { width: 120px; height: 320px; background: #fff; color: #111; }
-  .wkey .qkey { font-size: 54px; font-weight: 800; line-height: 1; }
-  .wkey .nname { font-size: 22px; color: #777; letter-spacing: 0.05em; margin-top: 8px; font-weight: 600; }
-  .bkey { width: 72px; height: 200px; background: #111; color: #fff; border-color: #000; z-index: 2; }
-  .bkey .qkey { font-size: 36px; font-weight: 800; line-height: 1; }
-  .bkey .nname { font-size: 16px; color: #bbb; letter-spacing: 0.05em; margin-top: 6px; font-weight: 600; }
-  /* Extended-range keys: aged-yellow tint + faded — these are optional
-     "edge" keys, not the core two-octave instrument. Lower: A♯3/B3;
-     upper: C6/C♯6/D6. */
-  .wkey.ext { background: #fff7dc; color: #aa9255; border-color: #d4c075; opacity: 0.78; }
-  .wkey.ext .qkey { color: #aa9255; }
-  .wkey.ext .nname { color: #b09a55; }
-  .bkey.ext { background: #6a5826; color: #f8e7a0; border-color: #4a3814; opacity: 0.78; }
+  /* White (natural) key — gets tinted with its note color. The QWERTY
+     letter on top stays in a dark band so it reads against any tint. */
+  .wkey {
+    width: 120px;
+    height: 320px;
+    background: #fff;
+    color: #121012;
+    overflow: hidden;
+  }
+  .wkey .keyswatch {
+    position: absolute; left: 0; right: 0; top: 0;
+    height: 120px;
+    border-bottom: 2px solid rgba(0,0,0,0.18);
+  }
+  .wkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    text-shadow:
+      0 2px 0 rgba(0,0,0,0.32),
+      0 4px 14px rgba(0,0,0,0.18);
+    position: absolute;
+    top: 28px; left: 0; right: 0;
+    text-align: center;
+  }
+  .wkey .nname {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 22px;
+    color: #4a4a4a;
+    letter-spacing: 0.05em;
+    margin-top: 8px;
+    font-weight: 700;
+  }
+  /* Note color tints — saturated on top, white below for label legibility */
+  .wkey[data-pn="c"]  .keyswatch { background: #ff3232; }
+  .wkey[data-pn="d"]  .keyswatch { background: #ffa000; }
+  .wkey[data-pn="e"]  .keyswatch { background: #ffe600; }
+  .wkey[data-pn="f"]  .keyswatch { background: #32c832; }
+  .wkey[data-pn="g"]  .keyswatch { background: #3278ff; }
+  .wkey[data-pn="a"]  .keyswatch { background: #8232c8; }
+  .wkey[data-pn="b"]  .keyswatch { background: #b450ff; }
+  /* Upper octave — neon/dayglo variants */
+  .wkey[data-pn="C5"] .keyswatch { background: #ff2850; }
+  .wkey[data-pn="D5"] .keyswatch { background: #ffb400; }
+  .wkey[data-pn="E5"] .keyswatch { background: #ffff32; }
+  .wkey[data-pn="F5"] .keyswatch { background: #32ff64; }
+  .wkey[data-pn="G5"] .keyswatch { background: #32c8ff; }
+  .wkey[data-pn="A5"] .keyswatch { background: #b432ff; }
+  .wkey[data-pn="B5"] .keyswatch { background: #ff50ff; }
+  /* On yellow swatches the white letter blows out — dark it. */
+  .wkey[data-pn="e"]  .qkey,
+  .wkey[data-pn="E5"] .qkey { color: #3a2a00; text-shadow: 0 2px 0 rgba(255,255,255,0.5); }
+
+  /* Black (sharp/flat) keys — pitch-black with subtle color edge so
+     they read as semitones rather than dead space. */
+  .bkey {
+    width: 72px;
+    height: 210px;
+    background: #0a0a0a;
+    color: #fff;
+    border-color: #000;
+    z-index: 2;
+  }
+  .bkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .bkey .nname {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 16px;
+    color: #bbb;
+    letter-spacing: 0.05em;
+    margin-top: 6px;
+    font-weight: 700;
+  }
+
+  /* Extended-range — aged-paper / muted. Not core. */
+  .wkey.ext { background: #fff4d6; color: #8a7330; border-color: #d4c075; opacity: 0.78; }
+  .wkey.ext .qkey { color: #8a7330; text-shadow: none; position: static; padding-top: 22px; }
+  .wkey.ext .keyswatch { display: none; }
+  .wkey.ext .nname { color: #a89855; }
+  .bkey.ext { background: #5a4818; color: #f8e7a0; border-color: #4a3814; opacity: 0.78; }
   .bkey.ext .nname { color: #d8c878; }
   .wkey.ext .ext-tag, .bkey.ext .ext-tag {
-    font-size: 13px;
+    font-family: "Berkeley Mono", monospace;
+    font-size: 12px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     margin-top: 4px;
@@ -76,27 +199,34 @@
     font-weight: 700;
   }
 
-  /* ---------------- Bottom half: QWERTY (left) + RATIONALE+QRs (right) ---------------- */
+  /* ---------------- QWERTY ---------------- */
   .below { display: flex; gap: 36px; flex: 1; align-items: stretch; min-height: 0; }
   .below-left { flex: 0 0 1380px; display: flex; flex-direction: column; }
   .below-right { flex: 1; display: flex; flex-direction: column; }
 
-  /* QWERTY layout. ANSI/MacBook stagger 0 / 0.25u / 0.75u
-     cap = 100px, gap = 12px → slot = 112px
-       0.25 × 112 = 28px
-       0.75 × 112 = 84px */
-  .hand-labels { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 22px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; padding: 0 24px; }
-  .hand-labels .l { color: #2a6cb8; }
-  .hand-labels .r { color: #b8472a; }
+  .hand-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-family: "YWFT Processing";
+    font-size: 22px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 800;
+    padding: 0 24px;
+  }
+  .hand-labels .l { color: #2a64d4; }
+  .hand-labels .r { color: #c8324b; }
+
   .qwerty-bg {
     position: relative;
     padding: 18px 20px;
     border-radius: 16px;
     background: linear-gradient(to right,
-      rgba(74, 130, 200, 0.12) 0%,
-      rgba(74, 130, 200, 0.12) 48%,
-      rgba(200, 110, 74, 0.12) 52%,
-      rgba(200, 110, 74, 0.12) 100%);
+      rgba(42, 100, 212, 0.10) 0%,
+      rgba(42, 100, 212, 0.10) 48%,
+      rgba(200, 50, 75, 0.10) 52%,
+      rgba(200, 50, 75, 0.10) 100%);
     box-sizing: border-box;
     flex: 1;
     display: flex;
@@ -110,60 +240,113 @@
   .qcap {
     width: 100px; height: 100px;
     border-radius: 14px;
-    border: 3px solid #111;
+    border: 3px solid #121012;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 42px;
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 46px;
     font-weight: 800;
     text-transform: uppercase;
     flex-shrink: 0;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.18);
   }
-  .qcap.white { background: #fff; color: #111; }
-  .qcap.black { background: #111; color: #fff; border-color: #000; }
-  /* Extended-range caps: yellowed + faded. Not part of the core two-octave
-     instrument — included as optional reach. */
+  /* Default + neutral caps */
+  .qcap.white { background: #fff; color: #121012; }
+  .qcap.black { background: #121012; color: #fff; border-color: #000; }
+
+  /* Note-colored caps — each lights up in its notepat color. */
+  .qcap[data-qn="c"]  { background: #ff3232; color: #fff; border-color: #a51c1c; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="d"]  { background: #ffa000; color: #fff; border-color: #b56b00; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="e"]  { background: #ffe600; color: #3a2a00; border-color: #b89c00; text-shadow: 0 2px 0 rgba(255,255,255,0.4); }
+  .qcap[data-qn="f"]  { background: #32c832; color: #fff; border-color: #1d7a1d; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="g"]  { background: #3278ff; color: #fff; border-color: #1c4ba8; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="a"]  { background: #8232c8; color: #fff; border-color: #4f1d80; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="b"]  { background: #b450ff; color: #fff; border-color: #6f2faa; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  /* Upper octave — dayglo variants */
+  .qcap[data-qn="C5"] { background: #ff2850; color: #fff; border-color: #b01a37; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="D5"] { background: #ffb400; color: #fff; border-color: #b58000; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="E5"] { background: #ffff32; color: #4a4400; border-color: #b8b400; text-shadow: 0 2px 0 rgba(255,255,255,0.4); }
+  .qcap[data-qn="F5"] { background: #32ff64; color: #0a3a14; border-color: #1a9a3a; text-shadow: 0 2px 0 rgba(255,255,255,0.35); }
+  .qcap[data-qn="G5"] { background: #32c8ff; color: #06283d; border-color: #1a7ab0; text-shadow: 0 2px 0 rgba(255,255,255,0.35); }
+  .qcap[data-qn="A5"] { background: #b432ff; color: #fff; border-color: #6f1cb0; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="B5"] { background: #ff50ff; color: #fff; border-color: #b02db0; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  /* Sharp QWERTY caps (V/S/W/R/Q/T/Y/U/O/P) — black with thin colored
+     glow so they read as semitones tied to their adjacent natural. */
+  .qcap.sharp { background: #121012; color: #fff; border-color: #000; }
+  .qcap.sharp[data-sharp-of="c"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(255,50,50,0.55); }
+  .qcap.sharp[data-sharp-of="d"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(255,160,0,0.55); }
+  .qcap.sharp[data-sharp-of="f"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(50,200,50,0.55); }
+  .qcap.sharp[data-sharp-of="g"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(50,120,255,0.55); }
+  .qcap.sharp[data-sharp-of="a"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(130,50,200,0.55); }
+
   .qcap.ext-white {
-    background: #fff7dc; color: #aa9255;
+    background: #fff4d6; color: #8a7330;
     border-color: #d4c075;
     opacity: 0.78;
     flex-direction: column;
   }
   .qcap.ext-black {
-    background: #6a5826; color: #f8e7a0;
+    background: #5a4818; color: #f8e7a0;
     border-color: #4a3814;
     opacity: 0.78;
     flex-direction: column;
   }
   .qcap .ext-tag {
-    font-size: 13px;
+    font-family: "Berkeley Mono", monospace;
+    font-size: 12px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     margin-top: 5px;
     opacity: 0.9;
     font-weight: 700;
   }
-  .qcap.ghost { background: transparent; color: #c8c8c8; border: 2.5px dashed #d4d4d4; font-weight: 600; font-size: 30px; }
+  .qcap.ghost {
+    background: transparent;
+    color: #c8c8c8;
+    border: 2.5px dashed #d4d4d4;
+    font-weight: 600;
+    font-size: 30px;
+    box-shadow: none;
+  }
   .qcap.octshift {
-    background: #f4ecff; color: #6b3fc0;
+    background: #f4ecff;
+    color: #6b3fc0;
     border: 2.5px solid #b89df0;
-    font-weight: 800; font-size: 26px;
+    font-weight: 800;
+    font-size: 26px;
     flex-direction: column;
   }
-  .qcap.octshift .lbl { font-size: 13px; letter-spacing: 0.1em; opacity: 0.75; margin-top: 3px; }
+  .qcap.octshift .lbl {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    opacity: 0.75;
+    margin-top: 3px;
+    font-family: "YWFT Processing";
+  }
 
-  /* ---------------- Right side: rationale + impls + QRs ---------------- */
+  /* ---------------- Right panel ---------------- */
   .rationale { flex: 1; }
   .rationale h3, .impls h3 {
+    font-family: "YWFT Processing";
     font-size: 24px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: #555;
     margin: 0 0 14px 0;
-    font-weight: 700;
+    font-weight: 800;
   }
-  .rationale h3 .accent { color: #b8472a; }
-  .rationale ul { list-style: none; padding: 0; margin: 0; font-size: 26px; line-height: 1.35; color: #1a1a1a; }
+  .rationale h3 .accent { color: #c8324b; }
+  .rationale ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-family: "YWFT Processing";
+    font-size: 26px;
+    line-height: 1.35;
+    color: #1a1a1a;
+    font-weight: 300;
+  }
   .rationale li {
     padding: 11px 0 11px 32px;
     border-bottom: 1px solid #eee;
@@ -173,18 +356,22 @@
   .rationale li::before {
     content: "▸";
     position: absolute; left: 0; top: 11px;
-    color: #b8472a;
+    color: #c8324b;
     font-weight: 800;
     font-size: 26px;
   }
-  .rationale li b { color: #000; font-weight: 800; }
+  .rationale li b {
+    color: #000;
+    font-weight: 800;
+  }
   .rationale li .keys {
-    font-family: "SF Mono", Menlo, monospace;
-    background: #f4f4f4;
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    background: #f0eff0;
     padding: 2px 8px;
     border-radius: 5px;
     font-size: 22px;
-    color: #111;
+    color: #121012;
+    font-weight: 700;
   }
 
   .below-bottom {
@@ -215,10 +402,16 @@
     line-height: 1.05;
     min-width: 0;
   }
-  .impls .impl-list b { font-weight: 800; font-size: 21px; color: #111; white-space: nowrap; }
+  .impls .impl-list b {
+    font-family: "YWFT Processing";
+    font-weight: 800;
+    font-size: 21px;
+    color: #121012;
+    white-space: nowrap;
+  }
   .impls .impl-list .where {
     color: #777;
-    font-family: "SF Mono", Menlo, monospace;
+    font-family: "Berkeley Mono", monospace;
     font-size: 13px;
     margin-top: 4px;
     white-space: nowrap;
@@ -227,12 +420,20 @@
 
   .qrs { display: flex; gap: 22px; flex-shrink: 0; }
   .qrs .qr { display: flex; flex-direction: column; align-items: center; gap: 7px; }
-  .qrs .qr img { width: 150px; height: 150px; image-rendering: pixelated; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
-  .qrs .qr .label { font-family: "SF Mono", Menlo, monospace; font-size: 15px; color: #111; font-weight: 700; }
+  .qrs .qr img {
+    width: 150px; height: 150px;
+    image-rendering: pixelated;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+  }
+  .qrs .qr .label {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 15px;
+    color: #121012;
+    font-weight: 700;
+  }
 
-  /* PALS watermark composited ON TOP of the Jeffrey portrait, in the
-     top-right corner with text label to their left. The portrait sits
-     behind so pals reads as a stamped mark over jeffrey's face. */
   .brand-block {
     position: absolute;
     top: 18px;
@@ -255,13 +456,11 @@
   }
   .brand-block .marks #pals {
     position: absolute;
-    left: 50%;
-    top: 50%;
+    left: 50%; top: 50%;
     transform: translate(-50%, -50%);
     width: 150px; height: 150px;
     opacity: 0.95;
     z-index: 2;
-    /* white halo so the silhouette stays legible against the photo */
     filter: drop-shadow(0 0 6px rgba(255,255,255,0.95))
             drop-shadow(0 0 2px rgba(255,255,255,1));
   }
@@ -271,25 +470,37 @@
     padding-top: 6px;
   }
   .brand-block .brand-text .top {
-    font-size: 36px; color: #333;
+    font-family: "YWFT Processing";
+    font-size: 36px;
+    color: #333;
     letter-spacing: 0.04em;
-    white-space: nowrap; font-weight: 800;
+    white-space: nowrap;
+    font-weight: 800;
     line-height: 1;
   }
   .brand-block .brand-text .author {
-    font-size: 22px; color: #888;
-    white-space: nowrap; font-weight: 500;
-    font-family: "SF Mono", Menlo, monospace;
+    font-family: "Berkeley Mono", monospace;
+    font-size: 22px;
+    color: #888;
+    white-space: nowrap;
+    font-weight: 500;
   }
-  .brand-block .brand-text .author b { color: #b8472a; font-weight: 800; }
+  .brand-block .brand-text .author b { color: #c8324b; font-weight: 800; }
 </style>
 </head>
 <body>
   <!-- HEADER -->
   <div class="header">
     <div>
-      <div class="title">notepat.com Keymap</div>
-      <div class="subtitle">A chromatic keyboard instrument. <b>C&middot;D&middot;E&middot;F&middot;G&middot;A&middot;B</b> play the notes they name. Sharps <i>mostly</i> sit one row above their natural — like piano black keys.</div>
+      <div class="title">
+        notepat<span class="dot">.com</span>
+        <span style="font-weight:300;">Keymap</span>
+      </div>
+      <div class="subtitle">
+        A chromatic keyboard instrument.
+        <b><span class="title-c">C</span>&middot;<span class="title-d">D</span>&middot;<span class="title-e">E</span>&middot;<span class="title-f">F</span>&middot;<span class="title-g">G</span>&middot;<span class="title-a">A</span>&middot;<span class="title-b">B</span></b>
+        play the notes they name. Sharps <i>mostly</i> sit one row above their natural — like piano black keys.
+      </div>
     </div>
     <div class="brand-block">
       <div class="brand-text">
@@ -303,28 +514,28 @@
     </div>
   </div>
 
-  <!-- TOP: PIANO (hero, full width) -->
+  <!-- PIANO -->
   <div class="piano-wrap">
     <div class="piano">
       <div class="wkey ext" style="left:36px;">   <div class="qkey">X</div><div class="nname">B3</div><div class="ext-tag">ext</div></div>
-      <div class="wkey" data-pn="c" style="left:156px;">  <div class="qkey">C</div><div class="nname">C4</div></div>
-      <div class="wkey" data-pn="d" style="left:276px;">  <div class="qkey">D</div><div class="nname">D4</div></div>
-      <div class="wkey" data-pn="e" style="left:396px;">  <div class="qkey">E</div><div class="nname">E4</div></div>
-      <div class="wkey" data-pn="f" style="left:516px;">  <div class="qkey">F</div><div class="nname">F4</div></div>
-      <div class="wkey" data-pn="g" style="left:636px;">  <div class="qkey">G</div><div class="nname">G4</div></div>
-      <div class="wkey" data-pn="a" style="left:756px;">  <div class="qkey">A</div><div class="nname">A4</div></div>
-      <div class="wkey" data-pn="b" style="left:876px;">  <div class="qkey">B</div><div class="nname">B4</div></div>
-      <div class="wkey" style="left:996px;">  <div class="qkey">H</div><div class="nname">C5</div></div>
-      <div class="wkey" style="left:1116px;"> <div class="qkey">I</div><div class="nname">D5</div></div>
-      <div class="wkey" style="left:1236px;"> <div class="qkey">J</div><div class="nname">E5</div></div>
-      <div class="wkey" style="left:1356px;"> <div class="qkey">K</div><div class="nname">F5</div></div>
-      <div class="wkey" style="left:1476px;"> <div class="qkey">L</div><div class="nname">G5</div></div>
-      <div class="wkey" style="left:1596px;"> <div class="qkey">M</div><div class="nname">A5</div></div>
-      <div class="wkey" style="left:1716px;"> <div class="qkey">N</div><div class="nname">B5</div></div>
+      <div class="wkey" data-pn="c" style="left:156px;">  <div class="keyswatch"></div><div class="qkey">C</div><div class="nname">C4</div></div>
+      <div class="wkey" data-pn="d" style="left:276px;">  <div class="keyswatch"></div><div class="qkey">D</div><div class="nname">D4</div></div>
+      <div class="wkey" data-pn="e" style="left:396px;">  <div class="keyswatch"></div><div class="qkey">E</div><div class="nname">E4</div></div>
+      <div class="wkey" data-pn="f" style="left:516px;">  <div class="keyswatch"></div><div class="qkey">F</div><div class="nname">F4</div></div>
+      <div class="wkey" data-pn="g" style="left:636px;">  <div class="keyswatch"></div><div class="qkey">G</div><div class="nname">G4</div></div>
+      <div class="wkey" data-pn="a" style="left:756px;">  <div class="keyswatch"></div><div class="qkey">A</div><div class="nname">A4</div></div>
+      <div class="wkey" data-pn="b" style="left:876px;">  <div class="keyswatch"></div><div class="qkey">B</div><div class="nname">B4</div></div>
+      <div class="wkey" data-pn="C5" style="left:996px;"> <div class="keyswatch"></div><div class="qkey">H</div><div class="nname">C5</div></div>
+      <div class="wkey" data-pn="D5" style="left:1116px;"><div class="keyswatch"></div><div class="qkey">I</div><div class="nname">D5</div></div>
+      <div class="wkey" data-pn="E5" style="left:1236px;"><div class="keyswatch"></div><div class="qkey">J</div><div class="nname">E5</div></div>
+      <div class="wkey" data-pn="F5" style="left:1356px;"><div class="keyswatch"></div><div class="qkey">K</div><div class="nname">F5</div></div>
+      <div class="wkey" data-pn="G5" style="left:1476px;"><div class="keyswatch"></div><div class="qkey">L</div><div class="nname">G5</div></div>
+      <div class="wkey" data-pn="A5" style="left:1596px;"><div class="keyswatch"></div><div class="qkey">M</div><div class="nname">A5</div></div>
+      <div class="wkey" data-pn="B5" style="left:1716px;"><div class="keyswatch"></div><div class="qkey">N</div><div class="nname">B5</div></div>
       <div class="wkey ext" style="left:1836px;"><div class="qkey">;</div><div class="nname">C6</div><div class="ext-tag">ext</div></div>
       <div class="wkey ext" style="left:1956px;"><div class="qkey">]</div><div class="nname">D6</div><div class="ext-tag">ext</div></div>
 
-      <!-- Black keys: width 72, left = white_left - 36 -->
+      <!-- Sharps -->
       <div class="bkey ext" style="left:0px;">    <div class="qkey">Z</div><div class="nname">A♯3</div></div>
       <div class="bkey" style="left:240px;">  <div class="qkey">V</div><div class="nname">C♯4</div></div>
       <div class="bkey" style="left:360px;">  <div class="qkey">S</div><div class="nname">D♯4</div></div>
@@ -340,7 +551,7 @@
     </div>
   </div>
 
-  <!-- BELOW: QWERTY (left) + RATIONALE/IMPLS/QRs (right) -->
+  <!-- BELOW -->
   <div class="below">
     <div class="below-left">
       <div class="hand-labels">
@@ -350,40 +561,40 @@
       <div class="qwerty-bg">
         <div class="qwerty-wrap">
           <div class="qrow r0">
-            <div class="qcap black">Q</div>
-            <div class="qcap black">W</div>
-            <div class="qcap white" data-qn="e">E</div>
-            <div class="qcap black">R</div>
-            <div class="qcap black">T</div>
-            <div class="qcap black">Y</div>
-            <div class="qcap black">U</div>
-            <div class="qcap white">I</div>
-            <div class="qcap black">O</div>
-            <div class="qcap black">P</div>
+            <div class="qcap sharp" data-sharp-of="a">Q</div>
+            <div class="qcap sharp" data-sharp-of="f">W</div>
+            <div class="qcap" data-qn="e">E</div>
+            <div class="qcap sharp" data-sharp-of="g">R</div>
+            <div class="qcap sharp" data-sharp-of="c">T</div>
+            <div class="qcap sharp" data-sharp-of="d">Y</div>
+            <div class="qcap sharp" data-sharp-of="f">U</div>
+            <div class="qcap" data-qn="D5">I</div>
+            <div class="qcap sharp" data-sharp-of="g">O</div>
+            <div class="qcap sharp" data-sharp-of="a">P</div>
             <div class="qcap ghost">[</div>
             <div class="qcap ext-white">]<div class="ext-tag">ext</div></div>
           </div>
           <div class="qrow r1">
-            <div class="qcap white" data-qn="a">A</div>
-            <div class="qcap black">S</div>
-            <div class="qcap white" data-qn="d">D</div>
-            <div class="qcap white" data-qn="f">F</div>
-            <div class="qcap white" data-qn="g">G</div>
-            <div class="qcap white">H</div>
-            <div class="qcap white">J</div>
-            <div class="qcap white">K</div>
-            <div class="qcap white">L</div>
+            <div class="qcap" data-qn="a">A</div>
+            <div class="qcap sharp" data-sharp-of="d">S</div>
+            <div class="qcap" data-qn="d">D</div>
+            <div class="qcap" data-qn="f">F</div>
+            <div class="qcap" data-qn="g">G</div>
+            <div class="qcap" data-qn="C5">H</div>
+            <div class="qcap" data-qn="E5">J</div>
+            <div class="qcap" data-qn="F5">K</div>
+            <div class="qcap" data-qn="G5">L</div>
             <div class="qcap ext-white">;<div class="ext-tag">ext</div></div>
             <div class="qcap ext-black">'<div class="ext-tag">ext</div></div>
           </div>
           <div class="qrow r2">
             <div class="qcap ext-black">Z<div class="ext-tag">ext</div></div>
             <div class="qcap ext-white">X<div class="ext-tag">ext</div></div>
-            <div class="qcap white" data-qn="c">C</div>
-            <div class="qcap black">V</div>
-            <div class="qcap white" data-qn="b">B</div>
-            <div class="qcap white">N</div>
-            <div class="qcap white">M</div>
+            <div class="qcap" data-qn="c">C</div>
+            <div class="qcap sharp" data-sharp-of="c">V</div>
+            <div class="qcap" data-qn="b">B</div>
+            <div class="qcap" data-qn="A5">N</div>
+            <div class="qcap" data-qn="B5">M</div>
             <div class="qcap octshift">,<div class="lbl">oct−</div></div>
             <div class="qcap octshift">.<div class="lbl">oct+</div></div>
             <div class="qcap ghost">/</div>
@@ -399,7 +610,6 @@
           <li><b>Notes that name themselves.</b> <span class="keys">C D E F G A B</span> play the notes they name — anyone who knows the Western scale already knows it.</li>
           <li><b>Sharps <i>mostly</i> sit above their naturals.</b> <span class="keys">V S W R Q</span> = C♯ D♯ F♯ G♯ A♯ — close to piano black keys, with a few exceptions.</li>
           <li><b>Two-handed by default.</b> Lower octave under the left hand; upper octave (<span class="keys">H J K L ;</span>) mirrors it under the right.</li>
-          <li><b>Social software.</b> The instrument shares the keyboard everyone already owns — musical participation isn't gated by software literacy.</li>
         </ul>
       </div>
 
@@ -428,9 +638,7 @@
     </div>
   </div>
 
-  <!-- SVG connector overlay: fading dashed lines from each lower-octave
-       natural on the piano down to the QWERTY key with the same letter.
-       Helps the viewer SEE that C·D·E·F·G·A·B name themselves. -->
+  <!-- Connector overlay: piano white key → QWERTY note cap, color-matched -->
   <svg class="connectors" id="connectors"></svg>
 
   <script>
@@ -439,59 +647,67 @@
     document.getElementById("pals").src = "__PALS_LOGO__";
     document.getElementById("jeffrey").src = "__JEFFREY_PIC__";
 
-    // Draw the piano→qwerty connectors. Each line uses notepat.mjs's
-    // per-note color (C=red, D=orange, E=yellow, F=green, G=blue,
-    // A=purple, B=brown). Opacity fades as the scale rises so C reads
-    // strongest. Lines run center-to-center, drawn over the keys.
+    // Wait for fonts to load so the rendered PNG has glyphs.
+    document.fonts.ready.then(() => {
+      drawConnectors();
+    });
+
     function drawConnectors() {
       const svg = document.getElementById("connectors");
-      // Only the first five naturals — past G the visual gets noisy
-      // and the point ("notes name themselves") is already made.
+      // Both octaves — color-matched to the note. Lower octave saturated,
+      // upper neon-tinted to match the dayglo swatches above.
       const naturals = [
-        { n: "c", color: "rgb(255, 0, 0)",   op: 0.95 }, // red    — strongest
-        { n: "d", color: "rgb(255, 140, 0)", op: 0.55 }, // orange
-        { n: "e", color: "rgb(212, 180, 0)", op: 0.32 }, // yellow
-        { n: "f", color: "rgb(0, 128, 0)",   op: 0.18 }, // green
-        { n: "g", color: "rgb(0, 0, 220)",   op: 0.10 }, // blue   — barely there
+        // Lower octave: most prominent — these are the "self-naming" keys
+        { pn: "c", qn: "c", color: "#ff3232", op: 0.85 },
+        { pn: "d", qn: "d", color: "#ffa000", op: 0.65 },
+        { pn: "e", qn: "e", color: "#d4b400", op: 0.55 },
+        { pn: "f", qn: "f", color: "#32c832", op: 0.50 },
+        { pn: "g", qn: "g", color: "#3278ff", op: 0.45 },
+        { pn: "a", qn: "a", color: "#8232c8", op: 0.40 },
+        { pn: "b", qn: "b", color: "#b450ff", op: 0.35 },
+        // Upper octave: shorter visual rhyme — dayglo to match neon swatches
+        { pn: "C5", qn: "C5", color: "#ff2850", op: 0.55 },
+        { pn: "D5", qn: "D5", color: "#ffb400", op: 0.45 },
+        { pn: "E5", qn: "E5", color: "#b8b400", op: 0.40 },
+        { pn: "F5", qn: "F5", color: "#32ff64", op: 0.40 },
+        { pn: "G5", qn: "G5", color: "#32c8ff", op: 0.40 },
+        { pn: "A5", qn: "A5", color: "#b432ff", op: 0.35 },
+        { pn: "B5", qn: "B5", color: "#ff50ff", op: 0.32 },
       ];
       const NS = "http://www.w3.org/2000/svg";
-      for (const { n, color, op } of naturals) {
-        const piano = document.querySelector(`.wkey[data-pn="${n}"]`);
-        const qwerty = document.querySelector(`.qcap[data-qn="${n}"]`);
+      for (const { pn, qn, color, op } of naturals) {
+        const piano = document.querySelector(`.wkey[data-pn="${pn}"]`);
+        const qwerty = document.querySelector(`.qcap[data-qn="${qn}"]`);
         if (!piano || !qwerty) continue;
         const pr = piano.getBoundingClientRect();
         const qr = qwerty.getBoundingClientRect();
         const x1 = pr.left + pr.width / 2;
-        const y1 = pr.top + pr.height / 2;
+        const y1 = pr.bottom - 12;
         const x2 = qr.left + qr.width / 2;
-        const y2 = qr.top + qr.height / 2;
-        // The connecting dashed line.
+        const y2 = qr.top + 12;
         const line = document.createElementNS(NS, "line");
         line.setAttribute("x1", x1);
         line.setAttribute("y1", y1);
         line.setAttribute("x2", x2);
         line.setAttribute("y2", y2);
         line.setAttribute("stroke", color);
-        line.setAttribute("stroke-width", "5");
+        line.setAttribute("stroke-width", "4");
         line.setAttribute("stroke-dasharray", "10 8");
         line.setAttribute("stroke-linecap", "round");
         line.setAttribute("opacity", op);
         svg.appendChild(line);
-        // Endpoint dots — small + see-through so the letter underneath
-        // still reads.
-        const dotOp = Math.min(0.55, op * 0.55);
+        const dotOp = Math.min(0.7, op * 0.8);
         for (const [cx, cy] of [[x1, y1], [x2, y2]]) {
           const dot = document.createElementNS(NS, "circle");
           dot.setAttribute("cx", cx);
           dot.setAttribute("cy", cy);
-          dot.setAttribute("r", 6);
+          dot.setAttribute("r", 5);
           dot.setAttribute("fill", color);
           dot.setAttribute("opacity", dotOp);
           svg.appendChild(dot);
         }
       }
     }
-    drawConnectors();
   </script>
 </body>
 </html>

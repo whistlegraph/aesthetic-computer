@@ -10,8 +10,20 @@
 \usepackage{xeCJK}
 \setCJKmainfont{Droid Sans Fallback}
 
-\setmainfont{Latin Modern Roman}
-\setsansfont{Latin Modern Sans}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
 
 % Custom AC fonts
 \newfontfamily\acbold{ywft-processing-bold}[
@@ -22,7 +34,12 @@
   Path=../../system/public/type/webfonts/,
   Extension=.ttf
 ]
-\setmonofont{Latin Modern Mono}[Scale=0.85]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
 
 % === PACKAGES ===
 \usepackage{xcolor}

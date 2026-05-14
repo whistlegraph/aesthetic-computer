@@ -17,6 +17,7 @@ set -l tmp (mktemp -d)
 set -l template "$here/template.html"
 set -l portrait "$repo/portraits/jeffrey/corpus/shoot/jeffery-av--01.jpg"
 set -l pals_svg "$repo/papers/arxiv-kidlisp/figures/pals.svg"
+set -l fonts "$repo/system/public/type/webfonts"
 
 # 1. QR codes
 qrencode -o "$tmp/qr-notepat.png"  -s 12 -m 2 -l Q "https://notepat.com"
@@ -26,11 +27,15 @@ qrencode -o "$tmp/qr-menuband.png" -s 12 -m 2 -l Q "https://prompt.ac/menuband"
 sips -c 4815 4815 --cropOffset 0 0 "$portrait" --out "$tmp/jeffrey-raw.jpg" >/dev/null
 sips -z 600 600 "$tmp/jeffrey-raw.jpg" --out "$tmp/jeffrey.jpg" >/dev/null
 
-# 3. Base64 data URIs
+# 3. Base64 data URIs (images + AC fonts so the rendered PNG ships with
+#    YWFT Processing / Berkeley Mono baked in)
 echo "data:image/png;base64,"(base64 -i "$tmp/qr-notepat.png")  > "$tmp/qr-notepat.b64"
 echo "data:image/png;base64,"(base64 -i "$tmp/qr-menuband.png") > "$tmp/qr-menuband.b64"
 echo "data:image/svg+xml;base64,"(base64 -i "$pals_svg")        > "$tmp/pals.b64"
 echo "data:image/jpeg;base64,"(base64 -i "$tmp/jeffrey.jpg")    > "$tmp/jeffrey.b64"
+echo "data:font/woff2;base64,"(base64 -i "$fonts/ywft-processing-bold.woff2")     > "$tmp/ywft-bold.b64"
+echo "data:font/woff2;base64,"(base64 -i "$fonts/ywft-processing-light.woff2")    > "$tmp/ywft-light.b64"
+echo "data:font/woff2;base64,"(base64 -i "$fonts/BerkeleyMonoVariable-Regular.woff2") > "$tmp/berkeley.b64"
 
 # 4. Template substitution
 python3 -c "
@@ -41,6 +46,9 @@ for placeholder, path in [
     ('__QR_MENUBAND__', '$tmp/qr-menuband.b64'),
     ('__PALS_LOGO__', '$tmp/pals.b64'),
     ('__JEFFREY_PIC__', '$tmp/jeffrey.b64'),
+    ('__YWFT_BOLD__', '$tmp/ywft-bold.b64'),
+    ('__YWFT_LIGHT__', '$tmp/ywft-light.b64'),
+    ('__BERKELEY__', '$tmp/berkeley.b64'),
 ]:
     html = html.replace(placeholder, open(path).read().strip())
 open('$tmp/keymap.html', 'w').write(html)

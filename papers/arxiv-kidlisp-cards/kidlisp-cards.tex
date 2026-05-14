@@ -8,8 +8,20 @@
 \usepackage{fontspec}
 \usepackage{unicode-math}
 
-\setmainfont{Latin Modern Roman}
-\setsansfont{Latin Modern Sans}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
 
 % Custom AC fonts
 \newfontfamily\acbold{ywft-processing-bold}[
@@ -28,7 +40,12 @@
   Path=../arxiv-kidlisp/fonts/,
   Extension=.ttf
 ]
-\setmonofont{Latin Modern Mono}[Scale=0.85]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
 
 % === PACKAGES ===
 \usepackage{xcolor}
@@ -41,6 +58,10 @@
 \usepackage{xurl}
 \usepackage{graphicx}
 \graphicspath{{figures/}{../arxiv-kidlisp/figures/}}
+% `float` provides [H] — force figure exactly here, no floating. Used to keep
+% per-section card pairs snug against their paragraphs so the document doesn't
+% leave huge blank gaps between text and floats in a two-column layout.
+\usepackage{float}
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{listings}
@@ -263,7 +284,7 @@ Not every \kidlisp{} program makes a good card. The best cards share properties:
   \item \textbf{Independence.} No \texttt{\$code} embeds, no external state. The card must work in isolation.
 \end{itemize}
 
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-starburst.png}}%
 \hfill%
@@ -323,7 +344,7 @@ The current notebook contains 28 cards organized into seven categories. Each cat
 
 Line cards demonstrate \texttt{repeat} and trigonometry. A starburst radiates 72 lines from center. A crosshatch overlays horizontal and vertical grids at low opacity.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-starburst.png}}%
 \hfill%
@@ -346,7 +367,7 @@ Line cards demonstrate \texttt{repeat} and trigonometry. A starburst radiates 72
 
 Circle cards use \texttt{outline} mode and nested \texttt{repeat} loops. ``Ripple'' draws 30 concentric circles with blue-shifting color.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-ripple.png}}%
 \hfill%
@@ -363,7 +384,7 @@ Circle cards use \texttt{outline} mode and nested \texttt{repeat} loops. ``Rippl
 
 These cards use \texttt{plot} with mathematical functions. ``Lissajous'' draws a Lissajous figure with 600 points. ``Spiral'' plots a polar spiral.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-lissajous.png}}%
 \hfill%
@@ -380,7 +401,7 @@ These cards use \texttt{plot} with mathematical functions. ``Lissajous'' draws a
 
 Turtle cards use \texttt{crawl}, \texttt{left}, \texttt{right}, and \texttt{face}. A five-pointed star uses \texttt{(right 144)}. A tree uses \texttt{later} for recursive branching. A snowflake nests Koch-curve segments.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-star.png}}%
 \hfill%
@@ -400,7 +421,7 @@ Turtle cards use \texttt{crawl}, \texttt{left}, \texttt{right}, and \texttt{face
 
 The shortest cards in the deck. ``Horizon'' is three lines: dark sky, gold earth. ``Pip'' is a single red dot on black. These cards approach the minimum viable program---the smallest amount of code that produces a recognizable image.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-horizon.png}}%
 \hfill%
@@ -466,7 +487,7 @@ The postcard layout separates front from back. The front shows only the rendered
 
 Cards are not single objects. They form decks, and the arrangement of a deck creates meaning. A \emph{pedagogical sequence} orders cards by concept: boxes first (coordinates), then lines (trigonometry), then circles (radius), then math curves, then turtle graphics, then minimal koans. A \emph{gallery grid} arranges cards spatially on a wall, inviting comparison across categories. A \emph{shuffled deck} randomizes the order, producing unexpected juxtapositions between a fractal and a horizon, between a tree and a dot.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\columnwidth]{layout-decks.png}
 \caption{Deck arrangements. Left: cards fanned by category (Lines, Circles, Boxes, Math, Turtle, Koans) with multiple cards stacked per category. Right: a gallery grid where cards are arranged spatially for browsing.}
