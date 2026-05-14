@@ -5,13 +5,56 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-05-14T22:27:38.274Z</updated>
+  <updated>2026-05-14T22:33:52.895Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://orcid.org/0009-0007-4460-4913</uri>
   </author>
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
+  <entry>
+    <title>Whistlegraph</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
+    <updated>2026-05-14T22:33:52.895Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
+  </entry>
+  <entry>
+    <title>Keymaps as Social Software</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf</id>
+    <updated>2026-05-14T22:33:52.895Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>MicroVision — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf</id>
+    <updated>2026-05-14T22:33:52.893Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>A Fraserin&apos; Art + Tech</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf</id>
+    <updated>2026-05-14T22:33:52.892Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Jeffrey Alan Scudder — CV</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
+    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
+    <updated>2026-05-14T22:33:52.879Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
   <entry>
     <title>Aesthetic Computer &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf"/>
@@ -91,16 +134,6 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Goodiepalian Approaches in Aesthetic Computer · arXiv 5pp — This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.</summary>
-  </entry>
-  <entry>
-    <title>Whistlegraph</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
   </entry>
   <entry>
     <title>Sucking on the Complex</title>
@@ -233,15 +266,6 @@
     <summary type="text">John Holden&apos;s Proto-Cognitive Music Theory and Aesthetic Computer · arXiv 7pp — The Potter and the Prompt argues that AC independently converges on the core principles of John Holden&apos;s 1770 proto-cognitive music theory. It proposes AC as a computational laboratory for advancing Holden&apos;s unfinished program on grouping, attention, and the module.</summary>
   </entry>
   <entry>
-    <title>Keymaps as Social Software</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
     <title>KidLisp Cards</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf</id>
@@ -286,30 +310,6 @@
     <id>https://papers.aesthetic.computer/diagrams-from-data-26-arxiv.pdf</id>
     <updated>2026-05-14T22:27:38.274Z</updated>
     <published>2026-04-28T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>MicroVision — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.273Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>A Fraserin&apos; Art + Tech</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.271Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Jeffrey Alan Scudder — CV</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
-    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
-    <updated>2026-05-14T22:27:38.258Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>

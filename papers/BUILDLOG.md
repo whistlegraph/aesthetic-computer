@@ -58452,3 +58452,15 @@ Built:
 - Where the Microseconds Go [en] → where-the-microseconds-go-26-arxiv.pdf
 - Where the Microseconds Go [cards] → where-the-microseconds-go-26-arxiv-cards.pdf
 - Diagrams from Data [en] → diagrams-from-data-26-arxiv.pdf
+
+## 2026-05-14 22:33
+
+Built:
+- Keymaps as Social Software [en] → keymaps-social-software-26-arxiv.pdf
+- Keymaps as Social Software [cards] → keymaps-social-software-26-arxiv-cards.pdf
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- Whistlegraph [ja] → whistlegraph-26-arxiv-ja.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
