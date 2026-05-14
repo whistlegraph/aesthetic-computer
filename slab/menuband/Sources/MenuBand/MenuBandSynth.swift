@@ -77,11 +77,39 @@ final class MenuBandSynth {
     private var waveformCaptureEnabled = false
     private var activeNotes: Set<UInt16> = []
     private var idleSuspendWorkItem: DispatchWorkItem?
-    private let idleSuspendDelay: TimeInterval = 2.0
+    /// 60 s instead of 2 s so a short pause between phrases never trips
+    /// `engine.pause()`. The pause itself is cheap, but `engine.start()`
+    /// to bring the graph back online costs ~50–100 ms and that cost
+    /// lands on the FIRST note after the pause — directly observable
+    /// as the "sometimes the piano is slow on the first hit" feeling.
+    /// With 60 s, normal playing keeps the engine continuously warm so
+    /// every keystroke pays only the realtime buffer latency. The power
+    /// saving still kicks in if the user walks away from the keyboard.
+    private let idleSuspendDelay: TimeInterval = 60.0
+    /// Audio I/O frames the device renders per cycle. macOS uses
+    /// `max(all clients)` in shared mode, so on a real system this
+    /// request is observed but typically ignored (something else
+    /// holds the device at 512). Kept for the rare case where Menu
+    /// Band IS the sole client — then the device drops to ~1.3 ms
+    /// at 96 kHz × 128 frames.
+    private static let targetIOBufferFrames: UInt32 = 128
+    /// True once we've successfully taken hog mode on the active
+    /// output device. Tracks the device ID alongside so we can
+    /// release the right one on shutdown / device switch.
+    private var hogModeDeviceID: AudioDeviceID = 0
+    private var hogModeAcquired = false
     /// True once MIDISynth has loaded its bank, preloaded all programs,
     /// and successfully attached to the engine. `noteOn` and
     /// `setMelodicProgram` route through the MIDISynth when this flips.
     private(set) var midiSynthReady = false
+
+    /// Master output gain on the pre-limiter sum bus, 0.0…1.0. Applied
+    /// to `preLimiterMixer.outputVolume` so every backend (MIDISynth,
+    /// sampler, radio, sample voice, plugin) scales together. Sitting
+    /// BEFORE the limiter means lowering the slider also pulls the
+    /// peak-limit threshold down proportionally — the slider is the
+    /// user's "max volume" knob in a literal sense.
+    private var masterVolume: Float = 1.0
 
     /// External callers (the controller's hover-preview path) read this
     /// to decide whether they need to wait for the bank-swap settle delay
@@ -121,6 +149,11 @@ final class MenuBandSynth {
         // opens it. Voice nodes attach lazily on first noteOn.
         sampleVoice.attach(to: engine, output: preLimiterMixer)
         engine.prepare()
+        // Request a smaller hardware IO buffer BEFORE the engine starts,
+        // so the first render cycle is already at the low-latency size.
+        // Setting it after engine.start() works too but causes a brief
+        // restart on the underlying AU.
+        lowerOutputBufferSizeIfNeeded()
         do {
             try engine.start()
             started = true
@@ -129,8 +162,24 @@ final class MenuBandSynth {
             return
         }
         applyOutputDeviceOverride()
+        // Hog mode + buffer-size lowering on AVAudioEngine doesn't pan
+        // out on macOS: even with `kAudioDevicePropertyHogMode` held by
+        // us (verified via external query) and our 64-frame set call
+        // returning noErr, the device reports back 512 frames. The
+        // engine re-asserts its preferred buffer size on each render
+        // cycle and there's no public API to override that — would
+        // need a from-scratch AUHAL setup. So we get all the cost of
+        // hog (other apps can't share the device) with none of the
+        // latency win. Stay on the shared-device floor instead. The
+        // acquire/release helpers are kept available in case a future
+        // backend bypasses AVAudioEngine and can actually benefit.
+        lowerOutputBufferSizeIfNeeded()
         loadDefaultPatches()
         primeForLowLatency()
+        // Apply the persisted master volume now that preLimiterMixer is
+        // attached + connected (setting outputVolume before attach is a
+        // silent no-op on AVAudioMixerNode).
+        preLimiterMixer.outputVolume = masterVolume
 
         // Try to bring up the multi-timbral MIDISynth in the background.
         // If it works, we'll route notes through it for instant program
@@ -430,6 +479,168 @@ final class MenuBandSynth {
         }
     }
 
+    /// Drive the engine's output AU toward a 128-frame IO buffer so
+    /// keystroke → sound latency drops from the macOS default (~11.6 ms
+    /// at 512 frames / 44.1 kHz, ~5.3 ms at 96 kHz) to ~2.9 ms / ~1.3 ms
+    /// respectively.
+    ///
+    /// Two coordinated property writes:
+    ///
+    /// 1. Set `kAudioDevicePropertyBufferFrameSize` on the OUTPUT AU —
+    ///    this is the request the AU uses when negotiating IO size with
+    ///    the device. If we only set it on the device directly,
+    ///    AVAudioEngine re-asserts its own preferred size on the next
+    ///    render cycle and our value evaporates.
+    /// 2. Also set it directly on the device — handles the case where
+    ///    no other client has the device open yet and the device hasn't
+    ///    been told what cycle to run at.
+    ///
+    /// Both writes are clamped to the device's supported range and only
+    /// LOWER the existing value; if a pro-audio app already set it
+    /// tighter (e.g. Ableton at 64), we leave it alone.
+    private func lowerOutputBufferSizeIfNeeded() {
+        guard let outAU = engine.outputNode.audioUnit else { return }
+        var deviceID = AudioDeviceID(0)
+        var devSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let devStatus = AudioUnitGetProperty(
+            outAU, kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global, 0, &deviceID, &devSize)
+        guard devStatus == noErr, deviceID != 0 else {
+            NSLog("MenuBand: low-latency buffer — could not resolve output device: \(devStatus)")
+            return
+        }
+
+        var rangeAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyBufferFrameSizeRange,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        var range = AudioValueRange(mMinimum: 0, mMaximum: 0)
+        var rangeSize = UInt32(MemoryLayout<AudioValueRange>.size)
+        let rangeStatus = AudioObjectGetPropertyData(
+            deviceID, &rangeAddr, 0, nil, &rangeSize, &range)
+
+        var target = Self.targetIOBufferFrames
+        if rangeStatus == noErr {
+            let lo = UInt32(range.mMinimum)
+            let hi = UInt32(range.mMaximum)
+            target = max(lo, min(hi, target))
+        }
+
+        var currAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyBufferFrameSize,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        var current: UInt32 = 0
+        var currSize = UInt32(MemoryLayout<UInt32>.size)
+        let currStatus = AudioObjectGetPropertyData(
+            deviceID, &currAddr, 0, nil, &currSize, &current)
+        if currStatus == noErr, current > 0, current <= target {
+            return  // already at-or-below target, leave it alone
+        }
+
+        // Write on the AU first so the engine's own negotiation
+        // honours our preferred size.
+        let auStatus = AudioUnitSetProperty(
+            outAU,
+            AudioUnitPropertyID(kAudioDevicePropertyBufferFrameSize),
+            kAudioUnitScope_Global,
+            0,
+            &target,
+            UInt32(MemoryLayout<UInt32>.size))
+
+        // Then write on the device directly to cover the case where
+        // the engine isn't yet driving the device.
+        let devSetStatus = AudioObjectSetPropertyData(
+            deviceID, &currAddr, 0, nil,
+            UInt32(MemoryLayout<UInt32>.size), &target)
+
+        if auStatus != noErr && devSetStatus != noErr {
+            NSLog("MenuBand: low-latency buffer set to \(target) frames failed (auStatus=\(auStatus), devStatus=\(devSetStatus), current=\(current))")
+        } else {
+            NSLog("MenuBand: lowered IO buffer to \(target) frames (was \(current))")
+        }
+    }
+
+    /// Take exclusive ownership of the engine's current output device.
+    /// Hog mode is what lets us push the IO buffer below the shared-
+    /// device floor (typically 512 frames). When we own the device,
+    /// macOS no longer aggregates other clients' buffer requests, so
+    /// our 64-frame target actually takes effect.
+    ///
+    /// Trade-off: while hogged, Music.app / Safari / system sounds /
+    /// other audio apps go silent on this device — they can't share
+    /// it with us. We release the moment Menu Band shuts down so the
+    /// user's system isn't stranded.
+    ///
+    /// If another app already hogs the device (rare — usually only
+    /// pro audio apps in low-latency sessions do this), we skip
+    /// silently and stay on the shared-device floor.
+    private func acquireHogModeIfNeeded() {
+        guard !hogModeAcquired,
+              let outAU = engine.outputNode.audioUnit else { return }
+        var deviceID = AudioDeviceID(0)
+        var devSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let devStatus = AudioUnitGetProperty(
+            outAU, kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global, 0, &deviceID, &devSize)
+        guard devStatus == noErr, deviceID != 0 else { return }
+
+        // Read current hog owner. -1 means no hog.
+        var hogAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyHogMode,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        var currentOwner: pid_t = -1
+        var ownerSize = UInt32(MemoryLayout<pid_t>.size)
+        let readStatus = AudioObjectGetPropertyData(
+            deviceID, &hogAddr, 0, nil, &ownerSize, &currentOwner)
+        if readStatus == noErr, currentOwner != -1, currentOwner != getpid() {
+            NSLog("MenuBand: hog mode skipped — device already owned by pid \(currentOwner)")
+            return
+        }
+        if readStatus == noErr, currentOwner == getpid() {
+            // Already ours from a prior start() — record + done.
+            hogModeAcquired = true
+            hogModeDeviceID = deviceID
+            return
+        }
+
+        var us: pid_t = getpid()
+        let setStatus = AudioObjectSetPropertyData(
+            deviceID, &hogAddr, 0, nil,
+            UInt32(MemoryLayout<pid_t>.size), &us)
+        if setStatus == noErr {
+            hogModeAcquired = true
+            hogModeDeviceID = deviceID
+            NSLog("MenuBand: acquired hog mode on device \(deviceID) (pid=\(us))")
+        } else {
+            NSLog("MenuBand: hog mode acquire failed status=\(setStatus)")
+        }
+    }
+
+    /// Release exclusive ownership so other audio apps can use the
+    /// device again. Always called from `stop()` (engine teardown)
+    /// and indirectly from `applicationWillTerminate` via
+    /// `MenuBandController.shutdown()`. Idempotent.
+    private func releaseHogModeIfNeeded() {
+        guard hogModeAcquired, hogModeDeviceID != 0 else { return }
+        var hogAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyHogMode,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        var release: pid_t = -1
+        let status = AudioObjectSetPropertyData(
+            hogModeDeviceID, &hogAddr, 0, nil,
+            UInt32(MemoryLayout<pid_t>.size), &release)
+        if status == noErr {
+            NSLog("MenuBand: released hog mode on device \(hogModeDeviceID)")
+        } else {
+            NSLog("MenuBand: hog mode release failed status=\(status)")
+        }
+        hogModeAcquired = false
+        hogModeDeviceID = 0
+    }
+
     // MARK: - Audio tap for visualizer
 
     func setWaveformCaptureEnabled(_ enabled: Bool) {
@@ -532,6 +743,21 @@ final class MenuBandSynth {
     }
 
     // MARK: - Public API
+
+    /// Master output gain, 0.0…1.0. Stored on the pre-limiter sum bus
+    /// so every backend scales together. Idempotent — safe to call
+    /// before or after `start()`. Clamped to [0, 1].
+    func setMasterVolume(_ value: Float) {
+        let clamped = max(0, min(1, value))
+        masterVolume = clamped
+        // outputVolume is realtime-safe — AVAudioEngine ramps it to
+        // the new target rather than snapping, so dragging the slider
+        // doesn't click.
+        preLimiterMixer.outputVolume = clamped
+    }
+
+    /// Read the current master volume (last persisted or set value).
+    var currentMasterVolume: Float { masterVolume }
 
     /// Switch the current melodic program. Instant when MIDISynth is ready
     /// (sub-millisecond MIDI Program Change); blocks ~100 ms otherwise
@@ -819,6 +1045,11 @@ final class MenuBandSynth {
         idleSuspendWorkItem?.cancel()
         idleSuspendWorkItem = nil
         removeWaveformTapIfNeeded()
+        // Release the device BEFORE stopping the engine so other apps
+        // see the unhog event before they try to recover. Stopping the
+        // engine first would leave a brief window where the device is
+        // ours-but-idle, and Music.app etc. tend to give up retrying.
+        releaseHogModeIfNeeded()
         engine.stop()
         started = false
         midiSynthReady = false

@@ -161,6 +161,13 @@ final class MenuBandPopoverViewController: NSViewController {
     private var instrumentSeparator: NSView!
     private var octaveStepper: NSStepper!
     private var octaveLabel: NSTextField!
+    /// Master mix slider at the popover's top-left. Drives
+    /// `menuBand.masterVolume` (0…1) → `synth.preLimiterMixer.outputVolume`,
+    /// so dragging it scales every backend (GM / sampler / radio / sample
+    /// / plugin) together. Persisted in UserDefaults under
+    /// `notepat.masterVolume`.
+    private var volumeSlider: NSSlider!
+    private var volumeIcon: NSButton!
     /// Cached result of the most recent UpdateChecker fetch. Populated
     /// asynchronously after view load; surfaced inside the custom About
     /// window when the user opens it.
@@ -325,6 +332,12 @@ final class MenuBandPopoverViewController: NSViewController {
         _ = octaveHint
         _ = octaveCaption
         titleRow.addArrangedSubview(octaveStepper)  // hidden, value model only
+
+        // Volume / max-volume mixer slider. Lives at the leading edge of
+        // the title row so it pins top-left, mirroring the octave readout
+        // pinned top-right. The icon doubles as a mute toggle (click to
+        // snap to 0; click again to restore the prior value).
+        buildVolumeWidget(into: titleRow)
 
         // Spacer lives in the middle so the octave widget pins LEFT and
         // the MIDI pair pins RIGHT.
@@ -2003,6 +2016,99 @@ final class MenuBandPopoverViewController: NSViewController {
         ]
         label.attributedStringValue = NSAttributedString(
             string: label.stringValue, attributes: attrs)
+    }
+
+    // MARK: - Volume widget
+
+    /// Build the compact mixer widget — speaker icon + horizontal slider —
+    /// and append it to the title row at the leading edge. Mirrors the
+    /// look of the chevron-bordered octave readout on the right so the
+    /// top bar reads as a symmetric "input gain (left) / pitch (right)"
+    /// pair.
+    private func buildVolumeWidget(into row: NSStackView) {
+        // Speaker icon. Doubles as a mute toggle: click to snap volume
+        // to 0; click again restores the prior value (held in
+        // `preMuteVolume`). Symbol auto-flips between filled wave and
+        // muted slash depending on the slider value.
+        volumeIcon = NSButton()
+        volumeIcon.translatesAutoresizingMaskIntoConstraints = false
+        volumeIcon.isBordered = false
+        volumeIcon.controlSize = .small
+        volumeIcon.imagePosition = .imageOnly
+        volumeIcon.target = self
+        volumeIcon.action = #selector(volumeIconClicked(_:))
+        volumeIcon.toolTip = "Master volume — click to mute"
+        volumeIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        volumeIcon.heightAnchor.constraint(equalToConstant: 14).isActive = true
+
+        volumeSlider = NSSlider()
+        volumeSlider.translatesAutoresizingMaskIntoConstraints = false
+        volumeSlider.minValue = 0
+        volumeSlider.maxValue = 1
+        volumeSlider.doubleValue = Double(menuBand?.masterVolume ?? 1.0)
+        volumeSlider.controlSize = .mini
+        volumeSlider.isContinuous = true
+        volumeSlider.target = self
+        volumeSlider.action = #selector(volumeSliderChanged(_:))
+        volumeSlider.toolTip = "Mix the piano — drag to set max output volume"
+        // Compact — leaves room for the centered metronome + transport
+        // cluster. 64 pt is wide enough for thumb-drag precision without
+        // crowding the row.
+        volumeSlider.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        // Tame the slider's intrinsic vertical height so it lines up
+        // with the 14 pt octave readout on the opposite end.
+        volumeSlider.heightAnchor.constraint(equalToConstant: 14).isActive = true
+
+        row.addArrangedSubview(volumeIcon)
+        row.setCustomSpacing(4, after: volumeIcon)
+        row.addArrangedSubview(volumeSlider)
+        row.setCustomSpacing(8, after: volumeSlider)
+
+        refreshVolumeIcon()
+    }
+
+    /// Pick the right speaker SF Symbol for the current slider value so
+    /// the icon hints at the current gain at a glance (silent / quiet /
+    /// medium / loud) and flips to a slashed icon when fully muted.
+    private func refreshVolumeIcon() {
+        guard let icon = volumeIcon, let slider = volumeSlider else { return }
+        let v = slider.doubleValue
+        let name: String
+        if v <= 0.001        { name = "speaker.slash.fill" }
+        else if v < 0.33     { name = "speaker.wave.1.fill" }
+        else if v < 0.75     { name = "speaker.wave.2.fill" }
+        else                 { name = "speaker.wave.3.fill" }
+        let cfg = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+        icon.image = NSImage(systemSymbolName: name,
+                             accessibilityDescription: "Master volume")?
+            .withSymbolConfiguration(cfg)
+        icon.contentTintColor = v <= 0.001
+            ? .secondaryLabelColor
+            : .labelColor
+    }
+
+    /// Last non-zero slider value, captured at mute-time so a second
+    /// click on the speaker icon restores the prior gain rather than
+    /// snapping the slider all the way to full.
+    private var preMuteVolume: Double = 1.0
+
+    @objc private func volumeSliderChanged(_ sender: NSSlider) {
+        let v = Float(sender.doubleValue)
+        menuBand?.masterVolume = v
+        if v > 0.001 { preMuteVolume = sender.doubleValue }
+        refreshVolumeIcon()
+    }
+
+    @objc private func volumeIconClicked(_ sender: NSButton) {
+        guard let slider = volumeSlider else { return }
+        if slider.doubleValue > 0.001 {
+            preMuteVolume = slider.doubleValue
+            slider.doubleValue = 0
+        } else {
+            slider.doubleValue = preMuteVolume > 0.001 ? preMuteVolume : 1.0
+        }
+        menuBand?.masterVolume = Float(slider.doubleValue)
+        refreshVolumeIcon()
     }
 
     // MARK: - Actions

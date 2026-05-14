@@ -661,9 +661,9 @@
     <p class="tagline" data-i18n="tagline">Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
 
     <div class="button-row">
-      <a id="download-link" class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.2.dmg" data-version="1.2" download>
+      <a id="download-link" class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.3.dmg" data-version="1.3" download>
         <span data-i18n="downloadCta">Download</span>
-        <small id="download-meta" data-i18n="downloadMeta">1.2 · Apple Silicon · 4.6 MB</small>
+        <small id="download-meta" data-i18n="downloadMeta">1.3 · Apple Silicon · 4.7 MB</small>
       </a>
     </div>
     <p id="downloads-counter" class="downloads" aria-live="polite" hidden></p>
@@ -735,7 +735,7 @@
         description: "Menu Band brings the built-in macOS instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.",
         tagline: "Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!",
         downloadCta: "Download",
-        downloadMeta: "1.2 · Apple Silicon · 4.6 MB",
+        downloadMeta: "1.3 · Apple Silicon · 4.7 MB",
         viewSource: "view source",
         by: "by",
         lede: 'A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing\'s listening, a built-in General MIDI synth covers hundreds of patches.',
@@ -747,10 +747,10 @@
         modeNotepatBody: "Type to play. Two octaves.",
         modeAbleton: "Ableton",
         modeAbletonBody: "Type to play. Live's M-mode layout.",
-        whatsNewTitle: "What's new in 1.2",
-        whatsNew1: '<b>Type music into Stickies.</b> Any sticky whose body starts with <code>mb&lt;N&gt;</code> becomes a live keyboard for GM instrument N — type <code>mb5 hhg mb6 hhih</code> and the first chunk plays as instrument 5, the second as 6. Inline <code>mb&lt;N&gt;</code> tokens mid-text switch instruments on the fly; backspace and arrows keep their normal repeat.',
-        whatsNew2: '<b>Two-finger swipe scrolls the octave.</b> Swipe over the menubar piano icon and the octave steps incrementally — first 16 px of motion already moves it, so it feels responsive instead of waiting for a full flick. Scoped to the icon only, so scrolls in the popover and floating panel still scroll their content normally.',
-        whatsNew3: '<b>Plus:</b> the score view sits flush against the popover (no tinted backdrop strip), the octave readout pins to the top-right with a sharp theme-aware drop shadow, and the About panel now shows a scannable QR code for <code>prompt.ac/menuband</code>.',
+        whatsNewTitle: "What's new in 1.3",
+        whatsNew1: '<b>Tighter, more consistent latency.</b> The audio engine used to suspend after two seconds of silence, so the first note after every pause paid a 50–100&nbsp;ms cold-start cost. The idle window is now 60 seconds, so the engine stays warm between phrases and every key feels as fast as the last.',
+        whatsNew2: '<b>Top-left mix slider.</b> A compact speaker icon + slider lives at the leading edge of the popover. Drag to scale every backend — GM, sampler, radio, sample voice, plugin — together as one master output. Click the speaker to mute; click again to restore.',
+        whatsNew3: '<b>Plus:</b> the synth requests a 128-frame IO buffer on startup (drops device latency further when Menu Band is the sole audio client) and the master volume persists across launches.',
         recentTitle: "Recent changes",
         loading: "loading…",
         recentEmpty: "no recent changes",
@@ -766,7 +766,7 @@
         description: "Menu Band trae los instrumentos integrados de macOS — los que usa GarageBand — a tu barra de menús. Toca, escribe o envíalos a tu DAW por MIDI.",
         tagline: "¡Sacando los instrumentos clásicos de macOS del 🎸 Garage para tocarlos en la acera!",
         downloadCta: "Descargar",
-        downloadMeta: "1.2 · Apple Silicon · 4,6 MB",
+        downloadMeta: "1.3 · Apple Silicon · 4,7 MB",
         viewSource: "ver código",
         by: "por",
         lede: 'Un piano diminuto vive a la derecha de tu barra de menús. Toca las teclas, escribe letras o envía notas a tu DAW por MIDI — Menu Band publica una fuente MIDI virtual llamada <code>Menu Band</code> que cualquier DAW puede tomar como entrada. Cuando nadie escucha, un sintetizador General MIDI integrado cubre cientos de timbres.',
@@ -778,10 +778,10 @@
         modeNotepatBody: "Escribe para tocar. Dos octavas.",
         modeAbleton: "Ableton",
         modeAbletonBody: "Escribe para tocar. Disposición M-mode de Live.",
-        whatsNewTitle: "Novedades de 1.2",
-        whatsNew1: '<b>Escribe música en Notas adhesivas.</b> Cualquier nota cuyo cuerpo empiece con <code>mb&lt;N&gt;</code> se convierte en un teclado en vivo para el instrumento GM N — escribe <code>mb5 hhg mb6 hhih</code> y el primer trozo suena como instrumento 5, el segundo como 6. Los tokens <code>mb&lt;N&gt;</code> dentro del texto cambian de instrumento al vuelo; retroceso y flechas conservan su repetición normal.',
-        whatsNew2: '<b>Deslizar con dos dedos cambia la octava.</b> Desliza sobre el icono del piano en la barra de menús y la octava avanza de forma incremental — los primeros 16 px de movimiento ya la mueven, sin esperar a un gesto completo. Sólo sobre el icono; los desplazamientos en el popover y el panel flotante siguen funcionando con normalidad.',
-        whatsNew3: '<b>Además:</b> la vista de partitura queda al ras del popover (sin franja teñida detrás), el indicador de octava se ancla arriba a la derecha con una sombra dura sensible al tema, y la ventana «Acerca de» ahora muestra un código QR escaneable a <code>prompt.ac/menuband</code>.',
+        whatsNewTitle: "Novedades de 1.3",
+        whatsNew1: '<b>Latencia más baja y más consistente.</b> Antes el motor de audio se suspendía tras dos segundos de silencio, así que la primera nota tras cada pausa cargaba un coste de arranque en frío de 50–100&nbsp;ms. Ahora la ventana de inactividad es de 60 segundos, así que el motor sigue caliente entre frases y cada tecla se siente tan rápida como la anterior.',
+        whatsNew2: '<b>Mezclador en la esquina superior izquierda.</b> Un icono compacto de altavoz + deslizador vive al inicio del popover. Arrástralo para escalar todos los backends — GM, sampler, radio, voz de muestra, plugin — juntos como una única salida maestra. Toca el altavoz para silenciar; tócalo de nuevo para restaurar.',
+        whatsNew3: '<b>Además:</b> el sintetizador pide un buffer de E/S de 128 cuadros al arrancar (reduce más la latencia cuando Menu Band es el único cliente de audio) y el volumen maestro se conserva entre arranques.',
         recentTitle: "Cambios recientes",
         loading: "cargando…",
         recentEmpty: "sin cambios recientes",

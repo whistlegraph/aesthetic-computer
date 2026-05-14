@@ -27,6 +27,7 @@ final class MenuBandController {
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
+    private let masterVolumeKey = "notepat.masterVolume"
     private let hapticsEnabledKey = "notepat.hapticsEnabled"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
@@ -483,6 +484,24 @@ final class MenuBandController {
         return UInt8(max(0, min(127, raw)))
     }
 
+    /// Persistent master output gain, 0.0…1.0. Default 1.0 (full volume).
+    /// Lives on the pre-limiter sum bus inside the synth so every backend
+    /// scales together — drag the popover slider and the whole mix moves.
+    var masterVolume: Float {
+        get {
+            if UserDefaults.standard.object(forKey: masterVolumeKey) == nil {
+                return 1.0
+            }
+            let raw = UserDefaults.standard.double(forKey: masterVolumeKey)
+            return Float(max(0.0, min(1.0, raw)))
+        }
+        set {
+            let clamped = max(0, min(1, newValue))
+            UserDefaults.standard.set(Double(clamped), forKey: masterVolumeKey)
+            synth.setMasterVolume(clamped)
+        }
+    }
+
     var effectiveMelodicProgram: UInt8 {
         previewProgram ?? melodicProgram
     }
@@ -779,6 +798,11 @@ final class MenuBandController {
         }
         synth.start()
         synth.setMelodicProgram(melodicProgram)
+        // Restore the user's last master-volume setting before any notes
+        // sound. Default of 1.0 means a fresh install plays at full
+        // volume (matches previous behaviour); explicit lower picks
+        // survive the relaunch.
+        synth.setMasterVolume(masterVolume)
         // Restore radio backend if it was active in the previous session.
         // Done after setMelodicProgram so the GM voice is primed underneath
         // — toggling radio off later returns the user to that voice.
