@@ -337,8 +337,7 @@ let previousKidlispMode = false; // Track previous KidLisp mode state for sound 
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 let versionCommit = null; // Current commit hash for the commit button
 let recentCommits = []; // Recent commits for uniticker display: [{hash, message, author, date}]
-let updateAvailable = false; // True when a new deployment is detected via long-poll
-let versionPollController = null; // AbortController for long-poll requests
+let updateAvailable = false; // Mirrors $commonApi.system.update.ready (synced in sim)
 
 // Multilingual "Prompt" translations cycling
 const promptTranslations = [
@@ -759,86 +758,9 @@ async function boot({
       console.warn("💁 Could not get handle count.");
     });
 
-  // Fetch git commit/version status with long-poll for deploy detection
-  const fetchVersion = async () => {
-    try {
-      const res = await fetch("/api/version");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      versionInfo = await res.json();
-      // Local/dev: never show "(N behind)" — the .commit-ref on a dev
-      // checkout can be stale and the user isn't deploying anything.
-      if (debug) {
-        versionInfo = {
-          ...versionInfo,
-          deployed: versionInfo.deployed === "unknown" ? "dev" : versionInfo.deployed,
-          status: "local",
-          behindBy: 0,
-        };
-      }
-      // Store recent commits from the version API
-      recentCommits = versionInfo.recentCommits || [];
-      needsPaint();
-    } catch (e) {
-      console.warn("📦 Could not fetch version info:", e);
-    }
-  };
-  fetchVersion();
-
-  // Long-poll loop: detect new deployments within ~5 seconds
-  const startVersionPoll = async () => {
-    if (debug) {
-      // Local dev: just poll every 60 seconds
-      setInterval(fetchVersion, 60 * 1000);
-      return;
-    }
-    const poll = async () => {
-      while (true) {
-        try {
-          if (!versionInfo?.deployed) {
-            await new Promise(r => setTimeout(r, 5000));
-            continue;
-          }
-          versionPollController = new AbortController();
-          const res = await fetch(
-            `/api/version?current=${versionInfo.deployed}`,
-            { signal: versionPollController.signal }
-          );
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          if (data.changed === false) {
-            // Same version — loop again immediately (server already waited ~4s)
-            continue;
-          }
-          // New deployment detected! Update version info
-          updateAvailable = true;
-          versionInfo = data;
-          recentCommits = data.recentCommits || [];
-          needsPaint();
-          console.log("📦 New deployment detected:", data.deployed);
-          // Tell the active service worker (via the main thread, since we
-          // run inside a Web Worker and don't have direct access to
-          // navigator.serviceWorker) to evict its module cache. The
-          // user's NEXT navigation/reload then pulls fresh bios.mjs +
-          // disk.mjs instead of stale-while-revalidating for up to an
-          // hour. We don't auto-reload here — that would interrupt the
-          // user mid-task — but the cache eviction makes a manual
-          // reload propagate the new build immediately.
-          try {
-            send({ type: "sw:clear-cache" });
-          } catch (e) {
-            console.warn("📦 Could not request SW cache clear:", e);
-          }
-          break; // Stop polling — update is available
-        } catch (e) {
-          if (e.name === "AbortError") break;
-          console.warn("📦 Version poll error:", e);
-          await new Promise(r => setTimeout(r, 10000)); // Back off on error
-        }
-      }
-    };
-    poll();
-  };
-  startVersionPoll();
+  // 📦 Version state now lives globally in disk.mjs (`$commonApi.system.update`)
+  // so the corner ↑ badge appears in any piece. We sync into our local vars in
+  // sim() so the existing commit-button + uniticker code keeps working.
 
   // Clear handle colors cache on each boot so edits are picked up immediately.
   handleColorsCache.clear();
@@ -7267,6 +7189,24 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
+  // 📦 Mirror the worker-global update poll into our local refs so the
+  // existing commit-button + uniticker code keeps working unchanged.
+  const u = $.system?.update;
+  if (u) {
+    if (u.versionInfo && versionInfo !== u.versionInfo) {
+      versionInfo = u.versionInfo;
+      $.needsPaint();
+    }
+    if (u.recentCommits && recentCommits !== u.recentCommits) {
+      recentCommits = u.recentCommits;
+      $.needsPaint();
+    }
+    if (u.ready && !updateAvailable) {
+      updateAvailable = true;
+      $.needsPaint();
+    }
+  }
+
   // 🎄 Handle pending autorun commands (from URL-based merry, etc.)
   if (pendingAutorun) {
     const { text } = pendingAutorun;
@@ -8304,7 +8244,6 @@ function meta() {
 // 👋 Leave
 function leave() {
   motdController?.abort(); // Abort any motd update.
-  versionPollController?.abort(); // Stop version long-poll.
 }
 
 export const nohud = true;

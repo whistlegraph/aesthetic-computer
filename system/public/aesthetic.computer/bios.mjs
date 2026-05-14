@@ -11737,6 +11737,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "qr:toggle-fullscreen" });
           }
 
+          // 📦 Update-ready badge tap → full reload (new deployment available).
+          if (content.label === "update-corner") {
+            console.log("🔘 Update badge tapped — reloading");
+            window.location.reload();
+          }
+
           if (content.label === "copy") {
             try {
               await navigator.clipboard.writeText(content.message);
@@ -17419,7 +17425,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
         // EXCEPT for tapeProgressBar, merryProgressBar, durationProgressBar, durationTimecode, qrOverlay and bumperOverlay which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "demoplayCard" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay") {
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "merryProgressBar" && name !== "demoplayCard" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "authorOverlay" && name !== "bumperOverlay" && name !== "updateBadge") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -17502,6 +17508,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         overlayCache.lastKey = null; // Force regeneration every frame
         delete window.framePersistentOverlayCache[name]; // Clear persistent cache
         currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+
+      // 📦 Update badge pulses every frame.
+      if (name === "updateBadge") {
+        overlayCache.lastKey = null;
+        delete window.framePersistentOverlayCache[name];
+        currentKey += `_${performance.now()}`;
       }
 
       // Only rebuild if overlay actually changed
@@ -17702,6 +17715,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("qrCornerLabel", content.qrCornerLabel);
     buildOverlay("qrFullscreenLabel", content.qrFullscreenLabel);
     buildOverlay("authorOverlay", content.authorOverlay); // 👤 Author attribution for KidLisp pieces
+    buildOverlay("updateBadge", content.updateBadge); // 📦 Update-ready ↑ badge (top-right)
     buildOverlay("merryProgressBar", content.merryProgressBar); // 🎄 Merry pipeline progress bar
     buildOverlay("demoplayCard", content.demoplayCard); // 🎬 Demoplay text card overlay
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
@@ -17931,6 +17945,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
                 if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                 if (paintOverlays["authorOverlay"]) paintOverlays["authorOverlay"]();
+                if (paintOverlays["updateBadge"]) paintOverlays["updateBadge"](); // 📦 Update-ready badge (top-right)
                 if (paintOverlays["tapeProgressBar"] && !window.currentRecordingOptions?.cleanMode) paintOverlays["tapeProgressBar"]();
                 if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                 if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay (green hitbox)
@@ -18020,6 +18035,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                       if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
                       if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                       if (paintOverlays["authorOverlay"]) paintOverlays["authorOverlay"]();
+                      if (paintOverlays["updateBadge"]) paintOverlays["updateBadge"](); // 📦 Update-ready badge
                       if (paintOverlays["tapeProgressBar"] && !window.currentRecordingOptions?.cleanMode) paintOverlays["tapeProgressBar"]();
                       if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                       if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"]();
@@ -18127,6 +18143,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // 👤 Paint author overlay (bottom-left attribution for KidLisp pieces)
         if (!skipImmediateOverlays && paintOverlays["authorOverlay"]) {
           paintOverlays["authorOverlay"]();
+        }
+
+        // 📦 Update-ready badge (top-right) — drawn after corner overlays so
+        // it sits on top of everything else.
+        if (!skipImmediateOverlays && paintOverlays["updateBadge"]) {
+          paintOverlays["updateBadge"]();
         }
 
         // Paint hitbox debug overlay immediately (green, shows button hitbox)

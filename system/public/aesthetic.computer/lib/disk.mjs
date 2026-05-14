@@ -1905,6 +1905,17 @@ let currentPath,
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
 
+// 📦 Global update state — polled once per worker lifetime so a fresh build is
+// visible from any piece (not just `prompt`, which used to own polling and
+// aborted it on leave). Exposed via `$commonApi.system.update`.
+let globalUpdateReady = false;
+let globalVersionInfo = null; // { deployed, latest, status, behindBy, recentCommits }
+let globalRecentCommits = [];
+let updatePollStarted = false;
+let updatePollController = null;
+let updateBadgeBoxScreen = null; // {x, y, w, h} of the rendered badge for hitbox bookkeeping
+let updateBadgeHitboxRegistered = false;
+
 // 📱 LAN Dev mode identity (set by session server in dev mode)
 let devIdentity = null; // { name, host, hostIp, mode, connectionId }
 
@@ -3590,6 +3601,15 @@ const $commonApi = {
   },
   system: {
     // prompt: { input: undefined }, Gets set in `prompt_boot`.
+    // 📦 Global update poll state — `ready` flips true when /api/version
+    // long-poll detects a new deployment. Pieces can read this to render
+    // their own update UI; the corner ↑ badge in disk.mjs is automatic.
+    update: {
+      get ready() { return globalUpdateReady; },
+      get versionInfo() { return globalVersionInfo; },
+      get recentCommits() { return globalRecentCommits; },
+      reload: () => send({ type: "window:reload" }),
+    },
     world: {
       // Populated in `world_boot` of `world.mjs`.
       teleported: false,
@@ -9907,6 +9927,74 @@ if (_workerReadyTime - _importStart > 50) {
   console.log(`📦 [DISK] Ready: ${(_workerReadyTime - _importStart).toFixed(0)}ms`);
 }
 
+// 📦 Long-poll `/api/version` to detect new deployments. Runs once for the
+// life of the worker so the green ↑ badge can appear in any piece.
+async function startGlobalVersionPoll() {
+  if (updatePollStarted) return;
+  updatePollStarted = true;
+
+  const fetchVersion = async () => {
+    try {
+      const res = await fetch("/api/version");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      globalVersionInfo = debug
+        ? {
+            ...data,
+            deployed: data.deployed === "unknown" ? "dev" : data.deployed,
+            status: "local",
+            behindBy: 0,
+          }
+        : data;
+      globalRecentCommits = data.recentCommits || [];
+      try { $commonApi.needsPaint?.(); } catch {}
+    } catch (e) {
+      console.warn("📦 Could not fetch version info:", e);
+    }
+  };
+
+  await fetchVersion();
+
+  if (debug) {
+    // Local dev: poll once a minute instead of long-polling.
+    setInterval(fetchVersion, 60 * 1000);
+    return;
+  }
+
+  // Long-poll loop: detect new deployments within ~5 seconds.
+  while (true) {
+    try {
+      if (!globalVersionInfo?.deployed) {
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      updatePollController = new AbortController();
+      const res = await fetch(
+        `/api/version?current=${globalVersionInfo.deployed}`,
+        { signal: updatePollController.signal },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.changed === false) continue; // Server already waited ~4s
+      globalUpdateReady = true;
+      globalVersionInfo = data;
+      globalRecentCommits = data.recentCommits || [];
+      console.log("📦 New deployment detected:", data.deployed);
+      try {
+        send({ type: "sw:clear-cache" });
+      } catch (e) {
+        console.warn("📦 Could not request SW cache clear:", e);
+      }
+      try { $commonApi.needsPaint?.(); } catch {}
+      break; // Stop polling — update is available
+    } catch (e) {
+      if (e.name === "AbortError") break;
+      console.warn("📦 Version poll error:", e);
+      await new Promise((r) => setTimeout(r, 10000));
+    }
+  }
+}
+
 // ***Bootstrap***
 // Start by responding to a load message, then change
 // the message response to makeFrame.
@@ -10002,6 +10090,16 @@ async function makeFrame({ data: { type, content } }) {
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
     if (content.bootId && typeof self !== "undefined") self.acBOOT_ID = content.bootId;
+
+    // 📦 Kick off global version polling (skip preview/icon/pack/objkt where
+    // the user can't reload anyway).
+    if (
+      !content.previewOrIcon &&
+      !content.objktMode &&
+      !content.packMode
+    ) {
+      startGlobalVersionPoll();
+    }
 
     if (content.debugHud) {
       globalThis.debugHudHitbox = true;
@@ -16143,6 +16241,74 @@ async function makeFrame({ data: { type, content } }) {
         } catch (err) {
           console.warn("Failed to generate author overlay:", err);
         }
+      }
+
+      // 📦 Top-right update-ready badge — appears in any piece when
+      // /api/version detects a new deployment. Tap to reload.
+      if (
+        globalUpdateReady &&
+        !PREVIEW_OR_ICON &&
+        !DEVICE_MODE &&
+        !hudAnimationState.qrFullscreen
+      ) {
+        const badgeSize = 13;
+        const margin = 4;
+        const startX = screen.width - badgeSize - margin;
+        const startY = margin;
+
+        // Pulse for attention.
+        const tBadge = Number($api.paintCount || 0n);
+        const pulse = 0.5 + 0.5 * Math.sin(tBadge * 0.15);
+        const fillBoost = Math.round(40 * pulse);
+        const outlineBoost = Math.round(60 * pulse);
+
+        const badge = $api.painting(badgeSize, badgeSize, ($) => {
+          $.unpan();
+          $.unmask();
+          // Filled square w/ pulsing green.
+          $.ink(20 + fillBoost, 80 + fillBoost, 30, 230).box(
+            0, 0, badgeSize, badgeSize,
+          );
+          $.ink(60 + outlineBoost, 180 + outlineBoost, 70, 255).box(
+            0, 0, badgeSize, badgeSize, "outline",
+          );
+          // Up arrow ↑ in pixels.
+          const cx = Math.floor(badgeSize / 2);
+          $.ink(255, 255, 255, 255);
+          $.box(cx, 3, 1, 1);         // tip
+          $.box(cx - 1, 4, 3, 1);     // wing 1
+          $.box(cx - 2, 5, 5, 1);     // wing 2
+          $.box(cx, 6, 1, 4);         // shaft
+        });
+
+        sendData.updateBadge = {
+          x: startX,
+          y: startY,
+          opacity: 1,
+          img: (({ width, height, pixels }) => ({ width, height, pixels }))(
+            badge,
+          ),
+        };
+
+        const boxKey = `${startX},${startY},${badgeSize}`;
+        if (!updateBadgeBoxScreen || updateBadgeBoxScreen.key !== boxKey) {
+          send({
+            type: "button:hitbox:add",
+            content: {
+              label: "update-corner",
+              box: { x: startX, y: startY, w: badgeSize, h: badgeSize },
+              message: "update-corner-tap",
+            },
+          });
+          updateBadgeBoxScreen = {
+            x: startX, y: startY, w: badgeSize, h: badgeSize, key: boxKey,
+          };
+          updateBadgeHitboxRegistered = true;
+        }
+      } else if (updateBadgeHitboxRegistered) {
+        send({ type: "button:hitbox:remove", content: "update-corner" });
+        updateBadgeHitboxRegistered = false;
+        updateBadgeBoxScreen = null;
       }
 
       let transferredPixels;

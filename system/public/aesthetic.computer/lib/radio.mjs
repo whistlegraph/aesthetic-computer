@@ -83,7 +83,9 @@ export function updateBars(state, { lerp }) {
       const dataIndex = Math.floor((i / BAR_COUNT) * state.waveformData.length);
       const sample = state.waveformData[dataIndex] || 128;
       state.bars[i].targetHeight = Math.abs(sample - 128) / 128;
-    } else if (state.isPlaying) {
+    } else if (state.isPlaying && state.cors === false) {
+      // Only synthesize when CORS prevents the real analyser from working
+      // (e.g. kpbj). CORS-enabled streams (r8dio) wait for real data instead.
       const wave = Math.sin(state.animPhase + i * 0.3) * 0.3 + 0.4;
       const noise = Math.random() * 0.2;
       state.bars[i].targetHeight = wave + noise;
@@ -297,8 +299,10 @@ export function calcLayout(screen, theme, qrCells = null) {
   const subtitleY = titleY + (isSmall ? 14 : 20); // More space between title and subtitle
   
   // QR code position - bottom right corner, fully inside screen
+  // Reserve room below the QR for its label (MatrixChunky8 ~6-8px tall + gap).
+  const qrLabelReserve = isSmall ? 10 : 14;
   const qrX = w - qrSize - qrPadding;
-  const qrY = h - qrSize - qrPadding;
+  const qrY = h - qrSize - qrLabelReserve;
   
   // Button sizing - responsive
   const btnSize = isSmall ? 24 : 32;
