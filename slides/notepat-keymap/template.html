@@ -102,8 +102,10 @@
     justify-content: flex-end;
     padding-bottom: 16px;
   }
-  /* White (natural) key — gets tinted with its note color. The QWERTY
-     letter on top stays in a dark band so it reads against any tint. */
+  /* White (natural) key — body stays white so the QWERTY letter reads
+     in plain dark ink (Berkeley Mono); a saturated colored stripe at
+     the BOTTOM acts as the note-color tab, matching how menuband draws
+     its keys. */
   .wkey {
     width: 120px;
     height: 320px;
@@ -112,30 +114,31 @@
     overflow: hidden;
   }
   .wkey .keyswatch {
-    position: absolute; left: 0; right: 0; top: 0;
-    height: 120px;
-    border-bottom: 2px solid rgba(0,0,0,0.18);
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 44px;
+    border-top: 2px solid rgba(0,0,0,0.22);
   }
   .wkey .qkey {
     font-family: "Berkeley Mono", "SF Mono", monospace;
     font-size: 64px;
     font-weight: 800;
     line-height: 1;
-    color: #fff;
-    text-shadow:
-      0 2px 0 rgba(0,0,0,0.32),
-      0 4px 14px rgba(0,0,0,0.18);
+    color: #121012;
     position: absolute;
-    top: 28px; left: 0; right: 0;
+    top: 96px; left: 0; right: 0;
     text-align: center;
   }
   .wkey .nname {
+    position: absolute;
+    bottom: 60px; left: 0; right: 0;
+    text-align: center;
     font-family: "Berkeley Mono", "SF Mono", monospace;
     font-size: 22px;
-    color: #4a4a4a;
+    color: #2a2a2a;
     letter-spacing: 0.05em;
-    margin-top: 8px;
+    margin: 0;
     font-weight: 700;
+    z-index: 2;
   }
   /* Note color tints — saturated on top, white below for label legibility */
   .wkey[data-pn="c"]  .keyswatch { background: #ff3232; }
@@ -153,9 +156,6 @@
   .wkey[data-pn="G5"] .keyswatch { background: #32c8ff; }
   .wkey[data-pn="A5"] .keyswatch { background: #b432ff; }
   .wkey[data-pn="B5"] .keyswatch { background: #ff50ff; }
-  /* On yellow swatches the white letter blows out — dark it. */
-  .wkey[data-pn="e"]  .qkey,
-  .wkey[data-pn="E5"] .qkey { color: #3a2a00; text-shadow: 0 2px 0 rgba(255,255,255,0.5); }
 
   /* Black (sharp/flat) keys — pitch-black with subtle color edge so
      they read as semitones rather than dead space. */
@@ -186,7 +186,7 @@
   .wkey.ext { background: #fff4d6; color: #8a7330; border-color: #d4c075; opacity: 0.78; }
   .wkey.ext .qkey { color: #8a7330; text-shadow: none; position: static; padding-top: 22px; }
   .wkey.ext .keyswatch { display: none; }
-  .wkey.ext .nname { color: #a89855; }
+  .wkey.ext .nname { position: static; color: #a89855; text-shadow: none; font-size: 22px; font-weight: 700; }
   .bkey.ext { background: #5a4818; color: #f8e7a0; border-color: #4a3814; opacity: 0.78; }
   .bkey.ext .nname { color: #d8c878; }
   .wkey.ext .ext-tag, .bkey.ext .ext-tag {
