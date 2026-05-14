@@ -92,17 +92,15 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // Layer-backed so we can transform the whole sheet (webView +
-        // overlay together) for the drag-out crumple animation. Also
-        // gives us a paper-colored backing — if WebKit's compositor
-        // ever drops the page surface mid-rerender, the gap behind
-        // shows cream (matching #page's CSS background) instead of
-        // a stark white flash that reads as a flicker.
+        // Layer-backed only so we can transform the whole sheet
+        // (webView + overlay together) for the drag-out crumple
+        // animation. Background stays fully transparent — the page
+        // itself fills the bounds edge-to-edge, so there is no
+        // gutter for the popover's voice-tinted glass (or any tray
+        // color) to show through behind it.
         wantsLayer = true
-        layer?.backgroundColor = NSColor(
-            calibratedRed: 248.0/255.0, green: 239.0/255.0,
-            blue: 217.0/255.0, alpha: 1.0
-        ).cgColor
+        layer?.backgroundColor = NSColor.clear.cgColor
+        setUpExportWebView()
         setUpWebView()
         setUpOverlay()
         registerForDraggedTypes([.fileURL])
@@ -114,6 +112,17 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         super.layout()
         webView.frame = bounds
         overlay.frame = bounds
+        // Keep the offscreen export webview the same size as the
+        // visible one so its rendered SVG lays out identically and
+        // createPDF captures a 1:1 page bitmap. Its frame is
+        // shifted far offscreen via `exportWebViewHost.frame` so
+        // none of its surface ever paints inside the popover.
+        if let exportWebView = exportWebView, let exportWebViewHost = exportWebViewHost {
+            exportWebViewHost.frame = NSRect(x: -10000, y: -10000,
+                                              width: max(bounds.width, 1),
+                                              height: max(bounds.height, 1))
+            exportWebView.frame = NSRect(origin: .zero, size: exportWebViewHost.bounds.size)
+        }
         // Once the popover is actually on screen and the webView has
         // a non-zero size, prime the PDF cache. Without this guard
         // a too-early `createPDF` on a 0×0 webView hangs forever and
@@ -141,6 +150,57 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         addSubview(webView)
         self.webView = webView
         loadSheet()
+    }
+
+    /// Offscreen WKWebView whose only job is to render PDFs.
+    /// Loads the same sheet.html as the visible one, but marks
+    /// itself as the export pane so the CSS branch flips the page
+    /// to white-paper styling permanently (no shadow, no noise
+    /// filter, no dark-mode inversion). All PDF round-tripping
+    /// flows through here, so the visible view never has to flash
+    /// `.exporting` on/off and never has its alpha toggled. The
+    /// visible view stays in its dark or light staff-paper look
+    /// continuously — no flicker.
+    private var exportWebView: WKWebView!
+    /// Container that physically holds `exportWebView` off-screen
+    /// (negative origin far from any visible pixels). The
+    /// WKWebView still lays out and Verovio still renders inside
+    /// it because it has a non-zero frame and a real window — but
+    /// nothing it paints ever appears inside the popover.
+    private var exportWebViewHost: NSView!
+
+    private func setUpExportWebView() {
+        // Host sits visually offscreen but has the same SIZE as the
+        // SheetMusicView so the WKWebView inside it lays out at the
+        // real popover dimensions (createPDF captures content at the
+        // WKWebView's frame size). We don't clip — clipping doesn't
+        // change createPDF output and just risks a WebKit short-
+        // circuit. AlphaValue 0 keeps it invisible regardless.
+        let host = NSView(frame: NSRect(x: -10000, y: -10000,
+                                         width: max(bounds.width, 1),
+                                         height: max(bounds.height, 1)))
+        host.alphaValue = 0
+        host.wantsLayer = true
+        host.layer?.masksToBounds = false
+        addSubview(host, positioned: .below, relativeTo: nil)
+        exportWebViewHost = host
+
+        let config = WKWebViewConfiguration()
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        let userContent = WKUserContentController()
+        config.userContentController = userContent
+        let web = WKWebView(frame: bounds, configuration: config)
+        web.setValue(false, forKey: "drawsBackground")
+        web.navigationDelegate = self
+        host.addSubview(web)
+        exportWebView = web
+
+        guard let htmlURL = Bundle.module.url(
+            forResource: "sheet",
+            withExtension: "html"
+        ) else { return }
+        let dir = htmlURL.deletingLastPathComponent()
+        web.loadFileURL(htmlURL, allowingReadAccessTo: dir)
     }
 
     private func setUpOverlay() {
@@ -319,18 +379,17 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
             NSLog("SheetMusicView: performPDFRefresh skipped (in-flight)")
             return
         }
-        guard webView.bounds.width > 0, webView.bounds.height > 0 else {
-            // createPDF on a 0×0 webView never completes. Skipping
-            // here (without setting the in-flight flag) keeps the
-            // pipeline unpoisoned until a real layout brings the
-            // view to size.
+        guard let exportWebView = exportWebView,
+              exportWebView.bounds.width > 0,
+              exportWebView.bounds.height > 0 else {
             NSLog("SheetMusicView: performPDFRefresh skipped (zero bounds)")
             return
         }
+        guard exportLoaded else {
+            NSLog("SheetMusicView: performPDFRefresh skipped (export pane still loading)")
+            return
+        }
         pdfRenderInFlight = true
-        // Defensive timeout — if createPDF ever hangs (e.g. WKWebView
-        // misbehaves on a transient size change), reset the in-flight
-        // flag so the next layout message can try again.
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             guard let self = self else { return }
             if self.pdfRenderInFlight {
@@ -345,26 +404,22 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         try? FileManager.default.createDirectory(
             at: tmpDir, withIntermediateDirectories: true)
         let pdfURL = tmpDir.appendingPathComponent("Menu-Band-\(stamp).pdf")
-        NSLog("SheetMusicView: PDF refresh starting → \(pdfURL.lastPathComponent), webView.bounds=\(webView.bounds), xml=\(xmlAtRender.count) chars")
+        NSLog("SheetMusicView: PDF refresh starting → \(pdfURL.lastPathComponent), export.bounds=\(exportWebView.bounds), xml=\(xmlAtRender.count) chars")
 
-        // Fetch the wall-clock event list FIRST so it's available
-        // when we write the PDF. Chained to avoid a race between
-        // the async eval and the async createPDF — without this
-        // chain the events JSON could be missing or stale when
-        // the file is finalised.
+        // Push the latest XML into the offscreen pane and grab the
+        // events list from the visible pane in parallel. createPDF
+        // runs once the export pane has had a tick to lay out.
+        pushXMLToExport(xmlAtRender)
         webView.evaluateJavaScript("Sheet.getPlaybackEvents()") { [weak self] eventsResult, _ in
             guard let self = self else { return }
             let eventsJSON = (eventsResult as? String) ?? "[]"
-            // Toggle the export-only stylesheet (kills the SVG noise
-            // filter + box shadows, which can't be vectorized into
-            // PDF and otherwise rasterize to 200+ MB at Retina DPI).
-            // Removed in the createPDF completion below.
-            self.webView.evaluateJavaScript(
-                "document.body.classList.add('exporting')",
-                completionHandler: nil)
-            self.runCreatePDF(to: pdfURL,
-                              eventsJSON: eventsJSON,
-                              xmlAtRender: xmlAtRender)
+            // Tiny delay so Verovio's render + DOM swap settles on
+            // the export pane before createPDF reads the layout.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.runCreatePDF(to: pdfURL,
+                                  eventsJSON: eventsJSON,
+                                  xmlAtRender: xmlAtRender)
+            }
         }
     }
 
@@ -373,15 +428,9 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     private func runCreatePDF(to pdfURL: URL,
                               eventsJSON: String,
                               xmlAtRender: String) {
-        // Modern WKWebView async API — renders the page to a PDF
-        // off the main runloop without entering a nested event
-        // loop, so calling this during tracking is safe.
-        webView.createPDF { [weak self] result in
+        exportWebView.createPDF { [weak self] result in
             guard let self = self else { return }
             self.pdfRenderInFlight = false
-            self.webView.evaluateJavaScript(
-                "document.body.classList.remove('exporting')",
-                completionHandler: nil)
             switch result {
             case .success(let data):
                 NSLog("SheetMusicView: createPDF success — \(data.count) bytes")
@@ -403,14 +452,6 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
                     pdf.documentAttributes = attrs
                     pdf.write(to: pdfURL)
                 }
-                // Don't delete the previous cached file even though
-                // it's superseded — `cachedPDFURL` is what the
-                // pasteboard writer hands to the OS at drag-start,
-                // and the drop target may not consult it until tens
-                // of ms later (especially for cross-app drops). A
-                // delete here races with that read and turns the
-                // dropped PDF into a "file not found" silent fail.
-                // /tmp is cleaned at boot, so the leak is bounded.
                 self.cachedPDFURL = pdfURL
             case .failure(let error):
                 NSLog("SheetMusicView: createPDF failed — \(error)")
@@ -910,7 +951,48 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     // MARK: - WKNavigationDelegate
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if webView === exportWebView {
+            // Mark the offscreen pane as always-exporting so its
+            // CSS branch strips noise filter / box shadow / dark
+            // mode for every render — that's the styling we want
+            // baked into the drag-out PDF, always white-paper.
+            webView.evaluateJavaScript(
+                "document.body.classList.add('exporting'); document.body.dataset.exportPane = '1';",
+                completionHandler: nil)
+            exportLoaded = true
+            // Push any pending XML the visible side may have
+            // accumulated while the export pane was still loading.
+            if !cachedMusicXML.isEmpty {
+                pushXMLToExport(cachedMusicXML)
+            }
+            return
+        }
         pollForReady(retries: 60)
+    }
+
+    private var exportLoaded = false
+
+    /// Send the latest MusicXML to the offscreen pane so it
+    /// rerenders in lockstep with the visible staff. Quick
+    /// because Verovio's loadData + renderToSVG is fast on the
+    /// short scores Menu Band produces, and we coalesce so we
+    /// only push when a PDF refresh is actually about to fire.
+    private func pushXMLToExport(_ xml: String) {
+        guard exportLoaded else { return }
+        let escaped = xml
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "`", with: "\\`")
+            .replacingOccurrences(of: "$", with: "\\$")
+        let js = """
+        (function() {
+            try {
+                if (typeof Sheet !== 'undefined' && Sheet && Sheet.loadXMLAndExportMIDI) {
+                    Sheet.loadXMLAndExportMIDI(`\(escaped)`);
+                }
+            } catch (e) { console.error('export-pane', e); }
+        })()
+        """
+        exportWebView.evaluateJavaScript(js, completionHandler: nil)
     }
 
     private func pollForReady(retries: Int) {

@@ -12,12 +12,24 @@
       font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
       overflow: hidden;
     }
+    body {
+      /* Inset the page so the 2px hard drop shadow has room to
+         render — body { overflow: hidden } would otherwise clip
+         the bottom-right edge. */
+      padding: 2px 4px 4px 2px;
+      box-sizing: border-box;
+    }
     #page {
-      /* US-letter aspect ratio; sized via JS so it fills the host. */
       background: #f8efd9;
-      box-shadow: 0 1px 0 rgba(120, 95, 60, 0.18) inset,
+      /* Sharp Riso-misregister drop shadow. The surface BEHIND the
+         shadow is painted by SheetMusicView's host layer (a dark
+         neutral tray, NOT the popover's voice-tinted glass) so the
+         shadow always lands on a contrasting color regardless of
+         which instrument family the popover is tinted to. */
+      box-shadow: 2px 2px 0 0 rgba(40, 28, 14, 0.55),
+                  0 1px 0 rgba(120, 95, 60, 0.18) inset,
                   0 0 0 0.5px rgba(120, 95, 60, 0.35);
-      border-radius: 6px;
+      border-radius: 3px;
       box-sizing: border-box;
       overflow: hidden;
       position: relative;
@@ -31,12 +43,17 @@
       mix-blend-mode: multiply;
       opacity: 0.7;
     }
-    /* `.exporting` is toggled on <body> by Swift right before
-       createPDF / printOperation. SVG filters and box-shadows can
-       only be represented in PDFs as rasterized bitmaps, and at
-       Retina DPI the feTurbulence above blew up to 270+ MB. Hiding
-       the paper-grain pseudo-element and dropping the shadow keeps
-       the exported PDF a clean vector under ~50 KB. */
+    /* `.exporting` lives permanently on <body> in the OFFSCREEN
+       export pane (set by Swift right after the page finishes
+       loading via setUpExportWebView). The visible pane never sets
+       this class, so no flicker. The export pane uses these rules
+       to render a clean white-paper PDF: no noise filter, no drop
+       shadow, no rounded corners, no body padding (so the SVG sits
+       flush against the page edge). Light/dark mode in the visible
+       pane is independent — the export pane is always white. */
+    body.exporting {
+      padding: 0;
+    }
     body.exporting #page {
       background: #ffffff;
       box-shadow: none;
@@ -61,14 +78,13 @@
       height: 100%;
       display: block;
     }
+    /* `#status` perf readout removed at jas's request — the live
+       "X notes · Yms" timing badge was useful during the verovio
+       rendering work and is now noise. The element stays in the
+       DOM (the rerender function still writes to it for ad-hoc
+       debugging) but is hidden in production. */
     #status {
-      position: absolute;
-      bottom: 4px;
-      right: 6px;
-      font-size: 9px;
-      color: rgba(60, 40, 20, 0.45);
-      font-feature-settings: "tnum";
-      pointer-events: none;
+      display: none;
     }
     /* PDF drag-back-in playback highlight. `.playback-on` is toggled
        on a `g.note` (and its descendants) by Sheet.playbackOn / Off
@@ -78,6 +94,106 @@
     #score svg g.note.playback-on * {
       fill: #d33a2c !important;
       stroke: #d33a2c;
+    }
+    /* Dark-mode staff. WKWebView follows the OS appearance via
+       prefers-color-scheme automatically, so the staff inverts the
+       moment the system flips dark — no Swift-side toggle needed.
+       Verovio paints everything in pure black by default; we
+       repaint its glyphs in the same cream the light-mode page
+       used as a background so the staff reads as "dark sheet
+       music" instead of jet black notes drowning in a dark page.
+       Export path (body.exporting) keeps the light white-paper
+       look so printed / drag-out PDFs stay legible. */
+    @media (prefers-color-scheme: dark) {
+      html, body {
+        color: #f4ead0;
+      }
+      #page {
+        /* Cocoa-dark paper — same warm hue family as the cream
+           light mode, just shifted into the shadows so the
+           palette feels intentional rather than inverted. */
+        background: #1c1610;
+        /* Sharp drop shadow uses a darker shade than the page
+           (almost pure black) so the page still reads as floating
+           over the popover backdrop. */
+        box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.7),
+                    0 1px 0 rgba(255, 235, 200, 0.08) inset,
+                    0 0 0 0.5px rgba(255, 235, 200, 0.18);
+      }
+      #page::before {
+        /* Switch the multiply paper-noise to screen so the same
+           SVG grain reads as lit dust over the dark paper instead
+           of compounding into pure black. */
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.88  0 0 0 0 0.72  0 0 0 0.08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+        mix-blend-mode: screen;
+        opacity: 0.55;
+      }
+      /* Repaint every Verovio glyph in cream. Verovio emits
+         monochrome black SVG (fill="#000" or no fill / currentColor
+         on text), so blanket-setting fill + stroke on g.note,
+         g.rest, g.staff, g.layer covers the engraving without
+         touching our .playback-on highlight (which sets fill
+         !important and beats this rule). */
+      #score svg g.note, #score svg g.note *,
+      #score svg g.rest, #score svg g.rest *,
+      #score svg g.staff, #score svg g.staff *,
+      #score svg g.layer, #score svg g.layer *,
+      #score svg g.measure path,
+      #score svg g.barLine, #score svg g.barLine *,
+      #score svg g.clef, #score svg g.clef *,
+      #score svg g.keySig, #score svg g.keySig *,
+      #score svg g.meterSig, #score svg g.meterSig *,
+      #score svg g.beam, #score svg g.beam *,
+      #score svg g.stem, #score svg g.stem *,
+      #score svg g.flag, #score svg g.flag *,
+      #score svg g.accid, #score svg g.accid *,
+      #score svg g.tuplet, #score svg g.tuplet *,
+      #score svg text {
+        fill: #f4ead0;
+        stroke: #f4ead0;
+      }
+      #status {
+        color: rgba(244, 234, 208, 0.5);
+      }
+      /* Export pass overrides the cream glyph repaint so drag-out
+         PDFs always render as black-on-white. The .exporting body
+         class is toggled by Swift right before createPDF; CSS
+         specificity (body.exporting prefix) beats the dark glyph
+         rules above. */
+      body.exporting #page {
+        background: #ffffff;
+        box-shadow: none;
+      }
+      body.exporting #score svg g.note,
+      body.exporting #score svg g.note *,
+      body.exporting #score svg g.rest,
+      body.exporting #score svg g.rest *,
+      body.exporting #score svg g.staff,
+      body.exporting #score svg g.staff *,
+      body.exporting #score svg g.layer,
+      body.exporting #score svg g.layer *,
+      body.exporting #score svg g.barLine,
+      body.exporting #score svg g.barLine *,
+      body.exporting #score svg g.clef,
+      body.exporting #score svg g.clef *,
+      body.exporting #score svg g.keySig,
+      body.exporting #score svg g.keySig *,
+      body.exporting #score svg g.meterSig,
+      body.exporting #score svg g.meterSig *,
+      body.exporting #score svg g.beam,
+      body.exporting #score svg g.beam *,
+      body.exporting #score svg g.stem,
+      body.exporting #score svg g.stem *,
+      body.exporting #score svg g.flag,
+      body.exporting #score svg g.flag *,
+      body.exporting #score svg g.accid,
+      body.exporting #score svg g.accid *,
+      body.exporting #score svg g.tuplet,
+      body.exporting #score svg g.tuplet *,
+      body.exporting #score svg text {
+        fill: #000 !important;
+        stroke: #000 !important;
+      }
     }
   </style>
 </head>

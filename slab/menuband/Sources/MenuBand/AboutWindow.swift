@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 
 /// Custom About window — replaces `NSApp.orderFrontStandardAboutPanel` so
 /// we can host a real clickable AC chip and a flashing "New Menu Band
@@ -174,7 +175,41 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         versionLabel.alignment = .center
         stack.addArrangedSubview(versionLabel)
 
-        stack.setCustomSpacing(14, after: versionLabel)
+        stack.setCustomSpacing(10, after: versionLabel)
+
+        // Scannable QR code → prompt.ac/menuband. Useful when the
+        // About panel is shown on a projector or shared screen so
+        // people in the room can grab the download URL on their
+        // phones without typing it. Click also opens the URL in
+        // the user's default browser as a fallback path.
+        if let qr = Self.qrCodeImage(
+            for: "https://prompt.ac/menuband", side: 124) {
+            let qrButton = NSButton(title: "",
+                                     target: self,
+                                     action: #selector(openMenubandLanding))
+            qrButton.image = qr
+            qrButton.imagePosition = .imageOnly
+            qrButton.isBordered = false
+            qrButton.bezelStyle = .regularSquare
+            qrButton.toolTip = "https://prompt.ac/menuband"
+            qrButton.translatesAutoresizingMaskIntoConstraints = false
+            qrButton.widthAnchor.constraint(equalToConstant: 124).isActive = true
+            qrButton.heightAnchor.constraint(equalToConstant: 124).isActive = true
+            stack.addArrangedSubview(qrButton)
+            // Tiny caption under the code so it reads as a real
+            // QR badge ("scan to install / share") and not just a
+            // decorative graphic.
+            let qrCaption = NSTextField(labelWithString: "prompt.ac/menuband")
+            qrCaption.font = NSFont.monospacedSystemFont(
+                ofSize: 9, weight: .regular)
+            qrCaption.textColor = .tertiaryLabelColor
+            qrCaption.alignment = .center
+            stack.setCustomSpacing(4, after: qrButton)
+            stack.addArrangedSubview(qrCaption)
+            stack.setCustomSpacing(14, after: qrCaption)
+        } else {
+            stack.setCustomSpacing(14, after: versionLabel)
+        }
 
         // Tagline — body alone (the bold "Menu Band" lead was a
         // duplicate of the name label above; trimmed to one mention).
@@ -497,6 +532,41 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         if let url = URL(string: "https://prompt.ac/menuband") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    @objc private func openMenubandLanding() {
+        if let url = URL(string: "https://prompt.ac/menuband") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// Generate a high-contrast QR code at the requested side
+    /// length (in points). Uses CIQRCodeGenerator with the high
+    /// error-correction level (`H`) so the code stays scannable
+    /// even when projected at small sizes or photographed at an
+    /// angle. The output is upscaled with nearest-neighbour so the
+    /// modules render as crisp squares at any DPI — without that,
+    /// CIImage's default interpolation softens the edges and trips
+    /// some phone scanners.
+    fileprivate static func qrCodeImage(for string: String,
+                                        side: CGFloat) -> NSImage? {
+        guard let data = string.data(using: .utf8) else { return nil }
+        guard let filter = CIFilter(name: "CIQRCodeGenerator") else {
+            return nil
+        }
+        filter.setValue(data, forKey: "inputMessage")
+        filter.setValue("H", forKey: "inputCorrectionLevel")
+        guard let output = filter.outputImage else { return nil }
+        let scale = side / output.extent.width
+        let scaled = output.transformed(
+            by: CGAffineTransform(scaleX: scale, y: scale))
+        let context = CIContext()
+        guard let cg = context.createCGImage(
+            scaled, from: scaled.extent) else { return nil }
+        let image = NSImage(cgImage: cg,
+                            size: NSSize(width: side, height: side))
+        image.isTemplate = false
+        return image
     }
 
     @objc private func openNELA() {

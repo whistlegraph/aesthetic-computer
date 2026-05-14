@@ -661,9 +661,9 @@
     <p class="tagline" data-i18n="tagline">Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
 
     <div class="button-row">
-      <a id="download-link" class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.1.dmg" data-version="1.1" download>
+      <a id="download-link" class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.2.dmg" data-version="1.2" download>
         <span data-i18n="downloadCta">Download</span>
-        <small id="download-meta" data-i18n="downloadMeta">1.1 · Apple Silicon · 2.4 MB</small>
+        <small id="download-meta" data-i18n="downloadMeta">1.2 · Apple Silicon · 4.6 MB</small>
       </a>
     </div>
     <p id="downloads-counter" class="downloads" aria-live="polite" hidden></p>
@@ -689,10 +689,10 @@
   </section>
 
   <section class="panel">
-    <h3><span data-i18n="whatsNewTitle">What's new</span> <span class="badge">0.5</span></h3>
-    <p data-i18n="whatsNew1" data-i18n-html="true"><b>Snappier.</b> Visualizer pauses when the popover is hidden, and the Metal layer no longer waits for vsync — the popover opens instantly and bars track audio with less latency. Big thanks to <a href="https://github.com/estebanuribe">Esteban Uribe</a> for both performance patches.</p>
-    <p data-i18n="whatsNew2" data-i18n-html="true"><b>No Accessibility prompt.</b> Click the menubar piano and the keys flash their letters; type to play. No system-wide keystroke capture, no permission dialog. (The Notepat / Ableton modes still use global capture for play-while-using-other-apps; that's an opt-in toggle.)</p>
-    <p data-i18n="whatsNew3" data-i18n-html="true"><b>Plus:</b> a mute toggle, an accent-tinted Finder icon that follows your system color, and the popover keeps the same width when MIDI flips on.</p>
+    <h3><span data-i18n="whatsNewTitle">What's new</span> <span class="badge">1.2</span></h3>
+    <p data-i18n="whatsNew1" data-i18n-html="true"><b>Type music into Stickies.</b> Any sticky whose body starts with <code>mb&lt;N&gt;</code> becomes a live keyboard for GM instrument N — type <code>mb5 hhg mb6 hhih</code> and the first chunk plays as instrument 5, the second as 6. Inline <code>mb&lt;N&gt;</code> tokens mid-text switch instruments on the fly; backspace and arrows keep their normal repeat.</p>
+    <p data-i18n="whatsNew2" data-i18n-html="true"><b>Two-finger swipe scrolls the octave.</b> Swipe over the menubar piano icon and the octave steps incrementally — first 16 px of motion already moves it, so it feels responsive instead of waiting for a full flick. Scoped to the icon only, so scrolls in the popover and floating panel still scroll their content normally.</p>
+    <p data-i18n="whatsNew3" data-i18n-html="true"><b>Plus:</b> the score view sits flush against the popover (no tinted backdrop strip), the octave readout pins to the top-right with a sharp theme-aware drop shadow, and the About panel now shows a scannable QR code for <code>prompt.ac/menuband</code>.</p>
   </section>
 
   <section class="panel">
@@ -735,7 +735,7 @@
         description: "Menu Band brings the built-in macOS instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.",
         tagline: "Taking macOS' standard instruments out of the 🎸 Garage and kickin' it on the curb!",
         downloadCta: "Download",
-        downloadMeta: "1.1 · Apple Silicon · 2.4 MB",
+        downloadMeta: "1.2 · Apple Silicon · 4.6 MB",
         viewSource: "view source",
         by: "by",
         lede: 'A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing\'s listening, a built-in General MIDI synth covers hundreds of patches.',
@@ -747,10 +747,10 @@
         modeNotepatBody: "Type to play. Two octaves.",
         modeAbleton: "Ableton",
         modeAbletonBody: "Type to play. Live's M-mode layout.",
-        whatsNewTitle: "What's new in 1.1",
-        whatsNew1: '<b>MIDI to your DAW actually works.</b> Three CoreMIDI packet-construction bugs were silently eating every outbound note before it left the source — fixed. Ableton, Logic, GarageBand and any other host pick up Menu Band\'s notes cleanly now, and pitch-bend announces a ±12-semitone range via RPN so a full trackpad swipe slides an octave.',
-        whatsNew2: '<b>Faster sampler.</b> Hold backtick to record from the mic and play notes back at varispeed-pitched intervals — release is now sub-buffer instant, the record engine prewarms at launch when mic permission is already granted, and the front-of-buffer keyboard-click transient is trimmed automatically.',
-        whatsNew3: '<b>Plus:</b> SHIFT-held notes fade with a real volume envelope (locally + outbound to your DAW via CC11/CC7), arrow keys step through the GM grid with audition previews, a play/stop transport for re-imported PDF scores, drag-to-Trash to clear the staff, and a floating pitch-bend cursor that no longer flickers over other apps.',
+        whatsNewTitle: "What's new in 1.2",
+        whatsNew1: '<b>Type music into Stickies.</b> Any sticky whose body starts with <code>mb&lt;N&gt;</code> becomes a live keyboard for GM instrument N — type <code>mb5 hhg mb6 hhih</code> and the first chunk plays as instrument 5, the second as 6. Inline <code>mb&lt;N&gt;</code> tokens mid-text switch instruments on the fly; backspace and arrows keep their normal repeat.',
+        whatsNew2: '<b>Two-finger swipe scrolls the octave.</b> Swipe over the menubar piano icon and the octave steps incrementally — first 16 px of motion already moves it, so it feels responsive instead of waiting for a full flick. Scoped to the icon only, so scrolls in the popover and floating panel still scroll their content normally.',
+        whatsNew3: '<b>Plus:</b> the score view sits flush against the popover (no tinted backdrop strip), the octave readout pins to the top-right with a sharp theme-aware drop shadow, and the About panel now shows a scannable QR code for <code>prompt.ac/menuband</code>.',
         recentTitle: "Recent changes",
         loading: "loading…",
         recentEmpty: "no recent changes",
@@ -766,7 +766,7 @@
         description: "Menu Band trae los instrumentos integrados de macOS — los que usa GarageBand — a tu barra de menús. Toca, escribe o envíalos a tu DAW por MIDI.",
         tagline: "¡Sacando los instrumentos clásicos de macOS del 🎸 Garage para tocarlos en la acera!",
         downloadCta: "Descargar",
-        downloadMeta: "1.1 · Apple Silicon · 2,4 MB",
+        downloadMeta: "1.2 · Apple Silicon · 4,6 MB",
         viewSource: "ver código",
         by: "por",
         lede: 'Un piano diminuto vive a la derecha de tu barra de menús. Toca las teclas, escribe letras o envía notas a tu DAW por MIDI — Menu Band publica una fuente MIDI virtual llamada <code>Menu Band</code> que cualquier DAW puede tomar como entrada. Cuando nadie escucha, un sintetizador General MIDI integrado cubre cientos de timbres.',
@@ -778,10 +778,10 @@
         modeNotepatBody: "Escribe para tocar. Dos octavas.",
         modeAbleton: "Ableton",
         modeAbletonBody: "Escribe para tocar. Disposición M-mode de Live.",
-        whatsNewTitle: "Novedades",
-        whatsNew1: '<b>Más ágil.</b> El visualizador se pausa cuando el popover está oculto, y la capa Metal ya no espera al vsync — el popover abre al instante y las barras siguen el audio con menos latencia. Mil gracias a <a href="https://github.com/estebanuribe">Esteban Uribe</a> por ambos parches de rendimiento.',
-        whatsNew2: "<b>Sin permiso de Accesibilidad.</b> Pulsa el piano de la barra y las teclas muestran sus letras; escribe para tocar. Sin captura global de teclas, sin diálogo de permisos. (Los modos Notepat / Ableton aún usan captura global para tocar mientras usas otras apps; ese es un interruptor opcional.)",
-        whatsNew3: "<b>Además:</b> un interruptor de silencio, un icono de Finder tintado al color de acento del sistema, y el popover mantiene el mismo ancho cuando se enciende MIDI.",
+        whatsNewTitle: "Novedades de 1.2",
+        whatsNew1: '<b>Escribe música en Notas adhesivas.</b> Cualquier nota cuyo cuerpo empiece con <code>mb&lt;N&gt;</code> se convierte en un teclado en vivo para el instrumento GM N — escribe <code>mb5 hhg mb6 hhih</code> y el primer trozo suena como instrumento 5, el segundo como 6. Los tokens <code>mb&lt;N&gt;</code> dentro del texto cambian de instrumento al vuelo; retroceso y flechas conservan su repetición normal.',
+        whatsNew2: '<b>Deslizar con dos dedos cambia la octava.</b> Desliza sobre el icono del piano en la barra de menús y la octava avanza de forma incremental — los primeros 16 px de movimiento ya la mueven, sin esperar a un gesto completo. Sólo sobre el icono; los desplazamientos en el popover y el panel flotante siguen funcionando con normalidad.',
+        whatsNew3: '<b>Además:</b> la vista de partitura queda al ras del popover (sin franja teñida detrás), el indicador de octava se ancla arriba a la derecha con una sombra dura sensible al tema, y la ventana «Acerca de» ahora muestra un código QR escaneable a <code>prompt.ac/menuband</code>.',
         recentTitle: "Cambios recientes",
         loading: "cargando…",
         recentEmpty: "sin cambios recientes",

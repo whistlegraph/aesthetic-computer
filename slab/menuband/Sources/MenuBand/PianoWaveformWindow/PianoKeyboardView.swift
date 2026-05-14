@@ -101,6 +101,10 @@ final class PianoKeyboardView: NSView {
         updateHover(with: event)
     }
 
+    // (Two-finger octave swipe is handled app-wide in
+    // AppDelegate.handleOctaveScroll via a local NSEvent monitor,
+    // so no per-view scrollWheel override is needed here.)
+
     override func mouseExited(with event: NSEvent) {
         if hoveredNote != nil {
             hoveredNote = nil

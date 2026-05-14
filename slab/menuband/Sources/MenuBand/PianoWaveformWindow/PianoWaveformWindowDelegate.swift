@@ -24,6 +24,11 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     private let menuBand: MenuBandController
     private let pianoWaveformViewController: PianoWaveformViewController
     private var panel: PianoWaveformPanel?
+    /// Read-only accessor for the active floating panel so other
+    /// parts of the app (e.g. AppDelegate's octave-scroll monitor)
+    /// can match incoming events against this window without
+    /// taking ownership of the panel lifecycle.
+    var activeWindow: NSWindow? { panel }
     private weak var statusItemButton: NSStatusBarButton?
     private var presentationState: State = .collapsed
     private var preferredPresentationState: State

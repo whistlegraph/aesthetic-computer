@@ -5,6 +5,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let menuBand = MenuBandController()
     private let hoverResponder = HoverResponder()
+    /// Bridges typing in the macOS Stickies app to Menu Band note
+    /// playback when the focused sticky matches the trigger color.
+    /// Initialized lazily so it can capture `menuBand` after that
+    /// stored property is fully set.
+    private lazy var stickiesBridge = StickiesBridge(menuBand: menuBand)
     private var hoveredElement: KeyboardIconRenderer.HitResult? = nil
     private var trackingArea: NSTrackingArea?
     private var typeModeHotkey: GlobalHotkey?
@@ -187,6 +192,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// retention is cleaner than globals).
     private var bendScrollLocal: Any?
     private var bendScrollGlobal: Any?
+    private var octaveScrollLocal: Any?
+    /// Running accumulator for the in-flight two-finger swipe.
+    /// Reset on `.began` so consecutive gestures don't pile up,
+    /// but the remainder within one gesture is preserved so a
+    /// fast flick can shift multiple octaves.
+    private var octaveScrollAccum: CGFloat = 0
+    /// Pixels of accumulated swipe travel per octave step. Tuned
+    /// low so a short flick on the menubar icon shows immediate
+    /// movement — the first ~16 pixels of any swipe already step
+    /// once. Combined with momentum-decay filtering, that gives a
+    /// responsive "incremental" feel without overshooting.
+    private static let octaveScrollPxPerStep: CGFloat = 16
     /// Spring constants for the rubber-band decay. Stiffness too
     /// high snaps too fast; damping below ~2*sqrt(stiffness) leaves
     /// some bounce so the snap feels rubbery rather than mechanical.
@@ -414,6 +431,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = registerExitFocusHotkey(MenuBandShortcutPreferences.exitFocusShortcut)
         registerLayoutToggleHotkey()
 
+        // Start the Stickies bridge — listens for keystrokes when
+        // the macOS Stickies app is frontmost and the focused
+        // sticky matches the configured trigger color, then
+        // forwards them through the same keymap the physical
+        // keyboard uses. Requires Accessibility permission; on
+        // first launch the system will prompt.
+        if stickiesBridge.isEnabled {
+            stickiesBridge.start()
+        }
+
         // Dev affordance: post the
         // `computer.aestheticcomputer.menuband.showPopover`
         // distributed notification to toggle the popover from the
@@ -460,6 +487,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             matching: [.mouseMoved]
         ) { [weak self] event in
             self?.handlePitchBendCursorMove(event: event)
+        }
+
+        // Two-finger trackpad swipe → octave step. Captures the
+        // event app-wide so a swipe over the menubar icon, the
+        // popover, or the floating piano panel all step octaves
+        // regardless of which subview happens to be under the
+        // cursor. Filtering by `eventWindowIsOurs` keeps the
+        // monitor from intercepting scrolls in unrelated AppKit
+        // windows (the About panel, the Aesthetic web window, etc).
+        octaveScrollLocal = NSEvent.addLocalMonitorForEvents(
+            matching: [.scrollWheel]
+        ) { [weak self] event in
+            return self?.handleOctaveScroll(event: event) ?? event
         }
 
         // System dark/light flips after sleep used to leave Menu Band
@@ -1961,6 +2001,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Menubar waveform strip
+
+    // MARK: - Octave swipe
+
+    /// Two-finger trackpad scroll → octave step, dispatched
+    /// app-wide via local NSEvent monitor. Filters to scroll
+    /// events whose window is one of ours (menubar status item,
+    /// popover panel, floating piano panel). Returns nil to
+    /// consume the event when it's been claimed for octave
+    /// stepping; returns the event unchanged otherwise so
+    /// scrollable views (instrument list, etc) still get their
+    /// natural scroll.
+    private func handleOctaveScroll(event: NSEvent) -> NSEvent? {
+        guard eventIsOverOurChrome(event) else { return event }
+        // Ignore the post-fling momentum decay so a single flick
+        // doesn't keep stepping past the user's intended landing
+        // octave.
+        if event.momentumPhase != [] { return event }
+        if event.phase == .began { octaveScrollAccum = 0 }
+        let dx = event.scrollingDeltaX
+        let dy = event.scrollingDeltaY
+        let delta = abs(dy) >= abs(dx) ? dy : dx
+        if delta == 0 { return event }
+        octaveScrollAccum += delta
+        var stepped = false
+        while octaveScrollAccum >= Self.octaveScrollPxPerStep {
+            menuBand.stepOctave(delta: 1)
+            octaveScrollAccum -= Self.octaveScrollPxPerStep
+            stepped = true
+        }
+        while octaveScrollAccum <= -Self.octaveScrollPxPerStep {
+            menuBand.stepOctave(delta: -1)
+            octaveScrollAccum += Self.octaveScrollPxPerStep
+            stepped = true
+        }
+        // Consume the event so AppKit doesn't double-handle it
+        // (e.g. the instrument list trying to scroll inside the
+        // popover during a swipe meant for octave shifting).
+        _ = stepped
+        return nil
+    }
+
+    /// True when the scroll event originated over the menubar
+    /// status item only. Popover + floating piano panel are
+    /// explicitly EXCLUDED so their internal scroll regions
+    /// (instrument list, sheet music PDF, etc) keep their own
+    /// scroll behavior — octave swipe is reserved for the
+    /// menubar piano icon itself.
+    private func eventIsOverOurChrome(_ event: NSEvent) -> Bool {
+        guard let window = event.window else { return false }
+        return window === statusItem.button?.window
+    }
 
     // MARK: - Pitch-bend gesture
 

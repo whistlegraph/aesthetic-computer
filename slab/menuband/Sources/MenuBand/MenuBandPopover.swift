@@ -323,9 +323,7 @@ final class MenuBandPopoverViewController: NSViewController {
         _ = leftArrow
         _ = rightArrow
         _ = octaveHint
-        titleRow.addArrangedSubview(octaveCaption)
-        titleRow.setCustomSpacing(2, after: octaveCaption)
-        titleRow.addArrangedSubview(octaveLabel)
+        _ = octaveCaption
         titleRow.addArrangedSubview(octaveStepper)  // hidden, value model only
 
         // Spacer lives in the middle so the octave widget pins LEFT and
@@ -375,6 +373,18 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         titleRow.addArrangedSubview(metronome)
         titleRow.setCustomSpacing(6, after: metronome)
+        // The popover's arrow tip points at the horizontal midpoint
+        // of the title row (see AppDelegate.showPopover —
+        // arrowScreenX = gearScreen.x and leftScreenX = gearScreen.x
+        // - contentSize.width / 2). Pin the metronome's centerX to
+        // the row's centerX so it sits directly under the arrow
+        // regardless of how wide the trailing octave / MIDI /
+        // transport cluster grows. NSStackView's natural fill
+        // distribution honors this explicit constraint and divides
+        // the slack across the flex spacers on either side.
+        metronome.centerXAnchor.constraint(
+            equalTo: titleRow.centerXAnchor
+        ).isActive = true
         // Playback transport — green ▶ + red ◼ that surface only
         // after a Menu Band PDF has been dropped onto the staff.
         // Symbol images get a circle.fill backdrop in the family
@@ -426,17 +436,19 @@ final class MenuBandPopoverViewController: NSViewController {
         midiInlineLabel.isHidden = !(menuBand?.midiMode ?? false)
         titleRow.addArrangedSubview(midiInlineLabel)
         titleRow.setCustomSpacing(8, after: midiInlineLabel)
-        // Right-side spacer to balance `titleSpacer` on the left,
-        // so the metronome floats horizontally centered in the
-        // title row (sandwiched between two flex spacers).
+        // Right-side flex spacer pushes the octave readout to the
+        // very trailing edge of the popover title row so it floats
+        // top-right (was nestled next to the metronome before).
         let trailingSpacer = NSView()
         trailingSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         titleRow.addArrangedSubview(trailingSpacer)
-        if let titleSpacer = titleRow.arrangedSubviews.first(where: {
-            $0.contentHuggingPriority(for: .horizontal) == .defaultLow && $0 !== trailingSpacer
-        }) {
-            trailingSpacer.widthAnchor.constraint(equalTo: titleSpacer.widthAnchor).isActive = true
-        }
+        // Active octave readout — final element in the row, pinned
+        // to the popover's top-right corner. Sharp drop shadow is
+        // applied below in `applyOctaveLabelShadow()` and refreshed
+        // on every appearance change so the contrast direction
+        // flips with light/dark mode.
+        titleRow.addArrangedSubview(octaveLabel)
+        applyOctaveLabelShadow()
 
         // MIDI toggle is now slot 0 in the chooser ("0 MIDI OUT"). The
         // ivars below stay so existing references (status sync, the
@@ -1680,6 +1692,7 @@ final class MenuBandPopoverViewController: NSViewController {
         applyAppearanceToVisualizer()
         refreshHeldNotes()
         updateInstrumentReadout()
+        applyOctaveLabelShadow()
         // Most popover children (QwertyLayoutView, InstrumentListView,
         // chord cards' draw passes) paint via `draw(_:)` using
         // dynamically-resolving NSColors like .labelColor and
@@ -1964,6 +1977,32 @@ final class MenuBandPopoverViewController: NSViewController {
         // who think in scientific pitch notation.
         let octave = 4 + shift
         octaveLabel.stringValue = "\(octave)"
+        applyOctaveLabelShadow()
+    }
+
+    /// Sharp, single-pixel-offset drop shadow on the octave readout
+    /// so it punches against whichever popover backdrop is active —
+    /// dark shadow in light mode, light shadow in dark mode. The
+    /// shadow goes through a per-glyph attributedString attribute
+    /// (no NSView-level layer shadow) so it stays crisp at any DPI
+    /// and doesn't bleed through transparent neighbors.
+    private func applyOctaveLabelShadow() {
+        guard let label = octaveLabel else { return }
+        let isDark = (rootBackgroundView ?? label).effectiveAppearance
+            .bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let shadow = NSShadow()
+        shadow.shadowBlurRadius = 0
+        shadow.shadowOffset = NSSize(width: 1, height: -1)
+        shadow.shadowColor = isDark
+            ? NSColor.white.withAlphaComponent(0.55)
+            : NSColor.black.withAlphaComponent(0.65)
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 16, weight: .heavy),
+            .foregroundColor: NSColor.controlAccentColor,
+            .shadow: shadow,
+        ]
+        label.attributedStringValue = NSAttributedString(
+            string: label.stringValue, attributes: attrs)
     }
 
     // MARK: - Actions
