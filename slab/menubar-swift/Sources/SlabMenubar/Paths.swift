@@ -52,7 +52,6 @@ enum Tools {
         "tailscale": [
             "/opt/homebrew/bin/tailscale",
             "/usr/local/bin/tailscale",
-            "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
         ],
         "mbsync":    ["/opt/homebrew/bin/mbsync", "/usr/local/bin/mbsync"],
         "mu":        ["/opt/homebrew/bin/mu", "/usr/local/bin/mu"],
