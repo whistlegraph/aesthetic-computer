@@ -1,43 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <title>quiltnet</title>
-  <!-- 4x4 quilt block, aqua / cerulean / teal palette -->
-  <!-- row 1 -->
-  <rect x="0"  y="0"  width="16" height="16" fill="#a8e0e8"/>
-  <polygon points="0,0 16,0 16,16" fill="#2b7a8a"/>
-  <rect x="16" y="0"  width="16" height="16" fill="#e7f6f7"/>
-  <rect x="32" y="0"  width="16" height="16" fill="#1d5e75"/>
-  <polygon points="32,0 48,0 48,16" fill="#7cc6d4"/>
-  <rect x="48" y="0"  width="16" height="16" fill="#5da9be"/>
-  <!-- row 2 -->
-  <rect x="0"  y="16" width="16" height="16" fill="#1d5e75"/>
-  <polygon points="0,16 16,32 0,32" fill="#a8e0e8"/>
-  <rect x="16" y="16" width="16" height="16" fill="#7cc6d4"/>
-  <polygon points="16,16 32,16 32,32" fill="#e7f6f7"/>
-  <rect x="32" y="16" width="16" height="16" fill="#2b7a8a"/>
-  <rect x="48" y="16" width="16" height="16" fill="#e7f6f7"/>
-  <polygon points="48,16 64,32 48,32" fill="#1d5e75"/>
-  <!-- row 3 -->
-  <rect x="0"  y="32" width="16" height="16" fill="#5da9be"/>
-  <rect x="16" y="32" width="16" height="16" fill="#1d5e75"/>
-  <polygon points="16,32 32,32 16,48" fill="#7cc6d4"/>
-  <rect x="32" y="32" width="16" height="16" fill="#a8e0e8"/>
-  <polygon points="48,32 48,48 32,48" fill="#2b7a8a"/>
-  <rect x="48" y="32" width="16" height="16" fill="#7cc6d4"/>
-  <!-- row 4 -->
-  <rect x="0"  y="48" width="16" height="16" fill="#e7f6f7"/>
-  <polygon points="0,48 16,48 16,64" fill="#5da9be"/>
-  <rect x="16" y="48" width="16" height="16" fill="#2b7a8a"/>
-  <rect x="32" y="48" width="16" height="16" fill="#7cc6d4"/>
-  <polygon points="32,48 48,64 32,64" fill="#1d5e75"/>
-  <rect x="48" y="48" width="16" height="16" fill="#a8e0e8"/>
+  <!-- quilt-block backdrop -->
+  <rect width="64" height="64" fill="#d8f0f3"/>
 
-  <!-- hand-stitched cross-hatch on top -->
-  <g stroke="#1d5e75" stroke-width="0.5" stroke-dasharray="1.6 1.4" opacity="0.55" fill="none">
-    <line x1="0"  y1="16" x2="64" y2="16"/>
-    <line x1="0"  y1="32" x2="64" y2="32"/>
-    <line x1="0"  y1="48" x2="64" y2="48"/>
-    <line x1="16" y1="0"  x2="16" y2="64"/>
-    <line x1="32" y1="0"  x2="32" y2="64"/>
-    <line x1="48" y1="0"  x2="48" y2="64"/>
+  <!-- 8-pointed Lone Star, faceted: each diamond split along its long axis -->
+  <!-- shadow side (CCW triangle of each diamond) -->
+  <g fill="#1d5e75">
+    <polygon points="32,32 43,27.44 54,32"/>
+    <polygon points="32,32 43,36.56 47.56,47.56"/>
+    <polygon points="32,32 36.56,43 32,54"/>
+    <polygon points="32,32 27.44,43 16.44,47.56"/>
+    <polygon points="32,32 21,36.56 10,32"/>
+    <polygon points="32,32 21,27.44 16.44,16.44"/>
+    <polygon points="32,32 27.44,21 32,10"/>
+    <polygon points="32,32 36.56,21 47.56,16.44"/>
+  </g>
+  <!-- lit side (CW triangle of each diamond) -->
+  <g fill="#7cc6d4">
+    <polygon points="32,32 54,32 43,36.56"/>
+    <polygon points="32,32 47.56,47.56 36.56,43"/>
+    <polygon points="32,32 32,54 27.44,43"/>
+    <polygon points="32,32 16.44,47.56 21,36.56"/>
+    <polygon points="32,32 10,32 21,27.44"/>
+    <polygon points="32,32 16.44,16.44 27.44,21"/>
+    <polygon points="32,32 32,10 36.56,21"/>
+    <polygon points="32,32 47.56,16.44 43,27.44"/>
+  </g>
+
+  <!-- the "net": dashed octagon threading the 8 star tips -->
+  <polygon
+    points="54,32 47.56,47.56 32,54 16.44,47.56 10,32 16.44,16.44 32,10 47.56,16.44"
+    fill="none"
+    stroke="#1d5e75"
+    stroke-width="0.5"
+    stroke-dasharray="1.6 1.4"
+    opacity="0.5"
+  />
+
+  <!-- nodes where the net meets the star -->
+  <g fill="#0e3848">
+    <circle cx="54" cy="32" r="1.5"/>
+    <circle cx="47.56" cy="47.56" r="1.5"/>
+    <circle cx="32" cy="54" r="1.5"/>
+    <circle cx="16.44" cy="47.56" r="1.5"/>
+    <circle cx="10" cy="32" r="1.5"/>
+    <circle cx="16.44" cy="16.44" r="1.5"/>
+    <circle cx="32" cy="10" r="1.5"/>
+    <circle cx="47.56" cy="16.44" r="1.5"/>
   </g>
 </svg>
