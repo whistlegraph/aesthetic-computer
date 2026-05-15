@@ -13,6 +13,9 @@ AC_SOURCE="$SCRIPT_DIR/../system/public/aesthetic.computer"
 FEDAC_SOURCE="$SCRIPT_DIR/../fedac"
 VAULT_OS_KEY="$SCRIPT_DIR/../aesthetic-computer-vault/oven/os-build-admin-key.txt"
 
+# Millisecond epoch — portable (macOS `date +%N` doesn't exist, GNU does).
+ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
+
 echo "🚀 Deploying oven..."
 echo "   Host: $OVEN_HOST"
 echo "   Key: $SSH_KEY"
@@ -22,7 +25,7 @@ GIT_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 echo "   Version: $GIT_VERSION"
 
 # Time the rsync
-START_TIME=$(date +%s%3N)
+START_TIME=$(ms)
 
 echo ""
 echo "📦 Syncing oven files..."
@@ -37,7 +40,7 @@ rsync -avz --progress --delete \
   "$SCRIPT_DIR/" \
   "root@$OVEN_HOST:$REMOTE_DIR/"
 
-END_SYNC=$(date +%s%3N)
+END_SYNC=$(ms)
 SYNC_TIME=$((END_SYNC - START_TIME))
 echo ""
 echo "✅ Oven sync complete in ${SYNC_TIME}ms"
@@ -56,7 +59,7 @@ rsync -avz --progress --delete \
   "$AC_SOURCE/" \
   "root@$OVEN_HOST:$REMOTE_DIR/ac-source/"
 
-END_AC_SYNC=$(date +%s%3N)
+END_AC_SYNC=$(ms)
 AC_SYNC_TIME=$((END_AC_SYNC - END_SYNC))
 echo ""
 echo "✅ ac-source sync complete in ${AC_SYNC_TIME}ms"
@@ -75,7 +78,7 @@ rsync -avz --progress --delete \
   "$FEDAC_SOURCE/" \
   "root@$OVEN_HOST:$REMOTE_DIR/fedac/"
 
-END_FEDAC_SYNC=$(date +%s%3N)
+END_FEDAC_SYNC=$(ms)
 FEDAC_SYNC_TIME=$((END_FEDAC_SYNC - END_AC_SYNC))
 echo ""
 echo "✅ fedac sync complete in ${FEDAC_SYNC_TIME}ms"
@@ -186,7 +189,7 @@ else
   echo "⚠️  No vault key at $VAULT_OS_KEY (skipping OS_BUILD_ADMIN_KEY_FILE provisioning)"
 fi
 
-END_SECRET_SYNC=$(date +%s%3N)
+END_SECRET_SYNC=$(ms)
 SECRET_SYNC_TIME=$((END_SECRET_SYNC - END_FEDAC_SYNC))
 echo "✅ Secret sync stage complete in ${SECRET_SYNC_TIME}ms"
 
@@ -203,7 +206,7 @@ rsync -avz --progress \
   "$SCRIPT_DIR/../system/public/assets/type/" \
   "root@$OVEN_HOST:$REMOTE_DIR/assets-type/"
 
-END_FONT_SYNC=$(date +%s%3N)
+END_FONT_SYNC=$(ms)
 FONT_SYNC_TIME=$((END_FONT_SYNC - END_SECRET_SYNC))
 echo ""
 echo "✅ Font glyph sync complete in ${FONT_SYNC_TIME}ms"
@@ -255,25 +258,6 @@ echo '  Done.'
 "
 echo "✅ Native git repo ready"
 
-# Configure git push credentials for papers PDF auto-push
-echo ""
-echo "🔑 Configuring git push credentials for papers auto-build..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
-NATIVE_GIT_DIR=/opt/oven/native-git
-# Read OVEN_GH_TOKEN from .env if it exists
-OVEN_GH_TOKEN=\$(grep '^OVEN_GH_TOKEN=' $REMOTE_DIR/.env 2>/dev/null | cut -d= -f2-)
-if [ -n \"\$OVEN_GH_TOKEN\" ]; then
-  cd \$NATIVE_GIT_DIR
-  # Keep fetch on Tangled, but push papers auto-build commits to the GitHub mirror.
-  git remote set-url --push origin https://x-access-token:\${OVEN_GH_TOKEN}@github.com/whistlegraph/aesthetic-computer.git
-  echo '  Push URL configured with token auth'
-else
-  echo '  WARNING: OVEN_GH_TOKEN not found in $REMOTE_DIR/.env — papers auto-push will fail'
-  echo '  Add OVEN_GH_TOKEN=ghp_... to aesthetic-computer-vault/oven/.env and re-deploy'
-fi
-"
-echo "✅ Git push credentials configured"
-
 # Restart unless --no-restart flag
 if [ "$1" != "--no-restart" ]; then
   echo ""
@@ -305,7 +289,7 @@ systemctl is-active --quiet oven.service
 systemctl status oven.service --no-pager | sed -n '1,5p'
 "
 
-  END_RESTART=$(date +%s%3N)
+  END_RESTART=$(ms)
   RESTART_TIME=$((END_RESTART - END_FONT_SYNC))
 
   echo ""
@@ -318,7 +302,7 @@ systemctl status oven.service --no-pager | sed -n '1,5p'
     "curl -s -X POST http://localhost:3002/bundle-prewarm --max-time 120" 2>/dev/null || echo '{"error":"prewarm timeout"}')
   echo "   $PREWARM_RESULT"
 
-  END_PREWARM=$(date +%s%3N)
+  END_PREWARM=$(ms)
   PREWARM_TIME=$((END_PREWARM - END_RESTART))
   TOTAL_TIME=$((END_PREWARM - START_TIME))
 
