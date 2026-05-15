@@ -259,6 +259,7 @@ enum MenuBuilder {
         sub.addItem(item("Sync ac-mail", selector: #selector(AppDelegate.syncAcMail), target: target))
         sub.addItem(item("Sync jas-mail", selector: #selector(AppDelegate.syncJasMail), target: target))
         sub.addItem(item("Sync sotce-mail", selector: #selector(AppDelegate.syncSotceMail), target: target))
+        sub.addItem(item("Sync quiltnet-mail", selector: #selector(AppDelegate.syncQuiltnetMail), target: target))
         sub.addItem(.separator())
         sub.addItem(item("Open sync log", selector: #selector(AppDelegate.openSyncLog), target: target))
         parent.submenu = sub
