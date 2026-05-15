@@ -407,6 +407,27 @@ papers/**/*.blg
 papers/**/*.log
 papers/**/*.out
 papers/**/*.toc
+papers/**/*.fls
+papers/**/*.fdb_latexmk
+papers/**/*.synctex.gz
+# Paper build PDFs (xelatex output in source dirs) — site PDFs in
+# system/public/papers.aesthetic.computer/ are still tracked for deploy.
+papers/**/*.pdf
+# Keep hand-placed figure PDFs that authors include in papers.
+!papers/**/figures/**/*.pdf
+# Keep collected reference PDFs (research material, not build artifacts).
+!papers/refs/**/*.pdf
+# Other LaTeX project build outputs.
+microvision/*.aux
+microvision/*.log
+microvision/*.out
+microvision/*.pdf
+sosoft/*.aux
+sosoft/*.log
+sosoft/*.out
+sosoft/*.pdf
+# Stray xelatex log dir created when run from repo root.
+texput.log/
 
 # Lecture archive: large source media (kept locally, not in git)
 papers/lectures/*.mp4
