@@ -417,6 +417,8 @@ papers/**/*.pdf
 !papers/**/figures/**/*.pdf
 # Keep collected reference PDFs (research material, not build artifacts).
 !papers/refs/**/*.pdf
+# Keep pals.pdf — shared author-attribution figure included by each paper.
+!papers/**/pals.pdf
 # Other LaTeX project build outputs.
 microvision/*.aux
 microvision/*.log
