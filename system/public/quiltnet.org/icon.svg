@@ -1,51 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
   <title>quiltnet</title>
-  <!-- quilt-block backdrop -->
+  <!-- backdrop -->
   <rect width="64" height="64" fill="#d8f0f3"/>
 
-  <!-- 8-pointed Lone Star, faceted: each diamond split along its long axis -->
-  <!-- shadow side (CCW triangle of each diamond) -->
-  <g fill="#1d5e75">
-    <polygon points="32,32 43,27.44 54,32"/>
-    <polygon points="32,32 43,36.56 47.56,47.56"/>
-    <polygon points="32,32 36.56,43 32,54"/>
-    <polygon points="32,32 27.44,43 16.44,47.56"/>
-    <polygon points="32,32 21,36.56 10,32"/>
-    <polygon points="32,32 21,27.44 16.44,16.44"/>
-    <polygon points="32,32 27.44,21 32,10"/>
-    <polygon points="32,32 36.56,21 47.56,16.44"/>
-  </g>
-  <!-- lit side (CW triangle of each diamond) -->
+  <!-- top-right tessellation: half-square triangles in a checker, all
+       pointing toward the center of the icon -->
   <g fill="#7cc6d4">
-    <polygon points="32,32 54,32 43,36.56"/>
-    <polygon points="32,32 47.56,47.56 36.56,43"/>
-    <polygon points="32,32 32,54 27.44,43"/>
-    <polygon points="32,32 16.44,47.56 21,36.56"/>
-    <polygon points="32,32 10,32 21,27.44"/>
-    <polygon points="32,32 16.44,16.44 27.44,21"/>
-    <polygon points="32,32 32,10 36.56,21"/>
-    <polygon points="32,32 47.56,16.44 43,27.44"/>
+    <polygon points="32,0 32,8 40,8"/>
+    <polygon points="48,0 48,8 56,8"/>
+    <polygon points="40,8 40,16 48,16"/>
+    <polygon points="56,8 56,16 64,16"/>
+    <polygon points="32,16 32,24 40,24"/>
+    <polygon points="48,16 48,24 56,24"/>
+    <polygon points="40,24 40,32 48,32"/>
+    <polygon points="56,24 56,32 64,32"/>
   </g>
 
-  <!-- the "net": dashed octagon threading the 8 star tips -->
-  <polygon
-    points="54,32 47.56,47.56 32,54 16.44,47.56 10,32 16.44,16.44 32,10 47.56,16.44"
-    fill="none"
-    stroke="#1d5e75"
-    stroke-width="0.5"
-    stroke-dasharray="1.6 1.4"
-    opacity="0.5"
-  />
+  <!-- bottom-left tessellation: 180° rotation of the top-right -->
+  <g fill="#7cc6d4">
+    <polygon points="0,32 8,32 8,40"/>
+    <polygon points="16,32 24,32 24,40"/>
+    <polygon points="8,40 16,40 16,48"/>
+    <polygon points="24,40 32,40 32,48"/>
+    <polygon points="0,48 8,48 8,56"/>
+    <polygon points="16,48 24,48 24,56"/>
+    <polygon points="8,56 16,56 16,64"/>
+    <polygon points="24,56 32,56 32,64"/>
+  </g>
 
-  <!-- nodes where the net meets the star -->
-  <g fill="#0e3848">
-    <circle cx="54" cy="32" r="1.5"/>
-    <circle cx="47.56" cy="47.56" r="1.5"/>
-    <circle cx="32" cy="54" r="1.5"/>
-    <circle cx="16.44" cy="47.56" r="1.5"/>
-    <circle cx="10" cy="32" r="1.5"/>
-    <circle cx="16.44" cy="16.44" r="1.5"/>
-    <circle cx="32" cy="10" r="1.5"/>
-    <circle cx="47.56" cy="16.44" r="1.5"/>
+  <!-- Q (top-left quadrant): 4×4 pixel block letterform -->
+  <g fill="#1d5e75">
+    <rect x="8"  y="0"  width="8" height="8"/>
+    <rect x="16" y="0"  width="8" height="8"/>
+    <rect x="0"  y="8"  width="8" height="8"/>
+    <rect x="24" y="8"  width="8" height="8"/>
+    <rect x="0"  y="16" width="8" height="8"/>
+    <rect x="24" y="16" width="8" height="8"/>
+    <rect x="8"  y="24" width="8" height="8"/>
+    <rect x="16" y="24" width="8" height="8"/>
+    <rect x="24" y="24" width="8" height="8"/>
+  </g>
+
+  <!-- N (bottom-right quadrant): 4×4 pixel block letterform -->
+  <g fill="#1d5e75">
+    <rect x="32" y="32" width="8" height="8"/>
+    <rect x="56" y="32" width="8" height="8"/>
+    <rect x="32" y="40" width="8" height="8"/>
+    <rect x="40" y="40" width="8" height="8"/>
+    <rect x="56" y="40" width="8" height="8"/>
+    <rect x="32" y="48" width="8" height="8"/>
+    <rect x="48" y="48" width="8" height="8"/>
+    <rect x="56" y="48" width="8" height="8"/>
+    <rect x="32" y="56" width="8" height="8"/>
+    <rect x="56" y="56" width="8" height="8"/>
   </g>
 </svg>
