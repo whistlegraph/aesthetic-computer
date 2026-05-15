@@ -1,0 +1,305 @@
+<!-- QuiltNet -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>QuiltNet</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="A catalog of handmade quilts."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://quiltnet.org" />
+    <meta property="og:title" content="QuiltNet" />
+    <meta property="og:description" content="A catalog of handmade quilts." />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* === Light Mode === */
+        --background-color: #d8f0f3;
+        --surface: #f4fbfc;
+        --card-background: #fdfcf6;
+        --card-border: #9cc6cf;
+        --card-shadow: rgba(20, 70, 90, 0.18);
+        --ink: #0e2f3c;
+        --ink-muted: #4a7686;
+        --ink-faint: #7da3b0;
+        --accent: #1d5e75;
+        --accent-deep: #0e3848;
+        --accent-pale: #a8e0e8;
+        --accent-bright: #2b7a8a;
+        --button-background: #e7f6f7;
+        --button-background-highlight: #c8edf1;
+        --button-border: #2b7a8a;
+        --button-text: #0e3848;
+        --link-color: #1d5e75;
+        --link-hover: #0e3848;
+        --serif: "EB Garamond", Georgia, "Times New Roman", serif;
+        --sans:
+          -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial,
+          sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background-color: #08222b;
+          --surface: #0d2c38;
+          --card-background: #14323e;
+          --card-border: #2b6477;
+          --card-shadow: rgba(0, 0, 0, 0.45);
+          --ink: #e7f6f7;
+          --ink-muted: #a8c8d2;
+          --ink-faint: #6b8a96;
+          --accent: #7cc6d4;
+          --accent-deep: #a8e0e8;
+          --accent-pale: #2b6477;
+          --accent-bright: #7cc6d4;
+          --button-background: #1a3e4c;
+          --button-background-highlight: #235365;
+          --button-border: #7cc6d4;
+          --button-text: #e7f6f7;
+          --link-color: #7cc6d4;
+          --link-hover: #a8e0e8;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--background-color);
+        color: var(--ink);
+        font-family: var(--serif);
+        font-size: 18px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100%;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Quilted background — soft diamond grid */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background-color: var(--background-color);
+        background-image:
+          linear-gradient(
+            45deg,
+            transparent 48%,
+            color-mix(in srgb, var(--accent) 8%, transparent) 49%,
+            color-mix(in srgb, var(--accent) 8%, transparent) 51%,
+            transparent 52%
+          ),
+          linear-gradient(
+            -45deg,
+            transparent 48%,
+            color-mix(in srgb, var(--accent) 8%, transparent) 49%,
+            color-mix(in srgb, var(--accent) 8%, transparent) 51%,
+            transparent 52%
+          );
+        background-size: 36px 36px;
+        opacity: 0.85;
+      }
+
+      main {
+        flex: 1;
+        max-width: 640px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 8vh 28px 6vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 28px;
+      }
+
+      .mark {
+        width: 120px;
+        height: 120px;
+        display: block;
+        filter: drop-shadow(0 4px 10px var(--card-shadow));
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      h1 {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: 56px;
+        margin: 0;
+        letter-spacing: 0.5px;
+        color: var(--accent-deep);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        h1 {
+          color: var(--accent-deep);
+        }
+      }
+
+      .tagline {
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 22px;
+        color: var(--ink-muted);
+        margin: -10px 0 0;
+        max-width: 30ch;
+      }
+
+      .card {
+        background: var(--card-background);
+        border: 1px solid var(--card-border);
+        border-radius: 4px;
+        padding: 28px 30px;
+        box-shadow: 0 6px 18px var(--card-shadow);
+        max-width: 520px;
+        width: 100%;
+        position: relative;
+      }
+
+      .card::before,
+      .card::after {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border: 1px dashed
+          color-mix(in srgb, var(--accent) 35%, transparent);
+        border-radius: 2px;
+        pointer-events: none;
+      }
+
+      .card::after {
+        inset: 10px;
+        border-style: dotted;
+        opacity: 0.5;
+      }
+
+      .card p {
+        margin: 0 0 12px;
+        position: relative;
+      }
+
+      .card p:last-child {
+        margin-bottom: 0;
+      }
+
+      a {
+        color: var(--link-color);
+        text-decoration: underline;
+        text-decoration-style: dotted;
+        text-underline-offset: 3px;
+      }
+
+      a:hover {
+        color: var(--link-hover);
+      }
+
+      .pill {
+        display: inline-block;
+        font-family: var(--sans);
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 6px 12px;
+        background: var(--button-background);
+        border: 1px solid var(--button-border);
+        border-radius: 999px;
+        color: var(--button-text);
+        margin: 4px 0;
+      }
+
+      footer {
+        padding: 24px;
+        text-align: center;
+        font-family: var(--sans);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        color: var(--ink-faint);
+        text-transform: uppercase;
+      }
+
+      footer a {
+        color: var(--ink-faint);
+        text-decoration: none;
+      }
+
+      footer a:hover {
+        color: var(--ink-muted);
+      }
+
+      /* Subtle stitch line under the wordmark */
+      .stitch {
+        display: block;
+        width: 220px;
+        height: 1px;
+        border-top: 1.5px dashed
+          color-mix(in srgb, var(--accent) 55%, transparent);
+        margin: 4px auto 0;
+      }
+
+      @media (max-width: 420px) {
+        h1 {
+          font-size: 44px;
+        }
+        .tagline {
+          font-size: 19px;
+        }
+        main {
+          padding: 6vh 18px 4vh;
+          gap: 22px;
+        }
+        .card {
+          padding: 22px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img class="mark" src="/icon.svg" alt="quiltnet quilt block" />
+      <h1>QuiltNet</h1>
+      <span class="stitch" aria-hidden="true"></span>
+      <p class="tagline">a catalog of handmade quilts.</p>
+
+      <div class="card">
+        <p>
+          QuiltNet is a small home on the web for handmade quilts —
+          each one with its own page, story, and stitch.
+        </p>
+        <p>
+          <span class="pill">opening soon</span>
+        </p>
+        <p style="font-size: 16px; color: var(--ink-muted);">
+          questions, hellos, and quilt pictures welcome at
+          <a href="mailto:mail@quiltnet.org">mail@quiltnet.org</a>.
+        </p>
+      </div>
+    </main>
+    <footer>
+      <a href="https://aesthetic.computer">aesthetic.computer</a>
+    </footer>
+  </body>
+</html>

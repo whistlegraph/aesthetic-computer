@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <title>quiltnet</title>
+  <!-- 4x4 quilt block, aqua / cerulean / teal palette -->
+  <!-- row 1 -->
+  <rect x="0"  y="0"  width="16" height="16" fill="#a8e0e8"/>
+  <polygon points="0,0 16,0 16,16" fill="#2b7a8a"/>
+  <rect x="16" y="0"  width="16" height="16" fill="#e7f6f7"/>
+  <rect x="32" y="0"  width="16" height="16" fill="#1d5e75"/>
+  <polygon points="32,0 48,0 48,16" fill="#7cc6d4"/>
+  <rect x="48" y="0"  width="16" height="16" fill="#5da9be"/>
+  <!-- row 2 -->
+  <rect x="0"  y="16" width="16" height="16" fill="#1d5e75"/>
+  <polygon points="0,16 16,32 0,32" fill="#a8e0e8"/>
+  <rect x="16" y="16" width="16" height="16" fill="#7cc6d4"/>
+  <polygon points="16,16 32,16 32,32" fill="#e7f6f7"/>
+  <rect x="32" y="16" width="16" height="16" fill="#2b7a8a"/>
+  <rect x="48" y="16" width="16" height="16" fill="#e7f6f7"/>
+  <polygon points="48,16 64,32 48,32" fill="#1d5e75"/>
+  <!-- row 3 -->
+  <rect x="0"  y="32" width="16" height="16" fill="#5da9be"/>
+  <rect x="16" y="32" width="16" height="16" fill="#1d5e75"/>
+  <polygon points="16,32 32,32 16,48" fill="#7cc6d4"/>
+  <rect x="32" y="32" width="16" height="16" fill="#a8e0e8"/>
+  <polygon points="48,32 48,48 32,48" fill="#2b7a8a"/>
+  <rect x="48" y="32" width="16" height="16" fill="#7cc6d4"/>
+  <!-- row 4 -->
+  <rect x="0"  y="48" width="16" height="16" fill="#e7f6f7"/>
+  <polygon points="0,48 16,48 16,64" fill="#5da9be"/>
+  <rect x="16" y="48" width="16" height="16" fill="#2b7a8a"/>
+  <rect x="32" y="48" width="16" height="16" fill="#7cc6d4"/>
+  <polygon points="32,48 48,64 32,64" fill="#1d5e75"/>
+  <rect x="48" y="48" width="16" height="16" fill="#a8e0e8"/>
+
+  <!-- hand-stitched cross-hatch on top -->
+  <g stroke="#1d5e75" stroke-width="0.5" stroke-dasharray="1.6 1.4" opacity="0.55" fill="none">
+    <line x1="0"  y1="16" x2="64" y2="16"/>
+    <line x1="0"  y1="32" x2="64" y2="32"/>
+    <line x1="0"  y1="48" x2="64" y2="48"/>
+    <line x1="16" y1="0"  x2="16" y2="64"/>
+    <line x1="32" y1="0"  x2="32" y2="64"/>
+    <line x1="48" y1="0"  x2="48" y2="64"/>
+  </g>
+</svg>

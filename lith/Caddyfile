@@ -454,6 +454,14 @@
         file_server
     }
 
+    # --- quiltnet.org ---
+    @quiltnet host quiltnet.org www.quiltnet.org
+    handle @quiltnet {
+        root * /opt/ac/system/public/quiltnet.org
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
     # --- kidlisp.com root domain ---
     @kidlisproot host kidlisp.com www.kidlisp.com
     handle @kidlisproot {

@@ -14,6 +14,7 @@ The primary frontend origin is `209.38.133.33`.
 - `kidlisp.com` zone: `kidlisp.com`, `www`, `buy`, `calm`, `device`, `keep`, `keeps`, `learn`, `pj`, `top`
 - `notepat.com` zone: `notepat.com`, `www`
 - `prompt.ac` zone: `prompt.ac`, `api`, `l5`, `p5`, `papers`, `processing`, `sitemap`
+- `quiltnet.org` zone: `quiltnet.org`, `www`
 - `sotce.net` zone: `sotce.net`, `www`
 
 ## Other Live Exceptions
