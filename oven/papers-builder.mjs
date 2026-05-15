@@ -115,70 +115,91 @@ function git(args, cwd = GIT_REPO_DIR) {
   });
 }
 
-// After a successful publish, commit the built PDFs + index + metadata and push
-// to origin so Netlify can deploy them via the papers.aesthetic.computer subdomain.
-async function commitAndPushPDFs(job) {
+// rsync the built PDFs + platter HTML directly to lith (papers.aesthetic.computer
+// origin), bypassing git for binary artifacts. Then commit the tiny text-only
+// source-of-truth files (metadata.json + BUILDLOG.md) so the lith cache-purge
+// webhook still fires.
+//
+// See oven/SETUP-LITH-RSYNC.md for the one-time SSH key provisioning.
+async function publishToLith(job) {
   const SITE_DIR = path.join(GIT_REPO_DIR, "system", "public", "papers.aesthetic.computer");
-  const METADATA = path.join(GIT_REPO_DIR, "papers", "metadata.json");
+  const LITH_HOST = process.env.LITH_PAPERS_HOST || "root@lith.aesthetic.computer";
+  const LITH_DEST = process.env.LITH_PAPERS_DEST || "/opt/ac/system/public/papers.aesthetic.computer/";
+  const SSH_KEY = process.env.LITH_SSH_KEY || "/root/.ssh/oven-to-lith";
 
-  addLogLine(job, "stdout", "  GIT: staging built PDFs...");
+  addLogLine(job, "stdout", `  RSYNC: pushing PDFs + platter to ${LITH_HOST}...`);
+  job.stage = "rsync";
+  job.percent = 94;
+
+  try {
+    await new Promise((resolve, reject) => {
+      execFile(
+        "rsync",
+        [
+          "-av",
+          "--delete-after",
+          "--include=*/",
+          "--include=*.pdf",
+          "--include=*.html",
+          "--exclude=*",
+          "-e", `ssh -i ${SSH_KEY} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/oven-known-hosts`,
+          SITE_DIR + "/",
+          `${LITH_HOST}:${LITH_DEST}`,
+        ],
+        { timeout: 300_000 },
+        (err, stdout, stderr) => {
+          if (err) {
+            err.stderr = stderr;
+            return reject(err);
+          }
+          for (const line of stdout.split("\n").slice(-8)) {
+            if (line.trim()) addLogLine(job, "stdout", "  RSYNC: " + line);
+          }
+          resolve();
+        },
+      );
+    });
+  } catch (rsyncErr) {
+    addLogLine(job, "stderr", `  RSYNC FAILED: ${rsyncErr.message}${rsyncErr.stderr ? " | " + rsyncErr.stderr.trim() : ""}`);
+    throw rsyncErr;
+  }
+
+  // Still commit metadata.json + BUILDLOG.md so the lith webhook fires and
+  // purges its caches. These are text files — no binary churn.
   job.stage = "git-push";
-  job.percent = 96;
+  job.percent = 97;
 
-  // Configure git identity for the oven bot
   await git(["config", "user.email", "oven@aesthetic.computer"]);
   await git(["config", "user.name", "Oven (aesthetic.computer)"]);
 
-  // Only stage meaningful build outputs — not LaTeX intermediates (.log, .aux,
-  // .out, .fls, etc.) whose timestamps change every build even when PDFs don't.
-  await git(["add", "system/public/papers.aesthetic.computer/"]);
   await git(["add", "papers/metadata.json", "papers/BUILDLOG.md"]).catch(() => {});
 
-  // Check if there are actually staged changes
   const status = await git(["diff", "--cached", "--name-only"]);
   if (!status) {
-    addLogLine(job, "stdout", "  GIT: no changes to commit — PDFs unchanged");
+    addLogLine(job, "stdout", "  GIT: no metadata changes — rsync only");
     return;
   }
 
-  const changedFiles = status.split("\n");
-  const pdfCount = changedFiles.filter((f) => f.endsWith(".pdf")).length;
-  const msg = `[papers] oven auto-build: ${pdfCount} PDF${pdfCount !== 1 ? "s" : ""} updated`;
-
-  addLogLine(job, "stdout", `  GIT: committing ${changedFiles.length} file(s)...`);
+  const msg = `[papers] oven auto-build: metadata + buildlog`;
   await git(["commit", "-m", msg]);
 
-  // Discard any remaining unstaged changes (xelatex leaves tracked
-  // .log/.toc/.aux/.fls files modified after each run, intermediate .pdfs
-  // in papers/arxiv-*/ may be dirty, and the papers-git-poller rewrites
-  // .last-papers-built-hash at the repo root). We only commit
-  // system/public/... + metadata.json + BUILDLOG.md, so anything still dirty
-  // is byproduct we don't want to preserve — and leaving it dirty blocks
-  // `git pull --rebase`.
+  // Discard byproduct (xelatex .log/.toc updates, dirty intermediate PDFs,
+  // .last-papers-built-hash) so pull --rebase can run cleanly.
   try {
     await git(["checkout", "--", "."]);
   } catch (cleanupErr) {
-    addLogLine(
-      job,
-      "stderr",
-      `  GIT: pre-rebase cleanup note: ${cleanupErr.message || cleanupErr}`,
-    );
+    addLogLine(job, "stderr", `  GIT: pre-rebase cleanup note: ${cleanupErr.message || cleanupErr}`);
   }
 
-  // Pull any changes that landed while we were building (rebase our commit on top)
-  addLogLine(job, "stdout", "  GIT: pulling latest before push...");
   try {
     await git(["pull", "--rebase", "origin", "main"]);
   } catch (pullErr) {
-    // If rebase fails (conflict), abort and report — our PDFs are binary so this shouldn't happen
     try { await git(["rebase", "--abort"]); } catch {}
     throw pullErr;
   }
 
-  addLogLine(job, "stdout", "  GIT: pushing to origin/main...");
-  job.percent = 98;
+  job.percent = 99;
   await git(["push", "origin", "main"]);
-
   addLogLine(job, "stdout", `  GIT: pushed — ${msg}`);
 }
 
@@ -223,12 +244,12 @@ async function runPapersJob(job) {
       });
     });
 
-    // Commit and push built PDFs back to the repo for Netlify deployment
+    // rsync built PDFs to lith; commit metadata so cache-purge webhook fires
     try {
-      await commitAndPushPDFs(job);
+      await publishToLith(job);
     } catch (pushErr) {
-      // Git push failure is non-fatal — PDFs were still built successfully
-      addLogLine(job, "stderr", `  GIT PUSH FAILED: ${pushErr.message}${pushErr.stderr ? " | " + pushErr.stderr.trim() : ""}`);
+      // Non-fatal — PDFs were built successfully even if publish failed
+      addLogLine(job, "stderr", `  PUBLISH FAILED: ${pushErr.message}${pushErr.stderr ? " | " + pushErr.stderr.trim() : ""}`);
     }
 
     job.status = "success";
