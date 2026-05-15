@@ -1,5 +1,5 @@
-// os, 2026.03.12
-// FedAC OS — build list with commit messages; download your personalized copy.
+// os, 2026.05.15
+// FedAC OS — hero header + uniform option pills + download + live builds.
 
 const OVEN = "https://oven-edge.aesthetic-computer.workers.dev";
 const OVEN_WS = "wss://oven.aesthetic.computer/ws";
@@ -349,20 +349,21 @@ function makeButtons(ui) {
 
 function updateInstallBtn(ui) {
   installBtn = new ui.TextButton(
-    installExpanded ? "hide install steps" : "how to install",
+    installExpanded ? "hide install" : "how to install",
     { x: 6, y: 0 },
   );
 }
 
 function updateBuildsBtn(ui) {
   buildsBtn = new ui.TextButton(
-    buildsExpanded ? "show fewer" : "show all builds",
+    buildsExpanded ? "show fewer" : "show all",
     { x: 6, y: 0 },
   );
 }
 
 function updateVariantBtn(ui) {
-  variantBtn = new ui.TextButton(VARIANTS[variantIdx].label, { x: 6, y: 0 });
+  const label = VARIANTS[variantIdx].label.toLowerCase();
+  variantBtn = new ui.TextButton("build: " + label, { x: 6, y: 0 });
 }
 
 function updateDownloadBtn(ui) {
@@ -379,11 +380,11 @@ function osLabel() {
 
 function updateBootBtn(ui) {
   const piece = BOOT_PIECES[bootPieceIdx];
-  bootBtn = new ui.TextButton(piece, { x: 6, y: 0 });
+  bootBtn = new ui.TextButton("piece: " + piece, { x: 6, y: 0 });
 }
 
 function updateWifiBtn(ui) {
-  wifiBtn = new ui.TextButton(wifiEnabled ? "ON" : "OFF", { x: 6, y: 0 });
+  wifiBtn = new ui.TextButton("wifi: " + (wifiEnabled ? "on" : "off"), { x: 6, y: 0 });
 }
 
 function timeAgo(ts) {
@@ -440,22 +441,51 @@ function paint($) {
 
   const isMobile = w < 360;
   const isNarrow = w < 500;
-  const pad = isMobile ? 4 : isNarrow ? 6 : 12;
+  const pad = isMobile ? 6 : 10;
   const charW = 6;
   const rowH = 10;
   const matrixH = 9;
-  const matrixW = 4; // MatrixChunky8 char width
+  const matrixW = 4;
   const wrapW = w - pad * 2;
-  const btnGap = 4;
-  // Always left-align buttons
-  const btnX = (btn) => pad;
-  const secGap = isMobile ? 6 : isNarrow ? 8 : 10;
-  let y = isMobile ? 22 : 22;
+  const secGap = isMobile ? 8 : 12;
+
+  let y = pad + 4;
+
   // Truncate helper — clips text to fit available pixel width
   const trunc = (s, cw, availW) => {
     const max = Math.floor((availW || wrapW) / cw);
     return s.length > max ? s.slice(0, max - 1) + "~" : s;
   };
+
+  // Word-wrap plain text to a max char width, returning an array of lines.
+  const wrap = (text, maxChars) => {
+    const words = String(text || "").split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = "";
+    for (const word of words) {
+      const next = cur ? cur + " " + word : word;
+      if (next.length <= maxChars) {
+        cur = next;
+      } else {
+        if (cur) lines.push(cur);
+        // Word itself longer than line — hard truncate
+        cur = word.length > maxChars ? word.slice(0, maxChars - 1) + "~" : word;
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  };
+
+  // Section header: small caps label + thin divider.
+  function section(title) {
+    y += isMobile ? 2 : 4;
+    ink(...C.instHeader, 200);
+    $.write(title, { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 2;
+    ink(...C.divider);
+    drawLine(pad, y, w - pad, y);
+    y += isMobile ? 4 : 6;
+  }
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
@@ -470,103 +500,80 @@ function paint($) {
   if (!releases) return;
 
   const builds = releases.releases || [];
+  const latest = builds[0];
+  const isPersonal = handle && token;
 
-  // Section rendering — slim divider + label (no colored backgrounds)
-  function sectionHeader(title) {
-    y += isMobile ? 4 : 6;
-    ink(...C.divider).box(pad, y, w - pad * 2, 1);
-    y += isMobile ? 4 : 6;
-    ink(...C.instHeader).write(title, { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + (isMobile ? 4 : 6);
-  }
+  // === HERO: latest build at a glance ===
+  ink(...C.instText, 180);
+  $.write("ac native os", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+  y += matrixH + 6;
 
-  // --- ACTIVE BUILD ---
-  if (activeBuild) {
-    const rawStage = activeBuild.stage || "starting";
-    const isCLBuild = rawStage.startsWith("cl-") || activeBuild.variant === "cl";
-    const buildVariant = activeBuild.variant === "both" ? "C + CL" : isCLBuild ? "Common Lisp" : "C";
-    sectionHeader("Building (" + buildVariant + ")");
-
-    // Status line: stage + percentage + elapsed
-    const stageLabel = isCLBuild ? rawStage.slice(3) : rawStage;
-    const pct = activeBuild.percent || 0;
-    const elapsed = activeBuild.elapsedMs ? Math.floor(activeBuild.elapsedMs / 1000) : 0;
-    const elapsedStr = elapsed > 0 ? " " + Math.floor(elapsed / 60) + "m" + (elapsed % 60) + "s" : "";
+  if (latest) {
+    // Big build name in the "current" accent color
     ink(...C.current);
-    $.write(trunc(stageLabel + " " + pct + "%" + elapsedStr, charW), { x: pad, y });
-    y += rowH + 2;
+    $.write(trunc(latest.name, charW), { x: pad, y });
+    y += rowH + 4;
 
-    // Progress bar
-    const barW = w - pad * 2;
-    const barH = isMobile ? 6 : 8;
-    ink(...C.progressBg).box(pad, y, barW, barH);
-    const fillW = Math.floor((barW - 2) * pct / 100);
-    ink(...C.progress).box(pad + 1, y + 1, fillW, barH - 2);
-    y += barH + 4;
+    // Meta: hash · ago · size
+    const hash = (latest.git_hash || "").slice(0, 7);
+    const ago = timeAgo(latest.build_ts);
+    const sizeMB = latest.size ? (latest.size / 1048576).toFixed(0) + "mb" : "";
+    const meta = [hash, ago, sizeMB].filter(Boolean).join(" · ");
+    ink(...C.date);
+    $.write(meta, { x: pad, y });
+    y += rowH + 5;
 
-    // Build name + ref on one line (compact)
-    if (activeBuild.buildName || (activeBuild.ref && activeBuild.ref !== "unknown")) {
-      const namePart = activeBuild.buildName || "";
-      const refPart = activeBuild.ref && activeBuild.ref !== "unknown" ? " " + activeBuild.ref.slice(0, 7) : "";
-      ink(...C.name);
-      $.write(trunc(namePart, charW), { x: pad, y });
-      if (refPart) {
-        const nx = pad + (namePart.length + 1) * charW;
-        ink(...C.hash);
-        $.write(refPart.trim(), { x: nx, y });
-      }
-      y += rowH + 2;
-    }
-
-    // Commit message (truncated, no wrap)
-    if (activeBuild.commitMsg) {
-      ink(...C.msg);
-      $.write(trunc(activeBuild.commitMsg, charW), { x: pad, y });
-      y += rowH + 2;
-    }
-
-    // Error message (truncated, no wrap)
-    if (activeBuild.error) {
-      ink(255, 80, 80);
-      $.write(trunc(activeBuild.error, charW), { x: pad, y });
-      y += rowH + 2;
-    }
-
-    // Live log lines
-    if (buildLogLines.length > 0) {
-      y += 2;
-      const visibleLogs = isMobile ? buildLogLines.slice(-10) : buildLogLines;
-      for (const line of visibleLogs) {
-        ink(...C.instText);
-        $.write(trunc(line, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-        y += matrixH + 1;
+    // Commit message — wrap up to 2-3 lines
+    if (latest.commit_msg) {
+      const maxChars = Math.floor(wrapW / charW);
+      const maxLines = isMobile ? 2 : 3;
+      const lines = wrap(latest.commit_msg, maxChars).slice(0, maxLines);
+      for (const line of lines) {
+        ink(...C.msg);
+        $.write(line, { x: pad, y });
+        y += rowH + 1;
       }
     }
-
-    y += secGap;
+  } else {
+    ink(...C.instText).write("no builds yet", { x: pad, y });
+    y += rowH;
   }
 
-  // --- DOWNLOAD section ---
-  if (downloadBtn && !downloading) {
-    const isPersonal = handle && token;
+  y += secGap - 4;
 
-    sectionHeader("Download");
+  // === OPTIONS: uniform pills (piece / build / wifi) ===
+  if (bootBtn) {
+    section("options");
 
-    // OS label (truncated to fit)
-    if (isPersonal) {
-      const label = osLabel();
-      ink(...C.handle).write(trunc(label, charW), { x: pad, y });
-      y += rowH + 4;
-    } else {
-      const latest = releases?.releases?.[0];
-      const label = "AC Native OS" + (latest ? " — " + latest.name : "");
-      ink(...C.handle).write(trunc(label, charW), { x: pad, y });
-      y += rowH + 4;
+    const pills = [bootBtn];
+    if (variantBtn && clAvailable) pills.push(variantBtn);
+    if (wifiBtn) pills.push(wifiBtn);
+
+    const pillGap = 6;
+    const pillH = bootBtn.height;
+    let px = pad;
+    let py = y;
+    for (const pill of pills) {
+      const pw = pill.width;
+      if (px + pw > w - pad && px > pad) {
+        px = pad;
+        py += pillH + pillGap;
+      }
+      pill.reposition({ x: px, y: py });
+      pill.paint(
+        $,
+        [C.bootBtnBg, C.bootBtnBorder, C.bootPiece, 230],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+        undefined,
+        [C.bootBtnHoverBg, C.bootBtnBorder, C.bootPiece, 255],
+      );
+      px += pw + pillGap;
     }
+    y = py + pillH + 6;
 
-    // Device token status — only surface when something is missing
+    // Token-setup nudge (only when missing)
     if (isPersonal && hasClaude !== null && (!hasClaude || !hasGit) && setupBtn) {
-      setupBtn.reposition({ x: btnX(setupBtn), y });
+      setupBtn.reposition({ x: pad, y });
       setupBtn.paint(
         $,
         [[60, 30, 30], [140, 60, 60], [255, 120, 100], 255],
@@ -574,152 +581,162 @@ function paint($) {
         undefined,
         [[60, 30, 30], [140, 60, 60], [255, 120, 100], 230],
       );
-      y += setupBtn.height + btnGap;
+      y += setupBtn.height + 4;
       if (showTokenHint) {
         ink(...C.instText);
         $.write("on device, type in prompt:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-        y += matrixH + 2;
+        y += matrixH + 1;
         if (!hasClaude) {
           ink(...C.instKey);
           $.write("  claude sk-ant-XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-          y += matrixH + 2;
+          y += matrixH + 1;
         }
         if (!hasGit) {
           ink(...C.instKey);
           $.write("  git ghp_XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-          y += matrixH + 2;
+          y += matrixH + 1;
         }
-        y += 2;
       }
     }
+  }
 
-    // Boot-to selector: label + value button
-    if (bootBtn) {
-      const labelW = "boot ".length * charW;
+  // === DOWNLOAD ===
+  if (downloading) {
+    section("downloading");
+    const barH = 18;
+    ink(...C.progressBg).box(pad, y, wrapW, barH);
+    const barW = Math.floor((wrapW - 4) * downloadProgress);
+    ink(...C.progress).box(pad + 2, y + 2, barW, barH - 4);
+    const pct = Math.floor(downloadProgress * 100);
+    const mb = downloadMB.toFixed(1);
+    const total = downloadTotalMB > 0 ? "/" + downloadTotalMB.toFixed(0) : "";
+    ink(255).write(mb + total + "mb " + pct + "%", { x: pad + 4, y: y + 5 });
+    y += barH + 4;
+    if (downloadStatus) {
       ink(...C.bootLabel);
-      $.write("boot", { x: pad, y: y + 4 });
-      bootBtn.reposition({ x: pad + labelW, y });
-      bootBtn.paint(
-        $,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 200],
-        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
-        undefined,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 230],
-      );
-      y += bootBtn.height + btnGap;
+      $.write(trunc(downloadStatus, charW), { x: pad, y });
+      y += rowH + 2;
     }
-
-    // Build variant selector (only show when CL is available)
-    if (variantBtn && clAvailable) {
-      const labelW = "build ".length * charW;
-      ink(...C.bootLabel);
-      $.write("build", { x: pad, y: y + 4 });
-      variantBtn.reposition({ x: pad + labelW, y });
-      variantBtn.paint(
-        $,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 200],
-        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
-        undefined,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 230],
-      );
-      y += variantBtn.height + btnGap;
-    }
-
-    // WiFi toggle: label + value button
-    if (wifiBtn) {
-      const labelW = "internet ".length * charW;
-      ink(...C.bootLabel);
-      $.write("internet", { x: pad, y: y + 4 });
-      const wOn = wifiEnabled;
-      wifiBtn.reposition({ x: pad + labelW, y });
-      wifiBtn.paint(
-        $,
-        [C.bootBtnBg, C.bootBtnBorder, ...(wOn ? C.current : [180, 80, 80]), 200],
-        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
-        undefined,
-        [C.bootBtnBg, C.bootBtnBorder, ...(wOn ? C.current : [180, 80, 80]), 230],
-      );
-      y += wifiBtn.height + btnGap;
-    }
-
-    // Mirror selector
-    y += 4;
-
-    // Download button
-    downloadBtn.reposition({ x: btnX(downloadBtn), y });
+  } else if (downloadBtn) {
+    section("download");
+    downloadBtn.reposition({ x: pad, y });
     downloadBtn.paint(
       $,
       [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
       [C.dlBtnHoverBg, C.dlBtnHoverBorder, [255, 255, 255], 255],
       undefined,
-      [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
+      [C.dlBtnHoverBg, C.dlBtnBorder, C.dlBtnText, 255],
     );
-    y += downloadBtn.height + btnGap;
+    y += downloadBtn.height + 4;
 
-    // Hint for template users
-    if (!isPersonal) {
-      ink(...C.loginHint).write(trunc("log in for a personalized build", matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-      y += matrixH + 2;
+    // Identity hint
+    if (isPersonal) {
+      ink(...C.handle, 220);
+      $.write("signed in as @" + handle, { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    } else {
+      ink(...C.loginHint);
+      $.write("log in for a personalized build", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     }
+    y += matrixH + 2;
+  }
 
-    y += secGap;
+  // === ACTIVE BUILD (live oven telemetry) ===
+  if (activeBuild) {
+    const rawStage = activeBuild.stage || "starting";
+    const isCLBuild = rawStage.startsWith("cl-") || activeBuild.variant === "cl";
+    const buildVariant = activeBuild.variant === "both" ? "c + cl" : isCLBuild ? "common lisp" : "c";
+    section("building (" + buildVariant + ")");
 
-    // --- INSTALL section (collapsible) ---
-    if (installBtn) {
-      installBtn.reposition({ x: pad, y });
-      installBtn.paint(
-        $,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 200],
-        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
-        undefined,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 230],
-      );
-      y += installBtn.height + btnGap;
-    }
+    const stageLabel = isCLBuild ? rawStage.slice(3) : rawStage;
+    const pct = activeBuild.percent || 0;
+    const elapsed = activeBuild.elapsedMs ? Math.floor(activeBuild.elapsedMs / 1000) : 0;
+    const elapsedStr = elapsed > 0 ? " · " + Math.floor(elapsed / 60) + "m" + (elapsed % 60) + "s" : "";
+    ink(...C.current);
+    $.write(trunc(stageLabel + " " + pct + "%" + elapsedStr, charW), { x: pad, y });
+    y += rowH + 2;
 
-    if (installExpanded) {
-      const instLines = isMobile ? [
-        [C.instText, "1 flash .img (Fedora Media Writer)"],
-        [C.instText, "2 plug USB into x86 PC"],
-        [C.instText, "3 BIOS boot menu:"],
-        [C.instKey, "  F12 Dell/Lenovo F9 HP"],
-        [C.instKey, "  F2 ASUS/Acer ESC others"],
-        [C.instText, "4 select USB drive"],
-      ] : [
-        [C.instText, "1 flash .img with Fedora Media Writer"],
-        [C.instText, "2 plug USB into any x86 PC"],
-        [C.instText, "3 enter BIOS boot menu:"],
-        [C.instKey, "  F12 Dell/Lenovo  F9 HP"],
-        [C.instKey, "  F2 ASUS/Acer  ESC others"],
-        [C.instText, "4 select USB drive to boot"],
-      ];
-      for (const [color, text] of instLines) {
-        ink(...color).write(trunc(text, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-        y += matrixH + (isMobile ? 2 : 4);
+    const buildBarW = wrapW;
+    const buildBarH = isMobile ? 6 : 8;
+    ink(...C.progressBg).box(pad, y, buildBarW, buildBarH);
+    const fillW = Math.floor((buildBarW - 2) * pct / 100);
+    ink(...C.progress).box(pad + 1, y + 1, fillW, buildBarH - 2);
+    y += buildBarH + 4;
+
+    if (activeBuild.buildName || (activeBuild.ref && activeBuild.ref !== "unknown")) {
+      const namePart = activeBuild.buildName || "";
+      const refPart = activeBuild.ref && activeBuild.ref !== "unknown" ? activeBuild.ref.slice(0, 7) : "";
+      ink(...C.name);
+      $.write(trunc(namePart, charW), { x: pad, y });
+      if (refPart) {
+        const nx = pad + (namePart.length + 1) * charW;
+        ink(...C.hash);
+        $.write(refPart, { x: nx, y });
       }
+      y += rowH + 2;
     }
 
-    y += secGap;
-
-    // --- BUILDS section ---
-    sectionHeader("Builds");
-  } else if (downloading) {
-    // Progress bar
-    ink(...C.progressBg).box(pad, y, w - pad * 2, 18);
-    const barW = Math.floor((w - pad * 2 - 4) * downloadProgress);
-    ink(...C.progress).box(pad + 2, y + 2, barW, 14);
-    const pct = Math.floor(downloadProgress * 100);
-    const mb = downloadMB.toFixed(1);
-    const total = downloadTotalMB > 0 ? "/" + downloadTotalMB.toFixed(0) : "";
-    ink(255).write(mb + total + "MB " + pct + "%", { x: pad + 4, y: y + 4 });
-    y += 22;
-    if (downloadStatus) {
-      ink(140, 160, 180).write(trunc(downloadStatus, charW), { x: pad, y });
+    if (activeBuild.commitMsg) {
+      ink(...C.msg);
+      $.write(trunc(activeBuild.commitMsg, charW), { x: pad, y });
       y += rowH + 2;
+    }
+
+    if (activeBuild.error) {
+      ink(255, 80, 80);
+      $.write(trunc(activeBuild.error, charW), { x: pad, y });
+      y += rowH + 2;
+    }
+
+    if (buildLogLines.length > 0) {
+      y += 2;
+      const visibleLogs = isMobile ? buildLogLines.slice(-8) : buildLogLines.slice(-12);
+      for (const line of visibleLogs) {
+        ink(...C.instText);
+        $.write(trunc(line, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+        y += matrixH + 1;
+      }
     }
   }
 
-  // Build list — masked scrollable area with alternating strips
+  // === INSTALL (collapsible) ===
+  if (installBtn) {
+    section("install");
+    installBtn.reposition({ x: pad, y });
+    installBtn.paint(
+      $,
+      [C.bootBtnBg, C.bootBtnBorder, C.instHeader, 220],
+      [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+      undefined,
+      [C.bootBtnHoverBg, C.bootBtnBorder, C.instHeader, 240],
+    );
+    y += installBtn.height + 4;
+
+    if (installExpanded) {
+      const instLines = isMobile ? [
+        [C.instText, "1 flash .img (fedora media writer)"],
+        [C.instText, "2 plug usb into x86 pc"],
+        [C.instText, "3 bios boot menu:"],
+        [C.instKey, "  f12 dell/lenovo  f9 hp"],
+        [C.instKey, "  f2 asus/acer  esc others"],
+        [C.instText, "4 select usb drive"],
+      ] : [
+        [C.instText, "1 flash .img with fedora media writer"],
+        [C.instText, "2 plug usb into any x86 pc"],
+        [C.instText, "3 enter bios boot menu:"],
+        [C.instKey, "  f12 dell/lenovo   f9 hp"],
+        [C.instKey, "  f2 asus/acer   esc others"],
+        [C.instText, "4 select usb drive to boot"],
+      ];
+      for (const [color, text] of instLines) {
+        ink(...color).write(trunc(text, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+        y += matrixH + (isMobile ? 2 : 3);
+      }
+    }
+  }
+
+  // === BUILDS list ===
+  section("builds");
+
   const buildsTopY = y;
   const entryH = isMobile ? 24 : isNarrow ? 34 : 34;
   const buildsLimit = buildsExpanded ? builds.length : Math.min(DEFAULT_BUILDS_VISIBLE, builds.length);
@@ -884,10 +901,10 @@ function paint($) {
     buildsBtn.reposition({ x: pad, y: toggleY });
     buildsBtn.paint(
       $,
-      [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 200],
+      [C.bootBtnBg, C.bootBtnBorder, C.instHeader, 220],
       [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
       undefined,
-      [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 230],
+      [C.bootBtnHoverBg, C.bootBtnBorder, C.instHeader, 240],
     );
   }
 
