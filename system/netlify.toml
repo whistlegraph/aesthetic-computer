@@ -2104,7 +2104,11 @@ force = true
 # 🛍️ Shop and ⛵ JAS Signature Redirects
 [[redirects]]
 from = "/shop/@jeffrey/help"
-to = "https://shop.aesthetic.computer/products/45-minutes-of-computer-help-from-jeffrey"
+to = "https://shop.aesthetic.computer/products/1-hour-of-remote-help-from-jeffrey"
+status = 301
+[[redirects]]
+from = "/shop~help"
+to = "https://shop.aesthetic.computer/products/1-hour-of-remote-help-from-jeffrey"
 status = 301
 [[redirects]]
 from = "/shop/*"
