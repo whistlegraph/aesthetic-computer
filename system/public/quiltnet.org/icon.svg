@@ -1,57 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
-  <title>quiltnet</title>
-  <!-- backdrop -->
-  <rect width="64" height="64" fill="#d8f0f3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 63 63">
+  <title>quiltnet — double friendship star</title>
+  <!-- butter cream backdrop -->
+  <rect width="63" height="63" fill="#fef3c7"/>
 
-  <!-- top-right tessellation: half-square triangles in a checker, all
-       pointing toward the center of the icon -->
-  <g fill="#7cc6d4">
-    <polygon points="32,0 32,8 40,8"/>
-    <polygon points="48,0 48,8 56,8"/>
-    <polygon points="40,8 40,16 48,16"/>
-    <polygon points="56,8 56,16 64,16"/>
-    <polygon points="32,16 32,24 40,24"/>
-    <polygon points="48,16 48,24 56,24"/>
-    <polygon points="40,24 40,32 48,32"/>
-    <polygon points="56,24 56,32 64,32"/>
+  <!-- back inner star: CCW pearl HSTs peeking behind -->
+  <g fill="#e7e5e4">
+    <polygon points="21,0 21,21 42,21"/>
+    <polygon points="63,21 42,21 42,42"/>
+    <polygon points="21,42 42,42 42,63"/>
+    <polygon points="0,42 21,42 21,21"/>
   </g>
 
-  <!-- bottom-left tessellation: 180° rotation of the top-right -->
-  <g fill="#7cc6d4">
-    <polygon points="0,32 8,32 8,40"/>
-    <polygon points="16,32 24,32 24,40"/>
-    <polygon points="8,40 16,40 16,48"/>
-    <polygon points="24,40 32,40 32,48"/>
-    <polygon points="0,48 8,48 8,56"/>
-    <polygon points="16,48 24,48 24,56"/>
-    <polygon points="8,56 16,56 16,64"/>
-    <polygon points="24,56 32,56 32,64"/>
+  <!-- front inner star: CW mid-blue HSTs + center cell -->
+  <g fill="#3b82f6">
+    <rect x="21" y="21" width="21" height="21"/>
+    <polygon points="21,21 42,21 42,0"/>
+    <polygon points="42,21 42,42 63,42"/>
+    <polygon points="21,42 42,42 21,63"/>
+    <polygon points="0,21 21,21 21,42"/>
   </g>
 
-  <!-- Q (top-left quadrant): 4×4 pixel block letterform -->
-  <g fill="#1d5e75">
-    <rect x="8"  y="0"  width="8" height="8"/>
-    <rect x="16" y="0"  width="8" height="8"/>
-    <rect x="0"  y="8"  width="8" height="8"/>
-    <rect x="24" y="8"  width="8" height="8"/>
-    <rect x="0"  y="16" width="8" height="8"/>
-    <rect x="24" y="16" width="8" height="8"/>
-    <rect x="8"  y="24" width="8" height="8"/>
-    <rect x="16" y="24" width="8" height="8"/>
-    <rect x="24" y="24" width="8" height="8"/>
+  <!-- outer star: tomato HSTs at the four corners -->
+  <g fill="#ef4444">
+    <polygon points="0,0 21,0 0,21"/>
+    <polygon points="63,0 42,0 63,21"/>
+    <polygon points="0,63 0,42 21,63"/>
+    <polygon points="63,63 63,42 42,63"/>
   </g>
 
-  <!-- N (bottom-right quadrant): 4×4 pixel block letterform -->
-  <g fill="#1d5e75">
-    <rect x="32" y="32" width="8" height="8"/>
-    <rect x="56" y="32" width="8" height="8"/>
-    <rect x="32" y="40" width="8" height="8"/>
-    <rect x="40" y="40" width="8" height="8"/>
-    <rect x="56" y="40" width="8" height="8"/>
-    <rect x="32" y="48" width="8" height="8"/>
-    <rect x="48" y="48" width="8" height="8"/>
-    <rect x="56" y="48" width="8" height="8"/>
-    <rect x="32" y="56" width="8" height="8"/>
-    <rect x="56" y="56" width="8" height="8"/>
+  <!-- faux running stitch — colorized per zone -->
+  <g stroke-width="0.7" stroke-dasharray="1.6 1.2" stroke-linecap="round" opacity="0.85" fill="none">
+    <!-- 3x3 cell grid (interior) — pearl thread -->
+    <g stroke="#e7e5e4">
+      <line x1="21" y1="0" x2="21" y2="63"/>
+      <line x1="42" y1="0" x2="42" y2="63"/>
+      <line x1="0" y1="21" x2="63" y2="21"/>
+      <line x1="0" y1="42" x2="63" y2="42"/>
+    </g>
+    <!-- corner HST diagonals — blue thread -->
+    <g stroke="#3b82f6">
+      <line x1="0" y1="21" x2="21" y2="0"/>
+      <line x1="42" y1="0" x2="63" y2="21"/>
+      <line x1="0" y1="42" x2="21" y2="63"/>
+      <line x1="42" y1="63" x2="63" y2="42"/>
+    </g>
+    <!-- edge HST diagonals — tomato thread -->
+    <g stroke="#ef4444">
+      <line x1="21" y1="0" x2="42" y2="21"/>
+      <line x1="21" y1="21" x2="42" y2="0"/>
+      <line x1="42" y1="21" x2="63" y2="42"/>
+      <line x1="42" y1="42" x2="63" y2="21"/>
+      <line x1="21" y1="42" x2="42" y2="63"/>
+      <line x1="21" y1="63" x2="42" y2="42"/>
+      <line x1="0" y1="21" x2="21" y2="42"/>
+      <line x1="0" y1="42" x2="21" y2="21"/>
+    </g>
   </g>
 </svg>
