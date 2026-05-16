@@ -1,0 +1,4 @@
+swift/.build/
+*.aux
+*.out
+notepat-charts.log
