@@ -1,0 +1,25 @@
+# jungletón — jungle break + reggaetón/dembow tresillo woven in. key D.
+#
+# Tempo 166 BPM, felt half-time. Each *4 = one 4/4 bar. Dembow loves a
+# tight 2-chord vamp — D · A — so the toast can sit native and ride.
+# Section markers gate layers. 56 bars ≈ 1:21 + tail.
+
+# intro 4 [break-thin, sub, bell]
+D3:_*4 D3:_*4 A3:_*4 A3:_*4
+
+# roll-in 8 [break, sub]
+D3:_*4 A3:_*4 D3:_*4 A3:_*4 D3:_*4 A3:_*4 D3:_*4 A3:_*4
+
+# drop 1 16 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell]
+D3:_*4 A3:_*4 D3:_*4 A3:_*4 D3:_*4 A3:_*4 G3:_*4 A3:_*4
+D3:_*4 A3:_*4 D3:_*4 A3:_*4 D3:_*4 A3:_*4 G3:_*4 A3:_*4
+
+# dub-break 8 [sub, pad, no-break, bell]
+G3:_*4 G3:_*4 A3:_*4 A3:_*4 G3:_*4 G3:_*4 A3:_*4 A3:_*4
+
+# drop 2 16 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell]
+D3:_*4 A3:_*4 D3:_*4 A3:_*4 D3:_*4 A3:_*4 G3:_*4 A3:_*4
+D3:_*4 A3:_*4 D3:_*4 A3:_*4 D3:_*4 A3:_*4 G3:_*4 A3:_*4
+
+# out 4 [break-thin, sub, pad]
+D3:_*4 D3:_*4 A3:_*4 D3:_*4

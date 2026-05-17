@@ -1,0 +1,27 @@
+# rodando — liquid / rollers jungle, sunlit + melodic. key E.
+#
+# Tempo 170 BPM, felt half-time. "rodando" = rolling. Even continuous
+# break, lush golden pads, musical changes — the most melodic of the
+# three, room to sing-rap over. Each *4 = one 4/4 bar. 56 bars ≈ 1:19.
+#
+# 4-bar cell: E · C# · A · B  (rolling, lifting, never resolving hard)
+
+# intro 4 [break-thin, sub, pad, bell]
+E3:_*4 E3:_*4 C#3:_*4 B3:_*4
+
+# roll-in 8 [break, sub, pad]
+E3:_*4 C#3:_*4 A3:_*4 B3:_*4 E3:_*4 C#3:_*4 A3:_*4 B3:_*4
+
+# drop 1 16 [break, break-stab, sub, skank, pad, siren, guns, dings, bell]
+E3:_*4 C#3:_*4 A3:_*4 B3:_*4 E3:_*4 C#3:_*4 A3:_*4 B3:_*4
+E3:_*4 C#3:_*4 A3:_*4 B3:_*4 E3:_*4 C#3:_*4 A3:_*4 B3:_*4
+
+# dub-break 8 [sub, pad, no-break, bell]
+A3:_*4 A3:_*4 B3:_*4 B3:_*4 A3:_*4 A3:_*4 B3:_*4 B3:_*4
+
+# drop 2 16 [break, break-stab, sub, skank, pad, siren, guns, dings, bell]
+E3:_*4 C#3:_*4 A3:_*4 B3:_*4 E3:_*4 C#3:_*4 A3:_*4 B3:_*4
+E3:_*4 C#3:_*4 A3:_*4 B3:_*4 E3:_*4 C#3:_*4 A3:_*4 B3:_*4
+
+# out 4 [break-thin, sub, pad]
+E3:_*4 E3:_*4 A3:_*4 E3:_*4

@@ -1,0 +1,5 @@
+# Generated artifacts + private source-derived media — never commit.
+# out/ holds rendered mp3s (Fía's real voice), section illustrations,
+# struct/lane buffers, YWFT raster caches, and .refs/ (normalized
+# copies of private reference photos). Source/code only is tracked.
+out/

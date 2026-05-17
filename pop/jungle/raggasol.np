@@ -1,0 +1,28 @@
+# raggasol — classic ragga jungle, sunlit. key A (golden minor-pentatonic).
+#
+# Tempo 165 BPM, felt half-time (~82). Each *4 = one 4/4 bar.
+# "_" notes are chord roots; the renderer builds sub + pad + skank from
+# them and runs the hybrid AC-kit break over the top. Section markers
+# gate which layers fire. 56 bars ≈ 1:21 + tail.
+#
+# 4-bar sunlit cell: A · F# · D · E  (vi-ish → bright IV → V lift)
+
+# intro 4 [break-thin, sub, bell]
+A3:_*4 A3:_*4 F#3:_*4 E3:_*4
+
+# roll-in 8 [break, sub]
+A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
+
+# drop 1 16 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell]
+A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
+A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
+
+# dub-break 8 [sub, pad, no-break, bell]
+D3:_*4 D3:_*4 E3:_*4 E3:_*4 D3:_*4 D3:_*4 E3:_*4 E3:_*4
+
+# drop 2 16 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell]
+A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
+A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
+
+# out 4 [break-thin, sub, pad]
+A3:_*4 A3:_*4 D3:_*4 A3:_*4
