@@ -99,8 +99,8 @@ const CONFIGS = {
       {
         suffix: "vertical",
         size: "1080x1920",
-        variant: "v8", // 1024x1536 native portrait illustrations
-        prelude: `${SECDIR_ROOT}/trancenwaltz-sections/intro-prelude/gens/v1.png`,
+        variant: "v12", // 1024x1536 portrait — butterfly-on-white-paper-behind + PALS-only laptops + boy pixies
+        prelude: `${SECDIR_ROOT}/trancenwaltz-sections/intro-prelude/gens/v12.png`,
       },
     ],
   },

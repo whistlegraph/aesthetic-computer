@@ -103,35 +103,68 @@ console.log(`  → ${outPath}`);
 
 const t0 = Date.now();
 
-let res;
-if (useJeffrey || campaignRefs.length) {
-  const refs = [...(useJeffrey ? jeffreyRefs() : []), ...campaignRefs];
-  console.log(`  total refs: ${refs.length}`);
-  const fd = new FormData();
-  fd.append("model", "gpt-image-2");
-  fd.append("prompt", prompt);
-  fd.append("size", size);
-  fd.append("quality", "high");
-  fd.append("n", "1");
-  for (const ref of refs) {
-    const buf = readFileSync(ref);
-    const mime = extname(ref).toLowerCase() === ".png" ? "image/png"
-               : extname(ref).toLowerCase() === ".webp" ? "image/webp"
-               : "image/jpeg";
-    fd.append("image[]", new Blob([buf], { type: mime }), basename(ref));
+// Retry wrapper for the OpenAI image call. gpt-image-2 occasionally
+// times out (ETIMEDOUT) or drops the socket (EPIPE) mid-upload of a
+// large 14-ref bundle — those failures are transient and a single
+// retry almost always succeeds. We also raise the per-request timeout
+// to 10 minutes so the underlying fetch doesn't bail prematurely on
+// the long server-side render.
+async function callOpenAIWithRetry(maxAttempts = 4) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 10 * 60 * 1000);
+    try {
+      let res;
+      if (useJeffrey || campaignRefs.length) {
+        const refs = [...(useJeffrey ? jeffreyRefs() : []), ...campaignRefs];
+        if (attempt === 1) console.log(`  total refs: ${refs.length}`);
+        const fd = new FormData();
+        fd.append("model", "gpt-image-2");
+        fd.append("prompt", prompt);
+        fd.append("size", size);
+        fd.append("quality", "high");
+        fd.append("n", "1");
+        for (const ref of refs) {
+          const buf = readFileSync(ref);
+          const mime = extname(ref).toLowerCase() === ".png" ? "image/png"
+                     : extname(ref).toLowerCase() === ".webp" ? "image/webp"
+                     : "image/jpeg";
+          fd.append("image[]", new Blob([buf], { type: mime }), basename(ref));
+        }
+        res = await fetch("https://api.openai.com/v1/images/edits", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: fd,
+          signal: ac.signal,
+        });
+      } else {
+        res = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "gpt-image-2", prompt, size, quality: "high", n: 1 }),
+          signal: ac.signal,
+        });
+      }
+      clearTimeout(timer);
+      return res;
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = e;
+      const cause = e?.cause?.code || e?.code || e?.name;
+      const transient = ["ETIMEDOUT", "EPIPE", "ECONNRESET", "ECONNREFUSED", "UND_ERR_SOCKET", "AbortError"].includes(cause);
+      if (attempt < maxAttempts && transient) {
+        const backoff = Math.min(60, 3 * Math.pow(2, attempt - 1));
+        console.error(`  ⚠ attempt ${attempt} failed (${cause}); retrying in ${backoff}s…`);
+        await new Promise((r) => setTimeout(r, backoff * 1000));
+        continue;
+      }
+      throw e;
+    }
   }
-  res = await fetch("https://api.openai.com/v1/images/edits", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: fd,
-  });
-} else {
-  res = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-image-2", prompt, size, quality: "high", n: 1 }),
-  });
+  throw lastErr;
 }
+const res = await callOpenAIWithRetry();
 
 if (!res.ok) {
   console.error(`✗ OpenAI ${res.status}: ${(await res.text()).slice(0, 500)}`);

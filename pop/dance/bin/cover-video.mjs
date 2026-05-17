@@ -241,6 +241,7 @@ const LANES = [
   { key: "lead",     label: "LEAD",  color: "#aef240", lo: 40, hi: 84 },
   { key: "piano",    label: "PIANO", color: "#f5d240", lo: 50, hi: 90 },
   { key: "supersaw", label: "SAW",   color: "#9aff4d", lo: 40, hi: 84 },
+  { key: "arp",      label: "ARP",   color: "#8a7cff", lo: 40, hi: 88 }, // intro/break1 square arpeggio
 ];
 // laneH is computed lazily inside drawFrame() so empty-lane filtering
 // (which happens later, once event arrays are loaded) sizes lanes to
@@ -355,9 +356,28 @@ const dropImpacts = (struct.events?.dropImpact || []).slice().sort((a, b) => a.t
 // "plucks" it at its lane's y as it crosses the centre — a horizontal
 // impulse — then it oscillates and settles (leftover ring) via verlet
 // damping + string-stiffness smoothing.
-const NS_N  = 56;
-const NS_Y0 = 0;
-const NS_Y1 = H; // runs full height THROUGH the progress bar
+// The track group (lane waveforms + this string) rotates as one disc
+// a plain 360° about the canvas centre across the whole track (the
+// wanderbeach "rotating record"). So the string is extended PAST the
+// canvas diagonal — at any rotation it still cuts clear across frame
+// with its round caps off-screen. Scene + chrome stay fixed.
+const ROT_CX = Math.round(W / 2);
+const ROT_CY = Math.round(H / 2);
+const ROT_DIAG = Math.hypot(W, H);
+const NS_N  = 72;
+const NS_Y0 = ROT_CY - ROT_DIAG / 2 - 40;
+const NS_Y1 = ROT_CY + ROT_DIAG / 2 + 40;
+function trackTheta(at) {
+  return Math.PI * 2 * Math.max(0, Math.min(1, at / Math.max(0.001, duration)));
+}
+function withRotation(theta, fn) {
+  ctx.save();
+  ctx.translate(ROT_CX, ROT_CY);
+  ctx.rotate(theta);
+  ctx.translate(-ROT_CX, -ROT_CY);
+  fn();
+  ctx.restore();
+}
 const nsY  = new Float32Array(NS_N);
 const nsX  = new Float32Array(NS_N);
 const nsPX = new Float32Array(NS_N);
@@ -410,6 +430,14 @@ function stepNeedle() {
   }
   nsX[0] = nsX[NS_N - 1] = playheadX;
   for (let i = 0; i < NS_N; i++) nsHot[i] *= 0.90;
+}
+// String x at any pixel y (linear nsY mapping → interpolate nsX) so
+// the waveform bars can ride the string's local deflection.
+function needleXAt(yPix) {
+  const f = Math.max(0, Math.min(1, (yPix - NS_Y0) / (NS_Y1 - NS_Y0))) * (NS_N - 1);
+  const i = Math.floor(f), frac = f - i;
+  if (i >= NS_N - 1) return nsX[NS_N - 1];
+  return nsX[i] + (nsX[i + 1] - nsX[i]) * frac;
 }
 function drawNeedleString() {
   ctx.save();
@@ -768,6 +796,12 @@ const hasTapeStop = (struct.events?.sfx || []).some((e) => e.name === "tape-stop
 const bootBeeps = (struct.events?.sfx || [])
   .filter((e) => /^boot-beep-\d+$/.test(e.name))
   .map((e) => ({ t: e.t, kind: "boot" }));
+// Keyclick events — "trancenwaltz" typed into the AC prompt before
+// the boot melody. Sorted; their times drive the per-char reveal.
+const keyClicks = (struct.events?.sfx || [])
+  .filter((e) => /^keyclick-\d+$/.test(e.name))
+  .map((e) => e.t)
+  .sort((a, b) => a - b);
 const shutdownBeeps = (struct.events?.sfx || [])
   .filter((e) => /^shutdown-beep-\d+$/.test(e.name))
   .map((e) => ({ t: e.t, kind: "shutdown" }));
@@ -830,6 +864,44 @@ const titleY = titleTopInset + charBaselineY;
 function drawFrame(t) {
   const audioT = t - AUDIO_DELAY_SEC;
   const env = envAt(audioT);
+
+  // ── TYPING INTRO — before the boot melody the whole screen is the
+  //    AC prompt: a pink command block + "trancenwaltz" typed in
+  //    char-by-char synced to the keyclick events, with a blinking
+  //    pink caret. At the first boot beep the normal frame (with the
+  //    pixelate-startup) takes over.
+  if (keyClicks.length > 0 && bootBeeps.length > 0 && audioT < bootBeeps[0].t) {
+    ctx.fillStyle = "#0a0a0e";
+    ctx.fillRect(0, 0, W, H);
+    const PINK = "#e0468c"; // AC prompt pink
+    let typed = 0;
+    for (const kt of keyClicks) { if (audioT >= kt) typed++; else break; }
+    typed = Math.min(typed, titleChars.length);
+    const gap = 16;
+    const blockW = Math.round(charBoxW * 0.34);
+    const blockH = Math.round(charBaselineY * 0.96);
+    const gy = titleY - charBaselineY;          // glyph-box top (no bounce)
+    const promptX = titleBaseX;
+    const promptY = gy + Math.round((charBoxH - blockH) / 2);
+    // pink prompt block (left of the typed title)
+    ctx.fillStyle = PINK;
+    ctx.fillRect(promptX, promptY, blockW, blockH);
+    // typed chars, shifted right past the prompt block
+    const off = promptX + blockW + gap;
+    let caretX = off;
+    for (let i = 0; i < typed; i++) {
+      const img = charImgs[i];
+      const cx = off + prefixWidths[i] - 3;
+      if (img) ctx.drawImage(img, cx, gy);
+      caretX = off + prefixWidths[i + 1];
+    }
+    // blinking pink caret after the last typed char (~3 Hz)
+    if (Math.floor(audioT * 6) % 2 === 0) {
+      ctx.fillStyle = PINK;
+      ctx.fillRect(Math.round(caretX), promptY, Math.max(6, Math.round(blockW * 0.5)), blockH);
+    }
+    return; // this IS the whole frame during the typing phase
+  }
 
   // ── compute per-section PX_PER_SEC with smooth crossfade ──────────
   // Lerp from current section's px/sec to the next at section
@@ -954,9 +1026,13 @@ function drawFrame(t) {
   // the illustration overhangs at least one axis. Then a 20 % zoom
   // factor on top gives ken-burns slack.
   const coverScale = Math.max(W / illusImg.width, H / illusImg.height);
-  const baseScale = 1.20;
-  // Slow zoom oscillation 1.20 → 1.32 across an ~18s cycle.
-  const zoomBreath = 0.06 * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 18)));
+  // Pulled WAY back — sit just above exact-cover so the whole scene
+  // (pixies + setting), not just jeffrey's face, reads. Then BOUNCE:
+  // a slow breath + a punchy envelope-driven zoom so the picture
+  // pumps with the music instead of staying clamped tight.
+  const baseScale = 1.025;
+  const zoomBreath = 0.030 * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 16)))
+                   + 0.16 * env * env; // beat/loudness bounce on the jeffreys
   const zoom = baseScale + zoomBreath;
   // No kick pulse — placeholder so later code that referenced it
   // doesn't break.
@@ -1186,27 +1262,48 @@ function drawFrame(t) {
         stamp(laptopCanvas, hHi, maxH);
         glowCtx.globalCompositeOperation = "destination-in";
         glowCtx.drawImage(mask, drawX, drawY, baseW, baseH);
+        // BRIGHTER WASH — the transmitted light-ups are pushed harder
+        // now: a strong additive pass + a soft offset bloom so the
+        // glow really washes through the panel.
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = 0.6;
+        ctx.globalAlpha = 0.95;
         ctx.drawImage(glowCanvas, 0, 0);
+        ctx.globalAlpha = 0.34; // bloom — slightly enlarged, offset
+        ctx.drawImage(glowCanvas, -4, -4, W + 8, H + 8);
         ctx.restore();
-        // ── PASS 2: leaded contrast ────────────────────────────────
-        // Where the panel BLOCKS the light (the dark came-lines near
-        // the source) deepen it with a saturated multiply so the
-        // darks bruise toward the light's hue instead of washing out
-        // — stained-glass leading, high contrast retained.
+        // ── PASS 2: leaded contrast — the VIBING top layer ─────────
+        // The contrast-preserving layer doesn't sit still: it pixel-
+        // vibes + jitters + flickers a touch PER FRAME so the leading
+        // shimmers and adds grain instead of being a static multiply.
         glowCtx.globalCompositeOperation = "source-over";
         glowCtx.clearRect(0, 0, W, H);
         stamp(faceCanvas,   kLo, maxK);
         stamp(laptopCanvas, hLo, maxH);
         glowCtx.globalCompositeOperation = "destination-out";
         glowCtx.drawImage(mask, drawX, drawY, baseW, baseH);
-        ctx.save();
-        ctx.globalCompositeOperation = "multiply";
-        ctx.globalAlpha = 0.28 * Math.max(maxK, maxH);
-        ctx.drawImage(glowCanvas, 0, 0);
-        ctx.restore();
+        {
+          // per-frame deterministic vibe
+          const fidx = Math.round(audioT * FPS);
+          const rr = (n) => { let s = (fidx * 374761393 + n * 668265263) >>> 0; s = (s ^ (s >>> 13)) >>> 0; return (s & 0xffff) / 0xffff; };
+          const jx = Math.round((rr(1) - 0.5) * 7);
+          const jy = Math.round((rr(2) - 0.5) * 7);
+          const blk = 2 + Math.floor(rr(3) * 4);          // 2..5 px pixel-vibe
+          const flick = 0.85 + rr(4) * 0.30;              // alpha flicker
+          // pixelate the leaded layer through backCanvas (vary per frame)
+          backCtx.clearRect(0, 0, W, H);
+          backCtx.imageSmoothingEnabled = false;
+          const sw = Math.max(1, Math.floor(W / blk));
+          const sh = Math.max(1, Math.floor(H / blk));
+          backCtx.drawImage(glowCanvas, 0, 0, W, H, 0, 0, sw, sh);
+          ctx.save();
+          ctx.imageSmoothingEnabled = false;
+          ctx.globalCompositeOperation = "multiply";
+          ctx.globalAlpha = Math.min(0.6, 0.30 * Math.max(maxK, maxH) * flick);
+          ctx.drawImage(backCanvas, 0, 0, sw, sh, jx, jy, W, H);
+          ctx.restore();
+          ctx.imageSmoothingEnabled = true;
+        }
       }
     }
   }
@@ -1255,9 +1352,16 @@ function drawFrame(t) {
 
   // ── per-lane events ────────────────────────────────────────────────
   // Viewport time window: audioT ± (W/2) / pps seconds.
-  const viewportPad = W / pps;
+  // Widened to the rotation diagonal: the track group rotates as a
+  // disc, so events must keep drawing well PAST the screen edges or
+  // the rotated tracks stop short of the corners.
+  const viewportPad = ROT_DIAG / pps;
   const tMin = audioT - viewportPad;
   const tMax = audioT + viewportPad;
+  // The track group (lane waveforms + the verlet string) rotates as
+  // one disc — a plain 360° about centre across the whole track.
+  const trackRot = trackTheta(audioT);
+  withRotation(trackRot, () => {
   for (let li = 0; li < LANES.length; li++) {
     const lane = LANES[li];
     const laneY0 = SCORE_TOP + li * laneH;
@@ -1387,58 +1491,48 @@ function drawFrame(t) {
         ctx.fill();
         ctx.globalAlpha = 1.0;
       } else if (showWaveform) {
-        // Beach-style: the waveform itself IS the event — a THICK
-        // filled envelope, ADDITIVELY blended so when several triggers
-        // overlap their waveforms COMBINE (sum + brighten) instead of
-        // stacking as separate thin strips. No pill shape.
-        const centerY = y0 + yh / 2;
-        const halfH = yh / 2 - 1;
-        const samplesPerPx = AUDIO_SR / pps;
-        const xEnd = Math.min(W, x + w);
-        const xStart = Math.max(0, x);
-        if (xEnd > xStart) {
-          // sample the envelope once, reuse for fill + outline.
-          const cols = [];
-          for (let px = xStart; px <= xEnd; px += 1) {
-            const audioAt = evT + (px - x) / pps;
-            const idxC = Math.floor(audioAt * AUDIO_SR);
-            const win = Math.max(1, Math.floor(samplesPerPx));
-            let maxAmp = 0;
-            for (let s = -win; s <= win; s++) {
-              const idx = idxC + s;
-              if (idx < 0 || idx >= audioRaw.length) continue;
-              const a = Math.abs(audioRaw[idx]);
-              if (a > maxAmp) maxAmp = a;
-            }
-            // taller scaling (2.6×) + a floor so it always has body.
-            cols.push(Math.min(1, (maxAmp / audioPeak) * 2.6) * 0.92 + 0.06);
-          }
+        // BEACH TRACK MODEL — chunky filled BAR BLOCKS. Per ~9px
+        // column: peak amplitude → a centred vertical bar; alpha keyed
+        // to the playhead (future dim / pressed bright / held decay /
+        // played settled). Screen-blended so overlapping triggers
+        // combine into the illustration. Bars ride the verlet string's
+        // local deflection so they bend with the pluck.
+        // NOT clamped to the screen — the disc rotates, so bars must
+        // draw at their true position past the edges (otherwise the
+        // rotated tracks get sheared off at the old frame border).
+        const wfX = x;
+        const wfXEnd = x + w;
+        const wfW = wfXEnd - wfX;
+        if (wfW > 1) {
+          const midY = y0 + yh / 2;
+          const wfH = yh;
+          const BLOCK_PX = 9;
+          const colsN = Math.max(2, Math.floor(wfW / BLOCK_PX));
+          const blockW = Math.max(3, wfW / colsN - 2);
+          const startSamp = Math.max(0, Math.floor(evT * AUDIO_SR));
+          const endSamp = Math.min(audioRaw.length - 1, Math.floor((evT + visualDur) * AUDIO_SR));
+          const spc = (endSamp - startSamp) / colsN;
+          const rgb = ncHexToRgb(lane.color).join(",");
+          const bend = (needleXAt(midY) - playheadX) * 0.5;
           ctx.save();
-          ctx.globalCompositeOperation = "lighter"; // overlaps SUM
-          // filled mirrored body
-          ctx.beginPath();
-          ctx.moveTo(xStart, centerY - cols[0] * halfH);
-          for (let k = 1; k < cols.length; k++) {
-            ctx.lineTo(xStart + k, centerY - cols[k] * halfH);
-          }
-          for (let k = cols.length - 1; k >= 0; k--) {
-            ctx.lineTo(xStart + k, centerY + cols[k] * halfH);
-          }
-          ctx.closePath();
-          ctx.globalAlpha = Math.min(1, baseAlpha * 0.55 + flash * 0.4);
-          ctx.fillStyle = lane.color;
-          ctx.fill();
-          // bright outline so the shape pops
-          ctx.globalAlpha = Math.min(1, baseAlpha + flash * 0.5);
-          ctx.strokeStyle = lane.color;
-          ctx.lineWidth = 1.6 + flash * 2.8;
-          ctx.stroke();
-          // specular core when freshly fired
-          if (flash > 0.05) {
-            ctx.globalAlpha = flash * 0.85;
-            ctx.strokeStyle = "rgba(255,255,255,0.92)";
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
+          ctx.globalCompositeOperation = "screen";
+          for (let c = 0; c < colsN; c++) {
+            const s0 = startSamp + Math.floor(c * spc);
+            const s1 = Math.min(endSamp, startSamp + Math.floor((c + 1) * spc));
+            let pk = 0;
+            for (let s = s0; s < s1; s++) { const a = Math.abs(audioRaw[s]); if (a > pk) pk = a; }
+            pk = Math.min(1, (pk / audioPeak) * 1.6);
+            const tCol = evT + (c / colsN) * visualDur;
+            const dt = audioT - tCol;
+            let alpha;
+            if (dt < 0) alpha = 0.16;                       // future — dim
+            else if (dt < 0.05) alpha = 1.0;                // PRESSED
+            else if (dt < 0.45) alpha = 1.0 - ((dt - 0.05) / 0.40) * 0.55; // HELD
+            else alpha = 0.42;                              // played
+            const half = Math.max(2, (pk * wfH) / 2);
+            const bx = wfX + (c / colsN) * wfW + bend;
+            ctx.fillStyle = `rgba(${rgb},${alpha.toFixed(3)})`;
+            ctx.fillRect(bx, midY - half, blockW, half * 2);
           }
           ctx.restore();
         }
@@ -1502,32 +1596,9 @@ function drawFrame(t) {
         ctx.restore();
       }
 
-      // ACTIVE accent — NO pill. A soft screen-blended vertical glow
-      // column over the event's waveform span when it fires, so the
-      // hit reads as the waveform lighting up rather than a capsule.
-      if (flash > 0.05 && !isPoint) {
-        const gx = Math.max(0, x);
-        const gw = Math.min(W, x + w) - gx;
-        if (gw > 0) {
-          ctx.save();
-          ctx.globalCompositeOperation = "screen";
-          const cx = gx + gw / 2;
-          const grad = ctx.createLinearGradient(gx, 0, gx + gw, 0);
-          grad.addColorStop(0, lane.color + "00");
-          grad.addColorStop(0.5, lane.color + "ff");
-          grad.addColorStop(1, lane.color + "00");
-          ctx.globalAlpha = flash * 0.6;
-          ctx.fillStyle = grad;
-          const gy0 = laneY0 + 1;
-          ctx.fillRect(gx, gy0, gw, laneH - 2);
-          // bright hot core line on the strongest column
-          ctx.globalAlpha = flash * 0.8;
-          ctx.fillStyle = "rgba(255,255,255,0.9)";
-          ctx.fillRect(cx - 1, gy0, 2, laneH - 2);
-          ctx.restore();
-        }
-        ctx.globalAlpha = 1;
-      }
+      // (No separate active-glow band — the beach per-column alpha
+      //  press/held/played IS the activation, and it stays registered
+      //  to the bar centre so there is no vertical-offset highlight.)
       // ── NOTATION POP — particle burst on activation ───────────────
       // For freshly-fired events (flash > 0) spray ~8 small dots
       // outward from the pill's center, fading over a 240 ms window.
@@ -1565,6 +1636,7 @@ function drawFrame(t) {
       ctx.globalAlpha = 1.0;
     }
   }
+  }); // end withRotation(track group)
 
   // ── drop-impact markers — vertical white-on-pink bars ─────────────
   for (const imp of dropImpacts) {
@@ -1628,7 +1700,8 @@ function drawFrame(t) {
   // Events plucked it as they crossed (above); advance the sim one
   // step then draw the oscillating/settling nylon string.
   stepNeedle();
-  drawNeedleString();
+  // String rotates with the track group (same theta as the lanes).
+  withRotation(trackRot, () => { drawNeedleString(); });
 
   // ── bouncing title — pre-rendered chars composited per frame ─────
   // Bounce amplitude has three components:
@@ -1714,150 +1787,148 @@ function drawFrame(t) {
     }
   }
 
-  // ── boot beeps → CRT TURN-ON / DOOR-OPENING REVEAL ───────────────
-  // The 3 boot beeps (C5-E5-G5) snap a centered horizontal slit OPEN
-  // in stages: pre-beep-1 the canvas is BLACK, beep-1 cracks it open
-  // (33% of H), beep-2 widens it (66%), beep-3 fully reveals (100%).
-  // Each step glows bright white at the slit's leading edges as if
-  // the doors are sliding apart. After beep-3 the reveal stays fully
-  // open for the rest of the song (illustration always visible).
-  // Shutdown beeps are NOT wired here — the CRT-collapse sequence at
-  // the end already handles the 3-beep door-closing.
+  // ── STARTUP + SHUTDOWN — shared fullscreen pixelate / fuzz / blink
+  //    decay engine. NO squash/stretch: the frame just pixel-decays,
+  //    fuzzes with static, RGB-tears and strobes. level 0 = clean
+  //    passthrough, level 1 = destroyed → black. Startup runs it in
+  //    REVERSE (begins destroyed, resolves to clean) snapped to the
+  //    boot beeps; shutdown runs it forward snapped to the shutdown
+  //    beeps over the tape-stop tail. "beep beep boop boop".
+  const applyScreenDecay = (level) => {
+    if (level <= 0.002) return;
+    const L = Math.min(1, level);
+    const fidx = Math.round(audioT * FPS);
+    const rng = (n) => {
+      let s = (fidx * 2246822519 + n * 3266489917) >>> 0;
+      s = (s ^ (s >>> 15)) >>> 0; s = Math.imul(s, 2246822519) >>> 0;
+      return ((s ^ (s >>> 13)) >>> 0) / 4294967295;
+    };
+    // 1) PIXEL DECAY — uniform square mosaic, blocks grow with level.
+    const blk = Math.max(1, Math.round(1 + Math.pow(L, 1.4) * 64));
+    if (blk > 1) {
+      const sw = Math.max(1, Math.floor(W / blk));
+      const sh = Math.max(1, Math.floor(H / blk));
+      backCtx.imageSmoothingEnabled = false;
+      backCtx.clearRect(0, 0, W, H);
+      backCtx.drawImage(canvas, 0, 0, W, H, 0, 0, sw, sh);
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(backCanvas, 0, 0, sw, sh, 0, 0, W, H);
+      ctx.restore();
+      ctx.imageSmoothingEnabled = true;
+    }
+    ctx.save();
+    // 2) RGB tear — a few horizontal slabs shoved sideways, cyan/mag.
+    const slabs = 2 + Math.floor(L * 4);
+    ctx.globalCompositeOperation = "screen";
+    for (let i = 0; i < slabs; i++) {
+      const sy = Math.floor(rng(i * 7 + 1) * H);
+      const sh = Math.max(6, Math.floor(rng(i * 7 + 2) * 90 * (0.4 + L)));
+      const dx = Math.round((rng(i * 7 + 3) - 0.5) * 80 * L);
+      ctx.globalAlpha = 0.10 + L * 0.30;
+      ctx.fillStyle = (i & 1) ? "rgba(0,255,210,1)" : "rgba(255,40,170,1)";
+      ctx.fillRect(dx, sy, W, Math.max(2, Math.floor(sh * 0.5)));
+    }
+    // 3) STATIC FUZZ — scattered blocky noise, density scales w/ level.
+    ctx.globalCompositeOperation = "source-over";
+    const grid = Math.max(8, blk);
+    const cells = Math.floor((W / grid) * (H / grid));
+    const n = Math.floor(cells * (0.05 + L * 0.55));
+    for (let i = 0; i < n; i++) {
+      const gx = Math.floor(rng(i * 5 + 11) * (W / grid)) * grid;
+      const gy = Math.floor(rng(i * 5 + 12) * (H / grid)) * grid;
+      const v = rng(i * 5 + 13);
+      ctx.globalAlpha = 0.10 + L * 0.32; // keep the image readable thru fuzz
+      ctx.fillStyle = v < 0.5 ? "#000" : (v < 0.8 ? "#fff" : "#aef240");
+      ctx.fillRect(gx, gy, grid, grid);
+    }
+    // 4) sink toward black ONLY at the extreme — the mid range stays a
+    //    chunky pixel-static image, going fully black just at the very
+    //    end of shutdown / the instant before boot.
+    const sink = L < 0.82 ? 0 : (L - 0.82) / 0.18;
+    if (sink > 0) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = sink * sink;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+    }
+    // 5) BLINK / STROBE — random dropped frames + rare white pop;
+    //    frequency climbs with level. Partial (never fully solid until
+    //    the sink takes over) so it reads as flicker, not just black.
+    const br = rng(999);
+    if (br < L * 0.45) {
+      ctx.globalAlpha = 0.35 + L * 0.40;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+    } else if (br > 1 - L * 0.07) {
+      ctx.globalAlpha = 0.65;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
+  };
+
+  // STARTUP — reverse decay, snapped to the boot beeps. Before beep-1
+  // the frame is fully destroyed; each beep LOCKS it in a stage; just
+  // after the last beep it is fully clean for the rest of the song.
   if (bootBeeps.length > 0) {
-    const firstT = bootBeeps[0].t;
-    const lastT  = bootBeeps[bootBeeps.length - 1].t;
-    // Once we're well past the last beep (and the reveal has settled
-    // to 100 %), skip the mask entirely — full canvas shows through.
-    if (audioT < lastT + 0.18) {
-      // Find the most recent beep that has fired.
+    const lastT = bootBeeps[bootBeeps.length - 1].t;
+    if (audioT < lastT + 0.45) {
       let lastBeepIdx = -1;
       for (let i = 0; i < bootBeeps.length; i++) {
         if (audioT >= bootBeeps[i].t) lastBeepIdx = i; else break;
       }
-      const stepFracs = bootBeeps.map((_, i) => (i + 1) / bootBeeps.length); // [0.33, 0.66, 1.0]
-      let openFrac = 0;
+      // resolve targets: -1 (pre) = 1.0, then step down per beep to 0.
+      const targets = bootBeeps.map((_, i) => 1 - (i + 1) / bootBeeps.length);
+      let level;
       if (lastBeepIdx < 0) {
-        // Pre-beep-1 — fully closed.
-        openFrac = 0;
+        level = 1.0;
       } else {
-        const prevFrac = lastBeepIdx > 0 ? stepFracs[lastBeepIdx - 1] : 0;
-        const targetFrac = stepFracs[lastBeepIdx];
+        const prev = lastBeepIdx > 0 ? targets[lastBeepIdx - 1] : 1.0;
+        const tgt = targets[lastBeepIdx];
         const since = audioT - bootBeeps[lastBeepIdx].t;
-        // Snap open in 90 ms with quadratic ease.
-        const u = Math.min(1, Math.max(0, since / 0.09));
+        const u = Math.min(1, Math.max(0, since / 0.16));
         const e = u * u * (3 - 2 * u);
-        openFrac = prevFrac + (targetFrac - prevFrac) * e;
+        level = prev + (tgt - prev) * e;
+        // each beep punches a brief re-fuzz JOLT.
+        if (since < 0.10) level = Math.min(1, level + (1 - since / 0.10) * 0.30);
       }
-      const slitH = H * openFrac;
-      const slitTop = (H - slitH) / 2;
-      const slitBottom = slitTop + slitH;
-      // Black out the area outside the slit so the illustration is
-      // only revealed inside it.
-      ctx.save();
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, W, Math.max(0, slitTop));
-      ctx.fillRect(0, Math.min(H, slitBottom), W, Math.max(0, H - slitBottom));
-      // Bright white glow line at top + bottom edges of the slit —
-      // brightest right after each beep, decaying in 200 ms. Reads as
-      // the doors physically sliding apart.
-      if (lastBeepIdx >= 0 && audioT > firstT) {
-        const since = audioT - bootBeeps[lastBeepIdx].t;
-        const glowAlpha = Math.max(0, 1 - since / 0.20);
-        if (glowAlpha > 0.01 && slitH > 2) {
-          ctx.globalAlpha = glowAlpha;
-          ctx.fillStyle = "#aef240";
-          // Two bright bars (top + bottom) traveling outward.
-          ctx.fillRect(0, slitTop - 3, W, 6);
-          ctx.fillRect(0, slitBottom - 3, W, 6);
-          // Plus a soft white spill BEYOND the slit edges so the
-          // outward expansion reads as light leaking.
-          ctx.globalAlpha = glowAlpha * 0.35;
-          ctx.fillStyle = "rgba(255,255,255,1)";
-          const spillH = 30;
-          ctx.fillRect(0, slitTop - spillH, W, spillH);
-          ctx.fillRect(0, slitBottom, W, spillH);
-        }
-      }
-      ctx.restore();
+      applyScreenDecay(level);
     }
   }
 
-  // ── shutdown sequence — CRT-style collapse over the tape-stop tail.
-  // Starts ~3s before duration ends. Cinematic destroy: scanline
-  // sweep, vertical squeeze of the entire frame toward a thin
-  // horizontal line, then the line itself fades to a single white
-  // dot, then black. Destroys EVERYTHING (illustration, events,
-  // title, timecode, progress bar).
+  // SHUTDOWN — forward decay over the tape-stop tail, snapped to the
+  // shutdown beeps. Each beep steps the destruction UP; after the last
+  // it holds fully destroyed (black) to the end.
   if (hasTapeStop) {
-    const shutdownStart = duration - 3.5;
-    if (audioT > shutdownStart) {
-      const f = Math.min(1, (audioT - shutdownStart) / 3.5);
-      ctx.save();
-      // Phase 1 (f 0..0.55): scanline glitch + RGB shift starts subtle
-      // and intensifies. Implemented as a translucent horizontal line
-      // sweep + a few magenta+cyan offset strips.
-      if (f < 0.85) {
-        const scanFreq = 12 + f * 120; // dense scanlines
-        const scanAlpha = 0.15 + f * 0.55;
-        ctx.globalAlpha = scanAlpha;
-        ctx.fillStyle = "rgba(0,0,0,1)";
-        const stripeH = 2;
-        const period = Math.max(stripeH * 2, Math.floor(H / scanFreq));
-        for (let y = 0; y < H; y += period) {
-          ctx.fillRect(0, y, W, stripeH);
+    const sb = shutdownBeeps.map((b) => b.t).sort((a, b) => a - b);
+    const tailStart = duration - 3.5;
+    if (audioT > tailStart) {
+      let level;
+      if (sb.length >= 1) {
+        let lastIdx = -1;
+        for (let i = 0; i < sb.length; i++) {
+          if (audioT >= sb[i]) lastIdx = i; else break;
         }
-        // Bright sweeping scanline that rakes down then up faster as
-        // f grows.
-        const sweepY = ((audioT * (60 + f * 360)) % H);
-        ctx.globalAlpha = 0.6 * (1 - f);
-        ctx.fillStyle = "rgba(255,255,255,1)";
-        ctx.fillRect(0, sweepY, W, 2);
-      }
-      ctx.restore();
-      // Phase 2 (f 0.55..0.9): vertical CRT-squeeze. Copy what's
-      // currently on the canvas (background → bottom strip) and
-      // re-draw it scaled vertically toward the center.
-      if (f > 0.55) {
-        const sq = Math.min(1, (f - 0.55) / 0.30);
-        // Squeeze ratio: 1 → 0.05 (almost a line)
-        const squeezeR = 1 - sq * 0.95;
-        const cy = H / 2;
-        const newH = Math.max(2, H * squeezeR);
-        const newY = cy - newH / 2;
-        // Snapshot what's there, blank, then redraw squeezed.
-        const snap = canvas.toBuffer("raw");
-        const imageData = shutdownCtx.createImageData(W, H);
-        imageData.data.set(snap);
-        shutdownCtx.putImageData(imageData, 0, 0);
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, W, H);
-        ctx.drawImage(shutdownCanvas, 0, 0, W, H, 0, newY, W, newH);
-        // Bright horizontal afterglow line at center
-        ctx.save();
-        ctx.globalAlpha = 0.4 + sq * 0.6;
-        ctx.strokeStyle = "rgba(255,255,255,1)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, cy);
-        ctx.lineTo(W, cy);
-        ctx.stroke();
-        ctx.restore();
-      }
-      // Phase 3 (f 0.9..1.0): center dot fades. Already squeezed to
-      // a line — now collapse that line to a tiny dot at center, then
-      // fade to black.
-      if (f > 0.9) {
-        const dot = Math.min(1, (f - 0.9) / 0.10);
-        ctx.fillStyle = `rgba(0,0,0,${(0.5 + dot * 0.5).toFixed(3)})`;
-        ctx.fillRect(0, 0, W, H);
-        const dotR = Math.max(0, 6 * (1 - dot));
-        if (dotR > 0) {
-          ctx.fillStyle = "rgba(255,255,255,1)";
-          ctx.beginPath();
-          ctx.arc(W / 2, H / 2, dotR, 0, Math.PI * 2);
-          ctx.fill();
+        const steps = sb.map((_, i) => (i + 1) / sb.length); // 0.33,0.66,1
+        if (lastIdx < 0) {
+          // pre first beep: gentle ramp up to the first step.
+          const u = Math.min(1, Math.max(0, (audioT - tailStart) / Math.max(0.01, sb[0] - tailStart)));
+          level = 0.05 + u * (steps[0] * 0.6 - 0.05);
+        } else {
+          const prev = lastIdx > 0 ? steps[lastIdx - 1] : 0.2;
+          const tgt = steps[lastIdx];
+          const since = audioT - sb[lastIdx];
+          const u = Math.min(1, since / 0.18);
+          const e = u * u * (3 - 2 * u);
+          level = prev + (tgt - prev) * e;
+          if (since < 0.10) level = Math.min(1, level + (1 - since / 0.10) * 0.22);
         }
+      } else {
+        // no shutdown beeps → straight time ramp.
+        level = Math.min(1, (audioT - tailStart) / 3.5);
       }
+      applyScreenDecay(level);
     }
   }
 }
