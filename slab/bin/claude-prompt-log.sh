@@ -35,7 +35,10 @@ if [[ -n "$input" ]]; then
             claude_pid=$parent
             [[ "$comm" == *claude* ]] && break
         done
-        tty=$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')
+        # The hook subprocess is spawned without a controlling terminal, so
+        # `ps -o tty -p $$` returns "??". The claude process found above keeps
+        # the Terminal tab's tty — read it from there instead.
+        tty=$(ps -o tty= -p "$claude_pid" 2>/dev/null | tr -d ' ')
         ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
         # 4–8 word summary used as the live Terminal title and the menubar's

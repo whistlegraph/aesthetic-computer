@@ -11,6 +11,9 @@ enum Paths {
         ProcessInfo.processInfo.environment["SLAB_BIN"] ?? "\(home)/.local/bin"
     }
 
+    static var slabWallpaper: String { "\(slabBin)/slab-wallpaper" }
+    static var wallpaperStatusDir: String { "\(slabHome)/wallpaper/status" }
+
     static var activePromptsDir: String { "\(slabHome)/state/active-prompts" }
     static var awaitingPromptsDir: String { "\(slabHome)/state/awaiting-prompts" }
     static var activeSubagentsDir: String { "\(slabHome)/state/active-subagents" }

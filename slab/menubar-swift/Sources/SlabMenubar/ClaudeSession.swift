@@ -25,6 +25,10 @@ struct ClaudeSession {
     let updated: Date
     var state: State
     var awaitingMessage: String?
+    /// Absolute path to this session's iTerm2 background-image wallpaper,
+    /// resolved off-main during refresh (instant cache probe; empty until
+    /// the async generator has produced one). Empty → leave bg image unset.
+    var wallpaper: String = ""
 
     var shortSubject: String {
         let trimmed = subject.trimmingCharacters(in: .whitespacesAndNewlines)

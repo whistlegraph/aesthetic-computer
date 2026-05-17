@@ -3,6 +3,16 @@ import AppKit
 enum MenuBuilder {
     static func build(state: StateSnapshot, mailStatus: String, target: AppDelegate) -> NSMenu {
         let menu = NSMenu()
+        populate(menu, state: state, mailStatus: mailStatus, target: target)
+        return menu
+    }
+
+    /// Rebuild `menu`'s contents in place from the latest cached state.
+    /// Cheap, main-thread, in-memory work (no shelling out) — called from
+    /// `menuNeedsUpdate(_:)` the instant before the menu displays, so the
+    /// menu is always fresh on open without ever being swapped while tracked.
+    static func populate(_ menu: NSMenu, state: StateSnapshot, mailStatus: String, target: AppDelegate) {
+        menu.removeAllItems()
         menu.autoenablesItems = false
 
         menu.addItem(info("Status: \(state.statusLine)"))
@@ -32,8 +42,6 @@ enum MenuBuilder {
 
         menu.addItem(item("Reload daemon", selector: #selector(AppDelegate.reloadDaemon), target: target))
         menu.addItem(item("Quit menu bar", selector: #selector(AppDelegate.quitMenubar), target: target))
-
-        return menu
     }
 
     private static func info(_ title: String) -> NSMenuItem {
