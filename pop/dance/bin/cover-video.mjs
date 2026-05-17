@@ -380,6 +380,11 @@ function drawKaraoke(audioT) {
   const KARA_LAG = 0.14;
   const prog = Math.max(0, Math.min(1,
     (audioT - act.t0 - KARA_LAG) / Math.max(0.08, act.t1 - act.t0)));
+  // The note SLOT is long (held/sustained), but the word is actually
+  // PRONOUNCED quickly near the onset then held. So front-load the
+  // decode: all letters resolve within the first ~42% of the slot
+  // (matches real pronunciation), then stay decoded through the hold.
+  const decodeProg = Math.min(1, prog / 0.42);
   const secRgb = sectionTcRgb(audioT); // typography tints to the section
   const fs = Math.round(titleFontSize * 0.74);
   const baseY = Math.round(H * 0.82);
@@ -435,7 +440,7 @@ function drawKaraoke(audioT) {
     // the highlight — way cooler than a plain colour sweep.
     const tw = wOf(word);
     let dx = Math.round(rowX + cx[j] - tw / 2);
-    const sungEdge = prog * word.length; // letter being sung right now
+    const sungEdge = decodeProg * word.length; // front-loaded decode
     for (let c = 0; c < word.length; c++) {
       const decoded = c < sungEdge;       // the voice has reached it
       let glyph;
@@ -795,6 +800,11 @@ const shutdownCtx = shutdownCanvas.getContext("2d");
 // transmission amount, so it can gate the glow via `destination-in`.
 const glowCanvas = createCanvas(W, H);
 const glowCtx = glowCanvas.getContext("2d");
+// Offscreen for crossfading the transmission mask OLD→NEW during a
+// section melt so the backlight/contrast layer transitions with the
+// picture instead of staying stuck on the old illustration.
+const maskBlend = createCanvas(W, H);
+const maskBlendCtx = maskBlend.getContext("2d");
 const _transmissionMasks = new WeakMap(); // Image → mask Canvas
 function getTransmissionMask(img) {
   let m = _transmissionMasks.get(img);
@@ -1332,7 +1342,25 @@ function drawFrame(t) {
             Math.min(W, radius * 2),
             Math.min(H, radius * 2));
         };
-        const mask = getTransmissionMask(illusImg);
+        // Mask gate: during a section melt, CROSSFADE the old + new
+        // transmission masks by crossfadeT so the backlight/contrast
+        // layer transitions WITH the picture (was stuck on the old
+        // illustration through the whole melt).
+        let maskDraw;
+        if (nextIllus && crossfadeT > 0 && nextIllus !== illusImg) {
+          const mOld = getTransmissionMask(illusImg);
+          const mNew = getTransmissionMask(nextIllus);
+          maskBlendCtx.clearRect(0, 0, W, H);
+          maskBlendCtx.globalAlpha = 1 - crossfadeT;
+          maskBlendCtx.drawImage(mOld, drawX, drawY, baseW, baseH);
+          maskBlendCtx.globalAlpha = crossfadeT;
+          maskBlendCtx.drawImage(mNew, drawX, drawY, baseW, baseH);
+          maskBlendCtx.globalAlpha = 1;
+          maskDraw = (c) => c.drawImage(maskBlend, 0, 0);
+        } else {
+          const m = getTransmissionMask(illusImg);
+          maskDraw = (c) => c.drawImage(m, drawX, drawY, baseW, baseH);
+        }
         // ── PASS 1: transmitted light ──────────────────────────────
         // Light that passes THROUGH the panel. Gate the glow by the
         // transmission mask (keep it only where the illustration is
@@ -1343,7 +1371,7 @@ function drawFrame(t) {
         stamp(faceCanvas,   kHi, maxK);
         stamp(laptopCanvas, hHi, maxH);
         glowCtx.globalCompositeOperation = "destination-in";
-        glowCtx.drawImage(mask, drawX, drawY, baseW, baseH);
+        maskDraw(glowCtx);
         // BRIGHTER WASH — the transmitted light-ups are pushed harder
         // now: a strong additive pass + a soft offset bloom so the
         // glow really washes through the panel.
@@ -1363,7 +1391,7 @@ function drawFrame(t) {
         stamp(faceCanvas,   kLo, maxK);
         stamp(laptopCanvas, hLo, maxH);
         glowCtx.globalCompositeOperation = "destination-out";
-        glowCtx.drawImage(mask, drawX, drawY, baseW, baseH);
+        maskDraw(glowCtx);
         {
           // per-frame deterministic vibe
           const fidx = Math.round(audioT * FPS);
@@ -1782,11 +1810,13 @@ function drawFrame(t) {
   // Events plucked it as they crossed (above); advance the sim one
   // step then draw the oscillating/settling nylon string.
   stepNeedle();
-  // GEOMETRIC DISTORTION UNDER THE STRING — a vertical strip of the
-  // composited picture around the playhead is sheared row-by-row to
-  // follow the verlet string's local bend (the string is physics-
-  // smooth so this is smooth; only the whole-image scene-pan was the
-  // jerky one, and that stays off).
+  // GEOMETRIC DISTORTION — an un-rotated vertical-strip shear of the
+  // picture following the string's bend (needleXAt). Kept OUTSIDE the
+  // rotation: sampling a screen-strip and re-blitting it UNDER
+  // ctx.rotate carved out a rotated rectangle ("strip cut out / whole
+  // image rotating"). A true rotated-patch warp that rides the
+  // rotated line needs a snapshot + soft rotation-aware local remap
+  // (a dedicated rewrite, not a strip blit).
   warpIllustration();
   // String rotates with the track group (same theta as the lanes).
   withRotation(trackRot, () => { drawNeedleString(); });
@@ -1798,23 +1828,9 @@ function drawFrame(t) {
   //   • per-char phase offset so letters bob in a traveling wave
   const baseBounce = 8;
   const envBounce = env * 36;
-  // Soft DARK area behind the title words — a gentle vignette so the
-  // type sits in its own pocket of shade (legibility + mood).
-  {
-    const tw0 = titleBaseX + (prefixWidths[titleChars.length] || 300);
-    const cyV = titleY - charBaselineY / 2;
-    const vg = ctx.createRadialGradient(
-      titleBaseX + tw0 * 0.32, cyV, 8,
-      titleBaseX + tw0 * 0.32, cyV, Math.max(tw0 * 0.85, 360));
-    vg.addColorStop(0, "rgba(0,0,0,0.46)");
-    vg.addColorStop(0.6, "rgba(0,0,0,0.26)");
-    vg.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.save();
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, W, titleY + charBoxH);
-    ctx.restore();
-  }
-  // ALL typography tints to the current section colour.
+  // ALL typography tints to the current section colour (per-char
+  // hue still varies — the section tint is BLENDED with each
+  // character's own palette colour, not flattened).
   const [tSr, tSg, tSb] = sectionTcRgb(audioT);
   // "JUMPED IN" — right after the boot melody fires (prompt entered)
   // the title springs into place: a fast decaying per-char overshoot
@@ -1822,6 +1838,17 @@ function drawFrame(t) {
   const bootT = bootBeeps.length ? bootBeeps[0].t : -1e9;
   const jSince = audioT - bootT;
   const jumping = jSince >= 0 && jSince < 0.8;
+  // helper: recolour the glyph plate (alpha shape) to an rgb
+  const tintGlyph = (img, r, g, b) => {
+    lyrTint.width = img.width; lyrTint.height = img.height;
+    lyrTintCtx.clearRect(0, 0, img.width, img.height);
+    lyrTintCtx.globalCompositeOperation = "source-over";
+    lyrTintCtx.drawImage(img, 0, 0);
+    lyrTintCtx.globalCompositeOperation = "source-in";
+    lyrTintCtx.fillStyle = `rgb(${r},${g},${b})`;
+    lyrTintCtx.fillRect(0, 0, img.width, img.height);
+    return lyrTint;
+  };
   for (let i = 0; i < titleChars.length; i++) {
     const img = charImgs[i];
     if (!img) continue;
@@ -1833,26 +1860,24 @@ function drawFrame(t) {
       const e = 1 - jSince / 0.8;            // 1 → 0 over 0.8 s
       y += -e * e * 44 * Math.cos(jSince * 26 - i * 0.6); // staggered spring
     }
-    // Hard ceiling: an upward bounce may never clip off the top edge.
     if (y < 2) y = 2;
-    // recolour the char to the section tint (per-char, via source-in)
-    // with a hard dark offset behind it for punch over the vignette.
-    lyrTint.width = img.width; lyrTint.height = img.height;
-    lyrTintCtx.clearRect(0, 0, img.width, img.height);
-    lyrTintCtx.globalCompositeOperation = "source-over";
-    lyrTintCtx.drawImage(img, 0, 0);
-    lyrTintCtx.globalCompositeOperation = "source-in";
-    lyrTintCtx.fillStyle = `rgb(${tSr},${tSg},${tSb})`;
-    lyrTintCtx.fillRect(0, 0, img.width, img.height);
+    // 1) SOFT DARK glow shaped like the glyph — a black silhouette
+    //    stamped at a few offsets, low alpha, so it reads as a soft
+    //    title-shaped pocket of shade on the image (not a rectangle).
+    const blk = tintGlyph(img, 0, 0, 0);
     ctx.save();
-    ctx.globalAlpha = 0.8;
-    ctx.globalCompositeOperation = "source-over";
-    // dark drop (reuse the plate alpha as a black silhouette)
-    ctx.globalAlpha = 0.55;
-    ctx.drawImage(img, x + 3, y + 4);
-    ctx.globalAlpha = 1.0;
-    ctx.drawImage(lyrTint, x, y);
+    for (const [ox, oy, a] of [[-2,-1,0.13],[2,3,0.15],[5,7,0.16],[0,2,0.15],[3,4,0.50]]) {
+      ctx.globalAlpha = a;
+      ctx.drawImage(blk, x + ox, y + oy);
+    }
     ctx.restore();
+    // 2) per-char colour = section tint BLENDED with the char's own
+    //    palette hue (varied but themed), drawn crisp on top.
+    const pal = ncHexToRgb(TITLE_PALETTE[i % TITLE_PALETTE.length]);
+    const cr = Math.round(tSr * 0.55 + pal[0] * 0.45);
+    const cg = Math.round(tSg * 0.55 + pal[1] * 0.45);
+    const cb = Math.round(tSb * 0.55 + pal[2] * 0.45);
+    ctx.drawImage(tintGlyph(img, cr, cg, cb), x, y);
   }
 
   // ── segmented progress bar — identical to the wanderbeach video ──
