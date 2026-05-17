@@ -1,0 +1,87 @@
+# trance hook — 64 words. "computer" appears 6× total (3 per verse)
+# at varied octaves so each occurrence has its own melodic character.
+# Chord regions: Am (1-8), F (9-16), C (17-24), G (25-32) per verse.
+# Word ORDER strictly matches the lyric in pop/dance/bin/sing.mjs.
+# notation: NOTE:syllable*beats
+
+verse 1
+# Am — i, A, love, computer, computer, C, surviving, death
+A3:i-*1 C4:-i-*1 E4:-i*2
+A3:A*2
+C4:love-*1 E4:-love-*1 A3:-love*2
+C4:com-*1 E4:-pu-*1 A3:-ter*2
+A4:com-*1 C5:-pu-*1 E5:-ter*2
+E4:C*2
+A3:sur-*1 C4:-vi-*1 E4:-ving*2
+G3:death-*1 A3:-death*3
+
+# F — D, fighting, E, F, driving, calling, G, 2
+F4:D*2
+A4:fight-*1 C5:-ing*3
+F4:E*2
+A4:F*2
+C5:dri-*1 A4:-ving*3
+F4:call-*1 A4:-ing*3
+C5:G*2
+F4:2*2
+
+# C — H, sex, singing, J, playing, K, infinite, computer
+C5:H*2
+E5:sex-*1 G5:-sex*3
+C5:sing-*1 E5:-ing*3
+G5:J*2
+E5:play-*1 C5:-ing*3
+G5:K*2
+C5:in-*1 E5:-fi-*1 G5:-nite*3
+C5:com-*1 E5:-pu-*1 G5:-ter*2
+
+# G — writing, M, 3, silliness, crying, N, 30456, O
+G4:writ-*1 B4:-ing*3
+D5:M*2
+B4:3*2
+G4:sil-*1 B4:-li-*1 D5:-ness*3
+B4:cry-*1 G4:-ing*3
+D5:N*2
+G4:30456-*1 B4:-30456-*1 D5:-30456*2
+G4:O*2
+
+verse 2
+# Am — silliness, 30456, 8888, crying, writing, playing, singing, calling
+A3:sil-*1 C4:-li-*1 E4:-ness*3
+A3:30456-*1 C4:-30456-*1 E4:-30456*2
+G3:8888-*1 A3:-8888*3
+C4:cry-*1 E4:-ing*3
+A3:writ-*1 C4:-ing*3
+E4:play-*1 A3:-ing*3
+C4:sing-*1 E4:-ing*3
+A3:call-*1 C4:-ing*3
+
+# F — fighting, surviving, P, Q, R, S, T, U
+F4:fight-*1 A4:-ing*3
+C5:sur-*1 A4:-vi-*1 F4:-ving*2
+F4:P*2
+A4:Q*2
+C5:R*2
+A4:S*2
+F4:T*2
+A4:U*2
+
+# C — V, computer, X, Y, Z, 4, 5, 6
+C5:V*2
+E5:com-*1 G5:-pu-*1 C5:-ter*2
+G5:X*2
+E5:Y*2
+C5:Z*2
+G5:4*2
+E5:5*2
+C5:6*2
+
+# G — 7, 8, computer, 10, i, love, computer, death
+G4:7*2
+B4:8*2
+D5:com-*1 G4:-pu-*1 B4:-ter*2
+G4:10*2
+B4:i-*1 D5:-i-*1 G4:-i*2
+B4:love-*1 D5:-love-*1 G4:-love*2
+D5:com-*1 G4:-pu-*1 B4:-ter*2
+G4:death-*1 D4:-death*3
