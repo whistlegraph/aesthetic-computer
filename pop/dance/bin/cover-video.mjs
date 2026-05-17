@@ -28,6 +28,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { createCanvas, loadImage } from "canvas";
+import { makeVerletString, hexToRgb as ncHexToRgb } from "../../lib/cover-engine.mjs";
 
 const argv = process.argv.slice(2);
 const flags = {};
@@ -352,204 +353,112 @@ console.log(`  → rendering ${LANES.length} populated lane${LANES.length === 1 
 laneH = Math.floor(SCORE_H / Math.max(1, LANES.length));
 const dropImpacts = (struct.events?.dropImpact || []).slice().sort((a, b) => a.t - b.t);
 
-// ── verlet-string playhead (ported from the wanderbeach video) ──────
-// The playhead is a pinned vertical segmented string. Each event
-// "plucks" it at its lane's y as it crosses the centre — a horizontal
-// impulse — then it oscillates and settles (leftover ring) via verlet
-// damping + string-stiffness smoothing.
-// The track group (lane waveforms + this string) rotates as one disc
-// a plain 360° about the canvas centre across the whole track (the
-// wanderbeach "rotating record"). So the string is extended PAST the
-// canvas diagonal — at any rotation it still cuts clear across frame
-// with its round caps off-screen. Scene + chrome stay fixed.
-const ROT_CX = Math.round(W / 2);
-const ROT_CY = Math.round(H / 2);
-const ROT_DIAG = Math.hypot(W, H);
-const NS_N  = 72;
-const NS_Y0 = ROT_CY - ROT_DIAG / 2 - 40;
-const NS_Y1 = ROT_CY + ROT_DIAG / 2 + 40;
-function trackTheta(at) {
-  return Math.PI * 2 * Math.max(0, Math.min(1, at / Math.max(0.001, duration)));
-}
-function withRotation(theta, fn) {
-  ctx.save();
-  ctx.translate(ROT_CX, ROT_CY);
-  ctx.rotate(theta);
-  ctx.translate(-ROT_CX, -ROT_CY);
-  fn();
-  ctx.restore();
-}
-const nsY  = new Float32Array(NS_N);
-const nsX  = new Float32Array(NS_N);
-const nsPX = new Float32Array(NS_N);
-const nsHot = new Float32Array(NS_N);
-for (let i = 0; i < NS_N; i++) {
-  nsY[i] = NS_Y0 + (NS_Y1 - NS_Y0) * (i / (NS_N - 1));
-  nsX[i] = playheadX; nsPX[i] = playheadX;
-}
-const laneCenterY = {};
-for (let li = 0; li < LANES.length; li++) {
-  laneCenterY[LANES[li].key] = SCORE_TOP + li * laneH + laneH / 2;
-}
-// Per-node colour — the string segment glows in the colour of the
-// waveform/lane that last plucked it (held while that node is hot).
-const nsCR = new Float32Array(NS_N);
-const nsCG = new Float32Array(NS_N);
-const nsCB = new Float32Array(NS_N);
-nsCR.fill(255); nsCG.fill(232); nsCB.fill(150); // default nylon cream
-function ncHexToRgb(hex) {
-  const h = String(hex).replace("#", "");
-  return [parseInt(h.slice(0, 2), 16) || 0,
-          parseInt(h.slice(2, 4), 16) || 0,
-          parseInt(h.slice(4, 6), 16) || 0];
-}
-function pluckNeedle(yPix, amount, sign, rgb) {
-  let idx = Math.round(((yPix - NS_Y0) / (NS_Y1 - NS_Y0)) * (NS_N - 1));
-  idx = Math.max(2, Math.min(NS_N - 3, idx));
-  nsX[idx]     += sign * amount;
-  nsX[idx - 1] += sign * amount * 0.55;
-  nsX[idx + 1] += sign * amount * 0.55;
-  nsHot[idx] = 1;
-  nsHot[idx - 1] = Math.max(nsHot[idx - 1], 0.7);
-  nsHot[idx + 1] = Math.max(nsHot[idx + 1], 0.7);
-  if (rgb) {
-    for (const j of [idx - 1, idx, idx + 1]) {
-      nsCR[j] = rgb[0]; nsCG[j] = rgb[1]; nsCB[j] = rgb[2];
-    }
-  }
-}
-function stepNeedle() {
-  for (let i = 1; i < NS_N - 1; i++) {
-    const v = (nsX[i] - nsPX[i]) * 0.90;                  // damping → ring
-    nsPX[i] = nsX[i];
-    nsX[i] = nsX[i] + v + (playheadX - nsX[i]) * 0.020;   // tension home
-  }
-  for (let pass = 0; pass < 2; pass++) {                   // string stiffness
-    for (let i = 1; i < NS_N - 1; i++) {
-      nsX[i] = (nsX[i] * 2 + nsX[i - 1] + nsX[i + 1]) * 0.25;
-    }
-  }
-  nsX[0] = nsX[NS_N - 1] = playheadX;
-  for (let i = 0; i < NS_N; i++) nsHot[i] *= 0.90;
-}
-// String x at any pixel y (linear nsY mapping → interpolate nsX) so
-// the waveform bars can ride the string's local deflection.
-function needleXAt(yPix) {
-  const f = Math.max(0, Math.min(1, (yPix - NS_Y0) / (NS_Y1 - NS_Y0))) * (NS_N - 1);
-  const i = Math.floor(f), frac = f - i;
-  if (i >= NS_N - 1) return nsX[NS_N - 1];
-  return nsX[i] + (nsX[i + 1] - nsX[i]) * frac;
-}
-function drawNeedleString() {
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  // 1) sharp dark drop shadow — whole string, hard offset, no blur.
-  ctx.strokeStyle = "rgba(0,0,0,0.55)";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(nsX[0] + 3, nsY[0] + 4);
-  for (let i = 1; i < NS_N; i++) ctx.lineTo(nsX[i] + 3, nsY[i] + 4);
-  ctx.stroke();
-  // 2) per-segment nylon string: dark casing → warm body → specular.
-  for (let i = 1; i < NS_N; i++) {
-    const h = Math.max(nsHot[i], nsHot[i - 1]);
-    const dev = Math.abs(((nsX[i] + nsX[i - 1]) / 2) - playheadX);
-    const act = Math.min(1, Math.max(h, dev / 26));
-    const x0 = nsX[i - 1], y0 = nsY[i - 1], x1 = nsX[i], y1 = nsY[i];
-    ctx.strokeStyle = `rgba(60,46,32,${(0.10 + act * 0.40).toFixed(3)})`;
-    ctx.lineWidth = 4 + act * 4;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-    // Body tinted by the colour of the waveform that plucked this
-    // segment, brightening toward white at the peak of the pluck.
-    const cr = (nsCR[i] + nsCR[i - 1]) / 2;
-    const cg = (nsCG[i] + nsCG[i - 1]) / 2;
-    const cb = (nsCB[i] + nsCB[i - 1]) / 2;
-    const wb = 0.16 * act; // keep the waveform's colour dominant
-    const br = Math.round(cr + (255 - cr) * wb);
-    const bg = Math.round(cg + (255 - cg) * wb);
-    const bbl = Math.round(cb + (255 - cb) * wb);
-    ctx.strokeStyle = `rgba(${br},${bg},${bbl},${(0.13 + act * 0.80).toFixed(3)})`;
-    ctx.lineWidth = 2.2 + act * 3.4;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-    const specA = act * 0.85;
-    if (specA > 0.02) {
-      ctx.strokeStyle = `rgba(255,255,246,${specA.toFixed(3)})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x0 - 1.2, y0); ctx.lineTo(x1 - 1.2, y1);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
+// ── verlet string + rotating disc + string→illustration warp
+//    now live in pop/lib/cover-engine.mjs (shared with undabeach).
+//    The engine is constructed after `ctx` exists; see below.
 
-// ── singalong karaoke band ───────────────────────────────────────────
-// A fixed HUD line in the lower third: a window of sung words centred
-// on the one being sung now, which fills left→right with a hot pink
-// highlight as it is sung (classic karaoke sweep). Black shadow
-// plates keep it readable over the rotating tracks.
+// ── singalong karaoke — ONE word at centre, decode-on-arrival ───────
+// Exactly one word is readable at a time: the word being sung NOW,
+// pinned at the horizontal centre. Neighbouring words slide through
+// as scrambled symbol-strings that DECODE into real letters as they
+// approach centre (and re-scramble as they leave). Fixed HUD, lower
+// third, dark offset for legibility over the rotating tracks.
+const KARA_SYM = "!<>-_/\\[]{}=+*#%&@$?:;~^|".split("");
 function drawKaraoke(audioT) {
   if (lyricWords.length === 0) return;
   const first = lyricWords[0], last = lyricWords[lyricWords.length - 1];
-  if (audioT < first.t0 - 1.4 || audioT > last.t1 + 1.2) return;
-  // active = last word whose t0 has passed; clamp to range
+  if (audioT < first.t0 - 1.0 || audioT > last.t1 + 1.0) return;
   let idx = -1;
   for (let i = 0; i < lyricWords.length; i++) {
     if (audioT >= lyricWords[i].t0) idx = i; else break;
   }
-  if (idx < 0) idx = 0; // pre-roll: show the opening line
-  const GAP = Math.round(titleFontSize * 0.42);
-  // Page in fixed LINES — the whole line holds still while its words
-  // are sung (the highlight sweeps across it), then it pages to the
-  // next line. No per-word scrolling, so it reads calm, not fast.
-  const LINE_LEN = 6;
-  const lineStart = Math.floor(idx / LINE_LEN) * LINE_LEN;
-  const lineEnd = Math.min(lyricWords.length - 1, lineStart + LINE_LEN - 1);
-  let lineW = -GAP;
-  for (let i = lineStart; i <= lineEnd; i++) lineW += lyricWords[i].img.width + GAP;
-  let x = Math.round(W / 2 - lineW / 2);
+  if (idx < 0) idx = 0;
+  const act = lyricWords[idx];
+  const prog = Math.max(0, Math.min(1,
+    (audioT - act.t0) / Math.max(0.08, act.t1 - act.t0)));
+  const fs = Math.round(titleFontSize * 0.74);
   const baseY = Math.round(H * 0.82);
-  const recolor = (img, rgb, a, dx, dy, clipW) => {
-    lyrTint.width = img.width; lyrTint.height = img.height;
-    lyrTintCtx.clearRect(0, 0, img.width, img.height);
-    lyrTintCtx.globalCompositeOperation = "source-over";
-    lyrTintCtx.drawImage(img, 0, 0);
-    lyrTintCtx.globalCompositeOperation = "source-in";
-    lyrTintCtx.fillStyle = `rgb(${rgb})`;
-    lyrTintCtx.fillRect(0, 0, img.width, img.height);
-    ctx.save();
-    ctx.globalAlpha = a;
-    if (clipW != null) {
-      ctx.beginPath();
-      ctx.rect(dx, dy - 4, clipW, img.height + 8);
-      ctx.clip();
+  ctx.save();
+  ctx.font = `bold ${fs}px "DejaVu Sans Mono", "Menlo", monospace`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  const GAP = Math.round(fs * 1.1);
+  const wOf = (s) => ctx.measureText(s).width;
+  // words in play: idx-1 … idx+2
+  const js = [];
+  for (let d = -1; d <= 2; d++) { const j = idx + d; if (j >= 0 && j < lyricWords.length) js.push(j); }
+  // row-local layout + the focus point that must sit at W/2 (slides
+  // from centre-of-active → centre-of-next across prog → continuous,
+  // one word centred at a time).
+  let lx = 0; const cx = {};
+  for (const j of js) { const ww = wOf(lyricWords[j].text); cx[j] = lx + ww / 2; lx += ww + GAP; }
+  // TRAIN-AT-STATION: the active word DWELLS dead-centre the whole
+  // time it's being sung, then in the last slice of its duration the
+  // "train departs" — a smooth eased slide that brings the NEXT word
+  // to centre exactly as it becomes active. No mid-word drift.
+  const DWELL = 0.74; // hold centred for the first 74% of the word
+  let slide = prog <= DWELL ? 0 : (prog - DWELL) / (1 - DWELL);
+  slide = slide * slide * (3 - 2 * slide); // smoothstep depart
+  const focusLocal = cx[idx] + ((cx[idx + 1] ?? cx[idx]) - cx[idx]) * slide;
+  const rowX = W / 2 - focusLocal;
+  const tBucket = Math.floor(audioT * 14); // re-scramble cadence
+  for (const j of js) {
+    const word = lyricWords[j].text;
+    const isActive = j === idx;
+    if (!isActive) {
+      // NEIGHBOURS — pure scramble, never decoded until they ARE the
+      // current word. Dim, sliding through.
+      let sym = "";
+      for (let c = 0; c < word.length; c++) {
+        let s = ((j * 131 + c * 17 + tBucket * 7) >>> 0);
+        s = (s ^ (s >>> 13)) >>> 0;
+        sym += KARA_SYM[(s >>> 3) % KARA_SYM.length];
+      }
+      const tw = wOf(sym);
+      const dx = Math.round(rowX + cx[j] - tw / 2);
+      ctx.globalAlpha = 0.30;
+      ctx.fillStyle = "rgba(0,0,0,0.85)";
+      ctx.fillText(sym, dx + 3, baseY + 4);
+      ctx.globalAlpha = 0.34;
+      ctx.fillStyle = "rgba(225,222,212,1)";
+      ctx.fillText(sym, dx, baseY);
+      continue;
     }
-    ctx.drawImage(lyrTint, dx, dy);
-    ctx.restore();
-  };
-  for (let i = lineStart; i <= lineEnd; i++) {
-    const wd = lyricWords[i];
-    const y = baseY - Math.round(wd.img.height / 2);
-    // hard dark shadow plate (doubled) for legibility
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.drawImage(wd.shadow, x + 3, y + 4);
-    ctx.drawImage(wd.shadow, x + 2, y + 3);
-    ctx.restore();
-    if (i < idx) {
-      recolor(wd.img, "210,205,190", 0.34, x, y); // already sung — dim
-    } else if (i > idx) {
-      recolor(wd.img, "235,232,220", 0.52, x, y); // upcoming
-    } else {
-      // ACTIVE — dim base + a hot-pink fill sweeping with the singing
-      const prog = Math.max(0, Math.min(1,
-        (audioT - wd.t0) / Math.max(0.08, wd.t1 - wd.t0)));
-      recolor(wd.img, "245,242,230", 0.80, x, y);
-      recolor(wd.img, "255,94,168", 1.0, x, y, Math.ceil(wd.img.width * prog));
+    // CURRENT word — arrives ENCODED and the VOICE decodes it: each
+    // letter is a scrambled symbol until the singing edge reaches it,
+    // then it snaps to the real letter (and bounces). The decode IS
+    // the highlight — way cooler than a plain colour sweep.
+    const tw = wOf(word);
+    let dx = Math.round(rowX + cx[j] - tw / 2);
+    const sungEdge = prog * word.length; // letter being sung right now
+    for (let c = 0; c < word.length; c++) {
+      const decoded = c < sungEdge;       // the voice has reached it
+      let glyph;
+      if (decoded) {
+        glyph = word[c];
+      } else {
+        let s = ((j * 131 + c * 17 + tBucket * 7) >>> 0);
+        s = (s ^ (s >>> 13)) >>> 0;
+        glyph = KARA_SYM[(s >>> 3) % KARA_SYM.length];
+      }
+      const cw = wOf(glyph);
+      // bump travels with the decode edge — the letter decoding right
+      // now lifts most; tiny idle shimmer on the rest.
+      const near = Math.max(0, 1 - Math.abs((c + 0.5) - sungEdge) / 1.6);
+      const cy = baseY - (near * near) * (fs * 0.32)
+               - Math.sin(audioT * 9 + c) * 1.4;
+      ctx.globalAlpha = 0.92;
+      ctx.fillStyle = "rgba(0,0,0,0.9)";
+      ctx.fillText(glyph, dx + 3, cy + 4);
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = decoded ? "#ff5ea8"        // decoded by the voice
+                   : near > 0.15 ? "#ffd0e6"     // about to decode
+                   : "rgba(225,222,212,0.92)";   // still encoded
+      ctx.fillText(glyph, dx, cy);
+      dx += cw;
     }
-    x += wd.img.width + GAP;
   }
+  ctx.restore();
 }
 
 // ── title setup ──────────────────────────────────────────────────────
@@ -695,9 +604,12 @@ const tcCache = new Map(); // "mm:ss / mm:ss" → { img, shadow }
 // toMs} relative to the stem. Absolute word time = vocalStart +
 // from/1000. Each unique word is pre-rasterised in YWFT (white plate
 // + black shadow plate) like the timecode.
+// Default to the STRETCHED word timeline (matches the slow sung
+// stem — score-stretch.mjs --words-only). The pre-stretch
+// trance-hook-vocal-words.json runs ~4× too fast.
 const LYRICS_PATH = flags.lyrics
   ? (flags.lyrics.startsWith("~/") ? resolve(homedir(), flags.lyrics.slice(2)) : flags.lyrics)
-  : resolve(dirname(fileURLToPath(import.meta.url)), "../out/trance-hook-vocal-words.json");
+  : resolve(dirname(fileURLToPath(import.meta.url)), "../out/trance-hook-stretched-words.json");
 const lyricWords = []; // { text, t0, t1, img, shadow }
 const lyricPlates = new Map(); // text → { img, shadow }
 if (existsSync(LYRICS_PATH)) {
@@ -957,6 +869,24 @@ const kickAims = []; // per-kick aim coords [{ fx, fy, isFace }]
 const canvas = createCanvas(W, H);
 const ctx = canvas.getContext("2d");
 
+// ── shared cover engine: verlet string + rotating disc + the
+//    string→illustration WARP (pop/lib/cover-engine.mjs). Bound to
+//    the legacy local names so every existing call site is unchanged.
+const _vs = makeVerletString(ctx, { W, H, playheadX, duration });
+const trackTheta = _vs.trackTheta;
+const withRotation = _vs.withRotation;
+const pluckNeedle = _vs.pluck;
+const stepNeedle = _vs.step;
+const needleXAt = _vs.needleXAt;
+const drawNeedleString = _vs.draw;
+const warpIllustration = _vs.warp;
+const ROT_DIAG = _vs.ROT_DIAG;
+// Lane-centre Y stays here (lane geometry, not string state).
+const laneCenterY = {};
+for (let li = 0; li < LANES.length; li++) {
+  laneCenterY[LANES[li].key] = SCORE_TOP + li * laneH + laneH / 2;
+}
+
 // ── one-frame renderer ───────────────────────────────────────────────
 // `t` is the visual-frame time. `audioT` is the audio time currently
 // hitting the listener's ears (shifted later by AAC encoder delay).
@@ -974,11 +904,13 @@ const progressY = H - progressH;
 // above the progress bar.
 const chromeH = 130;            // enough room for ~95-px title bouncing
 const chromeTop = H - progressH - chromeH;
-// Title is anchored TOP-LEFT now. titleY is the glyph baseline; with
-// a charBaselineY-tall box drawn from (y = titleY - charBaselineY)
-// this puts the cap height ~24 px below the top edge. The per-char
-// bounce is clamped so an upward swing never clips off the top.
-const titleTopInset = 24;
+// Title anchored TOP-LEFT, but DROPPED below the Instagram Stories
+// top safe zone (~250 px on a 1080×1920 canvas — profile row /
+// username / progress bars live up there). The typing-intro prompt
+// shares this anchor (gy = titleY - charBaselineY), so it lands in
+// the safe zone too. The per-char bounce is clamped to a safe floor.
+const IG_TOP_SAFE = 250;
+const titleTopInset = IG_TOP_SAFE;
 const titleY = titleTopInset + charBaselineY;
 function drawFrame(t) {
   const audioT = t - AUDIO_DELAY_SEC;
@@ -990,34 +922,31 @@ function drawFrame(t) {
   //    pink caret. At the first boot beep the normal frame (with the
   //    pixelate-startup) takes over.
   if (keyClicks.length > 0 && bootBeeps.length > 0 && audioT < bootBeeps[0].t) {
-    ctx.fillStyle = "#0a0a0e";
+    ctx.fillStyle = "#1b0033"; // AC prompt.mjs theme purple
     ctx.fillRect(0, 0, W, H);
     const PINK = "#e0468c"; // AC prompt pink
     let typed = 0;
     for (const kt of keyClicks) { if (audioT >= kt) typed++; else break; }
     typed = Math.min(typed, titleChars.length);
-    const gap = 16;
-    const blockW = Math.round(charBoxW * 0.34);
+    const blockW = Math.round(charBoxW * 0.30);
     const blockH = Math.round(charBaselineY * 0.96);
     const gy = titleY - charBaselineY;          // glyph-box top (no bounce)
-    const promptX = titleBaseX;
+    const startX = titleBaseX;
     const promptY = gy + Math.round((charBoxH - blockH) / 2);
-    // pink prompt block (left of the typed title)
-    ctx.fillStyle = PINK;
-    ctx.fillRect(promptX, promptY, blockW, blockH);
-    // typed chars, shifted right past the prompt block
-    const off = promptX + blockW + gap;
-    let caretX = off;
+    // typed chars from the left edge (no fixed slab any more).
+    let caretX = startX;
     for (let i = 0; i < typed; i++) {
       const img = charImgs[i];
-      const cx = off + prefixWidths[i] - 3;
+      const cx = startX + prefixWidths[i] - 3;
       if (img) ctx.drawImage(img, cx, gy);
-      caretX = off + prefixWidths[i + 1];
     }
-    // blinking pink caret after the last typed char (~3 Hz)
+    caretX = startX + prefixWidths[typed] + 4; // RIGHT of the typed text
+    // The pink block IS the cursor — it rides at the right of the
+    // text, advancing as each letter lands. Blinks ~3 Hz, so before
+    // the first keystroke it blinks a couple of times in place.
     if (Math.floor(audioT * 6) % 2 === 0) {
       ctx.fillStyle = PINK;
-      ctx.fillRect(Math.round(caretX), promptY, Math.max(6, Math.round(blockW * 0.5)), blockH);
+      ctx.fillRect(Math.round(caretX), promptY, blockW, blockH);
     }
     return; // this IS the whole frame during the typing phase
   }
@@ -1149,12 +1078,25 @@ function drawFrame(t) {
   // (pixies + setting), not just jeffrey's face, reads. Then BOUNCE:
   // a slow breath + a punchy envelope-driven zoom so the picture
   // pumps with the music instead of staying clamped tight.
-  const baseScale = 1.025;
-  const zoomBreath = 0.030 * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 16)))
-                   + 0.16 * env * env; // beat/loudness bounce on the jeffreys
-  const zoom = baseScale + zoomBreath;
-  // No kick pulse — placeholder so later code that referenced it
-  // doesn't break.
+  const baseScale = 1.005; // minimal overscan — crop in as little as possible
+  // ORGANIC motion: a slow ken-burns breath (~16 s) + a SOFT kick
+  // zoom — each kick eases the picture in a touch then releases. Soft
+  // attack (~70 ms) → gentle exp release; max() over recent kicks so
+  // dense kicks read as one continuous swell, never a per-frame snap.
+  const slowBreath = 0.028 * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 16)));
+  let kickZoom = 0;
+  for (let i = kicksSorted.length - 1; i >= 0; i--) {
+    const kt = kicksSorted[i].displayedT ?? kicksSorted[i].t;
+    const since = audioT - kt;
+    if (since < 0) continue;
+    if (since > 0.9) break;
+    const e01 = since < 0.07 ? since / 0.07 : Math.exp(-(since - 0.07) / 0.34);
+    if (e01 > kickZoom) kickZoom = e01;
+  }
+  // String-bend pan/zoom BUMP (no rotate) — folded into the camera so
+  // the illustration + its backlight mask + the lanes stay registered.
+  const so = _vs.sceneOffset();
+  const zoom = (baseScale + slowBreath + kickZoom * 0.045) * so.zoomMul;
   const lastKickIdx = -1;
   const lastKickT = -1e9;
   void lastKickT;
@@ -1163,8 +1105,10 @@ function drawFrame(t) {
   const baseH = illusImg.height * coverScale * zoom;
   // Wobble — frame-by-frame motion at multiple cross-frequencies so
   // the painting reads as alive rather than smoothly drifting.
-  const wobbleX = 14 * Math.sin(t * 1.35) + 6 * Math.cos(t * 2.7) + env * 18 * Math.sin(t * 4.0);
-  const wobbleY = 11 * Math.cos(t * 1.55) + 5 * Math.sin(t * 2.3) + env * 14 * Math.cos(t * 3.3);
+  // Gentle, SLOW drift only — no envelope-coupled high-freq jitter
+  // (that read as "moves too fast / not smooth"). Organic + calm.
+  const wobbleX = 9 * Math.sin(t * 0.55) + 4 * Math.cos(t * 0.9);
+  const wobbleY = 7 * Math.cos(t * 0.5) + 3 * Math.sin(t * 0.8);
   // Kick-driven aim — interpolate from the previous kick's aim to
   // the next kick's aim across the time between them. So the camera
   // glides between face spots and image center on each kick.
@@ -1200,6 +1144,12 @@ function drawFrame(t) {
   // draw position must satisfy: W - baseW ≤ drawX ≤ 0 (and same for Y).
   drawX = Math.min(0, Math.max(W - baseW, drawX));
   drawY = Math.min(0, Math.max(H - baseH, drawY));
+  // string-bend PAN/BUMP — added after the cover clamp so it can
+  // nudge slightly past the edge (re-clamped loosely so a hard kick
+  // can't expose a black bar). Backlight + lanes use this same
+  // drawX/drawY so the stained-glass mask stays registered.
+  drawX = Math.max(W - baseW - 60, Math.min(60, drawX + so.dx));
+  drawY = Math.max(H - baseH - 60, Math.min(60, drawY + so.dy));
   // ── parallax / depth / slit drivers ────────────────────────────
   // Layer separation gives depth + a tight shake. The slitscan is a
   // MUSIC-DRIVEN horizontal-row tear: near-silent when quiet, growing
@@ -1244,6 +1194,8 @@ function drawFrame(t) {
     ctx.fillRect(0, 0, W, H);
   };
 
+  // String-bend pan/zoom/bump is already folded into drawX/drawY/zoom
+  // above (no ctx transform → backlight mask + lanes stay registered).
   if (nextIllus && crossfadeT > 0 && nextIllus !== illusImg) {
     // ── DOOM melt WITH two-layer depth ─────────────────────────────
     // NEW is the incoming plane: its own parallax back-plate + a
@@ -1333,8 +1285,9 @@ function drawFrame(t) {
       // Amplitude-reactive + sensitive: the live envelope gates the
       // flash so loud passages flare and quiet ones barely register,
       // plus a whisper of always-on env shimmer so the panel breathes.
-      const ampGate = 0.18 + 1.10 * env;
-      const ambient = 0.10 * env;
+      // EXTREME / VIBEIN — push the transmitted illumination hard.
+      const ampGate = 0.34 + 1.70 * env;
+      const ambient = 0.20 * env;
       const maxK = faceCanvas   ? Math.max(recentMax("kick") * ampGate, ambient) : 0;
       const maxH = laptopCanvas ? Math.max(recentMax("hat")  * ampGate, ambient) : 0;
       // Hue drifts LIBERALLY over time + amplitude — not locked to the
@@ -1386,9 +1339,9 @@ function drawFrame(t) {
         // glow really washes through the panel.
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = 0.95;
+        ctx.globalAlpha = 1.0;
         ctx.drawImage(glowCanvas, 0, 0);
-        ctx.globalAlpha = 0.34; // bloom — slightly enlarged, offset
+        ctx.globalAlpha = 0.55; // bloom — slightly enlarged, offset
         ctx.drawImage(glowCanvas, -4, -4, W + 8, H + 8);
         ctx.restore();
         // ── PASS 2: leaded contrast — the VIBING top layer ─────────
@@ -1819,7 +1772,9 @@ function drawFrame(t) {
   // Events plucked it as they crossed (above); advance the sim one
   // step then draw the oscillating/settling nylon string.
   stepNeedle();
-  // String rotates with the track group (same theta as the lanes).
+  // (String→illustration warp removed — same reason as the scene
+  //  displacement: jittery on this dense track; undabeach dropped it.
+  //  The string still rotates with the disc and colours from plucks.)
   withRotation(trackRot, () => { drawNeedleString(); });
 
   // ── bouncing title — pre-rendered chars composited per frame ─────
@@ -1829,6 +1784,12 @@ function drawFrame(t) {
   //   • per-char phase offset so letters bob in a traveling wave
   const baseBounce = 8;
   const envBounce = env * 36;
+  // "JUMPED IN" — right after the boot melody fires (prompt entered)
+  // the title springs into place: a fast decaying per-char overshoot
+  // so it reads as energetically ACTIVE, like we just loaded in.
+  const bootT = bootBeeps.length ? bootBeeps[0].t : -1e9;
+  const jSince = audioT - bootT;
+  const jumping = jSince >= 0 && jSince < 0.8;
   for (let i = 0; i < titleChars.length; i++) {
     const img = charImgs[i];
     if (!img) continue;
@@ -1836,6 +1797,10 @@ function drawFrame(t) {
     const phase = (i / titleChars.length) * 2 * Math.PI;
     const beatWave = Math.sin(2 * Math.PI * beatHz * audioT + phase);
     let y = titleY - charBaselineY + (baseBounce + envBounce) * beatWave;
+    if (jumping) {
+      const e = 1 - jSince / 0.8;            // 1 → 0 over 0.8 s
+      y += -e * e * 44 * Math.cos(jSince * 26 - i * 0.6); // staggered spring
+    }
     // Hard ceiling: an upward bounce may never clip off the top edge.
     if (y < 2) y = 2;
     ctx.drawImage(img, x, y);

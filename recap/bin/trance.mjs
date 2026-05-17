@@ -1961,13 +1961,22 @@ if (!isChill) {
     const kt = TYPE_START + i * TYPE_GAP;
     // short bright tick, slight per-key pitch jitter so it reads as
     // mechanical-keyboard typing rather than one repeated blip.
-    const tone = 1500 + (kRng() - 0.5) * 700;
+    // LOWER-PITCHED tick — chunkier mechanical-keyboard thock.
+    const tone = 620 + (kRng() - 0.5) * 240;
     const ks = makeBufferSynth(sfxDryBuf, kt, SAMPLE_RATE, noiseRng);
-    ks.synth({ type: "square", tone, duration: 0.014, volume: 0.16, attack: 0.0008, decay: 0.012 });
+    ks.synth({ type: "square", tone, duration: 0.016, volume: 0.17, attack: 0.0009, decay: 0.014 });
     const ks2 = makeBufferSynth(sfxDryBuf, kt, SAMPLE_RATE, noiseRng);
-    ks2.synth({ type: "triangle", tone: tone * 2.2, duration: 0.010, volume: 0.10, attack: 0.0005, decay: 0.009 });
+    ks2.synth({ type: "triangle", tone: tone * 1.9, duration: 0.011, volume: 0.09, attack: 0.0006, decay: 0.010 });
     events.sfx.push({ t: kt, name: `keyclick-${i}`, dur: 0.05, point: true });
   }
+  // ENTER — a chunkier, lower return-key thunk after the last letter,
+  // a beat before the boot melody. Marks "command submitted".
+  const enterT = TYPE_START + TYPE_N * TYPE_GAP + 0.07;
+  const en1 = makeBufferSynth(sfxDryBuf, enterT, SAMPLE_RATE, noiseRng);
+  en1.synth({ type: "square", tone: 300, duration: 0.045, volume: 0.22, attack: 0.001, decay: 0.04 });
+  const en2 = makeBufferSynth(sfxDryBuf, enterT, SAMPLE_RATE, noiseRng);
+  en2.synth({ type: "triangle", tone: 150, duration: 0.06, volume: 0.16, attack: 0.001, decay: 0.055 });
+  events.sfx.push({ t: enterT, name: "prompt-enter", dur: 0.08, point: true });
 }
 // Boot melody fires AFTER the typing finishes (was 0.05 s — now
 // gated behind the ~0.95 s typing burst). Still well before the
