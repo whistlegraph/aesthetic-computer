@@ -300,12 +300,123 @@ enum KeyboardIconRenderer {
     /// note + settingsHitRect stay anchored where they were; this
     /// pad just gives multi-digit numbers somewhere to grow without
     /// clipping at the image edge.
-    static let voiceBadgeRightPad: CGFloat = 12.0
+    /// Reserved space to the right of the music-note glyph for the
+    /// voice-number badge digits. Sized so a 2-digit voice (1-99,
+    /// covers the entire GM lineup except the top 28) sits cleanly
+    /// inside the slot. 3-digit voices may extend a hair past the
+    /// edge but still read clearly. Keeps the icon's right margin
+    /// close to standard macOS menubar spacing.
+    static let voiceBadgeRightPad: CGFloat = 5.0
 
     enum HitResult: Equatable {
         case openSettings
         case openVisualizer
         case note(UInt8)
+        /// Cassette body — pure drag-source now (REC moved to its own
+        /// transport button). Clicking the cassette is a no-op; pulling
+        /// it sideways ejects the WAV to the Desktop.
+        case tape
+        /// Transport buttons live between the cassette and the piano,
+        /// in classic Walkman order: REW · STOP · PLAY · FFWD · REC · EJECT.
+        case tapeRew
+        case tapeStop
+        case tapePlay
+        case tapeFfwd
+        case tapeRec
+        case tapeEject
+    }
+
+    // MARK: - Tape (inline cassette)
+    //
+    // A miniature Walkman-style cassette sits to the LEFT of the piano
+    // keys. Single-click toggles REC; mouse-drag starts a drag session
+    // that ejects the WAV file onto the desktop. Visual cues:
+    //
+    //   • Two hexagonal-hub reels rotate during REC (red tint) or PLAY
+    //     (steel tint).
+    //   • A small red "● REC" LED inside the label card glows while
+    //     recording.
+    //   • A mic-permission LED to the right of the cassette glows
+    //     orange while the hot mic is delivering frames (i.e. while
+    //     REC is engaged AND mic access was granted).
+    //
+    // All state is pushed in via the static properties below before
+    // each `image(...)` render — AppDelegate's `updateIcon()` reads
+    // the controller's tape and refreshes these.
+    static var tapeRecording: Bool = false
+    static var tapePlaying: Bool = false
+    /// 0..1 fraction of the recording capacity used. Drives the
+    /// "fill" of the right reel and the duration tick mark.
+    static var tapeFillFraction: CGFloat = 0
+    /// 0..1 playhead position. Identical to fill while no recording
+    /// happened yet; tracks playback otherwise.
+    static var tapePlayheadFraction: CGFloat = 0
+    /// Orange "mic hot" LED. True while the synth is delivering mic
+    /// frames AND the tape is recording.
+    static var tapeMicHot: Bool = false
+    /// Continuous wall-clock seconds; drives reel rotation so the
+    /// reels keep turning smoothly between hover events.
+    static var tapePhase: CFTimeInterval = 0
+
+    // Feature flag — the tape deck is still WIP. AppDelegate mirrors
+    // `MenuBandTapeDeckEnabled` from UserDefaults into this flag, and
+    // every tape-related layout/draw/hit-test branch is gated on it.
+    // Defaults to OFF so a fresh install doesn't ship the unfinished
+    // surface in the menubar.
+    static var tapeFeatureEnabled: Bool = false
+
+    /// UserDefaults key for the tape-deck feature flag.
+    static let tapeFeatureDefaultsKey = "MenuBandTapeDeckEnabled"
+
+    // Compact Cassette physical aspect: 100.4mm × 63.8mm ≈ 1.574:1.
+    // Cassette fills the full piano height (whiteH = 21pt); width
+    // tracks the real-world ratio: 21 × 33 ≈ 1.571:1.
+    static let tapeBodyW: CGFloat = 33.0
+    static var tapeBodyH: CGFloat { whiteH }
+    static let tapeBodyGap: CGFloat = 6.0
+    /// Horizontal pad before the tape — keeps the cassette flush with
+    /// the menubar's leading edge of the status item.
+    static let tapeLeadPad: CGFloat = 0.5
+
+    // ── Deck panel (transport buttons only — cassette is mounted to
+    // the LEFT of the deck on visible drive spokes that stick out of
+    // the deck's left edge, like a portable cassette mechanism where
+    // the transport face is one slab and the tape rides on spindles).
+    static let deckPadInsetX: CGFloat = 2.5
+    /// Visible run of the drive spokes between cassette and deck face.
+    static let deckSpokesWidth: CGFloat = 6.0
+    /// Horizontal pad between the deck's trailing edge and the piano.
+    static let deckTrailGap: CGFloat = 4.0
+
+    // Transport buttons — tall narrow columns running the full deck
+    // height. Square corners, separated by hairline gaps so the row
+    // reads as a stack of piano-key levers, not pill chiclets.
+    static let transportBtnW: CGFloat = 17.0
+    static let transportBtnGap: CGFloat = 1.6
+    /// Vertical inset between deck face edge and column top/bottom.
+    static let transportColumnInset: CGFloat = 1.6
+    static let transportButtonCount: Int = 6
+
+    static var transportStripWidth: CGFloat {
+        CGFloat(transportButtonCount) * transportBtnW
+            + CGFloat(transportButtonCount - 1) * transportBtnGap
+    }
+
+    /// Width of the deck panel itself (transport buttons + padding).
+    /// Cassette no longer lives inside the deck — it hangs off the
+    /// deck's left side on visible drive spokes.
+    static var deckPanelWidth: CGFloat {
+        deckPadInsetX + transportStripWidth + deckPadInsetX
+    }
+
+    /// Total footprint added to the status-item width — cassette,
+    /// drive spokes, deck panel, and trailing pad before the piano.
+    /// Returns 0 when the tape feature is disabled so the piano +
+    /// settings chip shift left into the freed space.
+    static var tapeReservedWidth: CGFloat {
+        guard tapeFeatureEnabled else { return 0 }
+        return tapeLeadPad + tapeBodyW + deckSpokesWidth
+            + deckPanelWidth + deckTrailGap
     }
 
     // Letter labels keyed by MIDI note, per layout. The renderer picks
@@ -359,9 +470,50 @@ enum KeyboardIconRenderer {
     }
 
     static var imageSize: NSSize {
-        let totalW = ceil(pad + pianoWidth + settingsLeadGap + settingsW + pad + voiceBadgeRightPad)
+        // imageSize is always queried in tape-included context (it's
+        // the menubar status-item size). Compute as if the static
+        // flag were set, regardless of the flag's transient state.
+        let totalW = ceil(tapeReservedWidth + pad + pianoWidth + settingsLeadGap + settingsW + pad + voiceBadgeRightPad)
         let totalH = ceil(whiteH + pad * 2)
         return NSSize(width: totalW, height: totalH)
+    }
+
+    /// Cassette body rect — hangs off the LEFT side of the deck on
+    /// visible drive spokes. Same vertical extent as the piano keys
+    /// so the cassette reads as the same "device height" as the deck.
+    static var tapeRect: NSRect {
+        let bodyY = (imageSize.height - tapeBodyH) / 2.0
+        return NSRect(x: tapeLeadPad,
+                      y: bodyY,
+                      width: tapeBodyW,
+                      height: tapeBodyH)
+    }
+
+    /// Outer rect of the deck panel — the white transport face. Sits
+    /// to the RIGHT of the cassette, separated by `deckSpokesWidth`
+    /// worth of visible drive-spindle metal. Matches piano height.
+    static var deckRect: NSRect {
+        let x = tapeRect.maxX + deckSpokesWidth
+        return NSRect(x: x,
+                      y: pad,
+                      width: deckPanelWidth,
+                      height: whiteH)
+    }
+
+    /// X origin of the transport strip inside the deck face.
+    static var transportStripOriginX: CGFloat {
+        deckRect.minX + deckPadInsetX
+    }
+
+    /// Rect for a single transport button by index (0 = REW … 5 = EJECT).
+    /// Columns span the deck's full height (minus a small inset), so
+    /// they read as vertical piano-key-style levers rather than caps.
+    static func transportButtonRect(_ index: Int) -> NSRect {
+        let x = transportStripOriginX
+            + CGFloat(index) * (transportBtnW + transportBtnGap)
+        let y = deckRect.minY + transportColumnInset
+        let h = deckRect.height - transportColumnInset * 2
+        return NSRect(x: x, y: y, width: transportBtnW, height: h)
     }
 
     /// Where the VU bars actually DRAW — the original 3 staff-line
@@ -397,12 +549,25 @@ enum KeyboardIconRenderer {
     }
 
     static func pianoImageSize(layout: Layout) -> NSSize {
+        // pianoImageSize is used by callers that draw the keyboard
+        // WITHOUT the tape strip (the floating play palette, e.g.).
+        // Don't reserve tape width here.
         let totalW = ceil(pad + pianoWidth(layout: layout) + pad)
         let totalH = ceil(whiteH + pad * 2)
         return NSSize(width: totalW, height: totalH)
     }
 
-    private static var pianoOriginX: CGFloat { pad }
+    /// Whether the current render is including the tape strip (true
+    /// for the full menubar icon; false for the standalone keyboard
+    /// in the floating palette). Defaults to TRUE because the status
+    /// item is the dominant caller — hit-testing + size queries fire
+    /// outside any drawing closure and need the tape reservation in
+    /// place. Flipped to FALSE only inside the palette's drawing
+    /// handler (`includeSettings == false`).
+    private static var tapeReservedInLayout: Bool = true
+    private static var pianoOriginX: CGFloat {
+        (tapeReservedInLayout ? tapeReservedWidth : 0) + pad
+    }
 
     /// Settings chip's visual rect IS its hit-test rect — they're identical
     /// so the user gets visual feedback wherever the click lands.
@@ -423,9 +588,21 @@ enum KeyboardIconRenderer {
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
+        // NSImage's drawing handler fires LAZILY — once AppKit needs
+        // the bitmap, not at the moment we hand the closure over. So
+        // any static state we'd want active "during drawing" has to be
+        // set INSIDE the closure, not around it. `includeSettings`
+        // captures into the closure; the closure flips
+        // `tapeReservedInLayout` to match it for the duration of the
+        // draw, then restores. Default static value (true) covers
+        // hit-testing + size queries that happen outside any
+        // drawing context.
         let size = includeSettings ? imageSize : pianoImageSize(layout: layout)
 
         let img = NSImage(size: size, flipped: false) { _ in
+            let savedTapeReserved = tapeReservedInLayout
+            tapeReservedInLayout = includeSettings
+            defer { tapeReservedInLayout = savedTapeReserved }
 
             // Piano.
             NSGraphicsContext.saveGraphicsState()
@@ -436,8 +613,13 @@ enum KeyboardIconRenderer {
             // continuity (no whole-icon shift, no chip jiggle).
             // Clip first (in unmoved coords), then apply the
             // translation so keys slide behind the clip edges.
+            // Piano area starts AFTER the tape strip when the tape is
+            // drawn into the same image. The closure runs while
+            // `tapeReservedInLayout == includeSettings`, so
+            // `pianoOriginX` already reflects whether the tape is in
+            // the layout — derive the clip start from it directly.
             let pianoMaskWidth = ceil(pad + pianoWidth(layout: layout) + pad)
-            let pianoMaskRect = NSRect(x: 0, y: 0,
+            let pianoMaskRect = NSRect(x: pianoOriginX - pad, y: 0,
                                         width: pianoMaskWidth,
                                         height: size.height)
             NSBezierPath(rect: pianoMaskRect).addClip()
@@ -719,6 +901,22 @@ enum KeyboardIconRenderer {
             }
             NSGraphicsContext.restoreGraphicsState()
 
+            if includeSettings && tapeFeatureEnabled {
+                // Deck face — transport panel on the right.
+                drawDeckPanel(in: deckRect)
+                // Drive spokes — two horizontal metal rods extending
+                // from the deck's left edge into the cassette's reel
+                // centers. Drawn before the cassette so the cassette
+                // body covers the inner tips of the spokes.
+                drawDriveSpokes(deck: deckRect, cassette: tapeRect)
+                // Cassette mounted on the spokes, off to the left of
+                // the deck. Full piano height.
+                drawTapeWidget(in: tapeRect,
+                               hovered: hovered == .tape)
+                // Transport buttons mounted on the deck face.
+                drawTapeTransportStrip(hovered: hovered)
+            }
+
             if includeSettings {
                 // Settings chip — `music.note` glyph on the LEFT (click
                 // = popover) + 3 LED visualizer bars on the RIGHT (click
@@ -760,8 +958,11 @@ enum KeyboardIconRenderer {
     // `settingsIconRect` directly (not via this hit rect) so the
     // glyph stays put even though the hit zone now covers the pad.
     private static var settingsHitRect: NSRect {
+        // Tape sits at the leading edge; the settings chip hit zone
+        // starts AFTER the tape so the cassette stays clickable
+        // (REC toggle) and draggable (eject) even in `.compact`.
         let leftX = displayLayout == .compact
-            ? 0
+            ? tapeReservedWidth
             : pianoOriginX + pianoWidth(layout: .fixedCanvas)
         let rightX = imageSize.width
         return NSRect(x: leftX, y: 0, width: rightX - leftX, height: imageSize.height)
@@ -780,13 +981,38 @@ enum KeyboardIconRenderer {
         // claims its slice of the image.
         let oldRight = imageSize.width - voiceBadgeRightPad
         let cx = oldRight - w / 2 - pad
-        let cy = imageSize.height / 2
+        // Nudge the chip slightly UP so the SF Symbol `music.note`
+        // glyph — which is visually bottom-heavy (the stem extends
+        // upward from a wide note head) — reads as centered in the
+        // menubar slot. Without this the icon sits a touch low.
+        let cy = imageSize.height / 2 + 1.2
         return NSRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
     }
 
     // MARK: - Hit testing
 
     static func hit(at point: NSPoint) -> HitResult? {
+        if tapeFeatureEnabled {
+            // Tape sits at the leading edge — checked first so the
+            // cassette wins over any speculative key hit math that
+            // might wander left of the piano origin.
+            if tapeRect.contains(point) { return .tape }
+            // Transport buttons immediately right of the cassette.
+            // Order matches Walkman: REW · STOP · PLAY · FFWD · REC · EJECT.
+            for i in 0..<transportButtonCount {
+                if transportButtonRect(i).contains(point) {
+                    switch i {
+                    case 0: return .tapeRew
+                    case 1: return .tapeStop
+                    case 2: return .tapePlay
+                    case 3: return .tapeFfwd
+                    case 4: return .tapeRec
+                    case 5: return .tapeEject
+                    default: break
+                    }
+                }
+            }
+        }
         // Visualizer is a sub-rect inside the settings chip so it has
         // to be tested *before* the broader settings hit zone.
         if miniVisualizerVisible && miniVisualizerRect.contains(point) {
@@ -1200,6 +1426,264 @@ enum KeyboardIconRenderer {
         bob.fill()
     }
 
+    // MARK: - Tape widget
+
+    /// Skeuomorphic cassette in the status item: brushed-silver body,
+    /// label card across the top, two hexagonal reels below, REC dot
+    /// + mic LED, a thin progress bar tracking 1:30 capacity.
+    ///
+    /// Reference notes: Walkman TPS-L2 (silver body + blue accent +
+    /// "hotline mic" orange button), Maxell XL II (label-card stripe
+    /// + hexagonal reel hubs), Tascam Portastudio (red REC dot tinted
+    /// against a black chassis).
+    private static func drawTapeWidget(in rect: NSRect, hovered: Bool) {
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        let isDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+
+        ctx.saveGState()
+        defer { ctx.restoreGState() }
+
+        // Body — slightly rounded rect with a 0.6pt bevel. In light
+        // mode we tint toward navy (Walkman TPS-L2 face plate) so the
+        // cassette reads as a distinct artifact against the white
+        // menubar; dark mode goes to a deeper steel that doesn't
+        // disappear into the bar.
+        let bodyHi: NSColor
+        let bodyLo: NSColor
+        if isDark {
+            bodyHi = NSColor(srgbRed:  78/255, green:  88/255,
+                              blue: 100/255, alpha: 1)
+            bodyLo = NSColor(srgbRed:  42/255, green:  50/255,
+                              blue:  60/255, alpha: 1)
+        } else {
+            bodyHi = NSColor(srgbRed:  85/255, green: 102/255,
+                              blue: 132/255, alpha: 1)   // navy steel
+            bodyLo = NSColor(srgbRed:  48/255, green:  60/255,
+                              blue:  85/255, alpha: 1)
+        }
+        let bodyPath = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
+                                    xRadius: 2.2, yRadius: 2.2)
+        let bodyGradient = NSGradient(colors: [bodyHi, bodyLo],
+                                       atLocations: [0.0, 1.0],
+                                       colorSpace: .sRGB)
+        bodyGradient?.draw(in: bodyPath, angle: -90)
+        // Top bevel — single bright pixel row to catch light.
+        NSColor.white.withAlphaComponent(isDark ? 0.18 : 0.28).setStroke()
+        bodyPath.lineWidth = 0.6
+        bodyPath.stroke()
+
+        // Label card across the top half. Cream in light, warm beige
+        // tilted dark in dark mode so the contrast against the body
+        // stays readable but the cassette doesn't look like it has a
+        // glaring white sticker.
+        let labelInset: CGFloat = 1.6
+        let labelH: CGFloat = rect.height * 0.36
+        let labelRect = NSRect(x: rect.minX + labelInset,
+                                y: rect.maxY - labelH - 1.2,
+                                width:  rect.width  - labelInset * 2,
+                                height: labelH)
+        let labelHi: NSColor
+        let labelLo: NSColor
+        if isDark {
+            labelHi = NSColor(srgbRed: 230/255, green: 220/255,
+                               blue: 195/255, alpha: 1)
+            labelLo = NSColor(srgbRed: 195/255, green: 180/255,
+                               blue: 150/255, alpha: 1)
+        } else {
+            labelHi = NSColor(srgbRed: 250/255, green: 245/255,
+                               blue: 225/255, alpha: 1)
+            labelLo = NSColor(srgbRed: 230/255, green: 220/255,
+                               blue: 195/255, alpha: 1)
+        }
+        let labelPath = NSBezierPath(roundedRect: labelRect,
+                                     xRadius: 0.8, yRadius: 0.8)
+        NSGradient(colors: [labelHi, labelLo],
+                   atLocations: [0.0, 1.0],
+                   colorSpace: .sRGB)?.draw(in: labelPath, angle: -90)
+        // Thin stripe across the bottom of the label — TDK SA gold
+        // stripe homage. Color shifts with state so the cassette
+        // reads "armed/playing" at a glance even when the reels are
+        // too small to see motion.
+        let stripeColor: NSColor
+        if tapeRecording {
+            stripeColor = NSColor(srgbRed: 220/255, green: 60/255,
+                                   blue: 60/255, alpha: 1)
+        } else if tapePlaying {
+            stripeColor = NSColor(srgbRed: 90/255, green: 180/255,
+                                   blue: 90/255, alpha: 1)
+        } else {
+            stripeColor = NSColor(srgbRed: 210/255, green: 175/255,
+                                   blue:  80/255, alpha: 1)   // TDK gold
+        }
+        let stripeRect = NSRect(x: labelRect.minX,
+                                 y: labelRect.minY,
+                                 width: labelRect.width,
+                                 height: 1.0)
+        stripeColor.setFill()
+        NSBezierPath(rect: stripeRect).fill()
+
+        // Progress mark — a tiny tick that slides across the stripe
+        // tracking the fill (during REC) or playhead (during PLAY).
+        let frac: CGFloat
+        if tapeRecording {
+            frac = min(1, max(0, tapeFillFraction))
+        } else {
+            frac = min(1, max(0, tapePlayheadFraction))
+        }
+        if frac > 0.001 {
+            let tickW: CGFloat = 1.5
+            let tickX = stripeRect.minX + frac * (stripeRect.width - tickW)
+            let tickRect = NSRect(x: tickX, y: stripeRect.minY - 0.5,
+                                   width: tickW, height: 2.0)
+            NSColor.white.withAlphaComponent(0.85).setFill()
+            NSBezierPath(rect: tickRect).fill()
+        }
+
+        // Two hexagonal reels. Hub-spoke geometry reads as "tape" even
+        // at 16pt — circles alone look like a generic dial.
+        let reelAreaY = rect.minY + 1.4
+        let reelAreaH = labelRect.minY - reelAreaY - 1.0
+        let reelR: CGFloat = min(reelAreaH * 0.45, rect.width * 0.18)
+        let reelGap: CGFloat = rect.width * 0.22
+        let reelCY = reelAreaY + reelAreaH / 2
+        let leftCX = rect.midX - reelGap
+        let rightCX = rect.midX + reelGap
+
+        // Reel rotation speed — slow turn at idle (always-on lazy
+        // shimmer), faster during PLAY, fastest during REC.
+        let angularSpeed: CGFloat
+        if tapeRecording { angularSpeed = 4.5 }
+        else if tapePlaying { angularSpeed = 3.2 }
+        else { angularSpeed = 0.0 }
+        let phase = CGFloat(tapePhase) * angularSpeed
+        drawTapeReel(centerX: leftCX, centerY: reelCY,
+                     radius: reelR, rotation: phase, isDark: isDark)
+        drawTapeReel(centerX: rightCX, centerY: reelCY,
+                     radius: reelR, rotation: -phase + 0.5, isDark: isDark)
+
+        // REC dot — sits in the label card, between the reels.
+        // Pulses with a sine envelope while recording so the user's
+        // peripheral vision registers "still rolling."
+        if tapeRecording {
+            let dotR: CGFloat = 1.7
+            let pulseT = 0.5 + 0.5 * sin(CGFloat(tapePhase) * 6.0)
+            let alpha: CGFloat = 0.7 + 0.3 * pulseT
+            let dotRect = NSRect(x: labelRect.midX - dotR,
+                                  y: labelRect.midY - dotR + 0.2,
+                                  width: dotR * 2,
+                                  height: dotR * 2)
+            NSColor(srgbRed: 235/255, green: 50/255, blue: 50/255,
+                    alpha: alpha).setFill()
+            NSBezierPath(ovalIn: dotRect).fill()
+        }
+
+        // Mic LED — a tiny orange dot in the upper-right corner of
+        // the label, lit while the hot mic is delivering frames
+        // (i.e. while REC is engaged AND mic access is granted).
+        // Walkman TPS-L2 "hotline" button orange.
+        if tapeMicHot {
+            let micR: CGFloat = 0.9
+            let micRect = NSRect(x: labelRect.maxX - micR * 2 - 1.0,
+                                  y: labelRect.maxY - micR * 2 - 0.6,
+                                  width: micR * 2,
+                                  height: micR * 2)
+            NSColor(srgbRed: 255/255, green: 150/255, blue: 40/255,
+                    alpha: 0.95).setFill()
+            NSBezierPath(ovalIn: micRect).fill()
+        }
+
+        // Hover affordance — light edge so the user can tell the
+        // cassette is interactive without us drawing a literal
+        // button border.
+        if hovered {
+            NSColor.white.withAlphaComponent(0.35).setStroke()
+            let hp = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
+                                  xRadius: 2.2, yRadius: 2.2)
+            hp.lineWidth = 1.2
+            hp.stroke()
+        }
+    }
+
+    /// One reel: outer rim, hexagonal hub with 6 spokes radiating to
+    /// the rim. Rotation is in radians.
+    private static func drawTapeReel(centerX: CGFloat, centerY: CGFloat,
+                                      radius: CGFloat, rotation: CGFloat,
+                                      isDark: Bool) {
+        // Reel window — a black disc cut into the cassette body that
+        // the reel sits in. Reels themselves are slightly lighter so
+        // they pop forward.
+        let windowRect = NSRect(x: centerX - radius - 0.4,
+                                 y: centerY - radius - 0.4,
+                                 width: (radius + 0.4) * 2,
+                                 height: (radius + 0.4) * 2)
+        NSColor.black.withAlphaComponent(isDark ? 0.55 : 0.65).setFill()
+        NSBezierPath(ovalIn: windowRect).fill()
+
+        // Reel disc — the "tape spool" with a hexagonal hub. Color
+        // edges toward warm tape brown so it reads as wound tape
+        // even at 5pt radius.
+        let reelRect = NSRect(x: centerX - radius,
+                               y: centerY - radius,
+                               width: radius * 2,
+                               height: radius * 2)
+        let reelColor = NSColor(srgbRed: 70/255, green: 55/255,
+                                 blue: 45/255, alpha: 1.0)
+        reelColor.setFill()
+        NSBezierPath(ovalIn: reelRect).fill()
+
+        // Hexagonal hub — 6 vertices around centerX/centerY, rotated
+        // by `rotation`. The hub itself is brighter than the spool
+        // edge so it reads as the plastic reel core, not part of the
+        // wound tape.
+        let hubR = radius * 0.55
+        let hubPath = NSBezierPath()
+        for i in 0..<6 {
+            let theta = rotation + CGFloat(i) * (.pi / 3)
+            let x = centerX + cos(theta) * hubR
+            let y = centerY + sin(theta) * hubR
+            if i == 0 { hubPath.move(to: NSPoint(x: x, y: y)) }
+            else      { hubPath.line(to: NSPoint(x: x, y: y)) }
+        }
+        hubPath.close()
+        NSColor(srgbRed: 200/255, green: 195/255, blue: 185/255,
+                alpha: 1.0).setFill()
+        hubPath.fill()
+
+        // Center dot — captures the "drive spindle hole" that all
+        // cassettes have. Same color as the body so it visually
+        // recedes.
+        let pinR: CGFloat = max(0.45, radius * 0.12)
+        let pinRect = NSRect(x: centerX - pinR, y: centerY - pinR,
+                              width: pinR * 2, height: pinR * 2)
+        NSColor.black.withAlphaComponent(0.85).setFill()
+        NSBezierPath(ovalIn: pinRect).fill()
+
+        // One bright spoke — gives the rotation a clearer visual
+        // anchor than the symmetric hexagon alone provides at this
+        // size. Slim trapezoid from hub to rim, painted white at low
+        // alpha so it reads as a wound-tape highlight catching light.
+        let spokePath = NSBezierPath()
+        let spokeWidthTheta: CGFloat = 0.20
+        let spokeInner = hubR * 0.95
+        let spokeOuter = radius * 0.92
+        let cosL = cos(rotation - spokeWidthTheta)
+        let sinL = sin(rotation - spokeWidthTheta)
+        let cosR = cos(rotation + spokeWidthTheta)
+        let sinR = sin(rotation + spokeWidthTheta)
+        spokePath.move(to: NSPoint(x: centerX + cosL * spokeInner,
+                                    y: centerY + sinL * spokeInner))
+        spokePath.line(to: NSPoint(x: centerX + cosL * spokeOuter,
+                                    y: centerY + sinL * spokeOuter))
+        spokePath.line(to: NSPoint(x: centerX + cosR * spokeOuter,
+                                    y: centerY + sinR * spokeOuter))
+        spokePath.line(to: NSPoint(x: centerX + cosR * spokeInner,
+                                    y: centerY + sinR * spokeInner))
+        spokePath.close()
+        NSColor.white.withAlphaComponent(0.45).setFill()
+        spokePath.fill()
+    }
+
     private static func drawChipVisualizer(in rect: NSRect, level: CGFloat,
                                            hovered: Bool, color: NSColor,
                                            baseAlpha: CGFloat) {
@@ -1230,6 +1714,356 @@ enum KeyboardIconRenderer {
             let bar = NSRect(x: x, y: rect.minY, width: barW, height: h)
             color.withAlphaComponent(alpha).setFill()
             NSBezierPath(roundedRect: bar, xRadius: 0.3, yRadius: 0.3).fill()
+        }
+    }
+
+    // MARK: - Drive spokes
+    //
+    // Two horizontal metal rods extend out of the deck's left face,
+    // crossing the gap to the cassette and visually engaging with the
+    // cassette's two reel centers. Reads as the mechanical drive
+    // spindles of a portable deck. Drawn before the cassette so the
+    // rod tips disappear behind the cassette body.
+    private static func drawDriveSpokes(deck: NSRect, cassette: NSRect) {
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        let isDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        ctx.saveGState()
+        defer { ctx.restoreGState() }
+
+        // Reel-center math mirrors `drawTapeWidget` so the spokes
+        // line up with the visible hubs no matter how the cassette
+        // resizes.
+        let reelGap = cassette.width * 0.22
+        let reelCY = cassette.minY + cassette.height * 0.32 - 0.4
+        let leftReelCY  = reelCY
+        let rightReelCY = reelCY
+        let _ = leftReelCY  // (reels share Y; vars kept for clarity)
+        _ = rightReelCY
+
+        // Rod endpoints: start at deck's left face, end ~1pt INSIDE
+        // the cassette so the rod looks plugged into the hub.
+        let xStart = deck.minX - 0.2
+        let xEnd   = cassette.maxX + 1.0
+        // Two rods — left rod aligns with cassette's LEFT reel,
+        // right rod with cassette's RIGHT reel.
+        let leftReelLine  = cassette.midX - reelGap
+        let rightReelLine = cassette.midX + reelGap
+        _ = leftReelLine
+        _ = rightReelLine
+
+        // Rod thickness ~ 1.8pt; centered on the reel Y.
+        let rodH: CGFloat = 1.8
+        let rodRect = { (cy: CGFloat) -> NSRect in
+            NSRect(x: xEnd, y: cy - rodH / 2,
+                   width: xStart - xEnd, height: rodH)
+        }
+
+        // The two reels share the same Y, so a single horizontal rod
+        // would only need one Y. Real deck mechanisms have ONE driven
+        // capstan + idler. Mimic that: one chunkier upper rod
+        // (capstan) + one thinner lower rod (idler) to give the
+        // illusion of mechanical complexity.
+        let capstanY = reelCY + 1.4
+        let idlerY   = reelCY - 2.4
+
+        let metalHi: NSColor
+        let metalLo: NSColor
+        if isDark {
+            metalHi = NSColor(srgbRed: 200/255, green: 205/255, blue: 215/255, alpha: 1)
+            metalLo = NSColor(srgbRed: 110/255, green: 115/255, blue: 125/255, alpha: 1)
+        } else {
+            metalHi = NSColor(srgbRed: 220/255, green: 224/255, blue: 230/255, alpha: 1)
+            metalLo = NSColor(srgbRed: 130/255, green: 138/255, blue: 152/255, alpha: 1)
+        }
+
+        for cy in [capstanY, idlerY] {
+            let r = rodRect(cy)
+            let path = NSBezierPath(roundedRect: r,
+                                    xRadius: rodH / 2, yRadius: rodH / 2)
+            NSGradient(colors: [metalHi, metalLo],
+                       atLocations: [0.0, 1.0],
+                       colorSpace: .sRGB)?.draw(in: path, angle: -90)
+            // Thin dark line under the rod for a touch of dimensional
+            // shadow against the menubar.
+            NSColor.black.withAlphaComponent(0.30).setStroke()
+            path.lineWidth = 0.4
+            path.stroke()
+        }
+    }
+
+    // MARK: - Deck panel (transport face)
+    //
+    // Bevelled pewter face that houses both the cassette window and the
+    // transport row. Drawn first; everything else sits on top.
+    private static func drawDeckPanel(in rect: NSRect) {
+        let isDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        ctx.saveGState()
+        defer { ctx.restoreGState() }
+
+        // Outer face — bright porcelain white in light mode (Walkman
+        // WM-EX series enamel), graphite in dark mode. Very subtle
+        // vertical gradient so the face still reads as 3D plastic
+        // rather than a flat paper rectangle.
+        let faceHi: NSColor
+        let faceLo: NSColor
+        if isDark {
+            faceHi = NSColor(srgbRed:  96/255, green: 100/255, blue: 110/255, alpha: 1)
+            faceLo = NSColor(srgbRed:  46/255, green:  50/255, blue:  58/255, alpha: 1)
+        } else {
+            // Near-pure white with a 4% shading drop to the bottom.
+            faceHi = NSColor(srgbRed: 254/255, green: 254/255, blue: 254/255, alpha: 1)
+            faceLo = NSColor(srgbRed: 238/255, green: 240/255, blue: 244/255, alpha: 1)
+        }
+        let facePath = NSBezierPath(roundedRect: rect.insetBy(dx: 0.4, dy: 0.4),
+                                    xRadius: 2.4, yRadius: 2.4)
+        NSGradient(colors: [faceHi, faceLo],
+                   atLocations: [0.0, 1.0],
+                   colorSpace: .sRGB)?.draw(in: facePath, angle: -90)
+
+        // Top bevel + bottom shadow — pencil-line accents that sell
+        // the face as a milled plate, not a sticker. Toned down in
+        // light mode so they don't fight the white enamel.
+        ctx.saveGState()
+        facePath.addClip()
+        NSColor.white.withAlphaComponent(isDark ? 0.18 : 0.55).setStroke()
+        let topBevel = NSBezierPath()
+        topBevel.move(to: NSPoint(x: rect.minX + 1.5, y: rect.maxY - 0.8))
+        topBevel.line(to: NSPoint(x: rect.maxX - 1.5, y: rect.maxY - 0.8))
+        topBevel.lineWidth = 0.7
+        topBevel.stroke()
+
+        NSColor.black.withAlphaComponent(isDark ? 0.45 : 0.10).setStroke()
+        let bottomShadow = NSBezierPath()
+        bottomShadow.move(to: NSPoint(x: rect.minX + 1.5, y: rect.minY + 0.9))
+        bottomShadow.line(to: NSPoint(x: rect.maxX - 1.5, y: rect.minY + 0.9))
+        bottomShadow.lineWidth = 0.7
+        bottomShadow.stroke()
+        ctx.restoreGState()
+
+        // Outer border — soft gray in light mode so the white deck has
+        // a defined edge against the menubar.
+        NSColor.black.withAlphaComponent(isDark ? 0.60 : 0.18).setStroke()
+        facePath.lineWidth = 0.5
+        facePath.stroke()
+    }
+
+    /// "Clear plastic door" over the cassette compartment — a thin
+    /// glossy overlay with a recessed frame, so the cassette reads as
+    /// sealed behind a flip-down window. Reference: the smoked-acrylic
+    /// door on a Walkman WM-D6C / Nakamichi Dragon's cassette well.
+    private static func drawCassetteDoor(over rect: NSRect) {
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        ctx.saveGState()
+        defer { ctx.restoreGState() }
+
+        let frame = rect.insetBy(dx: -1.0, dy: -1.0)
+        let framePath = NSBezierPath(roundedRect: frame,
+                                     xRadius: 2.2, yRadius: 2.2)
+
+        // Recessed frame — dark inner ring around the cassette window.
+        NSColor.black.withAlphaComponent(0.55).setStroke()
+        framePath.lineWidth = 0.7
+        framePath.stroke()
+
+        // Inner clear pane — wider than the cassette body so the door
+        // visibly frames it. Translucent gradient gives the smoked-acrylic
+        // sheen without obscuring the reels.
+        let panePath = NSBezierPath(roundedRect: frame.insetBy(dx: 0.6, dy: 0.6),
+                                    xRadius: 1.6, yRadius: 1.6)
+        ctx.saveGState()
+        panePath.addClip()
+
+        // Diagonal sheen — bright top-left → dim bottom-right.
+        let sheenHi = NSColor.white.withAlphaComponent(0.22)
+        let sheenLo = NSColor.white.withAlphaComponent(0.00)
+        NSGradient(colors: [sheenHi, sheenLo],
+                   atLocations: [0.0, 0.55],
+                   colorSpace: .sRGB)?.draw(in: panePath, angle: -55)
+
+        // A thin highlight streak across the top quarter — that classic
+        // "glass catching the light" line. Stays under 0.18 alpha so
+        // it never obscures the cassette label below.
+        let streakRect = NSRect(x: frame.minX + 1.0,
+                                 y: frame.maxY - frame.height * 0.30,
+                                 width: frame.width - 2.0,
+                                 height: frame.height * 0.16)
+        let streakHi = NSColor.white.withAlphaComponent(0.18)
+        let streakLo = NSColor.white.withAlphaComponent(0.04)
+        NSGradient(colors: [streakHi, streakLo],
+                   atLocations: [0.0, 1.0],
+                   colorSpace: .sRGB)?.draw(in: NSBezierPath(rect: streakRect),
+                                            angle: -90)
+        ctx.restoreGState()
+
+        // Inner highlight — bright top edge of the pane to sell the
+        // door as a 3D piece.
+        NSColor.white.withAlphaComponent(0.28).setStroke()
+        let topGloss = NSBezierPath()
+        topGloss.move(to: NSPoint(x: frame.minX + 1.2, y: frame.maxY - 0.9))
+        topGloss.line(to: NSPoint(x: frame.maxX - 1.2, y: frame.maxY - 0.9))
+        topGloss.lineWidth = 0.5
+        topGloss.stroke()
+    }
+
+    // MARK: - Tape transport strip
+    //
+    // Six skeuomorph chiclets — REW · STOP · PLAY · FFWD · REC · EJECT —
+    // styled after the bottom row of a Walkman / Nakamichi Dragon. Pewter
+    // bodies with a top highlight bevel and bottom shadow, REC tinted red,
+    // PLAY tinted green when engaged. Hover brightens the body; an active
+    // state (REC armed, PLAY rolling) draws a pressed-in inverse gradient.
+    private static func drawTapeTransportStrip(hovered: HitResult?) {
+        let isDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        let labels: [HitResult] = [
+            .tapeRew, .tapeStop, .tapePlay, .tapeFfwd, .tapeRec, .tapeEject,
+        ]
+        for (i, role) in labels.enumerated() {
+            let r = transportButtonRect(i)
+            let isHover = hovered == role
+            let isActive: Bool
+            switch role {
+            case .tapeRec:  isActive = tapeRecording
+            case .tapePlay: isActive = tapePlaying
+            default:        isActive = false
+            }
+            drawTransportButton(in: r,
+                                role: role,
+                                hovered: isHover,
+                                active: isActive,
+                                isDark: isDark)
+        }
+    }
+
+    private static func drawTransportButton(in rect: NSRect,
+                                            role: HitResult,
+                                            hovered: Bool,
+                                            active: Bool,
+                                            isDark: Bool) {
+        // Flat column — no body fill, no gradient. The deck face shows
+        // straight through; only the glyph differentiates the column.
+        // A hairline separator on the right edge keeps adjacent columns
+        // visually distinct without forcing a chiclet silhouette.
+
+        // Hover wash — gentle film so the user can tell which column
+        // their cursor is over without painting in a hard hover box.
+        // White film in dark mode, soft gray in light mode (so it
+        // actually reads against the white deck).
+        if hovered {
+            if isDark {
+                NSColor.white.withAlphaComponent(0.14).setFill()
+            } else {
+                NSColor.black.withAlphaComponent(0.08).setFill()
+            }
+            NSBezierPath(rect: rect).fill()
+        }
+
+        // Symbol color follows function — classic cassette-deck legend.
+        let glyphColor = transportGlyphColor(for: role, active: active, isDark: isDark)
+        drawTransportGlyph(in: rect, role: role, color: glyphColor)
+    }
+
+    /// Glyph color per transport role. Classic legend: REW/FFWD amber,
+    /// STOP white/charcoal, PLAY green, REC red, EJECT orange.
+    private static func transportGlyphColor(for role: HitResult,
+                                            active: Bool,
+                                            isDark: Bool) -> NSColor {
+        switch role {
+        case .tapeRew, .tapeFfwd:
+            // Amber — Walkman tape-direction LEDs.
+            return NSColor(srgbRed: 255/255, green: 190/255, blue:  70/255, alpha: 1)
+        case .tapeStop:
+            return isDark
+                ? NSColor.white.withAlphaComponent(0.92)
+                : NSColor(white: 0.10, alpha: 1.0)
+        case .tapePlay:
+            // Green — bright enough to glow when engaged, slightly
+            // dimmer at rest so the deck doesn't look "running" all
+            // the time.
+            return active
+                ? NSColor(srgbRed:  90/255, green: 220/255, blue:  90/255, alpha: 1)
+                : NSColor(srgbRed:  70/255, green: 180/255, blue:  80/255, alpha: 1)
+        case .tapeRec:
+            // Saturated red; brightens when armed.
+            return active
+                ? NSColor(srgbRed: 255/255, green:  60/255, blue:  60/255, alpha: 1)
+                : NSColor(srgbRed: 220/255, green:  50/255, blue:  50/255, alpha: 1)
+        case .tapeEject:
+            // Warm orange — same family as the cassette's mic-hot LED.
+            return NSColor(srgbRed: 255/255, green: 145/255, blue:  35/255, alpha: 1)
+        default:
+            return isDark ? .white : NSColor(white: 0.10, alpha: 1.0)
+        }
+    }
+
+    /// Hand-drawn vector glyphs sized for the wider full-height
+    /// column buttons (≈ 17×17pt). Color-coded, centered in the rect.
+    private static func drawTransportGlyph(in rect: NSRect,
+                                           role: HitResult,
+                                           color: NSColor) {
+        color.setFill()
+        color.setStroke()
+        let cx = rect.midX
+        let cy = rect.midY
+        let s: CGFloat = 3.6   // half-glyph short axis
+        let t: CGFloat = 4.6   // half-glyph long axis
+        switch role {
+        case .tapeRew:
+            // Two left-pointing triangles, side by side.
+            let g = NSBezierPath()
+            let dx: CGFloat = 3.6
+            for k in 0...1 {
+                let ox = cx - dx * 0.5 + CGFloat(k) * dx
+                g.move(to: NSPoint(x: ox + s * 0.6, y: cy + t * 0.85))
+                g.line(to: NSPoint(x: ox - s * 0.6, y: cy))
+                g.line(to: NSPoint(x: ox + s * 0.6, y: cy - t * 0.85))
+                g.close()
+            }
+            g.fill()
+        case .tapeStop:
+            let side: CGFloat = 6.4
+            let r = NSRect(x: cx - side / 2, y: cy - side / 2,
+                            width: side, height: side)
+            NSBezierPath(rect: r).fill()
+        case .tapePlay:
+            let g = NSBezierPath()
+            g.move(to: NSPoint(x: cx - s, y: cy + t))
+            g.line(to: NSPoint(x: cx + s + 0.8, y: cy))
+            g.line(to: NSPoint(x: cx - s, y: cy - t))
+            g.close()
+            g.fill()
+        case .tapeFfwd:
+            let g = NSBezierPath()
+            let dx: CGFloat = 3.6
+            for k in 0...1 {
+                let ox = cx - dx * 0.5 + CGFloat(k) * dx
+                g.move(to: NSPoint(x: ox - s * 0.6, y: cy + t * 0.85))
+                g.line(to: NSPoint(x: ox + s * 0.6, y: cy))
+                g.line(to: NSPoint(x: ox - s * 0.6, y: cy - t * 0.85))
+                g.close()
+            }
+            g.fill()
+        case .tapeRec:
+            let diam: CGFloat = 7.2
+            let r = NSRect(x: cx - diam / 2, y: cy - diam / 2,
+                            width: diam, height: diam)
+            NSBezierPath(ovalIn: r).fill()
+        case .tapeEject:
+            // Up triangle over a thin bar.
+            let g = NSBezierPath()
+            g.move(to: NSPoint(x: cx - s, y: cy - t * 0.2))
+            g.line(to: NSPoint(x: cx + s, y: cy - t * 0.2))
+            g.line(to: NSPoint(x: cx, y: cy + t * 0.95))
+            g.close()
+            g.fill()
+            let bar = NSRect(x: cx - s, y: cy - t * 0.9,
+                              width: s * 2, height: 1.8)
+            NSBezierPath(rect: bar).fill()
+        default:
+            break
         }
     }
 

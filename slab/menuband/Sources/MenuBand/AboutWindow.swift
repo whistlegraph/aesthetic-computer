@@ -331,6 +331,24 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         let langRow = buildLanguagePicker()
         stack.addArrangedSubview(langRow)
 
+        // Tape-deck feature toggle — defaults off until the deck is
+        // ready to ship. Lives in the About window (not the popover)
+        // so it's tucked away as a beta switch, not a normal control.
+        stack.setCustomSpacing(12, after: langRow)
+        let tapeCheckbox = NSButton(
+            checkboxWithTitle: "Cassette deck (beta)",
+            target: self,
+            action: #selector(toggleTapeFeature(_:))
+        )
+        tapeCheckbox.state = UserDefaults.standard
+            .bool(forKey: KeyboardIconRenderer.tapeFeatureDefaultsKey)
+            ? .on : .off
+        tapeCheckbox.font = NSFont.systemFont(ofSize: 11)
+        tapeCheckbox.toolTip =
+            "Show the cassette tape deck in the menubar. Work in progress."
+        tapeCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(tapeCheckbox)
+
         // Crash-report summary — single orange ⚠️ button reading
         // "Menu Band crashed N times". Opens the scroll viewer where
         // the user can review the .ips contents and click Send to
@@ -583,6 +601,17 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func openPlugins() {
         onOpenPlugins?()
+    }
+
+    /// Persist the cassette-deck beta flag and tell AppDelegate to
+    /// re-render the menubar icon. Status-item width changes on the
+    /// flip, so the notification handler also resizes the slot.
+    @objc private func toggleTapeFeature(_ sender: NSButton) {
+        let on = sender.state == .on
+        UserDefaults.standard.set(
+            on, forKey: KeyboardIconRenderer.tapeFeatureDefaultsKey)
+        NotificationCenter.default.post(
+            name: .menuBandTapeFeatureChanged, object: nil)
     }
 
     /// Open a scroll panel containing the .ips text for every pending

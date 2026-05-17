@@ -80,6 +80,14 @@ final class MenuBandSampleVoice {
     /// RMS [0, 1]. Wired up from `MenuBandSynth` so the menubar VU
     /// bars can pulse with the user's voice while recording.
     var onLevel: ((Float) -> Void)?
+    /// Live callback fired once per input-tap block with the raw mic
+    /// buffer (whatever format the input device delivers). The tape
+    /// recorder subscribes here so it can capture mic frames without
+    /// installing a second tap on `inputNode` (AVAudioEngine allows
+    /// only one tap per bus). Always called when the hot mic is
+    /// running, regardless of whether `recording` is true — the tape
+    /// has its own gate.
+    var onInputBuffer: ((AVAudioPCMBuffer) -> Void)?
 
     /// Public read of the recording flag — `MenuBandSynth` proxies
     /// this out to the controller / AppDelegate so the menubar icon
@@ -109,6 +117,11 @@ final class MenuBandSampleVoice {
     private let recordEngine = AVAudioEngine()
     private var inputTapInstalled = false
     private var hotMicStopWork: DispatchWorkItem?
+    /// External callers (the tape recorder) pin the hot mic on while
+    /// they're recording so the input tap keeps delivering frames
+    /// regardless of whether the sample-voice backtick gate is open.
+    /// `scheduleHotMicStop` is a no-op while any pin is held.
+    private var hotMicPinReasons: Set<String> = []
     // Mic stays hot for 30 s after the last record so the
     // *second* and subsequent record key presses get zero start
     // latency. Lifted from 3 s — a typical record/audition/record
@@ -369,7 +382,11 @@ final class MenuBandSampleVoice {
     private func scheduleHotMicStop() {
         hotMicStopWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            guard let self = self, !self.recording else { return }
+            guard let self = self else { return }
+            // Skip the idle-off if either the sample-voice is still
+            // recording OR an external consumer (tape) has pinned the
+            // mic on. Both paths need a continuous input stream.
+            if self.recording || !self.hotMicPinReasons.isEmpty { return }
             if self.inputTapInstalled {
                 self.recordEngine.inputNode.removeTap(onBus: 0)
                 self.inputTapInstalled = false
@@ -382,6 +399,56 @@ final class MenuBandSampleVoice {
         hotMicStopWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + hotMicIdleSeconds,
                                       execute: work)
+    }
+
+    /// Pin the hot mic on for a reason. The tape uses this so its
+    /// REC path always has frames, independent of the backtick-held
+    /// sample-voice capture. Idempotent. Pair with `removeHotMicPin`.
+    /// Returns true if the mic is now running and delivering frames.
+    @discardableResult
+    func addHotMicPin(_ reason: String) -> Bool {
+        let wasEmpty = hotMicPinReasons.isEmpty && !recording
+        hotMicPinReasons.insert(reason)
+        hotMicStopWork?.cancel()
+        hotMicStopWork = nil
+        // Same mic-permission gating as `startRecording` — without
+        // this, the input tap's `inputNode.inputFormat(forBus:)` can
+        // return a zero-channel format on first launch and the
+        // recording silently fails. We don't trigger the prompt here
+        // (the tape REC path is the user-facing trigger that should
+        // surface permission UI); if not yet authorized, just bail.
+        let auth = AVCaptureDevice.authorizationStatus(for: .audio)
+        guard auth == .authorized else {
+            NSLog("MenuBand SampleVoice: hot mic pin '\(reason)' deferred — auth=\(auth.rawValue)")
+            return false
+        }
+        if wasEmpty {
+            return ensureHotMicRunning()
+        }
+        return inputTapInstalled && recordEngine.isRunning
+    }
+
+    func removeHotMicPin(_ reason: String) {
+        hotMicPinReasons.remove(reason)
+        if hotMicPinReasons.isEmpty && !recording {
+            scheduleHotMicStop()
+        }
+    }
+
+    /// Direct read of mic authorization so the tape can mirror the
+    /// permission-prompt path without each call site re-implementing
+    /// the TCC check.
+    static func micAuthorizationStatus() -> AVAuthorizationStatus {
+        AVCaptureDevice.authorizationStatus(for: .audio)
+    }
+
+    /// Request mic permission. The TCC prompt only fires the first
+    /// time; subsequent calls re-deliver the cached status. Used by
+    /// the tape's REC path on first record press.
+    static func requestMicAccess(_ completion: @escaping (Bool) -> Void) {
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            DispatchQueue.main.async { completion(granted) }
+        }
     }
 
     /// Stop capture and promote scratch to the active recording.
@@ -534,6 +601,13 @@ final class MenuBandSampleVoice {
     /// real ceiling). Also computes per-block RMS and forwards to
     /// `onLevel` for the menubar VU meter.
     private func ingestInput(_ buffer: AVAudioPCMBuffer) {
+        // Fork to the tape (or any other mic consumer) BEFORE the
+        // sample-voice recording gate — the tape's REC is independent
+        // of the sample-voice backtick capture, so it needs frames
+        // any time the hot mic is running.
+        if let extra = onInputBuffer {
+            extra(buffer)
+        }
         guard recording else { return }
 
         // Fast path for the common macOS case: built-in/default mics

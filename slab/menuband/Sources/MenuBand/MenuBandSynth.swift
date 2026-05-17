@@ -119,12 +119,51 @@ final class MenuBandSynth {
     var supportsInstantProgramChange: Bool { midiSynthReady }
     private var currentMelodicProgram: UInt8 = 0
 
+    /// Attach an external `MenuBandTape` to this synth's audio graph.
+    /// Connects the tape's `playerNode` to `preLimiterMixer` so tape
+    /// playback shares the same limiter + master volume + waveform
+    /// tap as the live synth. Called once from the controller after
+    /// `start()`.
+    func attachTape(_ tape: MenuBandTape) {
+        tape.attach(to: engine, output: preLimiterMixer)
+    }
+
+    /// Pin the hot mic running for a named reason (the tape uses
+    /// "tape-record" while REC is engaged). Forwards to the sample
+    /// voice's pin mechanism. Returns true if the mic stream is now
+    /// flowing.
+    @discardableResult
+    func pinHotMic(reason: String) -> Bool {
+        sampleVoice.addHotMicPin(reason)
+    }
+    func unpinHotMic(reason: String) {
+        sampleVoice.removeHotMicPin(reason)
+    }
+
     // Tap-driven ring buffer for the popover's live waveform display.
     private static let waveformRingSize = 4096
     private var waveformRing = [Float](repeating: 0, count: waveformRingSize)
     private var waveformWriteIdx: Int = 0
     private let waveformLock = NSLock()
     private var waveformTapInstalled = false
+    /// Additional consumers of the mainMixer tap buffer. AVAudioEngine
+    /// only allows one tap per bus, so anyone else who wants the
+    /// realtime synth output (the tape recorder) subscribes here and
+    /// gets buffers forwarded synchronously from the audio thread.
+    var onWaveformBuffer: ((AVAudioPCMBuffer) -> Void)?
+    /// Bridge for the tape recorder: forward to the sample-voice's
+    /// mic-tap fork. Controller sets this on init so the tape can
+    /// subscribe without the synth importing `MenuBandTape`.
+    var onMicInputBuffer: ((AVAudioPCMBuffer) -> Void)? {
+        get { sampleVoice.onInputBuffer }
+        set { sampleVoice.onInputBuffer = newValue }
+    }
+    /// External callers (the tape recorder) can pin the waveform tap
+    /// on independently of `setWaveformCaptureEnabled`. The tap stays
+    /// installed as long as EITHER the visualizer or the tape needs
+    /// it. Tracked separately so toggling one off doesn't kill the
+    /// other.
+    private var waveformTapPinReasons: Set<String> = []
 
     /// Apple's DLS bank — present on every macOS install since 10.x.
     private static let bankURL = URL(
@@ -235,13 +274,34 @@ final class MenuBandSynth {
         engine.attach(avUnit)
         connectMIDISynthIfNeeded(avUnit)
 
-        // 3. Load just the programs we need. MIDISynth requires
-        //    EnablePreload(true) → PC → EnablePreload(false) to actually
-        //    fault each program's samples in from the DLS bank; without
-        //    that, the bank URL is set but no instruments load and noteOn
-        //    is silent. The earlier full 128-program sweep used the same
-        //    mechanism but at startup cost; we now load programs lazily on
-        //    first use via setMelodicProgram.
+        // 3. Preload every GM program (and the drum kit) while the engine
+        //    is paused. MIDISynth's EnablePreload→PC→disable dance only
+        //    actually faults samples in when the PC events are processed
+        //    during the preload-enabled window. With the engine running,
+        //    MusicDeviceMIDIEvent gets queued for the next render cycle
+        //    and the preload-disable on the main thread can land before
+        //    that render runs — programs would silently fail to load and
+        //    noteOn would play MIDISynth's default sine fallback instead
+        //    of the chosen instrument. Pausing the engine around the
+        //    preload turns the PC handling synchronous on the main
+        //    thread and matches the original (pre-engine-start) sweep
+        //    that worked. Cost: a ~few-hundred-ms gap in sampler audio
+        //    once per launch; afterwards every program switch is an
+        //    instant PC with no further loading.
+        let engineWasRunning = engine.isRunning
+        if engineWasRunning { engine.pause() }
+        preloadAllMelodicPrograms(au)
+        preloadDrumKit(au)
+        if engineWasRunning {
+            do { try engine.start() } catch {
+                NSLog("MenuBand: engine restart after MIDISynth preload failed: \(error)")
+            }
+        }
+
+        // After preload-disable the AU's *active* program on each channel
+        // is unset — send a fresh bank-select + PC so the very first
+        // noteOn lands on the user's chosen voice (and the drum kit on
+        // channel 9) without an extra audible swap.
         selectMelodicProgram(au, program: currentMelodicProgram)
         selectDrumKit(au)
 
@@ -377,59 +437,70 @@ final class MenuBandSynth {
         (UInt16(channel) << 8) | UInt16(midi)
     }
 
-    /// Set of (bankMSB << 8 | program) keys we've already faulted in. The
-    /// EnablePreload dance only needs to run once per (bank, program) — once
-    /// loaded, subsequent program changes to the same slot are instant.
+    /// Fault in every GM melodic program (0-127) on the GM Melodic bank
+    /// (MSB 0x79). Must be called with the audio engine paused — the
+    /// preload protocol relies on MusicDeviceMIDIEvent's PC messages
+    /// being processed synchronously while EnablePreload is true, and
+    /// a running engine queues them for the render thread instead.
+    private func preloadAllMelodicPrograms(_ au: AudioUnit) {
+        setMIDISynthPreload(au, enable: true)
+        // Bank select once per channel (the MSB+LSB pair sticks until
+        // overridden), then issue a PC for every program. We preload on
+        // channels 0-7 to match the controller's voice allocator
+        // (live 0-3, doppler 4-7); channel 9 is drums, 8 and 10-15 are
+        // unused so we skip them.
+        for ch: UInt8 in 0..<8 {
+            sendMIDIEvent(au, status: 0xB0 | ch, data1: 0,  data2: 0x79)
+            sendMIDIEvent(au, status: 0xB0 | ch, data1: 32, data2: 0x00)
+        }
+        for program: UInt8 in 0...127 {
+            for ch: UInt8 in 0..<8 {
+                sendMIDIEvent(au, status: 0xC0 | ch, data1: program)
+            }
+            loadedPrograms.insert((UInt16(0x79) << 8) | UInt16(program))
+        }
+        setMIDISynthPreload(au, enable: false)
+    }
+
+    /// Fault in the standard GM drum kit on channel 9 (bank MSB 0x78).
+    /// Same preload-with-engine-paused requirement as the melodic sweep.
+    private func preloadDrumKit(_ au: AudioUnit) {
+        setMIDISynthPreload(au, enable: true)
+        sendMIDIEvent(au, status: 0xB9, data1: 0,  data2: 0x78)
+        sendMIDIEvent(au, status: 0xB9, data1: 32, data2: 0x00)
+        sendMIDIEvent(au, status: 0xC9, data1: 0)
+        setMIDISynthPreload(au, enable: false)
+        loadedPrograms.insert((UInt16(0x78) << 8) | 0)
+    }
+
+    /// Set of (bankMSB << 8 | program) keys faulted in by the startup
+    /// preload sweep. Retained so the `selectMelodicProgram` /
+    /// `selectDrumKit` callers can assert their program landed in the
+    /// preload set, and so an unexpected slot (e.g. a future
+    /// non-GM bank) can re-enter a one-shot preload if needed.
     private var loadedPrograms: Set<UInt16> = []
 
-    /// Select a melodic program on channel 0. First time a (bank, program)
-    /// is touched we wrap the bank-select + PC in EnablePreload so MIDISynth
-    /// actually faults the instrument's samples in from the DLS bank.
-    /// Subsequent calls for an already-loaded program skip the preload
-    /// toggle and just send the bank-select + PC for instant switching.
-    /// CC0 = bank MSB (0x79 GM Melodic), CC32 = bank LSB (0).
+    /// Switch the active melodic program on the broadcast channels.
+    /// With the startup preload sweep every GM program is already
+    /// resident in the AU, so this is just a bank-select + PC pair —
+    /// sub-millisecond, no disk I/O, no DSP rebuild. The 8-channel
+    /// broadcast matches the controller's round-robin voice allocator
+    /// (live 0-3, doppler 4-7) so a noteOn lands on the user's
+    /// instrument no matter which channel it picked.
     private func selectMelodicProgram(_ au: AudioUnit, program: UInt8) {
-        let key: UInt16 = (UInt16(0x79) << 8) | UInt16(program)
-        let needsLoad = !loadedPrograms.contains(key)
-        if needsLoad { setMIDISynthPreload(au, enable: true) }
-        // Broadcast bank+PC to all 8 melodic channels (0-7). The
-        // controller's round-robin voice allocator (live 0-3, doppler
-        // 4-7) needs every channel preloaded with the chosen voice so
-        // a noteOn lands on the user's instrument no matter which
-        // channel it picked. Channel 9 is reserved for drums; 8 and
-        // 10-15 are unused. Without this loop only ch0 played the
-        // selected voice, which collapsed all "rotation" back to a
-        // single channel and let same-note retriggers cut each other.
         for ch: UInt8 in 0..<8 {
             sendMIDIEvent(au, status: 0xB0 | ch, data1: 0,  data2: 0x79)
             sendMIDIEvent(au, status: 0xB0 | ch, data1: 32, data2: 0x00)
             sendMIDIEvent(au, status: 0xC0 | ch, data1: program)
         }
-        if needsLoad {
-            setMIDISynthPreload(au, enable: false)
-            loadedPrograms.insert(key)
-            // After preload-disable the AU's *active* program is still
-            // unset on each channel — re-send PC so noteOn lands on the
-            // freshly loaded instrument instead of silence.
-            for ch: UInt8 in 0..<8 {
-                sendMIDIEvent(au, status: 0xC0 | ch, data1: program)
-            }
-        }
     }
 
-    /// Select the standard GM drum kit on channel 9 (bank MSB 0x78).
+    /// Switch channel 9 back to the standard GM drum kit. The kit is
+    /// preloaded once at startup so this is a bank-select + PC pair.
     private func selectDrumKit(_ au: AudioUnit) {
-        let key: UInt16 = (UInt16(0x78) << 8) | 0
-        let needsLoad = !loadedPrograms.contains(key)
-        if needsLoad { setMIDISynthPreload(au, enable: true) }
-        sendMIDIEvent(au, status: 0xB9, data1: 0,  data2: 0x78)  // CC0  bank MSB
-        sendMIDIEvent(au, status: 0xB9, data1: 32, data2: 0x00)  // CC32 bank LSB
-        sendMIDIEvent(au, status: 0xC9, data1: 0)                // PC   kit 0
-        if needsLoad {
-            setMIDISynthPreload(au, enable: false)
-            loadedPrograms.insert(key)
-            sendMIDIEvent(au, status: 0xC9, data1: 0)
-        }
+        sendMIDIEvent(au, status: 0xB9, data1: 0,  data2: 0x78)
+        sendMIDIEvent(au, status: 0xB9, data1: 32, data2: 0x00)
+        sendMIDIEvent(au, status: 0xC9, data1: 0)
     }
 
     private func setMIDISynthPreload(_ au: AudioUnit, enable: Bool) {
@@ -652,7 +723,30 @@ final class MenuBandSynth {
                 return
             }
             installWaveformTapIfNeeded()
-        } else {
+        } else if waveformTapPinReasons.isEmpty {
+            removeWaveformTapIfNeeded()
+            scheduleIdleSuspendIfNeeded()
+        }
+    }
+
+    /// Pin the mainMixer tap on for a reason (currently: the tape
+    /// recorder needs the synth output stream while RECORDING or
+    /// PLAYING). Idempotent. Pair with `removeWaveformTapPin` so the
+    /// tap goes away once both the visualizer AND every pin reason
+    /// have released it.
+    func addWaveformTapPin(_ reason: String) {
+        guard started else { return }
+        let wasEmpty = waveformTapPinReasons.isEmpty
+        waveformTapPinReasons.insert(reason)
+        if wasEmpty {
+            _ = resumeAudioEngineIfNeeded()
+            installWaveformTapIfNeeded()
+        }
+    }
+
+    func removeWaveformTapPin(_ reason: String) {
+        waveformTapPinReasons.remove(reason)
+        if waveformTapPinReasons.isEmpty && !waveformCaptureEnabled {
             removeWaveformTapIfNeeded()
             scheduleIdleSuspendIfNeeded()
         }
@@ -677,6 +771,13 @@ final class MenuBandSynth {
     }
 
     private func ingestWaveformBuffer(_ buffer: AVAudioPCMBuffer) {
+        // Fork the audio thread buffer to any extra consumers (the
+        // tape recorder) BEFORE we lock the visualizer ring. Avoids
+        // delivering to consumers AFTER we've returned from this
+        // call — that's the whole point of the shared tap.
+        if let extra = onWaveformBuffer {
+            extra(buffer)
+        }
         guard let data = buffer.floatChannelData?[0] else { return }
         let frames = Int(buffer.frameLength)
         waveformLock.lock()

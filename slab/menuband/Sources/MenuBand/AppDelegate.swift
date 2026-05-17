@@ -31,6 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// many menubar apps). When that happens we shrink the layout —
     /// full piano → 1 octave → compact chip — until something fits.
     private var visibilityTimer: Timer?
+    /// Live drag-source for the inline tape eject. NSStatusBarButton
+    /// doesn't conform to NSDraggingSource so we hand a small adapter
+    /// in; this ivar keeps it alive for the duration of the drag.
+    private var tapeDragSource: TapeDragSource?
     /// 24fps redraw timer for the in-chip mini visualizer. Drives the
     /// per-bar sine wiggle + smooths the activity level so bars move
     /// continuously instead of snapping on note events.
@@ -182,11 +186,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// CGAssociateMouseAndMouseCursorPosition so position doesn't
     /// drift).
     private var pitchBendLockScreenPoint: NSPoint = .zero
-    /// Fires when no cursor-Y delta has come in for the idle
-    /// window — synthesizes a "finger lifted off the trackpad"
-    /// edge. mouseMoved has no .ended phase, so we infer it from
-    /// silence and start the rubber-band.
-    private var bendIdleTimer: Timer?
     /// Local + global NSEvent monitors for trackpad scroll events.
     /// Held so we can teardown if needed (we don't, but per-instance
     /// retention is cleaner than globals).
@@ -222,6 +221,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Otherwise the icon flashes the default `.full` width until
         // the next updateIcon() catches up.
         applyForcedLayoutIfAny()
+        // Mirror the tape-deck feature flag from UserDefaults into the
+        // renderer BEFORE the status item is sized — otherwise the bar
+        // would briefly reserve room for the deck and then snap back.
+        KeyboardIconRenderer.tapeFeatureEnabled = UserDefaults.standard
+            .bool(forKey: KeyboardIconRenderer.tapeFeatureDefaultsKey)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleTapeFeatureToggled(_:)),
+            name: .menuBandTapeFeatureChanged,
+            object: nil
+        )
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             debugLog("heartbeat")
         }
@@ -1478,6 +1488,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // tint the chip + VU bars red while the user is holding the
         // record key.
         KeyboardIconRenderer.recordingActive = menuBand.sampleRecordingActive
+        // Tape state — refreshed every paint so the cassette REC dot,
+        // mic LED, fill bar and playhead track the controller in real
+        // time. Position fractions are computed off the tape's own
+        // duration accessors; phase is wall-clock so the reels keep
+        // turning smoothly between paint ticks.
+        let tape = menuBand.tape
+        let fillFrac = CGFloat(tape.durationSeconds / MenuBandTape.maxDurationSeconds)
+        let playFrac = CGFloat(tape.positionSeconds / max(0.001, tape.durationSeconds))
+        KeyboardIconRenderer.tapeRecording = (tape.state == .recording)
+        KeyboardIconRenderer.tapePlaying = (tape.state == .playing)
+        KeyboardIconRenderer.tapeFillFraction = min(1, max(0, fillFrac))
+        KeyboardIconRenderer.tapePlayheadFraction = min(1, max(0, playFrac))
+        KeyboardIconRenderer.tapeMicHot =
+            (tape.state == .recording) &&
+            (MenuBandSampleVoice.micAuthorizationStatus() == .authorized)
+        KeyboardIconRenderer.tapePhase = CACurrentMediaTime()
         // Note: miniVisualizerLevel + miniVisualizerPhase are driven by
         // the visualizerAnimTimer (24fps smoothed VU motion), not from
         // here — overriding them on every note-event redraw would
@@ -1710,6 +1736,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // never from a stray tap on the LED bars.
             showPopover()
             return
+        case .tape:
+            handleTapeMouseDown(button: button,
+                                downEvent: downEvent,
+                                imagePoint: imagePoint)
+            return
+        case .tapeRew:
+            menuBand.rewindTape()
+            updateIcon()
+            return
+        case .tapeStop:
+            menuBand.stopTape()
+            updateIcon()
+            return
+        case .tapePlay:
+            menuBand.playTape()
+            updateIcon()
+            return
+        case .tapeFfwd:
+            menuBand.tapeSeekToEnd()
+            updateIcon()
+            return
+        case .tapeRec:
+            menuBand.toggleTapeRecording()
+            updateIcon()
+            return
+        case .tapeEject:
+            // Drop the WAV onto the Desktop with the cassette-art icon
+            // already attached by `tape.eject()`. The cassette body still
+            // owns the live drag-to-anywhere gesture; this button is the
+            // "didn't think to drag it" fallback. Stop any in-flight
+            // recording first so the eject sees a finalized buffer.
+            let stateBefore = menuBand.tape.state
+            let hasRec = menuBand.tape.hasRecording
+            let dur = menuBand.tape.durationSeconds
+            NSLog("MenuBand: eject button pressed — state=\(stateBefore) hasRecording=\(hasRec) duration=\(dur)s")
+            if stateBefore == .recording {
+                menuBand.stopTape()
+            }
+            if let src = menuBand.ejectTape() {
+                NSLog("MenuBand: eject wrote \(src.lastPathComponent)")
+                let desktop = FileManager.default.urls(
+                    for: .desktopDirectory, in: .userDomainMask).first
+                if let desktop = desktop {
+                    let dest = uniqueDestinationOnDesktop(
+                        in: desktop, preferredName: src.lastPathComponent)
+                    do {
+                        try FileManager.default.moveItem(at: src, to: dest)
+                        NSWorkspace.shared.activateFileViewerSelecting([dest])
+                    } catch {
+                        NSLog("MenuBand: tape eject move failed: \(error)")
+                        NSWorkspace.shared.activateFileViewerSelecting([src])
+                    }
+                } else {
+                    NSWorkspace.shared.activateFileViewerSelecting([src])
+                }
+            } else {
+                NSLog("MenuBand: eject button — nothing to eject (no recording)")
+                NSSound.beep()
+            }
+            updateIcon()
+            return
         case .note(let n):
             startDisplayNote = n
         case .none:
@@ -1793,6 +1880,106 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return UInt8(value)
     }
 
+    // MARK: - Tape mouse routing
+    //
+    // Mouse-down on the inline cassette enters a small dispatcher that
+    // distinguishes between a click (toggle REC) and a drag (eject the
+    // current recording onto the desktop). Same mouse-tracking trick as
+    // SheetMusicView's PDF pull-out — we run our own modal-ish event
+    // loop until either `mouseUp` (click) or a meaningful drag delta
+    // arrives (eject).
+
+    /// Pick a non-colliding filename inside `dir` for the freshly
+    /// ejected WAV. macOS' move would fail (or silently overwrite) if
+    /// a tape with the same name is already on the Desktop.
+    private func uniqueDestinationOnDesktop(in dir: URL,
+                                            preferredName: String) -> URL {
+        var candidate = dir.appendingPathComponent(preferredName)
+        if !FileManager.default.fileExists(atPath: candidate.path) {
+            return candidate
+        }
+        let base = (preferredName as NSString).deletingPathExtension
+        let ext  = (preferredName as NSString).pathExtension
+        var n = 2
+        while true {
+            let name = ext.isEmpty
+                ? "\(base) \(n)"
+                : "\(base) \(n).\(ext)"
+            candidate = dir.appendingPathComponent(name)
+            if !FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            n += 1
+        }
+    }
+
+    private func handleTapeMouseDown(button: NSStatusBarButton,
+                                     downEvent: NSEvent,
+                                     imagePoint: (NSPoint) -> NSPoint) {
+        let startPt = imagePoint(downEvent.locationInWindow)
+        while let next = NSApp.nextEvent(
+            matching: [.leftMouseDragged, .leftMouseUp],
+            until: .distantFuture,
+            inMode: .eventTracking,
+            dequeue: true
+        ) {
+            if next.type == .leftMouseUp {
+                // Click without drag → no-op. REC moved out to the
+                // dedicated red transport button; the cassette body is
+                // now a pure drag-source.
+                return
+            }
+            // .leftMouseDragged
+            let p = imagePoint(next.locationInWindow)
+            if abs(p.x - startPt.x) > 5 || abs(p.y - startPt.y) > 5 {
+                if startTapeEjectDrag(button: button, event: next) {
+                    return
+                }
+                // Drag-out failed (no recording, write error). Wait
+                // for mouseUp so we don't leave a stuck drag state.
+            }
+        }
+    }
+
+    /// Begin a drag session whose pasteboard item is the freshly
+    /// rendered WAV. Mirrors `SheetMusicView.beginPDFDrag` — eager
+    /// render to a temp file BEFORE calling `beginDraggingSession`,
+    /// then animate the cassette "ejecting" downward so the user
+    /// sees the source artifact leave the menubar.
+    @discardableResult
+    private func startTapeEjectDrag(button: NSStatusBarButton,
+                                    event: NSEvent) -> Bool {
+        guard menuBand.tape.hasRecording else {
+            NSLog("MenuBand: tape eject ignored — no recording")
+            return false
+        }
+        // Capture the result struct so we can use the actual cover
+        // art (waveform + date + duration) as the drag image. Falls
+        // back to a generic cassette glyph if eject fails.
+        guard let result = menuBand.tape.eject() else {
+            NSLog("MenuBand: tape eject failed to write stems")
+            return false
+        }
+        let dragItem = NSDraggingItem(pasteboardWriter: result.file as NSURL)
+        // Drag preview = the exact icon `eject()` just attached to
+        // the .wav file. Reading it back through `NSWorkspace`
+        // rather than re-rendering keeps the preview and the on-disk
+        // icon identical, so the user sees the same cassette artwork
+        // riding the cursor that they'll see in Finder after drop.
+        let previewIcon = NSWorkspace.shared.icon(forFile: result.file.path)
+        let previewSize = NSSize(width: 96, height: 96)
+        let local = button.convert(event.locationInWindow, from: nil)
+        let dragFrame = NSRect(x: local.x - previewSize.width / 2,
+                                y: local.y - previewSize.height / 2,
+                                width: previewSize.width,
+                                height: previewSize.height)
+        dragItem.setDraggingFrame(dragFrame, contents: previewIcon)
+        let source = TapeDragSource()
+        tapeDragSource = source
+        button.beginDraggingSession(with: [dragItem], event: event, source: source)
+        return true
+    }
+
     // MARK: - Popover
 
     /// Close the popover and tear down the click-away monitor. Called from
@@ -1851,6 +2038,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// verify chrome that lives only in the About panel (the
     /// crash-report send button, the language picker, the plugins
     /// chip) without driving the menubar.
+    @objc private func handleTapeFeatureToggled(_ note: Notification) {
+        let enabled = UserDefaults.standard
+            .bool(forKey: KeyboardIconRenderer.tapeFeatureDefaultsKey)
+        KeyboardIconRenderer.tapeFeatureEnabled = enabled
+        // Status item width changes with the flag — resize the slot
+        // before redrawing so the icon doesn't get cropped/scaled.
+        statusItem.length = KeyboardIconRenderer.imageSize.width
+        updateIcon()
+    }
+
     @objc private func handleShowAboutNotification(_ note: Notification) {
         debugLog("handleShowAboutNotification received")
         DispatchQueue.main.async { [weak self] in
@@ -2089,14 +2286,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showPitchBendOverlay()
         }
         updatePitchBendOverlayImage()
-        // Re-arm the idle-detection timer; if 150 ms goes by
-        // without another delta we treat the finger as lifted
-        // and start the spring rubber-band.
-        bendIdleTimer?.invalidate()
-        bendIdleTimer = Timer.scheduledTimer(withTimeInterval: 0.15,
-                                              repeats: false) { [weak self] _ in
-            self?.startBendDecay()
-        }
+        // No idle timeout: a finger resting still on the trackpad
+        // emits no .mouseMoved deltas, so any silence-based timer
+        // would snap the bend back while the user is deliberately
+        // holding it. The rubber-band is driven solely by keyboard
+        // note release (see onLitChanged → startBendDecay), so the
+        // bend holds wherever it's left until the note lifts.
         debugLog("bend cursor dy=\(dy) lit=\(menuBand.litNotes.count) amt=\(bendAmount)")
     }
 
@@ -2169,8 +2364,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func cancelBendDecay() {
         bendDecayTimer?.invalidate()
         bendDecayTimer = nil
-        bendIdleTimer?.invalidate()
-        bendIdleTimer = nil
         bendVelocity = 0
     }
 

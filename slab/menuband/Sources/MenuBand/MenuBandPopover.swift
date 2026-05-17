@@ -194,6 +194,9 @@ final class MenuBandPopoverViewController: NSViewController {
     /// vertical popover space to a full visualizer block.
     private var miniWaveformView: WaveformView!
     private var miniWaveformBezel: HoverTrackingView!
+    // Tape transport moved to the menubar status item — see
+    // `KeyboardIconRenderer.drawTapeTransportStrip`. The popover no
+    // longer hosts a deck panel.
 
     deinit {
         if let monitor = focusShortcutRecorderMonitor {
@@ -775,6 +778,7 @@ final class MenuBandPopoverViewController: NSViewController {
         stack.addArrangedSubview(miniWaveformBezel)
         miniWaveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
         miniWaveformBezel.heightAnchor.constraint(equalToConstant: 56).isActive = true
+
         // Pill container is allocated but unused (kept so any
         // legacy refresh path doesn't crash); not added to the
         // bezel.

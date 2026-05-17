@@ -5,6 +5,12 @@ import CoreGraphics
 final class MenuBandController {
     private let midi = MenuBandMIDI()
     private let synth = MenuBandSynth()
+    /// 90-second tape that captures synth output + mic together. Wired
+    /// up in `bootstrap` after `synth.start()` so the player node has
+    /// a running engine to attach to.
+    let tape = MenuBandTape()
+    private let tapeMicPinReason = "tape-record"
+    private let tapeWaveformPinReason = "tape"
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
     /// Synth channel each held keystroke is voicing on. Mirrors
@@ -782,6 +788,86 @@ final class MenuBandController {
     }
 
 
+    // MARK: - Tape transport
+    //
+    // Thin facade over `MenuBandTape` that adds two pieces of glue the
+    // tape itself doesn't know about:
+    //
+    //   • Hot-mic pinning — REC must keep the input tap delivering
+    //     frames even when the sample-voice backtick gate is closed.
+    //   • Waveform-tap pinning — REC + PLAY must keep the synth's
+    //     mainMixer tap installed so output flows into `ingestSynth`.
+    //
+    // Pin reasons are released in `handleTapeChange()` when the tape
+    // transitions back to `.idle`.
+
+    /// Toggle the tape between IDLE and RECORDING. On first-ever REC
+    /// press, surface the macOS mic permission prompt; the recording
+    /// is started for real once the user grants access.
+    func toggleTapeRecording() {
+        if tape.state == .recording {
+            tape.stop()
+            return
+        }
+        let auth = MenuBandSampleVoice.micAuthorizationStatus()
+        switch auth {
+        case .authorized:
+            beginTapeRecording()
+        case .notDetermined:
+            MenuBandSampleVoice.requestMicAccess { [weak self] granted in
+                guard granted else { return }
+                self?.beginTapeRecording()
+            }
+        case .denied, .restricted:
+            // No mic available — record synth output only. The mic
+            // indicator on the inline widget will read as "off".
+            beginTapeRecording()
+        @unknown default:
+            beginTapeRecording()
+        }
+    }
+
+    private func beginTapeRecording() {
+        // Pin both the hot mic and the synth waveform tap before we
+        // flip the tape state, so the first audio block after REC
+        // already lands in the buffer.
+        synth.addWaveformTapPin(tapeWaveformPinReason)
+        synth.pinHotMic(reason: tapeMicPinReason)
+        tape.record()
+    }
+
+    func stopTape() { tape.stop() }
+    func playTape() {
+        // Need the waveform tap pinned during playback so the live
+        // visualizer in the popover shows tape output — the player
+        // node feeds into the same mixer the tap reads from. (Cheap
+        // to pin redundantly; reasons set is set-typed.)
+        synth.addWaveformTapPin(tapeWaveformPinReason)
+        tape.play()
+    }
+    func pauseTape()  { tape.pause() }
+    func rewindTape() { tape.rewind() }
+    func tapeSeekToEnd() { tape.seekToEnd() }
+    func clearTape() { tape.clear() }
+
+    /// Drag-out path. Returns the on-disk 4-channel `.wav` URL for
+    /// the current recording (synth L/R on channels 1-2, mic on
+    /// channels 3-4) with the cassette cover-art icon applied.
+    /// AppDelegate's status-button drag source rides this URL on the
+    /// pasteboard so dropping the cassette onto the Desktop yields a
+    /// single multi-track WAV that DAWs can split into stems.
+    func ejectTape() -> URL? { tape.eject()?.file }
+
+    /// State-change observer. Drops the pins whenever the tape goes
+    /// back to idle so the synth engine can suspend on inactivity.
+    private func handleTapeChange() {
+        if tape.state == .idle {
+            synth.unpinHotMic(reason: tapeMicPinReason)
+            synth.removeWaveformTapPin(tapeWaveformPinReason)
+        }
+        onChange?()
+    }
+
     func bootstrap() {
         // Built-in synth is always live. TYPE mode and MIDI mode are now
         // independent toggles: TYPE controls global keyboard capture + key
@@ -798,6 +884,28 @@ final class MenuBandController {
         }
         synth.start()
         synth.setMelodicProgram(melodicProgram)
+        // Tape wiring: attach the player to the synth's pre-limiter
+        // sum bus, fork the existing audio taps into the tape's
+        // ingestion methods, and listen for state changes so we can
+        // unpin the hot mic / waveform tap when REC ends.
+        synth.attachTape(tape)
+        synth.onWaveformBuffer = { [weak self] buffer in
+            self?.tape.ingestSynth(buffer)
+        }
+        synth.onMicInputBuffer = { [weak self] buffer in
+            self?.tape.ingestMic(buffer)
+        }
+        // Block-based observer so the controller (a plain Swift class,
+        // not NSObject) can register without inheriting from
+        // NSObject. Token-less because the controller lives for the
+        // app's full duration.
+        NotificationCenter.default.addObserver(
+            forName: .menuBandTapeChanged,
+            object: tape,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleTapeChange()
+        }
         // Restore the user's last master-volume setting before any notes
         // sound. Default of 1.0 means a fresh install plays at full
         // volume (matches previous behaviour); explicit lower picks
