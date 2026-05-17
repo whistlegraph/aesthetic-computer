@@ -24,7 +24,8 @@
 
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { createCanvas, loadImage } from "canvas";
 
@@ -483,6 +484,74 @@ function drawNeedleString() {
   ctx.restore();
 }
 
+// ── singalong karaoke band ───────────────────────────────────────────
+// A fixed HUD line in the lower third: a window of sung words centred
+// on the one being sung now, which fills left→right with a hot pink
+// highlight as it is sung (classic karaoke sweep). Black shadow
+// plates keep it readable over the rotating tracks.
+function drawKaraoke(audioT) {
+  if (lyricWords.length === 0) return;
+  const first = lyricWords[0], last = lyricWords[lyricWords.length - 1];
+  if (audioT < first.t0 - 1.4 || audioT > last.t1 + 1.2) return;
+  // active = last word whose t0 has passed; clamp to range
+  let idx = -1;
+  for (let i = 0; i < lyricWords.length; i++) {
+    if (audioT >= lyricWords[i].t0) idx = i; else break;
+  }
+  if (idx < 0) idx = 0; // pre-roll: show the opening line
+  const GAP = Math.round(titleFontSize * 0.42);
+  // Page in fixed LINES — the whole line holds still while its words
+  // are sung (the highlight sweeps across it), then it pages to the
+  // next line. No per-word scrolling, so it reads calm, not fast.
+  const LINE_LEN = 6;
+  const lineStart = Math.floor(idx / LINE_LEN) * LINE_LEN;
+  const lineEnd = Math.min(lyricWords.length - 1, lineStart + LINE_LEN - 1);
+  let lineW = -GAP;
+  for (let i = lineStart; i <= lineEnd; i++) lineW += lyricWords[i].img.width + GAP;
+  let x = Math.round(W / 2 - lineW / 2);
+  const baseY = Math.round(H * 0.82);
+  const recolor = (img, rgb, a, dx, dy, clipW) => {
+    lyrTint.width = img.width; lyrTint.height = img.height;
+    lyrTintCtx.clearRect(0, 0, img.width, img.height);
+    lyrTintCtx.globalCompositeOperation = "source-over";
+    lyrTintCtx.drawImage(img, 0, 0);
+    lyrTintCtx.globalCompositeOperation = "source-in";
+    lyrTintCtx.fillStyle = `rgb(${rgb})`;
+    lyrTintCtx.fillRect(0, 0, img.width, img.height);
+    ctx.save();
+    ctx.globalAlpha = a;
+    if (clipW != null) {
+      ctx.beginPath();
+      ctx.rect(dx, dy - 4, clipW, img.height + 8);
+      ctx.clip();
+    }
+    ctx.drawImage(lyrTint, dx, dy);
+    ctx.restore();
+  };
+  for (let i = lineStart; i <= lineEnd; i++) {
+    const wd = lyricWords[i];
+    const y = baseY - Math.round(wd.img.height / 2);
+    // hard dark shadow plate (doubled) for legibility
+    ctx.save();
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(wd.shadow, x + 3, y + 4);
+    ctx.drawImage(wd.shadow, x + 2, y + 3);
+    ctx.restore();
+    if (i < idx) {
+      recolor(wd.img, "210,205,190", 0.34, x, y); // already sung — dim
+    } else if (i > idx) {
+      recolor(wd.img, "235,232,220", 0.52, x, y); // upcoming
+    } else {
+      // ACTIVE — dim base + a hot-pink fill sweeping with the singing
+      const prog = Math.max(0, Math.min(1,
+        (audioT - wd.t0) / Math.max(0.08, wd.t1 - wd.t0)));
+      recolor(wd.img, "245,242,230", 0.80, x, y);
+      recolor(wd.img, "255,94,168", 1.0, x, y, Math.ceil(wd.img.width * prog));
+    }
+    x += wd.img.width + GAP;
+  }
+}
+
 // ── title setup ──────────────────────────────────────────────────────
 const TITLE_PALETTE = [
   "#aef240", "#f54aa6", "#ffffff", "#4ad1bf",
@@ -620,6 +689,56 @@ const tcCache = new Map(); // "mm:ss / mm:ss" → { img, shadow }
     tcCache.set(text, { img, shadow });
   }
 }
+// ── SINGALONG KARAOKE — the sung-vocal words, timed to the stem ────
+// trance.mjs places the jeffrey-pvc vocal stem once at the `vocal`
+// vox event; trance-hook-vocal-words.json holds per-word {fromMs,
+// toMs} relative to the stem. Absolute word time = vocalStart +
+// from/1000. Each unique word is pre-rasterised in YWFT (white plate
+// + black shadow plate) like the timecode.
+const LYRICS_PATH = flags.lyrics
+  ? (flags.lyrics.startsWith("~/") ? resolve(homedir(), flags.lyrics.slice(2)) : flags.lyrics)
+  : resolve(dirname(fileURLToPath(import.meta.url)), "../out/trance-hook-vocal-words.json");
+const lyricWords = []; // { text, t0, t1, img, shadow }
+const lyricPlates = new Map(); // text → { img, shadow }
+if (existsSync(LYRICS_PATH)) {
+  const vEv = (struct.events?.vox || []).find((e) => e.name === "vocal");
+  const vocalStart = vEv ? (vEv.displayedT ?? vEv.t) : 2.7;
+  let raw = [];
+  try { raw = JSON.parse(readFileSync(LYRICS_PATH, "utf8")); } catch {}
+  const assetsDir = TRACK.replace(/\.mp3$/, ".assets");
+  mkdirSync(assetsDir, { recursive: true });
+  const lyrFont = Math.round(titleFontSize * 0.78);
+  for (const wd of raw) {
+    const text = String(wd.text ?? "").trim();
+    if (!text) continue;
+    const t0 = vocalStart + (wd.fromMs ?? 0) / 1000;
+    const t1 = vocalStart + (wd.toMs ?? (wd.fromMs ?? 0) + 400) / 1000;
+    if (!lyricPlates.has(text)) {
+      const safe = text.replace(/[^A-Za-z0-9]/g, "_").slice(0, 20) || "w";
+      const wp = `${assetsDir}/lyr.${safe}.png`;
+      const sp = `${assetsDir}/lyr.${safe}.sh.png`;
+      const mk = (fill, out) => {
+        const r = spawnSync("magick", [
+          "-background", "none", "-fill", fill, "-font", YWFT_PATH,
+          "-pointsize", String(lyrFont), `label:${text}`, out,
+        ]);
+        if (r.status !== 0) { console.error(`✗ magick lyric '${text}'`); process.exit(1); }
+        return out;
+      };
+      mk("rgba(255,253,242,0.98)", wp);
+      mk("rgba(0,0,0,1)", sp);
+      lyricPlates.set(text, { img: await loadImage(wp), shadow: await loadImage(sp) });
+    }
+    const pl = lyricPlates.get(text);
+    lyricWords.push({ text, t0, t1, img: pl.img, shadow: pl.shadow });
+  }
+  lyricWords.sort((a, b) => a.t0 - b.t0);
+  console.log(`  → karaoke: ${lyricWords.length} sung words ${lyricWords.length ? `(${lyricWords[0].t0.toFixed(1)}s–${lyricWords[lyricWords.length-1].t1.toFixed(1)}s)` : ""}`);
+}
+// Offscreen used to recolour white plates (timecode + karaoke) to a
+// target colour via source-in (matches wanderbeach).
+const lyrTint = createCanvas(8, 8);
+const lyrTintCtx = lyrTint.getContext("2d");
 // Offscreen used to recolour the white timecode plate to the section
 // tint via source-in (matches wanderbeach).
 const tcTint = createCanvas(8, 8);
@@ -1786,6 +1905,9 @@ function drawFrame(t) {
       ctx.restore();
     }
   }
+
+  // ── singalong karaoke — fixed HUD, over the rotating tracks ──────
+  drawKaraoke(audioT);
 
   // ── STARTUP + SHUTDOWN — shared fullscreen pixelate / fuzz / blink
   //    decay engine. NO squash/stretch: the frame just pixel-decays,
