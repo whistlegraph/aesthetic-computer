@@ -374,8 +374,13 @@ function drawKaraoke(audioT) {
   }
   if (idx < 0) idx = 0;
   const act = lyricWords[idx];
+  // Decode lagged a touch — it was running "a bit eager" (letters
+  // resolving just before the voice). KARA_LAG holds each letter
+  // encoded slightly longer so it snaps as the syllable lands.
+  const KARA_LAG = 0.14;
   const prog = Math.max(0, Math.min(1,
-    (audioT - act.t0) / Math.max(0.08, act.t1 - act.t0)));
+    (audioT - act.t0 - KARA_LAG) / Math.max(0.08, act.t1 - act.t0)));
+  const secRgb = sectionTcRgb(audioT); // typography tints to the section
   const fs = Math.round(titleFontSize * 0.74);
   const baseY = Math.round(H * 0.82);
   ctx.save();
@@ -451,9 +456,14 @@ function drawKaraoke(audioT) {
       ctx.fillStyle = "rgba(0,0,0,0.9)";
       ctx.fillText(glyph, dx + 3, cy + 4);
       ctx.globalAlpha = 1.0;
-      ctx.fillStyle = decoded ? "#ff5ea8"        // decoded by the voice
-                   : near > 0.15 ? "#ffd0e6"     // about to decode
-                   : "rgba(225,222,212,0.92)";   // still encoded
+      // section-tinted: decoded = bright section colour, edge = same
+      // pushed toward white, still-encoded = a dim section-tint.
+      const [sr, sg, sb] = secRgb;
+      ctx.fillStyle = decoded
+        ? `rgb(${sr},${sg},${sb})`
+        : near > 0.15
+          ? `rgb(${Math.round(sr + (255 - sr) * 0.55)},${Math.round(sg + (255 - sg) * 0.55)},${Math.round(sb + (255 - sb) * 0.55)})`
+          : `rgba(${Math.round(sr * 0.55 + 110)},${Math.round(sg * 0.55 + 110)},${Math.round(sb * 0.55 + 110)},0.9)`;
       ctx.fillText(glyph, dx, cy);
       dx += cw;
     }
@@ -1078,7 +1088,10 @@ function drawFrame(t) {
   // (pixies + setting), not just jeffrey's face, reads. Then BOUNCE:
   // a slow breath + a punchy envelope-driven zoom so the picture
   // pumps with the music instead of staying clamped tight.
-  const baseScale = 1.005; // minimal overscan — crop in as little as possible
+  // Enough overscan that the slow ken-burns + soft kick zoom never
+  // expose an edge (1.005 left ~0 room → any motion slammed off-frame
+  // = the "really bad / jerky" pan). Smooth, never jerky.
+  const baseScale = 1.12;
   // ORGANIC motion: a slow ken-burns breath (~16 s) + a SOFT kick
   // zoom — each kick eases the picture in a touch then releases. Soft
   // attack (~70 ms) → gentle exp release; max() over recent kicks so
@@ -1095,8 +1108,11 @@ function drawFrame(t) {
   }
   // String-bend pan/zoom BUMP (no rotate) — folded into the camera so
   // the illustration + its backlight mask + the lanes stay registered.
-  const so = _vs.sceneOffset();
-  const zoom = (baseScale + slowBreath + kickZoom * 0.045) * so.zoomMul;
+  // SMOOTH camera only — slow ken-burns breath + soft kick zoom. The
+  // string→scene pan/bump was removed: every iteration it read as
+  // jerky and broke the backlight-mask registration. Re-add later as
+  // a separate, carefully-damped pass if wanted.
+  const zoom = baseScale + slowBreath + kickZoom * 0.045;
   const lastKickIdx = -1;
   const lastKickT = -1e9;
   void lastKickT;
@@ -1144,12 +1160,6 @@ function drawFrame(t) {
   // draw position must satisfy: W - baseW ≤ drawX ≤ 0 (and same for Y).
   drawX = Math.min(0, Math.max(W - baseW, drawX));
   drawY = Math.min(0, Math.max(H - baseH, drawY));
-  // string-bend PAN/BUMP — added after the cover clamp so it can
-  // nudge slightly past the edge (re-clamped loosely so a hard kick
-  // can't expose a black bar). Backlight + lanes use this same
-  // drawX/drawY so the stained-glass mask stays registered.
-  drawX = Math.max(W - baseW - 60, Math.min(60, drawX + so.dx));
-  drawY = Math.max(H - baseH - 60, Math.min(60, drawY + so.dy));
   // ── parallax / depth / slit drivers ────────────────────────────
   // Layer separation gives depth + a tight shake. The slitscan is a
   // MUSIC-DRIVEN horizontal-row tear: near-silent when quiet, growing
@@ -1190,7 +1200,7 @@ function drawFrame(t) {
     ctx.fillRect(0, 0, W, H);
     ctx.drawImage(img,
       fx - pX * parMul, fy - pY * parMul, fw * parScale, fh * parScale);
-    ctx.fillStyle = "rgba(0,0,0,0.40)";
+    ctx.fillStyle = "rgba(0,0,0,0.18)"; // lighter — illos not so darkened
     ctx.fillRect(0, 0, W, H);
   };
 
@@ -1268,7 +1278,7 @@ function drawFrame(t) {
       const laptopCanvas = imgToCanvas(rects.laptop);
       // FAST + TIGHT: a very short decay so each hit snaps on and
       // clears before the next, locked hard to event timing.
-      const BACKLIGHT_DECAY = 0.12; // seconds
+      const BACKLIGHT_DECAY = 0.42; // s — long enough to read as a BLAST
       // Most-recent kick / hat intensity inside the decay window.
       const recentMax = (lane) => {
         let m = 0;
@@ -1304,15 +1314,15 @@ function drawFrame(t) {
         const stamp = (region, rgb, k0) => {
           if (!region || k0 <= 0.008) return;
           // Punchy attack, very tight tail.
-          const k = Math.pow(Math.min(1, k0), 0.45);
-          const radius = Math.max(region.rw, region.rh) * 1.25;
+          const k = Math.pow(Math.min(1, k0), 0.40);
+          const radius = Math.max(region.rw, region.rh) * 1.7; // bigger blast
           const g = glowCtx.createRadialGradient(
             region.cx, region.cy, 0, region.cx, region.cy, radius);
-          // hot core → saturated mid → transparent edge (subtler)
-          g.addColorStop(0.0, `rgba(255,255,255,${0.80 * k})`);
-          g.addColorStop(0.16, `rgba(${rgb},${0.85 * k})`);
-          g.addColorStop(0.34, `rgba(${rgb},${0.55 * k})`);
-          g.addColorStop(0.66, `rgba(${rgb},${0.26 * k})`);
+          // BLASTING through: hot white core → saturated body → edge.
+          g.addColorStop(0.0, `rgba(255,255,255,${0.98 * k})`);
+          g.addColorStop(0.14, `rgba(255,255,255,${0.72 * k})`);
+          g.addColorStop(0.30, `rgba(${rgb},${1.0 * k})`);
+          g.addColorStop(0.58, `rgba(${rgb},${0.62 * k})`);
           g.addColorStop(1.0, `rgba(${rgb},0)`);
           glowCtx.globalCompositeOperation = "lighter";
           glowCtx.fillStyle = g;
@@ -1341,7 +1351,7 @@ function drawFrame(t) {
         ctx.globalCompositeOperation = "lighter";
         ctx.globalAlpha = 1.0;
         ctx.drawImage(glowCanvas, 0, 0);
-        ctx.globalAlpha = 0.55; // bloom — slightly enlarged, offset
+        ctx.globalAlpha = 0.32; // bloom — softer, so it doesn't blow out
         ctx.drawImage(glowCanvas, -4, -4, W + 8, H + 8);
         ctx.restore();
         // ── PASS 2: leaded contrast — the VIBING top layer ─────────
@@ -1371,7 +1381,7 @@ function drawFrame(t) {
           ctx.save();
           ctx.imageSmoothingEnabled = false;
           ctx.globalCompositeOperation = "multiply";
-          ctx.globalAlpha = Math.min(0.6, 0.30 * Math.max(maxK, maxH) * flick);
+          ctx.globalAlpha = Math.min(0.34, 0.16 * Math.max(maxK, maxH) * flick); // gentler darks
           ctx.drawImage(backCanvas, 0, 0, sw, sh, jx, jy, W, H);
           ctx.restore();
           ctx.imageSmoothingEnabled = true;
@@ -1772,9 +1782,13 @@ function drawFrame(t) {
   // Events plucked it as they crossed (above); advance the sim one
   // step then draw the oscillating/settling nylon string.
   stepNeedle();
-  // (String→illustration warp removed — same reason as the scene
-  //  displacement: jittery on this dense track; undabeach dropped it.
-  //  The string still rotates with the disc and colours from plucks.)
+  // GEOMETRIC DISTORTION UNDER THE STRING — a vertical strip of the
+  // composited picture around the playhead is sheared row-by-row to
+  // follow the verlet string's local bend (the string is physics-
+  // smooth so this is smooth; only the whole-image scene-pan was the
+  // jerky one, and that stays off).
+  warpIllustration();
+  // String rotates with the track group (same theta as the lanes).
   withRotation(trackRot, () => { drawNeedleString(); });
 
   // ── bouncing title — pre-rendered chars composited per frame ─────
@@ -1784,6 +1798,24 @@ function drawFrame(t) {
   //   • per-char phase offset so letters bob in a traveling wave
   const baseBounce = 8;
   const envBounce = env * 36;
+  // Soft DARK area behind the title words — a gentle vignette so the
+  // type sits in its own pocket of shade (legibility + mood).
+  {
+    const tw0 = titleBaseX + (prefixWidths[titleChars.length] || 300);
+    const cyV = titleY - charBaselineY / 2;
+    const vg = ctx.createRadialGradient(
+      titleBaseX + tw0 * 0.32, cyV, 8,
+      titleBaseX + tw0 * 0.32, cyV, Math.max(tw0 * 0.85, 360));
+    vg.addColorStop(0, "rgba(0,0,0,0.46)");
+    vg.addColorStop(0.6, "rgba(0,0,0,0.26)");
+    vg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save();
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, titleY + charBoxH);
+    ctx.restore();
+  }
+  // ALL typography tints to the current section colour.
+  const [tSr, tSg, tSb] = sectionTcRgb(audioT);
   // "JUMPED IN" — right after the boot melody fires (prompt entered)
   // the title springs into place: a fast decaying per-char overshoot
   // so it reads as energetically ACTIVE, like we just loaded in.
@@ -1803,7 +1835,24 @@ function drawFrame(t) {
     }
     // Hard ceiling: an upward bounce may never clip off the top edge.
     if (y < 2) y = 2;
-    ctx.drawImage(img, x, y);
+    // recolour the char to the section tint (per-char, via source-in)
+    // with a hard dark offset behind it for punch over the vignette.
+    lyrTint.width = img.width; lyrTint.height = img.height;
+    lyrTintCtx.clearRect(0, 0, img.width, img.height);
+    lyrTintCtx.globalCompositeOperation = "source-over";
+    lyrTintCtx.drawImage(img, 0, 0);
+    lyrTintCtx.globalCompositeOperation = "source-in";
+    lyrTintCtx.fillStyle = `rgb(${tSr},${tSg},${tSb})`;
+    lyrTintCtx.fillRect(0, 0, img.width, img.height);
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.globalCompositeOperation = "source-over";
+    // dark drop (reuse the plate alpha as a black silhouette)
+    ctx.globalAlpha = 0.55;
+    ctx.drawImage(img, x + 3, y + 4);
+    ctx.globalAlpha = 1.0;
+    ctx.drawImage(lyrTint, x, y);
+    ctx.restore();
   }
 
   // ── segmented progress bar — identical to the wanderbeach video ──
