@@ -1,0 +1,31 @@
+# wanderbeach — mysterious-exploration chillwave / ambient.
+#
+# Key: A minor pentatonic (A C D E G) + competitive accidentals
+# (D#/Eb as a blue-fifth pushing against the tonic, F# as a leading
+# tone reaching up). The melody wanders continuously — eighth-note
+# motion, faster than typical ambient but still gentle.
+#
+# Tempo: 70 BPM. Each *N is a beat (60/70 = ~0.857s).
+# Eighth-note = *1; quarter = *2; half = *4.
+#
+# Target total length: ~1:24 (96 beats + tail).
+#
+# Section markers gate which bed layers fire (waves / sweeps / shakers
+# / kick / bubbles / birds / pad / bells).
+
+# tide-in 4 [waves-fade-in]
+A4:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 E5:_*1 D5:_*1 C5:_*1 A4:_*2 G4:_*1 A4:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 A4:_*1
+
+# drift 1 7 [waves, sweep-slow, bubbles-sparse, kick]
+E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 A5:_*2 G5:_*1 E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*2
+G5:_*1 E5:_*1 D#5:_*1 D5:_*1 C5:_*1 A4:_*1 G4:_*1 E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*2 A4:_*2 G4:_*2
+
+# swell 3 [filter-sweep-open, bubbles-dense, pad-bloom, kick]
+A5:_*1 G5:_*1 E5:_*1 G5:_*1 A5:_*1 G5:_*1 E5:_*1 D5:_*1 E5:_*1 G5:_*1 A5:_*1 G5:_*1
+
+# drift 2 7 [waves, sweep-slow, bubbles-sparse, kick]
+E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 A5:_*1 G5:_*1 E5:_*1 D5:_*1 C5:_*1 A4:_*1 G4:_*1 A4:_*1
+F#4:_*1 G4:_*1 A4:_*1 C5:_*1 D5:_*1 E5:_*1 D5:_*1 C5:_*1 A4:_*1 G4:_*1 A4:_*1 C5:_*1 D5:_*1 A4:_*1
+
+# tide-out 3 [waves-fade-out, no-bells-last-4]
+E4:_*1 G4:_*1 A4:_*1 C5:_*1 D5:_*1 E4:_*1 G4:_*1 A4:_*1 A4:_*4
