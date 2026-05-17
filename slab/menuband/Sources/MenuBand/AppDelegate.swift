@@ -91,6 +91,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// or when an actual key is pressed — visual signal that "you're
     /// capturing, type now."
     private let localCapture = LocalKeyCapture()
+    /// Retained `ProcessInfo` activity token. Held for the app's
+    /// lifetime so macOS treats Menu Band as a latency-critical
+    /// instrument: no App Nap, no timer coalescing, no background
+    /// throttling of the audio + gesture timers when the system is
+    /// under load. Idle cost is negligible — it disables throttling,
+    /// it doesn't consume CPU.
+    private var playPrivilegeActivity: NSObjectProtocol?
     private var ghostUntil: CFTimeInterval = 0
     private var ghostRefreshTimer: Timer?
 
@@ -161,6 +168,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Active rubber-band timer, retained so we can cancel it when
     /// a new gesture starts mid-decay.
     private var bendDecayTimer: Timer?
+    /// True while one or more fingers rest on the trackpad (fed by
+    /// LocalKeyCapture's touch sensor). The bend holds — and survives
+    /// note changes / legato — for as long as this is true; it only
+    /// springs back once the last finger lifts.
+    private var trackpadTouchActive = false
     /// Tracks the last lit-note count we observed in `onLitChanged`
     /// so we can detect the all-notes-released edge and trigger
     /// both the bend rubber-band and the cursor pop.
@@ -215,6 +227,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
+        // Claim latency-critical scheduling for the whole session so a
+        // busy system (a release compile, ffmpeg, etc.) can't starve
+        // the audio render + bend/decay timers mid-play. Pairs with
+        // ProcessType=Interactive in the launchd plist.
+        playPrivilegeActivity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .latencyCritical],
+            reason: "Menu Band live instrument audio"
+        )
         Self.registerBundledFonts()
         // Apply forceLayout *before* statusItem creation so the initial
         // status-item length matches the pinned layout's imageSize.
@@ -299,21 +319,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // bottom-left-origin screen coords — same space
                 // NSWindow.setFrameOrigin expects.
                 self.pitchBendLockScreenPoint = NSEvent.mouseLocation
-            } else if !kbHeld && self.pitchBendCursorLocked {
-                self.stopPitchBendCursorPin()
-                if self.pitchBendCursorPushed {
-                    NSCursor.pop()
-                    self.pitchBendCursorPushed = false
-                }
-                // Tear down the overlay first, THEN show the system
-                // cursor — order matters so the user never sees the
-                // bend wheel and the real cursor on screen at the
-                // same time during the handoff.
-                self.pitchBendOverlay?.dismiss()
-                self.showSystemCursorIfNeeded()
-                CGAssociateMouseAndMouseCursorPosition(1)
-                self.pitchBendCursorLocked = false
-                self.startBendDecay()
+            } else if !kbHeld && self.pitchBendCursorLocked
+                        && !self.trackpadTouchActive {
+                // All notes released AND no finger on the trackpad —
+                // end the gesture. If a finger is still down we skip
+                // this so the bend (and the locked cursor/overlay)
+                // survive a note change / legato; the finger-lift
+                // callback ends it instead.
+                self.endPitchBendSession()
             }
             self.lastLitCount = cur
             self.updateIcon()
@@ -627,6 +640,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Focus lost (user clicked another app). Drop the ghost and
             // any held notes so we don't leave anything hanging.
             self?.finishLocalCapture(reason: reason)
+        }
+        localCapture.onTrackpadTouchActiveChanged = { [weak self] active in
+            guard let self = self else { return }
+            self.trackpadTouchActive = active
+            guard !active else { return }
+            // Last finger lifted off the trackpad. This is the
+            // authoritative "stop bending" signal: spring the bend
+            // back now even if a note is still sounding. If no notes
+            // are held either, also tear the gesture down fully —
+            // onLitChanged already skipped that while the finger was
+            // down so the bend could ride across note changes.
+            if !self.menuBand.keyboardNotesHeld {
+                self.endPitchBendSession()
+            } else if self.pitchBendCursorLocked {
+                self.startBendDecay()
+            }
         }
 
         // Pre-instance the popover VC + force its view to load now so the
@@ -2365,6 +2394,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bendDecayTimer?.invalidate()
         bendDecayTimer = nil
         bendVelocity = 0
+    }
+
+    /// Tear down the pitch-bend cursor lock + floating overlay and
+    /// spring the bend back to center. Shared by the two end-of-gesture
+    /// triggers: all keyboard notes released with no finger on the
+    /// trackpad, or the trackpad finger lifting. Idempotent.
+    private func endPitchBendSession() {
+        guard pitchBendCursorLocked else { return }
+        stopPitchBendCursorPin()
+        if pitchBendCursorPushed {
+            NSCursor.pop()
+            pitchBendCursorPushed = false
+        }
+        // Tear down the overlay first, THEN show the system cursor —
+        // order matters so the user never sees the bend wheel and the
+        // real cursor on screen at the same time during the handoff.
+        pitchBendOverlay?.dismiss()
+        showSystemCursorIfNeeded()
+        CGAssociateMouseAndMouseCursorPosition(1)
+        pitchBendCursorLocked = false
+        startBendDecay()
     }
 
     private func startBendDecay() {

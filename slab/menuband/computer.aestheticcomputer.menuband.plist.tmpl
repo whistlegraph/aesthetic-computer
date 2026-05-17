@@ -19,6 +19,12 @@
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <!-- Interactive = latency-sensitive: exempts Menu Band from the
+         aggressive background scheduler throttling a windowless
+         menubar process would otherwise get, so audio doesn't choke
+         when the system is pinned at 100% CPU. -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
     <key>ThrottleInterval</key>
     <integer>5</integer>
     <key>StandardOutPath</key>

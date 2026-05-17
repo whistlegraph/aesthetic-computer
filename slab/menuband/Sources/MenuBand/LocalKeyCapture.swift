@@ -24,6 +24,12 @@ final class LocalKeyCapture {
     /// Called when the panel resigns key — capture has ended naturally
     /// because the user clicked another app.
     var onCaptureEnd: ((EndReason) -> Void)?
+    /// Fires `true` when one or more fingers rest on the trackpad and
+    /// `false` when the last finger lifts. Used by the pitch-bend
+    /// gesture so the bend holds (and survives note changes) for as
+    /// long as a finger is down, instead of springing back on a
+    /// silence timeout or a note release.
+    var onTrackpadTouchActiveChanged: ((Bool) -> Void)?
     var cancelShortcut: MenuBandShortcut?
 
     private var panel: NSPanel?
@@ -51,6 +57,14 @@ final class LocalKeyCapture {
             panel.orderFront(nil)
         } else {
             panel.makeKeyAndOrderFront(nil)
+        }
+        // Indirect (trackpad) touches are delivered down the key
+        // window's responder chain, not by hit-testing — so the
+        // sensor view has to be first responder to see resting
+        // fingers. Harmless when another window is key (the gesture
+        // just falls back to note-release reset in that mode).
+        if let sensor = panel.contentView as? TouchSensorView {
+            panel.makeFirstResponder(sensor)
         }
         if monitor == nil {
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
@@ -96,6 +110,9 @@ final class LocalKeyCapture {
             resignKeyObserver = nil
         }
         panel?.orderOut(nil)
+        // Capture ended → the sensor stops seeing touches; clear any
+        // stale "finger down" so a held bend doesn't strand.
+        onTrackpadTouchActiveChanged?(false)
         onCaptureEnd?(reason)
     }
 
@@ -118,10 +135,54 @@ final class LocalKeyCapture {
         p.hidesOnDeactivate = false
         p.canHide = false
         p.acceptsMouseMovedEvents = false
+        // Indirect-touch sensor lives as the panel's content view so it
+        // sits in the key window's responder chain while the user plays.
+        let sensor = TouchSensorView(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
+        sensor.onActiveChanged = { [weak self] active in
+            self?.onTrackpadTouchActiveChanged?(active)
+        }
+        p.contentView = sensor
         panel = p
     }
 
     deinit { disarm(reason: .cancelled) }
+}
+
+/// Invisible view that reports whether any finger is currently resting
+/// on the trackpad. Indirect touches (the Magic Trackpad / built-in
+/// trackpad) only reach a view that opts in via `allowedTouchTypes`
+/// and is in the key window's responder chain; `wantsRestingTouches`
+/// keeps a motionless finger counted instead of dropping it the moment
+/// it stops moving (the exact case that was snapping the bend back).
+private final class TouchSensorView: NSView {
+    var onActiveChanged: ((Bool) -> Void)?
+    private var lastActive = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        allowedTouchTypes = [.indirect]
+        wantsRestingTouches = true
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        allowedTouchTypes = [.indirect]
+        wantsRestingTouches = true
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func touchesBegan(with event: NSEvent) { recompute(event) }
+    override func touchesMoved(with event: NSEvent) { recompute(event) }
+    override func touchesEnded(with event: NSEvent) { recompute(event) }
+    override func touchesCancelled(with event: NSEvent) { recompute(event) }
+
+    private func recompute(_ event: NSEvent) {
+        let active = !event.touches(matching: .touching, in: self).isEmpty
+        guard active != lastActive else { return }
+        lastActive = active
+        onActiveChanged?(active)
+    }
 }
 
 /// `NSPanel` subclass that overrides `canBecomeKey` to return true. Without
