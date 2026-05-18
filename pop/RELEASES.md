@@ -15,6 +15,7 @@ Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA*
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancenwaltz.mp3 (320 k mp3 of the bright master, 86.62 s)
   - cover · https://assets.aesthetic.computer/pop/trancenwaltz.jpg (3000², outro art)
+  - canvas · https://assets.aesthetic.computer/pop/trancenwaltz-canvas.mp4 (Spotify Canvas — 1080×1920, 6 s, **silent**, seamless loop, **chrome-free**, slit-scan glitch montage of all 8 section illys)
   - Reconstructable byte-faithfully any time: `trance.mjs --meter 3 --vocal-stem pop/dance/out/trance-hook-layered.mp3 --master` (deterministic seed `trancewaltz`) → brightening polish (high-shelf 8.5 k +4, presence 4.2 k +2.2, sparkle 12.5 k +1.8, 190 Hz −1, `loudnorm I=-14 TP=-1.2 LRA=13`) → 320 k mp3; cover = outro v15 `-gravity North -crop 1024x1024+0+96 → 3000²`. (Desktop copies are auto-cleaned — see [[feedback_desktop_autocleaned]]; CDN + repo `assets/pop/` are the durable home.)
 - **Master:** `~/Desktop/trancenwaltz-MASTER.wav` (= `-FINAL-distrokid.wav`)
   — 16-bit/44.1 kHz stereo WAV, 86.62 s. **Bright master:** −13.5 LUFS,
@@ -35,6 +36,26 @@ Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA*
   (deterministic seed `"trancewaltz"`); video `pop/dance/bin/cover-video.mjs`;
   build orchestrator `pop/dance/bin/build.mjs`.
 
+### Spotify for Artists assets ("aesthetic computer")
+
+Managed in **artists.spotify.com**, NOT DistroKid (DistroKid only sets
+the release cover + audio). Claim the profile once trancenwaltz is live;
+DistroKid has a "request Spotify for Artists" shortcut for new artists.
+
+- avatar · https://assets.aesthetic.computer/pop/ac-spotify-avatar.jpg —
+  3000², PALS mark sub-surface-laser-etched in a clear faceted crystal on
+  a near-black studio ground; reads at the small circular crop. Campaign
+  `~/Documents/Working Desktop/gens/ac-avatar/` (gen-promo `--no-jeffrey`,
+  pals-logo.png ref).
+- canvas (per-track, 9:16, silent, 3–8 s loop) — see each track's
+  `canvas ·` CDN line. **Canvas is a first-class build format:**
+  `pop/dance/bin/canvas-loop.mjs` (chrome-free by construction — no
+  title/progress/timecode/pals/karaoke/lanes/string/disc), wired into
+  `build.mjs` formats as `{ suffix:"canvas", canvas:true, dur:6 }`.
+  Rapid slit-scan glitch montage through every section illy, seamless
+  single-pass loop (no `reverse`/`concat` — safe on 8 GB).
+- header (2660×1140, subject clear of lower-left) — **TODO**, concept TBD.
+
 ## trancenwaltzi — RENDER (not yet released)
 
 - **Lane:** `pop/dance/` · chill mix (`--mode chill --meter 3`), ~3:00,
@@ -45,6 +66,9 @@ Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA*
   smooth fade ending; lightbox/stained-glass backlight (face+laptop).
 - **Outputs:** `~/Desktop/trancenwaltzi-iter.mp4` (square),
   `~/Desktop/trancenwaltzi-vertical.mp4` (IG-story)
+- **Canvas (staged early):** https://assets.aesthetic.computer/pop/trancenwaltzi-canvas.mp4
+  — same `canvas-loop.mjs` model (v25p happy-arc portrait set). Not
+  uploadable to Spotify until the track is released.
 - **Next:** review cuts → pick cover → master (apply the same bright
   polish learned from trancenwaltz) → DistroKid.
 

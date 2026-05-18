@@ -102,6 +102,16 @@ const CONFIGS = {
         variant: "v15", // 1024x1536 portrait — degradation arc: apple peeks through scrap, pals only on backsides, green war-guilt drones, whistlegraph→robotic-nightmare morph
         prelude: `${SECDIR_ROOT}/trancenwaltz-sections/intro-prelude/gens/v15.png`,
       },
+      {
+        // Spotify Canvas: chrome-free, SILENT, 9:16, rapid cycle through
+        // every section illy → seamless 6 s loop. Rendered by
+        // canvas-loop.mjs (NOT cover-video.mjs — no chrome at all).
+        suffix: "canvas",
+        size: "1080x1920",
+        variant: "v15",
+        canvas: true,
+        dur: 6,
+      },
     ],
   },
   trancenwaltzi: {
@@ -116,6 +126,14 @@ const CONFIGS = {
         size: "1500x1500",
         variant: "v16", // photographic calm Trader Joe's shop w/ pixie crew
         prelude: null, // chill mix has no greeting → no prelude swap
+      },
+      {
+        // Same Canvas model — staged for when trancenwaltzi releases.
+        suffix: "canvas",
+        size: "1080x1920",
+        variant: "v25p", // latest happy-arc portrait set
+        canvas: true,
+        dur: 6,
       },
     ],
   },
@@ -186,21 +204,33 @@ if (!flags["audio-only"]) {
       ? videoOut.replace(/\.mp4$/, `-${fmt.suffix}.mp4`)
       : videoOut;
     if (fmt.suffix) extraOutputs[fmt.suffix] = out;
-    const cmd = [
-      "node", `${REPO}/pop/dance/bin/cover-video.mjs`,
-      "--track", audioOut,
-      "--illustration", introIllus,
-      "--illustrations", ILLUS_MAP,
-      "--title", CFG.title,
-      "--bpm", CFG.bpm,
-      "--size", fmt.size,
-      "--out", out,
-    ];
-    if (fmt.prelude && !flags["no-prelude"] && existsSync(fmt.prelude)) {
-      cmd.push("--prelude", fmt.prelude);
-    }
-    if (CFG.hideLanes) {
-      cmd.push("--hide-lanes", CFG.hideLanes);
+    let cmd;
+    if (fmt.canvas) {
+      // Spotify Canvas — its own renderer, no audio/chrome at all.
+      cmd = [
+        "node", `${REPO}/pop/dance/bin/canvas-loop.mjs`,
+        "--illustrations", ILLUS_MAP,
+        "--size", fmt.size,
+        "--dur", String(fmt.dur || 6),
+        "--out", out,
+      ];
+    } else {
+      cmd = [
+        "node", `${REPO}/pop/dance/bin/cover-video.mjs`,
+        "--track", audioOut,
+        "--illustration", introIllus,
+        "--illustrations", ILLUS_MAP,
+        "--title", CFG.title,
+        "--bpm", CFG.bpm,
+        "--size", fmt.size,
+        "--out", out,
+      ];
+      if (fmt.prelude && !flags["no-prelude"] && existsSync(fmt.prelude)) {
+        cmd.push("--prelude", fmt.prelude);
+      }
+      if (CFG.hideLanes) {
+        cmd.push("--hide-lanes", CFG.hideLanes);
+      }
     }
     videoCmds.push({ kind: fmt.suffix || "square", out, cmd, fmt });
   }
