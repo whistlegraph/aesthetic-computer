@@ -1,9 +1,10 @@
 # solafiya — spicy latina jungle (raggasol edition for fía). key A.
 #
-# Tempo 165 BPM, felt half-time (~82). Each *4 = one 4/4 bar.
+# Tempo 176 BPM, felt half-time (~88). Each *4 = one 4/4 bar.
 # "_" notes are chord roots; the renderer builds sub + pad + skank from
 # them and runs the hybrid AC-kit break over the top. Section markers
-# gate which layers fire. 56 bars ≈ 1:21 + tail.
+# gate which layers fire. EXTENDED to ~72 bars (~98s) so all THREE
+# verses play SEQUENTIALLY (no layered/overlapped vocals).
 #
 # 4-bar sunlit cell: A · F# · D · E  (vi-ish → bright IV → V lift)
 
@@ -13,14 +14,16 @@ A3:_*4 A3:_*4 F#3:_*4 E3:_*4
 # roll-in 8 [break, sub, meows, marimba, scratch]
 A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
 
-# drop 1 16 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell, meows, marimba, sineloop, shrill, throat]
+# drop 1 24 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell, meows, marimba, sineloop, shrill, throat]
+A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
 A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
 A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
 
 # dub-break 8 [sub, pad, no-break, bell, meows, scratch, sineloop, throat]
 D3:_*4 D3:_*4 E3:_*4 E3:_*4 D3:_*4 D3:_*4 E3:_*4 E3:_*4
 
-# drop 2 16 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell, meows, marimba, sineloop, shrill, throat]
+# drop 2 24 [break, break-stab, sub, skank, pad, siren, airhorn, guns, dings, bell, meows, marimba, sineloop, shrill, throat]
+A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
 A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
 A3:_*4 F#3:_*4 D3:_*4 E3:_*4 A3:_*4 F#3:_*4 D3:_*4 E3:_*4
 

@@ -23,8 +23,15 @@ import { createCanvas, loadImage } from "canvas";
 import {
   checkYwftAvailable, decodeAudioMono, computeRmsEnvelope,
   prerenderTitleChars, drawCoverKenBurns, drawTitleBounce,
-  spawnFFmpegEncode, AUDIO_SR_DEFAULT, YWFT_PATH, magickMeasureWidth,
+  spawnFFmpegEncode, AUDIO_SR_DEFAULT, magickMeasureWidth,
+  setPreviewFont, getPreviewFont,
 } from "../../lib/preview-shared.mjs";
+
+// girly, less-"computery" type for this track (variable type — the
+// shared pipeline picks the face; everything below follows it).
+// cute but LEGIBLE — rounded Chalkboard, not a script face.
+setPreviewFont(process.env.PREVIEW_FONT || "rounded");
+const FONT = getPreviewFont();
 
 // local YWFT word raster — uses the same `-annotate` path prerenderTitle
 // uses (works), NOT magickRenderText's brittle -shadow clone chain.
@@ -34,7 +41,7 @@ async function renderWordYWFT(txt, pt, outPath) {
   const h = Math.ceil(pt * 1.7);
   const by = Math.ceil(pt * 1.25);
   const r = spawnSync("magick", [
-    "-size", `${w}x${h}`, "xc:none", "-font", YWFT_PATH, "-pointsize", String(pt),
+    "-size", `${w}x${h}`, "xc:none", "-font", FONT, "-pointsize", String(pt),
     "-fill", "rgba(0,0,0,0.82)", "-annotate", `+23+${by + 4}`, txt,
     "-fill", "#fff7d8", "-annotate", `+20+${by}`, txt, outPath,
   ]);
@@ -52,7 +59,7 @@ async function renderTcPlate(txt, pt, fillCss, outPath) {
   const h = Math.ceil(pt * 1.7);
   const by = Math.ceil(pt * 1.25);
   const r = spawnSync("magick", [
-    "-size", `${w}x${h}`, "xc:none", "-font", YWFT_PATH, "-pointsize", String(pt),
+    "-size", `${w}x${h}`, "xc:none", "-font", FONT, "-pointsize", String(pt),
     "-fill", fillCss, "-annotate", `+12+${by}`, txt, outPath,
   ]);
   if (r.status !== 0) throw new Error(`YWFT tc render failed: ${txt}`);
@@ -81,8 +88,8 @@ const TAG   = PORTRAIT ? "-portrait" : "";
 const SIZE  = flags.size || (PORTRAIT ? "1080x1920" : "1080x1080");
 const FPS   = Number(flags.fps ?? 30);
 const TITLE = String(flags.title || SLUG);
-// captions OFF by default (cute spin) — pass --lyrics to bring them back.
-const SHOW_LYRICS = flags.lyrics === true;
+// KARAOKE on by default now (real lyrics) — pass --no-lyrics to drop.
+const SHOW_LYRICS = flags["no-lyrics"] !== true;
 const [W, H] = SIZE.split("x").map(Number);
 
 const STRUCT = `${LANE}/out/${SLUG}.struct.json`;
@@ -153,19 +160,40 @@ let LW = [];
 if (SHOW_LYRICS && existsSync(WORDS) && existsSync(VMAP)) {
   const raw = JSON.parse(readFileSync(WORDS, "utf8"));
   const m = JSON.parse(readFileSync(VMAP, "utf8"));
-  const OFF = m.startSec || 0, ST = m.stretch || 1;
-  const lyPt = Math.round(W * 0.066);
+  // per-voice timebase maps (duet). fall back to the flat map = Voice A.
+  const mapFor = (v) => (v === "B" && m.B) ? m.B
+                      : (v === "A" && m.A) ? m.A
+                      : { startSec: m.startSec || 0, stretch: m.stretch || 1 };
+  const lyPt = Math.round(W * 0.115);   // MUCH larger — read it clearly
   const cache = new Map();
   for (const w of raw) {
     const txt = String(w.word || "").trim().toLowerCase();
     if (!txt) continue;
+    const voice = w.voice === "B" ? "B" : "A";
+    const mp = mapFor(voice);
     if (!cache.has(txt)) {
       cache.set(txt, await renderWordYWFT(txt, lyPt,
         `${LANE}/out/.${SLUG}-ly/${txt.replace(/[^a-z0-9]/g, "_") || "x"}.png`));
     }
-    LW.push({ img: cache.get(txt), t0: OFF + w.start * ST, t1: OFF + w.end * ST });
+    LW.push({ img: cache.get(txt), voice,
+              t0: mp.startSec + w.start * mp.stretch,
+              t1: mp.startSec + w.end * mp.stretch,
+              line: Number.isFinite(w.line) ? w.line : 0 });
   }
 }
+// group karaoke words into lines, per VOICE (the duet shows two lines)
+function buildKlines(voice) {
+  const byLine = [];
+  for (const w of LW) {
+    if (w.voice !== voice) continue;
+    (byLine[w.line] || (byLine[w.line] = [])).push(w);
+  }
+  return byLine.filter(Boolean).map((ws) => ({
+    ws, t0: Math.min(...ws.map((w) => w.t0)), t1: Math.max(...ws.map((w) => w.t1)),
+  }));
+}
+const KLINE_A = buildKlines("A");
+const KLINE_B = buildKlines("B");
 
 const canvas = createCanvas(W, H);
 const ctx = canvas.getContext("2d");
@@ -198,10 +226,19 @@ const KB = { baseScale: 1.10, breathAmp: 0.03, breathPeriodSec: 34, env: 0, wobb
 const drawSecKB = (img, tt) => drawCoverKenBurns(ctx, img, tt, KB);
 const CROSSFADE = 1.6;                               // slow soft morph (s)
 
+// kawaii cat-morph STICKERS — one per section, pasted into the graphic
+// layer (lower-left, above the bar), bobbing, crossfading like the illos.
+const stickers = [];
+for (let i = 0; i < sections.length; i++) {
+  const sp = `${LANE}/out/stickers/sec${i}.png`;
+  stickers.push(existsSync(sp) ? await loadImage(sp) : null);
+}
+const STK = Math.round(W * 0.26);
+
 // ── timecode — inherited verbatim from the undabeach / waltz vertical:
 // per-second YWFT plate, recolored to the current section tint (ramps
 // toward white across the section) with a hard black drop-shadow plate.
-const TC_PT = Math.round(W * 0.052);
+const TC_PT = Math.round(W * 0.086);   // same size as the title
 const tcCache = new Map();
 {
   const totMm = Math.floor(DURATION / 60);
@@ -335,19 +372,108 @@ for (let f = 0; f < FRAMES; f++) {
     charDelay: 0.03, bounceAmp: 30, restAlpha: 0.68, glowThreshold: 0.55, glowMax: 12, wobbleAmp: 2,
   });
 
-  // current lyric word — YWFT, centred, soft fade (cute, no scramble)
-  if (LW.length) {
-    let cur = null;
-    for (const w of LW) { if (t >= w.t0 - 0.05 && t <= w.t1 + 0.35) { cur = w; break; } }
-    if (cur && cur.img) {
-      const span = cur.t1 - cur.t0;
-      const u = (t - cur.t0) / Math.max(0.12, span + 0.35);
-      const a = Math.max(0, Math.min(1, Math.min(u * 6, (1 - u) * 4)));
-      const iw = cur.img.width, ih = cur.img.height;
-      const ly = Math.round(H * 0.84);
-      ctx.globalAlpha = 0.92 * a;
-      ctx.drawImage(cur.img, Math.round(W / 2 - iw / 2), ly - Math.round(ih / 2));
-      ctx.globalAlpha = 1;
+  // KARAOKE — ONE tight SCROLLING row (minimal vertical space). the
+  // line slides so the word being sung stays centred; words light up as
+  // sung, the current word pops + glows. legible cute font, not script.
+  const drawKaraoke = (KL, yFrac, sizeMul, glow) => {
+    if (!KL.length) return;
+    let li = -1;
+    for (let k = 0; k < KL.length; k++) {
+      if (t >= KL[k].t0 - 0.5 && t <= KL[k].t1 + 1.1) { li = k; break; }
+    }
+    if (li < 0) return;
+    const L = KL[li], ws = L.ws;
+    const wordH = Math.max(...ws.map((w) => w.img.height)) * sizeMul;
+    const gp = Math.round(wordH * 0.10);                 // TIGHT spacing
+    // lay the whole line on one row; record each word's centre x.
+    const cx = []; let x = 0;
+    for (let i = 0; i < ws.length; i++) {
+      const iw = ws[i].img.width * sizeMul;
+      cx.push(x + iw / 2);
+      x += iw + gp;
+    }
+    // smooth scroll: interpolate the focus x between word centres by time.
+    let focus = cx[0];
+    if (t <= ws[0].t0) focus = cx[0];
+    else if (t >= ws[ws.length - 1].t1) focus = cx[ws.length - 1];
+    else for (let i = 0; i < ws.length; i++) {
+      if (t >= ws[i].t0 && (i === ws.length - 1 || t < ws[i + 1].t0)) {
+        const span = Math.max(0.05, (ws[i + 1]?.t0 ?? ws[i].t1) - ws[i].t0);
+        const f = Math.max(0, Math.min(1, (t - ws[i].t0) / span));
+        focus = cx[i] + (((cx[i + 1] ?? cx[i]) - cx[i]) * f);
+        break;
+      }
+    }
+    const scrollX = W / 2 - focus;
+    const lineFade = Math.max(0, Math.min(1,
+      Math.min((t - (L.t0 - 0.5)) * 3, ((L.t1 + 1.1) - t) * 2)));
+    const cyRow = Math.round(H * yFrac);
+    x = 0;
+    for (let i = 0; i < ws.length; i++) {
+      const w = ws[i];
+      const iw = w.img.width * sizeMul, ih = w.img.height * sizeMul;
+      const px = x + scrollX;
+      x += iw + gp;
+      if (px + iw < -20 || px > W + 20) continue;         // cull off-screen
+      const sung = t >= w.t0 - 0.04;
+      const isCur = t >= w.t0 - 0.04 && t <= w.t1 + 0.22;
+      const pop = isCur ? 1.18 : 1.0;
+      const a = (sung ? 1.0 : 0.28) * lineFade;
+      ctx.save();
+      ctx.globalAlpha = a;
+      if (isCur) { ctx.shadowColor = glow; ctx.shadowBlur = 28; }
+      const dw = iw * pop, dh = ih * pop;
+      ctx.drawImage(w.img, Math.round(px + iw / 2 - dw / 2),
+                    Math.round(cyRow - dh / 2), Math.round(dw), Math.round(dh));
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  };
+  // single voice (sequential verses) — one tight scrolling line, low.
+  drawKaraoke(KLINE_B, 0.50, 1.0, "rgba(120,225,255,0.9)");
+  drawKaraoke(KLINE_A, 0.80, 1.0, "rgba(255,120,200,0.9)");
+
+  // kawaii cat-morph sticker — a DIFFERENT spot each segment, ANIMATED:
+  // pops in, bobs, wiggles, and pulses to the beat; crossfades (hops)
+  // from the previous spot to the new one at each section boundary.
+  {
+    // safe anchors (centre of the sticker, as W/H fractions) — kept off
+    // the face, the title (top-left), the timecode (btm-right), the
+    // karaoke line (~0.785H) and the progress bar.
+    const SPOTS = [
+      [0.165, 0.70],  // sec0 lower-left
+      [0.825, 0.34],  // sec1 right-mid
+      [0.820, 0.165], // sec2 upper-right
+      [0.165, 0.40],  // sec3 left-mid
+      [0.830, 0.205], // sec4 upper-right
+      [0.170, 0.70],  // sec5 lower-left
+    ];
+    const ssi = sectionIndexAt(t);
+    const ss = sections[ssi];
+    const tss = t - (ss?.startSec ?? 0);
+    const beat = 1 + 0.12 * envAt(t);                    // pulse to the music
+    const hop = Math.max(0, Math.min(1, tss / 0.5));     // snappy sticker hop
+    const drawStk = (img, a, idx, fresh) => {
+      if (!img || a <= 0.001) return;
+      const [fx, fy] = SPOTS[idx % SPOTS.length];
+      const cx = fx * W, cy = fy * H;
+      const appear = fresh ? hop : 1;                     // incoming pops; old stays full
+      const overshoot = fresh ? 1 + 0.22 * Math.sin(Math.min(1, tss / 0.42) * Math.PI) : 1;
+      const bob = Math.sin(t * 2.4 + idx) * (STK * 0.045);
+      const wob = Math.sin(t * 3.1 + idx * 1.7) * 0.085;  // wiggle
+      const sz = STK * (0.5 + 0.5 * appear) * overshoot * beat;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, a);
+      ctx.translate(cx, cy + bob);
+      ctx.rotate(wob);
+      ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
+      ctx.restore();
+    };
+    if (hop < 1 && ssi > 0) {
+      drawStk(stickers[ssi - 1], 1 - hop, ssi - 1, false); // old hops out (full size)
+      drawStk(stickers[ssi], hop, ssi, true);              // new pops in
+    } else {
+      drawStk(stickers[ssi], 1, ssi, true);
     }
   }
 

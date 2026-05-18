@@ -58,10 +58,15 @@ const DEFAULTS = {
   solfia:    { style: "ragga",     bpm: 165, transpose: 0,
                wordmark: "solfía",
                title: "solfía · fía — spicy latina jungle" },
-  solafiya:  { style: "ragga",     bpm: 165, transpose: 0,
-               wordmark: "solafiya", artist: "Aesthetic.Computer",
+  solafiya:  { style: "ragga",     bpm: 176, transpose: 0,
+               wordmark: "solafiya", artist: "fía", label: "Aesthetic.Computer",
                title: "solafiya", vibe: "hardcore-cute",
-               vocal: "/Users/jas/Documents/Working Desktop/gens/Circuito Coto Amate 2.m4a", vocalBar: 0 },
+               // THREE verses, played SEQUENTIALLY (no layering/overlap) —
+               // the arrangement was extended so they fit naturally.
+               vocal:  "/Users/jas/Documents/Working Desktop/gens/Circuito Coto Amate 2.m4a",
+               vocal2: "/Users/jas/Documents/Working Desktop/gens/Circuito Coto Amate 3.m4a",
+               vocal3: "/Users/jas/Documents/Working Desktop/gens/Circuito Coto Amate 4.m4a",
+               vocalBar: 0 },
 };
 
 // ── args ──────────────────────────────────────────────────────────────
@@ -323,6 +328,10 @@ function render(slug) {
     sineloop: new Float32Array(LEN),
     shrill:  new Float32Array(LEN),
     throat:  new Float32Array(LEN),
+    vroom:   new Float32Array(LEN),   // car engine vroom-vrooms (her E430)
+    vocalAd: new Float32Array(LEN),   // up-front re-pitched vocal ad-libs + scratches
+    impact:  new Float32Array(LEN),   // drop boom / riser drama
+    vocalDuet: new Float32Array(LEN), // Voice B — duet partner (verse 3)
     vocal:   new Float32Array(LEN),
     vocalH:  new Float32Array(LEN),   // her stacked harmonies (own bus/space)
     vshadow: new Float32Array(LEN),
@@ -354,7 +363,7 @@ function render(slug) {
   // ── humanize: swing the offbeat 16ths, jitter timing + velocity so
   // the hands sound played, not gridded. seeded → reproducible.
   const hrng = makeRng(`jungle:${slug}:human`);
-  const SWING = STYLE === "rollers" ? 0.06 : 0.12;   // odd-16th push (rollers smoother)
+  const SWING = HC ? 0.20 : STYLE === "rollers" ? 0.06 : 0.12;   // HC: laid-back hip-hop headnod
   function humT(t, step) {
     let o = (Math.floor(step) % 2 === 1) ? stepSec * SWING : 0;  // swing
     o += (hrng() * 2 - 1) * 0.007;                                // ±7 ms hand jitter
@@ -428,13 +437,15 @@ function render(slug) {
           kickTimes.push(t);
         }
         if (pat.S[st]) { hit("d", t, humV(thin ? 0.72 : 1.06)); if (!thin) snareTing(t, 0.95); }
-        if (danger && pat.s[st] && rng() < 0.38) hit("d", t, humV(0.18 + rng() * 0.10)); // ghost (sparse)
-        if (pat.H[st]) {
-          const v = ((st % 4 === 0) ? 0.24 : 0.15) + rng() * 0.09;
+        // HC = simpler boom-bap / hip-hop pocket (LESS rock): no busy
+        // ghost-snare chatter, hats only on the quarter, no ride wash.
+        if (!HC && danger && pat.s[st] && rng() < 0.38) hit("d", t, humV(0.18 + rng() * 0.10)); // ghost (sparse)
+        if (pat.H[st] && (!HC || st % 4 === 0)) {
+          const v = ((st % 4 === 0) ? (HC ? 0.30 : 0.24) : 0.15) + rng() * 0.09;
           hit("g", t, humV(thin ? v * 0.55 : v));
         }
-        if (danger && pat.O[st]) hit("a", t, humV(0.40));
-        if (danger && pat.R[st]) hit("b", t, humV(0.28 + rng() * 0.08));
+        if (!HC && danger && pat.O[st]) hit("a", t, humV(0.40));
+        if (danger && pat.R[st] && (!HC || st === 8)) hit("b", t, humV(0.28 + rng() * 0.08));
       }
       // hardcore-cute: a STRAIGHT four-on-floor womp-kick under the
       // chopped break → dancy drive + the womping bass kicks. full break
@@ -707,6 +718,61 @@ function render(slug) {
                 volume: 0.18 * gain, attack: 0.01, decay: 0.5 });
     }
   }
+  // car "vroom vroom" — her E430. saw+square engine with a rev pitch
+  // envelope + grit, two revs. lands in its own stem.
+  function vroom(t, gain, revs = 2) {
+    let p = t;
+    for (let r = 0; r < revs; r++) {
+      const i0 = Math.floor(p * SAMPLE_RATE), dur = 0.42 + hrng() * 0.10;
+      const n = Math.floor(dur * SAMPLE_RATE);
+      let ph1 = 0, ph2 = 0;
+      for (let i = 0; i < n; i++) {
+        const idx = i0 + i; if (idx < 0 || idx >= LEN) break;
+        const x = i / n;
+        const f = 58 + 150 * Math.sin(Math.PI * Math.min(1, x * 1.25)); // rev up then ease
+        ph1 += (2 * Math.PI * f) / SAMPLE_RATE;
+        ph2 += (2 * Math.PI * f * 1.503) / SAMPLE_RATE;
+        const saw = (ph1 / Math.PI % 2) - 1;
+        const sq = Math.sin(ph2) >= 0 ? 0.5 : -0.5;
+        const grit = (noiseRng() * 2 - 1) * 0.22;
+        const env = Math.min(1, x * 8) * Math.min(1, (1 - x) * 4);
+        let s = (saw * 0.7 + sq * 0.4 + grit) * env * gain;
+        s = Math.tanh(s * 2.4) * 0.7;                 // engine drive
+        stem.vroom[idx] += s;
+      }
+      p += dur * 0.92;
+    }
+  }
+  // riser — filtered noise + rising sine sweeping UP into a drop.
+  function riser(t, dur, gain) {
+    const i0 = Math.floor(t * SAMPLE_RATE), n = Math.floor(dur * SAMPLE_RATE);
+    let ph = 0, lp = 0;
+    for (let i = 0; i < n; i++) {
+      const idx = i0 + i; if (idx < 0 || idx >= LEN) break;
+      const x = i / n;
+      const f = 180 * Math.pow(2200 / 180, x);        // sweep up
+      ph += (2 * Math.PI * f) / SAMPLE_RATE;
+      const nz = (noiseRng() * 2 - 1);
+      const a = 1 - Math.exp(-2 * Math.PI * (300 + 6000 * x) / SAMPLE_RATE);
+      lp += a * (nz - lp);
+      const env = x * x;                               // accelerate in
+      stem.impact[idx] += (Math.sin(ph) * 0.5 + lp * 0.9) * env * gain;
+    }
+  }
+  // impact — the DROP. sub boom (pitch-drop) + a bright noise smack.
+  function impact(t, gain) {
+    const i0 = Math.floor(t * SAMPLE_RATE), n = Math.floor(0.55 * SAMPLE_RATE);
+    let ph = 0;
+    for (let i = 0; i < n; i++) {
+      const idx = i0 + i; if (idx < 0 || idx >= LEN) break;
+      const x = i / n;
+      const f = 150 * Math.pow(34 / 150, Math.min(1, x * 2.2)); // 150→34 Hz
+      ph += (2 * Math.PI * f) / SAMPLE_RATE;
+      stem.impact[idx] += Math.sin(ph) * Math.exp(-3.4 * x) * 1.25 * gain;
+    }
+    const s = makeBufferSynth(stem.impact, t, SAMPLE_RATE, noiseRng);
+    s.synth({ type: "noise", tone: 5200, duration: 0.05, volume: 0.55 * gain, attack: 0.0004, decay: 0.05 });
+  }
   function churchBell(t, midi, gain) {                  // big tolling bell
     const f = midiToFreq(midi);
     // classic bell partials — the minor-third "tierce" (~1.19) is what
@@ -789,9 +855,33 @@ function render(slug) {
     const fl = s.flags.size ? s.flags : STYLE_DEFAULT;
     const len = s.endSec - s.startSec;
     if (on(fl, "siren")) {
-      dubSiren(s.startSec + 0.05, 1.2, 460, 1400, 5, 0.13);              // one rising whoop
-      if (len > 12 && hrng() < 0.5)
-        dubSiren(s.startSec + len * 0.6, 1.2, 700, 360, 6, 0.09);        // rare falling wail
+      dubSiren(s.startSec + 0.05, 1.2, 460, 1400, 5, HC ? 0.17 : 0.13);  // rising whoop
+      if (len > 12 && (HC || hrng() < 0.5))
+        dubSiren(s.startSec + len * 0.6, 1.2, 700, 360, 6, HC ? 0.13 : 0.09); // falling wail
+      if (HC) {                                                          // more sirens — peppered through
+        const sbars = Math.max(1, Math.round(len / barSec));
+        for (let b = 2; b < sbars; b += 3) {
+          const up = hrng() < 0.5;
+          dubSiren(humT(s.startSec + b * barSec + 8 * stepSec, 8), 0.9 + hrng() * 0.5,
+                   up ? 520 : 1300, up ? 1500 : 420, 5 + hrng() * 3, 0.10 + hrng() * 0.05);
+        }
+      }
+    }
+    // car "vroom vroom" — she arrives (intro) + revs into the drops.
+    if (HC) {
+      const isIntro = s === score.sections[0];
+      const nextS = score.sections[score.sections.indexOf(s) + 1];
+      if (isIntro) vroom(s.startSec + 0.10, 0.42, 2);                    // arrival
+      if (s.name === "drop 1" || s.name === "drop 2") {
+        vroom(s.startSec + 0.02, 0.40, 2);                               // rev on the drop
+        if (len > 16) vroom(s.startSec + len * 0.5, 0.30, 1);
+      }
+      // DROP DRAMA: riser through the last ~1.6s of the section that
+      // leads into a drop, then a big impact boom on the drop downbeat.
+      if (nextS && (nextS.name === "drop 1" || nextS.name === "drop 2")) {
+        riser(Math.max(s.startSec, s.endSec - 1.7), 1.7, 0.34);
+        impact(nextS.startSec + 0.002, 0.95);
+      }
     }
     if (fl.has("airhorn") && hrng() < 0.5) airhorn(s.startSec + 0.02, 0.9);
     if (fl.has("guns")) salute(s.startSec + 0.04, 0.85);                 // one salute at the drop
@@ -834,15 +924,18 @@ function render(slug) {
       const fire = (t, k, g) => meow(t, k.s, g, k.d,
         { semiEnd: typeof k.e === "function" ? k.e() : k.e, stretch: k.st });
       const mbars = Math.max(1, Math.round(len / barSec));
+      // WAY more kitty meows when HC — a near-constant kitten chatter.
+      const mewSlots = HC ? [2, 3, 4, 6, 7, 9, 10, 12, 13, 14] : [3, 4, 7, 10, 12, 14];
       for (let b = 0; b < mbars; b++) {
-        const mewN = hrng() < 0.88 ? (hrng() < 0.35 ? 2 : 1) : 0;
+        const mewN = HC ? (3 + Math.floor(hrng() * 3))                 // 3–5 / bar
+                        : (hrng() < 0.88 ? (hrng() < 0.35 ? 2 : 1) : 0);
         for (let q = 0; q < mewN; q++) {
-          const st = [3, 4, 7, 10, 12, 14][Math.floor(hrng() * 6)];
+          const st = mewSlots[Math.floor(hrng() * mewSlots.length)];
           fire(humT(s.startSec + b * barSec + st * stepSec, st), mewKind(), 0.55 + hrng() * 0.30);
         }
-        // phrase-end kitten chorus — a scatter of mixed kinds, layered
-        if (b % 8 === 7) {
-          const k = 4 + Math.floor(hrng() * 4);
+        // phrase-end kitten chorus — bigger + more often when HC
+        if (b % (HC ? 4 : 8) === (HC ? 3 : 7)) {
+          const k = (HC ? 7 : 4) + Math.floor(hrng() * 4);
           for (let j = 0; j < k; j++) {
             fire(s.startSec + b * barSec + (12 + j * 0.7) * stepSec + (hrng() - 0.5) * 0.04,
                  mewKind(), 0.45 + hrng() * 0.35);
@@ -963,28 +1056,48 @@ function render(slug) {
   // layers (a fifth up, a fourth down). same family as the other pop
   // vocal sections (WORLD + rubberband + stacked harmonies).
   if (def.vocal && !SOLO) {
-    const vpath = def.vocal.startsWith("~")
-      ? resolve(homedir(), def.vocal.slice(2)) : def.vocal;
-    if (existsSync(vpath)) {
+    const rsv = (p) => p && (p.startsWith("~") ? resolve(homedir(), p.slice(2)) : p);
+    // ALL verses, played SEQUENTIALLY (no layering) — concatenated with
+    // a short breath gap between each, before the (gentle) stretch.
+    const verses = [def.vocal, def.vocal2, def.vocal3]
+      .map(rsv).filter((p) => p && existsSync(p));
+    const vpath = verses[0];
+    if (vpath) {
       const clean = `/tmp/_solafiya_voc_clean.wav`;
       const stre  = `/tmp/_solafiya_voc_stretch.wav`;
-      spawnSync("ffmpeg", [
-        "-hide_banner", "-loglevel", "error", "-y", "-i", vpath,
-        "-af", "highpass=f=110," +                       // kill plosive thump/pops
-               "adeclick,adeclip," +                      // detect+remove spikes/clicks
-               `afftdn=nr=${HC ? 22 : 17},` +              // HC: more air/hiss out
-               "agate=threshold=0.012:ratio=3:attack=6:release=220:knee=3," + // breath between phrases
-               "acompressor=threshold=-24dB:ratio=5:attack=4:release=140:makeup=8," +
-               "acompressor=threshold=-14dB:ratio=4:attack=2:release=80:makeup=2," +
-               `deesser=i=${HC ? 0.55 : 0.4},` +           // tame sibilance / hiss-air
-               "equalizer=f=2700:t=q:w=1.5:g=2.6," +       // presence = clarity (not air)
-               `treble=g=${HC ? -5.5 : -3.5}:f=8500,` +    // HC: shelve the airy fizz harder
-               "alimiter=limit=0.96",
-        "-ar", "48000", "-ac", "1", clean,
-      ], { stdio: "ignore" });
+      const CHAIN =
+        "highpass=f=110," +                              // kill plosive thump/pops
+        "adeclick,adeclip," +                            // detect+remove spikes/clicks
+        `afftdn=nr=${HC ? 22 : 17},` +                   // HC: more air/hiss out
+        "agate=threshold=0.012:ratio=3:attack=6:release=220:knee=3," + // breath between phrases
+        "acompressor=threshold=-24dB:ratio=5:attack=4:release=140:makeup=8," +
+        "acompressor=threshold=-14dB:ratio=4:attack=2:release=80:makeup=2," +
+        `deesser=i=${HC ? 0.55 : 0.4},` +                // tame sibilance / hiss-air
+        "equalizer=f=2700:t=q:w=1.5:g=2.6," +            // presence = clarity (not air)
+        `treble=g=${HC ? -5.5 : -3.5}:f=8500,` +         // HC: shelve the airy fizz harder
+        "alimiter=limit=0.96";
+      let ffArgs;
+      if (verses.length > 1) {
+        const ins = verses.flatMap((p) => ["-i", p]);
+        // pad every verse but the last with a 0.40s breath, then concat.
+        const labs = [];
+        let pre = "";
+        for (let i = 0; i < verses.length; i++) {
+          if (i < verses.length - 1) { pre += `[${i}:a]apad=pad_dur=0.40[a${i}];`; labs.push(`[a${i}]`); }
+          else labs.push(`[${i}:a]`);
+        }
+        ffArgs = ["-hide_banner", "-loglevel", "error", "-y", ...ins,
+          "-filter_complex", `${pre}${labs.join("")}concat=n=${verses.length}:v=0:a=1,${CHAIN}[o]`,
+          "-map", "[o]", "-ar", "48000", "-ac", "1", clean];
+      } else {
+        ffArgs = ["-hide_banner", "-loglevel", "error", "-y", "-i", vpath,
+          "-af", CHAIN, "-ar", "48000", "-ac", "1", clean];
+      }
+      spawnSync("ffmpeg", ffArgs, { stdio: "ignore" });
+      console.log(`  fía vocal · ${verses.length} verse(s) concatenated sequentially`);
 
       // slow-stretch (pitch-preserving) to span the track from bar 0
-      let dur = 31.9;
+      let dur = verses.length * 30;                  // fallback only
       const pr = spawnSync("ffprobe", ["-v", "error", "-show_entries",
         "format=duration", "-of", "default=nw=1:nk=1", clean], { encoding: "utf8" });
       if (pr.status === 0) dur = parseFloat(pr.stdout.trim()) || dur;
@@ -1004,6 +1117,7 @@ function render(slug) {
       ];
       const startIdx = Math.floor((def.vocalBar || 0) * barSec * SAMPLE_RATE);
       let placed = 0;
+      let leadV = null, leadPk = 1;                    // captured for ad-libs
       for (const L of LAYERS) {
         const outW = `/tmp/_solafiya_voc_${L.name}.wav`;
         const at = spawnSync(`${REPO}/pop/.venv/bin/python`, [
@@ -1047,7 +1161,71 @@ function render(slug) {
           if (d < 0 || d >= LEN) continue;
           dest[d] += v[i] * g;
         }
+        if (L.name === "lead") { leadV = v; leadPk = pk; }  // for ad-libs
         placed++;
+      }
+
+      // ── up-front vocal AD-LIBS — her saying "other words at other
+      // pitches" + turntable SCRATCHES, scattered through the drops.
+      if (HC && leadV && leadV.length > SAMPLE_RATE) {
+        const arng = makeRng(`jungle:${slug}:adlib`);
+        const norm = 0.95 / leadPk;
+        // find word-ish windows: spans of energy in the lead take.
+        const win = Math.floor(0.025 * SAMPLE_RATE);
+        const words = [];
+        { let on = false, s0 = 0;
+          for (let i = 0; i < leadV.length; i += win) {
+            let e = 0; for (let j = i; j < Math.min(leadV.length, i + win); j++) e = Math.max(e, Math.abs(leadV[j]));
+            const loud = e > leadPk * 0.16;
+            if (loud && !on) { on = true; s0 = i; }
+            else if (!on || loud) { /* keep */ }
+            if ((!loud || i + win >= leadV.length) && on) {
+              on = false;
+              if (i - s0 > 0.10 * SAMPLE_RATE) words.push([s0, Math.min(leadV.length, i)]);
+            }
+          }
+        }
+        const placeSlice = (atSec, src0, src1, semi, gain, rev = false) => {
+          const ratio = Math.pow(2, semi / 12);          // re-pitch (resample)
+          const srcLen = src1 - src0;
+          const outN = Math.floor(srcLen / ratio);
+          const d0 = Math.floor(atSec * SAMPLE_RATE);
+          for (let k = 0; k < outN; k++) {
+            const di = d0 + k; if (di < 0 || di >= LEN) break;
+            const sp = rev ? (srcLen - 1 - k * ratio) : (k * ratio);
+            const si = src0 + Math.floor(sp);
+            if (si < 0 || si >= leadV.length) continue;
+            const x = k / outN;
+            const env = Math.min(1, x * 14) * Math.min(1, (1 - x) * 8);
+            stem.vocalAd[di] += leadV[si] * norm * env * gain;
+          }
+        };
+        const PITCHES = [3, 5, 7, 12, -5, -3, 8, 10];
+        for (const sec of score.sections) {
+          const drop = sec.name === "drop 1" || sec.name === "drop 2";
+          if (!drop && sec.name !== "out") continue;
+          const bars = Math.max(1, Math.round((sec.endSec - sec.startSec) / barSec));
+          for (let b = 0; b < bars; b++) {
+            if (arng() < (drop ? 0.45 : 0.7)) continue;        // sparse, tasteful
+            const w = words[Math.floor(arng() * words.length)];
+            if (!w) continue;
+            const semi = PITCHES[Math.floor(arng() * PITCHES.length)];
+            const st = [4, 8, 11, 14][Math.floor(arng() * 4)];
+            placeSlice(sec.startSec + b * barSec + st * stepSec,
+                       w[0], Math.min(w[1], w[0] + Math.floor((0.20 + arng() * 0.28) * SAMPLE_RATE)),
+                       semi, 0.85 + arng() * 0.3);
+          }
+          // a turntable SCRATCH on a short slice at phrase ends
+          if (drop) {
+            const w = words[Math.floor(arng() * words.length)] || [0, SAMPLE_RATE / 2];
+            const sl = Math.min(w[1] - w[0], Math.floor(0.13 * SAMPLE_RATE));
+            let at = sec.endSec - 0.9;
+            for (let r = 0; r < 5; r++) {
+              placeSlice(at, w[0], w[0] + sl, (r % 2 ? 4 : -2), 0.8, r % 2 === 1);
+              at += 0.10 + 0.02 * (r % 2);
+            }
+          }
+        }
       }
 
       // ── section-aware vocal shaping ──────────────────────────────────
@@ -1096,9 +1274,13 @@ function render(slug) {
       // single source of truth for the lyric train: the exact stretch
       // + start offset the words were placed at (Whisper times are in
       // the original-recording timebase → track time = start + t×stretch)
-      writeFileSync(`${LANE}/out/${slug}-vocal-map.json`,
-        JSON.stringify({ stretch: ratio, startSec: startIdx / SAMPLE_RATE }));
-      console.log(`  fía vocal · stretched ×${ratio.toFixed(2)} → ${(score.totalSec * 0.97).toFixed(0)}s · ${placed} layers (lead+harmonies) @ bar ${def.vocalBar}`);
+      // single source of truth for the karaoke train: the stretch +
+      // start offset (clean timebase × stretch + startSec = track time).
+      // ONE voice now — all verses sequential, no duet.
+      writeFileSync(`${LANE}/out/${slug}-vocal-map.json`, JSON.stringify({
+        stretch: ratio, startSec: startIdx / SAMPLE_RATE,
+      }));
+      console.log(`  fía vocal · ×${ratio.toFixed(2)} · ${placed} layers @ bar ${def.vocalBar} · ${verses.length} verses sequential`);
 
       // ── #2: voice-pitch shadow — analyse her stretched take, then a
       // soft synth tracks her melody an OCTAVE DOWN (+a fifth) so the
@@ -1176,6 +1358,10 @@ function render(slug) {
     vocal:   { g: 1.16, pan: 0.0,   haas: 0  }, // fía lead — deeper in the mix
     vocalH:  { g: 0.50, pan: 0.0,   haas: 15 }, // her harmonies — wide, washed
     vshadow: { g: 0.42, pan: 0.0,   haas: 0  }, // pitch-shadow of her, octave down
+    vroom:   { g: HC ? 0.50 : 0.0, pan: -0.10, haas: 9 },  // car revs
+    vocalAd: { g: HC ? 0.92 : 0.0, pan: 0.08, haas: 7 },   // UP-FRONT vocal ad-libs/scratch
+    impact:  { g: HC ? 0.95 : 0.0, pan: 0.0,  haas: 0 },   // drop boom / riser drama
+    vocalDuet: { g: 0.86, pan: 0.24, haas: 12 },           // Voice B — duet, opposite side
   };
   for (const [name, buf] of Object.entries(stem)) {
     if (SOLO && SOLO !== name) continue;
@@ -1207,6 +1393,10 @@ function render(slug) {
       "intro": 0.85, "roll-in": 1.0, "drop 1": 1.05,
       "dub-break": 1.95, "drop 2": 1.10, "out": 1.55,
     }, 1.0);
+    // INTIMACY: the track OPENS bone-dry — the first ~6s is the closest,
+    // most intimate space (almost no room), then it blooms open by ~9s.
+    // the dub-break also pulls way in close ("sometimes super intimate").
+    const intimDub = sectionEnv({ "dub-break": 0.28 }, 1.0);
     for (let i = 0; i < LEN; i++) {
       // drums stay DRY + tight + up-close; the harmonies (pad, skank,
       // marimba, bell) get the space — HC dries the candy top right out.
@@ -1218,11 +1408,33 @@ function render(slug) {
               + stem.shrill[i]  * 0.18
               + stem.vocal[i]  * (HC ? 0.30 : 0.40) * vRev[i]
               + stem.vocalH[i] * (HC ? 0.40 : 0.62) * vRev[i]
-              + stem.vshadow[i] * 0.10;
+              + stem.vshadow[i] * 0.10
+              + stem.vroom[i] * 0.10 + stem.vocalAd[i] * 0.16 + stem.impact[i] * 0.05;
+      const ts = i / SAMPLE_RATE;
+      const introDry = ts < 6 ? 0.04 : ts < 9 ? 0.04 + 0.96 * ((ts - 6) / 3) : 1;
+      send[i] *= introDry * intimDub[i];
     }
     const { L, R } = stereoReverb(send, SAMPLE_RATE, STYLE === "rollers" ? 0.88 : 0.84);
     const w = HC ? 0.18 : 0.28;                  // less wash = less airy
     for (let i = 0; i < LEN; i++) { outL[i] += L[i] * w; outR[i] += R[i] * w; }
+  }
+
+  // ── DROP DRAMA: a hard cut to near-silence in the last beat before
+  // each drop, then everything SLAMS back (the impact boom lands on the
+  // downbeat). classic "… —— DROP." HC only.
+  if (HC && !SOLO) {
+    const cut = 60 / BPM;                              // ~one beat of suck-out
+    for (const ds of score.sections) {
+      if (ds.name !== "drop 1" && ds.name !== "drop 2") continue;
+      const d0 = ds.startSec;
+      const c0 = Math.max(0, Math.floor((d0 - cut) * SAMPLE_RATE));
+      const c1 = Math.floor(d0 * SAMPLE_RATE);
+      for (let i = c0; i < c1 && i < LEN; i++) {
+        const x = (i - c0) / Math.max(1, c1 - c0);     // 1 → ~0.04 into the drop
+        const g = 1 - 0.96 * (x * x);
+        outL[i] *= g; outR[i] *= g;
+      }
+    }
   }
 
   // ── master tone: deeper + warmer (low-shelf lift, gentle high tame) ─
@@ -1291,6 +1503,8 @@ function render(slug) {
     "-metadata", `artist=${def.artist || "fía"}`,
     "-metadata", "album=pixsies",
     "-metadata", "genre=jungle",
+    "-metadata", `publisher=${def.label || "Aesthetic.Computer"}`,
+    "-metadata", `copyright=${def.label || "Aesthetic.Computer"}`,
     OUT_PATH,
   ], { stdio: "inherit" });
   try { unlinkSync(rawPath); } catch {}
@@ -1323,7 +1537,7 @@ function render(slug) {
       "--title-pos", "topleft",
       "--title", def.wordmark || slug,
       "--subtitle", `${SUBWORD[STYLE] || STYLE} latina jungle`,
-      "--handle", "fia",
+      "--handle", "fía",
       ...(existsSync(illy) ? ["--illustration", illy] : []),
       "--waveform", OUT_PATH,
       "--out", coverPng,
@@ -1341,6 +1555,8 @@ function render(slug) {
       "-metadata", `artist=${def.artist || "fía"}`,
       "-metadata", "album=pixsies",
       "-metadata", "genre=jungle",
+      "-metadata", `publisher=${def.label || "Aesthetic.Computer"}`,
+      "-metadata", `copyright=${def.label || "Aesthetic.Computer"}`,
       tagged,
     ], { stdio: "inherit" });
     if (mux.status !== 0) { console.error("✗ cover mux failed"); process.exit(1); }

@@ -19,11 +19,30 @@ export const YWFT_PATH = `${homedir()}/Library/Fonts/ywft-processing-bold.ttf`;
 export const AUDIO_SR_DEFAULT = 4000;       // 4 kHz mono is enough for waveform display
 export const ENV_FPS_DEFAULT = 60;          // RMS envelope at 60 Hz drives bounces
 
+// ── variable type: the shared preview pipeline's typeface is now a
+// pipeline-level setting, not a hardcoded constant. tracks can pick a
+// different face (e.g. a girly, less-"computery" one) via setPreviewFont.
+const SYS = "/System/Library/Fonts/Supplemental";
+export const FONTS = {
+  ywft:    YWFT_PATH,                              // default — geometric/computery
+  girly:   `${SYS}/Bradley Hand Bold.ttf`,         // handwritten, soft, girly
+  rounded: `${SYS}/ChalkboardSE.ttc`,              // rounded playful
+  party:   `${SYS}/PartyLET-plain.ttf`,            // bubbly
+  script:  `${SYS}/SnellRoundhand.ttc`,            // elegant script
+};
+let activeFont = YWFT_PATH;
+export function setPreviewFont(nameOrPath) {
+  const p = FONTS[nameOrPath] || nameOrPath || YWFT_PATH;
+  activeFont = existsSync(p) ? p : YWFT_PATH;
+  return activeFont;
+}
+export function getPreviewFont() { return activeFont; }
+
 export function checkYwftAvailable() {
-  if (!existsSync(YWFT_PATH)) {
+  if (!existsSync(activeFont)) {
     throw new Error(
-      `YWFT Processing Bold not found at ${YWFT_PATH}\n` +
-      `install ywft-processing-bold.ttf into ~/Library/Fonts/`,
+      `preview font not found at ${activeFont}\n` +
+      `install it, or pick another via setPreviewFont()`,
     );
   }
 }
@@ -84,7 +103,7 @@ export function computeRmsEnvelope(audio, audioSr, outFps, durationSec) {
 // Width in pixels of a YWFT label at `ptSize`.
 export function magickMeasureWidth(text, ptSize) {
   const r = spawnSync("magick", [
-    "-font", YWFT_PATH,
+    "-font", activeFont,
     "-pointsize", String(ptSize),
     `label:${text}`,
     "-format", "%w",
@@ -103,7 +122,7 @@ export async function magickRenderText(text, opts) {
   const args = [
     "-background", "none",
     "-fill", fill,
-    "-font", YWFT_PATH,
+    "-font", activeFont,
     "-pointsize", String(ptSize),
     `label:${text}`,
   ];
@@ -132,7 +151,7 @@ export async function magickRenderLabel(text, opts) {
   const r = spawnSync("magick", [
     "-background", bg,
     "-fill", fill,
-    "-font", YWFT_PATH,
+    "-font", activeFont,
     "-pointsize", String(ptSize),
     `label:${text}`,
     "-bordercolor", bg,
@@ -164,7 +183,7 @@ export async function prerenderTitleChars({ text, ptSize, palette, shadowColor, 
       const args = [
         "-size", `${charBoxW}x${charBoxH}`,
         "xc:none",
-        "-font", YWFT_PATH,
+        "-font", activeFont,
         "-pointsize", String(ptSize),
       ];
       if (shadowColor) {
