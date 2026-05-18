@@ -389,10 +389,15 @@ class Autocomplete {
   }
 }
 
-// Pre-configured handle autocomplete helper
+// Pre-configured handle autocomplete helper.
+// Pass `extraTriggers` (a { char: triggerConfig } map) to add sigil/command
+// triggers alongside `@` without disturbing callers that only want handles
+// (e.g. chat.mjs). Each extra trigger is a normal Autocomplete trigger config
+// ({ fetch, minChars, color, prefix, cache, ... }).
 function createHandleAutocomplete(options = {}) {
+  const { extraTriggers = {}, maxResults, ...rest } = options;
   return new Autocomplete({
-    maxResults: options.maxResults || 8,
+    maxResults: maxResults || 8,
     triggers: {
       "@": {
         fetch: async (query) => {
@@ -434,8 +439,9 @@ function createHandleAutocomplete(options = {}) {
         prefix: "@",
         cache: true,
       },
+      ...extraTriggers,
     },
-    ...options,
+    ...rest,
   });
 }
 
