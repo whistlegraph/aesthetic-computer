@@ -256,6 +256,14 @@ let showFpsMeter = false; // Toggle with backtick key
 const DISABLE_CONTENT_TICKER = false;
 const DISABLE_CONTENT_PREVIEWS = true; // Disable live preview tooltips
 
+// 🪦 UNITICKER deprecation. The universal search box (the prompt input
+// itself) supersedes the scrolling marquee. The feed fetchers
+// (contentItems, moods, commits, chat) stay alive — universal search reads
+// them — only the marquee render + scrub interaction is disabled. Flip to
+// false to temporarily restore the old ticker; physical removal of the
+// marquee code is a follow-up once search is proven in production.
+const DEPRECATE_UNITICKER = true;
+
 let startupSfx, keyboardSfx;
 
 // 🔍 @handle autocomplete (plus $ # ! sigil media triggers)
@@ -6161,7 +6169,10 @@ function paint($) {
       bucketCursor = (bucketCursor + 1) % allBuckets.length;
     }
 
-    const showUniticker = screen.height >= 180 && unitickerItems.length > 0;
+    const showUniticker =
+      !DEPRECATE_UNITICKER &&
+      screen.height >= 180 &&
+      unitickerItems.length > 0;
 
     if (showUniticker) {
       const fullText = unitickerItems.map((item) => item.text).join(" · ");
