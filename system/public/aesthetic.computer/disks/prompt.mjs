@@ -988,6 +988,38 @@ async function boot({
     universal: { fetch: universalSearch, minChars: 2, cache: false },
   });
 
+  // 🧪 Read-only test hook for the browser harness (tests/browser/).
+  // Gated on window.acDEBUG so it never attaches for normal users; the
+  // harness sets acDEBUG via evaluateOnNewDocument before navigation.
+  if (typeof window !== "undefined" && window.acDEBUG) {
+    window.__acPromptTest = () => {
+      const input = system?.prompt?.input;
+      const ac = handleAutocomplete;
+      return {
+        input: input?.text ?? null,
+        kidlispMode: !!system?.prompt?.kidlispMode,
+        deprecateUniticker: DEPRECATE_UNITICKER,
+        ac: ac
+          ? {
+              visible: !!ac.visible,
+              loading: !!ac.loading,
+              activeTrigger: ac.activeTrigger,
+              navigated: !!ac.navigated,
+              selectedIndex: ac.selectedIndex,
+              items: (ac.items || []).map((i) => ({
+                text: i.text,
+                display: i.display || null,
+                color: i.color || null,
+              })),
+            }
+          : null,
+        histScrub: histScrub
+          ? { engaged: !!histScrub.engaged }
+          : null,
+      };
+    };
+  }
+
   // �📦 Load product images (DISABLED for now)
   await products.boot(api);
 

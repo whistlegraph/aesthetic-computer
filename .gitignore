@@ -450,3 +450,6 @@ fedac/native/upload.env.gpg
 
 # Stray GPG key backups (canonical copies live in aesthetic-computer-vault/gpg/)
 /gpg/
+
+# Browser e2e screenshots (tests/browser/)
+tests/browser/__screens__/
