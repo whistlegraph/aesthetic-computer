@@ -1631,9 +1631,22 @@ final class MenuBandController {
     /// Each digit press updates the GM program live (clamped to 0–127);
     /// after 3 digits the next press starts a fresh sequence so the user
     /// can keep typing without an explicit "clear." Resets when any note
-    /// key is played, when TYPE mode is disabled, or when the buffer
-    /// reaches its 3-digit cap.
+    /// key is played, when TYPE mode is disabled, when the buffer
+    /// reaches its 3-digit cap, OR when more than
+    /// `voiceDigitFlushInterval` elapses since the previous digit —
+    /// the type-ahead idiom: a quick burst "1""2""8" still picks voice
+    /// 128, but a deliberate single tap after a pause picks that one
+    /// digit instead of extending the stale buffer (which read as
+    /// "number keys aren't switching the instrument").
     private var voiceDigitBuffer: String = ""
+    /// Wall-clock of the last accepted digit press. A gap longer than
+    /// `voiceDigitFlushInterval` means the user is picking a new voice,
+    /// not continuing a multi-digit number.
+    private var voiceDigitLastPress: CFTimeInterval = 0
+    /// Burst window for multi-digit voice entry. Tuned so "128" typed
+    /// at a normal pace stays one number, while a re-pick after a beat
+    /// starts clean.
+    private static let voiceDigitFlushInterval: CFTimeInterval = 0.8
 
     /// Map a hardware key code to the digit on its key cap, or nil for
     /// non-digit keys. Covers the top number row only — keypad digits
@@ -1797,7 +1810,16 @@ final class MenuBandController {
                 }
             }
             if isDown && !isRepeat {
-                if voiceDigitBuffer.count >= 3 { voiceDigitBuffer = "" }
+                // Start fresh if the buffer hit its cap OR enough time
+                // passed since the last digit that this is plainly a
+                // new pick, not the next digit of a longer number.
+                let now = CACurrentMediaTime()
+                let staleGap = now - voiceDigitLastPress
+                    > Self.voiceDigitFlushInterval
+                if voiceDigitBuffer.count >= 3 || staleGap {
+                    voiceDigitBuffer = ""
+                }
+                voiceDigitLastPress = now
                 voiceDigitBuffer.append(String(digit))
                 let buffer = voiceDigitBuffer
                 DispatchQueue.main.async { [weak self] in
