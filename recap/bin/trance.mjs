@@ -284,6 +284,11 @@ const PIANO_GAIN  = Number(flags["piano-gain"] ?? 0.45);
 const BELLS_GAIN  = Number(flags["bells-gain"] ?? 0.32);
 const STRUCT_PATH = expandHome(flags["struct-out"]) || null;
 const OUT_PATH    = expandHome(flags.out) || `${ROOT}/out/${isWaltz ? "trancewaltz" : "trance"}.mp3`;
+// --master → a streaming RELEASE cut (DistroKid/Spotify): restore the
+// proper musical fade-in/out (a real single ending, NOT the 6ms loop
+// declick) and, when the output is .wav, encode lossless 16-bit/44.1k.
+const RELEASE_MASTER = Boolean(flags.master);
+const OUT_IS_WAV = /\.wav$/i.test(OUT_PATH);
 
 const SAMPLE_RATE = 48_000;
 
@@ -1955,7 +1960,10 @@ if (!isChill) {
 const TYPE_N = 12;            // "trancenwaltz"
 const TYPE_START = 0.18;
 const TYPE_GAP = 0.072;       // ~14 keys/sec — quick typing
-if (!isChill) {
+// --master (release WAV): DROP the typing keyclicks + enter thunk
+// entirely — a clean streaming single. The boot / startup melody
+// (fired below, ungated) is KEPT.
+if (!isChill && !RELEASE_MASTER) {
   const kRng = makeRng(SEED_STR + ":keyclick");
   for (let i = 0; i < TYPE_N; i++) {
     const kt = TYPE_START + i * TYPE_GAP;
@@ -2065,7 +2073,10 @@ if (!isChill) {
     const crushedV = Math.round(rawV * levels) / levels;
     // Volume also tapers toward silence so the hats fade out.
     const ampEnv = 1 - f * 0.55;
-    fireDrum(shutdownBuf, t + jitter, "g", { volume: crushedV * ampEnv * DRUM_GAIN });
+    // randomly pitched around a bit per tick — the dying tail hats
+    // wobble in pitch as they smush out.
+    const hatPF = 1 + (noiseRng() - 0.5) * 0.36; // ~±2.8 semitones
+    fireDrum(shutdownBuf, t + jitter, "g", { volume: crushedV * ampEnv * DRUM_GAIN, pitchFactor: hatPF });
     hatCount++;
     // Step DECELERATES from 8th → half-note across the tail (the
     // opposite of "taking off" — the system is winding down).
@@ -2114,7 +2125,10 @@ const BEEP_BLEND_END_SEC = OPENING_PREFIX_SEC + 2.3; // ≈ 5.0 s
     }
     if (hatWeight > 0.01) {
       const v = 0.16 + noiseRng() * 0.06;
-      fireDrum(dryBuf, t, "g", { volume: v * hatWeight * DRUM_GAIN });
+      // randomly pitched around a bit per tick so the fast intro hats
+      // shimmer instead of being one repeated sample.
+      const hatPF = 1 + (noiseRng() - 0.5) * 0.36; // ~±2.8 semitones
+      fireDrum(dryBuf, t, "g", { volume: v * hatWeight * DRUM_GAIN, pitchFactor: hatPF });
       // Capture EACH pre-roll hat tick so the timeline shows the
       // beep→hat blend layer in the HAT lane during the intro,
       // not just the in-bar hats that start at bar 0.
@@ -2915,6 +2929,48 @@ console.log(`→ struct · ${finalStructPath}`);
 const outDir = dirname(OUT_PATH);
 mkdirSync(outDir, { recursive: true });
 const rawPath = `${outDir}/.trance-${SEED_STR}.f32.raw`;
+
+// ── AC voice stamp (release master only) ───────────────────────────
+// High-pitched "aesthetic dot computer" branding ID dropped mid-track
+// (~13 s, just after the music enters). Deterministic seed → re-cutting
+// --master reproduces the exact same take with just this added.
+if (RELEASE_MASTER) {
+  const STAMP_PATH = `${REPO}/pop/dance/out/.ac-dot-stamp-vocal.mp3`;
+  if (existsSync(STAMP_PATH)) {
+    const tmpStamp = `${outDir}/.ac-dot-stamp.f32.raw`;
+    const dec = spawnSync("ffmpeg", [
+      "-hide_banner", "-y", "-loglevel", "error",
+      "-i", STAMP_PATH,
+      "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1",
+      tmpStamp,
+    ]);
+    if (dec.status === 0 && existsSync(tmpStamp)) {
+      const raw = readFileSync(tmpStamp);
+      const st = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
+      let speak = 0;
+      for (let i = 0; i < st.length; i++) { const a = Math.abs(st[i]); if (a > speak) speak = a; }
+      const norm = speak > 0 ? 0.85 / speak : 1.0;
+      const PITCH = 1.6;                 // ~ +8 semitones — high + quick
+      const STAMP_SEC = 58.0;            // early in the build2 climb into drop2
+      const startIdx = Math.floor(STAMP_SEC * SAMPLE_RATE);
+      const outLen = Math.floor(st.length / PITCH);
+      const fadeS = Math.floor(0.03 * SAMPLE_RATE);
+      const GAIN = 0.18;                 // quiet — a subtle whisper ID
+      for (let i = 0; i < outLen; i++) {
+        const j = startIdx + i;
+        if (j < 0 || j >= out.length) break;
+        const s = st[Math.floor(i * PITCH)] || 0;
+        let fade = 1;
+        if (i < fadeS) fade = i / fadeS;
+        else if (i > outLen - fadeS) fade = Math.max(0, (outLen - i) / fadeS);
+        out[j] += s * norm * GAIN * fade;
+      }
+      try { unlinkSync(tmpStamp); } catch {}
+      console.log(`  stamp · "aesthetic dot computer" (high-pitched) at ${STAMP_SEC}s`);
+    }
+  }
+}
+
 const buf = Buffer.alloc(out.length * 4);
 for (let i = 0; i < out.length; i++) buf.writeFloatLE(out[i], i * 4);
 writeFileSync(rawPath, buf);
@@ -2963,8 +3019,11 @@ const filter =
   // 1.6s fade-out drove both ends to digital silence → an audible dip
   // at the loop seam. Replaced with ~6ms declicks (sub-perceptual, just
   // kills end-sample pops) so the ending flows straight into the intro.
-  "afade=t=in:st=0:d=0.006," +
-  `afade=t=out:st=${(totalSec - 0.006).toFixed(3)}:d=0.006,` +
+  (RELEASE_MASTER
+    ? "afade=t=in:st=0:d=0.15," +
+      `afade=t=out:st=${(totalSec - 1.6).toFixed(3)}:d=1.6,`
+    : "afade=t=in:st=0:d=0.006," +
+      `afade=t=out:st=${(totalSec - 0.006).toFixed(3)}:d=0.006,`) +
   // House-style EQ — more AIR up top, less mid crowding, subtle low.
   "equalizer=f=180:t=q:w=1.2:g=1.0," +
   "equalizer=f=900:t=q:w=1.4:g=0.8," +
@@ -2994,7 +3053,9 @@ const ff = spawnSync("ffmpeg", [
   // Hard-trim at exactly totalSec so the file boundary lines up with
   // bar 60 — the file loops cleanly to t=0 on the next downbeat.
   "-t", String(totalSec),
-  "-c:a", "libmp3lame", "-q:a", "3",
+  ...(OUT_IS_WAV
+    ? ["-c:a", "pcm_s16le", "-ar", "44100"]   // DistroKid release WAV
+    : ["-c:a", "libmp3lame", "-q:a", "3"]),
   OUT_PATH,
 ], { stdio: "inherit" });
 try { unlinkSync(rawPath); } catch {}

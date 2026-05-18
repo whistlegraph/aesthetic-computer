@@ -507,28 +507,25 @@ function drawKaraoke(audioT) {
     const isActive = j === idx;
     if (!isActive) {
       const departed = j < idx;
-      const cxAbs = rowX + cx[j];
       let glyphs = "";
       let alpha;
+      let extraLeft = 0;
       if (departed) {
-        // DEPARTING — the word was sung, now it slides LEFT and DIES
-        // OFF: it progressively loses its characters (re-scrambles
-        // left→right) and fades out over a short distance, then it's
-        // gone. It never just hangs on as static decoded text.
-        const leftDist = W / 2 - cxAbs;          // >0 once left of centre
-        const deathSpan = fs * 2.4;
-        const life = Math.max(0, Math.min(1, 1 - leftDist / deathSpan));
-        if (life <= 0.001) continue;             // fully dead — don't draw
-        const keepN = life * word.length;        // chars still readable
+        // DEPARTED — only ever the word that JUST left centre; the
+        // moment it's no longer current its characters GARBLE straight
+        // away (full scramble, instantly — never readable parked text)
+        // and it keeps sliding LEFT while fading, fully gone within the
+        // first third of the next word. It never stays put.
+        if (j !== idx - 1) continue;             // older words: gone
+        const deadProg = Math.min(1, prog / 0.35);
+        if (deadProg >= 1) continue;             // fully dead
         for (let c = 0; c < word.length; c++) {
-          if (c < keepN) glyphs += word[c];
-          else {
-            let s = ((j * 131 + c * 17 + tBucket * 7) >>> 0);
-            s = (s ^ (s >>> 13)) >>> 0;
-            glyphs += KARA_SYM[(s >>> 3) % KARA_SYM.length];
-          }
+          let s = ((j * 131 + c * 17 + tBucket * 7) >>> 0);
+          s = (s ^ (s >>> 13)) >>> 0;
+          glyphs += KARA_SYM[(s >>> 3) % KARA_SYM.length];
         }
-        alpha = 0.5 * life;
+        alpha = (1 - deadProg) * 0.42;
+        extraLeft = deadProg * fs * 2.6;         // keeps moving off
       } else {
         // UPCOMING — arrives ENCODED; pure scramble until it's current.
         for (let c = 0; c < word.length; c++) {
@@ -539,7 +536,7 @@ function drawKaraoke(audioT) {
         alpha = 0.34;
       }
       const tw = wOf(glyphs);
-      const dx = Math.round(cxAbs - tw / 2);
+      const dx = Math.round(rowX + cx[j] - tw / 2 - extraLeft);
       ctx.globalAlpha = alpha * 0.7;
       ctx.fillStyle = "rgba(0,0,0,0.85)";
       ctx.fillText(glyphs, dx + 3, baseY + 4);
@@ -1252,7 +1249,7 @@ const GROOVE_R = 950;               // groove radius — larger = gentler arc
 // so the seams showed). 32 thin slices make the horizontal shear
 // near-continuous; a small per-band overlap fuses any remaining seam.
 const WU_HALF = 240, WU_W = WU_HALF * 2, WU_STEP = 3, WU_BANDS = 56;
-const WU_STR = 0.85, WU_BW = WU_W / WU_BANDS, WU_OVER = 2;
+const WU_STR = 0.50, WU_BW = WU_W / WU_BANDS, WU_OVER = 2;
 const wuWin = new Float64Array(WU_BANDS);
 for (let b = 0; b < WU_BANDS; b++) {
   wuWin[b] = Math.sin(Math.PI * ((b + 0.5) / WU_BANDS)) ** 2;
@@ -1262,7 +1259,7 @@ const wuSnap = createCanvas(W, H);
 const wuSnapC = wuSnap.getContext("2d");
 const wuCR = createCanvas(WU_DSZ, WU_DSZ);
 const wuCRC = wuCR.getContext("2d");
-function warpUnderString(theta) {
+function warpUnderString(theta, tSec = 0) {
   const { devPeak } = _vs.deflection();
   if (Math.abs(devPeak) < 2) return;          // string ~straight → skip
   // 1) snapshot the upright frame (scene + backlight + lanes)
@@ -1291,30 +1288,61 @@ function warpUnderString(theta) {
   // compression artefacting / datamosh; on hard bends a sub-block is
   // re-stamped offset (a smeared P-frame "drag"). Gnarl scales with the
   // string deflection so it only chews up the picture when it's tugged.
-  const gnarlAmt = Math.min(1, Math.abs(devPeak) / 36);
+  // Subtle now — the mechanism was reading too clearly. The slit shift
+  // is SMOOTH (no hard macroblock stair-step), gentler (WU_STR low),
+  // and TAPERS to zero across a feather margin at the strip's left &
+  // right edges so the displaced strip dissolves into the un-warped
+  // picture with no visible seam. Only the centre band gets full shift
+  // (one continuous blit → no mosaic); the thin edge margins ramp the
+  // shift 0→full via a handful of slices. Datamosh drag is rare + only
+  // on hard bends, so it reads as occasional corruption, not a grid.
+  const gnarlAmt = Math.min(1, Math.abs(devPeak) / 44);
+  const FEATHER = 80;                       // px each edge that ramps in
+  const MS = 9;                             // feather sub-slices per edge
+  const msW = FEATHER / MS;
+  const smooth = (u) => u * u * (3 - 2 * u);
+  // The jitter PHASE drifts slowly + continuously with time (a creeping
+  // band, not a fixed diagonal locked to row index) and the slit also
+  // gets a gentle slow sinusoidal sway. Magnitude is small so it reads
+  // as a living analog wobble, not hard glitch.
+  const tPhase = tSec * 1.7;                       // slow creep (rows/s-ish)
+  const sway = Math.sin(tSec * 0.6) * 1.6 * gnarlAmt; // whole-strip drift
   for (let y = 0; y < H; y += WU_STEP) {
-    const dx = (needleXAt(y) - playheadX) * WU_STR;
     const yi = (y / WU_STEP) | 0;
-    let hsh = (yi * 2654435761) >>> 0;
+    let hsh = ((yi + Math.floor(tPhase)) * 2654435761) >>> 0;
     hsh = ((hsh ^ (hsh >>> 15)) * 2246822519) >>> 0;
-    const jit = ((hsh & 255) / 255 - 0.5) * 7.0 * gnarlAmt;  // glitch life
-    const blk = 8;                                            // macroblock
-    const gnarl = Math.round((dx + jit) / blk) * blk;         // 8px snap
-    // full-width slit: one blit per row, the entire strip displaced —
-    // smeary slit-scan, never a mosaic grid.
-    ctx.drawImage(
-      wuCR, sox + x0, soy + y, WU_W, WU_STEP,
-      x0 + gnarl, y, WU_W, WU_STEP,
-    );
-    // datamosh macroblock DRAG — on a strong bend, re-stamp a sub-block
-    // shoved further over so it smears like a botched P-frame.
-    if ((hsh & 7) === 0 && Math.abs(dx) > 6) {
-      const bw = 56 + (hsh % 40);
-      const bx = (hsh >>> 5) % Math.max(1, WU_W - bw);
-      ctx.drawImage(
-        wuCR, sox + x0 + bx, soy + y, bw, WU_STEP,
-        x0 + bx + gnarl + 12, y, bw, WU_STEP,
-      );
+    // smooth time-interpolated jitter so the band moves continuously
+    const fr = tPhase - Math.floor(tPhase);
+    let h2 = ((yi + Math.floor(tPhase) + 1) * 2654435761) >>> 0;
+    h2 = ((h2 ^ (h2 >>> 15)) * 2246822519) >>> 0;
+    const j0 = (hsh & 255) / 255 - 0.5, j1 = (h2 & 255) / 255 - 0.5;
+    const jit = ((j0 * (1 - fr) + j1 * fr)) * 1.1 * gnarlAmt + sway; // soft
+    const dx = (needleXAt(y) - playheadX) * WU_STR + jit;   // smooth slit
+    // left feather margin — shift ramps 0 → dx
+    for (let m = 0; m < MS; m++) {
+      const sxl = x0 + m * msW;
+      const s = dx * smooth((m + 0.5) / MS);
+      ctx.drawImage(wuCR, sox + sxl, soy + y, msW + 1, WU_STEP,
+        sxl + s, y, msW + 1, WU_STEP);
+    }
+    // centre band — one continuous full-shift blit (no internal seam)
+    const cL = x0 + FEATHER, cW = WU_W - 2 * FEATHER;
+    ctx.drawImage(wuCR, sox + cL, soy + y, cW, WU_STEP,
+      cL + dx, y, cW, WU_STEP);
+    // right feather margin — shift ramps dx → 0
+    for (let m = 0; m < MS; m++) {
+      const sxr = x0 + WU_W - FEATHER + m * msW;
+      const s = dx * smooth(1 - (m + 0.5) / MS);
+      ctx.drawImage(wuCR, sox + sxr, soy + y, msW + 1, WU_STEP,
+        sxr + s, y, msW + 1, WU_STEP);
+    }
+    // datamosh DRAG — VERY rare, only on a strong bend; gentle smear
+    // (was reading "a bit glitchy" — pulled way back).
+    if ((hsh & 63) === 0 && gnarlAmt > 0.72) {
+      const bw = 40 + (hsh % 24);
+      const bx = x0 + FEATHER + ((hsh >>> 5) % Math.max(1, cW - bw));
+      ctx.drawImage(wuCR, sox + bx, soy + y, bw, WU_STEP,
+        bx + dx + 5, y, bw, WU_STEP);
     }
   }
   ctx.restore();
@@ -1348,7 +1376,14 @@ const chromeTop = H - progressH - chromeH;
 // snug at the top like chillwave. The typing-intro prompt shares this
 // anchor (gy = titleY - charBaselineY) so they never jump apart.
 const IG_TOP_SAFE = 155;
-const titleTopInset = IG_TOP_SAFE;
+// SQUARE cut (1500x1500 trancenwaltzi): title sits up in the very
+// TOP-LEFT corner. Vertical (insta-story) keeps the 155 anchor.
+// Title hugs the very TOP — minimal air above it (square + vertical
+// both sit tight under the top edge / IG-Story UI). Was 44 / 155.
+// Vertical/IG-story: 48 hugged the top too tight (barely crossing the
+// IG UI). Nudged down ~half the distance we'd raised it (155→48), so
+// it clears the chrome. Square cut (not an IG story) stays at 36.
+const titleTopInset = (W === H) ? 36 : 100;
 const titleY = titleTopInset + charBaselineY;
 function drawFrame(t) {
   const audioT = t - AUDIO_DELAY_SEC;
@@ -1776,7 +1811,7 @@ function drawFrame(t) {
       // flash so loud passages flare and quiet ones barely register,
       // plus a whisper of always-on env shimmer so the panel breathes.
       // EXTREME / VIBEIN — push the transmitted illumination hard.
-      const ampGate = 0.34 + 1.70 * env;
+      const ampGate = 0.30 + 1.05 * env; // pulled back — was blowing out
       const ambient = 0.20 * env;
       const maxK = faceCanvas   ? Math.max(recentMax("kick") * ampGate, ambient) : 0;
       const maxH = laptopCanvas ? Math.max(recentMax("hat")  * ampGate, ambient) : 0;
@@ -1847,9 +1882,9 @@ function drawFrame(t) {
         // glow really washes through the panel.
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = 1.0;
+        ctx.globalAlpha = 0.58; // was 1.0 — additive glow was blowing out
         ctx.drawImage(glowCanvas, 0, 0);
-        ctx.globalAlpha = 0.32; // bloom — softer, so it doesn't blow out
+        ctx.globalAlpha = 0.15; // soft bloom — was 0.32
         ctx.drawImage(glowCanvas, -4, -4, W + 8, H + 8);
         ctx.restore();
         // ── PASS 2: leaded contrast — the VIBING top layer ─────────
@@ -2292,7 +2327,7 @@ function drawFrame(t) {
   // the upright frame, counter-rotate it, then redraw the strip under
   // +trackRot so the distortion field rides the rotated line WITH the
   // disc (content stays upright, only the warp turns).
-  warpUnderString(trackRot);
+  warpUnderString(trackRot, audioT);
   // String rotates with the track group (same theta as the lanes).
   withRotation(trackRot, () => { drawNeedleString(); });
 

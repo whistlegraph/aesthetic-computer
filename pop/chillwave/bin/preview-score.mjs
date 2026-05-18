@@ -32,6 +32,9 @@ import {
   spawnFFmpegEncode,
   AUDIO_SR_DEFAULT,
 } from "../../lib/preview-shared.mjs";
+// Shared verlet-string + rotating-disc + string→illustration WARP —
+// the SAME engine trancenwaltz uses (pop/lib/cover-engine.mjs).
+import { makeVerletString } from "../../lib/cover-engine.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
@@ -51,10 +54,19 @@ const SLUG   = flags.slug || "undabeach";
 // portrait output filename.
 const PORTRAIT = flags.portrait === true;
 const TAG    = PORTRAIT ? "-p" : "";
+// --platform insta|tiktok (default insta = the Instagram-Story cut).
+//   insta : title snug at top, section progress bar, timecode, side pals
+//   tiktok: NO progress bar, NO timecode, NO side pals; the title is
+//           typed into the CENTRE of screen, stays centred, then slowly
+//           fades away over the track.
+// Both cuts share the SAME audio/struct — only the visuals differ.
+const PLATFORM = String(flags.platform || (flags.tiktok ? "tiktok" : "insta")).toLowerCase();
+const TIKTOK   = PLATFORM === "tiktok";
+const PLAT_TAG = TIKTOK ? "tiktok" : "insta-story";
 const COVER  = flags.cover  || `${LANE}/out/${SLUG}${TAG}-cover.png`;
 const AUDIO  = flags.audio  || `${LANE}/out/${SLUG}.mp3`;
 const STRUCT = flags.struct || `${LANE}/out/${SLUG}.struct.json`;
-const OUT    = flags.out    || `${LANE}/out/${SLUG}-preview-score${PORTRAIT ? "-portrait" : ""}.mp4`;
+const OUT    = flags.out    || `${LANE}/out/${SLUG}-preview-score${PORTRAIT ? `-portrait-${PLAT_TAG}` : ""}.mp4`;
 const FPS    = Number(flags.fps ?? 30);
 const SIZE   = flags.size || (PORTRAIT ? "1080x1920" : "1080x1080");
 const [W, H] = SIZE.split("x").map(Number);
@@ -112,15 +124,19 @@ if (struct.laneAudio?.paths) {
 // Lane palette pushed to pure dayglo for strong color differentiation
 // between lanes. Plus an FX lane so the start/tail bitcrush + flange
 // show up in the timeline.
+// Lane palette = a full RAINBOW spread evenly around the hue circle
+// (9 lanes → 40° apart), so the dense spinning record reads as a
+// rainbow disc rather than a limited palette.
 const LANES = [
-  { key: "bells",   color: "#aef240", textColor: "#3a6b50" },   // electric lime
-  { key: "birds",   color: "#ffd84a", textColor: "#7a5a1f" },   // electric yellow
-  { key: "hat",     color: "#4adfff", textColor: "#1f5f7a" },   // pure cyan
-  { key: "bubbles", color: "#d96aff", textColor: "#553a99" },   // electric magenta
-  { key: "waves",   color: "#3da3ff", textColor: "#1a3a5a" },   // electric blue
-  { key: "kick",    color: "#ff4a8a", textColor: "#8a2440" },   // hot pink
-  { key: "sub",     color: "#a44af5", textColor: "#3a1f6b" },   // vivid purple
-  { key: "fx",      color: "#ff8a3d", textColor: "#5a4a1a" },   // neon orange
+  { key: "bells",   color: "#ff3b3b", textColor: "#7a1f1f" },   //   0° red
+  { key: "birds",   color: "#ff9b2e", textColor: "#7a4a14" },   //  40° orange
+  { key: "hat",     color: "#e8e23a", textColor: "#6e6a1a" },   //  80° yellow
+  { key: "bubbles", color: "#5cf04a", textColor: "#246b1f" },   // 120° green
+  { key: "waves",   color: "#3df2b0", textColor: "#1f6b5a" },   // 160° spring
+  { key: "kick",    color: "#3dc2ff", textColor: "#1a5a7a" },   // 200° cyan-blue
+  { key: "sub",     color: "#4a6aff", textColor: "#1f2f8a" },   // 240° blue
+  { key: "fx",      color: "#b04aff", textColor: "#4a1f8a" },   // 280° violet
+  { key: "vox",     color: "#ff4ad8", textColor: "#7a1f63" },   // 320° magenta
 ];
 
 // Title palette — high-saturation sunlight on water: vivid yellows,
@@ -145,13 +161,21 @@ const assetsDir = AUDIO.replace(/\.mp3$/, ".assets");
 mkdirSync(assetsDir, { recursive: true });
 
 const titleFontSize = 96;
-const { chars: titleChars } = await prerenderTitleChars({
+const { chars: titleChars, totalWidth: titleTotalW } = await prerenderTitleChars({
   text: SLUG,
   ptSize: titleFontSize,
   palette: TITLE_PALETTE,
   shadowColor: "rgba(0,0,0,0.78)",
   assetsDir,
 });
+
+// Title glyph-top anchor (insta-story). Shared by drawTitle (track) AND
+// the typing-intro (IG_TOP_SAFE) so they NEVER jump apart. Measured
+// against the IG Story chrome (IMG_3321). Raised to hug the very top
+// (was 155 — too much air) to match the trancenwaltz vertical cut.
+// (TikTok ignores this — its title is centred; see drawCenterTitle.)
+const TITLE_TOP_Y = 104;
+const titleBoxH   = Math.ceil(titleFontSize * 1.7);
 
 const tcFontSize = 64;
 // We'll re-render the timecode each second since it changes — too
@@ -216,7 +240,7 @@ function kickEnvAt(t) {
 // no backing panel, no boxed area, no lane labels. The playhead is a
 // single vertical needle that spans the whole canvas top-to-bottom.
 const PANEL_PAD_X  = 24;
-const LANE_GUTTER  = 8;                     // tighter gutter → taller lanes
+const LANE_GUTTER  = 3;                     // dense record — minimal space between tracks
 const LANE_TOP     = 200;                   // below title
 const LANE_BOTTOM  = H - 108;               // leaves room for progress bar + larger timecode
 const LANE_AREA_H  = LANE_BOTTOM - LANE_TOP;
@@ -306,32 +330,87 @@ function palsTinted(rgb, src) {
 }
 function drawWatermark(audioT) {
   if (!palsImg) return;
-  // FOUR mini sideways stamps — left & right edges, at 1/3 and 2/3
-  // height (TikTok-style side tags). Hue-cycling, SEEPED into the
-  // picture (multiply + color-burn + overlay + faint normal) so the
-  // pencil tooth reads straight through them.
-  const s = 66;
-  const hue = ((audioT * 14) % 360 + 360) % 360;
-  const col = hslToRgb(hue, 0.9, 0.62);
-  palsTinted(col, palsBlur);                 // wmCanvas ← tinted glyph
-  const m = 18;
-  const spots = [
-    { cx: m + s / 2,     cy: H / 3,     rot: -Math.PI / 2 }, // left  upper
-    { cx: m + s / 2,     cy: 2 * H / 3, rot: -Math.PI / 2 }, // left  lower
-    { cx: W - m - s / 2, cy: H / 3,     rot:  Math.PI / 2 }, // right upper
-    { cx: W - m - s / 2, cy: 2 * H / 3, rot:  Math.PI / 2 }, // right lower
+  // TWO sideways stamps, rotated 90° so the figures' FEET point to the
+  // outer edge; they HUG the sides (bleed slightly off-frame), wiggle
+  // side-to-side + swivel subtly with the music, and are coloured by
+  // the section colour blended with the slow hue-cycle. SEEPED in.
+  const s = 190;
+  // PERFECT-LOOP GEOMETRY: position / wiggle / swivel / hue are driven
+  // from a phase locked to the whole video timeline (u: 0 at the first
+  // frame → 1 at the wrap) with INTEGER harmonics only, so the last
+  // frame's pals sit exactly where the first frame's do. (The amplitude
+  // GLOW below is intentionally audio-reactive — its loop boundary is
+  // hidden by the flash-bulb glitch tail.)
+  const u = (audioT + AUDIO_DELAY_SEC) * FPS / FRAMES;
+  const TAU = Math.PI * 2;
+  const hue = ((u * 360 * 4) % 360 + 360) % 360;       // exactly 4 hue cycles
+  const hRgb = hslToRgb(hue, 0.9, 0.62);
+  const [sr, sg, sb] = sectionTcRgb(audioT);          // current section colour
+  const col = [
+    Math.round(sr * 0.6 + hRgb[0] * 0.4),
+    Math.round(sg * 0.6 + hRgb[1] * 0.4),
+    Math.round(sb * 0.6 + hRgb[2] * 0.4),
   ];
+  // LED GLOW: the audio amplitude BRIGHTENS + SATURATES the pals so they
+  // pulse like little LED lights on the loud hits. `glow` eases (env²) so
+  // it pops on peaks rather than riding a flat level. `ledCol` is a hot,
+  // fully-saturated, brighter take on the section/hue colour that the
+  // amplitude drives the stamp toward.
+  const env  = Math.min(1, envAt(audioT));
+  const glow = env * env;
+  const hotRgb = hslToRgb(hue, 1.0, Math.min(0.88, 0.60 + 0.34 * glow));
+  const ledCol = [
+    Math.round(col[0] + (hotRgb[0] - col[0]) * glow),
+    Math.round(col[1] + (hotRgb[1] - col[1]) * glow),
+    Math.round(col[2] + (hotRgb[2] - col[2]) * glow),
+  ];
+  // looping wiggle (side-to-side) + swivel — periodic over the video
+  const wig  = 13 * Math.sin(TAU * 30 * u) + 4 * Math.sin(TAU * 10 * u);
+  const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u);
+  const inset = s * 0.34;                     // hug: ~16% of the stamp off-edge
+  const spots = [
+    { cx: inset - wig,     cy: H * 0.84, rot:  Math.PI / 2 + swiv }, // left
+    { cx: W - inset + wig, cy: H * 0.16, rot: -Math.PI / 2 - swiv }, // right
+  ];
+  // pushed deeper INTO the image — heavier multiply/burn/overlay, only
+  // a whisper of the normal pass so it stains in rather than sits on.
   const passes = [
-    ["multiply",   0.62], ["color-burn", 0.30],
-    ["overlay",    0.45], ["source-over", 0.12],
+    ["multiply",   0.78], ["color-burn", 0.42],
+    ["overlay",    0.58], ["source-over", 0.06],
   ];
   for (const sp of spots) {
     ctx.save();
     ctx.translate(sp.cx, sp.cy);
     ctx.rotate(sp.rot);
+    // FAINT tight dark shadow (single, low alpha — subtler than the
+    // glyph, just a tight offset edge), then the seeped colour stamp
+    // with a clearer colour pass so the pals clearly out-reads its
+    // own shadow.
+    palsTinted([0, 0, 0], palsImg);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.26;
+    ctx.drawImage(wmCanvas, -s / 2 + 3, -s / 2 + 4, s, s);
+    palsTinted(col, palsBlur);
     for (const [op, a] of passes) {
       ctx.globalCompositeOperation = op;
       ctx.globalAlpha = a;
+      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+    }
+    // crisp colour top pass so the logo is the dominant element
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.30;
+    ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+    // LED PULSE — additive bloom + a hot crisp core that brighten &
+    // saturate with the audio amplitude, so the pals flash like little
+    // LED lights on the loud hits.
+    if (glow > 0.001) {
+      palsTinted(ledCol, palsBlur);
+      ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = 0.14 + 0.78 * glow;
+      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+      palsTinted(ledCol, palsImg);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 0.18 + 0.46 * glow;
       ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
     }
     ctx.restore();
@@ -348,13 +427,8 @@ function sectionIndexAt(t) {
   for (let i = 0; i < SECTIONS.length; i++) if (t >= SECTIONS[i].startSec) idx = i;
   return idx;
 }
-// Old-style cinema PUSH: at each section boundary the outgoing illy
-// stays fully opaque and slides off one edge while the incoming illy
-// pushes in flush against it from the opposite edge — both at full
-// opacity, no cross-fade, so the prior image is always visible and
-// there is never a cut-to-black. Direction cycles through all four
-// cardinals (left / right / up / down) per boundary.
-const PUSH_DIRS = ["left", "right", "up", "down"];
+// Section transitions are a full-frame CROSS-DISSOLVE (see drawScene)
+// so the illustration never slides off and never exposes an edge.
 function drawScene(audioT, env, punch) {
   const idx = sectionIndexAt(audioT);
   const sec = SECTIONS[idx];
@@ -362,19 +436,14 @@ function drawScene(audioT, env, punch) {
   if (idx > 0 && sinceStart >= 0 && sinceStart < TRANS_S) {
     let p = sinceStart / TRANS_S;
     p = p * p * (3 - 2 * p);                 // smoothstep ease
-    const dir = PUSH_DIRS[(idx - 1) % PUSH_DIRS.length];
-    let oX = 0, oY = 0, nX = 0, nY = 0;
-    if (dir === "left")  { oX = -p * W;       nX = (1 - p) * W; }
-    if (dir === "right") { oX =  p * W;       nX = -(1 - p) * W; }
-    if (dir === "up")    { oY = -p * H;       nY = (1 - p) * H; }
-    if (dir === "down")  { oY =  p * H;       nY = -(1 - p) * H; }
-    // outgoing — full opacity, slides off; incoming — full opacity,
-    // pushes in flush behind it (drawn second, on top at the seam).
+    // CROSS-DISSOLVE — both panels stay FULL-FRAME (no slide), so the
+    // illustration always completely covers the canvas: no edge is
+    // ever exposed during a section change.
     drawCoverKenBurns(ctx, sectionImgs[idx - 1], audioT, {
-      ...KB, env, punch, offsetX: oX, offsetY: oY, alpha: 1, fillBackground: true,
+      ...KB, env, punch, alpha: 1, fillBackground: true,
     });
     drawCoverKenBurns(ctx, sectionImgs[idx], audioT, {
-      ...KB, env, punch, offsetX: nX, offsetY: nY, alpha: 1, fillBackground: false,
+      ...KB, env, punch, alpha: p, fillBackground: false,
     });
   } else {
     drawCoverKenBurns(ctx, sectionImgs[idx], audioT, { ...KB, env, punch });
@@ -383,11 +452,15 @@ function drawScene(audioT, env, punch) {
 
 
 function drawTitle(audioT, env) {
-  const titleY = 64 + Math.ceil(titleFontSize * 1.25);
+  // INSTA cut: rest at the SAME anchor the typing-intro uses (glyph-top
+  // = TITLE_TOP_Y, baseX = 30) so the title does NOT jump when the
+  // intro hands off to the track — it stays snug at the top and bounces
+  // from there.
+  const titleY = TITLE_TOP_Y + Math.ceil(titleFontSize * 1.25);
   drawTitleBounce(ctx, {
     chars: titleChars,
     ptSize: titleFontSize,
-    baseX: 32,
+    baseX: 30,
     baseY: titleY,
     audioT,
     env,
@@ -401,6 +474,93 @@ function drawTitle(audioT, env) {
     glowMax: 22,
     wobbleAmp: 3,
   });
+}
+
+// TIKTOK cut: the title is typed into the CENTRE of screen, then when
+// the track loads it JUMPS in and the individual characters BOUNCE
+// (per-char traveling wave) and TINT to the current section colour
+// (blended with each char's palette colour) — exactly like the
+// trancenwaltz title — then after a few seconds the letters FALL down
+// (staggered gravity + tumble + fade) and are GONE for good (no
+// reappear). Glyph metrics match the centred typing-intro so the
+// hand-off doesn't move.
+const _ttCanvas = createCanvas(2, 2);
+const _ttCtx = _ttCanvas.getContext("2d");
+function tintTitleGlyph(img, r, g, b) {
+  _ttCanvas.width = img.width; _ttCanvas.height = img.height;
+  _ttCtx.globalCompositeOperation = "source-over";
+  _ttCtx.clearRect(0, 0, img.width, img.height);
+  _ttCtx.drawImage(img, 0, 0);
+  _ttCtx.globalCompositeOperation = "source-in";
+  _ttCtx.fillStyle = `rgb(${r},${g},${b})`;
+  _ttCtx.fillRect(0, 0, img.width, img.height);
+  _ttCtx.globalCompositeOperation = "source-over";
+  return _ttCanvas;
+}
+function drawCenterTitle(audioT) {
+  const pr = struct.prerollSec || 0;
+  const beatHz = (struct.bpm || 70) / 60;
+  const startX = Math.round((W - titleTotalW) / 2);
+  const gyc = Math.round((H - titleBoxH) / 2);   // centred glyph-box top
+  const env = envAt(audioT);
+  const [tSr, tSg, tSb] = sectionTcRgb(audioT);   // current section colour
+  const JUMP_T = pr;                              // title "loads in" w/ track
+  const sinceJump = audioT - JUMP_T;
+  const jumping = sinceJump >= 0 && sinceJump < 0.8;
+  const FALL_START = pr + 4.0;                    // bounce a bit, then drop
+  const baseBounce = 8, envBounce = env * 34;
+  for (let i = 0; i < titleChars.length; i++) {
+    const ch = titleChars[i];
+    if (!ch || !ch.img) continue;
+    const img = ch.img;
+    const x = startX + ch.prefixWidth - 3;
+    const phase = (i / titleChars.length) * 2 * Math.PI;
+    const beatWave = Math.sin(2 * Math.PI * beatHz * audioT + phase);
+    let y = gyc - (baseBounce + envBounce) * Math.abs(beatWave);
+    if (jumping) {
+      const e = 1 - sinceJump / 0.8;              // 1 → 0 over 0.8 s
+      y += -e * e * 44 * Math.cos(sinceJump * 26 - i * 0.6);
+    }
+    // staggered gravity fall + tumble + fade, then GONE (never returns)
+    const charFallT = FALL_START + i * 0.10;
+    let fdy = 0, frot = 0, falpha = 1;
+    if (audioT > charFallT) {
+      const fe = audioT - charFallT;
+      fdy = 0.5 * 2650 * fe * fe;                 // gravity (px)
+      const spin = (((i * 53) % 11) - 5) * 0.55;  // deterministic ± per char
+      frot = spin * fe + 0.16 * Math.sin(fe * 9 + i);
+      falpha = Math.max(0, 1 - fe / 2.2);
+    }
+    if (falpha <= 0.001) continue;                // gone — skip
+    const pal = ncHexToRgb(TITLE_PALETTE[i % TITLE_PALETTE.length]);
+    const cr = Math.round(tSr * 0.55 + pal[0] * 0.45);
+    const cg = Math.round(tSg * 0.55 + pal[1] * 0.45);
+    const cb = Math.round(tSb * 0.55 + pal[2] * 0.45);
+    const blk = tintTitleGlyph(img, 0, 0, 0);
+    const drawStack = (px, py) => {
+      ctx.globalCompositeOperation = "source-over";
+      for (const [ox, oy, a] of [[-2,-1,0.18],[2,3,0.20],[5,7,0.20],[0,3,0.22]]) {
+        ctx.globalAlpha = a * falpha; ctx.drawImage(blk, px + ox, py + oy);
+      }
+      for (const [ox, oy, a] of [[3,4,0.95],[4,5,0.85],[3,5,0.70]]) {
+        ctx.globalAlpha = a * falpha; ctx.drawImage(blk, px + ox, py + oy);
+      }
+      ctx.globalAlpha = falpha;
+      ctx.drawImage(tintTitleGlyph(img, cr, cg, cb), px, py);
+    };
+    ctx.save();
+    if (fdy > 0 || frot !== 0) {
+      const cx = x + img.width / 2, cy = y + img.height / 2;
+      ctx.translate(cx, cy + fdy);
+      ctx.rotate(frot);
+      drawStack(-img.width / 2, -img.height / 2);
+    } else {
+      drawStack(x, y);
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
 }
 
 const PROGRESS_BAR_H = 22;
@@ -483,7 +643,10 @@ function drawProgressBar(audioT) {
   const lastI = struct.sections.length - 1;
   for (let si = 0; si < struct.sections.length; si++) {
     const sec = struct.sections[si];
-    const segX0 = (sec.startSec / DURATION) * W;
+    // first section starts at PREROLL_SEC (the typing-intro), so without
+    // this clamp the bar would begin ~3% in and never touch the LEFT
+    // edge — force section 0 to x=0 (mirror of the last-section→W rule).
+    const segX0 = si === 0 ? 0 : (sec.startSec / DURATION) * W;
     // the final section runs all the way to the right edge — the
     // sections end a couple seconds before the padded total, so without
     // this the bar would stop ~3% short of the screen.
@@ -524,61 +687,174 @@ function midiToNotepatRgb(midi) {
 // it ALWAYS cuts clear across the display at any rotation (its round
 // caps never enter frame). Scene + title + bar + timecode + watermark
 // stay fixed.
-const ROT_CX = PLAYHEAD_X;        // == W/2
-const ROT_CY = H / 2;
-const DIAG   = Math.hypot(W, H);
-const TWO_PI = Math.PI * 2;
-// Waveforms ride a big virtual record groove: each block is rotated
-// about the disc centre by (timeOffsetPx / GROOVE_R), so the tracks
-// are near-straight at the needle and curve more the further out
-// (incoming/exterior) they are — like grooves on a turning record.
-const GROOVE_R = 950;
-function trackTheta(audioT) {
-  return TWO_PI * Math.max(0, Math.min(1, audioT / DURATION));
+const ROT_CX = Math.round(W / 2);  // matches the engine's disc centre
+const ROT_CY = Math.round(H / 2);
+const DIAG   = Math.hypot(W, H);   // drawPanel viewport span
+// Waveforms ride a virtual record groove curved about the canvas
+// CENTRE (ROT_CX/ROT_CY = screen centre). A big radius reads almost
+// flat (centre off one edge); a small radius reads as a tight, very
+// curved spindle. ~0.80·screen-min is a SLOWER, gentler curve — the
+// record still centres but the polarity isn't so pronounced.
+const GROOVE_R = Number(flags["groove-r"] ?? Math.round(Math.min(W, H) * 0.85));
+// The shared cover engine: verlet string + rotating disc + the LOCAL
+// string→illustration WARP. Same movement system as trancenwaltz.
+// The illustration is NOT rotated or skewed — only the lane+string
+// disc rotates, and warp() bends the picture where the string is
+// deflected (the distortion comes straight from the line).
+const _vs = makeVerletString(ctx, { W, H, playheadX: PLAYHEAD_X, duration: DURATION });
+const trackTheta       = _vs.trackTheta;
+const withRotation     = _vs.withRotation;
+const pluckNeedle      = _vs.pluck;
+const stepNeedle       = _vs.step;
+const needleXAt        = _vs.needleXAt;
+const drawNeedleString = _vs.draw;
+const ncHexToRgb       = hexToRgb;
+
+// ── string→illustration warp, COUNTER-ROTATED ───────────────────────
+// The engine's warp() samples an axis-aligned strip but, run inside
+// the disc rotation, redraws it rotated → the whole picture spins.
+// Instead: snapshot the upright frame, rotate it −θ into a buffer,
+// then redraw the strip under +θ. The two rotations cancel for the
+// CONTENT (illustration stays perfectly upright, never rotates) while
+// the strip + its per-row string-bend live in the string's rotated
+// frame — so ONLY the distortion field under the string turns with
+// the record. Feathered bands → no seam with the un-warped surround.
+const WU_HALF = 200, WU_W = WU_HALF * 2, WU_STEP = 6, WU_BANDS = 7;
+const WU_STR = 0.85, WU_BW = WU_W / WU_BANDS;
+const wuWin = new Float64Array(WU_BANDS);
+for (let b = 0; b < WU_BANDS; b++) {
+  wuWin[b] = Math.sin(Math.PI * ((b + 0.5) / WU_BANDS)) ** 2;
 }
-let CUR_THETA = 0;                 // current track rotation (for lighting)
-function withRotation(theta, fn) {
+const WU_DSZ = Math.ceil(DIAG) + 4;
+const wuSnap = createCanvas(W, H);
+const wuSnapC = wuSnap.getContext("2d");
+const wuCR = createCanvas(WU_DSZ, WU_DSZ);
+const wuCRC = wuCR.getContext("2d");
+function warpUnderString(theta) {
+  const { devPeak } = _vs.deflection();
+  if (Math.abs(devPeak) < 2) return;          // string ~straight → skip
+  // 1) snapshot the upright frame (scene + backlight)
+  wuSnapC.clearRect(0, 0, W, H);
+  wuSnapC.drawImage(canvas, 0, 0);
+  // 2) counter-rotate it by −θ, centred in the big square
+  wuCRC.setTransform(1, 0, 0, 1, 0, 0);
+  wuCRC.clearRect(0, 0, WU_DSZ, WU_DSZ);
+  wuCRC.translate(WU_DSZ / 2, WU_DSZ / 2);
+  wuCRC.rotate(-theta);
+  wuCRC.translate(-W / 2, -H / 2);
+  wuCRC.drawImage(wuSnap, 0, 0);
+  wuCRC.setTransform(1, 0, 0, 1, 0, 0);
+  // 3) redraw only the strip under +θ, each band shifted by the
+  //    string's local deflection (content upright, strip rotated)
+  const sox = (WU_DSZ - W) / 2, soy = (WU_DSZ - H) / 2;
+  const x0 = Math.round(PLAYHEAD_X - WU_HALF);
   ctx.save();
   ctx.translate(ROT_CX, ROT_CY);
   ctx.rotate(theta);
   ctx.translate(-ROT_CX, -ROT_CY);
-  fn();
+  for (let y = 0; y < H; y += WU_STEP) {
+    const dx = (needleXAt(y) - PLAYHEAD_X) * WU_STR;
+    for (let b = 0; b < WU_BANDS; b++) {
+      const sx = b * WU_BW;
+      const shift = dx * wuWin[b];
+      ctx.drawImage(
+        wuCR, sox + x0 + sx, soy + y, WU_BW + 1, WU_STEP,
+        x0 + sx + shift, y, WU_BW + 1, WU_STEP,
+      );
+    }
+  }
   ctx.restore();
 }
 
-// ── boot / shutdown beep ripples ─────────────────────────────────────
-// One fullscreen radial "dink" (flash + expanding ring) per ac-native
-// chime note, from struct.events.sfx (boot-beep-N / shutdown-beep-N).
+// ── boot / shutdown beep flashes ─────────────────────────────────────
+// NOT radial — a TOTALIZING whole-frame flash per ac-native chime note
+// (struct.events.sfx boot/shutdown-beep-N): the entire image blooms
+// the chime colour and decays; shutdown also pulls the whole frame
+// down then releases (a system collapse).
 const beepEvents = (struct.events?.sfx || [])
   .filter((e) => /^(boot|shutdown)-beep-\d+$/.test(e.name))
   .map((e) => ({ t: e.t, boot: e.name.startsWith("boot") }))
   .sort((a, b) => a.t - b.t);
+
+// ── typing-intro: first illy under AC-prompt purple, slug typed ──────
+// The whole intro lives in the pre-roll [0, PREROLL_SEC): first the
+// boot beeps fire, THEN the slug types in char-by-char (each keyclick
+// reveals one glyph, a blinking pink caret trails), then the track
+// frame takes over at PREROLL_SEC.
+const keyClicks = (struct.events?.sfx || [])
+  .filter((e) => /^keyclick-\d+$/.test(e.name))
+  .map((e) => e.t).sort((a, b) => a - b);
+const PREROLL_SEC = struct.prerollSec || 0;
+// EXACT port of the trancenwaltz typing intro (pop/dance/bin/
+// cover-video.mjs) — same constants + animation so the two match:
+// purple AC bg, glyphs typed from titleBaseX at glyph-box-top gy,
+// and the pink block IS the cursor (rides right of the typed text,
+// ~3 Hz blink). No leading block, no lozenge.
+const titleBaseX     = 30;
+const charBoxW       = Math.ceil(titleFontSize * 1.4);
+const charBoxH       = Math.ceil(titleFontSize * 1.7);
+const charBaselineY  = Math.ceil(titleFontSize * 1.25);
+const IG_TOP_SAFE    = TITLE_TOP_Y;
+const titleY         = IG_TOP_SAFE + charBaselineY;
+function drawTypingIntro(audioT) {
+  // The FIRST illy (tide-in) sits UNDER a translucent purple wash so it
+  // ghosts through the AC prompt and gets extra screen-time before the
+  // track proper begins.
+  const bg = sectionImgs[0];
+  const sc = Math.max(W / bg.width, H / bg.height);
+  const dw = bg.width * sc, dh = bg.height * sc;
+  ctx.drawImage(bg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  ctx.fillStyle = "rgba(27,0,51,0.80)";      // #1b0033 prompt purple wash
+  ctx.fillRect(0, 0, W, H);
+  const PINK = "#e0468c";                    // AC prompt pink
+  let typed = 0;
+  for (const kt of keyClicks) { if (audioT >= kt) typed++; else break; }
+  typed = Math.min(typed, titleChars.length);
+  const blockW = Math.round(charBoxW * 0.30);
+  const blockH = Math.round(charBaselineY * 0.96);
+  // INSTA: type from the left at the top safe anchor. TIKTOK: type into
+  // the CENTRE of screen (same placement drawCenterTitle holds, so the
+  // hand-off to the track doesn't move).
+  const gy = TIKTOK
+    ? Math.round((H - charBoxH) / 2)
+    : titleY - charBaselineY;                 // glyph-box top (no bounce)
+  const startX = TIKTOK
+    ? Math.round((W - titleTotalW) / 2)
+    : titleBaseX;
+  const promptY = gy + Math.round((charBoxH - blockH) / 2);
+  for (let i = 0; i < typed; i++) {
+    const ch = titleChars[i];
+    if (ch && ch.img) ctx.drawImage(ch.img, startX + ch.prefixWidth - 3, gy);
+  }
+  // pink block = the cursor, RIGHT of the typed text; ~3 Hz blink.
+  const caretPrefix = typed < titleChars.length
+    ? titleChars[typed].prefixWidth : titleTotalW;
+  const caretX = startX + caretPrefix + 4;
+  if (Math.floor(audioT * 6) % 2 === 0) {
+    ctx.fillStyle = PINK;
+    ctx.fillRect(Math.round(caretX), promptY, blockW, blockH);
+  }
+}
 function drawBeepRipples(audioT) {
-  const RIPPLE_S = 1.1;
+  const RIPPLE_S = 1.0;
   for (const b of beepEvents) {
     const dt = audioT - b.t;
     if (dt < 0 || dt > RIPPLE_S) continue;
-    const p = dt / RIPPLE_S;                 // 0..1
-    const ease = 1 - (1 - p) * (1 - p);
-    const cx = W / 2, cy = H / 2;
-    const maxR = Math.hypot(W, H) / 2;
-    const r = ease * maxR;
-    const tint = b.boot ? "180,255,170" : "255,170,150";
+    const p = dt / RIPPLE_S;                  // 0..1
+    const fall = (1 - p) * (1 - p);           // fast decay
+    const spike = p < 0.10 ? (1 - p / 0.10) : 0;
+    const tint = b.boot ? "190,255,180" : "255,165,140";
     ctx.save();
-    // expanding thin ring
+    // whole-frame bloom — the ENTIRE image flashes the chime colour
     ctx.globalCompositeOperation = "screen";
-    ctx.strokeStyle = `rgba(${tint},${(0.55 * (1 - p)).toFixed(3)})`;
-    ctx.lineWidth = 3 + 6 * (1 - p);
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, TWO_PI);
-    ctx.stroke();
-    // brief central flash on the first ~18% of the ripple
-    if (p < 0.18) {
-      const fa = (1 - p / 0.18) * 0.5;
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 0.6);
-      g.addColorStop(0, `rgba(${tint},${fa.toFixed(3)})`);
-      g.addColorStop(1, `rgba(${tint},0)`);
-      ctx.fillStyle = g;
+    ctx.globalAlpha = Math.min(0.88, 0.40 * fall + 0.58 * spike);
+    ctx.fillStyle = `rgb(${tint})`;
+    ctx.fillRect(0, 0, W, H);
+    if (!b.boot) {
+      // shutdown drags the whole frame down, then releases
+      ctx.globalCompositeOperation = "multiply";
+      ctx.globalAlpha = 0.38 * fall;
+      ctx.fillStyle = "rgb(64,50,72)";
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
@@ -622,140 +898,11 @@ function drawBacklight(audioT, env) {
   ctx.globalCompositeOperation = "source-over";
 }
 
-// ── verlet-string playhead ───────────────────────────────────────────
-// A pinned vertical string the waveform blocks "pluck" as they cross.
-// Spans the full diagonal (+pad) so the ends sit off-canvas — drawn as
-// ONE smooth curve (no visible segments, no alpha-overlap knots).
-const NS_SPAN = DIAG + 120;
-const NS_N  = 80;
-const NS_Y0 = ROT_CY - NS_SPAN / 2;
-const NS_Y1 = ROT_CY + NS_SPAN / 2;
-const nsY  = new Float32Array(NS_N);
-const nsX  = new Float32Array(NS_N);
-const nsPX = new Float32Array(NS_N);
-const nsHot = new Float32Array(NS_N);
-for (let i = 0; i < NS_N; i++) {
-  nsY[i] = NS_Y0 + (NS_Y1 - NS_Y0) * (i / (NS_N - 1));
-  nsX[i] = PLAYHEAD_X; nsPX[i] = PLAYHEAD_X;
-}
-// Per-node colour — each segment glows in the colour of the waveform
-// lane that last plucked it (ported from the trancenwaltz string).
-const nsCR = new Float32Array(NS_N);
-const nsCG = new Float32Array(NS_N);
-const nsCB = new Float32Array(NS_N);
-nsCR.fill(255); nsCG.fill(232); nsCB.fill(150);   // default nylon cream
-function ncHexToRgb(hex) {
-  const h = String(hex).replace("#", "");
-  return [parseInt(h.slice(0, 2), 16) || 0,
-          parseInt(h.slice(2, 4), 16) || 0,
-          parseInt(h.slice(4, 6), 16) || 0];
-}
+// (verlet string state + pluck/step/needleXAt/draw/warp all live in
+//  the shared cover-engine `_vs` above.)
 const laneCenterY = {};
 for (let li = 0; li < LANES.length; li++) {
   laneCenterY[LANES[li].key] = LANE_TOP + li * (LANE_H + LANE_GUTTER) + LANE_H / 2;
-}
-function pluckNeedle(yPix, amount, sign, rgb) {
-  let idx = Math.round(((yPix - NS_Y0) / (NS_Y1 - NS_Y0)) * (NS_N - 1));
-  idx = Math.max(2, Math.min(NS_N - 3, idx));
-  nsX[idx]     += sign * amount;
-  nsX[idx - 1] += sign * amount * 0.55;
-  nsX[idx + 1] += sign * amount * 0.55;
-  nsHot[idx] = 1;
-  nsHot[idx - 1] = Math.max(nsHot[idx - 1], 0.7);
-  nsHot[idx + 1] = Math.max(nsHot[idx + 1], 0.7);
-  if (rgb) {
-    for (const j of [idx - 1, idx, idx + 1]) {
-      nsCR[j] = rgb[0]; nsCG[j] = rgb[1]; nsCB[j] = rgb[2];
-    }
-  }
-}
-function stepNeedle() {
-  for (let i = 1; i < NS_N - 1; i++) {
-    const v = (nsX[i] - nsPX[i]) * 0.90;                 // damping → ring
-    nsPX[i] = nsX[i];
-    nsX[i] = nsX[i] + v + (PLAYHEAD_X - nsX[i]) * 0.020; // tension home
-  }
-  for (let pass = 0; pass < 2; pass++) {                  // string stiffness
-    for (let i = 1; i < NS_N - 1; i++) {
-      nsX[i] = (nsX[i] * 2 + nsX[i - 1] + nsX[i + 1]) * 0.25;
-    }
-  }
-  nsX[0] = nsX[NS_N - 1] = PLAYHEAD_X;
-  for (let i = 0; i < NS_N; i++) nsHot[i] *= 0.90;
-}
-// String x at any pixel y (linear nsY mapping → interpolate nsX).
-function needleXAt(yPix) {
-  const f = Math.max(0, Math.min(1, (yPix - NS_Y0) / (NS_Y1 - NS_Y0))) * (NS_N - 1);
-  const i = Math.floor(f), frac = f - i;
-  if (i >= NS_N - 1) return nsX[NS_N - 1];
-  return nsX[i] + (nsX[i + 1] - nsX[i]) * frac;
-}
-// Trancenwaltz-style string: single-path dark shadow, then per-segment
-// nylon — dark casing → body tinted by the plucking lane's colour →
-// specular core. Idle stretches stay faint + thin.
-function drawNeedleString() {
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  // Fixed WORLD light from the top-right. The string is drawn inside
-  // the rotating frame, so the shadow (down-left in world) and the
-  // specular (toward the light in world) are the world vectors rotated
-  // by -CUR_THETA into the string's local space → the lit side stays
-  // top-right and the shadow angle swings as the record turns.
-  const sc = Math.cos(CUR_THETA), ss = Math.sin(CUR_THETA);
-  const SHX = -3.5, SHY = 4.5;               // world shadow (down-left)
-  const SPX = 1.7, SPY = -1.7;               // world specular (up-right)
-  const sdx = SHX * sc + SHY * ss;
-  const sdy = -SHX * ss + SHY * sc;
-  const spx = SPX * sc + SPY * ss;
-  const spy = -SPX * ss + SPY * sc;
-
-  // 1) drop shadow — one continuous stroke (no overlap buildup)
-  ctx.strokeStyle = "rgba(0,0,0,0.5)";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(nsX[0] + sdx, nsY[0] + sdy);
-  for (let i = 1; i < NS_N - 1; i++) {
-    const mx = (nsX[i] + nsX[i + 1]) / 2 + sdx;
-    const my = (nsY[i] + nsY[i + 1]) / 2 + sdy;
-    ctx.quadraticCurveTo(nsX[i] + sdx, nsY[i] + sdy, mx, my);
-  }
-  ctx.lineTo(nsX[NS_N - 1] + sdx, nsY[NS_N - 1] + sdy);
-  ctx.stroke();
-
-  // 2) per-segment, colour held from whatever waveform plucked it
-  for (let i = 1; i < NS_N; i++) {
-    const h = Math.max(nsHot[i], nsHot[i - 1]);
-    const dev = Math.abs(((nsX[i] + nsX[i - 1]) / 2) - PLAYHEAD_X);
-    const act = Math.min(1, Math.max(h, dev / 26));
-    const x0 = nsX[i - 1], y0 = nsY[i - 1], x1 = nsX[i], y1 = nsY[i];
-
-    ctx.strokeStyle = `rgba(60,46,32,${(0.10 + act * 0.40).toFixed(3)})`;
-    ctx.lineWidth = 4 + act * 4;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-
-    const cr = (nsCR[i] + nsCR[i - 1]) / 2;
-    const cg = (nsCG[i] + nsCG[i - 1]) / 2;
-    const cb = (nsCB[i] + nsCB[i - 1]) / 2;
-    const wb = 0.16 * act;                 // keep the lane colour dominant
-    const br = Math.round(cr + (255 - cr) * wb);
-    const bg = Math.round(cg + (255 - cg) * wb);
-    const bbl = Math.round(cb + (255 - cb) * wb);
-    ctx.strokeStyle = `rgba(${br},${bg},${bbl},${(0.13 + act * 0.80).toFixed(3)})`;
-    ctx.lineWidth = 2.2 + act * 3.4;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-
-    const specA = act * 0.85;
-    if (specA > 0.02) {
-      ctx.strokeStyle = `rgba(255,255,246,${specA.toFixed(3)})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x0 + spx, y0 + spy); ctx.lineTo(x1 + spx, y1 + spy);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
 }
 
 function drawPanel(audioT) {
@@ -899,6 +1046,9 @@ const t0 = Date.now();
 let nextLog = 0.05;
 let prevNeedleT = -1;
 const laneList = LANES.slice();
+// Heavily-smoothed scene-motion state (EMA across frames) so the
+// verlet vibe DISTORTS the illustration smoothly and never jumps.
+let smPunch = 0;
 for (let f = 0; f < FRAMES; f++) {
   const t = f / FPS;
   // Shift visual readout by AAC priming delay so blocks cross the
@@ -907,6 +1057,22 @@ for (let f = 0; f < FRAMES; f++) {
   const env = envAt(audioT);
   const punch = kickEnvAt(audioT);
 
+  // TYPING-INTRO window: first illy under the purple AC prompt for the
+  // whole pre-roll [0, PREROLL_SEC) — the boot beeps fire FIRST, then
+  // the slug types in, then the track takes over. Skips the normal
+  // track render (string held) but still feeds the shared frame
+  // write + loop capture, so frame 0 IS the typed-prompt opener.
+  if (keyClicks.length && audioT < PREROLL_SEC) {
+    drawTypingIntro(audioT);
+    // Pals are STAMPED ON over the typed prompt too, so they persist
+    // for the WHOLE video (typing → boot → track → shutdown). TikTok
+    // cut has NO side pals. Their wiggle is a perfect loop.
+    if (!TIKTOK) drawWatermark(audioT);
+    // boot beeps now play DURING this window — flash them here too.
+    drawBeepRipples(audioT);
+    prevNeedleT = audioT;          // don't backfill plucks at hand-off
+  } else {
+
   // pluck the verlet string for every event whose onset falls in
   // this frame (block contacting the needle at that lane's y), then
   // step the physics once.
@@ -914,10 +1080,12 @@ for (let f = 0; f < FRAMES; f++) {
     const lane = laneList[li];
     const cy = laneCenterY[lane.key];
     const lrgb = ncHexToRgb(lane.color);     // string segment glows this
-    let amp = 22;
-    if (lane.key === "kick" || lane.key === "sub") amp = 40;
-    else if (lane.key === "bells") amp = 26;
-    else if (lane.key === "hat" || lane.key === "bubbles") amp = 16;
+    // Gentle plucks — a soft string bend reads as an ORGANIC local
+    // warp of the picture; big deflections ghost/tear the strip.
+    let amp = 7;
+    if (lane.key === "kick" || lane.key === "sub") amp = 12;
+    else if (lane.key === "bells") amp = 8;
+    else if (lane.key === "hat" || lane.key === "bubbles") amp = 5;
     for (const ev of laneEvents[lane.key]) {
       if (ev.t <= prevNeedleT) continue;
       if (ev.t > audioT) break;
@@ -929,65 +1097,72 @@ for (let f = 0; f < FRAMES; f++) {
   stepNeedle();
 
   const theta = trackTheta(audioT);
-  CUR_THETA = theta;                 // string lighting follows rotation
 
-  // string-vibe displacement of the illustration — visibly tugged by
-  // the verlet vibes. Magnitude from the PEAK deflection (the punch),
-  // direction along the string's world normal; plus a small rock + a
-  // breath-scale so the picture clearly shoves/tilts with the string.
-  let devSum = 0, devPeak = 0;
-  for (let i = 1; i < NS_N - 1; i++) {
-    const d = nsX[i] - PLAYHEAD_X;
-    devSum += d;
-    if (Math.abs(d) > Math.abs(devPeak)) devPeak = d;
-  }
-  const devAvg = devSum / (NS_N - 2);
-  const vibe = Math.max(-60, Math.min(60, devPeak));
-  const dispMag = vibe * 1.4;
-  const dispX = dispMag * Math.cos(theta);
-  const dispY = dispMag * Math.sin(theta);
-  const sceneRot = Math.max(-0.055, Math.min(0.055, devAvg * 0.0019));
-  const sceneScale = 1 + Math.min(1, Math.abs(vibe) / 60) * 0.025;
-
-  ctx.save();
-  ctx.translate(ROT_CX + dispX, ROT_CY + dispY);
-  ctx.rotate(sceneRot);
-  ctx.scale(sceneScale, sceneScale);
-  ctx.translate(-ROT_CX, -ROT_CY);
-  drawScene(audioT, env, punch);
-  ctx.restore();
+  // Illustration: SMOOTH ken-burns only (drawScene/drawCoverKenBurns
+  // already breathes + soft-kick-zooms). NO rotation, NO global skew —
+  // it never jumps. The kick punch is EMA-smoothed so the zoom glides.
+  smPunch = smPunch * 0.80 + punch * 0.20;
+  drawScene(audioT, env, smPunch);
 
   // beach-sunset backlight + contrast layering over the illustration.
   drawBacklight(audioT, env);
 
-  // the track group — lane waveforms + string — rotates as one disc,
-  // a plain 360° about centre across the whole record. Not clipped, so
-  // the tracks extend out past the old band as it turns.
+  // ONLY the distortion field under the string rotates with the disc —
+  // the illustration content itself stays upright (counter-rotated).
+  warpUnderString(theta);
+
+  // Rotating disc: the lane waveforms + the string itself.
   withRotation(theta, () => {
     drawPanel(audioT);
     drawNeedleString();
   });
 
   // fixed HUD, drawn OVER the rotating string.
-  drawTitle(audioT, env);
-  drawProgressBar(audioT);
-  drawTimecode(audioT);
-  drawWatermark(audioT);
+  // INSTA: bouncing top title + section progress bar + timecode + side
+  // pals. TIKTOK: centred title that slowly fades, and NOTHING else —
+  // no progress bar, no timecode, no side pals.
+  if (TIKTOK) {
+    drawCenterTitle(audioT);
+  } else {
+    drawTitle(audioT, env);
+    drawProgressBar(audioT);
+    drawTimecode(audioT);
+    drawWatermark(audioT);
+  }
 
   // boot/shutdown beep ripples — fullscreen, on top of everything.
   drawBeepRipples(audioT);
+  }  // ── end normal-track render (else of typing-intro) ───────────────
 
-  // perfect loop: capture frame 0, then dissolve the tail back into it.
+  // LOOP TRANSITION — capture frame 0, then over the tail SHRED frame
+  // 0 in over jittered horizontal bands and FLASH-BULB the final
+  // frames to blank white. On the wrap the clean frame 0 snaps back →
+  // reads as a hard glitchy flash cut, not a soft dissolve.
   if (!loopCaptured) {
     loopCtx.drawImage(canvas, 0, 0);
     loopCaptured = true;
   } else if (audioT > DURATION - LOOP_S) {
     let lp = (audioT - (DURATION - LOOP_S)) / LOOP_S;
     lp = Math.max(0, Math.min(1, lp));
-    const a = lp * lp * (3 - 2 * lp) * 0.92;   // smoothstep → 0.92
     ctx.save();
-    ctx.globalAlpha = a;
-    ctx.drawImage(loopCanvas, 0, 0);
+    const bh = 22;                              // shred band height
+    const seed = Math.floor(audioT * 30) >>> 0; // re-jitter cadence
+    for (let by = 0; by < H; by += bh) {
+      let r = ((by * 2654435761) >>> 0) ^ seed;
+      r = (r ^ (r >>> 13)) >>> 0;
+      const rnd = ((r % 1000) / 1000) - 0.5;    // -0.5..0.5
+      const reveal = ((r >>> 7) % 1000) / 1000; // per-band entry time
+      if (lp < reveal * 0.5) continue;          // bands shred in over time
+      const jit = rnd * (50 + 260 * lp) * lp;   // x-shred grows with lp
+      ctx.globalAlpha = Math.min(1, 0.4 + lp * 1.0);
+      ctx.drawImage(loopCanvas, 0, by, W, bh, jit, by, W, bh);
+    }
+    if (lp > 0.6) {                             // flash-bulb white blowout
+      const fp = (lp - 0.6) / 0.4;
+      ctx.globalAlpha = Math.min(1, fp * fp * 1.2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, W, H);
+    }
     ctx.restore();
   }
 
