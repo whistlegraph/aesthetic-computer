@@ -892,7 +892,13 @@ app.all("/media/*rest", async (req, res) => {
   if (parts[0] === "paintings" && parts[1]) {
     const code = parts[1].replace(/\.(png|zip)$/, "");
     try {
-      const result = await functions["get-painting"]?.(mediaEvent("/api/get-painting", { code }), {});
+      // painting.mjs requests media by slug (e.g. qwfV8wDk), but short codes
+      // (e.g. eou) also reach here — try code first, then fall back to slug
+      // so anon/slug-addressed paintings resolve instead of 404ing.
+      let result = await functions["get-painting"]?.(mediaEvent("/api/get-painting", { code }), {});
+      if (result?.statusCode !== 200) {
+        result = await functions["get-painting"]?.(mediaEvent("/api/get-painting", { slug: code }), {});
+      }
       if (result?.statusCode === 200) {
         const painting = JSON.parse(result.body);
         const bucket = painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer";

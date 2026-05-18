@@ -2993,8 +2993,15 @@ const $commonApi = {
       if (SPOOF_AUDIO_MODE) params.push("spoofaudio=true");
 
       if (params.length > 0) {
-        const separator = to.includes("?") ? "&" : "?";
-        to = to + separator + params.join("&");
+        // Query params must land BEFORE any #fragment, otherwise they get
+        // glued into the hash (e.g. `painting#qwfV8wDk?nogap=true`) and the
+        // fragment-based code lookup — like painting short codes from `#eou`
+        // — resolves the corrupted string instead of the real code.
+        const hashIdx = to.indexOf("#");
+        const base = hashIdx >= 0 ? to.slice(0, hashIdx) : to;
+        const frag = hashIdx >= 0 ? to.slice(hashIdx) : "";
+        const separator = base.includes("?") ? "&" : "?";
+        to = base + separator + params.join("&") + frag;
         console.log("🧭 Preserving resolution params:", to);
       }
     }
