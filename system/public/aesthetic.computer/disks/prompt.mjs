@@ -258,8 +258,44 @@ const DISABLE_CONTENT_PREVIEWS = true; // Disable live preview tooltips
 
 let startupSfx, keyboardSfx;
 
-// 🔍 @handle autocomplete
+// 🔍 @handle autocomplete (plus $ # ! sigil media triggers)
 let handleAutocomplete;
+
+// 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
+// (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
+// this is the "feed already written" win. `kind` is contentItems.type
+// ("kidlisp" | "painting" | "tape"); `sigil` is the prompt prefix.
+function sigilSuggestions(kind, sigil, query) {
+  const q = (query || "").toLowerCase();
+  const seen = new Set();
+  const starts = [];
+  const contains = [];
+  for (const item of contentItems) {
+    if (item.type !== kind || !item.code) continue;
+    const code = String(item.code);
+    if (seen.has(code)) continue;
+    const lc = code.toLowerCase();
+    let bucket = null;
+    if (q.length === 0 || lc.startsWith(q)) bucket = starts;
+    else if (lc.includes(q)) bucket = contains;
+    if (!bucket) continue;
+    seen.add(code);
+    bucket.push({ text: code, display: `${sigil}${code}` });
+  }
+  return [...starts, ...contains];
+}
+
+// Trigger config factory for a sigil. `cache: false` because contentItems
+// populates asynchronously after boot and the in-memory filter is cheap.
+function sigilTrigger(kind, sigil, color) {
+  return {
+    fetch: async (query) => sigilSuggestions(kind, sigil, query),
+    minChars: 0, // bare "$" / "#" / "!" shows recent items immediately
+    color,
+    prefix: sigil,
+    cache: false,
+  };
+}
 
 // 🎆 Corner particles (for cursor effect)
 let cornerParticles = [];
@@ -780,8 +816,16 @@ async function boot({
     .then((sfx) => (keyboardSfx = sfx))
     .catch((err) => console.warn(err)); // and key sounds.
 
-  // � Initialize @handle autocomplete
-  handleAutocomplete = createHandleAutocomplete();
+  // � Initialize @handle autocomplete + $ # ! sigil media triggers.
+  // Colors mirror the UNITICKER legend (kidlisp green / painting magenta /
+  // tape amber) so result rows stay type-consistent across AC.
+  handleAutocomplete = createHandleAutocomplete({
+    extraTriggers: {
+      $: sigilTrigger("kidlisp", "$", [150, 255, 150]),
+      "#": sigilTrigger("painting", "#", [255, 150, 255]),
+      "!": sigilTrigger("tape", "!", [255, 200, 100]),
+    },
+  });
 
   // �📦 Load product images (DISABLED for now)
   await products.boot(api);
@@ -8075,7 +8119,10 @@ function act({
     if ((e.is("keyboard:down:tab") || e.is("keyboard:down:enter")) && handleAutocomplete.selected) {
       const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
       const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
-      system.prompt.input.text = newText + " "; // Add space after handle
+      // Trailing space only after @handles (so you can keep typing a piece);
+      // sigil codes ($cow / #pic / !tape) stay bare so Enter runs them.
+      const trail = handleAutocomplete.activeTrigger === "@" ? " " : "";
+      system.prompt.input.text = newText + trail;
       system.prompt.input.snap();
       send({ type: "keyboard:text:replace", content: { text: system.prompt.input.text } });
       handleAutocomplete.hide();
@@ -8097,7 +8144,10 @@ function act({
       // Item was clicked - complete with the clicked item
       const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
       const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
-      system.prompt.input.text = newText + " "; // Add space after handle
+      // Trailing space only after @handles (so you can keep typing a piece);
+      // sigil codes ($cow / #pic / !tape) stay bare so Enter runs them.
+      const trail = handleAutocomplete.activeTrigger === "@" ? " " : "";
+      system.prompt.input.text = newText + trail;
       system.prompt.input.snap();
       send({ type: "keyboard:text:replace", content: { text: system.prompt.input.text } });
       handleAutocomplete.hide();
