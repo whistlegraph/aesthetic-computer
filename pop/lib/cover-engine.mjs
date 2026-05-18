@@ -47,8 +47,12 @@ export function makeVerletString(ctx, { W, H, playheadX, duration, segments = 72
   const nsCB = new Float32Array(NS_N);
   nsCR.fill(255); nsCG.fill(232); nsCB.fill(150); // default nylon cream
 
+  // Fixed rotation RATE — one full turn every ROT_PERIOD seconds (was
+  // one turn across the WHOLE track, far too slow on a 3-min cut).
+  // No clamp: the disc keeps spinning for the whole track.
+  const ROT_PERIOD = 30; // seconds per 360°
   function trackTheta(at) {
-    return Math.PI * 2 * Math.max(0, Math.min(1, at / Math.max(0.001, duration)));
+    return Math.PI * 2 * (Math.max(0, at) / ROT_PERIOD);
   }
   function withRotation(theta, fn) {
     ctx.save();
