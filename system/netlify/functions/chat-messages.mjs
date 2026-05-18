@@ -2,12 +2,15 @@
 // GET: Returns recent chat messages from a specific chat instance.
 //      Examples: "clock" for Laer-Klokken, "system" for main chat
 // Query params:
-//   instance  — "clock" or "system" (default: "system")
+//   instance  — "clock", "system", or "all" (default: "system")
 //   limit     — max messages to return, up to 100 (default: 50)
 //   before    — ISO timestamp; return messages strictly older than this
 //               (use the oldest `when` from the previous page to paginate back)
-// Response is still chronological (oldest → newest) within each page.
-// Redis caching: 2 min TTL, keyed on (instance, limit, before).
+//   search/q  — case-insensitive substring filter over message text.
+//               When set, results are newest-first relevance (no reverse) and
+//               `instance=all` searches both chat-system and chat-clock.
+// Response is chronological (oldest → newest) per page UNLESS searching.
+// Redis caching: 2 min TTL, keyed on (instance, limit, before, search).
 
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
@@ -45,35 +48,60 @@ export async function handler(event, context) {
       before = parsed;
     }
 
-    // Cache key includes instance, limit, and pagination cursor
-    const cacheKey = `give:chat:${instance}:${limit}:${before ? before.toISOString() : "head"}`;
+    // Optional case-insensitive text search. When present, `instance=all`
+    // spans both chat-system and chat-clock, and results are newest-first
+    // relevance (not reversed to chronological).
+    const searchRaw = (params.search || params.q || "").trim();
+    const searching = searchRaw.length > 0;
+    const escaped = searchRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // Cache key includes instance, limit, pagination cursor, and search
+    const cacheKey = `give:chat:${instance}:${limit}:${before ? before.toISOString() : "head"}:${searching ? "q=" + searchRaw.toLowerCase() : "noq"}`;
 
     const result = await getOrCompute(
       cacheKey,
       async () => {
         shell.log(
           `📨 Fetching ${limit} messages for chat instance: ${instance}` +
-            (before ? ` (before ${before.toISOString()})` : ""),
+            (before ? ` (before ${before.toISOString()})` : "") +
+            (searching ? ` (search "${searchRaw}")` : ""),
         );
 
         const database = await connect();
 
-        // Use different collections based on instance
-        const collectionName = instance === "clock" ? "chat-clock" : "chat-system";
-        const collection = database.db.collection(collectionName);
+        // "all" is only meaningful while searching; otherwise single instance.
+        const instances =
+          instance === "all" ? ["system", "clock"] : [instance];
 
-        shell.log(`📂 Using collection: ${collectionName} for instance: ${instance}`);
+        const baseFilter = {};
+        if (before) baseFilter.when = { $lt: before };
+        if (searching) baseFilter.text = { $regex: escaped, $options: "i" };
 
-        // Query for messages, sorted by timestamp descending
-        const filter = before ? { when: { $lt: before } } : {};
-        const messages = await collection
-          .find(filter)
-          .sort({ when: -1 })
-          .limit(limit)
-          .toArray();
+        // Gather from each instance, tagging the source.
+        let gathered = [];
+        for (const inst of instances) {
+          const collectionName = inst === "clock" ? "chat-clock" : "chat-system";
+          const collection = database.db.collection(collectionName);
+          shell.log(`📂 Using collection: ${collectionName} for instance: ${inst}`);
+          const rows = await collection
+            .find(baseFilter)
+            .sort({ when: -1 })
+            .limit(limit)
+            .toArray();
+          for (const r of rows) r.__instance = inst;
+          gathered = gathered.concat(rows);
+        }
 
-        // Reverse to get chronological order (oldest to newest)
-        messages.reverse();
+        // Merge across instances by recency, then cap to the requested limit.
+        gathered.sort((a, b) => {
+          const ta = a.when instanceof Date ? a.when.getTime() : new Date(a.when).getTime();
+          const tb = b.when instanceof Date ? b.when.getTime() : new Date(b.when).getTime();
+          return tb - ta;
+        });
+        const messages = gathered.slice(0, limit);
+
+        // Non-search pages stay chronological (oldest → newest) as before.
+        if (!searching) messages.reverse();
 
         // Resolve handles via direct DB lookup (not HTTP) to avoid N+1 self-calls
         const uniqueUserIds = [...new Set(messages.map(m => m.user).filter(Boolean))];
@@ -89,29 +117,29 @@ export async function handler(event, context) {
           }
         }
 
-        // Join heart counts from the shared hearts collection
-        const messageIds = messages.map((m) => m._id.toString());
-        const heartCounts = await database.db
-          .collection("hearts")
-          .aggregate([
-            {
-              $match: {
-                type: `chat-${instance}`,
-                for: { $in: messageIds },
-              },
-            },
-            { $group: { _id: "$for", count: { $sum: 1 } } },
-          ])
-          .toArray();
-        const heartMap = Object.fromEntries(
-          heartCounts.map((h) => [h._id, h.count]),
-        );
+        // Join heart counts per source instance (heart `type` is chat-<instance>).
+        const heartMap = {};
+        for (const inst of instances) {
+          const idsForInst = messages
+            .filter((m) => (m.__instance || instance) === inst)
+            .map((m) => m._id.toString());
+          if (idsForInst.length === 0) continue;
+          const heartCounts = await database.db
+            .collection("hearts")
+            .aggregate([
+              { $match: { type: `chat-${inst}`, for: { $in: idsForInst } } },
+              { $group: { _id: "$for", count: { $sum: 1 } } },
+            ])
+            .toArray();
+          for (const h of heartCounts) heartMap[h._id] = h.count;
+        }
 
         const messagesWithHandles = messages.map((msg) => ({
           id: msg._id.toString(),
           from: (msg.user && handleMap.get(msg.user)) || "anon",
           text: msg.text,
           when: msg.when,
+          instance: msg.__instance || instance,
           hearts: heartMap[msg._id.toString()] ?? 0,
         }));
 
@@ -119,17 +147,20 @@ export async function handler(event, context) {
 
         shell.log(`✅ Found ${messagesWithHandles.length} messages for instance: ${instance}`);
 
-        // `nextBefore` is the oldest `when` in this page, ready to be passed
-        // back as the `before=` query to fetch the previous page.
-        const nextBefore =
+        // `nextBefore` = the oldest `when` in this page (works whether the
+        // page is chronological or newest-first relevance).
+        const oldest =
           messagesWithHandles.length > 0
-            ? (messagesWithHandles[0].when instanceof Date
-                ? messagesWithHandles[0].when.toISOString()
-                : new Date(messagesWithHandles[0].when).toISOString())
+            ? messagesWithHandles.reduce((acc, m) => {
+                const t = m.when instanceof Date ? m.when : new Date(m.when);
+                return t < acc ? t : acc;
+              }, new Date(8640000000000000))
             : null;
+        const nextBefore = oldest ? oldest.toISOString() : null;
 
         return {
           instance,
+          search: searching ? searchRaw : undefined,
           count: messagesWithHandles.length,
           messages: messagesWithHandles,
           nextBefore,

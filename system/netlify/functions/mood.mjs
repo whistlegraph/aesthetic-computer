@@ -176,6 +176,60 @@ export async function handler(event, context) {
       return moods && moods.length > 0
         ? respond(200, { moods })
         : respond(500, { message: "No mood found." });
+    } else if (slug === "search") {
+      // GET /api/mood/search?q=<text>&limit=N
+      // Case-insensitive substring search over recent moods, newest first,
+      // with @handles resolved. Powers the universal AC search box.
+      const qRaw = (
+        event.queryStringParameters?.q ||
+        event.queryStringParameters?.search ||
+        ""
+      ).trim();
+      const limit = Math.min(
+        parseInt(event.queryStringParameters?.limit || "20", 10) || 20,
+        100,
+      );
+      if (!qRaw) {
+        await database.disconnect();
+        return respond(400, { message: "Missing q/search parameter" });
+      }
+      const escaped = qRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const collection = database.db.collection("moods");
+      const results = await collection
+        .aggregate([
+          {
+            $match: {
+              deleted: { $ne: true },
+              mood: { $regex: escaped, $options: "i" },
+            },
+          },
+          {
+            $lookup: {
+              from: "@handles",
+              localField: "user",
+              foreignField: "_id",
+              as: "handleInfo",
+            },
+          },
+          { $unwind: "$handleInfo" },
+          {
+            $project: {
+              _id: 0,
+              mood: 1,
+              when: 1,
+              handle: { $concat: ["@", "$handleInfo.handle"] },
+            },
+          },
+          { $sort: { when: -1 } },
+          { $limit: limit },
+        ])
+        .toArray();
+      await database.disconnect();
+      return respond(200, {
+        search: qRaw,
+        count: results.length,
+        moods: results,
+      });
     } else if (slug === "single") {
       // GET /api/mood/single?handle=@jeffrey&rkey=<atproto_rkey>
       // Returns a single mood by handle and ATProto rkey (for permalinks)
