@@ -99,8 +99,8 @@ const CONFIGS = {
       {
         suffix: "vertical",
         size: "1080x1920",
-        variant: "v12", // 1024x1536 portrait — butterfly-on-white-paper-behind + PALS-only laptops + boy pixies
-        prelude: `${SECDIR_ROOT}/trancenwaltz-sections/intro-prelude/gens/v12.png`,
+        variant: "v15", // 1024x1536 portrait — degradation arc: apple peeks through scrap, pals only on backsides, green war-guilt drones, whistlegraph→robotic-nightmare morph
+        prelude: `${SECDIR_ROOT}/trancenwaltz-sections/intro-prelude/gens/v15.png`,
       },
     ],
   },
@@ -114,7 +114,7 @@ const CONFIGS = {
       {
         suffix: null,
         size: "1500x1500",
-        variant: "v9",
+        variant: "v16", // photographic calm Trader Joe's shop w/ pixie crew
         prelude: null, // chill mix has no greeting → no prelude swap
       },
     ],

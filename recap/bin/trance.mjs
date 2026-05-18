@@ -2957,8 +2957,14 @@ const filter =
   `[0:a]aecho=0.85:0.85:60|140|260|480|820:0.40|0.27|0.18|0.11|0.06,pan=stereo|c0=0.35*c0|c1=0.65*c0,volume='${wetEnv}':eval=frame[wet1];` +
   `[0:a]aecho=0.85:0.85:90|200|360|620:0.30|0.20|0.13|0.08,pan=stereo|c0=0.65*c0|c1=0.35*c0,volume='${wetEnv}':eval=frame[wet2];` +
   "[dry][wet1][wet2]amix=inputs=3:weights='1 0.28 0.28':duration=longest:normalize=0," +
-  "afade=t=in:st=0:d=0.15," +
-  `afade=t=out:st=${(totalSec - 1.6).toFixed(3)}:d=1.6,` +
+  // PERFECT LOOP — the bed is bar-aligned so totalSec wraps to t=0 on
+  // the next downbeat, and the kick-settle ending already winds down to
+  // the same gentle level the intro starts at. The old 0.15s fade-in /
+  // 1.6s fade-out drove both ends to digital silence → an audible dip
+  // at the loop seam. Replaced with ~6ms declicks (sub-perceptual, just
+  // kills end-sample pops) so the ending flows straight into the intro.
+  "afade=t=in:st=0:d=0.006," +
+  `afade=t=out:st=${(totalSec - 0.006).toFixed(3)}:d=0.006,` +
   // House-style EQ — more AIR up top, less mid crowding, subtle low.
   "equalizer=f=180:t=q:w=1.2:g=1.0," +
   "equalizer=f=900:t=q:w=1.4:g=0.8," +

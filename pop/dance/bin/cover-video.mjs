@@ -77,6 +77,16 @@ function locateStruct(track) {
 const STRUCT = expandHome(flags.struct) || locateStruct(TRACK);
 const OUT = expandHome(flags.out) || (TRACK ? TRACK.replace(/\.mp3$/, "-cover.mp4") : null);
 const TITLE = (flags.title || "track").toString();
+// --platform insta|tiktok (default insta = the Instagram-Story cut).
+//   insta : title snug at top (y=155), section progress bar, timecode,
+//           side pals.
+//   tiktok: NO progress bar, NO timecode, NO side pals (karaoke KEPT);
+//           the title is typed into the CENTRE of screen, then on the
+//           boot melody it jumps in, the chars bounce + section-tint,
+//           and after ~4s they FALL away and are GONE for good.
+// Both cuts share the SAME audio/struct — only the visuals branch.
+const PLATFORM = String(flags.platform || (flags.tiktok ? "tiktok" : "insta")).toLowerCase();
+const TIKTOK   = PLATFORM === "tiktok";
 const BPM = Number(flags.bpm ?? 137.143);
 const FPS = Number(flags.fps ?? 30);
 // Comma-separated lane keys to omit from the timeline (e.g. piano
@@ -364,6 +374,34 @@ const dropImpacts = (struct.events?.dropImpact || []).slice().sort((a, b) => a.t
 // approach centre (and re-scramble as they leave). Fixed HUD, lower
 // third, dark offset for legibility over the rotating tracks.
 const KARA_SYM = "!<>-_/\\[]{}=+*#%&@$?:;~^|".split("");
+// Mirrors recap/bin/trance.mjs VOCAL_SECTION_GAIN — the sung stem is
+// SILENT in builds + outro, quiet in intro/breaks, full in drops. The
+// hook karaoke is gated to match what's actually audible; crossing into
+// a silent (build / outro) section the on-screen word DROPS off screen
+// like the ending title, then stays hidden until the vocal returns.
+const VOCAL_SECTION_GAIN = {
+  intro: 0.75, break1: 0.85, build1: 0.0, drop1: 1.0,
+  break2: 0.85, build2: 0.0, drop2: 1.0, outro: 0.0,
+};
+const KARA_FALL_WIN = 0.85;  // s the drop-off animation runs (quick clear)
+const KARA_FALL_LEAD = 0.30; // start the fall this long BEFORE the vocal fades
+// The continuous sung stem only stays in sync through the OPENING
+// audible stretch (intro + break1). At the first silent section (the
+// yellow/orange build) the hook captions drop off ONCE and stay gone
+// for the rest of the track — they never re-sync in the later drops.
+// (greeting + "bye jeffrey" are keep:true and exempt.)
+const FIRST_SILENT_START = (() => {
+  for (const s of struct.sections)
+    if ((VOCAL_SECTION_GAIN[s.name] ?? 1) <= 0.001) return s.startSec;
+  return Infinity;
+})();
+function sectionAt(audioT) {
+  const S = struct.sections;
+  for (let i = 0; i < S.length; i++) {
+    if (audioT >= S[i].startSec && audioT < S[i].endSec) return S[i];
+  }
+  return audioT >= S[S.length - 1].endSec ? S[S.length - 1] : S[0];
+}
 function drawKaraoke(audioT) {
   if (lyricWords.length === 0) return;
   const first = lyricWords[0], last = lyricWords[lyricWords.length - 1];
@@ -374,6 +412,58 @@ function drawKaraoke(audioT) {
   }
   if (idx < 0) idx = 0;
   const act = lyricWords[idx];
+  // ── SECTION GATE — hook words only show where the vocal is audible.
+  //    greeting / bye words (keep:true) ignore the gate (captions come
+  //    back just for "bye jeffrey" even though the outro is silent).
+  if (!act.keep) {
+    // TERMINAL CUTOFF — hook captions live only up to the first build
+    // (the yellow section). They tumble off ONCE there and stay gone
+    // permanently until the very end; they do NOT come back in the
+    // later drops (the continuous stem no longer lines up).
+    {
+      const fe = audioT - (FIRST_SILENT_START - KARA_FALL_LEAD);
+      if (fe > KARA_FALL_WIN) return;        // cut off — gone for good
+      if (fe >= 0) {
+        // Tumble the word that's on screen RIGHT NOW off (gravity +
+        // spin + fade — same feel as the ending title).
+        const word = lyricWords[idx].text;
+        const fs = Math.round(titleFontSize * 0.74);
+        const [sr, sg, sb] = sectionTcRgb(audioT);
+        ctx.save();
+        ctx.font = `bold ${fs}px "DejaVu Sans Mono", "Menlo", monospace`;
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        const baseY = Math.round(H * 0.82);
+        const tw = ctx.measureText(word).width;
+        let dx = Math.round(W / 2 - tw / 2);
+        for (let c = 0; c < word.length; c++) {
+          const g = word[c];
+          const cw = ctx.measureText(g).width;
+          const cfe = Math.max(0, fe - c * 0.045);       // staggered
+          const fdy = 0.5 * 2650 * cfe * cfe;            // gravity
+          const spin = (((c * 53) % 11) - 5) * 0.55;
+          const frot = spin * cfe + 0.16 * Math.sin(cfe * 9 + c);
+          const fa = Math.max(0, 1 - fe / KARA_FALL_WIN);
+          if (fa > 0.001) {
+            ctx.save();
+            ctx.translate(dx + cw / 2, baseY + fdy);
+            ctx.rotate(frot);
+            ctx.globalAlpha = 0.9 * fa;
+            ctx.fillStyle = "rgba(0,0,0,0.9)";
+            ctx.fillText(g, -cw / 2 + 3, 4);
+            ctx.globalAlpha = fa;
+            ctx.fillStyle = `rgb(${sr},${sg},${sb})`;
+            ctx.fillText(g, -cw / 2, 0);
+            ctx.restore();
+          }
+          dx += cw;
+        }
+        ctx.restore();
+        return;
+      }
+      // fe < 0 → still audible; fall hasn't begun → normal render below.
+    }
+  }
   // Decode lagged a touch — it was running "a bit eager" (letters
   // resolving just before the voice). KARA_LAG holds each letter
   // encoded slightly longer so it snaps as the syllable lands.
@@ -416,22 +506,48 @@ function drawKaraoke(audioT) {
     const word = lyricWords[j].text;
     const isActive = j === idx;
     if (!isActive) {
-      // NEIGHBOURS — pure scramble, never decoded until they ARE the
-      // current word. Dim, sliding through.
-      let sym = "";
-      for (let c = 0; c < word.length; c++) {
-        let s = ((j * 131 + c * 17 + tBucket * 7) >>> 0);
-        s = (s ^ (s >>> 13)) >>> 0;
-        sym += KARA_SYM[(s >>> 3) % KARA_SYM.length];
+      const departed = j < idx;
+      const cxAbs = rowX + cx[j];
+      let glyphs = "";
+      let alpha;
+      if (departed) {
+        // DEPARTING — the word was sung, now it slides LEFT and DIES
+        // OFF: it progressively loses its characters (re-scrambles
+        // left→right) and fades out over a short distance, then it's
+        // gone. It never just hangs on as static decoded text.
+        const leftDist = W / 2 - cxAbs;          // >0 once left of centre
+        const deathSpan = fs * 2.4;
+        const life = Math.max(0, Math.min(1, 1 - leftDist / deathSpan));
+        if (life <= 0.001) continue;             // fully dead — don't draw
+        const keepN = life * word.length;        // chars still readable
+        for (let c = 0; c < word.length; c++) {
+          if (c < keepN) glyphs += word[c];
+          else {
+            let s = ((j * 131 + c * 17 + tBucket * 7) >>> 0);
+            s = (s ^ (s >>> 13)) >>> 0;
+            glyphs += KARA_SYM[(s >>> 3) % KARA_SYM.length];
+          }
+        }
+        alpha = 0.5 * life;
+      } else {
+        // UPCOMING — arrives ENCODED; pure scramble until it's current.
+        for (let c = 0; c < word.length; c++) {
+          let s = ((j * 131 + c * 17 + tBucket * 7) >>> 0);
+          s = (s ^ (s >>> 13)) >>> 0;
+          glyphs += KARA_SYM[(s >>> 3) % KARA_SYM.length];
+        }
+        alpha = 0.34;
       }
-      const tw = wOf(sym);
-      const dx = Math.round(rowX + cx[j] - tw / 2);
-      ctx.globalAlpha = 0.30;
+      const tw = wOf(glyphs);
+      const dx = Math.round(cxAbs - tw / 2);
+      ctx.globalAlpha = alpha * 0.7;
       ctx.fillStyle = "rgba(0,0,0,0.85)";
-      ctx.fillText(sym, dx + 3, baseY + 4);
-      ctx.globalAlpha = 0.34;
-      ctx.fillStyle = "rgba(225,222,212,1)";
-      ctx.fillText(sym, dx, baseY);
+      ctx.fillText(glyphs, dx + 3, baseY + 4);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = departed
+        ? `rgba(${secRgb[0]},${secRgb[1]},${secRgb[2]},1)`
+        : "rgba(225,222,212,1)";
+      ctx.fillText(glyphs, dx, baseY);
       continue;
     }
     // CURRENT word — arrives ENCODED and the VOICE decodes it: each
@@ -441,8 +557,14 @@ function drawKaraoke(audioT) {
     const tw = wOf(word);
     let dx = Math.round(rowX + cx[j] - tw / 2);
     const sungEdge = decodeProg * word.length; // front-loaded decode
+    // The single character the voice is ON right now — gets a distinct
+    // hot highlight (bigger, glowing, near-white) as it's sung, so the
+    // current letter pops, not just the whole decoded run.
+    const decodeActive = sungEdge < word.length - 0.001;
+    const singC = Math.max(0, Math.min(word.length - 1, Math.floor(sungEdge)));
     for (let c = 0; c < word.length; c++) {
       const decoded = c < sungEdge;       // the voice has reached it
+      const isSinging = decodeActive && c === singC && decoded;
       let glyph;
       if (decoded) {
         glyph = word[c];
@@ -456,7 +578,8 @@ function drawKaraoke(audioT) {
       // now lifts most; tiny idle shimmer on the rest.
       const near = Math.max(0, 1 - Math.abs((c + 0.5) - sungEdge) / 1.6);
       const cy = baseY - (near * near) * (fs * 0.32)
-               - Math.sin(audioT * 9 + c) * 1.4;
+               - Math.sin(audioT * 9 + c) * 1.4
+               - (isSinging ? fs * 0.16 : 0);   // sung char lifts extra
       ctx.globalAlpha = 0.92;
       ctx.fillStyle = "rgba(0,0,0,0.9)";
       ctx.fillText(glyph, dx + 3, cy + 4);
@@ -470,6 +593,20 @@ function drawKaraoke(audioT) {
           ? `rgb(${Math.round(sr + (255 - sr) * 0.55)},${Math.round(sg + (255 - sg) * 0.55)},${Math.round(sb + (255 - sb) * 0.55)})`
           : `rgba(${Math.round(sr * 0.55 + 110)},${Math.round(sg * 0.55 + 110)},${Math.round(sb * 0.55 + 110)},0.9)`;
       ctx.fillText(glyph, dx, cy);
+      // CURRENT-CHAR HIGHLIGHT — overdraw the sung letter bigger, hot
+      // (section colour blasted toward white) with a soft glow.
+      if (isSinging) {
+        ctx.save();
+        const xc = dx + cw / 2;
+        ctx.textAlign = "center";
+        ctx.font = `bold ${Math.round(fs * 1.34)}px "DejaVu Sans Mono", "Menlo", monospace`;
+        ctx.shadowColor = `rgba(${sr},${sg},${sb},0.95)`;
+        ctx.shadowBlur = fs * 0.6;
+        ctx.fillStyle = `rgb(${Math.round(sr + (255 - sr) * 0.8)},${Math.round(sg + (255 - sg) * 0.8)},${Math.round(sb + (255 - sb) * 0.8)})`;
+        ctx.fillText(glyph, xc, cy);
+        ctx.restore();
+        ctx.textAlign = "left";
+      }
       dx += cw;
     }
   }
@@ -518,16 +655,17 @@ const charImgs = new Array(titleChars.length).fill(null);
   for (let i = 0; i < titleChars.length; i++) {
     const ch = titleChars[i];
     if (ch.trim().length === 0) continue;
-    const color = TITLE_PALETTE[i % TITLE_PALETTE.length];
     const out = `${assetsDir}/titlechar.${i}.png`;
+    // CLEAN single glyph only (solid white, transparent bg, NO baked
+    // offset shadow / colour) — the renderer recolours it per section
+    // via source-in and draws its own dark drop. Baking a shadow here
+    // made source-in tint glyph+shadow → "weird colour doubling".
     const r = spawnSync("magick", [
       "-size", `${charBoxW}x${charBoxH}`,
       "xc:none",
       "-font", YWFT_PATH,
       "-pointsize", String(titleFontSize),
-      "-fill", "rgba(0,0,0,0.78)",
-      "-annotate", `+8+${charBaselineY + 5}`, ch,
-      "-fill", color,
+      "-fill", "white",
       "-annotate", `+3+${charBaselineY}`, ch,
       out,
     ]);
@@ -657,7 +795,106 @@ if (existsSync(LYRICS_PATH)) {
       lyricPlates.set(text, { img: await loadImage(wp), shadow: await loadImage(sp) });
     }
     const pl = lyricPlates.get(text);
-    lyricWords.push({ text, t0, t1, img: pl.img, shadow: pl.shadow });
+    // gate:true → hook words are section-gated (hidden + dropped off
+    // screen when the vocal goes silent in builds/outro).
+    lyricWords.push({ text, t0, t1, img: pl.img, shadow: pl.shadow, gate: true });
+  }
+  // ── opening greeting: "good evening jeffrey enjoy los angeles" ──
+  // Rides the AC `greeting` vox event so the cold-open speaks it as
+  // part of the same lyric train (outside-in → inside-out).
+  {
+    const gEv = (struct.events?.vox || []).find((e) => e.name === "greeting");
+    const gT = gEv ? (gEv.displayedT ?? gEv.t ?? 0.05) : 0.05;
+    const gDur = gEv ? (gEv.dur ?? 3.7) : 3.7;
+    // Prefer the FORCED-ALIGNED greeting timeline (fromMs/toMs relative
+    // to the greeting audio t=0, which the `greeting` vox event places
+    // at gT). Falls back to even spacing if the alignment file is
+    // missing. This fixes "good evening jeffrey…" being mis-timed.
+    const gAlignPath = resolve(
+      dirname(fileURLToPath(import.meta.url)), "../out/trance-greeting-words.json");
+    let gSeq;
+    if (existsSync(gAlignPath)) {
+      try { gSeq = JSON.parse(readFileSync(gAlignPath, "utf8")); } catch { gSeq = null; }
+    }
+    if (!Array.isArray(gSeq) || gSeq.length === 0) {
+      const gWords = "good evening jeffrey enjoy los angeles".split(" ");
+      const slot = gDur / gWords.length;
+      gSeq = gWords.map((text, gi) => ({
+        text, fromMs: gi * slot * 1000, toMs: (gi + 0.92) * slot * 1000,
+      }));
+    }
+    for (let gi = 0; gi < gSeq.length; gi++) {
+      const text = String(gSeq[gi].text ?? "").trim();
+      if (!text) continue;
+      if (!lyricPlates.has(text)) {
+        const safe = text.replace(/[^A-Za-z0-9]/g, "_").slice(0, 20) || "w";
+        const wp = `${assetsDir}/lyr.${safe}.png`;
+        const sp = `${assetsDir}/lyr.${safe}.sh.png`;
+        const mk = (fill, out) => {
+          const r = spawnSync("magick", [
+            "-background", "none", "-fill", fill, "-font", YWFT_PATH,
+            "-pointsize", String(lyrFont), `label:${text}`, out,
+          ]);
+          if (r.status !== 0) { console.error(`✗ magick greeting '${text}'`); process.exit(1); }
+          return out;
+        };
+        mk("rgba(255,253,242,0.98)", wp);
+        mk("rgba(0,0,0,1)", sp);
+        lyricPlates.set(text, { img: await loadImage(wp), shadow: await loadImage(sp) });
+      }
+      const pl = lyricPlates.get(text);
+      lyricWords.push({
+        text,
+        t0: gT + (gSeq[gi].fromMs ?? 0) / 1000,
+        t1: gT + (gSeq[gi].toMs ?? (gSeq[gi].fromMs ?? 0) + 400) / 1000,
+        img: pl.img, shadow: pl.shadow, keep: true, // always shown
+      });
+    }
+  }
+  // ── closing line: "bye jeffrey" (shutdown) — captions come BACK
+  //    just for this even though the outro is otherwise vocal-silent.
+  {
+    const bEv = (struct.events?.vox || []).find((e) => e.name === "bye-jeffrey");
+    if (bEv) {
+      // Anchor to .t — that's where trance.mjs actually mixes the bye
+      // audio (BYE_SEC). displayedT is a slowdown-perceptual hint that
+      // ran the caption ~0.6s late.
+      const bT = bEv.t ?? bEv.displayedT;
+      const byePath = resolve(
+        dirname(fileURLToPath(import.meta.url)), "../out/trance-bye-words.json");
+      let bSeq = [{ text: "bye", fromMs: 0, toMs: 500 },
+                  { text: "jeffrey", fromMs: 520, toMs: 1100 }];
+      if (existsSync(byePath)) {
+        try { const j = JSON.parse(readFileSync(byePath, "utf8")); if (Array.isArray(j) && j.length) bSeq = j; } catch {}
+      }
+      for (const bw of bSeq) {
+        const text = String(bw.text ?? "").trim();
+        if (!text) continue;
+        if (!lyricPlates.has(text)) {
+          const safe = text.replace(/[^A-Za-z0-9]/g, "_").slice(0, 20) || "w";
+          const wp = `${assetsDir}/lyr.${safe}.png`;
+          const sp = `${assetsDir}/lyr.${safe}.sh.png`;
+          const mk = (fill, out) => {
+            const r = spawnSync("magick", [
+              "-background", "none", "-fill", fill, "-font", YWFT_PATH,
+              "-pointsize", String(lyrFont), `label:${text}`, out,
+            ]);
+            if (r.status !== 0) { console.error(`✗ magick bye '${text}'`); process.exit(1); }
+            return out;
+          };
+          mk("rgba(255,253,242,0.98)", wp);
+          mk("rgba(0,0,0,1)", sp);
+          lyricPlates.set(text, { img: await loadImage(wp), shadow: await loadImage(sp) });
+        }
+        const pl = lyricPlates.get(text);
+        lyricWords.push({
+          text,
+          t0: bT + (bw.fromMs ?? 0) / 1000,
+          t1: bT + (bw.toMs ?? (bw.fromMs ?? 0) + 400) / 1000,
+          img: pl.img, shadow: pl.shadow, keep: true,
+        });
+      }
+    }
   }
   lyricWords.sort((a, b) => a.t0 - b.t0);
   console.log(`  → karaoke: ${lyricWords.length} sung words ${lyricWords.length ? `(${lyricWords[0].t0.toFixed(1)}s–${lyricWords[lyricWords.length-1].t1.toFixed(1)}s)` : ""}`);
@@ -689,6 +926,100 @@ function sectionTcRgb(audioT) {
   g = Math.round(g + (255 - g) * k);
   b = Math.round(b + (255 - b) * k);
   return [r, g, b];
+}
+
+// ── two-pals side watermarks (ported from undabeach) ────────────────
+// The canonical AC purple-pals.svg, rasterised once, stamped sideways
+// hugging the LEFT + RIGHT edges, section-coloured, music-wiggled,
+// "seeped" in via multiply/burn/overlay so it stains the picture.
+const PALS_WM_SIZE = 212;
+let palsImg = null, palsBlur = null;
+const wmCanvas = createCanvas(8, 8);
+const wmCtx = wmCanvas.getContext("2d");
+function hslToRgb(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+function palsTinted(rgb, src) {
+  const ww = src.width, wh = src.height;
+  wmCanvas.width = ww; wmCanvas.height = wh;
+  wmCtx.clearRect(0, 0, ww, wh);
+  wmCtx.globalCompositeOperation = "source-over";
+  wmCtx.drawImage(src, 0, 0);
+  wmCtx.globalCompositeOperation = "source-in";
+  wmCtx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  wmCtx.fillRect(0, 0, ww, wh);
+  wmCtx.globalCompositeOperation = "source-over";
+  return wmCanvas;
+}
+{
+  const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+  const aDir = TRACK.replace(/\.mp3$/, ".assets");
+  mkdirSync(aDir, { recursive: true });
+  const palsSvg = `${REPO}/system/public/purple-pals.svg`;
+  const palsPng = `${aDir}/pals-watermark.png`;
+  const palsBlurPng = `${aDir}/pals-watermark-blur.png`;
+  if (existsSync(palsSvg)) {
+    const r = spawnSync("rsvg-convert",
+      ["-w", String(PALS_WM_SIZE * 2), "-h", String(PALS_WM_SIZE * 2), "-o", palsPng, palsSvg]);
+    if (r.status === 0 && existsSync(palsPng)) {
+      palsImg = await loadImage(palsPng);
+      const rb = spawnSync("magick", [palsPng, "-channel", "A", "-blur", "0x1.5", "+channel", palsBlurPng]);
+      palsBlur = (rb.status === 0 && existsSync(palsBlurPng)) ? await loadImage(palsBlurPng) : palsImg;
+    }
+  }
+  console.log(`  pals watermark: ${palsImg ? "loaded" : "MISSING"}`);
+}
+function drawWatermark(audioT) {
+  if (!palsImg) return;
+  const s = 190;
+  const env = envAt(audioT);
+  const hue = ((audioT * 14) % 360 + 360) % 360;
+  const hRgb = hslToRgb(hue, 0.9, 0.62);
+  const [sr, sg, sb] = sectionTcRgb(audioT);
+  const col = [
+    Math.round(sr * 0.6 + hRgb[0] * 0.4),
+    Math.round(sg * 0.6 + hRgb[1] * 0.4),
+    Math.round(sb * 0.6 + hRgb[2] * 0.4),
+  ];
+  const wig = (6 + 14 * env) * Math.sin(audioT * 2.1) + 4 * Math.sin(audioT * 0.7);
+  const swiv = 0.05 * Math.sin(audioT * 1.3) + 0.06 * env * Math.sin(audioT * 5.0);
+  const inset = s * 0.34;
+  const spots = [
+    { cx: inset - wig,     cy: H * 0.84, rot:  Math.PI / 2 + swiv },
+    { cx: W - inset + wig, cy: H * 0.16, rot: -Math.PI / 2 - swiv },
+  ];
+  const passes = [["multiply", 0.78], ["color-burn", 0.42], ["overlay", 0.58], ["source-over", 0.06]];
+  for (const sp of spots) {
+    ctx.save();
+    ctx.translate(sp.cx, sp.cy);
+    ctx.rotate(sp.rot);
+    palsTinted([0, 0, 0], palsImg);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.26;
+    ctx.drawImage(wmCanvas, -s / 2 + 3, -s / 2 + 4, s, s);
+    palsTinted(col, palsBlur);
+    for (const [op, a] of passes) {
+      ctx.globalCompositeOperation = op;
+      ctx.globalAlpha = a;
+      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.30;
+    ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
 }
 
 // ── main canvas + load illustrations ─────────────────────────────────
@@ -901,6 +1232,93 @@ const needleXAt = _vs.needleXAt;
 const drawNeedleString = _vs.draw;
 const warpIllustration = _vs.warp;
 const ROT_DIAG = _vs.ROT_DIAG;
+// ── rotating-record groove (ported from chillwave/undabeach) ──────────
+// Each waveform block additionally arcs about the disc centre by its
+// time-offset from the needle — straight AT the playhead, curving more
+// the further out, like a groove on a spinning record.
+const ROT_CX = Math.round(W / 2);   // engine disc centre
+const ROT_CY = Math.round(H / 2);
+const GROOVE_R = 950;               // groove radius — larger = gentler arc
+
+// ── string→illustration warp, COUNTER-ROTATED (ported from undabeach)
+// The engine's warp() samples an axis-aligned strip, so run plain it
+// does NOT turn with the disc. Instead: snapshot the upright frame,
+// rotate it −θ into a buffer, then redraw the strip under +θ. The two
+// rotations cancel for the CONTENT (illustration stays upright, never
+// spins) while the strip + its per-row string-bend live in the
+// string's rotated frame — so ONLY the distortion field under the
+// string turns WITH the line. Feathered bands → no seam.
+// Many THIN bands (was 7 → visibly stripey: each band shifted rigidly
+// so the seams showed). 32 thin slices make the horizontal shear
+// near-continuous; a small per-band overlap fuses any remaining seam.
+const WU_HALF = 240, WU_W = WU_HALF * 2, WU_STEP = 3, WU_BANDS = 56;
+const WU_STR = 0.85, WU_BW = WU_W / WU_BANDS, WU_OVER = 2;
+const wuWin = new Float64Array(WU_BANDS);
+for (let b = 0; b < WU_BANDS; b++) {
+  wuWin[b] = Math.sin(Math.PI * ((b + 0.5) / WU_BANDS)) ** 2;
+}
+const WU_DSZ = Math.ceil(ROT_DIAG) + 4;
+const wuSnap = createCanvas(W, H);
+const wuSnapC = wuSnap.getContext("2d");
+const wuCR = createCanvas(WU_DSZ, WU_DSZ);
+const wuCRC = wuCR.getContext("2d");
+function warpUnderString(theta) {
+  const { devPeak } = _vs.deflection();
+  if (Math.abs(devPeak) < 2) return;          // string ~straight → skip
+  // 1) snapshot the upright frame (scene + backlight + lanes)
+  wuSnapC.clearRect(0, 0, W, H);
+  wuSnapC.drawImage(canvas, 0, 0);
+  // 2) counter-rotate it by −θ, centred in the big square
+  wuCRC.setTransform(1, 0, 0, 1, 0, 0);
+  wuCRC.clearRect(0, 0, WU_DSZ, WU_DSZ);
+  wuCRC.translate(WU_DSZ / 2, WU_DSZ / 2);
+  wuCRC.rotate(-theta);
+  wuCRC.translate(-W / 2, -H / 2);
+  wuCRC.drawImage(wuSnap, 0, 0);
+  wuCRC.setTransform(1, 0, 0, 1, 0, 0);
+  // 3) redraw only the strip under +θ, each band shifted by the
+  //    string's local deflection (content upright, strip rotated)
+  const sox = (WU_DSZ - W) / 2, soy = (WU_DSZ - H) / 2;
+  const x0 = Math.round(playheadX - WU_HALF);
+  ctx.save();
+  ctx.translate(ROT_CX, ROT_CY);
+  ctx.rotate(theta);
+  ctx.translate(-ROT_CX, -ROT_CY);
+  // SLIT-SCAN + JPEG/DATAMOSH GNARL — no x-band mosaic (that grid read
+  // as cliché). Each scan-row shifts the WHOLE strip by the string's
+  // local deflection (true slit-scan, zero vertical seams). The shift
+  // is then SNAPPED to 8 px macroblocks + hash-jittered so it reads as
+  // compression artefacting / datamosh; on hard bends a sub-block is
+  // re-stamped offset (a smeared P-frame "drag"). Gnarl scales with the
+  // string deflection so it only chews up the picture when it's tugged.
+  const gnarlAmt = Math.min(1, Math.abs(devPeak) / 36);
+  for (let y = 0; y < H; y += WU_STEP) {
+    const dx = (needleXAt(y) - playheadX) * WU_STR;
+    const yi = (y / WU_STEP) | 0;
+    let hsh = (yi * 2654435761) >>> 0;
+    hsh = ((hsh ^ (hsh >>> 15)) * 2246822519) >>> 0;
+    const jit = ((hsh & 255) / 255 - 0.5) * 7.0 * gnarlAmt;  // glitch life
+    const blk = 8;                                            // macroblock
+    const gnarl = Math.round((dx + jit) / blk) * blk;         // 8px snap
+    // full-width slit: one blit per row, the entire strip displaced —
+    // smeary slit-scan, never a mosaic grid.
+    ctx.drawImage(
+      wuCR, sox + x0, soy + y, WU_W, WU_STEP,
+      x0 + gnarl, y, WU_W, WU_STEP,
+    );
+    // datamosh macroblock DRAG — on a strong bend, re-stamp a sub-block
+    // shoved further over so it smears like a botched P-frame.
+    if ((hsh & 7) === 0 && Math.abs(dx) > 6) {
+      const bw = 56 + (hsh % 40);
+      const bx = (hsh >>> 5) % Math.max(1, WU_W - bw);
+      ctx.drawImage(
+        wuCR, sox + x0 + bx, soy + y, bw, WU_STEP,
+        x0 + bx + gnarl + 12, y, bw, WU_STEP,
+      );
+    }
+  }
+  ctx.restore();
+}
 // Lane-centre Y stays here (lane geometry, not string state).
 const laneCenterY = {};
 for (let li = 0; li < LANES.length; li++) {
@@ -924,12 +1342,12 @@ const progressY = H - progressH;
 // above the progress bar.
 const chromeH = 130;            // enough room for ~95-px title bouncing
 const chromeTop = H - progressH - chromeH;
-// Title anchored TOP-LEFT, but DROPPED below the Instagram Stories
-// top safe zone (~250 px on a 1080×1920 canvas — profile row /
-// username / progress bars live up there). The typing-intro prompt
-// shares this anchor (gy = titleY - charBaselineY), so it lands in
-// the safe zone too. The per-char bounce is clamped to a safe floor.
-const IG_TOP_SAFE = 250;
+// Title glyph-top anchor — matches the WORKING chillwave insta-story
+// model (preview-score.mjs TITLE_TOP_Y = 155, measured against the IG
+// Story chrome / "Your story" username row). Moved up from 250 to sit
+// snug at the top like chillwave. The typing-intro prompt shares this
+// anchor (gy = titleY - charBaselineY) so they never jump apart.
+const IG_TOP_SAFE = 155;
 const titleTopInset = IG_TOP_SAFE;
 const titleY = titleTopInset + charBaselineY;
 function drawFrame(t) {
@@ -942,25 +1360,71 @@ function drawFrame(t) {
   //    pink caret. At the first boot beep the normal frame (with the
   //    pixelate-startup) takes over.
   if (keyClicks.length > 0 && bootBeeps.length > 0 && audioT < bootBeeps[0].t) {
-    ctx.fillStyle = "#1b0033"; // AC prompt.mjs theme purple
-    ctx.fillRect(0, 0, W, H);
+    // The LAPTOPS-CLOSED prelude frame is behind the boot prompt (gets
+    // more screen time) — drawn cover-fit, then a translucent AC-purple
+    // wash on top so it reads as the prompt.mjs theme without hiding the
+    // art. The prelude override then HOLDS this same frame after typing
+    // until the snap (PRELUDE_END_SEC) so there's no scene pop.
+    {
+      const bi = preludeImg || defaultIllus;
+      const sc = Math.max(W / bi.width, H / bi.height);
+      const dw = bi.width * sc, dh = bi.height * sc;
+      ctx.drawImage(bi, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.fillStyle = "rgba(27,0,51,0.62)"; // #1b0033 wash — art shows through
+      ctx.fillRect(0, 0, W, H);
+    }
     const PINK = "#e0468c"; // AC prompt pink
     let typed = 0;
     for (const kt of keyClicks) { if (audioT >= kt) typed++; else break; }
     typed = Math.min(typed, titleChars.length);
     const blockW = Math.round(charBoxW * 0.30);
     const blockH = Math.round(charBaselineY * 0.96);
-    const gy = titleY - charBaselineY;          // glyph-box top (no bounce)
-    const startX = titleBaseX;
+    // INSTA: type from the left at the top safe anchor. TIKTOK: type
+    // into the CENTRE of screen (matches the centred track title so the
+    // hand-off doesn't move).
+    const gy = TIKTOK
+      ? Math.round((H - charBoxH) / 2)
+      : titleY - charBaselineY;                 // glyph-box top (no bounce)
+    const startX = TIKTOK
+      ? Math.round((W - prefixWidths[titleChars.length]) / 2)
+      : titleBaseX;
     const promptY = gy + Math.round((charBoxH - blockH) / 2);
-    // typed chars from the left edge (no fixed slab any more).
-    let caretX = startX;
+    // Typed chars render through the EXACT same stack as the in-video
+    // title (soft shade + hard dark drop + section/palette tint) so the
+    // letters are pixel-identical in size/weight to when they "show up"
+    // in the song — no jump in scale at boot.
+    const [tSr, tSg, tSb] = sectionTcRgb(audioT);
+    const tintLocal = (im, r, g, b) => {
+      lyrTint.width = im.width; lyrTint.height = im.height;
+      lyrTintCtx.clearRect(0, 0, im.width, im.height);
+      lyrTintCtx.globalCompositeOperation = "source-over";
+      lyrTintCtx.drawImage(im, 0, 0);
+      lyrTintCtx.globalCompositeOperation = "source-in";
+      lyrTintCtx.fillStyle = `rgb(${r},${g},${b})`;
+      lyrTintCtx.fillRect(0, 0, im.width, im.height);
+      return lyrTint;
+    };
     for (let i = 0; i < typed; i++) {
       const img = charImgs[i];
+      if (!img) continue;
       const cx = startX + prefixWidths[i] - 3;
-      if (img) ctx.drawImage(img, cx, gy);
+      const blk = tintLocal(img, 0, 0, 0);
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      for (const [ox, oy, a] of [[-2,-1,0.18],[2,3,0.20],[5,7,0.20],[0,3,0.22]]) {
+        ctx.globalAlpha = a; ctx.drawImage(blk, cx + ox, gy + oy);
+      }
+      for (const [ox, oy, a] of [[3,4,0.95],[4,5,0.85],[3,5,0.70]]) {
+        ctx.globalAlpha = a; ctx.drawImage(blk, cx + ox, gy + oy);
+      }
+      ctx.restore();
+      const pal = ncHexToRgb(TITLE_PALETTE[i % TITLE_PALETTE.length]);
+      ctx.drawImage(tintLocal(img,
+        Math.round(tSr * 0.55 + pal[0] * 0.45),
+        Math.round(tSg * 0.55 + pal[1] * 0.45),
+        Math.round(tSb * 0.55 + pal[2] * 0.45)), cx, gy);
     }
-    caretX = startX + prefixWidths[typed] + 4; // RIGHT of the typed text
+    const caretX = startX + prefixWidths[typed] + 4; // RIGHT of the typed text
     // The pink block IS the cursor — it rides at the right of the
     // text, advancing as each letter lands. Blinks ~3 Hz, so before
     // the first keystroke it blinks a couple of times in place.
@@ -968,6 +1432,12 @@ function drawFrame(t) {
       ctx.fillStyle = PINK;
       ctx.fillRect(Math.round(caretX), promptY, blockW, blockH);
     }
+    // Pals watermark + greeting captions belong on the boot screen too
+    // (pals present the WHOLE video; the "good evening jeffrey…" line is
+    // captioned in real time here so it never plays catch-up later).
+    // TIKTOK has NO side pals (karaoke is kept).
+    if (!TIKTOK) drawWatermark(audioT);
+    drawKaraoke(audioT);
     return; // this IS the whole frame during the typing phase
   }
 
@@ -1641,8 +2111,16 @@ function drawFrame(t) {
             else alpha = 0.42;                              // played
             const half = Math.max(2, (pk * wfH) / 2);
             const bx = wfX + (c / colsN) * wfW + bend;
+            // record-groove: curve the whole track around the disc —
+            // straight at the needle, arcing more the further out.
+            const aGroove = (bx - playheadX) / GROOVE_R;
+            ctx.save();
+            ctx.translate(ROT_CX, ROT_CY);
+            ctx.rotate(aGroove);
+            ctx.translate(-ROT_CX, -ROT_CY);
             ctx.fillStyle = `rgba(${rgb},${alpha.toFixed(3)})`;
             ctx.fillRect(bx, midY - half, blockW, half * 2);
+            ctx.restore();
           }
           ctx.restore();
         }
@@ -1810,16 +2288,17 @@ function drawFrame(t) {
   // Events plucked it as they crossed (above); advance the sim one
   // step then draw the oscillating/settling nylon string.
   stepNeedle();
-  // GEOMETRIC DISTORTION — an un-rotated vertical-strip shear of the
-  // picture following the string's bend (needleXAt). Kept OUTSIDE the
-  // rotation: sampling a screen-strip and re-blitting it UNDER
-  // ctx.rotate carved out a rotated rectangle ("strip cut out / whole
-  // image rotating"). A true rotated-patch warp that rides the
-  // rotated line needs a snapshot + soft rotation-aware local remap
-  // (a dedicated rewrite, not a strip blit).
-  warpIllustration();
+  // GEOMETRIC DISTORTION — the undabeach counter-rotated warp: snapshot
+  // the upright frame, counter-rotate it, then redraw the strip under
+  // +trackRot so the distortion field rides the rotated line WITH the
+  // disc (content stays upright, only the warp turns).
+  warpUnderString(trackRot);
   // String rotates with the track group (same theta as the lanes).
   withRotation(trackRot, () => { drawNeedleString(); });
+
+  // ── two-pals side watermarks (fixed HUD, seeped into the image) ──
+  // TIKTOK has NO side pals.
+  if (!TIKTOK) drawWatermark(audioT);
 
   // ── bouncing title — pre-rendered chars composited per frame ─────
   // Bounce amplitude has three components:
@@ -1849,35 +2328,78 @@ function drawFrame(t) {
     lyrTintCtx.fillRect(0, 0, img.width, img.height);
     return lyrTint;
   };
+  // TIKTOK: title is CENTRED on screen (matches the centred typing-
+  // intro). INSTA: top-left at the safe anchor.
+  const ttStartX = Math.round((W - prefixWidths[titleChars.length]) / 2);
+  const ttTopY   = Math.round((H - charBoxH) / 2);
   for (let i = 0; i < titleChars.length; i++) {
     const img = charImgs[i];
     if (!img) continue;
-    const x = titleBaseX + prefixWidths[i] - 3;
+    const x = (TIKTOK ? ttStartX : titleBaseX) + prefixWidths[i] - 3;
     const phase = (i / titleChars.length) * 2 * Math.PI;
     const beatWave = Math.sin(2 * Math.PI * beatHz * audioT + phase);
-    let y = titleY - charBaselineY + (baseBounce + envBounce) * beatWave;
+    let y = (TIKTOK ? ttTopY : titleY - charBaselineY)
+      + (baseBounce + envBounce) * beatWave;
     if (jumping) {
       const e = 1 - jSince / 0.8;            // 1 → 0 over 0.8 s
       y += -e * e * 44 * Math.cos(jSince * 26 - i * 0.6); // staggered spring
     }
     if (y < 2) y = 2;
-    // 1) SOFT DARK glow shaped like the glyph — a black silhouette
-    //    stamped at a few offsets, low alpha, so it reads as a soft
-    //    title-shaped pocket of shade on the image (not a rectangle).
-    const blk = tintGlyph(img, 0, 0, 0);
-    ctx.save();
-    for (const [ox, oy, a] of [[-2,-1,0.13],[2,3,0.15],[5,7,0.16],[0,2,0.15],[3,4,0.50]]) {
-      ctx.globalAlpha = a;
-      ctx.drawImage(blk, x + ox, y + oy);
+    // ── FINALE: in the last seconds the letters DROP OUT — a
+    //    staggered left→right cascade, gravity + tumble + fade, so
+    //    the title falls off the bottom as the track resolves.
+    // Letters start dropping the moment the LAST section begins (not at
+    // the very end) — staggered left→right, each finishing its fall a
+    // beat or two into the final section.
+    // INSTA: drop at the LAST section. TIKTOK: the title only bounces a
+    // few seconds after it loads in, then falls away and is GONE for
+    // good (never reappears).
+    const lastSec = struct.sections[struct.sections.length - 1];
+    const fallStart = TIKTOK
+      ? (bootBeeps.length ? bootBeeps[0].t + 4.0 : 4.0)
+      : lastSec.startSec;
+    const charFallT = fallStart + i * 0.11;      // staggered per char
+    let fdy = 0, frot = 0, falpha = 1;
+    if (audioT > charFallT) {
+      const fe = audioT - charFallT;             // seconds this char has been falling
+      fdy = 0.5 * 2650 * fe * fe;                // gravity (px)
+      const spin = (((i * 53) % 11) - 5) * 0.55; // deterministic ± per char
+      frot = spin * fe + 0.16 * Math.sin(fe * 9 + i); // tumble + wobble
+      falpha = Math.max(0, 1 - fe / 2.4);        // fade out as it leaves
     }
-    ctx.restore();
-    // 2) per-char colour = section tint BLENDED with the char's own
-    //    palette hue (varied but themed), drawn crisp on top.
+    if (falpha <= 0.001) continue;               // gone — skip
+    const blk = tintGlyph(img, 0, 0, 0);
     const pal = ncHexToRgb(TITLE_PALETTE[i % TITLE_PALETTE.length]);
     const cr = Math.round(tSr * 0.55 + pal[0] * 0.45);
     const cg = Math.round(tSg * 0.55 + pal[1] * 0.45);
     const cb = Math.round(tSb * 0.55 + pal[2] * 0.45);
-    ctx.drawImage(tintGlyph(img, cr, cg, cb), x, y);
+    // Draw the full glyph stack (soft shade + hard drop + colour) at a
+    // local origin so the falling transform can rotate it about its
+    // own centre while it tumbles away.
+    const drawStack = (px, py) => {
+      ctx.globalCompositeOperation = "source-over";
+      for (const [ox, oy, a] of [[-2,-1,0.18],[2,3,0.20],[5,7,0.20],[0,3,0.22]]) {
+        ctx.globalAlpha = a * falpha;
+        ctx.drawImage(blk, px + ox, py + oy);
+      }
+      for (const [ox, oy, a] of [[3,4,0.95],[4,5,0.85],[3,5,0.70]]) {
+        ctx.globalAlpha = a * falpha;
+        ctx.drawImage(blk, px + ox, py + oy);
+      }
+      ctx.globalAlpha = falpha;
+      ctx.drawImage(tintGlyph(img, cr, cg, cb), px, py);
+    };
+    ctx.save();
+    if (fdy > 0 || frot !== 0) {
+      const cx = x + img.width / 2;
+      const cy = y + img.height / 2;
+      ctx.translate(cx, cy + fdy);
+      ctx.rotate(frot);
+      drawStack(-img.width / 2, -img.height / 2);
+    } else {
+      drawStack(x, y);
+    }
+    ctx.restore();
   }
 
   // ── segmented progress bar — identical to the wanderbeach video ──
@@ -1885,8 +2407,8 @@ function drawFrame(t) {
   // its width; the PLAYED portion is the bright saturated tint on top.
   // The LAST section runs all the way to the right edge (sections end
   // a couple seconds before the padded total) so the bar spans the
-  // entire display with no short gap.
-  {
+  // entire display with no short gap. TIKTOK: NO progress bar.
+  if (!TIKTOK) {
     const playedX = (W * Math.max(0, audioT)) / duration;
     const lastI = struct.sections.length - 1;
     for (let si = 0; si < struct.sections.length; si++) {
@@ -1910,7 +2432,8 @@ function drawFrame(t) {
   }
 
   // ── timecode — identical compositing to the wanderbeach video ────
-  {
+  // TIKTOK: NO timecode.
+  if (!TIKTOK) {
     const totMm = Math.floor(duration / 60);
     const totSs = Math.floor(duration - totMm * 60).toString().padStart(2, "0");
     const sec = Math.min(Math.max(0, Math.floor(audioT)), Math.ceil(duration));
@@ -2154,6 +2677,14 @@ ff.on("error", (e) => {
   process.exit(1);
 });
 
+// ── perfect-loop cross-dissolve (matches the audio loop) ─────────────
+// Snapshot frame 0; over the last LOOP_S the finished frame dissolves
+// back into that first frame so the VIDEO wraps seamlessly, same as the
+// bar-aligned audio. (ported from the chillwave/undabeach pipeline.)
+const LOOP_S = 1.4;
+const loopCanvas = createCanvas(W, H);
+const loopCtx = loopCanvas.getContext("2d");
+
 // Stream frames. Pause-on-backpressure pattern so we don't OOM.
 const t0 = Date.now();
 let lastLog = t0;
@@ -2161,6 +2692,16 @@ async function streamFrames() {
   for (let f = 0; f < totalFrames; f++) {
     const t = f / FPS;
     drawFrame(t);
+    if (f === 0) loopCtx.drawImage(canvas, 0, 0); // capture the wrap frame
+    else if (t >= duration - LOOP_S) {
+      let k = (t - (duration - LOOP_S)) / LOOP_S; // 0 → 1
+      k = Math.max(0, Math.min(1, k));
+      k = k * k * (3 - 2 * k);                     // smoothstep
+      ctx.save();
+      ctx.globalAlpha = k;
+      ctx.drawImage(loopCanvas, 0, 0);
+      ctx.restore();
+    }
     // node-canvas's toBuffer("raw") returns a Buffer that shares
     // memory with the canvas pixel backing store. ffmpeg.stdin.write
     // is async — without an explicit copy the next drawFrame call
