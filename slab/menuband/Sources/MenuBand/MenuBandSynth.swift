@@ -62,6 +62,20 @@ final class MenuBandSynth {
             componentFlagsMask: 0)
         return AVAudioUnitEffect(audioComponentDescription: desc)
     }()
+    /// Global "space" reverb on the master path — sits between the
+    /// pre-limiter sum and the limiter so EVERY backend (MIDISynth,
+    /// sampler, plugin AU, sample voice, radio) gets the exact same
+    /// ambience regardless of the selected instrument. `wetDryMix`
+    /// at 0 is fully dry: with the trackpad X-axis parked left the
+    /// sound is identical to before this node existed. Sliding the
+    /// gesture right opens the room up; left brings it back up
+    /// front to the listener.
+    private let spaceReverb: AVAudioUnitReverb = {
+        let r = AVAudioUnitReverb()
+        r.loadFactoryPreset(.largeHall2)
+        r.wetDryMix = 0
+        return r
+    }()
     /// Third-party AU instrument hosted via the Plugins picker. When non-nil
     /// and `usingPluginInstrument` is true, melodic notes route through this
     /// AU instead of MIDISynth/sampler. Drums (channel 9) still go to GM —
@@ -173,6 +187,7 @@ final class MenuBandSynth {
     func start() {
         guard !started else { return }
         engine.attach(preLimiterMixer)
+        engine.attach(spaceReverb)
         engine.attach(limiter)
         engine.attach(melodic)
         engine.attach(drums)
@@ -323,7 +338,11 @@ final class MenuBandSynth {
     /// straight to `preLimiterMixer`.
     private func connectLimiterIfNeeded() {
         guard !limiterConnected else { return }
-        engine.connect(preLimiterMixer, to: limiter, format: nil)
+        // preLimiterMixer → spaceReverb → limiter → mainMixerNode.
+        // Reverb sits pre-limiter so its tail is peak-controlled too,
+        // and pre-master so the volume slider scales wet+dry together.
+        engine.connect(preLimiterMixer, to: spaceReverb, format: nil)
+        engine.connect(spaceReverb, to: limiter, format: nil)
         engine.connect(limiter, to: engine.mainMixerNode, format: nil)
         let au = limiter.audioUnit
         // Fast attack catches chord/transient peaks; medium release avoids
@@ -336,6 +355,14 @@ final class MenuBandSynth {
         AudioUnitSetParameter(au, kLimiterParam_PreGain,
                               kAudioUnitScope_Global, 0, 0.0, 0)
         limiterConnected = true
+    }
+
+    /// Master "space" amount, 0…1. 0 = bone dry / up front; 1 = a
+    /// big hall. Capped below fully-wet so the dry signal (and the
+    /// note's attack + pitch) is always still present even at max.
+    func setSpace(_ amount: Float) {
+        let clamped = max(0, min(1, amount))
+        spaceReverb.wetDryMix = clamped * 72
     }
 
     private func connectMelodicSamplerIfNeeded() {
