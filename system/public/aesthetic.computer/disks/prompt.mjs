@@ -269,6 +269,9 @@ let startupSfx, keyboardSfx;
 // 🔍 @handle autocomplete (plus $ # ! sigil media triggers)
 let handleAutocomplete;
 
+// 🎞️ Rolodex history scrub gesture state (vertical drag on the prompt).
+let histScrub = null;
+
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
 // this is the "feed already written" win. `kind` is contentItems.type
@@ -7560,6 +7563,47 @@ function act({
   notice,
   ui,
 }) {
+  // 🎞️ Rolodex: a predominantly-vertical drag on the focused prompt
+  // scrubs command history pixel-by-pixel and stays where you let go
+  // (the snap). Only engages past a threshold so taps / horizontal
+  // gestures / text-selection are untouched, and never while a
+  // completion dropdown is open. Mirrors the proven ticker-scrub idiom.
+  {
+    const inp = system.prompt.input;
+    const canScrub =
+      inp?.canType &&
+      !handleAutocomplete?.visible &&
+      !system.prompt.kidlispMode;
+
+    if (canScrub && e.is("touch")) {
+      histScrub = { startY: e.y, engaged: false };
+    } else if (histScrub && e.is("draw")) {
+      const dy = histScrub.startY - e.y;
+      const dx = Math.abs((e.delta && e.delta.x) || 0);
+      if (!histScrub.engaged && Math.abs(dy) > 14 && Math.abs(dy) > dx) {
+        histScrub.engaged = true;
+        histScrub.baseY = e.y;
+        histScrub.startDepth = inp.historyDepth ?? -1;
+        inp.beginHistoryScrub(); // async; scrub no-ops until snapshot ready
+      }
+      if (histScrub.engaged) {
+        const depth =
+          histScrub.startDepth + (histScrub.baseY - e.y) / 18; // px→entry
+        inp.scrubHistoryTo(depth);
+        needsPaint();
+        return; // consume so drag doesn't also select text
+      }
+    } else if (histScrub && (e.is("lift") || e.is("up"))) {
+      const wasEngaged = histScrub.engaged;
+      if (wasEngaged) inp.endHistoryScrub();
+      histScrub = null;
+      if (wasEngaged) {
+        needsPaint();
+        return; // consume the release that ended a scrub
+      }
+    }
+  }
+
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
   if (
