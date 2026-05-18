@@ -12,6 +12,9 @@ struct StateSnapshot {
     var themeByStatus: Bool = false
     var tailnetPeers: [TailnetPeer] = []
     var claudeSessions: [ClaudeSession] = []
+    /// A marketing / pop render is actively in progress — the menubar
+    /// "witness" eye opens while we watch the pixels get made.
+    var rendering: Bool = false
 
     var totalActive: Int { activePrompts + activeSubagents }
     var hasWork: Bool { totalActive > 0 }
@@ -42,6 +45,7 @@ struct StateSnapshot {
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
+        s.rendering = detectRendering()
         return s
     }
 
@@ -73,5 +77,22 @@ struct StateSnapshot {
     private static func countFiles(in dir: String) -> Int {
         guard let contents = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return 0 }
         return contents.filter { !$0.hasPrefix(".") }.count
+    }
+
+    /// True while a marketing / pop render is running: a cover-video.mjs
+    /// or chillwave preview-score.mjs, or an ffmpeg consuming raw BGRA
+    /// frames (the canvas video encode). Off-main (gather() runs off the
+    /// main tick), one cheap pgrep with a short timeout.
+    private static func detectRendering() -> Bool {
+        guard let out = ShellRunner.output(
+            "/bin/sh",
+            args: ["-c",
+                "pgrep -f 'cover-video\\.mjs' >/dev/null 2>&1 || " +
+                "pgrep -f 'preview-score\\.mjs' >/dev/null 2>&1 || " +
+                "pgrep -f 'ffmpeg .*pix_fmt bgra' >/dev/null 2>&1; " +
+                "if [ $? -eq 0 ]; then echo R; fi"],
+            timeout: 2
+        ) else { return false }
+        return out.contains("R")
     }
 }
