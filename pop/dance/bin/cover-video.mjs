@@ -94,6 +94,10 @@ const FPS = Number(flags.fps ?? 30);
 const HIDE_LANES = new Set(
   (flags["hide-lanes"] || "").toString().split(",").map((s) => s.trim()).filter(Boolean)
 );
+// --liquid → trancenwaltzi feel: smooth WATER-RIPPLE displacement +
+// rippled section dissolve, instead of the slit-scan row-tear /
+// column-shear melt used for trancenwaltz proper.
+const LIQUID = Boolean(flags.liquid);
 
 if (!ILLUSTRATION || !existsSync(ILLUSTRATION)) {
   console.error(`✗ --illustration is required and must exist (got: ${ILLUSTRATION})`);
@@ -718,7 +722,9 @@ for (const lane of LANES) {
 // shadow). At draw time the white plate is recoloured to the current
 // section tint (brightened by section progress) and the black plate
 // is stamped twice behind it — identical compositing to wanderbeach.
-const tcFontSize = titleFontSize; // timecode matches the title size
+// Timecode read BIGGER than the title at equal point size (different
+// glyph metrics) — pulled to ~0.82× so it visually matches the title.
+const tcFontSize = Math.round(titleFontSize * 0.82);
 const tcCache = new Map(); // "mm:ss / mm:ss" → { img, shadow }
 {
   const assetsDir = TRACK.replace(/\.mp3$/, ".assets");
@@ -1296,7 +1302,10 @@ function warpUnderString(theta, tSec = 0) {
   // (one continuous blit → no mosaic); the thin edge margins ramp the
   // shift 0→full via a handful of slices. Datamosh drag is rare + only
   // on hard bends, so it reads as occasional corruption, not a grid.
-  const gnarlAmt = Math.min(1, Math.abs(devPeak) / 44);
+  // LIQUID (trancenwaltzi) wants a MUCH gentler string distortion —
+  // 0.4× strength + jitter. trancenwaltz proper keeps full strength.
+  const wuMul = LIQUID ? 0.4 : 1;
+  const gnarlAmt = Math.min(1, Math.abs(devPeak) / 44) * wuMul;
   const FEATHER = 80;                       // px each edge that ramps in
   const MS = 9;                             // feather sub-slices per edge
   const msW = FEATHER / MS;
@@ -1317,7 +1326,7 @@ function warpUnderString(theta, tSec = 0) {
     h2 = ((h2 ^ (h2 >>> 15)) * 2246822519) >>> 0;
     const j0 = (hsh & 255) / 255 - 0.5, j1 = (h2 & 255) / 255 - 0.5;
     const jit = ((j0 * (1 - fr) + j1 * fr)) * 1.1 * gnarlAmt + sway; // soft
-    const dx = (needleXAt(y) - playheadX) * WU_STR + jit;   // smooth slit
+    const dx = (needleXAt(y) - playheadX) * WU_STR * wuMul + jit; // smooth slit
     // left feather margin — shift ramps 0 → dx
     for (let m = 0; m < MS; m++) {
       const sxl = x0 + m * msW;
@@ -1598,6 +1607,10 @@ function drawFrame(t) {
   // the canvas. baseScale is the LARGER of width-fit / height-fit, so
   // the illustration overhangs at least one axis. Then a 20 % zoom
   // factor on top gives ken-burns slack.
+  // COVER-fit (fills the frame — NO letterbox, no added top/bottom
+  // pixels / repeated band). baseScale 1.0 (below) sits exactly at
+  // cover so it crops far LESS than the old 1.12 overscan while the
+  // ken-burns still breathes in/out.
   const coverScale = Math.max(W / illusImg.width, H / illusImg.height);
   // Pulled WAY back — sit just above exact-cover so the whole scene
   // (pixies + setting), not just jeffrey's face, reads. Then BOUNCE:
@@ -1606,7 +1619,7 @@ function drawFrame(t) {
   // Enough overscan that the slow ken-burns + soft kick zoom never
   // expose an edge (1.005 left ~0 room → any motion slammed off-frame
   // = the "really bad / jerky" pan). Smooth, never jerky.
-  const baseScale = 1.12;
+  const baseScale = 1.0; // rest exactly at full-width edges (was 1.12 overscan)
   // ORGANIC motion: a slow ken-burns breath (~16 s) + a SOFT kick
   // zoom — each kick eases the picture in a touch then releases. Soft
   // attack (~70 ms) → gentle exp release; max() over recent kicks so
@@ -1673,6 +1686,7 @@ function drawFrame(t) {
   // Clamp so the illustration always covers the canvas — no black
   // bars on the sides. For a baseW × baseH image to cover W × H, the
   // draw position must satisfy: W - baseW ≤ drawX ≤ 0 (and same for Y).
+  // Cover-clamp — image always covers the canvas, no black/bled edge.
   drawX = Math.min(0, Math.max(W - baseW, drawX));
   drawY = Math.min(0, Math.max(H - baseH, drawY));
   // ── parallax / depth / slit drivers ────────────────────────────
@@ -1694,6 +1708,21 @@ function drawFrame(t) {
   // per-row chaotic comb that tears it apart right before the landing.
   const beatPhase = audioT * beatHz * 2 * Math.PI;
   const paintSlit = (img, dx, dy, dw, dh, amp) => {
+    if (LIQUID) {
+      // WATER RIPPLE — fine rows displaced by smooth traveling sines
+      // (no tear / no chaos): the picture reads as seen through gently
+      // rippling water, swelling a touch with the music + pre-drop.
+      backCtx.clearRect(0, 0, W, H);
+      backCtx.drawImage(img, dx, dy, dw, dh);
+      const rh = 3;
+      const a = 5 + env * 9 + preMelt * 26;          // gentle → swelling
+      for (let y = 0; y < H; y += rh) {
+        const off = a * (Math.sin(y * 0.017 + audioT * 1.7) * 0.6
+                       + Math.sin(y * 0.046 - audioT * 2.3) * 0.4);
+        ctx.drawImage(backCanvas, 0, y, W, rh, off, y, W, rh);
+      }
+      return;
+    }
     if (amp < 3) { ctx.drawImage(img, dx, dy, dw, dh); return; }
     backCtx.clearRect(0, 0, W, H);
     backCtx.drawImage(img, dx, dy, dw, dh);
@@ -1738,19 +1767,30 @@ function drawFrame(t) {
     drawDepth(nextIllus, nextX, nextY, nextBaseW2, nextBaseH2, 0.55);
     paintSlit(nextIllus, nextX, nextY, nextBaseW2, nextBaseH2,
               Math.max(slitAmp, 4));
-    // OLD column-melt on top.
-    meltCtx.clearRect(0, 0, W, H);
-    meltCtx.drawImage(illusImg, drawX, drawY, baseW, baseH);
-    for (let c = 0; c < MELT_COLS; c++) {
-      const colX = c * MELT_COL_W;
-      const localT = (crossfadeT - meltDelays[c]) / Math.max(0.01, 1 - meltDelays[c]);
-      if (localT >= 1) continue;
-      const sc = Math.floor(colX / SLIT_COL_W) % SLIT_COLS;
-      const jitter = slitAmp * 0.6 * Math.sin(t * slitFreq[sc] * 1.6 + slitPhase[sc]);
-      const fall = Math.max(0, localT) * H * 1.05 + jitter;
-      ctx.drawImage(meltCanvas,
-        colX, 0, MELT_COL_W, H,
-        colX, fall, MELT_COL_W, H);
+    if (LIQUID) {
+      // LIQUID DISSOLVE — the OLD plate ripples + fades into the NEW
+      // through water (no column shear). A smooth opacity crossfade on
+      // the rippled old illo.
+      const ease = crossfadeT * crossfadeT * (3 - 2 * crossfadeT);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - ease);
+      paintSlit(illusImg, drawX, drawY, baseW, baseH, slitAmp);
+      ctx.restore();
+    } else {
+      // OLD column-melt on top.
+      meltCtx.clearRect(0, 0, W, H);
+      meltCtx.drawImage(illusImg, drawX, drawY, baseW, baseH);
+      for (let c = 0; c < MELT_COLS; c++) {
+        const colX = c * MELT_COL_W;
+        const localT = (crossfadeT - meltDelays[c]) / Math.max(0.01, 1 - meltDelays[c]);
+        if (localT >= 1) continue;
+        const sc = Math.floor(colX / SLIT_COL_W) % SLIT_COLS;
+        const jitter = slitAmp * 0.6 * Math.sin(t * slitFreq[sc] * 1.6 + slitPhase[sc]);
+        const fall = Math.max(0, localT) * H * 1.05 + jitter;
+        ctx.drawImage(meltCanvas,
+          colX, 0, MELT_COL_W, H,
+          colX, fall, MELT_COL_W, H);
+      }
     }
   } else {
     // No transition — depth back-plate + slit-displaced front.

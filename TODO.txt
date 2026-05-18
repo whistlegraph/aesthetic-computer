@@ -2859,3 +2859,5 @@ If developing: Add a "#nodebug" hash to the end of a URL for less output.
 
 📖 This project originally began as two separate repositories with their own
 commit history: `digitpain/system` and `digitpain/disks`.
+
+- slab menubar graphic + screensaver: add a "witness / eye-witness" indicator that shows when a marketing/pop render is in progress (poll for cover-video.mjs / preview-score.mjs / ffmpeg-bgra; show an eye/eyeball that "watches" while rendering, idle otherwise). ties slab status into the render pipeline.
