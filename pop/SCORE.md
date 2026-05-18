@@ -26,6 +26,8 @@ platter (raw material: notes, code, conversations, papers)
 
 Audio-only by default. No video, no chrome. If a track later becomes a video lane, that's a recap-side concern, not a `pop` concern.
 
+Shipped + in-flight singles (DistroKid status, masters, covers, videos) are tracked in **[RELEASES.md](RELEASES.md)**.
+
 ## Swimlanes
 
 ### 1. big pictures (`big-pictures/`)
@@ -42,7 +44,54 @@ The jeffrey harness for **Pink Trombone** — a tiny, runnable, anatomically gro
 
 See [`voice/README.md`](voice/README.md) for the pipeline. Status: scaffolded 2026-05-04.
 
-### 3. (open)
+### 3. dance (`dance/`)
+
+Audio-only dance tracks built bottom-up from AC instruments. One AC vision per track, compressed to a 4-bar **melodic theme** over a four-on-the-floor bed — not a rap hook. Roughly **1:30 per track**.
+
+Opens on **trance** as the first sub-format (138 BPM, minor key, supersaw lead, sidechained pad + bass). The lane lives or dies on the breakdown → build → drop arc, not vibe.
+
+Voice posture: jeffrey-pvc as **one-shot hook phrase** in the drop + spoken word in the breakdown. Not rapped, not fully sung. Instrumental tracks are also valid.
+
+Prerequisite: a **supersaw** voice (5–7 detuned saws in unison) doesn't exist in AC yet and is the gating instrument for this lane.
+
+See [`dance/README.md`](dance/README.md) for the format spec and [`dance/STUDY.md`](dance/STUDY.md) for the genre study + arrangement law.
+
+### 4. chillwave (`chillwave/`)
+
+Audio-only chillwave / ambient tracks built bottom-up from AC instruments. One AC vision (or mood) per track, slow + spacious, compressed to a melody-over-noise-bed rather than a hook or theme. Roughly **1:30–3:00 per track** — longer than the other lanes because the form lives on slow swell.
+
+Voice posture: instrumental by default. jeffrey-pvc as whispered fragments only when present — never sung, never rapped. Reverb-soaked spoken word.
+
+Bed: pink-noise ocean (LFO LP, ~8s wave period) + slow white-noise filter sweeps (~22s cycle, opens fully on the swell) + sparse descending sine-blip bubbles + sinepower pad chord + sinebells melody from the score.
+
+See [`chillwave/README.md`](chillwave/README.md) for the format spec.
+
+### 5. jungle (`jungle/`)
+
+Audio-only sunlit jungle built bottom-up from AC instruments — chopped
+breakbeats, deep dub sub, reggae skank, dub sirens. ~165 BPM, felt
+half-time. These are **beats for fía to rap over**: the lane ships the
+instrumental, fía is the live MC toasting in spanish on top. Her voice
+is a real human performance — not jeffrey-pvc, not AI — so it sits
+fully inside the bottom-up posture with no exception needed.
+
+Opens on **sunbreak** (golden / daytime, not dark-club) with three
+variants: `jungleton` (jungletón — dembow tresillo woven in), `raggasol`
+(classic ragga jungle), `rodando` (liquid rollers).
+
+**The hybrid break (decided @jeffrey, 2026-05-16).** Jungle is
+classically *built on a sample* — the Amen break. That collides with the
+no-top-down-sampling posture. The lane's resolution is a **hybrid**: the
+groove is the AC percussion kit (`percussion.mjs`) chopped into
+Amen-style syncopation, plus a *synthesized* bitcrush/flange snare-roll
+break-stab at phrase ends as the genre nod. No Winstons sample, no loop.
+Not an exception to the posture — its honest answer. Whether AC-played
+jungle can carry the form is the research question this lane exists to
+test.
+
+See [`jungle/README.md`](jungle/README.md) for the format spec.
+
+### 6. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
 
