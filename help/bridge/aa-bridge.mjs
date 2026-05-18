@@ -526,7 +526,10 @@ function spawnHelpClaude(message) {
     LANG: process.env.LANG || "en_US.UTF-8",
     HELP_BRIDGE: "1",
   };
-  // claude auth: API key (headless box) — falls back to OAuth creds if unset.
+  // claude auth: Max-plan OAuth token preferred; API key as fallback. One of
+  // these must be in the bridge .env or claude has no credentials. (If both
+  // are set, claude uses ANTHROPIC_API_KEY — so omit it to force the token.)
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) env.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
   if (process.env.ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   return spawn(CLAUDE_BIN, args, {
     cwd: WORK_DIR,
@@ -679,7 +682,10 @@ function spawnPpClaude(message, sessionId, mcpConfigPath, handle) {
     LANG: process.env.LANG || "en_US.UTF-8",
     PP_BRIDGE: "1",
   };
-  // claude auth: API key (headless box) — falls back to OAuth creds if unset.
+  // claude auth: Max-plan OAuth token preferred; API key as fallback. One of
+  // these must be in the bridge .env or claude has no credentials. (If both
+  // are set, claude uses ANTHROPIC_API_KEY — so omit it to force the token.)
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) env.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
   if (process.env.ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   return spawn(CLAUDE_BIN, args, { cwd: WORK_DIR, env, stdio: ["ignore", "pipe", "pipe"] });
 }
