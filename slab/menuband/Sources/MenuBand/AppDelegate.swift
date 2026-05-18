@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Carbon
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -83,6 +84,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// fine here but we keep the references for symmetry).
     private var globalShiftMonitor: Any?
     private var localShiftMonitor: Any?
+    /// Right-Command-tap → focus Menu Band. A bare modifier can't be a
+    /// Carbon hotkey, so this rides the same global/local .flagsChanged
+    /// stream the shift monitor uses. We only fire on a *clean* tap:
+    /// right ⌘ pressed alone, released quickly, with no other key or
+    /// modifier in between — so ⌘C and friends are untouched.
+    private var rightCmdMonitorGlobal: Any?
+    private var rightCmdMonitorLocal: Any?
+    private var rightCmdTapCandidate = false
+    private var rightCmdDownTime: CFTimeInterval = 0
+    /// Retained synthesizer for the spoken "menu band!" focus cue.
+    /// AVSpeechSynthesizer cuts the utterance short if it deallocates,
+    /// so it must outlive the call.
+    private let speechSynth = AVSpeechSynthesizer()
+    /// Right Command's .flagsChanged virtual keycode (left ⌘ is 55).
+    private static let rightCommandKeyCode: UInt16 = 54
+    /// Max press→release gap still counted as a tap (vs. a held ⌘).
+    private static let rightCmdTapMaxDuration: CFTimeInterval = 0.4
     private var popoverEscMonitor: Any?
 
     /// Sandbox-friendly local key capture. Armed when the user clicks the
@@ -683,6 +701,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         startAdaptiveLayoutChecks()
         startShiftStateMonitors()
+        startRightCommandTapMonitor()
         startVisualizerAnimation()
 
         // Retint the running app's icon (About panel + Dock) to the
@@ -955,6 +974,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             pianoWaveformWindowDelegate.showExpandedForPopover()
         }
+    }
+
+    /// Right-⌘ tap toggle: arm/disarm keyboard play WITHOUT bringing
+    /// up the expanded piano overlay (that's what ⌃⌥⌘K does). Just
+    /// readies the menubar instrument for typing, with a little chime
+    /// so the silent focus change is felt.
+    private func toggleQuietFocusFromRightCommand() {
+        if localCapture.isArmed {
+            // Off: mirror the Escape-disarm feedback ("Tink").
+            NSSound(named: NSSound.Name("Tink"))?.play()
+            localCapture.disarm(reason: .cancelled)
+        } else {
+            // On: arm capture only — no overlay (beginFocusCapture…
+            // deliberately doesn't call showExpandedForPopover).
+            beginFocusCaptureFromShortcut()
+            speakFocusCue()
+            // Soft blinky glow across every key: the ghost wave blooms
+            // the letters in + the icon-wide flash gives the envelope.
+            extendGhost(0.7)
+            kickIconAnim(slide: 0, flash: 0.85)
+        }
+    }
+
+    /// Speak "menu band!" as the focus-on cue. Slight pitch lift +
+    /// a hair faster than default so it lands quick and cute, not
+    /// like a screen reader. Cancels any in-flight utterance so rapid
+    /// taps don't stack.
+    private func speakFocusCue() {
+        if speechSynth.isSpeaking {
+            speechSynth.stopSpeaking(at: .immediate)
+        }
+        let utterance = AVSpeechUtterance(string: "menu band!")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.05
+        utterance.pitchMultiplier = 1.15
+        utterance.preUtteranceDelay = 0
+        utterance.postUtteranceDelay = 0
+        speechSynth.speak(utterance)
     }
 
     private func exitPianoFocusFromShortcut() {
@@ -1248,6 +1304,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             initialDirty = true
         }
         if initialDirty { updateIcon() }
+    }
+
+    /// Tap Right Command alone → toggle focus capture (same action as
+    /// the ⌃⌥⌘K hotkey). A bare modifier isn't a valid Carbon hotkey,
+    /// so we watch the global/local .flagsChanged + .keyDown stream and
+    /// only fire on a clean, quick, isolated right-⌘ tap. Reuses the
+    /// permission the shift monitor already relies on — nothing new.
+    private func startRightCommandTapMonitor() {
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            switch event.type {
+            case .flagsChanged where event.keyCode == Self.rightCommandKeyCode:
+                if event.modifierFlags.contains(.command) {
+                    // Right ⌘ down. Only a candidate if it's the sole
+                    // modifier — joining a chord (⇧⌘, ⌃⌘…) doesn't count.
+                    let chordMods: NSEvent.ModifierFlags =
+                        [.control, .option, .shift, .function, .capsLock]
+                    self.rightCmdTapCandidate =
+                        event.modifierFlags.isDisjoint(with: chordMods)
+                    self.rightCmdDownTime = CACurrentMediaTime()
+                } else {
+                    // Right ⌘ up. Fire only if still a clean, quick tap.
+                    let quick = CACurrentMediaTime() - self.rightCmdDownTime
+                        < Self.rightCmdTapMaxDuration
+                    if self.rightCmdTapCandidate && quick {
+                        self.toggleQuietFocusFromRightCommand()
+                    }
+                    self.rightCmdTapCandidate = false
+                }
+            case .flagsChanged:
+                // Some other modifier changed mid-hold → it's a chord.
+                self.rightCmdTapCandidate = false
+            case .keyDown:
+                // A real key was pressed while ⌘ was down → chord.
+                self.rightCmdTapCandidate = false
+            default:
+                break
+            }
+        }
+        rightCmdMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
+            matching: [.flagsChanged, .keyDown]
+        ) { handler($0) }
+        rightCmdMonitorLocal = NSEvent.addLocalMonitorForEvents(
+            matching: [.flagsChanged, .keyDown]
+        ) { handler($0); return $0 }
     }
 
     private func applyForcedLayoutIfAny() {
