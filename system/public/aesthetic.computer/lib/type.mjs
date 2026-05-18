@@ -1465,6 +1465,7 @@ class TextInput {
   // #processingCommand = false;
   historyDepth = -1;
   #prehistory;
+  #scrubCache = null; // snapshot of the history stack during a rolodex drag
 
   //inputStarted = false; // Flipped when the TextInput is first activated.
   //                       (To clear any starting text.)
@@ -2219,6 +2220,45 @@ class TextInput {
         this.pal.btnReply,
       ];
     return scheme;
+  }
+
+  // 🎞️ Rolodex history scrubbing. Drives the SAME state as the ArrowUp/
+  // ArrowDown handlers, but continuously, for a touch/drag gesture. The
+  // stack is snapshotted at gesture start so a drag doesn't hammer the
+  // store; depth -1 == the un-submitted draft (#prehistory); on release
+  // the input simply stays wherever it landed (the rolodex "snap").
+  // These are additive — existing arrow-key history is untouched.
+  async beginHistoryScrub() {
+    const store = this.$?.store;
+    this.#scrubCache =
+      (store && (await store.retrieve(this.key))) || [""];
+    if (this.#prehistory === undefined) this.#prehistory = this.text;
+    return this.#scrubCache.length;
+  }
+
+  scrubHistoryTo(depth) {
+    if (!this.#scrubCache) return;
+    const len = this.#scrubCache.length;
+    let d = Math.round(depth);
+    if (d < -1) d = -1; // clamp; -1 restores the in-progress draft
+    if (d > len - 1) d = len - 1;
+    this.historyDepth = d;
+    this.text =
+      d === -1 ? this.#prehistory ?? "" : this.#scrubCache[d] || "";
+    this.snap();
+    this.$?.send?.({
+      type: "keyboard:text:replace",
+      content: { text: this.text },
+    });
+    this.selection = null;
+  }
+
+  endHistoryScrub() {
+    this.#scrubCache = null; // keep current depth/text — that's the snap
+  }
+
+  isHistoryScrubbing() {
+    return this.#scrubCache !== null;
   }
 
   // Handle user input.
