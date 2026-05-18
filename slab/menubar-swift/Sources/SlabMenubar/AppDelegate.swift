@@ -213,6 +213,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync(Paths.claudeSleep, args: ["now"])
     }
 
+    /// Kick off the currently-selected screen saver now (the Slab Status
+    /// saver if it's chosen in System Settings). Launching ScreenSaverEngine
+    /// directly is the only path that still works on macOS 26 — the old
+    /// `System Events`/`start current screen saver` verb was removed.
+    @objc func startScreensaver() {
+        ShellRunner.runAsync(
+            "/usr/bin/open",
+            args: ["-a", "/System/Library/CoreServices/ScreenSaverEngine.app"]
+        )
+    }
+
     @objc func toggleMute() {
         let path = Paths.muteFlag
         let fm = FileManager.default
@@ -661,27 +672,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// frame). Total inter-window gap is 2*gutter; total edge gap = gutter.
     static let tileGutter = 2
 
+    /// Row-balanced rect packing. Windows are distributed across `rowCounts`
+    /// rows (top→bottom); a row with fewer windows simply makes each of its
+    /// panels wider, so the layout always fills the visible frame edge-to-
+    /// edge with **no empty cells** — never a square grid with holes.
+    /// Row heights are equal; column widths vary per row. Integer-division
+    /// remainder is absorbed by snapping the last row/column to the exact
+    /// screen edge so there is no dead strip on the right or bottom.
     struct TileLayout {
-        let cols: Int
-        let rows: Int
-        let cellWidth: Int
-        let cellHeight: Int
-        let originX: Int  // visible-frame left edge
-        let originY: Int  // visible-frame top edge (below menu bar), AS coords
+        let rowCounts: [Int]  // windows per row, top row first; sum == count
+        let originX: Int      // visible-frame left edge (AS coords)
+        let originY: Int      // visible-frame top edge (below menu bar)
+        let width: Int        // full visible width to fill
+        let height: Int       // full visible height to fill
         let fontSize: Int
+
+        var rows: Int { rowCounts.count }
 
         struct Cell {
             let bounds: (left: Int, top: Int, right: Int, bottom: Int)
         }
 
         func cellAt(index: Int) -> Cell {
-            let row = index / cols
-            let col = index % cols
-            let left = originX + col * cellWidth + tileGutter
-            let top = originY + row * cellHeight + tileGutter
-            let right = originX + (col + 1) * cellWidth - tileGutter
-            let bottom = originY + (row + 1) * cellHeight - tileGutter
-            return Cell(bounds: (left, top, right, bottom))
+            // Walk the rows to find which one this flat index lands in.
+            var rem = max(0, index)
+            var row = rowCounts.count - 1
+            for (r, c) in rowCounts.enumerated() {
+                if rem < c { row = r; break }
+                rem -= c
+            }
+            let colsInRow = max(1, rowCounts[row])
+            let col = min(rem, colsInRow - 1)
+
+            // Equal-height rows; last row snaps to the bottom edge.
+            let top = originY + row * height / rows
+            let bottom = (row == rows - 1)
+                ? originY + height
+                : originY + (row + 1) * height / rows
+            // Equal-width columns within the row; last col snaps to the
+            // right edge so a sparse row stretches full width.
+            let left = originX + col * width / colsInRow
+            let right = (col == colsInRow - 1)
+                ? originX + width
+                : originX + (col + 1) * width / colsInRow
+
+            return Cell(bounds: (
+                left + tileGutter, top + tileGutter,
+                right - tileGutter, bottom - tileGutter
+            ))
         }
     }
 
@@ -708,24 +746,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
-    /// Pack `count` windows into the most-square grid that fits the main
-    /// display's visible frame. Font size scales down for denser grids so
-    /// even N=10 stays legible.
+    /// Pack `count` windows into a row-balanced layout that fills the whole
+    /// visible frame — no holes, ever. Pick a near-square row count, then
+    /// spread the windows across those rows as evenly as possible; rows that
+    /// come up a window short just get wider panels. Font size scales down
+    /// for denser layouts so even N=10 stays legible.
     private static func computeTileLayout(count: Int, geom: ScreenGeom, near: Bool = false) -> TileLayout? {
         guard count > 0 else { return nil }
-        let cols = max(1, Int(ceil(Double(count).squareRoot())))
-        let rows = max(1, Int(ceil(Double(count) / Double(cols))))
-        let cellW = geom.width / cols
-        let cellH = geom.height / rows
-        // Inner pixels available per window after the gutter is taken out.
-        let innerW = max(1, cellW - 2 * tileGutter)
-        let innerH = max(1, cellH - 2 * tileGutter)
 
-        // Pick the largest font that fits ~24 rows × ~80 cols of monospace
-        // in the inner area. A char cell is roughly fontSize * 0.6 wide and
-        // fontSize * 1.2 tall in Menlo/SF Mono. Enlarging is fine — for low
-        // N the cells are huge, so the font scales up rather than us
-        // wasting empty pixels at a fixed default.
+        // Near-square: same density feel as the old grid, but the per-row
+        // counts below let sparse rows stretch instead of leaving holes.
+        let approxCols = max(1, Int(ceil(Double(count).squareRoot())))
+        let rows = max(1, Int(ceil(Double(count) / Double(approxCols))))
+
+        // Distribute `count` across `rows` as evenly as possible. The first
+        // `rem` rows carry one extra window; the lighter (wider-panel) rows
+        // fall to the bottom, where a stretched window reads naturally.
+        let base = count / rows
+        let rem = count % rows
+        let rowCounts = (0..<rows).map { $0 < rem ? base + 1 : base }
+        let maxCols = rowCounts.max() ?? 1  // narrowest cells live here
+
+        // Font is sized for the tightest cell: full-width / widest row, and
+        // equal row height. A char cell is ~fontSize*0.6 wide, *1.2 tall in
+        // Menlo/SF Mono; target ~24 rows × ~80 cols of monospace.
+        let innerW = max(1, geom.width / maxCols - 2 * tileGutter)
+        let innerH = max(1, geom.height / rows - 2 * tileGutter)
         let fontByH = Double(innerH) / (24.0 * 1.2)
         let fontByW = Double(innerW) / (80.0 * 0.6)
         let raw = min(fontByH, fontByW)
@@ -735,52 +781,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fontSize = max(near ? 6 : 8, Int(scaled.rounded()))
 
         return TileLayout(
-            cols: cols,
-            rows: rows,
-            cellWidth: cellW,
-            cellHeight: cellH,
+            rowCounts: rowCounts,
             originX: geom.originX,
             originY: geom.originY,
+            width: geom.width,
+            height: geom.height,
             fontSize: fontSize
         )
     }
 
-    /// Tile every currently-open iTerm2 window into the same grid the
-    /// auto-tile path uses. Independent of the auto-tile flag — this is the
+    /// Tile every currently-open iTerm2 *and* Terminal.app window into one
+    /// shared grid. Independent of the auto-tile flag — this is the
     /// "I forgot to enable it" / "I want to re-pack what's open" button.
+    /// iTerm2 windows fill the grid first, then Terminal.app windows.
+    /// Terminal gets bounds only — AppleScript can't set per-session decor
+    /// or wallpaper on Terminal.app, so those windows tile but stay
+    /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
     @objc func tileNow() {
         guard let geom = Self.screenGeom() else { return }
         let near = state.nearText
         DispatchQueue.global(qos: .userInitiated).async {
-            // Ask iTerm2 for its window count first so we can size the grid
-            // to what's actually on screen.
-            let countOut = ShellRunner.run(
-                "/usr/bin/osascript",
-                args: ["-e", "tell application \"iTerm2\" to count windows"],
-                timeout: 5
-            ).output.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let n = Int(countOut), n > 0 else { return }
+            // Size the grid to everything on screen across both apps. The
+            // `is running` guard never launches a quit Terminal.app, so a
+            // non-running Terminal contributes zero cells.
+            let nIterm = Self.windowCount(app: "iTerm2")
+            let nTerm = Self.windowCount(app: "Terminal")
+            let n = nIterm + nTerm
+            guard n > 0 else { return }
             guard let layout = Self.computeTileLayout(count: n, geom: geom, near: near) else { return }
 
-            // Reset decor memo so the next refresh re-themes every window
-            // from scratch (a re-pack invalidates prior placement).
+            // Reset decor memo so the next refresh re-themes every iTerm2
+            // window from scratch (a re-pack invalidates prior placement).
             DispatchQueue.main.async { [weak self] in
                 self?.lastTiledFontSize = layout.fontSize
                 self?.lastTerminalDecor.removeAll()
             }
 
-            // iTerm2 has no per-window font via AppleScript, so tiling is
-            // pure pixel bounds — no font/bounds dance to fight a grid snap.
-            var lines: [String] = ["tell application \"iTerm2\"", "    activate"]
-            for i in 0..<n {
-                let cell = layout.cellAt(index: i)
-                let asIndex = i + 1  // AppleScript is 1-based
-                lines.append("    set bounds of window \(asIndex) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+            // Pure pixel bounds for both apps — no font/bounds dance.
+            // AppleScript `bounds` is {left, top, right, bottom} for both
+            // iTerm2 and Terminal, so the same cell math applies to each.
+            var lines: [String] = []
+            if nIterm > 0 {
+                lines.append("tell application \"iTerm2\"")
+                lines.append("    activate")
+                for i in 0..<nIterm {
+                    let cell = layout.cellAt(index: i)
+                    lines.append("    set bounds of window \(i + 1) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+                }
+                lines.append("end tell")
             }
-            lines.append("end tell")
+            if nTerm > 0 {
+                lines.append("tell application \"Terminal\"")
+                for j in 0..<nTerm {
+                    let cell = layout.cellAt(index: nIterm + j)
+                    lines.append("    set bounds of window \(j + 1) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+                }
+                lines.append("end tell")
+            }
+            guard !lines.isEmpty else { return }
             let script = lines.joined(separator: "\n")
             ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
         }
+    }
+
+    /// Count windows of `app` via AppleScript, returning 0 if the app isn't
+    /// running. `application "X" is running` is a no-op probe — it never
+    /// launches the app — so the cross-app tiler can safely ask about a
+    /// Terminal.app the user may have quit.
+    private static func windowCount(app: String) -> Int {
+        let script = """
+        if application "\(app)" is running then
+          tell application "\(app)" to count windows
+        else
+          0
+        end if
+        """
+        let out = ShellRunner.run(
+            "/usr/bin/osascript",
+            args: ["-e", script],
+            timeout: 5
+        ).output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return max(0, Int(out) ?? 0)
     }
 
     private func syncMail(account: String?) {

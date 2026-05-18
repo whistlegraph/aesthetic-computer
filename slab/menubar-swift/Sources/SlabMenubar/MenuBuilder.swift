@@ -31,6 +31,10 @@ enum MenuBuilder {
         menu.addItem(stayAwake)
         menu.addItem(item("Sleep now", selector: #selector(AppDelegate.sleepNow), target: target))
 
+        let saver = item("Start screensaver", selector: #selector(AppDelegate.startScreensaver), target: target)
+        saver.toolTip = "Launch the currently-selected screen saver now (Slab Status if chosen in System Settings)."
+        menu.addItem(saver)
+
         let mute = item("Mute ambient sonification", selector: #selector(AppDelegate.toggleMute), target: target)
         mute.state = state.muted ? .on : .off
         menu.addItem(mute)
