@@ -323,13 +323,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 return
             }
             let layout = geom.flatMap { Self.computeTileLayout(count: entries.count, geom: $0, near: near) }
+            let term = Self.preferredTerminalApp()
             for (i, entry) in entries.enumerated() {
                 let cell = layout?.cellAt(index: i)
                 Self.openTerminalRunningClaude(
                     cwd: entry.cwd,
                     sessionId: entry.sessionId,
                     bounds: cell?.bounds,
-                    fontSize: layout?.fontSize
+                    fontSize: layout?.fontSize,
+                    app: term
                 )
             }
         }
@@ -355,6 +357,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let geom = state.autoTile ? Self.screenGeom() : nil
         let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, near: state.nearText) }
         DispatchQueue.global(qos: .userInitiated).async {
+            // Resolve the target terminal before the SIGTERM — once the old
+            // windows tear down, the open-app detection would skew.
+            let term = Self.preferredTerminalApp()
             for p in payloads where p.pid > 0 {
                 kill(pid_t(p.pid), SIGTERM)
             }
@@ -367,7 +372,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     cwd: p.cwd,
                     sessionId: p.sid,
                     bounds: cell?.bounds,
-                    fontSize: layout?.fontSize
+                    fontSize: layout?.fontSize,
+                    app: term
                 )
             }
         }
@@ -631,17 +637,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
-    /// Spawn a new iTerm2 window that cd's into `cwd` and resumes the given
-    /// session. Optionally sets window bounds so the caller can tile.
-    /// Single-quoted shell args are escaped so a path with apostrophes can't
-    /// break out. `fontSize` is accepted for call-site compatibility but
-    /// ignored: iTerm2 exposes no per-session/window font via AppleScript
-    /// (known limitation — tiling is by pixel bounds only for now).
+    /// Which terminal app to spawn restored sessions into. Honor whatever
+    /// the user actually has open: if only one of iTerm2 / Terminal.app has
+    /// windows, use it; if both, defer to the frontmost one; if neither,
+    /// fall back to iTerm2 (the port default). `windowCount`'s `is running`
+    /// probe never launches an app, so this is side-effect free.
+    private static func preferredTerminalApp() -> String {
+        let iterm = windowCount(app: "iTerm2") > 0
+        let term = windowCount(app: "Terminal") > 0
+        if iterm && !term { return "iTerm2" }
+        if term && !iterm { return "Terminal" }
+        if iterm && term {
+            let front = ShellRunner.run(
+                "/usr/bin/osascript",
+                args: ["-e", "tell application \"System Events\" to name of first application process whose frontmost is true"],
+                timeout: 5
+            ).output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return front == "Terminal" ? "Terminal" : "iTerm2"
+        }
+        return "iTerm2"
+    }
+
+    /// Spawn a new window in `app` (iTerm2 or Terminal.app) that cd's into
+    /// `cwd` and resumes the given session. Optionally sets window bounds so
+    /// the caller can tile. Single-quoted shell args are escaped so a path
+    /// with apostrophes can't break out. `fontSize` is accepted for call-
+    /// site compatibility but ignored: neither path drives per-window font
+    /// via AppleScript here (tiling is by pixel bounds only for now).
     private static func openTerminalRunningClaude(
         cwd: String,
         sessionId: String,
         bounds: (left: Int, top: Int, right: Int, bottom: Int)? = nil,
-        fontSize: Int? = nil
+        fontSize: Int? = nil,
+        app: String = "iTerm2"
     ) {
         _ = fontSize
         let safeCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
@@ -650,14 +678,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let escapedCmd = shellCmd.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
-        var lines = [
-            "tell application \"iTerm2\"",
-            "    activate",
-            "    create window with default profile",
-            "    tell current session of current window to write text \"\(escapedCmd)\"",
-        ]
-        if let b = bounds {
-            lines.append("    set bounds of current window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+        var lines: [String]
+        if app == "Terminal" {
+            // `do script` with no `in` target opens a fresh window running
+            // the command; the new window becomes `front window`.
+            lines = [
+                "tell application \"Terminal\"",
+                "    activate",
+                "    do script \"\(escapedCmd)\"",
+            ]
+            if let b = bounds {
+                lines.append("    set bounds of front window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+            }
+        } else {
+            lines = [
+                "tell application \"iTerm2\"",
+                "    activate",
+                "    create window with default profile",
+                "    tell current session of current window to write text \"\(escapedCmd)\"",
+            ]
+            if let b = bounds {
+                lines.append("    set bounds of current window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+            }
         }
         lines.append("end tell")
         let script = lines.joined(separator: "\n")
