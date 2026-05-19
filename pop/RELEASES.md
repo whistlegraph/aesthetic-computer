@@ -43,10 +43,16 @@ the release cover + audio). Claim the profile once trancenwaltz is live;
 DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 - avatar · https://assets.aesthetic.computer/pop/ac-spotify-avatar.jpg —
-  3000², PALS mark sub-surface-laser-etched in a clear faceted crystal on
-  a near-black studio ground; reads at the small circular crop. Campaign
-  `~/Documents/Working Desktop/gens/ac-avatar/` (gen-promo `--no-jeffrey`,
-  pals-logo.png ref).
+  3000², hyper-real **half-kiki/half-bouba green crystal** with digital
+  glitch-cracks on near-black, a BIG PLUMP PALS mark bursting out
+  through the cracks; pure black + Spotify-green; circular-safe (form
+  inside the inscribed circle, corners empty so the round crop never
+  clips). Campaign `~/Documents/Working Desktop/gens/ac-avatar/`
+  (gen-promo `--no-jeffrey`, pals-logo.png ref), gen v9. Circular-crop
+  QA: `magick AV circ-mask.png -compose Multiply -composite` (mask =
+  `magick -size 3000x3000 xc:black -fill white -draw "circle 1500,1500 1500,0"`;
+  the alpha/CopyOpacity path mis-composites to a flat π/8 gray disk —
+  use Multiply).
 - canvas (per-track, 9:16, silent, 3–8 s loop) — see each track's
   `canvas ·` CDN line. **Canvas is a first-class build format:**
   `pop/dance/bin/canvas-loop.mjs` (chrome-free by construction — no
