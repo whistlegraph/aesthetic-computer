@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  2 MAY 2026 16:28
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -931,6 +931,8 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 84.
 )
 \Hy@SectionHShift=\skip75
+) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/xurl/xurl.sty
+Package: xurl 2022/01/09 v 0.10 modify URL breaks
 )
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/graphicx.sty
 Package: graphicx 2024/12/31 v1.2e Enhanced LaTeX Graphics (DPC,SPQR)
@@ -1033,37 +1035,34 @@ Package: natbib 2010/09/13 8.31b (PWD, AO)
 LaTeX Info: Redefining \cite on input line 694.
 \c@NAT@ctr=\count353
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/frontendlayer/tikz.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/basiclayer/pgf.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/utilities/pgfrcs.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/utilities/pgfutil-comm
-on.tex
+(/Users/jas/Library/texmf/tex/latex/pgf/frontendlayer/tikz.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/basiclayer/pgf.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgfrcs.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-common.tex
 \pgfutil@everybye=\toks32
 \pgfutil@tempdima=\dimen271
 \pgfutil@tempdimb=\dimen272
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/utilities/pgfutil-late
-x.def
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-latex.def
 \pgfutil@abb=\box109
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/utilities/pgfrcs.code.
-tex (/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/pgf.revision.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfrcs.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/pgf.revision.tex)
 Package: pgfrcs 2025-08-29 v3.1.11a (3.1.11a)
 ))
 Package: pgf 2025-08-29 v3.1.11a (3.1.11a)
- (/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/basiclayer/pgfcore.sty 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/systemlayer/pgfsys.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/systemlayer/pgfsys.cod
-e.tex
+
+(/Users/jas/Library/texmf/tex/latex/pgf/basiclayer/pgfcore.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/systemlayer/pgfsys.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys.code.tex
 Package: pgfsys 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code
-.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeys.code.tex
 \pgfkeys@pathtoks=\toks33
 \pgfkeys@temptoks=\toks34
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/utilities/pgfkeyslibra
-ryfiltered.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeyslibraryfiltered.code
+.tex
 \pgfkeys@tmptoks=\toks35
 ))
 \pgf@x=\dimen273
@@ -1086,45 +1085,34 @@ ryfiltered.code.tex
 \t@pgf@tokb=\toks37
 \t@pgf@tokc=\toks38
 \pgf@sys@id@count=\count358
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/systemlayer/pgf.cfg
+ (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgf.cfg
 File: pgf.cfg 2025-08-29 v3.1.11a (3.1.11a)
 )
 Driver file for pgf: pgfsys-xetex.def
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-xet
-ex.def
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-xetex.def
 File: pgfsys-xetex.def 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-dvi
-pdfmx.def
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-dvipdfmx.def
 File: pgfsys-dvipdfmx.def 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-com
-mon-pdf.def
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-common-pdf.def
 File: pgfsys-common-pdf.def 2025-08-29 v3.1.11a (3.1.11a)
 )
 \pgfsys@objnum=\count359
-)))
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/systemlayer/pgfsyssoft
-path.code.tex
+))) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsyssoftpath.code.t
+ex
 File: pgfsyssoftpath.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgfsyssoftpath@smallbuffer@items=\count360
 \pgfsyssoftpath@bigbuffer@items=\count361
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/systemlayer/pgfsysprot
-ocol.code.tex
+) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsysprotocol.code.tex
 File: pgfsysprotocol.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-))
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcore.cod
-e.tex
+)) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcore.code.tex
 Package: pgfcore 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathutil.code.
-tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathparser.cod
-e.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathutil.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathparser.code.tex
 \pgfmath@dimen=\dimen283
 \pgfmath@count=\count362
 \pgfmath@box=\box110
@@ -1132,33 +1120,26 @@ e.tex
 \pgfmath@stack@operand=\toks40
 \pgfmath@stack@operation=\toks41
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-basic.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-trigonometric.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-random.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-comparison.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-base.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-round.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-misc.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.
-integerarithmetics.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathcalc.code.
-tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmathfloat.code
-.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.basic.code.tex)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.trigonometric.c
+ode.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.random.code.tex
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.comparison.code
+.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.base.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.round.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.misc.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.integerarithmet
+ics.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathcalc.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfloat.code.tex
 \c@pgfmathroundto@lastzeros=\count363
 ))
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfint.code.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepoin
-ts.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfint.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepoints.code.tex
 File: pgfcorepoints.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@picminx=\dimen284
 \pgf@picmaxx=\dimen285
@@ -1175,126 +1156,106 @@ File: pgfcorepoints.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@zx=\dimen296
 \pgf@zy=\dimen297
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepath
-construct.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathconstruct.code.
+tex
 File: pgfcorepathconstruct.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@path@lastx=\dimen298
 \pgf@path@lasty=\dimen299
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepath
-usage.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathusage.code.tex
 File: pgfcorepathusage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@shorten@end@additional=\dimen300
 \pgf@shorten@start@additional=\dimen301
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorescop
-es.code.tex
+) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorescopes.code.tex
 File: pgfcorescopes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgfpic=\box111
 \pgf@hbox=\box112
 \pgf@layerbox@main=\box113
 \pgf@picture@serial@count=\count364
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcoregrap
-hicstate.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoregraphicstate.code.t
+ex
 File: pgfcoregraphicstate.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgflinewidth=\dimen302
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretran
-sformations.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoretransformations.cod
+e.tex
 File: pgfcoretransformations.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@pt@x=\dimen303
 \pgf@pt@y=\dimen304
 \pgf@pt@temp=\dimen305
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorequic
-k.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorequick.code.tex
 File: pgfcorequick.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreobje
-cts.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreobjects.code.tex
 File: pgfcoreobjects.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepath
-processing.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathprocessing.code
+.tex
 File: pgfcorepathprocessing.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorearro
-ws.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorearrows.code.tex
 File: pgfcorearrows.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgfarrowsep=\dimen306
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreshad
-e.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreshade.code.tex
 File: pgfcoreshade.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@max=\dimen307
 \pgf@sys@shading@range@num=\count365
 \pgf@shadingcount=\count366
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreimag
-e.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreimage.code.tex
 File: pgfcoreimage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreexte
-rnal.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreexternal.code.tex
 File: pgfcoreexternal.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgfexternal@startupbox=\box114
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorelaye
-rs.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorelayers.code.tex
 File: pgfcorelayers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretran
-sparency.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoretransparency.code.t
+ex
 File: pgfcoretransparency.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepatt
-erns.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepatterns.code.tex
 File: pgfcorepatterns.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/basiclayer/pgfcorerdf.
-code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorerdf.code.tex
 File: pgfcorerdf.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )))
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/modules/pgfmoduleshape
-s.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleshapes.code.tex
 File: pgfmoduleshapes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgfnodeparttextbox=\box115
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/modules/pgfmoduleplot.
-code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleplot.code.tex
 File: pgfmoduleplot.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-ve
-rsion-0-65.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-0-65.sty
 Package: pgfcomp-version-0-65 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@nodesepstart=\dimen308
 \pgf@nodesepend=\dimen309
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-ve
-rsion-1-18.sty
+) (/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-1-18.st
+y
 Package: pgfcomp-version-1-18 2025-08-29 v3.1.11a (3.1.11a)
-))
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/utilities/pgffor.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/utilities/pgfkeys.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code
-.tex)) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/pgf/math/pgfmath.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/utilities/pgffor.code.
-tex
+)) (/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgffor.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgfkeys.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeys.code.tex))
+(/Users/jas/Library/texmf/tex/latex/pgf/math/pgfmath.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex))
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgffor.code.tex
 Package: pgffor 2025-08-29 v3.1.11a (3.1.11a)
 \pgffor@iter=\dimen310
 \pgffor@skip=\dimen311
 \pgffor@stack=\toks42
 \pgffor@toks=\toks43
 ))
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/frontendlayer/tikz/tik
-z.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/tikz.code.tex
 Package: tikz 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/libraries/pgflibrarypl
-othandlers.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/libraries/pgflibraryplothandlers.code
+.tex
 File: pgflibraryplothandlers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@plot@mark@count=\count367
 \pgfplotmarksize=\dimen312
@@ -1316,8 +1277,7 @@ File: pgflibraryplothandlers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \tikznumberofcurrentchild=\count370
 \tikz@fig@count=\count371
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/modules/pgfmodulematri
-x.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmodulematrix.code.tex
 File: pgfmodulematrix.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgfmatrixcurrentrow=\count372
 \pgfmatrixcurrentcolumn=\count373
@@ -1325,16 +1285,16 @@ File: pgfmodulematrix.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
 \tikz@expandcount=\count375
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/frontendlayer/tikz/lib
-raries/tikzlibrarytopaths.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
+arytopaths.code.tex
 File: tikzlibrarytopaths.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )))
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/frontendlayer/tikz/lib
-raries/tikzlibrarycalc.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
+arycalc.code.tex
 File: tikzlibrarycalc.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pgf/frontendlayer/tikz/lib
-raries/tikzlibrarypositioning.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
+arypositioning.code.tex
 File: tikzlibrarypositioning.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/draftwatermark/draftwatermar
@@ -1342,31 +1302,31 @@ k.sty
 Package: draftwatermark 2024/03/04 3.3 Put a gray textual watermark on document
  pages
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 92.
+Package hyperref Info: Option `colorlinks' set `true' on input line 93.
 \acrandtmp=\count376
  (./plork.aux)
 \openout1 = `plork.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for TU/lmr/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 183.
-LaTeX Font Info:    ... okay on input line 183.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for TU/lmr/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 184.
+LaTeX Font Info:    ... okay on input line 184.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: xetex
@@ -1440,16 +1400,16 @@ latinmodern-math.otf]/OT:script=math;language=dflt;+ssty=1;"
 "
 
 LaTeX Font Info:    Encoding `OT1' has changed to `TU' for symbol font
-(Font)              `operators' in the math version `normal' on input line 183.
+(Font)              `operators' in the math version `normal' on input line 184.
 
 LaTeX Font Info:    Overwriting symbol font `operators' in version `normal'
 (Font)                  OT1/cmr/m/n --> TU/latinmodern-math.otf(1)/m/n on input
- line 183.
+ line 184.
 LaTeX Font Info:    Encoding `OT1' has changed to `TU' for symbol font
-(Font)              `operators' in the math version `bold' on input line 183.
+(Font)              `operators' in the math version `bold' on input line 184.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `bold'
 (Font)                  OT1/cmr/bx/n --> TU/latinmodern-math.otf(1)/b/n on inpu
-t line 183.
+t line 184.
 
 Package fontspec Info: 
 (fontspec)             latinmodern-math scale = 1.0001.
@@ -1502,15 +1462,15 @@ t;+ssty=1;"
 uage=dflt;"
 
 LaTeX Font Info:    Encoding `OMS' has changed to `TU' for symbol font
-(Font)              `symbols' in the math version `normal' on input line 183.
+(Font)              `symbols' in the math version `normal' on input line 184.
 LaTeX Font Info:    Overwriting symbol font `symbols' in version `normal'
 (Font)                  OMS/cmsy/m/n --> TU/latinmodern-math.otf(2)/m/n on inpu
-t line 183.
+t line 184.
 LaTeX Font Info:    Encoding `OMS' has changed to `TU' for symbol font
-(Font)              `symbols' in the math version `bold' on input line 183.
+(Font)              `symbols' in the math version `bold' on input line 184.
 LaTeX Font Info:    Overwriting symbol font `symbols' in version `bold'
 (Font)                  OMS/cmsy/b/n --> TU/latinmodern-math.otf(2)/b/n on inpu
-t line 183.
+t line 184.
 
 Package fontspec Info: 
 (fontspec)             latinmodern-math scale = 0.9999.
@@ -1558,28 +1518,28 @@ uage=dflt;"
 
 LaTeX Font Info:    Encoding `OMX' has changed to `TU' for symbol font
 (Font)              `largesymbols' in the math version `normal' on input line 1
-83.
+84.
 LaTeX Font Info:    Overwriting symbol font `largesymbols' in version `normal'
 (Font)                  OMX/cmex/m/n --> TU/latinmodern-math.otf(3)/m/n on inpu
-t line 183.
+t line 184.
 LaTeX Font Info:    Encoding `OMX' has changed to `TU' for symbol font
-(Font)              `largesymbols' in the math version `bold' on input line 183
+(Font)              `largesymbols' in the math version `bold' on input line 184
 .
 LaTeX Font Info:    Overwriting symbol font `largesymbols' in version `bold'
 (Font)                  OMX/cmex/m/n --> TU/latinmodern-math.otf(3)/b/n on inpu
-t line 183.
-Package hyperref Info: Link coloring ON on input line 183.
+t line 184.
+Package hyperref Info: Link coloring ON on input line 184.
 (./plork.out) (./plork.out)
 \@outlinefile=\write4
 \openout4 = `plork.out'.
 
-LaTeX Info: Redefining \microtypecontext on input line 183.
-Package microtype Info: Applying patch `item' on input line 183.
-Package microtype Info: Applying patch `toc' on input line 183.
-Package microtype Info: Applying patch `eqnum' on input line 183.
-Package microtype Info: Applying patch `footnote' on input line 183.
-Package microtype Info: Applying patch `verbatim' on input line 183.
-LaTeX Info: Redefining \microtypesetup on input line 183.
+LaTeX Info: Redefining \microtypecontext on input line 184.
+Package microtype Info: Applying patch `item' on input line 184.
+Package microtype Info: Applying patch `toc' on input line 184.
+Package microtype Info: Applying patch `eqnum' on input line 184.
+Package microtype Info: Applying patch `footnote' on input line 184.
+Package microtype Info: Applying patch `verbatim' on input line 184.
+LaTeX Info: Redefining \microtypesetup on input line 184.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
 Package microtype Info: No adjustment of tracking.
@@ -1751,7 +1711,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/lmmono10(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 222.
+(Font)              scaled to size 7.65005pt on input line 223.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `lmmono10' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1761,21 +1721,21 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 222.
+(Font)              scaled to size 9.00096pt on input line 223.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 222.
+(Font)              scaled to size 6.00064pt on input line 223.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 222.
+(Font)              scaled to size 5.00053pt on input line 223.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 222.
+(Font)              scaled to size 8.99904pt on input line 223.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 222.
+(Font)              scaled to size 5.99936pt on input line 223.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 222.
+(Font)              scaled to size 4.99947pt on input line 223.
 
 
 LaTeX Font Warning: Font shape `TU/lmroman10(0)/m/sc' undefined
-(Font)              using `TU/lmroman10(0)/m/n' instead on input line 222.
+(Font)              using `TU/lmroman10(0)/m/n' instead on input line 223.
 
 File: figures/hardware-yoga.jpg Graphic file (type bmp)
 <figures/hardware-yoga.jpg>
@@ -1795,20 +1755,20 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
-Overfull \hbox (16.60806pt too wide) in paragraph at lines 286--297
+Overfull \hbox (16.60806pt too wide) in paragraph at lines 287--298
  [][] 
  []
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 297.
+(Font)              scaled to size 10.00107pt on input line 298.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 297.
+(Font)              scaled to size 7.00075pt on input line 298.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 297.
+(Font)              scaled to size 9.99893pt on input line 298.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 297.
+(Font)              scaled to size 6.99925pt on input line 298.
 
-Underfull \hbox (badness 1859) in paragraph at lines 322--323
+Underfull \hbox (badness 1859) in paragraph at lines 323--324
 []\TU/lmroman10(0)/m/sc/10 The U.S. PIRG Education Fund’s “Chromebook
  []
 
@@ -1821,13 +1781,13 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 File: figures/kidlisp-featured.png Graphic file (type bmp)
 <figures/kidlisp-featured.png>
 
-Underfull \hbox (badness 3009) in paragraph at lines 378--378
+Underfull \hbox (badness 3009) in paragraph at lines 379--379
 []\TU/lmroman10(0)/m/sc/10 Figure 2: []\TU/lmroman10(0)/b/n/10 A live piece on 
 the instrument.
  []
 
 LaTeX Font Info:    Font shape `TU/lmmono10(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 385.
+(Font)              scaled to size 8.50006pt on input line 386.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1854,12 +1814,12 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [6]
-Underfull \hbox (badness 1831) in paragraph at lines 498--499
+Underfull \hbox (badness 1831) in paragraph at lines 499--500
 []\TU/lmroman10(0)/m/sc/10 In June 2017 Luckey co-founded Anduril Indus-
  []
 
 
-Underfull \hbox (badness 2181) in paragraph at lines 500--501
+Underfull \hbox (badness 2181) in paragraph at lines 501--502
 \TU/lmroman10(0)/m/sc/10 purpose-built operating system on commodity-class
  []
 
@@ -1870,7 +1830,7 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [7]
-Underfull \hbox (badness 2762) in paragraph at lines 618--618
+Underfull \hbox (badness 2762) in paragraph at lines 619--619
 |[]\TU/lmroman10(0)/b/n/10 PLORK THE PLANET: A CONCRETE
  []
 
@@ -1878,7 +1838,7 @@ Underfull \hbox (badness 2762) in paragraph at lines 618--618
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [8]
-Underfull \hbox (badness 2452) in paragraph at lines 672--673
+Underfull \hbox (badness 2452) in paragraph at lines 673--674
 []\TU/lmroman10(0)/b/n/10 Composition\TU/lmroman10(0)/m/sc/10 : PLOrk generated
  a new reper-
  []
@@ -1887,7 +1847,7 @@ Underfull \hbox (badness 2452) in paragraph at lines 672--673
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1292) in paragraph at lines 679--680
+Underfull \hbox (badness 1292) in paragraph at lines 680--681
 \TU/lmroman10(0)/m/sc/10 dependence on institutional infrastructure remained.
  []
 
@@ -1898,7 +1858,7 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Overfull \hbox (27.10393pt too wide) in paragraph at lines 720--721
+Overfull \hbox (27.10393pt too wide) in paragraph at lines 721--722
 []\TU/lmroman10(0)/m/sc/10 OLPC failed for reasons that are now well-documented
  [[][]Krae-
  []
@@ -1908,26 +1868,26 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [10]
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 8.00085pt on input line 727.
+(Font)              scaled to size 8.00085pt on input line 728.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.99915pt on input line 727.
+(Font)              scaled to size 7.99915pt on input line 728.
 
-Underfull \hbox (badness 10000) in paragraph at lines 732--733
+Underfull \hbox (badness 10000) in paragraph at lines 733--734
 []|\TU/lmroman10(0)/m/n/8 Standard laptop, al-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 733--734
+Underfull \hbox (badness 10000) in paragraph at lines 734--735
 []|\TU/lmroman10(0)/m/n/8 Commodity hardware,
  []
 
 
-Underfull \hbox (badness 2818) in paragraph at lines 734--734
+Underfull \hbox (badness 2818) in paragraph at lines 735--735
 []|\TU/lmroman10(0)/m/n/8 Sugar OS (no ecosys-
  []
 
 
-Overfull \hbox (16.48764pt too wide) in paragraph at lines 727--740
+Overfull \hbox (16.48764pt too wide) in paragraph at lines 728--741
  [][] 
  []
 
@@ -1939,70 +1899,6 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 (./plork.bbl [12]
-Underfull \hbox (badness 5260) in paragraph at lines 58--64
-[]\TU/lmroman10(0)/m/sc/10 Lucas Rockett Gutterman.  Chromebook churn:
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 58--64
-\TU/lmroman10(0)/m/sc/10 How short-lived laptops are costing schools
- []
-
-
-Underfull \hbox (badness 4120) in paragraph at lines 58--64
-\TU/lmroman10(0)/m/sc/10 and the environment.  Technical report, U.S.
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 58--64
-\TU/lmroman10(0)/m/sc/10 PIRG Education Fund, 2023.  URL [][]$[][][][][] []
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 58--64
-[] [] [][][][][][][][][][][][][][][][][][][][][] [] [][][] [] [][][][][][][][][
-][][] [] [][][][][][][] []
- []
-
-
-Underfull \hbox (badness 6658) in paragraph at lines 110--118
-[]\TU/lmroman10(0)/m/sc/10 Ari Levy.  Oculus co-founder: “I got fired”
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 110--118
-\TU/lmroman10(0)/m/sc/10 from Facebook for “no reason at all”,
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 110--118
-\TU/lmroman10(0)/m/sc/10 2019.  URL [][]$[][][][][] [] [] [] [][][] [] [][][][]
- [] [][][] [] [][][][] [] [][] [] [][] []
- []
-
-
-Overfull \hbox (58.99208pt too wide) in paragraph at lines 110--118
-[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][
-][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][] []
- []
-
-
-Underfull \hbox (badness 4072) in paragraph at lines 141--148
-\TU/lmroman10(0)/m/sc/10 to remake the U.S. military with autonomous
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 141--148
-[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][
-][][][][][][][][][][][][][][]$[][]\TU/lmroman10(0)/m/sc/10 .
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 141--148
-\TU/lmroman10(0)/m/sc/10 autonomous-weapons portfolio and government-
- []
-
-
 Underfull \hbox (badness 4084) in paragraph at lines 164--170
 []\TU/lmroman10(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
  []
@@ -2010,23 +1906,6 @@ Underfull \hbox (badness 4084) in paragraph at lines 164--170
 
 Underfull \hbox (badness 1092) in paragraph at lines 173--177
 []\TU/lmroman10(0)/m/sc/10 Scott Smallwood, Dan Trueman, Perry Cook, and
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 184--191
-[]\TU/lmroman10(0)/m/sc/10 Jeremy Solana.  American vulcan, 2024.
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 184--191
-\TU/lmroman10(0)/m/sc/10 URL [][]$[][][][][] [] [] [] [][][] [] [][][][][][][][
-][] [] [][][] [] [][][][][][][] []
- []
-
-
-Underfull \hbox (badness 2318) in paragraph at lines 184--191
-[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][
-][]$[][]\TU/lmroman10(0)/m/sc/10 .  Long-form
  []
 
 
@@ -2049,10 +1928,10 @@ Package rerunfilecheck Info: File `plork.out' has not changed.
 (rerunfilecheck)             Checksum: E1085827665BF5C1A976EB584757641D;8713.
  ) 
 Here is how much of TeX's memory you used:
- 31379 strings out of 469709
- 612935 string characters out of 5466024
- 1195981 words of memory out of 5000000
- 59537 multiletter control sequences out of 15000+600000
+ 31404 strings out of 469709
+ 611312 string characters out of 5466024
+ 1200276 words of memory out of 5000000
+ 59558 multiletter control sequences out of 15000+600000
  630868 words of font info for 109 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
  88i,13n,107p,1002b,1072s stack positions out of 10000i,1000n,20000p,200000b,200000s

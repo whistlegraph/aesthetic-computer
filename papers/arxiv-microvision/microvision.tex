@@ -293,7 +293,9 @@ The aggregate principal of the new note structure is approximately \$43 million.
 \footnotesize
 \centering
 \setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\columnwidth}{lr}
+% [fix-dossier-tables]
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lr}
 \toprule
 \textbf{Quantity} & \textbf{Value} \\
 \midrule
@@ -304,7 +306,8 @@ Pro forma shares fully converted & 388{,}298{,}697 \\
 Conversion price & \$0.8819 \\
 Forced-conversion floor & \$2.00 \\
 \bottomrule
-\end{tabularx}
+\end{tabular}%
+}
 \caption{Pro-forma dilution under the February 2026 note. The actual dilution depends on the spot price at the time of conversion and on whether stockholder approval is granted to remove the share cap.}
 \label{tab:dilution}
 \end{table}
@@ -346,7 +349,9 @@ The fit, on paper, is structural rather than rumored. AIM's deployments require:
 \footnotesize
 \centering
 \setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\columnwidth}{lr}
+% [fix-dossier-tables]
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lr}
 \toprule
 \textbf{Quantity} & \textbf{Value} \\
 \midrule
@@ -356,7 +361,8 @@ NED licensing alone (Grok est.) & \$200--500M \\
 AIM cash raised (2025) & \$50M \\
 Comparable lidar peer cap (Hesai) & \$3.8B \\
 \bottomrule
-\end{tabularx}
+\end{tabular}%
+}
 \caption{Acquirability arithmetic. AIM's own \$50M raise is small for an outright \$190M acquisition; a syndicate-led deal led by DCVC and one or more of AIM's other backers is more likely, or a deep partnership / licensing arrangement that precedes an acquisition.}
 \label{tab:aim}
 \end{table}

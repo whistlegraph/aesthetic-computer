@@ -251,7 +251,9 @@ Because RC is privately held, there are no Forms 990 and no public P\&L. The fin
 \begin{table}[h]
 \small
 \centering
-\begin{tabularx}{\columnwidth}{lr}
+% [fix-dossier-tables]
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lr}
 \toprule
 \textbf{Metric} & \textbf{Disclosed} \\
 \midrule
@@ -265,7 +267,8 @@ Hiring partners (career grants by 2014) & ${\sim}\$200{,}000$ Etsy + \$100K Juni
 Alumni community & 3{,}000+ \\
 Latka revenue figure (unverified) & \$11.1M \\
 \bottomrule
-\end{tabularx}
+\end{tabular}%
+}
 \end{table}
 
 \subsection{Hiring partners}

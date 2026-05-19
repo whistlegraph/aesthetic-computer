@@ -1,0 +1,237 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from creative-time.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\papercreated}{2026-05-18}
+\newcommand{\paperrevision}{4}
+\newcommand{\papersitename}{creative-time-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\hypersetup{
+  pdftitle={Creative Time: A Dossier},
+}
+
+\renewcommand{\acpdfbase}{creative-time-dossier-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Creative Time — A Dossier}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Origin}
+
+Creative Time was founded in New York City in the mid-1970s, as the city slid toward its fiscal crisis~\citep{ctwiki,ct50avenue}. \textbf{The 1973-vs-1974 founding-year discrepancy now resolves to a definitional one, not a contradiction:} the NYU Fales finding aid dates the organization's \emph{establishment} to 1973~\citep{ctfales}, while the organization's own ``About'' page and the press date the public-facing founding to \emph{1974}~\citep{ctabout,ctwiki}. The reconciling fact: in early 1974 Anita Contini, with Susan Henshaw Jones and Karin Bacon, produced \emph{Crafts in Action} --- an artist showcase staged during working hours in a vacant building at William and Nassau Streets in the Financial District~\citep{ctfamilystyle}. 1973 is the establishment/back-office date; 1974 is the first public project. The dossier records both with that reading.
+
+The premise from the start: that ambitious contemporary art belonged in vacant, civic, and public space rather than only in galleries. Three values, still stated in the current mission, were present from the beginning: that art matters, that artists' voices are important in shaping society, and that public spaces are places for free and creative expression~\citep{ctfales,ctabout}. The current one-line mission: ``Creative Time is a public arts organization that works with artists to contribute to the dialogues, debates, and dreams of our times''~\citep{ctabout}.
+
+\section{Structure}
+
+Creative Time, Inc.\ is a 501(c)(3) public charity headquartered at \textbf{59 East 4th Street, 6th Floor, New York, NY 10003}~\citep{ctabout}, EIN \texttt{13-2835847}, classified by the IRS under NTEE ``Arts, Cultural Organizations --- Multipurpose''~\citep{ctpropublica}. It files the IRS Form 990 on a calendar-year basis (fiscal year ending December~31). Extracted 990 data is available for fiscal years 2010--2024; 2001--2009 exist on the IRS record only as scanned PDFs without extracted financials~\citep{ctpropublica}.
+
+\section{Leadership}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Years} & \textbf{Director / Executive Director} \\
+\midrule
+1973/74--1986 & Anita Contini (founding director) \\
+1987--1992 & Cee Scott Brown \\
+1993/94--May 2015 & Anne Pasternak \\
+May 2015--Feb 2016 & Katie Hollander (acting) \\
+Feb 2016--Jun 2017 & Katie Hollander (Executive Director) \\
+Jun 2017--Mar 2018 & interim (post-Hollander) \\
+Mar 2018--Feb 2026 & Justine Ludwig \\
+Feb 23, 2026-- & Jean Cooney \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\\[0.3em]
+\footnotesize Sources: \citet{ctfales,ctwiki} (Contini, Brown, Pasternak); \citet{cthollander2016} (Hollander named ED, Feb 2016, after \textasciitilde9 months acting); \citet{cthollander2017} (Hollander resignation, Jun 2017); \citet{ctludwig2018} (Ludwig appointment, Mar 2018); \citet{ctcooney2026} (Cooney appointment, start Feb 23 2026). Pasternak left in May 2015 to direct the Brooklyn Museum.
+\end{table}
+
+Anne Pasternak's two-decade tenure (through May 2015, when she left to become director of the Brooklyn Museum) is the long arc; under it Creative Time moved from a New York site-specific producer to an internationally cited public-art institution. \textbf{Katie Hollander} --- the organization's deputy director for roughly eight years --- ran it as acting director through the nine-month interregnum, was named Executive Director in February 2016~\citep{cthollander2016}, and resigned in June 2017 after about a year and a half~\citep{cthollander2017}; a brief post-Hollander interim followed. \textbf{Justine Ludwig} was named Executive Director in March 2018~\citep{ctludwig2018} and led through early 2026; on the FY2024 Form 990 she is the highest-compensated officer at \$243,215 plus \$12,632 other, with Amber Sasse, Head of Development, at \$105,000 plus \$10,174~\citep{ctpropublica}. \textbf{Jean Cooney} was announced as the next Executive Director in January 2026, with a start date of February~23, 2026, arriving from the Times Square Alliance, where she had been Director of Times Square Arts and VP of Arts \& Culture since 2019~\citep{ctcooney2026}.
+
+A parallel \emph{curatorial} thread matters as much as the executive one: the institution's blockbuster era (late 2000s--2010s) is associated with chief curator Nato Thompson, who shaped the signature commissions and the \emph{Living as Form} project before departing in the mid-2010s.
+
+\section{Commissions}
+
+Creative Time states it has commissioned and presented \textbf{over 350 public-art projects} since the mid-1970s, ``in New York City, across the country, around the world --- and even in outer space''~\citep{ctabout}. A periodized, source-anchored selection of the signature works:
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Years} & \textbf{Signature project} \\
+\midrule
+1978--1985 & Art on the Beach (Battery Park City landfill) \\
+1982 & Projects at the Chamber (Great Hall, Chamber of Commerce) \\
+1983--2001 & Art in the Anchorage (Brooklyn Bridge Anchorage) \\
+1989-- & Citywide program launched \\
+1993--1994 & The 42nd Street Art Project \\
+2001--2002 & Tribute in Light (with the Municipal Art Society) \\
+2007 & Paul Chan, \emph{Waiting for Godot in New Orleans} \\
+2008 & David Byrne, \emph{Playing the Building} \\
+2009 & Jeremy Deller, \emph{It Is What It Is} (w/ New Museum) \\
+2009-- & The Creative Time Summit founded \\
+2011 & \emph{Living as Form} (Nato Thompson) \\
+2014 & Kara Walker, \emph{A Subtlety} (Domino Sugar Refinery) \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\\[0.3em]
+\footnotesize Sources: \citet{ctfales} (Art on the Beach, the Chamber, the Anchorage, Citywide, 42nd Street, Tribute in Light, Byrne); \citet{ctwiki} (Chan, Deller, the Summit, \emph{Living as Form}); \citet{ctkarawalker} (\emph{A Subtlety}, Domino Sugar Refinery, May--Jul 2014). \emph{Art in the Anchorage} ended in 2001 when the Brooklyn Bridge Anchorage closed for national-security reasons.
+\end{table}
+
+Two works define the public memory. \emph{Tribute in Light} (2001--2002) --- the twin vertical beams over Lower Manhattan after September~11 --- is the single most-seen Creative Time commission and the clearest case of a temporary work entering permanent civic ritual (it is re-staged annually). \emph{A Subtlety; or, the Marvelous Sugar Baby} (Kara Walker, 2014) --- the monumental sugar-coated sphinx in the derelict Domino Sugar Refinery in Williamsburg --- was Walker's first large-scale public project and Creative Time's most-discussed twenty-first-century commission~\citep{ctkarawalker,ctwiki}. The \emph{Creative Time Summit}, founded 2009, is the institution's itinerant convening on art and social change, presented in host cities including Venice, Stockholm, Washington~D.C., and Miami~\citep{ctabout}.
+
+Across five decades the collaborating artists include Vito Acconci, Laurie Anderson, David Byrne, Felix Gonz\'{a}lez-Torres, Guillermo G\'{o}mez-Pe\~{n}a, Jenny Holzer, Takashi Murakami, Paul Chan, Jeremy Deller, and Kara Walker, among many others~\citep{ctfales,ctwiki}.
+
+\section{People (current)}
+
+The current staff and board are publicly listed~\citep{ctabout}. \textbf{Staff:} Jean Cooney (Executive Director, from Feb 2026); Yukiko Yamagata (Deputy Director); Gervais Marsh and \textbf{Celine Wong Katzman} (Associate Curators); Arantza Orengo (Senior Project Manager); Ayesha Pirbhai (Director of Advancement); Madison Shaw (Development Manager); Gloria Celeste Perez (Communications Coordinator); Buffy Sierra (Event Coordinator); Maiko Sein (Executive Assistant \& Special Projects); Mark Choi (2025--26 Leonhardt Cassullo Video Fellow).
+
+\textbf{Board of Directors:} Jon Neidich, Waris Ahluwalia, Taja Cheek, Dana Farouki, Rafael Flores, Pablo Helguera, Stephen Kramarsky, Patrick Li, Trevor Paglen, Nic Rad, Carolyn Ramo, Pedro Reyes, Eric Richter, Jed Walentas, Margaret Wang, William Richmond Watson, Lily Johnson White, Kate Young~\citep{ctabout}. On the FY2024 Form 990 Part~VII the filed officers are \textbf{Jon Neidich, Board Chair} and \textbf{Eric Richter, Treasurer} (both \$0 compensation), among 30+ listed individuals, alongside Justine Ludwig (Executive Director)~\citep{ctpropublica}. The 990-as-filed is the legally authoritative roster; the staff/board names above are the organization's own current listing~\citep{ctabout}.
+
+\section{Money}
+
+Creative Time's finances are publicly recoverable through the IRS Form 990 series~\citep{ctpropublica}. Recent fiscal years (calendar-year filings):
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{lrrr}
+\toprule
+\textbf{FY} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Net assets} \\
+\midrule
+2024 & \$1.98M & \$2.88M & \$3.32M \\
+2023 & \$3.92M & \$3.08M & \$4.26M \\
+2022 & \$6.77M & \$5.08M & \$3.42M \\
+2021 & \$3.17M & \$2.92M & \$1.77M \\
+2020 & \$1.86M & \$1.66M & \$1.50M \\
+2019 & \$1.67M & \$1.93M & \$1.28M \\
+2018 & \$1.97M & \$2.36M & \$1.52M \\
+2017 & \$2.08M & \$2.92M & \$1.96M \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\\[0.3em]
+\footnotesize Source: IRS Form 990 via ProPublica Nonprofit Explorer~\citep{ctpropublica}. Figures rounded; full filings carry exact amounts and the contributions / program-service split.
+\end{table}
+
+Creative Time runs on a low single-digit-million annual budget --- notable for an institution of its visibility, and a reminder that the public footprint and the balance sheet are not proportional. Several years show expenses exceeding revenue; the FY2022 revenue peak (\$6.77M) stands against the surrounding years. Net assets have ranged from roughly \$1.3M (2019) to \$4.3M (2023). The organization's listed major funders (2025) are the \textbf{Mellon Foundation} (see the companion funder dossier~\citep{ac2026mellon}), Bloomberg Philanthropies, the Rockefeller Foundation, the Andy Warhol Foundation for the Visual Arts, the New York Community Trust, the New York State Council on the Arts, and the NYC Department of Cultural Affairs~\citep{ctabout}. The named-grant and contributions/earned-revenue detail is itemized on Schedule~A / Schedule~B of each filing.
+
+\section{Footprint}
+
+Creative Time's footprint is civic and temporary: the work is sited in shared space --- the harbor, the beach, the subway, a derelict sugar refinery, the sky --- and most of it no longer physically exists. The institutional memory lives in three durable forms: (a)~the 350+ commissioned projects in the public record; (b)~the \textbf{Creative Time Records at NYU's Fales Library} (MSS.179) --- 238.58 linear feet spanning 1974--2012 with materials continuing from 2020, including 43.3~GB of digital media~\citep{ctfales}; and (c)~the recurring Creative Time Summit's circulation across host cities. Sustained institutional partners across the history include the Lower Manhattan Cultural Council, MTA Arts for Transit, Lincoln Center, The Kitchen, and the NYC Department of Cultural Affairs~\citep{ctfales}.
+
+\section{Reading List}
+
+\subsection{Primary sources}
+
+\begin{itemize}
+\item \textbf{IRS Form 990 series}~\citep{ctpropublica} --- financial and governance spine, FY2010--2024 extracted; earlier years scanned-PDF only.
+\item \textbf{Creative Time Records, NYU Fales Library (MSS.179)}~\citep{ctfales} --- the canonical project archive and administrative history.
+\item \textbf{Creative Time ``About''}~\citep{ctabout} --- mission, current staff and board, funder list, headquarters.
+\item \textbf{Creative Time blog: Ludwig (2018) and Cooney (2026) appointments}~\citep{ctludwig2018,ctcooney2026} --- the leadership-transition record.
+\item \textbf{Creative Time project page: Kara Walker, \emph{A Subtlety}}~\citep{ctkarawalker}.
+\end{itemize}
+
+\subsection{Secondary}
+
+\begin{itemize}
+\item \textbf{Wikipedia: Creative Time}~\citep{ctwiki} --- project chronology and collaborators (flagged on-wiki for primary-source reliance; cross-checked against the archive where possible).
+\item \textbf{Avenue Magazine, ``50 Years'' (2024)}~\citep{ct50avenue} --- founding circumstances and the founders.
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item \textbf{Not a thesis.} There is no question being answered; the dossier surfaces the public record.
+\item \textbf{Not a critique.} Disclosure, silence, and the source disagreements are observed, not judged.
+\item \textbf{Resolved since the scaffold.} The 1973-vs-1974 founding-year question (now read as establishment vs.\ first public project, \emph{Crafts in Action}, 1974) and the 2015--2018 executive succession (Hollander acting 2015, ED 2016--17, interim, Ludwig 2018) are filled and sourced inline.
+\item \textbf{Not exhaustive.} Remaining locatable gaps left to the companion data folder (\texttt{papers/arxiv-creative-time/data/}): the \emph{full} Form 990 Part~VII roster (30+ individuals; only Chair, Treasurer, and ED surfaced here); the Schedule~B contributor / named-grant inventory; the complete 350+ project list; and pre-2010 financials (scanned-PDF only, back to 2001).
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

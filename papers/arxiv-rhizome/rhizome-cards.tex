@@ -1,0 +1,334 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from rhizome.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{rhizome-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\hypersetup{
+  pdftitle={Rhizome: A Dossier},
+}
+
+\renewcommand{\acpdfbase}{rhizome-dossier-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Rhizome.org — A Dossier}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{The Word}
+
+The org's name is a 1996 quotation of a 1980 figure. \emph{A Thousand Plateaus}~\citep{deleuze1987thousand} opens with the chapter ``Rhizome'': no root, multiple entry points, plateaus, lines of flight, a figure of decentralized, non-hierarchical proliferation against the arborescent (tree-form) tradition of Western thought. The name is also load-bearing in cyberfeminist and protocol-critical writing of the same decade --- Plant's \emph{Zeros and Ones}~\citep{plant1997zeros}, contemporary with the org's founding, reads computing through the rhizome figure; Galloway's later \emph{Protocol}~\citep{galloway2004protocol} distinguishes the Deleuzian rhizome from the actual topology of TCP/IP.
+
+The dossier records the lineage and moves on. Whether the org's institutional shape over thirty years lives up to or departs from the figure is not a question this paper takes up.
+
+\section{The Organization, 1996--2026}
+
+\subsection{Mailing list (1996--1999)}
+
+Mark Tribe starts the email list \emph{Rhizome} in Berlin in 1996, partly as a way to keep up with the new-media art scene from outside its institutional centres. The list moves with him to New York. Two products emerge from the list: Rhizome Raw (open posting) and Rhizome Digest (curated weekly). The org formally organizes in 1997. The IRS 501(c)(3) ruling comes in August 1999.
+
+\subsection{Independent nonprofit (1999--2003)}
+
+ArtBase --- a curated archive of born-digital artworks --- launches in 1999 as the org's first preservation project. The Commissions Program founds in 2001. The dot-com crash arrives. The first 990 on public record is FY2002.
+
+\subsection{New Museum affiliation (2003--2015)}
+
+Rhizome affiliates with the New Museum of Contemporary Art and moves to 235 Bowery (the address at which the org is still based in 2026, listed on filings as ``Rhizome Communications Inc.~co New Museum of Contemporary Art''). Lauren Cornell becomes director in 2006. Seven on Seven, an annual conference pairing artists with technologists, launches at the New Museum in 2010, the same year a formal preservation program is established. \emph{ArtBase 101}, an exhibition pulling from the archive, runs at the New Museum in 2005. Heather Corcoran takes the directorship in 2012. \emph{Mass Effect}~\citep{cornell2015mass} --- the org's own theoretical statement of the post-internet moment, edited by Cornell and Halter --- appears from MIT Press in 2015.
+
+\subsection{Anthology + infrastructure (2015--2020)}
+
+The first Mellon grant for Webrecorder development --- \$600,000 over 24 months --- arrives in December 2015. Zachary Kaplan replaces Corcoran as ED in 2016. \emph{Net Art Anthology} launches in October 2016: 100 net art works re-exhibited online over a two-year run. The same year, Webrecorder.io is publicly released as an open-source web archiving tool, led by Ilya Kreymer. A second Mellon grant of \$1,000,000 follows in December 2017 (Webrecorder Phase Two). \emph{Net Art Anthology} concludes in 2019, the same year ArtBase is relaunched. A \$146,000 Mellon sustainability-planning grant in December 2019 sets up the Webrecorder spin-out.
+
+\subsection{Post-Anthology archive era (2020--2026)}
+
+In 2020 Webrecorder.io is renamed Conifer; the underlying open-source project Webrecorder is spun out as a separate entity. In September 2021 Mellon awards a \$1,000,000 ``Change Capital'' grant over five years for long-term resilience and operating reserves --- funded as part of a Nonprofit Finance Fund cohort, and earmarked in part for a Development Director and a Community Designer hire. New board members arrive that fall: Lindsay Howard, Trevor McFedries, and Mendi + Keith Obadike, among others; the announcement is published as ``Strengthening Rhizome for its Next 25.''~\citep{kaplan2021strengthening}
+
+Kaplan departs in April 2022. Makayla Bailey and Michael Connor become Co-Executive Directors in 2023; Bailey departs in 2024 and Connor remains. In June 2024 Mellon awards \$750,000 over 36 months for a full ArtBase overhaul. Conifer's discontinuation is announced in late 2025; the public service ends June 2026.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}X>{\raggedright\arraybackslash\hspace{0pt}}X}
+\toprule
+\textbf{Tenure} & \textbf{Director} & \textbf{Note} \\
+\midrule
+1996--2006 & Mark Tribe & Founding director \\
+2006--2012 & Lauren Cornell & SVP, New Museum \\
+2012--2016 & Heather Corcoran & \\
+2016--Apr 2022 & Zachary Kaplan & \\
+Apr 2022--2024 & \mbox{Bailey + Connor} & Transitional co-EDs \\
+2024-- & Michael Connor & \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Executive directors of record.}
+\label{tab:eds}
+\end{table}
+
+Long-tenure curators and editors include Lauren Cornell, Ceci Moss, Michael Connor, Aria Dean, Dragan Espenschied (preservation lead, co-author of the \emph{Net Art Anthology} framing); Ilya Kreymer led Webrecorder. The FY2024 board lists 18 voting members, including: Mark Tribe (founder, returned to the board); Lisa Phillips (director of the New Museum --- a direct parent-organization tie); Skawennati (artist, co-director of the Initiative for Indigenous Futures, which co-led the NEH-funded \emph{Early Online Communities in Context} project); Greg Pass (former CTO of Twitter, board chair through November 2024); Trevor McFedries (founder of Brud, creator of Lil Miquela; departed September 2024); Keith and Mendi Obadike (married artistic collaborators, disclosed as related-party in Schedule O); Lindsay Howard, JK Brown (board president), Fred Benenson, Lisa Roumell, Karen Wong, John Wotowicz, Tracy Chou, Hillary Neve, Renny Gleeson, William Palmer, and Ron Rosenzweig.
+
+\section{Programs}
+
+\textbf{ArtBase} (1999--, overhaul 2024--2027) --- curated archive of born-digital artworks; reported holdings exceed 2{,}000 works by the mid-2020s. Funded principally by Mellon's \$750{,}000 ArtBase overhaul grant.
+
+\textbf{Commissions Program} (2001--) --- direct grants to artists for new digital-art works. Recurring funders include the Andy Warhol Foundation, Jerome Foundation, Greenwall Foundation, Teiger Foundation, American Chai Trust, NEA, NYSCA, and NYC DCLA.
+
+\textbf{First Look} ($\sim$2013--) --- online commissioning series co-presented with the New Museum. Notable Deutsche Bank Americas Foundation entry in 2022.
+
+\textbf{Net Art Anthology} (Oct 2016--2019) --- 100-work re-exhibition, the centrepiece of the Anthology era. Coincided with the org's largest revenue surges (Table~\ref{tab:financials}).
+
+\textbf{Webrecorder / Conifer} --- public web-archiving tool released August 2016 as Webrecorder.io; renamed Conifer in 2020; sunsets June 2026. The underlying Webrecorder open-source project was spun out as an independent entity in 2020.
+
+\textbf{Seven on Seven} (2010--2019, revived) --- annual conference pairing artists with technologists at the New Museum.
+
+\textbf{OldWeb.Today} (2015--) --- browser-emulation viewer for legacy web art. Mellon-supported.
+
+\textbf{Microgrants} ($\sim$2014--) --- \$500--\$1{,}500 grants for net art / VR / poetry projects. Knight Foundation supported the public-engagement rollout.
+
+\textbf{Editorial / Rhizome blog} (early 2000s--) --- continuous critical writing on digital art, principally edited by Michael Connor.
+
+\textbf{Benefit Auction / Gala} (annual) --- Schedule G of the org's 990 records the take. As Section~\ref{sec:money} shows, the auction has lost money in every year for which detailed Schedule G data is available (FY2022, FY2023-amended, FY2024).
+
+\textbf{Discussion lists} (Rhizome Raw, Rhizome Digest) --- the founding programs; wound down through the 2010s.
+
+\section{Money}\label{sec:money}
+
+The organization's federal tax record is the cleanest source. Filings are public on ProPublica's Nonprofit Explorer (EIN 13-3995725) back to FY2002, and machine-readable e-file XML is available from the IRS for FY2017 onwards. Below: 14 fiscal years of line items (Table~\ref{tab:financials}), the named-grant inventory (Section~\ref{sec:grants}), and the auction record (Section~\ref{sec:auction}).
+
+\subsection{Top-line, FY2011--FY2024}
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{Xrrrrrrr}
+\toprule
+\textbf{FY end} & \textbf{Revenue} & \textbf{Contri.} & \textbf{Govt} & \textbf{Prog.\,svc.} & \textbf{Expenses} & \textbf{ED comp.} & \textbf{Net assets} \\
+\midrule
+2011-06 & 371,188 & 297,145 & --- & 69,215 & 381,261 & 75,940 & -41,350 \\
+2012-06 & 437,058 & 312,219 & --- & 80,339 & 431,581 & --- & -35,873 \\
+2013-06 & 439,222 & 333,630 & --- & 76,647 & 402,962 & 48,077 & 387 \\
+2014-06 & 448,025 & 345,955 & --- & 76,607 & 425,807 & 68,832 & 22,605 \\
+2015-06 & 546,392 & 434,753 & --- & 89,407 & 460,302 & 62,500 & 108,695 \\
+2016-06 & \textbf{1,462,022} & 1,427,710 & --- & 19,065 & 496,062 & 46,875 & 1,074,655 \\
+2017-06 & 551,966 & 531,727 & --- & 16,294 & 865,932 & 73,438 & 760,689 \\
+2018-06 & \textbf{1,702,771} & 1,646,127 & --- & 56,101 & 1,235,650 & 96,675 & 1,227,810 \\
+2019-06 & 690,011 & 592,847 & --- & 89,312 & 1,345,447 & 101,010 & 572,374 \\
+2020-06 & 818,729 & 695,867 & --- & 91,317 & 1,150,667 & 101,010 & 240,436 \\
+2021-06 & 785,362 & 578,659 & 296,794 & 186,192 & 935,315 & 96,012 & 90,483 \\
+2022-06 & \textbf{2,163,941} & 2,075,017 & 163,122 & 65,964 & 1,149,266 & 241,690 & 1,105,158 \\
+2023-06\,$^{*}$ & 756,974 & 731,464 & 107,000 & 57,303 & 1,211,908 & 213,430 & 650,223 \\
+2024-06\,$^{*}$ & 821,964 & 741,790 & 99,500 & 103,821 & 1,210,294 & 226,771 & 261,893 \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Rhizome Communications Inc. --- top-line Form 990 figures by fiscal year (USD; FY ends June 30). Sources: ProPublica Nonprofit Explorer API v2 (FY2011--FY2020); IRS direct e-file XML (FY2021--FY2024). Government-grants line was first separately tabulated in FY2021. $^{*}$ Amended figures used for FY2023 and FY2024; the original returns reported revenue \$125K and \$101K higher respectively. ED comp for FY2022 is the sum of three EDs in transition (Connor + Kaplan + Bailey), not a single salary.}
+\label{tab:financials}
+\end{table*}
+
+The shape, in plain English: revenue is contribution-driven (90{\%}+ in most years); program-service revenue is a small earned-income line, never above \$200K. Three years exceed \$1.4M in revenue: FY2016 (Anthology launch, \$1.46M), FY2018 (Anthology midrun, \$1.70M), and FY2022 (Mellon Change Capital received, \$2.16M). Expenses tracked revenue with a 1--3 year lag through the Anthology era; net assets peaked at \$1.23M (FY2018) and \$1.10M (FY2022) and have drawn down to \$262K by the end of FY2024.
+
+The personnel share of expenses --- officer comp + other salaries + payroll tax --- runs 47--77{\%} across the period, typical for a research / preservation nonprofit.
+
+\subsection{Named grants}\label{sec:grants}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}Xr}
+\toprule
+\textbf{Year} & \textbf{Project} & \textbf{Amount} \\
+\midrule
+2015-12 & Webrecorder development & 600,000 \\
+2017-12 & Webrecorder Phase Two & 1,000,000 \\
+2019-12 & Webrecorder sustainability planning & 146,000 \\
+2021-09 & Change Capital (5 yr) & 1,000,000 \\
+2024-06 & ArtBase overhaul (3 yr) & 750,000 \\
+2024-12 & Change-capital business model & 195,000 \\
+2025 & (project unspecified) & 320,000 \\
+\midrule
+\multicolumn{2}{l}{\textbf{Mellon total, 2015--2025}} & \textbf{4,011,000} \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Mellon Foundation grants to Rhizome, 2015--2025. Source: Mellon Foundation grants database; CauseIQ.}
+\label{tab:mellon}
+\end{table}
+
+Mellon is, on the public record, the dominant institutional funder of Rhizome's last decade. The other named grants documented in the data folder (file \texttt{data/grants.csv}): \$200K Knight Foundation (Webrecorder public engagement, year TBD); \$45K NEH (\emph{Early Online Communities in Context}, partnered with the Initiative for Indigenous Futures); recurring NEA, NYSCA, NYC DCLA, IMLS, Andy Warhol Foundation, Jerome Foundation, Greenwall Foundation, Teiger Foundation, and American Chai Trust support of the Commissions Program (year-by-year amounts TBD --- the NEA's grant search interface is JS-blocked); a \$10K 2025 disbursement from the Carolyn K. Tribe Foundation (a family foundation associated with the org's founder); \$25K from Teiger (2025); and \$87.7K of pass-through donor-advised fund money in 2024--2025 (\$76,220 from Fidelity Charitable, \$11,495 from Daffy). Deutsche Bank Americas Foundation supported \emph{Whistlegraph} workshops in 2022 as part of a First Look commission.
+
+\subsection{Auction / Gala}\label{sec:auction}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{Xrrrr}
+\toprule
+\textbf{FY} & \textbf{Gross} & \textbf{Contri.} & \textbf{Direct exp.} & \textbf{Net} \\
+\midrule
+2012 & 36,114 & --- & --- & --- \\
+2013 & 14,633 & --- & --- & --- \\
+2014 & 2,322 & --- & --- & --- \\
+2015 & 18,656 & --- & --- & --- \\
+2017 & 12,300 & --- & --- & --- \\
+2018 & 9,400 & --- & --- & --- \\
+2019 & 12,097 & --- & --- & --- \\
+2020 & 17,888 & --- & --- & --- \\
+2021 & --- & --- & --- & none \\
+2022 & 103,812 & 90,812 & 55,947 & \textbf{-42,947} \\
+2023 (am.) & 123,258 & 105,748 & 86,477 & \textbf{-68,967} \\
+2024 (am.) & 104,407 & 86,967 & 84,555 & \textbf{-67,115} \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Annual benefit auction (renamed ``GALA'' by FY2024). Pre-FY2022 only API gross is available. The org skipped the FY2021 auction during COVID. From FY2022 forward, full Schedule G detail is in the IRS XML --- and shows a recurring net loss after direct expenses.}
+\label{tab:auction}
+\end{table}
+
+The gala has been symbolically important for as long as the org has existed --- the artist-donated work, the donor list, the social ritual --- but on the financial record the event has consistently lost money in every year for which Schedule G detail is available. In FY2024 the GALA grossed \$104,407 against \$84,555 in direct expenses (food and beverage \$41,098; entertainment \$30,268; rent and facility \$9,784; other \$3,405), netting a loss of \$67,115.
+
+\subsection{Government grants and donor-advised funds}
+
+A separately tabulated government-grants line first appears in the FY2021 filing: \$296,794, the year of peak COVID-era public arts funding. The line drops year-over-year afterwards: \$163,122 (FY2022), \$107,000 (FY2023), \$99,500 (FY2024). Donor-advised fund pass-throughs (Fidelity, Daffy) appear as separate inflows in 2024--2025 totalling \$87,715 over two years --- individual donor money routed through DAFs rather than given directly.
+
+\subsection{Relationship with the New Museum}
+
+The New Museum of Contemporary Art (EIN 13-2986881) lists Rhizome Communications Inc.~on its own Form 990 Schedule R Part II as a ``related tax-exempt organization'' in both the FY2023 and FY2024 filings. The disclosed fields: primary activity ``PRESENT ART'', legal domicile NY, 501(c)(3), public charity status 7, ControlledOrganizationInd \texttt{false}. Schedule R Part V (transactions between related orgs) is empty in both years. The relationship is governance-overlap (Lisa Phillips, the New Museum's director, sits on Rhizome's board) and address-sharing (Rhizome at \emph{c/o} 235 Bowery), \textbf{not} a parent--subsidiary control relationship. Rhizome is, on the legal record, a separate \textbf{related} entity rather than a New Museum program.
+
+\subsection{Filings, originals and amendments}
+
+Both the FY2023 and FY2024 returns were filed twice. The original FY2023 (filed 2024) reported \$882,002 in revenue and zero in fundraising-event gross; the amendment (filed 2025) restated revenue at \$756,974 and surfaced \$123,258 in gala gross with a \$68,967 net loss. The original FY2024 (filed mid-2025) reported \$923,010 in revenue and the gala as \$89,577 of pure charitable contributions with no event accounting; the amendment (filed July 2025) restated revenue at \$821,964 and the gala at \$104,407 gross with \$-67,115 net.
+
+\section{Footprint}
+
+The dossier records the parts of the cultural footprint that are publicly recoverable from the data already pulled:
+
+\begin{description}
+\item[\textbf{Net Art Anthology, 100 works (2016--2019).}] The most concentrated re-exhibition of net art history Rhizome has produced. Curated by Connor and Espenschied. Hosted at \href{https://anthology.rhizome.org}{anthology.rhizome.org}. Each entry has a dossier-style page with provenance and emulation notes.
+\item[\textbf{ArtBase, 2{,}000+ works (1999--).}] The continuous archive. The 2024--2027 Mellon-funded overhaul is the third major migration of the catalogue.
+\item[\textbf{Commissions Program (2001--).}] Annual artist commissions; the public archive of commissions appears on rhizome.org behind Cloudflare protection. \emph{The Longest Whistlegraph Ever (so far)} (2022, by the author, with \href{https://prompt.ac/@whistlegraph}{@whistlegraph}) is one such commission, supported by Deutsche Bank Americas Foundation through the First Look strand and accessioned to ArtBase --- recorded here as a fact, not as a positionality argument.
+\item[\textbf{Recurring exhibition partners.}] New Museum (continuous, since the 2003 affiliation); the Mass Effect anthology was an MIT Press partnership; \emph{Net Art Anthology} entries have re-appeared in subsequent museum exhibitions of net art history.
+\item[\textbf{Recurring critics and contributors.}] Editorial archive at \href{https://rhizome.org/editorial/}{rhizome.org/editorial}, principally edited by Michael Connor; long-tenure contributors include Aria Dean and Ceci Moss.
+\end{description}
+
+A more granular footprint --- accession lists by year, commissioned artists by year, exhibition partners with dates --- requires querying rhizome.org's public catalog, which is currently behind Cloudflare bot mitigation and not reachable from a script. That work is deferred.
+
+\section{Reading list}
+
+The dossier draws on the following, with each entry keyed to the section it informs.
+
+\subsection{Already in the AC readings library}
+
+\textbf{Plant, \emph{Zeros and Ones} (1997)}~\citep{plant1997zeros} --- The Word, contemporaneous theory.\\
+\textbf{Wark, \emph{A Hacker Manifesto} (2004)}~\citep{wark2004hacker} --- The Word, class context.\\
+\textbf{Goriunova, \emph{Readme 100} (2006)}~\citep{goriunova2006readme} --- Programs, parallel European software-art scene.\\
+\textbf{McHugh, \emph{Post Internet} (2019)}~\citep{mchugh2019post} --- Footprint, aesthetic-history of an era Rhizome curated.\\
+\textbf{Quaranta, \emph{Beyond New Media Art} (2013)}~\citep{quaranta2013beyond} --- Programs, institutional context.\\
+\textbf{Quaranta, \emph{In Your Computer} (2011)}~\citep{quaranta2011computer} --- adjacent.
+
+\subsection{To acquire}
+
+\textbf{Galloway, \emph{Protocol} (2004)} --- The Word, distinguishes Deleuzian rhizome from TCP/IP topology. SoSoft Tier 1.\\
+\textbf{Greene, \emph{Internet Art} (Thames \& Hudson, 2004)} --- one chapter is essentially a Rhizome history through 2003.\\
+\textbf{Christiane Paul, \emph{Digital Art}} --- Rhizome appears repeatedly across editions.\\
+\textbf{Baumg\"artel, \emph{net.art 2.0} (2001)} --- early documentation of list activity.\\
+\textbf{Bosma, \emph{Nettitudes} (2011)} --- net art criticism with Rhizome in frame.\\
+\textbf{Cornell \& Halter, \emph{Mass Effect} (MIT Press, 2015)} --- Rhizome's own theoretical statement of the post-internet moment.\\
+\textbf{Mark Tribe oral history / interviews} --- Walker Art Center 2013 talk and others.\\
+\textbf{Lauren Cornell directorship-era essays.}\\
+\textbf{Michael Connor editorial archive.}\\
+\textbf{\emph{Net Art Anthology} curatorial framing essay} (Connor \& Espenschied).
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The funding record is surfaced, not judged.
+  \item Not a comparison. Adjacent organizations (Eyebeam, V2\_, Furtherfield, Ars Electronica, NEW INC) are mentioned only where they directly intersect Rhizome.
+  \item Not a memoir. The author's commission appears once in the footprint section, as a fact.
+  \item Not exhaustive. The dossier covers what is publicly recoverable; gaps are flagged inline. The companion data folder (\texttt{papers/arxiv-rhizome/data/}) contains the underlying CSVs and the IRS XMLs.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

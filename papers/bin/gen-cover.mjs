@@ -30,13 +30,16 @@ for (const a of argv) {
   else positional.push(a);
 }
 
+const PAPER_COLOR = flags.white ? "pure white" : "warm cream-colored";
+const PAPER_NOUN = flags.white ? "WHITE PAPER" : "CREAM PAPER";
+
 const STYLE_PREFIX =
-  "Hand-rendered emblem on warm cream-colored paper — designed to read " +
+  `Hand-rendered emblem on ${PAPER_COLOR} paper — designed to read ` +
   "like a record-label seal, a band-tee print, or a hand-painted shop " +
   "sign. ONE singular subject only: no clusters, no tangles, no " +
   "arrangements, no cornucopias, no sets of multiple objects. The " +
   "emblem fills the central two-thirds of the square and floats; " +
-  "corners and periphery DISSOLVE INTO PURE CREAM PAPER on all four " +
+  `corners and periphery DISSOLVE INTO PURE ${PAPER_NOUN} on all four ` +
   "sides with NO hard frame, NO border, NO background scene, NO " +
   "environmental context. Bold, simple, recognizable from across a " +
   "room. Drawn in colored pencil and gouache with thick confident " +

@@ -1,0 +1,202 @@
+% !TEX program = xelatex
+% Scott Moore — A Profile (cards format, readable, shareable brief)
+% Plain English, abbreviated, cited. Private brief — not for publication.
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf, ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf]
+\setsansfont{lmsans10-regular.otf}[BoldFont=lmsans10-bold.otf, ItalicFont=lmsans10-oblique.otf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85, BoldFont=lmmonolt10-bold.otf, ItalicFont=lmmono10-italic.otf]
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+\newcommand{\papercreated}{2026-05-18}
+\newcommand{\paperrevision}{6}
+\renewcommand{\acpdfbase}{}
+\hypersetup{pdftitle={Scott Moore --- A Profile}}
+
+% Clean, shareable look: drop the WORKING DRAFT tiling from the cards style.
+\ClearShipoutPicture
+
+\newcommand{\refn}[1]{\textsuperscript{[#1]}}
+
+\begin{document}
+
+% ===================== TITLE CARD =====================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=7em]{pals}}\par
+\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Scott Moore}\par
+\vspace{0.2em}
+{\aclight\fontsize{12pt}{15pt}\selectfont\color{acpink} A Profile}\par
+\vspace{0.5em}
+{\fontsize{9pt}{12pt}\selectfont\color{acgray}
+Who he is, how his money moves,\\ and how to reach him}\par
+\vspace{0.8em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} Private brief --- prepared for Celine\\ Not for publication \,\textbullet\, \papercreated}\par
+\end{center}
+\vspace*{\fill}
+
+\cardindex
+
+% ===================== 1 =====================
+\section{The short version}
+
+Scott Moore (\href{https://x.com/notscottmoore}{@notscottmoore}) is a
+co-founder of \textbf{Gitcoin} and the founder of \textbf{Public Works}. He
+helped build the main way open-source software and ``public goods'' get
+funded in crypto, and he now runs a fund that backs \textbf{artists and
+creative technologists}.\refn{1,7}
+
+If someone wants to understand who pays for this kind of work --- and how to
+get paid by him --- he is the right person to look at.
+
+% ===================== 2 =====================
+\section{The idea he is known for}
+
+\textbf{Quadratic (``plural'') funding}: a matching system where the number
+of people who chip in matters more than how much each gives. A crowd of small
+donors beats one big one.\refn{5,6}
+
+It came from a 2018 paper by Vitalik Buterin, Zoë Hitzig, and Glen Weyl.
+Gitcoin was the first to run it at scale. Moore is the person who turned the
+theory into working machinery.\refn{5}
+
+% ===================== 3 =====================
+\section{Gitcoin}
+
+Founded 2017 by Kevin Owocki, with Moore and Vivek Singh as the other two
+co-founders. It grew up inside ConsenSys, raised \$11.3M led by Paradigm in
+2021, and spun out on its own. It now runs a token (GTC), a community
+treasury, and tools any group can use to run their own funding
+round.\refn{3,4}
+
+% ===================== 4 =====================
+\section{Public Works --- what it is}
+
+His current fund. The pitch (``venture mutualism''): put in the least money
+needed, build alongside the project, and let it end up owned by its
+community. A stated goal is to feed value back to Gitcoin.\refn{10,11}
+
+Public Works says it funds \textbf{artists and creative technologists}, and
+has backed Fuser, Gitcoin, Metalabel, and Spline.\refn{7,8}
+
+% ===================== 5 =====================
+\section{Public Works --- the structure}
+
+Legally it is \textbf{Public Works LP}, a Cayman Islands private fund.\refn{12}
+
+\begin{itemize}
+\item Cayman regulator confirms it: registered \textbf{Private Fund},
+active, since June 2023.\refn{14}
+\item US filing (Oct 2023) is a private-fund notice --- no public investor
+list, no size disclosed.\refn{12}
+\item Run with outside professionals: registered office via \textbf{Campbells};
+two independent directors from \textbf{Hash} (Danielle Faul, Cobus
+Pietersen) alongside Moore.\refn{13}
+\item No US investment-adviser registration, so no public assets-under-
+management figure.\refn{13}
+\end{itemize}
+
+The size, the investors, and the auditor are simply not public --- that is
+how Cayman funds are built, not a gap in the research.
+
+% ===================== 6 =====================
+\section{Following the money}
+
+The matching money behind this world comes from crypto-wealthy donors,
+protocol treasuries, and DAOs --- e.g. Nouns DAO gave 169 ETH to one Gitcoin
+round; Optimism set aside a large share of its tokens for public
+goods.\refn{9}
+
+One Public Works deal is publicly traceable: the \textbf{Rise Labs} seed
+round, about \textbf{\$3.2M, Sept 2024}, in a group that also included
+Vitalik Buterin.\refn{15} Other deals listed online under his name are his
+personal angel investing, not clearly the fund.\refn{15}
+
+Headline totals vary wildly (\$50M / \$70M / \$500M) because each counts
+something different; no single number is solid.\refn{1,5,9}
+
+% ===================== 7 =====================
+\section{Art-and-tech ties}
+
+This is the part that matters here. His funding is aimed straight at art and
+technology:
+
+\begin{itemize}
+\item \textbf{NEW INC} (the New Museum's incubator) --- current Mentor.\refn{8}
+\item \textbf{Gray Area} (San Francisco arts non-profit) --- board member.\refn{7,8}
+\item \textbf{Metagov} --- contributor / researcher.\refn{8}
+\end{itemize}
+
+NEW INC and Gray Area are in the same world as the institutions studied
+elsewhere in this papermill --- he connects directly into it.
+
+% ===================== 8 =====================
+\section{How to reach him}
+
+He already tends to say yes to supporting good work --- the friction is
+practical. To make it easy:
+
+\begin{itemize}
+\item Message him: \href{https://www.publicworks.fm/}{publicworks.fm}
+(``Reach Out'') or \textbf{@notscottmoore} on X. Reference where you met in
+person --- not a cold ask.\refn{16}
+\item He sends crypto by default. Have an \textbf{ENS name} (e.g.
+\texttt{name.eth}) ready, and say which networks work (Ethereum, Base,
+Optimism). Put it right in the message.
+\item Frame the work as a creative-technology / public-good project, small
+and specific. One or two links, no deck.
+\item Easiest for him: a personal send, via Public Works, or by entering a
+Gitcoin round (his own system --- and it gets matched).
+\end{itemize}
+
+% ===================== 9 =====================
+\section{What is not public}
+
+Stated plainly: the fund's size, its investors, its auditor, and anything it
+did after its 2023 filings. Personal and family details were not looked into.
+Where the record stops, this says so.
+
+% ===================== SOURCES =====================
+\section{Sources}
+{\footnotesize
+\begin{enumerate}[leftmargin=1.5em, itemsep=0.1em, label={[\arabic*]}]
+\item \href{https://x.com/notscottmoore}{x.com/notscottmoore};
+\href{https://www.linkedin.com/in/notscottmoore/}{LinkedIn};
+\href{https://foundation.app/@notscottmoore}{Foundation}.
+\item \href{https://iq.wiki/wiki/scott-moore}{IQ.wiki — Scott Moore}; RootData / Investorlist.
+\item \href{https://gov.gitcoin.co/t/knowledge-transfer-who-is-a-cofounder-of-gitcoin/11371}{Gitcoin gov forum — co-founder thread}.
+\item \href{https://decrypt.co/66541/ethereum-gitcoin-raises-11-million-spins-out-consensys}{Decrypt — \$11.3M / ConsenSys spinout}.
+\item Buterin, Hitzig, Weyl, \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3243656}{\textit{Liberal Radicalism}} (2018).
+\item \href{https://www.radicalxchange.org/wiki/plural-funding/}{RadicalxChange — plural funding}.
+\item \href{https://grayarea.org/community-entry/scott-moore/}{Gray Area — Scott Moore} (board; Public Works description).
+\item \href{https://www.newmuseum.org/person/scott-moore/}{New Museum / NEW INC — Scott Moore} (Mentor, 2025).
+\item \href{https://www.gitcoin.co/blog/nouns-case-study}{Gitcoin — Nouns}; Optimism RetroPGF materials.
+\item \href{https://www.publicworks.fm/mutualism}{publicworks.fm/mutualism}.
+\item \href{https://zine.zora.co/scott-moore-gitcoin}{Zora Zine — Mutualist Futures}.
+\item SEC EDGAR — \textbf{Public Works LP}, CIK 0001998151, Form D 2023-10-25.
+\item SEC EDGAR Form D (Coinbase Multi-Strategy Feeder; Resolv Digital Assets) for the directors; \href{https://www.campbellslegal.com/contact/cayman-islands/}{Campbells}; Hash independent directors (public listings).
+\item Cayman Islands Monetary Authority register — Public Works LP, Private Fund, ref. 2051840, active, eff. 22-Jun-2023.
+\item Fundraising trackers \href{https://crypto-fundraising.info/funds/scott-moore/}{crypto-fundraising.info}, \href{https://dropstab.com/investors/scott-moore/portfolio}{DropsTab}.
+\item Recorded interview: The Blockchain Socialist, ``Open-Source Funding vs Venture Capital'' (YouTube \texttt{2KmVfRpr\_Ws}).
+\end{enumerate}}
+
+\end{document}

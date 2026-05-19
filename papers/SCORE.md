@@ -34,7 +34,7 @@ The main lane. Two-column LaTeX with AC custom fonts (`ywft-processing-bold`, `y
 
 ### 2. Dossiers (`arxiv-<org>/`, dossier subset)
 
-A sub-lane of arXiv format with a different posture: **fact-surfacing, not argumentative**. The dossier records what is publicly recoverable about a digital-arts organization (or its funder) — financials, governance, programs, people, locations, named grants — and stops where the facts run out. Each dossier folder includes a structured `data/` directory (CSVs + a README of what's solid / soft / missing) that sits alongside the `.tex`. The dossier swimlane started **2026-05-02** with Rhizome and SFPC; current set of 13:
+A sub-lane of arXiv format with a different posture: **fact-surfacing, not argumentative**. The dossier records what is publicly recoverable about a digital-arts organization (or its funder) — financials, governance, programs, people, locations, named grants — and stops where the facts run out. Each dossier folder includes a structured `data/` directory (CSVs + a README of what's solid / soft / missing) that sits alongside the `.tex`. The dossier swimlane started **2026-05-02** with Rhizome and SFPC; current set of 17:
 
 | Dossier | Posture | Status |
 |---|---|---|
@@ -51,6 +51,12 @@ A sub-lane of arXiv format with a different posture: **fact-surfacing, not argum
 | The Kitchen | 501(c)(3) recipient, 50+ year arc | first-pass |
 | Machine Project | 501(c)(3) recipient (until 2018), Echo Park | first-pass |
 | Heavy Manners Library | small space, status-undisclosed | first-pass |
+| Creative Time | 501(c)(3) public-art commissioner, IRS 990 pipeline | first-pass (deep — 50-yr legacy, sourced) |
+| Creative Capital | 501(c)(3) artist-grant **funder**, 990 + grantee record | first-pass (sourced) |
+| MicroVision (NASDAQ: MVIS) | **public-company flip** — SEC EDGAR + 11-yr family archive | first-pass |
+| What's New CalArts!? | CalArts, dossier in news format | first-pass |
+
+Every dossier also renders as a single-sheet **card** (`*-cards.tex` via [`cards-convert.mjs`](cards-convert.mjs)) and the lane is grouped in its own `dossiers;` section on the papers index, separate from the argumentative papers. The display order is fixed by `DOSSIER_DIRS` in [`cli.mjs`](cli.mjs). Each dossier carries an EIN-anchored IRS Form 990 financial spine (multi-year, via ProPublica Nonprofit Explorer), an org-archive/press history, and explicit inline flags for the remaining locatable gaps (board roster as filed on 990 Part VII, named-grant inventories, pre-extracted-era financials).
 
 Candidates queued in [`papers/hitlist.md`](hitlist.md).
 
@@ -78,6 +84,7 @@ Lecture transcripts paired with commentary and references. Material that started
 
 Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
 - [`jeffrey-platter/`](jeffrey-platter/) — biographical materials, image corpus, archival sources for Jeffrey-as-subject
+- [`jeffrey-lexicon/`](jeffrey-lexicon/) — frequency-attributed dictionary of words used by Jeffrey, sourced only from first-hand textual + transcribed material (textual analogue of `jeffrey-platter`'s photo index and the `jeffrey-pvc` voice clone)
 - [`whistlegraph-platter/`](whistlegraph-platter/) — Whistlegraph-specific artifacts and references
 - [`people-platter/`](people-platter/) — TODO; will hold AC-adjacent people biographies
 
@@ -135,6 +142,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| MicroVision: A Dossier (Genealogy, Products, People, Money, Dilution Mechanics, Takeover Theory, 1993–2026) | arXiv (LaTeX, dossier, 7pp first-pass) | `arxiv-microvision/microvision.pdf` | `arxiv-microvision/microvision.tex` |
 | Comp Strats: Compositional Strategies in AC --- Aphorisms for a Shielded Media-Arts Practice | arXiv (LaTeX, ~7pp first-pass) | `arxiv-comp-strats/comp-strats.pdf` | `arxiv-comp-strats/comp-strats.tex` |
 | A Fraserin' Art + Tech (methodology essay + prior-art survey, labor-folk register) | arXiv (LaTeX, 7pp first-pass) | `arxiv-fraserin/fraserin.pdf` | `arxiv-fraserin/fraserin.tex` |
 | Pioneer Works: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 2012–2026) | arXiv (LaTeX, dossier) | `arxiv-pioneer-works/pioneer-works.pdf` | `arxiv-pioneer-works/pioneer-works.tex` |
@@ -156,6 +164,7 @@ Sorted by most recently edited/added.
 | Five Years from Now: What Aesthetic Computer Probably Becomes | arXiv (LaTeX) | `arxiv-futures/futures.pdf` | `arxiv-futures/futures.tex` |
 | Get Closed Source Out of Schools | arXiv (LaTeX) | `arxiv-open-schools/open-schools.pdf` | `arxiv-open-schools/open-schools.tex` |
 | CalArts, Callouts, and Papers | arXiv (LaTeX) | `arxiv-calarts/calarts.pdf` | `arxiv-calarts/calarts.tex` |
+| What's New CalArts!? — A Dossier (why the president got booed off the stage; a letter, with sources; the 2026 commencement boo traced through 1972 / 2014 / the 2017–26 budget & labor crisis) | cards (LaTeX, hand-authored, **local working draft — not deployed**) | `arxiv-calarts-news/calarts-news-cards.pdf` | `arxiv-calarts-news/calarts-news-cards.tex` |
 | Reading the Score: A Critical Analysis of SCORE.md | arXiv (LaTeX) | `arxiv-score-analysis/score-analysis.pdf` | `arxiv-score-analysis/score-analysis.tex` |
 | KidLisp Cards: Programs That Fit on a Card | arXiv (LaTeX) | `arxiv-kidlisp-cards/kidlisp-cards.pdf` | `arxiv-kidlisp-cards/kidlisp-cards.tex` |
 | Sucking on the Complex | arXiv (LaTeX) | `arxiv-complex/complex.pdf` | `arxiv-complex/complex.tex` |
@@ -278,8 +287,8 @@ Upcoming conferences and journals to submit to.
 |-------|------|----------|-----------------|--------|
 | [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | **DEADLINE PASSED** — verify submission per `SUBMISSIONS.md` |
 | [ICCC 2026](https://computationalcreativity.net/iccc26/short-papers/) | Short Papers | Apr 24, 2026 (23:59 AoE) | Jun 29–Jul 3, Coimbra | **DEADLINE PASSED** — verify submission per `SUBMISSIONS.md` |
-| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Early Career Symposium | May 15, 2026 | Jun 29–Jul 3, Coimbra | Candidate |
-| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/technical-papers/) | Technical Papers (full) | **May 5 form / May 12 paper / May 13 upload** | Dec 1–4, Kuala Lumpur | SCAFFOLD ready (`siggraph-asia-2026-tech/`) — adapting `arxiv-latency` to acmtog double-blind |
+| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Early Career Symposium | May 15, 2026 | Jun 29–Jul 3, Coimbra | BRIEF ready (`iccc-early-career-2026/`) — use if SIGGRAPH tech-paper form was not filed |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/technical-papers/) | Technical Papers (full) | **May 5 form / May 12 paper / May 13 upload** | Dec 1–4, Kuala Lumpur | SCAFFOLD + simplified brief ready (`siggraph-asia-2026-tech/`) — continue only if May 5 form was filed |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Papers | Jun 8, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Gallery / Emerging Tech / XR | Jun 18, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Posters | Jul 31, 2026 | Dec 1–4, Kuala Lumpur | NEW |

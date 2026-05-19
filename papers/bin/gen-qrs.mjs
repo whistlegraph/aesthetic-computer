@@ -22,11 +22,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PAPERS_DIR = resolve(HERE, "..");
 
 const SITE_URL = "https://papers.aesthetic.computer";
-const LANGS = ["da", "es", "zh", "ja"];
+const LANGS = ["da", "es", "zh", "ja", "ru"];
 
 // Mirror PAPER_MAP siteName → arxiv-<slug>. Keep in sync with cli.mjs.
 // Only the dossiers need QRs for now; older AC papers already have other CTAs.
 const PAPERS = {
+  "arxiv-comp-strats": "comp-strats-26-arxiv",
   "arxiv-rhizome": "rhizome-dossier-26-arxiv",
   "arxiv-sfpc": "sfpc-dossier-26-arxiv",
   "arxiv-eyebeam": "eyebeam-dossier-26-arxiv",
@@ -40,7 +41,10 @@ const PAPERS = {
   "arxiv-the-kitchen": "the-kitchen-dossier-26-arxiv",
   "arxiv-machine-project": "machine-project-dossier-26-arxiv",
   "arxiv-heavy-manners-library": "heavy-manners-library-dossier-26-arxiv",
+  "arxiv-creative-time": "creative-time-dossier-26-arxiv",
+  "arxiv-creative-capital": "creative-capital-dossier-26-arxiv",
   "arxiv-fraserin": "fraserin-essay-26-arxiv",
+  "arxiv-microvision": "microvision-dossier-26-arxiv",
 };
 
 const argv = process.argv.slice(2);
@@ -52,10 +56,25 @@ for (const a of argv) {
 }
 
 function genQr(url, outPath) {
+  // -t PNG32: full RGBA, NOT a 1-bit indexed palette. The old default
+  //   1-bit colormap PNG renders as a solid white block in several PDF
+  //   viewers and in the thumbnail pipeline (palette-order ambiguity),
+  //   which is why QRs appeared "all white / missing".
+  // --foreground/--background: explicit opaque black-on-white so the
+  //   code is visible on the cream/white paper regardless of renderer.
   // -s 10 = 10 px per module (large enough for IG screenshot scanning)
   // -m 2  = 2 module quiet zone (the white margin)
   // -l H  = high error correction (survives IG re-encoding)
-  execFileSync("qrencode", ["-o", outPath, "-s", "10", "-m", "2", "-l", "H", url]);
+  execFileSync("qrencode", [
+    "-o", outPath,
+    "-t", "PNG32",
+    "--foreground=000000FF",
+    "--background=FFFFFFFF",
+    "-s", "10",
+    "-m", "2",
+    "-l", "H",
+    url,
+  ]);
 }
 
 function genForPaper(slug) {

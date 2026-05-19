@@ -39,8 +39,8 @@ const SITE_DIR = join(
 const THUMBS_DIR = join(SITE_DIR, "thumbs");
 const BUILDLOG = join(PAPERS_DIR, "BUILDLOG.md");
 const METADATA_PATH = join(PAPERS_DIR, "metadata.json");
-const LANGS = ["en", "da", "es", "zh", "ja"];
-const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese" };
+const LANGS = ["en", "da", "es", "zh", "ja", "ru"];
+const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese", ru: "Russian" };
 
 function loadMetadata() {
   if (!existsSync(METADATA_PATH)) return {};
@@ -262,6 +262,79 @@ const PAPER_MAP = {
     siteName: "microvision-dossier-26-arxiv",
     title: "MicroVision — A Dossier",
   },
+  "arxiv-calarts-news": {
+    base: "calarts-news",
+    siteName: "whats-new-calarts-26-arxiv",
+    title: "What's New CalArts!? — A Dossier",
+  },
+  "arxiv-new-inc": {
+    base: "new-inc",
+    siteName: "new-inc-dossier-26-arxiv",
+    title: "NEW INC — A Dossier",
+  },
+  "arxiv-studio-museum": {
+    base: "studio-museum",
+    siteName: "studio-museum-dossier-26-arxiv",
+    title: "Studio Museum in Harlem — A Dossier",
+  },
+  "arxiv-hathitrust": {
+    base: "hathitrust",
+    siteName: "hathitrust-dossier-26-arxiv",
+    title: "HathiTrust — A Dossier",
+  },
+  "arxiv-the-kitchen": {
+    base: "the-kitchen",
+    siteName: "the-kitchen-dossier-26-arxiv",
+    title: "The Kitchen — A Dossier",
+  },
+  "arxiv-machine-project": {
+    base: "machine-project",
+    siteName: "machine-project-dossier-26-arxiv",
+    title: "Machine Project — A Dossier",
+  },
+  "arxiv-heavy-manners-library": {
+    base: "heavy-manners-library",
+    siteName: "heavy-manners-library-dossier-26-arxiv",
+    title: "Heavy Manners Library — A Dossier",
+  },
+  "arxiv-creative-time": {
+    base: "creative-time",
+    siteName: "creative-time-dossier-26-arxiv",
+    title: "Creative Time — A Dossier",
+  },
+  "arxiv-creative-capital": {
+    base: "creative-capital",
+    siteName: "creative-capital-dossier-26-arxiv",
+    title: "Creative Capital — A Dossier",
+  },
+};
+
+// Dossier swimlane — rendered in their own "dossiers;" section on the
+// index, separate from the argumentative papers. Order here is the
+// display order within that section.
+const DOSSIER_DIRS = [
+  "arxiv-rhizome",
+  "arxiv-sfpc",
+  "arxiv-eyebeam",
+  "arxiv-recurse",
+  "arxiv-internet-archive",
+  "arxiv-mellon",
+  "arxiv-pioneer-works",
+  "arxiv-new-inc",
+  "arxiv-studio-museum",
+  "arxiv-hathitrust",
+  "arxiv-the-kitchen",
+  "arxiv-machine-project",
+  "arxiv-heavy-manners-library",
+  "arxiv-creative-time",
+  "arxiv-creative-capital",
+  "arxiv-microvision",
+  "arxiv-calarts-news",
+];
+const DOSSIER_SET = new Set(DOSSIER_DIRS);
+const dossierRank = (dir) => {
+  const i = DOSSIER_DIRS.indexOf(dir);
+  return i === -1 ? 99 : i;
 };
 
 function texName(base, lang) {
@@ -746,6 +819,93 @@ function updateIndex(entries) {
       abstract:
         "The URL Tradition traces address-thinking from Lovelace's footnotes, Bush's trails, Xanadu, and the Negro Motorist Green Book through net.art, single-serving sites, the tilde, Glitch, and Aesthetic Computer's prompt-as-address-bar. It argues the URL is not a feature but a medium property that reshapes authorship, distribution, pedagogy, performance, and political claim.",
     },
+
+    // --- Dossiers (fact-surfacing lane; rendered in the dossiers section) ---
+    "rhizome-dossier-26-arxiv": {
+      detail: "501(c)(3) digital-arts recipient &middot; IRS 990 pipeline &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about Rhizome.org: governance, finances, and named grants reconstructed from IRS 990 filings and masthead snapshots. The dossier records the documentary record and stops where the facts run out.",
+    },
+    "sfpc-dossier-26-arxiv": {
+      detail: "School for Poetic Computation &middot; LLC, public finance repo &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about the School for Poetic Computation: an LLC that publishes its own finances to a public GitHub repository, read alongside programs and people. Fact-surfacing, not argument.",
+    },
+    "eyebeam-dossier-26-arxiv": {
+      detail: "501(c)(3) art-and-technology recipient &middot; IRS 990 pipeline &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about Eyebeam: financials, governance, residencies, and named grants pulled from IRS 990 XML. The dossier surfaces the record without interpreting it.",
+    },
+    "recurse-dossier-26-arxiv": {
+      detail: "Recurse Center &middot; for-profit, recruiting-funded model &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about the Recurse Center: a for-profit programmers' retreat funded by a recruiting model, read through founder interviews and public statements. Fact-surfacing, not argument.",
+    },
+    "internet-archive-dossier-26-arxiv": {
+      detail: "501(c)(3) recipient &middot; IRS 990 + litigation track &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about the Internet Archive: finances and governance from IRS 990 filings, plus a litigation track from public court records. The dossier records both and stops at the facts.",
+    },
+    "mellon-dossier-26-arxiv": {
+      detail: "The funder flip &middot; 990-PF + grants database &middot; arXiv",
+      abstract:
+        "The funder side: what is publicly recoverable about the Mellon Foundation from its 990-PF and grants database — the Form 990-PF that paid for nontrivial chunks of the other dossiers. Fact-surfacing, not argument.",
+    },
+    "pioneer-works-dossier-26-arxiv": {
+      detail: "501(c)(3) recipient &middot; founder-as-funder &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about Pioneer Works: finances, governance, and a founder-as-funder structure reconstructed from IRS 990 filings and public record. The dossier surfaces the record without interpreting it.",
+    },
+    "new-inc-dossier-26-arxiv": {
+      detail: "Embedded in the New Museum's 990 &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about NEW INC, the New Museum's incubator: finances and governance read out of the parent museum's IRS 990, where the program is embedded rather than separately filed. Fact-surfacing, not argument.",
+    },
+    "studio-museum-dossier-26-arxiv": {
+      detail: "501(c)(3) recipient &middot; capital campaign &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about the Studio Museum in Harlem: finances, governance, and a capital campaign reconstructed from IRS 990 filings and public documents. The dossier records the documentary record.",
+    },
+    "hathitrust-dossier-26-arxiv": {
+      detail: "UMich library service &middot; no separate 990 &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about HathiTrust: a University of Michigan library service with no separate IRS 990, surfaced instead through host-institution disclosures and public reports. Fact-surfacing, not argument.",
+    },
+    "the-kitchen-dossier-26-arxiv": {
+      detail: "501(c)(3) recipient &middot; a 50-plus-year arc &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about The Kitchen: a half-century of finances and governance reconstructed from IRS 990 filings and public record across the organization's long arc. The dossier stops where the facts run out.",
+    },
+    "machine-project-dossier-26-arxiv": {
+      detail: "501(c)(3) recipient (until 2018) &middot; Echo Park &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about Machine Project: the Echo Park space's finances and governance from IRS 990 filings through its 2018 wind-down. Fact-surfacing, not argument.",
+    },
+    "heavy-manners-library-dossier-26-arxiv": {
+      detail: "Small space &middot; status undisclosed &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about Heavy Manners Library: a small space whose legal status is undisclosed, surfaced through what little public record exists. The dossier records the gaps as part of the record.",
+    },
+    "microvision-dossier-26-arxiv": {
+      detail: "The public-company flip &middot; SEC EDGAR + 11-year archive &middot; arXiv",
+      abstract:
+        "The public-company side: what is publicly recoverable about MicroVision (NASDAQ: MVIS) from SEC EDGAR and an eleven-year family archive of filings. Fact-surfacing, not argument.",
+    },
+    "whats-new-calarts-26-arxiv": {
+      detail: "CalArts &middot; a dossier in news format &middot; arXiv",
+      abstract:
+        "What's New CalArts!? surfaces what is publicly recoverable about CalArts in a news-format dossier: programs, finances, and governance from public documents. The dossier records the record and stops at the facts.",
+    },
+    "creative-time-dossier-26-arxiv": {
+      detail: "501(c)(3) public-art commissioner &middot; IRS 990 pipeline &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about Creative Time, the New York public-art nonprofit (1974–): structure, programs, people, and money from the IRS 990 series and its program archive. Scaffold revision — figures pending the data pass; fact-surfacing, not argument.",
+    },
+    "creative-capital-dossier-26-arxiv": {
+      detail: "501(c)(3) artist-grant funder &middot; 990 + grantee record &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about Creative Capital, the New York nonprofit (1999–) that regrants to individual artists: structure, the award, people, and money from the IRS 990 series and the public grantee record. Scaffold revision — figures pending; fact-surfacing, not argument.",
+    },
   };
 
   function fmtTime(d) {
@@ -764,16 +924,13 @@ function updateIndex(entries) {
     return PAPER_COPY[key] || {};
   }
 
-  // Build paper entries HTML
-  let papersHtml = "";
-  for (const p of papers) {
-    if (p.hidden) continue; // built + tracked, but not listed publicly
+  // Render one paper card (shared by the papers list and dossiers section)
+  function renderPaper(p) {
     const copy = paperCopy(p.siteName);
     const detail = copy.detail || "";
     const abstract = copy.abstract || "";
     const hasCards = existsSync(join(SITE_DIR, `${p.siteName}-cards.pdf`));
     const createdStr = p.created ? fmtDate(p.created) : "";
-    const revStr = p.revisions > 0 ? `r${p.revisions}` : "";
     const tKey = translationKey(p.dir);
     const updatedISO = p.mtime.toISOString();
     const thumbName = `${p.siteName}.jpg`;
@@ -781,7 +938,7 @@ function updateIndex(entries) {
     const thumbHtml = thumbExists
       ? `<a class="thumb" href="/${p.siteName}.pdf" tabindex="-1" aria-hidden="true"><img src="/thumbs/${thumbName}" alt="" loading="lazy" decoding="async"></a>`
       : "";
-    papersHtml += `
+    return `
     <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
         ${thumbHtml}<div class="body">
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
@@ -791,6 +948,21 @@ function updateIndex(entries) {
         </div>
     </div>\n`;
   }
+
+  // Build paper entries HTML — dossiers are split into their own
+  // "dossiers;" section so the fact-surfacing lane doesn't mix with the
+  // argumentative papers.
+  let papersHtml = "";
+  let dossiersHtml = "";
+  for (const p of papers) {
+    if (p.hidden) continue; // built + tracked, but not listed publicly
+    if (DOSSIER_SET.has(p.dir)) continue; // rendered in dossiers section below
+    papersHtml += renderPaper(p);
+  }
+  const dossierPapers = papers
+    .filter((p) => !p.hidden && DOSSIER_SET.has(p.dir))
+    .sort((a, b) => dossierRank(a.dir) - dossierRank(b.dir));
+  for (const p of dossierPapers) dossiersHtml += renderPaper(p);
   for (const ex of extras) {
     const createdStr = ex.created ? fmtDate(ex.created) : "";
     const revStr = ex.revisions > 0 ? `r${ex.revisions}` : "";
@@ -852,6 +1024,17 @@ function updateIndex(entries) {
         "\n\n    " +
         html.slice(footer);
     }
+  }
+
+  // Replace dossier entries between dossiers markers (own container so
+  // the client-side sort, which reorders only the first .p's parent,
+  // never scrambles this section).
+  const dossStart = "<!-- dossiers-start -->";
+  const dossEnd = "<!-- dossiers-end -->";
+  if (html.includes(dossStart)) {
+    const dBefore = html.slice(0, html.indexOf(dossStart) + dossStart.length);
+    const dAfter = html.slice(html.indexOf(dossEnd));
+    html = dBefore + "\n" + dossiersHtml + "\n    " + dAfter;
   }
 
   // Replace guest papers between guest markers

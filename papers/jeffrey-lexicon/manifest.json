@@ -1,0 +1,117 @@
+{
+  "name": "jeffrey-lexicon",
+  "scope": "Frequency-attributed dictionary of words used by Jeffrey Alan Scudder across all first-hand textual and transcribed sources.",
+  "provenance_rule": "first-hand only — anything generative (gpt-image, Claude co-author, AI-rewritten, machine-translated) is excluded by extractor filter, never silently merged.",
+  "author_identities": [
+    "Jeffrey Alan Scudder",
+    "Jeffrey Scudder",
+    "jeffrey",
+    "@jeffrey on prompt.ac",
+    "prompt.ac/@jeffrey"
+  ],
+  "excluded_authors": [
+    "Oven (aesthetic.computer)",
+    "Claude",
+    "claude-sonnet-*",
+    "claude-opus-*",
+    "github-actions"
+  ],
+  "sources": {
+    "commits": {
+      "kind": "git-log",
+      "root": ".",
+      "filter": "author in author_identities AND NOT contains 'Co-Authored-By: Claude'",
+      "field": "commit_message_body",
+      "status": "pending",
+      "estimated_count": 13000
+    },
+    "comments": {
+      "kind": "git-blame",
+      "roots": [
+        "system/public/aesthetic.computer/disks/**/*.{mjs,lisp}",
+        "system/public/aesthetic.computer/lib/**/*.mjs",
+        "session-server/**/*.mjs",
+        "shared/**/*.mjs",
+        "recap/**/*.mjs",
+        "slab/**/*.swift",
+        "papers/bin/**/*.mjs"
+      ],
+      "filter": "blame_author in author_identities AND line matches /^\\s*(\\/\\/|\\/\\*|;|#|--)/",
+      "status": "pending"
+    },
+    "ac_pieces": {
+      "kind": "ast",
+      "roots": ["system/public/aesthetic.computer/disks/**/*.mjs"],
+      "filter": "string-literal AND blame_author in author_identities",
+      "status": "pending"
+    },
+    "lectures": {
+      "kind": "vtt",
+      "roots": ["papers/lectures/*.vtt", "papers/lectures/*.md"],
+      "filter": "speaker == jeffrey OR untagged (single-speaker recordings)",
+      "status": "pending"
+    },
+    "recap_audio": {
+      "kind": "whisper",
+      "roots": ["recap/out/**/subs.json"],
+      "filter": "segments where speaker == jeffrey (or untagged single-speaker)",
+      "status": "pending"
+    },
+    "papers": {
+      "kind": "latex",
+      "roots": ["papers/arxiv-*/*.tex"],
+      "filter": "author == jeffrey AND NOT inside % ai-pass-begin..end blocks",
+      "stripper": "pandoc -t plain",
+      "status": "pending"
+    },
+    "cv": {
+      "kind": "latex",
+      "roots": ["papers/cv/cv.tex"],
+      "stripper": "pandoc -t plain",
+      "status": "pending"
+    },
+    "planning": {
+      "kind": "plaintext",
+      "roots": ["TODO.txt", "schedule.txt", "honeydo.txt"],
+      "filter": "blame_author in author_identities (line-by-line)",
+      "status": "pending"
+    },
+    "ig_captions": {
+      "kind": "plaintext",
+      "roots": ["portraits/jeffrey/ig-archive/whistlegraph/*.txt"],
+      "filter": "captions only; hashtags and @mentions routed to side bucket",
+      "status": "pending"
+    },
+    "vault_email": {
+      "kind": "mu",
+      "roots": ["aesthetic-computer-vault/<mail>/sent"],
+      "filter": "From: jeffrey only",
+      "tier": "private",
+      "note": "contributes to counts in dictionary-full.json (gitignored); never appears in dictionary-public.json sample_contexts",
+      "status": "pending"
+    },
+    "handwriting_ocr": {
+      "kind": "ocr",
+      "roots": ["TBD"],
+      "filter": "confidence >= 0.85 per token",
+      "status": "tbd"
+    }
+  },
+  "excluded_sources": {
+    "ai_image_prompts": "papers/arxiv-*/figures/cover-prompt.txt",
+    "ai_vision_descriptions": "portraits/jeffrey/curated/jeffrey-described.jsonl",
+    "translations": "papers/arxiv-*/build/{da,es,zh,ja}/**",
+    "lockfiles_and_metadata": "package-lock.json, **/build/**, **/*.log",
+    "auto_logs": "memory/**, .claude/**, oven/logs/**"
+  },
+  "outputs": {
+    "dictionary_public": "dictionary.json",
+    "dictionary_full": "dictionary-full.json (gitignored — includes vault snippets)",
+    "views": {
+      "neologisms": "views/neologisms.json",
+      "by_year": "views/by-year.json",
+      "spoken_vs_written": "views/spoken-vs-written.json",
+      "code_only": "views/code-only.json"
+    }
+  }
+}

@@ -42,10 +42,22 @@ confirmed. Check both before deciding what's next.
 
 ### Open windows
 
+As of 2026-05-07, work in this order:
+
+1. Verify whether the SIGGRAPH Asia Technical Papers form was filed on
+   2026-05-05. If not, mark the 2026 tech-paper attempt **MISSED** and reuse
+   the simplified latency argument for later venues.
+2. If the form was filed, finish only the reduced SIGGRAPH version described in
+   `siggraph-asia-2026-tech/SIMPLIFIED-BRIEF.md` before the 2026-05-12 paper
+   deadline and 2026-05-13 upload deadline.
+3. Keep ICCC Early Career (2026-05-15) as the next-lightest pivot. It should
+   use the same direct voice but ask for a career/research trajectory, not a
+   full systems contribution.
+
 | Venue | Track | Deadline | State | Directory |
 |---|---|---|---|---|
 | SIGGRAPH Asia 2026 | Tech Papers (full) | 2026-05-05 form / 2026-05-12 paper / 2026-05-13 upload | SCAFFOLD | `siggraph-asia-2026-tech/` |
-| ICCC 2026 | Early Career Symposium | 2026-05-15 | CANDIDATE | (none yet) |
+| ICCC 2026 | Early Career Symposium | 2026-05-15 | BRIEF | `iccc-early-career-2026/` |
 | ArtsIT 2026 | Full Papers | 2026-06-01 | NEW | (none yet) |
 | SIGGRAPH Asia 2026 | Art Papers | 2026-06-08 | NEW | (none yet) |
 | SIGGRAPH Asia 2026 | Art Gallery / ET / XR | 2026-06-18 | NEW | (none yet) |

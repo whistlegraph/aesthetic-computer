@@ -1,0 +1,281 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from recurse.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{recurse-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\hypersetup{
+  pdftitle={Recurse Center: A Dossier},
+}
+
+\renewcommand{\acpdfbase}{recurse-dossier-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Recurse Center — A Dossier}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{The Posture}
+
+The Recurse Center is famous for a refusal: it is not a school. The \emph{User's Manual} opens by naming the genre it isn't: ``Unlike traditional schools, RC is self-directed --- there are no teachers, no grades, no exams, and no curriculum.''~\citep{rcmanual} The pedagogy traces explicitly to John Holt's unschooling lineage~\citep{wikipediarc}; the four ``social rules'' --- no feigning surprise, no well-actuallys, no back-seat driving, no subtle -isms --- have circulated through programming communities for over a decade as a stand-alone export. The retreat is free to participants; the company that runs it makes its money downstream, by charging companies that hire alumni.
+
+The dossier records the structure that lives inside that refusal. There is a legal entity. There is a business model. There are employees with titles. There is a board of directors. None of that is hidden, and none of it is a contradiction --- but in a field where most peers (SFPC, Pioneer Works, Rhizome's old MFA partnerships) are nonprofits, charities, or LLCs draped in nonprofit language, RC is the unembarrassed counterfactual: a privately-held for-profit that rejects the school form on \emph{pedagogical} grounds and the nonprofit form on \emph{operational} grounds.
+
+\section{Origin: From Hackruiter to Hacker School to Recurse Center}
+
+\subsection{Hackruiter (Summer 2010)}
+
+The organization began as a \emph{recruiting} company. In Summer 2010, Nick Bergson-Shilcock and Sonali Sridhar received seed funding from Y Combinator for a startup called Hackruiter, an engineering recruiting firm.~\citep{wikipediarc,ycrcprofile} The Y Combinator connection is the founding capital event; subsequent rounds, if any, are not publicly disclosed in standard databases.
+
+\subsection{Hacker School (July 2011)}
+
+In July 2011, the founders pivoted Hackruiter into Hacker School --- a free, three-month programming retreat in New York City. David Albert joined as a co-founder. The pivot retained the recruiting infrastructure: Hacker School would be free for participants and would sustain itself by charging companies that hired its alumni. The name was a deliberate (and, in retrospect, costly) appropriation: ``Hacker'' in the original Stallman/MIT sense of skilled, playful programmer, not the security-breach sense.~\citep{rchackerpost}
+
+\subsection{Etsy and the Hacker Grants moment (2012)}
+
+Hacker School came to wide public attention in mid-2012 when it partnered with Etsy on the Hacker Grants program: ten \$5,000 living-expense grants for women to attend the Summer 2012 batch.~\citep{forbeshackergrants} Etsy ultimately committed roughly \$50,000 of grants in that first cohort year and over \$200,000 in commitments by 2014; Dropbox, Tapad, Tumblr, Jane Street, and others followed.~\citep{rcdropboxetsyetc} The community grew from under 5\% women to roughly 35\% over two and a half years; by 2019, 48\% of new admits identified as women, trans, or non-binary.~\citep{rcseven}
+
+\subsection{Self-sufficiency from recruiting (2014)}
+
+Per Wikipedia, RC achieved self-sufficiency from recruiting income by 2014~\citep{wikipediarc} --- meaning the recruiting fees from companies hiring alumni began to cover operations without continued reliance on the original Y Combinator seed or external grants. The grant program shifted in 2015 from corporate-sponsored grants (Etsy, Dropbox, etc.) to self-funded grants paid out of RC's own operating budget. Leadership ``chose to take 60\% pay cuts'' for four months rather than reduce grant funding.~\citep{rcseven}
+
+\subsection{The 2015 rename}
+
+On March 25, 2015, Nick Bergson-Shilcock published \emph{Hacker School is now the Recurse Center}~\citep{rcrename}. The post named two pressures: ``hacker'' read as ``computer criminal'' and felt exclusionary; ``school'' was misread as a coding bootcamp. A specific operational pain point in the rationale: roughly 30\% of participants crossing US borders had encountered immigration friction because of the name.~\citep{hnrenamethread} The team rejected ``retreat'' (too limiting) and ``institute'' (pretentious) and chose ``Recurse Center'' as a near-meaningless phrase preferred over baggage-laden alternatives. The domain \texttt{recurse.com} was available; ``RC'' became the everyday name. Bergson-Shilcock's framing in the announcement: ``While our name is changing, who we are and what we do is not.''
+
+\section{Structure}
+
+\begin{description}
+\item[Legal entity] Privately-held for-profit company, originally incorporated as Hacker School (the LLC/Inc. distinction in the corporate filings is not surfaced in current public material; Crunchbase and standard databases list ``Recurse Center'' / ``Hacker School'' as the entity, but a verified state-of-incorporation lookup is TBD). RC is \emph{not} a 501(c)(3); no Form 990 exists.
+\item[ProPublica] No nonprofit entity for ``Recurse Center'' or ``Hacker School'' appears in ProPublica's nonprofit database --- consistent with for-profit incorporation.
+\item[Board of Directors] David Albert, ``Co-founder Emeritus,'' worked full-time at RC until late March 2023 and ``remains on the board of directors''~\citep{rcteam}. The full composition of the board is not publicly disclosed. Whether the board is a fiduciary corporate board (typical of a for-profit C-corp) or an advisory body is not stated.
+\item[Self-description] The \emph{User's Manual} is the load-bearing self-description: revised continuously since 2011, it is RC's stand-in for a mission statement, syllabus, and code of conduct rolled into one~\citep{rcmanual}.
+\end{description}
+
+\section{The Organization, 2010--2026}
+
+\subsection{Hackruiter $\to$ Hacker School (2010--2011)}
+
+Y Combinator-funded recruiting startup Hackruiter pivots into Hacker School in July 2011. First batches run in Manhattan. Founders: Bergson-Shilcock (CEO), Sridhar (Head of Recruiting), Albert (technical/program leadership).
+
+\subsection{The Hacker Grants years (2012--2014)}
+
+Etsy partnership; rapid diversity gains; community scale-up to ``a few dozen $\to$ nearly 450''~\citep{rcseven}. Self-sufficiency from recruiting reached in 2014.~\citep{wikipediarc} Notable alumni in this period include Timnit Gebru (Summer 2012), Michael Nielsen (Summer 2012), Greg Brockman (Summer 2015 --- pre-OpenAI).
+
+\subsection{The rename and consolidation (2015--2019)}
+
+March 2015 rename. June 2017 first formal Code of Conduct.~\citep{wikipediarc} \emph{Code Words} community journal launches. Multiple program experiments: facilitators, residents, ``Maintainers'' initiative, research labs, variable batch lengths trialled in the 3--6 week range. Brooklyn space at 397 Bridge Street becomes the physical hub. Hiring partners expand to include Airtable, Notion, Hudson River Trading, Jane Street, OpenAI~\citep{wikipediarc}.
+
+\subsection{COVID rupture and RC Together (2020--2022)}
+
+On March 12, 2020, Bergson-Shilcock announced via the blog: ``We have made the difficult decision to temporarily close our space. Starting Monday, our operations will be fully remote.''~\citep{rccovidpost} The physical space closed Saturday March 14 at 5pm. RC pivoted to a fully online format using a custom-built tool, \emph{Virtual RC} / \emph{RC Together} --- a 2D map representation of the physical space with Zoom-room integration~\citep{rcvirtualpage}. In late 2020, RC announced that batches would continue running online through 2021~\citep{rconlineblog}. The online format became permanent: even after the physical reopening, online attendance is a first-class option, not a fallback.
+
+\subsection{Reopening and the hybrid era (2023--2026)}
+
+In May 2023, Rachel Petacat (Head of Retreat) announced \emph{A new kind of retreat} --- the reopening of the Brooklyn space and the formalization of a hybrid model where every batch supports in-person, online, and mixed participation~\citep{rcnewretreat}. In late March 2023, David Albert transitioned from full-time staff to Co-founder Emeritus and board member~\citep{rcteam}. In July 2025, Bergson-Shilcock published \emph{Developing our position on AI}, a major organizational statement on how RC handles AI-assisted programming inside a self-directed retreat~\citep{rcaipost}. Latka's company database lists 72 employees and \$11.1M revenue (date and methodology unverified, treat with caution).~\citep{latkarcrev}
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}X>{\raggedright\arraybackslash\hspace{0pt}}X}
+\toprule
+\textbf{Tenure} & \textbf{Role} & \textbf{Name} \\
+\midrule
+2010-- & Co-founder, CEO & Bergson-Shilcock \\
+2010-- & Co-founder, Head of Recruiting & Sridhar \\
+2011--2023 & Co-founder, full-time & Albert \\
+2023-- & Co-founder Emeritus, Board & Albert \\
+?-- & Head of Retreat & Petacat \\
+?-- & Senior Facilitator & Bernier (RC alum, W2 2024) \\
+?-- & Senior Facilitator & Lefevre \\
+?-- & Career Facilitator & Tolderlund \\
+?-- & Office \& Operations Assistant & Khoury \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\\[0.3em]
+\footnotesize Source: \texttt{recurse.com/team} (accessed 2026-05-02). Tenure dates for staff below the founder line are not surfaced on the team page.
+\end{table}
+
+The team page lists eight people total~\citep{rcteam}; the org's actual headcount is much larger (Latka lists 72; this is unverified). The visible roles cluster into three functions: \textit{retreat operations} (Petacat, the two senior facilitators), \textit{recruiting/career services} (Sridhar, Tolderlund), and \textit{office} (Khoury). The CEO line (Bergson-Shilcock) and the emeritus board seat (Albert) round out the public-facing structure.
+
+\textbf{Notable alumni} in the public record include Timnit Gebru (Summer 2012, AI ethics), Michael Nielsen (Summer 2012, quantum/deep learning), Greg Brockman (Summer 2015, OpenAI co-founder), Paul Biggar (Fall 2016, CircleCI co-founder), Raph Levien (Fall 2017, Advogato/Spiral), and Andrew Kelley (Zig language)~\citep{wikipediarc}. The community scale is reported as 3,000+ alumni worldwide~\citep{rcabout}.
+
+\section{Programs}
+
+The core program is the \textbf{12-week full batch}, with a \textbf{6-week half-batch} option that can be extended to 12 weeks during the batch. Batches start every six weeks year-round. ``Core hours'' are Monday--Friday, 11am--5pm Eastern. Participation requires full-time commitment and work on open-source code only --- proprietary work is excluded.~\citep{rcmanual}
+
+\textbf{Mini-batches} (one-week, occasionally weekend-long) have been used as on-ramps for prospective Recursers and for alumni reunions; they are intermittent rather than scheduled.
+
+\textbf{RC Together / Virtual RC} (2020--present) is the persistent online layer: a custom 2D-map tool that mirrors the physical space and integrates with Zoom, allowing remote participants to ``walk into'' rooms with the in-person crowd~\citep{rcvirtualpage}. After the May 2023 reopening, every batch supports three modes: in-person at 397 Bridge Street, fully online, or hybrid~\citep{rcnewretreat}.
+
+\textbf{The three self-directives}, formalized in 2023~\citep{rcselfdirectives}, are RC's stated pedagogical core:
+\begin{itemize}
+\item Work at the edge of your abilities.
+\item Build your volitional muscles.
+\item Learn generously.
+\end{itemize}
+
+\textbf{The four social rules} are RC's most-cited cultural export~\citep{rcmanual}:
+\begin{itemize}
+\item No feigning surprise (at others' knowledge gaps).
+\item No well-actuallys (pedantic interruptions).
+\item No back-seat driving (uninvited advice over someone's shoulder).
+\item No subtle -isms (sexism, racism, homophobia, transphobia, ableism, classism).
+\end{itemize}
+
+\section{Money}
+
+Because RC is privately held, there are no Forms 990 and no public P\&L. The financial record is reconstructed from disclosed model details and journalist interviews.
+
+\subsection{The recruiting model}
+
+\textbf{Standard fee}: 25\% of a hired Recurser's first-year salary, excluding bonuses, due the day they start.~\citep{rchirepage} \textbf{Discounts}: registered 501(c)(3) nonprofits pay 20\%; internships are free, but conversion to full-time at any later date triggers the standard 25\% fee. \textbf{Guarantee}: full refund if the placement does not last 90 days. RC's manual reports ``nearly \$12,000'' in internal cost \emph{per participant}~\citep{wikipediarc}.
+
+\subsection{Disclosed scale signals}
+
+\begin{table}[h]
+\small
+\centering
+% [fix-dossier-tables]
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Disclosed} \\
+\midrule
+Year self-sufficient & 2014 \\
+Recurser per-head cost & ${\sim}\$12{,}000$ \\
+Standard recruiting fee & 25\% first-year salary \\
+Nonprofit fee & 20\% \\
+Hiring partners (current) & 100+ \\
+Total grants disbursed (by 2019) & \$1.5M+ \\
+Hiring partners (career grants by 2014) & ${\sim}\$200{,}000$ Etsy + \$100K Juniper \\
+Alumni community & 3{,}000+ \\
+Latka revenue figure (unverified) & \$11.1M \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{Hiring partners}
+
+The named hiring partners across RC's public materials include Stripe, Etsy, Dropbox, Tumblr, Jane Street, Tapad, Hudson River Trading, Airtable, Notion, OpenAI, Juniper, Perka, plus current site-listed partners Dealops, J2 Health, Seabound, and Relevant.~\citep{wikipediarc,rchirepage,rcdropboxetsyetc} The full roster is over 100 companies but is not surfaced as a single public list; the page rotates testimonials.
+
+\subsection{What is not disclosed}
+
+Annual revenue (the Latka figure is third-party and unverified), profitability, owner equity splits, board composition, the Y Combinator class/year/check size, any subsequent funding rounds, current cash position, employee count (other than the 8-person team page and an unverified Latka 72), and per-batch enrollment counts.
+
+\section{Footprint}
+
+RC's footprint is a community of practice. Unlike Rhizome (which footprinted via Commissions and the Net Art Anthology) or SFPC (which footprints via fluent practitioner-teachers), RC's exports are: (1) the four social rules, which have been adopted as conduct frameworks by other tech communities; (2) the unschooling-influenced retreat format, which has been imitated and remixed (e.g.\ Strange Loop satellites, the Bradfield School/Computer Science Intensive that some Recursers founded); (3) the alumni network itself, which forms a labor-market layer underneath several mid-sized NYC and remote tech employers; and (4) \emph{Code Words}, the (now-quiet) community journal.
+
+\section{Reading List}
+
+\subsection{Primary sources (must-read)}
+
+\begin{itemize}
+\item \textbf{The User's Manual}~\citep{rcmanual}: load-bearing self-description; revised continuously.
+\item \textbf{\emph{Hacker School is now the Recurse Center}}~\citep{rcrename}: the 2015 rename announcement.
+\item \textbf{\emph{What we mean when we say ``hacker''}}~\citep{rchackerpost}: 2012 rationale for the original name.
+\item \textbf{\emph{What we've learned from seven years\ldots\ 50\% women, trans, and non-binary}}~\citep{rcseven}: the most quantitative diversity-and-grants accounting in the public record.
+\item \textbf{\emph{A new kind of retreat}}~\citep{rcnewretreat}: the May 2023 reopening / hybrid-format announcement.
+\item \textbf{\emph{Developing our position on AI}}~\citep{rcaipost}: the July 2025 organizational AI stance.
+\item \textbf{Hire page}~\citep{rchirepage}: full pricing, the 90-day guarantee, the nonprofit discount.
+\end{itemize}
+
+\subsection{Secondary}
+
+\begin{itemize}
+\item Wikipedia entry~\citep{wikipediarc} for the Hackruiter origin, the 2017 Code of Conduct, and notable-alumni list.
+\item Hacker News thread on the rename~\citep{hnrenamethread} for the 30\% border-friction stat and Bergson-Shilcock's contemporaneous comments.
+\item Forbes coverage of the Etsy partnership~\citep{forbeshackergrants}.
+\item Y Combinator company page~\citep{ycrcprofile}.
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item Not a thesis. There is no question being answered.
+\item Not a critique. The for-profit / recruiting-funded model is surfaced, not judged. Pedagogical claims are quoted and attributed, not evaluated.
+\item Not a comparison. SFPC, Rhizome, ITP, Bradfield, and other adjacent organizations are mentioned only where they directly intersect RC's public record.
+\item Not a memoir. The author has no documented relationship to RC.
+\item Not exhaustive. Gaps --- the legal-entity form (Inc.\ vs LLC), board composition, annual revenue, profitability, employee count, current full hiring-partner roster, per-batch enrollment, alumni outcomes data --- are flagged inline.
+\end{itemize}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

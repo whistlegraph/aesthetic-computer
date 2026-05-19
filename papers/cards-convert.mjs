@@ -44,6 +44,27 @@ const PAPER_MAP = {
   "arxiv-holden": { base: "holden", title: "The Potter and the Prompt", siteName: "potter-and-prompt-26-arxiv" },
   "arxiv-url-tradition": { base: "url-tradition", title: "The URL Tradition", siteName: "url-tradition-26-arxiv" },
   "arxiv-latency": { base: "latency", title: "Where the Microseconds Go", siteName: "where-the-microseconds-go-26-arxiv" },
+  "arxiv-keymaps": { base: "keymaps", title: "Keymaps as Social Software", siteName: "keymaps-social-software-26-arxiv" },
+  "arxiv-fraserin": { base: "fraserin", title: "A Fraserin' Art + Tech", siteName: "fraserin-essay-26-arxiv" },
+  "arxiv-comp-strats": { base: "comp-strats", title: "Comp Strats", siteName: "comp-strats-26-arxiv" },
+  // --- Dossiers ---
+  "arxiv-rhizome": { base: "rhizome", title: "Rhizome.org — A Dossier", siteName: "rhizome-dossier-26-arxiv" },
+  "arxiv-sfpc": { base: "sfpc", title: "School for Poetic Computation — A Dossier", siteName: "sfpc-dossier-26-arxiv" },
+  "arxiv-eyebeam": { base: "eyebeam", title: "Eyebeam — A Dossier", siteName: "eyebeam-dossier-26-arxiv" },
+  "arxiv-recurse": { base: "recurse", title: "Recurse Center — A Dossier", siteName: "recurse-dossier-26-arxiv" },
+  "arxiv-internet-archive": { base: "internet-archive", title: "Internet Archive — A Dossier", siteName: "internet-archive-dossier-26-arxiv" },
+  "arxiv-mellon": { base: "mellon", title: "Mellon Foundation — A Dossier", siteName: "mellon-dossier-26-arxiv" },
+  "arxiv-pioneer-works": { base: "pioneer-works", title: "Pioneer Works — A Dossier", siteName: "pioneer-works-dossier-26-arxiv" },
+  "arxiv-new-inc": { base: "new-inc", title: "NEW INC — A Dossier", siteName: "new-inc-dossier-26-arxiv" },
+  "arxiv-studio-museum": { base: "studio-museum", title: "Studio Museum in Harlem — A Dossier", siteName: "studio-museum-dossier-26-arxiv" },
+  "arxiv-hathitrust": { base: "hathitrust", title: "HathiTrust — A Dossier", siteName: "hathitrust-dossier-26-arxiv" },
+  "arxiv-the-kitchen": { base: "the-kitchen", title: "The Kitchen — A Dossier", siteName: "the-kitchen-dossier-26-arxiv" },
+  "arxiv-machine-project": { base: "machine-project", title: "Machine Project — A Dossier", siteName: "machine-project-dossier-26-arxiv" },
+  "arxiv-heavy-manners-library": { base: "heavy-manners-library", title: "Heavy Manners Library — A Dossier", siteName: "heavy-manners-library-dossier-26-arxiv" },
+  "arxiv-creative-time": { base: "creative-time", title: "Creative Time — A Dossier", siteName: "creative-time-dossier-26-arxiv" },
+  "arxiv-creative-capital": { base: "creative-capital", title: "Creative Capital — A Dossier", siteName: "creative-capital-dossier-26-arxiv" },
+  "arxiv-microvision": { base: "microvision", title: "MicroVision — A Dossier", siteName: "microvision-dossier-26-arxiv" },
+  "arxiv-calarts-news": { base: "calarts-news", title: "What's New CalArts!? — A Dossier", siteName: "whats-new-calarts-26-arxiv" },
 };
 
 function getAvailableTranslations(dir, info) {
@@ -54,19 +75,29 @@ function getAvailableTranslations(dir, info) {
   );
 }
 
-// Convert tabularx to plain tabular for cards (adjustbox handles the scaling).
-// tabularx resists all runtime patching, but plain tabular wrapped in adjustbox works.
+// Fit source tables to the narrow card without elongating them.
+//
+// The old approach converted tabularx -> tabular and rewrote every X
+// column to a fixed p{0.28\linewidth}. On a 4x6 card that forces every
+// X cell to wrap into 3-5 lines, producing absurdly tall tables with a
+// wasted-whitespace left column (the "stretched / too elongated" bug).
+//
+// Instead, KEEP tabularx (its X column auto-distributes the remaining
+// width, which is exactly what we want) but retarget the width to
+// \linewidth -- the source targets \columnwidth, the narrow two-column
+// arxiv measure, which is wrong on a single-column card -- and wrap the
+// whole thing in adjustbox so an over-wide (e.g. all-numeric, no-X)
+// table shrinks to the card instead of overflowing.
 function convertTabularxToTabular(body) {
-  // Replace \begin{tabularx}{...}{colspec} with \begin{tabular}{colspec}
-  // Convert X columns to p{0.3\linewidth} for wrapping
-  return body.replace(
-    /\\begin\{tabularx\}\{[^}]*\}\{([^}]*)\}/g,
-    (match, colspec) => {
-      // Replace X with p{} columns, keep l/r/c as-is
-      const newSpec = colspec.replace(/X/g, "p{0.28\\linewidth}");
-      return `\\begin{tabular}{${newSpec}}`;
-    }
-  ).replace(/\\end\{tabularx\}/g, "\\end{tabular}");
+  return body
+    .replace(
+      /\\begin\{tabularx\}\{[^}]*\}\{/g,
+      "\\begin{adjustbox}{max width=\\linewidth,center}%\n\\begin{tabularx}{\\linewidth}{",
+    )
+    .replace(
+      /\\end\{tabularx\}/g,
+      "\\end{tabularx}%\n\\end{adjustbox}",
+    );
 }
 
 function extractFromTex(content) {
@@ -256,15 +287,31 @@ ${parsed.abstract}
 
 \\usepackage{fontspec}
 \\usepackage{unicode-math}
-\\setmainfont{Latin Modern Roman}
-\\setsansfont{Latin Modern Sans}
-\\setmonofont{Latin Modern Mono}[Scale=0.88]
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
 ${cjkBlock ? "\n" + cjkBlock : ""}
 
 \\usepackage{graphicx}
 \\graphicspath{${parsed.fullGraphicspath}}
 \\usepackage{booktabs}
 \\usepackage{tabularx}
+\\usepackage{adjustbox}
 \\usepackage{ragged2e}
 \\usepackage{microtype}
 \\usepackage{natbib}

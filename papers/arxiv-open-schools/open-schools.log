@@ -1,465 +1,733 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  6 APR 2026 15:49
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
 **open-schools.tex
 (./open-schools.tex
-LaTeX2e <2022-11-01> patch level 1
-L3 programming layer <2023-02-22>
-(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
-Document Class: article 2022/07/02 v1.4n Standard LaTeX document class
-(/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo
-File: size11.clo 2022/07/02 v1.4n Standard LaTeX file (size option)
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2025/01/22 v1.4n Standard LaTeX document class
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/size11.clo
+File: size11.clo 2025/01/22 v1.4n Standard LaTeX file (size option)
 )
-\c@part=\count181
-\c@section=\count182
-\c@subsection=\count183
-\c@subsubsection=\count184
-\c@paragraph=\count185
-\c@subparagraph=\count186
-\c@figure=\count187
-\c@table=\count188
-\abovecaptionskip=\skip48
-\belowcaptionskip=\skip49
-\bibindent=\dimen140
+\c@part=\count271
+\c@section=\count272
+\c@subsection=\count273
+\c@subsubsection=\count274
+\c@paragraph=\count275
+\c@subparagraph=\count276
+\c@figure=\count277
+\c@table=\count278
+\abovecaptionskip=\skip49
+\belowcaptionskip=\skip50
+\bibindent=\dimen148
 )
-(/usr/share/texlive/texmf-dist/tex/latex/fontspec/fontspec.sty
-(/usr/share/texlive/texmf-dist/tex/latex/l3packages/xparse/xparse.sty
-(/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3.sty
-Package: expl3 2023-02-22 L3 programming layer (loader) 
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/fontspec/fontspec.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3packages/xparse/xparse.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3kernel/expl3.sty
+Package: expl3 2026-01-19 L3 programming layer (loader) 
 
-(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-xetex.def
-File: l3backend-xetex.def 2023-01-16 L3 backend support: XeTeX
-\g__graphics_track_int=\count189
-\l__pdf_internal_box=\box51
-\g__pdf_backend_object_int=\count190
-\g__pdf_backend_annotation_int=\count191
-\g__pdf_backend_link_int=\count192
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3backend/l3backend-xetex.de
+f
+File: l3backend-xetex.def 2025-10-09 L3 backend support: XeTeX
+\g__graphics_track_int=\count279
+\g__pdfannot_backend_int=\count280
+\g__pdfannot_backend_link_int=\count281
 ))
-Package: xparse 2023-02-02 L3 Experimental document command parser
+Package: xparse 2025-10-09 L3 Experimental document command parser
 )
-Package: fontspec 2022/01/15 v2.8a Font selection for XeLaTeX and LuaLaTeX
+Package: fontspec 2025/09/29 v2.9g Font selection for XeLaTeX and LuaLaTeX
 
-(/usr/share/texlive/texmf-dist/tex/latex/fontspec/fontspec-xetex.sty
-Package: fontspec-xetex 2022/01/15 v2.8a Font selection for XeLaTeX and LuaLaTe
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/fontspec/fontspec-xetex.sty
+Package: fontspec-xetex 2025/09/29 v2.9g Font selection for XeLaTeX and LuaLaTe
 X
-\l__fontspec_script_int=\count193
-\l__fontspec_language_int=\count194
-\l__fontspec_strnum_int=\count195
-\l__fontspec_tmp_int=\count196
-\l__fontspec_tmpa_int=\count197
-\l__fontspec_tmpb_int=\count198
-\l__fontspec_tmpc_int=\count199
-\l__fontspec_em_int=\count266
-\l__fontspec_emdef_int=\count267
-\l__fontspec_strong_int=\count268
-\l__fontspec_strongdef_int=\count269
-\l__fontspec_tmpa_dim=\dimen141
-\l__fontspec_tmpb_dim=\dimen142
-\l__fontspec_tmpc_dim=\dimen143
+\l__fontspec_script_int=\count282
+\l__fontspec_language_int=\count283
+\l__fontspec_strnum_int=\count284
+\l__fontspec_tmp_int=\count285
+\l__fontspec_tmpa_int=\count286
+\l__fontspec_tmpb_int=\count287
+\l__fontspec_tmpc_int=\count288
+\l__fontspec_em_int=\count289
+\l__fontspec_emdef_int=\count290
+\l__fontspec_strong_int=\count291
+\l__fontspec_strongdef_int=\count292
+\l__fontspec_tmpa_dim=\dimen149
+\l__fontspec_tmpb_dim=\dimen150
+\l__fontspec_tmpc_dim=\dimen151
 
-(/usr/share/texlive/texmf-dist/tex/latex/base/fontenc.sty
-Package: fontenc 2021/04/29 v2.0v Standard LaTeX package
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/fontenc.sty
+Package: fontenc 2025/07/18 v2.1d Standard LaTeX package
 )
-(/usr/share/texlive/texmf-dist/tex/latex/fontspec/fontspec.cfg)))
-(/usr/share/texlive/texmf-dist/tex/latex/unicode-math/unicode-math.sty
-Package: unicode-math 2020/01/31 v0.8q Unicode maths in XeLaTeX and LuaLaTeX
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/fontspec/fontspec.cfg)))
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/unicode-math/unicode-math.st
+y
+Package: unicode-math 2023/08/13 v0.8r Unicode maths in XeLaTeX and LuaLaTeX
 
-(/usr/share/texlive/texmf-dist/tex/latex/unicode-math/unicode-math-xetex.sty
-Package: unicode-math-xetex 2020/01/31 v0.8q Unicode maths in XeLaTeX and LuaLa
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/unicode-math/unicode-math-xe
+tex.sty
+Package: unicode-math-xetex 2023/08/13 v0.8r Unicode maths in XeLaTeX and LuaLa
 TeX
 
-(/usr/share/texlive/texmf-dist/tex/latex/l3packages/l3keys2e/l3keys2e.sty
-Package: l3keys2e 2023-02-02 LaTeX2e option processing using LaTeX3 keys
-)
-(/usr/share/texlive/texmf-dist/tex/latex/base/fix-cm.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3packages/l3keys2e/l3keys2e
+.sty
+Package: l3keys2e 2025-10-09 LaTeX2e option processing using LaTeX3 keys
+) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/fix-cm.sty
 Package: fix-cm 2020/11/24 v1.1t fixes to LaTeX
 
-(/usr/share/texlive/texmf-dist/tex/latex/base/ts1enc.def
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/ts1enc.def
 File: ts1enc.def 2001/06/05 v3.0e (jk/car/fm) Standard LaTeX file
 LaTeX Font Info:    Redeclaring font encoding TS1 on input line 47.
+LaTeX Encoding Info:    Redeclaring text command \capitalcedilla (encoding TS1)
+ on input line 49.
+LaTeX Encoding Info:    Redeclaring text command \capitalogonek (encoding TS1) 
+on input line 52.
+LaTeX Encoding Info:    Redeclaring text command \capitalgrave (encoding TS1) o
+n input line 55.
+LaTeX Encoding Info:    Redeclaring text command \capitalacute (encoding TS1) o
+n input line 56.
+LaTeX Encoding Info:    Redeclaring text command \capitalcircumflex (encoding T
+S1) on input line 57.
+LaTeX Encoding Info:    Redeclaring text command \capitaltilde (encoding TS1) o
+n input line 58.
+LaTeX Encoding Info:    Redeclaring text command \capitaldieresis (encoding TS1
+) on input line 59.
+LaTeX Encoding Info:    Redeclaring text command \capitalhungarumlaut (encoding
+ TS1) on input line 60.
+LaTeX Encoding Info:    Redeclaring text command \capitalring (encoding TS1) on
+ input line 61.
+LaTeX Encoding Info:    Redeclaring text command \capitalcaron (encoding TS1) o
+n input line 62.
+LaTeX Encoding Info:    Redeclaring text command \capitalbreve (encoding TS1) o
+n input line 63.
+LaTeX Encoding Info:    Redeclaring text command \capitalmacron (encoding TS1) 
+on input line 64.
+LaTeX Encoding Info:    Redeclaring text command \capitaldotaccent (encoding TS
+1) on input line 65.
+LaTeX Encoding Info:    Redeclaring text command \t (encoding TS1) on input lin
+e 66.
+LaTeX Encoding Info:    Redeclaring text command \capitaltie (encoding TS1) on 
+input line 67.
+LaTeX Encoding Info:    Redeclaring text command \newtie (encoding TS1) on inpu
+t line 68.
+LaTeX Encoding Info:    Redeclaring text command \capitalnewtie (encoding TS1) 
+on input line 69.
+LaTeX Encoding Info:    Redeclaring text symbol \textcapitalcompwordmark (encod
+ing TS1) on input line 70.
+LaTeX Encoding Info:    Redeclaring text symbol \textascendercompwordmark (enco
+ding TS1) on input line 71.
+LaTeX Encoding Info:    Redeclaring text symbol \textquotestraightbase (encodin
+g TS1) on input line 72.
+LaTeX Encoding Info:    Redeclaring text symbol \textquotestraightdblbase (enco
+ding TS1) on input line 73.
+LaTeX Encoding Info:    Redeclaring text symbol \texttwelveudash (encoding TS1)
+ on input line 74.
+LaTeX Encoding Info:    Redeclaring text symbol \textthreequartersemdash (encod
+ing TS1) on input line 75.
+LaTeX Encoding Info:    Redeclaring text symbol \textleftarrow (encoding TS1) o
+n input line 76.
+LaTeX Encoding Info:    Redeclaring text symbol \textrightarrow (encoding TS1) 
+on input line 77.
+LaTeX Encoding Info:    Redeclaring text symbol \textblank (encoding TS1) on in
+put line 78.
+LaTeX Encoding Info:    Redeclaring text symbol \textdollar (encoding TS1) on i
+nput line 79.
+LaTeX Encoding Info:    Redeclaring text symbol \textquotesingle (encoding TS1)
+ on input line 80.
+LaTeX Encoding Info:    Redeclaring text command \textasteriskcentered (encodin
+g TS1) on input line 81.
+LaTeX Encoding Info:    Redeclaring text symbol \textdblhyphen (encoding TS1) o
+n input line 92.
+LaTeX Encoding Info:    Redeclaring text symbol \textfractionsolidus (encoding 
+TS1) on input line 93.
+LaTeX Encoding Info:    Redeclaring text symbol \textzerooldstyle (encoding TS1
+) on input line 94.
+LaTeX Encoding Info:    Redeclaring text symbol \textoneoldstyle (encoding TS1)
+ on input line 95.
+LaTeX Encoding Info:    Redeclaring text symbol \texttwooldstyle (encoding TS1)
+ on input line 96.
+LaTeX Encoding Info:    Redeclaring text symbol \textthreeoldstyle (encoding TS
+1) on input line 97.
+LaTeX Encoding Info:    Redeclaring text symbol \textfouroldstyle (encoding TS1
+) on input line 98.
+LaTeX Encoding Info:    Redeclaring text symbol \textfiveoldstyle (encoding TS1
+) on input line 99.
+LaTeX Encoding Info:    Redeclaring text symbol \textsixoldstyle (encoding TS1)
+ on input line 100.
+LaTeX Encoding Info:    Redeclaring text symbol \textsevenoldstyle (encoding TS
+1) on input line 101.
+LaTeX Encoding Info:    Redeclaring text symbol \texteightoldstyle (encoding TS
+1) on input line 102.
+LaTeX Encoding Info:    Redeclaring text symbol \textnineoldstyle (encoding TS1
+) on input line 103.
+LaTeX Encoding Info:    Redeclaring text symbol \textlangle (encoding TS1) on i
+nput line 104.
+LaTeX Encoding Info:    Redeclaring text symbol \textminus (encoding TS1) on in
+put line 105.
+LaTeX Encoding Info:    Redeclaring text symbol \textrangle (encoding TS1) on i
+nput line 106.
+LaTeX Encoding Info:    Redeclaring text symbol \textmho (encoding TS1) on inpu
+t line 107.
+LaTeX Encoding Info:    Redeclaring text symbol \textbigcircle (encoding TS1) o
+n input line 108.
+LaTeX Encoding Info:    Redeclaring text command \textcircled (encoding TS1) on
+ input line 109.
+LaTeX Encoding Info:    Redeclaring text symbol \textohm (encoding TS1) on inpu
+t line 115.
+LaTeX Encoding Info:    Redeclaring text symbol \textlbrackdbl (encoding TS1) o
+n input line 116.
+LaTeX Encoding Info:    Redeclaring text symbol \textrbrackdbl (encoding TS1) o
+n input line 117.
+LaTeX Encoding Info:    Redeclaring text symbol \textuparrow (encoding TS1) on 
+input line 118.
+LaTeX Encoding Info:    Redeclaring text symbol \textdownarrow (encoding TS1) o
+n input line 119.
+LaTeX Encoding Info:    Redeclaring text symbol \textasciigrave (encoding TS1) 
+on input line 120.
+LaTeX Encoding Info:    Redeclaring text symbol \textborn (encoding TS1) on inp
+ut line 121.
+LaTeX Encoding Info:    Redeclaring text symbol \textdivorced (encoding TS1) on
+ input line 122.
+LaTeX Encoding Info:    Redeclaring text symbol \textdied (encoding TS1) on inp
+ut line 123.
+LaTeX Encoding Info:    Redeclaring text symbol \textleaf (encoding TS1) on inp
+ut line 124.
+LaTeX Encoding Info:    Redeclaring text symbol \textmarried (encoding TS1) on 
+input line 125.
+LaTeX Encoding Info:    Redeclaring text symbol \textmusicalnote (encoding TS1)
+ on input line 126.
+LaTeX Encoding Info:    Redeclaring text symbol \texttildelow (encoding TS1) on
+ input line 127.
+LaTeX Encoding Info:    Redeclaring text symbol \textdblhyphenchar (encoding TS
+1) on input line 128.
+LaTeX Encoding Info:    Redeclaring text symbol \textasciibreve (encoding TS1) 
+on input line 129.
+LaTeX Encoding Info:    Redeclaring text symbol \textasciicaron (encoding TS1) 
+on input line 130.
+LaTeX Encoding Info:    Redeclaring text symbol \textacutedbl (encoding TS1) on
+ input line 131.
+LaTeX Encoding Info:    Redeclaring text symbol \textgravedbl (encoding TS1) on
+ input line 132.
+LaTeX Encoding Info:    Redeclaring text symbol \textdagger (encoding TS1) on i
+nput line 133.
+LaTeX Encoding Info:    Redeclaring text symbol \textdaggerdbl (encoding TS1) o
+n input line 134.
+LaTeX Encoding Info:    Redeclaring text symbol \textbardbl (encoding TS1) on i
+nput line 135.
+LaTeX Encoding Info:    Redeclaring text symbol \textperthousand (encoding TS1)
+ on input line 136.
+LaTeX Encoding Info:    Redeclaring text symbol \textbullet (encoding TS1) on i
+nput line 137.
+LaTeX Encoding Info:    Redeclaring text symbol \textcelsius (encoding TS1) on 
+input line 138.
+LaTeX Encoding Info:    Redeclaring text symbol \textdollaroldstyle (encoding T
+S1) on input line 139.
+LaTeX Encoding Info:    Redeclaring text symbol \textcentoldstyle (encoding TS1
+) on input line 140.
+LaTeX Encoding Info:    Redeclaring text symbol \textflorin (encoding TS1) on i
+nput line 141.
+LaTeX Encoding Info:    Redeclaring text symbol \textcolonmonetary (encoding TS
+1) on input line 142.
+LaTeX Encoding Info:    Redeclaring text symbol \textwon (encoding TS1) on inpu
+t line 143.
+LaTeX Encoding Info:    Redeclaring text symbol \textnaira (encoding TS1) on in
+put line 144.
+LaTeX Encoding Info:    Redeclaring text symbol \textguarani (encoding TS1) on 
+input line 145.
+LaTeX Encoding Info:    Redeclaring text symbol \textpeso (encoding TS1) on inp
+ut line 146.
+LaTeX Encoding Info:    Redeclaring text symbol \textlira (encoding TS1) on inp
+ut line 147.
+LaTeX Encoding Info:    Redeclaring text symbol \textrecipe (encoding TS1) on i
+nput line 148.
+LaTeX Encoding Info:    Redeclaring text symbol \textinterrobang (encoding TS1)
+ on input line 149.
+LaTeX Encoding Info:    Redeclaring text symbol \textinterrobangdown (encoding 
+TS1) on input line 150.
+LaTeX Encoding Info:    Redeclaring text symbol \textdong (encoding TS1) on inp
+ut line 151.
+LaTeX Encoding Info:    Redeclaring text symbol \texttrademark (encoding TS1) o
+n input line 152.
+LaTeX Encoding Info:    Redeclaring text symbol \textpertenthousand (encoding T
+S1) on input line 153.
+LaTeX Encoding Info:    Redeclaring text symbol \textpilcrow (encoding TS1) on 
+input line 154.
+LaTeX Encoding Info:    Redeclaring text symbol \textbaht (encoding TS1) on inp
+ut line 155.
+LaTeX Encoding Info:    Redeclaring text symbol \textnumero (encoding TS1) on i
+nput line 156.
+LaTeX Encoding Info:    Redeclaring text symbol \textdiscount (encoding TS1) on
+ input line 157.
+LaTeX Encoding Info:    Redeclaring text symbol \textestimated (encoding TS1) o
+n input line 158.
+LaTeX Encoding Info:    Redeclaring text symbol \textopenbullet (encoding TS1) 
+on input line 159.
+LaTeX Encoding Info:    Redeclaring text symbol \textservicemark (encoding TS1)
+ on input line 160.
+LaTeX Encoding Info:    Redeclaring text symbol \textlquill (encoding TS1) on i
+nput line 161.
+LaTeX Encoding Info:    Redeclaring text symbol \textrquill (encoding TS1) on i
+nput line 162.
+LaTeX Encoding Info:    Redeclaring text symbol \textcent (encoding TS1) on inp
+ut line 163.
+LaTeX Encoding Info:    Redeclaring text symbol \textsterling (encoding TS1) on
+ input line 164.
+LaTeX Encoding Info:    Redeclaring text symbol \textcurrency (encoding TS1) on
+ input line 165.
+LaTeX Encoding Info:    Redeclaring text symbol \textyen (encoding TS1) on inpu
+t line 166.
+LaTeX Encoding Info:    Redeclaring text symbol \textbrokenbar (encoding TS1) o
+n input line 167.
+LaTeX Encoding Info:    Redeclaring text symbol \textsection (encoding TS1) on 
+input line 168.
+LaTeX Encoding Info:    Redeclaring text symbol \textasciidieresis (encoding TS
+1) on input line 169.
+LaTeX Encoding Info:    Redeclaring text symbol \textcopyright (encoding TS1) o
+n input line 170.
+LaTeX Encoding Info:    Redeclaring text symbol \textordfeminine (encoding TS1)
+ on input line 171.
+LaTeX Encoding Info:    Redeclaring text symbol \textcopyleft (encoding TS1) on
+ input line 172.
+LaTeX Encoding Info:    Redeclaring text symbol \textlnot (encoding TS1) on inp
+ut line 173.
+LaTeX Encoding Info:    Redeclaring text symbol \textcircledP (encoding TS1) on
+ input line 174.
+LaTeX Encoding Info:    Redeclaring text symbol \textregistered (encoding TS1) 
+on input line 175.
+LaTeX Encoding Info:    Redeclaring text symbol \textasciimacron (encoding TS1)
+ on input line 176.
+LaTeX Encoding Info:    Redeclaring text symbol \textdegree (encoding TS1) on i
+nput line 177.
+LaTeX Encoding Info:    Redeclaring text symbol \textpm (encoding TS1) on input
+ line 178.
+LaTeX Encoding Info:    Redeclaring text symbol \texttwosuperior (encoding TS1)
+ on input line 179.
+LaTeX Encoding Info:    Redeclaring text symbol \textthreesuperior (encoding TS
+1) on input line 180.
+LaTeX Encoding Info:    Redeclaring text symbol \textasciiacute (encoding TS1) 
+on input line 181.
+LaTeX Encoding Info:    Redeclaring text symbol \textmu (encoding TS1) on input
+ line 182.
+LaTeX Encoding Info:    Redeclaring text symbol \textparagraph (encoding TS1) o
+n input line 183.
+LaTeX Encoding Info:    Redeclaring text symbol \textperiodcentered (encoding T
+S1) on input line 184.
+LaTeX Encoding Info:    Redeclaring text symbol \textreferencemark (encoding TS
+1) on input line 185.
+LaTeX Encoding Info:    Redeclaring text symbol \textonesuperior (encoding TS1)
+ on input line 186.
+LaTeX Encoding Info:    Redeclaring text symbol \textordmasculine (encoding TS1
+) on input line 187.
+LaTeX Encoding Info:    Redeclaring text symbol \textsurd (encoding TS1) on inp
+ut line 188.
+LaTeX Encoding Info:    Redeclaring text symbol \textonequarter (encoding TS1) 
+on input line 189.
+LaTeX Encoding Info:    Redeclaring text symbol \textonehalf (encoding TS1) on 
+input line 190.
+LaTeX Encoding Info:    Redeclaring text symbol \textthreequarters (encoding TS
+1) on input line 191.
+LaTeX Encoding Info:    Redeclaring text symbol \texteuro (encoding TS1) on inp
+ut line 192.
+LaTeX Encoding Info:    Redeclaring text symbol \texttimes (encoding TS1) on in
+put line 193.
+LaTeX Encoding Info:    Redeclaring text symbol \textdiv (encoding TS1) on inpu
+t line 194.
 ))
-(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsmath.sty
-Package: amsmath 2022/04/08 v2.17n AMS math features
-\@mathmargin=\skip50
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsmath.sty
+Package: amsmath 2025/07/09 v2.17z AMS math features
+\@mathmargin=\skip51
 
 For additional information on amsmath, use the `?' option.
-(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amstext.sty
-Package: amstext 2021/08/26 v2.01 AMS text
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amstext.sty
+Package: amstext 2024/11/17 v2.01 AMS text
 
-(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsgen.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsgen.sty
 File: amsgen.sty 1999/11/30 v2.0 generic functions
-\@emptytoks=\toks16
-\ex@=\dimen144
+\@emptytoks=\toks17
+\ex@=\dimen152
 ))
-(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsbsy.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsbsy.sty
 Package: amsbsy 1999/11/29 v1.2d Bold Symbols
-\pmbraise@=\dimen145
+\pmbraise@=\dimen153
 )
-(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsopn.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsopn.sty
 Package: amsopn 2022/04/08 v2.04 operator names
 )
-\inf@bad=\count270
-LaTeX Info: Redefining \frac on input line 234.
-\uproot@=\count271
-\leftroot@=\count272
-LaTeX Info: Redefining \overline on input line 399.
-LaTeX Info: Redefining \colon on input line 410.
-\classnum@=\count273
-\DOTSCASE@=\count274
-LaTeX Info: Redefining \ldots on input line 496.
-LaTeX Info: Redefining \dots on input line 499.
-LaTeX Info: Redefining \cdots on input line 620.
-\Mathstrutbox@=\box52
-\strutbox@=\box53
-LaTeX Info: Redefining \big on input line 722.
-LaTeX Info: Redefining \Big on input line 723.
-LaTeX Info: Redefining \bigg on input line 724.
-LaTeX Info: Redefining \Bigg on input line 725.
-\big@size=\dimen146
-LaTeX Font Info:    Redeclaring font encoding OML on input line 743.
-LaTeX Font Info:    Redeclaring font encoding OMS on input line 744.
-\macc@depth=\count275
-LaTeX Info: Redefining \bmod on input line 905.
-LaTeX Info: Redefining \pmod on input line 910.
-LaTeX Info: Redefining \smash on input line 940.
-LaTeX Info: Redefining \relbar on input line 970.
-LaTeX Info: Redefining \Relbar on input line 971.
-\c@MaxMatrixCols=\count276
-\dotsspace@=\muskip16
-\c@parentequation=\count277
-\dspbrk@lvl=\count278
-\tag@help=\toks17
-\row@=\count279
-\column@=\count280
-\maxfields@=\count281
-\andhelp@=\toks18
-\eqnshift@=\dimen147
-\alignsep@=\dimen148
-\tagshift@=\dimen149
-\tagwidth@=\dimen150
-\totwidth@=\dimen151
-\lineht@=\dimen152
-\@envbody=\toks19
-\multlinegap=\skip51
-\multlinetaggap=\skip52
-\mathdisplay@stack=\toks20
-LaTeX Info: Redefining \[ on input line 2953.
-LaTeX Info: Redefining \] on input line 2954.
+\inf@bad=\count293
+LaTeX Info: Redefining \frac on input line 233.
+\uproot@=\count294
+\leftroot@=\count295
+LaTeX Info: Redefining \overline on input line 398.
+LaTeX Info: Redefining \colon on input line 409.
+\classnum@=\count296
+\DOTSCASE@=\count297
+LaTeX Info: Redefining \ldots on input line 495.
+LaTeX Info: Redefining \dots on input line 498.
+LaTeX Info: Redefining \cdots on input line 619.
+\Mathstrutbox@=\box53
+\strutbox@=\box54
+LaTeX Info: Redefining \big on input line 721.
+LaTeX Info: Redefining \Big on input line 722.
+LaTeX Info: Redefining \bigg on input line 723.
+LaTeX Info: Redefining \Bigg on input line 724.
+\big@size=\dimen154
+LaTeX Font Info:    Redeclaring font encoding OML on input line 742.
+LaTeX Font Info:    Redeclaring font encoding OMS on input line 743.
+\macc@depth=\count298
+LaTeX Info: Redefining \bmod on input line 904.
+LaTeX Info: Redefining \pmod on input line 909.
+LaTeX Info: Redefining \smash on input line 939.
+LaTeX Info: Redefining \relbar on input line 969.
+LaTeX Info: Redefining \Relbar on input line 970.
+\c@MaxMatrixCols=\count299
+\dotsspace@=\muskip17
+\c@parentequation=\count300
+\dspbrk@lvl=\count301
+\tag@help=\toks18
+\row@=\count302
+\column@=\count303
+\maxfields@=\count304
+\andhelp@=\toks19
+\eqnshift@=\dimen155
+\alignsep@=\dimen156
+\tagshift@=\dimen157
+\tagwidth@=\dimen158
+\totwidth@=\dimen159
+\lineht@=\dimen160
+\@envbody=\toks20
+\multlinegap=\skip52
+\multlinetaggap=\skip53
+\mathdisplay@stack=\toks21
+LaTeX Info: Redefining \[ on input line 2950.
+LaTeX Info: Redefining \] on input line 2951.
 )
-\g__um_fam_int=\count282
-\g__um_fonts_used_int=\count283
-\l__um_primecount_int=\count284
-\g__um_primekern_muskip=\muskip17
+\g__um_fam_int=\count305
+\g__um_fonts_used_int=\count306
+\l__um_primecount_int=\count307
+\g__um_primekern_muskip=\muskip18
 
-(/usr/share/texlive/texmf-dist/tex/latex/unicode-math/unicode-math-table.tex)))
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/unicode-math/unicode-math-ta
+ble.tex)))
 
-Package fontspec Info: Font family 'LatinModernRoman(0)' created for font
-(fontspec)             'Latin Modern Roman' with options [Ligatures=TeX].
+Package fontspec Info: 
+(fontspec)             Font family 'LatinModernRoman(0)' created for font
+(fontspec)             'Latin Modern Roman' with options
+(fontspec)             [Ligatures=TeX,Extension=.otf,UprightFont=lmroman10-regu
+lar,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman1
+0-bolditalic].
 (fontspec)              
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
 (fontspec)              
-(fontspec)             - 'normal' (m/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Roman/OT:script=latn;language=dflt;mapping=tex-text;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             - 'bold' (b/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Roman/B/OT:script=latn;language=dflt;mapping=tex-text;"
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
-(fontspec)             - 'italic' (m/it) with NFSS spec.: <->"Latin Modern
-(fontspec)             Roman/I/OT:script=latn;language=dflt;mapping=tex-text;"
-(fontspec)             - 'italic small caps'  (m/scit) with NFSS spec.: 
-(fontspec)             - 'bold italic' (b/it) with NFSS spec.: <->"Latin
-(fontspec)             Modern
-(fontspec)             Roman/BI/OT:script=latn;language=dflt;mapping=tex-text;"
-
-(fontspec)             - 'bold italic small caps'  (b/scit) with NFSS spec.: 
+(fontspec)             - 'normal' (m/n) with NFSS spec.:
+(fontspec)             <->"[lmroman10-regular.otf]/OT:script=latn;language=dflt
+;mapping=tex-text;"
+(fontspec)             - 'bold' (b/n) with NFSS spec.:
+(fontspec)             <->"[lmroman10-bold.otf]/OT:script=latn;language=dflt;ma
+pping=tex-text;"
+(fontspec)             - 'italic' (m/it) with NFSS spec.:
+(fontspec)             <->"[lmroman10-italic.otf]/OT:script=latn;language=dflt;
+mapping=tex-text;"
+(fontspec)             - 'bold italic' (b/it) with NFSS spec.:
+(fontspec)             <->"[lmroman10-bolditalic.otf]/OT:script=latn;language=d
+flt;mapping=tex-text;"
 
 
-Package fontspec Info: Font family 'LatinModernRoman(1)' created for font
-(fontspec)             'Latin Modern Roman' with options [].
+Package fontspec Info: 
+(fontspec)             Font family 'LatinModernRoman(1)' created for font
+(fontspec)             'Latin Modern Roman' with options
+(fontspec)             [Extension=.otf,UprightFont=lmroman10-regular,BoldFont=l
+mroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic].
+
 (fontspec)              
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
 (fontspec)              
-(fontspec)             - 'normal' (m/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Roman/OT:script=latn;language=dflt;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             - 'bold' (b/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Roman/B/OT:script=latn;language=dflt;"
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
-(fontspec)             - 'italic' (m/it) with NFSS spec.: <->"Latin Modern
-(fontspec)             Roman/I/OT:script=latn;language=dflt;"
-(fontspec)             - 'italic small caps'  (m/scit) with NFSS spec.: 
-(fontspec)             - 'bold italic' (b/it) with NFSS spec.: <->"Latin
-(fontspec)             Modern Roman/BI/OT:script=latn;language=dflt;"
-(fontspec)             - 'bold italic small caps'  (b/scit) with NFSS spec.: 
+(fontspec)             - 'normal' (m/n) with NFSS spec.:
+(fontspec)             <->"[lmroman10-regular.otf]/OT:script=latn;language=dflt
+;"
+(fontspec)             - 'bold' (b/n) with NFSS spec.:
+(fontspec)             <->"[lmroman10-bold.otf]/OT:script=latn;language=dflt;"
+(fontspec)             - 'italic' (m/it) with NFSS spec.:
+(fontspec)             <->"[lmroman10-italic.otf]/OT:script=latn;language=dflt;
+"
+(fontspec)             - 'bold italic' (b/it) with NFSS spec.:
+(fontspec)             <->"[lmroman10-bolditalic.otf]/OT:script=latn;language=d
+flt;"
 
 LaTeX Font Info:    Overwriting math alphabet `\mathrm' in version `normal'
 (Font)                  OT1/cmr/m/n --> TU/LatinModernRoman(1)/m/n on input lin
-e 7.
+e 12.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `normal'
 (Font)                  OT1/cmr/m/it --> TU/LatinModernRoman(1)/m/it on input l
-ine 7.
+ine 12.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `normal'
 (Font)                  OT1/cmr/bx/n --> TU/LatinModernRoman(1)/b/n on input li
-ne 7.
+ne 12.
 
-Package fontspec Info: Font family 'LatinModernSans(0)' created for font
-(fontspec)             'Latin Modern Sans' with options [Ligatures=TeX].
+Package fontspec Info: 
+(fontspec)             Font family 'LatinModernSans(0)' created for font
+(fontspec)             'Latin Modern Sans' with options
+(fontspec)             [Ligatures=TeX,Extension=.otf,UprightFont=lmsans10-regul
+ar,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-b
+oldoblique].
 (fontspec)              
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
 (fontspec)              
-(fontspec)             - 'normal' (m/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Sans/OT:script=latn;language=dflt;mapping=tex-text;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             - 'bold' (b/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Sans/B/OT:script=latn;language=dflt;mapping=tex-text;"
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
-(fontspec)             - 'italic' (m/it) with NFSS spec.: <->"Latin Modern
-(fontspec)             Sans/I/OT:script=latn;language=dflt;mapping=tex-text;"
-(fontspec)             - 'italic small caps'  (m/scit) with NFSS spec.: 
-(fontspec)             - 'bold italic' (b/it) with NFSS spec.: <->"Latin
-(fontspec)             Modern
-(fontspec)             Sans/BI/OT:script=latn;language=dflt;mapping=tex-text;"
-(fontspec)             - 'bold italic small caps'  (b/scit) with NFSS spec.: 
+(fontspec)             - 'normal' (m/n) with NFSS spec.:
+(fontspec)             <->"[lmsans10-regular.otf]/OT:script=latn;language=dflt;
+mapping=tex-text;"
+(fontspec)             - 'bold' (b/n) with NFSS spec.:
+(fontspec)             <->"[lmsans10-bold.otf]/OT:script=latn;language=dflt;map
+ping=tex-text;"
+(fontspec)             - 'italic' (m/it) with NFSS spec.:
+(fontspec)             <->"[lmsans10-oblique.otf]/OT:script=latn;language=dflt;
+mapping=tex-text;"
+(fontspec)             - 'bold italic' (b/it) with NFSS spec.:
+(fontspec)             <->"[lmsans10-boldoblique.otf]/OT:script=latn;language=d
+flt;mapping=tex-text;"
 
 
-Package fontspec Info: Font family 'LatinModernSans(1)' created for font
-(fontspec)             'Latin Modern Sans' with options [].
+Package fontspec Info: 
+(fontspec)             Font family 'LatinModernSans(1)' created for font
+(fontspec)             'Latin Modern Sans' with options
+(fontspec)             [Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lm
+sans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique].
 (fontspec)              
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
 (fontspec)              
-(fontspec)             - 'normal' (m/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Sans/OT:script=latn;language=dflt;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             - 'bold' (b/n) with NFSS spec.: <->"Latin Modern
-(fontspec)             Sans/B/OT:script=latn;language=dflt;"
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
-(fontspec)             - 'italic' (m/it) with NFSS spec.: <->"Latin Modern
-(fontspec)             Sans/I/OT:script=latn;language=dflt;"
-(fontspec)             - 'italic small caps'  (m/scit) with NFSS spec.: 
-(fontspec)             - 'bold italic' (b/it) with NFSS spec.: <->"Latin
-(fontspec)             Modern Sans/BI/OT:script=latn;language=dflt;"
-(fontspec)             - 'bold italic small caps'  (b/scit) with NFSS spec.: 
+(fontspec)             - 'normal' (m/n) with NFSS spec.:
+(fontspec)             <->"[lmsans10-regular.otf]/OT:script=latn;language=dflt;
+"
+(fontspec)             - 'bold' (b/n) with NFSS spec.:
+(fontspec)             <->"[lmsans10-bold.otf]/OT:script=latn;language=dflt;"
+(fontspec)             - 'italic' (m/it) with NFSS spec.:
+(fontspec)             <->"[lmsans10-oblique.otf]/OT:script=latn;language=dflt;
+"
+(fontspec)             - 'bold italic' (b/it) with NFSS spec.:
+(fontspec)             <->"[lmsans10-boldoblique.otf]/OT:script=latn;language=d
+flt;"
 
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `normal'
 (Font)                  OT1/cmss/m/n --> TU/LatinModernSans(1)/m/n on input lin
-e 8.
+e 19.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
 (Font)                  OT1/cmss/bx/n --> TU/LatinModernSans(1)/b/n on input li
-ne 8.
+ne 19.
 
-Package fontspec Info: Could not resolve font "Latin Modern Mono/B" (it
-(fontspec)             probably doesn't exist).
+Package fontspec Info: 
+(fontspec)             lmmono10-regular scale = 0.88.
 
 
-Package fontspec Info: Font family 'LatinModernMono(0)' created for font
+Package fontspec Info: 
+(fontspec)             lmmono10-regular scale = 0.88.
+
+
+Package fontspec Info: 
+(fontspec)             lmmono10-italic scale = 0.88.
+
+
+Package fontspec Info: 
+(fontspec)             Font family 'LatinModernMono(0)' created for font
 (fontspec)             'Latin Modern Mono' with options
 (fontspec)             [WordSpace={1,0,0},HyphenChar=None,PunctuationSpace=Word
-Space,Scale=0.88].
+Space,Extension=.otf,UprightFont=lmmono10-regular,ItalicFont=lmmono10-italic,Sc
+ale=0.88].
 (fontspec)              
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
 (fontspec)              
-(fontspec)             - 'normal' (m/n) with NFSS spec.: <->s*[0.88]"Latin
-(fontspec)             Modern Mono/OT:script=latn;language=dflt;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             and font adjustment code:
-(fontspec)             \fontdimen 2\font =1\fontdimen 2\font \fontdimen 3\font
-(fontspec)             =0\fontdimen 3\font \fontdimen 4\font =0\fontdimen
-(fontspec)             4\font \fontdimen 7\font =0\fontdimen 2\font
-(fontspec)             \tex_hyphenchar:D \font =-1\scan_stop: 
-(fontspec)             - 'italic' (m/it) with NFSS spec.: <->s*[0.88]"Latin
-(fontspec)             Modern Mono/I/OT:script=latn;language=dflt;"
-(fontspec)             - 'italic small caps'  (m/scit) with NFSS spec.: 
-(fontspec)             and font adjustment code:
-(fontspec)             \fontdimen 2\font =1\fontdimen 2\font \fontdimen 3\font
-(fontspec)             =0\fontdimen 3\font \fontdimen 4\font =0\fontdimen
-(fontspec)             4\font \fontdimen 7\font =0\fontdimen 2\font
-(fontspec)             \tex_hyphenchar:D \font =-1\scan_stop: 
-(fontspec)             - 'bold italic' (b/it) with NFSS spec.:
-(fontspec)             <->s*[0.88]"Latin Modern
-(fontspec)             Mono/BI/OT:script=latn;language=dflt;"
-(fontspec)             - 'bold italic small caps'  (b/scit) with NFSS spec.: 
-(fontspec)             and font adjustment code:
-(fontspec)             \fontdimen 2\font =1\fontdimen 2\font \fontdimen 3\font
-(fontspec)             =0\fontdimen 3\font \fontdimen 4\font =0\fontdimen
-(fontspec)             4\font \fontdimen 7\font =0\fontdimen 2\font
-(fontspec)             \tex_hyphenchar:D \font =-1\scan_stop: 
+(fontspec)             - 'normal' (m/n) with NFSS spec.:
+(fontspec)             <->s*[0.88]"[lmmono10-regular.otf]/OT:script=latn;langua
+ge=dflt;"
+(fontspec)             - 'italic' (m/it) with NFSS spec.:
+(fontspec)             <->s*[0.88]"[lmmono10-italic.otf]/OT:script=latn;languag
+e=dflt;"
 
 
-Package fontspec Info: Could not resolve font "Latin Modern Mono/B" (it
-(fontspec)             probably doesn't exist).
+Package fontspec Info: 
+(fontspec)             lmmono10-regular scale = 0.88.
 
 
-Package fontspec Info: Font family 'LatinModernMono(1)' created for font
-(fontspec)             'Latin Modern Mono' with options [Scale=0.88].
+Package fontspec Info: 
+(fontspec)             lmmono10-regular scale = 0.88.
+
+
+Package fontspec Info: 
+(fontspec)             lmmono10-italic scale = 0.88.
+
+
+Package fontspec Info: 
+(fontspec)             Font family 'LatinModernMono(1)' created for font
+(fontspec)             'Latin Modern Mono' with options
+(fontspec)             [Extension=.otf,UprightFont=lmmono10-regular,ItalicFont=
+lmmono10-italic,Scale=0.88].
 (fontspec)              
 (fontspec)              This font family consists of the following NFSS
 (fontspec)             series/shapes:
 (fontspec)              
-(fontspec)             - 'normal' (m/n) with NFSS spec.: <->s*[0.88]"Latin
-(fontspec)             Modern Mono/OT:script=latn;language=dflt;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             - 'italic' (m/it) with NFSS spec.: <->s*[0.88]"Latin
-(fontspec)             Modern Mono/I/OT:script=latn;language=dflt;"
-(fontspec)             - 'italic small caps'  (m/scit) with NFSS spec.: 
-(fontspec)             - 'bold italic' (b/it) with NFSS spec.:
-(fontspec)             <->s*[0.88]"Latin Modern
-(fontspec)             Mono/BI/OT:script=latn;language=dflt;"
-(fontspec)             - 'bold italic small caps'  (b/scit) with NFSS spec.: 
+(fontspec)             - 'normal' (m/n) with NFSS spec.:
+(fontspec)             <->s*[0.88]"[lmmono10-regular.otf]/OT:script=latn;langua
+ge=dflt;"
+(fontspec)             - 'italic' (m/it) with NFSS spec.:
+(fontspec)             <->s*[0.88]"[lmmono10-italic.otf]/OT:script=latn;languag
+e=dflt;"
 
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `normal'
 (Font)                  OT1/cmtt/m/n --> TU/LatinModernMono(1)/m/n on input lin
-e 8.
+e 25.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
 (Font)                  OT1/cmtt/m/n --> TU/LatinModernMono(1)/b/n on input lin
-e 8.
-(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
-Package: graphicx 2021/09/16 v1.2d Enhanced LaTeX Graphics (DPC,SPQR)
+e 25.
 
-(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/graphicx.sty
+Package: graphicx 2024/12/31 v1.2e Enhanced LaTeX Graphics (DPC,SPQR)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/keyval.sty
 Package: keyval 2022/05/29 v1.15 key=value parser (DPC)
-\KV@toks@=\toks21
+\KV@toks@=\toks22
 )
-(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty
-Package: graphics 2022/03/10 v1.4e Standard LaTeX Graphics (DPC,SPQR)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/graphics.sty
+Package: graphics 2024/08/06 v1.4g Standard LaTeX Graphics (DPC,SPQR)
 
-(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty
-Package: trig 2021/08/11 v1.11 sin cos tan (DPC)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/trig.sty
+Package: trig 2023/12/02 v1.11 sin cos tan (DPC)
 )
-(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-cfg/graphics.cfg
 File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
 )
-Package graphics Info: Driver file: xetex.def on input line 107.
+Package graphics Info: Driver file: xetex.def on input line 106.
 
-(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/xetex.def
-File: xetex.def 2022/09/22 v5.0n Graphics/color driver for xetex
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-def/xetex.def
+File: xetex.def 2025/11/01 v5.0p Graphics/color driver for xetex
 ))
-\Gin@req@height=\dimen153
-\Gin@req@width=\dimen154
+\Gin@req@height=\dimen161
+\Gin@req@width=\dimen162
 )
-(/usr/share/texlive/texmf-dist/tex/latex/booktabs/booktabs.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/booktabs/booktabs.sty
 Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
-\heavyrulewidth=\dimen155
-\lightrulewidth=\dimen156
-\cmidrulewidth=\dimen157
-\belowrulesep=\dimen158
-\belowbottomsep=\dimen159
-\aboverulesep=\dimen160
-\abovetopsep=\dimen161
-\cmidrulesep=\dimen162
-\cmidrulekern=\dimen163
-\defaultaddspace=\dimen164
-\@cmidla=\count285
-\@cmidlb=\count286
-\@aboverulesep=\dimen165
-\@belowrulesep=\dimen166
-\@thisruleclass=\count287
-\@lastruleclass=\count288
-\@thisrulewidth=\dimen167
+\heavyrulewidth=\dimen163
+\lightrulewidth=\dimen164
+\cmidrulewidth=\dimen165
+\belowrulesep=\dimen166
+\belowbottomsep=\dimen167
+\aboverulesep=\dimen168
+\abovetopsep=\dimen169
+\cmidrulesep=\dimen170
+\cmidrulekern=\dimen171
+\defaultaddspace=\dimen172
+\@cmidla=\count308
+\@cmidlb=\count309
+\@aboverulesep=\dimen173
+\@belowrulesep=\dimen174
+\@thisruleclass=\count310
+\@lastruleclass=\count311
+\@thisrulewidth=\dimen175
 )
-(/usr/share/texlive/texmf-dist/tex/latex/tools/tabularx.sty
-Package: tabularx 2020/01/15 v2.11c `tabularx' package (DPC)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/tabularx.sty
+Package: tabularx 2023/12/11 v2.12a `tabularx' package (DPC)
 
-(/usr/share/texlive/texmf-dist/tex/latex/tools/array.sty
-Package: array 2022/09/04 v2.5g Tabular extension package (FMi)
-\col@sep=\dimen168
-\ar@mcellbox=\box54
-\extrarowheight=\dimen169
-\NC@list=\toks22
-\extratabsurround=\skip53
-\backup@length=\skip54
-\ar@cellbox=\box55
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/array.sty
+Package: array 2025/09/25 v2.6n Tabular extension package (FMi)
+\col@sep=\dimen176
+\ar@mcellbox=\box55
+\extrarowheight=\dimen177
+\NC@list=\toks23
+\extratabsurround=\skip54
+\backup@length=\skip55
+\ar@cellbox=\box56
 )
-\TX@col@width=\dimen170
-\TX@old@table=\dimen171
-\TX@old@col=\dimen172
-\TX@target=\dimen173
-\TX@delta=\dimen174
-\TX@cols=\count289
-\TX@ftn=\toks23
+\TX@col@width=\dimen178
+\TX@old@table=\dimen179
+\TX@old@col=\dimen180
+\TX@target=\dimen181
+\TX@delta=\dimen182
+\TX@cols=\count312
+\TX@ftn=\toks24
 )
-(/usr/share/texlive/texmf-dist/tex/latex/ragged2e/ragged2e.sty
-Package: ragged2e 2023/02/25 v3.4 ragged2e Package
-\CenteringLeftskip=\skip55
-\RaggedLeftLeftskip=\skip56
-\RaggedRightLeftskip=\skip57
-\CenteringRightskip=\skip58
-\RaggedLeftRightskip=\skip59
-\RaggedRightRightskip=\skip60
-\CenteringParfillskip=\skip61
-\RaggedLeftParfillskip=\skip62
-\RaggedRightParfillskip=\skip63
-\JustifyingParfillskip=\skip64
-\CenteringParindent=\skip65
-\RaggedLeftParindent=\skip66
-\RaggedRightParindent=\skip67
-\JustifyingParindent=\skip68
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/ragged2e/ragged2e.sty
+Package: ragged2e 2023/06/22 v3.6 ragged2e Package
+\CenteringLeftskip=\skip56
+\RaggedLeftLeftskip=\skip57
+\RaggedRightLeftskip=\skip58
+\CenteringRightskip=\skip59
+\RaggedLeftRightskip=\skip60
+\RaggedRightRightskip=\skip61
+\CenteringParfillskip=\skip62
+\RaggedLeftParfillskip=\skip63
+\RaggedRightParfillskip=\skip64
+\JustifyingParfillskip=\skip65
+\CenteringParindent=\skip66
+\RaggedLeftParindent=\skip67
+\RaggedRightParindent=\skip68
+\JustifyingParindent=\skip69
 )
-(/usr/share/texlive/texmf-dist/tex/latex/microtype/microtype.sty
-Package: microtype 2023/03/13 v3.1a Micro-typographical refinements (RS)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype.sty
+Package: microtype 2026/03/01 v3.2d Micro-typographical refinements (RS)
 
-(/usr/share/texlive/texmf-dist/tex/latex/etoolbox/etoolbox.sty
-Package: etoolbox 2020/10/05 v2.5k e-TeX tools for LaTeX (JAW)
-\etb@tempcnta=\count290
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/etoolbox/etoolbox.sty
+Package: etoolbox 2025/10/02 v2.5m e-TeX tools for LaTeX (JAW)
+\etb@tempcnta=\count313
 )
-\MT@toks=\toks24
-\MT@tempbox=\box56
-\MT@count=\count291
-LaTeX Info: Redefining \noprotrusionifhmode on input line 1059.
-LaTeX Info: Redefining \leftprotrusion on input line 1060.
-\MT@prot@toks=\toks25
-LaTeX Info: Redefining \rightprotrusion on input line 1078.
-LaTeX Info: Redefining \textls on input line 1368.
-\MT@outer@kern=\dimen175
-LaTeX Info: Redefining \textmicrotypecontext on input line 1988.
-\MT@listname@count=\count292
+\MT@toks=\toks25
+\MT@tempbox=\box57
+\MT@count=\count314
+LaTeX Info: Redefining \noprotrusionifhmode on input line 1084.
+LaTeX Info: Redefining \leftprotrusion on input line 1085.
+\MT@prot@toks=\toks26
+LaTeX Info: Redefining \rightprotrusion on input line 1104.
+LaTeX Info: Redefining \textls on input line 1449.
+\MT@outer@kern=\dimen183
+LaTeX Info: Redefining \microtypecontext on input line 2053.
+LaTeX Info: Redefining \textmicrotypecontext on input line 2070.
+\MT@listname@count=\count315
 
-(/usr/share/texlive/texmf-dist/tex/latex/microtype/microtype-xetex.def
-File: microtype-xetex.def 2023/03/13 v3.1a Definitions specific to xetex (RS)
-LaTeX Info: Redefining \lsstyle on input line 238.
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype-xetex.de
+f
+File: microtype-xetex.def 2026/03/01 v3.2d Definitions specific to xetex (RS)
+LaTeX Info: Redefining \lsstyle on input line 443.
+LaTeX Info: Redefining \lslig on input line 451.
+\MT@outer@space=\skip70
 )
 Package microtype Info: Loading configuration file microtype.cfg.
-
-(/usr/share/texlive/texmf-dist/tex/latex/microtype/microtype.cfg
-File: microtype.cfg 2023/03/13 v3.1a microtype main configuration file (RS)
-))
-(/usr/share/texlive/texmf-dist/tex/latex/natbib/natbib.sty
-Package: natbib 2010/09/13 8.31b (PWD, AO)
-\bibhang=\skip69
-\bibsep=\skip70
-LaTeX Info: Redefining \cite on input line 694.
-\c@NAT@ctr=\count293
+ (/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype.cfg
+File: microtype.cfg 2026/03/01 v3.2d microtype main configuration file (RS)
 )
-(/usr/share/texlive/texmf-dist/tex/latex/tools/multicol.sty
-Package: multicol 2021/11/30 v1.9d multicolumn formatting (FMi)
-\c@tracingmulticols=\count294
-\mult@box=\box57
-\multicol@leftmargin=\dimen176
-\c@unbalance=\count295
-\c@collectmore=\count296
-\doublecol@number=\count297
-\multicoltolerance=\count298
-\multicolpretolerance=\count299
-\full@width=\dimen177
-\page@free=\dimen178
-\premulticols=\dimen179
-\postmulticols=\dimen180
-\multicolsep=\skip71
-\multicolbaselineskip=\skip72
-\partial@page=\box58
-\last@line=\box59
-\maxbalancingoverflow=\dimen181
-\mult@rightbox=\box60
-\mult@grightbox=\box61
-\mult@firstbox=\box62
-\mult@gfirstbox=\box63
-\@tempa=\box64
-\@tempa=\box65
+LaTeX Info: Redefining \microtypesetup on input line 3065.
+) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/natbib/natbib.sty
+Package: natbib 2010/09/13 8.31b (PWD, AO)
+\bibhang=\skip71
+\bibsep=\skip72
+LaTeX Info: Redefining \cite on input line 694.
+\c@NAT@ctr=\count316
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/multicol.sty
+Package: multicol 2025/10/21 v2.0b multicolumn formatting (FMi)
+\c@tracingmulticols=\count317
+\mult@box=\box58
+\multicol@leftmargin=\dimen184
+\c@unbalance=\count318
+\c@collectmore=\count319
+\doublecol@number=\count320
+\multicoltolerance=\count321
+\multicolpretolerance=\count322
+\full@width=\dimen185
+\page@free=\dimen186
+\premulticols=\dimen187
+\postmulticols=\dimen188
+\multicolsep=\skip73
+\multicolbaselineskip=\skip74
+\partial@page=\box59
+\last@line=\box60
+\mc@boxedresult=\box61
+\maxbalancingoverflow=\dimen189
+\mult@rightbox=\box62
+\mult@grightbox=\box63
+\mult@firstbox=\box64
+\mult@gfirstbox=\box65
 \@tempa=\box66
 \@tempa=\box67
 \@tempa=\box68
@@ -494,46 +762,50 @@ Package: multicol 2021/11/30 v1.9d multicolumn formatting (FMi)
 \@tempa=\box97
 \@tempa=\box98
 \@tempa=\box99
-\c@minrows=\count300
-\c@columnbadness=\count301
-\c@finalcolumnbadness=\count302
-\last@try=\dimen182
-\multicolovershoot=\dimen183
-\multicolundershoot=\dimen184
-\mult@nat@firstbox=\box100
-\colbreak@box=\box101
-\mc@col@check@num=\count303
+\@tempa=\box100
+\@tempa=\box101
+\c@minrows=\count323
+\c@columnbadness=\count324
+\c@finalcolumnbadness=\count325
+\last@try=\dimen190
+\multicolovershoot=\dimen191
+\multicolundershoot=\dimen192
+\mult@nat@firstbox=\box102
+\colbreak@box=\box103
+\mc@col@check@num=\count326
+\g__mc_curr_col_int=\count327
 )
-(/usr/share/texlive/texmf-dist/tex/latex/geometry/geometry.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/geometry/geometry.sty
 Package: geometry 2020/01/02 v5.9 Page Geometry
 
-(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifvtex.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/ifvtex.sty
 Package: ifvtex 2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.
 
-(/usr/share/texlive/texmf-dist/tex/generic/iftex/iftex.sty
-Package: iftex 2022/02/03 v1.0f TeX engine tests
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/iftex.sty
+Package: iftex 2024/12/12 v1.0g TeX engine tests
 ))
-\Gm@cnth=\count304
-\Gm@cntv=\count305
-\c@Gm@tempcnt=\count306
-\Gm@bindingoffset=\dimen185
-\Gm@wd@mp=\dimen186
-\Gm@odd@mp=\dimen187
-\Gm@even@mp=\dimen188
-\Gm@layoutwidth=\dimen189
-\Gm@layoutheight=\dimen190
-\Gm@layouthoffset=\dimen191
-\Gm@layoutvoffset=\dimen192
-\Gm@dimlist=\toks26
+\Gm@cnth=\count328
+\Gm@cntv=\count329
+\c@Gm@tempcnt=\count330
+\Gm@bindingoffset=\dimen193
+\Gm@wd@mp=\dimen194
+\Gm@odd@mp=\dimen195
+\Gm@even@mp=\dimen196
+\Gm@layoutwidth=\dimen197
+\Gm@layoutheight=\dimen198
+\Gm@layouthoffset=\dimen199
+\Gm@layoutvoffset=\dimen256
+\Gm@dimlist=\toks27
 )
-(..//ac-paper-layout.sty
+(../ac-paper-layout.sty
 
-LaTeX Warning: You have requested package `..//ac-paper-layout',
+LaTeX Warning: You have requested package `../ac-paper-layout',
                but the package provides `ac-paper-layout'.
 
 Package: ac-paper-layout 2026/03/16 Aesthetic Computer paper layout
 
-Package fontspec Info: Font family 'ywft-processing-bold(0)' created for font
+Package fontspec Info: 
+(fontspec)             Font family 'ywft-processing-bold(0)' created for font
 (fontspec)             'ywft-processing-bold' with options
 (fontspec)             [Path=../../system/public/type/webfonts/,Extension=.ttf]
 .
@@ -544,10 +816,10 @@ Package fontspec Info: Font family 'ywft-processing-bold(0)' created for font
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[../../system/public/type/webfonts/ywft-processing-b
 old.ttf]/OT:script=latn;language=dflt;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
 
 
-Package fontspec Info: Font family 'ywft-processing-light(0)' created for font
+Package fontspec Info: 
+(fontspec)             Font family 'ywft-processing-light(0)' created for font
 (fontspec)             'ywft-processing-light' with options
 (fontspec)             [Path=../../system/public/type/webfonts/,Extension=.ttf]
 .
@@ -558,7 +830,6 @@ Package fontspec Info: Font family 'ywft-processing-light(0)' created for font
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[../../system/public/type/webfonts/ywft-processing-l
 ight.ttf]/OT:script=latn;language=dflt;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
 
 ! Undefined control sequence.
 l.36 \definecolor
@@ -623,501 +894,491 @@ Overfull \hbox (89.94102pt too wide) in paragraph at lines 36--41
 cdarkRGB64,56,74 acgrayRGB119,119,119
  []
 
-(/usr/share/texlive/texmf-dist/tex/latex/eso-pic/eso-pic.sty
-Package: eso-pic 2020/10/14 v3.0a eso-pic (RN)
-\ESO@tempdima=\dimen193
-\ESO@tempdimb=\dimen194
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/eso-pic/eso-pic.sty
+Package: eso-pic 2025/12/10 v3.0d eso-pic (RN)
+\ESO@tempdima=\dimen257
+\ESO@tempdimb=\dimen258
 
-(/usr/share/texlive/texmf-dist/tex/latex/xcolor/xcolor.sty
-Package: xcolor 2022/06/12 v2.14 LaTeX color extensions (UK)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xcolor/xcolor.sty
+Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
 
-(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/color.cfg
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-cfg/color.cfg
 File: color.cfg 2016/01/02 v1.6 sample color configuration
 )
-Package xcolor Info: Driver file: xetex.def on input line 227.
+Package xcolor Info: Driver file: xetex.def on input line 274.
 
-(/usr/share/texlive/texmf-dist/tex/latex/graphics/mathcolor.ltx)
-Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1353.
-Package xcolor Info: Model `RGB' extended on input line 1369.
-Package xcolor Info: Model `HTML' substituted by `rgb' on input line 1371.
-Package xcolor Info: Model `Hsb' substituted by `hsb' on input line 1372.
-Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1373.
-Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1374.
-Package xcolor Info: Model `Gray' substituted by `gray' on input line 1375.
-Package xcolor Info: Model `wave' substituted by `hsb' on input line 1376.
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/mathcolor.ltx)
+Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1349.
+Package xcolor Info: Model `RGB' extended on input line 1365.
+Package xcolor Info: Model `HTML' substituted by `rgb' on input line 1367.
+Package xcolor Info: Model `Hsb' substituted by `hsb' on input line 1368.
+Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1369.
+Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1370.
+Package xcolor Info: Model `Gray' substituted by `gray' on input line 1371.
+Package xcolor Info: Model `wave' substituted by `hsb' on input line 1372.
 ))
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/frontendlayer/tikz.sty
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/basiclayer/pgf.sty
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/utilities/pgfrcs.sty
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfutil-common.tex
-\pgfutil@everybye=\toks27
-\pgfutil@tempdima=\dimen195
-\pgfutil@tempdimb=\dimen196
+(/Users/jas/Library/texmf/tex/latex/pgf/frontendlayer/tikz.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/basiclayer/pgf.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgfrcs.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-common.tex
+\pgfutil@everybye=\toks28
+\pgfutil@tempdima=\dimen259
+\pgfutil@tempdimb=\dimen260
 )
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfutil-latex.def
-\pgfutil@abb=\box102
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-latex.def
+\pgfutil@abb=\box104
 )
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfrcs.code.tex
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/pgf.revision.tex)
-Package: pgfrcs 2023-01-15 v3.1.10 (3.1.10)
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfrcs.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/pgf.revision.tex)
+Package: pgfrcs 2025-08-29 v3.1.11a (3.1.11a)
 ))
-Package: pgf 2023-01-15 v3.1.10 (3.1.10)
+Package: pgf 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/basiclayer/pgfcore.sty
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/systemlayer/pgfsys.sty
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsys.code.tex
-Package: pgfsys 2023-01-15 v3.1.10 (3.1.10)
+(/Users/jas/Library/texmf/tex/latex/pgf/basiclayer/pgfcore.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/systemlayer/pgfsys.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys.code.tex
+Package: pgfsys 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex
-\pgfkeys@pathtoks=\toks28
-\pgfkeys@temptoks=\toks29
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeys.code.tex
+\pgfkeys@pathtoks=\toks29
+\pgfkeys@temptoks=\toks30
 
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfkeyslibraryfiltered
-.code.tex
-\pgfkeys@tmptoks=\toks30
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeyslibraryfiltered.code
+.tex
+\pgfkeys@tmptoks=\toks31
 ))
-\pgf@x=\dimen197
-\pgf@y=\dimen198
-\pgf@xa=\dimen199
-\pgf@ya=\dimen256
-\pgf@xb=\dimen257
-\pgf@yb=\dimen258
-\pgf@xc=\dimen259
-\pgf@yc=\dimen260
-\pgf@xd=\dimen261
-\pgf@yd=\dimen262
+\pgf@x=\dimen261
+\pgf@y=\dimen262
+\pgf@xa=\dimen263
+\pgf@ya=\dimen264
+\pgf@xb=\dimen265
+\pgf@yb=\dimen266
+\pgf@xc=\dimen267
+\pgf@yc=\dimen268
+\pgf@xd=\dimen269
+\pgf@yd=\dimen270
 \w@pgf@writea=\write3
 \r@pgf@reada=\read2
-\c@pgf@counta=\count307
-\c@pgf@countb=\count308
-\c@pgf@countc=\count309
-\c@pgf@countd=\count310
-\t@pgf@toka=\toks31
-\t@pgf@tokb=\toks32
-\t@pgf@tokc=\toks33
-\pgf@sys@id@count=\count311
- (/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgf.cfg
-File: pgf.cfg 2023-01-15 v3.1.10 (3.1.10)
+\c@pgf@counta=\count331
+\c@pgf@countb=\count332
+\c@pgf@countc=\count333
+\c@pgf@countd=\count334
+\t@pgf@toka=\toks32
+\t@pgf@tokb=\toks33
+\t@pgf@tokc=\toks34
+\pgf@sys@id@count=\count335
+ (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgf.cfg
+File: pgf.cfg 2025-08-29 v3.1.11a (3.1.11a)
 )
 Driver file for pgf: pgfsys-xetex.def
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-xetex.def
-File: pgfsys-xetex.def 2023-01-15 v3.1.10 (3.1.10)
 
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-dvipdfmx.def
-File: pgfsys-dvipdfmx.def 2023-01-15 v3.1.10 (3.1.10)
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-xetex.def
+File: pgfsys-xetex.def 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsys-common-pdf.de
-f
-File: pgfsys-common-pdf.def 2023-01-15 v3.1.10 (3.1.10)
-)
-\pgfsys@objnum=\count312
-)))
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsyssoftpath.code.
-tex
-File: pgfsyssoftpath.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgfsyssoftpath@smallbuffer@items=\count313
-\pgfsyssoftpath@bigbuffer@items=\count314
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/systemlayer/pgfsysprotocol.code.
-tex
-File: pgfsysprotocol.code.tex 2023-01-15 v3.1.10 (3.1.10)
-))
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcore.code.tex
-Package: pgfcore 2023-01-15 v3.1.10 (3.1.10)
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-dvipdfmx.def
+File: pgfsys-dvipdfmx.def 2025-08-29 v3.1.11a (3.1.11a)
 
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathutil.code.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathparser.code.tex
-\pgfmath@dimen=\dimen263
-\pgfmath@count=\count315
-\pgfmath@box=\box103
-\pgfmath@toks=\toks34
-\pgfmath@stack@operand=\toks35
-\pgfmath@stack@operation=\toks36
+(/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-common-pdf.def
+File: pgfsys-common-pdf.def 2025-08-29 v3.1.11a (3.1.11a)
 )
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.code.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.basic.code
-.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.trigonomet
-ric.code.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.random.cod
-e.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.comparison
-.code.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.base.code.
-tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.round.code
-.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.misc.code.
-tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfunctions.integerari
-thmetics.code.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathcalc.code.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmathfloat.code.tex
-\c@pgfmathroundto@lastzeros=\count316
-))
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfint.code.tex)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepoints.code.te
-x
-File: pgfcorepoints.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgf@picminx=\dimen264
-\pgf@picmaxx=\dimen265
-\pgf@picminy=\dimen266
-\pgf@picmaxy=\dimen267
-\pgf@pathminx=\dimen268
-\pgf@pathmaxx=\dimen269
-\pgf@pathminy=\dimen270
-\pgf@pathmaxy=\dimen271
-\pgf@xx=\dimen272
-\pgf@xy=\dimen273
-\pgf@yx=\dimen274
-\pgf@yy=\dimen275
-\pgf@zx=\dimen276
-\pgf@zy=\dimen277
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathconstruct.
-code.tex
-File: pgfcorepathconstruct.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgf@path@lastx=\dimen278
-\pgf@path@lasty=\dimen279
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathusage.code
-.tex
-File: pgfcorepathusage.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgf@shorten@end@additional=\dimen280
-\pgf@shorten@start@additional=\dimen281
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorescopes.code.te
-x
-File: pgfcorescopes.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgfpic=\box104
-\pgf@hbox=\box105
-\pgf@layerbox@main=\box106
-\pgf@picture@serial@count=\count317
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoregraphicstate.c
-ode.tex
-File: pgfcoregraphicstate.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgflinewidth=\dimen282
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretransformation
-s.code.tex
-File: pgfcoretransformations.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgf@pt@x=\dimen283
-\pgf@pt@y=\dimen284
-\pgf@pt@temp=\dimen285
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorequick.code.tex
-File: pgfcorequick.code.tex 2023-01-15 v3.1.10 (3.1.10)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreobjects.code.t
+\pgfsys@objnum=\count336
+))) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsyssoftpath.code.t
 ex
-File: pgfcoreobjects.code.tex 2023-01-15 v3.1.10 (3.1.10)
+File: pgfsyssoftpath.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfsyssoftpath@smallbuffer@items=\count337
+\pgfsyssoftpath@bigbuffer@items=\count338
+) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsysprotocol.code.tex
+File: pgfsysprotocol.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcore.code.tex
+Package: pgfcore 2025-08-29 v3.1.11a (3.1.11a)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathutil.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathparser.code.tex
+\pgfmath@dimen=\dimen271
+\pgfmath@count=\count339
+\pgfmath@box=\box105
+\pgfmath@toks=\toks35
+\pgfmath@stack@operand=\toks36
+\pgfmath@stack@operation=\toks37
 )
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepathprocessing
-.code.tex
-File: pgfcorepathprocessing.code.tex 2023-01-15 v3.1.10 (3.1.10)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.basic.code.tex)
+
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.trigonometric.c
+ode.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.random.code.tex
 )
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorearrows.code.te
-x
-File: pgfcorearrows.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgfarrowsep=\dimen286
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreshade.code.tex
-File: pgfcoreshade.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgf@max=\dimen287
-\pgf@sys@shading@range@num=\count318
-\pgf@shadingcount=\count319
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreimage.code.tex
-File: pgfcoreimage.code.tex 2023-01-15 v3.1.10 (3.1.10)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoreexternal.code.
-tex
-File: pgfcoreexternal.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgfexternal@startupbox=\box107
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorelayers.code.te
-x
-File: pgfcorelayers.code.tex 2023-01-15 v3.1.10 (3.1.10)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcoretransparency.c
-ode.tex
-File: pgfcoretransparency.code.tex 2023-01-15 v3.1.10 (3.1.10)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorepatterns.code.
-tex
-File: pgfcorepatterns.code.tex 2023-01-15 v3.1.10 (3.1.10)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/basiclayer/pgfcorerdf.code.tex
-File: pgfcorerdf.code.tex 2023-01-15 v3.1.10 (3.1.10)
-)))
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/modules/pgfmoduleshapes.code.tex
-File: pgfmoduleshapes.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgfnodeparttextbox=\box108
-) (/usr/share/texlive/texmf-dist/tex/generic/pgf/modules/pgfmoduleplot.code.tex
-File: pgfmoduleplot.code.tex 2023-01-15 v3.1.10 (3.1.10)
-)
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-version-0-65
-.sty
-Package: pgfcomp-version-0-65 2023-01-15 v3.1.10 (3.1.10)
-\pgf@nodesepstart=\dimen288
-\pgf@nodesepend=\dimen289
-)
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/compatibility/pgfcomp-version-1-18
-.sty
-Package: pgfcomp-version-1-18 2023-01-15 v3.1.10 (3.1.10)
-)) (/usr/share/texlive/texmf-dist/tex/latex/pgf/utilities/pgffor.sty
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/utilities/pgfkeys.sty
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex))
-(/usr/share/texlive/texmf-dist/tex/latex/pgf/math/pgfmath.sty
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex))
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/utilities/pgffor.code.tex
-Package: pgffor 2023-01-15 v3.1.10 (3.1.10)
-\pgffor@iter=\dimen290
-\pgffor@skip=\dimen291
-\pgffor@stack=\toks37
-\pgffor@toks=\toks38
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.comparison.code
+.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.base.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.round.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.misc.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfunctions.integerarithmet
+ics.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathcalc.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfloat.code.tex
+\c@pgfmathroundto@lastzeros=\count340
 ))
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/tikz.code.tex
-Package: tikz 2023-01-15 v3.1.10 (3.1.10)
-
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/pgflibraryplothandlers
-.code.tex
-File: pgflibraryplothandlers.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgf@plot@mark@count=\count320
-\pgfplotmarksize=\dimen292
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfint.code.tex)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepoints.code.tex
+File: pgfcorepoints.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@picminx=\dimen272
+\pgf@picmaxx=\dimen273
+\pgf@picminy=\dimen274
+\pgf@picmaxy=\dimen275
+\pgf@pathminx=\dimen276
+\pgf@pathmaxx=\dimen277
+\pgf@pathminy=\dimen278
+\pgf@pathmaxy=\dimen279
+\pgf@xx=\dimen280
+\pgf@xy=\dimen281
+\pgf@yx=\dimen282
+\pgf@yy=\dimen283
+\pgf@zx=\dimen284
+\pgf@zy=\dimen285
 )
-\tikz@lastx=\dimen293
-\tikz@lasty=\dimen294
-\tikz@lastxsaved=\dimen295
-\tikz@lastysaved=\dimen296
-\tikz@lastmovetox=\dimen297
-\tikz@lastmovetoy=\dimen298
-\tikzleveldistance=\dimen299
-\tikzsiblingdistance=\dimen300
-\tikz@figbox=\box109
-\tikz@figbox@bg=\box110
-\tikz@tempbox=\box111
-\tikz@tempbox@bg=\box112
-\tikztreelevel=\count321
-\tikznumberofchildren=\count322
-\tikznumberofcurrentchild=\count323
-\tikz@fig@count=\count324
-
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/modules/pgfmodulematrix.code.tex
-File: pgfmodulematrix.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgfmatrixcurrentrow=\count325
-\pgfmatrixcurrentcolumn=\count326
-\pgf@matrix@numberofcolumns=\count327
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathconstruct.code.
+tex
+File: pgfcorepathconstruct.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@path@lastx=\dimen286
+\pgf@path@lasty=\dimen287
 )
-\tikz@expandcount=\count328
-
-(/usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tik
-zlibrarytopaths.code.tex
-File: tikzlibrarytopaths.code.tex 2023-01-15 v3.1.10 (3.1.10)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathusage.code.tex
+File: pgfcorepathusage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@shorten@end@additional=\dimen288
+\pgf@shorten@start@additional=\dimen289
+) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorescopes.code.tex
+File: pgfcorescopes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfpic=\box106
+\pgf@hbox=\box107
+\pgf@layerbox@main=\box108
+\pgf@picture@serial@count=\count341
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoregraphicstate.code.t
+ex
+File: pgfcoregraphicstate.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgflinewidth=\dimen290
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoretransformations.cod
+e.tex
+File: pgfcoretransformations.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@pt@x=\dimen291
+\pgf@pt@y=\dimen292
+\pgf@pt@temp=\dimen293
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorequick.code.tex
+File: pgfcorequick.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreobjects.code.tex
+File: pgfcoreobjects.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathprocessing.code
+.tex
+File: pgfcorepathprocessing.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorearrows.code.tex
+File: pgfcorearrows.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfarrowsep=\dimen294
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreshade.code.tex
+File: pgfcoreshade.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@max=\dimen295
+\pgf@sys@shading@range@num=\count342
+\pgf@shadingcount=\count343
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreimage.code.tex
+File: pgfcoreimage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreexternal.code.tex
+File: pgfcoreexternal.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfexternal@startupbox=\box109
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorelayers.code.tex
+File: pgfcorelayers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoretransparency.code.t
+ex
+File: pgfcoretransparency.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepatterns.code.tex
+File: pgfcorepatterns.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorerdf.code.tex
+File: pgfcorerdf.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )))
-(/usr/share/texlive/texmf-dist/tex/latex/titlesec/titlesec.sty
-Package: titlesec 2021/07/05 v2.14 Sectioning titles
-\ttl@box=\box113
-\beforetitleunit=\skip73
-\aftertitleunit=\skip74
-\ttl@plus=\dimen301
-\ttl@minus=\dimen302
-\ttl@toksa=\toks39
-\titlewidth=\dimen303
-\titlewidthlast=\dimen304
-\titlewidthfirst=\dimen305
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleshapes.code.tex
+File: pgfmoduleshapes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfnodeparttextbox=\box110
 )
-(/usr/share/texlive/texmf-dist/tex/latex/fancyhdr/fancyhdr.sty
-Package: fancyhdr 2022/11/09 v4.1 Extensive control of page headers and footers
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleplot.code.tex
+File: pgfmoduleplot.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)
+(/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-0-65.sty
+Package: pgfcomp-version-0-65 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@nodesepstart=\dimen296
+\pgf@nodesepend=\dimen297
+) (/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-1-18.st
+y
+Package: pgfcomp-version-1-18 2025-08-29 v3.1.11a (3.1.11a)
+)) (/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgffor.sty
+(/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgfkeys.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfkeys.code.tex))
+(/Users/jas/Library/texmf/tex/latex/pgf/math/pgfmath.sty
+(/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex))
+(/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgffor.code.tex
+Package: pgffor 2025-08-29 v3.1.11a (3.1.11a)
+\pgffor@iter=\dimen298
+\pgffor@skip=\dimen299
+\pgffor@stack=\toks38
+\pgffor@toks=\toks39
+))
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/tikz.code.tex
+Package: tikz 2025-08-29 v3.1.11a (3.1.11a)
 
-\f@nch@headwidth=\skip75
-\f@nch@O@elh=\skip76
-\f@nch@O@erh=\skip77
-\f@nch@O@olh=\skip78
-\f@nch@O@orh=\skip79
-\f@nch@O@elf=\skip80
-\f@nch@O@erf=\skip81
-\f@nch@O@olf=\skip82
-\f@nch@O@orf=\skip83
+(/Users/jas/Library/texmf/tex/generic/pgf/libraries/pgflibraryplothandlers.code
+.tex
+File: pgflibraryplothandlers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgf@plot@mark@count=\count344
+\pgfplotmarksize=\dimen300
 )
-(/usr/share/texlive/texmf-dist/tex/latex/enumitem/enumitem.sty
-Package: enumitem 2019/06/20 v3.9 Customized lists
-\labelindent=\skip84
-\enit@outerparindent=\dimen306
-\enit@toks=\toks40
-\enit@inbox=\box114
-\enit@count@id=\count329
-\enitdp@description=\count330
-)
-(/usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref.sty
-Package: hyperref 2023-02-07 v7.00v Hypertext links for LaTeX
+\tikz@lastx=\dimen301
+\tikz@lasty=\dimen302
+\tikz@lastxsaved=\dimen303
+\tikz@lastysaved=\dimen304
+\tikz@lastmovetox=\dimen305
+\tikz@lastmovetoy=\dimen306
+\tikzleveldistance=\dimen307
+\tikzsiblingdistance=\dimen308
+\tikz@figbox=\box111
+\tikz@figbox@bg=\box112
+\tikz@tempbox=\box113
+\tikz@tempbox@bg=\box114
+\tikztreelevel=\count345
+\tikznumberofchildren=\count346
+\tikznumberofcurrentchild=\count347
+\tikz@fig@count=\count348
 
-(/usr/share/texlive/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty
-Package: ltxcmds 2020-05-10 v1.25 LaTeX kernel commands for general use (HO)
+(/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmodulematrix.code.tex
+File: pgfmodulematrix.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+\pgfmatrixcurrentrow=\count349
+\pgfmatrixcurrentcolumn=\count350
+\pgf@matrix@numberofcolumns=\count351
 )
-(/usr/share/texlive/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty
+\tikz@expandcount=\count352
+
+(/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
+arytopaths.code.tex
+File: tikzlibrarytopaths.code.tex 2025-08-29 v3.1.11a (3.1.11a)
+)))
+
+! Package tikz Error: I did not find the tikz library 'shadows.blur'. I looked 
+for files named tikzlibraryshadows.blur.code.tex and pgflibraryshadows.blur.cod
+e.tex, but neither could be found in the current texmf trees..
+
+See the tikz package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.45 \usetikzlibrary{shadows.blur}
+                                  
+This error message was generated by an \errmessage
+command, so I can't give any explicit help.
+Pretend that you're Hercule Poirot: Examine all clues,
+and deduce the truth by order and method.
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/titlesec/titlesec.sty
+Package: titlesec 2025/01/04 v2.17 Sectioning titles
+\ttl@box=\box115
+\beforetitleunit=\skip75
+\aftertitleunit=\skip76
+\ttl@plus=\dimen309
+\ttl@minus=\dimen310
+\ttl@toksa=\toks40
+\titlewidth=\dimen311
+\titlewidthlast=\dimen312
+\titlewidthfirst=\dimen313
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/fancyhdr/fancyhdr.sty
+Package: fancyhdr 2025/02/07 v5.2 Extensive control of page headers and footers
+
+\f@nch@headwidth=\skip77
+\f@nch@offset@elh=\skip78
+\f@nch@offset@erh=\skip79
+\f@nch@offset@olh=\skip80
+\f@nch@offset@orh=\skip81
+\f@nch@offset@elf=\skip82
+\f@nch@offset@erf=\skip83
+\f@nch@offset@olf=\skip84
+\f@nch@offset@orf=\skip85
+\f@nch@height=\skip86
+\f@nch@footalignment=\skip87
+\f@nch@widthL=\skip88
+\f@nch@widthC=\skip89
+\f@nch@widthR=\skip90
+\@temptokenb=\toks41
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/enumitem/enumitem.sty
+Package: enumitem 2025/02/06 v3.11 Customized lists
+\labelindent=\skip91
+\enit@outerparindent=\dimen314
+\enit@toks=\toks42
+\enit@inbox=\box116
+\enit@count@id=\count353
+\enitdp@description=\count354
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hyperref.sty
+Package: hyperref 2026-01-29 v7.01p Hypertext links for LaTeX
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty
+Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.
+sty
+Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdfescape/pdfescape.sty
+Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty
+Package: ltxcmds 2023-12-04 v1.26 LaTeX kernel commands for general use (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty
 Package: pdftexcmds 2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO
 )
 
-(/usr/share/texlive/texmf-dist/tex/generic/infwarerr/infwarerr.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/infwarerr/infwarerr.sty
 Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
 )
 Package pdftexcmds Info: \pdf@primitive is available.
 Package pdftexcmds Info: \pdf@ifprimitive is available.
 Package pdftexcmds Info: \pdfdraftmode not found.
-)
-(/usr/share/texlive/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty
-Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty
-Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/pdfescape/pdfescape.sty
-Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/latex/hycolor/hycolor.sty
+)) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hycolor/hycolor.sty
 Package: hycolor 2020-01-27 v1.10 Color options for hyperref/bookmark (HO)
 )
-(/usr/share/texlive/texmf-dist/tex/latex/letltxmacro/letltxmacro.sty
-Package: letltxmacro 2019/12/03 v1.6 Let assignment for LaTeX macros (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/latex/auxhook/auxhook.sty
-Package: auxhook 2019-12-17 v1.6 Hooks for auxiliary files (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty
-Package: nameref 2022-05-17 v2.50 Cross-referencing by name of section
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/nameref.sty
+Package: nameref 2026-01-29 v2.58 Cross-referencing by name of section
 
-(/usr/share/texlive/texmf-dist/tex/latex/refcount/refcount.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/refcount/refcount.sty
 Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
 )
-(/usr/share/texlive/texmf-dist/tex/generic/gettitlestring/gettitlestring.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/gettitlestring/gettitlestr
+ing.sty
 Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 
-(/usr/share/texlive/texmf-dist/tex/latex/kvoptions/kvoptions.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvoptions/kvoptions.sty
 Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
 ))
-\c@section@level=\count331
+\c@section@level=\count355
 )
-\@linkdim=\dimen307
-\Hy@linkcounter=\count332
-\Hy@pagecounter=\count333
-
-(/usr/share/texlive/texmf-dist/tex/latex/hyperref/pd1enc.def
-File: pd1enc.def 2023-02-07 v7.00v Hyperref: PDFDocEncoding definition (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/intcalc/intcalc.sty
-Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/generic/etexcmds/etexcmds.sty
-Package: etexcmds 2019/12/15 v1.7 Avoid name clashes with e-TeX commands (HO)
-)
-\Hy@SavedSpaceFactor=\count334
-
-(/usr/share/texlive/texmf-dist/tex/latex/hyperref/puenc.def
-File: puenc.def 2023-02-07 v7.00v Hyperref: PDF Unicode definition (HO)
-)
-Package hyperref Info: Hyper figures OFF on input line 4177.
-Package hyperref Info: Link nesting OFF on input line 4182.
-Package hyperref Info: Hyper index ON on input line 4185.
-Package hyperref Info: Plain pages OFF on input line 4192.
-Package hyperref Info: Backreferencing OFF on input line 4197.
-Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
-Package hyperref Info: Bookmarks ON on input line 4425.
-\c@Hy@tempcnt=\count335
-
-(/usr/share/texlive/texmf-dist/tex/latex/url/url.sty
-\Urlmuskip=\muskip18
-Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
-)
-LaTeX Info: Redefining \url on input line 4763.
-\XeTeXLinkMargin=\dimen308
-
-(/usr/share/texlive/texmf-dist/tex/generic/bitset/bitset.sty
-Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
-
-(/usr/share/texlive/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty
-Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
-)
-))
-\Fld@menulength=\count336
-\Field@Width=\dimen309
-\Fld@charsize=\dimen310
-Package hyperref Info: Hyper figures OFF on input line 6042.
-Package hyperref Info: Link nesting OFF on input line 6047.
-Package hyperref Info: Hyper index ON on input line 6050.
-Package hyperref Info: backreferencing OFF on input line 6057.
-Package hyperref Info: Link coloring OFF on input line 6062.
-Package hyperref Info: Link coloring with OCG OFF on input line 6067.
-Package hyperref Info: PDF/A mode OFF on input line 6072.
-
-(/usr/share/texlive/texmf-dist/tex/latex/base/atbegshi-ltx.sty
-Package: atbegshi-ltx 2021/01/10 v1.0c Emulation of the original atbegshi
-package with kernel methods
-)
-\Hy@abspage=\count337
-\c@Item=\count338
-\c@Hfootnote=\count339
-)
-Package hyperref Info: Driver (autodetected): hxetex.
-
-(/usr/share/texlive/texmf-dist/tex/latex/hyperref/hxetex.def
-File: hxetex.def 2023-02-07 v7.00v Hyperref driver for XeTeX
-
-(/usr/share/texlive/texmf-dist/tex/generic/stringenc/stringenc.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/stringenc/stringenc.sty
 Package: stringenc 2019/11/29 v1.12 Convert strings between diff. encodings (HO
 )
 )
-\pdfm@box=\box115
-\c@Hy@AnnotLevel=\count340
-\HyField@AnnotCount=\count341
-\Fld@listcount=\count342
-\c@bookmark@seq@number=\count343
+\@linkdim=\dimen315
+\Hy@linkcounter=\count356
+\Hy@pagecounter=\count357
 
-(/usr/share/texlive/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty
-Package: rerunfilecheck 2022-07-10 v1.10 Rerun checks for auxiliary files (HO)
-
-(/usr/share/texlive/texmf-dist/tex/latex/base/atveryend-ltx.sty
-Package: atveryend-ltx 2020/08/19 v1.0a Emulation of the original atveryend pac
-kage
-with kernel methods
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/pd1enc.def
+File: pd1enc.def 2026-01-29 v7.01p Hyperref: PDFDocEncoding definition (HO)
 )
-(/usr/share/texlive/texmf-dist/tex/generic/uniquecounter/uniquecounter.sty
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/intcalc/intcalc.sty
+Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
+)
+\Hy@SavedSpaceFactor=\count358
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/puenc.def
+File: puenc.def 2026-01-29 v7.01p Hyperref: PDF Unicode definition (HO)
+)
+Package hyperref Info: Hyper figures OFF on input line 4201.
+Package hyperref Info: Link nesting OFF on input line 4206.
+Package hyperref Info: Hyper index ON on input line 4209.
+Package hyperref Info: Plain pages OFF on input line 4216.
+Package hyperref Info: Backreferencing OFF on input line 4221.
+Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
+Package hyperref Info: Bookmarks ON on input line 4468.
+\c@Hy@tempcnt=\count359
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/url/url.sty
+\Urlmuskip=\muskip19
+Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
+)
+LaTeX Info: Redefining \url on input line 4807.
+\XeTeXLinkMargin=\dimen316
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bitset/bitset.sty
+Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty
+Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
+)
+))
+\Fld@menulength=\count360
+\Field@Width=\dimen317
+\Fld@charsize=\dimen318
+Package hyperref Info: Hyper figures OFF on input line 6084.
+Package hyperref Info: Link nesting OFF on input line 6089.
+Package hyperref Info: Hyper index ON on input line 6092.
+Package hyperref Info: backreferencing OFF on input line 6099.
+Package hyperref Info: Link coloring OFF on input line 6104.
+Package hyperref Info: Link coloring with OCG OFF on input line 6109.
+Package hyperref Info: PDF/A mode OFF on input line 6114.
+\Hy@abspage=\count361
+\c@Item=\count362
+\c@Hfootnote=\count363
+)
+Package hyperref Info: Driver (autodetected): hxetex.
+ (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hxetex.def
+File: hxetex.def 2026-01-29 v7.01p Hyperref driver for XeTeX
+\pdfm@box=\box117
+\c@Hy@AnnotLevel=\count364
+\HyField@AnnotCount=\count365
+\Fld@listcount=\count366
+\c@bookmark@seq@number=\count367
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/rerunfilecheck/rerunfilechec
+k.sty
+Package: rerunfilecheck 2025-06-21 v1.11 Rerun checks for auxiliary files (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/uniquecounter/uniquecounte
+r.sty
 Package: uniquecounter 2019/12/15 v1.4 Provide unlimited unique counter (HO)
 )
 Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
-85.
+84.
 )
-\Hy@SectionHShift=\skip85
+\Hy@SectionHShift=\skip92
+) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/xurl/xurl.sty
+Package: xurl 2022/01/09 v 0.10 modify URL breaks
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 99.
+Package hyperref Info: Option `colorlinks' set `true' on input line 114.
 )
 (./open-schools.aux)
 \openout1 = `open-schools.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for TU/lmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 34.
-LaTeX Font Info:    ... okay on input line 34.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for TU/lmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
 
-Package fontspec Info: Font family 'latinmodern-math.otf(0)' created for font
+Package fontspec Info: 
+(fontspec)             Font family 'latinmodern-math.otf(0)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
 =Math,BoldFont={latinmodern-math.otf}].
@@ -1128,14 +1389,13 @@ Package fontspec Info: Font family 'latinmodern-math.otf(0)' created for font
 (fontspec)             - 'normal' (m/n) with NFSS spec.:
 (fontspec)             <->"[latinmodern-math.otf]/OT:script=math;language=dflt;
 "
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
 (fontspec)             - 'bold' (b/n) with NFSS spec.:
 (fontspec)             <->"[latinmodern-math.otf]/OT:script=math;language=dflt;
 "
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
 
 
-Package fontspec Info: Font family 'latinmodern-math.otf(1)' created for font
+Package fontspec Info: 
+(fontspec)             Font family 'latinmodern-math.otf(1)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
 =Math,SizeFeatures={{Size=9.3075-},{Size=6.57-9.3075,Font=latinmodern-math.otf,
@@ -1149,39 +1409,43 @@ Style=MathScript},{Size=-6.57,Font=latinmodern-math.otf,Style=MathScriptScript}
 (fontspec)             <9.3075->"[latinmodern-math.otf]/OT:script=math;language
 =dflt;"<6.57-9.3075>"[latinmodern-math.otf]/OT:script=math;language=dflt;+ssty=
 0;"<-6.57>"[latinmodern-math.otf]/OT:script=math;language=dflt;+ssty=1;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
 (fontspec)             - 'bold' (b/n) with NFSS spec.:
 (fontspec)             <->"[latinmodern-math.otf]/OT:script=math;language=dflt;
 "
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
 
 LaTeX Font Info:    Encoding `OT1' has changed to `TU' for symbol font
-(Font)              `operators' in the math version `normal' on input line 34.
+(Font)              `operators' in the math version `normal' on input line 51.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `normal'
 (Font)                  OT1/cmr/m/n --> TU/latinmodern-math.otf(1)/m/n on input
- line 34.
+ line 51.
 LaTeX Font Info:    Encoding `OT1' has changed to `TU' for symbol font
-(Font)              `operators' in the math version `bold' on input line 34.
+(Font)              `operators' in the math version `bold' on input line 51.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `bold'
 (Font)                  OT1/cmr/bx/n --> TU/latinmodern-math.otf(1)/b/n on inpu
-t line 34.
+t line 51.
 
-Package fontspec Info: latinmodern-math scale = 1.0001.
-
-
-Package fontspec Info: latinmodern-math scale = 1.0001.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: latinmodern-math scale = 1.0001.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: latinmodern-math scale = 1.0001.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: latinmodern-math scale = 1.0001.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 1.0001.
 
 
-Package fontspec Info: Font family 'latinmodern-math.otf(2)' created for font
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 1.0001.
+
+
+Package fontspec Info: 
+(fontspec)             Font family 'latinmodern-math.otf(2)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
 =Math,SizeFeatures={{Size=9.3075-},{Size=6.57-9.3075,Font=latinmodern-math.otf,
@@ -1206,61 +1470,43 @@ Style=MathScript},{Size=-6.57,Font=latinmodern-math.otf,Style=MathScriptScript}
 h;language=dflt;"<6.57-9.3075>s*[1.0001]"[latinmodern-math.otf]/OT:script=math;
 language=dflt;+ssty=0;"<-6.57>s*[1.0001]"[latinmodern-math.otf]/OT:script=math;
 language=dflt;+ssty=1;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             and font adjustment code:
-(fontspec)             \fontdimen 8\font =7.41315pt\relax \fontdimen 9\font
-(fontspec)             =4.3143pt\relax \fontdimen 10\font =4.8618pt\relax
-(fontspec)             \fontdimen 11\font =7.5117pt\relax \fontdimen 12\font
-(fontspec)             =3.77776pt\relax \fontdimen 13\font =3.97485pt\relax
-(fontspec)             \fontdimen 14\font =3.97485pt\relax \fontdimen 15\font
-(fontspec)             =3.16455pt\relax \fontdimen 16\font =2.70465pt\relax
-(fontspec)             \fontdimen 17\font =2.70465pt\relax \fontdimen 18\font
-(fontspec)             =2.7375pt\relax \fontdimen 19\font =2.19pt\relax
-(fontspec)             \fontdimen 22\font =2.7375pt\relax \fontdimen 20\font
-(fontspec)             =0pt\relax \fontdimen 21\font =0pt\relax 
 (fontspec)             - 'bold' (b/n) with NFSS spec.:
 (fontspec)             <->s*[1.0001]"[latinmodern-math.otf]/OT:script=math;lang
 uage=dflt;"
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
-(fontspec)             and font adjustment code:
-(fontspec)             \fontdimen 8\font =7.41315pt\relax \fontdimen 9\font
-(fontspec)             =4.3143pt\relax \fontdimen 10\font =4.8618pt\relax
-(fontspec)             \fontdimen 11\font =7.5117pt\relax \fontdimen 12\font
-(fontspec)             =3.77776pt\relax \fontdimen 13\font =3.97485pt\relax
-(fontspec)             \fontdimen 14\font =3.97485pt\relax \fontdimen 15\font
-(fontspec)             =3.16455pt\relax \fontdimen 16\font =2.70465pt\relax
-(fontspec)             \fontdimen 17\font =2.70465pt\relax \fontdimen 18\font
-(fontspec)             =2.7375pt\relax \fontdimen 19\font =2.19pt\relax
-(fontspec)             \fontdimen 22\font =2.7375pt\relax \fontdimen 20\font
-(fontspec)             =0pt\relax \fontdimen 21\font =0pt\relax 
 
 LaTeX Font Info:    Encoding `OMS' has changed to `TU' for symbol font
-(Font)              `symbols' in the math version `normal' on input line 34.
+(Font)              `symbols' in the math version `normal' on input line 51.
 LaTeX Font Info:    Overwriting symbol font `symbols' in version `normal'
 (Font)                  OMS/cmsy/m/n --> TU/latinmodern-math.otf(2)/m/n on inpu
-t line 34.
+t line 51.
 LaTeX Font Info:    Encoding `OMS' has changed to `TU' for symbol font
-(Font)              `symbols' in the math version `bold' on input line 34.
+(Font)              `symbols' in the math version `bold' on input line 51.
 LaTeX Font Info:    Overwriting symbol font `symbols' in version `bold'
 (Font)                  OMS/cmsy/b/n --> TU/latinmodern-math.otf(2)/b/n on inpu
-t line 34.
+t line 51.
 
-Package fontspec Info: latinmodern-math scale = 0.9999.
-
-
-Package fontspec Info: latinmodern-math scale = 0.9999.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: latinmodern-math scale = 0.9999.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: latinmodern-math scale = 0.9999.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: latinmodern-math scale = 0.9999.
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 0.9999.
 
 
-Package fontspec Info: Font family 'latinmodern-math.otf(3)' created for font
+Package fontspec Info: 
+(fontspec)             latinmodern-math scale = 0.9999.
+
+
+Package fontspec Info: 
+(fontspec)             Font family 'latinmodern-math.otf(3)' created for font
 (fontspec)             'latinmodern-math.otf' with options
 (fontspec)             [BoldItalicFont={},ItalicFont={},SmallCapsFont={},Script
 =Math,SizeFeatures={{Size=9.3075-},{Size=6.57-9.3075,Font=latinmodern-math.otf,
@@ -1279,48 +1525,38 @@ Style=MathScript},{Size=-6.57,Font=latinmodern-math.otf,Style=MathScriptScript}
 h;language=dflt;"<6.57-9.3075>s*[0.9999]"[latinmodern-math.otf]/OT:script=math;
 language=dflt;+ssty=0;"<-6.57>s*[0.9999]"[latinmodern-math.otf]/OT:script=math;
 language=dflt;+ssty=1;"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
-(fontspec)             and font adjustment code:
-(fontspec)             \fontdimen 8\font =0.438pt\relax \fontdimen 9\font
-(fontspec)             =2.19pt\relax \fontdimen 10\font =1.82864pt\relax
-(fontspec)             \fontdimen 11\font =1.21545pt\relax \fontdimen 12\font
-(fontspec)             =6.56999pt\relax \fontdimen 13\font =0pt\relax 
 (fontspec)             - 'bold' (b/n) with NFSS spec.:
 (fontspec)             <->s*[0.9999]"[latinmodern-math.otf]/OT:script=math;lang
 uage=dflt;"
-(fontspec)             - 'bold small caps'  (b/sc) with NFSS spec.: 
-(fontspec)             and font adjustment code:
-(fontspec)             \fontdimen 8\font =0.438pt\relax \fontdimen 9\font
-(fontspec)             =2.19pt\relax \fontdimen 10\font =1.82864pt\relax
-(fontspec)             \fontdimen 11\font =1.21545pt\relax \fontdimen 12\font
-(fontspec)             =6.56999pt\relax \fontdimen 13\font =0pt\relax 
 
 LaTeX Font Info:    Encoding `OMX' has changed to `TU' for symbol font
-(Font)              `largesymbols' in the math version `normal' on input line 3
-4.
+(Font)              `largesymbols' in the math version `normal' on input line 5
+1.
 LaTeX Font Info:    Overwriting symbol font `largesymbols' in version `normal'
 (Font)                  OMX/cmex/m/n --> TU/latinmodern-math.otf(3)/m/n on inpu
-t line 34.
+t line 51.
 LaTeX Font Info:    Encoding `OMX' has changed to `TU' for symbol font
-(Font)              `largesymbols' in the math version `bold' on input line 34.
+(Font)              `largesymbols' in the math version `bold' on input line 51.
 
 LaTeX Font Info:    Overwriting symbol font `largesymbols' in version `bold'
 (Font)                  OMX/cmex/m/n --> TU/latinmodern-math.otf(3)/b/n on inpu
-t line 34.
-LaTeX Info: Redefining \microtypecontext on input line 34.
-Package microtype Info: Applying patch `item' on input line 34.
-Package microtype Info: Applying patch `toc' on input line 34.
-Package microtype Info: Applying patch `eqnum' on input line 34.
-Package microtype Info: Applying patch `footnote' on input line 34.
-Package microtype Info: Applying patch `verbatim' on input line 34.
+t line 51.
+LaTeX Info: Redefining \microtypecontext on input line 51.
+Package microtype Info: Applying patch `item' on input line 51.
+Package microtype Info: Applying patch `toc' on input line 51.
+Package microtype Info: Applying patch `eqnum' on input line 51.
+Package microtype Info: Applying patch `footnote' on input line 51.
+Package microtype Info: Applying patch `verbatim' on input line 51.
+LaTeX Info: Redefining \microtypesetup on input line 51.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of spacing.
 Package microtype Info: No adjustment of kerning.
 
-(/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-LatinModernRoman.cfg
-File: mt-LatinModernRoman.cfg 2021/02/21 v1.1 microtype config. file: Latin Mod
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/mt-LatinModernRoma
+n.cfg
+File: mt-LatinModernRoman.cfg 2026/02/26 v1.2 microtype config. file: Latin Mod
 ern Roman (RS)
 )
 *geometry* driver: auto-detecting
@@ -1357,13 +1593,13 @@ ern Roman (RS)
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-Package hyperref Info: Link coloring ON on input line 34.
+Package hyperref Info: Link coloring ON on input line 51.
 (./open-schools.out) (./open-schools.out)
 \@outlinefile=\write4
 \openout4 = `open-schools.out'.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-bold' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1373,61 +1609,61 @@ Package microtype Info: Loading generic protrusion settings for font family
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\k A'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\u A'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\k a'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\u a'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'C'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v C'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'c'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v c'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v D'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v d'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 Package microtype Info: Character `\dj ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/10.95'.
@@ -1436,43 +1672,43 @@ Package microtype Info: Character `\dj ' is missing
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\k E'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v E'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\k e'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v e'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\u G'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\u g'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\.I'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 Package microtype Info: Character `\i ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/10.95'.
@@ -1484,13 +1720,13 @@ Package microtype Info: Character `\L ' is missing
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'L'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v L'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 Package microtype Info: Character `\l ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/10.95'.
@@ -1499,169 +1735,169 @@ Package microtype Info: Character `\l ' is missing
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'l'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v l'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'N'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v N'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'n'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v n'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\H O'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\H o'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'R'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v R'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'r'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v r'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'S'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\c S'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'s'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\c s'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\c T'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v T'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\c t'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\v t'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\H U'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\r U'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\H u'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\r u'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'Z'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\.Z'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\'z'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\.z'
 (microtype)                in font encoding `TU' in inheritance list
-(microtype)                `microtype.cfg/411(protrusion)'.
+(microtype)                `microtype.cfg/425(protrusion)'.
 
 Package microtype Info: Character `\textendash ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/10.95'.
@@ -1730,7 +1966,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.40 ...tsize{18pt}{22pt}\selectfont\color{acdark}
+l.57 ...tsize{18pt}{22pt}\selectfont\color{acdark}
                                                    Get Closed Source Out of ...
 
 Try typing  <return>  to proceed.
@@ -1743,7 +1979,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.42 ...tsize{10pt}{12pt}\selectfont\color{acpink}
+l.59 ...tsize{10pt}{12pt}\selectfont\color{acpink}
                                                    Every Chromebook Is a Gat...
 
 Try typing  <return>  to proceed.
@@ -1756,7 +1992,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.45 {\small\color{acgray}
+l.62 {\small\color{acgray}
                            Aesthetic.Computer}\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -1768,7 +2004,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.46 {\small\color{acgray}
+l.63 {\small\color{acgray}
                            ORCID: \href{https://orcid.org/0009-0007-4460-491...
 
 Try typing  <return>  to proceed.
@@ -1781,7 +2017,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.46 .../0009-0007-4460-4913}{0009-0007-4460-4913}
+l.63 .../0009-0007-4460-4913}{0009-0007-4460-4913}
                                                   }\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -1793,7 +2029,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.50 {\small\color{acpink!40}
+l.67 {\small\color{acpink!40}
                              \textit{working draft --- not for citation}}\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -1805,13 +2041,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.52 {\footnotesize\color{acgray}
+l.69 {\footnotesize\color{acgray}
                                   March 2026}\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.72 \clearpage
+               
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.72 \clearpage
+               
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1883,7 +2149,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.55 \clearpage
+l.72 \clearpage
                
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -1893,7 +2159,7 @@ If that doesn't work, type  X <return>  to quit.
 ]
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
-(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 65
+(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 82
 .
 
 
@@ -1903,7 +2169,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.65 ...We present \acos{}~\citep{scudder2026acos}
+l.82 ...We present \acos{}~\citep{scudder2026acos}
                                                    as one concrete implement...
 
 Try typing  <return>  to proceed.
@@ -1916,7 +2182,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.65 ...We present \acos{}~\citep{scudder2026acos}
+l.82 ...We present \acos{}~\citep{scudder2026acos}
                                                    as one concrete implement...
 
 Try typing  <return>  to proceed.
@@ -1929,7 +2195,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.74 ...0 million units~\citep{google2024chromeos}
+l.91 ...0 million units~\citep{google2024chromeos}
                                                   . An entire generation of ...
 
 Try typing  <return>  to proceed.
@@ -1942,7 +2208,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.74 ...0 million units~\citep{google2024chromeos}
+l.91 ...0 million units~\citep{google2024chromeos}
                                                   . An entire generation of ...
 
 Try typing  <return>  to proceed.
@@ -1955,7 +2221,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.76 ...o adulthood~\citep{zuboff2019surveillance}
+l.93 ...o adulthood~\citep{zuboff2019surveillance}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -1967,7 +2233,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.76 ...o adulthood~\citep{zuboff2019surveillance}
+l.93 ...o adulthood~\citep{zuboff2019surveillance}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -1979,7 +2245,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.78 ...e message~\citep{mcluhan1964understanding}
+l.95 ...e message~\citep{mcluhan1964understanding}
                                                   : the Chromebook teaches t...
 
 Try typing  <return>  to proceed.
@@ -1992,7 +2258,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.78 ...e message~\citep{mcluhan1964understanding}
+l.95 ...e message~\citep{mcluhan1964understanding}
                                                   : the Chromebook teaches t...
 
 Try typing  <return>  to proceed.
@@ -2005,7 +2271,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.104 ...' of education~\citep{freire1970pedagogy}
+l.121 ...' of education~\citep{freire1970pedagogy}
                                                   : knowledge deposited into...
 
 Try typing  <return>  to proceed.
@@ -2018,7 +2284,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.104 ...' of education~\citep{freire1970pedagogy}
+l.121 ...' of education~\citep{freire1970pedagogy}
                                                   : knowledge deposited into...
 
 Try typing  <return>  to proceed.
@@ -2031,13 +2297,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.105 
+l.122 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.122 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.122 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2045,7 +2341,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.105 
+l.122 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2060,7 +2356,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.110 ...y replacements~\citep{pirg2023chromebook}
+l.127 ...y replacements~\citep{pirg2023chromebook}
                                                   . These are machines with ...
 
 Try typing  <return>  to proceed.
@@ -2073,7 +2369,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.110 ...y replacements~\citep{pirg2023chromebook}
+l.127 ...y replacements~\citep{pirg2023chromebook}
                                                   . These are machines with ...
 
 Try typing  <return>  to proceed.
@@ -2086,7 +2382,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.121 ...boff2019surveillance, doctorow2020attack}
+l.138 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2099,7 +2395,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.121 ...boff2019surveillance, doctorow2020attack}
+l.138 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2112,7 +2408,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.121 ...boff2019surveillance, doctorow2020attack}
+l.138 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2125,7 +2421,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.121 ...boff2019surveillance, doctorow2020attack}
+l.138 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2138,7 +2434,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ... parental consent~\citep{google2019coppa}
+l.158 ... parental consent~\citep{google2019coppa}
                                                   . In 2020, New Mexico Atto...
 
 Try typing  <return>  to proceed.
@@ -2151,7 +2447,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ... parental consent~\citep{google2019coppa}
+l.158 ... parental consent~\citep{google2019coppa}
                                                   . In 2020, New Mexico Atto...
 
 Try typing  <return>  to proceed.
@@ -2164,7 +2460,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ...ks in schools~\citep{newmexico2020google}
+l.158 ...ks in schools~\citep{newmexico2020google}
                                                   . The EFF filed an FTC com...
 
 Try typing  <return>  to proceed.
@@ -2177,7 +2473,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ...ks in schools~\citep{newmexico2020google}
+l.158 ...ks in schools~\citep{newmexico2020google}
                                                   . The EFF filed an FTC com...
 
 Try typing  <return>  to proceed.
@@ -2190,7 +2486,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ...ugh Chromebooks~\citep{eff2015chromebook}
+l.158 ...ugh Chromebooks~\citep{eff2015chromebook}
                                                   . In 2024, a coalition of ...
 
 Try typing  <return>  to proceed.
@@ -2203,7 +2499,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ...ugh Chromebooks~\citep{eff2015chromebook}
+l.158 ...ugh Chromebooks~\citep{eff2015chromebook}
                                                   . In 2024, a coalition of ...
 
 Try typing  <return>  to proceed.
@@ -2216,7 +2512,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ...nt surveillance~\citep{eff2024monitoring}
+l.158 ...nt surveillance~\citep{eff2024monitoring}
                                                   . Class actions alleging b...
 
 Try typing  <return>  to proceed.
@@ -2229,7 +2525,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.141 ...nt surveillance~\citep{eff2024monitoring}
+l.158 ...nt surveillance~\citep{eff2024monitoring}
                                                   . Class actions alleging b...
 
 Try typing  <return>  to proceed.
@@ -2242,7 +2538,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.147 ...and LGBTQ youth~\citep{eff2024monitoring}
+l.164 ...and LGBTQ youth~\citep{eff2024monitoring}
                                                   . Of 152 ed-tech services ...
 
 Try typing  <return>  to proceed.
@@ -2255,7 +2551,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.147 ...and LGBTQ youth~\citep{eff2024monitoring}
+l.164 ...and LGBTQ youth~\citep{eff2024monitoring}
                                                   . Of 152 ed-tech services ...
 
 Try typing  <return>  to proceed.
@@ -2268,13 +2564,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.148 
+l.165 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.165 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.165 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2282,7 +2608,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.148 
+l.165 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2295,7 +2621,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.149 ...have politics~\citep{winner1980artifacts}
+l.166 ...have politics~\citep{winner1980artifacts}
                                                   . The Chromebook's politic...
 
 Try typing  <return>  to proceed.
@@ -2308,14 +2634,14 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.149 ...have politics~\citep{winner1980artifacts}
+l.166 ...have politics~\citep{winner1980artifacts}
                                                   . The Chromebook's politic...
 
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-Underfull \hbox (badness 5231) in paragraph at lines 149--150
+Underfull \hbox (badness 5231) in paragraph at lines 166--167
 []\TU/LatinModernRoman(0)/m/n/10.95 Winner argued that artifacts have poli-
  []
 
@@ -2326,7 +2652,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.182 ...boxed browsers~\citep{denny2024computing}
+l.199 ...boxed browsers~\citep{denny2024computing}
                                                   . Krishnamurthi (Brown Uni...
 
 Try typing  <return>  to proceed.
@@ -2339,7 +2665,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.182 ...boxed browsers~\citep{denny2024computing}
+l.199 ...boxed browsers~\citep{denny2024computing}
                                                   . Krishnamurthi (Brown Uni...
 
 Try typing  <return>  to proceed.
@@ -2352,7 +2678,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.182 ...rtant, not less~\citep{prather2024robots}
+l.199 ...rtant, not less~\citep{prather2024robots}
                                                   : students need to run, de...
 
 Try typing  <return>  to proceed.
@@ -2365,7 +2691,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.182 ...rtant, not less~\citep{prather2024robots}
+l.199 ...rtant, not less~\citep{prather2024robots}
                                                   : students need to run, de...
 
 Try typing  <return>  to proceed.
@@ -2378,13 +2704,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.195 
+l.212 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.212 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.212 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2392,7 +2748,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.195 
+l.212 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2405,7 +2761,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.198 ...erstood this~\citep{papert1980mindstorms}
+l.215 ...erstood this~\citep{papert1980mindstorms}
                                                   : Logo was not about teach...
 
 Try typing  <return>  to proceed.
@@ -2418,14 +2774,14 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.198 ...erstood this~\citep{papert1980mindstorms}
+l.215 ...erstood this~\citep{papert1980mindstorms}
                                                   : Logo was not about teach...
 
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 208--208
+Underfull \hbox (badness 10000) in paragraph at lines 225--225
 |[]\TU/LatinModernRoman(0)/b/n/10.95 WHAT EVERY STUDENT DE-
  []
 
@@ -2436,7 +2792,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.242 ...school computers~\citep{kite2024gnulinux}
+l.259 ...school computers~\citep{kite2024gnulinux}
                                                   . The distribution include...
 
 Try typing  <return>  to proceed.
@@ -2449,7 +2805,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.242 ...school computers~\citep{kite2024gnulinux}
+l.259 ...school computers~\citep{kite2024gnulinux}
                                                   . The distribution include...
 
 Try typing  <return>  to proceed.
@@ -2462,7 +2818,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.248 ...cted to follow~\citep{schleswig2025linux}
+l.265 ...cted to follow~\citep{schleswig2025linux}
                                                   . Replacements include Lib...
 
 Try typing  <return>  to proceed.
@@ -2475,7 +2831,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.248 ...cted to follow~\citep{schleswig2025linux}
+l.265 ...cted to follow~\citep{schleswig2025linux}
                                                   . Replacements include Lib...
 
 Try typing  <return>  to proceed.
@@ -2488,13 +2844,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.249 
+l.266 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.266 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.266 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2502,7 +2888,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.249 
+l.266 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2515,7 +2901,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.252 ...soft and Google~\citep{france2023digital}
+l.269 ...soft and Google~\citep{france2023digital}
                                                   . The national platform \t...
 
 Try typing  <return>  to proceed.
@@ -2528,14 +2914,14 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.252 ...soft and Google~\citep{france2023digital}
+l.269 ...soft and Google~\citep{france2023digital}
                                                   . The national platform \t...
 
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 9.63605pt on input line 252.
+(Font)              scaled to size 9.63605pt on input line 269.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -2547,7 +2933,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.256 ...n grades 9--12~\citep{pennmanor2024linux}
+l.273 ...n grades 9--12~\citep{pennmanor2024linux}
                                                   . The program includes a s...
 
 Try typing  <return>  to proceed.
@@ -2560,7 +2946,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.256 ...n grades 9--12~\citep{pennmanor2024linux}
+l.273 ...n grades 9--12~\citep{pennmanor2024linux}
                                                   . The program includes a s...
 
 Try typing  <return>  to proceed.
@@ -2573,7 +2959,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.260 ...al signatories~\citep{fsfe2024publiccode}
+l.277 ...al signatories~\citep{fsfe2024publiccode}
                                                   . UNESCO's 2024 Dubai Decl...
 
 Try typing  <return>  to proceed.
@@ -2586,7 +2972,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.260 ...al signatories~\citep{fsfe2024publiccode}
+l.277 ...al signatories~\citep{fsfe2024publiccode}
                                                   . UNESCO's 2024 Dubai Decl...
 
 Try typing  <return>  to proceed.
@@ -2599,7 +2985,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.260 ...erging technologies~\citep{unesco2024oer}
+l.277 ...erging technologies~\citep{unesco2024oer}
                                                   . The Global Digital Compa...
 
 Try typing  <return>  to proceed.
@@ -2612,7 +2998,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.260 ...erging technologies~\citep{unesco2024oer}
+l.277 ...erging technologies~\citep{unesco2024oer}
                                                   . The Global Digital Compa...
 
 Try typing  <return>  to proceed.
@@ -2625,7 +3011,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.274 \begin{table}[H]
+l.291 \begin{table}[H]
                       
 Option `H' ignored and `p' used.
 
@@ -2634,19 +3020,19 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 277.
+(Font)              scaled to size 10.00107pt on input line 294.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 277.
+(Font)              scaled to size 7.00075pt on input line 294.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 277.
+(Font)              scaled to size 5.00053pt on input line 294.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 277.
+(Font)              scaled to size 9.99893pt on input line 294.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 277.
+(Font)              scaled to size 6.99925pt on input line 294.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 277.
+(Font)              scaled to size 4.99947pt on input line 294.
 
-Overfull \hbox (66.91666pt too wide) in paragraph at lines 277--290
+Overfull \hbox (66.91666pt too wide) in paragraph at lines 294--307
  [][] 
  []
 
@@ -2659,17 +3045,17 @@ Package multicol Warning: Floats and marginpars not allowed inside `multicols'
 environment!.
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.95116pt on input line 304.
+(Font)              scaled to size 10.95116pt on input line 321.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.6658pt on input line 304.
+(Font)              scaled to size 7.6658pt on input line 321.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.47559pt on input line 304.
+(Font)              scaled to size 5.47559pt on input line 321.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 10.94882pt on input line 304.
+(Font)              scaled to size 10.94882pt on input line 321.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.66417pt on input line 304.
+(Font)              scaled to size 7.66417pt on input line 321.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.47441pt on input line 304.
+(Font)              scaled to size 5.47441pt on input line 321.
 
 ! Package xcolor Error: Undefined color `acpurple'.
 
@@ -2677,7 +3063,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.304 ...aptop~\citep{circularcomputing2023carbon}
+l.321 ...aptop~\citep{circularcomputing2023carbon}
                                                   . The UN Global E-waste Mo...
 
 Try typing  <return>  to proceed.
@@ -2690,7 +3076,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.304 ...aptop~\citep{circularcomputing2023carbon}
+l.321 ...aptop~\citep{circularcomputing2023carbon}
                                                   . The UN Global E-waste Mo...
 
 Try typing  <return>  to proceed.
@@ -2703,7 +3089,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.304 ...\% properly recycled~\citep{un2024ewaste}
+l.321 ...\% properly recycled~\citep{un2024ewaste}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2715,7 +3101,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.304 ...\% properly recycled~\citep{un2024ewaste}
+l.321 ...\% properly recycled~\citep{un2024ewaste}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2727,7 +3113,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.306 ...pair information~\citep{oregon2024repair}
+l.323 ...pair information~\citep{oregon2024repair}
                                                   ; New Hampshire's HB1701 e...
 
 Try typing  <return>  to proceed.
@@ -2740,7 +3126,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.306 ...pair information~\citep{oregon2024repair}
+l.323 ...pair information~\citep{oregon2024repair}
                                                   ; New Hampshire's HB1701 e...
 
 Try typing  <return>  to proceed.
@@ -2753,7 +3139,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.306 ...ed laptops~\citep{newhampshire2024repair}
+l.323 ...ed laptops~\citep{newhampshire2024repair}
                                                   . But legislation cannot f...
 
 Try typing  <return>  to proceed.
@@ -2766,7 +3152,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.306 ...ed laptops~\citep{newhampshire2024repair}
+l.323 ...ed laptops~\citep{newhampshire2024repair}
                                                   . But legislation cannot f...
 
 Try typing  <return>  to proceed.
@@ -2779,13 +3165,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.307 
+l.324 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.324 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.324 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2793,7 +3209,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.307 
+l.324 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2806,7 +3222,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.328 ...isioning. \acos{}~\citep{scudder2026acos}
+l.345 ...isioning. \acos{}~\citep{scudder2026acos}
                                                    demonstrates that an enti...
 
 Try typing  <return>  to proceed.
@@ -2819,7 +3235,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.328 ...isioning. \acos{}~\citep{scudder2026acos}
+l.345 ...isioning. \acos{}~\citep{scudder2026acos}
                                                    demonstrates that an enti...
 
 Try typing  <return>  to proceed.
@@ -2832,7 +3248,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.328 ...book districts~\citep{pennmanor2024linux}
+l.345 ...book districts~\citep{pennmanor2024linux}
                                                   . The ``management problem...
 
 Try typing  <return>  to proceed.
@@ -2845,7 +3261,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.328 ...book districts~\citep{pennmanor2024linux}
+l.345 ...book districts~\citep{pennmanor2024linux}
                                                   . The ``management problem...
 
 Try typing  <return>  to proceed.
@@ -2858,7 +3274,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.351 ...te a piece on \ac{}~\citep{scudder2026ac}
+l.368 ...te a piece on \ac{}~\citep{scudder2026ac}
                                                    that anyone in the world ...
 
 Try typing  <return>  to proceed.
@@ -2871,7 +3287,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.351 ...te a piece on \ac{}~\citep{scudder2026ac}
+l.368 ...te a piece on \ac{}~\citep{scudder2026ac}
                                                    that anyone in the world ...
 
 Try typing  <return>  to proceed.
@@ -2884,7 +3300,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.354 ...y where they are~\citep{khan2024bravenew}
+l.371 ...y where they are~\citep{khan2024bravenew}
                                                   . But this tutor can only ...
 
 Try typing  <return>  to proceed.
@@ -2897,7 +3313,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.354 ...y where they are~\citep{khan2024bravenew}
+l.371 ...y where they are~\citep{khan2024bravenew}
                                                   . But this tutor can only ...
 
 Try typing  <return>  to proceed.
@@ -2910,13 +3326,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.355 
+l.372 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.372 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.372 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2924,7 +3370,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.355 
+l.372 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2937,7 +3383,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.401 ...ote in 1974~\citep{nelson1974computerlib}
+l.418 ...ote in 1974~\citep{nelson1974computerlib}
                                                   : ``You can and must under...
 
 Try typing  <return>  to proceed.
@@ -2950,7 +3396,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.401 ...ote in 1974~\citep{nelson1974computerlib}
+l.418 ...ote in 1974~\citep{nelson1974computerlib}
                                                   : ``You can and must under...
 
 Try typing  <return>  to proceed.
@@ -2963,13 +3409,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.414 
+l.431 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.431 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.431 
+      
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2977,7 +3453,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.414 
+l.431 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2990,7 +3466,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...ialized expertise~\citep{illich1973tools}
+l.432 ...ialized expertise~\citep{illich1973tools}
                                                   . Papert wrote that comput...
 
 Try typing  <return>  to proceed.
@@ -3003,7 +3479,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...ialized expertise~\citep{illich1973tools}
+l.432 ...ialized expertise~\citep{illich1973tools}
                                                   . Papert wrote that comput...
 
 Try typing  <return>  to proceed.
@@ -3016,7 +3492,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...out thinking~\citep{papert1980mindstorms}
+l.432 ...out thinking~\citep{papert1980mindstorms}
                                                   . Stallman wrote that user...
 
 Try typing  <return>  to proceed.
@@ -3029,7 +3505,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...out thinking~\citep{papert1980mindstorms}
+l.432 ...out thinking~\citep{papert1980mindstorms}
                                                   . Stallman wrote that user...
 
 Try typing  <return>  to proceed.
@@ -3042,7 +3518,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...oftware they run~\citep{stallman2002free}
+l.432 ...oftware they run~\citep{stallman2002free}
                                                   . Postman warned that tech...
 
 Try typing  <return>  to proceed.
@@ -3055,7 +3531,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...oftware they run~\citep{stallman2002free}
+l.432 ...oftware they run~\citep{stallman2002free}
                                                   . Postman warned that tech...
 
 Try typing  <return>  to proceed.
@@ -3068,7 +3544,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...ogy, not the child~\citep{postman1995end}
+l.432 ...ogy, not the child~\citep{postman1995end}
                                                   . These are not fringe pos...
 
 Try typing  <return>  to proceed.
@@ -3081,7 +3557,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.415 ...ogy, not the child~\citep{postman1995end}
+l.432 ...ogy, not the child~\citep{postman1995end}
                                                   . These are not fringe pos...
 
 Try typing  <return>  to proceed.
@@ -3094,7 +3570,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.422 ...0009-0007-4460-4913}{0009-0007-4460-4913}
+l.439 ...0009-0007-4460-4913}{0009-0007-4460-4913}
                                                   
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3113,19 +3589,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-Underfull \hbox (badness 4242) in paragraph at lines 26--31
-[]\TU/LatinModernRoman(0)/m/sc/10.95 Electronic Frontier Foundation.  Eff files
- complaint with ftc on google’s collection of
- []
-
-
-Underfull \hbox (badness 3792) in paragraph at lines 26--31
-\TU/LatinModernRoman(0)/m/sc/10.95 student data through chromebooks, 2015.  URL
- [][]$[][][][][] [] [] [] [][][] [] [][][] [] [][][] [] [][][][][][][][][] [] [
-][][][] [] [][] []
- []
-
-
 ! Package xcolor Error: Undefined color `acpurple'.
 
 See the xcolor package documentation for explanation.
@@ -3136,19 +3599,6 @@ l.37 ...-student-privacy-unproven-promises-safety}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
-
-
-Underfull \hbox (badness 6893) in paragraph at lines 33--38
-[]\TU/LatinModernRoman(0)/m/sc/10.95 Electronic Frontier Foundation.  School mo
-nitoring software sacrifices student privacy
- []
-
-
-Underfull \hbox (badness 6961) in paragraph at lines 33--38
-\TU/LatinModernRoman(0)/m/sc/10.95 for unproven promises of safety, 2024.  URL 
-[][]$[][][][][] [] [] [] [][][] [] [][][] [] [][][] [] [][][][][][][][][] [] []
-[][][] [] [][] []
- []
 
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -3198,8 +3648,38 @@ l.93   Education)}(2024)]{kite2024gnulinux}
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.93   Education)}(2024)]{kite2024gnulinux}
+                                           
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.93   Education)}(2024)]{kite2024gnulinux}
+                                           
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -3257,13 +3737,43 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.433 \end{document}
+l.450 \end{document}
                     
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
-<use ../arxiv-ac/figures//pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.450 \end{document}
+                    
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.450 \end{document}
+                    
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -3271,12 +3781,17 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.433 \end{document}
+l.450 \end{document}
                     
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 [10] (./open-schools.aux)
+ ***********
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+ ***********
+
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
@@ -3284,12 +3799,12 @@ Package rerunfilecheck Info: File `open-schools.out' has not changed.
 (rerunfilecheck)             Checksum: 1D7AA3B12B232941C31667B8B20733A7;6143.
  ) 
 Here is how much of TeX's memory you used:
- 29926 strings out of 478682
- 590437 string characters out of 5849006
- 1871018 words of memory out of 6000000
- 49537 multiletter control sequences out of 15000+600000
- 515460 words of font info for 104 fonts, out of 8000000 for 9000
- 14 hyphenation exceptions out of 8191
- 99i,12n,115p,1333b,1020s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 30047 strings out of 469709
+ 591320 string characters out of 5466024
+ 1170059 words of memory out of 5000000
+ 58211 multiletter control sequences out of 15000+600000
+ 630814 words of font info for 102 fonts, out of 8000000 for 9000
+ 319 hyphenation exceptions out of 8191
+ 103i,12n,108p,1333b,1039s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on open-schools.pdf (10 pages).
