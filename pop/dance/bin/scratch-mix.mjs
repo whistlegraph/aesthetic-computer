@@ -35,7 +35,7 @@ function c4(a, i, f) {
 // a single long fade tail so it dissolves into the bed instead of
 // cutting. The default (mono=false) path is unchanged — the back-glitch
 // growls still get their wobble character.
-function skrillGrowl(x, frames, sr, a0, nF, midi, gain, glideSemis = 0, fcScale = 1, mono = false) {
+function skrillGrowl(x, frames, sr, a0, nF, midi, gain, glideSemis = 0, fcScale = 1, mono = false, panHz = 0) {
   const f0 = 440 * Math.pow(2, (midi - 69) / 12);
   const vib = 4.5 + Math.random() * 3;          // gentle vibrato (Hz)
   const ratio = Math.random() < 0.5 ? 2 : 3;
@@ -73,8 +73,14 @@ function skrillGrowl(x, frames, sr, a0, nF, midi, gain, glideSemis = 0, fcScale 
       else if (k > nF - rel) env = Math.max(0, (nF - k) / rel);
     }
     const v = (0.7 * bp + 0.3 * s) * env * gain;
-    x[(a0 + k) * 2] += v;
-    x[(a0 + k) * 2 + 1] += v;
+    if (panHz > 0) {                          // fast stereo pan (jas: "whistling ... pan fast")
+      const p = 0.5 + 0.5 * Math.sin(2 * Math.PI * panHz * (k / sr));
+      x[(a0 + k) * 2] += v * Math.sqrt(p);
+      x[(a0 + k) * 2 + 1] += v * Math.sqrt(1 - p);
+    } else {
+      x[(a0 + k) * 2] += v;
+      x[(a0 + k) * 2 + 1] += v;
+    }
   }
 }
 const SR = 44100;
@@ -304,7 +310,7 @@ if (structPath) {
       const m = HI[Math.floor(Math.random() * HI.length)];
       const dur = Math.floor((0.5 + Math.random() * 0.7) * SR);
       const gl = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.floor(Math.random() * 4));
-      skrillGrowl(x, frames, SR, a0, dur, m, 0.055, gl);
+      skrillGrowl(x, frames, SR, a0, dur, m, 0.055, gl, 1, false, 7 + Math.random() * 5); // fast pan (jas)
     }
     // PITCH-OUT / ECHO-OUT tail (jas: "they could even pitch out and
     // echo out") — re-read the captured beat slowing down (pitch
@@ -335,6 +341,32 @@ if (structPath) {
         rp += r; if (rp > cap - 2) rp = cap - 2;
       }
     }
+  }
+}
+
+// GNARLY LAST-30 s DESTRUCTION (jas: "bitcrunch some stuff in the last
+// 30 seconds ... percussion and such ... fuck it up gnarley"). A
+// sample-and-hold + bit-reduction that eases in and gets progressively
+// more crushed/downsampled toward the end (the whole mix, perc + all).
+{
+  const tEnd = frames / SR;
+  const t0 = tEnd - 30;
+  const d0 = Math.max(0, Math.floor(t0 * SR));
+  let hL = 0, hR = 0, hold = 0;
+  for (let i = d0; i < frames; i++) {
+    const p = Math.max(0, Math.min(1, (i / SR - t0) / 30));   // 0→1
+    const bits = Math.max(3, Math.round(10 - 6 * p));         // 10→4 bits
+    const ds = Math.max(1, Math.round(1 + 7 * p));            // 1→8× hold
+    if (hold <= 0) {
+      const lv = Math.pow(2, bits - 1);
+      hL = Math.max(-1, Math.min(1, Math.round(x[i * 2] * lv) / lv));
+      hR = Math.max(-1, Math.min(1, Math.round(x[i * 2 + 1] * lv) / lv));
+      hold = ds;
+    }
+    hold--;
+    const mix = Math.min(1, p * 1.3);                         // ease the gnarl in
+    x[i * 2] = x[i * 2] * (1 - mix) + hL * mix;
+    x[i * 2 + 1] = x[i * 2 + 1] * (1 - mix) + hR * mix;
   }
 }
 

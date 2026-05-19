@@ -2190,7 +2190,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       // Chill: drop the lead an OCTAVE (it sat too high) and use the
       // warm PAD voice instead of the bright plucky "lead" timbre the
       // user disliked.
-      const leadMidi = scaleNoteMidi(deg, isChill ? -1 : 0) + v.cents / 100;
+      const leadMidi = scaleNoteMidi(deg, isChill ? -2 : 0) + v.cents / 100; // chill arps an octave deeper (jas)
       const inBreak = !t.kick;
       // Chill: very long sustained notes (not punctual) — ring well
       // across the rests.
@@ -3680,8 +3680,8 @@ if (GALLOP && isChill) {
     }
   }
   if (fogh) {                                    // distant (already "wet") fog horn — far + quiet
-    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.68, 0.72, 0.16 * DRUM_GAIN, true);
-    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.80, 0.66, 0.13 * DRUM_GAIN, true);
+    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.68, 0.40, 0.17 * DRUM_GAIN, true); // MUCH deeper/lower (jas)
+    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.80, 0.36, 0.14 * DRUM_GAIN, true);
   }
   if (boath) {                                   // a couple mournful boat-horn blasts
     place(boath, OPENING_PREFIX_SEC + musicSec * 0.72, 0.80, 0.30 * DRUM_GAIN, true);
