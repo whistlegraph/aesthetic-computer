@@ -476,14 +476,14 @@ const SECTION_TEMPLATES_3_CHILL = {
   // (which lands as a doubled drum in chill density and reads as
   // a glitch) and NO greeting vocal (the chill is wordless). The
   // kick enters at break1 so there's actual instrumental arrival.
-  intro:   { bars: 16, kick: false, hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0.30 },
-  break1:  { bars: 36, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
-  build1:  { bars: 36, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.75 },
-  drop1:   { bars: 44, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
-  break2:  { bars: 18, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
+  intro:   { bars: 12, kick: false, hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0.30 },
+  break1:  { bars: 27, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
+  build1:  { bars: 27, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.75 },
+  drop1:   { bars: 33, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
+  break2:  { bars: 14, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
   build2:  { bars: 0,  kick: false, hat: false, sub: false, lead: false, pad: false, piano: false, bells: false, riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0 },
-  drop2:   { bars: 36, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
-  outro:   { bars: 14, kick: true,  hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.40 },
+  drop2:   { bars: 28, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
+  outro:   { bars: 11, kick: true,  hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.40 },
 };
 const SECTION_TEMPLATES = isChill && isWaltz
   ? SECTION_TEMPLATES_3_CHILL
@@ -602,6 +602,10 @@ const kickTimes = [];
 // chance of ±1 scale-step shift, tiny chance of a rest.
 const leadRng = makeRng(SEED_STR + ":lead-evolve");
 let leadCentsDrift = 0;
+// Bunny-bow comp state: deterministic rng + the last note it played
+// (so it can voice-lead by nearest tone — the "bounce").
+const bunnyRng = makeRng(SEED_STR + ":bunny-bow");
+let bunnyPrevMidi = null;
 function nextLeadVariation() {
   leadCentsDrift += (leadRng() - 0.5) * 6;
   if (leadCentsDrift > 25) leadCentsDrift = 25;
@@ -779,7 +783,7 @@ function fireMosquito(target, startSec, midi, durSec, gain = 1.0, panBase = 0) {
 // with a BLOOM envelope: the higher partials swell IN over ~0.6 s as a
 // real gong "opens up", then a very long shimmering decay, with a dark
 // metallic noise wash under the bloom. `deep` = bigger / lower / longer.
-function fireGong(startSec, midi, gain = 1.0, deep = false) {
+function fireGong(startSec, midi, gain = 1.0, deep = false, reverse = false) {
   const f = 440 * Math.pow(2, (midi - 69) / 12) * (deep ? 0.5 : 1.0);
   const dur = deep ? 10.0 : 7.5;
   const seg = 0.06;
@@ -796,9 +800,12 @@ function fireGong(startSec, midi, gain = 1.0, deep = false) {
   ];
   for (let s = 0; s < segN; s++) {
     const u = s / segN;
-    const tt = u * dur;
+    // reverse = the swell runs backward (quiet → bloom → strike): the
+    // envelope timeline is time-flipped while segments stay in place.
+    const ur = reverse ? 1 - u : u;
+    const tt = ur * dur;
     const t0 = startSec + s * seg;
-    const decay = Math.pow(1 - u, 1.5);            // long ring (low partials longest)
+    const decay = Math.pow(reverse ? u : 1 - u, 1.5); // long ring / reverse swell
     const v = makeBufferSynth(dryBuf, t0, SAMPLE_RATE, noiseRng);
     for (let p = 0; p < partials.length; p++) {
       const P = partials[p];
@@ -1164,6 +1171,35 @@ function fireChillKick(target, startSec, chordDeg, idx, gain) {
   k.synth({ type: "sine", tone: freq, duration: dur, volume: gK * 0.45, attack: 0.004, decay: dur * 0.8 });
 }
 
+// "Bunny bow" — the comp glue. One BOWED, BRUSHED, sustained note: a
+// slow swell (soft attack → crescendo → release) so consecutive notes
+// OVERLAP/legato, warm timbre (triangle + soft saw bite + body), a
+// brush/shaker noise grain riding the same swell, and gentle bow
+// vibrato. Pitch is chosen by the caller via nearest-tone voice-leading
+// through the chord (with passing/diminished steps) — it "bounces"
+// around the other voices like a soft bow.
+function fireBunnyBow(target, startSec, midi, durSec, gain) {
+  const f0 = 440 * Math.pow(2, (midi - 69) / 12);
+  const seg = 0.045;
+  const n = Math.max(4, Math.floor(durSec / seg));
+  const atk = 0.40, rel = 0.32;
+  for (let i = 0; i < n; i++) {
+    const sf = i / n;
+    const tt = sf * durSec;
+    let env;
+    if (sf < atk) env = 0.5 - 0.5 * Math.cos(Math.PI * (sf / atk));
+    else if (sf > 1 - rel) env = 0.5 - 0.5 * Math.cos(Math.PI * ((1 - sf) / rel));
+    else env = 1;
+    const vib = 1 + 0.013 * Math.sin(2 * Math.PI * 5.0 * tt); // gentle bow vibrato
+    const t0 = startSec + i * seg;
+    const v = makeBufferSynth(target, t0, SAMPLE_RATE, noiseRng);
+    v.synth({ type: "triangle", tone: f0 * vib,     duration: seg + 0.03, volume: gain * 0.55 * env, attack: 0.012, decay: seg * 0.9 });
+    v.synth({ type: "sawtooth", tone: f0 * vib,     duration: seg + 0.03, volume: gain * 0.15 * env, attack: 0.014, decay: seg * 0.9 }); // soft bow bite
+    v.synth({ type: "sine",     tone: f0 * 2 * vib, duration: seg + 0.03, volume: gain * 0.10 * env, attack: 0.014, decay: seg * 0.8 }); // body
+    v.synth({ type: "noise",    tone: 3200,         duration: seg,        volume: gain * 0.06 * env, attack: 0.010, decay: seg * 0.8 }); // brush/shaker grain
+  }
+}
+
 // Riser — pitched sine sweep + chord-tone arpeggios with a thin noise
 // top. The user wanted "more pitched noise" instead of plain white-
 // noise sloshes, so the body is pitched tones; noise is a glaze on top.
@@ -1348,7 +1384,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   if (isChill && bar > 0 && bar % 8 === 0) {
     const gongIdx = Math.floor(bar / 8);
     const deep = gongIdx % 2 === 1 || noiseRng() < 0.2;
-    fireGong(barStart, scaleNoteMidi(chordDeg, deep ? -1 : 0), deep ? 0.42 : 0.36, deep);
+    fireGong(barStart, scaleNoteMidi(chordDeg, deep ? -1 : 0), deep ? 0.42 : 0.36, deep, gongIdx % 2 === 0);
     bellsCount++;
   }
 
@@ -1729,6 +1765,52 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       );
       events.lead.push({ t: startSec, midi: leadMidi, dur: durSec });
       leadCount++;
+    }
+  }
+
+  // Bunny-bow comp (chill) — overlapping bowed/brushed notes that
+  // voice-lead by NEAREST chord tone to the last one ("bounce"), with
+  // occasional scale/diminished passing approaches. Long swells that
+  // bleed into each other = the legato 4th-octave glue the sine-chime
+  // comp was missing. Routed to duckBuf so it sits in the harmonic bed.
+  if (isChill) {
+    const strokes = 2;
+    const step = barSec / strokes;
+    for (let nb = 0; nb < strokes; nb++) {
+      const t0 = barStart + nb * step;
+      const cands = [];
+      for (const tone of [0, 2, 4, 6]) {
+        for (const oc of [0, 1]) {
+          let m = scaleNoteMidi(chordDeg + tone, oc);
+          while (m < 60) m += 12;
+          while (m > 81) m -= 12;
+          cands.push(m);
+        }
+      }
+      let target;
+      if (bunnyPrevMidi == null) {
+        target = scaleNoteMidi(chordDeg, 1);
+      } else {
+        let best = 1e9;
+        target = cands[0];
+        for (const m of cands) {
+          const d = Math.abs(m - bunnyPrevMidi);
+          if (d < best) { best = d; target = m; }
+        }
+      }
+      if (bunnyRng() < 0.14) target += 12; // little hop
+      const dur = step * 1.7;              // overlaps into the next stroke
+      const g = 0.16;
+      if (bunnyPrevMidi != null && bunnyRng() < 0.24) {
+        const dir = target >= bunnyPrevMidi ? 1 : -1;
+        const pass = target - dir * (bunnyRng() < 0.5 ? 1 : 2); // semitone(dim)/whole step
+        fireBunnyBow(duckBuf, humanize(t0, 8), pass, step * 0.5, g * 0.8);
+        fireBunnyBow(duckBuf, humanize(t0 + step * 0.42, 8), target, dur * 0.75, g);
+      } else {
+        fireBunnyBow(duckBuf, humanize(t0, 8), target, dur, g);
+      }
+      events.lead.push({ t: t0, midi: target, dur });
+      bunnyPrevMidi = target;
     }
   }
 
