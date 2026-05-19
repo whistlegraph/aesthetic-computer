@@ -34,7 +34,7 @@ calls; sensitive sourcing context stays in the vault honeydo.
 | SSRC Just Tech Fellowship | 2026-06-28 (23:59 EST) | up to $60,000 / yr | Tech-and-society creative practice — strong AC fit. Promote to `grants/ssrc-just-tech-2026/` + RESEARCH. |
 | Pollock-Krasner Foundation | rolling | up to $50,000 | Visual artists w/ exhibition record + financial need; Jeffrey qualifies (KADIST/SMK). Could fund SF / PAX East travel. |
 | Critical Playground (pitch) | unconfirmed | unknown | criticalplayground.org publication; Smarthistory-style pitch-first. Verify the call exists before drafting. |
-| "$50k city grant" | unidentified | ~$50,000 | Flagged 2026-05-19; not LA2050 (that's $75k, orgs-only, Jun 5). Confirm with Fia which call before logging publicly — tracked in vault honeydo only. |
+| CAC Individual Artist Fellowship — **Legacy** (via LAPP, LA County) | 2026-06-06 (23:59 PT) | $50,000 unrestricted | Identified 2026-05-19. Statewide California Arts Council program, regional admin = Los Angeles Performance Practice. RESEARCH stub in vault `cac-iaf-2026/`; DRAFT pending guidelines pull. |
 
 ## Submitted / Decided
 
