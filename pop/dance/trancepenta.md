@@ -106,6 +106,21 @@ last-30 s. `finalize-penta-vocal.mjs --vox-db -3` = present co-lead
 (~+4 dB above the old hum), mastered together. Final v13: 3:11 ·
 −14.1 LUFS · −1.4 dBTP.
 
-## Open / next
+## Vertical video (now in)
 
-- Instagram story (9:16) of the trancepenta master.
+`build.mjs` has a `trancepenta` CONFIG (vertical 2:3, v13 audio,
+dismal per-section tints, `sectionsDir = gens/trancepenta-sections`,
+no prelude, `.NO_LYRICS`). Section illys regenerated under a dismal /
+muted palette = the diegetic light, glowing PALS on the laptop backs,
+screen-glow on jeffrey & mark's faces matching each segment's color
+(gitignored under `~/Documents/Working Desktop/gens/trancepenta-
+sections/<sec>/gens/v1.png`). `cover-video.mjs` patched for stained-
+glass + all struct/track data with real motion + zoom + a beat-
+reactive backlit bump. Outputs (build.mjs writes `~/Desktop/builds/`
+which auto-cleans — rescue to Working Desktop):
+`twi-out/trancepenta-vertical.mp4` (1080×1920 · 3:11) and a 30 s
+no-lyrics IG-story cut `twi-out/trancepenta-story.mp4`
+(~1:38→2:08: stamp/horse-grenade → drop → sung body).
+
+Rebuild: regen illys via the section-prompt/gen-illys path, then
+`node pop/dance/bin/build.mjs trancepenta` (config carries the rest).

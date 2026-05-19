@@ -148,6 +148,51 @@ const CONFIGS = {
       },
     ],
   },
+  trancepenta: {
+    title: "trancepenta",
+    bpm: "126",
+    // trancepenta's audio is the 4-stage v13 master (engine --hell 13
+    // --meter 5 dorian --gallop --beat-in 30 → scratch-mix →
+    // place-penta-vocal → finalize-penta-vocal). build.mjs can't
+    // express that as one trance.mjs call, so a `bakeScript` runs the
+    // deterministic pop/dance/bin/bake-trancepenta.sh, which writes
+    // the MASTER + .mp3 + the paired preBright .assets/struct.json into
+    // the SHARED twi-out dir. `audioSrc`/`structSrc` say where to pull
+    // the finished master + struct from.
+    audio: ["--mode", "chill", "--meter", "5"], // (descriptive; bakeScript drives the real render)
+    bakeScript: `${REPO}/pop/dance/bin/bake-trancepenta.sh`,
+    audioSrc: `${homedir()}/Documents/Working Desktop/twi-out/trancepenta-MASTER.wav`,
+    structSrc: `${homedir()}/Documents/Working Desktop/twi-out/trancepenta-MASTER-preBright.wav.assets/struct.json`,
+    sectionsDir: `${SECDIR_ROOT}/trancepenta-sections`,
+    hideLanes: null, // dense chill mix — show every populated lane
+    noLyrics: true,  // DistroKid/IG rule — NO baked lyric/greeting text
+    // DISMAL palette — greyer / lower-chroma than trancenwaltzi's
+    // bright defaults. Mirrors the per-section diegetic colours the
+    // illy prompts bake in (drained slate-blue → cyan-grey → sick
+    // teal → cold cyan-blue → bruised violet → acid grey-green → cold
+    // steel-blue → ashen). Passed to cover-video via --section-tints.
+    sectionTints: {
+      intro:  "rgba(78,96,116,0.20)",   // drained slate-blue
+      break1: "rgba(86,118,128,0.20)",  // cold cyan-grey
+      build1: "rgba(70,108,108,0.20)",  // dim sick teal
+      drop1:  "rgba(72,104,140,0.20)",  // cold cyan-blue (the flare)
+      break2: "rgba(96,90,118,0.20)",   // bruised violet-grey
+      build2: "rgba(96,108,92,0.20)",   // acid grey-green
+      drop2:  "rgba(80,98,128,0.20)",   // cold steel-blue (final flood)
+      outro:  "rgba(92,100,112,0.20)",  // ashen grey-blue
+    },
+    formats: [
+      {
+        // Vertical 2:3 portrait set — the dismal foggy-harbour illys
+        // (jeffrey + mark peers, glowing-pals lids). The vertical cut
+        // is the primary deliverable (full song + a 30s IG-story cut).
+        suffix: "vertical",
+        size: "1080x1920",
+        variant: "v1",
+        prelude: null, // chill mix has no greeting → no prelude swap
+      },
+    ],
+  },
 };
 const CFG = CONFIGS[NAME];
 if (!CFG) { console.error(`unknown track '${NAME}'. options: ${Object.keys(CONFIGS).join(", ")}`); process.exit(1); }
@@ -177,7 +222,25 @@ try {
 
 // ── audio render ──────────────────────────────────────────────────────
 let audioCmd = null;
-if (!flags["video-only"]) {
+if (!flags["video-only"] && CFG.bakeScript) {
+  // Multi-stage bake (trancepenta): run the deterministic bake script,
+  // then copy its finished MASTER + paired struct into the build dir.
+  audioCmd = ["bash", CFG.bakeScript];
+  if (flags["reuse-bake"] && existsSync(CFG.audioSrc) && existsSync(CFG.structSrc)) {
+    console.log(`▸ audio · REUSE-BAKE (skip ${CFG.bakeScript}; using cached ${CFG.audioSrc})`);
+  } else {
+    console.log(`▸ audio · bake · ${audioCmd.join(" ")}`);
+    const r = spawnSync(audioCmd[0], audioCmd.slice(1), { stdio: "inherit" });
+    if (r.status !== 0) { console.error("✗ audio bake failed"); process.exit(r.status || 1); }
+  }
+  if (!existsSync(CFG.audioSrc)) { console.error(`✗ bake produced no master at ${CFG.audioSrc}`); process.exit(1); }
+  // cover-video probes the mp3; copy the master (as .mp3 container is
+  // fine — cover-video only ffprobes duration + decodes via ffmpeg).
+  spawnSync("ffmpeg", ["-y", "-i", CFG.audioSrc, "-b:a", "320k", audioOut], { stdio: "ignore" });
+  mkdirSync(`${buildDir}/${NAME}.assets`, { recursive: true });
+  copyFileSync(CFG.structSrc, `${buildDir}/${NAME}.assets/struct.json`);
+  console.log(`▸ audio · baked master + struct → ${buildDir}`);
+} else if (!flags["video-only"]) {
   audioCmd = ["node", `${REPO}/recap/bin/trance.mjs`, ...CFG.audio, "--out", audioOut];
   console.log(`▸ audio · ${audioCmd.join(" ")}`);
   const r = spawnSync(audioCmd[0], audioCmd.slice(1), { stdio: "inherit" });
@@ -248,6 +311,24 @@ if (!flags["audio-only"]) {
       }
       if (CFG.hideLanes) {
         cmd.push("--hide-lanes", CFG.hideLanes);
+      }
+      // Multi-stage tracks ship their struct alongside the audio in
+      // the build dir — point cover-video at it explicitly (its
+      // <track>.assets/struct.json default also resolves, but be
+      // explicit so a reused/baked struct is unambiguous).
+      if (CFG.bakeScript) {
+        cmd.push("--struct", `${buildDir}/${NAME}.assets/struct.json`);
+      }
+      // DISMAL per-section palette override (greyer than the bright
+      // cover-video defaults).
+      if (CFG.sectionTints) {
+        cmd.push("--section-tints", JSON.stringify(CFG.sectionTints));
+      }
+      // NO baked lyric / greeting text (DistroKid + IG). cover-video
+      // only loads karaoke when the lyrics file exists; point it at a
+      // guaranteed-absent path so the text layer is fully skipped.
+      if (CFG.noLyrics) {
+        cmd.push("--lyrics", `${buildDir}/.NO_LYRICS_${NAME}.json`);
       }
     }
     videoCmds.push({ kind: fmt.suffix || "square", out, cmd, fmt });

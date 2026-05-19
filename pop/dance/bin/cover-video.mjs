@@ -302,6 +302,20 @@ const SECTION_TINTS = {
   drop2:  "rgba(240,64,156,0.20)",
   outro:  "rgba(150,120,205,0.20)",   // dusk violet
 };
+// --section-tints '{"intro":"rgba(...)",...}' — per-track palette
+// override (build.mjs passes the trancepenta DISMAL palette here so
+// the section dividers / typography / melt tints run far greyer and
+// lower-chroma than the bright trancenwaltzi defaults above). Any
+// unspecified section keeps its default.
+if (flags["section-tints"]) {
+  try {
+    const ov = JSON.parse(String(flags["section-tints"]));
+    for (const k of Object.keys(ov)) SECTION_TINTS[k] = ov[k];
+    console.log(`▸ section-tints override · ${Object.keys(ov).join(",")}`);
+  } catch (e) {
+    console.error(`⚠ --section-tints parse failed: ${e.message}`);
+  }
+}
 
 // ── pre-sort events by lane so per-frame culling is fast ─────────────
 // Each lane's events also get a `stackRow` index — events that overlap
@@ -1626,23 +1640,31 @@ function drawFrame(t) {
   // dense kicks read as one continuous swell, never a per-frame snap.
   const slowBreath = 0.028 * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 16)));
   let kickZoom = 0;
+  // Track the most-recent kick so the camera can GLIDE between its aim
+  // point and the next kick's aim (the dramatic zoom-in/out + pan that
+  // was previously hard-disabled with lastKickIdx=-1 → "barely moved").
+  let lastKickIdx = -1;
+  let lastKickT = -1e9;
   for (let i = kicksSorted.length - 1; i >= 0; i--) {
     const kt = kicksSorted[i].displayedT ?? kicksSorted[i].t;
     const since = audioT - kt;
     if (since < 0) continue;
+    if (lastKickIdx < 0) { lastKickIdx = i; lastKickT = kt; }
     if (since > 0.9) break;
     const e01 = since < 0.07 ? since / 0.07 : Math.exp(-(since - 0.07) / 0.34);
     if (e01 > kickZoom) kickZoom = e01;
   }
-  // String-bend pan/zoom BUMP (no rotate) — folded into the camera so
-  // the illustration + its backlight mask + the lanes stay registered.
-  // SMOOTH camera only — slow ken-burns breath + soft kick zoom. The
-  // string→scene pan/bump was removed: every iteration it read as
-  // jerky and broke the backlight-mask registration. Re-add later as
-  // a separate, carefully-damped pass if wanted.
-  const zoom = baseScale + slowBreath + kickZoom * 0.045;
-  const lastKickIdx = -1;
-  const lastKickT = -1e9;
+  // BEAT-REACTIVE camera: a slow ken-burns breath + a deeper kick zoom
+  // PLUS the verlet string's signed-spring scene bump (cover-engine
+  // sceneOffset() — already low-passed so it follows the bend without
+  // the historical per-frame jerk; it returns a zoomMul we fold in so
+  // the picture punches WITH the lanes/string, mask + lanes stay
+  // registered because there is no ctx-transform). kickZoom deepened
+  // 0.045 → 0.085 so the in/out pump clearly reads.
+  const _so = _vs.sceneOffset();
+  const zoom = (baseScale + slowBreath + kickZoom * 0.085) * _so.zoomMul;
+  const stringPanX = _so.dx;
+  const stringPanY = _so.dy;
   void lastKickT;
   void aspect;
   const baseW = illusImg.width * coverScale * zoom;
@@ -1681,8 +1703,12 @@ function drawFrame(t) {
   const scaledFy = aimFy * (baseH / imgH);
   centerX = W / 2 - scaledFx;
   centerY = H / 2 - scaledFy;
-  let drawX = centerX + wobbleX;
-  let drawY = centerY + wobbleY;
+  // + the verlet string's signed-spring pan so the picture visibly
+  // lurches WITH the string swing. It's the low-passed sceneOffset()
+  // from cover-engine (not a raw deflection) so it eases, never jerks;
+  // the cover-clamp just below guarantees it can never expose an edge.
+  let drawX = centerX + wobbleX + stringPanX;
+  let drawY = centerY + wobbleY + stringPanY;
   // Clamp so the illustration always covers the canvas — no black
   // bars on the sides. For a baseW × baseH image to cover W × H, the
   // draw position must satisfy: W - baseW ≤ drawX ≤ 0 (and same for Y).
@@ -1853,8 +1879,23 @@ function drawFrame(t) {
       // EXTREME / VIBEIN — push the transmitted illumination hard.
       const ampGate = 0.30 + 1.05 * env; // pulled back — was blowing out
       const ambient = 0.20 * env;
-      const maxK = faceCanvas   ? Math.max(recentMax("kick") * ampGate, ambient) : 0;
-      const maxH = laptopCanvas ? Math.max(recentMax("hat")  * ampGate, ambient) : 0;
+      // BEAT-REACTIVE BACKLIT BUMP — an explicit kick-synced punch on
+      // TOP of the envelope gate so the light visibly THUMPS behind
+      // the faces with the kick (sharp ~30ms attack, ~260ms exp tail),
+      // independent of the slower RMS envelope. This is the "backlit
+      // bump that pulses with the kick/amplitude".
+      let kickPunch = 0;
+      for (let ki = kicksSorted.length - 1; ki >= 0; ki--) {
+        const kt = kicksSorted[ki].displayedT ?? kicksSorted[ki].t;
+        const dts = audioT - kt;
+        if (dts < 0) continue;
+        if (dts > 0.6) break;
+        const p = dts < 0.03 ? dts / 0.03 : Math.exp(-(dts - 0.03) / 0.26);
+        if (p > kickPunch) kickPunch = p;
+      }
+      const bump = 1 + 0.85 * kickPunch;            // up to ~1.85× on the beat
+      const maxK = faceCanvas   ? Math.max(recentMax("kick") * ampGate * bump, ambient + 0.55 * kickPunch) : 0;
+      const maxH = laptopCanvas ? Math.max(recentMax("hat")  * ampGate * bump, ambient) : 0;
       // Hue drifts LIBERALLY over time + amplitude — not locked to the
       // section colour. Kick + hat ride different points of the wheel.
       const kickHue = audioT * 23 + env * 90;
