@@ -208,18 +208,30 @@ function mixEventPiano(ev, out, sampleRate) {
   const attack = Math.min(0.005 * sampleRate, durSamples * 0.05);
   const release = Math.min(0.10 * sampleRate, durSamples * 0.5);
   const lenOut = durSamples + Math.floor(release);
+  // Optional per-note expression (jas, chill high piano keys): play
+  // backwards (ev.reverse), a pitch-BEND glide over the note (ev.bend
+  // in semitones, ± ), and a longer sustain comes from a bigger
+  // ev.durSec from the caller.
+  const rev = !!ev.reverse;
+  const bend = ev.bend || 0;
+  const span = Math.min(lenOut, Math.floor((sample.length - 2) / Math.max(1e-6, ratio)));
   for (let i = 0; i < lenOut; i++) {
     const dst = startIdx + i;
     if (dst < 0 || dst >= out.length) continue;
-    const srcF = i * ratio;
+    const u = lenOut > 1 ? i / lenOut : 0;
+    const r = ratio * Math.pow(2, (bend * u) / 12);   // glide
+    const srcF = rev ? (span - i) * r : i * r;
+    if (srcF < 0) break;
     const s0 = Math.floor(srcF);
     const s1 = s0 + 1;
-    if (s1 >= sample.length) break;
+    if (s1 >= sample.length || s0 < 0) { if (rev) continue; else break; }
     const frac = srcF - s0;
     const v = sample[s0] * (1 - frac) + sample[s1] * frac;
     let env = 1;
     if (i < attack) env = i / attack;
     else if (i > durSamples) env = Math.max(0, 1 - (i - durSamples) / release);
+    // reversed notes swell IN (soft attack → transient at the end)
+    if (rev) env = Math.min(1, (i + 1) / Math.max(1, durSamples)) * (i > durSamples ? Math.max(0, 1 - (i - durSamples) / release) : 1);
     out[dst] += v * env * ev.gain;
   }
 }
@@ -368,14 +380,18 @@ const CHILL_HATS  = String(flags["chill-hats"] ?? "on");
 // --gallop; trancenwaltzi never does). Opens the track ("preview of
 // what's coming") + drives the back half as a lighter bed.
 const GALLOP      = Boolean(flags.gallop);
+// --beat-in <sec>: hold the beat (kick/snare/tick/floor) off until N
+// music-seconds, then ease in over ~3 s (jas: "start the beat more
+// around 30 seconds in"). 0 = no delay (trancenwaltzi unchanged).
+const BEAT_IN     = Number(flags["beat-in"] ?? 0);
 // --kick-only: an experimental "drums = kicks ONLY" pass (jas: "remove
 // all hats and all snares for now ... ONLY do kicks for this next
 // pass"). Mutes the backbeat snare, the chill tick, the hat lane and
 // any snare-roll — keeps the kick. Flag-gated + chill-scoped so
 // trancewaltz stays byte-identical when the flag is absent.
 const KICK_ONLY   = Boolean(flags["kick-only"]);
-const LEAD_GAIN   = Number(flags["lead-gain"] ?? (isChill ? 0.34 : 0.55));
-const PAD_GAIN    = Number(flags["pad-gain"]  ?? (isChill ? 0.18 : 0.30));
+const LEAD_GAIN   = Number(flags["lead-gain"] ?? (isChill ? 0.24 : 0.55)); // melodic lower, esp highs (jas)
+const PAD_GAIN    = Number(flags["pad-gain"]  ?? (isChill ? 0.12 : 0.30)); // chill: lower the "organ" pad (jas) — poppier
 const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.42 : 0.45)); // thwomp stays forward with the drums
 const SIDECHAIN   = flags.sidechain !== "off";
 const DUCK_DEPTH  = Number(flags["duck-depth"] ?? 0.65);
@@ -400,7 +416,7 @@ const VOCAL_SECTION_GAIN = {
   outro:  0.0,   // musical ending — no vocal
 };
 const PIANO_GAIN  = Number(flags["piano-gain"] ?? (isChill ? 0.66 : 0.45)); // lift the high piano out (jas)
-const BELLS_GAIN  = Number(flags["bells-gain"] ?? (isChill ? 0.20 : 0.32)); // chill: tones quieter
+const BELLS_GAIN  = Number(flags["bells-gain"] ?? (isChill ? 0.12 : 0.32)); // chill: tones quieter, bells are shrill (jas)
 const STRUCT_PATH = expandHome(flags["struct-out"]) || null;
 const OUT_PATH    = expandHome(flags.out) || `${ROOT}/out/${isWaltz ? "trancewaltz" : "trance"}.mp3`;
 // --master → a streaming RELEASE cut (DistroKid/Spotify): restore the
@@ -1763,6 +1779,10 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         // (the master fade is the last 18 s); the snare/other beat
         // elements still taper naturally.
         const kickInFade = kickT > totalSec - 20;
+        // Hold the whole beat off until BEAT_IN s, then ease in ~3 s.
+        const _mrel = kickT - OPENING_PREFIX_SEC;
+        const beatInGate = BEAT_IN <= 0 ? 1
+          : (_mrel < BEAT_IN ? 0 : Math.min(1, (_mrel - BEAT_IN) / 3));
         // ── WALTZ 3/4 perc restructure (jas: "we should not have gone
         // into a bts bts rhythm ... keep the waltz 3/4 time ...
         // aggressively restructure the whole perc"). One clean
@@ -1770,7 +1790,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         // beat 2, a soft light TICK on beat 3. No kick on 2/3 → never
         // four-on-the-floor. ───────────────────────────────────────
         if (!kickInFade && beat === 0) {                 // the ONE + a syncopated push
-          const kg = accent * settleAmp * DRUM_GAIN * kickDist * kickGate;
+          const kg = accent * settleAmp * DRUM_GAIN * kickDist * kickGate * beatInGate;
           const pushT = kickT + beatSec * 1.5;
           const pushIn = pushT < totalSec - 20;
           if (HELL > 0) {
@@ -1800,13 +1820,13 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         // ~20 s so the ending can still resolve.
         if (beat === 0 && kickT < totalSec - 20) {
           const fl = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
-          const fg = 0.19 * settleAmp * DRUM_GAIN;
+          const fg = 0.19 * settleAmp * DRUM_GAIN * beatInGate;
           fl.synth({ type: "sine", tone: 55, duration: 0.17, volume: fg,        attack: 0.002, decay: 0.15 });
           fl.synth({ type: "sine", tone: 92, duration: 0.06, volume: fg * 0.38, attack: 0.001, decay: 0.05 });
         }
         if (beat === 1 && kickGate > 0.02 && !KICK_ONLY) { // PA — deep snare
           const snr = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
-          const sg = 0.62 * settleAmp * DRUM_GAIN * kickGate * kickDist;
+          const sg = 0.62 * settleAmp * DRUM_GAIN * kickGate * kickDist * beatInGate;
           snr.synth({ type: "noise",    tone: 1500, duration: 0.12, volume: sg * 0.52, attack: 0.0006, decay: 0.10 });
           snr.synth({ type: "noise",    tone: 240,  duration: 0.14, volume: sg * 0.46, attack: 0.0006, decay: 0.12 });
           snr.synth({ type: "triangle", tone: 124,  duration: 0.14, volume: sg * 0.72, attack: 0.0009, decay: 0.12 });
@@ -1815,7 +1835,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         }
         if (isChill && beat === 2 && kickGate > 0.02 && !KICK_ONLY) { // PA — soft light tick
           const tk = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
-          const tv = 0.34 * settleAmp * DRUM_GAIN * kickGate * kickDist;
+          const tv = 0.34 * settleAmp * DRUM_GAIN * kickGate * kickDist * beatInGate;
           tk.synth({ type: "noise",    tone: 2400, duration: 0.030, volume: tv * 0.40, attack: 0.0004, decay: 0.026 });
           tk.synth({ type: "triangle", tone: 360,  duration: 0.045, volume: tv * 0.40, attack: 0.0006, decay: 0.038 });
           events.kick.push({ t: kickT, kind: "tick" });
@@ -2188,7 +2208,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       if (isChill) {
         // Bring UP the harmonies on the main voice (jas) — an audible
         // diatonic 3rd + 5th above, not a faint doubling.
-        for (const [hd, hg] of [[2, 0.55], [4, 0.40]]) {
+        for (const [hd, hg] of [[2, 0.32], [4, 0.22]]) { // lower — less "organ" (jas)
           mixEventLeadPad(
             { startSec, midi: scaleNoteMidi(deg + hd, -1) + v.cents / 100, gain: LEAD_GAIN * hg, durSec },
             dryBuf,
@@ -2338,8 +2358,13 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       for (let i = 0; i < nMel; i++) {
         const md = scaleNoteMidi(cd + mel[(bar + i) % mel.length], 2); // high "little keys"
         const mt = humanize(barStart + (i / nMel) * barSec, 8);
-        const mdur = (barSec / nMel) * (1.3 + 0.4 * (i % 2));   // held, overlapping
-        mixEventPiano({ startSec: mt, midi: md, gain: PIANO_GAIN * 0.6, durSec: mdur }, duckBuf, SAMPLE_RATE);
+        // jas: some REVERSED, some pitch-BENT, some held longer w/ sustain.
+        const r = noiseRng();
+        const reverse = r < 0.30;
+        const sustainLong = !reverse && noiseRng() < 0.35;
+        const bend = noiseRng() < 0.35 ? (noiseRng() < 0.5 ? -2 : 2) * (0.5 + noiseRng()) : 0;
+        const mdur = (barSec / nMel) * (1.3 + 0.4 * (i % 2)) * (sustainLong ? 2.4 : 1) * (reverse ? 1.6 : 1);
+        mixEventPiano({ startSec: mt, midi: md, gain: PIANO_GAIN * (reverse ? 0.5 : 0.6), durSec: mdur, reverse, bend }, duckBuf, SAMPLE_RATE);
         events.piano.push({ t: mt, midi: md, dur: mdur });
         pianoCount++;
       }
@@ -2995,12 +3020,12 @@ if (isChill && barStartRel.length > 110) {
   const tA = OPENING_PREFIX_SEC + barStartRel[70];
   const tB = OPENING_PREFIX_SEC + barStartRel[110];
   const span = tB - tA;
-  const r = 0.42; // base stretch/pitch — mellow low register
+  const r = 0.42 * 0.25; // TWO OCTAVES down — was harsh/sharp/shrill (jas)
   const chord = [
-    { ratio: r,                          gain: 0.075 }, // root
-    { ratio: r * Math.pow(2, 3 / 12),    gain: 0.060 }, // minor 3rd
-    { ratio: r * Math.pow(2, 7 / 12),    gain: 0.055 }, // 5th
-    { ratio: r * 2,                      gain: 0.040 }, // octave shimmer
+    { ratio: r,                          gain: 0.055 }, // root
+    { ratio: r * Math.pow(2, 3 / 12),    gain: 0.044 }, // minor 3rd
+    { ratio: r * Math.pow(2, 7 / 12),    gain: 0.040 }, // 5th
+    { ratio: r * 2,                      gain: 0.014 }, // octave shimmer (way down)
   ];
   chord.forEach((c, vi) => {
     const off = vi * (span * 0.04);                 // staggered bloom-in
@@ -3010,7 +3035,7 @@ if (isChill && barStartRel.length > 110) {
   // a few short high kitten accents so the choir still reads "cat"
   for (let k = 0; k < 4; k++) {
     const t = tA + span * ((k + 0.5) / 4) + (noiseRng() - 0.5) * (span * 0.15);
-    mixZooSample({ startSec: t, name: "cat", gain: 0.13, pitchRatio: 1.9 + noiseRng() * 0.8 }, sfxDryBuf, SAMPLE_RATE);
+    mixZooSample({ startSec: t, name: "cat", gain: 0.07, pitchRatio: (1.9 + noiseRng() * 0.8) * 0.25 }, sfxDryBuf, SAMPLE_RATE); // 2 octaves down, quieter — was harsh sharp cuts (jas)
     events.sfx.push({ t, name: "cat", dur: 0.35 });
   }
 }
@@ -3544,19 +3569,29 @@ if (GALLOP && isChill) {
     const off = Math.floor(gRng() * Math.max(1, src.length - SRg * 1.5)); // spread, not a loop
     const len = Math.floor((0.55 + gRng() * 0.8) * SRg);
     const fadeN = Math.floor(0.014 * SRg);
+    // VARIABLE playback rate (jas: "variable playback rate on the
+    // horze ... bend a bit with the rhythm ... morph under into it"):
+    // the read rate warbles with the beat + slowly drifts DOWN across
+    // the slice, so the real samples bend musically instead of playing
+    // flat. (beat from --bpm; steady in trancepenta.)
+    const galBeatHz = (Number(flags.bpm) || 120) / 60;
     for (const [dly, tg] of taps) {
       const baseI = Math.floor((t0 + dly) * SRg);
+      let sp = off;
       for (let k = 0; k < len; k++) {
         const di = baseI + k;
-        if (di < 0) continue;
+        if (di < 0) { sp += ratio; continue; }
         if (di >= dryBuf.length) break;
-        const sf = off + k * ratio, si = Math.floor(sf);
+        const si = Math.floor(sp);
         if (si + 1 >= src.length) break;
-        const fr = sf - si;
+        const fr = sp - si;
         let e = 1;
         if (k < fadeN) e = k / fadeN;
         else if (k > len - fadeN) e = Math.max(0, (len - k) / fadeN);
         dryBuf[di] += (src[si] * (1 - fr) + src[si + 1] * fr) * e * tg;
+        const tt = (t0 + dly) + k / SRg;
+        sp += ratio * (1 + 0.05 * Math.sin(2 * Math.PI * galBeatHz * tt)) // bend w/ rhythm
+                    * (1 - 0.10 * (k / len));                              // morph under
       }
     }
   };
@@ -3602,7 +3637,57 @@ if (GALLOP && isChill) {
   };
   thunder(OPENING_PREFIX_SEC + 0.12, 0.5 * DRUM_GAIN);
   thunder(OPENING_PREFIX_SEC + musicSec * 0.5, 0.4 * DRUM_GAIN);
-  console.log(`  gallop · REAL CC0 horse — ${strideCount} spread strides + harmonized neigh + synth thunder`);
+  // STEAM / TRAIN WHISTLE (jas) — a detuned 3-note chord cluster with
+  // breathy steam, slow swell in, mournful pitch fall + vibrato, long
+  // tail. Opens like a locomotive; one more mid.
+  const whistle = (t0, dur, g) => {
+    const bi = Math.floor(t0 * SRg), nN = Math.floor(dur * SRg);
+    const f = [392, 466.2, 587.3];
+    const ph = [0, 0, 0];
+    for (let k = 0; k < nN; k++) {
+      const di = bi + k;
+      if (di < 0) continue;
+      if (di >= dryBuf.length) break;
+      const lt = k / SRg, u = lt / dur;
+      const swell = Math.min(1, lt / 0.20) * Math.min(1, Math.max(0, (dur - lt) / 0.6));
+      const drift = 1 - 0.03 * u;
+      const vib = 1 + 0.004 * Math.sin(2 * Math.PI * 5.5 * lt);
+      let s = 0;
+      for (let v = 0; v < 3; v++) {
+        ph[v] += (2 * Math.PI * f[v] * drift * vib) / SRg;
+        s += Math.sin(ph[v]) * (v === 0 ? 0.5 : 0.32);
+      }
+      const air = (gRng() * 2 - 1) * 0.10;
+      dryBuf[di] += (s + air) * swell * g;
+    }
+  };
+  whistle(OPENING_PREFIX_SEC + 0.05, 1.7, 0.32 * DRUM_GAIN);
+  whistle(OPENING_PREFIX_SEC + musicSec * 0.5 - 0.45, 1.4, 0.26 * DRUM_GAIN);
+  // OCEAN / HARBOUR scene in the last third (jas: "wave crashing
+  // sounds ... a boat horn ... fog horn in distance"). Real CC0
+  // Freesound samples, placed via the same deep/echo/variable-rate
+  // helper so they bend with the rhythm too.
+  const waves = loadSfxF32(".waves.wav");
+  const fogh = loadSfxF32(".foghorn.wav");
+  const boath = loadSfxF32(".boathorn.wav");
+  const oc0 = OPENING_PREFIX_SEC + musicSec * 0.66;
+  const ocEnd = OPENING_PREFIX_SEC + musicSec * 0.86;
+  if (waves) {                                   // spread crashing waves bed
+    let wt = oc0;
+    while (wt < ocEnd) {
+      place(waves, wt, 0.85 + gRng() * 0.2, 0.20 * DRUM_GAIN * (0.8 + gRng() * 0.3), true);
+      wt += 1.4 + gRng() * 1.6;
+    }
+  }
+  if (fogh) {                                    // distant (already "wet") fog horn — far + quiet
+    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.68, 0.72, 0.16 * DRUM_GAIN, true);
+    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.80, 0.66, 0.13 * DRUM_GAIN, true);
+  }
+  if (boath) {                                   // a couple mournful boat-horn blasts
+    place(boath, OPENING_PREFIX_SEC + musicSec * 0.72, 0.80, 0.30 * DRUM_GAIN, true);
+    place(boath, OPENING_PREFIX_SEC + musicSec * 0.835, 0.74, 0.24 * DRUM_GAIN, true);
+  }
+  console.log(`  gallop · REAL CC0 horse — ${strideCount} strides + neigh + thunder + steam whistle + ocean/boat/fog (CC0)`);
 }
 
 if (false && isChill) { // single-mix refactor: scratch-mix.mjs now owns ALL post-FX

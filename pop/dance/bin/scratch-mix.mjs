@@ -143,22 +143,37 @@ if (stampWav) {
   let pk = 0;
   for (let i = 0; i < st.length; i++) { const a = Math.abs(st[i]); if (a > pk) pk = a; }
   const norm = pk > 0 ? 0.92 / pk : 1;
-  const PITCH = 0.95, GAIN = 0.85;            // near-natural + loud = clearly audible
+  const PITCH = 0.95, GAIN = 1.0;             // louder so the whole phrase reads
   const outLen = Math.floor(st.length / PITCH);
   const fz = Math.floor(0.03 * SR);
+  // Place the FULL ID, then a re-stamped "dot computer" tail right
+  // after it (jas: "restamp dot and restamp computer so its visible").
+  // Each placement DUCKS the bed underneath (broadcast-style pocket)
+  // so the VO is clearly intelligible, not masked.
+  const tailFrom = Math.floor(0.42 * st.length);   // ≈ "dot computer"
+  const place = (srcOff, srcEnd, atFrame, g) => {
+    const n = Math.floor((srcEnd - srcOff) / PITCH);
+    for (let i = 0; i < n; i++) {
+      const j = atFrame + i;
+      if (j < 0 || j >= frames) continue;
+      let f = 1;
+      if (i < fz) f = i / fz;
+      else if (i > n - fz) f = Math.max(0, (n - i) / fz);
+      // duck the bed under the voice (~6 dB), recover at the edges
+      const duck = 1 - 0.55 * f;
+      x[j * 2] *= duck; x[j * 2 + 1] *= duck;
+      const v = (st[srcOff + Math.floor(i * PITCH)] || 0) * norm * g * f;
+      x[j * 2] += v;
+      x[j * 2 + 1] += v;
+    }
+    return n;
+  };
   const start = Math.floor(frames / 2) - Math.floor(outLen / 2);
-  for (let i = 0; i < outLen; i++) {
-    const j = start + i;
-    if (j < 0 || j >= frames) continue;
-    let f = 1;
-    if (i < fz) f = i / fz;
-    else if (i > outLen - fz) f = Math.max(0, (outLen - i) / fz);
-    const v = (st[Math.floor(i * PITCH)] || 0) * norm * GAIN * f;
-    x[j * 2] += v;
-    x[j * 2 + 1] += v;
-  }
+  const n1 = place(0, st.length, start, GAIN);                 // full "aesthetic dot computer"
+  const gap = Math.floor(0.16 * SR);
+  place(tailFrom, st.length, start + n1 + gap, GAIN * 1.12);   // re-stamped "dot computer", louder
   try { unlinkSync(rawSt); } catch {}
-  console.log(`clean ID overlaid @ ~${(frames / 2 / SR).toFixed(1)}s (post-scratch, GAIN ${GAIN})`);
+  console.log(`clean ID + restamped "dot computer" @ ~${(frames / 2 / SR).toFixed(1)}s (ducked pocket, GAIN ${GAIN})`);
 }
 
 // CHAOTIC PITCH-SLIDES — ~4 short gestures that "pick a tone and run
@@ -168,16 +183,18 @@ if (stampWav) {
 {
   const NSL = 2;                            // fewer — sparing (jas)
   const scratchLo = w0 - SR, scratchHi = w0 + winN + SR;
-  // Keep slides OUT of 70–110 s (jas: "the 1:19 / 1:35 scratch can go
-  // away") and away from the centre scratch.
-  const exLo = 70 * SR, exHi = 110 * SR;
+  // Keep slides OUT of these windows (jas: "remove the scratch around
+  // 35"; "the 1:19 / 1:35 scratch can go away") + away from centre.
+  const exWins = [[28, 46], [50, 62], [70, 110]].map(([a, b]) => [a * SR, b * SR]);
+  const inEx = (s, e) => exWins.some(([lo, hi]) => e > lo && s < hi);
   for (let n = 0; n < NSL; n++) {
     const durF = Math.floor((0.25 + Math.random() * 0.75) * SR);
     let a0 = Math.floor((10 + Math.random() * (frames / SR - 24)) * SR);
     if (a0 + durF > scratchLo && a0 < scratchHi) a0 = (scratchHi + Math.floor(Math.random() * 6 * SR)) % Math.max(1, frames - durF - SR);
-    if (a0 + durF > exLo && a0 < exHi) a0 = (exHi + Math.floor(Math.random() * 8 * SR)) % Math.max(1, frames - durF - SR);
+    let tries = 0;
+    while (inEx(a0, a0 + durF) && tries++ < 8) a0 = Math.floor((10 + Math.random() * (frames / SR - 24)) * SR);
     a0 = Math.max(SR, Math.min(frames - durF - SR, a0));
-    if (a0 + durF > exLo && a0 < exHi) continue; // still inside → skip this one
+    if (inEx(a0, a0 + durF)) continue; // still inside → skip this one
     const dep = (0.05 + Math.random() * 0.30) * SR * (Math.random() < 0.5 ? -1 : 1);
     const gd = Math.ceil(Math.abs(dep)) + 4;
     const lo = Math.max(0, a0 - gd), hi = Math.min(frames, a0 + durF + gd), M = hi - lo;
