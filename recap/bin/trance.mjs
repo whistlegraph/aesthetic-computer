@@ -293,14 +293,16 @@ const isChill     = MODE === "chill";
 // (Non-chill keeps the birthday tempo.)
 const BPM         = Number(flags.bpm ?? (isChill ? 150 : 137.143));
 const SCALE_NAME  = flags.scale || "minor";
-const ROOT_MIDI   = Number(flags.root ?? 57);
+// Chill sits a key lower (57→54, down a minor 3rd) — brings the whole
+// harmonic texture + the high tones down, in unison. --root overrides.
+const ROOT_MIDI   = Number(flags.root ?? (isChill ? 54 : 57));
 const SECTION     = flags.section || "full";
 const BARS_FLAG   = flags.bars !== undefined ? Number(flags.bars) : null;
 const SEED_STR    = flags.seed || (isWaltz ? "trancewaltz" : "trance");
 const DRUM_GAIN   = Number(flags["drum-gain"] ?? 0.95);
 const LEAD_GAIN   = Number(flags["lead-gain"] ?? 0.55);
 const PAD_GAIN    = Number(flags["pad-gain"]  ?? 0.30);
-const BASS_GAIN   = Number(flags["bass-gain"] ?? 0.45);
+const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.66 : 0.45)); // chill = HARDER bass
 const SIDECHAIN   = flags.sidechain !== "off";
 const DUCK_DEPTH  = Number(flags["duck-depth"] ?? 0.65);
 const DUCK_MS     = Number(flags["duck-ms"] ?? 120);
@@ -360,7 +362,7 @@ const noiseRng = makeRng(SEED_STR + ":noise");
 // shutdown melodies) skip humanize so the song's tentpoles stay
 // musically locked.
 const humanRng = makeRng(SEED_STR + ":humanize");
-const HUMANIZE_DEFAULT_MS = 7;
+const HUMANIZE_DEFAULT_MS = isChill ? 3 : 7; // chill = tighter, more locked 3/4 waltz
 function humanize(t, scaleMs = HUMANIZE_DEFAULT_MS) {
   // Symmetric ±scaleMs uniform jitter, with a tiny biased tail so a
   // few hits land further off the grid than the rest.
@@ -539,8 +541,16 @@ const barStartRel = []; // music-relative start of each bar
       // Front-loaded energy loss: drops FAST early so ~1/3 of the
       // energy is gone by ~1/3 and it's well down by the halfway point
       // — really losing energy across the WHOLE track, not just the end.
-      const FAST = 182, SLOW = 120;
-      bpmI = FAST - (FAST - SLOW) * Math.pow(fr, 0.72);
+      // Fast → smoothly slow to the SLOW trough at the CENTER, then a
+      // QUICK recovery (~5 s) up to a STEADY rate, held flat to the end.
+      const FAST = 182, SLOW = 110, STEADY = 170;
+      if (fr <= 0.5) {
+        bpmI = FAST - (FAST - SLOW) * (0.5 - 0.5 * Math.cos(2 * Math.PI * fr)); // 182→110 at center
+      } else {
+        const recW = 0.035; // ≈ 5 s recovery after the trough
+        const u = Math.min(1, (fr - 0.5) / recW);
+        bpmI = SLOW + (STEADY - SLOW) * u; // quick speed-up, then steady
+      }
 
     } else {
       bpmI = BPM; // constant — trancenwaltz byte-identical
@@ -1158,20 +1168,32 @@ function fireChillArcBass(startSec, midi, durSec, grind) {
 // booms / some super-short tight ones, and a phase-shifted sub layer
 // (varying offset → comb/phase movement). No double-kicks. Deterministic
 // via noiseRng so it's varied but not random-sounding.
-function fireChillKick(target, startSec, chordDeg, idx, gain) {
+function fireChillKick(target, startSec, chordDeg, idx, gain, wall = 1) {
   const r2 = noiseRng();
-  // CLEAN classic kick ONLY — the synth harmonic/square body "broke
-  // the mix" and sounded harsh, so it's gone. Just the percussion-bank
-  // TR-808 "c" at a deep, controlled level (big headroom — it was way
-  // too hot), with a quiet SINE sub for warmth/tuning (never square).
-  const gK = gain * 0.55;                              // headroom cut
-  const deep = 0.66 + r2 * 0.14;                       // deep 808, varied
+  // Punchy classic kick: TR-808 + sharp click PUNCH + long bassy body
+  // + low echo taps. `wall` 0→1: "behind the wall" (muffled, quiet,
+  // distant — no bright click, duller 808, echo emphasised) ramping
+  // OUT to full punchy presence by ~70 s.
+  const w = Math.max(0, Math.min(1, wall));
+  const gK = gain * (0.30 + 0.32 * w);                 // quieter behind the wall
+  const deep = (0.64 + r2 * 0.12) * (0.78 + 0.22 * w); // duller/lower when veiled
   fireDrum(target, startSec, "c", { volume: gK, pitchFactor: deep });
-  const midi = scaleNoteMidi(chordDeg, -3);            // chord root, deep
+  if (w > 0.4) {
+    const tk = makeBufferSynth(target, startSec, SAMPLE_RATE, noiseRng);
+    tk.synth({ type: "noise", tone: 2600, duration: 0.006, volume: gK * 0.30 * w, attack: 0.0002, decay: 0.005 }); // punch click — only once it's OUT
+  }
+  const midi = scaleNoteMidi(chordDeg, -3);
   const freq = 440 * Math.pow(2, (midi - 69) / 12);
-  const dur  = noiseRng() < 0.4 ? 0.30 : 0.12;         // some longer, some tight
-  const k = makeBufferSynth(target, startSec, SAMPLE_RATE, noiseRng);
-  k.synth({ type: "sine", tone: freq, duration: dur, volume: gK * 0.45, attack: 0.004, decay: dur * 0.8 });
+  const bodyDur = 0.7 + r2 * 0.5;                       // long ring — not short
+  const kb = makeBufferSynth(target, startSec, SAMPLE_RATE, noiseRng);
+  kb.synth({ type: "sine", tone: freq, duration: bodyDur, volume: gK * 0.50, attack: 0.003 + 0.02 * (1 - w), decay: bodyDur * 0.95 });
+  const echoBoost = 1 + 0.8 * (1 - w);                  // more distant/echoey behind the wall
+  for (let e = 1; e <= 2; e++) {
+    const et = startSec + e * 0.135;
+    const ee = makeBufferSynth(target, et, SAMPLE_RATE, noiseRng);
+    ee.synth({ type: "sine", tone: freq * 0.5, duration: bodyDur * 0.9, volume: gK * 0.22 * echoBoost / e, attack: 0.004, decay: bodyDur * 0.85 });
+    fireDrum(target, et, "c", { volume: gK * 0.30 * echoBoost / e, pitchFactor: deep * 0.88 });
+  }
 }
 
 // "Bunny bow" — the comp glue. One BOWED, BRUSHED, sustained note: a
@@ -1341,6 +1363,48 @@ for (const r of sectionRanges) {
   }
 }
 
+// Ambient field recording → "castle". Decoded up-front (before the
+// per-bar loop) so its grains can be beat-aligned + pitched on the
+// grid. Chill only; gitignored stem, address-named source stays off
+// the repo. ambientBuf also feeds the continuous breathing bed in the
+// stereo mixdown.
+let ambientBuf = null;
+if (isChill) {
+  const AMB_PATH = `${REPO}/pop/dance/out/.ambient-room.wav`;
+  if (existsSync(AMB_PATH)) {
+    const tmpAmb = `${dirname(OUT_PATH)}/.ambient-room.f32.raw`;
+    const decA = spawnSync("ffmpeg", [
+      "-hide_banner", "-y", "-loglevel", "error",
+      "-i", AMB_PATH,
+      "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1",
+      tmpAmb,
+    ]);
+    if (decA.status === 0 && existsSync(tmpAmb)) {
+      const raw = readFileSync(tmpAmb);
+      ambientBuf = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
+      try { unlinkSync(tmpAmb); } catch {}
+      console.log(`  ambient · field recording (${(ambientBuf.length / SAMPLE_RATE).toFixed(1)} s) → castle bed + grains`);
+    }
+  }
+}
+// One pitched, windowed GRAIN of the field recording — a soft Hann
+// slice resampled to a musical ratio (magical, tuned), with attack +
+// long tail so it's textural, not clicky. Routed by the caller.
+function fireAmbGrain(target, startSec, srcSec, durSec, pitch, gain) {
+  if (!ambientBuf || !ambientBuf.length) return;
+  const SR = SAMPLE_RATE;
+  const outN = Math.floor(durSec * SR);
+  const srcStart = (Math.floor(srcSec * SR) % ambientBuf.length + ambientBuf.length) % ambientBuf.length;
+  const oS = Math.floor(startSec * SR);
+  for (let k = 0; k < outN; k++) {
+    const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * k) / outN); // Hann
+    const sf = srcStart + k * pitch;
+    const si = ((Math.floor(sf) % ambientBuf.length) + ambientBuf.length) % ambientBuf.length;
+    const d = oS + k;
+    if (d >= 0 && d < target.length) target[d] += ambientBuf[si] * w * gain;
+  }
+}
+
 for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // Per-bar tempo (accelerating in chill). These shadow the module-level
   // base beatSec/barSec for everything computed inside the loop, so all
@@ -1370,16 +1434,35 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // mid bridge (~±7 s around the midpoint) have NO kick/hat — then they
   // come back. Lets the track open, breathe mid-way, and resolve.
   const _mt = barStart - OPENING_PREFIX_SEC;
-  const _mid = totalSec / 2;
-  const chillPercMute = isChill && (
-    _mt < 8 ||
-    barStart > totalSec - 8 ||
-    Math.abs(barStart - _mid) < 7
-  );
-  // Hats stay out LONGER than the kick on the mid-bridge exit: the kick
-  // returns first (no hats) for ~10 s, then the hats come back in.
-  const chillHatMute = chillPercMute ||
-    (isChill && barStart > _mid + 7 && barStart < _mid + 17);
+  const T = totalSec;
+  const _mid = T * 0.40; // drop out of all the tracks SOONER (~40% in)
+  // Gradual perc envelope (0..1) — an adventure, not hard cuts: a SLOW
+  // hello at the open, a slow GOODBYE into the early mid-bridge, an
+  // even SLOWER hello back out, and a slow goodbye into the ending.
+  const _ru = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
+  let _pe = 1;
+  _pe *= _ru(_mt, 38, 56);                   // SPARSE first ~40 s, then perc ramps in
+  _pe *= 1 - _ru(barStart, T - 14, T - 2);   // slow goodbye into the end (~12 s)
+  // Global arrangement build: ~0 for the sparse first 40 s, then a
+  // fast ramp to full by ~58 s. Scales the DENSE layers (arp, mosquito,
+  // bass-arc) so the open is sparse and everything "really ramps in".
+  const chillBuild = isChill ? _ru(_mt, 38, 58) : 1;
+  let _bridge;
+  if (barStart < _mid - 1) _bridge = 1 - _ru(barStart, _mid - 7, _mid - 1); // slow goodbye
+  else if (barStart < _mid + 4) _bridge = 0;                                 // dropped out
+  else _bridge = _ru(barStart, _mid + 4, _mid + 26);                         // even slower hello
+  _pe *= _bridge;
+  const chillPercGain = isChill ? _pe : 1;
+  const chillHatGain = isChill ? Math.pow(_pe, 1.7) : 1; // hats lag — slower hello
+  const chillPercMute = isChill && chillPercGain < 0.03;
+  const chillHatMute = isChill && chillHatGain < 0.03;
+  // Kick runs the WHOLE track (no sparse-open silence): only the mid
+  // bridge dip + the end goodbye gate it. For the first ~minute it's
+  // "behind the wall" (muffled + quiet + distant), then it comes OUT
+  // and is present with us by ~70 s.
+  const _endgb = 1 - _ru(barStart, T - 24, T - 8); // perc fades out over last 24s → all gone by T-8
+  const kickGate = isChill ? _endgb * _bridge : 1;
+  const kickWall = isChill ? _ru(_mt, 45, 70) : 1; // 0 behind wall → 1 out
 
   // Meditation gong — every 8 bars in chill. Every OTHER one (and
   // sometimes extra) is a big deep hollow warbling "BONGGG"; the rest
@@ -1396,7 +1479,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // percussion-silent zones so the breaths stay clean.
   if (isChill && !chillPercMute) {
     const ht = humanize(barStart, 4);
-    fireHaptic(dryBuf, ht, 0.12, bar % 8 === 0 ? "double" : "tap");
+    fireHaptic(dryBuf, ht, 0.12 * chillPercGain, bar % 8 === 0 ? "double" : "tap");
   }
 
   // Final musical-ending cadence — fires on the last bar of the outro.
@@ -1409,25 +1492,41 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // tapers to silence within the last bar (totalSec). No more
     // 4-second overshoot into a tail that gets ffmpeg-faded; the
     // music decays itself, supporting the clean loop boundary.
-    const remainingSec = totalSec - barStart;
+    // Sustained ENDING — anchored ~16 s before the end (chill) so the
+    // chord rings the whole way out: fixes the track dying ~12 s early
+    // (the 12 s master fade + power-down now act on real sustaining
+    // content, not silence).
+    const endStart = isChill ? Math.min(barStart, totalSec - 16) : barStart;
+    const endDur   = isChill ? (totalSec - endStart + 2) : (totalSec - barStart);
     const finalTriad = chordMidis(0, 0);
     const finalNotes = [...finalTriad, scaleNoteMidi(0, 1)];
     for (const m of finalNotes) {
       mixEventLeadPad(
-        { startSec: barStart, midi: m, gain: PAD_GAIN * 1.8, durSec: remainingSec },
+        { startSec: endStart, midi: m, gain: PAD_GAIN * 1.8, durSec: endDur },
         duckBuf,
         { preset: "pad", sampleRate: SAMPLE_RATE, seed: `final:${m}` }
       );
       padCount++;
     }
     mixEventSinebell(
-      { startSec: barStart, midi: scaleNoteMidi(0, 1), gain: BELLS_GAIN * 1.45, durSec: remainingSec },
+      { startSec: endStart, midi: scaleNoteMidi(0, 1), gain: BELLS_GAIN * 1.45, durSec: endDur },
       dryBuf,
       SAMPLE_RATE
     );
     bellsCount++;
-    fireSubBass(bassBuf, barStart, scaleNoteMidi(0, -2), Math.min(remainingSec, barSec * 1.5), BASS_GAIN * 1.3, 0, true);
+    fireSubBass(bassBuf, endStart, scaleNoteMidi(0, -2), Math.min(endDur, 12), BASS_GAIN * 1.3, 0, true);
     subCount++;
+    if (isChill) {
+      // Upper-harmony GOODBYE — soft high sustained triad, a farewell
+      // shimmer that rings through the long fade.
+      for (const d of [0, 2, 4]) {
+        fireBunnyBow(duckBuf, endStart + 0.04 * d, scaleNoteMidi(d, 2), endDur * 0.95, 0.085);
+      }
+      // Close-up percussive kick — dry + present, marks the very end.
+      const endK = totalSec - 2.3;
+      fireDrum(dryBuf, endK, "c", { volume: 0.9 * DRUM_GAIN, pitchFactor: 0.8 });
+      events.kick.push({ t: endK });
+    }
   }
 
   // Kick — every beat (METER hits per bar) with rhythmic variation.
@@ -1435,7 +1534,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // organically settle: density falls to a regular metronome and
   // volume tapers so the slowdown feels like the song breathing
   // out rather than being spliced into the shutdown.
-  if (kickEnabled && !chillPercMute) {
+  if (kickEnabled && (!isChill || kickGate > 0.02)) {
     const TAPE_STOP_START = totalSec - 5.0;
     const SETTLE_WINDOW   = 4.0; // 4 s before tape-stop start
     const sixteenthSec_k = beatSec / 4;
@@ -1465,12 +1564,19 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       // a slow DISTANCE arc — the kick recedes a bit and returns over
       // ~13 bars (it never goes near-silent, so it never feels dropped).
       if (!isChill && rng() > beatFireProb) continue;
-      const accent = beat === 0 ? 1.05 : 0.95;
+      // WALTZ lilt — strong ONE, light two-three (oom-pa-pa).
+      const accent = isChill ? (beat === 0 ? 1.40 : 0.55) : (beat === 0 ? 1.05 : 0.95);
       const kickDist = isChill ? 0.72 + 0.28 * Math.cos(2 * Math.PI * bar / 13) : 1;
       // Humanize — tight ±5 ms jitter, scaled down in the settle window.
       const kickT = humanize(startSec, 5 * settleVar + 2);
       if (isChill) {
-        fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist);
+        fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate, kickWall);
+        // chop & screw — occasional fast beat-1 stutter (3 quick hits)
+        if (beat === 0 && kickWall > 0.5 && noiseRng() < 0.07) {
+          for (let c = 1; c <= 2; c++) {
+            fireChillKick(dryBuf, kickT + c * 0.085, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate * (0.7 / c), kickWall);
+          }
+        }
       } else {
         fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN });
       }
@@ -1525,7 +1631,16 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       // Chill: per-hit random pitchFactor scatters the noise band so no
       // two hats sound identical (more organic, stochastic shimmer).
       const hatPF = isChill ? 1 + (noiseRng() - 0.5) * 0.55 : 1;
-      fireDrum(dryBuf, hatT, "g", { volume: v * DRUM_GAIN * hatDistVol, pitchFactor: hatPF });
+      fireDrum(dryBuf, hatT, "g", { volume: v * DRUM_GAIN * hatDistVol * chillHatGain, pitchFactor: hatPF });
+      if (isChill) {
+        // echoey + bassier hat — 2 low, quiet, decaying delayed taps
+        for (let e = 1; e <= 2; e++) {
+          const het = hatT + e * 0.115;
+          if (het < HAT_SUPPRESS_AFTER) {
+            fireDrum(dryBuf, het, "g", { volume: v * DRUM_GAIN * hatDistVol * chillHatGain * (0.30 / e), pitchFactor: hatPF * 0.6 });
+          }
+        }
+      }
       events.hat.push({ t: hatT, dur: 0.025 });
       hatCount++;
       // Flam — disabled in chill mode (reads as a doubled hihat in
@@ -1581,9 +1696,20 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // punch for the first ~8 s, morphing into a deep ocean lo-fi sub,
   // then (≥18 s) levelling out on a swing (off-beats pushed late).
   if (isChill && (sec === "intro" || sec === "break1")) {
+    const barMusic0 = barStart - OPENING_PREFIX_SEC;
+    // ZERO bass for the first 24 s — then DROP IT IN like thunder.
+    if (barMusic0 < 24 && barMusic0 + barSec >= 24) {
+      const thT = OPENING_PREFIX_SEC + 24;
+      fireSubBass(bassBuf, thT, scaleNoteMidi(0, -2), 3.2, BASS_GAIN * 2.2, 0.15, true); // deep loud long
+      const rb = makeBufferSynth(bassBuf, thT - 0.6, SAMPLE_RATE, noiseRng);
+      rb.synth({ type: "noise", tone: 90, duration: 1.4, volume: BASS_GAIN * 0.5, attack: 0.5, decay: 0.9 }); // rumble swell
+      events.sub.push({ t: thT, midi: scaleNoteMidi(0, -2), dur: 3.2 });
+      subCount++;
+    }
     for (let beat = 0; beat < METER; beat++) {
       const baseT  = barStart + beat * beatSec;
       const musicT = baseT - OPENING_PREFIX_SEC;
+      if (musicT < 24) continue;                  // ZERO bass first 24 s
       const swung  = (musicT >= 18 && beat !== 0) ? 0.16 * beatSec : 0;
       const bt     = humanize(baseT + swung, 6);
       const m = (beat === 1 && METER >= 3)
@@ -1671,7 +1797,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     const driftFr  = bar / Math.max(1, TOTAL_BARS - 1);
     const octShift = Math.round(24 - 17 * driftFr);          // 24 → 7
     const melWalk  = [0, 3, 5, 3, -2, 0, 4, 2][Math.floor(bar / 14) % 8];
-    const mGain    = 0.085 * (1 - 0.4 * driftFr);            // darker later
+    const mGain    = 0.085 * (1 - 0.4 * driftFr) * chillBuild; // sparse open → ramps in
     let vi = 0;
     for (const m of triad) {
       vi++;
@@ -1850,6 +1976,45 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       }
       events.lead.push({ t: t0, midi: target, dur: step });
       bunnyPrevMidi = target;
+    }
+  }
+
+  // Grand-piano frills (chill) — sparse "here and there" held, EXTENDED
+  // notes way up in the UPPER register of the sampled piano: a high
+  // chord tone + a sparkle a 3rd/5th above, rung long. A little glint.
+  if (isChill && bar >= 8 && bunnyRng() < 0.13) {
+    const hi = scaleNoteMidi(chordDeg + (bunnyRng() < 0.5 ? 4 : 2), 3); // upper register
+    const t0 = barStart + (bunnyRng() < 0.5 ? 0 : beatSec);
+    const dur = barSec * (1.6 + bunnyRng() * 1.4);                      // held / extended
+    mixEventPiano({ startSec: t0, midi: hi, gain: 0.12, durSec: dur }, dryBuf, SAMPLE_RATE);
+    if (bunnyRng() < 0.6) {
+      mixEventPiano({ startSec: t0 + 0.05, midi: hi + (bunnyRng() < 0.5 ? 3 : 7), gain: 0.08, durSec: dur * 0.9 }, dryBuf, SAMPLE_RATE);
+    }
+    events.lead.push({ t: t0, midi: hi, dur });
+  }
+
+  // Field-recording GRAINS — beat-aligned, pitched to the chord, a
+  // magical textural sprinkle from the 18 N Main St room. A reading
+  // head wanders the recording across the track; each grain is tuned
+  // to a chord tone (octave-down = lush, up = sparkle). Routed to the
+  // sfx bus (wide pan = enveloping). Sparse-open aware via chillBuild.
+  if (ambientBuf && isChill && chillBuild > 0.05 && bar >= 4) {
+    const nG = bunnyRng() < 0.55 ? 1 : (bunnyRng() < 0.4 ? 2 : 0);
+    for (let gi = 0; gi < nG; gi++) {
+      const beat = Math.floor(bunnyRng() * METER);
+      const t0 = humanize(barStart + beat * beatSec, 10);
+      // reading head crawls through the whole recording over the track
+      const srcSec = ((bar / TOTAL_BARS) * (ambientBuf.length / SAMPLE_RATE)
+        + bunnyRng() * 3) % (ambientBuf.length / SAMPLE_RATE);
+      // tune to a chord tone; mostly down (lush), sometimes up (sparkle)
+      const tone = [0, 2, 4, 7][Math.floor(bunnyRng() * 4)];
+      const semis = (scaleNoteMidi(chordDeg + tone, bunnyRng() < 0.7 ? -1 : 1) - 57);
+      const pitch = Math.pow(2, semis / 12);
+      const long = bunnyRng() < 0.4;
+      const dur = long ? 0.8 + bunnyRng() * 1.2 : 0.18 + bunnyRng() * 0.22;
+      const g = (long ? 0.22 : 0.30) * chillBuild;
+      fireAmbGrain(sfxDryBuf, t0, srcSec, dur, pitch, g);
+      events.sfx.push({ t: t0, name: "amb-grain", dur });
     }
   }
 
@@ -2073,8 +2238,9 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         // Emit BOTH square and sine voices with complementary
         // weights — crossfade the timbre cleanly without needing a
         // morph waveform.
-        const sqVol = (1 - waveMix) * 0.20 * fadeMul;
-        const siVol = waveMix       * 0.32 * fadeMul; // sine gets a small boost to match perceived loudness
+        const _cb = isChill ? chillBuild : 1;          // sparse open → ramp in
+        const sqVol = (1 - waveMix) * 0.20 * fadeMul * _cb;
+        const siVol = waveMix       * 0.32 * fadeMul * _cb; // sine gets a small boost to match perceived loudness
         if (sqVol > 0.001) {
           synth.synth({ type: "square", tone: freq, duration: stepSec * durMul, volume: sqVol, attack: 0.003, decay: stepSec * 0.55 });
         }
@@ -3605,14 +3771,52 @@ if (isChill) {
     const ctr = (mgBuf[i] * 0.65 + shutdownBuf[i]) * 0.7071;
     const aB = (pBass + 1) * Math.PI / 4, aD = (pPad + 1) * Math.PI / 4;
     const aY = (pDry + 1) * Math.PI / 4,  aS = (pSfx + 1) * Math.PI / 4;
-    const L = dB * Math.cos(aB) + dD * Math.cos(aD) + dY * Math.cos(aY) + sX * Math.cos(aS) + ctr;
-    const R = dB * Math.sin(aB) + dD * Math.sin(aD) + dY * Math.sin(aY) + sX * Math.sin(aS) + ctr;
+    let L = dB * Math.cos(aB) + dD * Math.cos(aD) + dY * Math.cos(aY) + sX * Math.cos(aS) + ctr;
+    let R = dB * Math.sin(aB) + dD * Math.sin(aD) + dY * Math.sin(aY) + sX * Math.sin(aS) + ctr;
+    if (ambientBuf && ambientBuf.length) {
+      // The field-recording "castle" — a looped, slowly breathing low
+      // ambient bed UNDER everything, slightly decorrelated L/R so the
+      // whole track sits inside a real room/space.
+      const ai = i % ambientBuf.length;
+      const und = 0.78 + 0.22 * Math.sin((i / SR) * 2 * Math.PI * 0.05);
+      const ag = 0.30 * und;
+      L += ambientBuf[ai] * ag;
+      R += ambientBuf[(ai + 240) % ambientBuf.length] * ag; // ~5 ms offset = width
+    }
     buf.writeFloatLE(L, i * 8);
     buf.writeFloatLE(R, i * 8 + 4);
   }
 } else {
   buf = Buffer.alloc(out.length * 4);
   for (let i = 0; i < out.length; i++) buf.writeFloatLE(out[i], i * 4);
+}
+if (STEREO) {
+  // Last ~16 s: a vari-speed POWER-DOWN — re-read the tail at a falling
+  // rate so the pitch + tempo of EVERYTHING drop together in unison (a
+  // dying-machine wind-down). Length unchanged; trails into the fade.
+  const SRr = SAMPLE_RATE;
+  const frames = out.length;
+  const winN = Math.min(frames, Math.floor(16 * SRr));
+  const startF = frames - winN;
+  const sl = new Float32Array(winN), sr = new Float32Array(winN);
+  for (let k = 0; k < winN; k++) {
+    sl[k] = buf.readFloatLE((startF + k) * 8);
+    sr[k] = buf.readFloatLE((startF + k) * 8 + 4);
+  }
+  let srcPos = 0;
+  for (let k = 0; k < winN; k++) {
+    const rate = 1 - 0.28 * (k / winN);   // 1.0 → ~0.72 : gentle, not shutdowny
+    const i0 = Math.floor(srcPos);
+    const fr = srcPos - i0;
+    let L = 0, R = 0;
+    if (i0 + 1 < winN) {
+      L = sl[i0] * (1 - fr) + sl[i0 + 1] * fr;
+      R = sr[i0] * (1 - fr) + sr[i0 + 1] * fr;
+    } else if (i0 < winN) { L = sl[winN - 1]; R = sr[winN - 1]; }
+    buf.writeFloatLE(L, (startF + k) * 8);
+    buf.writeFloatLE(R, (startF + k) * 8 + 4);
+    srcPos += rate;
+  }
 }
 writeFileSync(rawPath, buf);
 
@@ -3679,7 +3883,7 @@ const filter =
   // kills end-sample pops) so the ending flows straight into the intro.
   (RELEASE_MASTER
     ? "afade=t=in:st=0:d=0.15," +
-      `afade=t=out:st=${(totalSec - 1.6).toFixed(3)}:d=1.6,`
+      `afade=t=out:st=${(totalSec - (isChill ? 12 : 1.6)).toFixed(3)}:d=${isChill ? 12 : 1.6},`
     : "afade=t=in:st=0:d=0.006," +
       `afade=t=out:st=${(totalSec - 0.006).toFixed(3)}:d=0.006,`) +
   // House-style EQ — more AIR up top, less mid crowding, subtle low.
