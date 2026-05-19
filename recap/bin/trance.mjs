@@ -117,6 +117,25 @@ function loadZooSample(name) {
   ZOO_BANK.set(name, owned);
   return owned;
 }
+// Decode a sourced SFX wav (CC0 archive.org assets in pop/dance/out)
+// to mono f32 at SAMPLE_RATE, cached. Used by the --gallop layer.
+const _sfxCache = new Map();
+function loadSfxF32(file) {
+  if (_sfxCache.has(file)) return _sfxCache.get(file);
+  const p = `${REPO}/pop/dance/out/${file}`;
+  if (!existsSync(p)) { _sfxCache.set(file, null); return null; }
+  const tmp = `${dirname(OUT_PATH)}/.sfxdec-${file.replace(/[^a-z0-9]/gi, "")}.f32`;
+  const r = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
+    "-i", p, "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1", tmp]);
+  let s = null;
+  if (r.status === 0 && existsSync(tmp)) {
+    const b = readFileSync(tmp);
+    s = Float32Array.from(new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4));
+    try { unlinkSync(tmp); } catch {}
+  }
+  _sfxCache.set(file, s);
+  return s;
+}
 function mixZooSample(ev, out, sampleRate) {
   const sample = loadZooSample(ev.name);
   if (!sample) return;
@@ -337,7 +356,24 @@ const SEED_STR    = flags.seed || (isWaltz ? "trancewaltz" : "trance");
 // Chill: PERCUSSION-FORWARD, tones quieter — a harder NIN/industrial
 // balance (jas: "more percussion forward mix ... tones all quieter ...
 // more NIN friendly industrial"). Drums up, lead/pad well down.
-const DRUM_GAIN   = Number(flags["drum-gain"] ?? (isChill ? 1.62 : 0.95)); // louder kick/hats — danceable (jas)
+const DRUM_GAIN   = Number(flags["drum-gain"] ?? (isChill ? 1.28 : 0.95)); // perc down a bit — better overall mix (jas)
+// Hellsine "hardcorism" — opt-in per track (trancepenta sets --hell;
+// trancenwaltzi leaves it 0 so its kick is unchanged). >0 swaps the
+// chill kick for the ported gabber/Rotterdam kick.
+const HELL        = Number(flags.hell ?? 0);
+// chill hi-hats: "on" (default) | "off" | "low" (jas wants them OUT of
+// trancepenta or far less in that pitch range).
+const CHILL_HATS  = String(flags["chill-hats"] ?? "on");
+// Synthesised galloping-hoof layer — opt-in (trancepenta sets
+// --gallop; trancenwaltzi never does). Opens the track ("preview of
+// what's coming") + drives the back half as a lighter bed.
+const GALLOP      = Boolean(flags.gallop);
+// --kick-only: an experimental "drums = kicks ONLY" pass (jas: "remove
+// all hats and all snares for now ... ONLY do kicks for this next
+// pass"). Mutes the backbeat snare, the chill tick, the hat lane and
+// any snare-roll — keeps the kick. Flag-gated + chill-scoped so
+// trancewaltz stays byte-identical when the flag is absent.
+const KICK_ONLY   = Boolean(flags["kick-only"]);
 const LEAD_GAIN   = Number(flags["lead-gain"] ?? (isChill ? 0.34 : 0.55));
 const PAD_GAIN    = Number(flags["pad-gain"]  ?? (isChill ? 0.18 : 0.30));
 const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.42 : 0.45)); // thwomp stays forward with the drums
@@ -613,7 +649,10 @@ const barStartRel = []; // music-relative start of each bar
       // turntable SCRATCH applied in the audio domain (see the scratch
       // pass before the raw write), NOT a bpm move — a bar is too
       // coarse (~1.4 s) to scratch with per-bar tempo.
-      const START_BPM = 129, END_BPM = 155; // +5 over the whole track
+      // Explicit --bpm → STEADY at that tempo; else the default
+      // 129→155 accelerando (keeps trancenwaltzi unchanged).
+      const START_BPM = flags.bpm ? Number(flags.bpm) : 129;
+      const END_BPM = flags.bpm ? Number(flags.bpm) : 155;
       bpmI = START_BPM + (END_BPM - START_BPM) * fr;
 
     } else {
@@ -1254,21 +1293,28 @@ function fireChillArcBass(startSec, midi, durSec, grind) {
     // Fast pluck, SHORT percussive decay, a quick downward pitch
     // "thwomp", and a short noisy finger-thud transient for the attack.
     const k = makeBufferSynth(bassBuf, startSec, SAMPLE_RATE, noiseRng);
-    const body = Math.min(durSec * 0.55, 0.42);   // short — it thumps, not drones
-    // pitch-drop thwomp: start ~a tone sharp, fall to pitch within ~70 ms
-    const dropDur = 0.07;
+    // PER-HIT VARIATION — the bass "changes sizes" so it's not always
+    // the same sound (jas: "bass should be more variant in the tones
+    // ... as if the drum is changing sizes a bit"). Deterministic via
+    // noiseRng → varied but reproducible.
+    const sizeMul = 0.7 + noiseRng() * 0.85;          // 0.7–1.55: small ↔ big drum
+    const body = Math.min(durSec * 0.55 * sizeMul, 0.55);
+    const dropDur = 0.045 + noiseRng() * 0.06;        // 45–105 ms thwomp
+    const dropAmt = 0.035 + noiseRng() * 0.075;       // pitch-drop depth varies
+    const h2 = noiseRng() * 0.30;                     // sometimes an upper partial (tighter/bigger)
     const segs = 6;
     for (let s = 0; s < segs; s++) {
       const u = s / segs;
       const bend = u < 1 ? Math.pow(1 - Math.min(1, (u * body) / dropDur), 2) : 0;
-      const pf = 1 + 0.06 * bend;                  // +~1 semitone glide down to pitch
+      const pf = 1 + dropAmt * bend;
       const seg = makeBufferSynth(bassBuf, startSec + u * body, SAMPLE_RATE, noiseRng);
       seg.synth({ type: "sine", tone: freq * pf,        duration: body * 0.22, volume: g * 1.05 * smooth, attack: 0.001, decay: body * 0.20 });
       seg.synth({ type: "sine", tone: freq * 0.5 * pf,  duration: body * 0.22, volume: g * 0.70 * smooth, attack: 0.001, decay: body * 0.20 });
+      if (h2 > 0.12) seg.synth({ type: "sine", tone: freq * 2 * pf, duration: body * 0.16, volume: g * h2 * smooth, attack: 0.001, decay: body * 0.14 });
     }
-    // finger/pick thud — short low noise transient = the "thwomp"
-    k.synth({ type: "noise", tone: 140, duration: 0.028, volume: g * 0.45 * smooth, attack: 0.0006, decay: 0.024 });
-    k.synth({ type: "sine",  tone: freq * 2, duration: 0.018, volume: g * 0.30 * smooth, attack: 0.0005, decay: 0.016 }); // pluck click
+    // finger/pick thud — short low noise transient (varies per hit)
+    k.synth({ type: "noise", tone: 100 + noiseRng() * 100, duration: 0.022 + noiseRng() * 0.018, volume: g * 0.45 * smooth, attack: 0.0006, decay: 0.024 });
+    k.synth({ type: "sine",  tone: freq * 2 * (0.9 + noiseRng() * 0.5), duration: 0.018, volume: g * 0.30 * smooth, attack: 0.0005, decay: 0.016 }); // pluck click
   }
 }
 
@@ -1303,6 +1349,39 @@ function fireChillKick(target, startSec, chordDeg, idx, gain, wall = 1) {
     const ee = makeBufferSynth(target, et, SAMPLE_RATE, noiseRng);
     ee.synth({ type: "sine", tone: freq * 0.5, duration: bodyDur * 0.9, volume: gK * 0.22 * echoBoost / e, attack: 0.004, decay: bodyDur * 0.85 });
     fireDrum(target, et, "c", { volume: gK * 0.30 * echoBoost / e, pitchFactor: deep * 0.88 });
+  }
+}
+
+// Hellsine GABBER/Rotterdam kick — ONE sine, fast exponential pitch
+// drop, tanh-saturated past its skin (the distorted sine IS the kick),
+// + a bright ~4 ms HF sine SNAP at the attack. Ported from
+// pop/hellsine/bin/hellsine.mjs (jas: "i loooove the kick in
+// hellsine"). Opt-in via --hell; writes mono into the bus.
+function fireGabberKick(target, startSec, drive, gain = 1, tight = 0) {
+  const SR = SAMPLE_RATE;
+  // `tight` 0→1: a smaller, shorter, less-saturated "lil kick" (jas:
+  // "our kick should be tighter right at the start first 24 seconds").
+  const dur = 0.26 * (1 - 0.58 * tight);
+  drive *= 1 - 0.45 * tight;
+  gain *= 1 - 0.30 * tight;
+  const pStart = 240, pEnd = 47, pT = 0.034 * (1 - 0.4 * tight);
+  const i0 = Math.floor(startSec * SR);
+  const nN = Math.floor(dur * SR);
+  let ph = 0;
+  for (let k = 0; k < nN; k++) {
+    const idx = i0 + k;
+    if (idx < 0) continue;
+    if (idx >= target.length) break;
+    const lt = k / SR;
+    const f = pEnd + (pStart - pEnd) * Math.exp(-lt / pT);
+    ph += (2 * Math.PI * f) / SR;
+    const amp = Math.exp(-lt / 0.10) * (1 - Math.exp(-lt / 0.0008));
+    let x = Math.sin(ph);
+    x = Math.tanh(x * (drive * (0.7 + 0.3 * Math.exp(-lt / 0.05))));   // the hell
+    x = Math.max(-0.97, Math.min(0.97, x * 1.06));                     // skin
+    const click = Math.sin(2 * Math.PI * 3400 * lt) * Math.exp(-lt / 0.0016) * 0.5
+                + Math.sin(2 * Math.PI * 1700 * lt) * Math.exp(-lt / 0.0042) * 0.35;
+    target[idx] += (x * amp + click) * 0.9 * gain;
   }
 }
 
@@ -1684,25 +1763,62 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         // (the master fade is the last 18 s); the snare/other beat
         // elements still taper naturally.
         const kickInFade = kickT > totalSec - 20;
-        if (!kickInFade) {
-          fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate, kickWall);
-          // chop & screw — occasional fast beat-1 stutter (3 quick hits)
-          if (beat === 0 && kickWall > 0.5 && noiseRng() < 0.07) {
-            for (let c = 1; c <= 2; c++) {
-              fireChillKick(dryBuf, kickT + c * 0.085, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate * (0.7 / c), kickWall);
+        // ── WALTZ 3/4 perc restructure (jas: "we should not have gone
+        // into a bts bts rhythm ... keep the waltz 3/4 time ...
+        // aggressively restructure the whole perc"). One clean
+        // oom-pa-pa per bar: KICK only on the downbeat, deep SNARE on
+        // beat 2, a soft light TICK on beat 3. No kick on 2/3 → never
+        // four-on-the-floor. ───────────────────────────────────────
+        if (!kickInFade && beat === 0) {                 // the ONE + a syncopated push
+          const kg = accent * settleAmp * DRUM_GAIN * kickDist * kickGate;
+          const pushT = kickT + beatSec * 1.5;
+          const pushIn = pushT < totalSec - 20;
+          if (HELL > 0) {
+            // Hellsine gabber kick (jas: "i loooove the kick in
+            // hellsine"). First 24 s (music-relative): a TIGHT "lil
+            // kick", then it opens to the full hellsine kick.
+            const tight = (kickT - OPENING_PREFIX_SEC) < 24 ? 1 : 0;
+            fireGabberKick(dryBuf, kickT, HELL, kg * 0.85, tight);
+            if (pushIn) fireGabberKick(dryBuf, pushT, HELL, kg * 0.50, tight);
+          } else {
+            fireChillKick(dryBuf, kickT, chordDeg, kickCount, kg, kickWall);
+            // SYNCOPATED off-beat kick on the "& of 2" — forward DANCE
+            // momentum so 3/4 grooves instead of reading as a stiff
+            // ballroom waltz (jas). Not on a beat → not four-on-floor.
+            if (pushIn) fireChillKick(dryBuf, pushT, chordDeg, kickCount, accent * 0.55 * settleAmp * DRUM_GAIN * kickDist * kickGate, kickWall);
+            if (kickWall > 0.5 && noiseRng() < 0.06) {   // rare chop&screw on the one
+              for (let c = 1; c <= 2; c++) {
+                fireChillKick(dryBuf, kickT + c * 0.085, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate * (0.7 / c), kickWall);
+              }
             }
           }
         }
-        // Backbeat SNARE on beat 2 of the 3/4 bar (jas: "add snare") —
-        // noise crack + short tonal body, punchy (attack snapped by the
-        // chill wrapper). Rides the same distance/settle envelope.
-        if (beat === 1 && kickGate > 0.02) {
+        // FLOOR — a quiet GUARANTEED downbeat pulse so the beat NEVER
+        // fully drops mid-track (jas: "a 'beat' should never FULLLLY
+        // drop in this track"). Independent of section/kickGate so the
+        // intro & breaks still have a heartbeat; off only in the final
+        // ~20 s so the ending can still resolve.
+        if (beat === 0 && kickT < totalSec - 20) {
+          const fl = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
+          const fg = 0.19 * settleAmp * DRUM_GAIN;
+          fl.synth({ type: "sine", tone: 55, duration: 0.17, volume: fg,        attack: 0.002, decay: 0.15 });
+          fl.synth({ type: "sine", tone: 92, duration: 0.06, volume: fg * 0.38, attack: 0.001, decay: 0.05 });
+        }
+        if (beat === 1 && kickGate > 0.02 && !KICK_ONLY) { // PA — deep snare
           const snr = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
           const sg = 0.62 * settleAmp * DRUM_GAIN * kickGate * kickDist;
-          snr.synth({ type: "noise",    tone: 1900, duration: 0.13, volume: sg * 0.85, attack: 0.0005, decay: 0.11 });
-          snr.synth({ type: "noise",    tone: 320,  duration: 0.10, volume: sg * 0.40, attack: 0.0005, decay: 0.085 });
-          snr.synth({ type: "triangle", tone: 190,  duration: 0.09, volume: sg * 0.55, attack: 0.0006, decay: 0.075 });
+          snr.synth({ type: "noise",    tone: 1500, duration: 0.12, volume: sg * 0.52, attack: 0.0006, decay: 0.10 });
+          snr.synth({ type: "noise",    tone: 240,  duration: 0.14, volume: sg * 0.46, attack: 0.0006, decay: 0.12 });
+          snr.synth({ type: "triangle", tone: 124,  duration: 0.14, volume: sg * 0.72, attack: 0.0009, decay: 0.12 });
+          snr.synth({ type: "sine",     tone: 76,   duration: 0.11, volume: sg * 0.46, attack: 0.0010, decay: 0.095 });
           events.kick.push({ t: kickT, kind: "snare" });
+        }
+        if (isChill && beat === 2 && kickGate > 0.02 && !KICK_ONLY) { // PA — soft light tick
+          const tk = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
+          const tv = 0.34 * settleAmp * DRUM_GAIN * kickGate * kickDist;
+          tk.synth({ type: "noise",    tone: 2400, duration: 0.030, volume: tv * 0.40, attack: 0.0004, decay: 0.026 });
+          tk.synth({ type: "triangle", tone: 360,  duration: 0.045, volume: tv * 0.40, attack: 0.0006, decay: 0.038 });
+          events.kick.push({ t: kickT, kind: "tick" });
         }
       } else {
         fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN });
@@ -1726,7 +1842,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   }
 
   // Closed hat — off-beats (the "and" of every kick). METER hits per bar.
-  if (t.hat && instrumentEnabled("hat", bar) && !chillHatMute) {
+  if (t.hat && instrumentEnabled("hat", bar) && !chillHatMute && !(isChill && CHILL_HATS === "off") && !KICK_ONLY) {
     // Hat pattern with skips and 16th-note flams. Variation tapers
     // out in the last 4 s before tape-stop so the rhythm settles
     // into a regular pattern as the slowdown approaches — organic
@@ -1756,21 +1872,35 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       if (startSec > HAT_SUPPRESS_AFTER - SETTLE_WINDOW_H) {
         settleVar = 1.0 - (startSec - (HAT_SUPPRESS_AFTER - SETTLE_WINDOW_H)) / SETTLE_WINDOW_H;
       }
-      // Skip probability ramps from 0.20 down to 0 as we settle.
-      if (rng() < 0.20 * settleVar) continue;
-      const v = 0.32 + rng() * 0.10;
+      // Chill: NO random skips — a CONSISTENT steady hat groove (jas:
+      // "i want it consistent ... simple dance track"). Non-chill keeps
+      // the organic skip.
+      if (!isChill && rng() < 0.20 * settleVar) continue;
+      const v = isChill ? 0.34 : 0.32 + rng() * 0.10; // chill: steady level
       // Humanize hats — ±8 ms feels like a real drummer.
       const hatT = humanize(startSec, 8 * settleVar + 1);
       // Chill: per-hit random pitchFactor scatters the noise band so no
       // two hats sound identical (more organic, stochastic shimmer).
-      let hatPF = isChill ? 1 + (noiseRng() - 0.5) * 0.55 : 1;
+      let hatPF = isChill ? 0.92 + noiseRng() * 0.16 : 1; // chill: SUBTLE scatter — consistent (jas)
       // Hats START like CLICKS: for ~15 s after they enter they're
       // high-pitched + quiet ticks, then open into full hats.
       const clickAmt = isChill ? Math.max(0, 1 - (_hmt - HAT_ENTER) / 15) : 0;
-      const hatVol = v * DRUM_GAIN * hatDistVol * chillHatGain * (1 - 0.55 * clickAmt);
+      const hatVol = v * DRUM_GAIN * hatDistVol * chillHatGain * (1 - 0.55 * clickAmt) * (isChill ? 0.78 : 1); // chill: a touch quieter — less annoying (jas)
       hatPF *= 1 + 1.6 * clickAmt;
-      fireDrum(dryBuf, hatT, "g", { volume: hatVol, pitchFactor: hatPF });
-      if (isChill) {
+      if (isChill && clickAmt < 0.5 && noiseRng() < 0.12) {
+        // WEIRD hat — an occasional "shove" (jas: "a little shove here
+        // and there but consistent") — short INHARMONIC shimmer.
+        const hv = makeBufferSynth(dryBuf, hatT, SAMPLE_RATE, noiseRng);
+        const bf = 5200 * (0.55 + noiseRng() * 0.95);
+        const wv = hatVol * 0.9;
+        hv.synth({ type: "sine",  tone: bf,        duration: 0.045, volume: wv * 0.50, attack: 0.0004, decay: 0.04 });
+        hv.synth({ type: "sine",  tone: bf * 2.41, duration: 0.034, volume: wv * 0.32, attack: 0.0004, decay: 0.03 });
+        hv.synth({ type: "sine",  tone: bf * 3.93, duration: 0.026, volume: wv * 0.22, attack: 0.0004, decay: 0.022 });
+        hv.synth({ type: "noise", tone: 7000,      duration: 0.011, volume: wv * 0.18, attack: 0.0003, decay: 0.009 });
+      } else {
+        fireDrum(dryBuf, hatT, "g", { volume: hatVol, pitchFactor: hatPF });
+      }
+      if (false && isChill) { // echo taps OFF — simpler, consistent (jas)
         // echoey + bassier hat — 2 low, quiet, decaying delayed taps
         for (let e = 1; e <= 2; e++) {
           const het = hatT + e * 0.115;
@@ -1796,7 +1926,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     }
     // Chill: occasional fast hi-hat ROLL into a phrase boundary — a
     // quick crescendo of hats across the last beat (fun little fill).
-    if (isChill && (bar % 16 === 15 || noiseRng() < 0.02)) { // fewer rolls
+    if (isChill && false && (bar % 16 === 15 || noiseRng() < 0.02)) { // rolls OFF — consistent simple groove (jas)
       const rollN = 9 + Math.floor(noiseRng() * 5);      // 9–13 hits
       const rollStart = barStart + (METER - 1) * beatSec;
       const deepEcho = noiseRng() < 0.4;                  // some run deep + echoey
@@ -2055,6 +2185,17 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       );
       events.lead.push({ t: startSec, midi: leadMidi, dur: durSec });
       leadCount++;
+      if (isChill) {
+        // Bring UP the harmonies on the main voice (jas) — an audible
+        // diatonic 3rd + 5th above, not a faint doubling.
+        for (const [hd, hg] of [[2, 0.55], [4, 0.40]]) {
+          mixEventLeadPad(
+            { startSec, midi: scaleNoteMidi(deg + hd, -1) + v.cents / 100, gain: LEAD_GAIN * hg, durSec },
+            dryBuf,
+            { preset: "pad", sampleRate: SAMPLE_RATE, seed: `leadharm:${bar}:${s}:${hd}` }
+          );
+        }
+      }
     }
   }
 
@@ -2180,19 +2321,43 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // Piano stabs — backbeat (beats 2 and METER) during drops. Adds a
   // bright harmonic accent on top of the supersaw lead.
   if (t.piano && instrumentEnabled("piano", bar)) {
-    const stabBeats = isWaltz ? [1] : [1, 3]; // 3/4: beat 2 only; 4/4: 2 and 4
-    for (const sb of stabBeats) {
-      // One humanized stab time for the whole chord so the triad
-      // stays struck together (a "hand" of stabbed notes).
-      const stabSec = humanize(barStart + sb * beatSec, 9);
+    if (isChill) {
+      // ENRICHED chill piano (jas: "more melody and hold and chord
+      // progressions there"): a SUSTAINED chord hold + a little
+      // melodic top line that walks chord/scale tones through the
+      // progression. progressionAt() already drives the harmony.
+      const cd = progressionAt(bar);
+      const holdT = humanize(barStart, 6);
       for (const m of triad) {
-        mixEventPiano(
-          { startSec: stabSec, midi: m + 12, gain: PIANO_GAIN, durSec: beatSec * 0.6 },
-          duckBuf,
-          SAMPLE_RATE
-        );
-        events.piano.push({ t: stabSec, midi: m + 12, dur: beatSec * 0.6 });
+        mixEventPiano({ startSec: holdT, midi: m + 12, gain: PIANO_GAIN * 0.78, durSec: barSec * 1.7 }, duckBuf, SAMPLE_RATE);
+        events.piano.push({ t: holdT, midi: m + 12, dur: barSec * 1.7 });
         pianoCount++;
+      }
+      const mel = [0, 4, 2, 5, 4, 2];               // scale-degree contour over the chord
+      const nMel = 3 + (bar % 2);                    // 3–4 little keys per bar
+      for (let i = 0; i < nMel; i++) {
+        const md = scaleNoteMidi(cd + mel[(bar + i) % mel.length], 2); // high "little keys"
+        const mt = humanize(barStart + (i / nMel) * barSec, 8);
+        const mdur = (barSec / nMel) * (1.3 + 0.4 * (i % 2));   // held, overlapping
+        mixEventPiano({ startSec: mt, midi: md, gain: PIANO_GAIN * 0.6, durSec: mdur }, duckBuf, SAMPLE_RATE);
+        events.piano.push({ t: mt, midi: md, dur: mdur });
+        pianoCount++;
+      }
+    } else {
+      const stabBeats = isWaltz ? [1] : [1, 3]; // 3/4: beat 2 only; 4/4: 2 and 4
+      for (const sb of stabBeats) {
+        // One humanized stab time for the whole chord so the triad
+        // stays struck together (a "hand" of stabbed notes).
+        const stabSec = humanize(barStart + sb * beatSec, 9);
+        for (const m of triad) {
+          mixEventPiano(
+            { startSec: stabSec, midi: m + 12, gain: PIANO_GAIN, durSec: beatSec * 0.6 },
+            duckBuf,
+            SAMPLE_RATE
+          );
+          events.piano.push({ t: stabSec, midi: m + 12, dur: beatSec * 0.6 });
+          pianoCount++;
+        }
       }
     }
   }
@@ -2423,7 +2588,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // Snare roll — subdivisions double across the section. Volume range
   // pulled back so it doesn't clip when stacked under the sub bass +
   // lead. Earlier code peaked at 0.76 which slammed the mix.
-  if (t.snareRoll && !isLastBar && instrumentEnabled("snareRoll", bar)) {
+  if (t.snareRoll && !isLastBar && instrumentEnabled("snareRoll", bar) && !KICK_ONLY) {
     const progress = localBar / Math.max(1, sectionLen - 1);
     const subdiv = progress < 0.33 ? METER * 2 : progress < 0.66 ? METER * 4 : METER * 8;
     for (let h = 0; h < subdiv; h++) {
@@ -3359,6 +3524,85 @@ if (!isChill) {
   tapeStopBus(mgBuf);
   tapeStopBus(sfxDryBuf);
   console.log(`  tape-stop · unified one-clock slowdown last ${TAIL_BUFSEC}s (1.0× → ${END_PITCH}×)`);
+}
+
+if (GALLOP && isChill) {
+  // REAL horse GALLOP — CC0 archive.org recording (Red Library), not
+  // synthesised (jas: "i wanted the horse gallop to be real?"). Spread
+  // around (random window each stride — NOT loop-loop-loop), pitched
+  // DEEPER + mildly MELODIC to chord-scale tones, with echo taps. Plus
+  // a HARMONIZED real neigh (3 stacked pitches) and a synth thunder.
+  // Opens loud (a "preview of whats comin"), then a lighter bed.
+  const gRng = makeRng(SEED_STR + ":gallop");
+  const gal = loadSfxF32(".gallop.wav");
+  const nei = loadSfxF32(".neigh.wav");
+  const SRg = SAMPLE_RATE, galEnd = musicSec - 5;
+  const place = (src, t0, ratio, gain, echo) => {
+    if (!src) return;
+    const taps = echo ? [[0, gain], [0.14, gain * 0.42], [0.31, gain * 0.19], [0.55, gain * 0.09]]
+                      : [[0, gain]];
+    const off = Math.floor(gRng() * Math.max(1, src.length - SRg * 1.5)); // spread, not a loop
+    const len = Math.floor((0.55 + gRng() * 0.8) * SRg);
+    const fadeN = Math.floor(0.014 * SRg);
+    for (const [dly, tg] of taps) {
+      const baseI = Math.floor((t0 + dly) * SRg);
+      for (let k = 0; k < len; k++) {
+        const di = baseI + k;
+        if (di < 0) continue;
+        if (di >= dryBuf.length) break;
+        const sf = off + k * ratio, si = Math.floor(sf);
+        if (si + 1 >= src.length) break;
+        const fr = sf - si;
+        let e = 1;
+        if (k < fadeN) e = k / fadeN;
+        else if (k > len - fadeN) e = Math.max(0, (len - k) / fadeN);
+        dryBuf[di] += (src[si] * (1 - fr) + src[si + 1] * fr) * e * tg;
+      }
+    }
+  };
+  let ts = OPENING_PREFIX_SEC + 0.05, strideCount = 0;
+  const barApprox = musicSec / Math.max(1, TOTAL_BARS);
+  const melo = [0, 3, 5, 7, 3];                       // small deep melodic set (semitones)
+  while (ts < galEnd) {
+    const mt = ts - OPENING_PREFIX_SEC;
+    const lvl = (mt < 24 ? 1.0 : 0.42) * Math.min(1, (galEnd - ts) / 4);
+    // deeper-set base ratio 0.5 (down an octave) + a mild melodic step
+    const ratio = 0.5 * Math.pow(2, melo[strideCount % melo.length] / 12);
+    place(gal, ts, ratio, 0.55 * DRUM_GAIN * lvl * (0.85 + gRng() * 0.3), true);
+    ts += (0.55 + gRng() * 0.7) / (mt < 24 ? 1.3 : 1.0); // irregular = spread
+    strideCount++;
+  }
+  // HARMONIZED real neigh — 3 stacked chord pitches, echoed, at the
+  // open + mid (jas: "a horse neighhh in hermony!").
+  if (nei) {
+    for (const nt of [OPENING_PREFIX_SEC + 1.8, OPENING_PREFIX_SEC + musicSec * 0.5]) {
+      const cd = progressionAt(Math.floor(((nt - OPENING_PREFIX_SEC) / barApprox)) % TOTAL_BARS);
+      for (const [hd, hg] of [[0, 0.5], [2, 0.34], [4, 0.26]]) {
+        const r = Math.pow(2, (scaleNoteMidi(cd + hd, -1) - 57) / 12);
+        place(nei, nt, Math.max(0.4, r), hg * DRUM_GAIN * 0.6, true);
+      }
+    }
+  }
+  // THUNDERCLAP / lightning — synth crack + deep rumble + tail (no
+  // clean CC0 clap was found). Open + one mid hit.
+  const thunder = (t0, g) => {
+    const bi = Math.floor(t0 * SRg), nN = Math.floor(2.6 * SRg);
+    let lp = 0;
+    for (let k = 0; k < nN; k++) {
+      const di = bi + k;
+      if (di < 0) continue;
+      if (di >= dryBuf.length) break;
+      const lt = k / SRg;
+      const crack = lt < 0.10 ? (gRng() * 2 - 1) * Math.exp(-lt / 0.022) : 0;
+      const n = gRng() * 2 - 1;
+      lp += 0.0010 * (n - lp);
+      const rum = lp * Math.exp(-lt / 0.95) * (0.7 + 0.3 * Math.sin(2 * Math.PI * 6 * lt));
+      dryBuf[di] += (crack * 0.55 + rum * 3.4) * g;
+    }
+  };
+  thunder(OPENING_PREFIX_SEC + 0.12, 0.5 * DRUM_GAIN);
+  thunder(OPENING_PREFIX_SEC + musicSec * 0.5, 0.4 * DRUM_GAIN);
+  console.log(`  gallop · REAL CC0 horse — ${strideCount} spread strides + harmonized neigh + synth thunder`);
 }
 
 if (false && isChill) { // single-mix refactor: scratch-mix.mjs now owns ALL post-FX

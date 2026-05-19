@@ -103,9 +103,48 @@ Voice posture: jeffrey-pvc as a **sung lead** (not rapped, not one-shot) — the
 
 See [`hippyhayzard/README.md`](hippyhayzard/README.md) for the format spec and [`hippyhayzard/STUDY.md`](hippyhayzard/STUDY.md) for the genre study + the blend law. Status: scaffolded 2026-05-19; first sung 1:28 cut rendered, vocal↔section bar-lock is the open refinement.
 
-### 7. (open)
+### 7. hellsine (`hellsine/`)
+
+A **concept track** under one strict constraint: *every voice is a sine
+wave — no noise, no saw, no square, no samples.* The thesis: a distorted
+sine **is** the gabber kick, so "all-sine + hardcore" is hardcore's
+literal DNA. The track carries a full **John Williams melodic structure**
+(a hand-written heroic leitmotif, stated → developed → transposed →
+triumphantly restated) and is built to work as **epic study music**:
+continuous, immersive, no dead air under a film arc. ~1:45, 182 BPM, D
+minor with a climax key-lift. The strictest possible reading of the
+bottom-up posture — one waveform, a whole genre, a whole compositional
+tradition.
+
+Voice posture: instrumental. The "voices" are additive-sine brass /
+strings, sine-FM stabs, a saturated-sine hoover, and the saturated-sine
+kick. No vocal.
+
+See [`hellsine/README.md`](hellsine/README.md) for the all-sine law +
+the voice table + the form. Status: scaffolded 2026-05-19.
+
+### 8. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
+
+## Sample sources (commercial-safe)
+
+Tracks ship to DistroKid/Spotify, so any sourced audio MUST be CC0 /
+public-domain or project-owned. Approved sources:
+
+- **Freesound API** — approved source; filter `license:"Creative Commons 0"`
+  (CC0) only. Credentials are **NOT** committed — they live in the
+  private vault: `aesthetic-computer-vault/freesound/credentials.json`
+  (Aesthetic Computer account; `api_key` = search/preview token,
+  `client_id`/secret = OAuth2 for full-quality downloads).
+- **archive.org** — CC0 / `publicdomain/zero` items only (verify each
+  item's `licenseurl`; "license: none" ≠ public domain).
+- **Project-owned** — the AC zoo bank (`fedac/native/samples/zoo/`) and
+  any AC field recordings.
+
+Per-track sourced SFX are logged with provenance + license in that
+track's gitignored `out/` dir (e.g. `pop/dance/out/.sfx-credits.txt` —
+`trancepenta` uses CC0 archive.org horse gallop + neigh).
 
 ## References
 

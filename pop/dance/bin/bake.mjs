@@ -54,13 +54,22 @@ run("node", [ENGINE, "--mode", "chill", "--meter", "3", "--master",
 run("node", [SCRATCH, pre, scr, existsSync(STAMP) ? STAMP : "", struct],
   "post-FX (scratch + ID + breakbeat + growls + slides)");
 
-// 3 — finalize for Spotify
+// 3 — finalize for Spotify. The end fade is DURATION-AWARE so any
+// length / time-signature bakes correctly (an 18 s fade ending exactly
+// at the track end — not a hardcoded 151 s that would silence a
+// longer cut early).
+const durProbe = spawnSync("ffprobe", ["-v", "error", "-show_entries",
+  "format=duration", "-of", "csv=p=0", scr], { encoding: "utf8" });
+const totalSec = parseFloat((durProbe.stdout || "").trim()) || 169;
+const fadeD = Math.min(18, Math.max(4, totalSec * 0.1));
+const fadeSt = Math.max(0, totalSec - fadeD).toFixed(3);
 run("ffmpeg", ["-y", "-i", scr, "-af",
   "acompressor=threshold=-20dB:ratio=2:attack=20:release=260:makeup=1:knee=8," +
   "loudnorm=I=-14:TP=-1.5:LRA=11," +
   "alimiter=limit=0.94:attack=8:release=120:level=disabled," +
-  "afade=t=out:st=151:d=18",
-  "-ar", "44100", "-sample_fmt", "s16", finalWav], "finalize → -14 LUFS");
+  `afade=t=out:st=${fadeSt}:d=${fadeD.toFixed(3)}`,
+  "-ar", "44100", "-sample_fmt", "s16", finalWav],
+  `finalize → -14 LUFS (fade ${fadeSt}s +${fadeD.toFixed(1)}s)`);
 run("ffmpeg", ["-y", "-i", finalWav, "-codec:a", "libmp3lame", "-b:a", "320k",
   finalMp3], "320k mp3");
 spawnSync("rm", ["-f", scr]);

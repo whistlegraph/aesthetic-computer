@@ -24,33 +24,55 @@ function c4(a, i, f) {
   return ((c0 * f + c1) * f + c2) * f + x1;
 }
 
-// SKRILL GROWL — FM wub with a moving formant + grit, tuned low in G
-// (jas: "within the glitches can we throw in some skrill growls?").
-// Synthesised straight into the interleaved buffer `x`, additive.
-function skrillGrowl(x, frames, sr, a0, nF, midi, gain) {
+// SHRILL voice — a thin, HIGH, melodic FM shimmer (jas: "longer
+// melodic ... highpitched ... in background ... SHRILLL!"). Quiet,
+// slow vibrato, optional pitch GLIDE for melodicism. Additive into the
+// interleaved buffer `x`. (Was a low growl — now repurposed shrill.)
+// mono=true → a strictly ONE-WAY voice (jas, opening bark: "should only
+// be dropping down and out ... no secondary energy ... not pitch back
+// up"): pitch glides down only, the filter tracks DOWN with it (no LFO
+// re-brighten), the FM index DECAYS (no shimmer swell), no vibrato, and
+// a single long fade tail so it dissolves into the bed instead of
+// cutting. The default (mono=false) path is unchanged — the back-glitch
+// growls still get their wobble character.
+function skrillGrowl(x, frames, sr, a0, nF, midi, gain, glideSemis = 0, fcScale = 1, mono = false) {
   const f0 = 440 * Math.pow(2, (midi - 69) / 12);
-  const wub = 4 + Math.random() * 8;            // 4–12 Hz wub
+  const vib = 4.5 + Math.random() * 3;          // gentle vibrato (Hz)
   const ratio = Math.random() < 0.5 ? 2 : 3;
-  const fcLo = 240, fcHi = 1900, fLfo = 0.6 + Math.random() * 1.4;
+  const fcLo = 1400 * fcScale, fcHi = 6200 * fcScale, fLfo = 0.35 + Math.random() * 0.6;
   let pc = 0, pm = 0, lp = 0, bp = 0;
-  const atk = Math.floor(0.008 * sr), rel = Math.floor(0.05 * sr);
+  const atk = Math.floor((mono ? 0.012 : 0.05) * sr), rel = Math.floor(0.18 * sr);
   for (let k = 0; k < nF; k++) {
     if (a0 + k >= frames) break;
-    const t = k / sr;
-    const idx = 3.2 + 3.2 * (0.5 + 0.5 * Math.sin(2 * Math.PI * wub * t));
-    pc += (2 * Math.PI * f0) / sr;
-    pm += (2 * Math.PI * f0 * ratio) / sr;
-    let s = Math.tanh(Math.sin(pc + idx * Math.sin(pm)) * 1.9);
-    // swept state-variable band-pass = the "talking" formant
-    const fc = fcLo + (fcHi - fcLo) * (0.5 + 0.5 * Math.sin(2 * Math.PI * fLfo * t));
+    const t = k / sr, fr = k / nF;
+    const gl = Math.pow(2, (glideSemis * fr) / 12);          // melodic glide (down)
+    const fk = mono
+      ? f0 * gl                                              // pure downward glide, no vibrato
+      : f0 * gl * (1 + 0.006 * Math.sin(2 * Math.PI * vib * t));
+    const idx = mono
+      ? 1.3 * Math.pow(1 - fr, 1.3)                          // FM brightness only ever falls
+      : 1.3 + 1.1 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 1.7 * t));
+    pc += (2 * Math.PI * fk) / sr;
+    pm += (2 * Math.PI * fk * ratio) / sr;
+    let s = Math.tanh(Math.sin(pc + idx * Math.sin(pm)) * 1.25);
+    const fc = mono
+      ? fcLo * Math.pow(fcHi / fcLo, 1 - fr)                 // cutoff tracks DOWN with the pitch
+      : fcLo + (fcHi - fcLo) * (0.5 + 0.5 * Math.sin(2 * Math.PI * fLfo * t));
     const fcoef = 2 * Math.sin((Math.PI * Math.min(0.45 * sr, fc)) / sr);
-    const hp = s - lp - 1.2 * bp;
+    const hp = s - lp - 1.0 * bp;
     bp += fcoef * hp;
     lp += fcoef * bp;
-    let env = 1;
-    if (k < atk) env = k / atk;
-    else if (k > nF - rel) env = Math.max(0, (nF - k) / rel);
-    const v = (0.6 * bp + 0.4 * s) * env * gain;
+    let env;
+    if (mono) {
+      // attack ramp, then ONE long power-curve decay to silence — a
+      // single gesture, no second swell, dissolving into the bed.
+      env = k < atk ? k / atk : Math.pow(1 - fr, 1.7);
+    } else {
+      env = 1;
+      if (k < atk) env = k / atk;
+      else if (k > nF - rel) env = Math.max(0, (nF - k) / rel);
+    }
+    const v = (0.7 * bp + 0.3 * s) * env * gain;
     x[(a0 + k) * 2] += v;
     x[(a0 + k) * 2 + 1] += v;
   }
@@ -63,6 +85,14 @@ spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error", "-i", inWav,
 const buf = readFileSync(rawIn);
 const x = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
 const frames = Math.floor(x.length / 2);
+
+// OPENING BARK — a WAY DEEPER voice across the first ~2 s (jas: "the
+// initial zip should ONLY be dropping down and out ... no secondary
+// energy ... not pitch back up"): one mono gesture — deep fundamental,
+// dark formant tracking down with the pitch, FM brightness decaying,
+// no vibrato/LFO re-swell, one long fade tail dissolving into the bed.
+// ~2.0 s body (0.30 → ~2.30 s) so the whole zip is one downward exhale.
+skrillGrowl(x, frames, SR, Math.floor(0.30 * SR), Math.floor(2.0 * SR), 33, 0.26, -22, 0.15, true);
 
 const winN = Math.min(Math.floor(3.0 * SR), frames - 2);
 const w0 = Math.max(0, Math.floor(frames / 2) - Math.floor(winN / 2));
@@ -251,9 +281,13 @@ if (structPath) {
     }
     // SKRILL GROWL within the glitches — sprinkled, denser later, tuned
     // to G (track is G major). Layered under the burst.
-    if (prog > 0.3 && Math.random() < 0.32) {
-      skrillGrowl(x, frames, SR, a0, wN + Math.floor(0.12 * SR),
-                  Math.random() < 0.5 ? 31 : 43, 0.5);
+    if (prog > 0.3 && Math.random() < 0.30) {
+      // quiet HIGH melodic shrill in the background (G-major tops)
+      const HI = [79, 83, 86, 88, 91];
+      const m = HI[Math.floor(Math.random() * HI.length)];
+      const dur = Math.floor((0.5 + Math.random() * 0.7) * SR);
+      const gl = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.floor(Math.random() * 4));
+      skrillGrowl(x, frames, SR, a0, dur, m, 0.055, gl);
     }
     // PITCH-OUT / ECHO-OUT tail (jas: "they could even pitch out and
     // echo out") — re-read the captured beat slowing down (pitch
