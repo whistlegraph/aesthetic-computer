@@ -30,6 +30,9 @@ let netConnectedAt = 0;
 let nextCmdSeq = 0;         // monotonic per-cmd seq (implicit on wire via firstSeq)
 let lastSnapAck = 0;        // highest server messageNum we've seen
 let serverClockOffset = 0;  // add to Date.now() → server time estimate
+let clockInit = false;      // first sample seeds the offset directly
+const clockSamples = [];    // [{ at, off }] — sliding window for max-filter
+let lastRenderTime = -Infinity; // monotonic floor for renderTimeNow()
 let lastPingSent = 0;
 let ping = 0;
 let netSpectator = false;       // true if another tab took over this handle
@@ -42,6 +45,21 @@ const SPEC_FAST_MUL = 3;        // when no other modifier: ctrl / etc
 const CMD_RATE = 60;        // cmd sends per sec
 const CMD_BACKUP = 3;       // how many past cmds to include in each packet
 const SNAP_INTERP_MS = 100; // render remotes this far in the past
+
+// 🕰️ Clock estimation. Each snap yields one raw offset sample = serverMs −
+// localElapsed. A snap delayed by one-way latency `d` reads `O − d` (O =
+// true offset), so the *largest* sample over a recent window is the
+// least-delayed packet — the best estimate of O. We max-filter over a
+// window, then slew the committed offset toward it (never jump). Before
+// this, the offset was overwritten raw every snap, so render time bounced
+// with UDP jitter and remotes stuttered even with a full buffer.
+const CLOCK_WINDOW_MS = 4000;  // max-filter horizon
+const CLOCK_SLEW_UP = 16;      // ms/snap when correcting forward (t-safe)
+const CLOCK_SLEW_DOWN = 4;     // ms/snap when easing back (could pull t back)
+// 🛰️ Extrapolation horizon for starved remote buffers (lost/late snaps).
+// Coast a remote along its last velocity for up to this long instead of
+// freezing on the last sample then snapping when packets resume.
+const EXTRAP_MAX_MS = 250;
 const pendingCmds = [];     // unacked cmds [{ seq, cmd }], oldest first
 const cmdOutbox = [];       // last CMD_BACKUP cmds only (wire-level backup window)
 
@@ -170,10 +188,29 @@ function onSnap(snap) {
   netStats.lastSnapMs = Date.now();
   if (snap.messageNum > lastSnapAck) lastSnapAck = snap.messageNum;
 
-  // Clock sync (simple: use the freshest server time as the offset anchor).
-  // Real impl should min-filter + smooth; this is enough for interp.
+  // Clock sync: max-filter the raw offset over a sliding window, then slew
+  // the committed offset toward it. renderTimeNow() additionally clamps to
+  // a monotonic floor, so the interpolation clock can never run backward
+  // even if a faster path briefly lowers the estimate.
   const localMs = Date.now();
-  serverClockOffset = snap.serverMs - (localMs - netConnectedAt);
+  const rawOff = snap.serverMs - (localMs - netConnectedAt);
+  clockSamples.push({ at: localMs, off: rawOff });
+  while (clockSamples.length && localMs - clockSamples[0].at > CLOCK_WINDOW_MS) {
+    clockSamples.shift();
+  }
+  let targetOff = clockSamples[0].off;
+  for (let i = 1; i < clockSamples.length; i++) {
+    if (clockSamples[i].off > targetOff) targetOff = clockSamples[i].off;
+  }
+  if (!clockInit) {
+    serverClockOffset = targetOff;
+    clockInit = true;
+  } else {
+    const dOff = targetOff - serverClockOffset;
+    serverClockOffset += dOff > 0
+      ? Math.min(dOff, CLOCK_SLEW_UP)
+      : Math.max(dOff, -CLOCK_SLEW_DOWN);
+  }
 
   // M10: drop cmds the server has acked (seq-based; firstSeq implicit).
   if (typeof snap.ackCmdSeq === "number") {
@@ -455,14 +492,41 @@ function netSim(cam) {
 }
 
 function renderTimeNow() {
-  return (Date.now() - netConnectedAt) + serverClockOffset - SNAP_INTERP_MS;
+  let t = (Date.now() - netConnectedAt) + serverClockOffset - SNAP_INTERP_MS;
+  // Never let the interp clock step backward (slew bias + Date.now NTP
+  // hiccups). Multiple calls in one frame return the same monotone value,
+  // so the world and minimap stay in agreement.
+  if (t < lastRenderTime) return lastRenderTime;
+  lastRenderTime = t;
+  return t;
 }
 
 function sampleOther(o, t) {
   const buf = o.buffer;
   if (buf.length === 0) return null;
   if (t <= buf[0].ms) return buf[0];
-  if (t >= buf[buf.length - 1].ms) return buf[buf.length - 1]; // freeze on starve
+  const last = buf[buf.length - 1];
+  if (t >= last.ms) {
+    // Buffer starved (lost / late snaps). Coast along the last observed
+    // velocity for up to EXTRAP_MAX_MS instead of freezing then snapping.
+    // If the remote was stationary, last === prev ⇒ zero drift (no idle
+    // jitter); only actually-moving remotes get extrapolated.
+    if (buf.length < 2) return last;
+    const prev = buf[buf.length - 2];
+    const span = Math.max(1, last.ms - prev.ms);
+    const over = Math.min(t - last.ms, EXTRAP_MAX_MS);
+    const k = over / span; // 0..(EXTRAP_MAX_MS/span) past `last`
+    return {
+      x: last.x + (last.x - prev.x) * k,
+      y: last.y + (last.y - prev.y) * k,
+      z: last.z + (last.z - prev.z) * k,
+      yaw: lerpAngle(prev.yaw, last.yaw, 1 + k), // keep turning past last
+      pitch: last.pitch + (last.pitch - prev.pitch) * k,
+      crouchT: last.crouchT, // don't extrapolate stance
+      onGround: last.onGround,
+      alive: last.alive,
+    };
+  }
   // Find bracketing entries.
   for (let i = 0; i < buf.length - 1; i++) {
     const a = buf[i], b = buf[i + 1];
