@@ -108,6 +108,37 @@ function mixZooSample(ev, out, sampleRate) {
   }
 }
 
+// Cat DRONE — granular time-stretch of the meow so it sustains over
+// many bars while its pitch is set independently (overlap-add Hann
+// grains; source crawls across the whole sample over durSec, each
+// grain repitched by pitchRatio). Layer several at consonant ratios
+// for an autotuned, harmonized "cat choir" pad.
+function mixCatDrone(out, startSec, durSec, pitchRatio, gain) {
+  const sample = loadZooSample("cat");
+  if (!sample) return;
+  const SR = SAMPLE_RATE;
+  const grain = Math.floor(0.09 * SR);
+  const hop = Math.floor(grain * 0.5);
+  const outStart = Math.floor(startSec * SR);
+  const outLen = Math.floor(durSec * SR);
+  if (outLen < grain) return;
+  const srcStep = sample.length / outLen; // whole meow crawled over durSec
+  for (let gpos = 0; gpos + grain < outLen; gpos += hop) {
+    const srcCenter = gpos * srcStep;
+    for (let k = 0; k < grain; k++) {
+      const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * k) / grain); // Hann
+      let si = srcCenter + (k - grain / 2) * pitchRatio;
+      si = ((si % sample.length) + sample.length) % sample.length;
+      const i0 = Math.floor(si);
+      const i1 = (i0 + 1) % sample.length;
+      const fr = si - i0;
+      const v = sample[i0] * (1 - fr) + sample[i1] * fr;
+      const d = outStart + gpos + k;
+      if (d >= 0 && d < out.length) out[d] += v * w * gain;
+    }
+  }
+}
+
 function mixEventPiano(ev, out, sampleRate) {
   const { sample, ratio } = pianoAnchorFor(ev.midi);
   if (!sample) return;
@@ -248,9 +279,10 @@ const isChill     = MODE === "chill";
 // Default tempo tuned so 64 bars in waltz mode = exactly 84.0 s (1:24
 // — jeffrey's birthday). 137.143 bpm × 3/4 × 64 = 84.000 s. Effectively
 // "138 bpm trance" within 0.6%, but lands on a clean loop boundary.
-// Chill defaults slower (124) — more laid-back than the 137 trancenwaltz
-// cut. Explicit --bpm always wins. (Non-chill keeps the birthday tempo.)
-const BPM         = Number(flags.bpm ?? (isChill ? 124 : 137.143));
+// Chill is a DANCE track — base tempo well above the 137 trancenwaltz
+// cut, and it accelerates from here (see BPM_END). Explicit --bpm wins.
+// (Non-chill keeps the birthday tempo.)
+const BPM         = Number(flags.bpm ?? (isChill ? 150 : 137.143));
 const SCALE_NAME  = flags.scale || "minor";
 const ROOT_MIDI   = Number(flags.root ?? 57);
 const SECTION     = flags.section || "full";
@@ -364,7 +396,20 @@ const PROGRESSIONS = [
   [0, 5, 3, 6],
 ];
 const CHORD_BARS  = 2;
+// Chill: a LONGER pool walked slowly, with chords held 3 bars — so it
+// loops far less and travels through much more harmonic territory
+// across the track ("more travel in the larger tones throughout").
+const PROGRESSIONS_CHILL = [
+  [0, 5, 2, 6], [0, 3, 5, 6], [0, 2, 5, 3], [0, 5, 3, 6],
+  [0, 4, 5, 3], [0, 6, 3, 5], [0, 2, 3, 6], [0, 3, 6, 2],
+];
+const CHORD_BARS_CHILL = 3;
 function progressionAt(barIdx) {
+  if (isChill) {
+    const step = Math.floor(barIdx / CHORD_BARS_CHILL);
+    const prog = Math.floor(barIdx / (CHORD_BARS_CHILL * 4)) % PROGRESSIONS_CHILL.length;
+    return PROGRESSIONS_CHILL[prog][step % 4];
+  }
   const progCycle = Math.floor(barIdx / (CHORD_BARS * 4)) % PROGRESSIONS.length;
   const progStep  = Math.floor((barIdx % (CHORD_BARS * 4)) / CHORD_BARS);
   return PROGRESSIONS[progCycle][progStep];
@@ -422,14 +467,14 @@ const SECTION_TEMPLATES_3_CHILL = {
   // (which lands as a doubled drum in chill density and reads as
   // a glitch) and NO greeting vocal (the chill is wordless). The
   // kick enters at break1 so there's actual instrumental arrival.
-  intro:   { bars: 12, kick: false, hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0.30 },
-  break1:  { bars: 24, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
-  build1:  { bars: 24, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.75 },
-  drop1:   { bars: 30, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
-  break2:  { bars: 12, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
+  intro:   { bars: 16, kick: false, hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0.30 },
+  break1:  { bars: 36, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
+  build1:  { bars: 36, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.75 },
+  drop1:   { bars: 44, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
+  break2:  { bars: 18, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
   build2:  { bars: 0,  kick: false, hat: false, sub: false, lead: false, pad: false, piano: false, bells: false, riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0 },
-  drop2:   { bars: 24, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
-  outro:   { bars: 9,  kick: true,  hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.40 },
+  drop2:   { bars: 36, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
+  outro:   { bars: 14, kick: true,  hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.40 },
 };
 const SECTION_TEMPLATES = isChill && isWaltz
   ? SECTION_TEMPLATES_3_CHILL
@@ -461,12 +506,49 @@ const barSec   = beatSec * METER;
 // --master fade — instead of leaving ~2.7 s of dead air at the top of
 // the single.
 const OPENING_PREFIX_SEC = isChill ? 0.25 : 2.7;
-const musicSec = barSec * TOTAL_BARS;
+
+// Tempo accelerando — chill ramps LINEARLY from the base BPM up to a
+// faster end BPM across the whole track (the track's "linear swing →
+// variable bpm": it's a dance track that should drive harder as it
+// goes). Deterministic — a pure function of bar index, so struct.json /
+// section boundaries / video alignment all regenerate consistently.
+// Non-chill: BPM_END === BPM → constant tempo → trancenwaltz stays
+// byte-identical.
+const BPM_END = isChill ? 180 : BPM; // chill = exponential pacing top (for the log)
+const barDurSec   = []; // per-bar duration (accelerating in chill)
+const barStartRel = []; // music-relative start of each bar
+                        // (length TOTAL_BARS+1 — last entry = musicSec)
+{
+  let acc = 0;
+  for (let i = 0; i < TOTAL_BARS; i++) {
+    const fr = TOTAL_BARS > 1 ? i / (TOTAL_BARS - 1) : 0;
+    let bpmI;
+    if (isChill) {
+      // ONE smooth exponential pacing, repeated CYCLES times across the
+      // track — predictable + danceable (no jerky multi-press). Each
+      // cycle is a single exponential swell up then smoothly back (no
+      // hard tempo snap), so it grooves rather than lurches.
+      const CYCLES = 2;
+      const BASE = 150, TOP = 180;
+      const p = (fr * CYCLES) % 1;            // 0..1 within each cycle
+      const swell = Math.pow(Math.sin(p * Math.PI), 0.55); // exp-ish 0→1→0
+      bpmI = BASE + (TOP - BASE) * swell;
+    } else {
+      bpmI = BPM; // constant — trancenwaltz byte-identical
+    }
+    barStartRel.push(acc);
+    const d = (60 / bpmI) * METER;
+    barDurSec.push(d);
+    acc += d;
+  }
+  barStartRel.push(acc); // final boundary = musicSec
+}
+const musicSec = barStartRel[TOTAL_BARS] ?? (barSec * TOTAL_BARS);
 const totalSec = musicSec + OPENING_PREFIX_SEC;
 const tailSec  = 0;
 const totalSamples = Math.ceil((totalSec + tailSec) * SAMPLE_RATE);
 
-console.log(`→ ${isWaltz ? "trancewaltz" : "trance"} · ${BPM} bpm · ${METER}/4 · ${SCALE_NAME} (root ${ROOT_MIDI}) · ${TOTAL_BARS} bars · ${totalSec.toFixed(1)}s · sections [${SECTIONS.join(", ")}]`);
+console.log(`→ ${isWaltz ? "trancewaltz" : "trance"} · ${BPM}${BPM_END !== BPM ? ` exp-pacing⇅${BPM_END}×2` : ""} bpm · ${METER}/4 · ${SCALE_NAME} (root ${ROOT_MIDI}) · ${TOTAL_BARS} bars · ${totalSec.toFixed(1)}s · sections [${SECTIONS.join(", ")}]`);
 
 // Bar → section info, with cumulative start time so fx envelopes
 // know the local-zero of their section.
@@ -482,8 +564,8 @@ const sectionRanges = [];
       // startSec/endSec include the opening prefix so any downstream
       // dispatch (machine guns, drop impact, screams, fx envelopes,
       // dynamic envelope) lands at wall-clock times correctly.
-      startSec: accBars * barSec + OPENING_PREFIX_SEC,
-      endSec: (accBars + len) * barSec + OPENING_PREFIX_SEC,
+      startSec: barStartRel[accBars] + OPENING_PREFIX_SEC,
+      endSec: barStartRel[accBars + len] + OPENING_PREFIX_SEC,
       template: SECTION_TEMPLATES[name],
     });
     accBars += len;
@@ -972,6 +1054,77 @@ function fireSubBass(target, startSec, midi, durSec, gain, morphT = 0, harmonies
   }
 }
 
+// Chill intro→break1 bass ARC (chill only — the template has no sub
+// here). `musicT` = seconds since music start. Three blended stages:
+//   < 8 s    CRUNCH — punchy bit-crushed square stack + a noise spit
+//   8–18 s   OCEAN  — crossfade into a deep, smooth lo-fi sub swell
+//   ≥ 18 s   (caller adds the SWING — off-beats pushed late)
+function fireChillArcBass(startSec, midi, durSec, musicT) {
+  const sound = makeBufferSynth(bassBuf, startSec, SAMPLE_RATE, noiseRng);
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
+  const g = BASS_GAIN;
+  const xOcean = Math.max(0, Math.min(1, (musicT - 8) / 10)); // 0→1 over 8–18s
+  const crunch = 1 - xOcean;
+  if (crunch > 0.01) {
+    // Musical PUNCTUATION (not a pressurized bit-crush — that read as
+    // "poppy"). A guitar-harmonic pluck tuned to the chord that rapidly
+    // changes instrument/timbre per hit, sometimes a sampled piano.
+    // Soft attacks (no clicks). Sparse — it punctuates, leaves space.
+    if (noiseRng() > 0.32) {
+      const pitch = freq * 4;                    // up to guitar/mid register
+      const roll = noiseRng();                   // fast instrument change
+      const dur = durSec * (0.40 + noiseRng() * 0.40);
+      if (roll < 0.55) {
+        // real sampled instrument (piano) — leans "orchestral / real",
+        // sometimes a 2-note harmonic dyad for body.
+        mixEventPiano({ startSec, midi: midi + 24, gain: g * 0.90 * crunch, durSec: dur }, bassBuf, SAMPLE_RATE);
+        if (noiseRng() < 0.4) {
+          mixEventPiano({ startSec: startSec + 0.012, midi: midi + 24 + 7, gain: g * 0.55 * crunch, durSec: dur * 0.9 }, bassBuf, SAMPLE_RATE);
+        }
+      } else {
+        // softened guitar-harmonic pluck: fundamental + warm overtones,
+        // gentle attack/longer tail so it rings rather than clicks.
+        const wave = roll < 0.78 ? "triangle" : "sawtooth";
+        const k = makeBufferSynth(bassBuf, startSec, SAMPLE_RATE, noiseRng);
+        k.synth({ type: wave,   tone: pitch,     duration: dur,        volume: g * 0.48 * crunch, attack: 0.010, decay: dur * 0.85 });
+        k.synth({ type: "sine", tone: pitch * 2, duration: dur * 0.7,  volume: g * 0.18 * crunch, attack: 0.008, decay: dur * 0.55 });
+        k.synth({ type: "sine", tone: pitch * 3, duration: dur * 0.45, volume: g * 0.09 * crunch, attack: 0.008, decay: dur * 0.35 });
+      }
+    }
+  }
+  if (xOcean > 0.01) {
+    // deep ocean lo-fi: low sine + sub octave, long smooth swell, a
+    // slow tape "wow", and a faint hiss bed.
+    const wow = 1 + Math.sin(startSec * 2 * Math.PI * 0.7) * 0.012;
+    sound.synth({ type: "sine",     tone: freq * wow,       duration: durSec * 1.4, volume: g * 1.00 * xOcean, attack: 0.02, decay: durSec * 1.1 });
+    sound.synth({ type: "sine",     tone: freq * 0.5 * wow, duration: durSec * 1.5, volume: g * 0.85 * xOcean, attack: 0.03, decay: durSec * 1.2 });
+    sound.synth({ type: "triangle", tone: freq * wow,       duration: durSec * 1.2, volume: g * 0.30 * xOcean, attack: 0.02, decay: durSec * 0.9 });
+    sound.synth({ type: "noise",    tone: 200,              duration: durSec * 1.2, volume: g * 0.045 * xOcean, attack: 0.05, decay: durSec * 1.0 });
+  }
+}
+
+// Chill KICK — a deep, HARMONIC, tuned kick (not a sample). Pitched to
+// a chord tone (harmonizes with the progression), 3 octaves down for
+// weight, with per-hit variety: mixed body wavetypes, some long-decay
+// booms / some super-short tight ones, and a phase-shifted sub layer
+// (varying offset → comb/phase movement). No double-kicks. Deterministic
+// via noiseRng so it's varied but not random-sounding.
+function fireChillKick(target, startSec, chordDeg, idx, gain) {
+  const r2 = noiseRng();
+  // CLEAN classic kick ONLY — the synth harmonic/square body "broke
+  // the mix" and sounded harsh, so it's gone. Just the percussion-bank
+  // TR-808 "c" at a deep, controlled level (big headroom — it was way
+  // too hot), with a quiet SINE sub for warmth/tuning (never square).
+  const gK = gain * 0.55;                              // headroom cut
+  const deep = 0.66 + r2 * 0.14;                       // deep 808, varied
+  fireDrum(target, startSec, "c", { volume: gK, pitchFactor: deep });
+  const midi = scaleNoteMidi(chordDeg, -3);            // chord root, deep
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
+  const dur  = noiseRng() < 0.4 ? 0.30 : 0.12;         // some longer, some tight
+  const k = makeBufferSynth(target, startSec, SAMPLE_RATE, noiseRng);
+  k.synth({ type: "sine", tone: freq, duration: dur, volume: gK * 0.45, attack: 0.004, decay: dur * 0.8 });
+}
+
 // Riser — pitched sine sweep + chord-tone arpeggios with a thin noise
 // top. The user wanted "more pitched noise" instead of plain white-
 // noise sloshes, so the body is pitched tones; noise is a glaze on top.
@@ -1111,7 +1264,12 @@ for (const r of sectionRanges) {
 }
 
 for (let bar = 0; bar < TOTAL_BARS; bar++) {
-  const barStart = bar * barSec + OPENING_PREFIX_SEC;
+  // Per-bar tempo (accelerating in chill). These shadow the module-level
+  // base beatSec/barSec for everything computed inside the loop, so all
+  // note durations / sub-steps / arp grid follow the accelerando for free.
+  const barSec  = barDurSec[bar];
+  const beatSec = barSec / METER;
+  const barStart = OPENING_PREFIX_SEC + barStartRel[bar];
   const { name: sec, localBar, sectionLen } = sectionAtBar(bar);
   const t = SECTION_TEMPLATES[sec];
 
@@ -1124,13 +1282,11 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   const kickEnabled = t.kick && !(t.riser && isLastBar) && !isFinalBar && instrumentEnabled("kick", bar);
   const densityRoll = rng();
 
-  // Progressive swing (chill only) — off-beats get pushed late by a
-  // fraction of a beat that linearly ramps from light → extreme across
-  // the track. Reads as a groove that loosens / the "tempo breathes",
-  // while the deterministic bar grid (struct/sections/seed/video stay
-  // aligned) is untouched. trancenwaltz has no swing.
-  const chillProg = bar / Math.max(1, TOTAL_BARS - 1); // 0 → 1
-  const swingSec  = isChill ? (0.06 + 0.42 * chillProg) * beatSec : 0;
+  // The track's linear "swing" is now a TEMPO accelerando (see BPM_END /
+  // barDurSec) rather than an off-beat delay — pushing off-beats late
+  // fought the "faster dance track" goal. swingSec stays 0 so the
+  // existing `+ swingSec` call sites are harmless no-ops.
+  const swingSec = 0;
 
   // Meditation gong — every 8 bars in chill: a high struck sine bell
   // that rings through + dissipates, trailing a white-noise wave that
@@ -1203,12 +1359,17 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const beatFireProb = baseProb + (1.0 - baseProb) * (1.0 - settleVar);
       if (rng() > beatFireProb) continue;
       const accent = beat === 0 ? 1.05 : 0.95;
+      // Chill: a single deep, HARMONIC, tuned kick — NO double-kicks
+      // (hard to dance to). Off-beats sometimes drop so the groove
+      // stays varied / less predictable; beat 1 always anchors.
+      if (isChill && beat !== 0 && noiseRng() < 0.26) continue;
       // Humanize — tight ±5 ms jitter, scaled down in the settle window.
-      const kickT = humanize(startSec, 5 * settleVar + 1);
-      // Chill: subtle per-hit pitchFactor jitter on the kick noise
-      // transient — keeps it a kick but stops it being a stamped clone.
-      const kickPF = isChill ? 1 + (noiseRng() - 0.5) * 0.16 : 1;
-      fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN, pitchFactor: kickPF });
+      const kickT = humanize(startSec, 5 * settleVar + 2);
+      if (isChill) {
+        fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN);
+      } else {
+        fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN });
+      }
       kickTimes.push(kickT);
       events.kick.push({ t: kickT });
       kickCount++;
@@ -1277,6 +1438,25 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         fireDrum(dryBuf, openHatSec, "a", { volume: 0.45 * DRUM_GAIN });
         events.hat.push({ t: openHatSec, dur: 0.10, kind: "open" });
       }
+    }
+  }
+
+  // Chill bass ARC — intro + break1 have no template sub, so fill them
+  // with the crunch→ocean→swung arc bass (on the beat). Crunchy bitted
+  // punch for the first ~8 s, morphing into a deep ocean lo-fi sub,
+  // then (≥18 s) levelling out on a swing (off-beats pushed late).
+  if (isChill && (sec === "intro" || sec === "break1")) {
+    for (let beat = 0; beat < METER; beat++) {
+      const baseT  = barStart + beat * beatSec;
+      const musicT = baseT - OPENING_PREFIX_SEC;
+      const swung  = (musicT >= 18 && beat !== 0) ? 0.16 * beatSec : 0;
+      const bt     = humanize(baseT + swung, 6);
+      const m = (beat === 1 && METER >= 3)
+        ? scaleNoteMidi(chordDeg + 4, -2)   // 5th up for color
+        : scaleNoteMidi(chordDeg, -2);      // root, low
+      fireChillArcBass(bt, m, beatSec * 0.62, musicT);
+      events.sub.push({ t: bt, midi: m, dur: beatSec * 0.62 });
+      subCount++;
     }
   }
 
@@ -1644,16 +1824,25 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // governs the crescendo / elongation / fade dynamics; only timbre
     // and octave are pinned. trancenwaltz keeps the square→sine morph.
     if (isChill) {
-      waveMix = 1;                                 // sine only — never the square
-      octShift = 12;                               // one octave down throughout
-      steps = Math.max(3, Math.round(steps / 2));  // half the notes — holds + breathes
-      durMul = durMul * 2.0;                       // each note rings across the gap
+      waveMix = 1;     // sine only — never the square
+      octShift = 12;   // one octave down throughout
+      if (sec === "intro") {
+        // START: fast + CACOPHONOUS — dense, short, dissonant shimmer
+        // (a chaotic open that then settles into the meditative arp).
+        steps = Math.max(baseSteps, Math.round(steps * 2));
+        durMul = durMul * 0.5;
+      } else {
+        // Settle: half the notes, long holds — breathes.
+        steps = Math.max(3, Math.round(steps / 2));
+        durMul = durMul * 2.0;
+      }
     }
     if (fadeMul > 0.01) {
       const stepSec = barSec / steps;
       for (let sIdx = 0; sIdx < steps; sIdx++) {
-        // Chill: extra rests so the arp skips + leaves space.
-        if (isChill && noiseRng() < 0.22) continue;
+        // Chill: extra rests so the arp skips + leaves space — but NOT
+        // during the intro (the start stays dense + cacophonous).
+        if (isChill && sec !== "intro" && noiseRng() < 0.22) continue;
         // Chill swings its off-step (odd) notes into the same late pocket
         // as the hats/sub. Humanize the arp — ±6 ms keeps it alive.
         const swung = (isChill && sIdx % 2 === 1) ? swingSec : 0;
@@ -1674,6 +1863,13 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         }
         if (siVol > 0.001) {
           synth.synth({ type: "sine",   tone: freq, duration: stepSec * durMul, volume: siVol, attack: 0.008, decay: stepSec * 0.85 });
+        }
+        // Chill intro CACOPHONY — a slightly-detuned tritone an
+        // octave+ up, clashing against the root for a dissonant,
+        // chaotic shimmer at the very start only.
+        if (isChill && sec === "intro" && siVol > 0.001) {
+          const clashTone = freq * Math.pow(2, (12 + 6) / 12) * 1.013;
+          synth.synth({ type: "sine", tone: clashTone, duration: stepSec * durMul, volume: siVol * 0.55, attack: 0.004, decay: stepSec * 0.55 });
         }
         // Emit the arp note so the visualizer draws it as its own lane
         // (the intro square arp was previously invisible).
@@ -2071,6 +2267,35 @@ if (!isChill) {
       SAMPLE_RATE
     );
     events.sfx.push({ t: tw.offsetSec, name: "bird", dur: 0.30 });
+  }
+}
+
+// Chill cat CHOIR — over the roller-coaster window (bars 6–22) a
+// HARMONIZED stack of long, time-stretched, autotuned meow drones
+// (a minor-triad shape: root / m3 / 5th / octave at consonant ratios,
+// so it reads in-tune with itself) spanning many bars — plus a few
+// short high kitten accents on top so it still reads as cats.
+if (isChill && barStartRel.length > 22) {
+  const tA = OPENING_PREFIX_SEC + barStartRel[6];
+  const tB = OPENING_PREFIX_SEC + barStartRel[22];
+  const span = tB - tA;
+  const r = 0.42; // base stretch/pitch — mellow low register
+  const chord = [
+    { ratio: r,                          gain: 0.075 }, // root
+    { ratio: r * Math.pow(2, 3 / 12),    gain: 0.060 }, // minor 3rd
+    { ratio: r * Math.pow(2, 7 / 12),    gain: 0.055 }, // 5th
+    { ratio: r * 2,                      gain: 0.040 }, // octave shimmer
+  ];
+  chord.forEach((c, vi) => {
+    const off = vi * (span * 0.04);                 // staggered bloom-in
+    mixCatDrone(sfxDryBuf, tA + off, span - off, c.ratio, c.gain);
+    events.sfx.push({ t: tA + off, name: "cat", dur: span - off });
+  });
+  // a few short high kitten accents so the choir still reads "cat"
+  for (let k = 0; k < 4; k++) {
+    const t = tA + span * ((k + 0.5) / 4) + (noiseRng() - 0.5) * (span * 0.15);
+    mixZooSample({ startSec: t, name: "cat", gain: 0.13, pitchRatio: 1.9 + noiseRng() * 0.8 }, sfxDryBuf, SAMPLE_RATE);
+    events.sfx.push({ t, name: "cat", dur: 0.35 });
   }
 }
 
@@ -3099,7 +3324,9 @@ if (RELEASE_MASTER) {
       let speak = 0;
       for (let i = 0; i < st.length; i++) { const a = Math.abs(st[i]); if (a > speak) speak = a; }
       const norm = speak > 0 ? 0.85 / speak : 1.0;
-      const PITCH = 1.6;                 // ~ +8 semitones — high + quick
+      // Chill: stretch it WAY out — slow + low (PITCH < 1 lengthens the
+      // playback and drops the pitch). Non-chill keeps the quick high ID.
+      const PITCH = isChill ? 0.55 : 1.6;
       const STAMP_SEC = 58.0;            // early in the build2 climb into drop2
       const startIdx = Math.floor(STAMP_SEC * SAMPLE_RATE);
       const outLen = Math.floor(st.length / PITCH);
@@ -3115,7 +3342,7 @@ if (RELEASE_MASTER) {
         out[j] += s * norm * GAIN * fade;
       }
       try { unlinkSync(tmpStamp); } catch {}
-      console.log(`  stamp · "aesthetic dot computer" (high-pitched) at ${STAMP_SEC}s`);
+      console.log(`  stamp · "aesthetic dot computer" (${isChill ? "stretched slow+low" : "high-pitched"}) at ${STAMP_SEC}s`);
     }
   }
 }
@@ -3153,15 +3380,32 @@ const wetEnv =
   `if(lt(t\\,${REVERB_FADE_IN_SEC})\\,t/${REVERB_FADE_IN_SEC}\\,` +
   `if(gt(t\\,${REVERB_FADE_OUT_START})\\,` +
   `pow(max(0\\,(${REVERB_FADE_OUT_END}-t)/3)\\,2)\\,1))`;
+// Chill wants a TINY, soft, dead room — a small carpeted basement, NOT
+// the long house reverb: short, absorbed early reflections, very low
+// wet, narrow image. The master is also eased for the quiet bed
+// (gentler glue compression, softer loudness) so nothing is squashed.
+const reverbDefs = isChill
+  ? `[0:a]aecho=0.55:0.45:7|13|23|37:0.16|0.11|0.07|0.045,pan=stereo|c0=0.55*c0|c1=0.45*c0,volume='${wetEnv}':eval=frame[wet1];` +
+    `[0:a]aecho=0.5:0.4:11|29:0.09|0.05,pan=stereo|c0=0.45*c0|c1=0.55*c0,volume='${wetEnv}':eval=frame[wet2];`
+  : `[0:a]aecho=0.85:0.85:60|140|260|480|820:0.40|0.27|0.18|0.11|0.06,pan=stereo|c0=0.35*c0|c1=0.65*c0,volume='${wetEnv}':eval=frame[wet1];` +
+    `[0:a]aecho=0.85:0.85:90|200|360|620:0.30|0.20|0.13|0.08,pan=stereo|c0=0.65*c0|c1=0.35*c0,volume='${wetEnv}':eval=frame[wet2];`;
+const wetWeights = isChill ? "1 0.12 0.07" : "1 0.28 0.28";
+const stereoStage = isChill ? "extrastereo=m=1.05:c=true," : "extrastereo=m=1.5:c=true,";
+const compStage = isChill
+  ? "acompressor=threshold=-18dB:ratio=1.4:attack=30:release=320:makeup=1:knee=6,"
+  : "acompressor=threshold=-14dB:ratio=1.8:attack=18:release=200:makeup=1:knee=4,";
+const loudStage = isChill
+  ? "loudnorm=I=-16:TP=-1.5:LRA=20[out]"
+  : "loudnorm=I=-15:TP=-1.5:LRA=20[out]";
+
 const filter =
   "[0:a]pan=stereo|c0=c0|c1=c0[dry];" +
   // Long multi-tap reverb (60-820 ms) — restored. The short cluster
   // tried earlier (12-95 ms) made the mix feel boxy + the aggressive
   // compressor that paired with it pumped audibly. Back to the prior
   // tap layout that gave the house-y depth.
-  `[0:a]aecho=0.85:0.85:60|140|260|480|820:0.40|0.27|0.18|0.11|0.06,pan=stereo|c0=0.35*c0|c1=0.65*c0,volume='${wetEnv}':eval=frame[wet1];` +
-  `[0:a]aecho=0.85:0.85:90|200|360|620:0.30|0.20|0.13|0.08,pan=stereo|c0=0.65*c0|c1=0.35*c0,volume='${wetEnv}':eval=frame[wet2];` +
-  "[dry][wet1][wet2]amix=inputs=3:weights='1 0.28 0.28':duration=longest:normalize=0," +
+  reverbDefs +
+  `[dry][wet1][wet2]amix=inputs=3:weights='${wetWeights}':duration=longest:normalize=0,` +
   // PERFECT LOOP — the bed is bar-aligned so totalSec wraps to t=0 on
   // the next downbeat, and the kick-settle ending already winds down to
   // the same gentle level the intro starts at. The old 0.15s fade-in /
@@ -3179,12 +3423,12 @@ const filter =
   "equalizer=f=2400:t=q:w=1.3:g=1.0," +
   "equalizer=f=10000:t=q:w=0.9:g=2.5," +
   "equalizer=f=60:t=q:w=1.0:g=1.0," +
-  "extrastereo=m=1.5:c=true," +
+  stereoStage +
   // Gentle compressor — was 1.6:1 / 20 ms / 240 ms. The 2.4:1 / 4 ms
   // version was creating an audible oscillating envelope pump on the
   // master. Back to slow musical compression that glues without
   // breathing.
-  "acompressor=threshold=-14dB:ratio=1.8:attack=18:release=200:makeup=1:knee=4," +
+  compStage +
   // Brick-wall safety limiter — mid-ceiling so the limiter isn't
   // working hard but still catches stray peaks. 0.94 was clipping
   // the loudnorm chain into pumping; 0.88 is the sweet spot.
@@ -3192,7 +3436,7 @@ const filter =
   // Loudness target — back to -15 LUFS (was -13 which was forcing
   // the limiter and acompressor to overdrive into pump). LRA=20 keeps
   // the new wider dynamic arc.
-  "loudnorm=I=-15:TP=-1.5:LRA=20[out]";
+  loudStage;
 const ff = spawnSync("ffmpeg", [
   "-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1",

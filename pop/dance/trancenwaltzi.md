@@ -16,10 +16,10 @@ before it goes to DistroKid → Spotify.
 | Field      | Value |
 |------------|-------|
 | Meter      | **3/4** (waltz lilt — `--meter 3`, `isWaltz`) |
-| Tempo      | **124 BPM** (chill default — slower + more laid-back than the 137.143 trancenwaltz cut; `--bpm` overrides) |
-| Bar length | 1.4516 s (3 beats × 60/124) — **plus progressive swing** (off-beats ramp from +0.06 → +0.48 of a beat across the track) |
-| Key        | **A minor** (natural; `rootMidi 57` = A3, `scale minor`) |
-| Length     | **135 bars ≈ 3:16.2** (`totalSec 196.22`, music starts at 0.25 s — chill has no boot prefix) |
+| Tempo      | **GAS-PEDAL** (chill): 150 hold → press ↗198 (WOOOOF) → coast ↘156 → bigger press ↗212 (faster beat) → ease → **dying out ↘110** into the fade. Distinct accel presses w/ eased release, NOT a sine coaster. Deterministic piecewise fn of bar fraction. `--bpm` sets the 150 base |
+| Bar length | shrinks/grows per the gas-pedal curve (3 beats × 60/bpm(bar)); pure function of bar index |
+| Key        | **A minor** (natural; `rootMidi 57` = A3, `scale minor`). Chord progression: chill walks an **8-progression pool, 3-bar chords** → loops far less + travels more harmonically |
+| Length     | **200 bars ≈ 3:43.6** (`totalSec 223.62`, music starts at 0.25 s). Continuous bed → musical `--master` fade end, **no dead air** (tempo also winds down into the fade — cohesive ending) |
 | Mode       | `chill` — continuous minimal bed, no EDM drops/impacts, **wordless** |
 | Seed       | `"trancewaltz"` (deterministic; meter-3 default — **not** a custom seed) |
 
@@ -29,17 +29,27 @@ audio every time. Differences from trancenwaltz come entirely from `--mode chill
 ### Section map
 
 "drop"/"break" here are **density tiers**, not EDM drops — chill mode has
-no impacts. The arc is a gentle swell and settle.
+no impacts. Section seconds are **non-uniform** (each bar is shorter than
+the last — the accelerando); the `(Xs / N bars)` column shows it speeding up.
 
-| Section | Bars | Time | Active layers |
-|---------|------|------|---------------|
-| intro   | 0–12   | 0:00.3 – 0:17.7 | hat, pad, bells |
-| break1  | 12–36  | 0:17.7 – 0:52.5 | + kick, lead, mosquito-saws |
-| build1  | 36–60  | 0:52.5 – 1:27.4 | + sub |
-| drop1   | 60–90  | 1:27.4 – 2:10.9 | + piano (fullest) |
-| break2  | 90–102 | 2:10.9 – 2:28.3 | sub drops out |
-| drop2   | 102–126| 2:28.3 – 3:03.2 | full again (+ piano, + sub) |
-| outro   | 126–135| 3:03.2 – 3:16.2 | kick, hat, pad, bells — winds down |
+| Section | Bars | Time (Xs / N bars) | Active layers |
+|---------|------|---------------------|---------------|
+| intro  | 0–16    | 0:00.2 – 0:16.5 (16.2s/16) | hat, pad, bells — **fast cacophonous arp**, **crunch bass**, kittens |
+| break1 | 16–52   | 0:16.5 – 0:56.2 (39.7s/36) | + kick, lead, mosquito-saws; bass → ocean lo-fi → swung; coaster + kittens (bars 6–22) |
+| build1 | 52–88   | 0:56.2 – 1:35.9 (39.7s/36) | + sub (template sub takes over the bass) |
+| drop1  | 88–132  | 1:35.9 – 2:22.3 (46.3s/44) | + piano (fullest) |
+| break2 | 132–150 | 2:22.3 – 2:40.6 (18.3s/18) | sub drops out |
+| drop2  | 150–186 | 2:40.6 – 3:16.2 (35.6s/36) | full again (+ piano, + sub) |
+| outro  | 186–200 | 3:16.2 – 3:29.7 (13.5s/14) | kick, hat, pad, bells — winds down to the fade |
+
+The track genuinely accelerates (each later bar shorter), with a hard
+roller-coaster crest over bars 6–22.
+
+> ⚠ **Video caveat:** `struct.json`'s single `bpm` field records only the
+> **base** (150) — it does not express the per-bar ramp. The audio single
+> is correct; but `cover-video.mjs` beat-grid alignment would drift on an
+> accelerating track. Fine for the audio release tonight; the canvas/video
+> needs the ramp taught to it before any trancenwaltzi *video* ships.
 
 A **meditation gong** (high struck sine bell → long dissipating ring →
 white-noise wave that zippers out) fires every 8 bars throughout.
@@ -82,6 +92,44 @@ layer used to overlap the intro's own in-bar hats from music-entry on.
 Shutdown chime + "system dying" tail hats were already chill-gated. The
 quiet mid-track "aesthetic dot computer" whisper at 0:58 is **kept** (it's
 a brand ID, not a startup beep).
+
+**Chill v4 — gas-pedal + cat choir + harmonic travel** (2026-05-18,
+latest; supersedes the v2/v3 tempo + cat notes): tempo reworked from a
+sine roller-coaster to a **gas-pedal** (presses ↗198 / ↗212 with eased
+release, then dying out ↘110 — see Tempo row; ~3:43.6). Crunch bass is
+now a higher **WOOOOF womp** (octave up, downward pitch-sweep, no
+sub-octave — fixes the "super deep kick"). Normal kick walks a fixed
+**A/B/C pitch pattern** + occasional **double/triple bursts**, all
+humanized. Meows became a **long, granular-time-stretched, autotuned,
+harmonized cat choir** (minor-triad ratios) spanning the press bars +
+short kitten accents (`mixCatDrone` helper). Chord progression: chill
+walks an **8-progression pool with 3-bar chords** so it loops far less
+and travels more. Still all chill-gated; trancenwaltz byte-identical.
+
+**Chill v3 — bass arc + length + kittens** (2026-05-18, latest; builds
+on v2): chill sections lengthened **135 → 200 bars** so the fast
+accelerando still lands a **3:29.7** single (3–4 min target). New
+3-stage **bass arc** filling intro+break1 (which had no template sub):
+punchy **bit-crushed crunch** (square stack + noise spit, first ~8 s) →
+crossfade to **deep ocean lo-fi** sub (low sine + sub-octave + tape wow
++ faint hiss, by ~18 s) → **levels out on a swing** (off-beats pushed
+late); template sub takes over at build1. The roller-coaster was made
+**radical** (bars 6–22, +45 % crest then ease — shows the algorithmic
+stretch). A litter of **9 high kitten mews** scattered through the
+coaster window. Verified **no dead air** (continuous bed → musical
+`--master` fade end). `fireChillArcBass` helper added. Still all
+chill-gated; trancenwaltz byte-identical.
+
+**Chill v2 — accelerando** (2026-05-18, later same day, supersedes the
+BPM/swing bullets below): it's a dance track, so the laid-back 124 +
+off-beat-delay swing were scrapped. Now: **base BPM 150 accelerating
+linearly to 188** (`BPM_END`) — a true deterministic per-bar tempo ramp;
+the track *actually speeds up* (length ~2:25). The **intro arp** is fast,
+dense and **cacophonous** (2× steps, short notes, +detuned tritone-octave
+clash) then settles into the held/sparse sine. The **"aesthetic.computer"
+stamp** is stretched slow + low in chill (`PITCH 0.55`). Off-beat swing
+offset retired (`swingSec = 0`). Still all chill-gated; trancenwaltz
+byte-identical.
 
 **Chill redesign — full pass** (2026-05-18, `trance.mjs`, all
 chill-gated; trancenwaltz byte-identical, untouched):
@@ -185,8 +233,24 @@ flangered sub-bells start to whistle.
 - [x] Brightening polish → `trancenwaltzi-MASTER.wav` = the **I=-15 final** (I=-14 alt kept for ref)
 - [ ] Confirm by ear: −1.2 dBTP ceiling, no clipping, clean fade-out ending, gong not harsh
 - [ ] 320 k mp3 for CDN: `assets.aesthetic.computer/pop/trancenwaltzi.mp3`
-- [ ] Cover 3000² jpg (regen-in-progress — butterfly-wings fix) →
-      `assets.aesthetic.computer/pop/trancenwaltzi.jpg`
+- [x] Cover 3000² jpg — **`~/Documents/Working Desktop/gens/trancenwaltzi-cover-3000.jpg`**
+      (also mirrored to `~/Desktop/`). Source: outro illustration **v31**
+      (`gens/trancenwaltzi-sections/outro/gens/v31.png`, native 1024²
+      upscaled → 3000²; square, no crop needed unlike the portrait
+      trancenwaltz cut). Concept: **in-aisle Trader Joe's party / "welcome
+      to the talk show, come chill with us"** — jeffrey arms-wide hosting
+      to camera, the whole pixie crew vibing through the aisle, upload
+      sparkles rising, his green Neo + whistlegraph (both arms) low-front,
+      pixie laptops PALS-only. No readable brand wordmark (shot indoors —
+      avoids the trademark issue the exterior-storefront takes had).
+      Built via `marketing/bin/gen-promo.mjs` from
+      `gens/trancenwaltzi-sections/outro/cover-prompt.txt` (prior prompt =
+      `cover-prompt.prev.txt`). Still **TODO**: upload to
+      `assets.aesthetic.computer/pop/trancenwaltzi.jpg`.
+      Note: the cover **video** (`build.mjs` trancenwaltzi square format)
+      is still on the old `v16` set across all 8 sections — switching it to
+      this concept means regenerating all 8, a separate larger job (cover
+      still vs. video are independent here, same as trancenwaltz).
 - [ ] Canvas already staged: `assets.aesthetic.computer/pop/trancenwaltzi-canvas.mp4`
       (upload to Spotify only **after** the track is live)
 - [ ] DistroKid upload (new single, artist "Aesthetic Dot Computer")
