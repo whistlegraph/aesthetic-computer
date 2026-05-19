@@ -70,9 +70,28 @@ neigh / ocean samples are placed via the engine's deep + echo +
 **variable-playback-rate** helper (they bend with the beat & morph
 under), beat-spread (random window per hit — not loop-loop).
 
+## Vocal + extra SFX (now in)
+
+- **jeffrey vocal counterpoint** — `sing-penta.mjs` (jeffrey-pvc say →
+  whisper-align → WORLD score-pitch on `trancepenta-hum.np` G-dorian
+  chord tones → rubberband stretch → restrained harmony stack) →
+  `pop/dance/out/trancepenta-vocal.mp3` (gitignored, cached say). The
+  bake adds 2 stages after scratch-mix:
+  `place-penta-vocal.mjs --phrase …trancepenta-vocal.mp3 --dur <scrDur>`
+  then `finalize-penta-vocal.mjs --scr …--vox …--vox-db 1` (the exact
+  stage-3 master + a quiet pre-master vocal bus; `--vox-db` tunes it).
+- **bake flags** also now: `--hell 13`, `--beat-in 30` (subtle
+  dampened 4-on-floor intro + a diatonic-3rd-up key that DROPS home
+  ~1 min) ; the ~2:19 fog horn uses the pre-baked `.foghorn-low.wav`
+  (−12 st, ~5 s, slow attack/smooth decay); between the two ID stamps
+  a CC0 arpeggiated horse neigh + grenade; tamed/wavy last-30 s.
+- New CC0 sources logged in `out/.sfx-credits.txt`:
+  `.waves/.foghorn/.boathorn` + `.grenade` (Freesound, CC0) and
+  `.foghorn-low.wav` derived from `.foghorn.wav`.
+
 ## Open / next
 
-- **jeffrey ElevenLabs vocal-harmony layer** — humms/toots/whistle via
-  `/api/say` jeffrey-pvc, autotuned to the dorian scale + tempo grid,
-  harmonized as a counterpoint bouncing between key instrument tones.
-  Its own dedicated pass (network + ElevenLabs cost).
+- **jeffrey SINGING ALONG with the lead, stretched/drippin** — a sung
+  lead-double (real lyric + a `.np` tracking the lead, long sustained
+  notes, high stretch/legato). A subagent attempt errored mid-run
+  (API socket); needs a clean re-run.

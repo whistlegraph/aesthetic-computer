@@ -384,6 +384,10 @@ const GALLOP      = Boolean(flags.gallop);
 // music-seconds, then ease in over ~3 s (jas: "start the beat more
 // around 30 seconds in"). 0 = no delay (trancenwaltzi unchanged).
 const BEAT_IN     = Number(flags["beat-in"] ?? 0);
+// The "drop": ~28 s after BEAT_IN (≈ 1 min). Before it, the intro
+// sits in a SHIFTED key; at the drop it resolves home for a big
+// musical shift (jas). 0 = disabled (trancenwaltzi never sets BEAT_IN).
+const DROP_SEC    = BEAT_IN > 0 ? BEAT_IN + 28 : 0;
 // --kick-only: an experimental "drums = kicks ONLY" pass (jas: "remove
 // all hats and all snares for now ... ONLY do kicks for this next
 // pass"). Mutes the backbeat snare, the chill tick, the hat lane and
@@ -543,7 +547,16 @@ function progressionAt(barIdx) {
   if (isChill) {
     const s = sonataAt(barIdx);
     const step = Math.floor(barIdx / CHORD_BARS_CHILL);
-    return PROGRESSIONS_CHILL[s.prog][step % 4] + s.keyDeg;
+    let deg = PROGRESSIONS_CHILL[s.prog][step % 4] + s.keyDeg;
+    // INTRO KEY SHIFT → DROP (jas: "different key then drop it at the
+    // 1 minute mark for a larger musical shift"). Whole intro sits a
+    // diatonic 3rd up; at DROP_SEC it resolves home — every pitched
+    // voice shifts together via this one chokepoint.
+    if (DROP_SEC > 0) {
+      const bt = (barStartRel[barIdx] ?? 1e9) + OPENING_PREFIX_SEC;
+      if (bt < DROP_SEC) deg += 2;
+    }
+    return deg;
   }
   const progCycle = Math.floor(barIdx / (CHORD_BARS * 4)) % PROGRESSIONS.length;
   const progStep  = Math.floor((barIdx % (CHORD_BARS * 4)) / CHORD_BARS);
@@ -1783,6 +1796,9 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         const _mrel = kickT - OPENING_PREFIX_SEC;
         const beatInGate = BEAT_IN <= 0 ? 1
           : (_mrel < BEAT_IN ? 0 : Math.min(1, (_mrel - BEAT_IN) / 3));
+        // The real grinding beat "drops" ~28 s after BEAT_IN (≈ 1 min);
+        // before that, a subtle dampened 4-on-floor + a shifted key.
+        const DROP_SEC = BEAT_IN > 0 ? BEAT_IN + 28 : 0;
         // ── WALTZ 3/4 perc restructure (jas: "we should not have gone
         // into a bts bts rhythm ... keep the waltz 3/4 time ...
         // aggressively restructure the whole perc"). One clean
@@ -1823,6 +1839,20 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
           const fg = 0.19 * settleAmp * DRUM_GAIN * beatInGate;
           fl.synth({ type: "sine", tone: 55, duration: 0.17, volume: fg,        attack: 0.002, decay: 0.15 });
           fl.synth({ type: "sine", tone: 92, duration: 0.06, volume: fg * 0.38, attack: 0.001, decay: 0.05 });
+        }
+        // INTRO 4-ON-THE-FLOOR — a VERY SUBTLE dampened kick on EVERY
+        // beat through the intro (jas: "first 45s ... subtle 4 on the
+        // floor ... dampened kick ... before the real grinding beat
+        // ~1 min"). Eases out before the drop + crossfades under the
+        // real beat (1-beatInGate).
+        if (DROP_SEC > 0 && _mrel < DROP_SEC && kickT < totalSec - 20) {
+          const introFade = Math.min(1, (DROP_SEC - _mrel) / 6);
+          const ig = 0.085 * settleAmp * DRUM_GAIN * introFade * (1 - 0.7 * beatInGate);
+          if (ig > 0.001) {
+            const ik = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
+            ik.synth({ type: "sine", tone: 48, duration: 0.20, volume: ig,        attack: 0.006, decay: 0.18 });
+            ik.synth({ type: "sine", tone: 70, duration: 0.05, volume: ig * 0.22, attack: 0.004, decay: 0.045 });
+          }
         }
         if (beat === 1 && kickGate > 0.02 && !KICK_ONLY) { // PA — deep snare
           const snr = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
@@ -3668,8 +3698,23 @@ if (GALLOP && isChill) {
   // Freesound samples, placed via the same deep/echo/variable-rate
   // helper so they bend with the rhythm too.
   const waves = loadSfxF32(".waves.wav");
-  const fogh = loadSfxF32(".foghorn.wav");
+  const fogh = loadSfxF32(".foghorn-low.wav"); // pre-stretched ~5s, -12st, slow attack + smooth decay (jas)
   const boath = loadSfxF32(".boathorn.wav");
+  // CLEAN placement (no beat-warble) for the sustained low fog horn —
+  // it must read as one long smooth ~5s tone, not a bent stutter.
+  const placeClean = (src, t0, gain) => {
+    if (!src) return;
+    const taps = [[0, gain], [0.22, gain * 0.34], [0.5, gain * 0.16]];
+    for (const [dly, tg] of taps) {
+      const bi = Math.floor((t0 + dly) * SRg);
+      for (let k = 0; k < src.length; k++) {
+        const di = bi + k;
+        if (di < 0) continue;
+        if (di >= dryBuf.length) break;
+        dryBuf[di] += src[k] * tg;
+      }
+    }
+  };
   const oc0 = OPENING_PREFIX_SEC + musicSec * 0.66;
   const ocEnd = OPENING_PREFIX_SEC + musicSec * 0.86;
   if (waves) {                                   // spread crashing waves bed
@@ -3679,9 +3724,9 @@ if (GALLOP && isChill) {
       wt += 1.4 + gRng() * 1.6;
     }
   }
-  if (fogh) {                                    // distant (already "wet") fog horn — far + quiet
-    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.68, 0.40, 0.17 * DRUM_GAIN, true); // MUCH deeper/lower (jas)
-    place(fogh, OPENING_PREFIX_SEC + musicSec * 0.80, 0.36, 0.14 * DRUM_GAIN, true);
+  if (fogh) {                                    // LOW ~5s smooth fog horn (jas: "at 2:19 ... 5 seconds ... low freq")
+    placeClean(fogh, OPENING_PREFIX_SEC + musicSec * 0.68, 0.17 * DRUM_GAIN);
+    placeClean(fogh, OPENING_PREFIX_SEC + musicSec * 0.82, 0.16 * DRUM_GAIN); // ≈ 2:19
   }
   if (boath) {                                   // a couple mournful boat-horn blasts
     place(boath, OPENING_PREFIX_SEC + musicSec * 0.72, 0.80, 0.30 * DRUM_GAIN, true);

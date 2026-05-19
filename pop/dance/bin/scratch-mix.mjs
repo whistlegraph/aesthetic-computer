@@ -5,7 +5,7 @@
 // strokes, transformer chop, raised-cosine edges (endpoints stay
 // sample-aligned so length/continuity around the window is intact).
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 
 const [inWav, outWav, stampWav, structPath] = process.argv.slice(2);
 
@@ -176,7 +176,55 @@ if (stampWav) {
   };
   const start = Math.floor(frames / 2) - Math.floor(outLen / 2);
   const n1 = place(0, st.length, start, GAIN);                 // full "aesthetic dot computer"
-  const gap = Math.floor(0.16 * SR);
+  // BETWEEN the two stamps (jas: "between 'aesthetic' and the added
+  // 'dot' 'computer' ... a real cool horse neigh arpeggiated with a
+  // grenade going off"). Widen the gap to fit it.
+  const gap = Math.floor(2.0 * SR);
+  const gapAt = start + n1 + Math.floor(0.05 * SR);
+  const decodeMono = (p) => {
+    if (!existsSync(p)) return null;
+    const tmp = `/tmp/.scr-${p.replace(/[^a-z0-9]/gi, "")}.f32`;
+    const r = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
+      "-i", p, "-f", "f32le", "-ar", String(SR), "-ac", "1", tmp]);
+    if (r.status !== 0 || !existsSync(tmp)) return null;
+    const b = readFileSync(tmp);
+    const a = Float32Array.from(new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4));
+    try { unlinkSync(tmp); } catch {}
+    return a;
+  };
+  const REPO = "/Users/jas/aesthetic-computer";
+  const neigh = decodeMono(`${REPO}/pop/dance/out/.neigh.wav`);
+  const gren = decodeMono(`${REPO}/pop/dance/out/.grenade.wav`);
+  if (neigh) {                                                 // ARPEGGIATED real neigh — G-dorian rising
+    const arp = [0, 3, 7, 10, 12];                             // semitone arp (G minor-ish dorian)
+    arp.forEach((semi, ai) => {
+      const r = Math.pow(2, semi / 12);
+      const at = gapAt + Math.floor(ai * 0.13 * SR);
+      const n = Math.floor(neigh.length / r);
+      for (let k = 0; k < n; k++) {
+        const j = at + k;
+        if (j < 0 || j >= frames) break;
+        const sf = k * r, si = Math.floor(sf);
+        if (si + 1 >= neigh.length) break;
+        const fr = sf - si;
+        const fzn = Math.min(900, n >> 3);
+        let e = 1;
+        if (k < fzn) e = k / fzn; else if (k > n - fzn) e = Math.max(0, (n - k) / fzn);
+        const v = (neigh[si] * (1 - fr) + neigh[si + 1] * fr) * e * (0.34 - ai * 0.03);
+        x[j * 2] += v; x[j * 2 + 1] += v;
+      }
+    });
+  }
+  if (gren) {                                                  // grenade going off, just after the neigh starts
+    const at = gapAt + Math.floor(0.45 * SR);
+    for (let k = 0; k < gren.length; k++) {
+      const j = at + k;
+      if (j < 0 || j >= frames) break;
+      const e = k < 200 ? k / 200 : 1;
+      const v = gren[k] * 0.55 * e;
+      x[j * 2] += v; x[j * 2 + 1] += v;
+    }
+  }
   place(tailFrom, st.length, start + n1 + gap, GAIN * 1.12);   // re-stamped "dot computer", louder
   try { unlinkSync(rawSt); } catch {}
   console.log(`clean ID + restamped "dot computer" @ ~${(frames / 2 / SR).toFixed(1)}s (ducked pocket, GAIN ${GAIN})`);
@@ -191,7 +239,7 @@ if (stampWav) {
   const scratchLo = w0 - SR, scratchHi = w0 + winN + SR;
   // Keep slides OUT of these windows (jas: "remove the scratch around
   // 35"; "the 1:19 / 1:35 scratch can go away") + away from centre.
-  const exWins = [[28, 46], [50, 62], [70, 110]].map(([a, b]) => [a * SR, b * SR]);
+  const exWins = [[10, 46], [50, 62], [70, 110]].map(([a, b]) => [a * SR, b * SR]); // intro stays smooth (no ~22/35 scratch) (jas)
   const inEx = (s, e) => exWins.some(([lo, hi]) => e > lo && s < hi);
   for (let n = 0; n < NSL; n++) {
     const durF = Math.floor((0.25 + Math.random() * 0.75) * SR);
@@ -344,19 +392,20 @@ if (structPath) {
   }
 }
 
-// GNARLY LAST-30 s DESTRUCTION (jas: "bitcrunch some stuff in the last
-// 30 seconds ... percussion and such ... fuck it up gnarley"). A
-// sample-and-hold + bit-reduction that eases in and gets progressively
-// more crushed/downsampled toward the end (the whole mix, perc + all).
+// LAST-30 s — MODERATE crush (jas: "should not let it get THAT bad"),
+// some grains dropped to much LOWER keys + a HARMONY + extra
+// resamplings sprinkled around, then the final ~6 s rises into a
+// THICK, SMOOTH, WAVY digital wall of noise.
 {
   const tEnd = frames / SR;
   const t0 = tEnd - 30;
   const d0 = Math.max(0, Math.floor(t0 * SR));
+  // 1 — gentle, capped bit-crush (gritty, still listenable)
   let hL = 0, hR = 0, hold = 0;
   for (let i = d0; i < frames; i++) {
-    const p = Math.max(0, Math.min(1, (i / SR - t0) / 30));   // 0→1
-    const bits = Math.max(3, Math.round(10 - 6 * p));         // 10→4 bits
-    const ds = Math.max(1, Math.round(1 + 7 * p));            // 1→8× hold
+    const p = Math.max(0, Math.min(1, (i / SR - t0) / 30));
+    const bits = Math.max(6, Math.round(9 - 3 * p));          // 9→6 bits (mild)
+    const ds = Math.max(1, Math.round(1 + 1.5 * p));          // 1→~3× hold
     if (hold <= 0) {
       const lv = Math.pow(2, bits - 1);
       hL = Math.max(-1, Math.min(1, Math.round(x[i * 2] * lv) / lv));
@@ -364,9 +413,62 @@ if (structPath) {
       hold = ds;
     }
     hold--;
-    const mix = Math.min(1, p * 1.3);                         // ease the gnarl in
+    const mix = Math.min(0.45, p * 0.6);                      // capped — never destroyed
     x[i * 2] = x[i * 2] * (1 - mix) + hL * mix;
     x[i * 2 + 1] = x[i * 2 + 1] * (1 - mix) + hR * mix;
+  }
+  // 2 — drop chunks to LOWER keys + a HARMONY + extra resamplings,
+  // sprinkled across the last 30 s (gentle, additive).
+  const dropEnd = tEnd - 6;
+  let gt = t0 + 1.5;
+  while (gt < dropEnd) {
+    const gl = Math.floor((0.5 + Math.random() * 0.8) * SR);  // 0.5–1.3 s chunk
+    const src = Math.floor(gt * SR);
+    if (src + gl + 4 >= frames) break;
+    const sL = new Float32Array(gl), sR = new Float32Array(gl);
+    for (let k = 0; k < gl; k++) { sL[k] = x[(src + k) * 2]; sR[k] = x[(src + k) * 2 + 1]; }
+    // a low drop + a harmony interval (both well down)
+    for (const [semi, g] of [[-12, 0.34], [-7, 0.22], [-19, 0.16]]) {
+      const r = Math.pow(2, semi / 12);
+      const at = src + Math.floor(Math.random() * 0.2 * SR);
+      for (let k = 0; k < gl; k++) {
+        const di = at + k;
+        if (di < 0 || di >= frames) break;
+        const sf = k * r, si = Math.floor(sf);
+        if (si + 1 >= gl) break;
+        const fr = sf - si;
+        const fz = Math.min(600, gl >> 3);
+        let e = 1;
+        if (k < fz) e = k / fz; else if (k > gl - fz) e = Math.max(0, (gl - k) / fz);
+        const L = sL[si] * (1 - fr) + sL[si + 1] * fr;
+        const R = sR[si] * (1 - fr) + sR[si + 1] * fr;
+        x[di * 2] += L * g * e;
+        x[di * 2 + 1] += R * g * e;
+      }
+    }
+    gt += 1.6 + Math.random() * 1.8;
+  }
+  // 3 — final ~6 s: a THICK, SMOOTH, WAVY digital noise WALL (jas:
+  // "hitting a digital wall of noise ... wavy though smoooooth thick").
+  // Layered low-passed noise + a detuned sub drone, slow amplitude &
+  // cutoff waves; rises in, the 18 s master fade carries it out.
+  const w0n = Math.floor((tEnd - 6) * SR);
+  let lp1 = 0, lp2 = 0, ph = 0;
+  for (let i = w0n; i < frames; i++) {
+    const u = (i - w0n) / (frames - w0n);                     // 0→1
+    const rise = Math.min(1, u * 1.4);
+    const n1 = Math.random() * 2 - 1, n2 = Math.random() * 2 - 1;
+    const cut = 0.04 + 0.03 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.7 * (i / SR))); // wavy cutoff
+    lp1 += cut * (n1 - lp1);
+    lp2 += (cut * 0.6) * (n2 - lp2);
+    ph += (2 * Math.PI * 47) / SR;                            // detuned sub drone
+    const drone = (Math.sin(ph) + Math.sin(ph * 1.005)) * 0.5;
+    const wave = 0.6 + 0.4 * Math.sin(2 * Math.PI * 0.5 * (i / SR));  // smooth amplitude wave
+    const wall = (lp1 * 1.8 + drone * 0.5) * rise * wave * 0.5;
+    const wallR = (lp2 * 1.8 + drone * 0.5) * rise * wave * 0.5;
+    const blend = Math.min(1, u * 1.2);
+    x[i * 2] = x[i * 2] * (1 - 0.5 * blend) + wall;
+    x[i * 2 + 1] = x[i * 2 + 1] * (1 - 0.5 * blend) + wallR;
   }
 }
 
