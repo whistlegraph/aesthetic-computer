@@ -533,12 +533,11 @@ const barStartRel = []; // music-relative start of each bar
     const fr = TOTAL_BARS > 1 ? i / (TOTAL_BARS - 1) : 0;
     let bpmI;
     if (isChill) {
-      // ONE totalizing arc — a single monotonic exponential accelerando
-      // across the WHOLE track (no cyclic speed-up/slow-down). Starts at
-      // the base and gently, increasingly builds to the top by the end:
-      // one continuous build, danceable, no lurch or oscillation.
-      const BASE = 150, TOP = 178;
-      bpmI = BASE + (TOP - BASE) * Math.pow(fr, 1.4); // exp build 0→1
+      // ONE totalizing arc — tons of ENERGY up front, then slowing it
+      // all down the more it plays. Single monotonic DECELERANDO: starts
+      // fast and progressively (increasingly) winds down to the slow end.
+      const FAST = 180, SLOW = 146;
+      bpmI = FAST - (FAST - SLOW) * Math.pow(fr, 1.5); // fast → slowing more over time
 
     } else {
       bpmI = BPM; // constant — trancenwaltz byte-identical
@@ -774,23 +773,66 @@ function fireMosquito(target, startSec, midi, durSec, gain = 1.0, panBase = 0) {
 // dissipating ring, trailing into a white-noise "wave" that swells,
 // crests and zippers back out (a tone sweep up-then-down across a
 // noise band). Fired every ~8 bars in the chill mix.
-function fireGong(startSec, midi, gain = 1.0) {
-  mixEventSinebell(
-    { startSec, midi, gain, durSec: 0.2, tailSec: 6.5, attackSec: 0.004, decayScale: 4.0 },
-    dryBuf,
-    SAMPLE_RATE,
-  );
-  const waveDur = 3.0;
-  const seg = 0.05;
-  const n = Math.floor(waveDur / seg);
-  for (let i = 0; i < n; i++) {
-    const sf = i / n;
-    const amp = Math.pow(Math.sin(sf * Math.PI), 1.4);  // swell → ebb
-    const sweep = sf < 0.5 ? sf * 2 : (1 - sf) * 2;     // 0→1→0 zipper
-    const noiseTone = 400 + sweep * 1400;               // darker, lower band
-    const w = makeBufferSynth(dryBuf, startSec + 0.04 + i * seg, SAMPLE_RATE, noiseRng);
-    w.synth({ type: "noise", tone: noiseTone, duration: seg + 0.03, volume: gain * 0.06 * amp, attack: 0.006, decay: seg * 0.9 });
+// Simulated CHINESE GONG / tam-tam (no real gong sample in the repo).
+// A LOW fundamental + a stack of INHARMONIC partials (non-integer
+// ratios → metallic clang), each slightly detuned for shimmer/beating,
+// with a BLOOM envelope: the higher partials swell IN over ~0.6 s as a
+// real gong "opens up", then a very long shimmering decay, with a dark
+// metallic noise wash under the bloom. `deep` = bigger / lower / longer.
+function fireGong(startSec, midi, gain = 1.0, deep = false) {
+  const f = 440 * Math.pow(2, (midi - 69) / 12) * (deep ? 0.5 : 1.0);
+  const dur = deep ? 10.0 : 7.5;
+  const seg = 0.06;
+  const segN = Math.floor(dur / seg);
+  const partials = [
+    { r: 1.00, g: 1.00, blo: 0.05 },
+    { r: 1.48, g: 0.62, blo: 0.18 },
+    { r: 2.03, g: 0.70, blo: 0.30 },
+    { r: 2.74, g: 0.48, blo: 0.45 },
+    { r: 3.46, g: 0.40, blo: 0.55 },
+    { r: 4.21, g: 0.30, blo: 0.65 },
+    { r: 5.40, g: 0.24, blo: 0.75 },
+    { r: 6.79, g: 0.18, blo: 0.85 },
+  ];
+  for (let s = 0; s < segN; s++) {
+    const u = s / segN;
+    const tt = u * dur;
+    const t0 = startSec + s * seg;
+    const decay = Math.pow(1 - u, 1.5);            // long ring (low partials longest)
+    const v = makeBufferSynth(dryBuf, t0, SAMPLE_RATE, noiseRng);
+    for (let p = 0; p < partials.length; p++) {
+      const P = partials[p];
+      const peak = P.blo * (deep ? 1.4 : 1.0);     // higher partials bloom later
+      const bloom = Math.exp(-Math.pow((tt - peak) / (peak + 0.5), 2) * 1.3);
+      const det = 1 + (p % 2 === 0 ? 1 : -1) * 0.0016 * (p + 1); // beating
+      const amp = gain * P.g * decay * bloom * (p === 0 ? 1.0 : 0.8);
+      if (amp < 0.0008) continue;
+      v.synth({ type: "sine", tone: f * P.r * det, duration: 0.12, volume: amp, attack: 0.012, decay: 0.11 });
+    }
+    const wash = Math.exp(-Math.pow((tt - 0.4) / 0.9, 2)) * decay;
+    if (wash > 0.01) {
+      const w = makeBufferSynth(dryBuf, t0, SAMPLE_RATE, noiseRng);
+      w.synth({ type: "noise", tone: 320 + 380 * (1 - u), duration: seg + 0.03, volume: gain * 0.05 * wash, attack: 0.01, decay: seg });
+    }
   }
+}
+
+// iPhone Taptic Engine emulation. Apple's haptic actuator is a linear
+// resonant actuator tuned to ~150 Hz; iOS impact/selection haptics are
+// very short transients around that pitch. We synth a ~150 Hz damped
+// sine + a faint crisp tick. kinds: "tap" (single), "double" (peek/pop),
+// "notify" (triple). Audio-only — a felt-in-time tactile pulse layer.
+function fireHaptic(target, startSec, gain = 1.0, kind = "tap") {
+  const F = 150; // Apple Taptic resonant frequency
+  const one = (t0, amp) => {
+    const v = makeBufferSynth(target, t0, SAMPLE_RATE, noiseRng);
+    v.synth({ type: "sine",  tone: F,        duration: 0.016, volume: gain * 0.9 * amp,  attack: 0.0004, decay: 0.014 });
+    v.synth({ type: "sine",  tone: F * 2,    duration: 0.010, volume: gain * 0.25 * amp, attack: 0.0004, decay: 0.009 });
+    v.synth({ type: "noise", tone: 2200,     duration: 0.004, volume: gain * 0.18 * amp, attack: 0.0002, decay: 0.0035 }); // crisp tick
+  };
+  if (kind === "double") { one(startSec, 0.85); one(startSec + 0.072, 1.0); }
+  else if (kind === "notify") { one(startSec, 0.8); one(startSec + 0.09, 0.8); one(startSec + 0.18, 0.95); }
+  else one(startSec, 1.0);
 }
 
 // (Removed fireImessageDing — the iOS-style two-tone bell with
@@ -1285,12 +1327,37 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // existing `+ swingSec` call sites are harmless no-ops.
   const swingSec = 0;
 
-  // Meditation gong — every 8 bars in chill: a high struck sine bell
-  // that rings through + dissipates, trailing a white-noise wave that
-  // swells and zippers back out. Skips bar 0 so the intro breathes in.
+  // Percussion-silent zones (chill): the first 8 s, the last 8 s, and a
+  // mid bridge (~±7 s around the midpoint) have NO kick/hat — then they
+  // come back. Lets the track open, breathe mid-way, and resolve.
+  const _mt = barStart - OPENING_PREFIX_SEC;
+  const _mid = totalSec / 2;
+  const chillPercMute = isChill && (
+    _mt < 8 ||
+    barStart > totalSec - 8 ||
+    Math.abs(barStart - _mid) < 7
+  );
+  // Hats stay out LONGER than the kick on the mid-bridge exit: the kick
+  // returns first (no hats) for ~10 s, then the hats come back in.
+  const chillHatMute = chillPercMute ||
+    (isChill && barStart > _mid + 7 && barStart < _mid + 17);
+
+  // Meditation gong — every 8 bars in chill. Every OTHER one (and
+  // sometimes extra) is a big deep hollow warbling "BONGGG"; the rest
+  // stay the high struck bell. Skips bar 0 so the intro breathes in.
   if (isChill && bar > 0 && bar % 8 === 0) {
-    fireGong(barStart, scaleNoteMidi(chordDeg, 2), 0.34);
+    const gongIdx = Math.floor(bar / 8);
+    const deep = gongIdx % 2 === 1 || noiseRng() < 0.2;
+    fireGong(barStart, scaleNoteMidi(chordDeg, deep ? -1 : 0), deep ? 0.42 : 0.36, deep);
     bellsCount++;
+  }
+
+  // Taptic haptic pulse (chill) — a felt-in-time ~150 Hz tap on the
+  // downbeat; a peek/pop "double" on phrase boundaries. Muted in the
+  // percussion-silent zones so the breaths stay clean.
+  if (isChill && !chillPercMute) {
+    const ht = humanize(barStart, 4);
+    fireHaptic(dryBuf, ht, 0.12, bar % 8 === 0 ? "double" : "tap");
   }
 
   // Final musical-ending cadence — fires on the last bar of the outro.
@@ -1329,7 +1396,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // organically settle: density falls to a regular metronome and
   // volume tapers so the slowdown feels like the song breathing
   // out rather than being spliced into the shutdown.
-  if (kickEnabled) {
+  if (kickEnabled && !chillPercMute) {
     const TAPE_STOP_START = totalSec - 5.0;
     const SETTLE_WINDOW   = 4.0; // 4 s before tape-stop start
     const sixteenthSec_k = beatSec / 4;
@@ -1354,16 +1421,17 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const baseProb = beat === 0 ? 1.0
                      : (sec === "break1" ? 0.70 : 0.92);
       const beatFireProb = baseProb + (1.0 - baseProb) * (1.0 - settleVar);
-      if (rng() > beatFireProb) continue;
+      // Chill: NEVER drop / skip kicks (the random drops read as
+      // mistakes + too regular). Every beat fires; the life comes from
+      // a slow DISTANCE arc — the kick recedes a bit and returns over
+      // ~13 bars (it never goes near-silent, so it never feels dropped).
+      if (!isChill && rng() > beatFireProb) continue;
       const accent = beat === 0 ? 1.05 : 0.95;
-      // Chill: a single deep, HARMONIC, tuned kick — NO double-kicks
-      // (hard to dance to). Off-beats sometimes drop so the groove
-      // stays varied / less predictable; beat 1 always anchors.
-      if (isChill && beat !== 0 && noiseRng() < 0.26) continue;
+      const kickDist = isChill ? 0.72 + 0.28 * Math.cos(2 * Math.PI * bar / 13) : 1;
       // Humanize — tight ±5 ms jitter, scaled down in the settle window.
       const kickT = humanize(startSec, 5 * settleVar + 2);
       if (isChill) {
-        fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN);
+        fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist);
       } else {
         fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN });
       }
@@ -1386,7 +1454,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   }
 
   // Closed hat — off-beats (the "and" of every kick). METER hits per bar.
-  if (t.hat && instrumentEnabled("hat", bar)) {
+  if (t.hat && instrumentEnabled("hat", bar) && !chillHatMute) {
     // Hat pattern with skips and 16th-note flams. Variation tapers
     // out in the last 4 s before tape-stop so the rhythm settles
     // into a regular pattern as the slowdown approaches — organic
@@ -1424,6 +1492,29 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
           events.hat.push({ t: flamT, dur: 0.025, kind: "flam" });
           hatCount++;
         }
+      }
+    }
+    // Chill: occasional fast hi-hat ROLL into a phrase boundary — a
+    // quick crescendo of hats across the last beat (fun little fill).
+    if (isChill && (bar % 16 === 15 || noiseRng() < 0.02)) { // fewer rolls
+      const rollN = 9 + Math.floor(noiseRng() * 5);      // 9–13 hits
+      const rollStart = barStart + (METER - 1) * beatSec;
+      const deepEcho = noiseRng() < 0.4;                  // some run deep + echoey
+      const pf = deepEcho ? 0.34 + noiseRng() * 0.12 : 1 + (noiseRng() - 0.5) * 0.4;
+      for (let h = 0; h < rollN; h++) {
+        const rt = humanize(rollStart + (h / rollN) * beatSec, 3);
+        if (rt >= HAT_SUPPRESS_AFTER) break;
+        const rv = (0.10 + 0.22 * (h / rollN)) * DRUM_GAIN;
+        fireDrum(dryBuf, rt, "g", { volume: rv, pitchFactor: pf });
+        if (deepEcho) {
+          // echoey: a couple of decaying delayed taps trailing each hit
+          for (let e = 1; e <= 2; e++) {
+            const et = rt + e * 0.085;
+            if (et < HAT_SUPPRESS_AFTER) fireDrum(dryBuf, et, "g", { volume: rv * (0.45 / e), pitchFactor: pf * (1 - 0.04 * e) });
+          }
+        }
+        events.hat.push({ t: rt, dur: 0.02, kind: "roll" });
+        hatCount++;
       }
     }
     // Open hat on phrase boundary every 4 bars. Skipped in chill —
@@ -3364,8 +3455,41 @@ if (RELEASE_MASTER) {
   }
 }
 
-const buf = Buffer.alloc(out.length * 4);
-for (let i = 0; i < out.length; i++) buf.writeFloatLE(out[i], i * 4);
+// ── STEREO REFACTOR (chill only) ─────────────────────────────────────
+// Non-chill keeps the exact mono raw write → byte-identical trancenwaltz.
+// Chill rebuilds a true STEREO pair from the individual buses, each with
+// its own slow independent pan LFO — genuine per-track "panning stories"
+// (bass sways wide + slow, pad/saw drifts opposite, drums/lead stay
+// near-centre, the sfx voices — whistle/cat/gong — wander widest).
+// Equal-power panning. dynEnv matches the original (dry+duck+bass)*env;
+// sfx/mg/shutdown added flat as in the mono path.
+let STEREO = false;
+let buf;
+if (isChill) {
+  STEREO = true;
+  buf = Buffer.alloc(out.length * 2 * 4);
+  const SR = SAMPLE_RATE;
+  for (let i = 0; i < out.length; i++) {
+    const t = i / SR;
+    const pBass = 0.55 * Math.sin(t * 2 * Math.PI * 0.028);
+    const pPad  = 0.40 * Math.sin(t * 2 * Math.PI * 0.017 + 2.1);
+    const pDry  = 0.14 * Math.sin(t * 2 * Math.PI * 0.045 + 4.0);
+    const pSfx  = 0.85 * Math.sin(t * 2 * Math.PI * 0.022 + 1.0);
+    const m = dynEnv[i];
+    const dB = bassBuf[i] * m, dD = duckBuf[i] * m, dY = dryBuf[i] * m;
+    const sX = sfxDryBuf[i];
+    const ctr = (mgBuf[i] * 0.65 + shutdownBuf[i]) * 0.7071;
+    const aB = (pBass + 1) * Math.PI / 4, aD = (pPad + 1) * Math.PI / 4;
+    const aY = (pDry + 1) * Math.PI / 4,  aS = (pSfx + 1) * Math.PI / 4;
+    const L = dB * Math.cos(aB) + dD * Math.cos(aD) + dY * Math.cos(aY) + sX * Math.cos(aS) + ctr;
+    const R = dB * Math.sin(aB) + dD * Math.sin(aD) + dY * Math.sin(aY) + sX * Math.sin(aS) + ctr;
+    buf.writeFloatLE(L, i * 8);
+    buf.writeFloatLE(R, i * 8 + 4);
+  }
+} else {
+  buf = Buffer.alloc(out.length * 4);
+  for (let i = 0; i < out.length; i++) buf.writeFloatLE(out[i], i * 4);
+}
 writeFileSync(rawPath, buf);
 
 // Mono f32 → stereo mp3 with:
@@ -3416,7 +3540,7 @@ const loudStage = isChill
   : "loudnorm=I=-15:TP=-1.5:LRA=20[out]";
 
 const filter =
-  "[0:a]pan=stereo|c0=c0|c1=c0[dry];" +
+  (STEREO ? "[0:a]acopy[dry];" : "[0:a]pan=stereo|c0=c0|c1=c0[dry];") +
   // Long multi-tap reverb (60-820 ms) — restored. The short cluster
   // tried earlier (12-95 ms) made the mix feel boxy + the aggressive
   // compressor that paired with it pumped audibly. Back to the prior
@@ -3456,7 +3580,7 @@ const filter =
   loudStage;
 const ff = spawnSync("ffmpeg", [
   "-hide_banner", "-y", "-loglevel", "error",
-  "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1",
+  "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", STEREO ? "2" : "1",
   "-i", rawPath,
   "-filter_complex", filter,
   "-map", "[out]",
