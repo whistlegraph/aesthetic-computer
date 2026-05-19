@@ -2135,14 +2135,27 @@ enum KeyboardIconRenderer {
             : (midiOn
                 ? NSColor.controlAccentColor
                 : NSColor.labelColor.withAlphaComponent(alpha))
-        // Blend toward pure white based on `flash` (0..1). Used to
-        // signal "activity" when the user taps an octave key or
-        // plays a note — the music note icon briefly gets brighter
+        // Blend toward the flash target based on `flash` (0..1).
+        // Used to signal "activity" when the user taps an octave key
+        // or plays a note — the music note icon briefly brightens
         // before settling back. Metronome ticks add a yellow blink
         // on top so the icon visibly pulses with the beat.
+        //
+        // Target depends on appearance: pure white reads great
+        // against the bright dark-mode glyph, but in LIGHT mode the
+        // glyph is already near-black on a pale bar, so blending
+        // toward white barely registers. There, flash toward a
+        // brightened system accent so the pulse actually pops.
+        let isDark = NSApp.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]) == .darkAqua
+        let flashTarget: NSColor = isDark
+            ? .white
+            : (NSColor.controlAccentColor.blended(withFraction: 0.4,
+                                                  of: .white)
+                ?? NSColor.controlAccentColor)
         let f = max(0, min(1, flash))
         var color = (f > 0.001)
-            ? baseColor.blended(withFraction: f, of: .white) ?? baseColor
+            ? baseColor.blended(withFraction: f, of: flashTarget) ?? baseColor
             : baseColor
         let mF = max(0, min(1, metronomeFlash))
         if mF > 0.01, let yellowed = color.blended(withFraction: mF * 0.85, of: .systemYellow) {
