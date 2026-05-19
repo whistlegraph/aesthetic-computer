@@ -28,6 +28,8 @@ Audio-only by default. No video, no chrome. If a track later becomes a video lan
 
 Shipped + in-flight singles (DistroKid status, masters, covers, videos) are tracked in **[RELEASES.md](RELEASES.md)**.
 
+Media files (final mixes, beds, raw billable vocal stems) are **not in git** — code is the source of truth, media is backed up to the assets system per-track. See **[ASSETS.md](ASSETS.md)**.
+
 ## Swimlanes
 
 ### 1. big pictures (`big-pictures/`)
@@ -91,7 +93,17 @@ test.
 
 See [`jungle/README.md`](jungle/README.md) for the format spec.
 
-### 6. (open)
+### 6. hippyhayzard (`hippyhayzard/`)
+
+Audio-only **happy hardcore × nightcore** that the form lets turn into an **earthbound/mother sorrow-ballad** — the name *is* the spec: **hippy** (bright major euphoria) colliding with **hazard** (a minor rave-siren switch). ~152 BPM, half-time ballad feel, a 16-bar hand-voiced Bach chorale (borrowed iv, deceptive cadence), 1:28 with a drop-out **break**.
+
+Three new bottom-up voices were built for it (same module shape as the dance synths, pure-float for an eventual ac-native C port): `skrill` (Skrillex FM + swept-formant talking bass — `dance/synths/`), `hoover` (Alpha-Juno "Mentasm" with the pitch *whoop*), `zitar` (sitar = Karplus-Strong + jawari buzz + sympathetic-string bank).
+
+Voice posture: jeffrey-pvc as a **sung lead** (not rapped, not one-shot) — the lyric *is* the vision, tender and plain. `bin/sing.mjs` is the ballad-tuned vocal pipeline (say → align → WORLD pitch → stretch → intimate mix onto the bed).
+
+See [`hippyhayzard/README.md`](hippyhayzard/README.md) for the format spec and [`hippyhayzard/STUDY.md`](hippyhayzard/STUDY.md) for the genre study + the blend law. Status: scaffolded 2026-05-19; first sung 1:28 cut rendered, vocal↔section bar-lock is the open refinement.
+
+### 7. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
 

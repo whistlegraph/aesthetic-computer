@@ -1,0 +1,45 @@
+# hippyhayzard — earthbound/mother sorrow-ballad. vocal score for
+# jeffrey-pvc. notes in midi 56-69 (his singable range, per
+# pop/dance/bin/sing.mjs), A-major chord tones so the sung line stays
+# consonant against the Bach changes in bin/render.mjs --mode song.
+# notation: NOTE:syllable*beats   ('-' continues a held/melisma word)
+# WORD ORDER strictly matches pop/hippyhayzard/hippyhayzard.txt.
+# musical refrain/break live in the BED arrangement; the parser only
+# segments by `verse N`, so the whole lyric is split across two verses.
+
+verse 1
+# verse 1 — everywhere people say / it will be okay / i dont always
+# hear it / but i keep it anyway
+E4:eve-*1 F#4:-ry-*1 E4:-where*2
+D4:peo-*1 D4:-ple*1
+E4:say*4
+A3:it*1 B3:will*1 C#4:be*2
+D4:o-*1 C#4:-kay*4
+E4:i*1 E4:dont*1
+D4:al-*1 C#4:-ways*2
+B3:hear*1 A3:it*3
+A3:but*1 B3:i*1 C#4:keep*1 D4:it*1
+C#4:a-*1 B3:-ny-*1 A3:-way*5
+# refrain — i'll come home one day (×2)
+A4:ill*1 G#4:come*1 F#4:home*2 E4:one*1 F#4:day*4
+A4:ill*1 G#4:come*1 F#4:home*2 E4:one*1 A4:day*6
+
+verse 2
+# verse 2 — the light stays on the landing / a small coin i dont pay /
+# i save it for the doorway / for the long way home someday
+E4:the*1 E4:light*1 F#4:stays*1 E4:on*1 D4:the*1
+E4:land-*1 D4:-ing*3
+C#4:a*1 C#4:small*1 E4:coin*1 D4:i*1 C#4:dont*1
+B3:pay*4
+A3:i*1 B3:save*1 C#4:it*1 D4:for*1 E4:the*1
+D4:door-*1 C#4:-way*3
+A3:for*1 B3:the*1 C#4:long*1 D4:way*1 E4:home*1
+D4:some-*1 C#4:-day*5
+# break — it will be okay (whispered, soft, long)
+D4:it*2 C#4:will*2 A3:be*2
+A3:o-*2 G#3:-kay*8
+# final refrain — i'll come home one day / it will be okay /
+# i'll come home one day
+A4:ill*1 G#4:come*1 F#4:home*2 E4:one*1 F#4:day*4
+A3:it*1 C#4:will*1 E4:be*2 D4:o-*1 C#4:-kay*4
+A4:ill*1 G#4:come*2 F#4:home*3 E4:one*2 A4:day*8

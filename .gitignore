@@ -466,3 +466,10 @@ lith/scripts/out/
 grants/**/*.aux
 grants/**/*.out
 grants/lacma-2026/*.log
+
+# pop/ — code is source of truth; rendered audio + caches are media,
+# backed up to the assets system (DO Spaces), never git. See pop/ASSETS.md.
+pop/*/out/
+pop/.venv/
+pop/**/__pycache__/
+pop/voice/.cache/
