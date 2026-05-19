@@ -5,6 +5,7 @@ models/
 weights/
 ig-archive/
 curated/
+social/
 sessions/
 *.safetensors
 *.ckpt
