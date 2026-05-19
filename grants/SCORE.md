@@ -9,6 +9,7 @@ Active applications, deadlines, and status. Newest deadlines first.
 | Error 406 [Netstalgia] Not Acceptable | 2026-05-04 (23:59 CEST) | €1,500–7,000 (asking €5.5k) | DRAFT v0 ready | `error-406-netstalgia/` |
 | NY Art Book Fair — Project Space | 2026-05-08 | self-funded (Project Space fee covered by Aesthetic Inc) | GO — public preview live at [aesthetic.computer/printed-matter-2026](https://aesthetic.computer/printed-matter-2026) | `printed-matter-project-space-2026/` |
 | Oracle Egg — BROILER Residency (Fall 2026) | 2026-05-15 (23:59 PST) | TBD | DRAFT v0 ready | `oracle-egg-broiler-2026/` |
+| Serpentine — Future Art Ecosystems R&D Fellowship: Art × Convergence | 2026-06-07 (midnight BST) | £10,000 + London travel/lodging | DRAFT v0 ready | `serpentine-fae-2026/` |
 | ~~Francis Gallery solo painting exhibition~~ | parked | — | parked — different call than the public Summer Exhibition; awaiting source URL | `francis-gallery-2026/` |
 | Smart History — Contributor essay | rolling | unpaid | PITCH.md drafted (send first; PhD-or-equiv clause) | `smarthistory-essay/` |
 

@@ -71,8 +71,7 @@
 
   /* Monospace is still used for metadata, code, labels · anywhere we want
      a "terminal / data" texture. Prose stays proportional for readability. */
-  .mono, code, .eyebrow, .meta, .stat .l, .count, .section-break,
-  .channel-status, .stats-status, footer {
+  .mono, code {
     font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, SFMono-Regular, monospace;
   }
 
@@ -92,8 +91,8 @@
   .eyebrow .tag { color: var(--purple); }
 
   h1 {
-    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
-    font-size: clamp(32px, 5.6vw, 56px);
+    font-family: 'YWFT Processing', 'Inter', sans-serif;
+    font-size: clamp(34px, 5.8vw, 60px);
     font-weight: normal;
     letter-spacing: -0.01em;
     line-height: 1.02;
@@ -130,23 +129,21 @@
   /* ── SECTIONS ─────────────────────────────── */
   section { margin: 2.4em 0; }
   h2 {
-    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
-    font-size: 1.4em;
-    font-weight: normal;
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 1.35em;
+    font-weight: 600;
     color: var(--text);
-    letter-spacing: 0;
+    letter-spacing: -0.005em;
     padding-bottom: 0.3em;
     border-bottom: 1px solid var(--box-border);
     margin-bottom: 1em;
   }
-  /* Ornaments (§, ·, arrows) render in mono · YWFT Processing doesn't
-     have those glyphs and falls back to a weird shape. */
   h2 .ord {
     color: var(--pink);
     margin-right: 0.4em;
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
   }
-  h2 .count { float: right; color: var(--dim); font-size: 0.7em; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 0.6em; font-family: 'Berkeley Mono Variable', monospace; }
+  h2 .count { float: right; color: var(--dim); font-size: 0.7em; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 0.6em; font-family: 'Inter', sans-serif; }
 
   /* ── DEMO VIDEO ─────────────────────────── */
   .demo {
@@ -211,7 +208,7 @@
     display: block;
     color: var(--text);
     font-weight: normal;
-    font-family: 'YWFT Processing', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 1.3em;
     letter-spacing: 0;
     text-transform: none;
@@ -228,7 +225,7 @@
     display: flex;
     gap: 0.3em;
     margin-bottom: 0.5em;
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.78em;
     letter-spacing: 0.06em;
   }
@@ -259,7 +256,7 @@
     align-items: baseline;
     gap: 1em;
     margin-top: 0.7em;
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.78em;
     color: var(--dim);
     letter-spacing: 0.06em;
@@ -313,7 +310,7 @@
   }
   .submit-images figcaption b {
     display: block;
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     color: var(--dim);
     font-size: 0.85em;
     font-weight: normal;
@@ -344,7 +341,7 @@
   }
   .glance dt {
     color: var(--dim);
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.72em;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -383,7 +380,7 @@
   }
   .glance .jump {
     display: inline-block;
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.78em;
     color: var(--cyan);
     text-transform: uppercase;
@@ -404,11 +401,11 @@
     content: counter(imgcounter) ". ";
     counter-increment: imgcounter;
     color: var(--purple);
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
   }
   .glance ol.imglist { counter-reset: imgcounter; }
   .glance ol.imglist code {
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.92em;
     color: var(--cyan);
   }
@@ -422,7 +419,7 @@
   .pitch p { margin: 0 0 0.9em; font-size: 0.98em; }
   .pitch p:last-child { margin-bottom: 0; }
   .pitch .drop {
-    font-family: 'YWFT Processing', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 1.25em;
     color: var(--cyan);
     display: block;
@@ -436,7 +433,7 @@
   .pitch em { color: var(--pink); font-style: normal; }
   .pitch strong { color: var(--text); }
   .pitch code {
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.9em;
     padding: 0 0.25em;
     background: var(--box-bg);
@@ -461,7 +458,7 @@
   .anchor b {
     display: block;
     color: var(--pink);
-    font-family: 'YWFT Processing', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 1.05em;
     font-weight: normal;
     margin-bottom: 0.2em;
@@ -484,7 +481,7 @@
   }
   .stat .n {
     display: block;
-    font-family: 'YWFT Processing', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 1.8em;
     color: var(--cyan);
     line-height: 1;
@@ -519,7 +516,7 @@
     border-radius: 0 3px 3px 0;
     font-size: 0.88em;
   }
-  .feat b { color: var(--purple); font-family: 'YWFT Processing', monospace; font-weight: normal; display: block; margin-bottom: 0.15em; }
+  .feat b { color: var(--purple); font-family: 'Inter', sans-serif; font-weight: normal; display: block; margin-bottom: 0.15em; }
   .feat.planned { border-left-color: var(--gold); }
   .feat.planned b { color: var(--gold); }
 
@@ -563,7 +560,7 @@
   /* ── CHECKLIST ────────────────────────────── */
   .check { list-style: none; padding: 0; font-size: 0.9em; }
   .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
-  .check li::before { font-family: 'Berkeley Mono Variable', monospace; width: 1em; text-align: center; }
+  .check li::before { font-family: 'Inter', sans-serif; width: 1em; text-align: center; }
   .check .done { color: var(--dim); }
   .check .done::before { content: "✓"; color: var(--green); }
   .check .todo::before { content: "▸"; color: var(--gold); }
@@ -603,8 +600,9 @@
   details.more > summary {
     cursor: pointer;
     list-style: none;
-    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
-    font-size: 1.1em;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.05em;
+    font-weight: 600;
     color: var(--text);
     padding: 0.8em 1em;
     background: var(--box-bg);
@@ -630,7 +628,7 @@
   details.more > summary .hint {
     float: right;
     color: var(--dim);
-    font-family: 'Berkeley Mono Variable', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 0.78em;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -641,14 +639,14 @@
 <body>
 <main class="wrap">
 
-  <div class="submitted-banner" style="background:var(--pink);color:#fffef5;padding:0.7em 1em;margin:-1em -1em 1.6em -1em;font-family:'YWFT Processing',monospace;font-size:0.95em;letter-spacing:0.04em;text-align:center;border-radius:4px;">
+  <div class="submitted-banner" style="background:var(--pink);color:#fffef5;padding:0.7em 1em;margin:-1em -1em 1.6em -1em;font-family: 'Inter', sans-serif;font-size:0.95em;letter-spacing:0.04em;text-align:center;border-radius:4px;">
     <strong style="font-size:1.05em">✓ APPLICATION SUBMITTED</strong> · to Submittable on <strong>Wed 22 Apr 2026 · 11:59 PM PST</strong> · this page is archived as-of submission · notifications July 2026
   </div>
 
   <header class="mast">
     <div class="eyebrow"><span class="tag">LACMA Art + Technology Lab</span> · 2026 · <span style="color:var(--pink)">submitted ✓</span></div>
     <h1>Personal Computers<br>Are <em>Not Done<br>Yet</em><span class="dot">.</span></h1>
-<p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Aesthetic<span style="color:var(--pink)">.</span>Computer - a pitch for LACMA Art + Technology Lab 2026</p>
+<p class="sub" style="font-family: 'Inter', sans-serif;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Aesthetic<span style="color:var(--pink)">.</span>Computer - a pitch for LACMA Art + Technology Lab 2026</p>
     <p class="sub">Pitch by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
     <dl class="meta">
       <dt>Deadline</dt><dd class="due">Wed, 22 Apr 2026 · 11:59 PM PST · <span style="color:var(--pink)">submitted</span></dd>

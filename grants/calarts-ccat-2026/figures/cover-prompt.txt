@@ -1,112 +1,127 @@
 A wide horizontal tableau on warm cream-colored paper, drawn in
 colored pencil and gouache in a Hockney register: heavy hatching
-for the dim corners of the studio, optical-mixing pencil marks for
-projector-beam dust, sharp gouache rectangles for the GPU-sim
-projection on the back wall, tapered confident strokes, the
-composition gradually softening to nothing at all four edges so
+for the dim corners of a lived-in home studio, optical-mixing
+pencil marks for projector-beam dust, sharp gouache rectangles for
+the GPU-sim projection on the back wall, tapered confident strokes,
+the composition gradually softening to nothing at all four edges so
 the periphery DISSOLVES INTO PURE CREAM PAPER with no border, no
 frame, no proscenium. Muted natural palette (terracotta, sage,
 ochre, dusty pink, slate blue, brick red, warm grey, oxblood,
-brass, walnut workbench tones) with TWO saturated pop-color
-zones: (1) the Citrus-green of one Apple MacBook Neo on the
-workbench (Apple's official Citrus colorway — clean lime-yellow
-shell, lid open ~110°, with a hand-rendered four-stroke
-whistlegraph butterfly in place of the apple emblem — this is
-jeffrey's machine and only his); (2) the back-wall projection of
-a moving GPU slime-mould / generative-biology pattern in
-saturated chartreuse, bone white, and deep magenta — organic,
-filamentous, mid-evolution, NEVER a recursive image of the room
-itself.
+brass, walnut workbench tones) with TWO saturated pop-color zones:
+(1) the Citrus-green of one Apple MacBook Neo on the bench
+(Apple's official Citrus colorway — clean lime-yellow shell, lid
+open ~110°, with a hand-rendered four-stroke whistlegraph
+butterfly in place of the apple emblem — this is jeffrey's machine
+and only his); (2) the back-wall projection of a moving GPU slime-
+mould / generative-biology pattern in saturated chartreuse, bone
+white, and deep magenta — organic, filamentous, mid-evolution,
+NEVER a recursive image of the room itself.
 
-Format: 1536×1024 horizontal (3:2). Subject is the lived posture
-of a creative-computing technical director — two figures at a
-workbench in a studio/lab, attention on the work, not on the
-camera. Less institutional foyer, less dramatic spotlight; more
-the immediate texture of the studio at 4 PM.
+Format: 1536×1024 horizontal (3:2). Subject is jeffrey's own
+working studio at late afternoon — a real, lived-in artist's
+workspace in northeast LA, NOT a pristine institutional lab, NOT a
+black-box theatre, NOT an art-school foyer. The walls are
+exposed-brick or warm-painted plaster; the desk is reclaimed-wood
+or scuffed plywood; this is the working room AC actually gets made
+in.
 
 THE FRAME: a tight medium shot at workbench-height, low natural
-late-afternoon light from a tall industrial window at the LEFT
-edge of the frame (the window itself dissolves into cream paper at
-the very edge). The room is a working creative-computing lab — a
-long plywood workbench across the front, a single GPU tower
-visible on a low shelf at upper-right (mesh side-panel, faint
-green status LED, NOT a server rack), a projector mounted to a
-ceiling track in the upper-middle of the frame casting a warm beam
-across the back wall, a coil of HDMI and USB-C cables hanging on a
-peg, a whiteboard at lower-right with quick warp-and-blend
-calibration triangles drawn in marker (illegible scribble for any
-labels), a small spare projector lens on the bench, and one
-hand-labeled bin on a shelf reading "RACK 02" in scribble-gestalt
-print.
-
-THE FIGURES, in a single horizontal arrangement at peer eye-level
-— same height, same lighting, no hero, no elevation, no centred
-figure:
+late-afternoon light spilling in from a tall window with a
+half-drawn shade at the LEFT edge of the frame, the window itself
+dissolving into cream paper at the very edge. Two figures at the
+bench, both at peer eye-level, both fully visible, neither cropped
+at the frame edge — equal prominence. Slight overlap is fine; the
+visiting artist is at left, jeffrey is right of centre.
 
 LEFT FIGURE (visiting artist): a person in their late twenties,
 deep-blue knitted cardigan over a thin grey tee, round wire-frame
 reading glasses pushed up onto their forehead, medium-brown hair
-behind their ears. They are leaning slightly toward the workbench,
-finger pointing softly at a specific cable on the bench (NOT at
-the screen), expression deadpan attentive — mid-question. Their
-own machine, a worn navy-blue ThinkPad with a faintly visible
-trackpoint nub, sits open on the bench in front of them.
+behind the ears, leaning slightly toward the bench, finger
+pointing at a coiled USB-C cable on the bench (NOT at any
+screen), expression deadpan-attentive — mid-question. Their own
+machine, a worn navy-blue ThinkPad with a faintly visible
+trackpoint nub, sits open in front of them.
 
-RIGHT FIGURE (jeffrey, FAR RIGHT, NEVER centred, head and
-shoulder partially cropped at the right edge): render him from
-the jeffrey-platter performance-domain references — medium-length
-brown hair tucked behind ears, no beard, wearing a soft warm-rust
-crewneck sweatshirt over a thin denim shirt visible at the collar
-(cf. 2018-11-04 reference). One hand resting lightly on the
-Citrus-green Neo's lid; the other holding a USB-C cable mid-route
-toward the visiting artist's ThinkPad. Expression: focused,
-deadpan-helpful, mid-explanation. Same eye-line as the visiting
-artist, never elevated.
+RIGHT FIGURE (the studio host, FULLY in frame, head and torso
+visible through the chest, NOT cropped at the right edge — same
+prominence as the visiting artist, peer eye-level, never centred
+or elevated). A man in his mid-thirties with medium-length
+slightly-disheveled warm-brown hair falling just past the ears
+(softly tousled, NOT slicked back, NOT clipped short), clean-
+shaven, no beard, no stubble. Soft small smile of focused
+concentration. Wearing a faded soft-pink graphic T-shirt over a
+thin pale-denim shirt collar, a pair of white in-ear-style
+headphones draped casually around his neck. One hand resting
+lightly on the lid of the Citrus-green Neo; the other holding a
+USB-C cable mid-route toward the visiting artist's ThinkPad.
+Same eye-line as the visiting artist; both heads at the same
+height in the frame.
 
-THE WORKBENCH (the visual centre, NOT a person): the
-Citrus-green Neo with the whistlegraph-butterfly emblem on its
-lid is the saturated focal point — slightly off-centre toward
-jeffrey. Its screen shows a clean dark-grey terminal with a few
-lines of monospaced text in scribble-gestalt — illegible, no real
-words, but clearly a working command shell. Beside it: the
-visiting artist's navy ThinkPad, lid open, screen showing a
-single calibration test pattern (a warp grid of nine squares).
-Between the two laptops: a small thermal-printed sticker label on
-the bench edge, a coiled USB-C cable, and the spare projector lens
-sitting on a microfiber cloth.
+THE WORKBENCH (the visual centre, NOT a person): the Citrus-green
+Neo with the whistlegraph-butterfly emblem on its lid is the
+saturated focal point — slightly off-centre toward jeffrey. Its
+screen shows a dim dark-grey terminal with a few illegible lines
+of monospaced scribble-gestalt — clearly a working command
+shell, no real words. Beside it: the visiting artist's navy
+ThinkPad, screen showing one calibration test pattern (a warp
+grid of nine squares, sage-green on slate). Between the two
+laptops: a coiled USB-C cable, a small spare projector lens
+sitting on a microfiber cloth, a chipped ceramic mug with a
+half-finished coffee (cf. 2017-06-21 reference), and a sticky
+note with a single illegible scribble. This is a desk that is
+worked at, not staged.
 
-THE PROJECTION on the back wall: ONE landscape rectangle of GPU-
-simulation imagery — chartreuse and bone-white filamentous
-slime-mould patterns evolving across deep magenta, in a clear
-"speculative-biology / GPU compute" register (cf. mxsage / Sage
-Jenson's growth simulations, but original: bands of fine
-optical-mixing dots and tapered tendrils, never a literal copy).
-The projection is the brightest distant surface in the image,
-warm dust catching in the projector beam (rendered in
-optical-mixing pencil marks), and it never reflects the room
-itself. NEVER recursive — the projection content is independent
-of the scene.
+THE BACKGROUND, lived-in and personal — NOT institutional:
+
+  • Behind the bench, ONE landscape rectangle of generative-
+    simulation projection on the warm-plastered back wall —
+    chartreuse and bone-white filamentous slime-mould patterns
+    evolving across deep magenta, in a speculative-biology
+    register (bands of fine optical-mixing dots and tapered
+    tendrils, original imagery). The projection is the brightest
+    distant surface in the image; warm dust catches in the
+    projector beam (rendered in optical-mixing pencil marks).
+    The projection content is independent of the scene — it does
+    NOT reflect the room, the figures, or the laptops.
+
+  • A small cluster of personal grace notes around the
+    projection — dissolving into cream at the edges:
+      – a low shelf at upper-right with three or four art zines /
+        chapbooks stacked on their sides, a tiny ceramic plant pot
+        with a single trailing pothos
+      – a small thumbtacked QR-code card and one strip of
+        instax-style photo prints near the shelf
+      – exposed-brick or warm-painted plaster as the wall
+        material — NOT polished concrete, NOT grey institutional
+        drywall
+      – a single warm desk lamp at the right edge, casting a
+        small warm pool on the Citrus Neo (the lamp itself
+        implied, mostly off-frame)
+
+  • At the very upper-edge of the frame, a hint of a ceiling-track
+    projector mount casting the warm beam — but the mount is
+    cropped to feel incidental, not architectural.
 
 LIGHTING: cool natural late-afternoon spill from the left window
 on the visiting artist's shoulder; warm projector backwash from
-the upper-middle on the back wall and on jeffrey's right
-sleeve; one warm shop-lamp at the right edge of the bench (the
-lamp itself implied, off-frame, casting a small warm pool on the
-Citrus Neo); deep walnut-toned wood receding into the periphery
-before fading to cream paper.
+the upper-middle on the back wall, faintly warming jeffrey's right
+sleeve and the side of his face; the warm desk lamp at the right
+edge anchoring the foreground. Deep walnut-toned wood receding
+into the periphery before fading to cream paper.
 
-NO INSTITUTIONAL TEXT: no hand-lettered "CalArts", "CCAT",
-"BB6", "Aesthetic Computer", "Technical Director", "Studio Hand"
-spelled out anywhere. Identity is carried entirely by: the
-Citrus-green Neo with the whistlegraph butterfly, the workbench
-gear, the GPU-sim projection in the Jenson register, the peer
-posture of the two figures, the worn cabling. Incidental product
-text on physical objects is acceptable when NOT the institution
+NO INSTITUTIONAL TEXT: no hand-lettered "CalArts", "CCAT", "BB6",
+"Aesthetic Computer", "Technical Director", "Studio Hand", or any
+school name spelled out anywhere. Identity is carried entirely
+by: the Citrus-green Neo with the whistlegraph butterfly,
+jeffrey's actual visual signature (tousled brown hair, faded-pink
+graphic tee, white-cord headphones), the GPU-sim projection in
+the Jenson register, the peer posture of the two figures, the
+worn cabling, the chipped mug. Incidental product text on
+physical objects is acceptable when NOT an institution being
 illustrated (the apple emblem on the lid is replaced by the
-whistlegraph butterfly; a small generic "RACK 02" stamp on a
-shelf bin; a faint projector model number; an illegible
-terminal). Letterforms anywhere else appear as illegible
-scribble-gestalt only.
+whistlegraph butterfly; a faint projector model number; an
+illegible terminal). Letterforms anywhere else appear as
+illegible scribble-gestalt only.
 
 Hockney colored-pencil + gouache, cream paper, all four corners
 dissolve to nothing.
