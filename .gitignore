@@ -453,3 +453,16 @@ fedac/native/upload.env.gpg
 
 # Browser e2e screenshots (tests/browser/)
 tests/browser/__screens__/
+
+# Local build / scratch artifacts (kept on-machine, never committed)
+system/backend/node_modules/
+system/backend/.backfill-deps/
+lith/cache/
+lith/scripts/out/
+/.log
+/mpv-shot*.jpg
+
+# Grant LaTeX build artifacts (sources/drafts live in the vault)
+grants/**/*.aux
+grants/**/*.out
+grants/lacma-2026/*.log
