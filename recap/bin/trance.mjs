@@ -325,17 +325,19 @@ const isChill     = MODE === "chill";
 // cut, and it accelerates from here (see BPM_END). Explicit --bpm wins.
 // (Non-chill keeps the birthday tempo.)
 const BPM         = Number(flags.bpm ?? (isChill ? 150 : 137.143));
-const SCALE_NAME  = flags.scale || "minor";
+// Chill: BRIGHT major key — flips the whole mood up / happy upswing
+// (jas: "g major :D"). Non-chill keeps minor → trancenwaltz unchanged.
+const SCALE_NAME  = flags.scale || (isChill ? "major" : "minor");
 // Chill sits a key lower (57→54, down a minor 3rd) — brings the whole
 // harmonic texture + the high tones down, in unison. --root overrides.
-const ROOT_MIDI   = Number(flags.root ?? (isChill ? 50 : 57)); // chill: an octave LOWER — darker, less ringy (jas)
+const ROOT_MIDI   = Number(flags.root ?? (isChill ? 55 : 57)); // chill: G (G3) — G major, bright/happy (jas)
 const SECTION     = flags.section || "full";
 const BARS_FLAG   = flags.bars !== undefined ? Number(flags.bars) : null;
 const SEED_STR    = flags.seed || (isWaltz ? "trancewaltz" : "trance");
 // Chill: PERCUSSION-FORWARD, tones quieter — a harder NIN/industrial
 // balance (jas: "more percussion forward mix ... tones all quieter ...
 // more NIN friendly industrial"). Drums up, lead/pad well down.
-const DRUM_GAIN   = Number(flags["drum-gain"] ?? (isChill ? 1.30 : 0.95));
+const DRUM_GAIN   = Number(flags["drum-gain"] ?? (isChill ? 1.62 : 0.95)); // louder kick/hats — danceable (jas)
 const LEAD_GAIN   = Number(flags["lead-gain"] ?? (isChill ? 0.34 : 0.55));
 const PAD_GAIN    = Number(flags["pad-gain"]  ?? (isChill ? 0.18 : 0.30));
 const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.42 : 0.45)); // thwomp stays forward with the drums
@@ -361,7 +363,7 @@ const VOCAL_SECTION_GAIN = {
   drop2:  1.00,
   outro:  0.0,   // musical ending — no vocal
 };
-const PIANO_GAIN  = Number(flags["piano-gain"] ?? 0.45);
+const PIANO_GAIN  = Number(flags["piano-gain"] ?? (isChill ? 0.66 : 0.45)); // lift the high piano out (jas)
 const BELLS_GAIN  = Number(flags["bells-gain"] ?? (isChill ? 0.20 : 0.32)); // chill: tones quieter
 const STRUCT_PATH = expandHome(flags["struct-out"]) || null;
 const OUT_PATH    = expandHome(flags.out) || `${ROOT}/out/${isWaltz ? "trancewaltz" : "trance"}.mp3`;
@@ -1570,7 +1572,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // and is present with us by ~70 s.
   const _endgb = 1 - _ru(barStart, T - 24, T - 8); // perc fades out over last 24s → all gone by T-8
   const kickGate = isChill ? _endgb * _bridge : 1;
-  const kickWall = isChill ? _ru(_mt, 45, 70) : 1; // 0 behind wall → 1 out
+  const kickWall = isChill ? _ru(_mt, 26, 50) : 1; // present by ~50s — consistent perc @53s (jas)
 
   // Meditation gong — every 8 bars in chill. Every OTHER one (and
   // sometimes extra) is a big deep hollow warbling "BONGGG"; the rest
@@ -1673,15 +1675,22 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       if (!isChill && rng() > beatFireProb) continue;
       // WALTZ lilt — strong ONE, light two-three (oom-pa-pa).
       const accent = isChill ? (beat === 0 ? 1.40 : 0.55) : (beat === 0 ? 1.05 : 0.95);
-      const kickDist = isChill ? 0.72 + 0.28 * Math.cos(2 * Math.PI * bar / 13) : 1;
+      const kickDist = isChill ? 0.88 + 0.12 * Math.cos(2 * Math.PI * bar / 13) : 1; // shallower recede — steadier perc (jas)
       // Humanize — tight ±5 ms jitter, scaled down in the settle window.
       const kickT = humanize(startSec, 5 * settleVar + 2);
       if (isChill) {
-        fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate, kickWall);
-        // chop & screw — occasional fast beat-1 stutter (3 quick hits)
-        if (beat === 0 && kickWall > 0.5 && noiseRng() < 0.07) {
-          for (let c = 1; c <= 2; c++) {
-            fireChillKick(dryBuf, kickT + c * 0.085, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate * (0.7 / c), kickWall);
+        // Lose the kick as the track fades out (jas: "lose the last
+        // kick ... as its fading") — no kicks in the final ~20 s
+        // (the master fade is the last 18 s); the snare/other beat
+        // elements still taper naturally.
+        const kickInFade = kickT > totalSec - 20;
+        if (!kickInFade) {
+          fireChillKick(dryBuf, kickT, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate, kickWall);
+          // chop & screw — occasional fast beat-1 stutter (3 quick hits)
+          if (beat === 0 && kickWall > 0.5 && noiseRng() < 0.07) {
+            for (let c = 1; c <= 2; c++) {
+              fireChillKick(dryBuf, kickT + c * 0.085, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate * (0.7 / c), kickWall);
+            }
           }
         }
         // Backbeat SNARE on beat 2 of the 3/4 bar (jas: "add snare") —
@@ -3352,7 +3361,7 @@ if (!isChill) {
   console.log(`  tape-stop · unified one-clock slowdown last ${TAIL_BUFSEC}s (1.0× → ${END_PITCH}×)`);
 }
 
-if (isChill) {
+if (false && isChill) { // single-mix refactor: scratch-mix.mjs now owns ALL post-FX
   // Bit-CRUNCH some tracks at times (jas: "bit crunch ... of some
   // tracks at times") — NOT a global constant crush. The pad bus gets
   // a gritty lo-fi crush that deepens through the unstable sonata
@@ -4093,7 +4102,7 @@ if (STEREO) {
     buf.writeFloatLE(R * amp, i * 8 + 4);
   }
 }
-if (STEREO && isChill) {
+if (false && STEREO && isChill) { // single-mix refactor: scratch-mix.mjs owns the scratch
   // ── 3 s HIP-HOP TURNTABLE SCRATCH (dead centre) ──────────────────
   // jas: the mid-track moment should be "like a scratch hip hop
   // scratch". A bar (~1.4 s) is too coarse for the bpm curve to
@@ -4154,7 +4163,7 @@ if (STEREO && isChill) {
     buf.writeFloatLE(R * gmix, (w0 + k) * 8 + 4);
   }
 }
-if (STEREO && isChill && centerStampData) {
+if (false && STEREO && isChill && centerStampData) { // single-mix: scratch-mix.mjs owns the centre ID
   // CLEAN "aesthetic dot computer" overlay — sits dead-centre, ON TOP
   // of the (already-scratched) music, NOT scratched itself. Equal
   // L/R (centred), near-natural pitch, hearable above the chop.
@@ -4224,7 +4233,7 @@ const reverbDefs = isChill
     `[0:a]aecho=0.5:0.35:97|193:0.075|0.04,pan=stereo|c0=0.08*c0|c1=0.92*c0,volume='${wetEnv}':eval=frame[wet2];`
   : `[0:a]aecho=0.85:0.85:60|140|260|480|820:0.40|0.27|0.18|0.11|0.06,pan=stereo|c0=0.35*c0|c1=0.65*c0,volume='${wetEnv}':eval=frame[wet1];` +
     `[0:a]aecho=0.85:0.85:90|200|360|620:0.30|0.20|0.13|0.08,pan=stereo|c0=0.65*c0|c1=0.35*c0,volume='${wetEnv}':eval=frame[wet2];`;
-const wetWeights = isChill ? "1 0.05 0.035" : "1 0.28 0.28";
+const wetWeights = isChill ? "1 0.025 0.018" : "1 0.28 0.28"; // chill: even less reverb (jas)
 const stereoStage = isChill ? "extrastereo=m=1.05:c=true," : "extrastereo=m=1.5:c=true,";
 const compStage = isChill
   // very light glue only — let the natural dynamics breathe, then a

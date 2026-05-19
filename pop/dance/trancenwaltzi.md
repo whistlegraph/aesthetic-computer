@@ -175,60 +175,34 @@ Current file: `~/Documents/Working Desktop/twi-out/trancenwaltzi.mp3`
 the git sha + note per build). `~/Desktop` copies auto-clean — treat
 `~/Documents/Working Desktop/` and the CDN as the durable homes.
 
-### Release cut — the 3-stage master (2026-05-19 night rebuild)
+### Release cut — ONE command (2026-05-19 single-mix refactor)
 
-The single is now a **minimal dance track**: the pure-sine cut is the
-foreground; the NIN/industrial engine render is folded in *softened*,
-with raw dips, a whole-mix scratch, a clean spoken ID, and stochastic
-pitch glitches. Two source renders feed three deterministic stages.
-
-**Source A — industrial engine render** (`recap/bin/trance.mjs`, all
-chill-gated; non-chill `trancenwaltz` stays byte-identical):
+`trancenwaltzi` is now a **single-mix** bake: no two-render combine, no
+pure-sine cut, no subagent re-cuts. `recap/bin/trance.mjs --mode chill`
+is itself the single all-sine, multi-BUS source — its per-track volumes
+ARE its gain flags. One driver does everything:
 
 ```bash
-node recap/bin/trance.mjs --mode chill --meter 3 --master \
-  --out ~/Documents/Working\ Desktop/twi-out/trancenwaltzi-MASTER-preBright.wav
+node pop/dance/bin/bake.mjs
+# (optional: node pop/dance/bin/bake.mjs <outDir> -- --drum-gain 1.7 --pad-gain 0.2 …)
 ```
 
-**Source B — pure-sine cut** `trancenwaltzi-SINEONLY-raw.wav`: the same
-engine with every oscillator forced to sine (incl. noise), all decoded
-samples + all fx + the scratch disabled, clean-normalised only. Both
-renders are sample-aligned (same seed/tempo, identical 169.285 s).
+`bake.mjs` runs three deterministic, in-process stages:
 
----
+| Stage | What |
+|-------|------|
+| **1. Engine** | `trance.mjs --mode chill --meter 3 --master` → the single all-sine mix (G major, root 55). The engine's own internal scratch / centred-ID / perc-glitch / bitcrush are **gated OFF** (`if (false && …)`) so stage 2 is the sole post-FX — nothing double-processed. Per-track volume = `--drum-gain --pad-gain --lead-gain --bass-gain --bells-gain --piano-gain`. |
+| **2. Post-FX** | `scratch-mix.mjs in out stamp.mp3 struct.json` — beat-locked to the engine's own `struct.json` kick/snare grid: one centre RIP/TEAR scratch (~1:25); a clean full-range "aesthetic dot computer" ID overlaid dead-centre (not scratched); **2** stochastic pitch-slides (excluded 70–110 s); a **sparing, beat-locked breakbeat** in the last ~80 s (½/1-beat bursts, pop-n-pop or screw-slide, ~32nd-fine option, pitch-out + echo-out + occasional flange-out, cubic super-sampled) that **basic-ramps in** then dissipates before the last 20 s; **skrill growls** tuned to G sprinkled in the back glitches. |
+| **3. Finalize** | gentle 2:1 glue → `loudnorm I=-14 TP=-1.5 LRA=11` → `alimiter limit=0.94` → **18 s** end fade → `trancenwaltzi-MASTER.wav` + `trancenwaltzi.mp3`. |
 
-## 3. Mastering chain — 3 stages
+Non-chill `trancewaltz` stays byte-identical (every change chill-gated).
 
-| Stage | Tool | What it does |
-|-------|------|--------------|
-| **A. Combine** | `pop/dance/bin/twi-master-fc.txt` (ffmpeg `-/filter_complex`) | sine = foreground (slow `aphaser` for drift); industrial split into a soft low-passed **fold** bed (dynamic level: surges ~0:46 & 2:08→end, breakdown 1:52–2:04) **+** a full-range **raw** branch gated to **3 raised-cosine DIPs** (~0:06–0:10 intro, ~1:15, ~2:15) where the sine ducks and the raw track surges in & back. → f32 premix |
-| **B. Scratch / ID / glitch** | `pop/dance/bin/scratch-mix.mjs in out stamp.mp3` | one gnarly 9-stroke RIP/TEAR center scratch on the **whole** mix (~1:25); a **clean full-range "aesthetic dot computer" ID** overlaid dead-centre *post-scratch* (not scratched, clearly audible); **~4 stochastic** 0.25–1 s chaotic pitch-slides (different every run) |
-| **C. Finalize** | ffmpeg | gentle 2:1 glue comp → `loudnorm I=-14 TP=-1.5 LRA=11` (Spotify reference, dynamics intact) → `alimiter limit=0.94` safety → **18 s** slow end fade |
+**Final: 2:49 · −14.1 LUFS · −1.4 dBTP · 44.1 kHz/16-bit stereo** —
+Spotify normalises to −14 on playback. `scratch-mix.mjs` is stochastic
+(slides + breakbeat differ per run) — re-bake for a new take.
 
-```bash
-cd ~/Documents/Working\ Desktop/twi-out
-# A — combine (sine main + softened fold + raw dips)
-ffmpeg -y -i trancenwaltzi-SINEONLY-raw.wav -i trancenwaltzi-MASTER-preBright.wav \
-  -/filter_complex ~/aesthetic-computer/pop/dance/bin/twi-master-fc.txt \
-  -map "[out]" -ar 44100 -c:a pcm_f32le trancenwaltzi-PREMIX.wav
-# B — whole-mix scratch + clean ID stamp + stochastic pitch-slides
-node ~/aesthetic-computer/pop/dance/bin/scratch-mix.mjs \
-  trancenwaltzi-PREMIX.wav trancenwaltzi-PREMIX-scr.wav \
-  ~/aesthetic-computer/pop/dance/out/.ac-dot-stamp-vocal.mp3
-# C — finalize for Spotify
-ffmpeg -y -i trancenwaltzi-PREMIX-scr.wav -af \
-"acompressor=threshold=-20dB:ratio=2:attack=20:release=260:makeup=1:knee=8,\
-loudnorm=I=-14:TP=-1.5:LRA=11,\
-alimiter=limit=0.94:attack=8:release=120:level=disabled,\
-afade=t=out:st=151:d=18" \
--ar 44100 -sample_fmt s16 trancenwaltzi-MASTER.wav
-rm trancenwaltzi-PREMIX*.wav
-```
-
-**Final: 2:49 · −14.1 LUFS · −1.5 dBTP · 44.1 kHz/16-bit stereo** —
-Spotify normalises to −14 on playback, so this sits at reference with
-dynamics intact (no slamming). `scratch-mix.mjs` is stochastic — every
-run differs in the 4 slide gestures (re-cut if you want a new take).
+`pop/dance/bin/twi-master-fc.txt` is **retired** (the old two-render
+combine; superseded by the single-mix bake).
 
 **Open follow-ups (not in tonight's master):** (1) the field-recording
 **bell → "Twinkle Twinkle" nursery** layer is a ready +185-line chill-
@@ -242,10 +216,8 @@ move — needs a fresh sine-only re-cut.
 
 ## 4. Ship checklist (tonight)
 
-- [x] Engine render → `trancenwaltzi-MASTER-preBright.wav` (chill, accelerando 129→155, full night rebuild)
-- [x] Pure-sine cut → `trancenwaltzi-SINEONLY-raw.wav` (foreground layer)
-- [x] 3-stage master → `trancenwaltzi-MASTER.wav` (−14.1 LUFS / −1.5 dBTP / 2:49)
-- [ ] Confirm by ear: stamp audible, dips/scratch land, no clipping, 18 s fade clean
+- [x] Single-mix bake (`node pop/dance/bin/bake.mjs`) → `trancenwaltzi-MASTER.wav` (G major, −14.1 LUFS / −1.4 dBTP / 2:49)
+- [ ] Confirm by ear: 53 s perc consistent, kick/hats danceable, growls in back glitches, 1:19/1:35 clean, 2:02 ramp smooth, 18 s fade clean
 - [ ] 320 k mp3 for CDN: `assets.aesthetic.computer/pop/trancenwaltzi.mp3`
 - [x] Cover 3000² jpg — **`~/Documents/Working Desktop/gens/trancenwaltzi-cover-3000.jpg`**
       (also mirrored to `~/Desktop/`). Source: outro illustration **v31**

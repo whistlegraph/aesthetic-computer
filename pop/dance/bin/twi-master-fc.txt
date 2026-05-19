@@ -1,5 +1,0 @@
-[0:a]highshelf=f=9000:g=2,aphaser=in_gain=0.5:out_gain=0.85:delay=3.2:decay=0.35:speed=0.15,volume='1-0.82*(between(t,6,10)*(0.5-0.5*cos(PI*(t-6)/2))+between(t,75,78)*(0.5-0.5*cos(PI*(t-75)/1.5))+between(t,134.75,137.25)*(0.5-0.5*cos(PI*(t-134.75)/1.25)))':eval=frame[sine];
-[1:a]asplit=2[a1][a2];
-[a1]lowpass=f=3000,highshelf=f=6000:g=-4,volume='min(1,max(0,(t-8)/22))*(0.46+0.06*sin(2*PI*(t-8)/11))*if(between(t,112,124),1-0.94*(0.5-0.5*cos(2*PI*(t-112)/12)),1)*(1+0.7*exp(-pow((t-46)/16,2))+0.9*min(1,max(0,(t-128)/8)))':eval=frame,apulsator=hz=0.12:width=1:offset_r=0.5[fold];
-[a2]highshelf=f=7000:g=2,volume='0.97*(between(t,6,10)*(0.5-0.5*cos(PI*(t-6)/2))+between(t,75,78)*(0.5-0.5*cos(PI*(t-75)/1.5))+between(t,134.75,137.25)*(0.5-0.5*cos(PI*(t-134.75)/1.25)))':eval=frame[raw];
-[sine][fold][raw]amix=inputs=3:weights='1.2 0.55 1.05':duration=first:normalize=0,equalizer=f=200:t=q:w=1.0:g=1.5,highshelf=f=9500:g=-2[out]
