@@ -163,13 +163,23 @@ function drawFrame(t) {
   }
 }
 
+// QuickTime Player freezes on frame 1 for short, B-frame, *track-less*
+// H.264 clips. So: (1) ship a SILENT stereo AAC track — Spotify Canvas
+// must be inaudible, not literally track-less, and a null-source track
+// satisfies that while making QuickTime/Preview/iMessage play it; and
+// (2) constant frame rate + a regular 1 s keyframe interval + High@4.0
+// so every player decodes it.
 const ff = spawn("ffmpeg", [
   "-hide_banner", "-y", "-loglevel", "error",
   "-f", "rawvideo", "-pix_fmt", "bgra", "-s", `${W}x${H}`, "-r", String(FPS),
   "-i", "pipe:0",
-  "-an",                                  // SILENT (Spotify Canvas)
-  "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "19",
-  "-r", String(FPS), "-t", String(DUR),
+  "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",   // silent track
+  "-map", "0:v:0", "-map", "1:a:0",
+  "-c:v", "libx264", "-profile:v", "high", "-level", "4.0",
+  "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "19",
+  "-g", String(FPS), "-keyint_min", String(FPS), "-sc_threshold", "0",
+  "-c:a", "aac", "-b:a", "96k",
+  "-vsync", "cfr", "-r", String(FPS), "-t", String(DUR), "-shortest",
   "-movflags", "+faststart",
   OUT,
 ], { stdio: ["pipe", "inherit", "inherit"] });

@@ -53,7 +53,16 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   title/progress/timecode/pals/karaoke/lanes/string/disc), wired into
   `build.mjs` formats as `{ suffix:"canvas", canvas:true, dur:6 }`.
   Rapid slit-scan glitch montage through every section illy, seamless
-  single-pass loop (no `reverse`/`concat` — safe on 8 GB).
+  single-pass loop (no `reverse`/`concat` — safe on 8 GB). Encoded
+  QuickTime-safe: silent stereo AAC track (Canvas must be inaudible,
+  not track-less) + High@4.0 + CFR + 1 s GOP, else QuickTime freezes
+  on frame 1.
+- **CDN-overwrite gotcha:** `assets.aesthetic.computer` is fronted by
+  the DO Spaces CDN (id `2ff25b29-db80-48e6-888e-eb8a2464d69b`, 1 h
+  TTL). `s3 sync` skips same-size overwrites, and even after `s3 cp`
+  the edge serves the **stale** object for up to an hour. Always:
+  `aws s3 cp … && doctl compute cdn flush 2ff25b29-db80-48e6-888e-eb8a2464d69b --files pop/<file>`
+  then re-`curl -sI` to confirm `content-length` matches local.
 - header (2660×1140, subject clear of lower-left) — **TODO**, concept TBD.
 
 ## trancenwaltzi — RENDER (not yet released)
