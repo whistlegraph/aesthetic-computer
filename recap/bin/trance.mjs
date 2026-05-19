@@ -295,14 +295,14 @@ const BPM         = Number(flags.bpm ?? (isChill ? 150 : 137.143));
 const SCALE_NAME  = flags.scale || "minor";
 // Chill sits a key lower (57→54, down a minor 3rd) — brings the whole
 // harmonic texture + the high tones down, in unison. --root overrides.
-const ROOT_MIDI   = Number(flags.root ?? (isChill ? 54 : 57));
+const ROOT_MIDI   = Number(flags.root ?? (isChill ? 62 : 57)); // kawaii — bright/cute register
 const SECTION     = flags.section || "full";
 const BARS_FLAG   = flags.bars !== undefined ? Number(flags.bars) : null;
 const SEED_STR    = flags.seed || (isWaltz ? "trancewaltz" : "trance");
 const DRUM_GAIN   = Number(flags["drum-gain"] ?? 0.95);
 const LEAD_GAIN   = Number(flags["lead-gain"] ?? 0.55);
 const PAD_GAIN    = Number(flags["pad-gain"]  ?? 0.30);
-const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.66 : 0.45)); // chill = HARDER bass
+const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.40 : 0.45)); // kawaii — light bass, not gothic
 const SIDECHAIN   = flags.sidechain !== "off";
 const DUCK_DEPTH  = Number(flags["duck-depth"] ?? 0.65);
 const DUCK_MS     = Number(flags["duck-ms"] ?? 120);
@@ -362,7 +362,7 @@ const noiseRng = makeRng(SEED_STR + ":noise");
 // shutdown melodies) skip humanize so the song's tentpoles stay
 // musically locked.
 const humanRng = makeRng(SEED_STR + ":humanize");
-const HUMANIZE_DEFAULT_MS = isChill ? 3 : 7; // chill = tighter, more locked 3/4 waltz
+const HUMANIZE_DEFAULT_MS = 7; // rehumanized — gentle bedroom looseness (kawaii), not robotic
 function humanize(t, scaleMs = HUMANIZE_DEFAULT_MS) {
   // Symmetric ±scaleMs uniform jitter, with a tiny biased tail so a
   // few hits land further off the grid than the rest.
@@ -541,16 +541,11 @@ const barStartRel = []; // music-relative start of each bar
       // Front-loaded energy loss: drops FAST early so ~1/3 of the
       // energy is gone by ~1/3 and it's well down by the halfway point
       // — really losing energy across the WHOLE track, not just the end.
-      // Fast → smoothly slow to the SLOW trough at the CENTER, then a
-      // QUICK recovery (~5 s) up to a STEADY rate, held flat to the end.
-      const FAST = 182, SLOW = 110, STEADY = 170;
-      if (fr <= 0.5) {
-        bpmI = FAST - (FAST - SLOW) * (0.5 - 0.5 * Math.cos(2 * Math.PI * fr)); // 182→110 at center
-      } else {
-        const recW = 0.035; // ≈ 5 s recovery after the trough
-        const u = Math.min(1, (fr - 0.5) / recW);
-        bpmI = SLOW + (STEADY - SLOW) * u; // quick speed-up, then steady
-      }
+      // PERFECT-LOOP tempo: symmetric raised-cosine U. bpm(0) == bpm(1)
+      // == FAST, trough = SLOW at the centre, so the end tempo matches
+      // the start tempo and the loop seam is continuous.
+      const FAST = 182, SLOW = 110;
+      bpmI = FAST - (FAST - SLOW) * (0.5 - 0.5 * Math.cos(2 * Math.PI * fr));
 
     } else {
       bpmI = BPM; // constant — trancenwaltz byte-identical
@@ -853,6 +848,38 @@ function fireHaptic(target, startSec, gain = 1.0, kind = "tap") {
   if (kind === "double") { one(startSec, 0.85); one(startSec + 0.072, 1.0); }
   else if (kind === "notify") { one(startSec, 0.8); one(startSec + 0.09, 0.8); one(startSec + 0.18, 0.95); }
   else one(startSec, 1.0);
+}
+
+// Sonic-boom VORTEX. mode "boom": a deep impact + a descending
+// high→low whoosh tail (the crack). mode "intake": an accelerating,
+// rising "sucky" vortex that climaxes exactly at startSec+durSec — so
+// in a perfect loop the end-intake wraps straight into the start-boom.
+// BYTEBEAT VORTEX — rawstyle. A swept bytebeat counter (8-bit integer
+// xor/shift screech) hard-clipped through tanh: aliased + distorted by
+// construction = wicked/gnarly. "boom" = a loud descending churn-impact;
+// "intake" = an accelerating swelling suck that climaxes at the seam.
+function fireVortex(target, startSec, durSec, mode) {
+  const SR = SAMPLE_RATE;
+  const oS = Math.floor(startSec * SR);
+  const N = Math.floor(durSec * SR);
+  for (let i = 0; i < N; i++) {
+    const u = i / N;
+    // the vortex sweep: boom churns fast→slow, intake accelerates up
+    const k = mode === "boom"
+      ? 1 + 26 * Math.pow(1 - u, 1.6)   // slower one-way zipper roll
+      : 1 + 96 * Math.pow(u, 2.6);
+    const t = (i * k * 0.5) | 0;                       // swept bytebeat time
+    // gnarly layered xor/shift bytebeat (0..255)
+    const b = ((t * (3 + ((t >> 9) & 7))) ^ (t >> 4) ^ (t >> 7) | (t >> 3)) & 255;
+    const sub = ((t >> 2) & 64) ? 1 : -1;              // crude square sub for weight
+    let s = ((b / 128) - 1) * 0.8 + sub * 0.25;
+    const env = mode === "boom"
+      ? Math.min(1, u / 0.06) * Math.pow(1 - u, 1.0)    // soft rise → long unidirectional roll-out
+      : (0.05 + 0.95 * Math.pow(u, 2.0));               // swell → climax at seam
+    s = Math.tanh(s * env * 2.0) * 0.7;                 // rawstyle clip (a touch tamer)
+    const d = oS + i;
+    if (d >= 0 && d < target.length) target[d] += s * 0.22; // soft (kawaii — not gnarly/gothic)
+  }
 }
 
 // (Removed fireImessageDing — the iOS-style two-tone bell with
@@ -1492,12 +1519,11 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // tapers to silence within the last bar (totalSec). No more
     // 4-second overshoot into a tail that gets ffmpeg-faded; the
     // music decays itself, supporting the clean loop boundary.
-    // Sustained ENDING — anchored ~16 s before the end (chill) so the
-    // chord rings the whole way out: fixes the track dying ~12 s early
-    // (the 12 s master fade + power-down now act on real sustaining
-    // content, not silence).
-    const endStart = isChill ? Math.min(barStart, totalSec - 16) : barStart;
-    const endDur   = isChill ? (totalSec - endStart + 2) : (totalSec - barStart);
+    // PERFECT LOOP — normal short final cadence that resolves on the
+    // last (bar-aligned) bar and wraps via the ~6 ms declick. (No more
+    // 16 s sustain-to-fill; that was for the removed long fade.)
+    const endStart = barStart;
+    const endDur   = totalSec - barStart;
     const finalTriad = chordMidis(0, 0);
     const finalNotes = [...finalTriad, scaleNoteMidi(0, 1)];
     for (const m of finalNotes) {
@@ -1610,10 +1636,11 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // Chill: hats arrive LATE and FROM DISTANT — nothing before
     // HAT_ENTER, then volume swells up from far away over ~18 s.
     const _hmt = barStart - OPENING_PREFIX_SEC;
-    const HAT_ENTER = 22;
+    const HAT_ENTER = 30; // AFTER the 24s bass drop — bass comes in before hats
     const hatsArrived = !isChill || _hmt >= HAT_ENTER;
-    const hatDistVol = !isChill ? 1
-      : 0.15 + 0.85 * Math.max(0, Math.min(1, (_hmt - HAT_ENTER) / 18));
+    // Consistent: once they arrive, hats are just at full level (no slow
+    // distant-swell ramp — that "came in like shit").
+    const hatDistVol = 1;
     for (let beat = 0; beat < METER; beat++) {
       if (!hatsArrived) continue;
       const startSec = barStart + (beat + 0.5) * beatSec + swingSec;
@@ -1630,8 +1657,13 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const hatT = humanize(startSec, 8 * settleVar + 1);
       // Chill: per-hit random pitchFactor scatters the noise band so no
       // two hats sound identical (more organic, stochastic shimmer).
-      const hatPF = isChill ? 1 + (noiseRng() - 0.5) * 0.55 : 1;
-      fireDrum(dryBuf, hatT, "g", { volume: v * DRUM_GAIN * hatDistVol * chillHatGain, pitchFactor: hatPF });
+      let hatPF = isChill ? 1 + (noiseRng() - 0.5) * 0.55 : 1;
+      // Hats START like CLICKS: for ~15 s after they enter they're
+      // high-pitched + quiet ticks, then open into full hats.
+      const clickAmt = isChill ? Math.max(0, 1 - (_hmt - HAT_ENTER) / 15) : 0;
+      const hatVol = v * DRUM_GAIN * hatDistVol * chillHatGain * (1 - 0.55 * clickAmt);
+      hatPF *= 1 + 1.6 * clickAmt;
+      fireDrum(dryBuf, hatT, "g", { volume: hatVol, pitchFactor: hatPF });
       if (isChill) {
         // echoey + bassier hat — 2 low, quiet, decaying delayed taps
         for (let e = 1; e <= 2; e++) {
@@ -1689,6 +1721,15 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         events.hat.push({ t: openHatSec, dur: 0.10, kind: "open" });
       }
     }
+    // Chill: an OPEN hi-hat on the last off-beat every 4 bars (a fresh
+    // slot, doesn't double the closed hats), once hats have arrived.
+    if (isChill && hatsArrived && (bar + 1) % 4 === 0) {
+      const oh = humanize(barStart + (METER - 0.5) * beatSec + swingSec, 7);
+      if (oh < HAT_SUPPRESS_AFTER) {
+        fireDrum(dryBuf, oh, "a", { volume: 0.34 * DRUM_GAIN * chillHatGain });
+        events.hat.push({ t: oh, dur: 0.12, kind: "open" });
+      }
+    }
   }
 
   // Chill bass ARC — intro + break1 have no template sub, so fill them
@@ -1700,7 +1741,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // ZERO bass for the first 24 s — then DROP IT IN like thunder.
     if (barMusic0 < 24 && barMusic0 + barSec >= 24) {
       const thT = OPENING_PREFIX_SEC + 24;
-      fireSubBass(bassBuf, thT, scaleNoteMidi(0, -2), 3.2, BASS_GAIN * 2.2, 0.15, true); // deep loud long
+      fireSubBass(bassBuf, thT, scaleNoteMidi(0, -1), 1.6, BASS_GAIN * 1.0, 0.1, true); // soft gentle drop (kawaii)
       const rb = makeBufferSynth(bassBuf, thT - 0.6, SAMPLE_RATE, noiseRng);
       rb.synth({ type: "noise", tone: 90, duration: 1.4, volume: BASS_GAIN * 0.5, attack: 0.5, decay: 0.9 }); // rumble swell
       events.sub.push({ t: thT, midi: scaleNoteMidi(0, -2), dur: 3.2 });
@@ -1887,18 +1928,21 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       // Humanize lead — ±11 ms feels expressive without losing the line.
       // Chill rides the swing pocket too, so the line lays back with the groove.
       const startSec = humanize(barStart + s * noteSec + skipOffset + swingSec, 11);
-      const leadMidi = scaleNoteMidi(deg, 0) + v.cents / 100;
+      // Chill: drop the lead an OCTAVE (it sat too high) and use the
+      // warm PAD voice instead of the bright plucky "lead" timbre the
+      // user disliked.
+      const leadMidi = scaleNoteMidi(deg, isChill ? -1 : 0) + v.cents / 100;
       const inBreak = !t.kick;
-      // Chill: notes HOLD ~2× their slot so they ring across the rests
-      // (sustained, not plucky). Otherwise the original plucky envelope.
+      // Chill: very long sustained notes (not punctual) — ring well
+      // across the rests.
       const durMul = isChill
-        ? (skipBar ? 1.1 : 1.9)
+        ? (skipBar ? 2.4 : 3.4)
         : (skipBar ? 0.65 : (inBreak ? 1.4 : 0.85));
       const durSec = noteSec * durMul;
       mixEventLeadPad(
-        { startSec, midi: leadMidi, gain: LEAD_GAIN, durSec },
+        { startSec, midi: leadMidi, gain: LEAD_GAIN * (isChill ? 0.85 : 1), durSec },
         dryBuf,
-        { preset: "lead", sampleRate: SAMPLE_RATE, seed: `lead:${bar}:${s}` }
+        { preset: isChill ? "pad" : "lead", sampleRate: SAMPLE_RATE, seed: `lead:${bar}:${s}` }
       );
       events.lead.push({ t: startSec, midi: leadMidi, dur: durSec });
       leadCount++;
@@ -2012,7 +2056,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const pitch = Math.pow(2, semis / 12);
       const long = bunnyRng() < 0.4;
       const dur = long ? 0.8 + bunnyRng() * 1.2 : 0.18 + bunnyRng() * 0.22;
-      const g = (long ? 0.22 : 0.30) * chillBuild;
+      const g = (long ? 0.13 : 0.18) * chillBuild; // pulled back for clarity
       fireAmbGrain(sfxDryBuf, t0, srcSec, dur, pitch, g);
       events.sfx.push({ t: t0, name: "amb-grain", dur });
     }
@@ -2758,6 +2802,28 @@ if (!isChill) {
   // it decorrelated from the boot-beeps waveform behind it. Three
   // chime tones C5→E5→G5 at ~0.4s each.
   events.sfx.push({ t: BOOT_SEC, name: "boot-chime", dur: 0.4, point: true });
+}
+if (isChill) {
+  // INTRO = "belwooom": ONE unidirectional, slower ~6 s boom (a slow
+  // descending zipper-roll) that BLOOMS — a harmonized melodic bloom
+  // rises from its belly. No intake suck (clean loop end wraps to this).
+  const boomDur = 6.0;
+  fireVortex(sfxDryBuf, 0.05, boomDur, "boom");
+  events.sfx.push({ t: 0.05, name: "vortex-boom", dur: boomDur });
+  // BLOOM — fires ONCE ~8 s in, ON a sampled bell from the field
+  // recording, then just decays away (fire-and-die, never returns up
+  // in pitch). Soft + blended — sits under, doesn't poke out.
+  const bloomT = 8.0;
+  if (ambientBuf) fireAmbGrain(sfxDryBuf, bloomT, 6.0, 1.8, 1.0, 0.16); // the sampled bell it lands on
+  const bloomDeg = [0, 2, 4, 0]; // tonic triad + octave
+  for (let bi = 0; bi < bloomDeg.length; bi++) {
+    const m0 = scaleNoteMidi(bloomDeg[bi], bi === 3 ? -2 : -3); // deep
+    const f0 = 440 * Math.pow(2, (m0 - 69) / 12);
+    const dur = 5.0;
+    const v = makeBufferSynth(sfxDryBuf, bloomT + bi * 0.03, SAMPLE_RATE, noiseRng);
+    v.synth({ type: "sine",     tone: f0,        duration: dur,       volume: 0.24, attack: 0.05, decay: dur * 0.92 });
+    v.synth({ type: "triangle", tone: f0 * 2.01, duration: dur * 0.7, volume: 0.06, attack: 0.05, decay: dur * 0.6 });
+  }
 }
 const sixteenthSec_BOOT = (60 / BPM) / 4;
 const sniperSec = 24 * sixteenthSec_BOOT;
@@ -3779,7 +3845,7 @@ if (isChill) {
       // whole track sits inside a real room/space.
       const ai = i % ambientBuf.length;
       const und = 0.78 + 0.22 * Math.sin((i / SR) * 2 * Math.PI * 0.05);
-      const ag = 0.30 * und;
+      const ag = 0.15 * und; // quieter bed — was a broadband mud source
       L += ambientBuf[ai] * ag;
       R += ambientBuf[(ai + 240) % ambientBuf.length] * ag; // ~5 ms offset = width
     }
@@ -3790,7 +3856,7 @@ if (isChill) {
   buf = Buffer.alloc(out.length * 4);
   for (let i = 0; i < out.length; i++) buf.writeFloatLE(out[i], i * 4);
 }
-if (STEREO) {
+if (STEREO && !isChill) { // perfect-loop chill: NO end power-down (it broke the seam)
   // Last ~16 s: a vari-speed POWER-DOWN — re-read the tail at a falling
   // rate so the pitch + tempo of EVERYTHING drop together in unison (a
   // dying-machine wind-down). Length unchanged; trails into the fade.
@@ -3816,6 +3882,31 @@ if (STEREO) {
     buf.writeFloatLE(L, (startF + k) * 8);
     buf.writeFloatLE(R, (startF + k) * 8 + 4);
     srcPos += rate;
+  }
+}
+if (STEREO) {
+  // GLOBAL STORY (chill) — slow, independent LFOs across the WHOLE
+  // track on low-pass + high-pass + stereo width + amplitude, so the
+  // mix breathes/opens/narrows and elements rotate into the spotlight
+  // (also de-muds: the moving filters carve space). One-pole filters.
+  const SRr = SAMPLE_RATE;
+  const frames = out.length;
+  const lfo = (i, P, ph, lo, hi) => lo + (hi - lo) * (0.5 + 0.5 * Math.sin((i / SRr / P + ph) * 2 * Math.PI));
+  let lpL = 0, lpR = 0, hpL = 0, hpR = 0;
+  for (let i = 0; i < frames; i++) {
+    let L = buf.readFloatLE(i * 8), R = buf.readFloatLE(i * 8 + 4);
+    const aLP = Math.min(1, (2 * Math.PI * lfo(i, 41, 0.0, 4500, 15000)) / SRr); // stays bright/airy (kawaii)
+    lpL += aLP * (L - lpL); lpR += aLP * (R - lpR);
+    L = lpL; R = lpR;
+    const aHP = Math.min(1, (2 * Math.PI * lfo(i, 57, 0.4, 26, 230)) / SRr);
+    hpL += aHP * (L - hpL); hpR += aHP * (R - hpR);
+    L -= hpL; R -= hpR;
+    const w = lfo(i, 49, 0.7, 0.60, 1.45);
+    const mid = (L + R) * 0.5, side = (L - R) * 0.5 * w;
+    L = mid + side; R = mid - side;
+    const amp = lfo(i, 33, 0.2, 0.74, 1.0);
+    buf.writeFloatLE(L * amp, i * 8);
+    buf.writeFloatLE(R * amp, i * 8 + 4);
   }
 }
 writeFileSync(rawPath, buf);
@@ -3864,7 +3955,7 @@ const compStage = isChill
   ? "acompressor=threshold=-18dB:ratio=1.4:attack=30:release=320:makeup=1:knee=6,"
   : "acompressor=threshold=-14dB:ratio=1.8:attack=18:release=200:makeup=1:knee=4,";
 const loudStage = isChill
-  ? "loudnorm=I=-16:TP=-1.5:LRA=20[out]"
+  ? "loudnorm=I=-19:TP=-1.5:LRA=22[out]"
   : "loudnorm=I=-15:TP=-1.5:LRA=20[out]";
 
 const filter =
@@ -3881,11 +3972,17 @@ const filter =
   // 1.6s fade-out drove both ends to digital silence → an audible dip
   // at the loop seam. Replaced with ~6ms declicks (sub-perceptual, just
   // kills end-sample pops) so the ending flows straight into the intro.
-  (RELEASE_MASTER
-    ? "afade=t=in:st=0:d=0.15," +
-      `afade=t=out:st=${(totalSec - (isChill ? 12 : 1.6)).toFixed(3)}:d=${isChill ? 12 : 1.6},`
-    : "afade=t=in:st=0:d=0.006," +
-      `afade=t=out:st=${(totalSec - 0.006).toFixed(3)}:d=0.006,`) +
+  // Kawaii cut: chill gets a GENTLE ~6 s fade-out (bedroom-soft, never
+  // an abrupt cutoff — the bar-aligned bed sustains under it). Non-chill
+  // --master keeps its 1.6 s musical fade; others = ~6 ms declick.
+  (isChill
+    ? "afade=t=in:st=0.4:d=2.0," +
+      `afade=t=out:st=${(totalSec - 6).toFixed(3)}:d=6,`
+    : (RELEASE_MASTER
+      ? "afade=t=in:st=0:d=0.15," +
+        `afade=t=out:st=${(totalSec - 1.6).toFixed(3)}:d=1.6,`
+      : "afade=t=in:st=0:d=0.006," +
+        `afade=t=out:st=${(totalSec - 0.006).toFixed(3)}:d=0.006,`)) +
   // House-style EQ — more AIR up top, less mid crowding, subtle low.
   "equalizer=f=180:t=q:w=1.2:g=1.0," +
   "equalizer=f=900:t=q:w=1.4:g=0.8," +
