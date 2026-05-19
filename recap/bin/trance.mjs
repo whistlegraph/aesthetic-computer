@@ -122,19 +122,28 @@ function mixCatDrone(out, startSec, durSec, pitchRatio, gain) {
   const outStart = Math.floor(startSec * SR);
   const outLen = Math.floor(durSec * SR);
   if (outLen < grain) return;
-  const srcStep = sample.length / outLen; // whole meow crawled over durSec
+  // BUGFIX: crawling the whole sample over durSec was a ~48× stretch
+  // that froze on one instant (no audible elongation/pitch). Instead
+  // loop the meow at a moderate slow pass (~4.5 s) so it's a
+  // recognizably *slowed, evolving* meow, with a pitch GLIDE down
+  // (deepen + darken across the drone) and a slow volume ROLL.
+  const passSec = 4.5;
+  const srcPerOut = sample.length / (passSec * SR);
   for (let gpos = 0; gpos + grain < outLen; gpos += hop) {
-    const srcCenter = gpos * srcStep;
+    const prog = gpos / outLen;                         // 0..1 over the drone
+    const pr = pitchRatio * (1 - 0.45 * prog);          // glide down — darkens
+    const roll = 0.55 + 0.45 * Math.sin(prog * Math.PI * 5.0 + 0.7); // vol roll
+    const srcCenter = (gpos * srcPerOut) % sample.length;
     for (let k = 0; k < grain; k++) {
       const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * k) / grain); // Hann
-      let si = srcCenter + (k - grain / 2) * pitchRatio;
+      let si = srcCenter + (k - grain / 2) * pr;
       si = ((si % sample.length) + sample.length) % sample.length;
       const i0 = Math.floor(si);
       const i1 = (i0 + 1) % sample.length;
       const fr = si - i0;
       const v = sample[i0] * (1 - fr) + sample[i1] * fr;
       const d = outStart + gpos + k;
-      if (d >= 0 && d < out.length) out[d] += v * w * gain;
+      if (d >= 0 && d < out.length) out[d] += v * w * gain * roll;
     }
   }
 }
@@ -524,15 +533,13 @@ const barStartRel = []; // music-relative start of each bar
     const fr = TOTAL_BARS > 1 ? i / (TOTAL_BARS - 1) : 0;
     let bpmI;
     if (isChill) {
-      // ONE smooth exponential pacing, repeated CYCLES times across the
-      // track — predictable + danceable (no jerky multi-press). Each
-      // cycle is a single exponential swell up then smoothly back (no
-      // hard tempo snap), so it grooves rather than lurches.
-      const CYCLES = 2;
-      const BASE = 150, TOP = 180;
-      const p = (fr * CYCLES) % 1;            // 0..1 within each cycle
-      const swell = Math.pow(Math.sin(p * Math.PI), 0.55); // exp-ish 0→1→0
-      bpmI = BASE + (TOP - BASE) * swell;
+      // ONE totalizing arc — a single monotonic exponential accelerando
+      // across the WHOLE track (no cyclic speed-up/slow-down). Starts at
+      // the base and gently, increasingly builds to the top by the end:
+      // one continuous build, danceable, no lurch or oscillation.
+      const BASE = 150, TOP = 178;
+      bpmI = BASE + (TOP - BASE) * Math.pow(fr, 1.4); // exp build 0→1
+
     } else {
       bpmI = BPM; // constant — trancenwaltz byte-identical
     }
@@ -780,9 +787,9 @@ function fireGong(startSec, midi, gain = 1.0) {
     const sf = i / n;
     const amp = Math.pow(Math.sin(sf * Math.PI), 1.4);  // swell → ebb
     const sweep = sf < 0.5 ? sf * 2 : (1 - sf) * 2;     // 0→1→0 zipper
-    const noiseTone = 1200 + sweep * 5200;
+    const noiseTone = 400 + sweep * 1400;               // darker, lower band
     const w = makeBufferSynth(dryBuf, startSec + 0.04 + i * seg, SAMPLE_RATE, noiseRng);
-    w.synth({ type: "noise", tone: noiseTone, duration: seg + 0.03, volume: gain * 0.16 * amp, attack: 0.006, decay: seg * 0.9 });
+    w.synth({ type: "noise", tone: noiseTone, duration: seg + 0.03, volume: gain * 0.06 * amp, attack: 0.006, decay: seg * 0.9 });
   }
 }
 
@@ -1059,47 +1066,37 @@ function fireSubBass(target, startSec, midi, durSec, gain, morphT = 0, harmonies
 //   < 8 s    CRUNCH — punchy bit-crushed square stack + a noise spit
 //   8–18 s   OCEAN  — crossfade into a deep, smooth lo-fi sub swell
 //   ≥ 18 s   (caller adds the SWING — off-beats pushed late)
-function fireChillArcBass(startSec, midi, durSec, musicT) {
-  const sound = makeBufferSynth(bassBuf, startSec, SAMPLE_RATE, noiseRng);
+// `grind` 1→0: BVROOOM grindy wobble sub at the start that mellows into
+// a smooth deep ocean sub as the track chills out.
+function fireChillArcBass(startSec, midi, durSec, grind) {
   const freq = 440 * Math.pow(2, (midi - 69) / 12);
   const g = BASS_GAIN;
-  const xOcean = Math.max(0, Math.min(1, (musicT - 8) / 10)); // 0→1 over 8–18s
-  const crunch = 1 - xOcean;
-  if (crunch > 0.01) {
-    // Musical PUNCTUATION (not a pressurized bit-crush — that read as
-    // "poppy"). A guitar-harmonic pluck tuned to the chord that rapidly
-    // changes instrument/timbre per hit, sometimes a sampled piano.
-    // Soft attacks (no clicks). Sparse — it punctuates, leaves space.
-    if (noiseRng() > 0.32) {
-      const pitch = freq * 4;                    // up to guitar/mid register
-      const roll = noiseRng();                   // fast instrument change
-      const dur = durSec * (0.40 + noiseRng() * 0.40);
-      if (roll < 0.55) {
-        // real sampled instrument (piano) — leans "orchestral / real",
-        // sometimes a 2-note harmonic dyad for body.
-        mixEventPiano({ startSec, midi: midi + 24, gain: g * 0.90 * crunch, durSec: dur }, bassBuf, SAMPLE_RATE);
-        if (noiseRng() < 0.4) {
-          mixEventPiano({ startSec: startSec + 0.012, midi: midi + 24 + 7, gain: g * 0.55 * crunch, durSec: dur * 0.9 }, bassBuf, SAMPLE_RATE);
-        }
-      } else {
-        // softened guitar-harmonic pluck: fundamental + warm overtones,
-        // gentle attack/longer tail so it rings rather than clicks.
-        const wave = roll < 0.78 ? "triangle" : "sawtooth";
-        const k = makeBufferSynth(bassBuf, startSec, SAMPLE_RATE, noiseRng);
-        k.synth({ type: wave,   tone: pitch,     duration: dur,        volume: g * 0.48 * crunch, attack: 0.010, decay: dur * 0.85 });
-        k.synth({ type: "sine", tone: pitch * 2, duration: dur * 0.7,  volume: g * 0.18 * crunch, attack: 0.008, decay: dur * 0.55 });
-        k.synth({ type: "sine", tone: pitch * 3, duration: dur * 0.45, volume: g * 0.09 * crunch, attack: 0.008, decay: dur * 0.35 });
-      }
+  const gr = Math.max(0, Math.min(1, grind));
+  const smooth = 1 - gr;
+  if (gr > 0.02) {
+    // GRINDY WOB — sawtooth+square with an internal wobble LFO on pitch
+    // + amplitude (the "woob"/Bvrooom), loudest at the start, easing
+    // out as it chills. Segmented so the wobble actually moves.
+    const segN = 8;
+    const segLen = durSec / segN;
+    const wobHz = 5.5;
+    for (let s = 0; s < segN; s++) {
+      const lfo = 0.5 + 0.5 * Math.sin((s / segN) * durSec * 2 * Math.PI * wobHz);
+      const wob = 0.85 + 0.30 * lfo;            // pitch wobble
+      const amp = (0.55 + 0.45 * lfo) * gr;
+      const v = makeBufferSynth(bassBuf, startSec + s * segLen, SAMPLE_RATE, noiseRng);
+      v.synth({ type: "sawtooth", tone: freq * 2 * wob,        duration: segLen * 1.3, volume: g * 0.80 * amp, attack: 0.004, decay: segLen });
+      v.synth({ type: "square",   tone: freq * wob,            duration: segLen * 1.3, volume: g * 0.52 * amp, attack: 0.004, decay: segLen });
+      v.synth({ type: "sawtooth", tone: freq * 4 * wob * 1.01, duration: segLen,       volume: g * 0.16 * amp, attack: 0.003, decay: segLen * 0.7 });
     }
   }
-  if (xOcean > 0.01) {
-    // deep ocean lo-fi: low sine + sub octave, long smooth swell, a
-    // slow tape "wow", and a faint hiss bed.
+  if (smooth > 0.02) {
+    // smooth deep ocean sub — fades IN as the grind eases (chilled).
     const wow = 1 + Math.sin(startSec * 2 * Math.PI * 0.7) * 0.012;
-    sound.synth({ type: "sine",     tone: freq * wow,       duration: durSec * 1.4, volume: g * 1.00 * xOcean, attack: 0.02, decay: durSec * 1.1 });
-    sound.synth({ type: "sine",     tone: freq * 0.5 * wow, duration: durSec * 1.5, volume: g * 0.85 * xOcean, attack: 0.03, decay: durSec * 1.2 });
-    sound.synth({ type: "triangle", tone: freq * wow,       duration: durSec * 1.2, volume: g * 0.30 * xOcean, attack: 0.02, decay: durSec * 0.9 });
-    sound.synth({ type: "noise",    tone: 200,              duration: durSec * 1.2, volume: g * 0.045 * xOcean, attack: 0.05, decay: durSec * 1.0 });
+    const k = makeBufferSynth(bassBuf, startSec, SAMPLE_RATE, noiseRng);
+    k.synth({ type: "sine",     tone: freq * wow,       duration: durSec * 1.4, volume: g * 1.00 * smooth, attack: 0.02, decay: durSec * 1.1 });
+    k.synth({ type: "sine",     tone: freq * 0.5 * wow, duration: durSec * 1.5, volume: g * 0.80 * smooth, attack: 0.03, decay: durSec * 1.2 });
+    k.synth({ type: "triangle", tone: freq * wow,       duration: durSec * 1.1, volume: g * 0.28 * smooth, attack: 0.02, decay: durSec * 0.85 });
   }
 }
 
@@ -1454,7 +1451,8 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const m = (beat === 1 && METER >= 3)
         ? scaleNoteMidi(chordDeg + 4, -2)   // 5th up for color
         : scaleNoteMidi(chordDeg, -2);      // root, low
-      fireChillArcBass(bt, m, beatSec * 0.62, musicT);
+      const grind = Math.max(0, 1 - musicT / 60); // BVROOOM → chilled over ~60s
+      fireChillArcBass(bt, m, beatSec * 0.62, grind);
       events.sub.push({ t: bt, midi: m, dur: beatSec * 0.62 });
       subCount++;
     }
@@ -1529,6 +1527,13 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // drone-birds in a high whiny register that zip around the stereo
     // field and come/go — each voice sits out ~45 % of bars so they
     // circle in and out instead of droning continuously.
+    // Slowly change MELODICALLY across the track, and DEEPEN + DARKEN:
+    // start high/whiny (+24) and descend toward +7 by the end, with a
+    // slow melodic walk that shifts every ~14 bars.
+    const driftFr  = bar / Math.max(1, TOTAL_BARS - 1);
+    const octShift = Math.round(24 - 17 * driftFr);          // 24 → 7
+    const melWalk  = [0, 3, 5, 3, -2, 0, 4, 2][Math.floor(bar / 14) % 8];
+    const mGain    = 0.085 * (1 - 0.4 * driftFr);            // darker later
     let vi = 0;
     for (const m of triad) {
       vi++;
@@ -1536,8 +1541,8 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const startOff = noiseRng() * barSec * 0.5;  // enters at a random point
       const dur = barSec * (0.5 + noiseRng() * 0.5);
       const panBase = vi === 1 ? -0.5 : vi === 2 ? 0.0 : 0.5;
-      const mm = m + 24;                            // up 2 octaves — whiny insect
-      fireMosquito(sawBuf, barStart + startOff, mm, dur, 0.085, panBase);
+      const mm = m + octShift + melWalk;            // descends + walks melodically
+      fireMosquito(sawBuf, barStart + startOff, mm, dur, mGain, panBase);
       events.supersaw.push({ t: barStart + startOff, midi: mm, dur });
       supersawCount++;
     }
@@ -2127,32 +2132,44 @@ if (!isChill) {
 // At 92 bpm × 0.652 s/beat, the SECOND "computer" lands ~9.13 s into
 // the vocal stem; vocal starts at OPENING_PREFIX_SEC (2.7 s) →
 // wall-clock 11.83 s.
-{
+if (isChill) {
+  // Chill whistle: a slow, LOW tone that wanders the WHOLE track on its
+  // OWN rhythm — irregular, non-bar-aligned spacing, with varied pitch /
+  // length each time so it never loops. Long sustained tones (engages
+  // fireWhistle's vibrato path), pitched two octaves below the old chill
+  // whistle. A ghostly recurring sigh, not a one-off blip.
+  const wEnd = totalSec - 8;
+  let wt = 9 + noiseRng() * 4;             // first entry ~9–13 s
+  let walk = 0;                             // slow melodic drift
+  while (wt < wEnd) {
+    const wbar = Math.max(0, Math.floor((wt - OPENING_PREFIX_SEC) / barSec));
+    const wchord = progressionAt(wbar);
+    walk += Math.round((noiseRng() - 0.5) * 3);
+    if (walk > 4) walk = 4;
+    if (walk < -4) walk = -4;
+    const deg = wchord + [0, 2, 4, 6][Math.abs(walk) % 4];
+    const oct = noiseRng() < 0.5 ? -1 : 0;
+    const midi = scaleNoteMidi(deg, oct) - 12;   // much lower
+    const dur = 2.6 + noiseRng() * 2.8;          // 2.6–5.4 s — very slow
+    fireWhistle(sfxDryBuf, wt, midi, dur, 0.16 + noiseRng() * 0.06);
+    events.sfx.push({ t: wt, name: "whistle", dur });
+    wt += dur + 4 + noiseRng() * 9;              // irregular 4–13 s gap
+  }
+} else {
   const compStart = 11.83;
   const compBar = Math.floor(compStart / barSec);
   const compChord = progressionAt(compBar);
-  // Non-chill: SKIPPY 3-note phrase — short staccato whistle notes
-  // tracking the punchy "com-PU-ter" syllables of the vocal.
-  // Chill: there's NO vocal to follow, so the staccato blip reads as a
-  // random sketchy whistle. Replace it with a slow, low, STRETCHED
-  // ~3.3 s legato swell one octave down — a soft descending sigh that
-  // engages fireWhistle's long-note vibrato path.
-  const compPhrase = isChill
-    ? [
-        { deg: 4, oct: 0, dur: 1.05, gap: 0.0 },
-        { deg: 2, oct: 0, dur: 1.05, gap: 0.0 },
-        { deg: 0, oct: 0, dur: 1.20, gap: 0.0 },
-      ]
-    : [
-        { deg: 0, oct: 1, dur: 0.18, gap: 0.08 },
-        { deg: 2, oct: 1, dur: 0.18, gap: 0.08 },
-        { deg: 4, oct: 1, dur: 0.32, gap: 0.0  },
-      ];
-  const compGain = isChill ? 0.24 : 0.32;
+  // SKIPPY 3-note phrase — short staccato whistle notes tracking the
+  // punchy "com-PU-ter" syllables of the vocal.
+  const compPhrase = [
+    { deg: 0, oct: 1, dur: 0.18, gap: 0.08 },
+    { deg: 2, oct: 1, dur: 0.18, gap: 0.08 },
+    { deg: 4, oct: 1, dur: 0.32, gap: 0.0  },
+  ];
   let t = compStart;
   for (const n of compPhrase) {
     const midi = scaleNoteMidi(compChord + n.deg, n.oct);
-    fireWhistle(sfxDryBuf, t, midi, n.dur, compGain);
+    fireWhistle(sfxDryBuf, t, midi, n.dur, 0.32);
     events.sfx.push({ t, name: "whistle", dur: n.dur });
     t += n.dur + n.gap;
   }
