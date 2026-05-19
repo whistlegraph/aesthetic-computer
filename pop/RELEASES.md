@@ -63,7 +63,15 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   the edge serves the **stale** object for up to an hour. Always:
   `aws s3 cp … && doctl compute cdn flush 2ff25b29-db80-48e6-888e-eb8a2464d69b --files pop/<file>`
   then re-`curl -sI` to confirm `content-length` matches local.
-- header (2660×1140, subject clear of lower-left) — **TODO**, concept TBD.
+- header · https://assets.aesthetic.computer/pop/ac-spotify-header.jpg —
+  2660×1140, **colored-pencil**, near-monochrome BLACK + Spotify-green:
+  a Hieronymus-Bosch scatter of many tiny prancing jeffreys + the AC
+  crew (citizens + tricky-tinkerbell pixies, PALS on their laptop
+  backs) across rolling Grant-Wood green hills, a green sun radiating
+  green radio-waves, music notes piping from the chartreuse Neos.
+  Lower-left kept clear for Spotify's avatar+name overlay. Campaign
+  `~/Documents/Working Desktop/gens/ac-header/` (jeffrey refs +
+  whistlegraph-butterfly.png + pals-logo.png), gen v6.
 
 ## trancenwaltzi — RENDER (not yet released)
 
