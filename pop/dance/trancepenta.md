@@ -89,9 +89,23 @@ under), beat-spread (random window per hit — not loop-loop).
   `.waves/.foghorn/.boathorn` + `.grenade` (Freesound, CC0) and
   `.foghorn-low.wav` derived from `.foghorn.wav`.
 
+## Sung jeffrey lead-double (v13 — now in)
+
+`pop/dance/trancepenta.txt` (lyric: "fog on the harbour / the sea is a
+screen / ride the slow horse home / drift / hold / glow in the grey
+tide / the long blue hum") + `pop/dance/trancepenta-sing.np` (a SUNG
+DOUBLE of the chill lead — G-dorian tonic-pole contour, long sustained
+notes). `sing-penta.mjs` is tuned drippin: slow stretch bpm, very high
+`--max-stretch`, big legato overlap, gentle vibrato → a warm gooey
+co-lead (octave-below body + soft fifth, not the dense stack) →
+`pop/dance/out/trancepenta-vocal.mp3` (39 s, gitignored, cached say).
+`place-penta-vocal.mjs` lays **3 post-drop sung entries** (~1:18
+lead-in · ~1:44 full body · ~2:25 resolve) — silent in the keyed-up
+intro, clear of the stamp + neigh/grenade (~1:35) and the gnarly
+last-30 s. `finalize-penta-vocal.mjs --vox-db -3` = present co-lead
+(~+4 dB above the old hum), mastered together. Final v13: 3:11 ·
+−14.1 LUFS · −1.4 dBTP.
+
 ## Open / next
 
-- **jeffrey SINGING ALONG with the lead, stretched/drippin** — a sung
-  lead-double (real lyric + a `.np` tracking the lead, long sustained
-  notes, high stretch/legato). A subagent attempt errored mid-run
-  (API socket); needs a clean re-run.
+- Instagram story (9:16) of the trancepenta master.

@@ -1,26 +1,29 @@
 #!/usr/bin/env node
 // finalize-penta-vocal.mjs — trancepenta stage-3 finalize WITH the
-// jeffrey counterpoint bus woven in.
+// jeffrey SUNG LEAD-DOUBLE bus woven in.
 //
 // This is the EXACT trancepenta.md stage-3 chain (acompressor → EQ →
 // highshelf → loudnorm I=-14 → alimiter → duration-aware 18s fade)
-// with ONE addition: the placed counterpoint bus is a 2nd ffmpeg input,
-// band-shaped + attenuated so it sits ~12-16 dB UNDER the bed, then
-// amix'd into the master BEFORE loudnorm so the whole thing is mastered
-// together to Spotify-clean ≈ -14 LUFS / TP ≤ -1.
+// with ONE addition: the placed sung-double bus is a 2nd ffmpeg input,
+// gently band-shaped + level-trimmed so it sits as a PRESENT CO-LEAD
+// (NOT tucked under like the old hum counterpoint), then amix'd into
+// the master BEFORE loudnorm so the whole thing is mastered together
+// to Spotify-clean ≈ -14 LUFS / TP ≤ -1.
 //
-// Vocal bus shaping (so it tucks behind the lead, never masks it):
-//   highpass 150  — keep it out of the kick/sub
-//   dip   ~2.5kHz — carve room for the lead's presence band
-//   air   +1 @ 9k — keeps jeffrey's breath/whistle alive
-//   volume -7 dB  — bed RMS in entry windows is -18..-23 dB, raw vox
-//                    ≈ -29.6 dB; -7 dB puts the counterpoint ~13-18 dB
-//                    under → a weave-through texture, not a lead.
+// jeffrey now sings ALONG with the lead, so this is a co-lead level
+// (~+2…+4 dB above the old hum's -7 dB): default -3 dB, --vox-db tunes
+// it by ear/RMS so it's clearly present but never slams the bed.
+//
+// Vocal bus shaping (clarity without masking the synth lead):
+//   highpass 130  — keep it out of the kick/sub but a bit more body
+//   gentle dip 2.6kHz (-2)  — small pocket so the synth lead still cuts
+//   air   +1.5 @ 9k — keeps jeffrey's breath/timbre alive on long holds
+//   volume VOX_DB   — co-lead trim (default -3 dB)
 //
 // Usage:
 //   node pop/dance/bin/finalize-penta-vocal.mjs \
 //        --scr "$O/.tp-scr.wav" --vox "$O/.tp-vox-bus.wav" \
-//        --out "$O/trancepenta-MASTER.wav"
+//        --vox-db -3 --out "$O/trancepenta-MASTER.wav"
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -41,7 +44,7 @@ const expandHome = (p) => !p ? p : p === "~" ? homedir()
 const SCR = resolve(process.cwd(), expandHome(flags.scr));
 const VOX = resolve(process.cwd(), expandHome(flags.vox));
 const OUT = resolve(process.cwd(), expandHome(flags.out));
-const VOX_DB = Number(flags["vox-db"] ?? -7); // counterpoint trim
+const VOX_DB = Number(flags["vox-db"] ?? -3); // sung co-lead trim
 for (const [n, p] of [["scr", SCR], ["vox", VOX]]) {
   if (!p || !existsSync(p)) { console.error(`✗ ${n} missing: ${p}`); process.exit(1); }
 }
@@ -52,11 +55,11 @@ const probe = spawnSync("ffprobe", ["-v","error","-show_entries",
 const D = parseFloat(probe.stdout.trim());
 const fadeSt = (D - 18).toFixed(3);
 
-// Vocal bus: band-shape + attenuate so it weaves UNDER the bed.
+// Vocal bus: gentle shaping for a PRESENT co-lead (not tucked under).
 const voxChain =
-  `highpass=f=150,` +
-  `equalizer=f=2500:t=q:w=1.2:g=-3,` +
-  `equalizer=f=9000:t=q:w=1.0:g=1,` +
+  `highpass=f=130,` +
+  `equalizer=f=2600:t=q:w=1.2:g=-2,` +
+  `equalizer=f=9000:t=q:w=1.0:g=1.5,` +
   `volume=${VOX_DB}dB`;
 
 // Master chain — IDENTICAL to trancepenta.md stage 3, applied to the

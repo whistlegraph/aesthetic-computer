@@ -1,0 +1,64 @@
+# trancepenta-sing — jeffrey SINGING ALONG WITH THE LEAD.
+#
+# trancepenta is G dorian · 126 BPM · 5/4. ROOT_MIDI 55 (G3),
+# dorian scale [0,2,3,5,7,9,10]. The chill LEAD in recap/bin/trance.mjs
+# rides THEME_4 degrees through progressionAt() (sonata path) but the
+# sonata keeps ORBITING the G-dorian tonic pole — every section the
+# lead returns to chord tones drawn from G3 · A#3(=Bb3) · D4 · F4.
+#
+# This is NOT a separate counter-line: it is a SUNG DOUBLE of the lead.
+# It traces the lead's recurring chord-tone CONTOUR — a slow rising
+# tonic arpeggio (G→Bb→D→F) into a sustained peak, then a settling
+# descent (F→D→Bb→G) resolving home — co-singing the movement the lead
+# makes through every chord progressionAt() visits in the POST-DROP
+# body (vocal only enters after the ~58s drop, so progressionAt() is
+# always in its home-resolved state — NO +2 intro shift applies here;
+# all targets are tonic-pole consonant against the resolved key).
+#
+# DEFINING QUALITY = much more STRETCHED / DRIPPIN: big sustained
+# *beats (*4 *6 *8), long melisma tails on the held words, generous
+# legato overlap downstream → a slow, gooey, drawn-out sung lead-double,
+# not a punchy hook. ~17s phrase so it co-sings in clean post-drop
+# windows with breathing gaps (and clear of the centred stamp/neigh).
+#
+# Word ORDER strictly matches LYRIC in sing-penta.mjs / trancepenta.txt.
+# notation: NOTE:syllable*beats   (continuation syllables start with -)
+
+verse 1
+# "fog on the harbour" — low anchor → rising tonic arpeggio (G Bb D F)
+G3:fog*3
+A#3:on*1
+D4:the*1
+F4:har-*2 D4:-bour*2
+
+# "the sea is a screen" — the lead's airy mid-arc, held
+D4:the*1
+F4:sea*2
+D4:is*1
+A#3:a*1
+D4:screen-*1 F4:-screen*3
+
+# "ride the slow horse home" — lift to the pole, long drippin holds
+G4:ride*2
+F4:the*1
+D4:slow*3
+A#3:horse-*1 D4:-horse*2
+G3:home*4
+
+# "drift / hold" — the BIG drips: long sustained melisma on the lead's
+# tonic-pole arc, drawn way out
+D4:drift-*2 F4:-drift-*2 D4:-drift*3
+A#3:hold-*2 G3:-hold*4
+
+# "glow in the grey tide" — settle back down, gooey
+D4:glow*2
+F4:in*1
+D4:the*1
+A#3:grey*2
+G3:tide-*1 A#3:-tide-*1 G3:-tide*3
+
+# "the long blue hum" — final long resolve home (the deepest drip)
+D4:the*1
+A#3:long*2
+D4:blue*2
+G3:hum*5
