@@ -248,7 +248,9 @@ const isChill     = MODE === "chill";
 // Default tempo tuned so 64 bars in waltz mode = exactly 84.0 s (1:24
 // — jeffrey's birthday). 137.143 bpm × 3/4 × 64 = 84.000 s. Effectively
 // "138 bpm trance" within 0.6%, but lands on a clean loop boundary.
-const BPM         = Number(flags.bpm ?? 137.143);
+// Chill defaults slower (124) — more laid-back than the 137 trancenwaltz
+// cut. Explicit --bpm always wins. (Non-chill keeps the birthday tempo.)
+const BPM         = Number(flags.bpm ?? (isChill ? 124 : 137.143));
 const SCALE_NAME  = flags.scale || "minor";
 const ROOT_MIDI   = Number(flags.root ?? 57);
 const SECTION     = flags.section || "full";
@@ -453,7 +455,12 @@ const barSec   = beatSec * METER;
 // while the greeting's "Angeles" tail is still resolving — the
 // sniper bang lands on a 16th-note hihat tick just inside the
 // overlap, making the entry punchier.
-const OPENING_PREFIX_SEC = 2.7;
+// In chill mode the opening boot-sonification (startup melody + the
+// beep→hat blend) is removed, so there's no narrative prefix to host.
+// Start the music almost immediately — just a hair of lead-in for the
+// --master fade — instead of leaving ~2.7 s of dead air at the top of
+// the single.
+const OPENING_PREFIX_SEC = isChill ? 0.25 : 2.7;
 const musicSec = barSec * TOTAL_BARS;
 const totalSec = musicSec + OPENING_PREFIX_SEC;
 const tailSec  = 0;
@@ -639,6 +646,61 @@ function fireWhistle(target, startSec, midi, durSec, gain = 1.0) {
     v.synth({ type: "sine",     tone: tone * 3,     duration: segDur + 0.04, volume: gain * 0.06 * env, attack: 0.014, decay: segDur * 0.9 });
     v.synth({ type: "noise",    tone: tone * 1.5,   duration: segDur,        volume: gain * 0.25 * env, attack: 0.008, decay: segDur * 0.85 });
     v.synth({ type: "noise",    tone: 4500,         duration: segDur,        volume: gain * 0.10 * env, attack: 0.008, decay: segDur * 0.85 });
+  }
+}
+
+// Mosquito / drone-bird — a thin detuned sawtooth "insect" that
+// wanders in pitch (slow random walk), buzzes (fast ~8-13 Hz wing
+// vibrato), flutters in amplitude (comes near / drifts off) and
+// circles the stereo field. Used in the chill mix instead of the
+// sustained supersaw wall — a small triad of these zip around like
+// annoying-but-musical flies.
+function fireMosquito(target, startSec, midi, durSec, gain = 1.0, panBase = 0) {
+  const baseFreq = 440 * Math.pow(2, (midi - 69) / 12);
+  const segDur = 0.05;
+  const segments = Math.max(4, Math.floor(durSec / segDur));
+  const vibHz = 8 + noiseRng() * 5;            // 8–13 Hz buzzy wingbeat
+  const panRate = 0.5 + noiseRng() * 1.6;      // how fast it circles
+  const panPhase = noiseRng() * Math.PI * 2;
+  let drift = 0;                                // slow pitch walk (cents)
+  for (let i = 0; i < segments; i++) {
+    const sf = i / segments;
+    const elapsed = sf * durSec;
+    drift += (noiseRng() - 0.5) * 22;
+    if (drift > 120) drift = 120;
+    if (drift < -120) drift = -120;
+    const vib = Math.sin(elapsed * 2 * Math.PI * vibHz) * 0.04;
+    const tone = baseFreq * Math.pow(2, drift / 1200) * (1 + vib);
+    const flutter = 0.5 + 0.5 * Math.abs(Math.sin(elapsed * 2 * Math.PI * (vibHz * 0.5)));
+    const env = Math.sin(sf * Math.PI);         // swell in, fade out
+    const pan = Math.max(-1, Math.min(1,
+      panBase + 0.9 * Math.sin(elapsed * panRate * 2 * Math.PI + panPhase)));
+    const v = makeBufferSynth(target, startSec + elapsed, SAMPLE_RATE, noiseRng);
+    v.synth({ type: "sawtooth", tone, duration: segDur + 0.03, volume: gain * 0.5 * env * flutter, attack: 0.004, decay: segDur * 0.9, pan });
+    v.synth({ type: "sawtooth", tone: tone * 1.004, duration: segDur + 0.03, volume: gain * 0.30 * env * flutter, attack: 0.004, decay: segDur * 0.9, pan: -pan });
+  }
+}
+
+// Meditation gong — a high struck sine bell with a very long, slowly
+// dissipating ring, trailing into a white-noise "wave" that swells,
+// crests and zippers back out (a tone sweep up-then-down across a
+// noise band). Fired every ~8 bars in the chill mix.
+function fireGong(startSec, midi, gain = 1.0) {
+  mixEventSinebell(
+    { startSec, midi, gain, durSec: 0.2, tailSec: 6.5, attackSec: 0.004, decayScale: 4.0 },
+    dryBuf,
+    SAMPLE_RATE,
+  );
+  const waveDur = 3.0;
+  const seg = 0.05;
+  const n = Math.floor(waveDur / seg);
+  for (let i = 0; i < n; i++) {
+    const sf = i / n;
+    const amp = Math.pow(Math.sin(sf * Math.PI), 1.4);  // swell → ebb
+    const sweep = sf < 0.5 ? sf * 2 : (1 - sf) * 2;     // 0→1→0 zipper
+    const noiseTone = 1200 + sweep * 5200;
+    const w = makeBufferSynth(dryBuf, startSec + 0.04 + i * seg, SAMPLE_RATE, noiseRng);
+    w.synth({ type: "noise", tone: noiseTone, duration: seg + 0.03, volume: gain * 0.16 * amp, attack: 0.006, decay: seg * 0.9 });
   }
 }
 
@@ -1062,6 +1124,22 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   const kickEnabled = t.kick && !(t.riser && isLastBar) && !isFinalBar && instrumentEnabled("kick", bar);
   const densityRoll = rng();
 
+  // Progressive swing (chill only) — off-beats get pushed late by a
+  // fraction of a beat that linearly ramps from light → extreme across
+  // the track. Reads as a groove that loosens / the "tempo breathes",
+  // while the deterministic bar grid (struct/sections/seed/video stay
+  // aligned) is untouched. trancenwaltz has no swing.
+  const chillProg = bar / Math.max(1, TOTAL_BARS - 1); // 0 → 1
+  const swingSec  = isChill ? (0.06 + 0.42 * chillProg) * beatSec : 0;
+
+  // Meditation gong — every 8 bars in chill: a high struck sine bell
+  // that rings through + dissipates, trailing a white-noise wave that
+  // swells and zippers back out. Skips bar 0 so the intro breathes in.
+  if (isChill && bar > 0 && bar % 8 === 0) {
+    fireGong(barStart, scaleNoteMidi(chordDeg, 2), 0.34);
+    bellsCount++;
+  }
+
   // Final musical-ending cadence — fires on the last bar of the outro.
   // Held tonic chord (root + 3rd + 5th + octave) on the pad, a bell
   // ring on the root-octave, and a deep root thud. All overshoot
@@ -1127,7 +1205,10 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const accent = beat === 0 ? 1.05 : 0.95;
       // Humanize — tight ±5 ms jitter, scaled down in the settle window.
       const kickT = humanize(startSec, 5 * settleVar + 1);
-      fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN });
+      // Chill: subtle per-hit pitchFactor jitter on the kick noise
+      // transient — keeps it a kick but stops it being a stamped clone.
+      const kickPF = isChill ? 1 + (noiseRng() - 0.5) * 0.16 : 1;
+      fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN, pitchFactor: kickPF });
       kickTimes.push(kickT);
       events.kick.push({ t: kickT });
       kickCount++;
@@ -1156,7 +1237,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     const SETTLE_WINDOW_H = 4.0;
     const sixteenthSec_h = beatSec / 4;
     for (let beat = 0; beat < METER; beat++) {
-      const startSec = barStart + (beat + 0.5) * beatSec;
+      const startSec = barStart + (beat + 0.5) * beatSec + swingSec;
       if (startSec >= HAT_SUPPRESS_AFTER) continue;
       // Settle factor — 1.0 normally, drops to 0.0 by tape-stop.
       let settleVar = 1.0;
@@ -1168,7 +1249,10 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const v = 0.32 + rng() * 0.10;
       // Humanize hats — ±8 ms feels like a real drummer.
       const hatT = humanize(startSec, 8 * settleVar + 1);
-      fireDrum(dryBuf, hatT, "g", { volume: v * DRUM_GAIN });
+      // Chill: per-hit random pitchFactor scatters the noise band so no
+      // two hats sound identical (more organic, stochastic shimmer).
+      const hatPF = isChill ? 1 + (noiseRng() - 0.5) * 0.55 : 1;
+      fireDrum(dryBuf, hatT, "g", { volume: v * DRUM_GAIN, pitchFactor: hatPF });
       events.hat.push({ t: hatT, dur: 0.025 });
       hatCount++;
       // Flam — disabled in chill mode (reads as a doubled hihat in
@@ -1224,7 +1308,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       }
     }
     for (let beat = 0; beat < METER; beat++) {
-      const startSec = humanize(barStart + (beat + 0.5) * beatSec, 6);
+      const startSec = humanize(barStart + (beat + 0.5) * beatSec + swingSec, 6);
       const useFifth = (beat === 1 && METER >= 3); // 2nd beat → 5th up for color
       const midiNote = useFifth ? fifthBassMidi : bassMidi;
       // Per-beat ramp so the FIRST beat of the entry bar is quietest
@@ -1260,6 +1344,24 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // sawtooth stack (JP-8000 style) gives the "trance wall" texture
   // the sine-only voices can't carry alone.
   if (t.supersaw && instrumentEnabled("supersaw", bar)) {
+   if (isChill) {
+    // Chill: no trance wall. A triad of wandering sawtooth "mosquito"
+    // drone-birds in a high whiny register that zip around the stereo
+    // field and come/go — each voice sits out ~45 % of bars so they
+    // circle in and out instead of droning continuously.
+    let vi = 0;
+    for (const m of triad) {
+      vi++;
+      if (noiseRng() < 0.45) continue;             // this fly sits this bar out
+      const startOff = noiseRng() * barSec * 0.5;  // enters at a random point
+      const dur = barSec * (0.5 + noiseRng() * 0.5);
+      const panBase = vi === 1 ? -0.5 : vi === 2 ? 0.0 : 0.5;
+      const mm = m + 24;                            // up 2 octaves — whiny insect
+      fireMosquito(sawBuf, barStart + startOff, mm, dur, 0.085, panBase);
+      events.supersaw.push({ t: barStart + startOff, midi: mm, dur });
+      supersawCount++;
+    }
+   } else {
     // High supersaw — pulled back from 0.20 to 0.13 (it was masking
     // the imessage ding + lion roar + melodic gunfire on the drops).
     for (const m of triad) {
@@ -1287,6 +1389,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       );
       supersawCount += 2;
     }
+   }
   }
 
   // Lead — base theme + subtle microtonal drift + per-bar octave AND
@@ -1307,8 +1410,10 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // note becomes a rest, and the surviving notes get pushed back by a
     // 16th-note for that "delay skip" / behind-the-beat feel. Creates
     // the bouncing skipping melody instead of a flat march.
-    const skipBar  = leadRng() < 0.34;
-    const notesThisBar = Math.max(1, Math.floor(NOTES_PER_BAR_LEAD * subdivMul));
+    // Chill: skip more bars AND thin each bar to ~half the notes so the
+    // melody holds + breathes instead of running.
+    const skipBar  = leadRng() < (isChill ? 0.55 : 0.34);
+    const notesThisBar = Math.max(1, Math.floor(NOTES_PER_BAR_LEAD * subdivMul * (isChill ? 0.5 : 1)));
     const noteSec = barSec / notesThisBar;
     const skipDelay = noteSec * 0.18; // 16th-note nudge late
     for (let s = 0; s < notesThisBar; s++) {
@@ -1324,16 +1429,22 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       if (baseDeg == null) continue;
       const v = nextLeadVariation();
       if (v.skip) continue;
+      // Chill: extra rests — leave space between phrases.
+      if (isChill && leadRng() < 0.28) continue;
       const deg = baseDeg + v.stepShift + octaveShift;
       // On-beat notes in skip bars get nudged late so the bar feels
       // like it's lagging then catching up.
       const skipOffset = skipBar && s % 3 === 2 ? skipDelay : 0;
       // Humanize lead — ±11 ms feels expressive without losing the line.
-      const startSec = humanize(barStart + s * noteSec + skipOffset, 11);
+      // Chill rides the swing pocket too, so the line lays back with the groove.
+      const startSec = humanize(barStart + s * noteSec + skipOffset + swingSec, 11);
       const leadMidi = scaleNoteMidi(deg, 0) + v.cents / 100;
       const inBreak = !t.kick;
-      // Skip-bar notes are slightly shorter so the rests speak.
-      const durMul = skipBar ? 0.65 : (inBreak ? 1.4 : 0.85);
+      // Chill: notes HOLD ~2× their slot so they ring across the rests
+      // (sustained, not plucky). Otherwise the original plucky envelope.
+      const durMul = isChill
+        ? (skipBar ? 1.1 : 1.9)
+        : (skipBar ? 0.65 : (inBreak ? 1.4 : 0.85));
       const durSec = noteSec * durMul;
       mixEventLeadPad(
         { startSec, midi: leadMidi, gain: LEAD_GAIN, durSec },
@@ -1528,11 +1639,25 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const breakProgress = sec === "break1" ? localBar / Math.max(1, sectionLen - 1) : 0;
       fadeMul = 0.25 * Math.max(0, 1 - breakProgress);
     }
+    // Chill mix: the arp is a pure SINE one octave down for its entire
+    // life — no bright square intro expression. The phase logic still
+    // governs the crescendo / elongation / fade dynamics; only timbre
+    // and octave are pinned. trancenwaltz keeps the square→sine morph.
+    if (isChill) {
+      waveMix = 1;                                 // sine only — never the square
+      octShift = 12;                               // one octave down throughout
+      steps = Math.max(3, Math.round(steps / 2));  // half the notes — holds + breathes
+      durMul = durMul * 2.0;                       // each note rings across the gap
+    }
     if (fadeMul > 0.01) {
       const stepSec = barSec / steps;
       for (let sIdx = 0; sIdx < steps; sIdx++) {
-        // Humanize the square arp — ±6 ms keeps it tight but alive.
-        const startSec = humanize(barStart + sIdx * stepSec, 6);
+        // Chill: extra rests so the arp skips + leaves space.
+        if (isChill && noiseRng() < 0.22) continue;
+        // Chill swings its off-step (odd) notes into the same late pocket
+        // as the hats/sub. Humanize the arp — ±6 ms keeps it alive.
+        const swung = (isChill && sIdx % 2 === 1) ? swingSec : 0;
+        const startSec = humanize(barStart + sIdx * stepSec + swung, 6);
         const patIdx = sIdx % arpPattern.length;
         const deg = chordDeg + arpPattern[patIdx];
         const octBump = sIdx % 4 < 2 ? 1 : 2;
@@ -1810,18 +1935,28 @@ if (!isChill) {
   const compStart = 11.83;
   const compBar = Math.floor(compStart / barSec);
   const compChord = progressionAt(compBar);
-  // SKIPPY 3-note phrase — short staccato whistle notes with small
-  // gaps between them, matching the punchy "com-PU-ter" syllable
-  // articulation rather than a smooth legato sustain.
-  const compPhrase = [
-    { deg: 0, oct: 1, dur: 0.18, gap: 0.08 },
-    { deg: 2, oct: 1, dur: 0.18, gap: 0.08 },
-    { deg: 4, oct: 1, dur: 0.32, gap: 0.0  },
-  ];
+  // Non-chill: SKIPPY 3-note phrase — short staccato whistle notes
+  // tracking the punchy "com-PU-ter" syllables of the vocal.
+  // Chill: there's NO vocal to follow, so the staccato blip reads as a
+  // random sketchy whistle. Replace it with a slow, low, STRETCHED
+  // ~3.3 s legato swell one octave down — a soft descending sigh that
+  // engages fireWhistle's long-note vibrato path.
+  const compPhrase = isChill
+    ? [
+        { deg: 4, oct: 0, dur: 1.05, gap: 0.0 },
+        { deg: 2, oct: 0, dur: 1.05, gap: 0.0 },
+        { deg: 0, oct: 0, dur: 1.20, gap: 0.0 },
+      ]
+    : [
+        { deg: 0, oct: 1, dur: 0.18, gap: 0.08 },
+        { deg: 2, oct: 1, dur: 0.18, gap: 0.08 },
+        { deg: 4, oct: 1, dur: 0.32, gap: 0.0  },
+      ];
+  const compGain = isChill ? 0.24 : 0.32;
   let t = compStart;
   for (const n of compPhrase) {
     const midi = scaleNoteMidi(compChord + n.deg, n.oct);
-    fireWhistle(sfxDryBuf, t, midi, n.dur, 0.32);
+    fireWhistle(sfxDryBuf, t, midi, n.dur, compGain);
     events.sfx.push({ t, name: "whistle", dur: n.dur });
     t += n.dur + n.gap;
   }
@@ -1989,12 +2124,18 @@ if (!isChill && !RELEASE_MASTER) {
 // Boot melody fires AFTER the typing finishes (was 0.05 s — now
 // gated behind the ~0.95 s typing burst). Still well before the
 // sniper (2.625 s) and music entry (2.7 s).
+// BOOT_SEC stays defined in chill — the non-chill pre-roll hats
+// anchor on it — but the audible startup melody is skipped below.
 const BOOT_SEC = isChill ? 0.05 : (TYPE_START + TYPE_N * TYPE_GAP + 0.13);
-fireBootMelody(sfxDryBuf, BOOT_SEC, 1.0);
-// Boot chime — tagged as a point marker so the visualizer renders
-// it decorrelated from the boot-beeps waveform behind it. Three
-// chime tones C5→E5→G5 at ~0.4s each.
-events.sfx.push({ t: BOOT_SEC, name: "boot-chime", dur: 0.4, point: true });
+// Startup beeps — skipped in chill mode. The study mix has no
+// system-boot narrative; it just begins on the music.
+if (!isChill) {
+  fireBootMelody(sfxDryBuf, BOOT_SEC, 1.0);
+  // Boot chime — tagged as a point marker so the visualizer renders
+  // it decorrelated from the boot-beeps waveform behind it. Three
+  // chime tones C5→E5→G5 at ~0.4s each.
+  events.sfx.push({ t: BOOT_SEC, name: "boot-chime", dur: 0.4, point: true });
+}
 const sixteenthSec_BOOT = (60 / BPM) / 4;
 const sniperSec = 24 * sixteenthSec_BOOT;
 if (!isChill) {
@@ -2094,8 +2235,14 @@ if (!isChill) {
 //
 // Rate decelerates from 16th → 8th (the "coming in for a landing"
 // curve).
+//
+// SKIPPED IN CHILL MODE — this is the startup "beep bop"
+// sonification, and its hat layer overlaps the intro's own in-bar
+// hats (which begin at music entry), producing an audible DOUBLED
+// hi-hat at the top of the track. The chill study mix opens clean
+// on the bed instead.
 const BEEP_BLEND_END_SEC = OPENING_PREFIX_SEC + 2.3; // ≈ 5.0 s
-{
+if (!isChill) {
   const sixteenthSec = beatSec / 4;
   const eighthSec    = beatSec / 2;
   // Starts with the (moved) boot melody so the typing window stays
@@ -2799,7 +2946,9 @@ function buildMelodicScreamsStem(targetDurSec) {
 // Render a melodic stem for each unique build duration up front so the
 // mix step can decode them as needed.
 const SCREAMS_PER_BUILD = new Map(); // sectionName → path
-if (existsSync(SCREAMS_RAW_PATH)) {
+// Gated by !isChill: the chill mix never mixes screams (see below), so
+// don't waste an ffmpeg pass pre-rendering a stem it won't use.
+if (!isChill && existsSync(SCREAMS_RAW_PATH)) {
   for (const r of sectionRanges) {
     if (!r.name.startsWith("build")) continue;
     const dur = r.endSec - r.startSec;
