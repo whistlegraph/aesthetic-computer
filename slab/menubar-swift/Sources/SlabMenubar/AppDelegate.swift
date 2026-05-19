@@ -24,6 +24,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// to Terminal, so the per-tick refresh only fires osascript when
     /// something actually changed.
     private var lastTerminalDecor: [String: String] = [:]
+    /// Last desktop-picture path slab pushed via System Events (the tint PNG,
+    /// or "" meaning "restored to the user's original"), so the per-tick
+    /// refresh only re-sets the wallpaper when the aggregate status changed.
+    private var lastDesktopTint: String?
+    /// True once we've saved the user's pre-slab desktop picture to
+    /// `Paths.desktopOriginalFile`; until then we never overwrite it.
+    private var desktopOriginalCaptured = false
     /// Base font size from the most recent `tileNow()` pass. `applyTerminalDecor`
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
@@ -120,6 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
                 self.applyTerminalDecor()
+                self.applyDesktopTint()
             }
         }
     }
@@ -909,6 +917,108 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 + "profiles=\(profileOrder.count)")
         }
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", tmScript])
+    }
+
+    // MARK: - Desktop tint (status wallpaper)
+
+    /// Set the macOS desktop picture to a flat solid color: the **average
+    /// of every live session's status color**, then pushed *darker* (dark
+    /// mode) or *lighter* (light mode) than the tasks themselves so the
+    /// desktop stays recessive behind the themed terminals. Recomputed
+    /// whenever any task changes — a new average → a new memo key →
+    /// reapply. Uses the in-process `NSWorkspace` desktop-image API, NOT
+    /// System Events osascript (`get/set picture of desktop` returns
+    /// `missing value` on current macOS, and NSWorkspace needs no
+    /// Automation TCC). The user's pre-slab wallpaper is captured once
+    /// before the first overwrite and restored whenever theme-by-status is
+    /// off / no sessions are live. Decision runs on the main hop (NSScreen
+    /// is main-affine); the render + per-screen set are dispatched off-main
+    /// so the 2 s tick never stalls (see slab-menubar-perf).
+    private func applyDesktopTint() {
+        // Always runs, even when theming is off: this is how a wallpaper the
+        // user picks (while theme-by-status is disabled) gets remembered as
+        // the restore target.
+        captureOriginalIfNeeded()
+        let sessions = state.claudeSessions
+        guard state.themeByStatus, !sessions.isEmpty else {
+            if lastDesktopTint != "" {
+                lastDesktopTint = ""
+                restoreDesktopWallpaper()
+            }
+            return
+        }
+        let dark = Self.isDarkAppearance()  // NSApp/NSScreen → main only
+        // Component-wise mean of every session's status page color.
+        var sr = 0, sg = 0, sb = 0
+        for s in sessions {
+            let c = Self.statusDecor(for: s.state, dark: dark).palette.bg
+                ?? (0, 0, 0)
+            sr += c.0; sg += c.1; sb += c.2
+        }
+        let n = sessions.count
+        let avg = (sr / n, sg / n, sb / n)
+        // Keep the desktop off the tasks' own brightness: darker in dark
+        // mode, lighter in light mode, so terminals always sit above it.
+        func adjust(_ v: Int) -> Int {
+            dark ? Int(Double(v) * 0.55)
+                 : v + Int(Double(65535 - v) * 0.55)
+        }
+        let color = (adjust(avg.0), adjust(avg.1), adjust(avg.2))
+        let name = "avg-\(dark ? "dark" : "light")"
+        // Memo on the resolved color so any task change (→ new average)
+        // re-applies, and an unchanged average doesn't even dispatch.
+        let memoKey = "\(name)|\(color.0),\(color.1),\(color.2)"
+        if lastDesktopTint == memoKey { return }
+        lastDesktopTint = memoKey
+        let screens = NSScreen.screens
+        DispatchQueue.global(qos: .utility).async {
+            guard let path = DesktopTint.ensure(name: name, color: color)
+            else { return }
+            let url = URL(fileURLWithPath: path)
+            for s in screens {
+                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: [:])
+            }
+        }
+    }
+
+    /// Save the current desktop picture path to `Paths.desktopOriginalFile`
+    /// so it can be restored when theming is off / no sessions are live.
+    /// Cheap in-process NSWorkspace read; skipped once captured, or if the
+    /// current picture is already one of slab's tint PNGs (so we never
+    /// record our own image as "the original"). Re-attempts every tick
+    /// while uncaptured, so a wallpaper the user sets later still sticks.
+    private func captureOriginalIfNeeded() {
+        guard !desktopOriginalCaptured else { return }
+        if FileManager.default.fileExists(atPath: Paths.desktopOriginalFile) {
+            desktopOriginalCaptured = true
+            return
+        }
+        guard let scr = NSScreen.main,
+              let cur = NSWorkspace.shared.desktopImageURL(for: scr),
+              !cur.path.hasPrefix(Paths.desktopWallpaperDir)
+        else { return }
+        let dir = (Paths.desktopOriginalFile as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(
+            atPath: dir, withIntermediateDirectories: true)
+        try? cur.path.write(toFile: Paths.desktopOriginalFile,
+                            atomically: true, encoding: .utf8)
+        desktopOriginalCaptured = true
+    }
+
+    private func restoreDesktopWallpaper() {
+        guard let raw = try? String(
+                contentsOfFile: Paths.desktopOriginalFile, encoding: .utf8)
+        else { return }
+        let orig = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !orig.isEmpty,
+              FileManager.default.fileExists(atPath: orig) else { return }
+        let url = URL(fileURLWithPath: orig)
+        let screens = NSScreen.screens  // main-affine; we're on the main hop
+        DispatchQueue.global(qos: .utility).async {
+            for s in screens {
+                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: [:])
+            }
+        }
     }
 
     /// Which terminal app to spawn restored sessions into. Honor whatever

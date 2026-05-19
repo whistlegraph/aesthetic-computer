@@ -13,6 +13,13 @@ enum Paths {
 
     static var slabWallpaper: String { "\(slabBin)/slab-wallpaper" }
     static var wallpaperStatusDir: String { "\(slabHome)/wallpaper/status" }
+    /// Cached near-black + status-glow PNGs set as the macOS desktop
+    /// picture (aggregate Claude status, matching the menubar icon).
+    static var desktopWallpaperDir: String { "\(slabHome)/wallpaper/desktop" }
+    /// The user's pre-slab desktop picture path, captured once before slab
+    /// ever overwrites it, so it can be restored when theme-by-status is
+    /// off or no sessions are live.
+    static var desktopOriginalFile: String { "\(desktopWallpaperDir)/.original" }
 
     /// Generic iMessage bridge (contact lives in the untracked config below,
     /// never in tracked code). Mirrors the slab-wallpaper wrapper convention.
