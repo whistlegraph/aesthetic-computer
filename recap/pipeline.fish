@@ -24,6 +24,14 @@ echo "▸ 2/8 transcribe + align"
 node bin/transcribe.mjs; or exit 1
 node bin/align.mjs $AUDIENCE; or exit 1
 
+echo "▸ 2.5/8 sing (pitchsnap → recap-sung.mp3 + rewrites words.json)"
+node bin/sing.mjs $AUDIENCE
+or echo "  ↳ sing step skipped or failed — compose will use plain narration"
+# Re-align after sing rewrote words.json so segments.json reflects
+# the stretched timeline. align caches on words.json hash so this
+# only re-runs when sing actually changed something.
+node bin/align.mjs $AUDIENCE --force; or exit 1
+
 echo "▸ 3/8 jeffrey-photos (gpt-image-2, cached per segment)"
 node bin/jeffrey-photos.mjs $AUDIENCE; or exit 1
 
@@ -71,6 +79,19 @@ or echo "  ↳ waltz-overlay skipped (no events.json) — compose without piano 
 
 echo "▸ 8/8 compose"
 fish bin/compose.fish; or exit 1
+
+echo "▸ 8.5/8 timeline (post-analysis PNG → desktop)"
+set -l TIMELINE_OUT "$HOME/Desktop/recap-timing_"(date +%Y-%m-%d_%H%M%S)".png"
+if test -x ../pop/.venv/bin/python
+  ../pop/.venv/bin/python bin/timeline.py \
+    --subs out/subs.json \
+    --events out/waltz-events.json \
+    --audio out/waltz.mp3 \
+    --out "$TIMELINE_OUT"
+  or echo "  ↳ timeline step skipped or failed"
+else
+  echo "  ↳ no pop/.venv — skipping timeline (install librosa/matplotlib to enable)"
+end
 
 echo "━━━ done · $ROOT/out/recap.mp4 ━━━"
 ls -lh $ROOT/out/recap.mp4

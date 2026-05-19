@@ -111,8 +111,22 @@ function pillYAt(startSec) {
   }
   return PILL_Y_DEFAULT;
 }
+// Per-segment chapter color → tints the pill's border + accent text so
+// the subtitle reads as a continuation of the chapter color story.
+function colorAt(startSec) {
+  for (const seg of segments) {
+    if (startSec >= seg.startSec && startSec < seg.endSec) {
+      const layout = layouts[seg.name];
+      if (layout && layout.color && layout.color.hex) return layout.color;
+      break;
+    }
+  }
+  return { hex: "#ff69b4", brightHex: "#ff89d6", rgb: [255, 105, 180] };
+}
+function rgbaStr(rgb, a) { return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`; }
 
-function buildCss(pillY) {
+function buildCss(pillY, color) {
+  const borderRgba = rgbaStr(color.rgb, 0.65);
   return `
 @font-face {
   font-family: 'ProcessingB';
@@ -133,9 +147,9 @@ html, body { width: ${FRAME_W}px; height: ${FRAME_H}px; background: transparent;
   padding: 0 60px;
 }
 .pill {
-  background: rgba(16, 8, 32, 0.72);
+  background: rgba(16, 8, 32, 0.78);
   backdrop-filter: blur(2px);
-  border: 3px solid rgba(255, 105, 180, 0.55);
+  border: 3px solid ${borderRgba};
   border-radius: 14px;
   padding: 18px 40px;
   max-width: 100%;
@@ -148,7 +162,7 @@ html, body { width: ${FRAME_W}px; height: ${FRAME_H}px; background: transparent;
   text-shadow: 0 2px 0 rgba(0,0,0,0.5);
   word-wrap: break-word;
 }
-.pill em { font-style: normal; color: #ff70d0; }
+.pill em { font-style: normal; color: ${color.brightHex || color.hex}; }
 `;
 }
 
@@ -162,7 +176,8 @@ for (let i = 0; i < chunks.length; i++) {
   const c = chunks[i];
   const file = `${SUB_DIR}/${String(i).padStart(3, "0")}.png`;
   const pillY = pillYAt(c.startMs / 1000);
-  const css = buildCss(pillY);
+  const color = colorAt(c.startMs / 1000);
+  const css = buildCss(pillY, color);
   const page = await browser.newPage();
   await page.setViewport({ width: FRAME_W, height: FRAME_H, deviceScaleFactor: 1 });
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div class="wrap"><div class="pill">${escapeHtml(c.text)}</div></div></body></html>`;

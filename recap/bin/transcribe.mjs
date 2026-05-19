@@ -64,5 +64,8 @@ const words = raw.transcription
   .filter((w) => w.text.length > 0);
 
 writeFileSync(wordsPath, JSON.stringify(words, null, 2));
+// Stable snapshot of fresh whisper output — sing.mjs reads from this
+// so its score never gets fed back its own previous output.
+writeFileSync(`${ROOT}/out/words.whisper.json`, JSON.stringify(words, null, 2));
 writeFileSync(hashFile, inputHash + "\n");
 console.log(`✓ ${wordsPath} · ${words.length} words · ${(words[words.length - 1].toMs / 1000).toFixed(2)}s · hash ${inputHash}`);

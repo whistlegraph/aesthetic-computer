@@ -175,22 +175,70 @@ for (const name of slidesOrder) {
   await new Promise((r) => setTimeout(r, 200));
   const png = await page.screenshot({ type: "png", omitBackground: false });
   writeFileSync(`${SLIDE_DIR}/${name}.png`, png);
+
+  // Chrome-only sibling — same body but with the full-bleed photo
+  // <img> stripped + transparent background. Used by compose.fish to
+  // overlay chrome on top of a separately-shaken photo stream so the
+  // chapter prompt / QR / PALS watermarks stay still while the
+  // portrait below them does the handicam crop.
+  const chromeBody = body.replace(/<img[^>]*object-fit:\s*cover[^>]*\/?\s*>/g, "");
+  const chromeHtml = `<!doctype html><html><head><meta charset="utf-8"><style>${cssTemplate}\nhtml,body{background:transparent;}</style></head><body>${chromeBody}</body></html>`;
+  await page.setContent(chromeHtml, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await new Promise((r) => setTimeout(r, 200));
+  const chromePng = await page.screenshot({ type: "png", omitBackground: true });
+  mkdirSync(`${ROOT}/out/chrome`, { recursive: true });
+  writeFileSync(`${ROOT}/out/chrome/${name}.png`, chromePng);
+
   await page.close();
   const seg = segments.find((s) => s.name === name);
-  console.log(`✓ ${name}.png · ${seg.durationSec.toFixed(2)}s (${seg.startSec}s → ${seg.endSec}s)`);
+  console.log(`✓ ${name}.png + chrome/${name}.png · ${seg.durationSec.toFixed(2)}s (${seg.startSec}s → ${seg.endSec}s)`);
 }
 await browser.close();
 
-// concat.txt with real durations
+// concat.txt with real durations (full composited slides — kept for
+// backward-compat / debugging). compose.fish now uses the photo +
+// chrome split below.
 const lines = [];
 for (const seg of segments) {
   lines.push(`file '${SLIDE_DIR}/${seg.name}.png'`);
   lines.push(`duration ${seg.durationSec}`);
 }
-// concat demuxer needs the last file repeated without duration for proper end
 lines.push(`file '${SLIDE_DIR}/${segments[segments.length - 1].name}.png'`);
 writeFileSync(`${ROOT}/out/concat.txt`, lines.join("\n") + "\n");
 
+// photos.txt — raw jeffrey-photos for chapters (the camera-shake
+// stream operates on these), full end-slide for the static end card.
+// A 1080×1920 black placeholder is used for any segment without a
+// jeffrey-photos sibling.
+import { spawnSync } from "node:child_process";
+const photosDir = `${ROOT}/out/jeffrey-photos`;
+const blackPath = `${ROOT}/out/black-1080x1920.png`;
+if (!existsSync(blackPath)) {
+  const ff = "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg";
+  spawnSync(ff, ["-hide_banner","-loglevel","error","-y","-f","lavfi","-i","color=c=black:s=1080x1920:d=1","-frames:v","1",blackPath], { stdio: "inherit" });
+}
+function photoFor(seg) {
+  const candidate = `${photosDir}/${seg.name}.png`;
+  if (existsSync(candidate)) return candidate;
+  return blackPath;
+}
+const photoLines = [];
+for (const seg of segments) {
+  photoLines.push(`file '${photoFor(seg)}'`);
+  photoLines.push(`duration ${seg.durationSec}`);
+}
+photoLines.push(`file '${photoFor(segments[segments.length - 1])}'`);
+writeFileSync(`${ROOT}/out/photos.txt`, photoLines.join("\n") + "\n");
+
+// chrome.txt — the chrome PNGs for each slide.
+const chromeLines = [];
+for (const seg of segments) {
+  chromeLines.push(`file '${ROOT}/out/chrome/${seg.name}.png'`);
+  chromeLines.push(`duration ${seg.durationSec}`);
+}
+chromeLines.push(`file '${ROOT}/out/chrome/${segments[segments.length - 1].name}.png'`);
+writeFileSync(`${ROOT}/out/chrome.txt`, chromeLines.join("\n") + "\n");
+
 const total = segments[segments.length - 1].endSec;
 writeFileSync(`${ROOT}/out/duration.txt`, String(total));
-console.log(`✓ ${ROOT}/out/concat.txt · total ${total}s`);
+console.log(`✓ ${ROOT}/out/concat.txt + photos.txt + chrome.txt · total ${total}s`);
