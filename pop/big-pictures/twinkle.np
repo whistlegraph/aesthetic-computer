@@ -1,0 +1,22 @@
+# Twinkle Twinkle Little Star — canonical nursery-rhyme melody.
+# Mozart variations / Bourée / "Ah! vous dirai-je, maman"
+# Key: C major. Range: C4–A4. 4/4, last note of each phrase doubled.
+#
+# Words:        twinkle  twinkle  little   star
+# Syllables:    twin-kle twin-kle li-ttle  star
+# Notes:        C4  C4   G4  G4   A4  A4   G4*2
+#
+# notation: NOTE:syllable*beats
+# Multi-syllable words use leading hyphen on continuation syllables.
+#
+# bpm: 80, 4/4. Each syllable = 1 beat, phrase ends = 2 beats.
+
+verse 1
+C4:twin-*1 C4:-kle*1 G4:twin-*1 G4:-kle*1 A4:li-*1 A4:-ttle*1 G4:star*2
+F4:how*1 F4:i*1 E4:won-*1 E4:-der*1 D4:what*1 D4:you*1 C4:are*2
+G4:up*1 G4:a-*1 F4:-bove*1 F4:the*1 E4:world*1 E4:so*1 D4:high*2
+G4:like*1 G4:a*1 F4:dia-*1 F4:-mond*1 E4:in*1 E4:the*1 D4:sky*2
+
+verse 2
+C4:twin-*1 C4:-kle*1 G4:twin-*1 G4:-kle*1 A4:li-*1 A4:-ttle*1 G4:star*2
+F4:how*1 F4:i*1 E4:won-*1 E4:-der*1 D4:what*1 D4:you*1 C4:are*2

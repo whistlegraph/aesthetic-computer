@@ -271,38 +271,28 @@ def camera_x(t, slides, lane_starts, lane_widths, screen_w, peek_px,
         return 0.0
     cs = lambda i: lane_starts[i] + lane_widths[i] / 2.0 - screen_w / 2.0
     LANE_W = lane_widths[0] if lane_widths else screen_w
-    # Build keyframe list — 2 per slide (arrival + held-centered).
-    # in_end is at slide.start + td: the camera ARRIVES centered td
-    # AFTER the word's audio begins. So when a word starts being sung
-    # the slide slides in from the right. The camera then holds at
-    # cs(i) for the FULL duration of the slide (no peek-drift). The
-    # transition cs(i)→cs(i+1) happens during the NEXT slide's
-    # opening td seconds.
+    # Build keyframe list — slide-in happens DURING the first td of
+    # the new word's audio (not before — user feedback: "slides
+    # slide before they're spoken" was bad). Camera arrives centered
+    # at slide.start + td. Then dead-still hold (no drift) until
+    # slide.end. With LANE_W = 1.85*W, the wide lane spacing makes
+    # the slide scroll fully off-screen left before the next one
+    # enters from the right — no "doubling" two words on screen.
     kfs = []
     for i, s in enumerate(slides):
         d = s["end"] - s["start"]
         td = transition_dur(d)
         in_end = s["start"] + td
-        # Held-centered keyframe at slide.end so the camera stays
-        # rooted on the slide's letters for the full sustain, even
-        # for *4/*5 long-held notes — no drifting away while the
-        # word is still being sung.
-        kfs.append((in_end, cs(i)))
-        kfs.append((s["end"], cs(i)))
-    # Phantom pre-roll keyframe at t=0: place the camera at cs(0) -
-    # LANE_W (≡ cs(n-1) mod n*LANE_W) so frame 0 shows slide_(n-1)
-    # centered and the transition to cs(0) plays out over the first
-    # slide's opening td. This makes the very first slide also slide
-    # in from the right exactly as the first word begins.
-    if n > 0 and slides[0]["start"] < 0.001:
-        kfs.insert(0, (0.0, cs(0) - LANE_W))
+        kfs.append((in_end, cs(i)))           # arrival, td after audio start
+        kfs.append((s["end"], cs(i)))         # held dead-still until end
     if loop_end_t is not None and loop_end_t > kfs[-1][0]:
-        # During trailing silence (after the last slide ends but before
-        # loop_end_t), keep the camera CENTERED on the last slide. Frame
-        # N-1 lands at cs(n-1); frame 0 of the next iteration starts at
-        # cs(0)-LANE_W ≡ cs(n-1) mod — seamless wrap with no off-center
-        # drift while the final word's tail is still ringing.
-        kfs.append((loop_end_t, cs(n - 1)))
+        # Loop closure: from cs(n-1) at s_{n-1}.end, slide back to slide_0.
+        # cs(0)+n*LANE_W ≡ cs(0) mod n*LANE_W, so the camera lands on the
+        # FIRST slide centered at loop_end_t. Frame 0 of the next loop
+        # iteration is also at cs(0) — perfect seam, slide_0 is centered
+        # on both sides of the wrap. The slide-back motion plays out over
+        # the trailing silence, satisfying "loop back to the first frame".
+        kfs.append((loop_end_t, cs(0) + n * LANE_W))
     first_t, first_pos = kfs[0]
     last_t, last_pos = kfs[-1]
     if t <= first_t:
@@ -324,9 +314,12 @@ def camera_x(t, slides, lane_starts, lane_widths, screen_w, peek_px,
 # high and zooms up. Neighbors bounce/zoom less. Like macOS dock hover
 # but the cursor moves left-to-right through the word over the slide's
 # duration.
-DOCK_WINDOW = 1.5  # how many "char slots" of influence each side
-MAX_BOUNCE_PX = 64  # peak bounce — more energetic, more responsive
-MAX_ZOOM = 1.00
+DOCK_WINDOW = 1.8       # influence each side — wider so neighbors join in
+MAX_BOUNCE_PX = 140     # peak vertical bounce (was 64) — way more dramatic
+MAX_ZOOM = 1.45         # peak scale-up at the cursor (was 1.0 = no zoom)
+MAX_ROTATION_DEG = 14   # peak rotation wiggle, ± degrees
+MAX_X_WIGGLE_PX = 22    # peak horizontal wiggle
+WIGGLE_HZ = 7.5         # wiggle frequency for rotation+x — fast enough to feel jittery
 
 def char_emphasis(t, slide, char_idx, n_chars, amp_now):
     # Time window over which the singing-cursor traverses the word —
@@ -341,15 +334,30 @@ def char_emphasis(t, slide, char_idx, n_chars, amp_now):
     if distance > DOCK_WINDOW:
         return 0.0
     weight = 0.5 + 0.5 * np.cos(np.pi * distance / DOCK_WINDOW)
-    # Amp-driven response — minimal floor so quiet moments are quiet,
-    # peak moments really pop.
-    return weight * (0.10 + 0.90 * amp_now)
+    # Amp-driven response — minimal floor so quiet moments stay quiet,
+    # peak moments really pop. Bias toward amp so loud peaks dominate.
+    return weight * (0.15 + 0.85 * amp_now)
 
 def char_bounce_y(emphasis):
     return int(emphasis * MAX_BOUNCE_PX * -1)  # negative = up
 
 def char_zoom(emphasis):
     return 1.0 + emphasis * (MAX_ZOOM - 1.0)
+
+def char_rotation(emphasis, t, char_idx):
+    # Each char wiggles on its own phase (offset by index) so the word
+    # doesn't rock as a single block — letters look alive.
+    if emphasis <= 0:
+        return 0.0
+    phase = 2 * np.pi * (WIGGLE_HZ * t + char_idx * 0.37)
+    return float(emphasis * MAX_ROTATION_DEG * np.sin(phase))
+
+def char_x_wiggle(emphasis, t, char_idx):
+    if emphasis <= 0:
+        return 0
+    # Cosine offset against rotation's sine — gives a slight orbital feel
+    phase = 2 * np.pi * (WIGGLE_HZ * t + char_idx * 0.37) + np.pi / 2
+    return int(emphasis * MAX_X_WIGGLE_PX * np.cos(phase))
 
 
 # ── Live-waveform connector polyline ─────────────────────────────────
@@ -483,7 +491,13 @@ def main():
     KERN_SPACING = 4       # air between letters within a word
     BASE_SCALE = 0.85      # bigger now since one word per screen
     FOCUS_BOOST = 1.18     # spotlight only mildly above general
-    LANE_W = W             # one word per screen-width
+    LANE_W = int(W * 1.85) # wider lane spacing so during slide-in
+                            # transitions, slide_i scrolls fully off
+                            # left BEFORE slide_(i+1) enters from
+                            # right — eliminates the "two words at
+                            # once" doubling. Was W (one word per
+                            # screen width) which guaranteed overlap
+                            # at the transition midpoint.
     MIN_PAD = 80           # generous bg-color padding around each word
     # MAX_WORD_W must account for FOCUS_BOOST so even 7-letter words
     # fit within the viewport at peak spotlight scale, with comfortable
@@ -492,7 +506,13 @@ def main():
     MAX_WORD_W = int((LANE_W - 2 * SIDE_AIR_PX) / FOCUS_BOOST)
     TARGET_WORD_H = int(H * 0.10)    # ~192px tall — one-word focus
     PEEK_PX = int(W * 0.14)          # ~150px of next word peeks in by hold-end
-    CONSUME_ZONE = 0.40              # whole left ~40% of screen disintegrates
+    CONSUME_ZONE = 0.13              # just the leftmost ~13% — only letters
+                                     # actually about to scroll off the
+                                     # screen disintegrate. Anything wider
+                                     # eats into the active word's first
+                                     # letter during slide-in transitions
+                                     # and makes the active syllable look
+                                     # faded/glitched while still being sung.
     LOOKAHEAD_ZONE = 0.82
 
     # Per-word display scale — height-normalized, then capped to fit
@@ -644,7 +664,8 @@ def main():
     def paint_lane_glyphs(img, glyphs, lane_screen_x, lane_w,
                           word_scale, focus_mult, baseline_src,
                           per_char_zoom=None, per_char_bounce=None,
-                          slide_idx=0, suppress_consume=False):
+                          slide_idx=0, suppress_consume=False,
+                          per_char_rotation=None, per_char_x_wiggle=None):
         if not glyphs:
             return
         n_chars = len(glyphs)
@@ -684,11 +705,27 @@ def main():
             else:
                 glyph_img = g["img"]
             bnc = per_char_bounce[ci] if per_char_bounce else 0
+            xwig = per_char_x_wiggle[ci] if per_char_x_wiggle else 0
+            rot_deg = per_char_rotation[ci] if per_char_rotation else 0
+            # Per-character rotation. PIL rotates around the image
+            # center, so the bbox grows; expand=True so corners aren't
+            # clipped, then we recenter on the original glyph anchor.
+            if abs(rot_deg) > 0.1:
+                pre_w, pre_h = glyph_img.size
+                glyph_img = glyph_img.rotate(rot_deg, resample=Image.BICUBIC, expand=True)
+                # Re-binarize alpha after bicubic to keep edges crisp.
+                arr_g = np.array(glyph_img)
+                arr_g[:, :, 3] = np.where(arr_g[:, :, 3] > 96, 255, 0).astype(np.uint8)
+                glyph_img = Image.fromarray(arr_g, "RGBA")
+                rot_dx = (glyph_img.size[0] - pre_w) // 2
+                rot_dy = (glyph_img.size[1] - pre_h) // 2
+            else:
+                rot_dx = rot_dy = 0
             # Glyph bottom relative to baseline = below_src * s (descender)
             # so glyph's bottom in screen = baseline_y + below_src*s.
             # For most letters below_src = 0, so bottom = baseline_y.
             glyph_bottom = baseline_y - int((baseline_src - g["y1"]) * s) + bnc
-            gy = glyph_bottom - gh
+            gy = glyph_bottom - gh - rot_dy
             # Per-glyph consume effect: only fires once a slide is in
             # the past (its word being sung is over). Suppressed on the
             # current/active slide so words don't break up while sung.
@@ -699,7 +736,7 @@ def main():
                     if glyph_img is None:
                         x_cur += gw + KERN_SPACING
                         continue
-            img.paste(glyph_img, (int(x_cur), gy), glyph_img)
+            img.paste(glyph_img, (int(x_cur + xwig - rot_dx), gy), glyph_img)
             x_cur += gw + KERN_SPACING
 
     for f in range(n_frames):
@@ -764,16 +801,18 @@ def main():
             suppress = not is_past
             if i == cur_idx and loop_off == 0 and glyphs:
                 n_chars = len(glyphs)
-                zooms = []
-                bounces = []
+                zooms, bounces, rots, xwigs = [], [], [], []
                 for ci in range(n_chars):
                     em = char_emphasis(t, slide_real, ci, n_chars, amp_now)
                     zooms.append(char_zoom(em))
                     bounces.append(char_bounce_y(em))
+                    rots.append(char_rotation(em, t, ci))
+                    xwigs.append(char_x_wiggle(em, t, ci))
                 paint_lane_glyphs(img, glyphs, lane_screen_x, lane_widths[i],
                                   per_word_scales[i], scale_mult, baseline_src,
                                   zooms, bounces, slide_idx=i,
-                                  suppress_consume=suppress)
+                                  suppress_consume=suppress,
+                                  per_char_rotation=rots, per_char_x_wiggle=xwigs)
             else:
                 paint_lane_glyphs(img, glyphs, lane_screen_x, lane_widths[i],
                                   per_word_scales[i], scale_mult, baseline_src,
@@ -813,14 +852,20 @@ def main():
         #   3. Chromatic aberration (R/B channels split)
         #   4. Cosine-eased alpha fade to bg gradient
         zone_w = int(W * CONSUME_ZONE)
+        # PIX_DIV-snap: round UP to a multiple of PIX_DIV so the
+        # downscale-then-upscale always lands at exactly zone_w (the
+        # pixelation step otherwise gives pw*PIX_DIV which can be
+        # smaller than zone_w, creating shape mismatches downstream).
+        PIX_DIV = 6
         if zone_w > 0:
+            zone_w = ((zone_w + PIX_DIV - 1) // PIX_DIV) * PIX_DIV
             arr = np.array(img)
             arr_orig = arr[:, :zone_w, :].copy()  # untouched left zone
             zone = arr_orig.copy()
 
             # 1. PIXELATION: downscale via BOX (anti-aliased average)
-            #    then NEAREST upscale for chunky pixels
-            PIX_DIV = 6
+            #    then NEAREST upscale for chunky pixels.
+            # PIX_DIV is defined above (before zone_w snap).
             pw, ph = max(1, zone_w // PIX_DIV), max(1, H // PIX_DIV)
             zone_img = Image.fromarray(zone)
             small = zone_img.resize((pw, ph), Image.BOX)

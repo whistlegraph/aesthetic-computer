@@ -33,7 +33,12 @@ import { resolve } from "node:path";
 const flags = {};
 for (let i = 0; i < process.argv.length; i++) {
   const a = process.argv[i];
-  if (a.startsWith("--")) flags[a.slice(2)] = process.argv[i + 1];
+  if (a.startsWith("--")) {
+    const next = process.argv[i + 1];
+    // Bare boolean flag if the next token is missing or itself a flag.
+    if (next === undefined || next.startsWith("--")) flags[a.slice(2)] = true;
+    else flags[a.slice(2)] = next;
+  }
 }
 
 const SLUG = flags.slug || "amazing";
@@ -52,6 +57,16 @@ const OUT = flags.out
 const IMG_DIR = flags["img-dir"]
   ? resolve(process.cwd(), flags["img-dir"])
   : `${POP}/big-pictures/out/${SLUG}-tiktok-frames`;
+// `--source-timing` opt-in. When set, look for an alignment sidecar
+// (preferring ElevenLabs `${slug}-final.alignment.json`, falling back
+// to a `.words.json` file) and use those word boundaries as authoritative
+// `slide.start` positions instead of computing `beat × 60/BPM`. Multi-
+// syllable words subdivide their window evenly across syllables.
+// Default is the legacy beat-grid for backward compatibility.
+const SOURCE_TIMING = flags["source-timing"] === true || flags["source-timing"] === "true";
+const ALIGNMENT_PATH = flags.alignment
+  ? resolve(process.cwd(), flags.alignment)
+  : null;
 
 if (!existsSync(SCORE_PATH)) {
   console.error(`✗ score file missing: ${SCORE_PATH}`);
@@ -160,39 +175,152 @@ const TYPOGRAPHY_STYLES = [
   "thick rounded pixel-art letters, friendly chunky bitmap",
 ];
 
-// ── Build slides directly from the score ─────────────────────────────
-const beatSec = 60.0 / BPM;
-let beatPos = 0;
-const slides = syllables.map((syl, i) => {
-  const start = beatPos * beatSec;
-  beatPos += syl.weight;
-  const end = beatPos * beatSec;
-  // Strip leading/trailing hyphens for the displayed text — those
-  // are score-syntax markers indicating multi-syllable continuity.
-  const visible = syl.raw.replace(/^-|-$/g, "").replace(/[.,!?;:]/g, "");
-  const colorIdx = i % EMOTIONAL_COLORS.length;
-  const typoIdx = i % TYPOGRAPHY_STYLES.length;
-  const dur = end - start;
-  const transitionMs = Math.round(Math.max(120, Math.min(450, dur * 280)));
-  return {
-    i,
-    start: Number(start.toFixed(3)),
-    end: Number(end.toFixed(3)),
-    duration: Number(dur.toFixed(3)),
-    text: visible,
-    rawText: syl.raw,
-    note: syl.note,
-    weight: syl.weight,
-    image: `word-${String(i).padStart(3, "0")}.jpg`,
-    transition: "slideleft",
-    transitionMs,
-    bgColor: EMOTIONAL_COLORS[colorIdx].bg,
-    letterColor: EMOTIONAL_COLORS[colorIdx].letters,
-    typography: TYPOGRAPHY_STYLES[typoIdx],
-  };
-});
+// ── Optional: load source-timing word boundaries ────────────────────
+// Group syllables into words (consecutive syllables that share a word
+// via the leading/trailing hyphen markers in the score). For example
+// `a-`, `-ma-`, `-zing` form one logical word "amazing". Single tokens
+// without hyphens are their own word.
+function groupIntoWords(syls) {
+  const words = [];
+  let cur = null;
+  for (let i = 0; i < syls.length; i++) {
+    const s = syls[i];
+    const isStart = s.raw.endsWith("-") && !s.raw.startsWith("-");
+    const isMid = s.raw.startsWith("-") && s.raw.endsWith("-");
+    const isEnd = s.raw.startsWith("-") && !s.raw.endsWith("-");
+    const isSingle = !s.raw.startsWith("-") && !s.raw.endsWith("-");
+    if (isStart || isSingle) {
+      if (cur) words.push(cur);
+      cur = { syllables: [i], text: s.raw.replace(/^-|-$/g, "") };
+      if (isSingle) { words.push(cur); cur = null; }
+    } else if (isMid || isEnd) {
+      if (!cur) cur = { syllables: [], text: "" };
+      cur.syllables.push(i);
+      cur.text += s.raw.replace(/^-|-$/g, "");
+      if (isEnd) { words.push(cur); cur = null; }
+    }
+  }
+  if (cur) words.push(cur);
+  return words;
+}
 
-const totalScoreSec = beatPos * beatSec;
+// Find an alignment sidecar. Priority:
+//   1. --alignment <path> explicit
+//   2. <slug>-final.alignment.json  (ElevenLabs with-timestamps output)
+//   3. <slug>-vocal.mp3.alignment.json
+//   4. <slug>-final-words.json + sibling shapes (legacy)
+function findAlignment() {
+  const tryPaths = [];
+  if (ALIGNMENT_PATH) tryPaths.push(ALIGNMENT_PATH);
+  tryPaths.push(`${POP}/big-pictures/out/${SLUG}-final.mp3.alignment.json`);
+  tryPaths.push(`${POP}/big-pictures/out/${SLUG}-final.alignment.json`);
+  tryPaths.push(`${POP}/big-pictures/out/${SLUG}-vocal.mp3.alignment.json`);
+  tryPaths.push(`${POP}/big-pictures/out/${SLUG}-vocal.alignment.json`);
+  for (const p of tryPaths) {
+    if (existsSync(p)) {
+      const doc = JSON.parse(readFileSync(p, "utf8"));
+      if (Array.isArray(doc.words) && doc.words.length > 0) {
+        return { path: p, words: doc.words };
+      }
+    }
+  }
+  return null;
+}
+
+let sourceWords = null;
+if (SOURCE_TIMING) {
+  const found = findAlignment();
+  if (!found) {
+    console.warn("⚠ --source-timing requested but no alignment file found; falling back to beat-grid");
+  } else {
+    sourceWords = found.words;
+    console.log(`  source-timing ← ${found.path} (${sourceWords.length} words)`);
+  }
+}
+
+// ── Build slides ─────────────────────────────────────────────────────
+const beatSec = 60.0 / BPM;
+let slides;
+if (sourceWords) {
+  // Source-timing path: align score-words to alignment-words index-wise,
+  // then subdivide each word's window evenly across its syllables.
+  const scoreWords = groupIntoWords(syllables);
+  const n = Math.min(scoreWords.length, sourceWords.length);
+  if (scoreWords.length !== sourceWords.length) {
+    console.warn(`  ⚠ score-word count (${scoreWords.length}) != alignment-word count (${sourceWords.length}); using first ${n} pairs`);
+  }
+  slides = [];
+  for (let wi = 0; wi < n; wi++) {
+    const sw = scoreWords[wi];
+    const aw = sourceWords[wi];
+    const wStart = (aw.fromMs ?? aw.from ?? 0) / 1000;
+    const wEnd = (aw.toMs ?? aw.to ?? 0) / 1000;
+    const wDur = Math.max(0, wEnd - wStart);
+    const sylCount = sw.syllables.length;
+    for (let k = 0; k < sylCount; k++) {
+      const sylIdx = sw.syllables[k];
+      const syl = syllables[sylIdx];
+      const sStart = wStart + (wDur * k) / sylCount;
+      const sEnd = wStart + (wDur * (k + 1)) / sylCount;
+      const visible = syl.raw.replace(/^-|-$/g, "").replace(/[.,!?;:]/g, "");
+      const colorIdx = sylIdx % EMOTIONAL_COLORS.length;
+      const typoIdx = sylIdx % TYPOGRAPHY_STYLES.length;
+      const dur = sEnd - sStart;
+      const transitionMs = Math.round(Math.max(120, Math.min(450, dur * 280)));
+      slides.push({
+        i: sylIdx,
+        start: Number(sStart.toFixed(3)),
+        end: Number(sEnd.toFixed(3)),
+        duration: Number(dur.toFixed(3)),
+        text: visible,
+        rawText: syl.raw,
+        note: syl.note,
+        weight: syl.weight,
+        image: `word-${String(sylIdx).padStart(3, "0")}.jpg`,
+        transition: "slideleft",
+        transitionMs,
+        bgColor: EMOTIONAL_COLORS[colorIdx].bg,
+        letterColor: EMOTIONAL_COLORS[colorIdx].letters,
+        typography: TYPOGRAPHY_STYLES[typoIdx],
+      });
+    }
+  }
+} else {
+  // Legacy beat-grid path (default) — preserves backward compat.
+  let beatPos = 0;
+  slides = syllables.map((syl, i) => {
+    const start = beatPos * beatSec;
+    beatPos += syl.weight;
+    const end = beatPos * beatSec;
+    const visible = syl.raw.replace(/^-|-$/g, "").replace(/[.,!?;:]/g, "");
+    const colorIdx = i % EMOTIONAL_COLORS.length;
+    const typoIdx = i % TYPOGRAPHY_STYLES.length;
+    const dur = end - start;
+    const transitionMs = Math.round(Math.max(120, Math.min(450, dur * 280)));
+    return {
+      i,
+      start: Number(start.toFixed(3)),
+      end: Number(end.toFixed(3)),
+      duration: Number(dur.toFixed(3)),
+      text: visible,
+      rawText: syl.raw,
+      note: syl.note,
+      weight: syl.weight,
+      image: `word-${String(i).padStart(3, "0")}.jpg`,
+      transition: "slideleft",
+      transitionMs,
+      bgColor: EMOTIONAL_COLORS[colorIdx].bg,
+      letterColor: EMOTIONAL_COLORS[colorIdx].letters,
+      typography: TYPOGRAPHY_STYLES[typoIdx],
+    };
+  });
+}
+
+// Total length: in source-timing mode use the last slide's end; in
+// legacy beat-grid mode use the cumulative beat position.
+const totalScoreSec = sourceWords
+  ? (slides.length > 0 ? slides[slides.length - 1].end : 0)
+  : syllables.reduce((sum, s) => sum + s.weight, 0) * beatSec;
 const storyboard = {
   schema: "ac/big-pictures/storyboard@2",
   slug: SLUG,

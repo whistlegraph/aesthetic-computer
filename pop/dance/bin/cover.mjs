@@ -44,6 +44,7 @@ function expandHome(p) {
 
 const SLUG     = flags.slug || "trance";
 const TITLE    = flags.title || SLUG;
+const TITLE_POS = (flags["title-pos"] || "center").toLowerCase(); // center | topleft
 const SUBTITLE = flags.subtitle || "";
 const HANDLE   = flags.handle || "@jeffrey";
 const LANE     = flags.lane || "dance";
@@ -282,7 +283,7 @@ if (WAVEFORM && existsSync(WAVEFORM)) {
     console.warn(`✗ waveform decode failed, falling back to sawtooth glyph`);
   } else {
     const f32 = new Float32Array(probe.stdout.buffer, probe.stdout.byteOffset, probe.stdout.byteLength / 4);
-    const BARS = 120; // fewer/wider bars so the waveform reads clearly
+    const BARS = 280; // dense bins → a detailed, data-rich waveform read
     const samplesPerBar = Math.floor(f32.length / BARS);
     const peaks = new Float32Array(BARS);
     for (let b = 0; b < BARS; b++) {
@@ -424,7 +425,12 @@ if (hasIllustration) {
   // Rainbow per-character via magick with measured kerning + dark
   // drop shadow (glow removed so the YWFT pixel edges stay crisp).
   const illustTitleSize = Math.min(220, Math.floor((W - 240) / (titleStr.length * 0.45)));
-  textOverlays.push({ text: titleStr, x: W / 2, y: 280, size: illustTitleSize, color: "white", weight: 800, anchor: "middle", rainbow: true });
+  if (TITLE_POS === "topleft") {
+    const tlSize = Math.round(illustTitleSize * 0.58);   // smaller for the corner
+    textOverlays.push({ text: titleStr, x: 42, y: 168, size: tlSize, color: "white", weight: 800, anchor: "start", rainbow: true });
+  } else {
+    textOverlays.push({ text: titleStr, x: W / 2, y: 280, size: illustTitleSize, color: "white", weight: 800, anchor: "middle", rainbow: true });
+  }
   // No subtitle, no LANE — photo + fairies + title + handle are enough.
   // @jeffrey: larger (130), pushed further into the bottom-right
   // corner with more margin (90 px from each edge).

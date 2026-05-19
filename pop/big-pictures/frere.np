@@ -1,0 +1,16 @@
+# Frère Jacques / Are You Sleeping — French traditional round.
+# Key: C major. Canonical four-phrase shape, each repeated:
+#   1. "are you sleeping"        C-D-E-C
+#   2. "brother john"            E-F-G
+#   3. "morning bells are ringing"  G-A-G-F-E-C
+#   4. "ding ding dong"          C-G-C  (octave dip)
+
+verse 1
+C4:are*1 D4:you*1 E4:sleep-*1 C4:-ing*2
+C4:are*1 D4:you*1 E4:sleep-*1 C4:-ing*2
+E4:bro-*1 F4:-ther*1 G4:john*2
+E4:bro-*1 F4:-ther*1 G4:john*2
+G4:morn-*1 A4:-ing*1 G4:bells*1 F4:are*1 E4:ring-*1 C4:-ing*1
+G4:morn-*1 A4:-ing*1 G4:bells*1 F4:are*1 E4:ring-*1 C4:-ing*1
+C4:ding*1 G3:ding*1 C4:dong*2
+C4:ding*1 G3:ding*1 C4:dong*2
