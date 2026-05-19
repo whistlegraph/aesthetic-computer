@@ -342,6 +342,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let cur = self.menuBand.litNotes.count
             if cur > prev {
                 self.kickIconAnim(slide: 0, flash: 0.7)
+                // Replaying within the post-release window: freeze the
+                // fx exactly where they are (mid-hold or mid-ramp) so
+                // the sound continues seamlessly and never resets.
+                self.cancelFxRelease()
             }
             // Pitch-bend cursor lifecycle — only engages when
             // the user is playing via the KEYBOARD (not mouse
@@ -688,15 +692,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.trackpadTouchActive = active
             guard !active else { return }
             // Last finger lifted off the trackpad. This is the
-            // authoritative "stop bending" signal: spring the bend
-            // back now even if a note is still sounding. If no notes
-            // are held either, also tear the gesture down fully —
-            // onLitChanged already skipped that while the finger was
-            // down so the bend could ride across note changes.
+            // authoritative "stop driving the fx" signal: begin the
+            // hold→linear-ramp now even if a note is still sounding.
+            // If no notes are held either, also tear the gesture
+            // down fully — onLitChanged already skipped that while
+            // the finger was down so the fx could ride note changes.
             if !self.menuBand.keyboardNotesHeld {
                 self.endPitchBendSession()
             } else if self.pitchBendCursorLocked {
-                self.startBendDecay()
+                self.startFxRelease()
             }
         }
 
@@ -2396,10 +2400,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Negate so swipe UP on trackpad → pitch UP (NSEvent.deltaY
         // is positive when the cursor moves DOWN on screen).
         let bendDelta = -dy * Self.bendSensitivityPerPoint
-        // X-axis = "space": right → more reverb / further away,
-        // left → drier / up front to the listener. Clamped 0…1.
-        spaceAmount = max(0, min(1, spaceAmount + dx * Self.spaceSensitivityPerPoint))
-        cancelBendDecay()
+        // Horizontal is two-in-one: plain X = "space" (reverb),
+        // ⌥Option + X = "echo". Whichever the user is on takes dx;
+        // the other is left exactly where it was, so you can set
+        // one, switch the modifier, and set the other independently.
+        if event.modifierFlags.contains(.option) {
+            echoAmount = max(0, min(1, echoAmount + dx * Self.echoSensitivityPerPoint))
+            echoAxisActive = true
+        } else {
+            spaceAmount = max(0, min(1, spaceAmount + dx * Self.spaceSensitivityPerPoint))
+            echoAxisActive = false
+        }
+        cancelFxRelease()
         bendAmount += bendDelta
         // No clamp — the trackpad accumulator can swing past ±1 so
         // the sample voice (vari-speed) and the staff display
@@ -2409,6 +2421,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // audible cap (RPN 0/0 = 12 announces an octave on start).
         menuBand.setBend(amount: bendAmount, allChannels: shift)
         menuBand.setSpace(amount: spaceAmount)
+        menuBand.setEcho(amount: echoAmount)
         pushStaffPitchShift()
         if !pitchBendCursorPushed {
             // Hide the real system cursor and show the floating
@@ -2425,10 +2438,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updatePitchBendOverlayImage()
         // No idle timeout: a finger resting still on the trackpad
         // emits no .mouseMoved deltas, so any silence-based timer
-        // would snap the bend back while the user is deliberately
-        // holding it. The rubber-band is driven solely by keyboard
-        // note release (see onLitChanged → startBendDecay), so the
-        // bend holds wherever it's left until the note lifts.
+        // would release the fx while the user is deliberately
+        // holding them. The post-release sequence is driven solely
+        // by keyboard note release (see onLitChanged →
+        // startFxRelease), so the fx hold wherever they're left
+        // until the note lifts.
         debugLog("bend cursor dy=\(dy) lit=\(menuBand.litNotes.count) amt=\(bendAmount)")
     }
 
@@ -2456,7 +2470,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self,
                   self.pitchBendCursorLocked,
                   self.pitchBendCursorPushed else { return }
-            PitchBendCursor.cursor(forBend: self.bendAmount).set()
+            (self.echoAxisActive
+                ? EchoCursor.cursor(forEcho: self.echoAmount)
+                : PitchBendCursor.cursor(forBend: self.bendAmount)).set()
         }
         timer.tolerance = 1.0 / 120.0
         RunLoop.main.add(timer, forMode: .common)
@@ -2487,27 +2503,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return overlay
     }
 
+    /// The wheel image for whichever fx axis is currently active —
+    /// the echo "repeats" cursor while ⌥Option is the driven axis,
+    /// otherwise the pitch-bend lever wheel.
+    private func currentFxCursorImage() -> NSImage {
+        echoAxisActive
+            ? EchoCursor.image(forEcho: echoAmount)
+            : PitchBendCursor.image(forBend: bendAmount)
+    }
+
     private func showPitchBendOverlay() {
         let overlay = ensurePitchBendOverlay()
-        let image = PitchBendCursor.image(forBend: bendAmount)
-        overlay.show(image: image, atScreenPoint: pitchBendLockScreenPoint)
+        overlay.show(image: currentFxCursorImage(),
+                     atScreenPoint: pitchBendLockScreenPoint)
     }
 
     private func updatePitchBendOverlayImage() {
         guard let overlay = pitchBendOverlay, overlay.isVisible else { return }
-        overlay.update(image: PitchBendCursor.image(forBend: bendAmount))
+        overlay.update(image: currentFxCursorImage())
     }
 
-    private func cancelBendDecay() {
-        bendDecayTimer?.invalidate()
-        bendDecayTimer = nil
-        bendVelocity = 0
+    /// Cancel any in-flight post-release sequence (hold OR ramp),
+    /// freezing the fx wherever they currently sit. Called both when
+    /// the gesture resumes and when a fresh note is replayed.
+    private func cancelFxRelease() {
+        fxHoldTimer?.invalidate()
+        fxHoldTimer = nil
+        fxRampTimer?.invalidate()
+        fxRampTimer = nil
+        fxRampStart = nil
     }
 
     /// Tear down the pitch-bend cursor lock + floating overlay and
-    /// spring the bend back to center. Shared by the two end-of-gesture
-    /// triggers: all keyboard notes released with no finger on the
-    /// trackpad, or the trackpad finger lifting. Idempotent.
+    /// start the post-release hold→linear-ramp on the fx. Shared by
+    /// the two end-of-gesture triggers: all keyboard notes released
+    /// with no finger on the trackpad, or the trackpad finger
+    /// lifting. Idempotent.
     private func endPitchBendSession() {
         guard pitchBendCursorLocked else { return }
         stopPitchBendCursorPin()
@@ -2522,50 +2553,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showSystemCursorIfNeeded()
         CGAssociateMouseAndMouseCursorPosition(1)
         pitchBendCursorLocked = false
-        startBendDecay()
+        startFxRelease()
     }
 
-    private func startBendDecay() {
-        cancelBendDecay()
-        bendDecayTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0,
-                                                repeats: true) { [weak self] timer in
-            guard let self = self else { timer.invalidate(); return }
-            // Spring step — Hooke's law plus viscous damping. With
-            // stiffness=80 and damping=9, ratio is ~0.5 so the bend
-            // overshoots zero a little before settling, which reads
-            // as the rubbery snap the user asked for.
-            let dt: Float = 1.0 / 60.0
-            let force = -Self.bendSpringStiffness * self.bendAmount
-                - Self.bendSpringDamping * self.bendVelocity
-            self.bendVelocity += force * dt
-            self.bendAmount += self.bendVelocity * dt
+    /// Begin the post-release sequence: a `fxHoldDuration` dead zone
+    /// where bend/space/echo stay fully engaged (so resuming play
+    /// keeps the sound intact), then a linear glide to neutral.
+    /// Replaying cancels the whole thing via `cancelFxRelease`
+    /// (from `onLitChanged` on a fresh note, and from the gesture
+    /// handler when the swipe resumes).
+    private func startFxRelease() {
+        cancelFxRelease()
+        // Nothing engaged → no fade needed, stay idle.
+        if bendAmount == 0 && spaceAmount == 0 && echoAmount == 0 { return }
+        let hold = Timer(timeInterval: Self.fxHoldDuration, repeats: false) {
+            [weak self] _ in self?.startFxRamp()
+        }
+        RunLoop.main.add(hold, forMode: .common)
+        fxHoldTimer = hold
+    }
+
+    /// Linear glide of bend/space/echo to neutral over
+    /// `fxRampDuration`. No easing — a straight ramp, never a sharp
+    /// cutoff. A fresh note mid-ramp cancels it (cancelFxRelease),
+    /// freezing the fx wherever the glide had reached.
+    private func startFxRamp() {
+        fxHoldTimer?.invalidate()
+        fxHoldTimer = nil
+        fxRampFromBend = bendAmount
+        fxRampFromSpace = spaceAmount
+        fxRampFromEcho = echoAmount
+        fxRampStart = Date()
+        let timer = Timer(timeInterval: 1.0 / 60.0,
+                          repeats: true) { [weak self] timer in
+            guard let self = self, let start = self.fxRampStart else {
+                timer.invalidate(); return
+            }
+            // start is in the past, so -timeIntervalSinceNow = elapsed.
+            let elapsed = -start.timeIntervalSinceNow
+            let p = Float(min(1, elapsed / Self.fxRampDuration))
+            let k = 1 - p
+            self.bendAmount = self.fxRampFromBend * k
+            self.spaceAmount = self.fxRampFromSpace * k
+            self.echoAmount = self.fxRampFromEcho * k
             // allChannels so lingering / shift-bent voices on other
             // channels un-bend with everything else, not just held.
             self.menuBand.setBend(amount: self.bendAmount, allChannels: true)
-            // Space eases back to dry on the same release — the
-            // wheel is one 2D gesture, so letting go drops both the
-            // pitch and the room together.
-            self.spaceAmount *= 0.85
             self.menuBand.setSpace(amount: self.spaceAmount)
+            self.menuBand.setEcho(amount: self.echoAmount)
             self.pushStaffPitchShift()
-            // Cursor wheel follows the spring so the visual
-            // un-stretches in lockstep with the audio bend.
-            // Update the floating overlay (which sits above all
-            // apps) so the visual never flickers against other
-            // apps' cursor handlers during the decay.
+            // Floating overlay follows the glide so the wheel
+            // un-stretches in lockstep with the audio.
             self.updatePitchBendOverlayImage()
-            if abs(self.bendAmount) < 0.001 && abs(self.bendVelocity) < 0.001
-                && self.spaceAmount < 0.001 {
+            if p >= 1 {
                 self.bendAmount = 0
-                self.bendVelocity = 0
                 self.spaceAmount = 0
+                self.echoAmount = 0
                 self.menuBand.setBend(amount: 0, allChannels: true)
                 self.menuBand.setSpace(amount: 0)
+                self.menuBand.setEcho(amount: 0)
+                self.pushStaffPitchShift()
                 self.updatePitchBendOverlayImage()
                 timer.invalidate()
-                self.bendDecayTimer = nil
+                self.fxRampTimer = nil
+                self.fxRampStart = nil
             }
         }
+        timer.tolerance = 1.0 / 120.0
+        RunLoop.main.add(timer, forMode: .common)
+        fxRampTimer = timer
     }
 
     @objc private func systemAppearanceChangedNotification(_ note: Notification) {
