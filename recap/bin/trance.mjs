@@ -476,14 +476,14 @@ const SECTION_TEMPLATES_3_CHILL = {
   // (which lands as a doubled drum in chill density and reads as
   // a glitch) and NO greeting vocal (the chill is wordless). The
   // kick enters at break1 so there's actual instrumental arrival.
-  intro:   { bars: 12, kick: false, hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0.30 },
-  break1:  { bars: 27, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
-  build1:  { bars: 27, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.75 },
-  drop1:   { bars: 33, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
-  break2:  { bars: 14, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
+  intro:   { bars: 11, kick: false, hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0.30 },
+  break1:  { bars: 24, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
+  build1:  { bars: 24, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.75 },
+  drop1:   { bars: 29, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
+  break2:  { bars: 12, kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.55 },
   build2:  { bars: 0,  kick: false, hat: false, sub: false, lead: false, pad: false, piano: false, bells: false, riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0 },
-  drop2:   { bars: 28, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
-  outro:   { bars: 11, kick: true,  hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.40 },
+  drop2:   { bars: 24, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
+  outro:   { bars: 9,  kick: true,  hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.40 },
 };
 const SECTION_TEMPLATES = isChill && isWaltz
   ? SECTION_TEMPLATES_3_CHILL
@@ -536,8 +536,11 @@ const barStartRel = []; // music-relative start of each bar
       // ONE totalizing arc — tons of ENERGY up front, then slowing it
       // all down the more it plays. Single monotonic DECELERANDO: starts
       // fast and progressively (increasingly) winds down to the slow end.
-      const FAST = 180, SLOW = 146;
-      bpmI = FAST - (FAST - SLOW) * Math.pow(fr, 1.5); // fast → slowing more over time
+      // Front-loaded energy loss: drops FAST early so ~1/3 of the
+      // energy is gone by ~1/3 and it's well down by the halfway point
+      // — really losing energy across the WHOLE track, not just the end.
+      const FAST = 182, SLOW = 120;
+      bpmI = FAST - (FAST - SLOW) * Math.pow(fr, 0.72);
 
     } else {
       bpmI = BPM; // constant — trancenwaltz byte-identical
@@ -1498,7 +1501,15 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     const HAT_SUPPRESS_AFTER = totalSec - 5.0;
     const SETTLE_WINDOW_H = 4.0;
     const sixteenthSec_h = beatSec / 4;
+    // Chill: hats arrive LATE and FROM DISTANT — nothing before
+    // HAT_ENTER, then volume swells up from far away over ~18 s.
+    const _hmt = barStart - OPENING_PREFIX_SEC;
+    const HAT_ENTER = 22;
+    const hatsArrived = !isChill || _hmt >= HAT_ENTER;
+    const hatDistVol = !isChill ? 1
+      : 0.15 + 0.85 * Math.max(0, Math.min(1, (_hmt - HAT_ENTER) / 18));
     for (let beat = 0; beat < METER; beat++) {
+      if (!hatsArrived) continue;
       const startSec = barStart + (beat + 0.5) * beatSec + swingSec;
       if (startSec >= HAT_SUPPRESS_AFTER) continue;
       // Settle factor — 1.0 normally, drops to 0.0 by tape-stop.
@@ -1514,7 +1525,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       // Chill: per-hit random pitchFactor scatters the noise band so no
       // two hats sound identical (more organic, stochastic shimmer).
       const hatPF = isChill ? 1 + (noiseRng() - 0.5) * 0.55 : 1;
-      fireDrum(dryBuf, hatT, "g", { volume: v * DRUM_GAIN, pitchFactor: hatPF });
+      fireDrum(dryBuf, hatT, "g", { volume: v * DRUM_GAIN * hatDistVol, pitchFactor: hatPF });
       events.hat.push({ t: hatT, dur: 0.025 });
       hatCount++;
       // Flam — disabled in chill mode (reads as a doubled hihat in
@@ -1773,43 +1784,71 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // occasional scale/diminished passing approaches. Long swells that
   // bleed into each other = the legato 4th-octave glue the sine-chime
   // comp was missing. Routed to duckBuf so it sits in the harmonic bed.
-  if (isChill) {
-    const strokes = 2;
+  // NOT the whole track: comes in waves — rests every 3rd 8-bar phrase
+  // and stays out of the first phrase. Lots of bounce: nearest-tone
+  // voice-leading by default, but sometimes drops WAY low, sometimes
+  // WRAPS through a little scale run, sometimes springs WAY up an
+  // arpeggio then falls back down (BOING). Variable strokes/durations.
+  const bunnyActive = isChill && bar >= 6 && (Math.floor(bar / 8) % 3 !== 2);
+  if (bunnyActive) {
+    const strokes = 1 + (bunnyRng() < 0.55 ? 1 : 0) + (bunnyRng() < 0.18 ? 1 : 0); // 1–3
     const step = barSec / strokes;
+    const g = 0.16;
     for (let nb = 0; nb < strokes; nb++) {
       const t0 = barStart + nb * step;
-      const cands = [];
-      for (const tone of [0, 2, 4, 6]) {
-        for (const oc of [0, 1]) {
-          let m = scaleNoteMidi(chordDeg + tone, oc);
-          while (m < 60) m += 12;
-          while (m > 81) m -= 12;
-          cands.push(m);
-        }
-      }
-      let target;
-      if (bunnyPrevMidi == null) {
-        target = scaleNoteMidi(chordDeg, 1);
-      } else {
+      // nearest chord tone to the last note (the "bounce")
+      let target = scaleNoteMidi(chordDeg, 1);
+      if (bunnyPrevMidi != null) {
         let best = 1e9;
-        target = cands[0];
-        for (const m of cands) {
-          const d = Math.abs(m - bunnyPrevMidi);
-          if (d < best) { best = d; target = m; }
+        for (const tone of [0, 2, 4, 6]) {
+          for (const oc of [-1, 0, 1, 2]) {
+            const m = scaleNoteMidi(chordDeg + tone, oc);
+            if (m < 56 || m > 84) continue;
+            const d = Math.abs(m - bunnyPrevMidi);
+            if (d < best) { best = d; target = m; }
+          }
         }
       }
-      if (bunnyRng() < 0.14) target += 12; // little hop
-      const dur = step * 1.7;              // overlaps into the next stroke
-      const g = 0.16;
-      if (bunnyPrevMidi != null && bunnyRng() < 0.24) {
-        const dir = target >= bunnyPrevMidi ? 1 : -1;
-        const pass = target - dir * (bunnyRng() < 0.5 ? 1 : 2); // semitone(dim)/whole step
-        fireBunnyBow(duckBuf, humanize(t0, 8), pass, step * 0.5, g * 0.8);
-        fireBunnyBow(duckBuf, humanize(t0 + step * 0.42, 8), target, dur * 0.75, g);
+      const roll = bunnyRng();
+      if (roll < 0.12) {
+        // BOING — fast arpeggio WAY up the chord, then fall back down
+        const aDeg = [0, 2, 4, 7, 9, 11];
+        const upN = 5;
+        const aStep = step / (upN + 3);
+        for (let a = 0; a < upN; a++) {
+          const am = scaleNoteMidi(chordDeg + aDeg[a % aDeg.length], 2 + Math.floor(a / 3));
+          fireBunnyBow(duckBuf, humanize(t0 + a * aStep, 6), am, aStep * 1.8, g * 0.85);
+        }
+        for (let a = 0; a < 3; a++) {
+          const dm = scaleNoteMidi(chordDeg + aDeg[(upN - 1 - a) % aDeg.length], 1);
+          fireBunnyBow(duckBuf, humanize(t0 + (upN + a) * aStep, 6), dm, aStep * 2.4, g * 0.7);
+        }
+        target = scaleNoteMidi(chordDeg, 1);
+      } else if (roll < 0.30) {
+        // WRAP — a little weaving scale run from prev toward target
+        const base = bunnyPrevMidi ?? target;
+        const dir = target >= base ? 1 : -1;
+        const wn = 4;
+        for (let w = 0; w < wn; w++) {
+          const wm = base + dir * (w + 1) * 2 + (w % 2 ? -1 : 0);
+          fireBunnyBow(duckBuf, humanize(t0 + w * (step / wn), 7), wm, (step / wn) * 1.7, g * 0.8);
+        }
       } else {
-        fireBunnyBow(duckBuf, humanize(t0, 8), target, dur, g);
+        let m = target;
+        if (bunnyRng() < 0.16) m -= 12 + (bunnyRng() < 0.5 ? 12 : 0); // sometimes WAY lower
+        if (bunnyRng() < 0.14) m += 12;                                // little hop
+        const dur = step * (1.5 + bunnyRng() * 0.6);                   // varied overlap
+        if (bunnyPrevMidi != null && bunnyRng() < 0.24) {
+          const dir = m >= bunnyPrevMidi ? 1 : -1;
+          const pass = m - dir * (bunnyRng() < 0.5 ? 1 : 2);           // scale/dim approach
+          fireBunnyBow(duckBuf, humanize(t0, 8), pass, step * 0.5, g * 0.8);
+          fireBunnyBow(duckBuf, humanize(t0 + step * 0.42, 8), m, dur * 0.75, g);
+        } else {
+          fireBunnyBow(duckBuf, humanize(t0, 8), m, dur, g);
+        }
+        target = m;
       }
-      events.lead.push({ t: t0, midi: target, dur });
+      events.lead.push({ t: t0, midi: target, dur: step });
       bunnyPrevMidi = target;
     }
   }
@@ -1928,8 +1967,8 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
         chillMidi = midi - 24;                  // drop 2 octaves — sub-low harmonic wash
         chillGain = BELLS_GAIN * gainMul * 0.55; // quieter, less attention
         chillAttack = 0.45;                      // slow swell instead of struck attack
-        chillDecay = 4.0;                        // 4× longer T60 — super drawn out
-        chillTail = 8;                           // long ring tail
+        chillDecay = 6.5;                        // much longer T60 — super drawn out
+        chillTail = 13;                          // very long ring tail
         bellTarget = chillBellBuf;               // dedicated bus for the flanger
       }
       mixEventSinebell(
@@ -2040,7 +2079,11 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
           synth.synth({ type: "square", tone: freq, duration: stepSec * durMul, volume: sqVol, attack: 0.003, decay: stepSec * 0.55 });
         }
         if (siVol > 0.001) {
-          synth.synth({ type: "sine",   tone: freq, duration: stepSec * durMul, volume: siVol, attack: 0.008, decay: stepSec * 0.85 });
+          // Chill: the sine "chime" rings MUCH longer (≈3× duration,
+          // long decay) so it sustains + overlaps instead of pinging.
+          const aDur = isChill ? stepSec * durMul * 3.0 : stepSec * durMul;
+          const aDec = isChill ? aDur * 1.4 : stepSec * 0.85;
+          synth.synth({ type: "sine", tone: freq, duration: aDur, volume: siVol, attack: 0.012, decay: aDec });
         }
         // Chill intro CACOPHONY — a slightly-detuned tritone an
         // octave+ up, clashing against the root for a dissonant,
@@ -2460,14 +2503,13 @@ if (!isChill) {
   }
 }
 
-// Chill cat CHOIR — over the roller-coaster window (bars 6–22) a
-// HARMONIZED stack of long, time-stretched, autotuned meow drones
-// (a minor-triad shape: root / m3 / 5th / octave at consonant ratios,
-// so it reads in-tune with itself) spanning many bars — plus a few
-// short high kitten accents on top so it still reads as cats.
-if (isChill && barStartRel.length > 22) {
-  const tA = OPENING_PREFIX_SEC + barStartRel[6];
-  const tB = OPENING_PREFIX_SEC + barStartRel[22];
+// Chill cat CHOIR — a HARMONIZED stack of long, time-stretched,
+// autotuned meow drones (minor-triad consonant ratios, in tune with
+// itself) + a few short high kitten accents. Enters LATE (back half,
+// bars 70–110) — it was coming in way too early before.
+if (isChill && barStartRel.length > 110) {
+  const tA = OPENING_PREFIX_SEC + barStartRel[70];
+  const tB = OPENING_PREFIX_SEC + barStartRel[110];
   const span = tB - tA;
   const r = 0.42; // base stretch/pitch — mellow low register
   const chord = [
