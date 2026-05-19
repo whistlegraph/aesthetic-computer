@@ -34,6 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var mailPending = false
     private var mailSyncing = false
     private var mailStatus = "—"
+    /// iMessage bridge state. Polled faster than mail (a chat wants low
+    /// latency) but still off-main; the helper itself rings the bell when a
+    /// NEW inbound arrives. `imsgUnread` is exposed so the theme-by-status
+    /// pipeline can treat "she texted" as a first-class status accent.
+    private var imsgTickCount = 0
+    private var imsgPending = false
+    private var imsgStatus = "—"
+    private var imsgConfigured = false
+    private var imsgUnread = 0
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
 
@@ -85,6 +94,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.async {
                 self.gathering = false
                 self.state = snapshot
+                // gather() doesn't know about iMessage; fold the cached poll
+                // result in here so the icon + decor read one consistent
+                // picture. Gated on theme-by-status per the accent's contract.
+                self.state.messageWaiting =
+                    self.imsgUnread > 0 && snapshot.themeByStatus
 
                 self.updateIcon()
                 self.updateAnimTimer()
@@ -93,6 +107,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if self.mailTickCount >= 15 && !self.mailPending && !self.mailSyncing {
                     self.mailTickCount = 0
                     self.refreshMailCount()
+                }
+
+                // Chat wants lower latency than mail — poll ~10 s. The helper
+                // detects new inbound and rings the bell itself; we only pull
+                // the summary back for the menu label + theme accent.
+                self.imsgTickCount += 1
+                if self.imsgTickCount >= 5 && !self.imsgPending {
+                    self.imsgTickCount = 0
+                    self.refreshImsgCount()
                 }
 
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
@@ -108,7 +131,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// dropdown pops instantly and stays smooth while tracking.
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard menu === self.menu else { return }
-        MenuBuilder.populate(menu, state: state, mailStatus: mailStatus, target: self)
+        MenuBuilder.populate(
+            menu,
+            state: state,
+            mailStatus: mailStatus,
+            imsgStatus: imsgStatus,
+            imsgConfigured: imsgConfigured,
+            target: self
+        )
     }
 
     private func updateIcon() {
@@ -136,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // session is non-stale; pulse phase always advances (it drives both
         // awaiting brightness and stale blink). When the polygon goes away
         // entirely, stop the timer and reset phases.
-        if !state.claudeSessions.isEmpty {
+        if !state.claudeSessions.isEmpty || state.messageWaiting {
             if animTimer == nil {
                 let t = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -176,7 +206,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Pull the iMessage summary off-main. The helper always exits 0 for
+    /// `status`, prints one JSON line, and rings the bell itself when a NEW
+    /// inbound arrives — so this never blocks the tick and the alert fires
+    /// even while the menu is closed.
+    private func refreshImsgCount() {
+        let helper = Paths.imsgHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            imsgStatus = "iMessage: helper missing"
+            imsgConfigured = false
+            imsgUnread = 0
+            return
+        }
+        imsgPending = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let out = ShellRunner.run(helper, args: ["status"], timeout: 8).output
+            let line = out.split(separator: "\n").last.map(String.init) ?? ""
+            var label = "iMessage: —"
+            var configured = false
+            var unread = 0
+            if let data = line.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data)
+                   as? [String: Any] {
+                label = (obj["label"] as? String) ?? label
+                configured = (obj["configured"] as? Bool) ?? false
+                unread = (obj["unread"] as? Int) ?? 0
+            }
+            DispatchQueue.main.async {
+                self?.imsgStatus = label
+                self?.imsgConfigured = configured
+                self?.imsgUnread = unread
+                self?.imsgPending = false
+            }
+        }
+    }
+
     // MARK: - Menu actions
+
+    @objc func openImsg() {
+        ShellRunner.runAsync(Paths.imsgHelper, args: ["open"])
+    }
+
+    /// Open a fresh iTerm2 window running the dependency-free live client.
+    /// `exec` replaces the shell so closing the pane just ends the client.
+    @objc func openImsgTail() {
+        let helper = Paths.imsgHelper
+        let script = """
+        tell application "iTerm2"
+            activate
+            create window with default profile
+            tell current session of current window to write text "exec '\(helper)' tail"
+        end tell
+        """
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+    }
+
+    @objc func replyImsg() {
+        let alert = NSAlert()
+        alert.messageText = "Reply"
+        alert.informativeText = "Send an iMessage to your configured contact."
+        alert.addButton(withTitle: "Send")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        alert.accessoryView = field
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        ShellRunner.runAsync(Paths.imsgHelper, args: ["send", text])
+    }
+
+    @objc func openImsgConfig() {
+        // `config` creates the untracked stub if absent, then open it.
+        ShellRunner.run(Paths.imsgHelper, args: ["config"])
+        ShellRunner.run("/usr/bin/open", args: ["-t", Paths.imsgConfig])
+    }
 
     @objc func openDaemonLog() {
         ShellRunner.run("/usr/bin/open", args: ["-a", "Console", Paths.lidLog])
@@ -483,100 +588,164 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return out
     }
 
-    /// Push the per-status palette + custom title + wallpaper to each iTerm2
-    /// session matching a live Claude session. Called from `refresh()`, but
+    /// RGB triple in AppleScript colorspace (0–65535 per channel).
+    typealias RGB = (Int, Int, Int)
+    /// One coordinated per-status palette: bg + foreground + bold + cursor,
+    /// so the whole window shifts as a single tone.
+    struct Palette { let bg: RGB?; let text: RGB?; let bold: RGB?; let cursor: RGB? }
+
+    /// Single source of truth for the per-status palette + status glyph,
+    /// shared by the iTerm2 live-property path and the Terminal.app
+    /// settings-set provisioning path. Light mode = bold saturated status
+    /// field that pops against a bright desktop; dark mode = the same hue
+    /// dimmed to a genuine *dark* page (never collapsed to black) with bright
+    /// ink, so status stays legible across windows at night.
+    static func statusDecor(for state: ClaudeSession.State, dark: Bool)
+        -> (palette: Palette, glyph: String)
+    {
+        switch state {
+        // Blank = pure macOS appearance (white in light, black in dark) so a
+        // fresh window reads as a blank page until the first prompt fires.
+        case .blank:
+            return dark
+                ? (Palette(bg: (0, 0, 0), text: (60000, 60000, 60000),
+                           bold: (65535, 65535, 65535), cursor: (50000, 50000, 50000)), "")
+                : (Palette(bg: (65535, 65535, 65535), text: (8000, 8000, 8000),
+                           bold: (0, 0, 0), cursor: (20000, 20000, 20000)), "")
+        // Working = green (active/healthy).
+        case .working:
+            return dark
+                ? (Palette(bg: (900, 8000, 2400), text: (42000, 62000, 48000),
+                           bold: (56000, 65535, 60000), cursor: (24000, 56000, 34000)), "● working")
+                : (Palette(bg: (1500, 14000, 4000), text: (42000, 60000, 46000),
+                           bold: (55000, 65535, 58000), cursor: (22000, 55000, 32000)), "● working")
+        // Complete = slate (turn done, calm "look when ready").
+        case .complete:
+            return dark
+                ? (Palette(bg: (2800, 4000, 7500), text: (48000, 52000, 62000),
+                           bold: (60000, 62000, 65535), cursor: (32000, 42000, 57000)), "✓ complete")
+                : (Palette(bg: (5000, 7000, 12000), text: (46000, 50000, 60000),
+                           bold: (58000, 60000, 65535), cursor: (30000, 40000, 55000)), "✓ complete")
+        // Awaiting = warm amber (needs input, focus pop).
+        case .awaiting:
+            return dark
+                ? (Palette(bg: (19000, 10500, 900), text: (65535, 58000, 38000),
+                           bold: (65535, 65535, 50000), cursor: (65535, 46000, 10000)), "◉ awaiting")
+                : (Palette(bg: (32000, 18000, 1500), text: (65535, 58000, 38000),
+                           bold: (65535, 65535, 50000), cursor: (65535, 45000, 8000)), "◉ awaiting")
+        // Stale = deep red (process dead, escalate).
+        case .stale:
+            return dark
+                ? (Palette(bg: (17000, 1400, 2600), text: (65535, 42000, 42000),
+                           bold: (65535, 55000, 55000), cursor: (65535, 20000, 20000)), "○ stale")
+                : (Palette(bg: (30000, 2500, 4000), text: (65535, 42000, 42000),
+                           bold: (65535, 55000, 55000), cursor: (65535, 18000, 18000)), "○ stale")
+        }
+    }
+
+    /// Terminal.app settings-set name for a status × appearance. Terminal
+    /// can't set ad-hoc per-window RGB like iTerm2, so slab provisions one
+    /// named profile per combo and just switches a tab's `current settings`.
+    static func profileName(for state: ClaudeSession.State, dark: Bool) -> String {
+        let s: String
+        switch state {
+        case .blank:    s = "blank"
+        case .working:  s = "working"
+        case .complete: s = "complete"
+        case .awaiting: s = "awaiting"
+        case .stale:    s = "stale"
+        }
+        return "Slab-\(s)-\(dark ? "dark" : "light")"
+    }
+
+    /// Push the per-status palette + custom title to each live Claude
+    /// session, in iTerm2 *and* Terminal.app. Called from `refresh()`, but
     /// only emits an osascript when something actually changed since the
-    /// last pass (state flipped, subject moved, wallpaper landed, or a new
-    /// session appeared). iTerm2 exposes these as per-session properties, so
-    /// nothing resets font/window geometry — no save/restore, no flicker.
+    /// last pass (state flipped, subject moved, appearance flipped, or a new
+    /// session appeared). iTerm2 gets ad-hoc per-session colors + wallpaper;
+    /// Terminal.app gets a provisioned `Slab-<state>-<appearance>` settings
+    /// set switched per tab (it has no per-window RGB / bg-image scripting).
+    /// Both blocks are `is running`-guarded so a non-running terminal is a
+    /// cheap no-op and is never launched.
     private func applyTerminalDecor() {
         guard state.themeByStatus else { return }
-        // Each state ships a coordinated palette (bg + foreground + bold +
-        // cursor) so the whole window shifts as one tone. RGB triples are
-        // AppleScript colorspace 0–65535.
-        typealias RGB = (Int, Int, Int)
-        struct Palette { let bg: RGB?; let text: RGB?; let bold: RGB?; let cursor: RGB? }
-        struct Assignment { let tty: String; let palette: Palette; let title: String; let wallpaper: String }
+        struct Assignment {
+            let tty: String; let palette: Palette; let title: String
+            let wallpaper: String; let profile: String
+        }
         var changes: [Assignment] = []
         var seen = Set<String>()
         let darkAppearance = Self.isDarkAppearance()
+        // Opt-in diagnostic (off unless the flag file exists): `touch
+        // $SLAB_HOME/state/decor-debug` to log what the agent actually
+        // computes (appearance, per-session state/tty, change set) to stderr
+        // and dump the emitted AppleScript to /tmp/slab-decor-*.scpt. Zero
+        // cost when the flag is absent; invaluable when this AppleScript-
+        // fragile pipeline misbehaves on a new macOS / terminal version.
+        let decorDebug = FileManager.default.fileExists(
+            atPath: "\(Paths.slabHome)/state/decor-debug")
+        func dlog(_ m: String) {
+            guard decorDebug else { return }
+            FileHandle.standardError.write(Data("[decor] \(m)\n".utf8))
+        }
+        dlog("dark=\(darkAppearance) themeByStatus=\(state.themeByStatus) "
+            + "sessions=\(state.claudeSessions.count) "
+            + "withTty=\(state.claudeSessions.filter { !$0.tty.isEmpty }.count)")
+        for s in state.claudeSessions {
+            dlog("  sid=\(s.sessionId.prefix(8)) state=\(s.state) "
+                + "tty=\"\(s.tty)\"")
+        }
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
-            let palette: Palette
-            let glyph: String
-            switch s.state {
-            // Blank = pure macOS appearance (white in light mode, black in
-            // dark mode) so a fresh window reads as a blank page until the
-            // first prompt fires. Text/cursor flip with appearance so
-            // default ANSI output stays legible on either page color.
-            case .blank:
-                if darkAppearance {
-                    palette = Palette(
-                        bg:     (0, 0, 0),
-                        text:   (60000, 60000, 60000),
-                        bold:   (65535, 65535, 65535),
-                        cursor: (50000, 50000, 50000))
-                } else {
-                    palette = Palette(
-                        bg:     (65535, 65535, 65535),
-                        text:   (8000,  8000,  8000),
-                        bold:   (0,     0,     0),
-                        cursor: (20000, 20000, 20000))
+            let decor = Self.statusDecor(for: s.state, dark: darkAppearance)
+            var palette = decor.palette
+            let glyph = decor.glyph
+            // She texted (theme-by-status on): fold a shared magenta accent
+            // into every themed page so the wall reads "look here" without
+            // losing each session's state identity. The cursor goes full
+            // message-hue (its blink becomes the cue); bold + bg only warm.
+            if state.messageWaiting {
+                func blend(_ c: RGB?, _ m: RGB, _ f: Double) -> RGB? {
+                    guard let c = c else { return nil }
+                    func g(_ a: Int, _ b: Int) -> Int {
+                        Int((Double(a) * (1 - f) + Double(b) * f).rounded())
+                    }
+                    return (g(c.0, m.0), g(c.1, m.1), g(c.2, m.2))
                 }
-                glyph = ""
-            // Working = green (active/healthy): pale mint text on dark forest.
-            case .working:
+                let msg: RGB = (62000, 9000, 38000)
+                let msgBright: RGB = (65535, 40000, 55000)
                 palette = Palette(
-                    bg:     (1500,  14000, 4000),
-                    text:   (42000, 60000, 46000),
-                    bold:   (55000, 65535, 58000),
-                    cursor: (22000, 55000, 32000))
-                glyph = "● working"
-            // Complete = slate (turn done, calm "look when ready"):
-            // pale lavender text on deep slate.
-            case .complete:
-                palette = Palette(
-                    bg:     (5000,  7000,  12000),
-                    text:   (46000, 50000, 60000),
-                    bold:   (58000, 60000, 65535),
-                    cursor: (30000, 40000, 55000))
-                glyph = "✓ complete"
-            // Awaiting = warm amber (needs input, focus pop): cream text on
-            // amber so the warm tone reads coherently rather than fighting
-            // the default light gray.
-            case .awaiting:
-                palette = Palette(
-                    bg:     (32000, 18000, 1500),
-                    text:   (65535, 58000, 38000),
-                    bold:   (65535, 65535, 50000),
-                    cursor: (65535, 45000, 8000))
-                glyph = "◉ awaiting"
-            // Stale = deep red (process dead, escalate): pale rose text on
-            // deep red — readable but unmistakably alert.
-            case .stale:
-                palette = Palette(
-                    bg:     (30000, 2500,  4000),
-                    text:   (65535, 42000, 42000),
-                    bold:   (65535, 55000, 55000),
-                    cursor: (65535, 18000, 18000))
-                glyph = "○ stale"
+                    bg:     blend(palette.bg, msg, 0.10),
+                    text:   palette.text,
+                    bold:   blend(palette.bold, msgBright, 0.35),
+                    cursor: msg)
             }
             // Blank windows get an empty custom title so Terminal shows just
             // its default tty/process line — no "● working · …" badge while
             // the page is meant to look blank.
             let title = (s.state == .blank) ? "" : "\(glyph) · \(s.titleString)"
+            // Terminal.app profile name. The "-msg" suffix gives the "she
+            // texted" magenta-tinted palette its own settings set so Terminal
+            // windows show the accent too (their colors come from the profile,
+            // not ad-hoc RGB). Provisioned below from this Assignment.palette.
+            let profile = Self.profileName(for: s.state, dark: darkAppearance)
+                + (state.messageWaiting ? "-msg" : "")
             func keyOf(_ c: RGB?) -> String { c.map { "\($0.0),\($0.1),\($0.2)" } ?? "-" }
             let key = [
                 keyOf(palette.bg),
                 keyOf(palette.text),
                 keyOf(palette.bold),
                 keyOf(palette.cursor),
+                state.messageWaiting ? "msg" : "-",
                 title,
+                profile,
                 s.wallpaper.isEmpty ? "-" : s.wallpaper,
             ].joined(separator: "|")
             if lastTerminalDecor[s.sessionId] == key { continue }
             lastTerminalDecor[s.sessionId] = key
-            changes.append(Assignment(tty: s.tty, palette: palette, title: title, wallpaper: s.wallpaper))
+            changes.append(Assignment(
+                tty: s.tty, palette: palette, title: title,
+                wallpaper: s.wallpaper, profile: profile))
         }
         // Reap entries for sessions that disappeared since last tick — they
         // either died or got reaped by the janitor; either way our memo is
@@ -584,57 +753,162 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for sid in lastTerminalDecor.keys where !seen.contains(sid) {
             lastTerminalDecor.removeValue(forKey: sid)
         }
+        dlog("changes=\(changes.count) "
+            + changes.map { "[\($0.tty) bg=\($0.palette.bg.map { "\($0)" } ?? "-")]" }
+                .joined(separator: " "))
         if changes.isEmpty { return }
 
-        // One osascript pass that walks every iTerm2 window→tab→session
-        // once and applies every change in this batch. These are all
-        // per-session properties — none reset font or window geometry
-        // (proven), so there's nothing to save/restore and nothing to
-        // flicker. RGB triples are AppleScript colorspace 0–65535.
-        var lines = [
-            "tell application \"iTerm2\"",
-            "    repeat with w in windows",
-            "        repeat with t in tabs of w",
-            "            repeat with s in sessions of t",
-            "                try",
-            "                    set ttyName to tty of s",
-        ]
         func rgbStr(_ c: RGB) -> String { "{\(c.0), \(c.1), \(c.2)}" }
         func esc(_ v: String) -> String {
             v.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
         }
-        for a in changes {
-            // tty of session is "/dev/ttysNNN"; we record "ttysNNN".
-            let escTty = esc(a.tty)
-            lines.append("                    if ttyName ends with \"\(escTty)\" then")
-            if let bg = a.palette.bg {
-                lines.append("                        set background color of s to \(rgbStr(bg))")
+
+        // Two independent osascript invocations so a compile/resolve
+        // failure in one terminal can't kill the other (one shared script
+        // is fatal: a bad `tell application "iTerm2"` term aborts the whole
+        // thing, Terminal block included — that was the original bug).
+
+        // ── iTerm2: ad-hoc per-session color + name + bg image ──────────
+        // Referenced by bundle id: the app registers as "iTerm", so the
+        // by-name `application "iTerm2"` term fails to *compile* on many
+        // installs. Skipped entirely unless iTerm2 is installed; the inner
+        // `if it is running` keeps it from ever auto-launching iTerm2.
+        let itermInstalled = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.googlecode.iterm2") != nil
+        if itermInstalled {
+            var it: [String] = [
+                "tell application id \"com.googlecode.iterm2\"",
+                "  if it is running then",
+                "    repeat with w in windows",
+                "      repeat with t in tabs of w",
+                "        repeat with s in sessions of t",
+                "          try",
+                "            set ttyName to tty of s",
+            ]
+            for a in changes {
+                let escTty = esc(a.tty)
+                it.append("            if ttyName ends with \"\(escTty)\" then")
+                if let bg = a.palette.bg {
+                    it.append("              set background color of s to \(rgbStr(bg))")
+                }
+                if let text = a.palette.text {
+                    it.append("              set foreground color of s to \(rgbStr(text))")
+                }
+                if let bold = a.palette.bold {
+                    it.append("              set bold color of s to \(rgbStr(bold))")
+                }
+                if let cursor = a.palette.cursor {
+                    it.append("              set cursor color of s to \(rgbStr(cursor))")
+                }
+                it.append("              set name of s to \"\(esc(a.title))\"")
+                it.append("              set background image of s to \"\(esc(a.wallpaper))\"")
+                it.append("            end if")
             }
-            if let text = a.palette.text {
-                lines.append("                        set foreground color of s to \(rgbStr(text))")
+            it.append(contentsOf: [
+                "          end try",
+                "        end repeat",
+                "      end repeat",
+                "    end repeat",
+                "  end if",
+                "end tell",
+            ])
+            let itScript = it.joined(separator: "\n")
+            if decorDebug {
+                try? itScript.write(toFile: "/tmp/slab-decor-iterm.scpt",
+                                    atomically: true, encoding: .utf8)
             }
-            if let bold = a.palette.bold {
-                lines.append("                        set bold color of s to \(rgbStr(bold))")
-            }
-            if let cursor = a.palette.cursor {
-                lines.append("                        set cursor color of s to \(rgbStr(cursor))")
-            }
-            lines.append("                        set name of s to \"\(esc(a.title))\"")
-            // Per-session wallpaper. Empty path clears any prior image so a
-            // session that lost its wallpaper falls back to the flat palette.
-            lines.append("                        set background image of s to \"\(esc(a.wallpaper))\"")
-            lines.append("                    end if")
+            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", itScript])
         }
-        lines.append(contentsOf: [
-            "                end try",
-            "            end repeat",
-            "        end repeat",
-            "    end repeat",
-            "end tell",
+
+        // ── Terminal.app: provisioned settings sets switched per tab ────
+        // Terminal has no per-window RGB or bg-image scripting, so slab
+        // provisions one named settings set per distinct status×appearance
+        // (idempotent: reuse if present, always re-push colors so a palette
+        // tweak propagates) and switches each matching tab's
+        // `current settings`. Font is copied from the user's default profile
+        // so only colors change. (Terminal applies a profile's window size
+        // on switch — if tiled windows jump, that's the known Terminal-only
+        // tradeoff of per-window theming here.)
+        var profileOrder: [String] = []
+        var profilePalette: [String: Palette] = [:]
+        for a in changes where profilePalette[a.profile] == nil {
+            profileOrder.append(a.profile)
+            profilePalette[a.profile] = a.palette
+        }
+        var tm: [String] = [
+            "if application \"Terminal\" is running then",
+            "  tell application \"Terminal\"",
+        ]
+        for name in profileOrder {
+            let pal = profilePalette[name]!
+            let n = esc(name)
+            tm.append("    set slabE to (every settings set whose name is \"\(n)\")")
+            tm.append("    if (count of slabE) is 0 then")
+            tm.append("      set slabSS to (make new settings set with properties {name:\"\(n)\"})")
+            tm.append("    else")
+            tm.append("      set slabSS to item 1 of slabE")
+            tm.append("    end if")
+            tm.append("    try")
+            tm.append("      set font name of slabSS to font name of default settings")
+            tm.append("    end try")
+            tm.append("    try")
+            tm.append("      set font size of slabSS to font size of default settings")
+            tm.append("    end try")
+            if let bg = pal.bg {
+                tm.append("    try")
+                tm.append("      set background color of slabSS to \(rgbStr(bg))")
+                tm.append("    end try")
+            }
+            if let text = pal.text {
+                tm.append("    try")
+                tm.append("      set normal text color of slabSS to \(rgbStr(text))")
+                tm.append("    end try")
+            }
+            if let bold = pal.bold {
+                tm.append("    try")
+                tm.append("      set bold text color of slabSS to \(rgbStr(bold))")
+                tm.append("    end try")
+            }
+            if let cursor = pal.cursor {
+                tm.append("    try")
+                tm.append("      set cursor color of slabSS to \(rgbStr(cursor))")
+                tm.append("    end try")
+            }
+        }
+        tm.append(contentsOf: [
+            "    repeat with w in windows",
+            "      repeat with t in tabs of w",
+            "        try",
+            "          set ttyName to tty of t",
         ])
-        let script = lines.joined(separator: "\n")
-        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+        for a in changes {
+            let escTty = esc(a.tty)
+            tm.append("          if ttyName ends with \"\(escTty)\" then")
+            tm.append("            set current settings of t to settings set \"\(esc(a.profile))\"")
+            if a.title.isEmpty {
+                tm.append("            set title displays custom title of t to false")
+            } else {
+                tm.append("            set custom title of t to \"\(esc(a.title))\"")
+                tm.append("            set title displays custom title of t to true")
+            }
+            tm.append("          end if")
+        }
+        tm.append(contentsOf: [
+            "        end try",
+            "      end repeat",
+            "    end repeat",
+            "  end tell",
+            "end if",
+        ])
+        let tmScript = tm.joined(separator: "\n")
+        if decorDebug {
+            try? tmScript.write(toFile: "/tmp/slab-decor-terminal.scpt",
+                                atomically: true, encoding: .utf8)
+            dlog("wrote /tmp/slab-decor-*.scpt iterm=\(itermInstalled) "
+                + "profiles=\(profileOrder.count)")
+        }
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", tmScript])
     }
 
     /// Which terminal app to spawn restored sessions into. Honor whatever

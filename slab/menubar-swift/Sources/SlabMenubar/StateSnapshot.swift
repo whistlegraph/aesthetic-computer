@@ -15,6 +15,11 @@ struct StateSnapshot {
     /// A marketing / pop render is actively in progress — the menubar
     /// "witness" eye opens while we watch the pixels get made.
     var rendering: Bool = false
+    /// The configured iMessage contact has unread inbound AND theme-by-status
+    /// is on. Set by AppDelegate (not gather()) from the imsg poll — the
+    /// whole status surface (polygon icon + themed terminals) then carries a
+    /// shared "she texted" accent until the thread is read.
+    var messageWaiting: Bool = false
 
     var totalActive: Int { activePrompts + activeSubagents }
     var hasWork: Bool { totalActive > 0 }

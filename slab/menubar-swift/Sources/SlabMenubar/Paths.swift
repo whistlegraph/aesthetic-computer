@@ -14,6 +14,11 @@ enum Paths {
     static var slabWallpaper: String { "\(slabBin)/slab-wallpaper" }
     static var wallpaperStatusDir: String { "\(slabHome)/wallpaper/status" }
 
+    /// Generic iMessage bridge (contact lives in the untracked config below,
+    /// never in tracked code). Mirrors the slab-wallpaper wrapper convention.
+    static var imsgHelper: String { "\(slabBin)/imsg" }
+    static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
+
     static var activePromptsDir: String { "\(slabHome)/state/active-prompts" }
     static var awaitingPromptsDir: String { "\(slabHome)/state/awaiting-prompts" }
     static var activeSubagentsDir: String { "\(slabHome)/state/active-subagents" }
