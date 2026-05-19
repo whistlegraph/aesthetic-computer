@@ -1,0 +1,460 @@
+<!-- Bonneville Psychiatry — static PoC (lith-served, quiltnet pattern).
+     Hidden preview URL: https://aesthetic.computer/bp-0cf886709d1753/
+     Built by Jeffrey for Rebecca, 2026-05-19. Internal working draft.
+     Facts (credentials, specialty line, conditions, prices, phone/fax) are
+     transcribed verbatim from the live Carrd site. Items still to confirm
+     are marked TODO. Imagery: only her real portrait + the Bonneville salt
+     flats are kept; the wellness stock photos were deliberately removed —
+     that removal *is* the proof of concept. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bonneville Psychiatry</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="Bonneville Psychiatry — women's-focused and general psychiatric care. Telehealth, by appointment."
+    />
+    <!-- hidden preview: keep out of search indexes -->
+    <meta name="robots" content="noindex, nofollow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Bonneville Psychiatry" />
+    <meta
+      property="og:description"
+      content="Women's-focused and general psychiatric care. Telehealth, by appointment."
+    />
+    <meta
+      property="og:image"
+      content="https://assets.aesthetic.computer/bonneville/image03.jpg"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* Palette drawn from the Bonneville salt flats at dusk:
+           bone-white ground, slate ink, one warm sunset accent. */
+        --paper: #f6f4ef;
+        --paper-deep: #efece4;
+        --ink: #23282d;
+        --ink-muted: #5f6b72;
+        --ink-faint: #9aa3a8;
+        --rule: #d8d3c7;
+        --accent: #bd6f37; /* sunset amber */
+        --accent-deep: #8f5224;
+        --sky: #7d99a4; /* salt-flat sky */
+        --serif: "EB Garamond", Georgia, "Times New Roman", serif;
+        --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial,
+          sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #1b1e21;
+          --paper-deep: #15181a;
+          --ink: #ece7db;
+          --ink-muted: #a9b0b4;
+          --ink-faint: #71797d;
+          --rule: #343a3e;
+          --accent: #d98a4e;
+          --accent-deep: #e6a165;
+          --sky: #8fb0bc;
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--serif);
+        font-size: 19px;
+        line-height: 1.62;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      /* The one quiet generative mark — a slow salt-flat horizon shimmer.
+         Fixed, far behind everything, near-invisible. Stills for users who
+         prefer reduced motion. This is the restrained "an artist made this"
+         signature, not decoration. */
+      #horizon {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        width: 100%;
+        height: 100%;
+        opacity: 0.5;
+      }
+
+      main {
+        max-width: 660px;
+        margin: 0 auto;
+        padding: 14vh 30px 9vh;
+      }
+
+      .label {
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent-deep);
+        margin: 0 0 14px;
+      }
+
+      h1 {
+        font-weight: 600;
+        font-size: clamp(40px, 8vw, 60px);
+        line-height: 1.06;
+        letter-spacing: -0.01em;
+        margin: 0 0 18px;
+      }
+
+      .lede {
+        font-size: 22px;
+        font-style: italic;
+        color: var(--ink-muted);
+        margin: 0 0 4px;
+        max-width: 32ch;
+      }
+
+      section {
+        margin: 64px 0 0;
+        padding: 40px 0 0;
+        border-top: 1px solid var(--rule);
+      }
+
+      section:first-of-type { border-top: 0; padding-top: 0; }
+
+      h2 {
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        margin: 0 0 18px;
+      }
+
+      p { margin: 0 0 16px; }
+      p:last-child { margin-bottom: 0; }
+
+      .big {
+        font-size: 23px;
+        line-height: 1.5;
+      }
+
+      .portrait {
+        display: block;
+        width: 132px;
+        height: 132px;
+        object-fit: cover;
+        border-radius: 50%;
+        margin: 0 0 26px;
+        filter: grayscale(0.12) contrast(1.02);
+      }
+
+      figure {
+        margin: 30px 0 0;
+      }
+
+      .plate {
+        display: block;
+        width: 100%;
+        height: 240px;
+        object-fit: cover;
+        border-radius: 2px;
+        filter: saturate(0.92);
+      }
+
+      figcaption {
+        font-family: var(--sans);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        color: var(--ink-faint);
+        margin-top: 10px;
+      }
+
+      ul.scope {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        columns: 2;
+        column-gap: 36px;
+      }
+
+      ul.scope li {
+        padding: 7px 0;
+        border-bottom: 1px solid var(--rule);
+        break-inside: avoid;
+        font-size: 18px;
+      }
+
+      .fees {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 18px;
+      }
+
+      .fees td {
+        padding: 11px 0;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: baseline;
+      }
+
+      .fees td:last-child {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        padding-left: 18px;
+      }
+
+      .fees .muted { color: var(--ink-muted); font-size: 16px; }
+
+      .note {
+        font-size: 16px;
+        color: var(--ink-muted);
+        margin-top: 16px;
+      }
+
+      .contact a {
+        color: var(--ink);
+        text-decoration: none;
+        border-bottom: 1px solid var(--accent);
+        padding-bottom: 1px;
+      }
+      .contact a:hover { color: var(--accent-deep); }
+
+      .contact .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .contact .row span:first-child {
+        font-family: var(--sans);
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        align-self: center;
+      }
+
+      footer {
+        max-width: 660px;
+        margin: 0 auto;
+        padding: 48px 30px 60px;
+        border-top: 1px solid var(--rule);
+        font-family: var(--sans);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        color: var(--ink-faint);
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      footer a { color: var(--ink-faint); text-decoration: none; }
+      footer a:hover { color: var(--ink-muted); }
+      .draft {
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--accent-deep);
+      }
+
+      @media (max-width: 460px) {
+        html, body { font-size: 18px; }
+        main { padding: 9vh 22px 7vh; }
+        ul.scope { columns: 1; }
+        .plate { height: 190px; }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="horizon" aria-hidden="true"></canvas>
+    <main>
+      <p class="label">Bonneville&nbsp;Psychiatry</p>
+      <h1>Considered psychiatric care, by appointment.</h1>
+      <p class="lede">
+        A clinic dedicated to women's-focused and general psychiatric care.
+      </p>
+
+      <section aria-label="Care">
+        <img
+          class="portrait"
+          src="https://assets.aesthetic.computer/bonneville/image02.jpg"
+          alt="The clinician at Bonneville Psychiatry."
+          width="132"
+          height="132"
+        />
+        <h2>The Practice</h2>
+        <p class="big">
+          Care is provided by a triple board-certified nurse practitioner in
+          midwifery, family practice, and psychiatry (CNM, FNP, PMHNP), with a
+          Doctor of Nursing Practice from the University of Utah, 2016.
+        </p>
+        <p>
+          The work is unhurried and individual. A small, selective practice —
+          time per patient over volume — delivered entirely by telehealth.
+        </p>
+      </section>
+
+      <section aria-label="Focus">
+        <h2>Reproductive Psychiatry</h2>
+        <p class="big">
+          “I specialize in reproductive psychiatry — helping individuals
+          navigate the unique challenges that arise during menstruation,
+          pregnancy, postpartum, menopause, and beyond.”
+        </p>
+        <figure>
+          <img
+            class="plate"
+            src="https://assets.aesthetic.computer/bonneville/image03.jpg"
+            alt="The Bonneville salt flats at dusk."
+            loading="lazy"
+          />
+          <figcaption>The Bonneville flats, Utah — the practice's namesake.</figcaption>
+        </figure>
+      </section>
+
+      <section aria-label="Scope">
+        <h2>Scope of Care</h2>
+        <ul class="scope">
+          <li>Anxiety</li>
+          <li>Depression</li>
+          <li>ADHD</li>
+          <li>Bipolar disorder</li>
+          <li>Perinatal mental health</li>
+          <li>Postpartum depression</li>
+          <li>Premenstrual mood disorders</li>
+          <li>Eating disorders</li>
+          <li>Addiction &amp; substance use</li>
+          <li>Insomnia</li>
+          <li>Schizophrenia</li>
+        </ul>
+        <p class="note">Patients ages 12 and up.</p>
+      </section>
+
+      <section aria-label="Visits and fees">
+        <h2>Visits &amp; Fees</h2>
+        <table class="fees">
+          <tr>
+            <td>New patient <span class="muted">— 60 minutes</span></td>
+            <td>$200</td>
+          </tr>
+          <tr>
+            <td>Return patient <span class="muted">— 30 minutes</span></td>
+            <td>$100</td>
+          </tr>
+          <tr>
+            <td>
+              No-show / cancellation under 24&nbsp;hours
+              <span class="muted">— new&nbsp;/&nbsp;return</span>
+            </td>
+            <td>$150&nbsp;/&nbsp;$75</td>
+          </tr>
+        </table>
+        <p class="note">
+          Telehealth only. No insurance billed. HSA / FSA and major credit and
+          debit cards accepted.
+        </p>
+      </section>
+
+      <section aria-label="Contact" class="contact">
+        <h2>Contact</h2>
+        <div class="row">
+          <span>Call or text</span>
+          <span><a href="tel:+13857150671">385&nbsp;715&nbsp;0671</a></span>
+        </div>
+        <div class="row">
+          <span>Fax</span>
+          <span>801&nbsp;935&nbsp;9414</span>
+        </div>
+        <!-- TODO: confirm the public inbox before linking email
+             (Carrd site obfuscates it). Phone/text is the live path. -->
+        <div class="row">
+          <span>Appointments</span>
+          <span><a href="tel:+13857150671">Request by phone or text</a></span>
+        </div>
+        <p class="note">
+          Telehealth visits by appointment. New patients welcome as the
+          schedule allows.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <span class="draft">Internal preview · working draft</span>
+      <span><a href="https://aesthetic.computer">made on aesthetic.computer</a></span>
+    </footer>
+
+    <script>
+      // Slow salt-flat horizon: a single soft band of warm light low in the
+      // frame, breathing over ~40s. Deliberately almost-not-there.
+      (function () {
+        var c = document.getElementById("horizon");
+        var x = c.getContext("2d");
+        var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var dark = matchMedia("(prefers-color-scheme: dark)").matches;
+        var W, H, t = 0;
+        function size() {
+          W = c.width = innerWidth;
+          H = c.height = innerHeight;
+        }
+        size();
+        addEventListener("resize", size);
+        function frame() {
+          t += 0.0016;
+          var horizon = H * (0.74 + Math.sin(t) * 0.012);
+          x.clearRect(0, 0, W, H);
+          // sky → flats gradient
+          var g = x.createLinearGradient(0, 0, 0, H);
+          if (dark) {
+            g.addColorStop(0, "#15181a");
+            g.addColorStop(0.7, "#1b1f22");
+            g.addColorStop(1, "#23282b");
+          } else {
+            g.addColorStop(0, "#f1eee6");
+            g.addColorStop(0.7, "#f6f4ef");
+            g.addColorStop(1, "#efe9db");
+          }
+          x.fillStyle = g;
+          x.fillRect(0, 0, W, H);
+          // low warm light glow at the horizon, drifting
+          var cx = W * (0.5 + Math.sin(t * 0.6) * 0.07);
+          var glow = x.createRadialGradient(
+            cx, horizon, 0, cx, horizon, Math.max(W, H) * 0.55
+          );
+          var a = dark ? 0.16 : 0.22;
+          glow.addColorStop(0, "rgba(189,111,55," + a + ")");
+          glow.addColorStop(0.5, "rgba(189,111,55," + a * 0.35 + ")");
+          glow.addColorStop(1, "rgba(189,111,55,0)");
+          x.fillStyle = glow;
+          x.fillRect(0, 0, W, H);
+          // faint horizon line
+          x.strokeStyle = dark
+            ? "rgba(143,170,182,0.10)"
+            : "rgba(125,153,164,0.16)";
+          x.lineWidth = 1;
+          x.beginPath();
+          x.moveTo(0, horizon);
+          x.lineTo(W, horizon);
+          x.stroke();
+          if (!reduce) requestAnimationFrame(frame);
+        }
+        frame();
+      })();
+    </script>
+  </body>
+</html>
