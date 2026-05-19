@@ -62,6 +62,25 @@ final class MenuBandSynth {
             componentFlagsMask: 0)
         return AVAudioUnitEffect(audioComponentDescription: desc)
     }()
+    /// "Glued master" bus compressor (Apple AUDynamicsProcessor) on the
+    /// master path, sitting AFTER the reverb and BEFORE the PeakLimiter.
+    /// Its job is loudness normalization: it evens out level across quiet
+    /// single notes and loud chords, then makeup-gains the whole bus up so
+    /// playing always lands near 0 dBFS ("max" within the app's own
+    /// headroom — it never touches the macOS system volume). The PeakLimiter
+    /// downstream stays the inviolable brick wall that catches whatever the
+    /// compressor's makeup gain pushes past 0 dBFS, so this can drive hard
+    /// without ever clipping. Tuned for a glued-but-musical feel (soft knee,
+    /// transient-friendly attack, slow release to avoid pumping).
+    private let compressor: AVAudioUnitEffect = {
+        var desc = AudioComponentDescription(
+            componentType: kAudioUnitType_Effect,
+            componentSubType: kAudioUnitSubType_DynamicsProcessor,
+            componentManufacturer: kAudioUnitManufacturer_Apple,
+            componentFlags: 0,
+            componentFlagsMask: 0)
+        return AVAudioUnitEffect(audioComponentDescription: desc)
+    }()
     /// Global "space" reverb on the master path — sits between the
     /// pre-limiter sum and the limiter so EVERY backend (MIDISynth,
     /// sampler, plugin AU, sample voice, radio) gets the exact same
@@ -75,6 +94,21 @@ final class MenuBandSynth {
         r.loadFactoryPreset(.largeHall2)
         r.wetDryMix = 0
         return r
+    }()
+    /// Global tape-style echo on the master path, sitting just BEFORE
+    /// the reverb so its repeats wash into the room (not the other way
+    /// round) and pre-master so the volume slider scales the echo tail
+    /// with everything else. `wetDryMix` at 0 is fully dry — identical
+    /// to before this node existed. The ⌥Option + horizontal trackpad
+    /// gesture opens it up; `setEcho` drives wet + feedback together so
+    /// one axis = "amount of echo".
+    private let echo: AVAudioUnitDelay = {
+        let d = AVAudioUnitDelay()
+        d.delayTime = 0.33       // slap ≈ eighth-note at ~110 BPM
+        d.feedback = 0           // ramps up with amount in setEcho
+        d.lowPassCutoff = 4_000  // darken repeats so they sit under the dry
+        d.wetDryMix = 0          // fully dry until the gesture opens it
+        return d
     }()
     /// Third-party AU instrument hosted via the Plugins picker. When non-nil
     /// and `usingPluginInstrument` is true, melodic notes route through this
@@ -187,7 +221,9 @@ final class MenuBandSynth {
     func start() {
         guard !started else { return }
         engine.attach(preLimiterMixer)
+        engine.attach(echo)
         engine.attach(spaceReverb)
+        engine.attach(compressor)
         engine.attach(limiter)
         engine.attach(melodic)
         engine.attach(drums)
@@ -338,16 +374,51 @@ final class MenuBandSynth {
     /// straight to `preLimiterMixer`.
     private func connectLimiterIfNeeded() {
         guard !limiterConnected else { return }
-        // preLimiterMixer → spaceReverb → limiter → mainMixerNode.
-        // Reverb sits pre-limiter so its tail is peak-controlled too,
-        // and pre-master so the volume slider scales wet+dry together.
-        engine.connect(preLimiterMixer, to: spaceReverb, format: nil)
-        engine.connect(spaceReverb, to: limiter, format: nil)
+        // preLimiterMixer → echo → spaceReverb → compressor → limiter → main.
+        // Echo is first so the reverb washes its repeats (not vice-versa);
+        // both sit pre-compressor so their tails are leveled + peak-controlled
+        // and pre-master so the volume slider scales them with everything.
+        // The compressor does the loudness normalization (glue + makeup gain);
+        // the PeakLimiter remains the final brick wall at 0 dBFS.
+        engine.connect(preLimiterMixer, to: echo, format: nil)
+        engine.connect(echo, to: spaceReverb, format: nil)
+        engine.connect(spaceReverb, to: compressor, format: nil)
+        engine.connect(compressor, to: limiter, format: nil)
         engine.connect(limiter, to: engine.mainMixerNode, format: nil)
+
+        // "Glued master" compressor: pull quiet notes up and tame loud
+        // chords toward a common level, then makeup-gain the whole bus so
+        // ordinary playing sits near 0 dBFS. Soft knee (HeadRoom) keeps it
+        // musical rather than slammed; +9 dB makeup is what actually makes
+        // it "as loud as it can be" — the downstream limiter absorbs any
+        // overshoot so the makeup can be generous without clipping.
+        // Expansion left at defaults (ExpansionThreshold ≈ -100 dB) so the
+        // low-end expander never acts as a noise gate on soft tails.
+        let cAU = compressor.audioUnit
+        // dB. Everything above this is compressed.
+        AudioUnitSetParameter(cAU, kDynamicsProcessorParam_Threshold,
+                              kAudioUnitScope_Global, 0, -18.0, 0)
+        // dB soft-knee width above threshold — wider = gentler ratio.
+        AudioUnitSetParameter(cAU, kDynamicsProcessorParam_HeadRoom,
+                              kAudioUnitScope_Global, 0, 8.0, 0)
+        // 8 ms attack lets note transients punch through before the
+        // gain reduction clamps down (keeps attacks crisp).
+        AudioUnitSetParameter(cAU, kDynamicsProcessorParam_AttackTime,
+                              kAudioUnitScope_Global, 0, 0.008, 0)
+        // 180 ms release recovers smoothly between phrases without
+        // audible pumping on sustained pads/chords.
+        AudioUnitSetParameter(cAU, kDynamicsProcessorParam_ReleaseTime,
+                              kAudioUnitScope_Global, 0, 0.18, 0)
+        // Makeup gain — the "normalize to max" stage. (kDynamicsProcessorParam
+        // _MasterGain is spelled _OverallGain in the Swift-imported header.)
+        AudioUnitSetParameter(cAU, kDynamicsProcessorParam_OverallGain,
+                              kAudioUnitScope_Global, 0, 9.0, 0)
+
         let au = limiter.audioUnit
         // Fast attack catches chord/transient peaks; medium release avoids
-        // pumping on sustained notes. Pre-gain stays at 0 so quiet input
-        // doesn't get squashed into the limiter unnecessarily.
+        // pumping on sustained notes. Pre-gain stays at 0 — the compressor
+        // already supplies makeup gain, so the limiter only has to catch
+        // the residual peaks the compressor lets through.
         AudioUnitSetParameter(au, kLimiterParam_AttackTime,
                               kAudioUnitScope_Global, 0, 0.002, 0)
         AudioUnitSetParameter(au, kLimiterParam_DecayTime,
@@ -364,6 +435,22 @@ final class MenuBandSynth {
         let clamped = max(0, min(1, amount))
         spaceReverb.wetDryMix = clamped * 72
     }
+
+    /// Master echo knob, 0…1. Drives wet mix + feedback together so a
+    /// single axis sweeps "no echo" → "long trailing tape repeats".
+    /// Feedback is capped under runaway so it can hang and bloom for
+    /// character without self-oscillating into a scream. On the shared
+    /// master path, so it's independent of the selected instrument.
+    func setEcho(_ amount: Float) {
+        let a = max(0, min(1, amount))
+        echoAmount = a
+        // ≤45% wet keeps the dry transient clearly on top of the tail.
+        echo.wetDryMix = a * 45
+        // Feedback to 78%: long, obvious repeats that still decay.
+        echo.feedback = a * 78
+    }
+    private var echoAmount: Float = 0
+    var currentEcho: Float { echoAmount }
 
     private func connectMelodicSamplerIfNeeded() {
         guard !melodicConnected else { return }

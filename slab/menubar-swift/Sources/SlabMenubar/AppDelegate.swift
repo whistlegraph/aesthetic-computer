@@ -538,6 +538,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         applyTerminalDecor()
     }
 
+    /// Toggle the "force bright" override: status themes use the light
+    /// palettes regardless of the macOS Auto-appearance schedule, so the
+    /// wall stays sunlight-readable after the system flips Dark for the
+    /// evening. Clears the decor + desktop memos so the flip repaints every
+    /// live session (and the desktop tint) on the very next tick instead of
+    /// waiting for each one to change state.
+    @objc func toggleForceBright() {
+        let path = Paths.forceBrightFlag
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+        }
+        lastTerminalDecor.removeAll()
+        lastDesktopTint = ""
+        refresh()
+        applyTerminalDecor()
+    }
+
+    /// Effective dark-mode decision for status theming: the macOS appearance
+    /// unless the "force bright" override is on, in which case theming is
+    /// pinned to the light (sunlight-readable) palettes.
+    private func effectiveDark() -> Bool {
+        state.forceBright ? false : Self.isDarkAppearance()
+    }
+
     private func stateName(_ s: ClaudeSession.State) -> String {
         switch s {
         case .blank:    return "blank"
@@ -604,10 +633,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Single source of truth for the per-status palette + status glyph,
     /// shared by the iTerm2 live-property path and the Terminal.app
-    /// settings-set provisioning path. Light mode = bold saturated status
-    /// field that pops against a bright desktop; dark mode = the same hue
-    /// dimmed to a genuine *dark* page (never collapsed to black) with bright
-    /// ink, so status stays legible across windows at night.
+    /// settings-set provisioning path. Light mode = a genuinely *bright*
+    /// page — a near-white background washed with the status hue, plus dark
+    /// saturated ink — so every status (not just blank) stays readable in
+    /// direct sunlight outdoors. Dark mode = the same hue dimmed to a
+    /// genuine dark page (never collapsed to black) with bright ink, so
+    /// status stays legible across windows at night.
     static func statusDecor(for state: ClaudeSession.State, dark: Bool)
         -> (palette: Palette, glyph: String)
     {
@@ -620,34 +651,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            bold: (65535, 65535, 65535), cursor: (50000, 50000, 50000)), "")
                 : (Palette(bg: (65535, 65535, 65535), text: (8000, 8000, 8000),
                            bold: (0, 0, 0), cursor: (20000, 20000, 20000)), "")
-        // Working = green (active/healthy).
+        // Working = green (active/healthy). Light: bright mint page, deep
+        // forest ink — the hue lives in the wash + ink, not a dark field.
         case .working:
             return dark
                 ? (Palette(bg: (900, 8000, 2400), text: (42000, 62000, 48000),
                            bold: (56000, 65535, 60000), cursor: (24000, 56000, 34000)), "● working")
-                : (Palette(bg: (1500, 14000, 4000), text: (42000, 60000, 46000),
-                           bold: (55000, 65535, 58000), cursor: (22000, 55000, 32000)), "● working")
+                : (Palette(bg: (55000, 65535, 58000), text: (2500, 20000, 8000),
+                           bold: (1000, 13000, 4000), cursor: (4000, 42000, 15000)), "● working")
         // Complete = slate (turn done, calm "look when ready").
         case .complete:
             return dark
                 ? (Palette(bg: (2800, 4000, 7500), text: (48000, 52000, 62000),
                            bold: (60000, 62000, 65535), cursor: (32000, 42000, 57000)), "✓ complete")
-                : (Palette(bg: (5000, 7000, 12000), text: (46000, 50000, 60000),
-                           bold: (58000, 60000, 65535), cursor: (30000, 40000, 55000)), "✓ complete")
-        // Awaiting = warm amber (needs input, focus pop).
+                : (Palette(bg: (56000, 59000, 65535), text: (8000, 14000, 30000),
+                           bold: (3000, 7000, 21000), cursor: (15000, 25000, 52000)), "✓ complete")
+        // Awaiting = warm amber (needs input, focus pop) — kept bright in
+        // light mode but the most saturated wash so it still grabs the eye.
         case .awaiting:
             return dark
                 ? (Palette(bg: (19000, 10500, 900), text: (65535, 58000, 38000),
                            bold: (65535, 65535, 50000), cursor: (65535, 46000, 10000)), "◉ awaiting")
-                : (Palette(bg: (32000, 18000, 1500), text: (65535, 58000, 38000),
-                           bold: (65535, 65535, 50000), cursor: (65535, 45000, 8000)), "◉ awaiting")
+                : (Palette(bg: (65535, 59000, 45000), text: (26000, 13000, 0),
+                           bold: (18000, 8000, 0), cursor: (65535, 35000, 0)), "◉ awaiting")
         // Stale = deep red (process dead, escalate).
         case .stale:
             return dark
                 ? (Palette(bg: (17000, 1400, 2600), text: (65535, 42000, 42000),
                            bold: (65535, 55000, 55000), cursor: (65535, 20000, 20000)), "○ stale")
-                : (Palette(bg: (30000, 2500, 4000), text: (65535, 42000, 42000),
-                           bold: (65535, 55000, 55000), cursor: (65535, 18000, 18000)), "○ stale")
+                : (Palette(bg: (65535, 54000, 54000), text: (26000, 1500, 4000),
+                           bold: (18000, 0, 2000), cursor: (60000, 4000, 7000)), "○ stale")
         }
     }
 
@@ -683,7 +716,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         var changes: [Assignment] = []
         var seen = Set<String>()
-        let darkAppearance = Self.isDarkAppearance()
+        let darkAppearance = effectiveDark()
         // Opt-in diagnostic (off unless the flag file exists): `touch
         // $SLAB_HOME/state/decor-debug` to log what the agent actually
         // computes (appearance, per-session state/tty, change set) to stderr
@@ -696,7 +729,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard decorDebug else { return }
             FileHandle.standardError.write(Data("[decor] \(m)\n".utf8))
         }
-        dlog("dark=\(darkAppearance) themeByStatus=\(state.themeByStatus) "
+        dlog("dark=\(darkAppearance) forceBright=\(state.forceBright) "
+            + "themeByStatus=\(state.themeByStatus) "
             + "sessions=\(state.claudeSessions.count) "
             + "withTty=\(state.claudeSessions.filter { !$0.tty.isEmpty }.count)")
         for s in state.claudeSessions {
@@ -947,7 +981,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return
         }
-        let dark = Self.isDarkAppearance()  // NSApp/NSScreen → main only
+        let dark = effectiveDark()  // override-aware; NSApp/NSScreen → main only
         // Component-wise mean of every session's status page color.
         var sr = 0, sg = 0, sb = 0
         for s in sessions {

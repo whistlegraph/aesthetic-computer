@@ -209,6 +209,11 @@ enum MenuBuilder {
         theme.toolTip = "Re-skin Terminal windows by Claude state — Ocean for working, Red Sands for awaiting, custom title shows the subject"
         sub.addItem(theme)
 
+        let bright = item("Bright (sunlight)", selector: #selector(AppDelegate.toggleForceBright), target: target)
+        bright.state = state.forceBright ? .on : .off
+        bright.toolTip = "Force the bright, sunlight-readable status palettes regardless of the macOS Auto dark/light schedule — for working outdoors"
+        sub.addItem(bright)
+
         sub.addItem(.separator())
 
         // Experimental: tint overlay over the focused Terminal window. Toggles

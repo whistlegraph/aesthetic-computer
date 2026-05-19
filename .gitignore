@@ -473,3 +473,4 @@ pop/*/out/
 pop/.venv/
 pop/**/__pycache__/
 pop/voice/.cache/
+system/backend/node_modules

@@ -177,12 +177,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// X-axis on the same bend gesture. 0 = dry/up-front, 1 = big
     /// room. Eases back to 0 alongside the bend spring on release.
     private var spaceAmount: Float = 0
-    /// Velocity component of the spring rubber-band that snaps the
-    /// bend back to 0 when the user lifts their fingers.
-    private var bendVelocity: Float = 0
-    /// Active rubber-band timer, retained so we can cancel it when
-    /// a new gesture starts mid-decay.
-    private var bendDecayTimer: Timer?
+    /// Current echo amount in [0, 1], driven by ⌥Option + horizontal
+    /// trackpad on the same bend gesture. Held with the other fx
+    /// after release (see `startFxRelease`).
+    private var echoAmount: Float = 0
+    /// True while the active gesture is the ⌥Option echo axis (vs.
+    /// the plain X-axis space sweep). Selects which custom cursor /
+    /// overlay wheel shows and which axis dx is routed to.
+    private var echoAxisActive = false
+    /// Post-release "dead zone": all fx hold here fully engaged for
+    /// `fxHoldDuration`, so resuming play within the window keeps the
+    /// sound intact. Fires into `startFxRamp` only if nothing resumes.
+    private var fxHoldTimer: Timer?
+    /// Linear ramp timer — eases bend/space/echo to 0 over
+    /// `fxRampDuration` once the hold expires. Replaces the old
+    /// spring/exponential so the fx never cut off sharply.
+    private var fxRampTimer: Timer?
+    /// Fx values snapshotted at the instant the ramp begins, so the
+    /// linear interpolation has a fixed origin.
+    private var fxRampFromBend: Float = 0
+    private var fxRampFromSpace: Float = 0
+    private var fxRampFromEcho: Float = 0
+    private var fxRampStart: Date?
     /// True while one or more fingers rest on the trackpad (fed by
     /// LocalKeyCapture's touch sensor). The bend holds — and survives
     /// note changes / legato — for as long as this is true; it only
@@ -230,11 +246,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// once. Combined with momentum-decay filtering, that gives a
     /// responsive "incremental" feel without overshooting.
     private static let octaveScrollPxPerStep: CGFloat = 16
-    /// Spring constants for the rubber-band decay. Stiffness too
-    /// high snaps too fast; damping below ~2*sqrt(stiffness) leaves
-    /// some bounce so the snap feels rubbery rather than mechanical.
-    private static let bendSpringStiffness: Float = 80
-    private static let bendSpringDamping: Float = 9
+    /// After the last note/finger releases, ALL fx hold fully
+    /// engaged for this long. Replaying within the window cancels
+    /// the release outright — the sound never even starts to fade.
+    private static let fxHoldDuration: TimeInterval = 3.5
+    /// Once the hold expires, bend/space/echo ramp LINEARLY to 0
+    /// over this long — a gentle glide off, never a sharp cutoff.
+    private static let fxRampDuration: TimeInterval = 1.0
     /// Trackpad-points-per-unit-bend. 80pt of vertical drag pulls
     /// to a full ±1 (= ±2 semitones at default GM range), so a
     /// modest two-finger flick reads as a noticeable bend.
@@ -244,6 +262,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// dry → full room, so it's a controllable ambience wash rather
     /// than a hair-trigger.
     private static let spaceSensitivityPerPoint: Float = 1.0 / 200.0
+    /// Trackpad-points-per-unit-echo (⌥Option + X-axis). Matched to
+    /// the space sensitivity so the two horizontal modes feel the
+    /// same under the finger — only the modifier changes the target.
+    private static let echoSensitivityPerPoint: Float = 1.0 / 200.0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")

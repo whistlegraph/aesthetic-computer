@@ -60,6 +60,12 @@ enum Paths {
     /// session is re-themed by status (working/awaiting), so a wall of
     /// terminals reads as a status display at a glance.
     static var themeByStatusFlag: String { "\(slabHome)/state/theme-by-status" }
+
+    /// When this file exists, status themes use the *light* (bright,
+    /// sunlight-readable) palettes regardless of the macOS Auto-appearance
+    /// schedule — so the wall stays readable outdoors even after the system
+    /// has flipped to Dark for the evening.
+    static var forceBrightFlag: String { "\(slabHome)/state/force-bright" }
 }
 
 enum Tools {

@@ -10,6 +10,7 @@ struct StateSnapshot {
     var autoTile: Bool = false
     var nearText: Bool = false
     var themeByStatus: Bool = false
+    var forceBright: Bool = false
     var tailnetPeers: [TailnetPeer] = []
     var claudeSessions: [ClaudeSession] = []
     /// A marketing / pop render is actively in progress — the menubar
@@ -48,6 +49,7 @@ struct StateSnapshot {
         s.autoTile = FileManager.default.fileExists(atPath: Paths.autoTileFlag)
         s.nearText = FileManager.default.fileExists(atPath: Paths.nearTextFlag)
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
+        s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         s.rendering = detectRendering()

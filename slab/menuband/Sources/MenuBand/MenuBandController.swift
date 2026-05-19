@@ -615,6 +615,13 @@ final class MenuBandController {
         synth.setSpace(amount)
     }
 
+    /// Master echo knob (⌥Option + trackpad X on the bend gesture).
+    /// Forwards straight to the synth's global delay so it colors
+    /// every backend equally, independent of the selected instrument.
+    func setEcho(amount: Float) {
+        synth.setEcho(amount)
+    }
+
     func setBend(amount: Float, allChannels: Bool = false) {
         // No clamp here — the trackpad accumulator can swing past
         // ±1 and the sample voice can vari-speed an arbitrary
