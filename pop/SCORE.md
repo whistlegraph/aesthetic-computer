@@ -28,6 +28,8 @@ Audio-only by default. No video, no chrome. If a track later becomes a video lan
 
 Shipped + in-flight singles (DistroKid status, masters, covers, videos) are tracked in **[RELEASES.md](RELEASES.md)**.
 
+Media files (final mixes, beds, raw billable vocal stems) are **not in git** — code is the source of truth, media is backed up to the assets system per-track. See **[ASSETS.md](ASSETS.md)**.
+
 ## Swimlanes
 
 ### 1. big pictures (`big-pictures/`)
@@ -91,9 +93,58 @@ test.
 
 See [`jungle/README.md`](jungle/README.md) for the format spec.
 
-### 6. (open)
+### 6. hippyhayzard (`hippyhayzard/`)
+
+Audio-only **happy hardcore × nightcore** that the form lets turn into an **earthbound/mother sorrow-ballad** — the name *is* the spec: **hippy** (bright major euphoria) colliding with **hazard** (a minor rave-siren switch). ~152 BPM, half-time ballad feel, a 16-bar hand-voiced Bach chorale (borrowed iv, deceptive cadence), 1:28 with a drop-out **break**.
+
+Three new bottom-up voices were built for it (same module shape as the dance synths, pure-float for an eventual ac-native C port): `skrill` (Skrillex FM + swept-formant talking bass — `dance/synths/`), `hoover` (Alpha-Juno "Mentasm" with the pitch *whoop*), `zitar` (sitar = Karplus-Strong + jawari buzz + sympathetic-string bank).
+
+Voice posture: jeffrey-pvc as a **sung lead** (not rapped, not one-shot) — the lyric *is* the vision, tender and plain. `bin/sing.mjs` is the ballad-tuned vocal pipeline (say → align → WORLD pitch → stretch → intimate mix onto the bed).
+
+See [`hippyhayzard/README.md`](hippyhayzard/README.md) for the format spec and [`hippyhayzard/STUDY.md`](hippyhayzard/STUDY.md) for the genre study + the blend law. Status: scaffolded 2026-05-19; first sung 1:28 cut rendered, vocal↔section bar-lock is the open refinement.
+
+### 7. hellsine (`hellsine/`)
+
+A **concept track** under one strict constraint: *every voice is a sine
+wave — no noise, no saw, no square, no samples.* The thesis: a distorted
+sine **is** the gabber kick, so "all-sine + hardcore" is hardcore's
+literal DNA. The track carries a full **John Williams melodic structure**
+(a hand-written heroic leitmotif, stated → developed → transposed →
+triumphantly restated) and is built to work as **epic study music**:
+continuous, immersive, no dead air under a film arc. ~1:45, 182 BPM, D
+minor with a climax key-lift. The strictest possible reading of the
+bottom-up posture — one waveform, a whole genre, a whole compositional
+tradition.
+
+Voice posture: instrumental. The "voices" are additive-sine brass /
+strings, sine-FM stabs, a saturated-sine hoover, and the saturated-sine
+kick. No vocal.
+
+See [`hellsine/README.md`](hellsine/README.md) for the all-sine law +
+the voice table + the form. Status: scaffolded 2026-05-19.
+
+### 8. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
+
+## Sample sources (commercial-safe)
+
+Tracks ship to DistroKid/Spotify, so any sourced audio MUST be CC0 /
+public-domain or project-owned. Approved sources:
+
+- **Freesound API** — approved source; filter `license:"Creative Commons 0"`
+  (CC0) only. Credentials are **NOT** committed — they live in the
+  private vault: `aesthetic-computer-vault/freesound/credentials.json`
+  (Aesthetic Computer account; `api_key` = search/preview token,
+  `client_id`/secret = OAuth2 for full-quality downloads).
+- **archive.org** — CC0 / `publicdomain/zero` items only (verify each
+  item's `licenseurl`; "license: none" ≠ public domain).
+- **Project-owned** — the AC zoo bank (`fedac/native/samples/zoo/`) and
+  any AC field recordings.
+
+Per-track sourced SFX are logged with provenance + license in that
+track's gitignored `out/` dir (e.g. `pop/dance/out/.sfx-credits.txt` —
+`trancepenta` uses CC0 archive.org horse gallop + neigh).
 
 ## References
 

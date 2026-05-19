@@ -1,9 +1,22 @@
 import AppKit
 
 enum MenuBuilder {
-    static func build(state: StateSnapshot, mailStatus: String, target: AppDelegate) -> NSMenu {
+    static func build(
+        state: StateSnapshot,
+        mailStatus: String,
+        imsgStatus: String,
+        imsgConfigured: Bool,
+        target: AppDelegate
+    ) -> NSMenu {
         let menu = NSMenu()
-        populate(menu, state: state, mailStatus: mailStatus, target: target)
+        populate(
+            menu,
+            state: state,
+            mailStatus: mailStatus,
+            imsgStatus: imsgStatus,
+            imsgConfigured: imsgConfigured,
+            target: target
+        )
         return menu
     }
 
@@ -11,7 +24,14 @@ enum MenuBuilder {
     /// Cheap, main-thread, in-memory work (no shelling out) — called from
     /// `menuNeedsUpdate(_:)` the instant before the menu displays, so the
     /// menu is always fresh on open without ever being swapped while tracked.
-    static func populate(_ menu: NSMenu, state: StateSnapshot, mailStatus: String, target: AppDelegate) {
+    static func populate(
+        _ menu: NSMenu,
+        state: StateSnapshot,
+        mailStatus: String,
+        imsgStatus: String,
+        imsgConfigured: Bool,
+        target: AppDelegate
+    ) {
         menu.removeAllItems()
         menu.autoenablesItems = false
 
@@ -24,12 +44,17 @@ enum MenuBuilder {
 
         menu.addItem(buildTailnet(state: state, target: target))
         menu.addItem(buildMail(status: mailStatus, target: target))
+        menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
         menu.addItem(.separator())
 
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)
         stayAwake.state = state.sleepDisabled ? .on : .off
         menu.addItem(stayAwake)
         menu.addItem(item("Sleep now", selector: #selector(AppDelegate.sleepNow), target: target))
+
+        let saver = item("Start screensaver", selector: #selector(AppDelegate.startScreensaver), target: target)
+        saver.toolTip = "Launch the currently-selected screen saver now (Slab Status if chosen in System Settings)."
+        menu.addItem(saver)
 
         let mute = item("Mute ambient sonification", selector: #selector(AppDelegate.toggleMute), target: target)
         mute.state = state.muted ? .on : .off
@@ -184,6 +209,11 @@ enum MenuBuilder {
         theme.toolTip = "Re-skin Terminal windows by Claude state — Ocean for working, Red Sands for awaiting, custom title shows the subject"
         sub.addItem(theme)
 
+        let bright = item("Bright (sunlight)", selector: #selector(AppDelegate.toggleForceBright), target: target)
+        bright.state = state.forceBright ? .on : .off
+        bright.toolTip = "Force the bright, sunlight-readable status palettes regardless of the macOS Auto dark/light schedule — for working outdoors"
+        sub.addItem(bright)
+
         sub.addItem(.separator())
 
         // Experimental: tint overlay over the focused Terminal window. Toggles
@@ -270,6 +300,25 @@ enum MenuBuilder {
         sub.addItem(item("Sync quiltnet-mail", selector: #selector(AppDelegate.syncQuiltnetMail), target: target))
         sub.addItem(.separator())
         sub.addItem(item("Open sync log", selector: #selector(AppDelegate.openSyncLog), target: target))
+        parent.submenu = sub
+        return parent
+    }
+
+    /// iMessage submenu — mirrors Mail. The parent title is whatever the
+    /// helper reported (the contact's display name lives only in the
+    /// untracked config, never here), so nothing personal is in tracked code.
+    private static func buildImsg(status: String, configured: Bool, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: status, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        if configured {
+            sub.addItem(item("Reply…", selector: #selector(AppDelegate.replyImsg), target: target))
+            sub.addItem(item("Live tail in terminal", selector: #selector(AppDelegate.openImsgTail), target: target))
+            sub.addItem(item("Open in Messages", selector: #selector(AppDelegate.openImsg), target: target))
+            sub.addItem(.separator())
+        } else {
+            sub.addItem(info("Not set up — fill in the contact config:"))
+        }
+        sub.addItem(item("Edit contact config", selector: #selector(AppDelegate.openImsgConfig), target: target))
         parent.submenu = sub
         return parent
     }

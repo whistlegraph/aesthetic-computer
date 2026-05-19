@@ -450,3 +450,27 @@ fedac/native/upload.env.gpg
 
 # Stray GPG key backups (canonical copies live in aesthetic-computer-vault/gpg/)
 /gpg/
+
+# Browser e2e screenshots (tests/browser/)
+tests/browser/__screens__/
+
+# Local build / scratch artifacts (kept on-machine, never committed)
+system/backend/node_modules/
+system/backend/.backfill-deps/
+lith/cache/
+lith/scripts/out/
+/.log
+/mpv-shot*.jpg
+
+# Grant LaTeX build artifacts (sources/drafts live in the vault)
+grants/**/*.aux
+grants/**/*.out
+grants/lacma-2026/*.log
+
+# pop/ — code is source of truth; rendered audio + caches are media,
+# backed up to the assets system (DO Spaces), never git. See pop/ASSETS.md.
+pop/*/out/
+pop/.venv/
+pop/**/__pycache__/
+pop/voice/.cache/
+system/backend/node_modules

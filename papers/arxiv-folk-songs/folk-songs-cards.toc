@@ -5,7 +5,7 @@
 \contentsline {subsection}{\numberline {3.2}Songs as Cards}{9}{subsection.3.2}%
 \contentsline {section}{\numberline {4}A Catalog of Playable Melodies}{11}{section.4}%
 \contentsline {subsection}{\numberline {4.1}Pentatonic (5 notes)}{11}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Narrow Range ($<$ octave)}{11}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.2}Narrow Range ($<$ octave)}{12}{subsection.4.2}%
 \contentsline {subsection}{\numberline {4.3}Modal \& Diatonic}{12}{subsection.4.3}%
 \contentsline {section}{\numberline {5}The Folk Process as Version Control}{13}{section.5}%
 \contentsline {section}{\numberline {6}Computational Dimensions}{15}{section.6}%

@@ -1,0 +1,274 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from fraserin.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{fraserin-essay-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\hypersetup{
+  pdftitle={A Fraserin' Art + Tech},
+}
+
+\renewcommand{\acpdfbase}{fraserin-essay-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} A Fraserin' Art + Tech}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} An Essay and Survey}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Verse 1 --- Where the Song Came From}
+% =========================================================================
+
+The Aesthetic Computer papers folder, in the spring of 2026, contains thirteen dossiers on art-and-tech institutions and one on their largest funder. Rhizome.org, Eyebeam, the School for Poetic Computation, the Recurse Center, Pioneer Works, NEW INC, the Studio Museum in Harlem, HathiTrust, The Kitchen, Machine Project, Heavy Manners Library, the Internet Archive --- and the Mellon Foundation, the Form 990-PF that paid for nontrivial chunks of all the rest~\citep{ac2026rhizome,ac2026eyebeam,ac2026sfpc,ac2026recurse,ac2026pioneerworks,ac2026newinc,ac2026studiomuseum,ac2026hathitrust,ac2026thekitchen,ac2026machineproject,ac2026heavymanners,ac2026internetarchive,ac2026mellon}. Each dossier records what is publicly recoverable, in the form public documents make recoverable: 990s, masthead snapshots, named-grant inventories, board affiliations.
+
+The dossiers were written, one at a time, without naming the project they are. This paper names it. The project is institutional critique --- the move Andrea Fraser names in the 2005 \emph{Artforum} essay \emph{From the Critique of Institutions to an Institution of Critique}~\citep{fraser2005critique} and brings to scale in the 2018 book \emph{Museums, Money, and Politics}~\citep{fraser2018museums} --- applied, not to the museums Fraser herself has spent forty years inside, but to the art-and-tech cluster that grew up next door to those museums and has rarely been treated as a single object.
+
+Two questions follow. First: what would it mean to do this on purpose? Which of Fraser's moves transfer to art-and-tech institutions cleanly, and which break or change shape under the new substrate? Second: to what extent has this already been done? The dossier series is a partial answer to the first question by way of doing it in advance of asking; this paper backs up and asks the question.
+
+This paper has no conclusion. It ends when the survey ends. Where facts run out, gaps are flagged inline.
+
+% =========================================================================
+\section{Verse 2 --- Six Things She Did}
+% =========================================================================
+
+The grammar Fraser builds across thirty-five years of work resolves into six recurring moves. They are listed here in the order they appear in her own arc, not in order of importance.
+
+\subsection{Move 1 --- Treat the institution as the subject}
+
+Fraser's earliest performances --- \emph{Welcome to the Wadsworth} (1991), \emph{Museum Highlights} (1989) --- are tours given by a docent persona who, mid-sentence, makes the building itself the subject of the tour. The architecture, the wall labels, the funding plaque, the bathroom layout, the way visitors are routed past the gift shop: all of these become the work the visitor came to see. The artworks already on the walls are not the subject; the institution that hangs them is.
+
+The transferred form, when applied to art-and-tech: the residency call-for-applications, the alumni page, the \emph{About} page, the masthead, the funder list, the board roster, the location, the lease. These are the materials the dossier picks up and arranges. The corollary --- the residency outputs themselves are not the dossier's subject --- holds across all thirteen dossiers in \textsection 5.
+
+\subsection{Move 2 --- Refuse the outside}
+
+Fraser is consistent that there is no neutral exterior. The 2005 \emph{Artforum} essay~\citep{fraser2005critique} is the canonical statement: ``We are the institution.'' The critic is not separate from the critiqued; participation is the condition of being able to see clearly enough to critique at all.
+
+The transferred form: the author of an art-and-tech dossier on Rhizome who was an ArtBase accession on the same site, the author of an SFPC dossier who applied to SFPC, the author of a Pioneer Works dossier who has been to a Pioneer Works show. The dossiers in the platter mostly do not name this position, though it is true of several. \textsection 6 returns to this gap.
+
+\subsection{Move 3 --- Surface money, class, donor base, and governance as art-historical material}
+
+The Form 990, the masthead, the named-grant inventory, the donor wall, the board-member political-donation record~\citep{fraser2018museums}: these are not metadata or footnotes. They are the work. \emph{Museums, Money, and Politics} (2018) is the strongest move-3 artifact in Fraser's body of work --- a book that just \emph{prints} the political donations of every U.S.\ art-museum trustee for the 2016 cycle and lets the reader draw what they will.
+
+The transferred form: the multi-year revenue/expense table, the named-grant inventory, the recurring-donor list, the board-affiliations roster, the IRS 990-PF for the funder. Every dossier in \textsection 5 does move 3.
+
+\subsection{Move 4 --- Embody where possible}
+
+Fraser's strongest pieces are not external analyses but performances \emph{as} the institution's roles. Docent (\emph{Museum Highlights}, 1989), gallerist (\emph{May I Help You?}, 1991), member of the institution being toured (\emph{Welcome to the Wadsworth}, 1991), commissioned artist (\emph{Untitled}, 2003). The form mimics the function. The critique is performed, not described.
+
+The transferred form is the open question. The dossier (a printable PDF) embodies the move only weakly --- it is documentary, not performative. \textsection 6 considers what tour-as-paper, member-as-author, residency-as-fieldwork, and donor-table-as-artwork would look like as deliberate moves.
+
+\subsection{Move 5 --- Accept reproduction}
+
+Fraser is also consistent that institutional critique cannot escape its institution. The critique gets absorbed, exhibited, collected, catalogued, taught, and resold. \emph{Museum Highlights} is now in MoMA. \emph{Untitled} (the 2003 piece) is in private collections. The 2018 book is published by MIT Press. Move 5 is the move of doing the work anyway, with that fact visible.
+
+The transferred form: the AC dossier series is published on \texttt{papers.aesthetic.computer}, indexed at \texttt{papers.prompt.ac}, hosted on a Cloudflare-fronted DigitalOcean VPS, paid for by the same author whose handle is also a Rhizome ArtBase accession. The reproduction is structural and is not denied.
+
+\subsection{Move 6 --- Report the ledger}
+
+The book that is also the table~\citep{fraser2018museums}; the catalogue that is also the database~\citep{haacke1971shapolsky}; the press release that is also the receipt. Move 6 is the move of letting the document do the talking. Hans Haacke's \emph{Shapolsky et al. Manhattan Real Estate Holdings} (1971), the work the Guggenheim cancelled --- 142 photographs of slumlord-owned buildings paired with their LLC ownership records~\citep{haacke1971shapolsky} --- is the move's pre-Fraser ancestor and the AC dossiers' direct methodological forebear.
+
+The transferred form: the per-dossier \texttt{data/} directory of CSVs (financials, grants, people, programs, timeline) and a \texttt{README.md} of what is solid, what is soft, and what is missing. Every dossier in \textsection 5 does move 6.
+
+% =========================================================================
+\section{Verse 3 --- Who's in the Hall}
+% =========================================================================
+
+The art-and-tech cluster has features Fraser's home turf does not.
+
+\textbf{Tech-capital entanglement.} Boards and donor lists run through Google, Microsoft, Adobe, Bloomberg, Knight, Mellon, Sloan, the venture-capital corridor, and (where the cluster crosses into XR/defense) firms like Anduril, Palantir, and Skydio. The donor wall is also a tech-industry ledger. \textbf{Fellowship and residency labor.} Much of the program output is volunteer or sub-market labor (residencies, fellowships, ``honoraria''); the accession is not a \$50M painting but a person and three to six months of their time~\citep{ross2009nice,lorusso2019entreprecariat}. \textbf{Software as the work.} What is being archived is unstable: ArtBase needs Webrecorder, Eyebeam projects bit-rot, SFPC student work is on Glitch. Conservation is a budget line and a politics. \textbf{Education-as-program.} SFPC, Recurse, NEW INC blur ``school'' and ``residency'' and ``incubator''~\citep{ac2026sfpc,ac2026recurse,ac2026newinc}. The pedagogy is a product, the alumni are the network, the network is the funding case. \textbf{Collapsed participant categories.} The artist is often also the engineer, the curator, the donor target, and the platform user. The categories Fraser pulled apart in the museum context fold back together in the cluster --- exactly the condition the late work names.
+
+These features mean the grammar transfers, but the stress points are different. \textsection 6 names the moves the dossier form does not yet make.
+
+% =========================================================================
+\section{Verse 4 --- Who's Already Sung It}
+% =========================================================================
+
+The honest answer is: \emph{partially, scattered, never named as a coherent project.} Seven strands matter for the survey.
+
+\subsection{Strand A --- Andrea Fraser herself, on art-and-tech}
+
+To my knowledge Fraser has not made a specifically-art-and-tech-institution piece. \emph{Museums, Money, and Politics}~\citep{fraser2018museums} covers U.S.\ art museums broadly; some have media-arts programs (Whitney, MoMA, SFMOMA, Walker) but the methodology is not aimed at the art-and-tech cluster as such. \emph{Likely gap. Verify against the Fraser bibliography during the writing pass.}
+
+\subsection{Strand B --- Critics inside the cluster who already do institutional critique}
+
+The closest existing work. Domenico Quaranta's \emph{Beyond New Media Art}~\citep{quaranta2013beyond} is the strongest single book: an internal critique of how the new-media-art ghetto perpetuates itself institutionally, by a writer who has spent his career inside the ghetto. Geert Lovink's Institute of Network Cultures arc~\citep{lovink2011networks,lovink2016social,lovink2019sad} is the sustained version: festival, biennale, mailing-list, and platform institutions read against their own claims. Josephine Bosma~\citep{bosma2011nettitudes}, Tatiana Bazzichelli~\citep{bazzichelli2013networked}, Cornell \& Halter~\citep{cornell2015mass}, Archey \& Peckham~\citep{archey2014postinternet}, Christiane Paul~\citep{paul2015digital}, and Tilman Baumg\"artel~\citep{baumgaertel2001netart} round out the strand. Verdict to test: this strand does moves 1 and partly 3, rarely 2, 4, 5, 6. The critique is mostly external, by participants who do not name themselves as inside.
+
+\subsection{Strand C --- Artists doing IC-style works in art-and-tech venues}
+
+Constant Dullaart's \emph{High Retention, Slow Delivery}~\citep{dullaart2014retention}, Paolo Cirio's \emph{Loophole for All}~\citep{cirio2013loophole}, !Mediengruppe Bitnik's \emph{Random Darknet Shopper}~\citep{bitnik2014darknet}, Olia Lialina's \emph{A Vernacular Web} and \emph{Turing Complete User}~\citep{lialina2005vernacular,lialina2012turing}, Andrew Norman Wilson's \emph{Workers Leaving the Googleplex}~\citep{wilson2011googleplex}, Hito Steyerl's \emph{Duty Free Art}~\citep{steyerl2017duty} and the freeport essay specifically, and the broader Trevor Paglen / Goldin+Senneby line. Verdict to test: this strand does moves 4 (embodied) and 6 (reporting) at high resolution but is mostly aimed at \emph{tech platforms} or \emph{art-finance broadly}, rarely at art-and-tech \emph{institutions} specifically.
+
+\subsection{Strand D --- Activist / archival / list-based work}
+
+Forensic Architecture's \emph{Triple-Chaser}~\citep{forensic2019triple} on Warren Kanders, the Decolonize This Place / Strike MoMA campaign~\citep{decolonize2019kanders}, W.A.G.E.'s fee calculator~\citep{wage2024fee}, the MTL Collective work on board affiliations, Rhizome's own editorial archive read as auto-critique. Verdict to test: this strand does moves 3 and 6 at high resolution (the Kanders dossier was, methodologically, a Fraser-style ledger) but is rarely aimed at art-and-tech institutions. Closest analogue.
+
+\subsection{Strand E --- Inside-academic institutional-critique writing}
+
+The canonical anthology~\citep{alberro2009institutional}; Fraser's own essay~\citep{fraser2005critique}; the sociological substrate~\citep{bourdieu1996rules,bourdieu1984distinction,becker1982art}; Haacke's pre-Fraser ledger work~\citep{haacke1971shapolsky}. Verdict to test: this strand provides the grammar but does not apply it to art-and-tech institutions. The application is the gap.
+
+\subsection{Strand F --- The AC dossier series as proto-Fraser work}
+
+Treated separately in \textsection 5 below.
+
+\subsection{Strand G --- Labor / cultural-worker tradition (the folk-tune lineage)}
+
+Ukeles' \emph{Manifesto for Maintenance Art}~\citep{ukeles1969maintenance}; W.A.G.E.~\citep{wage2024fee}; Ben Davis's class analysis~\citep{davis2013theses}; Andrew Ross's cultural-labor scholarship~\citep{ross2009nice,ross2003nocollar}; Helen Molesworth's \emph{Work Ethic}~\citep{molesworth2003work}; Silvio Lorusso's \emph{Entreprecariat}~\citep{lorusso2019entreprecariat}; the Almanac Singers / Pete Seeger / Woody Guthrie song-as-picket-line tradition the title invokes; the 2019--2024 art-museum staff unionizations (MoMA Local 2110, New Museum Union, Whitney Workers United) at the institutions Fraser critiqued. Verdict to test: this strand is the labor-side complement to Fraser's class-side. The folk-tune title is what makes the strand visible inside the project.
+
+% =========================================================================
+\section{Verse 5 --- What We Found in the Files}
+% =========================================================================
+
+The dossier series in the platter, as of \papercreated, is a thirteen-institution corpus plus one funder. Each dossier is a Form-990-grade, public-record reconstruction of one institution's genealogy, history, programs, people, money, and footprint. Read together --- which the corpus, until this paper, was not --- they are a Fraser-grammar move-3 / move-6 project at non-trivial scale.
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}Xl}
+\toprule
+\textbf{Dossier} & \textbf{Posture} & \textbf{Source} \\
+\midrule
+Rhizome.org & 501(c)(3) recipient, IRS XML pipeline, ArtBase + Webrecorder & \texttt{arxiv-rhizome/} \citep{ac2026rhizome} \\
+School for Poetic Computation & LLC, public github finance repo, residency-as-school & \texttt{arxiv-sfpc/} \citep{ac2026sfpc} \\
+Eyebeam & 501(c)(3) recipient, IRS XML pipeline, residency model & \texttt{arxiv-eyebeam/} \citep{ac2026eyebeam} \\
+Recurse Center & For-profit, founder interviews, recruiting-revenue model & \texttt{arxiv-recurse/} \citep{ac2026recurse} \\
+Internet Archive & 501(c)(3) recipient + litigation track & \texttt{arxiv-internet-archive/} \citep{ac2026internetarchive} \\
+Mellon Foundation & \emph{Funder flip} --- 990-PF + grants database & \texttt{arxiv-mellon/} \citep{ac2026mellon} \\
+Pioneer Works & 501(c)(3) recipient, founder-as-funder & \texttt{arxiv-pioneer-works/} \citep{ac2026pioneerworks} \\
+NEW INC & Embedded in New Museum 990 & \texttt{arxiv-new-inc/} \citep{ac2026newinc} \\
+Studio Museum in Harlem & 501(c)(3) recipient, capital campaign & \texttt{arxiv-studio-museum/} \citep{ac2026studiomuseum} \\
+HathiTrust & UMich library service, no separate 990 & \texttt{arxiv-hathitrust/} \citep{ac2026hathitrust} \\
+The Kitchen & 501(c)(3) recipient, 50+ year arc & \texttt{arxiv-the-kitchen/} \citep{ac2026thekitchen} \\
+Machine Project & 501(c)(3) recipient (until 2018), Echo Park & \texttt{arxiv-machine-project/} \citep{ac2026machineproject} \\
+Heavy Manners Library & Small space, status-undisclosed & \texttt{arxiv-heavy-manners-library/} \citep{ac2026heavymanners} \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Art-and-tech-institution dossiers in the AC papermill, first-pass status as of \papercreated. Read together, the corpus performs Fraser's grammar moves 1, 3, and 6 at scale. Moves 2, 4, and 5 are partially performed and partially unmarked. Adjacent (non-art-and-tech) dossiers and capacity papers are in the broader papers index but are out of scope here.}
+\label{tab:dossiers}
+\end{table*}
+
+The set is uneven on purpose. Recipients (Rhizome, Eyebeam, SFPC, NEW INC, Pioneer Works, Studio Museum, The Kitchen, Machine Project, Internet Archive) sit alongside a major \emph{funder} (Mellon~\citep{ac2026mellon}); a for-profit (Recurse Center) sits alongside the nonprofits; an LLC (SFPC) sits alongside the 501(c)(3)s; a UMich-embedded service (HathiTrust) sits alongside the independent organizations; a small status-undisclosed space (Heavy Manners Library) sits alongside multi-million-dollar operations. The unevenness is the point: a Fraser-grammar project does not screen for institutional shape before applying the lens.
+
+What the corpus performs, as a single object: \emph{move 1} (the institution as the subject) on each entry; \emph{move 3} (money, class, donors, governance as material) on every recipient and on the funder; \emph{move 6} (the report \emph{is} the work) in the per-dossier \texttt{data/} directories. What the corpus partially performs: \emph{move 2} (refuse the outside) --- the author's relationship to several of the institutions is recorded as fact in the footprint tables but rarely named as positionality~\citep{ac2026rhizome}. What the corpus does not yet perform: \emph{move 4} (embodied performance) and \emph{move 5} (acceptance of reproduction as such).
+
+% =========================================================================
+\section{Verse 6 --- What's Left to Sing}
+% =========================================================================
+
+Three moves the dossier form does not yet make.
+
+\textbf{Tour-as-paper.} A dossier is documentary; a tour is performative. The Fraser-grammar move-4 transfer is a paper that performs a tour of an institution in the docent's voice: take the reader across the lobby, past the donor wall, into the residency studios, through the archive room, out via the gift shop. The dossier already has the materials --- the same 990s, the same masthead, the same program inventory --- but arranges them as exhibits to be read, not stops on a route to be walked.
+
+\textbf{Member-as-author.} The dossiers are mostly written without naming the author's relationship to the institution being dossiered. Where that relationship is non-trivial (e.g.\ ArtBase accession on Rhizome~\citep{ac2026rhizome}), it is recorded in the footprint table but not made structural. A move-2 transfer marks the author's position in the front matter and treats it as the paper's load-bearing constraint, not its disclosure footnote.
+
+\textbf{Donor-table-as-artwork.} The dossier publishes the donor list. \emph{Museums, Money, and Politics} publishes the donor list \emph{as a book}~\citep{fraser2018museums}. The move-6 transfer at full scale is to produce a multi-institution, multi-year, cross-referenced funder/recipient table that can be printed as its own artifact --- the AC dossier corpus's CSVs, joined and rendered as a single document. \emph{Mellon paid for these eight; Knight paid for these six; Sloan paid for these four; here is the trustee overlap.} Mellon-the-funder and the recipients are already in the platter. The join has not been done.
+
+These are not fixed proposals --- the paper is reflective, not prescriptive. They are named as the moves the corpus has not yet made, against a six-move grammar by which it has otherwise quietly made four.
+
+% =========================================================================
+\section{Coda --- Reading List}
+% =========================================================================
+
+Annotated; entries keyed back to Strand A--G.
+
+\textbf{Already in the AC readings library:} Plant~\citep{plant1997zeros} (Strand B substrate), Galloway~\citep{galloway2004protocol} (B/E), Wark~\citep{wark2004hacker} (B), Goriunova~\citep{goriunova2006readme} (B), McHugh~\citep{mchugh2019post} (B), Quaranta 2011 / 2013~\citep{quaranta2011computer,quaranta2013beyond} (B), Steyerl 2009 (C, adjacent to \citealp{steyerl2017duty}).
+
+\textbf{To acquire (priority order):}
+\begin{enumerate}[leftmargin=1.2em,itemsep=0.1em]
+\item Fraser~\citep{fraser2005critique} --- the grammar, primary source.
+\item Fraser~\citep{fraser2018museums} --- the move-6 ledger at full scale.
+\item Alberro \& Stimson~\citep{alberro2009institutional} --- the canonical anthology.
+\item Lovink~\citep{lovink2011networks,lovink2016social} --- sustained Strand B.
+\item Cornell \& Halter~\citep{cornell2015mass} --- already on SoSoft Tier 2.
+\item Bosma~\citep{bosma2011nettitudes}, Bazzichelli~\citep{bazzichelli2013networked}.
+\item Steyerl~\citep{steyerl2017duty} --- the freeport essay.
+\item Bourdieu~\citep{bourdieu1996rules}, Becker~\citep{becker1982art} --- substrate.
+\item Haacke~\citep{haacke1971shapolsky} --- the pre-Fraser ledger.
+\item Davis~\citep{davis2013theses}, Lorusso~\citep{lorusso2019entreprecariat}, Ross~\citep{ross2009nice,ross2003nocollar}, Molesworth~\citep{molesworth2003work} --- Strand G.
+\item Almanac Singers song catalog notes --- for the refrain register.
+\end{enumerate}
+
+\textbf{Acquisition queue (platter):} every entry above that is not yet in \texttt{system/public/assets/papers/readings/text/} is appended to the SoSoft acquisition list in \texttt{papers/RESEARCH-DIRECTION.md}; the platter is refreshed via \texttt{node papers/sync-platter.mjs} once each text is converted.
+
+\begin{refrain}
+\noindent
+This building, this budget, this board, this list, \\
+This residency check and the hand that it kissed, \\
+This wall full of donors, this donor's own donor --- \\
+We're a-fraserin' art and tech, by the maker, the goer, the gone-er.
+\end{refrain}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

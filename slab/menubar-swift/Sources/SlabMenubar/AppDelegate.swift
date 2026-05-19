@@ -24,6 +24,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// to Terminal, so the per-tick refresh only fires osascript when
     /// something actually changed.
     private var lastTerminalDecor: [String: String] = [:]
+    /// Last desktop-picture path slab pushed via System Events (the tint PNG,
+    /// or "" meaning "restored to the user's original"), so the per-tick
+    /// refresh only re-sets the wallpaper when the aggregate status changed.
+    private var lastDesktopTint: String?
+    /// True once we've saved the user's pre-slab desktop picture to
+    /// `Paths.desktopOriginalFile`; until then we never overwrite it.
+    private var desktopOriginalCaptured = false
     /// Base font size from the most recent `tileNow()` pass. `applyTerminalDecor`
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
@@ -34,6 +41,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var mailPending = false
     private var mailSyncing = false
     private var mailStatus = "—"
+    /// iMessage bridge state. Polled faster than mail (a chat wants low
+    /// latency) but still off-main; the helper itself rings the bell when a
+    /// NEW inbound arrives. `imsgUnread` is exposed so the theme-by-status
+    /// pipeline can treat "she texted" as a first-class status accent.
+    private var imsgTickCount = 0
+    private var imsgPending = false
+    private var imsgStatus = "—"
+    private var imsgConfigured = false
+    private var imsgUnread = 0
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
 
@@ -85,6 +101,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.async {
                 self.gathering = false
                 self.state = snapshot
+                // gather() doesn't know about iMessage; fold the cached poll
+                // result in here so the icon + decor read one consistent
+                // picture. Gated on theme-by-status per the accent's contract.
+                self.state.messageWaiting =
+                    self.imsgUnread > 0 && snapshot.themeByStatus
 
                 self.updateIcon()
                 self.updateAnimTimer()
@@ -95,8 +116,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.refreshMailCount()
                 }
 
+                // Chat wants lower latency than mail — poll ~10 s. The helper
+                // detects new inbound and rings the bell itself; we only pull
+                // the summary back for the menu label + theme accent.
+                self.imsgTickCount += 1
+                if self.imsgTickCount >= 5 && !self.imsgPending {
+                    self.imsgTickCount = 0
+                    self.refreshImsgCount()
+                }
+
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
                 self.applyTerminalDecor()
+                self.applyDesktopTint()
             }
         }
     }
@@ -108,7 +139,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// dropdown pops instantly and stays smooth while tracking.
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard menu === self.menu else { return }
-        MenuBuilder.populate(menu, state: state, mailStatus: mailStatus, target: self)
+        MenuBuilder.populate(
+            menu,
+            state: state,
+            mailStatus: mailStatus,
+            imsgStatus: imsgStatus,
+            imsgConfigured: imsgConfigured,
+            target: self
+        )
     }
 
     private func updateIcon() {
@@ -136,7 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // session is non-stale; pulse phase always advances (it drives both
         // awaiting brightness and stale blink). When the polygon goes away
         // entirely, stop the timer and reset phases.
-        if !state.claudeSessions.isEmpty {
+        if !state.claudeSessions.isEmpty || state.messageWaiting {
             if animTimer == nil {
                 let t = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -176,7 +214,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Pull the iMessage summary off-main. The helper always exits 0 for
+    /// `status`, prints one JSON line, and rings the bell itself when a NEW
+    /// inbound arrives — so this never blocks the tick and the alert fires
+    /// even while the menu is closed.
+    private func refreshImsgCount() {
+        let helper = Paths.imsgHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            imsgStatus = "iMessage: helper missing"
+            imsgConfigured = false
+            imsgUnread = 0
+            return
+        }
+        imsgPending = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let out = ShellRunner.run(helper, args: ["status"], timeout: 8).output
+            let line = out.split(separator: "\n").last.map(String.init) ?? ""
+            var label = "iMessage: —"
+            var configured = false
+            var unread = 0
+            if let data = line.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data)
+                   as? [String: Any] {
+                label = (obj["label"] as? String) ?? label
+                configured = (obj["configured"] as? Bool) ?? false
+                unread = (obj["unread"] as? Int) ?? 0
+            }
+            DispatchQueue.main.async {
+                self?.imsgStatus = label
+                self?.imsgConfigured = configured
+                self?.imsgUnread = unread
+                self?.imsgPending = false
+            }
+        }
+    }
+
     // MARK: - Menu actions
+
+    @objc func openImsg() {
+        ShellRunner.runAsync(Paths.imsgHelper, args: ["open"])
+    }
+
+    /// Open a fresh iTerm2 window running the dependency-free live client.
+    /// `exec` replaces the shell so closing the pane just ends the client.
+    @objc func openImsgTail() {
+        let helper = Paths.imsgHelper
+        let script = """
+        tell application "iTerm2"
+            activate
+            create window with default profile
+            tell current session of current window to write text "exec '\(helper)' tail"
+        end tell
+        """
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+    }
+
+    @objc func replyImsg() {
+        let alert = NSAlert()
+        alert.messageText = "Reply"
+        alert.informativeText = "Send an iMessage to your configured contact."
+        alert.addButton(withTitle: "Send")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        alert.accessoryView = field
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        ShellRunner.runAsync(Paths.imsgHelper, args: ["send", text])
+    }
+
+    @objc func openImsgConfig() {
+        // `config` creates the untracked stub if absent, then open it.
+        ShellRunner.run(Paths.imsgHelper, args: ["config"])
+        ShellRunner.run("/usr/bin/open", args: ["-t", Paths.imsgConfig])
+    }
 
     @objc func openDaemonLog() {
         ShellRunner.run("/usr/bin/open", args: ["-a", "Console", Paths.lidLog])
@@ -211,6 +324,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func sleepNow() {
         ShellRunner.runAsync(Paths.claudeSleep, args: ["now"])
+    }
+
+    /// Kick off the currently-selected screen saver now (the Slab Status
+    /// saver if it's chosen in System Settings). Launching ScreenSaverEngine
+    /// directly is the only path that still works on macOS 26 — the old
+    /// `System Events`/`start current screen saver` verb was removed.
+    @objc func startScreensaver() {
+        ShellRunner.runAsync(
+            "/usr/bin/open",
+            args: ["-a", "/System/Library/CoreServices/ScreenSaverEngine.app"]
+        )
     }
 
     @objc func toggleMute() {
@@ -312,13 +436,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 return
             }
             let layout = geom.flatMap { Self.computeTileLayout(count: entries.count, geom: $0, near: near) }
+            let term = Self.preferredTerminalApp()
             for (i, entry) in entries.enumerated() {
                 let cell = layout?.cellAt(index: i)
                 Self.openTerminalRunningClaude(
                     cwd: entry.cwd,
                     sessionId: entry.sessionId,
                     bounds: cell?.bounds,
-                    fontSize: layout?.fontSize
+                    fontSize: layout?.fontSize,
+                    app: term
                 )
             }
         }
@@ -344,6 +470,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let geom = state.autoTile ? Self.screenGeom() : nil
         let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, near: state.nearText) }
         DispatchQueue.global(qos: .userInitiated).async {
+            // Resolve the target terminal before the SIGTERM — once the old
+            // windows tear down, the open-app detection would skew.
+            let term = Self.preferredTerminalApp()
             for p in payloads where p.pid > 0 {
                 kill(pid_t(p.pid), SIGTERM)
             }
@@ -356,7 +485,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     cwd: p.cwd,
                     sessionId: p.sid,
                     bounds: cell?.bounds,
-                    fontSize: layout?.fontSize
+                    fontSize: layout?.fontSize,
+                    app: term
                 )
             }
         }
@@ -406,6 +536,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         refresh()
         applyTerminalDecor()
+    }
+
+    /// Toggle the "force bright" override: status themes use the light
+    /// palettes regardless of the macOS Auto-appearance schedule, so the
+    /// wall stays sunlight-readable after the system flips Dark for the
+    /// evening. Clears the decor + desktop memos so the flip repaints every
+    /// live session (and the desktop tint) on the very next tick instead of
+    /// waiting for each one to change state.
+    @objc func toggleForceBright() {
+        let path = Paths.forceBrightFlag
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+        }
+        lastTerminalDecor.removeAll()
+        lastDesktopTint = ""
+        refresh()
+        applyTerminalDecor()
+    }
+
+    /// Effective dark-mode decision for status theming: the macOS appearance
+    /// unless the "force bright" override is on, in which case theming is
+    /// pinned to the light (sunlight-readable) palettes.
+    private func effectiveDark() -> Bool {
+        state.forceBright ? false : Self.isDarkAppearance()
     }
 
     private func stateName(_ s: ClaudeSession.State) -> String {
@@ -466,100 +625,169 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return out
     }
 
-    /// Push the per-status palette + custom title + wallpaper to each iTerm2
-    /// session matching a live Claude session. Called from `refresh()`, but
+    /// RGB triple in AppleScript colorspace (0–65535 per channel).
+    typealias RGB = (Int, Int, Int)
+    /// One coordinated per-status palette: bg + foreground + bold + cursor,
+    /// so the whole window shifts as a single tone.
+    struct Palette { let bg: RGB?; let text: RGB?; let bold: RGB?; let cursor: RGB? }
+
+    /// Single source of truth for the per-status palette + status glyph,
+    /// shared by the iTerm2 live-property path and the Terminal.app
+    /// settings-set provisioning path. Light mode = a genuinely *bright*
+    /// page — a near-white background washed with the status hue, plus dark
+    /// saturated ink — so every status (not just blank) stays readable in
+    /// direct sunlight outdoors. Dark mode = the same hue dimmed to a
+    /// genuine dark page (never collapsed to black) with bright ink, so
+    /// status stays legible across windows at night.
+    static func statusDecor(for state: ClaudeSession.State, dark: Bool)
+        -> (palette: Palette, glyph: String)
+    {
+        switch state {
+        // Blank = pure macOS appearance (white in light, black in dark) so a
+        // fresh window reads as a blank page until the first prompt fires.
+        case .blank:
+            return dark
+                ? (Palette(bg: (0, 0, 0), text: (60000, 60000, 60000),
+                           bold: (65535, 65535, 65535), cursor: (50000, 50000, 50000)), "")
+                : (Palette(bg: (65535, 65535, 65535), text: (8000, 8000, 8000),
+                           bold: (0, 0, 0), cursor: (20000, 20000, 20000)), "")
+        // Working = green (active/healthy). Light: bright mint page, deep
+        // forest ink — the hue lives in the wash + ink, not a dark field.
+        case .working:
+            return dark
+                ? (Palette(bg: (900, 8000, 2400), text: (42000, 62000, 48000),
+                           bold: (56000, 65535, 60000), cursor: (24000, 56000, 34000)), "● working")
+                : (Palette(bg: (55000, 65535, 58000), text: (2500, 20000, 8000),
+                           bold: (1000, 13000, 4000), cursor: (4000, 42000, 15000)), "● working")
+        // Complete = slate (turn done, calm "look when ready").
+        case .complete:
+            return dark
+                ? (Palette(bg: (2800, 4000, 7500), text: (48000, 52000, 62000),
+                           bold: (60000, 62000, 65535), cursor: (32000, 42000, 57000)), "✓ complete")
+                : (Palette(bg: (56000, 59000, 65535), text: (8000, 14000, 30000),
+                           bold: (3000, 7000, 21000), cursor: (15000, 25000, 52000)), "✓ complete")
+        // Awaiting = warm amber (needs input, focus pop) — kept bright in
+        // light mode but the most saturated wash so it still grabs the eye.
+        case .awaiting:
+            return dark
+                ? (Palette(bg: (19000, 10500, 900), text: (65535, 58000, 38000),
+                           bold: (65535, 65535, 50000), cursor: (65535, 46000, 10000)), "◉ awaiting")
+                : (Palette(bg: (65535, 59000, 45000), text: (26000, 13000, 0),
+                           bold: (18000, 8000, 0), cursor: (65535, 35000, 0)), "◉ awaiting")
+        // Stale = deep red (process dead, escalate).
+        case .stale:
+            return dark
+                ? (Palette(bg: (17000, 1400, 2600), text: (65535, 42000, 42000),
+                           bold: (65535, 55000, 55000), cursor: (65535, 20000, 20000)), "○ stale")
+                : (Palette(bg: (65535, 54000, 54000), text: (26000, 1500, 4000),
+                           bold: (18000, 0, 2000), cursor: (60000, 4000, 7000)), "○ stale")
+        }
+    }
+
+    /// Terminal.app settings-set name for a status × appearance. Terminal
+    /// can't set ad-hoc per-window RGB like iTerm2, so slab provisions one
+    /// named profile per combo and just switches a tab's `current settings`.
+    static func profileName(for state: ClaudeSession.State, dark: Bool) -> String {
+        let s: String
+        switch state {
+        case .blank:    s = "blank"
+        case .working:  s = "working"
+        case .complete: s = "complete"
+        case .awaiting: s = "awaiting"
+        case .stale:    s = "stale"
+        }
+        return "Slab-\(s)-\(dark ? "dark" : "light")"
+    }
+
+    /// Push the per-status palette + custom title to each live Claude
+    /// session, in iTerm2 *and* Terminal.app. Called from `refresh()`, but
     /// only emits an osascript when something actually changed since the
-    /// last pass (state flipped, subject moved, wallpaper landed, or a new
-    /// session appeared). iTerm2 exposes these as per-session properties, so
-    /// nothing resets font/window geometry — no save/restore, no flicker.
+    /// last pass (state flipped, subject moved, appearance flipped, or a new
+    /// session appeared). iTerm2 gets ad-hoc per-session colors + wallpaper;
+    /// Terminal.app gets a provisioned `Slab-<state>-<appearance>` settings
+    /// set switched per tab (it has no per-window RGB / bg-image scripting).
+    /// Both blocks are `is running`-guarded so a non-running terminal is a
+    /// cheap no-op and is never launched.
     private func applyTerminalDecor() {
         guard state.themeByStatus else { return }
-        // Each state ships a coordinated palette (bg + foreground + bold +
-        // cursor) so the whole window shifts as one tone. RGB triples are
-        // AppleScript colorspace 0–65535.
-        typealias RGB = (Int, Int, Int)
-        struct Palette { let bg: RGB?; let text: RGB?; let bold: RGB?; let cursor: RGB? }
-        struct Assignment { let tty: String; let palette: Palette; let title: String; let wallpaper: String }
+        struct Assignment {
+            let tty: String; let palette: Palette; let title: String
+            let wallpaper: String; let profile: String
+        }
         var changes: [Assignment] = []
         var seen = Set<String>()
-        let darkAppearance = Self.isDarkAppearance()
+        let darkAppearance = effectiveDark()
+        // Opt-in diagnostic (off unless the flag file exists): `touch
+        // $SLAB_HOME/state/decor-debug` to log what the agent actually
+        // computes (appearance, per-session state/tty, change set) to stderr
+        // and dump the emitted AppleScript to /tmp/slab-decor-*.scpt. Zero
+        // cost when the flag is absent; invaluable when this AppleScript-
+        // fragile pipeline misbehaves on a new macOS / terminal version.
+        let decorDebug = FileManager.default.fileExists(
+            atPath: "\(Paths.slabHome)/state/decor-debug")
+        func dlog(_ m: String) {
+            guard decorDebug else { return }
+            FileHandle.standardError.write(Data("[decor] \(m)\n".utf8))
+        }
+        dlog("dark=\(darkAppearance) forceBright=\(state.forceBright) "
+            + "themeByStatus=\(state.themeByStatus) "
+            + "sessions=\(state.claudeSessions.count) "
+            + "withTty=\(state.claudeSessions.filter { !$0.tty.isEmpty }.count)")
+        for s in state.claudeSessions {
+            dlog("  sid=\(s.sessionId.prefix(8)) state=\(s.state) "
+                + "tty=\"\(s.tty)\"")
+        }
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
-            let palette: Palette
-            let glyph: String
-            switch s.state {
-            // Blank = pure macOS appearance (white in light mode, black in
-            // dark mode) so a fresh window reads as a blank page until the
-            // first prompt fires. Text/cursor flip with appearance so
-            // default ANSI output stays legible on either page color.
-            case .blank:
-                if darkAppearance {
-                    palette = Palette(
-                        bg:     (0, 0, 0),
-                        text:   (60000, 60000, 60000),
-                        bold:   (65535, 65535, 65535),
-                        cursor: (50000, 50000, 50000))
-                } else {
-                    palette = Palette(
-                        bg:     (65535, 65535, 65535),
-                        text:   (8000,  8000,  8000),
-                        bold:   (0,     0,     0),
-                        cursor: (20000, 20000, 20000))
+            let decor = Self.statusDecor(for: s.state, dark: darkAppearance)
+            var palette = decor.palette
+            let glyph = decor.glyph
+            // She texted (theme-by-status on): fold a shared magenta accent
+            // into every themed page so the wall reads "look here" without
+            // losing each session's state identity. The cursor goes full
+            // message-hue (its blink becomes the cue); bold + bg only warm.
+            if state.messageWaiting {
+                func blend(_ c: RGB?, _ m: RGB, _ f: Double) -> RGB? {
+                    guard let c = c else { return nil }
+                    func g(_ a: Int, _ b: Int) -> Int {
+                        Int((Double(a) * (1 - f) + Double(b) * f).rounded())
+                    }
+                    return (g(c.0, m.0), g(c.1, m.1), g(c.2, m.2))
                 }
-                glyph = ""
-            // Working = green (active/healthy): pale mint text on dark forest.
-            case .working:
+                let msg: RGB = (62000, 9000, 38000)
+                let msgBright: RGB = (65535, 40000, 55000)
                 palette = Palette(
-                    bg:     (1500,  14000, 4000),
-                    text:   (42000, 60000, 46000),
-                    bold:   (55000, 65535, 58000),
-                    cursor: (22000, 55000, 32000))
-                glyph = "● working"
-            // Complete = slate (turn done, calm "look when ready"):
-            // pale lavender text on deep slate.
-            case .complete:
-                palette = Palette(
-                    bg:     (5000,  7000,  12000),
-                    text:   (46000, 50000, 60000),
-                    bold:   (58000, 60000, 65535),
-                    cursor: (30000, 40000, 55000))
-                glyph = "✓ complete"
-            // Awaiting = warm amber (needs input, focus pop): cream text on
-            // amber so the warm tone reads coherently rather than fighting
-            // the default light gray.
-            case .awaiting:
-                palette = Palette(
-                    bg:     (32000, 18000, 1500),
-                    text:   (65535, 58000, 38000),
-                    bold:   (65535, 65535, 50000),
-                    cursor: (65535, 45000, 8000))
-                glyph = "◉ awaiting"
-            // Stale = deep red (process dead, escalate): pale rose text on
-            // deep red — readable but unmistakably alert.
-            case .stale:
-                palette = Palette(
-                    bg:     (30000, 2500,  4000),
-                    text:   (65535, 42000, 42000),
-                    bold:   (65535, 55000, 55000),
-                    cursor: (65535, 18000, 18000))
-                glyph = "○ stale"
+                    bg:     blend(palette.bg, msg, 0.10),
+                    text:   palette.text,
+                    bold:   blend(palette.bold, msgBright, 0.35),
+                    cursor: msg)
             }
             // Blank windows get an empty custom title so Terminal shows just
             // its default tty/process line — no "● working · …" badge while
             // the page is meant to look blank.
             let title = (s.state == .blank) ? "" : "\(glyph) · \(s.titleString)"
+            // Terminal.app profile name. The "-msg" suffix gives the "she
+            // texted" magenta-tinted palette its own settings set so Terminal
+            // windows show the accent too (their colors come from the profile,
+            // not ad-hoc RGB). Provisioned below from this Assignment.palette.
+            let profile = Self.profileName(for: s.state, dark: darkAppearance)
+                + (state.messageWaiting ? "-msg" : "")
             func keyOf(_ c: RGB?) -> String { c.map { "\($0.0),\($0.1),\($0.2)" } ?? "-" }
             let key = [
                 keyOf(palette.bg),
                 keyOf(palette.text),
                 keyOf(palette.bold),
                 keyOf(palette.cursor),
+                state.messageWaiting ? "msg" : "-",
                 title,
+                profile,
                 s.wallpaper.isEmpty ? "-" : s.wallpaper,
             ].joined(separator: "|")
             if lastTerminalDecor[s.sessionId] == key { continue }
             lastTerminalDecor[s.sessionId] = key
-            changes.append(Assignment(tty: s.tty, palette: palette, title: title, wallpaper: s.wallpaper))
+            changes.append(Assignment(
+                tty: s.tty, palette: palette, title: title,
+                wallpaper: s.wallpaper, profile: profile))
         }
         // Reap entries for sessions that disappeared since last tick — they
         // either died or got reaped by the janitor; either way our memo is
@@ -567,70 +795,299 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for sid in lastTerminalDecor.keys where !seen.contains(sid) {
             lastTerminalDecor.removeValue(forKey: sid)
         }
+        dlog("changes=\(changes.count) "
+            + changes.map { "[\($0.tty) bg=\($0.palette.bg.map { "\($0)" } ?? "-")]" }
+                .joined(separator: " "))
         if changes.isEmpty { return }
 
-        // One osascript pass that walks every iTerm2 window→tab→session
-        // once and applies every change in this batch. These are all
-        // per-session properties — none reset font or window geometry
-        // (proven), so there's nothing to save/restore and nothing to
-        // flicker. RGB triples are AppleScript colorspace 0–65535.
-        var lines = [
-            "tell application \"iTerm2\"",
-            "    repeat with w in windows",
-            "        repeat with t in tabs of w",
-            "            repeat with s in sessions of t",
-            "                try",
-            "                    set ttyName to tty of s",
-        ]
         func rgbStr(_ c: RGB) -> String { "{\(c.0), \(c.1), \(c.2)}" }
         func esc(_ v: String) -> String {
             v.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
         }
-        for a in changes {
-            // tty of session is "/dev/ttysNNN"; we record "ttysNNN".
-            let escTty = esc(a.tty)
-            lines.append("                    if ttyName ends with \"\(escTty)\" then")
-            if let bg = a.palette.bg {
-                lines.append("                        set background color of s to \(rgbStr(bg))")
+
+        // Two independent osascript invocations so a compile/resolve
+        // failure in one terminal can't kill the other (one shared script
+        // is fatal: a bad `tell application "iTerm2"` term aborts the whole
+        // thing, Terminal block included — that was the original bug).
+
+        // ── iTerm2: ad-hoc per-session color + name + bg image ──────────
+        // Referenced by bundle id: the app registers as "iTerm", so the
+        // by-name `application "iTerm2"` term fails to *compile* on many
+        // installs. Skipped entirely unless iTerm2 is installed; the inner
+        // `if it is running` keeps it from ever auto-launching iTerm2.
+        let itermInstalled = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.googlecode.iterm2") != nil
+        if itermInstalled {
+            var it: [String] = [
+                "tell application id \"com.googlecode.iterm2\"",
+                "  if it is running then",
+                "    repeat with w in windows",
+                "      repeat with t in tabs of w",
+                "        repeat with s in sessions of t",
+                "          try",
+                "            set ttyName to tty of s",
+            ]
+            for a in changes {
+                let escTty = esc(a.tty)
+                it.append("            if ttyName ends with \"\(escTty)\" then")
+                if let bg = a.palette.bg {
+                    it.append("              set background color of s to \(rgbStr(bg))")
+                }
+                if let text = a.palette.text {
+                    it.append("              set foreground color of s to \(rgbStr(text))")
+                }
+                if let bold = a.palette.bold {
+                    it.append("              set bold color of s to \(rgbStr(bold))")
+                }
+                if let cursor = a.palette.cursor {
+                    it.append("              set cursor color of s to \(rgbStr(cursor))")
+                }
+                it.append("              set name of s to \"\(esc(a.title))\"")
+                it.append("              set background image of s to \"\(esc(a.wallpaper))\"")
+                it.append("            end if")
             }
-            if let text = a.palette.text {
-                lines.append("                        set foreground color of s to \(rgbStr(text))")
+            it.append(contentsOf: [
+                "          end try",
+                "        end repeat",
+                "      end repeat",
+                "    end repeat",
+                "  end if",
+                "end tell",
+            ])
+            let itScript = it.joined(separator: "\n")
+            if decorDebug {
+                try? itScript.write(toFile: "/tmp/slab-decor-iterm.scpt",
+                                    atomically: true, encoding: .utf8)
             }
-            if let bold = a.palette.bold {
-                lines.append("                        set bold color of s to \(rgbStr(bold))")
-            }
-            if let cursor = a.palette.cursor {
-                lines.append("                        set cursor color of s to \(rgbStr(cursor))")
-            }
-            lines.append("                        set name of s to \"\(esc(a.title))\"")
-            // Per-session wallpaper. Empty path clears any prior image so a
-            // session that lost its wallpaper falls back to the flat palette.
-            lines.append("                        set background image of s to \"\(esc(a.wallpaper))\"")
-            lines.append("                    end if")
+            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", itScript])
         }
-        lines.append(contentsOf: [
-            "                end try",
-            "            end repeat",
-            "        end repeat",
-            "    end repeat",
-            "end tell",
+
+        // ── Terminal.app: provisioned settings sets switched per tab ────
+        // Terminal has no per-window RGB or bg-image scripting, so slab
+        // provisions one named settings set per distinct status×appearance
+        // (idempotent: reuse if present, always re-push colors so a palette
+        // tweak propagates) and switches each matching tab's
+        // `current settings`. Font is copied from the user's default profile
+        // so only colors change. (Terminal applies a profile's window size
+        // on switch — if tiled windows jump, that's the known Terminal-only
+        // tradeoff of per-window theming here.)
+        var profileOrder: [String] = []
+        var profilePalette: [String: Palette] = [:]
+        for a in changes where profilePalette[a.profile] == nil {
+            profileOrder.append(a.profile)
+            profilePalette[a.profile] = a.palette
+        }
+        var tm: [String] = [
+            "if application \"Terminal\" is running then",
+            "  tell application \"Terminal\"",
+        ]
+        for name in profileOrder {
+            let pal = profilePalette[name]!
+            let n = esc(name)
+            tm.append("    set slabE to (every settings set whose name is \"\(n)\")")
+            tm.append("    if (count of slabE) is 0 then")
+            tm.append("      set slabSS to (make new settings set with properties {name:\"\(n)\"})")
+            tm.append("    else")
+            tm.append("      set slabSS to item 1 of slabE")
+            tm.append("    end if")
+            tm.append("    try")
+            tm.append("      set font name of slabSS to font name of default settings")
+            tm.append("    end try")
+            tm.append("    try")
+            tm.append("      set font size of slabSS to font size of default settings")
+            tm.append("    end try")
+            if let bg = pal.bg {
+                tm.append("    try")
+                tm.append("      set background color of slabSS to \(rgbStr(bg))")
+                tm.append("    end try")
+            }
+            if let text = pal.text {
+                tm.append("    try")
+                tm.append("      set normal text color of slabSS to \(rgbStr(text))")
+                tm.append("    end try")
+            }
+            if let bold = pal.bold {
+                tm.append("    try")
+                tm.append("      set bold text color of slabSS to \(rgbStr(bold))")
+                tm.append("    end try")
+            }
+            if let cursor = pal.cursor {
+                tm.append("    try")
+                tm.append("      set cursor color of slabSS to \(rgbStr(cursor))")
+                tm.append("    end try")
+            }
+        }
+        tm.append(contentsOf: [
+            "    repeat with w in windows",
+            "      repeat with t in tabs of w",
+            "        try",
+            "          set ttyName to tty of t",
         ])
-        let script = lines.joined(separator: "\n")
-        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+        for a in changes {
+            let escTty = esc(a.tty)
+            tm.append("          if ttyName ends with \"\(escTty)\" then")
+            tm.append("            set current settings of t to settings set \"\(esc(a.profile))\"")
+            if a.title.isEmpty {
+                tm.append("            set title displays custom title of t to false")
+            } else {
+                tm.append("            set custom title of t to \"\(esc(a.title))\"")
+                tm.append("            set title displays custom title of t to true")
+            }
+            tm.append("          end if")
+        }
+        tm.append(contentsOf: [
+            "        end try",
+            "      end repeat",
+            "    end repeat",
+            "  end tell",
+            "end if",
+        ])
+        let tmScript = tm.joined(separator: "\n")
+        if decorDebug {
+            try? tmScript.write(toFile: "/tmp/slab-decor-terminal.scpt",
+                                atomically: true, encoding: .utf8)
+            dlog("wrote /tmp/slab-decor-*.scpt iterm=\(itermInstalled) "
+                + "profiles=\(profileOrder.count)")
+        }
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", tmScript])
     }
 
-    /// Spawn a new iTerm2 window that cd's into `cwd` and resumes the given
-    /// session. Optionally sets window bounds so the caller can tile.
-    /// Single-quoted shell args are escaped so a path with apostrophes can't
-    /// break out. `fontSize` is accepted for call-site compatibility but
-    /// ignored: iTerm2 exposes no per-session/window font via AppleScript
-    /// (known limitation — tiling is by pixel bounds only for now).
+    // MARK: - Desktop tint (status wallpaper)
+
+    /// Set the macOS desktop picture to a flat solid color: the **average
+    /// of every live session's status color**, then pushed *darker* (dark
+    /// mode) or *lighter* (light mode) than the tasks themselves so the
+    /// desktop stays recessive behind the themed terminals. Recomputed
+    /// whenever any task changes — a new average → a new memo key →
+    /// reapply. Uses the in-process `NSWorkspace` desktop-image API, NOT
+    /// System Events osascript (`get/set picture of desktop` returns
+    /// `missing value` on current macOS, and NSWorkspace needs no
+    /// Automation TCC). The user's pre-slab wallpaper is captured once
+    /// before the first overwrite and restored whenever theme-by-status is
+    /// off / no sessions are live. Decision runs on the main hop (NSScreen
+    /// is main-affine); the render + per-screen set are dispatched off-main
+    /// so the 2 s tick never stalls (see slab-menubar-perf).
+    private func applyDesktopTint() {
+        // Always runs, even when theming is off: this is how a wallpaper the
+        // user picks (while theme-by-status is disabled) gets remembered as
+        // the restore target.
+        captureOriginalIfNeeded()
+        let sessions = state.claudeSessions
+        guard state.themeByStatus, !sessions.isEmpty else {
+            if lastDesktopTint != "" {
+                lastDesktopTint = ""
+                restoreDesktopWallpaper()
+            }
+            return
+        }
+        let dark = effectiveDark()  // override-aware; NSApp/NSScreen → main only
+        // Component-wise mean of every session's status page color.
+        var sr = 0, sg = 0, sb = 0
+        for s in sessions {
+            let c = Self.statusDecor(for: s.state, dark: dark).palette.bg
+                ?? (0, 0, 0)
+            sr += c.0; sg += c.1; sb += c.2
+        }
+        let n = sessions.count
+        let avg = (sr / n, sg / n, sb / n)
+        // Keep the desktop off the tasks' own brightness: darker in dark
+        // mode, lighter in light mode, so terminals always sit above it.
+        func adjust(_ v: Int) -> Int {
+            dark ? Int(Double(v) * 0.55)
+                 : v + Int(Double(65535 - v) * 0.55)
+        }
+        let color = (adjust(avg.0), adjust(avg.1), adjust(avg.2))
+        let name = "avg-\(dark ? "dark" : "light")"
+        // Memo on the resolved color so any task change (→ new average)
+        // re-applies, and an unchanged average doesn't even dispatch.
+        let memoKey = "\(name)|\(color.0),\(color.1),\(color.2)"
+        if lastDesktopTint == memoKey { return }
+        lastDesktopTint = memoKey
+        let screens = NSScreen.screens
+        DispatchQueue.global(qos: .utility).async {
+            guard let path = DesktopTint.ensure(name: name, color: color)
+            else { return }
+            let url = URL(fileURLWithPath: path)
+            for s in screens {
+                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: [:])
+            }
+        }
+    }
+
+    /// Save the current desktop picture path to `Paths.desktopOriginalFile`
+    /// so it can be restored when theming is off / no sessions are live.
+    /// Cheap in-process NSWorkspace read; skipped once captured, or if the
+    /// current picture is already one of slab's tint PNGs (so we never
+    /// record our own image as "the original"). Re-attempts every tick
+    /// while uncaptured, so a wallpaper the user sets later still sticks.
+    private func captureOriginalIfNeeded() {
+        guard !desktopOriginalCaptured else { return }
+        if FileManager.default.fileExists(atPath: Paths.desktopOriginalFile) {
+            desktopOriginalCaptured = true
+            return
+        }
+        guard let scr = NSScreen.main,
+              let cur = NSWorkspace.shared.desktopImageURL(for: scr),
+              !cur.path.hasPrefix(Paths.desktopWallpaperDir)
+        else { return }
+        let dir = (Paths.desktopOriginalFile as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(
+            atPath: dir, withIntermediateDirectories: true)
+        try? cur.path.write(toFile: Paths.desktopOriginalFile,
+                            atomically: true, encoding: .utf8)
+        desktopOriginalCaptured = true
+    }
+
+    private func restoreDesktopWallpaper() {
+        guard let raw = try? String(
+                contentsOfFile: Paths.desktopOriginalFile, encoding: .utf8)
+        else { return }
+        let orig = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !orig.isEmpty,
+              FileManager.default.fileExists(atPath: orig) else { return }
+        let url = URL(fileURLWithPath: orig)
+        let screens = NSScreen.screens  // main-affine; we're on the main hop
+        DispatchQueue.global(qos: .utility).async {
+            for s in screens {
+                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: [:])
+            }
+        }
+    }
+
+    /// Which terminal app to spawn restored sessions into. Honor whatever
+    /// the user actually has open: if only one of iTerm2 / Terminal.app has
+    /// windows, use it; if both, defer to the frontmost one; if neither,
+    /// fall back to iTerm2 (the port default). `windowCount`'s `is running`
+    /// probe never launches an app, so this is side-effect free.
+    private static func preferredTerminalApp() -> String {
+        let iterm = windowCount(app: "iTerm2") > 0
+        let term = windowCount(app: "Terminal") > 0
+        if iterm && !term { return "iTerm2" }
+        if term && !iterm { return "Terminal" }
+        if iterm && term {
+            let front = ShellRunner.run(
+                "/usr/bin/osascript",
+                args: ["-e", "tell application \"System Events\" to name of first application process whose frontmost is true"],
+                timeout: 5
+            ).output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return front == "Terminal" ? "Terminal" : "iTerm2"
+        }
+        return "iTerm2"
+    }
+
+    /// Spawn a new window in `app` (iTerm2 or Terminal.app) that cd's into
+    /// `cwd` and resumes the given session. Optionally sets window bounds so
+    /// the caller can tile. Single-quoted shell args are escaped so a path
+    /// with apostrophes can't break out. `fontSize` is accepted for call-
+    /// site compatibility but ignored: neither path drives per-window font
+    /// via AppleScript here (tiling is by pixel bounds only for now).
     private static func openTerminalRunningClaude(
         cwd: String,
         sessionId: String,
         bounds: (left: Int, top: Int, right: Int, bottom: Int)? = nil,
-        fontSize: Int? = nil
+        fontSize: Int? = nil,
+        app: String = "iTerm2"
     ) {
         _ = fontSize
         let safeCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
@@ -639,14 +1096,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let escapedCmd = shellCmd.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
-        var lines = [
-            "tell application \"iTerm2\"",
-            "    activate",
-            "    create window with default profile",
-            "    tell current session of current window to write text \"\(escapedCmd)\"",
-        ]
-        if let b = bounds {
-            lines.append("    set bounds of current window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+        var lines: [String]
+        if app == "Terminal" {
+            // `do script` with no `in` target opens a fresh window running
+            // the command; the new window becomes `front window`.
+            lines = [
+                "tell application \"Terminal\"",
+                "    activate",
+                "    do script \"\(escapedCmd)\"",
+            ]
+            if let b = bounds {
+                lines.append("    set bounds of front window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+            }
+        } else {
+            lines = [
+                "tell application \"iTerm2\"",
+                "    activate",
+                "    create window with default profile",
+                "    tell current session of current window to write text \"\(escapedCmd)\"",
+            ]
+            if let b = bounds {
+                lines.append("    set bounds of current window to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+            }
         }
         lines.append("end tell")
         let script = lines.joined(separator: "\n")
@@ -661,27 +1132,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// frame). Total inter-window gap is 2*gutter; total edge gap = gutter.
     static let tileGutter = 2
 
+    /// Row-balanced rect packing. Windows are distributed across `rowCounts`
+    /// rows (top→bottom); a row with fewer windows simply makes each of its
+    /// panels wider, so the layout always fills the visible frame edge-to-
+    /// edge with **no empty cells** — never a square grid with holes.
+    /// Row heights are equal; column widths vary per row. Integer-division
+    /// remainder is absorbed by snapping the last row/column to the exact
+    /// screen edge so there is no dead strip on the right or bottom.
     struct TileLayout {
-        let cols: Int
-        let rows: Int
-        let cellWidth: Int
-        let cellHeight: Int
-        let originX: Int  // visible-frame left edge
-        let originY: Int  // visible-frame top edge (below menu bar), AS coords
+        let rowCounts: [Int]  // windows per row, top row first; sum == count
+        let originX: Int      // visible-frame left edge (AS coords)
+        let originY: Int      // visible-frame top edge (below menu bar)
+        let width: Int        // full visible width to fill
+        let height: Int       // full visible height to fill
         let fontSize: Int
+
+        var rows: Int { rowCounts.count }
 
         struct Cell {
             let bounds: (left: Int, top: Int, right: Int, bottom: Int)
         }
 
         func cellAt(index: Int) -> Cell {
-            let row = index / cols
-            let col = index % cols
-            let left = originX + col * cellWidth + tileGutter
-            let top = originY + row * cellHeight + tileGutter
-            let right = originX + (col + 1) * cellWidth - tileGutter
-            let bottom = originY + (row + 1) * cellHeight - tileGutter
-            return Cell(bounds: (left, top, right, bottom))
+            // Walk the rows to find which one this flat index lands in.
+            var rem = max(0, index)
+            var row = rowCounts.count - 1
+            for (r, c) in rowCounts.enumerated() {
+                if rem < c { row = r; break }
+                rem -= c
+            }
+            let colsInRow = max(1, rowCounts[row])
+            let col = min(rem, colsInRow - 1)
+
+            // Equal-height rows; last row snaps to the bottom edge.
+            let top = originY + row * height / rows
+            let bottom = (row == rows - 1)
+                ? originY + height
+                : originY + (row + 1) * height / rows
+            // Equal-width columns within the row; last col snaps to the
+            // right edge so a sparse row stretches full width.
+            let left = originX + col * width / colsInRow
+            let right = (col == colsInRow - 1)
+                ? originX + width
+                : originX + (col + 1) * width / colsInRow
+
+            return Cell(bounds: (
+                left + tileGutter, top + tileGutter,
+                right - tileGutter, bottom - tileGutter
+            ))
         }
     }
 
@@ -708,24 +1206,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
-    /// Pack `count` windows into the most-square grid that fits the main
-    /// display's visible frame. Font size scales down for denser grids so
-    /// even N=10 stays legible.
+    /// Pack `count` windows into a row-balanced layout that fills the whole
+    /// visible frame — no holes, ever. Pick a near-square row count, then
+    /// spread the windows across those rows as evenly as possible; rows that
+    /// come up a window short just get wider panels. Font size scales down
+    /// for denser layouts so even N=10 stays legible.
     private static func computeTileLayout(count: Int, geom: ScreenGeom, near: Bool = false) -> TileLayout? {
         guard count > 0 else { return nil }
-        let cols = max(1, Int(ceil(Double(count).squareRoot())))
-        let rows = max(1, Int(ceil(Double(count) / Double(cols))))
-        let cellW = geom.width / cols
-        let cellH = geom.height / rows
-        // Inner pixels available per window after the gutter is taken out.
-        let innerW = max(1, cellW - 2 * tileGutter)
-        let innerH = max(1, cellH - 2 * tileGutter)
 
-        // Pick the largest font that fits ~24 rows × ~80 cols of monospace
-        // in the inner area. A char cell is roughly fontSize * 0.6 wide and
-        // fontSize * 1.2 tall in Menlo/SF Mono. Enlarging is fine — for low
-        // N the cells are huge, so the font scales up rather than us
-        // wasting empty pixels at a fixed default.
+        // Near-square: same density feel as the old grid, but the per-row
+        // counts below let sparse rows stretch instead of leaving holes.
+        let approxCols = max(1, Int(ceil(Double(count).squareRoot())))
+        let rows = max(1, Int(ceil(Double(count) / Double(approxCols))))
+
+        // Distribute `count` across `rows` as evenly as possible. The first
+        // `rem` rows carry one extra window; the lighter (wider-panel) rows
+        // fall to the bottom, where a stretched window reads naturally.
+        let base = count / rows
+        let rem = count % rows
+        let rowCounts = (0..<rows).map { $0 < rem ? base + 1 : base }
+        let maxCols = rowCounts.max() ?? 1  // narrowest cells live here
+
+        // Font is sized for the tightest cell: full-width / widest row, and
+        // equal row height. A char cell is ~fontSize*0.6 wide, *1.2 tall in
+        // Menlo/SF Mono; target ~24 rows × ~80 cols of monospace.
+        let innerW = max(1, geom.width / maxCols - 2 * tileGutter)
+        let innerH = max(1, geom.height / rows - 2 * tileGutter)
         let fontByH = Double(innerH) / (24.0 * 1.2)
         let fontByW = Double(innerW) / (80.0 * 0.6)
         let raw = min(fontByH, fontByW)
@@ -735,52 +1241,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fontSize = max(near ? 6 : 8, Int(scaled.rounded()))
 
         return TileLayout(
-            cols: cols,
-            rows: rows,
-            cellWidth: cellW,
-            cellHeight: cellH,
+            rowCounts: rowCounts,
             originX: geom.originX,
             originY: geom.originY,
+            width: geom.width,
+            height: geom.height,
             fontSize: fontSize
         )
     }
 
-    /// Tile every currently-open iTerm2 window into the same grid the
-    /// auto-tile path uses. Independent of the auto-tile flag — this is the
+    /// Tile every currently-open iTerm2 *and* Terminal.app window into one
+    /// shared grid. Independent of the auto-tile flag — this is the
     /// "I forgot to enable it" / "I want to re-pack what's open" button.
+    /// iTerm2 windows fill the grid first, then Terminal.app windows.
+    /// Terminal gets bounds only — AppleScript can't set per-session decor
+    /// or wallpaper on Terminal.app, so those windows tile but stay
+    /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
     @objc func tileNow() {
         guard let geom = Self.screenGeom() else { return }
         let near = state.nearText
         DispatchQueue.global(qos: .userInitiated).async {
-            // Ask iTerm2 for its window count first so we can size the grid
-            // to what's actually on screen.
-            let countOut = ShellRunner.run(
-                "/usr/bin/osascript",
-                args: ["-e", "tell application \"iTerm2\" to count windows"],
-                timeout: 5
-            ).output.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let n = Int(countOut), n > 0 else { return }
+            // Size the grid to everything on screen across both apps. The
+            // `is running` guard never launches a quit Terminal.app, so a
+            // non-running Terminal contributes zero cells.
+            let nIterm = Self.windowCount(app: "iTerm2")
+            let nTerm = Self.windowCount(app: "Terminal")
+            let n = nIterm + nTerm
+            guard n > 0 else { return }
             guard let layout = Self.computeTileLayout(count: n, geom: geom, near: near) else { return }
 
-            // Reset decor memo so the next refresh re-themes every window
-            // from scratch (a re-pack invalidates prior placement).
+            // Reset decor memo so the next refresh re-themes every iTerm2
+            // window from scratch (a re-pack invalidates prior placement).
             DispatchQueue.main.async { [weak self] in
                 self?.lastTiledFontSize = layout.fontSize
                 self?.lastTerminalDecor.removeAll()
             }
 
-            // iTerm2 has no per-window font via AppleScript, so tiling is
-            // pure pixel bounds — no font/bounds dance to fight a grid snap.
-            var lines: [String] = ["tell application \"iTerm2\"", "    activate"]
-            for i in 0..<n {
-                let cell = layout.cellAt(index: i)
-                let asIndex = i + 1  // AppleScript is 1-based
-                lines.append("    set bounds of window \(asIndex) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+            // Pure pixel bounds for both apps — no font/bounds dance.
+            // AppleScript `bounds` is {left, top, right, bottom} for both
+            // iTerm2 and Terminal, so the same cell math applies to each.
+            var lines: [String] = []
+            if nIterm > 0 {
+                lines.append("tell application \"iTerm2\"")
+                lines.append("    activate")
+                for i in 0..<nIterm {
+                    let cell = layout.cellAt(index: i)
+                    lines.append("    set bounds of window \(i + 1) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+                }
+                lines.append("end tell")
             }
-            lines.append("end tell")
+            if nTerm > 0 {
+                lines.append("tell application \"Terminal\"")
+                for j in 0..<nTerm {
+                    let cell = layout.cellAt(index: nIterm + j)
+                    lines.append("    set bounds of window \(j + 1) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+                }
+                lines.append("end tell")
+            }
+            guard !lines.isEmpty else { return }
             let script = lines.joined(separator: "\n")
             ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
         }
+    }
+
+    /// Count windows of `app` via AppleScript, returning 0 if the app isn't
+    /// running. `application "X" is running` is a no-op probe — it never
+    /// launches the app — so the cross-app tiler can safely ask about a
+    /// Terminal.app the user may have quit.
+    private static func windowCount(app: String) -> Int {
+        let script = """
+        if application "\(app)" is running then
+          tell application "\(app)" to count windows
+        else
+          0
+        end if
+        """
+        let out = ShellRunner.run(
+            "/usr/bin/osascript",
+            args: ["-e", script],
+            timeout: 5
+        ).output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return max(0, Int(out) ?? 0)
     }
 
     private func syncMail(account: String?) {

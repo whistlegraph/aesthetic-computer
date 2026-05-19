@@ -1,25 +1,17 @@
-\contentsline {section}{\numberline {1}The Totalized Environment}{4}{section.1}%
-\contentsline {section}{\numberline {2}The Complex}{6}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Hegemony}{6}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Behavioral nudging}{6}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Flattening}{7}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}The orchestra as organizational power}{8}{subsection.2.4}%
-\contentsline {section}{\numberline {3}Critique-as-Art: Pointing at Power}{11}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Photographing power}{11}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Analyzing circulation}{12}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Masking the face}{13}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Archiving resistance}{13}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}The pipeline}{14}{subsection.3.5}%
-\contentsline {section}{\numberline {4}The Structural Trap}{16}{section.4}%
-\contentsline {section}{\numberline {5}Free Spaces of Play}{18}{section.5}%
-\contentsline {section}{\numberline {6}Two Pedagogies}{20}{section.6}%
-\contentsline {subsection}{\numberline {6.1}The art school}{20}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The tech school}{22}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Anti-Environments}{24}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Radical distribution}{25}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Aesthetic Computer}{25}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Indigenous and decolonial computing}{26}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}The key distinction}{27}{subsection.7.4}%
-\contentsline {section}{\numberline {8}The Art Fair Paradox}{28}{section.8}%
-\contentsline {section}{\numberline {9}Conclusion}{30}{section.9}%
+\contentsline {section}{\numberline {1}The Engine and the Outside}{4}{section.1}%
+\contentsline {section}{\numberline {2}The Complex}{7}{section.2}%
+\contentsline {section}{\numberline {3}Critique-as-Content}{11}{section.3}%
+\contentsline {section}{\numberline {4}Free Spaces of Play}{14}{section.4}%
+\contentsline {section}{\numberline {5}Anti-Environments}{16}{section.5}%
+\contentsline {section}{\numberline {6}What Has Been Built}{18}{section.6}%
+\contentsline {subsection}{\numberline {6.1}URL-first: the address is the interface}{18}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Piece-not-post: the bounded unit}{19}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Instrument-not-profile: the interface is played}{19}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}KidLisp: a composition-era language}{20}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}Sovereign node: the hardware is yours}{21}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Pals: affinity, not followership}{21}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}The 94-project lineage}{22}{subsection.6.7}%
+\contentsline {section}{\numberline {7}The Engine and the Userdom}{24}{section.7}%
+\contentsline {section}{\numberline {8}Funding the Engine and the Circle}{28}{section.8}%
+\contentsline {section}{\numberline {9}Coda}{30}{section.9}%
 \contentsfinish 

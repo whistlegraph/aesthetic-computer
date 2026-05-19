@@ -89,6 +89,31 @@ def density(glyph_img):
     return float(mask.sum()) / max(1, mask.shape[0] * mask.shape[1])
 
 
+def disconnected_pieces(glyph_img):
+    """Count un-dilated connected components in the glyph's alpha
+    mask. The dilation step in extract_glyphs merges fragments into
+    one bounding box, but the underlying mask retains the original
+    structure. A clean letter is exactly 1 piece (for 'i'/'j' it's
+    2: dot + body). >2 means a broken glyph — e.g. a 't' with the
+    crossbar floating detached from the stem and a chunk missing
+    from the stem (seen on amazing slide 18 'but'). Small spurious
+    pieces (<8% of the glyph's total mask area) don't count — they
+    might be anti-aliasing residue."""
+    from scipy.ndimage import label
+    arr = np.array(glyph_img)
+    mask = (arr[:, :, 3] > 128).astype(np.uint8)
+    if mask.sum() == 0:
+        return 0
+    labeled, n = label(mask)
+    if n <= 1:
+        return n
+    # Drop tiny components (anti-aliasing or stray pixels)
+    sizes = [(i, int((labeled == i).sum())) for i in range(1, n + 1)]
+    total = sum(s for _, s in sizes)
+    big = [i for i, sz in sizes if sz >= max(8, total * 0.06)]
+    return len(big)
+
+
 def stroke_balance(glyph_img):
     """For letters with an enclosed counter (a/b/d/e/g/o/p/q): the
     left and right vertical strokes flanking the counter should be
@@ -214,9 +239,20 @@ def main():
     expected_letters = [c for c in expected_word if c.isalpha()]
     topology_failures = []  # (idx, letter, hole_ratio, expected_min)
     shape_failures = []
+    # 'i' and 'j' legitimately have 2 disconnected pieces (dot + body);
+    # everything else should be exactly 1.
+    EXPECTED_PIECES = {"i": 2, "j": 2, ":": 2, ";": 2}
     if found_n == expected_n:
         for i, (g, letter) in enumerate(zip(glyphs, expected_letters)):
             ll = letter.lower()
+            # Disconnection check: catches glyphs where dilation merged
+            # broken fragments into one bbox but the un-dilated mask is
+            # actually multiple pieces (e.g. 't' with detached crossbar).
+            pieces = disconnected_pieces(g["img"])
+            expected_pieces = EXPECTED_PIECES.get(ll, 1)
+            if pieces > expected_pieces:
+                topology_failures.append(
+                    (i, letter, round(pieces, 1), expected_pieces))
             if letter in LETTER_HOLE_MIN:
                 r = hole_ratio(g["img"])
                 lo = LETTER_HOLE_MIN[letter]

@@ -1,0 +1,44 @@
+# trancepenta-hum — jeffrey vocal-HARMONY counterpoint for trancepenta.
+#
+# trancepenta is G dorian · 126 BPM · 5/4. ROOT_MIDI 55 (G3),
+# dorian scale [0,2,3,5,7,9,10]. Its progression (progressionAt() in
+# recap/bin/trance.mjs, chill/sonata path) travels but keeps returning
+# to the G-dorian tonic pole (deg 0 = G/Bb/D, deg 2 = Bb/D/F). This
+# counterpoint is built ONLY from G-dorian tonic chord tones —
+# G3 · A#3(=Bb3) · D4 · F4 — so it is consonant against every chord
+# the progression visits while NEVER tracing the lead melody (the lead
+# rides higher and busier; this answers underneath).
+#
+# Shape = a SHORT call-and-response that lands in the lead's gaps:
+#   CALL   — a low rising "ask"      (root → 3rd → 5th, held)
+#   ANSWER — a settling reply        (5th → 3rd → root, with a bright
+#                                     "wee/oo" whistle lift mid-answer)
+# Wordless vocalise only: hmm/mmm/ooh/doo/la/dum/hoo + 2 bright wee/oo.
+# 24 syllables. Word ORDER strictly matches LYRIC in sing-penta.mjs.
+#
+# notation: NOTE:syllable*beats   (continuation syllables start with -)
+
+verse 1
+# CALL — low rising ask: G3 → Bb3 → D4, opens space then holds the 5th
+G3:hmm*2
+A#3:mmm*1 D4:-mmm*3
+D4:ooh*2
+F4:doo-*1 D4:-doo*3
+
+# ANSWER — settle back down with a bright whistle lift
+A#3:la*1 D4:-la*2
+F4:wee-*1 D4:-wee*2
+A#3:hoo*2
+G3:dum-*1 A#3:-dum-*1 G3:-dum*4
+
+# CALL (echo, a touch higher) — bounce up to the octave pole
+D4:mmm*2
+F4:ooh*1 A#3:-ooh*3
+G3:doo*2
+A#3:hmm-*1 D4:-hmm*3
+
+# ANSWER (final settle) — bright "oo" toot, then home to the root
+D4:la*1 A#3:-la*2
+F4:oo-*1 D4:-oo*2
+A#3:hoo*2
+G3:mmm-*1 D4:-mmm-*1 G3:-mmm*5

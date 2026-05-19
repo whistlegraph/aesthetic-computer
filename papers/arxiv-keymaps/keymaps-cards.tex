@@ -4,25 +4,23 @@
 
 \usepackage{fontspec}
 \usepackage{unicode-math}
-\setmainfont{Latin Modern Roman}[
-  Extension=.otf,
-  UprightFont=lmroman10-regular,
-  BoldFont=lmroman10-bold,
-  ItalicFont=lmroman10-italic,
-  BoldItalicFont=lmroman10-bolditalic,
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
 ]
-\setsansfont{Latin Modern Sans}[
-  Extension=.otf,
-  UprightFont=lmsans10-regular,
-  BoldFont=lmsans10-bold,
-  ItalicFont=lmsans10-oblique,
-  BoldItalicFont=lmsans10-boldoblique,
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
 ]
-\setmonofont{Latin Modern Mono}[
-  Extension=.otf,
-  UprightFont=lmmono10-regular,
-  ItalicFont=lmmono10-italic,
-  Scale=0.88,
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
 ]
 
 
@@ -30,6 +28,7 @@
 \graphicspath{{./}{figures/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{adjustbox}
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
@@ -40,28 +39,12 @@
 \def\input@path{{../}}
 \makeatother
 \usepackage{ac-paper-cards}
-\usetikzlibrary{calc,positioning,shapes.geometric,arrows.meta}
 
 % Extra commands from base paper
 \definecolor{keyfill}{RGB}{248,248,250}
 \definecolor{keystroke}{RGB}{160,156,170}
 \definecolor{keymapped}{RGB}{180,72,135}
 \definecolor{keysharp}{RGB}{52,52,64}
-\tikzset{
-  kcap/.style={draw=keystroke, fill=keyfill, rounded corners=0.6pt,
-               minimum width=0.32cm, minimum height=0.32cm,
-               inner sep=0pt, font=\tiny\sffamily},
-  kcap mapped/.style={kcap, fill=keymapped!18, draw=keymapped!60,
-                       text=keymapped!90},
-  kcap sharp/.style={kcap, fill=keysharp, draw=keysharp,
-                      text=white, font=\tiny\sffamily\bfseries},
-  hexkey/.style={regular polygon, regular polygon sides=6,
-                  draw=keystroke, fill=keyfill, rounded corners=0pt,
-                  minimum size=0.55cm, inner sep=0pt,
-                  font=\tiny\sffamily},
-  hexkey mapped/.style={hexkey, fill=keymapped!22, draw=keymapped!70,
-                          text=keymapped!90},
-}
 
 \hypersetup{
   pdftitle={Keymaps as Social Software: Versioned Virtual Objects via Social Contract},
@@ -76,8 +59,7 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[width=0.62\linewidth]{figures/cover}\par
-\vspace{0.5em}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
 {\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Keymaps as Social Software}\par
 \vspace{0.1em}
 {\fontsize{9pt}{11pt}\selectfont\color{acpink} Versioned Virtual Objects via Social Contract}\par
@@ -90,7 +72,7 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b53eca237}{b53eca237}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
 \end{center}
 \vspace*{\fill}
 
@@ -98,16 +80,6 @@
 % INDEX CARD
 % ============================================================
 \cardindex
-
-% ============================================================
-% ABSTRACT CARD
-% ============================================================
-\clearpage
-\begin{accentcard}
-\cardtitle{Abstract}
-
-A \emph{keymap} --- the small declarative table that says ``QWERTY-\texttt{A} plays MIDI 60'' or ``\texttt{Z X C V B N M} = $C\,D\,E\,F\,G\,A\,B$'' --- is software in every functional sense: it is versioned, it has inventors, it is forked, it propagates across binaries, and users demand cross-tool compatibility with it. But it is not a binary, not a project, not a service, and rarely an asset on anyone's balance sheet. The standard ``open-source vs.\ proprietary'' axis cannot see it. I name this category \emph{social software} --- a deliberate pun on Shirky's 2003 term --- and argue that keymaps are its archetypal instance. Tracing the lineage from Sholes (1873) through Dvorak (1936), Colemak (2006), and the post-2010 GitHub fork ecosystem; through Janko (1882), Wicki--Hayden (1896/1986), and modern isomorphic controllers; and through the de-facto chromatic-staircase QWERTY-piano convention shared by Ableton, Logic, GarageBand, and FL Studio, I show that the category is large, coherent, and politically consequential. Reading the body of evidence through Lialina's \emph{Turing Complete User}~\citep{lialina2012turing}, I argue that the keymap \emph{is} the gap her essay names --- the user-authorable surface whose disappearance is the disappearance of the user as author. I close by reading \texttt{notepat.com} as a deliberate intervention: not an inheritor of the dominant DAW convention but a competing proposal for a better-designed keymap, offered as evidence that the social-software gap remains open for re-authorship.
-\end{accentcard}
 
 % ============================================================
 % BODY
@@ -422,7 +394,8 @@ The keymap is one instance of a much larger genus: \emph{versioned virtual objec
 \centering
 \caption{Selected versioned virtual objects propagating via social contract. ``Originator'' lists the named inventor where one exists; ``\emph{conv.}'' indicates a convergent or anonymous origin. ``Propagation'' names the principal mechanism by which the object travels.}
 \label{tab:corollaries}
-\begin{tabular}{@{}>{\RaggedRight}p{0.18\textwidth}>{\RaggedRight}p{0.21\textwidth}>{\RaggedRight}p{0.13\textwidth}>{\RaggedRight\arraybackslash}X@{}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight}p{0.18\textwidth}>{\RaggedRight}p{0.21\textwidth}>{\RaggedRight}p{0.13\textwidth}>{\RaggedRight\arraybackslash}X@{}}
 \toprule
 \textbf{Object} & \textbf{Originator (year)} & \textbf{Domain} & \textbf{Propagation mechanism} \\
 \midrule
@@ -455,7 +428,8 @@ Controller buttons (A/B/X/Y, $\triangle$$\bigcirc$$\times$$\square$) & Nintendo 
 CSS named colors                    & X11 \texttt{rgb.txt} (1987) $\rightarrow$ SVG 1.0 (2001) & Web & Inherited unchanged across browser implementations \\
 Knitting abbreviations              & Craft Yarn Council / UK convention  & Craft        & Printed in every pattern \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 \end{table*}
 
 Several patterns emerge. First, the genus spans input mappings (QWERTY, Vim, WASD), notational systems (Singmaster, Nashville, IPA), category labels (controller buttons, CSS colors), and community-authored initialisms (the NATO spelling alphabet; the LGBTQ+ acronym, whose revision history --- LGB $\rightarrow$ LGBT $\rightarrow$ LGBTQ $\rightarrow$ LGBTQIA $\rightarrow$ LGBTQIA2S+ --- is itself a versioned-without-governing-body process documented in style guides~\citep{glaad_reference_guide}). What unifies them is not the medium but the \emph{role}: each is a small declarative table consulted at a boundary between human and machine, between communities of practice, or between competing implementations. Second, the named-inventor pattern is highly variable. Some objects have a single named inventor (Singmaster, Coleman, Davis); others have convergent or anonymous origins (DAW chromatic-staircase, fighting-game numpad notation); others are community-versioned with named additions (the LGBTQ+ initialism); others are federation-crystallized after a period of community competition (algebraic chess, BÉPO). Third, the propagation mechanism is almost always \emph{not} a binary. It is pedagogy, expectation, citation, or written reference --- the apparatus of a literate community.

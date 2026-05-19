@@ -161,6 +161,11 @@ const PAPER_MAP = {
     siteName: "keymaps-as-social-software-26-arxiv",
     paperId: "keymaps",
   },
+  "arxiv-calarts-news": {
+    base: "calarts-news",
+    siteName: "whats-new-calarts-26-arxiv",
+    paperId: "calarts-news",
+  },
 };
 
 // --- File discovery ---

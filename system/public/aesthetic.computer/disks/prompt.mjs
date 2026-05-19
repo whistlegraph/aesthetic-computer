@@ -256,10 +256,203 @@ let showFpsMeter = false; // Toggle with backtick key
 const DISABLE_CONTENT_TICKER = false;
 const DISABLE_CONTENT_PREVIEWS = true; // Disable live preview tooltips
 
+// 🪦 UNITICKER deprecation. The universal search box (the prompt input
+// itself) supersedes the scrolling marquee. The feed fetchers
+// (contentItems, moods, commits, chat) stay alive — universal search reads
+// them — only the marquee render + scrub interaction is disabled. Flip to
+// false to temporarily restore the old ticker; physical removal of the
+// marquee code is a follow-up once search is proven in production.
+const DEPRECATE_UNITICKER = true;
+
 let startupSfx, keyboardSfx;
 
-// 🔍 @handle autocomplete
+// 🔍 @handle autocomplete (plus $ # ! sigil media triggers)
 let handleAutocomplete;
+
+// 🎞️ Rolodex history scrub gesture state (vertical drag on the prompt).
+let histScrub = null;
+
+// 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
+// (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
+// this is the "feed already written" win. `kind` is contentItems.type
+// ("kidlisp" | "painting" | "tape"); `sigil` is the prompt prefix.
+function sigilSuggestions(kind, sigil, query) {
+  const q = (query || "").toLowerCase();
+  const seen = new Set();
+  const starts = [];
+  const contains = [];
+  for (const item of contentItems) {
+    if (item.type !== kind || !item.code) continue;
+    const code = String(item.code);
+    if (seen.has(code)) continue;
+    const lc = code.toLowerCase();
+    let bucket = null;
+    if (q.length === 0 || lc.startsWith(q)) bucket = starts;
+    else if (lc.includes(q)) bucket = contains;
+    if (!bucket) continue;
+    seen.add(code);
+    bucket.push({ text: code, display: `${sigil}${code}` });
+  }
+  return [...starts, ...contains];
+}
+
+// Trigger config factory for a sigil. `cache: false` because contentItems
+// populates asynchronously after boot and the in-memory filter is cheap.
+function sigilTrigger(kind, sigil, color) {
+  return {
+    fetch: async (query) => sigilSuggestions(kind, sigil, query),
+    minChars: 0, // bare "$" / "#" / "!" shows recent items immediately
+    color,
+    prefix: sigil,
+    cache: false,
+  };
+}
+
+// 🌐 Universal AC search — the prompt input as one search box for all of
+// AC. Fans out across docs (commands/pieces), @handles, in-memory sigil
+// media, published pieces, moods, and chat. Returns color-typed rows
+// ({ text, display, color }); `text` is the full enterable. Colors mirror
+// the UNITICKER legend so result types stay recognizable.
+const UNIVERSAL_COLORS = {
+  command: [200, 200, 210],
+  handle: [255, 100, 180],
+  kidlisp: [150, 255, 150],
+  painting: [255, 150, 255],
+  tape: [255, 200, 100],
+  piece: [255, 160, 170],
+  chatSystem: [100, 200, 255],
+  chatClock: [255, 180, 80],
+  mood: [100, 255, 220],
+};
+
+async function timedJson(url, ms = 1500) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+async function universalSearch(query) {
+  const q = (query || "").trim().toLowerCase();
+  if (q.length < 2) return [];
+  // Mid-command with arguments — don't turn it into a search.
+  if (q.includes(" ")) return [];
+
+  // 1) Local: docs.json commands + pieces (instant).
+  const docHits = [];
+  try {
+    const dkeys = Object.keys(autocompletions || {});
+    const exact = [],
+      prefix = [],
+      sub = [];
+    for (const k of dkeys) {
+      if (autocompletions[k]?.hidden) continue;
+      const lk = k.toLowerCase();
+      if (lk === q) exact.push(k);
+      else if (lk.startsWith(q)) prefix.push(k);
+      else if (lk.includes(q)) sub.push(k);
+    }
+    for (const k of [...exact, ...prefix, ...sub].slice(0, 6)) {
+      const desc = autocompletions[k]?.desc;
+      docHits.push({
+        text: k,
+        display: desc ? `${k} — ${String(desc).slice(0, 40)}` : k,
+        color: UNIVERSAL_COLORS.command,
+      });
+    }
+  } catch (e) {}
+
+  // 2) Local: in-memory sigil media (kidlisp $, painting #, tape !).
+  const sigilHits = [];
+  for (const [kind, sig, color] of [
+    ["kidlisp", "$", UNIVERSAL_COLORS.kidlisp],
+    ["painting", "#", UNIVERSAL_COLORS.painting],
+    ["tape", "!", UNIVERSAL_COLORS.tape],
+  ]) {
+    for (const it of sigilSuggestions(kind, sig, q).slice(0, 2)) {
+      sigilHits.push({ text: it.text, display: it.display, color });
+    }
+  }
+
+  // 3–6) Network sources, in parallel, each best-effort (timed/abortable).
+  const [handlesRes, piecesRes, moodRes, chatRes] = await Promise.all([
+    timedJson(`/api/handles?search=${encodeURIComponent(q)}&limit=4`),
+    timedJson(`/api/pieces-search?q=${encodeURIComponent(q)}&limit=4`),
+    timedJson(`/api/mood/search?q=${encodeURIComponent(q)}&limit=2`),
+    timedJson(
+      `/api/chat/messages?instance=all&search=${encodeURIComponent(q)}&limit=3`,
+    ),
+  ]);
+
+  const handleHits = [];
+  const rawHandles = Array.isArray(handlesRes)
+    ? handlesRes
+    : handlesRes?.handles || [];
+  for (const h of rawHandles.slice(0, 4)) {
+    const name = typeof h === "string" ? h : h?.handle;
+    if (!name) continue;
+    handleHits.push({
+      text: `@${name}`,
+      display: `@${name}`,
+      color: UNIVERSAL_COLORS.handle,
+    });
+  }
+
+  const pieceHits = [];
+  for (const p of (piecesRes?.pieces || []).slice(0, 4)) {
+    if (!p?.enter) continue;
+    const tag = p.handle ? ` ·${p.handle}` : "";
+    pieceHits.push({
+      text: p.enter,
+      display: `${p.name || p.enter}${tag}`,
+      color: UNIVERSAL_COLORS.piece,
+    });
+  }
+
+  const moodHits = [];
+  for (const m of (moodRes?.moods || []).slice(0, 2)) {
+    if (!m?.mood) continue;
+    moodHits.push({
+      text: "mood",
+      display: `🌙 ${m.handle || "anon"}: ${String(m.mood)
+        .replace(/\s+/g, " ")
+        .slice(0, 32)}`,
+      color: UNIVERSAL_COLORS.mood,
+    });
+  }
+
+  const chatHits = [];
+  for (const c of (chatRes?.messages || []).slice(0, 3)) {
+    if (!c?.text) continue;
+    const isClock = c.instance === "clock";
+    chatHits.push({
+      text: isClock ? "laer-klokken" : "chat",
+      display: `💬 ${c.from || "anon"}: ${String(c.text)
+        .replace(/\s+/g, " ")
+        .slice(0, 32)}`,
+      color: isClock
+        ? UNIVERSAL_COLORS.chatClock
+        : UNIVERSAL_COLORS.chatSystem,
+    });
+  }
+
+  // Priority: commands/pieces → handles → sigil media → user pieces →
+  // moods → chat (moods & chat sit "underneath", as designed).
+  return [
+    ...docHits,
+    ...handleHits,
+    ...sigilHits,
+    ...pieceHits,
+    ...moodHits,
+    ...chatHits,
+  ].slice(0, 16);
+}
 
 // 🎆 Corner particles (for cursor effect)
 let cornerParticles = [];
@@ -780,8 +973,52 @@ async function boot({
     .then((sfx) => (keyboardSfx = sfx))
     .catch((err) => console.warn(err)); // and key sounds.
 
-  // � Initialize @handle autocomplete
-  handleAutocomplete = createHandleAutocomplete();
+  // � Initialize @handle autocomplete + $ # ! sigil media triggers.
+  // Colors mirror the UNITICKER legend (kidlisp green / painting magenta /
+  // tape amber) so result rows stay type-consistent across AC.
+  handleAutocomplete = createHandleAutocomplete({
+    maxResults: 16, // room for the merged universal result set
+    debounceMs: 250, // universal search fans out to the network — ease off
+    extraTriggers: {
+      $: sigilTrigger("kidlisp", "$", [150, 255, 150]),
+      "#": sigilTrigger("painting", "#", [255, 150, 255]),
+      "!": sigilTrigger("tape", "!", [255, 200, 100]),
+    },
+    // 🌐 Bare words (no @ / $ / # / !) search all of AC.
+    universal: { fetch: universalSearch, minChars: 2, cache: false },
+  });
+
+  // 🧪 Read-only test hook for the browser harness (tests/browser/).
+  // Gated on window.acDEBUG so it never attaches for normal users; the
+  // harness sets acDEBUG via evaluateOnNewDocument before navigation.
+  if (typeof window !== "undefined" && window.acDEBUG) {
+    window.__acPromptTest = () => {
+      const input = system?.prompt?.input;
+      const ac = handleAutocomplete;
+      return {
+        input: input?.text ?? null,
+        kidlispMode: !!system?.prompt?.kidlispMode,
+        deprecateUniticker: DEPRECATE_UNITICKER,
+        ac: ac
+          ? {
+              visible: !!ac.visible,
+              loading: !!ac.loading,
+              activeTrigger: ac.activeTrigger,
+              navigated: !!ac.navigated,
+              selectedIndex: ac.selectedIndex,
+              items: (ac.items || []).map((i) => ({
+                text: i.text,
+                display: i.display || null,
+                color: i.color || null,
+              })),
+            }
+          : null,
+        histScrub: histScrub
+          ? { engaged: !!histScrub.engaged }
+          : null,
+      };
+    };
+  }
 
   // �📦 Load product images (DISABLED for now)
   await products.boot(api);
@@ -5967,7 +6204,10 @@ function paint($) {
       bucketCursor = (bucketCursor + 1) % allBuckets.length;
     }
 
-    const showUniticker = screen.height >= 180 && unitickerItems.length > 0;
+    const showUniticker =
+      !DEPRECATE_UNITICKER &&
+      screen.height >= 180 &&
+      unitickerItems.length > 0;
 
     if (showUniticker) {
       const fullText = unitickerItems.map((item) => item.text).join(" · ");
@@ -7219,11 +7459,17 @@ function sim($) {
   ellipsisTicker?.sim();
   progressTrick?.step();
 
-  // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput
+  // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput.
+  // Arrows always drive the dropdown when it's open. Enter is only hijacked
+  // for explicit triggers (@ / $ / # / !) or once the user has arrowed into
+  // a universal-search result — so typing a command + Enter still RUNS it.
   if ($.system.prompt.input) {
-    const autocompleteActive = !!(handleAutocomplete?.visible && handleAutocomplete.items.length > 0);
-    $.system.prompt.input.skipHistory = autocompleteActive;
-    $.system.prompt.input.skipEnter = autocompleteActive;
+    const ac = handleAutocomplete;
+    const acVisible = !!(ac?.visible && ac.items.length > 0);
+    const lockEnter =
+      acVisible && (ac.activeTrigger !== "" || ac.navigated);
+    $.system.prompt.input.skipHistory = acVisible;
+    $.system.prompt.input.skipEnter = lockEnter;
   }
 
   // �🔷 Sync Tezos wallet state from bios (for restored sessions)
@@ -7349,6 +7595,47 @@ function act({
   notice,
   ui,
 }) {
+  // 🎞️ Rolodex: a predominantly-vertical drag on the focused prompt
+  // scrubs command history pixel-by-pixel and stays where you let go
+  // (the snap). Only engages past a threshold so taps / horizontal
+  // gestures / text-selection are untouched, and never while a
+  // completion dropdown is open. Mirrors the proven ticker-scrub idiom.
+  {
+    const inp = system.prompt.input;
+    const canScrub =
+      inp?.canType &&
+      !handleAutocomplete?.visible &&
+      !system.prompt.kidlispMode;
+
+    if (canScrub && e.is("touch")) {
+      histScrub = { startY: e.y, engaged: false };
+    } else if (histScrub && e.is("draw")) {
+      const dy = histScrub.startY - e.y;
+      const dx = Math.abs((e.delta && e.delta.x) || 0);
+      if (!histScrub.engaged && Math.abs(dy) > 14 && Math.abs(dy) > dx) {
+        histScrub.engaged = true;
+        histScrub.baseY = e.y;
+        histScrub.startDepth = inp.historyDepth ?? -1;
+        inp.beginHistoryScrub(); // async; scrub no-ops until snapshot ready
+      }
+      if (histScrub.engaged) {
+        const depth =
+          histScrub.startDepth + (histScrub.baseY - e.y) / 18; // px→entry
+        inp.scrubHistoryTo(depth);
+        needsPaint();
+        return; // consume so drag doesn't also select text
+      }
+    } else if (histScrub && (e.is("lift") || e.is("up"))) {
+      const wasEngaged = histScrub.engaged;
+      if (wasEngaged) inp.endHistoryScrub();
+      histScrub = null;
+      if (wasEngaged) {
+        needsPaint();
+        return; // consume the release that ended a scrub
+      }
+    }
+  }
+
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
   if (
@@ -8071,11 +8358,22 @@ function act({
       needsPaint();
       return; // Consume event
     }
-    // Tab or Enter to complete
-    if ((e.is("keyboard:down:tab") || e.is("keyboard:down:enter")) && handleAutocomplete.selected) {
+    // Tab or Enter to complete. Tab always completes the top result. Enter
+    // completes for explicit triggers (@ $ # !) or after the user arrowed
+    // into universal results — otherwise Enter falls through and RUNS the
+    // typed command (the prompt stays a command line first).
+    const universalNoNav =
+      handleAutocomplete.activeTrigger === "" && !handleAutocomplete.navigated;
+    const completeKey =
+      e.is("keyboard:down:tab") ||
+      (e.is("keyboard:down:enter") && !universalNoNav);
+    if (completeKey && handleAutocomplete.selected) {
       const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
       const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
-      system.prompt.input.text = newText + " "; // Add space after handle
+      // Trailing space only after @handles (so you can keep typing a piece);
+      // sigil codes ($cow / #pic / !tape) stay bare so Enter runs them.
+      const trail = handleAutocomplete.activeTrigger === "@" ? " " : "";
+      system.prompt.input.text = newText + trail;
       system.prompt.input.snap();
       send({ type: "keyboard:text:replace", content: { text: system.prompt.input.text } });
       handleAutocomplete.hide();
@@ -8097,7 +8395,10 @@ function act({
       // Item was clicked - complete with the clicked item
       const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
       const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
-      system.prompt.input.text = newText + " "; // Add space after handle
+      // Trailing space only after @handles (so you can keep typing a piece);
+      // sigil codes ($cow / #pic / !tape) stay bare so Enter runs them.
+      const trail = handleAutocomplete.activeTrigger === "@" ? " " : "";
+      system.prompt.input.text = newText + trail;
       system.prompt.input.snap();
       send({ type: "keyboard:text:replace", content: { text: system.prompt.input.text } });
       handleAutocomplete.hide();

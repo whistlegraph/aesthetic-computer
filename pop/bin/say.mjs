@@ -69,6 +69,11 @@ const STYLE = flags.style !== undefined ? Number(flags.style) : null; // 0-1 sty
 const STABILITY = flags.stability !== undefined ? Number(flags.stability) : null; // 0-1
 const SIMILARITY = flags.similarity !== undefined ? Number(flags.similarity) : null; // 0-1
 const FORCE = flags.force === true;
+// `--timestamps` opts into ElevenLabs `/with-timestamps` endpoint, which
+// returns per-character alignment alongside the audio. Lossless, exact,
+// free — the source-of-truth replacement for whisper STT word boundaries.
+// When set, writes `${OUT_PATH}.alignment.json` next to the mp3.
+const TIMESTAMPS = flags.timestamps === true;
 const OUT_PATH = expandHome(flags.out)
   || `${ROOT}/big-pictures/out/${slug}${SECTION ? `-${SECTION.replace(/\s+/g, "_")}` : ""}-vocal.mp3`;
 
@@ -156,26 +161,36 @@ if (SPEED !== 1.0) body.speed = Math.max(0.7, Math.min(1.2, SPEED));
 if (STYLE !== null && Number.isFinite(STYLE)) body.style = Math.max(0, Math.min(1, STYLE));
 if (STABILITY !== null && Number.isFinite(STABILITY)) body.stability = Math.max(0, Math.min(1, STABILITY));
 if (SIMILARITY !== null && Number.isFinite(SIMILARITY)) body.similarity = Math.max(0, Math.min(1, SIMILARITY));
+if (TIMESTAMPS) body.withTimestamps = true;
 const inputHash = createHash("sha256")
   .update(JSON.stringify(body))
   .digest("hex").slice(0, 16);
 
 const hashFile = `${OUT_PATH}.hash`;
+const ALIGNMENT_PATH = `${OUT_PATH}.alignment.json`;
 mkdirSync(dirname(OUT_PATH), { recursive: true });
 
 if (!FORCE && existsSync(OUT_PATH) && existsSync(hashFile)) {
   const cached = readFileSync(hashFile, "utf8").trim();
-  if (cached === inputHash) {
+  // When --timestamps was requested we also need the alignment sidecar.
+  // If the mp3 is cached but the alignment isn't, force a re-fetch.
+  const alignmentReady = !TIMESTAMPS || existsSync(ALIGNMENT_PATH);
+  if (cached === inputHash && alignmentReady) {
     const size = (readFileSync(OUT_PATH).length / 1024).toFixed(0);
     console.log(`✓ ${OUT_PATH} cached (${size} KB · hash ${inputHash}) — skipping /api/say`);
+    if (TIMESTAMPS) console.log(`  alignment: ${ALIGNMENT_PATH}`);
     process.exit(0);
   }
 }
 
-console.log(`→ POST /api/say · ${narration.length} chars · ${PROVIDER}/${VOICE_ID}` + (SPEED !== 1.0 ? ` · speed=${SPEED}` : "") + (STYLE !== null ? ` · style=${STYLE}` : "") + (SECTION ? ` · section=${SECTION}` : ""));
+console.log(`→ POST /api/say · ${narration.length} chars · ${PROVIDER}/${VOICE_ID}` + (SPEED !== 1.0 ? ` · speed=${SPEED}` : "") + (STYLE !== null ? ` · style=${STYLE}` : "") + (SECTION ? ` · section=${SECTION}` : "") + (TIMESTAMPS ? " · with-timestamps" : ""));
 console.log(`  preview: ${narration.split("\n")[0].slice(0, 80)}…`);
 
-const res = await fetch("https://aesthetic.computer/api/say", {
+// SAY_ENDPOINT lets the pipeline target a locally-run say endpoint
+// (e.g. pop/chillwave/bin/say-local.mjs) when the production host is
+// unreachable. Defaults to production.
+const SAY_URL = process.env.SAY_ENDPOINT || "https://aesthetic.computer/api/say";
+const res = await fetch(SAY_URL, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
@@ -187,7 +202,61 @@ if (!res.ok) {
   process.exit(1);
 }
 
-const buf = Buffer.from(await res.arrayBuffer());
-writeFileSync(OUT_PATH, buf);
-writeFileSync(hashFile, inputHash + "\n");
-console.log(`✓ ${OUT_PATH} (${(buf.length / 1024).toFixed(0)} KB · hash ${inputHash})`);
+if (TIMESTAMPS) {
+  // Server returned JSON `{audio, alignment, normalizedAlignment}`.
+  // Write mp3 to OUT_PATH (same as the non-timestamp path) and the
+  // alignment sidecar to OUT_PATH.alignment.json.
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    console.error(`✗ --timestamps was set but server returned ${ct}; was the server patched?`);
+    process.exit(1);
+  }
+  const json = await res.json();
+  const buf = Buffer.from(json.audio, "base64");
+  writeFileSync(OUT_PATH, buf);
+  writeFileSync(hashFile, inputHash + "\n");
+
+  // Build word-level boundaries from the per-character alignment.
+  // Words are runs of consecutive non-space characters; word time is
+  // [first-char start, last-char end].
+  const a = json.alignment || {};
+  const chars = a.characters || [];
+  const starts = a.character_start_times_seconds || [];
+  const ends = a.character_end_times_seconds || [];
+  const words = [];
+  let i = 0;
+  while (i < chars.length) {
+    if (/\s/.test(chars[i])) { i++; continue; }
+    const wStart = starts[i];
+    let txt = "";
+    let lastEnd = ends[i];
+    while (i < chars.length && !/\s/.test(chars[i])) {
+      txt += chars[i];
+      lastEnd = ends[i];
+      i++;
+    }
+    words.push({
+      text: txt,
+      fromMs: Math.round(wStart * 1000),
+      toMs: Math.round(lastEnd * 1000),
+    });
+  }
+
+  const alignmentDoc = {
+    source: "elevenlabs/with-timestamps",
+    text: narration,
+    voice: json.voice || PROVIDER,
+    characters: chars,
+    char_starts_s: starts,
+    char_ends_s: ends,
+    words,
+  };
+  writeFileSync(ALIGNMENT_PATH, JSON.stringify(alignmentDoc, null, 2));
+  console.log(`✓ ${OUT_PATH} (${(buf.length / 1024).toFixed(0)} KB · hash ${inputHash})`);
+  console.log(`✓ ${ALIGNMENT_PATH} (${chars.length} chars · ${words.length} words)`);
+} else {
+  const buf = Buffer.from(await res.arrayBuffer());
+  writeFileSync(OUT_PATH, buf);
+  writeFileSync(hashFile, inputHash + "\n");
+  console.log(`✓ ${OUT_PATH} (${(buf.length / 1024).toFixed(0)} KB · hash ${inputHash})`);
+}

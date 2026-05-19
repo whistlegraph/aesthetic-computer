@@ -23,7 +23,7 @@
 // Output: pop/chillwave/out/<slug>.mp3
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -189,7 +189,7 @@ console.log(`→ score: ${score.events.length} notes · ${score.totalSec.toFixed
 // lane names the visualizer expects.
 const eventLog = {
   bells: [], waves: [], kick: [], sub: [],
-  hat: [], bubbles: [], birds: [], fx: [], sfx: [],
+  hat: [], bubbles: [], birds: [], fx: [], sfx: [], vox: [],
 };
 
 // ── stereo output buffer (interleaved) ───────────────────────────────
@@ -570,6 +570,13 @@ function renderSweeps() {
   // the noise"). State carried across samples.
   let nL = 0, nR = 0;
 
+  // "wub wub, less floooop" — a beat-synced pump on BOTH the amplitude
+  // and the filter cutoff (eighth-note rate at the track tempo) so the
+  // resonant noise reads as a rhythmic wobble instead of one long
+  // continuous filter glide.
+  const beat_s = 60 / BPM;
+  const wubPeriod = beat_s / 2;          // two wubs per beat (8th notes)
+
   for (let i = 0; i < LEN_SAMP; i++) {
     const tSec = i / SAMPLE_RATE;
     const sec = sectionAt(tSec);
@@ -595,14 +602,19 @@ function renderSweeps() {
     const edgeOut = Math.min(1, (sec.endSec - tSec) / 1.6);
     const sectionEnv = Math.max(0, Math.min(edgeIn, edgeOut));
 
+    // beat-synced wub: peaky raised-cosine, 0..1 each 8th note
+    const wubPh = (tSec % wubPeriod) / wubPeriod;
+    const wub   = Math.pow(0.5 - 0.5 * Math.cos(2 * Math.PI * wubPh), 1.7);
+    const cutWub = 1 + 0.55 * wub;        // filter opens on each wub
+
     let sumL = 0, sumR = 0, gNorm = 0;
     for (let p = 0; p < PARTIALS.length; p++) {
       const P = PARTIALS[p];
       const s = st[p];
       const lfoL = 0.5 + 0.5 * Math.sin(2 * Math.PI * P.rate * tSec + P.phase * 6.283);
       const lfoR = 0.5 + 0.5 * Math.sin(2 * Math.PI * P.rate * tSec + P.phase * 6.283 + RATE_OFFSET_R * 6.283);
-      const baseL = cutMin * Math.pow(cutMax / cutMin, lfoL);
-      const baseR = cutMin * Math.pow(cutMax / cutMin, lfoR);
+      const baseL = cutMin * Math.pow(cutMax / cutMin, lfoL) * cutWub;
+      const baseR = cutMin * Math.pow(cutMax / cutMin, lfoR) * cutWub;
       const cutL = Math.min(baseL * P.mul, SAMPLE_RATE / 3);
       const cutR = Math.min(baseR * P.mul, SAMPLE_RATE / 3);
       const fL = 2 * Math.sin(Math.PI * cutL / SAMPLE_RATE);
@@ -621,8 +633,10 @@ function renderSweeps() {
       gNorm += P.gain;
     }
 
-    // Quieter overall — roughly a third of the old level.
-    const amp = (0.085 / gNorm) * onset * sectionEnv;
+    // Quieter overall + the rhythmic wub pump (keeps a floor so it's
+    // still a bed, but clearly pulses "wub wub").
+    const wubGate = 0.28 + 0.72 * wub;
+    const amp = (0.085 / gNorm) * onset * sectionEnv * wubGate;
     outL[i] += sumL * amp;
     outR[i] += sumR * amp;
   }
@@ -949,11 +963,32 @@ function renderBells() {
   const ATTACK_S  = 0.018;
   const BELL_GAIN = 0.34;
 
+  // The marimba/bells has its OWN life: it wanders across the stereo
+  // field on a slow LFO, and rides its own loudness NARRATIVE — a big
+  // swell up into the middle of the track and back, with gentle
+  // undulation — independent of the section structure.
+  const total = score.totalSec || 1;
+  function bellPan(tSec) {
+    const p = 0.70 * Math.sin((2 * Math.PI / 22) * tSec)
+            + 0.22 * Math.sin((2 * Math.PI / 6.5) * tSec + 1.3);
+    return Math.max(-0.92, Math.min(0.92, p));
+  }
+  function bellNarr(tSec) {
+    const u = Math.max(0, Math.min(1, tSec / total));
+    const arc = 0.42 + 0.62 * Math.sin(Math.PI * u);   // soft→full→soft
+    const wave = 0.16 * Math.sin(2 * Math.PI * 3 * u);  // undulation
+    return Math.max(0.30, Math.min(1.25, arc + wave));
+  }
+
   for (const ev of score.events) {
     const gateGain = bellGainAt(ev.startSec);
     if (gateGain <= 0.001) continue;
     eventLog.bells.push({ t: ev.startSec, midi: ev.midi, dur: ev.durSec });
     const f = midiToFreq(ev.midi);
+    const pan = bellPan(ev.startSec);
+    const narr = bellNarr(ev.startSec);
+    const lG = Math.cos((pan + 1) * Math.PI / 4) * Math.SQRT2;
+    const rG = Math.sin((pan + 1) * Math.PI / 4) * Math.SQRT2;
     const startIdx = Math.floor(ev.startSec * SAMPLE_RATE);
     const ringSamp = Math.floor((ev.durSec + RING_TAIL) * SAMPLE_RATE);
     const attackSamp = ATTACK_S * SAMPLE_RATE;
@@ -973,10 +1008,10 @@ function renderBells() {
       }
       let att = 1;
       if (i < attackSamp) att = 0.5 - 0.5 * Math.cos((Math.PI * i) / attackSamp);
-      const v = s * att * BELL_GAIN * gateGain;
-      // stereo bells: slight L bias on odd events, R on even, for spread
-      outL[dst] += v;
-      outR[dst] += v;
+      const v = s * att * BELL_GAIN * gateGain * narr;
+      // moves around the mix on its own LFO pan
+      outL[dst] += v * lG;
+      outR[dst] += v * rG;
     }
   }
 }
@@ -1108,6 +1143,44 @@ function renderKick() {
     }
   }
 
+  // SLOW BASS KICK — a deep, sick 808 "boom" on the DOWNBEAT of every
+  // bar (4 beats ≈ 3.43s at 70 BPM). Fast pitch drop (110 → 30 Hz) that
+  // then HOLDS into a long ~1.1s sub tail, soft-driven for a thick
+  // thump. Lands under the half-time kick as a slow, heavy pulse and
+  // visibly thumps the preview string (kick lane).
+  const BOOM_GAIN = 0.42;
+  let boomCount = 0;
+  for (const sec of score.sections) {
+    if (!sec.flags.has("kick")) continue;
+    for (let t = sec.startSec; t < sec.endSec - 0.2; t += 4 * beat_s) {
+      const bf0 = 110, bf1 = 30;          // glide high → deep sub, then hold
+      const durSec = 1.15;
+      const startIdx = Math.floor(t * SAMPLE_RATE);
+      const nSamp = Math.floor(durSec * SAMPLE_RATE);
+      const attackS = Math.floor(0.004 * SAMPLE_RATE);
+      const glideEnd = 0.10;              // pitch settles within 100ms
+      let phase = 0;
+      for (let i = 0; i < nSamp; i++) {
+        const dst = startIdx + i;
+        if (dst < 0 || dst >= LEN_SAMP) break;
+        const g = Math.min(1, (i / SAMPLE_RATE) / glideEnd);
+        const f = bf0 * Math.pow(bf1 / bf0, g);   // fast drop, then steady
+        phase += 2 * Math.PI * f / SAMPLE_RATE;
+        let env;
+        if (i < attackS) env = i / attackS;
+        else env = Math.pow(0.0008, (i - attackS) / (nSamp - attackS));
+        // soft-driven sine for a thick "sick" thump + tiny click attack
+        let s = Math.sin(phase) + 0.10 * Math.sin(phase * 2);
+        s = Math.tanh(s * 1.8) * 0.85;
+        if (i < attackS) s += (1 - i / attackS) * 0.5;
+        outL[dst] += s * env * BOOM_GAIN;
+        outR[dst] += s * env * BOOM_GAIN;
+      }
+      eventLog.kick.push({ t, kind: "boom" });
+      boomCount++;
+    }
+  }
+
   // Sub-bass drone: one sustained sine per [kick] section, crossfading
   // at section edges (1.5s attack, 1.8s release).
   const ATTACK_S  = 1.5;
@@ -1146,7 +1219,7 @@ function renderKick() {
     eventLog.sub.push({ t: sec.startSec, kind: "drone", dur: dur });
     subBlocks++;
   }
-  console.log(`     kicks: ${kickCount} hits · sub-bass: ${subBlocks} blocks`);
+  console.log(`     kicks: ${kickCount} hits · slow booms: ${boomCount} · sub-bass: ${subBlocks} blocks`);
 }
 
 // ── 6b. snare — sharp "pfft" backbeat ────────────────────────────────
@@ -1350,8 +1423,75 @@ function mixChime(startSec, notes, dir) {
     t += n.dur + 0.060;                                // 60 ms gap
   }
 }
-mixChime(0.05, BOOT_NOTES, "boot");
+// With the typing intro the boot chime plays in the PRE-ROLL, BEFORE
+// the typing (see the pre-roll block). Without the intro it sits at
+// the very start of the track as before.
+if (flags["no-type-intro"] === true) mixChime(0.05, BOOT_NOTES, "boot");
 mixChime(Math.max(0, LEN_SEC - 2.2), SHUT_NOTES, "shutdown");
+
+// ── jeffrey-pvc SUNG vocal (beat-aligned stem) — lead, ducks the bed ──
+// The stem is already score-pitch'd + score-stretched (held notes on
+// the 70 BPM grid → actually sung). It runs long, so it carries
+// THROUGHOUT. Placed beat-aligned, loud, and the rest of the mix is
+// SIDECHAIN-DUCKED under it so jeffrey is always clearly heard. Its
+// own `vox` lane buffer feeds the visualizer.
+if (flags["vocal-stem"]) {
+  const rel = flags["vocal-stem"];
+  const cand = [resolve(process.cwd(), rel), `${LANE}/${rel}`, rel];
+  const stemPath = cand.find((p) => existsSync(p));
+  if (!stemPath) {
+    console.error(`✗ --vocal-stem not found: ${rel}`);
+  } else {
+    const vGain = Number(flags["vocal-gain"] ?? 1.5);    // lead-loud
+    const DUCK  = Number(flags["vocal-duck"] ?? 0.62);   // bed dips ~ -8dB
+    const beat  = 60 / BPM;
+    const reqStart = Number(flags["vocal-start"] ?? beat * 8); // ~bar 3
+    const vStart = Math.round(reqStart / beat) * beat;   // snap to beat
+    const vt = mkdtempSync(`${tmpdir()}/cw-vox-`);
+    const vraw = `${vt}/vox.f32`;
+    const vr = spawnSync("ffmpeg", [
+      "-hide_banner", "-y", "-loglevel", "error",
+      "-i", stemPath, "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1",
+      vraw,
+    ]);
+    if (vr.status === 0 && existsSync(vraw)) {
+      const rb = readFileSync(vraw);
+      const src = new Float32Array(rb.buffer, rb.byteOffset, rb.byteLength / 4);
+      let pk = 1e-6;
+      for (let i = 0; i < src.length; i++) { const a = Math.abs(src[i]); if (a > pk) pk = a; }
+      const norm = 0.97 / pk;
+      const voxBuf = new Float32Array(LEN_SAMP);
+      const startIdx = Math.floor(vStart * SAMPLE_RATE);
+      const fadeS = Math.floor(0.10 * SAMPLE_RATE);
+      // sidechain envelope follower over the (normalized) vocal:
+      // fast attack (~8ms), slow release (~260ms) → smooth ducking.
+      const aC = Math.exp(-1 / (0.008 * SAMPLE_RATE));
+      const rC = Math.exp(-1 / (0.260 * SAMPLE_RATE));
+      let envF = 0;
+      for (let i = 0; i < src.length; i++) {
+        const j = startIdx + i;
+        if (j < 0 || j >= LEN_SAMP) break;
+        const x = src[i] * norm;
+        const rect = Math.abs(x);
+        envF = rect > envF ? aC * envF + (1 - aC) * rect
+                           : rC * envF + (1 - rC) * rect;
+        let fade = 1;
+        if (i < fadeS) fade = i / fadeS;
+        else if (i > src.length - fadeS) fade = Math.max(0, (src.length - i) / fadeS);
+        const duck = 1 - DUCK * Math.min(1, envF * 1.4);
+        outL[j] = outL[j] * duck + x * vGain * fade;
+        outR[j] = outR[j] * duck + x * 0.97 * vGain * fade;
+        voxBuf[j] += x * vGain * fade;
+      }
+      laneBuffers.vox = downsampleMono(voxBuf, voxBuf, SAMPLE_RATE, LANE_DISPLAY_SR);
+      eventLog.vox.push({ t: vStart, name: "vocal", dur: src.length / SAMPLE_RATE });
+      console.log(`  vocal: SUNG stem @ ${vStart.toFixed(2)}s · gain ${vGain} · duck ${DUCK} · ${(src.length / SAMPLE_RATE).toFixed(1)}s · vox lane`);
+    } else {
+      console.error("✗ vocal-stem decode failed");
+    }
+    rmSync(vt, { recursive: true, force: true });
+  }
+}
 
 // fade-in (0.4s) + fade-out (last 2.5s) so neither end clicks
 const FADE_IN_SEC  = 0.4;
@@ -1369,9 +1509,101 @@ for (let i = 0; i < fadeOutSamp; i++) {
   outL[idx] *= g; outR[idx] *= g;
 }
 
+// ── TYPING-INTRO pre-roll (ported from recap/bin/trance.mjs) ─────────
+// A purple AC-prompt opening: the boot chime fires FIRST, THEN
+// key-click ticks type the slug, a return "thunk", then the music.
+// Implemented as a post-mix PREPEND: the whole track + every
+// event/section/lane-buffer shifts by PREROLL_SEC so nothing internal
+// needs rewriting. preview-score draws the prompt during
+// [0, PREROLL_SEC): beeps, then typing.
+const TYPE_INTRO = flags["no-type-intro"] !== true;
+const PREROLL_SEC = TYPE_INTRO ? 3.0 : 0;
+const prerollSamp = Math.round(PREROLL_SEC * SAMPLE_RATE);
+let FINAL_SAMP = LEN_SAMP + prerollSamp;
+{
+  const finalL = new Float32Array(FINAL_SAMP);
+  const finalR = new Float32Array(FINAL_SAMP);
+  finalL.set(outL.subarray(0, LEN_SAMP), prerollSamp);
+  finalR.set(outR.subarray(0, LEN_SAMP), prerollSamp);
+  if (TYPE_INTRO) {
+    // BOOT CHIME first — render the 3 beeps into the pre-roll at the
+    // very start, BEFORE any typing. Events are pushed at their TRUE
+    // pre-roll times (excluded from the +PREROLL_SEC shift below).
+    {
+      let ct = 0.08, ci = 0;
+      for (const n of BOOT_NOTES) {
+        eventLog.sfx.push({ t: ct, name: `boot-beep-${++ci}`, dur: n.dur, point: true });
+        const f = n.tone;
+        const s0 = Math.floor(ct * SAMPLE_RATE);
+        const atk = Math.max(1, Math.floor(0.003 * SAMPLE_RATE));
+        const decay = n.dur * 0.6;
+        const total = Math.floor((n.dur + 0.12) * SAMPLE_RATE);
+        for (let i = 0; i < total; i++) {
+          const j = s0 + i;
+          if (j < 0 || j >= prerollSamp) break;
+          const tt = i / SAMPLE_RATE;
+          const ph = (f * tt) % 1;
+          const tri = 2 * Math.abs(2 * ph - 1) - 1;
+          const env = i < atk ? i / atk
+            : Math.exp(-(tt - atk / SAMPLE_RATE) / decay);
+          const s = tri * env * n.vol * CHIME_GAIN;
+          finalL[j] += s; finalR[j] += s;
+        }
+        ct += n.dur + 0.060;
+      }
+    }
+    const krng = makeRng(`${SLUG}:keyclick`);
+    const tick = (atSec, tone, dur, vol) => {
+      const i0 = Math.floor(atSec * SAMPLE_RATE);
+      const atk = Math.max(1, Math.floor(0.0009 * SAMPLE_RATE));
+      const n = Math.floor(dur * SAMPLE_RATE);
+      for (let i = 0; i < n; i++) {
+        const j = i0 + i;
+        if (j < 0 || j >= prerollSamp) break;
+        const ph = (tone * i) / SAMPLE_RATE;
+        const sq = Math.sin(2 * Math.PI * ph) >= 0 ? 1 : -1;
+        const env = i < atk ? i / atk : Math.exp(-(i - atk) / (dur * 0.55 * SAMPLE_RATE));
+        const s = sq * env * vol;
+        finalL[j] += s; finalR[j] += s;
+      }
+    };
+    const TYPE_START = 1.10, GAP = 0.078;       // after the boot chime
+    const N = SLUG.length;
+    for (let i = 0; i < N; i++) {
+      const kt = TYPE_START + i * GAP;
+      const tone = 600 + (krng() - 0.5) * 230;
+      tick(kt, tone, 0.018, 0.20);              // chunky key thock
+      tick(kt, tone * 1.9, 0.012, 0.10);        // bright transient
+      eventLog.sfx.push({ t: kt, name: `keyclick-${i}`, dur: 0.05, point: true });
+    }
+    const enterT = TYPE_START + N * GAP + 0.08;
+    tick(enterT, 300, 0.05, 0.26);              // return-key thunk
+    tick(enterT, 150, 0.06, 0.18);
+    eventLog.sfx.push({ t: enterT, name: "prompt-enter", dur: 0.08, point: true });
+  }
+  outL = finalL;
+  outR = finalR;
+}
+// Shift every music event past the pre-roll (keyclick/prompt-enter
+// events were just pushed at their true pre-roll times — leave those).
+if (PREROLL_SEC > 0) {
+  for (const lane of Object.keys(eventLog)) {
+    for (const ev of eventLog[lane]) {
+      // keyclick / prompt-enter / boot-beep were pushed at their TRUE
+      // pre-roll times — don't shift them. (shutdown-beep is in the
+      // main mix and DOES shift.)
+      if (/^keyclick-\d+$/.test(ev.name || "") ||
+          /^boot-beep-\d+$/.test(ev.name || "") ||
+          ev.name === "prompt-enter") continue;
+      ev.t += PREROLL_SEC;
+    }
+  }
+}
+const FINAL_SEC = LEN_SEC + PREROLL_SEC;
+
 // ── peak normalize to -1.5 dBFS (stereo) ─────────────────────────────
 let peak = 0;
-for (let i = 0; i < LEN_SAMP; i++) {
+for (let i = 0; i < FINAL_SAMP; i++) {
   const aL = Math.abs(outL[i]);
   const aR = Math.abs(outR[i]);
   if (aL > peak) peak = aL;
@@ -1380,15 +1612,15 @@ for (let i = 0; i < LEN_SAMP; i++) {
 const tgt = Math.pow(10, -1.5 / 20);
 const norm = peak > 0 ? Math.min(1, tgt / peak) : 1;
 if (norm < 1) {
-  for (let i = 0; i < LEN_SAMP; i++) {
+  for (let i = 0; i < FINAL_SAMP; i++) {
     outL[i] *= norm;
     outR[i] *= norm;
   }
 }
 
 // ── interleave + write via ffmpeg (raw f32 stereo → mp3) ─────────────
-const interleaved = new Float32Array(LEN_SAMP * 2);
-for (let i = 0; i < LEN_SAMP; i++) {
+const interleaved = new Float32Array(FINAL_SAMP * 2);
+for (let i = 0; i < FINAL_SAMP; i++) {
   interleaved[i * 2]     = outL[i];
   interleaved[i * 2 + 1] = outR[i];
 }
@@ -1408,16 +1640,22 @@ if (r.status !== 0) {
   console.error("✗ ffmpeg encode failed");
   process.exit(1);
 }
-console.log(`✓ ${OUT_PATH}  (peak norm ${norm.toFixed(3)}, ${LEN_SEC.toFixed(1)}s)`);
+console.log(`✓ ${OUT_PATH}  (peak norm ${norm.toFixed(3)}, ${FINAL_SEC.toFixed(1)}s · +${PREROLL_SEC}s type-intro)`);
 
 // ── per-lane mono buffers (display SR) saved as .raw sidecars ────────
 // Each lane writes a headerless float32 mono file at LANE_DISPLAY_SR
 // next to the mp3. The preview reads these to draw each waveform with
 // the actual mix-volume of that lane (not the full mixed audio).
 const laneBufferPaths = {};
+const prerollDisp = Math.round(PREROLL_SEC * LANE_DISPLAY_SR);
 for (const [key, buf] of Object.entries(laneBuffers)) {
+  // prefix each lane's display buffer with pre-roll silence so the
+  // waveforms stay aligned with the (shifted) event times.
+  const shifted = prerollDisp > 0
+    ? (() => { const a = new Float32Array(buf.length + prerollDisp); a.set(buf, prerollDisp); return a; })()
+    : buf;
   const p = OUT_PATH.replace(/\.mp3$/, `.lane-${key}.raw`);
-  writeFileSync(p, Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength));
+  writeFileSync(p, Buffer.from(shifted.buffer, shifted.byteOffset, shifted.byteLength));
   laneBufferPaths[key] = p.replace(`${LANE}/`, "");
 }
 
@@ -1431,15 +1669,16 @@ const struct = {
   bpm: BPM,
   scale: "minor",
   rootMidi: 57,    // A3
-  totalSec: LEN_SEC,
+  totalSec: FINAL_SEC,
+  prerollSec: PREROLL_SEC,         // typing-intro length (events ≥ this)
   laneAudio: {
     sampleRate: LANE_DISPLAY_SR,
     paths: laneBufferPaths,        // relative to the lane dir
   },
   sections: score.sections.map((s) => ({
     name: s.name,
-    startSec: s.startSec,
-    endSec: s.endSec,
+    startSec: s.startSec + PREROLL_SEC,
+    endSec: s.endSec + PREROLL_SEC,
     flags: Array.from(s.flags),
   })),
   events: eventLog,

@@ -128,6 +128,17 @@ const CONFIGS = {
         prelude: null, // chill mix has no greeting → no prelude swap
       },
       {
+        // IG-story cut — midnight-unravelling portrait set (v40p):
+        // overtly-unsettling foggy 3am Trader Joe's, walls of reality
+        // tearing, crew uncanny, jeffrey calm-blank. Latest 7-section
+        // composition (build2 dropped). Built from
+        // gens/trancenwaltzi-sections/<sec>/gens/v40p.png.
+        suffix: "vertical",
+        size: "1080x1920",
+        variant: "v40p",
+        prelude: null, // chill mix has no greeting → no prelude swap
+      },
+      {
         // Same Canvas model — staged for when trancenwaltzi releases.
         suffix: "canvas",
         size: "1080x1920",
@@ -194,6 +205,13 @@ const videoCmds = [];
 const extraOutputs = {};
 if (!flags["audio-only"]) {
   for (const fmt of CFG.formats || []) {
+    // --only <suffix> cuts just one format (e.g. --only vertical) so a
+    // single-cut doesn't re-render the other formats. "square" matches
+    // the default no-suffix format.
+    if (flags.only && (fmt.suffix || "square") !== flags.only) {
+      console.log(`▸ video [${fmt.suffix || "square"}] · SKIPPED (--only ${flags.only})`);
+      continue;
+    }
     const ILLUS_MAP = illusMap(CFG.sectionsDir, fmt.variant);
     const introIllus = `${CFG.sectionsDir}/intro/gens/${fmt.variant}.png`;
     if (!existsSync(introIllus)) {

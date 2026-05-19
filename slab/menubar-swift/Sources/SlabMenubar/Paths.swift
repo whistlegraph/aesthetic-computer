@@ -13,6 +13,18 @@ enum Paths {
 
     static var slabWallpaper: String { "\(slabBin)/slab-wallpaper" }
     static var wallpaperStatusDir: String { "\(slabHome)/wallpaper/status" }
+    /// Cached near-black + status-glow PNGs set as the macOS desktop
+    /// picture (aggregate Claude status, matching the menubar icon).
+    static var desktopWallpaperDir: String { "\(slabHome)/wallpaper/desktop" }
+    /// The user's pre-slab desktop picture path, captured once before slab
+    /// ever overwrites it, so it can be restored when theme-by-status is
+    /// off or no sessions are live.
+    static var desktopOriginalFile: String { "\(desktopWallpaperDir)/.original" }
+
+    /// Generic iMessage bridge (contact lives in the untracked config below,
+    /// never in tracked code). Mirrors the slab-wallpaper wrapper convention.
+    static var imsgHelper: String { "\(slabBin)/imsg" }
+    static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
 
     static var activePromptsDir: String { "\(slabHome)/state/active-prompts" }
     static var awaitingPromptsDir: String { "\(slabHome)/state/awaiting-prompts" }
@@ -48,6 +60,12 @@ enum Paths {
     /// session is re-themed by status (working/awaiting), so a wall of
     /// terminals reads as a status display at a glance.
     static var themeByStatusFlag: String { "\(slabHome)/state/theme-by-status" }
+
+    /// When this file exists, status themes use the *light* (bright,
+    /// sunlight-readable) palettes regardless of the macOS Auto-appearance
+    /// schedule — so the wall stays readable outdoors even after the system
+    /// has flipped to Dark for the evening.
+    static var forceBrightFlag: String { "\(slabHome)/state/force-bright" }
 }
 
 enum Tools {

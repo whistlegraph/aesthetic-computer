@@ -1,0 +1,39 @@
+📅 SCHEDULE 📅
+
+Week-ahead, time-bound coordination — distinct from `TODO.txt` (feature
+coordination) and `honeydo.txt` (opportunity / call-for-proposals inbox).
+
+Newest week on top. Move items to a "✓ done" line in-place, archive whole
+weeks downward when stale.
+
+═════════════════════════════════════════════════════════════════════════
+ Week of 2026-05-03 — Sun → Sat
+═════════════════════════════════════════════════════════════════════════
+
+ ⏳ blocked / waiting
+ - papers/arxiv-machine-project cover re-roll — hit OpenAI billing hard
+   limit on 05-02 mid-batch. Star-of-David version (from the prior pass)
+   is still in place at papers/arxiv-machine-project/figures/cover.png.
+   Action: bump the org limit at platform.openai.com/settings/organization/limits,
+   then `node papers/bin/gen-cover.mjs arxiv-machine-project --force`.
+   Prompt is already updated to the sunburst+curlicues (no star) version.
+
+ ☐ this week
+ - (none yet)
+
+ ✓ done
+ - 05-02  papers/bin/gen-cover.mjs STYLE_PREFIX rewritten three times to
+          converge on: ONE singular emblem, NO institution-naming text in
+          the image, incidental product/manufacturer text OK. Memory rule
+          captured at memory/feedback_paper_covers_emblem.md.
+ - 05-02  All 14 arxiv-* paper covers re-rendered against the new
+          STYLE_PREFIX; 13 clean, machine-project blocked above.
+          Per-paper cover-prompt.txt files all rewritten as singular
+          iconographic emblems (elephant spine, Greek temple, brass seal
+          w/ lyre, hex pin w/ crossed iron+brush, brick arch w/ Edison
+          bulb, ASCII-square index card, floppy w/ rhizome doodle,
+          chalkboard schematic, Adjaye inverted stoop, Sony Portapak,
+          stencilled 7" sleeve, pixel-burst badge, fraserin clenched-fist
+          picket sign).
+
+═════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 # Jeffrey Platter
 
-An index of canonical photographic references for **Jeffrey Alan Scudder** — face, body, hands — across the repo, the assets CDN, the vault, and the social silos. A sub-platter within the [papers platter](../SCORE.md), parallel to [whistlegraph-platter](../whistlegraph-platter/).
+An index of canonical photographic references for **Jeffrey Alan Scudder** — face, body, hands — across the repo, the assets CDN, the vault, and the social silos. A sub-platter within the [papers platter](../SCORE.md), parallel to [whistlegraph-platter](../whistlegraph-platter/) and to [jeffrey-lexicon](../jeffrey-lexicon/) (the textual analogue — a frequency-attributed dictionary of jeffrey's first-hand vocabulary; live dashboard at [papers.aesthetic.computer/platter/jeffrey-lexicon/](https://papers.aesthetic.computer/platter/jeffrey-lexicon/)).
 
 > The platter exists so that any pipeline (CV layout, image generation, press kit, lecture slide, video composite) can resolve "a photograph of jeffrey" to a concrete URL or file path with known POIs, focal points, and provenance — instead of reaching for whatever's nearby.
 
@@ -156,8 +156,13 @@ The full prompt is kept inline so a year from now we can answer "what was the me
 
 Bulk image data lives at [`portraits/jeffrey/`](../../portraits/jeffrey/) under gitignored subdirectories — these aren't secrets (vault is for SECRET_FILES only), just bulky regenerable cache:
 
-- **[`portraits/jeffrey/ig-archive/<account>/`](../../portraits/jeffrey/ig-archive/)** — Instagram bulk dumps. As of 2026-04-29: `whistlegraph/` ≈ 4.1 GB, 6,104 jpgs spanning 2014-08-23 → 2026-04-28 (posts + highlights + active stories). Pulled via `portraits/jeffrey/bin/ig-archive.fish`.
-- **[`portraits/jeffrey/curated/`](../../portraits/jeffrey/curated/)** — outputs of the face-match → vision-describe pipeline. `jeffrey-match.jsonl` (insightface identity scores), `jeffrey-described.jsonl` (GPT-4o scene-graph metadata), `thumbnails/` (384px), `index.html` (static browser).
+- **[`portraits/jeffrey/ig-archive/<account>/`](../../portraits/jeffrey/ig-archive/)** — Instagram bulk dumps. As of 2026-04-29: `whistlegraph/` ≈ 4.27 GB, 4,575 posts spanning 2014-08-23 → 2026-04-28. Pulled via `portraits/jeffrey/bin/ig-archive.fish`. Per-post JSON metadata is xz-compressed alongside each image. The 4,575 entries are a mix of grid posts and stories — the partition is exposed via the meta catalog (next item).
+- **[`portraits/jeffrey/curated/`](../../portraits/jeffrey/curated/)** — outputs of the face-match → vision-describe → meta-extract pipeline.
+  - `jeffrey-match.jsonl` — insightface identity scores per image (491 of 4,575 posts confirmed-jeffrey at default threshold).
+  - `jeffrey-described.jsonl` — GPT-4o scene-graph metadata.
+  - `whistlegraph-meta.jsonl` — flat catalog (one row per shortcode) with `typename`, `caption`, `likes`, `comments`, `taken_at`, `is_video`. Built by [`bin/ig-meta-extract.mjs`](../../portraits/jeffrey/bin/ig-meta-extract.mjs). Type partition (2026-05-08 build): `GraphImage` 2,049 + `GraphSidecar` 367 + `GraphVideo` 345 = **2,761 grid posts**; `GraphStoryImage` 1,677 + `GraphStoryVideo` 101 = **1,778 stories**. Caption coverage: 47% of posts; stories carry no caption field.
+  - `thumbnails/` (384px), `index.html` (static browser).
+- **[`portraits/jeffrey/social/<account>/`](../../portraits/jeffrey/social/)** — the social-graph / art-world map layer (followers+following → typed graph + `graph.svg` data image foregrounding galleries/museums/institutions and the people who run them). Built by the `bin/ig-social-*` scripts; see [portraits/jeffrey/README.md → "Social graph / art-world map"](../../portraits/jeffrey/README.md#social-graph--art-world-map). Authenticated personal social data — gitignored like `ig-archive/`.
 - **TBD: `portraits/jeffrey/selfies/`** — selfie corpus (raw output from `selfie.mjs`/`snap.mjs`/`cap.mjs` runs); promote the keepers to `assets/jeffreys/jpg/` after curation.
 - **TBD: `portraits/jeffrey/press/`** — press headshots and high-res stills sent to institutions.
 - **TBD: `portraits/jeffrey/shoot-raw/`** — uncompressed masters from the AV photoshoot (only web-sized JPGs are on the CDN today).
@@ -206,7 +211,21 @@ The motivating use case for this platter is to feed image-generation pipelines a
 
 ---
 
-## 6. Timeline (rough spine)
+## 6. Curation: shows + contact sheets
+
+A "show" is a small JSON file describing a curated subset of the @whistlegraph IG archive — the input that drives both visual review (contact sheets on the desktop) and, eventually, the IG-side `onlyMe` / `undoOnlyMe` archive/unarchive flow that turns the public grid into a rotating exhibition wall.
+
+- **Show definitions:** [`portraits/jeffrey/shows/<slug>.json`](../../portraits/jeffrey/shows/) — selectors (AND'd) + `manual_include` / `manual_exclude` lists + optional `order`. Selector vocabulary: `face_match`, `face_excludes`, `date_range`, `recent_count`, `recent_days`, `media_kind` (`post` / `story`), `top_n_by` (`likes` / `comments`).
+- **Resolver:** [`portraits/jeffrey/bin/show-resolve.mjs`](../../portraits/jeffrey/bin/show-resolve.mjs) — `node bin/show-resolve.mjs <slug> [--with-media-ids]`. Joins `whistlegraph-index.json` + `whistlegraph-meta.jsonl` + `jeffrey-match.jsonl` and emits the resolved post list as JSON. `--with-media-ids` lazily reads each `.json.xz` for the numeric `node.id` that `instagram-private-api`'s `media.onlyMe(mediaId)` expects.
+- **Meta catalog:** [`portraits/jeffrey/bin/ig-meta-extract.mjs`](../../portraits/jeffrey/bin/ig-meta-extract.mjs) — one-time scan of the `.json.xz` files; produces `curated/whistlegraph-meta.jsonl`.
+- **Contact sheet renderer:** [`portraits/jeffrey/bin/show-contact-sheet.py`](../../portraits/jeffrey/bin/show-contact-sheet.py) — `bin/show-contact-sheet.py <slug> [--max=N]`. Tiles 200px square thumbs in a 22-column grid with a per-tile caption strip (date + likes + comments + caption text wrapped to 2 lines). Outputs to `~/Desktop/whistlegraph-shows/<slug>-N.jpg` (gitignored — desktop scratch).
+- **Built-in shows** (auto-generated): `posts-YYYY` (2014–2024), `stories-YYYY` (2017–2026), `most-liked-100`, `most-commented-100`, plus `jeffrey-only`, `no-jeffrey`, `era-2014`, `recent-30` as exemplars.
+
+The IG-side projector (silo admin endpoints that diff a resolved show against the live grid + archived list, then issue throttled `onlyMe` / `undoOnlyMe` calls) is the natural next layer — it is **not yet in `silo/server.mjs`**, just sketched here so the curation chain has somewhere to land.
+
+---
+
+## 7. Timeline (rough spine)
 
 - **2026-01-03 to 2026-01-05** — candids and HEIC masters uploaded to `jeffreys/` and `jeffreys/jpg/` (38 files each); AV shoot uploaded to `jeffreys/shoot/` (55 frames) on 2026-01-05
 - **2026-01–04** — POI manifest authored by hand inside `give.aesthetic.computer/index.html`; consumed by `cv.html` (justanothersystem.org) and the Ken Burns slideshow

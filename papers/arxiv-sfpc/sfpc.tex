@@ -221,7 +221,9 @@ Post-2020 \textbf{online classes} are a sustained format. 2026's online summer s
 \begin{table}[h]
 \small
 \centering
-\begin{tabularx}{\columnwidth}{lrr}
+% [fix-dossier-tables]
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrr}
 \toprule
 \textbf{Period} & \textbf{Income} & \textbf{Net} \\
 \midrule
@@ -235,7 +237,8 @@ Post-2020 \textbf{online classes} are a sustained format. 2026's online summer s
 2019 (full) & \$343,816 & \textbf{−\$84,475} \\
 2020--2026 & not disclosed & --- \\
 \bottomrule
-\end{tabularx}
+\end{tabular}%
+}
 \\[0.3em]
 \footnotesize Source: SFPC/finance-and-administration GitHub repo. Some pre-2019 retrospective figures appear only as text in the 2019 narrative.
 \end{table}

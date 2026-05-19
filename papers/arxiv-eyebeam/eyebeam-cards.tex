@@ -1,0 +1,303 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from eyebeam.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{eyebeam-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\hypersetup{
+  pdftitle={Eyebeam: A Dossier},
+}
+
+\renewcommand{\acpdfbase}{eyebeam-dossier-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Eyebeam — A Dossier}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Origin}
+
+The org's earliest public-facing language emphasizes \emph{the atelier}: not the museum, not the lab, not the gallery, but the historical Renaissance-and-after artist's workshop --- a place where craft is taught by demonstration, where the master and the apprentice work in the same physical room. \emph{Eyebeam Atelier, Inc.}~is the legal name on the IRS filings to this day. The 1998 name choice locates the org in a pre-internet visual-arts lineage at the same moment that its program began producing browser-native artworks; the friction between the two is, on the public record, the org's recurring formal question.
+
+The org's 2026 description --- ``Eyebeam supports artists who make radical, independent work about the way we live''~\citep{eyebeam2026about} --- is the most recent of a long series of self-rephrasings. Earlier framings emphasized ``art and technology''; the 2020 pivot emphasized ``a better digital future'' and ``artistic self-governance''; the 2026 framing reads as a conscious move away from techno-utopian language toward something more politically located. The dossier records the lineage and moves on.
+
+\section{The Organization, 1996--2026}
+
+\subsection{Founding (1996--1998)}
+
+John S.~Johnson III --- filmmaker, philanthropist, and Johnson \& Johnson family heir --- conceives of an art-and-technology center in New York City through 1996--1997 with co-founders David S.~Johnson (digital artist) and Roderic R.~Richardson (a mutual friend who introduced the two). The IRS 501(c)(3) ruling for \emph{Eyebeam Atelier, Inc.}~is granted in October 1997 (EIN 13-3952075). Public programming begins in 1998: the first \emph{Digital Day Camp} (a youth web-development program that has continued in some form ever since) and the online \emph{Interaction} forum curated by Jordan Crandall (with participants Brian Holmes, Lev Manovich, N.~Katherine Hayles, Saskia Sassen, Hans-Ulrich Obrist, Critical Art Ensemble, Mark Tribe, and others)~\citep{wikipedia2026eyebeam}.
+
+\subsection{The Diller Scofidio building that didn't get built (2000--2003)}
+
+In 2000 Eyebeam announces an international architectural competition for a purpose-built museum-and-studio complex at 540 West 21st Street in Chelsea. The Diller~+~Scofidio (later Diller Scofidio~+~Renfro) winning entry --- a ``pliable ribbon'' folding production and presentation spaces into a continuous undulating surface --- was widely published and is in the MoMA collection as a scale model~\citep{moma2001dsr,domus2002dsr,dsrny2026eyebeam}. The building was never constructed. The org instead operated out of a Chelsea loft on West 21st Street through the 2000s and into the early 2010s. The unbuilt Diller Scofidio entry remains the org's most visible piece of architectural ambition on the public record.
+
+\subsection{Chelsea era (1998--2014)}
+
+The Open Studios program launches in 2002. Eyebeam-supported works win Prix Ars Electronica Golden Nicas in consecutive years: \emph{Carnivore} (Alexander R.~Galloway, 2002) and \emph{Noderunner} (Yury Gitman \& Carlos Gomez de Llarena, 2003). Jonah Peretti directs R\&D in this period, producing \emph{Fundrace.org} (the first geocoded campaign-finance visualization) and, with Galloway, \emph{reBlog} (an early online-sharing protocol). \emph{OpenLab} launches in 2005; \emph{Graffiti Research Lab} (James Powderly \& Evan Roth) emerges from it the same year. Theo Watson and Zachary Lieberman develop \emph{openFrameworks} from their Eyebeam fellowships, releasing the public C++ creative-coding library that has become a standard tool in art schools worldwide. Ayah Bdeir's \emph{littleBits} also originates as an Eyebeam project; the kit enters MoMA's permanent collection in 2011~\citep{wikipedia2026eyebeam}.
+
+The MIXER performance series begins in late 2007. The Art~+~Feminism Wikipedia Edit-A-Thon, co-organized by Laurel Ptak among others, is hosted at Eyebeam's Chelsea space in February 2014.
+
+\subsection{The Sunset Park interim (2014--2017)}
+
+The org leaves the Chelsea loft in 2014. ``Seed funding for the move from Chelsea was provided by the Atlantic Foundation with proceeds from the sale of Eyebeam's former building on West 21st Street''~\citep{technically2014sunsetpark}. A planned move to the BAM Cultural District in downtown Brooklyn falls through; the org takes a four-year lease at Industry City in Sunset Park instead. The 2014 move is reflected in the FY2014 990 as a one-time \$2.3M revenue spike.
+
+\subsection{Bushwick move and 20th anniversary (2017--2018)}
+
+In November 2017 the org moves to a 6,000 sq.~ft.~ground-floor space at \textbf{199 Cook Street, Suite 104, Brooklyn, NY 11222}, in the Mann Group's purpose-built ``industrial arts complex.'' The move is announced as both a programmatic and fiscal reset: closer to the Bushwick artists who form the residency cohort, and a smaller footprint than the Chelsea building~\citep{hyperallergic2017bushwick}. The 20th-anniversary programming runs through Spring 2018. The \emph{Eyebeam Center for the Future of Journalism} launches in 2018 under Marisa Mazria Katz, supporting artist-journalists and producing work that has since received Emmy and Pulitzer Prize citations.
+
+\subsection{The 2020 pivot: Rapid Response and Democracy Machine (2020--2024)}
+
+In April 2020 Mellon awards \$150{,}000 (12 months) and Henry Luce awards \$150{,}000 to launch the \emph{Rapid Response Fund for a Better Digital Future}, an inaugural fully-digital fellowship program supporting 30 artists with grants ranging \$5K--\$25K~\citep{mellon2020rapidresponse,luce2020covid}. The program runs in two phases through 2020--2021. In June 2021 Mellon follows with a \$600{,}000 / 36-month general operating support grant under its Presidential Initiatives line~\citep{mellon2021genop}, and in October 2021 the org launches \emph{The Democracy Machine}, a three-year, \$1.5M, 75-artist program that ``hands over authority of its flagship residency to artists themselves''~\citep{eyebeam2021democracymachine,artnet2021dm}. Funding for the Democracy Machine is anchored by Ford Foundation (\$650{,}000), Mellon (\$1.1M across grants), and Henry Luce (\$150{,}000). The framing --- distributed, network-based, less centred on the Bushwick physical space --- is a sharp departure from the 1998--2017 atelier-and-studios model.
+
+In March 2023 Mellon adds a \$92{,}400 / 9-month grant for an Eyebeam~+~Momus~+~Forge Project residency for Indigenous emerging art writers~\citep{mellon2023momus}. In March 2024 Mellon adds \$150{,}000 / 12 months for an AI-and-arts convening~\citep{mellon2024ai}.
+
+\subsection{Leadership transition (2025--2026)}
+
+Roddy Schrock departs as ED in mid-2025 after a decade in the role. Sheetal Prajapati --- previously Director of Public Engagement at Pioneer Works, with prior interim-leadership roles at The Flaherty and Common Field --- is announced as Interim Executive Director on June 30, 2025, beginning July 1~\citep{eyebeam2025prajapati}. The board launches a permanent ED search in November 2025. On April 6, 2026, Julia Kaganskiy --- founding director of NEW INC at the New Museum (2014--2018) and former Global Editor of VICE Media's \emph{The Creators Project} (2010--2013) --- is announced as the new ED, framing the role as ``a homecoming'' given her 2009-onwards collaborations with Eyebeam~\citep{eyebeam2026kaganskiy}. The current 2025--2026 program season \emph{Speculating on Plurality} continues to run a 12-week residency for six NYC-based emerging artists hosted at NYU Tandon, separately from Eyebeam's own 199 Cook physical space.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}X>{\raggedright\arraybackslash\hspace{0pt}}X}
+\toprule
+\textbf{Tenure} & \textbf{Director} & \textbf{Note} \\
+\midrule
+1997--2004 & John S.~Johnson III & Founder; led from inception \\
+2004--2005 & Steven Tremble & Brief tenure \\
+2005--2011 & Amanda McDonald Crowley & \\
+2011--2015 & Patricia C.~Jones & \\
+2015--2025 & Roddy Schrock & Decade of foundation pivots \\
+Jul 2025--Apr 2026 & Sheetal Prajapati & Interim ED \\
+Apr 2026-- & Julia Kaganskiy & Ex-NEW INC director \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Executive directors of record.}
+\label{tab:eds}
+\end{table}
+
+The current (2026) board, per the org's \texttt{eyebeam.org/about-us/people}: Emma Canarick (Chair), Kenyatta Cheese (Vice-Chair), Ellen Sandor (Secretary), Craig Ingwer (Interim Treasurer), Salome Asega (also on the Rhizome board --- a direct sibling-org tie), Ruby Lerner (long-time Creative Capital president), Robert Ransick. The current Advisory Board: R.~Luke DuBois, Matt Corwine, Bill Foulkes, Susan Gladstone, Jordan Harris, Ramsey Nasser (also a recurring SFPC teacher --- another sibling-org tie), Kathleen O'Grady, David Zicarelli (founder of Cycling '74 / Max).
+
+Long-tenure staff and curators on the public record include Marisa Mazria Katz (Center for the Future of Journalism, 2018--), Tyrone Martin (COO), Michael Ross (Director of Development), Nat Lemus (Digital Information~\&~Communications Associate). Notable alumni residents and fellows include Cory Arcangel, Michael Bell-Smith, Yael Kanarek, John Klima, Jonah Peretti, Theo Watson, Zachary Lieberman, James Powderly, Evan Roth, Ayah Bdeir, Tega Brain, BUFU, LaJun\'{e} McMillian, Yo-Yo Lin, Shannon Finnegan, Hyphen-Labs, Tahir Hemphill, Valencia James, Harris Kornstein, and many more (the org reports 550+ artists supported across all programs since 1998).
+
+\section{Programs}
+
+\textbf{Digital Day Camp} (1998--) --- youth web-development and design program; the org's longest continuous program.
+
+\textbf{Open Studios} (2002--) --- biannual public studio visits with the residency cohort.
+
+\textbf{R\&D Fellowships / OpenLab} (2005--$\sim$2017) --- the foundational fellowship under which most of the Chelsea-era projects (openFrameworks, GRL, Fundrace, littleBits) were produced.
+
+\textbf{MIXER} (2007--$\sim$2015) --- live performance series featuring video/audio collaboration.
+
+\textbf{Eyebeam Center for the Future of Journalism} (2018--) --- grant-making to artist-journalists; supported work has won Pulitzer citations and Emmy Awards. Led by Marisa Mazria Katz.
+
+\textbf{Rapid Response for a Better Digital Future} (2020--2021) --- COVID-era inaugural fully-digital fellowship; 30 artists Phase I, 8 in Phase II; \$5K--\$25K per grant. Funded by Mellon (\$150K) and Henry Luce (\$150K).
+
+\textbf{The Democracy Machine} (Oct 2021--2024) --- three-year, \$1.5M, 75-artist distributed fellowship; Ford (\$650K), Mellon (\$1.1M across line items), Henry Luce (\$150K). Authority over selection and direction handed to artists themselves.
+
+\textbf{Fractal Fellowships / restructured residency} (2020--$\sim$2024) --- the formal label for the post-2020 residency restructure. Expected to support 60--90 artists in its first 24 months.
+
+\textbf{Eyebeam~+~Momus~+~Forge Project residency} (Spring 2023) --- virtual + in-person residency for Indigenous emerging art writers and editors. Mellon-funded (\$92{,}400 / 9 months).
+
+\textbf{Speculating on Plurality} (2025--2026 season) --- the current flagship NYC residency: 12 weeks, six early-career NYC-based artists, hosted at NYU Tandon (not at 199 Cook). Jerome Foundation supports.
+
+\textbf{Atelier} --- the org's historical self-description. Used in the legal name (\emph{Eyebeam Atelier, Inc.}) and surfaced in current 2026 ED Kaganskiy's framing as a return to ``a place artists can call home''~\citep{eyebeam2026kaganskiy}; not currently a separately-named program line.
+
+\textbf{Project Anywhere} --- not located on Eyebeam's current public site as a discrete program. The phrase appears in earlier announcements but did not appear in the 2025--2026 program list scraped for this dossier; flagged in \texttt{data/programs.csv} as TBD.
+
+\section{Money}\label{sec:money}
+
+The organization's federal tax record is, as with Rhizome, the cleanest source. Filings are public on ProPublica's Nonprofit Explorer (EIN 13-3952075) and the org also publishes recent 990 PDFs on \href{https://eyebeam.org/financials/}{eyebeam.org/financials} (FY22, FY23, FY24). The IRS XML e-file viewer is the canonical machine-readable source for FY2017+. Below: 14 fiscal years of line items (Table~\ref{tab:financials}).
+
+\subsection{Top-line, FY2011--FY2024}
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{Xrrrrrrr}
+\toprule
+\textbf{FY end} & \textbf{Revenue} & \textbf{Contri.} & \textbf{Govt} & \textbf{Prog.\,svc.} & \textbf{Expenses} & \textbf{ED comp.} & \textbf{Net assets} \\
+\midrule
+2011-06 & 1,202,257 & 928,564 & --- & 273,693 & 1,414,372 & --- & -386,813 \\
+2012-06 & 1,412,770 & 1,118,482 & --- & 290,519 & 1,447,574 & --- & -443,284 \\
+2013-06 & \textbf{2,407,323} & 2,055,266 & --- & 356,700 & 1,307,902 & --- & 645,188 \\
+2014-06 & \textbf{2,301,088} & 2,040,826 & --- & 255,370 & 1,900,421 & --- & 1,050,114 \\
+2015-06 & 1,182,600 & 1,055,830 & --- & 48,563 & 1,681,385 & --- & 551,328 \\
+2016-06 & 1,148,526 & 1,019,319 & --- & 82,576 & 1,173,396 & --- & 526,457 \\
+2017-06 & 980,977 & 885,419 & --- & 82,766 & 1,057,256 & --- & 450,178 \\
+2018-06 & 1,279,621 & 1,144,940 & --- & 134,698 & 1,162,076 & --- & 567,723 \\
+2019-06 & 1,395,964 & 1,352,339 & --- & 13,187 & 1,442,992 & --- & 520,695 \\
+2020-06 & 1,862,578 & 1,817,158 & --- & 10,233 & 1,505,469 & --- & 877,804 \\
+2021-06 & \textbf{3,009,579} & 2,913,804 & --- & 20,395 & 2,059,628 & --- & 1,827,755 \\
+2022-06 & 1,554,448 & 1,486,528 & --- & 28,779 & 1,548,406 & --- & 1,833,797 \\
+2023-06 & 1,631,254 & 1,542,631 & --- & 63,288 & 1,898,770 & --- & 1,566,281 \\
+2024-06 & 1,455,741 & 1,409,470 & --- & 8,915 & 1,535,274 & 125,491 & 1,486,748 \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Eyebeam Atelier, Inc.~--- top-line Form 990 figures by fiscal year (USD; FY ends June 30). Source: ProPublica Nonprofit Explorer record \texttt{133952075}. Government-grants line is not separately tabulated on Eyebeam's filings (lumped into Contri.). ED comp by name FY2011--FY2023 is in \texttt{data/people.csv} but the ProPublica summary surfaces only FY2024 (Schrock, \$125,491).}
+\label{tab:financials}
+\end{table*}
+
+The shape, in plain English: revenue is overwhelmingly contribution-driven (95\%+ in most years); program-service revenue has \emph{collapsed} from \$273K--\$356K in the early-2010s Chelsea-era to \$10K--\$30K in the post-2017 Bushwick era --- consistent with a programmatic shift away from earned-income studio rentals and event hosting toward grant-funded fellowship distribution. Three years exceed \$2M in revenue: FY2013 (\$2.41M), FY2014 (\$2.30M, Chelsea-to-Sunset Park transition), and FY2021 (\$3.01M, Rapid Response + Democracy Machine launch capital). Net assets recovered from a -\$443K low in FY2012 (the org was technically insolvent at the close of the Chelsea era) to \$1.83M by FY2022, and have drawn down to \$1.49M by FY2024.
+
+\subsection{Named grants}\label{sec:grants}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}Xr}
+\toprule
+\textbf{Year} & \textbf{Project} & \textbf{Amount} \\
+\midrule
+2020-04 & Rapid Response Fund / Mellon (12 mo) & 150,000 \\
+2020-04 & Rapid Response Fund / Henry Luce & 150,000 \\
+2021-06 & General operating / Mellon (36 mo) & 600,000 \\
+2021 & Democracy Machine / Ford & 650,000 \\
+2021 & Democracy Machine / Mellon & 500,000 \\
+2021 & Democracy Machine / Henry Luce & 150,000 \\
+2023-03 & Indigenous-writers residency / Mellon (9 mo) & 92,400 \\
+2024-03 & AI \& arts convening / Mellon (12 mo) & 150,000 \\
+\midrule
+\multicolumn{2}{l}{\textbf{Mellon total, 2020--2024}} & \textbf{1,492,400} \\
+\multicolumn{2}{l}{\textbf{Confirmed institutional, 2020--2024}} & \textbf{2,442,400} \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Confirmed named institutional grants to Eyebeam, 2020--2024. Source: Mellon Foundation grants database; Henry Luce Foundation grant database; Ford Foundation grants database (the Eyebeam record was 404'ing at fetch time --- see \texttt{data/README.md}); contemporaneous press~\citep{artnews2021restructure,artnet2021dm}. The pre-2020 Mellon / NEA / NYSCA / DCLA / Knight / Warhol grant inventory is not yet pulled --- see \texttt{data/funders.csv}.}
+\label{tab:mellon}
+\end{table}
+
+Mellon, Ford, and Henry Luce are the three dominant institutional funders of Eyebeam's last decade, with Mellon alone contributing at least \$1.49M between 2020 and 2024 across five separate grants. Eyebeam's own \href{https://eyebeam.org/support/}{public funder list} additionally names: \textbf{The Atlantic Foundation} (\$500K+, anchored the 2014 Chelsea exit), Craig Newmark Philanthropies, NEA, Capital One, Jerome Foundation, MacArthur Foundation, NYSCA, Silicon Valley Community Foundation, Willem de Kooning Foundation, Beatrice Snyder Foundation; mid-tier: Cy Twombly Foundation, David Howe Foundation, Helen Frankenthaler Foundation, Stavros Niarchos Foundation, Surdna Foundation, Teiger Foundation, Zicarelli Foundation; smaller: Bialkin, Destina, Rodney L White; individual donors named at the \$1K+ tier include Aaron Koblin, Ruby Lerner, Kenyatta Cheese, Kathleen O'Grady, Ellen Sandor, R.~Luke DuBois, Salome Asega. Pro-bono legal support is from Davis Wright Tremaine LLP. The org is a member of CANNY (Collaborative Arts Network NY) and Rethinking Residencies. Specific year/amount entries for the bulk of these funders are TBD --- see \texttt{data/funders.csv}.
+
+\subsection{The 2014 Chelsea-exit cash event}
+
+The FY2013 and FY2014 revenue spikes (\$2.41M and \$2.30M respectively) are conspicuous against the decade-average of \$1.0--1.5M. Per the contemporaneous Hyperallergic and Technically Brooklyn coverage~\citep{hyperallergic2014bushwick,technically2014sunsetpark}, ``seed funding for the move from Chelsea was provided by the Atlantic Foundation with proceeds from the sale of Eyebeam's former building on West 21st Street.'' This is consistent with: (a) the 2013/2014 contributions line jumping above \$2M; (b) the FY2013 turn from -\$443K to +\$645K net assets, an \$1.09M positive swing; and (c) the FY2017 Bushwick move being announced as fiscally cautious \emph{after} this period. The exact mechanics --- whether Eyebeam owned the 540 W 21st building outright or held a long lease whose buyout was structured through Atlantic --- are not visible from the 990 line items alone and would require Schedule D / Schedule M detail. Flagged for follow-up in \texttt{data/README.md}.
+
+\section{Footprint}
+
+\begin{description}
+\item[\textbf{openFrameworks (2005--).}] The Watson + Lieberman C++ creative-coding library born from Eyebeam fellowships. Now standard in art-school curricula worldwide and the runtime under hundreds of public installations. Of the org's footprint outputs, the most consequential as a piece of \emph{infrastructure}.
+\item[\textbf{Graffiti Research Lab (2005--).}] Powderly + Roth + collaborators. LED-throwie kits, laser-tag projection rigs, viral video documentation. The aesthetic of mid-2000s ``hacker art'' is largely a GRL-and-F.A.T.~aesthetic.
+\item[\textbf{littleBits (2008--2018).}] Bdeir's snap-together circuit kits. Acquired into MoMA's permanent collection (2011); the company was eventually sold to Sphero (2019). The Eyebeam fellowship is in the founding mythology.
+\item[\textbf{Center for the Future of Journalism (2018--).}] Pulitzer / Emmy-cited supported journalism on the public record.
+\item[\textbf{The Democracy Machine (2021--2024).}] 75-artist distributed cohort, archived on \href{https://eyebeam.org/program/the-democracy-machine/}{eyebeam.org}. The model itself --- artists choosing the next year's artists --- has become a reference point for other arts organizations rethinking residency selection.
+\item[\textbf{Sibling-org graph.}] Salome Asega sits on Eyebeam's board and on Rhizome's. Ramsey Nasser is on Eyebeam's Advisory Board and is a recurring SFPC teacher. NEW INC (the New Museum cultural incubator that partly displaced the Chelsea-era Eyebeam model) was founded by the org's current ED Julia Kaganskiy. The triangle Eyebeam--Rhizome--NEW INC is denser than any single dossier captures.
+\end{description}
+
+A more granular footprint --- residency cohort lists by year, exhibition partners with dates, the full Center-for-the-Future-of-Journalism grant roster --- is achievable from \texttt{eyebeam.org/artists/} and \texttt{eyebeam.org/program/}, but was not fully scraped for this first pass; flagged in \texttt{data/README.md}.
+
+\section{Reading list}
+
+The dossier draws on the following, with each entry keyed to the section it informs.
+
+\subsection{Already in the AC readings library}
+
+\textbf{Plant, \emph{Zeros and Ones} (1997)}~\citep{plant1997zeros} --- contemporaneous theory.\\
+\textbf{Goriunova, \emph{Readme 100} (2006)}~\citep{goriunova2006readme} --- parallel European software-art scene.\\
+\textbf{McHugh, \emph{Post Internet} (2019)}~\citep{mchugh2019post} --- Footprint, the post-internet aesthetic Eyebeam helped produce.\\
+\textbf{Quaranta, \emph{Beyond New Media Art} (2013)}~\citep{quaranta2013beyond} --- institutional context.
+
+\subsection{To acquire}
+
+\textbf{Greene, \emph{Internet Art} (Thames \& Hudson, 2004)} --- chapters covering the early Eyebeam era.\\
+\textbf{Christiane Paul, \emph{Digital Art}} --- Eyebeam appears across editions.\\
+\textbf{Tribe \& Jana, \emph{New Media Art} (Taschen, 2006)} --- contemporaneous survey.\\
+\textbf{John S.~Johnson III oral histories / interviews} --- founder framing.\\
+\textbf{Roddy Schrock decade-of-direction essays} --- 2015--2025 trajectory.\\
+\textbf{Eyebeam annual reports (where published)} --- direct programmatic accounting.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The funding record is surfaced, not judged.
+  \item Not a comparison. Adjacent organizations (Rhizome, NEW INC, V2\_, Furtherfield, Ars Electronica, SFPC) are mentioned only where they directly intersect Eyebeam.
+  \item Not exhaustive. The dossier covers what is publicly recoverable; gaps are flagged inline. The companion data folder (\texttt{papers/arxiv-eyebeam/data/}) contains the underlying CSVs and source URLs.
+  \item Not a personal account. The author has no commission or formal relationship with Eyebeam recorded in this dossier.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

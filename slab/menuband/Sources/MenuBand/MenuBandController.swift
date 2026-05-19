@@ -432,6 +432,53 @@ final class MenuBandController {
         }
     }
 
+    /// Right-⌘ quiet-focus toggle cue. No chord, no preview note —
+    /// just two things:
+    ///
+    ///  1. A fixed two-note notification **bell** (`FocusCueBeep`),
+    ///     on its own engine, so it never changes regardless of the
+    ///     selected instrument — the dependable identity of "board
+    ///     on" / "board off."
+    ///  2. The **whole keyboard wipes** — a lit front sweeps across
+    ///     EVERY key like a cover sliding off (on) / back on (off).
+    ///
+    /// (The click + camera flash are fired separately by the
+    /// AppDelegate on the right-⌘ down edge.)
+    func playFocusCue(rising: Bool) {
+        // Fixed-identity bell — independent of instrument.
+        FocusCueBeep.shared.play(rising: rising)
+        // Whole keyboard flashes at once (no sweep), same for both.
+        flashAllKeys()
+    }
+
+    private var keyFlashToken = 0
+
+    /// Flash the ENTIRE keyboard on, then off — every key at once,
+    /// no sweep / row pattern. Same gesture for enable and disable.
+    /// Drives `litNotes` wholesale (the set real playing uses) then
+    /// clears, handing the lights back to live play. A token guards
+    /// against a stale clear wiping a newer flash on rapid toggles.
+    func flashAllKeys() {
+        let lo = KeyboardIconRenderer.firstMidi
+        let hi = KeyboardIconRenderer.lastMidi
+        guard hi >= lo else { return }
+        keyFlashToken &+= 1
+        let token = keyFlashToken
+        var all = Set<UInt8>()
+        for m in lo...hi { all.insert(UInt8(m)) }
+        if all != litNotes {
+            litNotes = all
+            onLitChanged?()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self = self, self.keyFlashToken == token else { return }
+            if !self.litNotes.isEmpty {
+                self.litNotes.removeAll()
+                self.onLitChanged?()
+            }
+        }
+    }
+
     var keymap: Keymap {
         get {
             let raw = UserDefaults.standard.string(forKey: keymapKey) ?? ""
@@ -560,7 +607,22 @@ final class MenuBandController {
     /// `midi.start()` so receivers (Live) scale matched.
     static let bendSemitonesPerUnit: CGFloat = 12
 
-    func setBend(amount: Float) {
+    /// Master ambience knob (trackpad X-axis on the bend gesture).
+    /// Forwards straight to the synth's global reverb, so it colors
+    /// every backend equally and is independent of which instrument
+    /// is selected. 0 = dry / up front, 1 = big room.
+    func setSpace(amount: Float) {
+        synth.setSpace(amount)
+    }
+
+    /// Master echo knob (⌥Option + trackpad X on the bend gesture).
+    /// Forwards straight to the synth's global delay so it colors
+    /// every backend equally, independent of the selected instrument.
+    func setEcho(amount: Float) {
+        synth.setEcho(amount)
+    }
+
+    func setBend(amount: Float, allChannels: Bool = false) {
         // No clamp here — the trackpad accumulator can swing past
         // ±1 and the sample voice can vari-speed an arbitrary
         // amount; the MIDI value saturates naturally inside
@@ -572,13 +634,22 @@ final class MenuBandController {
         // sets to dedupe — same channel can host both a tap and a
         // keyboard note when the user is using both at once.
         var channels: Set<UInt8> = []
-        for ch in tapNoteChannel.values { channels.insert(ch) }
-        for ch in heldKeyChannel.values { channels.insert(ch) }
-        if channels.isEmpty {
-            // Send to channel 0 as a fallback so MIDI listeners
-            // that pre-route on a fixed channel still get the
-            // bend even when nothing is held locally.
-            channels.insert(0)
+        if allChannels {
+            // Shift-held performance move: warp EVERYTHING that could
+            // be sounding right now — held keys, taps, AND lingering
+            // doppler tails that have since rotated onto other
+            // melodic channels. Broadcast to every channel except 9
+            // (the GM drum kit), which would just detune into mush.
+            for ch: UInt8 in 0...15 where ch != 9 { channels.insert(ch) }
+        } else {
+            for ch in tapNoteChannel.values { channels.insert(ch) }
+            for ch in heldKeyChannel.values { channels.insert(ch) }
+            if channels.isEmpty {
+                // Send to channel 0 as a fallback so MIDI listeners
+                // that pre-route on a fixed channel still get the
+                // bend even when nothing is held locally.
+                channels.insert(0)
+            }
         }
         debugLog("setBend amt=\(clamped) value=\(value) channels=\(channels) midiMode=\(midiMode)")
         if !midiMode {
@@ -1697,7 +1768,13 @@ final class MenuBandController {
     /// keystroke isn't needed.
     @discardableResult
     func handleLocalKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool, flags: NSEvent.ModifierFlags) -> Bool {
-        let hasMod = flags.contains(.command) || flags.contains(.control) || flags.contains(.option)
+        // ⌘ is DELIBERATELY not a passthrough modifier here. This
+        // path is only live while quiet-focus is armed, and the user
+        // armed it with right-⌘ — which they're often still holding
+        // when they start playing. Treating ⌘ as "shortcut" would
+        // turn right-⌘+f into Find instead of an F note. Control /
+        // Option still pass through for real chords.
+        let hasMod = flags.contains(.control) || flags.contains(.option)
         // Caps lock latches linger so the user can play hands-free
         // without holding shift; shift held still works as a momentary.
         let linger = flags.contains(.shift) || flags.contains(.capsLock)

@@ -1,0 +1,368 @@
+% !TEX program = xelatex
+% =========================================================================
+% Scott Moore — A Profile (full-page, confidential, internal research)
+% Formal register. Public-record sources only. Not for distribution.
+% Occasion is private and deliberately excluded from the document.
+% =========================================================================
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[top=1in, bottom=1in, left=1.05in, right=1.05in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage[colorspec=0.95]{draftwatermark}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\DraftwatermarkOptions{text=CONFIDENTIAL, fontsize=2.4cm, color=acpink!12, angle=45}
+
+\hypersetup{colorlinks=true, linkcolor=acpurple, urlcolor=acpurple,
+  citecolor=acpurple, pdftitle={Scott Moore --- A Profile},
+  pdfsubject={Confidential internal research --- not for distribution}}
+
+\titleformat{\section}{\acbold\large\color{acdark}}{\thesection.}{0.6em}{}
+\titlespacing{\section}{0pt}{1.4em}{0.4em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\color{acpink}\textsc{Confidential}}
+\fancyhead[R]{\footnotesize\color{acgray}Internal research --- not for distribution}
+\fancyfoot[C]{\footnotesize\color{acgray}\thepage}
+
+\setlist[itemize]{leftmargin=1.3em, itemsep=0.15em, topsep=0.2em}
+\setlength{\parindent}{1.1em}
+\setlength{\parskip}{0.35em}
+\newcommand{\refn}[1]{\textsuperscript{[\,#1\,]}}
+
+\begin{document}
+\thispagestyle{empty}
+
+% ===================== COVER =====================
+\begin{center}
+\includegraphics[height=4.2em]{pals}\par
+\vspace{1.4em}
+{\acbold\fontsize{34pt}{38pt}\selectfont\color{acdark} Scott Moore}\par
+\vspace{0.5em}
+{\aclight\fontsize{15pt}{18pt}\selectfont\color{acpink} A Profile}\par
+\vspace{0.4em}
+{\fontsize{10.5pt}{13pt}\selectfont\color{acgray}
+Open-source and public-goods infrastructure funding,\\ read through a single representative node}\par
+\vspace{2.0em}
+\colorbox{acdark}{\hspace{0.6em}\rule[-0.55em]{0pt}{1.7em}%
+{\acbold\fontsize{12pt}{12pt}\selectfont\color{white} CONFIDENTIAL \,\textbullet\, INTERNAL RESEARCH \,\textbullet\, NOT FOR DISTRIBUTION}\hspace{0.6em}}\par
+\vspace{2.0em}
+\rule{0.45\textwidth}{0.5pt}\par
+\vspace{0.8em}
+{\normalsize\color{acpurple}\href{https://prompt.ac/@jeffrey}{@jeffrey}} \quad\textbullet\quad
+{\normalsize\color{acgray} Aesthetic Computer}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} Prepared 18 May 2026 \,\textbullet\, Revision 6 \,\textbullet\, Public-record sources only}\par
+\end{center}
+\vspace{1.6em}
+
+\noindent\textbf{Summary.}\quad
+Scott Moore (online as \textit{@notscottmoore}) is a co-founder of Gitcoin and
+the founder and a director of Public Works LP. He occupies the position where
+the design of quadratic, or ``plural,'' public-goods funding meets the capital
+that moves through it, and he has carried that position into the
+art-and-technology field directly: Public Works states that it funds
+``artists and creative technologists,'' and Moore holds named roles at the
+New Museum's NEW INC and at Gray Area. This document maps that node from the
+public record alone. Each material claim is sourced; where the record is
+incomplete or could not be verified, this is stated rather than inferred. The
+occasion for the inquiry is private and is excluded by design.
+
+% ===================== 1 =====================
+\section{Subject and scope}
+
+The subject is read here not for biography but as an instrument: through one
+well-documented individual, the financing structure of open-source and
+``public-goods'' software infrastructure --- and its recent extension into
+creative technology --- becomes legible. The method is restricted to publicly
+recoverable material: corporate and securities filings, organizational
+listings, primary writing, and recorded interviews. Personal and family
+matters are out of scope and were not pursued; the public record on the
+private individual is thin by his own design, and that boundary is respected
+here.
+
+% ===================== 2 =====================
+\section{Background and professional trajectory}
+
+Moore is Canadian and was educated at the University of Toronto, where he
+studied political science and mathematics and later returned for data
+science.\refn{2} His pre-cryptocurrency employment is consistent across
+profile aggregators: a machine-learning role at Litchfield Capital Advisors, a
+data-analyst role at Bell, a research assistantship at the University of
+Toronto, and an international-trade assistantship with the U.S. Department of
+Commerce. He co-founded the early ventures Finnovate.io and GitToken (the
+latter acqui-hired) and served on grants-advisory committees at ConsenSys and
+the Ethereum Community Fund before Gitcoin became his principal
+work.\refn{2,4} He describes himself publicly as a ``pixel art + open source
+enthusiast'' and maintains a presence on the digital-art platform
+Foundation.\refn{1}
+
+% ===================== 3 =====================
+\section{The funding mechanism and its lineage}
+
+The mechanism Moore is associated with has a precise intellectual lineage.
+Its theoretical basis is the 2018 paper \textit{Liberal Radicalism: A
+Flexible Design for Philanthropic Matching Funds} by Vitalik Buterin, Zoë
+Hitzig, and E. Glen Weyl, in which a project's matched allocation scales with
+the square of the sum of the square roots of its contributions, so that the
+breadth of support outweighs its concentration.\refn{5} The design was
+popularized under the name ``quadratic funding,'' and subsequently
+``plural funding,'' through Weyl's RadicalxChange initiative,\refn{6} and was
+first implemented at scale by Gitcoin. A later variant, retroactive public
+goods funding, rewards demonstrated impact after the fact and is operated
+chiefly by the Optimism Collective, which has earmarked a substantial share
+of its token supply for that purpose.\refn{9} Moore's continuing involvement
+on the theoretical side is reflected in advisory roles with Metagov and the
+Plurality Institute, the latter associated with Weyl.\refn{1}
+
+% ===================== 4 =====================
+\section{Institutional descent: Gitcoin}
+
+Gitcoin was founded in November 2017 by Kevin Owocki; Moore and Vivek Singh
+are recorded as the other two co-founders, with Moore joining full time in
+May 2018 under an arrangement in which the co-founder designation vested over
+four years.\refn{3} The project was incubated within ConsenSys, the Ethereum
+venture studio associated with Joseph Lubin. In April 2021 Gitcoin raised a
+\$11.3 million round led by Paradigm and spun out of ConsenSys as an
+independent entity.\refn{4} It subsequently issued the GTC governance token
+and organized a token-holder treasury (the Gitcoin DAO), with delegated
+``stewards'' directing allocations, and unbundled its matching machinery into
+the Grants Stack and Allo Protocol so that third parties could operate their
+own rounds.\refn{1,9}
+
+% ===================== 5 =====================
+\section{Public Works LP: structure and the public financial record}
+
+Moore's current principal vehicle is Public Works. The organization presents
+itself as ``an open source ecosystem fund focused on supporting artists and
+creative technologists,'' and lists supported projects including Fuser,
+Gitcoin, Metalabel, and Spline.\refn{7,8} Its stated thesis, ``venture
+mutualism,'' calls for committing the minimum necessary capital, participating
+as a contributor rather than a passive investor, and progressively
+distributing ownership to the community; a stated secondary aim is to return
+value to the Gitcoin grants ecosystem.\refn{10,11}
+
+The corresponding legal entity is identifiable in United States securities
+filings. \textbf{Public Works LP} (SEC CIK 0001998151) is a limited
+partnership organized in the \textbf{Cayman Islands} in 2023, with a
+registered office at Willow House, Cricket Square, Grand Cayman. It filed a
+single Form D notice of exempt offering on 25 October 2023.\refn{12} The
+filing characterizes the issuer as a \textbf{pooled investment fund} of the
+\textbf{private-equity} type, not registered under the Investment Company Act,
+and claims the Rule~506(b) exemption together with the Section~3(c)(1)
+investment-company exclusion. The named related persons --- recorded as
+\textbf{directors} --- are \textbf{Scott Moore}, Danielle Faul, and Jacobus
+Pietersen. The offering amount and the amount remaining are both stated as
+\textbf{indefinite}; the total amount sold is reported as \textbf{\$0}, with
+the first sale recorded as not yet having occurred at the time of
+filing.\refn{12}
+
+Two observations follow strictly from the document. First, the appearance of
+``Scott Moore'' as a director of Public Works LP independently corroborates
+the identification made through the New Museum and Gray Area listings
+(Section~6); the three sources agree. Second, the public financial picture is
+deliberately bounded: a Cayman-domiciled 3(c)(1) private fund relying on
+Rule~506(b) is not required to disclose its limited partners, and the only
+public filing reports an indefinite target and no sales, never subsequently
+amended. The existence and form of the fund are recoverable; its size, its
+limited partners, and any closes after October 2023 are not, and no figure
+for them should be asserted.
+
+Three further checks bound the picture. First, ``Public Works'' returns no
+match in the SEC's Investment Adviser Public Disclosure system: the fund is
+neither a registered nor an exempt-reporting investment adviser, so no
+Form~ADV --- the route through which regulatory assets under management would
+otherwise be disclosed --- exists.\refn{13} Second, the entity has no
+predecessor names and no separately registered United States general-partner
+or management vehicle in EDGAR; the single 2023 notice is the entire federal
+trail.\refn{12} Third --- and this resolves the fund's administration
+apparatus from public sources --- the two directors other than Moore are both
+\textbf{independent directors supplied by Hash}, a Cayman crypto-specialist
+fund-governance firm, and the registered office is that of \textbf{Campbells}
+(Campbells Corporate Services Limited, ``Floor~4, Willow House, Cricket
+Square''). Danielle Faul is a chartered accountant who joined Hash as an
+independent non-executive director in 2022 (also BACI treasurer and founder
+of Women in Blockchain Cayman); ``Cobus'' Pietersen is likewise a Hash
+independent director (formerly Walkers, MUFG Investor Services, and UBS).
+Their recurrence on other digital-asset funds --- Faul on Coinbase
+Multi-Strategy (US) Feeder Fund LP, Pietersen on Resolv Digital Assets Ltd.
+--- reflects that independent-director capacity, not employment by those
+funds: Public Works LP is governed through outsourced professional
+directorship and corporate-services providers, the customary structure for a
+Cayman private fund, not a bespoke board.\refn{13} The fund administrator
+proper (the net-asset-value and transfer-agency provider) is named in no
+public filing; that detail resides only in the CIMA register addressed below.
+(An unrelated registered representative of the same name, based in Florida,
+appears in adviser-disclosure search results and is not the subject of this
+profile.\refn{13})
+
+The same boundedness appears outside the securities record. The fund's public
+website is a single page of mission text with no portfolio, team, or
+disclosure section; the Internet Archive holds only that page and the
+\textit{mutualism} essay, the earliest from February 2023.\refn{10,14} The
+Cayman Islands Monetary Authority register --- queried directly --- confirms
+\textbf{Public Works LP as a registered Private Fund} (reference 2051840),
+status active, with a status-effective date of \textbf{22 June 2023}. This is
+materially informative: registration under the Private Funds Act is triggered
+by the acceptance of capital commitments (within twenty-one days, and before
+contributions are received), so a June 2023 effective date indicates the fund
+had reached the commitment stage by mid-2023 --- roughly four months before
+the United States Form~D of October 2023 still reported no sales and a first
+sale ``yet to occur.'' The most economical reading is that the Form~D notices
+a distinct Regulation~D offering or feeder against an already-registered
+Cayman fund rather than contradicting it; the two are not reconciled here
+beyond noting the sequence. The fund's auditor is not exposed by the public
+register --- it is carried in the non-public annual return --- and so remains
+unnamed; that is now a property of Cayman disclosure law, not an unresolved
+search.\refn{14} On the other side, fundraising trackers do surface one
+deal explicitly attributed to ``Public Works'': participation in the
+approximately \$3.2 million seed round of Rise Labs in September 2024, a
+syndicate that also included Vitalik Buterin --- closing the lineage of
+Section~3, in which a co-author of the founding mechanism appears as a
+co-investor in the founder's fund.\refn{15} Other transactions listed under
+``Scott Moore'' on those trackers reflect his individual angel activity and
+are not separable by those sources from the fund; they are indicative, not
+audited. Finally, in recorded interview Moore describes the model in his own
+terms --- investing while directing the resulting surplus back to the
+community and encouraging portfolio projects to ``exit to community'' --- but
+states no fund size, limited-partner base, or check size.\refn{16} The
+absence of those figures is therefore consistent across the securities
+filing, the web record, and the founder's own public account; it is a
+property of the structure, not a gap in the search.
+
+% ===================== 6 =====================
+\section{Position in the art-and-technology field}
+
+The element most relevant to Aesthetic Computer is that Moore's funding
+practice is not adjacent to art and technology but explicitly directed at it.
+Public Works names ``artists and creative technologists'' as its constituency,
+and two named institutional roles place Moore inside the same cluster
+documented elsewhere in this papermill:
+
+\begin{itemize}
+\item \textbf{New Museum / NEW INC.} Moore is listed as a \textbf{Mentor} at
+NEW INC, the New Museum's incubator, in the ``Office Hours'' mentor category
+for \textbf{Year Twelve}; the page was last updated in September 2025,
+indicating a current engagement.\refn{8} NEW INC is itself the subject of an
+existing dossier in this collection, embedded in the New Museum's filings;
+this connects the subject directly to the established corpus.
+\item \textbf{Gray Area.} Moore is listed as a \textbf{board member} and
+described as ``an active advisor to Gray Area, a non-profit cultural center
+in San Francisco'' --- a creative-coding institution in the same lineage as
+the organizations dossiered elsewhere here.\refn{7,8}
+\end{itemize}
+
+\noindent The same New Museum listing also records him as a contributor to
+``extitutional academic collectives including Metagov, where he researches
+networked human coordination,''\refn{8} consistent with the advisory roles
+noted in Section~3.
+
+% ===================== 7 =====================
+\section{Affiliations and investment activity}
+
+Beyond the principal vehicles, public listings record board positions with
+the ZKsync Foundation and the Ethereum Attestation Service; steward roles in
+the ENS, Gnosis Safe, and Optimism public-goods communities; and advisory
+roles with the Plurality Institute, Metagov, and ENS Labs.\refn{1,2} As an
+angel investor he is recorded across aggregators with on the order of
+twenty-two disclosed investments concentrated in web3, infrastructure, and
+decentralized finance, the most recent on record dated August 2025.\refn{2}
+These figures derive from third-party aggregators and should be read as
+indicative rather than audited.
+
+% ===================== 8 =====================
+\section{Quantitative claims and their reconciliation}
+
+Published figures for the capital Moore is credited with directing do not
+reconcile, and the discrepancy is a function of scope rather than dispute.
+Gitcoin's own materials cite on the order of \$70 million directed through
+quadratic funding across all operators; one biographical source attributes
+``upwards of \$50 million'' to Moore specifically; other profiles cite a
+cumulative figure above \$500 million across Gitcoin's full
+history.\refn{1,5,9} The three measure different things --- individual
+attribution, a single mechanism, and an organization's lifetime activity ---
+and no audited reconciliation exists. Any single number should be treated as
+a scoped claim, not a settled fact.
+
+% ===================== 9 =====================
+\section{Limits of the public record}
+
+For completeness, the boundaries of this profile are stated directly. The
+New Museum and Gray Area affiliations, previously uncertain, are now verified
+from primary listings and a securities filing. The Public Works fund's
+structure is recoverable --- the absence of a Form~ADV, a single
+tracker-attributed co-investment, and an administration apparatus resolved to
+named providers (Campbells for corporate services and registered office; Hash
+for independent directors) --- and CIMA registration as an active
+Private Fund (reference 2051840, effective June 2023) --- but its
+capitalization, limited partners, fund administrator, named auditor, and any
+activity after the October 2023 Form~D are not public and are not estimated
+here. The auditor is withheld by Cayman law (non-public annual return), not by
+a limit of this search. Deals listed under the founder's personal name on
+fundraising trackers are not separated by those sources from the fund and are
+treated as indicative only. The competing allocation figures are left
+unreconciled by design.
+Personal and family matters were not investigated; the recoverable record on
+the individual ends with the educational and employment history in
+Section~2. A profile of this kind reports where the record stops as
+carefully as it reports what the record contains.
+
+% ===================== SOURCES =====================
+\section*{Sources}
+\small
+\begin{enumerate}[leftmargin=1.6em, itemsep=0.12em, label={[\arabic*]}]
+\item \href{https://x.com/notscottmoore}{x.com/notscottmoore};
+  \href{https://www.linkedin.com/in/notscottmoore/}{linkedin.com/in/notscottmoore};
+  \href{https://foundation.app/@notscottmoore}{foundation.app/@notscottmoore}.
+\item \href{https://iq.wiki/wiki/scott-moore}{IQ.wiki, ``Scott Moore'' (people in crypto)}; profile aggregators (RootData, Investorlist).
+\item \href{https://gov.gitcoin.co/t/knowledge-transfer-who-is-a-cofounder-of-gitcoin/11371}{Gitcoin Governance Forum, ``Who is a cofounder of Gitcoin''}.
+\item \href{https://decrypt.co/66541/ethereum-gitcoin-raises-11-million-spins-out-consensys}{Decrypt, ``Gitcoin Raises \$11.3M, Spins Out of ConsenSys''} (2021).
+\item Buterin, Hitzig, Weyl, \textit{Liberal Radicalism} (SSRN, 2018), \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3243656}{abstract 3243656}.
+\item \href{https://www.radicalxchange.org/wiki/plural-funding/}{RadicalxChange, ``Plural Funding''}.
+\item \href{https://grayarea.org/community-entry/scott-moore/}{Gray Area, community entry: Scott Moore} (board member; Public Works description).
+\item \href{https://www.newmuseum.org/person/scott-moore/}{New Museum / NEW INC person page: Scott Moore} (Mentor, Year Twelve, Office Hours; updated Sept. 2025).
+\item \href{https://www.gitcoin.co/blog/nouns-case-study}{Gitcoin, Nouns case study}; Optimism RetroPGF program materials.
+\item \href{https://www.publicworks.fm/mutualism}{publicworks.fm/mutualism}.
+\item \href{https://zine.zora.co/scott-moore-gitcoin}{Zora Zine, ``Scott Moore's Mutualist Futures''}; \href{https://theblockchainsocialist.com/open-source-funding-vs-venture-capital-with-scott-moore/}{The Blockchain Socialist interview}.
+\item U.S. SEC EDGAR, \textbf{Public Works LP}, CIK 0001998151, Form D filed 2023-10-25 (accession 0001998151-23-000001), \href{https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001998151&type=D}{filing index} / \href{https://www.sec.gov/Archives/edgar/data/1998151/000199815123000001/primary_doc.xml}{primary\_doc.xml}.
+\item U.S. SEC EDGAR full-text search (\texttt{efts.sec.gov}), Form~D related-person cross-reference: Danielle Faul on \textit{Coinbase Multi-Strategy (US) Feeder Fund LP} (CIK 0002024186, 2024 \& 2025) and Jacobus Pietersen on \textit{Resolv Digital Assets Ltd.} (CIK 0002068482, 2025); and SEC Investment Adviser Public Disclosure (\href{https://adviserinfo.sec.gov/}{adviserinfo.sec.gov}), no ``Public Works'' adviser of record (queried 18 May 2026).
+\item \href{https://www.publicworks.fm/}{publicworks.fm} (single-page site, captured 18 May 2026); Internet Archive history (earliest snapshot Feb. 2023); \href{https://www.cima.ky/search-entities-cima}{CIMA regulated-entities search} (interface not retrievable via available tooling; recorded as a manual check).
+\item Fundraising trackers \href{https://crypto-fundraising.info/funds/scott-moore/}{crypto-fundraising.info} and \href{https://dropstab.com/investors/scott-moore/portfolio}{DropsTab}: ``Public Works'' named in Rise Labs seed ($\approx$\$3.2M, Sept. 2024) alongside Vitalik Buterin; remaining entries attributed to ``Scott Moore'' individually (indicative, not audited).
+\item Recorded interviews, transcripts retained with this profile: The Blockchain Socialist, ``Open-Source Funding vs Venture Capital'' (YouTube \texttt{2KmVfRpr\_Ws}); Unstoppable Podcast Ep.~59 (\texttt{6M2HQILFKyI}); ``Open Conversations'' (\texttt{946gtn-KaW0}).
+\item Administration apparatus: U.S. SEC EDGAR Form~D, Coinbase Multi-Strategy (US) Feeder Fund LP (CIK 0002024186) and Resolv Digital Assets Ltd. (CIK 0002068482), related-person lists; \href{https://www.campbellslegal.com/contact/cayman-islands/}{Campbells} (registered-office address, Willow House, Cricket Square); \href{https://www.linkedin.com/in/danielle-faul/}{Danielle Faul} and ``Cobus'' Pietersen, independent directors, Hash (Cayman fund-governance firm), public professional listings.
+\end{enumerate}
+
+\end{document}

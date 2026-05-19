@@ -36,6 +36,20 @@ each lane has its own voice on top of this base.
 - 16 bars per verse, 4-line hook, ~1:30 total. roughly: hook → verse → hook → verse → hook → outro
 - reference voice: see vault. ingestion is in-context style, not training corpus
 
+### jungle (ragga toast)
+
+- this lane's voice is **fía's**, not jeffrey's. she is the MC. the
+  base guide above still holds (lowercase drafts, no filler, specific
+  feeling) but the words are hers to write and rewrite
+- spanish by default. code-switch only when it lands
+- toast craft, not rap craft: short lines that *jump over* the drums.
+  call-and-response. a hook is one phrase you can shout back
+- ride the half-time pocket — land weight on the slow snare, not the
+  fast hats. leave space; the break is busy enough
+- the `.txt` next to each `.np` is a scratch cue scaffold, not a lyric.
+  it exists to be thrown away
+- sunlit, not menace — golden block-party energy, playful, warm
+
 ## examples of the voice working
 
 placeholders. real lines land here when the first track is mixed.

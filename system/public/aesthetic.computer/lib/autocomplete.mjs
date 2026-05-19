@@ -55,6 +55,11 @@ class Autocomplete {
   query = "";
   loading = false;
 
+  // True once the user has explicitly arrowed into the list. Used by the
+  // prompt so universal (no-trigger) search does NOT hijack Enter until the
+  // user has navigated — typing a command + Enter still runs it.
+  navigated = false;
+
   // Mouse/hover state
   hoveredIndex = -1; // Index of item being hovered (-1 = none)
   #dropdownBounds = null; // { x, y, width, height, itemHeight, padding }
@@ -65,10 +70,23 @@ class Autocomplete {
   #pendingQuery = ""; // Track query we're currently fetching/waiting for
   #cache = new Map(); // Cache results by trigger+query
 
+  // Universal (no-trigger) search: when no trigger char matches at the
+  // cursor but there is a bare query, fall back to this. `universal` is a
+  // normal trigger config ({ fetch, minChars, ... }) whose fetch receives
+  // the whole trimmed input. Items may carry their own `color` (per-row
+  // namespace tag) and `text` is inserted wholesale on completion.
+  universal = null;
+
   constructor(options = {}) {
     this.triggers = options.triggers || {};
     this.maxResults = options.maxResults || 8;
     this.debounceMs = options.debounceMs || 100; // Faster response
+    this.universal = options.universal || null;
+  }
+
+  // Set/replace the universal search config after construction.
+  setUniversal(config) {
+    this.universal = config || null;
   }
 
   // Add or update a trigger
@@ -112,6 +130,24 @@ class Autocomplete {
     }
 
     if (!foundTrigger) {
+      // No sigil/@ trigger at the cursor — fall back to universal search
+      // over the whole input, if configured.
+      if (this.universal) {
+        const q = text.trim();
+        const minChars = this.universal.minChars ?? 1;
+        if (q.length < minChars) {
+          this.hide();
+          return;
+        }
+        this.activeTrigger = ""; // sentinel: universal mode
+        this.triggerPos = 0;
+        this.query = q.toLowerCase();
+        this.visible = true;
+        const cacheKey = `:${this.query}`;
+        if (cacheKey === this.#pendingQuery) return;
+        this.#fetchResults("", this.query, this.universal);
+        return;
+      }
       this.hide();
       return;
     }
@@ -143,6 +179,9 @@ class Autocomplete {
 
   async #fetchResults(trigger, query, config) {
     const cacheKey = `${trigger}:${query}`;
+
+    // New query → user hasn't navigated this result set yet.
+    this.navigated = false;
 
     // Track that we're working on this query
     this.#pendingQuery = cacheKey;
@@ -188,6 +227,7 @@ class Autocomplete {
     this.visible = false;
     this.items = [];
     this.selectedIndex = 0;
+    this.navigated = false;
     this.activeTrigger = null;
     this.triggerPos = -1;
     this.query = "";
@@ -204,14 +244,16 @@ class Autocomplete {
     if (!this.visible || this.items.length === 0) return false;
 
     if (event.is("keyboard:down:arrowup")) {
-      this.selectedIndex = this.selectedIndex > 0 
-        ? this.selectedIndex - 1 
+      this.selectedIndex = this.selectedIndex > 0
+        ? this.selectedIndex - 1
         : this.items.length - 1;
+      this.navigated = true;
       return true;
     }
 
     if (event.is("keyboard:down:arrowdown")) {
       this.selectedIndex = (this.selectedIndex + 1) % this.items.length;
+      this.navigated = true;
       return true;
     }
 
@@ -283,6 +325,10 @@ class Autocomplete {
     const item = this.selected;
     if (!item || this.triggerPos < 0) return originalText;
 
+    // Universal mode: the item carries the full enterable (e.g. "$cow",
+    // "@h/abc", "line") — replace the whole input with it.
+    if (this.activeTrigger === "") return item.text;
+
     const before = originalText.slice(0, this.triggerPos);
     const after = originalText.slice(cursorPos);
     const completion = item.text;
@@ -296,6 +342,8 @@ class Autocomplete {
   getCompletedCursorPos(originalText) {
     const item = this.selected;
     if (!item || this.triggerPos < 0) return originalText.length;
+
+    if (this.activeTrigger === "") return item.text.length; // universal
 
     const before = originalText.slice(0, this.triggerPos);
     const trigger = this.activeTrigger;
@@ -359,8 +407,9 @@ class Autocomplete {
         ink(45, 45, 70).box(dropX + 2, itemY - 1, maxWidth - 4, itemHeight);
       }
 
-      // Item text
-      const color = isSelected ? [255, 255, 255] : (isHovered ? [220, 220, 255] : (config.color || [180, 180, 180]));
+      // Item text. Per-item `color` (namespace tag) wins over the trigger
+      // color so universal results stay type-coded row by row.
+      const color = isSelected ? [255, 255, 255] : (isHovered ? [220, 220, 255] : (item.color || config.color || [180, 180, 180]));
       const displayText = item.display || `${config.prefix || ""}${item.text}`;
       ink(...color).write(displayText, { x: dropX + padding + 2, y: itemY + 2 });
     });
@@ -389,10 +438,15 @@ class Autocomplete {
   }
 }
 
-// Pre-configured handle autocomplete helper
+// Pre-configured handle autocomplete helper.
+// Pass `extraTriggers` (a { char: triggerConfig } map) to add sigil/command
+// triggers alongside `@` without disturbing callers that only want handles
+// (e.g. chat.mjs). Each extra trigger is a normal Autocomplete trigger config
+// ({ fetch, minChars, color, prefix, cache, ... }).
 function createHandleAutocomplete(options = {}) {
+  const { extraTriggers = {}, maxResults, ...rest } = options;
   return new Autocomplete({
-    maxResults: options.maxResults || 8,
+    maxResults: maxResults || 8,
     triggers: {
       "@": {
         fetch: async (query) => {
@@ -434,8 +488,9 @@ function createHandleAutocomplete(options = {}) {
         prefix: "@",
         cache: true,
       },
+      ...extraTriggers,
     },
-    ...options,
+    ...rest,
   });
 }
 

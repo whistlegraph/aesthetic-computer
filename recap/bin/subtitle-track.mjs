@@ -19,7 +19,7 @@
 //
 // Usage: node bin/subtitle-track.mjs [audience-name]
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,6 +28,27 @@ const ROOT = resolve(HERE, "..");
 const audienceName = process.argv[2] || "fia";
 const subsPath = `${ROOT}/out/subs.json`;
 const assPath = `${ROOT}/out/subs.ass`;
+const layoutsPath = `${ROOT}/out/layouts.json`;
+const segmentsPath = `${ROOT}/out/segments.json`;
+
+// Per-chunk chapter color from layouts.json + segments.json — overrides
+// the libass outline color per Dialogue line so the pill border follows
+// the slide color story instead of being fixed magenta.
+const layoutsForColors = existsSync(layoutsPath) ? JSON.parse(readFileSync(layoutsPath, "utf8")) : {};
+const segmentsForColors = existsSync(segmentsPath) ? JSON.parse(readFileSync(segmentsPath, "utf8")) : [];
+function chapterColorAt(secs) {
+  for (const seg of segmentsForColors) {
+    if (secs >= seg.startSec && secs < seg.endSec) {
+      const layout = layoutsForColors[seg.name];
+      if (layout && layout.color && layout.color.rgb) {
+        const [r, g, b] = layout.color.rgb;
+        return `&H${b.toString(16).padStart(2,"0")}${g.toString(16).padStart(2,"0")}${r.toString(16).padStart(2,"0")}&`;
+      }
+      return null;
+    }
+  }
+  return null;
+}
 
 const subs = JSON.parse(readFileSync(subsPath, "utf8"));
 if (!subs.length) {
@@ -88,7 +109,12 @@ for (const c of subs) {
     .replace(/\}/g, ")")
     .trim();
   if (!text) continue;
-  lines.push(`Dialogue: 0,${assTime(c.startSec)},${assTime(c.endSec)},Default,,0,0,0,,${text}`);
+  // Per-segment chapter color override on the outline (\3c). Falls back
+  // to the Default style's outline (magenta) when the chunk lands
+  // outside any segment or before the layout step ran.
+  const chapHex = chapterColorAt(c.startSec);
+  const colorOverride = chapHex ? `{\\3c${chapHex}}` : "";
+  lines.push(`Dialogue: 0,${assTime(c.startSec)},${assTime(c.endSec)},Default,,0,0,0,,${colorOverride}${text}`);
 }
 
 writeFileSync(assPath, lines.join("\n") + "\n");

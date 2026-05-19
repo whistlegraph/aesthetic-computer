@@ -1,0 +1,301 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from new-inc.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\papercreated}{2026-05-02}
+\newcommand{\paperrevision}{1}
+\newcommand{\papersitename}{new-inc-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\hypersetup{
+  pdftitle={NEW INC: A Dossier},
+}
+
+\renewcommand{\acpdfbase}{new-inc-dossier-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} NEW INC — A Dossier}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Origin}
+
+NEW INC opens in September 2014 as the world's first museum-led cultural incubator. The conceit is unusual on its own terms: not a residency (artists in studios making work) and not a fellowship (a sum of money plus a title), but an \emph{incubator} --- the language of Y~Combinator, of TechStars, of the late-2000s startup-accelerator boom --- transposed into a contemporary-art-museum frame and pluralized to include designers, technologists, and artists working at the same shared tables.
+
+The org is co-founded by \textbf{Lisa Phillips}, the New Museum's Toby Devan Lewis Director (since 1999, retired April 2026), and \textbf{Karen Wong}, the museum's Deputy Director. Both remain on the press materials as the founding pair. They appoint as \textbf{founding director} \textbf{Julia Kaganskiy}~\citep{wikipedia2026kaganskiy}, then 28, fresh from a 2010--2014 run as Global Editor of VICE Media's \emph{The Creators Project} (an arts/technology publication co-developed with Intel) and the founder of the 2008 ArtsTech meetup. The launch frames the program as an \emph{intersection}: art~+~design~+~technology~+~entrepreneurship, hosted under museum auspices, located in 231 Bowery (an adjacent building to the museum's main 235 Bowery SANAA-designed home).
+
+The 2026 self-description --- ``the first museum-born cultural incubator''~\citep{newinc2026site} --- is the version after twelve cohorts and three directors. Earlier framings emphasized the \emph{startup} side; later framings, especially under current director Salome Asega, have shifted toward the language of \emph{community} and \emph{reworlding}~\citep{culturedmag2024asega}.
+
+\section{The Embedding Problem}\label{sec:embedding}
+
+NEW INC is not an independent 501(c)(3). It has no separate IRS Employer Identification Number, no separate Form 990, no separate audited financials on the public record. The legal entity is the New Museum of Contemporary Art (EIN 13--2986881~\citep{propublica2026newmuseum}), and NEW INC's revenue and expenses sit somewhere inside the parent-org's annual return as part of total contributions, total program-service revenue, and total program expenses, without being separately broken out.
+
+This is the central data-tractability constraint of any NEW INC dossier. There are two consequences worth naming:
+
+\begin{itemize}
+  \item \textbf{Granular financial recovery is unavailable.} Track-level sponsor amounts, member-fee receipts, DEMO-festival event accounting --- none of these appear as separate line items on the parent 990. Funder-side records (Mellon, Knight, Patrick~J.~McGovern Foundation, Simons Foundation, EY, Onassis ONX, Lewis Foundation) carry the named-grant amounts \emph{into} NEW INC, but the corresponding \emph{outflows} (artist stipends, mentor honoraria, DEMO production costs, NEW INC staff salaries) are pooled into the New Museum's overall expense lines.
+  \item \textbf{Funder-database searches must use the parent name.} A grant-database query for ``NEW INC'' alone returns nothing on Mellon, Knight, or Ford. The grants are \emph{recorded under} ``New Museum of Contemporary Art'' with project descriptions referencing NEW INC; the dossier's grants table~(\ref{tab:grants}) is built that way.
+\end{itemize}
+
+The dual data path used here is therefore: \textbf{(a)} the New Museum's Form 990 (top-line institution-wide numbers, Table~\ref{tab:financials}); \textbf{(b)} NEW INC's own program disclosures (newinc.org, newmuseum.org press releases, founder/funder quotes, DEMO festival materials). Neither is a ledger. The dossier reads them in parallel.
+
+\section{The Organization, 2014--2026}
+
+\subsection{Conception (2013) and launch (Sept 2014)}
+
+The New Museum begins planning NEW INC in 2013. The launch is timed to the start of academic-year programming: \textbf{September 2014}, with a founding cohort of artists, designers, and technologists pulled together by Kaganskiy~\citep{fastcompany2014newinc}. The program model from day one is yearlong and cohort-based (Sept--June), with a public showcase at the end --- the eventual DEMO Day, first held July~14, 2015~\citep{broadwayworld2015demo}.
+
+\subsection{Kaganskiy era and the Knight Museum Tech Track (2014--2018)}
+
+Across roughly four years, Kaganskiy builds NEW INC from launch through Year~4. By 2017 the program adds a \textbf{Museum Tech Track} --- an explicit pivot toward serving \emph{museum professionals} who use technology to engage audiences --- on the back of a \$250,000 grant from the John~S.~and James~L.~Knight Foundation~\citep{knight2017newinc}. The Knight grant subsidizes up to five teams (up to ten people) with full NEW INC memberships plus \$10,000 in seed funding each, and underwrites a Museum Tech Bootcamp for professionals from Knight Foundation communities. A subsequent Knight follow-on (cited in later Knight materials at \$660,000; year and term TBD) extends the line.
+
+\subsection{Pereira interregnum (2018--2021)}
+
+Kaganskiy departs in early 2018; the New Museum names \textbf{Stephanie Pereira} as her successor on May~17, 2018, and Pereira begins July~2~\citep{artnews2018pereira}. Pereira arrives from Kickstarter, where she had been the first director of the company's arts program and subsequently director of creator engagement; her remit at NEW INC is described as ``overseeing NEW INC's community of one hundred creative entrepreneurs and steering its plans for growth.'' She serves three years and departs in May 2021.
+
+\subsection{Asega era and Mellon's New Director Vision (2021--)}
+
+\textbf{Salome Asega}~\citep{wikipedia2026asega} is named director on July~26, 2021, arriving from a four-year run as the inaugural New Media Art Research Fellow for Creativity and Free Expression at the Ford Foundation~\citep{artforum2021asega}. The appointment carries an institutional-continuity note: Asega had herself been a NEW INC \emph{member} during the 2016--17 cohort (and earlier had taught New Museum education programs in 2014 and held a 2017 IdeasCity Fellowship). Lisa Phillips frames the appointment as a generational hand-off: ``Salome is the next generation of leadership and a role model for the interdisciplinary nature of the future of work''~\citep{artforum2021asega}.
+
+In December 2022 the Andrew~W.~Mellon Foundation awards a \textbf{\$1,500,000 / 36-month} ``New Director Vision'' grant to the New Museum to support Asega's plans for NEW INC: ``growing staff capacity, enhancing the membership model, and growing the reach of each artist's venture''~\citep{mellon2022newinc}. As of 2026 this is the largest single confirmed institutional grant tagged to NEW INC on the public record. Asega expands DEMO Day from a single afternoon into a multi-day \textbf{DEMO Festival} (the 2023 edition rebranded the program), restructures the track system (Section~\ref{sec:programs}), and grows the cohort across five program tracks.
+
+\subsection{The 2026 transition}
+
+In March 2026 the New Museum opens an \textbf{\$82 million OMA-designed expansion} (Shohei Shigematsu and Rem Koolhaas with Cooper Robertson), doubling the institution to 120,000~sq.~ft.\@ and giving NEW INC ``a fully dedicated space with top-of-the-line tools'' for the first time --- the program's first purpose-built permanent home~\citep{theartnewspaper2026expansion}. \textbf{Lisa Phillips retires} in April 2026 after a 27-year directorship. On April~6, 2026, in a development that connects two of this dossier's sibling-org records, founding director Julia Kaganskiy is named \textbf{Executive Director of Eyebeam}~\citep{eyebeam2026kaganskiy}, framed as ``a homecoming'' given her 2009-onwards relationship with that organization.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}X>{\raggedright\arraybackslash\hspace{0pt}}X}
+\toprule
+\textbf{Tenure} & \textbf{Director} & \textbf{Note} \\
+\midrule
+2014--Apr 2018 & Julia Kaganskiy & Founding director \\
+Jul 2018--May 2021 & Stephanie Pereira & Ex-Kickstarter \\
+Jul 2021-- & Salome Asega & Ex-Ford Foundation \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Directors of NEW INC.}
+\label{tab:eds}
+\end{table}
+
+\textbf{Co-founders.} Lisa Phillips (Toby Devan Lewis Director of the New Museum, 1999--April 2026) and Karen Wong (Deputy Director). Phillips holds a board seat on Rhizome (a sibling-org tie that runs through the Bowery and through several mutual personnel) and her FY2025 reportable compensation as parent-org director is approximately \$825,030~\citep{propublica2026newmuseum}.
+
+\textbf{Founding director Julia Kaganskiy (2014--2018).} Born in Kiev (1986), arrived in Brooklyn at age 6, Emerson College journalism (2007), MoMA digital-learning intern (2009), founded ArtsTech (2008), Global Editor at VICE \emph{The Creators Project} (2010--2014), Crain's New York Business 40~Under~40 in 2015~\citep{wikipedia2026kaganskiy}. After leaving NEW INC she returned periodically as Curatorial Advisor for an artist residency program with Nokia Bell Labs and co-curated the Tentacular festival in Madrid (2019). Named \textbf{Executive Director of Eyebeam} April~6, 2026~\citep{eyebeam2026kaganskiy} --- the cross-dossier connection.
+
+\textbf{Stephanie Pereira (2018--2021).} Six years at Kickstarter prior; first director of Kickstarter's arts program~\citep{artnews2018pereira}. Three-year tenure at NEW INC.
+
+\textbf{Salome Asega (2021--).} Born and raised in Las Vegas to Ethiopian immigrant parents, NYU Gallatin (social practice), Parsons MFA Design~\&~Technology, residencies at Eyebeam, the Laundromat Project, Recess, Pioneer Works, and (2016--17) NEW INC itself~\citep{wikipedia2026asega}. Inaugural Ford Foundation New Media Art Research Fellow (2017--2021). Asega has been described in the press as raising ``millions of dollars in record time'' for the program~\citep{culturedmag2024asega} and serves on Eyebeam's board (a second sibling-org tie).
+
+\textbf{Advisory Council.} The New Museum announced a 2024 Advisory Council via press release, but the page was not extractable in this first pass --- flagged in \texttt{data/README.md}.
+
+\textbf{Mentor archive.} NEW INC publishes a mentor list per cohort year on \texttt{newinc.org/year-N-mentors/}; Karen Wong appears as a Year~7 mentor, alongside artists, designers, and technologists drawn from the org's wider network. Stephanie Pereira appears in the Year~9 mentors page after departing the directorship.
+
+\section{Programs}\label{sec:programs}
+
+\textbf{NEW INC core membership} (2014--). Yearlong shared workspace plus professional-development program (September--June). Cohort of approximately 100 creative practitioners per year (74 \emph{new} members for Year~12, plus returners). Members pay a tiered fee; specific dollar amounts are not pulled in this first pass.
+
+\textbf{DEMO Day / DEMO Festival} (2015--). Annual public showcase. The first DEMO Day was held July~14, 2015 at the New Museum~\citep{broadwayworld2015demo}. Under Asega the program rebranded into the multi-day \textbf{DEMO Festival} (2023~ff.); DEMO2026 is scheduled for June~3--5. Past sponsors have included Meta Open Arts.
+
+\textbf{Museum Tech Track} (2017--$\sim$2019). Knight-funded track for museum professionals~\citep{knight2017newinc}; \$250K initial Knight grant subsidized 5 teams plus Museum Tech Bootcamp; phased out (or merged) under the Asega-era restructure.
+
+\textbf{Five current tracks (Year~12, 2025--26)}~\citep{newmuseum2025y12,rhizome2025y12}:
+
+\begin{description}
+\item[\textbf{Art \& Code.}] ``Redefining cultural and digital landscapes through artist-led research and projects.'' In partnership with Rhizome; supported by the Patrick~J.~McGovern Foundation. The Rhizome partnership is the most directly recoverable cross-org tie in the AC dossier set --- both Year~11 and Year~12 cohort announcements have been published on rhizome.org.
+\item[\textbf{Creative Science.}] ``Employing modes of scientific inquiry to advance creativity and storytelling.'' Supported by the Simons Foundation~\citep{newinccreativescience}.
+\item[\textbf{Extended Realities.}] ``Expanding the artistic potential for technology to blur the physical and digital worlds.'' Supported by EY (Metaverse Lab) and Onassis ONX.
+\item[\textbf{Social Architecture.}] ``Reconstructing public and social space through design and architecture.'' Supported by the Jonathan~D.~\&~Mark~C.~Lewis Foundation.
+\item[\textbf{Cooperative Studies.}] ``Designing care-based models for collective futures.'' Funder TBD.
+\end{description}
+
+\textbf{NEW INC artist residency $\times$ Nokia Bell Labs.} Continued post-Kaganskiy as a parallel residency line; Kaganskiy returned to NEW INC as its Curatorial Advisor.
+
+\textbf{Earlier track names (2014--$\sim$2018) -- the original three.} The user-supplied earlier formulation lists three tracks: \textbf{Art-Design-Technology (ADT)}, \textbf{Strategic Program for Open Knowledge (SPOK)}, and \textbf{Creative Science}. None of these labels appear on the current NEW INC public site; the Asega-era restructure consolidated and renamed across roughly Years~5--8. Primary-source confirmation of the exact transition year is TBD --- flagged in \texttt{data/programs.csv}. Of the three, only \emph{Creative Science} survives as a label into the current track structure.
+
+\section{Money}\label{sec:money}
+
+\subsection{Parent-org top-line, FY2016--FY2025}
+
+The financial record available is the \emph{parent organization's} 990 line items. The New Museum's revenues range \$11M--\$42M annually depending on whether a fiscal year is a capital-campaign year; expenses run \$15M--\$19M; net assets have grown roughly \$80M~$\rightarrow$~\$122M between FY2016 and FY2025 (Table~\ref{tab:financials}).
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{Xrrr}
+\toprule
+\textbf{FY end} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Net assets} \\
+\midrule
+2016-06 & \textbf{38,200,000} & 15,100,000 & 80,000,000 \\
+2017-06 & 24,300,000 & 16,800,000 & 87,900,000 \\
+2018-06 & 16,400,000 & 16,900,000 & 87,900,000 \\
+2019-06 & 14,900,000 & 17,500,000 & 86,000,000 \\
+2020-06 & 11,700,000 & 16,000,000 & 92,400,000 \\
+2021-06 & 11,600,000 & 15,100,000 & 89,100,000 \\
+2022-06 & \textbf{41,900,000} & 17,000,000 & 97,000,000 \\
+2023-06 & 22,800,000 & 19,300,000 & 101,500,000 \\
+2024-06 & 30,600,000 & 19,100,000 & 113,600,000 \\
+2025-06 & 25,700,000 & 18,700,000 & 121,800,000 \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{The New Museum of Contemporary Art --- top-line Form 990 figures by fiscal year (USD; FY ends June 30). Source: ProPublica Nonprofit Explorer record \texttt{132986881}~\citep{propublica2026newmuseum}. NEW INC line items are \emph{not} separately broken out in any year. The FY2016 (\$38.2M) and FY2022 (\$41.9M) revenue spikes are capital-campaign / OMA-expansion fundraising years; the OMA expansion itself ran an \$82M project budget against a \$125M overall fundraising goal.}
+\label{tab:financials}
+\end{table}
+
+NEW INC's track sponsorships (Patrick~J.~McGovern, Simons, EY, Onassis ONX, Lewis Foundation), member fees, and DEMO sponsorship revenue (Meta Open Arts and others over the years) all enter the parent-org's contributions and program-service lines without separate disclosure. The Mellon \$1.5M New Director Vision grant arrives in FY2023 and is part of why the FY2022/FY2023 contributions sum is robust, but is not an isolable line.
+
+\subsection{Named grants tagged to NEW INC}\label{sec:grants}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash\hspace{0pt}}Xr}
+\toprule
+\textbf{Year} & \textbf{Project / Funder} & \textbf{Amount} \\
+\midrule
+2017-04 & Knight, Museum Tech Track & 250,000 \\
+(post-2017) & Knight, follow-on & 660,000 \\
+2022-12 & Mellon, New Director Vision (3 yr) & \textbf{1,500,000} \\
+\midrule
+\multicolumn{2}{l}{\textbf{Confirmed NEW-INC-tagged total, 2014--2025}} & \textbf{2,410,000} \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\caption{Named institutional grants on the public record where the project description specifically references NEW INC. The Knight follow-on year and term are TBD. Patrick~J.~McGovern Foundation, Simons Foundation, EY, Onassis ONX, and Lewis Foundation are confirmed as current track sponsors but specific dollar amounts are not in the public Mellon-grade databases. Source: \citep{knight2017newinc,mellon2022newinc}; CauseIQ.}
+\label{tab:grants}
+\end{table}
+
+The shape, in plain English: \textbf{Mellon is the single largest confirmed funder} of NEW INC's last decade on the named-grant record, with one \$1.5M / 3-year grant at the start of the Asega era. Knight underwrote the 2017 Museum Tech Track expansion at \$250K, with a follow-on cited at \$660K. Both Mellon and Knight legally route through the New Museum (EIN 13--2986881), not through a NEW-INC EIN. Ongoing track sponsorships from Patrick~J.~McGovern Foundation, Simons Foundation, EY, Onassis ONX, and the Jonathan~D.~\&~Mark~C.~Lewis Foundation are confirmed in current-year press but not quantified.
+
+\subsection{Member fees, DEMO, and parent-org subsidy}
+
+NEW INC's revenue mix --- in plain language, since the public 990 will not isolate it --- is plausibly some combination of: \textbf{(a)} a tiered \textbf{member fee} per cohort year (NEW INC has charged members for participation since launch; the current rates are not pulled in this first pass); \textbf{(b)} \textbf{track-level sponsorship} from the Patrick~J.~McGovern, Simons, Lewis, and Onassis bodies plus EY's corporate-partner relationship; \textbf{(c)} \textbf{event sponsorship} for the DEMO festival (Meta Open Arts in past years); \textbf{(d)} the \textbf{Mellon ``New Director Vision''} grant (Dec 2022) and other foundation underwriting routed through the parent org; \textbf{(e)} an implicit \textbf{parent-org subsidy} via the New Museum's allocation of staff, space, and overhead. The OMA expansion's ``fully dedicated space with top-of-the-line tools'' (per Phillips, March 2026) is the most visible 2026 instance of this last category --- a piece of the \$82M capital budget allocated permanently to NEW INC.
+
+\subsection{Alumni-funding figure}
+
+The most-cited NEW INC-impact statistic is the funding raised \emph{by} alumni after they leave the program: ``more than \$12 million'' in early-Year coverage (circa 2018--2020) and \textbf{``over \$28.9 million across their ventures over the past decade''} per Phillips's March 2026 expansion announcement~\citep{theartnewspaper2026expansion}. The figure is self-reported and not auditable from the public record; included here as a fact about the org's framing rather than a balance-sheet number.
+
+\section{Footprint}
+
+\begin{description}
+\item[\textbf{231~/~235 Bowery (2014--).}] NEW INC has been embedded in the New Museum's adjacent 231 Bowery space since launch in 2014. The 235 Bowery main building (SANAA, 2007) anchors the parent-org footprint at the same address Rhizome lists in its 990 (\emph{c/o} New Museum --- the two orgs share the city block). The OMA expansion (March 2026) doubles the institutional footprint and gives NEW INC its first purpose-built permanent space.
+\item[\textbf{The Bowery cluster.}] 235 Bowery hosts the New Museum, NEW INC, and (\emph{c/o}) Rhizome. The triangle of these three orgs --- and the further triangle Eyebeam~$\leftrightarrow$~Rhizome~$\leftrightarrow$~NEW INC --- is the densest single block of art-and-technology institutional infrastructure in New York City on the 2026 record.
+\item[\textbf{DEMO festival, 12 editions.}] Yearly cohort-end festival; from a single afternoon (July 2015) to a multi-day public event (under Asega). The DEMO website archive (demofestival.org, demo2023.org) is the most accessible primary-source index of the public-facing program.
+\item[\textbf{Sibling-org graph.}] Three direct cross-ties on the 2026 record: \textbf{Asega} sits on Eyebeam's board (and is herself a former Eyebeam resident); the \textbf{Art \& Code track} runs in formal partnership with Rhizome; and founding director \textbf{Kaganskiy} is the new Eyebeam Executive Director as of April 2026. The triangle Eyebeam--Rhizome--NEW INC, all three Bowery-adjacent and all three central to NYC art-and-tech, is denser than any single dossier captures.
+\item[\textbf{Alumni ventures.}] NEW INC reports more than 100 incubated ventures and (Phillips, 2026) over \$28.9M raised cumulatively by alumni; specific named ventures include Brij App (Naomi Lilly, Year~11) and the variously funded Year-12 cohort. A full alumni-funding ledger has not been pulled.
+\end{description}
+
+A more granular footprint --- cohort lists by year, mentor archive year-by-year, full DEMO sponsor history --- requires querying \texttt{newinc.org/members}, \texttt{newinc.org/year-N-mentors/}, and the DEMO festival sites; achievable but not done in this first pass. Flagged in \texttt{data/README.md}.
+
+\section{Reading list}
+
+The dossier draws on the following, with each entry keyed to the section it informs.
+
+\subsection{Already in the AC readings library}
+
+\textbf{Quaranta, \emph{Beyond New Media Art} (2013)} --- Programs, institutional context for art-and-tech incubators.\\
+\textbf{McHugh, \emph{Post Internet} (2019)} --- Footprint, the post-internet-era aesthetic NEW INC programs intersect with.\\
+\textbf{Plant, \emph{Zeros and Ones} (1997)} --- contemporaneous theory of the moment NEW INC reframes through a different vocabulary.
+
+\subsection{To acquire}
+
+\textbf{Christiane Paul, \emph{Digital Art}} --- standard reference; NEW INC appears across post-2014 editions.\\
+\textbf{NEW INC alumni-impact reports} (where published).\\
+\textbf{Lisa Phillips, retrospective interviews} on the founding rationale --- a rich vein of context likely available in 2026 retirement coverage.\\
+\textbf{Salome Asega, \emph{NewCrits} talk and other interviews} --- ``culture gardening'' / ``reworlding'' framing.\\
+\textbf{Karen Wong, programmatic writing} on the 2013 conception.\\
+\textbf{The 2024 Advisory Council membership list} --- already announced via press release; pull required.\\
+\textbf{The original Fast Company founding-cohort coverage}~\citep{fastcompany2014newinc}.
+
+\section{What this dossier is not}
+
+\begin{itemize}
+  \item Not a thesis. There is no question being answered.
+  \item Not a critique. The embedding problem (Section~\ref{sec:embedding}) is a fact about the data path; the funding record is surfaced, not judged.
+  \item Not a comparison. Adjacent organizations (Eyebeam, Rhizome, SFPC, V2\_, Furtherfield, Ars Electronica) are mentioned only where they directly intersect NEW INC.
+  \item Not exhaustive. The dossier covers what is publicly recoverable; gaps are flagged inline. The companion data folder (\texttt{papers/arxiv-new-inc/data/}) contains the underlying CSVs and source URLs.
+  \item Not a personal account. The author has no commission or formal relationship with NEW INC recorded in this dossier.
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

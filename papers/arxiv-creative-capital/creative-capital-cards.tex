@@ -1,0 +1,195 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from creative-capital.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\papercreated}{2026-05-18}
+\newcommand{\paperrevision}{2}
+\newcommand{\papersitename}{creative-capital-dossier-26-arxiv}
+\newcommand{\paperurl}{https://papers.aesthetic.computer/\papersitename.pdf}
+
+\hypersetup{
+  pdftitle={Creative Capital: A Dossier},
+}
+
+\renewcommand{\acpdfbase}{creative-capital-dossier-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Creative Capital — A Dossier}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} A Dossier}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Origin}
+
+Creative Capital was founded in 1999, spearheaded by Archibald (Arch) Gillies, then president of the Andy Warhol Foundation for the Visual Arts, after the National Endowment for the Arts ended its grant programs for individual artists amid the 1990s ``culture wars''~\citep{cchistory,ccwiki}. The Warhol Foundation joined other philanthropies to capitalize a new 501(c)(3) whose explicit purpose was to fund individual artists making ``innovative, groundbreaking new work'' and to ``actively advocate freedom of expression''~\citep{ccwiki}. Ruby Lerner was the founding President \& Executive Director and ran the organization for its first seventeen years.
+
+\section{Structure}
+
+Creative Capital Foundation is a 501(c)(3) public charity headquartered in New York, NY (EIN \texttt{31-1605982})~\citep{ccpropublica}. Its IRS NTEE classification is, notably, ``Human Services --- Multipurpose'' rather than an arts code --- a documentary detail recorded, not interpreted. It files the IRS Form 990 on a fiscal year ending in June. Extracted 990 data is available for fiscal years 2011--2025~\citep{ccpropublica}. The full board roster appears annually on Form 990 Part~VII.
+
+\section{The Award}
+
+The Creative Capital Award is the program core and the funder-side record~\citep{cchistory,ccwiki}:
+
+\begin{itemize}
+\item \textbf{Grant size.} Up to \$50,000 in direct, unrestricted project funding per awarded project, plus up to roughly \$50,000 in advisory services (coaching, legal/financial counsel, strategic planning).
+\item \textbf{Model.} A ``venture philanthropy'' structure: funding released against developmental benchmarks over a multi-year engagement rather than a single lump sum.
+\item \textbf{Cadence.} The first cohort (2000) selected 75 artists; the program ran in 12 cycles from 2000--2019, then shifted to an annual open call selecting up to roughly 50 artists per year through external review.
+\item \textbf{Convening.} The Artist Retreat launched in 2002 (initially at the Skowhegan School of Painting \& Sculpture); in 2021 it was reshaped into the day-long Creative Capital Carnival.
+\end{itemize}
+
+Cumulatively, Creative Capital reports more than \$50 million committed in project funding and advisory support to 631 projects representing 783 artists, with thousands more reached through workshops and online resources~\citep{cchistory}.
+
+\section{People}
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{lXX}
+\toprule
+\textbf{Tenure} & \textbf{Role} & \textbf{Name} \\
+\midrule
+1999--2016 & Founding President \& ED & Ruby Lerner \\
+2016--2020 & President \& ED & Suzy Delvalle \\
+2021-- & President \& ED & Christine Kuan \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\\[0.3em]
+\footnotesize Source: \citet{ccwiki,cchistory}; current leadership confirmed on Form 990~\citep{ccpropublica}.
+\end{table}
+
+On the FY2025 Form 990, the highest-compensated staff are Christine Kuan, President \& Executive Director (\$335,556); Leslie Singer, Chief Operating Officer (\$192,898); Emily Gerard, Director of Development (\$141,400); Jason Bailey, Director of Audience Engagement (\$132,300); and Angela Mattox, Director of Artistic Initiatives (\$130,375)~\citep{ccpropublica}. Officers, directors, and trustees are disclosed annually in Form 990 Part~VII.
+
+\section{Money}
+
+As a 501(c)(3) that regrants to individual artists, Creative Capital's finances are publicly recoverable through the IRS Form 990 series; grants paid are itemized on Schedule~I~\citep{ccpropublica}. Recent fiscal years (year ending June):
+
+\begin{table}[h]
+\footnotesize
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{lrrr}
+\toprule
+\textbf{FY} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Net assets} \\
+\midrule
+2025 & \$6.73M & \$7.15M & \$11.12M \\
+2024 & \$6.77M & \$6.96M & \$11.32M \\
+2023 & \$9.49M & \$6.74M & \$11.12M \\
+2022 & \$5.11M & \$5.93M & \$8.09M \\
+2021 & \$5.82M & \$5.54M & \$9.93M \\
+2020 & \$6.53M & \$5.87M & \$8.79M \\
+2019 & \$5.32M & \$5.83M & \$8.15M \\
+2018 & \$4.60M & \$5.10M & \$8.56M \\
+\bottomrule
+\end{tabularx}%
+\end{adjustbox}
+\\[0.3em]
+\footnotesize Source: IRS Form 990 via ProPublica Nonprofit Explorer~\citep{ccpropublica}. Figures rounded; Schedule~I carries the grants-paid detail.
+\end{table}
+
+Creative Capital runs on a roughly \$5--9M annual budget against net assets that have grown from about \$8.1M (2019) to about \$11.1M (2025); the FY2023 revenue peak (\$9.49M) stands out. On the inbound funder side, the Andy Warhol Foundation announced a five-year, \$7.5~million commitment to Creative Capital in 2023~\citep{ccwarhol2023} --- a continuation of the founding relationship.
+
+\section{Footprint}
+
+Creative Capital's footprint is best read through its grantees. Among the 783 supported artists are figures whose funded projects reached wide audiences: Paul Beatty (\emph{The Sellout}), Maggie Nelson (\emph{The Argonauts}), Laura Poitras, Yance Ford (\emph{Strong Island}), Bill Morrison (\emph{Decasia}), Sam Van Aken (\emph{Tree of 40 Fruits}), Taylor Mac, and Jeffrey Gibson~\citep{ccwiki}. The full periodized grantee list is published by the organization and itemized on Form 990 Schedule~I.
+
+\section{Reading List}
+
+\subsection{Primary sources}
+
+\begin{itemize}
+\item \textbf{IRS Form 990 series}~\citep{ccpropublica} --- financial, governance, and Schedule~I grants spine, FY2011--2025.
+\item \textbf{Creative Capital ``Our Story'' and grantee record}~\citep{cchistory} --- self-disclosed history, the award model, cumulative figures, and the artist list.
+\item \textbf{Andy Warhol Foundation 2023 commitment announcement}~\citep{ccwarhol2023} --- the founding funder's continuing \$7.5M relationship.
+\end{itemize}
+
+\subsection{Secondary}
+
+\begin{itemize}
+\item \textbf{Wikipedia: Creative Capital}~\citep{ccwiki} --- founding context, leadership lineage, award structure, and notable grantees.
+\end{itemize}
+
+\section{What this dossier is not}
+
+\begin{itemize}
+\item \textbf{Not a thesis.} There is no question being answered; the dossier surfaces the public record.
+\item \textbf{Not a critique.} Disclosure and silence are observed, not judged.
+\item \textbf{Not exhaustive.} The full board roster (Form 990 Part~VII), the year-by-year Schedule~I grantee inventory, and pre-2011 financials are known, locatable gaps left to the companion data folder (\texttt{papers/arxiv-creative-capital/data/}).
+\end{itemize}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

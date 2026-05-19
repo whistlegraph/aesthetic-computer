@@ -4,25 +4,23 @@
 
 \usepackage{fontspec}
 \usepackage{unicode-math}
-\setmainfont{Latin Modern Roman}[
-  Extension=.otf,
-  UprightFont=lmroman10-regular,
-  BoldFont=lmroman10-bold,
-  ItalicFont=lmroman10-italic,
-  BoldItalicFont=lmroman10-bolditalic,
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
 ]
-\setsansfont{Latin Modern Sans}[
-  Extension=.otf,
-  UprightFont=lmsans10-regular,
-  BoldFont=lmsans10-bold,
-  ItalicFont=lmsans10-oblique,
-  BoldItalicFont=lmsans10-boldoblique,
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
 ]
-\setmonofont{Latin Modern Mono}[
-  Extension=.otf,
-  UprightFont=lmmono10-regular,
-  ItalicFont=lmmono10-italic,
-  Scale=0.88,
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
 ]
 
 
@@ -30,6 +28,7 @@
 \graphicspath{{figures/}{../arxiv-kidlisp/figures/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{adjustbox}
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
@@ -132,7 +131,7 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/8f14b5989}{8f14b5989}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
 \vspace{0.1em}
 {\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/kidlisp-cards-26-arxiv-da.pdf}{Dansk} · \href{https://papers.aesthetic.computer/kidlisp-cards-26-arxiv-es.pdf}{Español} · \href{https://papers.aesthetic.computer/kidlisp-cards-26-arxiv-zh.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/kidlisp-cards-26-arxiv-ja.pdf}{{\accjk 日本語}}}\par
 \end{center}
@@ -186,7 +185,7 @@ Not every \kidlisp{} program makes a good card. The best cards share properties:
   \item \textbf{Independence.} No \texttt{\$code} embeds, no external state. The card must work in isolation.
 \end{itemize}
 
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-starburst.png}}%
 \hfill%
@@ -246,7 +245,7 @@ The current notebook contains 28 cards organized into seven categories. Each cat
 
 Line cards demonstrate \texttt{repeat} and trigonometry. A starburst radiates 72 lines from center. A crosshatch overlays horizontal and vertical grids at low opacity.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-starburst.png}}%
 \hfill%
@@ -269,7 +268,7 @@ Line cards demonstrate \texttt{repeat} and trigonometry. A starburst radiates 72
 
 Circle cards use \texttt{outline} mode and nested \texttt{repeat} loops. ``Ripple'' draws 30 concentric circles with blue-shifting color.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-ripple.png}}%
 \hfill%
@@ -286,7 +285,7 @@ Circle cards use \texttt{outline} mode and nested \texttt{repeat} loops. ``Rippl
 
 These cards use \texttt{plot} with mathematical functions. ``Lissajous'' draws a Lissajous figure with 600 points. ``Spiral'' plots a polar spiral.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-lissajous.png}}%
 \hfill%
@@ -303,7 +302,7 @@ These cards use \texttt{plot} with mathematical functions. ``Lissajous'' draws a
 
 Turtle cards use \texttt{crawl}, \texttt{left}, \texttt{right}, and \texttt{face}. A five-pointed star uses \texttt{(right 144)}. A tree uses \texttt{later} for recursive branching. A snowflake nests Koch-curve segments.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-star.png}}%
 \hfill%
@@ -323,7 +322,7 @@ Turtle cards use \texttt{crawl}, \texttt{left}, \texttt{right}, and \texttt{face
 
 The shortest cards in the deck. ``Horizon'' is three lines: dark sky, gold earth. ``Pip'' is a single red dot on black. These cards approach the minimum viable program---the smallest amount of code that produces a recognizable image.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \fbox{\includegraphics[width=0.47\columnwidth]{card-horizon.png}}%
 \hfill%
@@ -389,7 +388,7 @@ The postcard layout separates front from back. The front shows only the rendered
 
 Cards are not single objects. They form decks, and the arrangement of a deck creates meaning. A \emph{pedagogical sequence} orders cards by concept: boxes first (coordinates), then lines (trigonometry), then circles (radius), then math curves, then turtle graphics, then minimal koans. A \emph{gallery grid} arranges cards spatially on a wall, inviting comparison across categories. A \emph{shuffled deck} randomizes the order, producing unexpected juxtapositions between a fractal and a horizon, between a tree and a dot.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\columnwidth]{layout-decks.png}
 \caption{Deck arrangements. Left: cards fanned by category (Lines, Circles, Boxes, Math, Turtle, Koans) with multiple cards stacked per category. Right: a gallery grid where cards are arranged spatially for browsing.}

@@ -73,7 +73,12 @@ function colorAddress(name) {
   if (!rgb) throw new Error(`colorAddress: unknown css color '${name}'`);
   const [r, g, b] = rgb;
   const hex = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("");
-  return { name, rgb, hex, caption: `rgb(${r}, ${g}, ${b})` };
+  // Lift each channel 55% toward 255 — dark slide colors (indigo,
+  // blueviolet, etc) become punchy bright variants for the chapter
+  // title text, while already-bright colors stay close to themselves.
+  const lift = (c) => Math.min(255, c + Math.floor((255 - c) * 0.55));
+  const brightHex = "#" + [lift(r), lift(g), lift(b)].map((c) => c.toString(16).padStart(2, "0")).join("");
+  return { name, rgb, hex, brightHex, caption: `rgb(${r}, ${g}, ${b})` };
 }
 
 const REAL = `\
@@ -238,14 +243,18 @@ export const audience = {
     "pop overs": "popovers",
     "Note Pat": "notepat", "Notepat": "notepat",
     "Verovio": "verovio", "verbo": "verovio",
+    "Virovio": "verovio", "virovio": "verovio", // whisper hears Verovio as "Virovio"
     "Hockney-register": "hockney-register",
     "Hockney register": "hockney-register",
     "Hockney": "hockney",
     "Sage Jenson": "sage jenson",
-    "Sage": "sage", "Jenson": "jenson",
+    "Sage Jensen": "sage jenson", "sage Jensen": "sage jenson", // whisper hears Jenson as Jensen
+    "Sage": "sage", "Jenson": "jenson", "Jensen": "jenson",
     "GIPHY": "giphy", "Giphy": "giphy",
+    "giffy": "giphy", "Giffy": "giphy", // whisper hears GIPHY as "giffy"
     "Linked by Air": "linked by air",
     "KADIST": "kadist", "Kadist": "kadist",
+    "coddest": "kadist", "Coddest": "kadist", // whisper hears KADIST as "coddest"
     "SMK": "smk",
     "Parsons": "parsons", "UCLA": "ucla", "Yale": "yale",
     "Southern Oregon": "southern oregon",
@@ -258,6 +267,8 @@ export const audience = {
     "WASM": "wasm",
     "AC Native": "ac native", "AC-Native": "ac-native",
     "AC native": "ac native",
+    "act native": "ac-native", "Act Native": "ac-native", // whisper hears "ac-native" as "act native"
+    "act-native": "ac-native",
     "GPT-Image-2": "gpt-image-2", "GPT Image 2": "gpt-image-2",
     "GPT": "gpt",
     "DMG": "dmg",
@@ -265,6 +276,9 @@ export const audience = {
     "QR": "qr",
     "WIP": "wip",
     "CCAT": "ccat", "CCat": "ccat",
+    "calarts cat": "calarts ccat", "Calarts cat": "calarts ccat",
+    "collarts cat": "calarts ccat", "Collarts cat": "calarts ccat",
+    "collarts": "calarts", "Collarts": "calarts",
     "Tech Director": "tech director",
     "PVC": "pvc",
     "CV": "cv",
@@ -866,8 +880,8 @@ function titleSlide({ photo, color }) {
       </div>
       <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 220px; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0) 100%);"></div>
       <!-- Side PALS watermarks — match photoSlide's left/right pair. -->
-      <img src="${PALS_SVG_DATA_URL}" alt="" style="position: absolute; left: -40px; top: 760px; width: 220px; height: 220px; opacity: 0.28; transform: rotate(-90deg); transform-origin: center; filter: ${titlePalsShadow};" />
-      <img src="${PALS_SVG_DATA_URL}" alt="" style="position: absolute; right: -40px; top: 760px; width: 220px; height: 220px; opacity: 0.28; transform: rotate(90deg); transform-origin: center; filter: ${titlePalsShadow};" />
+      <img src="${PALS_SVG_DATA_URL}" alt="" style="position: absolute; left: -8px; top: 1500px; width: 170px; height: 170px; opacity: 0.28; transform: rotate(-90deg); transform-origin: center; filter: ${titlePalsShadow};" />
+      <img src="${PALS_SVG_DATA_URL}" alt="" style="position: absolute; right: -8px; top: 360px; width: 170px; height: 170px; opacity: 0.28; transform: rotate(90deg); transform-origin: center; filter: ${titlePalsShadow};" />
     </div>`;
 }
 
@@ -1007,9 +1021,11 @@ function photoSlide({ photo, title, cap, color, qr, commit }) {
     .split("\n")
     .map((l) => `<span class="cmd-line">${l}</span>`)
     .join("");
-  const creamShadow = "2px 2px 0 rgba(0,0,0,0.95), -1px -1px 0 rgba(0,0,0,0.7), 0 0 18px rgba(0,0,0,0.55)";
-  const capShadow = "1px 1px 0 rgba(0,0,0,0.92), 0 0 14px rgba(0,0,0,0.6)";
-  const promptShadow = "1px 1px 0 rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.6)";
+  // Sharper / higher-contrast text shadows — less blur, more solid
+  // black behind so the type punches through any photo background.
+  const creamShadow = "3px 3px 0 rgba(0,0,0,1), -2px -2px 0 rgba(0,0,0,1), 0 0 6px rgba(0,0,0,0.9)";
+  const capShadow = "2px 2px 0 rgba(0,0,0,1), -1px -1px 0 rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,0.9)";
+  const promptShadow = "2px 2px 0 rgba(0,0,0,1), 0 0 4px rgba(0,0,0,0.9)";
 
   // PALS bug — top-LEFT, BELOW the chapter prompt. Rainbow drop shadow
   // tinted around the chapter color so each slide's branding takes a
@@ -1046,18 +1062,18 @@ function photoSlide({ photo, title, cap, color, qr, commit }) {
            in hot pink — same color treatment as the AC prompt itself. -->
       <div style="position: absolute; left: 60px; top: 50px; max-width: 760px; font-family: 'ProcessingB'; line-height: 1.04;">
         <div style="font-size: 36px; letter-spacing: 2px; text-shadow: ${promptShadow};">
-          <span style="color: #6b2b9c;">Aesthetic</span><span style="color: #ff1493;">.</span><span style="color: #6b2b9c;">Computer</span>
+          <span style="color: #c47cff;">Aesthetic</span><span style="color: #ff5cb8;">.</span><span style="color: #c47cff;">Computer</span>
         </div>
-        <div style="font-size: 88px; letter-spacing: -3px; color: ${color.hex}; margin-top: 8px; text-shadow: ${creamShadow}; display: flex; flex-direction: column; gap: 4px;">${titleHtml}</div>
-        ${cap ? `<div style="font-family: 'ProcessingR'; font-size: 28px; color: ${PALETTE.off}; margin-top: 18px; letter-spacing: 1px; text-shadow: ${capShadow}; max-width: 720px;">${cap}</div>` : ""}
+        <div style="font-size: 88px; letter-spacing: -3px; color: ${color.brightHex || color.hex}; margin-top: 8px; text-shadow: 1px 1px 0 rgba(0,0,0,0.85), 0 0 6px rgba(0,0,0,0.65); display: flex; flex-direction: column; gap: 4px;">${titleHtml}</div>
+        ${cap ? `<div style="font-family: 'ProcessingB'; font-size: 38px; color: ${PALETTE.cream}; margin-top: 22px; letter-spacing: 1px; text-shadow: ${capShadow}; max-width: 720px; line-height: 1.18;">${cap}</div>` : ""}
       </div>
       <!-- PALS watermarks — TWO instances, each rotated 90° and pinned
            to the left / right edge of the frame. Low opacity reads as
            a soft watermark. Both carry the same chapter-color rainbow
            drop shadow so the chromatic register reinforces the slide's
            color story without clobbering the photo. -->
-      <img src="${palsSvg}" alt="" style="position: absolute; left: -40px; top: 760px; width: 220px; height: 220px; opacity: 0.28; transform: rotate(-90deg); transform-origin: center; filter: ${palsShadow};" />
-      <img src="${palsSvg}" alt="" style="position: absolute; right: -40px; top: 760px; width: 220px; height: 220px; opacity: 0.28; transform: rotate(90deg); transform-origin: center; filter: ${palsShadow};" />
+      <img src="${palsSvg}" alt="" style="position: absolute; left: -8px; top: 1500px; width: 170px; height: 170px; opacity: 0.28; transform: rotate(-90deg); transform-origin: center; filter: ${palsShadow};" />
+      <img src="${palsSvg}" alt="" style="position: absolute; right: -8px; top: 360px; width: 170px; height: 170px; opacity: 0.28; transform: rotate(90deg); transform-origin: center; filter: ${palsShadow};" />
       ${qrBlock}
     </div>`;
 }

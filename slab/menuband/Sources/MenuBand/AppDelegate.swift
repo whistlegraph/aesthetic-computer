@@ -84,23 +84,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// fine here but we keep the references for symmetry).
     private var globalShiftMonitor: Any?
     private var localShiftMonitor: Any?
-    /// Right-Command-tap → focus Menu Band. A bare modifier can't be a
-    /// Carbon hotkey, so this rides the same global/local .flagsChanged
-    /// stream the shift monitor uses. We only fire on a *clean* tap:
-    /// right ⌘ pressed alone, released quickly, with no other key or
-    /// modifier in between — so ⌘C and friends are untouched.
+    /// Right-Command-DOWN → toggle Menu Band focus. A bare modifier
+    /// can't be a Carbon hotkey, so this rides the same global/local
+    /// .flagsChanged stream the shift monitor uses. Fires on the
+    /// press itself (not release), even held or chorded — so
+    /// right-⌘+f enables AND plays F. Trade-off: right ⌘ is no
+    /// longer free as a plain modifier while Menu Band runs.
     private var rightCmdMonitorGlobal: Any?
     private var rightCmdMonitorLocal: Any?
-    private var rightCmdTapCandidate = false
-    private var rightCmdDownTime: CFTimeInterval = 0
-    /// Retained synthesizer for the spoken "menu band!" focus cue.
-    /// AVSpeechSynthesizer cuts the utterance short if it deallocates,
-    /// so it must outlive the call.
-    private let speechSynth = AVSpeechSynthesizer()
     /// Right Command's .flagsChanged virtual keycode (left ⌘ is 55).
     private static let rightCommandKeyCode: UInt16 = 54
-    /// Max press→release gap still counted as a tap (vs. a held ⌘).
-    private static let rightCmdTapMaxDuration: CFTimeInterval = 0.4
     private var popoverEscMonitor: Any?
 
     /// Sandbox-friendly local key capture. Armed when the user clicks the
@@ -180,12 +173,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Current bend amount in [-1, 1] (mapped to ±2 semitones via
     /// the GM default bend range). 0 = no bend.
     private var bendAmount: Float = 0
-    /// Velocity component of the spring rubber-band that snaps the
-    /// bend back to 0 when the user lifts their fingers.
-    private var bendVelocity: Float = 0
-    /// Active rubber-band timer, retained so we can cancel it when
-    /// a new gesture starts mid-decay.
-    private var bendDecayTimer: Timer?
+    /// Current "space" amount in [0, 1], driven by the trackpad
+    /// X-axis on the same bend gesture. 0 = dry/up-front, 1 = big
+    /// room. Eases back to 0 alongside the bend spring on release.
+    private var spaceAmount: Float = 0
+    /// Current echo amount in [0, 1], driven by ⌥Option + horizontal
+    /// trackpad on the same bend gesture. Held with the other fx
+    /// after release (see `startFxRelease`).
+    private var echoAmount: Float = 0
+    /// True while the active gesture is the ⌥Option echo axis (vs.
+    /// the plain X-axis space sweep). Selects which custom cursor /
+    /// overlay wheel shows and which axis dx is routed to.
+    private var echoAxisActive = false
+    /// Post-release "dead zone": all fx hold here fully engaged for
+    /// `fxHoldDuration`, so resuming play within the window keeps the
+    /// sound intact. Fires into `startFxRamp` only if nothing resumes.
+    private var fxHoldTimer: Timer?
+    /// Linear ramp timer — eases bend/space/echo to 0 over
+    /// `fxRampDuration` once the hold expires. Replaces the old
+    /// spring/exponential so the fx never cut off sharply.
+    private var fxRampTimer: Timer?
+    /// Fx values snapshotted at the instant the ramp begins, so the
+    /// linear interpolation has a fixed origin.
+    private var fxRampFromBend: Float = 0
+    private var fxRampFromSpace: Float = 0
+    private var fxRampFromEcho: Float = 0
+    private var fxRampStart: Date?
     /// True while one or more fingers rest on the trackpad (fed by
     /// LocalKeyCapture's touch sensor). The bend holds — and survives
     /// note changes / legato — for as long as this is true; it only
@@ -233,15 +246,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// once. Combined with momentum-decay filtering, that gives a
     /// responsive "incremental" feel without overshooting.
     private static let octaveScrollPxPerStep: CGFloat = 16
-    /// Spring constants for the rubber-band decay. Stiffness too
-    /// high snaps too fast; damping below ~2*sqrt(stiffness) leaves
-    /// some bounce so the snap feels rubbery rather than mechanical.
-    private static let bendSpringStiffness: Float = 80
-    private static let bendSpringDamping: Float = 9
+    /// After the last note/finger releases, ALL fx hold fully
+    /// engaged for this long. Replaying within the window cancels
+    /// the release outright — the sound never even starts to fade.
+    private static let fxHoldDuration: TimeInterval = 3.5
+    /// Once the hold expires, bend/space/echo ramp LINEARLY to 0
+    /// over this long — a gentle glide off, never a sharp cutoff.
+    private static let fxRampDuration: TimeInterval = 1.0
     /// Trackpad-points-per-unit-bend. 80pt of vertical drag pulls
     /// to a full ±1 (= ±2 semitones at default GM range), so a
     /// modest two-finger flick reads as a noticeable bend.
     private static let bendSensitivityPerPoint: Float = 1.0 / 80.0
+    /// Trackpad-points-per-unit-space (X-axis). Deliberately less
+    /// touchy than pitch: ~200pt of horizontal travel sweeps fully
+    /// dry → full room, so it's a controllable ambience wash rather
+    /// than a hair-trigger.
+    private static let spaceSensitivityPerPoint: Float = 1.0 / 200.0
+    /// Trackpad-points-per-unit-echo (⌥Option + X-axis). Matched to
+    /// the space sensitivity so the two horizontal modes feel the
+    /// same under the finger — only the modifier changes the target.
+    private static let echoSensitivityPerPoint: Float = 1.0 / 200.0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
@@ -982,35 +1006,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// so the silent focus change is felt.
     private func toggleQuietFocusFromRightCommand() {
         if localCapture.isArmed {
-            // Off: mirror the Escape-disarm feedback ("Tink").
-            NSSound(named: NSSound.Name("Tink"))?.play()
+            // Stop ("command again kills the focus state"): red glow
+            // + falling bell + all keys flash at once. No note.
+            FocusFlashOverlay.shared.flash(rising: false)
+            menuBand.playFocusCue(rising: false)
             localCapture.disarm(reason: .cancelled)
         } else {
-            // On: arm capture only — no overlay (beginFocusCapture…
+            // Start: arm capture immediately so the very next keys
+            // play even while ⌘ is still held (right-⌘+f → plays F
+            // AND enables). No overlay (beginFocusCapture…
             // deliberately doesn't call showExpandedForPopover).
             beginFocusCaptureFromShortcut()
-            speakFocusCue()
-            // Soft blinky glow across every key: the ghost wave blooms
-            // the letters in + the icon-wide flash gives the envelope.
-            extendGhost(0.7)
-            kickIconAnim(slide: 0, flash: 0.85)
+            // Blue glow + rising bell + all keys flash at once.
+            FocusFlashOverlay.shared.flash(rising: true)
+            menuBand.playFocusCue(rising: true)
         }
-    }
-
-    /// Speak "menu band!" as the focus-on cue. Slight pitch lift +
-    /// a hair faster than default so it lands quick and cute, not
-    /// like a screen reader. Cancels any in-flight utterance so rapid
-    /// taps don't stack.
-    private func speakFocusCue() {
-        if speechSynth.isSpeaking {
-            speechSynth.stopSpeaking(at: .immediate)
-        }
-        let utterance = AVSpeechUtterance(string: "menu band!")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.05
-        utterance.pitchMultiplier = 1.15
-        utterance.preUtteranceDelay = 0
-        utterance.postUtteranceDelay = 0
-        speechSynth.speak(utterance)
     }
 
     private func exitPianoFocusFromShortcut() {
@@ -1306,42 +1316,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if initialDirty { updateIcon() }
     }
 
-    /// Tap Right Command alone → toggle focus capture (same action as
-    /// the ⌃⌥⌘K hotkey). A bare modifier isn't a valid Carbon hotkey,
-    /// so we watch the global/local .flagsChanged + .keyDown stream and
-    /// only fire on a clean, quick, isolated right-⌘ tap. Reuses the
-    /// permission the shift monitor already relies on — nothing new.
+    /// Right Command **down** → toggle focus capture, immediately,
+    /// on the press itself — NOT on release, and even if ⌘ stays
+    /// held or is chorded. That's deliberate: arming on key-down
+    /// means `right-⌘ + f` both enables the board AND plays F in
+    /// one motion, the user can keep playing after letting ⌘ go,
+    /// and the next right-⌘ press kills focus. Every press also
+    /// fires a dry click so the keystroke is felt instantly.
+    ///
+    /// A bare modifier isn't a valid Carbon hotkey, so we ride the
+    /// same global/local .flagsChanged stream the shift monitor
+    /// already has permission for — nothing new.
     private func startRightCommandTapMonitor() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
-            switch event.type {
-            case .flagsChanged where event.keyCode == Self.rightCommandKeyCode:
-                if event.modifierFlags.contains(.command) {
-                    // Right ⌘ down. Only a candidate if it's the sole
-                    // modifier — joining a chord (⇧⌘, ⌃⌘…) doesn't count.
-                    let chordMods: NSEvent.ModifierFlags =
-                        [.control, .option, .shift, .function, .capsLock]
-                    self.rightCmdTapCandidate =
-                        event.modifierFlags.isDisjoint(with: chordMods)
-                    self.rightCmdDownTime = CACurrentMediaTime()
-                } else {
-                    // Right ⌘ up. Fire only if still a clean, quick tap.
-                    let quick = CACurrentMediaTime() - self.rightCmdDownTime
-                        < Self.rightCmdTapMaxDuration
-                    if self.rightCmdTapCandidate && quick {
-                        self.toggleQuietFocusFromRightCommand()
-                    }
-                    self.rightCmdTapCandidate = false
-                }
-            case .flagsChanged:
-                // Some other modifier changed mid-hold → it's a chord.
-                self.rightCmdTapCandidate = false
-            case .keyDown:
-                // A real key was pressed while ⌘ was down → chord.
-                self.rightCmdTapCandidate = false
-            default:
-                break
-            }
+            // Only the right-⌘ DOWN edge. .flagsChanged fires once
+            // per physical press (modifiers don't auto-repeat), so
+            // this is exactly one toggle per press — no debounce
+            // needed, no up-edge, no quick/isolated gating.
+            guard event.type == .flagsChanged,
+                  event.keyCode == Self.rightCommandKeyCode,
+                  event.modifierFlags.contains(.command) else { return }
+            FocusCueBeep.shared.click()
+            self.toggleQuietFocusFromRightCommand()
         }
         rightCmdMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
@@ -2387,12 +2384,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // user is holding a KEYBOARD note. Mouse-tapped piano
         // notes don't engage pitch-bend so the user can drag
         // across menubar piano keys with the mouse normally.
-        guard menuBand.keyboardNotesHeld else { return }
+        // Shift held lets the wheel engage even with no key
+        // physically down — so you can grab still-ringing lingering
+        // notes and warp the whole sound. Shift also broadcasts the
+        // bend to ALL playing channels (see setBend allChannels).
+        let shift = event.modifierFlags.contains(.shift)
+        guard menuBand.keyboardNotesHeld || shift else { return }
         let dy = Float(event.deltaY)
-        guard dy != 0 else { return }
+        let dx = Float(event.deltaX)
+        guard dy != 0 || dx != 0 else { return }
         // Negate so swipe UP on trackpad → pitch UP (NSEvent.deltaY
         // is positive when the cursor moves DOWN on screen).
         let bendDelta = -dy * Self.bendSensitivityPerPoint
+        // X-axis = "space": right → more reverb / further away,
+        // left → drier / up front to the listener. Clamped 0…1.
+        spaceAmount = max(0, min(1, spaceAmount + dx * Self.spaceSensitivityPerPoint))
         cancelBendDecay()
         bendAmount += bendDelta
         // No clamp — the trackpad accumulator can swing past ±1 so
@@ -2401,7 +2407,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // saturates naturally at the 14-bit boundary inside
         // `sendPitchBend`; receiver-side bend range determines the
         // audible cap (RPN 0/0 = 12 announces an octave on start).
-        menuBand.setBend(amount: bendAmount)
+        menuBand.setBend(amount: bendAmount, allChannels: shift)
+        menuBand.setSpace(amount: spaceAmount)
         pushStaffPitchShift()
         if !pitchBendCursorPushed {
             // Hide the real system cursor and show the floating
@@ -2532,7 +2539,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 - Self.bendSpringDamping * self.bendVelocity
             self.bendVelocity += force * dt
             self.bendAmount += self.bendVelocity * dt
-            self.menuBand.setBend(amount: self.bendAmount)
+            // allChannels so lingering / shift-bent voices on other
+            // channels un-bend with everything else, not just held.
+            self.menuBand.setBend(amount: self.bendAmount, allChannels: true)
+            // Space eases back to dry on the same release — the
+            // wheel is one 2D gesture, so letting go drops both the
+            // pitch and the room together.
+            self.spaceAmount *= 0.85
+            self.menuBand.setSpace(amount: self.spaceAmount)
             self.pushStaffPitchShift()
             // Cursor wheel follows the spring so the visual
             // un-stretches in lockstep with the audio bend.
@@ -2540,10 +2554,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // apps) so the visual never flickers against other
             // apps' cursor handlers during the decay.
             self.updatePitchBendOverlayImage()
-            if abs(self.bendAmount) < 0.001 && abs(self.bendVelocity) < 0.001 {
+            if abs(self.bendAmount) < 0.001 && abs(self.bendVelocity) < 0.001
+                && self.spaceAmount < 0.001 {
                 self.bendAmount = 0
                 self.bendVelocity = 0
-                self.menuBand.setBend(amount: 0)
+                self.spaceAmount = 0
+                self.menuBand.setBend(amount: 0, allChannels: true)
+                self.menuBand.setSpace(amount: 0)
                 self.updatePitchBendOverlayImage()
                 timer.invalidate()
                 self.bendDecayTimer = nil

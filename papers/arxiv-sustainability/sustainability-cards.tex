@@ -4,25 +4,23 @@
 
 \usepackage{fontspec}
 \usepackage{unicode-math}
-\setmainfont{Latin Modern Roman}[
-  Extension=.otf,
-  UprightFont=lmroman10-regular,
-  BoldFont=lmroman10-bold,
-  ItalicFont=lmroman10-italic,
-  BoldItalicFont=lmroman10-bolditalic,
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
 ]
-\setsansfont{Latin Modern Sans}[
-  Extension=.otf,
-  UprightFont=lmsans10-regular,
-  BoldFont=lmsans10-bold,
-  ItalicFont=lmsans10-oblique,
-  BoldItalicFont=lmsans10-boldoblique,
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
 ]
-\setmonofont{Latin Modern Mono}[
-  Extension=.otf,
-  UprightFont=lmmono10-regular,
-  ItalicFont=lmmono10-italic,
-  Scale=0.88,
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
 ]
 
 
@@ -30,6 +28,7 @@
 \graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{adjustbox}
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
@@ -68,7 +67,7 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/8f14b5989}{8f14b5989}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
 \vspace{0.1em}
 {\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv-da.pdf}{Dansk} · \href{https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv-es.pdf}{Español} · \href{https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv-zh.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv-ja.pdf}{{\accjk 日本語}}}\par
 \end{center}
@@ -101,7 +100,8 @@ The most common funding model for creative computing tools is not a funding mode
 \begin{table}[h]
 \small
 \centering
-\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{XXX}
 \toprule
 \textbf{Creator} & \textbf{Institution} & \textbf{Years} \\
 \midrule
@@ -115,7 +115,8 @@ Olia Lialina & Merz Akademie & 25+ \\
 Hernando Barrag\'an & U. de Los Andes & 20+ \\
 John Maeda & MIT Media Lab & 12 \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 \caption{Academic positions subsidizing creative tool development.}
 \label{tab:academic}
 \end{table}
@@ -131,7 +132,8 @@ A company whose business benefits from a tool's existence pays the creator to ma
 \begin{table}[h]
 \small
 \centering
-\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{XXX}
 \toprule
 \textbf{Creator} & \textbf{Patron} & \textbf{Duration} \\
 \midrule
@@ -140,7 +142,8 @@ Guido van Rossum & Google/Dropbox/MS & 20+ years \\
 Matz & NaCl/Heroku & 28+ years \\
 Evan Czaplicki & NoRedInk & 7+ years \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 \caption{Corporate patronage arrangements.}
 \label{tab:corporate}
 \end{table}
@@ -192,7 +195,8 @@ The median time between a tool's creation and its first sustainable funding sour
 \begin{table}[h]
 \small
 \centering
-\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{XXX}
 \toprule
 \textbf{Tool} & \textbf{Created} & \textbf{Gap (years)} \\
 \midrule
@@ -207,7 +211,8 @@ Hydra & 2018 & --- \\
 TempleOS & 2003 & --- (creator died 2018) \\
 Aesthetic Computer & 2021 & 5+ (ongoing) \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 \caption{Gap between creation and first sustainable funding. ``---'' indicates no sustainable funding achieved.}
 \label{tab:gap}
 \end{table}

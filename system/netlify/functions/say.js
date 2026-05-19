@@ -190,8 +190,14 @@ async function generateElevenLabs(text, gender, set, scream) {
 // Usage from the piece: `say:jeffrey hello world`
 const JEFFREY_VOICE_ID = "dYNGZ848Oo6DtNBoeqgh";
 
+// When `withTimestamps` is true, hits ElevenLabs `/with-timestamps`
+// endpoint and returns BOTH audio + per-character alignment. The
+// alignment is the source-of-truth replacement for whisper STT post-
+// processing; it is exact (no recognition, no formant distortion in the
+// signal yet) and free.
 async function generateJeffrey(text, scream, speed = 1.0, styleOverride = null,
-                                stabilityOverride = null, similarityOverride = null) {
+                                stabilityOverride = null, similarityOverride = null,
+                                withTimestamps = false) {
   // Calmer, more natural delivery than the premade "scream" preset.
   // Same knobs as the grant-video pipeline for homogeneity.
   // ElevenLabs voice_settings exposed (eleven_multilingual_v2):
@@ -213,25 +219,36 @@ async function generateJeffrey(text, scream, speed = 1.0, styleOverride = null,
     speed,
   };
 
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${JEFFREY_VOICE_ID}`,
-    {
-      method: "POST",
-      headers: {
-        "xi-api-key": process.env.ELEVENLABS_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: voiceSettings,
-      }),
+  const baseUrl = `https://api.elevenlabs.io/v1/text-to-speech/${JEFFREY_VOICE_ID}`;
+  const url = withTimestamps ? `${baseUrl}/with-timestamps` : baseUrl;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "xi-api-key": process.env.ELEVENLABS_API_KEY,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: voiceSettings,
+    }),
+  });
 
   if (!response.ok) {
     const err = await response.text();
     throw new Error(`ElevenLabs (Jeffrey) API error ${response.status}: ${err}`);
+  }
+
+  if (withTimestamps) {
+    // /with-timestamps returns JSON: { audio_base64, alignment, normalized_alignment }
+    const json = await response.json();
+    return {
+      buffer: Buffer.from(json.audio_base64, "base64"),
+      voiceId: "jeffrey-pvc",
+      alignment: json.alignment,
+      normalizedAlignment: json.normalized_alignment,
+    };
   }
 
   return {
@@ -344,6 +361,15 @@ exports.handler = async (event) => {
     // Cache bust: if true, skip cache lookup and regenerate
     const bustCache = body.bust === true;
 
+    // Timestamps: when true, hit ElevenLabs `/with-timestamps` endpoint
+    // (jeffrey provider only) and return JSON `{audio_base64, alignment}`
+    // instead of raw mp3. Cache lookup is skipped because cached entries
+    // are audio-only — cache write still happens (mp3 only) so future
+    // non-timestamp callers benefit. Backward compatible: existing
+    // recap/slab callers never set this flag and continue to receive
+    // raw mp3 (302 redirect to CDN).
+    const withTimestamps = body.withTimestamps === true || body.with_timestamps === true;
+
     // Check for SSML (only Google supports it)
     const isSSML = utterance.indexOf("<speak>") !== -1;
 
@@ -364,8 +390,10 @@ exports.handler = async (event) => {
     const cacheKey = getCacheKey(provider, voiceSpec, text, instructions);
 
     try {
-      // Check cache first - return redirect to CDN if cached (unless bust=true)
-      if (!bustCache) {
+      // Check cache first - return redirect to CDN if cached (unless bust=true).
+      // When withTimestamps is set we always regenerate, because the cache
+      // only stores the audio bytes — alignment must come fresh from the API.
+      if (!bustCache && !withTimestamps) {
         const cachedUrl = await checkCache(cacheKey);
 
         if (cachedUrl) {
@@ -404,12 +432,12 @@ exports.handler = async (event) => {
       } else if (provider === "eleven") {
         result = await generateElevenLabs(text, gender, set, scream);
       } else if (provider === "jeffrey") {
-        result = await generateJeffrey(text, scream, speed, styleOverride, stabilityOverride, similarityOverride);
+        result = await generateJeffrey(text, scream, speed, styleOverride, stabilityOverride, similarityOverride, withTimestamps);
       } else {
         result = await generateOpenAI(text, gender, set, instructions);
       }
 
-      const { buffer: audioBuffer, voiceId } = result;
+      const { buffer: audioBuffer, voiceId, alignment, normalizedAlignment } = result;
 
       if (!audioBuffer || audioBuffer.length === 0) {
         return {
@@ -430,6 +458,39 @@ exports.handler = async (event) => {
         scream: scream ? "1" : "0",
         ts: new Date().toISOString(),
       });
+
+      // ── Timestamped response — JSON with audio + alignment ────────
+      // Returned only when caller opted in. Default callers (recap,
+      // slab, the `say` piece) never see this branch and keep getting
+      // a 302 → CDN raw-mp3.
+      if (withTimestamps && alignment) {
+        await recordSaying({
+          text,
+          provider,
+          voice: voiceId,
+          voiceSpec,
+          scream,
+          instructions,
+          cacheKey,
+          url: cdnUrl,
+          cached: false,
+          withTimestamps: true,
+        });
+        return {
+          statusCode: 200,
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            audio: audioBuffer.toString("base64"),
+            alignment,
+            normalizedAlignment: normalizedAlignment || null,
+            url: cdnUrl,
+            voice: voiceId,
+          }),
+        };
+      }
 
       if (cdnUrl) {
         await recordSaying({

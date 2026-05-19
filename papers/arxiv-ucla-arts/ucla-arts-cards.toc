@@ -1,7 +1,7 @@
 \contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
 \contentsline {section}{\numberline {2}Two Departments}{7}{section.2}%
 \contentsline {subsection}{\numberline {2.1}Art (1939--)}{7}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Design\nobreakspace {}|\nobreakspace {}Media Arts (1988--)}{8}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.2}Design~|~Media Arts (1988--)}{8}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}Same Building, Different Worlds}{9}{subsection.2.3}%
 \contentsline {section}{\numberline {3}How Art Gets Funded}{11}{section.3}%
 \contentsline {subsection}{\numberline {3.1}The Leavin Gift}{11}{subsection.3.1}%

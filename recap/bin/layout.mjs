@@ -29,6 +29,7 @@ if (!audienceName) {
 }
 
 const mod = await import(`${ROOT}/audience/${audienceName}.mjs`);
+const audience = mod.audience || mod.default;
 const solveLayout = mod.solveLayout;
 if (typeof solveLayout !== "function") {
   console.error(`✗ audience '${audienceName}' does not export solveLayout — using default top placement`);
@@ -43,12 +44,17 @@ for (const seg of segments) {
   const cvPath = `${ROOT}/out/cv/${seg.name}.json`;
   const cv = existsSync(cvPath) ? JSON.parse(readFileSync(cvPath, "utf8")) : null;
   const layout = solveLayout(cv);
+  // Pull the chapter color out of the audience config so downstream
+  // tools (subtitles.mjs, build-filter.mjs) can tint per-segment.
+  const slide = (audience && audience.slides && audience.slides[seg.name]) || null;
+  const colorAddress = slide && slide.colorAddress;
   layouts[seg.name] = {
     startSec: seg.startSec,
     endSec: seg.endSec,
     chapter: layout.chapter,
     subtitle: layout.subtitle,
     piano: layout.piano,
+    color: colorAddress || null,
   };
 }
 

@@ -4,25 +4,23 @@
 
 \usepackage{fontspec}
 \usepackage{unicode-math}
-\setmainfont{Latin Modern Roman}[
-  Extension=.otf,
-  UprightFont=lmroman10-regular,
-  BoldFont=lmroman10-bold,
-  ItalicFont=lmroman10-italic,
-  BoldItalicFont=lmroman10-bolditalic,
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
 ]
-\setsansfont{Latin Modern Sans}[
-  Extension=.otf,
-  UprightFont=lmsans10-regular,
-  BoldFont=lmsans10-bold,
-  ItalicFont=lmsans10-oblique,
-  BoldItalicFont=lmsans10-boldoblique,
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
 ]
-\setmonofont{Latin Modern Mono}[
-  Extension=.otf,
-  UprightFont=lmmono10-regular,
-  ItalicFont=lmmono10-italic,
-  Scale=0.88,
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
 ]
 
 
@@ -30,6 +28,7 @@
 \graphicspath{{figures/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{adjustbox}
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
@@ -137,7 +136,7 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/8f14b5989}{8f14b5989}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
 \vspace{0.1em}
 {\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/piece-api-26-arxiv-da.pdf}{Dansk} · \href{https://papers.aesthetic.computer/piece-api-26-arxiv-es.pdf}{Español} · \href{https://papers.aesthetic.computer/piece-api-26-arxiv-zh.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/piece-api-26-arxiv-ja.pdf}{{\accjk 日本語}}}\par
 \end{center}
@@ -405,7 +404,8 @@ Table~\ref{tab:lifecycle} compares the lifecycle models. Table~\ref{tab:drawing}
 \begin{table}[h]
 \small
 \centering
-\begin{tabular}{lp{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{lXXX}
 \toprule
  & \textbf{Processing} & \textbf{p5.js} & \textbf{AC} \\
 \midrule
@@ -419,7 +419,8 @@ Render rate & 60fps & 60fps & display Hz \\
 Logic rate & 60fps & 60fps & 120fps fixed \\
 Scope & global & global/inst. & injected \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 \caption{Lifecycle comparison. \texttt{\$} denotes destructured API injection.}
 \label{tab:lifecycle}
 \end{table}
@@ -427,7 +428,8 @@ Scope & global & global/inst. & injected \\
 \begin{table}[h]
 \small
 \centering
-\begin{tabular}{lp{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{lXX}
 \toprule
 \textbf{Processing/p5} & \textbf{AC} & \textbf{Notes} \\
 \midrule
@@ -442,7 +444,8 @@ Scope & global & global/inst. & injected \\
 --- & \texttt{paste()} & Buffer compositing \\
 --- & \texttt{form()} & 3D rendering \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 \caption{Drawing primitive comparison.}
 \label{tab:drawing}
 \end{table}

@@ -42,12 +42,26 @@
 % === DRAFT WATERMARK (Processing font + pals logo) ===
 \RequirePackage{eso-pic}
 \RequirePackage{tikz}
+\usetikzlibrary{shadows.blur}
 \AddToShipoutPictureBG{%
   \begin{tikzpicture}[remember picture, overlay]
-    % --- Pals logo: large, top-left, rotated, semi-opaque, bleeding off edge ---
-    \node[opacity=0.06, anchor=north west, rotate=-15]
-      at ([xshift=-1.2cm, yshift=1.2cm]current page.north west)
-      {\includegraphics[width=10cm]{pals}};
+    % --- Pals logo stamps: mirroring bios.mjs side-stamp pattern
+    %     (drawTextAtPosition(0, 90) on the left, (canvasWidth, -90) on the right).
+    %     Both pals stamps anchored to their respective page edges, one-third of
+    %     the way down from the top. Rotated +90 / -90 so they run vertically up
+    %     each side. Sinusoidally wiggling per page, semi-opaque, drop-shadowed,
+    %     bleeding off the edge. ---
+    \pgfmathsetmacro{\palswiggle}{7*sin(\thepage * 67)}%
+    \node[opacity=0.10, anchor=center, rotate={90 + \palswiggle},
+          blur shadow={shadow blur steps=5, shadow blur extra rounding=1pt,
+                       shadow xshift=4pt, shadow yshift=-4pt, shadow opacity=0.18}]
+      at ([xshift=-1.0cm, yshift=-0.33\paperheight]current page.north west)
+      {\includegraphics[width=14cm]{pals}};
+    \node[opacity=0.10, anchor=center, rotate={-90 + \palswiggle},
+          blur shadow={shadow blur steps=5, shadow blur extra rounding=1pt,
+                       shadow xshift=-4pt, shadow yshift=-4pt, shadow opacity=0.18}]
+      at ([xshift=1.0cm, yshift=-0.33\paperheight]current page.north east)
+      {\includegraphics[width=14cm]{pals}};
     % --- "WORKING DRAFT" text in Processing Light font ---
     \node[opacity=0.12, rotate=45, anchor=center]
       at (current page.center)

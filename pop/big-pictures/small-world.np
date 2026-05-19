@@ -1,0 +1,27 @@
+# It's a Small World — Sherman Brothers, Disney 1964.
+# Melody sourced from Online Sequencer #509647 (instrument 14, "main
+# singing voice starting on C5"). Key: F major.
+#
+# CHORUS PHRASE (sol-re-do-FA-fa-fa-mi shape, climax sustained on FA):
+#   "It's-a    small    WORLD    af -ter   all"
+#    C5 G4    F4       Bb4(2)   Bb4 Bb4   A4
+#    sol re   do       fa       fa  fa    mi
+#
+# TAG: descending stepwise to tonic.
+#   "It's-a-small-small-world"
+#    G4 F4 E4 D4 F4
+#
+# VERSE: derived from the same shape, opening lower for contrast and
+# climbing into the chorus phrase.
+#
+# Range: D4-C5. With CLI transpose -5 → A3-G4 (jeffrey-pvc tenor).
+
+verse 1
+F4:its*1 F4:a*1 G4:world*1 G4:of*1 A4:laugh-*1 A4:-ter*2 G4:a*1 A4:world*1 G4:of*1 F4:tears*3
+F4:its*1 F4:a*1 G4:world*1 G4:of*1 A4:hopes*1 A4:and*1 G4:a*1 A4:world*1 G4:of*1 F4:fears*3
+G4:theres*1 A4:so*1 A#4:much*1 A#4:that*1 A#4:we*1 A4:share*2 G4:that*1 A4:its*1 A#4:time*1 A4:were*1 G4:a-*1 F4:-ware*3
+C5:its*1 G4:a*1 F4:small*1 A#4:world*2 A#4:af-*1 A#4:-ter*1 A4:all*3
+
+chorus
+C5:its*1 G4:a*1 F4:small*1 A#4:world*2 A#4:af-*1 A#4:-ter*1 A4:all*3
+G4:its*1 F4:a*1 E4:small*1 D4:small*1 F4:world*4

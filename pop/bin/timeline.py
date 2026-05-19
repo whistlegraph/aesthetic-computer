@@ -104,7 +104,12 @@ def main():
     audio_dir = os.path.dirname(os.path.abspath(args.audio))
     audio_stem = os.path.splitext(os.path.basename(args.audio))[0]
     if args.words is None:
+        # Prefer the mfa-aligned words (correct lyric text + accurate
+        # timing) over whisper output (correct timing but wrong text
+        # because pitchsnap distortion confuses recognition).
         for cand in (
+            f"{audio_dir}/{slug}-mfa-words.json",
+            f"{audio_dir}/{audio_stem}-mfa-words.json",
             f"{audio_dir}/{audio_stem}-words.json",
             f"{audio_dir}/{slug}-perline-words.json",
             f"{audio_dir}/{slug}-7-warm-words.json",
@@ -114,7 +119,8 @@ def main():
         ):
             if os.path.exists(cand):
                 args.words = cand
-                print(f"  words:  {cand}")
+                src = "mfa" if "mfa" in cand else "whisper"
+                print(f"  words:  {cand}  ({src})")
                 break
     if args.events is None:
         for cand in (
@@ -145,11 +151,17 @@ def main():
         onsets = []
 
     # ── figure layout — generous heights for readability ─────────────
-    height_ratios = [5.0]                       # piano roll (tallest)
-    if words:  height_ratios.append(1.6)        # utterances
-    if events: height_ratios.append(2.4)        # autotune (zigzag needs space)
-    height_ratios.append(2.8)                   # waveform
-    n_panels = len(height_ratios)
+    # ORDER (top → bottom): HEARD, SCORE, PITCH-SNAP, AUDIO
+    # Reading order matches mental model: "what came out of the speaker"
+    # sits in front of "what the score wanted" so the user compares
+    # heard → expected → snap-correction → waveform top-down.
+    panels_spec = []                            # (kind, height_ratio)
+    if words:  panels_spec.append(("words", 1.6))
+    panels_spec.append(("score", 5.0))
+    if events: panels_spec.append(("events", 2.4))
+    panels_spec.append(("audio", 2.8))
+    height_ratios = [h for _, h in panels_spec]
+    n_panels = len(panels_spec)
     fig_w = max(22, total * 0.85)
     fig_h = sum(height_ratios) * 1.15 + 0.6
     fig, axs = plt.subplots(
@@ -161,10 +173,11 @@ def main():
     fig.suptitle(title, fontsize=28, fontweight="bold", color=FG, y=0.985,
                  path_effects=stroke(4))
 
-    panel_idx = 0
+    # Map panel kind → axes index
+    kind_to_ax = {kind: axs[i] for i, (kind, _) in enumerate(panels_spec)}
 
-    # ── 1. PIANO ROLL ────────────────────────────────────────────────
-    ax_roll = axs[panel_idx]; panel_idx += 1
+    # ── PIANO ROLL ───────────────────────────────────────────────────
+    ax_roll = kind_to_ax["score"]
     midis = [note_to_midi(s["note"]) for s in slides]
     midi_min, midi_max = min(midis) - 1, max(midis) + 1
     # alternating pitch lanes
@@ -204,17 +217,17 @@ def main():
     leg = ax_roll.legend(loc="upper right", fontsize=13, frameon=True,
                          facecolor=PANEL_BG, edgecolor=DIM, labelcolor=FG)
 
-    # ── 2. UTTERANCES ────────────────────────────────────────────────
+    # ── UTTERANCES ───────────────────────────────────────────────────
     if words:
-        ax_utt = axs[panel_idx]; panel_idx += 1
+        ax_utt = kind_to_ax["words"]
         for w in words:
             x0 = w["fromMs"] / 1000.0
             x1 = w["toMs"] / 1000.0
             ax_utt.add_patch(mpatches.FancyBboxPatch(
                 (x0, 0.18), x1 - x0, 0.64,
                 boxstyle="round,pad=0.01,rounding_size=0.04",
-                facecolor=GREEN, alpha=0.35, edgecolor=GREEN,
-                linewidth=1.4, zorder=2))
+                facecolor=GREEN, alpha=0.45, edgecolor=GREEN,
+                linewidth=1.6, zorder=2))
             ax_utt.text((x0 + x1) / 2, 0.5, w["text"],
                         ha="center", va="center", fontsize=15,
                         fontweight="bold", color=FG, zorder=3,
@@ -225,10 +238,53 @@ def main():
         ax_utt.tick_params(axis="x", labelsize=12, length=5)
         ax_utt.grid(axis="x", color=GRID, linestyle="-", linewidth=0.7)
         ax_utt.set_axisbelow(True)
+        # Connect each whisper word to the closest score slide (by
+        # text-prefix match if possible, else nearest-time). Drift is
+        # the horizontal slope of the connecting line.
+        # We draw the connector across the figure between ax_utt's
+        # bottom edge and ax_roll's top edge using fig.add_artist.
+        from matplotlib.patches import ConnectionPatch
+        used_slide_idxs = set()
+        for w in words:
+            wtext = w["text"].lower().strip(",.!?;: ")
+            wmid = (w["fromMs"] + w["toMs"]) / 2000.0
+            # Find best matching slide: prefer whichever slide's text is
+            # a prefix/substring of the whisper word AND is closest
+            # in time and not already used.
+            best, best_score = None, 1e9
+            for j, s in enumerate(slides):
+                if j in used_slide_idxs:
+                    continue
+                stext = s["text"].lower().strip("-")
+                # syllable-of-word match: whisper "amazing" should pair
+                # with the FIRST score syllable 'a' (the word's onset).
+                prefix_match = wtext.startswith(stext) or stext.startswith(wtext)
+                tdist = abs(s["start"] - w["fromMs"] / 1000.0)
+                score = tdist + (0 if prefix_match else 1.5)
+                if score < best_score:
+                    best, best_score = j, score
+            if best is None:
+                continue
+            used_slide_idxs.add(best)
+            slide = slides[best]
+            x_heard = (w["fromMs"] / 1000.0 + w["toMs"] / 1000.0) / 2
+            x_score = slide["start"] + (slide["end"] - slide["start"]) / 2
+            drift = x_heard - x_score
+            # color drift by magnitude — yellow ≤ 0.2s, orange ≤ 0.6s, red beyond
+            if   abs(drift) < 0.20: dcol = "#7fe070"
+            elif abs(drift) < 0.60: dcol = "#ffaa33"
+            else:                   dcol = "#ff5566"
+            con = ConnectionPatch(
+                xyA=(x_heard, 0.18), coordsA=ax_utt.transData,
+                xyB=(x_score, midi_max + 0.55), coordsB=ax_roll.transData,
+                color=dcol, linewidth=1.2, alpha=0.8, zorder=20,
+                linestyle=("--" if abs(drift) > 0.20 else "-"),
+            )
+            fig.add_artist(con)
 
-    # ── 3. AUTOTUNE ──────────────────────────────────────────────────
+    # ── AUTOTUNE ─────────────────────────────────────────────────────
     if events:
-        ax_at = axs[panel_idx]; panel_idx += 1
+        ax_at = kind_to_ax["events"]
         max_st = max(abs(e.get("semitones", 0)) for e in events) or 1.0
         for i, e in enumerate(events):
             nat = float(e.get("naturalStart", 0))
@@ -270,8 +326,8 @@ def main():
                    bbox=dict(facecolor=BG, edgecolor=DIM,
                              boxstyle="round,pad=0.4"))
 
-    # ── 4. WAVEFORM ──────────────────────────────────────────────────
-    ax_wave = axs[panel_idx]
+    # ── WAVEFORM ─────────────────────────────────────────────────────
+    ax_wave = kind_to_ax["audio"]
     if y is not None:
         t = np.arange(len(y)) / sr
         ax_wave.plot(t, y, color=CYAN, linewidth=0.7, alpha=0.9, zorder=2)

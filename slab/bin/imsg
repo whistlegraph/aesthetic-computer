@@ -1,0 +1,38 @@
+#!/bin/bash
+# imsg — node-resolving wrapper around imsg.mjs.
+#
+# The menubar runs under launchd with a minimal PATH that does NOT include
+# fnm's per-shell node shim, so the Swift side calls THIS absolute path and
+# we resolve a usable `node` ourselves (mirrors Tools.resolve in Swift).
+set -u
+# Resolve through symlinks (this is symlinked into ~/.local/bin like the
+# other slab bins) so SCRIPT points at the real .mjs next to the wrapper.
+SRC="${BASH_SOURCE[0]}"
+while [ -L "$SRC" ]; do
+  DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  [[ "$SRC" != /* ]] && SRC="$DIR/$SRC"
+done
+HERE="$(cd -P "$(dirname "$SRC")" && pwd)"
+SCRIPT="$HERE/imsg.mjs"
+
+find_node() {
+  if command -v node >/dev/null 2>&1; then command -v node; return; fi
+  local c
+  for c in \
+    "$HOME/.local/share/fnm/aliases/default/bin/node" \
+    "$HOME/.fnm/aliases/default/bin/node" \
+    /opt/homebrew/bin/node \
+    /usr/local/bin/node \
+    "$HOME/.volta/bin/node"; do
+    [ -x "$c" ] && { echo "$c"; return; }
+  done
+  # Newest fnm-managed version, if any.
+  c=$(ls -td "$HOME"/.local/share/fnm/node-versions/*/installation/bin/node \
+        2>/dev/null | head -1)
+  [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return; }
+  return 1
+}
+
+NODE="$(find_node)" || { echo '{"configured":false,"label":"iMessage: no node"}'; exit 0; }
+exec "$NODE" "$SCRIPT" "$@"

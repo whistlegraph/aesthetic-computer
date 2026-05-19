@@ -189,6 +189,91 @@ final class PitchBendCursorOverlayWindow: NSPanel {
     }
 }
 
+/// Custom cursor for the ⌥Option + horizontal "echo" axis. Reads as
+/// a bright leading capsule with trailing, fading repeats to the
+/// right — the repeats multiply, lengthen and brighten as the echo
+/// amount grows, so the cursor itself shows how much tail you've
+/// dialed in. Uses the SAME `PitchBendCursor.cursorSize` / `hotSpot`
+/// so it drops straight into `PitchBendCursorOverlayWindow`.
+enum EchoCursor {
+    static func cursor(forEcho amount: Float) -> NSCursor {
+        NSCursor(image: buildImage(forEcho: amount),
+                 hotSpot: PitchBendCursor.hotSpot)
+    }
+
+    static func image(forEcho amount: Float) -> NSImage {
+        buildImage(forEcho: amount)
+    }
+
+    private static func buildImage(forEcho amount: Float) -> NSImage {
+        let echo = max(0, min(1, CGFloat(amount)))
+        let size = PitchBendCursor.cursorSize
+        return NSImage(size: size, flipped: false) { rect in
+            let center = NSPoint(x: rect.midX, y: rect.midY)
+            let capW: CGFloat = 7
+            let capH: CGFloat = 16
+            // 1 dry head + up to 4 repeats; count tracks amount so a
+            // small echo shows one ghost, a big one a long trail.
+            let repeats = Int((echo * 4).rounded())
+            // Repeats march RIGHT; spacing widens with the amount so
+            // the trail visibly stretches as you sweep.
+            let gap: CGFloat = 4 + echo * 5
+
+            let accent = NSColor.controlAccentColor
+
+            // Draw farthest (faintest) repeat first so nearer, brighter
+            // capsules paint over the tails — matches how the audio
+            // repeats sit under the dry hit.
+            for i in stride(from: repeats, through: 0, by: -1) {
+                let x = center.x - capW / 2 + CGFloat(i) * (capW + gap)
+                let capRect = NSRect(x: x, y: center.y - capH / 2,
+                                     width: capW, height: capH)
+                let path = NSBezierPath(roundedRect: capRect,
+                                        xRadius: capW / 2,
+                                        yRadius: capW / 2)
+                if i == 0 {
+                    let shadow = NSShadow()
+                    shadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+                    shadow.shadowOffset = .zero
+                    shadow.shadowBlurRadius = 2
+                    NSGraphicsContext.saveGraphicsState()
+                    shadow.set()
+                    NSColor.white.setFill()
+                    path.fill()
+                    NSColor.black.withAlphaComponent(0.6).setStroke()
+                    path.lineWidth = 0.8
+                    path.stroke()
+                    NSGraphicsContext.restoreGraphicsState()
+                } else {
+                    // Geometric fade for the repeats; brightness also
+                    // scales with the overall amount so a bigger echo
+                    // reads as a hotter, more present trail.
+                    let decay = pow(0.62, CGFloat(i))
+                    let alpha = (0.25 + 0.6 * echo) * decay
+                    (accent.blended(withFraction: 0.35,
+                                    of: .white) ?? accent)
+                        .withAlphaComponent(alpha).setFill()
+                    path.fill()
+                }
+            }
+
+            // » glyph above the head — points down the trail so the
+            // affordance still reads when the trail is short.
+            let arrows = NSAttributedString(
+                string: "»",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 9, weight: .heavy),
+                    .foregroundColor: NSColor.black.withAlphaComponent(0.85),
+                ]
+            )
+            let aSize = arrows.size()
+            arrows.draw(at: NSPoint(x: center.x - aSize.width / 2,
+                                    y: center.y + capH / 2 + 1))
+            return true
+        }
+    }
+}
+
 extension NSCursor {
     /// Convenience to push the neutral pitch-bend cursor onto the
     /// stack. Mirrors the original `PitchBendCursor.shared.push()`

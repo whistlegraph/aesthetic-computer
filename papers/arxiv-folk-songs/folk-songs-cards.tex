@@ -4,25 +4,23 @@
 
 \usepackage{fontspec}
 \usepackage{unicode-math}
-\setmainfont{Latin Modern Roman}[
-  Extension=.otf,
-  UprightFont=lmroman10-regular,
-  BoldFont=lmroman10-bold,
-  ItalicFont=lmroman10-italic,
-  BoldItalicFont=lmroman10-bolditalic,
+% Latin Modern by OTF filename (not font name): xelatex on macOS (Core
+% Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
+% silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
+% texmf-dist on both macOS and the oven's Linux xelatex.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
 ]
-\setsansfont{Latin Modern Sans}[
-  Extension=.otf,
-  UprightFont=lmsans10-regular,
-  BoldFont=lmsans10-bold,
-  ItalicFont=lmsans10-oblique,
-  BoldItalicFont=lmsans10-boldoblique,
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
 ]
-\setmonofont{Latin Modern Mono}[
-  Extension=.otf,
-  UprightFont=lmmono10-regular,
-  ItalicFont=lmmono10-italic,
-  Scale=0.88,
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
 ]
 
 
@@ -30,6 +28,7 @@
 \graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{adjustbox}
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
@@ -81,7 +80,7 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/8f14b5989}{8f14b5989}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/b3a48ec6a}{b3a48ec6a}}\par
 \vspace{0.1em}
 {\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/folk-songs-26-arxiv-da.pdf}{Dansk} · \href{https://papers.aesthetic.computer/folk-songs-26-arxiv-es.pdf}{Español} · \href{https://papers.aesthetic.computer/folk-songs-26-arxiv-zh.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/folk-songs-26-arxiv-ja.pdf}{{\accjk 日本語}}}\par
 \end{center}
@@ -182,7 +181,8 @@ We surveyed folk song collections from multiple traditions and selected melodies
 
 \subsection{Pentatonic (5 notes)}
 
-\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{XXX}
 \toprule
 \textbf{Song} & \textbf{Origin} & \textbf{Range} \\
 \midrule
@@ -193,11 +193,13 @@ Sakura & Japanese & m7 \\
 Mo Li Hua & Chinese & oct \\
 Swing Low & Spiritual & oct \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 
 \subsection{Narrow Range ($<$ octave)}
 
-\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{XXX}
 \toprule
 \textbf{Song} & \textbf{Origin} & \textbf{Range} \\
 \midrule
@@ -207,11 +209,13 @@ Fr\`ere Jacques & French & M6 \\
 London Bridge & English & P5 \\
 Korobeiniki & Russian & oct \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 
 \subsection{Modal \& Diatonic}
 
-\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{XXX}
 \toprule
 \textbf{Song} & \textbf{Origin} & \textbf{Range} \\
 \midrule
@@ -221,7 +225,8 @@ Danny Boy & Irish & 10th \\
 Shenandoah & American & 10th \\
 Hava Nagila & Israeli & oct \\
 \bottomrule
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 
 \section{The Folk Process as Version Control}
 
@@ -230,11 +235,13 @@ The International Folk Music Council identified three properties of the folk pro
 These map directly onto software version control:
 
 \vspace{0.3em}
-\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}}
+\begin{adjustbox}{max width=\linewidth,center}%
+\begin{tabularx}{\linewidth}{XX}
 \textbf{Continuity} & \texttt{main} branch \\
 \textbf{Variation} & commits, forks \\
 \textbf{Selection} & merge decisions, adoption \\
-\end{tabular}
+\end{tabularx}%
+\end{adjustbox}
 \vspace{0.3em}
 
 A \np{} song encoding is a URL. Sharing a song is sharing a link. Modifying a song is editing a text string and sharing a new link. The ``oral tradition'' becomes a tradition of URLs---the melody transmits not through memory but through hypertext.
