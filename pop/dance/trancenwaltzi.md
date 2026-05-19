@@ -175,63 +175,77 @@ Current file: `~/Documents/Working Desktop/twi-out/trancenwaltzi.mp3`
 the git sha + note per build). `~/Desktop` copies auto-clean — treat
 `~/Documents/Working Desktop/` and the CDN as the durable homes.
 
-### Release cut — re-render WITH `--master`
+### Release cut — the 3-stage master (2026-05-19 night rebuild)
 
-The on-disk mp3 uses the 6 ms **loop declick**, not a real ending. For a
-streaming single you must re-render with `--master` and output `.wav`:
+The single is now a **minimal dance track**: the pure-sine cut is the
+foreground; the NIN/industrial engine render is folded in *softened*,
+with raw dips, a whole-mix scratch, a clean spoken ID, and stochastic
+pitch glitches. Two source renders feed three deterministic stages.
+
+**Source A — industrial engine render** (`recap/bin/trance.mjs`, all
+chill-gated; non-chill `trancenwaltz` stays byte-identical):
 
 ```bash
 node recap/bin/trance.mjs --mode chill --meter 3 --master \
   --out ~/Documents/Working\ Desktop/twi-out/trancenwaltzi-MASTER-preBright.wav
 ```
 
-`--master` restores a proper musical fade-in/out (a real single ending)
-and, with a `.wav` path, encodes lossless 16-bit/44.1 kHz. Keep this
-**pre-bright** wav — you A/B against it.
+**Source B — pure-sine cut** `trancenwaltzi-SINEONLY-raw.wav`: the same
+engine with every oscillator forced to sine (incl. noise), all decoded
+samples + all fx + the scratch disabled, clean-normalised only. Both
+renders are sample-aligned (same seed/tempo, identical 169.285 s).
 
 ---
 
-## 3. Mastering chain
+## 3. Mastering chain — 3 stages
 
-`trance.mjs` renders **dark** by design — a sine-heavy synth mix with
-~16 dB of roll-off into the highs. A streaming master needs a brightening
-polish pass. This recipe was tuned on **trancenwaltz** (shipped 2026-05-17):
-
-| Move | Freq | Gain |
-|------|------|------|
-| Mud trim (bell-low / 3/4 boom) | ~190 Hz | **−1 dB** |
-| Presence (lead/arp intelligibility) | ~4.2 kHz | **+2 dB** (tw used +2.2) |
-| Air shelf | ~8.5 kHz | **+4 dB** (high-shelf) |
-| Sparkle shelf | ~12.5 kHz | **+2 dB** (tw used +1.8) |
-| Loudness | — | **`loudnorm I=-15 TP=-1.2 LRA=15`** — the chosen final (see below) |
-
-**FINAL output = the `I=-15` master.** Decided 2026-05-18 by ear: on this
-flat continuous study bed the quieter / wider-LRA take preserves the calm
-better than `I=-14`. The canonical file IS the `I=-15` render:
+| Stage | Tool | What it does |
+|-------|------|--------------|
+| **A. Combine** | `pop/dance/bin/twi-master-fc.txt` (ffmpeg `-/filter_complex`) | sine = foreground (slow `aphaser` for drift); industrial split into a soft low-passed **fold** bed (dynamic level: surges ~0:46 & 2:08→end, breakdown 1:52–2:04) **+** a full-range **raw** branch gated to **3 raised-cosine DIPs** (~0:06–0:10 intro, ~1:15, ~2:15) where the sine ducks and the raw track surges in & back. → f32 premix |
+| **B. Scratch / ID / glitch** | `pop/dance/bin/scratch-mix.mjs in out stamp.mp3` | one gnarly 9-stroke RIP/TEAR center scratch on the **whole** mix (~1:25); a **clean full-range "aesthetic dot computer" ID** overlaid dead-centre *post-scratch* (not scratched, clearly audible); **~4 stochastic** 0.25–1 s chaotic pitch-slides (different every run) |
+| **C. Finalize** | ffmpeg | gentle 2:1 glue comp → `loudnorm I=-14 TP=-1.5 LRA=11` (Spotify reference, dynamics intact) → `alimiter limit=0.94` safety → **18 s** slow end fade |
 
 ```bash
-# FINAL — this writes the canonical trancenwaltzi-MASTER.wav
-ffmpeg -i trancenwaltzi-MASTER-preBright.wav -af \
-"equalizer=f=190:t=q:w=1.0:g=-1,\
-equalizer=f=4200:t=q:w=1.2:g=2,\
-highshelf=f=8500:g=4,\
-highshelf=f=12500:g=2,\
-loudnorm=I=-15:TP=-1.2:LRA=15" \
+cd ~/Documents/Working\ Desktop/twi-out
+# A — combine (sine main + softened fold + raw dips)
+ffmpeg -y -i trancenwaltzi-SINEONLY-raw.wav -i trancenwaltzi-MASTER-preBright.wav \
+  -/filter_complex ~/aesthetic-computer/pop/dance/bin/twi-master-fc.txt \
+  -map "[out]" -ar 44100 -c:a pcm_f32le trancenwaltzi-PREMIX.wav
+# B — whole-mix scratch + clean ID stamp + stochastic pitch-slides
+node ~/aesthetic-computer/pop/dance/bin/scratch-mix.mjs \
+  trancenwaltzi-PREMIX.wav trancenwaltzi-PREMIX-scr.wav \
+  ~/aesthetic-computer/pop/dance/out/.ac-dot-stamp-vocal.mp3
+# C — finalize for Spotify
+ffmpeg -y -i trancenwaltzi-PREMIX-scr.wav -af \
+"acompressor=threshold=-20dB:ratio=2:attack=20:release=260:makeup=1:knee=8,\
+loudnorm=I=-14:TP=-1.5:LRA=11,\
+alimiter=limit=0.94:attack=8:release=120:level=disabled,\
+afade=t=out:st=151:d=18" \
 -ar 44100 -sample_fmt s16 trancenwaltzi-MASTER.wav
+rm trancenwaltzi-PREMIX*.wav
 ```
 
-A louder `I=-14 / LRA=13` alt is kept as `trancenwaltzi-MASTER-I14.wav`
-for reference only — **not** the ship file. Always keep the pre-bright
-wav to A/B against; back the 12.5 k sparkle shelf off if the gong /
-flangered sub-bells start to whistle.
+**Final: 2:49 · −14.1 LUFS · −1.5 dBTP · 44.1 kHz/16-bit stereo** —
+Spotify normalises to −14 on playback, so this sits at reference with
+dynamics intact (no slamming). `scratch-mix.mjs` is stochastic — every
+run differs in the 4 slide gestures (re-cut if you want a new take).
+
+**Open follow-ups (not in tonight's master):** (1) the field-recording
+**bell → "Twinkle Twinkle" nursery** layer is a ready +185-line chill-
+gated patch from a subagent worktree (samples already at
+`pop/dance/out/.bell-01/02/03.wav`) — port into `trance.mjs` next.
+(2) "dominant drone glides 2 octaves up-and-back across the track" is a
+**synthesis** change to the sine source (pad/lead arc), not a master
+move — needs a fresh sine-only re-cut.
 
 ---
 
 ## 4. Ship checklist (tonight)
 
-- [x] Re-render with `--master` → `trancenwaltzi-MASTER-preBright.wav` (124 BPM, full redesign, 3:16)
-- [x] Brightening polish → `trancenwaltzi-MASTER.wav` = the **I=-15 final** (I=-14 alt kept for ref)
-- [ ] Confirm by ear: −1.2 dBTP ceiling, no clipping, clean fade-out ending, gong not harsh
+- [x] Engine render → `trancenwaltzi-MASTER-preBright.wav` (chill, accelerando 129→155, full night rebuild)
+- [x] Pure-sine cut → `trancenwaltzi-SINEONLY-raw.wav` (foreground layer)
+- [x] 3-stage master → `trancenwaltzi-MASTER.wav` (−14.1 LUFS / −1.5 dBTP / 2:49)
+- [ ] Confirm by ear: stamp audible, dips/scratch land, no clipping, 18 s fade clean
 - [ ] 320 k mp3 for CDN: `assets.aesthetic.computer/pop/trancenwaltzi.mp3`
 - [x] Cover 3000² jpg — **`~/Documents/Working Desktop/gens/trancenwaltzi-cover-3000.jpg`**
       (also mirrored to `~/Desktop/`). Source: outro illustration **v31**

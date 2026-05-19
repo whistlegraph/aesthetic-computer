@@ -40,7 +40,40 @@ import { homedir } from "node:os";
 import { playPercussion } from "../../system/public/aesthetic.computer/lib/percussion.mjs";
 import { mixEventSinePower as mixEventLeadPad } from "../../pop/dance/synths/sinepower.mjs";
 import { mixEventSupersaw } from "../../pop/dance/synths/supersaw.mjs";
-import { makeBufferSynth } from "../../pop/dance/synths/bus.mjs";
+import { makeBufferSynth as _makeBufferSynth } from "../../pop/dance/synths/bus.mjs";
+
+// Chill ONLY: every oscillator becomes a pure SINE — no saw / square /
+// triangle timbre anywhere (jas: "replace every wave type with sine",
+// "no more saw"). `noise` stays noise: it is air/percussion texture, not
+// an oscillator timbre, and sining it would erase the hats/kicks/risers.
+// ALSO snaps attacks short so the whole thing is PUNCHY (jas: "some
+// stuff just has too long attacks ... really shorten the attacks ...
+// make it all PUNCHY"): attack → min(attack*0.3, 50 ms) — ~3× snappier
+// across the board, capped so pads/swells still don't click.
+// Non-chill returns the untouched instance → trancenwaltz byte-identical.
+function makeBufferSynth(target, startSec, sr, rng) {
+  const inst = _makeBufferSynth(target, startSec, sr, rng);
+  if (typeof isChill === "undefined" || !isChill) return inst;
+  const _synth = inst.synth.bind(inst);
+  inst.synth = (opts) => {
+    if (opts) {
+      const needSine = opts.type && opts.type !== "noise" && opts.type !== "sine";
+      const needSnap = typeof opts.attack === "number" && opts.attack > 0.0005;
+      const needTail = typeof opts.decay === "number";
+      if (needSine || needSnap || needTail) {
+        opts = { ...opts };
+        if (needSine) opts.type = "sine";
+        // Softer, couch-like (jas: "lengthen the decay and attack on
+        // stuff a lil") — relax the hard snap (was *0.3 cap 50 ms) and
+        // give tails a little more time.
+        if (needSnap) opts.attack = Math.min(opts.attack * 0.65, 0.12);
+        if (needTail) opts.decay = opts.decay * 1.2;
+      }
+    }
+    return _synth(opts);
+  };
+  return inst;
+}
 import { applyWobble, applyBitcrush, applyFlange, softClip } from "../../pop/dance/synths/fx.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -295,14 +328,17 @@ const BPM         = Number(flags.bpm ?? (isChill ? 150 : 137.143));
 const SCALE_NAME  = flags.scale || "minor";
 // Chill sits a key lower (57→54, down a minor 3rd) — brings the whole
 // harmonic texture + the high tones down, in unison. --root overrides.
-const ROOT_MIDI   = Number(flags.root ?? (isChill ? 62 : 57)); // kawaii — bright/cute register
+const ROOT_MIDI   = Number(flags.root ?? (isChill ? 50 : 57)); // chill: an octave LOWER — darker, less ringy (jas)
 const SECTION     = flags.section || "full";
 const BARS_FLAG   = flags.bars !== undefined ? Number(flags.bars) : null;
 const SEED_STR    = flags.seed || (isWaltz ? "trancewaltz" : "trance");
-const DRUM_GAIN   = Number(flags["drum-gain"] ?? 0.95);
-const LEAD_GAIN   = Number(flags["lead-gain"] ?? 0.55);
-const PAD_GAIN    = Number(flags["pad-gain"]  ?? 0.30);
-const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.40 : 0.45)); // kawaii — light bass, not gothic
+// Chill: PERCUSSION-FORWARD, tones quieter — a harder NIN/industrial
+// balance (jas: "more percussion forward mix ... tones all quieter ...
+// more NIN friendly industrial"). Drums up, lead/pad well down.
+const DRUM_GAIN   = Number(flags["drum-gain"] ?? (isChill ? 1.30 : 0.95));
+const LEAD_GAIN   = Number(flags["lead-gain"] ?? (isChill ? 0.34 : 0.55));
+const PAD_GAIN    = Number(flags["pad-gain"]  ?? (isChill ? 0.18 : 0.30));
+const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.42 : 0.45)); // thwomp stays forward with the drums
 const SIDECHAIN   = flags.sidechain !== "off";
 const DUCK_DEPTH  = Number(flags["duck-depth"] ?? 0.65);
 const DUCK_MS     = Number(flags["duck-ms"] ?? 120);
@@ -326,7 +362,7 @@ const VOCAL_SECTION_GAIN = {
   outro:  0.0,   // musical ending — no vocal
 };
 const PIANO_GAIN  = Number(flags["piano-gain"] ?? 0.45);
-const BELLS_GAIN  = Number(flags["bells-gain"] ?? 0.32);
+const BELLS_GAIN  = Number(flags["bells-gain"] ?? (isChill ? 0.20 : 0.32)); // chill: tones quieter
 const STRUCT_PATH = expandHome(flags["struct-out"]) || null;
 const OUT_PATH    = expandHome(flags.out) || `${ROOT}/out/${isWaltz ? "trancewaltz" : "trance"}.mp3`;
 // --master → a streaming RELEASE cut (DistroKid/Spotify): restore the
@@ -414,12 +450,46 @@ const PROGRESSIONS_CHILL = [
   [0, 5, 2, 6], [0, 3, 5, 6], [0, 2, 5, 3], [0, 5, 3, 6],
   [0, 4, 5, 3], [0, 6, 3, 5], [0, 2, 3, 6], [0, 3, 6, 2],
 ];
-const CHORD_BARS_CHILL = 3;
+// Chords move EVERY bar in chill (was 3) — the held 3-bar chords on a
+// pure-sine pad just droned; per-bar changes give real melodic
+// MOVEMENT instead of a static ring (jas: "not enough melody changes
+// ... it seems to mostly drone ... more melodic MOVEMENTS").
+const CHORD_BARS_CHILL = 1;
+// ── SONATA-FORM ARCHITECTURE (chill only) ──────────────────────────
+// jas: "please architect that based on a sonata / structure classic."
+// Classical sonata-allegro mapped onto the track by bar fraction. The
+// perceptually defining features — a PRIMARY theme, a contrasting
+// SECONDARY theme a step away in key, a turbulent DEVELOPMENT that
+// fragments + modulates, then a RECAPITULATION that brings BOTH themes
+// home to the tonic, then a CODA — are expressed purely through the
+// harmonic controller (progression row + a diatonic key-degree offset).
+// Every pitched voice flows through scaleNoteMidi(chordDeg + …), so
+// returning `prog + keyDeg` from progressionAt() restructures pad,
+// bass, lead-harmony, gong and sub into the sonata in one chokepoint.
+// keyDeg is a SCALE-degree offset (scaleNoteMidi wraps it diatonically
+// & shifts octave) — no semitone-threading needed; +4 ≈ the dominant.
+function sonataAt(barIdx) {
+  const fr = TOTAL_BARS > 1 ? barIdx / (TOTAL_BARS - 1) : 0;
+  // section, progression-row index, diatonic key offset
+  if (fr < 0.14) return { sec: "expo-P",   prog: 0, keyDeg: 0 };  // primary, tonic
+  if (fr < 0.20) return { sec: "expo-Tr",  prog: 1, keyDeg: 2 };  // transition, rising
+  if (fr < 0.34) return { sec: "expo-S",   prog: 2, keyDeg: 4 };  // secondary, "dominant"
+  if (fr < 0.40) return { sec: "expo-K",   prog: 3, keyDeg: 4 };  // codetta, dominant
+  if (fr < 0.62) {                                                // DEVELOPMENT
+    const ph = Math.floor((fr - 0.40) / 0.22 * 6);                // 6 unstable phrases
+    const wander = [0, 2, 4, 1, 5, 3][Math.max(0, Math.min(5, ph))];
+    return { sec: "devel", prog: (ph + 1) % PROGRESSIONS_CHILL.length, keyDeg: wander };
+  }
+  if (fr < 0.76) return { sec: "recap-P",  prog: 0, keyDeg: 0 };  // primary home
+  if (fr < 0.80) return { sec: "recap-Tr", prog: 1, keyDeg: 0 };  // transition, no modulation
+  if (fr < 0.90) return { sec: "recap-S",  prog: 2, keyDeg: 0 };  // secondary RESOLVED in tonic
+  return { sec: "coda", prog: 3, keyDeg: 0 };                      // coda — settle
+}
 function progressionAt(barIdx) {
   if (isChill) {
+    const s = sonataAt(barIdx);
     const step = Math.floor(barIdx / CHORD_BARS_CHILL);
-    const prog = Math.floor(barIdx / (CHORD_BARS_CHILL * 4)) % PROGRESSIONS_CHILL.length;
-    return PROGRESSIONS_CHILL[prog][step % 4];
+    return PROGRESSIONS_CHILL[s.prog][step % 4] + s.keyDeg;
   }
   const progCycle = Math.floor(barIdx / (CHORD_BARS * 4)) % PROGRESSIONS.length;
   const progStep  = Math.floor((barIdx % (CHORD_BARS * 4)) / CHORD_BARS);
@@ -535,17 +605,14 @@ const barStartRel = []; // music-relative start of each bar
     const fr = TOTAL_BARS > 1 ? i / (TOTAL_BARS - 1) : 0;
     let bpmI;
     if (isChill) {
-      // ONE totalizing arc — tons of ENERGY up front, then slowing it
-      // all down the more it plays. Single monotonic DECELERANDO: starts
-      // fast and progressively (increasingly) winds down to the slow end.
-      // Front-loaded energy loss: drops FAST early so ~1/3 of the
-      // energy is gone by ~1/3 and it's well down by the halfway point
-      // — really losing energy across the WHOLE track, not just the end.
-      // PERFECT-LOOP tempo: symmetric raised-cosine U. bpm(0) == bpm(1)
-      // == FAST, trough = SLOW at the centre, so the end tempo matches
-      // the start tempo and the loop seam is continuous.
-      const FAST = 182, SLOW = 110;
-      bpmI = FAST - (FAST - SLOW) * (0.5 - 0.5 * Math.cos(2 * Math.PI * fr));
+      // The WHOLE track gradually SPEEDS UP over time — a monotonic
+      // dance-club accelerando (jas: "can the whole track speed up a
+      // bit more / over time"). The single ~3 s mid-track moment is a
+      // turntable SCRATCH applied in the audio domain (see the scratch
+      // pass before the raw write), NOT a bpm move — a bar is too
+      // coarse (~1.4 s) to scratch with per-bar tempo.
+      const START_BPM = 129, END_BPM = 155; // +5 over the whole track
+      bpmI = START_BPM + (END_BPM - START_BPM) * fr;
 
     } else {
       bpmI = BPM; // constant — trancenwaltz byte-identical
@@ -1180,12 +1247,26 @@ function fireChillArcBass(startSec, midi, durSec, grind) {
     }
   }
   if (smooth > 0.02) {
-    // smooth deep ocean sub — fades IN as the grind eases (chilled).
-    const wow = 1 + Math.sin(startSec * 2 * Math.PI * 0.7) * 0.012;
+    // GUITAR THUMP / THWOMP — a plucked, palm-muted low string, not a
+    // sustained ocean sub (jas: "more of a guitar thump thwomp bass").
+    // Fast pluck, SHORT percussive decay, a quick downward pitch
+    // "thwomp", and a short noisy finger-thud transient for the attack.
     const k = makeBufferSynth(bassBuf, startSec, SAMPLE_RATE, noiseRng);
-    k.synth({ type: "sine",     tone: freq * wow,       duration: durSec * 1.4, volume: g * 1.00 * smooth, attack: 0.02, decay: durSec * 1.1 });
-    k.synth({ type: "sine",     tone: freq * 0.5 * wow, duration: durSec * 1.5, volume: g * 0.80 * smooth, attack: 0.03, decay: durSec * 1.2 });
-    k.synth({ type: "triangle", tone: freq * wow,       duration: durSec * 1.1, volume: g * 0.28 * smooth, attack: 0.02, decay: durSec * 0.85 });
+    const body = Math.min(durSec * 0.55, 0.42);   // short — it thumps, not drones
+    // pitch-drop thwomp: start ~a tone sharp, fall to pitch within ~70 ms
+    const dropDur = 0.07;
+    const segs = 6;
+    for (let s = 0; s < segs; s++) {
+      const u = s / segs;
+      const bend = u < 1 ? Math.pow(1 - Math.min(1, (u * body) / dropDur), 2) : 0;
+      const pf = 1 + 0.06 * bend;                  // +~1 semitone glide down to pitch
+      const seg = makeBufferSynth(bassBuf, startSec + u * body, SAMPLE_RATE, noiseRng);
+      seg.synth({ type: "sine", tone: freq * pf,        duration: body * 0.22, volume: g * 1.05 * smooth, attack: 0.001, decay: body * 0.20 });
+      seg.synth({ type: "sine", tone: freq * 0.5 * pf,  duration: body * 0.22, volume: g * 0.70 * smooth, attack: 0.001, decay: body * 0.20 });
+    }
+    // finger/pick thud — short low noise transient = the "thwomp"
+    k.synth({ type: "noise", tone: 140, duration: 0.028, volume: g * 0.45 * smooth, attack: 0.0006, decay: 0.024 });
+    k.synth({ type: "sine",  tone: freq * 2, duration: 0.018, volume: g * 0.30 * smooth, attack: 0.0005, decay: 0.016 }); // pluck click
   }
 }
 
@@ -1603,6 +1684,17 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
             fireChillKick(dryBuf, kickT + c * 0.085, chordDeg, kickCount, accent * settleAmp * DRUM_GAIN * kickDist * kickGate * (0.7 / c), kickWall);
           }
         }
+        // Backbeat SNARE on beat 2 of the 3/4 bar (jas: "add snare") —
+        // noise crack + short tonal body, punchy (attack snapped by the
+        // chill wrapper). Rides the same distance/settle envelope.
+        if (beat === 1 && kickGate > 0.02) {
+          const snr = makeBufferSynth(dryBuf, kickT, SAMPLE_RATE, noiseRng);
+          const sg = 0.62 * settleAmp * DRUM_GAIN * kickGate * kickDist;
+          snr.synth({ type: "noise",    tone: 1900, duration: 0.13, volume: sg * 0.85, attack: 0.0005, decay: 0.11 });
+          snr.synth({ type: "noise",    tone: 320,  duration: 0.10, volume: sg * 0.40, attack: 0.0005, decay: 0.085 });
+          snr.synth({ type: "triangle", tone: 190,  duration: 0.09, volume: sg * 0.55, attack: 0.0006, decay: 0.075 });
+          events.kick.push({ t: kickT, kind: "snare" });
+        }
       } else {
         fireDrum(dryBuf, kickT, "c", { volume: accent * settleAmp * DRUM_GAIN });
       }
@@ -1638,9 +1730,14 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     const _hmt = barStart - OPENING_PREFIX_SEC;
     const HAT_ENTER = 30; // AFTER the 24s bass drop — bass comes in before hats
     const hatsArrived = !isChill || _hmt >= HAT_ENTER;
-    // Consistent: once they arrive, hats are just at full level (no slow
-    // distant-swell ramp — that "came in like shit").
-    const hatDistVol = 1;
+    // Ease the entrance: a SHORT raised-cosine fade-in over ~7 s after
+    // HAT_ENTER so they don't slam in (jas: "hats come in too
+    // abruptly") — but NOT the long distant swell (that "came in like
+    // shit"). Quick and smooth, then full.
+    const HAT_RAMP = 7;
+    const hatDistVol = !isChill
+      ? 1
+      : 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, (_hmt - HAT_ENTER) / HAT_RAMP)));
     for (let beat = 0; beat < METER; beat++) {
       if (!hatsArrived) continue;
       const startSec = barStart + (beat + 0.5) * beatSec + swingSec;
@@ -1814,7 +1911,10 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     if (cycle % 4 === 3) padNotes.push(scaleNoteMidi(chordDeg + 1, 1)); // 9th, higher octave
     for (const m of padNotes) {
       mixEventLeadPad(
-        { startSec: barStart, midi: m, gain: PAD_GAIN, durSec: barSec * 0.98 },
+        { startSec: barStart,
+          midi: m - (isChill ? 12 : 0),          // chill: an octave lower — was ringing/too high
+          gain: PAD_GAIN,
+          durSec: barSec * (isChill ? 0.55 : 0.98) }, // chill: re-articulates, doesn't drone
         duckBuf,
         { preset: "pad", sampleRate: SAMPLE_RATE, seed: `pad:${bar}:${m}` }
       );
@@ -1927,7 +2027,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       const skipOffset = skipBar && s % 3 === 2 ? skipDelay : 0;
       // Humanize lead — ±11 ms feels expressive without losing the line.
       // Chill rides the swing pocket too, so the line lays back with the groove.
-      const startSec = humanize(barStart + s * noteSec + skipOffset + swingSec, 11);
+      const startSec = humanize(barStart + s * noteSec + skipOffset + swingSec + (isChill ? 0.022 : 0), 11); // laid-back pocket
       // Chill: drop the lead an OCTAVE (it sat too high) and use the
       // warm PAD voice instead of the bright plucky "lead" timbre the
       // user disliked.
@@ -1965,7 +2065,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     const step = barSec / strokes;
     const g = 0.16;
     for (let nb = 0; nb < strokes; nb++) {
-      const t0 = barStart + nb * step;
+      const t0 = barStart + nb * step + (isChill ? 0.022 : 0); // laid-back human pocket (behind the grid)
       // nearest chord tone to the last note (the "bounce")
       let target = scaleNoteMidi(chordDeg, 1);
       if (bunnyPrevMidi != null) {
@@ -3252,6 +3352,79 @@ if (!isChill) {
   console.log(`  tape-stop · unified one-clock slowdown last ${TAIL_BUFSEC}s (1.0× → ${END_PITCH}×)`);
 }
 
+if (isChill) {
+  // Bit-CRUNCH some tracks at times (jas: "bit crunch ... of some
+  // tracks at times") — NOT a global constant crush. The pad bus gets
+  // a gritty lo-fi crush that deepens through the unstable sonata
+  // DEVELOPMENT, and the drum/lead bus gets short crunch STABS on a
+  // ~12 s pulse. Deterministic, chill only.
+  const bsec = (fr) =>
+    (barStartRel[Math.max(0, Math.min(TOTAL_BARS, Math.round(fr * TOTAL_BARS)))] ?? 0) +
+    OPENING_PREFIX_SEC;
+  applyBitcrush(duckBuf, {
+    sampleRate: SAMPLE_RATE, startSec: bsec(0.40), endSec: bsec(0.62),
+    bits: [{ time: 0, bits: 9 }, { time: 0.5, bits: 5 }, { time: 1, bits: 9 }],
+    downsample: [{ time: 0, downsample: 1 }, { time: 0.5, downsample: 3 }, { time: 1, downsample: 1 }],
+    mix: 0.5,
+  });
+  // PERC GLITCH ENGINE — break/glitch the drum bus SOMETIMES (jas:
+  // "sometimes take bit crunching off the perc ... pitch it down ...
+  // stretch it at times ... BReeeeeaaaakkk it glitch the perc
+  // sometimes"). Deterministic: a ~5 s grid where most slots stay
+  // CLEAN and the rest fire one gesture — crush / stutter-roll /
+  // pitch-down+stretch / reverse-tear. dryBuf only, length-preserving.
+  const gRng = makeRng(SEED_STR + ":perc-glitch");
+  const SRg = SAMPLE_RATE;
+  const clampG = (a) => Math.max(0, Math.min(dryBuf.length, Math.floor(a)));
+  const grainGlitch = (s0, s1, kind, pdRate) => {
+    s0 = clampG(s0); s1 = clampG(s1);
+    const N = s1 - s0;
+    if (N < 128) return;
+    const src = dryBuf.slice(s0, s1);
+    if (kind === "stutter") {
+      const reps = 4 + Math.floor(gRng() * 5);
+      const g = Math.max(256, Math.floor(N / reps));
+      for (let i = 0; i < N; i++) {
+        const blk = Math.floor(i / g);
+        const decay = Math.max(0, 1 - 0.22 * blk);
+        dryBuf[s0 + i] = src[i % g] * decay;
+      }
+    } else if (kind === "pitchdown") {
+      let p = 0;
+      for (let i = 0; i < N; i++) {
+        const i0 = Math.floor(p), fr = p - i0;
+        const a = src[Math.min(N - 1, i0)], b = src[Math.min(N - 1, i0 + 1)];
+        dryBuf[s0 + i] = a + (b - a) * fr;
+        p += pdRate;
+        if (p >= N - 1) p = (N - 1) * 0.5; // wrap = time-stretch tail
+      }
+    } else { // reverse-tear: alternate blocks play backwards
+      const g = Math.max(256, Math.floor(N / 3));
+      for (let i = 0; i < N; i++) {
+        const blk = Math.floor(i / g), gi = i % g;
+        dryBuf[s0 + i] = blk % 2 === 0 ? src[Math.min(N - 1, blk * g + (g - 1 - gi))] : src[i];
+      }
+    }
+    const fz = Math.min(256, Math.floor(N / 8));
+    for (let i = 0; i < fz; i++) { const f = i / fz; dryBuf[s0 + i] *= f; dryBuf[s1 - 1 - i] *= f; }
+  };
+  for (let ts = 12; ts < musicSec - 4; ts += 5) {
+    if (gRng() < 0.45) continue;                       // SOMETIMES clean — perc untouched
+    const winSec = 0.5 + gRng() * 1.2;                  // 0.5–1.7 s gesture
+    const s0 = ts * SRg, s1 = (ts + winSec) * SRg;
+    const pick = gRng();
+    if (pick < 0.30) {
+      applyBitcrush(dryBuf, { sampleRate: SRg, startSec: ts, endSec: ts + winSec, bits: 5, downsample: 3, mix: 0.6 });
+    } else if (pick < 0.58) {
+      grainGlitch(s0, s1, "stutter");
+    } else if (pick < 0.82) {
+      grainGlitch(s0, s1, "pitchdown", 0.5 + gRng() * 0.25); // 0.5–0.75× = down + stretch
+    } else {
+      grainGlitch(s0, s1, "reverse");
+    }
+  }
+}
+
 // ── sum buses (with dynamic envelope applied to the BED only — the
 // machine-gun bus stays loud regardless of section level, and is
 // added in AFTER the per-section fx loop so wobble/bitcrush don't
@@ -3772,6 +3945,7 @@ const rawPath = `${outDir}/.trance-${SEED_STR}.f32.raw`;
 // High-pitched "aesthetic dot computer" branding ID dropped mid-track
 // (~13 s, just after the music enters). Deterministic seed → re-cutting
 // --master reproduces the exact same take with just this added.
+let centerStampData = null; // chill: stashed here, overlaid CLEAN post-scratch
 if (RELEASE_MASTER) {
   const STAMP_PATH = `${REPO}/pop/dance/out/.ac-dot-stamp-vocal.mp3`;
   if (existsSync(STAMP_PATH)) {
@@ -3804,6 +3978,16 @@ if (RELEASE_MASTER) {
         if (i < fadeS) fade = i / fadeS;
         else if (i > outLen - fadeS) fade = Math.max(0, (outLen - i) / fadeS);
         out[j] += s * norm * GAIN * fade;
+      }
+      // Chill: a SECOND "aesthetic dot computer" stamp goes dead centre
+      // — over the scratch but NOT scratched (jas: "should not be
+      // scratched ... but overlay over the scratch"). So instead of
+      // mixing it into out[] (which the scratch pass would mangle), the
+      // decoded vocal is stashed here and overlaid CLEAN onto the
+      // stereo buffer AFTER the scratch pass.
+      if (isChill) {
+        centerStampData = { st: Float32Array.from(st), norm };
+        console.log(`  stamp · centre "aesthetic dot computer" (clean overlay, post-scratch)`);
       }
       try { unlinkSync(tmpStamp); } catch {}
       console.log(`  stamp · "aesthetic dot computer" (${isChill ? "stretched slow+low" : "high-pitched"}) at ${STAMP_SEC}s`);
@@ -3845,7 +4029,7 @@ if (isChill) {
       // whole track sits inside a real room/space.
       const ai = i % ambientBuf.length;
       const und = 0.78 + 0.22 * Math.sin((i / SR) * 2 * Math.PI * 0.05);
-      const ag = 0.15 * und; // quieter bed — was a broadband mud source
+      const ag = 0.09 * und; // tones quieter — field bed well back behind the percussion
       L += ambientBuf[ai] * ag;
       R += ambientBuf[(ai + 240) % ambientBuf.length] * ag; // ~5 ms offset = width
     }
@@ -3909,6 +4093,90 @@ if (STEREO) {
     buf.writeFloatLE(R * amp, i * 8 + 4);
   }
 }
+if (STEREO && isChill) {
+  // ── 3 s HIP-HOP TURNTABLE SCRATCH (dead centre) ──────────────────
+  // jas: the mid-track moment should be "like a scratch hip hop
+  // scratch". A bar (~1.4 s) is too coarse for the bpm curve to
+  // scratch, so it's done in the audio domain: re-read the centre
+  // window with a zig-zag (forward/back) playback pointer + a
+  // crossfader chop that ducks the backward strokes. Endpoints stay
+  // sample-aligned (env=0 at both edges → pos==k) so the rest of the
+  // track is untouched and the length is unchanged.
+  // GNARLY: deep accelerating RIPs that spiral in, each snapped back
+  // with a fast TEAR, on a beat-snapped grid, with a transformer chop
+  // on the rips (jas: "more gnarly more spiraly more DEEP RIP and back
+  // ... rip tear repeat beat snapped scratchin"). Endpoints stay
+  // sample-aligned (env→0 at edges) so the track length/continuity
+  // around the window is unchanged.
+  const SRr = SAMPLE_RATE, frames = out.length;
+  const winN = Math.min(Math.floor(3.0 * SRr), frames - 2);
+  const w0 = Math.max(0, Math.floor(frames / 2) - Math.floor(winN / 2));
+  const guard = Math.floor(1.0 * SRr);
+  const g0 = Math.max(0, w0 - guard);
+  const g1 = Math.min(frames, w0 + winN + guard);
+  const N = g1 - g0;
+  const sl = new Float32Array(N), sr = new Float32Array(N);
+  for (let k = 0; k < N; k++) {
+    sl[k] = buf.readFloatLE((g0 + k) * 8);
+    sr[k] = buf.readFloatLE((g0 + k) * 8 + 4);
+  }
+  const STROKES = 9;                 // rip-tear strokes on a beat-snapped grid
+  const strokeLen = winN / STROKES;
+  const A = 0.62 * SRr;              // DEEP platter throw (samples)
+  const baseOff = w0 - g0;
+  for (let k = 0; k < winN; k++) {
+    const tau = k / winN;                                 // 0..1
+    const env = 0.5 - 0.5 * Math.cos(2 * Math.PI * tau);   // 0→1→0 ease
+    const s = Math.floor(k / strokeLen);                   // stroke index
+    const u = (k - s * strokeLen) / strokeLen;             // 0..1 in stroke
+    // RIP (first 70 %): accelerating dive forward — spiral.
+    // TEAR (last 30 %): fast snap back.
+    let exc;
+    if (u < 0.7) exc = Math.pow(u / 0.7, 1.8);
+    else { const tu = (u - 0.7) / 0.3; exc = (1 - tu) * (1 - tu); }
+    const deepen = 0.45 + 0.55 * env;                      // deepest mid-window
+    const dir = (s % 2 === 0) ? 1 : 0.62;                  // alternate depth
+    const drift = 0.18 * SRr * Math.sin(Math.PI * tau);    // travel out & back
+    let srcF = baseOff + k + drift + A * exc * deepen * dir * env;
+    if (srcF < 0) srcF = 0; else if (srcF > N - 2) srcF = N - 2; // stay in snapshot
+    const i0 = Math.floor(srcF), frc = srcF - i0;
+    const L = sl[i0] * (1 - frc) + sl[i0 + 1] * frc;
+    const R = sr[i0] * (1 - frc) + sr[i0 + 1] * frc;
+    // Crossfader: open on the RIP with a fast transformer chop
+    // (snapped), hard-ducked on the TEAR back — gnarly articulation.
+    let chop;
+    if (u < 0.7) {
+      const trans = Math.sin(2 * Math.PI * (k / SRr) * 41) > -0.25 ? 1 : 0.35;
+      chop = 0.58 + 0.42 * trans;
+    } else chop = 0.16;                                    // tear = cut
+    const gmix = (1 - env) + env * chop;                   // only inside window
+    buf.writeFloatLE(L * gmix, (w0 + k) * 8);
+    buf.writeFloatLE(R * gmix, (w0 + k) * 8 + 4);
+  }
+}
+if (STEREO && isChill && centerStampData) {
+  // CLEAN "aesthetic dot computer" overlay — sits dead-centre, ON TOP
+  // of the (already-scratched) music, NOT scratched itself. Equal
+  // L/R (centred), near-natural pitch, hearable above the chop.
+  const { st, norm } = centerStampData;
+  const PITCH2 = 0.92, GAIN2 = 0.62;
+  const SRr = SAMPLE_RATE;
+  const outLen2 = Math.floor(st.length / PITCH2);
+  const fadeS = Math.floor(0.03 * SRr);
+  const startIdx2 = Math.floor(out.length / 2) - Math.floor(outLen2 / 2);
+  for (let i = 0; i < outLen2; i++) {
+    const j = startIdx2 + i;
+    if (j < 0 || j >= out.length) continue;
+    const s2 = (st[Math.floor(i * PITCH2)] || 0) * norm * GAIN2;
+    let f2 = 1;
+    if (i < fadeS) f2 = i / fadeS;
+    else if (i > outLen2 - fadeS) f2 = Math.max(0, (outLen2 - i) / fadeS);
+    const add = s2 * f2;
+    buf.writeFloatLE(buf.readFloatLE(j * 8) + add, j * 8);
+    buf.writeFloatLE(buf.readFloatLE(j * 8 + 4) + add, j * 8 + 4);
+  }
+  console.log(`  stamp · centre overlay clean over the scratch at ~${(out.length / 2 / SAMPLE_RATE).toFixed(1)}s`);
+}
 writeFileSync(rawPath, buf);
 
 // Mono f32 → stereo mp3 with:
@@ -3945,17 +4213,26 @@ const wetEnv =
 // wet, narrow image. The master is also eased for the quiet bed
 // (gentler glue compression, softer loudness) so nothing is squashed.
 const reverbDefs = isChill
-  ? `[0:a]aecho=0.55:0.45:7|13|23|37:0.16|0.11|0.07|0.045,pan=stereo|c0=0.55*c0|c1=0.45*c0,volume='${wetEnv}':eval=frame[wet1];` +
-    `[0:a]aecho=0.5:0.4:11|29:0.09|0.05,pan=stereo|c0=0.45*c0|c1=0.55*c0,volume='${wetEnv}':eval=frame[wet2];`
+  // DRY + SPREAD: the old short 7–37 ms taps comb-filtered the
+  // sustained pure sines into a fixed metallic RING and smushed the
+  // space (jas: "definitely the reverb on the pads ... too heavy ...
+  // more spread out ... less SMUSHSHED ... more walloped"). Now:
+  // long, sparse, distinct echoes (>50 ms — no comb ring) thrown HARD
+  // L / hard R for width, at a fraction of the wet level so it stays
+  // dry and punchy.
+  ? `[0:a]aecho=0.5:0.35:67|151|241:0.10|0.055|0.03,pan=stereo|c0=0.92*c0|c1=0.08*c0,volume='${wetEnv}':eval=frame[wet1];` +
+    `[0:a]aecho=0.5:0.35:97|193:0.075|0.04,pan=stereo|c0=0.08*c0|c1=0.92*c0,volume='${wetEnv}':eval=frame[wet2];`
   : `[0:a]aecho=0.85:0.85:60|140|260|480|820:0.40|0.27|0.18|0.11|0.06,pan=stereo|c0=0.35*c0|c1=0.65*c0,volume='${wetEnv}':eval=frame[wet1];` +
     `[0:a]aecho=0.85:0.85:90|200|360|620:0.30|0.20|0.13|0.08,pan=stereo|c0=0.65*c0|c1=0.35*c0,volume='${wetEnv}':eval=frame[wet2];`;
-const wetWeights = isChill ? "1 0.12 0.07" : "1 0.28 0.28";
+const wetWeights = isChill ? "1 0.05 0.035" : "1 0.28 0.28";
 const stereoStage = isChill ? "extrastereo=m=1.05:c=true," : "extrastereo=m=1.5:c=true,";
 const compStage = isChill
-  ? "acompressor=threshold=-18dB:ratio=1.4:attack=30:release=320:makeup=1:knee=6,"
+  // very light glue only — let the natural dynamics breathe, then a
+  // gentle recompress (high threshold, ~1.25:1, soft knee).
+  ? "acompressor=threshold=-24dB:ratio=1.25:attack=40:release=400:makeup=1:knee=8,"
   : "acompressor=threshold=-14dB:ratio=1.8:attack=18:release=200:makeup=1:knee=4,";
 const loudStage = isChill
-  ? "loudnorm=I=-19:TP=-1.5:LRA=22[out]"
+  ? "loudnorm=I=-22:TP=-2:LRA=26[out]" // quiet + wide — natural loudness shines
   : "loudnorm=I=-15:TP=-1.5:LRA=20[out]";
 
 const filter =
@@ -3977,7 +4254,7 @@ const filter =
   // --master keeps its 1.6 s musical fade; others = ~6 ms declick.
   (isChill
     ? "afade=t=in:st=0.4:d=2.0," +
-      `afade=t=out:st=${(totalSec - 6).toFixed(3)}:d=6,`
+      `afade=t=out:st=${(totalSec - 10).toFixed(3)}:d=10,`
     : (RELEASE_MASTER
       ? "afade=t=in:st=0:d=0.15," +
         `afade=t=out:st=${(totalSec - 1.6).toFixed(3)}:d=1.6,`
@@ -3998,7 +4275,11 @@ const filter =
   // Brick-wall safety limiter — mid-ceiling so the limiter isn't
   // working hard but still catches stray peaks. 0.94 was clipping
   // the loudnorm chain into pumping; 0.88 is the sweet spot.
-  "alimiter=limit=0.88:attack=5:release=50:level=disabled," +
+  // Chill: near-transparent safety ceiling (barely catches peaks) so
+  // natural dynamics shine; non-chill keeps the working 0.88 limiter.
+  (isChill
+    ? "alimiter=limit=0.97:attack=8:release=80:level=disabled,"
+    : "alimiter=limit=0.88:attack=5:release=50:level=disabled,") +
   // Loudness target — back to -15 LUFS (was -13 which was forcing
   // the limiter and acompressor to overdrive into pump). LRA=20 keeps
   // the new wider dynamic arc.
