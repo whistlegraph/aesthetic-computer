@@ -68,23 +68,23 @@
         background: var(--paper);
         color: var(--ink);
         font-family: var(--sans);
-        font-size: 16px;
+        font-size: 19px;
         font-weight: 400;
-        line-height: 1.55;
+        line-height: 1.6;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
         min-height: 100vh;
         overflow-x: hidden;
       }
 
-      /* Tiny tracked label */
+      /* Tracked label — bumped for accessibility */
       .label {
         font-family: var(--sans);
-        font-size: 10.5px;
+        font-size: 13px;
         font-weight: 600;
         letter-spacing: var(--label-track);
         text-transform: uppercase;
-        color: var(--ink-quiet);
+        color: var(--ink-soft);
         line-height: 1.2;
       }
       .label.over-video { color: rgba(236, 226, 205, 0.85); }
@@ -128,20 +128,20 @@
       .topbar .mark-mini svg { width: 100%; height: 100%; display: block; }
       .topbar .name-mini {
         font-family: var(--sans);
-        font-size: 10.5px;
+        font-size: 13px;
         font-weight: 600;
         letter-spacing: var(--label-track);
         text-transform: uppercase;
         white-space: nowrap;
       }
-      .topbar nav.minor { justify-self: end; display: flex; gap: 22px; }
+      .topbar nav.minor { justify-self: end; display: flex; gap: 26px; }
       .topbar nav.minor a {
         font-family: var(--sans);
-        font-size: 10.5px;
+        font-size: 13px;
         font-weight: 500;
         letter-spacing: var(--label-track-tight);
         text-transform: uppercase;
-        color: rgba(236, 226, 205, 0.85);
+        color: rgba(236, 226, 205, 0.92);
         text-decoration: none;
         white-space: nowrap;
       }
@@ -161,22 +161,28 @@
         overflow: hidden;
         isolation: isolate;
       }
+      /* Video is FIXED to viewport so content scrolls over it.
+         Subsequent sections have solid backgrounds that cover the video
+         as the page scrolls. */
       .hero .bg {
-        position: absolute;
+        position: fixed;
         inset: 0;
         z-index: -2;
         overflow: hidden;
+        pointer-events: none;
       }
       .hero .bg video,
       .hero .bg .poster {
         position: absolute;
-        inset: -3%;   /* overscan so the blur edge doesn't show */
+        inset: -3%;
         width: 106%;
         height: 106%;
         object-fit: cover;
-        filter: blur(6px) saturate(0.85) brightness(0.92);
+        filter: blur(6px) saturate(0.85) brightness(0.9);
         transform: scale(1.06);
       }
+      /* Scrim stays scoped to the hero (absolute) so it doesn't darken
+         the cream sections below. */
       .hero .scrim {
         position: absolute;
         inset: 0;
@@ -185,7 +191,7 @@
           linear-gradient(
             180deg,
             rgba(20, 17, 11, 0.55) 0%,
-            rgba(20, 17, 11, 0.36) 40%,
+            rgba(20, 17, 11, 0.30) 40%,
             rgba(20, 17, 11, 0.72) 100%
           ),
           radial-gradient(
@@ -236,26 +242,28 @@
       }
       .hero .wordmark .b { font-weight: 500; }
       .hero .descriptors {
-        font-family: var(--sans);
-        font-size: clamp(11px, 1vw, 12.5px);
-        font-weight: 500;
-        letter-spacing: var(--label-track);
-        text-transform: uppercase;
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: clamp(22px, 2.4vw, 32px);
+        font-weight: 400;
+        letter-spacing: 0;
         color: var(--paper-veil);
         margin: 0;
         display: flex;
         flex-wrap: wrap;
-        gap: 0;
+        row-gap: 6px;
+        column-gap: 0;
+        line-height: 1.4;
       }
       .hero .descriptors .item {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding-right: 22px;
+        gap: 14px;
+        padding-right: 30px;
       }
       .hero .descriptors .item::before {
         content: "";
-        width: 8px; height: 8px;
+        width: 12px; height: 12px;
         background: var(--swatch, var(--paper-veil));
         border-radius: 50%;
         display: inline-block;
@@ -328,20 +336,21 @@
         letter-spacing: -0.005em;
       }
       .exhibition-meta .credit {
-        font-family: var(--sans);
-        font-size: 14.5px;
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 19px;
         color: var(--ink-soft);
         margin: 0;
         max-width: 30ch;
         line-height: 1.55;
       }
       .exhibition-meta .museum-label {
-        margin-top: 10px;
+        margin-top: 14px;
         font-family: var(--sans);
-        font-size: 10.5px;
+        font-size: 12.5px;
         letter-spacing: var(--label-track-tight);
         text-transform: uppercase;
-        color: var(--ink-quiet);
+        color: var(--ink-soft);
         line-height: 1.7;
       }
       .exhibition-meta .museum-label strong {
@@ -498,17 +507,17 @@
       .door h2 .b { font-weight: 500; }
       .door .sub {
         font-family: var(--sans);
-        font-size: 10.5px;
+        font-size: 13px;
         font-weight: 600;
         letter-spacing: var(--label-track-tight);
         text-transform: uppercase;
         color: var(--door-color);
         margin: 0;
-        opacity: 0.92;
+        opacity: 0.95;
       }
       .door .body {
         font-family: var(--sans);
-        font-size: 15.5px;
+        font-size: 18px;
         line-height: 1.55;
         color: var(--ink-soft);
         margin: 0;
@@ -517,12 +526,12 @@
       }
       .door .credit {
         font-family: var(--sans);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 500;
         letter-spacing: var(--label-track-tight);
         text-transform: uppercase;
-        color: var(--ink-faint);
-        margin-top: 18px;
+        color: var(--ink-quiet);
+        margin-top: 22px;
       }
       /* Door-specific accent variables */
       .door.clinical    { --door-color: var(--c-clinical); }
@@ -552,30 +561,35 @@
       .cta {
         font-family: var(--serif);
         font-style: italic;
-        font-size: 19px;
+        font-size: 22px;
         font-weight: 400;
         text-decoration: none;
-        color: var(--ink);
-        padding: 14px 26px;
+        padding: 14px 30px;
         background: transparent;
-        border: 1px solid var(--ink);
         border-radius: 999px;
         transition: background 200ms ease, color 200ms ease, border-color 200ms ease;
       }
-      .cta:hover, .cta:focus-visible {
+      /* Clinical-tinted (teal) by default for waitlist */
+      .cta.clinical {
+        color: var(--c-clinical);
+        border: 1px solid color-mix(in srgb, var(--c-clinical) 55%, transparent);
+      }
+      .cta.clinical:hover, .cta.clinical:focus-visible {
         background: var(--c-clinical);
         color: var(--paper);
         border-color: var(--c-clinical);
         outline: none;
       }
-      .cta.quiet {
-        color: var(--ink-soft);
-        border-color: var(--rule);
+      /* Education-tinted (ochre) for membership */
+      .cta.education {
+        color: var(--c-education);
+        border: 1px solid color-mix(in srgb, var(--c-education) 55%, transparent);
       }
-      .cta.quiet:hover, .cta.quiet:focus-visible {
+      .cta.education:hover, .cta.education:focus-visible {
         background: var(--c-education);
         color: var(--paper);
         border-color: var(--c-education);
+        outline: none;
       }
 
       /* === Colophon === */
@@ -591,8 +605,8 @@
         gap: clamp(24px, 4vw, 90px);
         align-items: start;
         font-family: var(--sans);
-        font-size: 13px;
-        color: var(--ink-quiet);
+        font-size: 16px;
+        color: var(--ink-soft);
         line-height: 1.6;
       }
       .colophon p { margin: 0; max-width: 56ch; }
@@ -667,12 +681,9 @@
       </div>
       <div class="scrim" aria-hidden="true"></div>
 
-      <div class="topline">
-        <span class="pill">An Institute</span>
-      </div>
+      <div class="topline" aria-hidden="true"></div>
 
       <div class="wordmark-wrap">
-        <h1 class="wordmark">The <span class="b">Resilience</span><br/>Institute</h1>
         <p class="descriptors">
           <span class="item" style="--swatch: var(--c-clinical)">Clinical Care</span>
           <span class="item" style="--swatch: var(--c-arts)">Therapeutic Arts</span>
@@ -682,7 +693,6 @@
 
       <div class="hero-foot">
         <span class="ornament" aria-hidden="true">❋</span>
-        <p class="right-col">An institute for the body, the soul, and the long study of human healing.</p>
       </div>
     </section>
 
@@ -784,8 +794,8 @@
       <div class="ctas">
         <span class="label">Begin</span>
         <div class="ctas-actions">
-          <a class="cta" href="#clinical-care">Join the Clinical Waitlist</a>
-          <a class="cta quiet" href="#education">Explore Membership</a>
+          <a class="cta clinical" href="#clinical-care">Join the Clinical Waitlist</a>
+          <a class="cta education" href="#education">Explore Membership</a>
         </div>
       </div>
     </section>
@@ -794,9 +804,7 @@
       <div class="colophon">
         <span class="label">Colophon</span>
         <p>
-          A rebuild of <a href="https://resilientminds.health">Resilient Minds</a>.
-          Set in Garamond and Arial. Made on
-          <a href="https://aesthetic.computer">aesthetic.computer</a>.
+          Set in Garamond and Arial.
         </p>
       </div>
     </footer>
