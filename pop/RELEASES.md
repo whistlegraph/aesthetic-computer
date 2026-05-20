@@ -79,6 +79,159 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   `~/Documents/Working Desktop/gens/ac-header/` (jeffrey refs +
   whistlegraph-butterfly.png + pals-logo.png), gen v6.
 
+## amazing grace — WIP (1:24 verse-1 single, cool-sine arrangement)
+
+- **Lane:** `pop/big-pictures/` · 70 BPM · 3/4 hymn-pace · G major
+  pentatonic · jeffrey-pvc sung lead, **cooler sine instrumentation**
+  layered over the existing sinebells waltz bed + pad. The "New
+  Britain" tune (William Walker, 1835), **verse 1 only** as a focused
+  single. **1:24 / 84 s** total: ~12 s cool-sine intro pad → verse 1
+  vocal (≈58 s) → ~14 s sine outro fade.
+- **Status (2026-05-20):** 1:24 master + brightened mp3 done. Vertical
+  IG cut rendered with placeholder rooftop illys. **Scene direction
+  pivoted** to a small old church sanctuary, jeffrey in a pew with his
+  green Neo open on his lap, singing while playing the notepat
+  on-screen piano, congregation in pews around him. Prompts updated
+  but illy regen is **BLOCKED** — OpenAI billing hard-limit was hit
+  mid-set (verses 1–6 + the deprecated rooftop scene rendered, verse 7
+  + cover failed).
+- **Master:** `~/Documents/Working Desktop/amazing-grace/amazing-grace-MASTER.wav`
+  (16-bit/44.1 kHz stereo, **84.00 s / 1:24**). Pre-bright copy at
+  `amazing-grace-MASTER-preBright.wav`. 320 k mp3 +
+  3000² cover embedded: `amazing-grace/amazing-grace.mp3` (4.6 MB).
+  Mirrored to `~/Desktop/amazing-grace.mp3` +
+  `~/Desktop/amazing-grace-MASTER.wav`. Desktop copies auto-clean
+  ([[feedback_desktop_autocleaned]]) — the
+  `~/Documents/Working Desktop/amazing-grace/` copy is durable.
+- **Bake recipe (deterministic, byte-faithful):**
+  1. `pop/big-pictures/amazing.np` and `amazing.txt` hold the **verse-1
+     edit** (full 7-verse hymn preserved in `amazing.np.bak-7verse` /
+     `amazing.txt.bak-7verse`).
+  2. `node pop/big-pictures/cli.mjs amazing --force` (engine: jeffrey-pvc
+     TTS → ElevenLabs `/with-timestamps` align → score-pitch WORLD f0
+     replacement → score-stretch rubberband 8× ceiling, +60 ms onset →
+     melody-bells pad → waltz.mjs sinebells bed → amix vox 2.5 / pad
+     0.55 / bed 0.20 → ac signoff stamp → finalize ID3+cover) →
+     `pop/big-pictures/out/amazing-final.mp3` (≈58 s).
+  3. `node pop/big-pictures/bin/cool-sine-layer.mjs --bpm 70 --duration 84
+     --out /tmp/amazing-cool-sine.wav` (three-voice all-sine layer: sub
+     bass an octave below the chord root with chorus detune, 3-osc sine
+     pad on root/5/oct with 0.18 Hz LFO + wide stereo, two-octave-up
+     sparkle bell triggered on each chord downbeat between t=14..t=68,
+     soft tanh saturation + peak-normalize -3 dB).
+  4. Mix: `ffmpeg -i amazing-cool-sine.wav -i amazing-final.mp3
+     -filter_complex "[1:a]adelay=12000|12000,apad=pad_dur=12,volume=1.4[v];
+     [0:a]volume=0.9[c];[v][c]amix=inputs=2:duration=longest:normalize=0,
+     atrim=duration=84,afade=t=out:st=82:d=2"` → 1:24 pre-bright master.
+  5. Bright polish: `equalizer=f=190:g=-1, equalizer=f=4200:g=2.2,
+     highshelf=f=8500:g=4, highshelf=f=12500:g=1.8,
+     loudnorm=I=-14:TP=-1.2:LRA=13` → final master.
+- **Cover (PENDING re-gen — billing limit):** the **planned** scene is
+  a small old church sanctuary, late-afternoon honey light through
+  stained glass, jeffrey in a pew with the chartreuse Neo open across
+  his lap (whistlegraph-butterfly white-paper scrap on the lid),
+  singing while pressing the on-screen notepat piano keys, AC freaks +
+  pixsies in pews around him. Prompts at
+  `~/Documents/Working Desktop/gens/amazing-grace-sections/{verse1..7,cover}/cover-prompt.txt`
+  (church direction; rooftop-hymn-circle previous versions backed up
+  alongside). Generator: `pop/big-pictures/bin/gen-amazing-prompts.mjs`
+  + `pop/big-pictures/bin/gen-amazing-illys.sh`. The **placeholder**
+  cover (rooftop verse6 square crop → 3000²) is currently at
+  `~/Desktop/amazing-grace-cover-3000.jpg` and embedded in the
+  release mp3. **Regen the church cover once OpenAI credits are topped
+  up.**
+- **Vertical IG cut:** 1080×1920, **1:24**, slow ken-burns drift
+  across two placeholder illys (verse1 golden-hour rooftop → 6 s
+  xfade → verse6 dusk rooftop), title PNG fades in over 0–3 s. Output:
+  `~/Desktop/amazing-grace-vertical.mp4` (15 MB). brew ffmpeg 8.1 here
+  ships **without libass/drawtext/subtitles filters** — title is
+  pre-rendered via ImageMagick + overlay; lyric subtitles deferred to
+  a follow-up pass (install a libass-enabled ffmpeg or render subtitle
+  PNG sequence). **Re-render** the IG once the church illys land.
+- **Source files (in repo):**
+  - lyrics (verse 1 single) — `pop/big-pictures/amazing.txt` ·
+    backup of 7-verse hymn at `amazing.txt.bak-7verse`
+  - score (verse 1 single) — `pop/big-pictures/amazing.np` · backup
+    of 7-verse hymn at `amazing.np.bak-7verse`
+  - prompts (church scene) —
+    `pop/big-pictures/bin/gen-amazing-prompts.mjs`
+  - illys launcher — `pop/big-pictures/bin/gen-amazing-illys.sh`
+  - cool-sine layer — `pop/big-pictures/bin/cool-sine-layer.mjs`
+  - vertical IG renderer — `pop/big-pictures/bin/vertical-amazing.mjs`
+- **Next (outward — manual / your call):**
+  1. Top up OpenAI credits, then
+     `bash pop/big-pictures/bin/gen-amazing-illys.sh v2` to regen the
+     full church scene set (verses 1–7 + cover) with the updated
+     prompts.
+  2. After church illys land: re-crop verse1 (church hero) → 3000²
+     cover via `bash pop/big-pictures/bin/finalize-amazing-cover.sh v2`
+     and re-render the vertical IG via
+     `node pop/big-pictures/bin/vertical-amazing.mjs`.
+  3. Stage `system/public/assets/pop/amazing-grace.mp3` +
+     `amazing-grace.jpg` + `amazing-grace-canvas.mp4`,
+     `npm run assets:sync:up`, then `doctl compute cdn flush
+     2ff25b29-db80-48e6-888e-eb8a2464d69b --files pop/amazing-grace.mp3
+     --files pop/amazing-grace.jpg --files pop/amazing-grace-canvas.mp4`
+     ([[project_cdn_overwrite_stale]]).
+  4. DistroKid upload: `~/Desktop/amazing-grace-MASTER.wav` + cover
+     `~/Desktop/amazing-grace-cover-3000.jpg`, artist **Aesthetic Dot
+     Computer**, album **pixsies**, title **amazing grace**, writer
+     credit **John Newton (lyrics, public domain)** + **William Walker
+     (melody, public domain)** + arrangement **Aesthetic Dot Computer**.
+  5. Flip this entry to **RELEASED** with the DistroKid album UUID.
+
+## trancepenta — RELEASED
+
+- **Lane:** `pop/dance/` · 5/4 · 126 BPM steady · dorian; chill-trance
+  instrumental — hellsine gabber kick (tik/tok alternating pitch),
+  galloping intro (real CC0 horse + neigh + thunder + train-whistle +
+  late-third ocean bed), Odyssey theremin solo line (3-act dorian arc),
+  jeffrey hum at 9 wandering pitches with per-entry FX (dancing with
+  the theremin, never aligned), supersaw power-saw wall, extreme swing
+  crescendoing to the 1:33 audio stamp, dice-roll click-clack tumbling
+  in post-vortex. Spec: `pop/dance/trancepenta.md`.
+- **Released:** 2026-05-20 via DistroKid
+- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=860FA7AC-AE6E-4B0A-ABC6E1514D273054
+- **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
+  - audio · https://assets.aesthetic.computer/pop/trancepenta.mp3 (320 k mp3 of the radio-balanced master, 190.69 s)
+  - cover · https://assets.aesthetic.computer/pop/trancepenta.jpg (3000², felt-character hero crop with multi-section lighting)
+  - canvas/IG · https://assets.aesthetic.computer/pop/trancepenta-canvas.mp4 *(pending the other agent's render — see vertical-video session)*
+  - Reconstructable byte-faithfully any time: `BAKE_FORCE=1 bash pop/dance/bin/bake-trancepenta.sh`
+    → produces `~/Documents/Working Desktop/twi-out/trancepenta-MASTER.wav` + paired struct.json
+    → cover at `~/Documents/Working Desktop/gens/trancepenta-cover-3000.jpg` (felt-character regen via `gens/trancepenta-cover-final/`)
+- **Master:** `~/Desktop/trancepenta-DISTROKID/trancepenta-MASTER.wav`
+  — 16-bit/44.1 kHz stereo WAV, 190.69 s. **Radio-balanced master:**
+  −14 LUFS / −1.4 dBTP / LRA 4.5 LU (Spotify-ready, tight broadcast
+  dynamic range). Master chain: highpass 28 Hz → aecho 4-tap space
+  reverb (with stamp-window reverb-duck) → glue compressor (−16 / 3.0 /
+  8 dB knee) → 4-band EQ (120 Hz −1, 250 Hz −1.2, 3.5 kHz +2.5,
+  11 kHz +1.8) → loudnorm I=−14 LRA=6 → alimiter 0.94 → 18 s fade.
+  Instrumental (no vocal phrase — only jeffrey-hum harmonics).
+- **Cover:** 3000² `~/Desktop/trancepenta-DISTROKID/trancepenta-cover-3000.jpg`
+  — felt-character + scary-tattered hero, jeffrey + young Mark
+  Zuckerberg at the PALS laptop in an after-hours Trader Joe's, with
+  prismatic multi-section ambient lighting refracting around the
+  laptop's PALS lid back-glow. Felt characters with frayed/torn felt
+  clothing (Wes Anderson / Aardman-grade craft realism inside a real
+  photographic environment). Multi-section lighting bakes the song's
+  8-section arc into the ambient fog colour. Generated via
+  `gen-promo.mjs` campaign at `gens/trancepenta-cover-final/`.
+- **DistroKid folder:** `~/Desktop/trancepenta-DISTROKID/` — README,
+  CHART.md, trancepenta-CHART.png (annotated 4K multitrack chart of
+  the bake, sections + events + lane breakdowns + open-TODOs).
+- **Vertical IG / Spotify Canvas:** in progress (separate agent owns
+  the final video render — `cover-video.mjs` with the dampened pan +
+  Odyssey-theremin events visible on the lane visualization).
+- **Open TODOs (for the next track):**
+  · kick wider (Haas stereo, broader lows)
+  · hi-hats shorter + sharper (decay envelope tuning in playPercussion `g`)
+  · choral phoneme vocals (jeffrey-pvc, no words — hahaha / olololol /
+    rerererere / babobebebebabo / ummy wummy / woo woo) layered at
+    root + 3rd + 5th + oct with long reverb
+  · vocal pitch-correction to the Odyssey theremin melody (`rubberband`
+    per-slice once compiled into ffmpeg, or a new
+    `place-penta-autotune.mjs`)
+
 ## hellsine — WIP (concept track, first cut)
 
 - **Lane:** `pop/hellsine/` · the *all-sine* concept track — every voice

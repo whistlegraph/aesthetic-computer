@@ -294,12 +294,20 @@ if (structPath) {
     anchors.sort((a, b) => a - b);
   } catch {}
   const tEnd = frames / SR;
-  const chopFrom = Math.max(0, tEnd - 80);  // longer, gentler lead-in
-  const chopTo = tEnd - 20;                 // dissipate BEFORE the fade
+  // Wider scratch window — start earlier so the FX bites drop1 + break2
+  // ("get fucked by the scratch more"), then DISSIPATE by ~2:25 so the
+  // final drop2 climax + tail stay clean (@jeffrey: "get rid of any
+  // scratch at 2:29").
+  const chopFrom = Math.max(0, tEnd - 160); // ~30 s onward (was tEnd-80 = ~110 s)
+  const chopTo = tEnd - 45;                 // ~2:25 (was tEnd-20 = ~2:50)
   const xf = Math.max(4, Math.floor(0.0025 * SR));
   for (let ai = 0; ai < anchors.length - 1; ai++) {
     const tA = anchors[ai];
     if (tA < chopFrom || tA >= chopTo) continue;
+    // Quiet zone around the drop1→break2 transition (84-88 s). Scratch
+    // bursts here collided with the swing peak + section change and
+    // read as glitchy per @jeffrey.
+    if (tA >= 84 && tA <= 88) continue;
     const prog = (tA - chopFrom) / (chopTo - chopFrom);
     // SPARING crescendo in, taper out over the section's last 5 s
     // basic, gradual ramp UP into the glitches (jas: "more basic ramp
@@ -330,7 +338,11 @@ if (structPath) {
         const i0 = Math.floor(rp), fr = rp - i0;
         const L = c4(sL, i0, fr);
         const Rr = c4(sR, i0, fr);
-        const e = Math.min(1, Math.min(k, wN - 1 - k) / Math.max(1, fEdge));
+        // Cap the scratch crossfade so the underlying bed STAYS at
+        // ≥40% — eliminates the perceived "gap" the full replacement
+        // was creating when the grain happened quieter than the bed.
+        const eRaw = Math.min(1, Math.min(k, wN - 1 - k) / Math.max(1, fEdge));
+        const e = eRaw * 0.60;
         x[(a0 + k) * 2] = x[(a0 + k) * 2] * (1 - e) + L * e;
         x[(a0 + k) * 2 + 1] = x[(a0 + k) * 2 + 1] * (1 - e) + Rr * e;
         rp += r; if (rp > cap - 2) rp = cap - 2;
@@ -345,7 +357,11 @@ if (structPath) {
         let L = sL[Math.min(cap - 1, gi)], Rr = sR[Math.min(cap - 1, gi)];
         if (gi < xf) { const f = gi / xf; L *= f; Rr *= f; }
         else if (gi > gN - xf) { const f = (gN - gi) / xf; L *= f; Rr *= f; }
-        const e = Math.min(1, Math.min(k, wN - 1 - k) / Math.max(1, fEdge));
+        // Cap the scratch crossfade so the underlying bed STAYS at
+        // ≥40% — eliminates the perceived "gap" the full replacement
+        // was creating when the grain happened quieter than the bed.
+        const eRaw = Math.min(1, Math.min(k, wN - 1 - k) / Math.max(1, fEdge));
+        const e = eRaw * 0.60;
         x[(a0 + k) * 2] = x[(a0 + k) * 2] * (1 - e) + L * e;
         x[(a0 + k) * 2 + 1] = x[(a0 + k) * 2 + 1] * (1 - e) + Rr * e;
       }
@@ -392,11 +408,12 @@ if (structPath) {
   }
 }
 
-// LAST-30 s — MODERATE crush (jas: "should not let it get THAT bad"),
-// some grains dropped to much LOWER keys + a HARMONY + extra
-// resamplings sprinkled around, then the final ~6 s rises into a
-// THICK, SMOOTH, WAVY digital wall of noise.
-{
+// LAST-30 s gnarly tail (bit-crush + dropped harmonies + noise wall)
+// DISABLED per @jeffrey 2026-05-20 — was reading as skippy percussion
+// in the 2:40-2:50 window. Outro now relies on the SECTION_TEMPLATE_5
+// outro (perc off, just pad + bells) + the master 18s fade for a
+// clean tail. Wrapped in `if (false)` so the code stays inspectable.
+if (false) {
   const tEnd = frames / SR;
   const t0 = tEnd - 30;
   const d0 = Math.max(0, Math.floor(t0 * SR));

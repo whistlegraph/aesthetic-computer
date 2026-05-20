@@ -1208,31 +1208,12 @@ const shutdownBeeps = (struct.events?.sfx || [])
 // sequence at the end of the video, not by a separate ring dink.)
 void shutdownBeeps;
 
-// ── kick-driven zoom + alternating face-spot / center aim ───────────
-// Each kick pulses a dramatic zoom-in toward an aim point that
-// ALTERNATES between a random spot inside the face bbox and the
-// raw center of the illustration. Gives the camera a jumpy, beat-
-// driven "zoom in / zoom out / zoom in" feel.
+// ── kick-driven zoom ────────────────────────────────────────────────
+// Each kick pulses a soft zoom-in. The camera AIM no longer snaps
+// per-kick (that read as a 4 Hz positional saw at 120 BPM) — it
+// continuously orbits the face center on sub-Hz incommensurate sines
+// (see the orbit math in the per-frame draw block below).
 const kicksSorted = (struct.events?.kick || []).slice().sort((a, b) => (a.displayedT ?? a.t) - (b.displayedT ?? b.t));
-const kickAims = []; // per-kick aim coords [{ fx, fy, isFace }]
-{
-  let s = 12345;
-  const rng = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
-  for (let i = 0; i < kicksSorted.length; i++) {
-    const isFace = (i % 2 === 0); // alternate even=face, odd=center
-    if (isFace && faceRect) {
-      // Random point INSIDE the face bbox in source-image pixels.
-      const fx = faceRect.x + faceRect.w * (0.25 + rng() * 0.50);
-      const fy = faceRect.y + faceRect.h * (0.25 + rng() * 0.50);
-      kickAims.push({ fx, fy, isFace: true });
-    } else {
-      // Center of the illustration (in source-image pixels).
-      const imgW = faceRect ? faceRect.imgW : defaultIllus.width;
-      const imgH = faceRect ? faceRect.imgH : defaultIllus.height;
-      kickAims.push({ fx: imgW / 2, fy: imgH / 2, isFace: false });
-    }
-  }
-}
 
 const canvas = createCanvas(W, H);
 const ctx = canvas.getContext("2d");
@@ -1269,7 +1250,7 @@ const GROOVE_R = 950;               // groove radius — larger = gentler arc
 // so the seams showed). 32 thin slices make the horizontal shear
 // near-continuous; a small per-band overlap fuses any remaining seam.
 const WU_HALF = 240, WU_W = WU_HALF * 2, WU_STEP = 3, WU_BANDS = 56;
-const WU_STR = 0.50, WU_BW = WU_W / WU_BANDS, WU_OVER = 2;
+const WU_STR = 0.20, WU_BW = WU_W / WU_BANDS, WU_OVER = 2;
 const wuWin = new Float64Array(WU_BANDS);
 for (let b = 0; b < WU_BANDS; b++) {
   wuWin[b] = Math.sin(Math.PI * ((b + 0.5) / WU_BANDS)) ** 2;
@@ -1640,63 +1621,68 @@ function drawFrame(t) {
   // dense kicks read as one continuous swell, never a per-frame snap.
   const slowBreath = 0.028 * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 16)));
   let kickZoom = 0;
-  // Track the most-recent kick so the camera can GLIDE between its aim
-  // point and the next kick's aim (the dramatic zoom-in/out + pan that
-  // was previously hard-disabled with lastKickIdx=-1 → "barely moved").
-  let lastKickIdx = -1;
-  let lastKickT = -1e9;
+  // Softer kick zoom — 140 ms attack (was 70 ms / ~2 frames at 30 fps,
+  // which read as a hard snap) into a gentle ~0.34 s exponential
+  // release. max() over recent kicks → dense kicks read as one swell.
   for (let i = kicksSorted.length - 1; i >= 0; i--) {
     const kt = kicksSorted[i].displayedT ?? kicksSorted[i].t;
     const since = audioT - kt;
     if (since < 0) continue;
-    if (lastKickIdx < 0) { lastKickIdx = i; lastKickT = kt; }
-    if (since > 0.9) break;
-    const e01 = since < 0.07 ? since / 0.07 : Math.exp(-(since - 0.07) / 0.34);
+    if (since > 1.0) break;
+    const e01 = since < 0.14 ? since / 0.14 : Math.exp(-(since - 0.14) / 0.34);
     if (e01 > kickZoom) kickZoom = e01;
   }
-  // BEAT-REACTIVE camera: a slow ken-burns breath + a deeper kick zoom
-  // PLUS the verlet string's signed-spring scene bump (cover-engine
-  // sceneOffset() — already low-passed so it follows the bend without
-  // the historical per-frame jerk; it returns a zoomMul we fold in so
-  // the picture punches WITH the lanes/string, mask + lanes stay
-  // registered because there is no ctx-transform). kickZoom deepened
-  // 0.045 → 0.085 so the in/out pump clearly reads.
+  // Slower kick-activity envelope — drives the face MAGNET on the aim.
+  // 200 ms attack + ~0.6 s release, so the camera glides toward the
+  // face center when kicks are active and drifts back to the slow orbit
+  // when they stop. No snap at either edge.
+  let kickAct = 0;
+  for (let i = kicksSorted.length - 1; i >= 0; i--) {
+    const kt = kicksSorted[i].displayedT ?? kicksSorted[i].t;
+    const since = audioT - kt;
+    if (since < 0) continue;
+    if (since > 1.5) break;
+    const e01 = since < 0.20 ? since / 0.20 : Math.exp(-(since - 0.20) / 0.60);
+    if (e01 > kickAct) kickAct = e01;
+  }
+  // BEAT-REACTIVE camera: a slow ken-burns breath + a smoothed kick
+  // zoom PLUS the verlet string's signed-spring scene bump (cover-
+  // engine sceneOffset() — already low-passed so it follows the bend
+  // without per-frame jerk). kickZoom amp bumped back up to 0.10 so the
+  // in-pump on the face reads, but the 140 ms attack keeps it from
+  // snapping. stringPan dampened (* 0.45) so dense-kick sections
+  // (break1, drops) don't shake the scene — the bend is felt through
+  // the zoomMul instead.
   const _so = _vs.sceneOffset();
-  const zoom = (baseScale + slowBreath + kickZoom * 0.085) * _so.zoomMul;
-  const stringPanX = _so.dx;
-  const stringPanY = _so.dy;
-  void lastKickT;
+  const zoom = (baseScale + slowBreath + kickZoom * 0.10) * _so.zoomMul;
+  const stringPanX = _so.dx * 0.25;
+  const stringPanY = _so.dy * 0.25;
   void aspect;
   const baseW = illusImg.width * coverScale * zoom;
   const baseH = illusImg.height * coverScale * zoom;
   // Wobble — frame-by-frame motion at multiple cross-frequencies so
-  // the painting reads as alive rather than smoothly drifting.
-  // Gentle, SLOW drift only — no envelope-coupled high-freq jitter
-  // (that read as "moves too fast / not smooth"). Organic + calm.
-  const wobbleX = 9 * Math.sin(t * 0.55) + 4 * Math.cos(t * 0.9);
-  const wobbleY = 7 * Math.cos(t * 0.5) + 3 * Math.sin(t * 0.8);
-  // Kick-driven aim — interpolate from the previous kick's aim to
-  // the next kick's aim across the time between them. So the camera
-  // glides between face spots and image center on each kick.
+  // the painting reads as alive rather than dead-still. AMPLITUDES
+  // pulled to ~40% of the prior values: a faint living drift only,
+  // not the wandering pan it was reading as.
+  const wobbleX = 3.6 * Math.sin(t * 0.55) + 1.6 * Math.cos(t * 0.9);
+  const wobbleY = 2.8 * Math.cos(t * 0.5) + 1.2 * Math.sin(t * 0.8);
+  // Continuous slow orbit around the face center, with a smooth FACE
+  // MAGNET driven by kickAct: when kicks are firing the aim glides
+  // toward the face center (camera tightens on the face); when they
+  // stop, it drifts back to the orbit. Both signals are continuous —
+  // no kick-coupled snap, no per-beat velocity reversals.
   let centerX = (W - baseW) / 2;
   let centerY = (H - baseH) / 2;
   const imgW = faceRect ? faceRect.imgW : illusImg.width;
   const imgH = faceRect ? faceRect.imgH : illusImg.height;
-  let aimFx = imgW / 2;
-  let aimFy = imgH / 2;
-  if (lastKickIdx >= 0 && kickAims[lastKickIdx]) {
-    aimFx = kickAims[lastKickIdx].fx;
-    aimFy = kickAims[lastKickIdx].fy;
-    // Glide to next kick if it exists.
-    if (lastKickIdx + 1 < kicksSorted.length) {
-      const nextKickT = kicksSorted[lastKickIdx + 1].displayedT ?? kicksSorted[lastKickIdx + 1].t;
-      const span = Math.max(0.001, nextKickT - lastKickT);
-      const glide = Math.min(1, Math.max(0, (audioT - lastKickT) / span));
-      const next = kickAims[lastKickIdx + 1];
-      aimFx = aimFx + (next.fx - aimFx) * glide;
-      aimFy = aimFy + (next.fy - aimFy) * glide;
-    }
-  }
+  const focusFx = faceRect ? faceRect.x + faceRect.w * 0.5 : imgW / 2;
+  const focusFy = faceRect ? faceRect.y + faceRect.h * 0.5 : imgH / 2;
+  const orbitR = Math.min(imgW, imgH) * 0.020;
+  const orbitFx = focusFx + Math.cos(audioT * 0.18) * orbitR;
+  const orbitFy = focusFy + Math.sin(audioT * 0.12) * orbitR * 0.7;
+  const magnet = kickAct * 0.65;
+  const aimFx = orbitFx + (focusFx - orbitFx) * magnet;
+  const aimFy = orbitFy + (focusFy - orbitFy) * magnet;
   // Translate aim point to a draw offset that puts the aim under
   // the canvas center.
   const scaledFx = aimFx * (baseW / imgW);
@@ -1723,8 +1709,10 @@ function drawFrame(t) {
   const tillAnchor = meltAnchor !== null ? meltAnchor - audioT : Infinity;
   const preMelt = tillAnchor > 0 && tillAnchor < barSecLocal * 1.6
     ? 1 - tillAnchor / (barSecLocal * 1.6) : 0;
-  // amplitude term (env²) + a hard pre-drop swell (preMelt²)
-  const slitAmp = env * env * 7 + preMelt * preMelt * 72;
+  // PreMelt-only swell — env-driven constant slit removed (it was
+  // adding a faint per-row ripple every frame that read as a shaky
+  // illustration). The pre-drop splash is preserved.
+  const slitAmp = preMelt * preMelt * 72;
   const parScale = 1.055 + env * 0.03;
   const pX = 9 * Math.sin(t * 0.55) + env * 16 * Math.sin(t * 2.6);
   const pY = 7 * Math.cos(t * 0.50) + env * 13 * Math.cos(t * 2.2);
@@ -2143,11 +2131,23 @@ function drawFrame(t) {
 
       // PLUCK the verlet string the single frame this event crosses
       // the playhead — a horizontal impulse at the event's lane y.
+      // SKIP plucking on dense bed-style SFX (gallop, wave, amb-grain
+      // fire at multi-Hz rates and would make the scene shimmy along
+      // with them via sceneOffset). Dramatic one-shot SFX (sniper,
+      // thunder, neigh, chill-drop, etc.) still pluck — the bed events
+      // are visible on the timeline regardless.
       if (sinceTrigger >= 0 && sinceTrigger < (1 / FPS) + 1e-4) {
-        const yc = laneCenterY[lane.key] ?? (SCORE_TOP + SCORE_H / 2);
-        const sign = ((Math.floor(evT * 97) + li) & 1) ? 1 : -1;
-        const amount = 30 + 52 * Math.min(1, env + 0.2);
-        pluckNeedle(yc, amount, sign, ncHexToRgb(lane.color));
+        const isBedSfx = lane.key === "sfx" &&
+          (ev.name === "gallop" || ev.name === "wave" || ev.name === "amb-grain");
+        if (!isBedSfx) {
+          const yc = laneCenterY[lane.key] ?? (SCORE_TOP + SCORE_H / 2);
+          const sign = ((Math.floor(evT * 97) + li) & 1) ? 1 : -1;
+          // Pluck amplitude dampened further — the line + scene still
+          // react to beats but very quietly, keeping the illustration
+          // mostly still even in dense sections.
+          const amount = 16 + 26 * Math.min(1, env + 0.2);
+          pluckNeedle(yc, amount, sign, ncHexToRgb(lane.color));
+        }
       }
 
       ctx.globalAlpha = baseAlpha;

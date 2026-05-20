@@ -41,7 +41,9 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
-const BUILDS_ROOT = `${homedir()}/Desktop/builds`;
+// Builds live under Working Desktop (the auto-cleaned ~/Desktop has
+// erased mid-render outputs in the past — see [[feedback_desktop_autocleaned]]).
+const BUILDS_ROOT = `${homedir()}/Documents/Working Desktop/builds`;
 
 const argv = process.argv.slice(2);
 if (argv.length === 0 || argv[0].startsWith("--")) {
@@ -183,12 +185,15 @@ const CONFIGS = {
     },
     formats: [
       {
-        // Vertical 2:3 portrait set — the dismal foggy-harbour illys
-        // (jeffrey + mark peers, glowing-pals lids). The vertical cut
-        // is the primary deliverable (full song + a 30s IG-story cut).
+        // Vertical 2:3 portrait set — the after-hours Trader Joe's /
+        // jeffrey-teaching-young-Zuck / pixsies-watching set (v2, with
+        // per-section dismal tint + PALS lid back-glow + screen-spill
+        // on faces). v1 was the dismal foggy-harbour first pass, kept
+        // on disk as .v1 backup. Primary deliverable = full vertical +
+        // a 30s IG-story cut.
         suffix: "vertical",
         size: "1080x1920",
-        variant: "v1",
+        variant: "v2",
         prelude: null, // chill mix has no greeting → no prelude swap
       },
     ],

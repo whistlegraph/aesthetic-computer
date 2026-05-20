@@ -368,7 +368,7 @@ const SEED_STR    = flags.seed || (isWaltz ? "trancewaltz" : "trance");
 // Chill: PERCUSSION-FORWARD, tones quieter — a harder NIN/industrial
 // balance (jas: "more percussion forward mix ... tones all quieter ...
 // more NIN friendly industrial"). Drums up, lead/pad well down.
-const DRUM_GAIN   = Number(flags["drum-gain"] ?? (isChill ? 1.28 : 0.95)); // perc down a bit — better overall mix (jas)
+const DRUM_GAIN   = Number(flags["drum-gain"] ?? (isChill ? 0.92 : 0.95)); // perc lower in the mix (was 1.28, jeffrey: ~3 dB down)
 // Hellsine "hardcorism" — opt-in per track (trancepenta sets --hell;
 // trancenwaltzi leaves it 0 so its kick is unchanged). >0 swaps the
 // chill kick for the ported gabber/Rotterdam kick.
@@ -398,7 +398,7 @@ const LEAD_GAIN   = Number(flags["lead-gain"] ?? (isChill ? 0.24 : 0.55)); // me
 const PAD_GAIN    = Number(flags["pad-gain"]  ?? (isChill ? 0.12 : 0.30)); // chill: lower the "organ" pad (jas) — poppier
 const BASS_GAIN   = Number(flags["bass-gain"] ?? (isChill ? 0.42 : 0.45)); // thwomp stays forward with the drums
 const SIDECHAIN   = flags.sidechain !== "off";
-const DUCK_DEPTH  = Number(flags["duck-depth"] ?? 0.65);
+const DUCK_DEPTH  = Number(flags["duck-depth"] ?? 0.40); // was 0.65 — too heavy, masking the supersaw under every kick
 const DUCK_MS     = Number(flags["duck-ms"] ?? 120);
 const VOCAL_STEM  = expandHome(flags["vocal-stem"]) || null;
 const VOCAL_GAIN  = Number(flags["vocal-gain"] ?? 2.9);
@@ -624,8 +624,25 @@ const SECTION_TEMPLATES_3_CHILL = {
   drop2:   { bars: 24, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.90 },
   outro:   { bars: 9,  kick: true,  hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.40 },
 };
+// trancepenta (chill + meter 5 dorian) — early-drop variant.
+// Shorter intro/break/build so the first drop lands within the first
+// 30 s of the track (@jeffrey, 2026-05-20). Total bars preserved (80)
+// so the song still runs ~190 s — drop1 + drop2 each absorb the time
+// shaved off the run-up.
+const SECTION_TEMPLATES_5_CHILL = {
+  intro:   { bars: 4,  kick: false, hat: true,  sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0.30 },
+  break1:  { bars: 4,  kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.50 },
+  build1:  { bars: 4,  kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: false, bells: false, riser: true,  snareRoll: true,  supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.75, fx: { bitcrush: { bits: [{ time: 0, bits: 16 }, { time: 1, bits: 7 }], downsample: [{ time: 0, downsample: 1 }, { time: 1, downsample: 3 }], mix: 0.5 } } },
+  drop1:   { bars: 24, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 0.92, fx: { bitcrush: { bits: [{ time: 0, bits: 14 }, { time: 0.5, bits: 10 }, { time: 1, bits: 14 }], downsample: [{ time: 0, downsample: 1 }, { time: 0.5, downsample: 2 }, { time: 1, downsample: 1 }], mix: 0.25 } } },
+  break2:  { bars: 4,  kick: true,  hat: true,  sub: false, lead: true,  pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: true,  drumDensity: 0.55, fx: { wobble: { target: "filter", baseCutoffHz: 1800, rate: 1.8, depth: 0.4 } } },
+  build2:  { bars: 4,  kick: true,  hat: true,  sub: true,  lead: false, pad: true,  piano: false, bells: false, riser: true,  snareRoll: true,  supersaw: true,  vocal: false, ducked: true,  drumDensity: 1, fx: { bitcrush: { bits: [{ time: 0, bits: 14 }, { time: 1, bits: 5 }], downsample: [{ time: 0, downsample: 1 }, { time: 1, downsample: 5 }], mix: 0.7 } } },
+  drop2:   { bars: 28, kick: true,  hat: true,  sub: true,  lead: true,  pad: true,  piano: true,  bells: true,  riser: false, snareRoll: false, supersaw: true,  vocal: false, ducked: true,  drumDensity: 1.0, fx: { bitcrush: { bits: [{ time: 0, bits: 12 }, { time: 0.4, bits: 8 }, { time: 0.7, bits: 12 }, { time: 1, bits: 14 }], downsample: [{ time: 0, downsample: 1 }, { time: 0.4, downsample: 3 }, { time: 0.7, downsample: 1 }, { time: 1, downsample: 1 }], mix: 0.30 } } },
+  outro:   { bars: 8,  kick: false, hat: false, sub: false, lead: false, pad: true,  piano: false, bells: true,  riser: false, snareRoll: false, supersaw: false, vocal: false, ducked: false, drumDensity: 0 },
+};
 const SECTION_TEMPLATES = isChill && isWaltz
   ? SECTION_TEMPLATES_3_CHILL
+  : (isChill && !isWaltz)
+  ? SECTION_TEMPLATES_5_CHILL
   : isWaltz ? SECTION_TEMPLATES_3 : SECTION_TEMPLATES_4;
 
 let SECTIONS;
@@ -892,6 +909,52 @@ function fireWhistle(target, startSec, midi, durSec, gain = 1.0) {
 // circles the stereo field. Used in the chill mix instead of the
 // sustained supersaw wall — a small triad of these zip around like
 // annoying-but-musical flies.
+// fireTheremin — long sustained theremin voice for the Odyssey melody.
+// Stable envelope (fast attack + held sustain + slow release), slow
+// vibrato, optional pitch glide to the NEXT note in the last 22% of the
+// duration, modest stereo width via two detuned saws + a centred sine
+// layer. Designed for held melody notes (1-8 bars) — unlike fireMosquito
+// which uses a half-sine envelope tuned for short chirps.
+function fireTheremin(target, startSec, midi, durSec, gain = 1.0, nextMidi = null) {
+  const segDur = 0.04;
+  const segments = Math.max(8, Math.floor(durSec / segDur));
+  const vibHz = 3.3; // slower vibrato per @jeffrey (was 5.5 — too fast)
+  const glideStart = nextMidi !== null ? Math.floor(segments * 0.78) : segments;
+  const attackSec = 0.10;
+  const releaseSec = 0.25;
+  for (let i = 0; i < segments; i++) {
+    const sf = i / segments;
+    const elapsed = sf * durSec;
+    let env;
+    if (elapsed < attackSec) env = elapsed / attackSec;
+    else if (elapsed > durSec - releaseSec) env = Math.max(0, (durSec - elapsed) / releaseSec);
+    else env = 1;
+    const vib = Math.sin(elapsed * 2 * Math.PI * vibHz) * 0.018; // ~1.8% pitch wobble
+    let curMidi = midi;
+    if (i >= glideStart && nextMidi !== null) {
+      const u = (i - glideStart) / Math.max(1, segments - glideStart);
+      const smooth = u * u * (3 - 2 * u);
+      curMidi = midi + (nextMidi - midi) * smooth;
+    }
+    const tone = 440 * Math.pow(2, (curMidi - 69) / 12) * (1 + vib);
+    // Harmonic-bloom envelope — 2nd + 3rd harmonics swell in during the
+    // middle of the note ("more harmonics at times"). Hann-like window
+    // centred at note middle so the timbre opens up + closes back to
+    // pure tone at the edges.
+    const hMid = 4 * sf * (1 - sf); // 0 at sf=0/1, peak 1.0 at sf=0.5
+    const harmGain = Math.max(0, hMid - 0.15) / 0.85; // gates softer edges
+    const v = makeBufferSynth(target, startSec + elapsed, SAMPLE_RATE, noiseRng);
+    // Fundamental — two detuned saws + a sine for theremin warmth.
+    v.synth({ type: "sawtooth", tone,            duration: segDur + 0.02, volume: gain * 0.70 * env, attack: 0.003, decay: segDur * 0.95, pan: -0.18 });
+    v.synth({ type: "sawtooth", tone: tone * 1.006, duration: segDur + 0.02, volume: gain * 0.45 * env, attack: 0.003, decay: segDur * 0.95, pan:  0.18 });
+    v.synth({ type: "sine",     tone,            duration: segDur + 0.02, volume: gain * 0.50 * env, attack: 0.003, decay: segDur * 0.95, pan:  0 });
+    // 2nd harmonic (octave up) blooming in the middle of the note.
+    v.synth({ type: "sine",     tone: tone * 2,  duration: segDur + 0.02, volume: gain * 0.28 * env * harmGain, attack: 0.003, decay: segDur * 0.95, pan: -0.10 });
+    // 3rd harmonic (octave + 5th, perfect twelfth) for ring/sparkle.
+    v.synth({ type: "sine",     tone: tone * 3,  duration: segDur + 0.02, volume: gain * 0.18 * env * harmGain, attack: 0.003, decay: segDur * 0.95, pan:  0.10 });
+  }
+}
+
 function fireMosquito(target, startSec, midi, durSec, gain = 1.0, panBase = 0) {
   const baseFreq = 440 * Math.pow(2, (midi - 69) / 12);
   const segDur = 0.05;
@@ -1386,14 +1449,15 @@ function fireChillKick(target, startSec, chordDeg, idx, gain, wall = 1) {
 // + a bright ~4 ms HF sine SNAP at the attack. Ported from
 // pop/hellsine/bin/hellsine.mjs (jas: "i loooove the kick in
 // hellsine"). Opt-in via --hell; writes mono into the bus.
-function fireGabberKick(target, startSec, drive, gain = 1, tight = 0) {
+function fireGabberKick(target, startSec, drive, gain = 1, tight = 0, pitchMul = 1) {
   const SR = SAMPLE_RATE;
   // `tight` 0→1: a smaller, shorter, less-saturated "lil kick" (jas:
   // "our kick should be tighter right at the start first 24 seconds").
-  const dur = 0.26 * (1 - 0.58 * tight);
+  // `pitchMul` < 1 gives a deeper "tok" alternation (tik/tok pattern).
+  const dur = 0.26 * (1 - 0.58 * tight) * (pitchMul < 1 ? 1.20 : 1); // tok rings longer
   drive *= 1 - 0.45 * tight;
-  gain *= 1 - 0.30 * tight;
-  const pStart = 240, pEnd = 47, pT = 0.034 * (1 - 0.4 * tight);
+  gain *= (1 - 0.30 * tight) * (pitchMul < 1 ? 1.15 : 1);              // tok pronounced
+  const pStart = 240 * pitchMul, pEnd = 47 * pitchMul, pT = 0.034 * (1 - 0.4 * tight) * (pitchMul < 1 ? 1.25 : 1);
   const i0 = Math.floor(startSec * SR);
   const nN = Math.floor(dur * SR);
   let ph = 0;
@@ -1411,6 +1475,71 @@ function fireGabberKick(target, startSec, drive, gain = 1, tight = 0) {
     const click = Math.sin(2 * Math.PI * 3400 * lt) * Math.exp(-lt / 0.0016) * 0.5
                 + Math.sin(2 * Math.PI * 1700 * lt) * Math.exp(-lt / 0.0042) * 0.35;
     target[idx] += (x * amp + click) * 0.9 * gain;
+  }
+}
+
+// Stick CLICK — single wooden tap, ~12 ms. `toneHz` lets callers pitch
+// it anywhere across a wide range for tumbling/scattered dice character.
+function fireClick(target, startSec, gain = 1.0, toneHz = 4400) {
+  const SR = SAMPLE_RATE;
+  const dur = 0.012;
+  const nN = Math.floor(dur * SR);
+  const i0 = Math.floor(startSec * SR);
+  // Lower clicks ring slightly longer (woodier).
+  const decayT = 0.0030 + Math.max(0, (4400 - toneHz) / 4400) * 0.0035;
+  for (let k = 0; k < nN; k++) {
+    const idx = i0 + k;
+    if (idx < 0) continue;
+    if (idx >= target.length) break;
+    const t = k / SR;
+    const sine = Math.sin(2 * Math.PI * toneHz * t) * Math.exp(-t / decayT);
+    const n = (noiseRng() * 2 - 1) * Math.exp(-t / 0.005);
+    target[idx] += (sine * 0.55 + n * 0.28) * gain;
+  }
+}
+
+// Dice-roll CLICK-CLACK — a cluster of 5-9 wooden taps with WIDELY
+// pitched-wandering tones (1400-5400 Hz random per click), spread out
+// over a longer window with bigger irregular gaps so the cluster reads
+// as dice tumbling across wood — pitching DOWN and UP, scattered, NOT
+// a regular drum-rest tick (per @jeffrey).
+function fireDiceRoll(target, startSec, gain = 1.0) {
+  const nClicks = 5 + Math.floor(noiseRng() * 5); // 5-9 clicks (was 3-6)
+  let t = startSec;
+  for (let i = 0; i < nClicks; i++) {
+    // Random pitch each click — wide range, no fixed alternation.
+    const toneHz = 1400 + noiseRng() * 4000;        // 1.4 kHz – 5.4 kHz
+    const v = gain * (0.55 + noiseRng() * 0.65);    // tumbling unevenness
+    fireClick(target, t, v, toneHz);
+    // Bigger gaps — sometimes tight chatter, sometimes a pause that
+    // makes the next click feel like a die landing flat.
+    t += 0.030 + noiseRng() * 0.110;                // 30-140 ms gaps (was 22-62)
+  }
+}
+
+// Traditional hand-CLAP — four staggered noise bursts (the multi-hand
+// "shh-clap" effect), high-passed band, very short decay. Subtle
+// trance-backbeat punctuation per @jeffrey.
+function fireClap(target, startSec, gain = 1.0) {
+  const SR = SAMPLE_RATE;
+  const offsets = [0, 0.004, 0.009, 0.015];
+  const dur = 0.085;
+  const nN = Math.floor(dur * SR);
+  for (const off of offsets) {
+    const i0 = Math.floor((startSec + off) * SR);
+    let lp1 = 0, lp2 = 0;
+    for (let k = 0; k < nN; k++) {
+      const idx = i0 + k;
+      if (idx < 0) continue;
+      if (idx >= target.length) break;
+      const t = k / SR;
+      const n = (noiseRng() * 2 - 1);
+      lp1 += 0.45 * (n - lp1);          // 1-pole LP ≈ 3 kHz roll-off
+      lp2 += 0.10 * (lp1 - lp2);        // very slow LP for HP-via-subtract
+      const hp = lp1 - lp2;             // HP'd noise ≈ 800 Hz upward
+      const env = Math.exp(-t / 0.018) * (1 - Math.exp(-t / 0.0008));
+      target[idx] += hp * env * gain * 0.55;
+    }
   }
 }
 
@@ -1646,7 +1775,17 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // barDurSec) rather than an off-beat delay — pushing off-beats late
   // fought the "faster dance track" goal. swingSec stays 0 so the
   // existing `+ swingSec` call sites are harmless no-ops.
-  const swingSec = 0;
+  // EXTREME SWING ENVELOPE — crescendos to the stamp bar (39, ~1:33)
+  // then settles back to straight rhythm for the last half (after bar
+  // 51). Bell-shaped via raised-cosine. Peak swing pushes off-beat
+  // events ~85 ms late — distinctly perceived as a drunken/loose feel
+  // around the vortex, then tightens up so drop2 rides on a regular
+  // grid. Per @jeffrey.
+  const STAMP_BAR = 39, SWING_WIDTH_BARS = 12, SWING_MAX_SEC = 0.085;
+  const _sd = 1 - Math.abs(bar - STAMP_BAR) / SWING_WIDTH_BARS;
+  const _swingFr = Math.max(0, _sd);
+  const _swingHump = 0.5 - 0.5 * Math.cos(_swingFr * Math.PI); // smooth bell 0→1→0
+  const swingSec = SWING_MAX_SEC * _swingHump;
 
   // Percussion-silent zones (chill): the first 8 s, the last 8 s, and a
   // mid bridge (~±7 s around the midpoint) have NO kick/hat — then they
@@ -1659,7 +1798,13 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // even SLOWER hello back out, and a slow goodbye into the ending.
   const _ru = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
   let _pe = 1;
-  _pe *= _ru(_mt, 38, 56);                   // SPARSE first ~40 s, then perc ramps in
+  // Perc-envelope ramp: chill+meter-5 trancepenta has the early-drop
+  // structure (drop1 at ~29 s), so hats/perc ramp in during break1+
+  // build1 (10→26 s). Chill+waltz (trancenwaltz) keeps the original
+  // 38→56 slow-open. Other modes don't reach this branch.
+  const PE_RAMP_A = (isChill && !isWaltz) ? 10 : 38;
+  const PE_RAMP_B = (isChill && !isWaltz) ? 26 : 56;
+  _pe *= _ru(_mt, PE_RAMP_A, PE_RAMP_B);     // SPARSE early, then perc ramps in
   _pe *= 1 - _ru(barStart, T - 14, T - 2);   // slow goodbye into the end (~12 s)
   // Global arrangement build: ~0 for the sparse first 40 s, then a
   // fast ramp to full by ~58 s. Scales the DENSE layers (arp, mosquito,
@@ -1813,9 +1958,16 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
             // Hellsine gabber kick (jas: "i loooove the kick in
             // hellsine"). First 24 s (music-relative): a TIGHT "lil
             // kick", then it opens to the full hellsine kick.
+            // TIK/TOK — alternate every other downbeat kick to a deeper
+            // pitch (pitchMul 0.55) so the kick reads as a tik-tok
+            // rocking pulse instead of an unvarying thud (@jeffrey).
             const tight = (kickT - OPENING_PREFIX_SEC) < 24 ? 1 : 0;
-            fireGabberKick(dryBuf, kickT, HELL, kg * 0.85, tight);
-            if (pushIn) fireGabberKick(dryBuf, pushT, HELL, kg * 0.50, tight);
+            const isTok = (kickCount % 2) === 1;
+            const mainPitch = isTok ? 0.55 : 1.0;
+            fireGabberKick(dryBuf, kickT, HELL, kg * 0.85, tight, mainPitch);
+            // Push kick gets the OPPOSITE pitch — keeps the tik/tok
+            // call-and-response alive across the syncopated off-beat.
+            if (pushIn) fireGabberKick(dryBuf, pushT, HELL, kg * 0.50, tight, isTok ? 1.0 : 0.55);
           } else {
             fireChillKick(dryBuf, kickT, chordDeg, kickCount, kg, kickWall);
             // SYNCOPATED off-beat kick on the "& of 2" — forward DANCE
@@ -1903,7 +2055,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     // Chill: hats arrive LATE and FROM DISTANT — nothing before
     // HAT_ENTER, then volume swells up from far away over ~18 s.
     const _hmt = barStart - OPENING_PREFIX_SEC;
-    const HAT_ENTER = 30; // AFTER the 24s bass drop — bass comes in before hats
+    const HAT_ENTER = 10; // Match the early-drop structure — hats arrive at the start of break1 (was 30, pre-restructure)
     const hatsArrived = !isChill || _hmt >= HAT_ENTER;
     // Ease the entrance: a SHORT raised-cosine fade-in over ~7 s after
     // HAT_ENTER so they don't slam in (jas: "hats come in too
@@ -1926,7 +2078,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
       // "i want it consistent ... simple dance track"). Non-chill keeps
       // the organic skip.
       if (!isChill && rng() < 0.20 * settleVar) continue;
-      const v = isChill ? 0.34 : 0.32 + rng() * 0.10; // chill: steady level
+      const v = isChill ? 0.20 : 0.32 + rng() * 0.10; // chill: hat sits ~6 dB under kick (radio-balance, was 0.34 → too forward)
       // Humanize hats — ±8 ms feels like a real drummer.
       const hatT = humanize(startSec, 8 * settleVar + 1);
       // Chill: per-hit random pitchFactor scatters the noise band so no
@@ -2117,58 +2269,120 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   // the sine-only voices can't carry alone.
   if (t.supersaw && instrumentEnabled("supersaw", bar)) {
    if (isChill) {
-    // Chill: no trance wall. A triad of wandering sawtooth "mosquito"
-    // drone-birds in a high whiny register that zip around the stereo
-    // field and come/go — each voice sits out ~45 % of bars so they
-    // circle in and out instead of droning continuously.
-    // Slowly change MELODICALLY across the track, and DEEPEN + DARKEN:
-    // start high/whiny (+24) and descend toward +7 by the end, with a
-    // slow melodic walk that shifts every ~14 bars.
-    const driftFr  = bar / Math.max(1, TOTAL_BARS - 1);
-    const octShift = Math.round(24 - 17 * driftFr);          // 24 → 7
-    const melWalk  = [0, 3, 5, 3, -2, 0, 4, 2][Math.floor(bar / 14) % 8];
-    const mGain    = 0.085 * (1 - 0.4 * driftFr) * chillBuild; // sparse open → ramps in
-    let vi = 0;
-    for (const m of triad) {
-      vi++;
-      if (noiseRng() < 0.45) continue;             // this fly sits this bar out
-      const startOff = noiseRng() * barSec * 0.5;  // enters at a random point
-      const dur = barSec * (0.5 + noiseRng() * 0.5);
-      const panBase = vi === 1 ? -0.5 : vi === 2 ? 0.0 : 0.5;
-      const mm = m + octShift + melWalk;            // descends + walks melodically
-      fireMosquito(sawBuf, barStart + startOff, mm, dur, mGain, panBase);
-      events.supersaw.push({ t: barStart + startOff, midi: mm, dur });
-      supersawCount++;
-    }
+    // Chill mosquito DISABLED — replaced by the Odyssey-arc theremin
+    // that runs unconditionally across the whole track (see the
+    // ODYSSEY_THEREMIN block AFTER this conditional, outside the
+    // t.supersaw gate, so the melody carries through intro / break2 /
+    // outro too).
    } else {
-    // High supersaw — pulled back from 0.20 to 0.13 (it was masking
-    // the imessage ding + lion roar + melodic gunfire on the drops).
+    // High supersaw — pulled back to chill levels. Was pushed to 0.50
+    // (+12dB) for "trance wall" but felt too loud against the chill
+    // bed per @jeffrey. Settled at 0.32 (+8 dB from original 0.13).
     for (const m of triad) {
       mixEventSupersaw(
-        { startSec: barStart, midi: m + 12, gain: 0.13, durSec: barSec * 0.98 },
+        { startSec: barStart, midi: m + 12, gain: 0.32, durSec: barSec },
         sawBuf,
         { preset: "pad", sampleRate: SAMPLE_RATE, seed: `saw:${bar}:${m}` }
       );
-      events.supersaw.push({ t: barStart, midi: m + 12, dur: barSec * 0.98 });
+      events.supersaw.push({ t: barStart, midi: m + 12, dur: barSec });
       supersawCount++;
     }
-    // Super-low harsh supersaw — root + 5th, also reduced.
+    // Super-low harsh supersaw — root + 5th. Pulled back from 0.42/0.30
+    // to 0.26/0.18 — still present, less heavy.
     if (sec.startsWith("drop") || sec.startsWith("build")) {
       const rootDeg = chordDeg;
       const fifthDeg = chordDeg + 4;
       mixEventSupersaw(
-        { startSec: barStart, midi: scaleNoteMidi(rootDeg, -1), gain: 0.10, durSec: barSec * 0.98 },
+        { startSec: barStart, midi: scaleNoteMidi(rootDeg, -1), gain: 0.26, durSec: barSec },
         sawBuf,
         { preset: "lead", detuneCents: 32, voices: 7, sampleRate: SAMPLE_RATE, seed: `saw-low:${bar}:r` }
       );
       mixEventSupersaw(
-        { startSec: barStart, midi: scaleNoteMidi(fifthDeg, -1), gain: 0.07, durSec: barSec * 0.98 },
+        { startSec: barStart, midi: scaleNoteMidi(fifthDeg, -1), gain: 0.18, durSec: barSec },
         sawBuf,
         { preset: "lead", detuneCents: 32, voices: 7, sampleRate: SAMPLE_RATE, seed: `saw-low:${bar}:5` }
       );
       supersawCount += 2;
     }
    }
+  }
+
+  // ── ODYSSEY THEREMIN ─────────────────────────────────────────────
+  // Single voice melodic line carrying a Homer-style arc across the
+  // whole track. Three acts:
+  //   JOURNEY OUT  bars 0-35  : gentle dorian ascent, hopeful sail
+  //   BATTLE       bars 36-43 : fast wide intervals around the 1:35
+  //                              audio stamp — the encounter
+  //   RETURN HOME  bars 44-71 : descending peace, settled
+  //   OUTRO        bars 72-79 : sustained tonic, resolution
+  // Runs UNCONDITIONALLY (outside the t.supersaw gate) so the melody
+  // carries through intro / break2 / outro sections where supersaw is
+  // off in the section template. Uses fireMosquito as the voice (its
+  // slow pan + drift gives a theremin-ish wander) but with a single
+  // call per held note instead of a 3-voice ensemble.
+  {
+    const ODYSSEY = [
+      // [midi, holdBars, vel]  JOURNEY OUT (sum = 36 bars)
+      [62, 4, 0.55],  [65, 4, 0.60],  [67, 4, 0.65],  [69, 4, 0.70],
+      [72, 2, 0.65],  [74, 2, 0.70],  [72, 4, 0.65],  [74, 4, 0.75],
+      [77, 4, 0.80],  [76, 2, 0.75],  [74, 2, 0.70],
+      // BATTLE (sum = 8 bars, 1 bar each — agitated)
+      [81, 1, 0.92],  [79, 1, 0.88],  [82, 1, 0.95],  [86, 1, 1.00],
+      [83, 1, 0.95],  [80, 1, 0.88],  [77, 1, 0.82],  [74, 1, 0.78],
+      // RETURN HOME (sum = 28 bars — descending)
+      [74, 4, 0.65],  [72, 4, 0.60],  [69, 4, 0.58],  [67, 4, 0.55],
+      [65, 2, 0.52],  [69, 2, 0.55],  [67, 4, 0.50],  [65, 4, 0.45],
+      // OUTRO (sum = 8 bars — sustained tonic resolution)
+      [62, 8, 0.40],
+    ];
+    let acc = 0;
+    for (let mi = 0; mi < ODYSSEY.length; mi++) {
+      const [midi, hold, vel] = ODYSSEY[mi];
+      if (bar === acc) {
+        const noteDurSec = hold * barSec * 1.02; // tiny overlap → glide-blend
+        // DISTANCE breathing — long LFO across the song so the theremin
+        // wanders from close (loud + present) to very distant (faint
+        // call across the horizon). BATTLE bars stay confident + loud.
+        const inBattle = bar >= 36 && bar < 44;
+        const distLFO = inBattle
+          ? 1.0
+          : 0.35 + 0.65 * Math.max(0, 0.5 + 0.5 * Math.sin((bar / 19) * 2 * Math.PI));
+        const gain = vel * 0.45 * distLFO;
+        const next = ODYSSEY[mi + 1];
+        const nextMidi = next ? next[0] : null;
+        // Theremin at the original ODYSSEY register (D4-D6 / midi 62-86).
+        fireTheremin(sawBuf, barStart, midi, noteDurSec, gain, nextMidi);
+        events.supersaw.push({ t: barStart, midi, dur: noteDurSec, kind: "theremin" });
+        supersawCount++;
+        break;
+      }
+      if (bar < acc + hold) break;
+      acc += hold;
+    }
+  }
+
+  // CLAP — classic trance backbeat punctuation, sparingly placed
+  // ("here or there" per @jeffrey). Fires on beat 2 (mid-bar) of every
+  // other drop1/drop2 bar — present enough to feel, sparse enough to
+  // stay "or there" instead of every beat.
+  if ((sec === "drop1" || sec === "drop2") && (bar % 2 === 0)) {
+    const clapT = barStart + barSec * 2 / 5;  // beat 2 of 5
+    fireClap(dryBuf, clapT, 0.32 * DRUM_GAIN);  // chill backbeat — pulled from 0.55
+    events.kick.push({ t: clapT, kind: "clap" });
+  }
+
+  // DICE-ROLL CLICK-CLACK — kicks in STRAIGHT AT BAR 41 (right out the
+  // gate after the vortex stamp at bar 39-40) and carries through to
+  // the end. Cluster of 3-6 tumbling wooden clicks per fire, alternating
+  // hi/lo pitch ("click-clack"). Placed on beats 1 + 3 of every bar
+  // post-vortex for a steady rolling clatter under the drop2 + outro.
+  if (bar >= 41) {
+    const c1 = barStart + barSec * 1 / 5;
+    const c2 = barStart + barSec * 3 / 5;
+    fireDiceRoll(dryBuf, c1, 0.28 * DRUM_GAIN);  // chill click-clack — pulled from 0.50
+    fireDiceRoll(dryBuf, c2, 0.28 * DRUM_GAIN);
+    events.kick.push({ t: c1, kind: "dice" });
+    events.kick.push({ t: c2, kind: "dice" });
   }
 
   // Lead — base theme + subtle microtonal drift + per-bar octave AND
@@ -3394,7 +3608,7 @@ applyFlange(sawBuf, {
   depthMs: 4.5,
   baseDelayMs: 5,
   feedback: 0.45,
-  mix: 0.55,
+  mix: 0.35, // pulled from 0.55 — wet was eating the dry saw fundamentals, making the wall hard to hear
   sampleRate: SAMPLE_RATE,
 });
 for (let i = 0; i < totalSamples; i++) duckBuf[i] += sawBuf[i];
@@ -3634,6 +3848,7 @@ if (GALLOP && isChill) {
     // deeper-set base ratio 0.5 (down an octave) + a mild melodic step
     const ratio = 0.5 * Math.pow(2, melo[strideCount % melo.length] / 12);
     place(gal, ts, ratio, 0.55 * DRUM_GAIN * lvl * (0.85 + gRng() * 0.3), true);
+    events.sfx.push({ t: ts, name: "gallop", dur: 0.55 });
     ts += (0.55 + gRng() * 0.7) / (mt < 24 ? 1.3 : 1.0); // irregular = spread
     strideCount++;
   }
@@ -3646,6 +3861,7 @@ if (GALLOP && isChill) {
         const r = Math.pow(2, (scaleNoteMidi(cd + hd, -1) - 57) / 12);
         place(nei, nt, Math.max(0.4, r), hg * DRUM_GAIN * 0.6, true);
       }
+      events.sfx.push({ t: nt, name: "neigh", dur: 1.2 });
     }
   }
   // THUNDERCLAP / lightning — synth crack + deep rumble + tail (no
@@ -3667,6 +3883,8 @@ if (GALLOP && isChill) {
   };
   thunder(OPENING_PREFIX_SEC + 0.12, 0.5 * DRUM_GAIN);
   thunder(OPENING_PREFIX_SEC + musicSec * 0.5, 0.4 * DRUM_GAIN);
+  events.sfx.push({ t: OPENING_PREFIX_SEC + 0.12, name: "thunder", dur: 2.6 });
+  events.sfx.push({ t: OPENING_PREFIX_SEC + musicSec * 0.5, name: "thunder", dur: 2.6 });
   // STEAM / TRAIN WHISTLE (jas) — a detuned 3-note chord cluster with
   // breathy steam, slow swell in, mournful pitch fall + vibrato, long
   // tail. Opens like a locomotive; one more mid.
@@ -3693,6 +3911,8 @@ if (GALLOP && isChill) {
   };
   whistle(OPENING_PREFIX_SEC + 0.05, 1.7, 0.32 * DRUM_GAIN);
   whistle(OPENING_PREFIX_SEC + musicSec * 0.5 - 0.45, 1.4, 0.26 * DRUM_GAIN);
+  events.sfx.push({ t: OPENING_PREFIX_SEC + 0.05, name: "train-whistle", dur: 1.7 });
+  events.sfx.push({ t: OPENING_PREFIX_SEC + musicSec * 0.5 - 0.45, name: "train-whistle", dur: 1.4 });
   // OCEAN / HARBOUR scene in the last third (jas: "wave crashing
   // sounds ... a boat horn ... fog horn in distance"). Real CC0
   // Freesound samples, placed via the same deep/echo/variable-rate
@@ -3721,17 +3941,19 @@ if (GALLOP && isChill) {
     let wt = oc0;
     while (wt < ocEnd) {
       place(waves, wt, 0.85 + gRng() * 0.2, 0.20 * DRUM_GAIN * (0.8 + gRng() * 0.3), true);
+      events.sfx.push({ t: wt, name: "wave", dur: 1.2 });
       wt += 1.4 + gRng() * 1.6;
     }
   }
-  if (fogh) {                                    // LOW ~5s smooth fog horn (jas: "at 2:19 ... 5 seconds ... low freq")
-    placeClean(fogh, OPENING_PREFIX_SEC + musicSec * 0.68, 0.17 * DRUM_GAIN);
-    placeClean(fogh, OPENING_PREFIX_SEC + musicSec * 0.82, 0.16 * DRUM_GAIN); // ≈ 2:19
-  }
-  if (boath) {                                   // a couple mournful boat-horn blasts
-    place(boath, OPENING_PREFIX_SEC + musicSec * 0.72, 0.80, 0.30 * DRUM_GAIN, true);
-    place(boath, OPENING_PREFIX_SEC + musicSec * 0.835, 0.74, 0.24 * DRUM_GAIN, true);
-  }
+  // Foghorn removed per @jeffrey — the boathorns + train-whistle carry
+  // the harbour mood without the long sustained low-frequency bed tone.
+  // (fogh loaded but intentionally unused; left in place so the asset
+  // path stays warm if we want to re-enable later.)
+  void fogh;
+  // Boathorns fully removed per @jeffrey — both the ~2:17 and the
+  // ~2:40 blasts read foghorn-ish against the ocean bed. The harbour
+  // mood is now carried by waves + train-whistle + neigh alone.
+  void boath;
   console.log(`  gallop · REAL CC0 horse — ${strideCount} strides + neigh + thunder + steam whistle + ocean/boat/fog (CC0)`);
 }
 

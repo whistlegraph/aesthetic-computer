@@ -62,18 +62,44 @@ const voxChain =
   `equalizer=f=9000:t=q:w=1.0:g=1.5,` +
   `volume=${VOX_DB}dB`;
 
-// Master chain — IDENTICAL to trancepenta.md stage 3, applied to the
-// bed+vocal sum. amix normalize=0 so the bed keeps its own level and
-// the (already-attenuated) vocal just adds a quiet layer; loudnorm then
-// brings the SUM to -14 LUFS so the published track is still
-// Spotify-clean with the counterpoint baked in.
+// Master chain — RADIO-LEANING mix bus, applied to the bed+vocal sum.
+//   · highpass at 28 Hz — strips sub-rumble that FM/small speakers
+//     can't reproduce and that just wastes headroom.
+//   · acompressor (-16 / 3.0:1 / 8 dB knee) — heavier glue compression
+//     than the album chain (was -19 / 2.4:1) so all the multi-track
+//     elements sit in one cohesive level instead of each peaking past
+//     each other. "Brings everything into view."
+//   · 4-band corrective EQ — tame low-mud at 120 Hz, scoop 250 Hz for
+//     clarity, bump 3.5 kHz for radio presence, lift 11 kHz for air.
+//   · loudnorm I=-14 LRA=6 — Spotify-compatible LUFS but a much tighter
+//     dynamic range than the album chain (was LRA=11) so the track
+//     stays loud + present through the whole arrangement.
+//   · alimiter 0.94 / fast (5 ms attack / 80 ms release) — broadcast-
+//     style ceiling that catches any remaining transients tightly.
+// Reverb-duck envelope around the audio stamp (~93-101 s). Drops the
+// wet-reverb path from 1.0 down to 0.02 (≈ −34 dB) during the stamp
+// window so the room "sucks dry" before the stamp lands, then ramps
+// back to full so the post-stamp build returns into space. Ramps:
+// 91 → 92 s  hard suck (1.0 → 0.02), 101 → 103 s smooth recover.
+const stampDuck =
+  `'if(lt(t,91), 1, if(lt(t,92), 1-0.98*(t-91), if(lt(t,101), 0.02, if(lt(t,103), 0.02+0.49*(t-101), 1))))'`;
+
 const filter =
   `[1:a]${voxChain}[vox];` +
   `[0:a][vox]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix];` +
-  `[mix]acompressor=threshold=-19dB:ratio=2.4:attack=15:release=240:makeup=1:knee=6,` +
-  `equalizer=f=3000:t=q:w=1.2:g=2,highshelf=f=10000:g=1.5,` +
-  `loudnorm=I=-14:TP=-1.5:LRA=11,` +
-  `alimiter=limit=0.94:attack=8:release=120:level=disabled,` +
+  // TRANCE-SPACE master chain — dry path + reverb-tail path summed,
+  // where the reverb tail is GATED by the stamp-duck envelope.
+  `[mix]highpass=f=28,asplit=2[dry][toverb];` +
+  `[toverb]aecho=0.85:0.45:80|170|340|620:0.18|0.13|0.08|0.05,` +
+    `volume=${stampDuck}:eval=frame[wetGated];` +
+  `[dry][wetGated]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[spaced];` +
+  `[spaced]acompressor=threshold=-16dB:ratio=3.0:attack=10:release=150:makeup=1.5:knee=8,` +
+  `equalizer=f=120:t=q:w=1.2:g=-1,` +
+  `equalizer=f=250:t=q:w=1.6:g=-1.2,` +
+  `equalizer=f=3500:t=q:w=1.4:g=2.5,` +
+  `highshelf=f=11000:g=1.8,` +
+  `loudnorm=I=-14:TP=-1.5:LRA=6,` +
+  `alimiter=limit=0.94:attack=5:release=80:level=disabled,` +
   `afade=t=out:st=${fadeSt}:d=18[out]`;
 
 const r = spawnSync("ffmpeg", [
