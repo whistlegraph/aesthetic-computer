@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# slab-close-window — close the terminal window that owns the calling tty.
+#
+# Works in both Terminal.app and iTerm2. Identifies the window by matching
+# the controlling tty (`tty -s` from this script's stdin), so running it
+# from a background pane / split correctly closes that pane's window
+# rather than whatever happens to be frontmost.
+#
+# Usage:
+#   slab-close-window            # close window owning $(tty)
+#   slab-close-window /dev/ttys004  # close window owning the given tty
+#
+# Exit codes:
+#   0  closed (or already gone)
+#   1  not running from a tty AND no explicit tty argument
+#   2  couldn't identify the host terminal (no TERM_PROGRAM hint)
+
+set -euo pipefail
+
+TTY="${1:-}"
+if [[ -z "${TTY}" ]]; then
+    if TTY="$(tty 2>/dev/null)" && [[ "${TTY}" != "not a tty" ]]; then
+        :
+    else
+        echo "slab-close-window: not a tty — pass a tty path explicitly" >&2
+        exit 1
+    fi
+fi
+
+# Strip /dev/ prefix to a tail like "ttys004" so AppleScript's
+# `tty ends with` works against either form.
+TAIL="${TTY##/dev/}"
+
+# Pick the host terminal. TERM_PROGRAM is set by the shell of the
+# terminal that owns this process, so it's the right cue even when
+# another app is frontmost. Fall back to "both" if it's unset.
+HOST="${TERM_PROGRAM:-}"
+case "${HOST}" in
+    Apple_Terminal) APP="terminal" ;;
+    iTerm.app)      APP="iterm" ;;
+    *)              APP="both" ;;
+esac
+
+close_terminal_app() {
+    /usr/bin/osascript <<APPLESCRIPT
+if application "Terminal" is running then
+  tell application "Terminal"
+    repeat with w in windows
+      try
+        repeat with t in tabs of w
+          try
+            if (tty of t) ends with "${TAIL}" then
+              close w saving no
+              return
+            end if
+          end try
+        end repeat
+      end try
+    end repeat
+  end tell
+end if
+APPLESCRIPT
+}
+
+close_iterm() {
+    /usr/bin/osascript <<APPLESCRIPT
+if application id "com.googlecode.iterm2" is running then
+  tell application id "com.googlecode.iterm2"
+    repeat with w in windows
+      try
+        repeat with t in tabs of w
+          repeat with s in sessions of t
+            try
+              if (tty of s) ends with "${TAIL}" then
+                close w
+                return
+              end if
+            end try
+          end repeat
+        end repeat
+      end try
+    end repeat
+  end tell
+end if
+APPLESCRIPT
+}
+
+case "${APP}" in
+    terminal) close_terminal_app ;;
+    iterm)    close_iterm ;;
+    both)     close_terminal_app; close_iterm ;;
+esac
