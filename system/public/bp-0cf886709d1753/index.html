@@ -58,23 +58,8 @@
         color-scheme: light dark;
       }
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --paper:        #161410;
-          --paper-deep:   #0e0c08;
-          --paper-veil:   #1f1c14;
-          --ink:          #ece2cd;
-          --ink-soft:     #c8bb9c;
-          --ink-quiet:    #998b6d;
-          --ink-faint:    #6f6650;
-          --rule:         #3a3225;
-          --rule-soft:    #261f15;
-          --c-clinical:   #54a594;
-          --c-arts:       #d9885d;
-          --c-education:  #d9b04a;
-          --c-resources:  #a4a574;
-        }
-      }
+      /* Dark mode intentionally not yet implemented — light theme only
+         while we nail the branding. */
 
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; }
@@ -289,14 +274,21 @@
         align-items: end;
       }
       .hero-foot .right-col {
-        font-family: var(--sans);
-        font-size: 14.5px;
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 16.5px;
         line-height: 1.5;
-        color: rgba(236, 226, 205, 0.78);
+        color: rgba(236, 226, 205, 0.86);
         max-width: 38ch;
         justify-self: end;
         text-align: right;
         margin: 0;
+      }
+      .hero-foot .ornament {
+        font-family: var(--serif);
+        font-size: 22px;
+        color: rgba(236, 226, 205, 0.72);
+        align-self: end;
       }
 
       /* === EXHIBITION — Fludd as framed museum print on bone ground === */
@@ -375,21 +367,24 @@
         height: auto;
         filter: sepia(0.04) saturate(0.92) contrast(1.02);
       }
-      @media (prefers-color-scheme: dark) {
-        .exhibition-plate img {
-          filter: invert(0.86) hue-rotate(180deg) sepia(0.18) saturate(0.85);
-        }
-      }
-
-      /* === MISSION — near-black block with cream + color-coded line === */
+      /* === MISSION — deep umber block (warmer than near-black) === */
       .mission-block {
-        background: var(--ink);
+        background: #3a2a1c;
         color: var(--paper);
         padding: clamp(100px, 16vh, 200px) var(--pad-x);
+        position: relative;
       }
-      @media (prefers-color-scheme: dark) {
-        .mission-block { background: var(--paper-deep); color: var(--ink); }
+      .mission-block::before,
+      .mission-block::after {
+        content: "❋";
+        position: absolute;
+        font-family: var(--serif);
+        color: color-mix(in srgb, var(--c-education) 70%, transparent);
+        font-size: 22px;
+        opacity: 0.55;
       }
+      .mission-block::before { top: 28px; left: 50%; transform: translateX(-50%); }
+      .mission-block::after  { bottom: 28px; left: 50%; transform: translateX(-50%); }
       .mission-inner {
         max-width: var(--maxw);
         margin: 0 auto;
@@ -418,10 +413,6 @@
         color: var(--c-education);
         font-weight: 400;
         margin-top: 0.36em;
-      }
-      @media (prefers-color-scheme: dark) {
-        .mission-block .invocation p:nth-child(1),
-        .mission-block .invocation p:nth-child(2) { color: var(--ink); }
       }
 
       /* === DOORS — editorial slab list, color-coded Roman numerals === */
@@ -559,31 +550,31 @@
         gap: 14px;
       }
       .cta {
-        font-family: var(--sans);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: var(--label-track);
-        text-transform: uppercase;
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 19px;
+        font-weight: 400;
         text-decoration: none;
-        color: var(--paper);
-        padding: 14px 22px;
-        background: var(--ink);
+        color: var(--ink);
+        padding: 14px 26px;
+        background: transparent;
         border: 1px solid var(--ink);
-        transition: background 180ms ease, border-color 180ms ease;
+        border-radius: 999px;
+        transition: background 200ms ease, color 200ms ease, border-color 200ms ease;
       }
       .cta:hover, .cta:focus-visible {
         background: var(--c-clinical);
+        color: var(--paper);
         border-color: var(--c-clinical);
         outline: none;
       }
       .cta.quiet {
-        background: transparent;
-        color: var(--ink);
+        color: var(--ink-soft);
         border-color: var(--rule);
       }
       .cta.quiet:hover, .cta.quiet:focus-visible {
-        background: transparent;
-        color: var(--c-education);
+        background: var(--c-education);
+        color: var(--paper);
         border-color: var(--c-education);
       }
 
@@ -690,7 +681,7 @@
       </div>
 
       <div class="hero-foot">
-        <span class="label over-video">Resilient Minds &nbsp;·&nbsp; Rebuild &nbsp;·&nbsp; 2026</span>
+        <span class="ornament" aria-hidden="true">❋</span>
         <p class="right-col">An institute for the body, the soul, and the long study of human healing.</p>
       </div>
     </section>
