@@ -5,7 +5,7 @@
  * - AC Pane (3D flip view with front webview + back terminal)
  */
 
-const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
@@ -2787,6 +2787,27 @@ app.whenReady().then(async () => {
   // until the user clicks a tray icon.
   if (launchedSilently) syncDockVisibility();
 
+  // Allow clipboard read/write for AC content loaded over https/http or in
+  // webviews. `navigator.clipboard.readText()` in bios.mjs (paste button +
+  // TextInput paste in prompt/chat) is gated behind these permissions in
+  // Electron; without handlers the request silently fails and nothing pastes.
+  const allowClipboard = (permission) =>
+    permission === 'clipboard-read' ||
+    permission === 'clipboard-sanitized-write' ||
+    permission === 'clipboard-write';
+  const installClipboardPermissions = (sess) => {
+    if (!sess || sess.__acClipboardWired) return;
+    sess.__acClipboardWired = true;
+    sess.setPermissionRequestHandler((_wc, permission, callback) => {
+      if (allowClipboard(permission)) return callback(true);
+      callback(false);
+    });
+    sess.setPermissionCheckHandler((_wc, permission) => {
+      return allowClipboard(permission);
+    });
+  };
+  installClipboardPermissions(session.defaultSession);
+
   createMenu();
   createSystemTray();
   createNotepatTray();
@@ -2848,6 +2869,7 @@ app.whenReady().then(async () => {
   
   // Allow webview preload scripts (required for webview-preload.js to work)
   app.on('web-contents-created', (_, contents) => {
+    installClipboardPermissions(contents.session);
     contents.on('will-attach-webview', (wawevent, webPreferences, params) => {
       // Verify the preload path is our legitimate webview-preload.js
       const preloadPath = params.preload;
