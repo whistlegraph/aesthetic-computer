@@ -128,6 +128,17 @@ let myServerAckCmdMs = 0;
 let reconCamRef = null;
 let reconCorrectionMs = 0; // monotonic debug counter for HUD
 
+// 🔬 Perf ring (read externally via window.__arena_perfStats — see boot()).
+// Records one entry per painted frame so external probes (artery/arena-probe)
+// can compute frame-interval std-dev, correction histograms, and snapshot
+// arrival jitter without instrumenting the renderer.
+const ARENA_PERF_RING_SIZE = 240; // ~4s @ 60fps
+const arenaPerfRing = new Array(ARENA_PERF_RING_SIZE);
+let arenaPerfRingIdx = 0;
+let arenaPerfRingLen = 0;
+let lastReconDist = 0;           // |predicted − local| from last reconcile
+let lastReconKind = "none";      // "none" | "soft" | "snap" | "skip"
+
 // Tunables exposed on screen.
 let netStats = {
   snapsRx: 0,
@@ -323,7 +334,12 @@ function reconcileLocal() {
   const dz = predicted.z - localZ;
   const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-  if (dist < RECONCILE_DEAD_ZONE) return; // within float-noise → ignore.
+  lastReconDist = dist;
+
+  if (dist < RECONCILE_DEAD_ZONE) {
+    lastReconKind = "skip";
+    return;
+  }
 
   if (dist > RECONCILE_SNAP_THRESHOLD) {
     // Large desync (teleport / forced respawn / long stall) — hard snap.
@@ -331,6 +347,7 @@ function reconcileLocal() {
     cam.y = -predicted.y;
     cam.z = -predicted.z;
     reconCorrectionMs++;
+    lastReconKind = "snap";
     return;
   }
 
@@ -339,6 +356,7 @@ function reconcileLocal() {
   cam.y += -dy * RECONCILE_SOFT_K;
   cam.z += -dz * RECONCILE_SOFT_K;
   reconCorrectionMs++;
+  lastReconKind = "soft";
 }
 
 function netBoot({ net, handle, send, debug }) {
@@ -1411,6 +1429,37 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
+
+  // 🔬 Expose perf ring to external probes (artery/arena-probe.mjs reads
+  // this via CDP Runtime.evaluate to compute jerkiness metrics offline).
+  if (typeof window !== "undefined") {
+    window.__arena_perfStats = function () {
+      const out = new Array(arenaPerfRingLen);
+      for (let i = 0; i < arenaPerfRingLen; i++) {
+        const idx =
+          (arenaPerfRingIdx - arenaPerfRingLen + i + ARENA_PERF_RING_SIZE) %
+          ARENA_PERF_RING_SIZE;
+        out[i] = arenaPerfRing[idx];
+      }
+      return {
+        samples: out,
+        meta: {
+          size: arenaPerfRingLen,
+          netSpectator,
+          myHandle,
+          ping,
+          pendingCmds: pendingCmds.length,
+          reconCorrTotal: reconCorrectionMs,
+          snapsRx: netStats.snapsRx,
+          cmdsTx: netStats.cmdsTx,
+          collectedAt: performance.now(),
+          position: reconCamRef
+            ? { x: -reconCamRef.x, y: -reconCamRef.y, z: -reconCamRef.z }
+            : null,
+        },
+      };
+    };
+  }
 
   // 🏟️ Multiplayer: open WS + UDP, send arena:hello.
   netBoot({ net, handle, send, debug });
@@ -2641,6 +2690,23 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   if (frameTimes.length > 60) frameTimes.shift();
   const avgDt = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
   const fps = Math.round(1000 / avgDt);
+
+  // 🔬 Per-frame perf sample — readable from outside via window.__arena_perfStats.
+  arenaPerfRing[arenaPerfRingIdx] = {
+    t: now,
+    dt,
+    reconDist: lastReconDist,
+    reconKind: lastReconKind,
+    pending: pendingCmds.length,
+    ping,
+    snapAge: netStats.lastSnapMs ? Date.now() - netStats.lastSnapMs : -1,
+    reconCorrMs: reconCorrectionMs,
+  };
+  arenaPerfRingIdx = (arenaPerfRingIdx + 1) % ARENA_PERF_RING_SIZE;
+  if (arenaPerfRingLen < ARENA_PERF_RING_SIZE) arenaPerfRingLen++;
+  // Per-frame reset of the reconcile classifier so each sample reflects
+  // *its own* frame, not the last non-skip reconcile that happened.
+  lastReconKind = "none";
 
   // ⚡ Adaptive quality — switch modes with hysteresis so we don't flip every
   // frame. Require several samples of sustained FPS before changing state.
