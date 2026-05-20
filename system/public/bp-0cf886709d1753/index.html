@@ -1,12 +1,9 @@
-<!-- The Resilience Institute (working name) — homepage gateway PoC.
-     Lith-served via system/public/<slug>/, quiltnet/sotce CSS pattern.
-     Hidden preview: aesthetic.computer/bp-0cf886709d1753/  noindex/nofollow.
-     Direction: doc "Website Architecture & Strategic Direction" + user
-     vibe-language ("airy white, pared-down, goopy, earthy"). Palette per
-     doc (cream parchment / deep navy / aged gold / sage / umber). Logo
-     mark is the body-within-cosmos (Fludd-flavored, hand-drawn). Hero:
-     Fludd Macrocosmus as museum piece on clean ground (not full-bleed).
-     Names placeholder; "Resilient Minds" sits beside as continuity. -->
+<!-- The Resilience Institute (working name) — homepage gateway, v4.
+     Editorial / MoMA / high-fashion register. Massive Cormorant Light
+     wordmark as hero. Fludd plate is its own exhibition room. Huge
+     Roman numerals as compositional anchors. One deep-navy block to
+     break the cream. Asymmetric, oversized, label-precise.
+     Hidden preview: aesthetic.computer/bp-0cf886709d1753/  noindex. -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -15,6 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content="An institute for clinical care, therapeutic arts, and education." />
     <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="The Resilience Institute" />
     <meta property="og:description" content="Clinical Care · Therapeutic Arts · Education." />
@@ -23,45 +21,50 @@
     <link rel="apple-touch-icon" href="https://assets.aesthetic.computer/bonneville/mark.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=EB+Garamond:ital,wght@0,400..600;1,400..500&display=swap" rel="stylesheet" />
     <style>
       :root {
-        /* === Earthy / airy parchment — per direction doc + user vibe === */
-        --paper: #f3ece1;            /* warm cream ground */
-        --paper-deep: #ebe2d2;       /* deeper parchment, used sparingly */
-        --paper-veil: #faf6ee;       /* lightest, airy halo */
-        --ink: #1f2a3a;              /* deep navy — structural, authority */
-        --ink-soft: #314257;
-        --umber: #5d3e2a;            /* earth, body text shadow */
-        --sage: #7a8b6f;             /* grounded, alive */
-        --gold: #a0782b;             /* aged gold, alchemical, precision */
-        --gold-quiet: #c9a463;
-        --rule: #d8cdb8;
-        --rule-soft: #e7dec9;
-        --link-color: var(--ink);
-        --link-hover: var(--gold);
-        --serif: "EB Garamond", "Cormorant Garamond", Georgia, "Times New Roman", serif;
-        --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        /* Palette per direction doc */
+        --paper:        #f3ece1;
+        --paper-deep:   #e8dec9;
+        --paper-veil:   #faf5ea;
+        --ink:          #1a2434;   /* slightly deeper navy for high contrast */
+        --ink-soft:     #2e3e54;
+        --ink-quiet:    #5a6a7d;
+        --ink-faint:    #8895a4;
+        --umber:        #5d3e2a;
+        --sage:         #7a8b6f;
+        --gold:         #a87f30;
+        --gold-bright:  #c9a463;
+        --rule:         #cfbfa3;
+        --rule-soft:    #e3d8bf;
 
-        --label-track: 0.22em;
-        --maxw: 720px;
+        --display:      "Cormorant Garamond", Georgia, "Times New Roman", serif;
+        --serif:        "EB Garamond", Georgia, "Times New Roman", serif;
+        --sans:         "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+
+        --label-track:  0.24em;
+        --label-track-tight: 0.18em;
+        --pad-x:        clamp(22px, 5vw, 64px);
+        --maxw:         1360px;
+        color-scheme: light dark;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --paper: #1d1612;          /* deep umber night */
-          --paper-deep: #16110d;
-          --paper-veil: #221a14;
-          --ink: #ece1cc;            /* warm cream ink */
-          --ink-soft: #c6b89c;
-          --umber: #c4a07b;
-          --sage: #9bae8e;
-          --gold: #d6a85a;
-          --gold-quiet: #b48b3f;
-          --rule: #3a2f23;
-          --rule-soft: #2a221a;
-          --link-color: var(--ink);
-          --link-hover: var(--gold);
+          --paper:        #1a1410;
+          --paper-deep:   #110c08;
+          --paper-veil:   #211810;
+          --ink:          #ece1cc;
+          --ink-soft:     #c4b698;
+          --ink-quiet:    #9a8b6e;
+          --ink-faint:    #6f6450;
+          --umber:        #c4a07b;
+          --sage:         #9bae8e;
+          --gold:         #d6a85a;
+          --gold-bright:  #ecc070;
+          --rule:         #3a2f23;
+          --rule-soft:    #271f17;
         }
       }
 
@@ -72,346 +75,639 @@
         background: var(--paper);
         color: var(--ink);
         font-family: var(--serif);
-        font-size: 19px;
-        line-height: 1.62;
+        font-size: 17px;
+        line-height: 1.55;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
         min-height: 100vh;
-        position: relative;
         overflow-x: hidden;
       }
 
-      /* Ground is solid warm cream — no gradient backgrounds (per avoid list).
-         "Airy" is achieved by whitespace, not light effects. */
-
-      header, main, footer {
-        max-width: var(--maxw);
-        margin: 0 auto;
-        padding-left: 32px;
-        padding-right: 32px;
-      }
-
-      /* === Header / cinematic invitation === */
-      header {
-        padding-top: 8vh;
-        padding-bottom: 24px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 18px;
-      }
-
-      .mark {
-        width: 78px;
-        height: 78px;
-        color: var(--ink);
-        display: block;
-      }
-      .mark svg { width: 100%; height: 100%; display: block; }
-
-      .wordmark {
-        font-family: var(--serif);
-        font-size: clamp(34px, 5.4vw, 50px);
-        font-weight: 500;
-        font-style: italic;
-        letter-spacing: 0.005em;
-        line-height: 1.05;
-        color: var(--ink);
-        margin: 0;
-      }
-      .wordmark .of {
-        font-style: italic;
-        color: var(--umber);
-        font-weight: 400;
-      }
-      .working-name {
+      /* Tiny tracked label (museum / MoMA register) */
+      .label {
         font-family: var(--sans);
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 600;
         letter-spacing: var(--label-track);
         text-transform: uppercase;
+        color: var(--ink-quiet);
+        line-height: 1.2;
+      }
+      .label.gold { color: var(--gold); }
+      .label.sage { color: var(--sage); }
+
+      /* === Top chrome — solid masthead, thin rule, always readable === */
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 18px;
+        padding: 16px var(--pad-x);
+        background: var(--paper);
+        border-bottom: 1px solid var(--rule);
+      }
+      .topbar .chrome {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: var(--ink);
+        justify-self: start;
+      }
+      .topbar .mark-mini {
+        width: 24px;
+        height: 24px;
+        color: var(--ink);
+        display: block;
+      }
+      .topbar .mark-mini svg { width: 100%; height: 100%; display: block; }
+      .topbar .name-mini {
+        font-family: var(--sans);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: var(--label-track);
+        text-transform: uppercase;
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      .topbar .center-label {
+        justify-self: center;
+        font-family: var(--sans);
+        font-size: 10px;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--gold);
+      }
+      .topbar nav.minor {
+        justify-self: end;
+        display: flex;
+        gap: 26px;
+      }
+      .topbar nav.minor a {
+        font-family: var(--sans);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: var(--label-track-tight);
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .topbar nav.minor a:hover { color: var(--ink); }
+
+      /* === HERO — wordmark as headline, no image. === */
+      .hero {
+        min-height: 100vh;
+        padding: clamp(140px, 22vh, 220px) var(--pad-x) clamp(40px, 8vh, 80px);
+        max-width: var(--maxw);
+        margin: 0 auto;
+        display: grid;
+        grid-template-rows: 1fr auto;
+        gap: clamp(40px, 8vh, 80px);
+      }
+      .hero .top-line {
+        display: flex;
+        gap: 22px;
+        align-items: baseline;
+        flex-wrap: wrap;
+      }
+      .hero .top-line .label.gold { font-size: 11px; }
+      .hero .top-line .est {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 300;
+        color: var(--ink-quiet);
+        font-size: 15px;
+      }
+      .hero .wordmark {
+        font-family: var(--display);
+        font-weight: 300;
+        font-size: clamp(72px, 13.5vw, 200px);
+        line-height: 0.92;
+        letter-spacing: -0.012em;
+        margin: 0;
+        color: var(--ink);
+        max-width: 14ch;
+      }
+      .hero .wordmark em {
+        font-style: italic;
+        font-weight: 300;
+        color: var(--umber);
+      }
+      .hero-foot {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+        gap: clamp(24px, 4vw, 80px);
+        align-items: end;
+        border-top: 1px solid var(--rule);
+        padding-top: 28px;
+      }
+      .hero-foot .descriptors {
+        font-family: var(--display);
+        font-weight: 300;
+        font-size: clamp(22px, 2.4vw, 30px);
+        line-height: 1.2;
+        color: var(--ink);
+        margin: 0;
+      }
+      .hero-foot .descriptors span {
+        color: var(--gold);
+        margin: 0 0.55em;
+        font-size: 0.7em;
+        vertical-align: 0.18em;
+      }
+      .hero-foot .right-col {
+        font-family: var(--serif);
+        font-size: 15.5px;
+        line-height: 1.55;
+        color: var(--ink-soft);
+        max-width: 30ch;
+        font-style: italic;
+        justify-self: end;
+        text-align: right;
+      }
+
+      /* === EXHIBITION ROOM — Fludd plate as a fine-art print. === */
+      .exhibition {
+        background: var(--paper-veil);
+        border-top: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rule);
+        padding: clamp(80px, 14vh, 160px) var(--pad-x);
+      }
+      .exhibition-inner {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr);
+        gap: clamp(28px, 5vw, 100px);
+        align-items: center;
+      }
+      .exhibition-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .exhibition-meta .roman {
+        font-family: var(--display);
+        font-weight: 300;
+        font-style: italic;
+        font-size: clamp(52px, 8vw, 110px);
+        line-height: 1;
         color: var(--gold);
         margin: 0;
       }
-      .descriptors {
-        font-family: var(--sans);
-        font-size: 12px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--ink-soft);
-        margin: 0;
-      }
-      .descriptors em {
-        font-style: normal;
-        color: var(--sage);
-        margin: 0 0.55em;
-      }
-
-      /* === Goopy hand-drawn divider === */
-      .divider {
-        display: block;
-        margin: 64px auto;
-        width: min(360px, 70%);
-        height: 18px;
-        color: var(--gold-quiet);
-        opacity: 0.7;
-      }
-      .divider svg { width: 100%; height: 100%; display: block; }
-
-      /* === Mission === */
-      .mission {
-        margin: 40px auto 8px;
-        text-align: center;
-        max-width: 36ch;
-      }
-      .mission p {
-        font-size: clamp(22px, 3.2vw, 28px);
-        line-height: 1.32;
-        font-style: italic;
+      .exhibition-meta h2 {
+        font-family: var(--display);
+        font-weight: 400;
+        font-size: clamp(28px, 3vw, 40px);
+        line-height: 1.05;
+        margin: 8px 0 4px;
         color: var(--ink);
-        margin: 0 0 14px;
       }
-      .mission p:last-child {
-        margin-bottom: 0;
+      .exhibition-meta h2 em { font-style: italic; font-weight: 300; }
+      .exhibition-meta .credit {
+        font-family: var(--serif);
+        font-style: italic;
+        color: var(--ink-soft);
+        font-size: 16px;
+        margin: 0;
+        max-width: 28ch;
       }
-      .mission .third {
-        color: var(--umber);
+      .exhibition-meta .museum-label {
+        margin-top: 12px;
+        font-family: var(--sans);
+        font-size: 10.5px;
+        letter-spacing: var(--label-track-tight);
+        text-transform: uppercase;
+        color: var(--ink-quiet);
+        line-height: 1.7;
       }
-
-      /* === Hero alchemical museum-piece (cinematic invitation, top of page) === */
-      figure.museum {
-        margin: 0 0 8px;
-        max-width: 520px;
-        width: 100%;
-        text-align: center;
-        align-self: center;
+      .exhibition-meta .museum-label strong {
+        color: var(--ink);
+        font-weight: 600;
       }
-      figure.museum img {
+      .exhibition-plate {
+        position: relative;
+        padding: clamp(20px, 3vw, 36px);
+        background: var(--paper);
+        border: 1px solid var(--rule);
+      }
+      .exhibition-plate img {
         display: block;
         width: 100%;
         height: auto;
-        filter: sepia(0.06) saturate(0.92);
+        filter: sepia(0.05) saturate(0.92) contrast(1.02);
       }
       @media (prefers-color-scheme: dark) {
-        figure.museum img {
+        .exhibition-plate img {
           filter: invert(0.86) hue-rotate(180deg) sepia(0.18) saturate(0.85);
-          /* makes the engraving sit on dark parchment without looking pasted */
         }
       }
-      figure.museum figcaption {
-        font-family: var(--sans);
-        font-size: 11px;
-        letter-spacing: 0.1em;
-        color: var(--ink-soft);
-        margin-top: 14px;
-        text-transform: uppercase;
+
+      /* === MISSION — deep navy block, MoMA-scale invocation, cream type. */
+      .mission-block {
+        background: var(--ink);
+        color: var(--paper);
+        padding: clamp(100px, 16vh, 200px) var(--pad-x);
+      }
+      @media (prefers-color-scheme: dark) {
+        .mission-block { background: var(--paper-deep); color: var(--ink); }
+      }
+      .mission-inner {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+        gap: clamp(24px, 4vw, 90px);
+        align-items: start;
+      }
+      .mission-block .label {
+        color: var(--gold-bright);
+        padding-top: 14px;
+        border-top: 1px solid color-mix(in srgb, var(--gold) 50%, transparent);
+      }
+      .mission-block .invocation {
+        font-family: var(--display);
+        font-weight: 300;
+        font-size: clamp(36px, 5.5vw, 78px);
+        line-height: 1.06;
+        margin: 0;
+        letter-spacing: -0.008em;
+      }
+      .mission-block .invocation p { margin: 0 0 0.12em; }
+      .mission-block .invocation p:last-child {
+        font-style: italic;
+        font-weight: 300;
+        color: var(--gold-bright);
+        margin-top: 0.3em;
       }
 
-      /* === Four doors === */
+      /* === DOORS — editorial grid with HUGE Roman numerals === */
+      .doors-section {
+        padding: clamp(100px, 16vh, 180px) var(--pad-x);
+        max-width: var(--maxw);
+        margin: 0 auto;
+      }
+      .doors-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+        gap: clamp(24px, 4vw, 90px);
+        align-items: end;
+        padding-bottom: clamp(48px, 8vh, 96px);
+      }
+      .doors-head .label {
+        padding-top: 14px;
+        border-top: 1px solid var(--rule);
+      }
+      .doors-head .lede {
+        font-family: var(--display);
+        font-weight: 300;
+        font-style: italic;
+        font-size: clamp(26px, 3.4vw, 48px);
+        line-height: 1.15;
+        color: var(--ink-soft);
+        margin: 0;
+        max-width: 24ch;
+      }
+
       .doors {
-        margin: 56px 0 24px;
         display: grid;
         grid-template-columns: 1fr;
-        gap: 0;
         border-top: 1px solid var(--rule);
       }
       .door {
-        display: block;
-        padding: 28px 6px 28px;
+        display: grid;
+        grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: clamp(24px, 4vw, 80px);
+        padding: clamp(40px, 7vh, 96px) 0;
         border-bottom: 1px solid var(--rule);
         text-decoration: none;
         color: var(--ink);
-        position: relative;
-        transition: background 200ms ease, padding-left 200ms ease;
+        align-items: start;
+        transition: padding-left 240ms ease;
       }
       .door:hover, .door:focus-visible {
-        background: var(--paper-veil);
-        padding-left: 16px;
+        padding-left: 18px;
         outline: none;
       }
       .door .num {
+        font-family: var(--display);
+        font-weight: 300;
+        font-style: italic;
+        font-size: clamp(64px, 10vw, 144px);
+        line-height: 0.86;
+        color: var(--gold);
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+      .door h2 {
+        font-family: var(--display);
+        font-weight: 300;
+        font-size: clamp(34px, 4.4vw, 64px);
+        line-height: 0.98;
+        margin: 0 0 18px;
+        letter-spacing: -0.005em;
+      }
+      .door h2 em { font-style: italic; font-weight: 300; }
+      .door .door-sub {
+        font-family: var(--sans);
+        font-size: 10.5px;
+        letter-spacing: var(--label-track-tight);
+        text-transform: uppercase;
+        color: var(--ink-quiet);
+        margin: 0 0 24px;
+      }
+      .door .body {
+        font-family: var(--serif);
+        font-size: 16.5px;
+        line-height: 1.5;
+        color: var(--ink-soft);
+        margin: 0;
+        max-width: 32ch;
+        padding-top: 16px;
+      }
+      .door .credit {
+        font-family: var(--sans);
+        font-size: 10px;
+        letter-spacing: var(--label-track-tight);
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        margin-top: 18px;
+      }
+
+      /* === CTAs === */
+      .ctas-section {
+        padding: clamp(80px, 14vh, 160px) var(--pad-x);
+        max-width: var(--maxw);
+        margin: 0 auto;
+      }
+      .ctas {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+        gap: clamp(24px, 4vw, 90px);
+        align-items: end;
+        border-top: 1px solid var(--rule);
+        padding-top: 36px;
+      }
+      .ctas .label {
+        padding-top: 4px;
+      }
+      .ctas-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: baseline;
+      }
+      .cta {
         font-family: var(--sans);
         font-size: 11px;
         letter-spacing: var(--label-track);
         text-transform: uppercase;
-        color: var(--gold);
-        margin-bottom: 6px;
-        display: block;
-      }
-      .door h2 {
-        font-family: var(--serif);
-        font-size: clamp(26px, 3.6vw, 34px);
-        font-weight: 500;
-        margin: 0 0 6px;
-        line-height: 1.15;
-      }
-      .door p {
-        margin: 0;
-        color: var(--ink-soft);
-        max-width: 58ch;
-        font-size: 17px;
-      }
-      /* No directional icons on doors — interaction is in the indent. */
-
-      /* === CTA strip === */
-      .ctas {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 14px;
-        justify-content: center;
-        margin: 48px 0 8px;
-      }
-      .cta {
-        font-family: var(--sans);
-        font-size: 12px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
         text-decoration: none;
-        padding: 11px 18px;
         color: var(--ink);
+        padding: 16px 26px;
         border: 1px solid var(--ink);
-        border-radius: 2px;
         background: transparent;
-        transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+        transition: background 180ms ease, color 180ms ease;
       }
-      .cta:hover {
+      .cta:hover, .cta:focus-visible {
         background: var(--ink);
         color: var(--paper);
+        outline: none;
       }
       .cta.quiet {
         border-color: var(--rule);
-        color: var(--ink-soft);
+        color: var(--ink-quiet);
+        padding: 16px 22px;
       }
-      .cta.quiet:hover {
-        background: var(--paper-deep);
+      .cta.quiet:hover, .cta.quiet:focus-visible {
+        background: transparent;
         color: var(--ink);
-        border-color: var(--ink-soft);
+        border-color: var(--ink);
       }
 
-      /* === Footer === */
+      /* === Colophon footer === */
       footer {
-        padding-top: 72px;
-        padding-bottom: 64px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 18px;
-        font-family: var(--sans);
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ink-soft);
+        border-top: 1px solid var(--rule);
+        padding: 40px var(--pad-x) 56px;
+        max-width: var(--maxw);
+        margin: 0 auto;
       }
-      footer .preview {
-        color: var(--gold);
+      .colophon {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+        gap: clamp(24px, 4vw, 90px);
+        align-items: start;
       }
-      footer a {
-        color: var(--ink-soft);
+      .colophon .label.gold { color: var(--gold); }
+      .colophon .colophon-body {
+        font-family: var(--serif);
+        font-size: 14px;
+        font-style: italic;
+        line-height: 1.6;
+        color: var(--ink-quiet);
+        margin: 0;
+        max-width: 56ch;
+      }
+      .colophon .colophon-body a {
+        color: var(--ink);
         text-decoration: none;
         border-bottom: 1px solid var(--rule);
         padding-bottom: 1px;
       }
-      footer a:hover { color: var(--ink); border-color: var(--ink); }
+      .colophon .colophon-body a:hover { border-color: var(--ink); }
 
-      /* === Mobile === */
-      @media (max-width: 540px) {
-        body { font-size: 18px; }
-        header, main, footer { padding-left: 22px; padding-right: 22px; }
-        header { padding-top: 40px; }
-        .museum figure { max-width: 88vw; }
-        .divider { margin: 48px auto; }
-        .door:hover, .door:focus-visible { padding-left: 6px; }
+      /* === Responsive === */
+      @media (max-width: 900px) {
+        .hero-foot, .exhibition-inner, .mission-inner, .doors-head, .ctas, .colophon {
+          grid-template-columns: 1fr;
+        }
+        .hero-foot .right-col { text-align: left; justify-self: start; }
+        .door {
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+        .door .num { font-size: clamp(56px, 16vw, 110px); }
+        .door .body { padding-top: 0; }
       }
 
-      /* Selection */
+      @media (max-width: 540px) {
+        body { font-size: 16px; }
+        .topbar { padding: 14px var(--pad-x); }
+        .topbar .center-label { display: none; }
+        .topbar nav.minor { display: none; }
+        .hero {
+          padding-top: 100px;
+          padding-bottom: 36px;
+        }
+      }
+
       ::selection { background: color-mix(in srgb, var(--gold) 28%, transparent); color: var(--ink); }
     </style>
   </head>
   <body>
-    <!-- Cinematic invitation first — image, then identity, then mission.
-         Aman.com model: imagery does the emotional work before any words. -->
-    <header>
-      <figure class="museum">
-        <img
-          src="https://assets.aesthetic.computer/bonneville/fludd-macrocosmus.png"
-          alt="Robert Fludd, Macrocosmus / Microcosmus — the body within concentric cosmic circles."
-          fetchpriority="high"
-        />
-        <figcaption>Macrocosmus &middot; Microcosmus &nbsp;—&nbsp; R. Fludd, c. 1617</figcaption>
-      </figure>
+    <!-- Top chrome bar: mark + tiny wordmark left, preview tag center,
+         minor nav right. Editorial newspaper bar, not a website header. -->
+    <div class="topbar">
+      <a class="chrome" href="#top" aria-label="The Resilience Institute — home">
+        <span class="mark-mini" aria-hidden="true">
+          <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M60 10 C 86 12, 108 32, 110 58 C 112 86, 90 108, 62 110 C 34 112, 12 90, 10 62 C 8 34, 32 8, 60 10 Z"/>
+              <path d="M60 30 C 78 31, 89 44, 90 60 C 91 78, 78 89, 60 90 C 42 91, 31 78, 30 60 C 29 44, 42 29, 60 30 Z"/>
+              <line x1="60" y1="18" x2="60" y2="102"/>
+              <line x1="32" y1="58" x2="88" y2="58" opacity="0.55"/>
+            </g>
+            <circle cx="60" cy="12" r="5" fill="currentColor"/>
+            <circle cx="60" cy="108" r="5" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="name-mini">The Resilience Institute</span>
+      </a>
+      <span class="center-label">Living Draft &nbsp;·&nbsp; Internal Preview</span>
+      <nav class="minor" aria-label="Quick">
+        <a href="#mission">Mission</a>
+        <a href="#doors">Doors</a>
+        <a href="#begin">Begin</a>
+      </nav>
+    </div>
 
-      <div class="divider" aria-hidden="true">
-        <svg viewBox="0 0 360 18" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0 9 C 30 1, 60 17, 90 9 S 150 1, 180 9 S 240 17, 270 9 S 330 1, 360 9"
-                fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-        </svg>
+    <!-- HERO: massive Cormorant-Light wordmark — the institute name IS
+         the visual. No image yet. Anchored to viewport bottom-left. -->
+    <header id="top" class="hero">
+      <div class="top-line">
+        <span class="label gold">Working name</span>
+        <span class="est">— a living draft, May 2026</span>
       </div>
-
-      <div class="mark" aria-hidden="true">
-        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Institute mark">
-          <g fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M60 10 C 86 12, 108 32, 110 58 C 112 86, 90 108, 62 110 C 34 112, 12 90, 10 62 C 8 34, 32 8, 60 10 Z"/>
-            <path d="M60 30 C 78 31, 89 44, 90 60 C 91 78, 78 89, 60 90 C 42 91, 31 78, 30 60 C 29 44, 42 29, 60 30 Z"/>
-            <line x1="60" y1="18" x2="60" y2="102"/>
-            <line x1="32" y1="58" x2="88" y2="58" opacity="0.55"/>
-          </g>
-          <circle cx="60" cy="12" r="2.4" fill="currentColor"/>
-          <circle cx="60" cy="108" r="2.4" fill="currentColor"/>
-        </svg>
+      <h1 class="wordmark">The<br/>Resilience<br/><em>Institute</em></h1>
+      <div class="hero-foot">
+        <p class="descriptors">Clinical Care<span>·</span>Therapeutic Arts<span>·</span>Education</p>
+        <p class="right-col">An institute for the body, the soul, and the long study of human healing.</p>
       </div>
-      <p class="working-name">working name</p>
-      <h1 class="wordmark">The Resilience Institute</h1>
-      <p class="descriptors">Clinical Care<em>·</em>Therapeutic Arts<em>·</em>Education</p>
     </header>
 
-    <main>
-      <section class="mission" aria-label="Mission">
-        <p>The body remembers.</p>
-        <p>Every symptom has a story.</p>
-        <p class="third">The Institute advances the science and soul of human healing.</p>
-      </section>
-
-      <div class="divider" aria-hidden="true">
-        <svg viewBox="0 0 360 18" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0 9 C 30 17, 60 1, 90 9 S 150 17, 180 9 S 240 1, 270 9 S 330 17, 360 9"
-                fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-        </svg>
+    <!-- EXHIBITION ROOM: Fludd as a museum print, displayed inside a
+         framed plate with full museum-label info. -->
+    <section class="exhibition" aria-label="Brand image">
+      <div class="exhibition-inner">
+        <aside class="exhibition-meta">
+          <span class="label gold">Plate I</span>
+          <span class="roman">i.</span>
+          <h2>The body within the <em>cosmos.</em></h2>
+          <p class="credit">A central image for the Institute — the alchemical lineage in which it stands.</p>
+          <div class="museum-label">
+            <strong>Robert Fludd</strong> (1574–1637)<br/>
+            <em>Utriusque Cosmi · Macrocosmus / Microcosmus</em><br/>
+            Engraving, c. 1617
+          </div>
+        </aside>
+        <figure class="exhibition-plate">
+          <img
+            src="https://assets.aesthetic.computer/bonneville/fludd-macrocosmus.png"
+            alt="Robert Fludd, Macrocosmus / Microcosmus — the human form within concentric cosmic circles."
+            fetchpriority="high"
+          />
+        </figure>
       </div>
+    </section>
 
-      <nav class="doors" aria-label="Sections">
+    <!-- MISSION: deep navy block. MoMA-scale invocation in cream.
+         Acts as the page's hinge. -->
+    <section id="mission" class="mission-block" aria-label="Mission">
+      <div class="mission-inner">
+        <span class="label">Mission</span>
+        <div class="invocation">
+          <p>The body remembers.</p>
+          <p>Every symptom has a story.</p>
+          <p>The Institute advances the science and soul of human healing.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- DOORS: editorial list. HUGE Roman numerals carry composition. -->
+    <section id="doors" class="doors-section" aria-label="The Four Doors">
+      <div class="doors-head">
+        <span class="label">The Doors</span>
+        <p class="lede">Four rooms. <em>One&nbsp;architecture.</em></p>
+      </div>
+      <nav class="doors">
         <a class="door" href="#clinical-care">
-          <span class="num">Door I</span>
-          <h2>Clinical Care</h2>
-          <p>Psychiatry &middot; depth psychotherapy &middot; regenerative medicine. With Rebecca Bonneville, NP. Concierge. Telehealth.</p>
+          <span class="num">I</span>
+          <div>
+            <h2>Clinical <em>Care</em></h2>
+            <p class="door-sub">Psychiatry · Depth Psychotherapy · Regenerative Medicine</p>
+          </div>
+          <div>
+            <p class="body">Concierge psychiatric care for adults. Telehealth across CA, WA, AZ and select international clients.</p>
+            <p class="credit">With Rebecca Bonneville, NP</p>
+          </div>
         </a>
+
         <a class="door" href="#therapeutic-arts">
-          <span class="num">Door II</span>
-          <h2>Therapeutic Arts</h2>
-          <p>Therapeutic mentoring, expressive arts, sober coaching, relational wraparound.</p>
+          <span class="num">II</span>
+          <div>
+            <h2>Therapeutic <em>Arts</em></h2>
+            <p class="door-sub">Mentoring · Expressive Arts · Sober Coaching · Movement</p>
+          </div>
+          <div>
+            <p class="body">We are not meant to heal in siloed clinical rooms, but in relationship — through mentorship, companionship, creativity, and community.</p>
+            <p class="credit">Programs &amp; relational support</p>
+          </div>
         </a>
+
         <a class="door" href="#education">
-          <span class="num">Door III</span>
-          <h2>Education</h2>
-          <p>Live groups, embodied workshops, lectures, and a growing archive of self-paced courses.</p>
+          <span class="num">III</span>
+          <div>
+            <h2><em>Education</em></h2>
+            <p class="door-sub">Live Groups · Workshops · Archive of Self-Paced Study</p>
+          </div>
+          <div>
+            <p class="body">A growing library of lectures, meditations, and courses — over a decade of clinical and embodied practice, made accessible.</p>
+            <p class="credit">Memberships forthcoming</p>
+          </div>
         </a>
+
         <a class="door" href="#resources">
-          <span class="num">Door IV</span>
-          <h2>Products &amp; Resources</h2>
-          <p>A curated dispensary and tools — chosen with the same care as the work.</p>
+          <span class="num">IV</span>
+          <div>
+            <h2>Products &amp; <em>Resources</em></h2>
+            <p class="door-sub">Dispensary · Tools · Reading</p>
+          </div>
+          <div>
+            <p class="body">A curated dispensary and reference list — selected with the same care as the work itself.</p>
+            <p class="credit">Curated catalogue</p>
+          </div>
         </a>
       </nav>
+    </section>
 
+    <!-- CTAs: restrained invitations under a thin rule. -->
+    <section id="begin" class="ctas-section" aria-label="Begin">
       <div class="ctas">
-        <a class="cta" href="#clinical-care">Join the Clinical Waitlist</a>
-        <a class="cta quiet" href="#education">Explore Membership</a>
+        <span class="label">Begin</span>
+        <div class="ctas-actions">
+          <a class="cta" href="#clinical-care">Join the Clinical Waitlist</a>
+          <a class="cta quiet" href="#education">Explore Membership</a>
+        </div>
       </div>
-    </main>
+    </section>
 
-    <footer>
-      <span class="preview">Internal preview &middot; living draft</span>
-      <span><a href="https://aesthetic.computer">made on aesthetic.computer</a></span>
+    <footer aria-label="Colophon">
+      <div class="colophon">
+        <span class="label gold">Colophon</span>
+        <p class="colophon-body">
+          The Resilience Institute is the working name for a brand
+          rebuild of <a href="https://resilientminds.health">Resilient Minds</a>. This page is an internal preview — a
+          living draft. Design and architecture in progress. Set in
+          Cormorant Garamond and EB&nbsp;Garamond, on warm parchment.
+          Made on <a href="https://aesthetic.computer">aesthetic.computer</a>.
+        </p>
+      </div>
     </footer>
   </body>
 </html>
