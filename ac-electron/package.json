@@ -47,20 +47,24 @@
     },
     "extraResources": [
       {
+        "from": "build/icons/palsTray.png",
+        "to": "palsTray.png"
+      },
+      {
+        "from": "build/icons/palsTray@2x.png",
+        "to": "palsTray@2x.png"
+      },
+      {
+        "from": "build/icons/palsTray@3x.png",
+        "to": "palsTray@3x.png"
+      },
+      {
         "from": "build/icons/trayTemplate.png",
         "to": "trayTemplate.png"
       },
       {
         "from": "build/icons/trayTemplate@2x.png",
         "to": "trayTemplate@2x.png"
-      },
-      {
-        "from": "build/icons/notepatTrayTemplate.png",
-        "to": "notepatTrayTemplate.png"
-      },
-      {
-        "from": "build/icons/notepatTrayTemplate@2x.png",
-        "to": "notepatTrayTemplate@2x.png"
       },
       {
         "from": "build/icons/16x16.png",

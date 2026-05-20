@@ -989,15 +989,15 @@ let tray = null;
 let notepatTray = null;
 
 function createSystemTray() {
-  // Use template icon for proper macOS menu bar appearance
-  // Template images should be black with transparency, macOS will invert for dark mode
+  // The tray icon is the pals logo at full menubar height — pink, in color,
+  // no template tinting. @1x/@2x/@3x are pre-baked so retina + external 5k
+  // displays both look sharp.
   let iconPath;
   if (process.platform === 'darwin') {
-    // In production, icons are in Resources folder; in dev, in build/icons
     if (app.isPackaged) {
-      iconPath = path.join(process.resourcesPath, 'trayTemplate.png');
+      iconPath = path.join(process.resourcesPath, 'palsTray.png');
     } else {
-      iconPath = path.join(__dirname, 'build', 'icons', 'trayTemplate.png');
+      iconPath = path.join(__dirname, 'build', 'icons', 'palsTray.png');
     }
   } else {
     // Windows/Linux - use packaged icon in production
@@ -1007,20 +1007,18 @@ function createSystemTray() {
       iconPath = path.join(__dirname, 'build', 'icons', '16x16.png');
     }
   }
-  
+
   console.log('[main] Loading tray icon from:', iconPath);
   const icon = nativeImage.createFromPath(iconPath);
-  
+
   if (icon.isEmpty()) {
     console.warn('[main] Tray icon is empty! Path:', iconPath);
     return;
   }
-  
-  // Make it template on macOS for proper dark/light mode support
-  if (process.platform === 'darwin') {
-    icon.setTemplateImage(true);
-  }
-  
+
+  // Pals is full color — do NOT mark it as a template image (template
+  // images get auto-tinted to monochrome by AppKit).
+
   // Store original icon for blink toggling
   originalTrayIcon = icon;
   updateTrayIcon = createUpdateIcon(icon);
@@ -1457,20 +1455,14 @@ function createNotepatTray() {
 
 // ========== End System Tray ==========
 
-// Update the tray title text (shown next to icon in menu bar)
+// Update the tray title text (shown next to icon in menu bar).
+// The pals logo speaks for itself — never render piece-name text next to
+// it. Callers (update flow etc.) can still pass an explicit string for
+// transient states like "⬆️ Update".
 function updateTrayTitle(text) {
   if (!tray) return;
   if (process.platform === 'darwin') {
-    if (text !== undefined) {
-      // Explicit text provided
-      tray.setTitle(text);
-    } else if (preferences.showTrayTitle) {
-      // Show current piece name if available, otherwise use preference text
-      const displayText = currentPiece ? `/${currentPiece}` : (preferences.trayTitleText || '');
-      tray.setTitle(displayText);
-    } else {
-      tray.setTitle('');
-    }
+    tray.setTitle(text !== undefined ? text : '');
   }
 }
 
@@ -3002,7 +2994,7 @@ app.whenReady().then(async () => {
 
   createMenu();
   createSystemTray();
-  createNotepatTray();
+  // createNotepatTray();  // disabled — single pals systray icon only
   
   // Start FF1 Bridge server for kidlisp.com integration
   ff1Bridge.startBridge();
