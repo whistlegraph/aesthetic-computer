@@ -40,6 +40,24 @@ ipcRenderer.on('usb:flash-progress', (event, data) => {
   window.dispatchEvent(new CustomEvent('usb:flash-progress', { detail: data }));
 });
 
+// 🎵 Forward dropped-file payload from Electron host into the AC page.
+// bios.mjs listens for `ac-dropped-file` window messages and routes them
+// to disk.mjs which exposes them as system.droppedFile + a dropped:file
+// event for the running piece.
+ipcRenderer.on('ac:dropped-file', (_event, payload) => {
+  if (!payload || !payload.url) return;
+  try {
+    window.postMessage({
+      type: 'ac-dropped-file',
+      url: payload.url,
+      name: payload.name,
+      mime: payload.mime,
+    }, '*');
+  } catch (e) {
+    console.warn('[webview-preload] failed to forward dropped-file:', e?.message || e);
+  }
+});
+
 // 🎮 Gamepad host → guest bridge.
 // Inside Electron <webview>, navigator.getGamepads() in the guest is often
 // empty because the guest renderer doesn't reliably receive the user

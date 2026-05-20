@@ -76,8 +76,21 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
   - `compiler.mjs` — Parser and compiler
   - `spec/*.mjs` — Test specs
 
-**Desktop**
-- `ac-electron/` — Electron wrapper for native apps
+**Desktop (ac-electron/)**
+- `ac-electron/main.js` — Electron main process: tray, menubar/notepat modes, multi-window orchestration, native bridges, auto-update.
+- `ac-electron/preload.js` + `webview-preload.js` — Bridges between main process and the AC web client running in the embedded webview.
+- `ac-electron/renderer/` — Native chrome (preferences, flip-view, notepat overlay) rendered outside the web client.
+- `npm start` — Run against `https://aesthetic.computer` (prod) or `http://localhost:8888` (dev with `--dev`).
+- `npm run build:mac` / `build:win` / `build:linux` — electron-builder packaging.
+- `npm run release:host:mac` — Notarized signed mac build published to `silo.aesthetic.computer/desktop/`.
+- **File associations:** mp3/wav/flac/ogg/m4a drop on the Dock icon (or onto a running window) opens the `play` piece. A loopback http server (`127.0.0.1:<ephemeral>`) streams the file with HTTP Range so scrubbing works.
+
+**AC Electron Backlog:**
+- [x] Drag-and-drop mp3 onto app icon launches `play` piece via loopback streaming server
+- [ ] Same drop pipeline for paintings (`.png`/`.gif`) → open in `nopaint`
+- [ ] Same drop pipeline for `.lisp` source → load directly as a piece (`source piece-name`)
+- [ ] Multi-file drop: queue tracks in `play` as an ad-hoc playlist
+- [ ] Promote `system.droppedFile` to a generic `system.droppedFiles[]` API so any piece can accept its own MIME types
 
 **Bare Metal OS (fedac/native/)**
 - `ac-os build` — Full build: binary → initramfs → kernel (produces `build/vmlinuz`)

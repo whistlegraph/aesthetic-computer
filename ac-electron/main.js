@@ -8,6 +8,8 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const crypto = require('crypto');
 const { spawn, execSync } = require('child_process');
 
 // FF1 Bridge - local server for kidlisp.com to communicate with FF1 devices
@@ -39,6 +41,187 @@ if (process.platform === 'linux') {
   } catch (e) {
     // Not GNOME or gnome-extensions not available
   }
+}
+
+// =============================================================================
+// 🎵 Drag-drop audio onto Dock icon / running window
+// Drag an mp3/wav/flac/ogg/m4a onto the app and the `play` piece opens it.
+// Files are served from a localhost streaming http server (Range supported)
+// so scrubbing works and we don't blow up memory on big files.
+// =============================================================================
+const AC_DROP_AUDIO_EXTS = new Set([
+  '.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.opus',
+]);
+const AC_DROP_MIME = {
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.opus': 'audio/ogg',
+};
+const acDropTokens = new Map();        // token -> { path, mime, name }
+let acDropPendingPayload = null;       // queued for the next ready window
+let acDropAudioServer = null;
+let acDropAudioServerPort = null;
+
+function acDropIsAudio(filePath) {
+  if (!filePath) return false;
+  return AC_DROP_AUDIO_EXTS.has(path.extname(filePath).toLowerCase());
+}
+
+function acDropMimeFor(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  return AC_DROP_MIME[ext] || 'application/octet-stream';
+}
+
+function acDropEnsureAudioServer() {
+  if (acDropAudioServer) return Promise.resolve(acDropAudioServerPort);
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      try {
+        const m = req.url.match(/^\/files\/([A-Za-z0-9_-]+)(?:\?.*)?$/);
+        if (!m) { res.writeHead(404); res.end('not found'); return; }
+        const entry = acDropTokens.get(m[1]);
+        if (!entry) { res.writeHead(404); res.end('expired'); return; }
+        let stat;
+        try { stat = fs.statSync(entry.path); }
+        catch (e) { res.writeHead(404); res.end('missing'); return; }
+
+        const total = stat.size;
+        const range = req.headers.range;
+        const baseHeaders = {
+          'Content-Type': entry.mime,
+          'Accept-Ranges': 'bytes',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store',
+        };
+
+        if (range) {
+          const rm = range.match(/bytes=(\d*)-(\d*)/);
+          if (!rm) { res.writeHead(416); res.end(); return; }
+          let start = rm[1] ? parseInt(rm[1], 10) : 0;
+          let end   = rm[2] ? parseInt(rm[2], 10) : total - 1;
+          if (isNaN(start) || isNaN(end) || start > end || end >= total) {
+            res.writeHead(416, { ...baseHeaders, 'Content-Range': `bytes */${total}` });
+            res.end(); return;
+          }
+          res.writeHead(206, {
+            ...baseHeaders,
+            'Content-Range': `bytes ${start}-${end}/${total}`,
+            'Content-Length': end - start + 1,
+          });
+          if (req.method === 'HEAD') { res.end(); return; }
+          fs.createReadStream(entry.path, { start, end }).pipe(res);
+        } else {
+          res.writeHead(200, { ...baseHeaders, 'Content-Length': total });
+          if (req.method === 'HEAD') { res.end(); return; }
+          fs.createReadStream(entry.path).pipe(res);
+        }
+      } catch (e) {
+        try { res.writeHead(500); res.end(String(e?.message || e)); } catch {}
+      }
+    });
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      acDropAudioServer = server;
+      acDropAudioServerPort = server.address().port;
+      console.log('[ac-drop] loopback audio server on 127.0.0.1:' + acDropAudioServerPort);
+      resolve(acDropAudioServerPort);
+    });
+  });
+}
+
+async function acDropRegisterFile(filePath) {
+  if (!acDropIsAudio(filePath)) return null;
+  if (!fs.existsSync(filePath)) {
+    console.warn('[ac-drop] dropped file missing:', filePath);
+    return null;
+  }
+  const port = await acDropEnsureAudioServer();
+  const token = crypto.randomBytes(8).toString('hex');
+  const name = path.basename(filePath);
+  const mime = acDropMimeFor(filePath);
+  acDropTokens.set(token, { path: filePath, mime, name });
+  return { url: `http://127.0.0.1:${port}/files/${token}`, name, mime };
+}
+
+function acDropBroadcast(payload) {
+  let any = false;
+  for (const entry of windows.values()) {
+    const w = entry?.window;
+    if (w && !w.isDestroyed() && entry.mode === 'ac-pane') {
+      any = true;
+      try { w.webContents.send('ac-dropped-file', payload); } catch {}
+      try { if (w.isMinimized()) w.restore(); w.focus(); } catch {}
+    }
+  }
+  return any;
+}
+
+async function acDropHandleFile(filePath) {
+  const payload = await acDropRegisterFile(filePath);
+  if (!payload) return;
+  console.log('[ac-drop] dropped file ready:', payload.name, payload.url);
+  const delivered = acDropBroadcast(payload);
+  if (!delivered) {
+    acDropPendingPayload = payload;
+    if (typeof openAcPaneWindow === 'function') {
+      try {
+        const opened = await openAcPaneWindow();
+        const win = opened?.window;
+        if (win && !win.isDestroyed()) {
+          win.webContents.once('did-finish-load', () => {
+            if (acDropPendingPayload) {
+              try { win.webContents.send('ac-dropped-file', acDropPendingPayload); } catch {}
+              // Leave acDropPendingPayload set — flip-view re-sends on webview
+              // dom-ready, and we want the in-page handler to win.
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[ac-drop] failed to open ac pane for dropped file:', e?.message || e);
+      }
+    }
+  }
+}
+
+// macOS: file drops on the Dock icon arrive via the 'open-file' event.
+// This handler MUST be registered before 'ready' / 'will-finish-launching'
+// fires, so we attach it at module load.
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  console.log('[ac-drop] open-file (mac):', filePath);
+  if (acDropIsAudio(filePath)) {
+    // If app isn't ready yet, queue once whenReady resolves.
+    if (app.isReady()) acDropHandleFile(filePath);
+    else app.whenReady().then(() => acDropHandleFile(filePath));
+  }
+});
+
+// Windows / Linux: route subsequent launches through the primary instance so
+// drag-onto-icon (and Open With ...) hits second-instance instead of starting
+// a fresh app.
+const acDropSingleLock = app.requestSingleInstanceLock();
+if (!acDropSingleLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    for (const arg of argv) {
+      if (acDropIsAudio(arg)) {
+        app.whenReady().then(() => acDropHandleFile(arg));
+      }
+    }
+    // Surface an existing window when re-launched with a file.
+    for (const entry of windows.values()) {
+      const w = entry?.window;
+      if (w && !w.isDestroyed()) {
+        try { if (w.isMinimized()) w.restore(); w.focus(); } catch {}
+        break;
+      }
+    }
+  });
 }
 
 // Helper to get file path (repo in dev mode, bundle in production)
@@ -2063,6 +2246,15 @@ function getRepoPath() {
   return null;
 }
 
+// IPC: register a file dropped on a running AC window (path comes from
+// renderer's HTML5 drop event — Electron's File object exposes .path).
+ipcMain.handle('ac:register-dropped-file', async (_event, filePath) => {
+  if (!filePath) return { ok: false, reason: 'no-path' };
+  if (!acDropIsAudio(filePath)) return { ok: false, reason: 'not-audio' };
+  await acDropHandleFile(filePath);
+  return { ok: true };
+});
+
 // IPC Handlers for preferences
 ipcMain.handle('get-preferences', () => preferences);
 
@@ -2844,11 +3036,20 @@ app.whenReady().then(async () => {
   setInterval(checkRebootMarker, 2000);
   setInterval(checkRebootMarker, 2000);
   
+  // Cold-launch with a file argument (Windows/Linux drop-onto-icon, or
+  // Open With ... from a file manager). macOS routes this through
+  // 'open-file' so we only need argv here.
+  const acDropColdLaunchFile = process.argv.slice(1).find(acDropIsAudio);
+
   // Create initial window(s)
   // When launched silently at login, stay in menubar-daemon mode: no AC
   // window, no dock icon. The user opens things explicitly from the tray.
-  if (!launchedSilently) {
+  if (!launchedSilently || acDropColdLaunchFile) {
     openAcPaneWindow();
+  }
+
+  if (acDropColdLaunchFile) {
+    acDropHandleFile(acDropColdLaunchFile);
   }
 
   app.on('activate', () => {

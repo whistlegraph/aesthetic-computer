@@ -851,6 +851,55 @@
         webviewEl.src = url;
       }
     });
+
+    // 🎵 Dropped audio file relay (main → host → webview → AC page).
+    // Main process registers the file with its loopback server and pushes
+    // the resulting localhost url through IPC. We forward it into the
+    // webview so webview-preload.js can postMessage it to the AC page.
+    let pendingDroppedFile = null;
+    ipcRenderer.on('ac-dropped-file', (_event, payload) => {
+      console.log('[flip] ac-dropped-file:', payload?.name, payload?.url);
+      if (webviewReady) {
+        try { webviewEl.send('ac:dropped-file', payload); } catch (e) {}
+      }
+      // Always cache the most recent payload — webview's dom-ready may fire
+      // again after a piece-load nav and we want a re-send for that, too.
+      pendingDroppedFile = payload;
+    });
+
+    // Replay on every webview dom-ready (covers cold launch and piece nav).
+    webviewEl.addEventListener('dom-ready', () => {
+      if (pendingDroppedFile) {
+        try { webviewEl.send('ac:dropped-file', pendingDroppedFile); } catch (e) {}
+        // Consume after first delivery; a fresh drop refills it.
+        pendingDroppedFile = null;
+      }
+    });
+
+    // 🎵 HTML5 drag-drop onto the running window. The Electron host page can
+    // see File.path on dropped files; we hand the path to main and it does
+    // the rest (registers with the loopback server and broadcasts).
+    function acIsAudioName(name) {
+      return /\.(mp3|wav|flac|ogg|m4a|aac|opus)$/i.test(name || '');
+    }
+    window.addEventListener('dragover', (e) => {
+      const has = Array.from(e.dataTransfer?.items || [])
+        .some((it) => it.kind === 'file');
+      if (!has) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    window.addEventListener('drop', (e) => {
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (!files.length) return;
+      e.preventDefault();
+      for (const f of files) {
+        if (f.path && acIsAudioName(f.name)) {
+          ipcRenderer.invoke('ac:register-dropped-file', f.path)
+            .catch((err) => console.warn('[flip] register-dropped-file failed:', err));
+        }
+      }
+    });
     
     // Also try did-create-window (Electron 22+)
     webviewEl.addEventListener('did-create-window', (e) => {

@@ -3608,6 +3608,11 @@ const $commonApi = {
   },
   system: {
     // prompt: { input: undefined }, Gets set in `prompt_boot`.
+    // 🎵 ac-electron drag-drop: set when a file is dropped onto the app
+    // (Dock icon or running window). Pieces (notably `play`) read this on
+    // boot; a `dropped:file` act event also fires for already-running
+    // pieces. Cleared by the consumer.
+    droppedFile: null,
     // 📦 Global update poll state — `ready` flips true when /api/version
     // long-poll detects a new deployment. Pieces can read this to render
     // their own update UI; the corner ↑ badge in disk.mjs is automatic.
@@ -10073,6 +10078,29 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.jump(target);
     } else {
       console.warn("🧭 Navigate failed: target=", target, "$commonApi=", !!$commonApi, "jump=", !!$commonApi?.jump);
+    }
+    return;
+  }
+
+  // 🎵 ac-electron drag-drop: a file was dropped onto the app icon or
+  // window. Stash it on system.droppedFile, fire a dropped:file act event
+  // for the live piece, and auto-jump to `play` when we aren't already in it.
+  if (type === "dropped:file") {
+    if (!content || !content.url) return;
+    if ($commonApi?.system) $commonApi.system.droppedFile = content;
+    actAlerts.push("dropped:file");
+    try {
+      const slug = $commonApi?.slug || "";
+      const inPlay =
+        slug === "play" ||
+        slug.startsWith("play~") ||
+        slug.startsWith("play:") ||
+        (currentPath && currentPath.endsWith("/play"));
+      if (!inPlay && $commonApi?.jump) {
+        $commonApi.jump("play");
+      }
+    } catch (e) {
+      console.warn("🎵 dropped:file auto-jump failed:", e?.message || e);
     }
     return;
   }

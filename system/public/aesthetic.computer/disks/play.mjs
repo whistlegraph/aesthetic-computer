@@ -27,9 +27,16 @@ let frequencyData = [];
 let playBtn, backBtn, scrubBox;
 let trackBtns = [];
 
-function loadTrack(key, send, ui, screen) {
+function loadTrack(key, send, ui, screen, opts = {}) {
   const track = KNOWN_TRACKS[key];
-  if (track) {
+  if (opts.url) {
+    // Explicit url + name (used for ac-electron dropped files where the
+    // loopback url has no human-readable filename in its path).
+    audioUrl = opts.url;
+    trackTitle = opts.name
+      ? opts.name.replace(/\.[^.]+$/, "")
+      : "dropped audio";
+  } else if (track) {
     audioUrl = track.audio;
     trackTitle = track.title;
   } else if (key.startsWith("http")) {
@@ -51,8 +58,21 @@ function loadTrack(key, send, ui, screen) {
   mode = "player";
 }
 
-function boot({ params, send, ui, screen, hud, jump }) {
+function boot({ params, send, ui, screen, hud, jump, system }) {
   hud.label();
+
+  // ac-electron drag-drop: a file dropped on the Dock icon takes priority
+  // over the static track selector / url param. system.droppedFile is set
+  // by disk.mjs when bios.mjs forwards an `ac-dropped-file` window message.
+  const dropped = system?.droppedFile;
+  if (dropped?.url) {
+    loadTrack(null, send, ui, screen, { url: dropped.url, name: dropped.name });
+    if (system) system.droppedFile = null;
+    // Auto-start playback so the drop feels immediate.
+    isLoading = true;
+    send({ type: "stream:play", content: { id: STREAM_ID, url: audioUrl, volume: 0.8 } });
+    return;
+  }
 
   if (params[0]) {
     loadTrack(params[0], send, ui, screen);
@@ -164,7 +184,19 @@ function togglePlay(send) {
   }
 }
 
-function act({ event: e, screen, send, ui, jump }) {
+function act({ event: e, screen, send, ui, jump, system }) {
+  // ac-electron drag-drop while play is already running: swap to the new
+  // file. disk.mjs sets system.droppedFile, then pushes a dropped:file
+  // event into act so we know to consume it.
+  if (e.is("dropped:file") && system?.droppedFile?.url) {
+    const dropped = system.droppedFile;
+    loadTrack(null, send, ui, screen, { url: dropped.url, name: dropped.name });
+    system.droppedFile = null;
+    isLoading = true;
+    send({ type: "stream:play", content: { id: STREAM_ID, url: audioUrl, volume: 0.8 } });
+    return;
+  }
+
   if (mode === "select") {
     // Track buttons
     for (let i = 0; i < trackBtns.length; i++) {

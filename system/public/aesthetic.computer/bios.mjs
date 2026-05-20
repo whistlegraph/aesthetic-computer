@@ -3717,6 +3717,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (e.data?.type === 'ac:warm-cache' && e.data.codes) {
       send({ type: 'warm-kidlisp-cache', content: { codes: e.data.codes } });
     }
+    // 🎵 ac-electron drag-drop: a file dropped onto the Dock icon (or
+    // window) was registered with a loopback http server in the Electron
+    // host; forward the resulting url to disk.mjs so the running piece
+    // (or play.mjs after auto-jump) can consume it.
+    if (e.data?.type === 'ac-dropped-file' && typeof e.data.url === 'string') {
+      console.log('🎵 bios: dropped file →', e.data.name, e.data.url);
+      send({
+        type: 'dropped:file',
+        content: { url: e.data.url, name: e.data.name, mime: e.data.mime },
+      });
+    }
   });
 
   // Play a sound back through the sfx system.
