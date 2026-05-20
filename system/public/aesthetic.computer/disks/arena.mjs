@@ -128,16 +128,19 @@ let myServerAckCmdMs = 0;
 let reconCamRef = null;
 let reconCorrectionMs = 0; // monotonic debug counter for HUD
 
-// 🔬 Perf ring (read externally via window.__arena_perfStats — see boot()).
-// Records one entry per painted frame so external probes (artery/arena-probe)
-// can compute frame-interval std-dev, correction histograms, and snapshot
-// arrival jitter without instrumenting the renderer.
-const ARENA_PERF_RING_SIZE = 240; // ~4s @ 60fps
+// 🔬 Perf ring — arena.mjs runs inside the disk.mjs Web Worker, so we cannot
+// touch `window` directly. Instead we batch-send the ring to bios.mjs every
+// few frames; bios mirrors it onto window.__arena_perfStats for external
+// probes (artery/arena-probe.mjs).
+const ARENA_PERF_RING_SIZE = 240;         // ~4s @ 60fps
+const ARENA_PERF_SEND_EVERY = 15;         // batch every ~250ms @ 60fps
 const arenaPerfRing = new Array(ARENA_PERF_RING_SIZE);
 let arenaPerfRingIdx = 0;
 let arenaPerfRingLen = 0;
-let lastReconDist = 0;           // |predicted − local| from last reconcile
-let lastReconKind = "none";      // "none" | "soft" | "snap" | "skip"
+let arenaPerfPaintsSinceSend = 0;
+let arenaPerfSend = null;                 // captured from boot's `send` arg
+let lastReconDist = 0;                    // |predicted − local| from last reconcile
+let lastReconKind = "none";               // "none" | "soft" | "snap" | "skip"
 
 // Tunables exposed on screen.
 let netStats = {
@@ -1430,36 +1433,9 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
 
-  // 🔬 Expose perf ring to external probes (artery/arena-probe.mjs reads
-  // this via CDP Runtime.evaluate to compute jerkiness metrics offline).
-  if (typeof window !== "undefined") {
-    window.__arena_perfStats = function () {
-      const out = new Array(arenaPerfRingLen);
-      for (let i = 0; i < arenaPerfRingLen; i++) {
-        const idx =
-          (arenaPerfRingIdx - arenaPerfRingLen + i + ARENA_PERF_RING_SIZE) %
-          ARENA_PERF_RING_SIZE;
-        out[i] = arenaPerfRing[idx];
-      }
-      return {
-        samples: out,
-        meta: {
-          size: arenaPerfRingLen,
-          netSpectator,
-          myHandle,
-          ping,
-          pendingCmds: pendingCmds.length,
-          reconCorrTotal: reconCorrectionMs,
-          snapsRx: netStats.snapsRx,
-          cmdsTx: netStats.cmdsTx,
-          collectedAt: performance.now(),
-          position: reconCamRef
-            ? { x: -reconCamRef.x, y: -reconCamRef.y, z: -reconCamRef.z }
-            : null,
-        },
-      };
-    };
-  }
+  // 🔬 Capture `send` so paint() can batch the perf ring to bios.mjs (which
+  // mirrors it onto window.__arena_perfStats for the external probe).
+  arenaPerfSend = send;
 
   // 🏟️ Multiplayer: open WS + UDP, send arena:hello.
   netBoot({ net, handle, send, debug });
@@ -2691,7 +2667,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   const avgDt = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
   const fps = Math.round(1000 / avgDt);
 
-  // 🔬 Per-frame perf sample — readable from outside via window.__arena_perfStats.
+  // 🔬 Per-frame perf sample — batch-sent to bios.mjs every ARENA_PERF_SEND_EVERY
+  // frames where it's mirrored onto window.__arena_perfStats for external probes.
   arenaPerfRing[arenaPerfRingIdx] = {
     t: now,
     dt,
@@ -2707,6 +2684,40 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   // Per-frame reset of the reconcile classifier so each sample reflects
   // *its own* frame, not the last non-skip reconcile that happened.
   lastReconKind = "none";
+
+  if (arenaPerfSend) {
+    arenaPerfPaintsSinceSend++;
+    if (arenaPerfPaintsSinceSend >= ARENA_PERF_SEND_EVERY) {
+      arenaPerfPaintsSinceSend = 0;
+      const samples = new Array(arenaPerfRingLen);
+      for (let i = 0; i < arenaPerfRingLen; i++) {
+        const idx =
+          (arenaPerfRingIdx - arenaPerfRingLen + i + ARENA_PERF_RING_SIZE) %
+          ARENA_PERF_RING_SIZE;
+        samples[i] = arenaPerfRing[idx];
+      }
+      arenaPerfSend({
+        type: "perf:arena",
+        content: {
+          samples,
+          meta: {
+            size: arenaPerfRingLen,
+            netSpectator,
+            myHandle,
+            ping,
+            pendingCmds: pendingCmds.length,
+            reconCorrTotal: reconCorrectionMs,
+            snapsRx: netStats.snapsRx,
+            cmdsTx: netStats.cmdsTx,
+            collectedAt: now,
+            position: reconCamRef
+              ? { x: -reconCamRef.x, y: -reconCamRef.y, z: -reconCamRef.z }
+              : null,
+          },
+        },
+      });
+    }
+  }
 
   // ⚡ Adaptive quality — switch modes with hysteresis so we don't flip every
   // frame. Require several samples of sustained FPS before changing state.

@@ -5213,7 +5213,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (DEBUG_MESSAGE_FLOW && type !== "frame") {
       console.log(`🔍 BIOS receivedChange: type="${type}"`);
     }
-    
+
+    // 🔬 Arena perf snapshot — pieces inside the worker can't touch `window`,
+    // so arena.mjs batches its perf ring through send(); we mirror the latest
+    // batch onto window.__arena_perfStats so external probes can read it via
+    // CDP Runtime.evaluate without needing main-thread instrumentation.
+    if (type === "perf:arena") {
+      window.__arena_perfStats_latest = content;
+      if (typeof window.__arena_perfStats !== "function") {
+        window.__arena_perfStats = function () {
+          return window.__arena_perfStats_latest || { samples: [], meta: { absent: true } };
+        };
+      }
+      return;
+    }
+
     // Relay boot-log messages to parent window and update the overlay
     if (type === "boot-log") {
       // console.log("📢 BIOS relaying boot-log:", content);
