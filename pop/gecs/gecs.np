@@ -1,0 +1,80 @@
+# gecs — kernel panic. hyperpop / 100-gecs style score for jeffrey-pvc.
+# verses sit in F#m, mid-low rap pocket (MIDI 54-66); chorus jumps an
+# octave into A major (MIDI 69-79) for the chipmunk lift. break is a
+# single-pitch shouted/spat section. notes track A-major chord tones in
+# the chorus + relative-minor (F#m) chord tones in the verses so it
+# stays consonant against the supersaw / skrill bed in bin/render.mjs.
+# notation: NOTE:syllable*beats   ('-' continues a held/melisma word)
+# WORD ORDER strictly matches pop/gecs/gecs.txt.
+# bin/sing.mjs splits the score on `verse N` headers only — chorus /
+# breakdown blocks live INSIDE verse 1 / verse 2 inline.
+
+verse 1
+# verse 1 — tabs open / fan on max / fingers cramping on the keys ...
+F#3:tabs*1 A3:o-*0.5 A3:-pen*0.5 F#3:fan*1 F#3:on*0.5 A3:max*1.5
+F#3:fin-*0.5 F#3:-gers*0.5 A3:cramp-*0.5 A3:-ing*0.5 F#3:on*0.5 F#3:the*0.5 C#4:keys*2
+# compile error cant recover / pushed the branch and lost a cover
+F#3:com-*0.5 F#3:-pile*0.5 A3:er-*0.5 A3:-ror*0.5 F#3:cant*0.5 F#3:re-*0.5 A3:-cov-*0.5 A3:-er*0.5
+F#3:pushed*0.5 F#3:the*0.5 A3:branch*0.5 F#3:and*0.5 F#3:lost*0.5 F#3:a*0.5 C#4:cov-*1 A3:-er*1
+# lith is down / oven choked / cdn cache still revoked
+A3:lith*0.5 A3:is*0.5 F#3:down*1
+A3:o-*0.5 A3:-ven*0.5 F#3:choked*1
+A3:cdn*0.5 A3:cache*0.5 F#3:still*0.5 F#3:re-*0.5 C#4:-voked*2
+# thirty four percent left / wrote a poem that i kept
+F#3:thir-*0.5 F#3:-ty*0.5 A3:four*0.5 A3:per-*0.5 F#3:-cent*0.5 F#3:left*1.5
+A3:wrote*0.5 A3:a*0.5 F#3:po-*0.5 F#3:-em*0.5 A3:that*0.5 A3:i*0.5 C#4:kept*3
+
+# CHORUS 1 — pitched UP to A4-E5 chord tones (the chipmunk lift)
+# kernel panic kernel panic blue light scream
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5
+E5:blue*1 C#5:light*1 A4:scream*2
+# kernel panic kernel panic wake up from the dream
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5
+E5:wake*0.5 E5:up*0.5 C#5:from*0.5 C#5:the*0.5 A4:dream*3
+# everything is okay / everything is fine
+C#5:ev-*0.5 C#5:-ry-*0.5 A4:-thing*0.5 A4:is*0.5 E5:o-*0.5 E5:-kay*1.5
+C#5:ev-*0.5 C#5:-ry-*0.5 A4:-thing*0.5 A4:is*0.5 F#5:fine*3
+# kernel panic on the ninety ninth time
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:on*0.5 A4:the*0.5
+E5:nine-*0.5 E5:-ty*0.5 C#5:ninth*1 A4:time*3
+
+verse 2
+# verse 2 — fia walked in / coffee in her hand / asking why my laptop wont land
+F#3:fi-*0.5 F#3:-a*0.5 A3:walked*0.5 A3:in*1.5
+F#3:cof-*0.5 F#3:-fee*0.5 A3:in*0.5 A3:her*0.5 C#4:hand*2
+F#3:ask-*0.5 F#3:-ing*0.5 A3:why*0.5 A3:my*0.5 F#3:lap-*0.5 F#3:-top*0.5
+A3:wont*1 C#4:land*3
+# papers in the printer / line is dim / dossier glowing at the rim
+F#3:pa-*0.5 F#3:-pers*0.5 A3:in*0.5 A3:the*0.5 F#3:prin-*0.5 F#3:-ter*0.5
+A3:line*0.5 A3:is*0.5 C#4:dim*2
+F#3:dos-*0.5 F#3:-si-*0.5 A3:-er*0.5 A3:glow-*0.5 A3:-ing*0.5 F#3:at*0.5 F#3:the*0.5 C#4:rim*3
+
+# CHORUS 2 — identical melody to chorus 1
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5
+E5:blue*1 C#5:light*1 A4:scream*2
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5
+E5:wake*0.5 E5:up*0.5 C#5:from*0.5 C#5:the*0.5 A4:dream*3
+C#5:ev-*0.5 C#5:-ry-*0.5 A4:-thing*0.5 A4:is*0.5 E5:o-*0.5 E5:-kay*1.5
+C#5:ev-*0.5 C#5:-ry-*0.5 A4:-thing*0.5 A4:is*0.5 F#5:fine*3
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:on*0.5 A4:the*0.5
+E5:nine-*0.5 E5:-ty*0.5 C#5:ninth*1 A4:time*3
+
+# BREAKDOWN — single-pitch shout/spat. F#3 monotone, no melody.
+# re boot re boot re boot
+F#3:re*0.5 F#3:boot*0.5 F#3:re*0.5 F#3:boot*0.5 F#3:re*0.5 F#3:boot*1
+# re load re load re load
+F#3:re*0.5 F#3:load*0.5 F#3:re*0.5 F#3:load*0.5 F#3:re*0.5 F#3:load*1
+# type the password with my hands  (slight lift to A3 on "hands")
+F#3:type*0.5 F#3:the*0.5 F#3:pass-*0.5 F#3:-word*0.5 F#3:with*0.5 F#3:my*0.5 A3:hands*1
+# neo boot loop never lands  (lift into the next chorus)
+F#3:ne-*0.5 F#3:-o*0.5 A3:boot*0.5 A3:loop*0.5 C#4:nev-*0.5 C#4:-er*0.5 E4:lands*1
+
+# CHORUS 3 — final, same melody (sing.mjs will double an octave up here)
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5
+E5:blue*1 C#5:light*1 A4:scream*2
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5
+E5:wake*0.5 E5:up*0.5 C#5:from*0.5 C#5:the*0.5 A4:dream*3
+C#5:ev-*0.5 C#5:-ry-*0.5 A4:-thing*0.5 A4:is*0.5 E5:o-*0.5 E5:-kay*1.5
+C#5:ev-*0.5 C#5:-ry-*0.5 A4:-thing*0.5 A4:is*0.5 F#5:fine*3
+A4:ker-*0.5 A4:-nel*0.5 C#5:pa-*0.5 C#5:-nic*0.5 A4:on*0.5 A4:the*0.5
+E5:nine-*0.5 E5:-ty*0.5 C#5:ninth*1 A4:time*5

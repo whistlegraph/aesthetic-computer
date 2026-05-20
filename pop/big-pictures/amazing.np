@@ -1,14 +1,9 @@
-# Amazing Grace — full 7 verses. "New Britain" tune, William Walker 1835.
+# Amazing Grace — verse 1 only (1:24 single edit, 2026-05-20).
+# Full 7-verse score backed up at amazing.np.bak-7verse.
+# "New Britain" tune, William Walker 1835.
 # notation: NOTE:syllable*beats
-# Phrase 1+2 melody from papers/arxiv-folk-songs/folk-songs.tex:181
-# (the canonical pentatonic transcription).
-#
-# key: G major pentatonic. octave 3 — sits in jeffrey-pvc's natural
-# baritone. Climax at D4 on "blind" (line 4) is the highest note.
-# Beat values follow the dotted-half / quarter pattern of 3/4 hymn
-# delivery. Each line ends with an extended hold (5 beats) for the
-# phrase-end breath.
-#
+# key: G major pentatonic, octave 3 — sits in jeffrey-pvc's baritone.
+# Climax at D4 on "blind" (line 4) is the highest note.
 # Use --beat-mode --bpm 70.
 
 verse 1
@@ -16,39 +11,3 @@ D3:a-*1 G3:-ma-*3 B3:-zing*1 G3:grace*3 B3:how*1 A3:sweet*3 G3:the*1 B3:sound*5
 D3:that*1 E3:saved*3 D3:a*1 B3:wretch*3 G3:like*1 B3:me*5
 D3:i*1 G3:once*3 D4:was*1 D4:lost*3 B3:but*1 D4:now*3 A3:am*1 G3:found*5
 B3:was*1 D4:blind*3 D4:but*1 B3:now*3 A3:i*1 G3:see*5
-
-verse 2
-D3:twas*1 G3:grace*3 B3:that*1 G3:taught*3 B3:my*1 A3:heart*3 G3:to*1 B3:fear*5
-D3:and*1 E3:grace*3 D3:my*1 B3:fears*3 G3:re-*1 B3:-lieved*5
-D3:how*1 G3:pre-*3 D4:-cious*1 D4:did*3 B3:that*1 D4:grace*3 A3:ap-*1 G3:-pear*5
-B3:the*1 D4:hour*3 D4:i*1 B3:first*3 A3:be-*1 G3:-lieved*5
-
-verse 3
-D3:through*1 G3:ma-*3 B3:-ny*1 G3:dan-*3 B3:-gers*1 A3:toils*3 G3:and*1 B3:snares*5
-D3:i*1 E3:have*3 D3:al-*1 B3:-rea-*3 G3:-dy*1 B3:come*5
-D3:tis*1 G3:grace*3 D4:hath*1 D4:brought*3 B3:me*1 D4:safe*3 A3:thus*1 G3:far*5
-B3:and*1 D4:grace*3 D4:will*1 B3:lead*3 A3:me*1 G3:home*5
-
-verse 4
-D3:the*1 G3:lord*3 B3:has*1 G3:pro-*3 B3:-mised*1 A3:good*3 G3:to*1 B3:me*5
-D3:his*1 E3:word*3 D3:my*1 B3:hope*3 G3:se-*1 B3:-cures*5
-D3:he*1 G3:will*3 D4:my*1 D4:shield*3 B3:and*1 D4:por-*3 A3:-tion*1 G3:be*5
-B3:as*1 D4:long*3 D4:as*1 B3:life*3 A3:en-*1 G3:-dures*5
-
-verse 5
-D3:yea*1 G3:when*3 B3:this*1 G3:flesh*3 B3:and*1 A3:heart*3 G3:shall*1 B3:fail*5
-D3:and*1 E3:mor-*3 D3:-tal*1 B3:life*3 G3:shall*1 B3:cease*5
-D3:i*1 G3:shall*3 D4:pos-*1 D4:-sess*3 B3:with-*1 D4:-in*3 A3:the*1 G3:veil*5
-B3:a*1 D4:life*3 D4:of*1 B3:joy*3 A3:and*1 G3:peace*5
-
-verse 6
-D3:the*1 G3:earth*3 B3:shall*1 G3:soon*3 B3:dis-*1 A3:-solve*3 G3:like*1 B3:snow*5
-D3:the*1 E3:sun*3 D3:for-*1 B3:-bear*3 G3:to*1 B3:shine*5
-D3:but*1 G3:god*3 D4:who*1 D4:called*3 B3:me*1 D4:here*3 A3:be-*1 G3:-low*5
-B3:shall*1 D4:be*3 D4:for-*1 B3:-ev-*3 A3:-er*1 G3:mine*5
-
-verse 7
-D3:when*1 G3:weve*3 B3:been*1 G3:there*3 B3:ten*1 A3:thou-*3 G3:-sand*1 B3:years*5
-D3:bright*1 E3:shi-*3 D3:-ning*1 B3:as*3 G3:the*1 B3:sun*5
-D3:weve*1 G3:no*3 D4:less*1 D4:days*3 B3:to*1 D4:sing*3 A3:gods*1 G3:praise*5
-B3:than*1 D4:when*3 D4:wed*1 B3:first*3 A3:be-*1 G3:-gun*5

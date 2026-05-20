@@ -61,20 +61,19 @@ if (SCRATCH_ON) {
 }
 
 // 3 — finalize for Spotify (Spotify normalises to -14 on playback)
-// Brightening polish — pure-sine mixes render very dark (lows ~31 dB
-// over the air band on the first hellsine cut). Hardcore wants it
-// bright + aggressive, so this is heavier than the trance note: a big
-// high-shelf for air, presence + sparkle bells, and a mud trim.
+// The new mix (halftime hole-kick + 8-partial pads + sparkle + steam)
+// is inherently brighter than the original dark gabber-punch cut, so
+// the brightening pass is now a LIGHT polish. The old +8 dB shelf +
+// dual presence/sparkle boosts piled into the 2-12 kHz range and read
+// as buzz hash. Keep just a gentle air lift + warm the low end.
 run("ffmpeg", ["-y", "-i", mix, "-af",
-  "highshelf=f=7500:g=8," +
-  "equalizer=f=4200:t=q:w=1.1:g=4," +
-  "equalizer=f=12000:t=q:w=1.4:g=4," +
-  "equalizer=f=200:t=q:w=1.0:g=-2.5," +
+  "highshelf=f=9000:g=2," +
+  "equalizer=f=150:t=q:w=1.0:g=2," +              // warmth back (kick is subby now)
   "acompressor=threshold=-18dB:ratio=2:attack=15:release=240:makeup=1:knee=8," +
   "loudnorm=I=-14:TP=-1.5:LRA=11," +
   "alimiter=limit=0.94:attack=6:release=110:level=disabled," +
-  "afade=t=out:st=104.5:d=4",
-  "-ar", "44100", "-sample_fmt", "s16", finalWav], "finalize → -14 LUFS (bright)");
+  "afade=t=out:st=162.5:d=4",
+  "-ar", "44100", "-sample_fmt", "s16", finalWav], "finalize → -14 LUFS (light polish)");
 run("ffmpeg", ["-y", "-i", finalWav, "-codec:a", "libmp3lame", "-b:a", "320k",
   finalMp3], "320k mp3");
 spawnSync("rm", ["-f", scr]);

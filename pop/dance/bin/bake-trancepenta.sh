@@ -67,8 +67,27 @@ run "finalize-penta-vocal (--vox-db -3 · scratch master + vocal bus)" \
     --scr "$SCR" --vox "$VOX" --vox-db -3 \
     --out "$FINAL"
 
-# mp3 for build.mjs (matches audioSrc dir)
-ffmpeg -y -i "$FINAL" -codec:a libmp3lame -b:a 320k "$MP3" 2>/dev/null
+# mp3 for build.mjs + DistroKid asset pack — 320 k with the cover art
+# embedded as ID3v2 attached_pic + full ID3 tags (title/artist/album/
+# year/genre). Most modern players + Spotify/Apple/DistroKid all read
+# ID3v2.3.
+COVER="$REPO/system/public/assets/pop/trancepenta.jpg"
+if [ -f "$COVER" ]; then
+  ffmpeg -y -loglevel error -i "$FINAL" -i "$COVER" \
+    -map 0:a -map 1:v -c:a libmp3lame -b:a 320k -c:v copy \
+    -id3v2_version 3 \
+    -metadata title="trancepenta" \
+    -metadata artist="Aesthetic Dot Computer" \
+    -metadata album="pixsies" \
+    -metadata date="2026" \
+    -metadata genre="Dance" \
+    -metadata:s:v title="Album cover" \
+    -metadata:s:v comment="Cover (front)" \
+    "$MP3" 2>/dev/null
+else
+  echo "[bake-trancepenta] ⚠ cover missing at $COVER — mp3 will lack embedded art"
+  ffmpeg -y -i "$FINAL" -codec:a libmp3lame -b:a 320k "$MP3" 2>/dev/null
+fi
 
 rm -f "$SCR" "$VOX"
 echo "[bake-trancepenta] done → $FINAL"

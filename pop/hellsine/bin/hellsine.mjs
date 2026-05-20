@@ -94,16 +94,17 @@ const CHORD = {
 const cyc = (arr, n) => arr[n % arr.length];
 
 // ── arrangement: ordered sections, each N bars ────────────────────────
-// "study music under a film arc" — continuous, no dead air. The kick is
-// the hardcore spine; it thins to a pulse in the bridge (the study
-// zone) and is fully absent only in the overture / coda tail.
+// Longer sections + halftime beat = each kick lands like a HOLE, not a
+// punch. Spread out + heavy ducking = the negative space carries the
+// hardcore weight. "Study music under a film arc" still — continuous,
+// no dead air, more sine voices layered for body.
 const PLAN = [
-  { name: "overture",  bars: 8,  kick: "none",  drive: 0,    chords: ["Dm","Dm","Bb","Bb","F","F","C","A"], theme: "soft" },
-  { name: "statement", bars: 16, kick: "four",  drive: HELL, chords: ["Dm","Dm","Bb","Bb","F","F","C","C"], theme: "brass" },
-  { name: "bridge",    bars: 16, kick: "pulse", drive: HELL*0.7, chords: ["Gm","Gm","Dm","Dm","C","C","Bb","A"], theme: "bsoft" },
-  { name: "develop",   bars: 16, kick: "four",  drive: HELL*1.15, chords: ["Dm","Dm","F","F","Gm","Gm","A","A","Bb","Bb","C","C","Dm","A","Dm","A"], theme: "frag" },
-  { name: "climax",    bars: 16, kick: "hard",  drive: HELL*1.3, transpose: 2, chords: ["Dm","Dm","Bb","Bb","F","F","C","C"], theme: "brass" },
-  { name: "coda",      bars: 8,  kick: "fade",  drive: HELL*0.6, chords: ["Dm","Dm","Gm","Gm","C","C","Dm","Dm"], theme: "dissolve" },
+  { name: "overture",  bars: 12, kick: "none",     drive: 0,         chords: ["Dm","Dm","Bb","Bb","F","F","C","A","Dm","Bb","F","C"], theme: "soft" },
+  { name: "statement", bars: 24, kick: "halftime", drive: HELL,      chords: ["Dm","Dm","Bb","Bb","F","F","C","C"], theme: "brass" },
+  { name: "bridge",    bars: 24, kick: "pulse",    drive: HELL*0.7,  chords: ["Gm","Gm","Dm","Dm","C","C","Bb","A"], theme: "bsoft" },
+  { name: "develop",   bars: 24, kick: "halftime", drive: HELL*1.15, chords: ["Dm","Dm","F","F","Gm","Gm","A","A","Bb","Bb","C","C","Dm","A","Dm","A"], theme: "frag" },
+  { name: "climax",    bars: 24, kick: "halfhard", drive: HELL*1.3, transpose: 2, chords: ["Dm","Dm","Bb","Bb","F","F","C","C"], theme: "brass" },
+  { name: "coda",      bars: 16, kick: "fade",     drive: HELL*0.6,  chords: ["Dm","Dm","Gm","Gm","C","C","Dm","Dm"], theme: "dissolve" },
 ];
 const TOTAL_BARS = PLAN.reduce((a, s) => a + s.bars, 0);
 const TAIL = 3.2;
@@ -124,32 +125,80 @@ function write(t, fn, dur) {
   }
 }
 
-// The gabber/Rotterdam kick: ONE sine, fast exponential pitch drop, then
-// tanh-saturated past its skin. The distorted sine = the kick.
+// The HOLE kick — no punch, no click, no transient. A slow-blooming
+// sub-only sine pitch-drop that lives mostly through what it removes
+// from the surrounding mix. Each hit is a vacuum carved by the duck
+// (15 ms slam-shut → 450 ms slow re-open); the kick itself is just the
+// bass pressure filling the hole. Still pure sine, still saturated for
+// hardcore body, just stripped of its bright attack.
 function kick(t, drive = HELL, gain = 1) {
-  const dur = 0.26, pStart = 240, pEnd = 47, pT = 0.034;
+  const dur = 0.55;                          // longer body (was 0.26)
+  const pStart = 180, pEnd = 28;             // start lower, end deep-sub (was 240→47)
+  const pT = 0.080;                          // slow pitch sweep (was 0.034)
   let ph = 0;
-  // mark sidechain duck
-  const di = Math.floor(t * SR), dN = Math.floor(0.20 * SR);
+  // The HOLE: instant slam-shut (15 ms), then slow re-open over 450 ms.
+  // Ducks the sub/pad/strings/theme to 8% — they all vacuum out around
+  // each kick, which is what makes the kick FEEL like a hole.
+  const di = Math.floor(t * SR);
+  const dN = Math.floor(0.46 * SR);
+  const closeN = Math.floor(0.015 * SR);     // 15 ms slam
+  const openN  = dN - closeN;                // 445 ms re-open
   for (let k = 0; k < dN && di + k < N; k++) {
-    const env = 0.32 + 0.68 * (1 - Math.exp(-k / (0.16 * SR)));
+    let env;
+    if (k < closeN) {
+      env = 1 - (k / closeN) * 0.92;         // 1.0 → 0.08 over 15 ms
+    } else {
+      const p = (k - closeN) / openN;
+      env = 0.08 + 0.92 * (1 - Math.exp(-p * 3.2));   // smooth re-open
+    }
     if (env < DUCK[di + k]) DUCK[di + k] = env;
   }
   write(t, (lt) => {
     const f = pEnd + (pStart - pEnd) * Math.exp(-lt / pT);
     ph += (TAU * f) / SR;
-    const amp = Math.exp(-lt / 0.10) * (1 - Math.exp(-lt / 0.0008)); // click→thump
+    // Slow bloom (12 ms attack — was 0.8 ms!) + long body
+    const atk   = 1 - Math.exp(-lt / 0.012);
+    const decay = Math.exp(-lt / 0.22);       // longer tail
+    const amp   = atk * decay;
     let x = Math.sin(ph);
-    x = Math.tanh(x * (drive * (0.7 + 0.3 * Math.exp(-lt / 0.05)))); // the hell
-    x = Math.max(-0.97, Math.min(0.97, x * 1.06));                   // skin
-    // gabber transient — a bright, ~4 ms high sine SNAP at the attack.
-    // This is the genre's HF "tick"; pure sine, just fast. Without it a
-    // sine-only mix is far too dark for hardcore.
-    const click = Math.sin(TAU * 3400 * lt) * Math.exp(-lt / 0.0016) * 0.5
-                + Math.sin(TAU * 1700 * lt) * Math.exp(-lt / 0.0042) * 0.35;
-    const v = (x * amp + click) * 0.9 * gain;
+    x = Math.tanh(x * (drive * 0.45));         // gentler saturation (was full)
+    const v = x * amp * 0.95 * gain;
     return [v, v];
   }, dur);
+}
+
+// ── steam release — additive-sine "white noise" breath ───────────────
+// THE LAW HOLDS: a dense bank of detuned sines summed IS broadband noise
+// (Fourier identity). Frequencies are log-spaced + jittered across the
+// air band so the result reads as steam/breath, not as pitched chord.
+// Stays inside the all-sine constraint and gives the track the hiss the
+// pure-sine mix otherwise lacks.
+function steam(t, dur, gain = 0.12, opt = {}) {
+  const nVoices = opt.voices || 48;
+  const fMin = opt.fMin || 400;          // more body, less hiss
+  const fMax = opt.fMax || 5500;         // pulled out of the buzz band (was 9500)
+  const atk  = opt.atk  ?? 0.6;              // slow steam release
+  const rel  = opt.rel  ?? 1.2;
+  const breathRate = opt.breathRate || 0.5;  // gentle steam pulsing
+  const breathDepth = opt.breathDepth ?? 0.35;
+  const freqs = new Float64Array(nVoices);
+  const phases = new Float64Array(nVoices);
+  for (let i = 0; i < nVoices; i++) {
+    const u = (i + rng()) / nVoices;
+    freqs[i] = fMin * Math.pow(fMax / fMin, u);
+    phases[i] = rng() * TAU;
+  }
+  const norm = 1 / Math.sqrt(nVoices);
+  write(t, (lt) => {
+    let env = Math.min(1, lt / atk);
+    if (lt > dur - rel) env *= Math.max(0, (dur - lt) / rel);
+    const breath = (1 - breathDepth) + breathDepth * Math.sin(TAU * breathRate * lt);
+    let x = 0;
+    for (let i = 0; i < nVoices; i++) x += Math.sin(TAU * freqs[i] * lt + phases[i]);
+    x = Math.tanh(x * norm * 1.1);
+    const v = x * env * breath * gain;
+    return [v * 0.92, v * 1.00];             // slight pan offset → stereo hiss
+  }, dur + rel);
 }
 
 // Sub — low sine at the chord root, rides the duck (the pump).
@@ -258,43 +307,78 @@ for (const sec of PLAN) {
   sectionRanges.push({ name: sec.name, startBar: bar, endBar: bar + sec.bars,
     startSec, endSec: (bar + sec.bars) * SPBAR });
 
-  // chords / sub / pad
+  // chords / sub / pad — more sine voices for body. Each chord tone gets
+  // an 8-partial pad voice (was 5); we add a high octave-up sparkle pad
+  // (5 partials) for shimmer, and a low octave-down body voice on root
+  // only. Total pad sine count per chord ≈ 4 voices × 8 partials = 32
+  // sines, plus 5 sparkle partials + 5 body partials = ~42 sines/chord.
   for (let b = 0; b < sec.bars; b++) {
     const tBar = (bar + b) * SPBAR;
     const ch = CHORD[cyc(sec.chords, b)];
     const root = ch.root + tr;
-    // pad = sine triad (strings), rides the duck
+    const padGain = sec.name === "overture" || sec.name === "coda" ? 0.085 : 0.072;
+    // pad = sine triad with mid-weight partials (no upper-mid sizzle —
+    // dropped partials 7+8, tamed 5+6 to keep the wash smooth, not buzzy)
     for (const semi of ch.q) {
-      voice(tBar + hum(0.004), SPBAR * 0.98, root + semi + 12,
-        sec.name === "overture" || sec.name === "coda" ? 0.10 : 0.085,
+      voice(tBar + hum(0.004), SPBAR * 0.98, root + semi + 12, padGain,
         { atk: 0.35, rel: 0.4, vibD: 0.003,
-          parts: [[1, 1], [2, 0.4], [3, 0.22], [4, 0.12], [5, 0.07]] });
+          parts: [[1, 1], [2, 0.45], [3, 0.22], [4, 0.12], [5, 0.06]] });
     }
+    // high sparkle pad — octave up, much quieter + fewer partials so it
+    // doesn't pile into the 2-4 kHz buzz band
+    if (sec.name !== "overture") {
+      voice(tBar + hum(0.005), SPBAR * 0.98, root + 24, padGain * 0.22,
+        { atk: 0.65, rel: 0.65, vibR: 4.2, vibD: 0.004,
+          parts: [[1, 1], [2, 0.25], [3, 0.10]] });
+    }
+    // body voice — low root, fattens the chord under the sub (warmth)
+    voice(tBar + hum(0.003), SPBAR * 0.98, root, padGain * 0.55,
+      { atk: 0.25, rel: 0.35, parts: [[1, 1], [2, 0.35], [3, 0.14], [4, 0.06]] });
     if (sec.kick !== "none" || sec.name === "coda")
       sub(tBar, SPBAR * 0.99, root, sec.name === "bridge" ? 0.42 : 0.52);
   }
 
-  // kick + perc grid
+  // steam-release: long breath voice spanning the whole section. Quiet
+  // backbone hiss + an extra crescendo blast across the LAST 4 bars
+  // into the next section (the "release"). Coda gets a long dissolve.
+  const secDur = sec.bars * SPBAR;
+  steam(startSec, secDur,
+    sec.name === "bridge" ? 0.030 : sec.name === "overture" ? 0.040 : 0.022,
+    { atk: sec.name === "overture" ? 2.4 : 1.4, rel: 1.8 });
+  if (sec.name !== "coda") {
+    steam(startSec + Math.max(0, secDur - 4 * SPBAR), 4 * SPBAR + 0.5,
+      sec.name === "develop" ? 0.065 : 0.045,
+      { atk: 3.0, rel: 0.6, breathRate: 0.8, breathDepth: 0.45 });
+  } else {
+    // coda: long final steam dissipation under the tail
+    steam(startSec + 6 * SPBAR, 10 * SPBAR + TAIL, 0.035,
+      { atk: 3.5, rel: 4.5, breathRate: 0.35, breathDepth: 0.55 });
+  }
+
+  // kick + perc grid — HALFTIME by default (beats 1+3 only) so each hit
+  // lands like a hole with space around it. Climax adds a sparse ghost
+  // on the "and-of-4" of every other bar; that's the only density bump.
   for (let b = 0; b < sec.bars; b++) {
     const tBar = (bar + b) * SPBAR;
     const dr = sec.drive;
     const lastBar = b === sec.bars - 1;
-    if (sec.kick === "four" || sec.kick === "hard") {
-      for (let beat = 0; beat < 4; beat++) {
+    if (sec.kick === "halftime" || sec.kick === "halfhard") {
+      for (const beat of [0, 2]) {                       // beats 1 + 3
         const tk = tBar + beat * SPB + hum(0.003);
         kick(tk, dr, 1); kickEvents.push({ t: +tk.toFixed(4) });
-        if (sec.kick === "hard" && beat === 3) {       // climax: offbeat double
-          kick(tk + SPB * 0.5, dr * 0.9, 0.9); kickEvents.push({ t: +(tk + SPB * 0.5).toFixed(4) });
-        }
       }
-      if (lastBar && (sec.name === "develop")) {        // 16th roll into climax
-        for (let r = 0; r < 8; r++) {
-          const tk = tBar + 3 * SPB + r * (SPB / 2);
-          kick(tk, dr * (0.7 + r * 0.05), 0.85);
+      if (sec.kick === "halfhard" && b % 2 === 1) {      // climax: ghost on every other bar
+        const tk = tBar + 3.5 * SPB + hum(0.003);
+        kick(tk, dr * 0.7, 0.7); kickEvents.push({ t: +tk.toFixed(4) });
+      }
+      if (lastBar && sec.name === "develop") {           // pre-climax: 4 kicks across the last bar (was 16th roll)
+        for (let r = 0; r < 4; r++) {
+          const tk = tBar + r * SPB;
+          kick(tk, dr * (0.65 + r * 0.10), 0.85);
           kickEvents.push({ t: +tk.toFixed(4) });
         }
       }
-    } else if (sec.kick === "pulse") {                  // study zone: half-time
+    } else if (sec.kick === "pulse") {                   // study zone: halftime (same as default now)
       for (const beat of [0, 2]) {
         const tk = tBar + beat * SPB; kick(tk, dr, 0.85);
         kickEvents.push({ t: +tk.toFixed(4) });
@@ -303,13 +387,13 @@ for (const sec of PLAN) {
       if (b < 4) { const tk = tBar; kick(tk, dr * (1 - b / 5), 0.8);
         kickEvents.push({ t: +tk.toFixed(4) }); }
     }
-    // perc tick — offbeat 8ths; sparser in the study bridge
+    // perc tick — also widened: 8th-positions 1 + 5 only (the "and-of-1" and "and-of-3")
+    // so the hi-hats mirror the halftime kicks instead of fighting them.
     if (sec.kick !== "none" && sec.name !== "coda") {
-      const every = sec.name === "bridge" ? 2 : 1;
-      for (let s8 = 1; s8 < 8; s8 += 2 * every) {
-        tick(tBar + s8 * (SPB / 2), sec.name === "bridge" ? 0.16 : 0.24);
-      }
-      tick(tBar + 3.5 * SPB, 0.26, true);               // metallic open hat
+      const bridgeSparse = sec.name === "bridge";
+      tick(tBar + 1 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);   // and-of-1
+      tick(tBar + 5 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);   // and-of-3
+      if (!bridgeSparse) tick(tBar + 3.5 * SPB, 0.22, true);    // metallic open hat
       snareEvents.push({ t: +(tBar + SPB).toFixed(4) });
       snareEvents.push({ t: +(tBar + 3 * SPB).toFixed(4) });
     }

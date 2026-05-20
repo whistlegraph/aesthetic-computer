@@ -303,8 +303,10 @@ const VOCAL_ALIGN = `${OUT}/${SLUG}-vocal.mp3.alignment.json`;
 step("1 · say (jeffrey-pvc TTS)", () => {
   // Try /with-timestamps first; if the server isn't patched (returns
   // audio/mpeg instead of JSON), fall back to plain TTS + whisper.
+  const STABILITY = String(flags.stability ?? "0.6");
+  const SIMILARITY = String(flags.similarity ?? "0.9");
   const baseArgs = ["bin/say.mjs", `big-pictures/${SLUG}.txt`,
-                "--stability", "0.6", "--similarity", "0.9",
+                "--stability", STABILITY, "--similarity", SIMILARITY,
                 "--out", `big-pictures/out/${SLUG}-vocal.mp3`];
   const argsWithTs = [...baseArgs, "--timestamps"];
   if (FORCE) { baseArgs.push("--force"); argsWithTs.push("--force"); }
