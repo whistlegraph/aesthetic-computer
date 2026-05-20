@@ -20,6 +20,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var defaultsKicked = false
     private var refreshTimer: Timer?
     private var animTimer: Timer?
+    /// Drives the attention-blink on `.complete` / `.awaiting` terminal
+    /// backgrounds — both states need the user's eyes, and a static blue vs.
+    /// orange is too easy to confuse. Only runs while at least one session is
+    /// in an attention state; toggles `blinkPhase` and re-applies decor each
+    /// tick so the bg alternates between its base and pulse palettes.
+    private var blinkTimer: Timer?
+    private var blinkPhase: Bool = false
     /// `sessionId → "<state>|<subject>"` of the last theme/title we pushed
     /// to Terminal, so the per-tick refresh only fires osascript when
     /// something actually changed.
@@ -109,6 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
                 self.updateIcon()
                 self.updateAnimTimer()
+                self.updateBlinkTimer()
 
                 self.mailTickCount += 1
                 if self.mailTickCount >= 15 && !self.mailPending && !self.mailSyncing {
@@ -194,6 +202,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             animTimer = nil
             rainbowPhase = 0
             rotationPhase = 0
+        }
+    }
+
+    /// Start a slow blink (0.6 s toggle → 1.2 s period) whenever any session
+    /// sits in an attention state (`.complete` / `.awaiting`). Each tick
+    /// flips `blinkPhase` and re-applies decor — `applyTerminalDecor` folds
+    /// the phase into the dedup key only for attention states, so other
+    /// sessions' osascripts don't re-fire. Stop the timer when no attention
+    /// state remains, snapping the palette back to its base.
+    private func updateBlinkTimer() {
+        let needsBlink = state.themeByStatus && state.claudeSessions.contains {
+            $0.state == .complete || $0.state == .awaiting
+        }
+        if needsBlink {
+            if blinkTimer == nil {
+                let t = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
+                    guard let self = self else { return }
+                    self.blinkPhase.toggle()
+                    self.applyTerminalDecor()
+                }
+                RunLoop.main.add(t, forMode: .common)
+                blinkTimer = t
+            }
+        } else if let t = blinkTimer {
+            t.invalidate()
+            blinkTimer = nil
+            if blinkPhase {
+                blinkPhase = false
+                applyTerminalDecor()
+            }
         }
     }
 
@@ -639,9 +677,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// direct sunlight outdoors. Dark mode = the same hue dimmed to a
     /// genuine dark page (never collapsed to black) with bright ink, so
     /// status stays legible across windows at night.
-    static func statusDecor(for state: ClaudeSession.State, dark: Bool)
-        -> (palette: Palette, glyph: String)
-    {
+    static func statusDecor(
+        for state: ClaudeSession.State, dark: Bool, blink: Bool = false
+    ) -> (palette: Palette, glyph: String) {
         switch state {
         // Blank = pure macOS appearance (white in light, black in dark) so a
         // fresh window reads as a blank page until the first prompt fires.
@@ -659,16 +697,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            bold: (56000, 65535, 60000), cursor: (24000, 56000, 34000)), "● working")
                 : (Palette(bg: (55000, 65535, 58000), text: (2500, 20000, 8000),
                            bold: (1000, 13000, 4000), cursor: (4000, 42000, 15000)), "● working")
-        // Complete = slate (turn done, calm "look when ready").
+        // Complete = slate (turn done — "look when ready"). Blink: a small,
+        // same-hue nudge so the window breathes rather than flashes. Direction
+        // flips by appearance — dark mode lifts toward brighter slate, bright
+        // mode dips toward deeper, more saturated blue (it's already near
+        // white, so brighter has nowhere to go).
         case .complete:
+            if blink {
+                return dark
+                    ? (Palette(bg: (4500, 6500, 11500), text: (48000, 52000, 62000),
+                               bold: (60000, 62000, 65535), cursor: (32000, 42000, 57000)), "✓ complete")
+                    : (Palette(bg: (50000, 54000, 64000), text: (8000, 14000, 30000),
+                               bold: (3000, 7000, 21000), cursor: (15000, 25000, 52000)), "✓ complete")
+            }
             return dark
                 ? (Palette(bg: (2800, 4000, 7500), text: (48000, 52000, 62000),
                            bold: (60000, 62000, 65535), cursor: (32000, 42000, 57000)), "✓ complete")
                 : (Palette(bg: (56000, 59000, 65535), text: (8000, 14000, 30000),
                            bold: (3000, 7000, 21000), cursor: (15000, 25000, 52000)), "✓ complete")
-        // Awaiting = warm amber (needs input, focus pop) — kept bright in
-        // light mode but the most saturated wash so it still grabs the eye.
+        // Awaiting = warm amber (needs input, focus pop). Blink: same
+        // subtle-nudge rule — dark mode warms slightly brighter, bright mode
+        // saturates slightly deeper. Still distinguishable from complete's
+        // blue pulse without strobing the room.
         case .awaiting:
+            if blink {
+                return dark
+                    ? (Palette(bg: (24000, 13500, 1200), text: (65535, 58000, 38000),
+                               bold: (65535, 65535, 50000), cursor: (65535, 46000, 10000)), "◉ awaiting")
+                    : (Palette(bg: (65535, 54000, 36000), text: (26000, 13000, 0),
+                               bold: (18000, 8000, 0), cursor: (65535, 35000, 0)), "◉ awaiting")
+            }
             return dark
                 ? (Palette(bg: (19000, 10500, 900), text: (65535, 58000, 38000),
                            bold: (65535, 65535, 50000), cursor: (65535, 46000, 10000)), "◉ awaiting")
@@ -687,7 +745,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Terminal.app settings-set name for a status × appearance. Terminal
     /// can't set ad-hoc per-window RGB like iTerm2, so slab provisions one
     /// named profile per combo and just switches a tab's `current settings`.
-    static func profileName(for state: ClaudeSession.State, dark: Bool) -> String {
+    static func profileName(
+        for state: ClaudeSession.State, dark: Bool, blink: Bool = false
+    ) -> String {
         let s: String
         switch state {
         case .blank:    s = "blank"
@@ -696,7 +756,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .awaiting: s = "awaiting"
         case .stale:    s = "stale"
         }
-        return "Slab-\(s)-\(dark ? "dark" : "light")"
+        let base = "Slab-\(s)-\(dark ? "dark" : "light")"
+        // Only attention states ever pulse; the suffix keeps the alt
+        // settings set distinct so Terminal.app can flip between two
+        // provisioned profiles per tick.
+        return blink && (state == .complete || state == .awaiting)
+            ? "\(base)-pulse"
+            : base
     }
 
     /// Push the per-status palette + custom title to each live Claude
@@ -739,7 +805,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
-            let decor = Self.statusDecor(for: s.state, dark: darkAppearance)
+            // Pulse only the attention states — every other state holds steady
+            // so working/blank/stale sessions don't churn osascript on the
+            // 0.6 s blink tick.
+            let isAttention = (s.state == .complete || s.state == .awaiting)
+            let blink = isAttention && blinkPhase
+            let decor = Self.statusDecor(for: s.state, dark: darkAppearance, blink: blink)
             var palette = decor.palette
             let glyph = decor.glyph
             // She texted (theme-by-status on): fold a shared magenta accent
@@ -770,7 +841,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // texted" magenta-tinted palette its own settings set so Terminal
             // windows show the accent too (their colors come from the profile,
             // not ad-hoc RGB). Provisioned below from this Assignment.palette.
-            let profile = Self.profileName(for: s.state, dark: darkAppearance)
+            let profile = Self.profileName(for: s.state, dark: darkAppearance, blink: blink)
                 + (state.messageWaiting ? "-msg" : "")
             func keyOf(_ c: RGB?) -> String { c.map { "\($0.0),\($0.1),\($0.2)" } ?? "-" }
             let key = [
@@ -782,6 +853,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 title,
                 profile,
                 s.wallpaper.isEmpty ? "-" : s.wallpaper,
+                // Pulse phase joins the key only for attention states so
+                // working/blank tiles don't churn — see `updateBlinkTimer`.
+                blink ? "pulse" : "-",
             ].joined(separator: "|")
             if lastTerminalDecor[s.sessionId] == key { continue }
             lastTerminalDecor[s.sessionId] = key
