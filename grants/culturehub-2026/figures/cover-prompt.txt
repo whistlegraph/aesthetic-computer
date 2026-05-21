@@ -1,89 +1,68 @@
-A wide horizontal tableau on warm cream-colored paper, drawn in
-colored pencil and gouache in a Hockney register: heavy hatching
-for stage shadows, optical-mixing dots for projection-light
-diffusion, sharp gouache rectangles for the menubar piano-roll
-notes, tapered confident strokes, the composition gradually
-softening to nothing at all four edges so the periphery
-DISSOLVES INTO PURE CREAM PAPER with no border, no frame, no
-proscenium. Muted natural palette (terracotta, sage, ochre, dusty
-pink, slate blue, brick red, warm grey, oxblood, brass) accented
-by TWO saturated pop-color zones: (1) the Citrus-green of five
-Apple MacBook Neos in a row (Apple's official Citrus colorway
-— lime-yellow shells, white apple emblems, lids open); (2) the
-crisp ticking gouache rectangles of the menubar piano-roll, in
-hot pink, electric cyan, golden ochre, fresh green, and deep
-purple — small but high-contrast, the visual rhythm of the
-piece.
+A wide horizontal illustration on warm cream-colored paper, drawn in
+colored pencil and gouache: heavy directional hatching for the
+dim-room shadows, optical-mixing dots for the glow of laptop screens
+and the haze in the air, sharp gouache rectangles for the bright
+on-screen notes, tapered confident strokes, the composition softening
+at all four edges so the periphery DISSOLVES INTO PURE CREAM PAPER —
+no border, no frame, no proscenium.
 
-Format: 1536×1024 horizontal (3:2). Subject is the menubar-as-
-score itself — five tiny piano-rolls running across the tops of
-the screens, and one massive synced version on the back wall.
-Less venue context, less institutional framing; more the immediate
-visual experience of menuband as a collective instrument.
+Muted natural palette — terracotta, sage, ochre, dusty pink, slate
+blue, brick red, warm grey, oxblood, brass — accented by ONE saturated
+pop-color zone: the glowing screens of the laptops, crisp gouache
+rectangles of a ticking piano-roll in hot pink, electric cyan, golden
+ochre, fresh green, and deep purple. Small but high-contrast — the
+visual rhythm of the piece.
 
-THE FRAME: a wide low stage-level shot inside a warm-dim
-black-box theatre. Five players seated in a row at a long low
-plywood platform. Behind them on the back wall, ONE BIG
-projection — six horizontal menubar piano-roll strips stacked
-vertically, all six synced and mid-piece, each strip a band-tee
-silkscreen of small bright rectangles in the pink/cyan/gold/green/
-purple palette. The projection is the brightest surface in the
-image and dominates the eye behind the row of laptops; warm dust
-catches in the projector beam (rendered in optical-mixing pencil
-marks).
+FORMAT: 1536×1024 horizontal (3:2). THE SUBJECT is a loose ring of six
+old, mismatched, salvaged laptops glowing in a dim flexible studio — a
+small sound-art showroom — with one performer and a seated audience
+inside the same ring.
 
-THE PLAYERS, in a single horizontal row at peer eye-level (no
-centred figure, no elevation, no hero — exactly the same height
-and lighting across all five). From left to right:
+THE LAPTOPS — six aging, rescued machines, deliberately NOT new and
+NOT matching: a scuffed black corporate laptop with a worn trackpad, a
+yellowed beige plastic clamshell, a dented silver ultrabook with a
+cracked lid corner, a chunky grey laptop covered in peeling stickers,
+a slim dark one with a faded keyboard, a boxy older model with a thick
+bezel. Different brands, different eras, visibly secondhand — thrifted,
+donated, pulled back from the e-waste pile. They sit in a loose ring
+on low plywood tables, lids open, all six SCREENS FACING INWARD and
+glowing. Each screen shows the same kind of interface — a
+keyboard-piano with a horizontal piano-roll of small bright rectangles
+ticking across it — but each at a different moment, varied, never a
+copy of the others and never a thumbnail of the room.
 
-PLAYER 1 — woman, late thirties, shoulder-length dark hair, wide
-round earrings, wearing a flannel button-down, hands resting on
-the keys, faint smile of concentration.
+THE SPEAKERS — five studio loudspeakers on tall thin stands placed
+around the edges of the room facing inward, and one low boxy
+subwoofer on the floor. They ring the whole space; the six laptops and
+the people are INSIDE that ring of speakers.
 
-PLAYER 2 — man, mid-twenties, paint-spattered grey hoodie,
-short tousled hair, leaning slightly forward, eyes on his
-menubar.
+THE AUDIENCE — six to eight people of varied ages, twenties to
+sixties, seated low on the floor and on small benches in a loose
+circle, relaxed, leaning in, listening. Warm screen-light on their
+faces. Real everyday clothes — flannels, hoodies, knit cardigans,
+printed tees, button-downs. No phones raised. They are clearly inside
+the piece, not facing a stage.
 
-PLAYER 3 — woman, mid-fifties, knitted cream cardigan over a
-patterned shirt, reading-glasses pushed up on her forehead,
-mid-keystroke.
+THE PERFORMER — one man, early thirties, OFF-CENTER and at the exact
+same eye-level as the seated audience around him, NOT elevated, NOT
+spotlit, NOT a hero — just one more person in the ring, hands on the
+keyboard of one of the salvaged laptops, mid-keystroke, deadpan and
+attentive. Medium-length brown hair tucked behind the ears, no beard,
+wearing a light crewneck sweatshirt.
 
-PLAYER 4 — man, early thirties, light-blue T-shirt with a
-patterned breast-pocket (cf. jeffrey-platter performance
-reference 2018-07-13), warm under the projector spill, deadpan
-attentive.
+LIGHTING: the room is warm and dim; the only bright sources are the
+six glowing laptop screens, which throw colored light up onto every
+face and hand and catch warm dust in the air (rendered in
+optical-mixing pencil marks). Long pencil-hatched shadows spill
+outward from the ring of laptops.
 
-PLAYER 5 (jeffrey, FAR RIGHT, never centred): render from the
-jeffrey-platter performance-domain references — medium-length
-brown hair tucked behind ears, no beard, wearing a light
-crewneck sweatshirt (cf. 2018-11-04 reference) — hands on the
-keyboard mid-keystroke, the same eye-line as the four others,
-the warm projector spill on his face.
+NO INSTITUTIONAL TEXT: do not spell out any company, software, venue,
+or product name anywhere. No legible words at all. Identity is carried
+entirely by: the ring of six mismatched salvaged laptops, the bright
+ticking piano-rolls on their screens, the encircling loudspeakers, and
+the audience seated inside the sound. Any letterforms appear only as
+illegible scribble-gestalt. Worn texture and scuffs on the old laptops
+are welcome but carry no readable text.
 
-ABOVE EACH PLAYER'S SCREEN: at the very top, the macOS
-menubar is the score — a horizontal strip of small crisp gouache
-rectangles ticking left-to-right in pink, cyan, gold, green,
-and purple. Tiny but precise. Five small menubar strips on the
-five screens; the sixth strip lives only in the back-wall
-projection above.
-
-LIGHTING: cool stage spill on the players' shoulders, warm
-projector glow on their faces, deep brick wall barely visible
-in the periphery before fading to cream paper. A single low cool
-light bar at the top of the frame casts long pencil-hatched
-shadows behind each player.
-
-NO INSTITUTIONAL TEXT: no hand-lettered "CultureHub", "La MaMa",
-"NELA Computer Club", "Aesthetic Computer", "Plot.Place", or
-"Menuband" spelled out anywhere. Identity is carried entirely by:
-the row of five Citrus-green Neos, the six menubar piano-roll
-strips on the back wall, the menubars on each screen, the peer
-horizontality of the players. Incidental product text on
-physical objects is acceptable when NOT the institution
-illustrated (the apple emblem on a lid, a tiny "MIDI" stamp on
-a USB hub on the table, a small generic stage-lighting model
-number). Letterforms anywhere else appear as illegible
-scribble-gestalt only.
-
-Hockney colored-pencil + gouache, cream paper, all four corners
-dissolve to nothing.
+Colored pencil and gouache, cream paper, all four corners dissolve to
+nothing.
