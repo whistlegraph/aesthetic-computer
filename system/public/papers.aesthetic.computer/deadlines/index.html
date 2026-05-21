@@ -7,10 +7,17 @@
     <meta name="description" content="Conference, journal, and grant deadlines tracked for Aesthetic Computer papers.">
     <meta property="og:title" content="deadlines — papers · Aesthetic.Computer" />
     <meta property="og:description" content="Conference, journal, and grant deadlines tracked for Aesthetic Computer papers." />
-    <meta property="og:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
+    <meta property="og:image" content="https://papers.aesthetic.computer/deadlines/deadlines-og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:url" content="https://papers.aesthetic.computer/deadlines" />
     <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="deadlines — papers · Aesthetic.Computer" />
+    <meta name="twitter:description" content="Conference, journal, and grant deadlines tracked for Aesthetic Computer papers." />
+    <meta name="twitter:image" content="https://papers.aesthetic.computer/deadlines/deadlines-og.jpg" />
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="preload" as="image" href="/deadlines/deadlines-header.png" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
     <style>
@@ -94,6 +101,19 @@
             color: var(--dim);
         }
         .top-bar a { color: var(--purple); }
+
+        .hero {
+            margin-bottom: 1.3em;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--box-border);
+            aspect-ratio: 1536 / 580;
+            background: var(--box-bg) center 40% / cover no-repeat;
+            background-image: url('deadlines-header.png');
+        }
+        @media (max-width: 700px) {
+            .hero { aspect-ratio: 1536 / 820; }
+        }
 
         .header { margin-bottom: 1.6em; }
 
@@ -291,6 +311,8 @@
         <a href="/platter.html">platter</a>
     </div>
 
+    <div class="hero" role="img" aria-label="A late-night submissions war-room: a long table of Aesthetic Computer peers racing a wall of deadlines — a pinned calendar grid with circled dates and a row of time-zone clocks."></div>
+
     <div class="header">
         <h1>deadlines<span class="dot">.</span></h1>
         <div class="subtitle">Conference, journal, grant, and residency deadlines tracked for Aesthetic Computer papers and adjacent opportunities. Submission state lives in <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/SUBMISSIONS.md">SUBMISSIONS.md</a>; draft state lives in <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/SCORE.md">SCORE.md</a>.</div>
@@ -339,23 +361,6 @@
                 status: 'verify',
                 statusLabel: 'Verify',
                 notes: 'Draft ready in <code>iccc-kidlisp/</code> from Apr 19. Check EasyChair for a submission of <code>iccc-kidlisp/iccc.pdf</code>.',
-            },
-
-            // --- Active proposals ---
-            {
-                section: 'active',
-                venue: 'CalArts CCAT',
-                venueUrl: 'https://www.paycomonline.net/v4/ats/web.php/portal/CAF0FE2BC5A458C654822EC0474C8E21/jobs/154720',
-                track: 'Technical Director · BB6 studio (job, not grant)',
-                deadline: null,
-                deadlineExtra: 'rolling',
-                conference: 'On-site · Valencia, CA · CHANEL Culture Fund',
-                status: 'go',
-                statusLabel: 'Active',
-                proposalUrl: 'https://aesthetic.computer/calarts-ccat-2026',
-                proposalLabel: 'Studio Hand · Tech Director, BB6',
-                draftPath: 'calarts-ccat-tech-director-2026/DRAFT.md',
-                notes: '$100k–$125k full-time on-site role keeping CCAT\'s BB6 studio + GPU lab functional for a rotating cast of artists, fellows, students, and researchers. Listed start date 2026-04-13 already past — treating as rolling. Companion paper: <a href="https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf">CalArts, Callouts, and Papers</a>.',
             },
 
             // --- Open windows ---
@@ -414,6 +419,20 @@
                 notes: 'Submitted 2026-05-21. 1–2 weeks at CultureHub LA with reconfigurable lighting/audio/video/projection, technical support, $2,000 stipend, marketing, documentation, and one public presentation. <em>Notepat Jam</em> — a six-channel audio piece performed solo on six salvaged laptops booted into AC Native, each voicing one channel of the 5:1 Kalio surround, plus open programming (a public workshop + dialogue teaching the software). Awaiting decision.',
             },
             {
+                section: 'submitted',
+                venue: 'LACMA Art + Technology Lab',
+                venueUrl: 'https://lacma.submittable.com/submit/348727/2026-art-technology-lab-grants',
+                track: 'Project grant',
+                deadline: '2026-04-22',
+                deadlineExtra: '23:59 PT',
+                conference: 'Biennial cycle · 2027 Symposium / 2028 Demo Day',
+                status: 'submitted',
+                statusLabel: 'Submitted',
+                proposalUrl: 'https://aesthetic.computer/lacma-2026/',
+                proposalLabel: 'Personal Computers Are Not Done Yet',
+                notes: 'Submitted via Submittable for the April 22 deadline. <em>Aesthetic.Computer: Personal Computers Are Not Done Yet</em> — $50,000 requested for the Library build-out: a lending fleet of laptops flashed into the bare-metal creative OS, Flash Days and Family Play afternoons at LACMA, a WIP showing at the 2027 Symposium and a completed showing at the 2028 Demo Day. Biennial cycle restarts in 2026; awaiting decision.',
+            },
+            {
                 section: 'open',
                 venue: 'SIGGRAPH Asia 2026',
                 venueUrl: 'https://asia.siggraph.org/2026/submissions/technical-papers/',
@@ -450,12 +469,25 @@
                 section: 'open',
                 venue: 'ArtsIT 2026',
                 venueUrl: 'https://artsit.eai-conferences.org/2026/',
-                track: 'Full Papers',
+                track: 'Full Papers — sound/image track',
                 deadline: '2026-06-01',
                 conference: 'Dec 2–4, Bratislava',
-                status: 'new',
-                statusLabel: 'New',
-                notes: 'No directory yet.',
+                status: 'scaffold',
+                statusLabel: 'Brief',
+                notes: 'Springer LNICST, Web of Science / Scopus indexed. Brief in <code>artsit-2026/SIMPLIFIED-BRIEF.md</code> — a venue-specific Whistlegraph recast for the sound/image relationships track, drawing on <code>arxiv-whistlegraph/</code>.',
+            },
+            {
+                section: 'open',
+                venue: 'Serpentine — Future Art Ecosystems R&D Fellowship',
+                venueUrl: 'https://www.serpentinegalleries.org/whats-on/future-art-ecosystems-rd-fellowship-art-x-convergence/',
+                track: 'Art × Convergence fellowship (Fia)',
+                deadline: '2026-06-07',
+                deadlineExtra: 'midnight BST',
+                conference: 'Sep 2026 – Mar 2027 · low-residency, 3 London weekends',
+                status: 'candidate',
+                statusLabel: 'Candidate',
+                draftPath: 'serpentine-fae-2026/DRAFT.md',
+                notes: 'DRAFT v1 ready — spine is the voice thread ("A Voice of My Own"). £10,000 award + travel/accommodation for the London intensives. Inaugural cohort of four practitioners working at the intersection of art and advanced technologies; early-stage creative research grounded in process and dialogue. Submitted via an Airtable form; two selection rounds (Serpentine Arts Tech shortlist, then external jury). International applicants welcome if they can attend the three London weekends.',
             },
             {
                 section: 'open',
@@ -589,6 +621,16 @@
                 track: 'Summer Exhibition open call (Fia, lower priority)',
                 deadline: '2026-04-30',
                 notes: 'Fia\'s text suggested May 30, but the actual deadline was Apr 30, 2026 — just missed. Group painting show on Melrose; $30/work fee, $800 minimum sale price, 40% commission. Two $15,000 prizes (Francis Award abstract / Clara Award figurative). Greater LA artists 18+. Track for 2027 call.',
+            },
+            {
+                section: 'passed',
+                venue: 'CalArts CCAT',
+                track: 'Technical Director · BB6 studio (job, not grant)',
+                deadline: '2026-04-13',
+                deadlineExtra: 'posting closed',
+                proposalUrl: 'https://aesthetic.computer/calarts-ccat-2026',
+                proposalLabel: 'Studio Hand · archived draft',
+                notes: 'Posting closed before submission (verified 2026-05-21) — Paycom job 154720 returns "We Couldn\'t Find This Job" and CalArts\' careers portal lists no CCAT roles. CCAT = CHANEL Center for Artists and Technology (Executive Director MaryClare Brzytwa, inaugural). $100k–$125k on-site Technical Director role for the BB6 studio + GPU lab. Drafted but not sent; reopen if a related CCAT role reposts.',
             },
             { section: 'passed', venue: 'ACM CHI', track: 'Papers', deadline: '2026-09-12', notes: 'CHI 2026 main paper window already closed in 2025.' },
             { section: 'passed', venue: 'SIGGRAPH (main)', track: 'Tech Papers', deadline: '2026-01-23', notes: 'Aug 2026 conference; track 2027.' },
