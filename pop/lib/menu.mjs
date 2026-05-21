@@ -91,6 +91,11 @@ export const MENU = {
       params: ["freq", "carrier", "waveform", "mix"],
       blurb: "ring modulation — sine/tri/square or any audio as carrier",
     },
+    vocoder: {
+      file: "dance/synths/fx.mjs", export: "applyVocoder",
+      params: ["modulator", "bands", "loFreq", "hiFreq", "q", "attackMs", "releaseMs", "mix"],
+      blurb: "channel vocoder — modulator's spectrum spoken by the carrier",
+    },
   },
 
   // ── declared but not yet wired into the play CLI ─────────────────────
@@ -127,6 +132,16 @@ export const MENU = {
       params: ["attackMs", "releaseMs"],
       blurb: "amplitude contour → 0..1 control curve (pair: invertControl)",
     },
+    "pitch-track": {
+      file: "lib/analysis.mjs", export: "pitchTrack",
+      params: ["fmin", "fmax", "hopMs", "winMs", "clarityGate"],
+      blurb: "audio → per-frame f0 / MIDI pitch curve (autocorrelation)",
+    },
+    "audio-gate": {
+      file: "lib/analysis.mjs", export: "audioGate",
+      params: ["threshold", "attackMs", "releaseMs", "minGapMs"],
+      blurb: "amplitude onset trigger — beatbox a mic to fire samples",
+    },
   },
 
   vocal: {
@@ -152,6 +167,10 @@ export const MENU = {
     "ballad-32":    { lane: "hippyhayzard", blurb: "32-bar nightcore-ballad form (~1:28)" },
     "williams-aba": { lane: "hellsine",     blurb: "ABA' heroic-leitmotif arc, climax key lift" },
     "jungle-16":    { lane: "jungle",       blurb: "16-bar chopped-break (jungletón / raggasol / rodando)" },
+    "fib-meter":    { file: "lib/meter.mjs", export: "fibMeter",
+                      blurb: "Fibonacci bar/measure division & addition (fibPartition, fibSequence)" },
+    "species-counterpoint": { file: "lib/counterpoint.mjs", export: "generateFirstSpecies",
+                      blurb: "Fux first-species counterpoint — checker + backtracking generator" },
   },
 
   modulation: {
@@ -167,6 +186,8 @@ export const MENU = {
     "midi-to-np":      { file: "bin/midi_to_np.py",      blurb: "MIDI file → .np converter" },
     "musicxml-to-np":  { file: "bin/musicxml_to_np.py",  blurb: "MusicXML → .np converter (preferred for hymn imports)" },
     "os-to-np":        { file: "bin/os_to_np.py",        blurb: "Open Score → .np converter" },
+    "audio-to-rhythm": { file: "bin/audio-to-rhythm.mjs", blurb: "WAV onsets → quantized drum .np (beatbox a loop)" },
+    "note-subdiv":     { file: "lib/meter.mjs", export: "subdivideNp", blurb: "split .np notes into 1/2·1/4·1/8·1/16 subdivisions" },
     ".txt":            { blurb: "paired lyric file, one line per .np section" },
   },
 
@@ -243,23 +264,6 @@ export const MENU = {
         blurb: "close-mic calm sandy-shore lapping — the undabeach ocean bed",
       },
     },
-  },
-
-  // ── proposed — Abe Edelman's pop-toolkit wishlist (iMessage 2026-05-21) ─
-  // Requested capabilities not yet built. Kept out of the play CLI loader
-  // and the printed menu. Mirrored, with reference links, in
-  // pop/MENU-WISHLIST.md. As each lands it graduates into a real
-  // category above (ringmod + envelope-follower already have).
-  proposed: {
-    vocoder:        { category: "fx",       blurb: "carrier/modulator vocoder (filter-bank or FFT)" },
-    "pitch-track":  { category: "analysis", blurb: "audio → f0 pitch tracking → MIDI/control curve" },
-    "audio-gate":   { category: "analysis", blurb: "amplitude gate/trigger — beatbox a mic to fire drum samples" },
-    "audio-to-rhythm": { category: "score", blurb: "onset-detect an audio loop (e.g. speech) → drum sequence .np" },
-    "fib-meter":    { category: "forms",    blurb: "Fibonacci bar/measure division & addition",
-                      ref: "https://en.wikipedia.org/wiki/Fibonacci_sequence" },
-    "note-subdiv":  { category: "score",    blurb: "Ableton-style note subdivision — split a note into 1/2·1/4·1/8·1/16" },
-    "species-counterpoint": { category: "forms", blurb: "Fux species-counterpoint rule checker/generator",
-                      ref: "https://archive.org/details/imslp-ad-parnassum-fux-johann-joseph" },
   },
 };
 

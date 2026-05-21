@@ -241,6 +241,84 @@ export function applyRingMod(buf, opts = {}) {
   }
 }
 
+// ── vocoder ───────────────────────────────────────────────────────────
+// Classic channel vocoder. The buffer is the CARRIER (a synth pad,
+// supersaw, noise…); `modulator` is any other audio (a voice, a drum
+// loop). The modulator is split into `bands` log-spaced frequency
+// channels; each channel's amplitude envelope is imprinted onto the
+// matching band of the carrier — so the carrier "speaks" the modulator.
+//
+// Uses a TPT state-variable bandpass per band (stable, cheap). Mutates
+// the carrier buffer in place.
+//
+// opts: {
+//   modulator: Float32Array   (required — the audio that does the talking)
+//   bands:     int            (default 16)
+//   loFreq, hiFreq: Hz band spread   (default 120 .. 8000)
+//   q:         band resonance        (default 6)
+//   attackMs, releaseMs: per-band envelope smoothing (default 3 / 18)
+//   makeup:    wet output gain       (default 1.4/sqrt(bands))
+//   mix:       0..1 dry/wet          (default 1)
+//   sampleRate: number               (default 48000)
+// }
+// A noise carrier vocodes loud — follow with softClip() if it peaks.
+export function applyVocoder(buf, opts = {}) {
+  if (!(buf instanceof Float32Array)) return;
+  const mod = opts.modulator;
+  if (!(mod instanceof Float32Array) || mod.length === 0) return;
+  const sr     = opts.sampleRate ?? DEFAULT_SAMPLE_RATE;
+  const bands  = Math.max(2, Math.floor(opts.bands ?? 16));
+  const loF    = opts.loFreq ?? 120;
+  const hiF    = Math.min(opts.hiFreq ?? 8000, sr * 0.45);
+  const q      = opts.q ?? 6;
+  const mix    = Math.max(0, Math.min(1, opts.mix ?? 1));
+  const aA = Math.exp(-1 / (Math.max(0.01, opts.attackMs  ?? 3)  * 0.001 * sr));
+  const aR = Math.exp(-1 / (Math.max(0.01, opts.releaseMs ?? 18) * 0.001 * sr));
+  const makeup = opts.makeup ?? 1.4 / Math.sqrt(bands);
+
+  // Per-band SVF coefficients (log-spaced centers) + filter state.
+  const k = 1 / q;
+  const a1 = [], a2 = [], a3 = [];
+  for (let b = 0; b < bands; b++) {
+    const f = loF * Math.pow(hiF / loF, b / (bands - 1));
+    const g = Math.tan(Math.PI * Math.min(f, sr * 0.49) / sr);
+    const d = 1 / (1 + g * (g + k));
+    a1.push(d); a2.push(g * d); a3.push(g * g * d);
+  }
+  // state: carrier ic1/ic2, modulator ic1/ic2, modulator envelope
+  const c1 = new Float32Array(bands), c2 = new Float32Array(bands);
+  const m1 = new Float32Array(bands), m2 = new Float32Array(bands);
+  const env = new Float32Array(bands);
+
+  const n = buf.length;
+  for (let i = 0; i < n; i++) {
+    const cx = buf[i];
+    const mx = i < mod.length ? mod[i] : 0;
+    let wet = 0;
+    for (let b = 0; b < bands; b++) {
+      // carrier bandpass
+      let v3 = cx - c2[b];
+      let v1 = a1[b] * c1[b] + a2[b] * v3;
+      let v2 = c2[b] + a2[b] * c1[b] + a3[b] * v3;
+      c1[b] = 2 * v1 - c1[b];
+      c2[b] = 2 * v2 - c2[b];
+      const cbp = v1;
+      // modulator bandpass
+      v3 = mx - m2[b];
+      v1 = a1[b] * m1[b] + a2[b] * v3;
+      v2 = m2[b] + a2[b] * m1[b] + a3[b] * v3;
+      m1[b] = 2 * v1 - m1[b];
+      m2[b] = 2 * v2 - m2[b];
+      // modulator band envelope
+      const r = Math.abs(v1);
+      const a = r > env[b] ? aA : aR;
+      env[b] = a * env[b] + (1 - a) * r;
+      wet += cbp * env[b];
+    }
+    buf[i] = cx * (1 - mix) + wet * makeup * mix;
+  }
+}
+
 // ── envelope follower ─────────────────────────────────────────────────
 // Tracks the amplitude contour of a signal into a 0..1 control curve,
 // one value per sample. Separate attack/release smoothing (ms) sets how
