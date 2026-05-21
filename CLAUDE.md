@@ -137,6 +137,7 @@ ac-os flash+upload
 ### Notation
 
 - **compush** - commit & push
+- **sticky the X** - on a macOS host, run `node toolchain/macos/sticky.mjs` on X — drops it into a translucent, larger-text Stickies note sized to fit the content and centered on screen. See `toolchain/macos/README.md`.
 
 ## Architecture
 
