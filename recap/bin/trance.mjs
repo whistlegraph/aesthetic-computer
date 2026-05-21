@@ -422,6 +422,13 @@ const VOCAL_SECTION_GAIN = {
 const PIANO_GAIN  = Number(flags["piano-gain"] ?? (isChill ? 0.66 : 0.45)); // lift the high piano out (jas)
 const BELLS_GAIN  = Number(flags["bells-gain"] ?? (isChill ? 0.12 : 0.32)); // chill: tones quieter, bells are shrill (jas)
 const STRUCT_PATH = expandHome(flags["struct-out"]) || null;
+// --stems <dir>: chill only. After the stereo bus rebuild, also write
+// each engine bus (bass / pad / lead+drums / sfx / extras / ambient)
+// as its own dry stereo WAV into <dir>, before the global-story
+// filter + master chain. These are the raw multitrack stems — they
+// sum (roughly) back to the pre-master mix. trancenwaltz stays
+// byte-identical when the flag is absent.
+const STEMS_DIR   = expandHome(flags.stems) || null;
 const OUT_PATH    = expandHome(flags.out) || `${ROOT}/out/${isWaltz ? "trancewaltz" : "trance"}.mp3`;
 // --master → a streaming RELEASE cut (DistroKid/Spotify): restore the
 // proper musical fade-in/out (a real single ending, NOT the 6ms loop
@@ -4645,6 +4652,73 @@ if (isChill) {
   buf = Buffer.alloc(out.length * 4);
   for (let i = 0; i < out.length; i++) buf.writeFloatLE(out[i], i * 4);
 }
+
+// ── STEMS (chill only) — write each engine bus as a dry stereo WAV ───
+// Recomputes per-bus L/R with the SAME pan + dynEnv math as the chill
+// stereo rebuild above, but isolated per bus. Written here — BEFORE
+// the power-down, global-story filter and master chain — so they are
+// clean, dry multitrack stems (they sum roughly back to the pre-master
+// mix). The main `buf` path is untouched, so the released master stays
+// byte-faithful with the flag absent.
+if (STEMS_DIR && isChill && STEREO) {
+  mkdirSync(STEMS_DIR, { recursive: true });
+  const SRs = SAMPLE_RATE, Ns = out.length;
+  const panned = {
+    bass:         { src: bassBuf,   env: true,  pan: (t) => 0.55 * Math.sin(t * 2 * Math.PI * 0.028) },
+    pad:          { src: duckBuf,   env: true,  pan: (t) => 0.40 * Math.sin(t * 2 * Math.PI * 0.017 + 2.1) },
+    "lead-drums": { src: dryBuf,    env: true,  pan: (t) => 0.14 * Math.sin(t * 2 * Math.PI * 0.045 + 4.0) },
+    sfx:          { src: sfxDryBuf, env: false, pan: (t) => 0.85 * Math.sin(t * 2 * Math.PI * 0.022 + 1.0) },
+  };
+  const stemBufs = [];
+  for (const [name, s] of Object.entries(panned)) {
+    const sb = Buffer.alloc(Ns * 8);
+    for (let i = 0; i < Ns; i++) {
+      const m = s.env ? dynEnv[i] : 1;
+      const v = s.src[i] * m;
+      const a = (s.pan(i / SRs) + 1) * Math.PI / 4;
+      sb.writeFloatLE(v * Math.cos(a), i * 8);
+      sb.writeFloatLE(v * Math.sin(a), i * 8 + 4);
+    }
+    stemBufs.push([name, sb]);
+  }
+  // extras = machine-gun + shutdown buses, dead centre (equal-power)
+  {
+    const sb = Buffer.alloc(Ns * 8);
+    for (let i = 0; i < Ns; i++) {
+      const c = (mgBuf[i] * 0.65 + shutdownBuf[i]) * 0.7071;
+      sb.writeFloatLE(c, i * 8);
+      sb.writeFloatLE(c, i * 8 + 4);
+    }
+    stemBufs.push(["extras", sb]);
+  }
+  // ambient field bed — L dry, R ~5 ms offset, slow breathing gain
+  if (ambientBuf && ambientBuf.length) {
+    const sb = Buffer.alloc(Ns * 8);
+    for (let i = 0; i < Ns; i++) {
+      const ai = i % ambientBuf.length;
+      const und = 0.78 + 0.22 * Math.sin((i / SRs) * 2 * Math.PI * 0.05);
+      const ag = 0.09 * und;
+      sb.writeFloatLE(ambientBuf[ai] * ag, i * 8);
+      sb.writeFloatLE(ambientBuf[(ai + 240) % ambientBuf.length] * ag, i * 8 + 4);
+    }
+    stemBufs.push(["ambient", sb]);
+  }
+  for (const [name, sb] of stemBufs) {
+    const rawP = `${STEMS_DIR}/.${name}.f32`;
+    writeFileSync(rawP, sb);
+    const wavP = `${STEMS_DIR}/${name}.wav`;
+    const r = spawnSync("ffmpeg", [
+      "-hide_banner", "-y", "-loglevel", "error",
+      "-f", "f32le", "-ar", String(SRs), "-ac", "2", "-i", rawP,
+      "-t", String(totalSec), "-c:a", "pcm_s24le", wavP,
+    ], { stdio: "inherit" });
+    try { unlinkSync(rawP); } catch {}
+    if (r.status !== 0) console.error(`✗ stem ${name} failed`);
+    else console.log(`  stem · ${wavP.replace(STEMS_DIR + "/", "")}`);
+  }
+  console.log(`✓ stems → ${STEMS_DIR}`);
+}
+
 if (STEREO && !isChill) { // perfect-loop chill: NO end power-down (it broke the seam)
   // Last ~16 s: a vari-speed POWER-DOWN — re-read the tail at a falling
   // rate so the pitch + tempo of EVERYTHING drop together in unison (a
