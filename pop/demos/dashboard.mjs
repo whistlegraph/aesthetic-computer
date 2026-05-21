@@ -143,7 +143,8 @@ function renderSongs(songs, container) {
 
 // ── sounds section — two-step picker (category → sound) ──────────────
 const SOUND_CATS = [
-  { key: "synths",     label: "synths" },
+  { key: "synths",     label: "custom synths" },
+  { key: "notepat",    label: "notepat voices" },
   { key: "percussion", label: "percussion" },
   { key: "beds",       label: "beds" },
   { key: "samples",    label: "sourced samples" },

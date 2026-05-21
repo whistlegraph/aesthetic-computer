@@ -27,6 +27,14 @@
       { "id": "zitar", "label": "zitar", "lane": "hippyhayzard", "presets": ["sitar", "lead", "drone", "dry"], "blurb": "Karplus-Strong sitar with jawari buzz", "sample": "demos/samples/zitar.mp3" },
       { "id": "marimba", "label": "marimba", "lane": "marimba", "presets": ["rosewood", "vibraphone", "glockenspiel", "gamelan", "kalimba", "woodblock"], "blurb": "modal tuned-percussion (marimba / vibes / glock / gamelan)", "sample": "demos/samples/marimba.mp3" }
     ],
+    "notepat": [
+      { "id": "sine",     "label": "sine",     "blurb": "AC sound.synth — pure sine tone (the notepat default voice)", "sample": "demos/samples/notepat-sine.mp3" },
+      { "id": "triangle", "label": "triangle", "blurb": "AC sound.synth — triangle wave", "sample": "demos/samples/notepat-triangle.mp3" },
+      { "id": "sawtooth", "label": "sawtooth", "blurb": "AC sound.synth — sawtooth wave", "sample": "demos/samples/notepat-sawtooth.mp3" },
+      { "id": "square",   "label": "square",   "blurb": "AC sound.synth — square wave", "sample": "demos/samples/notepat-square.mp3" },
+      { "id": "harp",     "label": "harp",     "blurb": "notepat — Karplus-Strong plucked string", "sample": "demos/samples/notepat-harp.mp3" },
+      { "id": "whistle",  "label": "whistle",  "blurb": "notepat — digital-waveguide flute", "sample": "demos/samples/notepat-whistle.mp3" }
+    ],
     "percussion": [
       { "id": "kick",    "label": "kick",    "letter": "c",  "blurb": "AC percussion kit — deep orange pad", "sample": "demos/samples/perc-kick.mp3" },
       { "id": "snare",   "label": "snare",   "letter": "d",  "blurb": "AC percussion kit — tan pad", "sample": "demos/samples/perc-snare.mp3" },

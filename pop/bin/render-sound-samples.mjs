@@ -2,9 +2,10 @@
 // render-sound-samples.mjs — render short sample-preview mp3s for the
 // pop dashboard: (1) the full AC percussion kit, (2) ambient beds.
 //
-// Usage:  node pop/bin/render-sound-samples.mjs [--perc-only] [--bed-only]
-// Output: pop/demos/samples/perc-<id>.mp3   (12 drums)
-//         pop/demos/samples/bed-<id>.mp3     (up to 5 beds)
+// Usage:  node pop/bin/render-sound-samples.mjs [--perc-only] [--bed-only] [--notepat-only]
+// Output: pop/demos/samples/perc-<id>.mp3        (12 drums)
+//         pop/demos/samples/bed-<id>.mp3          (up to 5 beds)
+//         pop/demos/samples/notepat-<voice>.mp3   (4 notepat wavetypes)
 
 import { writeFileSync, mkdirSync, unlinkSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -19,9 +20,10 @@ const POP     = resolve(HERE, "..");
 const OUT_DIR = resolve(POP, "demos/samples");
 const SR      = 48_000;
 
-const args    = process.argv.slice(2);
-const PERC_ONLY = args.includes("--perc-only");
-const BED_ONLY  = args.includes("--bed-only");
+const args         = process.argv.slice(2);
+const PERC_ONLY    = args.includes("--perc-only");
+const BED_ONLY     = args.includes("--bed-only");
+const NOTEPAT_ONLY = args.includes("--notepat-only");
 
 // ── deterministic RNG (mulberry32) ───────────────────────────────────
 function makeRng(seed = 0x9e3779b9) {
@@ -426,12 +428,60 @@ function renderBedNoiseSweep() {
 // the full chillwave .np score parser. The dashboard gracefully shows
 // "sample pending" when the file is absent.
 
+// ── Part 3: Notepat Voices ────────────────────────────────────────────
+// Renders a short rising arpeggio + held note for each wave type that
+// makeBufferSynth supports. harp + whistle are browser-only algorithms
+// (they fall through to `default: s = 0` in bus.mjs) and are skipped —
+// the dashboard shows "sample pending" gracefully for absent files.
+//
+// MIDI phrase: D3 F#3 A3 D4 E4 F#4 A4 — rising arpeggio then a held D5.
+// Each note 0.35 s; total ~3.15 s with a short tail.
+
+const NP_MIDI   = [50, 54, 57, 62, 64, 66, 69, 74];
+const NP_DUR    = 0.35;    // seconds per note
+const NP_ATK    = 0.01;    // attack
+const NP_DECAY  = 0.30;    // decay (note release)
+const NP_VOL    = 0.70;
+const NP_TAIL   = 0.8;     // silence at end so the last note rings out
+const NP_SR     = SR;
+
+// Voices that bus.mjs actually implements (harp/whistle → s=0, omit them).
+const NOTEPAT_VOICES = ["sine", "triangle", "sawtooth", "square"];
+
+function midiToHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+function renderNotepatVoice(type) {
+  const totalDur = NP_MIDI.length * NP_DUR + NP_TAIL;
+  const bufLen   = Math.ceil(totalDur * NP_SR);
+  const out      = new Float32Array(bufLen);
+  const rng      = makeRng(0xac0 ^ type.charCodeAt(0));
+
+  for (let n = 0; n < NP_MIDI.length; n++) {
+    const startSec = n * NP_DUR;
+    const hz       = midiToHz(NP_MIDI[n]);
+    const sound    = makeBufferSynth(out, startSec, NP_SR, rng);
+    sound.synth({
+      type,
+      tone:     hz,
+      duration: NP_DUR,
+      attack:   NP_ATK,
+      decay:    NP_DECAY,
+      volume:   NP_VOL,
+    });
+  }
+
+  normalize(out, 0.9);
+  const outPath = resolve(OUT_DIR, `notepat-${type}.mp3`);
+  encodeToMp3(out, outPath);
+  console.log(`✓ notepat-${type} → ${outPath}`);
+}
+
 // ── main ──────────────────────────────────────────────────────────────
 mkdirSync(OUT_DIR, { recursive: true });
 
 let ok = 0, fail = 0;
 
-if (!BED_ONLY) {
+if (!BED_ONLY && !NOTEPAT_ONLY) {
   console.log("\n── Percussion kit ──────────────────────────────────");
   for (const [letter, id] of PERC_ORDER) {
     try {
@@ -444,7 +494,7 @@ if (!BED_ONLY) {
   }
 }
 
-if (!PERC_ONLY) {
+if (!PERC_ONLY && !NOTEPAT_ONLY) {
   console.log("\n── Beds ─────────────────────────────────────────────");
   const BEDS = [
     ["sinebells",   renderBedSinebells],
@@ -463,6 +513,20 @@ if (!PERC_ONLY) {
     }
   }
   console.log("  (bed-ocean: skipped — requires pop/chillwave/out/.waves.wav)");
+}
+
+if (!PERC_ONLY && !BED_ONLY) {
+  console.log("\n── Notepat voices ───────────────────────────────────");
+  for (const voice of NOTEPAT_VOICES) {
+    try {
+      renderNotepatVoice(voice);
+      ok++;
+    } catch (err) {
+      console.error(`✗ notepat-${voice}: ${err.message}`);
+      fail++;
+    }
+  }
+  console.log("  (notepat-harp, notepat-whistle: skipped — browser-only algorithms)");
 }
 
 console.log(`\ndone — ${ok} rendered, ${fail} failed → ${OUT_DIR}`);
