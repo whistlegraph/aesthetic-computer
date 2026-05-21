@@ -154,6 +154,7 @@ function parseNpFile(path, bpm) {
 function printMenu() {
   console.log("\npop menu — pickable building blocks across /pop\n");
   for (const [section, items] of Object.entries(MENU)) {
+    if (section === "proposed") continue; // wishlist — see pop/MENU-WISHLIST.md
     console.log(`${section}:`);
     if (Array.isArray(items)) { console.log(`  ${items.join(", ")}`); console.log(""); continue; }
     if (section === "scales") {

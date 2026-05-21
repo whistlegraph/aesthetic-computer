@@ -15,6 +15,8 @@
 //   vocal        — TTS + alignment + per-word placement pipelines
 //   scales       — interval sets keyed by tonic
 //   forms        — arrangement templates (trance-bbd, chorale-16, …)
+//   sample_sources — provenance registry: source repos + every sourced
+//                  sample committed into a lane (CC0/public-domain only)
 //
 // The CLI loader only handles `instruments` + `fx` today; the rest is
 // here so the menu stays the single source of truth as we wire more.
@@ -57,6 +59,15 @@ export const MENU = {
       params: ["stretch", "damp", "jawari", "taraf", "symGain", "chikari"],
       blurb: "Karplus-Strong sitar + jawari buzz",
     },
+    marimba: {
+      file: "marimba/synths/marimba.mjs", export: "mixEventMarimba",
+      presets: ["rosewood", "kelon", "bass", "staccato", "roll",
+                "xylophone", "vibraphone", "vibraphone_off", "glockenspiel",
+                "gamelan", "woodblock", "kalimba"], lane: "marimba",
+      params: ["partials", "decays", "mallet", "resQ", "resGain", "strike",
+               "tremHz", "decayMul"],
+      blurb: "modal tuned-percussion (marimba/vibes/glock/gamelan)",
+    },
   },
 
   fx: {
@@ -74,6 +85,11 @@ export const MENU = {
       file: "dance/synths/fx.mjs", export: "applyFlange",
       params: ["rate", "depthMs", "baseDelayMs", "feedback", "mix"],
       blurb: "LFO-swept delay line w/ feedback",
+    },
+    ringmod: {
+      file: "dance/synths/fx.mjs", export: "applyRingMod",
+      params: ["freq", "carrier", "waveform", "mix"],
+      blurb: "ring modulation — sine/tri/square or any audio as carrier",
     },
   },
 
@@ -103,6 +119,14 @@ export const MENU = {
     "score-pitch":   { file: "bin/score-pitch.mjs",    blurb: "MIDI-driven rubberband pitch shift" },
     "score-stretch": { file: "bin/score-stretch.mjs",  blurb: "rubberband time-fit (no pitch shift)" },
     "pitchsnap-world": { file: "bin/pitchsnap_world.py", blurb: "WORLD pitch correction variant" },
+  },
+
+  analysis: {
+    "envelope-follower": {
+      file: "dance/synths/fx.mjs", export: "envelopeFollower",
+      params: ["attackMs", "releaseMs"],
+      blurb: "amplitude contour → 0..1 control curve (pair: invertControl)",
+    },
   },
 
   vocal: {
@@ -144,6 +168,98 @@ export const MENU = {
     "musicxml-to-np":  { file: "bin/musicxml_to_np.py",  blurb: "MusicXML → .np converter (preferred for hymn imports)" },
     "os-to-np":        { file: "bin/os_to_np.py",        blurb: "Open Score → .np converter" },
     ".txt":            { blurb: "paired lyric file, one line per .np section" },
+  },
+
+  // ── sourced audio — provenance registry ──────────────────────────────
+  // Every sourced (non-synthesised) sample used in a track is logged
+  // here with its origin + license. Commercial-safe rule (SCORE.md):
+  // CC0 / public-domain / project-owned only — tracks ship to Spotify.
+  //   repos  — the source data repositories samples are pulled from
+  //   used   — concrete samples committed into a lane's assets/
+  sample_sources: {
+    repos: {
+      freesound: {
+        blurb: "Freesound API — CC0-filtered text search + preview download",
+        api: "https://freesound.org/apiv2/",
+        creds: "aesthetic-computer-vault/freesound/credentials.json",
+        filter: 'license:"Creative Commons 0"',
+      },
+      "archive.org": {
+        blurb: "Internet Archive — CC0 / publicdomain-zero items only",
+        verify: "check each item's licenseurl; 'license: none' ≠ public domain",
+      },
+      "ac-zoo": {
+        blurb: "project-owned AC zoo sample bank",
+        path: "fedac/native/samples/zoo/",
+      },
+    },
+    used: {
+      "manhattan-siren": {
+        lane: "marimba", file: "marimba/assets/manhattan-siren.mp3",
+        source: "freesound #223824 — “Wail and Yelp.mp3” by WBJB1",
+        license: "CC0", url: "https://freesound.org/s/223824/",
+        blurb: "NYC police siren (wail + yelp) — chromatic chordal pads",
+      },
+      "spoke-click": {
+        lane: "marimba", file: "marimba/assets/spoke-click.mp3",
+        source: "freesound #384187 — “Click Tick.wav”",
+        license: "CC0", url: "https://freesound.org/s/384187/",
+        blurb: "single tick — bike-spoke/train-track click percussion, 16th-grid",
+      },
+      "bluejay-call": {
+        lane: "marimba", file: "marimba/assets/bluejay-call.mp3",
+        source: "freesound #848096 — “Corvids - Blue Jay, Take 2”",
+        license: "CC0", url: "https://freesound.org/s/848096/",
+        blurb: "blue jay call — midpoint perc-drop breakdown",
+      },
+      "bluejay-warble": {
+        lane: "marimba", file: "marimba/assets/bluejay-warble.mp3",
+        source: "freesound #848094 — “Corvids - Blue Jay, Warble”",
+        license: "CC0", url: "https://freesound.org/s/848094/",
+        blurb: "blue jay warble — midpoint perc-drop breakdown",
+      },
+      "ac-stamp": {
+        lane: "marimba", file: "marimba/assets/ac-stamp.mp3",
+        source: "AC /api/say — jeffrey-pvc voice, “aesthetic dot computer”",
+        license: "project-owned", url: "",
+        blurb: "spoken aesthetic.computer audio stamp — ducked + crushed at the midpoint",
+      },
+      "gong": {
+        lane: "marimba", file: "marimba/assets/gong.mp3",
+        source: "freesound #260972 — “Massive Gong.mp3”",
+        license: "CC0", url: "https://freesound.org/s/260972/",
+        blurb: "one huge gong hit — opens the track (pitched down 3 st)",
+      },
+      "kick-tom": {
+        lane: "marimba", file: "marimba/assets/kick-tom.mp3",
+        source: "freesound #581467 — “Fractanimal Acoustic Drum Kit, Low Tom 1”",
+        license: "CC0", url: "https://freesound.org/s/581467/",
+        blurb: "sampled low tom — the 3/4 beat (replaced the synth kick)",
+      },
+      "undabeach-ocean": {
+        lane: "chillwave", file: "chillwave/out/.waves.wav (gitignored)",
+        source: "freesound #352356 — “Gentle small waves lapping on shore.wav” by Alex_hears_things",
+        license: "CC0", url: "https://freesound.org/s/352356/",
+        blurb: "close-mic calm sandy-shore lapping — the undabeach ocean bed",
+      },
+    },
+  },
+
+  // ── proposed — Abe Edelman's pop-toolkit wishlist (iMessage 2026-05-21) ─
+  // Requested capabilities not yet built. Kept out of the play CLI loader
+  // and the printed menu. Mirrored, with reference links, in
+  // pop/MENU-WISHLIST.md. As each lands it graduates into a real
+  // category above (ringmod + envelope-follower already have).
+  proposed: {
+    vocoder:        { category: "fx",       blurb: "carrier/modulator vocoder (filter-bank or FFT)" },
+    "pitch-track":  { category: "analysis", blurb: "audio → f0 pitch tracking → MIDI/control curve" },
+    "audio-gate":   { category: "analysis", blurb: "amplitude gate/trigger — beatbox a mic to fire drum samples" },
+    "audio-to-rhythm": { category: "score", blurb: "onset-detect an audio loop (e.g. speech) → drum sequence .np" },
+    "fib-meter":    { category: "forms",    blurb: "Fibonacci bar/measure division & addition",
+                      ref: "https://en.wikipedia.org/wiki/Fibonacci_sequence" },
+    "note-subdiv":  { category: "score",    blurb: "Ableton-style note subdivision — split a note into 1/2·1/4·1/8·1/16" },
+    "species-counterpoint": { category: "forms", blurb: "Fux species-counterpoint rule checker/generator",
+                      ref: "https://archive.org/details/imslp-ad-parnassum-fux-johann-joseph" },
   },
 };
 

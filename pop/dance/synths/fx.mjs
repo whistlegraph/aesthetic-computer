@@ -192,6 +192,91 @@ export function applyFlange(buf, opts = {}) {
   }
 }
 
+// ── ring modulation ───────────────────────────────────────────────────
+// Multiplies the signal by a carrier — a synthesized sine/tri/square at
+// `freq`, OR any in-program audio buffer passed as `carrier`. Sub-audio
+// freqs give tremolo; audio-rate freqs give clangorous inharmonic
+// sidebands. freq + mix can be enveloped over the section.
+//
+// opts: {
+//   freq:      Hz | env breakpoints   (carrier osc; default 220.
+//                                      ignored when a carrier buffer is given)
+//   carrier:   Float32Array           (optional — any audio as the modulator)
+//   waveform:  "sine" | "tri" | "square"  (default "sine")
+//   mix:       0..1 | env breakpoints (dry/wet, default 1)
+//   sampleRate: number                (default 48000)
+//   startSec, endSec: optional region
+// }
+//
+// Envelope rows: { time, freq, mix }
+export function applyRingMod(buf, opts = {}) {
+  if (!(buf instanceof Float32Array)) return;
+  const sr       = opts.sampleRate ?? DEFAULT_SAMPLE_RATE;
+  const waveform = opts.waveform ?? "sine";
+  const carrier  = opts.carrier instanceof Float32Array ? opts.carrier : null;
+  const startIdx = Math.max(0, Math.floor((opts.startSec ?? 0) * sr));
+  const endIdx   = Math.min(buf.length, Math.floor((opts.endSec ?? (buf.length / sr)) * sr));
+  if (endIdx <= startIdx) return;
+  const dt = 1 / sr;
+  let phase = 0;
+
+  for (let i = startIdx; i < endIdx; i++) {
+    const t   = (i - startIdx) / sr;
+    const mix = Math.max(0, Math.min(1, resolveEnv(opts.mix ?? 1, "mix", t)));
+
+    let c;
+    if (carrier) {
+      c = carrier[(i - startIdx) % carrier.length]; // loop the modulator
+    } else {
+      const freq = resolveEnv(opts.freq ?? 220, "freq", t);
+      phase += freq * dt;
+      if (phase >= 1) phase -= Math.floor(phase);
+      switch (waveform) {
+        case "tri":    c = Math.abs(phase * 2 - 1) * 2 - 1; break;
+        case "square": c = phase < 0.5 ? 1 : -1; break;
+        default:       c = Math.sin(phase * 2 * Math.PI);
+      }
+    }
+    buf[i] = buf[i] * (1 - mix) + buf[i] * c * mix;
+  }
+}
+
+// ── envelope follower ─────────────────────────────────────────────────
+// Tracks the amplitude contour of a signal into a 0..1 control curve,
+// one value per sample. Separate attack/release smoothing (ms) sets how
+// fast it chases rising vs falling level. The returned curve can drive
+// any fx/synth param — auto-wah, ducking, audio-reactive visuals.
+//
+// This is a control-signal primitive, not an in-place buffer fx, so it
+// RETURNS a Float32Array rather than mutating `buf`.
+//
+// opts: { attackMs (default 5), releaseMs (default 80), sampleRate }
+export function envelopeFollower(buf, opts = {}) {
+  const sr  = opts.sampleRate ?? DEFAULT_SAMPLE_RATE;
+  const out = new Float32Array(buf instanceof Float32Array ? buf.length : 0);
+  if (!(buf instanceof Float32Array)) return out;
+  const aA = Math.exp(-1 / (Math.max(0.01, opts.attackMs  ?? 5)  * 0.001 * sr));
+  const aR = Math.exp(-1 / (Math.max(0.01, opts.releaseMs ?? 80) * 0.001 * sr));
+  let env = 0;
+  for (let i = 0; i < buf.length; i++) {
+    const x = Math.abs(buf[i]);
+    const a = x > env ? aA : aR;
+    env = a * env + (1 - a) * x;
+    out[i] = env > 1 ? 1 : env;
+  }
+  return out;
+}
+
+// Invert a 0..1 control curve — the "opposite amplitude" signal Abe
+// asked for: loud input → low control, silence → full control.
+export function invertControl(ctrl) {
+  const out = new Float32Array(ctrl.length);
+  for (let i = 0; i < ctrl.length; i++) {
+    out[i] = 1 - Math.min(1, Math.max(0, ctrl[i]));
+  }
+  return out;
+}
+
 // ── tape-style soft clip (gentle saturation) ──────────────────────────
 // Bonus — useful for taming peaks after sidechain + wobble + bitcrush
 // without harsh digital clipping.

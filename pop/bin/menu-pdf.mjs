@@ -36,6 +36,7 @@ const SECTION_COLORS = {
   beds: "#1f7a5a", //        teal-green
   master: "#1d5b8a", //      steel blue
   pitch_time: "#6b3fa0", //  violet
+  analysis: "#1d7a8a", //    deep cyan
   vocal: "#a8327d", //       magenta
   scales: "#3f7d2e", //      leaf green
   forms: "#8a5223", //       sienna
@@ -51,6 +52,7 @@ const SECTION_TITLES = {
   beds: "beds — continuous textures",
   master: "master — bus & glue chain",
   pitch_time: "pitch & time — offline transforms",
+  analysis: "analysis — audio → control signals",
   vocal: "vocal — TTS, alignment, placement",
   scales: "scales — interval sets",
   forms: "forms — arrangement templates",
@@ -111,6 +113,7 @@ function rowsFor(section, items) {
 }
 
 const sections = Object.entries(MENU)
+  .filter(([section]) => section !== "proposed") // wishlist — see MENU-WISHLIST.md
   .map(([section, items]) => {
     const c = SECTION_COLORS[section] || "#1a1712";
     // the longest section may flow across the column/page break
