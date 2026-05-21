@@ -1,18 +1,18 @@
-// dashboard.mjs — songs + instruments sections for pop/demos.html.
-// Browser-only. Fetches ./demos/manifest.json and renders two sections
-// above the tool-demo masonry. No Node imports.
+// dashboard.mjs — songs + sounds sections for pop/demos.html.
+// Browser-only. Fetches ./demos/manifest.json and renders two picker-driven
+// sections above the tool-demo masonry. No Node imports.
 
 // ── accent colours (match tool-demo CATS) ────────────────────────────
 const LANE_ACCENT = {
-  dance:       "#c0631a",
-  hippyhayzard:"#c0631a",
-  marimba:     "#8a5223",
-  gradus:      "#5a6b1f",
-  "big-pictures": "#1d7a8a",
-  chillwave:   "#1d7a8a",
-  jungle:      "#5a6b1f",
-  gecs:        "#b5331f",
-  hellsine:    "#b5331f",
+  dance:           "#c0631a",
+  hippyhayzard:    "#c0631a",
+  marimba:         "#8a5223",
+  gradus:          "#5a6b1f",
+  "big-pictures":  "#1d7a8a",
+  chillwave:       "#1d7a8a",
+  jungle:          "#5a6b1f",
+  gecs:            "#b5331f",
+  hellsine:        "#b5331f",
 };
 const DEFAULT_ACCENT = "#1a1712";
 
@@ -43,126 +43,6 @@ function el(tag, cls, ...kids) {
   }
   return n;
 }
-// ── audio player with fallback ────────────────────────────────────────
-function audioEl(src) {
-  if (!src) {
-    const p = el("p", "db-pending", "no preview yet");
-    return p;
-  }
-  const a = document.createElement("audio");
-  a.controls = true;
-  a.preload = "none";
-  a.src = src;
-  const wrap = el("div", "db-audio-wrap", a);
-  const note = el("p", "db-pending", "sample pending");
-  note.style.display = "none";
-  a.onerror = () => {
-    a.style.display = "none";
-    note.style.display = "";
-  };
-  wrap.append(note);
-  return wrap;
-}
-
-// ── songs section — a jukebox ─────────────────────────────────────────
-// One dense clickable row per track + a single shared player. Clicking a
-// row plays it; tracks auto-advance to the next previewable one.
-function renderSongs(songs, container) {
-  const box = el("div", "db-jukebox");
-
-  // shared "now playing" bar (sticky)
-  const audio = document.createElement("audio");
-  audio.controls = true;
-  audio.preload = "none";
-  const nowLabel = el("span", "db-now-label", "pick a track ↓");
-  const nowBar = el("div", "db-jukebox-now",
-    el("span", "db-now-tag", "now playing"), nowLabel, audio);
-
-  const list = el("div", "db-jukebox-list");
-  const rows = [];
-  let current = -1;
-
-  const glyphOf = (i) => rows[i] && rows[i].querySelector(".db-jb-glyph");
-  const playIndex = (i) => {
-    const s = songs[i];
-    if (!s || !s.audio) return;
-    if (current >= 0 && rows[current]) {
-      rows[current].classList.remove("playing");
-      const g = glyphOf(current); if (g) g.textContent = "▸";
-    }
-    current = i;
-    rows[i].classList.add("playing");
-    nowLabel.textContent = s.title + (s.duration ? "  ·  " + s.duration : "");
-    audio.src = s.audio;
-    audio.play().catch(() => {});
-  };
-
-  audio.addEventListener("ended", () => {
-    for (let j = current + 1; j < songs.length; j++) {
-      if (songs[j].audio) { playIndex(j); return; }
-    }
-  });
-  audio.addEventListener("play",  () => { const g = glyphOf(current); if (g) g.textContent = "♪"; });
-  audio.addEventListener("pause", () => { const g = glyphOf(current); if (g) g.textContent = "▸"; });
-
-  songs.forEach((s, i) => {
-    const accent = laneAccent(s.lane);
-    const row = el("div", "db-jukebox-row" + (s.audio ? "" : " noaudio"));
-    row.style.setProperty("--accent", accent);
-
-    const metaBits = [s.lane];
-    if (s.duration) metaBits.push(s.duration);
-    if (s.status === "released" && s.released) metaBits.push(s.released);
-
-    row.append(
-      el("span", "db-jb-glyph", s.audio ? "▸" : "·"),
-      el("span", "db-jb-title", s.title),
-      badge(s.status),
-      el("span", "db-jb-meta", metaBits.join(" · ")),
-      el("span", "db-jb-blurb", s.blurb || ""),
-    );
-    if (!s.audio) row.append(el("span", "db-jb-no", "no preview"));
-
-    if (s.audio) {
-      row.onclick = () => {
-        if (current === i) { audio.paused ? audio.play() : audio.pause(); }
-        else playIndex(i);
-      };
-    }
-    rows.push(row);
-    list.append(row);
-  });
-
-  box.append(nowBar, list);
-  container.append(box);
-}
-
-// ── instruments section ───────────────────────────────────────────────
-function renderInstruments(instruments, container) {
-  const grid = el("div", "db-inst-grid");
-  for (const inst of instruments) {
-    const accent = laneAccent(inst.lane);
-    const card = el("div", "db-inst-card");
-    card.style.setProperty("--accent", accent);
-
-    card.append(el("div", "db-inst-label", inst.label));
-    if (inst.blurb) card.append(el("p", "db-blurb", inst.blurb));
-
-    // presets
-    if (inst.presets && inst.presets.length) {
-      const chips = el("div", "db-chips");
-      for (const p of inst.presets) chips.append(el("span", "db-chip", p));
-      card.append(chips);
-    }
-
-    card.append(audioEl(inst.sample));
-    card.append(el("p", "db-caption",
-      "sample rendered by pop/bin/render-instrument-samples.mjs"));
-
-    grid.append(card);
-  }
-  container.append(grid);
-}
 
 // ── section heading ───────────────────────────────────────────────────
 function sectionHeading(text) {
@@ -170,6 +50,212 @@ function sectionHeading(text) {
   h.className = "db-section";
   h.textContent = text;
   return h;
+}
+
+// ── songs section — picker-driven ────────────────────────────────────
+// A <select> lists every song. The shared "now playing" bar holds the
+// single <audio>. Selecting a track loads its audio and plays it.
+// Tracks auto-advance to the next one with audio when the current ends.
+function renderSongs(songs, container) {
+  // shared player audio element (lives in now-bar)
+  const audio = document.createElement("audio");
+  audio.controls = true;
+  audio.preload = "none";
+
+  const nowLabel = el("span", "db-now-label", "—");
+  const nowBar = el("div", "db-jukebox-now",
+    el("span", "db-now-tag", "now playing"), nowLabel, audio);
+
+  // picker row
+  const sel = document.createElement("select");
+  sel.className = "demo-sel db-song-sel";
+  songs.forEach((s, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = s.title + "  —  " + s.status + (s.duration ? "  · " + s.duration : "");
+    sel.append(opt);
+  });
+
+  const pickerRow = el("div", "db-picker-row",
+    el("span", "db-picker-lbl", "track"), sel);
+
+  // detail panel (below picker)
+  const detail = el("div", "db-song-detail");
+
+  let currentIdx = -1;
+
+  function loadSong(i, autoplay) {
+    const s = songs[i];
+    currentIdx = i;
+    sel.value = i;
+
+    // update detail panel
+    detail.innerHTML = "";
+
+    // meta line: lane · duration · released date
+    const metaBits = [s.lane];
+    if (s.duration)  metaBits.push(s.duration);
+    if (s.status === "released" && s.released) metaBits.push(s.released);
+
+    const metaRow = el("div", "db-song-meta-row",
+      badge(s.status),
+      el("span", "db-jb-meta", metaBits.join(" · ")),
+    );
+    detail.append(metaRow);
+
+    if (s.blurb) {
+      detail.append(el("p", "db-song-blurb", s.blurb));
+    }
+
+    if (s.status === "released" && s.distributor) {
+      detail.append(el("p", "db-song-distrib", "distributed via " + s.distributor));
+    }
+
+    // load audio
+    if (s.audio) {
+      nowLabel.textContent = s.title;
+      audio.src = s.audio;
+      if (autoplay) audio.play().catch(() => {});
+    } else {
+      nowLabel.textContent = s.title;
+      audio.removeAttribute("src");
+      audio.load();
+      detail.append(el("p", "db-pending", "no preview yet"));
+    }
+  }
+
+  // advance to next track with audio on ended
+  audio.addEventListener("ended", () => {
+    for (let j = currentIdx + 1; j < songs.length; j++) {
+      if (songs[j].audio) { loadSong(j, true); return; }
+    }
+  });
+
+  sel.addEventListener("change", () => {
+    loadSong(Number(sel.value), false);
+  });
+
+  // default: first song (no autoplay)
+  if (songs.length) loadSong(0, false);
+
+  container.append(nowBar, pickerRow, detail);
+}
+
+// ── sounds section — two-step picker (category → sound) ──────────────
+const SOUND_CATS = [
+  { key: "synths",     label: "synths" },
+  { key: "percussion", label: "percussion" },
+  { key: "beds",       label: "beds" },
+  { key: "samples",    label: "sourced samples" },
+];
+
+function soundAudioSrc(sound, catKey) {
+  // samples category uses `audio`; everything else uses `sample`
+  return catKey === "samples" ? sound.audio : sound.sample;
+}
+
+function renderSounds(sounds, container) {
+  // category select
+  const catSel = document.createElement("select");
+  catSel.className = "demo-sel db-cat-sel";
+  for (const c of SOUND_CATS) {
+    const opt = document.createElement("option");
+    opt.value = c.key;
+    opt.textContent = c.label;
+    catSel.append(opt);
+  }
+
+  // sound select (rebuilt on cat change)
+  const soundSel = document.createElement("select");
+  soundSel.className = "demo-sel db-sound-sel";
+
+  const pickerRow = el("div", "db-picker-row",
+    el("span", "db-picker-lbl", "category"), catSel,
+    el("span", "db-picker-sep", "/"),
+    el("span", "db-picker-lbl", "sound"), soundSel,
+  );
+
+  // detail panel
+  const panel = el("div", "db-sound-panel");
+
+  function buildSoundOptions(catKey) {
+    soundSel.innerHTML = "";
+    const items = sounds[catKey] || [];
+    for (const item of items) {
+      const opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = item.label || item.id;
+      soundSel.append(opt);
+    }
+  }
+
+  function renderSoundPanel(catKey, soundId) {
+    const items = sounds[catKey] || [];
+    const sound = items.find(s => s.id === soundId) || items[0];
+    if (!sound) { panel.innerHTML = ""; return; }
+
+    panel.innerHTML = "";
+
+    const accent = laneAccent(sound.lane);
+    panel.style.setProperty("--accent", accent);
+
+    panel.append(el("div", "db-sound-label", sound.label || sound.id));
+
+    if (sound.blurb) panel.append(el("p", "db-blurb", sound.blurb));
+
+    // letter key (percussion only)
+    if (sound.letter) {
+      panel.append(el("p", "db-sound-meta", "key: " + sound.letter));
+    }
+
+    // preset chips (synths only)
+    if (sound.presets && sound.presets.length) {
+      const chips = el("div", "db-chips");
+      for (const p of sound.presets) chips.append(el("span", "db-chip", p));
+      panel.append(chips);
+    }
+
+    // license + source (samples category)
+    if (catKey === "samples") {
+      const licLine = [sound.license, sound.source].filter(Boolean).join(" · ");
+      if (licLine) panel.append(el("p", "db-sound-meta", licLine));
+    }
+
+    // audio player
+    const src = soundAudioSrc(sound, catKey);
+    if (src) {
+      const a = document.createElement("audio");
+      a.controls = true;
+      a.preload = "none";
+      a.src = src;
+      const note = el("p", "db-pending", "sample pending");
+      note.style.display = "none";
+      a.onerror = () => { a.style.display = "none"; note.style.display = ""; };
+      const wrap = el("div", "db-audio-wrap", a, note);
+      panel.append(wrap);
+    } else {
+      panel.append(el("p", "db-pending", "sample pending"));
+    }
+  }
+
+  function pickSound() {
+    const catKey = catSel.value;
+    const soundId = soundSel.value;
+    renderSoundPanel(catKey, soundId);
+  }
+
+  catSel.addEventListener("change", () => {
+    buildSoundOptions(catSel.value);
+    pickSound();
+  });
+
+  soundSel.addEventListener("change", pickSound);
+
+  // default: synths, first sound
+  buildSoundOptions("synths");
+  pickSound();
+
+  container.append(pickerRow, panel);
 }
 
 // ── main entry ───────────────────────────────────────────────────────
@@ -195,11 +281,11 @@ export async function mountDashboard(beforeEl) {
   renderSongs(manifest.songs || [], songsSection);
   wrapper.append(songsSection);
 
-  // instruments
-  const instSection = el("div", "db-section-wrap");
-  instSection.append(sectionHeading("instruments"));
-  renderInstruments(manifest.instruments || [], instSection);
-  wrapper.append(instSection);
+  // sounds
+  const soundsSection = el("div", "db-section-wrap");
+  soundsSection.append(sectionHeading("sounds"));
+  renderSounds(manifest.sounds || {}, soundsSection);
+  wrapper.append(soundsSection);
 
   beforeEl.parentNode.insertBefore(wrapper, beforeEl);
 }

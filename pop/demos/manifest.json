@@ -1,132 +1,61 @@
 {
-  "note": "pop dashboard manifest — songs + instruments. Paths are relative to the page (work both at /pop/ on lith and via bin/demos.mjs locally). Released tracks point at the public CDN. Regenerate instrument samples with bin/render-instrument-samples.mjs.",
+  "note": "pop dashboard manifest — songs + the full sound map. Audio paths are relative to the page (work at /pop/ on lith and via bin/demos.mjs locally); released tracks use the public CDN. Custom-synth + percussion + bed samples are rendered by bin/render-instrument-samples.mjs and bin/render-sound-samples.mjs into demos/samples/. Sourced CC0 samples point at the committed lane assets.",
   "songs": [
-    {
-      "id": "trancenwaltz", "title": "trancenwaltz", "lane": "dance",
-      "status": "released", "released": "2026-05-17", "distributor": "DistroKid",
-      "duration": "1:26", "blurb": "dark / emo war-arc trance-waltz",
-      "audio": "https://assets.aesthetic.computer/pop/trancenwaltz.mp3",
-      "cover": "https://assets.aesthetic.computer/pop/trancenwaltz.jpg"
-    },
-    {
-      "id": "trancepenta", "title": "trancepenta", "lane": "dance",
-      "status": "released", "released": "2026-05-20", "distributor": "DistroKid",
-      "duration": "3:11", "blurb": "5/4 chill-trance — gabber kick, theremin solo, jeffrey hum",
-      "audio": "https://assets.aesthetic.computer/pop/trancepenta.mp3",
-      "cover": "https://assets.aesthetic.computer/pop/trancepenta.jpg"
-    },
-    {
-      "id": "gradus", "title": "gradus", "lane": "gradus",
-      "status": "render", "duration": "1:24",
-      "blurb": "classical two-voice first-species counterpoint, D dorian — Fibonacci-arch form",
-      "audio": "gradus/gradus.mp3"
-    },
-    {
-      "id": "trancenwaltzi", "title": "trancenwaltzi", "lane": "dance",
-      "status": "render", "duration": "3:00",
-      "blurb": "chill Trader-Joe's mix of the trance-waltz — awaiting master ear-check",
-      "audio": null
-    },
-    {
-      "id": "amazing-grace", "title": "amazing grace", "lane": "big-pictures",
-      "status": "wip", "duration": "1:24",
-      "blurb": "verse-1 hymn single — jeffrey-pvc sung lead over a cool-sine waltz bed",
-      "audio": null
-    },
-    {
-      "id": "hellsine", "title": "hellsine", "lane": "hellsine",
-      "status": "wip", "duration": "1:48",
-      "blurb": "all-sine concept track — every voice is Math.sin, gabber-kick John Williams arc",
-      "audio": null
-    },
-    {
-      "id": "helpabeach", "title": "helpabeach", "lane": "chillwave",
-      "status": "wip", "duration": "2:30",
-      "blurb": "mysterious-exploration chillwave / ambient — ocean bed, A-minor pentatonic",
-      "audio": "chillwave/out/helpabeach.mp3"
-    },
-    {
-      "id": "gecs", "title": "gecs", "lane": "gecs",
-      "status": "wip", "blurb": "hyperpop lane — pitched + stretched vocal experiment",
-      "audio": "gecs/out/gecs.mp3"
-    },
-    {
-      "id": "hippyhayzard", "title": "hippyhayzard", "lane": "hippyhayzard",
-      "status": "wip", "blurb": "hoover + zitar lane — chorale-form nightcore ballad",
-      "audio": "hippyhayzard/out/hippyhayzard.mp3"
-    },
-    {
-      "id": "jungleton", "title": "jungleton", "lane": "jungle",
-      "status": "wip", "blurb": "chopped-break jungle — jungletón rhythm",
-      "audio": "jungle/out/jungleton.mp3"
-    },
-    {
-      "id": "raggasol", "title": "raggasol", "lane": "jungle",
-      "status": "wip", "blurb": "chopped-break jungle — raggasol rhythm",
-      "audio": "jungle/out/raggasol.mp3"
-    },
-    {
-      "id": "rodando", "title": "rodando", "lane": "jungle",
-      "status": "wip", "blurb": "chopped-break jungle — rodando rhythm",
-      "audio": "jungle/out/rodando.mp3"
-    },
-    {
-      "id": "marimbaba", "title": "marimbaba", "lane": "marimba",
-      "status": "wip", "blurb": "a lullaby for synthesized marimba",
-      "audio": "marimba/out/marimbaba.mp3"
-    },
-    {
-      "id": "tinkaboo", "title": "tinkaboo", "lane": "marimba",
-      "status": "wip", "blurb": "marimba lane — tuned-percussion piece",
-      "audio": "marimba/out/tinkaboo.mp3"
-    },
-    {
-      "id": "bronzaba", "title": "bronzaba", "lane": "marimba",
-      "status": "wip", "blurb": "marimba lane — bronze / vibraphone character",
-      "audio": "marimba/out/bronzaba.mp3"
-    },
-    {
-      "id": "doziba", "title": "doziba", "lane": "marimba",
-      "status": "wip", "blurb": "marimba lane — tuned-percussion piece",
-      "audio": "marimba/out/doziba.mp3"
-    }
+    { "id": "trancenwaltz", "title": "trancenwaltz", "lane": "dance", "status": "released", "released": "2026-05-17", "distributor": "DistroKid", "duration": "1:26", "blurb": "dark / emo war-arc trance-waltz", "audio": "https://assets.aesthetic.computer/pop/trancenwaltz.mp3" },
+    { "id": "trancepenta", "title": "trancepenta", "lane": "dance", "status": "released", "released": "2026-05-20", "distributor": "DistroKid", "duration": "3:11", "blurb": "5/4 chill-trance — gabber kick, theremin solo, jeffrey hum", "audio": "https://assets.aesthetic.computer/pop/trancepenta.mp3" },
+    { "id": "gradus", "title": "gradus", "lane": "gradus", "status": "render", "duration": "1:24", "blurb": "classical two-voice first-species counterpoint, D dorian — Fibonacci-arch form", "audio": "gradus/gradus.mp3" },
+    { "id": "trancenwaltzi", "title": "trancenwaltzi", "lane": "dance", "status": "render", "duration": "3:00", "blurb": "chill Trader-Joe's mix of the trance-waltz — awaiting master ear-check", "audio": null },
+    { "id": "amazing-grace", "title": "amazing grace", "lane": "big-pictures", "status": "wip", "duration": "1:24", "blurb": "verse-1 hymn single — jeffrey-pvc sung lead over a cool-sine waltz bed", "audio": null },
+    { "id": "hellsine", "title": "hellsine", "lane": "hellsine", "status": "wip", "duration": "1:48", "blurb": "all-sine concept track — every voice is Math.sin, gabber-kick John Williams arc", "audio": null },
+    { "id": "helpabeach", "title": "helpabeach", "lane": "chillwave", "status": "wip", "duration": "2:30", "blurb": "mysterious-exploration chillwave / ambient — ocean bed, A-minor pentatonic", "audio": "chillwave/out/helpabeach.mp3" },
+    { "id": "gecs", "title": "gecs", "lane": "gecs", "status": "wip", "blurb": "hyperpop lane — pitched + stretched vocal experiment", "audio": "gecs/out/gecs.mp3" },
+    { "id": "hippyhayzard", "title": "hippyhayzard", "lane": "hippyhayzard", "status": "wip", "blurb": "hoover + zitar lane — chorale-form nightcore ballad", "audio": "hippyhayzard/out/hippyhayzard.mp3" },
+    { "id": "jungleton", "title": "jungleton", "lane": "jungle", "status": "wip", "blurb": "chopped-break jungle — jungletón rhythm", "audio": "jungle/out/jungleton.mp3" },
+    { "id": "raggasol", "title": "raggasol", "lane": "jungle", "status": "wip", "blurb": "chopped-break jungle — raggasol rhythm", "audio": "jungle/out/raggasol.mp3" },
+    { "id": "rodando", "title": "rodando", "lane": "jungle", "status": "wip", "blurb": "chopped-break jungle — rodando rhythm", "audio": "jungle/out/rodando.mp3" },
+    { "id": "marimbaba", "title": "marimbaba", "lane": "marimba", "status": "wip", "blurb": "a lullaby for synthesized marimba", "audio": "marimba/out/marimbaba.mp3" },
+    { "id": "tinkaboo", "title": "tinkaboo", "lane": "marimba", "status": "wip", "blurb": "marimba lane — tuned-percussion piece", "audio": "marimba/out/tinkaboo.mp3" },
+    { "id": "bronzaba", "title": "bronzaba", "lane": "marimba", "status": "wip", "blurb": "marimba lane — bronze / vibraphone character", "audio": "marimba/out/bronzaba.mp3" },
+    { "id": "doziba", "title": "doziba", "lane": "marimba", "status": "wip", "blurb": "marimba lane — tuned-percussion piece", "audio": "marimba/out/doziba.mp3" }
   ],
-  "instruments": [
-    {
-      "id": "supersaw", "label": "supersaw", "lane": "dance",
-      "presets": ["lead", "pad", "stab"],
-      "blurb": "JP-8000 detuned-saw stack (7 voices)",
-      "sample": "demos/samples/supersaw.mp3"
-    },
-    {
-      "id": "sinepower", "label": "sinepower", "lane": "dance",
-      "presets": ["lead", "pad", "stab"],
-      "blurb": "stacked harmonic sines, no aliasing",
-      "sample": "demos/samples/sinepower.mp3"
-    },
-    {
-      "id": "skrill", "label": "skrill", "lane": "dance",
-      "presets": ["growl", "talk", "reese", "screech", "sub"],
-      "blurb": "FM talking-bass with swept formants",
-      "sample": "demos/samples/skrill.mp3"
-    },
-    {
-      "id": "hoover", "label": "hoover", "lane": "hippyhayzard",
-      "presets": ["whoop", "stab", "hazard", "pad"],
-      "blurb": "Alpha-Juno 'mentasm' with pitch whoop",
-      "sample": "demos/samples/hoover.mp3"
-    },
-    {
-      "id": "zitar", "label": "zitar", "lane": "hippyhayzard",
-      "presets": ["sitar", "lead", "drone", "dry"],
-      "blurb": "Karplus-Strong sitar with jawari buzz",
-      "sample": "demos/samples/zitar.mp3"
-    },
-    {
-      "id": "marimba", "label": "marimba", "lane": "marimba",
-      "presets": ["rosewood", "vibraphone", "glockenspiel", "gamelan", "kalimba", "woodblock"],
-      "blurb": "modal tuned-percussion (marimba / vibes / glock / gamelan)",
-      "sample": "demos/samples/marimba.mp3"
-    }
-  ]
+  "sounds": {
+    "synths": [
+      { "id": "supersaw", "label": "supersaw", "lane": "dance", "presets": ["lead", "pad", "stab"], "blurb": "JP-8000 detuned-saw stack (7 voices)", "sample": "demos/samples/supersaw.mp3" },
+      { "id": "sinepower", "label": "sinepower", "lane": "dance", "presets": ["lead", "pad", "stab"], "blurb": "stacked harmonic sines, no aliasing", "sample": "demos/samples/sinepower.mp3" },
+      { "id": "skrill", "label": "skrill", "lane": "dance", "presets": ["growl", "talk", "reese", "screech", "sub"], "blurb": "FM talking-bass with swept formants", "sample": "demos/samples/skrill.mp3" },
+      { "id": "hoover", "label": "hoover", "lane": "hippyhayzard", "presets": ["whoop", "stab", "hazard", "pad"], "blurb": "Alpha-Juno 'mentasm' with pitch whoop", "sample": "demos/samples/hoover.mp3" },
+      { "id": "zitar", "label": "zitar", "lane": "hippyhayzard", "presets": ["sitar", "lead", "drone", "dry"], "blurb": "Karplus-Strong sitar with jawari buzz", "sample": "demos/samples/zitar.mp3" },
+      { "id": "marimba", "label": "marimba", "lane": "marimba", "presets": ["rosewood", "vibraphone", "glockenspiel", "gamelan", "kalimba", "woodblock"], "blurb": "modal tuned-percussion (marimba / vibes / glock / gamelan)", "sample": "demos/samples/marimba.mp3" }
+    ],
+    "percussion": [
+      { "id": "kick",    "label": "kick",    "letter": "c",  "blurb": "AC percussion kit — deep orange pad", "sample": "demos/samples/perc-kick.mp3" },
+      { "id": "snare",   "label": "snare",   "letter": "d",  "blurb": "AC percussion kit — tan pad", "sample": "demos/samples/perc-snare.mp3" },
+      { "id": "clap",    "label": "clap",    "letter": "e",  "blurb": "AC percussion kit — pale-yellow pad", "sample": "demos/samples/perc-clap.mp3" },
+      { "id": "snap",    "label": "snap",    "letter": "f",  "blurb": "AC percussion kit — yellow-green pad", "sample": "demos/samples/perc-snap.mp3" },
+      { "id": "hat-c",   "label": "closed hat", "letter": "g", "blurb": "AC percussion kit — TR-808 hat cluster, closed", "sample": "demos/samples/perc-hat-c.mp3" },
+      { "id": "hat-o",   "label": "open hat", "letter": "a",  "blurb": "AC percussion kit — TR-808 hat cluster, open", "sample": "demos/samples/perc-hat-o.mp3" },
+      { "id": "ride",    "label": "ride",    "letter": "b",  "blurb": "AC percussion kit — silver-blue pad", "sample": "demos/samples/perc-ride.mp3" },
+      { "id": "crash",   "label": "crash",   "letter": "c#", "blurb": "AC percussion kit — accent, lavender pad", "sample": "demos/samples/perc-crash.mp3" },
+      { "id": "splash",  "label": "splash",  "letter": "d#", "blurb": "AC percussion kit — accent, pink pad", "sample": "demos/samples/perc-splash.mp3" },
+      { "id": "cowbell", "label": "cowbell", "letter": "f#", "blurb": "AC percussion kit — accent, brass pad", "sample": "demos/samples/perc-cowbell.mp3" },
+      { "id": "block",   "label": "block",   "letter": "g#", "blurb": "AC percussion kit — accent, wood-brown pad", "sample": "demos/samples/perc-block.mp3" },
+      { "id": "tambo",   "label": "tambourine", "letter": "a#", "blurb": "AC percussion kit — accent, sandy pad", "sample": "demos/samples/perc-tambo.mp3" }
+    ],
+    "beds": [
+      { "id": "ocean",        "label": "ocean",        "lane": "chillwave",    "blurb": "pink-noise lowpass with a slow 8 s wave LFO", "sample": "demos/samples/bed-ocean.mp3" },
+      { "id": "noise-sweep",  "label": "noise sweep",  "lane": "chillwave",    "blurb": "very slow white-noise filter sweep", "sample": "demos/samples/bed-noise-sweep.mp3" },
+      { "id": "sacred-drone", "label": "sacred drone", "lane": "big-pictures", "blurb": "3-voice human-hum drone with breath LFO", "sample": "demos/samples/bed-sacred-drone.mp3" },
+      { "id": "cool-sine",    "label": "cool sine",    "lane": "big-pictures", "blurb": "sub + pad + sparkle sine layer", "sample": "demos/samples/bed-cool-sine.mp3" },
+      { "id": "sinebells",    "label": "sinebells",    "lane": "shared",       "blurb": "struck bell partials, T60 decay", "sample": "demos/samples/bed-sinebells.mp3" }
+    ],
+    "samples": [
+      { "id": "gong",            "label": "gong",            "blurb": "one huge gong hit — opens the marimba track", "license": "CC0", "source": "freesound #260972", "audio": "marimba/assets/gong.mp3" },
+      { "id": "manhattan-siren", "label": "manhattan siren", "blurb": "NYC police siren (wail + yelp) — chromatic chordal pads", "license": "CC0", "source": "freesound #223824", "audio": "marimba/assets/manhattan-siren.mp3" },
+      { "id": "spoke-click",     "label": "spoke click",     "blurb": "single tick — bike-spoke / train-track 16th-grid percussion", "license": "CC0", "source": "freesound #384187", "audio": "marimba/assets/spoke-click.mp3" },
+      { "id": "bluejay-call",    "label": "bluejay call",    "blurb": "blue jay call — midpoint perc-drop breakdown", "license": "CC0", "source": "freesound #848096", "audio": "marimba/assets/bluejay-call.mp3" },
+      { "id": "bluejay-warble",  "label": "bluejay warble",  "blurb": "blue jay warble — midpoint perc-drop breakdown", "license": "CC0", "source": "freesound #848094", "audio": "marimba/assets/bluejay-warble.mp3" },
+      { "id": "kick-tom",        "label": "kick tom",        "blurb": "sampled low tom — the marimba 3/4 beat", "license": "CC0", "source": "freesound #581467", "audio": "marimba/assets/kick-tom.mp3" },
+      { "id": "ac-stamp",        "label": "ac stamp",        "blurb": "spoken 'aesthetic dot computer' audio stamp — jeffrey-pvc", "license": "project-owned", "source": "AC /api/say", "audio": "marimba/assets/ac-stamp.mp3" }
+    ]
+  }
 }
