@@ -1001,6 +1001,8 @@ app.all("/presigned-download-url/*rest", directFn("presigned-url"));
 app.all("/docs", directFn("docs"));
 app.all("/docs.json", directFn("docs"));
 app.all("/docs/*rest", directFn("docs"));
+app.all("/pop-demos", directFn("pop-demos"));
+app.all("/pop-demos/*rest", directFn("pop-demos"));
 app.all("/api-docs", directFn("api-docs"));
 app.all("/api-docs.json", directFn("api-docs"));
 app.all("/media-collection", directFn("media-collection"));
