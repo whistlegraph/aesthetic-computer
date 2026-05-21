@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>the pop menu — playable demos</title>
+<style>
+  :root { --bg:#f4efe2; --ink:#1a1712; --mute:#6b6353; --line:#b3a98f; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Berkeley Mono","Latin Modern Mono",Menlo,monospace;
+    background: var(--bg); color: var(--ink);
+    margin: 0; font-size: 13px; line-height: 1.5;
+  }
+  header {
+    text-align: center; padding: 30px 20px 18px;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  h1 { font-size: 30px; letter-spacing: 0.06em; margin: 0; }
+  .sub { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+         color: var(--mute); margin-top: 7px; }
+  .gate { margin-top: 14px; }
+  main {
+    max-width: 860px; margin: 0 auto; padding: 22px 18px 60px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .demo-card {
+    border-left: 4px solid var(--accent,#1a1712);
+    background: #faf6ec; padding: 14px 16px 16px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+  }
+  .demo-card h2 {
+    font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;
+    margin: 0; color: var(--accent,#1a1712);
+  }
+  .demo-card .cat { font-size: 8.5px; letter-spacing: 0.16em;
+                    text-transform: uppercase; color: var(--mute); }
+  .demo-card .blurb { color: #4a443a; margin: 5px 0 11px; font-size: 12px; }
+  .demo-body { display: flex; flex-direction: column; gap: 9px; }
+  .demo-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  canvas { width: 100%; height: 140px; display: block;
+           border: 1px solid var(--line); background: #1c1a17; }
+  .demo-btn {
+    font: inherit; font-size: 12px; cursor: pointer;
+    background: var(--accent,#1a1712); color: #f4efe2;
+    border: none; padding: 6px 14px; letter-spacing: 0.03em;
+  }
+  .demo-btn:active { transform: translateY(1px); }
+  .demo-btn[disabled] { opacity: 0.45; cursor: default; }
+  .demo-ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+  .demo-lbl { color: var(--mute); }
+  .demo-num { color: var(--ink); min-width: 30px; }
+  .demo-ctl input[type=range] { width: 116px; accent-color: var(--accent,#1a1712); }
+  .demo-sel { font: inherit; font-size: 11px; padding: 2px 4px;
+              background: #fff; border: 1px solid var(--line); }
+  .demo-status { font-size: 11px; color: var(--mute); min-height: 1.4em;
+                 white-space: pre-wrap; }
+  .demo-out {
+    font-size: 11px; background: #1c1a17; color: #d8cfa8;
+    border: 1px solid var(--line); padding: 8px 10px;
+    white-space: pre-wrap; overflow-x: auto;
+  }
+  .demo-err { color: #b5331f; }
+  textarea {
+    font: inherit; font-size: 11px; width: 100%;
+    background: #fff; border: 1px solid var(--line); padding: 6px;
+  }
+  footer { text-align: center; font-size: 9px; letter-spacing: 0.14em;
+           text-transform: uppercase; color: var(--mute);
+           padding: 20px; border-top: 1.5px solid var(--ink); }
+  footer a { color: var(--mute); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>the pop menu</h1>
+    <div class="sub">playable demos · /pop toolkit</div>
+    <div class="gate">
+      <button id="gate" class="demo-btn" style="--accent:#1a1712">▶ click to enable audio</button>
+    </div>
+  </header>
+  <main id="demos"></main>
+  <footer>
+    aesthetic.computer · /pop ·
+    <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/pop">source</a>
+  </footer>
+
+<script type="module">
+import { resume, stopAll } from "./lib/demo-kit.mjs";
+
+// Each demo: { title, blurb, accent, cat, mount(rootEl) }. Modules
+// export a `demos` object keyed by demo id.
+const CATS = {
+  fx:        { label: "fx",       accent: "#c0631a" },
+  analysis:  { label: "analysis", accent: "#1d7a8a" },
+  score:     { label: "score",    accent: "#5a6b1f" },
+  forms:     { label: "forms",    accent: "#8a5223" },
+};
+
+// Render order + which category each belongs to (for the chip + color).
+const ORDER = [
+  ["ringmod",             "fx"],
+  ["vocoder",             "fx"],
+  ["envelope-follower",   "analysis"],
+  ["pitch-track",         "analysis"],
+  ["audio-gate",          "analysis"],
+  ["audio-to-rhythm",     "score"],
+  ["fib-meter",           "forms"],
+  ["note-subdiv",         "score"],
+  ["species-counterpoint","forms"],
+];
+
+const MODULES = [
+  "./demos/fx-demos.mjs",
+  "./demos/analysis-demos.mjs",
+  "./demos/structure-demos.mjs",
+];
+
+const gate = document.getElementById("gate");
+gate.addEventListener("click", async () => {
+  await resume();
+  gate.textContent = "♪ audio enabled";
+  gate.disabled = true;
+});
+
+const root = document.getElementById("demos");
+const registry = {};
+for (const path of MODULES) {
+  try {
+    const mod = await import(path);
+    Object.assign(registry, mod.demos || {});
+  } catch (err) {
+    console.error("demo module failed:", path, err);
+    root.append(card(path, "module", "#b5331f",
+      `failed to load ${path} — ${err.message}`, () => {}));
+  }
+}
+
+function card(title, cat, accent, blurb, mount) {
+  const c = document.createElement("section");
+  c.className = "demo-card";
+  c.style.setProperty("--accent", accent);
+  c.innerHTML =
+    `<div class="cat">${cat}</div><h2>${title}</h2>` +
+    `<div class="blurb">${blurb}</div>`;
+  const body = document.createElement("div");
+  body.className = "demo-body";
+  c.append(body);
+  try { mount(body); }
+  catch (err) {
+    body.append(Object.assign(document.createElement("div"),
+      { className: "demo-err", textContent: "demo error: " + err.message }));
+    console.error(title, err);
+  }
+  return c;
+}
+
+for (const [id, catKey] of ORDER) {
+  const d = registry[id];
+  const cat = CATS[catKey];
+  if (!d) {
+    root.append(card(id, cat.label, "#b5331f",
+      "demo not registered — module missing or not exporting this id", () => {}));
+    continue;
+  }
+  root.append(card(d.title || id, cat.label, d.accent || cat.accent,
+    d.blurb || "", d.mount));
+}
+
+// Stop sound when the tab is hidden.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopAll();
+});
+</script>
+</body>
+</html>

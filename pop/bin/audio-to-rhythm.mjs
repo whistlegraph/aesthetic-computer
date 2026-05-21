@@ -23,7 +23,8 @@
 
 import { writeFileSync } from "node:fs";
 import { resolve, basename } from "node:path";
-import { readWavMono, audioGate } from "../lib/analysis.mjs";
+import { readWavMono } from "../lib/wav.mjs";
+import { audioGate } from "../lib/analysis.mjs";
 
 const flags = {};
 for (let i = 2; i < process.argv.length; i++) {
