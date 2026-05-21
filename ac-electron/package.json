@@ -47,6 +47,10 @@
     },
     "extraResources": [
       {
+        "from": "build/icons/pals.svg",
+        "to": "pals.svg"
+      },
+      {
         "from": "build/icons/palsTray.png",
         "to": "palsTray.png"
       },
@@ -139,7 +143,10 @@
       "node_modules/ms/**/*",
       "node_modules/js-yaml/**/*",
       "node_modules/argparse/**/*",
-      "node_modules/tiny-typed-emitter/**/*"
+      "node_modules/tiny-typed-emitter/**/*",
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*",
+      "node_modules/detect-libc/**/*"
     ],
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "win": {

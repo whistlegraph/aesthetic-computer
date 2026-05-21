@@ -5,7 +5,7 @@
  * - AC Pane (3D flip view with front webview + back terminal)
  */
 
-const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net, session } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net, session, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -987,32 +987,157 @@ function launchNativeNotepat() {
 // ========== System Tray ==========
 let tray = null;
 let notepatTray = null;
+let trayContextMenu = null; // Stored so macOS left-click can pop it explicitly.
 
-function createSystemTray() {
-  // The tray icon is the pals logo at full menubar height — pink, in color,
-  // no template tinting. @1x/@2x/@3x are pre-baked so retina + external 5k
-  // displays both look sharp.
-  let iconPath;
-  if (process.platform === 'darwin') {
-    if (app.isPackaged) {
-      iconPath = path.join(process.resourcesPath, 'palsTray.png');
-    } else {
-      iconPath = path.join(__dirname, 'build', 'icons', 'palsTray.png');
-    }
-  } else {
-    // Windows/Linux - use packaged icon in production
-    if (app.isPackaged) {
-      iconPath = path.join(process.resourcesPath, 'tray-icon.png');
-    } else {
-      iconPath = path.join(__dirname, 'build', 'icons', '16x16.png');
+// Parse the macOS/Windows accent color into {r,g,b}. Returns null when the
+// platform exposes no accent color (so the pals logo keeps its native pink).
+function getAccentRGB() {
+  try {
+    const hex = systemPreferences.getAccentColor?.();
+    if (!hex || hex.length < 6) return null;
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+// Build the pals tray icon from the vector source. The pals SVG is a single
+// flat-fill path, so — like MenuBand's IconTinter — we recolor it to the macOS
+// system accent at runtime (here by swapping the fill hex before rasterizing),
+// then rasterize crisp with sharp. Shrunk a touch below the menubar height and
+// given a tight, hard drop shadow.
+async function buildPalsTrayImage() {
+  let sharp;
+  try {
+    sharp = require('sharp');
+  } catch (e) {
+    console.warn('[tray] sharp unavailable, falling back to raw icon:', e.message);
+    return null;
+  }
+
+  const dir = app.isPackaged
+    ? process.resourcesPath
+    : path.join(__dirname, 'build', 'icons');
+  const svgPath = path.join(dir, 'pals.svg');
+  if (!fs.existsSync(svgPath)) {
+    console.warn('[tray] pals.svg not found:', svgPath);
+    return null;
+  }
+
+  const accent = getAccentRGB();
+  const accentHex = accent
+    ? '#' + [accent.r, accent.g, accent.b].map((c) => c.toString(16).padStart(2, '0')).join('')
+    : null;
+  console.log('[tray] pals icon — accent:', accentHex || 'none (keeping original)');
+
+  // Recolor + embolden the single-fill pals vector at runtime (MenuBand-style
+  // live tint). Adding a same-color stroke to the path thickens the line art
+  // in vector space, so it stays crisp at every size.
+  const baseFill = accentHex || '#cd5c9b';
+  const STROKE_W = 1.0; // extra outline weight, in the SVG's 24-unit viewBox
+  let svg = fs.readFileSync(svgPath, 'utf8');
+  svg = svg.replace(
+    /fill="#[0-9a-fA-F]{3,8}"/g,
+    `fill="${baseFill}" stroke="${baseFill}" stroke-width="${STROKE_W}" stroke-linejoin="round"`
+  );
+  const svgBuf = Buffer.from(svg);
+
+  // Rasterize the vector once at high resolution, trimmed to the figures.
+  const master = await sharp(svgBuf, { density: 1200 }).trim().png().toBuffer();
+
+  const SHRINK = 0.96;       // logo height relative to the full menubar slot
+  const SHADOW_ALPHA = 0.7;  // hard drop-shadow opacity
+
+  const out = nativeImage.createEmpty();
+  let added = 0;
+
+  for (const scale of [1, 2, 3]) {
+    try {
+      const W = 34 * scale, H = 22 * scale;
+      const lh = Math.max(1, Math.round(22 * SHRINK * scale));
+
+      // Crisp vector render at the exact rep size.
+      const logo = await sharp(master)
+        .resize({ height: lh, kernel: 'lanczos3' })
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const lw = logo.info.width;
+      const logoBuf = logo.data; // RGBA
+
+      // Centered, nudged up 1px so the tight shadow has room below it.
+      const ox = Math.round((W - lw) / 2);
+      const oy = Math.max(0, Math.round((H - lh) / 2) - 1);
+      const shDX = 1, shDY = 1; // 1px hard-edged shadow, hugging the logo
+
+      const canvas = Buffer.alloc(W * H * 4, 0); // BGRA straight-alpha
+
+      const put = (x, y, b, g, r, a) => {
+        if (x < 0 || y < 0 || x >= W || y >= H || a <= 0) return;
+        const i = (y * W + x) * 4;
+        const sa = a / 255;
+        const da = canvas[i + 3] / 255;
+        const oa = sa + da * (1 - sa);
+        if (oa <= 0) return;
+        canvas[i]     = Math.round((b * sa + canvas[i]     * da * (1 - sa)) / oa);
+        canvas[i + 1] = Math.round((g * sa + canvas[i + 1] * da * (1 - sa)) / oa);
+        canvas[i + 2] = Math.round((r * sa + canvas[i + 2] * da * (1 - sa)) / oa);
+        canvas[i + 3] = Math.round(oa * 255);
+      };
+
+      // Pass 1: tight hard drop shadow (black, offset 1pt down-right).
+      for (let y = 0; y < lh; y++) {
+        for (let x = 0; x < lw; x++) {
+          const a = logoBuf[(y * lw + x) * 4 + 3];
+          if (a > 0) put(ox + x + shDX, oy + y + shDY, 0, 0, 0, a * SHADOW_ALPHA);
+        }
+      }
+
+      // Pass 2: the crisp, accent-colored logo (sharp raw is RGBA).
+      for (let y = 0; y < lh; y++) {
+        for (let x = 0; x < lw; x++) {
+          const j = (y * lw + x) * 4;
+          put(ox + x, oy + y, logoBuf[j + 2], logoBuf[j + 1], logoBuf[j], logoBuf[j + 3]);
+        }
+      }
+
+      out.addRepresentation({ scaleFactor: scale, width: W, height: H, buffer: canvas });
+      added++;
+    } catch (e) {
+      console.warn('[tray] Failed to build pals rep @' + scale + 'x:', e.message);
     }
   }
 
-  console.log('[main] Loading tray icon from:', iconPath);
-  const icon = nativeImage.createFromPath(iconPath);
+  return added > 0 ? out : null;
+}
 
-  if (icon.isEmpty()) {
-    console.warn('[main] Tray icon is empty! Path:', iconPath);
+async function createSystemTray() {
+  // The pals tray icon: shrunk just below full menubar height, with a soft
+  // drop shadow and a hue tint that follows the macOS accent color.
+  let icon = process.platform === 'darwin' ? await buildPalsTrayImage() : null;
+
+  if (!icon || icon.isEmpty()) {
+    // Fallback — load the raw PNG (Windows/Linux, or if processing failed).
+    let iconPath;
+    if (process.platform === 'darwin') {
+      iconPath = app.isPackaged
+        ? path.join(process.resourcesPath, 'palsTray.png')
+        : path.join(__dirname, 'build', 'icons', 'palsTray.png');
+    } else {
+      iconPath = app.isPackaged
+        ? path.join(process.resourcesPath, 'tray-icon.png')
+        : path.join(__dirname, 'build', 'icons', '16x16.png');
+    }
+    console.log('[main] Loading tray icon from:', iconPath);
+    icon = nativeImage.createFromPath(iconPath);
+  }
+
+  if (!icon || icon.isEmpty()) {
+    console.warn('[main] Tray icon is empty!');
     return;
   }
 
@@ -1022,16 +1147,39 @@ function createSystemTray() {
   // Store original icon for blink toggling
   originalTrayIcon = icon;
   updateTrayIcon = createUpdateIcon(icon);
-  
+
   tray = new Tray(icon);
   tray.setToolTip('Aesthetic.Computer');
   console.log('[main] System tray created successfully');
-  
+
   // Build and set the context menu
   rebuildTrayMenu();
-  
-  // On macOS, single click shows menu, on Windows/Linux it toggles window
-  if (process.platform !== 'darwin') {
+
+  if (process.platform === 'darwin') {
+    // macOS: pop the menu manually so a plain left-click reliably opens it
+    // (relying on setContextMenu alone left clicks dead in some sessions).
+    const popMenu = () => {
+      if (trayContextMenu) tray.popUpContextMenu(trayContextMenu);
+    };
+    tray.on('click', popMenu);
+    tray.on('right-click', popMenu);
+
+    // Re-tint the icon live when the user changes their accent color.
+    try {
+      systemPreferences.on('accent-color-changed', () => {
+        buildPalsTrayImage()
+          .then((fresh) => {
+            if (fresh && !fresh.isEmpty()) {
+              originalTrayIcon = fresh;
+              updateTrayIcon = createUpdateIcon(fresh);
+              if (tray && trayIconState === 'normal') tray.setImage(fresh);
+            }
+          })
+          .catch(() => {});
+      });
+    } catch (_) {}
+  } else {
+    // Windows/Linux: click toggles the window.
     tray.on('click', () => {
       const allWindows = BrowserWindow.getAllWindows();
       if (allWindows.length > 0) {
@@ -1046,7 +1194,7 @@ function createSystemTray() {
       }
     });
   }
-  
+
   // Set initial tray title
   updateTrayTitle();
 }
@@ -1394,7 +1542,13 @@ function rebuildTrayMenu() {
   });
   
   const contextMenu = Menu.buildFromTemplate(menuItems);
-  tray.setContextMenu(contextMenu);
+  trayContextMenu = contextMenu;
+  if (process.platform === 'darwin') {
+    // macOS pops trayContextMenu explicitly from the click handler — binding
+    // it via setContextMenu here would race that and can swallow the click.
+  } else {
+    tray.setContextMenu(contextMenu);
+  }
 }
 
 function createNotepatTray() {
