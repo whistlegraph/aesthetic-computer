@@ -68,8 +68,13 @@ const cmdOutbox = [];       // last CMD_BACKUP cmds only (wire-level backup wind
 // so they diverge by a small amount during sustained motion. Keep the dead
 // zone wide enough to ignore that physics-model jitter — otherwise the
 // 30Hz snap loop yanks the cam every frame and forward movement feels choppy.
-const RECONCILE_SNAP_THRESHOLD = 2.0;   // > this = hard snap (real teleport)
-const RECONCILE_SOFT_K = 0.05;          // lerp factor toward predicted/frame
+// Reconcile tuning — informed by arena-probe.mjs runs. A 5-unit prediction
+// drift (from a ~250ms network stall) previously triggered a 1-frame hard
+// snap that felt like a teleport. Raise the snap threshold and quadruple
+// the soft-K so 2–4 unit drifts catch up in ~5 frames instead of 20+ or a
+// visible teleport.
+const RECONCILE_SNAP_THRESHOLD = 4.0;   // > this = hard snap (true teleport)
+const RECONCILE_SOFT_K = 0.18;          // ~90% convergence over ~12 frames
 const RECONCILE_DEAD_ZONE = 0.5;        // < this = ignore (model-jitter noise)
 
 // Arena world cfg — MUST match ARENA_CFG in session-server/arena-manager.mjs.
