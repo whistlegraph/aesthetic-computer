@@ -3,86 +3,181 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>the pop menu — playable demos</title>
+<title>pop dashboard — songs · instruments · tools</title>
 <style>
-  :root { --bg:#f4efe2; --ink:#1a1712; --mute:#6b6353; --line:#b3a98f; }
+  /* dark, monospace, terminal-leaning — aesthetic.computer house style */
+  :root {
+    --bg:#0d0c0b; --panel:#181613; --ink:#ece6d6; --mute:#8c8576;
+    --line:#36322a; --hi:#faf6ec;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: "Berkeley Mono","Latin Modern Mono",Menlo,monospace;
     background: var(--bg); color: var(--ink);
-    margin: 0; font-size: 12px; line-height: 1.38;
+    margin: 0; font-size: 12px; line-height: 1.4;
+    -webkit-font-smoothing: none; font-smooth: never;
   }
   header {
-    display: flex; align-items: baseline; justify-content: center;
-    flex-wrap: wrap; gap: 4px 14px;
-    padding: 12px 16px; border-bottom: 1.5px solid var(--ink);
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 15px; border-bottom: 1px solid var(--line);
   }
-  h1 { font-size: 19px; letter-spacing: 0.05em; margin: 0; }
-  .sub { font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
-         color: var(--mute); }
+  h1 { font-size: 17px; letter-spacing: 0.14em; margin: 0; text-transform: lowercase; }
+  h1::before { content: "♪ "; color: var(--mute); }
   .gate { margin-left: auto; }
   /* responsive masonry — columns scale with viewport width */
   main {
-    max-width: 1640px; margin: 0 auto; padding: 14px 14px 44px;
-    column-width: 22rem; column-gap: 13px;
+    max-width: 1660px; margin: 0 auto; padding: 13px 13px 44px;
+    column-width: 22rem; column-gap: 12px;
   }
   .demo-card {
     break-inside: avoid; display: inline-block; width: 100%;
-    margin-bottom: 13px; border-left: 3px solid var(--accent,#1a1712);
-    background: #faf6ec; padding: 9px 11px 11px;
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+    margin-bottom: 12px; border: 1px solid var(--line);
+    border-left: 3px solid var(--accent,#555);
+    background: var(--panel); padding: 9px 11px 11px;
   }
   .demo-card h2 {
-    font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
-    margin: 1px 0 0; color: var(--accent,#1a1712);
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;
+    margin: 1px 0 0; color: var(--accent,#ccc);
   }
-  .demo-card .cat { font-size: 7.5px; letter-spacing: 0.15em;
+  .demo-card .cat { font-size: 7.5px; letter-spacing: 0.16em;
                     text-transform: uppercase; color: var(--mute); }
-  .demo-card .blurb { color: #4a443a; margin: 3px 0 8px; font-size: 10.5px;
-                      line-height: 1.32; }
+  .demo-card .blurb { color: var(--mute); margin: 3px 0 8px; font-size: 10.5px;
+                      line-height: 1.34; }
   .demo-body { display: flex; flex-direction: column; gap: 6px; }
   .demo-row { display: flex; flex-wrap: wrap; gap: 5px 10px; align-items: center; }
   canvas { width: 100%; height: 96px; display: block;
-           border: 1px solid var(--line); background: #1c1a17; }
+           border: 1px solid var(--line); background: #000; }
   .demo-btn {
     font: inherit; font-size: 10.5px; cursor: pointer;
-    background: var(--accent,#1a1712); color: #f4efe2;
-    border: none; padding: 4px 9px; letter-spacing: 0.02em;
+    background: var(--accent,#333); color: #0d0c0b;
+    border: none; padding: 4px 10px; letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
+  .demo-btn:hover { filter: brightness(1.15); }
   .demo-btn:active { transform: translateY(1px); }
-  .demo-btn[disabled] { opacity: 0.45; cursor: default; }
+  .demo-btn[disabled] { opacity: 0.4; cursor: default; }
   .demo-ctl { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; }
   .demo-lbl { color: var(--mute); }
   .demo-num { color: var(--ink); min-width: 26px; }
-  .demo-ctl input[type=range] { width: 92px; accent-color: var(--accent,#1a1712); }
-  .demo-sel { font: inherit; font-size: 10px; padding: 1px 3px;
-              background: #fff; border: 1px solid var(--line); }
+  .demo-ctl input[type=range] { width: 92px; accent-color: var(--accent,#888); }
+  .demo-sel { font: inherit; font-size: 10px; padding: 1px 4px;
+              background: #000; color: var(--ink); border: 1px solid var(--line); }
   .demo-status { font-size: 10px; color: var(--mute); min-height: 1.3em;
                  white-space: pre-wrap; }
   .demo-out {
-    font-size: 10px; line-height: 1.34; background: #1c1a17; color: #d8cfa8;
+    font-size: 10px; line-height: 1.36; background: #000; color: #b9d98a;
     border: 1px solid var(--line); padding: 6px 8px; max-height: 150px;
     overflow: auto; white-space: pre-wrap;
   }
-  .demo-err { color: #b5331f; font-size: 10.5px; }
+  .demo-err { color: #e0593f; font-size: 10.5px; }
   textarea {
-    font: inherit; font-size: 10px; width: 100%;
-    background: #fff; border: 1px solid var(--line); padding: 5px;
+    font: inherit; font-size: 10px; width: 100%; color: var(--ink);
+    background: #000; border: 1px solid var(--line); padding: 5px;
   }
-  footer { text-align: center; font-size: 8px; letter-spacing: 0.13em;
+  footer { text-align: center; font-size: 8px; letter-spacing: 0.16em;
            text-transform: uppercase; color: var(--mute);
-           padding: 13px; border-top: 1.5px solid var(--ink); }
+           padding: 14px; border-top: 1px solid var(--line); }
   footer a { color: var(--mute); }
+
+  /* ── dashboard sections ─────────────────────────────────────────── */
+  .db-dashboard { max-width: 1660px; margin: 0 auto; padding: 14px 13px 0; }
+  .db-load-err {
+    max-width: 1660px; margin: 14px auto 0;
+    padding: 8px 13px; color: #e0593f; font-size: 10.5px;
+    border: 1px solid var(--line); border-left: 3px solid #e0593f;
+    background: var(--panel);
+  }
+  .db-section {
+    font-size: 8px; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--mute); margin: 0 0 8px; font-weight: normal;
+    padding-bottom: 4px; border-bottom: 1px solid var(--line);
+  }
+  .db-section-wrap { margin-bottom: 20px; }
+
+  /* badge — shared by jukebox + instruments */
+  .db-badge {
+    font-size: 7px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #0d0c0b; background: var(--badge,#8c8576);
+    padding: 1.5px 5px; flex-shrink: 0;
+  }
+
+  /* songs — jukebox */
+  .db-jukebox-now {
+    position: sticky; top: 0; z-index: 6;
+    display: flex; align-items: center; gap: 11px;
+    background: #000; border: 1px solid var(--line);
+    border-left: 3px solid #b5331f;
+    padding: 6px 10px; margin-bottom: 7px;
+  }
+  .db-now-tag { font-size: 7px; letter-spacing: 0.22em; text-transform: uppercase;
+                color: var(--mute); flex-shrink: 0; }
+  .db-now-label { font-size: 11px; white-space: nowrap; flex-shrink: 0;
+                  text-transform: uppercase; letter-spacing: 0.05em; }
+  .db-jukebox-now audio { height: 30px; flex: 1; min-width: 150px; }
+  .db-jukebox-list { border: 1px solid var(--line); }
+  .db-jukebox-row {
+    display: flex; align-items: baseline; gap: 9px;
+    padding: 4px 9px; cursor: pointer; font-size: 11px;
+    border-left: 3px solid var(--accent,#555);
+    border-bottom: 1px solid var(--line);
+  }
+  .db-jukebox-row:last-child { border-bottom: none; }
+  .db-jukebox-row:hover { background: var(--panel); }
+  .db-jukebox-row.playing { background: var(--panel); }
+  .db-jukebox-row.playing .db-jb-title { color: var(--accent); }
+  .db-jukebox-row.noaudio { cursor: default; opacity: 0.4; }
+  .db-jb-glyph { color: var(--accent,#888); width: 0.9em; flex-shrink: 0; }
+  .db-jb-title { text-transform: uppercase; letter-spacing: 0.05em;
+                 min-width: 7rem; flex-shrink: 0; }
+  .db-jb-meta { color: var(--mute); font-size: 8.5px; letter-spacing: 0.09em;
+                text-transform: uppercase; white-space: nowrap; flex-shrink: 0; }
+  .db-jb-blurb { color: var(--mute); font-size: 9.5px; flex: 1;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .db-jb-no { color: var(--mute); font-size: 7.5px; text-transform: uppercase;
+              letter-spacing: 0.14em; flex-shrink: 0; }
+
+  /* instruments — responsive grid */
+  .db-inst-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: 9px;
+  }
+  .db-inst-card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent,#555); padding: 8px 11px 10px;
+  }
+  .db-inst-label {
+    font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--accent,#ccc); margin-bottom: 3px;
+  }
+  .db-blurb  { color: var(--mute); margin: 0 0 6px; font-size: 10.5px; line-height: 1.34; }
+  .db-pending { font-size: 9.5px; color: var(--mute); margin: 4px 0 0; font-style: italic; }
+  .db-audio-wrap audio { width: 100%; height: 28px; display: block; margin-top: 5px; }
+  .db-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 5px 0 6px; }
+  .db-chip {
+    font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase;
+    border: 1px solid var(--line); color: var(--mute);
+    padding: 1px 5px; white-space: nowrap;
+  }
+  .db-caption { font-size: 8px; color: var(--mute); margin: 5px 0 0;
+                letter-spacing: 0.06em; }
+
+  /* tool demos band */
+  .db-tool-heading {
+    max-width: 1660px; margin: 0 auto; padding: 0 13px 8px;
+    font-size: 8px; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--mute); border-bottom: 1px solid var(--line);
+  }
 </style>
 </head>
 <body>
   <header>
-    <h1>the pop menu</h1>
-    <div class="sub">playable demos · /pop toolkit</div>
+    <h1>pop</h1>
     <div class="gate">
-      <button id="gate" class="demo-btn" style="--accent:#1a1712">▶ click to enable audio</button>
+      <button id="gate" class="demo-btn" style="--accent:#b5331f">▶ enable audio</button>
     </div>
   </header>
+  <div id="db-tool-heading" class="db-tool-heading">tool demos</div>
   <main id="demos"></main>
   <footer>
     aesthetic.computer · /pop ·
@@ -91,6 +186,7 @@
 
 <script type="module">
 import { resume, stopAll } from "./lib/demo-kit.mjs";
+import { mountDashboard } from "./demos/dashboard.mjs";
 
 // Each demo: { title, blurb, accent, cat, mount(rootEl) }. Modules
 // export a `demos` object keyed by demo id.
@@ -125,6 +221,12 @@ gate.addEventListener("click", async () => {
   await resume();
   gate.textContent = "♪ audio enabled";
   gate.disabled = true;
+});
+
+// Mount dashboard sections (songs + instruments) before the tool demos heading.
+const toolHeading = document.getElementById("db-tool-heading");
+mountDashboard(toolHeading).catch((err) => {
+  console.error("dashboard mount failed:", err);
 });
 
 const root = document.getElementById("demos");
