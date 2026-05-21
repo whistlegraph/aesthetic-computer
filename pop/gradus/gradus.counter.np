@@ -1,0 +1,21 @@
+# counterpoint voice (upper)
+# gradus — D dorian · 93 bpm · Fibonacci-arch first-species counterpoint
+
+# phrase 1 — 5 notes
+A3:_*2 G3:_*2 B3:_*2 C4:_*3 D4:_*4
+
+# phrase 2 — 8 notes
+A3:_*2 G3:_*2 A3:_*2 B3:_*2 C4:_*2 E4:_*3 G4:_*2 D4:_*4
+
+# phrase 3 — 13 notes (octave climax)
+A4:_*2 A4:_*2 B4:_*2 C5:_*2 D5:_*2 F5:_*2 G5:_*2 A5:_*2 B5:_*3 C6:_*2 E6:_*2 G5:_*2 D5:_*4
+
+# phrase 4 — 13 notes (octave climax)
+A4:_*2 A4:_*2 F4:_*2 A4:_*2 B4:_*2 C5:_*2 D5:_*2 E5:_*2 F5:_*3 G5:_*2 C6:_*2 G5:_*2 D5:_*4
+
+# phrase 5 — 8 notes
+A3:_*2 G3:_*2 B3:_*2 A3:_*2 B3:_*2 D4:_*3 G4:_*2 D4:_*4
+
+# phrase 6 — 5 notes
+A3:_*2 G3:_*2 A3:_*2 C4:_*3 D4:_*8
+
