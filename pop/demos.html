@@ -4,30 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pop dashboard — songs · instruments · tools</title>
-<script>
-  // apply the theme before first paint (no flash): ?theme= wins, then
-  // the saved choice, then the dark default.
-  document.documentElement.dataset.theme =
-    new URLSearchParams(location.search).get("theme") ||
-    localStorage.getItem("pop-theme") || "dark";
-</script>
 <style>
-  /* themeable surfaces — only --bg/--panel/--ink/--mute/--line change.
-     "screen" blacks (canvases, code-out, text inputs) stay dark on
-     purpose across every theme. */
-  /* :root is the no-JS fallback; the [data-theme] blocks that follow
-     share its specificity and win by source order. */
-  :root, [data-theme="dark"] {   /* warm near-black — AC house default */
-    --bg:#0d0c0b; --panel:#181613; --ink:#ece6d6; --mute:#8c8576; --line:#36322a;
+  /* themes follow the OS automatically (prefers-color-scheme) —
+     aesthetic.computer's own scheme: dark = purple, light = legal-pad
+     yellow (from disks/prompt.mjs). "screen" surfaces (canvases,
+     code-out) stay dark in both by design. */
+  :root {   /* dark — AC purple (rgb 70,50,100) */
+    --bg:#463264; --panel:#3a2b52; --ink:#f2eef8; --mute:#b0a2c8; --line:#5f4d80;
   }
-  [data-theme="light"] {  /* cream paper — the pop-menu print look */
-    --bg:#f4efe2; --panel:#faf6ec; --ink:#1a1712; --mute:#6b6353; --line:#cabfa0;
-  }
-  [data-theme="noir"] {   /* pure high-contrast black & white */
-    --bg:#000000; --panel:#0e0e0e; --ink:#ffffff; --mute:#7d7d7d; --line:#333333;
-  }
-  [data-theme="term"] {   /* phosphor-green terminal */
-    --bg:#04070a; --panel:#0a1410; --ink:#86e89a; --mute:#4d7a58; --line:#1c3527;
+  @media (prefers-color-scheme: light) {
+    :root {  /* light — AC legal-pad yellow */
+      --bg:#fcf7c5; --panel:#fffdf0; --ink:#281e5a; --mute:#807a52; --line:#cdc488;
+    }
   }
   * { box-sizing: border-box; }
   body {
@@ -42,9 +30,7 @@
   }
   h1 { font-size: 17px; letter-spacing: 0.14em; margin: 0; text-transform: lowercase; }
   h1::before { content: "♪ "; color: var(--mute); }
-  .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 11px; }
-  .hdr-theme { font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase;
-               color: var(--mute); display: inline-flex; align-items: center; gap: 5px; }
+  header > #gate { margin-left: auto; }
   /* responsive masonry — columns scale with viewport width */
   main {
     max-width: 1660px; margin: 0 auto; padding: 13px 13px 44px;
@@ -240,17 +226,7 @@
 <body>
   <header>
     <h1>pop</h1>
-    <div class="hdr-right">
-      <label class="hdr-theme">theme
-        <select id="theme" class="demo-sel">
-          <option value="dark">dark</option>
-          <option value="light">light</option>
-          <option value="noir">noir</option>
-          <option value="term">term</option>
-        </select>
-      </label>
-      <button id="gate" class="demo-btn" style="--accent:#b5331f">▶ enable audio</button>
-    </div>
+    <button id="gate" class="demo-btn" style="--accent:#b5331f">▶ enable audio</button>
   </header>
   <div id="db-tool-heading" class="db-tool-heading">tool demos</div>
   <main id="demos"></main>
@@ -296,14 +272,6 @@ gate.addEventListener("click", async () => {
   await resume();
   gate.textContent = "♪ audio enabled";
   gate.disabled = true;
-});
-
-// theme picker — applied early by the <head> script; persist on change
-const themeSel = document.getElementById("theme");
-themeSel.value = document.documentElement.dataset.theme || "dark";
-themeSel.addEventListener("change", () => {
-  document.documentElement.dataset.theme = themeSel.value;
-  localStorage.setItem("pop-theme", themeSel.value);
 });
 
 // Mount dashboard sections (songs + instruments) before the tool demos heading.
