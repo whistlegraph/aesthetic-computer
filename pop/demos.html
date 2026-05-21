@@ -82,7 +82,7 @@
   .demo-num { color: var(--ink); min-width: 26px; }
   .demo-ctl input[type=range] { width: 92px; accent-color: var(--accent,#888); }
   .demo-sel { font: inherit; font-size: 10px; padding: 1px 4px;
-              background: #000; color: var(--ink); border: 1px solid var(--line); }
+              background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
   .demo-status { font-size: 10px; color: var(--mute); min-height: 1.3em;
                  white-space: pre-wrap; }
   .demo-out {
@@ -93,7 +93,7 @@
   .demo-err { color: #e0593f; font-size: 10.5px; }
   textarea {
     font: inherit; font-size: 10px; width: 100%; color: var(--ink);
-    background: #000; border: 1px solid var(--line); padding: 5px;
+    background: var(--bg); border: 1px solid var(--line); padding: 5px;
   }
   footer { text-align: center; font-size: 8px; letter-spacing: 0.16em;
            text-transform: uppercase; color: var(--mute);
@@ -131,9 +131,9 @@
     padding: 6px 10px; margin-bottom: 7px;
   }
   .db-now-tag { font-size: 7px; letter-spacing: 0.22em; text-transform: uppercase;
-                color: var(--mute); flex-shrink: 0; }
+                color: #8c8576; flex-shrink: 0; }
   .db-now-label { font-size: 11px; white-space: nowrap; flex-shrink: 0;
-                  text-transform: uppercase; letter-spacing: 0.05em; }
+                  text-transform: uppercase; letter-spacing: 0.05em; color: #ece6d6; }
   .db-jukebox-now audio { height: 30px; flex: 1; min-width: 150px; }
   .db-jukebox-list { border: 1px solid var(--line); }
   .db-jukebox-row {
