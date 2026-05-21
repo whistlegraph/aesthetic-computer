@@ -128,6 +128,7 @@
         .section-header[data-color="cyan"] h2 { color: var(--cyan); }
         .section-header[data-color="purple"] h2 { color: var(--purple); }
         .section-header[data-color="gold"] h2 { color: var(--gold); }
+        .section-header[data-color="green"] h2 { color: var(--green); }
         .section-header[data-color="red"] h2 { color: var(--red); }
         .section-header .blurb { color: var(--dim); font-size: 0.78em; }
 
@@ -189,6 +190,7 @@
         .row .notes .status.verify { color: var(--red); border-color: var(--red); }
         .row .notes .status.rejected { color: var(--red); border-color: var(--red); }
         .row .notes .status.accepted { color: var(--cyan); border-color: var(--cyan); }
+        .row .notes .status.submitted { color: var(--green); border-color: var(--green); }
         .row .notes .status.new { color: var(--dim); }
         .row .notes a { color: var(--purple); }
 
@@ -398,19 +400,18 @@
                 notes: '3–7 days unrestricted access to a 3,000 sq ft loft, high-quality documentation, culminating in a public ticketed performance. For ambitious sound and performance work; priority to projects in early development.',
             },
             {
-                section: 'active',
+                section: 'submitted',
                 venue: 'CultureHub',
                 venueUrl: 'https://www.culturehub.org/residency',
                 track: 'LA Residency (Fia)',
                 deadline: '2026-05-20',
                 deadlineExtra: '23:59 PT',
-                conference: 'CultureHub LA · Fall 2026',
-                status: 'go',
-                statusLabel: 'Active',
+                conference: 'CultureHub LA · Fall 2026 – Winter/Spring 2027',
+                status: 'submitted',
+                statusLabel: 'Submitted',
                 proposalUrl: 'https://aesthetic.computer/culture-hub-2026',
-                proposalLabel: 'Whistlegraph Telepresence',
-                draftPath: 'culturehub-la-2026/DRAFT.md',
-                notes: 'DRAFT v0 ready. 1–2 weeks at CultureHub LA with reconfigurable lighting/audio/video/projection, technical support, $2,000 stipend, marketing, documentation, and one public presentation. Angle: <em>Whistlegraph Telepresence</em> — an in-room + online audience drawing/singing into one projected graphic score via LiveLab. Last step before the 5/20 deadline: open the form, trim the draft to fit, submit.',
+                proposalLabel: 'Notepat Jam',
+                notes: 'Submitted 2026-05-21. 1–2 weeks at CultureHub LA with reconfigurable lighting/audio/video/projection, technical support, $2,000 stipend, marketing, documentation, and one public presentation. <em>Notepat Jam</em> — a six-channel audio piece performed solo on six salvaged laptops booted into AC Native, each voicing one channel of the 5:1 Kalio surround, plus open programming (a public workshop + dialogue teaching the software). Awaiting decision.',
             },
             {
                 section: 'open',
@@ -655,6 +656,7 @@
         // ===== RENDER =====
         const SECTIONS = [
             { id: 'active',  title: 'Active proposals',  color: 'cyan',   blurb: 'Live public previews. Going to submit.' },
+            { id: 'submitted', title: 'Submitted',       color: 'green',  blurb: 'Submitted; awaiting decision.' },
             { id: 'verify',  title: 'Verify submission', color: 'red',    blurb: 'Deadline already passed; draft was ready but submission status is unconfirmed.' },
             { id: 'open',    title: 'Open windows',      color: 'pink',   blurb: 'Sorted by closest deadline first.' },
             { id: 'rolling', title: 'Rolling',           color: 'cyan',   blurb: 'Submit any time.' },
@@ -702,6 +704,7 @@
 
             // Sort within sections
             const active = DEADLINES.filter(d => d.section === 'active').sort((a, b) => a.deadline.localeCompare(b.deadline));
+            const submitted = DEADLINES.filter(d => d.section === 'submitted').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const open = DEADLINES.filter(d => d.section === 'open').sort((a, b) => a.deadline.localeCompare(b.deadline));
             const passed = DEADLINES.filter(d => d.section === 'passed').sort((a, b) => b.deadline.localeCompare(a.deadline));
             const verify = DEADLINES.filter(d => d.section === 'verify').sort((a, b) => a.deadline.localeCompare(b.deadline));
@@ -709,7 +712,7 @@
             const rolling = DEADLINES.filter(d => d.section === 'rolling');
             const funding = DEADLINES.filter(d => d.section === 'funding');
 
-            const bySection = { active, verify, open, rolling, funding, decided, passed };
+            const bySection = { active, submitted, verify, open, rolling, funding, decided, passed };
 
             for (const sec of SECTIONS) {
                 const items = bySection[sec.id] || [];

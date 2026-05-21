@@ -9,7 +9,6 @@ Active applications, deadlines, and status. Newest deadlines first.
 | Error 406 [Netstalgia] Not Acceptable | 2026-05-04 (23:59 CEST) | €1,500–7,000 (asking €5.5k) | DRAFT v0 ready | `error-406-netstalgia/` |
 | NY Art Book Fair — Project Space | 2026-05-08 | self-funded (Project Space fee covered by Aesthetic Inc) | GO — public preview live at [aesthetic.computer/printed-matter-2026](https://aesthetic.computer/printed-matter-2026) | `printed-matter-project-space-2026/` |
 | Oracle Egg — BROILER Residency (Fall 2026) | 2026-05-15 (23:59 PST) | TBD | DRAFT v0 ready | `oracle-egg-broiler-2026/` |
-| CultureHub — LA Residency 2026 | 2026-05-20 (23:59 PT) | $2,000 stipend | DRAFT v0 ready (vault `culturehub-la-2026/`) — *Whistlegraph Telepresence* angle | `culturehub-2026/` |
 | Serpentine — Future Art Ecosystems R&D Fellowship: Art × Convergence | 2026-06-07 (midnight BST) | £10,000 + London travel/lodging | DRAFT v0 ready | `serpentine-fae-2026/` |
 | SSRC — Just Tech Fellowship | 2026-06-28 (23:59 EST) | up to $60,000 (1 yr, unrestricted) | SOURCED — researching (Fia, 2026-05-14); no folder yet | — |
 | CalArts CCAT — Technical Director, BB6 studio (job, not grant) | rolling (listed start 2026-04-13, past) | $100k–$125k / yr | DRAFT v0 ready (vault `calarts-ccat-tech-director-2026/`) | `calarts-ccat-2026/` |
@@ -40,6 +39,7 @@ calls; sensitive sourcing context stays in the vault honeydo.
 
 | Application | Submitted | Decided | Outcome | Folder |
 |---|---|---|---|---|
+| CultureHub — LA Residency 2026 | 2026-05-21 | — | **Submitted, awaiting decision** — *Notepat Jam*: a six-channel audio piece performed solo on six salvaged laptops booted into AC Native (each voicing one channel of the 5:1 Kalio surround), plus open programming (public workshop + dialogue). Answers on Desktop: `CultureHub-LA-Residency-2026-Application.md`. | `culturehub-2026/` |
 | Are.na Annual Vol. 8 — pitch (theme "Score.") | 2026-04-20 | 2026-05-08 | **Rejected** — Meg Miller (editorial director). Channel `aesthetic-computer/self-teaching-scores` (68 blocks) + pitch page stay live; track for Vol. 9. | `gigs/are-na-annual-vol-8/` |
 
 ## Personal Logistics (not grants but tracked here)
