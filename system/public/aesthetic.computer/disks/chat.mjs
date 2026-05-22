@@ -213,8 +213,8 @@ let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
 let youtubeLoadQueue = new Set(); // Track which videos are being loaded
 let youtubeModalOpen = false; // Track if YouTube modal is open
 let youtubeModalVideoId = null; // Current video in modal
-let youtubeModalCleanup = null; // Remove modal listeners when the overlay closes
 let domApi = null; // Store dom API reference for modal
+let jumpApi = null; // Store jump reference for iOS external-link fallback
 let netPreload = null; // Store net.preload reference for YouTube loading
 let globalYoutubeThumbCache = null;
 
@@ -2404,26 +2404,19 @@ function act(
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
   const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
 
-  // 📺 YouTube modal intercepts all events (prevent click-through)
-  if (youtubeModalOpen) {
-    const modalState = typeof globalThis !== "undefined" ? globalThis.acYoutubeModalState : null;
-    const overlayExists = typeof document !== "undefined"
-      ? document.getElementById("youtube-modal-overlay")
-      : null;
-    const modalClosed = (modalState && modalState.open === false) || overlayExists === null;
+  // 📺 Capture `jump` for the iOS YouTube fallback (opens links externally).
+  jumpApi = jump;
 
-    if (modalClosed) {
-      youtubeModalOpen = false;
-      youtubeModalVideoId = null;
-    } else {
-      if (e.is("keyboard:down:escape")) {
-        const closer = typeof globalThis !== "undefined" ? globalThis.acCloseYoutubeModal : null;
-        if (typeof closer === "function") closer();
-        closeYoutubeModal();
-      }
-      return;
-    }
+  // 📺 YouTube modal swallows all chat interaction while it is open.
+  // The overlay lives in the DOM on the main thread and reports its own
+  // closure (tap-outside / close button / escape) back through the
+  // `youtube:modal:closed` act alert — see openYoutubeModal().
+  if (e.is("youtube:modal:closed")) {
+    youtubeModalOpen = false;
+    youtubeModalVideoId = null;
+    return;
   }
+  if (youtubeModalOpen) return;
   
   // 📰 News ticker interaction (hover + click)
   if (newsTickerBounds && pen && !linkConfirmModal && !messageCopyModal && !modalPainting) {
@@ -4178,178 +4171,165 @@ async function loadYoutubePreview(videoId, preload) {
   }
 }
 
-// 📺 Open YouTube modal with embed iframe
-// On iOS, we skip the embed modal and open YouTube directly 
-// because the iframe embed has audio issues and tap-outside-to-close doesn't work reliably
-// (All iOS browsers use WebKit and have the same iframe restrictions)
+// 📺 Open YouTube modal with embed iframe.
+//
+// The disk runs inside a Web Worker in production, so this code has no
+// `document` and cannot attach listeners to the modal DOM. All interaction —
+// tap-outside, close button, escape — is therefore wired up by an inline
+// <script> that bios evaluates on the main thread. That script owns the
+// overlay's lifetime: it removes the element on close and reports the closure
+// back to this piece through the `youtube:modal:closed` act alert (see act()).
+//
+// On iOS we skip the embed entirely — the iframe has audio + touch issues —
+// and open YouTube directly via `jump("out:…")`.
 function openYoutubeModal(videoId) {
   if (!domApi) return;
-  
-  // On iOS, open YouTube directly instead of embed (audio doesn't work, touch handling issues)
+
   if (iOS) {
-    window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
+    jumpApi?.(`out:https://www.youtube.com/watch?v=${videoId}`);
     return;
   }
-  
-  if (youtubeModalOpen) {
-    const overlay = typeof document !== "undefined"
-      ? document.getElementById("youtube-modal-overlay")
-      : null;
-    if (overlay) return;
-    closeYoutubeModal();
-  }
-  
+
+  // Already open — the existing overlay owns itself, so do nothing.
+  if (youtubeModalOpen) return;
+
   youtubeModalOpen = true;
   youtubeModalVideoId = videoId;
-  if (typeof globalThis !== "undefined") {
-    globalThis.acYoutubeModalState = { open: true, videoId };
-    globalThis.acYoutubeModalClose = closeYoutubeModal;
-    globalThis.acCloseYoutubeModal = closeYoutubeModal;
-  }
-
-  const styleTag = typeof document !== "undefined" && document.getElementById("youtube-modal-style")
-    ? ""
-    : `
-    <style id="youtube-modal-style">
-      #youtube-modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.75);
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        animation: ytFadeIn 0.2s ease-out;
-        cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
-        touch-action: none;
-      }
-      @keyframes ytFadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      #youtube-modal-content {
-        width: min(90vw, 720px);
-        max-width: calc(100vw - 32px);
-        aspect-ratio: 16/9;
-        background: #000;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        cursor: default;
-        position: relative;
-      }
-      #youtube-modal-content iframe {
-        width: 100%;
-        height: 100%;
-        border: none;
-        pointer-events: auto;
-      }
-      #youtube-modal-close {
-        position: absolute;
-        top: -40px;
-        right: 0;
-        width: 36px;
-        height: 36px;
-        background: rgba(255, 255, 255, 0.9);
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 24px;
-        line-height: 36px;
-        text-align: center;
-        color: #333;
-        z-index: 10000;
-        transition: background 0.15s, transform 0.15s;
-      }
-      #youtube-modal-close:hover {
-        background: #fff;
-        transform: scale(1.1);
-      }
-      #youtube-modal-close:active {
-        transform: scale(0.95);
-      }
-      #youtube-modal-tap-hint {
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 14px;
-        margin-top: 16px;
-        font-family: system-ui, sans-serif;
-      }
-    </style>`;
 
   domApi.html`
-    ${styleTag}
     <div id="youtube-modal-overlay">
+      <style>
+        #youtube-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.75);
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          animation: ytFadeIn 0.2s ease-out;
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+          touch-action: none;
+        }
+        @keyframes ytFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        #youtube-modal-content {
+          width: min(90vw, 720px);
+          max-width: calc(100vw - 32px);
+          aspect-ratio: 16/9;
+          background: #000;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+          cursor: default;
+          position: relative;
+        }
+        #youtube-modal-content iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+          pointer-events: auto;
+        }
+        #youtube-modal-close {
+          position: absolute;
+          top: -40px;
+          right: 0;
+          width: 36px;
+          height: 36px;
+          background: rgba(255, 255, 255, 0.9);
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 24px;
+          line-height: 36px;
+          text-align: center;
+          color: #333;
+          z-index: 10000;
+          transition: background 0.15s, transform 0.15s;
+        }
+        #youtube-modal-close:hover {
+          background: #fff;
+          transform: scale(1.1);
+        }
+        #youtube-modal-close:active {
+          transform: scale(0.95);
+        }
+        #youtube-modal-tap-hint {
+          color: rgba(255, 255, 255, 0.6);
+          font-size: 14px;
+          margin-top: 16px;
+          font-family: system-ui, sans-serif;
+        }
+      </style>
       <div id="youtube-modal-content">
         <button id="youtube-modal-close" type="button" aria-label="Close YouTube video">&times;</button>
-        <iframe 
+        <iframe
           src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen>
         </iframe>
       </div>
       <div id="youtube-modal-tap-hint">tap outside to close</div>
+      <script>
+        (function () {
+          var overlay = document.getElementById("youtube-modal-overlay");
+          if (!overlay) return;
+          var closeButton = document.getElementById("youtube-modal-close");
+          var tapHint = document.getElementById("youtube-modal-tap-hint");
+          var closed = false;
+
+          function close() {
+            if (closed) return;
+            closed = true;
+            overlay.removeEventListener("pointerup", onOverlayUp);
+            closeButton && closeButton.removeEventListener("pointerup", onButtonUp);
+            window.removeEventListener("keydown", onKey, true);
+            overlay.remove();
+            // Report closure back to the chat piece (in the disk worker).
+            try { window.acDISK_SEND && window.acDISK_SEND({ type: "youtube:modal:closed" }); } catch (e) {}
+          }
+
+          function onOverlayUp(event) {
+            // Only the dark backdrop and the hint text close on tap; taps on
+            // the video frame fall through to the iframe.
+            if (event.target !== overlay && event.target !== tapHint) return;
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+          }
+
+          function onButtonUp(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+          }
+
+          function onKey(event) {
+            if (event.key === "Escape" || event.key === "Esc") {
+              event.preventDefault();
+              event.stopPropagation();
+              close();
+            }
+          }
+
+          overlay.addEventListener("pointerup", onOverlayUp);
+          closeButton && closeButton.addEventListener("pointerup", onButtonUp);
+          window.addEventListener("keydown", onKey, true);
+
+          // Tear the modal down if the piece is left while it is open.
+          window.acCONTENT_EVENTS = window.acCONTENT_EVENTS || [];
+          window.acCONTENT_EVENTS.push(close);
+        })();
+      </script>
     </div>
   `;
-
-  const overlay = typeof document !== "undefined"
-    ? document.getElementById("youtube-modal-overlay")
-    : null;
-  const closeButton = typeof document !== "undefined"
-    ? document.getElementById("youtube-modal-close")
-    : null;
-  const tapHint = typeof document !== "undefined"
-    ? document.getElementById("youtube-modal-tap-hint")
-    : null;
-
-  if (!overlay || !closeButton) {
-    closeYoutubeModal();
-    return;
-  }
-
-  youtubeModalCleanup?.();
-
-  const closeFromPointer = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    closeYoutubeModal();
-  };
-
-  const closeFromOverlay = (event) => {
-    if (event.target !== overlay && event.target !== tapHint) return;
-    closeFromPointer(event);
-  };
-
-  overlay.addEventListener("pointerup", closeFromOverlay);
-  closeButton.addEventListener("pointerup", closeFromPointer);
-
-  youtubeModalCleanup = () => {
-    overlay.removeEventListener("pointerup", closeFromOverlay);
-    closeButton.removeEventListener("pointerup", closeFromPointer);
-    youtubeModalCleanup = null;
-  };
-}
-
-// 📺 Close YouTube modal
-function closeYoutubeModal() {
-  youtubeModalCleanup?.();
-  youtubeModalOpen = false;
-  youtubeModalVideoId = null;
-  if (typeof document !== "undefined") {
-    document.getElementById("youtube-modal-overlay")?.remove();
-  }
-  if (typeof globalThis !== "undefined") {
-    globalThis.acYoutubeModalClose = closeYoutubeModal;
-    globalThis.acCloseYoutubeModal = closeYoutubeModal;
-    if (globalThis.acYoutubeModalState) {
-      globalThis.acYoutubeModalState.open = false;
-      globalThis.acYoutubeModalState.videoId = null;
-    }
-  }
 }
 
 function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypefaceName, defaultRowHeight) {

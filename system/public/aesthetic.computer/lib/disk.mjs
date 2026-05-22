@@ -11276,6 +11276,13 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 📺 A piece's DOM overlay (e.g. chat.mjs's YouTube modal) closed itself on
+  // the main thread and is letting the piece know via an act alert.
+  if (type === "youtube:modal:closed") {
+    actAlerts.push({ name: "youtube:modal:closed" });
+    return;
+  }
+
   if (type === "leave") {
     //const $api = {};
     console.log("🏃‍♂️ Leave:", content);
