@@ -28,7 +28,7 @@ for (let i = 2; i < process.argv.length; i++) {
   else { flags[a.slice(2)] = next; i++; }
 }
 
-const SLUG = flags.slug || "undabeach";
+const SLUG = flags.slug || "helpabeach";
 const SIZE = flags.size || "1080x1080";
 const ZOOM_END = Number(flags.zoom ?? 1.08);    // final zoom factor
 const FPS = Number(flags.fps ?? 30);

@@ -1,0 +1,13 @@
+# helpabeach-short — jeffrey-pvc narrator. ONE line per section, in
+# section order (tide-in … ebb). narrate.mjs says each line in
+# jeffrey-pvc and beat-aligns it to its section start. lines starting
+# with # are ignored.
+i came in today, and wow, i already feel welcome.
+signing up was so simple. everyone here is so kind.
+they're taking such good care of me. i can feel it working.
+wow. i feel so great.
+so calm, so light. i feel wonderful.
+and healthy! they say i'm perfectly healthy.
+everyone here is so generous. i feel lucky.
+thank you, rhizome health. what a day.
+i feel so much better. i feel brand new.

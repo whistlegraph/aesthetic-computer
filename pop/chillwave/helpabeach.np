@@ -1,31 +1,68 @@
-# wanderbeach — mysterious-exploration chillwave / ambient.
+# helpabeach — mysterious-exploration chillwave / ambient (~2:30).
 #
-# Key: A minor pentatonic (A C D E G) + competitive accidentals
-# (D#/Eb as a blue-fifth pushing against the tonic, F# as a leading
-# tone reaching up). The melody wanders continuously — eighth-note
-# motion, faster than typical ambient but still gentle.
+# Key: A minor pentatonic (A C D E G) + a single F# leading tone in
+# drift 2 / undertow for tension before resolution.
 #
-# Tempo: 70 BPM. Each *N is a beat (60/70 = ~0.857s).
-# Eighth-note = *1; quarter = *2; half = *4.
+# Tempo: 84 BPM. Each *N is a beat (60/84 ≈ 0.714s).
+# Eighth-note ≈ *0.5; quarter = *1; half = *2; whole = *4; sustain = *6+.
 #
-# Target total length: ~1:24 (96 beats + tail).
+# Notation extension: chord tokens are notes joined by `+`, sharing
+# one weight. Example: A4+C5+E5:_*2  →  A-minor triad held for 2 beats.
 #
 # Section markers gate which bed layers fire (waves / sweeps / shakers
-# / kick / bubbles / birds / pad / bells).
+# / kick / bubbles / birds / pad / bells). Held / structural notes
+# (durSec ≥ ~1.4s) also trigger the sub-octave DEEP bells.
+#
+# Narrative arc (instrumental — voice enters only as a faint texture
+# from deep-current, never in the opening):
+#   tide-in      — pure ocean, descending breath, low and slow, no bells
+#   drift 1      — climbing single line, ramping rhythmic density
+#   swell 1      — first peak: chord triads on downbeats
+#   deep-current — NEW: slow low register, deep bells surface
+#   drift 2      — climbing line, F# leading-tone tension
+#   undertow     — NEW: deepest/darkest, octave-down, pulled-under
+#   swell 2      — NEW: return peak, brighter, fuller chords
+#   tide-out     — resolution: ascending tonic flourish → big held Am
+#   ebb          — NEW: long ambient outro, low notes dissolving out
 
-# tide-in 4 [waves-fade-in]
-A4:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 E5:_*1 D5:_*1 C5:_*1 A4:_*2 G4:_*1 A4:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 A4:_*1
+# tide-in 6 [waves-fade-in, no-bells]
+A4:_*4 G4:_*3 E4:_*3 D4:_*4 C4:_*4 A3:_*4
 
-# drift 1 7 [waves, sweep-slow, bubbles-sparse, kick]
-E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 A5:_*2 G5:_*1 E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*2
-G5:_*1 E5:_*1 D#5:_*1 D5:_*1 C5:_*1 A4:_*1 G4:_*1 E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*2 A4:_*2 G4:_*2
+# drift 1 8 [waves, sweep-slow, bubbles-sparse, kick]
+A4:_*2 C5:_*2 D5:_*1 E5:_*1 G5:_*2 E5:_*2
+D5:_*1 C5:_*1 D5:_*2 E5:_*4
+G5:_*1 A5:_*1 G5:_*1 E5:_*1 D5:_*1 C5:_*1 A4:_*2 G4:_*2
 
-# swell 3 [filter-sweep-open, bubbles-dense, pad-bloom, kick]
-A5:_*1 G5:_*1 E5:_*1 G5:_*1 A5:_*1 G5:_*1 E5:_*1 D5:_*1 E5:_*1 G5:_*1 A5:_*1 G5:_*1
+# swell 1 5 [filter-sweep-open, bubbles-dense, pad-bloom, kick]
+A4+C5+E5:_*3 G5:_*1
+G4+B4+D5:_*3 E5:_*1
+C5+E5+G5:_*3 A5:_*1
+A4+C5+E5+A5:_*4
+
+# deep-current 7 [waves, sweep-slow, bubbles-sparse, pad-bloom]
+A3:_*4 E3:_*4 G3:_*4
+A3:_*3 C4:_*3 D4:_*4
+E3:_*4
 
 # drift 2 7 [waves, sweep-slow, bubbles-sparse, kick]
-E5:_*1 D5:_*1 C5:_*1 D5:_*1 E5:_*1 G5:_*1 A5:_*1 G5:_*1 E5:_*1 D5:_*1 C5:_*1 A4:_*1 G4:_*1 A4:_*1
-F#4:_*1 G4:_*1 A4:_*1 C5:_*1 D5:_*1 E5:_*1 D5:_*1 C5:_*1 A4:_*1 G4:_*1 A4:_*1 C5:_*1 D5:_*1 A4:_*1
+E5:_*2 D5:_*1 C5:_*1 A4:_*4
+G4:_*1 A4:_*1 C5:_*1 D5:_*1 E5:_*2 D5:_*2
+F#4:_*2 G4:_*2 A4:_*2 G4:_*2 E4:_*2
 
-# tide-out 3 [waves-fade-out, no-bells-last-4]
-E4:_*1 G4:_*1 A4:_*1 C5:_*1 D5:_*1 E4:_*1 G4:_*1 A4:_*1 A4:_*4
+# undertow 7 [waves, sweep-slow, pad-bloom]
+A3:_*4 G3:_*3 E3:_*3
+D3:_*4 F#3:_*4
+A3:_*4 E3:_*4
+
+# swell 2 5 [filter-sweep-open, bubbles-dense, pad-bloom, kick]
+A4+C5+E5:_*3 G5:_*1 A5:_*2
+C5+E5+G5:_*3 A5:_*1 G5:_*2
+A4+C5+E5+G5+A5:_*6
+
+# tide-out 6 [waves-fade-out]
+E4:_*1 A4:_*1 C5:_*1 E5:_*1 D5:_*2 C5:_*2
+A4:_*2 G4:_*2 E4:_*4
+A3+A4+C5+E5+A5:_*8
+
+# ebb 5 [waves-fade-out]
+A3:_*6 E3:_*6 A2:_*10

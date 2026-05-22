@@ -1,0 +1,25 @@
+# helpabeach — HARMONY voice line (diatonic 3rd up in A natural minor).
+#
+# Mapping (A natural minor: A B C D E F G):
+#   A → C (m3)    B → D (m3)    C → E (M3)    D → F (m3)
+#   E → G (m3)    F → A (M3)    G → B (M3)
+#
+# renderSynthVoice() sings this with the formant synth at half gain,
+# panned, on its own nonsense phonemes — the faint harmony to the lead
+# voice. NOTE + weight only; syllables ignored. Same beat structure as
+# helpabeach.vocal.np.
+
+verse 1
+G4:fin-*2 F4:-gers*1 E4:in*1 F4:the*1 C4:sand*10
+
+verse 2
+B4:the*1 G4:tide*3 F4:re-*1 E4:-mem-*1 C4:-bers*10
+
+verse 3
+G4:no-*1 F4:-thing*1 E4:in*1 F4:my*1 G4:poc-*1 F4:-ket*1 E4:but*1 C4:a*1 E4:small*2 F4:good*2 G4:thing*10
+
+verse 4
+B4:the*1 G4:green*3 F4:ma-*1 E4:-chine*1 F4:is*1 E4:brea-*1 C4:-thing*10
+
+verse 5
+F4:you*1 E4:can*2 C4:rest*4 B3:now*16

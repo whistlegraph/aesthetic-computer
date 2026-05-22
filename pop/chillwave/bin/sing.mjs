@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// chillwave/bin/sing.mjs — jeffrey-pvc SUNG vocal stem for undabeach.
+// chillwave/bin/sing.mjs — jeffrey-pvc SUNG vocal stem for helpabeach.
 //
 //   1. POST the lyric to the LOCAL say endpoint (say-local.mjs) with
 //      ElevenLabs /with-timestamps → vocal.mp3 + per-word alignment.
 //   2. alignment → words.json
 //   3. score-pitch.mjs (WORLD f0 replacement) snaps jeffrey's natural
-//      read onto undabeach.vocal.np → a soft sung performance layer.
+//      read onto helpabeach.vocal.np → a soft sung performance layer.
 //
 // Requires say-local.mjs running (node pop/chillwave/bin/say-local.mjs).
 //
@@ -33,13 +33,13 @@ const SAY_URL = process.env.SAY_ENDPOINT || "http://127.0.0.1:8899/api/say";
 
 const OUT = `${LANE}/out`;
 mkdirSync(OUT, { recursive: true });
-const VOCAL_MP3   = `${OUT}/undabeach-vocal.mp3`;
-const WORDS_JSON  = `${OUT}/undabeach-vocal-words.json`;
-const PITCHED_MP3 = `${OUT}/undabeach-vocal-pitched.mp3`;
-const VOCAL_NP    = `${LANE}/undabeach.vocal.np`;
+const VOCAL_MP3   = `${OUT}/helpabeach-vocal.mp3`;
+const WORDS_JSON  = `${OUT}/helpabeach-vocal-words.json`;
+const PITCHED_MP3 = `${OUT}/helpabeach-vocal-pitched.mp3`;
+const VOCAL_NP    = `${LANE}/helpabeach.vocal.np`;
 
-// Lyric = the content lines of undabeach.txt (skip the "whisper" tag).
-const lyric = readFileSync(`${LANE}/undabeach.txt`, "utf8")
+// Lyric = the content lines of helpabeach.txt (skip the "whisper" tag).
+const lyric = readFileSync(`${LANE}/helpabeach.txt`, "utf8")
   .split("\n").map((l) => l.trim())
   .filter((l) => l && l.toLowerCase() !== "whisper")
   .join(" ");
@@ -84,10 +84,10 @@ if (FORCE || !existsSync(VOCAL_MP3) || !existsSync(WORDS_JSON)) {
 }
 
 // ── 3. score-pitch → sung stem ───────────────────────────────────────
-console.log(`▸ score-pitch (WORLD f0 → undabeach.vocal.np · transpose ${TRANSPOSE})`);
+console.log(`▸ score-pitch (WORLD f0 → helpabeach.vocal.np · transpose ${TRANSPOSE})`);
 const r = spawnSync("node", [
   `${REPO}/pop/bin/score-pitch.mjs`,
-  "--slug", "undabeach", "--section", "all",
+  "--slug", "helpabeach", "--section", "all",
   "--score", VOCAL_NP,
   "--vocal", VOCAL_MP3,
   "--words", WORDS_JSON,
@@ -102,22 +102,22 @@ console.log(`✓ pitched → ${PITCHED_MP3.replace(REPO + "/", "")}`);
 // ── 4. score-stretch → HOLD notes on the 70 BPM beat grid ────────────
 // This is what makes it actually SUNG and beat-aligned: each word is
 // rubberband-stretched (formant-preserving, no pitch change) to its
-// target beats from undabeach.vocal.np at the track tempo, so the *5
+// target beats from helpabeach.vocal.np at the track tempo, so the *5
 // phrase-ends sustain on pitch instead of reading as fast speech.
-const BPM = String(flags.bpm ?? 70);
-const PITCHED_ALIGN = `${OUT}/undabeach-vocal-pitched-alignment.json`;
-const SUNG_MP3 = `${OUT}/undabeach-vocal-sung.mp3`;
+const BPM = String(flags.bpm ?? 84);
+const PITCHED_ALIGN = `${OUT}/helpabeach-vocal-pitched-alignment.json`;
+const SUNG_MP3 = `${OUT}/helpabeach-vocal-sung.mp3`;
 console.log(`▸ score-stretch (rubberband → ${BPM} BPM beat grid · held notes)`);
 const r2 = spawnSync("node", [
   `${REPO}/pop/bin/score-stretch.mjs`,
-  "--slug", "undabeach", "--section", "all",
+  "--slug", "helpabeach", "--section", "all",
   "--score", VOCAL_NP,
   "--in", PITCHED_MP3,
   "--alignment", PITCHED_ALIGN,
   "--bpm", BPM,
-  "--max-stretch", "8.0",
+  "--max-stretch", "12.0",
   "--out", SUNG_MP3,
 ], { cwd: `${REPO}/pop`, stdio: ["ignore", "inherit", "inherit"] });
 if (r2.status !== 0) { console.error("✗ score-stretch failed"); process.exit(1); }
 console.log(`\n✓ SUNG (beat-aligned) → ${SUNG_MP3.replace(REPO + "/", "")}`);
-console.log(`  mix:  node bin/render.mjs --slug undabeach --vocal-stem ${SUNG_MP3.replace(LANE + "/", "")}`);
+console.log(`  mix:  node bin/render.mjs --slug helpabeach --vocal-stem ${SUNG_MP3.replace(LANE + "/", "")}`);

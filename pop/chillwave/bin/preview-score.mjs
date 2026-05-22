@@ -7,7 +7,7 @@
 // in this file.
 //
 // Inputs:
-//   --slug wundabeach        (default)
+//   --slug helpabeach        (default)
 //   --cover  path-to.png      (default: out/<slug>-cover.png)
 //   --audio  path-to.mp3      (default: out/<slug>.mp3)
 //   --struct path-to.json     (default: out/<slug>.struct.json)
@@ -19,6 +19,7 @@ import { existsSync, readFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import * as progress from "../../lib/render-progress.mjs";
 import { createCanvas, loadImage } from "canvas";
 import { getNoteColorForOctave } from "../../../system/public/aesthetic.computer/lib/note-colors.mjs";
 import {
@@ -49,7 +50,7 @@ for (let i = 2; i < process.argv.length; i++) {
   else { flags[a.slice(2)] = next; i++; }
 }
 
-const SLUG   = flags.slug || "undabeach";
+const SLUG   = flags.slug || "helpabeach";
 // --portrait → vertical 9:16: 1080x1920, "-p" illustration set,
 // portrait output filename.
 const PORTRAIT = flags.portrait === true;
@@ -139,20 +140,25 @@ const LANES = [
   { key: "vox",     color: "#ff4ad8", textColor: "#7a1f63" },   // 320° magenta
 ];
 
-// Title palette — high-saturation sunlight on water: vivid yellows,
-// pure white, punchy lime/seaglass green, saturated gold.
+// Title palette — soft red / white / blue / pink pastels, the Rhizome
+// Health clinic register (no more beach-sunlight yellows).
 const TITLE_PALETTE = [
-  "#ffe600", "#ffffff", "#9cff2e", "#ffc300",
-  "#fff24a", "#5bf77c", "#ffd400", "#eaff00",
+  "#f2a6ae", "#ffffff", "#a8c4e6", "#f0c8d2",
+  "#eef0f4", "#9fb8de", "#f4d0d8", "#c9d8ef",
 ];
 
-// Section tints — pure dayglo, like the notepat neon palette.
+// Section tints — soft red/white/blue/pink pastels, one per section,
+// tracking the checkup arc. Keys MUST match struct.sections names.
 const SECTION_TINTS = {
-  "tide-in":  "rgba(255,255,80,1.0)",     // electric neon yellow
-  "drift 1":  "rgba(50,200,255,1.0)",     // electric neon cyan
-  "swell":    "rgba(255,140,0,1.0)",      // blazing neon orange
-  "drift 2":  "rgba(180,50,255,1.0)",     // UV neon purple
-  "tide-out": "rgba(50,255,120,1.0)",     // radioactive neon green
+  "tide-in":      "rgba(151,193,233,1.0)",  // pastel blue — arrival
+  "drift 1":      "rgba(240,183,200,1.0)",  // pastel pink — intake
+  "swell 1":      "rgba(240,150,148,1.0)",  // pastel coral-red — first peak
+  "deep-current": "rgba(240,236,226,1.0)",  // pastel cream-white — eye chart
+  "drift 2":      "rgba(164,191,228,1.0)",  // pastel blue — handle typed
+  "undertow":     "rgba(150,160,214,1.0)",  // soft periwinkle — the listen
+  "swell 2":      "rgba(244,168,176,1.0)",  // warm pastel pink-red — covered
+  "tide-out":     "rgba(244,240,233,1.0)",  // pastel white — wrap-up
+  "ebb":          "rgba(234,201,213,1.0)",  // soft rose — the room quiets
 };
 
 // ── pre-render YWFT title chars + lane labels + section labels ───────
@@ -1049,6 +1055,8 @@ const laneList = LANES.slice();
 // Heavily-smoothed scene-motion state (EMA across frames) so the
 // verlet vibe DISTORTS the illustration smoothly and never jumps.
 let smPunch = 0;
+// progress heartbeat → ~/.ac-pop-renders/ (Slab menubar reads it)
+progress.begin({ type: "video", label: `${SLUG}${PORTRAIT ? " ·portrait" : ""}` });
 for (let f = 0; f < FRAMES; f++) {
   const t = f / FPS;
   // Shift visual readout by AAC priming delay so blocks cross the
@@ -1172,6 +1180,7 @@ for (let f = 0; f < FRAMES; f++) {
     await new Promise((res) => ff.stdin.once("drain", res));
   }
   const pct = (f + 1) / FRAMES;
+  progress.update(pct * 100);
   if (pct >= nextLog) {
     const elapsed = (Date.now() - t0) / 1000;
     const eta = elapsed / pct - elapsed;
@@ -1183,4 +1192,5 @@ process.stdout.write("\n");
 
 ff.stdin.end();
 await new Promise((res) => ff.on("close", res));
+progress.end();
 console.log(`✓ ${OUT.replace(REPO + "/", "")}`);

@@ -23,10 +23,11 @@
 // Output: pop/chillwave/out/<slug>.mp3
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+import * as progress from "../../lib/render-progress.mjs";
 import { applyBitcrush, applyFlange } from "../../dance/synths/fx.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -77,9 +78,9 @@ for (let i = 2; i < process.argv.length; i++) {
   else { flags[a.slice(2)] = next; i++; }
 }
 
-const SLUG       = flags.slug || "undabeach";
+const SLUG       = flags.slug || "helpabeach";
 const SCORE_PATH = `${LANE}/${SLUG}.np`;
-const BPM        = Number(flags.bpm ?? 70);
+const BPM        = Number(flags.bpm ?? 84);
 const TRANSPOSE  = Number(flags.transpose ?? 0);
 const SAMPLE_RATE = 48_000;
 const OUT_PATH   = flags.out
@@ -89,8 +90,11 @@ const OUT_PATH   = flags.out
 const SOLO  = flags.layer ? String(flags.layer).toLowerCase() : null;
 const ONLY  = (name) => !SOLO || SOLO === name;
 const SKIP  = {
-  waves:   flags["no-waves"]   === true,
-  sweeps:  flags["no-sweeps"]  === true,
+  waves:    flags["no-waves"]   === true,
+  realwaves:flags["no-realwaves"] === true,
+  sweeps:   flags["no-sweeps"]  === true,
+  rollers:  flags["no-rollers"] === true,
+  highmel:  flags["no-highmel"] === true,
   bubbles: flags["no-bubbles"] === true,
   shakers: flags["no-shakers"] === true,
   birds:   flags["no-birds"]   === true,
@@ -153,18 +157,24 @@ function parseScore(path, bpm) {
       }
       continue;
     }
-    // melody token line
+    // melody token line — single note `A4:_*2` or chord stack
+    // `A4+C5+E5:_*2` (notes joined by `+`, all start on the same beat,
+    // duration advances once).
     for (const tok of t.split(/\s+/)) {
-      const m = tok.match(/^([A-Ga-g][#b]?\d):(.+?)(?:\*(\d+(?:\.\d+)?))?$/);
+      const m = tok.match(/^([A-Ga-g][#b]?\d(?:\+[A-Ga-g][#b]?\d)*):(.+?)(?:\*(\d+(?:\.\d+)?))?$/);
       if (!m) continue;
-      const note = m[1];
+      const notes = m[1].split("+");
       const weight = Number(m[3] ?? 1);
-      events.push({
-        startSec: beat_pos * beat_s,
-        midi: noteToMidi(note) + TRANSPOSE,
-        durSec: weight * beat_s,
-        section: curSection?.name ?? null,
-      });
+      const start = beat_pos * beat_s;
+      for (const note of notes) {
+        events.push({
+          startSec: start,
+          midi: noteToMidi(note) + TRANSPOSE,
+          durSec: weight * beat_s,
+          section: curSection?.name ?? null,
+          chord: notes.length > 1,
+        });
+      }
       beat_pos += weight;
     }
   }
@@ -313,6 +323,149 @@ function pinkSample(state) {
   const pink = state[0]+state[1]+state[2]+state[3]+state[4]+state[5]+state[6]+w*0.5362;
   state[6] = w * 0.115926;
   return pink * 0.11;
+}
+
+// ── 0. real waves layer (freesound CC0 ocean bed) ────────────────────
+// Loops a real wave recording across the entire track, gain-gated per
+// section. Replaces the synthesized white-noise sweeps as the primary
+// "ocean" bed; the synth wave events stay as tonal/harmonic colour on
+// top. Sample: freesound#352356 "Gentle small waves lapping on shore"
+// by Alex_hears_things (CC0) — close-mic sandy-shore lapping, the calm
+// vacation-beach surf. Cached at pop/chillwave/out/.waves.wav
+// (provenance: out/.sfx-credits.txt).
+const BEACH_SAMPLE_PATHS = [
+  `${LANE}/out/.waves.wav`,
+  `${REPO}/pop/dance/out/.waves.wav`,
+];
+const BEACH_F32_CACHE = `${LANE}/out/.waves-48k.f32`;
+
+function loadBeachSampleMono() {
+  // Find a source .wav.
+  const src = BEACH_SAMPLE_PATHS.find((p) => existsSync(p));
+  if (!src) {
+    console.warn(`     ! no beach .wav found (looked: ${BEACH_SAMPLE_PATHS.map((p) => p.replace(REPO + "/", "")).join(", ")})`);
+    return null;
+  }
+  // Decode → f32 mono @ SAMPLE_RATE once; subsequent runs reuse the cache.
+  let needDecode = !existsSync(BEACH_F32_CACHE);
+  if (!needDecode) {
+    try {
+      const a = statSync(src);
+      const b = statSync(BEACH_F32_CACHE);
+      if (b.mtimeMs < a.mtimeMs) needDecode = true;
+    } catch (_e) { needDecode = true; }
+  }
+  if (needDecode) {
+    console.log(`     beach decode → ${BEACH_F32_CACHE.replace(REPO + "/", "")}`);
+    const r = spawnSync("ffmpeg", [
+      "-hide_banner", "-y", "-loglevel", "error",
+      "-i", src, "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1",
+      BEACH_F32_CACHE,
+    ]);
+    if (r.status !== 0 || !existsSync(BEACH_F32_CACHE)) {
+      console.warn(`     ! beach decode failed (status ${r.status})`);
+      return null;
+    }
+  }
+  const buf = readFileSync(BEACH_F32_CACHE);
+  return new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+}
+
+function realWaveGainAt(tSec) {
+  // Section gain envelope — strong through drift/swell, fades on edges.
+  // The synthesized waves layer carries onset already, so this just
+  // honors the tide-in/tide-out fades.
+  const sec = sectionAt(tSec);
+  if (!sec) return 0;
+  // Prefix-matched so the expanded arrangement (swell 1/2, deep-current,
+  // undertow, ebb) all get a sensible bed level.
+  const nm = sec.name;
+  let base;
+  if      (nm.startsWith("tide-in"))  base = 0.85;
+  else if (nm.startsWith("tide-out")) base = 0.75;
+  else if (nm.startsWith("swell"))    base = 1.15;  // peaks loud
+  else if (nm.startsWith("drift"))    base = 0.98;
+  else if (nm === "deep-current")     base = 0.92;
+  else if (nm === "undertow")         base = 0.90;
+  else if (nm === "ebb")              base = 0.70;  // outro recedes
+  else                                base = 0.85;
+  // 1.6s edge fades so section transitions glide.
+  const edgeIn  = Math.min(1, (tSec - sec.startSec) / 1.6);
+  const edgeOut = Math.min(1, (sec.endSec - tSec) / 1.6);
+  const sectionEnv = Math.max(0, Math.min(edgeIn, edgeOut));
+  // Honor tide-in/tide-out wave-amp curves so the very edges of the
+  // track ease in/out instead of starting hot.
+  return base * sectionEnv * waveAmpAt(tSec);
+}
+
+function renderRealWaves() {
+  if (SKIP.realwaves) return;
+  if (SOLO && !ONLY("realwaves")) return;
+  console.log("  real waves …");
+  const beach = loadBeachSampleMono();
+  if (!beach) { console.warn(`     ! skipped — no sample`); return; }
+  const beachLen = beach.length;
+  const beachDur = beachLen / SAMPLE_RATE;
+  console.log(`     bed: ${beachDur.toFixed(1)}s sample, looped across ${LEN_SEC.toFixed(1)}s`);
+
+  // Stereo widening: read the mono sample with a tiny left/right offset
+  // (~25 ms) for a Haas pseudo-stereo bed. Mono content stays mono-ish
+  // in the middle but ocean detail spreads across the field.
+  const HAAS_MS = 25;
+  const haasOff = Math.floor(HAAS_MS * 0.001 * SAMPLE_RATE);
+  // Pitch the playback ~0.94× so the sample is a touch slower / deeper,
+  // closer to gentle surf than to crashing rocks.
+  const PITCH  = 0.94;
+  // Crossfade length when the loop wraps so the seam isn't audible.
+  const XFADE_S = 1.5;
+  const xfadeN  = Math.floor(XFADE_S * SAMPLE_RATE);
+  // Master gain for the real bed — loud enough to read as THE ocean.
+  const BED_GAIN = Number(flags["beach-gain"] ?? 0.42);
+
+  // March through outL/outR sample-by-sample. Read position in the
+  // sample wraps with a soft crossfade so the 24-second loop is
+  // imperceptible.
+  let srcPosL = 0;            // float read index, left
+  let srcPosR = beachLen / 2; // offset half a sample for variety, right
+  for (let i = 0; i < LEN_SAMP; i++) {
+    const tSec = i / SAMPLE_RATE;
+    const g = realWaveGainAt(tSec);
+    if (g > 0) {
+      // bilinear lookup, left channel
+      const il = srcPosL | 0;
+      const fl = srcPosL - il;
+      const sl0 = beach[il % beachLen];
+      const sl1 = beach[(il + 1) % beachLen];
+      let sL = sl0 * (1 - fl) + sl1 * fl;
+      // crossfade near loop seam
+      const seamL = srcPosL - (beachLen - xfadeN);
+      if (seamL > 0 && seamL < xfadeN) {
+        const u = seamL / xfadeN;
+        const iw = Math.floor(seamL + haasOff) % beachLen;
+        const xw = beach[iw];
+        sL = sL * (1 - u) + xw * u;
+      }
+      // right channel — read with tiny offset for Haas width
+      const ir = srcPosR | 0;
+      const fr = srcPosR - ir;
+      const sr0 = beach[(ir + haasOff) % beachLen];
+      const sr1 = beach[(ir + haasOff + 1) % beachLen];
+      let sR = sr0 * (1 - fr) + sr1 * fr;
+      const seamR = srcPosR - (beachLen - xfadeN);
+      if (seamR > 0 && seamR < xfadeN) {
+        const u = seamR / xfadeN;
+        const iw = Math.floor(seamR) % beachLen;
+        const xw = beach[iw];
+        sR = sR * (1 - u) + xw * u;
+      }
+      outL[i] += sL * g * BED_GAIN;
+      outR[i] += sR * g * BED_GAIN;
+    }
+    srcPosL += PITCH;
+    srcPosR += PITCH;
+    if (srcPosL >= beachLen) srcPosL -= beachLen;
+    if (srcPosR >= beachLen) srcPosR -= beachLen;
+  }
 }
 
 // ── 1. waves layer (event-composed) ──────────────────────────────────
@@ -634,9 +787,11 @@ function renderSweeps() {
     }
 
     // Quieter overall + the rhythmic wub pump (keeps a floor so it's
-    // still a bed, but clearly pulses "wub wub").
+    // still a bed, but clearly pulses "wub wub"). With the real-wave
+    // bed now carrying ocean colour, the synth white-noise sweeps drop
+    // to a thin tonal pad ~30% of the original level.
     const wubGate = 0.28 + 0.72 * wub;
-    const amp = (0.085 / gNorm) * onset * sectionEnv * wubGate;
+    const amp = (0.028 / gNorm) * onset * sectionEnv * wubGate;
     outL[i] += sumL * amp;
     outR[i] += sumR * amp;
   }
@@ -1016,6 +1171,169 @@ function renderBells() {
   }
 }
 
+// ── 5a. deep sine bells — sub-octave companion to the bell line ──────
+// A darker, rounder sine bell voiced one octave below the score. Fires
+// only on the held / structural notes (durSec ≥ MIN_DUR) so it stays
+// sparse — a deep tidal undertone, never a second melody. Strong
+// sub-octave partial, long ring, slow soft attack, near-centre with a
+// very slow drift. Leans louder through the low sections (deep-current
+// / undertow / ebb) and softer under the bright swells.
+function renderDeepBells() {
+  if (SKIP.bells) return;
+  if (SOLO && !ONLY("bells")) return;
+  console.log("  deep bells …");
+
+  const DEEP_PARTIALS = [
+    { ratio: 0.5,  amp: 0.60, decayT60: 9.5 },   // sub-octave hum
+    { ratio: 1.0,  amp: 1.00, decayT60: 7.5 },   // fundamental
+    { ratio: 2.0,  amp: 0.20, decayT60: 3.2 },
+    { ratio: 3.01, amp: 0.05, decayT60: 1.5 },
+  ];
+  const RING_TAIL = 6.5;
+  const ATTACK_S  = 0.040;
+  const DEEP_GAIN = Number(flags["deep-bell-gain"] ?? 0.30);
+  const MIN_DUR   = 1.40;            // only the held / structural notes
+
+  // One deep bell per onset — the LOWEST note of a chord cluster, so
+  // chords don't stack four sub-octave bells on the same beat.
+  const byStart = new Map();
+  for (const ev of score.events) {
+    const k = ev.startSec.toFixed(4);
+    const g = byStart.get(k);
+    if (!g) byStart.set(k, { startSec: ev.startSec, midi: ev.midi, durSec: ev.durSec });
+    else {
+      if (ev.midi < g.midi) g.midi = ev.midi;
+      if (ev.durSec > g.durSec) g.durSec = ev.durSec;
+    }
+  }
+
+  function deepPan(tSec) {
+    return 0.30 * Math.sin((2 * Math.PI / 31) * tSec + 0.7);
+  }
+  function deepNarr(tSec) {
+    const sec = sectionAt(tSec);
+    if (!sec) return 0.80;
+    if (sec.name === "deep-current") return 1.15;
+    if (sec.name === "undertow")     return 1.30;
+    if (sec.name === "ebb")          return 1.05;
+    if (sec.name.startsWith("swell")) return 0.62;
+    return 0.85;
+  }
+
+  for (const g of byStart.values()) {
+    if (g.durSec < MIN_DUR) continue;
+    const gateGain = bellGainAt(g.startSec);
+    if (gateGain <= 0.001) continue;
+    const f = midiToFreq(g.midi - 12);          // one octave below
+    const pan = deepPan(g.startSec);
+    const narr = deepNarr(g.startSec);
+    const lG = Math.cos((pan + 1) * Math.PI / 4) * Math.SQRT2;
+    const rG = Math.sin((pan + 1) * Math.PI / 4) * Math.SQRT2;
+    const startIdx = Math.floor(g.startSec * SAMPLE_RATE);
+    const ringSamp = Math.floor((g.durSec + RING_TAIL) * SAMPLE_RATE);
+    const attackSamp = ATTACK_S * SAMPLE_RATE;
+    const partials = DEEP_PARTIALS.map((p) => ({
+      omega: 2 * Math.PI * f * p.ratio / SAMPLE_RATE,
+      amp: p.amp,
+      decay: Math.exp(-Math.log(1000) / (p.decayT60 * SAMPLE_RATE)),
+    }));
+    eventLog.bells.push({ t: g.startSec, midi: g.midi - 12, dur: g.durSec, deep: true });
+    for (let i = 0; i < ringSamp; i++) {
+      const dst = startIdx + i;
+      if (dst < 0 || dst >= LEN_SAMP) break;
+      let s = 0;
+      for (const p of partials) {
+        const env = p.amp * Math.pow(p.decay, i);
+        if (env < 1e-5) continue;
+        s += Math.sin(p.omega * i) * env;
+      }
+      let att = 1;
+      if (i < attackSamp) att = 0.5 - 0.5 * Math.cos((Math.PI * i) / attackSamp);
+      const v = s * att * DEEP_GAIN * gateGain * narr;
+      outL[dst] += v * lG;
+      outR[dst] += v * rG;
+    }
+  }
+}
+
+// ── 5a-2. rollers — square-waves rolling into sines, intro only ─────
+// Plays the tide-in descending breath as additive odd-harmonic tones
+// that morph from a square (all harmonics) to a pure sine (fundamental
+// only) across the opening. Upper harmonics "roll off" highest-first,
+// like a filter slowly closing — squares rolling into sines. A slow
+// tremolo gives the rolling motion; the layer fades out into drift 1
+// so the sinebells take over cleanly. Ignores the section's no-bells
+// flag — it IS the intro voice. --no-rollers / --roller-gain to tune.
+function renderRollers() {
+  if (SKIP.rollers) return;
+  if (SOLO && !ONLY("rollers")) return;
+  const sec = score.sections.find((s) => s.name.startsWith("tide-in"));
+  if (!sec) return;
+  console.log("  rollers …");
+
+  const ROLLER_GAIN = Number(flags["roller-gain"] ?? 0.15);
+  const secStart = sec.startSec;
+  const secEnd   = sec.endSec;
+  const secDur   = Math.max(0.001, secEnd - secStart);
+  // Only the low odd harmonics — a soft rounded pulse, not a harsh
+  // buzz, so overlapping intro notes don't pile into a strange cluster.
+  const HARMS    = [1, 3, 5, 7];                   // odd → soft square
+  const TREM_HZ  = 0.22;
+  const RELEASE  = 1.1;                            // short tail, less overlap
+  const ATTACK_S = 0.60;
+
+  // harmonic k's amplitude at morph m∈[0,1]: 1/k square taper, and the
+  // harmonic fades out as m passes a death threshold — higher k die
+  // earlier, so m: 0→full square, 1→sine.
+  function harmAmp(k, m) {
+    if (k === 1) return 1;
+    const death = 1.05 - (k / 7) * 0.92;           // k7≈0.13 … k3≈0.66
+    const g = Math.max(0, Math.min(1, (death - m) / 0.22));
+    return g / k;
+  }
+
+  for (const ev of score.events) {
+    if (ev.section !== sec.name) continue;
+    const f = midiToFreq(ev.midi);
+    const startIdx = Math.floor(ev.startSec * SAMPLE_RATE);
+    const noteSamp = Math.floor(ev.durSec * SAMPLE_RATE);
+    const totSamp  = Math.floor((ev.durSec + RELEASE) * SAMPLE_RATE);
+    const atkSamp  = Math.floor(ATTACK_S * SAMPLE_RATE);
+    const pan = 0.35 * Math.sin((2 * Math.PI / 19) * ev.startSec + 0.4);
+    const lG = Math.cos((pan + 1) * Math.PI / 4) * Math.SQRT2;
+    const rG = Math.sin((pan + 1) * Math.PI / 4) * Math.SQRT2;
+    for (let i = 0; i < totSamp; i++) {
+      const dst = startIdx + i;
+      if (dst < 0 || dst >= LEN_SAMP) break;
+      const tAbs = dst / SAMPLE_RATE;
+      // morph rolls across the whole intro, smoothstepped
+      let m = Math.max(0, Math.min(1, (tAbs - secStart) / secDur));
+      m = m * m * (3 - 2 * m);
+      let s = 0;
+      const ph = f * tAbs;
+      for (const k of HARMS) {
+        const a = harmAmp(k, m);
+        if (a <= 1e-4) continue;
+        s += Math.sin(2 * Math.PI * k * ph) * a;
+      }
+      s *= 0.62;                                   // square peak → ~0.75
+      let env;
+      if (i < atkSamp) env = 0.5 - 0.5 * Math.cos((Math.PI * i) / atkSamp);
+      else if (i > noteSamp) {
+        const r = Math.min(1, (i - noteSamp) / (totSamp - noteSamp));
+        env = 0.5 + 0.5 * Math.cos(Math.PI * r);
+      } else env = 1;
+      const trem = 0.88 + 0.12 * Math.sin(2 * Math.PI * TREM_HZ * tAbs);
+      // fade the whole layer out just past the intro → hand off to bells
+      const handoff = Math.max(0, Math.min(1, (secEnd + 1.5 - tAbs) / 2.0));
+      const v = s * env * trem * ROLLER_GAIN * handoff;
+      outL[dst] += v * lG;
+      outR[dst] += v * rG;
+    }
+    eventLog.bells.push({ t: ev.startSec, midi: ev.midi, dur: ev.durSec, roller: true });
+  }
+}
+
 // ── 5b. high sung melody ─────────────────────────────────────────────
 // Very quiet, very high, long sustained "sung" tones — a slow
 // wandering A-minor-pentatonic line floating well above the bells.
@@ -1105,8 +1423,8 @@ function renderKick() {
   console.log("  kick …");
 
   const beat_s = 60.0 / BPM;
-  const KICK_GAIN = 0.32;
-  const SUB_GAIN  = 0.18;
+  const KICK_GAIN = 0.52;
+  const SUB_GAIN  = 0.22;
   const SUB_HZ    = 55.0;   // A1
   const SUB_HZ2   = 41.2;   // E1 (fifth-below for drift 2)
 
@@ -1133,10 +1451,13 @@ function renderKick() {
         let env;
         if (i < attackS) env = i / attackS;
         else env = Math.pow(0.0015, (i - attackS) / (nSamp - attackS));
-        // light sine + tiny harmonic for body
-        const s = (Math.sin(phase) + 0.12 * Math.sin(phase * 2)) * env;
-        outL[dst] += s * KICK_GAIN;
-        outR[dst] += s * KICK_GAIN;
+        // sine body + 2nd harmonic + soft drive for thicker thump,
+        // plus a 4 ms click transient at attack for presence.
+        let s = Math.sin(phase) + 0.16 * Math.sin(phase * 2);
+        s = Math.tanh(s * 1.4) * 0.85;
+        if (i < attackS) s += (1 - i / attackS) * 0.45;
+        outL[dst] += s * env * KICK_GAIN;
+        outR[dst] += s * env * KICK_GAIN;
       }
       eventLog.kick.push({ t, kind: "kick" });
       kickCount++;
@@ -1148,7 +1469,7 @@ function renderKick() {
   // then HOLDS into a long ~1.1s sub tail, soft-driven for a thick
   // thump. Lands under the half-time kick as a slow, heavy pulse and
   // visibly thumps the preview string (kick lane).
-  const BOOM_GAIN = 0.42;
+  const BOOM_GAIN = 0.66;
   let boomCount = 0;
   for (const sec of score.sections) {
     if (!sec.flags.has("kick")) continue;
@@ -1330,17 +1651,164 @@ function renderZooSamples() {
   console.log(`     zoo: ${n} sample hits`);
 }
 
+// ── computer-synth voice — formant synthesis, nonsense phonemes ─────
+// Ditches the ElevenLabs jeffrey-pvc stem entirely. A polyBLEP glottal
+// sawtooth through three RBJ bandpass formant resonators makes a vowel;
+// the voice sings the helpabeach.vocal.np note line on procedurally
+// chosen NONSENSE phonemes — soft sonorant consonant onsets (n/m/l/w/
+// y/h/ng) into diphthong vowel glides, seeded deterministically so the
+// gibberish is reproducible. Faint, and offset past the intro.
+// Flags: --no-voice · --voice-gain · --voice-start.
+const VOWELS = {            // [F1, F2, F3] Hz
+  ah: [730, 1090, 2440], ee: [270, 2290, 3010], oo: [300,  870, 2240],
+  eh: [530, 1840, 2480], oh: [570,  840, 2410], ih: [400, 1990, 2550],
+  uh: [640, 1190, 2390], aa: [660, 1720, 2410],
+};
+const VOWEL_KEYS = Object.keys(VOWELS);
+const CONSONANTS = ["", "", "n", "m", "l", "w", "y", "h", "ng"];
+
+function bandpassStep(st, x, f, Q) {
+  // RBJ bandpass biquad (constant 0 dB peak). Coeffs recomputed each
+  // sample so the formant can glide; the glide is slow → stable.
+  const w0 = 2 * Math.PI * f / SAMPLE_RATE;
+  const alpha = Math.sin(w0) / (2 * Q);
+  const a0 = 1 + alpha;
+  const y = (alpha * x - alpha * st.x2
+            + 2 * Math.cos(w0) * st.y1 - (1 - alpha) * st.y2) / a0;
+  st.x2 = st.x1; st.x1 = x;
+  st.y2 = st.y1; st.y1 = y;
+  return y;
+}
+
+function renderVoiceScore(npPath, gain, panBias, seedTag) {
+  if (!existsSync(npPath)) {
+    console.warn(`     ! voice score missing: ${npPath.replace(REPO + "/", "")}`);
+    return;
+  }
+  const vscore = parseScore(npPath, BPM);
+  if (!vscore.events.length) return;
+  const beat = 60 / BPM;
+  const vStart = Math.round(Number(flags["voice-start"] ?? 47) / beat) * beat;
+  const vrng = makeRng(`${SLUG}:voice:${seedTag}`);
+  const fAmp = [1.0, 0.55, 0.26];
+
+  for (const ev of vscore.events) {
+    const startSec = ev.startSec + vStart;
+    const f0base = midiToFreq(ev.midi);
+    const dur = ev.durSec;
+    const startIdx = Math.floor(startSec * SAMPLE_RATE);
+    const noteSamp = dur * SAMPLE_RATE;
+    const total = Math.floor((dur + 0.40) * SAMPLE_RATE);
+
+    // pick a nonsense phoneme: consonant onset + two vowels (diphthong)
+    const cons = CONSONANTS[(vrng() * CONSONANTS.length) | 0];
+    const vA = VOWEL_KEYS[(vrng() * VOWEL_KEYS.length) | 0];
+    let vB = VOWEL_KEYS[(vrng() * VOWEL_KEYS.length) | 0];
+    if (vB === vA) vB = VOWEL_KEYS[(VOWEL_KEYS.indexOf(vA) + 3) % VOWEL_KEYS.length];
+    let cVowel = null, nasal = false, breath = false, consDur = 0;
+    if      (cons === "w")  { cVowel = "oo"; consDur = 0.10; }
+    else if (cons === "y")  { cVowel = "ee"; consDur = 0.09; }
+    else if (cons === "l")  { cVowel = "eh"; consDur = 0.07; }
+    else if (cons === "n" || cons === "m" || cons === "ng") { nasal = true; consDur = 0.08; }
+    else if (cons === "h")  { breath = true; consDur = 0.07; }
+    const consSamp = consDur * SAMPLE_RATE;
+
+    const F = [{x1:0,x2:0,y1:0,y2:0},{x1:0,x2:0,y1:0,y2:0},{x1:0,x2:0,y1:0,y2:0}];
+    const NZ = {x1:0,x2:0,y1:0,y2:0};
+    let phase = 0, nz = 0;
+    const vibHz = 4.6 + vrng() * 0.9;
+    const pan = Math.max(-0.82, Math.min(0.82,
+      panBias + 0.26 * Math.sin((2 * Math.PI / 13) * startSec + 0.5)));
+    const lG = Math.cos((pan + 1) * Math.PI / 4) * Math.SQRT2;
+    const rG = Math.sin((pan + 1) * Math.PI / 4) * Math.SQRT2;
+    const cOrigin = VOWELS[cVowel || vA];
+
+    for (let i = 0; i < total; i++) {
+      const dst = startIdx + i;
+      if (dst < 0 || dst >= LEN_SAMP) break;
+      const tt = i / SAMPLE_RATE;
+      // pitch — gentle vibrato (delayed onset) + a faint slow drift
+      const vibOn = Math.min(1, tt / 0.5);
+      const f0 = f0base * (1 + 0.011 * vibOn * Math.sin(2 * Math.PI * vibHz * tt));
+      // polyBLEP sawtooth glottal source (alias-suppressed)
+      const dt = f0 / SAMPLE_RATE;
+      phase += dt;
+      if (phase >= 1) phase -= 1;
+      let src = 2 * phase - 1;
+      if (phase < dt) { const t = phase / dt; src -= t + t - t * t - 1; }
+      else if (phase > 1 - dt) { const t = (phase - 1) / dt; src -= t * t + t + t + 1; }
+      // formant targets: consonant onset glide → vowel A → vowel B
+      let f1, f2, f3, amp;
+      if (i < consSamp) {
+        const cu = i / consSamp;
+        const base = nasal ? [270, 1350, 2400] : cOrigin;
+        const T = VOWELS[vA];
+        f1 = base[0] + (T[0] - base[0]) * cu;
+        f2 = base[1] + (T[1] - base[1]) * cu;
+        f3 = base[2] + (T[2] - base[2]) * cu;
+        amp = (nasal ? 0.5 : 0.45) + (nasal ? 0.5 : 0.55) * cu;
+      } else {
+        const su = Math.min(1, (i - consSamp) / Math.max(1, total - consSamp));
+        const gu = su * su * (3 - 2 * su);
+        const A = VOWELS[vA], B = VOWELS[vB];
+        f1 = A[0] + (B[0] - A[0]) * gu;
+        f2 = A[1] + (B[1] - A[1]) * gu;
+        f3 = A[2] + (B[2] - A[2]) * gu;
+        amp = 1;
+      }
+      // a faint slow formant shimmer keeps long holds alive
+      const shim = 1 + 0.025 * Math.sin(2 * Math.PI * 0.7 * tt + 1.1);
+      f1 *= shim;
+      // amplitude envelope — soft attack, sustain, soft release
+      const atk = 0.06 * SAMPLE_RATE;
+      let env;
+      if (i < atk) env = i / atk;
+      else if (i > noteSamp) env = Math.max(0, 1 - (i - noteSamp) / (total - noteSamp));
+      else env = 1;
+      // three parallel formant bandpasses
+      let v = bandpassStep(F[0], src, f1, f1 / 80) * fAmp[0]
+            + bandpassStep(F[1], src, f2, f2 / 110) * fAmp[1]
+            + bandpassStep(F[2], src, f3, f3 / 150) * fAmp[2];
+      // nasal murmur pole / breath noise during the consonant onset
+      if (nasal && i < consSamp) {
+        v += bandpassStep(NZ, src, 270, 4.5) * 0.45 * (1 - i / consSamp);
+      } else if (breath && i < consSamp) {
+        nz = 0.96 * nz + 0.04 * (vrng() * 2 - 1);
+        v += nz * 5 * (1 - i / consSamp);
+      }
+      const s = v * env * amp * gain;
+      outL[dst] += s * lG;
+      outR[dst] += s * rG;
+    }
+    eventLog.vox.push({ t: startSec, name: `phon:${cons}${vA}-${vB}`, midi: ev.midi, dur });
+  }
+}
+
+function renderSynthVoice() {
+  if (flags["no-voice"] === true) return;
+  if (SOLO && !ONLY("vox")) return;
+  console.log("  synth voice (formant · nonsense phonemes) …");
+  const g = Number(flags["voice-gain"] ?? 0.22);
+  renderVoiceScore(`${LANE}/${SLUG}.vocal.np`, g, 0.0, "lead");
+  renderVoiceScore(`${LANE}/${SLUG}.vocal-harmony.np`, g * 0.5, 0.5, "harm");
+}
+
 // ── render everything (per-lane buffers captured via renderLane) ────
 // renderLane swaps in a fresh buffer per layer so we can save a
 // downsampled-mono copy for the preview-score visualizer to use as
 // each lane's actual mix volume display.
-renderLane("waves",   renderWaves);
+// progress heartbeat → ~/.ac-pop-renders/ (Slab menubar reads it)
+progress.begin({ type: "audio", label: SLUG });
+renderLane("waves",   () => { renderRealWaves(); renderWaves(); });
 renderLane("hat",     () => { renderSweeps(); renderShakers(); });
 renderLane("kick",    () => { renderKick(); renderSnare(); });  // kick+sub+snare
+progress.update(45);
 renderLane("sub",     () => {});            // sub is mixed inside kick; placeholder
-renderLane("bells",   () => { renderPad(); renderBells(); renderHighMelody(); });
+renderLane("bells",   () => { renderPad(); renderBells(); renderDeepBells(); renderRollers(); renderHighMelody(); });
 renderLane("bubbles", renderBubbles);
 renderLane("birds",   () => { renderBirds(); renderZooSamples(); });
+renderLane("vox",     renderSynthVoice);
+progress.update(80);
 
 // ── coming-in-from-the-sea FX ─────────────────────────────────────────
 // Bitcrush + flange ramp at the start (heavy → clean over ~3s) so the
@@ -1425,9 +1893,12 @@ function mixChime(startSec, notes, dir) {
 }
 // With the typing intro the boot chime plays in the PRE-ROLL, BEFORE
 // the typing (see the pre-roll block). Without the intro it sits at
-// the very start of the track as before.
-if (flags["no-type-intro"] === true) mixChime(0.05, BOOT_NOTES, "boot");
-mixChime(Math.max(0, LEN_SEC - 2.2), SHUT_NOTES, "shutdown");
+// the very start of the track as before. --no-chimes drops both the
+// boot and shutdown beeps entirely — chillwave/ambient masters want a
+// clean ocean fade, no UI sfx.
+const CHIMES = flags["no-chimes"] !== true;
+if (CHIMES && flags["no-type-intro"] === true) mixChime(0.05, BOOT_NOTES, "boot");
+if (CHIMES) mixChime(Math.max(0, LEN_SEC - 2.2), SHUT_NOTES, "shutdown");
 
 // ── jeffrey-pvc SUNG vocal (beat-aligned stem) — lead, ducks the bed ──
 // The stem is already score-pitch'd + score-stretched (held notes on
@@ -1445,7 +1916,7 @@ if (flags["vocal-stem"]) {
     const vGain = Number(flags["vocal-gain"] ?? 1.5);    // lead-loud
     const DUCK  = Number(flags["vocal-duck"] ?? 0.62);   // bed dips ~ -8dB
     const beat  = 60 / BPM;
-    const reqStart = Number(flags["vocal-start"] ?? beat * 8); // ~bar 3
+    const reqStart = Number(flags["vocal-start"] ?? 0); // ride the full track
     const vStart = Math.round(reqStart / beat) * beat;   // snap to beat
     const vt = mkdtempSync(`${tmpdir()}/cw-vox-`);
     const vraw = `${vt}/vox.f32`;
@@ -1493,6 +1964,59 @@ if (flags["vocal-stem"]) {
   }
 }
 
+// ── jeffrey-pvc HARMONY vocals — parallel-3rd, octave-up, etc. ───────
+// Comma-separated list of stem paths. No bed-ducking (lead already
+// ducks); each layer mixes at reduced gain with alternating pan offset
+// so the harmony spreads around the lead instead of stacking centred.
+if (flags["vocal-harmony"]) {
+  const harmList = String(flags["vocal-harmony"]).split(",").map((s) => s.trim()).filter(Boolean);
+  const hGainBase = Number(flags["harmony-gain"] ?? 0.75);
+  const beat = 60 / BPM;
+  const reqStart = Number(flags["vocal-start"] ?? beat * 8);
+  const vStart = Math.round(reqStart / beat) * beat;
+  harmList.forEach((rel, hi) => {
+    const cand = [resolve(process.cwd(), rel), `${LANE}/${rel}`, rel];
+    const stemPath = cand.find((p) => existsSync(p));
+    if (!stemPath) { console.error(`✗ --vocal-harmony[${hi}] not found: ${rel}`); return; }
+    const ht = mkdtempSync(`${tmpdir()}/cw-harm-`);
+    const hraw = `${ht}/harm.f32`;
+    const hr = spawnSync("ffmpeg", [
+      "-hide_banner", "-y", "-loglevel", "error",
+      "-i", stemPath, "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "1",
+      hraw,
+    ]);
+    if (hr.status === 0 && existsSync(hraw)) {
+      const rb = readFileSync(hraw);
+      const src = new Float32Array(rb.buffer, rb.byteOffset, rb.byteLength / 4);
+      let pk = 1e-6;
+      for (let i = 0; i < src.length; i++) { const a = Math.abs(src[i]); if (a > pk) pk = a; }
+      const norm = 0.97 / pk;
+      // alternate pans: harmony spreads wide around the centre lead.
+      const panAmt = 0.65 * (hi % 2 === 0 ? 1 : -1) * (1 + Math.floor(hi / 2) * 0.4);
+      const lG = Math.cos((panAmt + 1) * Math.PI / 4) * Math.SQRT2;
+      const rG = Math.sin((panAmt + 1) * Math.PI / 4) * Math.SQRT2;
+      const startIdx = Math.floor(vStart * SAMPLE_RATE);
+      const fadeS = Math.floor(0.10 * SAMPLE_RATE);
+      const hGain = hGainBase * Math.pow(0.85, hi);   // each layer ~15% softer than the last
+      for (let i = 0; i < src.length; i++) {
+        const j = startIdx + i;
+        if (j < 0 || j >= LEN_SAMP) break;
+        const x = src[i] * norm;
+        let fade = 1;
+        if (i < fadeS) fade = i / fadeS;
+        else if (i > src.length - fadeS) fade = Math.max(0, (src.length - i) / fadeS);
+        const v = x * hGain * fade;
+        outL[j] += v * lG;
+        outR[j] += v * rG;
+      }
+      console.log(`  vocal: HARMONY[${hi}] ${rel.split("/").pop()} · gain ${hGain.toFixed(2)} · pan ${panAmt.toFixed(2)} · ${(src.length / SAMPLE_RATE).toFixed(1)}s`);
+    } else {
+      console.error(`✗ harmony decode failed: ${rel}`);
+    }
+    rmSync(ht, { recursive: true, force: true });
+  });
+}
+
 // fade-in (0.4s) + fade-out (last 2.5s) so neither end clicks
 const FADE_IN_SEC  = 0.4;
 const FADE_OUT_SEC = 2.5;
@@ -1516,7 +2040,11 @@ for (let i = 0; i < fadeOutSamp; i++) {
 // event/section/lane-buffer shifts by PREROLL_SEC so nothing internal
 // needs rewriting. preview-score draws the prompt during
 // [0, PREROLL_SEC): beeps, then typing.
-const TYPE_INTRO = flags["no-type-intro"] !== true;
+// Typing/boot-chime preroll is for VIDEO cuts only — audio masters
+// ship clean. Pass --type-intro to opt back in (e.g. when bin/preview-score.mjs
+// is generating a video) or set DEFAULT_TYPE_INTRO=true env override.
+const TYPE_INTRO = flags["type-intro"] === true
+  || (flags["no-type-intro"] !== true && process.env.DEFAULT_TYPE_INTRO === "true");
 const PREROLL_SEC = TYPE_INTRO ? 3.0 : 0;
 const prerollSamp = Math.round(PREROLL_SEC * SAMPLE_RATE);
 let FINAL_SAMP = LEN_SAMP + prerollSamp;
@@ -1686,3 +2214,4 @@ const struct = {
 const structPath = OUT_PATH.replace(/\.mp3$/, ".struct.json");
 writeFileSync(structPath, JSON.stringify(struct, null, 2));
 console.log(`✓ ${structPath}  (${Object.values(eventLog).reduce((n, l) => n + l.length, 0)} events, ${Object.keys(laneBuffers).length} lane buffers)`);
+progress.end();

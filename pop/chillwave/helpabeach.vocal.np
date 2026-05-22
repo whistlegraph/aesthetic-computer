@@ -1,22 +1,24 @@
-# undabeach — jeffrey-pvc sung vocal melody.
+# helpabeach — voice melody (note line for the formant synth voice).
 # notation: NOTE:syllable*weight   (-prefix continues a word / melisma)
-# key: A minor pentatonic (A C D E G), octave 3-4 — UP an octave from
-# the first take so it reads clearly as SINGING in jeffrey-pvc's upper
-# baritone, melodic and bright over the chillwave bed. score-pitch
-# replaces f0 to these notes; score-stretch holds them on the 70 BPM
-# beat grid. Sections are "verse N" for score-* --section all.
+# key: A minor pentatonic (A C D E G), octave 3-4.
+#
+# The ElevenLabs jeffrey-pvc vocal was dropped — render.mjs now sings
+# this line with renderSynthVoice() (formant synthesis). Only the NOTE
+# + weight are read; the syllables are ignored, the voice sings
+# procedurally-generated NONSENSE phonemes. The verse markers and the
+# legacy score-pitch / score-stretch / sing.mjs path are unused now.
 
 verse 1
-E4:fin-*2 D4:-gers*1 C4:in*1 D4:the*1 A3:sand*5
+E4:fin-*2 D4:-gers*1 C4:in*1 D4:the*1 A3:sand*10
 
 verse 2
-G4:the*1 E4:tide*3 D4:re-*1 C4:-mem-*1 A3:-bers*5
+G4:the*1 E4:tide*3 D4:re-*1 C4:-mem-*1 A3:-bers*10
 
 verse 3
-E4:no-*1 D4:-thing*1 C4:in*1 D4:my*1 E4:poc-*1 D4:-ket*1 C4:but*1 A3:a*1 C4:small*2 D4:good*2 E4:thing*5
+E4:no-*1 D4:-thing*1 C4:in*1 D4:my*1 E4:poc-*1 D4:-ket*1 C4:but*1 A3:a*1 C4:small*2 D4:good*2 E4:thing*10
 
 verse 4
-G4:the*1 E4:green*3 D4:ma-*1 C4:-chine*1 D4:is*1 C4:brea-*1 A3:-thing*5
+G4:the*1 E4:green*3 D4:ma-*1 C4:-chine*1 D4:is*1 C4:brea-*1 A3:-thing*10
 
 verse 5
-D4:you*1 C4:can*2 A3:rest*3 G3:now*6
+D4:you*1 C4:can*2 A3:rest*4 G3:now*16

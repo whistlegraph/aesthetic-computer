@@ -257,11 +257,11 @@ export const MENU = {
         license: "CC0", url: "https://freesound.org/s/581467/",
         blurb: "sampled low tom — the 3/4 beat (replaced the synth kick)",
       },
-      "undabeach-ocean": {
+      "helpabeach-ocean": {
         lane: "chillwave", file: "chillwave/out/.waves.wav (gitignored)",
         source: "freesound #352356 — “Gentle small waves lapping on shore.wav” by Alex_hears_things",
         license: "CC0", url: "https://freesound.org/s/352356/",
-        blurb: "close-mic calm sandy-shore lapping — the undabeach ocean bed",
+        blurb: "close-mic calm sandy-shore lapping — the helpabeach ocean bed",
       },
     },
   },

@@ -1,0 +1,35 @@
+# helpabeach-short — compressed "story cut" of helpabeach (~1:17).
+#
+# Same 9 sections as helpabeach.np, each roughly half-length, so the
+# 9 illustration panels still map 1:1 but the whole arc fits the
+# IG-story format. The jeffrey-pvc narrator (see helpabeach-short.
+# narration.txt) raps one beat-aligned line per section over this.
+#
+# Key: A minor pentatonic. Tempo: 84 BPM. 104 beats ≈ 74s music.
+
+# tide-in 12 [waves-fade-in, no-bells]
+A4:_*3 G4:_*2 E4:_*2 D4:_*2 C4:_*3
+
+# drift 1 14 [waves, sweep-slow, bubbles-sparse, kick]
+A4:_*2 C5:_*2 E5:_*2 D5:_*1 C5:_*1 G5:_*2 E5:_*2 A4:_*2
+
+# swell 1 10 [filter-sweep-open, bubbles-dense, pad-bloom, kick]
+A4+C5+E5:_*3 G5:_*1 G4+B4+D5:_*3 A5:_*3
+
+# deep-current 12 [waves, sweep-slow, bubbles-sparse, pad-bloom]
+A3:_*4 E3:_*4 G3:_*4
+
+# drift 2 12 [waves, sweep-slow, bubbles-sparse, kick]
+E5:_*2 D5:_*1 C5:_*1 A4:_*4 F#4:_*2 G4:_*2
+
+# undertow 12 [waves, sweep-slow, pad-bloom]
+A3:_*4 G3:_*2 E3:_*2 D3:_*4
+
+# swell 2 10 [filter-sweep-open, bubbles-dense, pad-bloom, kick]
+A4+C5+E5:_*3 G5:_*1 C5+E5+G5:_*3 A4+C5+E5+A5:_*3
+
+# tide-out 12 [waves-fade-out]
+E4:_*1 A4:_*1 C5:_*2 D5:_*2 A3+A4+C5+E5+A5:_*6
+
+# ebb 10 [waves-fade-out]
+A3:_*4 E3:_*3 A2:_*3
