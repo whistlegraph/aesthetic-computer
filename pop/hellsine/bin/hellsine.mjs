@@ -43,6 +43,7 @@ for (let i = 0; i < argv.length; i++) {
 const SR = 48_000;
 const BPM = Number(flags.bpm ?? 182);
 const HELL = Number(flags.hell ?? 11);          // base gabber drive ("hell knob")
+const NOKICK = !!flags.nokick;                  // --nokick: drop the kick + its ducking
 const SEED_STR = flags.seed || "hellsine";
 const OUT = flags.out || `${process.env.HOME}/Documents/Working Desktop/hellsine/.hellsine-pre.wav`;
 const STRUCT = flags.struct || `${OUT.replace(/\.wav$/, "")}.assets/struct.json`;
@@ -93,6 +94,186 @@ const BTHEME = [
   [2, 2], [0, 1], [-2, 1],
   [0, 4],
 ];
+
+// ── the countermelody ─────────────────────────────────────────────────
+// An independent 8-bar horn line set AGAINST the principal THEME (not a
+// unison double). Tenor register, semitone offsets from D4. The rule of
+// the line: hold long tones where the theme is busy (bars 1, 2, 5), and
+// move — arpeggiated flourishes — where the theme sustains (bars 3, 6,
+// 7, 8). Chord-tone consonant; contrary motion into the cadences.
+const COUNTER = [
+  [-9, 2], [-5, 2],                       // 1 Dm — F3 .  A3 .   held under the call
+  [-5, 2], [-9, 2],                       // 2 Dm — A3 .  F3 .   descent under the swell
+  [-12, 1], [-9, 1], [-4, 2],             // 3 Bb — D3 F3 Bb3 .  moves under held F4
+  [-9, 1], [-7, 1], [-5, 2],              // 4 Bb — F3 G3 A3 .   rises under held D4
+  [-5, 2], [-2, 2],                       // 5 F  — A3 .  C4 .   long tones under the climb
+  [-9, 1], [-5, 1], [-2, 1], [-5, 1],     // 6 F  — F3 A3 C4 A3  flourish under the apex
+  [-7, 1], [-10, 1], [-2, 2],             // 7 C  — G3 E3 C4 .   under the held A4
+  [-10, 2], [-7, 1], [-5, 1],             // 8 C  — E3 .  G3 A3  carries the cadence home
+];
+
+// ── radical melodic-variation strategies ──────────────────────────────
+// --strategy <name> applies a transform to the principal leitmotif. The
+// B-theme, chords + form stay fixed — a constant frame to A/B the
+// variation against. Every transform PRESERVES the theme's 32-beat /
+// 8-bar length, so it drops straight into the section loop. "none" = the
+// composed track. 16 strategies, deliberately extreme:
+//   inversion        melodic mirror — every interval flipped
+//   retrograde       the theme played backwards
+//   retro-inversion  backwards AND upside-down
+//   interval-x2      every interval doubled — contour blown wide open
+//   interval-half    every interval halved — contour collapsed to a chant
+//   octave-scatter   each note hurled into a random octave
+//   whole-tone       re-quantized to the whole-tone scale (no tonic)
+//   chromatic-climb  pitches replaced by a relentless chromatic spiral
+//   phrygian         recolored to D-phrygian (the dark "metal" mode)
+//   mirror-canon     theme + its live inversion, simultaneously
+//   stretto          the theme chases itself an octave down, one bar late
+//   crab-canon       theme forward + theme backward, at once
+//   scramble         the pitch sequence shuffled (rhythm intact)
+//   slow-motion      note-pairs fused — the theme in augmentation
+//   double-time      every note split in two — frantic diminution
+//   atonal           pitches fully randomized — melody to pitched chaos
+const STRATEGY = flags.strategy || "none";
+const sRng = makeRng("hellsine-strat:" + STRATEGY);
+const sShuffle = (a) => {
+  const r = a.slice();
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(sRng() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+};
+// scale-aware helpers for the busier-melody set (D natural minor)
+const DMIN = [0, 2, 3, 5, 7, 8, 10];
+const inDmin = (o) => DMIN.includes(((o % 12) + 12) % 12);
+const scaleStep = (o, dir) => { let x = o + dir; for (let i = 0; i < 12 && !inDmin(x); i++) x += dir; return x; };
+// busier-melody transforms — each DENSIFIES the leitmotif (more, shorter
+// notes) while preserving its 32-beat / 8-bar total length:
+//   ornament    a passing tone threaded after each note
+//   arpeggiate  each note bursts into a 4-note triad figure
+//   sixteenths  every note subdivided into a 16th-note run
+//   turns       a classical 4-note turn on each note
+//   run-fill    long notes filled with rising scalar runs
+//   tremolo     strict rapid alternation with the upper neighbour
+//   perpetual   nonstop 8th-note motion off theme + chord tones
+//   mordent     a fast grace-note flick at each note's onset
+function sOrnament(t) {
+  const r = [];
+  t.forEach(([o, d], i) => {
+    const nxt = t[i + 1] ? t[i + 1][0] : o;
+    if (d >= 1) { r.push([o, d * 0.75]); r.push([scaleStep(o, nxt >= o ? 1 : -1), d * 0.25]); }
+    else r.push([o, d]);
+  });
+  return r;
+}
+function sArpeggiate(t) {
+  const r = [];
+  for (const [o, d] of t) {
+    const b = scaleStep(scaleStep(o, 1), 1), c = scaleStep(scaleStep(b, 1), 1);
+    const seq = [o, b, c, b], dd = d / 4;
+    for (let k = 0; k < 4; k++) r.push([seq[k], dd]);
+  }
+  return r;
+}
+function sSixteenths(t) {
+  const r = [];
+  for (const [o, d] of t) {
+    const n = Math.max(1, Math.round(d * 4)), dd = d / n;
+    for (let k = 0; k < n; k++) r.push([k % 2 ? scaleStep(o, 1) : o, dd]);
+  }
+  return r;
+}
+function sTurns(t) {
+  const r = [];
+  for (const [o, d] of t) {
+    const seq = [scaleStep(o, 1), o, scaleStep(o, -1), o], dd = d / 4;
+    for (let k = 0; k < 4; k++) r.push([seq[k], dd]);
+  }
+  return r;
+}
+function sRunFill(t) {
+  const r = [];
+  for (const [o, d] of t) {
+    if (d >= 2) {
+      const n = Math.round(d / 0.5), dd = d / n;
+      let p = o;
+      for (let k = 0; k < n; k++) { r.push([p, dd]); p = scaleStep(p, 1); }
+    } else r.push([o, d]);
+  }
+  return r;
+}
+function sTremolo(t) {
+  const r = [];
+  for (const [o, d] of t) {
+    const n = Math.max(2, Math.round(d * 4)), dd = d / n, hi = scaleStep(o, 1);
+    for (let k = 0; k < n; k++) r.push([k % 2 ? hi : o, dd]);
+  }
+  return r;
+}
+function sPerpetual(t) {
+  const r = [];
+  for (const [o, d] of t) {
+    const n = Math.max(1, Math.round(d * 2)), dd = d / n;
+    const b = scaleStep(scaleStep(o, 1), 1), c = scaleStep(scaleStep(b, 1), 1);
+    const seq = [o, b, c];
+    for (let k = 0; k < n; k++) r.push([seq[k % 3], dd]);
+  }
+  return r;
+}
+function sMordent(t) {
+  const r = [];
+  for (const [o, d] of t) {
+    if (d >= 0.5) { r.push([o, 0.08]); r.push([scaleStep(o, 1), 0.08]); r.push([o, d - 0.16]); }
+    else r.push([o, d]);
+  }
+  return r;
+}
+const STRATEGIES = {
+  none:              (t) => t,
+  inversion:         (t) => t.map(([o, d]) => [-o, d]),
+  retrograde:        (t) => [...t].reverse(),
+  "retro-inversion": (t) => [...t].reverse().map(([o, d]) => [-o, d]),
+  "interval-x2":     (t) => t.map(([o, d]) => [o * 2, d]),
+  "interval-half":   (t) => t.map(([o, d]) => [Math.round(o / 2), d]),
+  "octave-scatter":  (t) => t.map(([o, d]) => [o + (Math.floor(sRng() * 4) - 1) * 12, d]),
+  "whole-tone":      (t) => t.map(([o, d]) => [2 * Math.round(o / 2), d]),
+  "chromatic-climb": (t) => t.map(([, d], i) => [((i * 2) % 26) - 7, d]),
+  phrygian:          (t) => t.map(([o, d]) => [(((o % 12) + 12) % 12) === 2 ? o - 1 : o, d]),
+  "mirror-canon":    (t) => t,           // COUNTER_V becomes the live inversion
+  stretto:           (t) => t,           // a 2nd entry chases it (brass branch)
+  "crab-canon":      (t) => t,           // COUNTER_V becomes the retrograde
+  scramble:          (t) => { const o = sShuffle(t.map((x) => x[0])); return t.map(([, d], i) => [o[i], d]); },
+  "slow-motion":     (t) => { const r = []; for (let i = 0; i < t.length; i += 2) r.push(i + 1 < t.length ? [t[i][0], t[i][1] + t[i + 1][1]] : t[i]); return r; },
+  "double-time":     (t) => { const r = []; t.forEach(([o, d], i) => { r.push([o, d / 2]); r.push([o + (i % 2 ? 2 : -2), d / 2]); }); return r; },
+  atonal:            (t) => t.map(([, d]) => [Math.floor(sRng() * 22) - 7, d]),
+  ornament: sOrnament, arpeggiate: sArpeggiate, sixteenths: sSixteenths,
+  turns: sTurns, "run-fill": sRunFill, tremolo: sTremolo,
+  perpetual: sPerpetual, mordent: sMordent,
+};
+const applyStrat = STRATEGIES[STRATEGY] || STRATEGIES.none;
+const THEME_V = applyStrat(THEME);
+let COUNTER_V = COUNTER;
+if (STRATEGY === "mirror-canon") COUNTER_V = THEME.map(([o, d]) => [-o, d]);
+else if (STRATEGY === "crab-canon") COUNTER_V = [...THEME].reverse();
+
+// --strategy ultimate — the composed-through showcase: a different
+// technique per section, and per restatement inside the brass sections,
+// so the leitmotif accumulates ornamentation as the arc escalates, then
+// returns home plain. The horn counterpoint runs under it throughout;
+// the climax swaps the counter for an octave-down stretto canon.
+const ULTIMATE = STRATEGY === "ultimate";
+const ULTIMATE_MAP = {
+  overture:  ["none"],                                   // bare hint
+  statement: ["none", "ornament", "turns"],              // stated, then ornamented
+  develop:   ["sixteenths"],                             // busy fragmentation
+  climax:    ["arpeggiate", "double-time", "sixteenths"], // maximal density
+  coda:      ["none"],                                   // resolve home, plain
+};
+const ultThemeAt = (name, lp = 0) => {
+  const seq = ULTIMATE_MAP[name] || ["none"];
+  return (STRATEGIES[seq[Math.min(lp, seq.length - 1)]] || STRATEGIES.none)(THEME);
+};
 
 // ── chords (low register, root/third/fifth as sines) ──────────────────
 const CHORD = {
@@ -213,6 +394,7 @@ function playSample(t, buf, gain = 1, opt = {}) {
 // bass pressure filling the hole. Still pure sine, still saturated for
 // hardcore body, just stripped of its bright attack.
 function kick(t, drive = HELL, gain = 1) {
+  if (NOKICK) return;                        // --nokick: melodies fully exposed
   const dur = 0.55;                          // longer body (was 0.26)
   const pStart = 180, pEnd = 28;             // start lower, end deep-sub (was 240→47)
   const pT = 0.080;                          // slow pitch sweep (was 0.034)
@@ -256,8 +438,8 @@ function kick(t, drive = HELL, gain = 1) {
 // snap. tanh fuses body + crack into one hardcore backbeat hit. The
 // HOLE kick deliberately drops its transient; the snare carries it.
 function snare(t, gain = 0.5, opt = {}) {
-  const dur = 0.22, bodyF = opt.bodyF || 188;
-  const nV = 64, fMin = 1500, fMax = 8200;
+  const dur = 0.30, bodyF = opt.bodyF || 150;
+  const nV = 64, fMin = 900, fMax = 4200;
   const freqs = new Float64Array(nV), phs = new Float64Array(nV);
   for (let i = 0; i < nV; i++) {
     const u = (i + rng()) / nV;
@@ -269,13 +451,13 @@ function snare(t, gain = 0.5, opt = {}) {
     // body — detuned sine pair with a short downward pitch blip
     const pf = bodyF * (1 + 0.6 * Math.exp(-lt / 0.012));
     const body = (Math.sin(TAU * pf * lt) + 0.7 * Math.sin(TAU * pf * 1.48 * lt))
-               * Math.exp(-lt / 0.055);
+               * Math.exp(-lt / 0.068);
     // crack — additive-sine noise, sharp attack, fast decay
     let noise = 0;
     for (let i = 0; i < nV; i++) noise += Math.sin(TAU * freqs[i] * lt + phs[i]);
-    const crackEnv = (1 - Math.exp(-lt / 0.0008)) * Math.exp(-lt / 0.058);
-    let x = body * 0.85 + noise * norm * crackEnv * 1.15;
-    x = Math.tanh(x * 1.7);                        // hardcore glue
+    const crackEnv = (1 - Math.exp(-lt / 0.0008)) * Math.exp(-lt / 0.040);
+    let x = body * 0.9 + noise * norm * crackEnv * 0.5;
+    x = Math.tanh(x * 1.5);                        // hardcore glue — body-forward, deep
     const v = x * gain * Math.min(1, lt / 0.0006);
     return [v * 0.97, v];                          // faint stereo widen
   }, dur);
@@ -321,8 +503,10 @@ function sub(t, dur, midi, gain = 0.5) {
   write(t, (lt) => {
     const a = Math.min(1, lt / 0.008) * Math.exp(-Math.max(0, lt - (dur - 0.06)) / 0.04);
     const d = DUCK[Math.min(N - 1, Math.floor((t + lt) * SR))];
-    let x = Math.sin(TAU * f * lt);
-    x = Math.tanh(x * 1.6) * 0.7;                 // gentle sine drive
+    // fundamental + a touch of 2nd harmonic, then driven hard for a
+    // deep, FELT pressure-bass — audible on small speakers, not just felt
+    let x = Math.sin(TAU * f * lt) + 0.3 * Math.sin(TAU * f * 2 * lt);
+    x = Math.tanh(x * 2.05) * 0.88;               // deep pressure drive
     const v = x * a * d * gain;
     return [v, v];
   }, dur);
@@ -431,6 +615,7 @@ for (const sec of PLAN) {
     const ch = CHORD[cyc(sec.chords, b)];
     const root = ch.root + tr;
     const padGain = sec.name === "overture" || sec.name === "coda" ? 0.085 : 0.072;
+    const tier = Math.floor(b / 8);              // 8-bar phase — layers fade in by tier
     // pad = sine triad with mid-weight partials (no upper-mid sizzle —
     // dropped partials 7+8, tamed 5+6 to keep the wash smooth, not buzzy)
     for (const semi of ch.q) {
@@ -440,16 +625,17 @@ for (const sec of PLAN) {
     }
     // high sparkle pad — octave up, much quieter + fewer partials so it
     // doesn't pile into the 2-4 kHz buzz band
-    if (sec.name !== "overture") {
+    if (sec.name !== "overture" && tier >= 1) {
       voice(tBar + hum(0.005), SPBAR * 0.98, root + 24, padGain * 0.22,
         { atk: 0.65, rel: 0.65, vibR: 4.2, vibD: 0.004,
           parts: [[1, 1], [2, 0.25], [3, 0.10]] });
     }
-    // body voice — low root, fattens the chord under the sub (warmth)
-    voice(tBar + hum(0.003), SPBAR * 0.98, root, padGain * 0.55,
-      { atk: 0.25, rel: 0.35, parts: [[1, 1], [2, 0.35], [3, 0.14], [4, 0.06]] });
-    if (sec.kick !== "none" || sec.name === "coda")
-      sub(tBar, SPBAR * 0.99, root, sec.name === "bridge" ? 0.42 : 0.52);
+    // body voice — low root warmth; fades in by tier (texture ins/outs)
+    if (tier >= 1 || sec.bars < 24)
+      voice(tBar + hum(0.003), SPBAR * 0.98, root, padGain * 0.55,
+        { atk: 0.25, rel: 0.35, parts: [[1, 1], [2, 0.35], [3, 0.14], [4, 0.06]] });
+    // the bass — now in EVERY section (the pressure floor, overture too)
+    sub(tBar, SPBAR * 0.99, root, sec.name === "bridge" ? 0.46 : 0.58);
   }
 
   // steam-release: long breath voice spanning the whole section. Quiet
@@ -510,9 +696,10 @@ for (const sec of PLAN) {
     // so the hi-hats mirror the halftime kicks instead of fighting them.
     if (sec.kick !== "none" && sec.name !== "coda") {
       const bridgeSparse = sec.name === "bridge";
+      const ptier = Math.floor(b / 8);                          // perc fades in by phase
       tick(tBar + 1 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);   // and-of-1
-      tick(tBar + 5 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);   // and-of-3
-      if (!bridgeSparse) tick(tBar + 3.5 * SPB, 0.22, true);    // metallic open hat
+      if (ptier >= 1) tick(tBar + 5 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);  // and-of-3 IN
+      if (!bridgeSparse && ptier >= 1) tick(tBar + 3.5 * SPB, 0.22, true);     // open hat IN
       // backbeat snare — beats 2 + 4, the hardcore crack the HOLE kick
       // omits. Softer in the bridge (study calm), hottest in the climax.
       const snGain = bridgeSparse ? 0.30
@@ -536,10 +723,10 @@ for (const sec of PLAN) {
   }
 
   // melodic layer
-  const layTheme = (notes, baseGain, brass, regOff = 0) => {
+  const layTheme = (notes, baseGain, brass, regOff = 0, t0 = sectionStartT) => {
     let beatPos = 0;
     for (const [off, beats] of notes) {
-      const tN = sectionStartT + beatPos * SPB;
+      const tN = t0 + beatPos * SPB;
       const midi = ROOT_MEL + off + tr + regOff;
       const dur = beats * SPB * 0.96;
       if (brass) {
@@ -557,20 +744,46 @@ for (const sec of PLAN) {
     }
     return beatPos;
   };
+  // independent countermelody — a warm horn line under the leitmotif.
+  // Distinct timbre (rounder, fewer high partials than the brass theme)
+  // and panned a touch left so the two voices read as separate lines.
+  const layCounter = (notes, baseGain, t0 = sectionStartT) => {
+    let beatPos = 0;
+    for (const [off, beats] of notes) {
+      const tN = t0 + beatPos * SPB;
+      voice(tN + hum(0.005), beats * SPB * 0.98, ROOT_MEL + off + tr, baseGain, {
+        atk: 0.045, rel: 0.18, vibR: 4.8, vibD: 0.006, drive: 1.05, pan: -0.28,
+        parts: [[1, 1], [2, 0.55], [3, 0.3], [4, 0.14], [5, 0.06]] });
+      beatPos += beats;
+    }
+  };
   const sectionStartT = startSec;
 
   if (sec.theme === "soft") {
-    layTheme(THEME.slice(0, 11), 0.085, false);          // antecedent, strings, hushed
+    layTheme((ULTIMATE ? ultThemeAt(sec.name) : THEME_V).slice(0, 11), 0.085, false);
   } else if (sec.theme === "brass") {
-    layTheme(THEME, 0.16, true);                          // full, brass
-    layTheme(THEME, 0.13, true);                          // restate over bars 8–15 (loops 8-bar)
+    // principal leitmotif + the independent horn countermelody, the
+    // 8-bar pair looped to fill the whole section — real two-voice
+    // counterpoint, not a unison double. --strategy reshapes the lead.
+    const loops = Math.max(1, Math.floor(sec.bars / 8));
+    for (let lp = 0; lp < loops; lp++) {
+      const t0 = sectionStartT + lp * 8 * SPBAR;
+      const tv = ULTIMATE ? ultThemeAt(sec.name, lp) : THEME_V;
+      const canon = STRATEGY === "stretto" || (ULTIMATE && sec.name === "climax");
+      // tiered arrangement — loop 0 SPOTLIGHTS the theme alone; the
+      // counterpoint enters on loop 1; loop 2 adds an octave sparkle.
+      layTheme(tv, lp === 0 ? 0.175 : 0.155, true, 0, t0);
+      if (canon) layTheme(tv, 0.11, true, -12, t0 + SPBAR); // octave-down canon, 1 bar late
+      else if (lp >= 1) layCounter(COUNTER_V, 0.108, t0);   // counter IN on the restatement
+      if (lp >= 2 && !canon) layTheme(tv, 0.052, true, 12, t0); // octave sparkle, last pass
+    }
   } else if (sec.theme === "bsoft") {
     layTheme(BTHEME, 0.11, false);                        // B theme, lyrical
     layTheme(BTHEME, 0.10, false, -0)
   } else if (sec.theme === "frag") {
     // development: fragment the head (first 4 notes), sequence it up the
     // scale every 2 bars, hoover doubling, riser into the climax.
-    const head = THEME.slice(0, 4);
+    const head = (ULTIMATE ? ultThemeAt(sec.name) : THEME_V).slice(0, 4);
     for (let seg = 0; seg < 8; seg++) {
       const t0 = sectionStartT + seg * 2 * SPBAR;
       let bp = 0;
@@ -588,7 +801,8 @@ for (const sec of PLAN) {
   } else if (sec.theme === "dissolve") {
     // coda: theme fragment, each restatement softer + longer, strings
     // bloom and hold → continuous loop-friendly tail (no dead air).
-    layTheme(THEME.slice(0, 8), 0.10, true);
+    layTheme((ULTIMATE ? ultThemeAt(sec.name) : THEME_V).slice(0, 8), 0.10, true);
+    layCounter(COUNTER_V.slice(0, 4), 0.058);             // the counter, dissolving too
     voice(sectionStartT + 6 * SPBAR, 6 * SPBAR + TAIL, ROOT_MEL + tr, 0.07,
       { atk: 1.2, rel: 2.4, parts: [[1, 1], [2, 0.35], [3, 0.18], [5, 0.06]] });
     voice(sectionStartT + 6 * SPBAR, 6 * SPBAR + TAIL, ROOT_MEL + tr - 12, 0.06,
@@ -676,6 +890,6 @@ writeFileSync(STRUCT, JSON.stringify({
   events: { kick: kickEvents, snare: snareEvents },
 }, null, 2));
 
-console.log(`hellsine · ${BPM} BPM · hell=${HELL} · ${TOTAL_BARS} bars · ${totalSec.toFixed(1)}s`);
+console.log(`hellsine · ${BPM} BPM · hell=${HELL} · strategy=${STRATEGY} · ${TOTAL_BARS} bars · ${totalSec.toFixed(1)}s`);
 console.log(`→ wav    · ${OUT}`);
 console.log(`→ struct · ${STRUCT}`);

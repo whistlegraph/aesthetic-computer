@@ -68,7 +68,8 @@ if (SCRATCH_ON) {
 // as buzz hash. Keep just a gentle air lift + warm the low end.
 run("ffmpeg", ["-y", "-i", mix, "-af",
   "highshelf=f=9000:g=2," +
-  "equalizer=f=150:t=q:w=1.0:g=2," +              // warmth back (kick is subby now)
+  "equalizer=f=150:t=q:w=1.0:g=-1," +             // trim lows (pressure-bass carries it)
+  "equalizer=f=320:t=q:w=1.4:g=-2," +             // scoop low-mids clearer
   "acompressor=threshold=-18dB:ratio=2:attack=15:release=240:makeup=1:knee=8," +
   "loudnorm=I=-14:TP=-1.5:LRA=11," +
   "alimiter=limit=0.94:attack=6:release=110:level=disabled," +
