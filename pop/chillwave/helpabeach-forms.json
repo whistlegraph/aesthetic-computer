@@ -1,0 +1,16 @@
+{
+  "_comment": "Figure bounding boxes per section, in panel-image coords (1024x1536). Hand-placed (auto face-detection is unreliable on colored-pencil illustrations). preview-score.mjs uses these to (a) zoom into a figure on zoom-shot sections and (b) cast a backlight glow on the form regions. [x, y, w, h]. Re-eyeball a section's box if its panel is regenerated.",
+  "imgW": 1024,
+  "imgH": 1536,
+  "sections": {
+    "tide-in":      { "jeffrey": [210, 470, 330, 690], "clinician": [620, 455, 185, 365] },
+    "drift 1":      { "jeffrey": [240, 440, 430, 780], "clinician": [535, 500, 320, 720] },
+    "swell 1":      { "jeffrey": [110, 480, 620, 560], "clinician": [615, 490, 340, 740] },
+    "deep-current": { "jeffrey": [205, 440, 350, 840], "clinician": [595, 420, 350, 740] },
+    "drift 2":      { "jeffrey": [135, 470, 540, 920], "clinician": [615, 510, 270, 640] },
+    "undertow":     { "jeffrey": [245, 490, 445, 880], "clinician": [425, 420, 370, 640] },
+    "swell 2":      { "jeffrey": [205, 430, 445, 900], "clinician": [595, 400, 375, 880] },
+    "tide-out":     { "jeffrey": [325, 350, 345, 980], "clinician": [615, 460, 355, 910] },
+    "ebb":          { "jeffrey": [260, 430, 385, 880], "clinician": [635, 490, 245, 540] }
+  }
+}

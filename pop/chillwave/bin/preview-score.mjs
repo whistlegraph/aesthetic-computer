@@ -29,6 +29,7 @@ import {
   prerenderTitleChars,
   magickRenderText,
   drawCoverKenBurns,
+  drawFormBacklight,
   drawTitleBounce,
   spawnFFmpegEncode,
   AUDIO_SR_DEFAULT,
@@ -51,6 +52,9 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 
 const SLUG   = flags.slug || "helpabeach";
+// --title overrides the on-screen title text (defaults to the slug) —
+// e.g. the helpabeach-short cut titles as plain "helpabeach".
+const TITLE  = flags.title || SLUG;
 // --portrait → vertical 9:16: 1080x1920, "-p" illustration set,
 // portrait output filename.
 const PORTRAIT = flags.portrait === true;
@@ -168,7 +172,7 @@ mkdirSync(assetsDir, { recursive: true });
 
 const titleFontSize = 96;
 const { chars: titleChars, totalWidth: titleTotalW } = await prerenderTitleChars({
-  text: SLUG,
+  text: TITLE,
   ptSize: titleFontSize,
   palette: TITLE_PALETTE,
   shadowColor: "rgba(0,0,0,0.78)",
@@ -426,8 +430,29 @@ function drawWatermark(audioT) {
 }
 
 const TRANS_S = 1.5;                        // slide+fade transition length
-const KB = { baseScale: 1.20, breathAmp: 0.06, breathPeriodSec: 18,
-             wobbleAmp: 14, envWobbleAmp: 18 };
+// mirrorTile — show the WHOLE illy un-cropped (fit to width), mirror-
+// tiled vertically to fill the frame; a gentle vertical drift reveals
+// the illy's top/bottom edges instead of zoom-cropping them away.
+const KB = { mirrorTile: true, breathAmp: 0.06, breathPeriodSec: 18,
+             envWobbleAmp: 18 };
+
+// ── figure bounding boxes → zoom targets + backlight ─────────────────
+// helpabeach-forms.json carries hand-placed figure bboxes per section
+// (panel-image coords). ZOOM sections punch in on jeffrey's box; every
+// section casts an audio-driven backlight glow on the form regions.
+let FORMS = {};
+try {
+  const fp = `${LANE}/${SLUG.replace(/-short$/, "")}-forms.json`;
+  if (existsSync(fp)) FORMS = JSON.parse(readFileSync(fp, "utf8")).sections || {};
+} catch { /* no forms → plain mirror-tile, no zoom/backlight */ }
+const ZOOM_SECTIONS = new Set(["swell 1", "deep-current", "swell 2", "tide-out"]);
+const BACKLIGHT_RGB = "255,236,196";   // warm backlit-illumination glow
+function sectionForms(name) {
+  const f = FORMS[name];
+  if (!f) return [];
+  return [f.jeffrey, f.clinician].filter(Boolean)
+    .map(([x, y, w, h]) => ({ x, y, w, h }));
+}
 function sectionIndexAt(t) {
   let idx = 0;
   for (let i = 0; i < SECTIONS.length; i++) if (t >= SECTIONS[i].startSec) idx = i;
@@ -435,24 +460,35 @@ function sectionIndexAt(t) {
 }
 // Section transitions are a full-frame CROSS-DISSOLVE (see drawScene)
 // so the illustration never slides off and never exposes an edge.
+// Draw one section panel — mirror-tile WIDE, or (on ZOOM sections)
+// punched WAY into jeffrey's figure bbox — and return its panel→frame
+// transform + form bboxes so the backlight can be cast on the figures.
+function drawSectionPanel(img, name, audioT, env, punch, extra) {
+  const fs = sectionForms(name);
+  const zoomBox = ZOOM_SECTIONS.has(name) && fs[0] ? fs[0] : null;
+  const xform = drawCoverKenBurns(ctx, img, audioT, {
+    ...KB, env, punch, ...extra, zoomBox,
+  });
+  return { xform, fs };
+}
 function drawScene(audioT, env, punch) {
   const idx = sectionIndexAt(audioT);
   const sec = SECTIONS[idx];
   const sinceStart = audioT - sec.startSec;
+  // backlight intensity — a calm base that swells with the audio
+  const blI = 0.22 + env * 0.5 + punch * 0.42;
   if (idx > 0 && sinceStart >= 0 && sinceStart < TRANS_S) {
     let p = sinceStart / TRANS_S;
     p = p * p * (3 - 2 * p);                 // smoothstep ease
-    // CROSS-DISSOLVE — both panels stay FULL-FRAME (no slide), so the
-    // illustration always completely covers the canvas: no edge is
-    // ever exposed during a section change.
-    drawCoverKenBurns(ctx, sectionImgs[idx - 1], audioT, {
-      ...KB, env, punch, alpha: 1, fillBackground: true,
-    });
-    drawCoverKenBurns(ctx, sectionImgs[idx], audioT, {
-      ...KB, env, punch, alpha: p, fillBackground: false,
-    });
+    // CROSS-DISSOLVE between the two panels.
+    drawSectionPanel(sectionImgs[idx - 1], SECTIONS[idx - 1].name, audioT, env, punch,
+      { alpha: 1, fillBackground: true });
+    const cur = drawSectionPanel(sectionImgs[idx], sec.name, audioT, env, punch,
+      { alpha: p, fillBackground: false });
+    drawFormBacklight(ctx, cur.fs, cur.xform, blI * p, BACKLIGHT_RGB);
   } else {
-    drawCoverKenBurns(ctx, sectionImgs[idx], audioT, { ...KB, env, punch });
+    const cur = drawSectionPanel(sectionImgs[idx], sec.name, audioT, env, punch, {});
+    drawFormBacklight(ctx, cur.fs, cur.xform, blI, BACKLIGHT_RGB);
   }
 }
 

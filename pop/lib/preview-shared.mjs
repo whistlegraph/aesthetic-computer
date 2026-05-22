@@ -230,6 +230,92 @@ export function drawCoverKenBurns(ctx, cover, t, opts = {}) {
   // whole illustration appears to sharpen on each kick.
   const punch     = Math.max(0, Math.min(1, opts.punch ?? 0));
 
+  // ── mirror-tile mode — show the WHOLE illy un-cropped ──────────────
+  // Fit the illustration with slack in BOTH axes, mirror-tile it across
+  // the frame in a grid, and drift it gently in x AND y so its edges
+  // read instead of being zoom-cropped away. The focal centre tile is
+  // sharp; every surrounding mirror tile is BLURRED — a soft reflected
+  // wrap. Tile sizes are integers and positions rounded, so the seams
+  // butt exactly and never show a hairline gap. (opts.mirrorTile)
+  if (opts.mirrorTile) {
+    const fitFrac = opts.tileFit ?? 0.86;     // <1 → slack for x/y drift
+    const fit = Math.min(W / cover.width, H / cover.height) * fitFrac;
+    const dw = Math.round(cover.width * fit);
+    const dh = Math.round(cover.height * fit);
+    const xSlack = Math.max(0, W - dw), ySlack = Math.max(0, H - dh);
+    const driftX = (xSlack * 0.5) * Math.sin(t * (2 * Math.PI / 26))
+                 + env * 18 * Math.sin(t * 2.6);
+    const driftY = (ySlack * 0.5) * Math.sin(t * (2 * Math.PI / 20))
+                 + env * 22 * Math.sin(t * 3.1);
+    const x0 = (W - dw) / 2 + driftX + offsetX;
+    const y0 = (H - dh) / 2 + driftY + offsetY;
+    const tileBlur = opts.tileBlur ?? 18;
+    if (fillBg) { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+    ctx.save();
+    if (alpha < 1) ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    // one grid tile — flipped per its grid parity so every seam mirrors.
+    const tile = (gx, gy) => {
+      const px = Math.round(x0 + gx * dw);
+      const py = Math.round(y0 + gy * dh);
+      if (px >= W || py >= H || px + dw <= 0 || py + dh <= 0) return;
+      const focal = gx === 0 && gy === 0;
+      const fX = (gx & 1) !== 0, fY = (gy & 1) !== 0;
+      ctx.save();
+      if (!focal && tileBlur > 0) ctx.filter = `blur(${tileBlur}px)`;
+      ctx.translate(fX ? px + dw : px, fY ? py + dh : py);
+      ctx.scale(fX ? -1 : 1, fY ? -1 : 1);
+      ctx.drawImage(cover, 0, 0, dw, dh);
+      ctx.restore();
+    };
+    const giMin = Math.floor(-x0 / dw) - 1, giMax = Math.ceil((W - x0) / dw) + 1;
+    const gjMin = Math.floor(-y0 / dh) - 1, gjMax = Math.ceil((H - y0) / dh) + 1;
+    // blurred mirror tiles first, then the sharp focal tile on top.
+    for (let gx = giMin; gx <= giMax; gx++)
+      for (let gy = gjMin; gy <= gjMax; gy++)
+        if (!(gx === 0 && gy === 0)) tile(gx, gy);
+    tile(0, 0);
+    ctx.restore();
+    if (punch > 0.01) {
+      ctx.save();
+      ctx.globalCompositeOperation = "overlay";
+      ctx.globalAlpha = punch * 0.22;
+      ctx.drawImage(cover, Math.round(x0), Math.round(y0), dw, dh);
+      ctx.restore();
+    }
+    return { x: x0, y: y0, scale: dw / cover.width };
+  }
+
+  // ── zoom mode — punch WAY into a figure's bounding box ─────────────
+  // opts.zoomBox = {x,y,w,h} in panel-image coords. Cover-scales the
+  // illy so that box fills the frame — a close-up on the figure — with
+  // a gentle breath + wobble drift.
+  if (opts.zoomBox) {
+    const zb = opts.zoomBox;
+    const pad = opts.zoomPad ?? 1.12;       // >1 → a little room around the box
+    const breathZ = breathAmp * 0.5 * (0.5 - 0.5 * Math.cos(t * (2 * Math.PI / breathT)));
+    const sc = Math.max(W / (zb.w * pad), H / (zb.h * pad)) * (1 + breathZ + punch * 0.02);
+    const cx = (zb.x + zb.w / 2) + (12 * Math.sin(t * 1.3) + env * 16 * Math.sin(t * 3.4)) / sc;
+    const cy = (zb.y + zb.h / 2) + (9 * Math.cos(t * 1.6) + env * 12 * Math.sin(t * 2.5)) / sc;
+    let zx = W / 2 - cx * sc + offsetX;
+    let zy = H / 2 - cy * sc + offsetY;
+    const cw = cover.width * sc, chh = cover.height * sc;
+    zx = Math.min(0, Math.max(W - cw, zx));   // keep the frame covered
+    zy = Math.min(0, Math.max(H - chh, zy));
+    if (fillBg) { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+    ctx.save();
+    if (alpha < 1) ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx.drawImage(cover, zx, zy, cw, chh);
+    ctx.restore();
+    if (punch > 0.01) {
+      ctx.save();
+      ctx.globalCompositeOperation = "overlay";
+      ctx.globalAlpha = punch * 0.22;
+      ctx.drawImage(cover, zx, zy, cw, chh);
+      ctx.restore();
+    }
+    return { x: zx, y: zy, scale: sc };
+  }
+
   const coverScale = Math.max(W / cover.width, H / cover.height);
   const breath = breathAmp * (0.5 - 0.5 * Math.cos(t * (2 * Math.PI / breathT)));
   const zoom = baseScale + breath + punch * 0.018;
@@ -271,6 +357,31 @@ export function drawCoverKenBurns(ctx, cover, t, opts = {}) {
     ctx.drawImage(cover, drawX, drawY, baseW, baseH);
     ctx.restore();
   }
+  return { x: drawX, y: drawY, scale: coverScale * zoom };
+}
+
+// ── backlit illumination on the form bounding boxes ──────────────────
+// Casts a soft additive glow at each figure's bbox (a "backlit" halo
+// that the figures appear to be lit by). `forms` are bboxes in panel-
+// image coords; `xform` is the {x,y,scale} returned by drawCoverKenBurns
+// (panel → frame mapping). `intensity` 0..1 pulses it on the audio.
+export function drawFormBacklight(ctx, forms, xform, intensity, rgb = "255,236,196") {
+  if (!forms || !forms.length || !xform || intensity <= 0.01) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const f of forms) {
+    const cx = xform.x + (f.x + f.w / 2) * xform.scale;
+    const cy = xform.y + (f.y + f.h / 2) * xform.scale;
+    const r  = Math.max(f.w, f.h) * xform.scale * 0.72;
+    if (r <= 1) continue;
+    const g = ctx.createRadialGradient(cx, cy, r * 0.12, cx, cy, r);
+    g.addColorStop(0,   `rgba(${rgb},${(0.55 * intensity).toFixed(3)})`);
+    g.addColorStop(0.6, `rgba(${rgb},${(0.18 * intensity).toFixed(3)})`);
+    g.addColorStop(1,   `rgba(${rgb},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+  ctx.restore();
 }
 
 // ── per-character bouncing title (audio-envelope visualizer) ─────────
