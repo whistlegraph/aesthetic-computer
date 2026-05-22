@@ -11,6 +11,7 @@ Format: `AE-<YYYY>-<NNN>` — `AE` for Aesthetic (Inc.), four-digit year, three-
 | Quote ID | Date | Recipient | Scope | Amount | Status |
 |----------|------|-----------|-------|--------|--------|
 | [AE-2026-001](AE-2026-001-ucla-social-software/AE-2026-001.pdf) | 2026-04-22 | UCLA Design Media Arts — Social Software (Jinwoo Park; program co-directed by Casey Reas and Lauren Lee McCarthy) | Technical documentation of Social Software runtime/language/tools, analysis of software in production across UCLA DMA, survey of open-source and proprietary stacks; hosted at [sosoft.arts.ucla.edu](https://sosoft.arts.ucla.edu/) | $1,200.00 | Issued |
+| [AE-2026-002](AE-2026-002-resilience-institute/AE-2026-002.pdf) | 2026-05-21 | The Resilience Institute — Resilient Minds (Rebecca Bonneville, NP), c/o Fía Benitez | Four-area web app built as code — homepage + four pillars (psychiatry practice, mentoring & arts, classes, shop), Wix migration, two revision rounds, brand & design (logo + style guide); optional six-month support contract priced separately | $8,900.00 | Draft |
 
 ## Building
 
@@ -24,6 +25,18 @@ tectonic -X compile AE-2026-001.tex
 Relative paths in the source:
 - Fonts: `../../system/public/type/webfonts/` (YWFT Processing)
 - Logo: `../../papers/arxiv-ac/figures/pals.pdf`
+
+Some quotes ship a `build.fish` instead — multi-page layouts with
+`remember-picture` overlays need two xelatex passes, and a quote may carry
+a grayscale variant. `AE-2026-002` is built this way:
+
+```bash
+cd quotes/AE-2026-002-resilience-institute
+./build.fish        # → AE-2026-002.pdf (color) + AE-2026-002-grayscale.pdf
+```
+
+The grayscale variant is the same source compiled with `\def\GRAYSCALE{}`,
+which desaturates the palette and images and drops decorative fills.
 
 ## Starting a new quote
 
