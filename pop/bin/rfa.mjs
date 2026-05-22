@@ -238,6 +238,19 @@ for (let idx = 0; idx < todo.length; idx++) {
 }
 
 try { unlinkSync(tmpGuide); } catch {}
-rl.close();
 const done = manifest.notes.filter((n) => hasTake(n.id)).length;
-console.log(`done · ${done}/${manifest.notes.length} takes recorded · re-render the track to hear them in.`);
+console.log(`\ndone · ${done}/${manifest.notes.length} takes recorded`);
+
+// ── recompile + playback — close the loop. If the lane has a renderer,
+// offer to rebuild the track with the fresh takes and play it back.
+const renderer = resolve(LANE_DIR, "bin", "render.mjs");
+if (done > 0 && existsSync(renderer)) {
+  const a = await ask(`\n   ▸ recompile ${TRACK} with your voice + play it back? [Y/n] `);
+  if (a !== "n" && a !== "q") {
+    console.log(`   ⚙  rendering…`);
+    spawnSync("node", [renderer, "--play"], { stdio: "inherit" });
+  }
+} else {
+  console.log(`re-render the track to hear them in.`);
+}
+rl.close();

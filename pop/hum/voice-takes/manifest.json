@@ -1,0 +1,30 @@
+{
+  "track": "hum",
+  "lane": "hum",
+  "title": "hum — a melody to sing",
+  "bpm": 182,
+  "beatSec": 0.3296703296703297,
+  "barSec": 1.3186813186813187,
+  "scale": "D natural minor",
+  "range": "D3-D4 (one octave)",
+  "lyric": "deep in the hum / a note grows slow / hold to the tone / now let it go",
+  "note_on_vowel": "the `vowel` field carries the WORD to sing — rfa.mjs prints it verbatim",
+  "notes": [
+    { "id": "0-0", "bar": 0, "beat": 0, "midi": 50, "note": "D3", "word": "deep",  "durBeats": 2, "durSec": 0.65934, "startSec": 0.0,      "vowel": "deep",  "hasTake": false },
+    { "id": "0-2", "bar": 0, "beat": 2, "midi": 53, "note": "F3", "word": "in",    "durBeats": 2, "durSec": 0.65934, "startSec": 0.65934,  "vowel": "in",    "hasTake": false },
+    { "id": "1-0", "bar": 1, "beat": 0, "midi": 55, "note": "G3", "word": "the",   "durBeats": 2, "durSec": 0.65934, "startSec": 1.31868,  "vowel": "the",   "hasTake": false },
+    { "id": "1-2", "bar": 1, "beat": 2, "midi": 57, "note": "A3", "word": "hum",   "durBeats": 2, "durSec": 0.65934, "startSec": 1.97802,  "vowel": "hum",   "hasTake": false },
+    { "id": "2-0", "bar": 2, "beat": 0, "midi": 57, "note": "A3", "word": "a",     "durBeats": 2, "durSec": 0.65934, "startSec": 2.63736,  "vowel": "a",     "hasTake": false },
+    { "id": "2-2", "bar": 2, "beat": 2, "midi": 55, "note": "G3", "word": "note",  "durBeats": 2, "durSec": 0.65934, "startSec": 3.29670,  "vowel": "note",  "hasTake": false },
+    { "id": "3-0", "bar": 3, "beat": 0, "midi": 53, "note": "F3", "word": "grows", "durBeats": 2, "durSec": 0.65934, "startSec": 3.95604,  "vowel": "grows", "hasTake": false },
+    { "id": "3-2", "bar": 3, "beat": 2, "midi": 50, "note": "D3", "word": "slow",  "durBeats": 4, "durSec": 1.31868, "startSec": 4.61538,  "vowel": "slow",  "hasTake": false },
+    { "id": "4-2", "bar": 4, "beat": 2, "midi": 53, "note": "F3", "word": "hold",  "durBeats": 2, "durSec": 0.65934, "startSec": 5.93407,  "vowel": "hold",  "hasTake": false },
+    { "id": "5-0", "bar": 5, "beat": 0, "midi": 55, "note": "G3", "word": "to",    "durBeats": 2, "durSec": 0.65934, "startSec": 6.59341,  "vowel": "to",    "hasTake": false },
+    { "id": "5-2", "bar": 5, "beat": 2, "midi": 57, "note": "A3", "word": "the",   "durBeats": 2, "durSec": 0.65934, "startSec": 7.25275,  "vowel": "the",   "hasTake": false },
+    { "id": "6-0", "bar": 6, "beat": 0, "midi": 60, "note": "C4", "word": "tone",  "durBeats": 4, "durSec": 1.31868, "startSec": 7.91209,  "vowel": "tone",  "hasTake": false },
+    { "id": "7-0", "bar": 7, "beat": 0, "midi": 57, "note": "A3", "word": "now",   "durBeats": 2, "durSec": 0.65934, "startSec": 9.23077,  "vowel": "now",   "hasTake": false },
+    { "id": "7-2", "bar": 7, "beat": 2, "midi": 60, "note": "C4", "word": "let",   "durBeats": 2, "durSec": 0.65934, "startSec": 9.89011,  "vowel": "let",   "hasTake": false },
+    { "id": "8-0", "bar": 8, "beat": 0, "midi": 62, "note": "D4", "word": "it",    "durBeats": 4, "durSec": 1.31868, "startSec": 10.54945, "vowel": "it",    "hasTake": false },
+    { "id": "9-0", "bar": 9, "beat": 0, "midi": 50, "note": "D3", "word": "go",    "durBeats": 4, "durSec": 1.31868, "startSec": 11.86813, "vowel": "go",    "hasTake": false }
+  ]
+}

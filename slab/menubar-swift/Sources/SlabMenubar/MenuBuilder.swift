@@ -46,6 +46,15 @@ enum MenuBuilder {
         menu.addItem(buildTailnet(state: state, target: target))
         menu.addItem(buildMail(status: mailStatus, target: target))
         menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
+
+        // Request for Audio — sing a /pop melody, one note at a time. The
+        // wizard plays the pitch + shows the word per note, records, then
+        // recompiles the track and plays it back.
+        let rfa = item("🎙 Request for Audio — sing “hum”",
+                       selector: #selector(AppDelegate.requestForAudio(_:)), target: target)
+        rfa.representedObject = "hum"
+        rfa.toolTip = "Open the RFA wizard in iTerm2 — sing the 'hum' melody note by note, then hear it recompiled."
+        menu.addItem(rfa)
         menu.addItem(.separator())
 
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)

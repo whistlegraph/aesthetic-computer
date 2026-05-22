@@ -337,6 +337,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.run("/usr/bin/open", args: [Paths.soundsDir])
     }
 
+    /// Open iTerm2 running the RFA ("request for audio") wizard for a /pop
+    /// lane — a per-note loop that plays the pitch, shows the word, records
+    /// you singing it, then recompiles the track + plays it back. It's
+    /// interactive (stdin keep/redo), so it needs a real terminal; `exec`
+    /// replaces the shell so closing the pane ends the session cleanly.
+    @objc func requestForAudio(_ sender: NSMenuItem) {
+        let lane = (sender.representedObject as? String) ?? "hum"
+        let repoEsc = Paths.acRepo.replacingOccurrences(of: "'", with: "'\\''")
+        let cmd = "cd '\(repoEsc)' && exec node pop/bin/rfa.mjs --track \(lane)"
+        let script = """
+        tell application "iTerm2"
+            activate
+            create window with default profile
+            tell current session of current window to write text "\(cmd)"
+        end tell
+        """
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+    }
+
     @objc func reloadDaemon() {
         DispatchQueue.global(qos: .userInitiated).async {
             ShellRunner.run("/bin/launchctl", args: ["unload", Paths.daemonPlist])
