@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // bake.mjs — hellsine: engine → (opt scratch post-FX) → Spotify finalize.
 //
-// The engine (hellsine.mjs) is itself the single all-sine source mix —
-// every voice is a sine. This driver:
+// The engine (hellsine.mjs) is the source mix — all-sine, plus the one
+// sampled exception (@jeffrey's rattle, if recorded). This driver:
 //   1. renders the engine ONCE → pre-master float WAV + struct.json,
 //   2. (optional, --scratch) runs pop/dance/bin/scratch-mix.mjs on that
 //      one buffer, beat-locked to hellsine's own struct.json grid.

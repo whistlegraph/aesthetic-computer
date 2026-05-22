@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 // hellsine.mjs — the all-sine hardcore engine.
 //
-// THE LAW: every sample written here is a sum of Math.sin() terms, or a
+// THE LAW (amended 2026-05-22 by the queen): the synthesis engine is
+// all-sine — every generated sample is a sum of Math.sin() terms, or a
 // memoryless waveshaping (tanh / hard clip) of such a sum. No noise, no
-// saw, no square, no samples. The gabber kick is a pitch-enveloped sine
-// clipped past its skin — that distorted sine IS hardcore. The "hell"
-// is the drive.
+// saw, no square. The gabber kick is a pitch-enveloped sine clipped past
+// its skin — that distorted sine IS hardcore. The "hell" is the drive.
+//
+// THE ONE EXCEPTION: @jeffrey's recorded rattle — a single organic
+// sampled layer (pop/hellsine/samples/rattle.wav, captured via
+// `node pop/bin/rfa.mjs --sample --track hellsine --name rattle`) that
+// rides on top of the sine engine. Absent the file, the render is pure
+// all-sine, unchanged. Density: --rattle off|sparse|drive.
 //
 // It carries a hand-composed John Williams structure (a heroic D-minor
 // leitmotif: stated → developed → transposed → restated) and is built
@@ -19,8 +25,10 @@
 // Usage:
 //   node pop/hellsine/bin/hellsine.mjs --out OUT.wav [--struct S.json]
 //        [--bpm 182] [--hell 11] [--seed hellsine]
-import { writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+//        [--rattle off|sparse|drive] [--rattle-gain 0.5]
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ── flags ─────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -38,6 +46,7 @@ const HELL = Number(flags.hell ?? 11);          // base gabber drive ("hell knob
 const SEED_STR = flags.seed || "hellsine";
 const OUT = flags.out || `${process.env.HOME}/Documents/Working Desktop/hellsine/.hellsine-pre.wav`;
 const STRUCT = flags.struct || `${OUT.replace(/\.wav$/, "")}.assets/struct.json`;
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const SPB = 60 / BPM;          // seconds per beat
 const SPBAR = 4 * SPB;         // 4/4
@@ -125,6 +134,78 @@ function write(t, fn, dur) {
   }
 }
 
+// ── WAV loader — the ONE sampled exception. Reads PCM16/24/32 or float
+// WAV → mono Float32 @ SR, silence-trimmed, normalized to peak 1.
+function loadWavMono(path) {
+  const buf = readFileSync(path);
+  let p = 12, fmt = null, dOff = 0, dLen = 0;
+  while (p + 8 <= buf.length) {
+    const id = buf.toString("ascii", p, p + 4);
+    const sz = buf.readUInt32LE(p + 4);
+    if (id === "fmt ") fmt = {
+      format: buf.readUInt16LE(p + 8), channels: buf.readUInt16LE(p + 10),
+      sr: buf.readUInt32LE(p + 12), bits: buf.readUInt16LE(p + 22),
+    };
+    else if (id === "data") { dOff = p + 8; dLen = sz; }
+    p += 8 + sz + (sz & 1);
+  }
+  if (!fmt || !dOff) throw new Error(`bad WAV: ${path}`);
+  const { format, channels, bits } = fmt;
+  const fb = (bits / 8) * channels, frames = Math.floor(dLen / fb);
+  let mono = new Float32Array(frames);
+  for (let i = 0; i < frames; i++) {
+    let acc = 0;
+    for (let c = 0; c < channels; c++) {
+      const o = dOff + i * fb + c * (bits / 8);
+      if (format === 3 && bits === 32) acc += buf.readFloatLE(o);
+      else if (bits === 16) acc += buf.readInt16LE(o) / 32768;
+      else if (bits === 24)
+        acc += (buf.readUInt8(o) | (buf.readUInt8(o + 1) << 8) | (buf.readInt8(o + 2) << 16)) / 8388608;
+      else if (bits === 32) acc += buf.readInt32LE(o) / 2147483648;
+    }
+    mono[i] = acc / channels;
+  }
+  if (fmt.sr !== SR) {                                  // linear resample → SR
+    const outN = Math.round(frames * SR / fmt.sr), rs = new Float32Array(outN);
+    for (let i = 0; i < outN; i++) {
+      const x = i * fmt.sr / SR, i0 = Math.floor(x), fr = x - i0;
+      rs[i] = (mono[i0] || 0) + ((mono[i0 + 1] || 0) - (mono[i0] || 0)) * fr;
+    }
+    mono = rs;
+  }
+  let a = 0, b = mono.length; const TH = 0.02;           // trim near-silence
+  while (a < b && Math.abs(mono[a]) < TH) a++;
+  while (b > a && Math.abs(mono[b - 1]) < TH) b--;
+  mono = mono.subarray(a, b);
+  let pk = 0;                                            // normalize → peak 1
+  for (let i = 0; i < mono.length; i++) pk = Math.max(pk, Math.abs(mono[i]));
+  if (pk > 0) for (let i = 0; i < mono.length; i++) mono[i] /= pk;
+  return mono;
+}
+
+// Place a sample buffer at time t — linear-interp resample for pitch,
+// simple pan, short declick fades. Mixes into the L/Rb bus like a voice.
+function playSample(t, buf, gain = 1, opt = {}) {
+  const rate = opt.rate || 1;
+  const pan = Math.max(-1, Math.min(1, opt.pan || 0));
+  const startI = Math.floor(t * SR);
+  const outLen = Math.floor(buf.length / rate);
+  const fadeN = Math.floor((opt.fade ?? 0.015) * SR);
+  for (let k = 0; k < outLen; k++) {
+    const di = startI + k;
+    if (di < 0) continue;
+    if (di >= N) break;
+    const sx = k * rate, si = Math.floor(sx), f = sx - si;
+    if (si + 1 >= buf.length) break;
+    let s = buf[si] + (buf[si + 1] - buf[si]) * f;
+    if (k < fadeN) s *= k / fadeN;                       // declick in
+    if (outLen - k < fadeN) s *= (outLen - k) / fadeN;   // declick out
+    const v = s * gain;
+    L[di]  += v * (pan > 0 ? 1 - pan : 1);
+    Rb[di] += v * (pan < 0 ? 1 + pan : 1);
+  }
+}
+
 // The HOLE kick — no punch, no click, no transient. A slow-blooming
 // sub-only sine pitch-drop that lives mostly through what it removes
 // from the surrounding mix. Each hit is a vacuum carved by the duck
@@ -167,6 +248,39 @@ function kick(t, drive = HELL, gain = 1) {
   }, dur);
 }
 
+// ── snare — all-sine: tonal shell + additive-sine "noise" crack ───────
+// THE LAW HOLDS. Body = a pitch-blipped detuned sine pair (~188 Hz)
+// with a fast decay — the drum's wooden shell. Crack = the steam trick:
+// a dense bank of log-spaced detuned sines across 1.5–8 kHz summed to
+// broadband noise, near-instant attack + ~60 ms decay — the bright
+// snap. tanh fuses body + crack into one hardcore backbeat hit. The
+// HOLE kick deliberately drops its transient; the snare carries it.
+function snare(t, gain = 0.5, opt = {}) {
+  const dur = 0.22, bodyF = opt.bodyF || 188;
+  const nV = 64, fMin = 1500, fMax = 8200;
+  const freqs = new Float64Array(nV), phs = new Float64Array(nV);
+  for (let i = 0; i < nV; i++) {
+    const u = (i + rng()) / nV;
+    freqs[i] = fMin * Math.pow(fMax / fMin, u);
+    phs[i] = rng() * TAU;
+  }
+  const norm = 1 / Math.sqrt(nV);
+  write(t, (lt) => {
+    // body — detuned sine pair with a short downward pitch blip
+    const pf = bodyF * (1 + 0.6 * Math.exp(-lt / 0.012));
+    const body = (Math.sin(TAU * pf * lt) + 0.7 * Math.sin(TAU * pf * 1.48 * lt))
+               * Math.exp(-lt / 0.055);
+    // crack — additive-sine noise, sharp attack, fast decay
+    let noise = 0;
+    for (let i = 0; i < nV; i++) noise += Math.sin(TAU * freqs[i] * lt + phs[i]);
+    const crackEnv = (1 - Math.exp(-lt / 0.0008)) * Math.exp(-lt / 0.058);
+    let x = body * 0.85 + noise * norm * crackEnv * 1.15;
+    x = Math.tanh(x * 1.7);                        // hardcore glue
+    const v = x * gain * Math.min(1, lt / 0.0006);
+    return [v * 0.97, v];                          // faint stereo widen
+  }, dur);
+}
+
 // ── steam release — additive-sine "white noise" breath ───────────────
 // THE LAW HOLDS: a dense bank of detuned sines summed IS broadband noise
 // (Fourier identity). Frequencies are log-spaced + jittered across the
@@ -174,7 +288,7 @@ function kick(t, drive = HELL, gain = 1) {
 // Stays inside the all-sine constraint and gives the track the hiss the
 // pure-sine mix otherwise lacks.
 function steam(t, dur, gain = 0.12, opt = {}) {
-  const nVoices = opt.voices || 48;
+  const nVoices = opt.voices || 130;       // dense enough to fuse → smooth wash, not a buzzy comb
   const fMin = opt.fMin || 400;          // more body, less hiss
   const fMax = opt.fMax || 5500;         // pulled out of the buzz band (was 9500)
   const atk  = opt.atk  ?? 0.6;              // slow steam release
@@ -342,9 +456,14 @@ for (const sec of PLAN) {
   // backbone hiss + an extra crescendo blast across the LAST 4 bars
   // into the next section (the "release"). Coda gets a long dissolve.
   const secDur = sec.bars * SPBAR;
+  // Overture steam is fully exposed (no kick to mask it) — give it a far
+  // denser bank + a lifted fMin so the partials fuse into a smooth wash
+  // instead of a comb of beating sines (the "weird buzzes" in the open).
   steam(startSec, secDur,
-    sec.name === "bridge" ? 0.030 : sec.name === "overture" ? 0.040 : 0.022,
-    { atk: sec.name === "overture" ? 2.4 : 1.4, rel: 1.8 });
+    sec.name === "bridge" ? 0.030 : sec.name === "overture" ? 0.032 : 0.022,
+    sec.name === "overture"
+      ? { atk: 2.4, rel: 1.8, voices: 220, fMin: 760 }
+      : { atk: 1.4, rel: 1.8 });
   if (sec.name !== "coda") {
     steam(startSec + Math.max(0, secDur - 4 * SPBAR), 4 * SPBAR + 0.5,
       sec.name === "develop" ? 0.065 : 0.045,
@@ -394,8 +513,25 @@ for (const sec of PLAN) {
       tick(tBar + 1 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);   // and-of-1
       tick(tBar + 5 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);   // and-of-3
       if (!bridgeSparse) tick(tBar + 3.5 * SPB, 0.22, true);    // metallic open hat
-      snareEvents.push({ t: +(tBar + SPB).toFixed(4) });
-      snareEvents.push({ t: +(tBar + 3 * SPB).toFixed(4) });
+      // backbeat snare — beats 2 + 4, the hardcore crack the HOLE kick
+      // omits. Softer in the bridge (study calm), hottest in the climax.
+      const snGain = bridgeSparse ? 0.30
+                   : sec.name === "climax" ? 0.56
+                   : sec.name === "develop" ? 0.50 : 0.48;
+      for (const beat of [1, 3]) {
+        if (lastBar && sec.name === "develop" && beat === 3) continue; // roll covers it
+        const ts = tBar + beat * SPB + hum(0.003);
+        snare(ts, snGain); snareEvents.push({ t: +ts.toFixed(4) });
+      }
+      // pre-climax fill: a half-bar 16th snare roll crescendo across the
+      // last 2 beats of develop, locking with the 4-kick run into climax.
+      if (lastBar && sec.name === "develop") {
+        for (let r = 0; r < 8; r++) {
+          const ts = tBar + 2 * SPB + r * (SPB / 4);
+          snare(ts, 0.26 + r * 0.045);
+          snareEvents.push({ t: +ts.toFixed(4) });
+        }
+      }
     }
   }
 
@@ -469,6 +605,42 @@ for (const sec of PLAN) {
     }
   }
   bar += sec.bars;
+}
+
+// ── rattle — @jeffrey's recorded shake, the one sampled voice ─────────
+// THE LAW is amended (see header): this single organic layer rides on
+// top of the all-sine engine. Sparse by default — a pickup shake into
+// the downbeat every other bar — so the halftime holes survive. "drive"
+// lays a steady offbeat-8th shaker through the driven sections. Absent
+// the sample file, the render stays pure all-sine.
+const RATTLE_MODE = flags.rattle || "sparse";
+const RATTLE_PATH = flags["rattle-path"] || resolve(HERE, "../samples/rattle.wav");
+if (RATTLE_MODE !== "off" && existsSync(RATTLE_PATH)) {
+  const rat = loadWavMono(RATTLE_PATH);
+  const ratGain = Number(flags["rattle-gain"] ?? 0.5);
+  let placed = 0;
+  for (const sr of sectionRanges) {
+    const driven = sr.name === "statement" || sr.name === "develop" || sr.name === "climax";
+    if (!driven && sr.name !== "bridge") continue;
+    for (let b = sr.startBar; b < sr.endBar; b++) {
+      const tBar = b * SPBAR;
+      if (RATTLE_MODE === "drive" && driven) {
+        for (const beat of [0.5, 1.5, 2.5, 3.5]) {           // offbeat 8ths
+          playSample(tBar + beat * SPB + hum(0.004), rat, ratGain * 0.5,
+            { rate: 1 + hum(0.03), pan: hum(0.35) });
+          placed++;
+        }
+      } else if ((b - sr.startBar) % 2 === 1) {              // pickup every 2 bars
+        playSample(tBar + 3.5 * SPB + hum(0.004), rat,
+          driven ? ratGain : ratGain * 0.6,
+          { rate: 1 + hum(0.03), pan: hum(0.3) });
+        placed++;
+      }
+    }
+  }
+  console.log(`→ rattle · ${RATTLE_MODE} · ${placed} hits · sampled (THE LAW amended)`);
+} else if (RATTLE_MODE !== "off") {
+  console.log(`· rattle · no sample at ${RATTLE_PATH.replace(process.env.HOME, "~")} — pure all-sine`);
 }
 
 // ── master sum: gentle bus glue, no clipping (pre-master headroom) ─────
