@@ -1,19 +1,18 @@
 #!/usr/bin/env node
-// narrate.mjs — jeffrey-pvc story narrator for a chillwave story cut.
+// narrate.mjs — jeffrey-pvc story narrator, word-level beat-placed.
 //
-// Says each line of <slug>.narration.txt in jeffrey-pvc (via the local
-// say endpoint) and BEAT-ALIGNS it to its section's start in <slug>.np,
-// producing a full-length narration stem out/<slug>-narration.mp3 that
-// render.mjs mixes in with --vocal-stem (--vocal-start 0).
-//
-// One narration line per section, in section order. A light ring-mod
-// gives jeffrey's voice a faint robotic edge.
+// Says each line of <slug>.narration.txt in jeffrey-pvc (WITH word
+// timestamps), CHOPS the line into its words, and scatters the words
+// across that section's BEAT GRID — so the narration ticks across the
+// beats rather than dumping as one fast clip at the section start.
+// Output: a full-length stem out/<slug>-narration.mp3 that render.mjs
+// mixes in via --vocal-stem.
 //
 // Needs the local say endpoint running:  node bin/say-local.mjs
 //
 // Usage:
 //   node bin/narrate.mjs --slug helpabeach-short
-//   node bin/narrate.mjs --slug helpabeach-short --robot 0.2 --force
+//   node bin/narrate.mjs --slug helpabeach-short --speed 0.85 --spread 0.9 --force
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -34,11 +33,15 @@ for (let i = 2; i < process.argv.length; i++) {
   else { flags[a.slice(2)] = n; i++; }
 }
 
-const SLUG  = flags.slug || "helpabeach-short";
-const BPM   = Number(flags.bpm ?? 84);
-const ROBOT = Number(flags.robot ?? 0.15);   // 0 = dry jeffrey, ~0.15 = faint robot
-const FORCE = flags.force === true;
-const SR    = 48000;
+const SLUG   = flags.slug || "helpabeach-short";
+const BPM    = Number(flags.bpm ?? 84);
+const SPEED  = Number(flags.speed ?? 0.85);   // ElevenLabs delivery speed (<1 = slower)
+const SPREAD = Number(flags.spread ?? 0.9);   // fraction of the section the words span
+const ROBOT  = Number(flags.robot ?? 0.12);   // faint robotic ring-mod edge
+const FORCE  = flags.force === true;
+const SR     = 48000;
+const beat   = 60 / BPM;
+const HALFBEAT = beat / 2;                    // word onsets snap to the half-beat grid
 const SAY_URL = process.env.SAY_ENDPOINT || "http://127.0.0.1:8899/api/say";
 
 const NP  = `${LANE}/${SLUG}.np`;
@@ -52,10 +55,8 @@ if (!existsSync(NP) || !existsSync(TXT)) {
   process.exit(1);
 }
 
-// ── section start times (seconds) from the .np ───────────────────────
-const beat = 60 / BPM;
-function sectionStarts(npPath) {
-  // end-anchored — `# name [n] bars [flags]`, never a prose comment line
+// ── section spans (start + duration, seconds) from the .np ───────────
+function sectionSpans(npPath) {
   const HEADER = /^#\s*[a-z][a-z0-9-]*(?:\s+\d+)?\s+\d+(?:\s+\[[^\]]*\])?\s*$/i;
   let pos = 0;
   const starts = [];
@@ -68,29 +69,31 @@ function sectionStarts(npPath) {
       if (m) pos += Number(m[1] ?? 1);
     }
   }
-  return { starts, totalSec: pos * beat };
+  const totalSec = pos * beat;
+  return {
+    totalSec,
+    spans: starts.map((s, i) => ({
+      start: s, dur: (i + 1 < starts.length ? starts[i + 1] : totalSec) - s,
+    })),
+  };
 }
 
-const lines = readFileSync(TXT, "utf8").split("\n")
-  .map((l) => l.trim())
-  .filter((l) => l && !l.startsWith("#"));
-const { starts, totalSec } = sectionStarts(NP);
-if (lines.length !== starts.length) {
-  console.warn(`  ⚠ ${lines.length} narration lines vs ${starts.length} sections — pairing by index`);
-}
-console.log(`▸ ${SLUG} narrator · ${lines.length} lines · ${starts.length} sections · ${totalSec.toFixed(1)}s`);
-
-// ── jeffrey-pvc say (content-hash cached — bills ElevenLabs once) ─────
+// ── jeffrey-pvc say WITH word timestamps (content-hash cached) ───────
 async function sayLine(text) {
-  const hash = createHash("sha256").update(`jeffrey-pvc:${text}`).digest("hex").slice(0, 16);
-  const cached = `${TMP}/${hash}.mp3`;
-  if (!FORCE && existsSync(cached)) return cached;
+  const hash = createHash("sha256")
+    .update(`jeffrey-pvc-ts:${SPEED}:${text}`).digest("hex").slice(0, 16);
+  const mp3 = `${TMP}/${hash}.mp3`;
+  const wj  = `${TMP}/${hash}.words.json`;
+  if (!FORCE && existsSync(mp3) && existsSync(wj)) {
+    return { mp3, words: JSON.parse(readFileSync(wj, "utf8")) };
+  }
   const res = await fetch(SAY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       from: text, provider: "jeffrey", voice: "neutral:0",
       stability: 0.6, similarity: 0.92, style: 0.2,
+      speed: SPEED, withTimestamps: true,
     }),
   });
   if (!res.ok) {
@@ -98,8 +101,23 @@ async function sayLine(text) {
     console.error("  is say-local running?  node bin/say-local.mjs");
     process.exit(1);
   }
-  writeFileSync(cached, Buffer.from(await res.arrayBuffer()));
-  return cached;
+  const j = await res.json();
+  writeFileSync(mp3, Buffer.from(j.audio, "base64"));
+  // characters → words (runs of non-space chars, [first start, last end])
+  const a = j.alignment || {};
+  const ch = a.characters || [];
+  const st = a.character_start_times_seconds || [];
+  const en = a.character_end_times_seconds || [];
+  const words = [];
+  let i = 0;
+  while (i < ch.length) {
+    if (/\s/.test(ch[i])) { i++; continue; }
+    const from = st[i]; let txt = "", last = en[i];
+    while (i < ch.length && !/\s/.test(ch[i])) { txt += ch[i]; last = en[i]; i++; }
+    words.push({ text: txt, fromMs: Math.round(from * 1000), toMs: Math.round(last * 1000) });
+  }
+  writeFileSync(wj, JSON.stringify(words));
+  return { mp3, words };
 }
 
 function decodeMono(mp3) {
@@ -111,29 +129,49 @@ function decodeMono(mp3) {
   return new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
 }
 
-// ── say every line, beat-place it at its section start ───────────────
+// ── say each line, chop into words, scatter across the section beats ─
+const lines = readFileSync(TXT, "utf8").split("\n")
+  .map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+const { spans, totalSec } = sectionSpans(NP);
+console.log(`▸ ${SLUG} narrator · ${lines.length} lines · ${spans.length} sections · speed ${SPEED} · word-beat-placed`);
+
 progress.begin({ type: "audio", label: `${SLUG} narration` });
 const LEN = Math.ceil((totalSec + 3) * SR);
 const out = new Float32Array(LEN);
-for (let i = 0; i < lines.length; i++) {
-  const clip = decodeMono(await sayLine(lines[i]));
-  const at = Math.floor((starts[i] ?? (i * 8)) * SR);
-  for (let j = 0; j < clip.length; j++) {
-    const d = at + j;
-    if (d >= LEN) break;
-    let s = clip[j];
-    // light ring-mod — a faint robotic edge, jeffrey still recognizable
-    if (ROBOT > 0) {
-      const ring = Math.sin(2 * Math.PI * 47 * (j / SR));
-      s = s * (1 - ROBOT) + s * ring * (ROBOT * 1.5);
+const fadeS = Math.floor(0.006 * SR);   // 6 ms declick on each word slice
+
+for (let s = 0; s < lines.length; s++) {
+  const span = spans[s] || { start: s * 8, dur: 8 };
+  const { mp3, words } = await sayLine(lines[s]);
+  const clip = decodeMono(mp3);
+  const N = words.length;
+  const usable = span.dur * SPREAD;
+  for (let w = 0; w < N; w++) {
+    // spread word w across the section, snap its onset to the half-beat grid
+    const target = span.start + (N > 1 ? (w / N) * usable : 0);
+    const atIdx = Math.floor((Math.round(target / HALFBEAT) * HALFBEAT) * SR);
+    const w0 = Math.floor((words[w].fromMs / 1000) * SR);
+    const w1 = Math.floor((words[w].toMs / 1000) * SR);
+    const wlen = Math.max(1, w1 - w0);
+    for (let j = 0; j < wlen; j++) {
+      const d = atIdx + j;
+      const src = w0 + j;
+      if (d < 0 || d >= LEN || src >= clip.length) break;
+      let v = clip[src];
+      if (j < fadeS) v *= j / fadeS;
+      else if (j > wlen - fadeS) v *= Math.max(0, (wlen - j) / fadeS);
+      if (ROBOT > 0) {
+        const ring = Math.sin(2 * Math.PI * 47 * (j / SR));
+        v = v * (1 - ROBOT) + v * ring * (ROBOT * 1.5);
+      }
+      out[d] += v;
     }
-    out[d] += s;
   }
-  console.log(`  §${i} @ ${(starts[i] ?? 0).toFixed(1)}s · "${lines[i]}"`);
-  progress.update(((i + 1) / lines.length) * 100);
+  console.log(`  §${s} @ ${span.start.toFixed(1)}s · ${N} words across ${(usable).toFixed(1)}s · "${lines[s]}"`);
+  progress.update(((s + 1) / lines.length) * 100);
 }
 
-// peak-normalize the assembled stem
+// peak-normalize + encode
 let pk = 1e-6;
 for (let i = 0; i < LEN; i++) { const a = Math.abs(out[i]); if (a > pk) pk = a; }
 const norm = 0.94 / pk;
@@ -146,6 +184,4 @@ const enc = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
   "-c:a", "libmp3lame", "-q:a", "2", OUT]);
 progress.end();
 if (enc.status !== 0) { console.error("✗ encode failed"); process.exit(1); }
-console.log(`✓ ${OUT.replace(LANE + "/", "")}  (${(LEN / SR).toFixed(1)}s · robot ${ROBOT})`);
-console.log(`  mix:  node bin/render.mjs --slug ${SLUG} --no-chimes --no-waves --no-sweeps --no-highmel --no-voice \\`);
-console.log(`        --vocal-stem out/${SLUG}-narration.mp3 --vocal-start 0 --vocal-gain 1.4 --vocal-duck 0.5`);
+console.log(`✓ ${OUT.replace(LANE + "/", "")}  (${(LEN / SR).toFixed(1)}s · words scattered on the half-beat grid)`);

@@ -28,7 +28,6 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import * as progress from "../../lib/render-progress.mjs";
-import { applyBitcrush, applyFlange } from "../../dance/synths/fx.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
@@ -1275,9 +1274,9 @@ function renderRollers() {
   const secStart = sec.startSec;
   const secEnd   = sec.endSec;
   const secDur   = Math.max(0.001, secEnd - secStart);
-  // Only the low odd harmonics — a soft rounded pulse, not a harsh
-  // buzz, so overlapping intro notes don't pile into a strange cluster.
-  const HARMS    = [1, 3, 5, 7];                   // odd → soft square
+  // ALL-SINE — fundamental only. The rollers are now pure sine tones
+  // (no square harmonics), a soft clean intro swell, no harshness.
+  const HARMS    = [1];                            // sine only
   const TREM_HZ  = 0.22;
   const RELEASE  = 1.1;                            // short tail, less overlap
   const ATTACK_S = 0.60;
@@ -1810,47 +1809,10 @@ renderLane("birds",   () => { renderBirds(); renderZooSamples(); });
 renderLane("vox",     renderSynthVoice);
 progress.update(80);
 
-// ── coming-in-from-the-sea FX ─────────────────────────────────────────
-// Bitcrush + flange ramp at the start (heavy → clean over ~3s) so the
-// piece arrives like a memory tuning in, and again at the tail
-// (clean → heavy, then fade-out) so it dissolves back into the surf.
-const FX_START_SEC = 3.5;
-const FX_TAIL_SEC  = 5.0;
-const FX_TAIL_T0   = Math.max(0, LEN_SEC - FX_TAIL_SEC);
-
-for (const buf of [outL, outR]) {
-  // start — crushed to clean
-  applyBitcrush(buf, {
-    bits:       [{ time: 0,   bits: 3 },       { time: 2.5, bits: 14 }, { time: 3.5, bits: 16 }],
-    downsample: [{ time: 0,   downsample: 8 }, { time: 2.5, downsample: 1 }],
-    mix: 1.0, sampleRate: SAMPLE_RATE,
-    startSec: 0, endSec: FX_START_SEC,
-  });
-  // tail — clean to crushed
-  applyBitcrush(buf, {
-    bits:       [{ time: 0, bits: 16 },      { time: 3, bits: 6 },        { time: FX_TAIL_SEC, bits: 3 }],
-    downsample: [{ time: 0, downsample: 1 }, { time: 3, downsample: 4 },  { time: FX_TAIL_SEC, downsample: 10 }],
-    mix: 1.0, sampleRate: SAMPLE_RATE,
-    startSec: FX_TAIL_T0, endSec: LEN_SEC,
-  });
-  // start flange — wide LFO, naturally fades with the bitcrush envelope
-  applyFlange(buf, {
-    rate: 6, depthMs: 5, baseDelayMs: 5,
-    feedback: 0.6, mix: 0.55,
-    sampleRate: SAMPLE_RATE,
-    startSec: 0, endSec: FX_START_SEC,
-  });
-  // tail flange — slower swirl as the piece dissolves
-  applyFlange(buf, {
-    rate: 3, depthMs: 6, baseDelayMs: 6,
-    feedback: 0.7, mix: 0.6,
-    sampleRate: SAMPLE_RATE,
-    startSec: FX_TAIL_T0, endSec: LEN_SEC,
-  });
-}
-// Log FX zones so the preview timeline can show them.
-eventLog.fx.push({ t: 0,           kind: "bitcrush+flange", dur: FX_START_SEC });
-eventLog.fx.push({ t: FX_TAIL_T0,  kind: "bitcrush+flange", dur: FX_TAIL_SEC  });
+// ── all-sine: no bitcrush / flange FX ────────────────────────────────
+// The track is intentionally ALL-SINE — no bitcrush, no flange, no
+// digital harshness anywhere. The intro fades in clean; the outro is
+// just the plain fade-out. (Bitcrush/flange FX removed by request.)
 
 // ── ac-native boot + shutdown chime (ported from recap/bin/trance.mjs)
 // Triangle C5→E5→G5 on entry, G5→E5→C5 on the way out. One sfx event

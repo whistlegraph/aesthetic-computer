@@ -7,14 +7,22 @@ Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA*
 
 ---
 
-## helpabeach — READY TO SUBMIT
+## helpabeach — RELEASED
 
 - **Lane:** `pop/chillwave/` · chillwave / ambient instrumental, 2:31 ·
-  84 BPM · A minor pentatonic. Freesound CC0 calm-ocean bed, square→sine
+  84 BPM · A minor pentatonic. Freesound CC0 calm-ocean bed, all-sine
   intro rollers, sub-octave sine bells, pad, in-render formant
-  computer-voice on wordless nonsense phonemes (from ~0:47). No chimes.
-  Part of the *pixsies* body. (Formerly `undabeach`.)
-- **Status:** mastered, DistroKid folder ready — @jeffrey submits.
+  computer-voice on wordless nonsense phonemes (from ~0:47). No chimes,
+  all-sine (no bitcrush/flange). Part of the *pixsies* body.
+  (Formerly `undabeach`.)
+- **Artist:** Aesthetic Dot Computer
+- **Released:** 2026-05-21 via DistroKid
+- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=B1F5253A-11FA-40EF-83A89866A157829A
+- **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run pop:assets:up`):
+  - audio · https://assets.aesthetic.computer/pop/helpabeach.mp3 (320 k mp3 of the master, 151.1 s)
+  - cover · https://assets.aesthetic.computer/pop/helpabeach.jpg (3000², Rhizome Health clinic tableau)
+  - video · https://assets.aesthetic.computer/pop/helpabeach.mp4 (1080×1920 vertical IG-story, 9 clinic panels)
+  - story cut · https://assets.aesthetic.computer/pop/helpabeach-short.mp4 (1:17 narrated cut)
 - **Master:** `~/Documents/Working Desktop/helpabeach-DISTROKID/helpabeach-MASTER.wav`
   — 44.1 kHz / 16-bit stereo WAV, 151.1 s. ≈ −13.4 LUFS, −1.5 dBTP.
   Master chain: highpass 24 → treble +1.8 dB @ 9.5 k → loudnorm
