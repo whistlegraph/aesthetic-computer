@@ -7,6 +7,33 @@ Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA*
 
 ---
 
+## helpabeach — READY TO SUBMIT
+
+- **Lane:** `pop/chillwave/` · chillwave / ambient instrumental, 2:31 ·
+  84 BPM · A minor pentatonic. Freesound CC0 calm-ocean bed, square→sine
+  intro rollers, sub-octave sine bells, pad, in-render formant
+  computer-voice on wordless nonsense phonemes (from ~0:47). No chimes.
+  Part of the *pixsies* body. (Formerly `undabeach`.)
+- **Status:** mastered, DistroKid folder ready — @jeffrey submits.
+- **Master:** `~/Documents/Working Desktop/helpabeach-DISTROKID/helpabeach-MASTER.wav`
+  — 44.1 kHz / 16-bit stereo WAV, 151.1 s. ≈ −13.4 LUFS, −1.5 dBTP.
+  Master chain: highpass 24 → treble +1.8 dB @ 9.5 k → loudnorm
+  I=−14 TP=−1.5 LRA=11 → alimiter 0.95. (Durable home is
+  `~/Documents/Working Desktop/` — Desktop auto-cleans, [[feedback_desktop_autocleaned]].)
+- **Cover:** `…/helpabeach-DISTROKID/helpabeach-cover-3000.jpg` — 3000²,
+  the Rhizome Health clinic tableau (gpt-image-2, colored-pencil +
+  gouache; `pop/chillwave/out/helpabeach-cover.png` upscaled lanczos).
+- **DistroKid folder:** `~/Documents/Working Desktop/helpabeach-DISTROKID/`
+  — MASTER.wav, cover-3000.jpg, README.md (submission-form fields).
+- **Reconstructable** ($0, deterministic): `node pop/chillwave/bin/render.mjs
+  --slug helpabeach --no-chimes --no-waves --no-sweeps --no-highmel
+  --voice-gain 0.22 --voice-start 47 --wav` → master chain above.
+- **Story cut:** `helpabeach-short` — a 1:17 narrated IG-story cut
+  (jeffrey-pvc first-person narration over the Rhizome Health clinic
+  panels). Separate from this single; see `pop/chillwave/helpabeach-short.np`.
+
+---
+
 ## trancenwaltz — RELEASED
 
 - **Lane:** `pop/dance/` · dark/emo/extreme war-arc trance-waltz, ~1:26

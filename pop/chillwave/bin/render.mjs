@@ -2156,19 +2156,23 @@ for (let i = 0; i < FINAL_SAMP; i++) {
 const tmp = mkdtempSync(`${tmpdir()}/chillwave-`);
 const rawPath = `${tmp}/mix.f32.raw`;
 writeFileSync(rawPath, Buffer.from(interleaved.buffer, interleaved.byteOffset, interleaved.byteLength));
+// --wav writes a lossless 24-bit WAV master (for DistroKid mastering)
+// instead of the mp3; the struct/lane-raw sidecars keep their names.
+const WAV_OUT = flags.wav === true;
+const FINAL_OUT = WAV_OUT ? OUT_PATH.replace(/\.mp3$/, ".wav") : OUT_PATH;
 const r = spawnSync("ffmpeg", [
   "-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SAMPLE_RATE), "-ac", "2",
   "-i", rawPath,
-  "-c:a", "libmp3lame", "-q:a", "2",
-  OUT_PATH,
+  ...(WAV_OUT ? ["-c:a", "pcm_s24le"] : ["-c:a", "libmp3lame", "-q:a", "2"]),
+  FINAL_OUT,
 ]);
 rmSync(tmp, { recursive: true, force: true });
 if (r.status !== 0) {
   console.error("✗ ffmpeg encode failed");
   process.exit(1);
 }
-console.log(`✓ ${OUT_PATH}  (peak norm ${norm.toFixed(3)}, ${FINAL_SEC.toFixed(1)}s · +${PREROLL_SEC}s type-intro)`);
+console.log(`✓ ${FINAL_OUT}  (peak norm ${norm.toFixed(3)}, ${FINAL_SEC.toFixed(1)}s · +${PREROLL_SEC}s type-intro)`);
 
 // ── per-lane mono buffers (display SR) saved as .raw sidecars ────────
 // Each lane writes a headerless float32 mono file at LANE_DISPLAY_SR
