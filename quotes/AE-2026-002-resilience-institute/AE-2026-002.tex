@@ -108,7 +108,7 @@
 \newcommand{\modgap}{\par\vspace{1.05em plus 0.5em minus 0.45em}} % module -> module
 \newcommand{\pagefoot}{\par\vspace{2pt plus 1fil}\null}          % slack pools here
 
-\newcommand{\acdot}{\textcolor{accyan}{.}}
+\newcommand{\acdot}{\textcolor{riteal}{.}}
 \newcommand{\docslug}{resilience-institute-code-quote}
 \newcommand{\doctimestamp}{Issued May 21, 2026}
 
@@ -149,7 +149,7 @@
       \draw[fill=white, draw=acink, line width=1.1pt, rounded corners=8pt]
         (t.south west) rectangle (t.north east);
     \else
-      \filldraw[fill=acpink, fill opacity=0.38, draw=acpink, line width=1.1pt, rounded corners=8pt]
+      \filldraw[fill=riteal, fill opacity=0.30, draw=riteal, line width=1.1pt, rounded corners=8pt]
         (t.south west) rectangle (t.north east);
     \fi
     \node[font={\acberkeley\Large\bfseries}, text=black] at (t.center) {#1};
@@ -164,13 +164,11 @@
   \draw[acink!50,line width=0.8pt,rounded corners=0.4pt]
     (-1.15mm,-1.05mm) rectangle (1.15mm,1.25mm);}}
 
-% === BACKGROUND — pals stamp + footer marks (diagonal QUOTE watermark
-%     removed for readability, per Fía's feedback) ===
+% === BACKGROUND — footer marks only. The pals corner stamp and diagonal
+%     QUOTE watermark were both removed for readability, per Fía's
+%     feedback — the doc keeps the clinic's calm, not AC's branding. ===
 \AddToShipoutPictureBG{%
   \begin{tikzpicture}[remember picture, overlay]
-    \node[opacity=0.6, anchor=north east, rotate=-12]
-      at ([xshift=0.15cm,yshift=0.2cm]current page.north east)
-      {\includegraphics[width=3.0cm]{\palsimg}};
     \draw[acline, line width=0.4pt]
       ([xshift=0.62in,yshift=0.58in]current page.south west) --
       ([xshift=-0.62in,yshift=0.58in]current page.south east);
@@ -187,9 +185,9 @@
 }
 \newcommand{\acrule}[1]{%
   \noindent
-  \pageseg{1}{#1}{acpink}\hspace{0.02\linewidth}%
-  \pageseg{2}{#1}{riochre}\hspace{0.02\linewidth}%
-  \pageseg{3}{#1}{accyandeep}\hspace{0.02\linewidth}%
+  \pageseg{1}{#1}{riteal}\hspace{0.02\linewidth}%
+  \pageseg{2}{#1}{risienna}\hspace{0.02\linewidth}%
+  \pageseg{3}{#1}{riochre}\hspace{0.02\linewidth}%
   \pageseg{4}{#1}{riolive}%
 }
 \newcommand{\idline}{%
@@ -203,7 +201,7 @@
 %   C  structural column (part / date) — faint cyan wash
 \newcommand{\cellbgcolor}{cellbg}
 \newcommand{\colcost}{riochre!14}
-\newcommand{\colstruct}{accyan!13}
+\newcommand{\colstruct}{riteal!9}
 \newcolumntype{L}{>{\columncolor{\cellbgcolor}\cellstrut\raggedright\arraybackslash}X}
 \newcolumntype{R}[1]{>{\columncolor{\colcost}\cellstrut\raggedleft\arraybackslash}p{#1}}
 \newcolumntype{C}[1]{>{\columncolor{\colstruct}\cellstrut\raggedright\arraybackslash}p{#1}}
@@ -231,7 +229,7 @@
 
 %% ====================== PAGE 1 — CODE QUOTE ======================
 
-{{\acprocessing\Large\bfseries\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{acpink}{Code Quote}}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{riteal}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{riteal}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
 {\large\rmfamily\bfseries F\'ia Benitez}\;{\large\rmfamily c/o}\;{\acprocessing\large\bfseries Aesthetic\acdot Computer}
 
 \vspace{0.45em}\acrule{1}
@@ -247,7 +245,7 @@
 
 \begin{rtable}
 \begin{tabularx}{\linewidth}{L|L}
-\rowcolor{accyan!18}
+\rowcolor{riteal!12}
 \textbf{From} & \textbf{For} \\ \hline
 F\'ia Benitez & The Resilience Institute \\ \hline
 c/o Aesthetic\acdot Computer & Resilient Minds \\ \hline
@@ -278,7 +276,7 @@ parts, plus a \$1,400 logo and style guide billed when they are done.
 \vspace{0.35em}
 \begin{rtable}
 \begin{tabularx}{\linewidth}{L|R{2.6cm}}
-\rowcolor{accyan!18}
+\rowcolor{riteal!12}
 \textbf{Piece} & \textbf{Cost} \\ \hline
 The web app --- five pillars, built as code, made for phones & \$4,900.00 \\ \hline
 Getting it online --- off Wix, web address, switched on & \$500.00 \\ \hline
@@ -300,7 +298,7 @@ Brand \& design --- a logo and a written style guide & \$1,400.00 \\
 \vspace{0.35em}
 \begin{rtable}
 \begin{tabularx}{\linewidth}{C{3.85cm}|L|C{3.75cm}|R{1.95cm}}
-\rowcolor{accyan!18}
+\rowcolor{riteal!12}
 \textbf{Part} & \textbf{When} & \textbf{Date Due} & \textbf{Amount} \\ \hline
 1 --- to begin & The day we start & Monday, May 25, 2026 & \$2,500.00 \\ \hline
 2 --- halfway & Practice page signed off & Monday, June 15, 2026 & \$2,500.00 \\ \hline
@@ -315,7 +313,7 @@ Brand \& design --- a logo and a written style guide & \$1,400.00 \\
 \pagebreak
 \pagecolor{acpaper}
 
-{{\acprocessing\Large\bfseries\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{acpink}{Code Quote}}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{riteal}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{riteal}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
 {{\acprocessing\Large\bfseries What Each Piece Costs}}
 
 \vspace{0.45em}\acrule{2}
@@ -380,7 +378,7 @@ A short style guide --- colors, fonts, and the look written down & \$500.00 \\
 \pagebreak
 \pagecolor{acpaper}
 
-{{\acprocessing\Large\bfseries\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{acpink}{Code Quote}}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{riteal}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{riteal}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
 {{\acprocessing\Large\bfseries The Look \& Feel}}
 
 \vspace{0.45em}\acrule{3}
@@ -438,45 +436,47 @@ The shop page wired to her dispensary & The code itself, handed over with notes 
 \pagebreak
 \pagecolor{acpaper}
 
-{{\acprocessing\Large\bfseries\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{acpink}{Code Quote}}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{riteal}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{riteal}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- The Resilience Institute}}\\[0.22em]
 {{\acprocessing\Large\bfseries Ongoing Help}}
 
 \vspace{0.45em}\acrule{4}
 
 \headgap
 
-This part is \textbf{optional} and separate from the \$8,900 build on the other
-pages. Once the site is live you can keep me on for six months: a short
-check-in call each month at no charge, plus help hours at \textbf{\$95 an hour}
-whenever you need them. There is no monthly retainer --- you pay only for the
-hours you actually use. The website is yours either way.
+This part is \textbf{optional} and separate from the \$8,900 build on the
+other pages. Once the site is live, ongoing help works in \textbf{meeting
+packs} --- you buy a set of working sessions and use them whenever the site
+needs attention. Each meeting is a short video call where we go through
+what's needed and I make the small changes, copy edits, and fixes that come
+out of it. No hourly timer and no monthly retainer --- you hold a pack and
+draw it down at your own pace. The website is yours either way.
 
 \modgap
 
-\cathead{riteal}{How it works}
+\cathead{riteal}{The two packs}
 \begin{rtable}
-\begin{tabularx}{\linewidth}{C{3.4cm}|L|R{2.7cm}}
-\rowcolor{accyan!18}
-\textbf{Part} & \textbf{What it is} & \textbf{Cost} \\ \hline
-How long & Six months, month to month --- stop whenever & --- \\ \hline
-Monthly call & One short check-in each month & Included \\ \hline
-Help hours & Booked by the hour, used when you need it & \$95.00 / hr \\ \hline
-Billing & Hours added up and invoiced each month & --- \\
+\begin{tabularx}{\linewidth}{C{2.7cm}|L|C{2.6cm}|R{2.0cm}}
+\rowcolor{riteal!12}
+\textbf{Pack} & \textbf{What it's for} & \textbf{Meetings} & \textbf{Cost} \\ \hline
+Touch-up & Occasional changes, handled as they come up & 5 meetings & \$700.00 \\ \hline
+Care & Steady upkeep through the site's first year & 10 meetings & \$1,200.00 \\
 \end{tabularx}
 \end{rtable}
-\subtot{riteal}{What it costs\quad\$95\,/\,hr}
+
+\vspace{0.4em}
+\textit{Each meeting runs 45--60 minutes \textcolor{acline}{$\bullet$} meetings stay good for 12 months from launch \textcolor{acline}{$\bullet$} \$140 a meeting in Touch-up, \$120 in Care}
 
 \modgap
 
-\cathead{risienna}{What the hours cover}
+\cathead{risienna}{What a meeting covers}
 \begin{rtable}
 \begin{tabularx}{\linewidth}{L|L}
-\rowcolor{accyan!18}
-\textbf{Covered} & \textbf{A separate quote} \\ \hline
+\rowcolor{riteal!12}
+\textbf{Covered in a meeting} & \textbf{A separate quote} \\ \hline
 Small changes and copy edits & Anything brand-new --- a fresh code quote \\ \hline
 Fixes when something breaks & The monthly server \& web-address bill \\ \hline
-Little additions and tidy-ups & Anything after the six months \\ \hline
-Link checks and the monthly call & --- \\
+Little additions and tidy-ups & Work beyond the meetings in your pack \\ \hline
+Link checks, and the call itself & --- \\
 \end{tabularx}
 \end{rtable}
 
