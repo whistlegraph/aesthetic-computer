@@ -11,9 +11,10 @@ Active applications, deadlines, and status. Newest deadlines first.
 | Oracle Egg — BROILER Residency (Fall 2026) | 2026-05-15 (23:59 PST) | TBD | DRAFT v0 ready | `oracle-egg-broiler-2026/` |
 | Serpentine — Future Art Ecosystems R&D Fellowship: Art × Convergence | 2026-06-07 (midnight BST) | £10,000 + London travel/lodging | DRAFT v0 ready | `serpentine-fae-2026/` |
 | SSRC — Just Tech Fellowship | 2026-06-28 (23:59 EST) | up to $60,000 (1 yr, unrestricted) | SOURCED — researching (Fia, 2026-05-14); no folder yet | — |
-| CalArts CCAT — Technical Director, BB6 studio (job, not grant) | rolling (listed start 2026-04-13, past) | $100k–$125k / yr | DRAFT v0 ready (vault `calarts-ccat-tech-director-2026/`) | `calarts-ccat-2026/` |
+| ~~CalArts CCAT — Technical Director, BB6 studio (job, not grant)~~ | posting closed (verified 2026-05-21) | $100k–$125k / yr | **CLOSED — not submitted.** Paycom job 154720 returns "We Couldn't Find This Job"; CalArts careers portal lists no CCAT roles. Verified: CCAT = CHANEL Center for Artists and Technology, ED MaryClare Brzytwa. Draft archived in vault `calarts-ccat-tech-director-2026/`; public page reframed as archived record. Reopen if CCAT reposts a TD / related role. | `calarts-ccat-2026/` |
 | ~~Francis Gallery painting exhibition~~ | passed (2026-04-30) | two $15k prizes | MISSED — the public Summer Exhibition deadline was 2026-04-30 (Fia's text said May 30, incorrect). Track 2027; if a separate private call exists, restart this folder. | `francis-gallery-2026/` |
 | Smart History — Contributor essay | rolling | unpaid | PITCH.md drafted (send first; PhD-or-equiv clause) | `smarthistory-essay/` |
+| Tezos Foundation — Ecosystem Grant (KidLisp Keeps v12) | rolling (submit Q2 2026 → July review) | ~$30k (milestone-based, 4 milestones) | DRAFT ready — applicant (Aesthetic Inc) + ask ($30k) set; needs grants-platform registration to trim to form fields | `tezos-foundation-keeps-2026/` |
 
 ### Drafted vs. submitted
 
