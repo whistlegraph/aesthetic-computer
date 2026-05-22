@@ -1,0 +1,17 @@
+{
+  "_comment": "Figure bounding boxes per story section, in panel-image coords (1024x1536, the portrait panel set). Hand-placed against the generated panels — auto face-detection fails on colored-pencil illustrations. preview-score.mjs derives a frame-aspect face box per figure for the in/out face zoom and casts the warm desk-lamp backlight halo from these. [x, y, w, h]. Re-eyeball a box if its panel is regenerated.",
+  "imgW": 1024,
+  "imgH": 1536,
+  "sections": {
+    "hush1":    { "jeffrey": [300, 300, 200, 450], "gates": [685, 150, 115, 120] },
+    "hush2":    { "jeffrey": [60, 110, 230, 720],  "gates": [390, 230, 360, 420] },
+    "twinkle1": { "jeffrey": [160, 120, 260, 680], "gates": [440, 290, 360, 470] },
+    "twinkle2": { "jeffrey": [120, 250, 330, 560], "gates": [430, 230, 360, 600] },
+    "wow1":     { "jeffrey": [90, 220, 400, 600],  "gates": [450, 240, 380, 600] },
+    "wow2":     { "jeffrey": [80, 220, 420, 620],  "gates": [440, 250, 400, 620] },
+    "baba1":    { "jeffrey": [80, 210, 400, 620],  "gates": [440, 260, 400, 620] },
+    "baba2":    { "jeffrey": [70, 220, 400, 600],  "gates": [430, 250, 400, 620] },
+    "sleep1":   { "jeffrey": [80, 220, 400, 620],  "gates": [440, 250, 400, 620] },
+    "sleep2":   { "jeffrey": [40, 90, 470, 1100],  "gates": [460, 130, 470, 1100] }
+  }
+}

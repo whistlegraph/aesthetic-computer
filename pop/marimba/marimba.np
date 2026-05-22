@@ -1,0 +1,44 @@
+# marimba — investigative piece for the marimba synth.
+#
+# Key: C major, A natural minor pentatonic relative (C D E G A) with
+# brief F naturals as passing tones. Tempo: 96 BPM (60/96 ≈ 0.625 s
+# per beat). Eighth = *0.5, quarter = *1, half = *2, dotted-half = *3.
+#
+# Lane intent: each section foregrounds ONE preset so the synth's
+# range is audible from the first listen — not a complete song, an
+# investigation.
+#
+#   intro      → rosewood lead alone, mid register, classic warmth
+#   bass-walk  → bass preset under, sparse low quarters
+#   staccato   → hard-mallet preset, rhythmic 16ths, no resonator
+#   roll       → roll preset on held octaves, single line on top
+#   tutti      → all four layered for the final cadence
+
+# intro 4 [rosewood]
+C5:_*1 E5:_*1 G5:_*1 E5:_*1
+D5:_*1 G5:_*1 A5:_*2
+C5:_*1 D5:_*1 E5:_*1 G5:_*1
+E5:_*2 C5:_*2
+
+# bass-walk 4 [rosewood, bass]
+C3:_*2 G3:_*2
+A2:_*2 E3:_*2
+F2:_*2 C3:_*2
+G2:_*1 D3:_*1 G3:_*2
+
+# staccato 6 [staccato, bass]
+C5:_*0.5 E5:_*0.5 G5:_*0.5 C6:_*0.5 G5:_*0.5 E5:_*0.5 C5:_*0.5 E5:_*0.5
+D5:_*0.5 F5:_*0.5 A5:_*0.5 D6:_*0.5 A5:_*0.5 F5:_*0.5 D5:_*0.5 F5:_*0.5
+E5:_*0.5 G5:_*0.5 B5:_*0.5 E6:_*0.5 B5:_*0.5 G5:_*0.5 E5:_*0.5 G5:_*0.5
+C5:_*1 G4:_*1 E4:_*1 C4:_*1
+
+# roll 4 [roll, bass]
+C5+C6:_*4
+A4+A5:_*4
+F4+F5:_*4
+G4+G5:_*4
+
+# tutti 3 [rosewood, bass, staccato, roll]
+C5:_*1 E5:_*1 G5:_*1 C6:_*1
+G5:_*1 E5:_*1 C5:_*1 G4:_*1
+C3+C4+C5+E5+G5+C6:_*6
