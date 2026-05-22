@@ -1,5 +1,17 @@
 import Foundation
 
+/// One live /pop render — an audio, illy, or video render publishing a
+/// progress heartbeat into ~/.ac-pop-renders/ (written by
+/// pop/lib/render-progress.mjs). The menu shows a temporary progress
+/// bar per render and drops it the instant its heartbeat file is gone.
+struct PopRender {
+    var id: String
+    var type: String        // "audio" | "illy" | "video"
+    var label: String
+    var pct: Int?           // 0…100, or nil for an indeterminate render
+    var startedAt: Double   // ms since epoch
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false
@@ -16,6 +28,9 @@ struct StateSnapshot {
     /// A marketing / pop render is actively in progress — the menubar
     /// "witness" eye opens while we watch the pixels get made.
     var rendering: Bool = false
+    /// Live /pop renders with progress heartbeats — one temporary
+    /// progress bar each in the menu (audio / illy / video).
+    var popRenders: [PopRender] = []
     /// The configured iMessage contact has unread inbound AND theme-by-status
     /// is on. Set by AppDelegate (not gather()) from the imsg poll — the
     /// whole status surface (polygon icon + themed terminals) then carries a
@@ -53,7 +68,41 @@ struct StateSnapshot {
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         s.rendering = detectRendering()
+        s.popRenders = readPopRenders()
         return s
+    }
+
+    /// Read the /pop render progress heartbeats from ~/.ac-pop-renders/.
+    /// Cheap — a small dir of tiny JSON files — and gather() already
+    /// runs off the main tick. Sweeps stale files (writer pid gone, or
+    /// heartbeat older than 120 s) so a crashed render leaves no ghost.
+    private static func readPopRenders() -> [PopRender] {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".ac-pop-renders")
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil) else { return [] }
+        let now = Date().timeIntervalSince1970 * 1000
+        var out: [PopRender] = []
+        for url in entries where url.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: url),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { continue }
+            let updatedAt = (obj["updatedAt"] as? Double) ?? 0
+            let pid = (obj["pid"] as? Int) ?? 0
+            let dead = pid > 0 && kill(pid_t(pid), 0) != 0 && errno == ESRCH
+            if now - updatedAt > 120_000 || dead {
+                try? FileManager.default.removeItem(at: url)
+                continue
+            }
+            let pctRaw = obj["pct"]
+            out.append(PopRender(
+                id: (obj["id"] as? String) ?? url.lastPathComponent,
+                type: (obj["type"] as? String) ?? "render",
+                label: (obj["label"] as? String) ?? "",
+                pct: (pctRaw is NSNull) ? nil : (pctRaw as? Int),
+                startedAt: (obj["startedAt"] as? Double) ?? 0))
+        }
+        return out.sorted { $0.startedAt < $1.startedAt }
     }
 
     private static func parseLidState() -> Bool {

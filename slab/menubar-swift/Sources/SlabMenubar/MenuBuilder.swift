@@ -38,6 +38,7 @@ enum MenuBuilder {
         menu.addItem(info("Status: \(state.statusLine)"))
         menu.addItem(.separator())
 
+        appendPopRenders(to: menu, state: state)
         appendClaude(to: menu, state: state, target: target)
         menu.addItem(info("Subagents in flight: \(state.activeSubagents)"))
         menu.addItem(.separator())
@@ -80,6 +81,43 @@ enum MenuBuilder {
         it.target = target
         it.isEnabled = true
         return it
+    }
+
+    /// Temporary progress bars — one monospaced row per live /pop render
+    /// heartbeat (audio / illy / video). Present only while a render is
+    /// running; the rows vanish when the heartbeat files are gone.
+    private static func appendPopRenders(to menu: NSMenu, state: StateSnapshot) {
+        guard !state.popRenders.isEmpty else { return }
+        let n = state.popRenders.count
+        menu.addItem(info("Renders: \(n) running"))
+        for r in state.popRenders {
+            let it = NSMenuItem(title: renderLine(r), action: nil, keyEquivalent: "")
+            it.isEnabled = false
+            it.attributedTitle = NSAttributedString(
+                string: renderLine(r),
+                attributes: [.font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)])
+            menu.addItem(it)
+        }
+        menu.addItem(.separator())
+    }
+
+    /// `illy   ▓▓▓▓▓▓░░░░░░  58%  helpabeach-p · 11 panels`
+    private static func renderLine(_ r: PopRender) -> String {
+        let width = 12
+        let bar: String
+        let pctText: String
+        if let p = r.pct {
+            let raw = (Double(p) / 100.0) * Double(width)
+            let filled = max(0, min(width, Int(raw.rounded())))
+            bar = String(repeating: "▓", count: filled)
+                + String(repeating: "░", count: width - filled)
+            pctText = "\(p)%".padding(toLength: 4, withPad: " ", startingAt: 0)
+        } else {
+            bar = String(repeating: "·", count: width)
+            pctText = " ⋯  "
+        }
+        let type = r.type.padding(toLength: 6, withPad: " ", startingAt: 0)
+        return "\(type)\(bar)  \(pctText)  \(r.label)"
     }
 
     private static func buildTailnet(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
