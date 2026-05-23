@@ -1,0 +1,16 @@
+{
+  "slug": "grid",
+  "name": "Grid — All Posts by Engagement",
+  "description": "Every @whistlegraph grid post, ranked by likes. The curation worktable: head = keepers, tail = hide candidates. Use manual_exclude to mark posts to archive off the live grid.",
+  "selectors": [
+    {
+      "type": "media_kind",
+      "values": [
+        "post"
+      ]
+    }
+  ],
+  "order": "likes_desc",
+  "manual_include": [],
+  "manual_exclude": []
+}

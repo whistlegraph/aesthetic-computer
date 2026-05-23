@@ -2,15 +2,18 @@
 """
 Render a contact sheet for a curated show. Resolves the show via
 `bin/show-resolve.mjs <slug>` (single source of truth for selectors), then tiles
-post thumbnails onto a single image saved to ~/Desktop/whistlegraph-shows/.
+post thumbnails onto a single image saved to portraits/jeffrey/shows/.
 
 For posts with > MAX_TILES images the set is evenly sampled so the sheet stays
-readable; the filename records the sample.
+readable; the filename records the sample. To review every post instead of a
+sample — needed for grid curation — pass --per-page=N: the show is split into
+ordered pages of N posts each, one image per page (no sampling).
 
 Usage:
   bin/show-contact-sheet.py jeffrey-only
   bin/show-contact-sheet.py no-jeffrey --max=400
   bin/show-contact-sheet.py recent-30 --account=whistlegraph
+  bin/show-contact-sheet.py grid --per-page=600    # full curation review, paginated
 """
 
 from __future__ import annotations
@@ -29,7 +32,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 REPO = Path(__file__).resolve().parents[3]
 RESOLVER = REPO / "portraits/jeffrey/bin/show-resolve.mjs"
-DESKTOP = Path.home() / "Desktop" / "whistlegraph-shows"
+# Output lives next to the show definitions (shows/*.jpg is gitignored). NOT
+# ~/Desktop — the macOS Desktop auto-cleaner wipes long renders mid-job.
+OUT_DIR = REPO / "portraits/jeffrey/shows"
 
 THUMB = 200
 CAPTION_H = 60          # strip below each tile for date/likes/caption
@@ -132,10 +137,10 @@ def wrap_to_width(draw, text, font, max_w, max_lines):
     return lines
 
 
-def draw_caption_strip(draw, post, x, y, stat_font, cap_font, tile_w):
+def draw_caption_strip(draw, post, x, y, stat_font, cap_font, tile_w, rank=None):
     """Draw a 60px-tall info strip below a tile.
 
-    Top line: date + likes♥ + comments✎ (post) or "story · date" (story).
+    Top line: #rank + date + likes♥ + comments✎ (post) or "story · date".
     Lines 2-3: caption text, wrapped + truncated to fit tile width.
     """
     kind = post.get("kind") or "other"
@@ -147,7 +152,10 @@ def draw_caption_strip(draw, post, x, y, stat_font, cap_font, tile_w):
     if kind == "story":
         stat_line = f"story · {date}"
     else:
-        bits = [date]
+        bits = []
+        if rank is not None:
+            bits.append(f"#{rank}")
+        bits.append(date)
         if likes is not None:
             bits.append(f"{likes} like" + ("" if likes == 1 else "s"))
         if comments is not None and comments > 0:
@@ -180,23 +188,23 @@ def sample_evenly(items: list, n: int) -> list:
     return [items[int(i * step)] for i in range(n)]
 
 
-def build_sheet(slug: str, account: str, max_tiles: int) -> Path:
-    data = resolve_show(slug, account)
-    show = data["show"]
-    posts = data["posts"]
-    total = len(posts)
-    if total == 0:
-        print(f"[{slug}] no posts resolved; skipping", file=sys.stderr)
-        return None
+def render_sheet(
+    slug: str,
+    show: dict,
+    posts: list,
+    account: str,
+    out: Path,
+    subtitle: str,
+    rank_offset: int | None,
+) -> Path:
+    """Tile `posts` onto one contact-sheet image at `out`.
 
-    sampled = sample_evenly(posts, max_tiles)
-    sampled_note = (
-        f"sampled {len(sampled)} of {total}" if len(sampled) < total else f"{total}"
-    )
-
+    If `rank_offset` is not None each tile is stamped #(rank_offset + i + 1) —
+    the post's global position in the show order (used for paginated review).
+    """
     archive_dir = REPO / "portraits/jeffrey/ig-archive" / account
     cell_h = THUMB + CAPTION_H
-    rows = math.ceil(len(sampled) / COLS)
+    rows = math.ceil(len(posts) / COLS)
     width = COLS * THUMB + (COLS + 1) * PAD
     height = HEADER_H + rows * cell_h + (rows + 1) * PAD
 
@@ -208,17 +216,19 @@ def build_sheet(slug: str, account: str, max_tiles: int) -> Path:
     stat_font = pick_font(12)
     cap_font = pick_font(13)
     draw.text((PAD * 2, 18), show.get("name") or slug, font=title_font, fill=FG)
+    draw.text((PAD * 2, 64), subtitle, font=sub_font, fill=DIM)
     desc = show.get("description", "") or ""
-    date_first = posts[0]["date"]
-    date_last = posts[-1]["date"]
-    sub = f"{sampled_note}  ·  {date_first} → {date_last}  ·  @{account}"
-    draw.text((PAD * 2, 64), sub, font=sub_font, fill=DIM)
     if desc:
-        draw.text((PAD * 2, 90), desc, font=sub_font, fill=DIM)
+        draw.text(
+            (PAD * 2, 90),
+            fit_to_width(draw, desc, sub_font, width - PAD * 4),
+            font=sub_font,
+            fill=DIM,
+        )
 
     placed = 0
     missing: list[str] = []
-    for i, post in enumerate(sampled):
+    for i, post in enumerate(posts):
         src = find_thumb_source(post, archive_dir)
         if not src:
             missing.append(post["shortcode"])
@@ -231,30 +241,69 @@ def build_sheet(slug: str, account: str, max_tiles: int) -> Path:
             tile = load_tile(src, THUMB)
             canvas.paste(tile, (x, y))
             tile.close()
+            rank = None if rank_offset is None else rank_offset + i + 1
             draw_caption_strip(
-                draw, post, x, y + THUMB + 2, stat_font, cap_font, THUMB
+                draw, post, x, y + THUMB + 2, stat_font, cap_font, THUMB, rank
             )
             placed += 1
         except Exception as e:  # noqa: BLE001
             missing.append(f"{post['shortcode']} ({type(e).__name__})")
         if placed % 50 == 0 and placed:
-            print(f"  [{slug}] {placed}/{len(sampled)}", file=sys.stderr)
+            print(f"  [{slug}] {placed}/{len(posts)}", file=sys.stderr)
 
-    DESKTOP.mkdir(parents=True, exist_ok=True)
-    if len(sampled) < total:
-        out = DESKTOP / f"{slug}-sample-{len(sampled)}-of-{total}.jpg"
-    else:
-        out = DESKTOP / f"{slug}-{total}.jpg"
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     canvas.save(out, "JPEG", quality=82, optimize=True)
     canvas.close()
 
     if missing:
         print(
-            f"[{slug}] {placed}/{len(sampled)} placed; {len(missing)} missing source",
+            f"[{slug}] {placed}/{len(posts)} placed; {len(missing)} missing source",
             file=sys.stderr,
         )
     print(out)
     return out
+
+
+def build_sheet(
+    slug: str, account: str, max_tiles: int, per_page: int
+) -> list[Path]:
+    data = resolve_show(slug, account)
+    show = data["show"]
+    posts = data["posts"]
+    total = len(posts)
+    if total == 0:
+        print(f"[{slug}] no posts resolved; skipping", file=sys.stderr)
+        return []
+
+    # Paginated review: every post, split into ordered pages of `per_page`.
+    if per_page and per_page > 0 and total > per_page:
+        n_pages = math.ceil(total / per_page)
+        outs: list[Path] = []
+        for pg in range(n_pages):
+            lo, hi = pg * per_page, min((pg + 1) * per_page, total)
+            chunk = posts[lo:hi]
+            sub = (
+                f"page {pg + 1}/{n_pages}  ·  ranks {lo + 1}–{hi} of {total}"
+                f"  ·  {chunk[0]['date']} → {chunk[-1]['date']}  ·  @{account}"
+            )
+            out = OUT_DIR / f"{slug}-p{pg + 1}of{n_pages}.jpg"
+            outs.append(render_sheet(slug, show, chunk, account, out, sub, lo))
+        return outs
+
+    # Single sheet: evenly sampled if it would otherwise exceed max_tiles.
+    sampled = sample_evenly(posts, max_tiles)
+    sampled_note = (
+        f"sampled {len(sampled)} of {total}" if len(sampled) < total else f"{total}"
+    )
+    sub = (
+        f"{sampled_note}  ·  {posts[0]['date']} → {posts[-1]['date']}"
+        f"  ·  @{account}"
+    )
+    if len(sampled) < total:
+        out = OUT_DIR / f"{slug}-sample-{len(sampled)}-of-{total}.jpg"
+    else:
+        out = OUT_DIR / f"{slug}-{total}.jpg"
+    return [render_sheet(slug, show, sampled, account, out, sub, None)]
 
 
 def main() -> int:
@@ -262,11 +311,18 @@ def main() -> int:
     p.add_argument("slug")
     p.add_argument("--account", default="whistlegraph")
     p.add_argument("--max", type=int, default=600, dest="max_tiles")
+    p.add_argument(
+        "--per-page",
+        type=int,
+        default=0,
+        dest="per_page",
+        help="render every post (no sampling) in ordered pages of N tiles",
+    )
     args = p.parse_args()
     if shutil.which("node") is None:
         print("node not on PATH", file=sys.stderr)
         return 1
-    build_sheet(args.slug, args.account, args.max_tiles)
+    build_sheet(args.slug, args.account, args.max_tiles, args.per_page)
     return 0
 
 

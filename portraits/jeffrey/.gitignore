@@ -12,3 +12,4 @@ sessions/
 *.pt
 *.bin
 shows/*.jpg
+.venv-instagrapi/
