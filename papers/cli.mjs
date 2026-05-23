@@ -445,12 +445,29 @@ function sourcesMtime(entry) {
   return newest;
 }
 
+// Sniff the xelatex .log next to a built PDF for the silent-failure signature:
+// fontspec couldn't load a requested font, so the run fell back to `nullfont`
+// and still emitted a small stub PDF (xelatex exits 0). Same shape as
+// the cards-convert bug — a stub passes the mtime check forever.
+function logShowsBrokenBuild(pdfFile) {
+  const logFile = pdfFile.replace(/\.pdf$/, ".log");
+  if (!existsSync(logFile)) return false;
+  try {
+    const log = readFileSync(logFile, "utf8");
+    return log.includes("! Package fontspec Error") || log.includes("nullfont");
+  } catch {
+    return false;
+  }
+}
+
 // Returns true if the paper needs rebuilding (source newer than PDF, or no PDF).
 function needsRebuild(entry) {
   if (!entry.pdfExists) return true;
   try {
     const pdfMtime = statSync(entry.pdfFile).mtimeMs;
-    return sourcesMtime(entry) > pdfMtime;
+    if (sourcesMtime(entry) > pdfMtime) return true;
+    if (logShowsBrokenBuild(entry.pdfFile)) return true;
+    return false;
   } catch {
     return true;
   }
