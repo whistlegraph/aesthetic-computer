@@ -462,6 +462,14 @@
         file_server
     }
 
+    # --- drvkforlife.com (Loretta / Nevada Natural Living, relaunch mid-June 2026) ---
+    @drvkforlife host drvkforlife.com www.drvkforlife.com
+    handle @drvkforlife {
+        root * /opt/ac/system/public/drvkforlife.com
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
     # --- kidlisp.com root domain ---
     @kidlisproot host kidlisp.com www.kidlisp.com
     handle @kidlisproot {

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path
+    d="M32 6 C 22 22, 14 32, 14 42 a 18 18 0 1 0 36 0 c 0 -10 -8 -20 -18 -36 Z"
+    fill="#b06a3b"
+    opacity="0.92"
+  />
+  <path
+    d="M24 44 q 8 -6 16 0"
+    stroke="#fbf6ea"
+    stroke-width="2"
+    fill="none"
+    stroke-linecap="round"
+  />
+  <path
+    d="M22 50 q 10 -5 20 0"
+    stroke="#fbf6ea"
+    stroke-width="2"
+    fill="none"
+    stroke-linecap="round"
+    opacity="0.7"
+  />
+</svg>
