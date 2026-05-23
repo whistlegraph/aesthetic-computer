@@ -212,7 +212,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// sessions' osascripts don't re-fire. Stop the timer when no attention
     /// state remains, snapping the palette back to its base.
     private func updateBlinkTimer() {
-        let needsBlink = state.themeByStatus && state.claudeSessions.contains {
+        // Disabled for now — too distracting on the wall. Re-enable by
+        // flipping this to `true`. statusDecor still accepts a `blink` arg
+        // so this only needs to come back on at the timer level.
+        let blinkEnabled = false
+        let needsBlink = blinkEnabled && state.themeByStatus && state.claudeSessions.contains {
             $0.state == .complete || $0.state == .awaiting
         }
         if needsBlink {
@@ -298,7 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func openImsgTail() {
         let helper = Paths.imsgHelper
         let script = """
-        tell application "iTerm2"
+        tell application id "com.googlecode.iterm2"
             activate
             create window with default profile
             tell current session of current window to write text "exec '\(helper)' tail"
@@ -347,7 +351,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let repoEsc = Paths.acRepo.replacingOccurrences(of: "'", with: "'\\''")
         let cmd = "cd '\(repoEsc)' && exec node pop/bin/rfa.mjs --track \(lane)"
         let script = """
-        tell application "iTerm2"
+        tell application id "com.googlecode.iterm2"
             activate
             create window with default profile
             tell current session of current window to write text "\(cmd)"
@@ -436,7 +440,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // name. Selecting session→tab→window focuses the right pane and
         // raises its window; `activate` brings iTerm2 forward.
         let script = """
-        tell application "iTerm2"
+        tell application id "com.googlecode.iterm2"
             activate
             set targetTTY to "\(escaped)"
             repeat with w in windows
@@ -463,7 +467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let safeHost = host.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         let script = """
-        tell application "iTerm2"
+        tell application id "com.googlecode.iterm2"
             activate
             create window with default profile
             tell current session of current window to write text "ssh \(safeHost)"

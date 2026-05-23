@@ -9,6 +9,8 @@ struct PopRender {
     var type: String        // "audio" | "illy" | "video"
     var label: String
     var pct: Int?           // 0…100, or nil for an indeterminate render
+    var done: Int?          // e.g. frame 142, panel 3
+    var total: Int?         // e.g. of 240, of 11
     var startedAt: Double   // ms since epoch
 }
 
@@ -25,9 +27,6 @@ struct StateSnapshot {
     var forceBright: Bool = false
     var tailnetPeers: [TailnetPeer] = []
     var claudeSessions: [ClaudeSession] = []
-    /// A marketing / pop render is actively in progress — the menubar
-    /// "witness" eye opens while we watch the pixels get made.
-    var rendering: Bool = false
     /// Live /pop renders with progress heartbeats — one temporary
     /// progress bar each in the menu (audio / illy / video).
     var popRenders: [PopRender] = []
@@ -67,7 +66,6 @@ struct StateSnapshot {
         s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
-        s.rendering = detectRendering()
         s.popRenders = readPopRenders()
         return s
     }
@@ -95,11 +93,15 @@ struct StateSnapshot {
                 continue
             }
             let pctRaw = obj["pct"]
+            let doneRaw = obj["done"]
+            let totalRaw = obj["total"]
             out.append(PopRender(
                 id: (obj["id"] as? String) ?? url.lastPathComponent,
                 type: (obj["type"] as? String) ?? "render",
                 label: (obj["label"] as? String) ?? "",
                 pct: (pctRaw is NSNull) ? nil : (pctRaw as? Int),
+                done: (doneRaw is NSNull) ? nil : (doneRaw as? Int),
+                total: (totalRaw is NSNull) ? nil : (totalRaw as? Int),
                 startedAt: (obj["startedAt"] as? Double) ?? 0))
         }
         return out.sorted { $0.startedAt < $1.startedAt }
@@ -135,20 +137,4 @@ struct StateSnapshot {
         return contents.filter { !$0.hasPrefix(".") }.count
     }
 
-    /// True while a marketing / pop render is running: a cover-video.mjs
-    /// or chillwave preview-score.mjs, or an ffmpeg consuming raw BGRA
-    /// frames (the canvas video encode). Off-main (gather() runs off the
-    /// main tick), one cheap pgrep with a short timeout.
-    private static func detectRendering() -> Bool {
-        guard let out = ShellRunner.output(
-            "/bin/sh",
-            args: ["-c",
-                "pgrep -f 'cover-video\\.mjs' >/dev/null 2>&1 || " +
-                "pgrep -f 'preview-score\\.mjs' >/dev/null 2>&1 || " +
-                "pgrep -f 'ffmpeg .*pix_fmt bgra' >/dev/null 2>&1; " +
-                "if [ $? -eq 0 ]; then echo R; fi"],
-            timeout: 2
-        ) else { return false }
-        return out.contains("R")
-    }
 }
