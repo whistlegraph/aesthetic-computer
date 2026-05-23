@@ -1,0 +1,92 @@
+# dingaba — a doorbell music-box welcome for synthesized marimba.
+#
+# Style: cute weird syllabic phrasing of the whistlegraph platter.
+# The unspoken lyric is the small ceremony of arriving at a friend's
+# door — ringing the bell, waiting, hearing footsteps, the door
+# opening to a warm hello. Glockenspiel is the doorbell itself,
+# kalimba is the offbeat sparkle (sunlight on the welcome mat),
+# bass marimba is the steady heartbeat of being expected, and
+# rosewood thirds enter underneath when the door actually opens.
+#
+# This is marimbaba's neighborly sibling. Same lane, same
+# whistlegraph DNA, a friend-house vibe: bright Eb major, gentle
+# 4/4 at 110 BPM, no haze. A ~52-second arrival in four scenes.
+#
+# Key: Eb major (Bb, Eb, Ab in the signature). 4/4, ~110 BPM
+# (1 beat ≈ 0.545 s, 1 bar ≈ 2.18 s).
+# Form: 24 bars / ~52 s. Score lives at dingaba.np; the actual
+# event scheduling + mix lives in bin/render-dingaba.mjs.
+#
+# Voices:
+#   glockenspiel  — the doorbell itself; chiming lead
+#   kalimba       — offbeat sparkle (sunlight on the welcome mat)
+#   bass          — heartbeat pulse on 1 & 3 (low Eb / Bb)
+#   rosewood      — warm thirds underneath on phrase tails
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [chime] — the doorbell rings, bars 1–4
+#   bar 1:  ding   DONG   ding                (Bb5 ─ G5 ─ Eb5)
+#   bar 2:  (rest, listening)                 (silence + low pulse)
+#   bar 3:  ding   DONG   ding                (Eb5 G5 ─ Bb5 reply)
+#   bar 4:  (rest, footsteps coming)          (kalimba tip-tap)
+#
+# [hello] — climbing answer, bars 5–12 — "who-IS-it / hel-LO"
+#   bar 5:  hel    LO     hel-lo              (G5 Bb5 ─ G5 Eb5)
+#   bar 6:  who   IS      it                  (F5 Ab5 ─ Bb5)
+#   bar 7:  hel    LO     hel-lo              (G5 Bb5 ─ G5 Eb5)
+#   bar 8:  com-ing  THROUGH                  (F5 G5 ─ Ab5)
+#   bar 9:  hel    LO     hel-LO              (Bb5 C6 ─ Bb5 Ab5)
+#   bar 10: it   is   ME                      (G5 Bb5 ─ Eb6)
+#   bar 11: hel    LO    hel-LO               (G5 Bb5 ─ G5 Eb5)
+#   bar 12: at   the   DOOR                   (F5 G5 Bb5)
+#
+# [friend] — the warm welcome, bars 13–20 (rosewood thirds enter)
+#   bar 13: it's   YOUR    friend             (Eb5 G5 ─ Bb5)
+#   bar 14: come   ON      in                 (Ab5 G5 ─ F5)
+#   bar 15: it's   YOUR    friend             (Eb5 G5 ─ Bb5)
+#   bar 16: come         IN                   (C6 ─ Bb5 held)
+#   bar 17: i    brought   you                (G5 Ab5 Bb5)
+#   bar 18: TU   lips                         (C6 ─ Bb5 ─ G5)
+#   bar 19: yel-low   ones                    (Bb5 G5 ─ Eb5)
+#   bar 20: for    your    TA   ble           (F5 G5 Ab5 Bb5)
+#
+# [inside] — settling cadence I-IV-V-I, bars 21–24
+#   bar 21: come    in     (Eb)               (Eb5 G5 Bb5 ─ Eb6)
+#   bar 22: si-t    down   (Ab)               (Ab5 C6 ─ Ab5)
+#   bar 23: stay    a      while (Bb)         (Bb5 D6 ─ Bb5 F5)
+#   bar 24: home    (Eb)                      (Eb5 G5 ─ Bb5 ─ Eb6)
+#
+# Below: section markers for the renderer (sections by name).
+
+# chime 4 [glockenspiel, bass]
+Bb5:_*1 G5:_*1 Eb5:_*2
+Eb3:_*4
+Eb5:_*1 G5:_*1 Bb5:_*2
+Eb3:_*4
+
+# hello 8 [glockenspiel, bass, kalimba]
+G5:_*1 Bb5:_*1 G5:_*1 Eb5:_*1
+F5:_*1 Ab5:_*1 Bb5:_*2
+G5:_*1 Bb5:_*1 G5:_*1 Eb5:_*1
+F5:_*1 G5:_*1 Ab5:_*2
+Bb5:_*1 C6:_*1 Bb5:_*1 Ab5:_*1
+G5:_*1 Bb5:_*1 Eb6:_*2
+G5:_*1 Bb5:_*1 G5:_*1 Eb5:_*1
+F5:_*1 G5:_*1 Bb5:_*2
+
+# friend 8 [glockenspiel, bass, kalimba, rosewood]
+Eb5:_*1 G5:_*1 Bb5:_*2
+Ab5:_*1 G5:_*1 F5:_*2
+Eb5:_*1 G5:_*1 Bb5:_*2
+C6:_*2 Bb5:_*2
+G5:_*1 Ab5:_*1 Bb5:_*2
+C6:_*1 Bb5:_*1 G5:_*2
+Bb5:_*1 G5:_*1 Eb5:_*2
+F5:_*1 G5:_*1 Ab5:_*1 Bb5:_*1
+
+# inside 4 [glockenspiel, bass, kalimba, rosewood]
+Eb5:_*1 G5:_*1 Bb5:_*1 Eb6:_*1
+Ab5:_*1 C6:_*1 Ab5:_*2
+Bb5:_*1 D6:_*1 Bb5:_*1 F5:_*1
+Eb5:_*1 G5:_*1 Bb5:_*1 Eb6:_*1

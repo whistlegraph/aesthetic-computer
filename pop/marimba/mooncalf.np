@@ -1,0 +1,86 @@
+# mooncalf — a moonlit porch ballad for synthesized marimba.
+#
+# Style: marimbaba's wistful older cousin. Same whistlegraph syllabic
+# DNA, night-coded but NOT sleepy — someone on a porch swing, looking
+# up at the full moon, asking quiet questions. tender and curious,
+# never melancholy, never noir.
+#
+# Key: E minor (natural). Slow 3/4, ~60 BPM (1 beat = 1.000 s, 1 bar
+# = 3.000 s). Form: 24 bars / ~72 s. The score lives at mooncalf.np;
+# the actual event scheduling + mix lives in bin/render-mooncalf.mjs.
+#
+# Voices:
+#   rosewood       — the singer; the syllabic moon-question
+#   vibraphone_off — the night sky pad; held thirds, motor off
+#   bass           — porch-board pulse; low E/B on beat 1 only
+#   kalimba        — star-pings; sparse twinkles on phrase tails
+#
+# Chord pad: Em – C – G – D – Em (i – VI – III – VII – i, Aeolian).
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [look] — opening question, bars 1–4 (climbing)
+#   bar 1:  moon-CALF                                (E5 ─ G5)
+#   bar 2:  look-UP                                  (G5 ─ B5)
+#   bar 3:  moon-CALF                                (E5 ─ G5)
+#   bar 4:  look                                     (B5 held)
+#
+# [where] — descending wondering, bars 5–10
+#   bar 5:  where-DO                                 (G5 ─ E5)
+#   bar 6:  you-go                                   (D5 ─ E5)
+#   bar 7:  where-DO                                 (G5 ─ E5)
+#   bar 8:  you-go                                   (D5 ─ B4)
+#   bar 9:  where-do                                 (E5 ─ D5)
+#   bar 10:                  go                      (B4 held)
+#
+# [follow] — climbing again, bars 11–18 (pad swells)
+#   bar 11: fol-low                                  (E5 ─ G5)
+#   bar 12: the-LIGHT                                (A5 ─ B5)
+#   bar 13: fol-low                                  (E5 ─ G5)
+#   bar 14: the-LIGHT                                (A5 ─ B5)
+#   bar 15: fol-low   the                            (G5 ─ A5 ─ B5)
+#   bar 16:                  light                   (B5 held)
+#   bar 17: fol-low   the                            (A5 ─ G5 ─ A5)
+#   bar 18:                  light                   (G5 held)
+#
+# [far] — final descending settle, bars 19–24
+#   bar 19: far-A-way                                (D5 ─ B4 ─ A4)
+#   bar 20: far-A-way                                (D5 ─ B4 ─ A4)
+#   bar 21: far                                      (G4 held)
+#   bar 22: good-NIGHT                               (A4 ─ G4)
+#   bar 23: (settling)                               (E4 held, low)
+#   bar 24:                                          (silence + star-pings)
+#
+# Below: section markers for the renderer (sections by name).
+
+# look 4 [rosewood, bass]
+E5:_*1.5 G5:_*1.5
+G5:_*1.5 B5:_*1.5
+E5:_*1.5 G5:_*1.5
+B5:_*3
+
+# where 6 [rosewood, bass, vibraphone_off]
+G5:_*1.5 E5:_*1.5
+D5:_*1.5 E5:_*1.5
+G5:_*1.5 E5:_*1.5
+D5:_*1.5 B4:_*1.5
+E5:_*1.5 D5:_*1.5
+B4:_*3
+
+# follow 8 [rosewood, vibraphone_off, bass, kalimba]
+E5:_*1.5 G5:_*1.5
+A5:_*1.5 B5:_*1.5
+E5:_*1.5 G5:_*1.5
+A5:_*1.5 B5:_*1.5
+G5:_*1 A5:_*1 B5:_*1
+B5:_*3
+A5:_*1 G5:_*1 A5:_*1
+G5:_*3
+
+# far 6 [rosewood, bass, kalimba]
+D5:_*1 B4:_*1 A4:_*1
+D5:_*1 B4:_*1 A4:_*1
+G4:_*3
+A4:_*1.5 G4:_*1.5
+E4:_*3
+:_*3

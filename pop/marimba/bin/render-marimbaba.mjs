@@ -770,7 +770,7 @@ function pushB(bar, beat, midi, opts = {}) {
   const baseVol = opts.vol ?? 0.45;
   const volume = baseVol * positional;
   const depth = opts.depth ?? 1.0;
-  bubbles.push({ startSec, radiusMM: radius, rise, volume, pan, depth });
+  bubbles.push({ startSec, midi, radiusMM: radius, rise, volume, pan, depth });
 }
 
 // Bubbles are now bright, tight, on-the-beat ACCENTS — pitched two
@@ -1641,7 +1641,7 @@ console.log(`✓ ${outPath} (pop-mastered · ${(trimN / SR).toFixed(1)} s)`);
   const structTotalSec = trimN / SR;
   const LANE_OF = { rosewood: "rosewood", bass: "bass", kalimba: "kalimba",
                     vibraphone: "vibraphone", vibraphone_off: "vibraphone" };
-  const laneEvents = { rosewood: [], bass: [], kalimba: [], vibraphone: [] };
+  const laneEvents = { rosewood: [], bass: [], kalimba: [], vibraphone: [], bubbles: [] };
   for (const ev of events) {
     const lane = LANE_OF[ev.preset];
     if (!lane || ev.startSec >= structTotalSec) continue;
@@ -1650,6 +1650,18 @@ console.log(`✓ ${outPath} (pop-mastered · ${(trimN / SR).toFixed(1)} s)`);
       dur: +(ev.durSec ?? 0.3).toFixed(4),
       midi: ev.midi,
       gain: +(ev.gain ?? 0.85).toFixed(3),
+    });
+  }
+  // SDT bubble bass beat — chord-tone stabs + off-beat tinkles, the
+  // continuous percussive accent. Short visual duration so they read
+  // as bright punctuation on the lane, not held tones.
+  for (const b of bubbles) {
+    if (b.startSec >= structTotalSec) continue;
+    laneEvents.bubbles.push({
+      t: +b.startSec.toFixed(4),
+      dur: 0.18,
+      midi: b.midi,
+      gain: +Math.min(1, b.volume).toFixed(3),
     });
   }
   for (const k of Object.keys(laneEvents)) laneEvents[k].sort((a, b) => a.t - b.t);

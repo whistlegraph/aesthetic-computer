@@ -1,0 +1,96 @@
+# piggabap — a cartoon barnyard chase for synthesized marimba.
+#
+# Style: comic mock-menace, Carl-Stalling-flavored. Playful pigs in
+# mud, frantic curious snorting, fast and grinning — never genuinely
+# chaotic. Each phrase below has an unspoken syllabic chant the
+# xylophone squeals as if a pig had learned to sing. The voices are
+# layered, not arranged as a single line.
+#
+# This is marimbaba's farmyard cousin. F minor lends the comic-mock-
+# menace cartoon-flavor: tight, fast, grinning. A 40-second pop romp.
+#
+# Key: F natural minor (F G Ab Bb C Db Eb). 4/4, ~144 BPM
+# (1 beat ≈ 0.417 s, 1 bar ≈ 1.667 s).
+# Form: 24 bars / ~40 s. The score lives at piggabap.np; the actual
+# event scheduling + mix lives in bin/render-piggabap.mjs.
+#
+# Voices:
+#   xylophone      — the pig's high voice (squeals — the lead)
+#   bass           — low F/C oinks (the deep grunt)
+#   staccato       — sharp dry snorts (percussive marimba slap)
+#   woodblock      — clip-clop trotters (the chase)
+#
+# Harmony: i (Fm) – iv (Bbm) – v (Cm) – VI (Db) – i (Fm).
+# Bass on F2 + C3 alternating, very tight pulse.
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [oink] — bars 1–4 — descending F minor third triads
+#   bar 1:  oink         OINK                          (F5 ─ Db5)
+#   bar 2:  oink         OINK                          (Db5 ─ Bb4)
+#   bar 3:  oink-oink    OINK                          (F5 Db5 Bb4)
+#   bar 4:  OINK                                       (F5 held)
+#
+# [snort] — bars 5–10 — fast 16th-note bursts
+#   bar 5:  snort-snort  SNORT                         (F5 Ab5 C6)
+#   bar 6:  snort-snort  SNORT-snort                   (F5 Ab5 C6 Eb6)
+#   bar 7:  snort        SNORT                         (Eb6 C6)
+#   bar 8:  snort-snort  SNORT                         (Ab5 C6 Eb6)
+#   bar 9:  snort-snort  snort-SNORT                   (F5 Ab5 C6 Eb6)
+#   bar 10: SNORT                                      (Eb6 held)
+#
+# [mud] — bars 11–14 — rolling chromatic squelches
+#   bar 11: mud-MUD-mud                                (F5 E5 Eb5 F5)
+#   bar 12: roll-A-ROUND                               (F5 Db5 F5 Ab5)
+#   bar 13: mud-MUD-mud                                (Bb5 Ab5 G5 F5)
+#   bar 14: SQUELCH                                    (F5 held, woodblock clops)
+#
+# [chase] — bars 15–20 — climb-descend zigzag, all voices in
+#   bar 15: chase-the    CAT                           (F5 C6 Ab5 Eb6)
+#   bar 16: chase-the    CAT                           (Eb6 Ab5 C6 F5)
+#   bar 17: round-the    BARN                          (F5 Ab5 C6 Eb6)
+#   bar 18: round-the    BARN                          (Eb6 C6 Ab5 F5)
+#   bar 19: catch-her    CATCH-her                     (F5 C6 F5 Eb6)
+#   bar 20: GOTCHA                                     (C6 Ab5 F5 Db5)
+#
+# [flop] — bars 21–24 — settle and snore
+#   bar 21: flop         FLOP                          (Db5 ─ Bb4)
+#   bar 22: flop                                       (Ab4 held)
+#   bar 23: SNORE                                      (F4 held)
+#   bar 24: (sleep)                                    (F4 held, long)
+#
+# Below: section markers for the renderer (sections by name).
+
+# oink 4 [bass, xylophone]
+F5:_*2 Db5:_*2
+Db5:_*2 Bb4:_*2
+F5:_*1 Db5:_*1 Bb4:_*2
+F5:_*4
+
+# snort 6 [bass, staccato, xylophone]
+F5:_*0.5 Ab5:_*0.5 C6:_*1 F5:_*0.5 Ab5:_*0.5 C6:_*1
+F5:_*0.5 Ab5:_*0.5 C6:_*0.5 Eb6:_*0.5 C6:_*1 Eb6:_*1
+Eb6:_*1 C6:_*1 Eb6:_*1 C6:_*1
+Ab5:_*0.5 C6:_*0.5 Eb6:_*1 Ab5:_*0.5 C6:_*0.5 Eb6:_*1
+F5:_*0.5 Ab5:_*0.5 C6:_*0.5 Eb6:_*0.5 C6:_*0.5 Ab5:_*0.5 Eb6:_*1
+Eb6:_*4
+
+# mud 4 [bass, staccato, xylophone, woodblock]
+F5:_*1 E5:_*1 Eb5:_*1 F5:_*1
+F5:_*1 Db5:_*1 F5:_*1 Ab5:_*1
+Bb5:_*1 Ab5:_*1 G5:_*1 F5:_*1
+F5:_*4
+
+# chase 6 [bass, staccato, xylophone, woodblock]
+F5:_*1 C6:_*1 Ab5:_*1 Eb6:_*1
+Eb6:_*1 Ab5:_*1 C6:_*1 F5:_*1
+F5:_*1 Ab5:_*1 C6:_*1 Eb6:_*1
+Eb6:_*1 C6:_*1 Ab5:_*1 F5:_*1
+F5:_*1 C6:_*1 F5:_*1 Eb6:_*1
+C6:_*1 Ab5:_*1 F5:_*1 Db5:_*1
+
+# flop 4 [bass, staccato, xylophone]
+Db5:_*2 Bb4:_*2
+Ab4:_*4
+F4:_*4
+F4:_*4

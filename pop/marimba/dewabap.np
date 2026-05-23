@@ -1,0 +1,81 @@
+# dewabap — a dew-drop morning for synthesized marimba.
+#
+# Style: each note is a single droplet catching the first light. the
+# whistlegraph platter's slowest sibling — misty, breathing, mostly
+# space. one of the four marimbaba never-sung chants finally lands as
+# a held G-major bloom at the end.
+#
+# This is marimbaba's pre-dawn cousin. Same lane, same whistlegraph
+# DNA, opposite tempo: bright G major, slow 4/4 at 78 BPM, all haze.
+# A ~62-second drift instead of a hop. Space matters more than density.
+#
+# Key: G major (G A B D E pentatonic for the lead; G–Em–C–D under).
+# 4/4, ~78 BPM (1 beat ≈ 0.769 s, 1 bar ≈ 3.077 s).
+# Form: 20 bars / ~62 s. The score lives at dewabap.np; the actual
+# event scheduling + mix lives in bin/render-dewabap.mjs.
+#
+# Voices:
+#   glockenspiel    — the lead; each note one dewdrop, bell-pure
+#   vibraphone_off  — misty pad, motor off, very long sustains
+#   kalimba         — drips on phrase tails (off-beat sparkles)
+#   bass (marimba)  — one sparse low G per section, the ground
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [drop] — single droplets on 1 & 3, bars 1–4
+#   bar 1:  drop                DROP            (B5 ─ G5)
+#   bar 2:  drop                DROP            (D6 ─ B5)
+#   bar 3:  drop                DROP            (B5 ─ G5)
+#   bar 4:  drop                DROP            (D6 ─ B5 held)
+#
+# [shine] — gentle ascending, bars 5–10 (the mist begins to glow)
+#   bar 5:  shine               SHINE           (D6 ─ E6)
+#   bar 6:  shine               SHINE           (E6 ─ G6)
+#   bar 7:  dew                 DEW             (D6 ─ B5 held)
+#   bar 8:  shine               SHINE           (E6 ─ D6)
+#   bar 9:  dew                 DEW             (B5 ─ A5)
+#   bar 10: drift               (held)          (G5 held 4 beats)
+#
+# [wake] — vibraphone_off pad swells in, bars 11–16
+#   bar 11: wake the    MOR ning                (G5 A5 ─ B5)
+#   bar 12: wake the    LIGHT                   (B5 D6 ─ A5 held)
+#   bar 13: morn   ing                          (G5 ─ D6)
+#   bar 14: wake the    SUN                     (A5 B5 ─ D6 held)
+#   bar 15: turn   ing                          (E6 ─ D6)
+#   bar 16: warm   ing                          (B5 ─ G5 held)
+#
+# [bloom] — held G major chord, all voices, then a final ping, bars 17–20
+#   bar 17: o            pen                    (G5 held 4 beats)
+#   bar 18: o            pen                    (B5 held 4 beats)
+#   bar 19: O            PEN                    (D6 held 4 beats)
+#   bar 20: (ping)                              (G6 ─ ─ ─ ring out)
+#
+# Below: section markers for the renderer (sections by name).
+
+# drop 4 [glockenspiel, vibraphone_off]
+B5:_*2 G5:_*2
+D6:_*2 B5:_*2
+B5:_*2 G5:_*2
+D6:_*2 B5:_*2
+
+# shine 6 [glockenspiel, vibraphone_off, kalimba]
+D6:_*2 E6:_*2
+E6:_*2 G6:_*2
+D6:_*2 B5:_*2
+E6:_*2 D6:_*2
+B5:_*2 A5:_*2
+G5:_*4
+
+# wake 6 [glockenspiel, vibraphone_off, kalimba]
+G5:_*1 A5:_*1 B5:_*2
+B5:_*1 D6:_*1 A5:_*2
+G5:_*2 D6:_*2
+A5:_*1 B5:_*1 D6:_*2
+E6:_*2 D6:_*2
+B5:_*2 G5:_*2
+
+# bloom 4 [glockenspiel, vibraphone_off, kalimba, bass]
+G5:_*4
+B5:_*4
+D6:_*4
+G6:_*4

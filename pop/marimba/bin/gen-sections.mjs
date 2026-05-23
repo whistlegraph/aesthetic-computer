@@ -6,14 +6,17 @@
 // Concept (jas, 2026-05-22):
 //   the marimbaba lullaby visualized as one quiet story — jeffrey
 //   ARRIVES at Bill Gates's hushed late-night study, says hi, and walks
-//   him through a basic computer thing on the IBM Model M. TEN beats,
+//   him through a typing session on a white IBM Selectric portable
+//   typewriter — the iconic type-ball model. they type, discuss its
+//   mechanisms, and react happy / sad / SHOCKED to what's on the page —
+//   but the audience NEVER sees what's typed. TEN beats,
 //   two per .np section (hush / twinkle / wow / baba / sleep), so the
 //   visualizer changes faster. the final 'sleep2' panel lands exactly
 //   on the locked marimbaba album cover.
 //
 // Medium + identity are inherited verbatim from marimbaba.illy.txt
 // (colored-pencil + gouache on warm cream paper, the two men's exact
-// faces / outfits / Sailor pens, the Model M, NO screen of any kind).
+// faces / outfits / Sailor pens, the typewriter, NO screen of any kind).
 // Each SECTION_VARIANT only re-stages the composition + the story beat;
 // PORTRAIT_NOTE widens the album-cover crop into the tall shot the
 // 1080x1920 insta-story needs.
@@ -92,14 +95,14 @@ const JEFFREY =
 const GATES =
 `BILL GATES — recognizably him: older, grey hair, soft rectangular glasses. he wears a muted sage-green crewneck sweater (a clearly different colour from jeffrey's blue shirt). his deep-red fountain pen — same cigar-shaped Sailor barrel and flat-topped cap as jeffrey's — hangs from the sweater's ribbed neckline, its polished metal clip HOOKED OVER AND GRIPPING the collar edge, visibly doing its job. he is the one being helped — pensive, still, faintly melancholy, attentive.`;
 
-const MODEL_M =
-`THE COMPUTER — the only device in the story is an IBM Model M keyboard, the classic buckling-spring board — a pebble-grey / greige gently-curved case, slightly sculpted off-white keycaps, a small oval corner badge rendered as an indistinct emblem (NOT a readable wordmark). it sits on the study desk in the lamp light. ABSOLUTELY NO screen, monitor, laptop, phone or any display anywhere — the help happens entirely at this keyboard, with hands and gestures.`;
+const SELECTRIC =
+`THE TYPEWRITER — the only device in the story is a lovely WHITE IBM Selectric portable typewriter — the iconic 1970s/80s Selectric II model with the spherical metal TYPE BALL (no traditional swinging typebars; the chrome/silver type-element ball rotates and tilts to strike the paper). a clean glossy white plastic shell with the small IBM oval emblem on the front-right (rendered as an indistinct emblem, NOT a readable wordmark), cream/tan rubber platen with the round platen knob on the right side, a black ribbon cartridge sitting visibly behind the type ball, a chrome paper-bail bar across the front of the platen. a single sheet of plain white typing paper is rolled into the platen — BUT THE AUDIENCE NEVER SEES WHAT IS TYPED ON THE PAGE: every shot frames the typewriter from front-three-quarter or from the side or from behind the figures so the paper / platen surface is occluded by the type ball mechanism, the typebar housing, jeffrey's or Bill's hands, or the typewriter's own carriage body. NEVER a top-down or over-the-shoulder shot of the paper, NEVER a readable line of typed text, NEVER a thought-bubble or floating words. ABSOLUTELY NO screen, monitor, laptop, phone, tablet or any display anywhere — only this typewriter.`;
 
 const PALETTE =
-`PALETTE — warm cream paper ground; light-blue cotton shirt and sage-green knit; soft brown hair and warm grey; buttery yellow on jeffrey's pen, deep red on Bill's; one coral pop on the glasses-cord; pebble-grey on the Model M; the gentle amber pool of the desk lamp against cool blue night dark. hand-drawn, hatched, print-tech-aware.`;
+`PALETTE — warm cream paper ground; light-blue cotton shirt and sage-green knit; soft brown hair and warm grey; buttery yellow on jeffrey's pen, deep red on Bill's; one coral pop on the glasses-cord; glossy white plastic on the Selectric typewriter with chrome accents on the type ball and paper bail; the gentle amber pool of the desk lamp against cool blue night dark. hand-drawn, hatched, print-tech-aware.`;
 
 const AVOID =
-`AVOID — any photographic / cinematic / neon look (this is a colored-pencil + gouache drawing); ANY screen, monitor, laptop, phone or display; any readable brand wordmark or logo; modern flat tech-illustration style; hero-pose centering; either figure looking at or acknowledging the camera. no text anywhere in the image.`;
+`AVOID — any photographic / cinematic / neon look (this is a colored-pencil + gouache drawing); ANY screen, monitor, laptop, phone or display; the IBM Model M / any computer keyboard (the device is the IBM Selectric typewriter, NOT a keyboard); ANY visible typed line on the paper — the page surface must always be occluded by the type ball mechanism, hands, the carriage body, or the camera angle (NO top-down or over-the-shoulder shots of the paper); any thought-bubble / floating words / readable text anywhere; any readable brand wordmark or logo; modern flat tech-illustration style; hero-pose centering; either figure looking at or acknowledging the camera.`;
 
 // ── per-beat story — the late-night help call, 10 beats ──────────────
 // Keys + ordering MUST match marimbaba.struct.json sections[] so
@@ -108,27 +111,33 @@ const SECTION_ORDER = [
   "hush1", "hush2", "twinkle1", "twinkle2", "wow1",
   "wow2", "baba1", "baba2", "sleep1", "sleep2",
 ];
+// Dedicated COVER prompt — the locked album-cover composition (intimate
+// drowsy close at the typewriter). Used only for the portrait hero cover;
+// the visualizer's sleep2 beat is the DEPARTURE shot, not this one.
+const COVER_VARIANT =
+`COVER COMPOSITION — the locked album-cover crop: a tight, warm, head-and-shoulders close of the two men side by side at the WHITE SELECTRIC TYPEWRITER, heads almost touching the top edge, both quiet and drowsy, eyes half-lowered, lips closed, a touch wistful — typing softly into the night. the top of the typewriter (type ball + ribbon cartridge + chrome paper bail) along the bottom edge; THE PAPER SURFACE IS NEVER VISIBLE.`;
+
 const SECTION_VARIANTS = {
   hush1:
-`BEAT — HUSH 1 (jeffrey approaches) · EMOTION: quiet ANTICIPATION, a little wistful — jeffrey calm and resolved, faintly nervous-hopeful about the visit ahead. the opening establishing panel, OUTSIDE at night. jeffrey walks up a quiet garden path toward Bill Gates's house, hands in pockets, his face thoughtful and expectant, a small private half-smile. one ground-floor window glows warm amber — the study, where a small lamplit silhouette of Gates can just be made out at a desk inside. dark trees, a cool blue night, a sliver of moon. jeffrey small in the frame, arriving.`,
+`BEAT — HUSH 1 (jeffrey approaches) · EMOTION: quiet ANTICIPATION, a little wistful. the opening establishing panel, OUTSIDE at night. jeffrey walks up a quiet garden path toward Bill Gates's house, hands in pockets, thoughtful and expectant. one ground-floor window glows warm amber — the study, where a small lamplit silhouette of Gates can just be made out hunched over the white typewriter inside. dark trees, a cool blue night, a sliver of moon. jeffrey small in the frame, arriving. WIDE establishing shot, low angle from across the path.`,
   hush2:
-`BEAT — HUSH 2 (the doorway hello) · EMOTION: a warm, shy GREETING — jeffrey friendly and a touch bashful, Bill Gates SURPRISED and quietly PLEASED, lonely-glad that someone came. jeffrey has stepped into the doorway of the hushed late-night STUDY, raising one hand in a small hello, an open friendly look. across the lamplit room Bill Gates twists round in his chair, eyebrows lifted in mild surprise, the start of a relieved smile breaking on his face. the desk lamp the one warm pool of light; bookshelves, a worn armchair, a dark night window.`,
+`BEAT — HUSH 2 (the doorway hello) · EMOTION: warm, shy GREETING — Bill Gates SURPRISED and quietly PLEASED, lonely-glad that someone came. jeffrey has stepped into the doorway of the hushed late-night STUDY, raising one hand in a small hello. across the lamplit room Bill Gates twists round from the WHITE SELECTRIC TYPEWRITER on the desk, eyebrows lifted in mild surprise, a relieved smile breaking. the typewriter shown from the side, paper-bail and rolled paper occluded by the type ball and carriage. desk lamp the one warm pool of light; bookshelves, a worn armchair, a dark night window. MEDIUM-WIDE room shot from near the doorway.`,
   twinkle1:
-`BEAT — TWINKLE 1 (crossing the room) · EMOTION: RELIEF and brightening — Bill Gates visibly glad, his worry easing, brightening up; jeffrey easy, open and friendly. jeffrey is mid-step across the study, moving toward the desk; Bill Gates turns fully in his chair to welcome him, both hands lifting a little, a clear warm smile now, glad not to be stuck alone with the thing. the room warm and dim, the Model M waiting on the lamplit desk.`,
+`BEAT — TWINKLE 1 (companionable close-up) · EMOTION: warm COMPANIONABLE ease — both side by side, soft contented closed-mouth smiles, shoulders loose. a TIGHTER two-shot of jeffrey and Bill seated together at the typewriter, the warm lamp between them, the Selectric in soft focus in the foreground (type ball clearly visible). intimate paired portrait, neither centred. the page surface occluded by the type ball and carriage.`,
   twinkle2:
-`BEAT — TWINKLE 2 (settles in) · EMOTION: COMPANIONABLE and cozy — both men settling, soft contentment, the easy comfort of company. jeffrey has pulled a worn chair up beside Bill Gates at the desk and settles into it; the two share a relaxed, contented closed-mouth look, shoulders loose, at ease together. the help call begins, both lit by the desk lamp, the Model M between their hands. peers, side by side.`,
+`BEAT — TWINKLE 2 (the type ball, in close-up) · EMOTION: jeffrey CURIOUS, leaning in to learn; Gates absorbed in his beloved machine, lit up showing it off. EXTREME CLOSE-UP on Bill's hand pointing at the silver chrome TYPE BALL on the Selectric mid-spin, his finger an inch away. the type ball mechanism, ribbon cartridge, the typebar housing fill the frame. behind / above the typewriter we see the upper portions of both faces leaning in, eyes fixed on the gadget — half-faces, half a typewriter close-up. the lamp light catches the chrome. no readable page surface.`,
   wow1:
-`BEAT — WOW 1 (the lesson begins) · EMOTION: jeffrey EARNEST and focused; Bill Gates UNCERTAIN — a little lost, brow furrowed, faintly anxious, out of his depth. jeffrey leans in and POINTS at the Model M, explaining a first step, concentrated and kind. Bill Gates squints at jeffrey's finger, mouth tight, clearly not following yet, a worried crease between his brows. the lamp light close on their hands and the keyboard.`,
+`BEAT — WOW 1 (jeffrey types — over the shoulder) · EMOTION: FOCUSED concentration — jeffrey absorbed; Gates watching attentively beside him. OVER-THE-SHOULDER shot from BEHIND jeffrey: we see the back of jeffrey's head and his right shoulder in the near foreground, his hand on the Selectric's keys mid-strike. beyond him Bill Gates is leaning in from the right, eyes fixed on the type ball, brow concentrated. the typewriter occupies the centre of the frame, the rolled paper held in by the carriage so we see only its TOP EDGE from this rear angle, never the typed surface. lamp warm. completely different framing from any other beat.`,
   wow2:
-`BEAT — WOW 2 (it clicks) · EMOTION: soft DELIGHT and WONDER — Bill Gates lit up with a small amazed joy, eyes wide and bright; jeffrey quietly PROUD and glad. the breakthrough: Bill Gates leans in over the Model M, his face opening into delighted surprise, eyebrows up, a real smile — amazed it was that simple. beside him jeffrey beams a quiet glad half-smile, pleased to have helped. the tender peak, both bright in the warm lamp light.`,
+`BEAT — WOW 2 (HAPPY reaction — wide) · EMOTION: open JOY — both faces break into bright delighted smiles, eyes crinkled, eyebrows up high; Gates clapping or fist-pumping in the air, jeffrey laughing, both clearly THRILLED by what just appeared. WIDE shot pulled back to show both men leaning back from the typewriter, gesturing with delight in the lamplit study, the Selectric on the desk between them. the page surface is never shown (paper hidden by the type ball mechanism and the carriage from this angle). the brightest, warmest beat of the set.`,
   baba1:
-`BEAT — BABA 1 (Gates tries it) · EMOTION: anxious CONCENTRATION — Bill Gates tense and intent, tongue-of-effort focus, a little fretful; jeffrey patient, faintly amused, holding back a fond smile. Bill Gates hunches over the Model M and tries it himself, one finger out and hovering, brow hard-furrowed, jaw set in concentration. jeffrey sits close beside him, hand resting near, an indulgent patient warmth on his face, almost laughing kindly.`,
+`BEAT — BABA 1 (the disagreement begins) · EMOTION: TENSION — jeffrey re-reading with growing concern, face clouding, brow knitting; Bill Gates defensive, leaning back, arms starting to cross or hands raised in a "what?" gesture. a clear COOLING between them, the smiles gone. they sit at the typewriter but turned slightly AWAY from each other now. lamp dimming subtly, the warmth of the previous beat draining. the page surface still occluded by the typewriter body.`,
   baba2:
-`BEAT — BABA 2 (hands on, together) · EMOTION: absorbed, determined TEAMWORK — both fully engaged, warm and busy, a shared purposeful energy. the busiest, most active beat — both pairs of hands on the Model M at once, fingers mid-keystroke. jeffrey's hand guides near Bill Gates's; both faces are lively and intent, leaning in together, a gentle determined back-and-forth, working as a team in the lamp light.`,
+`BEAT — BABA 2 (the ARGUMENT — standing) · EMOTION: open CONFLICT — both men STANDING UP at the desk now, gesturing emphatically, faces flushed and tense; Bill pointing accusingly at the typewriter / page area, jeffrey gesturing back angrily, brow furrowed, mouth open mid-word. genuine ARGUMENT — voices raised. the typewriter sits between them on the desk, an obstacle and the cause; the page still rolled in but never visible to the camera (hidden by their gesturing hands and the carriage body). the study harshly lit, harder edges, the warmth gone cool.`,
   sleep1:
-`BEAT — SLEEP 1 (it worked) · EMOTION: shared RELIEF and quiet TRIUMPH — both men beaming, a real warm exchanged smile, a small glow of accomplishment. the help has worked: both sit back a touch from the Model M, hands easing off the keys, turning to each other with open relieved smiles, a soft triumphant look passing between them. the lamp warm, the night still.`,
+`BEAT — SLEEP 1 (the TUG-OF-WAR over the sheet) · EMOTION: physical STRUGGLE — desperate, urgent, no music left in their faces. jeffrey and Bill BOTH GRIPPING the typed sheet of paper at the SAME TIME, one at the carriage end (still rolled into the platen), the other a hand-span away pulling — the paper VISIBLY TEARING, a jagged rip beginning across it, scraps and shredded fibres at the rip line. their hands in tight fists on the paper, faces taut, teeth set, eyes locked. the WHITE SELECTRIC TYPEWRITER between them on the desk, the platen still gripping the paper's bottom half. CRUCIAL — the camera is angled so the FRONT FACE of the paper is HIDDEN: we see the torn paper EDGE-ON (paper rendered as a near-vertical strip from the side, the tear ragged but ONLY the white paper substrate + the edge of the rip visible, NEVER readable typed text). intense, ugly, raw.`,
   sleep2:
-`BEAT — SLEEP 2 (the drowsy close) · EMOTION: deep CALM and drowsy contentment — both somber-content, half-asleep, wistful, the night winding down. the resolution, landing EXACTLY on the marimbaba album cover: a tight, warm, album-cover-close head-and-shoulders framing of the two men side by side, heads almost touching the top edge, both quiet and drowsy, eyes half-lowered and heavy, lips closed, a touch wistful — two people who got it working, now just typing softly on into the night. their hands rest on the Model M along the bottom of the frame. (the intimate cover crop, not the wide room shot.)`,
+`BEAT — SLEEP 2 (DEPARTURE — bittersweet) · EMOTION: heavy SADNESS, regret, finality — neither angry anymore, just hollow. jeffrey is at the open DOORWAY of the study, half-turned back for a last look, his hand clutching ONE TORN HALF of the paper at his side (the rip edge ragged, the back of the paper facing camera, never the typed side). across the lamplit room Bill Gates remains at the WHITE SELECTRIC TYPEWRITER, slumped in his chair, the OTHER TORN HALF of the paper limp in his hand, head bowed. the night through the open door behind jeffrey, the study warmly lit but emptied of any warmth between them. a quiet bittersweet GOODBYE — the visit ended badly. wide framing, room-scale. NEVER show readable typed text on either torn half.`,
 };
 
 function safeName(n) {
@@ -136,7 +145,7 @@ function safeName(n) {
 }
 function build(sectionBeat, tightCrop) {
   const portrait = tightCrop ? "" : `\n\n${PORTRAIT_NOTE}`;
-  return [MEDIUM, JEFFREY, GATES, MODEL_M, sectionBeat, PALETTE, AVOID].join("\n\n")
+  return [MEDIUM, JEFFREY, GATES, SELECTRIC, sectionBeat, PALETTE, AVOID].join("\n\n")
     + portrait + "\n";
 }
 
@@ -224,12 +233,12 @@ const wants = (name) => !onlySet || onlySet.has(name);
 
 const jobs = [];
 if (wants("cover"))
-  jobs.push({ prompt: build(SECTION_VARIANTS.sleep2, true), out: `${LANE}/out/marimbaba-p-cover.png`, label: "marimbaba-p cover" });
+  jobs.push({ prompt: build(COVER_VARIANT, true), out: `${LANE}/out/marimbaba-p-cover.png`, label: "marimbaba-p cover" });
 for (let i = 0; i < SECTION_ORDER.length; i++) {
   const name = SECTION_ORDER[i];
   if (!wants(name)) continue;
   jobs.push({
-    prompt: build(SECTION_VARIANTS[name], name === "sleep2"),
+    prompt: build(SECTION_VARIANTS[name], false),
     out: `${LANE}/out/marimbaba-p-sec-${i}-${safeName(name)}.png`,
     label: `marimbaba-p §${i} ${name}`,
   });
@@ -239,7 +248,7 @@ progress.begin({ type: "illy", label: `marimbaba-p · ${jobs.length} panels` });
 let done = 0;
 for (const job of jobs) {
   await generate(job.prompt, job.out, job.label);
-  progress.update((++done / jobs.length) * 100);
+  progress.update((++done / jobs.length) * 100, { done, total: jobs.length });
 }
 progress.end();
 console.log(`\n✓ marimbaba storyline panel set — ${jobs.length} job(s) · the late-night help call`);

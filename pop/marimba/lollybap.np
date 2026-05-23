@@ -1,0 +1,124 @@
+# lollybap — a schoolyard candy-stand skip for synthesized marimba.
+#
+# Style: bouncy nursery-rhyme bounce of the whistlegraph platter, the
+# sharing chant from behind a paper-bag-dressed candy stand on a sunny
+# midday sidewalk. The xylophone is the lead singer, syllabic and
+# bright; the rest of the kit hops with it.
+#
+# This is flutterbap's compound-meter cousin. Same lane, same C-major
+# DNA, but in 6/8: two dotted-quarter pulses per bar, six eighths per
+# bar — so syllables land on eighths 0..5 of each bar rather than
+# beats 0..3. A 52-second pop nursery-skip.
+#
+# Key: C major (root C = 60). 6/8 COMPOUND, ~124 BPM dotted-quarter:
+#   EIGHTH ≈ 60/124/3 ≈ 0.1613 s
+#   BAR    = 6 * EIGHTH ≈ 0.9677 s  (two dotted-quarter pulses)
+#   pulse  ≈ 0.484 s (dotted-quarter = 3 eighths)
+# Form: 32 bars / ~31 s of music + tail. Score lives at lollybap.np;
+# the actual event scheduling + mix lives in bin/render-lollybap.mjs.
+#
+# Syllable mapping (per-bar) — syllables land on eighths 0,1,2 of the
+# first pulse and eighths 3,4,5 of the second pulse:
+#   eighth 0  — STRONG  (downbeat)
+#   eighth 1  — weak
+#   eighth 2  — pickup into pulse 2
+#   eighth 3  — STRONG  (secondary)
+#   eighth 4  — weak
+#   eighth 5  — pickup into next bar
+#
+# Voices:
+#   xylophone     — the singer; bright skip lead, syllabic
+#   bass          — low C/G dotted-quarter pulse (eighths 0 and 3)
+#   glockenspiel  — high sparkle accents on phrase tops
+#   kalimba       — offbeat twinkles on eighths 2 and 5
+#
+# Chord pad: C - F - G - C  (I IV V I), 8 bars per chord. Mostly C
+# major pentatonic for the melody (C D E G A).
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [skip1] — "lol-LI-pop / lol-LI-pop", bars 1–8 — opening skip
+#   bar 1:  lol  LI  -    pop  -   -                (E5 G5 _ C6 _ _)
+#   bar 2:  lol  LI  -    pop  -   -                (E5 G5 _ C6 _ _)
+#   bar 3:  lol  LI  -    pop  -   -                (D5 G5 _ B5 _ _)
+#   bar 4:  lol  LI  -    pop  pop POP              (E5 G5 _ C6 G5 C6)
+#   bar 5:  lol  LI  -    pop  -   -                (E5 G5 _ C6 _ _)
+#   bar 6:  lol  LI  -    pop  -   -                (E5 A5 _ C6 _ _)
+#   bar 7:  lol  LI  -    POP  -   -                (G5 A5 _ C6 _ _)
+#   bar 8:  one  more LOL LI  -    POP              (G5 A5 G5 E5 _ C6)
+#
+# [sweet] — "sweet-SWEET-sweet / can-DY can-DY", bars 9–16 — F chord,
+# rapid 6/8 filling every eighth.
+#   bar 9:  sweet sweet SWEET sweet sweet SWEET    (C5 E5 G5 C5 E5 G5)
+#   bar 10: can   DY    can   DY    can   DY       (A5 G5 A5 F5 A5 F5)
+#   bar 11: sweet sweet SWEET sweet sweet SWEET    (C5 F5 A5 C5 F5 A5)
+#   bar 12: can   DY    can   DY    can   DY       (G5 A5 G5 F5 E5 F5)
+#   bar 13: sweet sweet SWEET sweet sweet SWEET    (E5 G5 C6 E5 G5 C6)
+#   bar 14: can   DY    can   DY    can   DY       (A5 C6 A5 G5 A5 G5)
+#   bar 15: sweet sweet SWEET sweet sweet SWEET    (F5 A5 C6 F5 A5 C6)
+#   bar 16: can   DY    can   DY    can   DY       (G5 C6 G5 F5 A5 F5)
+#
+# [share] — "one-for-YOU / one-for-ME", bars 17–24 — G chord, call &
+# response between xylo high (bars 17,19,21,23) and kalimba reply
+# (bars 18,20,22,24). The xylo here is sparser; the kalimba answers.
+#   bar 17: one for  YOU  -    -    -               (G5 A5 _ C6 _ _)
+#   bar 18: (kalimba: one for ME)                   (G5 A5 _ B5 _ _ on twink)
+#   bar 19: one for  YOU  -    -    -               (G5 B5 _ D6 _ _)
+#   bar 20: (kalimba: one for ME)                   (G5 B5 _ D6 _ _ on twink)
+#   bar 21: one for  YOU  -    -    -               (A5 C6 _ E6 _ _)
+#   bar 22: (kalimba: one for ME)                   (A5 C6 _ E6 _ _ on twink)
+#   bar 23: one for  ALL  of   you  too             (G5 A5 B5 D6 C6 B5)
+#   bar 24: (kalimba: one for me)                   (D5 E5 _ G5 _ _ on twink)
+#
+# [skip2] — "share-the-CAN-dy / yum-yum-YUM", bars 25–32 — recap, all
+# four voices in. Big closing C major cadence on bars 31–32.
+#   bar 25: share the   CAN  dy   yum  YUM          (E5 G5 C6 G5 A5 C6)
+#   bar 26: share the   CAN  dy   yum  YUM          (E5 G5 C6 G5 A5 C6)
+#   bar 27: share the   CAN  dy   yum  YUM          (G5 A5 C6 A5 G5 E5)
+#   bar 28: share the   CAN  dy   yum  YUM          (G5 A5 C6 G5 A5 C6)
+#   bar 29: yum  yum    YUM  yum  yum  YUM          (C6 G5 E5 C6 G5 E5)
+#   bar 30: share the   CAN  dy   yum  YUM          (G5 A5 C6 E6 D6 C6)
+#   bar 31: home  -     -    home  -    -           (E6 _ _ G6 _ _ )
+#   bar 32: HOME (final C major cadence, held)      (C6 G5 E5 C5 _ _)
+#
+# Below: section markers for the renderer (sections by name).
+
+# skip1 8 [xylophone, bass]
+E5:_*1 G5:_*1 _:_*1 C6:_*3
+E5:_*1 G5:_*1 _:_*1 C6:_*3
+D5:_*1 G5:_*1 _:_*1 B5:_*3
+E5:_*1 G5:_*1 _:_*1 C6:_*1 G5:_*1 C6:_*1
+E5:_*1 G5:_*1 _:_*1 C6:_*3
+E5:_*1 A5:_*1 _:_*1 C6:_*3
+G5:_*1 A5:_*1 _:_*1 C6:_*3
+G5:_*1 A5:_*1 G5:_*1 E5:_*1 _:_*1 C6:_*1
+
+# sweet 8 [xylophone, bass, glockenspiel]
+C5:_*1 E5:_*1 G5:_*1 C5:_*1 E5:_*1 G5:_*1
+A5:_*1 G5:_*1 A5:_*1 F5:_*1 A5:_*1 F5:_*1
+C5:_*1 F5:_*1 A5:_*1 C5:_*1 F5:_*1 A5:_*1
+G5:_*1 A5:_*1 G5:_*1 F5:_*1 E5:_*1 F5:_*1
+E5:_*1 G5:_*1 C6:_*1 E5:_*1 G5:_*1 C6:_*1
+A5:_*1 C6:_*1 A5:_*1 G5:_*1 A5:_*1 G5:_*1
+F5:_*1 A5:_*1 C6:_*1 F5:_*1 A5:_*1 C6:_*1
+G5:_*1 C6:_*1 G5:_*1 F5:_*1 A5:_*1 F5:_*1
+
+# share 8 [xylophone, bass, glockenspiel, kalimba]
+G5:_*1 A5:_*1 _:_*1 C6:_*3
+G5:_*1 A5:_*1 _:_*1 B5:_*3
+G5:_*1 B5:_*1 _:_*1 D6:_*3
+G5:_*1 B5:_*1 _:_*1 D6:_*3
+A5:_*1 C6:_*1 _:_*1 E6:_*3
+A5:_*1 C6:_*1 _:_*1 E6:_*3
+G5:_*1 A5:_*1 B5:_*1 D6:_*1 C6:_*1 B5:_*1
+D5:_*1 E5:_*1 _:_*1 G5:_*3
+
+# skip2 8 [xylophone, bass, glockenspiel, kalimba]
+E5:_*1 G5:_*1 C6:_*1 G5:_*1 A5:_*1 C6:_*1
+E5:_*1 G5:_*1 C6:_*1 G5:_*1 A5:_*1 C6:_*1
+G5:_*1 A5:_*1 C6:_*1 A5:_*1 G5:_*1 E5:_*1
+G5:_*1 A5:_*1 C6:_*1 G5:_*1 A5:_*1 C6:_*1
+C6:_*1 G5:_*1 E5:_*1 C6:_*1 G5:_*1 E5:_*1
+G5:_*1 A5:_*1 C6:_*1 E6:_*1 D6:_*1 C6:_*1
+E6:_*3 G6:_*3
+C6:_*1 G5:_*1 E5:_*1 C5:_*3
