@@ -1,0 +1,28 @@
+{
+  "slug": "marimbaba",
+  "title": "marimbaba",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "bpm": 56,
+  "key": "F major",
+  "meter": "3/4",
+  "duration": 83.5714,
+  "audio": "/assets/pop/marimbaba.mp3",
+  "cover": "/assets/pop/marimbaba.jpg",
+  "sections": [
+    { "name": "hush1",    "t": 0,        "illy": "/assets/pop/marimbaba/sec-0.jpg" },
+    { "name": "hush2",    "t": 6.4286,   "illy": "/assets/pop/marimbaba/sec-1.jpg" },
+    { "name": "twinkle1", "t": 12.8571,  "illy": "/assets/pop/marimbaba/sec-2.jpg" },
+    { "name": "twinkle2", "t": 22.5,     "illy": "/assets/pop/marimbaba/sec-3.jpg" },
+    { "name": "wow1",     "t": 32.1429,  "illy": "/assets/pop/marimbaba/sec-4.jpg" },
+    { "name": "wow2",     "t": 38.5714,  "illy": "/assets/pop/marimbaba/sec-5.jpg" },
+    { "name": "baba1",    "t": 45,       "illy": "/assets/pop/marimbaba/sec-6.jpg" },
+    { "name": "baba2",    "t": 51.4286,  "illy": "/assets/pop/marimbaba/sec-7.jpg" },
+    { "name": "sleep1",   "t": 57.8571,  "illy": "/assets/pop/marimbaba/sec-8.jpg" },
+    { "name": "sleep2",   "t": 70.7143,  "illy": "/assets/pop/marimbaba/sec-9.jpg" }
+  ],
+  "links": {
+    "spotify": "https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG"
+  },
+  "credits": "marimba lullaby for the pixsies body. all instruments + composition: aesthetic dot computer."
+}
