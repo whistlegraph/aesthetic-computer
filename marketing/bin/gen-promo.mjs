@@ -53,9 +53,16 @@ if (!existsSync(campaignDir) || !statSync(campaignDir).isDirectory()) {
   process.exit(1);
 }
 
-const promptPath = join(campaignDir, "cover-prompt.txt");
+// --prompt-file <path> overrides the default cover-prompt.txt lookup,
+// so a section can be regenerated against a tweaked prompt (e.g. a
+// square-framing variant of the portrait prompt) without renaming the
+// canonical file. Path is resolved relative to the campaign dir if
+// not absolute.
+const promptPath = flags["prompt-file"]
+  ? resolve(campaignDir, String(flags["prompt-file"]).replace(/^~/, process.env.HOME))
+  : join(campaignDir, "cover-prompt.txt");
 if (!existsSync(promptPath)) {
-  console.error(`✗ no cover-prompt.txt in ${campaignDir}`);
+  console.error(`✗ no prompt file at ${promptPath}`);
   process.exit(1);
 }
 const prompt = readFileSync(promptPath, "utf8").trim();
