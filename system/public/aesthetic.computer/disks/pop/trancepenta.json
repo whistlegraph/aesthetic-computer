@@ -1,0 +1,26 @@
+{
+  "slug": "trancepenta",
+  "title": "trancepenta",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "bpm": 126,
+  "key": "dorian",
+  "meter": "5/4",
+  "duration": 190.69,
+  "audio": "/assets/pop/trancepenta.mp3",
+  "cover": "/assets/pop/trancepenta.jpg",
+  "sections": [
+    { "name": "intro",  "t": 0.25,   "illy": "/assets/pop/trancepenta/sec-0.jpg" },
+    { "name": "break1", "t": 9.774,  "illy": "/assets/pop/trancepenta/sec-1.jpg" },
+    { "name": "build1", "t": 19.298, "illy": "/assets/pop/trancepenta/sec-2.jpg" },
+    { "name": "drop1",  "t": 28.821, "illy": "/assets/pop/trancepenta/sec-3.jpg" },
+    { "name": "break2", "t": 85.964, "illy": "/assets/pop/trancepenta/sec-4.jpg" },
+    { "name": "build2", "t": 95.488, "illy": "/assets/pop/trancepenta/sec-5.jpg" },
+    { "name": "drop2",  "t": 105.012, "illy": "/assets/pop/trancepenta/sec-6.jpg" },
+    { "name": "outro",  "t": 171.679, "illy": "/assets/pop/trancepenta/sec-7.jpg" }
+  ],
+  "links": {
+    "spotify": "https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG"
+  },
+  "credits": "5/4 chill-trance — hellsine gabber kick, odyssey theremin, jeffrey hum, supersaw wall. part of pixsies."
+}
