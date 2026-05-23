@@ -69,22 +69,45 @@ August → first milestone payment late summer / early fall 2026.
 - `system/public/aesthetic.computer/disks/keep.mjs` — the mint UI (3,798 lines)
 - `system/netlify/functions/keep-confirm.mjs`, `keep-update.mjs` — backend
 
-## Decisions made (2026-05-22)
+## SUBMITTED 2026-05-22
 
-- **Applicant entity:** Aesthetic Inc (C-corp, EIN 33-1483385). Grant held by
-  the company, consistent with AC's other contracted work.
-- **Ask amount:** ~$30,000 USD-equivalent, milestone-based, self-audited
-  (4 milestones over ~12 weeks). Breakdown in DRAFT.
+**Management page:** <https://grants.tezos.foundation/proposals/detail/a2c89b4d-a1ed-42cc-b2df-0e3e59954a7f/>
 
-## Still open before submission
+The form's actual vertical taxonomy turned out NOT to be the 7 marketing-site
+verticals — the platform routes by working-group UID and exposes a different
+category list (Collectibles · Communication apps · Creator tokenization ·
+Crowdfunding · DeFi · Gaming · Payment Solutions · **Smart Contract Templates**).
+We landed in **Smart Contract Templates** because Milestone 4 is literally
+"release v12 as a reusable contract template," which gave us a clean spine.
 
-- **Register on the grants platform** (`grants.tezos.foundation`) — needs
-  @jeffrey to create the account; then capture the real I&T form fields and
-  word caps so the draft can be trimmed to fit.
-- **Open-sourcing confirmation:** Milestone 4 commits to publishing the keeps
-  FA2 contract + audit protocol as a reusable preservation template. That
-  commitment is what makes this ecosystem infrastructure rather than "fund my
-  project" — confirm @jeffrey is good with releasing it openly licensed.
+### Final scope (as submitted)
+
+- **Applicant entity:** Aesthetic Inc (US C-corp, EIN 33-1483385).
+- **Ask:** USD $45,000, milestone-based, 5 milestones over ~14 weeks.
+- **Budget split:** ~47% contract work (M1–M3, $21k) · ~53% adoption / media /
+  events (M4–M5, $24k) — deliberately weighted toward the artifacts that
+  actually get a smart-contract template adopted, including the custom keeps
+  wallet, tutorial videos, NELA Computer Club + LA workshop, and an outreach
+  campaign into the existing fxhash/objkt creative-coding community.
+- **Self-audited:** no external security review in this ask; left as a
+  separable follow-on if Foundation reviewers prefer one.
+- **Submitted PDF:** `proposal.pdf` (4 pages, AC paper style — xelatex + YWFT
+  Processing + Berkeley Mono + AC palette). Source: `proposal.tex` + `build.fish`.
+
+### What happens next
+
+Tezos Foundation grants run on a rolling submission, quarterly review cycle:
+proposals submitted in a given quarter are reviewed the month following
+quarter-end. Submission landed in Q2 (Apr–Jun 2026) → reviewed July 2026.
+Three-stage process: ~1 week initial vetting → ~3 weeks Technical Advisory
+Committee + Executive Committee review → ~4+ weeks post-award legal /
+paperwork. Earliest realistic first-milestone payment: late summer 2026.
+
+### Open commitment carried into the work
+
+Milestone 4 commits to releasing the keeps FA2 contract + audit protocol as
+an openly licensed preservation template. That single commitment is what
+makes this ecosystem infrastructure rather than "fund my project."
 
 ## Sources
 

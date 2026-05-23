@@ -85,13 +85,29 @@ in the keep UI (both collections shown, explicitly labeled, no forced burn).
 v11 stays live for provenance and trading history.
 *Deliverable:* v12 on mainnet, migration claim path live end-to-end. *~3 weeks.*
 
-**Milestone 4 — Open preservation template + audit protocol.**
+**Milestone 4 — Open preservation template + tutorial video series.**
 Publish the v12 FA2 contract, the repeatable audit script
 (`keeps-audit.mjs`), and the 25-year stability/ops plan as an openly licensed
 **preservation template** with documentation, so any Tezos creative project
 can mint executable or long-lived art on a hardened, auditable contract.
-*Deliverable:* public repo + docs + a short write-up for the Tezos community.
-*~2 weeks.*
+Produce a 3–5 video tutorial series covering: (a) forking the template,
+(b) minting your first keep, (c) running the weekly audit cadence and reading
+its output. Targeted at Tezos developers and creative-coding artists who want
+to ship their own preservation-grade FA2 contract without re-deriving the work.
+*Deliverable:* public repo + docs + tutorial video series + short community
+write-up. *~2 weeks.*
+
+**Milestone 5 — LA adoption sessions.**
+Run **4 NELA Computer Club appointments** (biweekly demos at Plot.Place,
+Chinatown, Los Angeles) plus **1 public workshop** at an LA venue, guiding
+5+ LA-based generative artists through forking the v12 template and minting
+their first keeps end-to-end. The sessions double as the live test of the M4
+documentation and tutorial videos. Output: a public onboarding playbook
+documenting the sessions, the artists' first keeps, and lessons learned.
+M5 is the concrete adoption arm of KPI #2 — not a parallel art-event budget,
+but the mechanism by which the template's first independent forks happen.
+*Deliverable:* 5 sessions held + onboarding playbook published + 5+ first-time
+keep minters with their work on mainnet. *~2 weeks.*
 
 ---
 
@@ -157,24 +173,35 @@ work. Jeffrey is the sole developer on the grant scope.
 
 ## Ask / budget
 
-**Total: ~$30,000 USD-equivalent, milestone-based.** A single-developer
-infrastructure grant covering ~3 months (~12 weeks) of focused contract and
-tooling work, plus Ghostnet/mainnet gas. The Foundation pays per completed,
-reported milestone; the split below tracks the roadmap above:
+**Total: ~$45,000 USD-equivalent, milestone-based.** A single-developer grant
+covering ~14 weeks of contract engineering, template publication with
+tutorial videos, and LA-based hands-on adoption sessions, plus Ghostnet and
+mainnet gas. The Foundation pays per completed, reported milestone; the split
+below tracks the roadmap above:
 
 | Milestone | Work | Weeks | Payment |
 |---|---|---|---|
-| M1 | v12 spec + threat model + SmartPy invariant tests | ~3 | $8,000 |
-| M2 | v12 contract on Ghostnet + migration prototype + adversarial pass | ~4 | $11,000 |
-| M3 | v12 mainnet deployment + opt-in v11→v12 holder migration | ~3 | $7,000 |
-| M4 | Open preservation template + audit protocol + community write-up | ~2 | $4,000 |
-| | **Total** | **~12** | **$30,000** |
+| M1 | v12 spec + threat model + SmartPy invariant tests | ~3 | $6,000 |
+| M2 | v12 contract on Ghostnet + migration prototype + **custom keeps wallet polish** | ~4 | $9,000 |
+| M3 | v12 mainnet deployment + opt-in v11→v12 holder migration | ~3 | $6,000 |
+| M4 | **Tutorial video series + onboarding kit + media materials** + open preservation template release | ~2 | $11,000 |
+| M5 | **LA adoption events** (4 NELA Computer Club + 1 public workshop) + **outreach campaign** to fxhash/objkt creators + onboarding playbook | ~2 | $13,000 |
+| | **Total** | **~14** | **$45,000** |
+
+Split: ~47% contract work (M1–M3 = $21k) · ~53% adoption / media / events
+(M4–M5 = $24k). Most on-chain templates die because nobody made the
+surrounding materials — this budget treats getting the template into
+artists' hands as the larger of the two halves.
 
 Self-audited: v12 is hardened with the existing repeatable audit script
 (`tezos/keeps-audit.mjs`), a written threat model (M1), and an adversarial
 test pass (M2). A funded third-party security review is **not** included in
 this ask — if the Foundation's reviewers would prefer one, it can be added as
 a separable follow-on line item rather than holding up this scope.
+
+M5 ties directly to KPI #2: the workshop sessions are how template adoption
+gets measured, not a parallel art-event budget. Held below the $50,000
+threshold to keep the proposal on the simpler review path.
 
 ---
 
