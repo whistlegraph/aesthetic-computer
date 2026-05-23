@@ -58,7 +58,7 @@ As of 2026-05-07, work in this order:
 |---|---|---|---|---|
 | SIGGRAPH Asia 2026 | Tech Papers (full) | 2026-05-05 form / 2026-05-12 paper / 2026-05-13 upload | SCAFFOLD | `siggraph-asia-2026-tech/` |
 | ICCC 2026 | Early Career Symposium | 2026-05-15 | BRIEF | `iccc-early-career-2026/` |
-| ArtsIT 2026 | Full Papers | 2026-06-01 | NEW | (none yet) |
+| ArtsIT 2026 | Full Papers (sound/image track) | 2026-06-01 | BRIEF | `artsit-2026/` |
 | SIGGRAPH Asia 2026 | Art Papers | 2026-06-08 | NEW | (none yet) |
 | SIGGRAPH Asia 2026 | Art Gallery / ET / XR | 2026-06-18 | NEW | (none yet) |
 | SIGGRAPH Asia 2026 | Posters | 2026-07-31 | NEW | (none yet) |
