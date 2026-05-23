@@ -1382,12 +1382,13 @@ const chromeTop = H - progressH - chromeH;
 const IG_TOP_SAFE = 155;
 // SQUARE cut (1500x1500 trancenwaltzi): title sits up in the very
 // TOP-LEFT corner. Vertical (insta-story) keeps the 155 anchor.
-// Title hugs the very TOP — minimal air above it (square + vertical
-// both sit tight under the top edge / IG-Story UI). Was 44 / 155.
-// Vertical/IG-story: 48 hugged the top too tight (barely crossing the
-// IG UI). Nudged down ~half the distance we'd raised it (155→48), so
-// it clears the chrome. Square cut (not an IG story) stays at 36.
-const titleTopInset = (W === H) ? 36 : 100;
+// Title hugs the very TOP — minimal air above it.
+//  · Square (1:1) — 36 px, tight to the top.
+//  · Portrait/IG-Story (9:16) — 100 px so the title clears the IG UI.
+//  · Landscape/YouTube (16:9) — 40 px. The 100 px portrait inset on a
+//    1080-tall canvas reads as a "story gap" (~9% from top); 40 px
+//    matches the proportional tuck of the IG cut (~3.7%).
+const titleTopInset = (W === H) ? 36 : (W > H) ? 40 : 100;
 const titleY = titleTopInset + charBaselineY;
 function drawFrame(t) {
   const audioT = t - AUDIO_DELAY_SEC;
@@ -1619,7 +1620,12 @@ function drawFrame(t) {
   // zoom — each kick eases the picture in a touch then releases. Soft
   // attack (~70 ms) → gentle exp release; max() over recent kicks so
   // dense kicks read as one continuous swell, never a per-frame snap.
-  const slowBreath = 0.028 * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 16)));
+  // Landscape (16:9) cuts crop the square v10 illustrations top &
+  // bottom, so the same zoom amplitude reads as a more extreme pump
+  // than the square/portrait cuts. Damp the breath + kick zoom in
+  // half on landscape; portrait/square keep the original feel.
+  const ZOOM_DAMP = (W > H) ? 0.5 : 1.0;
+  const slowBreath = 0.028 * ZOOM_DAMP * (0.5 - 0.5 * Math.cos(audioT * (2 * Math.PI / 16)));
   let kickZoom = 0;
   // Softer kick zoom — 140 ms attack (was 70 ms / ~2 frames at 30 fps,
   // which read as a hard snap) into a gentle ~0.34 s exponential
@@ -1654,7 +1660,7 @@ function drawFrame(t) {
   // (break1, drops) don't shake the scene — the bend is felt through
   // the zoomMul instead.
   const _so = _vs.sceneOffset();
-  const zoom = (baseScale + slowBreath + kickZoom * 0.10) * _so.zoomMul;
+  const zoom = (baseScale + slowBreath + kickZoom * 0.10 * ZOOM_DAMP) * _so.zoomMul;
   const stringPanX = _so.dx * 0.25;
   const stringPanY = _so.dy * 0.25;
   void aspect;

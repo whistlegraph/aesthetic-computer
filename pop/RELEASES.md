@@ -78,7 +78,8 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   (Formerly `undabeach`.)
 - **Artist:** Aesthetic Dot Computer
 - **Released:** 2026-05-21 via DistroKid
-- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=B1F5253A-11FA-40EF-83A89866A157829A
+- **Listen (canonical):** https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=B1F5253A-11FA-40EF-83A89866A157829A (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run pop:assets:up`):
   - audio · https://assets.aesthetic.computer/pop/helpabeach.mp3 (320 k mp3 of the master, 151.1 s)
   - cover · https://assets.aesthetic.computer/pop/helpabeach.jpg (3000², Rhizome Health clinic tableau)
@@ -107,12 +108,19 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 - **Lane:** `pop/dance/` · dark/emo/extreme war-arc trance-waltz, ~1:26
 - **Released:** 2026-05-17 via DistroKid
-- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=8FF25085-8F58-4A3A-986A52A21D638805
+- **Listen (canonical):** https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=8FF25085-8F58-4A3A-986A52A21D638805 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancenwaltz.mp3 (320 k mp3 of the bright master, 86.62 s)
   - cover · https://assets.aesthetic.computer/pop/trancenwaltz.jpg (3000², outro art)
   - canvas · https://assets.aesthetic.computer/pop/trancenwaltz-canvas.mp4 (Spotify Canvas — 1080×1920, 6 s, **silent**, seamless loop, **chrome-free**, slit-scan glitch montage of all 8 section illys)
+  - youtube · https://youtu.be/RBG3k_XsfLA (1920×1080 full-chrome visualizer — title / multi-lane piano-roll / karaoke / progress reframed landscape; uses the **v10b** native-landscape illy set, regenerated from `cover-prompt-landscape.txt` so the canonical whistlegraph-butterfly lid scrap lands correctly; ZOOM_DAMP halves ken-burns amplitude on 16:9 so the illys breathe instead of pumping)
   - Reconstructable byte-faithfully any time: `trance.mjs --meter 3 --vocal-stem pop/dance/out/trance-hook-layered.mp3 --master` (deterministic seed `trancewaltz`) → brightening polish (high-shelf 8.5 k +4, presence 4.2 k +2.2, sparkle 12.5 k +1.8, 190 Hz −1, `loudnorm I=-14 TP=-1.2 LRA=13`) → 320 k mp3; cover = outro v15 `-gravity North -crop 1024x1024+0+96 → 3000²`. (Desktop copies are auto-cleaned — see [[feedback_desktop_autocleaned]]; CDN + repo `assets/pop/` are the durable home.)
+- **YouTube visualizer build recipe** (deterministic from the bright master + v10b illys):
+  1. `node marketing/bin/gen-promo.mjs <secdir> --variant v10b --size 1536x1024 --prompt-file cover-prompt-landscape.txt --force --no-mirror` per section (regen-only; the `cover-prompt-landscape.txt` is the portrait prompt with PORTRAIT framing language swapped for LANDSCAPE 3:2 / 16:9 strip).
+  2. `recap/.venv/bin/python3 pop/dance/bin/detect-face.py <secdir>/gens/v10b.png` per section (writes `.face.json` sidecars the backlight emitters need).
+  3. `node pop/dance/bin/cover-video.mjs --track <master.mp3> --illustrations intro=...,break1=...,... --size 1920x1080 --prelude <intro-prelude>/gens/v10.png --title trancenwaltz --bpm 137.143 --out <out.mp4>` (the **build.mjs** `youtube` format wires this).
+  4. `node toolchain/youtube/yt.mjs upload <out.mp4> --title "trancenwaltz" --description-file pop/dance/trancenwaltz.youtube.txt --tags "trance,waltz,electronic,visualizer,aesthetic computer,pixsies,music" --privacy public --category 10`.
 - **Master:** `~/Desktop/trancenwaltz-MASTER.wav` (= `-FINAL-distrokid.wav`)
   — 16-bit/44.1 kHz stereo WAV, 86.62 s. **Bright master:** −13.5 LUFS,
   −1.2 dBTP, LRA 6.7, +5 dB air vs the original dark cut. Pre-bright
@@ -287,7 +295,8 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   crescendoing to the 1:33 audio stamp, dice-roll click-clack tumbling
   in post-vortex. Spec: `pop/dance/trancepenta.md`.
 - **Released:** 2026-05-20 via DistroKid
-- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=860FA7AC-AE6E-4B0A-ABC6E1514D273054
+- **Listen (canonical):** https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=860FA7AC-AE6E-4B0A-ABC6E1514D273054 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancepenta.mp3 (320 k mp3 of the radio-balanced master, 190.69 s)
   - cover · https://assets.aesthetic.computer/pop/trancepenta.jpg (3000², felt-character hero crop with multi-section lighting)

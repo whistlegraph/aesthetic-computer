@@ -192,7 +192,7 @@ for (let s = 0; s < lines.length; s++) {
     cursor = mark + plen / SR;   // the next phrase begins only after this one ends
   }
   console.log(`  §${s} @ ${span.start.toFixed(1)}s · ${M} phrases · "${lines[s]}"`);
-  progress.update(((s + 1) / lines.length) * 100);
+  progress.update(((s + 1) / lines.length) * 100, { done: s + 1, total: lines.length });
 }
 
 let pk = 1e-6;

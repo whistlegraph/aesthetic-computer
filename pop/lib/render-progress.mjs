@@ -9,9 +9,11 @@
 // Lifecycle:  begin({type,label}) → update(pct) → end()
 //
 // Heartbeat file ~/.ac-pop-renders/<id>.json:
-//   { id, type, label, pct, pid, startedAt, updatedAt }
-//   type ∈ "audio" | "illy" | "video"
-//   pct  ∈ 0..100, or null for an indeterminate render
+//   { id, type, label, pct, done, total, pid, startedAt, updatedAt }
+//   type        ∈ "audio" | "illy" | "video"
+//   pct         ∈ 0..100, or null for an indeterminate render
+//   done, total ∈ integers (e.g. frame 142 of 240, panel 3 of 11);
+//                 null when the writer only knows pct
 //
 // The reader (`pop renders` CLI, and the Swift menubar) treats a file
 // as stale — and sweeps it — when its pid is dead or updatedAt is older
@@ -48,11 +50,11 @@ export function begin({ type, label } = {}) {
   return _id;
 }
 
-export function update(pct) {
+export function update(pct, counts) {
   if (!_file) return;
   // throttle to ~3 writes/s — the menubar only polls every 2 s
   if (pct != null && pct < 100 && Date.now() - _lastWrite < 300) return;
-  _write(pct);
+  _write(pct, counts);
 }
 
 export function end() {
@@ -61,12 +63,15 @@ export function end() {
   _file = _id = null;
 }
 
-function _write(pct) {
+function _write(pct, counts) {
   if (!_file) return;
   _lastWrite = Date.now();
+  const done = counts && Number.isFinite(counts.done) ? Math.max(0, Math.round(counts.done)) : null;
+  const total = counts && Number.isFinite(counts.total) ? Math.max(0, Math.round(counts.total)) : null;
   const rec = {
     id: _id, type: _type, label: _label,
     pct: pct == null ? null : Math.max(0, Math.min(100, Math.round(pct))),
+    done, total,
     pid: process.pid, startedAt: _started, updatedAt: _lastWrite,
   };
   try { writeFileSync(_file, JSON.stringify(rec)); } catch { /* ignore */ }

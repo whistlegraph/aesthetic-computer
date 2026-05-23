@@ -247,7 +247,7 @@ progress.begin({ type: "illy", label: `${SLUG}${TAG} · ${totalPanels} panels` }
 
 // Main hero cover (its own composition via the base prompt alone).
 await generate(basePrompt + portraitTail, OUT_PATH, `${SLUG}${TAG} cover`);
-progress.update((++donePanels / totalPanels) * 100);
+progress.update((++donePanels / totalPanels) * 100, { done: donePanels, total: totalPanels });
 
 // Per-section illys (sequential — keeps API pressure low, lets each be
 // individually cached/--force'd). The butterfly is drawn natively by
@@ -261,6 +261,6 @@ for (const i of panelIdx) {
     out,
     `${SLUG}${TAG} §${i} ${name}`,
   );
-  progress.update((++donePanels / totalPanels) * 100);
+  progress.update((++donePanels / totalPanels) * 100, { done: donePanels, total: totalPanels });
 }
 progress.end();
