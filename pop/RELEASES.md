@@ -24,6 +24,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   - audio — https://assets.aesthetic.computer/pop/marimbaba.mp3
   - cover — https://assets.aesthetic.computer/pop/marimbaba.jpg
   - visualizer — https://assets.aesthetic.computer/pop/marimbaba.mp4
+  - youtube · https://youtu.be/byt_NnRhbs4 (1080×1920 vertical storyline cut — uploaded 2026-05-24 via `toolchain/youtube/yt.mjs`; YouTube renders vertical natively. Description at `pop/marimba/marimbaba.youtube.txt`, thumbnail at `/tmp/yt-thumbs/marimbaba-thumb.jpg` — 1280-wide compressed jpg, required because the 3000² CDN cover exceeds YouTube's 2 MB thumbnail cap.)
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=772E43F5-D367-44A9-A7B4A1FA4E57FBD9
   (admin-only)
 - **Master:** `~/Documents/Working Desktop/marimbaba-DISTROKID/marimbaba-MASTER.wav`
@@ -85,6 +86,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   - cover · https://assets.aesthetic.computer/pop/helpabeach.jpg (3000², Rhizome Health clinic tableau)
   - video · https://assets.aesthetic.computer/pop/helpabeach.mp4 (1080×1920 vertical IG-story, 9 clinic panels)
   - story cut · https://assets.aesthetic.computer/pop/helpabeach-short.mp4 (1:17 narrated cut)
+  - youtube · https://youtu.be/maQ8GRZcS90 (1080×1920 vertical storyline cut — uploaded 2026-05-24. Description at `pop/chillwave/helpabeach.youtube.txt`; thumbnail compressed to 1280 wide.)
 - **Master:** `~/Documents/Working Desktop/helpabeach-DISTROKID/helpabeach-MASTER.wav`
   — 44.1 kHz / 16-bit stereo WAV, 151.1 s. ≈ −13.4 LUFS, −1.5 dBTP.
   Master chain: highpass 24 → treble +1.8 dB @ 9.5 k → loudnorm
@@ -301,6 +303,11 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   - audio · https://assets.aesthetic.computer/pop/trancepenta.mp3 (320 k mp3 of the radio-balanced master, 190.69 s)
   - cover · https://assets.aesthetic.computer/pop/trancepenta.jpg (3000², felt-character hero crop with multi-section lighting)
   - canvas/IG · https://assets.aesthetic.computer/pop/trancepenta-canvas.mp4 *(pending the other agent's render — see vertical-video session)*
+  - youtube · https://youtu.be/Em_lvTYET7M (1920×1080 full-chrome visualizer — uploaded 2026-05-24. The native-landscape 16-panel YT illy set + cover at `pop/dance/out/trancepenta-yt-{sec-*,cover}.png` were regenerated 2026-05-24 from felt-puppet prompts (Aardman / Isle-of-Dogs craft language, tattered felt clothes, bearded jeffrey, felt mark + felt pixsies with prominent LED-bead tells) so the YT visualizer matches the album cover's felt aesthetic. The first re-render had a heavy contrast vignette crushing the panel edges; that layer was removed from `preview-score-trancepenta-yt.mjs` (function kept as dead code) and the file re-rendered with bright edges. Photoreal originals stashed under `pop/dance/out/_yt-photoreal-backup/`.)
+- **YouTube visualizer build recipe** (deterministic from the felt panel set + bright master):
+  1. `node pop/dance/bin/gen-trancepenta-sections.mjs --force` (regen 16 felt landscape panels + cover at 1536×1024 via the felt-puppet constants in the script; concurrency 3; ~15–20 min wall time; ~$5 OpenAI).
+  2. `node pop/dance/bin/preview-score-trancepenta-yt.mjs` (default I/O — reads `~/Documents/Working Desktop/twi-out/trancepenta.mp3` + struct, writes `pop/dance/out/trancepenta-preview-score-yt.mp4`; ~35 min for the full 190 s @ 30 fps).
+  3. `node toolchain/youtube/yt.mjs upload pop/dance/out/trancepenta-preview-score-yt.mp4 --title "trancepenta" --description-file pop/dance/trancepenta.youtube.txt --tags "trance,chilltrance,electronic,visualizer,aesthetic computer,pixsies,music,instrumental,5/4" --privacy public --category 10 --thumbnail /tmp/yt-thumbs/trancepenta-thumb.jpg` (the thumbnail must be ≤ 2 MB; the 3000² CDN cover is too big — use the 1280-wide ffmpeg downscale or call `yt.mjs thumbnail <videoId> <image>` after the fact).
   - Reconstructable byte-faithfully any time: `BAKE_FORCE=1 bash pop/dance/bin/bake-trancepenta.sh`
     → produces `~/Documents/Working Desktop/twi-out/trancepenta-MASTER.wav` + paired struct.json
     → cover at `~/Documents/Working Desktop/gens/trancepenta-cover-3000.jpg` (felt-character regen via `gens/trancepenta-cover-final/`)
@@ -336,6 +343,56 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   · vocal pitch-correction to the Odyssey theremin melody (`rubberband`
     per-slice once compiled into ffmpeg, or a new
     `place-penta-autotune.mjs`)
+
+## solafiya — MASTERING
+
+- **Lane:** `pop/jungle/` · spicy latina jungle (ragga sub-format), 1:40
+  · 176 BPM felt half-time (~88) · key A · sunlit minor-pentatonic-with-
+  major-third warmth. Hybrid AC-kit break (chopped/shuffled
+  `percussion.mjs` web + synthesized break-stab burst at phrase ends —
+  no Winstons, no Amen sample), deep dub sub on offbeat push, warm
+  golden sinepower pad, reggae skank stab, sparse dub sirens / airhorns,
+  AC bell + ding + meow + marimba + sineloop + shrill + throat
+  ornamentation. Three sequential verses, no overlap. Part of the
+  *pixsies* body. First **fía** solo lead — her live ragga toast forced-
+  aligned through the WORLD pipeline into vocal / vocalAd / vocalDuet /
+  vocalH / throat lanes, baked into the mix.
+- **Artist:** fía (TBC — could be `fía & Aesthetic Dot Computer` for
+  store-page coherence with the other pixsies singles; ask @jeffrey)
+- **Status:** MASTERING — final master baked 2026-05-23; awaiting
+  @jeffrey's ears + creative direction before DistroKid upload. Cover +
+  README in place.
+- **Master:** `~/Documents/Working Desktop/solafiya-DISTROKID/solafiya-MASTER.wav`
+  — 16-bit/44.1 kHz stereo WAV, 100.18 s. **−13.5 LUFS · −1.0 dBTP ·
+  LRA 2.3** (jungle wants tight; source mix is already heavily
+  compressed at −19.4 LUFS / LRA 2.2 — no extra dynamic range to
+  reclaim). Master chain: highpass 28 → 250 Hz mud trim → 4.2 k
+  presence +2 → high-shelf 8.5 k +5 (air restore — render high-cuts at
+  ~8.6 k for HC vibe) → high-shelf 12.5 k +2.5 → loudnorm I=−14
+  TP=−1.5 LRA=8 → alimiter 0.95. Pre-bright A/B copy at
+  `solafiya-MASTER-preBright.wav`. (Durable home is
+  `~/Documents/Working Desktop/` — Desktop auto-cleans,
+  [[feedback_desktop_autocleaned]].)
+- **Cover:** `…/solafiya-DISTROKID/solafiya-cover-3000.jpg` — 3000²,
+  Pixar-style fía + 7 different-breed kittens on a golden-hour beach,
+  matcha + closed laptop + white W210 Mercedes + bounding dog +
+  polychrome sparkles. Lanczos upscale of `pop/jungle/out/solafiya.illy.png`
+  (1024² gpt-image-2 source, prompt at `pop/jungle/solafiya.illy.txt`).
+- **DistroKid folder:** `~/Documents/Working Desktop/solafiya-DISTROKID/`
+  — MASTER.wav, MASTER-preBright.wav, cover-3000.jpg, mp3 (320 k +
+  embedded cover), README.md (submission-form fields + open questions).
+- **Reconstructable** ($0, deterministic): `node pop/jungle/bin/render.mjs
+  --slug solafiya` (cached) then `bash pop/jungle/bin/bake-solafiya.sh`
+  → master chain above. `BAKE_FORCE=1` to re-bake from a fresh render.
+- **Open before submitting:** (1) **artist credit** — `fía` solo vs
+  `fía & Aesthetic Dot Computer`; (2) **lyrics** — only
+  forced-aligned word JSON exists (`solafiya-fia-words.json`), no
+  canonical `.txt`; (3) **canvas / vertical video** — 19 lane raw
+  buffers + 6 section illys are baked, so `preview-score.mjs` /
+  `preview-spin.mjs` can produce a 9:16 IG cut + Spotify Canvas loop
+  (not yet built).
+
+---
 
 ## hellsine — WIP (concept track, first cut)
 

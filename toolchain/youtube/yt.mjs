@@ -409,12 +409,39 @@ async function doDelete() {
   die(`delete ${res.status}: ${body}`);
 }
 
+// ── set thumbnail on an existing video ──────────────────────────────
+// Useful when the thumbnail upload at video-upload time fails (e.g. the
+// source JPG was >2 MB and YouTube rejected it). Run the same call the
+// upload path uses, but against an already-published videoId.
+async function doThumbnail() {
+  const id = positional[0];
+  const img = positional[1];
+  if (!id || !img) die(`usage: yt.mjs thumbnail <videoId> <image.jpg|png>`);
+  const imgPath = resolve(process.cwd(), img);
+  if (!existsSync(imgPath)) die(`thumbnail not found: ${imgPath}`);
+  const at = await accessToken();
+  const res = await fetch(
+    `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(id)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${at}`,
+        "Content-Type": imgPath.endsWith(".png") ? "image/png" : "image/jpeg",
+      },
+      body: readFileSync(imgPath),
+    });
+  if (!res.ok) die(`thumbnail ${res.status}: ${await res.text()}`);
+  console.log(`✓ thumbnail set on ${id}`);
+  console.log(`  watch  · https://youtu.be/${id}`);
+}
+
 // ── dispatch ─────────────────────────────────────────────────────────
 const COMMANDS = {
   auth: doAuth,
   whoami: doWhoami,
   upload: doUpload,
   "update-meta": doUpdateMeta,
+  thumbnail: doThumbnail,
   delete: doDelete,
 };
 
