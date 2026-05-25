@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { jeffreyRefs } from "../../marketing/lib/jeffrey-refs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -49,19 +50,9 @@ const { audience } = await import(`${ROOT}/audience/${audienceName}.mjs`);
 const PHOTOS_DIR = `${ROOT}/out/jeffrey-photos`;
 mkdirSync(PHOTOS_DIR, { recursive: true });
 
-// ── refs (mirror jeffrey-photos.mjs) ──────────────────────────────
-const SHOOT_DIR = `${REPO}/portraits/jeffrey/corpus/shoot`;
-const ARCHIVE_DIR = `${REPO}/portraits/jeffrey/ig-archive/whistlegraph`;
-const REFS = [
-  `${SHOOT_DIR}/jeffery-av--07.jpg`,
-  `${SHOOT_DIR}/jeffery-av--01.jpg`,
-  `${SHOOT_DIR}/jeffery-av--04.jpg`,
-  `${ARCHIVE_DIR}/2018-12-02_Bq4ckGFFNtW.jpg`,
-  `${ARCHIVE_DIR}/2020-09-02_CEpxlO2FOvD.jpg`,
-  `${ARCHIVE_DIR}/2021-07-10_CRI095Vl7AO_1.jpg`,
-  `${ARCHIVE_DIR}/2025-01-25_DFQ2lHPzN_W.jpg`,
-  `${ARCHIVE_DIR}/2017-04-10_BStid5yjTHq.jpg`,
-].filter((p) => existsSync(p));
+// Shared SHOOT + SELFIE refs (2k-downscaled) live in
+// marketing/lib/jeffrey-refs.mjs so recap + marketing don't drift.
+const REFS = jeffreyRefs();
 
 function loadOpenAIKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;

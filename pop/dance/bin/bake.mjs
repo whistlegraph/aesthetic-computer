@@ -22,10 +22,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
+import { acdspAvailable, processWav, presets } from "../../lib/master.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
-const args = process.argv.slice(2);
+let args = process.argv.slice(2);
+const USE_ACDSP = args.includes("--acdsp");
+args = args.filter((a) => a !== "--acdsp");
 const sep = args.indexOf("--");
 const engineExtra = sep >= 0 ? args.slice(sep + 1) : [];
 const outDir = (sep >= 0 ? args.slice(0, sep) : args)[0] ||
@@ -63,15 +66,41 @@ const durProbe = spawnSync("ffprobe", ["-v", "error", "-show_entries",
 const totalSec = parseFloat((durProbe.stdout || "").trim()) || 169;
 const fadeD = Math.min(18, Math.max(4, totalSec * 0.1));
 const fadeSt = Math.max(0, totalSec - fadeD).toFixed(3);
-run("ffmpeg", ["-y", "-i", scr, "-af",
-  "acompressor=threshold=-20dB:ratio=2:attack=20:release=260:makeup=1:knee=8," +
-  "loudnorm=I=-14:TP=-1.5:LRA=11," +
-  "alimiter=limit=0.94:attack=8:release=120:level=disabled," +
-  `afade=t=out:st=${fadeSt}:d=${fadeD.toFixed(3)}`,
+
+let finalizeIn = scr;
+if (USE_ACDSP) {
+  if (!acdspAvailable()) {
+    console.error("[bake] --acdsp requested but pop/dsp/c/acdsp not built.");
+    console.error("       build it: (cd pop/dsp/c && make)"); process.exit(1);
+  }
+  const acOut = `${outDir}/.trancenwaltzi-acdsp.wav`;
+  const spec = presets.danceMasterBus({ in_db: -3, out_db: +3, iron: 0.5 });
+  console.log(`\n[bake] acdsp character pass (1176 + EQ via C lib)\n        chain: ${spec}`);
+  const r = processWav(scr, acOut, spec, { float: true });
+  if (!r.ok) {
+    console.error("[bake] acdsp failed:\n" + r.stderr); process.exit(1);
+  }
+  process.stderr.write(r.stderr);
+  finalizeIn = acOut;
+}
+
+const ffChain = USE_ACDSP
+  // acdsp already handled compressor + EQ — just loudness + limit + fade.
+  ? "loudnorm=I=-14:TP=-1.5:LRA=11," +
+    "alimiter=limit=0.94:attack=8:release=120:level=disabled," +
+    `afade=t=out:st=${fadeSt}:d=${fadeD.toFixed(3)}`
+  // legacy chain (kept for A/B): clean acompressor → loudnorm → limit.
+  : "acompressor=threshold=-20dB:ratio=2:attack=20:release=260:makeup=1:knee=8," +
+    "loudnorm=I=-14:TP=-1.5:LRA=11," +
+    "alimiter=limit=0.94:attack=8:release=120:level=disabled," +
+    `afade=t=out:st=${fadeSt}:d=${fadeD.toFixed(3)}`;
+
+run("ffmpeg", ["-y", "-i", finalizeIn, "-af", ffChain,
   "-ar", "44100", "-sample_fmt", "s16", finalWav],
-  `finalize → -14 LUFS (fade ${fadeSt}s +${fadeD.toFixed(1)}s)`);
+  `finalize → -14 LUFS (fade ${fadeSt}s +${fadeD.toFixed(1)}s)${USE_ACDSP ? " [acdsp]" : ""}`);
 run("ffmpeg", ["-y", "-i", finalWav, "-codec:a", "libmp3lame", "-b:a", "320k",
   finalMp3], "320k mp3");
 spawnSync("rm", ["-f", scr]);
+if (USE_ACDSP) spawnSync("rm", ["-f", `${outDir}/.trancenwaltzi-acdsp.wav`]);
 spawnSync("open", ["-a", "QuickTime Player", finalWav]);
-console.log(`\n[bake] done → ${finalWav}`);
+console.log(`\n[bake] done → ${finalWav}${USE_ACDSP ? " (acdsp character)" : ""}`);

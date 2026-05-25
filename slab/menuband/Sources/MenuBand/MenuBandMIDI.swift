@@ -348,6 +348,30 @@ final class MenuBandMIDI {
         send([0xB0 | (channel & 0x0F), cc & 0x7F, value & 0x7F])
     }
 
+    /// Send a Program Change so a connected DAW retargets its instrument
+    /// when the user picks a new GM voice in the popover. The endpoint
+    /// advertises `kMIDIPropertyTransmitsProgramChanges`, but without
+    /// this method nothing actually emits the PC — the DAW track stays
+    /// on whatever instrument it was last assigned and the local synth
+    /// voice silently drifts out of sync with what's recording.
+    /// Optionally precede the PC with a Bank Select MSB+LSB pair so
+    /// receivers that respect bank routing (e.g. multi-bank ROMplers)
+    /// land on the right program — defaults map to the GM Melodic bank.
+    func sendProgramChange(_ program: UInt8,
+                           channel: UInt8 = 0,
+                           bankMSB: UInt8? = nil,
+                           bankLSB: UInt8? = nil) {
+        guard enabled else { return }
+        let ch = channel & 0x0F
+        if let msb = bankMSB {
+            send([0xB0 | ch, 0,  msb & 0x7F])
+        }
+        if let lsb = bankLSB {
+            send([0xB0 | ch, 32, lsb & 0x7F])
+        }
+        send([0xC0 | ch, program & 0x7F])
+    }
+
     /// Send a 14-bit pitch-bend message. `value` is signed:
     /// -8192 (full down) … 0 (center) … +8191 (full up). Default
     /// MIDI bend range is ±2 semitones; receivers can configure

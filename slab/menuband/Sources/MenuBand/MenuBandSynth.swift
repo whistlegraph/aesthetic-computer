@@ -516,11 +516,30 @@ final class MenuBandSynth {
         do {
             try engine.start()
             applyOutputDeviceOverride()
+            // MIDISynth's per-channel program is unreliable across an
+            // engine pause→start cycle — coming back from idle-suspend
+            // (or any other engine restart) can leave each channel
+            // pointing at the AU's default program 0 (Acoustic Grand
+            // Piano) instead of the user's picked voice. Re-asserting
+            // bank+PC here means the next noteOn lands on the right
+            // instrument, no matter how long the user was idle.
+            // Cost: two MIDI bytes × 8 channels — sub-millisecond.
+            reapplyCurrentPrograms()
             return true
         } catch {
             NSLog("MenuBand synth engine resume failed: \(error)")
             return false
         }
+    }
+
+    /// Re-send bank+PC for the active melodic program and the GM drum
+    /// kit on channel 9. Called after every engine restart so the
+    /// MIDISynth AU doesn't silently revert to default Piano on
+    /// melodic channels (and the standard kit on drums).
+    private func reapplyCurrentPrograms() {
+        guard midiSynthReady, let au = midiSynth?.audioUnit else { return }
+        selectMelodicProgram(au, program: currentMelodicProgram)
+        selectDrumKit(au)
     }
 
     private func scheduleIdleSuspendIfNeeded() {

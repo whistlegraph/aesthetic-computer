@@ -1,0 +1,24 @@
+{
+  "title": "hellsine harmonies",
+  "outDir": "/Users/jas/aesthetic-computer/pop/hellsine/samples",
+  "trim": {
+    "thresholdPctOfPeak": 0.05,
+    "padHeadMs": 30,
+    "padTailMs": 200,
+    "fadeMs": 8,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -25,
+    "silenceDb": -42,
+    "silenceDurationMs": 2000,
+    "maxRecordSec": 10
+  },
+  "samples": [
+    { "name": "harmony-d3-ah", "desc": "low D, sing ah for five seconds" },
+    { "name": "harmony-f3-ah", "desc": "F, the minor third, sing ah" },
+    { "name": "harmony-a3-ah", "desc": "A, the fifth, sing ah" },
+    { "name": "harmony-c4-ah", "desc": "C, the dark seventh, sing ah" },
+    { "name": "harmony-d4-ah", "desc": "high D, the octave, sing ah" }
+  ]
+}

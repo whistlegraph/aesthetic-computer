@@ -579,6 +579,16 @@ final class MenuBandController {
             return (note, ch)
         }
         synth.setMelodicProgram(program)
+        // Tell the external MIDI side too — without this the DAW (Live,
+        // Logic, etc.) keeps playing whatever instrument was last on the
+        // track and the local synth voice silently drifts out of sync
+        // with what's recording. GM Melodic bank (MSB 0x79, LSB 0x00)
+        // makes receivers that respect bank routing pick the same
+        // patch the local MIDISynth just loaded.
+        midi.sendProgramChange(program,
+                               channel: 0,
+                               bankMSB: 0x79,
+                               bankLSB: 0x00)
         if !midiMode {
             for tap in heldTaps {
                 synth.noteOff(tap.note, channel: tap.channel)

@@ -22,12 +22,14 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { acdspAvailable, processWav, chain, eq, compressor } from "../../lib/master.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
 let args = process.argv.slice(2);
 const SCRATCH_ON = args.includes("--scratch");
-args = args.filter((a) => a !== "--scratch");
+const USE_ACDSP  = args.includes("--acdsp");
+args = args.filter((a) => a !== "--scratch" && a !== "--acdsp");
 const sep = args.indexOf("--");
 const engineExtra = sep >= 0 ? args.slice(sep + 1) : [];
 const outDir = (sep >= 0 ? args.slice(0, sep) : args)[0] ||
@@ -60,23 +62,105 @@ if (SCRATCH_ON) {
   mix = scr;
 }
 
+// 2.5 — FINAL-DROP PERMA SPEED-UP — @jeffrey: after the "aesthetic dot
+// computer" stamp the track hits the climax drop at 110.77 s (statement
+// + bridge + AC stamp first, THEN the gear-shift). From there until the
+// end, atempo=1.06 stays on for the rest of the track — a permanent
+// BPM lift through climax + coda + horse/train outro. Pre-AC-stamp
+// content is untouched. The crow-section speed-bump was rejected, so
+// it's no longer applied — the only tempo change is this one-way ramp.
+const tempoOut = `${outDir}/.hellsine-tempo.wav`;
+const TEMPO_CUT = 110.77;             // climax.startSec — the final drop
+const TEMPO_MUL = 1.06;
+const tempoChain = [
+  "asplit=2[a0][a1]",
+  `[a0]atrim=start=0:end=${TEMPO_CUT},asetpts=PTS-STARTPTS[t0]`,
+  `[a1]atrim=start=${TEMPO_CUT},asetpts=PTS-STARTPTS,atempo=${TEMPO_MUL}[t1]`,
+  "[t0][t1]concat=n=2:v=0:a=1[out]",
+].join(";");
+run("ffmpeg", ["-y", "-i", mix, "-filter_complex", tempoChain, "-map", "[out]",
+  "-ar", "48000", "-c:a", "pcm_s24le", tempoOut],
+  `final-drop perma speed-up (atempo=${TEMPO_MUL} from ${TEMPO_CUT}s onward)`);
+mix = tempoOut;
+
 // 3 — finalize for Spotify (Spotify normalises to -14 on playback)
 // The new mix (halftime hole-kick + 8-partial pads + sparkle + steam)
 // is inherently brighter than the original dark gabber-punch cut, so
 // the brightening pass is now a LIGHT polish. The old +8 dB shelf +
 // dual presence/sparkle boosts piled into the 2-12 kHz range and read
 // as buzz hash. Keep just a gentle air lift + warm the low end.
-run("ffmpeg", ["-y", "-i", mix, "-af",
-  "highshelf=f=9000:g=2," +
-  "equalizer=f=150:t=q:w=1.0:g=-1," +             // trim lows (pressure-bass carries it)
-  "equalizer=f=320:t=q:w=1.4:g=-2," +             // scoop low-mids clearer
-  "acompressor=threshold=-18dB:ratio=2:attack=15:release=240:makeup=1:knee=8," +
-  "loudnorm=I=-14:TP=-1.5:LRA=11," +
-  "alimiter=limit=0.94:attack=6:release=110:level=disabled," +
-  "afade=t=out:st=162.5:d=4",
-  "-ar", "44100", "-sample_fmt", "s16", finalWav], "finalize → -14 LUFS (light polish)");
+let finalizeIn = mix;
+if (USE_ACDSP) {
+  if (!acdspAvailable()) {
+    console.error("[bake] --acdsp requested but pop/dsp/c/acdsp not built.");
+    console.error("       build it: (cd pop/dsp/c && make)"); process.exit(1);
+  }
+  const acOut = `${outDir}/.hellsine-acdsp.wav`;
+  // hellsine character chain — keeps the "light polish" intent of the
+  // legacy chain (low body trim, low-mid scoop, gentle 1176 4:1 glue with
+  // mild FET iron for upper-harmonic brightness, air lift). The 1176's
+  // GR-modulated saturation does the brightening work the old +2 dB
+  // 9 kHz high-shelf used to do, but musically (harmonics tied to the
+  // dynamics) instead of statically.
+  const spec = chain(
+    eq({ type: "peak", f: 150, q: 1.0, g: -1 }),
+    eq("mud", -2),
+    compressor("1176", { ratio: 4, in: -3, out: +3, attack: 4, release: 4, iron: 0.5 }),
+    eq("air", +2),
+  );
+  console.log(`\n[bake] acdsp character pass (1176 + EQ via C lib)\n        chain: ${spec}`);
+  const r = processWav(mix, acOut, spec, { float: true });
+  if (!r.ok) { console.error("[bake] acdsp failed:\n" + r.stderr); process.exit(1); }
+  process.stderr.write(r.stderr);
+  finalizeIn = acOut;
+}
+
+// CLASSICAL DYNAMIC ENVELOPE — pre-loudnorm gain ride that shapes the
+// dynamic narrative across sections (master time):
+//   0.0-15.8 (overture)  : 0.40 → 0.55, hushed exposition rising
+//   15.8-23 (drop)        : 1.00, arrival full power
+//   23-47.5 (statement)   : 0.78, settled
+//   47.5-79.1 (bridge)    : 0.55, intimate / soft
+//   79.1-110.8 (develop)  : 0.55 → 1.00, rising build
+//   110.8-140.6 (climax)  : 1.18, apex push (above unity)
+//   140.6-162 (coda)      : 0.95 → 0.50, slows but keeps energy
+// Pre-loudnorm so the dynamic shape is preserved through normalization.
+const dynEnv =
+  "volume=eval=frame:volume='" +
+    "if(lt(t,15.82), 0.40+0.15*(t/15.82)," +
+    "if(lt(t,23.0), 1.00," +
+    "if(lt(t,47.5), 0.78," +
+    "if(lt(t,79.1), 0.55," +
+    "if(lt(t,110.8), 0.55+0.45*((t-79.1)/31.7)," +
+    "if(lt(t,140.6), 1.18," +
+    "0.95+(0.50-0.95)*((t-140.6)/21.4)))))))'";
+
+const ffChain = USE_ACDSP
+  // acdsp already handled compressor + EQ — just dynamic envelope + loudness + limit + fade.
+  ? dynEnv + "," +
+    "loudnorm=I=-14:TP=-1.5:LRA=11," +
+    "alimiter=limit=0.85:attack=6:release=110:level=disabled," +
+    "volume=-1.2dB," +
+    "afade=t=out:st=160.0:d=2.0"
+  // legacy chain (kept for A/B): clean acompressor + EQ + loudnorm + limit.
+  : dynEnv + "," +
+    "highshelf=f=9000:g=2," +
+    "equalizer=f=150:t=q:w=1.0:g=-1," +
+    "equalizer=f=320:t=q:w=1.4:g=-2," +
+    "acompressor=threshold=-18dB:ratio=2:attack=15:release=240:makeup=1:knee=8," +
+    "loudnorm=I=-14:TP=-1.5:LRA=11," +
+    "alimiter=limit=0.85:attack=6:release=110:level=disabled," +
+    "volume=-1.2dB," +
+    "afade=t=out:st=160.0:d=2.0";
+
+run("ffmpeg", ["-y", "-i", finalizeIn, "-af", ffChain,
+  "-ar", "44100", "-sample_fmt", "s16",
+  "-to", "162.0",      // truncate; climax-onward atempo 1.06 compresses ~55s → ~52s
+  finalWav],
+  `finalize → -14 LUFS (light polish)${USE_ACDSP ? " [acdsp]" : ""}`);
 run("ffmpeg", ["-y", "-i", finalWav, "-codec:a", "libmp3lame", "-b:a", "320k",
   finalMp3], "320k mp3");
 spawnSync("rm", ["-f", scr]);
+if (USE_ACDSP) spawnSync("rm", ["-f", `${outDir}/.hellsine-acdsp.wav`]);
 spawnSync("open", ["-a", "QuickTime Player", finalWav]);
-console.log(`\n[bake] done → ${finalWav}`);
+console.log(`\n[bake] done → ${finalWav}${USE_ACDSP ? " (acdsp character)" : ""}`);

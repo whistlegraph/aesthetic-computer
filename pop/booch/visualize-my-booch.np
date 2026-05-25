@@ -1,0 +1,53 @@
+# booch: visualize-my-booch — notepat score
+# notation: NOTE:syllable, hyphens for syllable continuation
+# (folk-songs paper §3, papers/arxiv-folk-songs/folk-songs.tex:152)
+#
+# key: D Dorian (D E F G A B C)
+# pentatonic-leaning rap palette: D F G A C (plus B for color)
+# rap contour: verses sit close to A (anchor), peak on F/C for stress;
+# hook is the most melodic line and lands on D (tonic). bridge is talky,
+# mostly A with two F lifts. outro echoes the hook on a fragment grid.
+#
+# tempo: 94 BPM, swung 16ths (~63%)
+# every syllable carries a pitch — playable on notepat in song mode and
+# renderable through bin/sing.mjs (jeffrey-pvc TTS + WhisperX align).
+
+# intro 4 [bed-only, vinyl-crackle, no-vocal]
+
+hook
+A:vis- A:-u- D:-a- C:-lize A:my D:booch F:what A:you A:see A:is D:what A:i G:brewed
+A:fer- A:-men- C:-ted A:in A:the F:dark A:let A:it C:cul- A:-ture A:let A:it D:move
+A:i A:don't A:buy A:my F:fla- A:-vor A:i C:grow A:it A:in A:a F:jar
+D:home- F:-cooked A:aes- C:-the- A:-tic A:that's A:the F:brand A:that's A:the D:bar
+
+verse 1
+A:start- A:-ed A:with A:a F:ket- A:-tle A:and A:a A:old A:green C:tea
+A:six A:weeks A:on A:the F:coun- A:-ter A:pa- A:-tience A:was A:the F:re- A:-ci- C:-pe
+A:i A:don't A:pitch A:a A:start- A:-up A:i A:pitch A:a F:sco- A:-by A:in A:a C:crock
+A:let A:it A:eat A:the F:su- A:-gar A:'til A:the F:cap A:go C:pop
+A:i A:don't A:lease A:my F:run- A:-time A:i F:fer- A:-ment A:my C:own
+A:booch A:is A:just A:the F:me- A:-ta- C:-phor A:the F:me- A:-ta- C:-phor A:is D:home
+A:ev- A:-ery A:batch A:a F:daugh- A:-ter A:ev- A:-ery F:daugh- A:-ter A:a C:re- C:-lease
+A:slow F:code A:slow F:cul- A:-ture A:that's A:a A:dif- A:-fer- A:-ent F:kind A:of D:peace
+
+hook
+
+# verse 2 — TBD (plain lyrics in visualize-my-booch.txt; pitch contour pending)
+# (timbaland-sparse section — when scored, expect wider rests and
+#  tumbi-aligned pitch hits, lower density than verse 1)
+
+hook
+
+bridge
+A:uh A:you F:smell A:that A:yeah A:that's A:the C:brew
+A:that's A:the F:home A:that's A:the F:mo- A:-ther A:that's A:the C:proof
+A:i A:ain't A:ask- A:-ing A:for A:a F:la- A:-bel A:i A:grew A:the F:la- A:-bel C:too
+A:vis- A:-u- C:-a- A:-lize A:my F:booch D:that's A:the F:whole A:in- A:-ter- D:-view
+
+hook
+
+outro
+A:vis- A:-u- C:-a- A:-lize A:my D:booch
+A:let A:it C:cul- A:-ture A:let A:it D:move
+D:home- F:-cooked A:aes- C:-the- D:-tic
+A:fer- A:-men- C:-ted A:in A:the D:dark

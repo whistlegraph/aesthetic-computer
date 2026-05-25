@@ -112,7 +112,24 @@ const LANES = [
 ];
 const laneEvents = {};
 for (const L of LANES) {
-  laneEvents[L.key] = (struct.events?.[L.key] || []).slice().sort((a, b) => a.t - b.t);
+  const evs = (struct.events?.[L.key] || []).slice().sort((a, b) => a.t - b.t);
+  // STACKROW assignment — events that overlap in time within the same
+  // lane get bumped onto a sub-row so they don't draw on top of each
+  // other. Greedy: each event goes into the first row whose previous
+  // event has already ended.
+  const rowEndT = [];
+  let maxRows = 1;
+  for (const ev of evs) {
+    let row = 0;
+    while (row < rowEndT.length && rowEndT[row] > ev.t + 1e-4) row++;
+    ev.stackRow = row;
+    const evEnd = ev.t + (ev.dur || 0.25);
+    if (row >= rowEndT.length) rowEndT.push(evEnd);
+    else rowEndT[row] = evEnd;
+    if (row + 1 > maxRows) maxRows = row + 1;
+  }
+  L.maxStackRows = maxRows;
+  laneEvents[L.key] = evs;
 }
 const nEvents = Object.values(laneEvents).reduce((s, a) => s + a.length, 0);
 console.log(`  sound elements: ${nEvents} note events across ${LANES.length} voice lanes`);
@@ -165,10 +182,30 @@ const assetsDir = AUDIO.replace(/\.mp3$/, ".assets");
 mkdirSync(assetsDir, { recursive: true });
 
 const titleFontSize = 96;
+// shadowColor: null — bake NO shadow into the pre-rendered chars, so
+// when we source-in tint each glyph we get a CLEAN letter alpha mask.
+// (We draw our own controlled black shadow + colored seep passes per
+// frame in drawPalsTitleChars.)
 const { chars: titleChars, totalWidth: titleTotalW } = await prerenderTitleChars({
   text: TITLE, ptSize: titleFontSize, palette: TITLE_PALETTE,
-  shadowColor: "rgba(0,0,0,0.78)", assetsDir,
+  shadowColor: null, assetsDir,
 });
+// ── Title/pals geometry (shared so the pals stamp lands SNUG against
+// the first char of each column with no animation overlap) ──────────
+const PALS_S      = 145;                       // pals stamp size (square)
+const PALS_HALF   = PALS_S / 2;
+const PALS_EDGE_X  = 100;                      // cx of pals (left side) — nudged further from the edge
+const CHARS_EDGE_X = PALS_EDGE_X + 12;         // chars sit just inward of the pals
+const CHAR_SCALE  = 0.52;
+const CHAR_SPAN   = titleTotalW * CHAR_SCALE;  // vertical length of the rotated text column
+const BOUNCE_BUF  = 26;                        // vertical gap pals → first char (more breathing)
+const LEFT_CHARS_CY  = H * 0.82 - 16;        // bottom-left group nudged UP toward centre (+16px)
+const RIGHT_CHARS_CY = H * 0.18 + 32 + 16;   // top-right group nudged DOWN toward centre (+32+16px)
+// LEFT column reads top-down → 'm' at TOP of column; pals sits JUST
+// above it. RIGHT column reads bottom-up → 'm' at BOTTOM; pals sits
+// JUST below it. Both auto-snug, no manual y values to nudge.
+const LEFT_PALS_CY  = LEFT_CHARS_CY  - CHAR_SPAN / 2 - BOUNCE_BUF - PALS_HALF;
+const RIGHT_PALS_CY = RIGHT_CHARS_CY + CHAR_SPAN / 2 + BOUNCE_BUF + PALS_HALF;
 const TITLE_TOP_Y = 104;
 
 const tcFontSize = 60;
@@ -366,7 +403,7 @@ function palsTinted(rgb, src) {
 }
 function drawWatermark(audioT) {
   if (!palsImg) return;
-  const s = 130;
+  const s = 145;
   // PERFECT-LOOP GEOMETRY: position / wiggle / swivel / hue locked to
   // the full video timeline (u: 0 → 1 across all frames), INTEGER
   // harmonics, so the last frame's pals sit exactly where frame 0's do.
@@ -392,10 +429,18 @@ function drawWatermark(audioT) {
   const wig  = 13 * Math.sin(TAU * 30 * u) + 4 * Math.sin(TAU * 10 * u);
   const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u);
   const inset = s * 0.34;
-  // Diagonal pals: LEFT pals down at bottom-half, RIGHT pals up at top.
+  // Diagonal pals AT the corner edges — the title text starts NEXT
+  // to each pals (the logo is to the LEFT of where the text starts).
   const spots = [
-    { cx: inset - wig,     cy: H * 0.86, rot:  Math.PI / 2 + swiv },
-    { cx: W - inset + wig, cy: H * 0.16, rot: -Math.PI / 2 - swiv },
+    // PALS snug against the beginning of each text column:
+    //   left column reads top-down → pals just ABOVE the top 'm'
+    //   right column reads bottom-up → pals just BELOW the bottom 'm'
+    // Tight gap so the logo + first letter read as a single unit.
+    // pals cx + cy computed from the title geometry — SNUG against the
+    // first char of each column, with a small bounce-buffer so the
+    // per-char bounce never overlaps the stamp.
+    { cx: PALS_EDGE_X - wig,     cy: LEFT_PALS_CY,  rot:  Math.PI / 2 + swiv },
+    { cx: W - PALS_EDGE_X + wig, cy: RIGHT_PALS_CY, rot: -Math.PI / 2 - swiv },
   ];
   // pushed deep INTO the image — heavy multiply/burn/overlay, only a
   // whisper of straight-source pass so it stains in.
@@ -444,32 +489,32 @@ function drawWatermark(audioT) {
   // with the audio envelope, staggered.
   drawPalsTitleChars(audioT);
 }
-// Small "marimbaba" chars climbing the side NEXT TO each pals stamp
-// (not over it — so the pals can stay compact). Each char is re-tinted
-// per frame to match the pals's section+hue colour so the type reads
-// as the same family as the logo.
+// "marimbaba" chars climbing VERTICALLY (rotated −90°) BESIDE each
+// pals stamp — left pals at bottom: text-column to its RIGHT,
+// right pals at top: text-column to its LEFT. Each char re-tinted
+// per frame to the pals's section+hue colour so type + logo read
+// as one family.
 function drawPalsTitleChars(audioT) {
   if (!palsImg) return;
-  const s = 130;                            // matches drawWatermark
+  const s = 145;                            // matches drawWatermark
   const u = audioT * FPS / FRAMES;
   const TAU = Math.PI * 2;
   const wig  = 13 * Math.sin(TAU * 30 * u) + 4 * Math.sin(TAU * 10 * u);
   const inset = s * 0.34;
-  // Chars sit OFFSET from each pals — toward screen centre — so they
-  // form a vertical spine of type beside (not on top of) the logo.
-  const offset = s / 2 + 24;
-  const palsSpots = [
-    { charsCx: (inset - wig) + offset,         cy: H * 0.86 },
-    { charsCx: (W - inset + wig) - offset,     cy: H * 0.16 },
-  ];
-  const charScale = 0.46;
+  const charScale = CHAR_SCALE;
   const span = titleTotalW * charScale;
-  const palsRgb = palsFrameColor(audioT);   // same tint the pals body uses
-  const startX = -span / 2;
-  for (const sp of palsSpots) {
+  const palsRgb = palsFrameColor(audioT);
+  // Chars share the SAME x-axis as the pals stamp (centred on the
+  // same vertical line so logo + type line up).
+  const spots = [
+    { charsCx: CHARS_EDGE_X - wig,     cy: LEFT_CHARS_CY,  rot:  Math.PI / 2 },
+    { charsCx: W - CHARS_EDGE_X + wig, cy: RIGHT_CHARS_CY, rot: -Math.PI / 2 },
+  ];
+  const startX = -span / 2;                 // centre the column on cy
+  for (const sp of spots) {
     ctx.save();
     ctx.translate(sp.charsCx, sp.cy);
-    ctx.rotate(-Math.PI / 2);                // chars climb UP the side
+    ctx.rotate(sp.rot);
     for (let i = 0; i < titleChars.length; i++) {
       const ch = titleChars[i];
       if (!ch.img) continue;
@@ -479,20 +524,42 @@ function drawPalsTitleChars(audioT) {
       const charEnv = envAt(audioT - i * 0.03);
       const lift = 4 * Math.sin(audioT * 4.0 + i * 0.8) * (0.3 + charEnv);
       const y = -dh / 2 + lift;
-      // dark shadow stamp first (contrast against the illustration)
+      // 1) shadow stamp — IDENTICAL to the pals shadow: solid BLACK,
+      //    alpha 0.26, offset (3, 4). Matches the logo's look exactly.
       ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.drawImage(tintCharGlyph(ch.img, [0, 0, 0]), x + 2, y + 2, dw, dh);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 0.26;
+      ctx.drawImage(tintCharGlyph(ch.img, [0, 0, 0]), x + 3, y + 4, dw, dh);
       ctx.restore();
-      // tinted-to-pals coloured top, with a warm shadow on loud chars
-      if (charEnv > 0.45) {
+      // 2) 4-pass SEEP — same blend stack the pals uses, so the type
+      //    soaks INTO the illustration the same way the logo does.
+      const charPasses = [
+        ["multiply",    0.78],
+        ["color-burn",  0.42],
+        ["overlay",     0.58],
+        ["source-over", 0.06],
+      ];
+      for (const [op, a] of charPasses) {
         ctx.save();
-        ctx.shadowColor = "rgba(255,236,170,0.85)";
-        ctx.shadowBlur = 8 * Math.min(1, (charEnv - 0.45) / 0.55);
+        ctx.globalCompositeOperation = op;
+        ctx.globalAlpha = a;
         ctx.drawImage(tintCharGlyph(ch.img, palsRgb), x, y, dw, dh);
         ctx.restore();
-      } else {
+      }
+      // 3) crisp top pass — denser than the pals's 0.30 so the smaller
+      //    type still reads at the same on-screen density as the logo.
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 0.46;
+      ctx.drawImage(tintCharGlyph(ch.img, palsRgb), x, y, dw, dh);
+      ctx.restore();
+      // 4) LED screen pulse on loud chars (mirrors the pals LED bloom)
+      if (charEnv > 0.45) {
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.14 + 0.46 * Math.min(1, (charEnv - 0.45) / 0.55);
         ctx.drawImage(tintCharGlyph(ch.img, palsRgb), x, y, dw, dh);
+        ctx.restore();
       }
     }
     ctx.restore();
@@ -519,18 +586,17 @@ const PLAYHEAD_X = Math.round(W / 2);
 const PX_PER_SEC = 150;                      // lullaby scroll speed
 const _vs = makeVerletString(ctx, { W, H, playheadX: PLAYHEAD_X, duration: DURATION });
 
-// 5 lanes packed into a tight LOWER-MID band so ALL tracks are visible
-// together on screen (under the figures' faces, above the progress bar
-// + timecode). The string still spans full height and runs through them.
-const LANE_TOP = 920, LANE_BOTTOM = H - 180;
+// 5 lanes spread EVENLY across the canvas height (along the string)
+// so the tracks don't bunch toward one edge — they ride the string
+// from top to bottom.
+const LANE_TOP = 240, LANE_BOTTOM = H - 200;
 const LANE_H = (LANE_BOTTOM - LANE_TOP) / LANES.length;
 const laneCenterY = {};
 LANES.forEach((L, i) => { laneCenterY[L.key] = LANE_TOP + i * LANE_H + LANE_H / 2; });
 
-// Groove radius — note blocks curve around this radius about the
-// canvas centre, so the rotating disc actually reads as a record:
-// straight at the needle, arcing more the further out. ~85% of min
-// dimension matches chillwave/trancenwaltz.
+// Groove radius — note blocks curve about the canvas centre. The
+// chillwave/trancenwaltz ~85%·minDim gives the strong 3D-projection
+// arc the user likes (clear record-groove feel).
 const GROOVE_R = Math.round(Math.min(W, H) * 0.85);
 
 // ── illustration distortion UNDER the bent string ───────────────────
@@ -541,8 +607,14 @@ const GROOVE_R = Math.round(Math.min(W, H) * 0.85);
 // CONTENT (illustration stays upright, never spins) while ONLY the
 // distortion field under the string lives in the string's rotated
 // frame — so the picture visibly bends where the string is bent.
-const WU_HALF = 200, WU_W = WU_HALF * 2, WU_STEP = 6, WU_BANDS = 7;
-const WU_STR = 0.85, WU_BW = WU_W / WU_BANDS;
+// Narrower strip (120 instead of 200) + more bands (24 vs 7) = the
+// warp reads as a LOCAL geometric bend at the string, not a global
+// strip-shift across the picture. WU_STR much gentler than the
+// trancenwaltz default (0.85) so the perspective shift stays subtle
+// — the picture barely flexes with the string instead of dragging
+// dramatically.
+const WU_HALF = 120, WU_W = WU_HALF * 2, WU_STEP = 4, WU_BANDS = 24;
+const WU_STR = 0.28, WU_BW = WU_W / WU_BANDS;
 const wuWin = new Float64Array(WU_BANDS);
 for (let b = 0; b < WU_BANDS; b++) {
   wuWin[b] = Math.sin(Math.PI * ((b + 0.5) / WU_BANDS)) ** 2;
@@ -661,15 +733,20 @@ function drawVignette(c, intensity) {
 // composite additively. Light shines THROUGH the bright illustration
 // pixels at the face regions; dark linework blocks it. Reads as light
 // genuinely coming from behind the figures, never as an overlay.
-function drawTransmittedBacklight(c, sectionImg, xform, faces, intensity) {
+function drawTransmittedBacklight(c, sectionImg, xform, faces, intensity, audioT = 0) {
   if (!faces || !faces.length || !xform || intensity <= 0.01) return;
   const k = Math.min(1, intensity);
+  // Candle dance — tiny per-frame XY jitter on the glow source so the
+  // transmitted light visibly flutters where it falls through the
+  // illustration's bright pixels.
+  const jx = 3.5 * Math.sin(audioT * 17.3) + 1.5 * Math.sin(audioT * 41.0);
+  const jy = 3.5 * Math.cos(audioT * 21.7) + 1.5 * Math.cos(audioT * 37.0);
   // Stamp the glow into the offscreen buffer at face positions.
   glowCtx.globalCompositeOperation = "source-over";
   glowCtx.clearRect(0, 0, W, H);
   for (const f of faces) {
-    const cx = xform.x + (f.x + f.w / 2) * xform.scale;
-    const cy = xform.y + (f.y + f.h / 2) * xform.scale;
+    const cx = xform.x + (f.x + f.w / 2) * xform.scale + jx;
+    const cy = xform.y + (f.y + f.h / 2) * xform.scale + jy;
     const radius = Math.max(f.w, f.h) * xform.scale * 1.4;
     if (radius <= 1) continue;
     const g = glowCtx.createRadialGradient(cx, cy, 0, cx, cy, radius);
@@ -710,14 +787,18 @@ function drawTransmittedBacklight(c, sectionImg, xform, faces, intensity) {
 // Stamp the same regions in a darker tone, destination-out by the mask
 // (so only the DARK parts of the panel get this treatment), multiply
 // onto the scene.
-function drawLeadedContrast(c, sectionImg, xform, faces, intensity) {
+function drawLeadedContrast(c, sectionImg, xform, faces, intensity, audioT = 0) {
   if (!faces || !faces.length || !xform || intensity <= 0.01) return;
   const k = Math.min(1, intensity);
+  // Out-of-phase candle jitter — the leaded layer flickers a touch
+  // differently from the transmitted layer so the two read as distinct.
+  const jx = 2.5 * Math.sin(audioT * 19.7 + 1.2) + 1.0 * Math.cos(audioT * 47.0);
+  const jy = 2.5 * Math.cos(audioT * 23.1 + 0.6) + 1.0 * Math.sin(audioT * 41.5);
   glowCtx.globalCompositeOperation = "source-over";
   glowCtx.clearRect(0, 0, W, H);
   for (const f of faces) {
-    const cx = xform.x + (f.x + f.w / 2) * xform.scale;
-    const cy = xform.y + (f.y + f.h / 2) * xform.scale;
+    const cx = xform.x + (f.x + f.w / 2) * xform.scale + jx;
+    const cy = xform.y + (f.y + f.h / 2) * xform.scale + jy;
     const radius = Math.max(f.w, f.h) * xform.scale * 1.4;
     if (radius <= 1) continue;
     const g = glowCtx.createRadialGradient(cx, cy, 0, cx, cy, radius);
@@ -794,20 +875,27 @@ function renderPanel(c, idx, audioT, env, punch) {
   const xform = drawCoverKenBurns(c, sectionImgs[idx], audioT, {
     ...KB, env, punch, zoomBox, fillBackground: true,
   });
-  // ── 3-LAYER STAINED-GLASS BACKLIGHT (trancenwaltz mechanism) ───────
-  // The illustration acts as a stained-glass panel — backlight shines
-  // THROUGH bright pixels, blocked by dark linework. Light is genuinely
-  // behind the figures, never overlaid on top.
+  // ── 3-LAYER STAINED-GLASS BACKLIGHT — candle-flickered ────────────
+  // Multi-freq noise gives the warm light a believable CANDLE
+  // FLUTTER; each layer has its own intensity envelope so the three
+  // layers visibly separate on hits + transitions.
+  const flicker = 1 + 0.20 * (
+      0.6 * Math.sin(audioT * 14.3 + idx * 0.7)
+    + 0.3 * Math.sin(audioT * 31.7 + idx * 1.3)
+    + 0.2 * Math.sin(audioT * 53.1 + idx * 0.4)
+  );
+  const v_i = (0.80 + 0.45 * env)              * flicker;   // vignette deepens with audio
+  const t_i = (0.18 + 0.95 * env + 0.65 * punch) * flicker;  // transmitted glow — strong env
+  const l_i = (0.10 + 0.55 * env + 0.45 * punch) * flicker;  // leaded contrast — punchy darks
   // 1: contrast vignette — darken the OUTER frame so the figures pop.
-  drawVignette(c, 1);
-  // 2: TRANSMITTED light — gated by the panel's own luminance mask, so
-  //    the glow only shines through the bright illustration parts at
-  //    each face region. Beats with the audio + note onsets.
-  const blI = 0.40 + env * 0.55 + punch * 0.40;
-  drawTransmittedBacklight(c, sectionImgs[idx], xform, faces, blI);
+  drawVignette(c, v_i);
+  // 2: TRANSMITTED light — gated by the panel's own luminance mask
+  //    AT a tiny per-frame XY jitter (candle dance) — only shines
+  //    through the bright illustration parts at each face region.
+  drawTransmittedBacklight(c, sectionImgs[idx], xform, faces, t_i, audioT);
   // 3: LEADED contrast — the inverse-mask multiply pass that keeps the
   //    dark linework PUNCHY, like the lead between glass.
-  drawLeadedContrast(c, sectionImgs[idx], xform, faces, blI * 0.7);
+  drawLeadedContrast(c, sectionImgs[idx], xform, faces, l_i, audioT);
   return xform;
 }
 
@@ -898,8 +986,13 @@ function drawLanes(audioT) {
   ctx.save();
   ctx.globalCompositeOperation = "screen";
   for (const L of LANES) {
-    const yC = laneCenterY[L.key];
+    const yCBase = laneCenterY[L.key];
     const laneRgb = hexToRgb(L.color);
+    // SUB-ROW layout — overlapping events spread vertically into
+    // stackRow slots so concurrent notes don't draw on top of each
+    // other. Cap visible rows at 3 to avoid crushing tiny bars.
+    const visibleRows = Math.min(L.maxStackRows ?? 1, 3);
+    const subH = (LANE_BOTTOM - LANE_TOP) / LANES.length / visibleRows;
     for (const ev of laneEvents[L.key]) {
       if (ev.t > audioT + halfSpan) break;
       const dur = ev.dur || 0.25;
@@ -909,6 +1002,11 @@ function drawLanes(audioT) {
       const visDur = Math.min(dur, 0.30);
       const ex = PLAYHEAD_X + (ev.t - audioT) * PX_PER_SEC;
       const ew = Math.max(4, visDur * PX_PER_SEC);
+      // place this event in its assigned sub-row (centred within the
+      // lane), so overlapping events don't stack on top of each other.
+      const rowIdx = Math.min(ev.stackRow ?? 0, visibleRows - 1);
+      const yC = yCBase - (LANE_BOTTOM - LANE_TOP) / LANES.length / 2
+               + subH / 2 + rowIdx * subH;
       // Per-event FLASH highlighting — whole event pumps brighter on
       // trigger, decays over FLASH_WIN.
       const sinceTrigger = audioT - ev.t;
@@ -926,7 +1024,8 @@ function drawLanes(audioT) {
       const cg = Math.round(nrgb[1] * 0.78 + laneRgb[1] * 0.22);
       const cb = Math.round(nrgb[2] * 0.78 + laneRgb[2] * 0.22);
       const rgb = `${cr},${cg},${cb}`;
-      const fullH = Math.min(96, 30 + 86 * Math.min(1, ev.gain ?? 0.5));
+      // Cap fullH at the sub-row height so stacked bars stay in lane.
+      const fullH = Math.min(Math.max(20, subH - 6), 30 + 86 * Math.min(1, ev.gain ?? 0.5));
       const cols = Math.max(2, Math.floor(ew / 9));
       const blockW = Math.max(3, ew / cols - 2);
       const bend = (needleXAt(yC) - PLAYHEAD_X) * 0.5;
@@ -954,6 +1053,9 @@ function drawLanes(audioT) {
         const bx = ex + (c / cols) * ew + bend;
         // GROOVE CURVE — rotate this block about the disc centre by
         // (bx − playhead) / GROOVE_R so the track arcs along the record.
+        // GROOVE_R bumped LARGE for a GENTLE arc (no polar-projection
+        // feel) — the bars curve subtly along the disc instead of
+        // bending sharply at the edges.
         const aGroove = (bx - PLAYHEAD_X) / GROOVE_R;
         ctx.save();
         ctx.translate(ROT_CX, ROT_CY);
@@ -971,17 +1073,29 @@ function drawLanes(audioT) {
 
 // A bright additive overdraw of the string so the playhead spine reads
 // boldly over the illustration (the engine's own draw() is subtle).
-function drawStringGlow(env) {
+// Paint the string body in the pals base colour on TOP of the engine's
+// own draw, so the visible string colour MATCHES the logo family. The
+// engine's underlying draw still provides the dark shadow + per-segment
+// pluck highlights — this overlay just dominates the body colour.
+function drawStringGlow(env, audioT) {
+  const [r, g, b] = palsFrameColor(audioT);
   ctx.save();
-  ctx.globalCompositeOperation = "screen";
   ctx.lineCap = "round";
-  ctx.strokeStyle = `rgba(255,246,212,${(0.34 + 0.30 * env).toFixed(3)})`;
-  ctx.lineWidth = 3.2;
+  // 1) Coloured BODY pass — thin, translucent, source-over.
+  ctx.globalCompositeOperation = "source-over";
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.42)`;
+  ctx.lineWidth = 1.6;
   ctx.beginPath();
   for (let y = -20; y <= H + 20; y += 10) {
     const x = needleXAt(y);
     if (y <= -20) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
+  ctx.stroke();
+  // 2) Screen GLOW on top, env-driven so the string pulses with the
+  //    audio while keeping its pals colour identity. Also thin.
+  ctx.globalCompositeOperation = "screen";
+  ctx.strokeStyle = `rgba(${r},${g},${b},${(0.34 + 0.40 * env).toFixed(3)})`;
+  ctx.lineWidth = 3.4;
   ctx.stroke();
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
@@ -1141,9 +1255,11 @@ for (let f = startFrame; f < endFrame; f++) {
 
   // ── the sound elements + the string, over the scene ───────────────
   // ── disc rotation — the string + lane note-blocks rotate as one
-  // record around the canvas centre, like the trancenwaltz / chillwave
-  // cuts. ~1 full turn over the lullaby — calm, not dizzy.
-  const theta = (audioT / DURATION) * Math.PI * 2 * 1.0;
+  // record around the canvas centre. Slower than the chillwave /
+  // trancenwaltz 30 s period — about 1 full turn across the whole
+  // lullaby — so the lane curve reads as a calm, slow disc rather
+  // than a fast spin.
+  const theta = (audioT / DURATION) * Math.PI * 2;
   // warpUnderString bends the storyline illustration where the string
   // is bent — the picture stays UPRIGHT but the strip under the string
   // slumps with the bend (chillwave's "string-vibe" effect).
@@ -1153,7 +1269,7 @@ for (let f = startFrame; f < endFrame; f++) {
   _vs.withRotation(theta, () => {
     drawLanes(audioT);
     _vs.draw();
-    drawStringGlow(env);
+    drawStringGlow(env, audioT);
   });
 
   // ── HUD ───────────────────────────────────────────────────────────
