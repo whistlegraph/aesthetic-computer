@@ -7,6 +7,25 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## YouTube state — pixsies singles (snapshot 2026-05-24)
+
+All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadata doesn't surface). Titles are **Title Case**; descriptions are **hashtag-only**. Chrome family for all `*-yt.mjs` forks: trancepenta-yt side stamps — pals + rotated-90° title chars climbing UP beside each stamp (movie-poster spine). Pre-render title chars with `shadowColor: null` so the per-frame tint works.
+
+| Track | Video | Chrome / Build |
+|---|---|---|
+| Trancepenta | [Em_lvTYET7M](https://youtu.be/Em_lvTYET7M) | `preview-score-trancepenta-yt.mjs` (canonical side-stamps) |
+| Trancenwaltz | [RBG3k_XsfLA](https://youtu.be/RBG3k_XsfLA) | `cover-video.mjs --size 1920x1080` w/ v10b landscape illys |
+| Marimbaba (v2) | [X63Ni-Lb_Kc](https://youtu.be/X63Ni-Lb_Kc) | `preview-score-marimbaba-yt.mjs` (side-stamps; replaces v1 `qntoYeAZSmM`) |
+| Helpabeach (v2) | **UPLOAD PENDING — quota** | `preview-score-helpabeach-yt.mjs` (side-stamps; mp4 at `pop/chillwave/out/helpabeach-preview-score-yt.mp4`, 109 MB) |
+
+YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-24 burned through the day's six on the two deleted Shorts + two v1 landscape cuts + marimbaba v2; helpabeach v2 deferred until reset (~24h after first upload of the day). Resume command in the helpabeach block below.
+
+Open follow-ups (queued, not blockers):
+- Re-run `node pop/chillwave/bin/gen-illy.mjs --slug helpabeach --landscape --sections --validate-butterfly` once OpenAI gpt-4o-mini quota clears — the validator wraps each gen with a vision check against `pop/chillwave/assets/wg-scrap.png` and regens FAILs (drift-1 visibly fails: tree-person not butterfly).
+- `helpabeach-yt-forms.json` not authored — backlight/zoom layer disabled on landscape until face-detected forms land (`pop/dance/bin/detect-face.py` is the precedent).
+
+---
+
 ## marimbaba — RELEASED
 
 - **Lane:** `pop/marimba/` · lullaby for synthesized marimba, 1:24 ·
@@ -24,7 +43,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   - audio — https://assets.aesthetic.computer/pop/marimbaba.mp3
   - cover — https://assets.aesthetic.computer/pop/marimbaba.jpg
   - visualizer — https://assets.aesthetic.computer/pop/marimbaba.mp4
-  - youtube · https://youtu.be/byt_NnRhbs4 (1080×1920 vertical storyline cut — uploaded 2026-05-24 via `toolchain/youtube/yt.mjs`; YouTube renders vertical natively. Description at `pop/marimba/marimbaba.youtube.txt`, thumbnail at `/tmp/yt-thumbs/marimbaba-thumb.jpg` — 1280-wide compressed jpg, required because the 3000² CDN cover exceeds YouTube's 2 MB thumbnail cap.)
+  - youtube · https://youtu.be/X63Ni-Lb_Kc (1920×1080 landscape visualizer — uploaded 2026-05-24, REPLACED v1 `qntoYeAZSmM`. Built from the `-yt` landscape illy set (`gen-sections.mjs --landscape` → 11 panels at 1536×1024 with the LANDSCAPE_NOTE re-framing the late-night study for 16:9) and the landscape fork `pop/marimba/bin/preview-score-marimbaba-yt.mjs`. v1 had unused-`drawTitle` side stacks; v2 restores `drawPalsTitleChars` so the chrome matches trancepenta-yt exactly: pals stamps snug against rotated-90° "marimbaba" climbing up beside each stamp. Replaced the deleted vertical Short `byt_NnRhbs4`. Title is "Marimbaba"; description is hashtag-only.)
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=772E43F5-D367-44A9-A7B4A1FA4E57FBD9
   (admin-only)
 - **Master:** `~/Documents/Working Desktop/marimbaba-DISTROKID/marimbaba-MASTER.wav`
@@ -86,7 +105,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   - cover · https://assets.aesthetic.computer/pop/helpabeach.jpg (3000², Rhizome Health clinic tableau)
   - video · https://assets.aesthetic.computer/pop/helpabeach.mp4 (1080×1920 vertical IG-story, 9 clinic panels)
   - story cut · https://assets.aesthetic.computer/pop/helpabeach-short.mp4 (1:17 narrated cut)
-  - youtube · https://youtu.be/maQ8GRZcS90 (1080×1920 vertical storyline cut — uploaded 2026-05-24. Description at `pop/chillwave/helpabeach.youtube.txt`; thumbnail compressed to 1280 wide.)
+  - youtube · UPLOAD PENDING — v1 (`NG55RkBI7N0`) had the wrong chrome (horizontal top title) and was deleted 2026-05-24 to make room for the side-stamps re-render. The v2 mp4 is built at `pop/chillwave/out/helpabeach-preview-score-yt.mp4` (109 MB, 1920×1080, side-stamps chrome matching trancepenta-yt: pals stamps snug against rotated-90° "helpabeach" climbing up beside each stamp; no top horizontal title). Re-upload blocked by YouTube's 6-uploads/day/project quota — the daily window already covers the two shorts (since deleted), the two v1 landscape cuts (helpabeach + marimbaba), and the marimbaba v2 (`X63Ni-Lb_Kc`). Quota resets ~24h after first upload today. Resume command: `node toolchain/youtube/yt.mjs upload pop/chillwave/out/helpabeach-preview-score-yt.mp4 --title "Helpabeach" --description-file pop/chillwave/helpabeach.youtube.txt --tags "chillwave,ambient,electronic,visualizer,aesthetic computer,pixsies,music,instrumental" --privacy public --category 10`.
 - **Master:** `~/Documents/Working Desktop/helpabeach-DISTROKID/helpabeach-MASTER.wav`
   — 44.1 kHz / 16-bit stereo WAV, 151.1 s. ≈ −13.4 LUFS, −1.5 dBTP.
   Master chain: highpass 24 → treble +1.8 dB @ 9.5 k → loudnorm
@@ -122,7 +141,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   1. `node marketing/bin/gen-promo.mjs <secdir> --variant v10b --size 1536x1024 --prompt-file cover-prompt-landscape.txt --force --no-mirror` per section (regen-only; the `cover-prompt-landscape.txt` is the portrait prompt with PORTRAIT framing language swapped for LANDSCAPE 3:2 / 16:9 strip).
   2. `recap/.venv/bin/python3 pop/dance/bin/detect-face.py <secdir>/gens/v10b.png` per section (writes `.face.json` sidecars the backlight emitters need).
   3. `node pop/dance/bin/cover-video.mjs --track <master.mp3> --illustrations intro=...,break1=...,... --size 1920x1080 --prelude <intro-prelude>/gens/v10.png --title trancenwaltz --bpm 137.143 --out <out.mp4>` (the **build.mjs** `youtube` format wires this).
-  4. `node toolchain/youtube/yt.mjs upload <out.mp4> --title "trancenwaltz" --description-file pop/dance/trancenwaltz.youtube.txt --tags "trance,waltz,electronic,visualizer,aesthetic computer,pixsies,music" --privacy public --category 10`.
+  4. `node toolchain/youtube/yt.mjs upload <out.mp4> --title "Trancenwaltz" --description-file pop/dance/trancenwaltz.youtube.txt --tags "trance,waltz,electronic,visualizer,aesthetic computer,pixsies,music" --privacy public --category 10`. (YouTube title convention is Title Case; description is hashtags only — see 2026-05-24 metadata refresh.)
 - **Master:** `~/Desktop/trancenwaltz-MASTER.wav` (= `-FINAL-distrokid.wav`)
   — 16-bit/44.1 kHz stereo WAV, 86.62 s. **Bright master:** −13.5 LUFS,
   −1.2 dBTP, LRA 6.7, +5 dB air vs the original dark cut. Pre-bright
@@ -307,7 +326,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **YouTube visualizer build recipe** (deterministic from the felt panel set + bright master):
   1. `node pop/dance/bin/gen-trancepenta-sections.mjs --force` (regen 16 felt landscape panels + cover at 1536×1024 via the felt-puppet constants in the script; concurrency 3; ~15–20 min wall time; ~$5 OpenAI).
   2. `node pop/dance/bin/preview-score-trancepenta-yt.mjs` (default I/O — reads `~/Documents/Working Desktop/twi-out/trancepenta.mp3` + struct, writes `pop/dance/out/trancepenta-preview-score-yt.mp4`; ~35 min for the full 190 s @ 30 fps).
-  3. `node toolchain/youtube/yt.mjs upload pop/dance/out/trancepenta-preview-score-yt.mp4 --title "trancepenta" --description-file pop/dance/trancepenta.youtube.txt --tags "trance,chilltrance,electronic,visualizer,aesthetic computer,pixsies,music,instrumental,5/4" --privacy public --category 10 --thumbnail /tmp/yt-thumbs/trancepenta-thumb.jpg` (the thumbnail must be ≤ 2 MB; the 3000² CDN cover is too big — use the 1280-wide ffmpeg downscale or call `yt.mjs thumbnail <videoId> <image>` after the fact).
+  3. `node toolchain/youtube/yt.mjs upload pop/dance/out/trancepenta-preview-score-yt.mp4 --title "Trancepenta" --description-file pop/dance/trancepenta.youtube.txt --tags "trance,chilltrance,electronic,visualizer,aesthetic computer,pixsies,music,instrumental,5/4" --privacy public --category 10 --thumbnail /tmp/yt-thumbs/trancepenta-thumb.jpg` (the thumbnail must be ≤ 2 MB; the 3000² CDN cover is too big — use the 1280-wide ffmpeg downscale or call `yt.mjs thumbnail <videoId> <image>` after the fact).
   - Reconstructable byte-faithfully any time: `BAKE_FORCE=1 bash pop/dance/bin/bake-trancepenta.sh`
     → produces `~/Documents/Working Desktop/twi-out/trancepenta-MASTER.wav` + paired struct.json
     → cover at `~/Documents/Working Desktop/gens/trancepenta-cover-3000.jpg` (felt-character regen via `gens/trancepenta-cover-final/`)

@@ -23,11 +23,15 @@
 //
 // Output: pop/marimba/out/marimbaba-p-cover.png            (portrait hero)
 //         pop/marimba/out/marimbaba-p-sec-<i>-<name>.png    (10 panels)
+// Landscape variant (--landscape):
+//         pop/marimba/out/marimbaba-yt-cover.png            (16:9 hero)
+//         pop/marimba/out/marimbaba-yt-sec-<i>-<name>.png   (10 panels)
 //
 // Usage:
 //   node pop/marimba/bin/gen-sections.mjs                # cached
 //   node pop/marimba/bin/gen-sections.mjs --force        # regen all
 //   node pop/marimba/bin/gen-sections.mjs --only wow2    # one panel
+//   node pop/marimba/bin/gen-sections.mjs --landscape    # 1536x1024 -yt set for YouTube
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -48,7 +52,13 @@ for (let i = 2; i < process.argv.length; i++) {
   else { flags[a.slice(2)] = next; i++; }
 }
 const FORCE = flags.force === true;
-const SIZE  = "1024x1536";                  // portrait 9:16-ish for the story cut
+// --landscape → 1536x1024 wide 3:2 / 16:9 set with "-yt" filename infix,
+// used by the YouTube widescreen visualizer fork
+// (preview-score-marimbaba-yt.mjs). Default stays portrait 9:16 for the
+// existing insta-story cut.
+const LANDSCAPE = flags.landscape === true;
+const SIZE  = LANDSCAPE ? "1536x1024" : "1024x1536";
+const TAG   = LANDSCAPE ? "-yt" : "-p";
 mkdirSync(`${LANE}/out`, { recursive: true });
 
 // ── identity refs (mirrors marimba/bin/gen-illy.mjs) ─────────────────
@@ -84,6 +94,10 @@ function loadOpenAIKey() {
 // ── PORTRAIT recomposition — widen the album-cover crop ──────────────
 const PORTRAIT_NOTE =
 `PORTRAIT OVERRIDE — recompose for a TALL vertical 9:16 frame (NOT the square album-cover crop). PULL THE CAMERA BACK and slightly UP — a wide, roomy shot: the WHOLE setting of this beat is visible around the figures, the figures sitting/standing comfortably WITHIN it, never cropped tight. keep the colored-pencil + gouache medium on warm cream paper, the confident hatching + striping, diegetic light only (warm desk-lamp / window light), and the calm somber late-night lullaby mood — only the framing widens.`;
+
+// ── LANDSCAPE recomposition — widen the album-cover crop horizontally ─
+const LANDSCAPE_NOTE =
+`LANDSCAPE OVERRIDE — recompose for a WIDE 3:2 / 16:9 frame (NOT square, NOT tall). PULL THE CAMERA BACK so the WHOLE late-night study / setting of this beat stretches horizontally across the frame: desk, lamp, bookshelf, window, armchair, doorway all visible across the width, with generous LEFT and RIGHT breathing space around the figures, NEVER cropped tight, NEVER tall. FIGURES sit centered along the lower-and-mid band so the upper-third of the frame has cream-paper / wall / shelf breathing room, allowing space for YouTube visualizer chrome (title, score-train, progress bar) to sit without occluding their faces or the typewriter. keep the colored-pencil + gouache medium on warm cream paper, the confident hatching + striping, diegetic light only (warm desk-lamp / window light), and the calm somber late-night lullaby mood — only the framing widens.`;
 
 // ── shared scene law (distilled from marimbaba.illy.txt) ─────────────
 const MEDIUM =
@@ -144,9 +158,14 @@ function safeName(n) {
   return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 function build(sectionBeat, tightCrop) {
-  const portrait = tightCrop ? "" : `\n\n${PORTRAIT_NOTE}`;
+  // tightCrop=true → portrait cover keeps the locked album-cover crop
+  // (no orientation note). For landscape mode the cover IS widened, so
+  // tightCrop is ignored and LANDSCAPE_NOTE is always appended.
+  const orient = LANDSCAPE
+    ? `\n\n${LANDSCAPE_NOTE}`
+    : (tightCrop ? "" : `\n\n${PORTRAIT_NOTE}`);
   return [MEDIUM, JEFFREY, GATES, SELECTRIC, sectionBeat, PALETTE, AVOID].join("\n\n")
-    + portrait + "\n";
+    + orient + "\n";
 }
 
 const apiKey = loadOpenAIKey();
@@ -233,18 +252,18 @@ const wants = (name) => !onlySet || onlySet.has(name);
 
 const jobs = [];
 if (wants("cover"))
-  jobs.push({ prompt: build(COVER_VARIANT, true), out: `${LANE}/out/marimbaba-p-cover.png`, label: "marimbaba-p cover" });
+  jobs.push({ prompt: build(COVER_VARIANT, true), out: `${LANE}/out/marimbaba${TAG}-cover.png`, label: `marimbaba${TAG} cover` });
 for (let i = 0; i < SECTION_ORDER.length; i++) {
   const name = SECTION_ORDER[i];
   if (!wants(name)) continue;
   jobs.push({
     prompt: build(SECTION_VARIANTS[name], false),
-    out: `${LANE}/out/marimbaba-p-sec-${i}-${safeName(name)}.png`,
-    label: `marimbaba-p §${i} ${name}`,
+    out: `${LANE}/out/marimbaba${TAG}-sec-${i}-${safeName(name)}.png`,
+    label: `marimbaba${TAG} §${i} ${name}`,
   });
 }
 
-progress.begin({ type: "illy", label: `marimbaba-p · ${jobs.length} panels` });
+progress.begin({ type: "illy", label: `marimbaba${TAG} · ${jobs.length} panels` });
 let done = 0;
 for (const job of jobs) {
   await generate(job.prompt, job.out, job.label);
