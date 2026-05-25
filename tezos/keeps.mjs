@@ -38,6 +38,18 @@ const OBJKT_MARKETPLACE_FALLBACK = {
   mainnet: 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X', // objktcom marketplace v6.2
 };
 
+// SmartPy-compiled contracts (v11 keeps, objkt marketplace) populate
+// `methodsObject` only — `methods` is empty. Older code in this file assumes
+// `.methods.X(...)` works; this helper picks whichever binding is present so
+// both styles continue to work without touching every call site.
+function pickMethod(contract, name) {
+  const fn = contract?.methodsObject?.[name] || contract?.methods?.[name];
+  if (!fn) {
+    throw new Error(`Contract ${contract?.address || '<unknown>'} has no entrypoint "${name}"`);
+  }
+  return fn.bind(contract.methodsObject?.[name] ? contract.methodsObject : contract.methods);
+}
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -2417,7 +2429,7 @@ async function setCollectionMedia(options = {}) {
       value: '0x' + u.value
     }));
     
-    const op = await contract.methods.set_contract_metadata(params).send();
+    const op = await pickMethod(contract, 'set_contract_metadata')(params).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
@@ -2468,7 +2480,7 @@ async function lockCollectionMetadata(options = {}) {
   try {
     const contract = await tezos.contract.at(contractAddress);
     
-    const op = await contract.methods.lock_contract_metadata().send();
+    const op = await pickMethod(contract, 'lock_contract_metadata')().send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
@@ -2520,7 +2532,7 @@ async function lockMetadata(tokenId, options = {}) {
   try {
     const contract = await tezos.contract.at(contractAddress);
     
-    const op = await contract.methods.lock_metadata(tokenId).send();
+    const op = await pickMethod(contract, 'lock_metadata')(tokenId).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
@@ -2574,7 +2586,7 @@ async function burnToken(tokenId, options = {}) {
   try {
     const contract = await tezos.contract.at(contractAddress);
     
-    const op = await contract.methods.burn_keep(tokenId).send();
+    const op = await pickMethod(contract, 'burn_keep')(tokenId).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
@@ -2644,7 +2656,7 @@ async function setKeepFee(feeInTez, options = {}) {
   try {
     const contract = await tezos.contract.at(contractAddress);
     
-    const op = await contract.methods.set_keep_fee(feeInMutez).send();
+    const op = await pickMethod(contract, 'set_keep_fee')(feeInMutez).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
@@ -2690,7 +2702,7 @@ async function setAdministrator(newAdmin, options = {}) {
   try {
     const contract = await tezos.contract.at(contractAddress);
     
-    const op = await contract.methods.set_administrator(newAdmin).send();
+    const op = await pickMethod(contract, 'set_administrator')(newAdmin).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
@@ -2748,7 +2760,7 @@ async function withdrawFees(destination, options = {}) {
   try {
     const contract = await tezos.contract.at(contractAddress);
     
-    const op = await contract.methods.withdraw_fees(dest).send();
+    const op = await pickMethod(contract, 'withdraw_fees')(dest).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
     console.log('   ⏳ Waiting for confirmation...');
@@ -3054,8 +3066,8 @@ async function transferToken(tokenId, toAddress, network = 'mainnet') {
     const marketContract = await tezos.contract.at(marketplaceContract);
 
     const op = await tezos.contract.batch()
-      .withContractCall(marketContract.methods.retract_ask(Number(askId)))
-      .withContractCall(contract.methods.transfer([{
+      .withContractCall(pickMethod(marketContract, 'retract_ask')(Number(askId)))
+      .withContractCall(pickMethod(contract, 'transfer')([{
         from_: credentials.address,
         txs: [{ to_: resolvedAddress, token_id: tokenId, amount: 1 }]
       }]))
@@ -3070,7 +3082,7 @@ async function transferToken(tokenId, toAddress, network = 'mainnet') {
     return { hash: op.hash, retracted: askId };
   }
 
-  const op = await contract.methods.transfer([{
+  const op = await pickMethod(contract, 'transfer')([{
     from_: credentials.address,
     txs: [{ to_: resolvedAddress, token_id: tokenId, amount: 1 }]
   }]).send();
@@ -3244,7 +3256,7 @@ async function listTokenForSale(tokenReference, priceInXTZ, options = {}) {
 
   const askMethod = marketContract.methodsObject.ask(askPayload);
   const retractMethod = existingListing
-    ? marketContract.methods.retract_ask(Number(existingAskDisplayId))
+    ? pickMethod(marketContract, 'retract_ask')(Number(existingAskDisplayId))
     : null;
 
   let op;
@@ -3258,7 +3270,7 @@ async function listTokenForSale(tokenReference, priceInXTZ, options = {}) {
       .withContractCall(askMethod)
       .send();
   } else {
-    const addOperatorMethod = tokenContract.methods.update_operators([
+    const addOperatorMethod = pickMethod(tokenContract, 'update_operators')([
       {
         add_operator: {
           owner: credentials.address,
@@ -3327,6 +3339,76 @@ async function listBatchForSale(items = [], options = {}) {
     results.push(result);
   }
 
+  return results;
+}
+
+// Cancel an active Objkt listing. Callable by the original ask creator regardless of
+// whether the token has since been transferred away — useful for retracting stale asks.
+async function cancelListing(tokenReference, options = {}) {
+  const { network = 'mainnet', apply = false } = options;
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const contractAddress = loadContractAddress(network);
+
+  const tokenId = await resolveTokenIdFromReference(tokenReference, { contractAddress, network });
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  ♻️  Cancel Listing                                          ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log(`📡 Network:  ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`🎨 Token:    #${tokenId} (${tokenReference})`);
+  console.log(`👤 Seller:   ${credentials.address}`);
+
+  const listing = await loadActiveListingForToken(contractAddress, tokenId, credentials.address);
+  if (!listing) {
+    console.log(`\nℹ️  No active listing found for token #${tokenId} by ${credentials.address}.\n`);
+    return { hash: null, retracted: null };
+  }
+
+  const askId = Number.parseInt(String(listing.bigmap_key), 10) || listing.id;
+  const askPrice = (Number(listing.price_xtz || 0) / 1_000_000).toFixed(6);
+  const marketplaceContract = listing.marketplace_contract || OBJKT_MARKETPLACE_FALLBACK[network];
+
+  console.log(`💰 Price:    ${askPrice} XTZ`);
+  console.log(`🆔 Ask:      #${askId}`);
+  console.log(`🏪 Market:   ${marketplaceContract}`);
+
+  try {
+    await assertWalletOwnsToken(contractAddress, tokenId, credentials.address, network);
+    console.log(`📦 Status:   active (seller still holds token)`);
+  } catch {
+    console.log(`📦 Status:   DEAD — seller no longer owns token (cleanup retract)`);
+  }
+
+  if (!apply) {
+    console.log('\n🟡 DRY RUN — pass --yes to send transaction.\n');
+    return { hash: null, retracted: askId, dryRun: true };
+  }
+
+  const marketContract = await tezos.contract.at(marketplaceContract);
+  const op = await pickMethod(marketContract, 'retract_ask')(Number(askId)).send();
+  console.log(`\n   ⏳ Operation: ${op.hash}`);
+  console.log('   ⏳ Waiting for confirmation...');
+  await op.confirmation(1);
+  console.log('\n✅ Listing retracted!');
+  console.log(`   🔗 ${config.explorer}/${op.hash}\n`);
+  return { hash: op.hash, retracted: askId };
+}
+
+async function cancelBatch(tokenReferences = [], options = {}) {
+  const { network = 'mainnet', apply = false } = options;
+  const results = [];
+  console.log(`\n🧹 Cancel batch: ${tokenReferences.length} token(s) on ${network} (apply=${apply})\n`);
+  for (const ref of tokenReferences) {
+    try {
+      const r = await cancelListing(ref, { network, apply });
+      results.push({ ref, ...r });
+    } catch (e) {
+      console.error(`❌ ${ref}: ${e.message}`);
+      results.push({ ref, error: e.message });
+    }
+  }
   return results;
 }
 
@@ -3422,7 +3504,7 @@ async function acceptOffer(offerIdInput, options = {}) {
   const tokenContract = await tezos.contract.at(contractAddress);
   const marketContract = await tezos.contract.at(marketplaceContract);
 
-  const addOperatorMethod = tokenContract.methods.update_operators([
+  const addOperatorMethod = pickMethod(tokenContract, 'update_operators')([
     {
       add_operator: {
         owner: credentials.address,
@@ -4069,7 +4151,7 @@ async function deprecateStagingContracts(options = {}) {
             replacementContract,
           });
           const metadataBytes = stringToBytes(JSON.stringify(deprecatedMetadata));
-          const metadataOp = await contract.methods.set_contract_metadata([
+          const metadataOp = await pickMethod(contract, 'set_contract_metadata')([
             { key: 'content', value: `0x${metadataBytes}` },
           ]).send();
           console.log(`   ⏳ Deprecation metadata op: ${metadataOp.hash}`);
@@ -4110,7 +4192,7 @@ async function deprecateStagingContracts(options = {}) {
 
       for (const tokenId of burnQueue) {
         try {
-          const burnOp = await contract.methods.burn_keep(tokenId).send();
+          const burnOp = await pickMethod(contract, 'burn_keep')(tokenId).send();
           console.log(`      ⏳ burn #${tokenId}: ${burnOp.hash}`);
           await burnOp.confirmation(1);
           row.operations.push({ step: 'burn_keep', tokenId, hash: burnOp.hash });
@@ -4123,7 +4205,7 @@ async function deprecateStagingContracts(options = {}) {
 
       if (!row.metadataLocked) {
         try {
-          const lockOp = await contract.methods.lock_contract_metadata().send();
+          const lockOp = await pickMethod(contract, 'lock_contract_metadata')().send();
           console.log(`   ⏳ Lock metadata op: ${lockOp.hash}`);
           await lockOp.confirmation(1);
           row.operations.push({ step: 'lock_contract_metadata', hash: lockOp.hash });
@@ -4544,7 +4626,39 @@ async function main() {
         await withdrawFees(dest, { network: getNetwork(dest ? 2 : 1) });
         break;
       }
-      
+
+      case 'cancel':
+      case 'unlist':
+      case 'delist': {
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs cancel <token_id|$piece> [network] [--yes]');
+          console.error('Retracts active Objkt listing. Works even if token has been transferred away.');
+          process.exit(1);
+        }
+        await cancelListing(args[1], {
+          network: getNetwork(2),
+          apply: flags.includes('--yes') || flags.includes('--apply'),
+        });
+        break;
+      }
+
+      case 'cancel:batch': {
+        const positional = args.slice(1);
+        let network = 'mainnet';
+        if (positional.length > 0 && ['mainnet', 'ghostnet'].includes(positional[positional.length - 1])) {
+          network = positional.pop();
+        }
+        if (positional.length === 0) {
+          console.error('Usage: node keeps.mjs cancel:batch <token|$piece>... [network] [--yes]');
+          process.exit(1);
+        }
+        await cancelBatch(positional, {
+          network,
+          apply: flags.includes('--yes') || flags.includes('--apply'),
+        });
+        break;
+      }
+
       case 'set-admin': {
         if (!args[1]) {
           console.error('Usage: node keeps.mjs set-admin <new_admin_address>');
@@ -4678,6 +4792,8 @@ Commands:
   set-fee <tez> [network]       Set keep fee (admin only)
   set-admin <address>           Change contract administrator (admin only)
   withdraw [dest] [network]     Withdraw accumulated fees to address
+  cancel <token> [network]      Retract active Objkt listing (works on dead listings)
+  cancel:batch <token>...       Cancel multiple listings in one pass
 
 v4 Commands (Royalties, Pause, Admin Transfer):
   royalty [network]             Show current default royalty percentage
