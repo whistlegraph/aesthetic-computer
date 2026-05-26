@@ -7,10 +7,17 @@ SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
 SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
 SOUNDS="$SLAB_HOME/sounds"
+MUTE_FLAG="$SLAB_HOME/state/muted"
 
 mkdir -p "$SUBAGENT_DIR"
 oldest=$(ls -1tr "$SUBAGENT_DIR" 2>/dev/null | head -1)
 [[ -n "$oldest" ]] && rm -f "$SUBAGENT_DIR/$oldest"
+
+# Honor the menubar's "Mute ambient sonification" toggle — no ping / TTS
+# while muted. Marker accounting above still runs so counts stay correct.
+if [[ -e "$MUTE_FLAG" ]]; then
+    exit 0
+fi
 
 py="$SLAB_HOME/venv/bin/python3"
 helper="$SLAB_BIN/jeffrey-say.py"
