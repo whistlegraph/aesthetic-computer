@@ -250,7 +250,10 @@ enum MenuBuilder {
         let tile = item("Auto tile windows", selector: #selector(AppDelegate.toggleAutoTile), target: target)
         tile.state = state.autoTile ? .on : .off
         sub.addItem(tile)
-        sub.addItem(item("Tile now", selector: #selector(AppDelegate.tileNow), target: target))
+        let tileNow = item("Tile now", selector: #selector(AppDelegate.tileNow), target: target)
+        tileNow.keyEquivalent = "t"
+        tileNow.keyEquivalentModifierMask = [.command, .option]
+        sub.addItem(tileNow)
 
         // Text size — radio pair so the active mode is visible at a glance.
         // Near = denser (close to screen), Far = auto-fit "suitable" size.

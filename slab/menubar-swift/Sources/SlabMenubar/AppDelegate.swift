@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
@@ -59,6 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var imsgUnread = 0
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
+    /// System-wide ⌘⌥T → re-tile claude terminals. Kept alive for the app's
+    /// lifetime; unregistered in `applicationWillTerminate`.
+    private var tileHotkey: GlobalHotkey?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -83,9 +87,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         refreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
+
+        // Global ⌘⌥T re-tiles claude terminals — same payload as the menu's
+        // "Tile now" item, no need to open the dropdown.
+        let hotkey = GlobalHotkey { [weak self] in self?.tileNow() }
+        if hotkey.register(keyCode: UInt32(kVK_ANSI_T),
+                           modifiers: UInt32(cmdKey | optionKey)) {
+            tileHotkey = hotkey
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        tileHotkey?.unregister()
         passphraseServer.stop()
     }
 
