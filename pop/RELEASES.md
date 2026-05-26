@@ -7,7 +7,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## YouTube state — pixsies singles (snapshot 2026-05-24)
+## YouTube state — pixsies singles (snapshot 2026-05-26)
 
 All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadata doesn't surface). Titles are **Title Case**; descriptions are **hashtag-only**. Chrome family for all `*-yt.mjs` forks: trancepenta-yt side stamps — pals + rotated-90° title chars climbing UP beside each stamp (movie-poster spine). Pre-render title chars with `shadowColor: null` so the per-frame tint works.
 
@@ -15,10 +15,10 @@ All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadat
 |---|---|---|
 | Trancepenta | [Em_lvTYET7M](https://youtu.be/Em_lvTYET7M) | `preview-score-trancepenta-yt.mjs` (canonical side-stamps) |
 | Trancenwaltz | [RBG3k_XsfLA](https://youtu.be/RBG3k_XsfLA) | `cover-video.mjs --size 1920x1080` w/ v10b landscape illys |
-| Marimbaba (v2) | [X63Ni-Lb_Kc](https://youtu.be/X63Ni-Lb_Kc) | `preview-score-marimbaba-yt.mjs` (side-stamps; replaces v1 `qntoYeAZSmM`) |
-| Helpabeach (v2) | **UPLOAD PENDING — quota** | `preview-score-helpabeach-yt.mjs` (side-stamps; mp4 at `pop/chillwave/out/helpabeach-preview-score-yt.mp4`, 109 MB) |
+| Marimbaba (v3) | [jXdnJjdV_kY](https://youtu.be/jXdnJjdV_kY) | `preview-score-marimbaba-yt.mjs` — vignette removed (mirrors trancepenta-yt fix); replaces v2 `X63Ni-Lb_Kc` (deleted 2026-05-26, edges were crushed by the leftover contrast vignette) |
+| Helpabeach (v2) | [WKdMYawwDPY](https://youtu.be/WKdMYawwDPY) | `preview-score-helpabeach-yt.mjs` (side-stamps; uploaded 2026-05-26 after the 24h quota cleared from the 2026-05-24 burn) |
 
-YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-24 burned through the day's six on the two deleted Shorts + two v1 landscape cuts + marimbaba v2; helpabeach v2 deferred until reset (~24h after first upload of the day). Resume command in the helpabeach block below.
+YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-24 burned through the day's six on the two deleted Shorts + two v1 landscape cuts + marimbaba v2; helpabeach v2 was deferred and shipped on 2026-05-26 alongside the marimbaba v3 re-render (delete X63Ni-Lb_Kc + 2 uploads = 3 of 6 slots on 2026-05-26).
 
 Open follow-ups (queued, not blockers):
 - Re-run `node pop/chillwave/bin/gen-illy.mjs --slug helpabeach --landscape --sections --validate-butterfly` once OpenAI gpt-4o-mini quota clears — the validator wraps each gen with a vision check against `pop/chillwave/assets/wg-scrap.png` and regens FAILs (drift-1 visibly fails: tree-person not butterfly).
@@ -43,7 +43,7 @@ Open follow-ups (queued, not blockers):
   - audio — https://assets.aesthetic.computer/pop/marimbaba.mp3
   - cover — https://assets.aesthetic.computer/pop/marimbaba.jpg
   - visualizer — https://assets.aesthetic.computer/pop/marimbaba.mp4
-  - youtube · https://youtu.be/X63Ni-Lb_Kc (1920×1080 landscape visualizer — uploaded 2026-05-24, REPLACED v1 `qntoYeAZSmM`. Built from the `-yt` landscape illy set (`gen-sections.mjs --landscape` → 11 panels at 1536×1024 with the LANDSCAPE_NOTE re-framing the late-night study for 16:9) and the landscape fork `pop/marimba/bin/preview-score-marimbaba-yt.mjs`. v1 had unused-`drawTitle` side stacks; v2 restores `drawPalsTitleChars` so the chrome matches trancepenta-yt exactly: pals stamps snug against rotated-90° "marimbaba" climbing up beside each stamp. Replaced the deleted vertical Short `byt_NnRhbs4`. Title is "Marimbaba"; description is hashtag-only.)
+  - youtube · https://youtu.be/jXdnJjdV_kY (1920×1080 landscape visualizer — uploaded 2026-05-26 as v3, REPLACED v2 `X63Ni-Lb_Kc` which was deleted same day because the contrast vignette layer (mistakenly carried over from the trancepenta-yt code that was later cleaned up) crushed the panel edges; the v3 render removes `drawVignette(c, v_i)` from `paintSectionPanel` and keeps just the transmitted backlight + leaded contrast layers (the figures already pop without the periphery darkening). Built from the `-yt` landscape illy set (`gen-sections.mjs --landscape` → 11 panels at 1536×1024 with the LANDSCAPE_NOTE re-framing the late-night study for 16:9) and the landscape fork `pop/marimba/bin/preview-score-marimbaba-yt.mjs`. Side-stamps chrome (pals + rotated-90° "marimbaba" climbing up beside each stamp) matches trancepenta-yt. v1 was `qntoYeAZSmM` (unused-`drawTitle` side stacks), v2 was `X63Ni-Lb_Kc` (correct chrome but vignetted). Title is "Marimbaba"; description is hashtag-only.)
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=772E43F5-D367-44A9-A7B4A1FA4E57FBD9
   (admin-only)
 - **Master:** `~/Documents/Working Desktop/marimbaba-DISTROKID/marimbaba-MASTER.wav`
@@ -105,7 +105,7 @@ Open follow-ups (queued, not blockers):
   - cover · https://assets.aesthetic.computer/pop/helpabeach.jpg (3000², Rhizome Health clinic tableau)
   - video · https://assets.aesthetic.computer/pop/helpabeach.mp4 (1080×1920 vertical IG-story, 9 clinic panels)
   - story cut · https://assets.aesthetic.computer/pop/helpabeach-short.mp4 (1:17 narrated cut)
-  - youtube · UPLOAD PENDING — v1 (`NG55RkBI7N0`) had the wrong chrome (horizontal top title) and was deleted 2026-05-24 to make room for the side-stamps re-render. The v2 mp4 is built at `pop/chillwave/out/helpabeach-preview-score-yt.mp4` (109 MB, 1920×1080, side-stamps chrome matching trancepenta-yt: pals stamps snug against rotated-90° "helpabeach" climbing up beside each stamp; no top horizontal title). Re-upload blocked by YouTube's 6-uploads/day/project quota — the daily window already covers the two shorts (since deleted), the two v1 landscape cuts (helpabeach + marimbaba), and the marimbaba v2 (`X63Ni-Lb_Kc`). Quota resets ~24h after first upload today. Resume command: `node toolchain/youtube/yt.mjs upload pop/chillwave/out/helpabeach-preview-score-yt.mp4 --title "Helpabeach" --description-file pop/chillwave/helpabeach.youtube.txt --tags "chillwave,ambient,electronic,visualizer,aesthetic computer,pixsies,music,instrumental" --privacy public --category 10`.
+  - youtube · https://youtu.be/WKdMYawwDPY (1920×1080 landscape visualizer — uploaded 2026-05-26 as v2, REPLACES v1 `NG55RkBI7N0` which had the wrong chrome (horizontal top title) and was deleted 2026-05-24 to make room for the side-stamps re-render. The v2 mp4 at `pop/chillwave/out/helpabeach-preview-score-yt.mp4` (109 MB) carries the side-stamps chrome matching trancepenta-yt: pals stamps snug against rotated-90° "helpabeach" climbing up beside each stamp; no top horizontal title. Upload was deferred from 2026-05-24 because the day's six insert slots were already burned on two deleted Shorts + two v1 landscape cuts + the marimbaba v2; it shipped 2026-05-26 alongside the marimbaba v3 re-render once the 24h quota window cleared.)
 - **Master:** `~/Documents/Working Desktop/helpabeach-DISTROKID/helpabeach-MASTER.wav`
   — 44.1 kHz / 16-bit stereo WAV, 151.1 s. ≈ −13.4 LUFS, −1.5 dBTP.
   Master chain: highpass 24 → treble +1.8 dB @ 9.5 k → loudnorm

@@ -886,11 +886,10 @@ function renderPanel(c, idx, audioT, env, punch) {
     + 0.3 * Math.sin(audioT * 31.7 + idx * 1.3)
     + 0.2 * Math.sin(audioT * 53.1 + idx * 0.4)
   );
-  const v_i = (0.80 + 0.45 * env)              * flicker;   // vignette deepens with audio
   const t_i = (0.18 + 0.95 * env + 0.65 * punch) * flicker;  // transmitted glow — strong env
   const l_i = (0.10 + 0.55 * env + 0.45 * punch) * flicker;  // leaded contrast — punchy darks
-  // 1: contrast vignette — darken the OUTER frame so the figures pop.
-  drawVignette(c, v_i);
+  // (vignette removed — was crushing the panel edges; figures already pop
+  //  enough via the transmitted backlight + leaded contrast layers.)
   // 2: TRANSMITTED light — gated by the panel's own luminance mask
   //    AT a tiny per-frame XY jitter (candle dance) — only shines
   //    through the bright illustration parts at each face region.
