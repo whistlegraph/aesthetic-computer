@@ -49,8 +49,15 @@ const run = (cmd, a, label) => {
   if (r.status !== 0) { console.error(`[bake] FAILED: ${label}`); process.exit(1); }
 };
 
-// 1 — the single all-sine engine render
-run("node", [ENGINE, "--out", pre, "--struct", struct, ...engineExtra],
+// 1 — the single all-sine engine render. `--strategy ultimate` is the
+// composed-through showcase that gates typewriter/splash/TTS-mantra/
+// jeffrey-pvc/AC-stamp/kick-rattle-warps/perc-break — i.e. virtually
+// every sample-driven layer of the track. Without it the mix collapses
+// to bare sines + grenade-kick + rattle, no vocals. `engineExtra` after
+// `--` can still override it (e.g. `-- --strategy stretto`).
+const hasStrategyOverride = engineExtra.some((a) => a === "--strategy");
+const strategyArgs = hasStrategyOverride ? [] : ["--strategy", "ultimate"];
+run("node", [ENGINE, "--out", pre, "--struct", struct, ...strategyArgs, ...engineExtra],
   "render engine (all-sine source mix)");
 
 // 2 — optional in-mix post-FX, beat-locked to struct.json (no vocal
@@ -79,7 +86,7 @@ const tempoChain = [
   "[t0][t1]concat=n=2:v=0:a=1[out]",
 ].join(";");
 run("ffmpeg", ["-y", "-i", mix, "-filter_complex", tempoChain, "-map", "[out]",
-  "-ar", "48000", "-c:a", "pcm_s24le", tempoOut],
+  "-ar", "48000", "-c:a", "pcm_f32le", tempoOut],     // float — acdsp can't read s24le's WAVE_FORMAT_EXTENSIBLE
   `final-drop perma speed-up (atempo=${TEMPO_MUL} from ${TEMPO_CUT}s onward)`);
 mix = tempoOut;
 
@@ -116,42 +123,50 @@ if (USE_ACDSP) {
 }
 
 // CLASSICAL DYNAMIC ENVELOPE — pre-loudnorm gain ride that shapes the
-// dynamic narrative across sections (master time):
+// dynamic narrative across sections (master time). Now FULLY CONTINUOUS —
+// no hard step at the bridge entrance (the old 0.78 → 0.55 cliff at
+// 47.5 s read as an "unnaturally quieter" jump on first listen). Every
+// segment hands off at the same value as the next.
 //   0.0-15.8 (overture)  : 0.40 → 0.55, hushed exposition rising
-//   15.8-23 (drop)        : 1.00, arrival full power
-//   23-47.5 (statement)   : 0.78, settled
-//   47.5-79.1 (bridge)    : 0.55, intimate / soft
-//   79.1-110.8 (develop)  : 0.55 → 1.00, rising build
-//   110.8-140.6 (climax)  : 1.18, apex push (above unity)
-//   140.6-162 (coda)      : 0.95 → 0.50, slows but keeps energy
+//   15.8-23 (drop)       : 0.55 → 1.00 quick lift INTO the drop
+//   23-47.5 (statement)  : 0.78 (recover from drop peak)
+//   47.5-79.1 (bridge)   : 0.78 → 0.62 gradual descent (no cliff)
+//   79.1-110.8 (develop) : 0.62 → 1.18 long build, lands at climax level
+//   110.8-140.6 (climax) : 1.18, apex push (above unity)
+//   140.6-162 (coda)     : 1.18 → 0.45 graceful taper
 // Pre-loudnorm so the dynamic shape is preserved through normalization.
 const dynEnv =
   "volume=eval=frame:volume='" +
     "if(lt(t,15.82), 0.40+0.15*(t/15.82)," +
-    "if(lt(t,23.0), 1.00," +
-    "if(lt(t,47.5), 0.78," +
-    "if(lt(t,79.1), 0.55," +
-    "if(lt(t,110.8), 0.55+0.45*((t-79.1)/31.7)," +
+    "if(lt(t,23.0), 0.55+0.45*((t-15.82)/7.18)," +
+    "if(lt(t,47.5), 1.00+(0.78-1.00)*((t-23.0)/24.5)," +
+    "if(lt(t,79.1), 0.78+(0.62-0.78)*((t-47.5)/31.6)," +
+    "if(lt(t,110.8), 0.62+(1.18-0.62)*((t-79.1)/31.7)," +
     "if(lt(t,140.6), 1.18," +
-    "0.95+(0.50-0.95)*((t-140.6)/21.4)))))))'";
+    "1.18+(0.45-1.18)*((t-140.6)/21.4)))))))'";
 
 const ffChain = USE_ACDSP
   // acdsp already handled compressor + EQ — just dynamic envelope + loudness + limit + fade.
   ? dynEnv + "," +
     "loudnorm=I=-14:TP=-1.5:LRA=11," +
-    "alimiter=limit=0.85:attack=6:release=110:level=disabled," +
+    "alimiter=limit=0.88:attack=4:release=60:level=disabled," +
     "volume=-1.2dB," +
-    "afade=t=out:st=160.0:d=2.0"
+    // Long, gentle fade so the last second is genuinely silent before
+    // truncation — @jeffrey heard a click at ~2:41 where the cut hit a
+    // non-zero sample. fade in earlier (start at 158.0) + fade for 2.8 s
+    // so the audio is ~−100 dB by the truncation point.
+    "afade=t=out:st=158.0:d=2.8"
   // legacy chain (kept for A/B): clean acompressor + EQ + loudnorm + limit.
   : dynEnv + "," +
     "highshelf=f=9000:g=2," +
     "equalizer=f=150:t=q:w=1.0:g=-1," +
     "equalizer=f=320:t=q:w=1.4:g=-2," +
-    "acompressor=threshold=-18dB:ratio=2:attack=15:release=240:makeup=1:knee=8," +
+    "acompressor=threshold=-12dB:ratio=1.5:attack=10:release=80:makeup=1:knee=6," +
     "loudnorm=I=-14:TP=-1.5:LRA=11," +
-    "alimiter=limit=0.85:attack=6:release=110:level=disabled," +
+    "alimiter=limit=0.88:attack=4:release=60:level=disabled," +
     "volume=-1.2dB," +
-    "afade=t=out:st=160.0:d=2.0";
+    // Earlier + longer fade to kill the end-of-file click @ ~2:41.
+    "afade=t=out:st=158.0:d=2.8";
 
 run("ffmpeg", ["-y", "-i", finalizeIn, "-af", ffChain,
   "-ar", "44100", "-sample_fmt", "s16",

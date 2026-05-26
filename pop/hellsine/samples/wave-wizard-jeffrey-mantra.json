@@ -1,0 +1,73 @@
+{
+  "title": "jeffrey mantra takes",
+  "outDir": "/Users/jas/aesthetic-computer/pop/hellsine/samples/jeffrey-live",
+  "trim": {
+    "thresholdPctOfPeak": 0.04,
+    "padHeadMs": 30,
+    "padTailMs": 200,
+    "fadeMs": 8,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 1500,
+    "maxRecordSec": 8
+  },
+  "samples": [
+    {
+      "name": "jeffrey-live-that-money",
+      "desc": "I hope that we get all the money we want",
+      "lyric": "i hope that we get all the mo-ney we want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-that-honey",
+      "desc": "I hope that we get all the honey we want",
+      "lyric": "i hope that we get all the ho-ney we want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-that-bunnies",
+      "desc": "I hope that we get all the bunnies we want",
+      "lyric": "i hope that we get all the bun-nies we want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-you-money",
+      "desc": "I hope you get all the money you want",
+      "lyric": "i hope_ you get all the mo-ney you want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-you-honey",
+      "desc": "I hope you get all the honey you want",
+      "lyric": "i hope_ you get all the ho-ney you want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-you-bunnies",
+      "desc": "I hope you get all the bunnies you want",
+      "lyric": "i hope_ you get all the bun-nies you want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-we-money",
+      "desc": "I hope we get all the money we want",
+      "lyric": "i hope_ we get all the mo-ney we want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-we-honey",
+      "desc": "I hope we get all the honey we want",
+      "lyric": "i hope_ we get all the ho-ney we want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    },
+    {
+      "name": "jeffrey-live-we-bunnies",
+      "desc": "I hope we get all the bunnies we want",
+      "lyric": "i hope_ we get all the bun-nies we want",
+      "melodyFile": "/Users/jas/aesthetic-computer/pop/hellsine/samples/mantra-melody-guide.wav"
+    }
+  ]
+}

@@ -84,9 +84,13 @@ const TAU = Math.PI * 2;
 const ROOT_MEL = 62;   // D4
 const THEME = [
   // antecedent (bars 1–4)
-  [-5, 1], [0, 1.5], [3, 0.5], [7, 1],            // A3 → D4 F4 A4   (the call)
+  // "that" lengthened 0.5 → 1.0β (was too short for the vocal to land);
+  // compensated by trimming the v2 sustain "ney" from 2 → 1.5β so the
+  // total antecedent still sums to 16 beats and the "hope" 1.5β
+  // syncopation stays intact.
+  [-5, 1], [0, 1.5], [3, 1.0], [7, 1],            // A3 → D4 F4 A4   (the call)
   [7, 1], [8, 1], [7, 1], [5, 1],                 // A4 Bb4 A4 G4    (swell)
-  [3, 2], [2, 1], [0, 1],                         // F4 . E4 D4      (descent)
+  [3, 1.5], [2, 1], [0, 1],                       // F4 . E4 D4      (descent — v2 shortened)
   [0, 2], [-2, 1], [-5, 1],                       // D4 . C4 A3      (open — question)
   // consequent (bars 5–8)
   [0, 1], [3, 1], [7, 1], [10, 1],                // D4 F4 A4 C5     (climb)
@@ -1278,17 +1282,34 @@ for (const sec of PLAN) {
     }
     // perc tick — also widened: 8th-positions 1 + 5 only (the "and-of-1" and "and-of-3")
     // so the hi-hats mirror the halftime kicks instead of fighting them.
-    if (sec.kick !== "none" && sec.name !== "coda") {
+    // Coda now keeps the ticks going (was excluded) but linearly tapers
+    // them across its 16 bars so they don't fall off the cliff at climax
+    // → coda. @jeffrey wanted to "keep some of that going" at master 2:28.
+    if (sec.kick !== "none") {
       const bridgeSparse = sec.name === "bridge";
       const ptier = Math.floor(b / 8);                          // perc fades in by phase
+      // Coda taper: 1.0 at bar 0, 0.15 at bar 15. Other sections unchanged.
+      const codaFade = sec.name === "coda"
+        ? Math.max(0.15, 1.0 - 0.85 * (b / Math.max(1, sec.bars - 1)))
+        : 1.0;
       // ULTIMATE drops the closed-hi-hat clicks at the top of statement
       // — placeholder space for the rattle-intro sample (see THE LAW
       // amendment below). The open hat + the and-of-3 still come in at
       // ptier >= 1 so the groove fills out by bar 8.
       const tickEarly = !(ULTIMATE && sec.name === "statement" && b < 8);
-      if (tickEarly) tick(tBar + 1 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);   // and-of-1
-      if (ptier >= 1) tick(tBar + 5 * (SPB / 2), bridgeSparse ? 0.14 : 0.20);  // and-of-3 IN
-      if (!bridgeSparse && ptier >= 1) tick(tBar + 3.5 * SPB, 0.22, true);     // open hat IN
+      if (tickEarly) tick(tBar + 1 * (SPB / 2), (bridgeSparse ? 0.14 : 0.20) * codaFade);    // and-of-1
+      if (ptier >= 1) tick(tBar + 5 * (SPB / 2), (bridgeSparse ? 0.14 : 0.20) * codaFade);   // and-of-3 IN
+      // OPEN HATS — playful additions: bumped gain so they actually read,
+      // plus a SECOND open hat on the and-of-2 every other bar for
+      // syncopated lift. Develop + climax get a THIRD on the and-of-4
+      // for a busy hi-hat texture. Coda keeps open hats but quieter.
+      if (!bridgeSparse && (ptier >= 1 || sec.name === "coda")) {
+        tick(tBar + 3.5 * SPB, 0.42 * codaFade, true);                       // open hat on and-of-3
+        if (b % 2 === 0) tick(tBar + 1.5 * SPB, 0.32 * codaFade, true);      // open hat on and-of-2, every other bar
+        if (sec.name === "develop" || sec.name === "climax") {
+          tick(tBar + 7.5 * SPB, 0.28, true);                                // open hat on and-of-4 in driven sections
+        }
+      }
       // ULTIMATE polyrhythm — 3-against-4 wood-block sine blips per bar
       // in the dense driven sections. Wood-block pitch (1.9 kHz) keeps
       // it OUT of the 7.4-9.2 kHz hat band; fades in over 4 bars from
@@ -1330,16 +1351,36 @@ for (const sec of PLAN) {
   // pile up into a perpetual ping carpet above the melody.
   if (ULTIMATE && (sec.theme === "brass" || sec.name === "bridge" || sec.name === "develop")) {
     for (let bb = 0; bb < sec.bars; bb += 2) {
+      // Skip the high bell pings during climax loop 1 (bars 8-15,
+      // master 2:00-2:10) — the same breathing window the brass loop
+      // strips back. Bells return for loop 2.
+      if (sec.name === "climax" && bb >= 8 && bb < 16) continue;
       const tBar = (bar + bb) * SPBAR;
       const ch2 = CHORD[cyc(sec.chords, bb)];
       const root2 = ch2.root + tr;
       const offset = (bb % 4 === 0) ? 48 : 48 + ch2.q[2];
       const midiBell = root2 + offset;
       if (midiBell < 120) {
-        bell(tBar + hum(0.006), 4 * SPB, midiBell,
-          sec.name === "climax" ? 0.072 : 0.058,
-          { pan: ((bb / 2) % 2 === 0) ? -0.30 : 0.30,
-            decTau: 4.5, atk: 0.020, wetSend: 0.85 });
+        const bellG = sec.name === "climax" ? 0.072 : 0.058;
+        const panBase = ((bb / 2) % 2 === 0) ? -0.30 : 0.30;
+        bell(tBar + hum(0.006), 4 * SPB, midiBell, bellG,
+          { pan: panBase, decTau: 4.5, atk: 0.020, wetSend: 0.85 });
+        // CHORD MODE — from engine time ≥ 75 s (master ≈ 1:15) the high
+        // bells stop being single pings and pile into a chord: root + 5th
+        // above, with a few-ms stagger so the strike spreads horizontally
+        // and the 5th sparkles a hair later than the root. A discreet
+        // octave-up ping on every 4th bar adds top-air without piling.
+        if (tBar >= 75.0) {
+          const fifth = midiBell + 7;
+          if (fifth < 120) {
+            bell(tBar + 0.014 + hum(0.004), 4 * SPB, fifth, bellG * 0.78,
+              { pan: -panBase * 0.60, decTau: 4.0, atk: 0.022, wetSend: 0.85 });
+          }
+          if ((bb % 4) === 0 && midiBell + 12 < 124) {
+            bell(tBar + 0.028 + hum(0.004), 4 * SPB, midiBell + 12, bellG * 0.42,
+              { pan: panBase * 0.35, decTau: 3.0, atk: 0.018, wetSend: 0.90 });
+          }
+        }
       }
     }
   }
@@ -1413,22 +1454,34 @@ for (const sec of PLAN) {
       const cntG   = ULTIMATE ? 0.21  : 0.17;
       const canG   = ULTIMATE ? 0.21  : 0.17;
       const sprG   = ULTIMATE ? 0.10  : 0.082;
+      // CLIMAX LOOP 1 BREATHING ROOM — @jeffrey: "2:00-2:20 mix way too
+      // busy, drop out + bring others in, create more space". For the
+      // 8 bars covering master 2:00-2:10 (climax loop 1), strip back
+      // to JUST the theme — no octave-up counter shadow, no saw lead,
+      // and a quieter primary counter. The full counterpoint stack
+      // returns for loop 2 (master 2:10-2:20) and the saw lead returns
+      // with it, so the section reads as: tutti → tacet (loop 1) →
+      // tutti (loop 2) instead of one flat wall.
+      const climaxBreathe = sec.name === "climax" && ULTIMATE && lp === 1;
       layTheme(tv, lp === 0 ? meldG0 : meldG1, true, 0, t0);
-      // ULTIMATE climax: the lead returns as a duo — full counter +
-      // octave-up counter shadow, so the two voices read as separate
-      // instruments in true counterpoint rather than a single line.
       if (sec.name === "climax" && ULTIMATE) {
-        layCounter(COUNTER_V, cntG * 1.55, t0);
-        // octave-up counter shadow — softer, more brass-like
-        const counterUp = COUNTER_V.map(([off, beats]) => [off + 12, beats]);
-        layCounter(counterUp, cntG * 0.85, t0);
+        const cntScale = climaxBreathe ? 0.55 : 1.55;
+        layCounter(COUNTER_V, cntG * cntScale, t0);
+        if (!climaxBreathe) {
+          // octave-up counter shadow — only when NOT in the breathing
+          // loop, otherwise the texture re-thickens immediately.
+          const counterUp = COUNTER_V.map(([off, beats]) => [off + 12, beats]);
+          layCounter(counterUp, cntG * 0.85, t0);
+        }
       } else if (canon) layTheme(tv, canG, true, -12, t0 + SPBAR); // octave-down canon, 1 bar late
       else if (lp >= 1) layCounter(COUNTER_V, cntG, t0);    // counter IN on the restatement
       if (lp >= 2 && !canon) layTheme(tv, sprG, true, 12, t0); // octave sparkle, last pass
       // ULTIMATE power-saw lead — trance flash doubling the leitmotif
       // in statement loops 1+ and the climax. 16th-note gate (82 ms at
       // 182 BPM) for the "flashing through" stutter, octave-stacked.
-      if (ULTIMATE && lp >= 1 &&
+      // SKIPPED during climax loop 1 (master 2:00-2:10) to give the
+      // section breathing room — returns for loop 2 (2:10-2:20).
+      if (ULTIMATE && lp >= 1 && !climaxBreathe &&
           (sec.name === "statement" || sec.name === "climax")) {
         // Climax goes MAXIMAL — saw lead nearly doubled vs statement.
         const sawG = sec.name === "climax" ? 0.175 : 0.080;
@@ -1665,6 +1718,43 @@ if (ULTIMATE) {
   // squish sweetener pulled too — the splashy/squelchy textures at end were
   // reading repetitive. The melon stab at 2.65s is the only wet sound left.
 
+  // ── TAPE NOISE BED — analog-tape-warmth hiss across the first 24 s,
+  // fading from full intro warmth into the post-drop mix. Built from
+  // two filtered noise streams: a brighter "tape hiss" + a lower "warm
+  // room rumble" + slow LFO "breathing" + tiny stereo decorrelation
+  // (left + right use slightly different filter states) so it reads
+  // wide and analog, not stamped-down mono.
+  {
+    const bedDur = 24.0;
+    const noiseEndI = Math.min(N, Math.floor(bedDur * SR));
+    let n1L=0,n2L=0,n3L=0, n1R=0,n2R=0,n3R=0;
+    let hL=0, hR=0;                        // tape-hiss highpass states
+    for (let i = 0; i < noiseEndI; i++) {
+      // pink-ish warm rumble (cascaded LPs)
+      const wL = rng() * 2 - 1, wR = rng() * 2 - 1;
+      n1L = 0.99*n1L + 0.01*wL; n2L = 0.96*n2L + 0.04*n1L; n3L = 0.86*n3L + 0.14*n2L;
+      n1R = 0.99*n1R + 0.01*wR; n2R = 0.96*n2R + 0.04*n1R; n3R = 0.86*n3R + 0.14*n2R;
+      const warmL = n3L * 6, warmR = n3R * 6;
+      // tape-hiss high band via single-pole highpass
+      const hssL = wL - hL; hL = hL * 0.85 + wL * 0.15;
+      const hssR = wR - hR; hR = hR * 0.85 + wR * 0.15;
+      const t = i / SR;
+      // Envelope: full intro warmth from 0-15.82, gentle taper to 0 by 24s
+      let env;
+      if (t < 2.0)        env = t / 2.0;                       // 2s fade-in
+      else if (t < 15.82) env = 1.0;                            // full through drop
+      else                env = Math.max(0, 1 - (t - 15.82) / 8.18);  // 8.18s taper to 0
+      const breathe = 0.88 + 0.12 * Math.sin(TAU * 0.11 * t);
+      // Halved hiss gain — was too prominent on headphones (was 0.034/0.012).
+      const vL = (warmL * 0.017 + hssL * 0.005) * env * breathe;
+      const vR = (warmR * 0.017 + hssR * 0.005) * env * breathe;
+      L[i]  += vL;
+      Rb[i] += vR;
+      WL[i] += vL * 0.30;
+      WR[i] += vR * 0.30;
+    }
+  }
+
   // ── TYPEWRITER KEYS — first two bars (0 to ~2.64s) get a handful of
   // mechanical punch-key transients. Picks up the "starting the document"
   // feel before everything else rushes in.
@@ -1681,13 +1771,19 @@ if (ULTIMATE) {
       [1.92, 0.98, 0.52,  0.25],
       [2.34, 1.06, 0.48,  0.00],
     ];
-    for (const [t, rate, g, pan] of keys) {
+    // FADE-IN to loudness — first punch enters at 18% of its written gain
+    // and ramps up linearly across the seven keys. The opening "starting
+    // the document" gesture should creep in, not slap; the existing gains
+    // describe the destination, not the entrance.
+    for (let k = 0; k < keys.length; k++) {
+      const [t, rate, g, pan] = keys[k];
+      const fadeIn = 0.18 + (1 - 0.18) * (k / (keys.length - 1));
       const tJ = t + hum(0.012);
-      playSample(tJ, typer, g, { rate, pan, wetSend: 0.25, fade: 0.003 });
+      playSample(tJ, typer, g * fadeIn, { rate, pan, wetSend: 0.25, fade: 0.003 });
       // VERY soft sub pulse under each typewriter punch — just a hint of
       // depth, not a kick. The previous kick+sub stack was way too big
       // for the dry overture.
-      sub(tJ, 0.18, 38, 0.14);    // D2 sub, 25% of prior gain, no kick
+      sub(tJ, 0.18, 38, 0.14 * fadeIn);   // D2 sub follows the same ramp
     }
     console.log(`→ typewriter · ${keys.length} key punches w/ soft sub thumps across first 2 bars`);
   }
@@ -1853,19 +1949,29 @@ if (ULTIMATE) {
   // End vocals a few bars BEFORE the AC stamp (climax.startSec - 3.5s),
   // so the crew goes quiet before the "aesthetic dot computer" announcement.
   const acStampSec = (sectionRanges.find((s) => s.name === "climax")?.startSec ?? 110.77) - 3.5;
-  const cxForTTS = acStampSec - 3 * SPBAR;   // ~3 bars before AC stamp
+  // Vocals END at master 1:42 (which is also pre-master ~102s since we're
+  // before the climax atempo speed-up). Earlier limit was AC stamp − 3 bars.
+  const cxForTTS = Math.min(acStampSec - 3 * SPBAR, 102.0);
   const ttsVoices = ["Zarvox", "Albert", "Fred", "Alex", "Samantha", "Daniel", "Bells"];
   const ttsVariants = ["money", "honey", "bunnies"];
-  const ttsBufs = {};                              // keyed "voice-variant"
-  const ttsCombos = [];
+  // Load 4 pitch tiers per voice+variant for SATB voicing:
+  //   Bass (-12), Tenor (0), Alto (+7), Soprano (+12). Pre-baked via
+  //   rubberband -p N -F -c 6 (formant-preserving, no speed change).
+  const ttsBufs = {};
+  const ttsCombos = [];                            // tenor combos for compatibility
+  const ttsTiers = { B: [], T: [], A: [], S: [] };  // keyed by SATB tier
   for (const v of ttsVoices) {
     for (const variant of ttsVariants) {
-      const p = resolve(HERE, `../samples/tts-singing-${v}-${variant}.wav`);
-      if (existsSync(p)) {
-        const key = `${v}-${variant}`;
-        ttsBufs[key] = loadWavMono(p);
-        ttsCombos.push(key);
-      }
+      const base = `tts-singing-${v}-${variant}`;
+      const key = `${v}-${variant}`;
+      const tenor = resolve(HERE, `../samples/${base}.wav`);
+      const bass  = resolve(HERE, `../samples/${base}-dn12.wav`);
+      const alto  = resolve(HERE, `../samples/${base}-up7.wav`);
+      const sop   = resolve(HERE, `../samples/${base}-up12.wav`);
+      if (existsSync(tenor)) { ttsBufs[`T:${key}`] = loadWavMono(tenor); ttsTiers.T.push(`T:${key}`); ttsCombos.push(key); }
+      if (existsSync(bass))  { ttsBufs[`B:${key}`] = loadWavMono(bass);  ttsTiers.B.push(`B:${key}`); }
+      if (existsSync(alto))  { ttsBufs[`A:${key}`] = loadWavMono(alto);  ttsTiers.A.push(`A:${key}`); }
+      if (existsSync(sop))   { ttsBufs[`S:${key}`] = loadWavMono(sop);   ttsTiers.S.push(`S:${key}`); }
     }
   }
   if (ttsCombos.length > 0) {
@@ -1879,59 +1985,88 @@ if (ULTIMATE) {
     // sectionStart; the vocal mantra IS the antecedent melody. Vocals
     // SKIP loop 0 (the first instrumental drop) and enter on loop 1's
     // antecedent so each pass actually sings ALONG with the brass.
-    const vocalDelay = 8 * SPBAR;                            // skip loop 0
+    const vocalDelay = 0;                                    // start ON the drop, loop 0 antecedent
     // LOOP-LOCKED CHORUS — at each 8-bar loop start, voices
     // stack at different pans (L / center / R) singing different
     // voice+variant combos simultaneously. The combo offsets per layer
     // are co-prime strides into the 21-combo pool so each bar gets a
     // fresh L/C/R trio. Slight rate detune per layer gives the layered
     // voices a real chorus-effect width.
-    const STEP = 8 * SPBAR;             // every brass-theme loop (8-bar boundary)
+    // 4-bar step keeps vocals continuous: even passes (0,2,4,...) align
+    // with brass antecedent; odd passes (1,3,5,...) sing antecedent over
+    // the consequent's brass — still in the same D-min chord progression
+    // so it reads as a chord-tone harmony, not a clash. Fills the silence
+    // between antecedent loops.
+    const STEP = 4 * SPBAR;
     let ttsCount = 0;
     let i = 0;
     for (let t = stForTTS + vocalDelay; t < cxForTTS - 0.5; t += STEP, i++) {
       const sinceStart = t - stForTTS;
       const tilEnd = cxForTTS - t;
-      let envG = 0.50;                                          // BIG choir — was 0.32, was inaudible
+      // Choir pulled back HARD — @jeffrey: "still can't hear jeffrey
+      // clearly". The 0.42 envG + tier-1.15/1.20 boost was masking the
+      // lead because chorus and lead share the same lyric + range.
+      // Now envG=0.18 + tier weights neutralized so the chorus is a
+      // wash behind jeffrey, not a parallel voice fighting with him.
+      let envG = 0.18;
       if (tilEnd    < 8)   envG *= Math.max(0.20, tilEnd / 8);
-      const wet = Math.min(0.55, 0.28 + sinceStart * 0.003);
+      const wet = Math.min(0.90, 0.70 + sinceStart * 0.003);
       const buildP = Math.max(0, Math.min(1, (t - stForTTS) / (cxForTTS - stForTTS)));
-      const voiceN = Math.min(ttsCombos.length, Math.round(6 + buildP * 15));
-      const perVoiceG = envG * Math.pow(voiceN, -0.22);          // less aggressive gain pullback
-      // UNIFIED CHOIR — most voices sing the SAME melody in unison so the
-      // chorus reads as a MASSIVE block of people singing one line, not
-      // a scattered barbershop. Only a few voices stack octaves for
-      // barbershop-style depth. ~70% unison, ~20% octave-up tenor,
-      // ~10% octave-down bass.
-      const chordIntervals = [
-         0,  0,  0,  0,  0,  12,
-         0,  0,  0,  0,  0, -12,
-         0,  0,  0, 12,  0,  0,
-         0,  0,  0,
-      ];
-      for (let k = 0; k < voiceN; k++) {
-        const combo = ttsCombos[((i * 5) + k * 7) % ttsCombos.length];
-        const buf = ttsBufs[combo];
-        if (!buf) continue;
-        const interval = chordIntervals[k % chordIntervals.length];
-        const rate = Math.pow(2, interval / 12);
-        // Pan: higher voices float up + center, lower voices spread out
-        const panBase = voiceN > 1 ? ((k / (voiceN - 1)) - 0.5) * 1.9 : 0;
-        // Pull octave-up voices toward center (sopranos), octave-down to sides
-        const intervalLean = interval > 6 ? 0.5 : interval < -6 ? 1.2 : 1.0;
-        const pan = Math.max(-0.95, Math.min(0.95, panBase * intervalLean + (rng() * 0.08 - 0.04)));
-        playSample(t, buf, perVoiceG, {
-          rate, pan, wetSend: wet, fade: 0.04,
-        });
-        ttsCount++;
-      }
-      // SOPRANO DESCANT — guaranteed octave-up voice, centered, on every pass.
-      const sopBuf = ttsBufs[ttsCombos[(i * 11) % ttsCombos.length]];
-      if (sopBuf) {
-        playSample(t, sopBuf, perVoiceG * 0.85, {
-          rate: 2.0, pan: 0.0, wetSend: Math.min(0.65, wet + 0.10), fade: 0.04,
-        });
-        ttsCount++;
+
+      // PROGRESSIVE SATB ARRANGEMENT — voices enter tier-by-tier as the
+      // build progresses, with antiphonal alternation (even passes lean
+      // tenor+alto = mid range; odd passes lean bass+soprano = extremes)
+      // so the choir reads as a real conversation, not a uniform block.
+      //
+      // Pass schedule — @jeffrey: "i want the female right out of the
+      // first drop singing!". The soprano (and alto) tiers are now
+      // doubled from i=0, so the first utterance lands with female
+      // voices already at full strength instead of building over passes.
+      //   i=0   : T=1, A=2, S=2, B=1  (female-forward from the drop)
+      //   i=1   : T=2, A=2, S=2, B=1
+      //   i=2   : T=2, A=2, S=3, B=2
+      //   i=3+  : alternating doublings
+      const isEven = i % 2 === 0;
+      let plan;
+      if (i === 0)      plan = { T: 1, A: 2, S: 2, B: 1 };
+      else if (i === 1) plan = { T: 2, A: 2, S: 2, B: 1 };
+      else if (i === 2) plan = { T: 2, A: 2, S: 3, B: 2 };
+      else if (isEven)  plan = { T: 3, A: 2, S: 2, B: 1 };
+      else              plan = { T: 2, A: 2, S: 3, B: 2 };
+      const totalVoices = plan.T + plan.A + plan.S + plan.B;
+      const perVoiceG = envG * Math.pow(Math.max(1, totalVoices), -0.22);
+
+      // Pan layout: bass spread WIDE L+R, tenor centered, alto inner-side, soprano centered
+      const tierPans = { B: [-0.85, 0.85], T: [0.0, -0.15, 0.15], A: [-0.45, 0.45], S: [0.0, 0.10, -0.10] };
+      const tierWet  = { B: wet,            T: wet + 0.05,         A: wet + 0.10,    S: wet + 0.15 };
+      // Female (S + A) tiers BUMPED — @jeffrey wants the females louder.
+      // S 0.75 → 1.20, A 0.90 → 1.15. Bass + tenor stay where they were.
+      const tierGMul = { B: 0.85,           T: 1.00,               A: 1.15,          S: 1.20 };
+      // tierDelay zeroed — all voices fire on the beat with jeffrey for
+      // sync. The "bloom" effect was at the cost of alignment.
+      const tierDelay = { B: 0.0,           T: 0.0,                A: 0.0,           S: 0.0 };
+
+      for (const tier of ["B", "T", "A", "S"]) {
+        const want = plan[tier];
+        const pool = ttsTiers[tier];
+        if (!pool.length) continue;
+        for (let n = 0; n < want; n++) {
+          const combo = pool[((i * 5) + n * 7) % pool.length];
+          const buf = ttsBufs[combo];
+          if (!buf) continue;
+          const pans = tierPans[tier];
+          const pan = pans[n % pans.length] + (rng() * 0.08 - 0.04);
+          const g = perVoiceG * tierGMul[tier];
+          // Small detune per voice for chorus thickness within the tier
+          const detune = ((n - (want - 1) / 2) / Math.max(1, want - 1)) * 0.015;
+          playSample(t + tierDelay[tier], buf, g, {
+            rate: 1.0 + detune,
+            pan: Math.max(-0.97, Math.min(0.97, pan)),
+            wetSend: Math.min(0.85, tierWet[tier]),
+            fade: 0.008,       // sharper attack to match jeffrey
+          });
+          ttsCount++;
+        }
       }
     }
     console.log(`→ TTS mantra · ${ttsCount} layered voices (3 per 4-bar position) chorus-stacked L/C/R from ${stForTTS.toFixed(2)}s → ${cxForTTS.toFixed(2)}s (chorus)`);
@@ -1948,26 +2083,129 @@ if (ULTIMATE) {
   // jeffrey-pvc renders in 3 lyric variants matching the chorus — rotate
   // through money/honey/bunnies so the lead vocal also stays ambiguous.
   const jeffreyVariants = ["money", "honey", "bunnies"];
+  // @jeffrey: words split + aligned to notes + pitch-shifted to match,
+  // verified via whisper. Load the rendered jeffrey-vocal-*.wav files
+  // (gen-jeffrey-whisper output: per-syllable sliced from live takes,
+  // each beat-aligned + autotuned to theme − 7 semis).
   const jvocBufs = {};
   for (const variant of jeffreyVariants) {
-    const p = resolve(HERE, `../samples/jeffrey-vocal-${variant}.wav`);
-    if (existsSync(p)) jvocBufs[variant] = loadWavMono(p);
+    jvocBufs[variant] = {};
+    for (const [key, suffix] of [
+      ["that", ""], ["you", "-you"], ["we", "-we"],
+    ]) {
+      const p = resolve(HERE, `../samples/jeffrey-vocal-${variant}${suffix}.wav`);
+      if (existsSync(p)) jvocBufs[variant][key] = loadWavMono(p);
+    }
   }
+  // FOLEY tail for each variant — fires AFTER each full mantra pass:
+  //   money   → cash-register cha-ching
+  //   honey   → lollipop lick
+  //   bunnies → spring boing
+  // Skips the teaser pass (j === 0, "that"-only — no foley after a
+  // single-syllable announcement).
+  const foleyPaths = {
+    money:   resolve(HERE, "../samples/cash-register.wav"),
+    honey:   resolve(HERE, "../samples/lollipop-lick.wav"),
+    bunnies: resolve(HERE, "../samples/spring-boing.wav"),
+  };
+  const foleyBufs = {};
+  for (const [k, p] of Object.entries(foleyPaths)) {
+    if (existsSync(p)) foleyBufs[k] = loadWavMono(p);
+  }
+  // Foley dropped from 0.55-0.65 to 0.32-0.38 — the cha-ching / lick /
+  // boing samples are LONG (1-2.5 s) and were sustaining straight into
+  // the next jeffrey pass, masking it. Now they read as punctuation,
+  // not as a competing layer.
+  const foleyGain = { money: 0.34, honey: 0.38, bunnies: 0.32 };
+  const foleyPan  = { money:  0.15, honey: -0.20, bunnies: 0.05 };
   if (Object.keys(jvocBufs).length > 0) {
     let jvCount = 0;
-    const jvocDelay = 8 * SPBAR;     // jeffrey-pvc skips loop 0, enters at loop 1 antecedent
-    for (let t = stForTTS + jvocDelay, j = 0; t < cxForTTS - 0.5; t += 8 * SPBAR, j++) {
+    let foleyCount = 0;
+    // @jeffrey: "i wanna be singing right after the drop". One bar of
+    // brass theme plays first, then jeffrey enters on the downbeat of
+    // bar 2. All subsequent passes shift by the same amount so the
+    // rotation stays bar-locked.
+    const jvocDelay = SPBAR;
+    for (let t = stForTTS + jvocDelay, j = 0; t < cxForTTS - 0.5; t += 4 * SPBAR, j++) {
       const variant = jeffreyVariants[j % jeffreyVariants.length];
-      const jvoc = jvocBufs[variant];
+      const bufsForVariant = jvocBufs[variant];
+      if (!bufsForVariant) continue;
+      // Rotate through all three phrasings (that → you → we → that…)
+      // so the mantra varies pass-to-pass.
+      const phrasings = ["that", "you", "we"];
+      const phrasingKey = phrasings[j % phrasings.length];
+      const jvoc = bufsForVariant[phrasingKey] || bufsForVariant.that
+                || bufsForVariant.you || bufsForVariant.we;
       if (!jvoc) continue;
       const tilEnd = cxForTTS - t;
-      let g = 0.92;
+      // Jeffrey is the LEAD — strong but not overdriven. The 2.80 stack
+      // was likely clipping the L/Rb summation so hard that the limiter
+      // pumped everything (including subsequent jeffrey passes) down.
+      // Pull back to a sane 1.65 and run a SINGLE voice (no triple
+      // stack) so the rest of the mix can breathe and jeffrey stays
+      // continuous pass-to-pass.
+      let g = 1.65;
       if (tilEnd < 8) g *= Math.max(0.20, tilEnd / 8);
       const pan = Math.sin(j * 0.7) * 0.10;
-      playSample(t, jvoc, g, { rate: 1.0, pan, wetSend: 0.30, fade: 0.04 });
-      jvCount++;
+      if (j === 0) {
+        // TEASER ENTRY — first pass sings just ONE word: "that". The
+        // earlier draft also fired "we want" at the end of the bar but
+        // @jeffrey wanted that dropped too — the first utterance is a
+        // single syllable announcement; the full mantra arrives on pass 1.
+        // mantra timing: that@0.82s (single 200 ms slice).
+        playSampleSwept(t + 2.5 * SPB, jvoc, g * 1.05, {
+          startRate: 1.0, endRate: 1.0,
+          maxDurMs: 200,                                // "that"
+          bufOffset: 0.82, pan, wetSend: 0.40, fade: 0.03,
+        });
+        jvCount += 1;
+      } else {
+        // LEAD — single voice, dry-ish, with SIDECHAIN DUCK on brass +
+        // sub so the busy mid range steps out of jeffrey's way without
+        // pulling the choir down too far. Triple-stacking at g=2.80
+        // was clipping the buffer and apparently making the limiter
+        // suppress subsequent passes; one clean lead + sidechain is
+        // the readable solution.
+        // Tighter timing — humDt collapsed from ±10 ms to ±3 ms and
+        // fade-in halved (40 → 8 ms) so the attack lands sharply on
+        // the bar instead of ramping in late.
+        const humDt = (rng() * 2 - 1) * 0.003;
+        playSample(t + humDt, jvoc, g, {
+          rate: 1.0, pan, wetSend: 0.15, fade: 0.008,
+        });
+        // Sidechain duck — pull DUCK[] down across the 4 s mantra so
+        // every voice() + sub() voice steps back. playSample bypasses
+        // DUCK, so choir + foley + jeffrey himself are unaffected.
+        const duckStart = Math.floor((t + humDt) * SR);
+        const duckEnd   = Math.min(N, Math.floor((t + humDt + 4.0) * SR));
+        const duckFloor = 0.65;
+        const duckFadeN = Math.floor(0.080 * SR);
+        for (let di = duckStart; di < duckEnd; di++) {
+          let dg = duckFloor;
+          if (di - duckStart < duckFadeN) dg = 1 - (1 - duckFloor) * ((di - duckStart) / duckFadeN);
+          else if (duckEnd - di < duckFadeN) dg = duckFloor + (1 - duckFloor) * (1 - (duckEnd - di) / duckFadeN);
+          if (dg < DUCK[di]) DUCK[di] = dg;
+        }
+        jvCount++;
+        // Foley tail after "we want" lands — mantra ends near t + 4.0 s.
+        // Aim 0.18 s after "want" so the foley reads as the punctuation,
+        // not a layered hit.
+        const fb = foleyBufs[variant];
+        if (fb) {
+          const fT = t + 4.05;
+          if (fT + fb.length / SR < cxForTTS + 6) {
+            playSample(fT, fb, foleyGain[variant], {
+              rate: 1.0,
+              pan: foleyPan[variant] + Math.sin(j * 0.7) * 0.05,
+              wetSend: 0.45,
+              fade: 0.015,
+            });
+            foleyCount++;
+          }
+        }
+      }
     }
-    console.log(`→ jeffrey-pvc lead vocal · ${jvCount} bar-locked passes rotating money/honey/bunnies from ${stForTTS.toFixed(2)}s → ${cxForTTS.toFixed(2)}s`);
+    console.log(`→ jeffrey-pvc lead vocal · ${jvCount} passes + ${foleyCount} foley tails (money→cha-ching, honey→lick, bunnies→boing) from ${stForTTS.toFixed(2)}s → ${cxForTTS.toFixed(2)}s`);
   }
 
   // ── grenade @ t=14s — right before the drop. Close-mic, dry, big punch
@@ -1980,18 +2218,33 @@ if (ULTIMATE) {
     // BIGGER feel — main hit at higher gain, slightly slower rate for body
     // depth, plus a layered sub-octave copy + a deep sub() pulse for the
     // low-end shockwave.
-    playSample(12.90, gren, 1.15, { rate: 0.88, pan: 0, wetSend: 0.22, fade: 0.005 });
-    playSample(12.90, gren, 0.55, { rate: 0.50, pan: 0, wetSend: 0.40, fade: 0.005 }); // octave-down body
-    sub(12.90, 0.65, 26, 1.10);    // D1 sub shockwave (root - 36)
-    console.log(`→ grenade · ${(gren.length / SR).toFixed(2)}s BIG explosion at 12.90s (main + octave-down + D1 sub shockwave)`);
+    // Gains pulled back — earlier stack was slamming the master limiter
+    // hard, causing a perceived "global ducking" wash for ~100ms after.
+    // Still BIG but in proportion.
+    playSample(12.90, gren, 0.85, { rate: 0.88, pan: 0, wetSend: 0.30, fade: 0.005 });
+    playSample(12.90, gren, 0.35, { rate: 0.50, pan: 0, wetSend: 0.45, fade: 0.005 }); // octave-down body
+    sub(12.90, 0.55, 26, 0.65);    // D1 sub shockwave — lighter
+    console.log(`→ grenade · ${(gren.length / SR).toFixed(2)}s explosion at 12.90s (gain-reduced — no longer slams limiter)`);
 
-    // ── SECOND GRENADE @ master 1:52 — boost-drop at climax onset.
-    // Pre-master t=112.07 maps to master 1:52 (after the post-110.77
-    // atempo=1.06). Same stack: main + octave-down body + D1 sub kick.
-    playSample(112.07, gren, 1.05, { rate: 0.88, pan: 0, wetSend: 0.25, fade: 0.005 });
-    playSample(112.07, gren, 0.50, { rate: 0.50, pan: 0, wetSend: 0.45, fade: 0.005 });
-    sub(112.07, 0.60, 26, 1.00);
-    console.log(`→ grenade #2 at 112.07s pre-master (≈ master 1:52, climax-drop boost)`);
+    // ── CARD-FLIP LEAD-IN + GRENADE on the LAST DROP — 4 cards-burst/
+    // hard chops zip into the drop, then grenade lands EXACTLY on the
+    // climax downbeat at 110.77s. Cards build tension; grenade is the
+    // arrival.
+    if (cardCount > 0) {
+      const flipPool = [cards["cards-burst-a"], cards["cards-hard"], cards["cards-burst-b"], cards["cards-fast"]].filter(Boolean);
+      const flipOffsets = [-0.62, -0.46, -0.30, -0.14];     // 4 zips leading INTO the drop
+      for (let f = 0; f < flipOffsets.length && f < flipPool.length; f++) {
+        const buf = flipPool[f % flipPool.length];
+        const t = 110.77 + flipOffsets[f];
+        const rate = [1.10, 1.30, 1.00, 1.40][f];
+        const pan  = [(-0.6), (0.55), (-0.4), (0.5)][f];
+        playSample(t, buf, 0.55, { rate, pan, wetSend: 0.50, fade: 0.02 });
+      }
+    }
+    playSample(110.77, gren, 1.15, { rate: 0.88, pan: 0, wetSend: 0.25, fade: 0.005 });
+    playSample(110.77, gren, 0.55, { rate: 0.50, pan: 0, wetSend: 0.45, fade: 0.005 });
+    sub(110.77, 0.65, 26, 1.05);
+    console.log(`→ card-flip lead-in (4 zips) + grenade #2 on the LAST DROP at 110.77s`);
   }
 
   // ── stadium crowd @ t=60s — the bridge has escalated with the crow
@@ -2037,6 +2290,43 @@ if (ULTIMATE) {
     console.log(`→ crowd win cheer overlay at 63.00s`);
   }
 
+  // ── SKID SNARES @ statement 20-47s — on beats 2 + 4 of every bar
+  // through the main vocal section, with EVERY 4TH BAR replacing the
+  // straight clap with a SKID: playSampleSwept with a rate ramp (1.0 →
+  // 0.55 or 1.0 → 1.6) that smears the clap into a turntablist
+  // pitch-skid. Reads as record-scratch on the backbeat.
+  const SKID_PATH = resolve(HERE, "../samples/clap.wav");
+  if (existsSync(SKID_PATH)) {
+    const clap = loadWavMono(SKID_PATH);
+    const skidStart = 19.78;        // ~4 bars past the drop
+    const skidEnd   = 47.0;         // end of statement
+    let skidCount = 0, regularCount = 0;
+    const startBar = Math.ceil(skidStart / SPBAR);
+    const endBar   = Math.floor(skidEnd / SPBAR);
+    for (let b = startBar; b <= endBar; b++) {
+      const tBar = b * SPBAR;
+      const isSkidBar = (b % 4 === 0);    // every 4th bar = skid
+      if (isSkidBar) {
+        // Skidded snare — rate-swept clap on beat 2 (downward) + beat 4 (upward)
+        playSampleSwept(tBar + 1 * SPB + hum(0.005), clap, 0.50, {
+          startRate: 1.00, endRate: 0.45, maxDurMs: 360,
+          pan: -0.20, wetSend: 0.50, fade: 0.012,
+        });
+        playSampleSwept(tBar + 3 * SPB + hum(0.005), clap, 0.50, {
+          startRate: 1.00, endRate: 1.70, maxDurMs: 280,
+          pan:  0.20, wetSend: 0.50, fade: 0.012,
+        });
+        skidCount += 2;
+      } else {
+        // Regular clap on 2 + 4
+        playSample(tBar + 1 * SPB + hum(0.004), clap, 0.42, { rate: 1.0, pan: -0.10, wetSend: 0.40, fade: 0.01 });
+        playSample(tBar + 3 * SPB + hum(0.004), clap, 0.42, { rate: 1.0, pan:  0.10, wetSend: 0.40, fade: 0.01 });
+        regularCount += 2;
+      }
+    }
+    console.log(`→ snare pattern · ${regularCount} regular + ${skidCount} SKID hits across statement bars ${startBar}-${endBar}`);
+  }
+
   // ── 808 CLAP pattern 72-95s — classic 808 clap on the 2 and 4 of every
   // bar, fading in over the first 4 bars and out over the last 3, so it
   // emerges from the bridge as a steady backbeat and dissolves back into
@@ -2077,37 +2367,16 @@ if (ULTIMATE) {
     // Crow chops 80-128s. Sparse early, DENSE from 1:27 (87s) onward —
     // the develop section builds + the user wants lots of crow scratching
     // bleeding into the climax. Louder gains overall too.
+    // CROWS HEAVILY THINNED — @jeffrey heard the 26-chop dense bed as
+    // overcooked before 2:00. Keep only a handful of sparse landmark
+    // chops as connective texture; the EVERYTHING BLAST at 2:00 stays
+    // for the section turn.
     const ambChops = [
-      // Sparse 80-87s
-      [ 80.0, C2A, 0.55, 320,  0.42, -0.55 ],
-      [ 83.5, C4A, 0.70, 280,  0.40,  0.50 ],
-      [ 85.5, C5A, 0.40, 480,  0.45,  0.60 ],
-      // DENSE 87-128s — many more chops, varied rates, ping-pong pan
-      [ 87.0, C3A, 1.20, 180,  0.45,  0.55 ],
-      [ 88.0, C2A, 0.55, 380,  0.45, -0.55 ],
-      [ 89.0, C5A, 1.50, 160,  0.42,  0.45 ],
-      [ 90.0, C3A, 0.65, 280,  0.48, -0.40 ],
-      [ 91.5, C4A, 1.10, 220,  0.42,  0.55 ],
-      [ 93.0, C5A, 0.45, 420,  0.50, -0.30 ],
-      [ 94.5, C1A, 1.70, 150,  0.40,  0.60 ],
-      [ 95.5, C4A, 0.50, 360,  0.50,  0.55 ],
-      [ 97.0, C2A, 1.30, 180,  0.42, -0.55 ],
-      [ 98.5, C3A, 0.60, 320,  0.48,  0.40 ],
-      [100.0, C1A, 0.45, 380,  0.50, -0.50 ],
-      [101.5, C5A, 1.40, 160,  0.42,  0.55 ],
-      [103.0, C4A, 0.55, 340,  0.48, -0.45 ],
-      [104.5, C2A, 1.10, 200,  0.45,  0.60 ],
-      [105.5, C5A, 0.35, 520,  0.52,  0.40 ],
-      [107.5, C3A, 1.55, 140,  0.42, -0.55 ],
-      [109.0, C4A, 0.65, 300,  0.48,  0.55 ],
-      [110.5, C5A, 0.40, 460,  0.50, -0.45 ],
-      [113.0, C3A, 0.95, 220,  0.45, -0.50 ],
-      [115.0, C1A, 1.45, 170,  0.42,  0.55 ],
-      [118.0, C4A, 0.60, 320,  0.48,  0.55 ],
-      [120.5, C5A, 1.20, 220,  0.45, -0.40 ],
-      [123.0, C5A, 0.50, 400,  0.50, -0.45 ],
-      // pulled the 125.5 + 128.0 chops to clear room for the whip burst
-      // at 132s — gives the whip + neigh + train its own 7-second pocket.
+      [ 80.0, C2A, 0.55, 320,  0.40, -0.55 ],
+      [ 88.0, C5A, 0.45, 380,  0.40,  0.55 ],
+      [ 98.0, C3A, 0.60, 320,  0.40, -0.40 ],
+      [108.5, C5A, 0.40, 460,  0.40,  0.45 ],
+      [115.5, C1A, 1.45, 170,  0.40,  0.55 ],
     ];
     for (const [t, off, rate, ms, g, pan] of ambChops) {
       playSampleSwept(t + hum(0.04), crowAmb, g, {
@@ -2121,33 +2390,13 @@ if (ULTIMATE) {
     playSample(108.00, roarAmb, 0.13, { rate: 0.92, pan: -0.20, wetSend: 0.55, fade: 5.5 });
     playSample(115.00, roarAmb, 0.11, { rate: 1.08, pan:  0.25, wetSend: 0.55, fade: 5.5 });
 
-    // EVERYTHING BLAST @ 2:00 (120 s) — peak chaos. Multiple crowd surges
-    // overlap with a dense 8-chop crow burst over 2 s. Win cheer overlay
-    // joins. Nothing here is a spotlight — it's all stacked texture.
-    playSample(119.00, roarAmb, 0.30, { rate: 1.0,  pan:  0.00, wetSend: 0.45, fade: 0.6 });
-    playSample(119.50, roarAmb, 0.25, { rate: 1.15, pan: -0.55, wetSend: 0.55, fade: 0.8 });
-    playSample(120.00, roarAmb, 0.25, { rate: 0.88, pan:  0.55, wetSend: 0.55, fade: 0.8 });
-    const blastChops = [
-      [119.10, C2A, 1.20, 180, 0.50, -0.65],
-      [119.50, C5A, 0.90, 240, 0.55,  0.65],
-      [119.85, C3A, 1.45, 150, 0.50, -0.45],
-      [120.20, C4A, 0.65, 320, 0.55,  0.45],
-      [120.55, C5A, 1.30, 180, 0.50, -0.55],
-      [120.90, C2A, 1.00, 200, 0.55,  0.55],
-      [121.25, C3A, 0.55, 380, 0.50, -0.35],
-      [121.70, C5A, 1.10, 220, 0.55,  0.35],
-    ];
-    for (const [t, off, rate, ms, g, pan] of blastChops) {
-      playSampleSwept(t + hum(0.01), crowAmb, g, {
-        startRate: rate, endRate: rate, maxDurMs: ms, pan,
-        wetSend: 0.70, bufOffset: off, fade: 0.020,
-      });
-    }
-    if (existsSync(CROWD_WIN_PATH)) {
-      const winBlast = loadWavMono(CROWD_WIN_PATH);
-      playSample(120.00, winBlast, 0.32, { rate: 1.0, pan: 0, wetSend: 0.45, fade: 0.4 });
-    }
-    console.log(`→ crow+crowd blend · ${ambChops.length} sparse chops 80-128s + 3 crowd beds + EVERYTHING BLAST @ 2:00 (${blastChops.length} chops + crowd burst + win cheer)`);
+    // EVERYTHING BLAST REMOVED — @jeffrey: "mix way too busy from 2:00
+    // to 2:20". The 8-chop crow burst + 3 overlapping roar beds + win
+    // cheer all stacked at master 2:00-2:01 was the densest moment in
+    // the track. Now master 2:00 lands cleanly on the climax brass +
+    // grand piano portal, with no extra crowd/crow content on top.
+    const blastChops = [];
+    console.log(`→ crow+crowd blend · ${ambChops.length} sparse chops 80-128s + 3 crowd beds (EVERYTHING BLAST removed for breathing room)`);
   }
 
 
@@ -2184,6 +2433,62 @@ if (ULTIMATE) {
     }
     console.log(`→ whip · 7-chop hi-hat burst 132.00-132.50s (LOUD)`);
   }
+  // ── GRAND PIANO PORTAL — @jeffrey: around master 2:00, the
+  // orchestration briefly "portals" into clean grand piano playing the
+  // same chord progression, then vortexes back. 2-bar window at climax
+  // bars 7-8 (pre-master ~120-123s). Big sustained chord on each
+  // downbeat + arpeggio of chord tones across 8 eighth-notes. Clean
+  // piano (bits=16, hold=1, no bitcrush) so the timbre clearly stands
+  // apart from the surrounding distorted brass + saw lead.
+  const climaxForPiano = sectionRanges.find((s) => s.name === "climax");
+  if (climaxForPiano) {
+    const portalStart = climaxForPiano.startSec + 7 * SPBAR;
+    // Climax chord cycle (with +14 transpose) at bars 7-8: C → Dm → D major + E minor.
+    const portalChords = [
+      { root: 50, q: [0, 4, 7] },   // D major
+      { root: 52, q: [0, 3, 7] },   // E minor
+    ];
+    for (let b = 0; b < 2; b++) {
+      const tBar = portalStart + b * SPBAR;
+      const ch = portalChords[b];
+      // Sustained triad on downbeat
+      for (const semi of ch.q) {
+        piano(tBar + hum(0.004), SPBAR * 0.98, ch.root + semi + 12, 0.22,
+          { bits: 16, hold: 1, pan: hum(0.15) });
+      }
+      // Bass octave for weight
+      piano(tBar, SPBAR * 0.95, ch.root, 0.16, { bits: 16, hold: 1, pan: -0.30 });
+      // Arpeggio — 8 eighth-notes, chord tones climbing + descending
+      const seq = [
+        ch.root, ch.root + ch.q[1], ch.root + ch.q[2], ch.root + 12,
+        ch.root + ch.q[1] + 12, ch.root + ch.q[2], ch.root + ch.q[1], ch.root,
+      ];
+      for (let k = 0; k < 8; k++) {
+        const tk = tBar + k * (SPB / 2) + hum(0.004);
+        piano(tk, SPB * 0.55, seq[k] + 24, 0.14,
+          { bits: 16, hold: 1, pan: (k % 2 === 0 ? -0.35 : 0.35) });
+      }
+    }
+    // Brief lead-in shimmer (pre-portal): a fast rising arpeggio in
+    // the half-bar BEFORE the portal, like opening the portal door.
+    const leadInStart = portalStart - SPBAR * 0.5;
+    const leadInSeq = [50, 54, 57, 62, 66, 69, 74, 78];     // D3 → F#5 climb
+    for (let k = 0; k < leadInSeq.length; k++) {
+      piano(leadInStart + k * 0.07, 0.40, leadInSeq[k], 0.10,
+        { bits: 16, hold: 1, pan: (k - 4) * 0.10 });
+    }
+    // Vortex tail (post-portal): a descending sparkle as we drop back
+    // into orchestration. Cascades down over the half-bar AFTER.
+    const vortexStart = portalStart + portalDurBars();
+    function portalDurBars() { return 2 * SPBAR; }
+    const vortexSeq = [86, 81, 78, 74, 69, 66, 62, 57];     // top-down cascade
+    for (let k = 0; k < vortexSeq.length; k++) {
+      piano(vortexStart + k * 0.06, 0.35, vortexSeq[k], 0.10,
+        { bits: 16, hold: 1, pan: (4 - k) * 0.10 });
+    }
+    console.log(`→ grand piano PORTAL · 2 bars at climax bars 7-8 (pre-master ${portalStart.toFixed(2)}s) + lead-in arpeggio + vortex cascade`);
+  }
+
   // ── DRIPPY FLOWER TRANSITION — the climax → coda hand-off at ~142s
   // (pre-master) was reading abrupt. A cascade of slowly descending
   // bell pings + a long descending pad fall down through the boundary
@@ -2200,19 +2505,28 @@ if (ULTIMATE) {
       atk: 0.030, wetSend: 0.92,
     });
   }
-  // Slow descending pad fall — a single voice that glissandos down
-  // across the boundary. voice() doesn't pitch-bend per note, so we
-  // chain 3 short overlapping voices at descending pitches.
+  // LONG transition pad — overlapping descending pad notes that sustain
+  // THROUGH the climax→coda boundary, smearing the seams so the orchestra
+  // doesn't cut off abruptly at ~2:20 master (pre-master 141.75 s). Each
+  // note 4-6 s with long releases that bleed into the next note.
   const padFall = [
-    { t: 140.0, m: 62, dur: 1.6 },   // D4
-    { t: 141.0, m: 58, dur: 1.6 },   // A#3
-    { t: 142.0, m: 53, dur: 2.4 },   // F3 — falls into coda
+    { t: 138.0, m: 62, dur: 5.0 },   // D4 — starts well before the boundary
+    { t: 140.0, m: 58, dur: 5.5 },   // A#3
+    { t: 142.0, m: 55, dur: 6.0 },   // G3
+    { t: 144.5, m: 50, dur: 7.0 },   // D3 — bridges into coda
+    { t: 147.0, m: 45, dur: 8.0 },   // A2 — deep sustain through outro
   ];
   for (const p of padFall) {
-    voice(p.t, p.dur, p.m, 0.060, {
-      atk: 0.40, rel: 0.80, vibR: 3.2, vibD: 0.008, drive: 0.9,
+    voice(p.t, p.dur, p.m, 0.090, {
+      atk: 1.20, rel: 2.50, vibR: 3.2, vibD: 0.008, drive: 0.9,
       parts: [[1, 1], [2, 0.45], [3, 0.20], [4, 0.08]],
       pan: 0,
+    });
+    // Octave-up sparkle on the same notes for shimmer
+    voice(p.t + 0.05, p.dur, p.m + 12, 0.045, {
+      atk: 1.60, rel: 2.20,
+      parts: [[1, 1], [2, 0.30], [3, 0.10]],
+      pan: 0.30,
     });
   }
   if (existsSync(NEIGH_PATH)) {
@@ -2221,6 +2535,97 @@ if (ULTIMATE) {
     playSample(132.65, ne, 1.60, { rate: 1.0, pan: 0.10, wetSend: 0.25, fade: 0.02 });
     console.log(`→ horse neigh at 132.65s (punch-line, LOUD + DRY)`);
   }
+  // ── CHURCH BELL GONG @ "DOT" — @jeffrey: align the bell with the
+  // "dot" in "aesthetic dot computer". Whisper places "dot" at
+  // 0.480-0.590s into the stamp sample; the main stamp plays at rate
+  // 1.18, so "dot" lands at engine_stamp_start + 0.480/1.18 ≈ +0.407s.
+  // Stamp starts at climaxSec.startSec - 3.5 = 107.27, so the dot lands
+  // at engine 107.68. Pitched DOWN a 4th (rate 0.65) for deep gong.
+  const BELL_PATH = resolve(HERE, "../samples/church-bell.wav");
+  if (existsSync(BELL_PATH)) {
+    const bell8 = loadWavMono(BELL_PATH);
+    const climaxForBell = sectionRanges.find((s) => s.name === "climax");
+    const bellT = (climaxForBell?.startSec ?? 110.77) - 3.5 + (0.480 / 1.18);
+    playSample(bellT, bell8, 0.80, { rate: 0.65, pan: 0.0, wetSend: 0.65, fade: 0.05 });
+    console.log(`→ church bell gong at ${bellT.toFixed(2)}s · aligned with "dot" in AC stamp`);
+  }
+
+  // ── CHAIN DRAG @ 1:45 — heavy metal chain rattle, dramatic mid-track
+  // accent. Master 1:45 = pre-master 105s. Source: Freesound #611669.
+  const CHAIN_PATH = resolve(HERE, "../samples/chain.wav");
+  if (existsSync(CHAIN_PATH)) {
+    const chain = loadWavMono(CHAIN_PATH);
+    playSample(105.00, chain, 0.55, { rate: 1.0, pan: -0.20, wetSend: 0.45, fade: 0.05 });
+    console.log(`→ chain drag at 105.00s (master 1:45)`);
+  }
+
+  // ── iOS KEYBOARD CLICKS @ 1:22 — a burst of iPhone text-key taps,
+  // dropped into the develop section. Picks up the typewriter motif from
+  // the intro and brings it into the modern era. Source: Freesound
+  // jordanielmills #640365.
+  const IOS_PATH = resolve(HERE, "../samples/ios-click.wav");
+  if (existsSync(IOS_PATH)) {
+    const ios = loadWavMono(IOS_PATH);
+    // Play the first ~3s of clicks at 82s, pitched up slightly for crispness
+    playSample(82.00, ios, 0.55, { rate: 1.10, pan: -0.20, wetSend: 0.35, fade: 0.02 });
+    console.log(`→ iOS keyboard clicks at 82s (master 1:22)`);
+  }
+
+  // ── CROWD WOOOO @ 2:19 — after the horse moment (whip+neigh at 132s),
+  // the crowd ROARS in for the final coda transition. Pre-master 140.7s
+  // maps to master 2:19 (after the post-110.77 atempo=1.06 compression).
+  // CROWD SCRATCHED + PITCH-SHIFTED @ 2:20 — instead of clean crowd
+  // playback, scratch the WOOO + roar with rate-shifts + chops + stutter
+  // for a turntablist climax-departure moment. @jeffrey: "highly skifin
+  // and scratching and pitch shifting around" + "FUX IT UPPP".
+  if (existsSync(CROWD_WIN_PATH)) {
+    const wooo = loadWavMono(CROWD_WIN_PATH);
+    // Stutter-burst of pitched WOOO chops. Smoothed @ master 2:24 — the
+    // tail chops (sr 0.55 deep + sr 1.80 cranked) were piling into each
+    // other as harsh aliased artifacts; tame the extremes, lengthen the
+    // fades, lower the tail gains so the burst breathes out instead of
+    // clipping into the pad fall.
+    const wooo_chops = [
+      { t: 140.30, sr: 0.65, ms: 250, pan: -0.55, g: 0.70 },   // slow pitched-down
+      { t: 140.55, sr: 1.40, ms: 180, pan:  0.55, g: 0.72 },   // pitched up
+      { t: 140.75, sr: 0.85, ms: 220, pan: -0.30, g: 0.70 },
+      { t: 140.97, sr: 1.45, ms: 180, pan:  0.55, g: 0.62 },   // pulled in from 1.55
+      { t: 141.18, sr: 1.00, ms: 320, pan:  0.00, g: 0.80 },   // BIG center
+      { t: 141.60, sr: 0.70, ms: 380, pan:  0.30, g: 0.55 },   // softer crawl (was 0.55/0.78)
+      { t: 142.02, sr: 1.50, ms: 140, pan: -0.55, g: 0.50 },   // tame the cranked top (was 1.80/0.72)
+    ];
+    for (const c of wooo_chops) {
+      playSampleSwept(c.t, wooo, c.g, {
+        startRate: c.sr, endRate: c.sr * (0.95 + rng() * 0.10),  // narrower sweep
+        maxDurMs: c.ms, pan: c.pan, wetSend: 0.55,
+        fade: 0.035,                                              // longer fade-out smooths the seam
+      });
+    }
+    console.log(`→ crowd WOOO scratched · ${wooo_chops.length} pitched chops 140.3-142.1s`);
+  }
+  if (existsSync(CROWD_ROAR_PATH)) {
+    const roar = loadWavMono(CROWD_ROAR_PATH);
+    const roar_chops = [
+      { t: 140.40, sr: 0.60, ms: 420, off: 2.0, pan: -0.65, g: 0.48 },
+      { t: 140.90, sr: 1.30, ms: 280, off: 5.0, pan:  0.65, g: 0.48 },
+      { t: 141.35, sr: 0.78, ms: 380, off: 1.0, pan: -0.40, g: 0.48 },
+      { t: 141.80, sr: 1.10, ms: 320, off: 8.0, pan:  0.40, g: 0.50 },
+      // FINAL CRAWL — was the worst offender for 2:24 glitch chatter
+      // (rate 0.40 over 540 ms aliased into the pad fall). Pulled the
+      // rate up, shortened the chop, ducked the gain, and lengthened the
+      // fade so it dissolves into the coda instead of breaking up.
+      { t: 142.20, sr: 0.55, ms: 360, off: 3.0, pan:  0.00, g: 0.42 },
+    ];
+    for (const c of roar_chops) {
+      playSampleSwept(c.t, roar, c.g, {
+        startRate: c.sr, endRate: c.sr * (0.92 + rng() * 0.16),    // narrower sweep
+        maxDurMs: c.ms, pan: c.pan, wetSend: 0.70,
+        bufOffset: c.off, fade: 0.045,                               // longer fade-out
+      });
+    }
+    console.log(`→ crowd-roar scratched · ${roar_chops.length} pitched chops 140.4-142.7s`);
+  }
+
   // ── ZIPPER + SIPPER @ 1:16 — fly zipper + a sip of a drink. The zipper
   // opens the moment, the sip closes it. Late-bridge moment, sets up the
   // build into develop. Sources: Freesound atha89 #79161 + Natty23 #257277.
@@ -2615,12 +3020,15 @@ if (ULTIMATE) {
     // overture: kicks already absent here so no rattles fire. statement
     // ramps in. climax is the brightest, with a wider sweep span.
     const SEC_RATTLE = {
-      overture:  { startSemi:  -3, endSemi: -19, n: 1, gain: 0.20, maxMs: 140 },
-      statement: { startSemi:   0, endSemi: -17, n: 1, gain: 0.34, maxMs: 140 },
-      bridge:    { startSemi:   2, endSemi: -14, n: 1, gain: 0.30, maxMs: 140 },
-      develop:   { startSemi:   5, endSemi: -12, n: 2, gain: 0.40, maxMs: 130 },
-      climax:    { startSemi:  10, endSemi:  -7, n: 2, gain: 0.46, maxMs: 130 },
-      coda:      { startSemi:   0, endSemi: -14, n: 1, gain: 0.26, maxMs: 150 },
+      // Pitched DOWN harder + longer (was bottoming around -7 to -19, now
+      // -22 to -28) so the rattles read as deep WHOOMP swooshes rather
+      // than mid-range clicks.
+      overture:  { startSemi:  -5, endSemi: -26, n: 1, gain: 0.20, maxMs: 180 },
+      statement: { startSemi:  -2, endSemi: -24, n: 1, gain: 0.34, maxMs: 180 },
+      bridge:    { startSemi:   0, endSemi: -22, n: 1, gain: 0.30, maxMs: 180 },
+      develop:   { startSemi:   2, endSemi: -22, n: 2, gain: 0.40, maxMs: 170 },
+      climax:    { startSemi:   4, endSemi: -20, n: 2, gain: 0.46, maxMs: 170 },
+      coda:      { startSemi:  -2, endSemi: -24, n: 1, gain: 0.26, maxMs: 190 },
     };
     const sectionFor = (t) => {
       for (const sec of sectionRanges) {
@@ -2634,7 +3042,11 @@ if (ULTIMATE) {
       const local = (t - sec.startSec) / (sec.endSec - sec.startSec);
       switch (sec.name) {
         case "statement": return 0.30 + 0.70 * local;
-        case "coda":      return 1.0 - 0.65 * local;
+        // Coda used to drop to 0.35 by end — too fast a fall-off; the
+        // hi-hat ticks already fade across coda and they were the ONLY
+        // perc still going. Hold the rattle warps higher and longer so
+        // the train's pitch-down outro keeps some percussive shimmer.
+        case "coda":      return 1.0 - 0.30 * local;
         default:          return 1.0;
       }
     };
@@ -2656,7 +3068,7 @@ if (ULTIMATE) {
         playSampleSwept(t + offset, shake.buf, g, {
           startRate: startR, endRate: endR,
           maxDurMs: cfg.maxMs + Math.floor(tRng() * 20),
-          pan, wetSend: 0.55,
+          pan, wetSend: 0.95,                             // deeper reverb wash (was 0.55)
         });
         warps++;
       }
@@ -2675,6 +3087,78 @@ if (ULTIMATE) {
       }
     }
     console.log(`→ kick rattle warps · ${warps} swept rattles inside ${kickEvents.length} kick bodies · pool ${pool.length} (${ball.length} short, ${sweep.length} long)`);
+
+    // ── PERC ACCENT @ master 2:04 — 2-bar window where extra percussion
+    // is LAYERED ON TOP of the climax mix. The earlier implementation
+    // *ducked* the mix to spotlight the perc, but @jeffrey heard every
+    // duck as a glitch ("weird dip", "whole track goes down"). Now we
+    // just play the perc on top — the existing climax bed stays at full
+    // level, the new perc adds energy at master 2:04-2:06.
+    {
+      const breakStart = 124.80;
+      const breakEnd   = 127.45;
+      // Now write fresh percussion ON TOP of the FULL mix — kicks on
+      // every beat, ticks + woodTicks for groove, chord-tone subs for
+      // weight. Pure perc, no melody.
+      const breakSPBAR = SPBAR;
+      const breakSPB   = SPB;
+      let breakKicks = 0;
+      for (let bar = 0; bar < 2; bar++) {
+        const tBar = breakStart + bar * breakSPBAR;
+        // Kick on beats 1 + 3 (halftime)
+        kick(tBar,                      HELL * 1.10, 0.95, 0.30);
+        kick(tBar + 2 * breakSPB,       HELL * 1.10, 0.95, 0.30);
+        // Snare-y open hat tick on beats 2 + 4
+        tick(tBar + 1 * breakSPB,       0.45, true);
+        tick(tBar + 3 * breakSPB,       0.45, true);
+        // 16th-note closed-hat shaker pattern
+        for (let s = 0; s < 16; s++) {
+          if (s % 4 !== 0) tick(tBar + s * (breakSPB / 4), 0.16, false);
+        }
+        // Chord-tone sub on the downbeat — gives the break some root
+        const chordIdx = (10 + bar) % 8;
+        const ch = CHORD[["Dm","Dm","Bb","Bb","F","F","C","C"][chordIdx]];
+        if (ch) {
+          const tr14 = 14;
+          sub(tBar, 0.30, ch.root + tr14 - 12, 0.55);
+        }
+        // Wood-block tick polyrhythm (3-against-4) for spice
+        for (let p = 0; p < 3; p++) {
+          woodTick(tBar + (p * 4 / 3) * breakSPB, 0.18);
+        }
+        breakKicks += 2;
+      }
+      console.log(`→ PERC ACCENT · 2 bars at ${breakStart.toFixed(2)}-${breakEnd.toFixed(2)}s (master 2:04) · additive ${breakKicks} kicks + hats + sub on top of climax`);
+    }
+
+    // ── POST-2:00 ADVENTURE — additive only. The earlier draft tried
+    // stutter-gate + half-bar duck + reverse-swell ducks, but every
+    // duck-based gesture read as an audio error to @jeffrey ("weird
+    // dip", "the whole track goes down"). Adventure now comes from
+    // ADDED percussion + sub punches LAYERED ON TOP of the climax mix,
+    // not from carving holes in it. Two accent points: an extra kick
+    // burst @ engine 121, a sub-sweep + woodtick triplet @ engine 131.
+    {
+      // (A) KICK BURST @ engine 120.5 — 4 fast kicks in 0.5 s, a
+      // "stuttering on top of the climax" feel WITHOUT muting anything.
+      const kbT = 120.50;
+      for (let s = 0; s < 4; s++) {
+        kick(kbT + s * (SPB / 4), HELL * 0.95, 0.78, 0.28);
+      }
+
+      // (B) SUB PUNCH + TICK TRIPLET @ engine 131.0 — a sub punch on D2
+      // plus three rapid woodticks across 0.5 s. Adds weight + spice
+      // without ducking.
+      const pB_start = 131.00;
+      kick(pB_start,                HELL * 1.10, 0.92, 0.30);
+      sub(pB_start,                 0.40, 38, 0.55);
+      woodTick(pB_start + 0.10,     0.30);
+      woodTick(pB_start + 0.22,     0.28);
+      woodTick(pB_start + 0.36,     0.26);
+      tick(pB_start + 0.48,         0.45, true);
+
+      console.log(`→ POST-2:00 adventure · kick burst @ ${kbT.toFixed(2)}s + sub+tick punch @ ${pB_start.toFixed(2)}s (additive, no ducking)`);
+    }
 
     // ── Schroeder reverb on the shake-wet bus → mix back into L/Rb ─────
     // 4 parallel feedback combs + 2 series allpasses per channel, with

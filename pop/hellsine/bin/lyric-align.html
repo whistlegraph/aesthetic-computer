@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>hellsine · lyric ↔ note swizzle</title>
+<style>
+  :root {
+    --bg: #0c0d10;
+    --fg: #e7e7e9;
+    --muted: #7a7d86;
+    --hi: #8be9a9;
+    --warn: #ffb86b;
+    --note-fill: #1c2128;
+    --note-stroke: #353b46;
+    --grid: #1a1d22;
+  }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; padding: 0;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px;
+    min-height: 100vh; }
+  .wrap { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+  h1 { margin: 0 0 4px; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+  .sub { color: var(--muted); margin-bottom: 18px; }
+  textarea { width: 100%; box-sizing: border-box;
+    background: #14171c; color: var(--fg); border: 1px solid #2a2f38;
+    border-radius: 6px; padding: 8px 10px; font: inherit; resize: vertical; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  label { color: var(--muted); min-width: 90px; }
+  select, button { background: #1c2128; color: var(--fg);
+    border: 1px solid #353b46; border-radius: 5px; padding: 5px 10px; font: inherit; cursor: pointer; }
+  button:hover { background: #2a2f38; }
+  .stats { color: var(--muted); margin: 8px 0 14px; }
+  .ok { color: var(--hi); }
+  .warn { color: var(--warn); }
+  svg { background: var(--grid); border-radius: 8px; display: block; width: 100%; }
+  .note { fill: var(--note-fill); stroke: var(--note-stroke); }
+  .note-label { fill: var(--fg); font-size: 11px; font-family: inherit; }
+  .syl { fill: var(--hi); font-size: 14px; font-family: inherit; font-weight: 600; }
+  .syl-overflow { fill: var(--warn); }
+  .beat { fill: var(--muted); font-size: 9px; opacity: 0.7; }
+  .examples { margin-top: 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .examples code { background: #14171c; padding: 1px 5px; border-radius: 3px; color: var(--fg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>hellsine · lyric ↔ note swizzle</h1>
+  <div class="sub">type a phrasing — see how syllables land on the brass theme — click play to hear it.</div>
+
+  <div class="row">
+    <label>lyric</label>
+    <textarea id="lyric" rows="2">i hope_ you get all the mo-ney you want</textarea>
+  </div>
+  <div class="row">
+    <label>variant</label>
+    <select id="variant">
+      <option>money</option>
+      <option>honey</option>
+      <option>bunnies</option>
+    </select>
+    <button id="play">▶ play melody</button>
+    <button id="play-lyric">▶ play sung lyric (TTS)</button>
+    <button id="copy">copy SYLLABLES json</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <svg id="timeline" viewBox="0 0 1200 240"></svg>
+
+  <div class="examples">
+    <strong>conventions:</strong><br>
+    space = word boundary &nbsp;·&nbsp;
+    hyphen = syllable split inside a word &nbsp;<code>mo-ney</code><br>
+    trailing <code>_</code> on a syllable = melisma (this syllable holds across the next note too) &nbsp;<code>hope_</code><br><br>
+    <strong>examples:</strong><br>
+    11-slot: <code>i hope that we get all the mo-ney we want</code><br>
+    10-slot: <code>i hope_ you get all the mo-ney you want</code> &nbsp;(hope sustains 2 notes)<br>
+  </div>
+</div>
+
+<script>
+const ROOT_MEL = 62;
+const BPM = 182;
+const SPB = 60 / BPM;
+const THEME = [
+  [-5, 1.0],   // A3
+  [ 0, 1.5],   // D4
+  [ 3, 0.5],   // F4
+  [ 7, 1.0],   // A4
+  [ 7, 1.0],   // A4
+  [ 8, 1.0],   // Bb4
+  [ 7, 1.0],   // A4
+  [ 5, 1.0],   // G4
+  [ 3, 2.0],   // F4 sustain
+  [ 2, 1.0],   // E4
+  [ 0, 1.0],   // D4
+];
+const TOTAL_NOTES = THEME.length;
+const TOTAL_BEATS = THEME.reduce((a, [, b]) => a + b, 0);
+const NN = ["C","C#","D","D#","E","F","F#","G","G#","A","Bb","B"];
+function midiLabel(m) { return `${NN[m % 12]}${Math.floor(m / 12) - 1}`; }
+
+function parseLyric(line) {
+  const tokens = line.trim().split(/\s+/).filter(Boolean);
+  const syls = [];
+  for (const tok of tokens) {
+    const parts = tok.split("-");
+    for (const p of parts) {
+      if (p === "_" || p === "·") { syls.push({ syl: "·", sustain: true }); continue; }
+      if (p.endsWith("_")) {
+        syls.push({ syl: p.slice(0, -1), sustain: false });
+        syls.push({ syl: "·", sustain: true });
+      } else {
+        syls.push({ syl: p, sustain: false });
+      }
+    }
+  }
+  return syls;
+}
+
+function substituteVariant(syls, variant) {
+  const halves = variant === "money" ? ["mo", "ney"]
+              : variant === "honey" ? ["ho", "ney"]
+              : variant === "bunnies" ? ["bun", "nies"]
+              : [variant, ""];
+  return syls.map((s) => {
+    if (/^mo$|^ho$|^bun$/i.test(s.syl)) return { ...s, syl: halves[0] };
+    if (/^ney$|^nies$/i.test(s.syl))    return { ...s, syl: halves[1] || s.syl };
+    return s;
+  });
+}
+
+function render() {
+  const variant = document.getElementById("variant").value;
+  const lyric = document.getElementById("lyric").value;
+  const rawSyls = parseLyric(lyric);
+  const syls = substituteVariant(rawSyls, variant);
+
+  // stats
+  const stats = document.getElementById("stats");
+  const sylCount = syls.length;
+  const ok = sylCount === TOTAL_NOTES;
+  stats.innerHTML = `syllables: <span class="${ok ? "ok" : "warn"}">${sylCount}</span> · ` +
+                    `notes: ${TOTAL_NOTES} · total beats: ${TOTAL_BEATS} · ` +
+                    (ok ? `<span class="ok">aligned ✓</span>` : `<span class="warn">⚠ ${sylCount - TOTAL_NOTES > 0 ? "overflow" : "missing slots"}</span>`);
+
+  // timeline svg
+  const svg = document.getElementById("timeline");
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const W = 1200, H = 240, PAD = 16, USABLE = W - 2 * PAD;
+  let cursor = 0;
+  for (let i = 0; i < TOTAL_NOTES; i++) {
+    const [off, beats] = THEME[i];
+    const x = PAD + (cursor / TOTAL_BEATS) * USABLE;
+    const w = (beats / TOTAL_BEATS) * USABLE - 4;
+    const m = ROOT_MEL + off;
+    // note box
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", x); rect.setAttribute("y", 60);
+    rect.setAttribute("width", w); rect.setAttribute("height", 80);
+    rect.setAttribute("rx", 5);
+    rect.setAttribute("class", "note");
+    svg.appendChild(rect);
+    // note label
+    const lbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    lbl.setAttribute("x", x + w / 2); lbl.setAttribute("y", 88);
+    lbl.setAttribute("text-anchor", "middle");
+    lbl.setAttribute("class", "note-label");
+    lbl.textContent = midiLabel(m);
+    svg.appendChild(lbl);
+    // beat label
+    const blbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    blbl.setAttribute("x", x + w / 2); blbl.setAttribute("y", 104);
+    blbl.setAttribute("text-anchor", "middle");
+    blbl.setAttribute("class", "beat");
+    blbl.textContent = `${beats}β`;
+    svg.appendChild(blbl);
+    // syllable
+    const s = syls[i];
+    const sylTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    sylTxt.setAttribute("x", x + w / 2); sylTxt.setAttribute("y", 175);
+    sylTxt.setAttribute("text-anchor", "middle");
+    sylTxt.setAttribute("class", "syl");
+    sylTxt.textContent = s ? (s.sustain ? "↳" : s.syl) : "—";
+    svg.appendChild(sylTxt);
+    // index above
+    const idx = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    idx.setAttribute("x", x + w / 2); idx.setAttribute("y", 50);
+    idx.setAttribute("text-anchor", "middle");
+    idx.setAttribute("class", "beat");
+    idx.textContent = `${i}`;
+    svg.appendChild(idx);
+    cursor += beats;
+  }
+  // overflow syllables (no notes for them)
+  for (let i = TOTAL_NOTES; i < syls.length; i++) {
+    const x = PAD + USABLE - 80;
+    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.setAttribute("x", x + (i - TOTAL_NOTES) * 40);
+    t.setAttribute("y", 215);
+    t.setAttribute("class", "syl syl-overflow");
+    t.textContent = "+" + syls[i].syl;
+    svg.appendChild(t);
+  }
+}
+
+// audio playback — sine bells for the THEME
+let ctx;
+function ensureCtx() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+function playMelody() {
+  const c = ensureCtx();
+  const now = c.currentTime + 0.05;
+  let cursor = 0;
+  for (const [off, beats] of THEME) {
+    const m = ROOT_MEL + off;
+    const f = midiHz(m);
+    const dur = beats * SPB * 0.96;
+    const o = c.createOscillator();
+    o.type = "sine";
+    o.frequency.value = f;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, now + cursor * SPB);
+    g.gain.linearRampToValueAtTime(0.18, now + cursor * SPB + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, now + cursor * SPB + dur);
+    // overtone for color
+    const o2 = c.createOscillator();
+    o2.type = "sine"; o2.frequency.value = f * 2;
+    const g2 = c.createGain();
+    g2.gain.setValueAtTime(0, now + cursor * SPB);
+    g2.gain.linearRampToValueAtTime(0.06, now + cursor * SPB + 0.008);
+    g2.gain.exponentialRampToValueAtTime(0.001, now + cursor * SPB + dur);
+    o.connect(g).connect(c.destination);
+    o2.connect(g2).connect(c.destination);
+    o.start(now + cursor * SPB); o.stop(now + cursor * SPB + dur + 0.05);
+    o2.start(now + cursor * SPB); o2.stop(now + cursor * SPB + dur + 0.05);
+    cursor += beats;
+  }
+}
+
+function playLyric() {
+  const variant = document.getElementById("variant").value;
+  const lyric = document.getElementById("lyric").value;
+  const rawSyls = parseLyric(lyric);
+  const syls = substituteVariant(rawSyls, variant);
+  // Build a single text string spoken with browser TTS over the same
+  // melody — best-effort prosody match.
+  const text = syls.map((s) => s.sustain ? "" : s.syl).filter(Boolean).join(" ");
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.0;
+  u.pitch = 0.7;
+  speechSynthesis.speak(u);
+  playMelody();
+}
+
+function exportSyllables() {
+  const variant = document.getElementById("variant").value;
+  const lyric = document.getElementById("lyric").value;
+  const rawSyls = parseLyric(lyric);
+  const syls = substituteVariant(rawSyls, variant);
+  const out = [];
+  for (let i = 0; i < Math.min(syls.length, TOTAL_NOTES); i++) {
+    const [off, beats] = THEME[i];
+    const s = syls[i];
+    out.push({
+      syl: s.sustain ? "·" : s.syl,
+      beats,
+      noteOff: off,
+      midi: ROOT_MEL + off,
+      sustain: s.sustain || false,
+    });
+  }
+  const txt = JSON.stringify(out, null, 2);
+  navigator.clipboard.writeText(txt);
+  alert("SYLLABLES json copied to clipboard");
+}
+
+document.getElementById("lyric").addEventListener("input", render);
+document.getElementById("variant").addEventListener("change", render);
+document.getElementById("play").addEventListener("click", playMelody);
+document.getElementById("play-lyric").addEventListener("click", playLyric);
+document.getElementById("copy").addEventListener("click", exportSyllables);
+render();
+</script>
+</body>
+</html>
