@@ -84,16 +84,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// fine here but we keep the references for symmetry).
     private var globalShiftMonitor: Any?
     private var localShiftMonitor: Any?
-    /// Right-Command-DOWN → toggle Menu Band focus. A bare modifier
+    /// Double-tap right-⌘ → toggle Menu Band focus. A bare modifier
     /// can't be a Carbon hotkey, so this rides the same global/local
-    /// .flagsChanged stream the shift monitor uses. Fires on the
-    /// press itself (not release), even held or chorded — so
-    /// right-⌘+f enables AND plays F. Trade-off: right ⌘ is no
-    /// longer free as a plain modifier while Menu Band runs.
+    /// .flagsChanged stream the shift monitor uses. Why double-tap:
+    /// a single right-⌘ is too easy to hit by accident (and burns the
+    /// key as a plain modifier system-wide). The double-tap is a
+    /// deliberate gesture that leaves single ⌘ free for normal Mac
+    /// chording.
     private var rightCmdMonitorGlobal: Any?
     private var rightCmdMonitorLocal: Any?
     /// Right Command's .flagsChanged virtual keycode (left ⌘ is 55).
     private static let rightCommandKeyCode: UInt16 = 54
+    /// Wall time of the last bare right-⌘ DOWN edge. Reset to 0 once
+    /// a pair is consumed or a chord/other-mod press interrupts the
+    /// sequence, so the next tap starts a fresh window.
+    private var lastRightCmdPressAt: CFTimeInterval = 0
+    /// Max gap between the two bare right-⌘ presses that count as a
+    /// double-tap. ~300 ms matches macOS's own "press ⌘ twice" feel.
+    private static let rightCommandDoubleTapWindow: CFTimeInterval = 0.30
     private var popoverEscMonitor: Any?
 
     /// Sandbox-friendly local key capture. Armed when the user clicks the
@@ -1320,13 +1328,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if initialDirty { updateIcon() }
     }
 
-    /// Right Command **down** → toggle focus capture, immediately,
-    /// on the press itself — NOT on release, and even if ⌘ stays
-    /// held or is chorded. That's deliberate: arming on key-down
-    /// means `right-⌘ + f` both enables the board AND plays F in
-    /// one motion, the user can keep playing after letting ⌘ go,
-    /// and the next right-⌘ press kills focus. Every press also
-    /// fires a dry click so the keystroke is felt instantly.
+    /// Double-tap right-⌘ → toggle focus capture. Two bare right-⌘
+    /// presses within `rightCommandDoubleTapWindow` arm / disarm
+    /// the menubar piano for typing; a single tap does nothing, so
+    /// right ⌘ stays free as a normal modifier for the rest of the
+    /// system. Trade-off vs. the old single-press flow: you can't
+    /// do `right-⌘+f` to arm + play F in one motion — you tap twice
+    /// first, then play. That's the price of not arming on every
+    /// stray ⌘. The toggle fires a dry click on the qualifying
+    /// second press so the user feels the gesture land.
     ///
     /// A bare modifier isn't a valid Carbon hotkey, so we ride the
     /// same global/local .flagsChanged stream the shift monitor
@@ -1334,15 +1344,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startRightCommandTapMonitor() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
-            // Only the right-⌘ DOWN edge. .flagsChanged fires once
-            // per physical press (modifiers don't auto-repeat), so
-            // this is exactly one toggle per press — no debounce
-            // needed, no up-edge, no quick/isolated gating.
             guard event.type == .flagsChanged,
-                  event.keyCode == Self.rightCommandKeyCode,
-                  event.modifierFlags.contains(.command) else { return }
-            FocusCueBeep.shared.click()
-            self.toggleQuietFocusFromRightCommand()
+                  event.keyCode == Self.rightCommandKeyCode else { return }
+            // .flagsChanged fires on press AND release for the same
+            // physical key — `.command` is set on the down edge,
+            // cleared on the up edge. We only count down edges.
+            let isDown = event.modifierFlags.contains(.command)
+            guard isDown else { return }
+            // Bare right-⌘ only. If anything else is held (⇧/⌥/⌃/
+            // capsLock, or a chord like ⌘⇧), this isn't a double-tap
+            // candidate — reset the window so a chord can't form
+            // half of a future double-tap.
+            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard mask == .command else {
+                self.lastRightCmdPressAt = 0
+                return
+            }
+            let now = CACurrentMediaTime()
+            if now - self.lastRightCmdPressAt <= Self.rightCommandDoubleTapWindow {
+                // Pair completed — consume it so a third press
+                // starts a fresh window instead of chaining toggles.
+                self.lastRightCmdPressAt = 0
+                FocusCueBeep.shared.click()
+                self.toggleQuietFocusFromRightCommand()
+            } else {
+                self.lastRightCmdPressAt = now
+            }
         }
         rightCmdMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
