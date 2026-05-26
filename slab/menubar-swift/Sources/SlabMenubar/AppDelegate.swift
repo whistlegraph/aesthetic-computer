@@ -95,11 +95,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            modifiers: UInt32(cmdKey | optionKey)) {
             tileHotkey = hotkey
         }
+
+        // setDesktopImageURL only writes the wallpaper on the active Space of
+        // each screen — macOS gives every Space its own wallpaper slot. To
+        // keep all Spaces synced to the current tint we re-apply on each
+        // Space switch; the memo gate is dropped so the same color re-paints
+        // the newly visible Space.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(activeSpaceDidChange),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         tileHotkey?.unregister()
         passphraseServer.stop()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    @objc private func activeSpaceDidChange(_ note: Notification) {
+        // Force a re-paint of the now-visible Space (per-screen). Clearing
+        // the memo is enough: applyDesktopTint takes both branches (tint or
+        // restore) from `lastDesktopTint`, so nil-ing it covers either.
+        lastDesktopTint = nil
+        applyDesktopTint()
     }
 
     // MARK: - Refresh
