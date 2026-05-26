@@ -1,0 +1,39 @@
+{
+  "_comment": "americomputadora — hook melody. D major, 112 BPM. The three vocal samples (whole-word clips, not per-syllable) get autotuned to these target MIDI notes at render time. Each hook is 4 beats: america fills 1 beat, computer 1 beat, dora 2 beats (the resolution lands and rings).",
+  "bpm": 112,
+  "key": "D",
+  "mode": "major",
+  "tonic_midi": 62,
+  "scale_midi": [62, 64, 66, 67, 69, 71, 73],
+  "hook": {
+    "words": ["america", "computer", "dora"],
+    "beats_per_word": [1, 1, 2],
+    "_variant_note": "4 melodic variants used across the 4 hook reps per chorus so the hook isn't identical 4× in a row. classic bubblegum trick — same rhythm, slightly different melody contour.",
+    "variants": [
+      { "label": "5-4-1", "notes": [69, 67, 62], "tone": "establishing — A→G→D, gentle step-down" },
+      { "label": "5-3-1", "notes": [69, 66, 62], "tone": "sweeter — A→F#→D, mediant resolution" },
+      { "label": "3-2-1", "notes": [66, 64, 62], "tone": "intimate — F#→E→D, all stepwise down" },
+      { "label": "5-4-1", "notes": [69, 67, 62], "tone": "back to home" }
+    ]
+  },
+  "bed": {
+    "chord_progression": [
+      { "bars": 2, "root_midi": 62, "quality": "maj" },
+      { "bars": 2, "root_midi": 69, "quality": "maj" },
+      { "bars": 2, "root_midi": 71, "quality": "min" },
+      { "bars": 2, "root_midi": 67, "quality": "maj" }
+    ],
+    "_progression_note": "I — V — vi — IV. canonical bubblegum loop (Sugar Sugar / Baby One More Time pre-chorus / countless others). 8 bars total, repeats."
+  },
+  "structure": [
+    { "section": "intro",  "bars": 4, "feel": "soft" },
+    { "section": "hook",   "bars": 4, "feel": "full",   "reps": 4 },
+    { "section": "verse",  "bars": 8, "feel": "thin" },
+    { "section": "hook",   "bars": 4, "feel": "full",   "reps": 4 },
+    { "section": "verse",  "bars": 8, "feel": "sparse" },
+    { "section": "bridge", "bars": 4, "feel": "breakdown" },
+    { "section": "stop",   "bars": 1, "feel": "claps-only" },
+    { "section": "hook",   "bars": 4, "feel": "full",   "reps": 4 },
+    { "section": "outro",  "bars": 4, "feel": "fade" }
+  ]
+}

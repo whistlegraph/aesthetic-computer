@@ -1,0 +1,11 @@
+# source downloads are reproducible from bin/fetch.mjs + manifest.json,
+# and may carry copyright weight; never commit them.
+sources/
+# utterance clips + their variations are derived (from sources + bin/say-computer.mjs).
+# the TTS computer/ clips are reproducible at $0; we still keep them out of git
+# to avoid bloat. catalog.json + audition.html are derived, also out.
+utterances/
+variations/
+catalog.json
+audition.html
+out/
