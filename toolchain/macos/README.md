@@ -24,3 +24,22 @@ Needs **Accessibility** permission for the host terminal — the script
 drives Stickies with `osascript` / System Events keystrokes (⌘N, ⌘V,
 font bumps, ⌥⌘T). If the paste lands empty, the content is still on the
 clipboard; just ⌘V into the note by hand.
+
+## chrome-shot.mjs — safe headless Chrome screenshots
+
+Wraps `Google Chrome --headless=new --screenshot=…` so it actually exits.
+`--headless=new` reliably writes the PNG but often refuses to quit; left
+unattended these orphans pile up, each pinning a `/tmp/chrome-*` profile
+dir, and eventually `open -a "Google Chrome"` stops opening windows at
+all. This wrapper polls the output, kills Chrome the moment the file
+stabilises, cleans up the ephemeral profile, and reaps any headless
+Chromes older than 2 minutes before it starts.
+
+```bash
+node toolchain/macos/chrome-shot.mjs <url> <out.png> \
+  [--size WxH] [--budget MS] [--wait MS] [--full-page]
+```
+
+Use this anywhere you'd otherwise type a raw `Google Chrome --headless=new …`
+incantation (TL site screenshots, paper previews, etc.). Never spawn a
+loose headless Chrome — always go through this script.
