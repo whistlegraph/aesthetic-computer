@@ -6,6 +6,7 @@ references/*
 big-pictures/out/
 hum/out/
 hellsine/out/
+maytrax/out/
 
 # RFA recorded voice takes — local performances, kept off the repo
 # (the manifest.json punch-list IS tracked)
