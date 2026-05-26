@@ -2,7 +2,29 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
- * Version: 1.3
+ * Version: 1.4
+ *
+ * v1.4 — Fía's 2026-05-23 batch:
+ *  - Studio detail pages: click an artwork to open it in a lightbox
+ *    overlay (vanilla JS, no library).
+ *  - Bookshelf: shelf subheadings (Artforum, Afterall, Interviews, …)
+ *    standardised to one size, centred above each cover strip, with
+ *    the anchor underline removed.
+ *  - Footer wordmark dropped sitewide (was homepage-only). Bio stays
+ *    bottom-left, copyright bottom-right.
+ *  - News + In the Studio overview: full-bleed horizontal header image
+ *    matching the look of Bookshelf / Beyond / Art-in-a-Broader-Context.
+ *    Bookshelf image crop nudged so the wooden shelf reads (less title
+ *    text in frame).
+ *  - Art in a Broader Context: tile labels match the Beyond style (solid
+ *    black, not gray italic); the year is appended inline as ", 1982-
+ *    present" via JS so each tile reads as one label, not two.
+ *  - Beyond the Studio: project tiles rebuilt as one flat 2-up grid so
+ *    Glasgow Projects + Theatre/Dance/Fashion no longer sit alone in a
+ *    half-empty row.
+ *  - In the Studio overview: year-range sections scaled down + capped to
+ *    a narrower max-width so multiple year groupings read on screen at
+ *    once.
  *
  * v1.3 — Fía's 2026-05-22 late batch:
  *  - Bookshelf: "Publications" + "Other writings" category headers
@@ -376,40 +398,40 @@ body.page-id-10 .elementor-element-5e1a885 { order: 5 !important; } /* Bookshelf
 }
 
 /* ---------------------------------------------------------------- *
- * 2b. Home footer — drop the wordmark, bio shuffles left
- *     (Fía, 2026-05-21 pm)
+ * 2b. Footer — drop the wordmark sitewide, bio shuffles left
+ *     (Fía, 2026-05-21 pm + 2026-05-23 — sitewide, not just home)
  * ---------------------------------------------------------------- */
 /* The footer is a 4-up Astra grid: [logo][bio][empty][copyright]. Fía
-   wants the bottom wordmark gone on the homepage and the bio pulled to
+   wants the bottom wordmark gone on every page and the bio pulled to
    the left edge. Hide the logo cell and lay the row out as a simple
    left/right split — bio far-left, copyright far-right. */
-body.page-id-10 .site-footer-section-1 {
+.site-footer-section-1 {
     display: none !important;
 }
-body.page-id-10 .ast-builder-footer-grid-columns {
+.ast-builder-footer-grid-columns {
     display: flex !important;
     justify-content: space-between !important;
     align-items: flex-start !important;
     gap: 2rem;
     padding-right: 2.5rem;
 }
-body.page-id-10 .site-footer-section {
+.site-footer-section {
     flex: 0 1 auto !important;
 }
 /* Astra centres each footer section's widget-area; pin the bio's hard to
    the left and pull it out so its left edge lines up with the header logo
    (Fía, 2026-05-21 pm). Kept narrow so it doesn't reach toward centre. */
-body.page-id-10 .site-footer-section-2 {
+.site-footer-section-2 {
     justify-content: flex-start !important;
     text-align: left !important;
     max-width: 32rem;
     margin-left: -22px !important;
 }
-body.page-id-10 .site-footer-section-2 *,
-body.page-id-10 .site-footer-section-2 p {
+.site-footer-section-2 *,
+.site-footer-section-2 p {
     text-align: left !important;
 }
-body.page-id-10 .site-footer-section-2 .footer-widget-area {
+.site-footer-section-2 .footer-widget-area {
     margin-left: 0 !important;
 }
 
@@ -523,11 +545,53 @@ body.tl-studio-detail .elementor-top-section {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
 }
+/* Artwork images are clickable to open a lightbox (Fía, 2026-05-23). */
+body.tl-studio-detail .elementor-widget-image img {
+    cursor: zoom-in;
+    transition: opacity 0.15s;
+}
+body.tl-studio-detail .elementor-widget-image img:hover {
+    opacity: 0.85;
+}
+/* Lightbox overlay — vanilla, no external library. */
+.tl-lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 18, 14, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    cursor: zoom-out;
+    padding: 2.5vh 2.5vw;
+}
+.tl-lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.5);
+    background: #fff9ef;
+}
+.tl-lightbox-close {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.4rem;
+    color: #fff9ef;
+    font-size: 2.2rem;
+    line-height: 1;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    font-family: inherit;
+}
 
 /* ---------------------------------------------------------------- *
- * 4c. Section-page intros — horizontal header image on top, then the
- *     section title + description, then content beneath
- *     (Fía, 2026-05-22 pm).
+ * 4c. Section-page intros — full-bleed horizontal header image on top,
+ *     then the section title + description, then content beneath
+ *     (Fía, 2026-05-22 pm; full-bleed sitewide 2026-05-23).
  * ---------------------------------------------------------------- */
 body.page-id-1898 .elementor-element-1553c2e .elementor-container,
 body.page-id-808  .elementor-element-825b6e9 .elementor-container,
@@ -552,16 +616,33 @@ body.page-id-1177 .elementor-element-1b54d5a .elementor-column:has(.elementor-wi
 body.page-id-1147 .elementor-element-ba54885 .elementor-column:has(.elementor-widget-image) {
     order: -1 !important;
 }
+/* Header image breaks out of its container to the full viewport width —
+   the classic "negative-margin escape" — so it reads as a full bleed
+   like Bookshelf, Beyond, Art-context already do (Fía, 2026-05-23). The
+   :has() rule above puts the image column first, then we yank the image
+   itself to the page edges. */
+body.page-id-1898 .elementor-element-1553c2e .elementor-widget-image,
+body.page-id-808  .elementor-element-825b6e9 .elementor-widget-image,
+body.page-id-1177 .elementor-element-1b54d5a .elementor-widget-image,
+body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image {
+    position: relative !important;
+    left: 50% !important;
+    right: 50% !important;
+    margin-left: -50vw !important;
+    margin-right: -50vw !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin-bottom: 1.4rem !important;
+}
 body.page-id-1898 .elementor-element-1553c2e .elementor-widget-image img,
 body.page-id-808  .elementor-element-825b6e9 .elementor-widget-image img,
 body.page-id-1177 .elementor-element-1b54d5a .elementor-widget-image img,
 body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image img {
-    aspect-ratio: 16 / 6 !important;
+    aspect-ratio: 16 / 5 !important;
     object-fit: cover !important;
     width: 100% !important;
     height: auto !important;
     display: block;
-    margin-bottom: 1.4rem !important;
 }
 /* Intro titles + descriptions default to left-aligned (Bookshelf
    overrides to centred below). */
@@ -570,6 +651,37 @@ body.page-id-1177 .elementor-element-1b54d5a .elementor-heading-title,
 body.page-id-1147 .elementor-element-ba54885 .elementor-heading-title,
 body.page-id-140  .elementor-element-71fa6aa .elementor-heading-title {
     text-align: left !important;
+}
+
+/* News page-wide 820px cap (section 3) would clip the full-bleed image —
+   exempt the intro's image widget so it can escape to viewport width. */
+body.page-id-1898 .elementor-element-1553c2e .elementor-widget-image {
+    max-width: 100vw !important;
+}
+
+/* ---------------------------------------------------------------- *
+ * 4d. In the Studio overview (page-id-140) — inject a full-bleed
+ *     header image as a CSS background, since the intro section
+ *     carries no image of its own (Fía, 2026-05-23).
+ * ---------------------------------------------------------------- */
+body.page-id-140 .elementor-element-71fa6aa {
+    position: relative;
+}
+body.page-id-140 .elementor-element-71fa6aa::before {
+    content: "";
+    display: block;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    aspect-ratio: 16 / 5;
+    background-image: url('https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    margin-bottom: 1.4rem;
 }
 
 /* ---------------------------------------------------------------- *
@@ -689,13 +801,22 @@ body.page-id-1898 .elementor-top-section:not(.elementor-element-1553c2e) .elemen
     line-height: 1.35 !important;
     color: #2e2a24 !important;
 }
-/* Beyond the Studio project labels: solid black, slightly larger, no
-   italic (Fía, 2026-05-22 late). */
-body.page-id-1177 .elementor-top-section:not(.elementor-element-1b54d5a) .elementor-widget-heading .elementor-heading-title {
+/* Beyond the Studio + Art in a Broader Context project labels: solid
+   black, slightly larger, no italic (Fía, 2026-05-22 late + 2026-05-23:
+   Art context should match Beyond, not gray italic). */
+body.page-id-1177 .elementor-top-section:not(.elementor-element-1b54d5a) .elementor-widget-heading .elementor-heading-title,
+body.page-id-1147 .elementor-top-section:not(.elementor-element-ba54885) .elementor-widget-heading .elementor-heading-title {
     font-style: normal !important;
     font-weight: 500 !important;
     font-size: 1.1rem !important;
     color: #000 !important;
+}
+/* The second heading on each Art-context tile holds the year; on Beyond
+   tiles there's only the one heading. The JS for Art context (section
+   below) merges "Name" + "Year" into one inline label, so hide the
+   stand-alone year heading after the JS injects ", YEAR" into the name. */
+body.page-id-1147 .tl-ac-year-merged {
+    display: none !important;
 }
 
 /* ---------------------------------------------------------------- *
@@ -791,9 +912,29 @@ body.page-id-808 .elementor-element-825b6e9 .elementor-widget-wrap {
 body.page-id-808 .elementor-element-825b6e9 .elementor-widget-divider {
     display: none !important;
 }
-/* Below the intro: shelf subheadings (Artforum, Afterall, …) stay centred. */
+/* Below the intro: shelf subheadings (Artforum, Afterall, …) stay
+   centred + standardised to one size with no anchor underline
+   (Fía, 2026-05-23: "remove the underline, standardize the size
+   throughout, and make sure the text is centered with the thumbnails
+   below"). */
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title {
     text-align: center !important;
+    font-size: 1.55rem !important;
+    font-weight: 500 !important;
+    line-height: 1.25 !important;
+    margin: 0 0 0.4rem !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title a,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title a:visited,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title a:hover {
+    text-decoration: none !important;
+    border-bottom: 0 !important;
+    color: inherit !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-widget-heading {
+    text-align: center !important;
+    width: 100% !important;
+    margin-top: 1.4rem !important;
 }
 
 /* ---------------------------------------------------------------- *
@@ -828,10 +969,36 @@ body.page-id-1147 .elementor-top-section:not(.elementor-element-ba54885) {
 }
 
 /* ---------------------------------------------------------------- *
- * 11. In the Studio overview (page-140) — year-range section headings
- *     left at their theme size (the sizing-down only belonged on the
- *     detail pages — Fía, 2026-05-22 late, reverted).
+ * 11. In the Studio overview (page-140) — year-range groupings shrunk
+ *     so multiple year sections read on one screen instead of each
+ *     stretching to fill the viewport (Fía, 2026-05-23). The 2026-05-22
+ *     pass had reverted sizing-down to the theme default; the new note
+ *     is "make each year grouping a tad smaller".
  * ---------------------------------------------------------------- */
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) {
+    margin-bottom: 1.4rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-container {
+    max-width: 1080px !important;
+    margin: 0 auto !important;
+}
+/* Year heading sized down slightly so it doesn't tower above the 3
+   little artworks beside it. */
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-heading-title {
+    font-size: 1.3rem !important;
+    margin-bottom: 0.35rem !important;
+}
+/* Cap the artwork thumbnails so a 3-up row fits comfortably and reads
+   as a year sampler, not a full-bleed gallery. */
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .elementor-widget-image img {
+    max-height: 220px !important;
+    width: auto !important;
+    object-fit: contain !important;
+    display: block;
+    margin: 0 auto;
+}
 
 /* ---------------------------------------------------------------- *
  * 12. In the Studio detail pages — the two year headings inline on
@@ -907,10 +1074,18 @@ body.page-id-1527 .tl-contact-mailto:hover {
 }
 
 function tl_fia_polish_js() {
+    // Studio-detail lightbox runs on slug-matched detail pages
+    // (tl-studio-detail body class is set in PHP by post-slug prefix).
+    global $post;
+    $is_studio_detail = ($post && isset($post->post_name)
+        && strpos($post->post_name, 'inthestudio_') === 0);
+    if ($is_studio_detail) { tl_fia_polish_js_studio_lightbox(); return; }
+
     if (is_page(10))   { tl_fia_polish_js_home();    return; }
     if (is_page(1898)) { tl_fia_polish_js_news();    return; }
     if (is_page(1527)) { tl_fia_polish_js_contact(); return; }
     if (is_page(1147)) { tl_fia_polish_js_artctx();  return; }
+    if (is_page(1177)) { tl_fia_polish_js_beyond();  return; }
     if (!is_page(808)) return; // only /bookshelf/ below
     // Pre-curated first-N cover URLs from each shelf subpage (covers
     // already live in /wp-content/uploads/, so reusing them costs nothing).
@@ -1195,6 +1370,16 @@ function tl_fia_polish_js_artctx() {
                 if (m) key = parseInt(m[2] || m[1], 10);
                 else key = 0;
             }
+            // Merge "Name" + "Year" into one inline label so the tile
+            // reads as "Art School, 1982-present" — Fía's 2026-05-23 ask.
+            if (heads[0] && heads[1] && year) {
+                var nameNode = heads[0].querySelector('.elementor-heading-title');
+                if (nameNode && !nameNode.dataset.tlAcMerged) {
+                    nameNode.dataset.tlAcMerged = '1';
+                    nameNode.textContent = name + ', ' + year;
+                }
+                heads[1].classList.add('tl-ac-year-merged');
+            }
             tiles.push({ col: col, name: name, year: year, key: key });
         }
     });
@@ -1213,6 +1398,122 @@ function tl_fia_polish_js_artctx() {
     sections.forEach(function (sec) { sec.style.display = 'none'; });
 
     page.appendChild(grid);
+})();
+</script>
+    <?php
+}
+
+/**
+ * Beyond the Studio (page-id-1177): some authored sections hold only one
+ * project column (Glasgow Projects, Theatre/Dance/Fashion). The
+ * uniform-width col-50 rule leaves the row half-empty (Fía, 2026-05-23).
+ * Flatten every project column into one continuous 2-up grid in document
+ * order — preserves Fía's intended sequence, no gaps.
+ */
+function tl_fia_polish_js_beyond() {
+    ?>
+<script id="tl-fia-beyond-grid">
+(function () {
+    if (!document.body.classList.contains('page-id-1177')) return;
+    var page = document.querySelector('[data-elementor-type="wp-page"]');
+    if (!page) return;
+    var intro = document.querySelector('.elementor-element-1b54d5a');
+    var tileCols = [];
+    var sections = [].slice.call(page.children).filter(function (el) {
+        return el !== intro && el.classList && el.classList.contains('elementor-section');
+    });
+    sections.forEach(function (sec) {
+        var cols = sec.querySelectorAll('.elementor-column');
+        for (var ci = 0; ci < cols.length; ci++) {
+            var col = cols[ci];
+            // only columns that carry an image widget are project tiles
+            if (col.querySelector('.elementor-widget-image')) {
+                tileCols.push(col);
+            }
+        }
+    });
+
+    var grid = document.createElement('section');
+    grid.className = 'elementor-section elementor-top-section elementor-section-boxed tl-beyond-grid';
+    var container = document.createElement('div');
+    container.className = 'elementor-container elementor-column-gap-default';
+    grid.appendChild(container);
+    tileCols.forEach(function (col) { container.appendChild(col); });
+    sections.forEach(function (sec) { sec.style.display = 'none'; });
+    page.appendChild(grid);
+})();
+</script>
+    <?php
+}
+
+/**
+ * Studio-detail pages (slug inthestudio_YYYY-YYYY): click any artwork
+ * thumbnail to open it in a lightbox overlay. Vanilla JS, no library
+ * (Fía, 2026-05-23).
+ */
+function tl_fia_polish_js_studio_lightbox() {
+    ?>
+<script id="tl-fia-studio-lightbox">
+(function () {
+    if (!document.body.classList.contains('tl-studio-detail')) return;
+
+    function fullSize(img) {
+        // WP attaches the full image as a srcset; prefer the largest one.
+        if (img.dataset && img.dataset.tlFullsrc) return img.dataset.tlFullsrc;
+        var src = img.currentSrc || img.src;
+        var srcset = img.srcset || img.getAttribute('srcset');
+        if (srcset) {
+            var best = null, bestW = 0;
+            srcset.split(',').forEach(function (entry) {
+                var parts = entry.trim().split(/\s+/);
+                var url = parts[0];
+                var w = parts[1] ? parseInt(parts[1], 10) : 0;
+                if (w >= bestW) { bestW = w; best = url; }
+            });
+            if (best) src = best;
+        }
+        return src;
+    }
+
+    function openLightbox(src) {
+        var ov = document.createElement('div');
+        ov.className = 'tl-lightbox';
+        var img = document.createElement('img');
+        img.src = src;
+        img.alt = '';
+        ov.appendChild(img);
+        var close = document.createElement('button');
+        close.className = 'tl-lightbox-close';
+        close.setAttribute('aria-label', 'Close');
+        close.textContent = '×';
+        ov.appendChild(close);
+        ov.addEventListener('click', function (e) {
+            if (e.target === img) return;
+            ov.remove();
+            document.removeEventListener('keydown', onKey);
+        });
+        function onKey(e) {
+            if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); }
+        }
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(ov);
+    }
+
+    var imgs = document.querySelectorAll('.elementor-widget-image img');
+    imgs.forEach(function (img) {
+        // Disable any existing link wrapper so click opens our lightbox.
+        var parentLink = img.closest('a');
+        if (parentLink) {
+            parentLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                openLightbox(fullSize(img));
+            });
+        } else {
+            img.addEventListener('click', function () {
+                openLightbox(fullSize(img));
+            });
+        }
+    });
 })();
 </script>
     <?php
