@@ -3272,7 +3272,8 @@ function act(
 
       // Stop any active fling when user grabs again
       isFlinging = false;
-      scrollVelocity = e.delta.y; // Track last delta for fling
+      // EMA over recent deltas so a brief pause before lift doesn't kill the fling
+      scrollVelocity = scrollVelocity * 0.4 + e.delta.y * 0.6;
 
       scroll += e.delta.y;
       store["chat:scroll"] = scroll;
@@ -3281,7 +3282,8 @@ function act(
     }
 
     // 📜 Start inertial fling on lift
-    if (e.is("lift") && isDragging && Math.abs(scrollVelocity) > SCROLL_MIN_VELOCITY) {
+    // Note: use wasScrollingOnLift because isDragging is reset earlier in this same lift event.
+    if (e.is("lift") && wasScrollingOnLift && Math.abs(scrollVelocity) > SCROLL_MIN_VELOCITY) {
       isFlinging = true;
     }
 
