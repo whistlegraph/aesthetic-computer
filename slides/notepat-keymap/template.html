@@ -217,6 +217,12 @@
   }
   .hand-labels .l { color: #2a64d4; }
   .hand-labels .r { color: #c8324b; }
+  /* YWFT Processing has no arrow/middle-dot glyphs (renders as `&`); use
+     system font just for those characters so labels read correctly. */
+  .glyph {
+    font-family: -apple-system, "Helvetica Neue", "Arial Unicode MS", sans-serif;
+    font-weight: 800;
+  }
 
   .qwerty-bg {
     position: relative;
@@ -498,7 +504,7 @@
       </div>
       <div class="subtitle">
         A chromatic keyboard instrument.
-        <b><span class="title-c">C</span>&middot;<span class="title-d">D</span>&middot;<span class="title-e">E</span>&middot;<span class="title-f">F</span>&middot;<span class="title-g">G</span>&middot;<span class="title-a">A</span>&middot;<span class="title-b">B</span></b>
+        <b><span class="title-c">C</span><span class="glyph">·</span><span class="title-d">D</span><span class="glyph">·</span><span class="title-e">E</span><span class="glyph">·</span><span class="title-f">F</span><span class="glyph">·</span><span class="title-g">G</span><span class="glyph">·</span><span class="title-a">A</span><span class="glyph">·</span><span class="title-b">B</span></b>
         play the notes they name. Sharps <i>mostly</i> sit one row above their natural — like piano black keys.
       </div>
     </div>
@@ -555,8 +561,8 @@
   <div class="below">
     <div class="below-left">
       <div class="hand-labels">
-        <div class="l">← Left hand · lower octave</div>
-        <div class="r">Right hand · upper octave →</div>
+        <div class="l"><span class="glyph">←</span> Left hand <span class="glyph">·</span> lower octave</div>
+        <div class="r">Right hand <span class="glyph">·</span> upper octave <span class="glyph">→</span></div>
       </div>
       <div class="qwerty-bg">
         <div class="qwerty-wrap">
