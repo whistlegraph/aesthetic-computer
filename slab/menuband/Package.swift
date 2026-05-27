@@ -43,5 +43,10 @@ let package = Package(
                 ]),
             ]
         ),
+        .testTarget(
+            name: "MenuBandTests",
+            dependencies: ["MenuBand"],
+            path: "Tests/MenuBandTests"
+        ),
     ]
 )

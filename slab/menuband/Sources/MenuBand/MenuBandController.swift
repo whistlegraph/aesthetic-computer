@@ -2,6 +2,29 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
+
+extension Float {
+    /// Multiplies while capping infinite overflow to the nearest finite Float magnitude.
+    func finiteMagnitudeMultiply(_ value: Float) -> Float {
+        let product = self * value
+
+        if product == .infinity {
+            return .greatestFiniteMagnitude
+        }
+
+        if product == -.infinity {
+            return -.greatestFiniteMagnitude
+        }
+        
+        return product
+    }
+    
+    /// Restricts the value to the provided lower and upper bounds.
+    func safeClamped(_ minValue: Float, _ maxValue: Float) -> Float {
+        min(max(self, minValue), maxValue)
+    }
+}
+
 final class MenuBandController {
     private let midi = MenuBandMIDI()
     private let synth = MenuBandSynth()
@@ -638,8 +661,8 @@ final class MenuBandController {
         // amount; the MIDI value saturates naturally inside
         // `sendPitchBend` (14-bit signed limit, receiver-side bend
         // range determines audible cap).
-        let clamped = amount
-        let value = Int16(clamped * 8192)
+        let result = amount.finiteMagnitudeMultiply(8192)
+        let value = Int16(result.safeClamped(Float(Int16.min), Float(Int16.max)))
         // Channels currently sounding via either input path. Use
         // sets to dedupe — same channel can host both a tap and a
         // keyboard note when the user is using both at once.
@@ -661,14 +684,14 @@ final class MenuBandController {
                 channels.insert(0)
             }
         }
-        debugLog("setBend amt=\(clamped) value=\(value) channels=\(channels) midiMode=\(midiMode)")
+        debugLog("setBend amt=\(amount) value=\(value) channels=\(channels) midiMode=\(midiMode)")
         if !midiMode {
             for ch in channels { synth.sendPitchBend(value: value, channel: ch) }
             // Sample voice runs through AVAudioUnitVarispeed and
             // ignores MIDI pitch-bend — route the signed amount
             // separately so trackpad pitch-bend slides the looping
             // sample alongside the MIDISynth-based voices.
-            synth.setSamplePitchBend(amount: Float(clamped))
+            synth.setSamplePitchBend(amount: amount)
         }
         for ch in channels { midi.sendPitchBend(value: value, channel: ch) }
     }
