@@ -20,6 +20,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var layoutToggleHotkey: GlobalHotkey?
     private var popoverPanel: MenuBandPopoverPanel?
     private var popoverVC: MenuBandPopoverViewController?
+    private var kidlispTVPanel: KidLispTVPanel?
+    /// Cached "$ pieces" feed for the TV chooser menu. Populated on
+    /// first popover open; refreshed lazily when stale.
+    private var kidlispChooserPieces: [KidLispChooserItem] = []
+    private var kidlispChooserFetchInflight: Bool = false
+    private var kidlispChooserFetchedAt: Date?
+    private static let kidlispChooserCacheTTL: TimeInterval = 300
+    private static let kidlispChooserURL =
+        "https://aesthetic.computer/api/store-kidlisp?recent=15&sortBy=hits"
+    private static let kidlispTVSourceDefaultsKey = "notepat.kidlispTV.source"
+    /// Snapshot buffer reused per-frame by the TV's amp provider so
+    /// every tick is a free read instead of a fresh allocation.
+    /// 256 mirrors WaveformView's snapshotSize.
+    private var kidlispAmpSamples = [Float](repeating: 0, count: 256)
+    /// Wall-clock of the most recent outbound noteOn (any source).
+    /// Drives a decaying-envelope fallback for the KidLisp `amp` value
+    /// when the local synth is silent — e.g. MIDI-output mode, where
+    /// the user hears notes through a DAW but the tap reads zeros.
+    private var kidlispLastNoteOnAt: CFTimeInterval = 0
+    /// Envelope time constant for the noteOn-driven amp fallback.
+    /// ~250 ms feels right at 60 fps: one tap reads strong, sustained
+    /// playing reads as a fluttering attack envelope.
+    private static let kidlispNoteOnTau: Double = 0.25
 
     private var isPopoverPanelShown: Bool { popoverPanel?.isVisible == true }
     private lazy var pianoWaveformWindowDelegate = PianoWaveformWindowDelegate(menuBand: menuBand)
@@ -395,11 +418,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.updatePianoWaveformWindow()
             }
         }
-        menuBand.onMIDIEvent = {
+        menuBand.onMIDIEvent = { [weak self] in
             // Spike the square indicator to full on every
             // outbound noteOn; the visualizer animation tick
             // decays it back toward zero.
             KeyboardIconRenderer.midiActivityFlash = 1
+            // Stamp the noteOn time so the KidLisp TV's `amp` value
+            // still moves in MIDI-output mode, where the local synth
+            // is silent and the audio tap reads zeros.
+            self?.kidlispLastNoteOnAt = CACurrentMediaTime()
         }
         menuBand.bootstrap()
         // Subscribe to mic RMS during sample-voice recording. The
@@ -2156,6 +2183,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // false synchronously — prevents toggle paths from racing
         // with the in-flight fade.
         popoverPanel = nil
+        // KidLisp TV panel is a child of the popover panel, so it
+        // would auto-order-out with the parent — but we want it to
+        // fade in lockstep, so explicit teardown is cleaner.
+        if let tv = kidlispTVPanel {
+            kidlispTVPanel = nil
+            // Release the synth-capture refcount that the TV took out
+            // in showPopover. Other surfaces (WaveformView etc.) keep
+            // their own counts, so the capture loop only actually
+            // stops when everyone's released.
+            menuBand.setWaveformCaptureEnabled(false)
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.14
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                tv.animator().alphaValue = 0
+            }, completionHandler: {
+                tv.orderOut(nil)
+                tv.alphaValue = 1
+            })
+        }
         if let panel = panelToFade {
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = 0.14
@@ -2307,6 +2353,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.makeKeyAndOrderFront(nil)
             popoverPanel = panel
             debugLog("popover panel ordered front; visible=\(panel.isVisible) frame=\(panel.frame)")
+
+            // KidLisp TV — skeuomorphic LCD-television panel that sits
+            // directly under the LEFT floating panel (PianoWaveformWindow),
+            // not under the popover. Child-windowed off the popover so it
+            // dismisses with the popover; the anchor frame still comes
+            // from the left panel so the TV reads as part of the player
+            // palette stack. KidLispTVView starts its own 30fps timer in
+            // viewDidMoveToWindow once the panel is on screen.
             // Now that the popover's live frame is available
             // (popoverFrameProvider can read popoverPanel.frame),
             // re-anchor the floating piano panel so it lands at
@@ -2318,6 +2372,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // key the liquid popover is in the right place" —
             // fixing the cause here.
             pianoWaveformWindowDelegate.refresh()
+
+            // KidLisp TV anchors against the LEFT floating panel's
+            // *post-refresh* frame. Order matters: if we did this before
+            // refresh(), the TV would pin to the predicted position and
+            // the left column would then slide right, leaving the TV
+            // stranded to its left.
+            if let leftPanel = pianoWaveformWindowDelegate.activeWindow,
+               leftPanel.isVisible {
+                let tvPanel = KidLispTVPanel(width: leftPanel.frame.width)
+                // Attach BEFORE anchoring. addChildWindow nudges a child
+                // window so it sits "below" its parent if their frames
+                // don't intersect — which slides the TV over toward the
+                // popover (the parent), away from the left column. Set
+                // the final frame last so it's authoritative.
+                panel.addChildWindow(tvPanel, ordered: .below)
+                tvPanel.anchor(below: leftPanel.frame)
+                kidlispTVPanel = tvPanel
+                // Restore the last-picked source so the user's choice
+                // sticks across popover open/close cycles.
+                if let saved = UserDefaults.standard.string(
+                    forKey: Self.kidlispTVSourceDefaultsKey
+                ), !saved.isEmpty {
+                    tvPanel.tv.setSource(saved)
+                }
+                // Click on the screen → "$ pieces" chooser menu. Bound
+                // here (not in the panel init) because the chooser
+                // needs AppDelegate state (cache + persistence).
+                tvPanel.tv.onScreenClick = { [weak self] view, event in
+                    self?.showKidLispChooser(from: view, event: event)
+                }
+                // Feed synth output amplitude into the evaluator each
+                // tick so pieces that read `amp`/`mic`/`amplitude`
+                // visualize the live MenuBand performance. Refcounted
+                // capture is released when closePopover tears the TV
+                // down so we don't keep the tap thread alive forever.
+                menuBand.setWaveformCaptureEnabled(true)
+                tvPanel.tv.ampProvider = { [weak self] in
+                    self?.currentSynthAmp() ?? 0
+                }
+                // Warm the cache so the first click pops a populated
+                // menu instead of "Loading…".
+                fetchKidLispChooserPieces(force: false) { }
+            }
 
             // Arm local key capture so arrow keys + spacebar reach
             // our handler while the popover is up. The InstrumentList
@@ -2756,5 +2853,189 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updatePianoWaveformWindowSuppression() {
         pianoWaveformWindowDelegate.isCollapsedPresentationSuppressed =
             pianoWaveformWindowDelegate.isDocked && (isPopoverPanelShown || pianoWaveformWindowDelegate.isShown)
+    }
+
+    // MARK: - KidLisp TV chooser
+
+    /// Audio amplitude for the KidLisp TV, scaled to the 0–10 range
+    /// kidlisp.mjs uses for `amp`. Combines two sources so the viz
+    /// reacts in every mode:
+    ///   1. **Audio peak** of the synth tap (works whenever the local
+    ///      synth is making sound). Compressed ×5 because typical
+    ///      synth peaks live in the 0.05–0.2 band; raw RMS×10 was
+    ///      barely visible.
+    ///   2. **NoteOn envelope** that decays from the most recent
+    ///      outbound noteOn. Drives the viz in MIDI-output mode where
+    ///      the local synth is muted and the tap reads silence.
+    /// Returns the louder of the two so the user's performance is
+    /// always visible, regardless of routing.
+    private func currentSynthAmp() -> Double {
+        menuBand.synthSnapshotWaveform(into: &kidlispAmpSamples)
+        var peak: Float = 0
+        for s in kidlispAmpSamples {
+            let a = abs(s)
+            if a > peak { peak = a }
+        }
+        let audioAmp = Double(min(1.0, peak * 5.0)) * 10.0
+        let now = CACurrentMediaTime()
+        let dt = now - kidlispLastNoteOnAt
+        let envelope = (kidlispLastNoteOnAt > 0 && dt >= 0)
+            ? exp(-dt / Self.kidlispNoteOnTau)
+            : 0
+        let noteAmp = envelope * 10.0
+        return max(audioAmp, noteAmp)
+    }
+
+    private struct KidLispChooserItem {
+        let code: String
+        let source: String
+        let preview: String
+        let handle: String?
+    }
+
+    /// Pop the "$ pieces" chooser menu at the click point. Empty cache
+    /// renders a "Loading…" placeholder and kicks off a fetch so the
+    /// next click is populated. Stale cache renders immediately and
+    /// refreshes in the background.
+    private func showKidLispChooser(from view: NSView, event: NSEvent) {
+        let menu = buildKidLispChooserMenu()
+        let local = view.convert(event.locationInWindow, from: nil)
+        menu.popUp(positioning: nil, at: local, in: view)
+        let stale = kidlispChooserFetchedAt.map {
+            Date().timeIntervalSince($0) > Self.kidlispChooserCacheTTL
+        } ?? true
+        if stale || kidlispChooserPieces.isEmpty {
+            fetchKidLispChooserPieces(force: false) { }
+        }
+    }
+
+    private func buildKidLispChooserMenu() -> NSMenu {
+        let menu = NSMenu(title: "KidLisp")
+        menu.autoenablesItems = false
+        if kidlispChooserPieces.isEmpty {
+            let item = NSMenuItem(title: "Loading…", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        } else {
+            for piece in kidlispChooserPieces {
+                let item = NSMenuItem(
+                    title: "",
+                    action: #selector(loadKidLispPiece(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = piece.source
+                let attr = NSMutableAttributedString()
+                attr.append(NSAttributedString(
+                    string: "$\(piece.code)",
+                    attributes: [
+                        .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .semibold)
+                    ]
+                ))
+                let cleaned = piece.preview
+                    .replacingOccurrences(of: "\n", with: " · ")
+                    .replacingOccurrences(of: "\r", with: "")
+                attr.append(NSAttributedString(
+                    string: "   \(cleaned)",
+                    attributes: [
+                        .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+                        .foregroundColor: NSColor.secondaryLabelColor
+                    ]
+                ))
+                item.attributedTitle = attr
+                menu.addItem(item)
+            }
+        }
+        menu.addItem(.separator())
+        let reset = NSMenuItem(
+            title: "Reset to default",
+            action: #selector(resetKidLispPiece(_:)),
+            keyEquivalent: ""
+        )
+        reset.target = self
+        menu.addItem(reset)
+        let reload = NSMenuItem(
+            title: "Reload pieces…",
+            action: #selector(reloadKidLispChooser(_:)),
+            keyEquivalent: ""
+        )
+        reload.target = self
+        menu.addItem(reload)
+        return menu
+    }
+
+    @objc private func loadKidLispPiece(_ sender: NSMenuItem) {
+        guard let src = sender.representedObject as? String else { return }
+        kidlispTVPanel?.tv.setSource(src)
+        UserDefaults.standard.set(src, forKey: Self.kidlispTVSourceDefaultsKey)
+    }
+
+    @objc private func resetKidLispPiece(_ sender: Any?) {
+        kidlispTVPanel?.tv.setSource(KidLispTVPanel.defaultSource)
+        UserDefaults.standard.removeObject(forKey: Self.kidlispTVSourceDefaultsKey)
+    }
+
+    @objc private func reloadKidLispChooser(_ sender: Any?) {
+        // Force-refresh; next menu open will show the new list.
+        fetchKidLispChooserPieces(force: true) { }
+    }
+
+    private func fetchKidLispChooserPieces(
+        force: Bool,
+        completion: @escaping () -> Void
+    ) {
+        if kidlispChooserFetchInflight {
+            completion()
+            return
+        }
+        if !force,
+           let at = kidlispChooserFetchedAt,
+           Date().timeIntervalSince(at) < Self.kidlispChooserCacheTTL,
+           !kidlispChooserPieces.isEmpty {
+            completion()
+            return
+        }
+        guard let url = URL(string: Self.kidlispChooserURL) else {
+            completion()
+            return
+        }
+        kidlispChooserFetchInflight = true
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            DispatchQueue.main.async {
+                guard let self = self else { completion(); return }
+                self.kidlispChooserFetchInflight = false
+                if let error = error {
+                    NSLog("KidLisp chooser fetch failed: \(error)")
+                    completion()
+                    return
+                }
+                guard let data = data else { completion(); return }
+                struct Item: Decodable {
+                    let code: String
+                    let source: String
+                    let preview: String?
+                    let handle: String?
+                }
+                struct Response: Decodable {
+                    let recent: [Item]
+                }
+                do {
+                    let resp = try JSONDecoder().decode(Response.self, from: data)
+                    self.kidlispChooserPieces = resp.recent.map {
+                        KidLispChooserItem(
+                            code: $0.code,
+                            source: $0.source,
+                            preview: $0.preview ?? "",
+                            handle: $0.handle
+                        )
+                    }
+                    self.kidlispChooserFetchedAt = Date()
+                } catch {
+                    NSLog("KidLisp chooser decode failed: \(error)")
+                }
+                completion()
+            }
+        }
+        task.resume()
     }
 }

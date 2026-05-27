@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "MenuBand",
             path: "Sources/MenuBand",
+            exclude: [
+                // Docs that live alongside source modules for discoverability —
+                // SwiftPM nags about "unhandled files" without an explicit exclude.
+                "KidLisp/README.md",
+            ],
             resources: [
                 .process("Resources"),
                 // SwiftPM doesn't auto-compile .metal files in
