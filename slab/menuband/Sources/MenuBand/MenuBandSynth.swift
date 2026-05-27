@@ -343,7 +343,17 @@ final class MenuBandSynth {
         if engineWasRunning { engine.pause() }
         preloadAllMelodicPrograms(au)
         preloadDrumKit(au)
-        if engineWasRunning {
+        // Always restart the engine after preload — selectMelodicProgram
+        // below (and every subsequent noteOn) needs the render thread
+        // alive to actually process the queued bank+PC MIDI events.
+        // The old `if engineWasRunning` guard stranded us in a paused
+        // state when configureMIDISynth happened during a graph-reconfig
+        // window (engine.attach/engine.connect can transiently pause the
+        // engine), with the symptom that the user's picked instrument
+        // never lands on the AU — first noteOn after launch plays
+        // MIDISynth's empty-state fallback (a sine tone) regardless of
+        // which program the UI shows as selected.
+        if !engine.isRunning {
             do { try engine.start() } catch {
                 NSLog("MenuBand: engine restart after MIDISynth preload failed: \(error)")
             }
