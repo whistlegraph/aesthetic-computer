@@ -1,0 +1,89 @@
+# wibblybop — the joy of a giant gelatin shaking on a table.
+#
+# Style: sproingy wobble-jelly groove. The vibraphone motor is the
+# fundamental voice here — that built-in tremolo IS the wobble. Kalimba
+# answers with jiggly off-beats. Bass marimba pulses low F and C on 1
+# and 3 like a finger gently tapping the platter rim. Rosewood holds a
+# warm chord underneath on phrase tails, the gelatin's body.
+#
+# This is marimbaba's wobbly cousin: F major, 4/4 at 116 BPM, 24 bars
+# (~50 s). Comically wobbly, never goofy-coded — the joke is the
+# physics, not a punchline.
+#
+# Key: F major. 4/4, ~116 BPM (1 beat ≈ 0.517 s, 1 bar ≈ 2.069 s).
+# Form: 24 bars / ~50 s. The score lives at wibblybop.np; the actual
+# event scheduling + mix lives in bin/render-wibblybop.mjs.
+#
+# Voices:
+#   vibraphone     — the wobbler; motor ON, tremolo rides every note
+#   kalimba        — jiggly off-beat responses
+#   bass           — bass marimba pulse on 1 & 3 (F / C)
+#   rosewood       — held chord pad underneath on phrase tails
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [wibble] — opening wobble, bars 1–4
+#   bar 1:  wib-bly   WOB-bly                     (F5 A5 ─ C6 A5)
+#   bar 2:  wib-bly   WOB-bly                     (F5 A5 ─ C6 A5)
+#   bar 3:  wib-bly   WOB-bly                     (G5 Bb5 ─ D6 Bb5)
+#   bar 4:  wob   ─   ble                         (C6 ─ A5 ─ F5)
+#
+# [jiggle] — accented 8ths, bars 5–12
+#   bar 5:  jig-gly   JIG-gly                     (F5 Bb5 F5 Bb5)
+#   bar 6:  jig-gly   JIG-gly                     (F5 Bb5 F5 Bb5)
+#   bar 7:  shake-SHAKE-shake                     (A5 C6 A5 ─)
+#   bar 8:  shake-SHAKE-shake                     (G5 Bb5 G5 ─)
+#   bar 9:  jig-gly   JIG-gly                     (F5 Bb5 F5 Bb5)
+#   bar 10: jig-gly   JIG-gly                     (A5 D6 A5 D6)
+#   bar 11: shake-shake-SHAKE                     (C6 Bb5 A5 G5)
+#   bar 12: jig   it                              (F5 A5 ─ C6)
+#
+# [wobwobwob] — held tremolo, bars 13–20 (Bb chord)
+#   bar 13: wob       WOB                         (Bb5 ─ D6 ─)
+#   bar 14: wob   WOB-WOB                         (D6 ─ C6 Bb5)
+#   bar 15: wob       WOB                         (Bb5 ─ D6 ─)
+#   bar 16: WOB-WOB-WOB                           (F6 D6 Bb5 ─)
+#   bar 17: wob       WOB                         (C6 ─ E6 ─)
+#   bar 18: wob   WOB-WOB                         (E6 ─ D6 C6)
+#   bar 19: WOB       wob                         (Bb5 ─ A5 ─)
+#   bar 20: wob   ─   ble                         (G5 ─ A5 ─)
+#
+# [shake] — descending fall, bars 21–24
+#   bar 21: shake-the-DISH                        (F6 E6 D6 C6)
+#   bar 22: shake                                 (Bb5 A5 G5 F5)
+#   bar 23: shake                                 (A5 ─ F5 ─)
+#   bar 24: (wobble home)                         (F4 held, low wobble)
+#
+# Below: section markers for the renderer (sections by name).
+
+# wibble 4 [vibraphone, bass]
+F5:_*1 A5:_*1 C6:_*1 A5:_*1
+F5:_*1 A5:_*1 C6:_*1 A5:_*1
+G5:_*1 Bb5:_*1 D6:_*1 Bb5:_*1
+C6:_*1.5 A5:_*1 F5:_*1.5
+
+# jiggle 8 [vibraphone, kalimba, bass]
+F5:_*1 Bb5:_*1 F5:_*1 Bb5:_*1
+F5:_*1 Bb5:_*1 F5:_*1 Bb5:_*1
+A5:_*1 C6:_*1 A5:_*2
+G5:_*1 Bb5:_*1 G5:_*2
+F5:_*1 Bb5:_*1 F5:_*1 Bb5:_*1
+A5:_*1 D6:_*1 A5:_*1 D6:_*1
+C6:_*1 Bb5:_*1 A5:_*1 G5:_*1
+F5:_*1 A5:_*1 C6:_*2
+
+# wobwobwob 8 [vibraphone, kalimba, rosewood]
+Bb5:_*2 D6:_*2
+D6:_*2 C6:_*1 Bb5:_*1
+Bb5:_*2 D6:_*2
+F6:_*1 D6:_*1 Bb5:_*2
+C6:_*2 E6:_*2
+E6:_*2 D6:_*1 C6:_*1
+Bb5:_*2 A5:_*2
+G5:_*2 A5:_*2
+
+# shake 4 [vibraphone, kalimba, bass, rosewood]
+F6:_*1 E6:_*1 D6:_*1 C6:_*1
+Bb5:_*1 A5:_*1 G5:_*1 F5:_*1
+A5:_*2 F5:_*2
+F4:_*4

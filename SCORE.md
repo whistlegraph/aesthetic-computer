@@ -261,6 +261,14 @@ The development environment uses Emacs with named terminal buffers. Use Emacs MC
 #### Authentication & Tokens
 - `ac-login` — Login to AC
 - `ac-token` — Manage auth tokens
+- `slab/bin/ac-passphrase <label> [timeout]` — request a passphrase from the Slab menubar daemon (socket at `~/.ac-daemon.sock`). Returns the secret on stdout, caches by label (default 600s TTL). Requires the Slab menubar app to be running. Use this when GPG / SSH / any signing operation fails with `No pinentry` in a non-interactive shell. Recipe to warm gpg-agent and then commit:
+  ```zsh
+  pp=$(slab/bin/ac-passphrase "git commit signing")
+  [ -z "$pp" ] && exit 1
+  echo test | gpg --pinentry-mode loopback --passphrase "$pp" --batch -s -o /dev/null 2>&1
+  unset pp
+  git commit -m "..."   # signs cleanly via cached agent
+  ```
 
 #### Host Access (Docker)
 When running inside a Docker container on Jeffrey's MacBook (or any local Docker host), SSH to the host machine via:

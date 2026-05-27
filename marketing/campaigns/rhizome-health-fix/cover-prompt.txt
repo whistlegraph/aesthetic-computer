@@ -1,0 +1,29 @@
+the attached reference image is a finished colored-pencil and gouache
+illustration. reproduce it EXACTLY as it is — identical composition,
+identical framing, the same two figures in the same poses, the same
+faces, the same clothes, the same colors, the same colored-pencil
+style, the same modern SoHo clinic, the same projected Rhizome Health
+logo on the wall, the same short-throw projector, everything in the
+same place. do NOT move, restyle, recolor, recompose, or redraw
+anything.
+
+make ONLY these two small text corrections, and nothing else:
+
+1. THE WRIST BAND. the seated patient wears a small laminated
+   wristband on his wrist. its text is currently misspelled — it has
+   extra repeated letters. correct it so the band reads EXACTLY:
+   @jeffrey
+   — an at-sign followed by the seven letters j, e, f, f, r, e, y.
+   exactly one "j", two "f"s, one "r". no doubled "r", no extra
+   letters, no trailing marks. keep it the same small green
+   hand-lettering on the same little white band, just spelled right
+   and cleanly legible.
+
+2. THE PROJECTED YEAR. the projected logo on the wall has a small
+   tagline that currently ends "...since 2028". change that year to
+   2027, so the tagline reads "574 handled users covered since 2027".
+   keep the same projected-light look, same size, same place.
+
+every other pixel stays the same — same drawing, same everything,
+only those two text fixes. do not add or remove any object. do not
+change the people. do not crop or re-frame.

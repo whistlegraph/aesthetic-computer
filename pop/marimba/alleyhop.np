@@ -1,0 +1,87 @@
+# alleyhop — a playground basketball hop for synthesized marimba.
+#
+# Style: a daytime court chant. Bouncing-ball pulse on the bass marimba,
+# a sharp xylophone calling the play, woodblock clack on every offbeat
+# like rubber on the wood floor, kalimba sparkle on every clean score.
+#
+# This is the marimba lane's outdoor athletic sibling — bright A major,
+# brisk 4/4 at 128 BPM, all motion. A 45-second pop romp where the
+# ball never stops bouncing.
+#
+# Key: A major. 4/4, ~128 BPM (1 beat ≈ 0.469 s, 1 bar ≈ 1.875 s).
+# Form: 24 bars / ~45 s. The score lives at alleyhop.np; the actual
+# event scheduling + mix lives in bin/render-alleyhop.mjs.
+#
+# Voices:
+#   xylophone   — the play-calling lead; bright A-major chatter
+#   bass        — the BALL; low A2 on beat 1, A3 on beat 3, every bar
+#   woodblock   — the rubber-on-wood clack; offbeats 2 & 4
+#   kalimba     — the score sparkle; only on score moments
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [dribble] — opening climbing leaps, bars 1–4
+#   bar 1:  al-LEY    OOP                          (A5 ─ C#6 ─)
+#   bar 2:  al-LEY    OOP                          (C#6 ─ E6 ─)
+#   bar 3:  al-LEY    OOP                          (A5 ─ C#6 ─)
+#   bar 4:  GO        GO                           (E6 ─ C#6 ─)
+#
+# [pass] — quick syncopated runs, bars 5–12
+#   bar 5:  one-TWO   THREE                        (A5 B5 C#6 ─)
+#   bar 6:  pass-IT   BACK                         (B5 C#6 E6 ─)
+#   bar 7:  one-TWO   THREE                        (A5 B5 C#6 ─)
+#   bar 8:  off-the   WALL                         (E6 C#6 B5 A5)
+#   bar 9:  cut-and   GO                           (A5 C#6 E6 ─)
+#   bar 10: through  the   LANE                    (F#5 G#5 A5 B5)
+#   bar 11: drop  the  DIME                        (E6 D6 C#6 ─)
+#   bar 12: HE'S      open                         (C#6 ─ B5 A5)
+#
+# [score] — celebration, bars 13–20
+#   bar 13: SCORE                                  (E6 held)
+#   bar 14: yes-yes  YES                           (C#6 B5 A5 ─)
+#   bar 15: SCORE                                  (E6 held)
+#   bar 16: yes-yes  YES                           (E6 C#6 A5 ─)
+#   bar 17: TWO      mo' POINTS                    (E6 ─ C#6 E6)
+#   bar 18: net-and  CHAIN                         (F#6 E6 C#6 ─)
+#   bar 19: ev-ry    BO-dy                         (B5 C#6 E6 D6)
+#   bar 20: GETS     SOME                          (C#6 ─ A5 ─)
+#
+# [replay] — looping back to dribble, fade to A chord, bars 21–24
+#   bar 21: do-it    a-GAIN                        (A5 B5 C#6 ─)
+#   bar 22: one-TWO                                (C#6 E6 ─ ─)
+#   bar 23: al-LEY   OOP                           (A5 C#6 E6 ─)
+#   bar 24: (A)                                    (A4 held, low landing chord)
+#
+# Below: section markers for the renderer (sections by name).
+
+# dribble 4 [xylophone, bass, woodblock]
+A5:_*2 C#6:_*2
+C#6:_*2 E6:_*2
+A5:_*2 C#6:_*2
+E6:_*2 C#6:_*2
+
+# pass 8 [xylophone, bass, woodblock]
+A5:_*1 B5:_*1 C#6:_*2
+B5:_*1 C#6:_*1 E6:_*2
+A5:_*1 B5:_*1 C#6:_*2
+E6:_*1 C#6:_*1 B5:_*1 A5:_*1
+A5:_*1 C#6:_*1 E6:_*2
+F#5:_*1 G#5:_*1 A5:_*1 B5:_*1
+E6:_*1 D6:_*1 C#6:_*2
+C#6:_*2 B5:_*1 A5:_*1
+
+# score 8 [xylophone, bass, woodblock, kalimba]
+E6:_*4
+C#6:_*1 B5:_*1 A5:_*2
+E6:_*4
+E6:_*1 C#6:_*1 A5:_*2
+E6:_*2 C#6:_*1 E6:_*1
+F#6:_*1 E6:_*1 C#6:_*2
+B5:_*1 C#6:_*1 E6:_*1 D6:_*1
+C#6:_*2 A5:_*2
+
+# replay 4 [xylophone, bass, woodblock, kalimba]
+A5:_*1 B5:_*1 C#6:_*2
+C#6:_*1 E6:_*1 _*2
+A5:_*1 C#6:_*1 E6:_*2
+A4:_*4

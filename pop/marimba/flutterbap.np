@@ -1,0 +1,114 @@
+# flutterbap — a daytime hop for synthesized marimba.
+#
+# Style: cute weird syllabic phrasing of the whistlegraph platter,
+# picking up the FOUR chants marimbaba named but never sang —
+# butterfly-cosplayer, mommy-wow, slinky-dog, lately-when-i-fly.
+# Each phrase below has an unspoken lyric — a singable chant that the
+# xylophone is playing as if skipping-through-the-park. The voices are
+# layered, not arranged as a single line.
+#
+# This is marimbaba's daytime sibling. Same lane, same whistlegraph
+# DNA, opposite vibe: bright C major, brisk 4/4 at 124 BPM, no haze.
+# A 62-second pop romp instead of a nap.
+#
+# Key: C major. 4/4, ~124 BPM (1 beat ≈ 0.484 s, 1 bar ≈ 1.94 s).
+# Form: 32 bars / ~62 s. The score lives at flutterbap.np; the actual
+# event scheduling + mix lives in bin/render-flutterbap.mjs.
+#
+# Voices:
+#   xylophone      — the singer; bright daytime syllabic lead
+#   bass           — the bouncing ball (low C / G alternating, on 1 & 3)
+#   kalimba        — twinkles on phrase tails (cute, off-beat)
+#   glockenspiel   — high steel sparkle on the climaxes (mommy-wow, fly)
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [butterfly-cosplayer] — opening flutter, bars 1–4
+#   bar 1:  but-ter   FLY                          (E5 G5 ─ C6)
+#   bar 2:  cos       PLAY     er                  (C6 ─ E6 ─ C6)
+#   bar 3:  but-ter   FLY                          (D5 G5 ─ B5)
+#   bar 4:  FLY            by                      (C6 ─ G5)
+#
+# [pal-of-mine, by-the-blue] — bars 5–8 — friend-flying
+#   bar 5:  but-ter   FLY                          (E5 G5 ─ C6)
+#   bar 6:  pal-of    MINE                         (A5 G5 ─ F5)
+#   bar 7:  fly  with    ME                        (E5 F5 G5 A5)
+#   bar 8:  by-the    BLUE                         (C6 held)
+#
+# [mommy-wow] — held wonder, bars 9–12 (glockenspiel takes over)
+#   bar 9:  MOM            my                      (G5 held)
+#   bar 10: wow                                    (C6 E6 ─ G6)
+#   bar 11: MOM            my                      (G5 held)
+#   bar 12: WOW WOW WOW                            (G6 E6 C6 G6)
+#
+# [slinky-dog] — wobbly springing, bars 13–20
+#   bar 13: slin-ky   DOG                          (C5 E5 ─ G5)
+#   bar 14: BOI oi oing                            (G5 F5 E5 D5)
+#   bar 15: slin-ky   DOG                          (C5 E5 ─ G5)
+#   bar 16: climbs the STAIRS                      (C5 D5 E5 F5 G5 A5 B5 C6)
+#   bar 17: DOWN the stairs                        (C6 B5 A5 G5 F5 E5 D5 C5)
+#   bar 18: climbs a-GAIN                          (C5 E5 G5 C6)
+#   bar 19: DOWN down down                         (C6 A5 F5 D5)
+#   bar 20: BOI oi OING                            (E5 G5 ─ C5)
+#
+# [lately-when-i-fly] — soaring, bars 21–28
+#   bar 21: late-ly   when                         (C5 D5 E5 G5)
+#   bar 22: I            FLY                       (C6 held)
+#   bar 23: late-ly   when                         (E5 F5 G5 A5)
+#   bar 24: I            FLY                       (D6 held)
+#   bar 25: fly fly   FLY                          (E6 D6 C6 G5)
+#   bar 26: FLY a     WAY                          (A5 C6 G6 held)
+#   bar 27: cir-cle   BACK                         (G6 E6 C6 A5)
+#   bar 28: TO me     HERE                         (G5 E5 ─ C5)
+#
+# [landing] — final settling descent, bars 29–32
+#   bar 29: LAND                                   (C6 G5 E5 C5)
+#   bar 30: and       LAND                         (D5 ─ C5)
+#   bar 31: land-ing  HERE                         (E5 D5 ─ C5)
+#   bar 32: (here)                                 (C4 held, low landing)
+#
+# Below: section markers for the renderer (sections by name).
+
+# butterfly 4 [xylophone, bass]
+E5:_*1 G5:_*1 C6:_*2
+C6:_*1 E6:_*1 C6:_*2
+D5:_*1 G5:_*1 B5:_*2
+C6:_*2 G5:_*2
+
+# palofmine 4 [xylophone, bass, kalimba]
+E5:_*1 G5:_*1 C6:_*2
+A5:_*1 G5:_*1 F5:_*2
+E5:_*1 F5:_*1 G5:_*1 A5:_*1
+C6:_*4
+
+# mommywow 4 [xylophone, glockenspiel]
+G5:_*4
+C6:_*1 E6:_*1 G6:_*2
+G5:_*4
+G6:_*1 E6:_*1 C6:_*1 G6:_*1
+
+# slinky 8 [xylophone, bass, kalimba]
+C5:_*1 E5:_*1 G5:_*2
+G5:_*1 F5:_*1 E5:_*1 D5:_*1
+C5:_*1 E5:_*1 G5:_*2
+C5:_*0.5 D5:_*0.5 E5:_*0.5 F5:_*0.5 G5:_*0.5 A5:_*0.5 B5:_*0.5 C6:_*0.5
+C6:_*0.5 B5:_*0.5 A5:_*0.5 G5:_*0.5 F5:_*0.5 E5:_*0.5 D5:_*0.5 C5:_*0.5
+C5:_*1 E5:_*1 G5:_*1 C6:_*1
+C6:_*1 A5:_*1 F5:_*1 D5:_*1
+E5:_*1 G5:_*1 C5:_*2
+
+# fly 8 [xylophone, kalimba, glockenspiel]
+C5:_*1 D5:_*1 E5:_*1 G5:_*1
+C6:_*4
+E5:_*1 F5:_*1 G5:_*1 A5:_*1
+D6:_*4
+E6:_*1 D6:_*1 C6:_*1 G5:_*1
+A5:_*1 C6:_*1 G6:_*2
+G6:_*1 E6:_*1 C6:_*1 A5:_*1
+G5:_*1 E5:_*1 C5:_*2
+
+# land 4 [xylophone, bass, kalimba, glockenspiel]
+C6:_*1 G5:_*1 E5:_*1 C5:_*1
+D5:_*1 C5:_*3
+E5:_*1 D5:_*1 C5:_*2
+C4:_*4

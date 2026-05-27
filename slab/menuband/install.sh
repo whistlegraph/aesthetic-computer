@@ -102,16 +102,40 @@ EOF
     ok "self-signed identity created"
 }
 
-say "building MenuBand (swift build -c release)"
 cd "${SCRIPT_DIR}"
-swift build -c release >/dev/null
+# Build a universal binary so Intel Macs can launch the .app.
+# Without this, an arm64-only build fails on Intel hardware with the
+# cryptic "application can't be opened. -609" dialog (LaunchServices
+# can't establish a connection to a binary it can't even load).
+#
+# We can't use `swift build --arch arm64 --arch x86_64` here because
+# the multi-arch path requires a full Xcode toolchain (xcbuild + the
+# Metal toolchain). On a CLT-only machine SwiftPM happily cross-
+# compiles each slice via --triple, so we build each separately and
+# lipo them together — works equally well with full Xcode or CLT.
+ARM_TRIPLE="arm64-apple-macosx11.0"
+X86_TRIPLE="x86_64-apple-macosx11.0"
 
-BUILT="$(swift build -c release --show-bin-path)/MenuBand"
-if [[ ! -x "${BUILT}" ]]; then
-    echo "build succeeded but binary not found at ${BUILT}"
+say "building MenuBand arm64 slice"
+swift build -c release --triple "${ARM_TRIPLE}" >/dev/null
+ARM_BIN="$(swift build -c release --triple "${ARM_TRIPLE}" --show-bin-path)/MenuBand"
+[[ -x "${ARM_BIN}" ]] || { echo "arm64 build missing at ${ARM_BIN}"; exit 1; }
+
+say "building MenuBand x86_64 slice (Intel Macs)"
+swift build -c release --triple "${X86_TRIPLE}" >/dev/null
+X86_BIN="$(swift build -c release --triple "${X86_TRIPLE}" --show-bin-path)/MenuBand"
+[[ -x "${X86_BIN}" ]] || { echo "x86_64 build missing at ${X86_BIN}"; exit 1; }
+
+say "lipo'ing slices into universal binary"
+BUILT="${SCRIPT_DIR}/.build/universal/MenuBand"
+mkdir -p "$(dirname "${BUILT}")"
+lipo -create -output "${BUILT}" "${ARM_BIN}" "${X86_BIN}"
+ARCHS="$(lipo -archs "${BUILT}" 2>/dev/null || echo "")"
+if [[ "${ARCHS}" != *"arm64"* ]] || [[ "${ARCHS}" != *"x86_64"* ]]; then
+    warn "binary is not universal (got: ${ARCHS}) — Intel Macs will fail with -609"
     exit 1
 fi
-ok "built: ${BUILT}"
+ok "built universal (${ARCHS}): ${BUILT}"
 
 say "unloading any existing MenuBand launch agent"
 if launchctl list | grep -q computer.aestheticcomputer.menuband; then
@@ -142,11 +166,14 @@ fi
 # the binary; without this the verovio toolkit / sheet harness
 # never load (Bundle.module returns nil) and SheetMusicView
 # silently shows an empty WKWebView.
-PKG_BUNDLE_DIR="$(dirname "${BUILT}")"
+# Resources are arch-independent — pull from the arm64 build dir
+# (BUILT is the lipo'd universal binary which has no sibling
+# resource bundle of its own).
 PKG_BUNDLE_NAME="MenuBand_MenuBand.bundle"
-if [[ -d "${PKG_BUNDLE_DIR}/${PKG_BUNDLE_NAME}" ]]; then
+PKG_BUNDLE_SRC="$(dirname "${ARM_BIN}")/${PKG_BUNDLE_NAME}"
+if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
     rm -rf "${APP_RES}/${PKG_BUNDLE_NAME}"
-    cp -R "${PKG_BUNDLE_DIR}/${PKG_BUNDLE_NAME}" "${APP_RES}/${PKG_BUNDLE_NAME}"
+    cp -R "${PKG_BUNDLE_SRC}" "${APP_RES}/${PKG_BUNDLE_NAME}"
 fi
 
 # Sign with the best available identity.

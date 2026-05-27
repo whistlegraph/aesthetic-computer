@@ -46,6 +46,15 @@ enum MenuBuilder {
         menu.addItem(buildTailnet(state: state, target: target))
         menu.addItem(buildMail(status: mailStatus, target: target))
         menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
+
+        // Request for Audio — sing a /pop melody, one note at a time. The
+        // wizard plays the pitch + shows the word per note, records, then
+        // recompiles the track and plays it back.
+        let rfa = item("🎙 Request for Audio — sing “hum”",
+                       selector: #selector(AppDelegate.requestForAudio(_:)), target: target)
+        rfa.representedObject = "hum"
+        rfa.toolTip = "Open the RFA wizard in iTerm2 — sing the 'hum' melody note by note, then hear it recompiled."
+        menu.addItem(rfa)
         menu.addItem(.separator())
 
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)
@@ -101,7 +110,7 @@ enum MenuBuilder {
         menu.addItem(.separator())
     }
 
-    /// `illy   ▓▓▓▓▓▓░░░░░░  58%  helpabeach-p · 11 panels`
+    /// `illy   ▓▓▓▓▓▓░░░░░░  58%  142/240  helpabeach-p`
     private static func renderLine(_ r: PopRender) -> String {
         let width = 12
         let bar: String
@@ -117,7 +126,23 @@ enum MenuBuilder {
             pctText = " ⋯  "
         }
         let type = r.type.padding(toLength: 6, withPad: " ", startingAt: 0)
-        return "\(type)\(bar)  \(pctText)  \(r.label)"
+        // Pad the count cell to the width of the larger total so adjacent
+        // rows align (frame counts stay in a fixed column instead of
+        // jitter-marching as digits roll over). Empty cell when the writer
+        // didn't supply done/total — keeps spacing consistent.
+        let countText: String
+        if let d = r.done, let t = r.total, t > 0 {
+            let ts = String(t)
+            let ds = String(d)
+            let padded = ds.count >= ts.count
+                ? ds
+                : String(repeating: " ", count: ts.count - ds.count) + ds
+            countText = "\(padded)/\(ts)"
+        } else {
+            countText = ""
+        }
+        let countCell = countText.padding(toLength: 11, withPad: " ", startingAt: 0)
+        return "\(type)\(bar)  \(pctText)  \(countCell)\(r.label)"
     }
 
     private static func buildTailnet(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
@@ -225,7 +250,10 @@ enum MenuBuilder {
         let tile = item("Auto tile windows", selector: #selector(AppDelegate.toggleAutoTile), target: target)
         tile.state = state.autoTile ? .on : .off
         sub.addItem(tile)
-        sub.addItem(item("Tile now", selector: #selector(AppDelegate.tileNow), target: target))
+        let tileNow = item("Tile now", selector: #selector(AppDelegate.tileNow), target: target)
+        tileNow.keyEquivalent = "t"
+        tileNow.keyEquivalentModifierMask = [.command, .option]
+        sub.addItem(tileNow)
 
         // Text size — radio pair so the active mode is visible at a glance.
         // Near = denser (close to screen), Far = auto-fit "suitable" size.

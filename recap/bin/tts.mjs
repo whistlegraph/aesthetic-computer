@@ -15,6 +15,13 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 
+// Optional progress heartbeats → Slab menubar (skipped if pop/lib unreachable,
+// e.g. on the oven where only recap/ is checked out).
+let progress = { begin: () => null, update: () => {}, end: () => {} };
+try {
+  progress = await import("../../pop/lib/render-progress.mjs");
+} catch { /* heartbeats are optional */ }
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const argv = process.argv.slice(2);
@@ -50,19 +57,24 @@ if (!force && existsSync(out) && existsSync(hashFile)) {
 }
 
 console.log(`→ POST /api/say · ${audience.narration.length} chars · ${audience.voice.provider}`);
-const res = await fetch("https://aesthetic.computer/api/say", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body),
-  redirect: "follow",
-});
+progress.begin?.({ type: "audio", label: `recap tts · ${audienceName}` });
+try {
+  const res = await fetch("https://aesthetic.computer/api/say", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    redirect: "follow",
+  });
 
-if (!res.ok) {
-  console.error(`✗ /api/say returned ${res.status}: ${await res.text()}`);
-  process.exit(1);
+  if (!res.ok) {
+    console.error(`✗ /api/say returned ${res.status}: ${await res.text()}`);
+    process.exit(1);
+  }
+
+  const buf = Buffer.from(await res.arrayBuffer());
+  writeFileSync(out, buf);
+  writeFileSync(hashFile, inputHash + "\n");
+  console.log(`✓ ${out} (${(buf.length / 1024).toFixed(0)} KB · hash ${inputHash})`);
+} finally {
+  progress.end?.();
 }
-
-const buf = Buffer.from(await res.arrayBuffer());
-writeFileSync(out, buf);
-writeFileSync(hashFile, inputHash + "\n");
-console.log(`✓ ${out} (${(buf.length / 1024).toFixed(0)} KB · hash ${inputHash})`);

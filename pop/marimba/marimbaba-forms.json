@@ -1,0 +1,46 @@
+{
+  "_comment": "Figure + face bounding boxes per story section, in panel-image coords (1024x1536, the portrait typewriter set). Hand-placed against the fight-and-departure arc. preview-score.mjs uses `face` boxes for the in/out face zoom AND for the warm desk-lamp rim halo (cast ON each head). Re-eyeball boxes if a panel is regenerated.",
+  "imgW": 1024,
+  "imgH": 1536,
+  "sections": {
+    "hush1": {
+      "jeffrey": { "figure": [50, 220, 260, 600], "face": [60, 200, 250, 280] }
+    },
+    "hush2": {
+      "jeffrey": { "figure": [70, 130, 280, 900], "face": [80, 130, 300, 320] },
+      "gates":   { "figure": [490, 220, 350, 540],"face": [510, 200, 300, 320] }
+    },
+    "twinkle1": {
+      "jeffrey": { "figure": [180, 130, 340, 720],"face": [200, 120, 320, 360] },
+      "gates":   { "figure": [470, 150, 360, 700],"face": [490, 140, 320, 360] }
+    },
+    "twinkle2": {
+      "jeffrey": { "figure": [140, 40, 340, 360], "face": [150, 30, 320, 340] },
+      "gates":   { "figure": [460, 60, 360, 360], "face": [480, 50, 320, 340] }
+    },
+    "wow1": {
+      "jeffrey": { "figure": [100, 210, 360, 800],"face": [120, 200, 320, 360] },
+      "gates":   { "figure": [500, 210, 360, 700],"face": [520, 200, 320, 360] }
+    },
+    "wow2": {
+      "jeffrey": { "figure": [180, 230, 340, 700],"face": [200, 220, 320, 360] },
+      "gates":   { "figure": [470, 230, 360, 700],"face": [490, 220, 320, 360] }
+    },
+    "baba1": {
+      "jeffrey": { "figure": [160, 230, 340, 700],"face": [180, 220, 320, 360] },
+      "gates":   { "figure": [470, 200, 360, 700],"face": [490, 190, 320, 360] }
+    },
+    "baba2": {
+      "jeffrey": { "figure": [180, 150, 340, 900],"face": [200, 140, 320, 360] },
+      "gates":   { "figure": [470, 170, 360, 880],"face": [490, 160, 320, 360] }
+    },
+    "sleep1": {
+      "jeffrey": { "figure": [200, 230, 340, 700],"face": [220, 220, 320, 360] },
+      "gates":   { "figure": [500, 250, 360, 700],"face": [520, 240, 320, 360] }
+    },
+    "sleep2": {
+      "gates":   { "figure": [100, 230, 320, 800],"face": [120, 220, 320, 360] },
+      "jeffrey": { "figure": [510, 150, 280, 800],"face": [520, 140, 280, 320] }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "title": "hellsine drums",
+  "outDir": "/Users/jas/aesthetic-computer/pop/hellsine/samples",
+  "trim": {
+    "thresholdPctOfPeak": 0.08,
+    "padHeadMs": 8,
+    "padTailMs": 80,
+    "fadeMs": 3,
+    "normalizeDb": -1.0
+  },
+  "autoStop": {
+    "onsetDb": -22,
+    "silenceDb": -38,
+    "silenceDurationMs": 1200,
+    "maxRecordSec": 12
+  },
+  "samples": [
+    { "name": "drum-1-scratch-a", "desc": "drum one, scratch A" },
+    { "name": "drum-1-scratch-b", "desc": "drum one, scratch B" },
+    { "name": "drum-2",           "desc": "drum two, main hit" },
+    { "name": "drum-2-scratch-a", "desc": "drum two, scratch A" },
+    { "name": "drum-2-scratch-b", "desc": "drum two, scratch B" },
+    { "name": "drum-2-low",       "desc": "drum two, low percussion" }
+  ]
+}

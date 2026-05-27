@@ -32,6 +32,17 @@ const REPO = resolve(ROOT, "..");
 const audienceName = process.argv[2];
 if (!audienceName) { console.error("usage: sing.mjs <audience-name>"); process.exit(2); }
 
+// Opt-out: audiences can disable the sing pass by exporting `sing: false`.
+// When opted out, exit 0 immediately — leaves words.json untouched (the
+// downstream align --force then becomes a no-op cache hit) and the compose
+// step falls back to the plain spoken recap.mp3.
+const __audienceMod = await import(`${ROOT}/audience/${audienceName}.mjs`);
+const __audience = __audienceMod.audience || __audienceMod.default;
+if (__audience && __audience.sing === false) {
+  console.log(`  ↳ sing disabled by audience '${audienceName}' (audience.sing === false)`);
+  process.exit(0);
+}
+
 const wordsPath = `${ROOT}/out/words.json`;
 // Prefer the stable whisper snapshot (transcribe.mjs writes this on
 // each fresh run). Falls back to words.json — but words.json gets

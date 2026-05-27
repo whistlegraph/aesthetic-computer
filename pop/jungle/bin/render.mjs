@@ -867,11 +867,10 @@ function render(slug) {
         }
       }
     }
-    // car "vroom vroom" — she arrives (intro) + revs into the drops.
+    // car "vroom vroom" — revs into the drops (intro arrival removed —
+    // the opening vroom read as weird; track now opens on the bed itself).
     if (HC) {
-      const isIntro = s === score.sections[0];
       const nextS = score.sections[score.sections.indexOf(s) + 1];
-      if (isIntro) vroom(s.startSec + 0.10, 0.42, 2);                    // arrival
       if (s.name === "drop 1" || s.name === "drop 2") {
         vroom(s.startSec + 0.02, 0.40, 2);                               // rev on the drop
         if (len > 16) vroom(s.startSec + len * 0.5, 0.30, 1);
@@ -1068,13 +1067,14 @@ function render(slug) {
       const CHAIN =
         "highpass=f=110," +                              // kill plosive thump/pops
         "adeclick,adeclip," +                            // detect+remove spikes/clicks
-        `afftdn=nr=${HC ? 22 : 17},` +                   // HC: more air/hiss out
+        `afftdn=nr=${HC ? 24 : 18},` +                   // HC: more air/hiss out
         "agate=threshold=0.012:ratio=3:attack=6:release=220:knee=3," + // breath between phrases
         "acompressor=threshold=-24dB:ratio=5:attack=4:release=140:makeup=8," +
         "acompressor=threshold=-14dB:ratio=4:attack=2:release=80:makeup=2," +
-        `deesser=i=${HC ? 0.55 : 0.4},` +                // tame sibilance / hiss-air
-        "equalizer=f=2700:t=q:w=1.5:g=2.6," +            // presence = clarity (not air)
-        `treble=g=${HC ? -5.5 : -3.5}:f=8500,` +         // HC: shelve the airy fizz harder
+        `deesser=i=${HC ? 0.6 : 0.45},` +                // tame sibilance / hiss-air
+        "equalizer=f=220:t=q:w=1.0:g=1.5," +             // chest body — anchor her in the mids
+        "equalizer=f=2400:t=q:w=1.5:g=1.8," +            // presence (was 2700+2.6) — less airy
+        `treble=g=${HC ? -7 : -5}:f=8000,` +             // HC: kill the breathy fizz harder
         "alimiter=limit=0.96";
       let ffArgs;
       if (verses.length > 1) {
@@ -1111,9 +1111,9 @@ function render(slug) {
       const shiftLead = def.vocalShift ?? 12;       // it sang too low → octave up
       const LAYERS = [
         { name: "lead",    shift: shiftLead,      gain: 0.95, dest: "vocal"  },
-        { name: "harm-5",  shift: shiftLead + 7,  gain: 0.30, dest: "vocalH" },
-        { name: "harm-lo", shift: shiftLead - 5,  gain: 0.34, dest: "vocalH" },
-        { name: "harm-hi", shift: shiftLead + 12, gain: 0.20, dest: "vocalH" }, // lush octave
+        { name: "harm-5",  shift: shiftLead + 7,  gain: 0.26, dest: "vocalH" },
+        { name: "harm-lo", shift: shiftLead - 5,  gain: 0.30, dest: "vocalH" },
+        { name: "harm-hi", shift: shiftLead + 12, gain: 0.08, dest: "vocalH" }, // octave — pulled WAY back, this was the "airy" layer
       ];
       const startIdx = Math.floor((def.vocalBar || 0) * barSec * SAMPLE_RATE);
       let placed = 0;
@@ -1139,8 +1139,9 @@ function render(slug) {
           "-hide_banner", "-loglevel", "error", "-y", "-i", src,
           "-af", "acompressor=threshold=-30dB:ratio=6:attack=3:release=130:makeup=12," +
                  "dynaudnorm=f=180:g=9:p=0.92:m=18," +
-                 "equalizer=f=2600:t=q:w=1.6:g=2.2," +          // clarity bell (no exciter air)
-                 "treble=g=-2.5:f=9500," +                      // keep the top smooth
+                 "equalizer=f=220:t=q:w=1.0:g=1.2," +           // chest body — sit her in the bed
+                 "equalizer=f=2400:t=q:w=1.6:g=1.2," +          // clarity bell (no exciter air)
+                 "treble=g=-4.5:f=9500," +                      // keep the top smooth + less fizz
                  "asoftclip=type=tanh:threshold=0.72," +        // gentle round-off (smoother)
                  "alimiter=limit=0.97",
           "-ar", String(SAMPLE_RATE), "-ac", "1", srcMU,
@@ -1324,7 +1325,7 @@ function render(slug) {
       for (let i = 0; i < LEN; i++) {
         const a = Math.abs(stem.vocal[i]) / vmax;
         env = a > env ? aA * env + (1 - aA) * a : aR * env + (1 - aR) * a;
-        duck[i] = 1 - 0.20 * Math.min(1, env * 1.4);     // ~2 dB — deeper in the mix, less spotlit
+        duck[i] = 1 - 0.30 * Math.min(1, env * 1.4);     // ~3 dB — carve a real pocket so she sits INSIDE the bed
       }
       for (const k of ["break", "stab", "skank", "sineloop", "marimba",
                         "ding", "bell", "siren", "shrill", "throat", "pad"]) {
@@ -1341,7 +1342,7 @@ function render(slug) {
   const BUS = {
     break: { g: 0.86, pan: 0.0,   haas: 0  },
     stab:  { g: 0.58, pan: 0.0,   haas: 0  },
-    sub:   { g: HC ? 1.40 : 1.28, pan: 0.0, haas: 0 }, // HC: more womp weight
+    sub:   { g: HC ? 1.15 : 1.10, pan: 0.0, haas: 0 }, // pulled back — was too heavy
     pad:   { g: 0.46, pan: 0.0,   haas: 11 },
     skank: { g: HC ? 0.40 : 0.32, pan: 0.18,  haas: 6  },
     siren: { g: 0.36, pan: -0.20, haas: 0  },
@@ -1354,9 +1355,9 @@ function render(slug) {
     marimba: { g: HC ? 0.32 : 0.15, pan: -0.14, haas: HC ? 5 : 8 },
     sineloop: { g: HC ? 0.30 : 0.13, pan: 0.16, haas: HC ? 7 : 12 },
     shrill:  { g: 0.15, pan: -0.05, haas: 0  }, // screech tucked under — supports, not fights
-    throat:  { g: 0.44, pan: 0.0,   haas: 0  }, // formant bass — centred, dry
-    vocal:   { g: 1.16, pan: 0.0,   haas: 0  }, // fía lead — deeper in the mix
-    vocalH:  { g: 0.50, pan: 0.0,   haas: 15 }, // her harmonies — wide, washed
+    throat:  { g: 0.28, pan: 0.0,   haas: 0  }, // formant bass — centred, dry; pulled back (was a low-mid hog)
+    vocal:   { g: 0.92, pan: 0.0,   haas: 0  }, // fía lead — pulled DOWN; she was riding too hot
+    vocalH:  { g: 0.28, pan: 0.0,   haas: 9  }, // her harmonies — tighter, less wash, sit IN the room
     vshadow: { g: 0.42, pan: 0.0,   haas: 0  }, // pitch-shadow of her, octave down
     vroom:   { g: HC ? 0.50 : 0.0, pan: -0.10, haas: 9 },  // car revs
     vocalAd: { g: HC ? 0.92 : 0.0, pan: 0.08, haas: 7 },   // UP-FRONT vocal ad-libs/scratch
@@ -1406,16 +1407,16 @@ function render(slug) {
               + stem.bell[i]  * (HC ? 0.32 : 0.70) + stem.meow[i] * (HC ? 0.22 : 0.42)
               + stem.marimba[i] * (HC ? 0.34 : 0.85) + stem.sineloop[i] * (HC ? 0.20 : 0.45)
               + stem.shrill[i]  * 0.18
-              + stem.vocal[i]  * (HC ? 0.30 : 0.40) * vRev[i]
-              + stem.vocalH[i] * (HC ? 0.40 : 0.62) * vRev[i]
+              + stem.vocal[i]  * (HC ? 0.22 : 0.32) * vRev[i]   // less wash on her direct — sit IN the room
+              + stem.vocalH[i] * (HC ? 0.30 : 0.48) * vRev[i]
               + stem.vshadow[i] * 0.10
               + stem.vroom[i] * 0.10 + stem.vocalAd[i] * 0.16 + stem.impact[i] * 0.05;
       const ts = i / SAMPLE_RATE;
       const introDry = ts < 6 ? 0.04 : ts < 9 ? 0.04 + 0.96 * ((ts - 6) / 3) : 1;
       send[i] *= introDry * intimDub[i];
     }
-    const { L, R } = stereoReverb(send, SAMPLE_RATE, STYLE === "rollers" ? 0.88 : 0.84);
-    const w = HC ? 0.18 : 0.28;                  // less wash = less airy
+    const { L, R } = stereoReverb(send, SAMPLE_RATE, STYLE === "rollers" ? 0.82 : 0.74);
+    const w = HC ? 0.10 : 0.20;                  // less wash = less airy (pulled HARD: 0.18→0.10 HC)
     for (let i = 0; i < LEN; i++) { outL[i] += L[i] * w; outR[i] += R[i] * w; }
   }
 
@@ -1441,10 +1442,14 @@ function render(slug) {
   // HC: more low-shelf for the womp weight; the high-cut targets the
   // breathy 8 kHz+ FIZZ (the 'airy' part) but stays high enough to keep
   // the candy bell/ding sparkle intact — bright but not airy.
-  lowShelfBoost(outL, SAMPLE_RATE, 120, HC ? 0.42 : 0.30);
-  lowShelfBoost(outR, SAMPLE_RATE, 120, HC ? 0.42 : 0.30);
-  highCut(outL, SAMPLE_RATE, HC ? 8600 : 6400, HC ? 0.46 : 0.34);
-  highCut(outR, SAMPLE_RATE, HC ? 8600 : 6400, HC ? 0.46 : 0.34);
+  // master low-shelf — was pumping too much weight under EVERYTHING
+  // (the "low tones everywhere" feedback). HC dropped 0.42→0.20.
+  lowShelfBoost(outL, SAMPLE_RATE, 120, HC ? 0.20 : 0.18);
+  lowShelfBoost(outR, SAMPLE_RATE, 120, HC ? 0.20 : 0.18);
+  // HC: shave a bit more high-cut — the new acdsp master will re-add air
+  // at 11 k via eq:air, but only after the breathy 8–10 k fizz is gone.
+  highCut(outL, SAMPLE_RATE, HC ? 7800 : 6400, HC ? 0.52 : 0.34);
+  highCut(outR, SAMPLE_RATE, HC ? 7800 : 6400, HC ? 0.52 : 0.34);
 
   // ── per-lane downsampled |peak| buffers + struct.laneAudio for the
   // moving-string score-train (preview-spin.mjs). headerless f32 mono;

@@ -1,0 +1,81 @@
+# marimbabapp — marimbaba++ — a 6-minute disco-shuffle remix.
+#
+# The lullaby grows up and goes to the club. Same marimba lane, same
+# F-major DNA as marimbaba.np — but re-barred from a slow 56 BPM 3/4
+# nap into a driving 6/8 disco-shuffle. The triple feel survives the
+# move (6/8 is just a compound 3/4), so the "twin-kle" and "ba-ba-ba
+# bap" syllables still scan; they're now riding a four-on-the-floor.
+#
+# Meter: 6/8 compound. ~115 BPM dotted-quarter → bar ≈ 1.043 s
+#        (1 eighth ≈ 0.174 s, 2 dotted-quarter pulses per bar).
+# Key:   F major, lifting to G major for the final drop (classic
+#        disco key-change euphoria).
+# Form:  352 bars / ~6:07. Score doc lives here; the event scheduling
+#        + DSP mix lives in bin/render-marimbabapp.mjs.
+#
+# ── the club arc ──────────────────────────────────────────────────────
+#
+#   §  bars      sec        section     what happens
+#   0  0–15      0:00       intro       kick + hats fade up, bass joins
+#   1  16–63     0:17       groove A    full kit + disco-octave bass +
+#                                       vibraphone chicken-scratch stabs
+#   2  64–87     1:07       break       drums drop, pad blooms, filtered
+#   3  88–151    1:32       groove B    the FULL marimba hook, looping
+#   4  152–191   2:39       breakdown   drums out — "the float" bridge,
+#                                       a NEW melody not in marimbaba
+#   5  192–215   3:20       build       snare roll accelerando + riser
+#   6  216–311   3:46       drop        everything, max; key lifts +2
+#                                       to G major at bar 264 (5:01)
+#   7  312–351   5:25       outro       elements peel away, marimba tail
+#
+# Drum bed (per 6-eighth bar, eighths 0–5):
+#   kick     e0  e3                (four-on-the-floor, compound)
+#   clap     e3                    (backbeat)
+#   hat c.   e1 e2 e4 e5           (offbeat shuffle, &-accents)
+#   hat o.   e5                    (every other bar, lift)
+#
+# Disco-octave bass (per bar): low high low high low high — root in
+# the low octave on e0/e2/e4, octave up on e1/e3/e5, accents on the
+# two kick pulses. Sawtooth pluck, lowpass-decay per note.
+#
+# Harmony — an 8-bar cycle, 2 bars per chord:
+#   F   F   Dm  Dm  Bb  Bb  C   C        (I  vi  IV  V)
+# After the bar-264 key lift, the same shapes in G:
+#   G   G   Em  Em  C   C   D   D
+#
+# ── the hook (groove B + drop) — 8 bars, marimba "rosewood" lead ──────
+# Derived from marimbaba's [twinkle] + [ba-ba-ba bap]. Eighth-grid:
+#
+#   bar 0:  twin-kle  twin  ─  kle      F5 A5 C6 ─ A5
+#   bar 1:  ─         lit   tle         G5(held) F5 ─ A5
+#   bar 2:  lit-tle   star  hi  star    F5 G5 A5 G5 F5
+#   bar 3:  star                        F5 (held, full bar)
+#   bar 4:  ba-ba-ba  bap                A5 G5 A5 ─ F5
+#   bar 5:  ba-ba-ba  bap                C6 Bb5 C6 ─ A5
+#   bar 6:  ba-ba     ba                 G5 ─ F5 ─ E5
+#   bar 7:  bap                          F5 (held, full bar)
+#
+# ── "the float" — the NEW bridge (breakdown) — 8 bars ────────────────
+# A calmer, higher line that does NOT appear in marimbaba. The lullaby
+# remembering itself mid-party. Long notes, no drums under it.
+#
+#   bar 0:  C6 ─ ─ D6 ─ ─
+#   bar 1:  C6 ─ A5 ─ ─ ─
+#   bar 2:  Bb5 ─ ─ G5 ─ ─
+#   bar 3:  A5 (held)
+#   bar 4:  D6 ─ ─ C6 ─ ─
+#   bar 5:  A5 ─ G5 ─ ─ ─
+#   bar 6:  F5 ─ ─ A5 ─ ─
+#   bar 7:  G5 (held)
+#
+# Voices:
+#   rosewood        — the hook lead + the float bridge
+#   vibraphone      — disco "chicken-scratch" chord stabs (motor on)
+#   vibraphone_off  — held pad chords (break + breakdown)
+#   kalimba         — high offbeat sparkle / drop counter-melody
+#   staccato        — section-closing 16th-note fills
+#   (drums + octave bass are procedural DSP — see render-marimbabapp.mjs)
+#
+# Render:
+#   node pop/marimba/bin/render-marimbabapp.mjs
+#   node pop/marimba/bin/render-marimbabapp.mjs --out ~/marimbabapp.mp3

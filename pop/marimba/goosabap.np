@@ -1,0 +1,103 @@
+# goosabap — migrating geese, a long honk across an autumn sky.
+#
+# Style: a wide and unhurried whistlegraph chant. The vibraphone is the
+# long honks of the lead goose, the bass marimba is the wing-beat
+# pulse on 1 & 3 (like an air-pump in the chest), the roll preset is
+# the formation itself — a held mid-pad gliding across — and the
+# rosewood paints the soft counter-melody when the second goose
+# answers from a few wingspans back. There is no rush. Every voice
+# breathes.
+#
+# This is marimbaba's autumn cousin. Same lane, same whistlegraph
+# DNA. Bright G major, cruising 4/4 at 92 BPM, no haze. 28 bars / ~73 s
+# of slow-flying pop, plus a 2 s fade for the horizon to swallow the V.
+#
+# Key: G major. 4/4, ~92 BPM (1 beat ≈ 0.652 s, 1 bar ≈ 2.609 s).
+# Form: 28 bars / ~73 s. Score lives at goosabap.np; event scheduling
+# + the mix live in bin/render-goosabap.mjs.
+#
+# Voices:
+#   vibraphone     — the lead goose; long held honks with motor breath
+#   bass           — the wing-beat (low G / D alternating on 1 & 3)
+#   roll           — sustained mid-register pad: the V itself, gliding
+#   rosewood       — soft counter-melody on phrase tails (second goose)
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [call] — opening honks, bars 1–4 (descending major-third pairs)
+#   bar 1:  honk      HONK                             (D5 ─ B4 held)
+#   bar 2:  honk      HONK                             (G5 ─ D5 held)
+#   bar 3:  honk      HONK                             (D5 ─ B4 held)
+#   bar 4:  HONK                                       (G5 held over bar)
+#
+# [reply] — second goose answers + V forms, bars 5–10
+#   bar 5:  honk      HONK                             (E5 ─ C5 held)
+#   bar 6:  honk      HONK                             (A5 ─ E5 held)
+#   bar 7:  honk      HONK                             (D5 ─ G5 held)
+#   bar 8:  form      the                              (G5 A5)
+#   bar 9:  V                                          (B5 held)
+#   bar 10: V                                          (D6 held)
+#
+# [fly] — wing-beat climb, bars 11–18
+#   bar 11: fly  a   WAY                               (G5 A5 ─ B5)
+#   bar 12: fly  a   WAY                               (B5 A5 ─ G5)
+#   bar 13: fly  a   WAY                               (A5 B5 ─ D6)
+#   bar 14: fly  a   WAY                               (D6 B5 ─ A5)
+#   bar 15: V   for  VIC                               (G5 A5 ─ B5)
+#   bar 16: to   ry                                    (D6 ─ A5)
+#   bar 17: V   for  VIC                               (G5 A5 ─ B5)
+#   bar 18: to   ry                                    (D6 held)
+#
+# [south] — cruising on G major chord tones, bars 19–24
+#   bar 19: south WE  go                               (D5 G5 ─ B5)
+#   bar 20: south WE  go                               (G5 D5 ─ B4)
+#   bar 21: south WE  go                               (D5 G5 ─ D6)
+#   bar 22: south WE  go                               (D6 B5 ─ G5)
+#   bar 23: south WE  go                               (G5 B5 ─ D6)
+#   bar 24: south WE  go                               (B5 G5 ─ D5)
+#
+# [horizon] — long descending phrase, bars 25–28
+#   bar 25: to the   WIN                               (G6 ─ D6 ─ B5)
+#   bar 26: ter                                        (G5 held)
+#   bar 27: home                                       (D5 held)
+#   bar 28: (home)                                     (G4 held, long fade)
+#
+# Below: section markers for the renderer (sections by name).
+
+# call 4 [vibraphone, bass]
+D5:_*2 B4:_*2
+G5:_*2 D5:_*2
+D5:_*2 B4:_*2
+G5:_*4
+
+# reply 6 [vibraphone, bass, roll]
+E5:_*2 C5:_*2
+A5:_*2 E5:_*2
+D5:_*2 G5:_*2
+G5:_*2 A5:_*2
+B5:_*4
+D6:_*4
+
+# fly 8 [vibraphone, bass, roll, rosewood]
+G5:_*1 A5:_*1 B5:_*2
+B5:_*1 A5:_*1 G5:_*2
+A5:_*1 B5:_*1 D6:_*2
+D6:_*1 B5:_*1 A5:_*2
+G5:_*1 A5:_*1 B5:_*2
+D6:_*2 A5:_*2
+G5:_*1 A5:_*1 B5:_*2
+D6:_*4
+
+# south 6 [vibraphone, bass, roll, rosewood]
+D5:_*1 G5:_*1 B5:_*2
+G5:_*1 D5:_*1 B4:_*2
+D5:_*1 G5:_*1 D6:_*2
+D6:_*1 B5:_*1 G5:_*2
+G5:_*1 B5:_*1 D6:_*2
+B5:_*1 G5:_*1 D5:_*2
+
+# horizon 4 [vibraphone, bass, roll, rosewood]
+G6:_*2 D6:_*1 B5:_*1
+G5:_*4
+D5:_*4
+G4:_*4

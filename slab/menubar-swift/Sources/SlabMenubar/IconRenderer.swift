@@ -12,7 +12,6 @@ enum IconRenderer {
     static func image(for state: StateSnapshot, phase: CGFloat = 0, rotation: CGFloat = 0) -> NSImage {
         if !state.claudeSessions.isEmpty {
             var poly = polygonImage(state: state, phase: phase, rotation: rotation)
-            if state.rendering { poly = withWitnessEye(poly, phase: phase) }
             if state.messageWaiting { poly = withMessageDot(poly, phase: phase) }
             return poly
         }
@@ -47,7 +46,7 @@ enum IconRenderer {
             ?? fallbackImage()
         let configured = base.withSymbolConfiguration(config) ?? base
         configured.isTemplate = true
-        return state.rendering ? withWitnessEye(configured, phase: phase) : configured
+        return configured
     }
 
     /// Cap the number of distinct polygon edges. Beyond this we still draw
@@ -215,58 +214,8 @@ enum IconRenderer {
         }
     }
 
-    /// Composite a small "witness" EYE over the icon while a marketing /
-    /// pop render is in progress — it watches the pixels get made. The
-    /// pupil drifts + occasionally blinks with the shared phase so it
-    /// reads as alive. Template (menubar tints it).
-    private static func withWitnessEye(_ base: NSImage, phase: CGFloat) -> NSImage {
-        let sz = base.size
-        let out = NSImage(size: sz)
-        out.lockFocus()
-        base.draw(in: NSRect(origin: .zero, size: sz))
-
-        // Eye box: bottom-right corner, ~52% of the icon.
-        let ew = sz.width * 0.52
-        let eh = ew * 0.62
-        let ox = sz.width - ew - 1
-        let oy: CGFloat = 1
-        let cx = ox + ew / 2, cy = oy + eh / 2
-
-        // Blink: lid closes briefly each cycle (a short dip in openness).
-        let t = phase.truncatingRemainder(dividingBy: 1)
-        let openness: CGFloat = t > 0.92 ? max(0.06, 1 - (t - 0.92) / 0.08 * 1.9) : 1.0
-        let halfH = (eh / 2) * openness
-
-        NSColor.black.setStroke()
-        NSColor.black.setFill()
-
-        // Almond lens — two symmetric quad curves (lid open ∝ openness).
-        let lens = NSBezierPath()
-        lens.move(to: NSPoint(x: ox, y: cy))
-        lens.curve(to: NSPoint(x: ox + ew, y: cy),
-                   controlPoint1: NSPoint(x: ox + ew * 0.30, y: cy + halfH),
-                   controlPoint2: NSPoint(x: ox + ew * 0.70, y: cy + halfH))
-        lens.curve(to: NSPoint(x: ox, y: cy),
-                   controlPoint1: NSPoint(x: ox + ew * 0.70, y: cy - halfH),
-                   controlPoint2: NSPoint(x: ox + ew * 0.30, y: cy - halfH))
-        lens.lineWidth = max(1, sz.width * 0.06)
-        lens.stroke()
-
-        // Pupil — drifts horizontally (looking around), hidden on blink.
-        if openness > 0.45 {
-            let pr = eh * 0.30
-            let drift = sin(Double(phase) * 2 * .pi) * Double(ew * 0.16)
-            let pupil = NSBezierPath(ovalIn: NSRect(
-                x: cx + CGFloat(drift) - pr, y: cy - pr, width: pr * 2, height: pr * 2))
-            pupil.fill()
-        }
-        out.unlockFocus()
-        out.isTemplate = true
-        return out
-    }
-
-    /// Composite a pulsing magenta dot bottom-left (the witness eye owns
-    /// bottom-right) so the colored polygon also carries the "she texted"
+    /// Composite a pulsing magenta dot bottom-left so the colored polygon
+    /// also carries the "she texted"
     /// accent — the menubar and the themed wall then read one picture. The
     /// hue is deliberately off the working-green / awaiting-amber /
     /// complete-slate / stale-gray axis so it never reads as a session state.

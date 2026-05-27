@@ -24,6 +24,10 @@
 //   --dur SECONDS    default 6   (Spotify allows 3–8)
 //   --fps N          default 30
 //   --xfade SECONDS  cross-dissolve length (default: auto ≈ 0.22)
+//   --breath AMP     breathing-zoom amplitude (default 0.025; bump to
+//                    0.06–0.10 when panels are visually similar so each
+//                    held panel has a perceptible pulse instead of
+//                    looking like a still frame)
 //   --out PATH       output .mp4
 
 import { spawn } from "node:child_process";
@@ -149,9 +153,10 @@ function slitTransition(i, j, g, zoom, t) {
   ctx.restore();
 }
 
+const BREATH = Number(flags.breath ?? 0.025);
 function drawFrame(t) {
   // shared breathing zoom — seamless over the whole loop (period = DUR)
-  const zoom = 1.025 + 0.025 * Math.sin((2 * Math.PI * t) / DUR);
+  const zoom = 1.0 + BREATH + BREATH * Math.sin((2 * Math.PI * t) / DUR);
   const seg = t / segDur;
   const i = Math.floor(seg) % N;
   const local = t - Math.floor(seg) * segDur;

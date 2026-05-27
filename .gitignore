@@ -80,6 +80,9 @@ ants/*.log
 ants/runs/
 ants/test-*.txt
 
+# artery — timestamped probe/run logs
+artery/runs/
+
 # ignore offline index.html
 system/public/index.html
 

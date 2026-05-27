@@ -1,0 +1,88 @@
+# bonggabap — a midnight bell at a temple.
+#
+# Style: solemn but not heavy. each bong opens a wide ringing space.
+# gamelan-coloured, ceremonial, reverent. the gamelan preset's
+# inharmonic bronze partials ARE the bell — let every strike ring out
+# fully before the next breath. a bass gong-low C/G pulse anchors
+# beat 1. a glockenspiel pings the bell's high overtones. underneath
+# it all, a rosewood marimba hums quietly: a monk's counter-melody.
+#
+# Key: C minor (natural). 4/4, ~88 BPM (1 beat ≈ 0.682 s, 1 bar ≈ 2.727 s).
+# Form: 24 bars / ~65 s. Score lives at bonggabap.np; the actual
+# event scheduling + mix lives in bin/render-bonggabap.mjs.
+#
+# Voices:
+#   gamelan       — the BELL; bronze inharmonic, long ring (lead)
+#   bass          — deep gong-low C/G pulse on beat 1 only
+#   glockenspiel  — high struck overtones, the bell's upper harmonics
+#   rosewood      — the monk humming softly, a quiet counter-melody
+#
+# Chord pad: Cm — Fm — Gm — Cm (i — iv — v — i)
+#
+# ── unspoken phrasing, syllable-by-syllable ──────────────────────────
+#
+# [bong1] — single deep strike, bars 1–4
+#   bar 1:  BONG                          (C4 ringing full bar)
+#   bar 2:  (ring)                        (C4 still rings)
+#   bar 3:  bong-BONG                     (C4 — G4)
+#   bar 4:  (ring out)                    (held)
+#
+# [gong] — alternating root / fifth, bars 5–10
+#   bar 5:  gong-GONG                     (C5 — G4)
+#   bar 6:  bong-BONG                     (G4 — C5)
+#   bar 7:  gong                          (C5 held, glockenspiel ping)
+#   bar 8:  GONG                          (G4 held, glockenspiel ping)
+#   bar 9:  bong-BONG                     (C5 — G4)
+#   bar 10: gong                          (C5 held)
+#
+# [hour] — slow ascending bell sequence, bars 11–18
+#   bar 11: hour                          (Eb5 held)
+#   bar 12: OF                            (F5 held)
+#   bar 13: mid                           (G5 held)
+#   bar 14: NIGHT                         (Bb5 held)
+#   bar 15: hour-OF                       (Eb5 — G5)
+#   bar 16: mid-NIGHT                     (F5 — Bb5)
+#   bar 17: turn                          (G5 held, monk humming under)
+#   bar 18: ing                           (F5 held, monk continues)
+#
+# [chime] — final triple-strike fading into the night, bars 19–24
+#   bar 19: ring-the-BELL                 (C5 — G5 — C6)
+#   bar 20: ring-the-BELL                 (C5 — G5 — C6)
+#   bar 21: BONG                          (C5 — long)
+#   bar 22: (ring)                        (held)
+#   bar 23: (ring)                        (held, all voices fade)
+#   bar 24: (silence falls)               (final breath)
+#
+# Below: section markers for the renderer.
+
+# bong1 4 [gamelan, bass]
+C4:_*4
+_:_*4
+C4:_*2 G4:_*2
+_:_*4
+
+# gong 6 [gamelan, bass, glockenspiel]
+C5:_*2 G4:_*2
+G4:_*2 C5:_*2
+C5:_*4
+G4:_*4
+C5:_*2 G4:_*2
+C5:_*4
+
+# hour 8 [gamelan, glockenspiel, rosewood]
+Eb5:_*4
+F5:_*4
+G5:_*4
+Bb5:_*4
+Eb5:_*2 G5:_*2
+F5:_*2 Bb5:_*2
+G5:_*4
+F5:_*4
+
+# chime 6 [gamelan, bass, glockenspiel, rosewood]
+C5:_*1 G5:_*1 C6:_*2
+C5:_*1 G5:_*1 C6:_*2
+C5:_*4
+_:_*4
+_:_*4
+_:_*4

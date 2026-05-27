@@ -7,6 +7,12 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Optional progress heartbeats → Slab menubar.
+let progress = { begin: () => null, update: () => {}, end: () => {} };
+try {
+  progress = await import("../../pop/lib/render-progress.mjs");
+} catch { /* heartbeats are optional */ }
+
 // Resolve puppeteer from one of the known node_modules locations. Local dev
 // uses ../../oven/node_modules; oven prod uses /opt/oven/node_modules.
 const __HERE = dirname(fileURLToPath(import.meta.url));
@@ -145,6 +151,8 @@ const browser = await puppeteer.launch({
 const slidesOrder = audience.segments.map((s) => s.name);
 const showBug = (name) => name !== slidesOrder[0] && name !== slidesOrder[slidesOrder.length - 1];
 
+progress.begin?.({ type: "video", label: `recap slides · ${audienceName}` });
+let _slideIdx = 0;
 for (const name of slidesOrder) {
   const slide = audience.slides[name];
   if (!slide) {
@@ -192,8 +200,11 @@ for (const name of slidesOrder) {
   await page.close();
   const seg = segments.find((s) => s.name === name);
   console.log(`✓ ${name}.png + chrome/${name}.png · ${seg.durationSec.toFixed(2)}s (${seg.startSec}s → ${seg.endSec}s)`);
+  _slideIdx++;
+  progress.update?.((_slideIdx / slidesOrder.length) * 100, { done: _slideIdx, total: slidesOrder.length });
 }
 await browser.close();
+progress.end?.();
 
 // concat.txt with real durations (full composited slides — kept for
 // backward-compat / debugging). compose.fish now uses the photo +

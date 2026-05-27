@@ -11,7 +11,7 @@ Active applications, deadlines, and status. Newest deadlines first.
 | Oracle Egg — BROILER Residency (Fall 2026) | 2026-05-15 (23:59 PST) | TBD | DRAFT v0 ready | `oracle-egg-broiler-2026/` |
 | Serpentine — Future Art Ecosystems R&D Fellowship: Art × Convergence | 2026-06-07 (midnight BST) | £10,000 + London travel/lodging | DRAFT v0 ready | `serpentine-fae-2026/` |
 | SSRC — Just Tech Fellowship | 2026-06-28 (23:59 EST) | up to $60,000 (1 yr, unrestricted) | SOURCED — researching (Fia, 2026-05-14); no folder yet | — |
-| CalArts CCAT — Technical Director, BB6 studio (job, not grant) | rolling (listed start 2026-04-13, past) | $100k–$125k / yr | DRAFT v0 ready (vault `calarts-ccat-tech-director-2026/`) | `calarts-ccat-2026/` |
+| ~~CalArts CCAT — Technical Director, BB6 studio (job, not grant)~~ | posting closed (verified 2026-05-21) | $100k–$125k / yr | **CLOSED — not submitted.** Paycom job 154720 returns "We Couldn't Find This Job"; CalArts careers portal lists no CCAT roles. Verified: CCAT = CHANEL Center for Artists and Technology, ED MaryClare Brzytwa. Draft archived in vault `calarts-ccat-tech-director-2026/`; public page reframed as archived record. Reopen if CCAT reposts a TD / related role. | `calarts-ccat-2026/` |
 | ~~Francis Gallery painting exhibition~~ | passed (2026-04-30) | two $15k prizes | MISSED — the public Summer Exhibition deadline was 2026-04-30 (Fia's text said May 30, incorrect). Track 2027; if a separate private call exists, restart this folder. | `francis-gallery-2026/` |
 | Smart History — Contributor essay | rolling | unpaid | PITCH.md drafted (send first; PhD-or-equiv clause) | `smarthistory-essay/` |
 
@@ -40,6 +40,7 @@ calls; sensitive sourcing context stays in the vault honeydo.
 | Application | Submitted | Decided | Outcome | Folder |
 |---|---|---|---|---|
 | CultureHub — LA Residency 2026 | 2026-05-21 | — | **Submitted, awaiting decision** — *Notepat Jam*: a six-channel audio piece performed solo on six salvaged laptops booted into AC Native (each voicing one channel of the 5:1 Kalio surround), plus open programming (public workshop + dialogue). Answers on Desktop: `CultureHub-LA-Residency-2026-Application.md`. | `culturehub-2026/` |
+| Tezos Foundation — Ecosystem Grant (KidLisp Keeps v12 + LA adoption) | 2026-05-22 | — | **Submitted, awaiting decision** — *KidLisp Keeps v12*: $45,000 across 5 milestones (~14 weeks). v12 contract (rotatable signer, role separation, holder-governed metadata, opt-in v11→v12 migration) released as a reusable Smart Contract Template, plus tutorial videos, custom keeps wallet polish, LA adoption sessions at NELA Computer Club, and an outreach campaign into fxhash/objkt. Rolling Q2 cycle → reviewed July 2026. Management: <https://grants.tezos.foundation/proposals/detail/a2c89b4d-a1ed-42cc-b2df-0e3e59954a7f/>. | `tezos-foundation-keeps-2026/` |
 | Are.na Annual Vol. 8 — pitch (theme "Score.") | 2026-04-20 | 2026-05-08 | **Rejected** — Meg Miller (editorial director). Channel `aesthetic-computer/self-teaching-scores` (68 blocks) + pitch page stay live; track for Vol. 9. | `gigs/are-na-annual-vol-8/` |
 
 ## Personal Logistics (not grants but tracked here)

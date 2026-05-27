@@ -1,0 +1,372 @@
+[
+  {
+    "source": "sources/america/beyonce-inauguration.mp3",
+    "group": "america",
+    "tag": "w1",
+    "start": 53.62,
+    "end": 61.92,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America,"
+  },
+  {
+    "source": "sources/america/beyonce-inauguration.mp3",
+    "group": "america",
+    "tag": "w2",
+    "start": 61.87,
+    "end": 70.18,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America,"
+  },
+  {
+    "source": "sources/america/beyonce-inauguration.mp3",
+    "group": "america",
+    "tag": "w3",
+    "start": 98.58,
+    "end": 100.65,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America,"
+  },
+  {
+    "source": "sources/america/beyonce-inauguration.mp3",
+    "group": "america",
+    "tag": "w4",
+    "start": 144.07,
+    "end": 148.22,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America,"
+  },
+  {
+    "source": "sources/america/beyonce-inauguration.mp3",
+    "group": "america",
+    "tag": "w5",
+    "start": 148.17,
+    "end": 152.35,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America,"
+  },
+  {
+    "source": "sources/america/beyonce-inauguration.mp3",
+    "group": "america",
+    "tag": "w6",
+    "start": 184.12,
+    "end": 186.34,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America,"
+  },
+  {
+    "source": "sources/america/ray-charles-1972.mp3",
+    "group": "america",
+    "tag": "w1",
+    "start": 58.19,
+    "end": 60.92,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/america/ray-charles-1972.mp3",
+    "group": "america",
+    "tag": "w2",
+    "start": 63.19,
+    "end": 65.92,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/america/ray-charles-1972.mp3",
+    "group": "america",
+    "tag": "w3",
+    "start": 149.36,
+    "end": 151.23,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/america/ray-charles-1972.mp3",
+    "group": "america",
+    "tag": "w4",
+    "start": 154.18,
+    "end": 156.17,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/america/ray-charles-1972.mp3",
+    "group": "america",
+    "tag": "w5",
+    "start": 192.87,
+    "end": 196.03,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/america/ray-charles-1972.mp3",
+    "group": "america",
+    "tag": "w6",
+    "start": 200.7,
+    "end": 201.87,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/america/whitney-houston.mp3",
+    "group": "america",
+    "tag": "w1",
+    "start": 42.92,
+    "end": 45.46,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/america/whitney-houston.mp3",
+    "group": "america",
+    "tag": "w2",
+    "start": 48.36,
+    "end": 49.41,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "America"
+  },
+  {
+    "source": "sources/dora/soy-dora.mp3",
+    "group": "dora",
+    "tag": "w1",
+    "start": 41.69,
+    "end": 48.59,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora."
+  },
+  {
+    "source": "sources/dora/soy-dora.mp3",
+    "group": "dora",
+    "tag": "w2",
+    "start": 5585.3,
+    "end": 5586.97,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora."
+  },
+  {
+    "source": "sources/dora/soy-dora.mp3",
+    "group": "dora",
+    "tag": "w3",
+    "start": 6152.78,
+    "end": 6153.66,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora,"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w1",
+    "start": 3.09,
+    "end": 3.87,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w2",
+    "start": 6.14,
+    "end": 6.43,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w3",
+    "start": 9.77,
+    "end": 9.99,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w4",
+    "start": 11.66,
+    "end": 12.01,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w5",
+    "start": 13.19,
+    "end": 13.52,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w6",
+    "start": 14.63,
+    "end": 14.95,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora,"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w7",
+    "start": 14.9,
+    "end": 15.22,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora,"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w8",
+    "start": 15.17,
+    "end": 15.45,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora,"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w9",
+    "start": 15.4,
+    "end": 15.72,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w10",
+    "start": 16.86,
+    "end": 17.18,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora,"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w11",
+    "start": 17.13,
+    "end": 17.36,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w12",
+    "start": 17.74,
+    "end": 18.12,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w13",
+    "start": 20.01,
+    "end": 20.23,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w14",
+    "start": 20.62,
+    "end": 21,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w15",
+    "start": 21.48,
+    "end": 21.75,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora,"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w16",
+    "start": 31.13,
+    "end": 31.56,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w17",
+    "start": 32.34,
+    "end": 32.6,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w18",
+    "start": 33.34,
+    "end": 33.6,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w19",
+    "start": 34.23,
+    "end": 34.46,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "dora"
+  },
+  {
+    "source": "sources/dora/theme-song.mp3",
+    "group": "dora",
+    "tag": "w20",
+    "start": 39.07,
+    "end": 39.58,
+    "fade": 0.015,
+    "gain_db": 0,
+    "_whisper_text": "Dora"
+  }
+]

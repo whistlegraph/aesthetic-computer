@@ -1,0 +1,35 @@
+{
+  "_comment": "Figure + face bounding boxes per trancepenta story section, in panel-image coords (1024x1536). Hand-placed against the DAYTIME Trader Joe's shopping arc (jeffrey + adult hacker-hottie pixsies arrive → shop → checkout with Mark → laptop reveal → handshake + gift → pack the car). preview-score-trancepenta.mjs iterates ANY figure keys. [x, y, w, h]. Re-eyeball if a panel is regenerated.",
+  "imgW": 1024,
+  "imgH": 1536,
+  "sections": {
+    "intro": {
+      "jeffrey": { "figure": [120, 80, 300, 900], "face": [120, 100, 320, 360] }
+    },
+    "break1": {
+      "jeffrey": { "figure": [280, 80, 300, 900], "face": [280, 80, 320, 360] }
+    },
+    "build1": {
+      "jeffrey": { "figure": [340, 80, 300, 900], "face": [340, 80, 320, 360] }
+    },
+    "drop1": {
+      "jeffrey": { "figure": [240, 140, 320, 900], "face": [280, 140, 320, 360] },
+      "zuck":    { "figure": [560, 160, 300, 900], "face": [580, 160, 320, 360] }
+    },
+    "break2": {
+      "jeffrey": { "figure": [220, 140, 320, 900], "face": [240, 140, 320, 360] },
+      "zuck":    { "figure": [420, 160, 300, 900], "face": [440, 160, 320, 360] }
+    },
+    "build2": {
+      "jeffrey": { "figure": [200, 120, 320, 900], "face": [220, 120, 320, 360] },
+      "zuck":    { "figure": [540, 100, 320, 900], "face": [560, 100, 320, 360] }
+    },
+    "drop2": {
+      "jeffrey": { "figure": [300, 80, 320, 900], "face": [320, 80, 320, 360] },
+      "zuck":    { "figure": [480, 140, 320, 900], "face": [500, 140, 320, 360] }
+    },
+    "outro": {
+      "jeffrey": { "figure": [420, 140, 320, 900], "face": [440, 140, 320, 360] }
+    }
+  }
+}

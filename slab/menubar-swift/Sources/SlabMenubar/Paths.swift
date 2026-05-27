@@ -11,6 +11,12 @@ enum Paths {
         ProcessInfo.processInfo.environment["SLAB_BIN"] ?? "\(home)/.local/bin"
     }
 
+    /// The aesthetic-computer checkout — used to launch repo tooling
+    /// (e.g. the RFA voice-recording wizard) from the menubar.
+    static var acRepo: String {
+        ProcessInfo.processInfo.environment["AC_REPO"] ?? "\(home)/aesthetic-computer"
+    }
+
     static var slabWallpaper: String { "\(slabBin)/slab-wallpaper" }
     static var wallpaperStatusDir: String { "\(slabHome)/wallpaper/status" }
     /// Cached near-black + status-glow PNGs set as the macOS desktop

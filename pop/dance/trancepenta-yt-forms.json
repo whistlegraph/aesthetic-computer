@@ -1,0 +1,47 @@
+{
+  "_comment": "Figure + face bounding boxes for the trancepenta YT (landscape) panel set, in panel-image coords (1536x1024). 16 sub-slides (each struct section halved). preview-score-trancepenta-yt.mjs iterates ANY figure keys. FIRST-PASS ESTIMATES — re-eyeball after panels are generated.",
+  "imgW": 1536,
+  "imgH": 1024,
+  "sections": {
+    "intro-a":  { "jeffrey": { "figure": [380, 200, 320, 700], "face": [400, 200, 320, 280] } },
+    "intro-b":  { "jeffrey": { "figure": [400, 200, 320, 700], "face": [420, 200, 320, 280] } },
+    "break1-a": { "jeffrey": { "figure": [440, 200, 320, 700], "face": [460, 200, 320, 280] } },
+    "break1-b": { "jeffrey": { "figure": [440, 200, 320, 700], "face": [460, 200, 320, 280] } },
+    "build1-a": { "jeffrey": { "figure": [460, 200, 320, 700], "face": [480, 200, 320, 280] } },
+    "build1-b": { "jeffrey": { "figure": [460, 200, 320, 700], "face": [480, 200, 320, 280] } },
+    "drop1-a":  {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "drop1-b":  {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "break2-a": {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "break2-b": {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "build2-a": {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "build2-b": {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "drop2-a":  {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "drop2-b":  {
+      "jeffrey": { "figure": [340, 200, 320, 700], "face": [360, 220, 320, 280] },
+      "zuck":    { "figure": [820, 200, 320, 700], "face": [840, 220, 320, 280] }
+    },
+    "outro-a":  { "jeffrey": { "figure": [560, 200, 320, 700], "face": [580, 200, 320, 280] } },
+    "outro-b":  { "jeffrey": { "figure": [560, 200, 320, 700], "face": [580, 200, 320, 280] } }
+  }
+}

@@ -1,0 +1,5 @@
+# Compiled engine binary (rebuild via build.sh)
+hellsine
+
+# Engine isolation / debug renders
+out/

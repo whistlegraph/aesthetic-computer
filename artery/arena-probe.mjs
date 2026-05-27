@@ -19,6 +19,12 @@
 //   node artery/arena-probe.mjs [--duration 5] [--port 9222] [--out path]
 //                               [--fps 30] [--quality 70]
 //                               [--max-width 960] [--no-frames]
+//                               [--enter arena] [--reset]
+//                               [--pattern square|wasd-burst|spin|none]
+//
+// --reset       Unregister service workers, drop caches, hard-reload the
+//               webview (cache-bypass) before navigating. Useful when a stale
+//               arena.mjs is being served from the SW.
 
 import WebSocket from "ws";
 import fetch from "node-fetch";
@@ -35,6 +41,9 @@ const FPS = ARGS.fps ? parseInt(ARGS.fps, 10) : 30;
 const QUALITY = ARGS.quality ? parseInt(ARGS.quality, 10) : 70;
 const MAX_WIDTH = ARGS["max-width"] ? parseInt(ARGS["max-width"], 10) : 960;
 const CAPTURE_FRAMES = !ARGS["no-frames"];
+const ENTER_PIECE = typeof ARGS.enter === "string" ? ARGS.enter : null;
+const PATTERN = typeof ARGS.pattern === "string" ? ARGS.pattern : "square";
+const RESET_BEFORE = !!ARGS.reset;
 const OUT_BASE = ARGS.out
   ? path.resolve(process.cwd(), ARGS.out)
   : path.join(__dirname, "runs", isoStamp());
@@ -64,36 +73,46 @@ function isoStamp() {
     .replace(/Z$/, "");
 }
 
-async function findArenaTarget(port) {
-  const res = await fetch(`http://localhost:${port}/json/list`);
-  if (!res.ok) throw new Error(`CDP /json not reachable (${res.status})`);
-  const targets = await res.json();
-  // Prefer a webview pointing at aesthetic.computer (the AC pane). Fall
-  // back to a page on the same host if the webview is missing (e.g. when
-  // running the AC frontend directly in chrome rather than the electron
-  // wrapper).
-  const ranked = targets
-    .filter((t) => t.webSocketDebuggerUrl)
-    .map((t) => {
-      let score = 0;
-      const url = t.url || "";
-      if (t.type === "webview") score += 4;
-      if (t.type === "page") score += 1;
-      if (url.includes("aesthetic.computer")) score += 2;
-      if (url.includes("localhost:8888")) score += 2;
-      return { t, score };
-    })
-    .filter((r) => r.score > 0)
-    .sort((a, b) => b.score - a.score);
-  if (!ranked.length) {
-    throw new Error(
-      "No aesthetic.computer CDP target found.\n" +
-        `targets discovered:\n${targets
-          .map((t) => `  - ${t.type} ${t.url}`)
-          .join("\n")}`,
-    );
+async function findArenaTarget(port, { retries = 20, retryDelayMs = 500 } = {}) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    let targets;
+    try {
+      const res = await fetch(`http://localhost:${port}/json/list`);
+      if (!res.ok) throw new Error(`CDP /json not reachable (${res.status})`);
+      targets = await res.json();
+    } catch (e) {
+      if (attempt === retries - 1) throw e;
+      await new Promise((r) => setTimeout(r, retryDelayMs));
+      continue;
+    }
+    // Service workers and other non-page contexts don't carry the AC page
+    // state — exclude them outright. Only webview/page are valid here.
+    const ranked = targets
+      .filter((t) => t.webSocketDebuggerUrl)
+      .filter((t) => t.type === "webview" || t.type === "page")
+      .map((t) => {
+        let score = 0;
+        const url = t.url || "";
+        if (t.type === "webview") score += 4;
+        if (t.type === "page" && !url.startsWith("file://")) score += 1;
+        if (url.includes("aesthetic.computer")) score += 2;
+        if (url.includes("localhost:8888")) score += 2;
+        return { t, score };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score);
+    if (ranked.length) return ranked[0].t;
+    await new Promise((r) => setTimeout(r, retryDelayMs));
   }
-  return ranked[0].t;
+  // Final attempt: report everything we saw to help debug.
+  const res = await fetch(`http://localhost:${port}/json/list`);
+  const targets = await res.json();
+  throw new Error(
+    "No aesthetic.computer page/webview CDP target found after retries.\n" +
+      `targets discovered:\n${targets
+        .map((t) => `  - ${t.type} ${t.url}`)
+        .join("\n")}`,
+  );
 }
 
 class CDPClient {
@@ -144,20 +163,199 @@ class CDPClient {
   }
 }
 
+// CDP key descriptors — what Chromium expects per Input.dispatchKeyEvent.
+const KEYS = {
+  w: { key: "w", code: "KeyW", windowsVirtualKeyCode: 87, nativeVirtualKeyCode: 87 },
+  a: { key: "a", code: "KeyA", windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65 },
+  s: { key: "s", code: "KeyS", windowsVirtualKeyCode: 83, nativeVirtualKeyCode: 83 },
+  d: { key: "d", code: "KeyD", windowsVirtualKeyCode: 68, nativeVirtualKeyCode: 68 },
+  space: { key: " ", code: "Space", windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 },
+};
+
+async function keyDown(cdp, name) {
+  const k = KEYS[name];
+  if (!k) return;
+  await cdp.send("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: k.key,
+    code: k.code,
+    text: k.key,
+    windowsVirtualKeyCode: k.windowsVirtualKeyCode,
+    nativeVirtualKeyCode: k.nativeVirtualKeyCode,
+  });
+}
+async function keyUp(cdp, name) {
+  const k = KEYS[name];
+  if (!k) return;
+  await cdp.send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: k.key,
+    code: k.code,
+    windowsVirtualKeyCode: k.windowsVirtualKeyCode,
+    nativeVirtualKeyCode: k.nativeVirtualKeyCode,
+  });
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Drive a movement pattern for the full duration. Returns when done.
+// Patterns:
+//   square    — hold W, D, S, A each for legSec seconds, loop
+//   wasd-burst — quick 250ms taps cycling W A S D, loop
+//   spin      — D held while tapping W (mouse-yaw substitute via repeated turns)
+//   none      — no input (passive recording, user drives)
+async function runMovementPattern(cdp, pattern, durationMs, log) {
+  if (pattern === "none") return;
+  const deadline = Date.now() + durationMs;
+  const legSec = 1.0;
+  const sequences = {
+    square: ["w", "d", "s", "a"],
+    "wasd-burst": ["w", "a", "s", "d", "w", "d"],
+    spin: ["d"], // D held, W tapped via tapKey
+  };
+  const seq = sequences[pattern] || sequences.square;
+  log(`[input] pattern=${pattern} keys=${seq.join("")}`);
+  const held = new Set();
+  try {
+    while (Date.now() < deadline) {
+      for (const k of seq) {
+        if (Date.now() >= deadline) break;
+        held.add(k);
+        await keyDown(cdp, k);
+        const legDur = Math.min(legSec * 1000, deadline - Date.now());
+        if (legDur <= 0) break;
+        if (pattern === "wasd-burst") {
+          await sleep(Math.min(250, legDur));
+        } else if (pattern === "spin") {
+          // hold D, tap W repeatedly to interleave forward bursts
+          const wDeadline = Date.now() + legDur;
+          while (Date.now() < wDeadline) {
+            await keyDown(cdp, "w");
+            await sleep(120);
+            await keyUp(cdp, "w");
+            await sleep(60);
+          }
+        } else {
+          await sleep(legDur);
+        }
+        await keyUp(cdp, k);
+        held.delete(k);
+      }
+    }
+  } finally {
+    for (const k of [...held]) {
+      try { await keyUp(cdp, k); } catch {}
+    }
+  }
+}
+
+async function resetWebview(cdp, log) {
+  log("[reset] unregistering service workers + dropping caches...");
+  await cdp.send("Runtime.evaluate", {
+    expression: `(async () => {
+      try {
+        const rs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(rs.map(r => r.unregister()));
+      } catch (e) {}
+      try {
+        if (window.caches && caches.keys) {
+          const ks = await caches.keys();
+          await Promise.all(ks.map(k => caches.delete(k)));
+        }
+      } catch (e) {}
+    })()`,
+    returnByValue: true, awaitPromise: true,
+  });
+  log("[reset] hard-reloading webview (ignoreCache)...");
+  await cdp.send("Page.reload", { ignoreCache: true });
+  // Wait for the JS context to come back. We re-probe via /json/list rather
+  // than reusing the WS — Page.reload can invalidate the existing one.
+  await sleep(1500);
+  return null; // caller reconnects.
+}
+
+async function enterPiece(cdp, piece, log) {
+  // bios.mjs sets up window.acDISK_SEND early — it queues messages until the
+  // worker is consumed-ready, then flushes them. Plain window.acSEND can
+  // arrive at the worker before $commonApi.jump is wired and silently drop.
+  const senderDeadline = Date.now() + 12000;
+  let useDiskSend = false;
+  while (Date.now() < senderDeadline) {
+    const r = await cdp.send("Runtime.evaluate", {
+      expression: `JSON.stringify({ diskSend: typeof window.acDISK_SEND, acSend: typeof window.acSEND })`,
+      returnByValue: true,
+    });
+    const v = JSON.parse(r.result?.value || "{}");
+    if (v.diskSend === "function") { useDiskSend = true; break; }
+    if (v.acSend === "function") break;
+    await sleep(150);
+  }
+  log(`[nav] sending navigate via ${useDiskSend ? "acDISK_SEND (queued)" : "acSEND (raw)"} → ${piece}`);
+  const fn = useDiskSend ? "window.acDISK_SEND" : "window.acSEND";
+  await cdp.send("Runtime.evaluate", {
+    expression: `${fn}({type:'navigate', content:{to: ${JSON.stringify(piece)}}})`,
+  });
+  // Wait for arena.mjs perf hook to publish — that's the readiness signal.
+  const start = Date.now();
+  while (Date.now() - start < 12000) {
+    const r = await cdp.send("Runtime.evaluate", {
+      expression: `JSON.stringify({hook: typeof window.__arena_perfStats, latest: !!window.__arena_perfStats_latest, title: document.title})`,
+      returnByValue: true,
+    });
+    try {
+      const v = JSON.parse(r.result?.value || "{}");
+      if (v.hook === "function") {
+        log(`[nav] arena perf hook live after ${Date.now() - start}ms (title="${v.title}")`);
+        return true;
+      }
+    } catch {}
+    await sleep(250);
+  }
+  log("[nav] WARN arena perf hook not detected after 12s — continuing anyway");
+  return false;
+}
+
 async function main() {
   await fs.mkdir(OUT_BASE, { recursive: true });
   if (CAPTURE_FRAMES) await fs.mkdir(path.join(OUT_BASE, "frames"), { recursive: true });
 
-  const target = await findArenaTarget(PORT);
+  let target = await findArenaTarget(PORT);
   console.log(`[probe] target: ${target.type} ${target.url}`);
   console.log(`[probe] run dir: ${OUT_BASE}`);
 
-  const cdp = new CDPClient(target.webSocketDebuggerUrl);
+  let cdp = new CDPClient(target.webSocketDebuggerUrl);
   await cdp.ready();
-
-  // Enable domains we listen to before any events can fire.
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
+
+  if (RESET_BEFORE) {
+    await resetWebview(cdp, console.log);
+    cdp.close();
+    // Re-discover after the reload (target id can change on Page.reload).
+    let retries = 30;
+    while (retries-- > 0) {
+      try {
+        target = await findArenaTarget(PORT);
+        cdp = new CDPClient(target.webSocketDebuggerUrl);
+        await cdp.ready();
+        await cdp.send("Runtime.enable");
+        await cdp.send("Page.enable");
+        const probe = await cdp.send("Runtime.evaluate", {
+          expression: `typeof window.acSEND`,
+          returnByValue: true,
+        });
+        if (probe.result?.value === "function") break;
+      } catch {}
+      await sleep(500);
+    }
+    console.log(`[reset] reconnected target: ${target.url}`);
+  }
+
+  // Auto-navigate if requested.
+  if (ENTER_PIECE) {
+    await enterPiece(cdp, ENTER_PIECE, console.log);
+    // Settle pause so initial-load frame stutter doesn't pollute the report.
+    await sleep(500);
+  }
 
   // Console capture.
   const consoleLines = [];
@@ -235,8 +433,15 @@ async function main() {
   await pollPerf(); // initial sample so we always have at least one
   const pollTimer = setInterval(pollPerf, POLL_INTERVAL_MS);
 
-  console.log(`[probe] recording ${DURATION_S}s ...`);
-  await new Promise((r) => setTimeout(r, DURATION_S * 1000));
+  console.log(
+    `[probe] recording ${DURATION_S}s ${PATTERN === "none" ? "(passive)" : `(driving '${PATTERN}')`} ...`,
+  );
+  // Drive input + wait on the duration in parallel so input runs are bounded
+  // by the same deadline as recording.
+  await Promise.all([
+    sleep(DURATION_S * 1000),
+    runMovementPattern(cdp, PATTERN, DURATION_S * 1000, console.log),
+  ]);
 
   clearInterval(pollTimer);
   await pollPerf(); // final sample

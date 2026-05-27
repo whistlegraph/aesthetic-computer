@@ -123,7 +123,15 @@ kick. No vocal.
 See [`hellsine/README.md`](hellsine/README.md) for the all-sine law +
 the voice table + the form. Status: scaffolded 2026-05-19.
 
-### 8. (open)
+### 8. booch (`booch/`)
+
+Audio-only **fermented hip-hop**: a **golden-era boom-bap foundation** (Queen Latifah / Pete Rock — ~94 BPM, swung 16ths, fat boom kick, bap snare, jazz Rhodes loop, vinyl crackle) **cultured with Timbaland future-funk** on top (sparse tabla/tumbi accents, hard-gated rests, ad-lib silence). The name *is* the form: booch = kombucha = slow-fermented mother culture — the lane studies that metaphor literally. The two sub-styles aren't averaged; the track *switches between them on purpose* (verse 1 full Latifah pocket, verse 2 sparse Timbaland pocket). The ferment is the swing.
+
+Voice posture: jeffrey-pvc as **rapped lead** (not sung, not one-shot) — narrow pitch range, tight to the 16th-note grid, Latifah-confident on the hook, Missy-playful on verse 2. Mirrors the `big-pictures/` TTS-on-bottom-up-composition posture but at boom-bap tempo, not trap.
+
+See [`booch/README.md`](booch/README.md) for the format spec and [`booch/STUDY.md`](booch/STUDY.md) for the genre study + the blend law. Status: scaffolded 2026-05-24; first track `visualize-my-booch` lyrics + .np score drafted, render/sing pipeline pending.
+
+### 9. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
 

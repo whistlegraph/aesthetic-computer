@@ -12,6 +12,16 @@
 //   node bin/gen-illy.mjs --slug helpabeach
 //   node bin/gen-illy.mjs --slug helpabeach --force
 //   node bin/gen-illy.mjs --slug helpabeach --size 1024x1536
+//   node bin/gen-illy.mjs --slug helpabeach --portrait                   # 1024x1536 "-p" set (IG story)
+//   node bin/gen-illy.mjs --slug helpabeach --landscape                  # 1536x1024 "-yt" set (YouTube widescreen)
+//   node bin/gen-illy.mjs --slug helpabeach --landscape --sections       # cover + 9 panels for YT
+//   node bin/gen-illy.mjs ... --validate-butterfly                       # gpt-4o-mini checks each gen
+//                                                                          for a coherent whistlegraph
+//                                                                          butterfly on jeffrey's chartreuse
+//                                                                          Neo lid; FAILs are regenned up
+//                                                                          to --validate-retries N (default 2).
+//                                                                          SKIP (no laptop in frame) and PASS
+//                                                                          both accept.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -33,11 +43,19 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 
 const SLUG  = flags.slug || "helpabeach";
-// --portrait → vertical 9:16 set: gpt-image 1024x1536, "-p" filename
-// infix, and a tall-composition override appended to every prompt.
-const PORTRAIT = flags.portrait === true;
-const SIZE  = flags.size || (PORTRAIT ? "1024x1536" : "1024x1024");
-const TAG   = PORTRAIT ? "-p" : "";
+// --portrait → vertical 9:16 set: gpt-image 1024x1536, "-p" filename.
+// --landscape → wide 3:2 / 16:9 set: gpt-image 1536x1024, "-yt" filename.
+//   Mutually exclusive with --portrait. Used for the YouTube widescreen
+//   visualizer fork (preview-score-helpabeach-yt.mjs).
+const PORTRAIT  = flags.portrait === true;
+const LANDSCAPE = flags.landscape === true;
+if (PORTRAIT && LANDSCAPE) {
+  console.error("✗ --portrait and --landscape are mutually exclusive");
+  process.exit(1);
+}
+const SIZE  = flags.size
+  || (PORTRAIT ? "1024x1536" : LANDSCAPE ? "1536x1024" : "1024x1024");
+const TAG   = PORTRAIT ? "-p" : LANDSCAPE ? "-yt" : "";
 const FORCE = flags.force === true;
 const PROMPT_PATH = `${LANE}/${SLUG}.illy.txt`;
 const OUT_PATH    = `${LANE}/out/${SLUG}${TAG}-cover.png`;
@@ -55,6 +73,22 @@ const PORTRAIT_NOTE =
   "the colored-pencil + gouache medium on cream paper, the no-outline volume " +
   "modeling, diegetic light only, and the same story beat for this section — only " +
   "the framing widens.";
+const LANDSCAPE_NOTE =
+  "LANDSCAPE OVERRIDE — recompose for a WIDE 3:2 / 16:9 frame (NOT square, NOT " +
+  "tall), and PULL THE CAMERA BACK so the WHOLE Rhizome Health clinic stretches " +
+  "horizontally across the frame: tall arched windows running the full width, the " +
+  "white-brick back wall extending across, exam bench, counter, rolling cart, " +
+  "plants, pale wood floor — a complete, wide room with generous LEFT and RIGHT " +
+  "breathing space around the figures, NEVER cropped tight, NEVER tall. CRUCIAL " +
+  "— the PROJECTED Rhizome Health logo sits HIGH and HORIZONTALLY CENTRED in the " +
+  "upper-third band, complete wordmark legible ('Rhizome' + 'Health' both words " +
+  "fully visible, neither cut off), with a wide cream margin on BOTH sides. " +
+  "FIGURES are positioned in the LOWER-CENTER of the frame at chest-and-above " +
+  "framing, not crammed in a corner, allowing room for a subtle bottom-edge band " +
+  "of empty cream paper / floor where the YouTube visualizer chrome (title, " +
+  "score-train, progress bar) will sit. keep the colored-pencil + gouache medium " +
+  "on cream paper, the no-outline volume modeling, diegetic light only, and the " +
+  "same story beat for this section — only the framing widens.";
 
 mkdirSync(`${LANE}/out`, { recursive: true });
 
@@ -146,6 +180,80 @@ function safeName(n) {
 const apiKey = loadOpenAIKey();
 const basePrompt = readFileSync(PROMPT_PATH, "utf8").trim();
 
+// ── butterfly validator ──────────────────────────────────────────────
+// gpt-4o-mini vision check: does jeffrey's chartreuse-green Neo show
+// the whistlegraph-butterfly white scrap on its lid? Three possible
+// verdicts:
+//   PASS — butterfly is recognizable + coherent on the lid
+//   SKIP — no chartreuse laptop visible in this panel (accepted)
+//   FAIL — laptop is present but the lid shows the WRONG mark
+//          (tree-person / apple / pals / random doodle / nothing)
+// Failures trigger a regeneration of the panel up to N attempts.
+// See [[feedback_imagegen_jeffrey_butterfly_neo.md]].
+const VALIDATE_BUTTERFLY = flags["validate-butterfly"] === true;
+const VALIDATE_RETRIES   = Number(flags["validate-retries"] ?? 2);
+
+function imgDataUrl(path) {
+  const buf = readFileSync(path);
+  const lower = path.toLowerCase();
+  const mime = lower.endsWith(".png") ? "image/png"
+             : lower.endsWith(".webp") ? "image/webp"
+             : "image/jpeg";
+  return `data:${mime};base64,${buf.toString("base64")}`;
+}
+
+async function validateButterfly(imagePath) {
+  if (!existsSync(BUTTERFLY_REF)) {
+    console.warn(`  ⚠ butterfly ref missing at ${BUTTERFLY_REF.replace(REPO + "/", "")} — skipping validation`);
+    return { verdict: "SKIP", reason: "no reference image on disk" };
+  }
+  const body = {
+    model: "gpt-4o-mini",
+    max_tokens: 80,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "text", text:
+`You are validating an AI-generated illustration for whistlegraph-butterfly coherence on jeffrey's laptop lid.
+
+IMAGE 1 is the reference whistlegraph butterfly: a hand-drawn figure with a smiling rectangular head/body down the centre, four round wings (two upper, two lower), and a small rectangular tail. Simple grey marker lines on white.
+
+IMAGE 2 is the illustration to check. jeffrey's laptop is a chartreuse / lime / yellow-green "MacBook Neo". Look for it. The lid (closed or visible back side) should carry a small WHITE TORN PAPER SCRAP with a hand-drawn butterfly that resembles IMAGE 1.
+
+Decide ONE of three verdicts:
+  PASS — chartreuse laptop visible AND its lid clearly shows a white scrap with a butterfly that resembles the reference (smiling head + wings + tail; small variations OK).
+  SKIP — NO chartreuse laptop visible anywhere in IMAGE 2 (jeffrey isn't with his Neo in this beat). Accept.
+  FAIL — chartreuse laptop IS visible BUT the lid shows the wrong mark (tree-person / stick-figure / apple logo / pals figure / random scribble / blank / wordmark / something else). Reject.
+
+Reply on ONE LINE in exactly this format:
+  PASS
+  SKIP: <one short clause>
+  FAIL: <one short clause naming what's on the lid>` },
+        { type: "image_url", image_url: { url: imgDataUrl(BUTTERFLY_REF), detail: "low" } },
+        { type: "image_url", image_url: { url: imgDataUrl(imagePath),   detail: "high" } },
+      ],
+    }],
+  };
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.warn(`  ⚠ vision validator ${res.status}: ${err.slice(0, 200)} — accepting as SKIP`);
+    return { verdict: "SKIP", reason: `validator error ${res.status}` };
+  }
+  const json = await res.json();
+  const raw  = (json.choices?.[0]?.message?.content || "").trim();
+  const verdict = raw.startsWith("PASS") ? "PASS"
+                : raw.startsWith("SKIP") ? "SKIP"
+                : raw.startsWith("FAIL") ? "FAIL"
+                : "SKIP";   // unparseable → accept
+  const reason = raw.replace(/^(PASS|SKIP|FAIL)\s*:?\s*/, "").trim();
+  return { verdict, reason, raw };
+}
+
 // One gpt-image-2 edit call → write outPath. Per-file cached; --force regens.
 // Build the multipart body fresh per attempt — a FormData/Blob body is
 // consumed on send and can't be re-streamed on a retry.
@@ -177,60 +285,93 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function generate(promptText, outPath, label) {
   const rel = outPath.replace(REPO + "/", "");
   if (existsSync(outPath) && !FORCE) {
-    console.log(`✓ cached → ${rel}`);
-    return;
+    // Cached files still get butterfly-validated when --validate-butterfly
+    // is on, so a re-run picks up the previous batch's FAILs and regens
+    // them in place.
+    if (VALIDATE_BUTTERFLY) {
+      const v = await validateButterfly(outPath);
+      if (v.verdict === "FAIL") {
+        console.log(`✗ cached panel failed butterfly check (${v.reason}) — regenerating: ${rel}`);
+      } else {
+        console.log(`✓ cached · ${v.verdict}${v.reason ? ` (${v.reason})` : ""} → ${rel}`);
+        return;
+      }
+    } else {
+      console.log(`✓ cached → ${rel}`);
+      return;
+    }
   }
-  console.log(`▸ ${label} · ${SIZE} · ${REFS.length} refs`);
+  console.log(`▸ ${label} · ${SIZE} · ${REFS.length} refs${VALIDATE_BUTTERFLY ? " · ↻validate" : ""}`);
   const MAX_TRIES = 4;
-  for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
-    const t0 = Date.now();
-    try {
-      const res = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: buildForm(promptText),
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        // 429 / 5xx are transient → retry; other 4xx (billing, moderation) → stop.
-        const transient = res.status === 429 || res.status >= 500;
-        if (transient && attempt < MAX_TRIES) {
+  // Whole-attempt loop: each VALIDATE_RETRY round burns one image-gen
+  // (and its inner network/transient retries). VALIDATE_RETRIES caps
+  // how many distinct butterfly-failed images we'll throw away before
+  // giving up and keeping the latest as-is.
+  for (let vRound = 0; vRound <= VALIDATE_RETRIES; vRound++) {
+    for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+      const t0 = Date.now();
+      try {
+        const res = await fetch("https://api.openai.com/v1/images/edits", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: buildForm(promptText),
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          // 429 / 5xx are transient → retry; other 4xx (billing, moderation) → stop.
+          const transient = res.status === 429 || res.status >= 500;
+          if (transient && attempt < MAX_TRIES) {
+            const wait = 4000 * attempt;
+            console.warn(`  ⚠ OpenAI ${res.status} (${label}) — retry ${attempt}/${MAX_TRIES - 1} in ${wait / 1000}s`);
+            await sleep(wait);
+            continue;
+          }
+          console.error(`✗ OpenAI ${res.status} (${label}): ${err.slice(0, 600)}`);
+          return;
+        }
+        const json = await res.json();
+        const b64 = json.data?.[0]?.b64_json;
+        if (!b64) {
+          console.error(`✗ no image (${label}): ${JSON.stringify(json).slice(0, 280)}`);
+          return;
+        }
+        writeFileSync(outPath, Buffer.from(b64, "base64"));
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        const u = json.usage || {};
+        const tok = u.input_tokens ? ` · tok in=${u.input_tokens} out=${u.output_tokens}` : "";
+        console.log(`✓ ${elapsed}s${tok} → ${rel}${vRound > 0 ? ` (regen ${vRound}/${VALIDATE_RETRIES})` : ""}`);
+        break;   // out of attempt-loop → fall through to validation
+      } catch (e) {
+        // network-level failure (fetch threw) — ETIMEDOUT / EPIPE / DNS …
+        const cause = e?.cause?.code || e?.cause?.message || e?.message || "unknown";
+        if (attempt < MAX_TRIES) {
           const wait = 4000 * attempt;
-          console.warn(`  ⚠ OpenAI ${res.status} (${label}) — retry ${attempt}/${MAX_TRIES - 1} in ${wait / 1000}s`);
+          console.warn(`  ⚠ network fail (${label}: ${cause}) — retry ${attempt}/${MAX_TRIES - 1} in ${wait / 1000}s`);
           await sleep(wait);
           continue;
         }
-        console.error(`✗ OpenAI ${res.status} (${label}): ${err.slice(0, 600)}`);
+        console.error(`✗ network fail (${label}): ${cause} — gave up after ${MAX_TRIES} tries`);
         return;
       }
-      const json = await res.json();
-      const b64 = json.data?.[0]?.b64_json;
-      if (!b64) {
-        console.error(`✗ no image (${label}): ${JSON.stringify(json).slice(0, 280)}`);
-        return;
-      }
-      writeFileSync(outPath, Buffer.from(b64, "base64"));
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      const u = json.usage || {};
-      const tok = u.input_tokens ? ` · tok in=${u.input_tokens} out=${u.output_tokens}` : "";
-      console.log(`✓ ${elapsed}s${tok} → ${rel}`);
+    }
+    // Validation: PASS / SKIP → keep file; FAIL → loop (next vRound burns a fresh gen).
+    if (!VALIDATE_BUTTERFLY) return;
+    const v = await validateButterfly(outPath);
+    if (v.verdict !== "FAIL") {
+      console.log(`  ↻ butterfly · ${v.verdict}${v.reason ? ` (${v.reason})` : ""}`);
       return;
-    } catch (e) {
-      // network-level failure (fetch threw) — ETIMEDOUT / EPIPE / DNS …
-      const cause = e?.cause?.code || e?.cause?.message || e?.message || "unknown";
-      if (attempt < MAX_TRIES) {
-        const wait = 4000 * attempt;
-        console.warn(`  ⚠ network fail (${label}: ${cause}) — retry ${attempt}/${MAX_TRIES - 1} in ${wait / 1000}s`);
-        await sleep(wait);
-        continue;
-      }
-      console.error(`✗ network fail (${label}): ${cause} — gave up after ${MAX_TRIES} tries`);
-      return;
+    }
+    if (vRound < VALIDATE_RETRIES) {
+      console.warn(`  ✗ butterfly FAIL (${v.reason}) — regenerating panel (${vRound + 1}/${VALIDATE_RETRIES})`);
+    } else {
+      console.warn(`  ✗ butterfly FAIL (${v.reason}) — exhausted ${VALIDATE_RETRIES} regens, keeping latest`);
     }
   }
 }
 
-const portraitTail = PORTRAIT ? `\n\n${PORTRAIT_NOTE}` : "";
+const portraitTail = PORTRAIT ? `\n\n${PORTRAIT_NOTE}`
+                   : LANDSCAPE ? `\n\n${LANDSCAPE_NOTE}`
+                   : "";
 
 // --only <name|idx>[,…] regenerates just those panels (others untouched).
 const onlySet = SECTIONS_MODE && typeof flags.only === "string"
@@ -247,7 +388,7 @@ progress.begin({ type: "illy", label: `${SLUG}${TAG} · ${totalPanels} panels` }
 
 // Main hero cover (its own composition via the base prompt alone).
 await generate(basePrompt + portraitTail, OUT_PATH, `${SLUG}${TAG} cover`);
-progress.update((++donePanels / totalPanels) * 100);
+progress.update((++donePanels / totalPanels) * 100, { done: donePanels, total: totalPanels });
 
 // Per-section illys (sequential — keeps API pressure low, lets each be
 // individually cached/--force'd). The butterfly is drawn natively by
@@ -261,6 +402,6 @@ for (const i of panelIdx) {
     out,
     `${SLUG}${TAG} §${i} ${name}`,
   );
-  progress.update((++donePanels / totalPanels) * 100);
+  progress.update((++donePanels / totalPanels) * 100, { done: donePanels, total: totalPanels });
 }
 progress.end();

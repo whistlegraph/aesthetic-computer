@@ -1,0 +1,91 @@
+# mommyboo — looking for mom across the house.
+#
+# Style: cute weird syllabic phrasing of the whistlegraph platter —
+# a child's slow alert wander, following the smell and sound of the
+# kitchen. NOT a lullaby. Awake, curious, sweet. Each phrase is an
+# unspoken chant the marimba is "singing" as if calling softly through
+# rooms. The voices are layered, not arranged as a single line.
+#
+# Key: F major. Slow 3/4, ~72 BPM (1 beat = 60/72 ≈ 0.833 s,
+# 1 bar ≈ 2.50 s). Form: 24 bars / ~60 s. Score lives at mommyboo.np;
+# event scheduling + mix lives in bin/render-mommyboo.mjs.
+#
+# Voices:
+#   rosewood       — the singer; the syllabic search
+#   vibraphone_off — held thirds, the warm rooms / patches of light
+#   bass           — gentle half-bar pulse on beat 1 (slow footstep)
+#   kalimba        — questioning twinkles on phrase tails
+#
+# Chord arc: F – Dm – Bb – C – F (I-vi-IV-V-I), one chord per section.
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [mommy1] — calling out, bars 1–4   (F chord — front hall)
+#   bar 1:  mom-MY                                    (A4 ─ C5)
+#   bar 2:  mom-MY                                    (C5 ─ F5)
+#   bar 3:  mom-MY                                    (A4 ─ C5)
+#   bar 4:  mom-MY                                    (C5 ─ F5)
+#
+# [where] — descending search, bars 5–8   (Dm chord — empty room)
+#   bar 5:  where-IS                                  (F5 ─ D5)
+#   bar 6:  SHE                                       (C5 held)
+#   bar 7:  where-IS                                  (F5 ─ D5)
+#   bar 8:  SHE                                       (C5 held)
+#
+# [hi] — climbing into warmth, bars 9–14   (Bb chord — finding her)
+#   bar 9:  hi-mom-MY                                 (F5 A5 ─ C6)
+#   bar 10:                  (let it ring)            (C6 held)
+#   bar 11: hi-mom-MY                                 (F5 A5 ─ C6)
+#   bar 12: hi-mom                                    (A5 G5)
+#   bar 13: hi  mom                                   (Bb5 ─ A5)
+#   bar 14:                  (settle)                 (F5 held)
+#
+# [wow] — relief, bars 15–18   (C chord — there she is)
+#   bar 15: WOW                                       (C6 held)
+#   bar 16: WOW                                       (C6 held)
+#   bar 17: I-SEE                                     (A5 ─ G5)
+#   bar 18: her                                       (F5 held)
+#
+# [hug] — final warm cadence, bars 19–24   (F chord — home)
+#   bar 19: I-SEE                                     (A5 ─ G5)
+#   bar 20: her                                       (F5 held)
+#   bar 21: I-SEE                                     (A5 ─ G5)
+#   bar 22: her                                       (F5 held)
+#   bar 23: ho-ome                                    (A4 ─ F4)
+#   bar 24: (long F4 settles, tail rings)             (F4 long)
+#
+# Below: section markers for the renderer (sections by name).
+
+# mommy1 4 [rosewood, bass]
+A4:_*1.5 C5:_*1.5
+C5:_*1.5 F5:_*1.5
+A4:_*1.5 C5:_*1.5
+C5:_*1.5 F5:_*1.5
+
+# where 4 [rosewood, bass, vibraphone_off]
+F5:_*1.5 D5:_*1.5
+C5:_*3
+F5:_*1.5 D5:_*1.5
+C5:_*3
+
+# hi 6 [rosewood, vibraphone_off, kalimba]
+F5:_*1 A5:_*1 C6:_*1
+C6:_*3
+F5:_*1 A5:_*1 C6:_*1
+A5:_*1.5 G5:_*1.5
+Bb5:_*1.5 A5:_*1.5
+F5:_*3
+
+# wow 4 [vibraphone_off, kalimba, rosewood]
+C6:_*3
+C6:_*3
+A5:_*1.5 G5:_*1.5
+F5:_*3
+
+# hug 6 [rosewood, bass, kalimba]
+A5:_*1.5 G5:_*1.5
+F5:_*3
+A5:_*1.5 G5:_*1.5
+F5:_*3
+A4:_*1.5 F4:_*1.5
+F4:_*3

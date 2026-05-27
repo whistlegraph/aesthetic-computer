@@ -1,0 +1,88 @@
+# gloomboo — a sad cafe, sitting with empty cups.
+#
+# Style: quiet pensive sadness — never bitter, never theatrical. the
+# rosewood lead is an asking-voice: it phrases a question and gets no
+# answer back. the room around it is held thirds on a motorless vibe,
+# a single low D pulse from the bass marimba on the downbeat, and a
+# kalimba twinkle that wonders aloud once or twice per section.
+#
+# Key: D natural minor (D E F G A Bb C). Slow 3/4, ~64 BPM
+# (1 beat ≈ 0.9375 s, 1 bar ≈ 2.8125 s). Chord pad: Dm — Gm — A — Dm
+# (i — iv — V — i). The V chord lifts its third to C# (raised 7th) for
+# one touch of harmonic minor, just enough to feel like asking.
+# Form: 24 bars / ~67.5 s. The score lives at gloomboo.np; the actual
+# event scheduling + mix lives in bin/render-gloomboo.mjs.
+#
+# Voices:
+#   rosewood       — the asking-voice; slow syllabic lead
+#   bass           — very slow low D / A pulse, ONLY on beat 1
+#   vibraphone_off — held somber thirds (motor off — no vibrato)
+#   kalimba        — a questioning twinkle, once or twice per section
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [gone] — descending phrase, bars 1–4
+#   bar 1:  where-DID   it                            (F5 ─ E5 ─ D5)
+#   bar 2:                       go                   (D5 held)
+#   bar 3:  where-DID                                 (F5 ─ E5)
+#   bar 4:                       gone                 (D5 held)
+#
+# [back] — wondering climb + sigh, bars 5–10
+#   bar 5:  when-WILL   it                            (F5 ─ G5 ─ A5)
+#   bar 6:                       come                 (A5 held)
+#   bar 7:  back        a-gain                        (A5 ─ G5 ─ F5)
+#   bar 8:                       (sigh)               (F5 held)
+#   bar 9:  when                                      (G5 ─ A5)
+#   bar 10:                      back                 (G5 ─ F5)
+#
+# [wait] — held longing, bars 11–18 (vibraphone_off blooms under)
+#   bar 11: wait                                      (A5 held)
+#   bar 12:                                           (sustain)
+#   bar 13: wait                                      (D6 held)
+#   bar 14:                                           (sustain)
+#   bar 15: wait        some                          (D6 ─ C6)
+#   bar 16:                      more                 (A5 held)
+#   bar 17: still                                     (A5 ─ G5)
+#   bar 18:                      here                 (F5 held)
+#
+# [sigh] — final descent, bars 19–24
+#   bar 19: may-be                                    (D6 ─ C6)
+#   bar 20: may-be                                    (A5 ─ G5)
+#   bar 21: soon        soon                          (F5 ─ D5)
+#   bar 22:                      (sigh)               (D5 held)
+#   bar 23: (settles)                                 (D4 held, low)
+#   bar 24:                                           (tail + rest)
+#
+# Below: section markers for the renderer (sections by name).
+
+# gone 4 [rosewood, bass]
+F5:_*1 E5:_*1 D5:_*1
+D5:_*3
+F5:_*1.5 E5:_*1.5
+D5:_*3
+
+# back 6 [rosewood, bass, vibraphone_off]
+F5:_*1 G5:_*1 A5:_*1
+A5:_*3
+A5:_*1 G5:_*1 F5:_*1
+F5:_*3
+G5:_*1.5 A5:_*1.5
+G5:_*1.5 F5:_*1.5
+
+# wait 8 [vibraphone_off, kalimba, bass]
+A5:_*3
+:_*3
+D6:_*3
+:_*3
+D6:_*1.5 C6:_*1.5
+A5:_*3
+A5:_*1.5 G5:_*1.5
+F5:_*3
+
+# sigh 6 [rosewood, bass, vibraphone_off]
+D6:_*1.5 C6:_*1.5
+A5:_*1.5 G5:_*1.5
+F5:_*1.5 D5:_*1.5
+D5:_*3
+D4:_*3
+:_*3

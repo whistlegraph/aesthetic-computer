@@ -38,6 +38,13 @@ fi
 # or Stop clears it.
 "$SLAB_BIN/slab-fade-ambient"
 
+# Honor the menubar's "Mute ambient sonification" toggle — skip the
+# "help me" TTS while muted. The pause flag and awaiting marker above
+# still get set so the menubar / daemon stay accurate.
+if [[ -e "$SLAB_HOME/state/muted" ]]; then
+    exit 0
+fi
+
 py="$SLAB_HOME/venv/bin/python3"
 helper="$SLAB_BIN/claude-help.py"
 if [[ -x "$py" && -f "$helper" ]]; then

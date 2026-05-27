@@ -1,0 +1,97 @@
+# trumpaba — a town-crier fanfare for synthesized marimba.
+#
+# Style: mock-heroic heraldic announcement. a paper-trumpet on a
+# cobblestone square at noon. bright kelon bars stand in for tongued
+# trumpet, glockenspiel chimes the high heraldic ping on the phrase
+# tops, staccato barks the announce-it tongue attacks, bass marimba
+# pulses the parade pace on 1 & 3.
+#
+# Each phrase below has an unspoken proclamation — a singable chant
+# the kelon is announcing as if from a small wooden cart. The voices
+# are layered, not arranged as a single line.
+#
+# This is marimbaba's herald cousin. Same lane, same whistlegraph DNA,
+# different posture: bright B♭ major, parade-pace 4/4 at 120 BPM, all
+# downbeat. A ~48-second fanfare instead of a nap.
+#
+# Key: B♭ major (root B♭=70, B♭3=58, B♭2=46). 4/4, 120 BPM
+# (1 beat = 0.5 s, 1 bar = 2.0 s). Form: 24 bars / ~48 s.
+# The score lives at trumpaba.np; the actual event scheduling + mix
+# lives in bin/render-trumpaba.mjs.
+#
+# Voices:
+#   kelon          — the herald; synthetic-bar marimba lead (trumpet stand-in)
+#   bass           — parade pulse (low B♭ / F alternating, on 1 & 3)
+#   glockenspiel   — high steel ping on the phrase tops (heraldic chime)
+#   staccato       — tongued attacks on the downbeats (the announce-it bark)
+#
+# Chord pad: B♭ — E♭ — F — B♭   (I — IV — V — I, perfect cadence at the end)
+#
+# ── unspoken proclamation, syllable-by-syllable ───────────────────────
+#
+# [ta_da] — opening fanfare, bars 1–4. jumping fifths.
+#   bar 1:  ta        DA                          (B♭4 ─ F5)
+#   bar 2:  ta        DA                          (F5  ─ B♭5)
+#   bar 3:  ta        DA                          (B♭4 ─ F5)
+#   bar 4:  ta        DA                          (F5  ─ B♭5)
+#
+# [heralds] — three-note rising arpeggios, bars 5–10. glock on the top note.
+#   bar 5:  ta-DA     DA                          (B♭5 D6 ─ F6)
+#   bar 6:  ta-DA     DA                          (B♭5 D6 ─ F6)
+#   bar 7:  ta-DA     DA                          (B♭5 D6 ─ F6)
+#   bar 8:  ta-DA     DA                          (B♭5 D6 ─ F6)
+#   bar 9:  ta-DA     DA-DA                       (B♭5 D6 F6 D6)
+#   bar 10: ta-DA     DA                          (B♭5 D6 ─ F6)
+#
+# [announce] — march-like four-note phrases on B♭-D-F, bars 11–18.
+#   bar 11: make-WAY  make-WAY                    (B♭4 D5 ─ F5 ─)
+#   bar 12: hear-YE   hear-YE                     (D5 F5 ─ B♭5 ─)
+#   bar 13: make-WAY  make-WAY                    (B♭4 D5 ─ F5 ─)
+#   bar 14: hear-YE   hear-YE                     (D5 F5 ─ B♭5 ─)
+#   bar 15: oh-YE     oh-YE                       (F5 B♭5 ─ F5 ─)
+#   bar 16: hear-YE   hear-YE                     (D5 F5 ─ B♭5 ─)
+#   bar 17: oh-YE     oh-YE                       (F5 B♭5 ─ D6 ─)
+#   bar 18: make-WAY  make-WAY                    (B♭5 D6 ─ F6 ─)
+#
+# [parade] — final cadence, bars 19–24. descend from F6 home to B♭4,
+#            then the full triad held across all voices.
+#   bar 19: ta        DA                          (F6  ─ D6 ─)
+#   bar 20: ta        DA                          (D6  ─ B♭5 ─)
+#   bar 21: hear-YE                               (F5  ─ D5 ─)
+#   bar 22: FAN-fare                              (B♭5 ─ F5 ─)
+#   bar 23: ta-DA     ta-DA                       (D5 F5 ─ B♭5 ─)
+#   bar 24: HOME                                  (B♭4 D5 F5 B♭5 — full B♭ triad held)
+#
+# Below: section markers for the renderer (sections by name).
+
+# ta_da 4 [kelon, bass]
+Bb4:_*2 F5:_*2
+F5:_*2 Bb5:_*2
+Bb4:_*2 F5:_*2
+F5:_*2 Bb5:_*2
+
+# heralds 6 [kelon, bass, glockenspiel]
+Bb5:_*1 D6:_*1 F6:_*2
+Bb5:_*1 D6:_*1 F6:_*2
+Bb5:_*1 D6:_*1 F6:_*2
+Bb5:_*1 D6:_*1 F6:_*2
+Bb5:_*1 D6:_*1 F6:_*1 D6:_*1
+Bb5:_*1 D6:_*1 F6:_*2
+
+# announce 8 [kelon, bass, staccato]
+Bb4:_*1 D5:_*1 F5:_*2
+D5:_*1 F5:_*1 Bb5:_*2
+Bb4:_*1 D5:_*1 F5:_*2
+D5:_*1 F5:_*1 Bb5:_*2
+F5:_*1 Bb5:_*1 F5:_*2
+D5:_*1 F5:_*1 Bb5:_*2
+F5:_*1 Bb5:_*1 D6:_*2
+Bb5:_*1 D6:_*1 F6:_*2
+
+# parade 6 [kelon, bass, glockenspiel, staccato]
+F6:_*2 D6:_*2
+D6:_*2 Bb5:_*2
+F5:_*2 D5:_*2
+Bb5:_*2 F5:_*2
+D5:_*1 F5:_*1 Bb5:_*2
+Bb4:_*4

@@ -27,6 +27,9 @@ AMBIENT_FLAG=/tmp/slab-ambient-active
 # present, ambient stays off even though an active marker exists. Cleared by
 # claude-prompt-log.sh (user responded) or claude-stop.sh (work ended).
 AMBIENT_PAUSE_FLAG=/tmp/slab-ambient-paused
+# Persistent mute flag toggled by the menubar's "Mute ambient sonification"
+# item. When present, ambient never starts and any in-flight pad is faded.
+MUTE_FLAG="$SLAB_HOME/state/muted"
 
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
 SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
@@ -175,9 +178,10 @@ while true; do
     fi
 
     # Ambient gate: lid closed + sleep disabled + active prompt or subagent,
-    # and NOT paused-for-feedback by a Notification hook.
+    # and NOT paused-for-feedback by a Notification hook, and NOT muted
+    # via the menubar's "Mute ambient sonification" toggle.
     ambient_wanted=0
-    if [[ "$lid_state" == "Yes" && "$sleep_disabled" == "1" ]] && (( active_count > 0 )) && [[ ! -f "$AMBIENT_PAUSE_FLAG" ]]; then
+    if [[ "$lid_state" == "Yes" && "$sleep_disabled" == "1" ]] && (( active_count > 0 )) && [[ ! -f "$AMBIENT_PAUSE_FLAG" ]] && [[ ! -f "$MUTE_FLAG" ]]; then
         ambient_wanted=1
     fi
 

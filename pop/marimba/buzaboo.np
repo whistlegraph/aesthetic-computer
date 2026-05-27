@@ -1,0 +1,89 @@
+# buzaboo — a bee-in-flowers hover for synthesized marimba.
+#
+# Style: a honeybee's morning patrol — alert, darting, hovering at a
+# wildflower, then lifting off and flying home. Cute syllabic phrasing
+# in the whistlegraph platter way, but bright A-minor energy: never
+# sad, never moody. The bee is curious, busy, never lost.
+#
+# This is flutterbap's bee-sibling. Same lane, same whistlegraph DNA,
+# A natural minor instead of C major, busier 16th-note texture for the
+# bee's wing-blur. 4/4 at 132 BPM, no haze. 24 bars / ~44 s.
+#
+# Key: A natural minor (A B C D E F G). Harmony i (Am) – iv (Dm) –
+# v (Em) – i (Am). 4/4, ~132 BPM (1 beat ≈ 0.455 s, 1 bar ≈ 1.818 s).
+# Form: 24 bars / ~44 s. Score lives at buzaboo.np; event scheduling +
+# mix lives in bin/render-buzaboo.mjs.
+#
+# Voices:
+#   kalimba         — the lead, tine-bzz, hovering not soaring
+#   staccato        — sharp dry "tok" — the bee's mid-air hit-points
+#   vibraphone      — MOTOR ON, the natural tremolo (the wing-pad)
+#   bass            — low A / E pulse on 1 & 3, the flight floor
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [hover] — opening hover, bars 1–4 — "buzz-BUZZ buzz"
+#   bar 1:  buzz-BUZZ  buzz                       (A5 C6 ─ E6)
+#   bar 2:  buzz-BUZZ  buzz                       (C6 E6 ─ A5)
+#   bar 3:  buzz-BUZZ  buzz                       (B5 D6 ─ E6)
+#   bar 4:  buzz-buzz  buzz                       (C6 B5 A5 E5)
+#
+# [flower] — flower-found, bars 5–12 — "flow-er-FLOW-er / land-ON-it"
+#   bar 5:  flow-er    FLOW-er                    (C6 D6 ─ E6)
+#   bar 6:  land  ON   it                         (D6 C6 B5 A5)
+#   bar 7:  flow-er    FLOW-er                    (C6 D6 ─ E6)
+#   bar 8:  on  the    PET-al                     (D6 ─ C6 ─)
+#   bar 9:  drink-the  NEC-tar                    (E6 D6 ─ C6)
+#   bar 10: drink  it  DOWN                       (D6 C6 B5 ─)
+#   bar 11: full-of    SUN                        (C6 D6 ─ E6)
+#   bar 12: full       FULL                       (E6 ─ C6 ─)
+#
+# [lift] — ascending lift-off, bars 13–20 — "lift-A-WAY / lift-and-FLY"
+#   bar 13: lift-A     WAY                        (A5 B5 ─ C6)
+#   bar 14: lift-and   FLY                        (B5 C6 ─ D6)
+#   bar 15: up-and     UP                         (C6 D6 ─ E6)
+#   bar 16: climb-the  SUN                        (D6 E6 ─ G6)
+#   bar 17: lift-A     WAY                        (E6 G6 ─ A6)
+#   bar 18: lift-and   HIGH                       (E6 D6 ─ C6)
+#   bar 19: round-and  ROUND                      (B5 C6 D6 E6)
+#   bar 20: HIGH-er    high                       (G6 ─ E6 ─)
+#
+# [fly] — descending zig-zag home, bars 21–24 — "fly-fly-FLY"
+#   bar 21: fly-fly    FLY                        (E6 D6 ─ C6)
+#   bar 22: zig-and    ZAG                        (D6 B5 ─ A5)
+#   bar 23: home-a     GAIN                       (C6 B5 A5 E5)
+#   bar 24: (home)                                (A4 held)
+#
+# Below: section markers for the renderer (sections by name).
+
+# hover 4 [kalimba, staccato, bass]
+A5:_*1 C6:_*1 E6:_*2
+C6:_*1 E6:_*1 A5:_*2
+B5:_*1 D6:_*1 E6:_*2
+C6:_*1 B5:_*1 A5:_*1 E5:_*1
+
+# flower 8 [kalimba, vibraphone, staccato, bass]
+C6:_*1 D6:_*1 E6:_*2
+D6:_*1 C6:_*1 B5:_*1 A5:_*1
+C6:_*1 D6:_*1 E6:_*2
+D6:_*2 C6:_*2
+E6:_*1 D6:_*1 C6:_*2
+D6:_*1 C6:_*1 B5:_*2
+C6:_*1 D6:_*1 E6:_*2
+E6:_*2 C6:_*2
+
+# lift 8 [kalimba, staccato, vibraphone, bass]
+A5:_*1 B5:_*1 C6:_*2
+B5:_*1 C6:_*1 D6:_*2
+C6:_*1 D6:_*1 E6:_*2
+D6:_*1 E6:_*1 G6:_*2
+E6:_*1 G6:_*1 A6:_*2
+E6:_*1 D6:_*1 C6:_*2
+B5:_*1 C6:_*1 D6:_*1 E6:_*1
+G6:_*2 E6:_*2
+
+# fly 4 [kalimba, staccato, bass]
+E6:_*1 D6:_*1 C6:_*2
+D6:_*1 B5:_*1 A5:_*2
+C6:_*1 B5:_*1 A5:_*1 E5:_*1
+A4:_*4

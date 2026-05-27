@@ -1,0 +1,25 @@
+{
+  "title": "hellsine cards — fingers-through-cards staccato flap bank",
+  "outDir": "/Users/jas/aesthetic-computer/pop/hellsine/samples",
+  "trim": {
+    "thresholdPctOfPeak": 0.06,
+    "padHeadMs": 6,
+    "padTailMs": 40,
+    "fadeMs": 2,
+    "normalizeDb": -1.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 800,
+    "maxRecordSec": 6
+  },
+  "samples": [
+    { "name": "cards-fast",     "desc": "fingers through the deck, fast riffle" },
+    { "name": "cards-medium",   "desc": "fingers through the deck, medium speed" },
+    { "name": "cards-slow",     "desc": "fingers through the deck, slow drag" },
+    { "name": "cards-hard",     "desc": "fingers through the deck, hard pressure for sharper attacks" },
+    { "name": "cards-burst-a",  "desc": "short staccato burst — quick stutter through a few cards" },
+    { "name": "cards-burst-b",  "desc": "another short staccato burst — different rhythm" }
+  ]
+}

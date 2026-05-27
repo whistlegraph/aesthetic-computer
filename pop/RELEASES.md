@@ -3,7 +3,88 @@
 Progress tracker for finished `pop/` singles — what's shipped, what's in
 flight, and where it lives. See [SCORE.md](SCORE.md) for the mill mission.
 
-Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA**
+Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · **WIP** · **IDEA**
+
+---
+
+## YouTube state — pixsies singles (snapshot 2026-05-26)
+
+All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadata doesn't surface). Titles are **Title Case**; descriptions are **hashtag-only**. Chrome family for all `*-yt.mjs` forks: trancepenta-yt side stamps — pals + rotated-90° title chars climbing UP beside each stamp (movie-poster spine). Pre-render title chars with `shadowColor: null` so the per-frame tint works.
+
+| Track | Video | Chrome / Build |
+|---|---|---|
+| Trancepenta | [Em_lvTYET7M](https://youtu.be/Em_lvTYET7M) | `preview-score-trancepenta-yt.mjs` (canonical side-stamps) |
+| Trancenwaltz | [RBG3k_XsfLA](https://youtu.be/RBG3k_XsfLA) | `cover-video.mjs --size 1920x1080` w/ v10b landscape illys |
+| Marimbaba (v3) | [jXdnJjdV_kY](https://youtu.be/jXdnJjdV_kY) | `preview-score-marimbaba-yt.mjs` — vignette removed (mirrors trancepenta-yt fix); replaces v2 `X63Ni-Lb_Kc` (deleted 2026-05-26, edges were crushed by the leftover contrast vignette) |
+| Helpabeach (v2) | [WKdMYawwDPY](https://youtu.be/WKdMYawwDPY) | `preview-score-helpabeach-yt.mjs` (side-stamps; uploaded 2026-05-26 after the 24h quota cleared from the 2026-05-24 burn) |
+
+YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-24 burned through the day's six on the two deleted Shorts + two v1 landscape cuts + marimbaba v2; helpabeach v2 was deferred and shipped on 2026-05-26 alongside the marimbaba v3 re-render (delete X63Ni-Lb_Kc + 2 uploads = 3 of 6 slots on 2026-05-26).
+
+Open follow-ups (queued, not blockers):
+- Re-run `node pop/chillwave/bin/gen-illy.mjs --slug helpabeach --landscape --sections --validate-butterfly` once OpenAI gpt-4o-mini quota clears — the validator wraps each gen with a vision check against `pop/chillwave/assets/wg-scrap.png` and regens FAILs (drift-1 visibly fails: tree-person not butterfly).
+- `helpabeach-yt-forms.json` not authored — backlight/zoom layer disabled on landscape until face-detected forms land (`pop/dance/bin/detect-face.py` is the precedent).
+
+---
+
+## marimbaba — RELEASED
+
+- **Lane:** `pop/marimba/` · lullaby for synthesized marimba, 1:24 ·
+  56 BPM · F major · slow 3/4 · 24 bars. Fully instrumental — rosewood
+  marimba lead, half-bar bass "rocking chair" pulse, off-beat kalimba
+  twinkles, motorless vibraphone dream-haze pad. A syllabic lyric
+  (hush-hush / twin-kle / wow-wow / ba-ba-bap / sleep-now) is written
+  into the score but stays unspoken; the marimba hums it. Part of the
+  *pixsies* body.
+- **Artist:** Aesthetic Dot Computer
+- **Status:** RELEASED — delivered via DistroKid 2026-05-22, live in
+  stores. Assets published to the AC assets CDN 2026-05-22.
+- **Listen (canonical):** https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG
+- **Assets (AC CDN):**
+  - audio — https://assets.aesthetic.computer/pop/marimbaba.mp3
+  - cover — https://assets.aesthetic.computer/pop/marimbaba.jpg
+  - visualizer — https://assets.aesthetic.computer/pop/marimbaba.mp4
+  - youtube · https://youtu.be/jXdnJjdV_kY (1920×1080 landscape visualizer — uploaded 2026-05-26 as v3, REPLACED v2 `X63Ni-Lb_Kc` which was deleted same day because the contrast vignette layer (mistakenly carried over from the trancepenta-yt code that was later cleaned up) crushed the panel edges; the v3 render removes `drawVignette(c, v_i)` from `paintSectionPanel` and keeps just the transmitted backlight + leaded contrast layers (the figures already pop without the periphery darkening). Built from the `-yt` landscape illy set (`gen-sections.mjs --landscape` → 11 panels at 1536×1024 with the LANDSCAPE_NOTE re-framing the late-night study for 16:9) and the landscape fork `pop/marimba/bin/preview-score-marimbaba-yt.mjs`. Side-stamps chrome (pals + rotated-90° "marimbaba" climbing up beside each stamp) matches trancepenta-yt. v1 was `qntoYeAZSmM` (unused-`drawTitle` side stacks), v2 was `X63Ni-Lb_Kc` (correct chrome but vignetted). Title is "Marimbaba"; description is hashtag-only.)
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=772E43F5-D367-44A9-A7B4A1FA4E57FBD9
+  (admin-only)
+- **Master:** `~/Documents/Working Desktop/marimbaba-DISTROKID/marimbaba-MASTER.wav`
+  — 44.1 kHz / 16-bit stereo WAV, 83.6 s. ≈ −14.5 LUFS, −1.5 dBTP.
+  Master chain: highpass 30 → soft glue comp → +1 dB air @ 7.5 k →
+  alimiter 0.95 → loudnorm I=−14 TP=−1.5 LRA=11. (Durable home is
+  `~/Documents/Working Desktop/` — Desktop auto-cleans,
+  [[feedback_desktop_autocleaned]].)
+- **Cover:** `…/marimbaba-DISTROKID/marimbaba-cover-3000.jpg` — 3000²,
+  a colored-pencil + gouache drawing: a tight head-and-shoulders crop
+  of jeffrey + Bill Gates side by side, quiet and somber, their hands
+  typing on an IBM Model M keyboard along the bottom edge, no screen in
+  frame. Generated by `gen-illy.mjs` from
+  `pop/marimba/marimbaba.illy.txt` (jeffrey identity refs);
+  1024² source at `pop/marimba/out/marimbaba-cover.png`, upscaled to
+  3000². (Earlier concept: a photographic `recovery-tears` library
+  scene — superseded.)
+- **DistroKid folder:** `~/Documents/Working Desktop/marimbaba-DISTROKID/`
+  — MASTER.wav, cover-3000.jpg, README.md (submission-form fields).
+- **Reconstructable** ($0, deterministic): `node pop/marimba/bin/render-marimbaba.mjs
+  --wav <path> --no-open` → master chain above.
+- **Storyline visualizer (9:16 insta-story):**
+  `pop/marimba/out/marimbaba-preview-score-portrait-insta-story.mp4`
+  — 1080×1920, 1:24, the marimbaba lullaby as one quiet story: jeffrey's
+  late-night **computer help call** with Bill Gates. **10 colored-pencil
+  + gouache panels** (two per `.np` section) with a changing-emotion
+  arc — approaches the house → doorway hello → crossing → settles in →
+  points it out → it clicks → Gates tries it → hands-on → it worked →
+  drowsy close (the album cover). Built on the shared engine: a
+  verlet-physics **playhead string** with the marimba's note events
+  riding it as pitch-coloured blocks (4 voice lanes); a **3-layer
+  backlight** (warm glow from behind + contrast vignette + per-figure
+  halo); a **face zoom** easing wide↔face twice per section; and **6
+  transitions** (iris / blinds / push / zoom-punch / pixel /
+  diagonal-wipe) cycled across the 9 boundaries.
+- **Visualizer pipeline:** `node pop/marimba/bin/render-marimbaba.mjs
+  --no-open` (emits `out/marimbaba.struct.json` — sections + note
+  events) → `node pop/marimba/bin/gen-sections.mjs` (gpt-image-2 →
+  portrait cover + 10 panels, cached) → `node
+  pop/marimba/bin/preview-score.mjs` → the mp4. Figure bboxes for the
+  zoom + backlight in `marimbaba-forms.json`.
 
 ---
 
@@ -17,12 +98,14 @@ Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA*
   (Formerly `undabeach`.)
 - **Artist:** Aesthetic Dot Computer
 - **Released:** 2026-05-21 via DistroKid
-- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=B1F5253A-11FA-40EF-83A89866A157829A
+- **Listen (canonical):** https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=B1F5253A-11FA-40EF-83A89866A157829A (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run pop:assets:up`):
   - audio · https://assets.aesthetic.computer/pop/helpabeach.mp3 (320 k mp3 of the master, 151.1 s)
   - cover · https://assets.aesthetic.computer/pop/helpabeach.jpg (3000², Rhizome Health clinic tableau)
   - video · https://assets.aesthetic.computer/pop/helpabeach.mp4 (1080×1920 vertical IG-story, 9 clinic panels)
   - story cut · https://assets.aesthetic.computer/pop/helpabeach-short.mp4 (1:17 narrated cut)
+  - youtube · https://youtu.be/WKdMYawwDPY (1920×1080 landscape visualizer — uploaded 2026-05-26 as v2, REPLACES v1 `NG55RkBI7N0` which had the wrong chrome (horizontal top title) and was deleted 2026-05-24 to make room for the side-stamps re-render. The v2 mp4 at `pop/chillwave/out/helpabeach-preview-score-yt.mp4` (109 MB) carries the side-stamps chrome matching trancepenta-yt: pals stamps snug against rotated-90° "helpabeach" climbing up beside each stamp; no top horizontal title. Upload was deferred from 2026-05-24 because the day's six insert slots were already burned on two deleted Shorts + two v1 landscape cuts + the marimbaba v2; it shipped 2026-05-26 alongside the marimbaba v3 re-render once the 24h quota window cleared.)
 - **Master:** `~/Documents/Working Desktop/helpabeach-DISTROKID/helpabeach-MASTER.wav`
   — 44.1 kHz / 16-bit stereo WAV, 151.1 s. ≈ −13.4 LUFS, −1.5 dBTP.
   Master chain: highpass 24 → treble +1.8 dB @ 9.5 k → loudnorm
@@ -46,12 +129,19 @@ Status legend: **RELEASED** · **MASTERING** · **RENDER** · **WIP** · **IDEA*
 
 - **Lane:** `pop/dance/` · dark/emo/extreme war-arc trance-waltz, ~1:26
 - **Released:** 2026-05-17 via DistroKid
-- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=8FF25085-8F58-4A3A-986A52A21D638805
+- **Listen (canonical):** https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=8FF25085-8F58-4A3A-986A52A21D638805 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancenwaltz.mp3 (320 k mp3 of the bright master, 86.62 s)
   - cover · https://assets.aesthetic.computer/pop/trancenwaltz.jpg (3000², outro art)
   - canvas · https://assets.aesthetic.computer/pop/trancenwaltz-canvas.mp4 (Spotify Canvas — 1080×1920, 6 s, **silent**, seamless loop, **chrome-free**, slit-scan glitch montage of all 8 section illys)
+  - youtube · https://youtu.be/RBG3k_XsfLA (1920×1080 full-chrome visualizer — title / multi-lane piano-roll / karaoke / progress reframed landscape; uses the **v10b** native-landscape illy set, regenerated from `cover-prompt-landscape.txt` so the canonical whistlegraph-butterfly lid scrap lands correctly; ZOOM_DAMP halves ken-burns amplitude on 16:9 so the illys breathe instead of pumping)
   - Reconstructable byte-faithfully any time: `trance.mjs --meter 3 --vocal-stem pop/dance/out/trance-hook-layered.mp3 --master` (deterministic seed `trancewaltz`) → brightening polish (high-shelf 8.5 k +4, presence 4.2 k +2.2, sparkle 12.5 k +1.8, 190 Hz −1, `loudnorm I=-14 TP=-1.2 LRA=13`) → 320 k mp3; cover = outro v15 `-gravity North -crop 1024x1024+0+96 → 3000²`. (Desktop copies are auto-cleaned — see [[feedback_desktop_autocleaned]]; CDN + repo `assets/pop/` are the durable home.)
+- **YouTube visualizer build recipe** (deterministic from the bright master + v10b illys):
+  1. `node marketing/bin/gen-promo.mjs <secdir> --variant v10b --size 1536x1024 --prompt-file cover-prompt-landscape.txt --force --no-mirror` per section (regen-only; the `cover-prompt-landscape.txt` is the portrait prompt with PORTRAIT framing language swapped for LANDSCAPE 3:2 / 16:9 strip).
+  2. `recap/.venv/bin/python3 pop/dance/bin/detect-face.py <secdir>/gens/v10b.png` per section (writes `.face.json` sidecars the backlight emitters need).
+  3. `node pop/dance/bin/cover-video.mjs --track <master.mp3> --illustrations intro=...,break1=...,... --size 1920x1080 --prelude <intro-prelude>/gens/v10.png --title trancenwaltz --bpm 137.143 --out <out.mp4>` (the **build.mjs** `youtube` format wires this).
+  4. `node toolchain/youtube/yt.mjs upload <out.mp4> --title "Trancenwaltz" --description-file pop/dance/trancenwaltz.youtube.txt --tags "trance,waltz,electronic,visualizer,aesthetic computer,pixsies,music" --privacy public --category 10`. (YouTube title convention is Title Case; description is hashtags only — see 2026-05-24 metadata refresh.)
 - **Master:** `~/Desktop/trancenwaltz-MASTER.wav` (= `-FINAL-distrokid.wav`)
   — 16-bit/44.1 kHz stereo WAV, 86.62 s. **Bright master:** −13.5 LUFS,
   −1.2 dBTP, LRA 6.7, +5 dB air vs the original dark cut. Pre-bright
@@ -226,11 +316,17 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   crescendoing to the 1:33 audio stamp, dice-roll click-clack tumbling
   in post-vortex. Spec: `pop/dance/trancepenta.md`.
 - **Released:** 2026-05-20 via DistroKid
-- **Canonical:** https://distrokid.com/dashboard/album/?albumuuid=860FA7AC-AE6E-4B0A-ABC6E1514D273054
+- **Listen (canonical):** https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=860FA7AC-AE6E-4B0A-ABC6E1514D273054 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancepenta.mp3 (320 k mp3 of the radio-balanced master, 190.69 s)
   - cover · https://assets.aesthetic.computer/pop/trancepenta.jpg (3000², felt-character hero crop with multi-section lighting)
   - canvas/IG · https://assets.aesthetic.computer/pop/trancepenta-canvas.mp4 *(pending the other agent's render — see vertical-video session)*
+  - youtube · https://youtu.be/Em_lvTYET7M (1920×1080 full-chrome visualizer — uploaded 2026-05-24. The native-landscape 16-panel YT illy set + cover at `pop/dance/out/trancepenta-yt-{sec-*,cover}.png` were regenerated 2026-05-24 from felt-puppet prompts (Aardman / Isle-of-Dogs craft language, tattered felt clothes, bearded jeffrey, felt mark + felt pixsies with prominent LED-bead tells) so the YT visualizer matches the album cover's felt aesthetic. The first re-render had a heavy contrast vignette crushing the panel edges; that layer was removed from `preview-score-trancepenta-yt.mjs` (function kept as dead code) and the file re-rendered with bright edges. Photoreal originals stashed under `pop/dance/out/_yt-photoreal-backup/`.)
+- **YouTube visualizer build recipe** (deterministic from the felt panel set + bright master):
+  1. `node pop/dance/bin/gen-trancepenta-sections.mjs --force` (regen 16 felt landscape panels + cover at 1536×1024 via the felt-puppet constants in the script; concurrency 3; ~15–20 min wall time; ~$5 OpenAI).
+  2. `node pop/dance/bin/preview-score-trancepenta-yt.mjs` (default I/O — reads `~/Documents/Working Desktop/twi-out/trancepenta.mp3` + struct, writes `pop/dance/out/trancepenta-preview-score-yt.mp4`; ~35 min for the full 190 s @ 30 fps).
+  3. `node toolchain/youtube/yt.mjs upload pop/dance/out/trancepenta-preview-score-yt.mp4 --title "Trancepenta" --description-file pop/dance/trancepenta.youtube.txt --tags "trance,chilltrance,electronic,visualizer,aesthetic computer,pixsies,music,instrumental,5/4" --privacy public --category 10 --thumbnail /tmp/yt-thumbs/trancepenta-thumb.jpg` (the thumbnail must be ≤ 2 MB; the 3000² CDN cover is too big — use the 1280-wide ffmpeg downscale or call `yt.mjs thumbnail <videoId> <image>` after the fact).
   - Reconstructable byte-faithfully any time: `BAKE_FORCE=1 bash pop/dance/bin/bake-trancepenta.sh`
     → produces `~/Documents/Working Desktop/twi-out/trancepenta-MASTER.wav` + paired struct.json
     → cover at `~/Documents/Working Desktop/gens/trancepenta-cover-3000.jpg` (felt-character regen via `gens/trancepenta-cover-final/`)
@@ -266,6 +362,56 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   · vocal pitch-correction to the Odyssey theremin melody (`rubberband`
     per-slice once compiled into ffmpeg, or a new
     `place-penta-autotune.mjs`)
+
+## solafiya — MASTERING
+
+- **Lane:** `pop/jungle/` · spicy latina jungle (ragga sub-format), 1:40
+  · 176 BPM felt half-time (~88) · key A · sunlit minor-pentatonic-with-
+  major-third warmth. Hybrid AC-kit break (chopped/shuffled
+  `percussion.mjs` web + synthesized break-stab burst at phrase ends —
+  no Winstons, no Amen sample), deep dub sub on offbeat push, warm
+  golden sinepower pad, reggae skank stab, sparse dub sirens / airhorns,
+  AC bell + ding + meow + marimba + sineloop + shrill + throat
+  ornamentation. Three sequential verses, no overlap. Part of the
+  *pixsies* body. First **fía** solo lead — her live ragga toast forced-
+  aligned through the WORLD pipeline into vocal / vocalAd / vocalDuet /
+  vocalH / throat lanes, baked into the mix.
+- **Artist:** fía (TBC — could be `fía & Aesthetic Dot Computer` for
+  store-page coherence with the other pixsies singles; ask @jeffrey)
+- **Status:** MASTERING — final master baked 2026-05-23; awaiting
+  @jeffrey's ears + creative direction before DistroKid upload. Cover +
+  README in place.
+- **Master:** `~/Documents/Working Desktop/solafiya-DISTROKID/solafiya-MASTER.wav`
+  — 16-bit/44.1 kHz stereo WAV, 100.18 s. **−13.5 LUFS · −1.0 dBTP ·
+  LRA 2.3** (jungle wants tight; source mix is already heavily
+  compressed at −19.4 LUFS / LRA 2.2 — no extra dynamic range to
+  reclaim). Master chain: highpass 28 → 250 Hz mud trim → 4.2 k
+  presence +2 → high-shelf 8.5 k +5 (air restore — render high-cuts at
+  ~8.6 k for HC vibe) → high-shelf 12.5 k +2.5 → loudnorm I=−14
+  TP=−1.5 LRA=8 → alimiter 0.95. Pre-bright A/B copy at
+  `solafiya-MASTER-preBright.wav`. (Durable home is
+  `~/Documents/Working Desktop/` — Desktop auto-cleans,
+  [[feedback_desktop_autocleaned]].)
+- **Cover:** `…/solafiya-DISTROKID/solafiya-cover-3000.jpg` — 3000²,
+  Pixar-style fía + 7 different-breed kittens on a golden-hour beach,
+  matcha + closed laptop + white W210 Mercedes + bounding dog +
+  polychrome sparkles. Lanczos upscale of `pop/jungle/out/solafiya.illy.png`
+  (1024² gpt-image-2 source, prompt at `pop/jungle/solafiya.illy.txt`).
+- **DistroKid folder:** `~/Documents/Working Desktop/solafiya-DISTROKID/`
+  — MASTER.wav, MASTER-preBright.wav, cover-3000.jpg, mp3 (320 k +
+  embedded cover), README.md (submission-form fields + open questions).
+- **Reconstructable** ($0, deterministic): `node pop/jungle/bin/render.mjs
+  --slug solafiya` (cached) then `bash pop/jungle/bin/bake-solafiya.sh`
+  → master chain above. `BAKE_FORCE=1` to re-bake from a fresh render.
+- **Open before submitting:** (1) **artist credit** — `fía` solo vs
+  `fía & Aesthetic Dot Computer`; (2) **lyrics** — only
+  forced-aligned word JSON exists (`solafiya-fia-words.json`), no
+  canonical `.txt`; (3) **canvas / vertical video** — 19 lane raw
+  buffers + 6 section illys are baked, so `preview-score.mjs` /
+  `preview-spin.mjs` can produce a 9:16 IG cut + Spotify Canvas loop
+  (not yet built).
+
+---
 
 ## hellsine — WIP (concept track, first cut)
 

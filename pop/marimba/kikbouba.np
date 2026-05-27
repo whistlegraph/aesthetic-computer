@@ -1,0 +1,100 @@
+# kikbouba — a sound-symbolism study for synthesized marimba.
+#
+# Style: the kiki/bouba experiment in audible form. SHARP versus ROUND
+# voices alternating across an asymmetric 5/4 meter, the asymmetry
+# itself being the point. cerebral but playful, a small linguistic
+# laboratory rendered as a 20-bar pop study.
+#
+# Each phrase below has an unspoken question — the phonemes "kiki" and
+# "bouba" trade off across the bars, the woodblock voicing the SHARP
+# spikes (jagged ascending) and the gamelan voicing the ROUND blobs
+# (mellow bronze ring). The xylophone is the lead investigator that
+# chooses which side to follow per phrase. The kalimba is the mediator
+# twinkling between the two camps.
+#
+# Key: A natural minor with a quasi-dorian flavor (raised 6th — the
+# pitch set is A B C D E F# G). Root A4 = MIDI 69. Meter: 5/4.
+# Tempo: 84 BPM deliberate. 1 beat ≈ 0.714 s, 1 bar ≈ 3.571 s.
+# Form: 20 bars / ~71 s. Score lives at kikbouba.np; events lives at
+# bin/render-kikbouba.mjs.
+#
+# ── why 5/4 ───────────────────────────────────────────────────────────
+# Because kiki has two syllables and bouba has two syllables, but the
+# QUESTION "which one is the spiky one" cannot be balanced in 4/4. So
+# we group eighth notes inside each bar as (2 + 3) for the SHARP/kiki
+# voicings (ki-KI / ki-ki-KI), and as (3 + 2) for the ROUND/bouba
+# voicings (bou-bou-BA / bou-BA). The lopsided footprint is doing the
+# semantic work — same way the names do, in your mouth.
+#
+# Voices:
+#   woodblock   — the SHARP "kiki" hits — dry, jagged-coded, panned L
+#   gamelan     — the ROUND "bouba" hits — bronze ring, panned R
+#   xylophone   — lead investigator, takes sides per phrase
+#   kalimba     — mediator twinkles linking phrases together
+#
+# Chord pad (under everything, implied): Am — D — F#dim — G — Am
+# (i — IV — iiº — VII — i). The IV and the F#dim both pull the F# in.
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [kiki] — the SHARP side states itself, bars 1–4
+#   bar 1:  ki-KI       ki-ki-KI        (2+3 eighths, jagged up)
+#   bar 2:  ki-KI       ki-ki-KI        (same shape, brighter)
+#   bar 3:  KI-ki       ki-KI-ki        (inverted, falling-rising)
+#   bar 4:  ki-ki-ki    ki-KI           (3+2 inversion, final stab)
+#
+# [bouba] — the ROUND side answers, bars 5–8
+#   bar 5:  bou-bou-BA  bou-BA          (3+2 eighths, descending bowl)
+#   bar 6:  bou-BA      bou-bou-BA      (2+3 wide, opening out)
+#   bar 7:  BOU         ba   BA         (long held vowels)
+#   bar 8:  bou-bou-bou BA              (4+1, settling thud)
+#
+# [which] — which IS the spiky one, bars 9–12 (alternating within bar)
+#   bar 9:  KI bou KI   bou-BA          (sharp first, jagged up)
+#   bar 10: bou KI bou  KI-bou          (round first, smearing)
+#   bar 11: KI bou KI   bou-BA          (repeat, slight rise)
+#   bar 12: bou KI bou  KI-BA           (final volley, both sides)
+#
+# [are] — which-ARE — YOU, bars 13–16 (extended phrase, both trading)
+#   bar 13: WHICH       are-YOU         (long-then-short)
+#   bar 14: are-you-are YOU             (3+2, escalating)
+#   bar 15: WHICH       are-you-YOU     (long-then-3, dorian F#)
+#   bar 16: you-you-you YOU-you         (5 even sweeps)
+#
+# [answer] — the hybrid resolution, bars 17–20 (all four voices weave)
+#   bar 17: ki-bou-KI   bou-BA          (the hypothesis stated, 3+2)
+#   bar 18: ki-bou-KI   ki-bou-BA       (the experiment, 3+2 again)
+#   bar 19: ki-ki-bou   bou-BA-BA       (uncertainty, mixed signal)
+#   bar 20: ki...       bou (held)      (last TOK + last BONG, together)
+#
+# Below: section markers for the renderer (sections by name).
+
+# kiki 4 [woodblock, xylophone]
+A5:_*0.5 B5:_*0.5 A5:_*0.5 B5:_*0.5 C6:_*0.5
+A5:_*0.5 C6:_*0.5 A5:_*0.5 B5:_*0.5 C6:_*0.5
+B5:_*0.5 A5:_*0.5 A5:_*0.5 C6:_*0.5 B5:_*0.5
+A5:_*0.5 B5:_*0.5 A5:_*0.5 A5:_*0.5 C6:_*0.5
+
+# bouba 4 [gamelan, xylophone]
+E5:_*0.5 D5:_*0.5 C5:_*1 E5:_*0.5 C5:_*0.5
+E5:_*0.5 C5:_*1 E5:_*0.5 D5:_*0.5 C5:_*0.5
+E5:_*2 D5:_*1 C5:_*1
+E5:_*0.5 D5:_*0.5 D5:_*0.5 D5:_*0.5 C5:_*1
+
+# which 4 [woodblock, gamelan, xylophone, kalimba]
+A5:_*0.5 E5:_*0.5 C6:_*0.5 D5:_*1 A5:_*0.5
+E5:_*0.5 B5:_*0.5 D5:_*0.5 C6:_*0.5 C5:_*0.5
+A5:_*0.5 E5:_*0.5 C6:_*0.5 D5:_*1 B5:_*0.5
+E5:_*0.5 C6:_*0.5 D5:_*0.5 B5:_*0.5 C5:_*0.5
+
+# are 4 [woodblock, gamelan, xylophone, kalimba]
+A5:_*1 B5:_*0.5 C6:_*1 D6:_*0.5
+A5:_*0.5 C6:_*0.5 A5:_*0.5 C6:_*1
+E5:_*1 F#5:_*0.5 G5:_*0.5 A5:_*1
+A5:_*0.5 G5:_*0.5 F#5:_*0.5 E5:_*1 D5:_*0.5
+
+# answer 4 [woodblock, gamelan, xylophone, kalimba]
+A5:_*0.5 E5:_*0.5 B5:_*0.5 D5:_*1 C6:_*0.5
+A5:_*0.5 E5:_*0.5 B5:_*0.5 A5:_*0.5 E5:_*0.5 C6:_*0.5
+A5:_*0.5 A5:_*0.5 E5:_*0.5 D5:_*0.5 C5:_*0.5 C5:_*0.5
+A4:_*5

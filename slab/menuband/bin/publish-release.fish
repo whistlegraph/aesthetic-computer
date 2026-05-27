@@ -148,7 +148,7 @@ const entry = {
   size: Number(process.env.MB_SIZE),
   sha256: process.env.MB_SHA256,
   releasedAt: process.env.MB_RELEASED,
-  requirements: "macOS 11+ · Apple Silicon",
+  requirements: "macOS 11+ · Universal (Intel + Apple Silicon)",
 };
 
 if (!Array.isArray(manifest.versions)) manifest.versions = [];

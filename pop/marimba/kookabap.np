@@ -1,0 +1,91 @@
+# kookabap — a dawn cackle for synthesized marimba.
+#
+# Style: kookaburra-dawn syllabic phrasing of the whistlegraph platter,
+# the forest waking up under raking sunrise light. The xylophone's
+# bright cousin (kelon) is doing the laughing here, not chanting —
+# rolling bursts of giggle-trill, with the woodblock cackling on
+# offbeats like a bird up in the canopy.
+#
+# This is marimbaba's morning sibling. Same lane, same whistlegraph
+# DNA, opposite-hour vibe: bright A major, brisk 4/4 at 138 BPM,
+# no haze, all daylight. A ~42-second pop bird-laugh.
+#
+# Key: A major. 4/4, ~138 BPM (1 beat ≈ 0.435 s, 1 bar ≈ 1.739 s).
+# Form: 24 bars / ~42 s. The score lives at kookabap.np; the actual
+# event scheduling + mix lives in bin/render-kookabap.mjs.
+#
+# Voices:
+#   kelon          — the laugher; bright synthetic-marimba lead
+#   bass           — low pulse (A2 / E3 alternating, on 1 & 3)
+#   kalimba        — offbeat dawn-twinkles, sparkle showers
+#   woodblock      — the cackle itself, hard wooden chk-chk on offbeats
+#
+# Harmony: I (A) – IV (D) – V (E) – vi (F#m). A major scale only.
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [wake] — bars 1–4 — ascending major arpeggios, the forest opens its eyes
+#   bar 1:  kook-a    BUR-ra                       (E5 A5 ─ C#6)
+#   bar 2:  kook-a    BUR-ra                       (A5 C#6 ─ E6)
+#   bar 3:  kook-a    BUR-ra                       (C#5 E5 A5 C#6)
+#   bar 4:  WA-ke up                               (E6 ─ C#6 A5)
+#
+# [laugh] — bars 5–12 — cackle bursts, fast eighth-note runs
+#   bar 5:  ha-HA-ha-HA                            (A5 C#6 A5 E6)
+#   bar 6:  HA-ha-HA-ha                            (C#6 A5 E6 C#6)
+#   bar 7:  ha-HA-LAUGH                            (A5 C#6 E6 A5)
+#   bar 8:  hee-hee   HA                           (E6 C#6 A5 E5)
+#   bar 9:  ha-HA-ha-HA                            (A5 D6 A5 F#6)
+#   bar 10: HA-ha-HA-ha                            (D6 A5 F#6 D6)
+#   bar 11: cack-le   CACK-le                      (A5 E6 ─ C#6)
+#   bar 12: laugh laugh LAUGH                      (B5 C#6 E6 A5)
+#
+# [dawn] — bars 13–20 — lifted, held high notes, kalimba showers
+#   bar 13: LIFT-the   dawn                        (E6 ─ C#6)
+#   bar 14: lift the   LIGHT                       (A5 B5 C#6 E6)
+#   bar 15: LIFT-the   dawn                        (F#6 ─ E6)
+#   bar 16: hold       BRIGHT                      (A5 C#6 E6 A6)
+#   bar 17: A           ─                          (A6 held)
+#   bar 18: come  on   DAY                         (E6 F#6 G#6 A6)
+#   bar 19: ─    ─    ─                            (A6 held)
+#   bar 20: lift  it   HOME                        (G#6 E6 C#6 A5)
+#
+# [chorus] — bars 21–24 — ensemble outro, descend to A4 home
+#   bar 21: all to    GETHER                       (A5 C#6 E6 A6)
+#   bar 22: cack-le   HOME                         (E6 D6 C#6 B5)
+#   bar 23: down  to  EARTH                        (A5 G#5 F#5 E5)
+#   bar 24: (home)                                 (A4 held, root landing)
+#
+# Below: section markers for the renderer (sections by name).
+
+# wake 4 [kelon, bass, woodblock]
+E5:_*1 A5:_*1 C#6:_*2
+A5:_*1 C#6:_*1 E6:_*2
+C#5:_*1 E5:_*1 A5:_*1 C#6:_*1
+E6:_*2 C#6:_*1 A5:_*1
+
+# laugh 8 [kelon, bass, woodblock, kalimba]
+A5:_*1 C#6:_*1 A5:_*1 E6:_*1
+C#6:_*1 A5:_*1 E6:_*1 C#6:_*1
+A5:_*1 C#6:_*1 E6:_*1 A5:_*1
+E6:_*1 C#6:_*1 A5:_*1 E5:_*1
+A5:_*1 D6:_*1 A5:_*1 F#6:_*1
+D6:_*1 A5:_*1 F#6:_*1 D6:_*1
+A5:_*1 E6:_*1 C#6:_*2
+B5:_*1 C#6:_*1 E6:_*1 A5:_*1
+
+# dawn 8 [kelon, kalimba, woodblock]
+E6:_*2 C#6:_*2
+A5:_*1 B5:_*1 C#6:_*1 E6:_*1
+F#6:_*2 E6:_*2
+A5:_*1 C#6:_*1 E6:_*1 A6:_*1
+A6:_*4
+E6:_*1 F#6:_*1 G#6:_*1 A6:_*1
+A6:_*4
+G#6:_*1 E6:_*1 C#6:_*1 A5:_*1
+
+# chorus 4 [kelon, bass, kalimba, woodblock]
+A5:_*1 C#6:_*1 E6:_*1 A6:_*1
+E6:_*1 D6:_*1 C#6:_*1 B5:_*1
+A5:_*1 G#5:_*1 F#5:_*1 E5:_*1
+A4:_*4

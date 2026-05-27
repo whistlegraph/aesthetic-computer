@@ -1,0 +1,88 @@
+# marimbaba — a lullaby for synthesized marimba.
+#
+# Style: cute weird syllabic phrasing of the whistlegraph platter
+# (butterfly-cosplayer, mommy-wow, slinky-dog, lately-when-i-fly).
+# Each phrase below has an unspoken "lyric" — a singable chant that
+# the marimba is playing as if humming-to-sleep. The voices are
+# layered, not arranged as a single line.
+#
+# Key: F major. Slow 3/4, ~56 BPM (1 beat ≈ 1.07 s, 1 bar ≈ 3.21 s).
+# Form: 24 bars / ~80 s. The score lives at marimbaba.np; the actual
+# event scheduling + mix lives in bin/render-marimbaba.mjs.
+#
+# Voices:
+#   rosewood       — the singer; the syllabic melody
+#   bass           — the rocking chair (low pulse, half-bar)
+#   kalimba        — twinkles on phrase tails (cute, off-beat)
+#   vibraphone_off — dream haze pad (held thirds, no motor)
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [hush hush] — descending sigh, beat 1 of bars 1–4
+#   bar 1:  hush  ─  hush  ─  hush                    (C5 ─ A4 ─ F4)
+#   bar 2:                     hush                   (F4 held)
+#   bar 3:  hush  ─  hush                             (A4 ─ G4)
+#   bar 4:  hush                                      (F4 held)
+#
+# [twin-kle] — climbing-falling little waves, bars 5–10
+#   bar 5:  twin-kle  twin-kle  twin                  (F5 A5 ─ C6 A5 ─ G5)
+#   bar 6:                       kle                  (G5 held)
+#   bar 7:  lit-tle   star  hi   star                 (F5 G5 ─ A5 ─ G5)
+#   bar 8:                       star                 (F5 held)
+#   bar 9:  way      up    high                       (Bb5 ─ D6 ─ Bb5)
+#   bar 10:                up    there                (C6 ─ A5)
+#
+# [wow wow wow] — held wobble, bars 11–14 (vibraphone_off)
+#   bar 11: wow             wow                       (G5 ─ Bb5 — held)
+#   bar 12:                                           (sustain into 13)
+#   bar 13: wow wow wow                               (A5 G5 A5)
+#   bar 14:                       wow                 (F5 held)
+#
+# [ba-ba-ba bap] — slinky-dog wobbly, bars 15–18
+#   bar 15: ba-ba-ba   bap                            (A5 G5 A5 ─ F5)
+#   bar 16: ba-ba-ba   bap                            (C6 Bb5 C6 ─ A5)
+#   bar 17: ba-ba   ba                                (G5 F5 ─ E5)
+#   bar 18: bap                                       (F5 held)
+#
+# [sleep now] — final settling descent, bars 19–24
+#   bar 19: sleep    now                              (C5 ─ A4)
+#   bar 20: lit-tle  one                              (G4 F4 ─ F4)
+#   bar 21: dream    a    while                       (A4 ─ G4 ─ F4)
+#   bar 22:                       dream               (F4 held)
+#   bar 23: shhh                                      (F3 held, low)
+#   bar 24:                                           (silence + tail)
+#
+# Below: section markers for the renderer (sections by name).
+
+# hush 4 [rosewood, bass]
+C5:_*1 A4:_*1 F4:_*1
+F4:_*3
+A4:_*1.5 G4:_*1.5
+F4:_*3
+
+# twinkle 6 [rosewood, bass, vibraphone_off]
+F5:_*1 A5:_*1 C6:_*0.5 A5:_*0.5
+G5:_*3
+F5:_*1 G5:_*1 A5:_*0.5 G5:_*0.5
+F5:_*3
+Bb5:_*1 D6:_*1 Bb5:_*1
+C6:_*1.5 A5:_*1.5
+
+# wow 4 [vibraphone_off, kalimba]
+G5+Bb5:_*6
+A5:_*1 G5:_*1 A5:_*1
+F5:_*3
+
+# baba 4 [rosewood, kalimba, bass]
+A5:_*0.5 G5:_*0.5 A5:_*1 F5:_*1
+C6:_*0.5 Bb5:_*0.5 C6:_*1 A5:_*1
+G5:_*1 F5:_*1 E5:_*1
+F5:_*3
+
+# sleep 6 [rosewood, bass]
+C5:_*1.5 A4:_*1.5
+G4:_*1 F4:_*1 F4:_*1
+A4:_*1 G4:_*1 F4:_*1
+F4:_*3
+F3:_*3
+:_*3

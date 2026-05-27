@@ -105,6 +105,19 @@ const CONFIGS = {
         prelude: `${SECDIR_ROOT}/trancenwaltz-sections/intro-prelude/gens/v15.png`,
       },
       {
+        // 16:9 YouTube visualizer — the full cover-video chrome
+        // (title / multi-lane piano-roll / karaoke / progress)
+        // reframed landscape. Uses v10b (1536×1024 native landscape,
+        // regenerated from cover-prompt-landscape.txt) so the
+        // top/bottom crop is gentle and the canonical
+        // whistlegraph-butterfly lid scrap lands correctly.
+        // Upload via toolchain/youtube/yt.mjs.
+        suffix: "youtube",
+        size: "1920x1080",
+        variant: "v10b",
+        prelude: `${SECDIR_ROOT}/trancenwaltz-sections/intro-prelude/gens/v10.png`,
+      },
+      {
         // Spotify Canvas: chrome-free, SILENT, 9:16, rapid cycle through
         // every section illy → seamless 6 s loop. Rendered by
         // canvas-loop.mjs (NOT cover-video.mjs — no chrome at all).
@@ -195,6 +208,17 @@ const CONFIGS = {
         size: "1080x1920",
         variant: "v2",
         prelude: null, // chill mix has no greeting → no prelude swap
+      },
+      {
+        // 16:9 YouTube visualizer — same model as the trancenwaltz
+        // youtube format. v10b = native-landscape (1536×1024) illys
+        // regenerated from cover-prompt-landscape.txt; ZOOM_DAMP on
+        // landscape halves the ken-burns amplitude in cover-video.mjs.
+        // Upload via toolchain/youtube/yt.mjs.
+        suffix: "youtube",
+        size: "1920x1080",
+        variant: "v10b",
+        prelude: null,
       },
     ],
   },

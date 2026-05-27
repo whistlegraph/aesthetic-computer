@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
@@ -59,6 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var imsgUnread = 0
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
+    /// System-wide ⌘⌥T → re-tile claude terminals. Kept alive for the app's
+    /// lifetime; unregistered in `applicationWillTerminate`.
+    private var tileHotkey: GlobalHotkey?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -83,10 +87,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         refreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
+
+        // Global ⌘⌥T re-tiles claude terminals — same payload as the menu's
+        // "Tile now" item, no need to open the dropdown.
+        let hotkey = GlobalHotkey { [weak self] in self?.tileNow() }
+        if hotkey.register(keyCode: UInt32(kVK_ANSI_T),
+                           modifiers: UInt32(cmdKey | optionKey)) {
+            tileHotkey = hotkey
+        }
+
+        // setDesktopImageURL only writes the wallpaper on the active Space of
+        // each screen — macOS gives every Space its own wallpaper slot. To
+        // keep all Spaces synced to the current tint we re-apply on each
+        // Space switch; the memo gate is dropped so the same color re-paints
+        // the newly visible Space.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(activeSpaceDidChange),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        tileHotkey?.unregister()
         passphraseServer.stop()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    @objc private func activeSpaceDidChange(_ note: Notification) {
+        // Force a re-paint of the now-visible Space (per-screen). Clearing
+        // the memo is enough: applyDesktopTint takes both branches (tint or
+        // restore) from `lastDesktopTint`, so nil-ing it covers either.
+        lastDesktopTint = nil
+        applyDesktopTint()
     }
 
     // MARK: - Refresh
@@ -212,7 +245,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// sessions' osascripts don't re-fire. Stop the timer when no attention
     /// state remains, snapping the palette back to its base.
     private func updateBlinkTimer() {
-        let needsBlink = state.themeByStatus && state.claudeSessions.contains {
+        // Disabled for now — too distracting on the wall. Re-enable by
+        // flipping this to `true`. statusDecor still accepts a `blink` arg
+        // so this only needs to come back on at the timer level.
+        let blinkEnabled = false
+        let needsBlink = blinkEnabled && state.themeByStatus && state.claudeSessions.contains {
             $0.state == .complete || $0.state == .awaiting
         }
         if needsBlink {
@@ -298,7 +335,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func openImsgTail() {
         let helper = Paths.imsgHelper
         let script = """
-        tell application "iTerm2"
+        tell application id "com.googlecode.iterm2"
             activate
             create window with default profile
             tell current session of current window to write text "exec '\(helper)' tail"
@@ -335,6 +372,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func openSoundsFolder() {
         ShellRunner.run("/usr/bin/open", args: [Paths.soundsDir])
+    }
+
+    /// Open iTerm2 running the RFA ("request for audio") wizard for a /pop
+    /// lane — a per-note loop that plays the pitch, shows the word, records
+    /// you singing it, then recompiles the track + plays it back. It's
+    /// interactive (stdin keep/redo), so it needs a real terminal; `exec`
+    /// replaces the shell so closing the pane ends the session cleanly.
+    @objc func requestForAudio(_ sender: NSMenuItem) {
+        let lane = (sender.representedObject as? String) ?? "hum"
+        let repoEsc = Paths.acRepo.replacingOccurrences(of: "'", with: "'\\''")
+        let cmd = "cd '\(repoEsc)' && exec node pop/bin/rfa.mjs --track \(lane)"
+        let script = """
+        tell application id "com.googlecode.iterm2"
+            activate
+            create window with default profile
+            tell current session of current window to write text "\(cmd)"
+        end tell
+        """
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
     @objc func reloadDaemon() {
@@ -417,7 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // name. Selecting session→tab→window focuses the right pane and
         // raises its window; `activate` brings iTerm2 forward.
         let script = """
-        tell application "iTerm2"
+        tell application id "com.googlecode.iterm2"
             activate
             set targetTTY to "\(escaped)"
             repeat with w in windows
@@ -444,7 +500,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let safeHost = host.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         let script = """
-        tell application "iTerm2"
+        tell application id "com.googlecode.iterm2"
             activate
             create window with default profile
             tell current session of current window to write text "ssh \(safeHost)"

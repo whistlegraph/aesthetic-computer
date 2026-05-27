@@ -1216,7 +1216,7 @@ for (let f = 0; f < FRAMES; f++) {
     await new Promise((res) => ff.stdin.once("drain", res));
   }
   const pct = (f + 1) / FRAMES;
-  progress.update(pct * 100);
+  progress.update(pct * 100, { done: f + 1, total: FRAMES });
   if (pct >= nextLog) {
     const elapsed = (Date.now() - t0) / 1000;
     const eta = elapsed / pct - elapsed;

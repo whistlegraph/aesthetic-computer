@@ -1,0 +1,99 @@
+# slinkybap — a metal slinky walking down a long wooden staircase.
+#
+# Style: cute weird syllabic phrasing in the whistlegraph platter,
+# but the unspoken lyric is one short narrated motion picture: a
+# rainbow-coil slinky placed at the TOP, tumbling DOWN, hand-walked
+# back UP, then tumbled DOWN a second time, then a tiny boing
+# settle. DESCENDING step-wise motion is the load-bearing motif —
+# every TUMBLE section is a literal G-major scale walking down the
+# stairs, one note per stair, woodblock clack on every step.
+#
+# This is flutterbap's afternoon sibling. Same lane, same
+# whistlegraph DNA. G major instead of C, slower (96 BPM) — the
+# slinky pace. ~60-second pop romp organized around two descents.
+#
+# Key: G major. 4/4, ~96 BPM (1 beat = 0.625 s, 1 bar = 2.5 s).
+# Form: 24 bars / ~60 s. The score lives at slinkybap.np; the
+# actual event scheduling + mix lives in bin/render-slinkybap.mjs.
+#
+# Voices:
+#   xylophone      — the lead; each note is one slinky-coil pinging
+#                    the next stair down (or back up)
+#   bass           — low G/D pulse on beats 1 & 3 (root + fifth)
+#   woodblock      — every stair-clack on the tumbles; pitched
+#                    between -0.20 and -0.40 register
+#   kalimba        — the metal-coil ring on phrase tails, twinkling
+#                    off into space
+#
+# ── unspoken lyric, syllable-by-syllable ──────────────────────────────
+#
+# [top] — at the top of the stairs, bars 1–4 — opening G major arpeggio
+#   bar 1:  slin-ky    DOG                          (G5 B5 ─ D6)
+#   bar 2:  at-the     TOP                          (B5 D6 ─ D6)
+#   bar 3:  one        STEP                         (G5 B5 ─ D6)
+#   bar 4:  ONE             step                    (D6 held)
+#
+# [tumble1] — down the stairs, bars 5–10 — DESCENDING G MAJOR SCALE
+#                                          (G A B C D E F# — but walked DOWN)
+#   bar 5:  down-the   STAIRS                       (D6 C6 ─ B5 A5)  — 4 stairs
+#   bar 6:  step-step  STEP                         (G5 F#5 E5 D5)   — 4 stairs
+#   bar 7:  all-the    WAY                          (C5 B4 A4 G4)    — bottom 4
+#   bar 8:  to-the     FLOOR                        (G4 held)
+#   bar 9:  step       step       step       step   (D6 B5 G5 D5)    — wider drop
+#   bar 10: BO-i-OING                                (G4 held + ring)
+#
+# [climb] — climb-back-UP, bars 11–14 — ASCENDING scale, slower (quarters)
+#   bar 11: pick-it    UP                           (G4 A4 B4 C5)
+#   bar 12: climb the  STAIRS                       (D5 E5 F#5 G5)
+#   bar 13: high-er    HIGH-er                      (A5 B5 C6 D6)
+#   bar 14: BACK-to    TOP                          (D6 held)
+#
+# [tumble2] — do it again, bars 15–20 — second tumble, faster (16ths)
+#   bar 15: DO-it      A-GAIN                       (D6 C6 B5 A5)
+#   bar 16: down-down  DOWN-down                    (G5 F#5 E5 D5)
+#   bar 17: 16ths! 16ths! 16ths! 16ths!             (D6 C6 B5 A5 G5 F#5 E5 D5)  — 8 stairs in one bar
+#   bar 18: 16ths! 16ths! 16ths! 16ths!             (D5 C5 B4 A4 G4 G4 G4 G4)   — bottoming out
+#   bar 19: ka-LUNK    ka-LUNK                      (D5 G4 ─ D5 G4)
+#   bar 20: BOI-oi     OING                          (B4 G4 ─ G4)
+#
+# [rest] — settle, bars 21–24 — final wobble on G4
+#   bar 21: rest-ing   HERE                          (G4 ─ B4 ─ G4)
+#   bar 22: (twinkle)                                (kalimba D5 G5)
+#   bar 23: bo-ing                                   (G4 ─ B4)
+#   bar 24: (here)                                   (G4 held long)
+#
+# Below: section markers for the renderer (sections by name).
+
+# top 4 [xylophone, bass]
+G5:_*1 B5:_*1 D6:_*2
+B5:_*1 D6:_*1 D6:_*2
+G5:_*1 B5:_*1 D6:_*2
+D6:_*4
+
+# tumble1 6 [xylophone, bass, woodblock, kalimba]
+D6:_*1 C6:_*1 B5:_*1 A5:_*1
+G5:_*1 F#5:_*1 E5:_*1 D5:_*1
+C5:_*1 B4:_*1 A4:_*1 G4:_*1
+G4:_*4
+D6:_*1 B5:_*1 G5:_*1 D5:_*1
+G4:_*4
+
+# climb 4 [xylophone, bass, kalimba]
+G4:_*1 A4:_*1 B4:_*1 C5:_*1
+D5:_*1 E5:_*1 F#5:_*1 G5:_*1
+A5:_*1 B5:_*1 C6:_*1 D6:_*1
+D6:_*4
+
+# tumble2 6 [xylophone, bass, woodblock, kalimba]
+D6:_*1 C6:_*1 B5:_*1 A5:_*1
+G5:_*1 F#5:_*1 E5:_*1 D5:_*1
+D6:_*0.5 C6:_*0.5 B5:_*0.5 A5:_*0.5 G5:_*0.5 F#5:_*0.5 E5:_*0.5 D5:_*0.5
+D5:_*0.5 C5:_*0.5 B4:_*0.5 A4:_*0.5 G4:_*0.5 G4:_*0.5 G4:_*0.5 G4:_*0.5
+D5:_*1 G4:_*1 D5:_*1 G4:_*1
+B4:_*1 G4:_*1 G4:_*2
+
+# rest 4 [xylophone, bass, kalimba]
+G4:_*2 B4:_*1 G4:_*1
+G4:_*4
+G4:_*1 B4:_*1 G4:_*2
+G4:_*4

@@ -1,12 +1,12 @@
 {
   "$schema": "./contracts-schema.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Deployed Tezos smart contracts for Aesthetic Computer",
   "contracts": {
     "keeps": {
       "name": "KidLisp Keeps FA2",
       "description": "FA2 NFT contract for minting KidLisp pieces as NFTs",
-      "source": "keeps_fa2_v2.py",
+      "source": "keeps_fa2_v11.py",
       "deployments": {
         "ghostnet": {
           "v1": {
@@ -28,41 +28,66 @@
             "address": "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K",
             "deployedAt": "2024-12-22T00:00:00Z",
             "deployedBy": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
-            "status": "active",
-            "notes": "User-callable keep() entrypoint for proper artist attribution"
+            "status": "deprecated",
+            "notes": "User-callable keep() entrypoint for proper artist attribution. Superseded by v4–v11 iterations."
           }
         },
         "mainnet": {
-          "v1": {
-            "address": null,
-            "deployedAt": null,
+          "v6": {
+            "address": "KT1J15kADMuRWh9kJZzosBeRBYPjYr7RvhoN",
+            "deployedAt": "2026-03-07T00:00:00Z",
             "deployedBy": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
-            "status": "pending",
-            "notes": "Production deployment after ghostnet v3 validation"
+            "status": "deprecated",
+            "tokensMinted": 1,
+            "notes": "First mainnet deployment. Superseded by v11 after the launch-week fee/royalty refactor."
+          },
+          "v11": {
+            "address": "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB",
+            "deployedAt": "2026-03-09T17:49:25Z",
+            "deployedBy": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
+            "status": "active",
+            "keepFeeXTZ": 2.5,
+            "royalties": {
+              "artistBps": 900,
+              "platformBps": 100
+            },
+            "treasury": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
+            "notes": "Production keeps contract. Launched 2026-03-09 with 15 mints; see tezos/KEEPS-MARKET-TIMELINE.md for ongoing activity."
           }
         }
       }
     }
   },
   "wallets": {
+    "aesthetic": {
+      "address": "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE",
+      "domain": "aesthetic.tez",
+      "role": "Primary identity, keeps sales receiver, original mint wallet for user-flow attribution",
+      "keysLocation": "aesthetic-computer-vault/wallets/wallets.json.gpg → tezos-aesthetic"
+    },
     "kidlisp": {
+      "address": "tz1fEjGQrEE2LXNKqcpTYAJV16pbbFpLeNyd",
+      "role": "Production NFT minting / mainnet contract minter",
+      "keysLocation": "aesthetic-computer-vault/wallets/wallets.json.gpg → tezos-kidlisp"
+    },
+    "keeps": {
       "address": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
       "domain": "keeps.tez",
-      "role": "Keeps contract admin (ghostnet & mainnet)",
-      "keysLocation": "kidlisp/.env"
+      "role": "Keeps contract administrator + treasury (royalty + withdraw_fees receiver)",
+      "keysLocation": "aesthetic-computer-vault/wallets/wallets.json.gpg → tezos-keeps"
     },
     "staging": {
-      "address": "tz1...",
-      "role": "Mainnet staging/testing",
-      "keysLocation": "staging/.env"
+      "address": "tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt",
+      "role": "Mainnet staging / migration housekeeping",
+      "keysLocation": "aesthetic-computer-vault/wallets/wallets.json.gpg → tezos-staging"
     }
   },
   "activeContracts": {
     "ghostnet": {
-      "keeps": "pending-v3"
+      "keeps": "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K"
     },
     "mainnet": {
-      "keeps": null
+      "keeps": "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB"
     }
   }
 }

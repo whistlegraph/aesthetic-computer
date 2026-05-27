@@ -22,6 +22,13 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { jeffreyRefs } from "../../marketing/lib/jeffrey-refs.mjs";
+
+// Optional progress heartbeats → Slab menubar.
+let progress = { begin: () => null, update: () => {}, end: () => {} };
+try {
+  progress = await import("../../pop/lib/render-progress.mjs");
+} catch { /* heartbeats are optional */ }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -44,31 +51,9 @@ const PLATTER_GENS_DIR = `${REPO}/system/public/assets/jeffreys/gens`;
 const PLATTER_MANIFEST = `${REPO}/papers/jeffrey-platter/manifest.json`;
 mkdirSync(PLATTER_GENS_DIR, { recursive: true });
 
-// Mirrors generate-neo.py refs.
-// 2k-downscaled shoot refs — full-size JPGs (~24MB each) reliably tripped
-// gpt-image-2's multipart upload with "fetch failed" at the connection
-// layer; these are 2048px-wide, ~0.5MB each, identity-grounding still
-// works fine. Generate with:
-//   ffmpeg -i shoot/<name>.jpg -vf "scale='min(2048,iw)':-1" -q:v 3 shoot-2k/<name>.jpg
-const SHOOT_DIR = `${REPO}/portraits/jeffrey/corpus/shoot-2k`;
-const ARCHIVE_DIR = `${REPO}/portraits/jeffrey/ig-archive/whistlegraph`;
-const SHOOT_REFS = [
-  `${SHOOT_DIR}/jeffery-av--07.jpg`,
-  `${SHOOT_DIR}/jeffery-av--01.jpg`,
-  `${SHOOT_DIR}/jeffery-av--04.jpg`,
-];
-const SELFIE_REFS = [
-  `${ARCHIVE_DIR}/2018-12-02_Bq4ckGFFNtW.jpg`,
-  `${ARCHIVE_DIR}/2020-09-02_CEpxlO2FOvD.jpg`,
-  `${ARCHIVE_DIR}/2021-07-10_CRI095Vl7AO_1.jpg`,
-  `${ARCHIVE_DIR}/2025-01-25_DFQ2lHPzN_W.jpg`,
-  `${ARCHIVE_DIR}/2017-04-10_BStid5yjTHq.jpg`,
-];
-const REFS = [...SHOOT_REFS, ...SELFIE_REFS].filter((p) => {
-  if (existsSync(p)) return true;
-  console.warn(`  ⚠ ref missing, dropping: ${p}`);
-  return false;
-});
+// Identity refs (SHOOT + SELFIE, 2k-downscaled) live in
+// marketing/lib/jeffrey-refs.mjs so recap + marketing share one source.
+const REFS = jeffreyRefs();
 
 function loadOpenAIKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
@@ -232,40 +217,47 @@ console.log(`platter archive: ${PLATTER_GENS_DIR.replace(REPO + "/", "")}`);
 console.log(`arc:  title → fresh → midday → late → outro · ${photoTotal} portraits`);
 
 let generated = 0, cached = 0, failed = 0;
-for (let i = 0; i < photoSegs.length; i++) {
-  const { seg, slide } = photoSegs[i];
-  if (only && seg.name !== only) continue;
-  const arc = arcBeatFor(slide, i, photoTotal);
-  const metaphor = slide.metaphor + (arc || "");
-  const outPath = `${PHOTOS_DIR}/${seg.name}.png`;
-  // Per-segment extra refs (relative to repo root) — passed to gpt-image-2
-  // alongside the standard SHOOT + SELFIE identity refs. Used for
-  // baking real artifacts into the scene (e.g. the VFC painting,
-  // calarts header illustration, AC screenshots for chapters that
-  // need real UI in shot). Source: audience.slides[seg.name].extraRefs.
-  const extraRefRels = (slide && Array.isArray(slide.extraRefs)) ? slide.extraRefs : [];
-  const extraRefs = extraRefRels.map((rel) => rel.startsWith("/") ? rel : `${REPO}/${rel}`);
-  if (existsSync(outPath) && !force) {
-    console.log(`  ✓ ${seg.name}.png (cached)`);
-    cached++;
-    continue;
+progress.begin?.({ type: "illy", label: `recap photos · ${audienceName}` });
+try {
+  for (let i = 0; i < photoSegs.length; i++) {
+    const { seg, slide } = photoSegs[i];
+    if (only && seg.name !== only) continue;
+    const arc = arcBeatFor(slide, i, photoTotal);
+    const metaphor = slide.metaphor + (arc || "");
+    const outPath = `${PHOTOS_DIR}/${seg.name}.png`;
+    // Per-segment extra refs (relative to repo root) — passed to gpt-image-2
+    // alongside the standard SHOOT + SELFIE identity refs. Used for
+    // baking real artifacts into the scene (e.g. the VFC painting,
+    // calarts header illustration, AC screenshots for chapters that
+    // need real UI in shot). Source: audience.slides[seg.name].extraRefs.
+    const extraRefRels = (slide && Array.isArray(slide.extraRefs)) ? slide.extraRefs : [];
+    const extraRefs = extraRefRels.map((rel) => rel.startsWith("/") ? rel : `${REPO}/${rel}`);
+    if (existsSync(outPath) && !force) {
+      console.log(`  ✓ ${seg.name}.png (cached)`);
+      cached++;
+      progress.update?.(((i + 1) / photoSegs.length) * 100, { done: i + 1, total: photoSegs.length });
+      continue;
+    }
+    process.stdout.write(`▸ ${seg.name}… `);
+    const t0 = Date.now();
+    try {
+      const usage = await generate(metaphor, outPath, extraRefs);
+      const archive = archiveToPlatter({ segName: seg.name, metaphor, sourcePath: outPath, context });
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      const tok = usage.tokens_in
+        ? ` · tokens in=${usage.tokens_in} out=${usage.tokens_out}`
+        : "";
+      console.log(`✓ ${elapsed}s${tok} → ${archive.archiveName}`);
+      generated++;
+    } catch (e) {
+      console.log(`✗`);
+      console.error(`  ${e.message}`);
+      failed++;
+    }
+    progress.update?.(((i + 1) / photoSegs.length) * 100, { done: i + 1, total: photoSegs.length });
   }
-  process.stdout.write(`▸ ${seg.name}… `);
-  const t0 = Date.now();
-  try {
-    const usage = await generate(metaphor, outPath, extraRefs);
-    const archive = archiveToPlatter({ segName: seg.name, metaphor, sourcePath: outPath, context });
-    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-    const tok = usage.tokens_in
-      ? ` · tokens in=${usage.tokens_in} out=${usage.tokens_out}`
-      : "";
-    console.log(`✓ ${elapsed}s${tok} → ${archive.archiveName}`);
-    generated++;
-  } catch (e) {
-    console.log(`✗`);
-    console.error(`  ${e.message}`);
-    failed++;
-  }
+} finally {
+  progress.end?.();
 }
 
 console.log(`✓ photos: ${generated} new, ${cached} cached, ${failed} failed`);

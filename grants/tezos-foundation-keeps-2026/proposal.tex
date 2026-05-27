@@ -1,0 +1,202 @@
+% !TEX program = xelatex
+% Tezos Foundation — Ecosystem Grant Application
+% KidLisp Keeps v12 — A reusable preservation contract + the artifacts that
+% actually get it adopted. Applicant: Aesthetic Inc. Ask: USD 45,000.
+% Build: ./build.fish — produces proposal.pdf (two xelatex passes).
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage{xcolor}
+\usepackage{fontspec}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{microtype}
+\usepackage{ragged2e}
+
+% Looser line-breaking so long identifiers don't punch through the column.
+\sloppy
+\emergencystretch=3em
+\hyphenpenalty=200
+\tolerance=2000
+
+\definecolor{acpink}{HTML}{FF6B9D}
+\definecolor{accyan}{HTML}{4ECDC4}
+\definecolor{acink}{HTML}{1E1E1E}
+\definecolor{acgray}{HTML}{6E6266}
+\definecolor{accyandeep}{HTML}{1A7B74}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  Scale=0.92,
+]
+\newfontfamily\acprocessing[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf,
+  UprightFont=ywft-processing-regular,
+  BoldFont=ywft-processing-bold,
+  ItalicFont=ywft-processing-alternate
+]{YWFT Processing}
+\newfontfamily\acberkeley[
+  Path=../../bills/invoices/,
+  Extension=.ttf,
+  UprightFont=BerkeleyMonoVariable-Regular,
+  ItalicFont=BerkeleyMonoVariable-Italic
+]{Berkeley Mono}
+
+\titleformat{\section}{\acprocessing\bfseries\color{acpink}\large\uppercase}{}{0pt}{}
+\titlespacing{\section}{0pt}{1.3em}{0.35em}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=accyandeep,
+  urlcolor=accyandeep,
+  citecolor=accyandeep,
+  pdftitle={KidLisp Keeps v12 — A reusable preservation contract for executable generative art on Tezos},
+  pdfauthor={Jeffrey Alan Scudder · Aesthetic Inc},
+  pdfsubject={Tezos Foundation Ecosystem Grant Proposal — Smart Contract Templates}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+
+\newcommand{\addr}[1]{{\acberkeley\small #1}}
+
+\begin{document}
+\color{acink}
+
+% ===== Title block =====
+{\acprocessing\bfseries\color{acpink}\fontsize{22pt}{26pt}\selectfont
+KidLisp Keeps v12\par}
+\vspace{2pt}
+{\acprocessing\color{acink}\fontsize{13pt}{17pt}\selectfont
+A reusable preservation contract for runnable generative art on Tezos --- and the work it takes to get artists actually using it\par}
+
+\vspace{0.5em}
+{\color{acpink}\rule{\linewidth}{1.2pt}}
+
+\vspace{0.3em}
+\begin{tabularx}{\linewidth}{@{}l X r@{}}
+{\acberkeley\small Applicant} & Aesthetic Inc · US C-corp · EIN 33-1483385 & {\acberkeley\small Q2 2026} \\
+{\acberkeley\small Vertical} & Smart Contract Templates · Tezos Foundation Ecosystem Grants & {\acberkeley\small \$45,000} \\
+{\acberkeley\small Lead} & Jeffrey Alan Scudder · mail@aesthetic.computer & {\acberkeley\small \textasciitilde 14 weeks} \\
+\end{tabularx}
+
+\vspace{0.3em}
+{\color{acpink}\rule{\linewidth}{1.2pt}}
+
+\section*{What this is}
+
+KidLisp Keeps lets generative artists put their \emph{actual programs} onto Tezos --- not a screenshot, not a rendered output, the runnable program itself. The collection has been live on mainnet since March 2026; 88 keeps so far, more than six owners, and the artists who hold one can re-run the program any time, in any browser, for as long as the chain is alive.
+
+This proposal is about two things at once. The first is \textbf{v12 of the contract} --- the next version, which fixes some real structural issues in v11 and makes the contract robust enough that I can confidently invite other artists to put their work onto it.
+
+The second --- and the larger share of the budget --- is everything it actually takes to get those artists to fork it: a short tutorial video series, the artist-friendly \textbf{custom keeps wallet} I've been building inside Aesthetic Computer (so minting feels nothing like ``do crypto''), in-person workshops at the NELA Computer Club here in Los Angeles, and a real outreach push into the Tezos creative-coding community that already lives on fxhash and objkt.
+
+A smart-contract template only matters if people use it. Most on-chain ``templates'' sit unused because nothing was ever made to go around them. This grant funds both halves --- the contract, and the artifacts that get it into other artists' hands.
+
+\section*{Who's doing it}
+
+I'm \textbf{Jeffrey Alan Scudder} --- an artist, educator, and technologist working in Los Angeles. The Keeps contract is my work, end to end: I wrote it, deployed v2 through v11, built the mint experience, run the weekly audit, and host the biweekly demos at NELA Computer Club.
+
+Outside of Keeps I run \textbf{Aesthetic Computer} --- a creative-coding platform that lives at \texttt{aesthetic.computer}. It has 2{,}800+ registered users and 600+ published pieces. \textbf{KidLisp} itself is a small Lisp dialect for generative art with 118 built-in functions, ported to WASM, Game Boy, Nintendo 64, and Playdate. Two earlier open-source projects of mine, \emph{No Paint} and \emph{notepat}, each reached the front page of Hacker News.
+
+\textit{Credentials.} Yale MFA in Graphic Design (2013); Ringling BFA (2011); Author in Residence at UCLA Social Software with Casey Reas and Lauren Lee McCarthy; work in the collections of KADIST (San Francisco) and SMK (the National Gallery of Denmark). My prior project, \emph{@whistlegraph} on TikTok, reached about 2.6 million followers between 2019 and 2023; the archive still moves around 48{,}000 video views per day in 2026.
+
+\textit{Applicant entity.} Aesthetic Inc, a US C-corporation (EIN 33-1483385). The grant would be held by the company and disbursed per milestone.
+
+\section*{What v12 changes (briefly)}
+
+v11 works (88 keeps live, six-plus owners) but has a few structural issues that should be fixed before I invite other artists onto the contract.
+
+The most important one: v11's signer key is hardcoded. If that key ever needed to rotate, the only remedy would be redeploying. v12 replaces it with a small on-chain registry of allowed keys, so rotation is a transaction instead of a migration. The contract's admin role also gets split into three separate roles (policy, signer rotation, fee withdrawal), so no single key holds every lever, and token holders get an on-chain vote on changes to the contract's top-level metadata. None of the guarantees v11 holders already rely on (owner-only burn, immutable content hash, royalty preservation, owner metadata lock) change.
+
+v11 holders are never forced to move. v12 ships an opt-in path that lets each holder mint the v12 equivalent of their existing keep, exactly once per source token, with provenance written into the new metadata. v11 stays live forever.
+
+The v12 contract is already drafted in the repository. The technical part of this grant is finishing it, testing it on Ghostnet, deploying it to mainnet, and shipping the opt-in migration in the keep UI.
+
+\section*{Where the money mostly goes: adoption, media, events}
+
+This is the part most contract grants underfund. The grant pays for four kinds of adoption work, and roughly half the budget lives here.
+
+\textbf{Tutorial video series.} 3--5 short videos (5--10 minutes each) walking a generative artist through forking the v12 template, deploying their own version, minting their first piece, and running the weekly audit. Plain English; nobody has to read SmartPy to watch them.
+
+\textbf{The custom keeps wallet.} Aesthetic Computer already has an integrated mint flow that hides most of the chain complexity from artists --- you sign in, pick a piece, hit ``keep,'' and the wallet handles IPFS, contract calls, and post-mint indexing for you. This grant funds polishing that wallet so it works smoothly with \emph{any} v12 deployment, not just the canonical Keeps collection. An artist who forks the template inherits a finished, artist-friendly mint experience too --- not a half-built wallet they have to build themselves to make their template viable.
+
+\textbf{Los Angeles events.} Four NELA Computer Club appointments (the biweekly demos I already host at Plot Place in Chinatown) plus one larger public workshop. The point isn't to put on a show --- it's to get generative artists I already know in the same room as the template, sit down with them, and walk through forking and minting their first keeps together. The first independent forks of the template happen here, in person.
+
+\textbf{Outreach campaign + onboarding playbook.} A concentrated push to the existing Tezos creative-coding community: short-form content on the platforms these artists already use, direct conversations with fxhash and objkt creators about what would actually get them to try the template, and a public onboarding playbook that captures everything (especially what went wrong) from the LA sessions, so artists who can't be in the room can still follow the path.
+
+\section*{Roadmap}
+
+Five milestones across about 14 weeks. Each produces something verifiable; payment releases on milestone report.
+
+\begin{description}[itemsep=4pt, leftmargin=0pt, labelsep=6pt]
+\item[\textbf{M1 --- v12 spec + threat model + tests} (\textasciitilde 3 weeks).] Lock down v12 requirements. Write the threat-model document --- the failure modes I most worry about are key compromise, botched signer rotation, and migration replay. Add invariant tests covering signer rotation, role separation, and replay rejection.
+
+\item[\textbf{M2 --- v12 on Ghostnet, with the keeps wallet} (\textasciitilde 4 weeks).] Finalize v12. Deploy to Ghostnet. Implement and exercise the v11~$\rightarrow$~v12 claim path end-to-end. Polish the custom keeps wallet so it works with any v12 deployment, not just the canonical one. Adversarial test pass.
+
+\item[\textbf{M3 --- v12 on mainnet, opt-in migration live} (\textasciitilde 3 weeks).] Deploy v12 to mainnet for new mints. Ship the opt-in migration in the keep UI --- both v11 and v12 collections shown side by side, explicitly labeled, no forced burn. v11 stays live.
+
+\item[\textbf{M4 --- Tutorial videos + onboarding kit + media materials} (\textasciitilde 2 weeks).] Produce the tutorial video series (3--5 videos, scripted, edited, captioned). Build an onboarding kit: documentation, example projects already deployed via the template, copy-paste deploy commands, a starter \texttt{README}. Design the media materials --- promo cards, social-media assets, the public-facing template homepage. Publish the v12 contract + audit script + 25-year stability plan as an openly licensed preservation template.
+
+\item[\textbf{M5 --- LA adoption events + outreach + playbook} (\textasciitilde 2 weeks).] Four NELA Computer Club appointments plus one public workshop. Concurrent outreach campaign to fxhash and objkt creators. Write and publish the onboarding playbook --- a real document of the sessions, the artists' first keeps, and the rough edges. M5 is how KPI~\#2 (independent forks of the template) actually gets hit.
+\end{description}
+
+\section*{Budget}
+
+\begin{tabularx}{\linewidth}{@{}c X c r@{}}
+\toprule
+\textbf{M} & \textbf{Work} & \textbf{Weeks} & \textbf{Payment (USD)} \\
+\midrule
+M1 & v12 spec + threat model + invariant tests & 3 & \$6{,}000 \\
+M2 & v12 on Ghostnet + migration prototype + custom keeps wallet polish & 4 & \$9{,}000 \\
+M3 & v12 on mainnet + opt-in v11 $\rightarrow$ v12 migration & 3 & \$6{,}000 \\
+M4 & Tutorial video series + onboarding kit + media materials & 2 & \$11{,}000 \\
+M5 & LA adoption events + outreach campaign + onboarding playbook & 2 & \$13{,}000 \\
+\midrule
+\multicolumn{2}{l}{\textbf{Total}} & \textbf{14} & \textbf{\$45{,}000} \\
+\bottomrule
+\end{tabularx}
+
+Roughly 47\% of the budget goes to the contract work (M1--M3); roughly 53\% goes to the adoption, media, and events work (M4--M5). The split is deliberate --- I have watched a lot of perfectly good on-chain tools die because nobody made the surrounding materials, and I'd rather underfund the contract slightly than do that to v12.
+
+\textit{Self-audited.} v12 is hardened with the existing repeatable audit script, the v12-specific threat-model document (M1), an adversarial test pass (M2), and SmartPy invariant tests. A funded third-party security review is not in this ask; if Foundation reviewers would prefer one, it can be added as a separable follow-on line item rather than holding up this scope. Total intentionally held below the USD~50{,}000 threshold to stay on the simpler review path.
+
+\textit{Other funding.} No third-party funding has been received toward this scope.
+
+\section*{Longevity beyond the grant}
+
+The Foundation explicitly asks for ``measures to assure the longevity of the solution beyond the grant duration.'' For Keeps, that section is already written --- a 25-year operations plan that names a daily on-chain drift check, a weekly audit report (auto-generated and published), a monthly key-custody review, and a quarterly pause/unpause recovery drill. The incident protocol is: pause $\rightarrow$ disable the mint endpoint $\rightarrow$ post a public status with a timestamp $\rightarrow$ investigate $\rightarrow$ resume only after the root cause is understood. Non-negotiables: no keys in logs, no forced migration, no emergency action without a written postmortem.
+
+The contract is designed to outlive this grant by decades. The grant just funds getting it onto v12's footing and into other artists' hands.
+
+\section*{Why Tezos}
+
+Tezos is where this audience already lives. fxhash, objkt, the hic et nunc lineage, the Musée d'Orsay and Serpentine programs --- the largest concentration of generative-art creators and collectors of any chain. Gas costs make minting accessible at the scale individual artists actually work at. Proof-of-stake aligns with the energy concerns of the creative-coding community. Mature FA2 and TZIP standards mean objkt and the other indexers already understand the contract surface. No other chain offers the same combination of cost, ecosystem maturity, and art-community fit for an executable-art preservation contract.
+
+\section*{Identifiers}
+
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\addr{Mainnet (v11, production)} & \addr{KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB} \\
+\addr{Ghostnet (v3, staging)} & \addr{KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K} \\
+\addr{Admin / treasury wallet} & \addr{tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC} \\
+\addr{Repository} & \url{https://github.com/whistlegraph/aesthetic-computer} \\
+\addr{Demo} & \url{https://keeps.kidlisp.com} \\
+\addr{Site} & \url{https://aesthetic.computer} \\
+\addr{Contact} & \texttt{mail@aesthetic.computer} \\
+\end{tabularx}
+
+\end{document}
