@@ -369,25 +369,16 @@ static double AC_STAMP_TIME = 107.27;     // overwritten by render_full_track
 
 static void kick_render(double t0, double drive, double gain, double thin) {
     if (NOKICK) return;
-    // Suppress final kicks past 140 s (coda pop fix). Also kill the
-    // "double-kick skip" the user heard at 2:10 (= 130 s ish) — bar
-    // 14 of climax in the engine has a 4-fragment staggered kick at
-    // beats 0, 0.95, 1.90, 2.85 of that bar. Drop t0 in 129.4-130.6
-    // range = effectively wipe that double-kick stutter.
-    // (@jeffrey "at 2:10 there's a little kick double kick skip i'd
-    //  like to get removed")
+    // Suppress final kicks past 140 s (coda pop fix).
     if (t0 >= 140.0) return;
-    // Wipe the "lame extra kicks" cluster around 2:06-2:11 (climax
-    // bars 12-15: punchy SINE-CHORDAL + 4-fragment staggered + 6
-    // micro-kicks). Replaced by a snare rush in post-arrangement.
-    // (@jeffrey "at 2:06 the kicks / extra kicks are feeling lame /
-    //  better to do like a snare rush")
-    // Wipe range extended back through 131.0 — the climax bar-14
-    // staggered fragments + bar-15 micro-kicks at 2:09 were reading
-    // as arrhythmic double-kick weirdness against the screwed crow
-    // tail. Gallop @ 128.0s + crow scratch fill the percussion role.
-    // (@jeffrey "extra double kicks at like 2:09 are arrhythmic")
-    if (t0 >= 125.5 && t0 <= 131.0) return;
+    // 125.5-131s wipe REMOVED — was silencing the climax halftime
+    // kicks for 5 seconds in 2:06-2:11, leaving the section feeling
+    // hollow. The "weird" rhythm the wipe was meant to mute came from
+    // the halfhard extra kick on b%2==1 + the snare-rush stack (both
+    // since refactored), so plain halftime pattern reads consistent
+    // now. (@jeffrey 2026-05-26 "the kicks sort of get weird around
+    //  2:08 / 2:10 can they just be consistent / all through those
+    //  parts / 2:06 - 2:10")
     t0 += EAGER_PERC_OFFSET;     // fire ahead of grid for rushed feel
 
     if (ULTIMATE) {
@@ -503,9 +494,12 @@ static void kick_render(double t0, double drive, double gain, double thin) {
             R[i] += (float)v;
         }
         // BOOwub — reverse-kick supersample right after the forward kick.
-        // Port of hellsine.mjs:613. Only after the AC stamp. Cycles through
-        // [-oct, +fifth, -fifth, +oct] beat-indexed, giving the dub-style
-        // wub-wub tonal answer that varies per kick.
+        // Port of hellsine.mjs:613. Cycles through [-oct, +fifth, -fifth,
+        // +oct] beat-indexed for a dub-style wub-wub answer. Fires on
+        // EVERY kick (the original comment said "only after AC stamp"
+        // but the gate was never actually wired; jeffrey liked the full
+        // coverage). (@jeffrey 2026-05-26 "oh kay lets bring it back
+        //  then")
         {
             const double revPitchOpts[4] = { 0.5, 1.5, 0.667, 2.0 };
             const int beatIdx = (int)(t0 / SPB_G);
@@ -532,11 +526,13 @@ static void kick_render(double t0, double drive, double gain, double thin) {
                 if (x < -0.88) x = -0.88;
                 const double Q = 256.0;
                 x = floor(x * Q + 0.5) / Q;
-                // BOOwub gain pulled DOWN (0.55 → 0.30) so the doubled
-                // reverse-kicks don't make 2:00+ feel like too many
-                // kicks. (@jeffrey "around 2:05 the massive extra kicks
-                // is a little too much")
-                const double v = x * amp * 0.92 * gain * 0.30;
+                // BOOwub gain — post-stamp keeps the full dub tail
+                // (0.30), pre-stamp drops to 0.12 so the intro drop
+                // and early build don't get the same heavy reverse
+                // wub. (@jeffrey 2026-05-26 "the reverse part during
+                //  the intro could be more subtle")
+                const double booGain = shortHigh ? 0.30 : 0.12;
+                const double v = x * amp * 0.92 * gain * booGain;
                 L[i] += (float)v;
                 R[i] += (float)v;
             }
@@ -1307,15 +1303,29 @@ static inline double humLate(double amt) {
     return amt * (2.2 + rng() * 2.0);
 }
 
-// ── stickySwing — push notes that land on the 8th-note offbeat slightly
-// later, so the bar develops a laid-back swing feel. beatPos is the note's
-// position in beats (0..bars*4). Returns a time offset in seconds.
+// ── stickySwing — push notes that land on the 8th-note offbeat to the
+// triplet position (2/3 of the beat) for a hard-swung feel. beatPos is
+// the note's position in beats (0..bars*4). Returns a time offset in
+// seconds. HUMANIZE_MULT removed from the offbeat push — it was
+// stacking with the 2.10x scale and dragging offbeats to 0.85 of the
+// beat (almost the next downbeat), reading as sluggish at 36-40s.
+// Triplet swing = clear bounce, not drag. (@jeffrey 2026-05-26 "36-40
+// second mark is a bit weird / strange beat rhythm offsets / feels
+// sluggish / should feel more forward + aggro")
 static inline double sticky_swing(double beatPos) {
     const double frac = beatPos - floor(beatPos);
-    if (frac > 0.40 && frac < 0.60) return (0.667 - 0.5) * SPB_G * HUMANIZE_MULT;
+    if (frac > 0.40 && frac < 0.60) return (0.667 - 0.5) * SPB_G;
     if ((frac > 0.65 && frac < 0.85) || (frac > 0.15 && frac < 0.35))
-        return 0.04 * SPB_G * HUMANIZE_MULT;
+        return 0.04 * SPB_G;
     return 0.0;
+}
+
+// ── swing_offbeat — pure triplet-swing offset for percussion. Push the
+// "& of N" 8th-notes to the 2/3 mark so the drums swing too. amount=1.0
+// gives full triplet, 0.6 gives a milder shuffle. (@jeffrey "throw
+// more of a swing in the beat especially when the vocals are hitting")
+static inline double swing_offbeat(double amount) {
+    return (0.667 - 0.5) * SPB_G * amount;
 }
 
 // ── chord table (matches hellsine.mjs CHORD{}) ────────────────────────
@@ -1802,11 +1812,14 @@ static void lay_theme(const Note *notes, int n, double base_gain,
             vo.vibR = 5.2; vo.vibD = 0.006;
             vo.drive = 1.40;       // softer drive — less annoying
             vo.wet_send = 0;       // skip cathedral; SPATIAL send below
-            // SWING + LAZY timing on the lead — push behind the beat,
-            // accent the 8th-note offbeats with a sticky swing delay.
-            const double swing = sticky_swing(beatPos);
-            const double lazy  = humLate(0.018);
-            const double tLead = tN + swing + lazy;
+            // SWING + FORWARD timing on the lead — sit slightly ahead
+            // of the beat (humEager) so the lead reads aggro instead of
+            // dragging; sticky_swing still bounces the offbeats to the
+            // triplet position. (@jeffrey 2026-05-26 "more forward and
+            //  aggro / not sluggish")
+            const double swing  = sticky_swing(beatPos);
+            const double eager  = humEager(0.018);
+            const double tLead = tN + swing + eager;
             // PORTAMENTO SLIDE between notes — single sliding line.
             {
                 const double fromM = (prevMidi < 0) ? midi : (double)prevMidi;
@@ -2303,24 +2316,31 @@ static void render_full_track(void) {
                     const double ts = tBar + beat * SPB_G + hum(0.003);
                     snare_render(ts, snGain, 175.0);
                 }
-                // pre-climax snare-roll fill (last bar of develop, 8×16ths over beats 3-4)
+                // pre-climax snare-roll fill (last bar of develop, 8×16ths
+                // over beats 3-4) — capped peak so the build into the
+                // drop doesn't slam the limiter. Popcorn accent pattern.
                 if (lastBar && !strcmp(sec->name, "develop")) {
                     for (int r = 0; r < 8; r++) {
                         const double ts = tBar + 2 * SPB_G + r * (SPB_G / 4);
-                        snare_render(ts, 0.26 + r * 0.045, 175.0);
+                        const double accent = (r % 2 == 0) ? 1.00 : 0.55;
+                        snare_render(ts, (0.18 + r * 0.022) * accent, 175.0);
                     }
                 }
-                // hi-hats
+                // hi-hats — swung. Push every "& of N" 8th-note to the
+                // triplet position (2/3 of the beat) so the beat itself
+                // swings, not just the lead. (@jeffrey "more swing in
+                //  the beat especially when the vocals are hitting")
                 // tickEarly: ULTIMATE suppresses closed hat at top of statement
                 // (b<8) — placeholder space for the rattle-intro layer.
                 const int tickEarly = !(ULTIMATE && !strcmp(sec->name, "statement") && b < 8);
-                if (tickEarly) tick_render(tBar + 1 * (SPB_G / 2), (bridgeSparse ? 0.14 : 0.20) * codaFade, 0);
-                if (ptier >= 1) tick_render(tBar + 5 * (SPB_G / 2), (bridgeSparse ? 0.14 : 0.20) * codaFade, 0);
+                const double hatSwing = swing_offbeat(0.85);    // strong triplet shuffle
+                if (tickEarly) tick_render(tBar + 1 * (SPB_G / 2) + hatSwing, (bridgeSparse ? 0.14 : 0.20) * codaFade, 0);
+                if (ptier >= 1) tick_render(tBar + 5 * (SPB_G / 2) + hatSwing, (bridgeSparse ? 0.14 : 0.20) * codaFade, 0);
                 if (!bridgeSparse && (ptier >= 1 || !strcmp(sec->name, "coda"))) {
-                    tick_render(tBar + 3.5 * SPB_G, 0.42 * codaFade, 1);          // open and-of-3
-                    if (b % 2 == 0) tick_render(tBar + 1.5 * SPB_G, 0.32 * codaFade, 1);
+                    tick_render(tBar + 3.5 * SPB_G + hatSwing, 0.42 * codaFade, 1);          // and-of-3 (swung)
+                    if (b % 2 == 0) tick_render(tBar + 1.5 * SPB_G + hatSwing, 0.32 * codaFade, 1);
                     if (!strcmp(sec->name, "develop") || !strcmp(sec->name, "climax")) {
-                        tick_render(tBar + 7.5 * SPB_G, 0.28, 1);      // open and-of-4
+                        tick_render(tBar + 7.5 * SPB_G + hatSwing, 0.28, 1);      // and-of-4 (swung)
                     }
                 }
             }
@@ -2753,22 +2773,26 @@ static void post_arrangement_ultimate(void) {
     float *acBuf = try_load_sample("aesthetic-dot-computer.wav", &dn);
     if (acBuf) {
         const double stampT = AC_STAMP_TIME;
+        // AC stamp gains pushed ~1.5x — the stamp now sits over the
+        // 2nd-drop crescendo peak, needs to punch through.
+        // (@jeffrey 2026-05-26 "can the aesthetic dot computer stamp be
+        //  louder too")
         // Main — pitched up (rate 1.18 ≈ +2.9 semis)
         PlaySampleOpts po = {0};
         po.rate = 1.18; po.pan = 0.0; po.wet_send = 0.75; po.fade = 0.005;
-        play_sample(stampT, acBuf, dn, 0.45, po);
+        play_sample(stampT, acBuf, dn, 0.68, po);
         // Harmony — perfect 5th up (×1.5 rate)
         PlaySampleOpts ph5 = {0};
         ph5.rate = 1.18 * 1.5; ph5.pan = -0.35; ph5.wet_send = 0.85; ph5.fade = 0.005;
-        play_sample(stampT + 0.025, acBuf, dn, 0.28, ph5);
+        play_sample(stampT + 0.025, acBuf, dn, 0.42, ph5);
         // Harmony — octave up (×2 rate)
         PlaySampleOpts po1 = {0};
         po1.rate = 1.18 * 2.0; po1.pan = 0.35; po1.wet_send = 0.85; po1.fade = 0.005;
-        play_sample(stampT + 0.045, acBuf, dn, 0.18, po1);
+        play_sample(stampT + 0.045, acBuf, dn, 0.27, po1);
         // Slow body — rate 0.78 for weight + smear
         PlaySampleOpts pob = {0};
         pob.rate = 0.78; pob.pan = 0.0; pob.wet_send = 0.90; pob.fade = 0.005;
-        play_sample(stampT + 0.060, acBuf, dn, 0.22, pob);
+        play_sample(stampT + 0.060, acBuf, dn, 0.33, pob);
         report("→ AC-stamp · 4-layer pitched+harmonized stack @ %.2fs", stampT);
         free(acBuf);
     }
@@ -2899,32 +2923,8 @@ static void post_arrangement_ultimate(void) {
         free(ineed);
     }
 
-    // EARLY crowd-roar bed @ 38 s — quieter introduction that
-    // overlaps with the crow intro chops (bb=18 ≈ 39.5 s) so the
-    // crow scratches mix INTO a developing crowd. Main bridge roar
-    // still at 53 s. (@jeffrey "mix crow with crowds sooner")
-    long crn = 0;
-    float *roar = try_load_sample("crowd-roar.wav", &crn);
-    if (roar) {
-        PlaySampleOpts poE = {0};
-        poE.rate = 0.92; poE.wet_send = 0.80; poE.fade = 6.0;
-        play_sample(38.00, roar, crn, 0.18, poE);
-        PlaySampleOpts po = {0};
-        po.rate = 1.0; po.wet_send = 0.70; po.fade = 7.0;
-        play_sample(53.00, roar, crn, 0.32, po);
-        report("→ crowd-roar · early bed @ 38s + bridge build @ 53s");
-        free(roar);
-    }
-
-    // crowd win @ t=63s
-    long cwn = 0;
-    float *win = try_load_sample("crowd-win.wav", &cwn);
-    if (win) {
-        PlaySampleOpts po = {0};
-        po.rate = 1.0; po.wet_send = 0.50; po.fade = 1.5;
-        play_sample(63.00, win, cwn, 0.18, po);
-        free(win);
-    }
+    // Bridge crowd bed + crowd-win cheer DISABLED — no audience clapping.
+    // (@jeffrey 2026-05-27 "no need for audience clapping")
 
     // splash + flicks @ t=3 (gain boosted)
     long spn = 0;
@@ -2992,20 +2992,23 @@ static void post_arrangement_ultimate(void) {
         // INTRO mystery chops (bb=18, 19) — sound like distorted scratches,
         // not yet recognizable as a crow.
         const struct { int bar; int i16; double cawOff; double rate; double ms; double g; double pan; } introChops[6] = {
-            // Gains pushed up so the scratchy crow chops sit forward in
-            // the mix again. (@jeffrey "not hearing the crow scratch as
-            // much anymore")
-            {-2,  4, C2, 1.50, 130, 1.45, -0.55},
-            {-2, 10, C3, 0.55, 240, 1.50,  0.50},
-            {-2, 14, C4, 1.40, 110, 1.40,  0.30},
-            {-1,  2, C5, 0.45, 280, 1.55, -0.45},
-            {-1,  8, C2, 1.40, 100, 1.45,  0.55},
-            {-1, 12, C3, 0.55, 230, 1.55, -0.30},
+            // Gains cut ~40% and pans replaced with a fast sinusoidal
+            // sweep below so the scratch crackles across the field
+            // instead of sitting hot in one spot. (@jeffrey 2026-05-26
+            //  "crow scratch around 42 is a little tad too loud / id
+            //  rather it pan around fast")
+            {-2,  4, C2, 1.50, 130, 0.85, 0.0},
+            {-2, 10, C3, 0.55, 240, 0.90, 0.0},
+            {-2, 14, C4, 1.40, 110, 0.82, 0.0},
+            {-1,  2, C5, 0.45, 280, 0.92, 0.0},
+            {-1,  8, C2, 1.40, 100, 0.85, 0.0},
+            {-1, 12, C3, 0.55, 230, 0.92, 0.0},
         };
         // Intro chops — drier (0.85 → 0.18 wet) and each chop now has
         // a downward pitch SWEEP for scratch-character glitch (instead
         // of constant rate). Sharper fades so transients punch.
-        // (@jeffrey "less reverb / more scratchy to glitch at start")
+        // Pan now sweeps fast via sin(i*1.7) so chops skitter across
+        // the stereo field.
         for (int i = 0; i < 6; i++) {
             const double t = crowT + introChops[i].bar * SPBAR_G + introChops[i].i16 * SP16;
             PlaySweptOpts po2 = {0};
@@ -3014,7 +3017,8 @@ static void post_arrangement_ultimate(void) {
             const double base = introChops[i].rate;
             if (i % 2 == 0) { po2.start_rate = base * 1.25; po2.end_rate = base * 0.75; }
             else            { po2.start_rate = base * 0.80; po2.end_rate = base * 1.30; }
-            po2.max_dur_ms = introChops[i].ms; po2.pan = introChops[i].pan;
+            po2.max_dur_ms = introChops[i].ms;
+            po2.pan = sin(i * 1.7) * 0.85;
             po2.wet_send = 0.18; po2.buf_offset = introChops[i].cawOff; po2.fade = 0.012;
             play_sample_swept(t, crow, crwn, introChops[i].g, po2);
         }
@@ -3035,8 +3039,13 @@ static void post_arrangement_ultimate(void) {
             const int isSmallChop = gap <= 2;
             const double rate = isBigDrag ? 0.45 : (isSmallChop ? 1.55 : 1.00);
             const double ms   = isBigDrag ? 360 : (isSmallChop ? 130 : 200);
-            const double g    = isBigDrag ? 1.35 : 1.25;
-            const double pan  = (i % 2 == 0) ? -0.50 : 0.50;
+            // Gains cut ~40% — crow scratch around 42s was reading too
+            // hot. Pan now uses a fast sin sweep so each chop lands in
+            // a different stereo position. (@jeffrey "crow scratch
+            //  around 42 is a little tad too loud / id rather it pan
+            //  around fast")
+            const double g    = isBigDrag ? 0.80 : 0.75;
+            const double pan  = sin(i * 1.5) * 0.85;
             const double t = crowT + barOff * SPBAR_G + i16 * SP16;
             PlaySweptOpts po2 = {0};
             po2.start_rate = rate; po2.end_rate = rate;
@@ -3103,29 +3112,54 @@ static void post_arrangement_ultimate(void) {
             { 1.92, 0.98, 0.52,  0.25 },
             { 2.34, 1.06, 0.48,  0.00 },
         };
+        // Bass-fade flattened (was steep squared ramp) so the early keys
+        // read denser at the bottom — kicks are now audible on the first
+        // few keys too. Key 5 (t=1.92) gets a REVERSE KICK swelling up
+        // INTO its strike instead of a normal forward kick.
+        // (@jeffrey 2026-05-26 "kicks under the typewriter keys be a bit
+        //  denser at the start of the track / and one should be a
+        //  reverse kick")
         for (int k = 0; k < 7; k++) {
-            // Curved fade-in (squared) — pushes the LOW-end content
-            // later in the intro so the first 1-2 seconds aren't
-            // bass-dominated. (@jeffrey "too much low freq too fast
-            //  in the first few seconds / come in slower / more after")
             const double linK   = (double)k / 6.0;
             const double topVol = 0.12 + (1.0 - 0.12) * linK;   // typewriter ramp
-            const double bassFr = 0.05 + (1.0 - 0.05) * linK * linK;   // squared for bass
+            // Linear bassFr 0.35 → 1.0 — early keys still trim'd
+            // (vs flat 1.0) but bottom now present from the first key.
+            const double bassFr = 0.35 + 0.65 * linK;
             const double tJ = keys[k].t + hum(0.012);
             PlaySampleOpts po = {0};
             po.rate = keys[k].rate; po.pan = keys[k].pan;
             po.wet_send = 0.25; po.fade = 0.003;
             play_sample(tJ, typer, tyn, keys[k].g * topVol, po);
-            // Sub thump dropped from 0.14 → 0.06 base and ramped via
-            // squared curve so it barely registers on the first few
-            // keys and blooms in toward the drop.
             sub_render(tJ, 0.18, 38, 0.06 * bassFr);
-            // Kick gain dropped 0.35 → 0.18 and also squared-ramp.
-            // (@jeffrey "kicks on the initial key punch sounds")
-            kick_render(tJ, 1.0, 0.18 * bassFr, 0.0);
+            if (k == 5) {
+                // REVERSE KICK — 320 ms sub-sine swell ramping up INTO
+                // the typewriter strike. Pitch rises 48 → 78 Hz, env
+                // grows squared so most of the energy lands at impact.
+                const double rDur = 0.32;
+                const double rStart = tJ - rDur;
+                double rPh = 0.0;
+                long iS = (long)(rStart * SR); if (iS < 0) iS = 0;
+                const long iEnd = (long)(tJ * SR);
+                for (long i = iS; i < iEnd && i < N; i++) {
+                    const double lt = (double)i / SR - rStart;
+                    const double prog = lt / rDur;
+                    const double env  = prog * prog;          // squared swell
+                    const double f    = 48.0 + 30.0 * prog;   // pitch rises into impact
+                    rPh += TAU * f / SR;
+                    double x = sin(rPh);
+                    x = tanh(x * 1.30);
+                    const double v = x * env * 0.32 * bassFr;
+                    L[i] += (float)v;
+                    R[i] += (float)v;
+                    SL[i] += (float)(v * 0.08);
+                    SR_[i]+= (float)(v * 0.08);
+                }
+            } else {
+                kick_render(tJ, 1.0, 0.18 * bassFr, 0.0);
+            }
         }
         free(typer);
-        report("→ typewriter · 7 key punches w/ soft D2 sub thumps across first 2 bars");
+        report("→ typewriter · 7 key punches w/ key-attached kicks (denser early)");
     }
 
     // skid snares (statement 20-47s) — clap with playSampleSwept rate ramp
@@ -3161,10 +3195,10 @@ static void post_arrangement_ultimate(void) {
         report("→ skid + 808 claps placed");
     }
 
-    // crow + crowd ambient blend through develop + climax
-    long crAn = 0, roAn = 0;
+    // crow ambient blend through develop + climax (crowd-roar layer
+    // DISABLED — no audience clapping. @jeffrey 2026-05-27)
+    long crAn = 0;
     float *crowAmb = try_load_sample("crow.wav", &crAn);
-    float *roarAmb = try_load_sample("crowd-roar.wav", &roAn);
     if (crowAmb) {
         for (double t = 90.0; t < 140.0; t += 4.0 + rng() * 3.0) {
             PlaySweptOpts po = {0};
@@ -3176,15 +3210,6 @@ static void post_arrangement_ultimate(void) {
             play_sample_swept(t + hum(0.04), crowAmb, crAn, 0.06 + rng() * 0.04, po);
         }
         free(crowAmb);
-    }
-    if (roarAmb) {
-        PlaySampleOpts po = {0};
-        po.rate = 0.92; po.pan = -0.20; po.wet_send = 0.55; po.fade = 5.5;
-        play_sample(108.00, roarAmb, roAn, 0.13, po);
-        po.rate = 1.08; po.pan =  0.25;
-        play_sample(115.00, roarAmb, roAn, 0.11, po);
-        free(roarAmb);
-        report("→ crow + crowd ambient blend (develop+climax)");
     }
 
     // melon stab + squish (sound design sweetener around t=2.45)
@@ -3338,50 +3363,9 @@ static void post_arrangement_ultimate(void) {
         report("→ crow bones · cards + rattle-intro burst after caw");
     }
 
-    // ── crowd D-minor arpeggio — EXTENDED + DENSER for the 1:06 zone ──
-    // Original 9 notes from 58s, now 18 notes spanning 58-66s, then a
-    // SECOND ascending arpeggio at 66-72s. Plus crow chops layered on
-    // every other beat for the "1:06 scratch amp-up" the user asked for.
-    long roaN = 0;
-    float *roarArp = try_load_sample("crowd-roar.wav", &roaN);
-    if (roarArp) {
-        // Pass 1 — 58-66s, original D-min arp expanded to 18 notes
-        const int arpSemis1[18] = {
-            0, 3, 7, 12, 15, 12, 7, 3,
-            0, 5, 10, 15, 17, 15, 10, 5, 3, 0,
-        };
-        for (int i = 0; i < 18; i++) {
-            const double t = 58.0 + i * (SPB_G * 0.5);     // 8th notes
-            const double rate = pow(2.0, arpSemis1[i] / 12.0);
-            const double pan = (i % 2 == 0) ? -0.65 : 0.65;
-            const double off = 1.5 + fmod(i * 1.8, 14);
-            const double arpG = 0.18 + (double)i / 18.0 * 0.30;
-            PlaySweptOpts po = {0};
-            po.start_rate = rate; po.end_rate = rate;
-            po.max_dur_ms = 320; po.pan = pan;
-            po.wet_send = 0.75; po.buf_offset = off; po.fade = 0.04;
-            play_sample_swept(t, roarArp, roaN, arpG, po);
-        }
-        // Pass 2 — 66-72s climbing arp, denser, more aggressive
-        const int arpSemis2[16] = {
-            0, 3, 7, 10, 12, 15, 17, 19,
-            15, 12, 17, 19, 22, 19, 15, 12,
-        };
-        for (int i = 0; i < 16; i++) {
-            const double t = 66.0 + i * (SPB_G * 0.5);
-            const double rate = pow(2.0, arpSemis2[i] / 12.0);
-            const double pan = (i % 3 == 0) ? -0.75 : ((i % 3 == 1) ? 0.0 : 0.75);
-            const double off = 2.5 + fmod(i * 1.3, 12);
-            const double arpG = 0.32 + (double)i / 32.0;
-            PlaySweptOpts po = {0};
-            po.start_rate = rate; po.end_rate = rate;
-            po.max_dur_ms = 280; po.pan = pan;
-            po.wet_send = 0.80; po.buf_offset = off; po.fade = 0.035;
-            play_sample_swept(t, roarArp, roaN, arpG, po);
-        }
-        free(roarArp);
-        report("→ crowd D-minor arpeggio · EXTENDED · 34 notes 58-72s");
-    }
+    // crowd D-minor arpeggio (58-72s) DISABLED — sample-source is still
+    // audibly the crowd cheer even when pitched. No audience clapping.
+    // (@jeffrey 2026-05-27)
     // Crow scratch overlay 58-72s — sparse counterpoint to the crowd arp
     long crArpN = 0;
     float *crowExtraArp = try_load_sample("crow.wav", &crArpN);
@@ -3641,50 +3625,14 @@ static void post_arrangement_ultimate(void) {
         }
     }
 
-    // ── TOM BREAK @ 1:12 — quick bongo/floor-tom thuds (Logicogonist
-    //    209877 CC0 floor tom + MrRentAPercussionist 455505 LP hi-bongo
-    //    CC-BY 4.0). Just one bar of thuds tucked into the bridge groove
-    //    where the user heard the "cool vibe with that vocal".
-    //    (@jeffrey "at 1:12 it's a cool vibe with that vocal / TOM TOM
-    //    drums like bongo thuds / source from freesound / plot one or
-    //    two for a quick tom break")
-    {
-        long tlN = 0, thN = 0;
-        float *tomLo = try_load_sample("tom-low.wav", &tlN);
-        float *tomHi = try_load_sample("tom-high.wav", &thN);
-        if (tomLo || tomHi) {
-            // 6 thuds across ~1.2 s starting at 72.00 s — alternating
-            // pitches + pans for a stereo flurry.
-            const struct { double t; int hi; double rate; double pan; double g; } thuds[6] = {
-                { 72.00, 0, 1.00, -0.40, 0.72 },
-                { 72.20, 1, 1.00,  0.45, 0.62 },
-                { 72.40, 0, 0.95, -0.25, 0.66 },
-                { 72.74, 0, 1.05,  0.20, 0.78 },
-                { 72.94, 1, 1.10, -0.45, 0.58 },
-                { 73.22, 0, 0.92,  0.35, 0.70 },
-            };
-            for (int i = 0; i < 6; i++) {
-                float *buf = thuds[i].hi ? tomHi : tomLo;
-                const long nN   = thuds[i].hi ? thN   : tlN;
-                if (!buf || nN <= 0) continue;
-                PlaySampleOpts po = {0};
-                po.rate = thuds[i].rate; po.pan = thuds[i].pan;
-                po.wet_send = 0.30; po.fade = 0.004;
-                play_sample(thuds[i].t, buf, nN, thuds[i].g, po);
-            }
-            if (tomLo) free(tomLo);
-            if (tomHi) free(tomHi);
-            report("→ tom break · 6 bongo thuds 72.00-73.22s (low+high alternating)");
-        }
-    }
+    // Tom break at 1:12 REMOVED — even snapped to triplet grid the
+    // bongo thuds were still reading as "weird drums" interrupting the
+    // bridge groove. (@jeffrey 2026-05-26 "at 1:12 there was still
+    //  weird toms maybe or like weird drums i dont like being added")
 
-    // ── ENCORE SCRATCH @ ~2:08 — quick crow + crowd-win flurry
-    //    riding the snare rush tail (after the wiped kicks, into the
-    //    last drop area). 4 crow chops + 2 crowd-win swept stabs.
-    //    PLUS a SCREWED tail: each successive chop slows + pitches
-    //    DOWN with exponentially growing reverb send, "flying away"
-    //    into the beyond. (@jeffrey "the 2:08 crow be scratched and
-    //    screwed into the beyond / like exponential reverb flying away")
+    // ── ENCORE SCRATCH @ ~2:08 — 4 crow chops + screwed tail kept.
+    // The distant tail-crow extension I added at 133-138s stays gone.
+    // (@jeffrey 2026-05-26 "the encore scratch was good too")
     {
         long encN = 0;
         float *encCrow = try_load_sample("crow.wav", &encN);
@@ -3735,37 +3683,20 @@ static void post_arrangement_ultimate(void) {
             report("→ encore scratch · 4 crow chops + 5 SCREWED tail 128.80s→%.2fs (flying away)",
                    tScrew);
         }
-        long encWN = 0;
-        float *encWin = try_load_sample("crowd-win.wav", &encWN);
-        if (encWin) {
-            // 2 crowd-win swept stabs framing the crow flurry
-            PlaySweptOpts po1 = {0};
-            po1.start_rate = 1.20; po1.end_rate = 0.85;
-            po1.max_dur_ms = 280; po1.pan = 0.0;
-            po1.wet_send = 0.30; po1.fade = 0.020;
-            play_sample_swept(127.20, encWin, encWN, 0.55, po1);
-            PlaySweptOpts po2 = {0};
-            po2.start_rate = 0.85; po2.end_rate = 1.30;
-            po2.max_dur_ms = 240; po2.pan = -0.20;
-            po2.wet_send = 0.30; po2.fade = 0.020;
-            play_sample_swept(128.80, encWin, encWN, 0.45, po2);
-            free(encWin);
-            report("→ encore scratch · 2 crowd-win stabs @ 127.20s + 128.80s");
-        }
+        // Encore crowd-win stabs DISABLED — no audience clapping.
+        // (@jeffrey 2026-05-27)
     }
+    // Mid-track gallop REMOVED — only the outro gallop at 158.65s
+    // stays (it fades us out after the final kick). (@jeffrey
+    //  2026-05-26 "wait yo i liked the outro gallop")
     long gln = 0;
     float *gallop = try_load_sample("gallop.wav", &gln);
     if (gallop) {
-        // Gallop MOVED to the very end — starts after the final kick
-        // at 158.5s and fades the track out. Bake fade extended below
-        // to give it time to ride. (@jeffrey "move horse gallop to
-        //  the very end / start after the very last kick to fade
-        //  us out")
         PlaySampleOpts po = {0};
         po.rate = 1.0; po.pan = 0; po.wet_send = 0.45; po.fade = 0.25;
         play_sample(158.65, gallop, gln, 0.80, po);
         free(gallop);
-        report("→ gallop · single pass @ 158.65s (post-final-kick outro)");
+        report("→ gallop · outro @ 158.65s (post-final-kick fade)");
     }
 
     // ── accordion @ 137.5s — late-climax folk-pump warmth before coda ──
@@ -4173,10 +4104,12 @@ static void post_arrangement_ultimate(void) {
         // jeffrey keeps singing with the brass instead of going silent
         // for 7s between utterances (@jeffrey 2026-05-25).
         const double STEPJ = 4 * SPBAR_G;
-        // Vocals trimmed another ~25% for balance — the stack reads
-        // present at lower individual gain because backings + wizard
-        // + natural-driven jeffrey all add up.
-        const double variantGain[3] = {2.35, 2.15, 2.00};
+        // Vocal stack pulled down so kick + snare carry the foreground
+        // and the choir sits BEHIND the drums as texture rather than
+        // riding on top. (@jeffrey 2026-05-26 "the voices arent hidden
+        //  inside the kick and snare enough / are a bit too heavy in
+        //  the mix")
+        const double variantGain[3] = {1.55, 1.40, 1.30};
         // Per-word pitch match: each ElevenLabs word shifts to the
         // corresponding wizard-take word's f0 (so the synth voice rides
         // jeffrey's actual melodic contour). Computed at render time as
@@ -4218,12 +4151,14 @@ static void post_arrangement_ultimate(void) {
             // characters. Some passes drop entirely (silence) so the
             // vocal isn't constantly on. (@jeffrey "voices should change
             // pitch / switch off / sounds like robotic children")
-            // No +12 (octave) — was too twangy stacked with the +7/+5
-            // backings. Smaller intervals + an occasional drop give
-            // variation without going chipmunky on every other pass.
-            // (@jeffrey "sounds too twangy now")
+            // GIRLY upward shifts only — flipped the negative shifts
+            // (-5, -3) and the unison drops to all-upward intervals so
+            // the chorus rises soft + ethereal instead of descending into
+            // sinister depths. (@jeffrey 2026-05-26 "instead of voices
+            //  getting more sinister and louder in the chorus can we get
+            //  more girly / and soft / as the voices progress")
             static const double ROBOT_SHIFT_ST[8] = {
-                0, +5, +3, -5, 0, +7, -3, +5
+                +5, +7, +5, +12, +7, +5, +12, +7
             };
             // PASS_ACTIVE removed — replaced by explicit per-j drops
             // below so cycling via j%8 doesn't accidentally drop later
@@ -4301,15 +4236,34 @@ static void post_arrangement_ultimate(void) {
             // boost — the user wanted that particular phrase louder.
             // (@jeffrey "the voice at 1:19 / that verse / that
             //  particular phrase / much louder")
+            // SOFT-PROGRESSION RAMP — instead of growing louder and
+            // spotlighting at j=12, the choral arrangement DRIFTS DOWN
+            // as voices accumulate so it reads soft + ethereal as it
+            // progresses. (@jeffrey 2026-05-26 "more girly / and soft /
+            //  as the voices progress / instead of more sinister and
+            //  louder in the chorus")
+            //   j=0..5  : 0.30 → 0.85 (initial build, never quite peak)
+            //   j=6..11 : 0.85 → 0.65 (gentle settle as the stack thickens)
+            //   j=12+   : 0.65 → 0.35 (continued taper, no spotlight)
             double vocalRamp;
-            if (j < 5)            vocalRamp = 0.35 + 0.65 * (double)j / 5.0;
-            else if (j < 12)      vocalRamp = 1.0;
-            else if (j == 12)     vocalRamp = 1.65;     // SPOTLIGHT @ 1:19
-            else                  vocalRamp = 1.0 - 0.55 * ((double)(j - 12) / 6.0);
+            if (j < 5)        vocalRamp = 0.30 + 0.55 * (double)j / 5.0;
+            else if (j < 12)  vocalRamp = 0.85 - 0.20 * ((double)(j - 5) / 6.0);
+            else              vocalRamp = 0.65 - 0.30 * ((double)(j - 12) / 5.0);
             if (vocalRamp < 0.20) vocalRamp = 0.20;
             const int backingsOn = (j >= 2);
             const int naturalOn  = (j >= 3);
             passG *= vocalRamp;
+
+            // ── ROBOT-VOICE ATTENUATION ─────────────────────────────────
+            // j=12 (1:19) had the chipmunked lead "i" punching through as
+            // a high-pitched blip — the pitched lead + backings sit at
+            // 55% so the natural-rate voice carries word 0 instead.
+            // j=16/17 stay attenuated for the drop run-up. (@jeffrey
+            //  2026-05-26 "high pitched 'hey'/'i' at 1:19")
+            double robotAtt = 1.0;
+            if (j == 12) robotAtt = 0.55;
+            if (j == 16) robotAtt = 0.55;
+            if (j == 17) robotAtt = 0.35;
 
             // ABSOLUTE PITCH MATCH — shift this layer from its measured
             // base (jvocBaseMidi) to the global TARGET_MIDI. Every layer
@@ -4344,6 +4298,12 @@ static void post_arrangement_ultimate(void) {
             const long outEndI   = (long)(tOutEnd   * SR);
             const long WSOLA_RADIUS = (long)(0.010 * SR);   // ±10 ms search
             const long WSOLA_STEP   = 4;                     // sample-stride
+            // Onset fade-in (~80 ms) so the chipmunked/pitched lead "i"
+            // word sneaks in instead of popping. 25 ms wasn't enough —
+            // user still heard a "high-pitched 'hey'/'i'" at the start
+            // of j=12. (@jeffrey 2026-05-26 "i still hear it / its like
+            //  a high pitched 'hey' / 'i'")
+            const long ONSET_FADE = (long)(0.080 * SR);
             double prevTail[2048];
             int havePrevTail = 0;
             for (long g = outStartI; g < outEndI; g += HOP) {
@@ -4396,7 +4356,10 @@ static void post_arrangement_ultimate(void) {
                     const double frac = srcPos - ri;
                     const double sm = jvoc[vt][ri] * (1.0 - frac) + jvoc[vt][ri + 1] * frac;
                     const double win = 0.5 - 0.5 * cos(2.0 * M_PI * s / (GRAIN_LEN - 1));
-                    const double v = sm * win * passG;
+                    const long   relIdx = outIdx - outStartI;
+                    const double onset  = (relIdx < ONSET_FADE)
+                                          ? (double)relIdx / (double)ONSET_FADE : 1.0;
+                    const double v = sm * win * passG * robotAtt * onset;
                     L[outIdx]  += (float)(v * pL);
                     R[outIdx]  += (float)(v * pR);
                     SL[outIdx] += (float)(v * 0.05);
@@ -4420,41 +4383,11 @@ static void post_arrangement_ultimate(void) {
                     havePrevTail = 1;
                 }
             }
-            // ── DOUBLED VARIANT WORD @ 1:19 (j=12) — render word 8
-            // (the variant: money/honey/bunnies) AGAIN at +12 st on
-            // top of the existing lead. Octave-up "money" doubler.
-            // (@jeffrey "at 1:19 can the word 'moneys' be doubled and
-            //  pitched up a bit")
-            if (j == 12 && nW >= 12) {
-                const int wi = 8;       // variant word index
-                const double doubleShiftSt = vocShiftSt + 12.0;
-                const double dRate = pow(2.0, doubleShiftSt / 12.0);
-                const long inStart = (long)(jvocWords[vt][wi].fromS * SR);
-                const long inEnd   = (long)(jvocWords[vt][wi].toS   * SR);
-                if (inEnd > inStart && inEnd <= jvocN[vt]) {
-                    const double wordOutT = t + themeBeatPos[themeIdxFor[wi]] * SPB_G;
-                    const long oStart = (long)(wordOutT * SR);
-                    const long oLen   = (long)((double)(inEnd - inStart) / dRate);
-                    const long fadeN  = (long)(0.015 * SR);
-                    const double dGain = passG * 0.55;   // moderate doubler level
-                    for (long w = 0; w < oLen; w++) {
-                        const long oi = oStart + w;
-                        if (oi < 0 || oi >= N) continue;
-                        const double readPos = (double)inStart + (double)w * dRate;
-                        if (readPos + 1 >= (double)jvocN[vt]) break;
-                        const long ri = (long)readPos;
-                        const double frac = readPos - ri;
-                        double s = jvoc[vt][ri] * (1.0 - frac) + jvoc[vt][ri + 1] * frac;
-                        if (w < fadeN)             s *= (double)w / fadeN;
-                        if (oLen - w < fadeN)      s *= (double)(oLen - w) / fadeN;
-                        const double v = s * dGain;
-                        L[oi]  += (float)(v * 0.90);
-                        R[oi]  += (float)(v * 1.10);    // brighten right side
-                        SL[oi] += (float)(v * 0.18);
-                        SR_[oi]+= (float)(v * 0.18);
-                    }
-                }
-            }
+            // Octave-up "moneys" doubler at j=12 REMOVED — was the
+            // "weird up front little voice dip" at ~1:20 (leftover from
+            // the old spotlight design that's been replaced by the soft
+            // progression). (@jeffrey 2026-05-26 "at 1:20 there is a
+            //  weird up front little voice dip i dont like that")
 
             // ── CHOP-AND-SCREW OVERLAY — on selected passes, layer a
             // pitched-down (rate 0.60 = ~−9 st + 1.67× slower) full
@@ -4465,7 +4398,7 @@ static void post_arrangement_ultimate(void) {
             static const int CHOP_SCREW[8] = { 0, 0, 1, 0, 0, 1, 0, 0 };
             if (CHOP_SCREW[j % 8] && nW >= 12) {
                 const double csRate = 0.60;                    // pitch + tempo down
-                const double csGain = passG * 0.55;
+                const double csGain = passG * 0.55 * robotAtt;
                 const long csStart  = (long)(t * SR);
                 const long csOutLen = (long)((double)jvocN[vt] / csRate);
                 const long csFade   = (long)(0.040 * SR);
@@ -4527,7 +4460,7 @@ static void post_arrangement_ultimate(void) {
                 const long wsrcI = (long)(wantSrcStart * SR);
                 const long wsrcLen = (long)((wantSrcEnd - wantSrcStart) * SR);
                 if (weI > wsI && wsrcLen > 0) {
-                    const double byteGain = passG * 0.32;
+                    const double byteGain = passG * 0.32 * robotAtt;
                     const long totalLen = weI - wsI;
                     for (long k = 0; k < totalLen; k++) {
                         const long readIdx = wsrcI + (k % wsrcLen);
@@ -4562,7 +4495,11 @@ static void post_arrangement_ultimate(void) {
             // harmonic edge (drive). (@jeffrey 2026-05-26 "compressed
             // / intensified / still needs some drive")
             if (naturalOn) {
-                const double natGain = passG * 1.10;
+                // Natural layer kept mostly intact for the human-voice
+                // continuity, but trimmed on the last passes so it doesn't
+                // ride over the 2nd-drop build at full volume.
+                const double natTail = (j == 17) ? 0.55 : (j == 16 ? 0.78 : 1.0);
+                const double natGain = passG * 1.10 * natTail;
                 const double natDrive = 2.20;            // input gain into tanh
                 const double natMakeup = 0.55;           // output trim after tanh
                 const long natFade = (long)(0.020 * SR);
@@ -4608,7 +4545,7 @@ static void post_arrangement_ultimate(void) {
                 static const double BACKING_DLY[2]  = {  0.018, 0.032 };  // ms time-offset
                 for (int bv = 0; bv < 2; bv++) {
                     const double bvRate = pow(2.0, (vocShiftSt + BACKING_ST[bv]) / 12.0);
-                    const double bvGain = passG * BACKING_GAIN[bv];
+                    const double bvGain = passG * BACKING_GAIN[bv] * robotAtt;
                     const double bvPan  = BACKING_PAN[bv];
                     const double bvPL = (bvPan > 0) ? (1.0 - bvPan) : 1.0;
                     const double bvPR = (bvPan < 0) ? (1.0 + bvPan) : 1.0;
@@ -4658,7 +4595,10 @@ static void post_arrangement_ultimate(void) {
                             const double frac = srcPos - ri;
                             const double sm = jvoc[vt][ri] * (1.0 - frac) + jvoc[vt][ri + 1] * frac;
                             const double win = 0.5 - 0.5 * cos(2.0 * M_PI * s / (GRAIN_LEN - 1));
-                            const double v = sm * win * bvGain;
+                            const long   relIdx = outIdx - outStartI;
+                            const double onset  = (relIdx < ONSET_FADE)
+                                                  ? (double)relIdx / (double)ONSET_FADE : 1.0;
+                            const double v = sm * win * bvGain * onset;
                             L[outIdx]  += (float)(v * bvPL);
                             R[outIdx]  += (float)(v * bvPR);
                             SL[outIdx] += (float)(v * 0.22);
@@ -4812,11 +4752,19 @@ static void post_arrangement_ultimate(void) {
             // 4 voices per pass for thickness; choir spans the full
             // mantra duration (not blips — actual harmony singing).
             if (CHOIR_LAYER_ON && choirLoadedCount > 0) {
+                // GIRLY choir — bright voices with FULL words.txt sidecars
+                // (bells/whisper/boing/good-news/wobble). bubbles + bahh
+                // were missing word sidecars for honey/money variants, so
+                // the choir was silently SKIPPED on every pass selecting
+                // them — read as "lyrics got errored" because layers
+                // disappeared. All intervals upward (5ths, octaves) so
+                // the harmony soars. (@jeffrey 2026-05-26 "the lyrics
+                //  got errord the vocals had an error in this build")
                 static const int unisonVoiceIdx[8] = {
-                    0, 2, 3, 8, 6, 7, 4, 5    // cellos, good/bad-news, organ, trinoids, zarvox, whisper, bahh
+                    1, 4, 9, 10, 2, 1, 9, 4  // bells, whisper, boing, wobble, good-news, bells, boing, whisper
                 };
                 static const double choirIntervalSt[8] = {
-                    0, +12, -5, +7, +5, -7, +3, -12
+                    +5, +12, +7, +5, +12, +7, +5, +12
                 };
                 for (int ck = 0; ck < 2; ck++) {     // 2 voices, not 4
                     const int cv  = unisonVoiceIdx[(j * 3 + ck * 2) % 8];
@@ -4826,7 +4774,7 @@ static void post_arrangement_ultimate(void) {
                     // NO bit-crush — clean smooth chorus, blends into the
                     // jeffrey leads instead of cutting through them.
                     const double crushQ  = 65536.0;
-                    const double uGain   = 0.32 * passG;     // sit back
+                    const double uGain   = 0.32 * passG * robotAtt;     // sit back
                     // ABSOLUTE pitch shift: this voice's base → TARGET,
                     // then add a harmony interval per pass.
                     const double cBase = (jchoirBaseMidi[cv][cvt] > 0)
@@ -4966,37 +4914,36 @@ static void post_arrangement_ultimate(void) {
         { "meow-3.wav", 12.40, 0.10, -0.25, 0.50 },
     };
 
-    // ── UT2004 SHOCK-RIFLE — CHORDED TOOT @ the 2nd drop ───────────
-    // Three pitched copies of the same sample stacked as a power-fifth
-    // chord (root + 5th + octave), each panned + with slightly
-    // different start times for chorus thickness. Lower rates +
-    // longer fades make it read more "whistling toot" than dry zap.
-    // (@jeffrey "chorded / harmonize it when it fires / more
-    //  whistling / more of a toot / using the same sample of course")
+    // ── UT2004 SHOCK-RIFLE — DEEP BLAM ZAP @ the 2nd drop ──────────
+    // Whole stack pitched down ~3 st for a deeper BLAM, with a -12 st
+    // sub doubler underneath for body. Shimmer voices (+7 / +12 st)
+    // are relative to the deepened lead so the chord stays in tune.
+    // (@jeffrey 2026-05-27 "a bit deeper")
     {
         long srfN = 0;
         float *srf = try_load_sample("ut2004-shock-rifle.wav", &srfN);
         if (srf) {
-            // 3-voice chord: -5 st (low root), 0 st (root), +7 st (5th up)
-            // — slower rates = more whistling sustain.
-            const double semis[3] = { -5.0, 0.0, +7.0 };
-            const double pans[3]  = { -0.45, 0.0, +0.45 };
-            // Gains pulled back ~45% — the chord trio was contributing
-            // to a 5.76 engine peak which made normalize cut vocals to
-            // -21 dB below the bed. Still loud but headroom-aware.
-            const double gains[3] = {  0.78, 1.00, 0.66 };
-            const double offs[3]  = {  0.000, 0.005, 0.012 };   // chorus stagger
-            for (int v = 0; v < 3; v++) {
-                PlaySampleOpts po = {0};
-                // Lower rate base (0.85) = longer/whistlier toot
-                po.rate = 0.85 * pow(2.0, semis[v] / 12.0);
-                po.pan = pans[v];
-                po.wet_send = 0.55;       // wetter for whistle/toot character
-                po.fade = 0.020;          // softer attack for less zap
-                play_sample(CLIMAX_START + offs[v], srf, srfN, gains[v], po);
-            }
+            const double base = 0.84;     // ~-3 st (deeper BLAM)
+            // Lead — dry, sharp, centered.
+            PlaySampleOpts lead = {0};
+            lead.rate = base; lead.pan = 0.0; lead.wet_send = 0.22; lead.fade = 0.005;
+            play_sample(CLIMAX_START, srf, srfN, 1.25, lead);
+            // -12 st sub doubler — body under the BLAM.
+            PlaySampleOpts sub = {0};
+            sub.rate = base * 0.5; sub.pan = 0.0; sub.wet_send = 0.20; sub.fade = 0.005;
+            play_sample(CLIMAX_START + 0.004, srf, srfN, 0.55, sub);
+            // +7 st fifth shimmer (relative to deepened lead).
+            PlaySampleOpts fifth = {0};
+            fifth.rate = base * pow(2.0, 7.0 / 12.0); fifth.pan = +0.35;
+            fifth.wet_send = 0.35; fifth.fade = 0.005;
+            play_sample(CLIMAX_START + 0.008, srf, srfN, 0.50, fifth);
+            // +12 st octave sparkle (relative to deepened lead).
+            PlaySampleOpts oct = {0};
+            oct.rate = base * 2.0; oct.pan = -0.30;
+            oct.wet_send = 0.45; oct.fade = 0.005;
+            play_sample(CLIMAX_START + 0.020, srf, srfN, 0.30, oct);
             free(srf);
-            report("→ shock-rifle · CHORDED TOOT @ %.2fs (3 voices: -5/0/+7 st)",
+            report("→ shock-rifle · DEEP BLAM ZAP @ %.2fs (sub + lead -3st + 7st + 12st)",
                    CLIMAX_START);
         }
     }
@@ -5053,60 +5000,13 @@ static void post_arrangement_ultimate(void) {
             report("→ piano cascade · %d notes %.2fs→%.2fs (D-min pentatonic, exp slowdown)",
                    i, cStart, cEnd);
 
-            // ── HELD CHORDS @ 2:06-2:15 (126→135s) with old swing ──
-            // After the cascade dies down, switch to sustained bluesy
-            // piano chords with slight triplet-swing late offset. Each
-            // chord = 3-note voicing held for ~1.6s. Sequence walks a
-            // ii-V-I-ish blues progression in D minor.
-            // (@jeffrey "around 2:06 the piano elaborations should
-            //  switch to held chords / and have a bit old swing to em")
-            const double chordTimes[6] = {126.10, 127.60, 129.10, 130.60, 132.10, 133.60};
-            // Each row = [root, 3rd-equiv, 7th-equiv] MIDI for piano triad
-            const int chordVoicings[6][3] = {
-                { 50, 53, 57 },     // D3 F3 A3   — Dm
-                { 51, 53, 56 },     // D#3 F3 G#3 — bluesy dom
-                { 48, 52, 55 },     // C3 E3 G3   — C
-                { 50, 54, 57 },     // D3 F#3 A3  — D
-                { 53, 57, 60 },     // F3 A3 C4   — F
-                { 50, 53, 57 },     // Dm again (resolution)
-            };
-            for (int c = 0; c < 6; c++) {
-                // Old-swing: slight late offset on chord trigger
-                const double swingT = chordTimes[c] + 0.018 * (c % 2);
-                for (int v = 0; v < 3; v++) {
-                    play_grand_piano(swingT + 0.005 * v,
-                                     (double)chordVoicings[c][v],
-                                     1.30, ((v - 1) * 0.30));
-                }
-            }
-            report("→ piano held-chords · 6 voicings 126.10-133.60s (D-min blues with swing)");
+            // Held bluesy piano chords at 126-133s REMOVED — the cascade
+            // tails off on its own and the coda breathes without the
+            // chord stack. The matching instrument-dip below removed too
+            // so the outro mix isn't ducked for nothing. (@jeffrey
+            //  2026-05-26 "can we also remove the keyboard chords i mean
+            //  grand piano 'chords' at the very end")
         }
-    }
-    // ── INSTRUMENT DIP @ 126-134s — duck L/R + wet so the held piano
-    //    chords sit out front. (@jeffrey "and other instruments kind
-    //    of dip to hear that")
-    {
-        const double dipStart = 125.8;
-        const double dipEnd   = 134.5;
-        const long dI = (long)(dipStart * SR);
-        const long dE = (long)(dipEnd   * SR);
-        const long span = dE - dI;
-        for (long i = dI; i < dE && i < N; i++) {
-            const double fr = (double)(i - dI) / (double)span;
-            // Trapezoid duck: fade in 0..0.10, hold 0.10..0.85, fade out 0.85..1
-            double dip;
-            if      (fr < 0.10) dip = 1.0 - 0.40 * (fr / 0.10);
-            else if (fr < 0.85) dip = 0.60;
-            else                dip = 0.60 + 0.40 * ((fr - 0.85) / 0.15);
-            L[i]  *= (float)dip;
-            R[i]  *= (float)dip;
-            WL[i] *= (float)(dip * dip);
-            WR[i] *= (float)(dip * dip);
-            SL[i] *= (float)(dip * dip);
-            SR_[i]*= (float)(dip * dip);
-        }
-        report("→ instrument dip · %.1f-%.1fs (-4 dB hold for held piano)",
-               dipStart, dipEnd);
     }
 
     int meowCount = 0;
@@ -5350,53 +5250,8 @@ static void post_arrangement_ultimate(void) {
         report("→ sipper @ 77.5s");
     }
 
-    // ── crowd WOOO scratched @ climax→coda boundary (140.3-142.1s) ─────
-    long wN = 0;
-    float *wooBuf = try_load_sample("crowd-win.wav", &wN);
-    if (wooBuf) {
-        const struct { double t; double sr; double ms; double pan; double g; } woos[7] = {
-            { 140.30, 0.65, 250, -0.55, 0.70 },
-            { 140.55, 1.40, 180,  0.55, 0.72 },
-            { 140.75, 0.85, 220, -0.30, 0.70 },
-            { 140.97, 1.45, 180,  0.55, 0.62 },
-            { 141.18, 1.00, 320,  0.00, 0.80 },
-            { 141.60, 0.70, 380,  0.30, 0.55 },
-            { 142.02, 1.50, 140, -0.55, 0.50 },
-        };
-        for (int i = 0; i < 7; i++) {
-            PlaySweptOpts po = {0};
-            po.start_rate = woos[i].sr;
-            po.end_rate   = woos[i].sr * (0.95 + rng() * 0.10);
-            po.max_dur_ms = woos[i].ms; po.pan = woos[i].pan;
-            po.wet_send = 0.55; po.fade = 0.035;
-            play_sample_swept(woos[i].t, wooBuf, wN, woos[i].g, po);
-        }
-        free(wooBuf);
-        report("→ crowd WOOO scratched · 7 pitched chops 140.3-142.1s");
-    }
-
-    // ── crowd-roar scratched @ climax→coda boundary ────────────────────
-    long rrN = 0;
-    float *rrBuf = try_load_sample("crowd-roar.wav", &rrN);
-    if (rrBuf) {
-        const struct { double t; double sr; double ms; double off; double pan; double g; } roars[5] = {
-            { 140.40, 0.60, 420, 2.0, -0.65, 0.48 },
-            { 140.90, 1.30, 280, 5.0,  0.65, 0.48 },
-            { 141.35, 0.78, 380, 1.0, -0.40, 0.48 },
-            { 141.80, 1.10, 320, 8.0,  0.40, 0.50 },
-            { 142.20, 0.55, 360, 3.0,  0.00, 0.42 },
-        };
-        for (int i = 0; i < 5; i++) {
-            PlaySweptOpts po = {0};
-            po.start_rate = roars[i].sr;
-            po.end_rate   = roars[i].sr * (0.92 + rng() * 0.16);
-            po.max_dur_ms = roars[i].ms; po.pan = roars[i].pan;
-            po.wet_send = 0.70; po.buf_offset = roars[i].off; po.fade = 0.045;
-            play_sample_swept(roars[i].t, rrBuf, rrN, roars[i].g, po);
-        }
-        free(rrBuf);
-        report("→ crowd-roar scratched · 5 pitched chops 140.4-142.7s");
-    }
+    // Crowd WOOO + crowd-roar scratched chops at 140-142s DISABLED —
+    // no audience clapping. (@jeffrey 2026-05-27)
 
     // ── WALL OF SOUND drop — drum grid + cards 3rd layer @ statement ───
     // 6-bar 16th grid using drum-1/2 + scratches. Exponential fade across
@@ -6194,46 +6049,61 @@ int main(int argc, char **argv) {
             riser_render(brkEnd - 1.20, 1.20, ROOT_MEL_H - 12, ROOT_MEL_H + 14, 0.32);
             report("→ trap break · 88.5-94.5s · ducked + 8+8 kicks + 6 snares + roll + %d hat ticks + riser", hatCount);
         }
-        // ── SNARE RUSH @ ~2:02 — pushed back further (was 121.0,
-        // now starts at 122.2) so the neigh @ 120.18 has clear space
-        // to breathe before the rush kicks in. Velocity now FADES IN
-        // across the first 25% of the rush instead of starting hot.
-        // (@jeffrey "snare rush not happen until a bit after the neigh
-        //  / fade it in")
-        {
-            const double rushStart = 122.2;
-            const double rushEnd   = 128.5;
-            const double whineStart = 125.4;
-            const double whineEnd   = 126.70;
-            int snareCount = 0;
-            for (double t = rushStart; t < rushEnd - 0.04; ) {
-                const double pp = (t - rushStart) / (rushEnd - rushStart);
-                const double step = 0.18 - 0.135 * pp;
-                // Velocity: fade IN first 25% (0→1) → peak → fade OUT
-                // last 70% (1→0.18). Smooth attack into climax tail.
-                const double fadeIn = (pp < 0.25) ? (pp / 0.25) : 1.0;
-                const double decay  = 1.0 - (pp > 0.30 ? (pp - 0.30) / 0.70 * 0.80 : 0.0);
-                const double vel    = 0.72 * fadeIn * decay;
-                // Body pitch sweeps via sine across the rush — center
-                // 175 Hz ±60 Hz with several cycles for movement.
-                const double bodyF = 175.0 + 60.0 * sin(snareCount * 0.55);
-                // Pan sweeps faster and wider across the field.
-                SNARE_PAN_BIAS = sin(snareCount * 0.83) * 0.75;
+        // Gallop-rhythm snare glitches REMOVED. (@jeffrey 2026-05-26
+        //  "lets actually get rid of the gallop / and snare kicks
+        //  after the gallop / after the second drop / but keep the
+        //  neigh")
+        if (0) {
+            // 74 gallop-hoof onsets (seconds within gallop.wav)
+            static const double GALLOP_HITS[74] = {
+                0.369, 0.419, 0.500, 0.550, 0.616, 0.674, 0.756, 0.837,
+                0.892, 0.945, 1.001, 1.053, 1.115, 1.174, 1.229, 1.294,
+                1.346, 1.408, 1.459, 1.511, 1.576, 1.626, 1.682, 1.732,
+                1.787, 1.852, 2.082, 2.133, 2.191, 2.251, 2.320, 2.370,
+                2.422, 2.474, 2.528, 2.580, 2.637, 2.742, 2.808, 2.869,
+                2.989, 3.051, 3.130, 3.196, 3.246, 3.296, 3.358, 3.418,
+                3.469, 3.526, 3.692, 3.752, 3.803, 3.870, 3.921, 4.069,
+                4.154, 4.207, 4.258, 4.330, 4.528, 4.624, 4.684, 4.788,
+                4.838, 4.955, 5.005, 5.062, 5.137, 5.194, 5.256, 5.308,
+                5.413, 5.464,
+            };
+            const int N_GALLOP = 74;
+            const double rushStart  = 122.2;
+            const double rushEnd    = 128.5;
+            const double galStart   = GALLOP_HITS[0];
+            const double galEnd     = GALLOP_HITS[N_GALLOP - 1];
+            const double galSpan    = galEnd - galStart;
+            const double rushSpan   = rushEnd - rushStart;
+            const double scale      = rushSpan / galSpan;     // ~1.24×
+            int glitchCount = 0;
+            for (int i = 0; i < N_GALLOP; i++) {
+                const double frac = (GALLOP_HITS[i] - galStart) / galSpan;
+                const double t    = rushStart + frac * rushSpan;
+                // Velocity: fade IN first 15%, sustain, fade OUT last 25%.
+                const double fadeIn  = (frac < 0.15) ? (frac / 0.15) : 1.0;
+                const double fadeOut = (frac > 0.75) ? 1.0 - 0.70 * ((frac - 0.75) / 0.25) : 1.0;
+                // Intra-stride accent: the first hit of each stride
+                // (after a ≥ 100 ms gap) punches harder than the
+                // shuffle-hits in the middle.
+                const int strideHead =
+                    (i == 0) ||
+                    ((GALLOP_HITS[i] - GALLOP_HITS[i - 1]) >= 0.095);
+                const double accent  = strideHead ? 1.00 : 0.55;
+                const double vel     = 0.30 * fadeIn * fadeOut * accent;
+                // GLITCH body — pitch wobbles by ~±40 Hz with a fast LFO
+                // so each hit reads slightly different. Two patterns
+                // interlock so the rhythm isn't monotone.
+                const double bodyF = 195.0 + 35.0 * sin(i * 0.73)
+                                          + 22.0 * sin(i * 1.41);
+                // Pan jitters around using the same dual-LFO so it
+                // skitters across the stereo field.
+                SNARE_PAN_BIAS = sin(i * 0.51) * 0.55 + sin(i * 1.13) * 0.20;
                 snare_render(t, vel, bodyF);
-                if (snareCount % 4 == 0 && t + 0.025 < rushEnd) {
-                    SNARE_PAN_BIAS = -SNARE_PAN_BIAS;        // opposite for the flam
-                    snare_render(t + 0.025, vel * 0.40, bodyF * 1.18);
-                }
-                t += step;
-                snareCount++;
+                glitchCount++;
             }
-            SNARE_PAN_BIAS = 0.0;     // reset
-            // Tight whine REMOVED — the "eeeeoooo" sound the user
-            // wanted killed. (@jeffrey "at 2:05 there is a weird high
-            //  pitched sound coming in like a eeeeoooo lets kill that")
-            (void)whineStart; (void)whineEnd;
-            report("→ snare rush · %.1f-%.1fs · %d snares fading into tight whine %.2f-%.2fs",
-                   rushStart, rushEnd, snareCount, whineStart, whineEnd);
+            SNARE_PAN_BIAS = 0.0;
+            report("→ gallop-glitch · %.1f-%.1fs · %d snare onsets (scaled %.2f×)",
+                   rushStart, rushEnd, glitchCount, scale);
         }
         // ── FINAL LOUD KICK ON THE FADE — last hit, big and deep
         //    (bypasses the t>=140 cutoff via direct inline render so
@@ -6266,6 +6136,54 @@ int main(int argc, char **argv) {
             // Deep sub layer underneath for extra weight
             sub_render(tFK, 0.50, 26, 0.85);
             report("→ FINAL KICK · loud on fade @ %.2fs (bass-chord tail extended)", tFK);
+        }
+        // ── FLYBY WARBLE under the vocals — a slow-panning, wobbling
+        // sine layer that crosses the stereo field every ~6 s like an
+        // aircraft passing overhead. Pitch wobbles ±2 semis at 5 Hz so
+        // it reads as motion, not as a sustained note. Audible but
+        // sits underneath the choral stack. Runs 15.8 → 110 s so it
+        // covers the entire vocal section. (@jeffrey 2026-05-26 "warble
+        //  under the vocals a bit / but still audible like a flyby")
+        {
+            const double flyStart = 15.8;
+            const double flyEnd   = 110.0;
+            const long iS = (long)(flyStart * SR);
+            const long iE = (long)(flyEnd * SR);
+            const double f0 = m2f(57.0);     // A3 — sits in vocal register
+            double ph = 0.0;
+            for (long i = iS; i < iE && i < N; i++) {
+                const double t = (double)i / SR - flyStart;
+                const double span = flyEnd - flyStart;
+                const double prog = t / span;
+                // Pitch wobble ±2 semis at 5 Hz (the warble)
+                const double wob = sin(t * 5.0 * TAU) * 2.0;
+                const double freq = f0 * pow(2.0, wob / 12.0);
+                ph += TAU * freq / SR;
+                // Pan sweeps L→R over ~6 s — slow flyby motion
+                const double pan = sin(t * (TAU / 6.0));
+                const double pL = (pan > 0) ? (1.0 - pan) : 1.0;
+                const double pR = (pan < 0) ? (1.0 + pan) : 1.0;
+                // Amplitude envelope: fade in 0..3 s, sustain, fade
+                // out last 5 s into the AC stamp; bell-tremolo at 0.7 Hz
+                // gives it the gentle "presence/absence" of a distant
+                // flyby.
+                double env = 1.0;
+                if (t < 3.0)             env = t / 3.0;
+                if (span - t < 5.0)      env = (span - t) / 5.0;
+                const double trem = 0.55 + 0.45 * sin(t * 0.7 * TAU);
+                const double gain = 0.045;     // sits under vocals
+                // Slight saw harmonic stack for "flyby" timbre (motor-y)
+                const double s = sin(ph) + 0.30 * sin(ph * 2.0)
+                                          + 0.18 * sin(ph * 3.0);
+                const double v = s * env * trem * gain;
+                (void)prog;
+                L[i] += (float)(v * pL);
+                R[i] += (float)(v * pR);
+                SL[i] += (float)(v * 0.15);
+                SR_[i]+= (float)(v * 0.15);
+            }
+            report("→ flyby warble · %.1f-%.1fs · 5 Hz wobble + 6 s pan sweep",
+                   flyStart, flyEnd);
         }
         const double wetMix = (WET_MIX_OVERRIDE >= 0.0) ? WET_MIX_OVERRIDE : 0.42;
         finalize_and_write(OUT_PATH, wetMix);

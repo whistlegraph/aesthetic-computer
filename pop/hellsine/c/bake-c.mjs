@@ -92,22 +92,22 @@ if (USE_ACDSP) {
   finalizeIn = acOut;
 }
 
-// 4 — LOUDNESS NARRATIVE — pre-drop dips before BOTH drops so the
-// drops earn their impact through contrast. Lead-ups intentionally
-// QUIETER than the previous curve so the music breathes. Each drop
-// jumps ~12+ dB from its anticipation low. (@jeffrey 2026-05-26
-// "final post render / volume / intensity around the drops / so the
-// lead up to the drops is a bit quieter / better overall loudness
-// narrative that matches the music")
+// 4 — LOUDNESS NARRATIVE — 1st drop keeps the breath-then-jump shape;
+// 2nd drop now CRESCENDOS into the drop instead of dipping first. The
+// climax peak amplitude is reached RIGHT before 110.77 so the drop
+// lands AT peak loudness and then settles. (@jeffrey 2026-05-26 "the
+// variable volume on the last drop should get loud right before the
+// drop hits / instead the drop is kinda quiet then i hear the loud up
+// after")
 //   0.0  - 12.50 : 0.40 → 0.55 (hushed intro)
 //   12.50- 15.82 : 0.55 → 0.30 (BREATH before 1st drop)
 //   15.82- 17.20 : 0.30 → 1.15 (1st DROP — ~12 dB jump)
 //   17.20- 47.5  : 1.15 → 0.78 (statement settling)
 //   47.5 - 79.1  : 0.55 (bridge — intimate)
-//   79.1 -100.0  : 0.55 → 0.65 (gentle climb)
-//  100.0 -110.77 : 0.65 → 0.28 (DEEPER BREATH before 2nd drop)
-//  110.77-115.0  : 0.28 → 1.40 (THE 2nd BIG JUMP — ~14 dB contrast)
-//  115.0 -140.0  : 1.40 → 1.10 (climax sustain, slight settle)
+//   79.1 -100.0  : 0.55 → 0.75 (climbing)
+//  100.0 -108.0  : 0.75 → 1.30 (urgent build)
+//  108.0 -110.77 : 1.30 → 1.55 (PEAK SWELL right before drop)
+//  110.77-140.0  : 1.55 → 1.10 (DROP HITS at peak, settles)
 //  140.0 -159.5  : 1.10 → 0.40 (coda taper)
 const dynEnv =
   "volume=eval=frame:volume='" +
@@ -116,10 +116,10 @@ const dynEnv =
     "if(lt(t,17.20), 0.30+(1.15-0.30)*((t-15.82)/1.38)," +
     "if(lt(t,47.5), 1.15+(0.78-1.15)*((t-17.20)/30.30)," +
     "if(lt(t,79.1), 0.55," +
-    "if(lt(t,100.0), 0.55+0.10*((t-79.1)/20.9)," +
-    "if(lt(t,110.77), 0.65+(0.28-0.65)*((t-100.0)/10.77)," +
-    "if(lt(t,115.0), 0.28+(1.40-0.28)*((t-110.77)/4.23)," +
-    "if(lt(t,140.0), 1.40+(1.10-1.40)*((t-115.0)/25.0)," +
+    "if(lt(t,100.0), 0.55+(0.75-0.55)*((t-79.1)/20.9)," +
+    "if(lt(t,108.0), 0.75+(1.30-0.75)*((t-100.0)/8.0)," +
+    "if(lt(t,110.77), 1.30+(1.55-1.30)*((t-108.0)/2.77)," +
+    "if(lt(t,140.0), 1.55+(1.10-1.55)*((t-110.77)/29.23)," +
     "1.10+(0.40-1.10)*((t-140.0)/19.5))))))))))'";
 
 // With acdsp: skip the ffmpeg EQ + acompressor (acdsp already shaped).
@@ -138,12 +138,15 @@ const ffChain = USE_ACDSP
      // that motivated the earlier fade is gone.
      "afade=t=out:st=159.7:d=2.3:curve=hsin"].join(",")
   : [dynEnv,
-     // Brightness lift: 9k +3 dB (was +2) + a 4 kHz presence push so the
-     // top end carries the brass + cymbal-like SFX. Plus a tiny 12k air
-     // sparkle (+1) for tape-style top.
-     "highshelf=f=9000:g=3",
-     "equalizer=f=4000:t=q:w=1.2:g=1",
-     "highshelf=f=12000:g=1",
+     // Brightness lift: 9k +4 (was +3), 4k +2 (was +1), plus a 6 kHz
+     // vocal-presence peak (+1.5) so the loud vocals read crisper without
+     // having to push the master limiter harder. 12k air sparkle bumped
+     // to +1.5 for tape-style top. (@jeffrey 2026-05-26 "those loud
+     //  vocals could be a little crisper / brighter if possible")
+     "highshelf=f=9000:g=4",
+     "equalizer=f=6000:t=q:w=1.4:g=1.5",
+     "equalizer=f=4000:t=q:w=1.2:g=2",
+     "highshelf=f=12000:g=1.5",
      "equalizer=f=150:t=q:w=1.0:g=-1",
      "equalizer=f=320:t=q:w=1.4:g=-2",
      // INDUSTRIAL squash — heavier compression: lower threshold (-24),
