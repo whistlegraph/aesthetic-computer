@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>__SHARED_CSS__</style>
+<style>
+  .body { gap: 48px; }
+  .left { flex: 0 0 1380px; display: flex; flex-direction: column; }
+  .right { flex: 1; display: flex; flex-direction: column; }
+
+  .keymap-frame {
+    background: #fff;
+    border: 2px solid #e3e0d8;
+    border-radius: 14px;
+    padding: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.06);
+  }
+  .keymap-frame img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+  }
+  .recap-caption {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 16px;
+    color: #888;
+    letter-spacing: 0.04em;
+    margin-top: 14px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .recap-caption b { color: #c8324b; font-weight: 800; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="kicker"><span class="accent">Session #5</span> · 28 May 2026 · Frogtown in 16 days</div>
+      <div class="title">
+        the <span class="pink">front</span> door
+      </div>
+      <div class="subtitle">
+        <b>notepat</b> is the largest single piece in <b>aesthetic.computer</b> — 9,049 lines, polyphonic, chromatic, color-keyed.
+        last meeting i showed you <i>the keymap</i> and <i>menu band</i>. this meeting: where notepat goes from here, and what we bring to the room.
+      </div>
+    </div>
+    <div class="brand-block">
+      <div class="brand-text">
+        <div class="top">Aesthetic.Computer</div>
+        <div class="author">by <b>@jeffrey</b></div>
+        <div class="session">scores for social software · c2</div>
+      </div>
+      <div class="marks">
+        <img id="jeffrey" alt="@jeffrey">
+        <img id="pals" alt="">
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- LEFT — keymap recap -->
+    <div class="left">
+      <div class="section-h">recap · <span class="accent">what you saw last time</span></div>
+      <div class="keymap-frame">
+        <img src="__KEYMAP_PNG__" alt="notepat keymap">
+      </div>
+      <div class="recap-caption">
+        the chromatic layout — <b>C D E F G A B</b> play the notes they name, sharps mostly sit one row up.<br>
+        every implementation on the right reads from this same map.
+      </div>
+    </div>
+
+    <!-- RIGHT — what's the instrument now -->
+    <div class="right">
+      <div class="section-h">the <span class="accent">instrument</span></div>
+
+      <div class="stat-row">
+        <div class="stat">
+          <div class="label">size</div>
+          <div class="num">9,049 <span class="small">loc</span></div>
+          <div class="sub">largest single piece in AC, by line count</div>
+        </div>
+        <div class="stat">
+          <div class="label">implementations</div>
+          <div class="num">5 <span class="small">surfaces</span></div>
+          <div class="sub">web · macOS · bare-metal · DAW · phone-remote</div>
+        </div>
+        <div class="stat">
+          <div class="label">since session #4</div>
+          <div class="num">202 <span class="small">commits</span></div>
+          <div class="sub">14 may → 28 may, public repo</div>
+        </div>
+      </div>
+
+      <div class="section-h">added <span class="accent">since may 14</span></div>
+      <ul class="bullets">
+        <li><b>notepat-charts deck.</b> 11-card phone-format flip-deck — <i>layout · intervals · triads · 7ths · circle of fifths · scales · progressions</i> — built in Swift, output as a pastel-tinted PDF. <i>teaches the instrument.</i></li>
+        <li><b>rec → playback.</b> the <span class="keys">rec</span> button now records held notes and jumps to <span class="keys">clock</span> for replay — a piece can be a take, then a tape.</li>
+        <li><b>menu band: live render bars.</b> the macOS menubar tile live-ticks pop/ render progress while it sits at rest — instrument as ambient status display.</li>
+        <li><b>option-D launch.</b> any <span class="keys">.js</span> piece now boots as a p5 sketch in an iframe — keymap can host outside sketches on top of the instrument.</li>
+      </ul>
+
+      <div class="qbox">
+        <div class="q-h">tomorrow · open question #1</div>
+        <div class="q-body">
+          last meeting i showed the keymap as a static <b>png</b>. did it land? do any of you want a hook into notepat — a remote-jam invite, a piece you'd like to write on it,
+          a layout variant — that i can build <b>this week</b>, before frog?
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-foot">
+    <div>slide <span class="n">1</span> of 3 · the front door</div>
+    <div>aesthetic.computer · prepared for casey reas + cohort</div>
+  </div>
+
+  <script>
+    document.getElementById("pals").src = "__PALS_LOGO__";
+    document.getElementById("jeffrey").src = "__JEFFREY_PIC__";
+  </script>
+</body>
+</html>
