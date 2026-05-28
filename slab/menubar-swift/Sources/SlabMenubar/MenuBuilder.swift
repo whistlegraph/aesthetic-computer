@@ -309,18 +309,22 @@ enum MenuBuilder {
         tileNow.keyEquivalentModifierMask = [.command, .option]
         sub.addItem(tileNow)
 
-        // Text size — radio pair so the active mode is visible at a glance.
-        // Near = denser (close to screen), Far = auto-fit "suitable" size.
+        // Text size — radio trio so the active mode is visible at a glance.
+        // Far = auto-fit "suitable", Near = denser, Tiny = edge-of-legibility.
         let textParent = NSMenuItem(title: "Text size", action: nil, keyEquivalent: "")
         let textSub = NSMenu()
         let farItem = NSMenuItem(title: "Far (suitable)", action: #selector(AppDelegate.setTextFar), keyEquivalent: "")
         farItem.target = target
-        farItem.state = state.nearText ? .off : .on
+        farItem.state = state.textSize == .far ? .on : .off
         textSub.addItem(farItem)
         let nearItem = NSMenuItem(title: "Near (small)", action: #selector(AppDelegate.setTextNear), keyEquivalent: "")
         nearItem.target = target
-        nearItem.state = state.nearText ? .on : .off
+        nearItem.state = state.textSize == .near ? .on : .off
         textSub.addItem(nearItem)
+        let tinyItem = NSMenuItem(title: "Tiny (tightest)", action: #selector(AppDelegate.setTextTiny), keyEquivalent: "")
+        tinyItem.target = target
+        tinyItem.state = state.textSize == .tiny ? .on : .off
+        textSub.addItem(tinyItem)
         textParent.submenu = textSub
         sub.addItem(textParent)
 

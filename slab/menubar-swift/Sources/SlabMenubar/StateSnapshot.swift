@@ -14,6 +14,14 @@ struct PopRender {
     var startedAt: Double   // ms since epoch
 }
 
+/// How aggressively to shrink the tile font. Far = "comfortable from
+/// typical distance" (the auto-fit baseline). Near = ~60% — denser when
+/// you're sitting close. Tiny = ~40% — for cramming many panes onto one
+/// screen at the edge of legibility.
+enum TextSize {
+    case far, near, tiny
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false
@@ -22,7 +30,7 @@ struct StateSnapshot {
     var ambientActive: Bool = false
     var muted: Bool = false
     var autoTile: Bool = false
-    var nearText: Bool = false
+    var textSize: TextSize = .far
     var themeByStatus: Bool = false
     var forceBright: Bool = false
     var tailnetPeers: [TailnetPeer] = []
@@ -68,7 +76,15 @@ struct StateSnapshot {
         s.ambientActive = FileManager.default.fileExists(atPath: Paths.ambientFlag)
         s.muted = FileManager.default.fileExists(atPath: Paths.muteFlag)
         s.autoTile = FileManager.default.fileExists(atPath: Paths.autoTileFlag)
-        s.nearText = FileManager.default.fileExists(atPath: Paths.nearTextFlag)
+        // Tiny wins over near if both flags somehow coexist on disk —
+        // matches the menu handlers, which only ever leave one set.
+        if FileManager.default.fileExists(atPath: Paths.tinyTextFlag) {
+            s.textSize = .tiny
+        } else if FileManager.default.fileExists(atPath: Paths.nearTextFlag) {
+            s.textSize = .near
+        } else {
+            s.textSize = .far
+        }
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
         s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
         s.tailnetPeers = TailnetPeer.query()

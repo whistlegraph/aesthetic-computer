@@ -630,7 +630,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let n = sender.representedObject as? Int, n > 0 else { return }
         let liveIds = Set(state.claudeSessions.map { $0.sessionId })
         let tile = state.autoTile
-        let near = state.nearText
+        let textSize = state.textSize
         // Snapshot screen geometry on main; NSScreen reads off-main can
         // return nil on first hit and were the silent failure mode for the
         // first auto-tile pass.
@@ -643,7 +643,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 return
             }
-            let layout = geom.flatMap { Self.computeTileLayout(count: entries.count, geom: $0, near: near) }
+            let layout = geom.flatMap { Self.computeTileLayout(count: entries.count, geom: $0, size: textSize) }
             let term = Self.preferredTerminalApp()
             for (i, entry) in entries.enumerated() {
                 let cell = layout?.cellAt(index: i)
@@ -676,7 +676,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // janitor — once the pid dies, the marker file gets reaped.
         let payloads = sessions.map { (sid: $0.sessionId, cwd: $0.cwd, pid: $0.claudePid) }
         let geom = state.autoTile ? Self.screenGeom() : nil
-        let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, near: state.nearText) }
+        let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, size: state.textSize) }
         DispatchQueue.global(qos: .userInitiated).async {
             // Resolve the target terminal before the SIGTERM — once the old
             // windows tear down, the open-app detection would skew.
@@ -718,12 +718,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let dir = (path as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         FileManager.default.createFile(atPath: path, contents: nil)
+        try? FileManager.default.removeItem(atPath: Paths.tinyTextFlag)
+        refresh()
+        tileNow()
+    }
+
+    @objc func setTextTiny() {
+        let path = Paths.tinyTextFlag
+        let dir = (path as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: path, contents: nil)
+        try? FileManager.default.removeItem(atPath: Paths.nearTextFlag)
         refresh()
         tileNow()
     }
 
     @objc func setTextFar() {
         try? FileManager.default.removeItem(atPath: Paths.nearTextFlag)
+        try? FileManager.default.removeItem(atPath: Paths.tinyTextFlag)
         refresh()
         tileNow()
     }
@@ -1455,7 +1467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// spread the windows across those rows as evenly as possible; rows that
     /// come up a window short just get wider panels. Font size scales down
     /// for denser layouts so even N=10 stays legible.
-    private static func computeTileLayout(count: Int, geom: ScreenGeom, near: Bool = false) -> TileLayout? {
+    private static func computeTileLayout(count: Int, geom: ScreenGeom, size: TextSize = .far) -> TileLayout? {
         guard count > 0 else { return nil }
 
         // Near-square: same density feel as the old grid, but the per-row
@@ -1479,10 +1491,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fontByH = Double(innerH) / (24.0 * 1.2)
         let fontByW = Double(innerW) / (80.0 * 0.6)
         let raw = min(fontByH, fontByW)
-        // Near = "I'm sitting close, give me density" → 60% of the
-        // legible-from-typical-distance size, floored at 6pt.
-        let scaled = near ? raw * 0.6 : raw
-        let fontSize = max(near ? 6 : 8, Int(scaled.rounded()))
+        // Far = legible from a typical sitting distance (the auto-fit
+        // baseline). Near ≈ 60% — denser when sitting close. Tiny ≈ 40%
+        // — for cramming many panes at the edge of legibility.
+        let scale: Double
+        let floor: Int
+        switch size {
+        case .far:  scale = 1.0;  floor = 8
+        case .near: scale = 0.6;  floor = 6
+        case .tiny: scale = 0.4;  floor = 4
+        }
+        let fontSize = max(floor, Int((raw * scale).rounded()))
 
         return TileLayout(
             rowCounts: rowCounts,
@@ -1503,7 +1522,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
     @objc func tileNow() {
         guard let geom = Self.screenGeom() else { return }
-        let near = state.nearText
+        let textSize = state.textSize
         DispatchQueue.global(qos: .userInitiated).async {
             // Size the grid to everything on screen across both apps. The
             // `is running` guard never launches a quit Terminal.app, so a
@@ -1512,7 +1531,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let nTerm = Self.windowCount(app: "Terminal")
             let n = nIterm + nTerm
             guard n > 0 else { return }
-            guard let layout = Self.computeTileLayout(count: n, geom: geom, near: near) else { return }
+            guard let layout = Self.computeTileLayout(count: n, geom: geom, size: textSize) else { return }
 
             // Reset decor memo so the next refresh re-themes every iTerm2
             // window from scratch (a re-pack invalidates prior placement).
