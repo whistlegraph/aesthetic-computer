@@ -63,6 +63,17 @@ enum MenuBuilder {
         menu.addItem(buildCall(state: state, target: target))
         menu.addItem(.separator())
 
+        // Close the frontmost Terminal / iTerm2 window from the menubar.
+        // Useful for closing Claude sessions cleanly without reaching for
+        // the keyboard, and a faster path than ⌘W when the menu is already
+        // open. Auto-re-tiles the remaining windows when auto-tile is on.
+        let closeTerm = item("Close front terminal window",
+                             selector: #selector(AppDelegate.closeFrontTerminal),
+                             target: target)
+        closeTerm.toolTip = "Close the frontmost Terminal or iTerm2 window. If auto-tile is on, the remaining windows re-tile."
+        menu.addItem(closeTerm)
+        menu.addItem(.separator())
+
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)
         stayAwake.state = state.sleepDisabled ? .on : .off
         menu.addItem(stayAwake)

@@ -463,6 +463,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.run("/usr/bin/open", args: [Paths.meetingsDir])
     }
 
+    /// Close the frontmost Terminal.app or iTerm2 window. Slab is an
+    /// accessory app (no dock icon, no activation), so opening the menu
+    /// doesn't change the frontmost application — `NSWorkspace.frontmostApplication`
+    /// still reports whichever terminal the user was just in. If auto-tile
+    /// is on, the remaining windows re-tile after the close.
+    @objc func closeFrontTerminal() {
+        let bundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let script: String
+        switch bundle {
+        case "com.googlecode.iterm2":
+            // iTerm2 uses `current window`. Saving prompt is suppressed
+            // by closing without a session-end question — iTerm2 honors
+            // its own "Quit when all windows are closed" pref.
+            script = """
+            tell application id \"com.googlecode.iterm2\"
+                if (count of windows) > 0 then close current window
+            end tell
+            """
+        case "com.apple.Terminal":
+            // Terminal.app prompts if a process is still running unless
+            // we ask it not to. `saving no` silences the dialog so the
+            // close completes synchronously and re-tile fires cleanly.
+            script = """
+            tell application \"Terminal\"
+                if (count of windows) > 0 then close front window saving no
+            end tell
+            """
+        default:
+            // Front app is neither terminal — no-op rather than guessing.
+            notify(title: "slab", subtitle: "Close terminal",
+                   body: "Frontmost app isn't Terminal or iTerm2 — nothing to close.")
+            return
+        }
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script]) { [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if self.state.autoTile {
+                    self.tileNow()
+                }
+                self.refresh()
+            }
+        }
+    }
+
     @objc func reloadDaemon() {
         DispatchQueue.global(qos: .userInitiated).async {
             ShellRunner.run("/bin/launchctl", args: ["unload", Paths.daemonPlist])
