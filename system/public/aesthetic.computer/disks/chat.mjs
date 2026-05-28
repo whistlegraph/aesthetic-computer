@@ -4173,24 +4173,13 @@ async function loadYoutubePreview(videoId, preload) {
   }
 }
 
-// 📺 Open YouTube modal with embed iframe.
-//
-// The disk runs inside a Web Worker in production, so this code has no
-// `document` and cannot attach listeners to the modal DOM. All interaction —
-// tap-outside, close button, escape — is therefore wired up by an inline
-// <script> that bios evaluates on the main thread. That script owns the
-// overlay's lifetime: it removes the element on close and reports the closure
-// back to this piece through the `youtube:modal:closed` act alert (see act()).
-//
-// On iOS we skip the embed entirely — the iframe has audio + touch issues —
-// and open YouTube directly via `jump("out:…")`.
+// 📺 YouTube links jump out to youtube.com on every platform now.
+// Previously this opened an embedded iframe modal; that path is disabled.
 function openYoutubeModal(videoId) {
+  jumpApi?.(`out:https://www.youtube.com/watch?v=${videoId}`);
+  return;
+  // eslint-disable-next-line no-unreachable
   if (!domApi) return;
-
-  if (iOS) {
-    jumpApi?.(`out:https://www.youtube.com/watch?v=${videoId}`);
-    return;
-  }
 
   // Already open — the existing overlay owns itself, so do nothing.
   if (youtubeModalOpen) return;
