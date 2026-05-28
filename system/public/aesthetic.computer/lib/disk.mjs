@@ -67,7 +67,7 @@ import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
-import { makeP5IframeModule } from "./p5-iframe.mjs"; // .js pieces → p5 iframe host (Option D).
+import { makeP5WorkerModule } from "./p5-worker.mjs"; // .js pieces → real p5 in this worker (Option B).
 import * as l5 from "./l5.mjs";
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
@@ -8179,15 +8179,14 @@ async function load(
           originalCode = sourceCode;
 
           if (fallbackExt === ".js") {
-            // Plain JavaScript / p5-style sketch — host in an iframe (Option D).
-            // Pass the URL that actually answered with 200 to the p5 host; it
-            // re-fetches and evaluates in global mode.
+            // Plain JavaScript / p5-style sketch — run real p5 in this worker
+            // against an OffscreenCanvas blitted into screen.pixels (Option B).
             pieceMetadata = {
               code: slug || "p5",
               trustLevel: "p5",
               anonymous: true,
             };
-            loadedModule = makeP5IframeModule({ slug, sourceUrl: resolvedUrl });
+            loadedModule = await makeP5WorkerModule({ slug, source: sourceCode });
             if (devReload) {
               store["publishable-piece"] = { slug, source: sourceCode, ext: "js" };
             }
