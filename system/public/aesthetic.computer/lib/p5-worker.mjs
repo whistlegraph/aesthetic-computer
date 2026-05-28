@@ -20,6 +20,11 @@ const P5_URL = "/aesthetic.computer/dep/p5/p5.min.js";
 class CanvasShim {
   constructor(w = 100, h = 100) {
     this._oc = new OffscreenCanvas(w, h);
+    // Lock the 2d context to a CPU-friendly backing store so per-frame
+    // getImageData() reads don't trigger expensive GPU→CPU readback. Once
+    // a context exists with these attributes, p5's later getContext('2d')
+    // call returns the same context (per Canvas spec).
+    this._ctx2d = this._oc.getContext("2d", { willReadFrequently: true, alpha: true });
     this.style = new Proxy({}, { get: () => "", set: () => true });
     this.dataset = {};
     this.attributes = [];
@@ -48,7 +53,11 @@ class CanvasShim {
   set width(v) { this._oc.width = v; }
   get height() { return this._oc.height; }
   set height(v) { this._oc.height = v; }
-  getContext(type, opts) { return this._oc.getContext(type, opts); }
+  getContext(type, opts) {
+    // Return the pre-created willReadFrequently 2d context when asked.
+    if (type === "2d" && this._ctx2d) return this._ctx2d;
+    return this._oc.getContext(type, opts);
+  }
   getBoundingClientRect() {
     return {
       x: 0, y: 0, left: 0, top: 0,
@@ -276,15 +285,53 @@ export async function makeP5WorkerModule({ slug, source }) {
   let lastWidth = 0;
   let lastHeight = 0;
 
+  // 🎬 rAF interception: p5 schedules its own draw loop via
+  // requestAnimationFrame inside the worker. If we let it run free, p5 draws
+  // on the browser's rAF cadence while AC blits on its own paint cadence —
+  // two clocks → choppy / stalled frames. Capture p5's rAF callbacks and
+  // drain them from AC's paint(), so p5.draw runs exactly once per AC frame.
+  const originalRAF = self.requestAnimationFrame?.bind(self);
+  const originalCAF = self.cancelAnimationFrame?.bind(self);
+  let rafQueue = [];
+  let rafIdCounter = 1;
+  const queuedRAF = (cb) => {
+    const id = rafIdCounter++;
+    rafQueue.push({ id, cb });
+    return id;
+  };
+  const queuedCAF = (id) => {
+    rafQueue = rafQueue.filter((e) => e.id !== id);
+  };
+  const installRAFCapture = () => {
+    self.requestAnimationFrame = queuedRAF;
+    self.cancelAnimationFrame = queuedCAF;
+  };
+  const restoreRAF = () => {
+    if (originalRAF) self.requestAnimationFrame = originalRAF;
+    if (originalCAF) self.cancelAnimationFrame = originalCAF;
+    rafQueue = [];
+  };
+  const drainRAF = () => {
+    if (rafQueue.length === 0) return;
+    const batch = rafQueue;
+    rafQueue = [];
+    const t = performance.now();
+    for (const { cb } of batch) {
+      try { cb(t); } catch (err) { console.warn("[p5-worker] rAF cb:", err); }
+    }
+  };
+
+  // Cached context — avoids per-frame getContext() overhead.
+  let cachedCtx = null;
   const blitPixelsToScreen = (screen) => {
     if (!canvasShim) return;
     const oc = canvasShim.offscreen;
+    if (!cachedCtx) cachedCtx = canvasShim.getContext("2d");
     if (oc.width !== screen.width || oc.height !== screen.height) {
       // Sketch canvas size differs from AC screen — blit the overlap region.
-      const ctx = oc.getContext("2d");
       const w = Math.min(oc.width, screen.width);
       const h = Math.min(oc.height, screen.height);
-      const img = ctx.getImageData(0, 0, w, h);
+      const img = cachedCtx.getImageData(0, 0, w, h);
       const dst = screen.pixels;
       const stride = screen.width * 4;
       const srcStride = w * 4;
@@ -292,8 +339,7 @@ export async function makeP5WorkerModule({ slug, source }) {
         dst.set(img.data.subarray(row * srcStride, (row + 1) * srcStride), row * stride);
       }
     } else {
-      const ctx = oc.getContext("2d");
-      const img = ctx.getImageData(0, 0, oc.width, oc.height);
+      const img = cachedCtx.getImageData(0, 0, oc.width, oc.height);
       screen.pixels.set(img.data);
     }
   };
@@ -306,6 +352,9 @@ export async function makeP5WorkerModule({ slug, source }) {
         setViewport(screen.width, screen.height);
         lastWidth = screen.width;
         lastHeight = screen.height;
+        // Capture p5's rAF before constructing — _start uses setTimeout but
+        // its first _draw schedules via rAF.
+        installRAFCapture();
 
         // Eval the sketch into the worker global — defines window.setup, etc.
         try {
@@ -358,15 +407,17 @@ export async function makeP5WorkerModule({ slug, source }) {
       }
     },
 
-    paint: ({ screen, ink, wipe, write }) => {
+    paint: ({ screen, ink, wipe }) => {
       if (bootError) {
         wipe(20, 0, 0);
         ink(255, 120, 120).write(`p5 boot error:`, { x: 8, y: 12 });
         ink(255, 200, 200).write(bootError.slice(0, 200), { x: 8, y: 28 });
         return false;
       }
-      // p5 runs its own draw loop via requestAnimationFrame in the worker.
-      // Each AC paint, blit p5's current canvas pixels into screen.pixels.
+      // Drive p5's draw loop from AC's paint: drain any rAF callbacks p5
+      // queued (its _draw → user draw() → schedule next rAF), then blit.
+      // Exactly one p5 frame per AC frame — no clock drift.
+      drainRAF();
       blitPixelsToScreen(screen);
       return false;
     },
@@ -432,6 +483,8 @@ export async function makeP5WorkerModule({ slug, source }) {
       try { p5Instance?.remove?.(); } catch {}
       p5Instance = null;
       canvasShim = null;
+      cachedCtx = null;
+      restoreRAF();
       clearSketchGlobals();
     },
   };
