@@ -296,41 +296,13 @@ export async function makeP5WorkerModule({ slug, source }) {
   let maxBlit = 0;
   let maxDrain = 0;
 
-  // 🎬 rAF interception: p5 schedules its own draw loop via
-  // requestAnimationFrame inside the worker. If we let it run free, p5 draws
-  // on the browser's rAF cadence while AC blits on its own paint cadence —
-  // two clocks → choppy / stalled frames. Capture p5's rAF callbacks and
-  // drain them from AC's paint(), so p5.draw runs exactly once per AC frame.
-  const originalRAF = self.requestAnimationFrame?.bind(self);
-  const originalCAF = self.cancelAnimationFrame?.bind(self);
-  let rafQueue = [];
-  let rafIdCounter = 1;
-  const queuedRAF = (cb) => {
-    const id = rafIdCounter++;
-    rafQueue.push({ id, cb });
-    return id;
-  };
-  const queuedCAF = (id) => {
-    rafQueue = rafQueue.filter((e) => e.id !== id);
-  };
-  const installRAFCapture = () => {
-    self.requestAnimationFrame = queuedRAF;
-    self.cancelAnimationFrame = queuedCAF;
-  };
-  const restoreRAF = () => {
-    if (originalRAF) self.requestAnimationFrame = originalRAF;
-    if (originalCAF) self.cancelAnimationFrame = originalCAF;
-    rafQueue = [];
-  };
-  const drainRAF = () => {
-    if (rafQueue.length === 0) return;
-    const batch = rafQueue;
-    rafQueue = [];
-    const t = performance.now();
-    for (const { cb } of batch) {
-      try { cb(t); } catch (err) { console.warn("[p5-worker] rAF cb:", err); }
-    }
-  };
+  // 🎬 Frame timing: bios drives a single requestFrame per loop tick which
+  // transfers screen.pixels to the worker and waits for response before
+  // dispatching the next frame. p5's own rAF loop fights this — two clocks
+  // → choppy / 60-frame-then-stall artifacts. Instead, after p5's setup runs
+  // we call noLoop() to stop its internal draw loop, then call redraw()
+  // from AC's paint hook each frame. One draw per AC frame, no rAF override.
+  let p5Looping = true;
 
   // Cached context — avoids per-frame getContext() overhead.
   let cachedCtx = null;
@@ -357,16 +329,13 @@ export async function makeP5WorkerModule({ slug, source }) {
 
   return {
     boot: async ({ screen }) => {
-      console.log(`[p5-worker] 🟢 BOOT START v3 screen=${screen.width}x${screen.height} slug=${slug}`);
+      console.log(`[p5-worker] 🟢 BOOT START v4 screen=${screen.width}x${screen.height} slug=${slug}`);
       try {
         clearSketchGlobals();
         if (self.__acP5CreatedCanvases) self.__acP5CreatedCanvases.length = 0;
         setViewport(screen.width, screen.height);
         lastWidth = screen.width;
         lastHeight = screen.height;
-        // Capture p5's rAF before constructing — _start uses setTimeout but
-        // its first _draw schedules via rAF.
-        installRAFCapture();
 
         // Eval the sketch into the worker global — defines window.setup, etc.
         try {
@@ -404,16 +373,24 @@ export async function makeP5WorkerModule({ slug, source }) {
           return false;
         };
 
-        // p5 schedules setup via setTimeout(0); poll until the canvas appears.
+        // p5 schedules setup via setTimeout(0); poll until setup completes
+        // AND the canvas exists.
         const start = performance.now();
-        while (!tryCanvas() && performance.now() - start < 500) {
+        while ((!tryCanvas() || !p5Instance?._setupDone) && performance.now() - start < 1000) {
           await new Promise((r) => setTimeout(r, 10));
         }
         if (!canvasShim) {
-          bootError = "could not locate sketch canvas after 500ms — did setup() call createCanvas()?";
+          bootError = "could not locate sketch canvas after 1000ms — did setup() call createCanvas()?";
           console.warn("[p5-worker]", bootError);
         } else {
-          console.log(`[p5-worker] 🟢 canvas located: ${canvasShim.offscreen.width}x${canvasShim.offscreen.height} (rafQueue=${rafQueue.length})`);
+          // Stop p5's free-running rAF loop. We drive draw from AC's paint.
+          try {
+            p5Instance.noLoop();
+            p5Looping = false;
+          } catch (err) {
+            console.warn("[p5-worker] noLoop failed:", err);
+          }
+          console.log(`[p5-worker] 🟢 canvas=${canvasShim.offscreen.width}x${canvasShim.offscreen.height} setupDone=${p5Instance?._setupDone} looping=${p5Looping}`);
         }
       } catch (err) {
         bootError = String(err);
@@ -432,26 +409,25 @@ export async function makeP5WorkerModule({ slug, source }) {
       const t0 = performance.now();
       const dt = lastPaintTime ? t0 - lastPaintTime : 0;
       lastPaintTime = t0;
-      const queuedBefore = rafQueue.length;
 
-      // Drive p5's draw loop from AC's paint: drain any rAF callbacks p5
-      // queued (its _draw → user draw() → schedule next rAF), then blit.
-      drainRAF();
+      // Drive p5's draw loop from AC's paint hook.
+      // p5 is noLoop'd; redraw() runs draw() exactly once.
+      if (p5Instance && p5Instance._setupDone) {
+        try { p5Instance.redraw(); } catch (err) { console.warn("[p5-worker] redraw:", err); }
+      }
       const t1 = performance.now();
       blitPixelsToScreen(screen);
       const t2 = performance.now();
 
-      const drainMs = t1 - t0;
+      const drawMs = t1 - t0;
       const blitMs = t2 - t1;
-      drainTimeTotal += drainMs;
+      drainTimeTotal += drawMs;
       blitTimeTotal += blitMs;
       dtTotal += dt;
-      drainCountTotal += queuedBefore;
       if (dt > maxDt) maxDt = dt;
       if (blitMs > maxBlit) maxBlit = blitMs;
-      if (drainMs > maxDrain) maxDrain = drainMs;
+      if (drawMs > maxDrain) maxDrain = drawMs;
       paintCount++;
-      // Log first 3 paints unconditionally + every 30 thereafter.
       const shouldLog = paintCount <= 3 || paintCount % 30 === 0;
       if (shouldLog) {
         const N = paintCount <= 3 ? 1 : 30;
@@ -461,13 +437,11 @@ export async function makeP5WorkerModule({ slug, source }) {
         console.log(
           `[p5-worker] frame=${paintCount} fps=${fps.toFixed(1)} ` +
             `dt=${(dtTotal/N).toFixed(1)}ms(max ${maxDt.toFixed(1)}) ` +
-            `drain=${(drainTimeTotal/N).toFixed(2)}ms(max ${maxDrain.toFixed(2)}) ` +
+            `draw=${(drainTimeTotal/N).toFixed(2)}ms(max ${maxDrain.toFixed(2)}) ` +
             `blit=${(blitTimeTotal/N).toFixed(2)}ms(max ${maxBlit.toFixed(2)}) ` +
-            `cbs/f=${(drainCountTotal/N).toFixed(2)} ` +
-            `canvas=${cw}x${ch} screen=${screen.width}x${screen.height} ` +
-            `q=${rafQueue.length}`
+            `canvas=${cw}x${ch} screen=${screen.width}x${screen.height}`
         );
-        drainTimeTotal = blitTimeTotal = dtTotal = drainCountTotal = 0;
+        drainTimeTotal = blitTimeTotal = dtTotal = 0;
         maxDt = maxBlit = maxDrain = 0;
       }
       return false;
@@ -535,7 +509,6 @@ export async function makeP5WorkerModule({ slug, source }) {
       p5Instance = null;
       canvasShim = null;
       cachedCtx = null;
-      restoreRAF();
       clearSketchGlobals();
     },
   };
