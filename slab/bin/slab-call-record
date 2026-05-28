@@ -1,0 +1,169 @@
+#!/bin/bash
+# slab-call-record — start or stop a meeting recording from the slab menubar.
+#
+# Usage:
+#   slab-call-record start [title]   begin recording → ~/Documents/Shelf/meetings/<ts>.wav
+#   slab-call-record stop             stop active recording + hand off to meetings/cli.mjs
+#   slab-call-record status           print "recording" or "idle"
+#   slab-call-record path             print the active WAV path (when recording)
+#
+# State lives at ~/.ac-meeting-recording.json:
+#   { "pid": 12345, "wav": "/path/to.wav", "startedAt": "2026-05-27T19:00:00Z",
+#     "title": "untitled", "device": "MacBook Neo Microphone" }
+#
+# Capture device: prefers an aggregate device named "Meeting" (BlackHole +
+# mic combo) if present, falls back to mic-only with a notification. The
+# user is responsible for wiring the aggregate device — slab-call-record
+# never installs system audio plumbing.
+
+set -uo pipefail
+
+STATE_FILE="$HOME/.ac-meeting-recording.json"
+SHELF_DIR="$HOME/Documents/Shelf/meetings"
+LOG_FILE="$HOME/Library/Logs/slab-call-record.log"
+REPO="/Users/jas/aesthetic-computer"
+
+mkdir -p "$SHELF_DIR" "$(dirname "$LOG_FILE")"
+
+ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+log() { printf '[%s] %s\n' "$(ts)" "$*" >> "$LOG_FILE"; }
+notify() {
+  /usr/bin/osascript -e "display notification \"$2\" with title \"$1\"" 2>/dev/null || true
+}
+
+# Pick the best available capture device. Aggregate device beats mic-only
+# because it can also pick up system audio (the other side of the call).
+pick_device() {
+  local devices
+  devices="$(ffmpeg -f avfoundation -list_devices true -i "" 2>&1 | grep -E '^\[AVFoundation' | grep -i 'audio devices' -A 20 | grep -E '\[[0-9]+\]')"
+  # Prefer "Meeting" aggregate (user-named), then BlackHole, then default mic.
+  if echo "$devices" | grep -qi "Meeting"; then
+    echo "Meeting"
+  elif echo "$devices" | grep -qi "Aggregate"; then
+    echo "$devices" | grep -i "Aggregate" | head -1 | sed -E 's/.*\] //; s/ +$//'
+  elif echo "$devices" | grep -qi "BlackHole"; then
+    echo "$devices" | grep -i "BlackHole" | head -1 | sed -E 's/.*\] //; s/ +$//'
+  else
+    # Fall back to system default mic. ":0" addresses the first input device.
+    echo ":default"
+  fi
+}
+
+cmd_status() {
+  if [[ -f "$STATE_FILE" ]]; then
+    local pid
+    pid="$(/usr/bin/awk -F'"pid":' '{print $2}' "$STATE_FILE" | /usr/bin/awk -F'[,}]' '{print $1+0}')"
+    if [[ -n "$pid" && "$pid" != "0" ]] && kill -0 "$pid" 2>/dev/null; then
+      echo recording
+      return 0
+    fi
+    rm -f "$STATE_FILE"
+  fi
+  echo idle
+}
+
+cmd_path() {
+  [[ -f "$STATE_FILE" ]] || { echo ""; return 0; }
+  /usr/bin/awk -F'"wav":' '{print $2}' "$STATE_FILE" \
+    | /usr/bin/sed -E 's/^[[:space:]]*"//; s/".*$//'
+}
+
+cmd_start() {
+  if [[ "$(cmd_status)" == "recording" ]]; then
+    notify "slab" "already recording — stop first"
+    log "start blocked: already recording"
+    exit 1
+  fi
+  local title="${1:-untitled}"
+  local safe_title
+  safe_title="$(echo "$title" | tr -c 'A-Za-z0-9' '-' | tr -s '-' | sed -E 's/^-|-$//g')"
+  [[ -z "$safe_title" ]] && safe_title="untitled"
+  local stamp
+  stamp="$(date +%Y-%m-%d-%H%M%S)"
+  local wav="$SHELF_DIR/${stamp}-${safe_title}.wav"
+  local device
+  device="$(pick_device)"
+
+  log "start: device='$device' wav='$wav' title='$title'"
+
+  # Run ffmpeg detached, redirect all I/O so the menubar can't keep an
+  # implicit handle. nohup + setsid combo survives parent exit.
+  if [[ "$device" == ":default" ]]; then
+    nohup /opt/homebrew/bin/ffmpeg -nostdin -hide_banner -loglevel warning \
+      -f avfoundation -i ":0" \
+      -ar 48000 -ac 2 -c:a pcm_s16le "$wav" \
+      </dev/null >>"$LOG_FILE" 2>&1 &
+  else
+    nohup /opt/homebrew/bin/ffmpeg -nostdin -hide_banner -loglevel warning \
+      -f avfoundation -i ":$device" \
+      -ar 48000 -ac 2 -c:a pcm_s16le "$wav" \
+      </dev/null >>"$LOG_FILE" 2>&1 &
+  fi
+  local pid=$!
+  disown "$pid" 2>/dev/null || true
+
+  /usr/bin/printf '{\n  "pid": %d,\n  "wav": "%s",\n  "startedAt": "%s",\n  "title": "%s",\n  "device": "%s"\n}\n' \
+    "$pid" "$wav" "$(ts)" "$title" "$device" > "$STATE_FILE"
+
+  # Give ffmpeg a beat to fail fast on permission issues.
+  sleep 0.3
+  if ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$STATE_FILE"
+    notify "slab" "recorder died — check log"
+    log "start failed: pid $pid gone"
+    exit 1
+  fi
+
+  if [[ "$device" == ":default" ]]; then
+    notify "slab" "recording — mic only (no aggregate device)"
+  else
+    notify "slab" "recording → $device"
+  fi
+  echo "$wav"
+}
+
+cmd_stop() {
+  if [[ ! -f "$STATE_FILE" ]]; then
+    notify "slab" "no active recording"
+    log "stop: no state file"
+    exit 0
+  fi
+  local pid wav
+  pid="$(/usr/bin/awk -F'"pid":' '{print $2}' "$STATE_FILE" | /usr/bin/awk -F'[,}]' '{print $1+0}')"
+  wav="$(cmd_path)"
+
+  if [[ -n "$pid" && "$pid" != "0" ]]; then
+    # ffmpeg flushes the WAV header on SIGINT (q-key equivalent). Don't SIGKILL.
+    kill -INT "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.2
+    done
+    kill -0 "$pid" 2>/dev/null && kill -TERM "$pid" 2>/dev/null || true
+  fi
+  rm -f "$STATE_FILE"
+  log "stop: wav='$wav'"
+  if [[ -n "$wav" && -f "$wav" ]]; then
+    notify "slab" "saved $(basename "$wav")"
+    # Hand off to meetings/cli.mjs ingest in the background so the menubar
+    # returns immediately. Ingest is cheap (symlink + write JSON).
+    if [[ -x "$REPO/meetings/cli.mjs" ]]; then
+      (cd "$REPO" && /usr/bin/env node meetings/cli.mjs ingest "$wav" >>"$LOG_FILE" 2>&1) &
+      disown $! 2>/dev/null || true
+    fi
+    echo "$wav"
+  else
+    notify "slab" "stopped — no WAV"
+  fi
+}
+
+case "${1:-status}" in
+  start)   shift; cmd_start "$@" ;;
+  stop)    cmd_stop ;;
+  status)  cmd_status ;;
+  path)    cmd_path ;;
+  *)
+    echo "usage: $(basename "$0") {start [title]|stop|status|path}" >&2
+    exit 2
+    ;;
+esac

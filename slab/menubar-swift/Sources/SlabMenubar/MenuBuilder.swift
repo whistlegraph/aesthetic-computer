@@ -55,6 +55,12 @@ enum MenuBuilder {
         rfa.representedObject = "hum"
         rfa.toolTip = "Open the RFA wizard in iTerm2 — sing the 'hum' melody note by note, then hear it recompiled."
         menu.addItem(rfa)
+
+        // Call recording — captures mic (+ system audio if an aggregate
+        // device is wired) to a WAV in ~/Documents/Shelf/meetings/. On stop
+        // the WAV is handed off to meetings/cli.mjs which transcribes,
+        // detects whistlepops, and builds an arxiv-style PDF.
+        menu.addItem(buildCall(state: state, target: target))
         menu.addItem(.separator())
 
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)
@@ -403,6 +409,50 @@ enum MenuBuilder {
         sub.addItem(item("Sync quiltnet-mail", selector: #selector(AppDelegate.syncQuiltnetMail), target: target))
         sub.addItem(.separator())
         sub.addItem(item("Open sync log", selector: #selector(AppDelegate.openSyncLog), target: target))
+        parent.submenu = sub
+        return parent
+    }
+
+    /// "Start Call" / "◉ Stop Call" item — toggles slab-call-record. While
+    /// recording, the title shows a recording dot + elapsed-style label and
+    /// the submenu offers Stop + a shortcut to open ~/Documents/Shelf/meetings.
+    private static func buildCall(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        if state.callRecording {
+            let parent = NSMenuItem(title: "◉ Recording call…", action: nil, keyEquivalent: "")
+            // Color the title red so it reads as a hot record indicator even
+            // at a glance — same vocabulary as the Claude awaiting dot.
+            let attr = NSMutableAttributedString(string: "◉ Recording call…")
+            attr.addAttribute(.foregroundColor,
+                              value: NSColor(deviceHue: 0.99, saturation: 0.90, brightness: 0.95, alpha: 1.0),
+                              range: NSRange(location: 0, length: 1))
+            parent.attributedTitle = attr
+            let sub = NSMenu()
+            let stop = item("Stop call", selector: #selector(AppDelegate.stopCall), target: target)
+            stop.toolTip = "Stop ffmpeg, finalize the WAV, hand off to meetings/cli.mjs ingest."
+            sub.addItem(stop)
+            sub.addItem(.separator())
+            let openShelf = item("Open meetings shelf",
+                                 selector: #selector(AppDelegate.openMeetingsShelf), target: target)
+            sub.addItem(openShelf)
+            let openMeetings = item("Open meetings dir",
+                                    selector: #selector(AppDelegate.openMeetingsDir), target: target)
+            sub.addItem(openMeetings)
+            parent.submenu = sub
+            return parent
+        }
+        let parent = NSMenuItem(title: "📞 Start call", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let start = item("Start call recording",
+                         selector: #selector(AppDelegate.startCall), target: target)
+        start.toolTip = "Begin capturing mic (+ system audio if an aggregate device is wired) to a WAV. Stop from this menu when the call ends."
+        sub.addItem(start)
+        sub.addItem(.separator())
+        let openShelf = item("Open meetings shelf",
+                             selector: #selector(AppDelegate.openMeetingsShelf), target: target)
+        sub.addItem(openShelf)
+        let openMeetings = item("Open meetings dir",
+                                selector: #selector(AppDelegate.openMeetingsDir), target: target)
+        sub.addItem(openMeetings)
         parent.submenu = sub
         return parent
     }

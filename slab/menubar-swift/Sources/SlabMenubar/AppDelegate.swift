@@ -429,6 +429,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
+    /// Spawn the recorder. Refresh immediately + after a short delay so the
+    /// menu flips to "◉ Recording call…" without waiting for the slow tick
+    /// (the state file appears within ~300ms of the script starting).
+    @objc func startCall() {
+        ShellRunner.runAsync(Paths.slabCallRecord, args: ["start"]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.refresh()
+        }
+    }
+
+    @objc func stopCall() {
+        ShellRunner.runAsync(Paths.slabCallRecord, args: ["stop"]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+    }
+
+    /// Reveal ~/Documents/Shelf/meetings — where slab-call-record writes
+    /// the raw WAVs before they get ingested into the meetings/ dir.
+    @objc func openMeetingsShelf() {
+        let shelf = "\(Paths.home)/Documents/Shelf/meetings"
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: shelf) {
+            try? fm.createDirectory(atPath: shelf,
+                                    withIntermediateDirectories: true)
+        }
+        ShellRunner.run("/usr/bin/open", args: [shelf])
+    }
+
+    @objc func openMeetingsDir() {
+        ShellRunner.run("/usr/bin/open", args: [Paths.meetingsDir])
+    }
+
     @objc func reloadDaemon() {
         DispatchQueue.global(qos: .userInitiated).async {
             ShellRunner.run("/bin/launchctl", args: ["unload", Paths.daemonPlist])
