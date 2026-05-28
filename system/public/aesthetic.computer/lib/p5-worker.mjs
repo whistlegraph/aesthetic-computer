@@ -22,10 +22,24 @@ class CanvasShim {
     this._oc = new OffscreenCanvas(w, h);
     this.style = new Proxy({}, { get: () => "", set: () => true });
     this.dataset = {};
+    this.attributes = [];
     this.id = "";
     this.className = "";
+    this.classList = {
+      add() {}, remove() {}, toggle() {},
+      contains() { return false; },
+      replace() {}, item() { return null; },
+      length: 0,
+    };
     this.tagName = "CANVAS";
     this.nodeName = "CANVAS";
+    this.nodeType = 1;
+    this.children = [];
+    this.childNodes = [];
+    this.innerHTML = "";
+    this.textContent = "";
+    // parentNode lazy-stubbed by document.body if appended; default to a
+    // benign placeholder so p5 cleanup paths don't deref null.
     this.parentNode = null;
     this.parentElement = null;
     this.ownerDocument = null;
