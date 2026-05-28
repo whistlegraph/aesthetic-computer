@@ -285,6 +285,17 @@ export async function makeP5WorkerModule({ slug, source }) {
   let lastWidth = 0;
   let lastHeight = 0;
 
+  // 📊 Perf instrumentation — logs every ~60 paints (~1s @ 60fps).
+  let paintCount = 0;
+  let lastPaintTime = 0;
+  let drainTimeTotal = 0;
+  let blitTimeTotal = 0;
+  let dtTotal = 0;
+  let drainCountTotal = 0;
+  let maxDt = 0;
+  let maxBlit = 0;
+  let maxDrain = 0;
+
   // 🎬 rAF interception: p5 schedules its own draw loop via
   // requestAnimationFrame inside the worker. If we let it run free, p5 draws
   // on the browser's rAF cadence while AC blits on its own paint cadence —
@@ -414,11 +425,43 @@ export async function makeP5WorkerModule({ slug, source }) {
         ink(255, 200, 200).write(bootError.slice(0, 200), { x: 8, y: 28 });
         return false;
       }
+      // 📊 instrumentation
+      const t0 = performance.now();
+      const dt = lastPaintTime ? t0 - lastPaintTime : 0;
+      lastPaintTime = t0;
+      const queuedBefore = rafQueue.length;
+
       // Drive p5's draw loop from AC's paint: drain any rAF callbacks p5
       // queued (its _draw → user draw() → schedule next rAF), then blit.
-      // Exactly one p5 frame per AC frame — no clock drift.
       drainRAF();
+      const t1 = performance.now();
       blitPixelsToScreen(screen);
+      const t2 = performance.now();
+
+      const drainMs = t1 - t0;
+      const blitMs = t2 - t1;
+      drainTimeTotal += drainMs;
+      blitTimeTotal += blitMs;
+      dtTotal += dt;
+      drainCountTotal += queuedBefore;
+      if (dt > maxDt) maxDt = dt;
+      if (blitMs > maxBlit) maxBlit = blitMs;
+      if (drainMs > maxDrain) maxDrain = drainMs;
+      paintCount++;
+      if (paintCount % 60 === 0) {
+        const fps = (60 * 1000) / dtTotal;
+        console.log(
+          `[p5-worker] frame ${paintCount}: fps=${fps.toFixed(1)} ` +
+            `dt(avg/max)=${(dtTotal/60).toFixed(1)}/${maxDt.toFixed(1)}ms ` +
+            `drain(avg/max)=${(drainTimeTotal/60).toFixed(2)}/${maxDrain.toFixed(2)}ms ` +
+            `blit(avg/max)=${(blitTimeTotal/60).toFixed(2)}/${maxBlit.toFixed(2)}ms ` +
+            `cbs/frame=${(drainCountTotal/60).toFixed(2)} ` +
+            `canvas=${canvasShim?.offscreen.width}x${canvasShim?.offscreen.height} ` +
+            `screen=${screen.width}x${screen.height}`
+        );
+        drainTimeTotal = blitTimeTotal = dtTotal = drainCountTotal = 0;
+        maxDt = maxBlit = maxDrain = 0;
+      }
       return false;
     },
 
