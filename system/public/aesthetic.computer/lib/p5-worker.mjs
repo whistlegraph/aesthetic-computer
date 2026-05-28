@@ -403,7 +403,7 @@ export async function makeP5WorkerModule({ slug, source }) {
         wipe(20, 0, 0);
         ink(255, 120, 120).write(`p5 boot error:`, { x: 8, y: 12 });
         ink(255, 200, 200).write(bootError.slice(0, 200), { x: 8, y: 28 });
-        return false;
+        return true; // keep repainting so the error stays visible
       }
       // 📊 instrumentation
       const t0 = performance.now();
@@ -444,7 +444,10 @@ export async function makeP5WorkerModule({ slug, source }) {
         drainTimeTotal = blitTimeTotal = dtTotal = 0;
         maxDt = maxBlit = maxDrain = 0;
       }
-      return false;
+      // Returning truthy signals AC to repaint next frame (false would mark
+      // the frame as cacheable and throttle us to needsPaint-only updates,
+      // which for a continuously-animating p5 sketch is exactly wrong).
+      return true;
     },
 
     sim: ({ screen }) => {
