@@ -67,6 +67,7 @@ import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { makeP5IframeModule } from "./p5-iframe.mjs"; // .js pieces → p5 iframe host (Option D).
 import * as l5 from "./l5.mjs";
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
@@ -8135,9 +8136,9 @@ async function load(
                                 err.toString().includes("Cannot use import");
 
     // If the .mjs file was fetched but failed to import (JS error), don't try fallbacks.
-    if (fullUrl && !fullUrl.includes('.lisp') && !fullUrl.includes('.lua') && isFetchError && !isModuleImportError) {
+    if (fullUrl && !fullUrl.includes('.lisp') && !fullUrl.includes('.lua') && !fullUrl.includes('.js?') && isFetchError && !isModuleImportError) {
       try {
-        const fallbackExts = [".lua", ".lisp"];
+        const fallbackExts = [".js", ".lua", ".lisp"];
         let loadedFromFallback = false;
         let fallbackError = null;
 
@@ -8148,6 +8149,7 @@ async function load(
           }
 
           let response = await fetch(fallbackUrl, { cache: 'no-store' });
+          let resolvedUrl = fallbackUrl;
 
           if (response.status === 404 || response.status === 403) {
             // Handle sandboxed environments for anon URL construction
@@ -8170,12 +8172,26 @@ async function load(
               fallbackError = new Error(response.status);
               continue;
             }
+            resolvedUrl = anonUrl;
           }
 
           sourceCode = await response.text();
           originalCode = sourceCode;
 
-          if (fallbackExt === ".lua") {
+          if (fallbackExt === ".js") {
+            // Plain JavaScript / p5-style sketch — host in an iframe (Option D).
+            // Pass the URL that actually answered with 200 to the p5 host; it
+            // re-fetches and evaluates in global mode.
+            pieceMetadata = {
+              code: slug || "p5",
+              trustLevel: "p5",
+              anonymous: true,
+            };
+            loadedModule = makeP5IframeModule({ slug, sourceUrl: resolvedUrl });
+            if (devReload) {
+              store["publishable-piece"] = { slug, source: sourceCode, ext: "js" };
+            }
+          } else if (fallbackExt === ".lua") {
             pieceMetadata = {
               code: slug || "l5",
               trustLevel: "l5",
