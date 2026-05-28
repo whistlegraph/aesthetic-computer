@@ -357,6 +357,7 @@ export async function makeP5WorkerModule({ slug, source }) {
 
   return {
     boot: async ({ screen }) => {
+      console.log(`[p5-worker] 🟢 BOOT START v3 screen=${screen.width}x${screen.height} slug=${slug}`);
       try {
         clearSketchGlobals();
         if (self.__acP5CreatedCanvases) self.__acP5CreatedCanvases.length = 0;
@@ -411,6 +412,8 @@ export async function makeP5WorkerModule({ slug, source }) {
         if (!canvasShim) {
           bootError = "could not locate sketch canvas after 500ms — did setup() call createCanvas()?";
           console.warn("[p5-worker]", bootError);
+        } else {
+          console.log(`[p5-worker] 🟢 canvas located: ${canvasShim.offscreen.width}x${canvasShim.offscreen.height} (rafQueue=${rafQueue.length})`);
         }
       } catch (err) {
         bootError = String(err);
@@ -448,16 +451,21 @@ export async function makeP5WorkerModule({ slug, source }) {
       if (blitMs > maxBlit) maxBlit = blitMs;
       if (drainMs > maxDrain) maxDrain = drainMs;
       paintCount++;
-      if (paintCount % 60 === 0) {
-        const fps = (60 * 1000) / dtTotal;
+      // Log first 3 paints unconditionally + every 30 thereafter.
+      const shouldLog = paintCount <= 3 || paintCount % 30 === 0;
+      if (shouldLog) {
+        const N = paintCount <= 3 ? 1 : 30;
+        const fps = dtTotal > 0 ? (N * 1000) / dtTotal : 0;
+        const cw = canvasShim && canvasShim.offscreen ? canvasShim.offscreen.width : "?";
+        const ch = canvasShim && canvasShim.offscreen ? canvasShim.offscreen.height : "?";
         console.log(
-          `[p5-worker] frame ${paintCount}: fps=${fps.toFixed(1)} ` +
-            `dt(avg/max)=${(dtTotal/60).toFixed(1)}/${maxDt.toFixed(1)}ms ` +
-            `drain(avg/max)=${(drainTimeTotal/60).toFixed(2)}/${maxDrain.toFixed(2)}ms ` +
-            `blit(avg/max)=${(blitTimeTotal/60).toFixed(2)}/${maxBlit.toFixed(2)}ms ` +
-            `cbs/frame=${(drainCountTotal/60).toFixed(2)} ` +
-            `canvas=${canvasShim?.offscreen.width}x${canvasShim?.offscreen.height} ` +
-            `screen=${screen.width}x${screen.height}`
+          `[p5-worker] frame=${paintCount} fps=${fps.toFixed(1)} ` +
+            `dt=${(dtTotal/N).toFixed(1)}ms(max ${maxDt.toFixed(1)}) ` +
+            `drain=${(drainTimeTotal/N).toFixed(2)}ms(max ${maxDrain.toFixed(2)}) ` +
+            `blit=${(blitTimeTotal/N).toFixed(2)}ms(max ${maxBlit.toFixed(2)}) ` +
+            `cbs/f=${(drainCountTotal/N).toFixed(2)} ` +
+            `canvas=${cw}x${ch} screen=${screen.width}x${screen.height} ` +
+            `q=${rafQueue.length}`
         );
         drainTimeTotal = blitTimeTotal = dtTotal = drainCountTotal = 0;
         maxDt = maxBlit = maxDrain = 0;
