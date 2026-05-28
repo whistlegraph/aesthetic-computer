@@ -5,6 +5,15 @@ let package = Package(
     name: "MenuBand",
     platforms: [.macOS(.v11)],
     targets: [
+        // Tiny always-running daemon whose only job is to watch for the
+        // double-tap right-Command gesture and relaunch Menu Band.app
+        // if its process isn't currently running. When MenuBand IS
+        // running, the launcher no-ops — the main app's own
+        // double-tap handler in AppDelegate fires instead.
+        .executableTarget(
+            name: "MenuBandLauncher",
+            path: "Sources/MenuBandLauncher"
+        ),
         .executableTarget(
             name: "MenuBand",
             path: "Sources/MenuBand",

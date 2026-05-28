@@ -7,6 +7,24 @@ if KLCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
+// Singleton guard: when MenuBand is spawned by both launchd's
+// KeepAlive (after crash / sleep wake) AND MenuBandLauncher's
+// double-tap path at the same time, we get two instances fighting
+// for the same NSStatusItem slot. The later instance quits silently
+// so the first keeps its menubar slot and run-loop intact.
+do {
+    let myPid = ProcessInfo.processInfo.processIdentifier
+    let duplicate = NSWorkspace.shared.runningApplications.contains { app in
+        guard app.processIdentifier != myPid,
+              let url = app.executableURL else { return false }
+        return url.lastPathComponent == "MenuBand"
+    }
+    if duplicate {
+        NSLog("MenuBand: duplicate instance detected — exiting")
+        exit(0)
+    }
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

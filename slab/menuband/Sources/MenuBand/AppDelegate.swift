@@ -63,6 +63,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// per-bar sine wiggle + smooths the activity level so bars move
     /// continuously instead of snapping on note events.
     private var visualizerAnimTimer: Timer?
+    /// Last-published values for the icon's animated state. The tick
+    /// only calls `updateIcon()` when these move past a small
+    /// perceptual epsilon — when the synth is silent and nothing is
+    /// flashing, the status item stops repainting and idle CPU
+    /// drops to near zero instead of burning ~24 redraws per second.
+    private var visualizerLastDrawnLevel: CGFloat = -1
+    private var visualizerLastDrawnMidiFlash: CGFloat = -1
+    private var visualizerLastDrawnMetroFlash: CGFloat = -1
     private var visualizerSmoothedLevel: CGFloat = 0
     /// Running adaptive peak — mirrors the main waveform's auto-gain
     /// (`smoothedPeak` in WaveformView) so the menubar bars normalize
@@ -204,18 +212,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Current bend amount in [-1, 1] (mapped to ±2 semitones via
     /// the GM default bend range). 0 = no bend.
     private var bendAmount: Float = 0
-    /// Current "space" amount in [0, 1], driven by the trackpad
-    /// X-axis on the same bend gesture. 0 = dry/up-front, 1 = big
+    /// Current "space" amount in [0, 1], the reverb half of the
+    /// bipolar X axis (negative side). 0 = dry/up-front, 1 = big
     /// room. Eases back to 0 alongside the bend spring on release.
     private var spaceAmount: Float = 0
-    /// Current echo amount in [0, 1], driven by ⌥Option + horizontal
-    /// trackpad on the same bend gesture. Held with the other fx
-    /// after release (see `startFxRelease`).
+    /// Current echo amount in [0, 1], the delay half of the bipolar
+    /// X axis (positive side). Held with the other fx after release
+    /// (see `startFxRelease`).
     private var echoAmount: Float = 0
-    /// True while the active gesture is the ⌥Option echo axis (vs.
-    /// the plain X-axis space sweep). Selects which custom cursor /
-    /// overlay wheel shows and which axis dx is routed to.
-    private var echoAxisActive = false
+    /// Bipolar X-axis driver in [-1, +1] for the chart's puck. Right
+    /// (positive) feeds `echoAmount`, left (negative) feeds
+    /// `spaceAmount`; center is 0 = no fx. Lets a single horizontal
+    /// swipe pick either effect — the puck visibly slides past
+    /// center to the side the user dragged.
+    private var fxX: Float = 0
     /// Post-release "dead zone": all fx hold here fully engaged for
     /// `fxHoldDuration`, so resuming play within the window keeps the
     /// sound intact. Fires into `startFxRamp` only if nothing resumes.
@@ -229,6 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var fxRampFromBend: Float = 0
     private var fxRampFromSpace: Float = 0
     private var fxRampFromEcho: Float = 0
+    private var fxRampFromX: Float = 0
     private var fxRampStart: Date?
     /// True while one or more fingers rest on the trackpad (fed by
     /// LocalKeyCapture's touch sensor). The bend holds — and survives
@@ -780,6 +791,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { _ in
             IconTinter.applyTintedIcon()
         }
+
+        // `--focus-on-launch` is set by MenuBandLauncher when it
+        // wakes MenuBand from a double-tap ⌘⌘. The shortcut should
+        // not just launch the app — it should land in the same
+        // popover-open + focus-armed state the in-process double-tap
+        // handler produces. Fire that handler once the run loop has
+        // settled (the status item button isn't positioned yet inside
+        // applicationDidFinishLaunching, so showPopover bails without
+        // the deferred dispatch).
+        if CommandLine.arguments.contains("--focus-on-launch") {
+            debugLog("--focus-on-launch flag detected; arming focus after run-loop settles")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                self?.toggleQuietFocusFromRightCommand()
+            }
+        }
     }
 
     // MARK: - Popover lifecycle
@@ -1051,11 +1077,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menuBand.playFocusCue(rising: false)
             localCapture.disarm(reason: .cancelled)
         } else {
+            // If the popover is closed, open it first so the gesture
+            // has a visible target — arming silently with no UI on
+            // screen leaves the user wondering whether anything happened.
+            let wasClosed = !isPopoverPanelShown
+            if wasClosed {
+                showPopover()
+            }
             // Start: arm capture immediately so the very next keys
             // play even while ⌘ is still held (right-⌘+f → plays F
             // AND enables). No overlay (beginFocusCapture…
             // deliberately doesn't call showExpandedForPopover).
-            beginFocusCaptureFromShortcut()
+            beginFocusCaptureFromShortcut(keepPopoverOpen: wasClosed)
             // Blue glow + rising bell + all keys flash at once.
             FocusFlashOverlay.shared.flash(rising: true)
             menuBand.playFocusCue(rising: true)
@@ -1085,14 +1118,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         beginFocusCaptureFromShortcut()
     }
 
-    private func beginFocusCaptureFromShortcut() {
+    private func beginFocusCaptureFromShortcut(keepPopoverOpen: Bool = false) {
         let frontmost = NSWorkspace.shared.frontmostApplication
         if frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier {
             appBeforeFocusCapture = nil
         } else {
             appBeforeFocusCapture = frontmost
         }
-        closePopover()
+        if !keepPopoverOpen {
+            closePopover()
+        }
         if menuBand.typeMode {
             menuBand.disableTypeModeForFocusCapture()
         }
@@ -1296,7 +1331,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if KeyboardIconRenderer.metronomeFlash < 0.01 {
                 KeyboardIconRenderer.metronomeFlash = 0
             }
-            self.updateIcon()
+            // Only repaint the status item when one of the animated
+            // signals has actually moved a visible amount. The phase
+            // value updates every tick but the per-bar wiggle is too
+            // subtle to see when the levels are flat (silent floor),
+            // so the eye won't notice the skipped frame — but
+            // skipping is the difference between idle CPU at ~0%
+            // versus a steady drain from constant menubar repaints.
+            let level = self.visualizerSmoothedLevel
+            let midi = CGFloat(KeyboardIconRenderer.midiActivityFlash)
+            let metro = CGFloat(KeyboardIconRenderer.metronomeFlash)
+            let levelStep: CGFloat = 0.01
+            let flashStep: CGFloat = 0.02
+            let dirty =
+                abs(level - self.visualizerLastDrawnLevel) > levelStep
+                || abs(midi - self.visualizerLastDrawnMidiFlash) > flashStep
+                || abs(metro - self.visualizerLastDrawnMetroFlash) > flashStep
+            if dirty {
+                self.visualizerLastDrawnLevel = level
+                self.visualizerLastDrawnMidiFlash = midi
+                self.visualizerLastDrawnMetroFlash = metro
+                self.updateIcon()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         visualizerAnimTimer = timer
@@ -2411,6 +2467,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 tvPanel.tv.ampProvider = { [weak self] in
                     self?.currentSynthAmp() ?? 0
                 }
+                // Skip the KidLisp tick while the user is actively
+                // playing — held notes mean the synth + MIDI path
+                // need the main thread, and the bend gesture's pin
+                // timer fires at 60Hz. The TV catches up between
+                // performances and never blocks audio scheduling.
+                tvPanel.tv.busyProvider = { [weak self] in
+                    guard let self = self else { return false }
+                    return self.menuBand.litNotes.count > 0
+                        || self.pitchBendCursorLocked
+                        || self.fxRampTimer != nil
+                }
                 // Warm the cache so the first click pops a populated
                 // menu instead of "Loading…".
                 fetchKidLispChooserPieces(force: false) { }
@@ -2508,33 +2575,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Pitch-bend gesture
 
     private func handlePitchBendCursorMove(event: NSEvent) {
-        // Single-finger trackpad gesture: only active while the
-        // user is holding a KEYBOARD note. Mouse-tapped piano
-        // notes don't engage pitch-bend so the user can drag
-        // across menubar piano keys with the mouse normally.
-        // Shift held lets the wheel engage even with no key
-        // physically down — so you can grab still-ringing lingering
-        // notes and warp the whole sound. Shift also broadcasts the
-        // bend to ALL playing channels (see setBend allChannels).
+        // Single-finger trackpad gesture: normally active while the
+        // user is holding a KEYBOARD note. Mouse-tapped piano notes
+        // don't engage pitch-bend so the user can drag across menubar
+        // piano keys with the mouse normally. Shift held lets the
+        // wheel engage even with no key physically down — so you can
+        // grab still-ringing lingering notes and warp the whole sound.
+        // Shift also broadcasts the bend to ALL playing channels
+        // (see setBend allChannels).
+        //
+        // Additionally, while the chart overlay is still visible
+        // (post-release spring-back, fx-hold), a trackpad-driven
+        // mouseMoved re-engages the slide without requiring a
+        // keyboard note. We gate on trackpadTouchActive (NSTouch
+        // begun) so a passing MOUSE move can't reactivate the bend
+        // — only an actual finger on the trackpad.
         let shift = event.modifierFlags.contains(.shift)
-        guard menuBand.keyboardNotesHeld || shift else { return }
+        let chartUp = pitchBendOverlay?.isVisible ?? false
+        let reengageViaTrackpad = chartUp && trackpadTouchActive
+        guard menuBand.keyboardNotesHeld || shift || reengageViaTrackpad else { return }
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
         // Negate so swipe UP on trackpad → pitch UP (NSEvent.deltaY
         // is positive when the cursor moves DOWN on screen).
         let bendDelta = -dy * Self.bendSensitivityPerPoint
-        // Horizontal is two-in-one: plain X = "space" (reverb),
-        // ⌥Option + X = "echo". Whichever the user is on takes dx;
-        // the other is left exactly where it was, so you can set
-        // one, switch the modifier, and set the other independently.
-        if event.modifierFlags.contains(.option) {
-            echoAmount = max(0, min(1, echoAmount + dx * Self.echoSensitivityPerPoint))
-            echoAxisActive = true
-        } else {
-            spaceAmount = max(0, min(1, spaceAmount + dx * Self.spaceSensitivityPerPoint))
-            echoAxisActive = false
-        }
+        // Horizontal is a single BIPOLAR fx axis: center = 0 = no fx,
+        // right = echo (trailing delay), left = space (reverb).
+        // One swipe direction picks one effect; center kills both.
+        // The puck's X position visualises this signed value directly.
+        // ⌥Option lets you fine-tune the same axis at lower
+        // sensitivity for precise hold-and-tweak.
+        let xSens: Float = event.modifierFlags.contains(.option)
+            ? Self.echoSensitivityPerPoint * Float(0.3)
+            : Self.echoSensitivityPerPoint
+        fxX = max(Float(-1), min(Float(1), fxX + dx * xSens))
+        echoAmount = max(Float(0), fxX)
+        spaceAmount = max(Float(0), -fxX)
         cancelFxRelease()
         bendAmount += bendDelta
         // No clamp — the trackpad accumulator can swing past ±1 so
@@ -2594,9 +2671,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self,
                   self.pitchBendCursorLocked,
                   self.pitchBendCursorPushed else { return }
-            (self.echoAxisActive
-                ? EchoCursor.cursor(forEcho: self.echoAmount)
-                : PitchBendCursor.cursor(forBend: self.bendAmount)).set()
+            PitchBendCursor.cursor(forBend: self.bendAmount,
+                                   echo: self.echoAmount).set()
         }
         timer.tolerance = 1.0 / 120.0
         RunLoop.main.add(timer, forMode: .common)
@@ -2627,13 +2703,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return overlay
     }
 
-    /// The wheel image for whichever fx axis is currently active —
-    /// the echo "repeats" cursor while ⌥Option is the driven axis,
-    /// otherwise the pitch-bend lever wheel.
+    /// XY-pad image for the floating overlay. The chart is a
+    /// frozen modulation pad at the lock point; the puck inside
+    /// rides up/down with bend and right with echo. Both axes
+    /// read at once and the chart never moves, so the user has
+    /// a stable reference frame for the whole gesture and the
+    /// post-release spring-back.
     private func currentFxCursorImage() -> NSImage {
-        echoAxisActive
-            ? EchoCursor.image(forEcho: echoAmount)
-            : PitchBendCursor.image(forBend: bendAmount)
+        // Pass the bipolar fxX so the puck slides both sides of
+        // center — positive (right) is echo, negative (left) is
+        // space/reverb. PitchBendCursor renders the signed value
+        // directly on the puck X axis.
+        PitchBendCursor.image(forBend: bendAmount, echo: fxX)
     }
 
     private func showPitchBendOverlay() {
@@ -2644,6 +2725,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updatePitchBendOverlayImage() {
         guard let overlay = pitchBendOverlay, overlay.isVisible else { return }
+        // Chart is frozen at the lock point; only the puck inside
+        // moves, so a single image swap each tick is enough.
         overlay.update(image: currentFxCursorImage())
     }
 
@@ -2670,10 +2753,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSCursor.pop()
             pitchBendCursorPushed = false
         }
-        // Tear down the overlay first, THEN show the system cursor —
-        // order matters so the user never sees the bend wheel and the
-        // real cursor on screen at the same time during the handoff.
-        pitchBendOverlay?.dismiss()
+        // Keep the chart overlay frozen at the lock point through
+        // the release ramp so the puck visibly slides back to
+        // center as bend/echo decay — `startFxRamp` (or the no-fx
+        // early return inside `startFxRelease`) dismisses it. The
+        // real system cursor comes back now; the chart floats
+        // above on the screenSaver level so both read at once.
         showSystemCursorIfNeeded()
         CGAssociateMouseAndMouseCursorPosition(1)
         pitchBendCursorLocked = false
@@ -2688,8 +2773,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// handler when the swipe resumes).
     private func startFxRelease() {
         cancelFxRelease()
-        // Nothing engaged → no fade needed, stay idle.
-        if bendAmount == 0 && spaceAmount == 0 && echoAmount == 0 { return }
+        // Nothing engaged → no fade needed, stay idle. The overlay
+        // (kept alive through `endPitchBendSession` for the ramp
+        // visualisation) has nothing to animate, so tear it down now.
+        if bendAmount == 0 && spaceAmount == 0 && echoAmount == 0 && fxX == 0 {
+            pitchBendOverlay?.dismiss()
+            return
+        }
         let hold = Timer(timeInterval: Self.fxHoldDuration, repeats: false) {
             [weak self] _ in self?.startFxRamp()
         }
@@ -2707,6 +2797,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fxRampFromBend = bendAmount
         fxRampFromSpace = spaceAmount
         fxRampFromEcho = echoAmount
+        fxRampFromX = fxX
         fxRampStart = Date()
         let timer = Timer(timeInterval: 1.0 / 60.0,
                           repeats: true) { [weak self] timer in
@@ -2720,6 +2811,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.bendAmount = self.fxRampFromBend * k
             self.spaceAmount = self.fxRampFromSpace * k
             self.echoAmount = self.fxRampFromEcho * k
+            self.fxX = self.fxRampFromX * k
             // allChannels so lingering / shift-bent voices on other
             // channels un-bend with everything else, not just held.
             self.menuBand.setBend(amount: self.bendAmount, allChannels: true)
@@ -2733,6 +2825,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.bendAmount = 0
                 self.spaceAmount = 0
                 self.echoAmount = 0
+                self.fxX = 0
                 self.menuBand.setBend(amount: 0, allChannels: true)
                 self.menuBand.setSpace(amount: 0)
                 self.menuBand.setEcho(amount: 0)
@@ -2741,6 +2834,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 timer.invalidate()
                 self.fxRampTimer = nil
                 self.fxRampStart = nil
+                // Ramp completed → tear down the chart (kept
+                // alive by endPitchBendSession purely so the user
+                // could watch the puck slide back to center).
+                self.pitchBendOverlay?.dismiss()
             }
         }
         timer.tolerance = 1.0 / 120.0

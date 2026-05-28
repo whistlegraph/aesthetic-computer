@@ -1,144 +1,147 @@
 import AppKit
 
-/// Custom mouse cursor used while one or more notes are sounding.
-/// Visually a tiny vertical wheel (think pitch-bend lever) so the
-/// user gets a hint that single-finger trackpad Y movement is now
-/// going to bend the pitch. The wheel **stretches** in the bend
-/// direction (bend up → wheel taller above center, ridges shift
-/// up; bend down → mirror) so the cursor itself reads the current
-/// pitch offset.
+/// Custom cursor replacement used while the trackpad bend gesture
+/// is engaged. It renders as a small XY modulation pad — frozen at
+/// the lock point — with a puck that slides up/down to show the
+/// current pitch-bend and right to show echo amount. The puck IS
+/// the live state visualisation; the chart itself never moves, so
+/// the user has a stable reference frame to read both axes
+/// against as the audio rubber-bands back to neutral on release.
 enum PitchBendCursor {
-    /// Centered, no-bend cursor — used as the push baseline.
-    static let neutral: NSCursor = cursor(forBend: 0)
+    /// Centered, no-bend, no-echo cursor — used as the push baseline
+    /// fallback for in-app cursorUpdate handlers (the actual
+    /// visual live one is the floating overlay window).
+    static let neutral: NSCursor = cursor(forBend: 0, echo: 0)
 
-    /// Hot-spot used by both `cursor(forBend:)` and the floating
-    /// overlay window — keeps the bend wheel anchored over the
-    /// frozen cursor position when CGAssociateMouseAndMouseCursorPosition
-    /// detaches the system cursor.
-    static let hotSpot = NSPoint(x: 16, y: 20)
-    static let cursorSize = NSSize(width: 32, height: 40)
+    /// Hot-spot at the chart's center so the overlay window anchors
+    /// the chart directly over the user's frozen cursor position.
+    static let hotSpot = NSPoint(x: 40, y: 40)
+    static let cursorSize = NSSize(width: 80, height: 80)
 
-    /// Same bitmap the `cursor(forBend:)` factory uses, exposed
-    /// so a floating overlay window can draw the wheel itself
-    /// while the system cursor is hidden via CGDisplayHideCursor.
-    /// That hide-and-draw approach is what kills the cross-app
-    /// cursor flicker — other apps' cursorUpdate handlers
-    /// can't fight us if there's no system cursor for them to
-    /// reset.
     static func image(forBend amount: Float) -> NSImage {
-        return buildImage(forBend: amount)
+        buildImage(bend: CGFloat(amount), echo: 0)
     }
 
-    /// Build a cursor whose internal grip ridges + body extension
-    /// reflect a normalized bend amount in [-1, +1]. +1 = full
-    /// pitch up (ridges shift up, top of wheel stretched), −1 =
-    /// full pitch down (mirror).
+    static func image(forBend bend: Float, echo: Float) -> NSImage {
+        buildImage(bend: CGFloat(bend), echo: CGFloat(echo))
+    }
+
     static func cursor(forBend amount: Float) -> NSCursor {
-        let image = buildImage(forBend: amount)
-        return NSCursor(image: image, hotSpot: hotSpot)
+        cursor(forBend: amount, echo: 0)
     }
 
-    private static func buildImage(forBend amount: Float) -> NSImage {
-        let bend = max(-1, min(1, CGFloat(amount)))
+    static func cursor(forBend bend: Float, echo: Float) -> NSCursor {
+        NSCursor(image: image(forBend: bend, echo: echo), hotSpot: hotSpot)
+    }
+
+    private static func buildImage(bend: CGFloat, echo: CGFloat) -> NSImage {
+        let bendC = max(-1, min(1, bend))
+        // `echo` is the bipolar fx-X driver in [-1, +1]: positive
+        // (right) is echo, negative (left) is space/reverb. We keep
+        // the parameter name `echo` for source-call stability; the
+        // chart treats it as a signed X value.
+        let xC = max(-1, min(1, echo))
         let size = cursorSize
-        let image = NSImage(size: size, flipped: false) { rect in
-            let center = NSPoint(x: rect.midX, y: rect.midY)
-            let bodyW: CGFloat = 12
-            // Base height plus an extension biased toward the bend
-            // direction. Total height grows with |bend| but the
-            // extra mass sits on the side the user is pulling
-            // toward, so the wheel reads as "leaning into" the
-            // pitch rather than just inflating uniformly.
-            let baseH: CGFloat = 20
-            let stretch: CGFloat = 8 * abs(bend)
-            let bodyH = baseH + stretch
-            // Bias the body's vertical center: when bending up
-            // (positive), shift the body upward; when down, shift
-            // the body downward. The hot spot (center of view)
-            // stays constant so cursor placement is stable.
-            let bias: CGFloat = bend * 4
-            let bodyRect = NSRect(
-                x: center.x - bodyW / 2,
-                y: center.y - bodyH / 2 + bias,
-                width: bodyW,
-                height: bodyH
-            )
-
-            let shadow = NSShadow()
-            shadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
-            shadow.shadowOffset = .zero
-            shadow.shadowBlurRadius = 2
-            NSGraphicsContext.saveGraphicsState()
-            shadow.set()
-
-            let bodyPath = NSBezierPath(roundedRect: bodyRect,
-                                         xRadius: bodyW / 2,
-                                         yRadius: bodyW / 2)
-            // Hue tracks bend direction so the wheel reads at a
-            // glance: neutral = white; bending up tints toward
-            // accent (system color); bending down tints toward
-            // a complementary warm tone.
-            let accent = NSColor.controlAccentColor
-            let warm = NSColor(srgbRed: 1.0, green: 0.45, blue: 0.35, alpha: 1)
-            let topColor: NSColor = bend > 0
-                ? (NSColor.white.blended(withFraction: bend * 0.75, of: accent) ?? .white)
-                : (NSColor.white.blended(withFraction: -bend * 0.45, of: warm) ?? .white)
-            let bottomColor: NSColor = bend < 0
-                ? (NSColor(white: 0.78, alpha: 1).blended(withFraction: -bend * 0.75, of: warm)
-                    ?? NSColor(white: 0.78, alpha: 1))
-                : (NSColor(white: 0.78, alpha: 1).blended(withFraction: bend * 0.45, of: accent)
-                    ?? NSColor(white: 0.78, alpha: 1))
-            let bodyGradient = NSGradient(starting: topColor, ending: bottomColor)
-            bodyGradient?.draw(in: bodyPath, angle: -90)
-            NSColor.black.withAlphaComponent(0.6).setStroke()
-            bodyPath.lineWidth = 0.8
-            bodyPath.stroke()
-
-            NSGraphicsContext.restoreGraphicsState()
-
-            // Three horizontal grip ridges. Spacing tightens as
-            // the bend grows so the ridges look "compressed" on
-            // the side opposite the bend, which sells the lever
-            // squishing.
-            let ridgeOffsets: [CGFloat] = [-3, 0, 3]
-            let ridgeShift = bend * 4
-            for offset in ridgeOffsets {
-                let path = NSBezierPath()
-                let y = center.y + offset + ridgeShift
-                path.move(to: NSPoint(x: bodyRect.minX + 2, y: y))
-                path.line(to: NSPoint(x: bodyRect.maxX - 2, y: y))
-                NSColor.black.withAlphaComponent(0.45).setStroke()
-                path.lineWidth = 0.9
-                path.stroke()
-            }
-
-            // ↕ glyph above the wheel — slides up/down with the
-            // bend so the affordance keeps reading even when the
-            // wheel itself is heavily distorted.
-            let arrows = NSAttributedString(
-                string: "↕",
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 9, weight: .heavy),
-                    .foregroundColor: NSColor.black.withAlphaComponent(0.85),
-                ]
-            )
-            let arrowSize = arrows.size()
-            arrows.draw(at: NSPoint(
-                x: center.x - arrowSize.width / 2,
-                y: bodyRect.maxY + 1
-            ))
+        return NSImage(size: size, flipped: false) { rect in
+            drawChart(in: rect, bend: bendC, echo: xC)
             return true
         }
-        return image
+    }
+
+    private static func drawChart(in rect: NSRect, bend: CGFloat, echo: CGFloat) {
+        // Inset so the rounded background doesn't clip on the
+        // cursor canvas edge.
+        let chart = rect.insetBy(dx: 4, dy: 4)
+        let bg = NSBezierPath(roundedRect: chart, xRadius: 6, yRadius: 6)
+        // Semi-transparent dark plate so the puck and labels read
+        // against any app background. Adapts implicitly with the
+        // system appearance via the system accent reference.
+        NSColor.black.withAlphaComponent(0.5).setFill()
+        bg.fill()
+        NSColor.white.withAlphaComponent(0.45).setStroke()
+        bg.lineWidth = 0.8
+        bg.stroke()
+
+        let cx = chart.midX
+        let cy = chart.midY
+
+        // Faint center crosshair — gives the puck a "zero" reference
+        // so the user can see when they've returned to neutral on
+        // either axis independently.
+        let cross = NSBezierPath()
+        cross.move(to: NSPoint(x: chart.minX + 6, y: cy))
+        cross.line(to: NSPoint(x: chart.maxX - 6, y: cy))
+        cross.move(to: NSPoint(x: cx, y: chart.minY + 6))
+        cross.line(to: NSPoint(x: cx, y: chart.maxY - 6))
+        NSColor.white.withAlphaComponent(0.22).setStroke()
+        cross.lineWidth = 0.5
+        cross.stroke()
+
+        // Axis labels: + / − for bend, « space (left) / » echo
+        // (right). Small, faint.
+        let labelAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 8, weight: .heavy),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.6),
+        ]
+        let plus = NSAttributedString(string: "+", attributes: labelAttrs)
+        let minus = NSAttributedString(string: "−", attributes: labelAttrs)
+        let echoMark = NSAttributedString(string: "»", attributes: labelAttrs)
+        let spaceMark = NSAttributedString(string: "«", attributes: labelAttrs)
+        plus.draw(at: NSPoint(x: cx - plus.size().width / 2,
+                              y: chart.maxY - plus.size().height - 1))
+        minus.draw(at: NSPoint(x: cx - minus.size().width / 2,
+                               y: chart.minY + 1))
+        echoMark.draw(at: NSPoint(x: chart.maxX - echoMark.size().width - 2,
+                                  y: cy - echoMark.size().height / 2))
+        spaceMark.draw(at: NSPoint(x: chart.minX + 2,
+                                   y: cy - spaceMark.size().height / 2))
+
+        // Puck position. Y axis uses the full [-1, +1] range of bend;
+        // X axis uses [0, +1] of echo (puck starts at center and
+        // rides right). Inset by puck radius so the puck stays
+        // inside the chart at extremes.
+        let puckR: CGFloat = 5.5
+        let halfW = chart.width / 2 - puckR - 3
+        let halfH = chart.height / 2 - puckR - 3
+        let puckX = cx + echo * halfW
+        let puckY = cy + bend * halfH
+        let puckRect = NSRect(x: puckX - puckR, y: puckY - puckR,
+                              width: puckR * 2, height: puckR * 2)
+
+        // Hue tracks bend direction so the puck reads at a glance.
+        let accent = NSColor.controlAccentColor
+        let warm = NSColor(srgbRed: 1.0, green: 0.45, blue: 0.35, alpha: 1)
+        let puckColor: NSColor
+        if bend > 0 {
+            puckColor = NSColor.white.blended(withFraction: bend * 0.7, of: accent) ?? .white
+        } else if bend < 0 {
+            puckColor = NSColor.white.blended(withFraction: -bend * 0.7, of: warm) ?? .white
+        } else {
+            puckColor = .white
+        }
+
+        // Soft drop shadow so the puck pops off the chart plate.
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.65)
+        shadow.shadowOffset = .zero
+        shadow.shadowBlurRadius = 3
+        NSGraphicsContext.saveGraphicsState()
+        shadow.set()
+        let puckPath = NSBezierPath(ovalIn: puckRect)
+        puckColor.setFill()
+        puckPath.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        NSColor.black.withAlphaComponent(0.55).setStroke()
+        puckPath.lineWidth = 0.6
+        puckPath.stroke()
     }
 }
 
-/// Borderless transparent panel that draws the pitch-bend wheel
-/// at the cursor's locked screen position. Floats above every
-/// app so the wheel stays visible regardless of which window the
-/// mouse is over — pair with `CGDisplayHideCursor` to hide the
-/// real system cursor and you get a flicker-free custom cursor
-/// that doesn't fight other apps' cursorUpdate handlers.
+/// Borderless transparent panel that draws the XY pad at the
+/// cursor's locked screen position. Floats above every app so the
+/// chart stays visible regardless of which window the mouse is
+/// over — pair with `CGDisplayHideCursor` to hide the real system
+/// cursor so the chart visibly replaces it.
 final class PitchBendCursorOverlayWindow: NSPanel {
     private let imageView = NSImageView()
 
@@ -168,109 +171,26 @@ final class PitchBendCursorOverlayWindow: NSPanel {
 
     /// `screenPoint` is the absolute screen position the cursor
     /// is currently locked at. The panel is repositioned so the
-    /// wheel image lands centered on the hot spot at that point.
+    /// chart lands centered on the hot spot at that point.
     func show(image: NSImage, atScreenPoint screenPoint: NSPoint) {
         imageView.image = image
         let hot = PitchBendCursor.hotSpot
         let origin = NSPoint(x: screenPoint.x - hot.x,
                              y: screenPoint.y - hot.y)
         setFrameOrigin(origin)
+        alphaValue = 1
         if !isVisible { orderFrontRegardless() }
     }
 
-    /// Update only the wheel image; position stays put. Used by
-    /// the bend-amount changes and the rubber-band decay tick.
+    /// Update only the chart image (puck position changes); window
+    /// position stays put. The chart is intentionally frozen at the
+    /// lock point — only the internal puck moves.
     func update(image: NSImage) {
         imageView.image = image
     }
 
     func dismiss() {
         orderOut(nil)
-    }
-}
-
-/// Custom cursor for the ⌥Option + horizontal "echo" axis. Reads as
-/// a bright leading capsule with trailing, fading repeats to the
-/// right — the repeats multiply, lengthen and brighten as the echo
-/// amount grows, so the cursor itself shows how much tail you've
-/// dialed in. Uses the SAME `PitchBendCursor.cursorSize` / `hotSpot`
-/// so it drops straight into `PitchBendCursorOverlayWindow`.
-enum EchoCursor {
-    static func cursor(forEcho amount: Float) -> NSCursor {
-        NSCursor(image: buildImage(forEcho: amount),
-                 hotSpot: PitchBendCursor.hotSpot)
-    }
-
-    static func image(forEcho amount: Float) -> NSImage {
-        buildImage(forEcho: amount)
-    }
-
-    private static func buildImage(forEcho amount: Float) -> NSImage {
-        let echo = max(0, min(1, CGFloat(amount)))
-        let size = PitchBendCursor.cursorSize
-        return NSImage(size: size, flipped: false) { rect in
-            let center = NSPoint(x: rect.midX, y: rect.midY)
-            let capW: CGFloat = 7
-            let capH: CGFloat = 16
-            // 1 dry head + up to 4 repeats; count tracks amount so a
-            // small echo shows one ghost, a big one a long trail.
-            let repeats = Int((echo * 4).rounded())
-            // Repeats march RIGHT; spacing widens with the amount so
-            // the trail visibly stretches as you sweep.
-            let gap: CGFloat = 4 + echo * 5
-
-            let accent = NSColor.controlAccentColor
-
-            // Draw farthest (faintest) repeat first so nearer, brighter
-            // capsules paint over the tails — matches how the audio
-            // repeats sit under the dry hit.
-            for i in stride(from: repeats, through: 0, by: -1) {
-                let x = center.x - capW / 2 + CGFloat(i) * (capW + gap)
-                let capRect = NSRect(x: x, y: center.y - capH / 2,
-                                     width: capW, height: capH)
-                let path = NSBezierPath(roundedRect: capRect,
-                                        xRadius: capW / 2,
-                                        yRadius: capW / 2)
-                if i == 0 {
-                    let shadow = NSShadow()
-                    shadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
-                    shadow.shadowOffset = .zero
-                    shadow.shadowBlurRadius = 2
-                    NSGraphicsContext.saveGraphicsState()
-                    shadow.set()
-                    NSColor.white.setFill()
-                    path.fill()
-                    NSColor.black.withAlphaComponent(0.6).setStroke()
-                    path.lineWidth = 0.8
-                    path.stroke()
-                    NSGraphicsContext.restoreGraphicsState()
-                } else {
-                    // Geometric fade for the repeats; brightness also
-                    // scales with the overall amount so a bigger echo
-                    // reads as a hotter, more present trail.
-                    let decay = pow(0.62, CGFloat(i))
-                    let alpha = (0.25 + 0.6 * echo) * decay
-                    (accent.blended(withFraction: 0.35,
-                                    of: .white) ?? accent)
-                        .withAlphaComponent(alpha).setFill()
-                    path.fill()
-                }
-            }
-
-            // » glyph above the head — points down the trail so the
-            // affordance still reads when the trail is short.
-            let arrows = NSAttributedString(
-                string: "»",
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 9, weight: .heavy),
-                    .foregroundColor: NSColor.black.withAlphaComponent(0.85),
-                ]
-            )
-            let aSize = arrows.size()
-            arrows.draw(at: NSPoint(x: center.x - aSize.width / 2,
-                                    y: center.y + capH / 2 + 1))
-            return true
-        }
     }
 }
 

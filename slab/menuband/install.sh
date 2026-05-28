@@ -23,10 +23,13 @@ REPO_HOME="${HOME}"
 LAUNCH_AGENTS="${REPO_HOME}/Library/LaunchAgents"
 PLIST_PATH="${LAUNCH_AGENTS}/computer.aestheticcomputer.menuband.plist"
 PLIST_TMPL="${SCRIPT_DIR}/computer.aestheticcomputer.menuband.plist.tmpl"
+LAUNCHER_PLIST_PATH="${LAUNCH_AGENTS}/computer.aestheticcomputer.menubandlauncher.plist"
+LAUNCHER_PLIST_TMPL="${SCRIPT_DIR}/computer.aestheticcomputer.menubandlauncher.plist.tmpl"
 INFO_PLIST="${SCRIPT_DIR}/Info.plist"
 APP_DIR="${REPO_HOME}/Applications/Menu Band.app"
 APP_BIN_DIR="${APP_DIR}/Contents/MacOS"
 APP_BIN="${APP_BIN_DIR}/MenuBand"
+APP_LAUNCHER_BIN="${APP_BIN_DIR}/MenuBandLauncher"
 APP_RES="${APP_DIR}/Contents/Resources"
 
 say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
@@ -137,7 +140,29 @@ if [[ "${ARCHS}" != *"arm64"* ]] || [[ "${ARCHS}" != *"x86_64"* ]]; then
 fi
 ok "built universal (${ARCHS}): ${BUILT}"
 
-say "unloading any existing MenuBand launch agent"
+# MenuBandLauncher — same two-slice + lipo dance for the tiny helper
+# that relaunches Menu Band when the double-tap right-⌘ gesture fires
+# while the main process isn't running.
+say "building MenuBandLauncher arm64 slice"
+swift build -c release --target MenuBandLauncher --triple "${ARM_TRIPLE}" >/dev/null
+ARM_LAUNCHER="$(swift build -c release --target MenuBandLauncher --triple "${ARM_TRIPLE}" --show-bin-path)/MenuBandLauncher"
+[[ -x "${ARM_LAUNCHER}" ]] || { echo "launcher arm64 build missing at ${ARM_LAUNCHER}"; exit 1; }
+
+say "building MenuBandLauncher x86_64 slice (Intel Macs)"
+swift build -c release --target MenuBandLauncher --triple "${X86_TRIPLE}" >/dev/null
+X86_LAUNCHER="$(swift build -c release --target MenuBandLauncher --triple "${X86_TRIPLE}" --show-bin-path)/MenuBandLauncher"
+[[ -x "${X86_LAUNCHER}" ]] || { echo "launcher x86_64 build missing at ${X86_LAUNCHER}"; exit 1; }
+
+say "lipo'ing launcher slices"
+BUILT_LAUNCHER="${SCRIPT_DIR}/.build/universal/MenuBandLauncher"
+lipo -create -output "${BUILT_LAUNCHER}" "${ARM_LAUNCHER}" "${X86_LAUNCHER}"
+ok "built universal launcher: ${BUILT_LAUNCHER}"
+
+say "unloading any existing MenuBand launch agents"
+if launchctl list | grep -q computer.aestheticcomputer.menubandlauncher; then
+    launchctl unload "${LAUNCHER_PLIST_PATH}" 2>/dev/null || true
+    ok "unloaded computer.aestheticcomputer.menubandlauncher"
+fi
 if launchctl list | grep -q computer.aestheticcomputer.menuband; then
     launchctl unload "${PLIST_PATH}" 2>/dev/null || true
     ok "unloaded computer.aestheticcomputer.menuband"
@@ -149,6 +174,10 @@ say "installing app bundle → ${APP_DIR}"
 mkdir -p "${APP_BIN_DIR}" "${APP_RES}"
 cp "${BUILT}" "${APP_BIN}"
 chmod +x "${APP_BIN}"
+cp "${BUILT_LAUNCHER}" "${APP_LAUNCHER_BIN}"
+chmod +x "${APP_LAUNCHER_BIN}"
+# Strip DWARF off the launcher too, same rationale as the main binary.
+strip -S "${APP_LAUNCHER_BIN}"
 # Strip DWARF debug symbols from the shipped binary. Without this the
 # release binary embeds every source file's absolute path under
 # /Users/<dev>/aesthetic-computer/slab/menuband/Sources/... — harmless
@@ -205,6 +234,23 @@ if ! codesign --force --deep --sign "${SIGN_ID}" \
     warn "codesign failed — bundle is not signed with hardened runtime"
     exit 1
 fi
+# Re-sign the launcher binary with its OWN distinct identifier. The
+# --deep above propagates the bundle's identifier
+# (computer.aestheticcomputer.menuband) onto every nested binary,
+# which makes TCC merge the two binaries into the same Accessibility
+# entry. macOS then silently revokes that entry on each rebuild
+# because the bundle hash changes. Giving the launcher its own
+# identifier lets TCC track it independently and persist trust by
+# Developer ID across re-signs.
+if ! codesign --force --sign "${SIGN_ID}" \
+    --identifier computer.aestheticcomputer.menubandlauncher \
+    --options runtime \
+    --entitlements "${ENTITLEMENTS}" \
+    --timestamp \
+    "${APP_LAUNCHER_BIN}" 2>&1; then
+    warn "launcher re-sign failed"
+    exit 1
+fi
 ok "signed"
 
 # Verify the signed bundle BEFORE launchctl load. IconTinter.swift calls
@@ -224,18 +270,25 @@ else
     exit 1
 fi
 
-say "writing launchd plist → ${PLIST_PATH}"
+say "writing launchd plists → ${PLIST_PATH}, ${LAUNCHER_PLIST_PATH}"
 mkdir -p "${LAUNCH_AGENTS}"
 sed "s|@HOME@|${REPO_HOME}|g" "${PLIST_TMPL}" > "${PLIST_PATH}"
-ok "plist written"
+sed "s|@HOME@|${REPO_HOME}|g" "${LAUNCHER_PLIST_TMPL}" > "${LAUNCHER_PLIST_PATH}"
+ok "plists written"
 
-say "loading launch agent"
+say "loading launch agents"
 launchctl load "${PLIST_PATH}"
+launchctl load "${LAUNCHER_PLIST_PATH}"
 sleep 1
 if launchctl list | grep -q computer.aestheticcomputer.menuband; then
     ok "computer.aestheticcomputer.menuband is running"
 else
     warn "launchctl did not register the agent — check /tmp/menuband.err"
+fi
+if launchctl list | grep -q computer.aestheticcomputer.menubandlauncher; then
+    ok "computer.aestheticcomputer.menubandlauncher is running"
+else
+    warn "launcher agent did not register — check /tmp/menubandlauncher.err"
 fi
 
 printf "\n%sdone.%s\n" "${BOLD}" "${RESET}"
