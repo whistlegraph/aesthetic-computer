@@ -187,13 +187,18 @@ function installDomStubs() {
     },
     getElementById() { return null; },
     getElementsByTagName(tag) {
-      if (tag === "head") return [fakeHead];
-      if (tag === "body") return [fakeBody];
-      return [];
+      const t = String(tag || "").toLowerCase();
+      if (t === "head") return [fakeHead];
+      if (t === "body" || t === "html") return [fakeBody];
+      // p5.createCanvas looks for <main> to host the canvas; if we return an
+      // empty list it creates one then re-queries (which would also be empty
+      // with a naive stub). Return a usable container for any tag so the
+      // canvas just ends up "in body" semantically.
+      return [fakeBody];
     },
-    getElementsByClassName() { return []; },
-    querySelector() { return null; },
-    querySelectorAll() { return []; },
+    getElementsByClassName() { return [fakeBody]; },
+    querySelector() { return fakeBody; },
+    querySelectorAll() { return [fakeBody]; },
     addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
     hasFocus() { return true; },
     exitFullscreen() { return Promise.resolve(); },
