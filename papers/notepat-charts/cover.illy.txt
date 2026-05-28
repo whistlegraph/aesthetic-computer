@@ -1,0 +1,47 @@
+a hand-drawn editorial illustration of the FULL QWERTY keyboard layout color-coded for the notepat instrument. portrait composition, 2:3 aspect ratio, designed to be embedded as the hero block on a paper flashcard.
+
+show all three rows of a standard QWERTY keyboard as physical 3D keycaps, viewed from a slight three-quarter angle so each cap shows its colored top face AND a darker side rim of equal proportion, lifted off the page with a soft graphite drop shadow. naturals are saturated colors; sharps (the black-key positions) are deep matte black with a thin colored inner border matching their adjacent natural.
+
+the three rows, left to right (lowercase letters = each keycap label, color = top-face color):
+
+row 1 (top): q w e r t y u i o p
+- q: black sharp with purple inner border (A♯)
+- w: black sharp with green inner border (F♯)
+- e: saturated yellow (E)
+- r: black sharp with blue inner border (G♯)
+- t: black sharp with red inner border (C♯5)
+- y: black sharp with orange inner border (D♯5)
+- u: black sharp with green inner border (F♯5)
+- i: bright orange (D5)
+- o: black sharp with blue inner border (G♯5)
+- p: black sharp with purple inner border (A♯5)
+
+row 2 (home): a s d f g h j k l
+- a: deep purple (A)
+- s: black sharp with orange inner border (D♯)
+- d: pumpkin orange (D)
+- f: kelly green (F)
+- g: cobalt blue (G)
+- h: red (C5)
+- j: yellow (E5)
+- k: lime green (F5)
+- l: sky blue (G5)
+
+row 3 (bottom): z x c v b n m
+- z: muted aged-paper cream (extension key, faded)
+- x: muted aged-paper cream (extension key, faded)
+- c: red (C)
+- v: black sharp with red inner border (C♯)
+- b: orchid violet (B)
+- n: bright purple (A5)
+- m: pink-violet (B5)
+
+each key is a 3D molded keycap — slightly domed top, beveled edges, the small parallel undercut where the cap meets the switch. matte print surfaces, no skeuomorphic glare, no neon glow, NO motion blur, NO out-of-focus areas — every key in crisp focus. letter labels in chunky Berkeley-Mono-style bold lowercase, inked in high contrast against the cap color.
+
+the keys are staggered exactly like a real keyboard — row 2 offset right relative to row 1; row 3 offset further. the layout is centered horizontally in the composition with a comfortable margin all around.
+
+background: ABSOLUTELY MUST BE warm cream paper, exact color sRGB(252, 246, 238) — the same color as the deck's cream cover card it will sit on top of. include a SOFT VIGNETTE in the corners (slight darkening toward the four corners, ~10% darker) so the keys read as a hand-drawn illustration floating on the warm paper, with no hard edges between the illustration and the surrounding card.
+
+NO title text, NO subtitle, NO captions, NO byline anywhere in the image. JUST the colored QWERTY keycap layout floating on warm cream paper with the soft corner vignette. paper grain barely visible.
+
+reference image attached: a flat diagram of the same layout (piano on top, QWERTY map below). USE THE QWERTY MAP portion of the reference for the precise color-to-letter assignments — render those same letters in those same colors as 3D keycaps. IGNORE the piano portion of the reference; the cover illustration is the QWERTY map only.

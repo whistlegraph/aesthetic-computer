@@ -72,19 +72,20 @@ enum QwertyMap {
     static func draw(in ctx: CGContext,
                      origin: CGPoint,
                      layout: Layout,
-                     highlights: [Int: Piano.Highlight] = [:]) {
+                     highlights: [Int: Piano.Highlight] = [:],
+                     showLetters: Bool = true) {
         let topRowY    = origin.y + layout.capH * 2 + layout.rowGap * 2   // q-row top
         let midRowY    = origin.y + layout.capH * 1 + layout.rowGap * 1   // a-row top
         let botRowY    = origin.y                                          // z-row top
         drawRow(in: ctx, letters: rowQ,
                 originX: origin.x, originY: topRowY,
-                layout: layout, highlights: highlights)
+                layout: layout, highlights: highlights, showLetters: showLetters)
         drawRow(in: ctx, letters: rowA,
                 originX: origin.x + layout.row1Indent, originY: midRowY,
-                layout: layout, highlights: highlights)
+                layout: layout, highlights: highlights, showLetters: showLetters)
         drawRow(in: ctx, letters: rowZ,
                 originX: origin.x + layout.row2Indent, originY: botRowY,
-                layout: layout, highlights: highlights)
+                layout: layout, highlights: highlights, showLetters: showLetters)
     }
 
     private static func drawRow(in ctx: CGContext,
@@ -92,7 +93,8 @@ enum QwertyMap {
                                 originX: CGFloat,
                                 originY: CGFloat,
                                 layout: Layout,
-                                highlights: [Int: Piano.Highlight]) {
+                                highlights: [Int: Piano.Highlight],
+                                showLetters: Bool) {
         for (i, letter) in letters.enumerated() {
             let x = originX + CGFloat(i) * (layout.capW + layout.capGap)
             let rect = CGRect(x: x, y: originY,
@@ -100,7 +102,8 @@ enum QwertyMap {
             let midi = midiByLetter[letter]
             let highlight: Piano.Highlight = midi.flatMap { highlights[$0] } ?? .normal
             drawCap(in: ctx, rect: rect, layout: layout,
-                    letter: letter, midi: midi, highlight: highlight)
+                    letter: letter, midi: midi, highlight: highlight,
+                    showLetter: showLetters)
         }
     }
 
@@ -109,7 +112,8 @@ enum QwertyMap {
                                 layout: Layout,
                                 letter: String,
                                 midi: Int?,
-                                highlight: Piano.Highlight) {
+                                highlight: Piano.Highlight,
+                                showLetter: Bool = true) {
         // Color treatment is an ACCENT only:
         //   • naturals  → white cap, small colored swatch tab at the
         //                  bottom (same as menuband piano whites)
@@ -175,7 +179,7 @@ enum QwertyMap {
         //           notes carry color on a chord / triad card.
         var finalLetterColor = letterColor
         if midi != nil {
-            let ringW: CGFloat = max(1.6, layout.capW * 0.16)
+            let ringW: CGFloat = max(0.9, layout.capW * 0.09)
             let inset = ringW / 2 + 0.5
 
             if isActive {
@@ -209,12 +213,14 @@ enum QwertyMap {
             ctx.restoreGState()
         }
 
-        // Letter — uppercase, centered.
-        drawCenteredText(in: ctx,
-                          text: letter.uppercased(),
-                          center: CGPoint(x: rect.midX, y: rect.midY + layout.capH * 0.06),
-                          font: berkeleyMono(size: layout.letterFontSize, weight: .bold),
-                          color: finalLetterColor)
+        // Letter — uppercase, centered. Skipped on song cards (mini-mode).
+        if showLetter {
+            drawCenteredText(in: ctx,
+                              text: letter.uppercased(),
+                              center: CGPoint(x: rect.midX, y: rect.midY + layout.capH * 0.06),
+                              font: berkeleyMono(size: layout.letterFontSize, weight: .bold),
+                              color: finalLetterColor)
+        }
     }
 
     private static func blend(_ a: NSColor, with b: NSColor, fraction: CGFloat) -> NSColor {

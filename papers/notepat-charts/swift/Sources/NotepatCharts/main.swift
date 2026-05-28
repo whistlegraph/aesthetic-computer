@@ -81,9 +81,22 @@ let bgPaleSky   = NSColor(srgbRed: 232/255, green: 244/255, blue: 252/255, alpha
 let bgPaleLilac = NSColor(srgbRed: 242/255, green: 238/255, blue: 252/255, alpha: 1)
 let bgPaleSand  = NSColor(srgbRed: 248/255, green: 244/255, blue: 232/255, alpha: 1)
 
+// ───── 0. Cover ──────────────────────────────────────────────
+// renderCover() hardcodes the byline and lays everything out
+// anchored, so the cover entry only carries title + subtitle.
+charts.append(Chart(
+    title: "Learn Notepat",
+    subtitle: "a flip deck for the QWERTY-as-piano instrument inside aesthetic.computer.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isCover: true,
+    backStyle: .pattern   // cover's back = brand mark, not its own title
+))
+
 // ───── 1. Layout legend ──────────────────────────────────────
 charts.append(Chart(
-    title: "the notepat layout.",
+    title: "Standard Notepat",
     subtitle: "notes that name themselves — your QWERTY row is a piano.",
     highlights: [:],
     body: [
@@ -113,7 +126,7 @@ charts.append(Chart(
 // Highlight every white + black up to the octave above C as a single
 // stack; readers count steps from C.
 charts.append(Chart(
-    title: "intervals.",
+    title: "Intervals",
     subtitle: "distance, in semitones, between two notes. count up from C.",
     highlights: intervalsHighlight(),
     body: [
@@ -138,7 +151,7 @@ charts.append(Chart(
 
 // ───── 3. Major triad ────────────────────────────────────────
 charts.append(Chart(
-    title: "major triad.",
+    title: "Major Triad",
     subtitle: "root · major 3rd · perfect 5th — 0, 4, 7 semitones.",
     highlights: makeShape(root: 60, offsets: [4, 7]),
     body: [
@@ -163,7 +176,7 @@ charts.append(Chart(
 
 // ───── 4. Minor triad ────────────────────────────────────────
 charts.append(Chart(
-    title: "minor triad.",
+    title: "Minor Triad",
     subtitle: "root · minor 3rd · perfect 5th — 0, 3, 7 semitones.",
     highlights: makeShape(root: 60, offsets: [3, 7]),
     body: [
@@ -190,7 +203,7 @@ charts.append(Chart(
 
 // ───── 5. Diminished + augmented ─────────────────────────────
 charts.append(Chart(
-    title: "diminished and augmented.",
+    title: "Diminished and Augmented",
     subtitle: "the two altered triads: shrink or stretch the 5th.",
     highlights: {
         // Show DIM as primary (C-E♭-G♭ = 0,3,6) using one color, and
@@ -229,7 +242,7 @@ charts.append(Chart(
 
 // ───── 6. Seventh chords ─────────────────────────────────────
 charts.append(Chart(
-    title: "seventh chords.",
+    title: "Seventh Chords",
     subtitle: "stack one more 3rd on a triad — four notes for color.",
     highlights: makeShape(root: 60, offsets: [4, 7, 11]),  // CMaj7
     body: [
@@ -256,7 +269,7 @@ charts.append(Chart(
 // ───── 7. Circle of fifths ───────────────────────────────────
 // Show C → G as P5 highlight; mention the circle traversal.
 charts.append(Chart(
-    title: "circle of fifths.",
+    title: "Circle of Fifths",
     subtitle: "go up a perfect 5th — add one sharp. round trip = 12.",
     highlights: makeShape(root: 60, offsets: [7],
                           accentColor: NSColor(srgbRed: 60/255, green: 160/255, blue: 230/255, alpha: 1)),
@@ -283,7 +296,7 @@ charts.append(Chart(
 // Show ALL keys in the C4..C5 octave highlighted in order so the
 // player can practice walking up one semitone at a time.
 charts.append(Chart(
-    title: "chromatic walk.",
+    title: "Chromatic Walk",
     subtitle: "every key, in order, C4 up to C5 — 12 semitones, then back.",
     highlights: {
         var h: [Int: Piano.Highlight] = [:]
@@ -313,7 +326,7 @@ charts.append(Chart(
 // Major + natural minor scale shapes you can walk up and down on
 // the home row.
 charts.append(Chart(
-    title: "scales to walk.",
+    title: "Scales to Walk",
     subtitle: "two diatonic shapes — eight notes up, then back down.",
     highlights: {
         // C major (whites only in our range): 60 62 64 65 67 69 71 72.
@@ -352,7 +365,7 @@ charts.append(Chart(
 // ───── 8c. Interval drill ────────────────────────────────────
 // Practice interval-by-interval up from C: P1, m2, M2, m3, M3, …
 charts.append(Chart(
-    title: "interval drill.",
+    title: "Interval Drill",
     subtitle: "play each pair as a leap up from C — feel the distance.",
     highlights: intervalsHighlight(),
     body: [
@@ -383,7 +396,7 @@ charts.append(Chart(
 
 // ───── 9. Common progressions ────────────────────────────────
 charts.append(Chart(
-    title: "progressions.",
+    title: "Progressions",
     subtitle: "chord-shape sequences your fingers can memorize.",
     highlights: makeShape(root: 60, offsets: [4, 7]),   // start on C major
     body: [
@@ -414,16 +427,192 @@ charts.append(Chart(
     footer: "NOTEPAT · 11"
 ))
 
+// ============================================================
+// SONG CARDS — one melody per card. Lyrics from the public-domain
+// folk corpus (see papers/arxiv-folk-songs). Pitched in C-major-
+// friendly keys so every key on the card maps to a notepat natural.
+// ============================================================
+
+// Highlight helper: dim everything in range, leave the named MIDI
+// notes at their default notepat coloring (so each note pops in its
+// own natural color while non-melody keys drain to gray).
+func songHighlights(_ midis: [Int]) -> [Int: Piano.Highlight] {
+    var h: [Int: Piano.Highlight] = [:]
+    for m in Piano.firstMidi...Piano.lastMidi { h[m] = .dimmed }
+    for m in midis { h[m] = .normal }
+    return h
+}
+
+// MIDI shortcuts for the C-major / G-major naturals these songs use.
+let mC4 = 60, mD4 = 62, mE4 = 64, mF4 = 65, mG4 = 67, mA4 = 69, mB4 = 71
+let mC5 = 72, mD5 = 74, mE5 = 76, mG5 = 79
+
+// Build a vertically-aligned (key, syllable) pair line. Each column is
+// padded to the wider of (key, syllable) so the two strings sit in
+// equal-width Berkeley-Mono columns and every note glyph lands above
+// the syllable it plays.
+func aligned(_ pairs: [(String, String)]) -> (keys: String, lyrics: String) {
+    var k = ""
+    var l = ""
+    for (note, syl) in pairs {
+        let w = max(note.count, syl.count) + 1
+        k += note.padding(toLength: w, withPad: " ", startingAt: 0)
+        l += syl.padding(toLength: w, withPad: " ", startingAt: 0)
+    }
+    return (k, l)
+}
+
+// Convert a list of phrases (each a list of (note, syllable) pairs)
+// into stacked BodyParagraphs: key-line then lyric-line, repeating per
+// phrase with a small top gap between phrases.
+func songLines(_ phrases: [[(String, String)]]) -> [BodyParagraph] {
+    var out: [BodyParagraph] = []
+    for (i, phrase) in phrases.enumerated() {
+        let a = aligned(phrase)
+        out.append(BodyParagraph(runs: [.key(a.keys)], topSpacing: i == 0 ? 0 : 8))
+        out.append(BodyParagraph(runs: [.mono(a.lyrics)], topSpacing: 0))
+    }
+    return out
+}
+
+// ───── 12. Twinkle Twinkle Little Star ───────────────────────
+charts.append(Chart(
+    title: "Twinkle Twinkle",
+    subtitle: "english nursery rhyme. C major. all white keys. play with one finger.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isSong: true,
+    songPhrases: [
+        [("c","twin-"), ("c","-kle"), ("g","twin-"), ("g","-kle"), ("a","li-"), ("a","-ttle"), ("g","star")],
+        [("f","how"),   ("f","i"),    ("e","won-"), ("e","-der"), ("d","what"),("d","you"),  ("c","are")],
+        [("g","up"),    ("g","a-"),   ("f","-bove"),("f","the"),  ("e","world"),("e","so"),  ("d","high")],
+        [("g","like"),  ("g","a"),    ("f","dia-"), ("f","-mond"),("e","in"), ("e","the"),  ("d","sky")],
+    ]
+))
+
+// ───── 13. Row Row Row Your Boat (round) ─────────────────────
+charts.append(Chart(
+    title: "Row Row Row Your Boat",
+    subtitle: "english round. play it; have a friend start 4 beats behind. instant two-part.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isSong: true,
+    songPhrases: [
+        [("c","row"), ("c","row"), ("c","row"), ("d","your"),("e","boat")],
+        [("e","gent-"),("d","-ly"),("e","down"),("f","the"), ("g","stream")],
+        [("h","mer-"),("h","-ri-"),("h","-ly"), ("g","mer-"),("g","-ri-"),("g","-ly")],
+        [("e","mer-"),("e","-ri-"),("e","-ly"), ("c","mer-"),("c","-ri-"),("c","-ly")],
+        [("g","life"),("f","is"), ("e","but"), ("d","a"),   ("c","dream")],
+    ]
+))
+
+// ───── 15. Frère Jacques (french round) ──────────────────────
+charts.append(Chart(
+    title: "Frere Jacques",
+    subtitle: "french round. C major. each phrase plays twice; start a friend 4 beats behind.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isSong: true,
+    songPhrases: [
+        [("c","frè-"), ("d","-re"), ("e","jac-"), ("c","-ques")],
+        [("e","dor-"), ("f","-mez"),("g","vous")],
+        [("g","son-"), ("a","-nez"),("g","les"), ("f","ma-"), ("e","-ti-"),("c","-nes")],
+        [("c","ding"), ("g","ding"),("c","dong")],
+    ]
+))
+
+// ───── 16. Mary Had a Little Lamb ────────────────────────────
+charts.append(Chart(
+    title: "Mary Had a Little Lamb",
+    subtitle: "english nursery rhyme. only four notes — c d e g. taught to most kids first.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isSong: true,
+    songPhrases: [
+        [("e","ma-"),("d","-ry"),("c","had"),("d","a"), ("e","lit-"),("e","-tle"),("e","lamb")],
+        [("d","lit-"),("d","-tle"),("d","lamb"),("e","lit-"),("g","-tle"),("g","lamb")],
+        [("e","ma-"),("d","-ry"),("c","had"),("d","a"), ("e","lit-"),("e","-tle"),("e","lamb")],
+        [("d","its"),("d","fleece"),("e","was"),("d","white"),("c","as snow")],
+    ]
+))
+
+// ───── 17. Ode to Joy (Beethoven 9th) ────────────────────────
+charts.append(Chart(
+    title: "Ode to Joy",
+    subtitle: "beethoven, ninth symphony. five notes — c d e f g — and you've got the EU anthem.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isSong: true,
+    songPhrases: [
+        [("e","joy-"),("e","-ful"),("f","joy-"),("g","-ful"),("g","we"),("f","a-"),("e","-dore"),("d","thee")],
+        [("c","god"),("c","of"), ("d","glo-"),("e","-ry"), ("e","lord"),("d","of"),("d","love")],
+        [("e","hearts"),("e","un-"),("f","-fold"),("g","like"),("g","flow'rs"),("f","be-"),("e","-fore"),("d","thee")],
+        [("c","prais-"),("c","-ing"),("d","thee,"),("e","their"),("d","sun"),("c","a-"),("c","-bove")],
+    ]
+))
+
+// ───── 18. Happy Birthday ────────────────────────────────────
+// (Public domain since 2016 — Warner/Chappell lost the case.)
+charts.append(Chart(
+    title: "Happy Birthday",
+    subtitle: "public domain since 2016. wide range — climbs to upper G for the friend's name.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isSong: true,
+    songPhrases: [
+        [("g","hap-"),("g","-py"),("a","birth-"),("g","-day"),("h","to"),("b","you")],
+        [("g","hap-"),("g","-py"),("a","birth-"),("g","-day"),("i","to"),("h","you")],
+        [("g","hap-"),("g","-py"),("l","birth-"),("j","-day"),("h","dear"),("b","___")],
+        [("f","hap-"),("f","-py"),("j","birth-"),("h","-day"),("i","to"),("h","you")],
+    ]
+))
+
+// ───── 14. Amazing Grace (pentatonic) ────────────────────────
+// Melody encoded in G-major pentatonic — the 5 notes G A B D E. The
+// song starts on a pickup D below the tonic, then climbs. No sharps.
+charts.append(Chart(
+    title: "Amazing Grace",
+    subtitle: "american pentatonic. five notes — g a b d e — zero sharps. pickup on the low d.",
+    highlights: [:],
+    body: [],
+    footer: "",
+    isSong: true,
+    songPhrases: [
+        [("d","a-"), ("g","-ma-"),("b","-zing"),("g","grace"),("b","how"),("a","sweet")],
+        [("g","the"),("b","sound"),("i","that"),("j","saved"),("i","a")],
+        [("b","wretch"),("g","like"),("b","me")],
+    ]
+))
+
 // ── Pastel rotation per card ───────────────────────────────────────
 let palette: [NSColor] = [
     bgWarmCream, bgPaleRose, bgPalePeach, bgPaleLemon,
     bgPaleMint,  bgPaleSky,  bgPaleLilac, bgPaleSand,
     bgWarmCream, bgPaleMint, bgPaleSky,
+    // song cards — let each get a distinct pastel
+    bgPaleRose,  bgPalePeach, bgPaleLemon,
+    bgPaleMint,  bgPaleSky,   bgPaleLilac, bgPaleSand,
 ]
 for i in charts.indices {
     charts[i].background = palette[i % palette.count]
 }
 
 // ── Render the whole deck. ─────────────────────────────────────────
+// Cover keys illustration: prefer the gpt-image-2 illy-cover.png if it
+// exists, fall back to the legacy keys-strip.png crop.
+let coverDir = outURL.deletingLastPathComponent()
+for candidate in ["illy-cover.png", "keys-strip.png"] {
+    let p = coverDir.appendingPathComponent(candidate).path
+    if FileManager.default.fileExists(atPath: p) {
+        ChartRenderer.coverKeysImagePath = p
+        break
+    }
+}
 ChartRenderer.renderPDF(charts: charts, to: outURL)
 print("wrote \(outURL.path) — \(charts.count) cards")
