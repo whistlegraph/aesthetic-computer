@@ -309,22 +309,23 @@ function hhmm(seconds) {
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 }
 
-// Compose KEY_IDEAS \item lines from directives. decisions/actions/highlights
-// surface here; other directive types live inline in the body.
+// Compose KEY_IDEAS rows from directives. Decisions/actions/highlights
+// surface here as \keyidea{LABEL}{text}; other directive types live
+// inline in the body.
 function renderKeyIdeas(directives) {
   const items = [];
   for (const d of directives) {
     if (d.type === "decision" && d.text) {
-      items.push(`  \\item Decision: ${escapeTex(d.text)}`);
+      items.push(`\\keyidea{Decision}{${escapeTex(d.text)}}`);
     } else if (d.type === "action" && d.text) {
-      const who = d.person ? `${escapeTex(d.person)} --- ` : "";
-      items.push(`  \\item Action --- ${who}${escapeTex(d.text)}`);
+      const who = d.person ? escapeTex(d.person).toUpperCase() : "";
+      items.push(`\\keyidea{Action${who ? " — " + who : ""}}{${escapeTex(d.text)}}`);
     } else if (d.type === "highlight" && d.text) {
-      items.push(`  \\item Highlighted: ${escapeTex(d.text)}`);
+      items.push(`\\keyidea{Highlight}{${escapeTex(d.text)}}`);
     }
   }
   if (items.length === 0) {
-    items.push("  \\item \\textit{(no directives captured — transcript only)}");
+    items.push("\\keyidea{}{\\textit{(no directives captured --- transcript only)}}");
   }
   return items.join("\n");
 }
@@ -371,10 +372,10 @@ function renderBody(transcript, directives) {
       const d = it.d;
       switch (d.type) {
         case "section":
-          out.push(`\\section{${escapeTex(d.name || "Section")}}`);
+          out.push(`\\cardtitle{${escapeTex((d.name || "Section").toLowerCase())}}`);
           break;
         case "subsection":
-          out.push(`\\subsection{${escapeTex(d.name || "Subsection")}}`);
+          out.push(`\\subsection{${escapeTex((d.name || "Subsection").toLowerCase())}}`);
           break;
         case "break":
         case "lone-short":
@@ -427,7 +428,7 @@ function cmdBuild(slugArg) {
     die("build needs transcript + directives — run parse first");
   }
   const templatePath = join(HERE, "template/meeting.tex.tmpl");
-  const styPath = join(HERE, "template/ac-meeting.sty");
+  const styPath = join(HERE, "template/ac-meeting-cards.sty");
   if (!existsSync(templatePath)) die(`missing template: ${templatePath}`);
 
   const out = join(dir, "meeting.pdf");
@@ -445,8 +446,8 @@ function cmdBuild(slugArg) {
 
   // Symlink the stylesheet so xelatex finds it locally. Re-link each
   // build in case the .sty has moved.
-  const styLink = join(dir, "ac-meeting.sty");
-  try { execSync(`rm -f "${styLink}"`); } catch {}
+  const styLink = join(dir, "ac-meeting-cards.sty");
+  try { execSync(`rm -f "${styLink}" "${join(dir, "ac-meeting.sty")}"`); } catch {}
   try { symlinkSync(styPath, styLink); } catch {
     // If symlink fails (rare — different fs), copy.
     copyFileSync(styPath, styLink);

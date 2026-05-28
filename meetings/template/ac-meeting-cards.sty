@@ -1,0 +1,296 @@
+% ac-meeting-cards.sty — phone-sized meeting deliverable in the
+% notepat-charts visual register.
+%
+% Each meeting becomes a small flippable deck:
+%   - 4" × 6" portrait, soft pastel page tint
+%   - Cover card: title + participants + date + duration
+%   - Key Ideas card: 3-5 bullets pulled from highlights/decisions/actions
+%   - One card per \section (auto-page-break)
+%   - Speaker turns as paragraphs with monospaced label + timestamp
+%   - Whistlepop directives render as inline cards (highlights/decisions/
+%     actions get their own visual treatment without margin sidenotes)
+%   - Footer: "MEETING · N" centered, no watermark
+%
+% Visual lineage: papers/notepat-charts/notepat-charts.pdf — bold lowercase
+% titles with a colored period dot, inline colored typography, generous
+% whitespace, one topic per card.
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-meeting-cards}[2026/05/28 Aesthetic Computer meeting cards]
+
+% === PAGE SIZE ===
+\RequirePackage[
+  paperwidth=4in,
+  paperheight=6in,
+  top=0.45in,
+  bottom=0.55in,
+  left=0.35in,
+  right=0.35in,
+]{geometry}
+
+% === PACKAGES ===
+\RequirePackage{xcolor}
+\RequirePackage{tikz}
+\RequirePackage{eso-pic}
+\RequirePackage{titlesec}
+\RequirePackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+\RequirePackage{fancyhdr}
+\RequirePackage{enumitem}
+
+% === FONTS ===
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\IfFontExistsTF{Berkeley Mono}{%
+  \newfontfamily\acmono{Berkeley Mono}
+}{%
+  \newfontfamily\acmono{Menlo}
+}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{205,92,155}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{40,36,48}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acsoftgray}{RGB}{170,165,180}
+
+% Pastel page backgrounds (from notepat-charts palette). One per card
+% cycle, so a long meeting reads as a flip-book of colored notepad pages.
+\definecolor{bgWarmCream}{RGB}{252,246,238}
+\definecolor{bgPaleRose}{RGB}{252,240,242}
+\definecolor{bgPalePeach}{RGB}{254,240,226}
+\definecolor{bgPaleLemon}{RGB}{252,250,226}
+\definecolor{bgPaleMint}{RGB}{232,250,238}
+\definecolor{bgPaleSky}{RGB}{232,244,252}
+\definecolor{bgPaleLilac}{RGB}{242,238,252}
+\definecolor{bgPaleSand}{RGB}{248,244,232}
+
+% Inline callout accents
+\definecolor{popdecision}{RGB}{210,140,40}
+\definecolor{popaction}{RGB}{60,140,170}
+\definecolor{pophighlight}{RGB}{205,92,155}
+\definecolor{popquote}{RGB}{90,90,100}
+
+% === PAGE BACKGROUND CYCLING ===
+% Each page picks a color based on (page - 1) mod 8. Computed in-place
+% via a TeX \count loop because LaTeX doesn't have a clean \mod operator
+% that works inside background overlays.
+\newcount\acbgmod
+\newcommand{\meetingbg}{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \acbgmod=\numexpr\c@page-1\relax
+    \loop\ifnum\acbgmod>7 \advance\acbgmod by -8 \repeat
+    \ifcase\acbgmod%
+      \fill[bgWarmCream] (current page.south west) rectangle (current page.north east);%
+    \or\fill[bgPaleRose] (current page.south west) rectangle (current page.north east);%
+    \or\fill[bgPalePeach] (current page.south west) rectangle (current page.north east);%
+    \or\fill[bgPaleLemon] (current page.south west) rectangle (current page.north east);%
+    \or\fill[bgPaleMint] (current page.south west) rectangle (current page.north east);%
+    \or\fill[bgPaleSky] (current page.south west) rectangle (current page.north east);%
+    \or\fill[bgPaleLilac] (current page.south west) rectangle (current page.north east);%
+    \or\fill[bgPaleSand] (current page.south west) rectangle (current page.north east);%
+    \fi
+  \end{tikzpicture}%
+}
+\AddToShipoutPictureBG{\meetingbg}
+
+% === SECTIONS = NEW CARD ===
+\let\origsection\section
+\renewcommand{\section}{\clearpage\origsection}
+
+% Bold lowercase section title with a colored period dot at the end.
+\titleformat{\section}[block]
+  {\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark}\raggedright}
+  {}{0pt}
+  {}
+  [{\vspace{-0.25em}}]
+\titlespacing{\section}{0pt}{0em}{0.4em}
+
+\titleformat{\subsection}[block]
+  {\acbold\fontsize{12pt}{14pt}\selectfont\color{acpurple}\raggedright}
+  {}{0pt}{}
+\titlespacing{\subsection}{0pt}{0.6em}{0.2em}
+
+\setcounter{secnumdepth}{-1}
+
+% === SECTION-TITLE HELPER ===
+% \cardtitle{name} — render the section title with a final colored period,
+% matching notepat-charts ("the notepat layout."). The pink dot is the
+% only ornament on the page.
+% \cardtitle puts a section title with a colored period at the top of a
+% fresh card. Used by cli.mjs build for every section directive — the
+% \clearpage is explicit because we use \section* (which skips the auto
+% break installed on the unstarred \section above).
+\newcommand{\cardtitle}[1]{%
+  \clearpage\section*{#1{\color{acpink}.}}%
+}
+\newcommand{\cardsubtitle}[1]{%
+  {\fontsize{9.5pt}{12pt}\selectfont\color{acgray}#1\par}%
+  \vspace{0.6em}%
+}
+
+% === COVER ===
+% \meetingcover{title}{date · duration · participants}{wav basename}
+% Title page only — vertically centered, no card break before, just the
+% pink-dot title and a tiny meta line under it.
+\newcommand{\meetingcover}[3]{%
+  \thispagestyle{empty}%
+  \begin{tikzpicture}[remember picture, overlay]
+    \node[anchor=center, text width=3.3in, align=center]
+      at ([yshift=0.3in]current page.center) {%
+        {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark}#1{\color{acpink}.}}\\[0.7em]
+        {\fontsize{10pt}{13pt}\selectfont\itshape\color{acgray}#2}\\[0.4em]
+        {\acmono\fontsize{7pt}{9pt}\selectfont\color{acsoftgray}#3}%
+      };
+  \end{tikzpicture}%
+  \null\clearpage%
+}
+
+% === KEY IDEAS ===
+% Renders the "key ideas." card. Each \keyidea{label}{text} is a row
+% with a small colored tag (decision/action/highlight) and the body.
+\newenvironment{keyideas}{%
+  \cardtitle{key ideas}%
+  \cardsubtitle{the meeting in one card.}%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemindent}{0pt}%
+    \setlength{\itemsep}{0.5em}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\topsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+\newcommand{\keyidea}[2]{%
+  \item
+  {\acbold\fontsize{8pt}{10pt}\selectfont\MakeUppercase{#1}}\quad
+  {\fontsize{10pt}{13pt}\selectfont #2}%
+}
+
+% === SPEAKER TURNS ===
+% Compact paragraph form: speaker label + timestamp on one line, body
+% reading after. Uses Berkeley Mono for the label so it scans like
+% system output, distinct from spoken words.
+\newcommand{\turn}[3]{%
+  \par\vspace{0.4em}%
+  \noindent
+  {\acmono\fontsize{7.5pt}{10pt}\selectfont\bfseries\color{acdark}\MakeUppercase{#1}}%
+  \hspace{0.5em}%
+  {\acmono\fontsize{7pt}{9pt}\selectfont\color{acsoftgray}#2}%
+  \par\noindent\fontsize{10pt}{13pt}\selectfont\ignorespaces#3\par
+}
+
+% === WHISTLEPOP CALLOUTS (inline — no margin space on a 4in page) ===
+
+% Highlight — soft pink bar to the left, no border, no fill heavy.
+\newtcolorbox{whistlepophighlight}{%
+  enhanced, breakable, sharp corners,
+  colback=acpink!7, colframe=pophighlight,
+  boxrule=0pt, leftrule=2pt,
+  left=0.5em, right=0.5em, top=0.3em, bottom=0.3em,
+  before skip=0.45em, after skip=0.45em,
+}
+\newcommand{\mhighlight}[1]{\begin{whistlepophighlight}\fontsize{10pt}{13pt}\selectfont #1\end{whistlepophighlight}}
+
+% Decision — amber border + label tag.
+\newtcolorbox{whistlepopdecision}{%
+  enhanced, breakable, sharp corners,
+  colback=white!75, colframe=popdecision,
+  boxrule=0.8pt,
+  left=0.6em, right=0.6em, top=0.4em, bottom=0.4em,
+  before skip=0.6em, after skip=0.6em,
+}
+\newcommand{\mdecision}[2]{%
+  \begin{whistlepopdecision}%
+    {\acbold\fontsize{7pt}{9pt}\selectfont\color{popdecision}DECISION{\color{popdecision}.}}\par\vspace{0.15em}%
+    \fontsize{10pt}{13pt}\selectfont #1%
+    \ifx&#2&\else
+      \par\vspace{0.1em}%
+      {\fontsize{8.5pt}{11pt}\selectfont\itshape\color{popdecision}— #2}%
+    \fi
+  \end{whistlepopdecision}%
+}
+
+% Action — cyan bar + "→ NAME" prefix.
+\newtcolorbox{whistlepopaction}[1]{%
+  enhanced, breakable, sharp corners,
+  colback=popaction!7, colframe=popaction,
+  boxrule=0pt, leftrule=2pt,
+  left=0.5em, right=0.5em, top=0.3em, bottom=0.3em,
+  before skip=0.45em, after skip=0.45em,
+}
+\newcommand{\maction}[2]{%
+  \begin{whistlepopaction}{#1}%
+    {\acbold\fontsize{7pt}{9pt}\selectfont\color{popaction}$\rightarrow$ \MakeUppercase{#1}}\par\vspace{0.1em}%
+    \fontsize{10pt}{13pt}\selectfont #2%
+  \end{whistlepopaction}%
+}
+
+% Quote — italic, gray accent, hanging indent.
+\newcommand{\mquote}[1]{%
+  \par\vspace{0.4em}%
+  \begingroup
+    \leftskip=0.8em\rightskip=0.4em
+    \color{popquote}\itshape\fontsize{10pt}{13pt}\selectfont #1\par
+  \endgroup
+  \vspace{0.3em}%
+}
+
+% Note — inline italic gray parenthetical, smaller type.
+\newcommand{\mnote}[1]{%
+  \par\vspace{0.2em}%
+  {\fontsize{8.5pt}{11pt}\selectfont\itshape\color{acgray}— #1}\par
+  \vspace{0.2em}%
+}
+
+% Freeform — small monospaced tag + the verbatim text.
+\newcommand{\mfreeform}[1]{%
+  \par\vspace{0.2em}%
+  {\acmono\fontsize{6.5pt}{8pt}\selectfont\color{acsoftgray}[freeform]}\enspace%
+  {\fontsize{8.5pt}{11pt}\selectfont\itshape\color{acgray}#1}\par
+  \vspace{0.2em}%
+}
+
+% Skipped — inline tag, monospaced.
+\newcommand{\mskipped}[1]{%
+  {\acmono\fontsize{8pt}{10pt}\selectfont\color{acsoftgray}[\,skipped #1\,]}%
+}
+
+% Section break from a lone short whistle (when not promoted to \section).
+\newcommand{\whistlebreak}{%
+  \par\vspace{0.7em}%
+  \begin{center}%
+    {\color{acsoftgray}\fontsize{10pt}{12pt}\selectfont$\sim$\hspace{0.3em}$\sim$\hspace{0.3em}$\sim$}%
+  \end{center}%
+  \vspace{0.4em}\par\noindent\ignorespaces%
+}
+
+% === FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyfoot[C]{%
+  {\acbold\fontsize{6.5pt}{8pt}\selectfont\color{acsoftgray}%
+    MEETING \enspace$\cdot$\enspace \thepage}%
+}
+
+% === LIST + PARAGRAPH ===
+\setlist[itemize]{nosep, leftmargin=1em, itemsep=0.2em}
+\setlist[enumerate]{nosep, leftmargin=1.2em, itemsep=0.2em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.4em}
+\linespread{1.15}
+
+\tolerance=600
+\emergencystretch=1.5em
+\hyphenpenalty=200
+
+\endinput

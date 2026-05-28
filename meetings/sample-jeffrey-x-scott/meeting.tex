@@ -1,16 +1,8 @@
 % !TEX program = xelatex
-% Sample meeting — exercises every macro in ac-meeting.sty so we can
-% verify the template compiles before wiring the real build pipeline.
+% Sample meeting in the cards layout — exercises every macro in
+% ac-meeting-cards.sty so we can verify the template compiles.
 
-\documentclass[11pt,letterpaper]{article}
-
-\usepackage[
-  paperwidth=8.5in, paperheight=11in,
-  top=0.9in, bottom=0.9in,
-  inner=0.9in, outer=2.6in,
-  marginparwidth=1.8in, marginparsep=0.2in,
-  twoside=false,
-]{geometry}
+\documentclass[11pt]{article}
 
 \usepackage{fontspec}
 \usepackage{unicode-math}
@@ -31,25 +23,20 @@
   pdftitle={jeffrey x scott — sample meeting},
 }
 
-\usepackage{ac-meeting}
+\usepackage{ac-meeting-cards}
 
 \begin{document}
-\pagestyle{empty}
 
-\meetingtitle{jeffrey x scott}
-\meetingmeta{2026-05-30}{53 min}{jeffrey, scott}{2026-05-30-1600-jeffrey-x-scott.wav}
+\meetingcover{jeffrey x scott}{2026-05-30 \enspace$\cdot$\enspace 53 min \enspace$\cdot$\enspace jeffrey, scott}{2026-05-30-1600-jeffrey-x-scott.wav}
 
 \begin{keyideas}
-\begin{itemize}
-  \item Decision: ship trancepenta stems by Friday.
-  \item Highlighted: scott's bridge motif idea is the spine of the next section.
-  \item Action — jeffrey: send scott the bare project file with no mastering.
-\end{itemize}
+  \keyidea{Decision}{Ship trancepenta stems Friday, unmastered, bare project export.}
+  \keyidea{Highlight}{Scott's bridge motif idea is the spine of the next section.}
+  \keyidea{Action --- JEFFREY}{Send scott the bare project file by Friday end-of-day.}
 \end{keyideas}
 
-\vspace{1.5em}
-
-\section{Opening}
+\section*{opening{\color{acpink}.}}
+\cardsubtitle{small talk and framing.}
 
 \turn{jeffrey}{00:00}{Hey Scott — thanks for jumping on. I wanted to talk through where the trancepenta stems land before Friday.}
 
@@ -65,7 +52,8 @@
 
 \mnote{Sage made a similar point about letting motifs breathe in a chat last week.}
 
-\section{Decisions}
+\section*{decisions{\color{acpink}.}}
+\cardsubtitle{what we committed to.}
 
 \turn{scott}{02:30}{So timing-wise — when can you get me the bare stems?}
 
@@ -75,7 +63,8 @@
 
 \maction{jeffrey}{Send scott the bare project file with no mastering by Friday end-of-day.}
 
-\section{Tangents}
+\section*{tangents{\color{acpink}.}}
+\cardsubtitle{the small detours.}
 
 \turn{scott}{04:15}{Random question — have you been keeping up with the whistlegraph stuff lately?}
 
@@ -91,12 +80,9 @@
 
 \turn{jeffrey}{05:58}{Perfect — talk soon.}
 
-\whistlebreak
-
-\section{Notes for the future}
+\section*{notes for the future{\color{acpink}.}}
+\cardsubtitle{what to revisit next time.}
 
 \turn{jeffrey}{06:00}{For the followup we should plan out a second pass once the stems are in.}
-
-\meetingcolophon
 
 \end{document}

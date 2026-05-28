@@ -1,18 +1,10 @@
 % !TEX program = xelatex
 % Template substituted by meetings/cli.mjs build — placeholder names are
 % wrapped in double curly braces (see cli.mjs cmdBuild for the list).
-% Do not document the placeholders inline here; the substitution is
-% literal string-replace and would corrupt the comments.
+% Do not document the placeholders inline here; substitution is literal
+% string-replace and would corrupt comments.
 
-\documentclass[11pt,letterpaper]{article}
-
-\usepackage[
-  paperwidth=8.5in, paperheight=11in,
-  top=0.9in, bottom=0.9in,
-  inner=0.9in, outer=2.6in,
-  marginparwidth=1.8in, marginparsep=0.2in,
-  twoside=false,
-]{geometry}
+\documentclass[11pt]{article}
 
 \usepackage{fontspec}
 \usepackage{unicode-math}
@@ -22,13 +14,6 @@
   BoldFont=lmroman10-bold,
   ItalicFont=lmroman10-italic,
   BoldItalicFont=lmroman10-bolditalic,
-]
-\setsansfont{Latin Modern Sans}[
-  Extension=.otf,
-  UprightFont=lmsans10-regular,
-  BoldFont=lmsans10-bold,
-  ItalicFont=lmsans10-oblique,
-  BoldItalicFont=lmsans10-boldoblique,
 ]
 
 \usepackage{xcolor}
@@ -42,24 +27,16 @@
   pdfauthor={Aesthetic Computer · meetings/cli.mjs},
 }
 
-\usepackage{ac-meeting}
+\usepackage{ac-meeting-cards}
 
 \begin{document}
-\pagestyle{empty}
 
-\meetingtitle{ {{TITLE}} }
-\meetingmeta{ {{DATE}} }{ {{DURATION}} }{ {{PARTICIPANTS}} }{ source: {{SOURCE_WAV}} }
+\meetingcover{ {{TITLE}} }{ {{DATE}} \enspace$\cdot$\enspace {{DURATION}} \enspace$\cdot$\enspace {{PARTICIPANTS}} }{ {{SOURCE_WAV}} }
 
 \begin{keyideas}
-\begin{itemize}
 {{KEY_IDEAS}}
-\end{itemize}
 \end{keyideas}
 
-\vspace{1.5em}
-
 {{BODY}}
-
-\meetingcolophon
 
 \end{document}
