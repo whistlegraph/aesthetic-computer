@@ -92,9 +92,22 @@ enum MenuBuilder {
         return it
     }
 
+    /// Identifier prefix used to tag each pop-render NSMenuItem so
+    /// `updatePopRenders(in:state:)` can find and rewrite it in place
+    /// while the menu is open. Full identifier = prefix + heartbeat id.
+    static let popRenderItemIDPrefix = "pop-render:"
+
+    /// Monospaced font used for both initial build and live updates so
+    /// the bar/cell widths stay aligned tick-to-tick.
+    private static let renderFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+
     /// Temporary progress bars — one monospaced row per live /pop render
     /// heartbeat (audio / illy / video). Present only while a render is
     /// running; the rows vanish when the heartbeat files are gone.
+    ///
+    /// Each row is tagged with `pop-render:<id>` so
+    /// `updatePopRenders(in:state:)` can rewrite its title in place while
+    /// the menu is on screen, without restructuring the menu mid-tracking.
     private static func appendPopRenders(to menu: NSMenu, state: StateSnapshot) {
         guard !state.popRenders.isEmpty else { return }
         let n = state.popRenders.count
@@ -102,12 +115,36 @@ enum MenuBuilder {
         for r in state.popRenders {
             let it = NSMenuItem(title: renderLine(r), action: nil, keyEquivalent: "")
             it.isEnabled = false
+            it.identifier = NSUserInterfaceItemIdentifier(popRenderItemIDPrefix + r.id)
             it.attributedTitle = NSAttributedString(
                 string: renderLine(r),
-                attributes: [.font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)])
+                attributes: [.font: renderFont])
             menu.addItem(it)
         }
         menu.addItem(.separator())
+    }
+
+    /// Rewrite the title of each pop-render row from the latest snapshot.
+    /// Called from a fast `.common`-mode timer started in `menuWillOpen`,
+    /// so the bars tick live while the dropdown is open. Pure title
+    /// mutation — never adds or removes items mid-tracking (that's the
+    /// historical sharp edge); rows that disappear from the heartbeat
+    /// dir just stop updating until the menu next opens.
+    static func updatePopRenders(in menu: NSMenu, state: StateSnapshot) {
+        guard !state.popRenders.isEmpty else { return }
+        var byID: [String: PopRender] = [:]
+        for r in state.popRenders { byID[r.id] = r }
+        for item in menu.items {
+            guard let raw = item.identifier?.rawValue,
+                  raw.hasPrefix(popRenderItemIDPrefix) else { continue }
+            let id = String(raw.dropFirst(popRenderItemIDPrefix.count))
+            guard let r = byID[id] else { continue }
+            let line = renderLine(r)
+            if item.attributedTitle?.string == line { continue }
+            item.attributedTitle = NSAttributedString(
+                string: line,
+                attributes: [.font: renderFont])
+        }
     }
 
     /// `illy   ▓▓▓▓▓▓░░░░░░  58%  142/240  helpabeach-p`

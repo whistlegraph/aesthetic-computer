@@ -28,6 +28,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// tick so the bg alternates between its base and pulse palettes.
     private var blinkTimer: Timer?
     private var blinkPhase: Bool = false
+    /// Live-updates the pop-render progress bars while the menu is open.
+    /// Re-reads ~/.ac-pop-renders/ (cheap — small dir of small JSON files)
+    /// and rewrites each tagged row's title in place. Scheduled in
+    /// `.common` mode so it actually fires while NSMenu tracks events;
+    /// invalidated in `menuDidClose`.
+    private var popRenderTimer: Timer?
     /// `sessionId → "<state>|<subject>"` of the last theme/title we pushed
     /// to Terminal, so the per-tick refresh only fires osascript when
     /// something actually changed.
@@ -188,6 +194,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             imsgConfigured: imsgConfigured,
             target: self
         )
+    }
+
+    /// Once the menu is on screen, tick the pop-render progress bars
+    /// live. NSMenu's default mode pauses Timers (and `menuNeedsUpdate`
+    /// only fires once per open), so we add this one to `.common` modes
+    /// and rewrite titles in place rather than restructuring the menu.
+    func menuWillOpen(_ menu: NSMenu) {
+        guard menu === self.menu else { return }
+        popRenderTimer?.invalidate()
+        guard !state.popRenders.isEmpty else { return }
+        let t = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.tickPopRenders()
+        }
+        popRenderTimer = t
+        RunLoop.main.add(t, forMode: .common)
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        guard menu === self.menu else { return }
+        popRenderTimer?.invalidate()
+        popRenderTimer = nil
+    }
+
+    private func tickPopRenders() {
+        // Cheap pop-only refresh: skip the full gather() (ioreg / pmset /
+        // tailscale) and just re-read the heartbeat dir. Safe on main —
+        // a few KB of JSON in a tiny directory.
+        let fresh = StateSnapshot.readPopRenders()
+        state.popRenders = fresh
+        MenuBuilder.updatePopRenders(in: menu, state: state)
     }
 
     private func updateIcon() {

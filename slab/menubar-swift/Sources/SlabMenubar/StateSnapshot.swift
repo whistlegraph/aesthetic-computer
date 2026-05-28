@@ -74,7 +74,10 @@ struct StateSnapshot {
     /// Cheap — a small dir of tiny JSON files — and gather() already
     /// runs off the main tick. Sweeps stale files (writer pid gone, or
     /// heartbeat older than 120 s) so a crashed render leaves no ghost.
-    private static func readPopRenders() -> [PopRender] {
+    ///
+    /// Internal (not private) so AppDelegate can do a fast pop-only
+    /// re-poll while the menu is open without paying for a full gather().
+    static func readPopRenders() -> [PopRender] {
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".ac-pop-renders")
         guard let entries = try? FileManager.default.contentsOfDirectory(

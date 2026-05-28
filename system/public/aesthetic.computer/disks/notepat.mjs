@@ -1168,12 +1168,22 @@ let paintPictureOverlay = false;
 
 // let qrcells;
 
-let waveBtn, octBtn, osBtn, abletonBtn;
+let waveBtn, octBtn, osBtn, abletonBtn, recBtn;
 // 🥁 Drum kit lives as a wave type ("drum") in `wavetypes` — when selected,
 // every note fires from lib/percussion.mjs instead of the pitched synth.
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
 let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
+
+// 🔴 Recording for clock jump-and-play
+// `recBtn` is rendered on the OS bar. First press starts capturing every
+// note-on as { tone, downAt } and finalizes it on note-off; second press
+// serializes the buffer to clock's melody syntax and jumps to clock so the
+// recording plays back. Sticky duration modifiers in clock's parser are why
+// v1 emits all notes at the median duration with no per-note modifier.
+let recording = false;
+let recordBuffer = []; // [{ tone: "4c", downAt: ms, upAt: ms }]
+let recordingActive = {}; // buttonNote -> { tone, downAt }
 let melodyAliasDown = false;
 let melodyAliasActiveNote = null;
 let melodyAliasStartedNote = false;
@@ -1769,6 +1779,7 @@ async function boot({
   buildWaveButton(api);
   buildAbletonButton(api);
   buildOsButton(api);
+  buildRecButton(api);
   buildToggleButtons(api);
   buildMetronomeButtons(api);
 
@@ -1792,6 +1803,7 @@ function sim({ sound, simCount, num, clock, painting }) {
     num,
   });
   flushRelayMidiQueue();
+  recordSync();
 
   if (lowLatencyMode) {
     if (simTick % 3 === 0) sound.speaker?.poll();
@@ -4854,6 +4866,38 @@ function paint({
       );
     });
 
+    recBtn?.paint((btn) => {
+      // Pulse a half-cycle per second while armed so the red dot reads as live.
+      const pulse = recording
+        ? 0.7 + 0.3 * Math.sin(performance.now() / 160)
+        : 1;
+      const bgIdle = btn.down ? [90, 20, 20] : [55, 10, 10];
+      const bgRec = [Math.round(180 * pulse), 20, 20];
+      const bg = recording ? bgRec : bgIdle;
+      ink(bg).box(btn.box);
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(btn.box);
+        ink(255, 120, 120, 160).box(btn.box, "outline");
+      }
+      ink(220, 80, 80).line(
+        btn.box.x + btn.box.w,
+        btn.box.y,
+        btn.box.x + btn.box.w,
+        btn.box.y + btn.box.h - 1,
+      );
+      const label = recording
+        ? osBarButtonMetrics({ screen }).labels.recStop
+        : osBarButtonMetrics({ screen }).labels.rec;
+      const fg = recording
+        ? [255, 240, 240]
+        : btn.down ? [255, 220, 220] : [255, 150, 150];
+      ink(fg).write(
+        label,
+        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
+        undefined, undefined, false, "MatrixChunky8"
+      );
+    });
+
     waveBtn?.paint((btn) => {
       ink(btn.down ? [40, 40, 100] : "darkblue").box(
         btn.box.x,
@@ -6438,6 +6482,7 @@ function act({
     buildWaveButton(api);
     buildAbletonButton(api);
     buildOsButton(api);
+    buildRecButton(api);
     buildToggleButtons(api);
     buildMetronomeButtons(api);
     // Resize picture to quarter resolution (half width, half height)
@@ -6711,6 +6756,7 @@ function act({
     buildWaveButton(api);
     buildAbletonButton(api);
     buildOsButton(api);
+    buildRecButton(api);
   }
 
   // 🎼 GM digit-buffered patch picker — top-row 0-9 like menuband. Each
@@ -6745,6 +6791,7 @@ function act({
           wave = "gm";
           buildAbletonButton(api);
           buildOsButton(api);
+          buildRecButton(api);
         }
       }
 
@@ -7535,6 +7582,7 @@ function act({
         buildWaveButton(api);
         buildAbletonButton(api);
         buildOsButton(api);
+        buildRecButton(api);
       },
     });
 
@@ -7547,6 +7595,7 @@ function act({
         buildWaveButton(api);
         buildAbletonButton(api);
         buildOsButton(api);
+        buildRecButton(api);
       },
     });
 
@@ -7563,6 +7612,33 @@ function act({
       push: () => {
         api.beep();
         jump("os");
+      },
+    });
+
+    recBtn?.act(e, {
+      down: () => api.beep(400),
+      push: () => {
+        api.beep();
+        if (!recording) {
+          recordBuffer = [];
+          recordingActive = {};
+          recording = true;
+          // Seed any currently-held notes so a press mid-chord still captures them.
+          const now = performance.now();
+          for (const bn of Object.keys(tonestack)) {
+            const tone = tonestack[bn]?.tone;
+            if (tone) recordingActive[bn] = { tone, downAt: now };
+          }
+        } else {
+          // Close out any still-held notes before serializing.
+          const now = performance.now();
+          for (const bn of Object.keys(recordingActive)) {
+            const { tone, downAt } = recordingActive[bn];
+            recordBuffer.push({ tone, downAt, upAt: now });
+          }
+          recordingActive = {};
+          finishRecordingAndJump(api);
+        }
       },
     });
 
@@ -8728,6 +8804,8 @@ function osBarButtonMetrics({ screen }) {
     labels: {
       ableton: "m4l",
       os: "os",
+      rec: "rec",
+      recStop: "stop",
     },
   };
 }
@@ -8748,6 +8826,72 @@ function buildOsButton({ ui, screen }) {
   osBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
   osBtn.id = "os-button";
   osBtn.label = m.labels.os;
+}
+
+// 🔴 Record button — sits to the left of osBtn on the OS bar.
+// Width reserves space for the wider label ("stop") so the button doesn't
+// reflow when toggling between idle and recording states.
+function buildRecButton({ ui, screen }) {
+  const m = osBarButtonMetrics({ screen });
+  const labelLen = Math.max(m.labels.rec.length, m.labels.recStop.length);
+  const w = labelLen * m.glyph + m.padX * 2;
+  const anchorX = osBtn?.box?.x ?? abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
+  recBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
+  recBtn.id = "rec-button";
+}
+
+// Snapshot tonestack each sim tick so every note-on/note-off path feeds
+// the recording buffer without hooking each release site individually.
+function recordSync() {
+  if (!recording) return;
+  const now = performance.now();
+  for (const bn of Object.keys(tonestack)) {
+    if (!recordingActive[bn]) {
+      const tone = tonestack[bn]?.tone;
+      if (tone) recordingActive[bn] = { tone, downAt: now };
+    }
+  }
+  for (const bn of Object.keys(recordingActive)) {
+    if (!tonestack[bn]) {
+      const { tone, downAt } = recordingActive[bn];
+      recordBuffer.push({ tone, downAt, upAt: now });
+      delete recordingActive[bn];
+    }
+  }
+}
+
+// Convert recordBuffer into a clock-compatible melody string + timing.
+// Splits each tone (e.g. "4c#") into octave + note, clamps octave to 0-9
+// since clock's parser reads a single digit, and emits notes back-to-back.
+// Sticky duration modifiers in clock would make per-note timing fragile, so
+// v1 uses one base tempo (median of recorded durations) and drops gaps.
+function serializeRecording() {
+  if (!recordBuffer.length) return null;
+  const durations = recordBuffer.map((e) => Math.max(0.05, (e.upAt - e.downAt) / 1000));
+  const sorted = [...durations].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] || 0.5;
+  let melody = "";
+  for (const entry of recordBuffer) {
+    const m = /^(-?\d+)(.+)$/.exec(entry.tone);
+    if (!m) continue;
+    let oct = parseInt(m[1], 10);
+    if (!Number.isFinite(oct)) oct = 4;
+    oct = Math.max(0, Math.min(9, oct));
+    const note = m[2].toLowerCase();
+    melody += `${oct}${note}`;
+  }
+  if (!melody) return null;
+  return { melody, timing: Number(median.toFixed(3)) };
+}
+
+function finishRecordingAndJump(api) {
+  recording = false;
+  recordingActive = {};
+  const result = serializeRecording();
+  recordBuffer = [];
+  if (!result) return;
+  const target = `clock ${result.melody}:${result.timing}`;
+  if (typeof api?.jump === "function") api.jump(target);
 }
 
 // Build metronome controls and toggle buttons with responsive layout
