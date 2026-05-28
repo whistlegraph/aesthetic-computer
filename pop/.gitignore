@@ -12,8 +12,12 @@ maytrax/out/
 # (the manifest.json punch-list IS tracked)
 **/voice-takes/*.wav
 
-# pop/samples/ — third-party reference audio (downloaded from YouTube etc.)
-# The audio + chops stay local; manifest.json + INDEX.json + onsets.json
-# are tracked so the recipe is reproducible from the URL.
+# pop/samples/ — third-party reference audio (downloaded from YouTube,
+# received via iMessage, etc.). Audio + chops + stems + render outputs
+# stay local; only the scripts and manifest are tracked.
 samples/*/source.*
 samples/*/chops/
+samples/*/stems/
+samples/*/loops/
+samples/*/*.wav
+samples/*/jam
