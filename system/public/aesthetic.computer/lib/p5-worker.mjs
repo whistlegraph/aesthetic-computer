@@ -252,12 +252,44 @@ function setViewport(w, h) {
   if (typeof self.window === "undefined") return;
   self.window.innerWidth = w;
   self.window.innerHeight = h;
+  self.window.windowWidth = w;
+  self.window.windowHeight = h;
+  self.window.displayWidth = w;
+  self.window.displayHeight = h;
   if (self.window.screen) {
     self.window.screen.width = w;
     self.window.screen.height = h;
     self.window.screen.availWidth = w;
     self.window.screen.availHeight = h;
   }
+}
+
+// p5 keyCode mappings — match the values p5 uses so `keyCode === UP_ARROW`
+// etc. works without surprise.
+const NAMED_KEYS = {
+  arrowup: 38, arrowdown: 40, arrowleft: 37, arrowright: 39,
+  enter: 13, escape: 27, tab: 9, backspace: 8, delete: 46,
+  shift: 16, control: 17, alt: 18, meta: 91, capslock: 20,
+  space: 32, " ": 32,
+  pageup: 33, pagedown: 34, home: 36, end: 35,
+  insert: 45,
+  f1: 112, f2: 113, f3: 114, f4: 115, f5: 116, f6: 117,
+  f7: 118, f8: 119, f9: 120, f10: 121, f11: 122, f12: 123,
+};
+
+function keyToKeyCode(key) {
+  if (!key) return 0;
+  const lower = String(key).toLowerCase();
+  if (NAMED_KEYS[lower] !== undefined) return NAMED_KEYS[lower];
+  if (key.length === 1) return key.toUpperCase().charCodeAt(0);
+  return 0;
+}
+
+function normalizeKey(key) {
+  if (!key) return "";
+  // p5's `key` is the printed char for single chars; leave named keys as-is
+  // (e.g. "Enter", "ArrowUp") since most sketches check key/keyCode by name.
+  return key;
 }
 
 // Clean up globals so a previously-loaded sketch can't leak into the next.
@@ -450,33 +482,68 @@ export async function makeP5WorkerModule({ slug, source }) {
       return true;
     },
 
-    sim: ({ screen }) => {
-      // Reframe support: if AC screen resizes, update p5 viewport and ask the
-      // sketch to resize via its windowResized() handler.
-      if (screen.width !== lastWidth || screen.height !== lastHeight) {
-        lastWidth = screen.width;
-        lastHeight = screen.height;
-        setViewport(screen.width, screen.height);
+    // sim is intentionally empty — reframe is handled via the `reframed`
+    // event in act() (AC's canonical channel for screen-size changes).
+
+    act: ({ event: e, jump, handle, notice }) => {
+      // Lazy-expose an `ac` global so sketches can navigate / read AC state.
+      if (!self.ac && jump) {
+        self.ac = {
+          jump: (path, opts) => jump(path, opts),
+          handle: () => (typeof handle === "function" ? handle() : null),
+          notice: (msg, color) => notice && notice(msg, color),
+        };
+      }
+
+      if (!p5Instance) return;
+
+      // 📐 Reframe → resize p5 canvas + fire windowResized
+      if (e.is("reframed")) {
+        const w = e.width ?? e.content?.width ?? lastWidth;
+        const h = e.height ?? e.content?.height ?? lastHeight;
+        lastWidth = w;
+        lastHeight = h;
+        setViewport(w, h);
+        try {
+          p5Instance.resizeCanvas?.(w, h);
+          // Hard-reset the OffscreenCanvas as a fallback for any p5 path
+          // that doesn't propagate the resize to the underlying canvas.
+          if (canvasShim && (canvasShim.offscreen.width !== w || canvasShim.offscreen.height !== h)) {
+            canvasShim._oc.width = w;
+            canvasShim._oc.height = h;
+          }
+        } catch (err) { console.warn("[p5-worker] resizeCanvas:", err); }
         if (typeof self.windowResized === "function") {
           try { self.windowResized(); } catch (err) { console.warn("[p5-worker] windowResized:", err); }
         }
+        console.log(`[p5-worker] 📐 reframed → ${w}x${h}`);
+        return;
       }
-    },
 
-    act: ({ event: e }) => {
-      if (!p5Instance) return;
+      // Scale AC screen coords → p5 canvas coords (rarely matters once
+      // resize is honored, but covers sketches that lock a custom canvas size).
       const updateMouse = (x, y) => {
-        self.window.pmouseX = self.window.mouseX ?? x;
-        self.window.pmouseY = self.window.mouseY ?? y;
-        self.window.mouseX = x;
-        self.window.mouseY = y;
+        const cw = canvasShim?.offscreen.width || lastWidth || 1;
+        const ch = canvasShim?.offscreen.height || lastHeight || 1;
+        const sx = cw / (lastWidth || cw);
+        const sy = ch / (lastHeight || ch);
+        const mx = x * sx;
+        const my = y * sy;
+        self.window.pmouseX = self.window.mouseX ?? mx;
+        self.window.pmouseY = self.window.mouseY ?? my;
+        self.window.mouseX = mx;
+        self.window.mouseY = my;
+        self.window.winMouseX = mx;
+        self.window.winMouseY = my;
+        self.window.pwinMouseX = self.window.winMouseX;
+        self.window.pwinMouseY = self.window.winMouseY;
         if (p5Instance) {
           p5Instance.pmouseX = p5Instance.mouseX;
           p5Instance.pmouseY = p5Instance.mouseY;
-          p5Instance.mouseX = x;
-          p5Instance.mouseY = y;
-          p5Instance.winMouseX = x;
-          p5Instance.winMouseY = y;
+          p5Instance.mouseX = mx;
+          p5Instance.mouseY = my;
+          p5Instance.winMouseX = mx;
+          p5Instance.winMouseY = my;
         }
       };
 
@@ -487,22 +554,46 @@ export async function makeP5WorkerModule({ slug, source }) {
       } else if (e.is("touch")) {
         mouseDown = true;
         self.window.mouseIsPressed = true;
-        if (p5Instance) p5Instance.mouseIsPressed = true;
+        // p5 LEFT=37 RIGHT=39 CENTER=3 — we only get plain "touch" from AC
+        self.window.mouseButton = self.LEFT || "left";
+        if (p5Instance) {
+          p5Instance.mouseIsPressed = true;
+          p5Instance.mouseButton = p5Instance.LEFT;
+        }
         updateMouse(e.x, e.y);
         if (typeof self.mousePressed === "function") { try { self.mousePressed(); } catch (err) { console.warn(err); } }
+        if (typeof self.touchStarted === "function") { try { self.touchStarted(); } catch (err) { console.warn(err); } }
       } else if (e.is("lift")) {
         mouseDown = false;
         self.window.mouseIsPressed = false;
         if (p5Instance) p5Instance.mouseIsPressed = false;
         if (typeof self.mouseReleased === "function") { try { self.mouseReleased(); } catch (err) { console.warn(err); } }
         if (typeof self.mouseClicked === "function") { try { self.mouseClicked(); } catch (err) { console.warn(err); } }
+        if (typeof self.touchEnded === "function") { try { self.touchEnded(); } catch (err) { console.warn(err); } }
+      } else if (e.device === "wheel") {
+        // AC wheel events → p5 mouseWheel({delta: ...})
+        if (typeof self.mouseWheel === "function") {
+          try { self.mouseWheel({ delta: e.y ?? e.deltaY ?? 0, deltaX: e.x ?? 0, deltaY: e.y ?? 0 }); }
+          catch (err) { console.warn(err); }
+        }
       } else if (e.is("keyboard:down")) {
-        self.window.key = e.key || "";
-        self.window.keyCode = (e.key || "").toUpperCase().charCodeAt(0) || 0;
+        const k = e.key || "";
+        self.window.key = normalizeKey(k);
+        self.window.keyCode = keyToKeyCode(k);
         self.window.keyIsPressed = true;
+        if (p5Instance) {
+          p5Instance.key = self.window.key;
+          p5Instance.keyCode = self.window.keyCode;
+          p5Instance.keyIsPressed = true;
+        }
         if (typeof self.keyPressed === "function") { try { self.keyPressed(); } catch (err) { console.warn(err); } }
+        // keyTyped fires only for "printable" character keys
+        if (k.length === 1 && typeof self.keyTyped === "function") {
+          try { self.keyTyped(); } catch (err) { console.warn(err); }
+        }
       } else if (e.is("keyboard:up")) {
         self.window.keyIsPressed = false;
+        if (p5Instance) p5Instance.keyIsPressed = false;
         if (typeof self.keyReleased === "function") { try { self.keyReleased(); } catch (err) { console.warn(err); } }
       }
     },
