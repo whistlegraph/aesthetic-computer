@@ -1,0 +1,33 @@
+{
+  "slug": "hellsine",
+  "title": "hellsine",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "bpm": 182,
+  "key": "F# minor",
+  "meter": "4/4",
+  "duration": 161.961247,
+  "audio": "/assets/pop/hellsine.mp3",
+  "cover": "/assets/pop/hellsine.jpg",
+  "sections": [
+    { "name": "overture-a",  "t": 0,                   "illy": "/assets/pop/hellsine/sec-0.pixel.png",  "code": "a" },
+    { "name": "overture-b",  "t": 5.124274847078675,   "illy": "/assets/pop/hellsine/sec-1.pixel.png",  "code": "b" },
+    { "name": "overture-c",  "t": 10.24854969415735,   "illy": "/assets/pop/hellsine/sec-2.pixel.png",  "code": "c" },
+    { "name": "statement-a", "t": 15.372824541236028,  "illy": "/assets/pop/hellsine/sec-3.pixel.png",  "code": "d" },
+    { "name": "statement-b", "t": 25.621374235393375,  "illy": "/assets/pop/hellsine/sec-4.pixel.png",  "code": "e" },
+    { "name": "statement-c", "t": 35.86992392955072,   "illy": "/assets/pop/hellsine/sec-5.pixel.png",  "code": "f" },
+    { "name": "bridge-a",    "t": 46.118473623708084,  "illy": "/assets/pop/hellsine/sec-6.pixel.png",  "code": "g" },
+    { "name": "bridge-b",    "t": 53.8048858943261,    "illy": "/assets/pop/hellsine/sec-7.pixel.png",  "code": "h" },
+    { "name": "bridge-c",    "t": 61.49129816494411,   "illy": "/assets/pop/hellsine/sec-8.pixel.png",  "code": "i" },
+    { "name": "bridge-d",    "t": 69.17771043556212,   "illy": "/assets/pop/hellsine/sec-9.pixel.png",  "code": "j" },
+    { "name": "develop-a",   "t": 76.86412270618014,   "illy": "/assets/pop/hellsine/sec-10.pixel.png", "code": "k" },
+    { "name": "develop-b",   "t": 87.11267240033749,   "illy": "/assets/pop/hellsine/sec-11.pixel.png", "code": "l" },
+    { "name": "develop-c",   "t": 97.36122209449483,   "illy": "/assets/pop/hellsine/sec-12.pixel.png", "code": "m" },
+    { "name": "climax-a",    "t": 107.6097717886522,   "illy": "/assets/pop/hellsine/sec-13.pixel.png", "code": "n" },
+    { "name": "climax-b",    "t": 117.85832148280954,  "illy": "/assets/pop/hellsine/sec-14.pixel.png", "code": "o" },
+    { "name": "climax-c",    "t": 128.1068711769669,   "illy": "/assets/pop/hellsine/sec-15.pixel.png", "code": "p" },
+    { "name": "coda-a",      "t": 138.35542087112424,  "illy": "/assets/pop/hellsine/sec-16.pixel.png", "code": "q" },
+    { "name": "coda-b",      "t": 148.6039705652816,   "illy": "/assets/pop/hellsine/sec-17.pixel.png", "code": "r" }
+  ],
+  "credits": "felt-puppet hellfire waltz for the pixsies body. all instruments + composition + lava sines: aesthetic dot computer."
+}

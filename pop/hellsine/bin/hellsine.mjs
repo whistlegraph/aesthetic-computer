@@ -45,7 +45,7 @@ const BPM = Number(flags.bpm ?? 182);
 const HELL = Number(flags.hell ?? 11);          // base gabber drive ("hell knob")
 const NOKICK = !!flags.nokick;                  // --nokick: drop the kick + its ducking
 const SEED_STR = flags.seed || "hellsine";
-const OUT = flags.out || `${process.env.HOME}/Documents/Working Desktop/hellsine/.hellsine-pre.wav`;
+const OUT = flags.out || `${process.env.HOME}/Documents/Shelf/hellsine/.hellsine-pre.wav`;
 const STRUCT = flags.struct || `${OUT.replace(/\.wav$/, "")}.assets/struct.json`;
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -475,6 +475,14 @@ function loadWavMono(path) {
 // `maxDurMs` caps the output length so the rattle stays contained
 // inside the kick's body. Routes to wet bus via wetSend like playSample.
 function playSampleSwept(t, buf, gain = 1, opt = {}) {
+  // Capture as an SFX event for visualizer lane (preview-score.mjs uses
+  // struct.events.sfx). Tag with the sample identifier when call sites
+  // pass one; otherwise default to "sfx" so the lane still records the
+  // strike time. Gate near-silent / muted plays so we don't pollute the
+  // lane with 0-gain skips.
+  if (gain > 0.02 && t >= 0 && t < totalSec) {
+    sfxEvents.push({ t: +t.toFixed(4), tag: opt.tag || "sfx" });
+  }
   const startRate = opt.startRate || 1;
   const endRate   = opt.endRate   || startRate;
   const pan = Math.max(-1, Math.min(1, opt.pan || 0));
@@ -1030,7 +1038,7 @@ function riser(t, dur, m0, m1, gain = 0.26) {
 }
 
 // ── render the arrangement ────────────────────────────────────────────
-const kickEvents = [], snareEvents = [], sectionRanges = [];
+const kickEvents = [], snareEvents = [], sfxEvents = [], sectionRanges = [];
 let bar = 0;
 for (const sec of PLAN) {
   const tr = sec.transpose || 0;
@@ -3257,12 +3265,24 @@ writeFileSync(OUT, buf);
 
 // ── struct.json (scratch-mix grid + tooling) ──────────────────────────
 mkdirSync(dirname(STRUCT), { recursive: true });
+// SFX events are pushed in order-of-execution which may not be time-
+// sorted (different sections of the engine schedule across overlapping
+// time ranges). Sort chronologically + dedupe near-simultaneous hits
+// from the same sample (within 8 ms) so the lane reads cleanly.
+sfxEvents.sort((a, b) => a.t - b.t);
+const _dedupedSfx = [];
+for (const e of sfxEvents) {
+  const prev = _dedupedSfx[_dedupedSfx.length - 1];
+  if (prev && prev.tag === e.tag && e.t - prev.t < 0.008) continue;
+  _dedupedSfx.push(e);
+}
+
 writeFileSync(STRUCT, JSON.stringify({
   engine: "hellsine", allSine: true, meter: 4, bpm: BPM,
   scale: "minor", rootMidi: 50, totalBars: TOTAL_BARS, totalSec,
   sections: sectionRanges,
-  counts: { kick: kickEvents.length, snare: snareEvents.length },
-  events: { kick: kickEvents, snare: snareEvents },
+  counts: { kick: kickEvents.length, snare: snareEvents.length, sfx: _dedupedSfx.length },
+  events: { kick: kickEvents, snare: snareEvents, sfx: _dedupedSfx },
 }, null, 2));
 
 console.log(`hellsine · ${BPM} BPM · hell=${HELL} · strategy=${STRATEGY} · ${TOTAL_BARS} bars · ${totalSec.toFixed(1)}s`);

@@ -10,15 +10,60 @@
   "audio": "/assets/pop/helpabeach.mp3",
   "cover": "/assets/pop/helpabeach.jpg",
   "sections": [
-    { "name": "tide-in",      "t": 0,       "illy": "/assets/pop/helpabeach/sec-0.jpg" },
-    { "name": "drift 1",      "t": 15.7143, "illy": "/assets/pop/helpabeach/sec-1.jpg" },
-    { "name": "swell 1",      "t": 35.7143, "illy": "/assets/pop/helpabeach/sec-2.jpg" },
-    { "name": "deep-current", "t": 47.1429, "illy": "/assets/pop/helpabeach/sec-3.jpg" },
-    { "name": "drift 2",      "t": 65.7143, "illy": "/assets/pop/helpabeach/sec-4.jpg" },
-    { "name": "undertow",     "t": 84.2857, "illy": "/assets/pop/helpabeach/sec-5.jpg" },
-    { "name": "swell 2",      "t": 102.857, "illy": "/assets/pop/helpabeach/sec-6.jpg" },
-    { "name": "tide-out",     "t": 115.714, "illy": "/assets/pop/helpabeach/sec-7.jpg" },
-    { "name": "ebb",          "t": 132.857, "illy": "/assets/pop/helpabeach/sec-8.jpg" }
+    {
+      "name": "tide-in",
+      "t": 0,
+      "illy": "/assets/pop/helpabeach/sec-0.jpg",
+      "code": "a"
+    },
+    {
+      "name": "drift 1",
+      "t": 15.7143,
+      "illy": "/assets/pop/helpabeach/sec-1.jpg",
+      "code": "b"
+    },
+    {
+      "name": "swell 1",
+      "t": 35.7143,
+      "illy": "/assets/pop/helpabeach/sec-2.jpg",
+      "code": "c"
+    },
+    {
+      "name": "deep-current",
+      "t": 47.1429,
+      "illy": "/assets/pop/helpabeach/sec-3.jpg",
+      "code": "d"
+    },
+    {
+      "name": "drift 2",
+      "t": 65.7143,
+      "illy": "/assets/pop/helpabeach/sec-4.jpg",
+      "code": "e"
+    },
+    {
+      "name": "undertow",
+      "t": 84.2857,
+      "illy": "/assets/pop/helpabeach/sec-5.jpg",
+      "code": "f"
+    },
+    {
+      "name": "swell 2",
+      "t": 102.857,
+      "illy": "/assets/pop/helpabeach/sec-6.jpg",
+      "code": "g"
+    },
+    {
+      "name": "tide-out",
+      "t": 115.714,
+      "illy": "/assets/pop/helpabeach/sec-7.jpg",
+      "code": "h"
+    },
+    {
+      "name": "ebb",
+      "t": 132.857,
+      "illy": "/assets/pop/helpabeach/sec-8.jpg",
+      "code": "i"
+    }
   ],
   "links": {
     "spotify": "https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8"

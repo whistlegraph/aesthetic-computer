@@ -1,0 +1,73 @@
+{
+  "_comment": "Per-panel figure + face bboxes for the hellsine portrait preview-score's 3-layer backlight (vignette + transmitted glow + leaded contrast). Image dims: 1024x1536. preview-score.mjs (figureBoxes/faceBoxes) reads two keys: 'jeffrey' = primary figure, 'gates' = secondary cluster (group of pixsies in multi-figure scenes; covers the crew silhouette + a representative pixsie face so the backlight gates the whole ensemble). Boxes hand-placed against each rendered 1024x1536 panel after multi-cascade Haar (frontalface_default + alt2 + profileface) returned mostly noise on felt-puppet faces with fire-eyes. Re-eyeball if a panel is regenerated.",
+  "imgW": 1024,
+  "imgH": 1536,
+  "sections": {
+    "overture-a": {
+      "jeffrey": { "figure": [220, 320, 520, 880], "face": [360, 320, 260, 260] }
+    },
+    "overture-b": {
+      "jeffrey": { "figure": [260, 320, 520, 920], "face": [340, 340, 300, 320] }
+    },
+    "overture-c": {
+      "jeffrey": { "figure": [280, 360, 500, 900], "face": [380, 380, 280, 300] }
+    },
+    "statement-a": {
+      "jeffrey": { "figure": [260, 280, 540, 940], "face": [380, 360, 300, 320] }
+    },
+    "statement-b": {
+      "jeffrey": { "figure": [520, 500, 460, 760], "face": [600, 520, 280, 280] }
+    },
+    "statement-c": {
+      "jeffrey": { "figure": [220, 320, 600, 760], "face": [360, 340, 280, 280] }
+    },
+    "bridge-a": {
+      "jeffrey": { "figure": [220, 180, 700, 1040], "face": [380, 240, 300, 320] }
+    },
+    "bridge-b": {
+      "jeffrey": { "figure": [540, 320, 460, 960], "face": [600, 340, 280, 300] },
+      "gates":   { "figure": [40,  320, 580, 960], "face": [140, 360, 360, 360] }
+    },
+    "bridge-c": {
+      "jeffrey": { "figure": [320, 260, 380, 520], "face": [360, 260, 300, 280] },
+      "gates":   { "figure": [40,  300, 940, 1080], "face": [80,  340, 880, 580] }
+    },
+    "bridge-d": {
+      "jeffrey": { "figure": [320, 460, 380, 600], "face": [360, 480, 300, 280] },
+      "gates":   { "figure": [80,  220, 880, 1020], "face": [120, 240, 800, 620] }
+    },
+    "develop-a": {
+      "jeffrey": { "figure": [280, 520, 480, 740], "face": [380, 540, 280, 280] },
+      "gates":   { "figure": [40,  360, 940, 540], "face": [60,  380, 900, 360] }
+    },
+    "develop-b": {
+      "jeffrey": { "figure": [120, 700, 480, 580], "face": [220, 720, 280, 280] },
+      "gates":   { "figure": [40,  340, 940, 700], "face": [60,  340, 900, 400] }
+    },
+    "develop-c": {
+      "jeffrey": { "figure": [80,  720, 460, 600], "face": [180, 760, 280, 280] },
+      "gates":   { "figure": [120, 320, 880, 640], "face": [160, 340, 820, 380] }
+    },
+    "climax-a": {
+      "jeffrey": { "figure": [280, 320, 460, 940], "face": [340, 440, 320, 320] },
+      "gates":   { "figure": [40,  420, 940, 880], "face": [60,  440, 900, 480] }
+    },
+    "climax-b": {
+      "jeffrey": { "figure": [120, 320, 480, 1020], "face": [200, 340, 320, 320] },
+      "gates":   { "figure": [440, 460, 560, 880], "face": [460, 480, 540, 460] }
+    },
+    "climax-c": {
+      "jeffrey": { "figure": [360, 880, 280, 440], "face": [400, 880, 220, 220] },
+      "gates":   { "figure": [180, 820, 680, 520], "face": [200, 820, 640, 300] }
+    },
+    "coda-a": {
+      "jeffrey": { "figure": [320, 700, 360, 540], "face": [380, 720, 240, 260] },
+      "gates":   { "figure": [40,  640, 940, 680], "face": [60,  640, 900, 380] }
+    },
+    "coda-b": {
+      "jeffrey": { "figure": [220, 240, 500, 1020], "face": [300, 260, 320, 320] },
+      "gates":   { "figure": [540, 440, 400, 600], "face": [580, 460, 320, 280] }
+    }
+  }
+}
+
