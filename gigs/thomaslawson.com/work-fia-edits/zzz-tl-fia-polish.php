@@ -2,7 +2,22 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
- * Version: 1.4
+ * Version: 1.5
+ *
+ * v1.5 — Fía's 2026-05-28 batch:
+ *  - Bookshelf: shelf subheadings (Artforum, Afterall, …) bumped up in
+ *    size and centred over their cover strip; the strip is centred too
+ *    when it fits and left-aligned + horizontally scrollable when it
+ *    doesn't. Cover lists for the four shelves backed by a sub-page
+ *    (Artforum, Afterall, East of Borneo, Writings About TL) expanded
+ *    to the full set scraped from those sub-pages so people can actually
+ *    scroll horizontally through every cover.
+ *  - Art in a Broader Context: "Familie Beck" tile removed (Fía moved
+ *    it into Bookshelf); the JS skips that column when it rebuilds the
+ *    grid so the remaining tiles re-flow with no gap.
+ *  - About (page-id-68): laid out to mirror News / Bookshelf — header
+ *    image stretched into a full-bleed horizontal banner, then a bold
+ *    "About" heading injected above the bio, paragraphs underneath.
  *
  * v1.4 — Fía's 2026-05-23 batch:
  *  - Studio detail pages: click an artwork to open it in a lightbox
@@ -604,7 +619,8 @@ body.page-id-1147 .elementor-element-ba54885 .elementor-container {
 body.page-id-1898 .elementor-element-1553c2e .elementor-column,
 body.page-id-808  .elementor-element-825b6e9 .elementor-column,
 body.page-id-1177 .elementor-element-1b54d5a .elementor-column,
-body.page-id-1147 .elementor-element-ba54885 .elementor-column {
+body.page-id-1147 .elementor-element-ba54885 .elementor-column,
+body.page-id-68   .elementor-element-3d58b5f .elementor-column {
     width: 100% !important;
     max-width: 100% !important;
     flex: 0 0 auto !important;
@@ -613,18 +629,20 @@ body.page-id-1147 .elementor-element-ba54885 .elementor-column {
 body.page-id-1898 .elementor-element-1553c2e .elementor-column:has(.elementor-widget-image),
 body.page-id-808  .elementor-element-825b6e9 .elementor-column:has(.elementor-widget-image),
 body.page-id-1177 .elementor-element-1b54d5a .elementor-column:has(.elementor-widget-image),
-body.page-id-1147 .elementor-element-ba54885 .elementor-column:has(.elementor-widget-image) {
+body.page-id-1147 .elementor-element-ba54885 .elementor-column:has(.elementor-widget-image),
+body.page-id-68   .elementor-element-3d58b5f .elementor-column:has(.elementor-widget-image) {
     order: -1 !important;
 }
 /* Header image breaks out of its container to the full viewport width —
    the classic "negative-margin escape" — so it reads as a full bleed
    like Bookshelf, Beyond, Art-context already do (Fía, 2026-05-23). The
    :has() rule above puts the image column first, then we yank the image
-   itself to the page edges. */
+   itself to the page edges. About joined the family 2026-05-28. */
 body.page-id-1898 .elementor-element-1553c2e .elementor-widget-image,
 body.page-id-808  .elementor-element-825b6e9 .elementor-widget-image,
 body.page-id-1177 .elementor-element-1b54d5a .elementor-widget-image,
-body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image {
+body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image,
+body.page-id-68   .elementor-element-3d58b5f .elementor-widget-image {
     position: relative !important;
     left: 50% !important;
     right: 50% !important;
@@ -637,7 +655,8 @@ body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image {
 body.page-id-1898 .elementor-element-1553c2e .elementor-widget-image img,
 body.page-id-808  .elementor-element-825b6e9 .elementor-widget-image img,
 body.page-id-1177 .elementor-element-1b54d5a .elementor-widget-image img,
-body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image img {
+body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image img,
+body.page-id-68   .elementor-element-3d58b5f .elementor-widget-image img {
     aspect-ratio: 16 / 5 !important;
     object-fit: cover !important;
     width: 100% !important;
@@ -825,19 +844,23 @@ body.page-id-1147 .tl-ac-year-merged {
  * ---------------------------------------------------------------- */
 body.page-id-808 .tl-shelf-strip {
     display: flex;
-    gap: 0.6rem;
+    gap: 0.7rem;
     overflow-x: auto;
-    padding: 0.6rem 0 1rem;
-    margin: 0.3rem 0 1rem;
+    overflow-y: hidden;
+    padding: 0.7rem 1rem 1.2rem;
+    margin: 0.4rem auto 1.2rem;
     scrollbar-width: thin;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
 }
 body.page-id-808 .tl-shelf-strip img {
-    height: 110px;
+    height: 150px;
     width: auto;
     flex: 0 0 auto;
     border-radius: 2px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     background: #fff;
+    scroll-snap-align: start;
 }
 
 /* The bookshelf shelves are *_clickshow sections that the page's own
@@ -877,11 +900,21 @@ body.page-id-808 .elementor-element-8528fa3 {
 }
 
 /* The injected cover strip stacks full-width directly beneath its
-   subheading, never beside it (Fía, 2026-05-22). */
+   subheading, never beside it (Fía, 2026-05-22). When the strip fits
+   the row, the thumbs centre under the heading; when there are more
+   covers than fit, the row left-aligns + scrolls horizontally so the
+   first cover stays anchored under the title (Fía, 2026-05-28). */
 body.page-id-808 .tl-shelf-strip {
     width: 100%;
-    flex: 0 0 100%;
-    justify-content: center;
+    max-width: 1080px;
+    flex: 0 0 auto;
+    margin: 0.4rem auto 1.2rem;
+    justify-content: flex-start;
+}
+@media (min-width: 980px) {
+    body.page-id-808 .tl-shelf-strip {
+        justify-content: safe center;
+    }
 }
 
 /* Bookshelf intro: title and description left-justified, sitting tight
@@ -916,13 +949,14 @@ body.page-id-808 .elementor-element-825b6e9 .elementor-widget-divider {
    centred + standardised to one size with no anchor underline
    (Fía, 2026-05-23: "remove the underline, standardize the size
    throughout, and make sure the text is centered with the thumbnails
-   below"). */
+   below"). Bumped one tick larger 2026-05-28 — Fía wanted the section
+   titles a touch more prominent. */
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title {
     text-align: center !important;
-    font-size: 1.55rem !important;
+    font-size: 1.95rem !important;
     font-weight: 500 !important;
     line-height: 1.25 !important;
-    margin: 0 0 0.4rem !important;
+    margin: 0 0 0.6rem !important;
 }
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title a,
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title a:visited,
@@ -1086,11 +1120,15 @@ function tl_fia_polish_js() {
     if (is_page(1527)) { tl_fia_polish_js_contact(); return; }
     if (is_page(1147)) { tl_fia_polish_js_artctx();  return; }
     if (is_page(1177)) { tl_fia_polish_js_beyond();  return; }
+    if (is_page(68))   { tl_fia_polish_js_about();   return; }
     if (!is_page(808)) return; // only /bookshelf/ below
     // Pre-curated first-N cover URLs from each shelf subpage (covers
     // already live in /wp-content/uploads/, so reusing them costs nothing).
     $shelves = [
         // section data-id  =>  list of cover image URLs
+        // Artforum — full set scraped from /bookshelf_artforum/ so the
+        // strip overflows and people can scroll through every cover
+        // (Fía, 2026-05-28).
         '7f476f6' => [
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/1-ARtforum-November-1980-817x1024.png',
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/2-Artforum-Marchh-1981-872x1024.png',
@@ -1098,6 +1136,24 @@ function tl_fia_polish_js() {
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Artforum-May-1981-925x1024.png',
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/5-Artforum-September-1981-956x1024.png',
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/6-Artforum-October-1981-960x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/7-Artforum-December-1981-908x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/8-Artforum-January-1982-922x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/9-Artforum-May-1982-855x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/10-Artforum-Summer-1982-961x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/11-Artforum-October-1982-881x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/12-Artforum-November-1982-841x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/13-Artforum-February-1983-1024x640.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/14-Artforum-March-1983-884x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/15-Artforum-Summer-83-859x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/16-Artforum-September-83-923x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/17-Artforum-January-84-929x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/18-Artforum-MAy-84-928x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/19-Artforum-Summer-84-790x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/20-Artforum-September-84--797x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/21-Artforum-Novemner-84-815x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/22-Artforum-March-1986-890x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/23-Artforum-Janury-1988-929x1024.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/24-Artforum-October-2004-943x1024.png',
         ],
         'be9922f' => [
             'https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall6-cover-654x1024.jpg',
@@ -1107,6 +1163,7 @@ function tl_fia_polish_js() {
             'https://www.thomaslawson.com/wp-content/uploads/2023/01/Afterall12-cover-642x1024.jpg',
             'https://www.thomaslawson.com/wp-content/uploads/2024/01/Afterall13-656x1024.jpg',
         ],
+        // East of Borneo — full set scraped from /bookshelf_eastofborneo/.
         '2fe6730' => [
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/The-Journey-West-1024x716.png',
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/Andrea-Bowers-Interview-1024x592.png',
@@ -1114,6 +1171,20 @@ function tl_fia_polish_js() {
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/Liz-Glynn-1024x640.png',
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/Michael-Asher-obit.png',
             'https://www.thomaslawson.com/wp-content/uploads/2023/02/4-Taxis-1024x712.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Stephen-Prina-1024x465.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Allan-Sekula-obit-1024x496.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Fiona-Connor-1024x721.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/a-visit-to-Man-Ray-1024x809.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Hopps-discovers-Cornell.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Duchamp-Wood-1024x659.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Hopps-at-Arensbergs-1024x818.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Cesar-Pelli-obit-1024x735.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/John-Baldessari.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Betye-Saar.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Millard-Sheets.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/CalArts-story-1024x761.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Luciano-Perna-obit.png',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/02/Michael-Asher-essay-alt.png',
         ],
         '624f2b7' => [
             'https://www.thomaslawson.com/wp-content/uploads/2023/12/REALLIFE-1-cover.jpg',
@@ -1131,6 +1202,7 @@ function tl_fia_polish_js() {
             'https://www.thomaslawson.com/wp-content/uploads/2023/12/Cover-for-Christopher-Howard-interview-1024x589.png',
             'https://www.thomaslawson.com/wp-content/uploads/2023/12/Cover-for-McEvilly-Sischy-interview-990x1024.png',
         ],
+        // Writings About TL — full set scraped from /bookshelf_writingsabouttl/.
         '91e3759' => [
             'https://www.thomaslawson.com/wp-content/uploads/2023/04/650-Thomas-Lawson-at-LAXART-1.jpg',
             'https://www.thomaslawson.com/wp-content/uploads/2023/04/Christopher-Miles.jpg',
@@ -1138,6 +1210,18 @@ function tl_fia_polish_js() {
             'https://www.thomaslawson.com/wp-content/uploads/2023/04/Ingrid-Sischy-1014x1024.jpg',
             'https://www.thomaslawson.com/wp-content/uploads/2023/04/Jeane-Silverthorne-1990.jpg',
             'https://www.thomaslawson.com/wp-content/uploads/2023/04/Jeanne-Silverthorn-Summer-1985.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Joan-Casademont-1024x1024.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Judith-Russi-May-83.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Kate-Linker-1014x1024.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Kuspit-On-Drawing-April-1982.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Artforum-March-84.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Lobel-Singerman-1024x1024.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2022/09/2015_Displacement-1024x793.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Ron-Jones-1987-cover.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Ron-Jones-1985-cover.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Schjeldahl-on-Pictures-Generation_Page_1.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Sydney-Biennale-1024x1024.jpg',
+            'https://www.thomaslawson.com/wp-content/uploads/2023/04/Deihl-review.jpg',
         ],
         'f2f992c' => [
             'https://www.thomaslawson.com/wp-content/uploads/2026/03/spike-71-couples-cover-web_f4b47d70-c6c8-4448-ba6c-5ab99feb149d-794x1024.jpeg',
@@ -1359,9 +1443,20 @@ function tl_fia_polish_js_artctx() {
             var col = cols[ci];
             // only project columns: one that holds an image widget
             if (!col.querySelector('.elementor-widget-image')) continue;
+            // Skip "Familie Beck" — Fía moved it to Bookshelf
+            // (2026-05-28). Column id from the live DOM is 14673a6;
+            // also match by tile name as a safety net.
+            if (col.classList.contains('elementor-element-14673a6')) {
+                col.style.display = 'none';
+                continue;
+            }
             var heads = col.querySelectorAll('.elementor-widget-heading');
             var name = heads[0] ? heads[0].textContent.trim() : '';
             var year = heads[1] ? heads[1].textContent.trim() : '';
+            if (/^familie\s*beck/i.test(name)) {
+                col.style.display = 'none';
+                continue;
+            }
             var key;
             if (/present|ongoing/i.test(year)) {
                 key = 9999;
@@ -1516,5 +1611,53 @@ function tl_fia_polish_js_studio_lightbox() {
     });
 })();
 </script>
+    <?php
+}
+
+/**
+ * About (page-id-68): inject a bold "About" h1 between the full-bleed
+ * banner image and the bio paragraphs so the page reads like News /
+ * Bookshelf / Beyond — banner, title, then prose (Fía, 2026-05-28).
+ */
+function tl_fia_polish_js_about() {
+    ?>
+<script id="tl-fia-about-heading">
+(function () {
+    if (!document.body.classList.contains('page-id-68')) return;
+    var intro = document.querySelector('.elementor-element-3d58b5f');
+    if (!intro) return;
+    // Avoid double-inject if WP renders this twice.
+    if (intro.querySelector('.tl-about-heading')) return;
+    // Locate the text-editor (bio paragraphs) widget — drop the heading
+    // immediately before it so the order reads image / "About" / prose.
+    var bio = intro.querySelector('.elementor-widget-text-editor');
+    if (!bio) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'elementor-widget-heading tl-about-heading';
+    var inner = document.createElement('div');
+    inner.className = 'elementor-widget-container';
+    var h = document.createElement('h1');
+    h.className = 'elementor-heading-title elementor-size-default';
+    h.textContent = 'About';
+    inner.appendChild(h);
+    wrap.appendChild(inner);
+    bio.parentNode.insertBefore(wrap, bio);
+})();
+</script>
+<style id="tl-fia-about-style">
+body.page-id-68 .elementor-element-3d58b5f .elementor-widget-image img {
+    object-position: center top !important;
+}
+body.page-id-68 .tl-about-heading .elementor-heading-title {
+    font-size: 2.4rem !important;
+    font-weight: 600 !important;
+    margin: 0.4rem 0 1rem !important;
+    text-align: left !important;
+    letter-spacing: -0.005em;
+}
+body.page-id-68 .elementor-element-3d58b5f .elementor-widget-text-editor p:first-child {
+    margin-top: 0 !important;
+}
+</style>
     <?php
 }
