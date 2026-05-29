@@ -37,6 +37,7 @@ const scheme = {
     tabPieces: [100, 220, 150],    // green (matches pieceName)
     tabCommands: [255, 200, 100],  // yellow (matches commandName)
     tabUser: [200, 140, 255],      // @ purple for user pieces
+    tabProcessing: [80, 220, 220], // 🎨 cyan/teal for Processing/p5 sketches
   },
   light: {
     background: [240, 240, 245],
@@ -62,6 +63,7 @@ const scheme = {
     tabPieces: [20, 120, 60],      // green (matches pieceName)
     tabCommands: [160, 100, 20],   // yellow (matches commandName)
     tabUser: [140, 80, 200],       // @ purple for user pieces
+    tabProcessing: [20, 140, 160], // 🎨 cyan/teal for Processing/p5 sketches
   },
 };
 
@@ -100,7 +102,7 @@ let userPieces = {};     // User-created pieces from MongoDB
 let hitStats = {};       // { pieceName: hitCount }
 let pieceDates = {};     // { pieceName: { created: Date, author: string } }
 let pieceCommits = {};   // { pieceName: { message: string, date: string, author: string, hash: string } }
-let currentTab = "all"; // "all" | "pieces" | "commands" | "popular" | "user"
+let currentTab = "all"; // "all" | "pieces" | "commands" | "popular" | "user" | "processing"
 let expandedCategories = new Set();
 let scroll = 0;
 let selectedItem = null;
@@ -126,6 +128,17 @@ let pieceItems = [];    // Categorized pieces
 let commandItems = [];  // Categorized commands
 let popularItems = [];  // Popular pieces sorted by hits
 let userItems = [];     // User-created pieces
+let processingItems = []; // .js (p5.js) pieces
+
+// 🎨 Processing/.js sketches — hosted via the worker p5 runtime
+// (lib/p5-worker.mjs). Listed here until we wire a directory probe.
+const PROCESSING_PIECES = [
+  { name: "p5-bounce", desc: "bouncing color balls — first .js piece on AC" },
+  { name: "process-18", desc: "Casey Reas homage — overlapping circle intersections" },
+  { name: "flocking", desc: "Reynolds boids — separation / alignment / cohesion" },
+  { name: "mandelbrot", desc: "fractal — click to zoom 2.2×, R to reset" },
+  { name: "pick", desc: "mouse picking + tossing — drag orbs to fling them" },
+];
 let visibleItems = [];  // Currently visible items based on tab + expanded categories
 
 // Layout constants (adjusted per mode)
@@ -172,6 +185,7 @@ async function boot({ ui, net, store, params, screen }) {
       buildAllList(ui);
       buildPopularList(ui);
       buildUserList(ui);
+      buildProcessingList();
 
       // Restore state
       currentTab = (await store.retrieve("list:tab")) || "all";
@@ -388,6 +402,16 @@ function buildPopularList(ui) {
     .map((item, index) => ({ ...item, rank: index + 1 })); // Add rank
 }
 
+// Build processing (p5/.js) list — flat, hand-curated.
+function buildProcessingList() {
+  processingItems = PROCESSING_PIECES.map((p) => ({
+    name: p.name,
+    data: { desc: p.desc, _type: "piece" },
+    type: "piece",
+    hits: hitStats[p.name] || 0,
+  }));
+}
+
 // Build user pieces list sorted by creation date
 function buildUserList(ui) {
   userItems = keys(userPieces)
@@ -424,6 +448,10 @@ function rebuildVisibleItems(ui) {
   } else if (currentTab === "user") {
     // User pieces sorted by date (flat, no categories)
     sourceItems = userItems;
+    visibleItems = sourceItems.map((item, i) => ({ ...item, y: getContentTop() + i * ROW_HEIGHT }));
+  } else if (currentTab === "processing") {
+    // Processing / p5.js sketches (flat, hand-curated)
+    sourceItems = processingItems;
     visibleItems = sourceItems.map((item, i) => ({ ...item, y: getContentTop() + i * ROW_HEIGHT }));
   } else {
     // Categorized list (pieces or commands)
@@ -696,11 +724,12 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       pieces: pal.tabPieces,
       commands: pal.tabCommands,
       user: pal.tabUser,
+      processing: pal.tabProcessing,
     };
-    
-    const tabs = layoutMode === "small" 
-      ? [["popular", "Top"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"], ["user", "@"]]
-      : [["popular", "Top 100"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Cmds"], ["user", "@User"]];
+
+    const tabs = layoutMode === "small"
+      ? [["popular", "Top"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"], ["processing", "🎨"], ["user", "@"]]
+      : [["popular", "Top 100"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Cmds"], ["processing", "Processing"], ["user", "@User"]];
     
     // Start tabs offset from left to avoid HUD label overlap
     let tabX = TAB_OFFSET;
