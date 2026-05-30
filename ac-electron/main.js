@@ -1905,7 +1905,16 @@ async function openAcPaneWindowInternal(options = {}) {
   if (isPaperWM) winOpts.type = 'normal';
   const win = new BrowserWindow(winOpts);
 
-  win.loadFile(getAppPath('renderer/flip-view.html'), isPaperWM ? { query: { wm: 'paper' } } : undefined);
+  // Plumb the launch piece + environment base into the flip-view shell so
+  // `--piece=NAME` (and `--dev`) actually route. The shell reads ?piece= and
+  // ?base= in initWebviewSrc(); without these it always falls back to prompt
+  // on production. Only the pane explicitly given a piece overrides the
+  // default — extra panes opened later still start at the prompt.
+  const baseUrl = startInDevMode ? 'http://localhost:8888' : 'https://aesthetic.computer';
+  const query = { base: baseUrl };
+  if (options.piece) query.piece = options.piece;
+  if (isPaperWM) query.wm = 'paper';
+  win.loadFile(getAppPath('renderer/flip-view.html'), { query });
 
   // 🎮 Grant sticky user activation to the host page so navigator.getGamepads()
   // works without the user clicking host chrome first. Chromium gates the
@@ -3191,7 +3200,7 @@ app.whenReady().then(async () => {
   // When launched silently at login, stay in menubar-daemon mode: no AC
   // window, no dock icon. The user opens things explicitly from the tray.
   if (!launchedSilently || acDropColdLaunchFile) {
-    openAcPaneWindow();
+    openAcPaneWindow({ piece: initialPiece });
   }
 
   if (acDropColdLaunchFile) {

@@ -486,7 +486,9 @@
       
       <!-- Front face: AC Webview -->
       <div class="card-face card-front">
-        <webview id="front-webview" src="https://aesthetic.computer/prompt?desktop" allowpopups preload="../webview-preload.js"></webview>
+        <!-- src is set by initWebviewSrc() from ?base=/?piece=. Start blank so a
+             hardcoded URL doesn't commit first and swallow the real assignment. -->
+        <webview id="front-webview" src="about:blank" allowpopups preload="../webview-preload.js"></webview>
       </div>
     
     <!-- Back face: Terminal -->
@@ -502,11 +504,27 @@
     const webviewEl = document.getElementById('front-webview');
 
     // Initial src comes from ?piece= (defaults to 'prompt') and ?base= (defaults to prod).
+    // A <webview> ignores .src assigned before it's attached, and its first
+    // dom-ready (from the about:blank placeholder) can fire before our listener
+    // attaches — a race that left the pane blank. So poll for attachment
+    // (getWebContentsId throws until ready) and navigate the moment it's live.
     (function initWebviewSrc() {
       const params = new URLSearchParams(location.search);
       const piece = (params.get('piece') || 'prompt').replace(/^\/+/, '');
       const base = params.get('base') || 'https://aesthetic.computer';
-      webviewEl.src = `${base}/${piece}?desktop`;
+      const target = `${base}/${piece}?desktop`;
+      let tries = 0;
+      const iv = setInterval(() => {
+        tries++;
+        let ready = false;
+        try { ready = webviewEl.getWebContentsId() != null; } catch (e) {}
+        if (ready) {
+          webviewEl.src = target;
+          clearInterval(iv);
+        } else if (tries > 60) {
+          clearInterval(iv); // ~6s; give up rather than spin forever
+        }
+      }, 100);
     })();
     const flipTabs = document.querySelectorAll('.flip-tab');
     const volumeSlider = document.getElementById('volume-slider');
