@@ -58,6 +58,38 @@ librosa if you only want to retune `--min-ms` / `--max-ms` (the cutter
 re-runs onsets every time today, but the data is committed for audit
 and downstream tools).
 
+## BBC Sound Effects (sound-effects.bbcrewind.co.uk)
+
+A second source: the BBC Sound Effects archive (30k+ effects). Fetched
+via `pop/bin/bbc-fetch.mjs` (lib: `pop/lib/bbc-rewind.mjs`) — no
+credentials needed, it hits the same public search + media endpoints the
+website's app uses, and writes full-quality WAVs named by BBC id
+(`<id>.wav`, e.g. `pachinko-bbc/07022449.wav`).
+
+```bash
+# search only — print results so you can pick ids:
+node pop/bin/bbc-fetch.mjs --query "pachinko" --list
+
+# search + download the top N into pop/samples/<slug>/:
+node pop/bin/bbc-fetch.mjs --query "pachinko" --count 6 --slug pachinko-bbc
+
+# download specific ids directly:
+node pop/bin/bbc-fetch.mjs --slug pachinko-bbc --id 07022449,07032210
+```
+
+Each fetch writes a tracked `manifest.json` (id + description + the
+RemArc licence stamp) and drops a `.gitignore` so the WAV audio stays
+local, then upserts the global `INDEX.json`.
+
+> ⚠ **Licence — RemArc, non-commercial only.** The BBC archive is free
+> for personal / educational / research use and **non-commercial live
+> performance** (e.g. the AC-native `dj` piece at a free/art set). It is
+> **not** cleared for commercial release — a BBC sample must never be
+> baked into a DistroKid release master. Every fetched sample is tagged
+> `license: "remarc-noncommercial"`, `commercialUse: false`. For
+> commercial use the BBC licenses the same library via Pro Sound Effects.
+> Terms: <https://sound-effects.bbcrewind.co.uk/licensing>
+
 ## why third-party audio stays out of git
 
 Same posture as `pop/references/README.md`: third-party copyrighted
