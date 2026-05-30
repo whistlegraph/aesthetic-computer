@@ -1,0 +1,116 @@
+wave wizard — app mascot. SQUARE 1024x1024.
+
+a hand-drawn aesthetic-computer illustration of a YOUNG MAN dressed
+up as the wave wizard — a friendly indie creative-coder character,
+not the classic old-man wizard. ONE character, centered, isolated
+on a clean pure white background (#ffffff — no rim, no shadow halo,
+no frame, no border, no panel). the figure fills most of the canvas
+with a small even margin of white on all sides so the icon crops
+cleanly.
+
+★ the character — a slim friendly guy in his thirties, medium-
+length warm-brown hair just brushing his ears (a little tousled,
+not styled), soft fair skin, gentle features, small one-sided
+closed-mouth smile (quietly mischievous, NOT a wide cartoon grin,
+NOT teeth-bared, NOT goofy-derpy). round small red plastic glasses
+on a thin black cord around his neck, lenses faintly catching one
+little pencil-hatched reflection. clean-shaven (NO wizard beard —
+the classic long white wizard beard is REMOVED; this wave wizard is
+a beardless young craftsman). reads as half craftsman, half stage
+magician — an everyday indie coder in costume.
+
+★ style — hand-drawn colored-pencil and ink illustration on white.
+visible graphite + colored-pencil hatching for shading on the robe
+folds and hat. cross-hatched ink linework on the wand, microphone,
+and glasses. tapered hand-inked outlines (NOT vector-uniform, NOT
+smooth digital). soft colored-pencil striping for the colored
+elements — tone built from confident parallel hatching and optical
+mixing rather than smooth gradients. small-press / risograph / hand-
+printed feel. tiny moire / dotted patterns acceptable on the robe
+trim. visible paper grain. NOT photoreal, NOT 3-d render, NOT cgi,
+NOT a photograph, NOT cinematic, NOT neon-glow.
+
+★ the wizard costume — he wears it OVER his everyday clothes; a
+slim flowing robe in deep indigo-purple drapes from his shoulders
+to the lower frame, hand-pencil hatching defining the folds. the
+robe is open at the front so you can see his real shirt underneath:
+a soft light-blue long-sleeve button-down with a small embroidered
+yellow bear emblem on the lower-left chest and a bright yellow
+ballpoint pen clipped at the chest pocket. the robe's
+hem and cuff trim is a ribbon of seven small colored squares running
+like a piano keyboard: red, orange, yellow, green, blue, purple,
+violet — hand-drawn boxes stitched into the fabric. a tall pointed
+indigo-purple wizard hat sits slightly tilted on his brown hair, the
+tip bent forward a little, with a single small white star and a tiny
+crescent moon hand-inked on the brim — wobbly and unfussy, not too
+neat. the wave wizard costume reads gentle and lived-in, not slick.
+
+★ the microphone — in his left hand (camera-right), held
+upright like a torch at chest height: a classic cardioid stage
+microphone (shure-style silhouette, no readable logo) with a matte
+dark-grey ball-grille head and slim cylindrical body, a coiled cable
+looping down out of frame. crisp hand-inked linework, slightly
+smaller than his head. clearly a singer's microphone — not a wand,
+not a brush. five fully formed natural fingers grip the mic, no
+extras, no missing.
+
+★ the wand of waveform — in his right hand (camera-left),
+raised high above shoulder height: a slender warm wood-brown wand,
+hand-inked. trailing FROM the wand tip across the upper third of the
+picture is a HAND-DRAWN SINE WAVE ribbon — a clean continuous
+sinusoidal curve drawn in soft colored pencil, passing through
+eleven small note-bubbles strung along its length like beads on a
+string. each bubble is a hand-inked circle filled with a solid color
+from the AC note palette in this exact order from the wand tip
+outward:
+  · red, orange, yellow, green, blue, purple, violet,
+  · then repeating red, orange, yellow, green
+each bubble is roughly thumbnail-sized, thin black ink outline, with
+a single hand-lettered lowercase syllable beneath it on the wave's
+underside — short nonsense vocal syllables like "la", "mi", "so",
+"ah", "ee", "oh", "la", "mi", "so", "fa", "re" — drawn in small
+hand-printed cursive, not a digital font. the wave + bubbles read as
+a melodic phrase he is conducting up out of the microphone.
+
+★ floating elements around him, sparsely scattered (keep the
+white background mostly empty — do not crowd):
+  · two or three tiny musical eighth-notes hand-inked in black,
+    drifting near his shoulder
+  · a small four-light "traffic-light count-in" stack floating near
+    his belt: a vertical column of four tiny circles, top red, then
+    orange, then yellow, then green at the bottom — each one lit,
+    each hand-inked, tiny lowercase label "go" under the green dot
+  · a faint pencil-drawn timeline ribbon curling once around his
+    waist like a sash, eleven small evenly spaced tick marks along
+    it, no numbers
+  · a few tiny dotted lines tracing connections between the note-
+    bubbles and his open singing mouth, as if pulling pitch up
+    out of him
+
+★ COMPOSITION — the figure is centered, three-quarter-body, hat tip
+near the top of the canvas, robe hem near the bottom. background is
+pure flat white. no border, no panel, no rectangle around the
+figure. small margin of empty white on every side. the figure is
+the dominant shape; the sine-wave + note-bubbles arc occupies the
+upper quadrant and reads as a second visual focal element.
+
+★ palette — indigo-purple robe and hat, warm-brown hair, soft fair
+skin, light-blue button-down shirt, small yellow bear emblem, bright
+yellow pen, small red plastic glasses, warm wood-brown wand, dark-
+grey microphone. the seven AC note-palette colors (red, orange,
+yellow, green, blue, purple, violet) used ONLY in the bubbles and
+the robe trim. everything else is restrained greys, soft pencil
+neutrals, and ink black. pure white background.
+
+★ physical accuracy — every hand has exactly five natural fingers,
+plausibly posed. eyes symmetric and correctly placed behind the red
+glasses. the hat sits naturally on the head, not floating. the mic
+cable falls under gravity. the wand is held in a natural overhead
+grip. nothing duplicated, nothing floating without anchor.
+
+NO text labels anywhere on the figure, NO app name, NO logo, NO
+wordmark. NO photorealism, NO 3-d render, NO neon glow, NO sci-fi
+chrome, NO motion blur, NO depth-of-field blur. NO old-man wizard
+beard. NO cartoon exaggeration. one hand-drawn print-aesthetic
+illustration of a young indie creative-coder as the wave wizard,
+conducting a sung melody up out of his microphone, isolated on white.

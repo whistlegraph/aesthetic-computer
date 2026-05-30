@@ -1,0 +1,87 @@
+{
+  "title": "Amazing Grace verse 1 — DANCE remix vocals (120 BPM 4/4, ULTRA-elongated)",
+  "outDir": "/Users/jas/aesthetic-computer/pop/big-pictures/voice-takes/wavewizard-dance",
+  "trim": {
+    "thresholdPctOfPeak": 0.05,
+    "padHeadMs": 30,
+    "padTailMs": 80,
+    "fadeMs": 8,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 800,
+    "maxRecordSec": 10
+  },
+  "samples": [
+    {
+      "name": "line-1",
+      "desc": "amazing grace, how sweet the sound — ULTRA elongated, each vowel held for 1-4 bars (deep house dreamy vibe).",
+      "lyric": "a-ma-zing grace how sweet the sound_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": -5, "beats": 2.0 },
+          { "off":  0, "beats": 2.0 },
+          { "off":  4, "beats": 2.0 },
+          { "off":  0, "beats": 2.0 },
+          { "off":  4, "beats": 2.0 },
+          { "off":  2, "beats": 2.0 },
+          { "off":  0, "beats": 2.0 },
+          { "off":  4, "beats": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-2",
+      "desc": "that saved a wretch like me — EVERYTHING super long, 4-6 bar holds.",
+      "lyric": "that saved a wretch like me_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": -5, "beats": 2.0 },
+          { "off": -3, "beats": 2.0 },
+          { "off": -5, "beats": 2.0 },
+          { "off":  4, "beats": 2.0 },
+          { "off":  0, "beats": 2.0 },
+          { "off":  4, "beats": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-3",
+      "desc": "I once was lost, but now am found — climbing, ULTRA spacious.",
+      "lyric": "i once was lost but now am found_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": -5, "beats": 2.0 },
+          { "off":  0, "beats": 2.0 },
+          { "off":  7, "beats": 2.0 },
+          { "off":  7, "beats": 2.0 },
+          { "off":  4, "beats": 2.0 },
+          { "off":  7, "beats": 2.0 },
+          { "off":  2, "beats": 2.0 },
+          { "off":  0, "beats": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-4",
+      "desc": "was blind but now I see — final resolution, 6-bar tonic hold.",
+      "lyric": "was blind but now i see_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off":  4, "beats": 2.0 },
+          { "off":  7, "beats": 2.0 },
+          { "off":  7, "beats": 2.0 },
+          { "off":  4, "beats": 2.0 },
+          { "off":  2, "beats": 2.0 },
+          { "off":  0, "beats": 3.0 }
+        ]
+      }
+    }
+  ]
+}

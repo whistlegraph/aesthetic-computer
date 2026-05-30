@@ -12,6 +12,33 @@ struct Spec: Codable {
 struct SampleSpec: Codable {
     var name: String
     var desc: String
+    // Optional audio file played BEFORE the desc speech — used to cue
+    // the singer with the melody / a reference take of the line.
+    var melodyFile: String?
+    // Optional lyric string showing how the words map onto the 11-note
+    // brass theme — rendered by AlignmentView as a visual timeline.
+    // Conventions:
+    //   space      = word boundary
+    //   hyphen     = internal syllable split  (mo-ney = 2 syllables)
+    //   trailing _ = melisma (sustains an extra note)
+    //   bare _     = explicit sustain placeholder
+    var lyric: String?
+    // Optional per-sample score. When present, AlignmentView swaps from
+    // the default hellsine brass theme to these notes. Specs that omit
+    // `score` keep the original hellsine alignment.
+    var score: ScoreSpec?
+}
+
+struct ScoreSpec: Codable {
+    /// MIDI number that note offsets are measured from. Notes are
+    /// rendered as `rootMel + note.off`.
+    var rootMel: Int
+    var notes: [ScoreNote]
+}
+
+struct ScoreNote: Codable {
+    var off: Int
+    var beats: Double
 }
 
 struct TrimSpec: Codable {
