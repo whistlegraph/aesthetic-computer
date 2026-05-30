@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>user funnel — ac vs sotce — 2026-05-07 23:54:13 UTC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #faf8f4;
+      --ink: #1a1a1a;
+      --muted: #6b6b6b;
+      --rule: #d8d3c8;
+      --ac: #2b6cb0;
+      --sotce: #b03a8c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #15140f; --ink: #f1ece0; --muted: #8a8377; --rule: #2c281f; --ac: #6cb0ff; --sotce: #ff86c8; }
+    }
+    html, body { background: var(--bg); color: var(--ink); }
+    body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1.25rem; }
+    h1 { font-size: 1.4rem; margin: 0 0 .25rem; letter-spacing: -0.01em; }
+    .stamp { color: var(--muted); font-size: .9rem; margin-bottom: 1.75rem; }
+    .totals { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .totals div { background: rgba(127,127,127,.06); border: 1px solid var(--rule); border-radius: .5rem; padding: .65rem .9rem; min-width: 9rem; }
+    .totals strong { display: block; font-size: 1.55rem; letter-spacing: -0.02em; }
+    .totals span { color: var(--muted); font-size: .82rem; }
+    table { width: 100%; border-collapse: collapse; margin: .25rem 0 1rem; }
+    th, td { padding: .65rem .75rem; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+    thead th { font-weight: 600; color: var(--muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+    th[scope="row"] { font-weight: 500; width: 14rem; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; width: 8.5rem; }
+    .note { color: var(--muted); font-size: .88rem; }
+    .ac { color: var(--ac); }
+    .sotce { color: var(--sotce); }
+    footer { margin-top: 2rem; color: var(--muted); font-size: .82rem; }
+    code { font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: rgba(127,127,127,.1); padding: .08em .35em; border-radius: .25rem; }
+  </style>
+</head>
+<body>
+  <h1>user funnel — aesthetic.computer vs sotce.net</h1>
+  <div class="stamp">generated 2026-05-07 23:54:13 UTC</div>
+
+  <div class="totals">
+    <div><strong>22,774</strong><span>combined signups</span></div>
+    <div><strong>2,869</strong><span>combined handles</span></div>
+    <div><strong>132</strong><span>sotce subscribers</span></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        <th class="num ac">aesthetic.computer</th>
+        <th class="num sotce">sotce.net</th>
+        <th>notes</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <th scope="row">Tenant first activity</th>
+          <td class="num">2023-02-16</td>
+          <td class="num">2024-06-17</td>
+          <td class="note">First day with stats reported by Auth0 (proxy for tenant launch)</td>
+        </tr>
+        <tr>
+          <th scope="row">Auth0 signups (all-time)</th>
+          <td class="num">18,415</td>
+          <td class="num">4,359</td>
+          <td class="note">Sum of /api/v2/stats/daily.signups (the /users endpoint caps total at 1k)</td>
+        </tr>
+        <tr>
+          <th scope="row">Auth0 logins (all-time)</th>
+          <td class="num">27,768</td>
+          <td class="num">8,593</td>
+          <td class="note">Lifetime authentications</td>
+        </tr>
+        <tr>
+          <th scope="row">Active subscribers</th>
+          <td class="num">—</td>
+          <td class="num">132</td>
+          <td class="note">Sotce is paid; AC is free. Source: sotce.net/sotce-net/subscribers</td>
+        </tr>
+        <tr>
+          <th scope="row">Handles claimed</th>
+          <td class="num">2,714</td>
+          <td class="num">155</td>
+          <td class="note">MongoDB @handles split by 'sotce-' _id prefix</td>
+        </tr>
+        <tr>
+          <th scope="row">Handle adoption</th>
+          <td class="num">14.7%</td>
+          <td class="num">3.6%</td>
+          <td class="note">Handles ÷ signups</td>
+        </tr>
+        <tr>
+          <th scope="row">Subscription rate</th>
+          <td class="num">—</td>
+          <td class="num">3.0%</td>
+          <td class="note">Subscribers ÷ signups</td>
+        </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    sources: <code>aesthetic.us.auth0.com</code> + <code>sotce.us.auth0.com</code> /api/v2/users · MongoDB <code>@handles</code> on silo · <code>sotce.net/sotce-net/subscribers</code> (Stripe-backed).
+    handles split by the <code>sotce-</code> prefix on <code>_id</code> as written by <code>system/netlify/functions/handle.mjs</code>.
+    re-run with <code>node silo/bin/user-comparison.mjs</code>.
+  </footer>
+</body>
+</html>

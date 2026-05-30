@@ -1,0 +1,131 @@
+A photograph of a colored-pencil and gouache drawing on warm cream
+paper, in tall vertical portrait orientation. Confident hatching and
+striping build tone. Tapered pencil edges. Optical mixing in patterned
+surfaces. Visible paper grain. Print-work sensibility. Diegetic light
+only — never overlay glow. Editorial peer-horizontality: both figures
+share the same eye-line, neither one centered as a hero. Candid
+iPhone-snapshot tone, deadpan everyday-help — NOT cinematic, NOT
+neon-noir, NOT a portrait studio. NEITHER figure looks at the camera
+or acknowledges the viewer in any way; both are fully absorbed in
+their own tasks. The drawing dissolves softly to pure cream paper at
+the edges with no hard frame and no app UI overlays of any kind.
+
+The scene: jeffrey's lived-in los angeles home office in late
+afternoon. A long warm-walnut desk against a tall west-facing window.
+A pale oak floor with a small worn persian rug underfoot. Warm
+late-afternoon golden side-light falling across the desk from the
+right. One small monstera leaf at the corner of the desk. A
+half-drunk mug of black coffee on a cork coaster. A yellow legal pad
+with a few hand-written notes pushed to the edge. At the back-right
+corner of the desk, a small beige tp-link wireless router with two
+stubby antennas and tiny green leds; a short butter-yellow cat6
+ethernet cable loops out of its back and dangles down behind the desk.
+
+Two walnut chairs side-by-side at the desk, both figures seated at
+the same eye-line, both facing the desk at a slight 3/4 angle to the
+camera.
+
+On the right of the frame: Sam Altman, recognizably him — mid-late
+30s, clean-shaven, slight build, soft wavy brown hair parted to one
+side, small attentive eyes, the gentle slightly-tense mouth from his
+press photos. He wears a plain navy crewneck t-shirt under a
+heathered light-grey patagonia-style fleece vest, dark grey
+straight-leg trousers, and plain white low-top sneakers. His
+expression is visibly frustrated and a little embarrassed: brows knit
+gently, mouth pressed into a thin almost-grimace, faint flush across
+the cheeks. His right hand rubs the back of his own neck; his left
+hand hovers indecisively just over the trackpad of his own laptop,
+fingers slightly curled, not quite touching. He is leaning forward
+into the laptop with a faint slump of defeat. His attention is locked
+entirely on the frozen FaceTime tile — he has no awareness of the
+camera or of jeffrey.
+
+Sam's laptop, open on the desk directly in front of him: a plain
+silver Apple MacBook Pro, 14-inch, matte aluminum, completely
+unstickered, no decorations of any kind. The lid is open AWAY from
+the camera so the screen faces the viewer at a slight 3/4 angle —
+the matte aluminum lid-back is NOT visible. Render the aluminum
+chassis in cool grey colored-pencil cross-hatching, never an
+airbrushed metallic gradient.
+
+ON Sam's MacBook Pro screen: a macOS FaceTime call window dominates
+the screen, drawn in the same colored-pencil hatching as everything
+else — never a glossy ui render. The remote video tile fills most of
+the window: a recognizably east-asian man in his early 40s, short
+black hair, slim wire-rimmed glasses, a plain charcoal collared shirt,
+sitting in front of a softly out-of-focus modern apartment interior
+with a tall paper-shade lamp behind him and a sliver of a balcony with
+hanging laundry — clearly a chinese city apartment in evening light,
+not a sterile office. He is FROZEN mid-expression: mouth slightly open
+in the middle of a word, one hand raised in a mid-gesture, the image
+visibly pixelated and slightly stretched with classic codec
+macroblock artifacts hatched in as small flat colored squares. A small
+"poor connection" indicator with half-filled signal bars sits in the
+upper-left of the call tile, and a small self-view thumbnail in the
+corner of the call shows Sam's own face, also slightly frozen. A
+faint macOS menubar runs along the top of the screen and a faint
+dock along the bottom — no readable third-party brand text. The
+screen is NOT a thumbnail of the surrounding room — only the FaceTime
+call.
+
+On the left of the frame, seated beside Sam at the same eye-line:
+the man in the reference photos — recognizably him, medium-length
+brown hair tucked behind one ear, soft red plastic glasses dangling
+on a thin cord around his neck (not currently on his face). He wears
+a faded printed crewneck t-shirt — a small hand-screened design across
+the chest in muted coral and butter-yellow that reads as a tiny
+hand-lettered piece-name word but is not legible as a real brand —
+under an open soft-grey knit cardigan with sleeves pushed to the
+forearms, wide-leg medium-cobalt linen trousers, and worn black canvas
+low-top sneakers with white rubber soles.
+
+In jeffrey's lap, balanced calmly across his knees: his own laptop —
+a chartreuse citrus-green Apple MacBook Neo, clamshell open, the
+regular silver apple logo just visible on the (mostly hidden) lid.
+No stickers, no butterfly, no cards on the lid, nothing in front of
+the laptop in the camera plane. The Neo's screen is angled toward
+jeffrey himself, so the camera mostly reads the foreshortened keyboard
+and a sliver of screen edge — we see the saturated green chassis
+clearly but the screen content is not legible. Both of jeffrey's
+hands rest calmly on the Neo's keyboard, fingers in fluid motion (a
+soft pencil-hatched suggestion of typing, not a frantic blur) — he is
+running a network diagnostic / speedtest from his own machine while
+Sam waits on the call. His expression is calm, patient, and quietly
+capable: a faint closed-mouth half-smile, eyes attentive on his own
+keyboard. He is NOT looking at Sam, at Sam's MacBook Pro, or at the
+camera.
+
+Read of the picture: Sam came over because his FaceTime to a colleague
+in china keeps dropping. He's on his own silver MacBook Pro at
+jeffrey's desk; jeffrey is sitting beside him on his chartreuse Neo,
+calmly running a network diagnostic from his side while Sam tries to
+keep the call going. They are peers at the same desk — neither savior
+nor supplicant. The quiet dignity is in jeffrey's composure, not in
+any hero pose. The joke reads on its own: the most powerful person in
+ai cannot make a video call work, and the artist next to him is just
+calmly running a ping.
+
+Palette: warm cream paper as the ground; warm afternoon golden side-
+light hatched into the marks; warm walnut desk; muted persian-rug
+reds and blues; cool grey colored-pencil hatching on Sam's silver
+MacBook Pro chassis; one saturated chartreuse-citrus pop on jeffrey's
+MacBook Neo (the brightest object in the frame); heathered grey on
+Sam's fleece vest; cobalt blue on jeffrey's trousers; one warm coral
+pop on jeffrey's red-glasses cord; soft butter-yellow on the cat6
+cable; muted matte black on the router and on jeffrey's sneakers.
+Hand-drawn, hatched, print-tech-aware, print-comic restraint.
+
+Avoid: photoreal automotive or product rendering; cinematic neon glow;
+any css-overlay light (the warmth comes from diegetic sun hatched into
+the marks); ANY app, social-media, or story ui chrome beyond the
+genuine macOS FaceTime window (no progress bars, no avatars, no
+handles, no story chrome, no icons — this is just a drawing on cream
+paper, NOT a screenshot of an app); any readable real brand text
+(apple logo is ok, third-party app names are not); any visible content
+on the Neo's screen — only the matte green back-edge and keys are
+seen; any other recursive screen-of-the-room reflection; cartoon
+exaggeration; smoothed-out skin; figures looking at or acknowledging
+the camera; hero-pose centering; stickers or butterflies on either
+laptop; anything occluding either laptop in the camera plane. Keep
+both figures at one matter-of-fact eye-line and let the joke read on
+its own.
