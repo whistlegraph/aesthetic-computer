@@ -9891,6 +9891,54 @@ class KidLisp {
         // The first element indicates the function to call
         let [head, ...args] = item;
 
+        // 🔗 Re-glue fade strings whose angle param tokenizes as a separate
+        // sub-expression. The tokenizer breaks (wipe fade:colors:(frame)) into
+        // ["fade:colors:", ["frame"]] because parens always end a token.
+        // Detect "fade:" string ending in ":" followed by an s-expr / atom,
+        // evaluate the expression, and append its value as the angle.
+        if (args.length >= 2) {
+          const reglued = [];
+          for (let i = 0; i < args.length; i++) {
+            const a = args[i];
+            const next = args[i + 1];
+            if (
+              typeof a === "string" &&
+              a.startsWith("fade:") &&
+              a.endsWith(":") &&
+              next !== undefined
+            ) {
+              let angleValue;
+              try {
+                if (Array.isArray(next)) {
+                  angleValue = this.fastEval(next, api, env);
+                } else if (typeof next === "number") {
+                  angleValue = next;
+                } else if (typeof next === "string") {
+                  const num = parseFloat(next);
+                  if (!isNaN(num) && /^-?\d+(?:\.\d+)?$/.test(next)) {
+                    angleValue = num;
+                  } else {
+                    const expanded = this.expandFastMathMacros(next);
+                    angleValue = Array.isArray(expanded)
+                      ? this.fastEval(expanded, api, env)
+                      : this.evaluate(next, api, env);
+                  }
+                } else {
+                  angleValue = next;
+                }
+              } catch (e) {
+                console.warn("Failed to evaluate fade angle expression:", next, e);
+                angleValue = 0;
+              }
+              reglued.push(a + String(angleValue));
+              i++; // consume next
+              continue;
+            }
+            reglued.push(a);
+          }
+          args = reglued;
+        }
+
         // Preprocess arguments to evaluate any fade strings
         args = args.map(arg => {
           if (typeof arg === "string" && arg.startsWith("fade:")) {
