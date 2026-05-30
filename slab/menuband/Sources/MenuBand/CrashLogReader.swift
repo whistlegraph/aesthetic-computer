@@ -16,6 +16,13 @@ enum CrashLogReader {
     /// builds (very common during heavy dev iteration) don't pollute
     /// the count surfaced to the user.
     static func recentLogs() -> [URL] {
+        #if MAC_APP_STORE
+        // Mac App Store build: crash logs live in
+        // ~/Library/Logs/DiagnosticReports — outside the sandbox
+        // container, so they're unreadable. Report none; the About
+        // window's crash count + manual upload UI stay hidden.
+        return []
+        #else
         let dirURL = URL(fileURLWithPath: directoryPath)
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: dirURL,
@@ -42,6 +49,7 @@ enum CrashLogReader {
                     .contentModificationDate ?? .distantPast
                 return ad > bd
             }
+        #endif
     }
 
     /// mtime of the running executable. install.sh `cp`s the new binary

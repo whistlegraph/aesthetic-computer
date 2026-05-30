@@ -2231,10 +2231,14 @@ final class MenuBandPopoverViewController: NSViewController {
         switch sender.tag {
         case 0:  // Notepat.com
             m.keymap = .notepat
+            #if !MAC_APP_STORE
             if !m.typeMode { m.toggleTypeMode() }
+            #endif
         case 1:  // Ableton MIDI Keys
             m.keymap = .ableton
+            #if !MAC_APP_STORE
             if !m.typeMode { m.toggleTypeMode() }
+            #endif
         default: break
         }
     }

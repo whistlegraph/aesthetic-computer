@@ -552,9 +552,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // forwards them through the same keymap the physical
         // keyboard uses. Requires Accessibility permission; on
         // first launch the system will prompt.
+        #if !MAC_APP_STORE
+        // The Stickies bridge taps global keystrokes and drives the
+        // Stickies app via Apple Events — both forbidden by the App
+        // Sandbox, so it's absent from the Mac App Store build. (Gating
+        // the access here also means the lazy `stickiesBridge` is never
+        // constructed in that build.)
         if stickiesBridge.isEnabled {
             stickiesBridge.start()
         }
+        #endif
 
         // Dev affordance: post the
         // `computer.aestheticcomputer.menuband.showPopover`
@@ -737,16 +744,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             self.trackpadTouchActive = active
             guard !active else { return }
-            // Last finger lifted off the trackpad. This is the
-            // authoritative "stop driving the fx" signal: begin the
-            // hold→linear-ramp now even if a note is still sounding.
-            // If no notes are held either, also tear the gesture
-            // down fully — onLitChanged already skipped that while
-            // the finger was down so the fx could ride note changes.
+            // Last finger lifted off the trackpad. If no notes are
+            // held either, this IS the end of the gesture — close
+            // out the cursor lock and let the fx ramp naturally.
+            // If notes ARE still held, the user is mid-phrase and
+            // just resting their finger; leave bend/space/echo at
+            // whatever values they set so pitch + ambience don't
+            // drift on their own. The next finger touch (or note
+            // release) is the right time to change them.
             if !self.menuBand.keyboardNotesHeld {
                 self.endPitchBendSession()
-            } else if self.pitchBendCursorLocked {
-                self.startFxRelease()
             }
         }
 
@@ -1750,12 +1757,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // here — overriding them on every note-event redraw would
         // erase the smoothing.
         statusItem.length = KeyboardIconRenderer.imageSize.width
-        // While the sample backend is active, the voice subscript
-        // shows the literal `\`` glyph instead of a numeric program
-        // slot — visually marks "this voice is your recording, not a
-        // GM patch." Otherwise the existing 1-based digit logic
-        // continues to render the GM program number.
-        let voiceLabel: String? = (menuBand.instrumentBackend == .sample) ? "`" : nil
+        // Voice-subscript override: backends that don't map to a GM
+        // program get a glyph instead of a digit. Sample voice → "`"
+        // (the record key); KPBJ radio → "−1" (its conceptual slot —
+        // matches the "−1 KPBJ" title the popover uses). Everything
+        // else falls through to the 1-based GM program number.
+        let voiceLabel: String?
+        switch menuBand.instrumentBackend {
+        case .sample: voiceLabel = "`"
+        case .kpbj:   voiceLabel = "−1"
+        default:      voiceLabel = nil
+        }
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
             playbackLitNotes: menuBand.playbackLitNotes,

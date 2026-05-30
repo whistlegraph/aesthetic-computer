@@ -34,6 +34,14 @@ enum UpdateChecker {
     /// nil on network/parse failure (silent fallback — we don't want to
     /// pester the user when their wi-fi is down).
     static func fetchLatest(completion: @escaping (VersionInfo?) -> Void) {
+        #if MAC_APP_STORE
+        // Mac App Store build: the App Store handles updates. App Review
+        // forbids steering users to a self-hosted update outside the
+        // store, so we never check and never surface the "New version"
+        // banner. Report "no update" so all callers stay quiet.
+        completion(nil)
+        return
+        #else
         if let info = cached, let ts = lastCheck, Date().timeIntervalSince(ts) < 3600 {
             completion(info)
             return
@@ -52,6 +60,7 @@ enum UpdateChecker {
             }
             DispatchQueue.main.async { completion(parsed) }
         }.resume()
+        #endif
     }
 
     /// `true` iff `latest > current` under naive dotted-integer ordering.

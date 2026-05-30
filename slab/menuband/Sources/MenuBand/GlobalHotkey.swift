@@ -22,6 +22,15 @@ final class GlobalHotkey {
     /// `modifiers` uses the Carbon mask (`cmdKey | optionKey | controlKey | shiftKey`).
     @discardableResult
     func register(keyCode: UInt32, modifiers: UInt32) -> Bool {
+        #if MAC_APP_STORE
+        // Mac App Store build: system-wide hotkeys via Carbon
+        // RegisterEventHotKey are forbidden by the App Sandbox. No-op so
+        // every global shortcut is simply absent — the popover controls
+        // and focused LocalKeyCapture cover the App Store feature set.
+        // Callers guard on this return value, so the hotkey ivars stay
+        // nil and `unregister()` remains safe.
+        return false
+        #else
         unregister()
         let hotKeyID = EventHotKeyID(signature: signature, id: id)
         var ref: EventHotKeyRef?
@@ -65,6 +74,7 @@ final class GlobalHotkey {
             return false
         }
         return true
+        #endif
     }
 
     func unregister() {

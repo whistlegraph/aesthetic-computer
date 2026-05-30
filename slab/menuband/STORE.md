@@ -51,7 +51,7 @@ First release. Three-state input picker (Pointer / Notepat / Ableton) with hover
 
 - **Support URL:** `https://aesthetic.computer`
 - **Marketing URL:** `https://notepat.com`
-- **Privacy Policy URL:** TODO — needed for App Store; for direct download, optional.
+- **Privacy Policy URL:** `https://aesthetic.computer/menuband/privacy.html` (live).
 
 ## Screenshot checklist
 

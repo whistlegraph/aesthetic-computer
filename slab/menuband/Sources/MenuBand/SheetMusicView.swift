@@ -45,6 +45,15 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     private var pdfRefreshTimer: Timer?
     private static let pdfRefreshDebounce: TimeInterval = 0.25
 
+    /// Click-to-arm: the sheet starts disarmed so opening the popover
+    /// doesn't immediately start spraying held notes onto the staff
+    /// (which then have to be cleared by dragging the page to the
+    /// trash). A click anywhere on the page surface toggles this; the
+    /// page dims visibly while disarmed so the user can tell at a
+    /// glance whether their playing is being inscribed.
+    private(set) var inscriptionEnabled: Bool = false
+    private static let disarmedAlpha: CGFloat = 0.35
+
     // MARK: - "Menu Band PDF" embedded-score format
     //
     // A Menu Band PDF is a regular PDF whose standard Info
@@ -208,6 +217,39 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         overlay.autoresizingMask = [.width, .height]
         addSubview(overlay)
         self.overlay = overlay
+        // Apply the initial disarmed dim so the page reads as
+        // "tap to start inscribing" the moment the popover opens.
+        applyInscriptionAppearance(animated: false)
+    }
+
+    /// Reflect `inscriptionEnabled` onto the visible page chrome.
+    /// Webview + overlay get dimmed individually (not via self.alphaValue
+    /// or layer.opacity) so the crumple-out drag animation still owns
+    /// the parent layer's opacity track without fighting this state.
+    private func applyInscriptionAppearance(animated: Bool) {
+        let target: CGFloat = inscriptionEnabled ? 1.0 : Self.disarmedAlpha
+        let apply: () -> Void = { [weak self] in
+            guard let self = self else { return }
+            self.webView?.alphaValue = target
+            self.overlay?.alphaValue = target
+        }
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.allowsImplicitAnimation = true
+                apply()
+            }
+        } else {
+            apply()
+        }
+    }
+
+    /// Flip arm state. Public so the popover can mirror the state in
+    /// (e.g.) a focus-ring or status label if it ever wants to; for now
+    /// the only caller is the click handler below.
+    func toggleInscription() {
+        inscriptionEnabled.toggle()
+        applyInscriptionAppearance(animated: true)
     }
 
     // MARK: - Hit testing
@@ -238,7 +280,15 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     }
 
     override func mouseUp(with event: NSEvent) {
+        // A `dragMouseDownAt` that survived mouseUp means the press
+        // never crossed the 4pt threshold in `mouseDragged` — it was
+        // a click, not a drag-out. Use it as the toggle for the
+        // inscription armed state.
+        let wasClick = dragMouseDownAt != nil
         dragMouseDownAt = nil
+        if wasClick {
+            toggleInscription()
+        }
     }
 
     // MARK: - Drag SOURCE — page → PDF on desktop
@@ -1084,6 +1134,10 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     // so Verovio's renderToMIDI replays at the same tempo the user
     // performed at, with rests preserving inter-note silences.
     func recordNote(pitch: UInt8) {
+        // Disarmed sheets eat onsets silently so the user can warm
+        // up / noodle without the page filling. Click the page to
+        // arm; see `toggleInscription`.
+        guard inscriptionEnabled else { return }
         // Capture wall-clock at the moment Swift sees the input,
         // not when the JS bridge delivers our message. The bridge
         // latency is variable (5–50ms) — without an explicit time
@@ -1095,6 +1149,7 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     }
 
     func releaseNote(pitch: UInt8) {
+        guard inscriptionEnabled else { return }
         let t = CACurrentMediaTime()
         send("Sheet.noteOff(\(pitch), \(t))")
     }
@@ -1110,6 +1165,14 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     func clearScore() {
         send("Sheet.clear()")
         overlay.reset()
+        // A cleared page is a fresh page — disarm so the next batch
+        // of notes is intentional. Matches the just-opened popover
+        // state so the UI affordance ("dimmed = tap to inscribe") is
+        // consistent.
+        if inscriptionEnabled {
+            inscriptionEnabled = false
+            applyInscriptionAppearance(animated: true)
+        }
     }
 
     func printScore() {
