@@ -57,7 +57,7 @@ for arg in $argv
         case "--build"
             set build true
         case "--piece=*"
-            set piece (string replace "--piece=" "" $arg)
+            set piece (string replace -- "--piece=" "" $arg)
         case "*"
             set extra_args $extra_args $arg
     end

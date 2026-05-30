@@ -21,13 +21,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Stop the launchd-managed production daemon so we don't end up with
-# two menubar items fighting over the same status item slot.
+# two menubar items fighting over the same status item slot. Also
+# stop the launcher helper — otherwise it'd see the dev binary die
+# (or any spurious cmd-cmd) and relaunch the prod .app behind our
+# back, putting the dev + prod menubar items in conflict again.
 PLIST="${HOME}/Library/LaunchAgents/computer.aestheticcomputer.menuband.plist"
+LAUNCHER_PLIST="${HOME}/Library/LaunchAgents/computer.aestheticcomputer.menubandlauncher.plist"
+if [[ -f "${LAUNCHER_PLIST}" ]] && launchctl list | grep -q computer.aestheticcomputer.menubandlauncher; then
+    printf "%s• stopping launchd Menu Band launcher%s\n" "$CYAN" "$RESET"
+    launchctl unload "${LAUNCHER_PLIST}" 2>/dev/null || true
+fi
 if [[ -f "${PLIST}" ]] && launchctl list | grep -q computer.aestheticcomputer.menuband; then
     printf "%s• stopping launchd Menu Band%s\n" "$CYAN" "$RESET"
     launchctl unload "${PLIST}" 2>/dev/null || true
 fi
 pkill -f "/MenuBand$" 2>/dev/null || true
+pkill -f "/MenuBandLauncher$" 2>/dev/null || true
 sleep 0.3
 
 cd "${PROJECT_DIR}"

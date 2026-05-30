@@ -7,8 +7,8 @@
 set -u
 VAR="${1:-v1}"
 REPO="/Users/jas/aesthetic-computer"
-SECROOT="$HOME/Documents/Working Desktop/gens/amazing-grace-sections"
-LOG="$HOME/Documents/Working Desktop/gens/amazing-grace-genillys-${VAR}.log"
+SECROOT="$HOME/Documents/Shelf/gens/amazing-grace-sections"
+LOG="$HOME/Documents/Shelf/gens/amazing-grace-genillys-${VAR}.log"
 : > "$LOG"
 GEN="$REPO/marketing/bin/gen-promo.mjs"
 

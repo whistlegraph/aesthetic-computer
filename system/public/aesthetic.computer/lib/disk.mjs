@@ -15550,7 +15550,7 @@ async function makeFrame({ data: { type, content } }) {
                 // console.log('[MatrixChunky8] Glyph check:', { char, charCode: char.charCodeAt(0), glyph: glyph ? 'exists' : 'missing', glyphType: typeof glyph });
                 // A real glyph has properties like dwidth, advance, or resolution
                 // The Proxy returns null for missing glyphs
-                const isRealGlyph = glyph && glyph !== null &&
+                const isRealGlyph = glyph && glyph !== null && !glyph.isPlaceholder &&
                   (glyph.dwidth || glyph.advance !== undefined || glyph.resolution);
 
                 if (!isRealGlyph) {
@@ -15951,7 +15951,7 @@ async function makeFrame({ data: { type, content } }) {
                       useMatrixFont = true;
                       for (const char of codeToRender) {
                         const glyph = matrixFont.glyphs[char];
-                        const isLoaded = glyph && (glyph.pixels || glyph.commands || glyph.resolution);
+                        const isLoaded = glyph && !glyph.isPlaceholder && (glyph.pixels || glyph.commands || glyph.resolution);
                         if (!isLoaded) {
                           useMatrixFont = false;
                           break;

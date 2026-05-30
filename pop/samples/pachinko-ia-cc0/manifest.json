@@ -1,0 +1,14 @@
+{
+  "slug": "pachinko-ia-cc0",
+  "title": "Pachinko + antique slot machine (Designer's Choice UCS, CC0)",
+  "license": "CC0 (https://creativecommons.org/publicdomain/zero/1.0/)",
+  "source": "https://archive.org/details/Designers-Choice-Collection-Games",
+  "credit": "Nicholas Judy / TDC",
+  "addedAt": "2026-05-29",
+  "note": "Recorded with Blue Snowball microphone close-up. CC0 — safe for commercial release. Drop-in replacement for the BBC RemArc pachinko clips in pop/samples/pachinko-bbc/.",
+  "samples": [
+    { "file": "pachinko-machine-playing.wav", "dur": 223.72, "desc": "real pachinko machine being played — coins clattering + electronic music underneath" },
+    { "file": "slot-antique-barrels.wav",     "dur":  27.12, "desc": "antique slot machine, three barrels spinning" },
+    { "file": "slot-antique-lever.wav",       "dur":  87.41, "desc": "antique slot machine, lever pulls" }
+  ]
+}

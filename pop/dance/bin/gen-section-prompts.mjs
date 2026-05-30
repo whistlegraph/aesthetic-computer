@@ -37,7 +37,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 
 const DRY = process.argv.includes("--dry");
-const ROOT = `${homedir()}/Documents/Working Desktop/gens/trancenwaltzi-sections`;
+const ROOT = `${homedir()}/Documents/Shelf/gens/trancenwaltzi-sections`;
 
 // ── LOCKED jeffrey/identity blocks — VERBATIM, do not edit ───────────
 const LOCK_SOURCE_FIDELITY =

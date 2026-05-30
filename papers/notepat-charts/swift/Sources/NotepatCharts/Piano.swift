@@ -276,8 +276,8 @@ enum Piano {
         if isActive {
             ctx.saveGState()
             ctx.setStrokeColor(accentColor(midi: midi).cgColor)
-            ctx.setLineWidth(2.2)
-            ctx.addPath(CGPath(roundedRect: rect.insetBy(dx: 1.1, dy: 1.1),
+            ctx.setLineWidth(1.0)
+            ctx.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
                                cornerWidth: layout.cornerR,
                                cornerHeight: layout.cornerR,
                                transform: nil))
@@ -286,12 +286,11 @@ enum Piano {
         }
 
         // Visible (exposed) zone on the white key — i.e. the region
-        // NOT covered by overlapping black keys. Stack the labels
-        // with breathing room: QWERTY letter hugs the bottom edge of
-        // the black-key area, note name hugs the top of the swatch,
-        // and a ≥2pt gap separates them.
+        // NOT covered by overlapping black keys. Letter sits lower in
+        // the exposed band so it reads closer to the fingers' resting
+        // position; note name hugs the top of the swatch.
         let exposedH = rect.height - layout.blackH
-        let letterCenterY = rect.minY + exposedH - layout.qwertyFontSize * 0.50
+        let letterCenterY = rect.minY + exposedH * 0.45
         let noteCenterY   = rect.minY + layout.swatchH + layout.noteFontSize * 0.65
 
         if showLetter, let letter = notepatLetter[midi] {
@@ -365,8 +364,8 @@ enum Piano {
             ctx.restoreGState()
             ctx.saveGState()
             ctx.setStrokeColor(lit.cgColor)
-            ctx.setLineWidth(2.2)
-            ctx.addPath(CGPath(roundedRect: rect.insetBy(dx: 1.1, dy: 1.1),
+            ctx.setLineWidth(1.0)
+            ctx.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
                                cornerWidth: layout.cornerR * 0.8,
                                cornerHeight: layout.cornerR * 0.8,
                                transform: nil))
@@ -374,9 +373,10 @@ enum Piano {
             ctx.restoreGState()
         }
 
-        // QWERTY letter — centered in the upper third of the black key.
+        // QWERTY letter — centered just above the middle of the black
+        // key so it visually rhymes with the lowered white-key letter.
         if showLetter, let letter = notepatLetter[midi] {
-            let labelY = rect.midY + rect.height * 0.20
+            let labelY = rect.midY + rect.height * 0.04
             let color: NSColor = isExt
                 ? NSColor(srgbRed: 248/255, green: 231/255, blue: 160/255, alpha: 1.0)
                 : NSColor.white

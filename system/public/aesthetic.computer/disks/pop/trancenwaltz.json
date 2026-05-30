@@ -10,14 +10,54 @@
   "audio": "/assets/pop/trancenwaltz.mp3",
   "cover": "/assets/pop/trancenwaltz.jpg",
   "sections": [
-    { "name": "intro",  "t": 2.7,   "illy": "/assets/pop/trancenwaltz/sec-0.jpg" },
-    { "name": "break1", "t": 10.575, "illy": "/assets/pop/trancenwaltz/sec-1.jpg" },
-    { "name": "build1", "t": 26.325, "illy": "/assets/pop/trancenwaltz/sec-2.jpg" },
-    { "name": "drop1",  "t": 34.2,   "illy": "/assets/pop/trancenwaltz/sec-3.jpg" },
-    { "name": "break2", "t": 49.95,  "illy": "/assets/pop/trancenwaltz/sec-4.jpg" },
-    { "name": "build2", "t": 57.825, "illy": "/assets/pop/trancenwaltz/sec-5.jpg" },
-    { "name": "drop2",  "t": 61.762, "illy": "/assets/pop/trancenwaltz/sec-6.jpg" },
-    { "name": "outro",  "t": 77.512, "illy": "/assets/pop/trancenwaltz/sec-7.jpg" }
+    {
+      "name": "intro",
+      "t": 2.7,
+      "illy": "/assets/pop/trancenwaltz/sec-0.jpg",
+      "code": "a"
+    },
+    {
+      "name": "break1",
+      "t": 10.575,
+      "illy": "/assets/pop/trancenwaltz/sec-1.jpg",
+      "code": "b"
+    },
+    {
+      "name": "build1",
+      "t": 26.325,
+      "illy": "/assets/pop/trancenwaltz/sec-2.jpg",
+      "code": "c"
+    },
+    {
+      "name": "drop1",
+      "t": 34.2,
+      "illy": "/assets/pop/trancenwaltz/sec-3.jpg",
+      "code": "d"
+    },
+    {
+      "name": "break2",
+      "t": 49.95,
+      "illy": "/assets/pop/trancenwaltz/sec-4.jpg",
+      "code": "e"
+    },
+    {
+      "name": "build2",
+      "t": 57.825,
+      "illy": "/assets/pop/trancenwaltz/sec-5.jpg",
+      "code": "f"
+    },
+    {
+      "name": "drop2",
+      "t": 61.762,
+      "illy": "/assets/pop/trancenwaltz/sec-6.jpg",
+      "code": "g"
+    },
+    {
+      "name": "outro",
+      "t": 77.512,
+      "illy": "/assets/pop/trancenwaltz/sec-7.jpg",
+      "code": "h"
+    }
   ],
   "links": {
     "spotify": "https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum"

@@ -30,7 +30,7 @@ for (let i = 2; i < process.argv.length; i++) {
   else { flags[a.slice(2)] = n; i++; }
 }
 const SLUG = flags.slug || "solafiya";
-const G = "/Users/jas/Documents/Working Desktop/gens";
+const G = "/Users/jas/Documents/Shelf/gens";
 
 // ── the exact lyrics, per voice, line by line ────────────────────────
 // Voice A (lead) — the "Me levanto" set.

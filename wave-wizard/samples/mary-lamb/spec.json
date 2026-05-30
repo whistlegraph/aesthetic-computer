@@ -1,0 +1,85 @@
+{
+  "title": "Mary Had a Little Lamb — vocal takes",
+  "outDir": "/Users/jas/aesthetic-computer/pop/big-pictures/voice-takes/wavewizard-mary",
+  "trim": {
+    "thresholdPctOfPeak": 0.04,
+    "padHeadMs": 80,
+    "padTailMs": 140,
+    "fadeMs": 8,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 1500,
+    "maxRecordSec": 18
+  },
+  "samples": [
+    {
+      "name": "line-1",
+      "desc": "mary had a little lamb — 100 bpm, 4/4. The melody steps down then back up: 'ma-ry had a' falls, 'lit-tle lamb' sits on the same note, hold 'lamb' for 2 beats.",
+      "lyric": "ma-ry had a lit-tle lamb_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": 4, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 0, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 4, "beats": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-2",
+      "desc": "little lamb, little lamb — same tempo. First 'little lamb' stays low (hold 'lamb' 2 beats), second 'little lamb' jumps up to the high note ('lamb' is the top of the tune, held 2 beats).",
+      "lyric": "lit-tle lamb_ lit-tle lamb_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": 2, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 2, "beats": 2.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 7, "beats": 1.0 },
+          { "off": 7, "beats": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-3",
+      "desc": "mary had a little lamb — same tempo, identical to line 1. Steps down on 'ma-ry had a', back up for 'lit-tle lamb', hold 'lamb' 2 beats.",
+      "lyric": "ma-ry had a lit-tle lamb_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": 4, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 0, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 4, "beats": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-4",
+      "desc": "its fleece was white as snow — same tempo, the resolution. 'was' lifts up a step then the line settles down to the tonic on 'snow', held for 3 beats.",
+      "lyric": "its fleece was white as snow_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": 2, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 0, "beats": 3.0 }
+        ]
+      }
+    }
+  ]
+}

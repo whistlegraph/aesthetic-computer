@@ -14,6 +14,14 @@ struct PopRender {
     var startedAt: Double   // ms since epoch
 }
 
+/// How aggressively to shrink the tile font. Far = "comfortable from
+/// typical distance" (the auto-fit baseline). Near = ~60% — denser when
+/// you're sitting close. Tiny = ~40% — for cramming many panes onto one
+/// screen at the edge of legibility.
+enum TextSize {
+    case far, near, tiny
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false
@@ -22,7 +30,7 @@ struct StateSnapshot {
     var ambientActive: Bool = false
     var muted: Bool = false
     var autoTile: Bool = false
-    var nearText: Bool = false
+    var textSize: TextSize = .far
     var themeByStatus: Bool = false
     var forceBright: Bool = false
     var tailnetPeers: [TailnetPeer] = []
@@ -35,6 +43,13 @@ struct StateSnapshot {
     /// whole status surface (polygon icon + themed terminals) then carries a
     /// shared "she texted" accent until the thread is read.
     var messageWaiting: Bool = false
+    /// True when slab-call-record is actively capturing a meeting WAV.
+    /// Populated from ~/.ac-meeting-recording.json — the recorder script
+    /// owns the state file; the menubar only reads it.
+    var callRecording: Bool = false
+    /// Path to the active recording WAV when callRecording is true.
+    /// Empty otherwise.
+    var callRecordingPath: String = ""
 
     var totalActive: Int { activePrompts + activeSubagents }
     var hasWork: Bool { totalActive > 0 }
@@ -61,13 +76,44 @@ struct StateSnapshot {
         s.ambientActive = FileManager.default.fileExists(atPath: Paths.ambientFlag)
         s.muted = FileManager.default.fileExists(atPath: Paths.muteFlag)
         s.autoTile = FileManager.default.fileExists(atPath: Paths.autoTileFlag)
-        s.nearText = FileManager.default.fileExists(atPath: Paths.nearTextFlag)
+        // Tiny wins over near if both flags somehow coexist on disk —
+        // matches the menu handlers, which only ever leave one set.
+        if FileManager.default.fileExists(atPath: Paths.tinyTextFlag) {
+            s.textSize = .tiny
+        } else if FileManager.default.fileExists(atPath: Paths.nearTextFlag) {
+            s.textSize = .near
+        } else {
+            s.textSize = .far
+        }
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
         s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         s.popRenders = readPopRenders()
+        let (rec, recPath) = readCallRecordingState()
+        s.callRecording = rec
+        s.callRecordingPath = recPath
         return s
+    }
+
+    /// Inspect ~/.ac-meeting-recording.json. The file exists only while
+    /// slab-call-record has a live ffmpeg subprocess; we additionally
+    /// verify the PID is alive (kill -0) so a stale file from a crashed
+    /// recorder doesn't keep the menu pinned to "recording" forever.
+    private static func readCallRecordingState() -> (Bool, String) {
+        let path = Paths.meetingRecordingState
+        guard FileManager.default.fileExists(atPath: path),
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return (false, "") }
+        let pid = (obj["pid"] as? Int) ?? 0
+        if pid > 0 && kill(pid_t(pid), 0) != 0 && errno == ESRCH {
+            // Recorder died — clean up so we don't lie to the user.
+            try? FileManager.default.removeItem(atPath: path)
+            return (false, "")
+        }
+        let wav = (obj["wav"] as? String) ?? ""
+        return (true, wav)
     }
 
     /// Read the /pop render progress heartbeats from ~/.ac-pop-renders/.

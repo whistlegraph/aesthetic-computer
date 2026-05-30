@@ -59,7 +59,7 @@ for (let i = 2; i < process.argv.length; i++) {
 const SLUG   = flags.slug  || "trancepenta";
 const TITLE  = flags.title || SLUG;
 // trancepenta master + struct live in the Working-Desktop bake dir.
-const TP_OUT = `${process.env.HOME}/Documents/Working Desktop/twi-out`;
+const TP_OUT = `${process.env.HOME}/Documents/Shelf/twi-out`;
 const COVER  = flags.cover  || `${LANE}/out/${SLUG}-p-cover.png`;
 const AUDIO  = flags.audio  || `${TP_OUT}/${SLUG}.mp3`;
 const STRUCT = flags.struct || `${TP_OUT}/${SLUG}-MASTER-preBright.wav.assets/struct.json`;

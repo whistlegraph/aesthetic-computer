@@ -1,0 +1,347 @@
+/* Shared style for the three session-5 slides.
+   16:10 at 2400×1500 (retina widescreen for Google Slides / Zoom share). */
+
+@font-face {
+  font-family: "YWFT Processing";
+  src: url("__YWFT_BOLD__") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+}
+@font-face {
+  font-family: "YWFT Processing";
+  src: url("__YWFT_LIGHT__") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Berkeley Mono";
+  src: url("__BERKELEY__") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+}
+
+html, body { margin: 0; padding: 0; }
+body {
+  width: 2400px;
+  height: 1500px;
+  background: #fafafa;
+  color: #121012;
+  font-family: "YWFT Processing", -apple-system, "Helvetica Neue", sans-serif;
+  box-sizing: border-box;
+  padding: 56px 64px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ---------------- Header ---------------- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 36px;
+}
+.kicker {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 24px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #888;
+  margin: 0 0 14px 0;
+  font-weight: 700;
+}
+.kicker .accent { color: #cd5c9b; }
+.title {
+  font-family: "YWFT Processing";
+  font-weight: 800;
+  font-size: 96px;
+  letter-spacing: -0.015em;
+  margin: 0;
+  line-height: 0.96;
+  color: #121012;
+}
+.title .dot { color: #cd5c9b; }
+.title .light { font-weight: 300; }
+.title .pink { color: #cd5c9b; }
+.subtitle {
+  font-family: "YWFT Processing";
+  font-weight: 300;
+  font-size: 32px;
+  color: #444;
+  margin: 22px 0 0 0;
+  max-width: 1800px;
+  line-height: 1.32;
+}
+.subtitle b { font-weight: 800; color: #121012; }
+.subtitle i { font-style: italic; color: #6b3fc0; }
+
+.brand-block {
+  display: flex; align-items: flex-start; gap: 18px;
+}
+.brand-block .marks {
+  position: relative;
+  width: 130px; height: 130px;
+}
+.brand-block .marks #jeffrey {
+  position: absolute;
+  inset: 0;
+  width: 130px; height: 130px;
+  border-radius: 8px;
+  object-fit: cover;
+  object-position: center top;
+  border: 2px solid #ddd;
+  z-index: 1;
+}
+.brand-block .marks #pals {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 122px; height: 122px;
+  opacity: 0.95;
+  z-index: 2;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,0.95))
+          drop-shadow(0 0 2px rgba(255,255,255,1));
+}
+.brand-block .brand-text {
+  display: flex; flex-direction: column; gap: 4px;
+  align-items: flex-end;
+  padding-top: 4px;
+}
+.brand-block .brand-text .top {
+  font-family: "YWFT Processing";
+  font-size: 30px;
+  color: #333;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  font-weight: 800;
+  line-height: 1;
+}
+.brand-block .brand-text .author {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 19px;
+  color: #888;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.brand-block .brand-text .author b { color: #c8324b; font-weight: 800; }
+.brand-block .brand-text .session {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 16px;
+  color: #b450ff;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+/* ---------------- Sectional ---------------- */
+.body { flex: 1; min-height: 0; display: flex; gap: 40px; }
+
+.section-h {
+  font-family: "YWFT Processing";
+  font-size: 26px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #555;
+  margin: 0 0 18px 0;
+  font-weight: 800;
+}
+.section-h .accent { color: #c8324b; }
+
+.footer-note {
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 2px solid #ddd;
+  font-family: "YWFT Processing";
+  font-weight: 300;
+  font-size: 24px;
+  color: #555;
+  line-height: 1.4;
+  font-style: italic;
+}
+.footer-note b { font-weight: 800; color: #121012; font-style: normal; }
+
+/* ---------------- Cards ---------------- */
+.card {
+  background: #fff;
+  border: 2px solid #e3e0d8;
+  border-radius: 16px;
+  padding: 24px 28px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.card .ribbon {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 8px;
+}
+.card .ribbon.pink   { background: #cd5c9b; }
+.card .ribbon.purple { background: #b450ff; }
+.card .ribbon.blue   { background: #3278ff; }
+.card .ribbon.green  { background: #32c832; }
+.card .ribbon.orange { background: #ffa000; }
+.card .ribbon.red    { background: #ff3232; }
+.card .ribbon.yellow { background: #d4b400; }
+
+.card .card-tag {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #888;
+  margin: 8px 0 4px 0;
+  font-weight: 700;
+}
+.card .card-h {
+  font-family: "YWFT Processing";
+  font-weight: 800;
+  font-size: 38px;
+  color: #121012;
+  line-height: 1.05;
+  margin: 0 0 8px 0;
+}
+.card .card-where {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 18px;
+  color: #6b3fc0;
+  margin: 0 0 14px 0;
+  font-weight: 700;
+}
+.card .card-body {
+  font-family: "YWFT Processing";
+  font-weight: 300;
+  font-size: 22px;
+  color: #2a2a2a;
+  line-height: 1.35;
+  flex: 1;
+}
+.card .card-body b { font-weight: 800; color: #121012; }
+.card .card-foot {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 15px;
+  color: #888;
+  margin-top: 14px;
+  letter-spacing: 0.02em;
+}
+
+/* ---------------- Stats row ---------------- */
+.stat-row {
+  display: flex;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+.stat {
+  flex: 1;
+  background: #f6f5f1;
+  border-radius: 14px;
+  padding: 22px 26px;
+  border: 1px solid #e3e0d8;
+}
+.stat .label {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #888;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.stat .num {
+  font-family: "YWFT Processing";
+  font-size: 64px;
+  font-weight: 800;
+  color: #121012;
+  line-height: 1;
+}
+.stat .num .small { font-size: 32px; color: #888; font-weight: 300; }
+.stat .sub {
+  font-family: "YWFT Processing";
+  font-size: 18px;
+  font-weight: 300;
+  color: #555;
+  margin-top: 6px;
+  line-height: 1.25;
+}
+
+/* ---------------- Bullet list ---------------- */
+.bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: "YWFT Processing";
+  font-size: 26px;
+  line-height: 1.42;
+  color: #1a1a1a;
+  font-weight: 300;
+}
+.bullets li {
+  padding: 13px 0 13px 36px;
+  border-bottom: 1px solid #eee;
+  position: relative;
+}
+.bullets li:last-child { border-bottom: none; }
+.bullets li::before {
+  content: "▸";
+  position: absolute; left: 0; top: 14px;
+  color: #c8324b;
+  font-weight: 800;
+  font-size: 26px;
+}
+.bullets li b { color: #000; font-weight: 800; }
+.bullets li .keys {
+  font-family: "Berkeley Mono", "SF Mono", monospace;
+  background: #f0eff0;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 22px;
+  color: #121012;
+  font-weight: 700;
+}
+.bullets li i { color: #6b3fc0; font-style: italic; }
+
+/* ---------------- Question block ---------------- */
+.qbox {
+  background: #f4ecff;
+  border: 2px solid #b89df0;
+  border-radius: 16px;
+  padding: 22px 28px;
+  margin-top: 24px;
+}
+.qbox .q-h {
+  font-family: "Berkeley Mono", monospace;
+  font-size: 16px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #6b3fc0;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.qbox .q-body {
+  font-family: "YWFT Processing";
+  font-weight: 300;
+  font-size: 24px;
+  color: #2a1a55;
+  line-height: 1.4;
+}
+.qbox .q-body b { font-weight: 800; color: #1a0a40; }
+
+/* ---------------- Page footer ---------------- */
+.page-foot {
+  position: absolute;
+  bottom: 28px;
+  left: 64px;
+  right: 64px;
+  display: flex;
+  justify-content: space-between;
+  font-family: "Berkeley Mono", monospace;
+  font-size: 16px;
+  color: #999;
+  letter-spacing: 0.04em;
+}
+.page-foot .n { color: #cd5c9b; font-weight: 800; }
+</content>
+</invoke>

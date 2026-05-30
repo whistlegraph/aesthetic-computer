@@ -60,15 +60,25 @@ Every dossier also renders as a single-sheet **card** (`*-cards.tex` via [`cards
 
 Candidates queued in [`papers/hitlist.md`](hitlist.md).
 
-### 3. JOSS papers (`joss-*/`)
+### 3. Essays (`essay-*/`)
+
+The voice-first lane (added **2026-05-25**). Magazine-essay format in the tradition of *NYT Magazine*, *Harper's*, *New York Magazine*, and *Brooklyn Rail*: single-column layout with wide margins, refined serif body with extra leading, magazine title block (deck + display title + dek + byline), drop cap on the opening paragraph, ornamental section breaks (`§`), pull quotes, **discursive endnotes** instead of parenthetical citations, and a **Further Reading** coda instead of a bibliography. Style file: [`ac-paper-essay.sty`](ac-paper-essay.sty).
+
+The essay lane sits between the argumentative arXiv papers and the personal-voice posts that never get written down — for thinking out loud at length when the question is not yet sharp enough for a paper but is sharper than a tweet. References are named in prose. The apparatus moves to the back of the room. Current set:
+
+| Essay | Status |
+|---|---|
+| Aesthetic May '26 | first entry; companion mood-piece to `arxiv-futures` |
+
+### 4. JOSS papers (`joss-*/`)
 
 Condensed software papers for the [Journal of Open Source Software](https://joss.theoj.org/). Markdown with LaTeX includes. JOSS review process focuses on software quality, documentation, and community impact — distinct from academic-novelty review. Current: `joss-ac/`, `joss-kidlisp/`.
 
-### 4. Cards (`*-cards.tex`, generated)
+### 5. Cards (`*-cards.tex`, generated)
 
 Single-sheet index-card layout reformatted from arXiv source via [`cards-convert.mjs`](cards-convert.mjs). Designed for printing, passing hand-to-hand, pinning on walls. The same `.tex` source produces both the full arXiv PDF and the card.
 
-### 5. Conference-specific scaffolds (`<venue>-*/`)
+### 6. Conference-specific scaffolds (`<venue>-*/`)
 
 Venue-specific submissions that don't fit arXiv format:
 - `siggraph-asia-2026-tech/` — `acmtog` LaTeX class for SIGGRAPH Asia Technical Papers (double-blind)
@@ -76,11 +86,11 @@ Venue-specific submissions that don't fit arXiv format:
 - `iccc-kidlisp/`, `els-kidlisp/` — ICCC and ELS submission packages
 - `ars-electronica-2026/` — Prix Ars Electronica entry materials
 
-### 6. Lectures (`lectures/`)
+### 7. Lectures (`lectures/`)
 
 Lecture transcripts paired with commentary and references. Material that started as spoken-word and was captured for later citation.
 
-### 7. Platters (sub-platters)
+### 8. Platters (sub-platters)
 
 Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
 - [`jeffrey-platter/`](jeffrey-platter/) — biographical materials, image corpus, archival sources for Jeffrey-as-subject
@@ -88,7 +98,7 @@ Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
 - [`whistlegraph-platter/`](whistlegraph-platter/) — Whistlegraph-specific artifacts and references
 - [`people-platter/`](people-platter/) — TODO; will hold AC-adjacent people biographies
 
-### 8. CV (`cv/`)
+### 9. CV (`cv/`)
 
 Jeffrey's CV is built through the same pipeline (LaTeX → PDF → site deploy) and treated as a long-form paper for tooling purposes. Hidden from the public index.
 
@@ -122,6 +132,7 @@ The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts
 |---|---|
 | [`ac-paper-layout.sty`](ac-paper-layout.sty) | Shared visual identity for arxiv papers: AC color palette, font commands, draft watermark, pals logo watermark, section formatting, header/footer. |
 | [`ac-paper-cards.sty`](ac-paper-cards.sty) | Cards-format layout. |
+| [`ac-paper-essay.sty`](ac-paper-essay.sty) | Essay-format layout: single-column magazine essay style with title block macros (`\essaydeck`, `\essaytitle`, `\essaysubtitle`, `\essaybyline`), `\dropcap`, `\sectionbreak` (silcrow ornament), `\begin{pullquote}`, `\enote{}` for endnotes, and `\begin{further}` / `\reading{}` for the Further Reading coda. |
 
 ## Formats
 
@@ -161,6 +172,7 @@ Sorted by most recently edited/added.
 | The Potter and the Prompt | arXiv (LaTeX) | `arxiv-holden/holden.pdf` | `arxiv-holden/holden.tex` |
 | Two Departments, One Building | arXiv (LaTeX) | `arxiv-ucla-arts/ucla-arts.pdf` | `arxiv-ucla-arts/ucla-arts.tex` |
 | Handle Identity on the AT Protocol | arXiv (LaTeX) | `arxiv-identity/identity.pdf` | `arxiv-identity/identity.tex` |
+| Aesthetic May '26 | Essay (LaTeX, magazine-style, ~5pp first-pass) | `essay-may-26/may-26.pdf` | `essay-may-26/may-26.tex` |
 | Five Years from Now: What Aesthetic Computer Probably Becomes | arXiv (LaTeX) | `arxiv-futures/futures.pdf` | `arxiv-futures/futures.tex` |
 | Get Closed Source Out of Schools | arXiv (LaTeX) | `arxiv-open-schools/open-schools.pdf` | `arxiv-open-schools/open-schools.tex` |
 | CalArts, Callouts, and Papers | arXiv (LaTeX) | `arxiv-calarts/calarts.pdf` | `arxiv-calarts/calarts.tex` |

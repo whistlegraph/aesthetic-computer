@@ -1357,6 +1357,26 @@ let relayMessageHandler = null;
 const relayMidiQueue = [];
 const relayActiveNotes = new Map();
 
+// 🎹 notepat.com → AC-Notepat M4L device (notepat.com/amxd) MIDI bridge.
+// Native bare-metal notepat ships these events as raw UDP packets to
+// session-server:10010 (see fedac/native/src/udp-client.c udp_send_midi).
+// The browser can't open raw UDP, so we publish through both the geckos
+// channel (sub-frame latency, may drop) and the session-server WS
+// (reliable fallback). Session-server fans either path out via
+// broadcastNotepatMidiEvent to subscribed notepat-remote M4L devices.
+// Enabled with ?amxd=1 (or ?amxd=publish), or always when running inside
+// jweb~ (acFORCE_DAW). Tracks a per-tab machineId so the M4L device's
+// source list can disambiguate multiple browser tabs.
+let amxdPublishEnabled = false;
+let amxdMachineId = "";
+let amxdHandle = "";
+let amxdHeartbeatAt = 0;
+const AMXD_HEARTBEAT_MS = 5000;
+let amxdSentCount = 0;
+let amxdLastEvent = null;
+let amxdActiveNotes = new Map(); // tone string → midi number (to send note_off)
+let amxdSuppressPublish = false; // set true while replaying inbound relay events
+
 let stampleSampleId = null;
 let stampleSampleData = null;
 let stampleSampleRate = null;
@@ -1484,6 +1504,61 @@ function handleRelaySocketMessage(id, type, content) {
   }
 }
 
+// Convert a notepat tone string (e.g. "4C", "3F#") to a MIDI note number.
+// MIDI: C-1 = 0, C0 = 12, C4 = 60. Returns null if it can't parse.
+function toneToMidi(tone) {
+  if (typeof tone !== "string") return null;
+  const match = tone.match(/^(-?\d+)([A-Ga-g])([#b]?)$/);
+  if (!match) return null;
+  const oct = parseInt(match[1], 10);
+  const letter = match[2].toUpperCase();
+  const accidental = match[3];
+  const semis = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[letter];
+  if (semis === undefined) return null;
+  let midi = (oct + 1) * 12 + semis;
+  if (accidental === "#") midi += 1;
+  else if (accidental === "b") midi -= 1;
+  if (midi < 0 || midi > 127) return null;
+  return midi;
+}
+
+function publishNotepatMidi(event, midiNote, velocity, channel = 0) {
+  if (!amxdPublishEnabled || amxdSuppressPublish) return;
+  if (!Number.isFinite(midiNote)) return;
+  const payload = {
+    event,
+    note: midiNote,
+    velocity,
+    channel,
+    handle: amxdHandle,
+    machineId: amxdMachineId,
+    piece: "notepat",
+    ts: Date.now(),
+  };
+  // UDP path (lowest latency); silently no-ops if not connected.
+  try { udpServer?.send?.("notepat:midi", payload); } catch (_) {}
+  // WS reliable fallback — session-server dedups by (note + ts) implicitly
+  // because each press only produces one note_on/note_off pair anyway.
+  try { relaySocket?.send?.("notepat:midi:publish", payload); } catch (_) {}
+  amxdSentCount += 1;
+  amxdLastEvent = { event, note: midiNote, velocity, ts: payload.ts };
+}
+
+function publishNotepatMidiHeartbeat() {
+  if (!amxdPublishEnabled) return;
+  const now = Date.now();
+  if (now - amxdHeartbeatAt < AMXD_HEARTBEAT_MS) return;
+  amxdHeartbeatAt = now;
+  const payload = {
+    handle: amxdHandle,
+    machineId: amxdMachineId,
+    piece: "notepat",
+    ts: now,
+  };
+  try { udpServer?.send?.("notepat:midi:heartbeat", payload); } catch (_) {}
+  try { relaySocket?.send?.("notepat:midi:heartbeat", payload); } catch (_) {}
+}
+
 async function boot({
   params,
   api,
@@ -1499,6 +1574,7 @@ async function boot({
   sound,
   clock,
   query,
+  handle,
 }) {
   autopatApi = api;
   autopatHud = hud;
@@ -1593,6 +1669,34 @@ async function boot({
   relaySocket = net.socket(handleRelaySocketMessage);
   requestRelaySources();
   sendRelaySubscription();
+
+  // 🎹 notepat.com → /amxd MIDI bridge. Opt-in via `?amxd=1`; auto-on when
+  // running inside an M4L jweb host (acFORCE_DAW). Matches what AC Native
+  // OS does at runtime (always-on UDP send to session-server:10010, see
+  // fedac/native/pieces/notepat.mjs sendUdpMidiEvent).
+  const amxdFlag = query?.amxd;
+  amxdPublishEnabled =
+    amxdFlag === "1" || amxdFlag === 1 || amxdFlag === true ||
+    amxdFlag === "publish" || amxdFlag === "on" ||
+    (typeof window !== "undefined" && !!window.acFORCE_DAW);
+  if (amxdPublishEnabled) {
+    amxdHandle = normalizeRelayHandle(handle?.()) || "notepat-web";
+    // Per-tab machineId so a single user with notepat.com open in two tabs
+    // shows as two sources. Falls back to a fresh random id when crypto.randomUUID
+    // is unavailable (rare; covers very old browser shells).
+    try {
+      amxdMachineId =
+        (typeof crypto !== "undefined" && crypto.randomUUID?.()) ||
+        `web-${Math.random().toString(36).slice(2, 10)}`;
+    } catch (_) {
+      amxdMachineId = `web-${Math.random().toString(36).slice(2, 10)}`;
+    }
+    console.log(
+      `🎹 notepat → amxd bridge ON  handle=@${amxdHandle} machineId=${amxdMachineId}`,
+    );
+    // Initial heartbeat so the M4L source list lights up before any note.
+    publishNotepatMidiHeartbeat();
+  }
   if (typeof window !== "undefined") {
     if (relayMessageHandler) window.removeEventListener("message", relayMessageHandler);
     relayMessageHandler = (event) => {
@@ -1803,6 +1907,7 @@ function sim({ sound, simCount, num, clock, painting }) {
     num,
   });
   flushRelayMidiQueue();
+  publishNotepatMidiHeartbeat();
   recordSync();
 
   if (lowLatencyMode) {
@@ -5938,6 +6043,16 @@ function startRelayButtonNote(buttonNote, velocity = 127) {
 
     applyPitchBendToNotes([buttonNote], { immediate: true });
 
+    // 🎹 Mirror to /amxd. Don't republish events we received over the relay
+    // (would create a feedback loop with another notepat.com tab listening).
+    if (amxdPublishEnabled) {
+      const midi = toneToMidi(tone);
+      if (midi !== null) {
+        amxdActiveNotes.set(buttonNote, midi);
+        publishNotepatMidi("note_on", midi, Math.max(1, Math.min(127, velocity | 0)), 0);
+      }
+    }
+
     if (buttonNote.toUpperCase() === song?.[songIndex]?.[0]) {
       songNoteDown = true;
     }
@@ -5957,6 +6072,14 @@ function startRelayButtonNote(buttonNote, velocity = 127) {
 
 function stopRelayButtonNote(buttonNote) {
   if (!buttonNote) return;
+
+  // 🎹 Mirror note_off to /amxd. Sustained voices (shift/enter) keep ringing
+  // locally but still get a MIDI note_off so Ableton doesn't latch them —
+  // the M4L device path is fire-and-forget, not stateful sustain.
+  if (amxdPublishEnabled && amxdActiveNotes.has(buttonNote)) {
+    publishNotepatMidi("note_off", amxdActiveNotes.get(buttonNote), 0, 0);
+    amxdActiveNotes.delete(buttonNote);
+  }
 
   const orderedTones = orderedByCount(tonestack);
   const soundEntry = sounds[buttonNote];
@@ -6011,6 +6134,17 @@ function stopRelayButtonNote(buttonNote) {
 }
 
 function flushRelayMidiQueue() {
+  // Inbound relay notes are LISTENS, not local triggers — suppress amxd
+  // publish so we don't echo subscribed traffic back out as a fresh source.
+  amxdSuppressPublish = true;
+  try {
+    flushRelayMidiQueueInner();
+  } finally {
+    amxdSuppressPublish = false;
+  }
+}
+
+function flushRelayMidiQueueInner() {
   if (relayNeedsPanic) {
     for (const buttonNote of relayActiveNotes.values()) {
       stopRelayButtonNote(buttonNote);
@@ -6292,6 +6426,18 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
       pitchFactor: 1.0,
       phase: "both",
     });
+    // 🎹 Mirror drum hits to /amxd at the same tone the note's letter would
+    // have played at, in the current base octave. Lets Ableton route to a
+    // drum rack keyed to the same letters notepat shows on its pads.
+    if (amxdPublishEnabled) {
+      const drumTone = `${parseInt(octave)}${letter.toUpperCase()}`;
+      const midi = toneToMidi(drumTone);
+      if (midi !== null) {
+        publishNotepatMidi("note_on", midi, Math.max(1, Math.min(127, velocity | 0)), 0);
+        // Drums are one-shot — release immediately so Ableton doesn't latch.
+        publishNotepatMidi("note_off", midi, 0, 0);
+      }
+    }
     return true;
   }
 
@@ -6388,6 +6534,15 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
       pictureAdd(apiRef, tone);
     }
     udpServer?.send("tv", { note });
+
+    // 🎹 Mirror to /amxd (sibling to the relay path).
+    if (amxdPublishEnabled) {
+      const midi = toneToMidi(tone);
+      if (midi !== null) {
+        amxdActiveNotes.set(note, midi);
+        publishNotepatMidi("note_on", midi, Math.max(1, Math.min(127, velocity | 0)), 0);
+      }
+    }
   }
 
   return true;
@@ -6395,6 +6550,12 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
 
 function stopButtonNote(note, { force = false } = {}) {
   if (downs[note]) return false;
+
+  // 🎹 Mirror note_off to /amxd.
+  if (amxdPublishEnabled && amxdActiveNotes.has(note)) {
+    publishNotepatMidi("note_off", amxdActiveNotes.get(note), 0, 0);
+    amxdActiveNotes.delete(note);
+  }
 
   const orderedTones = orderedByCount(tonestack);
   const soundEntry = sounds[note];

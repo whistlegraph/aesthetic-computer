@@ -1159,6 +1159,16 @@ final class MenuBandController {
     // MARK: - TYPE mode (global keyboard capture + letter overlays)
 
     private func enableTypeMode(promptForPermission: Bool, playFeedback: Bool = false) {
+        #if MAC_APP_STORE
+        // Mac App Store build: global keystroke capture (CGEventTap) is
+        // forbidden by the App Sandbox, so there is no global TYPE mode.
+        // Typing-to-play is served instead by LocalKeyCapture while Menu
+        // Band is the focused app (armed on piano-click / popover-open);
+        // the selected keymap is still honored via handleLocalKey. Keep
+        // typeMode persisted false so the UI never claims global capture.
+        UserDefaults.standard.set(false, forKey: typeModeKey)
+        return
+        #else
         if !ensureAccessibility(prompt: promptForPermission) {
             UserDefaults.standard.set(false, forKey: typeModeKey)
             onChange?()
@@ -1180,6 +1190,7 @@ final class MenuBandController {
             NSSound(named: NSSound.Name("Submarine"))?.play()
         }
         onChange?()
+        #endif
     }
 
     private func disableTypeMode(playFeedback: Bool = false) {
@@ -1747,6 +1758,12 @@ final class MenuBandController {
     /// `voiceDigitFlushInterval` means the user is picking a new voice,
     /// not continuing a multi-digit number.
     private var voiceDigitLastPress: CFTimeInterval = 0
+    /// True after the `-` key was pressed and the next digit will be
+    /// read as part of a negative voice slot (currently only `-1`
+    /// = KPBJ radio). Same `voiceDigitFlushInterval` timeout as the
+    /// digit buffer so a stray `-` doesn't hijack the next typed
+    /// voice number.
+    private var voiceDigitNegative: Bool = false
     /// Burst window for multi-digit voice entry. Tuned so "128" typed
     /// at a normal pace stays one number, while a re-pick after a beat
     /// starts clean.
@@ -1867,16 +1884,19 @@ final class MenuBandController {
             break
         }
 
-        // Minus key (`-`, keyCode 27) toggles the live KPBJ radio backend
-        // — conceptually "voice −1": the piano plays the live stream
-        // pitched by 2^((note−60)/12), with stalls fading into AM-style
-        // static. Consumed in both directions so it never leaks to the
-        // focused app, but only the down-event flips the mode.
+        // Minus key (`-`, keyCode 27) primes a negative voice slot —
+        // the trigger sequence is `-1`, NOT a bare `-`. Typing `-1`
+        // toggles the live KPBJ radio backend ("voice −1": the piano
+        // plays the live stream pitched by 2^((note−60)/12), with
+        // stalls fading into AM-style static). Standalone `-` is a
+        // no-op so the negative-prefix UX matches how positive voices
+        // are typed (number row commits the pick). Consumed in both
+        // directions so the key never leaks to the focused app.
         if keyCode == 27 {
             if isDown && !isRepeat {
-                DispatchQueue.main.async { [weak self] in
-                    self?.toggleRadioBackend()
-                }
+                voiceDigitBuffer = ""
+                voiceDigitNegative = true
+                voiceDigitLastPress = CACurrentMediaTime()
             }
             return true
         }
@@ -1926,6 +1946,26 @@ final class MenuBandController {
                 let now = CACurrentMediaTime()
                 let staleGap = now - voiceDigitLastPress
                     > Self.voiceDigitFlushInterval
+                // Negative-voice slot, primed by a preceding `-`.
+                // `-1` is the only negative voice today (KPBJ radio);
+                // it toggles, so a second `-1` switches back to the
+                // last GM voice. Other digits after `-` are no-ops —
+                // we consume them so they don't quietly pick a GM
+                // voice the user wasn't aiming for.
+                if voiceDigitNegative && !staleGap {
+                    voiceDigitNegative = false
+                    voiceDigitLastPress = now
+                    if digit == 1 {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.toggleRadioBackend()
+                        }
+                    }
+                    return true
+                }
+                // A stale `-` doesn't get to hijack the next typed
+                // voice number — clear the prefix and fall through to
+                // normal positive-digit handling.
+                voiceDigitNegative = false
                 if voiceDigitBuffer.count >= 3 || staleGap {
                     voiceDigitBuffer = ""
                 }

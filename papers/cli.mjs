@@ -176,6 +176,12 @@ const PAPER_MAP = {
     siteName: "five-years-from-now-26-arxiv",
     title: "Five Years from Now",
   },
+  "essay-may-26": {
+    base: "may-26",
+    siteName: "aesthetic-may-26-essay",
+    title: "Aesthetic May '26",
+    format: "essay",
+  },
   "arxiv-identity": {
     base: "identity",
     siteName: "handle-identity-atproto-26-arxiv",
@@ -643,6 +649,7 @@ function updateIndex(entries) {
     "citation-diversity-audit-26": 17,
     "open-schools-26-arxiv": 18,
     "five-years-from-now-26-arxiv": 19,
+    "aesthetic-may-26-essay": 19.5,
     "calarts-callouts-papers-26-arxiv": 20,
     "handle-identity-atproto-26-arxiv": 21,
     "ucla-arts-funding-26-arxiv": 22,
@@ -800,6 +807,11 @@ function updateIndex(entries) {
       detail: "",
       abstract:
         "Five Years from Now is a projection paper about where the project could go if current habits continue. It uses the near future to test the consequences of today's decisions.",
+    },
+    "aesthetic-may-26-essay": {
+      detail: "Essay &middot; ~5pp",
+      abstract:
+        "Aesthetic May '26 is a magazine-style essay companion to Five Years from Now. May is both the month and the modal verb of possibility; the essay reads the present as a field of branching maybes rather than a line of probabilities --- where the music lane may go, what jeffrey may do, what may not happen this year, and the weather acting on all of it. First entry in the essay-* lane.",
     },
     "calarts-callouts-papers-26-arxiv": {
       detail: "",

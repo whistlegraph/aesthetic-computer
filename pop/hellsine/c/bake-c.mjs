@@ -28,7 +28,7 @@ args = args.filter((a) => a !== "--acdsp" && a !== "--no-acdsp");
 const sep = args.indexOf("--");
 const engineExtra = sep >= 0 ? args.slice(sep + 1) : [];
 const outDir = (sep >= 0 ? args.slice(0, sep) : args)[0] ||
-  `${homedir()}/Documents/Working Desktop/hellsine`;
+  `${homedir()}/Documents/Shelf/hellsine`;
 
 const ENGINE = `${REPO}/pop/hellsine/c/hellsine`;
 const pre = `${outDir}/.hellsine-c-pre.wav`;

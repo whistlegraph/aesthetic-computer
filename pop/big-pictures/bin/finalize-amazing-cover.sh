@@ -6,8 +6,8 @@
 # Usage: bash finalize-amazing-cover.sh [VARIANT]    (default v1)
 set -euo pipefail
 VAR="${1:-v1}"
-SECROOT="$HOME/Documents/Working Desktop/gens/amazing-grace-sections"
-DUR_DIR="$HOME/Documents/Working Desktop/amazing-grace"
+SECROOT="$HOME/Documents/Shelf/gens/amazing-grace-sections"
+DUR_DIR="$HOME/Documents/Shelf/amazing-grace"
 DESK="$HOME/Desktop"
 SRC="$SECROOT/cover/gens/${VAR}.png"
 COVER3000="$DUR_DIR/amazing-grace-cover-3000.jpg"

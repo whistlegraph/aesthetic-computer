@@ -3,7 +3,7 @@
 // (the 1:24 single edit: verse-1-only with cool sine intro/outro).
 //
 // Inputs (must already exist):
-//   ~/Documents/Working Desktop/gens/amazing-grace-sections/verse{1,6}/gens/v1.png
+//   ~/Documents/Shelf/gens/amazing-grace-sections/verse{1,6}/gens/v1.png
 //   ~/Desktop/amazing-grace.mp3                 (the 1:24 brightened master)
 //
 // Output:
@@ -28,7 +28,7 @@ import { homedir } from "node:os";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOME = homedir();
 void HERE;
-const SECROOT = `${HOME}/Documents/Working Desktop/gens/amazing-grace-sections`;
+const SECROOT = `${HOME}/Documents/Shelf/gens/amazing-grace-sections`;
 const AUDIO = `${HOME}/Desktop/amazing-grace.mp3`;
 const OUT = `${HOME}/Desktop/amazing-grace-vertical.mp4`;
 const W = 1080;

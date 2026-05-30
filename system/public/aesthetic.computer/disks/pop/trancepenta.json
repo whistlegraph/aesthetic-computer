@@ -10,14 +10,54 @@
   "audio": "/assets/pop/trancepenta.mp3",
   "cover": "/assets/pop/trancepenta.jpg",
   "sections": [
-    { "name": "intro",  "t": 0.25,   "illy": "/assets/pop/trancepenta/sec-0.jpg" },
-    { "name": "break1", "t": 9.774,  "illy": "/assets/pop/trancepenta/sec-1.jpg" },
-    { "name": "build1", "t": 19.298, "illy": "/assets/pop/trancepenta/sec-2.jpg" },
-    { "name": "drop1",  "t": 28.821, "illy": "/assets/pop/trancepenta/sec-3.jpg" },
-    { "name": "break2", "t": 85.964, "illy": "/assets/pop/trancepenta/sec-4.jpg" },
-    { "name": "build2", "t": 95.488, "illy": "/assets/pop/trancepenta/sec-5.jpg" },
-    { "name": "drop2",  "t": 105.012, "illy": "/assets/pop/trancepenta/sec-6.jpg" },
-    { "name": "outro",  "t": 171.679, "illy": "/assets/pop/trancepenta/sec-7.jpg" }
+    {
+      "name": "intro",
+      "t": 0.25,
+      "illy": "/assets/pop/trancepenta/sec-0.jpg",
+      "code": "a"
+    },
+    {
+      "name": "break1",
+      "t": 9.774,
+      "illy": "/assets/pop/trancepenta/sec-1.jpg",
+      "code": "b"
+    },
+    {
+      "name": "build1",
+      "t": 19.298,
+      "illy": "/assets/pop/trancepenta/sec-2.jpg",
+      "code": "c"
+    },
+    {
+      "name": "drop1",
+      "t": 28.821,
+      "illy": "/assets/pop/trancepenta/sec-3.jpg",
+      "code": "d"
+    },
+    {
+      "name": "break2",
+      "t": 85.964,
+      "illy": "/assets/pop/trancepenta/sec-4.jpg",
+      "code": "e"
+    },
+    {
+      "name": "build2",
+      "t": 95.488,
+      "illy": "/assets/pop/trancepenta/sec-5.jpg",
+      "code": "f"
+    },
+    {
+      "name": "drop2",
+      "t": 105.012,
+      "illy": "/assets/pop/trancepenta/sec-6.jpg",
+      "code": "g"
+    },
+    {
+      "name": "outro",
+      "t": 171.679,
+      "illy": "/assets/pop/trancepenta/sec-7.jpg",
+      "code": "h"
+    }
   ],
   "links": {
     "spotify": "https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG"

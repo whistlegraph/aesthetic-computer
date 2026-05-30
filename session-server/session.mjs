@@ -2382,6 +2382,47 @@ wss.on("connection", async (ws, req) => {
       return;
     }
 
+    // 🎹 Browser-side notepat (notepat.com on web) publishes MIDI events
+    // via WS. Native bare-metal sends the same payload via raw UDP at port
+    // 10010 (see handleNotepatMidiUdpPacket). Both paths converge through
+    // broadcastNotepatMidiEvent, fanning out to WS + UDP subscribers (M4L
+    // notepat-remote devices listen on those channels). Heartbeats keep
+    // the source visible in `notepat:midi:sources` between notes.
+    if (msg.type === "notepat:midi:publish" || msg.type === "notepat:midi:heartbeat") {
+      const payload = msg.content || {};
+      const now = Date.now();
+      const source = upsertNotepatMidiSource({
+        handle: payload.handle,
+        machineId: payload.machineId,
+        piece: payload.piece || "notepat",
+        lastEvent: msg.type === "notepat:midi:heartbeat" ? "heartbeat" : payload.event,
+        ts: now,
+      });
+      if (msg.type === "notepat:midi:heartbeat") return;
+      if (!source.handle && !source.machineId) return;
+      const rawNote = Number(payload.note);
+      const rawVelocity = Number(payload.velocity);
+      const rawChannel = Number(payload.channel);
+      if (!Number.isFinite(rawNote) || !Number.isFinite(rawVelocity) || !Number.isFinite(rawChannel)) return;
+      let event = payload.event === "note_off" ? "note_off" : "note_on";
+      const note = Math.max(0, Math.min(127, Math.round(rawNote)));
+      const velocity = Math.max(0, Math.min(127, Math.round(rawVelocity)));
+      const channel = Math.max(0, Math.min(15, Math.round(rawChannel)));
+      if (event === "note_on" && velocity === 0) event = "note_off";
+      broadcastNotepatMidiEvent({
+        type: "notepat:midi",
+        event,
+        note,
+        velocity,
+        channel,
+        handle: source.handle,
+        machineId: source.machineId,
+        piece: source.piece || "notepat",
+        ts: Number.isFinite(Number(payload.ts)) ? Number(payload.ts) : now,
+      });
+      return;
+    }
+
     msg.id = id; // TODO: When sending a server generated message, use a special id.
 
     // Extract user identity and handle from ANY message that contains it
@@ -3644,6 +3685,46 @@ io.onConnection((channel) => {
     notepatMidiUdpSubscribers.delete(channel.id);
     try { channel.emit("notepat:midi:unsubscribed", true); } catch {}
   });
+
+  // 🎹 Browser-side notepat (notepat.com on web) publishes MIDI events
+  // via the geckos UDP channel for sub-frame latency. Mirror of the WS
+  // `notepat:midi:publish` handler — same shape, same broadcaster.
+  const handleUdpNotepatPublish = (data, isHeartbeat) => {
+    let payload = {};
+    try { payload = typeof data === "string" ? JSON.parse(data) : (data || {}); } catch {}
+    const now = Date.now();
+    const source = upsertNotepatMidiSource({
+      handle: payload.handle,
+      machineId: payload.machineId,
+      piece: payload.piece || "notepat",
+      lastEvent: isHeartbeat ? "heartbeat" : payload.event,
+      ts: now,
+    });
+    if (isHeartbeat) return;
+    if (!source.handle && !source.machineId) return;
+    const rawNote = Number(payload.note);
+    const rawVelocity = Number(payload.velocity);
+    const rawChannel = Number(payload.channel);
+    if (!Number.isFinite(rawNote) || !Number.isFinite(rawVelocity) || !Number.isFinite(rawChannel)) return;
+    let event = payload.event === "note_off" ? "note_off" : "note_on";
+    const note = Math.max(0, Math.min(127, Math.round(rawNote)));
+    const velocity = Math.max(0, Math.min(127, Math.round(rawVelocity)));
+    const channel2 = Math.max(0, Math.min(15, Math.round(rawChannel)));
+    if (event === "note_on" && velocity === 0) event = "note_off";
+    broadcastNotepatMidiEvent({
+      type: "notepat:midi",
+      event,
+      note,
+      velocity,
+      channel: channel2,
+      handle: source.handle,
+      machineId: source.machineId,
+      piece: source.piece || "notepat",
+      ts: Number.isFinite(Number(payload.ts)) ? Number(payload.ts) : now,
+    });
+  };
+  channel.on("notepat:midi", (data) => handleUdpNotepatPublish(data, false));
+  channel.on("notepat:midi:heartbeat", (data) => handleUdpNotepatPublish(data, true));
 
   // 💎 TODO: Make these channel names programmable somehow? 24.12.08.04.12
 

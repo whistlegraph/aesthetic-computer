@@ -22,7 +22,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 
 const DRY = process.argv.includes("--dry");
-const ROOT = `${homedir()}/Documents/Working Desktop/gens/amazing-grace-sections`;
+const ROOT = `${homedir()}/Documents/Shelf/gens/amazing-grace-sections`;
 
 const MEDIUM =
 `A CANDID PHOTOGRAPH — true-to-life color, real phone/camera snapshot taken inside a small old church sanctuary in late afternoon. Soft natural light from tall stained-glass windows; very fine grain; air a touch dust-mote-hazy. PHOTOREAL, not an illustration, not a painting, not colored-pencil, not gouache, not cinematic-glossy, not neon. Deadpan, tender, peer-horizontal: jeffrey shares the same eye-line as the congregation, nobody centered as a hero. NOBODY acknowledges the camera — all of them are inside the song. Tall vertical portrait orientation, composed so it also crops cleanly to a centered square. ABSOLUTELY NO app/phone/story UI chrome (no bars, avatars, handles, icons, send bars).`;

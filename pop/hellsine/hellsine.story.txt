@@ -6,9 +6,13 @@ laptops with glowing PALS lids, photo-real environments, sines that
 ARE the fire. peer-horizontality everywhere — jeffrey is a member
 of the crew, not a hero.
 
-the arc: jeffrey at his earth desk → drone strike opens a portal →
-he + the pixsies fall through it together → they land in hellsine
-and ignite → peak party (the cover) → dawn, they live here now.
+the arc: jeffrey at his earth desk → drone strike rips the room,
+one drone fires a laser STRAIGHT DOWN and burns a circular hole
+through the studio floor exposing hell below → jeffrey facetimes
+the squad → the squad busts through the studio door → they all
+cannonball into the hole together → splashdown into lava → they
+SWIM in lava → ignite → peak party on the basalt shore (the cover)
+→ dawn, everyone chilling, they live here now.
 
 sub-panel ids match the trancepenta naming convention
 (<section>-a / -b / -c, etc.) so they can drop into a forms.json
@@ -17,7 +21,7 @@ later. 18 panels total ≈ 9 s each over the 2:42 (162 s) master.
 per-section weighting (rough — matches README form lengths):
   overture (~15 s) → 3 panels
   statement (~25 s) → 3 panels
-  bridge (~45 s, the study zone) → 4 panels
+  bridge (~45 s, the call + bust-in + drop) → 4 panels
   develop (~30 s) → 3 panels
   climax (~35 s) → 3 panels
   coda (~17 s) → 2 panels
@@ -73,119 +77,145 @@ per-section weighting (rough — matches README form lengths):
   mid-shock — brow up, mouth open, NO grin yet, NO fire-eyes yet.
   camera: wide, drones on the left, jeffrey centred, glass mid-air.
 
-▸ statement-b — "the portal opens"
-  AT THE SAME INSTANT, behind jeffrey a vertical PORTAL tears open
-  in the studio air — a rip in space, edges crackling with multi-
-  hue matrix rain (yellow / red / purple / lime), the inside lava-
-  orange + swirling. desk, chair, mug, sheet music already lifting
-  + pulling toward it. studio walls warping into the suck. jeffrey
-  pivoting toward the portal, hair lifting in the pull. the macbook
-  neo slides off the desk into the air.
-  camera: from a low angle behind the desk, the portal a vertical
-  blade of light dominating the back of the frame.
+▸ statement-b — "the floor laser"
+  ONE lead drone hovers low in the middle of the studio, its barrel
+  angled STRAIGHT DOWN. it fires a CLEAN PILLAR of cutting laser
+  light — saturated red-orange — straight into the wooden floor
+  between jeffrey's feet. the beam is a perfect vertical column,
+  carving a slow circle through the planks; sparks + curling smoke
+  + flying splinters fan out around the cut. jeffrey is leapt back
+  against the desk, arms shielding his face, watching the floor get
+  carved. NO fire-eyes yet — just wide shock.
+  camera: low across the floor, the laser column dominating centre
+  frame, jeffrey braced against the desk on the right.
 
-▸ statement-c — "across the threshold"
-  jeffrey caught at the lip of the portal — feet off the floor,
-  drones still firing in from the window-right edge, the macbook +
-  pen + a single sheet of music in the air around him. half his
-  body already in the lava-orange swirl, half still in the felt
-  studio. NO fire-eyes yet — wide eyes, breath held. the felt of
-  his sleeve is just beginning to fray where it crosses the portal.
-  camera: wide, jeffrey mid-threshold, earth on one side, hellsine
-  light on the other.
+▸ statement-c — "the hole to hell"
+  the circle of floor DROPS AWAY. a perfect round HOLE now opens in
+  the planks, edges glowing ember-red where the laser bit through,
+  charred wood smoking. through the hole: HELL, plainly visible —
+  basalt + sinusoidal lava rivers + bruise-purple sky, miles below
+  and yet right there, the heat already rolling up into the studio.
+  jeffrey is on his knees at the rim, peering in, hair lifting in
+  the updraft, the warm orange glow lighting his face from below
+  for the first time. felt face: awe, no fear, the first faint
+  curl of a grin. drones still buzz overhead but the room has gone
+  quiet around the hole.
+  camera: high three-quarter on the hole, jeffrey at the rim, the
+  basalt hellscape clearly readable down inside the circle.
 
 
 ╔══════════════════════════════════════════════════════════════════╗
-║  III. BRIDGE — "the fall"                                         ║
-║     B theme, kick thins to a pulse — the study zone                ║
+║  III. BRIDGE — "the call + the bust-in + the drop"                ║
+║     B theme, kick thins to a pulse                                 ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-▸ bridge-a — "weightless"
-  cosmic chute between worlds. jeffrey alone now, tumbling slowly
-  in freefall through a long descending shaft, weightless, looking
-  around in wonder — eyes wide but mouth softening, no panic.
-  around him: streams of glowing code-rain (yellow / red / purple /
-  lime) on every wall, broken chunks of earth drifting alongside
-  (a slice of studio floor, the macbook spinning slow, the coffee
-  mug, pages of sheet music, the desk lamp still glowing). no
-  pixsies yet. NO fire in eyes.
-  camera: vertical pan, jeffrey centred, debris in orbit.
+▸ bridge-a — "facetime the squad"
+  jeffrey kneeling on the studio floor next to the glowing hole, the
+  hellfire glow underlighting him from below, the cool desk-lamp +
+  cold drone targeting beams from above — a two-tone light bath. he
+  has YANKED OUT HIS PHONE and is in a multi-pane FACETIME-style
+  group call: a grid of 4-6 pixsie faces fills the phone screen,
+  each in their own little tile — kid pixsie in lime PJs, elder
+  pixsie in a cardigan, femme grad-student pixsie at her own
+  kitchen counter, tactical-vest pixsie in a parked car, etc.
+  each tile is its own warm-lit room. jeffrey is mid-shout into
+  the phone, mouth open, free hand pointing down at the hole.
+  the pixsies on the screen are wide-eyed leaning in. peer-
+  horizontal: he's not commanding, he's calling them in.
+  camera: over jeffrey's shoulder, the phone screen readable, the
+  hole glowing orange in the floor beside him.
 
-▸ bridge-b — "the pixsies arrive"
-  the first pixsies EMERGE one by one through colored code-rain
-  walls into the fall — a kid pixsie steps through the lime stream,
-  an elder through the violet, a femme grad-student through the
-  hot-pink, a tactical-vest pixsie through the gold. each joins
-  the descent in their own felt outfit, drawn in from elsewhere.
-  jeffrey turns toward them in surprise + relief. peer-horizontal
-  formation already forming — none centred. soap bubbles starting
-  to rise past them.
-  camera: vertical pan, the fall now populated, jeffrey + arriving
-  pixsies spread across the frame.
+▸ bridge-b — "the squad busts in"
+  the STUDIO DOOR explodes open — door slamming back on its hinges,
+  splinters flying. 4-6 felt pixsies pile through the doorway in a
+  jumbled wave, mid-stride, each carrying their own AC laptop in
+  one hand. outfits: kid pixsie in lime PJs + sneakers, elder
+  pixsie in a cardigan with cane raised, femme grad-student in
+  cyberpunk techwear, tactical-vest pixsie in boots, hot-pink-hair
+  pixsie in a felt hoodie, beanie pixsie clutching coffee. they
+  arrive READY — wide grins, bright eyes, peer-horizontal stack
+  in the doorway. jeffrey is on his feet now, half-turned toward
+  them, free arm thrown up in greeting, the hole still glowing
+  beside him. drones forgotten.
+  camera: low and wide from inside the studio, the doorway
+  bursting open on the left, jeffrey + hole on the right.
 
-▸ bridge-c — "warmth from below"
-  full crew falling together — jeffrey + 4-6 pixsies in loose
-  orbit around each other and the orbiting earth-debris. soap
-  bubbles rising thick now. warm orange light starting to leak in
-  from BELOW the frame — they're approaching hellsine. felt hems
-  beginning to fray from the descent. still NO fire-eyes — but
-  the orange glow warms the underside of every face. expressions:
-  curiosity, anticipation, the first hint of grin.
-  camera: vertical pan, the crew composed peer-horizontally, the
-  bottom of frame washed warm orange.
+▸ bridge-c — "around the hole"
+  the whole crew now ringed around the glowing floor hole, peer-
+  horizontal circle, jeffrey one member among them. they're
+  leaning in, peering down into hell — warm lava glow hitting every
+  face from below, fingertips on the rim. one pixsie holds her
+  laptop out over the hole letting the PALS lid catch the orange
+  light, one pixsie crouches with hands on knees grinning, the kid
+  pixsie kneels rim-side eyes huge, the elder grips her cane.
+  jeffrey is roughly opposite the kid, hand out as if counting it
+  off. expressions: shared grins, shared awe, the room is hot.
+  STILL no fire-eyes — but the warm glow already paints them all.
+  camera: high three-quarter on the hole, the ringed crew visible
+  all the way around it.
 
-▸ bridge-d — "approach"
-  TIGHT on jeffrey's face as the fall accelerates toward landing —
-  warm orange light from below now fully illuminating his underside
-  + chin + the underside of his felt hair, the cool blue cosmic-
-  chute light fading behind him. eyes wide, mouth slightly open in
-  awe. a single pixsie just visible in soft focus over his shoulder,
-  also lit warm from below. soap bubbles streaming past. no fire-
-  eyes yet — but the warmth he's about to inherit is already on his
-  face. the last moment before they hit.
-  camera: medium-close on jeffrey, three-quarter angle, the warm
-  glow rising up the frame.
+▸ bridge-d — "all in"
+  CANNONBALL. the entire crew launching INTO the hole together —
+  one frozen instant mid-leap, feet off the floor, knees pulled up,
+  arms thrown around each other's shoulders, the macbook neo
+  spinning free in the air alongside them, AC laptops tucked under
+  arms or pinwheeling. jeffrey is one body in the group, not
+  centred, somewhere in the middle of the cluster. hair lifted,
+  eyes bright but still felt-clean — no fire yet. behind them the
+  ruined studio recedes; below them the basalt + lava already
+  rushes up to meet them. peer-horizontal mid-air. soap bubbles
+  beginning to rise from below past them.
+  camera: from below inside the hole, looking up at the falling
+  cluster against the doorway light, hell-glow on undersides.
 
 
 ╔══════════════════════════════════════════════════════════════════╗
-║  IV. DEVELOP — "the landing"                                      ║
+║  IV. DEVELOP — "splashdown + the swim"                            ║
 ║     theme fragmented + sequenced, hoover screams                   ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-▸ develop-a — "impact"
-  they land on basalt. dust + heat-shimmer kicked up around their
-  boots. jeffrey on his feet, knees flexed from the landing, the
-  pixsies in a loose semicircle around him in various landing
-  poses — one still mid-crouch, one standing tall already, one
-  picking up the macbook neo that landed beside her. expressions:
-  caught breath, taking stock. NO fire-eyes yet. small scorch
-  marks just starting at the cuffs from the warm air.
-  camera: low + wide, the landing zone occupying the lower half,
-  the hellscape beginning to reveal above.
+▸ develop-a — "splashdown"
+  IMPACT into a wide LAVA POOL. the crew hits the sinusoidal lava
+  river in a huge spray — felt-textured splashes of glowing orange-
+  red lava arcing up in fat droplets, slow-motion sheets cresting
+  around each body. waves rolling outward in concentric rings.
+  jeffrey + pixsies frozen mid-plunge, half-submerged at varied
+  depths, expressions caught between gasp and grin — eyes wide,
+  mouths open in a shared whoop. the macbook neo splashes down
+  beside them, lid still glowing softly. NO fire-eyes yet — but
+  the lava is up to their chests, lighting every felt face from
+  within the pool.
+  camera: low across the lava surface, multiple splashes filling
+  the frame, basalt banks visible on the edges.
 
-▸ develop-b — "discovery"
-  the hellscape REVEALED. jeffrey + pixsies looking outward in
-  different directions — discovering pieces of it one at a time:
-  one looks at a sine river curving past their boots, one watches
-  the bullet train streaking the horizon, one points at the white
-  horse galloping mid-distance, one tracks an ember drifting up.
-  multi-hue matrix-rain falls through distant smoke columns. the
-  pixsies hold their first laptops up (lids facing camera) — but
-  the PALS only just FLICKERING ON, one or two glowing, rest still
-  dark.
-  camera: wide panorama, hellsine landscape behind, group anchored
-  lower-third.
+▸ develop-b — "swim in lava"
+  SWIMMING. the crew floats and strokes through the lava river like
+  it's a warm pool — the lava holds them up the way water would.
+  one pixsie on her back floating with arms behind her head, eyes
+  closed grinning. one pixsie doing a slow felt-arm backstroke,
+  trailing a sine-shaped wake. the kid pixsie cannonball-bobs in
+  the middle splashing the elder, who is splashing back. jeffrey
+  is treading lava beside another pixsie laughing, his AC laptop
+  floating like a pool toy beside him, lid PALS glowing. tongues
+  of sine-flame lick off the surface between them. the lava is
+  their water. felt outfits darkening at the waterline + starting
+  to char. wicked grins arriving but eyes still felt-clean.
+  camera: low along the surface, swimming bodies arrayed peer-
+  horizontally across the lava, sine ripples curving past them.
 
 ▸ develop-c — "ignition"
-  FIRE IGNITES — first in jeffrey's eye sockets (one, then the
-  other) and then in a CHAIN around the semicircle, each pixsie's
-  eyes lighting in sequence. all the PALS lids now full-glowing in
-  seven hues. fingertips beginning to singe, tiny flames flickering
-  off felt fibres at the tips. wide-eyed grins forming — not full
-  demon yet, but the wickedness is arriving. felt damage taking
-  root: first threads pulling loose, first scorch marks.
-  camera: tighter on the group, mid-shot, the chain of ignition
-  catchable across the frame.
+  the crew now climbing out + rising up from the lava onto the
+  basalt bank — water-line of glowing orange dripping off their
+  felt as they emerge. AT THIS MOMENT the FIRE IGNITES — first in
+  jeffrey's eye sockets (one, then the other) and then in a CHAIN
+  around the crew, each pixsie's eyes lighting in sequence as they
+  surface. all the PALS lids now full-glowing in seven hues.
+  fingertips singing, tiny flames flickering off felt fibres at
+  the tips. wide-eyed grins forming — not full demon yet, but
+  the wickedness is arriving. felt damage taking root: first
+  threads pulling loose, first scorch marks.
+  camera: along the basalt bank looking down the line of rising
+  bodies, the chain of ignition catchable across the frame.
 
 
 ╔══════════════════════════════════════════════════════════════════╗
@@ -196,13 +226,13 @@ per-section weighting (rough — matches README form lengths):
 ▸ climax-a — "the cover" (verbatim)
   THE COVER. the smooshed-into-lens wide-angle group portrait from
   hellsine.illy.txt — jeffrey + pixsies dancing ON / OVER / AROUND
-  active fire, both palms up, fire-eyes BLAZING, sinusoidal lava
-  ribbons weaving between feet, sine-flame tongues dancing between
-  faces, PALS lids glowing cyan / magenta / lime / hot-pink / gold /
-  orange / violet, white horse + bullet train on the back horizon,
-  multi-hue code-rain through smoke columns, soap bubbles rising,
-  fingertip flames + scorched palms, tattered felt. peak chaos,
-  peak joy, the PARTY.
+  active fire on the basalt bank above the lava pool, both palms up,
+  fire-eyes BLAZING, sinusoidal lava ribbons weaving between feet,
+  sine-flame tongues dancing between faces, PALS lids glowing cyan /
+  magenta / lime / hot-pink / gold / orange / violet, white horse +
+  bullet train on the back horizon, multi-hue code-rain through
+  smoke columns, soap bubbles rising, fingertip flames + scorched
+  palms, tattered felt. peak chaos, peak joy, the PARTY.
   camera: the cover crop verbatim — edge-to-edge, jeffrey at 40%
   from left.
 
@@ -222,9 +252,10 @@ per-section weighting (rough — matches README form lengths):
   PULL BACK to the widest shot of the track — the dancing group is
   now small in the lower-third of the frame, the FULL hellsine
   vista revealed around them: parallel sinusoidal lava rivers
-  curving through the basalt foreground at varied amplitudes,
-  obsidian spires receding into bruise-purple horizon, the white
-  horse flaming across the mid-distance, the bullet train streaking
+  curving through the basalt foreground at varied amplitudes (the
+  same pool they swam in clearly visible behind them), obsidian
+  spires receding into bruise-purple horizon, the white horse
+  flaming across the mid-distance, the bullet train streaking
   the far horizon, multi-hue matrix-rain streaming through smoke
   columns on either side, soap bubbles + embers everywhere. the
   dancing crew is the warm pulsing nucleus inside a vast lava world.
@@ -234,20 +265,24 @@ per-section weighting (rough — matches README form lengths):
 
 
 ╔══════════════════════════════════════════════════════════════════╗
-║  VI. CODA — "the morning after"                                   ║
+║  VI. CODA — "all chilling"                                        ║
 ║     theme dissolves back to strings, continuous fade               ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-▸ coda-a — "embers"
+▸ coda-a — "chilling on the basalt"
   dawn breaking over the obsidian horizon — bruise-purple softening
   to deep coral, the lava glow halved, smoke columns thinning. the
-  pixsies are scattered across the basalt — sat on rocks, leaning
-  against each other, one stretched out flat looking up. spent and
-  content. fire-eyes now just EMBERS — soft orange glow, no flames.
-  felt is fully tattered + scorched, but the heat is no longer
-  hurting. PALS lids dimmed to a soft pulse.
-  camera: wide, the spent crew arranged across the basalt, dawn
-  filling the upper half.
+  crew is JUST CHILLING across the basalt — sat on warm rocks,
+  leaning back on elbows, one stretched out flat looking up at the
+  coral sky, one floating again in the lava pool arms behind head,
+  one elder smoking a slow ember off the basalt edge, kid pixsie
+  curled up dozing against an obsidian wedge. spent and content,
+  the party's afterglow. fire-eyes now just EMBERS — soft orange
+  glow, no flames. felt is fully tattered + scorched, but the heat
+  is no longer hurting. PALS lids dimmed to a soft pulse. nobody is
+  posing; everyone is at rest.
+  camera: wide, the chilled-out crew arranged peer-horizontally
+  across the basalt + lava-pool edge, dawn filling the upper half.
 
 ▸ coda-b — "they live here now"
   jeffrey sits on a low basalt outcrop in mid-shot, the citrus-
@@ -274,15 +309,26 @@ usage notes:
 - material rules constant across all panels:
     · figures: felt-craft, on-model jeffrey, peer-horizontal pixsies
     · laptops: shiny plastic, PALS-only on lids, glow per-lid
-    · environments: photo-real (earth studio I-II, cosmic chute III,
-      basalt hellscape IV-VI)
+    · environments: photo-real (earth studio I–III, basalt + lava
+      hellscape IV–VI). NOTE: no cosmic-chute / freefall section —
+      the transition is now diegetic (laser → floor hole → drop).
     · sines ARE the fire/lava — never sine beams from mouths
+    · phones are OK in bridge-a only (facetime); after that, no
+      phones — laptops only.
 
 - continuity arcs (carry across panels):
-    eyes:   dim → shock → wonder → ignition → blaze → embers
-    felt:   clean → torn → frayed → scorched → tattered → settled
-    pals:   dark → dark → off → flickering → full seven-hue → soft
-    grin:   none → none → wonder → forming → wicked-max → calm
+    eyes:   dim → shock → wonder → wonder → calling → arriving →
+            grouped → leaping → splashing → swimming → ignition →
+            blaze → blaze → blaze → embers → embers
+    felt:   clean → clean → clean → clean → clean → clean → clean →
+            clean → wet+darkening → wet+charring → first scorch →
+            tattered → tattered → tattered → settled → settled
+    pals:   dark → dark → off → off → off → off → off → off → off →
+            float+soft → flickering → full seven-hue → full → full →
+            soft → soft
+    grin:   none → none → wonder → first-curl → calling → joy →
+            shared → mid-whoop → mid-whoop → laughing → forming →
+            wicked-max → wicked-max → wicked-max → calm → calm
 
 - gen-illy.mjs can be invoked per panel, reusing the same jeffrey
   identity refs + pals-logo.png; per-panel prompts can be derived

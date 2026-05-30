@@ -20,7 +20,7 @@ import { homedir } from "node:os";
 
 const MASTER =
   process.argv[2] ||
-  `${homedir()}/Documents/Working Desktop/hellsine/hellsine-c-MASTER.wav`;
+  `${homedir()}/Documents/Shelf/hellsine/hellsine-c-MASTER.wav`;
 const MODEL = `${homedir()}/.whisper-models/ggml-base.en.bin`;
 const WORK = "/tmp/hellsine-verify";
 

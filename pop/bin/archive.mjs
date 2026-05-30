@@ -17,7 +17,7 @@
 //   node pop/bin/archive.mjs <lane> <slug>
 //   node pop/bin/archive.mjs hippyhayzard hippyhayzard
 
-import { existsSync, mkdirSync, copyFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, copyFileSync, statSync, readdirSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -71,6 +71,25 @@ for (const f of [
   `${slug}-vocal-words.json.hash`,
   `${slug}-pitched-alignment.json`,
 ]) take(f, VDEST);
+
+// pixel-art section panels (from pop/bin/gen-pixel-sections.mjs) —
+// landed beside the source illys; mirror them straight into
+// system/public/assets/pop/<slug>/sec-<N>.pixel.png so they ship
+// alongside the audio on `npm run pop:assets:up`.
+const SEC_PIXEL_RE = new RegExp(`^${slug}-p-sec-(\\d{1,2})-[^.]+\\.pixel\\.png$`);
+const pixelMirror = `${REPO}/system/public/assets/pop/${slug}`;
+for (const f of readdirSync(OUT)) {
+  const m = f.match(SEC_PIXEL_RE);
+  if (!m) continue;
+  const idx = parseInt(m[1], 10);
+  mkdirSync(pixelMirror, { recursive: true });
+  const src = `${OUT}/${f}`;
+  const dst = `${pixelMirror}/sec-${idx}.pixel.png`;
+  copyFileSync(src, dst);
+  const kb = (statSync(dst).size / 1024).toFixed(1);
+  console.log(`  + ${slug}/sec-${idx}.pixel.png  (${kb} KB)`);
+  n++;
+}
 
 if (n === 0) {
   console.error(`✗ nothing staged — no known media in ${OUT}`);

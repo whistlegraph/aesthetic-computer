@@ -16,7 +16,7 @@
 #   BAKE_FORCE=1 bash bake-trancepenta.sh
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../../.." && pwd)"
-OUT="${HOME}/Documents/Working Desktop/twi-out"
+OUT="${HOME}/Documents/Shelf/twi-out"
 mkdir -p "$OUT"
 PRE="$OUT/trancepenta-MASTER-preBright.wav"
 SCR="$OUT/.tp-scr.wav"            # stage-2 scratch master (instrumental + post-FX)

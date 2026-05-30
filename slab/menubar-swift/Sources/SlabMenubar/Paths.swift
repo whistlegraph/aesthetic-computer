@@ -47,6 +47,15 @@ enum Paths {
     static var menubarPlist: String { "\(home)/Library/LaunchAgents/computer.slab.menubar.plist" }
     static var claudeSleep: String { "\(slabBin)/claude-sleep" }
 
+    /// "Start Call" recorder + state file. The shell wrapper at
+    /// slab/bin/slab-call-record owns the ffmpeg subprocess and writes the
+    /// state file; the menubar only reads it. meetingsCli is the node
+    /// pipeline that ingests the WAV into meetings/<slug>/.
+    static var slabCallRecord: String { "\(slabBin)/slab-call-record" }
+    static var meetingRecordingState: String { "\(home)/.ac-meeting-recording.json" }
+    static var meetingsCli: String { "\(acRepo)/meetings/cli.mjs" }
+    static var meetingsDir: String { "\(acRepo)/meetings" }
+
     static var passphraseSocket: String { "\(home)/.ac-daemon.sock" }
 
     static var ambientFlag: String { "/tmp/slab-ambient-active" }
@@ -62,6 +71,10 @@ enum Paths {
     /// "comfortable from typical distance" size — for sitting close to the
     /// screen and wanting more content per pane.
     static var nearTextFlag: String { "\(slabHome)/state/tile-near" }
+    /// When this file exists, the tile font shrinks further still — for
+    /// cramming many panes onto one screen at the edge of legibility.
+    /// Tiny takes priority over near when both are set.
+    static var tinyTextFlag: String { "\(slabHome)/state/tile-tiny" }
     /// When this file exists, each Terminal window matching a live Claude
     /// session is re-themed by status (working/awaiting), so a wall of
     /// terminals reads as a status display at a glance.

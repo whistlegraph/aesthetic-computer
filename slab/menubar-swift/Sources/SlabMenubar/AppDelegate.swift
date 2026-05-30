@@ -429,6 +429,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
+    /// Spawn the recorder. Refresh immediately + after a short delay so the
+    /// menu flips to "◉ Recording call…" without waiting for the slow tick
+    /// (the state file appears within ~300ms of the script starting).
+    @objc func startCall() {
+        ShellRunner.runAsync(Paths.slabCallRecord, args: ["start"]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.refresh()
+        }
+    }
+
+    @objc func stopCall() {
+        ShellRunner.runAsync(Paths.slabCallRecord, args: ["stop"]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+    }
+
+    /// Reveal ~/Documents/Shelf/meetings — where slab-call-record writes
+    /// the raw WAVs before they get ingested into the meetings/ dir.
+    @objc func openMeetingsShelf() {
+        let shelf = "\(Paths.home)/Documents/Shelf/meetings"
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: shelf) {
+            try? fm.createDirectory(atPath: shelf,
+                                    withIntermediateDirectories: true)
+        }
+        ShellRunner.run("/usr/bin/open", args: [shelf])
+    }
+
+    @objc func openMeetingsDir() {
+        ShellRunner.run("/usr/bin/open", args: [Paths.meetingsDir])
+    }
+
+    /// Close the frontmost Terminal.app or iTerm2 window. Slab is an
+    /// accessory app (no dock icon, no activation), so opening the menu
+    /// doesn't change the frontmost application — `NSWorkspace.frontmostApplication`
+    /// still reports whichever terminal the user was just in. If auto-tile
+    /// is on, the remaining windows re-tile after the close.
+    @objc func closeFrontTerminal() {
+        let bundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let script: String
+        switch bundle {
+        case "com.googlecode.iterm2":
+            // iTerm2 uses `current window`. Saving prompt is suppressed
+            // by closing without a session-end question — iTerm2 honors
+            // its own "Quit when all windows are closed" pref.
+            script = """
+            tell application id \"com.googlecode.iterm2\"
+                if (count of windows) > 0 then close current window
+            end tell
+            """
+        case "com.apple.Terminal":
+            // Terminal.app prompts if a process is still running unless
+            // we ask it not to. `saving no` silences the dialog so the
+            // close completes synchronously and re-tile fires cleanly.
+            script = """
+            tell application \"Terminal\"
+                if (count of windows) > 0 then close front window saving no
+            end tell
+            """
+        default:
+            // Front app is neither terminal — no-op rather than guessing.
+            notify(title: "slab", subtitle: "Close terminal",
+                   body: "Frontmost app isn't Terminal or iTerm2 — nothing to close.")
+            return
+        }
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script]) { [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if self.state.autoTile {
+                    self.tileNow()
+                }
+                self.refresh()
+            }
+        }
+    }
+
     @objc func reloadDaemon() {
         DispatchQueue.global(qos: .userInitiated).async {
             ShellRunner.run("/bin/launchctl", args: ["unload", Paths.daemonPlist])
@@ -552,7 +630,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let n = sender.representedObject as? Int, n > 0 else { return }
         let liveIds = Set(state.claudeSessions.map { $0.sessionId })
         let tile = state.autoTile
-        let near = state.nearText
+        let textSize = state.textSize
         // Snapshot screen geometry on main; NSScreen reads off-main can
         // return nil on first hit and were the silent failure mode for the
         // first auto-tile pass.
@@ -565,7 +643,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 return
             }
-            let layout = geom.flatMap { Self.computeTileLayout(count: entries.count, geom: $0, near: near) }
+            let layout = geom.flatMap { Self.computeTileLayout(count: entries.count, geom: $0, size: textSize) }
             let term = Self.preferredTerminalApp()
             for (i, entry) in entries.enumerated() {
                 let cell = layout?.cellAt(index: i)
@@ -598,7 +676,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // janitor — once the pid dies, the marker file gets reaped.
         let payloads = sessions.map { (sid: $0.sessionId, cwd: $0.cwd, pid: $0.claudePid) }
         let geom = state.autoTile ? Self.screenGeom() : nil
-        let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, near: state.nearText) }
+        let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, size: state.textSize) }
         DispatchQueue.global(qos: .userInitiated).async {
             // Resolve the target terminal before the SIGTERM — once the old
             // windows tear down, the open-app detection would skew.
@@ -640,12 +718,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let dir = (path as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         FileManager.default.createFile(atPath: path, contents: nil)
+        try? FileManager.default.removeItem(atPath: Paths.tinyTextFlag)
+        refresh()
+        tileNow()
+    }
+
+    @objc func setTextTiny() {
+        let path = Paths.tinyTextFlag
+        let dir = (path as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: path, contents: nil)
+        try? FileManager.default.removeItem(atPath: Paths.nearTextFlag)
         refresh()
         tileNow()
     }
 
     @objc func setTextFar() {
         try? FileManager.default.removeItem(atPath: Paths.nearTextFlag)
+        try? FileManager.default.removeItem(atPath: Paths.tinyTextFlag)
         refresh()
         tileNow()
     }
@@ -1377,7 +1467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// spread the windows across those rows as evenly as possible; rows that
     /// come up a window short just get wider panels. Font size scales down
     /// for denser layouts so even N=10 stays legible.
-    private static func computeTileLayout(count: Int, geom: ScreenGeom, near: Bool = false) -> TileLayout? {
+    private static func computeTileLayout(count: Int, geom: ScreenGeom, size: TextSize = .far) -> TileLayout? {
         guard count > 0 else { return nil }
 
         // Near-square: same density feel as the old grid, but the per-row
@@ -1401,10 +1491,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fontByH = Double(innerH) / (24.0 * 1.2)
         let fontByW = Double(innerW) / (80.0 * 0.6)
         let raw = min(fontByH, fontByW)
-        // Near = "I'm sitting close, give me density" → 60% of the
-        // legible-from-typical-distance size, floored at 6pt.
-        let scaled = near ? raw * 0.6 : raw
-        let fontSize = max(near ? 6 : 8, Int(scaled.rounded()))
+        // Far = legible from a typical sitting distance (the auto-fit
+        // baseline). Near ≈ 60% — denser when sitting close. Tiny ≈ 40%
+        // — for cramming many panes at the edge of legibility.
+        let scale: Double
+        let floor: Int
+        switch size {
+        case .far:  scale = 1.0;  floor = 8
+        case .near: scale = 0.6;  floor = 6
+        case .tiny: scale = 0.4;  floor = 4
+        }
+        let fontSize = max(floor, Int((raw * scale).rounded()))
 
         return TileLayout(
             rowCounts: rowCounts,
@@ -1425,7 +1522,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
     @objc func tileNow() {
         guard let geom = Self.screenGeom() else { return }
-        let near = state.nearText
+        let textSize = state.textSize
         DispatchQueue.global(qos: .userInitiated).async {
             // Size the grid to everything on screen across both apps. The
             // `is running` guard never launches a quit Terminal.app, so a
@@ -1434,7 +1531,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let nTerm = Self.windowCount(app: "Terminal")
             let n = nIterm + nTerm
             guard n > 0 else { return }
-            guard let layout = Self.computeTileLayout(count: n, geom: geom, near: near) else { return }
+            guard let layout = Self.computeTileLayout(count: n, geom: geom, size: textSize) else { return }
 
             // Reset decor memo so the next refresh re-themes every iTerm2
             // window from scratch (a re-pack invalidates prior placement).

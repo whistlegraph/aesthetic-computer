@@ -1,0 +1,501 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>__SHARED_CSS__</style>
+<style>
+  .body { flex-direction: column; gap: 0; }
+
+  /* Five cards across the top, the last one slightly larger. */
+  .surface-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+  .surface { min-height: 0; padding: 28px 28px; }
+  .surface .mock {
+    background: #f6f5f1;
+    border-radius: 12px;
+    border: 1px solid #e3e0d8;
+    height: 220px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* === Mock 1: notepat.com (browser frame with QWERTY row) === */
+  .mock-browser {
+    background: #fff;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+  }
+  .mock-browser .bar {
+    height: 26px; background: #ededed;
+    display: flex; align-items: center; padding: 0 10px; gap: 6px;
+    border-bottom: 1px solid #d4d4d4;
+  }
+  .mock-browser .bar .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+  }
+  .mock-browser .bar .url {
+    margin-left: 10px; flex: 1;
+    background: #fff; height: 18px; border-radius: 5px;
+    padding: 0 8px;
+    font-family: "Berkeley Mono", monospace;
+    font-size: 10px;
+    color: #444;
+    display: flex; align-items: center;
+    border: 1px solid #ddd;
+  }
+  .mock-browser .canvas {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: #fafafa;
+    padding: 8px;
+    gap: 10px;
+  }
+  .mock-browser .row {
+    display: flex; gap: 6px;
+  }
+  .mock-browser .k {
+    width: 28px; height: 28px;
+    border-radius: 5px;
+    border: 1.5px solid #121012;
+    font-family: "Berkeley Mono", monospace;
+    font-size: 13px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+  }
+  .mock-browser .k.a { background:#8232c8; color:#fff; }
+  .mock-browser .k.d { background:#ffa000; color:#fff; }
+  .mock-browser .k.f { background:#32c832; color:#fff; }
+  .mock-browser .k.g { background:#3278ff; color:#fff; }
+  .mock-browser .k.c { background:#ff3232; color:#fff; }
+  .mock-browser .k.e { background:#ffe600; color:#3a2a00; }
+  .mock-browser .k.b { background:#b450ff; color:#fff; }
+  .mock-browser .k.sharp { background:#121012; color:#fff; }
+
+  /* === Mock 2: MenuBand — menubar tile === */
+  .mock-menubar {
+    background: linear-gradient(180deg, #2a2a2e 0%, #1a1a1e 100%);
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    padding: 0;
+  }
+  .mock-menubar .topbar {
+    height: 30px;
+    background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 10px;
+    gap: 14px;
+    color: #fff;
+    font-family: -apple-system, sans-serif;
+    font-size: 12px;
+  }
+  .mock-menubar .tile {
+    background: #1a1a1e;
+    border: 1.5px solid #3a3a3e;
+    border-radius: 4px;
+    padding: 3px 5px;
+    display: flex; gap: 2px;
+    align-items: flex-end;
+    height: 22px;
+  }
+  .mock-menubar .tile .bar {
+    width: 4px; background: #cd5c9b; border-radius: 1px;
+  }
+  .mock-menubar .body-area {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    color: #777;
+    font-family: -apple-system, sans-serif;
+    font-size: 12px;
+  }
+  .mock-menubar .body-area .desktop {
+    width: 60%; height: 60%;
+    background: #2a2a2e;
+    border-radius: 6px;
+    border: 1px solid #3a3a3e;
+  }
+
+  /* === Mock 3: AC Native OS — ThinkPad terminal === */
+  .mock-native {
+    background: #000;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    font-family: "Berkeley Mono", monospace;
+    color: #32ff64;
+    padding: 14px;
+    box-sizing: border-box;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .mock-native .line { white-space: pre; }
+  .mock-native .ok { color: #32ff64; }
+  .mock-native .dim { color: #4a4a4a; }
+  .mock-native .pink { color: #cd5c9b; }
+  .mock-native .boot-time {
+    margin-top: auto;
+    text-align: center;
+    font-size: 18px;
+    color: #fff;
+    font-weight: 700;
+    padding: 12px 0 4px 0;
+    border-top: 1px dashed #2a2a2a;
+  }
+  .mock-native .boot-time span { color: #32ff64; }
+
+  /* === Mock 4: AC-Notepat — Max for Live device === */
+  .mock-max {
+    background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    padding: 12px;
+    box-sizing: border-box;
+    color: #fff;
+    font-family: -apple-system, sans-serif;
+  }
+  .mock-max .max-h {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+    font-size: 11px; color: #ccc;
+  }
+  .mock-max .max-h .title-area {
+    font-family: "Berkeley Mono", monospace; color: #ffa000; font-weight: 700;
+  }
+  .mock-max .max-body {
+    flex: 1; background: #1a1a1a;
+    border-radius: 4px;
+    padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+    border: 1px solid #4a4a4a;
+  }
+  .mock-max .midi-row {
+    display: flex; align-items: center; gap: 6px;
+    font-family: "Berkeley Mono", monospace;
+    font-size: 10px;
+    color: #aaa;
+  }
+  .mock-max .midi-row .note {
+    background: #ffa000; color: #1a1a1a;
+    padding: 1px 5px; border-radius: 2px; font-weight: 700;
+  }
+  .mock-max .midi-row .bar {
+    flex: 1; height: 8px; background: #2a2a2a; border-radius: 1px;
+    position: relative; overflow: hidden;
+  }
+  .mock-max .midi-row .bar::after {
+    content: "";
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: var(--w, 60%);
+    background: #ffa000;
+  }
+
+  /* === Mock 5: Remote — phone === */
+  .mock-phone {
+    background: linear-gradient(180deg, #e8e8e8 0%, #d4d4d4 100%);
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+  .mock-phone .phone {
+    width: 110px; height: 200px;
+    background: #121012;
+    border-radius: 16px;
+    border: 3px solid #2a2a2e;
+    padding: 8px;
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .mock-phone .screen {
+    flex: 1;
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 6px;
+    display: flex; flex-direction: column; gap: 4px;
+    overflow: hidden;
+  }
+  .mock-phone .pad-row {
+    flex: 1; display: flex; gap: 3px;
+  }
+  .mock-phone .pad {
+    flex: 1;
+    border-radius: 4px;
+    border: 1px solid #121012;
+    font-family: "Berkeley Mono", monospace;
+    font-size: 10px;
+    font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+  }
+
+  /* Hand label */
+  .footer-keymap {
+    display: flex; gap: 28px; align-items: stretch;
+  }
+  .footer-keymap > div { flex: 1; }
+  .invariant-callout {
+    background: linear-gradient(to right,
+      rgba(42,100,212,0.10) 0%,
+      rgba(42,100,212,0.10) 48%,
+      rgba(200,50,75,0.10) 52%,
+      rgba(200,50,75,0.10) 100%);
+    border: 2px solid #ddd;
+    border-radius: 16px;
+    padding: 28px 36px;
+    display: flex; align-items: center; gap: 28px;
+  }
+  .invariant-callout .big {
+    font-family: "YWFT Processing";
+    font-weight: 800;
+    font-size: 88px;
+    line-height: 1;
+    color: #121012;
+  }
+  .invariant-callout .big .red { color: #ff3232; }
+  .invariant-callout .big .orange { color: #ffa000; }
+  .invariant-callout .big .yellow { color: #d4b400; }
+  .invariant-callout .big .green { color: #32c832; }
+  .invariant-callout .big .blue { color: #3278ff; }
+  .invariant-callout .big .purple { color: #8232c8; }
+  .invariant-callout .big .violet { color: #b450ff; }
+  .invariant-callout .text {
+    font-family: "YWFT Processing";
+    font-weight: 300;
+    font-size: 26px;
+    color: #1a1a1a;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .invariant-callout .text b { font-weight: 800; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="kicker"><span class="accent">Session #5</span> · 28 May 2026 · slide 2 of 3</div>
+      <div class="title">
+        five <span class="pink">surfaces</span>, one keymap
+      </div>
+      <div class="subtitle">
+        notepat is the <b>same instrument</b> in five places. each surface picks a different room.
+        a phone is one. a menubar is another. a bare-metal thinkpad is a third. the layout is invariant; the social context is everything.
+      </div>
+    </div>
+    <div class="brand-block">
+      <div class="brand-text">
+        <div class="top">Aesthetic.Computer</div>
+        <div class="author">by <b>@jeffrey</b></div>
+        <div class="session">scores for social software · c2</div>
+      </div>
+      <div class="marks">
+        <img id="jeffrey" alt="@jeffrey">
+        <img id="pals" alt="">
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <div class="surface-row">
+
+      <!-- 1. notepat.com (web) -->
+      <div class="card surface">
+        <div class="ribbon pink"></div>
+        <div class="mock">
+          <div class="mock-browser">
+            <div class="bar">
+              <div class="dot" style="background:#ff5f56;"></div>
+              <div class="dot" style="background:#ffbd2e;"></div>
+              <div class="dot" style="background:#27c93f;"></div>
+              <div class="url">notepat.com</div>
+            </div>
+            <div class="canvas">
+              <div class="row">
+                <div class="k sharp">Q</div><div class="k sharp">W</div><div class="k e">E</div>
+                <div class="k sharp">R</div><div class="k sharp">T</div><div class="k sharp">Y</div>
+              </div>
+              <div class="row">
+                <div class="k a">A</div><div class="k sharp">S</div><div class="k d">D</div>
+                <div class="k f">F</div><div class="k g">G</div><div class="k c">H</div>
+              </div>
+              <div class="row">
+                <div class="k c">C</div><div class="k sharp">V</div><div class="k b">B</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-tag">surface · 01</div>
+        <div class="card-h">notepat<span style="color:#cd5c9b;">.com</span></div>
+        <div class="card-where">web · any browser</div>
+        <div class="card-body">
+          lowest barrier. open the url, start playing. <b>shareable as a link</b> — the room joins by typing 11 characters.
+        </div>
+        <div class="card-foot">→ ipad, chromebook, phone, library laptop</div>
+      </div>
+
+      <!-- 2. MenuBand (macOS) -->
+      <div class="card surface">
+        <div class="ribbon blue"></div>
+        <div class="mock">
+          <div class="mock-menubar">
+            <div class="topbar">
+              <div class="tile">
+                <div class="bar" style="height: 6px;"></div>
+                <div class="bar" style="height: 12px;"></div>
+                <div class="bar" style="height: 18px;"></div>
+                <div class="bar" style="height: 9px;"></div>
+                <div class="bar" style="height: 14px;"></div>
+                <div class="bar" style="height: 5px;"></div>
+              </div>
+              <div>Mon 11:32</div>
+            </div>
+            <div class="body-area">
+              <div class="desktop"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-tag">surface · 02</div>
+        <div class="card-h">Menu Band</div>
+        <div class="card-where">macOS · menubar-resident</div>
+        <div class="card-body">
+          always on, between the clock and the wifi. <b>noodle without opening a window.</b> live-ticks pop/ render bars while idle — instrument doubles as ambient status display.
+        </div>
+        <div class="card-foot">→ daily companion for AC users on mac</div>
+      </div>
+
+      <!-- 3. AC Native OS (bare metal) -->
+      <div class="card surface">
+        <div class="ribbon green"></div>
+        <div class="mock">
+          <div class="mock-native">
+            <div class="line"><span class="dim">[ok]</span> <span class="ok">u-root → linuxboot</span></div>
+            <div class="line"><span class="dim">[ok]</span> <span class="ok">init → ac.kernel</span></div>
+            <div class="line"><span class="dim">[ok]</span> <span class="ok">video: 1920x1080</span></div>
+            <div class="line"><span class="dim">[ok]</span> <span class="ok">audio: alsa pcm0</span></div>
+            <div class="line"><span class="dim">[ok]</span> <span class="ok">net: wlan0 up</span></div>
+            <div class="line"><span class="pink">aesthetic.computer ready ▸ notepat</span></div>
+            <div class="boot-time">boot: <span>7.3s</span></div>
+          </div>
+        </div>
+        <div class="card-tag">surface · 03</div>
+        <div class="card-h">AC Native OS</div>
+        <div class="card-where">bare-metal · surplus ThinkPad</div>
+        <div class="card-body">
+          <b>no operating system between fingers and sound.</b> usb in, power on, 7.3 seconds later AC is on the bare metal. one keymap per laptop. for a classroom, an ensemble, a long-form installation.
+        </div>
+        <div class="card-foot">→ frog room could be a row of these</div>
+      </div>
+
+      <!-- 4. AC-Notepat (Max for Live) -->
+      <div class="card surface">
+        <div class="ribbon orange"></div>
+        <div class="mock">
+          <div class="mock-max">
+            <div class="max-h">
+              <div class="title-area">AC-NOTEPAT.amxd</div>
+              <div>m4l · midi out</div>
+            </div>
+            <div class="max-body">
+              <div class="midi-row">
+                <div class="note">C4</div>
+                <div class="bar" style="--w: 80%;"></div>
+                <div>vel 92</div>
+              </div>
+              <div class="midi-row">
+                <div class="note">E4</div>
+                <div class="bar" style="--w: 50%;"></div>
+                <div>vel 84</div>
+              </div>
+              <div class="midi-row">
+                <div class="note">G4</div>
+                <div class="bar" style="--w: 70%;"></div>
+                <div>vel 88</div>
+              </div>
+              <div class="midi-row">
+                <div class="note">B4</div>
+                <div class="bar" style="--w: 40%;"></div>
+                <div>vel 80</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-tag">surface · 04</div>
+        <div class="card-h">AC-Notepat</div>
+        <div class="card-where">Max for Live · Ableton</div>
+        <div class="card-body">
+          notepat as a <b>DAW citizen</b>. midi out into ableton, paired with any instrument the room already has. for friends who record music for a living.
+        </div>
+        <div class="card-foot">→ notepat.com/amxd</div>
+      </div>
+
+      <!-- 5. Remote (phone) -->
+      <div class="card surface">
+        <div class="ribbon purple"></div>
+        <div class="mock">
+          <div class="mock-phone">
+            <div class="phone">
+              <div class="screen">
+                <div class="pad-row">
+                  <div class="pad" style="background:#ff3232;">C</div>
+                  <div class="pad" style="background:#ffa000;">D</div>
+                  <div class="pad" style="background:#ffe600;color:#3a2a00;">E</div>
+                </div>
+                <div class="pad-row">
+                  <div class="pad" style="background:#32c832;">F</div>
+                  <div class="pad" style="background:#3278ff;">G</div>
+                  <div class="pad" style="background:#8232c8;">A</div>
+                </div>
+                <div class="pad-row">
+                  <div class="pad" style="background:#b450ff;">B</div>
+                  <div class="pad" style="background:#cd5c9b;">▸</div>
+                  <div class="pad" style="background:#121012;color:#fff;">♯</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-tag">surface · 05</div>
+        <div class="card-h">Remote</div>
+        <div class="card-where">phone · pairs to any AC piece</div>
+        <div class="card-body">
+          <b>your phone becomes the keyboard for someone else's screen.</b> the laptop on stage is the voice; the room is the hands. each phone is a player.
+        </div>
+        <div class="card-foot">→ ensemble of strangers in a room</div>
+      </div>
+
+    </div>
+
+    <div class="footer-keymap">
+      <div class="invariant-callout">
+        <div class="big">
+          <span class="red">C</span> <span class="orange">D</span> <span class="yellow">E</span>
+          <span class="green">F</span> <span class="blue">G</span> <span class="purple">A</span>
+          <span class="violet">B</span>
+        </div>
+        <div class="text">
+          the keymap is <b>invariant across all five surfaces</b>. learn it once on any one of them and you can sit at any other and play.
+          this is the <i>single most important social-software property</i> of the instrument — portability of skill is the thing that lets a cohort form around it.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-foot">
+    <div>slide <span class="n">2</span> of 3 · five surfaces, one keymap</div>
+    <div>aesthetic.computer · prepared for casey reas + cohort</div>
+  </div>
+
+  <script>
+    document.getElementById("pals").src = "__PALS_LOGO__";
+    document.getElementById("jeffrey").src = "__JEFFREY_PIC__";
+  </script>
+</body>
+</html>

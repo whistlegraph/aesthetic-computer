@@ -1,0 +1,87 @@
+{
+  "title": "Amazing Grace verse 1 — vocal takes",
+  "outDir": "/Users/jas/aesthetic-computer/pop/big-pictures/voice-takes/wavewizard",
+  "trim": {
+    "thresholdPctOfPeak": 0.04,
+    "padHeadMs": 80,
+    "padTailMs": 140,
+    "fadeMs": 8,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 1500,
+    "maxRecordSec": 18
+  },
+  "samples": [
+    {
+      "name": "line-1",
+      "desc": "amazing grace, how sweet the sound — 70 bpm, 3/4. Sing 'amazing' over 5 beats (1+3+1), 'grace' for 3, 'how sweet' on the next two notes, 'the sound' to finish.",
+      "lyric": "a-ma-zing grace how sweet the sound_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": -5, "beats": 1.0 },
+          { "off":  0, "beats": 3.0 },
+          { "off":  4, "beats": 1.0 },
+          { "off":  0, "beats": 3.0 },
+          { "off":  4, "beats": 1.0 },
+          { "off":  2, "beats": 3.0 },
+          { "off":  0, "beats": 1.0 },
+          { "off":  4, "beats": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-2",
+      "desc": "that saved a wretch like me — same tempo. Land 'me' on the long hold (5 beats).",
+      "lyric": "that saved a wretch like me_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": -5, "beats": 1.0 },
+          { "off": -3, "beats": 3.0 },
+          { "off": -5, "beats": 1.0 },
+          { "off":  4, "beats": 3.0 },
+          { "off":  0, "beats": 1.0 },
+          { "off":  4, "beats": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-3",
+      "desc": "I once was lost, but now am found — same tempo. The melody climbs to D4 ('was' and 'lost' and 'now') then back down to G3 for 'found'.",
+      "lyric": "i once was lost but now am found_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off": -5, "beats": 1.0 },
+          { "off":  0, "beats": 3.0 },
+          { "off":  7, "beats": 1.0 },
+          { "off":  7, "beats": 3.0 },
+          { "off":  4, "beats": 1.0 },
+          { "off":  7, "beats": 3.0 },
+          { "off":  2, "beats": 1.0 },
+          { "off":  0, "beats": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "line-4",
+      "desc": "was blind but now I see — same tempo. The 'see' is the final 5-beat hold on G3 — the tonic resolution.",
+      "lyric": "was blind but now i see_",
+      "score": {
+        "rootMel": 55,
+        "notes": [
+          { "off":  4, "beats": 1.0 },
+          { "off":  7, "beats": 3.0 },
+          { "off":  7, "beats": 1.0 },
+          { "off":  4, "beats": 3.0 },
+          { "off":  2, "beats": 1.0 },
+          { "off":  0, "beats": 5.0 }
+        ]
+      }
+    }
+  ]
+}

@@ -63,9 +63,9 @@ const DEFAULTS = {
                title: "solafiya", vibe: "hardcore-cute",
                // THREE verses, played SEQUENTIALLY (no layering/overlap) —
                // the arrangement was extended so they fit naturally.
-               vocal:  "/Users/jas/Documents/Working Desktop/gens/Circuito Coto Amate 2.m4a",
-               vocal2: "/Users/jas/Documents/Working Desktop/gens/Circuito Coto Amate 3.m4a",
-               vocal3: "/Users/jas/Documents/Working Desktop/gens/Circuito Coto Amate 4.m4a",
+               vocal:  "/Users/jas/Documents/Shelf/gens/Circuito Coto Amate 2.m4a",
+               vocal2: "/Users/jas/Documents/Shelf/gens/Circuito Coto Amate 3.m4a",
+               vocal3: "/Users/jas/Documents/Shelf/gens/Circuito Coto Amate 4.m4a",
                vocalBar: 0 },
 };
 

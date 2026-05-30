@@ -8,9 +8,9 @@
 #   usage: bash gen-illys-penta-felt.sh
 set -u
 REPO="/Users/jas/aesthetic-computer"
-SECROOT="$HOME/Documents/Working Desktop/gens/trancepenta-sections"
+SECROOT="$HOME/Documents/Shelf/gens/trancepenta-sections"
 TEMPLATE="$REPO/pop/dance/bin/cover-prompt.felt-portrait.template.txt"
-LOG="$HOME/Documents/Working Desktop/gens/trancepenta-genillys-vfelt.log"
+LOG="$HOME/Documents/Shelf/gens/trancepenta-genillys-vfelt.log"
 : > "$LOG"
 GEN="$REPO/marketing/bin/gen-promo.mjs"
 

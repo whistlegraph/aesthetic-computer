@@ -7,7 +7,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "WaveWizard",
-            path: "Sources/WaveWizard"
+            path: "Sources/WaveWizard",
+            resources: [
+                .copy("Assets"),
+            ]
         ),
     ]
 )

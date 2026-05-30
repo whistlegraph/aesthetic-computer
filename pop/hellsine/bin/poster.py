@@ -26,7 +26,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 HOME = Path.home()
-DEFAULT_DIR = HOME / "Documents" / "Working Desktop" / "hellsine"
+DEFAULT_DIR = HOME / "Documents" / "Shelf" / "hellsine"
 WAV = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DIR / "hellsine-MASTER.wav"
 STRUCT = (Path(sys.argv[2]) if len(sys.argv) > 2
           else DEFAULT_DIR / ".hellsine-pre.assets" / "struct.json")

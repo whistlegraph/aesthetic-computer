@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Mac App Store distribution REQUIRES the App Sandbox. This file is
+         used ONLY for the MAC_APP_STORE build; the direct-download
+         Developer ID build keeps MenuBand.entitlements (no sandbox). -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Microphone sampler: holding ` records a short clip from the
+         default input to play back as a voice. Sandbox-legal with this
+         entitlement + the NSMicrophoneUsageDescription in Info.plist. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <!-- The KidLisp TV panel fetches the public "$ pieces" feed over
+         HTTPS. Outbound-only network access. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- NOT included, and why:
+         • No global keystroke capture (CGEventTap / Carbon hotkeys) — the
+           sandbox forbids it; gated out behind #if MAC_APP_STORE.
+         • No Apple Events to Stickies — the StickiesBridge is gated out;
+           com.apple.security.automation.apple-events is omitted on purpose
+           (App Review routinely rejects it for a menubar instrument).
+         • No file access entitlements — the app reads only its own bundle
+           resources and UserDefaults, both allowed inside the sandbox. -->
+</dict>
+</plist>

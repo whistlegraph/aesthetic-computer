@@ -505,7 +505,17 @@
         }
         reverse_proxy localhost:8888
     }
-    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com p5.aesthetic.computer sitemap.aesthetic.computer
+
+    # --- wipppps.world ---
+    @wippppsroot host wipppps.world www.wipppps.world
+    handle @wippppsroot {
+        @wippppsindex path /
+        handle @wippppsindex {
+            rewrite * /wipppps
+        }
+        reverse_proxy localhost:8888
+    }
+    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Assets → DO Spaces CDN. The bucket root maps directly to
         # assets.aesthetic.computer (no /assets/ prefix exists in the

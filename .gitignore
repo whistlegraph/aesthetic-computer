@@ -431,6 +431,14 @@ sosoft/*.aux
 sosoft/*.log
 sosoft/*.out
 sosoft/*.pdf
+sosoft/**/*.aux
+sosoft/**/*.log
+sosoft/**/*.out
+sosoft/**/*.pdf
+# Editor/latex backup scratch files — never tracked
+*.tex.bak
+*.tex.old
+*.mjs.bak
 # Stray xelatex log dir created when run from repo root.
 texput.log/
 

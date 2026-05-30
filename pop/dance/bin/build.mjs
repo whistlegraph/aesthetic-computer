@@ -41,9 +41,9 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
-// Builds live under Working Desktop (the auto-cleaned ~/Desktop has
+// Builds live under Shelf (the auto-cleaned ~/Desktop has
 // erased mid-render outputs in the past — see [[feedback_desktop_autocleaned]]).
-const BUILDS_ROOT = `${homedir()}/Documents/Working Desktop/builds`;
+const BUILDS_ROOT = `${homedir()}/Documents/Shelf/builds`;
 
 const argv = process.argv.slice(2);
 if (argv.length === 0 || argv[0].startsWith("--")) {
@@ -64,7 +64,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 
 // ── per-track configuration ──────────────────────────────────────────
-const SECDIR_ROOT = `${homedir()}/Documents/Working Desktop/gens`;
+const SECDIR_ROOT = `${homedir()}/Documents/Shelf/gens`;
 function illusMap(secDir, variant = "v8") {
   const pairs = [];
   for (const sec of ["intro", "break1", "build1", "drop1", "break2", "build2", "drop2", "outro"]) {
@@ -176,8 +176,8 @@ const CONFIGS = {
     // the finished master + struct from.
     audio: ["--mode", "chill", "--meter", "5"], // (descriptive; bakeScript drives the real render)
     bakeScript: `${REPO}/pop/dance/bin/bake-trancepenta.sh`,
-    audioSrc: `${homedir()}/Documents/Working Desktop/twi-out/trancepenta-MASTER.wav`,
-    structSrc: `${homedir()}/Documents/Working Desktop/twi-out/trancepenta-MASTER-preBright.wav.assets/struct.json`,
+    audioSrc: `${homedir()}/Documents/Shelf/twi-out/trancepenta-MASTER.wav`,
+    structSrc: `${homedir()}/Documents/Shelf/twi-out/trancepenta-MASTER-preBright.wav.assets/struct.json`,
     sectionsDir: `${SECDIR_ROOT}/trancepenta-sections`,
     hideLanes: null, // dense chill mix — show every populated lane
     noLyrics: true,  // DistroKid/IG rule — NO baked lyric/greeting text

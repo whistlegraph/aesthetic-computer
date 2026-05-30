@@ -1,0 +1,14 @@
+{
+  "slug": "ocean-ia-cc0",
+  "title": "Ocean waves + seagulls (CC0 / PD)",
+  "license": "CC0 (Designer's Choice) / Public Domain (Wikimedia)",
+  "addedAt": "2026-05-29",
+  "samples": [
+    { "file": "seagulls-distant-surf.wav", "dur": 40.31, "src": "designers-choice-complete (CC0)",
+      "desc": "seagulls chirping/crying with distant surf — gem for 'on the ocean' atmosphere" },
+    { "file": "ocean-waves-crushing.wav",  "dur": 120.00, "src": "Wikimedia Oceanwavescrushing.ogg",
+      "desc": "ocean waves crashing — continuous wave bed" },
+    { "file": "okeechobee-surf.wav",       "dur": 332.30, "src": "Wikimedia (Lake Okeechobee Surf 2016)",
+      "desc": "long surf recording, calmer rolling waves" }
+  ]
+}

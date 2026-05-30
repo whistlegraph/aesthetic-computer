@@ -12,7 +12,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VOICE_ID = "dYNGZ848Oo6DtNBoeqgh"; // @jeffrey PVC
+const VOICE_ID = "ZXoQQp5X0PKHGwyZpVIT"; // @jeffrey PVC
 const VAULT_ENV = "/Users/jas/aesthetic-computer/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env";
 
 function loadKey() {

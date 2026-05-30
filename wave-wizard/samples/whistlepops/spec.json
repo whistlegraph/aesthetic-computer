@@ -1,0 +1,74 @@
+{
+  "title": "whistlepops training corpus",
+  "outDir": "/Users/jas/aesthetic-computer/wave-wizard/samples/whistlepops/takes",
+  "trim": {
+    "thresholdPctOfPeak": 0.03,
+    "padHeadMs": 60,
+    "padTailMs": 120,
+    "fadeMs": 6,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -32,
+    "silenceDb": -44,
+    "silenceDurationMs": 700,
+    "maxRecordSec": 5
+  },
+  "samples": [
+    { "name": "pos-short-01",   "desc": "short whistle — a quick tweet, under half a second" },
+    { "name": "pos-short-02",   "desc": "again — short whistle, quick tweet" },
+    { "name": "pos-short-03",   "desc": "one more short whistle" },
+
+    { "name": "pos-medium-01",  "desc": "medium whistle — about one second, single steady pitch" },
+    { "name": "pos-medium-02",  "desc": "another medium whistle, one second steady" },
+    { "name": "pos-medium-03",  "desc": "one more medium whistle" },
+
+    { "name": "pos-long-01",    "desc": "long sustained whistle — hold for two to three seconds, single pitch" },
+    { "name": "pos-long-02",    "desc": "another long sustained whistle, two to three seconds" },
+    { "name": "pos-long-03",    "desc": "one more long sustained whistle" },
+
+    { "name": "pos-rising-01",  "desc": "two-tone whistle going up in pitch — low, then high" },
+    { "name": "pos-rising-02",  "desc": "another rising two-tone whistle, low to high" },
+    { "name": "pos-rising-03",  "desc": "one more rising two-tone whistle" },
+
+    { "name": "pos-falling-01", "desc": "two-tone whistle going down — high, then low" },
+    { "name": "pos-falling-02", "desc": "another falling two-tone whistle, high to low" },
+    { "name": "pos-falling-03", "desc": "one more falling two-tone whistle" },
+
+    { "name": "pos-quiet-01",   "desc": "soft, quiet whistle — close to the mic" },
+    { "name": "pos-quiet-02",   "desc": "another soft whistle, close to the mic" },
+    { "name": "pos-quiet-03",   "desc": "one more soft, quiet whistle" },
+
+    { "name": "pos-far-01",     "desc": "whistle from a couple steps back — across the room" },
+    { "name": "pos-far-02",     "desc": "another whistle from across the room" },
+    { "name": "pos-far-03",     "desc": "one more whistle from across the room" },
+
+    { "name": "neg-whee-01",    "desc": "say the word: wheeeee" },
+    { "name": "neg-whee-02",    "desc": "say it again: wheeeee" },
+    { "name": "neg-whee-03",    "desc": "one more: wheeeee" },
+
+    { "name": "neg-whoo-01",    "desc": "say: whooo" },
+    { "name": "neg-whoo-02",    "desc": "again: whooo" },
+    { "name": "neg-whoo-03",    "desc": "one more: whooo" },
+
+    { "name": "neg-oo-01",      "desc": "hold a wordless ooooo vowel for about a second" },
+    { "name": "neg-oo-02",      "desc": "another oooooo" },
+    { "name": "neg-oo-03",      "desc": "one more oooooo" },
+
+    { "name": "neg-hum-01",     "desc": "hum a note with your mouth closed" },
+    { "name": "neg-hum-02",     "desc": "hum another note" },
+    { "name": "neg-hum-03",     "desc": "one more hum" },
+
+    { "name": "neg-laugh-01",   "desc": "a short laugh — heh heh heh" },
+    { "name": "neg-laugh-02",   "desc": "another short laugh" },
+    { "name": "neg-laugh-03",   "desc": "one more short laugh" },
+
+    { "name": "neg-speech-01",  "desc": "say a normal sentence: the kettle is on the stove" },
+    { "name": "neg-speech-02",  "desc": "say: i wonder what we should do about that" },
+    { "name": "neg-speech-03",  "desc": "say: this is just a regular voice take" },
+
+    { "name": "neg-typing-01",  "desc": "type on your keyboard at a normal pace for about three seconds" },
+    { "name": "neg-typing-02",  "desc": "type again for about three seconds" },
+    { "name": "neg-typing-03",  "desc": "one more typing take" }
+  ]
+}

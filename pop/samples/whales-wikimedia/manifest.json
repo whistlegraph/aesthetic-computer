@@ -1,0 +1,18 @@
+{
+  "slug": "whales-wikimedia",
+  "title": "Whale recordings (Wikimedia Commons)",
+  "license": "public domain / CC0 (per upload — verify each)",
+  "source": "https://commons.wikimedia.org",
+  "addedAt": "2026-05-29",
+  "note": "Pulled via Wikimedia API. Originals are .ogg/.oga (Vorbis); decoded copies at 48 kHz stereo PCM.",
+  "samples": [
+    { "file": "ak52-10x.wav",              "src": "File:Ak52 10x.ogg",                       "desc": "humpback / song fragment" },
+    { "file": "blue-whale-atlantic1.wav",  "src": "File:Blue whale atlantic1 1x.ogg",        "desc": "blue whale, Atlantic — long low call" },
+    { "file": "blue-whale-atlantic2.wav",  "src": "File:Blue whale atlantic2 1x.oga",        "desc": "blue whale, Atlantic — short call" },
+    { "file": "blue-whale-ne-pacific.wav", "src": "File:Blue Whale NE Pacific 1x.oga",       "desc": "blue whale, NE Pacific" },
+    { "file": "blue-whale-s-pacific.wav",  "src": "File:Blue Whale South Pacific 1x.ogg",    "desc": "blue whale, South Pacific" },
+    { "file": "blue-whale-w-pacific.wav",  "src": "File:Blue Whale West Pacific 1x.oga",     "desc": "blue whale, West Pacific" },
+    { "file": "humpback-moo.wav",          "src": "File:Humpback whale moo.ogg",             "desc": "humpback, single 'moo' utterance" },
+    { "file": "whalestep.wav",             "src": "File:Whalestep.ogg",                      "desc": "long whale song clip (rhythmic)" }
+  ]
+}

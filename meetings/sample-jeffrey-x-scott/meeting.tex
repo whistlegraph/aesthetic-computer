@@ -1,0 +1,88 @@
+% !TEX program = xelatex
+% Sample meeting in the cards layout — exercises every macro in
+% ac-meeting-cards.sty so we can verify the template compiles.
+
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpink,
+  urlcolor=acpink,
+  pdftitle={jeffrey x scott — sample meeting},
+}
+
+\usepackage{ac-meeting-cards}
+
+\begin{document}
+
+\meetingcover{jeffrey x scott}{2026-05-30 \enspace$\cdot$\enspace 53 min \enspace$\cdot$\enspace jeffrey, scott}{2026-05-30-1600-jeffrey-x-scott.wav}
+
+\begin{keyideas}
+  \keyidea{Decision}{Ship trancepenta stems Friday, unmastered, bare project export.}
+  \keyidea{Highlight}{Scott's bridge motif idea is the spine of the next section.}
+  \keyidea{Action --- JEFFREY}{Send scott the bare project file by Friday end-of-day.}
+\end{keyideas}
+
+\section*{opening{\color{acpink}.}}
+\cardsubtitle{small talk and framing.}
+
+\turn{jeffrey}{00:00}{Hey Scott — thanks for jumping on. I wanted to talk through where the trancepenta stems land before Friday.}
+
+\turn{scott}{00:18}{Yeah, perfect timing. I was just listening through last night and I have one structural thing I want to float.}
+
+\turn{jeffrey}{00:34}{Go ahead.}
+
+\mhighlight{Scott's bridge motif idea is the spine of the next section — we should orient everything else around it.}
+
+\turn{scott}{00:41}{The bridge — the part that comes in after the second drop — I think the motif you have there could carry the whole next section. Right now it's a transition. If we let it breathe, it becomes the spine.}
+
+\turn{jeffrey}{01:12}{That's a really good read. Let me sit with that.}
+
+\mnote{Sage made a similar point about letting motifs breathe in a chat last week.}
+
+\section*{decisions{\color{acpink}.}}
+\cardsubtitle{what we committed to.}
+
+\turn{scott}{02:30}{So timing-wise — when can you get me the bare stems?}
+
+\turn{jeffrey}{02:38}{I can have them Friday. No mastering, just the bare project export.}
+
+\mdecision{Ship trancepenta stems Friday, unmastered, bare project export.}{50/50 split, publishing his}
+
+\maction{jeffrey}{Send scott the bare project file with no mastering by Friday end-of-day.}
+
+\section*{tangents{\color{acpink}.}}
+\cardsubtitle{the small detours.}
+
+\turn{scott}{04:15}{Random question — have you been keeping up with the whistlegraph stuff lately?}
+
+\turn{jeffrey}{04:22}{Yeah, big push this month. I'll show you the recap when we wrap.}
+
+\mquote{Big push this month. I'll show you the recap when we wrap.}
+
+\mfreeform{ask scott about that synth patch from 2023}
+
+\mskipped{1 min 12 sec}
+
+\turn{scott}{05:51}{OK, sending you my notes on the bridge after this.}
+
+\turn{jeffrey}{05:58}{Perfect — talk soon.}
+
+\section*{notes for the future{\color{acpink}.}}
+\cardsubtitle{what to revisit next time.}
+
+\turn{jeffrey}{06:00}{For the followup we should plan out a second pass once the stems are in.}
+
+\end{document}

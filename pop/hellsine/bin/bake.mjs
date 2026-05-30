@@ -33,7 +33,7 @@ args = args.filter((a) => a !== "--scratch" && a !== "--acdsp");
 const sep = args.indexOf("--");
 const engineExtra = sep >= 0 ? args.slice(sep + 1) : [];
 const outDir = (sep >= 0 ? args.slice(0, sep) : args)[0] ||
-  `${homedir()}/Documents/Working Desktop/hellsine`;
+  `${homedir()}/Documents/Shelf/hellsine`;
 
 const ENGINE = `${REPO}/pop/hellsine/bin/hellsine.mjs`;
 const SCRATCH = `${REPO}/pop/dance/bin/scratch-mix.mjs`;

@@ -47,7 +47,7 @@ mkdirSync(`${LANE}/out`, { recursive: true });
 
 // ── Fía source photos (macOS screenshots use U+202F before AM/PM) ─────
 const NB = " ";
-const GENS = "/Users/jas/Documents/Working Desktop/gens";
+const GENS = "/Users/jas/Documents/Shelf/gens";
 const FIA = {
   pose:    `${GENS}/Screenshot 2026-05-17 at 10.39.55${NB}AM.png`, // leaning/wonder
   frontal: `${GENS}/IMG_0933.jpg`,                                  // clean face

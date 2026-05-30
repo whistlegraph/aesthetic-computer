@@ -169,11 +169,11 @@ node recap/bin/trance.mjs --mode chill --meter 3 --out trancenwaltzi.mp3
 # (this is exactly what pop/dance/bin/build.mjs runs for trancenwaltzi)
 ```
 
-Current file: `~/Documents/Working Desktop/twi-out/trancenwaltzi.mp3`
+Current file: `~/Documents/Shelf/twi-out/trancenwaltzi.mp3`
 (3.31 MB, rendered 2026-05-18 00:50). Build history:
-`~/Documents/Working Desktop/builds/trancenwaltzi/bNNN/` (manifests carry
+`~/Documents/Shelf/builds/trancenwaltzi/bNNN/` (manifests carry
 the git sha + note per build). `~/Desktop` copies auto-clean — treat
-`~/Documents/Working Desktop/` and the CDN as the durable homes.
+`~/Documents/Shelf/` and the CDN as the durable homes.
 
 ### Release cut — ONE command (2026-05-19 single-mix refactor)
 
@@ -219,7 +219,7 @@ move — needs a fresh sine-only re-cut.
 - [x] Single-mix bake (`node pop/dance/bin/bake.mjs`) → `trancenwaltzi-MASTER.wav` (G major, −14.1 LUFS / −1.4 dBTP / 2:49)
 - [ ] Confirm by ear: 53 s perc consistent, kick/hats danceable, growls in back glitches, 1:19/1:35 clean, 2:02 ramp smooth, 18 s fade clean
 - [ ] 320 k mp3 for CDN: `assets.aesthetic.computer/pop/trancenwaltzi.mp3`
-- [x] Cover 3000² jpg — **`~/Documents/Working Desktop/gens/trancenwaltzi-cover-3000.jpg`**
+- [x] Cover 3000² jpg — **`~/Documents/Shelf/gens/trancenwaltzi-cover-3000.jpg`**
       (also mirrored to `~/Desktop/`). Source: outro illustration **v31**
       (`gens/trancenwaltzi-sections/outro/gens/v31.png`, native 1024²
       upscaled → 3000²; square, no crop needed unlike the portrait

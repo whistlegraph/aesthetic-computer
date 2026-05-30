@@ -1,0 +1,93 @@
+# XcodeGen spec for the Mac App Store build of Menu Band.
+#
+# This generates the Xcode app target needed for App Store archiving WITHOUT
+# committing a hand-authored .xcodeproj. SwiftPM (Package.swift) remains the
+# source of truth for the direct-download build; this is a parallel wrapper
+# that compiles the SAME Sources/MenuBand/*.swift into a signable .app with
+# the App Sandbox.
+#
+# Usage:
+#   brew install xcodegen          # one-time
+#   cd slab/menuband
+#   xcodegen generate              # writes MenuBand.xcodeproj (git-ignore it)
+#   open MenuBand.xcodeproj
+#   # then: sign in to your Apple ID, pick the FB5948YR3S team with automatic
+#   # signing, Product > Archive, Distribute App > App Store Connect.
+#
+# See STORE-APP-STORE.md for the full submission checklist + runtime tests.
+
+name: MenuBand
+
+options:
+  bundleIdPrefix: computer.aestheticcomputer
+  deploymentTarget:
+    macOS: "11.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    # The fork flag (gates global keystroke capture / hotkeys / stickies /
+    # update-checker / crash-upload) AND the bundle-shim flag (supplies
+    # Bundle.module for this non-SwiftPM target). See MASBundleShim.swift.
+    SWIFT_ACTIVE_COMPILATION_CONDITIONS: MAC_APP_STORE XCODE_APP_TARGET
+
+targets:
+  MenuBand:
+    type: application
+    platform: macOS
+    deploymentTarget: "11.0"
+
+    sources:
+      # All Swift under Sources/MenuBand (incl. KidLisp/ + PianoWaveformWindow/
+      # subdirs). Resources + the .metal are handled separately below so they
+      # land FLATTENED in the app's Resources root — matching SwiftPM's
+      # `.process("Resources")` behavior, which is what the existing
+      # `Bundle.module.url(forResource:withExtension:)` (no subdirectory:)
+      # lookups rely on.
+      - path: Sources/MenuBand
+        excludes:
+          - "KidLisp/README.md"
+          - "Resources/**"
+          - "WaveformShaders.metal"
+
+      # Resource files → Copy Bundle Resources (flattened). verovio/sheet.html
+      # + verovio-toolkit-wasm.js flatten into the same Resources root, so the
+      # relative <script> ref inside sheet.html still resolves.
+      - path: Sources/MenuBand/Resources
+        buildPhase: resources
+
+      # WaveformShaders.metal ships as a RAW resource (not a compile source):
+      # WaveformView compiles it at runtime via makeLibrary(source:). Adding it
+      # to Compile Sources instead would produce a default.metallib and strip
+      # the raw file, breaking that primary path.
+      - path: Sources/MenuBand/WaveformShaders.metal
+        buildPhase: resources
+
+      # App icon. Info.plist already declares CFBundleIconFile = AppIcon, so
+      # copying AppIcon.icns into Resources/ is all that's needed (no asset
+      # catalog in this project).
+      - path: AppIcon.icns
+        buildPhase: resources
+
+    dependencies:
+      # Package.swift links IOKit explicitly (used without a Swift import);
+      # everything else (AppKit, AVFoundation, CoreMIDI, CoreAudio, Metal,
+      # MetalKit, WebKit, Carbon) auto-links from its `import`.
+      - sdk: IOKit.framework
+
+    settings:
+      base:
+        PRODUCT_NAME: MenuBand
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aestheticcomputer.menuband
+        INFOPLIST_FILE: Info.plist
+        MARKETING_VERSION: "1.4.1"
+        CURRENT_PROJECT_VERSION: "141"
+        CODE_SIGN_ENTITLEMENTS: MenuBand-AppStore.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: FB5948YR3S
+        ENABLE_HARDENED_RUNTIME: YES
+        # LSUIElement (agent app, no Dock icon) already lives in Info.plist.
+        # Don't let Xcode generate a competing Info.plist.
+        GENERATE_INFOPLIST_FILE: NO
+        COMBINE_HIDPI_IMAGES: YES

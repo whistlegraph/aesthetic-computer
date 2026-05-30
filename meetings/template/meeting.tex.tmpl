@@ -1,0 +1,42 @@
+% !TEX program = xelatex
+% Template substituted by meetings/cli.mjs build — placeholder names are
+% wrapped in double curly braces (see cli.mjs cmdBuild for the list).
+% Do not document the placeholders inline here; substitution is literal
+% string-replace and would corrupt comments.
+
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpink,
+  urlcolor=acpink,
+  pdftitle={ {{TITLE}} },
+  pdfsubject={meeting transcript},
+  pdfauthor={Aesthetic Computer · meetings/cli.mjs},
+}
+
+\usepackage{ac-meeting-cards}
+
+\begin{document}
+
+\meetingcover{ {{TITLE}} }{ {{DATE}} \enspace$\cdot$\enspace {{DURATION}} \enspace$\cdot$\enspace {{PARTICIPANTS}} }{ {{SOURCE_WAV}} }
+
+\begin{keyideas}
+{{KEY_IDEAS}}
+\end{keyideas}
+
+{{BODY}}
+
+\end{document}

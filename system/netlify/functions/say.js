@@ -188,7 +188,7 @@ async function generateElevenLabs(text, gender, set, scream) {
 // Trained on multiple public lectures/talks by @jeffrey. Same voice
 // used in the LACMA 2026 grant pitch video.
 // Usage from the piece: `say:jeffrey hello world`
-const JEFFREY_VOICE_ID = "dYNGZ848Oo6DtNBoeqgh";
+const JEFFREY_VOICE_ID = "ZXoQQp5X0PKHGwyZpVIT";
 
 // When `withTimestamps` is true, hits ElevenLabs `/with-timestamps`
 // endpoint and returns BOTH audio + per-character alignment. The

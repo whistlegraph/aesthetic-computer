@@ -168,6 +168,6 @@ pop/chillwave/
   bin/gen-illy.mjs                  single-cover illustration
   undabeach.np / .illy.txt / .txt   score / prompt / lyric
 marketing/bin/gen-promo.mjs         per-section campaign illustration gen (retry-resilient)
-~/Documents/Working Desktop/gens/trancenwaltz-sections/<sec>/   prompts + refs + gens (v8..v12)
+~/Documents/Shelf/gens/trancenwaltz-sections/<sec>/   prompts + refs + gens (v8..v12)
 ~/Desktop/builds/<name>/bNNN/       versioned build outputs
 ```

@@ -32,7 +32,7 @@ args = args.filter((a) => a !== "--acdsp");
 const sep = args.indexOf("--");
 const engineExtra = sep >= 0 ? args.slice(sep + 1) : [];
 const outDir = (sep >= 0 ? args.slice(0, sep) : args)[0] ||
-  `${homedir()}/Documents/Working Desktop/twi-out`;
+  `${homedir()}/Documents/Shelf/twi-out`;
 
 const ENGINE = `${REPO}/recap/bin/trance.mjs`;
 const SCRATCH = `${REPO}/pop/dance/bin/scratch-mix.mjs`;

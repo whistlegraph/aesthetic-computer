@@ -11,9 +11,31 @@ maytrax/out/
 # RFA recorded voice takes — local performances, kept off the repo
 # (the manifest.json punch-list IS tracked)
 **/voice-takes/*.wav
+**/voice-takes/**/*.wav
 
-# pop/samples/ — third-party reference audio (downloaded from YouTube etc.)
-# The audio + chops stay local; manifest.json + INDEX.json + onsets.json
-# are tracked so the recipe is reproducible from the URL.
+# jeffrey-pvc carrier/iso voice lab takes — local performances, kept off repo
+voice/lab/jeffrey-pvc/*.wav
+voice/lab/jeffrey-pvc/*.ogg
+
+# big-pictures C engine build artifacts — compiled binaries + render outputs
+# (the .c / .mjs / .sh sources ARE tracked)
+big-pictures/c/out/
+big-pictures/c/amazing-dance
+big-pictures/c/amazinhym
+
+# pop/samples/ — third-party reference audio (downloaded from YouTube,
+# received via iMessage, etc.). Audio + chops + stems + render outputs
+# stay local; only the scripts and manifest are tracked.
 samples/*/source.*
 samples/*/chops/
+samples/*/stems/
+samples/*/loops/
+samples/*/*.wav
+samples/*/*.ogg
+samples/*/*.oga
+samples/*/*.mp3
+samples/*/*.flac
+samples/*/*.aif
+samples/*/*.aiff
+samples/*/*.m4a
+samples/*/jam

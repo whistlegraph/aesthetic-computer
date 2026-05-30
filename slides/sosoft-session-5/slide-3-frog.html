@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>__SHARED_CSS__</style>
+<style>
+  .body { gap: 44px; }
+  .col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .opt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+  }
+  .opt {
+    padding: 22px 24px;
+    min-height: 0;
+  }
+  .opt .opt-letter {
+    font-family: "YWFT Processing";
+    font-weight: 800;
+    font-size: 56px;
+    line-height: 1;
+    color: #b450ff;
+    margin: 4px 0 6px 0;
+  }
+  .opt .opt-h {
+    font-family: "YWFT Processing";
+    font-weight: 800;
+    font-size: 26px;
+    color: #121012;
+    line-height: 1.1;
+    margin: 0 0 10px 0;
+  }
+  .opt .opt-body {
+    font-family: "YWFT Processing";
+    font-weight: 300;
+    font-size: 19px;
+    color: #2a2a2a;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .opt .opt-body b { font-weight: 800; color: #121012; }
+  .opt .opt-foot {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 13px;
+    color: #888;
+    margin-top: 10px;
+    line-height: 1.35;
+  }
+  .opt .opt-foot .pro { color: #2a9a3a; font-weight: 800; }
+  .opt .opt-foot .con { color: #c8324b; font-weight: 800; }
+
+  .lean {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #cd5c9b;
+    font-weight: 800;
+    margin-top: 4px;
+  }
+
+  .venue-strip {
+    display: flex; gap: 28px; align-items: center;
+    background: #121012;
+    color: #fff;
+    border-radius: 14px;
+    padding: 22px 30px;
+    margin-bottom: 28px;
+  }
+  .venue-strip .vbig {
+    font-family: "YWFT Processing"; font-weight: 800;
+    font-size: 64px; line-height: 1; color: #fff;
+  }
+  .venue-strip .vbig .pink { color: #cd5c9b; }
+  .venue-strip .vmeta {
+    flex: 1; display: flex; flex-direction: column; gap: 6px;
+  }
+  .venue-strip .vmeta .row1 {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 20px; color: #cd5c9b; letter-spacing: 0.12em;
+    font-weight: 800; text-transform: uppercase;
+  }
+  .venue-strip .vmeta .row2 {
+    font-family: "YWFT Processing"; font-weight: 300;
+    font-size: 24px; color: #ccc; line-height: 1.3;
+  }
+  .venue-strip .vmeta .row2 b { color: #fff; font-weight: 800; }
+  .venue-strip .countdown {
+    text-align: right;
+    font-family: "Berkeley Mono", monospace;
+  }
+  .venue-strip .countdown .n {
+    font-family: "YWFT Processing"; font-weight: 800;
+    font-size: 72px; line-height: 1; color: #b450ff;
+  }
+  .venue-strip .countdown .l {
+    font-size: 16px; color: #888; letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .preference {
+    margin-top: 22px;
+    background: #f4ecff;
+    border: 2px solid #b89df0;
+    border-radius: 14px;
+    padding: 16px 22px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .preference .heart {
+    font-family: "Berkeley Mono", monospace;
+    color: #6b3fc0;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    font-weight: 800;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .preference .pref-text {
+    font-family: "YWFT Processing"; font-weight: 300;
+    font-size: 22px; color: #2a1a55; line-height: 1.4;
+  }
+  .preference .pref-text b { font-weight: 800; color: #1a0a40; }
+
+  .small-q {
+    background: #f6f5f1;
+    border-left: 6px solid #cd5c9b;
+    padding: 14px 22px;
+    margin-top: 18px;
+    font-family: "YWFT Processing"; font-weight: 300;
+    font-size: 22px; color: #1a1a1a; line-height: 1.4;
+  }
+  .small-q b { font-weight: 800; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="kicker"><span class="accent">Session #5</span> · 28 May 2026 · slide 3 of 3</div>
+      <div class="title">
+        what we <span class="pink">bring</span>, what we <span class="pink">play</span>
+      </div>
+      <div class="subtitle">
+        i don't yet know what goes in the <b>edition-of-64 packet</b> or what notepat <b>does</b> on the night.
+        below are four candidates for each. i'd like to leave tomorrow with <i>one of each</i> picked — then build the rest of the time.
+      </div>
+    </div>
+    <div class="brand-block">
+      <div class="brand-text">
+        <div class="top">Aesthetic.Computer</div>
+        <div class="author">by <b>@jeffrey</b></div>
+        <div class="session">scores for social software · c2</div>
+      </div>
+      <div class="marks">
+        <img id="jeffrey" alt="@jeffrey">
+        <img id="pals" alt="">
+      </div>
+    </div>
+  </div>
+
+  <div class="venue-strip">
+    <div class="vbig">FUSER<span class="pink">.</span></div>
+    <div class="vmeta">
+      <div class="row1">frogtown · 13 june 2026 · noon → 2pm</div>
+      <div class="row2">cohort wrap-up · public-facing · room not yet visited by me · approx. <b>60–90 min</b> of program for the four of us combined</div>
+    </div>
+    <div class="countdown">
+      <div class="n">16</div>
+      <div class="l">days out</div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- LEFT — packet -->
+    <div class="col">
+      <div class="section-h">the <span class="accent">packet</span> · edition of 64</div>
+      <div class="opt-grid">
+
+        <div class="card opt">
+          <div class="ribbon pink"></div>
+          <div class="opt-letter">A</div>
+          <div class="opt-h">the notepat charts deck</div>
+          <div class="opt-body">
+            the <b>11-card learning deck</b> already exists — layout, intervals, major / minor / dim / aug triads, 7ths, circle of fifths, scales, drills, progressions. phone-proportioned, pastel-tinted. <i>teaches the instrument the room is about to play.</i>
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> already designed · serves notepat · <span class="con">−</span> 64 × 11 cards = real print cost</div>
+        </div>
+
+        <div class="card opt">
+          <div class="ribbon yellow"></div>
+          <div class="opt-letter">B</div>
+          <div class="opt-h">the keymap single sheet</div>
+          <div class="opt-body">
+            single 5×7 print of the diagram you saw last meeting. <b>cheapest, fastest, already designed.</b> ships from any print shop in a week. backup or addendum to the deck.
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> cheapest answer · <span class="con">−</span> says less than the deck</div>
+        </div>
+
+        <div class="card opt">
+          <div class="ribbon green"></div>
+          <div class="opt-letter">C</div>
+          <div class="opt-h">the usb stick</div>
+          <div class="opt-body">
+            64 thumbdrives, each carrying <b>AC Native OS + notepat preloaded</b>. plug into any laptop, power on, hold a key. <i>the most ambitious — also the most demonstrative.</i>
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> the cohort takes home a bootable OS · <span class="con">−</span> ~$120 in sticks + 1 day of imaging</div>
+        </div>
+
+        <div class="card opt">
+          <div class="ribbon orange"></div>
+          <div class="opt-letter">D</div>
+          <div class="opt-h">the pixsies insert</div>
+          <div class="opt-body">
+            printed sleeve for a <b>pop/ single</b>, qr to notepat.com on the back, download code inside. ties the music lane to the social-software conversation.
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> a record people can keep · <span class="con">−</span> drifts toward "release" register</div>
+        </div>
+
+      </div>
+
+      <div class="preference">
+        <div class="heart">jeffrey's lean</div>
+        <div class="pref-text">
+          if the room has no preference: <b>A · the notepat charts deck</b>. it's the only candidate that <i>teaches the instrument we'll be playing together at fuser</i>. if budget allows, clip <b>C</b> (the usb stick) to it so the cohort takes home the OS too.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT — performance -->
+    <div class="col">
+      <div class="section-h">the <span class="accent">room</span> · what notepat does on the night</div>
+      <div class="opt-grid">
+
+        <div class="card opt">
+          <div class="ribbon blue"></div>
+          <div class="opt-letter">A</div>
+          <div class="opt-h">notepat solo · 8 min</div>
+          <div class="opt-body">
+            me on one thinkpad. narrated as i play. <b>the most rehearsed thing i can bring.</b> ends with a piece written that morning in front of the room.
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> low-risk, high-craft · <span class="con">−</span> least participatory of the four</div>
+        </div>
+
+        <div class="card opt">
+          <div class="ribbon purple"></div>
+          <div class="opt-letter">B</div>
+          <div class="opt-h">conductor + phones</div>
+          <div class="opt-body">
+            i conduct from one screen; <b>the room joins on their phones</b> via Remote. each phone is one voice. needs 5 min of onboarding at the door.
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> the room becomes the ensemble · <span class="con">−</span> wifi at fuser is unknown</div>
+        </div>
+
+        <div class="card opt">
+          <div class="ribbon green"></div>
+          <div class="opt-letter">C</div>
+          <div class="opt-h">the laptop table</div>
+          <div class="opt-body">
+            <b>5+ thinkpads on a long table</b>, each running notepat. people walk up, play, leave. shared sound system or per-laptop headphones. ambient + open-ended.
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> lives the whole 2 hrs · <span class="con">−</span> heavy to carry, needs power strips</div>
+        </div>
+
+        <div class="card opt">
+          <div class="ribbon orange"></div>
+          <div class="opt-letter">D</div>
+          <div class="opt-h">scored piece for cohort</div>
+          <div class="opt-body">
+            i write a <b>90-second printed score</b> for the cohort to play together on notepat (any surface). one piece, made for this room, performed once. lives in the packet.
+          </div>
+          <div class="opt-foot"><span class="pro">+</span> the cohort becomes co-authors · <span class="con">−</span> requires 1 rehearsal before the night</div>
+        </div>
+
+      </div>
+
+      <div class="preference">
+        <div class="heart">jeffrey's lean</div>
+        <div class="pref-text">
+          if the room has no preference: <b>C as the spine, A as the opener</b>. i play 8 min, then the table opens. <i>if cohort wants in</i>, we add D — a scored piece for the four of us at the front.
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="small-q">
+    <b>open question #2</b> — does <i>your</i> contribution at fuser want to live alongside notepat (e.g. interleaved) or in a separate slot? and does the publication want
+    a <b>unified packet design</b> or four contributor-objects bundled?
+  </div>
+
+  <div class="page-foot">
+    <div>slide <span class="n">3</span> of 3 · the packet + the room</div>
+    <div>aesthetic.computer · prepared for casey reas + cohort</div>
+  </div>
+
+  <script>
+    document.getElementById("pals").src = "__PALS_LOGO__";
+    document.getElementById("jeffrey").src = "__JEFFREY_PIC__";
+  </script>
+</body>
+</html>

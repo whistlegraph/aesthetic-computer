@@ -1,0 +1,25 @@
+{
+  "title": "i love computer club",
+  "outDir": "/Users/jas/aesthetic-computer/wave-wizard/samples/computer-club/takes",
+  "trim": {
+    "thresholdPctOfPeak": 0.04,
+    "padHeadMs": 30,
+    "padTailMs": 200,
+    "fadeMs": 8,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 1200,
+    "maxRecordSec": 6
+  },
+  "samples": [
+    {
+      "name": "computer-club-01",
+      "desc": "i love computer club",
+      "lyric": "i love com-pu-ter club",
+      "melodyFile": "/Users/jas/aesthetic-computer/wave-wizard/samples/computer-club/melody.wav"
+    }
+  ]
+}

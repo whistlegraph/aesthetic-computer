@@ -6,7 +6,7 @@ Conventions for working on @jeffrey's macOS host (the MacBook Neo).
 
 ## The Desktop convention
 
-**The macbook neo `~/Desktop/` should ONLY contain the `Working Desktop`
+**The macbook neo `~/Desktop/` should ONLY contain the `Shelf`
 alias** (plus macOS system dotfiles like `.DS_Store` / `.localized`).
 Everything else is media cruft and needs to be relocated.
 
@@ -24,12 +24,12 @@ Everything else is media cruft and needs to be relocated.
 ### The single allowed alias
 
 ```
-~/Desktop/Working Desktop -> /Users/jas/Documents/Working Desktop/
+~/Desktop/Shelf -> /Users/jas/Documents/Shelf/
 ```
 
 That's the only thing on the desktop. All real work lives behind it.
 
-### Where things actually live (under `~/Documents/Working Desktop/`)
+### Where things actually live (under `~/Documents/Shelf/`)
 
 - `gens/<project>/refs/` — gpt-image-2 reference image sets per
   generation run (e.g. `gens/trancepenta-zuck/refs/`,
@@ -45,10 +45,10 @@ That's the only thing on the desktop. All real work lives behind it.
 ### How to clean
 
 When the desktop has accumulated media cruft, move EVERYTHING except
-the `Working Desktop` alias into a dated cleanup folder under it:
+the `Shelf` alias into a dated cleanup folder under it:
 
 ```bash
-mkdir -p "/Users/jas/Documents/Working Desktop/desktop-cleanup-$(date +%Y-%m-%d)"
+mkdir -p "/Users/jas/Documents/Shelf/desktop-cleanup-$(date +%Y-%m-%d)"
 # then move each item (see gotcha below for screenshots)
 ```
 
@@ -71,7 +71,7 @@ the actual filename bytes:
 ```python
 import os, shutil
 src_dir = '/Users/jas/Desktop'
-dst_dir = '/Users/jas/Documents/Working Desktop/desktop-cleanup-2026-05-26'
+dst_dir = '/Users/jas/Documents/Shelf/desktop-cleanup-2026-05-26'
 for f in os.listdir(src_dir):
     if f.startswith('Screenshot'):
         shutil.move(os.path.join(src_dir, f), os.path.join(dst_dir, f))
@@ -147,9 +147,9 @@ Wait for "Deleting" to clear before re-checking disk:
 until ! $SIMCTL runtime list | grep -q "Deleting"; do sleep 5; done
 ```
 
-### Working Desktop bulk
+### Shelf bulk
 
-`~/Documents/Working Desktop/` regularly grows past 15 GB. Look
+`~/Documents/Shelf/` regularly grows past 15 GB. Look
 specifically for:
 
 - `<project>-DISTROKID/` of any track that already shipped
