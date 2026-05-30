@@ -1,0 +1,445 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\usepackage{../ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={My People — a directory for Sage},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\color{acgray}\itshape internal — for sage}
+\fancyhead[R]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+\newcommand{\np}{notepat}
+
+% per-person heading: name + role chip
+\newcommand{\person}[2]{%
+  \vspace{0.9em}\noindent%
+  {\normalfont\bfseries\fontsize{12pt}{14pt}\selectfont\color{acdark}#1}%
+  \hspace{0.6em}{\footnotesize\color{acgray}\itshape #2}%
+  \par\vspace{0.15em}\nopagebreak%
+}
+
+\newcommand{\field}[1]{\textbf{\small\color{acdark}#1}\hspace{0.3em}}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{0.4in}
+
+\essaytitle{my people}
+\essaydate{a working directory for sage \textperiodcentered{} may 2026}
+
+\noindent sage --- this is the list i promised, written down so we can
+actually use it. everyone on it is connected to \ac{} in some load-bearing
+way: they ship code with me, they make music with me, they host me, they
+hire me, or they print me on the wall of an institution. each entry has
+\textbf{what they do well}, \textbf{what we have already made together},
+and \textbf{where i think they could plug into a product}. it is not
+exhaustive --- it is the people i would actually call. if anyone is
+missing, the gap is mine.
+
+the document is internal. don't share past us without asking. emails and
+phone numbers are deliberately left off where they would be awkward in
+your hands; if a collaboration gets real i'll make the intro warm.
+
+\acbreak
+
+\section{inner circle}
+
+\person{Fia Benitez \textit{(@fifi)}}{partner \textperiodcentered{} calarts \textperiodcentered{} inbox + opportunity curator}
+
+\field{practice} project coordination, written voice, taste; runs the
+opportunity inbox alongside me (\texttt{honeydo.txt}); forwards calls,
+grants, residencies; catches things i wouldn't see.
+
+\field{what we've made} the entire opportunity pipeline that funnels into
+\ac{}'s grant + residency activity. her edits land on bios, drafts,
+public-facing copy.
+
+\field{product angle} any product with a written-voice surface (onboarding,
+emails, the prompt's text) benefits from her ear. she is also the most
+honest first reader i have --- if a product premise reads as bullshit to
+fia it almost certainly is.
+
+\acbreak
+
+\section{ac core --- people who have actually shipped code}
+
+these are the humans whose names appear in \texttt{git log} on the main
+repo, or whose work is built so deeply into the project that the codebase
+itself remembers them. ordered by depth of involvement, not vanity.
+
+\person{Artur Matveichenkov}{ac dev-friend \textperiodcentered{} mostly imessage \textperiodcentered{} booted-by patron}
+
+\field{practice} graphics + drawing tools, painting interfaces; the
+\texttt{sign} demo he shipped out of puerto rico; the brush in \ac{}
+that's queued to be rewritten in the kidlisp graphical editor.
+
+\field{what we've made} ssh access to the dev infra; a recurring
+``artur painting story'' thread in the project's \texttt{TODO.txt};
+\texttt{JtoA} (jeffrey-to-artur), the speech-recognition prototype
+meant to make us communicate more complex thoughts than imessage allows;
+on the \texttt{booted-by} screen at the grey tier --- one of the people
+who actually paid into the project. our ongoing back-channel is imessage,
+not git --- ideas land there first.
+
+\field{product angle} the highest-bandwidth peer i have on drawing /
+brush / paint-engine work; the relationship that has already produced one
+named pattern in the codebase (\texttt{JtoA}: building tools to talk to
+each other better). if a product is shaped like a drawing instrument or a
+two-person creative protocol, artur is the call before anyone else.
+
+\person{Georgica Pettus \textit{(@georgica, gh: ggcajp)}}{ac core contributor}
+
+\field{practice} javascript piece development, prompt engineering, LLM
+experiments, generative work inside the AC piece API.
+
+\field{what we've made} 130+ commits across the main repo. long-running
+contributor; one of the people who has seen the system evolve from inside
+the codebase.
+
+\field{product angle} if a product needs someone who already speaks the
+piece API natively, she is one of three people in the world. strong on
+prompt + LLM glue work.
+
+\person{Tina Tarighian \textit{(gh: ttarigh)}}{ac core contributor}
+
+\field{practice} ac piece development, javascript / kidlisp, ui work.
+
+\field{what we've made} 80+ commits across pieces and tooling; she is one
+of the people i have actually onboarded into the codebase.
+
+\field{product angle} solid pair for anything that turns a piece into a
+user-facing app or installation. piece-API fluent.
+
+\person{Esteban Uribe}{ac contributor \textperiodcentered{} swift / native}
+
+\field{practice} performance optimization, keyboard input layers, swift /
+mac native ui. recently shipped the global keyboard-disable path inside
+Menu Band.
+
+\field{what we've made} \texttt{slab/menuband/} performance work in 2026
+--- about 80 commits across the menubar synth and adjacent native surfaces.
+
+\field{product angle} the one to call if a product crosses the browser/native
+boundary on mac. native input + audio scheduling specialist.
+
+\person{Miles Peyton \textit{(gh: mileshiroo)}}{ac contributor}
+
+\field{practice} ac piece development; the contributor i know least well
+of this group, but the commits are real.
+
+\field{product angle} unknown ceiling --- worth a coffee before any product
+brief.
+
+\person{Ida Pruitt \textit{(@ida, gh: idapruitt)}}{ac contributor \textperiodcentered{} early user}
+
+\field{practice} piece-level javascript; the designated ``first user'' for
+\texttt{niki.aesthetic.computer} testing in earlier eras of the project.
+
+\field{what we've made} co-author of \texttt{sno} (with sage \& me); about
+25 commits across pieces.
+
+\field{product angle} the strongest user-research candidate i know who is
+also fluent enough to ship the change herself.
+
+\person{Maya Man}{ac contributor \textperiodcentered{} independent artist}
+
+\field{practice} her own browser-native art practice; on \ac{} she
+shipped the \texttt{@maya/sparkle} piece.
+
+\field{product angle} a peer rather than a teammate --- but if a product
+ever wants the web-as-medium voice she has, she'd be the call.
+
+\person{Bash Elliott \textit{(@bash, gh: rackodo)}}{ac contributor \textperiodcentered{} user-host}
+
+\field{practice} ac piece creation and hosting; the canonical example in
+docs for \texttt{@handle/piece-name} resolution.
+
+\field{product angle} more of a community-anchor than a co-builder.
+
+\person{Dan / rcrdlbl \textit{(@ Tlon)}}{ac contributor \textperiodcentered{} backend / auth}
+
+\field{practice} login / auth flows, identity surfaces. day job at Tlon
+(the Urbit company), which is relevant for any product that wants
+decentralized-identity rails.
+
+\field{product angle} the one to call if a product touches identity,
+login, or wants to think about a non-google-non-apple stack.
+
+\acbreak
+
+\section{studio peers \textperiodcentered{} falsework}
+
+\person{Matt Doyle \& Yuehao Jiang}{co-principals \textperiodcentered{} falsework \textperiodcentered{} booted-by patrons (purple tier)}
+
+\field{practice} run \textbf{Falsework}, the studio building \textit{Spider
+Lily} (unreal engine 5.6 game project on perforce / helix core at
+\texttt{falsework.helixcore.io}). matt also shows up in the whistlegraph
+collaborator list at the Schneider Museum, so the relationship predates
+falsework itself.
+
+\field{what we've made} the \texttt{false.work/} directory in this repo
+holds the unreal build pipeline (windows + mac + ios) for spider lily ---
+the studio and \ac{} share build infrastructure. both of them appear
+together on the \texttt{booted-by} screen at the purple tier; matt's
+brother \textbf{Eric Doyle} sits at the brown tier alongside them.
+
+\field{product angle} the only game-studio-shaped relationship i have.
+unreal + perforce + mac/ios codesigning expertise that would otherwise be
+weeks of bring-up. if a product wants any 3D-game-engine reach, or wants
+to think about \ac{} as a tool that ships into another studio's
+pipeline, this is the live example.
+
+\acbreak
+
+\section{music collaborators}
+
+the \texttt{pop/} lane has its own peer set --- people i make tracks with,
+or who run nearby on the same scene.
+
+\person{Quargs Greene}{music collaborator \textperiodcentered{} they/them \textperiodcentered{} computer club peer}
+
+\field{practice} solo electronic music; sample-based composition; releases
+on their own publishing.
+
+\field{what we've made} \textbf{50/50 writer/performer split} on a track
+they are building on top of \texttt{trancepenta} for their 3rd solo album.
+i sent stems on 2026-05-21. derivative is clearance-safe because the
+trancepenta source SFX are CC0.
+
+\field{product angle} an early signal that \texttt{pop/} stems are an
+\textit{output} other artists want to use. if we ever package a stems-as-API
+product, quargs is the proof-of-life user.
+
+\person{Will \textit{(@c\_robo on instagram)}}{music tech \textperiodcentered{} fresh calarts grad \textperiodcentered{} chromebook orchestrator}
+
+\field{practice} music tech; just graduated calarts. runs a many-chromebook
+distributed-music rig --- the cheap-hardware-as-instrument lineage in a
+calarts-pedagogy frame. orchestrates a roomful of them as a single
+instrument.
+
+\field{product angle} the cheapest possible network-of-devices music
+product has a name and a face here. anything that wants to treat
+underpowered hardware as an ensemble (rather than an apology) should be
+sketched with will in the room first. obvious overlap with \texttt{pop/}'s
+chromebook-tier render targets if we ever want a live-performance shape
+for those tracks.
+
+\acbreak
+
+\section{curatorial peers}
+
+\person{Celine Wong Katzman}{associate curator (creative time) \textperiodcentered{} sfpc board}
+
+\field{practice} associate curator at \textbf{Creative Time}; sits on
+the \textbf{Board of Directors} of the School for Poetic Computation
+(alongside American Artist, Salome Asega, Tega Brain, Taylor Levy,
+Che-Wei Wang, Galen Macdonald). curatorial reach + institutional read.
+
+\field{what we've made} the relationship i trust enough to write
+confidential research \textit{for}. the scott-moore private brief in
+\texttt{papers/scott-moore-profile/} is explicitly prepared for celine
+--- ``Private brief --- prepared for Celine, Not for publication.'' she
+gets the analytical layer that doesn't go on the public platter.
+
+\field{product angle} the curator i'd brief first on any product that
+needs to be read as serious work in the contemporary-art conversation
+--- and the one most likely to know whether an institutional pilot
+(a creative time commission, an sfpc residency, a board placement) is a
+plausible next step.
+
+\acbreak
+
+\section{ucla social software \textperiodcentered{} where i'm in residence}
+
+\person{Casey Reas}{residency host \textperiodcentered{} ucla sosoft \textperiodcentered{} processing co-creator}
+
+\field{practice} co-creator of Processing (with ben fry, at MIT media lab);
+language-as-art practitioner; teaches at UCLA; cofounded UCLA Social Software
+(``sosoft'') with lauren lee mccarthy.
+
+\field{relationship} hosts me as \textbf{author in residence} at sosoft
+in 2026. the canonical CV line is \textit{Author in Residence, UCLA Social
+Software (Casey Reas)}. he is the host. mccarthy is the studio's cofounder,
+not a co-host.
+
+\field{product angle} the most credentialed person in this document for
+any product that wants academic shelter or language-design pedigree.
+\ac{}'s entire ``language as the artwork'' stance has a clean line back
+to processing --- which is useful when explaining the project to people
+who don't yet read the work.
+
+\person{Lauren Lee McCarthy}{ucla sosoft cofounder}
+
+\field{practice} public/social interface art (\textit{Lauren}, \textit{Someone},
+\textit{Bot Party}); p5.js progenitor; teaches at UCLA.
+
+\field{relationship} cofounded sosoft \textit{with} reas; she is the
+co-founder of the studio i'm in residence at, \textbf{not} my co-host.
+mention her only when the audience knows her.
+
+\field{product angle} adjacent rather than active --- her practice and
+mine share an audience but we haven't built anything together.
+
+\acbreak
+
+\section{client work \textperiodcentered{} ongoing professional}
+
+these are the gigs that are paying for hardware, server time, and album
+covers. listed because they are real relationships and real bandwidth --- if
+a product needs a friendly first customer, one of these three is the door.
+
+\person{Rebecca Bonneville, NP}{client \textperiodcentered{} the resilience institute}
+
+\field{practice} functional / naturopathic psychiatry; depth psychotherapy;
+neurosomatic and regenerative-medicine work. running a small private
+practice she is reframing as a four-door institute.
+
+\field{what we've made} a poc gateway page live under
+\texttt{aesthetic.computer/bp-0cf886709d1753/} (cinematic, fludd
+macrocosmus, EB garamond, ``the resilience institute''). full rebrand of
+\texttt{resilientminds.health} in scope; alchemical / 16th--17th-c.
+anatomical aesthetic; aman.com as the experiential north star.
+
+\field{product angle} the most concrete ``serious wellness brand built on
+\ac{} infra'' example we have. if we ever sell a small-clinic /
+practitioner product, she is the prototype customer.
+
+\person{Loretta Darling Nicola}{client \textperiodcentered{} nevada natural living}
+
+\field{practice} wellness products (copper sulfate, ADEK, supplements);
+sells under the ``dr. vk for life'' brand.
+
+\field{what we've made} \texttt{drvkforlife.com} on shopify, custom DNS
+through cloudflare, marketing PDFs + product info sheets. invoice
+AC-DRVK-2026-0519-001, \$1{,}550, net 30.
+
+\field{product angle} less of a creative-product fit; relevant if a future
+product wants a wellness-commerce ramp.
+
+\person{Thomas Lawson}{client \textperiodcentered{} artist site}
+
+\field{practice} painter / writer with a long-running site at
+\texttt{thomaslawson.com}.
+
+\field{what we've made} site maintenance; the deploy path goes godaddy
+sftp into a mu-plugins setup --- not glamorous, but real income and a real
+artist's site.
+
+\field{product angle} weak product fit. listed for completeness.
+
+\acbreak
+
+\section{service partners \textperiodcentered{} humans, not vendors}
+
+\person{Solveig Fernlund}{architect \textperiodcentered{} brooklyn}
+
+\field{practice} residential interior architecture; pre-war renovation.
+i've worked with her on the kapin/jacobs kitchen renovation in brooklyn
+(164 mac donough st).
+
+\field{product angle} not software-shaped. but if a product ever needs a
+physical-space partner who understands the difference between a kitchen
+that works and a kitchen that performs, she's it.
+
+\person{@mollysoda}{piece collaborator \textperiodcentered{} \texttt{selfie}}
+
+\field{practice} internet-native artist; she co-designed the decorated
+photographic selfie palette behind \ac{}'s \texttt{selfie} piece.
+
+\field{product angle} a clean example of \ac{}'s piece-as-collaboration
+pattern; could be re-activated if a product wants a known internet-art
+voice on a specific piece.
+
+\acbreak
+
+\section{institutional footprint --- not collaborators}
+
+worth knowing about, but not on the call sheet. listing here so you have
+the full picture.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{KADIST} (san francisco) and \textbf{SMK \textperiodcentered{} the
+    national gallery of denmark} (copenhagen) hold ac work in their
+    collections. they are \textit{collectors}, not collaborators --- the
+    distinction matters. they signal seriousness, not bandwidth.
+  \item \textbf{Tezos Foundation} --- ecosystem grant submitted 2026-05-22
+    for the kidlisp keeps v12 work; awaiting Q2 review. not a person, but
+    a check the project might cash.
+  \item \textbf{LACMA} --- 2026 grant application in process, biennial
+    structure (prototype 2027, premiere 2028). same shape: an institution,
+    not a collaborator.
+\end{itemize}
+
+\acbreak
+
+\section{where this leaves us}
+
+sage --- the people who actually ship with me are a small group: you, me,
+\textbf{artur}, \textbf{georgica}, \textbf{tina}, \textbf{esteban},
+\textbf{ida} (lighter). the music lane has \textbf{quargs} as the first
+external user of a \ac{} output and \textbf{will} (\@c\_robo) as the
+chromebook-orchestra angle if we ever want a live-performance shape.
+\textbf{matt + yuehao} (Falsework) are the live example of \ac{} infra
+living inside another studio's pipeline. the curatorial read comes from
+\textbf{celine}; the academic cover from \textbf{reas}. the gigs keep the
+lights on. everyone else is a known node, not an active edge.
+
+a product we build together would almost certainly be small at the start
+--- the two of us, maybe artur on drawing-tools work, or one of the ac
+core contributors when piece-API fluency is required. the music-collab
+pattern (stems-as-product), the piece-as-collaboration pattern
+(\texttt{selfie} with mollysoda), and the build-pipeline-as-shared-infra
+pattern (\texttt{false.work/} with falsework) are the three shapes that
+have already proven they ride out into the world.
+
+let's pick a shape and a name. i'll keep this list current.
+
+\colophon{written for sage jenson, may 2026. internal; not for distribution.}
+
+\end{document}
