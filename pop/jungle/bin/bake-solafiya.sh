@@ -17,7 +17,7 @@
 # Targets: -14 LUFS / -1.5 dBTP / LRA ~6-8 LU. Source -19.4 LUFS so ~5 dB
 # of program gain.
 #
-# Outputs (~/Documents/Working Desktop/solafiya-DISTROKID/ — durable home,
+# Outputs (~/Documents/Shelf/solafiya-DISTROKID/ — durable home,
 # Desktop auto-cleans — see [[feedback_desktop_autocleaned]]):
 #   solafiya-MASTER.wav             — 16-bit / 44.1 kHz stereo
 #   solafiya-MASTER-preBright.wav   — A/B against the dark cut
@@ -32,7 +32,7 @@ REPO="$(cd "$(dirname "$0")/../../.." && pwd)"
 SRC_MP3="$REPO/pop/jungle/out/solafiya.mp3"
 SRC_ILLY="$REPO/pop/jungle/out/solafiya.illy.png"
 
-OUT="${HOME}/Documents/Working Desktop/solafiya-DISTROKID"
+OUT="${HOME}/Documents/Shelf/solafiya-DISTROKID"
 mkdir -p "$OUT"
 
 PRE="$OUT/solafiya-MASTER-preBright.wav"

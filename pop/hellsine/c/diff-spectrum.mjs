@@ -13,8 +13,8 @@
 import { readFileSync } from "node:fs";
 
 const SR = 48_000;
-const JS_PATH = process.argv[2] || "/Users/jas/Documents/Working Desktop/hellsine/.hellsine-js-pre.wav";
-const C_PATH  = process.argv[3] || "/Users/jas/Documents/Working Desktop/hellsine/.hellsine-c-pre.wav";
+const JS_PATH = process.argv[2] || "/Users/jas/Documents/Shelf/hellsine/.hellsine-js-pre.wav";
+const C_PATH  = process.argv[3] || "/Users/jas/Documents/Shelf/hellsine/.hellsine-c-pre.wav";
 
 function readWav(p) {
   const buf = readFileSync(p);

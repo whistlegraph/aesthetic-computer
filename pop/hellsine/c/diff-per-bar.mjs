@@ -19,8 +19,8 @@ const SPB = 60 / BPM;
 const SPBAR = 4 * SPB;          // 1.319 s per bar
 const TOTAL_BARS = 124;
 
-const JS_PATH = process.argv[2] || "/Users/jas/Documents/Working Desktop/hellsine/.hellsine-js-pre.wav";
-const C_PATH  = process.argv[3] || "/Users/jas/Documents/Working Desktop/hellsine/.hellsine-c-pre.wav";
+const JS_PATH = process.argv[2] || "/Users/jas/Documents/Shelf/hellsine/.hellsine-js-pre.wav";
+const C_PATH  = process.argv[3] || "/Users/jas/Documents/Shelf/hellsine/.hellsine-c-pre.wav";
 
 function readWav(p) {
   const buf = readFileSync(p);

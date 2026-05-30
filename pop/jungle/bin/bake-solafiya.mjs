@@ -24,7 +24,7 @@
 //
 // Then ffmpeg finalizes: loudnorm I=-14 / TP=-1.5 / LRA=8 → alimiter 0.95.
 //
-// Outputs (~/Documents/Working Desktop/solafiya-DISTROKID/):
+// Outputs (~/Documents/Shelf/solafiya-DISTROKID/):
 //   solafiya-MASTER.wav             — 16-bit / 44.1 kHz stereo
 //   solafiya-MASTER-preBright.wav   — pre-acdsp reference for A/B
 //   solafiya.mp3                    — 320 k + 3000² cover + ID3
@@ -46,7 +46,7 @@ const REPO = resolve(HERE, "../../..");
 const SRC_MP3  = `${REPO}/pop/jungle/out/solafiya.mp3`;
 const SRC_ILLY = `${REPO}/pop/jungle/out/solafiya.illy.png`;
 
-const OUT   = `${homedir()}/Documents/Working Desktop/solafiya-DISTROKID`;
+const OUT   = `${homedir()}/Documents/Shelf/solafiya-DISTROKID`;
 const PRE   = `${OUT}/solafiya-MASTER-preBright.wav`;
 const AC    = `${OUT}/.solafiya-acdsp.wav`;
 const FINAL = `${OUT}/solafiya-MASTER.wav`;

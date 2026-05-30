@@ -1010,14 +1010,10 @@ function drawBacklight(audioT, env) {
   rg.addColorStop(1,   `rgba(${tint},0)`);
   ctx.fillStyle = rg;
   ctx.fillRect(0, 0, W, H);
-  // contrast layer — multiply vignette darkens the periphery so the
-  // backlit centre reads with punch.
-  ctx.globalCompositeOperation = "multiply";
-  const vg = ctx.createRadialGradient(gx, gy, H * 0.18, gx, gy, H * 0.78);
-  vg.addColorStop(0, "rgba(255,255,255,1)");
-  vg.addColorStop(1, "rgba(70,52,70,1)");
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, W, H);
+  // multiply vignette removed 2026-05-29 — the side darkening crushed
+  // the periphery (same complaint as hellsine + marimbaba v3 +
+  // trancepenta-yt). The warm screen glow above already lifts the
+  // centre; we don't need the periphery darkened to make it read.
   ctx.restore();
   ctx.globalCompositeOperation = "source-over";
 }

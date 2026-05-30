@@ -41,11 +41,16 @@
 /* ── chord progression ─────────────────────────────────────────────── */
 typedef struct { int root_pc; int third; int fifth; } chord_t;
 static const chord_t CH_E  = { 4,  4, 7 };
-static const chord_t CH_B  = { 11, 4, 7 };
-static const chord_t CH_Cs = { 1,  3, 7 };
-static const chord_t CH_A  = { 9,  4, 7 };
-static const chord_t CHORDS_A[4] = { CH_E, CH_B, CH_Cs, CH_A };
-static const chord_t CHORDS_B[4] = { CH_Cs, CH_A, CH_E, CH_B };
+__attribute__((unused)) static const chord_t CH_B  = { 11, 4, 7 };
+__attribute__((unused)) static const chord_t CH_Cs = { 1,  3, 7 };
+__attribute__((unused)) static const chord_t CH_A  = { 9,  4, 7 };
+/* Both progressions collapse to static E to match the source's tonality
+ * (oskie's mix is a fixed E pedal). Length is intentionally 1 so all
+ * `bar % PROG_LEN` lookups stay on E. */
+#define PROG_LEN 1
+static const chord_t CHORDS_A[PROG_LEN] = { CH_E };
+static const chord_t CHORDS_B[PROG_LEN] = { CH_E };
+/* legacy refs to CH_B / CH_Cs / CH_A retained — see CHORDS_A docstring */
 
 static inline int pc_to_midi(int pc, int octave) { return pc + 12 * (octave + 1); }
 static inline int chord_root(chord_t ch, int octave) { return pc_to_midi(ch.root_pc, octave); }
@@ -284,6 +289,104 @@ static void sweep_lp(float *buf, double start_s, double end_s,
   }
 }
 
+/* High-shelf brightener via add-back of HF copy. Lifts oskie's drums
+ * without re-EQ'ing the whole mix. */
+static void brighten_drums(float *buf, size_t n, double lift, double hp_freq) {
+  float *lp = (float *)malloc(n * sizeof(float));
+  memcpy(lp, buf, n * sizeof(float));
+  lowpass(lp, n, hp_freq);
+  for (size_t i = 0; i < n; i++) {
+    float hi = buf[i] - lp[i];
+    buf[i] += hi * (float)lift;
+  }
+  free(lp);
+}
+
+/* Glitch / scratch — random micro-reverse / stutter / soft bitcrush
+ * applied in-place every ~chunk_s seconds with probability `prob`. */
+static void glitchify(float *buf, size_t n, double prob, double chunk_s) {
+  size_t chunkN = (size_t)(chunk_s * SR);
+  if (chunkN < 1) chunkN = 1;
+  for (size_t i = chunkN; i + chunkN < n; i += chunkN) {
+    if (rand01() >= prob) continue;
+    int which = (int)(rand01() * 3.0);
+    if (which == 0) {
+      float *tmp = (float *)malloc(chunkN * sizeof(float));
+      memcpy(tmp, buf + i, chunkN * sizeof(float));
+      for (size_t j = 0; j < chunkN; j++) buf[i + j] = tmp[chunkN - 1 - j];
+      free(tmp);
+    } else if (which == 1) {
+      size_t half = chunkN / 2;
+      for (size_t j = 0; j < half; j++) buf[i + half + j] = buf[i + j];
+    } else {
+      /* 6-bit (was 4-bit — gentler, less popping) */
+      for (size_t j = 0; j < chunkN; j++) {
+        buf[i + j] = roundf(buf[i + j] * 32.0f) / 32.0f;
+      }
+    }
+  }
+}
+
+/* Detect snare-like hits in the drum loop. Highpass to isolate snare
+ * band, build an 8 ms moving-avg envelope, peak-pick with a min gap.
+ * Writes offsets to `out` (caller-allocated, capacity `cap`), returns
+ * count. */
+static size_t detect_snares(const float *loop, size_t n, size_t *out, size_t cap) {
+  float *lp = (float *)malloc(n * sizeof(float));
+  memcpy(lp, loop, n * sizeof(float));
+  lowpass(lp, n, 1500);
+  float *hp = (float *)malloc(n * sizeof(float));
+  for (size_t i = 0; i < n; i++) hp[i] = fabsf(loop[i] - lp[i]);
+  size_t winN = (size_t)(0.008 * SR);
+  if (winN < 1) winN = 1;
+  float *env = (float *)calloc(n, sizeof(float));
+  double acc = 0;
+  for (size_t i = 0; i < winN && i < n; i++) acc += hp[i];
+  for (size_t i = 0; i < n; i++) {
+    if (i + winN < n) acc += hp[i + winN];
+    if (i >= winN + 1) acc -= hp[i - winN - 1];
+    env[i] = (float)(acc / winN);
+  }
+  float maxEnv = 0;
+  for (size_t i = 0; i < n; i++) if (env[i] > maxEnv) maxEnv = env[i];
+  float thresh = maxEnv * 0.35f;
+  size_t minGap = (size_t)(0.08 * SR);
+  size_t count = 0;
+  size_t last = 0;
+  int havePrev = 0;
+  for (size_t i = 1; i + 1 < n && count < cap; i++) {
+    if (env[i] < thresh) continue;
+    if (havePrev && i - last < minGap) continue;
+    if (env[i] >= env[i - 1] && env[i] >= env[i + 1]) {
+      out[count++] = i;
+      last = i;
+      havePrev = 1;
+    }
+  }
+  free(lp); free(hp); free(env);
+  return count;
+}
+
+/* Master bus — gentle low cut, soft glue, HF de-hiss. Stereo, linked. */
+static void master_bus(float *l, float *r, size_t n) {
+  double aHP = exp(-2.0 * M_PI * 40.0 / SR);
+  double yLpL = 0, yLpR = 0;
+  for (size_t i = 0; i < n; i++) {
+    yLpL = (1.0 - aHP) * l[i] + aHP * yLpL;
+    yLpR = (1.0 - aHP) * r[i] + aHP * yLpR;
+    l[i] = (float)(l[i] - yLpL);
+    r[i] = (float)(r[i] - yLpR);
+  }
+  double drive = 1.10;
+  double norm = tanh(drive);
+  for (size_t i = 0; i < n; i++) {
+    l[i] = (float)((tanh(l[i] * drive) / norm) * 0.93);
+    r[i] = (float)((tanh(r[i] * drive) / norm) * 0.93);
+  }
+  lowpass(l, n, 17000);
+  lowpass(r, n, 17000);
+}
+
 static void sidechain(float *target, const float *source,
                       double attack_s, double release_s,
                       double threshold, double depth) {
@@ -308,11 +411,19 @@ static float *g_bass = NULL;
 static size_t g_bass_n = 0;
 static float *g_drums = NULL;
 static size_t g_drums_n = 0;
+static float *g_source = NULL;
+static size_t g_source_n = 0;
 static size_t g_drum_start = 0;
 static size_t g_loop_n = 0;
 
 /* per-voice mono buffers */
-static float *padBuf, *stabBuf, *bellBuf, *sineBellBuf, *drumBellBuf, *drumsBuf;
+static float *padBuf, *stabBuf, *bellBuf, *sineBellBuf, *drumBellBuf;
+static float *snareBellBuf, *hatBuf, *loopBuf, *drumsBuf;
+
+/* detected snare positions within the 4-bar drum loop */
+#define MAX_SNARES 256
+static size_t g_snare_offsets[MAX_SNARES];
+static size_t g_snare_count = 0;
 
 static void place_into(float *target, const float *src, size_t src_n, double start_s) {
   size_t off = (size_t)(start_s * SR);
@@ -490,15 +601,99 @@ static float *g_bell(int midi, double dur_s, double gain, size_t *out_n) {
   return out;
 }
 
+/* High-end hat — HP-filtered noise burst. */
+static float *g_hat(double dur_s, double gain, size_t *out_n) {
+  size_t n = (size_t)(dur_s * SR);
+  float *out = (float *)calloc(n, sizeof(float));
+  for (size_t i = 0; i < n; i++) {
+    out[i] = (float)((rand01() * 2.0 - 1.0) * exp(-(double)i / (0.008 * SR)));
+  }
+  float *lp = (float *)malloc(n * sizeof(float));
+  memcpy(lp, out, n * sizeof(float));
+  lowpass(lp, n, 6000);
+  for (size_t i = 0; i < n; i++) out[i] = (out[i] - lp[i]) * (float)gain;
+  free(lp);
+  *out_n = n;
+  return out;
+}
+
+static float *g_open_hat(double dur_s, double gain, size_t *out_n) {
+  size_t n = (size_t)(dur_s * SR);
+  float *out = (float *)calloc(n, sizeof(float));
+  for (size_t i = 0; i < n; i++) {
+    out[i] = (float)((rand01() * 2.0 - 1.0) * exp(-(double)i / (0.05 * SR)));
+  }
+  float *lp = (float *)malloc(n * sizeof(float));
+  memcpy(lp, out, n * sizeof(float));
+  lowpass(lp, n, 5000);
+  for (size_t i = 0; i < n; i++) out[i] = (out[i] - lp[i]) * (float)gain;
+  free(lp);
+  *out_n = n;
+  return out;
+}
+
+/* Downward filter sweep — noise + LP swept 8 kHz → 200 Hz. */
+static float *g_sweep_down(double dur_s, double gain, size_t *out_n) {
+  size_t n = (size_t)(dur_s * SR);
+  float *out = (float *)calloc(n, sizeof(float));
+  for (size_t i = 0; i < n; i++) out[i] = (float)(rand01() * 2.0 - 1.0);
+  for (size_t i = 0; i < n; i++) {
+    double t = (double)i / SR;
+    double env = t < 0.05 ? t / 0.05 : exp(-(t - 0.05) / (dur_s * 0.4));
+    out[i] *= (float)env;
+  }
+  double log0 = log(8000.0), log1 = log(200.0);
+  double y = 0;
+  for (size_t i = 0; i < n; i++) {
+    double t = (double)i / (double)(n - 1);
+    double fc = exp(log0 + (log1 - log0) * t);
+    double a = exp(-2.0 * M_PI * fc / SR);
+    y = (1.0 - a) * out[i] + a * y;
+    out[i] = (float)(y * gain);
+  }
+  *out_n = n;
+  return out;
+}
+
+/* Upward riser — opposite of g_sweep_down. */
+static float *g_sweep_up(double dur_s, double gain, size_t *out_n) {
+  size_t n = (size_t)(dur_s * SR);
+  float *out = (float *)calloc(n, sizeof(float));
+  for (size_t i = 0; i < n; i++) out[i] = (float)(rand01() * 2.0 - 1.0);
+  for (size_t i = 0; i < n; i++) {
+    double t = (double)i / SR;
+    double env = pow(t / dur_s, 1.5);
+    out[i] *= (float)env;
+  }
+  double log0 = log(200.0), log1 = log(8000.0);
+  double y = 0;
+  for (size_t i = 0; i < n; i++) {
+    double t = (double)i / (double)(n - 1);
+    double fc = exp(log0 + (log1 - log0) * t);
+    double a = exp(-2.0 * M_PI * fc / SR);
+    y = (1.0 - a) * out[i] + a * y;
+    out[i] = (float)(y * gain);
+  }
+  *out_n = n;
+  return out;
+}
+
 /* ── drum tiling with variants ─────────────────────────────────────── */
 typedef enum {
   V_FULL, V_MUTE1ST, V_MUTELAST, V_HALFSILENT, V_STUTTER1, V_REVERSE, V_SILENT
 } variant_t;
 
+/* forward decl — needed for snare-bell placement */
+static float *g_low_sine_bell(int midi, double dur_s, double gain, size_t *out_n);
+static void place_into(float *target, const float *src, size_t src_n, double start_s);
+
 static void tile_drums(int startBar, int nBars, double gain,
-                       const variant_t *variants, int nVariants) {
+                       const variant_t *variants, int nVariants,
+                       const chord_t *snareCh) {
   size_t loopN = g_loop_n;
   size_t barN = (size_t)(BAR_S * SR);
+  size_t edgeN = (size_t)(0.010 * SR);  /* 10 ms edge fade kills click */
+  if (edgeN > loopN / 8) edgeN = loopN / 8;
   int loops = (nBars + LOOP_BARS - 1) / LOOP_BARS;
   for (int lp = 0; lp < loops; lp++) {
     variant_t v = (variants && nVariants > 0) ? variants[lp % nVariants] : V_FULL;
@@ -506,30 +701,59 @@ static void tile_drums(int startBar, int nBars, double gain,
     size_t off = (size_t)(((double)(startBar + lp * LOOP_BARS)) * BAR_S * SR);
     size_t remaining = (size_t)((double)(nBars - lp * LOOP_BARS) * barN);
     size_t writeN = (loopN < remaining) ? loopN : remaining;
-    const float *src = g_drums + g_drum_start;
+    const float *drumSrc = g_drums  + g_drum_start;
+    const float *srcSrc  = g_source + g_drum_start;
+    /* writes to both: source loop → loopBuf (audible), drum stem →
+     * drumsBuf (sidechain key, not panned) */
+    #define PLACE_PAIR(j) do { \
+        float _g = 1.0f; \
+        if ((j) < edgeN) _g = (float)(j) / (float)edgeN; \
+        else if ((j) + edgeN > writeN) _g = (float)(writeN - (j)) / (float)edgeN; \
+        loopBuf[off + (j)]  += srcSrc[(j)]  * (float)gain * _g; \
+        drumsBuf[off + (j)] += drumSrc[(j)] * (float)gain * _g; \
+      } while (0)
     if (v == V_FULL) {
-      for (size_t i = 0; i < writeN && off + i < TOTAL_N; i++)
-        drumsBuf[off + i] += src[i] * (float)gain;
+      for (size_t i = 0; i < writeN && off + i < TOTAL_N; i++) PLACE_PAIR(i);
     } else if (v == V_MUTE1ST) {
-      for (size_t i = barN; i < writeN && off + i < TOTAL_N; i++)
-        drumsBuf[off + i] += src[i] * (float)gain;
+      for (size_t i = barN; i < writeN && off + i < TOTAL_N; i++) PLACE_PAIR(i);
     } else if (v == V_MUTELAST) {
       size_t stop = (writeN < 3 * barN) ? writeN : 3 * barN;
-      for (size_t i = 0; i < stop && off + i < TOTAL_N; i++)
-        drumsBuf[off + i] += src[i] * (float)gain;
+      for (size_t i = 0; i < stop && off + i < TOTAL_N; i++) PLACE_PAIR(i);
     } else if (v == V_HALFSILENT) {
       size_t stop = (writeN < 2 * barN) ? writeN : 2 * barN;
-      for (size_t i = 0; i < stop && off + i < TOTAL_N; i++)
-        drumsBuf[off + i] += src[i] * (float)gain;
+      for (size_t i = 0; i < stop && off + i < TOTAL_N; i++) PLACE_PAIR(i);
     } else if (v == V_STUTTER1) {
       for (int rep = 0; rep < 4; rep++) {
         size_t rOff = off + (size_t)rep * barN;
-        for (size_t i = 0; i < barN && rOff + i < TOTAL_N; i++)
-          drumsBuf[rOff + i] += src[i] * (float)gain;
+        for (size_t i = 0; i < barN && rOff + i < TOTAL_N; i++) {
+          loopBuf[rOff + i]  += srcSrc[i]  * (float)gain;
+          drumsBuf[rOff + i] += drumSrc[i] * (float)gain;
+        }
       }
     } else if (v == V_REVERSE) {
-      for (size_t i = 0; i < writeN && off + i < TOTAL_N; i++)
-        drumsBuf[off + i] += src[loopN - 1 - i] * (float)gain;
+      for (size_t i = 0; i < writeN && off + i < TOTAL_N; i++) {
+        loopBuf[off + i]  += srcSrc[loopN - 1 - i]  * (float)gain;
+        drumsBuf[off + i] += drumSrc[loopN - 1 - i] * (float)gain;
+      }
+    }
+    #undef PLACE_PAIR
+    /* little sinebells riding the detected snares — lower octave now */
+    if (snareCh && v != V_SILENT) {
+      int midi = chord_root(*snareCh, 3) + snareCh->fifth;  /* 5th in oct3 */
+      int alt  = chord_root(*snareCh, 4);                   /* root in oct4 */
+      for (size_t k = 0; k < g_snare_count; k++) {
+        size_t sOff = g_snare_offsets[k];
+        if (sOff >= writeN) continue;
+        if (v == V_MUTELAST  && sOff >= 3 * barN) continue;
+        if (v == V_HALFSILENT && sOff >= 2 * barN) continue;
+        if (v == V_MUTE1ST   && sOff < barN)      continue;
+        int m = (sOff % 2 == 0) ? midi : alt;
+        size_t segN = 0;
+        float *seg = g_low_sine_bell(m, 0.18, 0.25, &segN);
+        double tSec = (double)(off + sOff) / (double)SR;
+        place_into(snareBellBuf, seg, segN, tSec);
+        free(seg);
+      }
     }
   }
 }
@@ -557,61 +781,86 @@ static void place_bell(int midi, double dur_s, double gain, double t) {
   size_t n; float *b = g_bell(midi, dur_s, gain, &n);
   place_into(bellBuf, b, n, t); free(b);
 }
+static void place_hat(double dur_s, double gain, double t) {
+  size_t n; float *b = g_hat(dur_s, gain, &n);
+  place_into(hatBuf, b, n, t); free(b);
+}
+static void place_open_hat(double dur_s, double gain, double t) {
+  size_t n; float *b = g_open_hat(dur_s, gain, &n);
+  place_into(hatBuf, b, n, t); free(b);
+}
+static void place_sweep_down(double dur_s, double gain, double t) {
+  size_t n; float *b = g_sweep_down(dur_s, gain, &n);
+  place_into(hatBuf, b, n, t); free(b);
+}
+static void place_sweep_up(double dur_s, double gain, double t) {
+  size_t n; float *b = g_sweep_up(dur_s, gain, &n);
+  place_into(hatBuf, b, n, t); free(b);
+}
 
 static void intro(int nBars) {
   variant_t v[1] = { V_HALFSILENT };
-  tile_drums(cursor, nBars, 0.4, v, 1);
+  tile_drums(cursor, nBars, 0.55, v, 1, &CHORDS_A[0]);
   for (int bar = 0; bar < nBars; bar++) {
     double t = (double)(cursor + bar) * BAR_S;
-    chord_t ch = CHORDS_A[bar % 4];
-    place_pad(chord_root(ch, 2), BAR_S, 0.35, t);
-    place_low_sine(chord_root(ch, 3), BAR_S * 0.9, 0.40, t);
+    chord_t ch = CHORDS_A[bar % PROG_LEN];
+    place_pad(chord_root(ch, 2), BAR_S, 0.20, t);
+    place_low_sine(chord_root(ch, 3), BAR_S * 0.9, 0.24, t);
     int sparkle = chord_root(ch, 5) + ((bar & 1) ? ch.fifth : 0);
-    place_bell(sparkle, BEAT_S * 2.5, 0.32, t + 1.5 * BEAT_S);
-    if (bar == 1) place_drum_bell(chord_root(ch, 4) + ch.third, BEAT_S * 2, 0.35,
-                                  t + 3 * BEAT_S);
-    if (bar == 3) place_drum_bell(chord_root(ch, 4), BEAT_S * 1.5, 0.40,
+    place_bell(sparkle, BEAT_S * 2.5, 0.18, t + 1.5 * BEAT_S);
+    if (bar == 3) place_drum_bell(chord_root(ch, 4), BEAT_S * 1.5, 0.22,
                                   t + 2.5 * BEAT_S);
   }
+  place_sweep_up(BAR_S * 0.9, 0.13,
+    (double)(cursor + nBars - 1) * BAR_S + 0.1 * BAR_S);
   cursor += nBars;
 }
 
 static void verse(int nBars, const chord_t *prog) {
   variant_t v[2] = { V_FULL, V_MUTELAST };
-  tile_drums(cursor, nBars, 0.9, v, 2);
+  tile_drums(cursor, nBars, 1.0, v, 2, &prog[0]);
   for (int bar = 0; bar < nBars; bar++) {
     double t = (double)(cursor + bar) * BAR_S;
-    chord_t ch = prog[bar % 4];
+    chord_t ch = prog[bar % PROG_LEN];
     int phrase = (bar / 4) % 2;
     if (phrase == 0) {
-      place_pad(chord_root(ch, 2), BAR_S, 0.38, t);
-      place_low_sine(chord_root(ch, 3), BAR_S * 0.9, 0.38, t);
+      place_pad(chord_root(ch, 2), BAR_S, 0.22, t);
+      place_low_sine(chord_root(ch, 3), BAR_S * 0.9, 0.22, t);
       if (bar % 2 == 1)
-        place_low_sine(chord_root(ch, 3) + ch.fifth, BAR_S * 0.7, 0.22, t + BEAT_S);
-      place_bell(chord_root(ch, 4), BEAT_S * 1.6, 0.28, t);
+        place_low_sine(chord_root(ch, 3) + ch.fifth, BAR_S * 0.7, 0.14, t + BEAT_S);
+      place_bell(chord_root(ch, 4), BEAT_S * 1.6, 0.16, t);
     } else {
-      place_pad(chord_root(ch, 2), BAR_S, 0.42, t);
-      place_pad(chord_root(ch, 3) + ch.third, BAR_S, 0.20, t);
+      place_pad(chord_root(ch, 2), BAR_S, 0.24, t);
+      place_pad(chord_root(ch, 3) + ch.third, BAR_S, 0.12, t);
       int r4 = chord_root(ch, 4);
       int echoes[4] = { r4, r4 + ch.third, r4 + ch.fifth, r4 };
       for (int i = 0; i < 4; i++) {
-        if (rand01() < 0.55) {
-          place_drum_bell(echoes[i], BEAT_S * 0.9, 0.30,
+        if (rand01() < 0.45) {
+          place_drum_bell(echoes[i], BEAT_S * 0.9, 0.18,
                           t + i * BEAT_S + BEAT_S * 0.5);
         }
       }
-      place_low_sine(chord_root(ch, 3), BAR_S * 0.95, 0.34, t);
+      place_low_sine(chord_root(ch, 3), BAR_S * 0.95, 0.20, t);
+    }
+    /* light 16th-grid hats, accented on off-beats */
+    for (int s = 0; s < 8; s++) {
+      if (s % 2 == 1 || rand01() < 0.35) {
+        double g = (s % 2 == 1) ? 0.10 : 0.06;
+        place_hat(0.035, g, t + s * (BEAT_S / 2));
+      }
     }
   }
+  place_sweep_up(BAR_S * 0.9, 0.16,
+    (double)(cursor + nBars - 1) * BAR_S + 0.1 * BAR_S);
   cursor += nBars;
 }
 
 static void chorus(int nBars, double intensity, const chord_t *prog) {
   variant_t v[2] = { V_FULL, V_FULL };
-  tile_drums(cursor, nBars, 1.0 * intensity, v, 2);
+  tile_drums(cursor, nBars, 0.9 * intensity, v, 2, &prog[0]);
   for (int bar = 0; bar < nBars; bar++) {
     double t = (double)(cursor + bar) * BAR_S;
-    chord_t ch = prog[bar % 4];
+    chord_t ch = prog[bar % PROG_LEN];
     int r4 = chord_root(ch, 4);
     int arpAsc[8] = {
       r4, r4 + ch.fifth, r4 + 12, r4 + ch.third,
@@ -621,82 +870,94 @@ static void chorus(int nBars, double intensity, const chord_t *prog) {
     for (int i = 0; i < 8; i++) arpDesc[i] = arpAsc[7 - i];
     int *dir = ((bar / 2) % 2 == 0) ? arpAsc : arpDesc;
     int triadRoot = chord_root(ch, 3);
-    int triadThird = triadRoot + ch.third;
     int triadFifth = triadRoot + ch.fifth;
-    place_pad(chord_root(ch, 2), BAR_S, 0.40 * intensity, t);
-    place_pad(triadThird, BAR_S, 0.22 * intensity, t);
-    place_pad(triadFifth, BAR_S, 0.22 * intensity, t);
-    place_low_sine(chord_root(ch, 3), BAR_S * 0.95, 0.36 * intensity, t);
+    place_pad(chord_root(ch, 2), BAR_S, 0.26 * intensity, t);
+    place_pad(triadFifth, BAR_S, 0.14 * intensity, t);
+    place_low_sine(chord_root(ch, 3), BAR_S * 0.95, 0.22 * intensity, t);
     double stabBeats[2];
     int nb;
     if (bar < nBars / 2) { stabBeats[0] = 1; stabBeats[1] = 3;   nb = 2; }
     else                 { stabBeats[0] = 0; stabBeats[1] = 2.5; nb = 2; }
     for (int b = 0; b < nb; b++) {
-      place_stab(triadRoot, BEAT_S * 0.6, 0.50 * intensity, t + stabBeats[b] * BEAT_S);
-      place_stab(triadFifth, BEAT_S * 0.6, 0.38 * intensity, t + stabBeats[b] * BEAT_S);
+      place_stab(triadRoot, BEAT_S * 0.6, 0.32 * intensity, t + stabBeats[b] * BEAT_S);
     }
+    /* sparser bells, every other 8th */
     for (int i = 0; i < 8; i++) {
-      place_bell(dir[i], BEAT_S * 0.85, 0.26 * intensity, t + i * (BEAT_S / 2));
+      if (i % 2 == 0 || rand01() < 0.4) {
+        place_bell(dir[i], BEAT_S * 0.85, 0.18 * intensity, t + i * (BEAT_S / 2));
+      }
     }
     if (bar == 3 || bar == 7) {
-      chord_t nxt = prog[(bar + 1) % 4];
+      chord_t nxt = prog[(bar + 1) % PROG_LEN];
       int nr4 = chord_root(nxt, 4);
       int climb[4] = { nr4, nr4 + nxt.third, nr4 + nxt.fifth, chord_root(nxt, 5) };
       for (int i = 0; i < 4; i++) {
-        place_drum_bell(climb[i], BEAT_S * 0.7, 0.38 * intensity, t + i * BEAT_S);
+        place_drum_bell(climb[i], BEAT_S * 0.7, 0.26 * intensity, t + i * BEAT_S);
       }
+    }
+    /* high-end hats: 8ths, accented off-beat; open hat on and-of-4 each 4-bar */
+    for (int s = 0; s < 8; s++) {
+      double accent = (s % 2 == 1) ? 1.0 : 0.55;
+      place_hat(0.04, 0.16 * intensity * accent, t + s * (BEAT_S / 2));
+    }
+    if (bar % 4 == 3) {
+      place_open_hat(0.20, 0.18 * intensity, t + 3.5 * BEAT_S);
     }
   }
   cursor += nBars;
 }
 
 static void bridge(int nBars, const chord_t *prog) {
+  place_sweep_down(BAR_S * 1.2, 0.18, (double)cursor * BAR_S);
   variant_t v[1] = { V_HALFSILENT };
-  tile_drums(cursor, nBars, 0.55, v, 1);
+  tile_drums(cursor, nBars, 0.55, v, 1, &prog[0]);
   double t0 = (double)cursor * BAR_S;
   for (int bar = 0; bar < nBars; bar++) {
     double t = t0 + bar * BAR_S;
-    chord_t ch = prog[bar % 4];
+    chord_t ch = prog[bar % PROG_LEN];
     int triadRoot = chord_root(ch, 3);
-    place_pad(chord_root(ch, 2), BAR_S, 0.45, t);
-    place_pad(triadRoot + ch.third, BAR_S, 0.30, t);
-    place_pad(triadRoot + ch.fifth, BAR_S, 0.30, t);
-    place_low_sine(chord_root(ch, 2), BAR_S, 0.42, t);
+    place_pad(chord_root(ch, 2), BAR_S, 0.28, t);
+    place_pad(triadRoot + ch.third, BAR_S, 0.18, t);
+    place_pad(triadRoot + ch.fifth, BAR_S, 0.18, t);
+    place_low_sine(chord_root(ch, 2), BAR_S, 0.26, t);
   }
   for (int bar = 0; bar < nBars; bar++) {
-    chord_t ch = prog[bar % 4];
+    chord_t ch = prog[bar % PROG_LEN];
     int r = chord_root(ch, 4);
     int tones[4] = { r, r + ch.fifth, r + 12, r + ch.third };
     for (int s = 0; s < 4; s++) {
-      place_drum_bell(tones[s], BEAT_S * 1.2, 0.38, t0 + bar * BAR_S + s * BEAT_S);
+      place_drum_bell(tones[s], BEAT_S * 1.2, 0.24, t0 + bar * BAR_S + s * BEAT_S);
     }
   }
   for (int bar = 0; bar < nBars; bar++) {
-    chord_t ch = prog[bar % 4];
+    chord_t ch = prog[bar % PROG_LEN];
     double t = (double)(cursor + bar) * BAR_S;
-    place_bell(chord_root(ch, 5), BEAT_S * 3, 0.34, t);
-    place_bell(chord_root(ch, 4) + ch.fifth, BEAT_S * 3, 0.28, t + 2 * BEAT_S);
+    place_bell(chord_root(ch, 5), BEAT_S * 3, 0.20, t);
+    place_bell(chord_root(ch, 4) + ch.fifth, BEAT_S * 3, 0.16, t + 2 * BEAT_S);
   }
+  place_sweep_up(BAR_S * 0.95, 0.17,
+    (double)(cursor + nBars - 1) * BAR_S + 0.05 * BAR_S);
   cursor += nBars;
 }
 
 static void outro(int nBars, const chord_t *prog) {
   variant_t v[1] = { V_MUTELAST };
-  tile_drums(cursor, nBars, 0.65, v, 1);
+  tile_drums(cursor, nBars, 0.65, v, 1, &prog[0]);
   for (int bar = 0; bar < nBars; bar++) {
     double t = (double)(cursor + bar) * BAR_S;
-    chord_t ch = prog[bar % 4];
+    chord_t ch = prog[bar % PROG_LEN];
     int triadRoot = chord_root(ch, 3);
-    place_pad(chord_root(ch, 2), BAR_S, 0.45, t);
-    place_pad(triadRoot + ch.third, BAR_S, 0.28, t);
-    place_pad(triadRoot + ch.fifth, BAR_S, 0.28, t);
-    place_low_sine(chord_root(ch, 2), BAR_S, 0.48, t);
-    place_low_sine(chord_root(ch, 3), BAR_S * 0.9, 0.30, t);
+    place_pad(chord_root(ch, 2), BAR_S, 0.28, t);
+    place_pad(triadRoot + ch.third, BAR_S, 0.18, t);
+    place_pad(triadRoot + ch.fifth, BAR_S, 0.18, t);
+    place_low_sine(chord_root(ch, 2), BAR_S, 0.32, t);
+    place_low_sine(chord_root(ch, 3), BAR_S * 0.9, 0.20, t);
   }
+  place_sweep_down(BAR_S * 1.4, 0.15, (double)cursor * BAR_S);
   double tStart = (double)cursor * BAR_S;
-  chord_t lastCh = prog[(nBars - 1) % 4];
-  place_bell(chord_root(lastCh, 5), 4.0, 0.42, tStart);
-  place_drum_bell(chord_root(lastCh, 4), BEAT_S * 4, 0.32, tStart + 3 * BAR_S);
+  chord_t lastCh = prog[(nBars - 1) % PROG_LEN];
+  place_bell(chord_root(lastCh, 5), 4.0, 0.26, tStart);
+  place_drum_bell(chord_root(lastCh, 4), BEAT_S * 4, 0.20, tStart + 3 * BAR_S);
   cursor += nBars;
 }
 
@@ -705,11 +966,13 @@ int main(void) {
   hb_begin(); hb_write(0);
 
   printf("loading samples ...\n");
-  wav_t bass = read_wav_mono("stems/htdemucs/bass.wav");
-  wav_t drums = read_wav_mono("stems/htdemucs/drums.wav");
-  if (bass.sample_rate != SR || drums.sample_rate != SR) {
+  wav_t source = read_wav_mono("source.wav");
+  wav_t bass   = read_wav_mono("stems/htdemucs/bass.wav");
+  wav_t drums  = read_wav_mono("stems/htdemucs/drums.wav");
+  if (source.sample_rate != SR || bass.sample_rate != SR || drums.sample_rate != SR) {
     fprintf(stderr, "sample rate mismatch\n"); return 1;
   }
+  g_source = source.samples; g_source_n = source.n;
   g_bass = bass.samples; g_bass_n = bass.n;
   g_drums = drums.samples; g_drums_n = drums.n;
   g_drum_start = (size_t)(LOOP_START_S * SR);
@@ -717,12 +980,20 @@ int main(void) {
   hb_write(10);
 
   /* per-voice buffers */
-  padBuf      = (float *)calloc(TOTAL_N, sizeof(float));
-  stabBuf     = (float *)calloc(TOTAL_N, sizeof(float));
-  bellBuf     = (float *)calloc(TOTAL_N, sizeof(float));
-  sineBellBuf = (float *)calloc(TOTAL_N, sizeof(float));
-  drumBellBuf = (float *)calloc(TOTAL_N, sizeof(float));
-  drumsBuf    = (float *)calloc(TOTAL_N, sizeof(float));
+  padBuf       = (float *)calloc(TOTAL_N, sizeof(float));
+  stabBuf      = (float *)calloc(TOTAL_N, sizeof(float));
+  bellBuf      = (float *)calloc(TOTAL_N, sizeof(float));
+  sineBellBuf  = (float *)calloc(TOTAL_N, sizeof(float));
+  drumBellBuf  = (float *)calloc(TOTAL_N, sizeof(float));
+  snareBellBuf = (float *)calloc(TOTAL_N, sizeof(float));
+  hatBuf       = (float *)calloc(TOTAL_N, sizeof(float));
+  loopBuf      = (float *)calloc(TOTAL_N, sizeof(float));
+  drumsBuf     = (float *)calloc(TOTAL_N, sizeof(float));
+
+  /* detect snares within the 4-bar drum loop (once) */
+  g_snare_count = detect_snares(g_drums + g_drum_start, g_loop_n,
+                                g_snare_offsets, MAX_SNARES);
+  printf("detected %zu snare hits in drum loop\n", g_snare_count);
 
   printf("rendering intro ...\n");    intro(4);                   hb_write(22);
   printf("rendering verse ...\n");    verse(8, CHORDS_A);         hb_write(38);
@@ -731,12 +1002,17 @@ int main(void) {
   printf("rendering chorus 2 ...\n"); chorus(8, 1.0, CHORDS_B);   hb_write(85);
   printf("rendering outro ...\n");    outro(4, CHORDS_A);         hb_write(92);
 
+  /* per-track polish: subtle brighten on the source loop, gentler
+   * glitch on the bells */
+  brighten_drums(loopBuf, TOTAL_N, 0.25, 2400);
+  glitchify(bellBuf, TOTAL_N, 0.06, 0.045);
+
   /* filter sweeps */
-  sweep_lp(drumsBuf, 0 * BAR_S,  4 * BAR_S,  250,   16000);
+  sweep_lp(loopBuf,  0 * BAR_S,  4 * BAR_S,  250,   16000);
   sweep_lp(padBuf,   19 * BAR_S, 20 * BAR_S, 2200,  4500);
   sweep_lp(padBuf,   20 * BAR_S, 22 * BAR_S, 4500,  500);
   sweep_lp(padBuf,   22 * BAR_S, 24 * BAR_S, 500,   3800);
-  sweep_lp(drumsBuf, 32 * BAR_S, 36 * BAR_S, 16000, 250);
+  sweep_lp(loopBuf,  32 * BAR_S, 36 * BAR_S, 16000, 250);
 
   /* sidechain — multi-track awareness */
   sidechain(padBuf,      drumsBuf, 0.005, 0.18, 0.045, 0.45);
@@ -746,13 +1022,17 @@ int main(void) {
   /* mix to stereo (per-voice pans) */
   float *left  = (float *)calloc(TOTAL_N, sizeof(float));
   float *right = (float *)calloc(TOTAL_N, sizeof(float));
+  /* loopBuf (his mix) is the audible foundation; drumsBuf is sidechain
+   * key only, NOT panned to output. */
   struct { float *src; double l; double r; } voices[] = {
-    { drumsBuf,    1.00, 1.00 },
-    { padBuf,      0.95, 0.95 },
-    { sineBellBuf, 0.95, 0.95 },
-    { stabBuf,     1.00, 0.85 },
-    { bellBuf,     0.85, 1.00 },
-    { drumBellBuf, 0.90, 0.95 },
+    { loopBuf,      1.00, 1.00 },
+    { padBuf,       0.95, 0.95 },
+    { sineBellBuf,  0.95, 0.95 },
+    { stabBuf,      1.00, 0.85 },
+    { bellBuf,      0.85, 1.00 },
+    { drumBellBuf,  0.90, 0.95 },
+    { snareBellBuf, 0.85, 0.95 },
+    { hatBuf,       0.90, 1.00 },
   };
   for (size_t v = 0; v < sizeof(voices)/sizeof(voices[0]); v++) {
     for (size_t i = 0; i < TOTAL_N; i++) {
@@ -763,6 +1043,9 @@ int main(void) {
 
   /* trim */
   size_t finalN = (size_t)(TARGET_S * SR);
+
+  /* master bus: low cut → soft glue → HF de-hiss */
+  master_bus(left, right, finalN);
 
   /* soft limit */
   float peak = 0;
@@ -796,7 +1079,9 @@ int main(void) {
 
   free(left); free(right);
   free(padBuf); free(stabBuf); free(bellBuf);
-  free(sineBellBuf); free(drumBellBuf); free(drumsBuf);
+  free(sineBellBuf); free(drumBellBuf); free(snareBellBuf);
+  free(hatBuf); free(loopBuf); free(drumsBuf);
+  free(g_source);
   free(g_bass); free(g_drums);
   return 0;
 }

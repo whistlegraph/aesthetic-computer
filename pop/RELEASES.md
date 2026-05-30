@@ -7,7 +7,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## YouTube state — pixsies singles (snapshot 2026-05-26)
+## YouTube state — pixsies singles (snapshot 2026-05-29)
 
 All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadata doesn't surface). Titles are **Title Case**; descriptions are **hashtag-only**. Chrome family for all `*-yt.mjs` forks: trancepenta-yt side stamps — pals + rotated-90° title chars climbing UP beside each stamp (movie-poster spine). Pre-render title chars with `shadowColor: null` so the per-frame tint works.
 
@@ -16,9 +16,10 @@ All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadat
 | Trancepenta | [Em_lvTYET7M](https://youtu.be/Em_lvTYET7M) | `preview-score-trancepenta-yt.mjs` (canonical side-stamps) |
 | Trancenwaltz | [RBG3k_XsfLA](https://youtu.be/RBG3k_XsfLA) | `cover-video.mjs --size 1920x1080` w/ v10b landscape illys |
 | Marimbaba (v3) | [jXdnJjdV_kY](https://youtu.be/jXdnJjdV_kY) | `preview-score-marimbaba-yt.mjs` — vignette removed (mirrors trancepenta-yt fix); replaces v2 `X63Ni-Lb_Kc` (deleted 2026-05-26, edges were crushed by the leftover contrast vignette) |
-| Helpabeach (v2) | [WKdMYawwDPY](https://youtu.be/WKdMYawwDPY) | `preview-score-helpabeach-yt.mjs` (side-stamps; uploaded 2026-05-26 after the 24h quota cleared from the 2026-05-24 burn) |
+| Helpabeach (v3) | [KVynj0RAwg8](https://youtu.be/KVynj0RAwg8) | `preview-score-helpabeach-yt.mjs` — multiply vignette half of `drawBacklight` dropped (warm sunset screen-glow kept); replaces v2 `WKdMYawwDPY` (deleted 2026-05-29 for the same side-darkening complaint) |
+| Hellsine (v2) | [IjMGmPDvO4I](https://youtu.be/IjMGmPDvO4I) | `preview-score-hellsine-yt.mjs` — `drawVignette(c, v_i)` call removed from `paintSectionPanel` (function kept as dead code, mirrors marimbaba v3 / trancepenta-yt fix); replaces v1 `9KPUr6mA5e8` (deleted 2026-05-29, side-darkening crushed the felt-puppet panel edges); promoted to public 2026-05-29 |
 
-YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-24 burned through the day's six on the two deleted Shorts + two v1 landscape cuts + marimbaba v2; helpabeach v2 was deferred and shipped on 2026-05-26 alongside the marimbaba v3 re-render (delete X63Ni-Lb_Kc + 2 uploads = 3 of 6 slots on 2026-05-26).
+YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-29 the de-vignette pass burned 5 of 6 (hellsine v1 upload at 02:04Z + delete hellsine v1 + delete helpabeach v2 + upload hellsine v2 + upload helpabeach v3) — next YT churn must wait for the 24h rolling window to clear.
 
 Open follow-ups (queued, not blockers):
 - Re-run `node pop/chillwave/bin/gen-illy.mjs --slug helpabeach --landscape --sections --validate-butterfly` once OpenAI gpt-4o-mini quota clears — the validator wraps each gen with a vision check against `pop/chillwave/assets/wg-scrap.png` and regens FAILs (drift-1 visibly fails: tree-person not butterfly).
@@ -46,11 +47,11 @@ Open follow-ups (queued, not blockers):
   - youtube · https://youtu.be/jXdnJjdV_kY (1920×1080 landscape visualizer — uploaded 2026-05-26 as v3, REPLACED v2 `X63Ni-Lb_Kc` which was deleted same day because the contrast vignette layer (mistakenly carried over from the trancepenta-yt code that was later cleaned up) crushed the panel edges; the v3 render removes `drawVignette(c, v_i)` from `paintSectionPanel` and keeps just the transmitted backlight + leaded contrast layers (the figures already pop without the periphery darkening). Built from the `-yt` landscape illy set (`gen-sections.mjs --landscape` → 11 panels at 1536×1024 with the LANDSCAPE_NOTE re-framing the late-night study for 16:9) and the landscape fork `pop/marimba/bin/preview-score-marimbaba-yt.mjs`. Side-stamps chrome (pals + rotated-90° "marimbaba" climbing up beside each stamp) matches trancepenta-yt. v1 was `qntoYeAZSmM` (unused-`drawTitle` side stacks), v2 was `X63Ni-Lb_Kc` (correct chrome but vignetted). Title is "Marimbaba"; description is hashtag-only.)
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=772E43F5-D367-44A9-A7B4A1FA4E57FBD9
   (admin-only)
-- **Master:** `~/Documents/Working Desktop/marimbaba-DISTROKID/marimbaba-MASTER.wav`
+- **Master:** `~/Documents/Shelf/marimbaba-DISTROKID/marimbaba-MASTER.wav`
   — 44.1 kHz / 16-bit stereo WAV, 83.6 s. ≈ −14.5 LUFS, −1.5 dBTP.
   Master chain: highpass 30 → soft glue comp → +1 dB air @ 7.5 k →
   alimiter 0.95 → loudnorm I=−14 TP=−1.5 LRA=11. (Durable home is
-  `~/Documents/Working Desktop/` — Desktop auto-cleans,
+  `~/Documents/Shelf/` — Desktop auto-cleans,
   [[feedback_desktop_autocleaned]].)
 - **Cover:** `…/marimbaba-DISTROKID/marimbaba-cover-3000.jpg` — 3000²,
   a colored-pencil + gouache drawing: a tight head-and-shoulders crop
@@ -61,7 +62,7 @@ Open follow-ups (queued, not blockers):
   1024² source at `pop/marimba/out/marimbaba-cover.png`, upscaled to
   3000². (Earlier concept: a photographic `recovery-tears` library
   scene — superseded.)
-- **DistroKid folder:** `~/Documents/Working Desktop/marimbaba-DISTROKID/`
+- **DistroKid folder:** `~/Documents/Shelf/marimbaba-DISTROKID/`
   — MASTER.wav, cover-3000.jpg, README.md (submission-form fields).
 - **Reconstructable** ($0, deterministic): `node pop/marimba/bin/render-marimbaba.mjs
   --wav <path> --no-open` → master chain above.
@@ -105,16 +106,16 @@ Open follow-ups (queued, not blockers):
   - cover · https://assets.aesthetic.computer/pop/helpabeach.jpg (3000², Rhizome Health clinic tableau)
   - video · https://assets.aesthetic.computer/pop/helpabeach.mp4 (1080×1920 vertical IG-story, 9 clinic panels)
   - story cut · https://assets.aesthetic.computer/pop/helpabeach-short.mp4 (1:17 narrated cut)
-  - youtube · https://youtu.be/WKdMYawwDPY (1920×1080 landscape visualizer — uploaded 2026-05-26 as v2, REPLACES v1 `NG55RkBI7N0` which had the wrong chrome (horizontal top title) and was deleted 2026-05-24 to make room for the side-stamps re-render. The v2 mp4 at `pop/chillwave/out/helpabeach-preview-score-yt.mp4` (109 MB) carries the side-stamps chrome matching trancepenta-yt: pals stamps snug against rotated-90° "helpabeach" climbing up beside each stamp; no top horizontal title. Upload was deferred from 2026-05-24 because the day's six insert slots were already burned on two deleted Shorts + two v1 landscape cuts + the marimbaba v2; it shipped 2026-05-26 alongside the marimbaba v3 re-render once the 24h quota window cleared.)
-- **Master:** `~/Documents/Working Desktop/helpabeach-DISTROKID/helpabeach-MASTER.wav`
+  - youtube · https://youtu.be/KVynj0RAwg8 (1920×1080 landscape visualizer — uploaded 2026-05-29 as v3, REPLACES v2 `WKdMYawwDPY` (deleted 2026-05-29) which had a multiply-vignette darkening the periphery inside `drawBacklight`; the v3 render keeps the warm sunset screen-glow but drops the multiply layer so the clinic tableau reads to the edges. Earlier v1 `NG55RkBI7N0` (deleted 2026-05-24) had the wrong horizontal-top-title chrome. The v3 mp4 at `pop/chillwave/out/helpabeach-preview-score-yt.mp4` (126 MB) carries the side-stamps chrome matching trancepenta-yt: pals stamps snug against rotated-90° "helpabeach" climbing up beside each stamp; no top horizontal title.)
+- **Master:** `~/Documents/Shelf/helpabeach-DISTROKID/helpabeach-MASTER.wav`
   — 44.1 kHz / 16-bit stereo WAV, 151.1 s. ≈ −13.4 LUFS, −1.5 dBTP.
   Master chain: highpass 24 → treble +1.8 dB @ 9.5 k → loudnorm
   I=−14 TP=−1.5 LRA=11 → alimiter 0.95. (Durable home is
-  `~/Documents/Working Desktop/` — Desktop auto-cleans, [[feedback_desktop_autocleaned]].)
+  `~/Documents/Shelf/` — Desktop auto-cleans, [[feedback_desktop_autocleaned]].)
 - **Cover:** `…/helpabeach-DISTROKID/helpabeach-cover-3000.jpg` — 3000²,
   the Rhizome Health clinic tableau (gpt-image-2, colored-pencil +
   gouache; `pop/chillwave/out/helpabeach-cover.png` upscaled lanczos).
-- **DistroKid folder:** `~/Documents/Working Desktop/helpabeach-DISTROKID/`
+- **DistroKid folder:** `~/Documents/Shelf/helpabeach-DISTROKID/`
   — MASTER.wav, cover-3000.jpg, README.md (submission-form fields).
 - **Reconstructable** ($0, deterministic): `node pop/chillwave/bin/render.mjs
   --slug helpabeach --no-chimes --no-waves --no-sweeps --no-highmel
@@ -172,7 +173,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   glitch-cracks on near-black, a BIG PLUMP PALS mark bursting out
   through the cracks; pure black + Spotify-green; circular-safe (form
   inside the inscribed circle, corners empty so the round crop never
-  clips). Campaign `~/Documents/Working Desktop/gens/ac-avatar/`
+  clips). Campaign `~/Documents/Shelf/gens/ac-avatar/`
   (gen-promo `--no-jeffrey`, pals-logo.png ref), gen v9. Circular-crop
   QA: `magick AV circ-mask.png -compose Multiply -composite` (mask =
   `magick -size 3000x3000 xc:black -fill white -draw "circle 1500,1500 1500,0"`;
@@ -201,8 +202,47 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   backs) across rolling Grant-Wood green hills, a green sun radiating
   green radio-waves, music notes piping from the chartreuse Neos.
   Lower-left kept clear for Spotify's avatar+name overlay. Campaign
-  `~/Documents/Working Desktop/gens/ac-header/` (jeffrey refs +
+  `~/Documents/Shelf/gens/ac-header/` (jeffrey refs +
   whistlegraph-butterfly.png + pals-logo.png), gen v6.
+
+## amazing grace (dance) — MASTERING (4:58 deep-house remix, ready for DistroKid)
+
+- **Lane:** `pop/big-pictures/c/` (C-engine bed) · 120 BPM 4/4 · G major
+  · Loukeman-style deep-house remix of all 4 hymn verses, ULTRA-elongated
+  vocals (zing 14 s, grace 24 s, sound 16 s, see 14 s). Pre-baked
+  power-harmony stack: every syllable has +7 (perfect fifth), +12
+  (octave up) and -12 (octave down) rubberband copies preserving duration.
+- **Status (2026-05-29):** 4:58 master at -8.8 LUFS / -0.4 dBTP. DistroKid
+  cut at -8.9 LUFS / -1.0 dBTP (24-bit/44.1 kHz, 75 MB) ready in
+  `~/Documents/Shelf/amazing-grace-dance/distrokid/`. Mono-bass widening
+  via acrossover (200 Hz / 4th-order LR) — bass band force-summed to
+  mono, upper band extrastereo m=1.20. Verified mono-safe: bass L/R/sum
+  RMS all ~0.342.
+- **Bake recipe:**
+  1. `pop/big-pictures/c/build-dance.sh` (C engine compiles → bed.wav)
+  2. `node pop/big-pictures/c/bake-c-dance.mjs` (mixes 153+ harmony
+     files, 50 syllable variants, atmosphere layers, pachinko + whale
+     beds + scratches + master EQ/compression/wider/limiter)
+  3. Final DistroKid WAV via `alimiter=limit=0.82` for -1 dBTP ceiling
+- **Master:** `~/Documents/Shelf/amazing-grace-dance/amazing-grace-dance-c-MASTER.wav`
+  (16-bit/44.1 kHz, 298 s) + `amazing-grace-dance-c.mp3` (320k).
+  DistroKid: `~/Documents/Shelf/amazing-grace-dance/distrokid/`.
+- **Sample sources (all CC0/PD, commercially safe):**
+  - Whales — Wikimedia Commons (blue whale, humpback-sfx, seagulls)
+    in `pop/samples/whales-wikimedia/` + `pop/samples/ocean-ia-cc0/`
+  - Pachinko — Designer's Choice UCS via Internet Archive (CC0),
+    `pop/samples/pachinko-ia-cc0/pachinko-floor-300s.wav` (looped from
+    `pachinko-machine-playing.wav` — naturally in G major, bells ring
+    G6/C6/F6 matching the vocal key)
+  - Field bells — `pop/dance/out/.bell-0[1-3].wav` (trancepenta bells)
+- **DistroKid submit:**
+  `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/amazing-grace-dance/distrokid`
+  (dry-run validated 2026-05-29)
+- **Track diagram:** `~/Desktop/amazing-grace-dance-layers.pdf`
+  (gantt of all 38 layers grouped by category, may need regenerate
+  for current 300 s structure)
+
+---
 
 ## amazing grace — WIP (1:24 verse-1 single, cool-sine arrangement)
 
@@ -220,14 +260,14 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   but illy regen is **BLOCKED** — OpenAI billing hard-limit was hit
   mid-set (verses 1–6 + the deprecated rooftop scene rendered, verse 7
   + cover failed).
-- **Master:** `~/Documents/Working Desktop/amazing-grace/amazing-grace-MASTER.wav`
+- **Master:** `~/Documents/Shelf/amazing-grace/amazing-grace-MASTER.wav`
   (16-bit/44.1 kHz stereo, **84.00 s / 1:24**). Pre-bright copy at
   `amazing-grace-MASTER-preBright.wav`. 320 k mp3 +
   3000² cover embedded: `amazing-grace/amazing-grace.mp3` (4.6 MB).
   Mirrored to `~/Desktop/amazing-grace.mp3` +
   `~/Desktop/amazing-grace-MASTER.wav`. Desktop copies auto-clean
   ([[feedback_desktop_autocleaned]]) — the
-  `~/Documents/Working Desktop/amazing-grace/` copy is durable.
+  `~/Documents/Shelf/amazing-grace/` copy is durable.
 - **Bake recipe (deterministic, byte-faithful):**
   1. `pop/big-pictures/amazing.np` and `amazing.txt` hold the **verse-1
      edit** (full 7-verse hymn preserved in `amazing.np.bak-7verse` /
@@ -257,7 +297,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   his lap (whistlegraph-butterfly white-paper scrap on the lid),
   singing while pressing the on-screen notepat piano keys, AC freaks +
   pixsies in pews around him. Prompts at
-  `~/Documents/Working Desktop/gens/amazing-grace-sections/{verse1..7,cover}/cover-prompt.txt`
+  `~/Documents/Shelf/gens/amazing-grace-sections/{verse1..7,cover}/cover-prompt.txt`
   (church direction; rooftop-hymn-circle previous versions backed up
   alongside). Generator: `pop/big-pictures/bin/gen-amazing-prompts.mjs`
   + `pop/big-pictures/bin/gen-amazing-illys.sh`. The **placeholder**
@@ -325,11 +365,11 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   - youtube · https://youtu.be/Em_lvTYET7M (1920×1080 full-chrome visualizer — uploaded 2026-05-24. The native-landscape 16-panel YT illy set + cover at `pop/dance/out/trancepenta-yt-{sec-*,cover}.png` were regenerated 2026-05-24 from felt-puppet prompts (Aardman / Isle-of-Dogs craft language, tattered felt clothes, bearded jeffrey, felt mark + felt pixsies with prominent LED-bead tells) so the YT visualizer matches the album cover's felt aesthetic. The first re-render had a heavy contrast vignette crushing the panel edges; that layer was removed from `preview-score-trancepenta-yt.mjs` (function kept as dead code) and the file re-rendered with bright edges. Photoreal originals stashed under `pop/dance/out/_yt-photoreal-backup/`.)
 - **YouTube visualizer build recipe** (deterministic from the felt panel set + bright master):
   1. `node pop/dance/bin/gen-trancepenta-sections.mjs --force` (regen 16 felt landscape panels + cover at 1536×1024 via the felt-puppet constants in the script; concurrency 3; ~15–20 min wall time; ~$5 OpenAI).
-  2. `node pop/dance/bin/preview-score-trancepenta-yt.mjs` (default I/O — reads `~/Documents/Working Desktop/twi-out/trancepenta.mp3` + struct, writes `pop/dance/out/trancepenta-preview-score-yt.mp4`; ~35 min for the full 190 s @ 30 fps).
+  2. `node pop/dance/bin/preview-score-trancepenta-yt.mjs` (default I/O — reads `~/Documents/Shelf/twi-out/trancepenta.mp3` + struct, writes `pop/dance/out/trancepenta-preview-score-yt.mp4`; ~35 min for the full 190 s @ 30 fps).
   3. `node toolchain/youtube/yt.mjs upload pop/dance/out/trancepenta-preview-score-yt.mp4 --title "Trancepenta" --description-file pop/dance/trancepenta.youtube.txt --tags "trance,chilltrance,electronic,visualizer,aesthetic computer,pixsies,music,instrumental,5/4" --privacy public --category 10 --thumbnail /tmp/yt-thumbs/trancepenta-thumb.jpg` (the thumbnail must be ≤ 2 MB; the 3000² CDN cover is too big — use the 1280-wide ffmpeg downscale or call `yt.mjs thumbnail <videoId> <image>` after the fact).
   - Reconstructable byte-faithfully any time: `BAKE_FORCE=1 bash pop/dance/bin/bake-trancepenta.sh`
-    → produces `~/Documents/Working Desktop/twi-out/trancepenta-MASTER.wav` + paired struct.json
-    → cover at `~/Documents/Working Desktop/gens/trancepenta-cover-3000.jpg` (felt-character regen via `gens/trancepenta-cover-final/`)
+    → produces `~/Documents/Shelf/twi-out/trancepenta-MASTER.wav` + paired struct.json
+    → cover at `~/Documents/Shelf/gens/trancepenta-cover-3000.jpg` (felt-character regen via `gens/trancepenta-cover-final/`)
 - **Master:** `~/Desktop/trancepenta-DISTROKID/trancepenta-MASTER.wav`
   — 16-bit/44.1 kHz stereo WAV, 190.69 s. **Radio-balanced master:**
   −14 LUFS / −1.4 dBTP / LRA 4.5 LU (Spotify-ready, tight broadcast
@@ -381,7 +421,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **Status:** MASTERING — final master baked 2026-05-23; awaiting
   @jeffrey's ears + creative direction before DistroKid upload. Cover +
   README in place.
-- **Master:** `~/Documents/Working Desktop/solafiya-DISTROKID/solafiya-MASTER.wav`
+- **Master:** `~/Documents/Shelf/solafiya-DISTROKID/solafiya-MASTER.wav`
   — 16-bit/44.1 kHz stereo WAV, 100.18 s. **−13.5 LUFS · −1.0 dBTP ·
   LRA 2.3** (jungle wants tight; source mix is already heavily
   compressed at −19.4 LUFS / LRA 2.2 — no extra dynamic range to
@@ -390,14 +430,14 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   ~8.6 k for HC vibe) → high-shelf 12.5 k +2.5 → loudnorm I=−14
   TP=−1.5 LRA=8 → alimiter 0.95. Pre-bright A/B copy at
   `solafiya-MASTER-preBright.wav`. (Durable home is
-  `~/Documents/Working Desktop/` — Desktop auto-cleans,
+  `~/Documents/Shelf/` — Desktop auto-cleans,
   [[feedback_desktop_autocleaned]].)
 - **Cover:** `…/solafiya-DISTROKID/solafiya-cover-3000.jpg` — 3000²,
   Pixar-style fía + 7 different-breed kittens on a golden-hour beach,
   matcha + closed laptop + white W210 Mercedes + bounding dog +
   polychrome sparkles. Lanczos upscale of `pop/jungle/out/solafiya.illy.png`
   (1024² gpt-image-2 source, prompt at `pop/jungle/solafiya.illy.txt`).
-- **DistroKid folder:** `~/Documents/Working Desktop/solafiya-DISTROKID/`
+- **DistroKid folder:** `~/Documents/Shelf/solafiya-DISTROKID/`
   — MASTER.wav, MASTER-preBright.wav, cover-3000.jpg, mp3 (320 k +
   embedded cover), README.md (submission-form fields + open questions).
 - **Reconstructable** ($0, deterministic): `node pop/jungle/bin/render.mjs
@@ -413,37 +453,103 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 ---
 
-## hellsine — WIP (concept track, first cut)
+## hellsine — RELEASED
 
 - **Lane:** `pop/hellsine/` · the *all-sine* concept track — every voice
   is `Math.sin` (saturated-sine gabber kick, sine sub, additive-sine
   Williams brass/strings, sine-FM stab, saturated-sine hoover, sine-blip
-  perc). The thesis: a distorted sine **is** the gabber kick.
-- **Status:** first full cut rendered + mastered 2026-05-19. Awaiting
-  @jeffrey's ears + creative direction (composition/arrangement pass
-  expected before any release).
+  perc). The thesis: a distorted sine **is** the gabber kick. Vocal
+  layer is the 12-word jeffrey-pvc mantra **"i hope that we get all of
+  the (money | honey | bunnies) that we want"** cycling across the
+  three variants. Part of the *pixsies* body.
+- **Artist:** Aesthetic Dot Computer
+- **Released:** 2026-05-26 via DistroKid
+- **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=5BAE15FB-BDDF-4C1D-8EBFB2E68D7D4A9C (admin-only)
+- **Listen (canonical):** _Spotify URL pending — fill in once the store
+  page is live._
 - **Form:** hardcore spine carrying a hand-composed John Williams arc —
-  heroic D-minor leitmotif: overture (strings hint, no kick) → statement
-  (brass + gabber kick) → study-calm bridge (B theme, half-time pulse) →
-  development (theme fragmented + sequenced + hoover + scream riser) →
-  climax (full kick + theme restated **+2 semitone key-lift** + FM
-  stabs) → continuous loop-friendly coda. 182 BPM, 4/4, ~1:48.
-  Built for **epic study music**: no dead air, immersive under the arc.
-- **Master:** `~/Documents/Working Desktop/hellsine/hellsine-MASTER.wav`
-  (+ `hellsine.mp3` 320 k) — 16-bit/44.1 kHz, 1:48.69, **−13.7 LUFS /
-  −1.2 dBTP / LRA 4.1** (low LRA is genre-correct for hardcore). The
-  pure-sine mix rendered very dark (lows ~31 dB over the air band); the
-  cut ships a **gabber transient click** (HF at the source, still
-  sine-derived) + a heavier brightening polish than the trance note
-  (high-shelf 7.5 k +8, presence 4.2 k +4, sparkle 12 k +4, 200 Hz
-  −2.5) → gap closed to ~19 dB.
-- **Source (deterministic):** `node pop/hellsine/bin/bake.mjs`
-  (engine `pop/hellsine/bin/hellsine.mjs` seed `"hellsine"` → optional
-  `--scratch` post-FX via `pop/dance/bin/scratch-mix.mjs` → Spotify
-  finalize). Theme/harmony are hand-shaped data, not random — same seed
-  + flags = byte-identical. Tune: `bake.mjs <dir> -- --hell 14 --bpm 186`.
-- **Next:** @jeffrey listen → arrangement notes → (cover / DistroKid only
-  after the composition is locked).
+  heroic D-minor leitmotif: overture (typewriter keys + sine strings
+  hint, no kick) → statement (brass + gabber kick + first vocal pass) →
+  study-calm bridge (B theme, half-time pulse, vocal stack thickens) →
+  development (theme fragmented + sequenced + hoover + crowd-roar
+  D-minor arpeggio + pitched crowd chops) → AC-stamp drop → climax
+  (full kick + theme restated **+2 semitone key-lift** + FM stabs, vocal
+  drone) → coda (typewriter callback + outro gallop). 182 BPM (atempo
+  ×1.06 from 110.77 s onward), 4/4, **2:41.93**.
+- **Master:** `~/Desktop/hellsine-MASTER.wav` (+ `~/Desktop/hellsine.mp3`
+  320 k) — 16-bit/44.1 kHz stereo PCM, 161.93 s, **−14.1 LUFS / −2.3
+  dBTP / LRA 6.7**. Max sample peak −2.47 dBFS, zero clipped samples.
+  Master chain (`pop/hellsine/c/bake-c.mjs` legacy chain): C engine
+  render → atempo 1.06 from 110.77 s onward → **crescendo-into-drop**
+  dynEnv (0.75 → 1.55 at 110.77, then 1.55 → 1.10 sustain → 0.40 coda)
+  → highshelf 9 k +4 → 6 k presence +1.5 → 4 k +2 → highshelf 12 k +1.5
+  → 150 Hz −1 → 320 Hz −2 → acompressor −24/3:1 → loudnorm
+  I=−14 TP=−1.5 LRA=11 → alimiter 0.85 → −1.2 dB → afade-out 159.7 s
+  for 2.3 s → truncate 162.0 s. (Desktop copies auto-clean
+  [[feedback_desktop_autocleaned]] — durable home is
+  `~/Documents/Shelf/hellsine/`.)
+- **Cover:** `pop/hellsine/out/hellsine-cover.png` (1024², generated by
+  `pop/hellsine/bin/gen-illy.mjs` from `pop/hellsine/hellsine.illy.txt`).
+  CDN + 3000² upload pending.
+- **YouTube:** https://youtu.be/IjMGmPDvO4I (1920×1080 felt-puppet
+  storyline visualizer — uploaded 2026-05-29 as **v2**, promoted to
+  public 2026-05-29. REPLACES v1 `9KPUr6mA5e8` (deleted 2026-05-29) —
+  the v1 render had
+  the `drawVignette(c, v_i)` multiply pass darkening the panel edges,
+  same complaint that drove the marimbaba v3 + trancepenta-yt cleanups.
+  v2 removes that call from `paintSectionPanel` in
+  `pop/hellsine/bin/preview-score-hellsine-yt.mjs` (function kept as
+  dead code) and re-renders with bright edges — the transmitted
+  backlight + leaded contrast layers already shape the panel without
+  the periphery darken. The v2 mp4 at
+  `pop/hellsine/out/hellsine-preview-score-landscape.mp4` (162 MB) is
+  built from the 18 section panels + 162 s C-engine master. Title is
+  "Hellsine" (Title Case per the YT-snapshot convention); description
+  is hashtag-only in `pop/hellsine/hellsine.youtube.txt`. (v1's
+  long-form description + lowercase title — "hellsine — Aesthetic Dot
+  Computer" — were carried over from the older AC upload style; both
+  were retitled / re-described on 2026-05-29 alongside the trancepenta
+  title-case fix, after jeffrey reasserted the rule for the whole
+  channel.)
+- **Reconstructable** ($0, deterministic): `node pop/hellsine/c/bake-c.mjs`
+  (builds the C engine if stale; engine output deterministic at fixed
+  BPM). For A/B with the JS engine: `node pop/hellsine/bin/bake.mjs`.
+- **Final-mix decisions (locked 2026-05-26):**
+  - **Choir voicing — girly + soft:** `unisonVoiceIdx = {bells,
+    whisper, boing, wobble, good-news, bells, boing, whisper}` (all
+    bright, all have `.words.txt` sidecars — bubbles + bahh
+    honey/money are MISSING sidecars and silently skip → never
+    select). All choir intervals upward (+5/+7/+12).
+  - **Soft progression `vocalRamp`** drifts 0.30 → 0.85 → 0.65 → 0.35
+    across passes 0..17 (no SPOTLIGHT at j=12 — was the "scream").
+  - **Vocals under drums:** `variantGain = {1.55, 1.40, 1.30}` (was
+    {2.35, 2.15, 2.00}).
+  - **robotAtt:** j=12 → 0.55 (kills the chipmunked "i" at 1:19),
+    j=16 → 0.55, j=17 → 0.35 (drone tail).
+  - **80 ms vocal onset fade-in** on lead WSOLA + backings so the
+    Hann-window grain-0 click is gone.
+  - **Tom break at 1:12 REMOVED** entirely.
+  - **Held piano chords at 126-133 s REMOVED** + matching instrument
+    dip.
+  - **Chaotic snare rush at 122-128 s REMOVED** (originally tried as
+    gallop-rhythm snare-glitches; both versions cut).
+  - **Mid-track gallop at 130 s REMOVED**; **outro gallop at 158.65 s
+    kept** + encore scratch (4 crow chops + 5 screwed tail) kept.
+  - **BOOwub reverse-kick:** post-AC-stamp 0.30 (full dub tail),
+    pre-stamp dropped to 0.12 (subtle).
+  - **Climax kicks consistent 2:06-2:11:** removed the 125.5-131 s
+    wipe so the halftime pattern carries through.
+  - **Swung hi-hats** (triplet offbeats via `swing_offbeat(0.85)`) +
+    `humEager` lead (pushes ahead of grid, not behind).
+  - **AC stamp ~1.5× louder** (main 0.68, 5th 0.42, octave 0.27, body
+    0.33).
+  - **Flyby warble** sine layer under the vocals (15.8 → 110 s, ±2 st
+    5 Hz wobble, 6 s pan sweep, 0.045 gain).
+  - **Key 5 typewriter reverse-kick swell** (320 ms, 48 → 78 Hz,
+    squared envelope) — only intentional reverse in the opening.
+- **Next:** Spotify URL drop-in once live · 3000² cover + CDN sync
+  (`assets.aesthetic.computer/pop/hellsine.{mp3,jpg}`) · canvas/IG cut
+  via `pop/hellsine/bin/preview-score.mjs` (not yet built).
 
 ## trancenwaltzi — RENDER (not yet released)
 
@@ -458,7 +564,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **Canvas (staged early):** https://assets.aesthetic.computer/pop/trancenwaltzi-canvas.mp4
   — same `canvas-loop.mjs` model (v25p happy-arc portrait set). Not
   uploadable to Spotify until the track is released.
-- **Cover (LOCKED 2026-05-18):** `~/Documents/Working Desktop/gens/trancenwaltzi-cover-3000.jpg`
+- **Cover (LOCKED 2026-05-18):** `~/Documents/Shelf/gens/trancenwaltzi-cover-3000.jpg`
   (3000², ~2.6 MB, mirrored to `~/Desktop/`). Concept = **in-aisle
   Trader Joe's party — "welcome to the talk show, come chill with us"**:
   jeffrey arms-wide hosting to camera, the pixie crew vibing through the

@@ -48,9 +48,9 @@ mkdirSync(`${LANE}/out`, { recursive: true });
 // ── identity refs ────────────────────────────────────────────────────
 const SHOOT_DIR   = `${REPO}/portraits/jeffrey/corpus/shoot-2k`;
 const ARCHIVE_DIR = `${REPO}/portraits/jeffrey/ig-archive/whistlegraph`;
-const ZUCK_DIR    = `${homedir()}/Documents/Working Desktop/gens/_zuck-refs`;
-const TP_REFS_DIR = `${homedir()}/Documents/Working Desktop/gens/trancepenta-sections/intro/refs`;
-const COVER_REF   = `${homedir()}/Documents/Working Desktop/trancepenta-cover-3000.jpg`;
+const ZUCK_DIR    = `${homedir()}/Documents/Shelf/gens/_zuck-refs`;
+const TP_REFS_DIR = `${homedir()}/Documents/Shelf/gens/trancepenta-sections/intro/refs`;
+const COVER_REF   = `${homedir()}/Documents/Shelf/trancepenta-cover-3000.jpg`;
 const REFS = [
   `${SHOOT_DIR}/jeffery-av--07.jpg`,
   `${SHOOT_DIR}/jeffery-av--01.jpg`,

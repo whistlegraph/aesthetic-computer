@@ -6,8 +6,8 @@
 set -u
 VAR="${1:-v41}"
 REPO="/Users/jas/aesthetic-computer"
-SECROOT="$HOME/Documents/Working Desktop/gens/trancenwaltzi-sections"
-LOG="$HOME/Documents/Working Desktop/gens/trancenwaltzi-genillys-${VAR}.log"
+SECROOT="$HOME/Documents/Shelf/gens/trancenwaltzi-sections"
+LOG="$HOME/Documents/Shelf/gens/trancenwaltzi-genillys-${VAR}.log"
 : > "$LOG"
 GEN="$REPO/marketing/bin/gen-promo.mjs"
 

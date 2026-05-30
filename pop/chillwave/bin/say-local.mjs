@@ -23,7 +23,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
 const PORT = Number(process.env.SAY_LOCAL_PORT || 8899);
 
-const JEFFREY_VOICE_ID = "dYNGZ848Oo6DtNBoeqgh"; // same as say.js
+const JEFFREY_VOICE_ID = "ZXoQQp5X0PKHGwyZpVIT"; // same as say.js
 
 function loadKey() {
   if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY;

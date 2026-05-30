@@ -25,7 +25,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 
 const DRY = process.argv.includes("--dry");
-const ROOT = `${homedir()}/Documents/Working Desktop/gens/trancenwaltzi-sections`;
+const ROOT = `${homedir()}/Documents/Shelf/gens/trancenwaltzi-sections`;
 
 const MEDIUM =
 `A CANDID PHOTOGRAPH — true-to-life colour, real camera/phone snapshot, shot after hours in a closed grocery store; very light grain; thick soft FOG hanging in the air through the aisles. PHOTOREAL — NOT an illustration, NOT colored-pencil, NOT gouache, NOT a drawing, NOT cinematic-glossy, NOT neon. Deadpan everyday-help energy. Editorial peer-horizontality: jeffrey and the clerk share the SAME eye-line, neither centered as a hero. NEITHER figure looks at the camera or acknowledges the viewer; both absorbed in the task. Tall vertical portrait orientation, composed so it also crops cleanly to a centered square. ABSOLUTELY NO app / phone / story / UI chrome (no bars, avatars, handles, icons, send bars) and NO visible laptop or phone screen.`;

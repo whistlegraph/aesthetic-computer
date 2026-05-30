@@ -882,7 +882,10 @@ function renderPanel(c, idx, audioT, env, punch) {
   drawPanelPunchUp(c, idx, audioT, env, punch, sectionImgs[idx], xform);
   drawTransmittedBacklight(c, sectionImgs[idx], xform, faces, t_i, audioT);
   drawLeadedContrast(c, sectionImgs[idx], xform, faces, l_i, audioT);
-  drawVignette(c, v_i);
+  // drawVignette(c, v_i); — removed 2026-05-29: side darkening crushed
+  // panel edges (same pattern as marimbaba v3 / trancepenta-yt cleanup).
+  // The transmitted + leaded layers already shape the panel without it.
+  void v_i;
   return xform;
 }
 

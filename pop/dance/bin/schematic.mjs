@@ -40,7 +40,7 @@ const STRUCT = arg(
   "struct",
   path.join(
     HOME,
-    "Documents/Working Desktop/twi-out/trancenwaltzi-MASTER-preBright.wav.assets/struct.json",
+    "Documents/Shelf/twi-out/trancenwaltzi-MASTER-preBright.wav.assets/struct.json",
   ),
 );
 let WAV = arg("wav", path.join(HOME, "Desktop/trancenwaltzi-MASTER.wav"));
@@ -50,7 +50,7 @@ const FPS = parseInt(arg("fps", "24"), 10);
 if (!fs.existsSync(WAV)) {
   const alt = path.join(
     HOME,
-    "Documents/Working Desktop/twi-out/trancenwaltzi-MASTER.wav",
+    "Documents/Shelf/twi-out/trancenwaltzi-MASTER.wav",
   );
   if (fs.existsSync(alt)) WAV = alt;
 }

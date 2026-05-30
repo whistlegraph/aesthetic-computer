@@ -113,11 +113,11 @@ dismal per-section tints, `sectionsDir = gens/trancepenta-sections`,
 no prelude, `.NO_LYRICS`). Section illys regenerated under a dismal /
 muted palette = the diegetic light, glowing PALS on the laptop backs,
 screen-glow on jeffrey & mark's faces matching each segment's color
-(gitignored under `~/Documents/Working Desktop/gens/trancepenta-
+(gitignored under `~/Documents/Shelf/gens/trancepenta-
 sections/<sec>/gens/v1.png`). `cover-video.mjs` patched for stained-
 glass + all struct/track data with real motion + zoom + a beat-
 reactive backlit bump. Outputs (build.mjs writes `~/Desktop/builds/`
-which auto-cleans — rescue to Working Desktop):
+which auto-cleans — rescue to Shelf):
 `twi-out/trancepenta-vertical.mp4` (1080×1920 · 3:11) and a 30 s
 no-lyrics IG-story cut `twi-out/trancepenta-story.mp4`
 (~1:38→2:08: stamp/horse-grenade → drop → sung body).

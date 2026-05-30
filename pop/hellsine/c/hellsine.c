@@ -5843,7 +5843,7 @@ int main(int argc, char **argv) {
             snprintf(out_default, LEN, "./hellsine-test-%s.wav", TEST_NAME);
         } else {
             snprintf(out_default, LEN,
-                     "%s/Documents/Working Desktop/hellsine/.hellsine-c-pre.wav", home);
+                     "%s/Documents/Shelf/hellsine/.hellsine-c-pre.wav", home);
         }
         OUT_PATH = out_default;
     }
