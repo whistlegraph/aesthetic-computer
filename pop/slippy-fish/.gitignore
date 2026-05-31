@@ -1,0 +1,6 @@
+# transient gpt-image-2 upload/response scratch (see bin/gen-cover.mjs)
+.ref-*.jpg
+.resp-*.json
+# 3000² delivery images are deterministic lanczos upscales of the *-1024.png
+# gen outputs — regenerate with bin/gen-cover.mjs rather than tracking ~8-14MB each
+slippy-fish-*-3000.png

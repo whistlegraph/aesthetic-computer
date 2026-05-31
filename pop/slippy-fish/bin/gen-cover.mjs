@@ -12,16 +12,20 @@ const HOME = homedir();
 const LANE = `${REPO}/pop/slippy-fish`;
 const SIZE = "1024x1024";
 const FORCE = process.argv.includes("--force");
-
-const PROMPT_PATH = `${LANE}/prompt.txt`;
+const arg = (k, d) => {
+  const hit = process.argv.find((a) => a.startsWith(`--${k}=`));
+  return hit ? hit.slice(k.length + 3) : d;
+};
+const LABEL = arg("label", "cover"); // output suffix: slippy-fish-<label>-*.png
+const PROMPT_PATH = arg("prompt", `${LANE}/prompt.txt`);
 // Structure/style reference: the offline fish.mjs render. Prefer the Shelf
 // working copy (the Desktop copy can be auto-cleaned), fall back to Desktop.
 const REF =
   [`${HOME}/Documents/Shelf/slippy-fish/slippy-fish-render-3000.jpg`,
    `${HOME}/Desktop/slippy-fish-render-3000.jpg`].find(existsSync);
-const OUT_1024 = `${LANE}/slippy-fish-cover-1024.png`;
-const OUT_3000 = `${LANE}/slippy-fish-cover-3000.png`;
-const DESKTOP_OUT = `${HOME}/Desktop/slippy-fish-cover-3000.png`;
+const OUT_1024 = `${LANE}/slippy-fish-${LABEL}-1024.png`;
+const OUT_3000 = `${LANE}/slippy-fish-${LABEL}-3000.png`;
+const DESKTOP_OUT = `${HOME}/Desktop/slippy-fish-${LABEL}-3000.png`;
 
 function loadOpenAIKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
@@ -52,16 +56,16 @@ const sharp = (await import(`${REPO}/ac-electron/node_modules/sharp/lib/index.js
 // Downscale the reference to the gen size before upload — a 3000² file stalls
 // the request and gpt-image-2 resizes internally anyway. 1024² guides structure
 // just as well and uploads in a blink.
-const REF_1024 = `${LANE}/.ref-1024.jpg`;
+const REF_1024 = `${LANE}/.ref-${LABEL}-1024.jpg`;
 await sharp(readFileSync(REF)).resize(1024, 1024).jpeg({ quality: 90 }).toFile(REF_1024);
 
 // Use curl for the upload — node's undici fetch stalls on this multipart POST
 // in some network environments; curl is reliable. Response b64 -> base64 file.
-const RESP = `${LANE}/.resp.json`;
+const RESP = `${LANE}/.resp-${LABEL}.json`;
 const r = spawnSync(
   "curl",
   [
-    "-s", "--max-time", "240",
+    "-s", "--max-time", "360",
     "https://api.openai.com/v1/images/edits",
     "-H", `Authorization: Bearer ${apiKey}`,
     "-F", "model=gpt-image-2",
