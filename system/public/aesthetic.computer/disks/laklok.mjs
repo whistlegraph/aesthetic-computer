@@ -51,21 +51,17 @@ function paintLaerKlokkenSign($) {
     widths.push(w);
     total += w;
   }
-  const pad = 12;
   const headerH = 42; // chat's top header band (topMargin) — fill it fully
   const sx = 0;
-  const sy = 1;
+  const sy = 0; // flush with the top of the screen (no gap)
   const sw = screen.width; // full-width banner across the header
-  const sh = headerH - 2;
-  // Reserve the top-left for the HUD corner label (QR + "laklok" + ".com") so
-  // the banner letters don't run underneath it.
-  const leftClear = 108;
-  const textLeft = sx + leftClear;
-  const textRight = sx + sw - pad;
-  const span = textRight - textLeft;
-  if (span < total) return; // not enough room clear of the HUD corner label
-  // Justify the letters across the remaining width (spread out, marquee style).
-  const gap = label.length > 1 ? Math.max(4, Math.min(60, (span - total) / (label.length - 1))) : 0;
+  const sh = headerH;
+  // Spread the letters with a fixed gap, then center the whole word group on
+  // the overall screen width (sits mid-screen, clear of the top-left HUD label).
+  const gap = 8;
+  const lettersW = total + gap * Math.max(0, label.length - 1);
+  if (lettersW > sw - 4) return; // too wide for the screen
+  const textLeft = Math.round(sx + (sw - lettersW) / 2);
 
   // Striped circus backdrop (red / cream), slowly scrolling like a barber pole.
   const stripeW = 6;
