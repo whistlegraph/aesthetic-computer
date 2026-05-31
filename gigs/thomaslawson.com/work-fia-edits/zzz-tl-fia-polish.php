@@ -2,7 +2,23 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
- * Version: 1.5
+ * Version: 1.5.1
+ *
+ * v1.5.1 — Fía's 2026-05-29 corrections:
+ *  - Bookshelf: shelf strips re-centred with the first/last-cover
+ *    auto-margin trick (the earlier `justify-content: safe center` was
+ *    bailing to flex-start whenever the row was wider than its parent
+ *    column, leaving the covers stuck left-aligned).
+ *  - About: section 3d58b5f turned out to be two columns (text + image),
+ *    not one. Without an explicit `flex-direction: column` on the
+ *    container, the image column took 100% width via `order:-1` and
+ *    pushed the bio text-editors off the right edge — so Fía saw a
+ *    cropped banner with no intro text. About joined the column-stack
+ *    rule so text + image stack vertically again. The 16/5 crop also
+ *    erased Tom (Group-24.png is a 706×775 portrait) — softened to 16/7
+ *    with `object-position: center 30%` so Tom's face stays in frame.
+ *    The injected "About" heading now lands at the top of the text
+ *    column rather than mid-column.
  *
  * v1.5 — Fía's 2026-05-28 batch:
  *  - Bookshelf: shelf subheadings (Artforum, Afterall, …) bumped up in
@@ -611,7 +627,8 @@ body.tl-studio-detail .elementor-widget-image img:hover {
 body.page-id-1898 .elementor-element-1553c2e .elementor-container,
 body.page-id-808  .elementor-element-825b6e9 .elementor-container,
 body.page-id-1177 .elementor-element-1b54d5a .elementor-container,
-body.page-id-1147 .elementor-element-ba54885 .elementor-container {
+body.page-id-1147 .elementor-element-ba54885 .elementor-container,
+body.page-id-68   .elementor-element-3d58b5f .elementor-container {
     flex-direction: column !important;
     flex-wrap: nowrap !important;
     align-items: stretch !important;
@@ -655,10 +672,21 @@ body.page-id-68   .elementor-element-3d58b5f .elementor-widget-image {
 body.page-id-1898 .elementor-element-1553c2e .elementor-widget-image img,
 body.page-id-808  .elementor-element-825b6e9 .elementor-widget-image img,
 body.page-id-1177 .elementor-element-1b54d5a .elementor-widget-image img,
-body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image img,
-body.page-id-68   .elementor-element-3d58b5f .elementor-widget-image img {
+body.page-id-1147 .elementor-element-ba54885 .elementor-widget-image img {
     aspect-ratio: 16 / 5 !important;
     object-fit: cover !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+}
+/* About's hero image is the Group-24 portrait — a 706x775 painting of
+   Tom, so a 16/5 crop slices through the cream background above his head
+   and "erases tom" (Fía, 2026-05-29). Render it full-bleed wide but at a
+   gentler 16/7 aspect with the crop window pinned to Tom's face. */
+body.page-id-68 .elementor-element-3d58b5f .elementor-widget-image img {
+    aspect-ratio: 16 / 7 !important;
+    object-fit: cover !important;
+    object-position: center 30% !important;
     width: 100% !important;
     height: auto !important;
     display: block;
@@ -844,11 +872,14 @@ body.page-id-1147 .tl-ac-year-merged {
  * ---------------------------------------------------------------- */
 body.page-id-808 .tl-shelf-strip {
     display: flex;
+    flex-wrap: nowrap;
     gap: 0.7rem;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0.7rem 1rem 1.2rem;
-    margin: 0.4rem auto 1.2rem;
+    margin: 0.4rem 0 1.2rem;
+    width: 100%;
+    box-sizing: border-box;
     scrollbar-width: thin;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
@@ -862,6 +893,14 @@ body.page-id-808 .tl-shelf-strip img {
     background: #fff;
     scroll-snap-align: start;
 }
+/* Centering via auto-margins on the first/last cover (Fía, 2026-05-29 —
+   the earlier `justify-content: safe center` was bailing to flex-start
+   whenever the row was wider than its parent column). When the covers fit
+   the row, both autos absorb the leftover space and the row centers under
+   the title; when they overflow, both autos collapse to 0 so the row
+   scrolls naturally from the left edge. */
+body.page-id-808 .tl-shelf-strip img:first-child  { margin-inline-start: auto; }
+body.page-id-808 .tl-shelf-strip img:last-child   { margin-inline-end:   auto; }
 
 /* The bookshelf shelves are *_clickshow sections that the page's own
    inline <style> hides until their *_click heading is tapped. Fía wants
@@ -897,24 +936,6 @@ body.page-id-808 .elementor-element-efdbae8 {
 body.page-id-808 .elementor-element-973f55a,
 body.page-id-808 .elementor-element-8528fa3 {
     display: none !important;
-}
-
-/* The injected cover strip stacks full-width directly beneath its
-   subheading, never beside it (Fía, 2026-05-22). When the strip fits
-   the row, the thumbs centre under the heading; when there are more
-   covers than fit, the row left-aligns + scrolls horizontally so the
-   first cover stays anchored under the title (Fía, 2026-05-28). */
-body.page-id-808 .tl-shelf-strip {
-    width: 100%;
-    max-width: 1080px;
-    flex: 0 0 auto;
-    margin: 0.4rem auto 1.2rem;
-    justify-content: flex-start;
-}
-@media (min-width: 980px) {
-    body.page-id-808 .tl-shelf-strip {
-        justify-content: safe center;
-    }
 }
 
 /* Bookshelf intro: title and description left-justified, sitting tight
@@ -1628,12 +1649,24 @@ function tl_fia_polish_js_about() {
     if (!intro) return;
     // Avoid double-inject if WP renders this twice.
     if (intro.querySelector('.tl-about-heading')) return;
-    // Locate the text-editor (bio paragraphs) widget — drop the heading
-    // immediately before it so the order reads image / "About" / prose.
-    var bio = intro.querySelector('.elementor-widget-text-editor');
-    if (!bio) return;
+    // The section's first column carries the divider + bio text-editors.
+    // Drop the "About" heading at the TOP of that column so it reads as
+    // the section title above the bio (Fía, 2026-05-29 — the prior
+    // before-text-editor placement landed the heading mid-column).
+    var textCol = intro.querySelector('.elementor-column:not(:has(.elementor-widget-image))');
+    if (!textCol) {
+        // Fallback: any column that has a text-editor inside.
+        var cols = intro.querySelectorAll('.elementor-column');
+        for (var i = 0; i < cols.length; i++) {
+            if (cols[i].querySelector('.elementor-widget-text-editor')) {
+                textCol = cols[i];
+                break;
+            }
+        }
+    }
+    if (!textCol) return;
     var wrap = document.createElement('div');
-    wrap.className = 'elementor-widget-heading tl-about-heading';
+    wrap.className = 'elementor-widget elementor-widget-heading tl-about-heading';
     var inner = document.createElement('div');
     inner.className = 'elementor-widget-container';
     var h = document.createElement('h1');
@@ -1641,12 +1674,15 @@ function tl_fia_polish_js_about() {
     h.textContent = 'About';
     inner.appendChild(h);
     wrap.appendChild(inner);
-    bio.parentNode.insertBefore(wrap, bio);
+    var widgetWrap = textCol.querySelector('.elementor-widget-wrap') || textCol;
+    widgetWrap.insertBefore(wrap, widgetWrap.firstChild);
 })();
 </script>
 <style id="tl-fia-about-style">
-body.page-id-68 .elementor-element-3d58b5f .elementor-widget-image img {
-    object-position: center top !important;
+body.page-id-68 .tl-about-heading {
+    width: 100% !important;
+    max-width: 820px !important;
+    margin: 0 auto !important;
 }
 body.page-id-68 .tl-about-heading .elementor-heading-title {
     font-size: 2.4rem !important;
@@ -1654,6 +1690,10 @@ body.page-id-68 .tl-about-heading .elementor-heading-title {
     margin: 0.4rem 0 1rem !important;
     text-align: left !important;
     letter-spacing: -0.005em;
+}
+body.page-id-68 .elementor-element-3d58b5f .elementor-widget-text-editor {
+    max-width: 820px !important;
+    margin: 0 auto !important;
 }
 body.page-id-68 .elementor-element-3d58b5f .elementor-widget-text-editor p:first-child {
     margin-top: 0 !important;
