@@ -74,14 +74,6 @@ function paintLaerKlokkenSign($) {
     const odd = Math.floor((bx + scroll) / stripeW) % 2;
     ink(odd ? [92, 20, 28] : [54, 32, 20]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
   }
-  // Twinkling marquee bulbs along the top and bottom rails.
-  for (let bx = 4; bx < sw - 2; bx += 7) {
-    const ph = 0.5 + 0.5 * Math.sin(t * 3 + bx * 0.55);
-    const c = LAK_CIRCUS_COLS[bx % LAK_CIRCUS_COLS.length];
-    ink(c[0], c[1], c[2], 110 + Math.round(ph * 145)).box(sx + bx, sy + 1, 2, 2);
-    ink(c[0], c[1], c[2], 110 + Math.round((1 - ph) * 145)).box(sx + bx, sy + sh - 3, 2, 2);
-  }
-
   // Each character: its own circus color + individual vertical bounce.
   let cx = textLeft;
   const baseY = sy + Math.round((sh - 16) / 2); // 16 ≈ unifont glyph height, vertically centered
