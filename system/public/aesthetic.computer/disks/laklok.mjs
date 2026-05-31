@@ -50,11 +50,13 @@ function paintLaerKlokkenSign($) {
     widths.push(w);
     total += w;
   }
-  const pad = 7;
-  const sw = total + pad * 2;
-  const sh = 22;
+  const gap = 7; // extra letter-spacing so the banner reads wide and airy
+  const pad = 11;
+  const sw = total + gap * (label.length - 1) + pad * 2;
+  const headerH = 42; // chat's top header band (topMargin) — fill it fully
+  const sy = 1;
+  const sh = headerH - 2;
   const sx = screen.width - sw - 3;
-  const sy = 2;
   // Header mask: only paint when it fits within the top strip.
   if (sx < 2 || screen.width < sw + 8) return;
 
@@ -79,7 +81,7 @@ function paintLaerKlokkenSign($) {
 
   // Each character: its own circus color + individual vertical bounce.
   let cx = sx + pad;
-  const baseY = sy + 3;
+  const baseY = sy + Math.round((sh - 16) / 2); // 16 ≈ unifont glyph height, vertically centered
   for (let i = 0; i < label.length; i++) {
     const ch = label[i];
     if (ch !== " ") {
