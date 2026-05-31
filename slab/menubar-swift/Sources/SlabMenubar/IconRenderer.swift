@@ -90,6 +90,11 @@ enum IconRenderer {
             NSGraphicsContext.restoreGraphicsState()
         }
 
+        // Match the themed terminals: light palettes under the force-bright
+        // override or in Light mode, dark palettes otherwise — same decision
+        // the terminal/desktop theming makes via `effectiveDark()`.
+        let dark = state.forceBright ? false : AppDelegate.isDarkAppearance()
+
         let sessions = state.claudeSessions
         let visible = Array(sessions.prefix(maxSides))
         let n = visible.count
@@ -111,7 +116,7 @@ enum IconRenderer {
                 center: NSPoint(x: cx, y: cy),
                 length: 2 * radius,
                 angle: rotation,
-                color: sessionColor(visible[0].state, phase: phase),
+                color: sessionColor(visible[0].state, phase: phase, dark: dark),
                 lineWidth: lineWidth
             )
         } else if n == 2 {
@@ -130,7 +135,7 @@ enum IconRenderer {
                     center: center,
                     length: length,
                     angle: rotation,
-                    color: sessionColor(visible[i].state, phase: phase),
+                    color: sessionColor(visible[i].state, phase: phase, dark: dark),
                     lineWidth: lineWidth
                 )
             }
@@ -157,7 +162,7 @@ enum IconRenderer {
                 path.line(to: b)
                 path.lineWidth = lineWidth
                 path.lineCapStyle = .round
-                sessionColor(visible[k].state, phase: phase).setStroke()
+                sessionColor(visible[k].state, phase: phase, dark: dark).setStroke()
                 path.stroke()
             }
         }
@@ -187,30 +192,32 @@ enum IconRenderer {
         path.stroke()
     }
 
-    /// Per-session edge color. Working = steady green ("active and healthy").
-    /// Complete = soft slate (turn done, idle — quiet). Awaiting = pulsing
-    /// amber, the loud "look at me, continue" state. Stale = slow gray blink,
-    /// "thread is dead but the marker's still on disk."
-    private static func sessionColor(_ state: ClaudeSession.State, phase: CGFloat) -> NSColor {
+    /// Per-session edge color, sourced from the SAME per-status palette that
+    /// theme-by-status pushes to the live terminals + desktop tint — so the
+    /// menubar polygon, the themed windows, and the wallpaper all read as one
+    /// status system, light or dark. We take the palette's cursor channel (its
+    /// most saturated accent) and animate brightness on the attention states:
+    /// awaiting throbs brighter, stale fades toward the page.
+    private static func sessionColor(_ state: ClaudeSession.State, phase: CGFloat, dark: Bool) -> NSColor {
+        let cur = AppDelegate.statusDecor(for: state, dark: dark).palette.cursor
+            ?? (32768, 32768, 32768)
+        let base = NSColor(deviceRed: CGFloat(cur.0) / 65535,
+                           green: CGFloat(cur.1) / 65535,
+                           blue: CGFloat(cur.2) / 65535, alpha: 1.0)
         switch state {
-        case .blank:
-            // Cool, low-saturation gray — present in the polygon ring (so the
-            // window is counted) but not attention-grabbing. A fresh window
-            // shouldn't read like an active or paused session.
-            return NSColor(deviceWhite: 0.55, alpha: 1.0)
-        case .working:
-            return NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
-        case .complete:
-            return NSColor(deviceHue: 0.58, saturation: 0.30, brightness: 0.70, alpha: 1.0)
         case .awaiting:
-            // Pulse brightness at 2 Hz so paused threads visibly throb
-            // among the steady green working ones.
+            // Throb toward white at 2 Hz so paused threads pulse among the
+            // steady working edges.
             let pulse = 0.5 + 0.5 * cos(phase * .pi * 4)
-            let brightness = 0.70 + 0.30 * pulse
-            return NSColor(deviceHue: 0.10, saturation: 0.95, brightness: brightness, alpha: 1.0)
+            return base.blended(withFraction: 0.30 * pulse, of: .white) ?? base
         case .stale:
+            // Slow fade toward the page so a dead marker blinks out.
             let blink = 0.5 + 0.5 * cos(phase * .pi * 2)
-            return NSColor(deviceWhite: 0.28 + 0.32 * blink, alpha: 1.0)
+            let page = dark ? NSColor(deviceWhite: 0.10, alpha: 1.0)
+                            : NSColor(deviceWhite: 0.92, alpha: 1.0)
+            return base.blended(withFraction: (1 - blink) * 0.5, of: page) ?? base
+        default:
+            return base
         }
     }
 
