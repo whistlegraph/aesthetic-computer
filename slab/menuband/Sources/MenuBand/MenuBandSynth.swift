@@ -151,6 +151,35 @@ final class MenuBandSynth {
     /// `setMelodicProgram` route through the MIDISynth when this flips.
     private(set) var midiSynthReady = false
 
+    /// Serializes engine run-state (`start`/`pause`/`stop`) and graph
+    /// mutations (`attach`/`connect`/`disconnect`) plus the one-shot
+    /// MIDISynth preload sweep. These run from TWO threads: the main
+    /// thread (synth `start`, the async `configureMIDISynth`, popover
+    /// actions) and the dedicated `MenuBand-KeyTap` background thread
+    /// (key-driven `noteOn` → `resumeAudioEngineIfNeeded`). Without
+    /// serialization, an eager keypress during the ~1.5 s startup
+    /// preload window calls `engine.start()` mid-sweep, which (see the
+    /// note in `configureMIDISynth`) makes the remaining program-change
+    /// events queue for the render thread while `EnablePreload(false)`
+    /// lands first — programs silently fail to fault in, and the next
+    /// `selectMelodicProgram` switches to a program with no samples, so
+    /// MIDISynth plays its empty-state sine ("beep") instead of the
+    /// chosen instrument. Recursive because the configure critical
+    /// section calls graph helpers that re-acquire it.
+    private let engineLock = NSRecursiveLock()
+
+    /// Observer for `AVAudioEngineConfigurationChange`. The engine posts
+    /// this whenever the output/input hardware changes — e.g. plugging in
+    /// an aux cable or headphones, switching to AirPods, or a sample-rate
+    /// change. On that event AVAudioEngine STOPS and uninitializes itself
+    /// (nodes stay attached/connected, but rendering halts and MIDISynth's
+    /// per-channel active program reverts). Nothing used to restart it or
+    /// re-assert the programs, so the next note played MIDISynth's
+    /// empty-state sine ("beep") on the user's voice — the exact "it
+    /// desyncs from the MIDI instrument when the audio device changes"
+    /// symptom. We restart + `reapplyCurrentPrograms` on receipt.
+    private var configChangeObserver: NSObjectProtocol?
+
     /// Master output gain on the pre-limiter sum bus, 0.0…1.0. Applied
     /// to `preLimiterMixer.outputVolume` so every backend (MIDISynth,
     /// sampler, radio, sample voice, plugin) scales together. Sitting
@@ -271,11 +300,63 @@ final class MenuBandSynth {
         // silent no-op on AVAudioMixerNode).
         preLimiterMixer.outputVolume = masterVolume
 
+        // Recover from audio-device changes (aux cable, headphones,
+        // AirPods, sample-rate switch). See `configChangeObserver`.
+        observeEngineConfigurationChanges()
+
         // Try to bring up the multi-timbral MIDISynth in the background.
         // If it works, we'll route notes through it for instant program
         // switching. If it doesn't, the user keeps the sampler fallback.
         startMIDISynthBackend()
         scheduleIdleSuspendIfNeeded()
+    }
+
+    private func observeEngineConfigurationChanges() {
+        guard configChangeObserver == nil else { return }
+        configChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleEngineConfigurationChange()
+        }
+    }
+
+    /// React to a hardware output/input change. The engine has already
+    /// stopped itself by the time this fires; restart it, re-point at the
+    /// (possibly new) default device, and re-assert the MIDISynth bank+PC
+    /// so the next note plays the user's chosen instrument instead of the
+    /// empty-state sine. Serialized + idempotent — safe alongside a
+    /// concurrent `resumeAudioEngineIfNeeded` from the KeyTap thread.
+    private func handleEngineConfigurationChange() {
+        engineLock.lock()
+        defer { engineLock.unlock() }
+        guard started else { return }
+        NSLog("MenuBand: audio engine configuration changed (device switch) — recovering")
+        // Only restart if a note/visualizer needs the engine right now; an
+        // idle config change can stay suspended until the next note resumes
+        // it (which itself reapplies programs). Restarting unconditionally
+        // would defeat idle-suspend power savings.
+        let needsEngine = !activeNotes.isEmpty || waveformCaptureEnabled
+            || !waveformTapPinReasons.isEmpty || sampleRecordingActive
+        if engine.isRunning {
+            // Still running (channel-only change): just re-point + re-assert.
+            applyOutputDeviceOverride()
+            lowerOutputBufferSizeIfNeeded()
+            reapplyCurrentPrograms()
+        } else if needsEngine {
+            do {
+                try engine.start()
+                applyOutputDeviceOverride()
+                lowerOutputBufferSizeIfNeeded()
+                reapplyCurrentPrograms()
+            } catch {
+                NSLog("MenuBand: engine restart after device change failed: \(error)")
+            }
+        }
+        // If the engine is idle-suspended and nothing needs it, leave it
+        // paused — the next `resumeAudioEngineIfNeeded` restarts it and
+        // calls `reapplyCurrentPrograms`, so the instrument is correct then.
     }
 
     // MARK: - MIDISynth (multi-timbral, instant switching)
@@ -301,6 +382,20 @@ final class MenuBandSynth {
 
     private func configureMIDISynth(_ avUnit: AVAudioUnit) {
         let au = avUnit.audioUnit
+
+        // Hold the engine lock across the ENTIRE bring-up (bank set →
+        // preload → program select → restart → `midiSynthReady = true`).
+        // A key-driven `noteOn` on the KeyTap thread calls
+        // `resumeAudioEngineIfNeeded`, which also takes this lock; without
+        // it, that resume could `engine.start()` mid-preload and corrupt
+        // the sweep (see `engineLock`). Blocking the keypress for the
+        // ~tens-of-ms sweep is the right trade: the user might miss one
+        // note's onset at launch, but MIDISynth comes up correct and never
+        // beeps afterward. By the time the blocked resume proceeds,
+        // `midiSynthReady` is true so its `noteOn` routes to the freshly
+        // loaded MIDISynth voice, not the unconfigured one.
+        engineLock.lock()
+        defer { engineLock.unlock() }
 
         // 1. Set the GS DLS bank URL. Must be CFURL — passing a Swift `URL`
         //    fails the NSURL selector dispatch inside CoreAudio.
@@ -463,12 +558,14 @@ final class MenuBandSynth {
     var currentEcho: Float { echoAmount }
 
     private func connectMelodicSamplerIfNeeded() {
+        engineLock.lock(); defer { engineLock.unlock() }
         guard !melodicConnected else { return }
         engine.connect(melodic, to: preLimiterMixer, format: nil)
         melodicConnected = true
     }
 
     private func disconnectMelodicSamplerIfNeeded() {
+        engineLock.lock(); defer { engineLock.unlock() }
         guard melodicConnected else { return }
         stopAllSamplerNotes(melodic)
         engine.disconnectNodeOutput(melodic)
@@ -476,12 +573,14 @@ final class MenuBandSynth {
     }
 
     private func connectDrumsSamplerIfNeeded() {
+        engineLock.lock(); defer { engineLock.unlock() }
         guard !drumsConnected else { return }
         engine.connect(drums, to: preLimiterMixer, format: nil)
         drumsConnected = true
     }
 
     private func disconnectDrumsSamplerIfNeeded() {
+        engineLock.lock(); defer { engineLock.unlock() }
         guard drumsConnected else { return }
         stopAllSamplerNotes(drums)
         engine.disconnectNodeOutput(drums)
@@ -518,6 +617,15 @@ final class MenuBandSynth {
     @discardableResult
     private func resumeAudioEngineIfNeeded() -> Bool {
         guard started else { return false }
+        // Serialize against `configureMIDISynth`'s preload sweep and the
+        // idle-suspend pause. This call runs on the KeyTap background
+        // thread for key-driven notes; without the lock it could
+        // `engine.start()` while the main thread is mid-preload (see
+        // `engineLock`). If configure is in flight, we block here until
+        // it finishes — by then the engine is running and `midiSynthReady`
+        // is true, so `engine.isRunning` short-circuits below.
+        engineLock.lock()
+        defer { engineLock.unlock() }
         idleSuspendWorkItem?.cancel()
         idleSuspendWorkItem = nil
         if engine.isRunning {
@@ -564,6 +672,7 @@ final class MenuBandSynth {
     }
 
     private func suspendAudioEngineForHiddenIdleIfNeeded() {
+        engineLock.lock(); defer { engineLock.unlock() }
         idleSuspendWorkItem = nil
         guard started, engine.isRunning, !waveformCaptureEnabled, activeNotes.isEmpty,
               !sampleRecordingActive else { return }
@@ -1285,7 +1394,12 @@ final class MenuBandSynth {
     }
 
     func stop() {
+        engineLock.lock(); defer { engineLock.unlock() }
         guard started else { return }
+        if let obs = configChangeObserver {
+            NotificationCenter.default.removeObserver(obs)
+            configChangeObserver = nil
+        }
         idleSuspendWorkItem?.cancel()
         idleSuspendWorkItem = nil
         removeWaveformTapIfNeeded()
