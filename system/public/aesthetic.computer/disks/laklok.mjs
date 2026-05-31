@@ -85,6 +85,29 @@ function paintLaerKlokkenSign($) {
   }
 }
 
+// 📊 Rolling-window FPS meter in the top-right (like prompt.mjs) — handy for
+// watching chat performance while iterating.
+let lakFpsStamps = [];
+function paintFps($) {
+  const { ink, write, screen, text } = $;
+  const now = typeof performance !== "undefined" ? performance.now() : 0;
+  lakFpsStamps.push(now);
+  while (lakFpsStamps.length && lakFpsStamps[0] < now - 1000) lakFpsStamps.shift();
+  const fps = lakFpsStamps.length;
+  const txt = `${fps} fps`;
+  const col = fps >= 55 ? [0, 200, 100, 230] : fps >= 30 ? [255, 200, 0, 230] : [255, 60, 60, 230];
+  const w = text?.box
+    ? text.box(txt, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width
+    : txt.length * 4;
+  const padX = 2, padY = 2;
+  const boxW = w + padX * 2;
+  const boxH = 11;
+  const boxX = screen.width - boxW - 3;
+  const boxY = 2;
+  ink(0, 0, 0, 170).box(boxX, boxY, boxW, boxH);
+  ink(col).write(txt, { x: boxX + padX, y: boxY + padY }, undefined, undefined, false, "MatrixChunky8");
+}
+
 function paint($) {
   // Custom warm color theme for laklok chat
   chat.paint($, {
@@ -119,6 +142,8 @@ function paint($) {
 
   // Decorative flashy sign on top of the header chrome.
   paintLaerKlokkenSign($);
+  // 📊 FPS meter, top-right corner.
+  paintFps($);
 }
 
 function act($) {
