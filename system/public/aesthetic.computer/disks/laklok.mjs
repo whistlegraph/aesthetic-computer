@@ -43,14 +43,9 @@ function paintLaerKlokkenSign($) {
   const t = now * 0.004;
   const label = "Laer Klokken";
 
-  // Measure each glyph in Unifont so per-character placement is exact.
-  const widths = [];
-  let total = 0;
-  for (let i = 0; i < label.length; i++) {
-    const w = text?.width ? text.width(label[i], LAK_SIGN_FONT) || 8 : 8;
-    widths.push(w);
-    total += w;
-  }
+  // Unifont latin glyphs are a fixed 8px advance — no need to measure per frame.
+  const CHAR_W = 8;
+  const total = label.length * CHAR_W;
   const headerH = 42; // chat's top header band (topMargin) — fill it fully
   const sx = 0;
   const sy = 0; // flush with the top of the screen (no gap)
@@ -64,7 +59,7 @@ function paintLaerKlokkenSign($) {
   const textLeft = Math.round(sx + (sw - lettersW) / 2);
 
   // Striped circus backdrop (red / cream), slowly scrolling like a barber pole.
-  const stripeW = 6;
+  const stripeW = 14;
   const scroll = Math.floor(t * 6);
   for (let bx = 0; bx < sw; bx += stripeW) {
     const odd = Math.floor((bx + scroll) / stripeW) % 2;
@@ -81,7 +76,7 @@ function paintLaerKlokkenSign($) {
       ink(20, 10, 6).write(ch, { x: cx + 1, y: baseY + bounce + 1 }, undefined, undefined, false, LAK_SIGN_FONT);
       ink(c[0], c[1], c[2]).write(ch, { x: cx, y: baseY + bounce }, undefined, undefined, false, LAK_SIGN_FONT);
     }
-    cx += widths[i];
+    cx += CHAR_W + gap;
   }
 }
 
