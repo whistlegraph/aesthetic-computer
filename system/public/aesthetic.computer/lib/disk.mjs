@@ -14635,7 +14635,10 @@ async function makeFrame({ data: { type, content } }) {
               );
 
               const superscriptX = hudTextX + firstLineWidth + 2;
-              const superscriptY = 0; // Baseline-aligned with the HUD label
+              // Floor-align the small superscript (e.g. ".com", 8px tall via
+              // MatrixChunky8) with the bottom of the label glyphs, so it sits
+              // on the same floor as the corner word instead of riding up top.
+              const superscriptY = Math.max(0, (currentHUDLabelBlockHeight || 10) - 8);
 
               // Special handling for ".com" - color the "." based on connection status
               if (currentHUDSuperscript === ".com") {

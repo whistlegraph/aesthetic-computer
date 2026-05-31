@@ -4112,7 +4112,12 @@ void draw() {
       },
       'laer-klokken': {
         sig: "laer-klokken",
-        desc: "Learn the 'clock'!",
+        desc: "Learn the 'clock'! (alias of laklok)",
+        done: false
+      },
+      laklok: {
+        sig: "laklok",
+        desc: "Learn the 'clock'! (laklok.com)",
         done: false
       },
       "legacy-prompt": {
