@@ -17,8 +17,9 @@ function boot({ api, wipe, debug, send, hud }) {
 
   // 📱 Set QR code to appear LEFT of the HUD label (qr-stamp-label mode)
   hud.qr("https://laklok.com");
-  // 🏷️ Ensure label shows piece name (not "chat")
-  hud.label("laklok");
+  // 🏷️ Ensure label shows piece name (not "chat"), pinned white so it doesn't
+  // ride the red/orange/lime connection-status color.
+  hud.label("laklok", "white");
   // ✨ Show ".com" superscript in the HUD corner label (laklok.com branding,
   // same as notepat). disk.mjs renders the ".com" case specially.
   hud.superscript(".com");
@@ -50,27 +51,24 @@ function paintLaerKlokkenSign($) {
     widths.push(w);
     total += w;
   }
-  const gap = 7; // extra letter-spacing so the banner reads wide and airy
-  const pad = 11;
-  const sw = total + gap * (label.length - 1) + pad * 2;
+  const pad = 12;
   const headerH = 42; // chat's top header band (topMargin) — fill it fully
+  const sx = 0;
   const sy = 1;
+  const sw = screen.width; // full-width banner across the header
   const sh = headerH - 2;
-  const sx = screen.width - sw - 3;
-  // Header mask: only paint when it fits within the top strip.
-  if (sx < 2 || screen.width < sw + 8) return;
+  const innerW = sw - pad * 2;
+  if (innerW < total) return; // too narrow to fit the words
+  // Justify the letters across the full width (spread out, marquee style).
+  const gap = label.length > 1 ? Math.max(5, Math.min(60, (innerW - total) / (label.length - 1))) : 0;
 
   // Striped circus backdrop (red / cream), slowly scrolling like a barber pole.
   const stripeW = 6;
   const scroll = Math.floor(t * 6);
   for (let bx = 0; bx < sw; bx += stripeW) {
     const odd = Math.floor((bx + scroll) / stripeW) % 2;
-    ink(odd ? [188, 36, 46] : [235, 214, 174]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
+    ink(odd ? [92, 20, 28] : [54, 32, 20]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
   }
-  // Gold trim with a darker outer edge.
-  ink(255, 212, 96).box(sx, sy, sw, sh, "outline");
-  ink(110, 72, 20).box(sx - 1, sy - 1, sw + 2, sh + 2, "outline");
-
   // Twinkling marquee bulbs along the top and bottom rails.
   for (let bx = 4; bx < sw - 2; bx += 7) {
     const ph = 0.5 + 0.5 * Math.sin(t * 3 + bx * 0.55);
