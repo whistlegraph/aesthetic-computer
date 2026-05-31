@@ -23,6 +23,9 @@ oven/ssh/
 **/*-deploy-key*
 **/id_rsa*
 **/id_ed25519*
+# lith→github mirror deploy key: plaintext private half never committed
+# (decrypted from github_mirror.gpg at deploy time; only the .pub is tracked)
+lith/mirror/github_mirror
 
 # ignore tokens dir (static outputs of ac pieces for archival purposes)
 tokens/*.zip
