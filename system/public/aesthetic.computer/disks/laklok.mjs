@@ -57,10 +57,15 @@ function paintLaerKlokkenSign($) {
   const sy = 1;
   const sw = screen.width; // full-width banner across the header
   const sh = headerH - 2;
-  const innerW = sw - pad * 2;
-  if (innerW < total) return; // too narrow to fit the words
-  // Justify the letters across the full width (spread out, marquee style).
-  const gap = label.length > 1 ? Math.max(5, Math.min(60, (innerW - total) / (label.length - 1))) : 0;
+  // Reserve the top-left for the HUD corner label (QR + "laklok" + ".com") so
+  // the banner letters don't run underneath it.
+  const leftClear = 108;
+  const textLeft = sx + leftClear;
+  const textRight = sx + sw - pad;
+  const span = textRight - textLeft;
+  if (span < total) return; // not enough room clear of the HUD corner label
+  // Justify the letters across the remaining width (spread out, marquee style).
+  const gap = label.length > 1 ? Math.max(4, Math.min(60, (span - total) / (label.length - 1))) : 0;
 
   // Striped circus backdrop (red / cream), slowly scrolling like a barber pole.
   const stripeW = 6;
@@ -78,7 +83,7 @@ function paintLaerKlokkenSign($) {
   }
 
   // Each character: its own circus color + individual vertical bounce.
-  let cx = sx + pad;
+  let cx = textLeft;
   const baseY = sy + Math.round((sh - 16) / 2); // 16 ≈ unifont glyph height, vertically centered
   for (let i = 0; i < label.length; i++) {
     const ch = label[i];
