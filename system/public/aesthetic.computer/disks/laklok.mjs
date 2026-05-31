@@ -24,6 +24,29 @@ function boot({ api, wipe, debug, send, hud }) {
   hud.superscript(".com");
 }
 
+// 🪧 Flashy decorative "Laer Klokken" sign, masked into the top header strip
+// at the top-right. Warm hues cycle over time for a little flair.
+function paintLaerKlokkenSign($) {
+  const { ink, box, write, screen } = $;
+  const t = (typeof performance !== "undefined" ? performance.now() : 0) * 0.004;
+  const label = "Laer Klokken";
+  const sw = label.length * 6 + 7; // ~6px per glyph in the default font + padding
+  const sx = screen.width - sw - 3;
+  const sy = 2;
+  const sh = 11;
+  // Header mask: only paint when there's room in the top strip.
+  if (sx < 2 || screen.width < sw + 8) return;
+  // Flashy warm color cycle.
+  const r = Math.max(0, Math.min(255, 225 + Math.round(Math.sin(t) * 30)));
+  const g = Math.max(0, Math.min(255, 150 + Math.round(Math.sin(t + 2.1) * 70)));
+  const b = Math.max(0, Math.min(255, 90 + Math.round(Math.sin(t + 4.2) * 60)));
+  const glow = 0.5 + 0.5 * Math.sin(t * 1.7);
+  ink(30, 14, 8, 220).box(sx - 1, sy - 1, sw + 2, sh + 2); // sign backing
+  ink(r, g, b, 120 + Math.round(glow * 135)).box(sx - 1, sy - 1, sw + 2, sh + 2, "outline");
+  ink(20, 10, 6).write(label, { x: sx + 4, y: sy + 3 }); // drop shadow
+  ink(r, g, b).write(label, { x: sx + 3, y: sy + 2 });
+}
+
 function paint($) {
   // Custom warm color theme for laklok chat
   chat.paint($, {
@@ -55,6 +78,9 @@ function paint($) {
       heart: [255, 220, 240], // Light pink — pops on warm rust background
     }
   });
+
+  // Decorative flashy sign on top of the header chrome.
+  paintLaerKlokkenSign($);
 }
 
 function act($) {
