@@ -26,7 +26,7 @@ CARDS.mkdir(exist_ok=True)
 ASSETS = Path.home() / "Desktop" / "ac-deck-assets"
 
 VAULT_ENV = "/Users/jas/aesthetic-computer/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env"
-VOICE_ID = "ZXoQQp5X0PKHGwyZpVIT"  # @jeffrey PVC
+VOICE_ID = "dYNGZ848Oo6DtNBoeqgh"  # @jeffrey PVC
 MODEL_ID = "eleven_multilingual_v2"
 
 W, H = 1280, 800
