@@ -19,6 +19,9 @@ function boot({ api, wipe, debug, send, hud }) {
   hud.qr("https://laklok.com");
   // 🏷️ Ensure label shows piece name (not "chat")
   hud.label("laklok");
+  // ✨ Show ".com" superscript in the HUD corner label (laklok.com branding,
+  // same as notepat). disk.mjs renders the ".com" case specially.
+  hud.superscript(".com");
 }
 
 function paint($) {
