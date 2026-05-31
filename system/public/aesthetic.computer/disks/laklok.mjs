@@ -24,27 +24,72 @@ function boot({ api, wipe, debug, send, hud }) {
   hud.superscript(".com");
 }
 
-// 🪧 Flashy decorative "Laer Klokken" sign, masked into the top header strip
-// at the top-right. Warm hues cycle over time for a little flair.
+// 🎪 "Laer Klokken" circus banner — a striped, gold-trimmed marquee in the
+// top-right header strip, in GNU Unifont, with every character a different
+// circus color and its own little bounce. Masked to the top header area.
+const LAK_SIGN_FONT = "unifont";
+const LAK_CIRCUS_COLS = [
+  [255, 80, 80],   // red
+  [255, 210, 70],  // gold
+  [120, 210, 255], // sky
+  [140, 240, 150], // green
+  [255, 150, 220], // pink
+  [180, 150, 255], // violet
+];
 function paintLaerKlokkenSign($) {
-  const { ink, box, write, screen } = $;
-  const t = (typeof performance !== "undefined" ? performance.now() : 0) * 0.004;
+  const { ink, box, write, screen, text } = $;
+  const now = typeof performance !== "undefined" ? performance.now() : 0;
+  const t = now * 0.004;
   const label = "Laer Klokken";
-  const sw = label.length * 6 + 7; // ~6px per glyph in the default font + padding
+
+  // Measure each glyph in Unifont so per-character placement is exact.
+  const widths = [];
+  let total = 0;
+  for (let i = 0; i < label.length; i++) {
+    const w = text?.width ? text.width(label[i], LAK_SIGN_FONT) || 8 : 8;
+    widths.push(w);
+    total += w;
+  }
+  const pad = 7;
+  const sw = total + pad * 2;
+  const sh = 22;
   const sx = screen.width - sw - 3;
   const sy = 2;
-  const sh = 11;
-  // Header mask: only paint when there's room in the top strip.
+  // Header mask: only paint when it fits within the top strip.
   if (sx < 2 || screen.width < sw + 8) return;
-  // Flashy warm color cycle.
-  const r = Math.max(0, Math.min(255, 225 + Math.round(Math.sin(t) * 30)));
-  const g = Math.max(0, Math.min(255, 150 + Math.round(Math.sin(t + 2.1) * 70)));
-  const b = Math.max(0, Math.min(255, 90 + Math.round(Math.sin(t + 4.2) * 60)));
-  const glow = 0.5 + 0.5 * Math.sin(t * 1.7);
-  ink(30, 14, 8, 220).box(sx - 1, sy - 1, sw + 2, sh + 2); // sign backing
-  ink(r, g, b, 120 + Math.round(glow * 135)).box(sx - 1, sy - 1, sw + 2, sh + 2, "outline");
-  ink(20, 10, 6).write(label, { x: sx + 4, y: sy + 3 }); // drop shadow
-  ink(r, g, b).write(label, { x: sx + 3, y: sy + 2 });
+
+  // Striped circus backdrop (red / cream), slowly scrolling like a barber pole.
+  const stripeW = 6;
+  const scroll = Math.floor(t * 6);
+  for (let bx = 0; bx < sw; bx += stripeW) {
+    const odd = Math.floor((bx + scroll) / stripeW) % 2;
+    ink(odd ? [188, 36, 46] : [235, 214, 174]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
+  }
+  // Gold trim with a darker outer edge.
+  ink(255, 212, 96).box(sx, sy, sw, sh, "outline");
+  ink(110, 72, 20).box(sx - 1, sy - 1, sw + 2, sh + 2, "outline");
+
+  // Twinkling marquee bulbs along the top and bottom rails.
+  for (let bx = 4; bx < sw - 2; bx += 7) {
+    const ph = 0.5 + 0.5 * Math.sin(t * 3 + bx * 0.55);
+    const c = LAK_CIRCUS_COLS[bx % LAK_CIRCUS_COLS.length];
+    ink(c[0], c[1], c[2], 110 + Math.round(ph * 145)).box(sx + bx, sy + 1, 2, 2);
+    ink(c[0], c[1], c[2], 110 + Math.round((1 - ph) * 145)).box(sx + bx, sy + sh - 3, 2, 2);
+  }
+
+  // Each character: its own circus color + individual vertical bounce.
+  let cx = sx + pad;
+  const baseY = sy + 3;
+  for (let i = 0; i < label.length; i++) {
+    const ch = label[i];
+    if (ch !== " ") {
+      const bounce = Math.round(Math.sin(t * 2.6 + i * 0.7) * 2);
+      const c = LAK_CIRCUS_COLS[i % LAK_CIRCUS_COLS.length];
+      ink(20, 10, 6).write(ch, { x: cx + 1, y: baseY + bounce + 1 }, undefined, undefined, false, LAK_SIGN_FONT);
+      ink(c[0], c[1], c[2]).write(ch, { x: cx, y: baseY + bounce }, undefined, undefined, false, LAK_SIGN_FONT);
+    }
+    cx += widths[i];
+  }
 }
 
 function paint($) {
