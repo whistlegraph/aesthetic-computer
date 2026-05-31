@@ -17,8 +17,24 @@ float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
   return length(pa - ba * h);
 }
 
+// Sharp-bilinear sampling: keeps pixel interiors crisp but anti-aliases the
+// texel boundaries, so the low-res glaze buffer upscales to a large/high-DPI
+// canvas without the uneven "doubled pixel" artifacts that plain NEAREST
+// produces at non-integer scale factors (worst on bright, high-contrast pixels).
+vec2 sharpBilinearUV(vec2 uv, vec2 texSize) {
+  vec2 pix = uv * texSize;
+  vec2 fl = floor(pix + 0.5);
+  vec2 dxy = fwidth(pix);
+  // Avoid division blowups where derivatives are ~0 (e.g. degenerate edges).
+  dxy = max(dxy, vec2(1e-5));
+  pix = fl + clamp((pix - fl) / dxy, -0.5, 0.5);
+  return pix / texSize;
+}
+
 void main() {
-  vec3 color = texture(iTexturePost, vec2(v_texc.x, 1. - v_texc.y)).xyz;
+  vec2 uv = vec2(v_texc.x, 1. - v_texc.y);
+  vec2 texSize = vec2(textureSize(iTexturePost, 0));
+  vec3 color = texture(iTexturePost, sharpBilinearUV(uv, texSize)).xyz;
 
   // *** Learning SDFs through making cursors. 2022.02.12.01.14
   /*

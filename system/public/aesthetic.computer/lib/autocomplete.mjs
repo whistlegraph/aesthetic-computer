@@ -144,7 +144,11 @@ class Autocomplete {
         this.query = q.toLowerCase();
         this.visible = true;
         const cacheKey = `:${this.query}`;
-        if (cacheKey === this.#pendingQuery) return;
+        // Skip if this query is in flight OR already resolved — otherwise the
+        // per-frame update() would re-fetch the same query forever (cache:false),
+        // leaving the dropdown stuck on "Loading...".
+        if (cacheKey === this.#pendingQuery || cacheKey === this.#lastQuery)
+          return;
         this.#fetchResults("", this.query, this.universal);
         return;
       }
@@ -169,8 +173,8 @@ class Autocomplete {
 
     // Only fetch if query changed
     const cacheKey = `${foundTrigger}:${query}`;
-    if (cacheKey === this.#pendingQuery) {
-      return; // Already fetching this query
+    if (cacheKey === this.#pendingQuery || cacheKey === this.#lastQuery) {
+      return; // Already fetching, or already resolved, this query.
     }
 
     // Fetch results (debounced)
@@ -191,6 +195,7 @@ class Autocomplete {
       this.items = this.#cache.get(cacheKey);
       this.selectedIndex = 0;
       this.loading = false;
+      this.#lastQuery = cacheKey; // Resolved — don't re-fetch until it changes.
       return;
     }
 
@@ -218,7 +223,8 @@ class Autocomplete {
         this.items = [];
       } finally {
         this.loading = false;
-        this.#pendingQuery = ""; // Clear pending query
+        this.#pendingQuery = ""; // No longer in flight.
+        this.#lastQuery = cacheKey; // Resolved — don't re-fetch until it changes.
       }
     }, this.debounceMs);
   }
@@ -233,6 +239,7 @@ class Autocomplete {
     this.query = "";
     this.loading = false;
     this.#pendingQuery = ""; // Clear pending query
+    this.#lastQuery = ""; // Allow a fresh fetch when reopened.
     if (this.#fetchTimeout) {
       clearTimeout(this.#fetchTimeout);
       this.#fetchTimeout = null;
@@ -360,36 +367,76 @@ class Autocomplete {
     }
 
     const config = this.triggers[this.activeTrigger] || {};
-    const itemHeight = 14;
-    const padding = 4;
-    const maxWidth = 120;
+    const inline = position.inline === true; // Render under the typed line, no box.
+    const itemHeight = inline ? 11 : 14;
+    const padding = inline ? 0 : 4;
+    const maxWidth = inline
+      ? min(screen.width - (position.x ?? 10) - 4, 240)
+      : 120;
+    const font = inline ? "MatrixChunky8" : undefined;
+
+    // While loading the universal (bare-word) search, surface live per-source
+    // fetch state instead of a blank "Loading..." — this is the debug window
+    // into what the backend is actually doing.
+    let loadingLines = null;
+    if (this.loading) {
+      const diag =
+        this.activeTrigger === "" ? this.universal?.getDiag?.() : null;
+      if (diag?.query) {
+        const s = diag.sources;
+        const tag = (src) =>
+          src.state === "ok"
+            ? `${src.n}`
+            : src.state === "timeout"
+              ? "t/o"
+              : src.state;
+        loadingLines = [
+          `"${diag.query}" ${diag.done ? "done" : "..."}`,
+          `cmd ${diag.cmds}  $ ${diag.sigil}`,
+          `@ ${tag(s.handles)}  pc ${tag(s.pieces)}`,
+          `md ${tag(s.mood)}  ch ${tag(s.chat)}`,
+        ];
+      } else {
+        loadingLines = ["Loading..."];
+      }
+    }
 
     // Calculate dropdown dimensions
-    const itemCount = this.loading ? 1 : this.items.length;
+    const itemCount = this.loading
+      ? loadingLines.length
+      : this.items.length;
     const dropdownHeight = itemCount * itemHeight + padding * 2;
     
     // Position dropdown BELOW cursor
     const x = position.x ?? 10;
     const y = position.y ?? 80;
 
-    // Clamp to screen bounds
-    const dropX = min(x, screen.width - maxWidth - 4);
-    // Only flip above if truly no room below
-    const dropY = (y + dropdownHeight > screen.height - 4) 
+    // Inline anchors right at the line; boxed mode clamps + flips to fit.
+    const dropX = inline ? x : min(x, screen.width - maxWidth - 4);
+    const dropY = !inline && y + dropdownHeight > screen.height - 4
       ? max(4, y - dropdownHeight - 16) // flip above cursor
       : y; // below cursor
 
     // Store bounds for hover/click detection
     this.#dropdownBounds = { x: dropX, y: dropY, width: maxWidth, height: dropdownHeight, itemHeight, padding };
 
-    // Background
-    ink(20, 20, 30, 240).box(dropX, dropY, maxWidth, dropdownHeight);
-
-    // Border
-    ink(80, 80, 100).box(dropX, dropY, maxWidth, dropdownHeight, "outline");
+    if (!inline) {
+      ink(20, 20, 30, 240).box(dropX, dropY, maxWidth, dropdownHeight); // Background
+      ink(80, 80, 100).box(dropX, dropY, maxWidth, dropdownHeight, "outline"); // Border
+    }
 
     if (this.loading) {
-      ink(120).write("Loading...", { x: dropX + padding, y: dropY + padding + 2 });
+      loadingLines.forEach((ln, i) => {
+        const c = i === 0 ? [150, 200, 255] : [120, 140, 160];
+        ink(...c).write(
+          ln,
+          { x: dropX + padding, y: dropY + padding + 2 + i * itemHeight },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      });
       return;
     }
 
@@ -398,24 +445,45 @@ class Autocomplete {
       const itemY = dropY + padding + i * itemHeight;
       const isSelected = i === this.selectedIndex;
       const isHovered = i === this.hoveredIndex && !isSelected;
-
-      // Selection highlight (keyboard selection takes priority)
-      if (isSelected) {
-        ink(60, 60, 100).box(dropX + 2, itemY - 1, maxWidth - 4, itemHeight);
-      } else if (isHovered) {
-        // Hover highlight (different color from selection)
-        ink(45, 45, 70).box(dropX + 2, itemY - 1, maxWidth - 4, itemHeight);
-      }
-
-      // Item text. Per-item `color` (namespace tag) wins over the trigger
-      // color so universal results stay type-coded row by row.
-      const color = isSelected ? [255, 255, 255] : (isHovered ? [220, 220, 255] : (item.color || config.color || [180, 180, 180]));
+      // Per-item `color` (namespace tag) wins over the trigger color so
+      // universal results stay type-coded row by row.
+      const baseColor = item.color || config.color || [180, 180, 180];
+      const color = isSelected
+        ? [255, 255, 255]
+        : isHovered
+          ? [220, 220, 255]
+          : baseColor;
       const displayText = item.display || `${config.prefix || ""}${item.text}`;
-      ink(...color).write(displayText, { x: dropX + padding + 2, y: itemY + 2 });
+
+      if (inline) {
+        // Subtle row highlight so each row reads as a tappable button — no
+        // enclosing box, just a faint bar behind the selected/hovered row.
+        if (isSelected) {
+          ink(255, 255, 255, 38).box(dropX - 2, itemY, maxWidth, itemHeight);
+        } else if (isHovered) {
+          ink(255, 255, 255, 20).box(dropX - 2, itemY, maxWidth, itemHeight);
+        }
+        const prefix = isSelected ? "> " : "  ";
+        ink(...color).write(
+          prefix + displayText,
+          { x: dropX, y: itemY + 1 },
+          undefined,
+          undefined,
+          false,
+          font,
+        );
+      } else {
+        if (isSelected) {
+          ink(60, 60, 100).box(dropX + 2, itemY - 1, maxWidth - 4, itemHeight);
+        } else if (isHovered) {
+          ink(45, 45, 70).box(dropX + 2, itemY - 1, maxWidth - 4, itemHeight);
+        }
+        ink(...color).write(displayText, { x: dropX + padding + 2, y: itemY + 2 });
+      }
     });
 
-    // Query highlight at bottom (optional)
-    if (this.query && this.items.length > 0) {
+    // Query highlight at bottom (optional, boxed mode only)
+    if (!inline && this.query && this.items.length > 0) {
       const hintY = dropY + dropdownHeight + 2;
       if (hintY < screen.height - 10) {
         ink(80).write(`↑↓/click · tab/enter`, { x: dropX, y: hintY });

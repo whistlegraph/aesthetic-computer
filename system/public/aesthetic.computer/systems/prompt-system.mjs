@@ -8,9 +8,35 @@ let conversation,
   input,
   abort,
   messageComplete = true,
-  processing = false;
+  processing = false,
+  thinking = false; // 💭 True while awaiting the first token of an LLM reply.
 
 let cancel;
+
+// 💭 Flip the "thinking" state and mirror it onto the Disk API so pieces (e.g.
+// prompt.mjs) can paint a thinking character while a reply is being composed.
+function setThinking($, value) {
+  thinking = value;
+  if ($?.system?.prompt) $.system.prompt.thinking = value;
+  $?.needsPaint?.(); // Surface (or clear) the thinking character promptly.
+}
+
+// 🎵 A bright little rising arpeggio played when the helper starts thinking.
+function playThinkingMelody($) {
+  const notes = [440, 554, 659]; // A4 · C#5 · E5
+  notes.forEach((tone, i) => {
+    setTimeout(() => {
+      $.sound?.synth?.({
+        type: "sine",
+        tone,
+        attack: 0.01,
+        decay: 0.92,
+        volume: 0.18,
+        duration: 0.08,
+      });
+    }, i * 90);
+  });
+}
 
 export async function prompt_boot(
   $,
@@ -122,12 +148,18 @@ export async function prompt_boot(
 
       // Cancel a request (via `act`)
       cancel = function () {
+        setThinking($, false);
         abort?.(); // Prevent fail from running here...
       };
+
+      // 💭 Start thinking — a character + melody play until the first token.
+      setThinking($, true);
+      playThinkingMelody($);
 
       abort = conversation.ask(
         { prompt: text, program, hint },
         function and(msg) {
+          setThinking($, false); // First token arrived — done thinking, now speaking.
           // Replace curly single and double quotes with straight quotes.
           msg = msg.replace(/[\u2018\u2019\u201C\u201D]/g, (match) => {
             if (match === "\u2018" || match === "\u2019") {
@@ -147,6 +179,7 @@ export async function prompt_boot(
           firstAnd = false;
         },
         function done() {
+          setThinking($, false);
           messageComplete = true;
           processing = input.lock = false;
           $.send({ type: "keyboard:unlock" });
@@ -168,6 +201,7 @@ export async function prompt_boot(
           });
         },
         function fail() {
+          setThinking($, false);
           input.activate(input);
           input.text = "";
           input.snap();
@@ -203,7 +237,7 @@ export async function prompt_boot(
   );
 
   $.needsPaint();
-  $.system.prompt = { input, convo: conversation }; // Set the input on the Disk API.
+  $.system.prompt = { input, convo: conversation, thinking: false }; // Set the input on the Disk API.
 }
 
 export function prompt_sim($) {

@@ -40,6 +40,9 @@ const float PI = 3.14159265359;
 const float PI_4 = PI/4.;
 const float EPSILON = 1e-10;
 const vec3 PLANE_NORMAL = vec3(0., 0., -1.);
+const float SHADOW_SOFTNESS = 0.18; // 🌫️ shadow penumbra jitter (fuzzy shadows)
+const float SWAY_PERIOD = 4.0;      // 🚶 seconds per back-and-forth (walking cadence)
+const float SWAY_AMOUNT = 0.13;     // 🚶 horizontal wobble magnitude (added to lightDirection.x)
 
 // Utils
 float random(vec2 p)
@@ -135,8 +138,15 @@ vec3 directLight(vec3 pos, vec3 rd, float headStart)
     vec3 volAbs = vec3(1.);
     float stepDist;
 
-    float nearIntersectionDist = zPlaneIntersect(ro, normLightDirection, 0.0);
-    float farIntersectionDist = zPlaneIntersect(ro, normLightDirection, volumeRadius * 2.0);
+    // 🌫️ Fuzzy shadows: jitter the shadow ray direction a touch per pixel so the
+    // penumbra softens instead of casting a hard edge.
+    vec3 ldir = normalize(normLightDirection + vec3(
+        (headStart - 0.5) * SHADOW_SOFTNESS,
+        (random(rd.xy + headStart) - 0.5) * SHADOW_SOFTNESS,
+        0.0));
+
+    float nearIntersectionDist = zPlaneIntersect(ro, ldir, 0.0);
+    float farIntersectionDist = zPlaneIntersect(ro, ldir, volumeRadius * 2.0);
 
     float traceDist = max(nearIntersectionDist, farIntersectionDist);
     traceDist = min(traceDist, shadowRange);
@@ -145,11 +155,11 @@ vec3 directLight(vec3 pos, vec3 rd, float headStart)
     for (int i = 1; i < shadowIterations + 1; i += 1)
     {
         previousPos = pos;
-        pos = ro - normLightDirection * (float(i) + headStart) / float(shadowIterations) * traceDist;
+        pos = ro - ldir * (float(i) + headStart) / float(shadowIterations) * traceDist;
         vec4 colorValue = getColor(pos);
         volAbs *= vec3(exp(-colorValue.w * length(pos - previousPos) * colorValue.xyz));
     }
-    return lightPower * lightColor * volAbs * hgPhase(-normLightDirection, rd);
+    return lightPower * lightColor * volAbs * hgPhase(-ldir, rd);
 }
 
 vec3 post(vec3 col)
@@ -157,12 +167,29 @@ vec3 post(vec3 col)
     col.x = sRGB(col.x);
     col.y = sRGB(col.y);
     col.z = sRGB(col.z);
-    return col;
+    // Tame blown-out highlights: roll the brightest values off toward 1.0
+    // instead of clipping to a harsh white. Neutral — no color shift.
+    float hi = smoothstep(0.55, 1.0, maxv(col));
+    col /= (1.0 + hi * 0.7);   // soft highlight roll-off (less harsh bright)
+    return clamp(col, 0.0, 1.0);
 }
 
 void main()
 {
-    normLightDirection = normalize(lightDirection);
+    // 🚶 Handheld "walking" wobble — the light angle sways back and forth as if
+    // the person holding the device is in motion. A primary cadence plus a
+    // smaller faster bob keeps it organic rather than mechanical. Neutral white,
+    // intensity unchanged — only the angle moves, so shadows are always present
+    // and gently shifting (a perfectly vertical light makes some shadows vanish).
+    float t = iTime * 0.001; // iTime is ms
+    float wobble = sin(t * (2.0 * PI / SWAY_PERIOD))
+                 + 0.3 * sin(t * (2.0 * PI / SWAY_PERIOD) * 2.3 + 1.7);
+    vec3 swayLight = vec3(
+        lightDirection.x + wobble * SWAY_AMOUNT,
+        lightDirection.y,
+        lightDirection.z);
+    normLightDirection = normalize(swayLight);
+
     vec2 uv = v_texc * 2. - vec2(1.);
     uv.x *= iResolution.x / iResolution.y;
 
@@ -183,8 +210,14 @@ void main()
     {
         offset = 0.0;
     }
-    float headStartCam = random(iResolution.x * v_texc - offset);
-    float headStartShadow = random(iResolution.x * v_texc + offset);
+    // Per-pixel raymarch jitter. Use per-axis pixel coordinates (v_texc *
+    // iResolution) so the grain stays isotropic on wide screens, and wrap with
+    // mod() so the hash input never grows large enough to lose float precision
+    // at high resolutions — both were sources of edge distortion when the screen
+    // got really big (the old `iResolution.x * v_texc` scaled y by the width).
+    vec2 grainCoord = mod(v_texc * iResolution, 289.0);
+    float headStartCam = random(grainCoord - mod(offset, 289.0));
+    float headStartShadow = random(grainCoord + mod(offset, 289.0));
 
     vec3 refractionDir = mix(vec3(0, 0, 1), rd, radialBlurAmount);
 

@@ -2053,8 +2053,12 @@ class TextInput {
     }
 
     if (this.cursor === "stop" && !this.canType) {
+      // 💭 Thinking indicator — a calm blue dot that pulses while the prompt is
+      // working (e.g. awaiting an LLM reply), instead of a static red "error" dot.
       const pos = prompt.pos();
-      $.ink(255, 0, 0).box(pos.x + 1, pos.y + 3, 3);
+      const pulse = 0.5 + 0.5 * Math.sin($.paintCount / 8);
+      const alpha = Math.floor(110 + pulse * 145);
+      $.ink(100, 180, 255, alpha).box(pos.x + 1, pos.y + 3, 3);
     }
 
     // Build custom color schemes for the `ui.TextButton`s if they were defined.

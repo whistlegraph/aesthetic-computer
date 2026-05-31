@@ -44,45 +44,44 @@
   - [x] `export const autolock`
 #endregion */
 
+// 🧠 Build the command knowledge from the live registry so the helper always
+// knows the *current* command surface (not a frozen 2023 list). The registry
+// is maintained in `lib/prompt-commands.mjs` and shared with chat + `list`.
+const COMMAND_KNOWLEDGE = Object.keys(commandDescriptions)
+  .map((cmd) => `  - '${cmd}' — ${commandDescriptions[cmd]}`)
+  .join("\n");
+
 const before = `
-You are playing a character who tries to help me find the command I'm searching for
+You are the help character for Aesthetic Computer (AC), a creative-computing playground entered through a command prompt. The user just typed something that did NOT match a known command, piece, handle, or code. Help them find what they meant — briefly and warmly.
 
-- The following is a data set of all possible options for commands:
-  - 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera',
-  'channel', 'decode', 'baktok', 'painting', 'desktop',
-  'download', 'encode', 'ff', 'ff1', 'freaky-flowers', 'gargoyle', 'handle',
-  'happy-hands-assembler', 'hha', 'liar', 'line', 'login',
-  'logout', 'm2w2', 'melody', 'metronome', 'microphone',
-  'no!', 'no', 'os', 'oval', 'done', 'paint', 'paste', 'handprint',
-  'plot', 'profile', 'prompt', 'pull', 'rect',
-  'girlfriend', 'boyfriend', 'mom', 'dad', 'husband', 'wife', 'kid', 'brother', 'sister', 'scawy-snake', 'scream', 'sfx', 'shape', 'sign', 'sing', 'smear',
-  'song', 'sparkle', 'right', 'left', 'flip', 'flop', 'score',
-  'staka', 'starfield', 'tone', 'tracker', 'valbear', 'vary', 'video', 'wand', 'wg',
-  'wgr', 'whistle', 'whistlegraph', 'wipe', 'word', 'zoom', 'booted-by'.
+How input works in AC:
+- Type a command or piece name to run it (e.g. 'line', 'clock', 'paint').
+- Prefix a handle to open someone's work: '@handle' or '@handle/piece'.
+- Type KidLisp source, or a saved '$code' (like '$bf2'), to run generative art.
 
-- If I type a word that is similar to one of the commands, you only respond "did you mean
-(insert correct command)?"
-  - for example, if I write "linr", you write "Try typing 'line' instead"
-  - you only suggest correct commands that are in the above data set
-  - when you suggest a command, always put it in "quotes."
-  - if I type "hife" you do not suggest "life" because that is not a command in the data set
-  - you do not respond with any additional information
+Known commands (name — what it does):
+${COMMAND_KNOWLEDGE}
 
-If the user asks to delete their account or enters "delete" or "deactivate", you tell them to enter "delete-erase-and-forget-me" to delete their account.
+How to reply:
+- If the entry looks like a typo or near-match of a command above, reply only: Did you mean 'command'? — use single quotes, suggest exactly one, and only ever suggest a command from the list above.
+- If it reads as a question or request ("how do I draw", "play a song"), answer in one short sentence and point to the most relevant command in 'quotes'.
+- If nothing fits, suggest entering 'list' to browse everything, or 'chat' for help.
+- Keep replies to one or two short sentences. Never invent commands that are not listed.
 
-If the user enters 'goodiepal' please reply: Yes, but people on the Faro islands call me Pruttipal, so enter 'prutti' instead.
+Special cases:
+- If the user asks to delete their account, or enters "delete" or "deactivate", tell them to enter "delete-erase-and-forget-me" to delete their account.
+- If the user enters 'goodiepal', reply exactly: Yes, but people on the Faro islands call me Pruttipal, so enter 'prutti' instead.
 
-The word I'm entering is:`;
+The entry is:`;
 
 const after = ``;
 const forgetful = true;
 
-const TYPO_REPLY = `
-Use Aesthetic Computer by entering a correct word.\n\nEnter "list" for some available words.\n\nEnter "chat" for help.\n\nText 1-508-728-4043 for tips.\n\n - @jeffrey`.trim();
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 
 import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
+import { commandDescriptions } from "../lib/prompt-commands.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
@@ -108,6 +107,16 @@ const { keys } = Object;
 
 // Error / feedback flash on command entry.
 let theme = "default"; // Prompt theme: "default", "serious", "neo", "poe" (prompt:serious, prompt:neo, prompt:poe)
+// ✨ "Flair" — decorative, animated extras on the attract/login screen (starfield,
+// spinning cube, polychrome border, tap/touch/type hint, top-right product ad).
+// Toggle with the `flair` command; disabling lifts FPS on weaker devices.
+let flairEnabled = true;
+// ✨ Sub-toggle for just the animated background (starfield + spinning cube),
+// so their cost can be isolated from the rest of flair. URL: `prompt:nostars`.
+let starsEnabled = true;
+// 📦 Live product carousel (top-right). It's the dominant per-frame cost, so it
+// defaults OFF. Re-enable with the `prompt:products` URL param.
+let productsEnabled = false;
 
 let flash;
 let flashShow = false;
@@ -256,7 +265,7 @@ let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 // 📊 FPS Meter state
 let fpsTimestamps = [];
 let currentFps = 0;
-let showFpsMeter = false; // Toggle with backtick key
+let showFpsMeter = true; // Shown by default; toggle with backtick key
 
 // 🚫 Content ticker controls
 const DISABLE_CONTENT_TICKER = false;
@@ -344,6 +353,50 @@ async function timedJson(url, ms = 1500) {
   }
 }
 
+// 🔬 Live diagnostics for the universal search dropdown, so the prompt can
+// show *what the backend is doing* (per-source state + counts) instead of a
+// blind "Loading...". `universalDiag` is read every frame by the autocomplete
+// paint via the `getDiag` hook on the universal config below.
+let universalDiag = null;
+
+function makeUniversalDiag(query) {
+  return {
+    query,
+    done: false,
+    cmds: 0,
+    sigil: 0,
+    // Each network source: state is "…" (in flight) → "ok" | "timeout" |
+    // "err" | an HTTP status string; n is the row count it contributed.
+    sources: {
+      handles: { state: "…", n: 0 },
+      pieces: { state: "…", n: 0 },
+      mood: { state: "…", n: 0 },
+      chat: { state: "…", n: 0 },
+    },
+  };
+}
+
+// Like `timedJson`, but records its outcome into a diag source slot as soon as
+// it settles — that's what makes the dropdown update live, source by source.
+async function diagJson(diag, key, url, ms = 1500) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) {
+      diag.sources[key].state = String(res.status);
+      return null;
+    }
+    const json = await res.json();
+    diag.sources[key].state = "ok";
+    return json;
+  } catch (err) {
+    diag.sources[key].state = err?.name === "AbortError" ? "timeout" : "err";
+    return null;
+  }
+}
+
 async function universalSearch(query) {
   const q = (query || "").trim().toLowerCase();
   if (q.length < 2) return [];
@@ -386,12 +439,22 @@ async function universalSearch(query) {
     }
   }
 
+  // Publish a live diagnostic the dropdown reads each frame.
+  const diag = makeUniversalDiag(q);
+  diag.cmds = docHits.length;
+  diag.sigil = sigilHits.length;
+  universalDiag = diag;
+
   // 3–6) Network sources, in parallel, each best-effort (timed/abortable).
+  // `diagJson` flips each source's state the moment it settles, so the UI
+  // shows exactly which source is slow, failing, or empty.
   const [handlesRes, piecesRes, moodRes, chatRes] = await Promise.all([
-    timedJson(`/api/handles?search=${encodeURIComponent(q)}&limit=4`),
-    timedJson(`/api/pieces-search?q=${encodeURIComponent(q)}&limit=4`),
-    timedJson(`/api/mood/search?q=${encodeURIComponent(q)}&limit=2`),
-    timedJson(
+    diagJson(diag, "handles", `/api/handles?search=${encodeURIComponent(q)}&limit=4`),
+    diagJson(diag, "pieces", `/api/pieces-search?q=${encodeURIComponent(q)}&limit=4`),
+    diagJson(diag, "mood", `/api/mood/search?q=${encodeURIComponent(q)}&limit=2`),
+    diagJson(
+      diag,
+      "chat",
       `/api/chat/messages?instance=all&search=${encodeURIComponent(q)}&limit=3`,
     ),
   ]);
@@ -421,15 +484,20 @@ async function universalSearch(query) {
     });
   }
 
+  // Note: leading markers use glyphs MatrixChunky8 actually has (~ and •) —
+  // emoji (🌙/💬) have no glyph in this font and render as "?".
   const moodHits = [];
   for (const m of (moodRes?.moods || []).slice(0, 2)) {
     if (!m?.mood) continue;
+    const from = m.handle || "anon";
+    const moodText = String(m.mood).replace(/\s+/g, " ");
     moodHits.push({
       text: "mood",
-      display: `🌙 ${m.handle || "anon"}: ${String(m.mood)
-        .replace(/\s+/g, " ")
-        .slice(0, 32)}`,
+      display: `~ ${from}: ${moodText.slice(0, 32)}`,
       color: UNIVERSAL_COLORS.mood,
+      // Selecting opens the full-screen `message` piece (see openMessage…).
+      action: "message",
+      message: { from, text: moodText, source: "mood" },
     });
   }
 
@@ -437,16 +505,25 @@ async function universalSearch(query) {
   for (const c of (chatRes?.messages || []).slice(0, 3)) {
     if (!c?.text) continue;
     const isClock = c.instance === "clock";
+    const from = c.from || "anon";
+    const chatText = String(c.text).replace(/\s+/g, " ");
     chatHits.push({
       text: isClock ? "laer-klokken" : "chat",
-      display: `💬 ${c.from || "anon"}: ${String(c.text)
-        .replace(/\s+/g, " ")
-        .slice(0, 32)}`,
+      display: `• ${from}: ${chatText.slice(0, 32)}`,
       color: isClock
         ? UNIVERSAL_COLORS.chatClock
         : UNIVERSAL_COLORS.chatSystem,
+      action: "message",
+      message: { from, text: chatText, source: isClock ? "clock" : "chat" },
     });
   }
+
+  // Record what each source contributed, then mark the search complete.
+  diag.sources.handles.n = handleHits.length;
+  diag.sources.pieces.n = pieceHits.length;
+  diag.sources.mood.n = moodHits.length;
+  diag.sources.chat.n = chatHits.length;
+  diag.done = true;
 
   // Priority: commands/pieces → handles → sigil media → user pieces →
   // moods → chat (moods & chat sit "underneath", as designed).
@@ -458,6 +535,29 @@ async function universalSearch(query) {
     ...moodHits,
     ...chatHits,
   ].slice(0, 16);
+}
+
+// 🔀 Who owns the arrow keys right now — command history, or the filter list?
+// History (arrow up/down recalling past commands) wins ONLY when the prompt is
+// empty or the text exactly matches a past command. Any other partial query —
+// i.e. you're typing or backspacing — hands the arrows to the filter list.
+function inFilterMode($) {
+  const text = ($?.system?.prompt?.input?.text || "").trim();
+  if (text.length === 0) return false; // empty prompt → history
+  const hist = ($?.history || []).map((h) => h.replaceAll("~", " "));
+  if (hist.includes(text)) return false; // exact history match → history
+  return true; // partial query → filter list
+}
+
+// 📩 Some autocomplete rows (chat lines, moods) carry a message payload.
+// Selecting one opens the full-screen `message` piece instead of completing
+// text — the payload is handed off through the shared in-memory store.
+function openMessageFromSelection($, item) {
+  if (item?.action !== "message" || !item.message) return false;
+  $.store["message:view"] = item.message;
+  handleAutocomplete?.hide();
+  $.jump("message");
+  return true;
 }
 
 // 🎆 Corner particles (for cursor effect)
@@ -928,6 +1028,7 @@ async function boot({
   promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
   if (store["prompt:theme"]) theme = store["prompt:theme"];
+  if (store["prompt:flair"] === "off") flairEnabled = false; // default on
   if (store["prompt:lang"]) lang = store["prompt:lang"];
   if (store["prompt:poeClear"] != null) {
     const i = POE_CLEAR_STYLES.indexOf(store["prompt:poeClear"]);
@@ -936,7 +1037,16 @@ async function boot({
   if (colon?.includes("serious")) theme = "serious";
   if (colon?.includes("neo")) theme = "neo";
   if (colon?.includes("poe")) theme = "poe";
-  if (dark) glaze({ on: true });
+  // ✨ URL override for flair (e.g. `prompt:noflair` / `prompt:flair`). Non-
+  // persisting — the `flair` command still owns the saved preference. Handy for
+  // a clean attract screen and for the FPS regression test.
+  if (colon?.includes("noflair")) flairEnabled = false;
+  if (colon?.includes("flair")) flairEnabled = true;
+  if (colon?.includes("nostars")) starsEnabled = false; // disable starfield + cube only
+  if (colon?.includes("products")) productsEnabled = true; // re-enable the product carousel
+  // `prompt:noglaze` skips the glaze post-effect — a quick way to isolate the
+  // glaze's (GPU) cost from everything else when diagnosing frame rate.
+  if (dark && !colon?.includes("noglaze")) glaze({ on: true });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
   net.requestDocs().then((d) => {
@@ -996,18 +1106,38 @@ async function boot({
       "!": sigilTrigger("tape", "!", [255, 200, 100]),
     },
     // 🌐 Bare words (no @ / $ / # / !) search all of AC.
-    universal: { fetch: universalSearch, minChars: 2, cache: false },
+    // `getDiag` lets the dropdown surface live per-source fetch state.
+    universal: {
+      fetch: universalSearch,
+      minChars: 2,
+      cache: false,
+      getDiag: () => universalDiag,
+    },
   });
 
   // 🧪 Read-only test hook for the browser harness (tests/browser/).
   // Gated on window.acDEBUG so it never attaches for normal users; the
   // harness sets acDEBUG via evaluateOnNewDocument before navigation.
   if (typeof window !== "undefined" && window.acDEBUG) {
+    // Toggle flair programmatically (used by the FPS regression test so it can
+    // measure the attract screen with flair on vs off without driving the
+    // keyboard). Mirrors the `flair` command's persistence.
+    window.__acPromptSetFlair = (on) => {
+      flairEnabled = !!on;
+      if (store) {
+        store["prompt:flair"] = flairEnabled ? "on" : "off";
+        store.persist?.("prompt:flair");
+      }
+      needsPaint();
+      return flairEnabled;
+    };
     window.__acPromptTest = () => {
       const input = system?.prompt?.input;
       const ac = handleAutocomplete;
       return {
         input: input?.text ?? null,
+        flair: flairEnabled,
+        fps: currentFps,
         kidlispMode: !!system?.prompt?.kidlispMode,
         deprecateUniticker: DEPRECATE_UNITICKER,
         ac: ac
@@ -1031,8 +1161,9 @@ async function boot({
     };
   }
 
-  // �📦 Load product images (DISABLED for now)
-  await products.boot(api);
+  // 📦 Load product images — only when the carousel is enabled (off by default),
+  // so we skip the live Shopify fetch + image decode entirely otherwise.
+  if (productsEnabled) await products.boot(api);
 
   // Create login & signup buttons (skip when not in default theme).
   if (!user && theme === "default") {
@@ -3987,6 +4118,18 @@ async function halt($, text) {
     makeFlash($);
     needsPaint();
     return true;
+  } else if (text === "flair" || text === "theme:flair") {
+    // ✨ Toggle decorative attract-screen extras (starfield, cube, border, hint,
+    // product ad). Persisted so it sticks across reloads.
+    flairEnabled = !flairEnabled;
+    if ($.store) {
+      $.store["prompt:flair"] = flairEnabled ? "on" : "off";
+      $.store.persist?.("prompt:flair");
+    }
+    flashColor = flairEnabled ? [0, 255, 0] : [255, 0, 0];
+    makeFlash($);
+    needsPaint();
+    return true;
   } else if (text === "theme") {
     load(parse("theme"));
     return true;
@@ -4351,12 +4494,10 @@ async function halt($, text) {
     // console.log("Loaded:", loaded);
 
     if (!loaded) {
+      // No piece/command matched — fall through with a falsy return so the
+      // prompt:character system invokes the LLM (`before` program) for a
+      // helpful "did you mean…?" reply instead of a canned static message.
       leaving(false);
-      if (/*text.indexOf(" ") === -1 &&*/ text !== "goodiepal") {
-        system.prompt.input.text = TYPO_REPLY;
-        system.prompt.input.replied($); // Set the UI state back to normal.
-        loaded = { replied: true };
-      }
     } else {
       loaded = { left: true };
     }
@@ -5110,7 +5251,7 @@ function paint($) {
   // 🎰 Top-right corner slot: cycles between GIVE, SO SOFT ad, OS, and products
 
   // 💰 GIVE button
-  if (topRightBtnChoice === "give" && showLoginCurtain) {
+  if (topRightBtnChoice === "give" && showLoginCurtain && flairEnabled) {
     const now = Date.now();
     const t = performance.now() / 1000;
     const emotionPhase = Math.floor(now / 3000) % 3;
@@ -5221,7 +5362,7 @@ function paint($) {
   }
 
   // 🎨 SO SOFT AD - Two buttons with wavy line connector
-  if (topRightBtnChoice === "ad" && showLoginCurtain) {
+  if (topRightBtnChoice === "ad" && showLoginCurtain && flairEnabled) {
     const now = Date.now();
     const t = performance.now() / 1000;
     soSoftBlinkPhase = Math.floor(t * 2) % 2;
@@ -5336,7 +5477,7 @@ function paint($) {
   }
 
   // 💻 OS button — blue, blinky, computery
-  if (topRightBtnChoice === "os" && showLoginCurtain) {
+  if (topRightBtnChoice === "os" && showLoginCurtain && flairEnabled) {
     const t = performance.now() / 1000;
     const btnPaddingTop = 3;
     const btnPaddingRight = 3;
@@ -5404,7 +5545,7 @@ function paint($) {
   }
 
   // 💻 Blank laptop ad — loud, color-cycling bumper
-  if (topRightBtnChoice === "blank" && showLoginCurtain) {
+  if (topRightBtnChoice === "blank" && showLoginCurtain && flairEnabled) {
     const t = performance.now() / 1000;
     const btnPaddingTop = 3;
     const btnPaddingRight = 3;
@@ -5504,72 +5645,16 @@ function paint($) {
   }
 
   // 📦 Paint SHOP products in top-right corner (active when slot shows "products")
-  if (topRightBtnChoice === "products") {
+  if (topRightBtnChoice === "products" && flairEnabled && productsEnabled) {
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
     const shouldShow = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
     products.paint({ ...$, login, signup }, $.screen, shouldShow);
   }
 
-  // 🟢 KidLisp mode border effect (full window border with scrolling dots)
-  // Only show when prompt is focused (canType is true)
+  // 🟢 KidLisp mode — show the "Edit on KidLisp.com" button when focused.
+  // (The animated scrolling-dot edge border was removed.)
   const isKidlispMode = $.system?.prompt?.actualKidlisp;
   if (isKidlispMode && $.system.prompt.input.canType) {
-    const activeProduct = products.getActiveProduct();
-    const rotation = activeProduct ? activeProduct.rotation : 0;
-
-    // Animated offset for scrolling effect
-    const scrollOffset = Math.floor(rotation * 0.5) % 4; // Scroll 4 pixel cycle (matches spacing)
-
-    // Cycle through vibrant colors
-    const colorPhase = (rotation * 0.1) % 6;
-    const colors = [
-      [100, 255, 100], // Bright green (primary for kidlisp)
-      [100, 255, 255], // Cyan
-      [100, 200, 255], // Sky blue
-      [200, 100, 255], // Purple
-      [255, 100, 200], // Pink
-      [255, 255, 100], // Yellow
-    ];
-
-    const currentColorIndex = Math.floor(colorPhase);
-    const nextColorIndex = (currentColorIndex + 1) % colors.length;
-    const blend = colorPhase - currentColorIndex;
-
-    // Blend between current and next color
-    const currentColor = colors[currentColorIndex];
-    const nextColor = colors[nextColorIndex];
-    const blendedColor = [
-      Math.floor(currentColor[0] * (1 - blend) + nextColor[0] * blend),
-      Math.floor(currentColor[1] * (1 - blend) + nextColor[1] * blend),
-      Math.floor(currentColor[2] * (1 - blend) + nextColor[2] * blend),
-    ];
-
-    // Pulsing alpha
-    const pulseAlpha = Math.floor(Math.sin(rotation * 0.12) * 60 + 140); // 80-200 range
-
-    // Draw solid dotted border around entire screen (all dots filled)
-    const dotSpacing = 4; // Pixels between dots
-    const dotSize = 1; // 1 pixel dots
-
-    // Top border
-    for (let x = 0; x < screen.width; x += dotSpacing) {
-      ink(...blendedColor, pulseAlpha).box((x + scrollOffset) % screen.width, 0, dotSize, dotSize);
-    }
-
-    // Bottom border
-    for (let x = 0; x < screen.width; x += dotSpacing) {
-      ink(...blendedColor, pulseAlpha).box((x + scrollOffset) % screen.width, screen.height - dotSize, dotSize, dotSize);
-    }
-
-    // Left border
-    for (let y = 0; y < screen.height; y += dotSpacing) {
-      ink(...blendedColor, pulseAlpha).box(0, (y + scrollOffset) % screen.height, dotSize, dotSize);
-    }
-
-    // Right border
-    for (let y = 0; y < screen.height; y += dotSpacing) {
-      ink(...blendedColor, pulseAlpha).box(screen.width - dotSize, (y + scrollOffset) % screen.height, dotSize, dotSize);
-    }
 
     // 🟢 KidLisp.com button centered at bottom (between paste and enter buttons)
     const kidlispBtnText = "Edit on KidLisp.com";
@@ -5665,12 +5750,60 @@ function paint($) {
     }
   }
 
+  // 🎹 Notepat button — shown only while the prompt is active (typing), centered
+  // at the bottom between the paste and enter buttons, like the KidLisp.com
+  // button above. Hidden on the attract screen, and in KidLisp mode (which uses
+  // the same slot). Tapping it jumps to the `notepat` piece.
+  if ($.system.prompt.input?.canType && !isKidlispMode) {
+    const notepatLabel = "        notepat"; // leading spaces reserve the piano icon
+    const notepatTextWidth = $.text.box(
+      notepatLabel, undefined, undefined, undefined, undefined, "MatrixChunky8",
+    ).box.width;
+    const notepatWidth = notepatTextWidth + 4; // padL + padR
+    const pasteBox = $.system.prompt.input?.paste?.btn?.box;
+    const enterBox = $.system.prompt.input?.enter?.btn?.box;
+    let npX, npY;
+    if (pasteBox && enterBox) {
+      const gapCenter = (pasteBox.x + pasteBox.w + enterBox.x) / 2;
+      npX = Math.floor(gapCenter - notepatWidth / 2);
+      npY = pasteBox.y;
+    } else {
+      npX = Math.floor(screen.width / 2 - notepatWidth / 2);
+      npY = screen.height - 18;
+    }
+    if (!notepatBtn) {
+      notepatBtn = new $.ui.TextButtonSmall(notepatLabel, { x: npX, y: npY });
+      notepatBtn.stickyScrubbing = true;
+    } else {
+      notepatBtn.reposition({ x: npX, y: npY }, notepatLabel);
+      notepatBtn.btn.disabled = false;
+    }
+    notepatBtn.btn.box.w = notepatWidth; // tighten to the real proportional width
+    const nBox = notepatBtn.btn.box;
+    const nHover = notepatBtn.btn.over && !notepatBtn.btn.down;
+    // Borderless: outline color matches the fill so no edge is drawn.
+    const notepatColors = nHover
+      ? [[50, 30, 55, 180], [50, 30, 55, 180], 235, [50, 30, 55, 180]]
+      : [[28, 20, 34, 150], [28, 20, 34, 150], 220, [28, 20, 34, 150]];
+    notepatBtn.paint($, notepatColors);
+    // 11×7 piano icon (3 white keys, 2 black keys), frameless.
+    const ix = nBox.x + 3;
+    const iy = nBox.y + 2;
+    ink(225, 225, 232).box(ix, iy, 11, 7, "fill");
+    ink(40, 30, 50).line(ix + 3, iy + 3, ix + 3, iy + 6);
+    ink(40, 30, 50).line(ix + 7, iy + 3, ix + 7, iy + 6);
+    ink(30, 20, 40).box(ix + 2, iy, 3, 4, "fill");
+    ink(30, 20, 40).box(ix + 6, iy, 3, 4, "fill");
+  } else if (notepatBtn) {
+    notepatBtn.btn.disabled = true;
+  }
+
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
-  if (showLoginCurtain) {
+  if (showLoginCurtain && flairEnabled) {
     const activeProduct = products.getActiveProduct();
     const rotation = activeProduct ? activeProduct.rotation : 0;
 
-    {
+    if (false) { // dashed top-left polychrome border — removed
       // Pink/purple/green gradient border
       // Cycle through pink, purple, green phases
       const colorPhase = (rotation * 0.08) % 3;
@@ -5729,74 +5862,8 @@ function paint($) {
       }
     }
 
-    // 🎆 Spawn particles from the cursor position and draw cursor overlay
+    // (Cursor particles removed.)
     const input = $.system.prompt.input;
-    if (input?.prompt) {
-      const cursorPos = input.prompt.pos(undefined, true);
-
-      if (cursorPos && cursorPos.x !== undefined && cursorPos.y !== undefined) {
-        // Spawn particles 30% of the time
-        if (Math.random() < 0.3) {
-          // Match cursor color - green for kidlisp, theme color otherwise
-          const isDark = $.dark;
-          const isKidlisp = $.system?.prompt?.actualKidlisp;
-          let particleColor;
-
-          // Every few particles (20% chance), use a bright primary color
-          if (Math.random() < 0.2) {
-            const brightColors = [
-              [255, 0, 0],     // Red
-              [255, 255, 0],   // Yellow
-              [0, 255, 0],     // Green
-              [0, 255, 255],   // Cyan
-              [0, 0, 255],     // Blue
-              [255, 0, 255],   // Magenta
-            ];
-            particleColor = brightColors[Math.floor(Math.random() * brightColors.length)];
-          } else if (isKidlisp) {
-            // Green for kidlisp - brighter in light mode
-            particleColor = isDark ? [100, 255, 100] : [0, 200, 0];
-          } else {
-            // Use palette block color or fallback to theme text color
-            // In light mode, make particles more vibrant
-            const blockColor = input.pal?.block || (isDark ? [255, 255, 255] : [0, 0, 0]);
-            if (isDark) {
-              particleColor = Array.isArray(blockColor) ? blockColor.slice(0, 3) : [255, 255, 255];
-            } else {
-              // Light mode: boost saturation for more vibrant particles
-              particleColor = Array.isArray(blockColor) ? blockColor.slice(0, 3).map(c => Math.min(255, c * 1.5)) : [255, 0, 255];
-            }
-          }
-
-          cornerParticles.push({
-            x: cursorPos.x + Math.random() * cursorPos.w, // Spawn across bottom of cursor box
-            y: cursorPos.y + cursorPos.h, // Start at bottom of cursor
-            vx: (Math.random() - 0.5) * 0.5, // Minimal horizontal drift
-            vy: Math.random() * 1.5 + 0.5, // Longer vertical fall (0.5-2 pixels per frame)
-            life: 1.0, // Full life
-            color: particleColor,
-            size: 1, // Always 1 pixel
-          });
-        }
-      }
-    }
-
-    // Update and draw particles
-    cornerParticles = cornerParticles.filter(p => {
-      // Update position
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life -= 0.02; // Fade out
-
-      // Draw particle
-      if (p.life > 0) {
-        const alpha = Math.floor(p.life * 200);
-        ink(...p.color, alpha).box(p.x, p.y, p.size, p.size);
-      }
-
-      // Keep particle if still alive
-      return p.life > 0;
-    });
 
     // 💡 Draw semi-transparent ghost cursor when curtain is up
     if (input?.prompt) {
@@ -5820,220 +5887,10 @@ function paint($) {
         // Draw on layer 3 to ensure it's above everything else on the curtain
         $.layer(3);
 
-        // Draw animated primary color gradient outline (smooth wave pattern)
-        const waveOffset = motdFrame * 0.05; // Slow smooth animation
-        // Oscillate opacity for blinking effect
-        const opacityOscillation = Math.sin(motdFrame * 0.08) * 20 + 40; // 20-60 range
-        const primaryColors = [
-          [255, 0, 0],     // Red
-          [255, 255, 0],   // Yellow
-          [0, 255, 0],     // Green
-          [0, 255, 255],   // Cyan
-          [0, 0, 255],     // Blue
-          [255, 0, 255],   // Magenta
-        ];
-
-        // Top edge
-        for (let x = cursorPos.x - 1; x < cursorPos.x + cursorPos.w + 1; x++) {
-          const wave = (x + waveOffset) * 0.3;
-          const colorIndex = Math.floor(wave) % primaryColors.length;
-          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
-          const blend = wave - Math.floor(wave);
-
-          const color = primaryColors[colorIndex];
-          const nextColor = primaryColors[nextColorIndex];
-          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
-          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
-          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-
-          ink(r, g, b, opacityOscillation).box(x, cursorPos.y - 1, 1, 1);
-        }
-
-        // Bottom edge
-        for (let x = cursorPos.x - 1; x < cursorPos.x + cursorPos.w + 1; x++) {
-          const wave = (x + waveOffset) * 0.3;
-          const colorIndex = Math.floor(wave) % primaryColors.length;
-          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
-          const blend = wave - Math.floor(wave);
-
-          const color = primaryColors[colorIndex];
-          const nextColor = primaryColors[nextColorIndex];
-          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
-          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
-          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-
-          ink(r, g, b, opacityOscillation).box(x, cursorPos.y + cursorPos.h, 1, 1);
-        }
-
-        // Left edge
-        for (let y = cursorPos.y - 1; y < cursorPos.y + cursorPos.h + 1; y++) {
-          const wave = (y + waveOffset) * 0.3;
-          const colorIndex = Math.floor(wave) % primaryColors.length;
-          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
-          const blend = wave - Math.floor(wave);
-
-          const color = primaryColors[colorIndex];
-          const nextColor = primaryColors[nextColorIndex];
-          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
-          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
-          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-
-          ink(r, g, b, opacityOscillation).box(cursorPos.x - 1, y, 1, 1);
-        }
-
-        // Right edge
-        for (let y = cursorPos.y - 1; y < cursorPos.y + cursorPos.h + 1; y++) {
-          const wave = (y + waveOffset) * 0.3;
-          const colorIndex = Math.floor(wave) % primaryColors.length;
-          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
-          const blend = wave - Math.floor(wave);
-
-          const color = primaryColors[colorIndex];
-          const nextColor = primaryColors[nextColorIndex];
-          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
-          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
-          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
-
-          ink(r, g, b, opacityOscillation).box(cursorPos.x + cursorPos.w, y, 1, 1);
-        }
 
         // Draw filled cursor box with subtle transparency (no outline)
         ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
 
-        // 🎯 TAP/TOUCH/TYPE vertical label with black box pointing to cursor
-        // Shows cycling action words with bounce animation and color cycling
-        if (input.text === "" && !input.canType) {
-          const isDark = $.dark;
-          const now = performance.now();
-
-          // Update animation frame counter
-          if (!lastLanguageChangeTime) lastLanguageChangeTime = now;
-          const deltaTime = (now - lastLanguageChangeTime) / 1000;
-          lastLanguageChangeTime = now;
-          promptLanguageChangeFrame += deltaTime * 60;
-
-          // Position reference near cursor
-          const textY = cursorPos.y + cursorPos.h + 4;
-
-          // High contrast polychrome colors - cycle through vibrant colors
-          const textColorCycle = isDark ? [
-            [255, 100, 255], // Bright magenta
-            [100, 255, 255], // Bright cyan
-            [255, 255, 100], // Bright yellow
-            [100, 255, 100], // Bright green
-            [255, 150, 100], // Bright orange
-            [255, 100, 150], // Bright pink
-          ] : [
-            [255, 0, 255],   // Pure magenta
-            [0, 255, 255],   // Pure cyan
-            [255, 255, 0],   // Pure yellow
-            [0, 255, 0],     // Pure green
-            [255, 128, 0],   // Pure orange
-            [255, 0, 128],   // Pure pink
-          ];
-
-          // Vertical action text on LEFT side of screen - ROTATED
-          const actionPhrases = ["tap 2 prompt", "touch 2 prompt", "type to prompt"];
-          const actionIndex = Math.floor(promptLanguageChangeFrame / 60) % actionPhrases.length;
-          // Jumble casing per-character for attention
-          let actionText = "";
-          const phrase = actionPhrases[actionIndex];
-          for (let ci = 0; ci < phrase.length; ci++) {
-            const ch = phrase[ci];
-            // Use a time-varying seed per character for animated case jumbling
-            const caseSeed = Math.sin(promptLanguageChangeFrame * 0.12 + ci * 1.7);
-            actionText += caseSeed > 0 ? ch.toUpperCase() : ch.toLowerCase();
-          }
-
-          // Bounce animation - subtle up and down movement
-          const bounceOffset = Math.sin(promptLanguageChangeFrame * 0.1) * 3;
-
-          // Calculate text dimensions for background
-          const verticalTextWidth = actionText.length * 4; // MatrixChunky8 width per char
-          const verticalTextHeight = 8; // MatrixChunky8 height
-
-          // Position flush to left side
-          const leftMargin = 5;
-          const verticalTextX = leftMargin;
-
-          // Position label box below cursor with triangle tip
-          const arrowHeight = 10;
-          const arrowTipY = textY + 3;
-          const bgX = leftMargin - 1;
-          const arrowTipYWithBounce = arrowTipY + bounceOffset;
-          const bgYWithBounce = arrowTipYWithBounce + arrowHeight;
-          const verticalBgWidth = verticalTextHeight + 1;
-          const verticalBgHeight = verticalTextWidth + 7;
-
-          // Position text inside the box (accounting for rotation)
-          const verticalTextY = bgYWithBounce + verticalTextWidth + 1 + bounceOffset;
-
-          // Draw black label box with triangle tip pointing up
-          ink(0, 0, 0, 200).shape([
-            [bgX, bgYWithBounce],
-            [bgX, arrowTipYWithBounce],
-            [bgX + verticalBgWidth, bgYWithBounce],
-            [bgX + verticalBgWidth, bgYWithBounce + verticalBgHeight],
-            [bgX, bgYWithBounce + verticalBgHeight],
-            [bgX, bgYWithBounce]
-          ]);
-
-          // Draw white text with flickering per-character brightness
-          let flickeringText = "";
-          for (let i = 0; i < actionText.length; i++) {
-            const char = actionText[i];
-            const flickerSeed = Math.sin((promptLanguageChangeFrame * 0.15) + (i * 0.5));
-            const brightness = Math.floor(200 + flickerSeed * 55);
-            flickeringText += `\\${brightness},${brightness},${brightness}\\${char}`;
-          }
-
-          ink(255, 255, 255, 150).write(flickeringText, {
-            x: verticalTextX,
-            y: verticalTextY,
-            rotation: 270
-          }, undefined, undefined, false, "MatrixChunky8");
-
-          // Color cycling for cursor overlay
-          const blinkColorIndex = Math.floor(promptLanguageChangeFrame * 0.05) % textColorCycle.length;
-
-          // Blinking overlay on the cursor block - magic jewel/gem effect
-          const blinkSpeed = Math.sin(promptLanguageChangeFrame * 0.08);
-          const blinkAlpha = isDark
-            ? Math.floor((blinkSpeed + 1) * 60 + 60)
-            : Math.floor((blinkSpeed + 1) * 80 + 100);
-
-          // Rhythmic subdivision pattern - changes every 30 frames
-          const patternPhase = Math.floor(promptLanguageChangeFrame / 30) % 4;
-          let cols, rows;
-
-          if (patternPhase === 0) {
-            cols = 2; rows = 2;
-          } else if (patternPhase === 1) {
-            cols = 4; rows = 2;
-          } else if (patternPhase === 2) {
-            cols = 2; rows = 4;
-          } else {
-            cols = 3; rows = 3;
-          }
-
-          const cellWidth = cursorPos.w / cols;
-          const cellHeight = cursorPos.h / rows;
-
-          for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-              const isCheckerSquare = ((col + row + Math.floor(promptLanguageChangeFrame / 20)) % 2 === 0);
-              if (isCheckerSquare) {
-                const squareColorIndex = (blinkColorIndex + col + row) % textColorCycle.length;
-                const squareColor = [...textColorCycle[squareColorIndex], blinkAlpha];
-                const cellX = cursorPos.x + Math.floor(col * cellWidth);
-                const cellY = cursorPos.y + Math.floor(row * cellHeight);
-                const cellW = Math.floor(cellWidth);
-                const cellH = Math.floor(cellHeight);
-                ink(...squareColor).box(cellX, cellY, cellW, cellH);
-              }
-            }
-          }
-        }
 
         // Reset to default layer
         $.layer(1);
@@ -6042,15 +5899,15 @@ function paint($) {
   }
 
   if (showLoginCurtain) {
-    // Paint current status color.
-    // if (!$.system.prompt.input.canType) {
-    starfield.paint($, {
-      alpha: $.dark ? 0.3 : 0.9,
-      color: $.hud.currentStatusColor() || [255, 0, 200],
-    });
+    // Starfield — hidden.
+    if (false)
+      starfield.paint($, {
+        alpha: $.dark ? 0.3 : 0.9,
+        color: $.hud.currentStatusColor() || [255, 0, 200],
+      });
 
-    // Spinning wireframe cube
-    {
+    // Spinning wireframe cube — hidden.
+    if (false) {
       const cx = screen.width / 2;
       const cy = screen.height / 2;
       const size = min(screen.width, screen.height) * 0.08;
@@ -6347,7 +6204,8 @@ function paint($) {
 
     // 📦 Commit hash button - shows version status / update availability
     // Hide commits button when KidLisp button is active (they share the same screen area)
-    if (versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
+    // Also part of flair — hidden (along with the notepat button) when flair is off.
+    if (flairEnabled && versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
       const commitText = updateAvailable
         ? `update to ${versionInfo.deployed}`
         : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
@@ -6421,76 +6279,6 @@ function paint($) {
                 ];
         commitBtn.paint($, colors);
 
-        // 🎹 Notepat shortcut button — sits to the right of the commit button,
-        // but stacks above it on narrow screens (phones) when the pair would
-        // collide with the TextInput's Enter button.
-        // Leading spaces reserve room for the piano icon we draw afterward.
-        // MatrixChunky8 space advance = 2px (proportional), padL = 2px ⇒ text
-        // starts at box.x + 2 + 2*spaces. Icon frame (13×9) ends at box.x + 14,
-        // so 8 spaces (x+18) leaves a 3px gap after the frame.
-        const notepatLabel = "        notepat";
-        // TextButtonSmall sizes the box as label.length * 4, but MatrixChunky8
-        // is proportional (spaces advance only 2px), so the button overshoots.
-        // Measure the actual rendered width and tighten the box below.
-        const notepatTextWidth = $.text.box(
-          notepatLabel, undefined, undefined, undefined, undefined, "MatrixChunky8",
-        ).box.width;
-        const notepatWidth = notepatTextWidth + 4; // padL + padR
-        const notepatHeight = 7 + 2 * 2; // ch=7, padY*2
-        const pairGap = 4;
-        const stackedGap = 10; // breathing room between stacked notepat and commit
-        const enterBoxForStack = $.system.prompt.input?.enter?.btn?.box;
-        const pasteBoxForStack = $.system.prompt.input?.paste?.btn?.box;
-        // Commit is centered; pair extends rightward by pairGap + notepatWidth.
-        const pairRightEdge = (screen.width + cBox.w) / 2 + pairGap + notepatWidth;
-        const pairLeftEdge = (screen.width - cBox.w) / 2;
-        const rightLimit = enterBoxForStack ? enterBoxForStack.x - 4 : screen.width - 4;
-        const leftLimit = pasteBoxForStack ? pasteBoxForStack.x + pasteBoxForStack.w + 4 : 4;
-        const stackVertically = pairRightEdge > rightLimit || pairLeftEdge < leftLimit;
-        const notepatPos = stackVertically
-          ? { center: "x", y: buttonY - notepatHeight - stackedGap, screen }
-          : { x: cBox.x + cBox.w + pairGap, y: buttonY };
-        if (!notepatBtn) {
-          notepatBtn = new $.ui.TextButtonSmall(notepatLabel, notepatPos);
-        } else {
-          notepatBtn.reposition(notepatPos, notepatLabel);
-          notepatBtn.btn.disabled = false;
-        }
-        // Shrink the box to the real text width and re-center when stacked.
-        notepatBtn.btn.box.w = notepatWidth;
-        if (stackVertically) {
-          notepatBtn.btn.box.x = Math.floor((screen.width - notepatWidth) / 2);
-        }
-        const nBox = notepatBtn.btn.box;
-        const nHover = notepatBtn.btn.over && !notepatBtn.btn.down;
-        const notepatColors = nHover
-          ? [
-              [50, 30, 55, 180],   // fill: brighter plum on hover
-              [130, 80, 150, 200], // outline: pink/purple
-              235,                 // text alpha
-              [50, 30, 55, 180],
-            ]
-          : [
-              [28, 20, 34, 150],   // fill: dark plum
-              [90, 60, 110, 160],  // outline: muted purple
-              220,                 // text alpha
-              [28, 20, 34, 150],
-            ];
-        notepatBtn.paint($, notepatColors);
-
-        // 11×7 piano icon (3 white keys, 2 black keys) with a 13×9 frame.
-        const ix = nBox.x + 3;
-        const iy = nBox.y + 2;
-        // White keys base
-        $.ink(225, 225, 232).box(ix, iy, 11, 7, "fill");
-        // Key dividers between white keys
-        $.ink(40, 30, 50).line(ix + 3, iy + 3, ix + 3, iy + 6);
-        $.ink(40, 30, 50).line(ix + 7, iy + 3, ix + 7, iy + 6);
-        // Two black keys on top
-        $.ink(30, 20, 40).box(ix + 2, iy, 3, 4, "fill");
-        $.ink(30, 20, 40).box(ix + 6, iy, 3, 4, "fill");
-        // Frame
-        $.ink(notepatColors[1]).box(ix - 1, iy - 1, 13, 9, "outline");
       }
       versionCommit = versionInfo.deployed;
     } else {
@@ -7378,28 +7166,65 @@ function paint($) {
     }
   }
 
-  // 📊 FPS Meter - tiny display in bottom-right corner
-  if (showFpsMeter) {
-    const fpsText = `${currentFps}`;
-    const fpsColor = currentFps >= 55 ? [0, 200, 100, 200] :
-                     currentFps >= 30 ? [255, 200, 0, 200] : [255, 60, 60, 200];
-    // Draw background pill
-    const textWidth = fpsText.length * 6;
-    $.ink(0, 0, 0, 150).box(screen.width - textWidth - 8, screen.height - 12, textWidth + 6, 10);
-    // Draw FPS text
-    $.ink(fpsColor).write(fpsText, { x: screen.width - textWidth - 5, y: screen.height - 11 }, undefined, undefined, false, "MatrixChunky8");
+  // 📊 FPS Meter - own backtick (`) toggle, independent of flair; hides while the
+  // prompt is focused (typing). Uses the same padding metrics as the version /
+  // notepat TextButtonSmall buttons (2px pad, 11px tall). Sits to the left of the
+  // version button when it's present; when flair is off (version button hidden)
+  // it auto-centers where that button sat. While still loading (flair on but the
+  // version button hasn't appeared yet) it stays hidden rather than flashing.
+  {
+    const canType = $.system.prompt.input?.canType;
+    const cBox = commitBtn && !commitBtn.btn.disabled ? commitBtn.btn.box : null;
+    if (showFpsMeter && !canType && (cBox || !flairEnabled)) {
+      const fpsText = `${currentFps} fps`;
+      const fpsColor = currentFps >= 55 ? [0, 200, 100, 220] :
+                       currentFps >= 30 ? [255, 200, 0, 220] : [255, 60, 60, 220];
+      const fpsTextWidth = $.text.box(
+        fpsText, undefined, undefined, undefined, undefined, "MatrixChunky8",
+      ).box.width;
+      const padX = 2, padY = 2, ch = 7;     // TextButtonSmall metrics
+      const boxW = fpsTextWidth + padX * 2;
+      const boxH = ch + padY * 2;           // 11
+      let boxX, boxY;
+      if (cBox) {
+        boxX = cBox.x - 4 - boxW;           // 4px gap before the version button
+        boxY = cBox.y;
+      } else {
+        // Flair off → version button gone; auto-center where it sat.
+        boxX = Math.floor((screen.width - boxW) / 2);
+        boxY = screen.height - 20;          // same baseline as the version button
+      }
+      $.ink(0, 0, 0, 150).box(boxX, boxY, boxW, boxH);
+      $.ink(fpsColor).write(fpsText, { x: boxX + padX, y: boxY + padY }, undefined, undefined, false, "MatrixChunky8");
+    }
   }
 
   // 🏷️ Dev Mode indicator - TEMPORARILY DISABLED for debugging
   // TODO: Re-enable once black box source is identified
 
-  // 🔍 Paint @handle autocomplete dropdown (last, so it renders on top of everything)
-  if (handleAutocomplete?.visible && $.system.prompt.input?.canType) {
+  // 🔍 Paint the inline suggestion list directly under what's typed — only in
+  // filter mode (a partial query). In history mode the arrows scrub history and
+  // no list is shown.
+  if (
+    handleAutocomplete?.visible &&
+    $.system.prompt.input?.canType &&
+    inFilterMode($)
+  ) {
     const prompt = $.system.prompt.input?.prompt;
-    const cursorPos = prompt?.pos?.(undefined, true);
+    const caret = prompt?.pos?.(undefined, true); // current caret (for y/line)
+    const lineStart = prompt?.pos?.({ x: 0, y: 0 }); // left edge of the text
     handleAutocomplete.paint(
-      { ink, write: (t, opts) => ink().write(t, opts), box: (x, y, w, h, style) => ink().box(x, y, w, h, style), screen },
-      { x: cursorPos?.x ?? 10, y: (cursorPos?.y ?? 10) + 12 }
+      {
+        ink,
+        write: (t, opts, ...rest) => ink().write(t, opts, ...rest),
+        box: (x, y, w, h, style) => ink().box(x, y, w, h, style),
+        screen,
+      },
+      {
+        x: lineStart?.x ?? caret?.x ?? 10,
+        y: (caret?.y ?? 10) + 14,
+        inline: true,
+      },
     );
   }
 
@@ -7500,8 +7325,68 @@ function paint($) {
     }
   }
 
+  // 💭 The little thinker — shown while the helper composes a reply.
+  if ($.system.prompt?.thinking) paintThinkingGuy($);
+
   $.layer(0); // Return to the bottom layer.
   return false;
+}
+
+// 💭 A small character drawn entirely from primitives who ponders while the
+// prompt's LLM helper is composing a reply. Eyes glance up, a brow raises, and
+// a trail of thought-bubbles rises with cycling "…" dots.
+function paintThinkingGuy($) {
+  const { ink, screen, dark } = $;
+  const paintCount = Number($.paintCount || 0n); // paintCount is a BigInt.
+  const cx = floor(screen.width / 2);
+  const cy = floor(screen.height / 2);
+  const r = 13; // Head radius.
+
+  const bob = round(sin(paintCount / 18) * 2); // Gentle vertical bob.
+  const hy = cy + bob;
+
+  const stroke = dark ? [150, 200, 255] : [40, 90, 180];
+  const fill = dark ? [20, 30, 60] : [220, 230, 255];
+
+  // Head.
+  ink(fill).circle(cx, hy, r, true);
+  ink(stroke).circle(cx, hy, r, false);
+
+  // Eyes — glancing up while pondering.
+  ink(stroke).circle(cx - 5, hy - 3, 1, true);
+  ink(stroke).circle(cx + 3, hy - 3, 1, true);
+
+  // Quizzical brows.
+  ink(stroke).line(cx - 8, hy - 7, cx - 2, hy - 8);
+  ink(stroke).line(cx + 1, hy - 8, cx + 7, hy - 6);
+
+  // Small pursed mouth, off to one side.
+  ink(stroke).line(cx - 2, hy + 5, cx + 4, hy + 6);
+
+  // Thought-bubbles rising up to the right, revealed in sequence.
+  const step = floor(paintCount / 16) % 4; // 0..3
+  const bubbles = [
+    [cx + r + 1, hy - r + 4, 1],
+    [cx + r + 6, hy - r - 2, 2],
+    [cx + r + 14, hy - r - 11, 4],
+  ];
+  bubbles.forEach(([bx, by, br], i) => {
+    if (step > i) {
+      ink(fill).circle(bx, by, br, true);
+      ink(stroke).circle(bx, by, br, false);
+    }
+  });
+
+  // Cycling "…" inside the big cloud once it appears.
+  if (step > 2) {
+    const [bx, by] = bubbles[2];
+    const lit = floor(paintCount / 10) % 4; // 0..3 dots lit
+    for (let d = 0; d < 3; d++) {
+      if (d < lit) ink(stroke).box(bx - 2 + d * 2, by, 1, 1);
+    }
+  }
+
+  $.needsPaint(); // Keep the animation ticking while thinking.
 }
 
 // 🧮 Sim
@@ -7542,10 +7427,14 @@ function sim($) {
   // a universal-search result — so typing a command + Enter still RUNS it.
   if ($.system.prompt.input) {
     const ac = handleAutocomplete;
+    const filter = inFilterMode($); // partial query → filter list owns arrows
     const acVisible = !!(ac?.visible && ac.items.length > 0);
+    const acActive = filter && acVisible; // list is shown + captures arrows
     const lockEnter =
-      acVisible && (ac.activeTrigger !== "" || ac.navigated);
-    $.system.prompt.input.skipHistory = acVisible;
+      acActive && (ac.activeTrigger !== "" || ac.navigated);
+    // In filter mode the arrows drive the list, never history; when empty or on
+    // an exact history match, history takes them back.
+    $.system.prompt.input.skipHistory = filter;
     $.system.prompt.input.skipEnter = lockEnter;
   }
 
@@ -7581,7 +7470,8 @@ function sim($) {
     $.sound.speaker.poll();
   }
 
-  if (theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
+  // Starfield sim — hidden (no update, no forced repaint).
+  if (false && flairEnabled && starsEnabled && theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
     starfield.sim($);
     $.needsPaint();
   }
@@ -7608,7 +7498,7 @@ function sim($) {
       (!login && !profile?.btn.disabled);
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
     const shouldShow = showLoginCurtainSim && !$.system.prompt.input.canType && !promptHasContent;
-    if (shouldShow) {
+    if (shouldShow && flairEnabled && productsEnabled) {
       if (topRightBtnChoice === "products") {
         const product = products.getActiveProduct();
         if (product && product.imageScaled) {
@@ -8420,18 +8310,27 @@ function act({
     }
   }
 
-  // 🔍 @handle autocomplete keyboard handling
-  if (handleAutocomplete?.visible && handleAutocomplete.items.length > 0) {
-    // Arrow up/down to navigate
+  // 🔍 @handle autocomplete keyboard handling — only when the filter list owns
+  // the arrows (partial query). In history mode the arrows fall through to the
+  // TextInput's history scrub instead.
+  if (
+    inFilterMode(api) &&
+    handleAutocomplete?.visible &&
+    handleAutocomplete.items.length > 0
+  ) {
+    // Arrow up/down to navigate. Mark `navigated` so Enter completes/opens the
+    // highlighted row (universal results otherwise let Enter run the command).
     if (e.is("keyboard:down:arrowup")) {
       handleAutocomplete.selectedIndex = handleAutocomplete.selectedIndex > 0
         ? handleAutocomplete.selectedIndex - 1
         : handleAutocomplete.items.length - 1;
+      handleAutocomplete.navigated = true;
       needsPaint();
       return; // Consume event
     }
     if (e.is("keyboard:down:arrowdown")) {
       handleAutocomplete.selectedIndex = (handleAutocomplete.selectedIndex + 1) % handleAutocomplete.items.length;
+      handleAutocomplete.navigated = true;
       needsPaint();
       return; // Consume event
     }
@@ -8445,6 +8344,11 @@ function act({
       e.is("keyboard:down:tab") ||
       (e.is("keyboard:down:enter") && !universalNoNav);
     if (completeKey && handleAutocomplete.selected) {
+      // Message rows (chat/mood) open full screen instead of completing text.
+      if (openMessageFromSelection(api, handleAutocomplete.selected)) {
+        needsPaint();
+        return;
+      }
       const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
       const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
       // Trailing space only after @handles (so you can keep typing a piece);
@@ -8465,10 +8369,19 @@ function act({
     }
   }
 
-  // 🔍 @handle autocomplete pointer/mouse handling
-  if (handleAutocomplete?.visible && handleAutocomplete.items.length > 0) {
+  // 🔍 @handle autocomplete pointer/mouse handling (filter mode only)
+  if (
+    inFilterMode(api) &&
+    handleAutocomplete?.visible &&
+    handleAutocomplete.items.length > 0
+  ) {
     const result = handleAutocomplete.handlePointer(e);
     if (result.clicked) {
+      // Message rows (chat/mood) open full screen instead of completing text.
+      if (openMessageFromSelection(api, result.clicked)) {
+        needsPaint();
+        return;
+      }
       // Item was clicked - complete with the clicked item
       const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
       const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
@@ -8556,9 +8469,16 @@ function act({
 
   // 💾 Piece / disk loading
   if (e.is("load-error")) {
-    makeFlash(api, false);
-    flashColor = [255, 0, 0];
-    if (MetaBrowser) api.system.prompt.input.canType = false;
+    // A "not found" (404/403) entry isn't an error — it falls through to the
+    // LLM helper for a "did you mean…?" reply, so skip the red error blink.
+    // Genuine load/compile failures in an existing piece still flash red.
+    const msg = e.error?.message;
+    const notFound = msg === "404" || msg === "403";
+    if (!notFound) {
+      makeFlash(api, false);
+      flashColor = [255, 0, 0];
+      if (MetaBrowser) api.system.prompt.input.canType = false;
+    }
     needsPaint();
   }
 
@@ -8667,7 +8587,10 @@ export {
   leave,
 };
 
-export const system = "prompt:character"; // or "prompt:code"
+// `prompt:character:<model>` — the suffix routes the not-found fallback reply
+// through a specific model (see `ask.js`). gpt-4o gives smarter, current
+// "did you mean…?" help than the old gpt-4o-mini default.
+export const system = "prompt:character:gpt-4o"; // or "prompt:code"
 
 // Prompt configuration overrides.
 export const wrap = "word"; // or "char"

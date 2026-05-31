@@ -15,6 +15,8 @@
     "test:browser": "node tests/browser/prompt-search.test.mjs",
     "test:browser:headed": "AC_HEADED=1 AC_SLOWMO=60 node tests/browser/prompt-search.test.mjs",
     "test:browser:local": "AC_TEST_URL=https://localhost:8888 node tests/browser/prompt-search.test.mjs",
+    "test:flair-fps": "AC_TEST_URL=https://localhost:8888 node tests/browser/flair-fps.test.mjs",
+    "test:flair-fps:headed": "AC_HEADED=1 AC_TEST_URL=https://localhost:8888 node tests/browser/flair-fps.test.mjs",
     "test:kidlisp": "nodemon --watch spec --watch '**/*.lisp' --exec 'jasmine'",
     "test:kidlisp:direct": "jasmine",
     "test:kidlisp-wasm:audio": "jasmine spec/kidlisp-wasm-sonic-spec.mjs",

@@ -1448,11 +1448,14 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug, sound }) {
+function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug, sound, glaze }) {
   penLock();
   FormRef = Form;
   paintingRef = painting;
   soundRef = sound;
+
+  // ✨ Volumetric glaze post-effect (defaults to the `prompt` shader set).
+  glaze?.({ on: true });
 
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }

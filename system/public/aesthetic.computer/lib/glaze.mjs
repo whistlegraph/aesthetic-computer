@@ -114,7 +114,11 @@ let customProgram, computeProgram, displayProgram;
 let fb; // Frame-buffer.
 let texSurf, texFbSurfA, texFbSurfB; // Original aesthetic.computer surface texture,
 // in addition to a double-buffer.
-let texSurfWidth, texSurfHeight;
+let texSurfWidth, texSurfHeight; // Source content resolution (the AC pixel buffer).
+// Post-processing render resolution. The raymarch/glaze passes render at this
+// size so the effect is computed per output pixel (full resolution) instead of
+// at the low source resolution and then upscaled — fixes crusty corners/edges.
+let postWidth, postHeight;
 let vao;
 
 const defaultUniformNames = [
@@ -254,6 +258,25 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   canvas.style.width = rect.width + "px";
   canvas.style.height = rect.height + "px";
 
+  // The glaze post-passes render at (near) full resolution so the raymarch is
+  // evaluated per display pixel — fixes the old low-res-buffer upscaling crust.
+  // We render at native CSS resolution (1 glaze pixel per CSS pixel) rather than
+  // canvas.width (which includes devicePixelRatio) so the heavy raymarch cost
+  // stays bounded on high-DPI / large screens; the sharp-bilinear display pass
+  // upscales the result cleanly. Capped at MAX_POST_EDGE so giant windows can't
+  // make the first post-reframe frame stall past the glaze-ready failsafe.
+  const MAX_POST_EDGE = 1920;
+  let pw = nativeWidth;
+  let ph = nativeHeight;
+  const longEdge = Math.max(pw, ph);
+  if (longEdge > MAX_POST_EDGE) {
+    const k = MAX_POST_EDGE / longEdge;
+    pw = Math.round(pw * k);
+    ph = Math.round(ph * k);
+  }
+  postWidth = Math.max(1, pw);
+  postHeight = Math.max(1, ph);
+
   // Make surface texture.
   texSurf = gl.createTexture();
 
@@ -282,12 +305,11 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  // Make fb texture.
+  // Make fb texture. The double-buffer render targets are sized to the full
+  // post-processing resolution (postWidth × postHeight), not the source
+  // resolution, so the glaze is evaluated per output pixel. They're fully
+  // rendered every frame so we allocate them with null (uninitialized) data.
   texFbSurfA = gl.createTexture();
-
-  // Temporarily fill texture with zeros.
-  const buffer2 = new Uint8Array(4 * w * h);
-  buffer2.fill(0);
 
   // Make post texture.
   texFbSurfB = gl.createTexture();
@@ -297,16 +319,18 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
     gl.TEXTURE_2D,
     0,
     gl.RGBA,
-    w,
-    h,
+    postWidth,
+    postHeight,
     0,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    buffer2,
+    null,
   );
 
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  // texFbSurfB is the texture the display pass samples. At full resolution this
+  // is a 1:1 blit, but LINEAR keeps it clean if it ever needs to scale.
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
@@ -315,16 +339,16 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
     gl.TEXTURE_2D,
     0,
     gl.RGBA,
-    w,
-    h,
+    postWidth,
+    postHeight,
     0,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    buffer2,
+    null,
   );
 
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
@@ -363,8 +387,16 @@ export async function on(
     rect.width === glaze.rect.width &&
     rect.height === glaze.rect.height
   ) {
-    // Don't reload glaze from scratch if the same one has already been loaded.
-    // Dimensions and type are identical - nothing to do.
+    // Same dimensions & type — no shader reload or texture resize needed. But if
+    // the glaze was turned off (e.g. we jumped to another piece and back), it's
+    // left hidden (offed + opacity 0). Re-show it and signal readiness so the
+    // reframe freeze-frame is released immediately instead of hanging until the
+    // 500ms failsafe — that hang was the "screen freezes when I jump back".
+    if (offed) {
+      offed = false;
+      unfreeze();
+    }
+    loaded(); // marks glazeReady + requests a fresh paint through the glaze
     return glaze;
   } else if (
     glaze &&
@@ -457,9 +489,9 @@ export function render(time, mouse) {
     0,
   );
 
-  // Resolution of custom filter.
-  // TODO: Add the option to switch to full "native" resolution mode. 2022.04.11.03.48
-  gl.viewport(0, 0, texSurfWidth, texSurfHeight);
+  // Render the raymarch/glaze at full post-processing resolution so the effect
+  // is evaluated per output pixel (no low-res upscaling crust on edges/corners).
+  gl.viewport(0, 0, postWidth, postHeight);
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texSurf);
@@ -470,7 +502,7 @@ export function render(time, mouse) {
   gl.uniform1i(customUniformLocations.iTexturePost, 1);
   gl.uniform1f(customUniformLocations.iTime, time);
   gl.uniform2f(customUniformLocations.iMouse, mouse.x, mouse.y);
-  gl.uniform2f(customUniformLocations.iResolution, texSurfWidth, texSurfHeight);
+  gl.uniform2f(customUniformLocations.iResolution, postWidth, postHeight);
 
   glaze.setCustomUniforms(customUniformLocations, gl);
 
@@ -490,7 +522,7 @@ export function render(time, mouse) {
     0,
   );
 
-  gl.viewport(0, 0, texSurfWidth, texSurfHeight);
+  gl.viewport(0, 0, postWidth, postHeight);
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texSurf);
@@ -507,8 +539,8 @@ export function render(time, mouse) {
   );
   gl.uniform2f(
     gl.getUniformLocation(computeProgram, "iResolution"),
-    texSurfWidth,
-    texSurfHeight,
+    postWidth,
+    postHeight,
   );
 
   //glaze.setComputeUniforms(computeUniformLocations, gl);

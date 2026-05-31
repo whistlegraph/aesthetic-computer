@@ -2241,32 +2241,45 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
         destX + destWidth <= width &&
         destY + destHeight <= height
       ) {
-        // Direct pixel buffer manipulation for maximum speed
+        // Direct pixel buffer manipulation for maximum speed. Opaque pixels
+        // write their scaled block straight into the destination via a Uint32
+        // view (one write per dest pixel — no color()/box() call overhead);
+        // partial-alpha pixels fall back to color()+box()/plot() so blending is
+        // preserved. Bounds are guaranteed by the outer boundary check above.
+        // Alignment-guarded; alpha is the high byte (little-endian RGBA).
+        const fastBlock =
+          (srcPixels.byteOffset & 3) === 0 && (pixels.byteOffset & 3) === 0;
+        const src32 = fastBlock
+          ? new Uint32Array(srcPixels.buffer, srcPixels.byteOffset, srcWidth * srcHeight)
+          : null;
+        const dst32 = fastBlock
+          ? new Uint32Array(pixels.buffer, pixels.byteOffset, width * height)
+          : null;
         for (let srcY = 0; srcY < srcHeight; srcY += 1) {
           for (let srcX = 0; srcX < srcWidth; srcX += 1) {
             const srcIndex = (srcX + srcY * srcWidth) << 2; // Fast * 4
+            if (srcIndex >= srcPixels.length) continue;
 
-            if (srcIndex < srcPixels.length) {
-              // Extract color data directly
-              const r = srcPixels[srcIndex];
-              const g = srcPixels[srcIndex + 1];
-              const b = srcPixels[srcIndex + 2];
-              const a = srcPixels[srcIndex + 3];
+            const a = srcPixels[srcIndex + 3];
+            if (a === 0) continue; // skip transparent
 
-              // Skip transparent pixels for efficiency
-              if (a > 0) {
-                const baseDestX = destX + srcX * scaleInt;
-                const baseDestY = destY + srcY * scaleInt;
+            const baseDestX = destX + srcX * scaleInt;
+            const baseDestY = destY + srcY * scaleInt;
 
-                // Set color once and draw scaled block
-                color(r, g, b, a);
-
-                // Use box for efficiency when scale > 1
-                if (scaleInt > 1) {
-                  box(baseDestX, baseDestY, scaleInt, scaleInt, "fill");
-                } else {
-                  plot(baseDestX, baseDestY);
-                }
+            if (a === 255 && fastBlock) {
+              // Opaque — fill the scaled block with a single 32-bit value.
+              const s = src32[srcX + srcY * srcWidth];
+              for (let dy = 0; dy < scaleInt; dy += 1) {
+                let di = (baseDestY + dy) * width + baseDestX;
+                for (let dx = 0; dx < scaleInt; dx += 1) dst32[di + dx] = s;
+              }
+            } else {
+              // Partial alpha (or unaligned) — blend through the pen.
+              color(srcPixels[srcIndex], srcPixels[srcIndex + 1], srcPixels[srcIndex + 2], a);
+              if (scaleInt > 1) {
+                box(baseDestX, baseDestY, scaleInt, scaleInt, "fill");
+              } else {
+                plot(baseDestX, baseDestY);
               }
             }
           }
@@ -2554,48 +2567,93 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
         const maskW = activeMask ? activeMask.width : width;
         const maskH = activeMask ? activeMask.height : height;
         
-        for (let y = 0; y < srcHeight; y += 1) {
-          const srcRowStart = y * srcWidth * 4;
-          const destRowStart = ((destY + y) * width + destX) * 4;
-          
-          // Process entire row at once for better cache performance
-          for (let x = 0; x < srcWidth; x += 1) {
-            const dx = destX + x;
-            const dy = destY + y;
-            
-            // Check if destination pixel is within mask
-            if (activeMask) {
-              if (dx < maskX || dx >= maskX + maskW ||
-                  dy < maskY || dy >= maskY + maskH) {
-                continue; // Skip pixels outside mask
+        if (
+          !activeMask &&
+          (srcPixels.byteOffset & 3) === 0 &&
+          (pixels.byteOffset & 3) === 0
+        ) {
+          // 🚀 No-mask fast path. The outer bounds test already guarantees every
+          // source/destination index is valid, so the per-pixel mask and bounds
+          // checks are dropped entirely. Pixels are viewed as Uint32 so an opaque
+          // pixel copies in a single 32-bit write (and a fully-transparent pixel
+          // is skipped with one read); only partial-alpha pixels fall back to
+          // per-channel blending. Alpha is the high byte (little-endian RGBA, as
+          // canvas ImageData always is); the 32-bit copy itself is endian-safe.
+          const src32 = new Uint32Array(
+            srcPixels.buffer,
+            srcPixels.byteOffset,
+            srcWidth * srcHeight,
+          );
+          const dst32 = new Uint32Array(
+            pixels.buffer,
+            pixels.byteOffset,
+            width * height,
+          );
+          for (let y = 0; y < srcHeight; y += 1) {
+            let si = y * srcWidth;
+            let di = (destY + y) * width + destX;
+            for (let x = 0; x < srcWidth; x += 1, si += 1, di += 1) {
+              const s = src32[si];
+              const a = s >>> 24; // source alpha
+              if (a === 255) {
+                dst32[di] = s; // opaque — single 32-bit write
+              } else if (a !== 0) {
+                // partial alpha — per-channel blend
+                const si4 = si << 2;
+                const di4 = di << 2;
+                const alpha = a + 1;
+                const invAlpha = 256 - alpha;
+                pixels[di4] = (alpha * srcPixels[si4] + invAlpha * pixels[di4]) >> 8;
+                pixels[di4 + 1] = (alpha * srcPixels[si4 + 1] + invAlpha * pixels[di4 + 1]) >> 8;
+                pixels[di4 + 2] = (alpha * srcPixels[si4 + 2] + invAlpha * pixels[di4 + 2]) >> 8;
+                pixels[di4 + 3] = Math.min(255, pixels[di4 + 3] + a);
               }
             }
-            
-            const srcIdx = srcRowStart + (x * 4);
-            const destIdx = destRowStart + (x * 4);
-            
-            // Bounds check to prevent reading beyond buffer
-            if (srcIdx + 3 >= srcPixels.length || destIdx + 3 >= pixels.length) continue;
-            
-            // Skip transparent pixels
-            if (srcPixels[srcIdx + 3] > 0) {
-              // Fast alpha blending without function call overhead
-              const srcAlpha = srcPixels[srcIdx + 3];
-              
-              if (srcAlpha === 255) {
-                // Opaque source - direct copy (fastest path)
-                pixels[destIdx] = srcPixels[srcIdx];
-                pixels[destIdx + 1] = srcPixels[srcIdx + 1];
-                pixels[destIdx + 2] = srcPixels[srcIdx + 2];
-                pixels[destIdx + 3] = srcPixels[srcIdx + 3];
-              } else {
-                // Alpha blending (optimized inline version)
-                const alpha = srcAlpha + 1;
-                const invAlpha = 256 - alpha;
-                pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
-                pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
-                pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
-                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+          }
+        } else {
+          for (let y = 0; y < srcHeight; y += 1) {
+            const srcRowStart = y * srcWidth * 4;
+            const destRowStart = ((destY + y) * width + destX) * 4;
+
+            // Process entire row at once for better cache performance
+            for (let x = 0; x < srcWidth; x += 1) {
+              const dx = destX + x;
+              const dy = destY + y;
+
+              // Check if destination pixel is within mask
+              if (activeMask) {
+                if (dx < maskX || dx >= maskX + maskW ||
+                    dy < maskY || dy >= maskY + maskH) {
+                  continue; // Skip pixels outside mask
+                }
+              }
+
+              const srcIdx = srcRowStart + (x * 4);
+              const destIdx = destRowStart + (x * 4);
+
+              // Bounds check to prevent reading beyond buffer
+              if (srcIdx + 3 >= srcPixels.length || destIdx + 3 >= pixels.length) continue;
+
+              // Skip transparent pixels
+              if (srcPixels[srcIdx + 3] > 0) {
+                // Fast alpha blending without function call overhead
+                const srcAlpha = srcPixels[srcIdx + 3];
+
+                if (srcAlpha === 255) {
+                  // Opaque source - direct copy (fastest path)
+                  pixels[destIdx] = srcPixels[srcIdx];
+                  pixels[destIdx + 1] = srcPixels[srcIdx + 1];
+                  pixels[destIdx + 2] = srcPixels[srcIdx + 2];
+                  pixels[destIdx + 3] = srcPixels[srcIdx + 3];
+                } else {
+                  // Alpha blending (optimized inline version)
+                  const alpha = srcAlpha + 1;
+                  const invAlpha = 256 - alpha;
+                  pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
+                  pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
+                  pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
+                  pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+                }
               }
             }
           }
