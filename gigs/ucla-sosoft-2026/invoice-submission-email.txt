@@ -1,0 +1,20 @@
+DRAFT — UCLA invoice submission (do not auto-send; @jeffrey sends)
+Send from: mail@aesthetic.computer (ac-mail)
+
+IMPORTANT (per Rosy Wellborn, vip@finance.ucla.edu, 2026-05-18):
+  - Send ONLY to noreply@invoices.ucla.edu
+  - Do NOT cc the buyer, vip@, or anyone else (duplicate submission delays payment)
+  - Email must "only consist of invoice attachments" — keep the body essentially empty
+  - One invoice per PDF, must reference the PO number
+
+To:      noreply@invoices.ucla.edu
+Subject: Invoice AC-UCLA-2026-0518-001 — UCLA PO# 04250000559418 — Aesthetic Inc.
+Attach:  /Users/jas/aesthetic-computer/bills/invoices/AC-UCLA-2026-0518-001.pdf
+
+Body (minimal — UCLA wants attachment-only; one short line is fine):
+
+Invoice attached for UCLA PO #04250000559418. — Aesthetic Inc.
+
+---
+After this is paid/acknowledged, any STATUS questions go to ap@finance.ucla.edu
+(subject "Invoicing Issue"), NOT vip@ and NOT this address.

@@ -1,82 +1,76 @@
-# NY Art Book Fair 2026 — Project Space Research
+# NY Art Book Fair — Project Space — Research
 
 > **Deadline:** 2026-05-08
-> **Fair:** NY Art Book Fair, 2026-09-24 to 2026-09-27, MoMA PS1
-> **Current NYABF Project Space form:** https://docs.google.com/forms/d/e/1FAIpQLScDtI_I_G14OaskSkkC8-c_3tK8wDerUrp2gPS8H3ypbuwG8w/viewform?usp=dialog
-> **FAQ:** https://printedmatterartbookfairs.org/faq
-> **Financial support page:** https://printedmatterartbookfairs.org/are-there-opportunities-for-financial-support
-
-## Important correction
-
-The previously saved Google Form link
-`1FAIpQLSdgkY1vM_7eIBYN58OfjptF8HQlPwIioX6Zvst-Mccg1RWBVw` is for **LAABF
-2026 Project Space Proposal** and is closed. Do not use it.
-
-The Printed Matter homepage currently links the NYABF Project Space proposal to
-`1FAIpQLScDtI_I_G14OaskSkkC8-c_3tK8wDerUrp2gPS8H3ypbuwG8w`, due May 8.
-That form requires sign-in / cookie access, so exact fields still need to be
-captured manually in-browser.
-
-## Money / fee note
-
-The Project Space is **fee-bearing**, not a stipend. Public form/page text:
-
-- Project Spaces are curated publication-focused exhibitions in larger,
-  sometimes site-specific areas in the Fair.
-- Fees are tiered by proposal and available space, **starting at $4,500**.
-- Project Spaces are spotlighted across Fair promotional materials.
-
-**Posture (2026-05-07):** Aesthetic Inc covers the Project Space fee directly.
-The proposal goes in as a paid Project Space, not a fee-relief request. This
-unblocks the application without depending on Printed Matter to underwrite.
-
-Separate NYABF financial-support tracks (not Project Space underwriting):
-
-- Shannon Michael Cane Award: four first-time exhibitors, table + **$1,000**.
-- Volume Grant: four BIPOC artists/publishers, table + **$1,000**.
-- Jason Polan Award: two NYABF exhibitors, **$2,500** during the fair.
+> **Submit:** Project Space proposal form linked from the 2026 NYABF FAQ
+>   - Form (Google Forms): https://docs.google.com/forms/d/e/1FAIpQLSdgkY1vM_7eIBYN58OfjptF8HQlPwIioX6Zvst-Mccg1RWBVw/viewform?usp=dialog
+>   - FAQ: https://printedmatterartbookfairs.org/faq
+>   - Financial support page: https://printedmatterartbookfairs.org/are-there-opportunities-for-financial-support
+> **Amount:** $3,500 stipend (per JS — confirmed source). The publicly-listed
+> awards in the financial-support FAQ are separate tracks (Shannon Cane,
+> Volume Grant, Jason Polan); the Project Space stipend is documented in the
+> proposal form itself.
 
 ## What is a Project Space?
 
-Project Spaces are expanded presentations of books, prints, and ephemera. They
-go beyond a standard table and can include installations, performances,
-demonstrations, archival presentations, and workshops. They should frame a
-publication or printed-matter practice rather than simply sell finished
-inventory.
+From the FAQ: Project Spaces are "expanded presentations of books, prints, and
+ephemera" that go beyond the standard exhibitor table format. They are
+programmed presentations within the fair — installations, performances,
+demonstrations — that frame a publication or printed-matter practice rather
+than just selling it from a table.
 
 ## Why AC fits
 
-- AC has a real artbook-adjacent practice: the AC Reader, the papers platter,
-  KidLisp cards, pamphlets, and paper/card conversion tooling.
-- The strongest angle is not "software demo." It is **the press as a live
-  instrument**.
-- Printed Matter cares about the printed thing. The software should be framed
-  as the press machinery that creates the printed card, not as the main object.
-- The visitor leaves with a publication they helped author.
+- AC has a real artbook-adjacent practice: **the AC Reader**
+  (`papers/reader.pdf`), **the Cards** (`papers/arxiv-kidlisp-cards/`), the
+  printed pamphlet at `gigs/dis-order-pamphlet-8.5x11-folded/`, and the body of
+  arxiv papers across `papers/arxiv-*/`. The papermill literally exists to
+  press AC ideas into printable form.
+- A Project Space lets us show the **printing pipeline as a living instrument**
+  rather than a stack of finished products: visitors interact with KidLisp,
+  the system prints a card, the card goes home with them.
+- This connects the "papermill" metaphor in `papers/SCORE.md` to a public
+  performance of publishing.
 
-## Best project angle
+## Suggested angle
 
-**The AC Papermill**: a compact Project Space where visitors write small
-KidLisp programs, receive permanent URLs, and print those programs as cards.
+**"The AC Papermill, Live."** A Project Space where:
+1. A laptop runs a KidLisp performance (the live source of the cards).
+2. A networked print station produces single-sheet KidLisp cards on demand,
+   one per visitor.
+3. A small library of arxiv-AC papers is displayed and free to take.
+4. Optional Flash Day mini-segment: visitors can flash a USB with AC Native OS.
 
-The wall grows during the fair as a public archive of visitor-authored
-program-cards. Periodically, the artist gathers the day's cards into a small
-zine or wall sheet.
+The Project Space proposal should foreground the **publication artifact** (the
+cards, the reader) as the cultural object, not the software. Printed Matter is
+about the printed thing.
+
+## Open questions for the user
+
+- Do you want to apply as **Aesthetic Computer** (org) or **Jeffrey Alan
+  Scudder** (artist)? Project Space framing usually favors a project/imprint
+  identity.
+- Travel/logistics: NYABF is in NYC. If selected, who travels, who runs the
+  print station, what equipment ships?
 
 ## Source materials in repo
 
 - `papers/SCORE.md` — papermill mission frame
-- `papers/cards-convert.mjs` — card builder
-- `papers/arxiv-kidlisp-cards/` — example cards
-- `papers/reader.pdf`, `papers/reader.tex` — AC Reader
-- `gigs/dis-order-pamphlet-8.5x11-folded/` — recent pamphlet
-- `system/public/kidlisp.com/` — live URL/program layer
+- `papers/cards-convert.mjs` — actual card builder
+- `papers/arxiv-kidlisp-cards/` — example cards already produced
+- `papers/reader.pdf`, `papers/reader.tex` — the AC Reader
+- `gigs/dis-order-pamphlet-8.5x11-folded/` — recent printed pamphlet
+
+## Sources
+
+- [NYABF FAQ](https://printedmatterartbookfairs.org/faq)
+- [Financial support page](https://printedmatterartbookfairs.org/are-there-opportunities-for-financial-support)
+- [Submission Manager](https://printedmatterinc.submittable.com/submit)
+- [Project Space proposal form](https://docs.google.com/forms/d/e/1FAIpQLSdgkY1vM_7eIBYN58OfjptF8HQlPwIioX6Zvst-Mccg1RWBVw/viewform?usp=dialog)
 
 ## Next steps
 
-1. Open the current NYABF form while signed into Google and capture exact
-   fields.
-2. Trim the public HTML preview's copy to the form's word caps; paste in.
-3. Prepare media samples: papermill in operation, sample answer card, wall
-   archive mockup.
-4. Submit before 2026-05-08.
+1. Open the Google Form and screenshot/save the actual fields, including the
+   stipend amount.
+2. Decide: apply as imprint or artist.
+3. Draft a 1-page Project Space pitch focused on the *printed* output (cards +
+   reader), not the software underneath.

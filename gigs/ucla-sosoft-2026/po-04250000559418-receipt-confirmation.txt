@@ -1,0 +1,22 @@
+DRAFT — PO receipt confirmation (do not auto-send; @jeffrey sends)
+Send from: mail@aesthetic.computer (ac-mail)
+
+To:      kamaurahh@gmail.com
+CC:      (optional) jinwoopark@arts.ucla.edu  — legit @arts.ucla.edu owner; CC gives a verified-address paper trail
+Subject: PO Receipt Confirmation — PO# 04250000559418 — Aesthetic Inc.
+
+---
+
+Hi Kamaurah,
+
+This confirms receipt of UCLA Purchase Order #04250000559418 (dated May 5, 2026) by Aesthetic Inc.
+
+We accept the order for the technical documentation services described — authoring and delivering written technical documentation for the UCLA Social Software program over the 2026 academic cycle (written specifications, reference material, and architectural descriptions), for the flat fee of $1,200.00 USD, Net 30, governed by the UC Terms and Conditions of Purchase.
+
+Per the billing instructions, we'll submit our invoice as a single PDF to noreply@invoices.ucla.edu referencing PO #04250000559418.
+
+Please let us know if anything further is needed on our end.
+
+Best,
+Jeffrey
+Aesthetic Inc.

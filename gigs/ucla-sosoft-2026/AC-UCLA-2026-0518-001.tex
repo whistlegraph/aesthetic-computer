@@ -1,0 +1,186 @@
+% !TEX program = xelatex
+% Aesthetic Inc. — Invoice for UCLA Social Software (technical documentation)
+% Issued against UCLA PO #04250000559418 / Quote AE-2026-001.
+% Build: tectonic -X compile AC-UCLA-2026-0518-001.tex
+
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.5in, bottom=0.7in, left=0.9in, right=0.9in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+
+\setmainfont[
+  Extension = .otf,
+  UprightFont = lmroman10-regular,
+  BoldFont = lmroman10-bold,
+  ItalicFont = lmroman10-italic,
+  BoldItalicFont = lmroman10-bolditalic,
+]{lmroman10}
+\setsansfont[
+  Extension = .otf,
+  UprightFont = lmsans10-regular,
+  BoldFont = lmsans10-bold,
+  ItalicFont = lmsans10-oblique,
+]{lmsans10}
+
+% AC custom fonts — YWFT Processing
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\acregular{ywft-processing-regular}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{graphicx}
+\graphicspath{{../../papers/arxiv-ac/figures/}}
+
+% === INVOICE METADATA ===
+\newcommand{\invoiceid}{AC-UCLA-2026-0518-001}
+\newcommand{\ponumber}{04250000559418}
+\newcommand{\quoteref}{AE-2026-001}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usepackage{eso-pic}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={Aesthetic Inc.},
+  pdftitle={Aesthetic Inc. --- Invoice \invoiceid},
+  pdfsubject={Invoice \invoiceid --- UCLA PO \ponumber},
+}
+
+% === HEADER / FOOTER ===
+\pagestyle{empty}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.24em}
+
+\begin{document}
+
+% ============ LETTERHEAD ============
+\noindent
+\begin{minipage}[c]{0.22\linewidth}
+  \includegraphics[width=\linewidth]{pals}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.76\linewidth}
+  \begin{flushright}
+    {\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark} Aesthetic Inc}{\color{acpink}\fontsize{30pt}{34pt}\selectfont .}\par
+    \vspace{0.15em}
+    {\aclight\fontsize{10pt}{12pt}\selectfont\color{acpink} Software, design, and technical documentation}\par
+    \vspace{0.3em}
+    {\footnotesize\color{acgray}
+      Los Angeles, California \; \textperiodcentered \;
+      \href{mailto:mail@aesthetic.computer}{mail@aesthetic.computer} \; \textperiodcentered \;
+      \href{https://aesthetic.computer}{aesthetic.computer}
+    }
+  \end{flushright}
+\end{minipage}
+
+\vspace{0.3em}
+{\color{acgray}\rule{\linewidth}{0.6pt}}
+\vspace{0.6em}
+
+% ============ INVOICE TITLE + META ============
+\noindent
+\begin{minipage}[t]{0.50\linewidth}
+  {\acbold\fontsize{22pt}{24pt}\selectfont\color{acdark} Invoice}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \begin{flushright}
+  {\acregular\color{acpink} Invoice \#\invoiceid}\\[0.15em]
+  {\color{acdark}\textbf{Invoice Date:} May 18, 2026}\\[0.1em]
+  {\color{acdark}\textbf{Due Date:} June 17, 2026 \;(\,Net 30\,)}\\[0.1em]
+  {\color{acdark}\textbf{PO \#:} \ponumber}\\[0.1em]
+  {\color{acgray}\small Ref. Quote \#\quoteref}
+  \end{flushright}
+\end{minipage}
+
+\vspace{0.6em}
+
+% ============ FROM / BILL TO ============
+\noindent
+\begin{minipage}[t]{0.48\linewidth}
+  {\acbold\color{acdark} From}\\[0.2em]
+  Aesthetic Inc.\\
+  Attn: Jeffrey Alan Scudder\\
+  18 N Main St\\
+  Assonet, MA 02702-1118\\
+  \href{https://aesthetic.computer}{aesthetic.computer}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  {\acbold\color{acdark} Bill To}\\[0.2em]
+  University of California, Los Angeles\\
+  Attn: Accounts Payable\\
+  10920 Wilshire Blvd\\
+  Los Angeles, CA 90024\\
+  {\small\color{acgray} Program: UCLA Design Media Arts --- Social Software (Attn: Lauren McCarthy)}
+\end{minipage}
+
+\vspace{0.85em}
+
+% ============ SCOPE ============
+{\acbold\color{acdark} Description of services.} Aesthetic Inc.\ has authored and is delivering technical documentation for the UCLA Social Software program over the 2026 academic cycle, including written specifications, reference material, and architectural descriptions of the runtime, language, and instructional tools used by students and faculty, together with an analysis of the software in production use across UCLA Design Media Arts and a survey of the open-source and proprietary stacks on which that practice depends. Deliverables are furnished in written form and published on the Social Software program website at \href{https://sosoft.arts.ucla.edu/}{sosoft.arts.ucla.edu} for ongoing reference by students, faculty, and the public. No software license, hardware, or resalable good is included; the engagement is services-only.
+
+\vspace{0.4em}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{l r}
+  \hline
+  {\acbold Description} & {\acbold Amount (USD)} \\
+  \hline
+  Technical documentation services --- 2026 cycle (flat fee) & \$1,200.00 \\
+  \hline
+  {\acbold Total Due} & {\acbold \$1,200.00} \\
+  \hline
+\end{tabular}
+\end{center}
+
+\vspace{0.45em}
+
+{\acbold\color{acdark} Terms.} Flat fee, inclusive of all deliverables described above. Net 30 per UCLA Purchase Order \#\ponumber. This invoice references Quote \#\quoteref. Not taxable; services only.
+
+\vspace{0.55em}
+
+{\acbold\color{acdark} Remittance.}
+
+{\small
+Choice Financial Group\\
+Beneficiary: Aesthetic, Inc.\\
+4501 23rd Avenue S, Fargo, ND 58104\\
+Routing (ACH): 091311229 \quad Account: 202456137442\\
+PayPal: me@jas.life\\
+\textcolor{acgray}{If issued via UCLA Payment Plus, the virtual card remittance email will be processed on receipt.}\\
+Please reference Invoice \#\invoiceid\ and PO \#\ponumber\ on payment.
+}
+
+\vspace{0.5em}
+{\color{acgray}\rule{\linewidth}{0.4pt}}\\[0.25em]
+{\acbold\fontsize{12pt}{13pt}\selectfont\color{acdark} Aesthetic Inc}{\color{acpink}\fontsize{12pt}{13pt}\selectfont .}\;{\small\color{acgray} Thank you --- issued \today\ against UCLA PO \#\ponumber.}
+
+\end{document}

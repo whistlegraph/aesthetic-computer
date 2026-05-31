@@ -1,198 +1,196 @@
-# NY Art Book Fair 2026 — Project Space Proposal Draft
+# NY Art Book Fair — Project Space — Application Draft
 
 > **Deadline:** 2026-05-08
-> **Fair:** NY Art Book Fair, 2026-09-24 to 2026-09-27, MoMA PS1
-> **Submit:** https://docs.google.com/forms/d/e/1FAIpQLScDtI_I_G14OaskSkkC8-c_3tK8wDerUrp2gPS8H3ypbuwG8w/viewform?usp=dialog
+> **Stipend:** $3,500 (per JS — confirm in form)
+> **Submit:** Project Space proposal Google Form (link in NYABF FAQ)
 >
-> **Status (2026-05-07):** Aesthetic Inc is prepared to cover the standard
-> Project Space fee. The application proceeds as a paid Project Space, not as
-> a fee-relief request.
+> *This draft assumes the Project Space format gives 1 booth-or-installation
+> footprint + a presentation slot during the fair. Trim once the actual
+> form is open.*
 
 ---
 
 ## Project Title
 
-**The AC Papermill**
+**The AC Papermill, Live**
+
+(Working title; alternates: "Programs As Cards," "The URL As Edition,"
+"Aesthetic Computer Press.")
 
 ---
 
 ## One-Sentence Description
 
-The AC Papermill is Aesthetic Computer's working artistic-publishing press,
-set up in public for four days at MoMA PS1: five years of accumulated pages
-on free display, the press still operating, and new pages added to the wall
-each day of the fair.
+A live publishing booth at the NY Art Book Fair where visitors write
+KidLisp programs that print themselves as single-sheet cards in real
+time, demonstrating the live tie between code, web hosting, and the
+printed page that sits at the center of the Aesthetic Computer
+publishing practice.
 
 ---
 
-## Short Project Description
+## What The Project Space Will Be (~200 words)
 
-The AC Papermill is a working press in the room. One wall holds five years of
-Aesthetic Computer's published work — the bound AC Reader, individual papers,
-organizational dossiers, cards, and pamphlets — free to take. In front of the
-wall is a small workstation: the artist sits down each day and operates the
-press in public, doing what the papermill normally does in private. Each day's
-output is added to the wall.
+A small footprint inside the fair: one table, one wall, one networked
+printer, two laptops. The setup runs continuously through the fair
+hours.
 
-The Project Space is not a demo of Aesthetic Computer's software. It is one
-of its presses, doing what it normally does, where people can watch.
+- **Laptop A** boots into Aesthetic Computer's KidLisp environment.
+  Visitors are invited to write a short program at the keyboard. Every
+  state of every program gets a permanent URL. (KidLisp.com hosts
+  17,000+ existing user-written programs at this address scheme.)
+- **Laptop B** is a print-on-demand station. As soon as a visitor
+  finishes a piece they like, it's rendered as a single-sheet
+  index-card composition (screenshot + source + permanent QR-coded URL,
+  monochrome, 2.75″ × 4.75″) and printed on the spot. The visitor
+  takes their card.
+- **Wall display** of the existing AC papers: the AC Reader, twelve
+  arxiv-format papers, the dis-order pamphlet, a stack of pre-printed
+  KidLisp reference cards from the UCLA Social Software course.
+  Everything free to take, restocked from a small inventory.
+- **Periodic "press runs"** — at scheduled times each day, the
+  artist will compile that day's KidLisp programs into a small
+  newsprint zine (16 pp.), printed in a short edition (50–100), free
+  to take.
 
----
-
-## Project Space Proposal
-
-**The AC Papermill** brings Aesthetic Computer's small artist-run publishing
-press to NYABF for four days. The booth is divided in two.
-
-On one side, a wall of five years of accumulated work: the bound AC Reader,
-the forty-plus individual papers, the organizational dossiers, sets of cards,
-and the recent pamphlets. All of it is pinned up and free for visitors to
-take.
-
-On the other side, a workstation: a laptop, a small printer, and the artist.
-Each day during the fair, the press is operated in public on whatever is
-currently in production — typesetting a paper, generating a cover, drafting a
-dossier, laying out a pamphlet, binding a fresh Reader. The day's output is
-added to the wall before close. By the last day of the fair, the wall holds
-both the past five years and the four days at PS1.
-
-The project belongs at NYABF because it treats the fair as a place where
-publishing can happen, not only a place where finished publications are sold.
-It puts the press on the gallery floor.
+The booth runs **continuously and unattended-friendly**. The artist
+will be present for the press-run moments and for visitor
+conversations; otherwise visitors operate the publishing themselves.
 
 ---
 
 ## Why It Belongs At NYABF
 
-Printed Matter's Project Spaces foreground expanded presentations of books,
-prints, and ephemera. The AC Papermill fits because the printed thing is the
-practice: a small press has been running for five years and the booth is its
-public operation.
+The fair celebrates the printed thing. The Project Space format exists
+for presentations that frame a publication or printed-matter practice
+rather than just selling it from a table. Aesthetic Computer's
+publishing practice is unusual: the printed cards and the live software
+are the same artifact, the URL is the citation, the QR code is the
+delivery. The booth makes that visible by *running* the press at the
+fair.
 
-The wall is the catalog. The workstation is the press. The artist is the host.
-Visitors are not an audience around a demo, they are people walking through a
-working publishing operation and taking some of it home.
+The piece also extends a five-year publishing arc that has produced:
 
----
+- **The AC Reader** (`papers/reader.pdf`) — a single-volume bound
+  collection of all current AC papers
+- **The arxiv series** — 28 individual papers across `papers/arxiv-*/`
+- **The cards** — single-sheet KidLisp pieces, designed to fit the
+  hand and the wall (`papers/arxiv-kidlisp-cards/`)
+- **The dis-order pamphlet** — recent printed pamphlet, 8.5×11 bifold
+  (`gigs/dis-order-pamphlet-8.5x11-folded/`)
 
-## What the Press Makes During the Fair
-
-Each day the artist works on something the papermill normally produces. Real
-examples drawn from current production:
-
-- Day 1 — a new paper typeset and proofed: cover from the figures pipeline,
-  references resolved, footnotes cross-checked, single copy printed and pinned.
-- Day 2 — a new dossier section drafted in public: sources read, structured
-  data updated, paragraph rewritten, page exported.
-- Day 3 — a short single-sheet pamphlet laid out, printed, and folded by hand
-  at the table.
-- Day 4 — a fresh edition of the bound AC Reader with the four days' new
-  pages folded in, printed, and bound at the booth as the closing act.
+The booth is the live edge of that practice — the part where the
+publishing happens in front of the reader.
 
 ---
 
 ## What Visitors Take Home
 
-- Any paper from the wall they want.
-- A copy of the AC Reader.
-- Cards and pamphlets from the takeaway pile.
-- The day's freshly printed page, while supplies last.
+- Their own KidLisp card (printed during their visit)
+- A permanent URL that runs their program forever
+- An AC Reader copy (one per visitor while supply lasts)
+- A dis-order pamphlet
+- Optional: stack of curated KidLisp reference cards (from the UCLA
+  Social Software course set)
 
 ---
 
-## Space / Technical Needs
+## Budget Sketch (against the $3,500 stipend)
+
+| Item | $ |
+|---|---|
+| Travel (LA ↔ NYC, four days) | 700 |
+| Lodging (four nights, modest) | 600 |
+| Equipment shipping (laptops + printer + cards) | 350 |
+| Print supplies (cardstock, newsprint zine paper, ink) for daily press runs across the fair | 800 |
+| Pre-printed inventory (AC Readers, dis-order pamphlets, KidLisp reference cards) | 600 |
+| Per diem / meals (four days) | 250 |
+| Contingency (≈6%) | 200 |
+| **Total** | **3,500** |
+
+If the stipend is confirmed at a different amount, the inventory and
+press-run line items scale up or down first.
+
+---
+
+## Logistics
 
 | Need | Provided by |
 |---|---|
-| Compact Project Space footprint: one table + one wall | NYABF / Printed Matter |
-| Power for two laptops and printer | NYABF / Printed Matter |
-| Wifi or ethernet | NYABF / Printed Matter |
-| Two laptops | Artist |
-| Small printer, paper, toner/ink, backup supplies | Artist |
-| Wall clips / tape / display grid | Artist |
-| Card stock, prompt cards, seed-program inventory | Artist |
-| Staffing | Artist, with optional helper if budget allows |
+| Booth footprint inside the fair | Printed Matter |
+| Networked thermal or laser printer | Artist (ships from LA studio) |
+| Two laptops + USB drives + cables | Artist |
+| Wall display strips / clips for cards | Artist |
+| Pre-printed inventory for the wall + giveaway | Artist |
+| Power + wifi at the booth | Printed Matter |
+| Optional: small audio for the periodic press-run announcements | Artist |
 
-The project can scale down to a small table/wall footprint. It does not require
-sound, darkened space, projection, or heavy installation. If the fair prefers a
-larger footprint, the wall expands and a second writing laptop can be added.
-
----
-
-## Budget
-
-Aesthetic Inc is prepared to cover the standard Project Space fee at the
-tier appropriate to the proposed footprint, plus all artist-side production,
-travel, and shipping costs. No fee relief is requested.
-
-Estimated artist-side costs (in addition to the Project Space fee):
-
-| Item | Estimate |
-|---|---:|
-| Travel LA to NYC | $700 |
-| Lodging, 4 nights | $900 |
-| Local transport + meals | $400 |
-| Printer + consumables + backup supplies | $650 |
-| Card stock + seed-program inventory | $700 |
-| Equipment shipping | $350 |
-| Contingency | $300 |
-| **Artist-side production total** | **$4,000** |
+**Staffing:** Artist runs the booth solo for the duration of the fair.
+If selected and budget permits, may bring one helper for the busiest
+two days.
 
 ---
 
-## Application Identity
+## Identity / Imprint
 
-Apply as:
+**Apply as:** "Aesthetic Computer (Jeffrey Alan Scudder)"
 
-**Aesthetic Computer / Jeffrey Alan Scudder**
+The booth functions as an imprint, not a solo-artist showcase. The
+imprint identity makes the social network and the open-source layer
+legible to the fair audience.
 
-This keeps the imprint legible while still naming the artist responsible for
-the project. The Project Space should read as a small press / artist-publishing
-system, not a solo booth and not a startup booth.
-
----
-
-## Short Bio
-
-Jeffrey Alan Scudder is an artist, educator, and technologist based in Los
-Angeles. He builds instruments, publishing systems, and creative tools for
-other artists. He is the creator of Aesthetic Computer, KidLisp, Whistlegraph,
-No Paint, and Notepat, and is currently Artist in Residence at UCLA Social
-Software, hosted by Casey Reas. His practice moves between software,
-performance painting, teaching, and print. His work is in the collections of
-KADIST (San Francisco) and SMK (Copenhagen), and his open-source tools have
-reached broad public audiences online.
+(This is one of the open questions — discuss with Fia / collaborators
+before submitting.)
 
 ---
 
-## Media Samples To Prepare
+## Short Bio (~100 words)
 
-1. The wall on day one — five years of pages laid out.
-2. The bound AC Reader cover.
-3. The workstation: laptop + printer + a paper mid-press.
-4. A fresh page coming off the press.
-5. A visitor at the wall, mid-browse.
+Jeffrey Alan Scudder is an artist, educator, and technologist based in
+Los Angeles. He builds instruments and tools for other artists, and
+keeps a live practice across performance painting, software writing,
+and teaching. Yale MFA (2013), Ringling BFA (2011). Author in
+Residence at UCLA Social Software with Casey Reas and Lauren Lee
+McCarthy. Creator of Aesthetic Computer, Whistlegraph, and No Paint.
+His open-source tools *No Paint* and *notepat* each reached the front
+page of Hacker News. Work in the collections of KADIST (San Francisco)
+and SMK (Copenhagen). Hosts biweekly NELA Computer Club demos at
+Plot.Place, Chinatown LA.
 
 ---
 
-## Form Copy: Tiny Version
+## Media Samples
 
-**The AC Papermill** is Aesthetic Computer's working artistic-publishing
-press, set up in public for four days at MoMA PS1. One wall holds five years
-of pages — the bound AC Reader, papers, dossiers, cards, pamphlets — free to
-take. In front of it, a small workstation where the artist operates the press
-each day on whatever's currently in production: typesetting a paper, drafting
-a dossier, laying out a pamphlet, binding a fresh Reader. New pages go up on
-the wall as they come off the press. By the close of the fair, the wall holds
-both the past five years and the four days at PS1. The booth is quiet on
-purpose. The cultural object is the press itself, still running.
+1. Photo of the existing AC Reader (PDF cover)
+2. Photo of the existing KidLisp cards in use at UCLA Social Software
+3. Photo of the dis-order pamphlet
+4. Short video of a visitor writing a KidLisp program → seeing it
+   become a permanent URL → printing the card
+5. Inventory shot of the four publication formats side-by-side
+
+---
+
+## Source Materials Repurposed Here
+
+- `papers/SCORE.md` — the papermill-as-mission frame
+- `papers/cards-convert.mjs` — the actual code that turns arxiv
+  source into single-sheet card layout
+- `papers/arxiv-kidlisp-cards/` — example cards
+- `papers/reader.pdf`, `papers/reader.tex` — the AC Reader
+- `gigs/dis-order-pamphlet-8.5x11-folded/` — recent printed pamphlet
+- `system/public/kidlisp.com/` — the hosting layer that already runs
+  the URL side of this
 
 ---
 
 ## Submission Checklist
 
-- [ ] Open the current NYABF Project Space form while signed into Google.
-- [ ] Confirm exact fields, word caps, upload requirements, and fee language.
-- [ ] Decide whether the minimum Project Space fee is acceptable.
-- [ ] Prepare 3-5 media samples.
-- [ ] Submit before 2026-05-08.
+- [ ] Open the Google Form, capture exact fields + word caps + stipend
+      amount
+- [ ] Decide imprint vs. solo-artist application identity
+- [ ] Source a thermal or laser printer suitable for booth use
+- [ ] Pre-print enough Reader / pamphlet / card inventory before fair
+- [ ] Confirm fair travel dates against other LA / NYC commitments
+      (SFPC visit, Oracle Egg residency window if accepted)
+- [ ] Pull the visitor-flow video
+- [ ] Submit before 2026-05-08
