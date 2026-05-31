@@ -973,6 +973,8 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   window.location.hostname.endsWith(".ac") ||
   window.location.hostname === "notepat.com" ||
   window.location.hostname === "www.notepat.com" ||
+  window.location.hostname === "laklok.com" ||
+  window.location.hostname === "www.laklok.com" ||
   window.location.hostname === "m2w2.whistlegraph.com" ||
   window.acPACK_MODE // Disable debug mode in OBJKT packages
 ) {
@@ -1010,6 +1012,12 @@ if (
   location.hostname === "www.notepat.com"
 ) {
   window.acSTARTING_PIECE = "notepat";
+}
+if (
+  location.hostname === "laklok.com" ||
+  location.hostname === "www.laklok.com"
+) {
+  window.acSTARTING_PIECE = "laklok";
 }
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";

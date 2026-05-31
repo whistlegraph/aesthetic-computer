@@ -417,7 +417,10 @@ async function boot(
   if (params && params.length > 0) {
     hud.label("chat");
   }
-  
+
+  // 📱 QR code in the top-left corner, to the left of the HUD label.
+  hud.qr("https://prompt.ac/chat");
+
   rowHeight = typeface.blockHeight + 1;
 
   const client = otherChat || chat;
@@ -746,7 +749,7 @@ function paint(
   // Default theme
   const defaultTheme = {
     background: [100, 100, 145],
-    chromeBg: [20, 20, 30], // Top/bottom panel bg — framing color around scroll region
+    chromeBg: [100, 100, 145], // Match background — no banners above/below fold (like laer-klokken)
     lines: [90, 200, 150, 48],
     scrollbar: [255, 192, 203],
     messageText: [255, 255, 255],
@@ -1701,15 +1704,44 @@ function paint(
   // Update handleBtn box for click detection
   handleBtn.btn.box = new Box(handleBtnX, handleBtnY, btnW, btnH);
   
-  // Draw panel background behind both buttons (theme-aware)
-  const bottomChrome = Array.isArray(theme.chromeBg) ? theme.chromeBg : [theme.chromeBg];
-  ink(...bottomChrome, 255).box(
-    0,
-    screen.height - panelHeight,
-    screen.width,
-    panelHeight
-  );
-  
+  // 🎨 Bottom footer background — a slightly different shade than the chrome,
+  // with subtle animated diagonal stripes. Colors derive from chromeBg so it
+  // adapts to any theme (blue chat, terracotta laer-klokken, etc).
+  const panelTop = screen.height - panelHeight;
+  const chromeArr = Array.isArray(theme.chromeBg)
+    ? theme.chromeBg
+    : [theme.chromeBg, theme.chromeBg, theme.chromeBg];
+  const footerBg =
+    theme.footerBg || chromeArr.slice(0, 3).map((c) => Math.max(0, Math.round(c * 0.82)));
+  const stripeColor =
+    theme.footerStripe ||
+    chromeArr.slice(0, 3).map((c) => Math.min(255, Math.round(c * 1.3)));
+
+  // Base fill (slightly different from the body/chrome).
+  ink(...footerBg, 255).box(0, panelTop, screen.width, panelHeight);
+
+  // Animated diagonal stripes scrolling across the footer over time. Each line
+  // spans exactly the panel height, so it stays within the footer band.
+  const stripeSpacing = 12;
+  const stripeOffset = (performance.now() * 0.02) % stripeSpacing;
+  for (let x = -panelHeight; x < screen.width + stripeSpacing; x += stripeSpacing) {
+    ink(...stripeColor, 36).line(
+      x + stripeOffset,
+      panelTop,
+      x + stripeOffset + panelHeight,
+      panelTop + panelHeight,
+    );
+  }
+
+  // Full-width horizontal break above the handle + enter-message buttons.
+  // Solid (alpha stripped) so it reads clearly over the footer texture.
+  const breakColor = (Array.isArray(theme.lines) ? theme.lines : [theme.lines]).slice(0, 3);
+  ink(...breakColor).line(0, panelTop, screen.width, panelTop);
+
+  // Keep the footer stripes animating even when chrome (news ticker) is hidden,
+  // e.g. in laer-klokken which passes hideChrome.
+  needsPaint();
+
   // Use blue color scheme for Log in, pink/magenta for handle (like prompt.mjs)
   const loginBgColor = currentHandle ? [128, 0, 128] : [0, 0, 128];
   const loginBorderColor = 255;

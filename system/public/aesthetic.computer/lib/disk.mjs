@@ -243,6 +243,8 @@ const SAME_ORIGIN_BUILT_IN_PIECE_HOSTS = new Set([
   "www.kidlisp.com",
   "notepat.com",
   "www.notepat.com",
+  "laklok.com",
+  "www.laklok.com",
   "p5.aesthetic.computer",
   "sitemap.aesthetic.computer",
 ]);
@@ -2303,6 +2305,10 @@ function redirectIfBrandedDomain() {
   // Match notepat.com or www.notepat.com (add more branded domains here as needed)
   if (hostname === "notepat.com" || hostname === "www.notepat.com") {
     send({ type: "web", content: { url: "https://aesthetic.computer/notepat", blank: false } });
+    return true;
+  }
+  if (hostname === "laklok.com" || hostname === "www.laklok.com") {
+    send({ type: "web", content: { url: "https://aesthetic.computer/laklok", blank: false } });
     return true;
   }
   return false;
@@ -8245,7 +8251,10 @@ async function load(
             $commonApi.jump(`404~${slug}`);
           }
         } else {
-          $commonApi.notice(":(", ["red", "yellow"]);
+          // At the prompt, a not-found entry isn't a failure — its helper shows
+          // a "thinking" character + LLM reply instead of a sad face.
+          if (currentText !== "prompt")
+            $commonApi.notice(":(", ["red", "yellow"]);
         }
         return false;
       }
@@ -11999,6 +12008,7 @@ async function makeFrame({ data: { type, content } }) {
           system !== "world" &&
           currentText !== "chat" &&
           currentText !== "laer-klokken" &&
+          currentText !== "laklok" &&
           currentText !== "aa" &&
           currentText !== "sign" &&
           currentText !== "jas" &&
@@ -14444,7 +14454,10 @@ async function makeFrame({ data: { type, content } }) {
 
         // 📡 LAN badge superscript - add width for device letter if connected to dev session server
         // Hide in kidlisp.com embedded mode (NOAUTH_MODE)
-        const showLanBadge = devIdentity && devIdentity.host && !globalThis.NOAUTH_MODE;
+        // 🔇 Disabled for now (@jeffrey) — hide the cyan A/B/C/D/E device-letter
+        // window badge in both dev and production. Restore by uncommenting below.
+        // const showLanBadge = devIdentity && devIdentity.host && !globalThis.NOAUTH_MODE;
+        const showLanBadge = false;
         const lanBadgePadding = showLanBadge ? 10 : 0; // Space for letter + margin
         w += lanBadgePadding;
 

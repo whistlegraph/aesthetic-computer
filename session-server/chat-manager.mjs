@@ -657,8 +657,10 @@ export class ChatManager {
       const response = await fetch(`${host}/handle?for=${prefix}${fromSub}`, options);
       if (response.status === 200) {
         const data = await response.json();
-        instance.subsToHandles[fromSub] = data.handle;
-        return "@" + data.handle;
+        if (data.handle) {
+          instance.subsToHandles[fromSub] = data.handle;
+          return "@" + data.handle;
+        }
       }
     } catch (err) {
       console.error("💬 Handle lookup error:", err);
