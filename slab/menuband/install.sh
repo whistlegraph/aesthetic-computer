@@ -225,30 +225,40 @@ say "signing with: ${SIGN_ID}"
 # rejects with "The signature does not include a secure timestamp" or
 # "The executable does not have the hardened runtime enabled."
 ENTITLEMENTS="${SCRIPT_DIR}/MenuBand.entitlements"
-if ! codesign --force --deep --sign "${SIGN_ID}" \
-    --identifier computer.aestheticcomputer.menuband \
-    --options runtime \
-    --entitlements "${ENTITLEMENTS}" \
-    --timestamp \
-    "${APP_DIR}" 2>&1; then
-    warn "codesign failed — bundle is not signed with hardened runtime"
-    exit 1
-fi
-# Re-sign the launcher binary with its OWN distinct identifier. The
-# --deep above propagates the bundle's identifier
-# (computer.aestheticcomputer.menuband) onto every nested binary,
-# which makes TCC merge the two binaries into the same Accessibility
-# entry. macOS then silently revokes that entry on each rebuild
-# because the bundle hash changes. Giving the launcher its own
-# identifier lets TCC track it independently and persist trust by
-# Developer ID across re-signs.
+# Sign INNER-TO-OUTER. The nested MenuBandLauncher must be signed FIRST,
+# with its OWN distinct identifier, then the outer bundle sealed around
+# it. Two reasons:
+#   1. The launcher gets identifier computer.aestheticcomputer.menubandlauncher
+#      (not the bundle's) so TCC tracks it independently — otherwise macOS
+#      merges both binaries into one Accessibility entry and silently
+#      revokes it on every rebuild when the bundle hash changes.
+#   2. Order matters for the seal. The old flow signed the bundle with
+#      --deep (which stamped the bundle identifier onto the launcher and
+#      recorded THAT hash in the outer signature), then re-signed the
+#      launcher with its own identifier — changing the launcher's hash and
+#      leaving the outer seal pointing at a now-stale nested signature.
+#      `codesign --verify --deep --strict` then reported "nested code is
+#      modified or invalid" and the bundle would FAIL notarization /
+#      Gatekeeper. Signing the launcher first, then the outer bundle
+#      WITHOUT --deep (the launcher is already signed, so there's no
+#      unsigned nested code to recurse into), seals the final launcher
+#      hash correctly.
 if ! codesign --force --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menubandlauncher \
     --options runtime \
     --entitlements "${ENTITLEMENTS}" \
     --timestamp \
     "${APP_LAUNCHER_BIN}" 2>&1; then
-    warn "launcher re-sign failed"
+    warn "launcher sign failed"
+    exit 1
+fi
+if ! codesign --force --sign "${SIGN_ID}" \
+    --identifier computer.aestheticcomputer.menuband \
+    --options runtime \
+    --entitlements "${ENTITLEMENTS}" \
+    --timestamp \
+    "${APP_DIR}" 2>&1; then
+    warn "codesign failed — bundle is not signed with hardened runtime"
     exit 1
 fi
 ok "signed"
