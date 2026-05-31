@@ -17,12 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.4.2</string>
 	<key>CFBundleVersion</key>
-	<string>141</string>
-	<!-- Menu Band uses no encryption beyond what macOS provides (HTTPS for
-	     the KidLisp TV feed). Declaring this false up front skips the
-	     per-submission export-compliance question in App Store Connect. -->
+	<string>142</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationCategoryType</key>
