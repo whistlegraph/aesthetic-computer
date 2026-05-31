@@ -1300,6 +1300,8 @@ async function fun(event, context) {
           var isDeviceMode=qs.indexOf('device=true')>=0;
           // Notepat.com: piano-themed boot animation
           var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com'||location.pathname==='/notepat'||location.pathname.startsWith('/notepat?')||location.pathname.startsWith('/notepat/');
+          // laklok.com: laer klokken clock-themed boot animation
+          var isLaklok=location.hostname==='laklok.com'||location.hostname==='www.laklok.com'||location.pathname==='/laklok'||location.pathname.startsWith('/laklok?')||location.pathname.startsWith('/laklok/');
           // Notebook: Python/Jupyter notebook with scientific aesthetic
           var isNotebook=qs.indexOf('notebook=true')>=0;
           // Boot animation mode: 'serious' (clean/refined, default) or 'aesthetic' (VHS/glitch).
@@ -1372,6 +1374,9 @@ async function fun(event, context) {
           var NP_KEYS=[];var NP_PARTICLES=[];var NP_LAST_KEY=0;var NP_KEY_INTERVAL=120;
           var NP_NOTE_NAMES=['C','D','E','F','G','A','B'];
           var NP_KEY_COLS=[[255,107,157],[78,205,196],[255,217,61],[149,225,211],[255,154,162],[170,150,218],[112,214,255],[255,183,77]];
+          // 🕰️ laklok.com (laer klokken) boot state — recent clock-chat history.
+          var LAK_MSGS=[];
+          if(isLaklok){(async function(){try{var r=await fetch('/api/chat-messages?instance=clock&limit=12');if(r.ok){var d=await r.json();if(d&&d.messages)LAK_MSGS=d.messages;}}catch(e){}})();}
           // 📊 Notebook scientific aesthetic boot animation state
           var NB_DATA_POINTS=[];var NB_GRID_LINES=[];var NB_WAVEFORMS=[];var NB_LAST_SPAWN=0;
           var NB_COLS_DARK=[[0,180,255],[0,255,180],[120,220,255],[80,200,120],[100,255,255]];
@@ -1446,6 +1451,38 @@ async function fun(event, context) {
               // Boot log messages (minimal, scientific style)
               var nbLogFS=4*S;x.font=nbLogFS+'px monospace';var nbLogY=30*S;
               for(var li=0;li<lines.length&&li<6;li++){var ln=lines[li],ly=nbLogY+li*5*S,la=Math.max(0.4,1-li*0.12);var nbCols3=getNbCols();var lc3=nbCols3[li%nbCols3.length];x.globalAlpha=la;x.fillStyle='rgb('+lc3[0]+','+lc3[1]+','+lc3[2]+')';x.fillText('> '+ln.text,8*S,ly);}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;}
+            // 🕰️ laklok.com (laer klokken) clock-themed boot animation
+            if(isLaklok){
+              // Warm terracotta vertical gradient.
+              var lkG=x.createLinearGradient(0,0,0,H);lkG.addColorStop(0,isLightMode?'#c98a5e':'#7c4528');lkG.addColorStop(1,isLightMode?'#9c4e30':'#4a2412');x.fillStyle=lkG;x.fillRect(0,0,W,H);
+              // Subtle scan lines.
+              x.globalAlpha=0.05;x.fillStyle='#000';for(var lyy=0;lyy<H;lyy+=2*S)x.fillRect(0,lyy,W,S);x.globalAlpha=1;
+              // Rising warm embers for vibes.
+              for(var lei=0;lei<14;lei++){var lex=((lei*W/14+Math.sin(f*0.02+lei)*18*S)%W+W)%W;var ley=H-((f*0.6*S+lei*89)%(H+40*S));x.globalAlpha=0.12+0.1*Math.sin(f*0.05+lei*1.7);x.fillStyle='#ffd2a0';x.beginPath();x.arc(lex,ley,1.5*S,0,6.283);x.fill();}x.globalAlpha=1;
+              // Decorative animated clock face.
+              var lkR=Math.min(W,H)*0.16;var lkCX=W*0.5;var lkCY=H*0.30;var lkPulse=0.5+Math.sin(f*0.05)*0.5;
+              x.globalAlpha=0.2+lkPulse*0.18;x.fillStyle='#ffcf9a';x.beginPath();x.arc(lkCX,lkCY,lkR*1.28,0,6.283);x.fill();x.globalAlpha=1;
+              x.fillStyle=isLightMode?'#fff4e8':'#27160d';x.beginPath();x.arc(lkCX,lkCY,lkR,0,6.283);x.fill();
+              x.strokeStyle='#ffc896';x.lineWidth=2*S;x.beginPath();x.arc(lkCX,lkCY,lkR,0,6.283);x.stroke();
+              for(var lti=0;lti<12;lti++){var lta=lti/12*6.283;x.strokeStyle='#ffb478';x.lineWidth=(lti%3===0?2:1)*S;x.beginPath();x.moveTo(lkCX+Math.cos(lta)*lkR*0.82,lkCY+Math.sin(lta)*lkR*0.82);x.lineTo(lkCX+Math.cos(lta)*lkR*0.95,lkCY+Math.sin(lta)*lkR*0.95);x.stroke();}
+              x.lineCap='round';
+              var lkHh=f*0.0035-1.5708,lkHm=f*0.042-1.5708,lkHs=f*0.13-1.5708;
+              x.strokeStyle='#ff9a78';x.lineWidth=3*S;x.beginPath();x.moveTo(lkCX,lkCY);x.lineTo(lkCX+Math.cos(lkHh)*lkR*0.5,lkCY+Math.sin(lkHh)*lkR*0.5);x.stroke();
+              x.strokeStyle='#ffd2a0';x.lineWidth=2*S;x.beginPath();x.moveTo(lkCX,lkCY);x.lineTo(lkCX+Math.cos(lkHm)*lkR*0.78,lkCY+Math.sin(lkHm)*lkR*0.78);x.stroke();
+              x.strokeStyle='#fff0c0';x.lineWidth=S;x.beginPath();x.moveTo(lkCX,lkCY);x.lineTo(lkCX+Math.cos(lkHs)*lkR*0.9,lkCY+Math.sin(lkHs)*lkR*0.9);x.stroke();
+              x.lineCap='butt';x.fillStyle='#ffd2a0';x.beginPath();x.arc(lkCX,lkCY,2.5*S,0,6.283);x.fill();
+              // Title "laer klokken" with a soft pulsing glow.
+              var lkFS=Math.floor(Math.min(W*0.12,24*S));x.font='italic bold '+lkFS+'px Georgia,serif';x.textAlign='center';
+              var lkTY=lkCY+lkR+lkFS*1.5;
+              x.globalAlpha=0.3+lkPulse*0.3;x.fillStyle='#ffe8c8';x.fillText('laer klokken',lkCX+S,lkTY+S);x.globalAlpha=1;
+              x.fillStyle='#fff7ec';x.fillText('laer klokken',lkCX,lkTY);
+              x.textAlign='left';
+              // Recent clock-chat messages stacked in the lower area (newest at bottom).
+              var lkMsgs=LAK_MSGS;var lkMFS=Math.max(7,Math.floor(5*S));x.font=lkMFS+'px monospace';var lkRow=lkMFS+4*S;var lkBY=H-12*S;
+              for(var lmi=0;lmi<lkMsgs.length&&lmi<8;lmi++){var lm=lkMsgs[lkMsgs.length-1-lmi];if(!lm)continue;var lmy=lkBY-lmi*lkRow;if(lmy<lkTY+lkFS*0.6)break;var lma=Math.max(0.12,1-lmi*0.13);
+                x.globalAlpha=lma;x.fillStyle='#ffb478';var lh=(lm.from||'@anon')+' ';x.fillText(lh,8*S,lmy);var lhw=x.measureText(lh).width;
+                x.fillStyle='#ffe8d0';x.fillText((lm.text||'').slice(0,40),8*S+lhw,lmy);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // 🎹 Notepat.com piano boot animation
             if(isNotepat){
