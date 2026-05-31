@@ -1515,6 +1515,9 @@ class TextInput {
 
     this.closeOnEmptyEnter = options.closeOnEmptyEnter || false;
     this.hideGutter = options.hideGutter || false;
+    this.poe = options.poe || false; // 🪶 Presentational writing mode: skip
+    //                                   gutter, focus border, and buttons in
+    //                                   favor of a bare full-screen caret + text.
     // ^ Close keyboard on empty entry.
 
     this.copiedCallback = options.copied; // Load typeface, preventing double loading of the system default.
@@ -1744,7 +1747,7 @@ class TextInput {
       $.ink(this.pal.background).box(frame); // Paint bg.
       
       // Add subtle hover glow effect on the prompt area
-      if (isHovering && this.canType) {
+      if (isHovering && this.canType && !this.poe) {
         const glowColor = this.pal.promptHover || 
           ($.dark ? [100, 80, 150, 30] : [180, 150, 220, 40]);
         $.ink(glowColor).box(frame.x, frame.y, frame.width, frame.height);
@@ -1983,7 +1986,7 @@ class TextInput {
     //   paintBlockLetter(char, prompt.pos(pos));
     // });
 
-    if (this.canType) {
+    if (this.canType && !this.poe) {
       if (!this.hideGutter) {
         $.ink(this.pal.guideline).line(
           prompt.gutter,
@@ -2031,13 +2034,20 @@ class TextInput {
             ? [100, 255, 100]
             : [0, 150, 0]
           : this.pal.block;
-        $.ink(cursorColor).box(prompt.pos(undefined, true)); // Draw blinking cursor.
-        const char = this.text[this.#prompt.textPos()];
-        // Only draw inverted character if there's actually a character there
-        if (char !== undefined && char !== "") {
-          const pic = this.typeface.glyphs[char];
-          if (pic)
-            $.ink(this.pal.highlight).draw(pic, prompt.pos(undefined, true));
+        if (this.poe) {
+          // 🪶 Poe caret: a soft full-height vertical bar at the cursor's left
+          // edge — no inverted-glyph block, so the text underneath stays legible.
+          const cp = prompt.pos(undefined, true);
+          $.ink(this.pal.cursor || cursorColor).box(cp.x, cp.y, 2, cp.h);
+        } else {
+          $.ink(cursorColor).box(prompt.pos(undefined, true)); // Draw blinking cursor.
+          const char = this.text[this.#prompt.textPos()];
+          // Only draw inverted character if there's actually a character there
+          if (char !== undefined && char !== "") {
+            const pic = this.typeface.glyphs[char];
+            if (pic)
+              $.ink(this.pal.highlight).draw(pic, prompt.pos(undefined, true));
+          }
         }
       }
     }
@@ -2058,7 +2068,7 @@ class TextInput {
       btnRolloverScheme = [pal.btnRollover, pal.btnRolloverTxt, pal.btnRolloverTxt, pal.btnRollover];
 
     // Enter Button
-    if (!this.enter.btn.disabled) {
+    if (!this.enter.btn.disabled && !this.poe) {
       // Outline the whole screen.
       if (this.#activatingPress) {
         const color =
@@ -2074,7 +2084,7 @@ class TextInput {
 
     if (frame.x || frame.y) $.unpan();
 
-    if (!this.enter.btn.disabled) {
+    if (!this.enter.btn.disabled && !this.poe) {
       this.enter.reposition({ right: 6, bottom: 6, screen: frame });
       $.layer(2);
       this.enter.paint($, btnScheme, btnHvrScheme, undefined, btnRolloverScheme);
@@ -2082,7 +2092,7 @@ class TextInput {
     }
 
     // Copy Button
-    if (!this.copy.btn.disabled) {
+    if (!this.copy.btn.disabled && !this.poe) {
       this.copy.reposition({ left: 6, bottom: 6, screen: frame });
       this.copy.btn.publishToDom($, "copy", this.#coatedCopy);
       $.layer(2);
@@ -2097,7 +2107,7 @@ class TextInput {
     }
 
     // Paste Button
-    if (!this.paste.btn.disabled) {
+    if (!this.paste.btn.disabled && !this.poe) {
       this.paste.reposition({ left: 6, bottom: 6, screen: frame });
       this.paste.btn.publishToDom($, "paste");
       $.layer(2);

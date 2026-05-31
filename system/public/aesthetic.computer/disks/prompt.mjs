@@ -103,16 +103,22 @@ import { parseMessageElements, applyColorCodes, defaultColorTheme } from "../lib
 import { colorizeText, hasHotlinks } from "../lib/hotlink.mjs";
 import * as products from "./common/products.mjs";
 const { abs, max, min, sin, cos } = Math;
-const { floor } = Math;
+const { floor, round } = Math;
 const { keys } = Object;
 
 // Error / feedback flash on command entry.
-let theme = "default"; // Prompt theme: "default", "serious", "neo" (prompt:serious, prompt:neo)
+let theme = "default"; // Prompt theme: "default", "serious", "neo", "poe" (prompt:serious, prompt:neo, prompt:poe)
 
 let flash;
 let flashShow = false;
 let flashColor = [];
 let flashPresent = false;
+
+// 🪶 Poe mode — clear-as-event state.
+const POE_CLEAR_STYLES = ["flash", "wipe", "dissolve"]; // cycled on empty-Esc
+let poeClearStyle = 0; // index into POE_CLEAR_STYLES
+let poeWipe = null; // active clear animation: { style, start, dur }
+let poeHintFade = 0; // brief brighten of the hint line after a style change
 
 let progressBar = -1; // If not zero, then draw a progress bar.
 let progressTrick; // A faux growth period on the progress bar.
@@ -923,8 +929,13 @@ async function boot({
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
   if (store["prompt:theme"]) theme = store["prompt:theme"];
   if (store["prompt:lang"]) lang = store["prompt:lang"];
+  if (store["prompt:poeClear"] != null) {
+    const i = POE_CLEAR_STYLES.indexOf(store["prompt:poeClear"]);
+    if (i >= 0) poeClearStyle = i;
+  }
   if (colon?.includes("serious")) theme = "serious";
   if (colon?.includes("neo")) theme = "neo";
+  if (colon?.includes("poe")) theme = "poe";
   if (dark) glaze({ on: true });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
@@ -3963,13 +3974,15 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
-  } else if (text === "serious" || text === "neo" || text === "theme:default" || text === "theme:serious" || text === "theme:neo") {
+  } else if (text === "serious" || text === "neo" || text === "poe" || text === "theme:default" || text === "theme:serious" || text === "theme:neo" || text === "theme:poe") {
     const newTheme = text === "theme:default" ? "default" :
                      text === "theme:serious" || text === "serious" ? (theme === "serious" ? "default" : "serious") :
-                     text === "theme:neo" || text === "neo" ? (theme === "neo" ? "default" : "neo") : "default";
+                     text === "theme:neo" || text === "neo" ? (theme === "neo" ? "default" : "neo") :
+                     text === "theme:poe" || text === "poe" ? (theme === "poe" ? "default" : "poe") : "default";
     setTheme(newTheme, $);
     flashColor = theme === "serious" ? [0, 0, 0] :
                  theme === "neo" ? ($.dark ? [0, 255, 0] : [0, 80, 0]) :
+                 theme === "poe" ? ($.dark ? [11, 11, 14] : [244, 240, 232]) :
                  scheme.dark.block;
     makeFlash($);
     needsPaint();
@@ -4629,12 +4642,20 @@ function paint($) {
     if ($.system.prompt?.input) {
       $.system.prompt.input.scheme = { dark: scheme.neo.dark, light: scheme.neo.light, buttons: langButtons };
     }
+  } else if (theme === "poe") {
+    pal = $.dark ? scheme.poe.dark : scheme.poe.light;
+    if ($.system.prompt?.input) {
+      $.system.prompt.input.scheme = { dark: scheme.poe.dark, light: scheme.poe.light, buttons: langButtons };
+    }
   } else {
     pal = $.dark ? scheme.dark : scheme.light;
     if ($.system.prompt?.input) {
       $.system.prompt.input.scheme = { ...scheme, buttons: langButtons };
     }
   }
+
+  // 🪶 Toggle the TextInput's presentational poe rendering with the theme.
+  if ($.system.prompt?.input) $.system.prompt.input.poe = theme === "poe";
 
   // Sync Enter button label with current language.
   if ($.system.prompt?.input?.enter) {
@@ -4655,6 +4676,8 @@ function paint($) {
     scheme.serious.light.background[3] = 190;
     scheme.neo.dark.background[3] = 176;
     scheme.neo.light.background[3] = 190;
+    scheme.poe.dark.background[3] = 176;
+    scheme.poe.light.background[3] = 190;
   } else {
     $.wipe(pal.background);
   }
@@ -7423,6 +7446,60 @@ function paint($) {
     if (firstActivation) return true;
   }
 
+  // 🪶 Poe — clear-as-event overlay + faint shortcut hints, drawn on top of
+  // the text (this is the topmost draw in prompt's paint).
+  if (theme === "poe") {
+    const pp = $.dark ? scheme.poe.dark : scheme.poe.light;
+    const ac = pp.cursor || pp.text; // accent
+
+    if (poeWipe) {
+      const t = (performance.now() - poeWipe.start) / poeWipe.dur;
+      if (t >= 1) {
+        poeWipe = null;
+        $.needsPaint();
+      } else {
+        if (poeWipe.style === "flash") {
+          ink(ac[0], ac[1], ac[2], round(180 * (1 - t))).box(
+            0, 0, screen.width, screen.height,
+          );
+        } else if (poeWipe.style === "wipe") {
+          const y = round(t * screen.height); // paper sweeps top→bottom
+          ink(...pp.background).box(0, 0, screen.width, y);
+          ink(ac[0], ac[1], ac[2], 200).box(0, y - 2, screen.width, 2);
+        } else {
+          // dissolve — scattered accent flecks fading out
+          const a = round(160 * (1 - t));
+          const phase = floor(t * 40);
+          for (let i = 0; i < 90; i += 1) {
+            const x = (i * 73 + phase * 17) % screen.width;
+            const yy = (i * 131 + phase * 29) % screen.height;
+            ink(ac[0], ac[1], ac[2], a).box(x, yy, 2, 2);
+          }
+        }
+        $.needsPaint(); // keep the animation advancing
+      }
+    }
+
+    // Faint shortcut hints along the bottom edge.
+    if ($.system.prompt?.input?.canType) {
+      const style = POE_CLEAR_STYLES[poeClearStyle];
+      const tx = pp.text;
+      const alpha = poeHintFade > 0 ? 160 : 64;
+      if (poeHintFade > 0) {
+        poeHintFade = max(0, poeHintFade - 0.04);
+        $.needsPaint();
+      }
+      ink(tx[0], tx[1], tx[2], alpha).write(
+        `esc clear  ·  esc esc style: ${style}`,
+        { center: "x", y: screen.height - 12 },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
+  }
+
   $.layer(0); // Return to the bottom layer.
   return false;
 }
@@ -8411,6 +8488,30 @@ function act({
     }
   }
 
+  // 🪶 Poe mode — Escape clears the page as an event (sound + visual wipe).
+  // On an already-empty page, Escape cycles the clear style instead, so the
+  // whole gesture lives on one discoverable key.
+  if (theme === "poe" && e.is("keyboard:down:escape")) {
+    const inp = system.prompt.input;
+    const hasText = (inp?.text || "").length > 0;
+    if (hasText) {
+      inp.blank?.("blink"); // clear text, keep the blinking caret alive
+      const style = POE_CLEAR_STYLES[poeClearStyle];
+      poeWipe = { style, start: performance.now(), dur: 420 };
+      poePlayClear(synth, style);
+    } else {
+      poeClearStyle = (poeClearStyle + 1) % POE_CLEAR_STYLES.length;
+      const style = POE_CLEAR_STYLES[poeClearStyle];
+      store["prompt:poeClear"] = style;
+      store.persist?.("prompt:poeClear");
+      poeWipe = { style, start: performance.now(), dur: 300 }; // preview
+      poeHintFade = 1; // brighten the hint so the new style name pops
+      poePlayClear(synth, style);
+    }
+    needsPaint();
+    return; // consume
+  }
+
   if (e.is("keyboard:down:tab") && e.key === "Tab" && activeCompletions[0]) {
     // console.log("Tab completing:", activeCompletions[0]);
     // TODO: The text input object needs to be updated here also...
@@ -8516,6 +8617,7 @@ function activated($, state) {
     $.sound.play(startupSfx); // Play startup sound...
     flashColor = theme === "serious" ? ($.dark ? [255] : [0]) :
                  theme === "neo" ? ($.dark ? [0, 255, 0] : [0, 80, 0]) :
+                 theme === "poe" ? ($.dark ? [11, 11, 14] : [244, 240, 232]) :
                  scheme.dark.block; // Trigger startup animation...
     makeFlash($ /*, $.params[0]*/); // Always sets firstActivation flag to false.
   }
@@ -8704,6 +8806,38 @@ export const scheme = {
       auto: "black",
       statusColor: "gray",
       focusOutline: "gray",
+    },
+  },
+  // 🪶 Poe mode — a calm presentational writing surface. White on near-black
+  // (dark) / ink on warm paper (light), with a soft accent caret. The
+  // TextInput's `poe` flag strips the gutter, focus border, and buttons so
+  // only the words and caret remain.
+  poe: {
+    dark: {
+      text: [236, 236, 236],       // soft white
+      background: [11, 11, 14],     // near-black
+      prompt: [236, 236, 236],
+      block: [236, 236, 236],
+      highlight: [11, 11, 14],
+      cursor: [111, 224, 194],      // soft mint caret
+      guideline: [40, 40, 48, 64],
+      handleColor: [236, 236, 236, 128],
+      auto: "white",
+      statusColor: "gray",
+      focusOutline: "#2a2a30",
+    },
+    light: {
+      text: [28, 24, 20],           // warm ink
+      background: [244, 240, 232],   // warm paper
+      prompt: [28, 24, 20],
+      block: [28, 24, 20],
+      highlight: [244, 240, 232],
+      cursor: [200, 120, 60],       // warm amber caret
+      guideline: [200, 190, 175, 64],
+      handleColor: [28, 24, 20, 128],
+      auto: "black",
+      statusColor: "gray",
+      focusOutline: "#d8d0c4",
     },
   },
 };
@@ -9286,6 +9420,21 @@ function makeFlash($, clear = true, beep = false) {
   }
 
   if (beep) $.beep();
+}
+
+// 🪶 Poe — play the clear cue, voiced per clear style.
+function poePlayClear(synth, style) {
+  if (style === "flash") {
+    // A bright single chime.
+    synth({ type: "sine", tone: 880, duration: 0.12, volume: 0.2, attack: 0.005, decay: 0.05, release: 0.06 });
+  } else if (style === "wipe") {
+    // A descending two-tone sweep that tracks the bar falling down-screen.
+    synth({ type: "sine", tone: 620, duration: 0.1, volume: 0.18, attack: 0.005, decay: 0.04, release: 0.05 });
+    setTimeout(() => synth({ type: "sine", tone: 310, duration: 0.12, volume: 0.16, attack: 0.005, decay: 0.05, release: 0.06 }), 70);
+  } else {
+    // dissolve — an airy high triangle that scatters away.
+    synth({ type: "triangle", tone: 1040, duration: 0.16, volume: 0.14, attack: 0.005, decay: 0.09, release: 0.08 });
+  }
 }
 
 function positionWelcomeButtons(screen, iframe) {
