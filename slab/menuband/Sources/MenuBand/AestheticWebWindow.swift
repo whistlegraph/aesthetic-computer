@@ -37,6 +37,32 @@ final class AestheticWebWindowController: NSWindowController, NSWindowDelegate, 
         return controller
     }
 
+    /// The live window, if one is open. Lets the KidLisp chooser mirror
+    /// the current `$code` into the window without forcing it open.
+    static func current() -> AestheticWebWindowController? { shared }
+
+    /// Navigate the window to an AC piece path (e.g. `$bop`). No-op if
+    /// the webview isn't built yet. Keeps the popover TV and the window
+    /// showing the same KidLisp piece (shared `KidLispState`).
+    func load(piece path: String) {
+        guard let url = URL(string: "https://aesthetic.computer/\(path)") else { return }
+        acWebView?.load(URLRequest(url: Self.withMenubandFlag(url)))
+    }
+
+    /// Tag any AC URL with `?menuband=true` so the boot stack knows it's
+    /// running inside the Menu Band webview and serves the minimal,
+    /// text-free boot animation (mirrors how `device=true` / `notebook=true`
+    /// pick their own boot visuals). Idempotent — won't double-add.
+    static func withMenubandFlag(_ url: URL) -> URL {
+        guard var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else { return url }
+        var items = comps.queryItems ?? []
+        guard !items.contains(where: { $0.name == "menuband" }) else { return url }
+        items.append(URLQueryItem(name: "menuband", value: "true"))
+        comps.queryItems = items
+        return comps.url ?? url
+    }
+
     private func position(rightOf anchor: NSRect, gap: CGFloat, window: NSWindow) {
         let myFrame = window.frame
         let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? anchor
@@ -187,7 +213,14 @@ final class AestheticWebWindowController: NSWindowController, NSWindowDelegate, 
 
         self.acWebView = webView
         window.contentView = container
-        webView.load(URLRequest(url: Self.defaultURL))
+        // Open on the shared current KidLisp piece when one is selected;
+        // otherwise the AC homepage, so this stays a general AC window.
+        let state = KidLispState.shared
+        if state.hasCode {
+            webView.load(URLRequest(url: Self.withMenubandFlag(state.pieceURL)))
+        } else {
+            webView.load(URLRequest(url: Self.withMenubandFlag(Self.defaultURL)))
+        }
     }
 
     private static func userAgent() -> String {

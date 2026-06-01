@@ -1304,6 +1304,9 @@ async function fun(event, context) {
           var isLaklok=location.hostname==='laklok.com'||location.hostname==='www.laklok.com'||location.pathname==='/laklok'||location.pathname.startsWith('/laklok?')||location.pathname.startsWith('/laklok/');
           // Notebook: Python/Jupyter notebook with scientific aesthetic
           var isNotebook=qs.indexOf('notebook=true')>=0;
+          // Menu Band: running inside the macOS menubar app's webview. Gets a
+          // minimal, text-free boot visual (no logs / moods / title chrome).
+          var isMenuband=qs.indexOf('menuband=true')>=0;
           // Boot animation mode: 'serious' (clean/refined, default) or 'aesthetic' (VHS/glitch).
           // The legacy 'spring' raindrop animation is preserved on the raindrops-archive branch.
           var bootTheme=params.get('boot')||'serious';var isSerious=bootTheme==='serious';
@@ -1449,6 +1452,23 @@ async function fun(event, context) {
               // Boot log messages (minimal, scientific style)
               var nbLogFS=4*S;x.font=nbLogFS+'px monospace';var nbLogY=30*S;
               for(var li=0;li<lines.length&&li<6;li++){var ln=lines[li],ly=nbLogY+li*5*S,la=Math.max(0.4,1-li*0.12);var nbCols3=getNbCols();var lc3=nbCols3[li%nbCols3.length];x.globalAlpha=la;x.fillStyle='rgb('+lc3[0]+','+lc3[1]+','+lc3[2]+')';x.fillText('> '+ln.text,8*S,ly);}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;}
+            // 🎛️ Menu Band — minimal, text-free boot for the in-app webview.
+            // A small centered cluster of soft bars gently breathing (a tiny
+            // equalizer/keyboard motif), on a clean light/dark ground. No
+            // logs, no moods, no title — just a quiet "tuning up" beat while
+            // the system loads. Takes precedence over every other theme.
+            if(isMenuband){
+              var mbBg=isLightMode?'#e9e9ee':'#0b0b0f';x.fillStyle=mbBg;x.fillRect(0,0,W,H);
+              var mbN=7;var mbBW=Math.max(3,3*S);var mbGap=Math.max(3,4*S);
+              var mbTot=mbN*mbBW+(mbN-1)*mbGap;var mbX0=(W-mbTot)/2;var mbCY=H*0.5;
+              var mbMax=Math.min(H*0.22,40*S);
+              for(var mbi=0;mbi<mbN;mbi++){
+                var mbA=0.5+0.5*Math.sin(f*0.07+mbi*0.7);var mbh=mbMax*(0.25+0.75*mbA);
+                var mbx=mbX0+mbi*(mbBW+mbGap);
+                x.globalAlpha=0.35+0.45*mbA;x.fillStyle=isLightMode?'#3a3a42':'#cfd4dc';
+                x.fillRect(mbx,mbCY-mbh/2,mbBW,mbh);
+              }
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // 🕰️ laklok.com boot — notepat-style top-left corner label plus
             // boot logs underneath (same typographic proportions as notepat).
