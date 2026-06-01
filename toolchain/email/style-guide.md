@@ -44,6 +44,9 @@ strip before sending:
 - "looking forward"
 - "this is going to be great"
 - "happy to help"
+- "let me know if that works for you" / "let me know your thoughts" /
+  any permission-seeking or confirmation-fishing tag — state the fact and
+  stop; if a real question exists, ask it directly
 - generic trailing "thanks!" when there's nothing being thanked for
 
 End on the last functional sentence + signature. Concrete next-step
@@ -53,9 +56,10 @@ and undercuts the work.
 
 ## Drafts and authorization
 
-Do NOT auto-send applications, pitches, outreach, or first-deliverable
-emails. Compose the draft, show the headers + body + attachment paths
-in the conversation, and wait for explicit authorization ("send it" /
-"go ahead") before calling `mail_send`. Replies in a long-running
-already-active thread can be sent without the explicit step IF the
-prompt makes the intent unambiguous, but when in doubt — draft first.
+**Never send any email without prior approval.** This applies to every
+email — new threads, replies, logistics notes, one-liners, all of it.
+There is no "unambiguous intent" exception: even when the prompt says
+"email them," compose the draft, show the headers + body + attachment
+paths in the conversation, and wait for explicit authorization ("send
+it" / "go ahead") before calling `mail_send`. Drafting is the default;
+sending is a separate, explicitly-authorized step every time.
