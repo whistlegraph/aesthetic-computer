@@ -1374,9 +1374,7 @@ async function fun(event, context) {
           var NP_KEYS=[];var NP_PARTICLES=[];var NP_LAST_KEY=0;var NP_KEY_INTERVAL=120;
           var NP_NOTE_NAMES=['C','D','E','F','G','A','B'];
           var NP_KEY_COLS=[[255,107,157],[78,205,196],[255,217,61],[149,225,211],[255,154,162],[170,150,218],[112,214,255],[255,183,77]];
-          // 🕰️ laklok.com (laer klokken) boot state — recent clock-chat history.
-          var LAK_MSGS=[];
-          if(isLaklok){(async function(){try{var r=await fetch('/api/chat-messages?instance=clock&limit=30');if(r.ok){var d=await r.json();if(d&&d.messages)LAK_MSGS=d.messages;}}catch(e){}})();}
+          // 🕰️ laklok.com (laer klokken) boot — boot logs only, no clock-chat.
           // 📊 Notebook scientific aesthetic boot animation state
           var NB_DATA_POINTS=[];var NB_GRID_LINES=[];var NB_WAVEFORMS=[];var NB_LAST_SPAWN=0;
           var NB_COLS_DARK=[[0,180,255],[0,255,180],[120,220,255],[80,200,120],[100,255,255]];
@@ -1452,30 +1450,21 @@ async function fun(event, context) {
               var nbLogFS=4*S;x.font=nbLogFS+'px monospace';var nbLogY=30*S;
               for(var li=0;li<lines.length&&li<6;li++){var ln=lines[li],ly=nbLogY+li*5*S,la=Math.max(0.4,1-li*0.12);var nbCols3=getNbCols();var lc3=nbCols3[li%nbCols3.length];x.globalAlpha=la;x.fillStyle='rgb('+lc3[0]+','+lc3[1]+','+lc3[2]+')';x.fillText('> '+ln.text,8*S,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
-            // 🕰️ laklok.com boot — recent clock-chat strings only, with a
-            // notepat-style top-left corner label (same typographic proportions).
+            // 🕰️ laklok.com boot — notepat-style top-left corner label plus
+            // boot logs underneath (same typographic proportions as notepat).
             if(isLaklok){
               var lkBg=isLightMode?'#f3ece2':'#160d08';x.fillStyle=lkBg;x.fillRect(0,0,W,H);
               // Subtle scan lines.
               x.globalAlpha=isLightMode?0.02:0.05;x.fillStyle=isLightMode?'#888':'#000';for(var lyy=0;lyy<H;lyy+=2*S)x.fillRect(0,lyy,W,S);x.globalAlpha=1;
-              // Recent clock-chat strings — scattered across the screen with a
-              // gentle drift (stable pseudo-random positions per message), notepat pills.
-              var lkMsgs=LAK_MSGS,lkFS=4*S;x.font=lkFS+'px monospace';
-              for(var lmi=0;lmi<lkMsgs.length;lmi++){var lm=lkMsgs[lmi];if(!lm)continue;
-                var lhx=Math.sin(lmi*12.9898)*43758.5453;lhx-=Math.floor(lhx);
-                var lhy=Math.sin(lmi*78.233)*43758.5453;lhy-=Math.floor(lhy);
-                var lmStr=((lm.from||'@anon')+' '+(lm.text||'')).slice(0,48);var lmTw=x.measureText(lmStr).width;
-                var lpx=8*S+lhx*Math.max(1,(W-lmTw-16*S))+Math.sin(f*0.008+lmi*1.3)*8*S;
-                var lpy=30*S+lhy*Math.max(1,(H-46*S))+Math.cos(f*0.0065+lmi*2.1)*8*S;
-                var lmCol=NP_KEY_COLS[lmi%NP_KEY_COLS.length];
-                x.globalAlpha=0.12;x.fillStyle='rgb('+lmCol[0]+','+lmCol[1]+','+lmCol[2]+')';x.beginPath();x.roundRect(lpx-2*S,lpy-lkFS*0.85,lmTw+4*S,lkFS*1.35,2*S);x.fill();
-                x.globalAlpha=0.85;x.fillStyle='rgb('+lmCol[0]+','+lmCol[1]+','+lmCol[2]+')';x.fillText(lmStr,lpx,lpy);}
-              x.globalAlpha=1;
               // Top-left "laklok"+".com" label — mirrors notepat's proportions.
               var npFS=Math.floor(12*S);x.font='bold '+npFS+'px monospace';var lkLbl='laklok';var npTW=x.measureText(lkLbl).width;var npTX=8*S,npTY=16*S;
               var npPulse=0.15+Math.sin(f*0.06)*0.08;x.globalAlpha=npPulse;x.fillStyle=isLightMode?'rgba(200,90,50,0.3)':'rgba(255,160,100,0.25)';x.beginPath();x.roundRect(npTX-8*S,npTY-npFS*0.8,npTW+16*S,npFS*1.4,4*S);x.fill();
               x.globalAlpha=0.9;x.fillStyle=isLightMode?'#5a2e18':'#ffe8d0';x.fillText(lkLbl,npTX,npTY);
               var comFS=Math.floor(6*S);x.font=comFS+'px monospace';x.fillStyle=isLightMode?'#b4643c':'#ffb478';x.fillText('.com',npTX+npTW+2*S,npTY-npFS*0.35);
+              x.globalAlpha=1;
+              // Boot log messages (below laklok title).
+              var lkLogFS=4*S;x.font=lkLogFS+'px monospace';var lkLogY=npTY+npFS;
+              for(var li=0;li<lines.length&&li<8;li++){var ln=lines[li],ly=lkLogY+li*5*S,la=Math.max(0.3,1-li*0.1);var lc2=NP_KEY_COLS[li%NP_KEY_COLS.length];x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';var tw=x.measureText(ln.text).width;x.beginPath();x.roundRect(4*S,ly-lkLogFS*0.7,tw+12*S,lkLogFS*1.1,2*S);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc2[0]+','+lc2[1]+','+lc2[2]+')';x.fillText(ln.text,6*S,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
             // 🎹 Notepat.com piano boot animation
             if(isNotepat){
