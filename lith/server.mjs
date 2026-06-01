@@ -47,9 +47,9 @@ if (typeof globalThis.awslambda === "undefined") {
 }
 
 import express from "express";
-import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, statSync } from "fs";
 import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { createServer as createHttpsServer } from "https";
 import { createServer as createHttpServer } from "http";
 import { resolveFunctionName } from "./route-resolution.mjs";
@@ -184,19 +184,29 @@ app.use((req, _res, next) => {
 
 // --- Load Netlify functions ---
 const functions = {};
+const functionFiles = {};   // name → absolute file path (DEV hot-reload)
+const functionMtimes = {};  // name → last-loaded mtimeMs (DEV hot-reload)
 
 // Scripts that call process.exit() at import time — not API functions.
 const SKIP = new Set(["backfill-painting-codes", "test-tv-hits"]);
 
-for (const file of readdirSync(FN_DIR)) {
-  if (!file.endsWith(".mjs") && !file.endsWith(".js")) continue;
+// Import one function file and register its handler. In DEV, `bust` appends a
+// cache-busting query so re-imports actually pick up edits (ESM caches by URL,
+// so without this the first import of e.g. index.mjs is frozen for the life of
+// the process — which is why boot-canvas edits never showed up locally).
+async function loadFunction(file, bust = false) {
+  if (!file.endsWith(".mjs") && !file.endsWith(".js")) return;
   const name = file.replace(/\.(mjs|js)$/, "");
-  if (SKIP.has(name)) continue;
+  if (SKIP.has(name)) return;
   try {
-    const mod = await import(join(FN_DIR, file));
+    const full = join(FN_DIR, file);
+    const spec = pathToFileURL(full).href + (bust ? `?v=${Date.now()}` : "");
+    const mod = await import(spec);
+    let registered = false;
     if (mod.handler) {
       // Netlify Functions v1: export { handler }
       functions[name] = mod.handler;
+      registered = true;
     } else if (mod.default && typeof mod.default === "function") {
       // Netlify Functions v2: export default async (req) => { ... }
       // Wrap v2 handler to match v1 event/context signature
@@ -217,13 +227,41 @@ for (const file of readdirSync(FN_DIR)) {
         resp.headers.forEach((v, k) => { headers[k] = v; });
         return { statusCode: resp.status, headers, body };
       };
+      registered = true;
+    }
+    if (registered && DEV) {
+      functionFiles[name] = full;
+      try { functionMtimes[name] = statSync(full).mtimeMs; } catch {}
     }
   } catch (err) {
     console.warn(`  skip: ${name} (${err.message})`);
   }
 }
 
+for (const file of readdirSync(FN_DIR)) await loadFunction(file);
+
 console.log(`Loaded ${Object.keys(functions).length} functions`);
+
+// 🔁 DEV hot-reload: re-import the requested function before dispatching so
+// source edits (e.g. index.mjs boot HTML) show up without restarting. We reload
+// on a short throttle rather than trusting fs.watch/inotify OR file mtime —
+// BOTH are unreliable on WSL2 / Docker bind mounts (events don't fire, mtime
+// lags). Throttling bounds the cost: a burst of requests re-imports a given
+// function at most ~twice/sec, and only the function actually being hit.
+const lastReloadAt = {};
+async function freshHandler(name) {
+  if (DEV && functionFiles[name]) {
+    const now = Date.now();
+    if (now - (lastReloadAt[name] || 0) > 500) {
+      lastReloadAt[name] = now;
+      try {
+        await loadFunction(functionFiles[name].slice(FN_DIR.length + 1), true);
+      } catch {}
+    }
+  }
+  return functions[name];
+}
+if (DEV) console.log("🔁 DEV: netlify functions hot-reload (per-request, throttled)");
 
 // --- Netlify event adapter ---
 function toEvent(req) {
@@ -270,7 +308,7 @@ function toEvent(req) {
 // --- Function handler ---
 async function handleFunction(req, res) {
   const name = req.params.fn;
-  const handler = functions[name];
+  const handler = await freshHandler(name);
   if (!handler) {
     recordCall(name || "unknown", 0, 404, req.path, req.method, "Function not found");
     return res.status(404).send("Function not found: " + name);
