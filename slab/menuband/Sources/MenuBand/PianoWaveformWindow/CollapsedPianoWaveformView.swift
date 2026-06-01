@@ -108,6 +108,13 @@ final class CollapsedPianoWaveformView: NSView {
                 keyCode: kc, isDown: isDown, isRepeat: isRepeat, flags: flags
             ) ?? false
         }
+        // Radio-station cells sit in the top row, left of MIDI OUT. Clicking
+        // one tunes the radio ("voice −1") to that station and engages it.
+        instrumentList.radioStations = RadioStation.all
+        instrumentList.onRadioCommit = { [weak self] station in
+            self?.menuBand?.selectRadioStation(station)
+            self?.refresh()
+        }
 
         qwertyMap.translatesAutoresizingMaskIntoConstraints = false
         qwertyMap.scale = 1.0
@@ -330,6 +337,8 @@ final class CollapsedPianoWaveformView: NSView {
         // voice while the preview note plays a different program.
         instrumentList.selectedProgram = menuBand.effectiveMelodicProgram
         instrumentList.midiModeActive = menuBand.midiMode
+        instrumentList.radioBackendActive = (menuBand.instrumentBackend == .kpbj)
+        instrumentList.selectedRadioStationID = menuBand.radioStation.id
 
         applyInstrumentReadout(safe: safe, familyColor: familyColor, isDark: isDark)
 

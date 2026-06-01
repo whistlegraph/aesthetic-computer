@@ -11,6 +11,9 @@ extension Notification.Name {
     /// About window. AppDelegate re-reads UserDefaults, resizes the
     /// status item, and redraws the menubar icon.
     static let menuBandTapeFeatureChanged = Notification.Name("MenuBandTapeFeatureChanged")
+    /// Fired when the user flips the right-hand percussion split in the
+    /// About window. AppDelegate re-applies the split's side effects.
+    static let menuBandPercussionSplitChanged = Notification.Name("MenuBandPercussionSplitChanged")
 }
 
 /// 90-second analog-style tape with **stem separation** baked in.
@@ -56,6 +59,18 @@ final class MenuBandTape {
     private var synthWriteFrame: Int = 0
     private var micWriteFrame: Int = 0
     private var playFrame: Int = 0
+
+    /// Leading-transient trim. The hot mic is already running when the
+    /// user presses backtick to arm REC, so the first frames captured
+    /// include the mechanical click of the record key itself (and a few
+    /// ms of pre-press room tone from the in-flight tap block). The
+    /// sample-voice capture path drops the same window via
+    /// `recordKeyClickSkipFrames`; the tape needs its own copy because
+    /// it ingests raw frames directly. We skip the SAME count from both
+    /// stems so synth and mic stay sample-aligned for clean DAW stems.
+    private static let leadTrimFrames = Int(sampleRate * 0.035) // ~35 ms
+    private var synthLeadSkip: Int = 0
+    private var micLeadSkip: Int = 0
 
     private(set) var state: State = .idle {
         didSet { if oldValue != state { postChange() } }
@@ -161,6 +176,8 @@ final class MenuBandTape {
         synthWriteFrame = 0
         micWriteFrame = 0
         playFrame = 0
+        synthLeadSkip = Self.leadTrimFrames
+        micLeadSkip = Self.leadTrimFrames
         recordStartDate = Date()
         cachedEject = nil
         bufferLock.unlock()
@@ -493,6 +510,18 @@ final class MenuBandTape {
                                    right: UnsafePointer<Float>,
                                    frames: Int) {
         bufferLock.lock()
+        // Drop the leading record-key transient window before anything
+        // lands in the buffer. Whole blocks inside the window vanish;
+        // a block straddling the boundary advances the source pointer.
+        var left = left, right = right, frames = frames
+        if synthLeadSkip > 0 {
+            let skip = min(synthLeadSkip, frames)
+            synthLeadSkip -= skip
+            left = left.advanced(by: skip)
+            right = right.advanced(by: skip)
+            frames -= skip
+            if frames <= 0 { bufferLock.unlock(); return }
+        }
         let remaining = Self.maxFrames - synthWriteFrame
         let take = min(frames, remaining)
         if take > 0,
@@ -515,6 +544,16 @@ final class MenuBandTape {
 
     private func writeMicFrames(mono: UnsafePointer<Float>, frames: Int) {
         bufferLock.lock()
+        // Same leading record-key transient trim as the synth stem,
+        // and the SAME frame count, so the two stems stay aligned.
+        var mono = mono, frames = frames
+        if micLeadSkip > 0 {
+            let skip = min(micLeadSkip, frames)
+            micLeadSkip -= skip
+            mono = mono.advanced(by: skip)
+            frames -= skip
+            if frames <= 0 { bufferLock.unlock(); return }
+        }
         let remaining = Self.maxFrames - micWriteFrame
         let take = min(frames, remaining)
         if take > 0, let dst = micBuffer.floatChannelData?[0] {

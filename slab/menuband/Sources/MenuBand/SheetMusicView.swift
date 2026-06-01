@@ -109,16 +109,33 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         // color) to show through behind it.
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
+        // Webviews are now created LAZILY (see `ensureWebViews`). The
+        // live view is the all-Swift `TapeStaffView`; Verovio's 7MB
+        // WASM only loads when a PDF is engraved on demand or a Menu
+        // Band PDF is dragged back in. Nothing here spins it up.
+        registerForDraggedTypes([.fileURL])
+    }
+
+    /// True once the Verovio webviews have been built. Stays false for
+    /// the whole popover session unless a PDF export / drag-in needs
+    /// them — that's the performance win over the old always-on pane.
+    private var webViewsReady = false
+
+    /// Build the Verovio panes on first demand. Idempotent.
+    private func ensureWebViews() {
+        guard !webViewsReady else { return }
+        webViewsReady = true
         setUpExportWebView()
         setUpWebView()
         setUpOverlay()
-        registerForDraggedTypes([.fileURL])
     }
 
     required init?(coder: NSCoder) { nil }
 
     override func layout() {
         super.layout()
+        // Nothing to lay out until the lazy Verovio panes exist.
+        guard webViewsReady, webView != nil else { return }
         webView.frame = bounds
         overlay.frame = bounds
         // Keep the offscreen export webview the same size as the
@@ -132,16 +149,9 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
                                               height: max(bounds.height, 1))
             exportWebView.frame = NSRect(origin: .zero, size: exportWebViewHost.bounds.size)
         }
-        // Once the popover is actually on screen and the webView has
-        // a non-zero size, prime the PDF cache. Without this guard
-        // a too-early `createPDF` on a 0×0 webView hangs forever and
-        // poisons pdfRenderInFlight. Re-prime on size changes too —
-        // the layout messages from Verovio renders fire only on note
-        // changes, not on plain resizes.
-        if isLoaded && webView.bounds.width > 0 && webView.bounds.height > 0
-            && cachedPDFURL == nil && !pdfRenderInFlight {
-            schedulePDFRefresh()
-        }
+        // PDF priming on popover-open is gone — PDFs are now engraved
+        // on demand (icon click / drag) from the Swift `TapeScore`,
+        // not eagerly cached per popover session.
     }
 
     private func setUpWebView() {
@@ -509,6 +519,92 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         }
     }
 
+    // MARK: - On-demand PDF from a Swift TapeScore
+    //
+    // The live view is all-Swift now, so the recording lives in a
+    // `TapeScore`, not in the Verovio pane. When the user clicks /
+    // drags the corner page icon we spin Verovio up (lazily), feed
+    // it the take via `Sheet.loadNotes`, engrave one PDF, and embed
+    // the same MusicXML + events round-trip payload the drag-out PDFs
+    // have always carried.
+
+    /// Engrave `score` to a PDF and call back with the file URL (nil
+    /// on failure). Lazily builds the Verovio panes on first use.
+    func requestPDF(from score: TapeScore, completion: @escaping (URL?) -> Void) {
+        ensureWebViews()
+        let payload = score.loadNotesPayload()
+        waitForExportLoaded(retries: 80) { [weak self] ok in
+            guard let self = self, ok else { completion(nil); return }
+            // Seed the export pane from the take, then let Verovio lay
+            // it out before we read XML / events / createPDF.
+            let js = "(function(){ try { Sheet.loadNotes(\(payload)); return 'ok'; } catch(e){ return 'err:'+e.message; } })()"
+            self.exportWebView.evaluateJavaScript(js) { _, _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.exportWebView.evaluateJavaScript("Sheet.getMusicXML()") { xmlRes, _ in
+                        let xml = (xmlRes as? String) ?? ""
+                        self.exportWebView.evaluateJavaScript("Sheet.getPlaybackEvents()") { evRes, _ in
+                            let events = (evRes as? String) ?? "[]"
+                            self.engravePDF(xml: xml, events: events, completion: completion)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// createPDF on the export pane + embed the round-trip metadata.
+    /// Shares the metadata shape with the legacy `runCreatePDF`.
+    private func engravePDF(xml: String, events: String,
+                            completion: @escaping (URL?) -> Void) {
+        guard let exportWebView = exportWebView else { completion(nil); return }
+        let stamp = Self.fileTimestamp.string(from: Date())
+        let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("MenuBand-PDFDrags", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: tmpDir, withIntermediateDirectories: true)
+        let pdfURL = tmpDir.appendingPathComponent("Menu-Band-\(stamp).pdf")
+        exportWebView.createPDF { [weak self] result in
+            guard let self = self else { completion(nil); return }
+            switch result {
+            case .success(let data):
+                do { try data.write(to: pdfURL) }
+                catch {
+                    NSLog("SheetMusicView: PDF write failed — \(error)")
+                    completion(nil); return
+                }
+                if let pdf = PDFDocument(url: pdfURL) {
+                    var attrs = pdf.documentAttributes ?? [:]
+                    attrs[PDFDocumentAttribute.subjectAttribute] = xml
+                    attrs[PDFDocumentAttribute.keywordsAttribute] = [
+                        Self.pdfFormatKeyword,
+                        "events:\(events)",
+                    ]
+                    attrs[PDFDocumentAttribute.creatorAttribute] = "Menu Band"
+                    attrs[PDFDocumentAttribute.titleAttribute] = "Menu Band score"
+                    pdf.documentAttributes = attrs
+                    pdf.write(to: pdfURL)
+                }
+                self.cachedPDFURL = pdfURL
+                completion(pdfURL)
+            case .failure(let error):
+                NSLog("SheetMusicView: createPDF failed — \(error)")
+                completion(nil)
+            }
+        }
+    }
+
+    /// Poll until the offscreen export pane has finished loading
+    /// sheet.html (and therefore has the `Sheet` API). Calls back on
+    /// the main queue with success/failure.
+    private func waitForExportLoaded(retries: Int,
+                                     _ done: @escaping (Bool) -> Void) {
+        if exportLoaded { done(true); return }
+        guard retries > 0 else { done(false); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.waitForExportLoaded(retries: retries - 1, done)
+        }
+    }
+
     private func snapshotImage() -> NSImage {
         let rep = bitmapImageRepForCachingDisplay(in: bounds) ?? NSBitmapImageRep()
         cacheDisplay(in: bounds, to: rep)
@@ -624,6 +720,8 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         // actually played, sample-accurate. Falls back to MIDI route
         // when the PDF predates the events embedding.
         let events = Self.extractPlaybackEvents(from: pdfURL)
+        // Drag-in needs the Verovio pane — build it lazily on first use.
+        ensureWebViews()
         // Hand the embedded MusicXML to Verovio: it re-renders the
         // staff (same code path as the live transcription, just
         // seeded from XML instead of accumulated noteOn events) and
@@ -645,7 +743,9 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
             }
         })()
         """
-        webView.evaluateJavaScript(js) { [weak self] result, error in
+        waitForVisibleLoaded(retries: 80) { [weak self] ready in
+        guard let self = self, ready else { return }
+        self.webView.evaluateJavaScript(js) { [weak self] result, error in
             guard let self = self else { return }
             if let error = error {
                 NSLog("SheetMusicView: drag-in eval failed — \(error)")
@@ -667,7 +767,20 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
             NSLog("SheetMusicView: drag-in produced \(base64.count) chars of base64 MIDI — handing to player (legacy path)")
             self.playImportedMIDI(base64: base64)
         }
+        }
         return true
+    }
+
+    /// Poll until the visible Verovio pane has loaded sheet.html (sets
+    /// `isLoaded` via `pollForReady`). Used by `loadAndPlay` now that
+    /// the pane is built lazily and may not be ready at drop time.
+    private func waitForVisibleLoaded(retries: Int,
+                                      _ done: @escaping (Bool) -> Void) {
+        if isLoaded { done(true); return }
+        guard retries > 0 else { done(false); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.waitForVisibleLoaded(retries: retries - 1, done)
+        }
     }
 
     /// One auto-play event extracted from a Menu Band PDF.
@@ -1082,10 +1195,9 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
         case "layout":
             if let xml = dict["musicXML"] as? String { cachedMusicXML = xml }
             handleLayout(dict)
-            // Re-render the PDF in the background so the next drag
-            // pulls the freshest version. Coalesced via the in-flight
-            // flag so a burst of layouts doesn't pile up renders.
-            schedulePDFRefresh()
+            // No per-note PDF churn anymore: PDFs are engraved on
+            // demand from the Swift TapeScore, not re-rendered on
+            // every layout message.
         default:
             break
         }
@@ -1176,6 +1288,8 @@ final class SheetMusicView: NSView, WKNavigationDelegate, WKScriptMessageHandler
     }
 
     func printScore() {
+        ensureWebViews()
+        guard webView != nil else { return }
         let info = NSPrintInfo.shared.copy() as! NSPrintInfo
         info.orientation = .portrait
         info.topMargin = 36

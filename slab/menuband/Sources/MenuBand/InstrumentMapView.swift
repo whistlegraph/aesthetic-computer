@@ -22,6 +22,8 @@ final class InstrumentListView: NSView {
     static let rows = 16
     static let cellW: CGFloat = 28
     static let cellH: CGFloat = 14
+    /// Width of each radio-station cell in the top row (left of MIDI OUT).
+    static let stationCellW: CGFloat = 40
     /// Special "instrument 0" addressable slot that lives above the
     /// 1-128 grid. Picking it engages MIDI passthrough mode (notes go
     /// out the virtual port instead of the internal synth). Replaces
@@ -59,6 +61,17 @@ final class InstrumentListView: NSView {
     /// palette. Returns true when the key has been consumed as a
     /// music event.
     var onMusicKey: ((UInt16, Bool, Bool, NSEvent.ModifierFlags) -> Bool)?
+
+    /// Radio-station chooser cells that sit in the top row, to the LEFT of
+    /// the MIDI-OUT cell. Set by the host view; empty = no radio cells.
+    var radioStations: [RadioStation] = [] { didSet { needsDisplay = true } }
+    /// True while the radio ("voice −1") backend is the active instrument —
+    /// fills the selected station cell, like `midiModeActive` fills MIDI OUT.
+    var radioBackendActive: Bool = false { didSet { needsDisplay = true } }
+    /// Which station id is currently tuned (highlighted when active).
+    var selectedRadioStationID: String? { didSet { needsDisplay = true } }
+    /// Fires when the user clicks a radio-station cell.
+    var onRadioCommit: ((RadioStation) -> Void)?
 
     private var trackingArea: NSTrackingArea?
 
@@ -98,6 +111,9 @@ final class InstrumentListView: NSView {
         point: NSPoint,
         userData data: UnsafeMutableRawPointer?
     ) -> String {
+        if let i = radioStationIndex(at: point) {
+            return "\(radioStations[i].name) - click to play the live radio as voice −1"
+        }
         if isMidiOutHit(point) {
             return "0 MIDI OUT - route notes to the virtual MIDI port; local synth is muted"
         }
@@ -120,10 +136,31 @@ final class InstrumentListView: NSView {
                       height: Self.cellH)
     }
 
-    /// Full-width "0 MIDI OUT" cell at the top of the chooser. Hit-test
-    /// is exclusive of the patch grid below.
+    /// Width reserved on the left of the top row for the radio-station cells.
+    private var radioStripWidth: CGFloat {
+        CGFloat(radioStations.count) * Self.stationCellW
+    }
+
+    private func radioStationRect(_ i: Int) -> NSRect {
+        NSRect(x: CGFloat(i) * Self.stationCellW, y: 0,
+               width: Self.stationCellW, height: Self.midiOutH)
+    }
+
+    /// Radio-cell index under a point in the top row, or nil.
+    private func radioStationIndex(at point: NSPoint) -> Int? {
+        guard point.y >= 0, point.y < Self.midiOutH else { return nil }
+        guard point.x >= 0, point.x < radioStripWidth else { return nil }
+        let i = Int(point.x / Self.stationCellW)
+        return (i >= 0 && i < radioStations.count) ? i : nil
+    }
+
+    /// "0 MIDI OUT" cell — occupies the top row to the RIGHT of the radio
+    /// strip (full width when there are no radio cells). Hit-test is
+    /// exclusive of the radio cells and the patch grid below.
     private var midiOutRect: NSRect {
-        NSRect(x: 0, y: 0, width: bounds.width, height: Self.midiOutH)
+        let x = radioStripWidth
+        return NSRect(x: x, y: 0,
+                      width: max(0, bounds.width - x), height: Self.midiOutH)
     }
 
     private func program(at point: NSPoint) -> Int? {
@@ -247,6 +284,34 @@ final class InstrumentListView: NSView {
             let size = str.size()
             str.draw(at: NSPoint(x: midiR.midX - size.width / 2,
                                  y: midiR.midY - size.height / 2))
+        }
+
+        // Radio-station cells in the top row, to the left of MIDI OUT. Teal
+        // (vs. the MIDI cell's accent) so the radio strip reads distinctly;
+        // the tuned station fills solid while the radio backend is active.
+        for (i, st) in radioStations.enumerated() {
+            let rr = radioStationRect(i)
+            guard rr.intersects(dirtyRect) else { continue }
+            let active = radioBackendActive && selectedRadioStationID == st.id
+            let teal = NSColor.systemTeal
+            let cap = NSBezierPath(roundedRect: rr.insetBy(dx: 1.75, dy: 1.5),
+                                   xRadius: 3, yRadius: 3)
+            if active {
+                teal.withAlphaComponent(0.85).setFill(); cap.fill()
+                teal.setStroke(); cap.lineWidth = 1.4; cap.stroke()
+            } else {
+                teal.withAlphaComponent(0.10).setFill(); cap.fill()
+                teal.withAlphaComponent(0.55).setStroke(); cap.lineWidth = 0.8; cap.stroke()
+            }
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9, weight: .semibold),
+                .foregroundColor: (active ? NSColor.white : NSColor.labelColor)
+                    .withAlphaComponent(active ? 1.0 : 0.8),
+                .kern: 0.2,
+            ]
+            let str = NSAttributedString(string: st.label, attributes: attrs)
+            let sz = str.size()
+            str.draw(at: NSPoint(x: rr.midX - sz.width / 2, y: rr.midY - sz.height / 2))
         }
 
         let selectedRow = Int(selectedProgram) / Self.cols
@@ -376,6 +441,12 @@ final class InstrumentListView: NSView {
         // immediately after the user picks an initial cell.
         window?.makeFirstResponder(self)
         let pt = convert(event.locationInWindow, from: nil)
+        // Radio-station cell — tune the radio voice to that station. Like
+        // MIDI OUT, there's no audible preview, so it bypasses the drag path.
+        if let i = radioStationIndex(at: pt) {
+            onRadioCommit?(radioStations[i])
+            return
+        }
         // MIDI OUT cell — slot 0. Click toggles MIDI passthrough mode
         // via the controller. Bypasses the drag/preview path because
         // there's no audible preview to start.

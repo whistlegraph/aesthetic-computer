@@ -32,6 +32,93 @@ enum KeyboardIconRenderer {
         11: NSColor(srgbRed: 180/255, green:  80/255, blue: 255/255, alpha: 1),  // B
     ]
 
+    /// Drum-pad colors (port of PERCUSSION_COLORS in lib/percussion.mjs),
+    /// indexed by pitch class. Painted over the right-hand keys while the
+    /// percussion split is active so the drum zone reads at a glance.
+    private static let percussionColorByPitchClass: [Int: NSColor] = [
+        0:  NSColor(srgbRed: 220/255, green:  90/255, blue:  40/255, alpha: 1),  // kick
+        1:  NSColor(srgbRed: 220/255, green: 150/255, blue: 240/255, alpha: 1),  // crash
+        2:  NSColor(srgbRed: 220/255, green: 180/255, blue: 110/255, alpha: 1),  // snare
+        3:  NSColor(srgbRed: 240/255, green: 160/255, blue: 220/255, alpha: 1),  // splash
+        4:  NSColor(srgbRed: 240/255, green: 220/255, blue: 130/255, alpha: 1),  // clap
+        5:  NSColor(srgbRed: 220/255, green: 240/255, blue: 140/255, alpha: 1),  // snap
+        6:  NSColor(srgbRed: 200/255, green: 150/255, blue:  80/255, alpha: 1),  // cowbell
+        7:  NSColor(srgbRed: 120/255, green: 220/255, blue: 180/255, alpha: 1),  // closed hat
+        8:  NSColor(srgbRed: 190/255, green: 120/255, blue:  70/255, alpha: 1),  // block
+        9:  NSColor(srgbRed: 120/255, green: 200/255, blue: 240/255, alpha: 1),  // open hat
+        10: NSColor(srgbRed: 230/255, green: 210/255, blue: 170/255, alpha: 1),  // tambo
+        11: NSColor(srgbRed: 180/255, green: 180/255, blue: 230/255, alpha: 1),  // ride
+    ]
+
+    /// Set by AppDelegate when either percussion side toggles. Each half of
+    /// the board latches to drums independently (tap left-⌥ / right-⌥).
+    static var percussionLeftActive: Bool = false
+    static var percussionRightActive: Bool = false
+
+    /// Whether the key at display-MIDI `m` is currently a drum — its half of
+    /// the board has to be latched. Left half is `< lingerSplitMidi`.
+    static func percussionActive(forMidi m: Int) -> Bool {
+        m < MenuBandLayout.lingerSplitMidi ? percussionLeftActive : percussionRightActive
+    }
+
+    /// The drum-pad color to wash over a key, or nil when that key's half
+    /// isn't latched to drums (so it's still a melodic key).
+    static func percussionDrumColor(forMidi m: Int) -> NSColor? {
+        guard percussionActive(forMidi: m) else { return nil }
+        return percussionColorByPitchClass[((m % 12) + 12) % 12]
+    }
+
+    /// Per-pitch-class drum hit pulses (time + 0…1 level), pushed by the
+    /// AppDelegate visualizer tick straight from the live percussion data.
+    /// Drives the per-key shake + blink so the menubar keys physically
+    /// "vibe" with each drum hit.
+    static var drumPulses: [MenuBandPercussion.DrumPulse] = []
+    static var drumPulseNow: Double = 0
+
+    /// Shake offset + blink (0…1) for a right-hand drum key, derived from
+    /// its most recent hit: a velocity-scaled damped buzz that rings down
+    /// over ~0.4 s. Returns zeros for melodic keys / when the split is off.
+    static func percussionVibe(forMidi m: Int) -> (dx: CGFloat, dy: CGFloat, blink: CGFloat) {
+        guard percussionActive(forMidi: m),
+              !drumPulses.isEmpty else { return (0, 0, 0) }
+        let pc = ((m % 12) + 12) % 12
+        guard pc < drumPulses.count else { return (0, 0, 0) }
+        let p = drumPulses[pc]
+        guard p.at > 0 else { return (0, 0, 0) }
+        let elapsed = drumPulseNow - p.at
+        guard elapsed >= 0, elapsed < 0.5 else { return (0, 0, 0) }
+        let env = p.level * exp(-elapsed * 9.0)
+        if env < 0.02 { return (0, 0, 0) }
+        // Frequencies kept under the 24 fps repaint Nyquist (12 Hz) so the
+        // buzz reads as a fast jitter, not an aliased slow wobble.
+        let amp = CGFloat(env) * 2.4
+        let dx = amp * CGFloat(sin(elapsed * 2 * .pi * 9))
+        let dy = amp * 0.5 * CGFloat(cos(elapsed * 2 * .pi * 7))
+        let blink = CGFloat(min(1.0, env * 1.35))
+        return (dx, dy, blink)
+    }
+
+    /// Rotation (radians) for the menubar music-note glyph, derived from
+    /// the most recent percussion hit across ALL drum pads — a damped
+    /// left/right wobble that rings down over ~0.4 s so the icon visibly
+    /// shimmies each time a drum is struck. Independent of the split
+    /// being active (drums can be hit via the percussion split keys).
+    static func percussionIconWobble() -> CGFloat {
+        guard !drumPulses.isEmpty else { return 0 }
+        // Strongest still-ringing pulse drives the wobble.
+        var best: (env: Double, elapsed: Double)? = nil
+        for p in drumPulses where p.at > 0 {
+            let elapsed = drumPulseNow - p.at
+            guard elapsed >= 0, elapsed < 0.5 else { continue }
+            let env = p.level * exp(-elapsed * 8.0)
+            if env > (best?.env ?? 0) { best = (env, elapsed) }
+        }
+        guard let b = best, b.env > 0.02 else { return 0 }
+        // ~9° peak swing, oscillating a couple of times as it decays.
+        let amp = CGFloat(b.env) * (9.0 * .pi / 180.0)
+        return amp * CGFloat(sin(b.elapsed * 2 * .pi * 6))
+    }
+
     /// Updated by AppDelegate.updateIcon() before each render so the renderer
     /// can pick the right letter labels and active-range without threading
     /// the keymap through every static method's signature.
@@ -123,10 +210,30 @@ enum KeyboardIconRenderer {
     /// slim render without needing to actually squeeze the menubar.
     static var forceLayout: DisplayLayout? = nil
 
-    /// Shift-held → labels render uppercase as the visual cue for
-    /// "linger / bell-ring mode." AppDelegate flips this on .flagsChanged
-    /// and re-issues updateIcon() so the menubar redraws.
-    static var labelsUppercase: Bool = false
+    /// Which half of the keyboard renders uppercase labels — the visual
+    /// cue for "linger / bell-ring mode," now sided to match the sided
+    /// linger: left shift uppercases the left (lower) half, right shift
+    /// the right (upper) half, caps lock / both shifts the whole board.
+    /// AppDelegate sets this on .flagsChanged and re-issues updateIcon().
+    enum UppercaseSide { case none, left, right, all }
+    static var labelsUppercaseSide: UppercaseSide = .none
+
+    /// True if any uppercase cue is active. Kept for the non-per-key
+    /// consumers (linger fermata gating, label baseline nudge) that only
+    /// care whether the mode is armed at all, not which half.
+    static var labelsUppercase: Bool { labelsUppercaseSide != .none }
+
+    /// Whether the label for a given display MIDI note should render
+    /// uppercase, honoring the active side. Notes are the menubar piano's
+    /// C4–C5 window; the split matches the audio linger split.
+    static func uppercaseForMidi(_ midi: Int) -> Bool {
+        switch labelsUppercaseSide {
+        case .none: return false
+        case .all: return true
+        case .left: return midi < MenuBandLayout.lingerSplitMidi
+        case .right: return midi >= MenuBandLayout.lingerSplitMidi
+        }
+    }
 
     /// Caps-lock latched (as opposed to a momentary shift). Drawn
     /// state in the chip is gated differently for the two: caps
@@ -240,6 +347,11 @@ enum KeyboardIconRenderer {
     /// the AppDelegate's animation tick so bars move continuously
     /// instead of stepping.
     static var miniVisualizerLevel: CGFloat = 0.0
+    /// Real per-bar levels (0..1) — bass / mid / treble RMS of the live
+    /// waveform tap, updated every animation tick with a fast response so
+    /// the three bars are an honest, time-accurate spectrum meter rather
+    /// than a decorative wiggle. Empty until the first tick populates it.
+    static var miniVisualizerBars: [CGFloat] = [0, 0, 0]
     /// Wall-clock seconds, updated once per animation tick. Drives the
     /// per-bar phase offset so bars wiggle independently — reads as
     /// live audio metering rather than three identical pulses.
@@ -306,7 +418,16 @@ enum KeyboardIconRenderer {
     /// inside the slot. 3-digit voices may extend a hair past the
     /// edge but still read clearly. Keeps the icon's right margin
     /// close to standard macOS menubar spacing.
-    static let voiceBadgeRightPad: CGFloat = 5.0
+    /// Character count of the current voice subscript, set by the
+    /// AppDelegate each `updateIcon`. Lets the badge pad grow for 3-digit
+    /// GM numbers (100–128) so the rightmost digit isn't cropped.
+    static var voiceBadgeDigits: Int = 1
+    /// Right pad reserved for the voice-number badge. Base covers the
+    /// common 1–2 character case; each extra character adds ~one
+    /// monospaced 7pt digit width so the slot widens only when needed.
+    static var voiceBadgeRightPad: CGFloat {
+        5.0 + CGFloat(max(0, voiceBadgeDigits - 2)) * 5.0
+    }
 
     enum HitResult: Equatable {
         case openSettings
@@ -367,6 +488,15 @@ enum KeyboardIconRenderer {
 
     /// UserDefaults key for the tape-deck feature flag.
     static let tapeFeatureDefaultsKey = "MenuBandTapeDeckEnabled"
+
+    /// UserDefaults key for the right-hand percussion split toggle. Shared
+    /// between MenuBandController (source of truth) and the About-window
+    /// checkbox so the string never diverges.
+    static let percussionSplitDefaultsKey = "notepat.percussionSplit"
+    /// Per-side latched percussion (tap left-⌥ / right-⌥). Source of truth
+    /// shared between MenuBandController and the About-window checkbox.
+    static let percussionLeftDefaultsKey = "notepat.percussionLeft"
+    static let percussionRightDefaultsKey = "notepat.percussionRight"
 
     // Compact Cassette physical aspect: 100.4mm × 63.8mm ≈ 1.574:1.
     // Cassette fills the full piano height (whiteH = 21pt); width
@@ -469,7 +599,18 @@ enum KeyboardIconRenderer {
         7 * whiteW
     }
 
-    static var imageSize: NSSize {
+    /// Global magnification of the menubar icon. The image is drawn at
+    /// base coordinates then blown up by this factor so the whole thing
+    /// (piano, chip, bars, tape) reads larger in the bar — same
+    /// proportions, just bigger. Hit-testing divides incoming points by it
+    /// so clicks still land. Set adaptively at launch to fill the bar's
+    /// usable height without overflowing (the button centers — doesn't
+    /// downscale — so overshooting would clip). 1.0 = original size.
+    static var iconScale: CGFloat = 1.0
+
+    /// Base (unscaled) menubar icon size — the coordinate space all drawing
+    /// and hit rects are computed in.
+    static var baseImageSize: NSSize {
         // imageSize is always queried in tape-included context (it's
         // the menubar status-item size). Compute as if the static
         // flag were set, regardless of the flag's transient state.
@@ -478,11 +619,18 @@ enum KeyboardIconRenderer {
         return NSSize(width: totalW, height: totalH)
     }
 
+    /// The displayed menubar image size — base blown up by `iconScale`.
+    /// Drives the status-item length and the window→image hit mapping.
+    static var imageSize: NSSize {
+        NSSize(width: ceil(baseImageSize.width * iconScale),
+               height: ceil(baseImageSize.height * iconScale))
+    }
+
     /// Cassette body rect — hangs off the LEFT side of the deck on
     /// visible drive spokes. Same vertical extent as the piano keys
     /// so the cassette reads as the same "device height" as the deck.
     static var tapeRect: NSRect {
-        let bodyY = (imageSize.height - tapeBodyH) / 2.0
+        let bodyY = (baseImageSize.height - tapeBodyH) / 2.0
         return NSRect(x: tapeLeadPad,
                       y: bodyY,
                       width: tapeBodyW,
@@ -597,12 +745,23 @@ enum KeyboardIconRenderer {
         // draw, then restores. Default static value (true) covers
         // hit-testing + size queries that happen outside any
         // drawing context.
-        let size = includeSettings ? imageSize : pianoImageSize(layout: layout)
+        // `size` stays in BASE coordinates (all the drawing math below uses
+        // it). The menubar canvas is blown up by iconScale and a matching
+        // transform is applied so the whole icon renders larger; the
+        // floating palette (includeSettings == false) is left at 1×.
+        let size = includeSettings ? baseImageSize : pianoImageSize(layout: layout)
+        let s: CGFloat = includeSettings ? iconScale : 1.0
+        let canvasSize = NSSize(width: ceil(size.width * s), height: ceil(size.height * s))
 
-        let img = NSImage(size: size, flipped: false) { _ in
+        let img = NSImage(size: canvasSize, flipped: false) { _ in
             let savedTapeReserved = tapeReservedInLayout
             tapeReservedInLayout = includeSettings
             defer { tapeReservedInLayout = savedTapeReserved }
+            if s != 1.0 {
+                let scale = NSAffineTransform()
+                scale.scale(by: s)
+                scale.concat()
+            }
 
             // Piano.
             NSGraphicsContext.saveGraphicsState()
@@ -706,6 +865,11 @@ enum KeyboardIconRenderer {
                 }
                 for (idx, m) in whites.enumerated() {
                     if !isActive(m) { continue }   // negative space — skip draw
+                    // Percussion vibe: a fresh drum hit jolts only the
+                    // LETTER with a damped buzz — the keycap + stripe stay
+                    // put so just the label shakes (the blink still rides
+                    // the same envelope on the drum-pad wash below).
+                    let vibe = Self.percussionVibe(forMidi: m)
                     let rect = whiteRect(at: idx + slotOffset)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
                     let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
@@ -739,13 +903,28 @@ enum KeyboardIconRenderer {
                         NSColor.controlAccentColor.withAlphaComponent(0.50).setFill()
                         path.fill()
                     }
+                    // Percussion split: wash the right-hand keys in their
+                    // drum-pad color so the drum zone is unmistakable. Takes
+                    // the place of the chromatic stripe for those keys.
+                    let drumColor = Self.percussionDrumColor(forMidi: m)
+                    if let drumColor, !isLit {
+                        // Blink: a fresh hit flashes the pad brighter/whiter,
+                        // riding the same envelope as the shake.
+                        let b = vibe.blink
+                        let c = b > 0.01
+                            ? (drumColor.blended(withFraction: b * 0.85, of: .white) ?? drumColor)
+                            : drumColor
+                        let baseAlpha: CGFloat = isDark ? 0.50 : 0.62
+                        c.withAlphaComponent(min(1.0, baseAlpha + b * 0.38)).setFill()
+                        path.fill()
+                    }
                     // Chromatic stripe — thin flat ROYGBIV band along
                     // the bottom of each natural key, idle only. Hidden
                     // on press so the lit accent fill reads cleanly.
                     // Dark mode dims the chroma toward black so it
                     // doesn't read as neon against dark slate keys.
                     let stripeH: CGFloat = keyHeightScale > 1.0 ? 3.0 : 2.0
-                    if let chroma = Self.chromaticColorByPitchClass[m % 12], !isLit {
+                    if drumColor == nil, let chroma = Self.chromaticColorByPitchClass[m % 12], !isLit {
                         let stripeChroma: NSColor = isDark
                             ? (chroma.blended(withFraction: 0.18, of: .black) ?? chroma)
                             : chroma
@@ -816,7 +995,7 @@ enum KeyboardIconRenderer {
                     // legacy binary `typeMode` rendering when no closure is
                     // supplied (e.g., previews that don't drive animation).
                     if tileOffset == 0, let letter = labelByMidi[m] {
-                        let display = labelsUppercase ? letter.uppercased() : letter
+                        let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
                         let a: CGFloat
                         if isLit {
                             a = 1.0
@@ -829,9 +1008,12 @@ enum KeyboardIconRenderer {
                             // Labels stay anchored at the bottom of each
                             // key — the chromatic stripe paints behind
                             // them, so the letter reads on the colored
-                            // band rather than floating above it.
-                            drawWhiteLabel(display, in: rect, lit: isLit, alpha: a,
-                                           chroma: Self.chromaticColorByPitchClass[m % 12])
+                            // band rather than floating above it. The
+                            // percussion buzz shakes ONLY the letter rect.
+                            let labelRect = rect.offsetBy(dx: vibe.dx, dy: vibe.dy)
+                            drawWhiteLabel(display, in: labelRect, lit: isLit, alpha: a,
+                                           chroma: Self.chromaticColorByPitchClass[m % 12],
+                                           uppercase: Self.uppercaseForMidi(m))
                         }
                     }
                 }
@@ -840,6 +1022,9 @@ enum KeyboardIconRenderer {
                     var leftWhite = m - 1
                     while !isWhite(leftWhite) { leftWhite -= 1 }
                     guard let leftIdx = whiteIndex[leftWhite] else { continue }
+                    // Vibe shakes only the letter (see white-key note) —
+                    // the keycap stays put.
+                    let vibe = Self.percussionVibe(forMidi: m)
                     let rect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
                     let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
@@ -879,11 +1064,23 @@ enum KeyboardIconRenderer {
                         NSColor.white.withAlphaComponent(0.20).setFill()
                         path.fill()
                     }
+                    // Percussion split: tint the right-hand sharps (the
+                    // accent drums — crash/splash/cowbell/block/tambo) with
+                    // their pad color. Higher alpha than the naturals so it
+                    // reads against the dark keycap.
+                    if let drumColor = Self.percussionDrumColor(forMidi: m), !isLit {
+                        let b = vibe.blink
+                        let c = b > 0.01
+                            ? (drumColor.blended(withFraction: b * 0.85, of: .white) ?? drumColor)
+                            : drumColor
+                        c.withAlphaComponent(min(1.0, 0.72 + b * 0.28)).setFill()
+                        path.fill()
+                    }
                     groove.setStroke()
                     path.lineWidth = 0.6
                     path.stroke()
                     if tileOffset == 0, let letter = labelByMidi[m] {
-                        let display = labelsUppercase ? letter.uppercased() : letter
+                        let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
                         let a: CGFloat
                         if isLit {
                             a = 1.0
@@ -893,7 +1090,9 @@ enum KeyboardIconRenderer {
                             a = typeMode ? 1.0 : 0.0
                         }
                         if a > 0.01 {
-                            drawBlackLabel(display, in: rect, lit: isLit, alpha: a)
+                            // Percussion buzz shakes only the letter rect.
+                            let labelRect = rect.offsetBy(dx: vibe.dx, dy: vibe.dy)
+                            drawBlackLabel(display, in: labelRect, lit: isLit, alpha: a)
                         }
                     }
                 }
@@ -964,8 +1163,8 @@ enum KeyboardIconRenderer {
         let leftX = displayLayout == .compact
             ? tapeReservedWidth
             : pianoOriginX + pianoWidth(layout: .fixedCanvas)
-        let rightX = imageSize.width
-        return NSRect(x: leftX, y: 0, width: rightX - leftX, height: imageSize.height)
+        let rightX = baseImageSize.width
+        return NSRect(x: leftX, y: 0, width: rightX - leftX, height: baseImageSize.height)
     }
 
     /// Visible icon bounds — a pill-sized region centered on the music
@@ -979,19 +1178,22 @@ enum KeyboardIconRenderer {
         // before the voice-badge pad was added. Otherwise the
         // music-note glyph would drift right whenever the badge pad
         // claims its slice of the image.
-        let oldRight = imageSize.width - voiceBadgeRightPad
+        let oldRight = baseImageSize.width - voiceBadgeRightPad
         let cx = oldRight - w / 2 - pad
         // Nudge the chip slightly UP so the SF Symbol `music.note`
         // glyph — which is visually bottom-heavy (the stem extends
         // upward from a wide note head) — reads as centered in the
         // menubar slot. Without this the icon sits a touch low.
-        let cy = imageSize.height / 2 + 1.2
+        let cy = baseImageSize.height / 2 + 1.2
         return NSRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
     }
 
     // MARK: - Hit testing
 
-    static func hit(at point: NSPoint) -> HitResult? {
+    static func hit(at rawPoint: NSPoint) -> HitResult? {
+        // The displayed icon is magnified by `iconScale`; map the click back
+        // into the base coordinate space the hit rects live in.
+        let point = NSPoint(x: rawPoint.x / iconScale, y: rawPoint.y / iconScale)
         if tapeFeatureEnabled {
             // Tape sits at the leading edge — checked first so the
             // cassette wins over any speculative key hit math that
@@ -1072,7 +1274,12 @@ enum KeyboardIconRenderer {
     /// can be anywhere); horizontally tolerates a small overshoot past the
     /// leftmost/rightmost white key so a drag rolling past the edge keeps
     /// the edge key sounding.
-    static func noteAt(_ point: NSPoint, layout: Layout = .fixedCanvas) -> UInt8? {
+    static func noteAt(_ rawPoint: NSPoint, layout: Layout = .fixedCanvas) -> UInt8? {
+        // Menubar canvas is magnified by iconScale — map clicks back to base
+        // coords. The 1× floating palette passes its own layout, untouched.
+        let point = layout == .fixedCanvas
+            ? NSPoint(x: rawPoint.x / iconScale, y: rawPoint.y / iconScale)
+            : rawPoint
         let whites = whiteList()
         let activeWhites = activeWhites(layout: layout)
         guard !activeWhites.isEmpty else { return nil }
@@ -1214,7 +1421,7 @@ enum KeyboardIconRenderer {
 
     // MARK: - Key labels
 
-    private static func drawWhiteLabel(_ text: String, in rect: NSRect, lit: Bool, alpha: CGFloat = 1.0, bottomOffset: CGFloat = 0, chroma: NSColor? = nil) {
+    private static func drawWhiteLabel(_ text: String, in rect: NSRect, lit: Bool, alpha: CGFloat = 1.0, bottomOffset: CGFloat = 0, chroma: NSColor? = nil, uppercase: Bool = false) {
         guard alpha > 0.01 else { return }
         // Lit keys fill with the system accent — label flips to a
         // dark on-color shade so the letter reads as ink stamped on
@@ -1245,7 +1452,9 @@ enum KeyboardIconRenderer {
         // floating too high inside the cap, so push them down 2pt
         // so they sit grounded on the chromatic stripe.
         let slim = displayLayout == .fullSlim
-        let baseY: CGFloat = (labelsUppercase ? 2.0 : 3.0) - (slim ? 2.0 : 0)
+        // Only the keys whose own label is uppercased drop lower — so a
+        // one-sided shift nudges just that half, not the whole row.
+        let baseY: CGFloat = (uppercase ? 2.0 : 3.0) - (slim ? 2.0 : 0)
         str.draw(at: NSPoint(x: rect.midX - size.width / 2,
                              y: rect.minY + baseY + bottomOffset))
     }
@@ -1687,32 +1896,35 @@ enum KeyboardIconRenderer {
     private static func drawChipVisualizer(in rect: NSRect, level: CGFloat,
                                            hovered: Bool, color: NSColor,
                                            baseAlpha: CGFloat) {
-        let lvl = max(0, min(1, level))
         let alpha: CGFloat = hovered ? 1.0 : baseAlpha
-        let t = pow(lvl, 0.45)
+        color.withAlphaComponent(alpha).setFill()
 
-        // Active silhouette: 3 vertical VU bars side by side at the
-        // band's bottom. Bars are ALWAYS drawn — even at silence —
-        // so the chip stays alive. A minimum floor height keeps the
-        // three "flat / short" bars visible when there is no audio.
-        let phase = CGFloat(miniVisualizerPhase)
-        let wiggleFreqs: [CGFloat] = [5.1, 6.4, 5.7]
-        let wigglePhases: [CGFloat] = [0.0, 1.3, 2.5]
-        let peakFracs: [CGFloat] = [0.82, 1.0, 0.82]
+        // Three real bars — bass / mid / treble RMS of the live waveform,
+        // already fast-smoothed by the AppDelegate tick. No decorative
+        // wiggle: the heights ARE the audio.
+        let bars: [CGFloat] = miniVisualizerBars.count >= 3
+            ? miniVisualizerBars : [level, level, level]
         let barCount = 3
         let barW: CGFloat = 1.6
         let barGap = (rect.width - CGFloat(barCount) * barW) / CGFloat(barCount - 1)
-        // Silent floor: bars never fall below ~22% of the slot so the
-        // user always sees a small flat row of three nubs in the chip.
-        let silentFloor: CGFloat = 0.22
+
+        // Silence → a single flat baseline line across the slot instead of
+        // three idle nubs. The bars rise out of this line as sound returns.
+        let peak = bars.prefix(3).max() ?? 0
+        if peak < 0.05 {
+            let lineH: CGFloat = 1.0
+            let line = NSRect(x: rect.minX, y: rect.minY, width: rect.width, height: lineH)
+            NSBezierPath(roundedRect: line, xRadius: 0.5, yRadius: 0.5).fill()
+            return
+        }
 
         for i in 0..<barCount {
-            let wiggle = sin(phase * wiggleFreqs[i] + wigglePhases[i]) * 0.22 * t
-            let amp = max(silentFloor, min(1.0, t * peakFracs[i] + wiggle))
-            let h = amp * rect.height
+            // Light gamma so quiet detail is visible; min 1px so an active
+            // bar never fully vanishes mid-sound.
+            let amp = min(1.0, pow(max(0, bars[i]), 0.7))
+            let h = max(1.0, amp * rect.height)
             let x = rect.minX + CGFloat(i) * (barW + barGap)
             let bar = NSRect(x: x, y: rect.minY, width: barW, height: h)
-            color.withAlphaComponent(alpha).setFill()
             NSBezierPath(roundedRect: bar, xRadius: 0.3, yRadius: 0.3).fill()
         }
     }
@@ -2098,12 +2310,17 @@ enum KeyboardIconRenderer {
                 return voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
             }()
             if let activeLabel = activeLabel {
-                let digitFont = NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy)
+                // The sample backend's "`" badge renders bigger than the
+                // numeric voice slots (see the subscript draw below), so
+                // size the hover pill to the same larger glyph.
+                let isBacktick = activeLabel == "`"
+                let digitFont = NSFont.monospacedDigitSystemFont(
+                    ofSize: isBacktick ? 12 : 7, weight: .heavy)
                 let label = NSAttributedString(string: activeLabel, attributes: [
                     .font: digitFont, .kern: -0.4,
                 ])
                 let oneDigitW = NSAttributedString(string: "0", attributes: [
-                    .font: digitFont,
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy),
                 ]).size().width
                 // First digit hugs iconBox's right edge (see digit-draw
                 // logic below); additional digits flow rightward into
@@ -2158,35 +2375,34 @@ enum KeyboardIconRenderer {
             ? baseColor.blended(withFraction: f, of: flashTarget) ?? baseColor
             : baseColor
         let mF = max(0, min(1, metronomeFlash))
+        // Beat pulse tints the glyph yellow on each tick. (The little side
+        // "tick" blips that used to radiate from the chip are removed — they
+        // read as clutter while the metronome runs.)
         if mF > 0.01, let yellowed = color.blended(withFraction: mF * 0.85, of: .systemYellow) {
             color = yellowed
-            // Loudness lines — small horizontal blips radiating
-            // left and right from the chip, fading with the
-            // metronome flash. Reads as the icon visibly "ticking"
-            // each beat, like a peripheral pulse around the
-            // music-note glyph.
-            let blipColor = NSColor.systemYellow.withAlphaComponent(mF * 0.85)
-            blipColor.setStroke()
-            let blip = NSBezierPath()
-            blip.lineWidth = 1.0
-            blip.lineCapStyle = .round
-            let midY = iconBox.midY
-            let outer: CGFloat = 4 + 4 * mF       // distance grows with flash
-            let inner: CGFloat = 1.5
-            let leftStart = NSPoint(x: iconBox.minX - inner, y: midY)
-            let leftEnd = NSPoint(x: iconBox.minX - outer, y: midY)
-            let rightStart = NSPoint(x: iconBox.maxX + inner, y: midY)
-            let rightEnd = NSPoint(x: iconBox.maxX + outer, y: midY)
-            blip.move(to: leftStart);  blip.line(to: leftEnd)
-            blip.move(to: rightStart); blip.line(to: rightEnd)
-            blip.stroke()
         }
         // Draw the SF Symbol music.note.list at its original pointSize
         // (13) over the full chip. At rest the staff lines should
         // remain visible (the chip reads as the natural system glyph).
         // Only when there's audible signal do we punch out the staff
         // lines and overlay animated VU bars in the resulting hole.
-        drawTintedSymbol("music.note.list", in: iconBox, pointSize: 13.0, color: color)
+        //
+        // Percussion wobble: a fresh drum hit rotates the glyph
+        // left/right about the icon center with a damped swing.
+        let wobble = percussionIconWobble()
+        if abs(wobble) > 0.0005 {
+            NSGraphicsContext.saveGraphicsState()
+            let c = NSPoint(x: iconBox.midX, y: iconBox.midY)
+            let t = NSAffineTransform()
+            t.translateX(by: c.x, yBy: c.y)
+            t.rotate(byRadians: wobble)
+            t.translateX(by: -c.x, yBy: -c.y)
+            t.concat()
+            drawTintedSymbol("music.note.list", in: iconBox, pointSize: 13.0, color: color)
+            NSGraphicsContext.restoreGraphicsState()
+        } else {
+            drawTintedSymbol("music.note.list", in: iconBox, pointSize: 13.0, color: color)
+        }
         // Always punch out the staff-lines slot and overlay 3 vertical
         // VU bars — the chip is "always live." When silent, the bars
         // fall to a short flat floor instead of vanishing back into
@@ -2288,10 +2504,16 @@ enum KeyboardIconRenderer {
             ? "M"
             : voiceLabel ?? (voiceNumber > 0 ? String(voiceNumber) : nil)
         if let subscriptText = subscriptText {
+            // The sample backend's "`" badge is drawn BIGGER than the
+            // numeric voice slots: the backtick is a small high mark and
+            // reads as a smudge at 7pt, so bump it to 12pt. Digits / "M"
+            // keep the compact size.
+            let isBacktick = subscriptText == "`"
+            let fontSize: CGFloat = isBacktick ? 12.0 : 7.0
             // Negative kerning tightens the digits so multi-digit
             // values feel more like a tag than spaced text.
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy),
+                .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .heavy),
                 .foregroundColor: color,
                 .kern: -0.4,
             ]
@@ -2300,11 +2522,19 @@ enum KeyboardIconRenderer {
             let oneDigit = NSAttributedString(string: "0", attributes: [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy),
             ]).size()
-            // Nudge the first digit a small tad LEFT so it visually
-            // hugs the music-note glyph; remaining digits flow
-            // rightward into the reserved badge pad.
-            let leftX = iconBox.maxX - oneDigit.width - 1
-            str.draw(at: NSPoint(x: leftX, y: iconBox.minY - 1))
+            if isBacktick {
+                // Right-align the wider backtick to the icon's right edge
+                // and drop its baseline so the high glyph hugs the note
+                // instead of floating above the chip.
+                str.draw(at: NSPoint(x: iconBox.maxX - str.size().width,
+                                     y: iconBox.minY - 5))
+            } else {
+                // Nudge the first digit a small tad LEFT so it visually
+                // hugs the music-note glyph; remaining digits flow
+                // rightward into the reserved badge pad.
+                let leftX = iconBox.maxX - oneDigit.width - 1
+                str.draw(at: NSPoint(x: leftX, y: iconBox.minY - 1))
+            }
         }
     }
 

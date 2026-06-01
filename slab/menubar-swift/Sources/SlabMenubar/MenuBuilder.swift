@@ -72,6 +72,14 @@ enum MenuBuilder {
                              target: target)
         closeTerm.toolTip = "Close the frontmost Terminal or iTerm2 window. If auto-tile is on, the remaining windows re-tile."
         menu.addItem(closeTerm)
+
+        // Tidy a scattered desktop of Stickies notes into a tight collapsed
+        // column in the top-left via Stickies' own "Arrange By" command.
+        let stackSticky = item("Arrange Stickies (collapse + top-left)",
+                               selector: #selector(AppDelegate.stackStickies),
+                               target: target)
+        stackSticky.toolTip = "Run Stickies' built-in Arrange By (Color) with Collapse All — packs all notes into a collapsed column in the top-left corner."
+        menu.addItem(stackSticky)
         menu.addItem(.separator())
 
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)

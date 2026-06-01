@@ -14,12 +14,19 @@ import AppKit
 
 final class KidLispTVPanel: NSPanel {
 
-    let tv: KidLispTVView
+    let tv: NSView & KidLispScreen
     private let bezel: KidLispTVBezelView
 
     static let bezelThickness: CGFloat = 14
     static let screenAspect: CGFloat = 192.0 / 120.0
     static let panelInset: CGFloat = 3  // gap below the anchor panel
+
+    /// Renderer selector. The live-webview path is the default; flip
+    /// `notepat.kidlispTV.webview` to `false` in defaults to fall back
+    /// to the native Swift evaluator (handy for offline / debugging).
+    static var useWebView: Bool {
+        UserDefaults.standard.object(forKey: "notepat.kidlispTV.webview") as? Bool ?? true
+    }
 
     /// Default piece — a simple amp-reactive twin-line waveform that
     /// spreads from the center as MenuBand's synth output gets louder.
@@ -38,8 +45,15 @@ final class KidLispTVPanel: NSPanel {
         let screenWidth = width - 2 * Self.bezelThickness
         let screenHeight = (screenWidth / Self.screenAspect).rounded()
         let panelHeight = screenHeight + 2 * Self.bezelThickness
-        self.tv = KidLispTVView(source: Self.defaultSource,
-                                resWidth: 192, resHeight: 120)
+        // Restore the shared current piece so the TV opens on whatever
+        // the user last picked (and matches the floating web window).
+        let state = KidLispState.shared
+        if Self.useWebView {
+            self.tv = KidLispTVWebView(code: state.code, source: state.source)
+        } else {
+            self.tv = KidLispTVView(source: state.source,
+                                    resWidth: 192, resHeight: 120)
+        }
         self.bezel = KidLispTVBezelView(frame: NSRect(x: 0, y: 0,
                                                       width: width,
                                                       height: panelHeight))
@@ -84,6 +98,22 @@ final class KidLispTVPanel: NSPanel {
             x: anchorFrame.minX,
             y: anchorFrame.minY - h - Self.panelInset,
             width: anchorFrame.width,
+            height: h
+        )
+        setFrame(panelFrame, display: true)
+    }
+
+    /// Position the panel under `anchorFrame` (the popover's frame) with
+    /// its RIGHT edge flush to the popover's right edge — so the TV reads
+    /// as hanging off the bottom-right of the settings popover instead of
+    /// the left player column. Keeps its own (left-panel-derived) width.
+    func anchor(belowRightAlignedTo anchorFrame: NSRect) {
+        let h = frame.height
+        let w = frame.width
+        let panelFrame = NSRect(
+            x: anchorFrame.maxX - w,
+            y: anchorFrame.minY - h - Self.panelInset,
+            width: w,
             height: h
         )
         setFrame(panelFrame, display: true)

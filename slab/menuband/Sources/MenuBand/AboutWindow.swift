@@ -349,6 +349,26 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         tapeCheckbox.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(tapeCheckbox)
 
+        // Right-hand percussion split — the upper-octave keys play the
+        // AC-native drum kit while the lower keys stay melodic. Off by
+        // default; also toggleable live with ⌘⌃⌥D.
+        let percCheckbox = NSButton(
+            checkboxWithTitle: "Percussion split (⌘⌃⌥D)",
+            target: self,
+            action: #selector(togglePercussionSplit(_:))
+        )
+        percCheckbox.state = (UserDefaults.standard
+            .bool(forKey: KeyboardIconRenderer.percussionLeftDefaultsKey)
+            || UserDefaults.standard
+            .bool(forKey: KeyboardIconRenderer.percussionRightDefaultsKey))
+            ? .on : .off
+        percCheckbox.font = NSFont.systemFont(ofSize: 11)
+        percCheckbox.toolTip =
+            "Both halves of the board play the drum kit (kick/snare/hats/…). "
+            + "Tap left-⌥ / right-⌥ to latch just one half."
+        percCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(percCheckbox)
+
         // Crash-report summary — single orange ⚠️ button reading
         // "Menu Band crashed N times". Opens the scroll viewer where
         // the user can review the .ips contents and click Send to
@@ -612,6 +632,21 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             on, forKey: KeyboardIconRenderer.tapeFeatureDefaultsKey)
         NotificationCenter.default.post(
             name: .menuBandTapeFeatureChanged, object: nil)
+    }
+
+    /// Flip the right-hand percussion split. Writes the shared flag and
+    /// posts so the controller applies side effects (silence drums on
+    /// disable, redraw the icon) on the main runtime.
+    @objc private func togglePercussionSplit(_ sender: NSButton) {
+        // Whole-board master: set BOTH sided keys together, then let the
+        // controller apply side effects on the main runtime.
+        let on = sender.state == .on
+        UserDefaults.standard.set(
+            on, forKey: KeyboardIconRenderer.percussionLeftDefaultsKey)
+        UserDefaults.standard.set(
+            on, forKey: KeyboardIconRenderer.percussionRightDefaultsKey)
+        NotificationCenter.default.post(
+            name: .menuBandPercussionSplitChanged, object: nil)
     }
 
     /// Open a scroll panel containing the .ips text for every pending

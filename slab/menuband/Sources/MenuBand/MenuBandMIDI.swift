@@ -121,6 +121,14 @@ enum MenuBandLayout {
         return panByKeyCode[Int(keyCode)]
     }
 
+    /// Display-note (in the menubar piano's clamped C4–C5 window, MIDI
+    /// 60–83) that splits the keyboard into a left half (lower octave,
+    /// 60–71) and a right half (upper octave, 72–83). Left shift lingers
+    /// + uppercases notes below this; right shift, at or above it. A
+    /// single value keeps the audio linger decision and the menubar
+    /// uppercase-cue in lockstep.
+    static let lingerSplitMidi = 72
+
     /// Hardware key codes used as octave-down / octave-up shifters in
     /// the given keymap. Notepat reserves , (43) and . (47); Ableton
     /// remaps to z (6) and x (7) because those sit unmapped in Live's
@@ -145,6 +153,20 @@ enum MenuBandLayout {
         let value = 60 + Int(semitone) + (octaveShift * 12)
         guard value >= 0, value <= 127 else { return nil }
         return UInt8(value)
+    }
+
+    /// The key's intrinsic semitone offset from middle C (before any octave
+    /// shift), or nil if unmapped. C = 0, +C (the right-hand octave) = 12.
+    /// The right-hand percussion split uses this: keys at semitone ≥ 12 are
+    /// the right hand, and `semitone % 12` picks their drum (octave-
+    /// invariant, matching notepat's drum wave).
+    @inline(__always)
+    static func semitone(forKeyCode keyCode: UInt16,
+                         keymap: Keymap = .notepat) -> Int? {
+        guard keyCode < 128 else { return nil }
+        let table = (keymap == .ableton) ? semitoneByKeyCodeAbleton : semitoneByKeyCode
+        let s = table[Int(keyCode)]
+        return s == Int8.min ? nil : Int(s)
     }
 }
 

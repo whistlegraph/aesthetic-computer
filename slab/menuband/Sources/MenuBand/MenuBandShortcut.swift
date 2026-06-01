@@ -30,6 +30,13 @@ struct MenuBandShortcut: Equatable {
         modifiers: UInt32(cmdKey | controlKey | optionKey)
     )
 
+    /// Toggle the right-hand percussion split. ⌘⌃⌥D ("D" for drums) —
+    /// same modifier family as the other Menu Band global toggles.
+    static let defaultPercussionToggle = MenuBandShortcut(
+        keyCode: UInt32(kVK_ANSI_D),
+        modifiers: UInt32(cmdKey | controlKey | optionKey)
+    )
+
     static let layoutToggle = defaultLayoutToggle
 
     var isValidForRecording: Bool {

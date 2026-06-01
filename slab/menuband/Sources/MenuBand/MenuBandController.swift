@@ -49,13 +49,74 @@ final class MenuBandController {
     /// once on press so a release-shift-mid-hold still rings out the
     /// note that was started under shift.
     private var heldKeyLinger: [UInt16: Bool] = [:]
+    /// Enter-latch (port of notepat-native): while Return is held, any
+    /// note pressed is *latched* — its key-up is swallowed so the note
+    /// sustains indefinitely. Backspace pops the most-recent latched
+    /// note. Latched notes stay in `heldNotes`/`litNotes`, so the
+    /// menubar keyboard visualizer shows them held with no extra wiring.
+    private var enterLatchHeld: Bool = false
+    /// Keys pressed during the current Enter-hold whose key-up should
+    /// latch (not release) the note.
+    private var latchArmedKeys: Set<UInt16> = []
+    /// LIFO stack of currently-latched keyCodes — Backspace unlatches
+    /// the top one.
+    private var latchedKeys: [UInt16] = []
+    /// Percussion-split: which drum-voice group each held right-hand key
+    /// started, so key-up releases exactly that hit (hi-hat down/up sounds).
+    private var heldDrumKeys: [UInt16: UInt64] = [:]
+    /// Display note each held drum key lit, so key-up extinguishes the
+    /// right menubar cell (drum keys stay accent-lit for the whole hold).
+    private var heldDrumDisplay: [UInt16: UInt8] = [:]
     private let heldLock = NSLock()
+
+    /// Refcount of held drum lights per display note (a display note can be
+    /// held by more than one source — keyboard + click). Main-thread only.
+    private var drumLitRefs: [UInt8: Int] = [:]
+
+    /// Which shift key (if any) is arming linger, and over which half of
+    /// the keyboard. Left shift lingers only the left half (lower octave,
+    /// notes < `lingerSplitMidi`); right shift only the right half. Caps
+    /// lock — or both shifts at once — latches the whole board. Each note
+    /// still pans by its own column, so a left-half note naturally rings
+    /// out to the left without any forced pan.
+    enum LingerSide {
+        case none      // not lingering
+        case left      // left shift  → linger left half only
+        case right     // right shift → linger right half only
+        case neutral   // caps lock / both shifts → linger whole board
+
+        var isLingering: Bool { self != .none }
+    }
+
+    // Device-dependent modifier bits (IOLLEvent / NSEvent legacy). These
+    // distinguish the physical left vs right shift — the device-independent
+    // `.shift` mask collapses both into one bit. Present in the raw value
+    // of both CGEventFlags and NSEvent.ModifierFlags.
+    private static let kLeftShiftBit: UInt64 = 0x0000_0002
+    private static let kRightShiftBit: UInt64 = 0x0000_0004
+
+    /// Resolve which shift side is arming linger from the raw modifier
+    /// bits. Falls back to `.neutral` when shift/caps is on but the
+    /// device bits are unavailable, so behavior degrades to the old
+    /// natural-pan linger rather than dropping the hold entirely.
+    private static func lingerSide(rawFlags: UInt64,
+                                   shiftDown: Bool,
+                                   capsOn: Bool) -> LingerSide {
+        let left = (rawFlags & kLeftShiftBit) != 0
+        let right = (rawFlags & kRightShiftBit) != 0
+        if left && !right { return .left }
+        if right && !left { return .right }
+        if shiftDown || capsOn { return .neutral }
+        return .none
+    }
 
     private let midiModeKey = "notepat.midiMode"
     private let typeModeKey = "notepat.typeMode"
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
+    private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
+    private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
     private let masterVolumeKey = "notepat.masterVolume"
     private let hapticsEnabledKey = "notepat.hapticsEnabled"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
@@ -63,6 +124,7 @@ final class MenuBandController {
     /// string so future backends (Logic, EXS3rd-party, etc.) can be
     /// added without breaking older saved values.
     private let instrumentBackendKey = "notepat.instrumentBackend"
+    private let radioStationKey = "notepat.radioStation"
     /// File URL string of the GarageBand patch the user picked. Empty
     /// when no GB patch has been selected yet (we'll fall back to the
     /// first scanned patch when the backend is GarageBand and this is
@@ -127,7 +189,15 @@ final class MenuBandController {
     /// the user can still drag the mouse across menubar keys.
     var keyboardNotesHeld: Bool {
         heldLock.lock(); defer { heldLock.unlock() }
-        return !heldNotes.isEmpty
+        // Latched notes (Enter-latch) live in `heldNotes` but their
+        // physical key is UP — they must NOT count as "held" for the
+        // trackpad pitch-bend lock, or the bend cursor would stay
+        // locked open forever after a latch. Count only keys whose
+        // physical key is still down (i.e. not latch-armed).
+        let melodicHeld = heldNotes.keys.contains { !latchArmedKeys.contains($0) }
+        // Held percussion keys count too — drumming engages the same
+        // trackpad pitch-bend gesture so the kit can be bent live.
+        return melodicHeld || !heldDrumKeys.isEmpty
     }
 
     /// Fires whenever an outbound MIDI noteOn lands on the
@@ -531,6 +601,137 @@ final class MenuBandController {
         return octaveShift > 0 ? "+\(octaveShift)" : "\(octaveShift)"
     }
 
+    /// Sided percussion. Each half of the board latches to the AC-native
+    /// drum kit independently: tap left-⌥ for the LEFT half, right-⌥ for the
+    /// RIGHT half (both → whole board). A latched half fires drums instead
+    /// of melodic notes; the other half stays melodic. Off by default.
+    /// Toggling a side releases held notes and, when BOTH go off, silences
+    /// any ringing drums.
+    var percussionLeft: Bool {
+        get { UserDefaults.standard.bool(forKey: percussionLeftKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: percussionLeftKey)
+            applyPercussionSideEffects()
+        }
+    }
+    var percussionRight: Bool {
+        get { UserDefaults.standard.bool(forKey: percussionRightKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: percussionRightKey)
+            applyPercussionSideEffects()
+        }
+    }
+
+    /// Whole-board convenience used by the About-window checkbox and the
+    /// global ⌘⌃⌥D shortcut: reads as on if EITHER side is latched, and
+    /// setting it flips both sides together.
+    var percussionSplit: Bool {
+        get { percussionLeft || percussionRight }
+        set {
+            UserDefaults.standard.set(newValue, forKey: percussionLeftKey)
+            UserDefaults.standard.set(newValue, forKey: percussionRightKey)
+            applyPercussionSideEffects()
+        }
+    }
+
+    /// Shared side effects for any percussion-state change: drop held notes
+    /// so nothing hangs across the melodic↔drum flip, silence drums once
+    /// both sides are off, and keep the engine warm while any side drums.
+    private func applyPercussionSideEffects() {
+        releaseAllHeldNotes()
+        if !percussionLeft && !percussionRight { synth.percussion.silence() }
+        synth.keepEngineWarm = percussionLeft || percussionRight
+        onChange?()
+    }
+
+    func togglePercussionSplit() { percussionSplit.toggle() }
+    func togglePercussionLeft() { percussionLeft.toggle() }
+    func togglePercussionRight() { percussionRight.toggle() }
+
+    /// Re-apply side effects after state changed out of band (e.g. the
+    /// About-window checkbox writes UserDefaults directly). The getters
+    /// already reflect the new values.
+    func reloadPercussionSplit() {
+        applyPercussionSideEffects()
+    }
+
+    /// Audible confirmation for a percussion toggle — a kick when armed, a
+    /// closed-hat tick when disarmed — so the gesture lands by ear. `pan`
+    /// places the cue on the side that toggled (32 left, 96 right, 64 both).
+    func playPercussionToggleCue(on: Bool, pan: UInt8 = 64) {
+        synth.playPercussion(on ? .kick : .hatClosed,
+                             velocity: on ? 100 : 80, pan: pan)
+    }
+
+    /// Key/click-down for a split drum — returns the group token to release
+    /// on up. Used by both the keyboard split and menubar-piano clicks.
+    @discardableResult
+    func percussionNoteOn(_ drum: MenuBandPercussion.Drum,
+                          velocity: UInt8, pan: UInt8, accent: Bool = false) -> UInt64 {
+        synth.percussionNoteOn(drum, velocity: velocity, pan: pan, accent: accent)
+    }
+
+    /// Drum trigger→render latency (ms) for the debug latency readout.
+    func percussionTriggerHandoffMs() -> Double { synth.percussionTriggerHandoffMs() }
+
+    /// Key/click-up for a split drum (hi-hat foot-pedal release).
+    func percussionNoteOff(_ group: UInt64) {
+        synth.percussionNoteOff(group)
+    }
+
+    /// Live per-pitch-class drum hit pulses driving the menubar key vibe.
+    func percussionPulses() -> [MenuBandPercussion.DrumPulse] {
+        synth.percussionPulses()
+    }
+
+    /// True when the given menubar display note is a right-hand drum key
+    /// (split armed and the note is in the upper half).
+    func isPercussionDisplayNote(_ displayNote: UInt8) -> Bool {
+        percussionSplit && Int(displayNote) >= MenuBandLayout.lingerSplitMidi
+    }
+
+    /// Drum for a menubar display note (octave-invariant pitch class).
+    func percussionDrum(forDisplayNote displayNote: UInt8) -> MenuBandPercussion.Drum {
+        .forPitchClass(Int(displayNote) % 12)
+    }
+
+    /// Briefly light a menubar display cell for a one-shot drum hit, then
+    /// extinguish it. Drums have no key-up sustain, so the off is self-
+    /// scheduled after a short fixed flash. Lit-state is main-thread only,
+    /// so hop there when called from the global CGEventTap thread.
+    /// Light a menubar cell for a held drum key in the accent color and
+    /// keep it lit until `drumLitOff` — so long as the key is down the cell
+    /// stays "hold green." Refcounted so two sources on the same cell don't
+    /// extinguish early. Main-thread only.
+    func drumLitOn(_ displayNote: UInt8) {
+        let work = { [weak self] in
+            guard let self = self else { return }
+            self.drumLitRefs[displayNote, default: 0] += 1
+            self.litDownAt[displayNote] = CACurrentMediaTime()
+            if self.litNotes.insert(displayNote).inserted { self.onLitChanged?() }
+        }
+        if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute: work) }
+    }
+
+    /// Release a held drum light; extinguishes once the last holder lets go
+    /// (unless a melodic note still holds the same cell).
+    func drumLitOff(_ displayNote: UInt8) {
+        let work = { [weak self] in
+            guard let self = self else { return }
+            let n = (self.drumLitRefs[displayNote] ?? 1) - 1
+            if n > 0 { self.drumLitRefs[displayNote] = n; return }
+            self.drumLitRefs.removeValue(forKey: displayNote)
+            self.heldLock.lock()
+            let heldByMelodic = self.heldKeyDisplayNote.values.contains(displayNote)
+            self.heldLock.unlock()
+            if !heldByMelodic {
+                self.litDownAt.removeValue(forKey: displayNote)
+                if self.litNotes.remove(displayNote) != nil { self.onLitChanged?() }
+            }
+        }
+        if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute: work) }
+    }
+
     var playableNoteRangeLabel: String {
         let upper = keymap == .ableton ? 76 : 83
         let lowerNote = UInt8(max(0, min(127, 60 + octaveShift * 12)))
@@ -692,6 +893,15 @@ final class MenuBandController {
             // separately so trackpad pitch-bend slides the looping
             // sample alongside the MIDISynth-based voices.
             synth.setSamplePitchBend(amount: amount)
+            // The internally-synthesized drum kit isn't on a MIDI
+            // channel (it's skipped in the loop above), so route the
+            // bend straight into the percussion engine's pitch scale so
+            // tonal drums warp with everything else.
+            synth.setPercussionPitchBend(amount: amount)
+            // KPBJ radio is also a varispeed backend (ignores MIDI
+            // pitch-bend) — route the signed bend so the live stream
+            // slides in pitch with everything else.
+            synth.setRadioPitchBend(amount: amount)
         }
         for ch in channels { midi.sendPitchBend(value: value, channel: ch) }
     }
@@ -783,6 +993,7 @@ final class MenuBandController {
     func setRadioBackend(_ enabled: Bool) {
         if enabled {
             UserDefaults.standard.set("kpbj", forKey: instrumentBackendKey)
+            synth.setRadioStation(radioStation)  // tune to the saved station
             synth.setRadioBackend(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -797,6 +1008,31 @@ final class MenuBandController {
 
     func toggleRadioBackend() {
         setRadioBackend(instrumentBackend != .kpbj)
+    }
+
+    /// The radio station the "voice −1" backend is tuned to (persisted).
+    var radioStation: RadioStation {
+        get { RadioStation.by(id: UserDefaults.standard.string(forKey: radioStationKey) ?? "kpbj") }
+        set {
+            UserDefaults.standard.set(newValue.id, forKey: radioStationKey)
+            synth.setRadioStation(newValue)
+            onChange?()
+            onInstrumentVisualChange?()
+        }
+    }
+
+    /// Pick a station AND make the radio the active backend — the action
+    /// behind a station cell in the chooser and the `-kpbj` / `-nts1` /
+    /// `-nts2` typed commands. Tuning while already on radio just retunes.
+    func selectRadioStation(_ station: RadioStation) {
+        UserDefaults.standard.set(station.id, forKey: radioStationKey)
+        synth.setRadioStation(station)
+        if instrumentBackend != .kpbj {
+            setRadioBackend(true)   // engages radio + applies this station
+        } else {
+            onChange?()
+            onInstrumentVisualChange?()
+        }
     }
 
     // MARK: - Plugins (third-party AU instruments)
@@ -850,7 +1086,7 @@ final class MenuBandController {
         case .sample:
             return sampleVoiceHasRecording ? "Sample Voice" : "Sample Voice - no recording"
         case .kpbj:
-            return "KPBJ.FM radio"
+            return "\(radioStation.name) radio"
         case .garageBand:
             return garageBandPatchURL?.deletingPathExtension().lastPathComponent ?? "GarageBand patch"
         case .gm:
@@ -1764,10 +2000,39 @@ final class MenuBandController {
     /// digit buffer so a stray `-` doesn't hijack the next typed
     /// voice number.
     private var voiceDigitNegative: Bool = false
+    /// Letters typed after a `-` accumulate here so a negative voice can be
+    /// picked by NAME instead of slot number — e.g. `-kpbj`, `-nts1`,
+    /// `-nts2` each tune the radio backend ("voice −1") to that station.
+    /// Cleared on `-`, on a match, on divergence from any known name, and on
+    /// the same `voiceDigitFlushInterval` staleness window as the digits.
+    private var voiceCommandBuffer: String = ""
+    /// Negative voice names recognized after a `-` — one per radio station
+    /// id. Matched as the buffer grows so it can bail the moment it diverges
+    /// from every known name.
+    private static let negativeVoiceNames: Set<String> =
+        Set(RadioStation.all.map { $0.id })
     /// Burst window for multi-digit voice entry. Tuned so "128" typed
     /// at a normal pace stays one number, while a re-pick after a beat
     /// starts clean.
     private static let voiceDigitFlushInterval: CFTimeInterval = 0.8
+
+    /// Lowercase letter on a hardware key cap, or nil for non-letter keys.
+    /// Used to capture typed voice names like `-kpbj`. ANSI layout.
+    @inline(__always)
+    private static func letterForKeyCode(_ kc: UInt16) -> Character? {
+        switch kc {
+        case 0: return "a"; case 1: return "s"; case 2: return "d"
+        case 3: return "f"; case 4: return "h"; case 5: return "g"
+        case 6: return "z"; case 7: return "x"; case 8: return "c"
+        case 9: return "v"; case 11: return "b"; case 12: return "q"
+        case 13: return "w"; case 14: return "e"; case 15: return "r"
+        case 16: return "y"; case 17: return "t"; case 31: return "o"
+        case 32: return "u"; case 34: return "i"; case 35: return "p"
+        case 37: return "l"; case 38: return "j"; case 40: return "k"
+        case 45: return "n"; case 46: return "m"
+        default: return nil
+        }
+    }
 
     /// Map a hardware key code to the digit on its key cap, or nil for
     /// non-digit keys. Covers the top number row only — keypad digits
@@ -1806,9 +2071,13 @@ final class MenuBandController {
         let hasMod = flags.contains(.maskCommand) || flags.contains(.maskControl) || flags.contains(.maskAlternate)
         // Linger armed when EITHER shift is currently held OR caps lock
         // is on. Caps lock latches the mode so the user can play a
-        // long ambient passage without having to keep shift down.
-        let linger = flags.contains(.maskShift) || flags.contains(.maskAlphaShift)
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, linger: linger)
+        // long ambient passage without having to keep shift down. The
+        // shift *side* now pans the lingering note (left shift → left,
+        // right shift → right); caps keeps the natural per-key pan.
+        let side = Self.lingerSide(rawFlags: flags.rawValue,
+                                   shiftDown: flags.contains(.maskShift),
+                                   capsOn: flags.contains(.maskAlphaShift))
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, lingerSide: side)
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -1827,8 +2096,12 @@ final class MenuBandController {
         let hasMod = flags.contains(.control) || flags.contains(.option)
         // Caps lock latches linger so the user can play hands-free
         // without holding shift; shift held still works as a momentary.
-        let linger = flags.contains(.shift) || flags.contains(.capsLock)
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, linger: linger)
+        // The shift side pans the lingering note (left → left, right →
+        // right); caps lock keeps the note's natural per-key pan.
+        let side = Self.lingerSide(rawFlags: UInt64(flags.rawValue),
+                                   shiftDown: flags.contains(.shift),
+                                   capsOn: flags.contains(.capsLock))
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, lingerSide: side)
     }
 
     /// Shared note logic for both the global CGEventTap path and the
@@ -1838,9 +2111,29 @@ final class MenuBandController {
     /// past key-up so it rings on its release envelope (sustained
     /// voices) rather than cutting on release.
     @discardableResult
-    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, linger: Bool = false) -> Bool {
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none) -> Bool {
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
         if hasModifier { return false }
+
+        // Enter-latch (notepat-native parity). Return (keyCode 36) is the
+        // latch modifier: while it's held, notes you press get latched on
+        // release so they sustain indefinitely. Backspace (51) pops the
+        // most-recent latched note. Both keys are consumed so they never
+        // leak to the focused app.
+        if keyCode == 36 /* kVK_Return */ {
+            enterLatchHeld = isDown
+            if !isDown { latchArmedKeys.removeAll() }
+            return true
+        }
+        if keyCode == 51 /* kVK_Delete (Backspace) */ {
+            // Plain Backspace pops the most-recent latched note (LIFO);
+            // Shift+Backspace clears them all at once.
+            if isDown && !isRepeat {
+                if lingerSide.isLingering { unlatchAll() }
+                else { unlatchMostRecent() }
+            }
+            return true
+        }
 
         // Arrow keys step through the GM instrument grid: ←/→ by one
         // slot, ↑/↓ by one row (= InstrumentListView.cols). Mirrors
@@ -1884,17 +2177,19 @@ final class MenuBandController {
             break
         }
 
-        // Minus key (`-`, keyCode 27) primes a negative voice slot —
-        // the trigger sequence is `-1`, NOT a bare `-`. Typing `-1`
-        // toggles the live KPBJ radio backend ("voice −1": the piano
-        // plays the live stream pitched by 2^((note−60)/12), with
-        // stalls fading into AM-style static). Standalone `-` is a
-        // no-op so the negative-prefix UX matches how positive voices
-        // are typed (number row commits the pick). Consumed in both
+        // Minus key (`-`, keyCode 27) primes a negative voice slot. The
+        // trigger is `-1` OR a voice name like `-kpbj`, NOT a bare `-`.
+        // Either selects the live KPBJ radio backend ("voice −1": the
+        // piano plays the live stream pitched per note, stalls fading into
+        // AM-style static). `-1` toggles; `-<name>` accumulates the letters
+        // that follow and selects by callsign. Standalone `-` is a no-op so
+        // the negative-prefix UX matches how positive voices are typed
+        // (the rest of the sequence commits the pick). Consumed in both
         // directions so the key never leaks to the focused app.
         if keyCode == 27 {
             if isDown && !isRepeat {
                 voiceDigitBuffer = ""
+                voiceCommandBuffer = ""
                 voiceDigitNegative = true
                 voiceDigitLastPress = CACurrentMediaTime()
             }
@@ -1990,6 +2285,45 @@ final class MenuBandController {
             return true
         }
 
+        // Negative voice by NAME: once `-` has primed negative mode, the
+        // letters that follow spell a voice callsign — `-kpbj` selects the
+        // KPBJ radio. We accumulate letters and match against the known
+        // names as the buffer grows, bailing the moment it can't be any of
+        // them. The letter keys are consumed (no note plays) only while a
+        // name is still plausibly being typed; a stale `-` or a divergent
+        // letter releases them back to normal note play.
+        if voiceDigitNegative, isDown, !isRepeat,
+           let ch = Self.letterForKeyCode(keyCode) {
+            let now = CACurrentMediaTime()
+            if now - voiceDigitLastPress > Self.voiceDigitFlushInterval {
+                // Stale prefix — abandon the capture and let this key play
+                // as a normal note (fall through to the handlers below).
+                voiceDigitNegative = false
+                voiceCommandBuffer = ""
+            } else {
+                voiceDigitLastPress = now
+                voiceCommandBuffer.append(ch)
+                let token = voiceCommandBuffer
+                let isPrefix = Self.negativeVoiceNames.contains { $0.hasPrefix(token) }
+                if Self.negativeVoiceNames.contains(token) {
+                    // Complete match → tune the radio to that station and
+                    // engage it (idempotent: a name selects, it doesn't
+                    // toggle off like `-1` does).
+                    voiceDigitNegative = false
+                    voiceCommandBuffer = ""
+                    let station = RadioStation.by(id: token)
+                    DispatchQueue.main.async { [weak self] in
+                        self?.selectRadioStation(station)
+                    }
+                } else if !isPrefix {
+                    // Diverged from every known name → stop capturing.
+                    voiceDigitNegative = false
+                    voiceCommandBuffer = ""
+                }
+                return true  // consumed the letter while capturing a name
+            }
+        }
+
         // Octave shift: notepat uses , (43) / . (47); Ableton uses z (6) /
         // x (7) since those are unmapped in Live's M-mode keymap and the
         // comma/period live next to mapped notes there. Acts globally —
@@ -2014,6 +2348,52 @@ final class MenuBandController {
 
         let shift = octaveShift // a single UserDefaults read; cheap
 
+        // Right-hand percussion split: when armed, upper-octave keys
+        // (intrinsic semitone ≥ 12) fire the AC-native drum kit instead of
+        // a melodic note — octave-invariant, so the drum is picked by
+        // `semitone % 12`. One-shot: triggers on key-down, ignores linger,
+        // and consumes the key-up with no melodic note ever stored.
+        // Sided percussion: this key fires a drum (not a melodic note) when
+        // the HALF of the board it sits on is latched — left half (display
+        // note < lingerSplitMidi) follows `percussionLeft`, right half
+        // follows `percussionRight`. Drum chosen by pitch class. One-shot:
+        // triggers on key-down, consumes key-up, never stores a melodic note.
+        let percDisplayNote: UInt8? = MenuBandLayout
+            .midiNote(forKeyCode: keyCode, octaveShift: shift, keymap: keymap)
+            .map { UInt8(max(60, min(83, Int($0) - shift * 12))) }
+        let percActiveForKey: Bool = {
+            guard !hasModifier, let dn = percDisplayNote else { return false }
+            return Int(dn) < MenuBandLayout.lingerSplitMidi ? percussionLeft : percussionRight
+        }()
+        if percActiveForKey,
+           let semi = MenuBandLayout.semitone(forKeyCode: keyCode, keymap: keymap) {
+            if isDown {
+                if !isRepeat {
+                    let drum = MenuBandPercussion.Drum.forPitchClass(semi % 12)
+                    let pan = MenuBandLayout.panForKeyCode(keyCode)
+                    // Shift (the linger arm) ACCENTS the drum — a harder,
+                    // more intense hit (the percussion analogue of linger).
+                    let accent = lingerSide.isLingering
+                    let group = synth.percussionNoteOn(drum, velocity: 100, pan: pan,
+                                                       accent: accent)
+                    let dn = percDisplayNote
+                    heldLock.lock()
+                    heldDrumKeys[keyCode] = group
+                    if let dn { heldDrumDisplay[keyCode] = dn }
+                    heldLock.unlock()
+                    if let dn { drumLitOn(dn) }
+                }
+            } else {
+                heldLock.lock()
+                let group = heldDrumKeys.removeValue(forKey: keyCode)
+                let dn = heldDrumDisplay.removeValue(forKey: keyCode)
+                heldLock.unlock()
+                if let group { synth.percussionNoteOff(group) }
+                if let dn { drumLitOff(dn) }
+            }
+            return true
+        }
+
         if isDown {
             if isRepeat { return true }  // consume repeats but don't retrigger
             guard let note = MenuBandLayout.midiNote(forKeyCode: keyCode, octaveShift: shift, keymap: keymap) else {
@@ -2032,6 +2412,19 @@ final class MenuBandController {
                 let v = Int(note) - shift * 12
                 let clamped = max(60, min(83, v))
                 return UInt8(clamped)
+            }()
+            // Sided linger: left shift rings out only the left half of the
+            // board (display note below the split), right shift only the
+            // right half; caps lock / both shifts ring the whole board.
+            // Keying off the display note keeps which notes linger in sync
+            // with which letters the menubar uppercases.
+            let linger: Bool = {
+                switch lingerSide {
+                case .none: return false
+                case .neutral: return true
+                case .left: return Int(displayNote) < MenuBandLayout.lingerSplitMidi
+                case .right: return Int(displayNote) >= MenuBandLayout.lingerSplitMidi
+                }
             }()
             heldLock.lock()
             let prevNote = heldNotes[keyCode]
@@ -2089,8 +2482,27 @@ final class MenuBandController {
                 }
             }
             if Thread.isMainThread { setLit() } else { DispatchQueue.main.async(execute: setLit) }
+            // If Enter is held while this note is pressed, arm it so its
+            // upcoming key-up latches (sustains) instead of releasing.
+            if enterLatchHeld {
+                latchArmedKeys.insert(keyCode)
+                if !latchedKeys.contains(keyCode) { latchedKeys.append(keyCode) }
+            }
             return true
         } else {
+            // Latched key: swallow the key-up so the note keeps ringing.
+            // It stays in heldNotes / litNotes (visualizer shows it held)
+            // until Backspace pops it via unlatchKey(_:).
+            if latchArmedKeys.contains(keyCode) {
+                // The physical key is now UP even though the note keeps
+                // sounding — poke the lit-changed hook so AppDelegate
+                // re-evaluates `keyboardNotesHeld` and releases the
+                // trackpad pitch-bend lock (latched ≠ physically held).
+                let notify: () -> Void = { [weak self] in self?.onLitChanged?() }
+                if Thread.isMainThread { notify() }
+                else { DispatchQueue.main.async(execute: notify) }
+                return true
+            }
             heldLock.lock()
             let note = heldNotes.removeValue(forKey: keyCode)
             let synthCh = heldKeyChannel.removeValue(forKey: keyCode) ?? 0
@@ -2131,6 +2543,49 @@ final class MenuBandController {
         }
     }
 
+    /// Plain Backspace: release the most-recently latched note (LIFO).
+    /// No-op when nothing is latched.
+    private func unlatchMostRecent() {
+        guard let keyCode = latchedKeys.popLast() else { return }
+        unlatchKey(keyCode)
+    }
+
+    /// Shift+Backspace: release ALL currently-latched notes at once.
+    private func unlatchAll() {
+        // Snapshot — unlatchKey mutates `latchedKeys` as it goes.
+        for keyCode in latchedKeys { unlatchKey(keyCode) }
+        latchedKeys.removeAll()
+    }
+
+    /// Release a single latched key — mirrors the normal key-up branch
+    /// of `playKeyEvent` (linger-aware note-off + extinguish the lit
+    /// cell) but is driven by Backspace rather than the physical key-up.
+    private func unlatchKey(_ keyCode: UInt16) {
+        latchArmedKeys.remove(keyCode)
+        latchedKeys.removeAll { $0 == keyCode }
+        heldLock.lock()
+        let note = heldNotes.removeValue(forKey: keyCode)
+        let synthCh = heldKeyChannel.removeValue(forKey: keyCode) ?? 0
+        let displayNote = heldKeyDisplayNote.removeValue(forKey: keyCode)
+        let wasLinger = heldKeyLinger.removeValue(forKey: keyCode) ?? false
+        heldLock.unlock()
+        guard let releasedNote = note else { return }
+        if wasLinger {
+            releaseLingering(midiNote: releasedNote, synthChannel: synthCh,
+                             midiChannel: 0, isDrum: false, originalVelocity: 100)
+        } else {
+            if !midiMode { synth.noteOff(releasedNote, channel: synthCh) }
+            midi.noteOff(releasedNote)
+        }
+        let visualNote = displayNote ?? releasedNote
+        let extinguish = { [weak self] in
+            guard let self = self else { return }
+            self.litDownAt.removeValue(forKey: visualNote)
+            if self.litNotes.remove(visualNote) != nil { self.onLitChanged?() }
+        }
+        if Thread.isMainThread { extinguish() } else { DispatchQueue.main.async(execute: extinguish) }
+    }
+
     func releaseAllHeldNotes() {
         heldLock.lock()
         let noteSnapshot = heldNotes
@@ -2139,7 +2594,21 @@ final class MenuBandController {
         heldKeyChannel.removeAll()
         heldKeyDisplayNote.removeAll()
         heldKeyLinger.removeAll()
+        // Drop latch bookkeeping too — a blanket release means no note
+        // is held anymore, latched or otherwise.
+        latchArmedKeys.removeAll()
+        latchedKeys.removeAll()
+        enterLatchHeld = false
+        let drumSnapshot = heldDrumKeys
+        let drumDisplaySnapshot = heldDrumDisplay
+        heldDrumKeys.removeAll()
+        heldDrumDisplay.removeAll()
         heldLock.unlock()
+        // Release any held drum voices (open-hat foot pedal up) so a held
+        // key doesn't ring forever across an octave change / split toggle,
+        // and extinguish their hold lights.
+        for (_, group) in drumSnapshot { synth.percussionNoteOff(group) }
+        for (_, dn) in drumDisplaySnapshot { drumLitOff(dn) }
         let tapSnapshot = tapHeld
         let tapChanSnapshot = tapNoteChannel
         tapHeld.removeAll()

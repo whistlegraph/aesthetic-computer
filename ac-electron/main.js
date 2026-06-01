@@ -1038,7 +1038,7 @@ async function buildPalsTrayImage() {
   // live tint). Adding a same-color stroke to the path thickens the line art
   // in vector space, so it stays crisp at every size.
   const baseFill = accentHex || '#cd5c9b';
-  const STROKE_W = 1.0; // extra outline weight, in the SVG's 24-unit viewBox
+  const STROKE_W = 0.5; // extra outline weight, in the SVG's 24-unit viewBox
   let svg = fs.readFileSync(svgPath, 'utf8');
   svg = svg.replace(
     /fill="#[0-9a-fA-F]{3,8}"/g,
@@ -1049,7 +1049,7 @@ async function buildPalsTrayImage() {
   // Rasterize the vector once at high resolution, trimmed to the figures.
   const master = await sharp(svgBuf, { density: 1200 }).trim().png().toBuffer();
 
-  const SHRINK = 0.96;       // logo height relative to the full menubar slot
+  const SHRINK = 0.84;       // logo height relative to the full menubar slot
   const SHADOW_ALPHA = 0.7;  // hard drop-shadow opacity
 
   const out = nativeImage.createEmpty();

@@ -149,6 +149,11 @@ final class MenuBandPopoverViewController: NSViewController {
     /// popover gets the same searchable chord readout.
     private var chordCandidatesStack: NSStackView!
     private var chordCandidatesRow: NSView!
+    /// All-Swift scrolling staff (Phase 1, below the Verovio sheet) + its
+    /// backing take. Declarations added to unblock the in-progress
+    /// tape-staff wiring already referencing them below.
+    private var tapeStaff: TapeStaffScroller!
+    private let tapeScore = TapeScore()
     /// Internal but exposed so AppDelegate can push the pitch-shift
     /// value (octave + bend) directly when those change — the staff
     /// translates vertically by that amount so the user feels the
@@ -179,6 +184,12 @@ final class MenuBandPopoverViewController: NSViewController {
     /// dark recess) but holds only the held-notes pills (top) and
     /// chord candidate cards (bottom).
     private var waveformBezel: NSView!
+    /// Height of the staff bezel when shown. Animated to 0 (and the
+    /// bezel hidden) when the metronome is off — the notation staff
+    /// only exists while a beat grid is running, and slides into view
+    /// when the metronome starts.
+    private var tapeBezelHeightConstraint: NSLayoutConstraint?
+    private static let tapeBezelHeight: CGFloat = 88 + 12
     private var metronome: MetronomeWidget!
     /// Transport controls that appear next to the metronome when a
     /// Menu Band PDF score has been loaded into the staff. Play
@@ -364,11 +375,12 @@ final class MenuBandPopoverViewController: NSViewController {
             // metronome beat. AppDelegate's animation tick decays
             // it back to zero between beats.
             KeyboardIconRenderer.metronomeFlash = 1
-            // Forward each beat to the sheet card so Verovio's
-            // tick stream stays in lockstep with the visible
-            // metronome — notes placed in JS land in the right
-            // beat slot of the right measure.
-            self?.sheetView?.beat()
+            // The all-Swift tape staff is time-based, so it needs no
+            // per-beat tick. Keep the metronome BPM in sync for any
+            // beat-grid drawing the staff may do.
+            if let bpm = self?.metronome?.bpm {
+                self?.tapeStaff?.bpm = Double(bpm)
+            }
             // Drop a beat marker on the (now-hidden) StaffView
             // too — its chord-display path still depends on it
             // and removing it would break the existing chord
@@ -385,7 +397,11 @@ final class MenuBandPopoverViewController: NSViewController {
             // flips so the wave indicator appears (or vanishes)
             // even while the popover stays open.
             (NSApp.delegate as? AppDelegate)?.updateIcon()
-            _ = self
+            // The notation staff only exists while the metronome runs
+            // (the beat grid needs a tempo). Slide it in on start,
+            // collapse it on stop.
+            self?.setNotationVisible(self?.metronome?.isPlaying == true,
+                                     animated: true)
         }
         titleRow.addArrangedSubview(metronome)
         titleRow.setCustomSpacing(6, after: metronome)
@@ -715,69 +731,23 @@ final class MenuBandPopoverViewController: NSViewController {
         // so the staff lines + scrolling notes paint EDGE TO EDGE of
         // the popover, ignoring the chooser-row's interior margins.
         waveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth + 16).isActive = true
-        // Bezel grows to fit the sheet view inside (chordCandidates
-        // row pads top/bottom by 4pt, stack pads inner 2pt). Sheet
-        // is letter portrait at popover width — bezel ends up
-        // ~bezelWidth × 11/8.5 + 12pt for the pad chrome.
-        let sheetIntrinsicWidth = InstrumentListView.preferredWidth + 16
-        let sheetIntrinsicHeight = sheetIntrinsicWidth * 11.0 / 8.5
-        waveformBezel.heightAnchor.constraint(equalToConstant: sheetIntrinsicHeight + 12).isActive = true
+        // Bezel grows to fit the tape staff inside. The old Verovio
+        // sheet was an 8.5×11 portrait (~330pt tall) and the bezel was
+        // sized to match; the all-Swift tape staff is a short wide
+        // strip, so the bezel is now just the staff height plus the
+        // row chrome (chordCandidatesRow pads 4pt top/bottom, stack
+        // pads 2pt) — no more dead portrait whitespace.
+        let bezelH = waveformBezel.heightAnchor.constraint(
+            equalToConstant: Self.tapeBezelHeight)
+        bezelH.isActive = true
+        tapeBezelHeightConstraint = bezelH
 
-        // Mini visualizer strip — dedicated short box below the
-        // staff bezel. Reads as a separate audio-reactive readout
-        // sitting under the popover's main content rather than
-        // crowding the bezel that holds the staff.
-        miniWaveformView = WaveformView()
-        miniWaveformView.menuBand = menuBand
-        // Flip live so the WaveformView starts its CVDisplayLink and
-        // calls `setWaveformCaptureEnabled(true)` on the synth — bars
-        // stay flat at 0 until this lands.
-        miniWaveformView.isLive = true
-        miniWaveformView.translatesAutoresizingMaskIntoConstraints = false
-        miniWaveformBezel = HoverTrackingView()
-        miniWaveformBezel.wantsLayer = true
-        miniWaveformBezel.layer?.cornerRadius = 6
-        miniWaveformBezel.layer?.borderWidth = 0.6
-        miniWaveformBezel.layer?.backgroundColor = NSColor(white: 0.06,
-                                                            alpha: 0.25).cgColor
-        miniWaveformBezel.layer?.borderColor = NSColor.separatorColor
-            .withAlphaComponent(0.5).cgColor
-        miniWaveformBezel.translatesAutoresizingMaskIntoConstraints = false
-        miniWaveformBezel.addSubview(miniWaveformView)
-        let miniBezelInset: CGFloat = 4
-        NSLayoutConstraint.activate([
-            miniWaveformView.leadingAnchor.constraint(equalTo: miniWaveformBezel.leadingAnchor, constant: miniBezelInset),
-            miniWaveformView.trailingAnchor.constraint(equalTo: miniWaveformBezel.trailingAnchor, constant: -miniBezelInset),
-            miniWaveformView.topAnchor.constraint(equalTo: miniWaveformBezel.topAnchor, constant: miniBezelInset),
-            miniWaveformView.bottomAnchor.constraint(equalTo: miniWaveformBezel.bottomAnchor, constant: -miniBezelInset),
-        ])
-        // Hover affordance: brighten the bezel border + nudge alpha
-        // so the strip reads as "click to expand." On click, jump
-        // to Esteban's full-screen liquid panel via the popover's
-        // expand entry point.
-        miniWaveformBezel.onHoverChanged = { [weak self] hovered in
-            guard let bezel = self?.miniWaveformBezel else { return }
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.18
-                ctx.allowsImplicitAnimation = true
-                bezel.layer?.borderColor = (hovered
-                    ? NSColor.controlAccentColor.withAlphaComponent(0.85)
-                    : NSColor.separatorColor.withAlphaComponent(0.5)).cgColor
-                bezel.layer?.borderWidth = hovered ? 1.2 : 0.6
-                bezel.alphaValue = hovered ? 1.0 : 0.85
-            })
-            NSCursor.pointingHand.set()
-        }
-        let miniViewClick = NSClickGestureRecognizer(
-            target: self,
-            action: #selector(miniVisualizerClicked(_:))
-        )
-        miniWaveformBezel.addGestureRecognizer(miniViewClick)
-        miniWaveformBezel.toolTip = "Click to open the full-screen piano"
-        stack.setCustomSpacing(8, after: waveformBezel)
-        stack.addArrangedSubview(miniWaveformBezel)
-        miniWaveformBezel.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth).isActive = true
-        miniWaveformBezel.heightAnchor.constraint(equalToConstant: 56).isActive = true
+        // Mini visualizer strip removed — the audio-reactive readout
+        // now lives in the floating KidLisp TV panel below the
+        // popover, so the in-popover bars were redundant. The
+        // `miniWaveformView` / `miniWaveformBezel` ivars stay declared
+        // (left nil) since the retint + appearance paths already guard
+        // on `if let`.
 
         // Pill container is allocated but unused (kept so any
         // legacy refresh path doesn't crash); not added to the
@@ -834,10 +804,14 @@ final class MenuBandPopoverViewController: NSViewController {
         // staffView can be removed entirely.
         staffView = StaffView()
         staffView.translatesAutoresizingMaskIntoConstraints = false
+        // SheetMusicView is no longer shown — it's kept only as the
+        // lazy Verovio engine for on-demand PDF export + PDF drag-in
+        // playback. The visible live staff is the all-Swift tapeStaff
+        // below. Not added to the view hierarchy; its webviews stay
+        // unbuilt until a PDF is requested.
         sheetView = SheetMusicView()
         sheetView.menuBand = menuBand
         sheetView.translatesAutoresizingMaskIntoConstraints = false
-        chordCandidatesStack.addArrangedSubview(sheetView)
         // Drive the transport-button visibility whenever the sheet
         // toggles playback state (PDF load, manual stop, natural
         // end-of-score). The visibility update is cheap so we don't
@@ -851,9 +825,21 @@ final class MenuBandPopoverViewController: NSViewController {
         // inset around the page; the cream paper sits flush with
         // the bezel's bounds.
         let sheetWidth = InstrumentListView.preferredWidth + 16
+
+        // The all-Swift scrolling staff — now the sole visible score
+        // surface. Short wide strip (saves the vertical space the old
+        // 8.5×11 Verovio portrait ate) with bigger, more legible
+        // notes. Auto-scrolls to follow the playhead; two-finger
+        // trackpad scrubs back through the take.
+        tapeStaff = TapeStaffScroller()
+        tapeStaff.translatesAutoresizingMaskIntoConstraints = false
+        tapeStaff.score = tapeScore
+        tapeStaff.live = true
+        tapeStaff.bpm = Double(KeyboardIconRenderer.metronomeBPM)
+        chordCandidatesStack.addArrangedSubview(tapeStaff)
         NSLayoutConstraint.activate([
-            sheetView.widthAnchor.constraint(equalToConstant: sheetWidth),
-            sheetView.heightAnchor.constraint(equalToConstant: sheetWidth * 11.0 / 8.5),
+            tapeStaff.widthAnchor.constraint(equalToConstant: sheetWidth),
+            tapeStaff.heightAnchor.constraint(equalToConstant: 88),
         ])
 
         // (MIDI switch lives in the title row above — see octave + MIDI block.)
@@ -1218,14 +1204,18 @@ final class MenuBandPopoverViewController: NSViewController {
         })
         let newOnsets = currentHeld.subtracting(lastSeenHeldMidis)
         let newReleases = lastSeenHeldMidis.subtracting(currentHeld)
-        if let sheet = sheetView {
-            for midi in newOnsets.sorted() {
-                sheet.recordNote(pitch: midi)
-            }
-            for midi in newReleases {
-                sheet.releaseNote(pitch: midi)
-            }
+        // Notes flow only into the all-Swift take now — the Verovio
+        // pane is no longer driven per-keystroke. It's engraved on
+        // demand from `tapeScore` when the user exports a PDF.
+        // Only inscribe while the metronome runs: the notation staff is
+        // a metronome-gated surface, so there's always a beat grid to
+        // place notes on. Releases still flow through so a note held
+        // across a metronome stop closes cleanly.
+        let t = CACurrentMediaTime()
+        if metronome?.isPlaying == true {
+            for midi in newOnsets.sorted() { tapeScore.noteOn(midi, at: t) }
         }
+        for midi in newReleases { tapeScore.noteOff(midi, at: t) }
         lastSeenHeldMidis = currentHeld
 
         qwertyMap?.litKeyCodes = m.heldKeyCodes()
@@ -2122,6 +2112,34 @@ final class MenuBandPopoverViewController: NSViewController {
     /// users can start/stop the swing without aiming the mouse.
     func toggleMetronome() {
         metronome?.isPlaying.toggle()
+    }
+
+    /// Wired by AppDelegate to resize the HOST PANEL when the popover's
+    /// natural height changes (notation staff sliding in/out), so the
+    /// whole popover grows/shrinks rather than clipping an inner row.
+    var onRequestResize: ((NSSize) -> Void)?
+
+    /// Show or hide the notation staff. The staff lives inside
+    /// `waveformBezel`; collapsing its height to 0 + hiding it makes the
+    /// popover shrink to a compact height when the metronome is off, and
+    /// the whole panel grows the staff back in when it starts.
+    private func setNotationVisible(_ visible: Bool, animated: Bool) {
+        guard let bezel = waveformBezel,
+              let h = tapeBezelHeightConstraint else { return }
+        // Pause/resume the staff's live follow timer with visibility.
+        tapeStaff?.live = visible
+        // Resize the inner row immediately, then publish the new fitting
+        // size so the panel animates its whole frame to match (the panel
+        // frame animation is what the user sees move — no inner-only
+        // animation that would clip against a fixed window).
+        h.constant = visible ? Self.tapeBezelHeight : 0
+        bezel.alphaValue = visible ? 1 : 0
+        bezel.isHidden = !visible
+        view.layoutSubtreeIfNeeded()
+        let fitting = view.fittingSize
+        preferredContentSize = fitting
+        onRequestResize?(fitting)
+        _ = animated
     }
 
     @objc private func playScoreClicked(_ sender: NSButton) {

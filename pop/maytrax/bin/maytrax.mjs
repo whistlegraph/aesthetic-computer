@@ -189,6 +189,22 @@ function openHat(buf, startSec, g = 0.22) {
   }
 }
 
+// shaker / maraca — a two-pole high-passed noise burst with a soft 3 ms
+// attack and a longer decay than the closed hat, so it reads as an airy
+// "shh" rather than a "tk". The backbone of the sunk-in perc layer.
+function shaker(buf, startSec, g = 0.10, decay = 52) {
+  const dur = 0.09, n = Math.floor(dur * SR), s0 = Math.floor(startSec * SR);
+  let prev = 0, prev2 = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    const nz = Math.random() * 2 - 1;
+    const hp = nz - prev * 0.86; prev = nz;
+    const hp2 = hp - prev2 * 0.4; prev2 = hp;
+    const att = Math.min(1, t / 0.003);
+    add(buf, s0 + i, hp2 * att * Math.exp(-t * decay) * g);
+  }
+}
+
 // helper: render a mono hat once and place it into stereo with a tight
 // pan (default 0 = dead center). Avoids the decorrelated-noise blowout
 // you get from calling openHat(busL,...) + openHat(busR,...) separately.
@@ -222,8 +238,8 @@ function breakBar(busL, busR, drm, t0, energy = 1, hatPan = 0.35) {
     // hats: ping-pong slightly so the kit breathes in stereo
     const pan = (e % 2 === 0 ? -1 : 1) * hatPan;
     const tmp = new Float32Array(busL.length);
-    if (hP[e] === "h") hat(tmp, t, 0.16 * energy);
-    if (hP[e] === "H") openHat(tmp, t, 0.20 * energy);
+    if (hP[e] === "h") hat(tmp, t, 0.115 * energy);
+    if (hP[e] === "H") openHat(tmp, t, 0.145 * energy);
     // mix tmp into stereo with pan
     const s0 = Math.floor(t * SR);
     const end = Math.min(busL.length, s0 + Math.floor(0.25 * SR));
@@ -231,6 +247,50 @@ function breakBar(busL, busR, drm, t0, energy = 1, hatPan = 0.35) {
     for (let i = s0; i < end; i++) {
       const v = tmp[i];
       if (v) { busL[i] += v * lg; busR[i] += v * rg; }
+    }
+  }
+}
+
+// ── sunk-in perc layer ───────────────────────────────────────────────
+// A busy swung-16th shaker groove, ghosted low and sent to the reverb
+// bus so it sits *behind* the kit rather than on top. Accented shakers
+// on the &s, open-hat lifts on the & of 2 and & of 4 (also reverb-fed).
+// energy scales gain; revSend controls how "sunk" the layer reads.
+// Uses small reusable scratch buffers — no per-hit full-length allocs.
+function percGroove(bL, bR, rL, rR, t0, energy = 1, opts = {}) {
+  const { swing = 0.018, base = 0.052, revSend = 0.38 } = opts;
+  const shLen = Math.floor(0.09 * SR) + 4;
+  const ohLen = Math.floor(0.22 * SR) + 4;
+  const tmp = new Float32Array(ohLen);
+  for (let e = 0; e < 16; e++) {
+    // swing the odd 16ths slightly late so the groove breathes
+    const t = t0 + e * sx + (e % 2 === 1 ? swing : 0);
+    const s0 = Math.floor(t * SR);
+    const accent = e % 4 === 2;            // the &s
+    const jitter = 0.75 + 0.25 * (((e * 7) % 5) / 4);
+    const g = (accent ? base * 1.5 : base) * energy * jitter;
+    const pan = (e % 2 === 0 ? -1 : 1) * 0.28;
+    tmp.fill(0, 0, shLen);
+    shaker(tmp, 0, g);
+    const lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
+    for (let i = 0; i < shLen; i++) {
+      const v = tmp[i]; if (!v) continue;
+      const dst = s0 + i; if (dst < 0 || dst >= bL.length) continue;
+      bL[dst] += v * lg; bR[dst] += v * rg;
+      rL[dst] += v * lg * revSend; rR[dst] += v * rg * revSend;
+    }
+    // open-hat lift on the & of 2 and & of 4 — sunk via heavier rev send
+    if (e === 6 || e === 14) {
+      tmp.fill(0, 0, ohLen);
+      openHat(tmp, 0, 0.085 * energy);
+      const op = (e === 6 ? -1 : 1) * 0.22;
+      const olg = 1 - op * 0.5, org = 1 + op * 0.5;
+      for (let i = 0; i < ohLen; i++) {
+        const v = tmp[i]; if (!v) continue;
+        const dst = s0 + i; if (dst < 0 || dst >= bL.length) continue;
+        bL[dst] += v * olg; bR[dst] += v * org;
+        rL[dst] += v * olg * 0.5; rR[dst] += v * org * 0.5;
+      }
     }
   }
 }
@@ -543,6 +603,7 @@ cursor += SECTION_BARS.buildA;
   for (let b = 0; b < 16; b++) {
     const t0 = (cursor + b) * bar;
     breakBar(busL, busR, drm, t0, 1.0);
+    percGroove(busL, busR, revL, revR, t0, 0.85);
     kickTimes.push(t0, t0 + 3 * sx, t0 + 10 * sx);
     // sub follows the root (one per beat)
     const root = 29 + (FM_ROOTS[b % 4] - FM_ROOTS[0]); // mirror the stab walk
@@ -616,6 +677,8 @@ cursor += SECTION_BARS.drop1;
 {
   for (let b = 0; b < 8; b++) {
     const t0 = (cursor + b) * bar;
+    // sunk-in shaker groove keeps the pulse alive while the kick is out
+    percGroove(busL, busR, revL, revR, t0, 0.55, { base: 0.045, revSend: 0.5 });
     // sparse hats — tight, slight pan only
     for (let e = 0; e < 16; e++) {
       if (e % 4 === 2) {
@@ -671,6 +734,7 @@ cursor += SECTION_BARS.breakA;
   for (let b = 0; b < 16; b++) {
     const t0 = (cursor + b) * bar;
     breakBar(busL, busR, drm, t0, 1.0);
+    percGroove(busL, busR, revL, revR, t0, 1.0);
     kickTimes.push(t0, t0 + 3 * sx, t0 + 10 * sx);
     // sub
     const root = 29 + (FM_ROOTS[b % 4] - FM_ROOTS[0]);
@@ -747,6 +811,11 @@ cursor += SECTION_BARS.drop2;
   const t0 = cursor * bar;
   darkPad(busL, busR, t0, DB_PAD, bar * 4 - 0.05, 0.22);
   darkPad(busL, busR, t0 + bar * 4, C_PAD, bar * 4 - 0.05, 0.22);
+  // distant shaker haze — very sunk, builds slightly over the 8 bars
+  for (let b = 0; b < 8; b++) {
+    percGroove(busL, busR, revL, revR, t0 + b * bar, 0.35 + b * 0.04,
+               { base: 0.04, revSend: 0.6, swing: 0.022 });
+  }
   // sub drops in once per bar — half-time pulse
   for (let b = 0; b < 8; b++) {
     const root = b < 4 ? 25 : 24;
@@ -774,6 +843,7 @@ cursor += SECTION_BARS.breakB;
   for (let b = 0; b < 16; b++) {
     const t0 = (cursor + b) * bar;
     breakBar(busL, busR, drm, t0, 1.05);
+    percGroove(busL, busR, revL, revR, t0, 1.15, { base: 0.06, revSend: 0.42 });
     kickTimes.push(t0, t0 + 3 * sx, t0 + 10 * sx);
     // sub — louder
     const root = 29 + (FM_ROOTS[b % 4] - FM_ROOTS[0]);
@@ -846,6 +916,7 @@ cursor += SECTION_BARS.drop3;
     // break energy ramps from 1.0 → 0.2 over 12 bars
     const energy = Math.max(0.15, 1.0 - b * 0.075);
     breakBar(busL, busR, drm, t0, energy);
+    percGroove(busL, busR, revL, revR, t0, energy, { revSend: 0.45 });
     kickTimes.push(t0, t0 + 3 * sx, t0 + 10 * sx);
     // sub fades same curve
     const root = b < 6 ? 29 : 24;
@@ -977,28 +1048,54 @@ console.log(
   `intro→buildA→drop1→breakA→drop2→breakB→drop3→outro · stereo`,
 );
 
-// ── pop master chain (matches marimbaba / helpabeach) ────────────────
-// highpass 30 → glue comp → air @ 7.5k → brickwall limit. Same shape
-// as the released pixsies singles so maytrax sits at commercial level.
-const MASTER = [
-  "highpass=f=30",
-  "acompressor=threshold=-18dB:ratio=2.6:attack=18:release=220:makeup=2.4:knee=6",
-  "treble=g=1.2:f=7500",
-  "alimiter=limit=0.96:attack=4:release=60",
+// ── pop master chain ─────────────────────────────────────────────────
+// A fuller, more "finished" pop master than the old 4-stage shape:
+//
+//   1. highpass 28        — strip infrasonic rumble
+//   2. tonal balance EQ   — sub weight @60, de-mud @300, presence @3.5k,
+//                           air shelf @11k (the modern smiley curve)
+//   3. glue compression   — slow-ish 2:1 to fuse the kit + bed
+//   4. asoftclip (tanh)   — harmonic saturation = density + perceived loud
+//   5. stereotools        — gentle side lift for width (mono-safe ~1.12)
+//   6. alimiter           — driven brickwall for the loud, glossy ceiling
+//
+// A final loudnorm stage per target sets the delivery loudness: hot pop
+// level for the mp3 preview, streaming-safe -14 LUFS for the DistroKid wav.
+// Tonal + dynamics core — everything *except* loudness + the final
+// ceiling. Loudness is set once (loudnorm), then a true-peak brickwall
+// runs dead last so nothing downstream can push peaks back over.
+const MASTER_CORE = [
+  "highpass=f=28",
+  "equalizer=f=60:t=q:w=0.7:g=1.6",       // sub weight
+  "equalizer=f=300:t=q:w=1.1:g=-1.6",     // de-mud the low-mids
+  "equalizer=f=3500:t=q:w=1.2:g=1.8",     // presence / clarity
+  "treble=g=1.6:f=12000",                 // air shelf (gentle — keeps mp3 clean)
+  "acompressor=threshold=-18dB:ratio=2.2:attack=18:release=180:makeup=2.6:knee=6",
+  "asoftclip=type=tanh:threshold=0.96",   // light density / glue
+  "stereotools=slev=1.10",                // subtle, mono-safe width
 ].join(",");
+
+// mp3 preview — loudnorm sets a hot modern pop loudness, then the
+// limiter holds the ceiling at ~-1.2 dBFS so LAME's lossy inter-sample
+// overshoot still lands under 0 dBTP. Verified via ebur128 (NOT
+// loudnorm's print, which mis-reports on dense brickwalled signal):
+// post-encode ≈ -8.8 LUFS / -0.8 dBTP.
+const MASTER_MP3 =
+  `${MASTER_CORE},loudnorm=I=-9.5:TP=-1.5:LRA=9,` +
+  `alimiter=limit=0.89:attack=3:release=55`;
 
 const ff = spawnSync("ffmpeg", [
   "-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawPath,
-  "-af", MASTER,
-  "-c:a", "libmp3lame", "-q:a", "2", outPath,
+  "-af", MASTER_MP3,
+  "-c:a", "libmp3lame", "-b:a", "320k", outPath,
 ], { stdio: "inherit" });
 if (ff.status !== 0) {
   try { unlinkSync(rawPath); } catch {}
   console.error("✗ ffmpeg failed");
   process.exit(1);
 }
-console.log(`✓ ${outPath} (pop-mastered · ${(trimN / SR).toFixed(1)} s · stereo)`);
+console.log(`✓ ${outPath} (pop-mastered · 320k · ${(trimN / SR).toFixed(1)} s · stereo)`);
 
 // ── optional DistroKid WAV master ────────────────────────────────────
 const wavOut = expandHome(flags.wav);
@@ -1007,7 +1104,7 @@ if (wavOut) {
   const wff = spawnSync("ffmpeg", [
     "-hide_banner", "-y", "-loglevel", "error",
     "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawPath,
-    "-af", `${MASTER},loudnorm=I=-14:TP=-1.5:LRA=11`,
+    "-af", `${MASTER_CORE},loudnorm=I=-14:TP=-1.5:LRA=11,alimiter=limit=0.95:attack=3:release=55`,
     "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", wavOut,
   ], { stdio: "inherit" });
   if (wff.status !== 0) {

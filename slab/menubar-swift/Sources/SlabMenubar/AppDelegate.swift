@@ -507,6 +507,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Tidy every Stickies note into a tight top-left stack, collapsed.
+    /// Rather than hand-roll the geometry, we drive Stickies' own built-in
+    /// "Window ▸ Arrange By" command: first set its "When Arranging" mode to
+    /// "Collapse All" (a persistent radio choice), then invoke "Arrange By ▸
+    /// Color", which packs the notes into a flush column in the top-left and
+    /// collapses each to its title bar. Native, idempotent, and it leaves the
+    /// notes exactly where Stickies' own "Arrange" would.
+    @objc func stackStickies() {
+        let script = """
+        tell application "Stickies" to activate
+        tell application "System Events" to tell process "Stickies"
+            set abMenu to menu 1 of menu item "Arrange By" of menu 1 of menu bar item "Window" of menu bar 1
+            -- Collapse-on-arrange mode (persists across runs).
+            click menu item "Collapse All" of abMenu
+            delay 0.2
+            -- Perform the arrange — packs top-left + collapses.
+            click menu item "Color" of abMenu
+        end tell
+        """
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+    }
+
     @objc func reloadDaemon() {
         DispatchQueue.global(qos: .userInitiated).async {
             ShellRunner.run("/bin/launchctl", args: ["unload", Paths.daemonPlist])

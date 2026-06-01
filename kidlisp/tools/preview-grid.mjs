@@ -52,11 +52,13 @@ if (opts.sources) {
   sourcesText = readFileSync(0, "utf8"); // stdin
 }
 
-const sources = sourcesText
+const allSources = sourcesText
   .split("\n")
   .map((s) => s.trim())
-  .filter((s) => s.length > 0 && !s.startsWith("#"))
-  .slice(start, start + (count === Infinity ? undefined : count));
+  .filter((s) => s.length > 0 && !s.startsWith("#"));
+const sources = count === Infinity
+  ? allSources.slice(start)
+  : allSources.slice(start, start + count);
 
 console.log(`rendering ${sources.length} cells at ${cw}x${ch}, ${cols} cols`);
 
@@ -72,46 +74,61 @@ const launchOpts = {
   args: ["--no-sandbox", "--disable-setuid-sandbox", "--mute-audio"],
 };
 if (existsSync(CHROME)) launchOpts.executablePath = CHROME;
-const browser = await puppeteer.launch(launchOpts);
+
+let browser = await puppeteer.launch(launchOpts);
+let browserDisconnects = 0;
+browser.on("disconnected", () => {
+  browserDisconnects++;
+});
 
 const tiles = []; // { buf, index, source }
 const t0 = Date.now();
+const blackTile = await sharp({
+  create: { width: cw, height: ch, channels: 3, background: { r: 0, g: 0, b: 0 } },
+}).png().toBuffer();
 
-try {
-  for (let i = 0; i < sources.length; i++) {
-    const src = sources[i];
-    const page = await browser.newPage();
+for (let i = 0; i < sources.length; i++) {
+  const src = sources[i];
+  // Ensure browser is alive — relaunch if it died
+  if (!browser.connected || browserDisconnects > 0) {
+    try { await browser.close(); } catch {}
+    console.warn(`  browser disconnected (${browserDisconnects}); relaunching...`);
+    browser = await puppeteer.launch(launchOpts);
+    browserDisconnects = 0;
+    browser.on("disconnected", () => { browserDisconnects++; });
+  }
+
+  let page;
+  let buf = null;
+  try {
+    page = await browser.newPage();
+    await page.setViewport({ width: cw, height: ch, deviceScaleFactor: 1 });
+    const encoded = encodeKidlispForUrl(src);
+    const url = `${base}/${encoded}?nogap=true&tv=true&density=1&nolabel=true`;
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
     try {
-      await page.setViewport({ width: cw, height: ch, deviceScaleFactor: 1 });
-      const encoded = encodeKidlispForUrl(src);
-      const url = `${base}/${encoded}?nogap=true&tv=true&density=1&nolabel=true`;
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-      // Wait for AC's preloaded flag
-      try {
-        await page.waitForFunction(() => window.preloaded === true, { timeout: bootMs * 3 });
-      } catch {}
-      await new Promise((r) => setTimeout(r, settleMs));
-      const buf = await page.screenshot({ type: "png" });
-      tiles.push({ buf, index: start + i, source: src });
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      const eta = (((Date.now() - t0) / (i + 1)) * (sources.length - i - 1) / 1000).toFixed(0);
-      if (i % 8 === 0 || i === sources.length - 1) {
-        console.log(`  [${i + 1}/${sources.length}] elapsed=${elapsed}s eta=${eta}s`);
-      }
-    } catch (err) {
-      console.warn(`  cell ${i} failed: ${err.message}`);
-      // Use a black tile as placeholder
-      const blackBuf = await sharp({
-        create: { width: cw, height: ch, channels: 3, background: { r: 0, g: 0, b: 0 } },
-      }).png().toBuffer();
-      tiles.push({ buf: blackBuf, index: start + i, source: src });
-    } finally {
-      await page.close();
+      await page.waitForFunction(() => window.preloaded === true, { timeout: bootMs * 3 });
+    } catch {}
+    await new Promise((r) => setTimeout(r, settleMs));
+    buf = await page.screenshot({ type: "png" });
+  } catch (err) {
+    console.warn(`  cell ${i} failed: ${err.message.slice(0, 100)}`);
+  } finally {
+    if (page) {
+      try { await page.close(); } catch {}
     }
   }
-} finally {
-  await browser.close();
+
+  tiles.push({ buf: buf || blackTile, index: start + i, source: src });
+
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  const eta = (((Date.now() - t0) / (i + 1)) * (sources.length - i - 1) / 1000).toFixed(0);
+  if (i % 8 === 0 || i === sources.length - 1) {
+    console.log(`  [${i + 1}/${sources.length}] elapsed=${elapsed}s eta=${eta}s`);
+  }
 }
+
+try { await browser.close(); } catch {}
 
 console.log("compositing grid...");
 

@@ -76,6 +76,28 @@ final class MenuBandPopoverPanel: NSPanel {
         let arrowLocalX = arrowScreenX - leftScreenX
         chrome.setArrowOffsetFromLeft(arrowLocalX)
     }
+
+    /// Resize the whole panel to host `contentSize` (+ the arrow strip),
+    /// keeping the TOP edge pinned to the menubar so the popover grows /
+    /// shrinks downward — used when the notation staff slides in/out and
+    /// the entire popover height changes, not just an inner row.
+    func resizeContent(to contentSize: NSSize, animated: Bool) {
+        let newH = contentSize.height + Self.arrowHeight
+        let newW = max(contentSize.width, frame.width)
+        let top = frame.maxY                         // pin top edge
+        let originX = frame.minX                      // keep left edge
+        let newFrame = NSRect(x: originX, y: top - newH,
+                              width: newW, height: newH)
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                animator().setFrame(newFrame, display: true)
+            }
+        } else {
+            setFrame(newFrame, display: true)
+        }
+    }
 }
 
 final class MenuBandPopoverChrome: NSView {

@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pianoWaveformHotkey: GlobalHotkey?
     private var exitFocusHotkey: GlobalHotkey?
     private var layoutToggleHotkey: GlobalHotkey?
+    private var percussionToggleHotkey: GlobalHotkey?
     private var popoverPanel: MenuBandPopoverPanel?
     private var popoverVC: MenuBandPopoverViewController?
     private var kidlispTVPanel: KidLispTVPanel?
@@ -90,6 +91,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// snappy on note attack rather than smearing across the prior
     /// 20+ ms.
     private var visualizerSampleBuffer = [Float](repeating: 0, count: 256)
+    /// Fast-responding bass / mid / treble bar levels (0..1) for the chip's
+    /// 3-bar spectrum meter, plus a shared adaptive peak for normalization
+    /// and the last-drawn snapshot for the dirty check.
+    private var visualizerBars: [CGFloat] = [0, 0, 0]
+    /// Per-band adaptive peaks so each bar normalizes to its OWN dynamics —
+    /// otherwise bass dominates the shared gain and mid/treble stay stubby,
+    /// making the three bars look lopsided instead of evenly lively.
+    private var visualizerBandPeaks: [Float] = [0.05, 0.05, 0.05]
+    private var visualizerLastDrawnBars: [CGFloat] = [-1, -1, -1]
+    private var percLatLogCounter = 0
     /// Latest mic-input RMS published by `MenuBandSampleVoice`'s tap
     /// while the user is recording (key `). Drives the menubar VU
     /// bars when the sample-voice backend is capturing audio. The
@@ -134,6 +145,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// double-tap. ~300 ms matches macOS's own "press ⌘ twice" feel.
     private static let rightCommandDoubleTapWindow: CFTimeInterval = 0.30
     private var popoverEscMonitor: Any?
+
+    /// Option's .flagsChanged virtual keycodes. A single bare TAP of either
+    /// Option latches that HALF of the board to percussion: left-⌥ (58) =
+    /// left half, right-⌥ (61) = right half. Tap again to release that side.
+    private static let rightOptionKeyCode: UInt16 = 61
+    private static let leftOptionKeyCode: UInt16 = 58
+    private var rightOptionMonitorGlobal: Any?
+    private var rightOptionMonitorLocal: Any?
+    private var leftOptionMonitorGlobal: Any?
+    private var leftOptionMonitorLocal: Any?
 
     /// Sandbox-friendly local key capture. Armed when the user clicks the
     /// menubar piano (without opening the popover). The companion ghost
@@ -254,6 +275,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Avoids spurious calls on every onLitChanged tick — only
     /// flips on the keyboard-held edges.
     private var pitchBendCursorLocked = false
+    /// Sticky pitch-bend MODE. Once the gesture engages (hold a key +
+    /// swipe), pitch stays latched: ALL subsequent trackpad movement
+    /// bends, with no note required, until the user hits Esc or Menu
+    /// Band loses focus. Releasing keys no longer ends it — only those
+    /// two explicit exits do.
+    private var pitchBendModeLatched = false
     /// Floating window that draws the bend wheel above every app.
     /// Used in lockstep with `CGDisplayHideCursor` so the real
     /// system cursor is invisible during pitch bend — that's what
@@ -271,6 +298,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// CGAssociateMouseAndMouseCursorPosition so position doesn't
     /// drift).
     private var pitchBendLockScreenPoint: NSPoint = .zero
+    /// Short grace timer that ends the pitch-bend graphic after the last
+    /// keyboard note lifts. A small delay so a fast legato note change
+    /// (release one key, press the next) doesn't flicker the overlay.
+    private var pitchBendEndTimer: Timer?
     /// Local + global NSEvent monitors for trackpad scroll events.
     /// Held so we can teardown if needed (we don't, but per-instance
     /// retention is cleaner than globals).
@@ -299,6 +330,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// to a full ±1 (= ±2 semitones at default GM range), so a
     /// modest two-finger flick reads as a noticeable bend.
     private static let bendSensitivityPerPoint: Float = 1.0 / 80.0
+    /// Max bend magnitude in `bendAmount` units (1 unit = one octave via
+    /// `bendSemitonesPerUnit`). The accumulator clamps here so there's no
+    /// wind-up past the edge, and the overlay puck normalizes against it so
+    /// the grid edge IS the cap. ±2 = two octaves down / up — which is also
+    /// AVAudioUnitTimePitch's hard limit (±2400 cents) for the radio voice,
+    /// so the radio reaches its true floor/ceiling at the grid edges.
+    private static let bendRange: Float = 2.0
     /// Trackpad-points-per-unit-space (X-axis). Deliberately less
     /// touchy than pitch: ~200pt of horizontal travel sweeps fully
     /// dry → full room, so it's a controllable ambience wash rather
@@ -334,6 +372,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleTapeFeatureToggled(_:)),
             name: .menuBandTapeFeatureChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePercussionSplitToggled(_:)),
+            name: .menuBandPercussionSplitChanged,
             object: nil
         )
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
@@ -397,24 +441,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // pitch-bend is a keyboard-mode feature: hold a
             // letter → cursor locks → swipe to bend → release
             // letter → cursor unlocks + spring rubber-band.
+            // Once latched, pitch-bend MODE persists regardless of which
+            // notes are (or aren't) held — only Esc / focus loss ends it
+            // (see endPitchBendSession callers). So we no longer end the
+            // session here on note release; releasing keys just leaves
+            // the bend where it is and keeps the mode live.
             let kbHeld = self.menuBand.keyboardNotesHeld
-            if kbHeld && !self.pitchBendCursorLocked {
-                CGAssociateMouseAndMouseCursorPosition(0)
-                self.pitchBendCursorLocked = true
-                // Snapshot the cursor's screen position so the
-                // overlay window can anchor there for the duration
-                // of the gesture. NSEvent.mouseLocation is in
-                // bottom-left-origin screen coords — same space
-                // NSWindow.setFrameOrigin expects.
-                self.pitchBendLockScreenPoint = NSEvent.mouseLocation
-            } else if !kbHeld && self.pitchBendCursorLocked
-                        && !self.trackpadTouchActive {
-                // All notes released AND no finger on the trackpad —
-                // end the gesture. If a finger is still down we skip
-                // this so the bend (and the locked cursor/overlay)
-                // survive a note change / legato; the finger-lift
-                // callback ends it instead.
-                self.endPitchBendSession()
+            if kbHeld {
+                // A keyboard note is held — keep (or arm) the pitch-bend
+                // graphic and cancel any pending teardown left over from a
+                // momentary gap (fast legato note changes).
+                self.pitchBendEndTimer?.invalidate()
+                self.pitchBendEndTimer = nil
+                if !self.pitchBendCursorLocked {
+                    CGAssociateMouseAndMouseCursorPosition(0)
+                    self.pitchBendCursorLocked = true
+                    self.pitchBendModeLatched = true
+                    // Snapshot the cursor's screen position so the
+                    // overlay window can anchor there for the duration
+                    // of the gesture. NSEvent.mouseLocation is in
+                    // bottom-left-origin screen coords — same space
+                    // NSWindow.setFrameOrigin expects.
+                    self.pitchBendLockScreenPoint = NSEvent.mouseLocation
+                }
+            } else if self.pitchBendModeLatched {
+                // No keyboard note held anymore. The pitch-shift graphic is
+                // a hold-to-bend visual, so tear it down once the last key
+                // lifts — after a short grace so a quick legato hand-off
+                // doesn't flicker it. (Shift stays the deliberate exception:
+                // it keeps bending still-ringing notes with no key down.)
+                self.scheduleGraphicEndIfNoKeyHeld()
             }
             self.lastLitCount = cur
             self.updateIcon()
@@ -475,6 +531,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.toggleKeyboardLayoutShortcut()
         }
 
+        // Magnify the icon to fill the bar's usable height. The status
+        // button centers (doesn't downscale) its image, so we scale up only
+        // as far as the thickness allows — bigger on roomy/notched bars,
+        // 1× on a tight bar. Hit-testing compensates via the same factor.
+        let barThickness = NSStatusBar.system.thickness
+        let baseIconH = KeyboardIconRenderer.baseImageSize.height
+        if baseIconH > 0 {
+            KeyboardIconRenderer.iconScale =
+                max(1.0, min(1.6, (barThickness - 0.5) / baseIconH))
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: KeyboardIconRenderer.imageSize.width)
         debugLog("statusItem created, button=\(statusItem.button != nil) length=\(statusItem.length)")
         if let button = statusItem.button {
@@ -545,6 +611,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = registerPianoWaveformHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
         _ = registerExitFocusHotkey(MenuBandShortcutPreferences.exitFocusShortcut)
         registerLayoutToggleHotkey()
+        registerPercussionToggleHotkey()
 
         // Start the Stickies bridge — listens for keystrokes when
         // the macOS Stickies app is frontmost and the focused
@@ -680,9 +747,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
             // Escape disarms capture explicitly. Useful when the user
-            // wants to release focus without clicking another app.
+            // wants to release focus without clicking another app. Also
+            // the explicit exit for latched pitch-bend mode.
             if isDown && keyCode == 53 /* kVK_Escape */ {
                 NSSound(named: NSSound.Name("Tink"))?.play()
+                if self.pitchBendModeLatched { self.endPitchBendSession() }
                 self.localCapture.disarm(reason: .cancelled)
                 return true
             }
@@ -691,6 +760,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 modifiers: MenuBandShortcut.carbonModifiers(from: flags)
             ) {
                 self.toggleKeyboardLayoutShortcut()
+                return true
+            }
+            if isDown && MenuBandShortcut.defaultPercussionToggle.matches(
+                keyCode: UInt32(keyCode),
+                modifiers: MenuBandShortcut.carbonModifiers(from: flags)
+            ) {
+                self.togglePercussionSplitFromShortcut()
                 return true
             }
             // Spacebar toggles the metronome whenever the popover is
@@ -783,6 +859,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startAdaptiveLayoutChecks()
         startShiftStateMonitors()
         startRightCommandTapMonitor()
+        startRightOptionTapMonitor()
+        startLeftOptionTapMonitor()
         startVisualizerAnimation()
 
         // Retint the running app's icon (About panel + Dock) to the
@@ -904,6 +982,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) {
             layoutToggleHotkey = hotkey
         }
+    }
+
+    private func registerPercussionToggleHotkey() {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D425052),  // 'MBPR'
+            id: 1
+        ) { [weak self] in
+            self?.togglePercussionSplitFromShortcut()
+        }
+        let shortcut = MenuBandShortcut.defaultPercussionToggle
+        if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
+            percussionToggleHotkey = hotkey
+        }
+    }
+
+    private func togglePercussionSplitFromShortcut() {
+        menuBand.togglePercussionSplit()
+        // Audible cue so the toggle lands without looking at the menubar.
+        menuBand.playPercussionToggleCue(on: menuBand.percussionSplit)
+    }
+
+    private func toggleLeftPercussionFromShortcut() {
+        menuBand.togglePercussionLeft()
+        // Cue panned left so the side that toggled lands by ear.
+        menuBand.playPercussionToggleCue(on: menuBand.percussionLeft, pan: 32)
+    }
+
+    private func toggleRightPercussionFromShortcut() {
+        menuBand.togglePercussionRight()
+        menuBand.playPercussionToggleCue(on: menuBand.percussionRight, pan: 96)
     }
 
     @discardableResult
@@ -1084,18 +1192,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menuBand.playFocusCue(rising: false)
             localCapture.disarm(reason: .cancelled)
         } else {
-            // If the popover is closed, open it first so the gesture
-            // has a visible target — arming silently with no UI on
-            // screen leaves the user wondering whether anything happened.
-            let wasClosed = !isPopoverPanelShown
-            if wasClosed {
-                showPopover()
-            }
-            // Start: arm capture immediately so the very next keys
-            // play even while ⌘ is still held (right-⌘+f → plays F
-            // AND enables). No overlay (beginFocusCapture…
-            // deliberately doesn't call showExpandedForPopover).
-            beginFocusCaptureFromShortcut(keepPopoverOpen: wasClosed)
+            // Arm focus capture WITHOUT touching the popover. The
+            // double-⌘ gesture used to pop the panel open as a visible
+            // target, but jas wants the shortcut to arm silently — the
+            // blue flash + rising bell below are the "it landed" cue, so
+            // no popover is needed. keepPopoverOpen:true also means an
+            // already-open popover is left as-is rather than closed.
+            beginFocusCaptureFromShortcut(keepPopoverOpen: true)
             // Blue glow + rising bell + all keys flash at once.
             FocusFlashOverlay.shared.flash(rising: true)
             menuBand.playFocusCue(rising: true)
@@ -1147,6 +1250,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func finishLocalCapture(reason: LocalKeyCapture.EndReason) {
         let shouldRestoreFocus = focusCaptureArmedByShortcut && reason == .cancelled
         focusCaptureArmedByShortcut = false
+        // Menu Band lost key focus → exit latched pitch mode too.
+        if pitchBendModeLatched { endPitchBendSession() }
         menuBand.releaseAllHeldNotes()
         ghostUntil = 0
         ghostRefreshTimer?.invalidate()
@@ -1338,6 +1443,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if KeyboardIconRenderer.metronomeFlash < 0.01 {
                 KeyboardIconRenderer.metronomeFlash = 0
             }
+            // Three real bars — split the live waveform into bass / mid /
+            // treble via one-pole filters, RMS each, normalize to a shared
+            // adaptive peak, and smooth with INSTANT attack + fast release
+            // so the meter is honest and time-accurate (no decorative
+            // wiggle). While recording, the mic level fans across the bars.
+            var bass: Float = 0, mid: Float = 0, treble: Float = 0
+            if self.menuBand.sampleRecordingActive {
+                bass = self.latestMicLevel
+                mid = self.latestMicLevel * 0.8
+                treble = self.latestMicLevel * 0.6
+            } else {
+                var lpLow: Float = 0, lpMid: Float = 0
+                let aLow: Float = 0.035, aMid: Float = 0.22
+                var bSq: Float = 0, mSq: Float = 0, tSq: Float = 0
+                for s in self.visualizerSampleBuffer {
+                    lpLow += aLow * (s - lpLow)
+                    lpMid += aMid * (s - lpMid)
+                    let b = lpLow
+                    let m = lpMid - lpLow
+                    let t = s - lpMid
+                    bSq += b * b; mSq += m * m; tSq += t * t
+                }
+                let n = Float(self.visualizerSampleBuffer.count)
+                bass = (bSq / n).squareRoot()
+                mid = (mSq / n).squareRoot()
+                treble = (tSq / n).squareRoot()
+            }
+            // Per-band adaptive gain: normalize each band to ITS OWN recent
+            // peak so bass (lower absolute energy) still swings full-height
+            // instead of staying a stub — all three bars read evenly.
+            let bandVals: [Float] = [bass, mid, treble]
+            var bandTargets: [CGFloat] = [0, 0, 0]
+            // Noise gate: below this the signal is effectively silence, so
+            // skip the per-band gain (which would otherwise amplify the
+            // noise floor into twitching bars) and let them fall to the
+            // flat baseline.
+            let gateOpen = max(bass, max(mid, treble)) > 0.004
+            for i in 0..<3 where gateOpen {
+                if bandVals[i] > self.visualizerBandPeaks[i] {
+                    self.visualizerBandPeaks[i] = bandVals[i]
+                } else {
+                    self.visualizerBandPeaks[i] =
+                        max(0.015, self.visualizerBandPeaks[i] * 0.95 + bandVals[i] * 0.05)
+                }
+                let gain = 0.95 / self.visualizerBandPeaks[i]
+                bandTargets[i] = CGFloat(min(1, bandVals[i] * gain))
+            }
+            for i in 0..<3 {
+                if bandTargets[i] >= self.visualizerBars[i] {
+                    self.visualizerBars[i] = bandTargets[i]      // instant attack
+                } else {
+                    self.visualizerBars[i] += (bandTargets[i] - self.visualizerBars[i]) * 0.4
+                }
+            }
+            KeyboardIconRenderer.miniVisualizerBars = self.visualizerBars
+            var barsDirty = false
+            for i in 0..<3 where abs(self.visualizerBars[i] - self.visualizerLastDrawnBars[i]) > 0.02 {
+                barsDirty = true
+            }
+
+            // Percussion vibe: push the live per-drum hit pulses so the
+            // right-hand keys shake/blink with each hit. Keep repainting
+            // while any pulse is still fresh.
+            var percActive = false
+            if self.menuBand.percussionSplit {
+                let now = CACurrentMediaTime()
+                let pulses = self.menuBand.percussionPulses()
+                KeyboardIconRenderer.drumPulses = pulses
+                KeyboardIconRenderer.drumPulseNow = now
+                for p in pulses where p.at > 0 && (now - p.at) < 0.45 && p.level > 0.01 {
+                    percActive = true
+                    break
+                }
+                // Surface the drum trigger→render latency ~1×/sec while
+                // playing so we can verify it stays at/below one buffer.
+                if percActive {
+                    self.percLatLogCounter += 1
+                    if self.percLatLogCounter % 24 == 0 {
+                        NSLog(String(format: "MenuBand perc latency: trigger→render %.2f ms",
+                                     self.menuBand.percussionTriggerHandoffMs()))
+                    }
+                }
+            } else if !KeyboardIconRenderer.drumPulses.isEmpty {
+                KeyboardIconRenderer.drumPulses = []
+            }
+
             // Only repaint the status item when one of the animated
             // signals has actually moved a visible amount. The phase
             // value updates every tick but the per-bar wiggle is too
@@ -1350,14 +1541,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let metro = CGFloat(KeyboardIconRenderer.metronomeFlash)
             let levelStep: CGFloat = 0.01
             let flashStep: CGFloat = 0.02
-            let dirty =
-                abs(level - self.visualizerLastDrawnLevel) > levelStep
+            let dirty = percActive || barsDirty
+                || abs(level - self.visualizerLastDrawnLevel) > levelStep
                 || abs(midi - self.visualizerLastDrawnMidiFlash) > flashStep
                 || abs(metro - self.visualizerLastDrawnMetroFlash) > flashStep
             if dirty {
                 self.visualizerLastDrawnLevel = level
                 self.visualizerLastDrawnMidiFlash = midi
                 self.visualizerLastDrawnMetroFlash = metro
+                self.visualizerLastDrawnBars = self.visualizerBars
                 self.updateIcon()
             }
         }
@@ -1369,16 +1561,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// uppercase its letter labels while the user holds shift. The
     /// uppercase letters are the visual cue that linger / bell-ring
     /// mode is armed; lowercase = normal.
+    /// Map the current modifier mask to which keyboard half should render
+    /// uppercase. Mirrors `MenuBandController.lingerSide`: the left/right
+    /// shift are told apart by the device-dependent bits (0x2 / 0x4) the
+    /// plain `.shift` mask collapses. A single shift sides; caps lock or
+    /// both shifts arm the whole board.
+    private static func uppercaseSide(for flags: NSEvent.ModifierFlags)
+        -> KeyboardIconRenderer.UppercaseSide {
+        let raw = UInt64(flags.rawValue)
+        let left = (raw & 0x0000_0002) != 0
+        let right = (raw & 0x0000_0004) != 0
+        if left && !right { return .left }
+        if right && !left { return .right }
+        if flags.contains(.shift) || flags.contains(.capsLock) { return .all }
+        return .none
+    }
+
     private func startShiftStateMonitors() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
-            // Caps lock latches the mode; shift is the momentary. Either
-            // arms linger and shows uppercase labels.
+            // Caps lock latches the mode; shift is the momentary. The
+            // shift *side* picks which half uppercases (mirrors the sided
+            // linger); caps / both shifts uppercase the whole board.
             let caps = event.modifierFlags.contains(.capsLock)
-            let armed = event.modifierFlags.contains(.shift) || caps
+            let side = Self.uppercaseSide(for: event.modifierFlags)
             var dirty = false
-            if KeyboardIconRenderer.labelsUppercase != armed {
-                KeyboardIconRenderer.labelsUppercase = armed
+            if KeyboardIconRenderer.labelsUppercaseSide != side {
+                KeyboardIconRenderer.labelsUppercaseSide = side
                 dirty = true
             }
             if KeyboardIconRenderer.lingerCapsLatched != caps {
@@ -1405,10 +1614,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // at startup to seed the renderer correctly.
         let initial = NSEvent.modifierFlags
         let initialCaps = initial.contains(.capsLock)
-        let initialArmed = initial.contains(.shift) || initialCaps
+        let initialSide = Self.uppercaseSide(for: initial)
         var initialDirty = false
-        if KeyboardIconRenderer.labelsUppercase != initialArmed {
-            KeyboardIconRenderer.labelsUppercase = initialArmed
+        if KeyboardIconRenderer.labelsUppercaseSide != initialSide {
+            KeyboardIconRenderer.labelsUppercaseSide = initialSide
             initialDirty = true
         }
         if KeyboardIconRenderer.lingerCapsLatched != initialCaps {
@@ -1466,6 +1675,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { handler($0) }
         rightCmdMonitorLocal = NSEvent.addLocalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
+        ) { handler($0); return $0 }
+    }
+
+    /// Single bare right-⌥ TAP latches the RIGHT half of the board to
+    /// percussion (tap again to release). Rides the same .flagsChanged
+    /// stream the shift / right-⌘ monitors already use (no new permission).
+    private func startRightOptionTapMonitor() {
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            guard event.type == .flagsChanged,
+                  event.keyCode == Self.rightOptionKeyCode else { return }
+            // .flagsChanged fires on press AND release; `.option` is set
+            // on the down edge, cleared on the up. Toggle on down only.
+            let isDown = event.modifierFlags.contains(.option)
+            guard isDown else { return }
+            // Bare right-⌥ only — ignore chords (⌥⌘, ⌥⇧, …) so an Option
+            // used as a real modifier in another app doesn't flip drums.
+            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard mask == .option else { return }
+            self.toggleRightPercussionFromShortcut()
+        }
+        rightOptionMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
+            matching: [.flagsChanged]
+        ) { handler($0) }
+        rightOptionMonitorLocal = NSEvent.addLocalMonitorForEvents(
+            matching: [.flagsChanged]
+        ) { handler($0); return $0 }
+    }
+
+    /// Single bare left-⌥ TAP latches the LEFT half of the board to
+    /// percussion (tap again to release) — the mirror of the right-⌥ tap.
+    private func startLeftOptionTapMonitor() {
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            guard event.type == .flagsChanged,
+                  event.keyCode == Self.leftOptionKeyCode else { return }
+            let isDown = event.modifierFlags.contains(.option)
+            guard isDown else { return }
+            // Bare left-⌥ only — ignore chords so a real Option modifier in
+            // another app doesn't flip drums.
+            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard mask == .option else { return }
+            self.toggleLeftPercussionFromShortcut()
+        }
+        leftOptionMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
+            matching: [.flagsChanged]
+        ) { handler($0) }
+        leftOptionMonitorLocal = NSEvent.addLocalMonitorForEvents(
+            matching: [.flagsChanged]
         ) { handler($0); return $0 }
     }
 
@@ -1717,6 +1975,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func updateIcon() {
         guard let button = statusItem.button else { return }
+        // Keep the renderer's drum-zone coloring in sync with the live split.
+        KeyboardIconRenderer.percussionLeftActive = menuBand.percussionLeft
+        KeyboardIconRenderer.percussionRightActive = menuBand.percussionRight
         // Use *effective* keymap/typeMode so popover hover-preview can
         // override the live state without writing to UserDefaults. The
         // renderer keeps `imageSize` constant across keymaps (always the
@@ -1756,18 +2017,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the visualizerAnimTimer (24fps smoothed VU motion), not from
         // here — overriding them on every note-event redraw would
         // erase the smoothing.
-        statusItem.length = KeyboardIconRenderer.imageSize.width
         // Voice-subscript override: backends that don't map to a GM
         // program get a glyph instead of a digit. Sample voice → "`"
-        // (the record key); KPBJ radio → "−1" (its conceptual slot —
-        // matches the "−1 KPBJ" title the popover uses). Everything
-        // else falls through to the 1-based GM program number.
+        // (the record key); KPBJ radio → its CALLSIGN ("kpbj") so the
+        // station keeps its identity in the menubar instead of an opaque
+        // "−1" slot number. The badge auto-widens to fit (voiceBadgeDigits
+        // below), same as 3-digit GM numbers. Everything else falls
+        // through to the 1-based GM program number.
         let voiceLabel: String?
         switch menuBand.instrumentBackend {
         case .sample: voiceLabel = "`"
-        case .kpbj:   voiceLabel = "−1"
+        case .kpbj:   voiceLabel = menuBand.radioStation.label
         default:      voiceLabel = nil
         }
+        // Reserve badge width for the actual subscript so 3-digit GM
+        // numbers (100–128) don't crop. Must be set BEFORE sizing the slot.
+        let badgeText = menuBand.midiMode
+            ? "M"
+            : (voiceLabel ?? String(Int(menuBand.effectiveMelodicProgram) + 1))
+        KeyboardIconRenderer.voiceBadgeDigits = badgeText.count
+        statusItem.length = KeyboardIconRenderer.imageSize.width
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
             playbackLitNotes: menuBand.playbackLitNotes,
@@ -1934,6 +2203,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hoveredElement = result
             updateIcon()
         }
+        // Hover intentionally does NOT reveal the pitch strip - the
+        // cursor merely passing over the menubar item should never pop
+        // a GUI. The floating piano/waveform panel appears only via an
+        // explicit press or the settings popover.
     }
 
     private func handleHoverExit() {
@@ -1941,6 +2214,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hoveredElement = nil
             updateIcon()
         }
+        // Pointer left the menubar item → hide the hover-revealed strip
+        // (deferred while the pointer is over the panel itself).
+        pianoWaveformWindowDelegate.scheduleHideFromHover()
     }
 
     // MARK: - Click + drag
@@ -2056,19 +2332,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        guard let startNote = playedNote(for: startDisplayNote) else { return }
-
         let initialPt = imagePoint(from: downEvent.locationInWindow)
-        let (vel0, pan0) = NoteExpression.values(for: startDisplayNote, at: initialPt)
         let initialShift = downEvent.modifierFlags.contains(.shift)
             || downEvent.modifierFlags.contains(.capsLock)
-        menuBand.startTapNote(
-            startNote,
-            velocity: vel0,
-            pan: pan0,
-            displayNote: startDisplayNote,
-            linger: initialShift
-        )
+
+        // Percussion split: a click on a right-hand key plays the drum kit
+        // instead of a melodic note — same split the keyboard uses. Track
+        // whichever voice is live (melodic note vs. drum group) so a drag
+        // across keys and the mouse-up release the correct one.
+        var currentDisplay: UInt8?
+        var currentPlayed: UInt8?
+        var currentDrumGroup: UInt64?
+        var currentDrumDisplay: UInt8?
+
+        func stopCurrentVoice() {
+            if let c = currentPlayed { menuBand.stopTapNote(c); currentPlayed = nil }
+            if let g = currentDrumGroup { menuBand.percussionNoteOff(g); currentDrumGroup = nil }
+            if let d = currentDrumDisplay { menuBand.drumLitOff(d); currentDrumDisplay = nil }
+        }
+        func startVoice(_ display: UInt8, at pt: NSPoint, shift: Bool) {
+            let (v, p) = NoteExpression.values(for: display, at: pt)
+            if menuBand.isPercussionDisplayNote(display) {
+                // Shift-click accents the drum (a harder hit).
+                currentDrumGroup = menuBand.percussionNoteOn(
+                    menuBand.percussionDrum(forDisplayNote: display),
+                    velocity: v, pan: p, accent: shift)
+                menuBand.drumLitOn(display)
+                currentDrumDisplay = display
+            } else if let played = playedNote(for: display) {
+                menuBand.startTapNote(played, velocity: v, pan: p,
+                                      displayNote: display, linger: shift)
+                currentPlayed = played
+            }
+            currentDisplay = display
+        }
+
+        startVoice(startDisplayNote, at: initialPt, shift: initialShift)
         // Menubar piano taps play the note ONLY — no floating
         // panel pop-up. Reserve the panel for the popover-paired
         // flow and the explicit LED-chip / shortcut entry points.
@@ -2084,8 +2383,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // here, which is exactly what the user doesn't want.
             pianoWaveformWindowDelegate.refresh()
         }
-        var currentDisplay: UInt8? = startDisplayNote
-        var currentPlayed: UInt8? = startNote
         while let next = NSApp.nextEvent(
             matching: [.leftMouseDragged, .leftMouseUp],
             until: .distantFuture,
@@ -2093,33 +2390,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dequeue: true
         ) {
             if next.type == .leftMouseUp {
-                if let c = currentPlayed { menuBand.stopTapNote(c) }
+                stopCurrentVoice()
                 break
             }
             let pt = imagePoint(from: next.locationInWindow)
             let hoveredDisplay = KeyboardIconRenderer.noteAt(pt)
             if hoveredDisplay != currentDisplay {
-                if let prev = currentPlayed { menuBand.stopTapNote(prev) }
-                if let nxtDisplay = hoveredDisplay,
-                   let nxtPlayed = playedNote(for: nxtDisplay) {
-                    let (v, p) = NoteExpression.values(for: nxtDisplay, at: pt)
+                stopCurrentVoice()
+                if let nxtDisplay = hoveredDisplay {
                     // Sample shift+capslock state per-note during the drag
                     // so the user can shift-press, release shift mid-drag,
                     // and still get linger from a latched caps lock.
                     let shiftNow = next.modifierFlags.contains(.shift)
                         || next.modifierFlags.contains(.capsLock)
-                    menuBand.startTapNote(
-                        nxtPlayed,
-                        velocity: v,
-                        pan: p,
-                        displayNote: nxtDisplay,
-                        linger: shiftNow
-                    )
-                    currentPlayed = nxtPlayed
+                    startVoice(nxtDisplay, at: pt, shift: shiftNow)
                 } else {
-                    currentPlayed = nil
+                    currentDisplay = nil
                 }
-                currentDisplay = hoveredDisplay
             } else if let c = currentPlayed, let display = currentDisplay {
                 let (_, p) = NoteExpression.values(for: display, at: pt)
                 menuBand.updateTapPan(c, pan: p)
@@ -2320,6 +2607,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateIcon()
     }
 
+    @objc private func handlePercussionSplitToggled(_ note: Notification) {
+        menuBand.reloadPercussionSplit()
+    }
+
     @objc private func handleShowAboutNotification(_ note: Notification) {
         debugLog("handleShowAboutNotification received")
         DispatchQueue.main.async { [weak self] in
@@ -2378,6 +2669,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 content: vc.view,
                 contentSize: contentSize)
 
+            // Grow / shrink the whole popover when the notation staff
+            // slides in or out (metronome on/off), keeping the top edge
+            // pinned under the menubar.
+            vc.onRequestResize = { [weak panel] size in
+                panel?.resizeContent(to: size, animated: true)
+            }
+
             // Show the floating piano FIRST so its frame is known and
             // we can flush the popover's left edge against the
             // floating panel's right edge.
@@ -2393,7 +2691,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let bb = button.bounds
             let xOff = (bb.width - imgSize.width) / 2.0
             let latch = KeyboardIconRenderer.settingsRectPublic
-            let gearLocal = NSPoint(x: xOff + latch.midX, y: 0)
+            // latch is in base coords; the displayed icon is magnified, so
+            // scale the gear center to land the popover arrow correctly.
+            let gearLocal = NSPoint(x: xOff + latch.midX * KeyboardIconRenderer.iconScale, y: 0)
             let gearWindow = button.convert(gearLocal, to: nil)
             let gearScreen = buttonWindow.convertPoint(toScreen: gearWindow)
             let buttonScreenFrame = buttonWindow.convertToScreen(button.frame)
@@ -2441,29 +2741,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // fixing the cause here.
             pianoWaveformWindowDelegate.refresh()
 
-            // KidLisp TV anchors against the LEFT floating panel's
-            // *post-refresh* frame. Order matters: if we did this before
-            // refresh(), the TV would pin to the predicted position and
-            // the left column would then slide right, leaving the TV
-            // stranded to its left.
-            if let leftPanel = pianoWaveformWindowDelegate.activeWindow,
-               leftPanel.isVisible {
-                let tvPanel = KidLispTVPanel(width: leftPanel.frame.width)
+            // KidLisp TV now hangs flush off the bottom of the popover
+            // (the settings panel), not under the left player column —
+            // same width as the popover so it reads as the popover's
+            // own screen, edge to edge.
+            do {
+                let tvPanel = KidLispTVPanel(width: panel.frame.width)
                 // Attach BEFORE anchoring. addChildWindow nudges a child
                 // window so it sits "below" its parent if their frames
-                // don't intersect — which slides the TV over toward the
-                // popover (the parent), away from the left column. Set
-                // the final frame last so it's authoritative.
+                // don't intersect; set the final frame last so it's
+                // authoritative.
                 panel.addChildWindow(tvPanel, ordered: .below)
-                tvPanel.anchor(below: leftPanel.frame)
+                tvPanel.anchor(belowRightAlignedTo: panel.frame)
                 kidlispTVPanel = tvPanel
-                // Restore the last-picked source so the user's choice
-                // sticks across popover open/close cycles.
-                if let saved = UserDefaults.standard.string(
-                    forKey: Self.kidlispTVSourceDefaultsKey
-                ), !saved.isEmpty {
-                    tvPanel.tv.setSource(saved)
-                }
+                // Restore the shared current piece so the TV (and the
+                // floating web window) stay in sync across open/close.
+                tvPanel.tv.show(code: KidLispState.shared.code,
+                                source: KidLispState.shared.source)
                 // Click on the screen → "$ pieces" chooser menu. Bound
                 // here (not in the panel init) because the chooser
                 // needs AppDelegate state (cache + persistence).
@@ -2603,9 +2897,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // begun) so a passing MOUSE move can't reactivate the bend
         // — only an actual finger on the trackpad.
         let shift = event.modifierFlags.contains(.shift)
-        let chartUp = pitchBendOverlay?.isVisible ?? false
-        let reengageViaTrackpad = chartUp && trackpadTouchActive
-        guard menuBand.keyboardNotesHeld || shift || reengageViaTrackpad else { return }
+        // Latched pitch mode: once engaged, EVERY trackpad move bends —
+        // no held note, finger, or shift required. The mode only ends on
+        // Esc or focus loss (endPitchBendSession). Until it's latched,
+        // fall back to the legacy gate (held note or shift) so a passing
+        // mouse move can't bend out of nowhere.
+        guard pitchBendModeLatched
+                || menuBand.keyboardNotesHeld || shift else { return }
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
@@ -2625,13 +2923,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         echoAmount = max(Float(0), fxX)
         spaceAmount = max(Float(0), -fxX)
         cancelFxRelease()
-        bendAmount += bendDelta
-        // No clamp — the trackpad accumulator can swing past ±1 so
-        // the sample voice (vari-speed) and the staff display
-        // continue scaling beyond an octave. MIDI bend message
-        // saturates naturally at the 14-bit boundary inside
-        // `sendPitchBend`; receiver-side bend range determines the
-        // audible cap (RPN 0/0 = 12 announces an octave on start).
+        // Clamp the accumulator to ±bendRange so it can't wind up past the
+        // edge: at the top/bottom, the instant you move the other way it
+        // pulls straight back (no dead travel unwinding old overshoot). The
+        // overlay puck normalizes against the same range, so the grid edge
+        // IS the cap. ±bendRange = two octaves down / up.
+        bendAmount = max(-Self.bendRange, min(Self.bendRange, bendAmount + bendDelta))
         menuBand.setBend(amount: bendAmount, allChannels: shift)
         menuBand.setSpace(amount: spaceAmount)
         menuBand.setEcho(amount: echoAmount)
@@ -2723,16 +3020,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// post-release spring-back.
     private func currentFxCursorImage() -> NSImage {
         // Pass the bipolar fxX so the puck slides both sides of
-        // center — positive (right) is echo, negative (left) is
-        // space/reverb. PitchBendCursor renders the signed value
-        // directly on the puck X axis.
-        PitchBendCursor.image(forBend: bendAmount, echo: fxX)
+        // center — positive (right) is echo, negative (left) is the
+        // closer/tinier proximity filter. Normalize bend by bendRange so
+        // the puck reaches the grid edge exactly at the ±bendRange cap
+        // (PitchBendCursor clamps the normalized value to ±1 internally).
+        PitchBendCursor.image(forBend: bendAmount / Self.bendRange, echo: fxX)
     }
 
     private func showPitchBendOverlay() {
         let overlay = ensurePitchBendOverlay()
         overlay.show(image: currentFxCursorImage(),
-                     atScreenPoint: pitchBendLockScreenPoint)
+                     atScreenPoint: safePitchBendAnchor(for: pitchBendLockScreenPoint))
+    }
+
+    /// The XY-pad chart normally anchors directly under the frozen
+    /// cursor. But if that point is up in the system menu bar — or the
+    /// chart (centered on the point) would poke up across the menu bar
+    /// and over the Menu Band keys — drop it just below the menu bar
+    /// while staying under the cursor's horizontal position, so the grid
+    /// stays local to the mouse without crossing the menu bar or
+    /// overlapping the keys. The bend gesture reads relative trackpad
+    /// motion, not the chart position, so this is purely visual.
+    private func safePitchBendAnchor(for point: NSPoint) -> NSPoint {
+        let screen = NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) }
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+        guard let screen else { return point }
+        let visible = screen.visibleFrame
+        // Chart top edge in bottom-left-origin coords = point.y + half.
+        // The menu bar occupies the band above `visible.maxY`.
+        let halfHeight = PitchBendCursor.cursorSize.height / 2
+        let halfWidth = PitchBendCursor.cursorSize.width / 2
+        if point.y + halfHeight > visible.maxY {
+            // Tuck the chart just under the menu bar, keeping it under
+            // the cursor's x (clamped so it stays fully on screen).
+            let gap: CGFloat = 8
+            let y = visible.maxY - halfHeight - gap
+            let x = min(max(point.x, visible.minX + halfWidth),
+                        visible.maxX - halfWidth)
+            return NSPoint(x: x, y: y)
+        }
+        return point
     }
 
     private func updatePitchBendOverlayImage() {
@@ -2758,22 +3086,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the two end-of-gesture triggers: all keyboard notes released
     /// with no finger on the trackpad, or the trackpad finger
     /// lifting. Idempotent.
+    /// Arm (or re-arm) the short grace timer that tears the pitch-bend
+    /// graphic down once the last keyboard note has lifted. Cancelled if a
+    /// note comes back (see onLitChanged). Shift is the deliberate
+    /// exception — it keeps bending still-ringing notes with no key down.
+    private func scheduleGraphicEndIfNoKeyHeld() {
+        pitchBendEndTimer?.invalidate()
+        let t = Timer(timeInterval: 0.12, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.pitchBendEndTimer = nil
+            let shift = NSEvent.modifierFlags.contains(.shift)
+            if !self.menuBand.keyboardNotesHeld && !shift {
+                self.endPitchBendSession()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        pitchBendEndTimer = t
+    }
+
     private func endPitchBendSession() {
-        guard pitchBendCursorLocked else { return }
+        pitchBendEndTimer?.invalidate()
+        pitchBendEndTimer = nil
+        // Clear the latched mode regardless of cursor-lock state so an
+        // Esc / focus-loss always fully exits, even if the lock flag was
+        // somehow already cleared.
+        pitchBendModeLatched = false
+        guard pitchBendCursorLocked else {
+            // Mode was latched but cursor not currently locked — still
+            // make sure the overlay is gone and fx spring back.
+            pitchBendOverlay?.dismiss()
+            return
+        }
         stopPitchBendCursorPin()
         if pitchBendCursorPushed {
             NSCursor.pop()
             pitchBendCursorPushed = false
         }
-        // Keep the chart overlay frozen at the lock point through
-        // the release ramp so the puck visibly slides back to
-        // center as bend/echo decay — `startFxRamp` (or the no-fx
-        // early return inside `startFxRelease`) dismisses it. The
-        // real system cursor comes back now; the chart floats
-        // above on the screenSaver level so both read at once.
+        // Hide the chart the instant the key lifts — the user asked for
+        // no lingering graph. The fx (bend/space/echo) still spring back
+        // audibly via `startFxRelease`; only the on-screen overlay goes
+        // away immediately. The real system cursor comes back now.
         showSystemCursorIfNeeded()
         CGAssociateMouseAndMouseCursorPosition(1)
         pitchBendCursorLocked = false
+        pitchBendOverlay?.dismiss()
         startFxRelease()
     }
 
@@ -3033,7 +3389,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     keyEquivalent: ""
                 )
                 item.target = self
-                item.representedObject = piece.source
+                item.representedObject = piece
                 let attr = NSMutableAttributedString()
                 attr.append(NSAttributedString(
                     string: "$\(piece.code)",
@@ -3074,14 +3430,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func loadKidLispPiece(_ sender: NSMenuItem) {
-        guard let src = sender.representedObject as? String else { return }
-        kidlispTVPanel?.tv.setSource(src)
-        UserDefaults.standard.set(src, forKey: Self.kidlispTVSourceDefaultsKey)
+        guard let piece = sender.representedObject as? KidLispChooserItem else { return }
+        KidLispState.shared.select(code: piece.code, source: piece.source)
+        applyKidLisp()
     }
 
     @objc private func resetKidLispPiece(_ sender: Any?) {
-        kidlispTVPanel?.tv.setSource(KidLispTVPanel.defaultSource)
-        UserDefaults.standard.removeObject(forKey: Self.kidlispTVSourceDefaultsKey)
+        KidLispState.shared.reset()
+        applyKidLisp()
+    }
+
+    /// Push the shared current piece to every live surface: the popover
+    /// TV always, and the floating web window only when a real `$code`
+    /// is selected (so the default/raw piece doesn't hijack the window
+    /// away from the AC homepage).
+    private func applyKidLisp() {
+        let state = KidLispState.shared
+        kidlispTVPanel?.tv.show(code: state.code, source: state.source)
+        if state.hasCode, let code = state.code {
+            AestheticWebWindowController.current()?.load(piece: "$\(code)")
+        }
     }
 
     @objc private func reloadKidLispChooser(_ sender: Any?) {
