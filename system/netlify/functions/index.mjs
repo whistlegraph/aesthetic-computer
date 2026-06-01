@@ -1458,13 +1458,19 @@ async function fun(event, context) {
               var lkBg=isLightMode?'#f3ece2':'#160d08';x.fillStyle=lkBg;x.fillRect(0,0,W,H);
               // Subtle scan lines.
               x.globalAlpha=isLightMode?0.02:0.05;x.fillStyle=isLightMode?'#888':'#000';for(var lyy=0;lyy<H;lyy+=2*S)x.fillRect(0,lyy,W,S);x.globalAlpha=1;
-              // Recent clock-chat strings scrolling up, styled like notepat boot logs.
-              var lkMsgs=LAK_MSGS,lkFS=4*S,lkRow=6*S,lkTopY=24*S;x.font=lkFS+'px monospace';
-              if(lkMsgs.length){var lkScroll=(f*0.3*S)%lkRow,lkRows=Math.ceil((H-lkTopY)/lkRow)+2;
-                for(var lmi=0;lmi<lkRows;lmi++){var lmIdx=((lkMsgs.length-1-lmi)%lkMsgs.length+lkMsgs.length)%lkMsgs.length;var lm=lkMsgs[lmIdx];if(!lm)continue;var lmy=H-lmi*lkRow+lkScroll;if(lmy<lkTopY||lmy>H+lkRow)continue;var lmCol=NP_KEY_COLS[lmi%NP_KEY_COLS.length];var lmStr=((lm.from||'@anon')+' '+(lm.text||'')).slice(0,64);var lmTw=x.measureText(lmStr).width;var lmA=Math.max(0,Math.min(1,(lmy-lkTopY)/(30*S)));
-                  x.globalAlpha=lmA*0.13;x.fillStyle='rgb('+lmCol[0]+','+lmCol[1]+','+lmCol[2]+')';x.beginPath();x.roundRect(4*S,lmy-lkFS*0.8,lmTw+10*S,lkFS*1.3,2*S);x.fill();
-                  x.globalAlpha=lmA*0.9;x.fillStyle='rgb('+lmCol[0]+','+lmCol[1]+','+lmCol[2]+')';x.fillText(lmStr,6*S,lmy);}
-                x.globalAlpha=1;}
+              // Recent clock-chat strings — scattered across the screen with a
+              // gentle drift (stable pseudo-random positions per message), notepat pills.
+              var lkMsgs=LAK_MSGS,lkFS=4*S;x.font=lkFS+'px monospace';
+              for(var lmi=0;lmi<lkMsgs.length;lmi++){var lm=lkMsgs[lmi];if(!lm)continue;
+                var lhx=Math.sin(lmi*12.9898)*43758.5453;lhx-=Math.floor(lhx);
+                var lhy=Math.sin(lmi*78.233)*43758.5453;lhy-=Math.floor(lhy);
+                var lmStr=((lm.from||'@anon')+' '+(lm.text||'')).slice(0,48);var lmTw=x.measureText(lmStr).width;
+                var lpx=8*S+lhx*Math.max(1,(W-lmTw-16*S))+Math.sin(f*0.008+lmi*1.3)*8*S;
+                var lpy=30*S+lhy*Math.max(1,(H-46*S))+Math.cos(f*0.0065+lmi*2.1)*8*S;
+                var lmCol=NP_KEY_COLS[lmi%NP_KEY_COLS.length];
+                x.globalAlpha=0.12;x.fillStyle='rgb('+lmCol[0]+','+lmCol[1]+','+lmCol[2]+')';x.beginPath();x.roundRect(lpx-2*S,lpy-lkFS*0.85,lmTw+4*S,lkFS*1.35,2*S);x.fill();
+                x.globalAlpha=0.85;x.fillStyle='rgb('+lmCol[0]+','+lmCol[1]+','+lmCol[2]+')';x.fillText(lmStr,lpx,lpy);}
+              x.globalAlpha=1;
               // Top-left "laklok"+".com" label — mirrors notepat's proportions.
               var npFS=Math.floor(12*S);x.font='bold '+npFS+'px monospace';var lkLbl='laklok';var npTW=x.measureText(lkLbl).width;var npTX=8*S,npTY=16*S;
               var npPulse=0.15+Math.sin(f*0.06)*0.08;x.globalAlpha=npPulse;x.fillStyle=isLightMode?'rgba(200,90,50,0.3)':'rgba(255,160,100,0.25)';x.beginPath();x.roundRect(npTX-8*S,npTY-npFS*0.8,npTW+16*S,npFS*1.4,4*S);x.fill();
