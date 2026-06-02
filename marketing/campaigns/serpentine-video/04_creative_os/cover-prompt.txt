@@ -1,0 +1,33 @@
+a candid vertical photograph, close-up, sharp and honest — NOT cinematic.
+everything in crisp focus: NO motion blur, NO bokeh, NO out-of-focus areas
+anywhere. portrait orientation. no people in frame (or only a hand at the edge).
+
+a conceptual still: a refurbished plain black thinkpad laptop, lid open, sitting
+on a plain desk. the thinkpad is an old surplus machine — a fifty-dollar
+thinkpad. its screen is almost entirely BLACK, with only a single short warm
+greeting printed on it: one chunky pink pixel-font line, lowercase, reading
+exactly:
+
+    hello, jeffrey
+
+and nothing else on the screen — no second line, no version number, no
+software title, no product or brand name, no logo, no menu, no progress bar.
+just that one friendly two-word greeting glowing pink on black, as if a
+hand-made personal computer is saying hello to its owner. it must NOT look like
+a commercial software splash screen or an app loading screen — it looks like a
+tiny homemade terminal greeting. real screen content, never a thumbnail of the
+surrounding room. the matte-black thinkpad lid and keyboard are sharp and
+legible.
+
+a warm desk lamp lights the scene from one side; the pink screen-glow spills
+onto the keyboard and desk — diegetic light only. on the desk beside it: a
+single usb stick (the whole system boots from it). plain, modest, documentary.
+
+palette: matte black thinkpad, warm lamp, soft pink screen-glow on black.
+
+avoid: motion blur, bokeh, soft focus, sci-fi neon, recursive screens (never a
+picture of this desk on the screen), citrus-green macbook here (this segment is
+the black thinkpad), ANY product / app / software / brand name on the screen
+(no "sonic pi", no "polyend", no "tracker", no titles, no version numbers —
+ONLY the words "hello, jeffrey"), extra logos, cartoon styling, a busy
+loading-screen look.

@@ -1,4 +1,4 @@
-// amazing-dance.c — Loukeman-style melodic deep house remix of
+// amaythingra.c — Loukeman-style melodic deep house remix of
 // Amazing Grace, 120 BPM 4/4, ~4:00.
 //
 // Style targets: All Day I Dream / Sol Selectas vibes — long sustained
@@ -11,7 +11,7 @@
 // Structure (G major, 4-bar chord rotation I-IV-I-V):
 //   0..32 s   (bars 0-15)   INTRO  — sine pads only, slow swell
 //   32..64 s  (bars 16-31)  BUILD  — kick + shaker enter, vocal pickup
-//   32..87 s                VOCAL  — amazing-wavewizard.wav layered in
+//   32..87 s                VOCAL  — amaythingra-wavewizard.wav layered in
 //                                    by the bake script (delayed +32 s)
 //   64..96 s  (bars 32-47)  DROP 1 — full kit + clap + chord stab
 //   96..128 s (bars 48-63)  BREAK  — pads only, vocal tails reverb out
@@ -23,7 +23,7 @@
 //         glock · Schroeder reverb (wet 0.55 — much wetter than hymn)
 //
 // Build: ./build-dance.sh
-// Run:   ./amazing-dance --out out/amazing-dance.wav
+// Run:   ./amaythingra --out out/amaythingra.wav
 
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
@@ -42,7 +42,7 @@
 // ── config ────────────────────────────────────────────────────────────
 static const int SR = 48000;
 static double BPM = 120.0;
-static double TOTAL_SEC = 300.0;
+static double TOTAL_SEC = 274.0;   // ~4:34 — winds down + resolves (was a hard 5:00 cut, @jeffrey)
 static const char *OUT_PATH = NULL;
 // --drive <x>: pre-tanh scale. 1.0 (default) keeps the original hard
 // tanh "limiter" used by the released cover. The vowel bake passes a
@@ -110,7 +110,13 @@ static inline double humanize(double t, double max_ms, double bias_ms) {
     h ^= h << 13; h ^= h >> 17; h ^= h << 5;
     const double r2 = (double)h / 4294967296.0;
     const double tri = (r1 + r2 - 1.0);     // -1..+1 triangle
-    return (bias_ms + tri * max_ms) / 1000.0;
+    // FEEL ARC (@jeffrey): LAZY (behind the beat) through the first half,
+    // easing to EAGER (ahead, rushing) in the back half. e ramps 0 @≤110 s
+    // → 1 @≥180 s; feel +1=lazy(behind)…-1=eager(ahead); spread grows late.
+    double e = (t - 110.0) / 70.0; if (e < 0.0) e = 0.0; if (e > 1.0) e = 1.0;
+    const double feel = 1.0 - 2.0 * e;
+    const double spread = 1.0 + 0.4 * e;
+    return (feel * bias_ms + tri * max_ms * spread) / 1000.0;
 }
 
 // ── pipe-organ voice (drawbar additive, ported from amazinhym) ───────
@@ -1092,6 +1098,14 @@ static const Chord *chord_for_bar(int bar) {
     return &PROG[bar & 3];
 }
 
+// Linear 0→1 ramp between a and b — for slow, gradual section changes
+// (e.g. the 3:15 "mix switch" where perc steps back + bells come forward).
+static double ramp01(double t, double a, double b) {
+    if (t <= a) return 0.0;
+    if (t >= b) return 1.0;
+    return (t - a) / (b - a);
+}
+
 // ── render the full track ────────────────────────────────────────────
 // Bar layout (4/4):
 //   beat=0.5s, bar=2.0s.  Total bars = 120 for 240s.
@@ -1106,7 +1120,7 @@ static void render_track(void) {
     const double BAR = 4.0 * SPB;         // 2.0 s in 4/4
     const int    TOTAL_BARS = (int)(TOTAL_SEC / BAR);
 
-    report("amazing-dance: bpm=%.1f, bar=%.3fs, total %.2fs (%d bars)",
+    report("amaythingra: bpm=%.1f, bar=%.3fs, total %.2fs (%d bars)",
            BPM, BAR, TOTAL_SEC, TOTAL_BARS);
 
     // ── 1 · PADS + ORGAN THROUGHOUT (every chord change) ─────────────
@@ -1159,6 +1173,22 @@ static void render_track(void) {
     }
     report("  pads + organ laid down (every 4 bars)");
 
+    // ── 1.45 · LONG INTRO HIGH BELLS (~16-24 s) ──────────────────────
+    // @jeffrey: "the high sine bells around 17 with muuuch longer decay,
+    // rather than the little tiny things they are now." A pair of high sine
+    // bells struck at ~16 s and ~24 s with a HUGE 38 s decay, so they ring
+    // in under the opening filter sweep and bloom all the way through the
+    // first WOOP — long sustained bells, not short plinks.
+    {
+        const Chord *ca = chord_for_bar(8);    // chord at ~16 s
+        glock_render(16.0, 42.0, ca->fifth + 12,
+            (GlockOpts){ .decay_s = 38.0, .pan = -0.25, .gain = 0.090, .wet_send = 0.72 });
+        const Chord *cb = chord_for_bar(12);   // ~24 s
+        glock_render(24.0, 42.0, cb->root + 12,
+            (GlockOpts){ .decay_s = 38.0, .pan = 0.25, .gain = 0.090, .wet_send = 0.72 });
+        report("  long intro high bells @16 s + @24 s (38 s decay)");
+    }
+
     // ── 1.5 · TRIANGLE LOW + SINE BELL HIGH (vocal harmony backing) ──
     // Delayed to bar 12 (t=24 s) along with chord stab + powersaw —
     // before bar 12 the build stays gentle, just bed + drums + bells.
@@ -1197,20 +1227,37 @@ static void render_track(void) {
         const int hipool[] = { c->root, c->third, c->fifth,
                                c->root + 12, c->third + 12, c->fifth + 12 };
         const int nhi = (int)(sizeof(hipool) / sizeof(hipool[0]));
-        // Spread further apart (1 per 4-bar block, ~25% of blocks skipped)
-        // with MUCH longer decays, quiet, ducked to the backbeat snare.
-        const int nbells = (rng_d() < 0.25) ? 0 : 1;
-        for (int b = 0; b < nbells; b++) {
-            const int off  = hipool[rng_range(0, nhi - 1)];
-            // onset QUANTIZED to a beat (kick position) — bells align to
-            // the kick grid, nothing off-beat (@jeffrey).
-            const double at = t0 + rng_range(0, 15) * (BAR / 4.0) + humanize(t0 + b, 16, 4);
-            const double dec = 9.0 + rng_d() * 9.0;          // 9-18 s — much longer tails
-            const double pan = (rng_d() - 0.5) * 0.6;
-            const double gain = 0.035 + rng_d() * 0.030;     // quiet
-            glock_render(at, dec + 1.0, off,
-                (GlockOpts){ .decay_s = dec, .pan = pan,
-                             .gain = gain, .wet_send = 0.60, .sidechain = 1 });
+        if (bar >= 36) {
+            // From ~1:14 (@jeffrey): the high bells become a RHYTHMIC,
+            // spaced, long-ringing line — exactly ONE bell per 4-bar block,
+            // locked to the DOWNBEAT, stepping through chord tones and
+            // ringing 24-34 s so it carries through the minute. Sides
+            // alternate. Spaced + rhythmic + long, not random sparkle.
+            // MORE SPREAD OUT (@jeffrey): one bell every OTHER block (every
+            // 8 bars ≈ 16 s) instead of every 4 — long tails bridge the gaps.
+            const int block = (bar - 36) / 4;
+            if ((block & 1) == 0) {
+                const int seq[4] = { c->fifth + 12, c->root + 12, c->third + 12, c->root + 12 };
+                const int off = seq[(block / 2) & 3];
+                const double dec = 26.0 + rng_d() * 10.0;
+                const double pan = ((block / 2) & 1) ? 0.30 : -0.30;
+                glock_render(t0 + humanize(t0, 10, 3), dec + 1.0, off,
+                    (GlockOpts){ .decay_s = dec, .pan = pan,
+                                 .gain = 0.052, .wet_send = 0.66, .sidechain = 1 });
+            }
+        } else {
+            // Before ~1:14: sparse random sparkle (1 per block, ~25% skip).
+            const int nbells = (rng_d() < 0.25) ? 0 : 1;
+            for (int b = 0; b < nbells; b++) {
+                const int off  = hipool[rng_range(0, nhi - 1)];
+                const double at = t0 + rng_range(0, 7) * (BAR / 4.0) + humanize(t0 + b, 16, 4);
+                const double dec = 16.0 + rng_d() * 14.0;
+                const double pan = (rng_d() - 0.5) * 0.6;
+                const double gain = 0.035 + rng_d() * 0.030;
+                glock_render(at, dec + 1.0, off,
+                    (GlockOpts){ .decay_s = dec, .pan = pan,
+                                 .gain = gain, .wet_send = 0.60, .sidechain = 1 });
+            }
         }
     }
     report("  triangle low + sine bell high harmony backing (bars 4..63)");
@@ -1266,6 +1313,24 @@ static void render_track(void) {
     // kick for the final filter fade. Hats + shaker run THROUGHOUT.
     for (int bar = 0; bar < TOTAL_BARS; bar++) {
         const double t0 = bar * BAR;
+        // 3:15 MIX SWITCH (@jeffrey "nice gradual changes / mix switch"):
+        // percussion gradually steps back over ~195-225 s so the bell
+        // layers sit on top. percMult eases 1.0 → ~0.45.
+        // …and then the perc DIES DOWN entirely over ~250-268 s so the
+        // track winds down musically to just bells/pads before the ~4:34
+        // resolve (@jeffrey "die it down musically and end around 4:33").
+        double percMult = (1.0 - 0.55 * ramp01(t0, 195.0, 225.0));   // 3:15 mix-switch
+        percMult *= (1.0 - 0.80 * ramp01(t0, 214.0, 230.0));         // final ~60s: perc MUCH quieter (@jeffrey)
+        percMult *= (1.0 - ramp01(t0, 255.0, 268.0));                // wind-down to silence
+        // 2:45-3:00 KICK ARPEGGIO (@jeffrey "kicks pitch up to arpeggiate
+        // scales") — first step of evolving the perc into melodies. In bars
+        // 82..89 the kick's pitch climbs a G-pentatonic run, so the tonal
+        // kicks spell out a scale. kickArp multiplies the kick pitch sweep.
+        double kickArp = 1.0;
+        if (bar >= 82 && bar < 90) {
+            static const int PENT[8] = { 0, 2, 4, 7, 9, 7, 4, 2 };  // G A B D E … (semitones)
+            kickArp = pow(2.0, PENT[(bar - 82) & 7] / 12.0);
+        }
         // First 3 bars (0..6 s) = soft church-bell intro (no kit), then
         // the beat enters from bar 3 onwards. Break drops kick at the
         // bars 48..63 mid-track break, outro drops it at bar 104+.
@@ -1333,9 +1398,9 @@ static void render_track(void) {
                 ? fmin(1.0, (double)(bar - 3) / 21.0)
                 : 0.0;
             // Peak dropped 3.30 → 2.20 (was "too extreme" — @jeffrey 2026-05-29)
-            const double kgain = 0.75 + (2.20 - 0.75) * phase;
-            const double kphi  = 110.0 + (160.0 - 110.0) * phase;
-            const double kplo  = 56.0;
+            const double kgain = (0.75 + (2.20 - 0.75) * phase) * percMult;
+            const double kphi  = (110.0 + (160.0 - 110.0) * phase) * kickArp;
+            const double kplo  = 56.0 * kickArp;
             const double kpdur = 0.11  + (0.13  - 0.11)  * phase;
             const double kdec  = 0.34  + (0.44  - 0.34)  * phase;
             for (int beat = 0; beat < 4; beat++) {
@@ -1381,11 +1446,26 @@ static void render_track(void) {
                                     .pitch_dur = kpdur, .decay_s = kdec });
                 }
             }
+            // HIGHER HEART-RATE (@jeffrey "speed up the kick frequency so
+            // it's much more like a higher heart rate"): an extra kick on
+            // every off-beat 8th, doubling the pulse into a driving
+            // heartbeat. Softer than the downbeats so it propels without
+            // becoming a wall; inherits the kick-arp pitch + percMult.
+            for (int beat = 0; beat < 4; beat++) {
+                const double tOff = t0 + (beat + 0.5) * SPB + humanize(t0 + beat + 0.37, 8, 2);
+                uint32_t orr = (uint32_t)((bar * 4 + beat) * 2246822519u) | 1;
+                orr ^= orr << 13; orr ^= orr >> 17; orr ^= orr << 5;
+                const double opf = 1.0 + ((double)orr / 4294967296.0 - 0.5) * 0.06;
+                kick_render(tOff,
+                    (KickOpts){ .pan = 0.0, .gain = kgain * 0.5,
+                                .pitch_hi = kphi * opf * 0.97, .pitch_lo = kplo * opf,
+                                .pitch_dur = kpdur, .decay_s = kdec * 0.8 });
+            }
             // REVERSE KICK — SPRINKLED, never earlier than ~30 s
             // (@jeffrey 2026-05-29). Picks 6 strategic bar boundaries
             // through the rest of the track instead of every 4 bars.
             // Each is a 2-beat rising sweep building into the next bar.
-            const int rev_bars[] = { 23, 39, 47, 79, 95 };   // bar 15 → replaced by the 8 s build
+            const int rev_bars[] = { 23, 79, 95 };   // dropped 39 & 47 (1:18/1:34 "big crashes" — too dramatic, @jeffrey)
             const int n_rev = sizeof(rev_bars) / sizeof(rev_bars[0]);
             for (int q = 0; q < n_rev; q++) {
                 if (bar == rev_bars[q]) {
@@ -1429,7 +1509,7 @@ static void render_track(void) {
                 uint32_t vr = r * 2246822519u + 1; vr ^= vr << 13; vr ^= vr >> 17;
                 const double vrand = (double)vr / 4294967296.0;
                 const double accent = onBeat ? 1.0 : (onEighth ? 0.80 : 0.50);
-                const double vel = 0.16 * accent * (0.60 + 0.55 * vrand);
+                const double vel = 0.16 * accent * (0.60 + 0.55 * vrand) * percMult;
                 const double th = tg + humanize(tg, 15, 4);   // loose, laid-back feel
                 hat_render(th,
                     (HatOpts){ .pan = (s % 2 == 0 ? -0.16 : +0.16),
@@ -1439,14 +1519,14 @@ static void render_track(void) {
                 // foot hi-hat "chick" on 2 & 4 (s=4, s=12) — darker
                 if (s == 4 || s == 12) {
                     hat_render(tg + humanize(tg, 12, 4),
-                        (HatOpts){ .pan = 0.0, .gain = 0.13, .decay_s = 0.030,
+                        (HatOpts){ .pan = 0.0, .gain = 0.13 * percMult, .decay_s = 0.030,
                                    .brightness = 0.45, .double_delay_ms = 5.0 });
                 }
             }
             // HI-HAT RUSHES — only at bars 44 and 76 now. The bar-12
             // rush was landing exactly when MAY enters (@jeffrey flagged
             // "white noise crashing"); removed.
-            const int rush_anchor_bars[] = { 47, 79 };
+            const int rush_anchor_bars[] = { 79 };   // dropped bar-44 rush (the ~1:28-1:40 noise "crunch", @jeffrey)
             const int n_rush = sizeof(rush_anchor_bars) / sizeof(rush_anchor_bars[0]);
             for (int q = 0; q < n_rush; q++) {
                 // Anchor bar minus 3 = start of slow rush
@@ -1476,10 +1556,10 @@ static void render_track(void) {
             for (int eighth = 0; eighth < 8; eighth++) {
                 const double base = t0 + eighth * (SPB * 0.5);
                 const double ts = base + humanize(base, 10, 4);
-                const double accent = (eighth % 2 == 0) ? 0.14 : 0.10;
+                const double accent = (eighth % 2 == 0) ? 0.06 : 0.04;   // less gushy / tighter (@jeffrey)
                 shaker_render(ts,
                     (ShakerOpts){ .pan = (eighth % 2 == 0 ? +0.16 : -0.16),
-                                  .gain = accent, .decay_s = 0.055 });
+                                  .gain = accent * percMult, .decay_s = 0.045 });
             }
         }
     }
@@ -1586,14 +1666,15 @@ static void render_track(void) {
         const int tops[4] = { c->third, c->fifth, c->root + 12, c->third };
         if (rng_d() < 0.12) topIdx = rng_range(0, 3);   // fewer changes
         const int top = tops[topIdx];
-        // CHAINSAW ZONE around 1:30 (bars ~38-48): crank the detune + gain
-        // so the saws snarl and rev like a chainsaw building into the break
-        // (@jeffrey "pump up the power saw around 1:30, more of a chainsaw").
+        // CHAINSAW ZONE around 1:30 — now nearly OFF (@jeffrey 2026-06-02
+        // "not such a drop-drama thing… better musical resolution there").
+        // Just a whisper of extra detune; no gain rev. The powersaws stay a
+        // steady hymnal bed the high-bell line resolves over.
         double cs = 0.0;
         if (bar >= 38 && bar < 48) { cs = 1.0 - fabs((double)bar - 44.0) / 6.0; if (cs < 0) cs = 0; }
-        const double csDet  = cs * 38.0;        // up to +38 cents extra buzz
-        const double csGain = 1.0 + cs * 0.9;   // up to +90% louder
-        const double csAtk  = 1.0 - cs * 0.6;   // sharper attack = more bite
+        const double csDet  = cs * 3.0;         // faint buzz only
+        const double csGain = 1.0 + cs * 0.05;  // no real swell
+        const double csAtk  = 1.0 - cs * 0.1;
         powersaw_render(t0, dur, c->root - 12,           // sub saw — more low
             (PowersawOpts){ .atk = 0.06 * csAtk, .rel = 0.30, .pan = -0.16,
                             .gain = 0.13 * csGain, .wet_send = 0.35, .detune_cents = 12.0 + csDet });
@@ -1630,35 +1711,80 @@ static void render_track(void) {
         }
     }
 
-    // 5a· · DEEPER SPACE — water droplets + reverberant hats fill the
-    //       empty break (~1:38-2:02) with a cavernous reverb send, so the
-    //       breakdown opens into a wide wet space before the speed-up
-    //       (@jeffrey). On the beat grid, sparse + seeded.
+    // 5a· · RESOLVED BREAK MELODY (~1:36-2:08) — REPLACES the old random
+    //       water-droplet pings, which read as cacophonous. A deliberate,
+    //       consonant bell phrase built ONLY from the CURRENT chord's tones
+    //       (so it's always in harmony), arcing up and RESOLVING DOWN to the
+    //       chord root each phrase, in a warm mid bell register, wide and
+    //       wet for space. A real musical movement (@jeffrey "much more
+    //       resolved 1:30-2:00, bells more musical, not cacophonous").
     {
         const double SPB = 60.0 / BPM;
-        const int pent[] = { 67, 69, 71, 74, 76, 79, 81 };   // mid G-pentatonic (was too high/cringy)
-        const int npent = (int)(sizeof(pent) / sizeof(pent[0]));
-        for (int bar = 48; bar < 62; bar++) {
+        // music-box contour as indices into the chord-tone array below — a
+        // gentle rise that always lands back on the root (index 0) = the
+        // resolution. The 8-step phrase spans 4 bars so it breathes over
+        // the chord changes, then repeats.
+        const int contour[8] = { 0, 2, 4, 3, 2, 1, 2, 0 };
+        for (int bar = 48; bar < 56; bar++) {   // first half of the break; vortex takes over at 56
+            const Chord *c = chord_for_bar(bar);
+            // low→high chord tones in a warm mid bell register
+            const int tones[5] = { c->root + 12, c->third + 12, c->fifth + 12,
+                                   c->root + 24, c->fifth + 24 };
             const double t0 = bar * BAR;
-            for (int beat = 0; beat < 4; beat++) {
-                const double tb = t0 + beat * SPB;            // on the kick grid
-                // water droplet — short ping, drowned in reverb
-                if (rng_d() < 0.38) {
-                    const int m = pent[rng_range(0, npent - 1)];
-                    glock_render(tb, 0.6, m,
-                        (GlockOpts){ .decay_s = 0.10 + rng_d() * 0.28,
-                                     .pan = (rng_d() - 0.5) * 1.4,
-                                     .gain = 0.05 + rng_d() * 0.035, .wet_send = 0.88 });
-                }
-                // reverberant hat tick (perc_hit noise → big wet send)
-                if (rng_d() < 0.30) {
-                    const double th = tb + (rng_d() < 0.5 ? 0.0 : SPB * 0.5);
-                    perc_hit(th, PW_NOISE, 8000, 0.05, 0.07 + rng_d() * 0.05,
-                             0.0005, 0.035, (rng_d() - 0.5) * 1.2, 0.72);
+            // two bells per bar (beats 0 and 2) walking the contour
+            for (int half = 0; half < 2; half++) {
+                const int step = (((bar - 48) * 2) + half) % 8;
+                const int onRoot = (contour[step] == 0);
+                const int m = tones[contour[step]];
+                const double dec = onRoot ? 3.4 : 1.9;        // root rings longest = resolution
+                glock_render(t0 + half * 2 * SPB, dec + 0.5, m,
+                    (GlockOpts){ .decay_s = dec, .pan = (half == 0 ? -0.16 : 0.16),
+                                 .gain = onRoot ? 0.10 : 0.075, .wet_send = 0.78 });
+            }
+            // (reverberant noise-hat REMOVED — @jeffrey heard it as
+            //  "bit-crunching" around 1:40; the break is just clean bells now.)
+        }
+        report("  resolved break melody: chord-tone bells (clean, no noise hat)");
+    }
+
+    // 5a·· · BELL VORTEX (~1:52-2:08) — @jeffrey: "the 2:00 mark with no
+    //        kicks and just the sine bells… our chance for a banging bell
+    //        vortex! use all our bells and whistles!" The empty break
+    //        erupts into a dense, swirling, scratch-warbled bell storm that
+    //        accelerates (8ths→16ths) and builds straight into drop 2:
+    //        quick pitch-glissando "scratch" flicks + a spinning stereo pan.
+    {
+        const double SPB = 60.0 / BPM;
+        // a WIDE G-pentatonic pool across octaves = all the bells/whistles
+        const int pool[] = { 55,57,59,62,64,67,69,71,74,76,79,81,83,86 }; // G3..D6
+        const int npool = (int)(sizeof(pool) / sizeof(pool[0]));
+        uint32_t vr = 0xBE11C0DEu;
+        for (int bar = 56; bar < 64; bar++) {
+            const double t0 = bar * BAR;
+            const double build = (double)(bar - 56) / 7.0;       // 0..1 toward the drop
+            const int subdiv = (bar < 60) ? 8 : 16;              // accelerate into the vortex
+            for (int s = 0; s < subdiv; s++) {
+                vr ^= vr << 13; vr ^= vr >> 17; vr ^= vr << 5;
+                const double r0 = (double)vr / 4294967296.0;
+                vr ^= vr << 13; vr ^= vr >> 17; vr ^= vr << 5;
+                const double r1 = (double)vr / 4294967296.0;
+                const double tb = t0 + s * (BAR / subdiv);
+                // SCRATCH flick: a quick 3-note pitch glissando (up or down)
+                // from a seed tone — reads like a turntable flick.
+                const int dir = (r0 < 0.5) ? 1 : -1;
+                int idx = (int)(r1 * (npool - 3)); if (idx < 0) idx = 0;
+                for (int f = 0; f < 3; f++) {
+                    const int m = pool[((idx + dir * f) % npool + npool) % npool];
+                    // spinning pan = the vortex
+                    const double pan = sin(tb * 6.0 + f * 0.8) * 0.9;
+                    const double g = (0.045 + 0.05 * build) * (1.0 - 0.2 * f);
+                    glock_render(tb + f * 0.02, 0.14 + 0.12 * build, m,
+                        (GlockOpts){ .decay_s = 0.11 + 0.12 * build, .pan = pan,
+                                     .gain = g, .wet_send = 0.55 });
                 }
             }
         }
-        report("  deeper-space break: water droplets + reverberant hats");
+        report("  bell vortex ~1:52-2:08: scratch glissandos + spinning pan, building into drop 2");
     }
 
     // 5a+ · HIHAT SPEED-UP — fast hi-hats in a metric accelerando through
@@ -1712,6 +1838,8 @@ static void render_track(void) {
         if (bar >= 48 && bar < 64) continue;
         const Chord *c = chord_for_bar(bar);
         const double SPB = 60.0 / BPM;
+        // 3:15 mix switch: bells come FORWARD as the perc steps back.
+        const double bellMult = 1.0 + 0.8 * ramp01(bar * BAR, 195.0, 225.0);
         // chord-tone pool, low→high across 3 octaves
         // top octave dropped — the +24 tier read as too high/cringy.
         const int pool[] = { c->root, c->third, c->fifth,
@@ -1737,7 +1865,7 @@ static void render_track(void) {
             const double pan = (rng_d() - 0.5) * 0.5;
             glock_render(bar * BAR + n * hitStep + humanize(bar * BAR + n, 15, 4), dur, pool[idx],
                 (GlockOpts){ .decay_s = dec, .pan = pan,
-                             .gain = 0.10, .wet_send = longBell ? 0.65 : 0.45,
+                             .gain = 0.10 * bellMult, .wet_send = longBell ? 0.65 : 0.45,
                              .sidechain = 1 });
             // advance the melodic index per direction
             if (dir == 0)      idx += rng_range(1, 2);            // climbing
@@ -1746,6 +1874,35 @@ static void render_track(void) {
         }
     }
     report("  drop 2 bell melodies (seeded up/down runs + long tails)");
+
+    // 5b+ · 2:30-3:30 PLAY-MORE LAYER — long high sine bells drifting in
+    //       over drop 2, with cool auto-panning that sweeps the stereo
+    //       field bar-to-bar and level variation (some prominent, some
+    //       distant), sidechained to the snare so they breathe with the
+    //       backbeat (@jeffrey "play with the tracks more 2:30-3:30, some
+    //       louder/quieter, cooler panning, long high sine bells sidechained
+    //       to the snare").
+    {
+        const double SPB = 60.0 / BPM;
+        for (int bar = 75; bar < 105; bar += 3) {       // ~150-210 s, sparse
+            if (bar >= TOTAL_BARS - 2) break;
+            const Chord *c = chord_for_bar(bar);
+            const int tones[4] = { c->root + 12, c->fifth + 12, c->root + 24, c->third + 24 };
+            const int step = ((bar - 75) / 3) % 4;
+            const int m = tones[step];
+            // cool panning: a slow sine sweep across the field, bar-to-bar
+            const double pan = sin((double)(bar - 75) * 0.7) * 0.85;
+            // level variation: every third bell sits prominent, the rest distant
+            const int loud = (step % 3) == 0;
+            const double bellMult = 1.0 + 0.8 * ramp01(bar * BAR, 195.0, 225.0);
+            const double gain = (loud ? 0.085 : 0.045) * bellMult;
+            const double dec  = loud ? 10.0 : 6.5;       // long tails
+            glock_render(bar * BAR + (bar % 2 ? SPB * 2.0 : 0.0), dec + 1.0, m,
+                (GlockOpts){ .decay_s = dec, .pan = pan,
+                             .gain = gain, .wet_send = 0.72, .sidechain = 1 });
+        }
+        report("  2:30-3:30 play-more: long high sine bells, auto-pan + level var, snare-ducked");
+    }
 
     // 5c · FINAL TOLLS — the groove now drives to the very end, so this is
     //      just a pair of big deep bells on the last two downbeats to land
@@ -1766,20 +1923,43 @@ static void render_track(void) {
         report("  final tolls + held tonic chord (ending)");
     }
 
+    // 5c+ · OUTRO RESOLVE — a slow DESCENDING G-pentatonic bell phrase
+    //       through the ~4:16-4:34 fade, so the fade-out has musical
+    //       MOVEMENT, not just a volume decay (@jeffrey "the 4:33 musical
+    //       changes in the fade out"). Resolves down to the tonic, long
+    //       tails, gentle alternating pan, riding out as everything fades.
+    {
+        const Chord *c = chord_for_bar(0);                 // tonic G
+        const double SPB = 60.0 / BPM;
+        const int line[6] = { c->fifth + 24, c->third + 24, c->root + 24,
+                              c->fifth + 12, c->third + 12, c->root + 12 };
+        double t = 256.0;                                  // ~4:16
+        for (int i = 0; i < 6; i++) {
+            if (t >= TOTAL_SEC) break;
+            const double dec = 6.0 + i * 1.4;              // later notes ring longer
+            glock_render(t, dec + 1.0, line[i],
+                (GlockOpts){ .decay_s = dec, .pan = (i & 1 ? 0.30 : -0.30),
+                             .gain = 0.085, .wet_send = 0.76, .sidechain = 0 });
+            t += 2.0 * SPB;                                // every 2 beats (~1 s)
+        }
+        report("  outro resolve: descending pentatonic bells through the fade");
+    }
+
     // 5d · TRANSITION RISERS — noise sweep before break + before drop 2.
     //      Builds tension. Uses shaker-style burst with progressive
     //      volume ramp over 2 bars.
     {
-        const int risers[] = { 46, 62 };  // bars: end of part1 + end of break
+        const int risers[] = { 62 };  // dropped the bar-46 riser (~1:32 noise, @jeffrey "crunching ~1:40")
         const int n = sizeof(risers) / sizeof(risers[0]);
         for (int k = 0; k < n; k++) {
             const int bar = risers[k];
             if (bar >= TOTAL_BARS) break;
             const double SPB = 60.0 / BPM;
-            // 16 shaker burst across 2 bars, progressively louder
+            // 16 shaker burst across 2 bars — GENTLE ramp now (@jeffrey
+            // "not such a drop-drama thing"): a soft lift, not a riser slam.
             for (int s = 0; s < 16; s++) {
                 const double t = bar * BAR + s * SPB * 0.5;
-                const double gain = 0.05 + 0.15 * (s / 15.0);   // ramp 0.05→0.20
+                const double gain = 0.025 + 0.05 * (s / 15.0);  // ramp 0.025→0.075
                 shaker_render(t,
                     (ShakerOpts){ .pan = (s % 2 == 0 ? -0.25 : +0.25),
                                   .gain = gain, .decay_s = 0.08 });
@@ -1790,6 +1970,23 @@ static void render_track(void) {
             // riser + reverse_kick swells alone for now.
         }
         report("  transition risers before break (bar 46) + drop 2 (bar 62)");
+    }
+
+    // 5e · WOODBLOCK ACCENTS — punctual knocks at the section transitions,
+    //      REPLACING the old crash/smash noise (@jeffrey "more punctual, add
+    //      wood block to replace the crashes/smashes"). A crisp triple
+    //      pickup landing on each downbeat instead of a noisy riser.
+    {
+        const double SPB = 60.0 / BPM;
+        const int hits[] = { 16, 32, 64 };   // the WOOP, drop 1, drop 2
+        for (int h = 0; h < 3; h++) {
+            const double td = hits[h] * BAR;
+            woodblock(td - 1.5 * SPB, 0.16, -0.30, 1.00);
+            woodblock(td - 1.0 * SPB, 0.20,  0.30, 1.05);
+            woodblock(td - 0.5 * SPB, 0.26,  0.00, 1.10);
+            woodblock(td,             0.34,  0.00, 1.00);   // landing knock
+        }
+        report("  woodblock accents at transitions (replacing crashes)");
     }
 
     // ── 6 · APPLY REVERB (wet 0.55 — much wetter than the hymn) ──────
@@ -1871,11 +2068,10 @@ static void write_wav(const char *path) {
         for (long i = 0; i < N; i++) {
             const double tt = (double)i / (double)SR;
             double w = 0.0;
-            if (tt < 8.0) { const double x = 1.0 - tt / 8.0; w = x * x; }     // intro haze → dry
-            if (tt > 83.0 && tt < 94.0) {                                     // ~1:23-1:34 swing
-                const double m = 1.0 - fabs(tt - 88.5) / 5.5;
-                if (m > 0.0 && m > w) w = m;
-            }
+            // (intro bitcrush haze REMOVED — @jeffrey "remove all
+            //  bitcrunching from the start of track"; the start is clean now.)
+            // (mid-track 1:23-1:34 crunch swing REMOVED — @jeffrey "not such
+            //  a drop-drama thing"; only the intro haze crush remains.)
             w *= WMAX;
             // square-wave bit reduction (no decimation = no hard slicing)
             const double dlv = L[i], drv = R[i];
@@ -1899,7 +2095,7 @@ static void write_wav(const char *path) {
     }
 
     FILE *f = fopen(path, "wb");
-    if (!f) { fprintf(stderr, "amazing-dance: cannot open %s\n", path); exit(1); }
+    if (!f) { fprintf(stderr, "amaythingra: cannot open %s\n", path); exit(1); }
     const long data_size = N * 2 * 2;
     uint8_t header[44];
     memcpy(header + 0, "RIFF", 4);
@@ -1942,11 +2138,11 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--mono-kick")) MONO_KICK = 1;
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) SEED_ARG = (unsigned)strtoul(argv[++i], NULL, 10);
         else {
-            fprintf(stderr, "amazing-dance: unknown arg %s\n", argv[i]);
+            fprintf(stderr, "amaythingra: unknown arg %s\n", argv[i]);
             return 1;
         }
     }
-    if (!OUT_PATH) { fprintf(stderr, "amazing-dance: --out required\n"); return 1; }
+    if (!OUT_PATH) { fprintf(stderr, "amaythingra: --out required\n"); return 1; }
 
     // Seed per-render variation, then roll a fresh chord progression.
     const uint32_t seed = SEED_ARG ? SEED_ARG : (uint32_t)time(NULL);
@@ -1961,9 +2157,9 @@ int main(int argc, char **argv) {
     WL = calloc(N, sizeof(float));
     WR = calloc(N, sizeof(float));
     if (!L || !R || !WL || !WR) {
-        fprintf(stderr, "amazing-dance: alloc failed\n"); return 1;
+        fprintf(stderr, "amaythingra: alloc failed\n"); return 1;
     }
-    report("amazing-dance: rendering %.2f s @ %d Hz", TOTAL_SEC, SR);
+    report("amaythingra: rendering %.2f s @ %d Hz", TOTAL_SEC, SR);
     render_track();
     write_wav(OUT_PATH);
     free(L); free(R); free(WL); free(WR);

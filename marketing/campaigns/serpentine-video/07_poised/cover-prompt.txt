@@ -1,0 +1,25 @@
+a candid vertical photograph, sharp and honest — NOT cinematic. everything in
+crisp focus: NO motion blur, NO bokeh, NO out-of-focus areas anywhere. portrait
+orientation. a hand may appear, but no full figure centered.
+
+a conceptual still: the whole aesthetic-computer stack as one legible
+hand-drawn diagram, photographed flat on a desk. a single large sheet of plain
+paper sits on a warm wooden desk, with a clean hand-lettered marker diagram: a
+vertical stack of four labeled boxes connected by arrows, reading top to bottom
+"KERNEL → LANGUAGE → COMMUNITY → ARCHIVE", drawn confidently in black marker
+with a couple of accents in terminal green and pink. one hand rests at the edge
+of the paper, a marker between the fingers, mid-thought — fingers and pen sharp
+and legible. the lettering is friendly and human, not a printed graphic.
+
+warm desk-lamp light from one side is the main source, with a faint green
+screen-glow from an out-of-shot laptop catching the paper edge — diegetic light
+only. a coffee mug and a green-on-black terminal reflection sit nearby (real
+content, never a thumbnail of this scene).
+
+palette: warm cream paper and lamplight, black marker, small terminal-green and
+pink accents.
+
+avoid: motion blur, bokeh, soft focus, a printed/vector infographic look (it
+must read as hand-lettered marker on paper), recursive screens, extra logos,
+cartoon styling, mis-spelled labels — the four words KERNEL, LANGUAGE,
+COMMUNITY, ARCHIVE must be spelled correctly.

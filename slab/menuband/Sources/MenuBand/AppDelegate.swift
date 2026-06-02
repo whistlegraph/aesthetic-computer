@@ -12,6 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// stored property is fully set.
     private lazy var stickiesBridge = StickiesBridge(menuBand: menuBand)
     private var hoveredElement: KeyboardIconRenderer.HitResult? = nil
+    /// ~10 Hz ticker that drives the REC dot's blink + elapsed timer while a
+    /// tape is recording, and tears down to the idle dot when it stops.
+    private var recTimer: Timer?
+    /// Wall-clock moment recording actually began (0 = not yet). The REC
+    /// timer counts from here rather than the tape's buffer duration, which
+    /// can read stale on the UI tick.
+    private var recStartTime: CFTimeInterval = 0
     private var trackingArea: NSTrackingArea?
     private var typeModeHotkey: GlobalHotkey?
     private var focusCaptureHotkey: GlobalHotkey?
@@ -2286,6 +2293,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menuBand.tapeSeekToEnd()
             updateIcon()
             return
+        case .recDot:
+            // Far-left red dot: press to start recording a tape (dot becomes
+            // a live timer); press again to stop and drop the take onto the
+            // Desktop with its tape-art icon.
+            if menuBand.tape.state == .recording {
+                menuBand.stopTape()
+                stopRecTicker()
+                dropTapeOnDesktop()
+            } else {
+                menuBand.toggleTapeRecording()  // handles mic-auth + start
+                startRecTicker()
+            }
+            updateIcon()
+            return
         case .tapeRec:
             menuBand.toggleTapeRecording()
             updateIcon()
@@ -2428,6 +2449,140 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // SheetMusicView's PDF pull-out — we run our own modal-ish event
     // loop until either `mouseUp` (click) or a meaningful drag delta
     // arrives (eject).
+
+    /// Start the REC dot's live timer: each tick mirrors the tape's record
+    /// state + elapsed time into the renderer and repaints the icon. Stops
+    /// itself if the tape leaves the recording state for any reason.
+    private func startRecTicker() {
+        recTimer?.invalidate()
+        recStartTime = 0
+        // 20 Hz so the bubble morph + blink read smoothly.
+        let t = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            let recording = self.menuBand.tape.state == .recording
+            KeyboardIconRenderer.recActive = recording
+            if recording {
+                if self.recStartTime == 0 { self.recStartTime = CACurrentMediaTime() }
+                KeyboardIconRenderer.recElapsed = CACurrentMediaTime() - self.recStartTime
+            } else if self.recStartTime != 0 {
+                // Recording ended on its own — tear the ticker down.
+                self.stopRecTicker()
+                return
+            }
+            self.updateIcon()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        recTimer = t
+    }
+
+    private func stopRecTicker() {
+        recTimer?.invalidate()
+        recTimer = nil
+        recStartTime = 0
+        KeyboardIconRenderer.recActive = false
+        KeyboardIconRenderer.recElapsed = 0
+        updateIcon()
+    }
+
+    /// Stop-and-drop: eject the finished take, transcode it to an MP3 with
+    /// the cassette art embedded as the ID3 cover (and stamped as the file
+    /// icon), then move it onto the Desktop and reveal it. Falls back to the
+    /// raw WAV if ffmpeg isn't available or the encode fails.
+    private func dropTapeOnDesktop() {
+        guard let wav = menuBand.ejectTape() else {
+            NSSound.beep()
+            return
+        }
+        guard let desktop = FileManager.default.urls(
+            for: .desktopDirectory, in: .userDomainMask).first else {
+            NSWorkspace.shared.activateFileViewerSelecting([wav])
+            return
+        }
+        // No encoder → drop the WAV as-is (it already has the cassette icon).
+        guard let ffmpeg = Self.ffmpegPath() else {
+            revealOnDesktop(wav, desktop: desktop)
+            return
+        }
+        // Cover art = the cassette icon `tape.eject()` already stamped on
+        // the WAV; write it to a temp PNG so ffmpeg can embed it.
+        let cover = NSWorkspace.shared.icon(forFile: wav.path)
+        let tmp = FileManager.default.temporaryDirectory
+        let coverURL = tmp.appendingPathComponent("ac-tape-cover-\(UUID().uuidString).png")
+        let haveCover = writePNG(cover, to: coverURL)
+        let mp3 = tmp.appendingPathComponent(
+            wav.deletingPathExtension().lastPathComponent + ".mp3")
+        try? FileManager.default.removeItem(at: mp3)
+
+        var args = ["-y", "-i", wav.path]
+        if haveCover {
+            args += ["-i", coverURL.path, "-map", "0:a:0", "-map", "1:v:0",
+                     "-c:v", "copy", "-disposition:v:0", "attached_pic",
+                     "-metadata:s:v", "title=Album cover",
+                     "-metadata:s:v", "comment=Cover (front)"]
+        } else {
+            args += ["-map", "0:a:0"]
+        }
+        // Down-mix the 4-channel take to stereo MP3 at 192kbps + ID3v2.
+        args += ["-c:a", "libmp3lame", "-b:a", "192k", "-ac", "2",
+                 "-id3v2_version", "3", mp3.path]
+
+        // Encode off the main thread; reveal on completion.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: ffmpeg)
+            proc.arguments = args
+            proc.standardOutput = nil
+            proc.standardError = nil
+            do { try proc.run(); proc.waitUntilExit() }
+            catch { NSLog("MenuBand: ffmpeg launch failed: \(error)") }
+            let ok = proc.terminationStatus == 0
+                && FileManager.default.fileExists(atPath: mp3.path)
+            try? FileManager.default.removeItem(at: coverURL)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if ok {
+                    NSWorkspace.shared.setIcon(cover, forFile: mp3.path, options: [])
+                    self.revealOnDesktop(mp3, desktop: desktop)
+                    try? FileManager.default.removeItem(at: wav)  // keep only the mp3
+                } else {
+                    NSLog("MenuBand: mp3 encode failed (status \(proc.terminationStatus)) — dropping WAV")
+                    self.revealOnDesktop(wav, desktop: desktop)
+                }
+            }
+        }
+    }
+
+    /// Locate a usable ffmpeg (Homebrew arm64 / Intel). The launch-agent's
+    /// PATH may not include Homebrew, so probe absolute paths.
+    private static func ffmpegPath() -> String? {
+        for p in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"] {
+            if FileManager.default.isExecutableFile(atPath: p) { return p }
+        }
+        return nil
+    }
+
+    /// Write an NSImage to a PNG file (best available representation).
+    private func writePNG(_ image: NSImage, to url: URL) -> Bool {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return false }
+        do { try png.write(to: url); return true }
+        catch { NSLog("MenuBand: cover PNG write failed: \(error)"); return false }
+    }
+
+    /// Move a freshly-made tape onto the Desktop (collision-safe) and reveal
+    /// it in Finder; reveal in place if the move fails.
+    private func revealOnDesktop(_ src: URL, desktop: URL) {
+        let dest = uniqueDestinationOnDesktop(
+            in: desktop, preferredName: src.lastPathComponent)
+        do {
+            try FileManager.default.moveItem(at: src, to: dest)
+            NSWorkspace.shared.activateFileViewerSelecting([dest])
+        } catch {
+            NSLog("MenuBand: tape move failed: \(error)")
+            NSWorkspace.shared.activateFileViewerSelecting([src])
+        }
+    }
 
     /// Pick a non-colliding filename inside `dir` for the freshly
     /// ejected WAV. macOS' move would fail (or silently overwrite) if

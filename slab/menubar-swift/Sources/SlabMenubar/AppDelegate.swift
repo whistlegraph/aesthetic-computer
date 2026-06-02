@@ -802,6 +802,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         applyTerminalDecor()
     }
 
+    /// Toggle the "spawn in iTerm2" preference: when on, restore-threads /
+    /// restart-all open sessions in iTerm2 (the only terminal that shows the
+    /// tiled topic wallpapers) instead of Terminal.app. A pure spawn-target
+    /// preference — existing windows are untouched until you restart them.
+    @objc func togglePreferIterm() {
+        let path = Paths.preferItermFlag
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+        }
+        refresh()
+    }
+
     /// Effective dark-mode decision for status theming: the macOS appearance
     /// unless the "force bright" override is on, in which case theming is
     /// pinned to the light (sunlight-readable) palettes.
@@ -1339,6 +1356,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// fall back to iTerm2 (the port default). `windowCount`'s `is running`
     /// probe never launches an app, so this is side-effect free.
     private static func preferredTerminalApp() -> String {
+        // "Make iTerm2 the home": when the user has pinned iTerm2 (and it's
+        // installed), every slab-spawned session goes there — even while
+        // they're typing in a Terminal window — so the iTerm2-only tiled
+        // topic wallpapers are the default surface again.
+        let itermInstalled = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.googlecode.iterm2") != nil
+        if itermInstalled,
+           FileManager.default.fileExists(atPath: Paths.preferItermFlag) {
+            return "iTerm2"
+        }
         let iterm = windowCount(app: "iTerm2") > 0
         let term = windowCount(app: "Terminal") > 0
         if iterm && !term { return "iTerm2" }
@@ -1388,7 +1415,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } else {
             lines = [
-                "tell application \"iTerm2\"",
+                "tell \(appSpecifier("iTerm2"))",
                 "    activate",
                 "    create window with default profile",
                 "    tell current session of current window to write text \"\(escapedCmd)\"",
@@ -1567,7 +1594,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // iTerm2 and Terminal, so the same cell math applies to each.
             var lines: [String] = []
             if nIterm > 0 {
-                lines.append("tell application \"iTerm2\"")
+                lines.append("tell \(Self.appSpecifier("iTerm2"))")
                 lines.append("    activate")
                 for i in 0..<nIterm {
                     let cell = layout.cellAt(index: i)
@@ -1593,10 +1620,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// running. `application "X" is running` is a no-op probe — it never
     /// launches the app — so the cross-app tiler can safely ask about a
     /// Terminal.app the user may have quit.
+    /// AppleScript application specifier for `app`. iTerm2 MUST be addressed
+    /// by **bundle id**: on installs where the app registers as `iTerm.app`
+    /// (the common case), the by-name `application "iTerm2"` term fails to
+    /// resolve with -1728, which silently zeroed every window count, spawn,
+    /// and tile pass — the bug that made the iTerm2 topic wallpapers vanish.
+    /// Terminal.app resolves fine by name. Single source of truth so no
+    /// AppleScript path can regress to the broken by-name form again.
+    static func appSpecifier(_ app: String) -> String {
+        app == "iTerm2"
+            ? "application id \"com.googlecode.iterm2\""
+            : "application \"\(app)\""
+    }
+
     private static func windowCount(app: String) -> Int {
+        let spec = appSpecifier(app)
         let script = """
-        if application "\(app)" is running then
-          tell application "\(app)" to count windows
+        if \(spec) is running then
+          tell \(spec) to count windows
         else
           0
         end if

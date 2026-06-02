@@ -1,0 +1,25 @@
+a candid vertical photograph, documentary tone, sharp and honest — NOT
+cinematic. everything in crisp focus: NO motion blur, NO bokeh, NO out-of-focus
+areas anywhere. portrait orientation. no people in frame.
+
+a conceptual split still about language models: the data-center pull versus a
+local model living inside your own laptop. compose as two halves of one room.
+on the LEFT half: a vast cold data-center hall behind glass — long rows of dark
+server racks lit cold blue, light visibly being pulled inward and away from the
+viewer, impersonal and distant. on the RIGHT half: a single warm desk in a cozy
+home, an ordinary laptop open on it, and a small friendly glowing presence
+INSIDE the laptop — a soft warm green-gold light radiating gently out of the
+screen, as if a small helpful model lived right there on the machine, on your
+own terms. the contrast is cold-distant-corporate (left) vs. warm-local-owned
+(right).
+
+the laptop screen shows a green-on-black terminal with a small friendly prompt
+— real content, never a thumbnail of this scene. diegetic light only: cold blue
+on the left, warm green-gold screen-glow on the right.
+
+palette: cold blue server hall vs. warm green-gold home desk, meeting at a seam
+down the middle.
+
+avoid: motion blur, bokeh, soft focus, sci-fi neon that doesn't trace to a
+source, anthropomorphic robot/face, any text labels or logos, recursive
+screens, cartoon/illustrated styling.

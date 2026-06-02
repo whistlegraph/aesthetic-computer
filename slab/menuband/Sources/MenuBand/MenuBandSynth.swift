@@ -52,6 +52,12 @@ final class MenuBandSynth {
     /// directly and a chord across melodic + drums + midiSynth could exceed
     /// 0 dBFS at the output (audible clipping/crackle).
     private let preLimiterMixer = AVAudioMixerNode()
+    /// Sums the fx-processed melodic bus with the DRY percussion bus right
+    /// before the compressor. Percussion routes here instead of through
+    /// echo/reverb/proximity, so the trackpad fx (and pitch-bend) never
+    /// touch the drums — they still get the master compressor + limiter and
+    /// are captured by the tape (which taps `mainMixerNode`, downstream).
+    private let postFxMixer = AVAudioMixerNode()
     /// Apple PeakLimiter on the master path. Catches transient peaks from
     /// chords or stacked sustains and holds output below 0 dBFS regardless
     /// of how many notes are pressed simultaneously. Parameters tuned for
@@ -183,6 +189,13 @@ final class MenuBandSynth {
     /// and successfully attached to the engine. `noteOn` and
     /// `setMelodicProgram` route through the MIDISynth when this flips.
     private(set) var midiSynthReady = false
+    /// Set whenever an audio-engine configuration change (device switch /
+    /// aux pull) fires — the MIDISynth can silently reset to its default
+    /// sine preset across the reconfig, and the reset may land AFTER our
+    /// immediate recovery runs. We therefore also re-assert the soundbank
+    /// LAZILY before the next note, which is guaranteed to be after the
+    /// reconfig has fully settled. This is the self-healing path.
+    private var midiSynthBankDirty = false
 
     /// Serializes engine run-state (`start`/`pause`/`stop`) and graph
     /// mutations (`attach`/`connect`/`disconnect`) plus the one-shot
@@ -286,6 +299,7 @@ final class MenuBandSynth {
         engine.attach(echo)
         engine.attach(spaceReverb)
         engine.attach(proximityEQ)
+        engine.attach(postFxMixer)
         engine.attach(compressor)
         engine.attach(limiter)
         engine.attach(melodic)
@@ -303,7 +317,10 @@ final class MenuBandSynth {
         sampleVoice.attach(to: engine, output: preLimiterMixer)
         // Percussion: same pre-limiter sum bus. Renders silence until the
         // right-hand split fires a drum, so it's free while inactive.
-        percussion.attach(to: engine, output: preLimiterMixer)
+        // Percussion routes to the DRY post-fx mixer, NOT preLimiterMixer —
+        // so trackpad echo/reverb/proximity (and pitch-bend) never hit the
+        // drums. Still compressed + limited + tape-captured downstream.
+        percussion.attach(to: engine, output: postFxMixer)
         engine.prepare()
         // Request a smaller hardware IO buffer BEFORE the engine starts,
         // so the first render cycle is already at the low-latency size.
@@ -374,32 +391,43 @@ final class MenuBandSynth {
         defer { engineLock.unlock() }
         guard started else { return }
         NSLog("MenuBand: audio engine configuration changed (device switch) — recovering")
-        // Only restart if a note/visualizer needs the engine right now; an
-        // idle config change can stay suspended until the next note resumes
-        // it (which itself reapplies programs). Restarting unconditionally
-        // would defeat idle-suspend power savings.
-        let needsEngine = !activeNotes.isEmpty || waveformCaptureEnabled
-            || !waveformTapPinReasons.isEmpty || sampleRecordingActive
-        if engine.isRunning {
-            // Still running (channel-only change): just re-point + re-assert.
-            applyOutputDeviceOverride()
-            lowerOutputBufferSizeIfNeeded()
-            reapplyCurrentPrograms()
-            reassertActiveBackend()
-        } else if needsEngine {
-            do {
-                try engine.start()
-                applyOutputDeviceOverride()
-                lowerOutputBufferSizeIfNeeded()
-                reapplyCurrentPrograms()
-                reassertActiveBackend()
-            } catch {
-                NSLog("MenuBand: engine restart after device change failed: \(error)")
-            }
+        // Mark the bank dirty no matter which recovery branch runs below —
+        // the immediate reapply can be overwritten as the reconfig settles,
+        // so the next note re-asserts the bank as a guaranteed backstop.
+        midiSynthBankDirty = true
+        // Make sure the engine is live so we can re-point + rebuild on the
+        // new device.
+        if !engine.isRunning {
+            do { try engine.start() }
+            catch { NSLog("MenuBand: engine start after device change failed: \(error)") }
         }
-        // If the engine is idle-suspended and nothing needs it, leave it
-        // paused — the next `resumeAudioEngineIfNeeded` restarts it and
-        // calls `reapplyCurrentPrograms`, so the instrument is correct then.
+        applyOutputDeviceOverride()
+        lowerOutputBufferSizeIfNeeded()
+        // The MIDISynth can't be coaxed back from its reset sine state by a
+        // bank re-set OR an engine stop→start (both observed to no-op after
+        // a device switch). The only reliable recovery is to REBUILD it —
+        // tear the AU down and instantiate a fresh one, exactly like launch
+        // (fresh bank + program preload). Runs the heavy bring-up async,
+        // after this lock releases, so it can't deadlock on `engineLock`.
+        rebuildMIDISynth()
+        reassertActiveBackend()
+    }
+
+    /// Tear down the (reset) MIDISynth and build a fresh one — the reliable
+    /// recovery after a device switch leaves it stuck on its sine default.
+    /// The synchronous part (detach the dead AU) runs under the caller's
+    /// `engineLock`; the bring-up (`configureMIDISynth`, which takes the
+    /// lock itself) is kicked off asynchronously by `startMIDISynthBackend`,
+    /// so it runs only after this lock is released.
+    private func rebuildMIDISynth() {
+        NSLog("MenuBand: rebuilding MIDISynth after device switch")
+        midiSynthReady = false   // notes fall back to the sampler meanwhile
+        if let old = midiSynth {
+            engine.disconnectNodeOutput(old)
+            engine.detach(old)
+            midiSynth = nil
+        }
+        startMIDISynthBackend()
     }
 
     // MARK: - MIDISynth (multi-timbral, instant switching)
@@ -506,6 +534,7 @@ final class MenuBandSynth {
 
         midiSynth = avUnit
         midiSynthReady = true
+        midiSynthBankDirty = false   // fresh AU has the bank loaded
         updateSamplerRoutingForActiveBackend()
         scheduleIdleSuspendIfNeeded()
         NSLog("MenuBand: MIDISynth ready — instant program switching enabled")
@@ -533,7 +562,8 @@ final class MenuBandSynth {
         engine.connect(preLimiterMixer, to: echo, format: nil)
         engine.connect(echo, to: spaceReverb, format: nil)
         engine.connect(spaceReverb, to: proximityEQ, format: nil)
-        engine.connect(proximityEQ, to: compressor, format: nil)
+        engine.connect(proximityEQ, to: postFxMixer, format: nil)
+        engine.connect(postFxMixer, to: compressor, format: nil)
         engine.connect(compressor, to: limiter, format: nil)
         engine.connect(limiter, to: engine.mainMixerNode, format: nil)
 
@@ -726,8 +756,49 @@ final class MenuBandSynth {
     /// melodic channels (and the standard kit on drums).
     private func reapplyCurrentPrograms() {
         guard midiSynthReady, let au = midiSynth?.audioUnit else { return }
+        // An audio-device / engine reconfig can DROP the MIDISynth's loaded
+        // DLS soundbank — after which a bare program change selects into an
+        // empty bank and every voice plays as a sine, no matter the number.
+        // Re-set the bank URL first so the program lands on a real patch.
+        reloadMIDISynthBank(au)
         selectMelodicProgram(au, program: currentMelodicProgram)
         selectDrumKit(au)
+    }
+
+    /// Lazy self-heal: if a config change marked the bank dirty, reload the
+    /// soundbank + re-select the program right before the next note (after
+    /// the reconfig has fully settled). Cheap no-op when clean — the flag is
+    /// checked before taking the lock so the common note path pays nothing.
+    private func reassertMIDISynthBankIfDirty() {
+        guard midiSynthBankDirty else { return }
+        engineLock.lock()
+        defer { engineLock.unlock() }
+        guard midiSynthBankDirty else { return }   // re-check under lock
+        midiSynthBankDirty = false
+        guard midiSynthReady, let au = midiSynth?.audioUnit else { return }
+        NSLog("MenuBand: re-asserting MIDISynth bank after device switch")
+        reloadMIDISynthBank(au)
+        selectMelodicProgram(au, program: currentMelodicProgram)
+        selectDrumKit(au)
+    }
+
+    /// Re-assert the GS DLS soundbank URL on the MIDISynth (idempotent).
+    /// Used by recovery after a device switch so the kit doesn't fall back
+    /// to sine. Bank-URL only — the one-time per-program preload from
+    /// `configureMIDISynth` isn't repeated (it's a latency optimization,
+    /// not a correctness one).
+    private func reloadMIDISynthBank(_ au: AudioUnit) {
+        var bankURL: CFURL = MenuBandSynth.bankURL as CFURL
+        let status = withUnsafePointer(to: &bankURL) { ptr -> OSStatus in
+            AudioUnitSetProperty(
+                au,
+                AudioUnitPropertyID(kMusicDeviceProperty_SoundBankURL),
+                kAudioUnitScope_Global, 0, ptr,
+                UInt32(MemoryLayout<CFURL>.size))
+        }
+        if status != noErr {
+            NSLog("MenuBand: MIDISynth bank reload failed status=\(status)")
+        }
     }
 
     /// After an engine restart (e.g. an audio-device / aux switch) the GM
@@ -1631,6 +1702,9 @@ final class MenuBandSynth {
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
+        // Self-heal after a device switch: reload the soundbank before the
+        // first note so it can't sound as the default sine.
+        reassertMIDISynthBankIfDirty()
         activeNotes.insert(noteKey(midi, channel: channel))
         // Plugin instrument wins on melodic — picked deliberately via the
         // About → Plugins picker, so it overrides every other melodic

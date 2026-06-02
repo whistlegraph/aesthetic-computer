@@ -104,8 +104,17 @@ const FONTSDIR = escFilter(`${REPO}/system/public/type/webfonts`);
 lines.push(`[v0]subtitles='${ASS}':fontsdir='${FONTSDIR}'[v1]`);
 // Waltz piano-roll — full-width keyboard flush at the bottom of the
 // frame (y=1830..1920). Drawn BEFORE the segmented progress bar so the
-// progress markers layer on top of the keys.
-lines.push(`[v1]subtitles='${KEYS}'[v2]`);
+// progress markers layer on top of the keys. ONLY add this overlay when
+// out/waltz-keys.ass actually exists — audiences without a `waltz` block
+// (e.g. spoken-proposal configs) have no piano roll, and referencing a
+// missing .ass makes libass abort the whole compose. When absent, the
+// progress bar chains off [v1] directly.
+const KEYS_PATH = `${ROOT}/out/waltz-keys.ass`;
+let subsOutTag = "v1";
+if (existsSync(KEYS_PATH)) {
+  lines.push(`[v1]subtitles='${KEYS}'[v2]`);
+  subsOutTag = "v2";
+}
 
 // Segmented progress bar — drawn LAST so it sits ON TOP of the piano
 // keys. One drawbox per chapter segment. Each box fills as soon as
@@ -127,7 +136,7 @@ function segColor(name) {
 }
 
 const W = 1080;
-let prevTag = "v2";
+let prevTag = subsOutTag; // "v2" when the waltz keys overlay ran, else "v1"
 // Solid dark "track" background for the entire progress bar — sits
 // behind the per-chapter segment fills so the bar shape reads even
 // before any chapter has started.

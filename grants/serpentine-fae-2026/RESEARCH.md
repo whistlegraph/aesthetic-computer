@@ -1,12 +1,16 @@
 # Serpentine — Future Art Ecosystems R&D Fellowship: Art × Convergence — Research
 
 > **Deadline:** 2026-06-07, midnight BST
-> **Apply at:** https://www.serpentinegalleries.org/whats-on/future-art-ecosystems-rd-fellowship-art-x-convergence/
-> **Award:** £10,000 + travel & accommodation for three London weekends
+> **Info page:** https://www.serpentinegalleries.org/whats-on/future-art-ecosystems-rd-fellowship-art-x-convergence/
+> **APPLICATION FORM (Airtable):** https://airtable.com/appB9uhkcEZ0NUpbQ/pagB33PwCFgLTUTww/form — *JS/login-gated; jeffrey must open it directly to confirm exact field order/limits and to upload media.*
+> **Award:** £10,000 + travel & accommodation for the London weekends
+> **Cohort:** four fellows selected
 > **Format:** Low-residency hybrid, six months (Sep 2026 – Mar 2027)
-> **Time commitment:** ~3.5 hours/week online + three in-person weekend intensives in London
+> **Time commitment:** ~3.5 hours/week online + three in-person weekend intensives in London (Sep 2026, Nov 2026, Mar 2027 — exact dates shared later)
 > **Run by:** Serpentine Arts Technologies (Future Art Ecosystems / FAE programme)
-> **Selection panel (named):** Refik Anadol, Cao Fei, Holly Herndon, + others spanning art / tech / economics
+> **Selection panel (confirmed, 8):** Refik Anadol, Cao Fei, Holly Herndon, Lila Ibrahim (DeepMind COO), Mariana Mazzucato (economist, public value), Venkatesh Rao (writer/systems), Suneil Setiya, Evan Spiegel (Snap)
+> **What FAE says makes a strong application (these are effectively the form's narrative prompts):** (1) clearly describe your practice + context; (2) articulate a compelling research question / line of inquiry; (3) explain the connection to Art × Convergence; (4) show why the Fellowship suits your development; (5) identify the support / dialogue / conditions you need.
+> **Panel read:** heavily art + tech + *economics* (Mazzucato, Rao, Ibrahim, Spiegel). The "artist-owned infrastructure" framing lands as hard as the voice/Herndon angle — keep both legible.
 
 ## What the call is about
 

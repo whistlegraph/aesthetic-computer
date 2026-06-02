@@ -433,6 +433,8 @@ enum KeyboardIconRenderer {
         case openSettings
         case openVisualizer
         case note(UInt8)
+        /// Red REC dot at the far left — toggles tape recording.
+        case recDot
         /// Cassette body — pure drag-source now (REC moved to its own
         /// transport button). Clicking the cassette is a no-op; pulling
         /// it sideways ejects the WAV to the Desktop.
@@ -507,6 +509,26 @@ enum KeyboardIconRenderer {
     /// Horizontal pad before the tape — keeps the cassette flush with
     /// the menubar's leading edge of the status item.
     static let tapeLeadPad: CGFloat = 0.5
+
+    // MARK: - REC dot (tape recording)
+    /// A red record dot in a fixed slot at the far LEFT of the menubar icon,
+    /// before the piano. Click to start recording a tape; while recording it
+    /// shows an elapsed timer; click again to stop + drop the take. State is
+    /// pushed in by AppDelegate before each icon redraw.
+    static let recDotDiameter: CGFloat = 9
+    static let recDotLeadPad: CGFloat = 1
+    static let recDotTrailGap: CGFloat = 3
+    /// While recording the dot morphs into a capsule "bubble" holding the
+    /// running m:ss timer.
+    static let recPillWidth: CGFloat = 30
+    static let recPillHeight: CGFloat = 12
+    static var recActive: Bool = false        // true → recording (show timer)
+    static var recElapsed: Double = 0          // seconds, drives timer + morph
+    /// Slot width reserved at the left — full pill width while recording (so
+    /// the keys don't jiggle as the bubble morphs open within the slot).
+    static var recReservedWidth: CGFloat {
+        recDotLeadPad + (recActive ? recPillWidth : recDotDiameter) + recDotTrailGap
+    }
 
     // ── Deck panel (transport buttons only — cassette is mounted to
     // the LEFT of the deck on visible drive spokes that stick out of
@@ -614,7 +636,7 @@ enum KeyboardIconRenderer {
         // imageSize is always queried in tape-included context (it's
         // the menubar status-item size). Compute as if the static
         // flag were set, regardless of the flag's transient state.
-        let totalW = ceil(tapeReservedWidth + pad + pianoWidth + settingsLeadGap + settingsW + pad + voiceBadgeRightPad)
+        let totalW = ceil(recReservedWidth + tapeReservedWidth + pad + pianoWidth + settingsLeadGap + settingsW + pad + voiceBadgeRightPad)
         let totalH = ceil(whiteH + pad * 2)
         return NSSize(width: totalW, height: totalH)
     }
@@ -714,7 +736,51 @@ enum KeyboardIconRenderer {
     /// handler (`includeSettings == false`).
     private static var tapeReservedInLayout: Bool = true
     private static var pianoOriginX: CGFloat {
-        (tapeReservedInLayout ? tapeReservedWidth : 0) + pad
+        (tapeReservedInLayout ? recReservedWidth + tapeReservedWidth : 0) + pad
+    }
+
+    /// The REC dot's slot rect (and its hit rect) in base coords — the
+    /// fixed left slot, only present in the menubar layout.
+    static var recHitRect: NSRect {
+        let h = baseImageSize.height
+        let w = recReservedWidth
+        return NSRect(x: 0, y: 0, width: w, height: h)
+    }
+
+    /// Draw the REC dot (idle) or dot + elapsed timer (recording) in the
+    /// reserved left slot. Drawn in base coords inside the render closure.
+    private static func drawRecIndicator(canvasHeight: CGFloat) {
+        let x = recDotLeadPad
+        // Idle: a steady red record dot.
+        if !recActive {
+            let d = recDotDiameter
+            NSColor.systemRed.setFill()
+            NSBezierPath(ovalIn: NSRect(x: x, y: (canvasHeight - d) / 2,
+                                        width: d, height: d)).fill()
+            return
+        }
+        // Recording: the dot MORPHS into a red capsule "bubble" that holds
+        // the running timer — width + height ease from the dot to the pill
+        // over the first ~0.25s, then the m:ss text fades in inside it.
+        let prog = CGFloat(max(0, min(1, recElapsed / 0.25)))
+        let w = recDotDiameter + (recPillWidth - recDotDiameter) * prog
+        let h = recDotDiameter + (recPillHeight - recDotDiameter) * prog
+        let rect = NSRect(x: x, y: (canvasHeight - h) / 2, width: w, height: h)
+        let blink = 0.7 + 0.3 * abs(sin(recElapsed * .pi))   // gentle pulse
+        NSColor.systemRed.withAlphaComponent(blink).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: h / 2, yRadius: h / 2).fill()
+        // Timer text fades in once the bubble is mostly open.
+        let textAlpha = max(0, (prog - 0.55) / 0.45)
+        guard textAlpha > 0.01 else { return }
+        let total = Int(recElapsed)
+        let str = NSString(format: "%d:%02d", total / 60, total % 60)
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .bold),
+            .foregroundColor: NSColor.white.withAlphaComponent(textAlpha),
+        ]
+        let sz = str.size(withAttributes: attrs)
+        str.draw(at: NSPoint(x: rect.midX - sz.width / 2, y: rect.midY - sz.height / 2),
+                 withAttributes: attrs)
     }
 
     /// Settings chip's visual rect IS its hit-test rect — they're identical
@@ -761,6 +827,13 @@ enum KeyboardIconRenderer {
                 let scale = NSAffineTransform()
                 scale.scale(by: s)
                 scale.concat()
+            }
+
+            // 🔴 REC dot — fixed slot at the far left, before the piano.
+            // Solid red when idle; a blinking dot + elapsed timer while
+            // recording a tape. Only in the menubar layout (not the palette).
+            if tapeReservedInLayout {
+                drawRecIndicator(canvasHeight: size.height)
             }
 
             // Piano.
@@ -1194,6 +1267,8 @@ enum KeyboardIconRenderer {
         // The displayed icon is magnified by `iconScale`; map the click back
         // into the base coordinate space the hit rects live in.
         let point = NSPoint(x: rawPoint.x / iconScale, y: rawPoint.y / iconScale)
+        // REC dot — fixed slot at the far leading edge, before everything.
+        if recHitRect.contains(point) { return .recDot }
         if tapeFeatureEnabled {
             // Tape sits at the leading edge — checked first so the
             // cassette wins over any speculative key hit math that

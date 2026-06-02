@@ -142,11 +142,33 @@ body { background: ${PALETTE.bg}; padding: 80px 70px; position: relative; overfl
 .tick .hash { color: ${PALETTE.lime}; font-family: 'ProcessingB'; margin-right: 14px; }
 `;
 
-const browser = await puppeteer.launch({
-  // Use puppeteer's bundled Chromium — works on both local Mac (uses
-  // ~/.cache/puppeteer/...) and oven Linux (same).
-  args: ["--no-sandbox"],
-});
+// Prefer puppeteer's managed Chrome-for-Testing (works on both local Mac
+// via ~/.cache/puppeteer and oven Linux). If it isn't installed, fall
+// back to a system Chrome/Chromium so slides can render without first
+// downloading the managed browser. The fallback is local-dev only — the
+// oven keeps the managed browser installed.
+function findSystemChrome() {
+  const candidates = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+  ];
+  return candidates.find((p) => existsSync(p)) || null;
+}
+
+let browser;
+try {
+  browser = await puppeteer.launch({ args: ["--no-sandbox"] });
+} catch (e) {
+  const sys = findSystemChrome();
+  if (!sys) throw e;
+  console.warn(`  ⚠ managed Chrome unavailable (${e.message.split("\n")[0]});`);
+  console.warn(`    falling back to system Chrome: ${sys}`);
+  browser = await puppeteer.launch({ executablePath: sys, args: ["--no-sandbox"] });
+}
 
 const slidesOrder = audience.segments.map((s) => s.name);
 const showBug = (name) => name !== slidesOrder[0] && name !== slidesOrder[slidesOrder.length - 1];

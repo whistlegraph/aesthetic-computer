@@ -893,11 +893,9 @@ final class MenuBandController {
             // separately so trackpad pitch-bend slides the looping
             // sample alongside the MIDISynth-based voices.
             synth.setSamplePitchBend(amount: amount)
-            // The internally-synthesized drum kit isn't on a MIDI
-            // channel (it's skipped in the loop above), so route the
-            // bend straight into the percussion engine's pitch scale so
-            // tonal drums warp with everything else.
-            synth.setPercussionPitchBend(amount: amount)
+            // NOTE: percussion is intentionally NOT pitch-bent — the drums
+            // stay dry/unaffected by the trackpad gesture (they also bypass
+            // the master echo/reverb/proximity via `postFxMixer`).
             // KPBJ radio is also a varispeed backend (ignores MIDI
             // pitch-bend) — route the signed bend so the live stream
             // slides in pitch with everything else.

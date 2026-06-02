@@ -33,6 +33,7 @@ struct StateSnapshot {
     var textSize: TextSize = .far
     var themeByStatus: Bool = false
     var forceBright: Bool = false
+    var preferIterm: Bool = false
     var tailnetPeers: [TailnetPeer] = []
     var claudeSessions: [ClaudeSession] = []
     /// Live /pop renders with progress heartbeats — one temporary
@@ -87,6 +88,7 @@ struct StateSnapshot {
         }
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
         s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
+        s.preferIterm = FileManager.default.fileExists(atPath: Paths.preferItermFlag)
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         s.popRenders = readPopRenders()

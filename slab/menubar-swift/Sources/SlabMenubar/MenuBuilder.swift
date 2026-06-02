@@ -346,6 +346,11 @@ enum MenuBuilder {
         bright.toolTip = "Force the bright, sunlight-readable status palettes regardless of the macOS Auto dark/light schedule — for working outdoors"
         sub.addItem(bright)
 
+        let preferIterm = item("Spawn in iTerm2", selector: #selector(AppDelegate.togglePreferIterm), target: target)
+        preferIterm.state = state.preferIterm ? .on : .off
+        preferIterm.toolTip = "Restore-threads and restart-all open sessions in iTerm2 instead of Terminal.app — the only terminal that shows the tiled, per-session topic wallpapers."
+        sub.addItem(preferIterm)
+
         sub.addItem(.separator())
 
         // Experimental: tint overlay over the focused Terminal window. Toggles

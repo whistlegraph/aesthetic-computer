@@ -1,0 +1,24 @@
+a candid vertical photograph, documentary tone, sharp and honest — NOT
+cinematic. everything in crisp focus: NO motion blur, NO bokeh, NO out-of-focus
+areas anywhere. portrait orientation. no people in frame.
+
+a conceptual still about personal computing being pulled into the data center.
+a single ordinary laptop sits open and alone on a plain table in a warm,
+modest room (lamp-lit, homey). a thin glowing cable runs out of the back of the
+laptop, stretching across the frame and away into the distance, where — behind
+a pane of glass — a vast cold data-center hall recedes: long rows of dark
+server racks lit by cool blue indicator lights. the laptop end is warm and
+domestic; the data-center end is cold blue and impersonal. the cable is the
+tether — the "thin client" leash.
+
+the laptop's screen shows a plain green-on-black terminal with a blinking
+cursor — real content, never a thumbnail of this scene. diegetic light only:
+warm lamp on the laptop side, cold blue server glow on the far side, meeting in
+the middle.
+
+palette: warm amber room vs. cold blue server hall, a thin green-glowing
+tether between them.
+
+avoid: motion blur, bokeh, soft focus, neon sci-fi glow that doesn't trace to a
+real light, recursive screens, any text labels or logos, cartoon/illustrated
+styling.

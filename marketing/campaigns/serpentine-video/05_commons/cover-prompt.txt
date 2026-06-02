@@ -1,0 +1,26 @@
+a candid vertical photograph, documentary tone, sharp and honest — NOT
+cinematic. everything in crisp focus: NO motion blur, NO bokeh, NO out-of-focus
+areas anywhere. portrait orientation.
+
+a planetary laptop orchestra, held in common. a long table in a warm community
+room, lined with a friendly assortment of MISMATCHED surplus laptops — old
+thinkpads, frameworks, scuffed older macbooks, pinebooks, lids covered in
+stickers. a diverse group of ordinary people in their 20s–50s sit shoulder to
+shoulder playing them together like an ensemble — hands on keyboards, leaning
+in, a couple turned to a neighbor. peers among peers, all on the same eye-line,
+NO single centered leader, no hero. varied skin tones and body types, everyday
+clothes (flannels, hoodies, printed tees, cardigans, sweaters). this is a
+quiet, joyful working room — like a band rehearsal, not a lecture.
+
+every laptop screen shows varied REAL content in glancing perspective: a
+green-on-black terminal, a tiny pixel paint program, a music-notation staff, an
+oscilloscope sketch, a few lines of code, a small colorful kidlisp piece. never
+a thumbnail of this room.
+
+warm overhead room light plus the mixed glow of many screens on faces —
+diegetic light only. palette: warm wood and lamplight, a riot of small screen-
+glows (green, pink, cyan) across the table.
+
+avoid: motion blur, bokeh, soft focus, neon that doesn't trace to a source,
+recursive screens, centering one person as host, matching identical laptops
+(they must be mismatched), uniforms, tank tops, costumes, cartoon styling.

@@ -102,6 +102,30 @@ EOF
     return 0
 }
 
+# Provision iTerm2 profiles for the per-session tiled topic wallpapers: every
+# profile needs tiled-image mode + a Blend so the dim topic image shows behind
+# the status color while text stays legible. iTerm2 caches its prefs in memory
+# and rewrites the plist on quit, so this is only safe while it's NOT running.
+provision_iterm2_profiles() {
+    local pl="${HOME}/Library/Preferences/com.googlecode.iterm2.plist"
+    [[ -e "${pl}" ]] || { warn "iTerm2 prefs not found — skipping profile provisioning"; return 0; }
+    if pgrep -f "iTerm.app/Contents/MacOS" >/dev/null 2>&1; then
+        warn "iTerm2 is running — skipping profile provisioning (quit iTerm2 and re-run to set tiled wallpaper Blend)"
+        return 0
+    fi
+    local pb=/usr/libexec/PlistBuddy i=0 n=0
+    while ${pb} -c "Print :'New Bookmarks':${i}:'Guid'" "${pl}" >/dev/null 2>&1; do
+        ${pb} -c "Set :'New Bookmarks':${i}:'Blend' 0.5" "${pl}" 2>/dev/null \
+            || ${pb} -c "Add :'New Bookmarks':${i}:'Blend' real 0.5" "${pl}" 2>/dev/null || true
+        ${pb} -c "Set :'New Bookmarks':${i}:'Background Image Mode' 1" "${pl}" 2>/dev/null \
+            || ${pb} -c "Add :'New Bookmarks':${i}:'Background Image Mode' integer 1" "${pl}" 2>/dev/null || true
+        ${pb} -c "Set :'New Bookmarks':${i}:'Background Image Is Tiled' true" "${pl}" 2>/dev/null \
+            || ${pb} -c "Add :'New Bookmarks':${i}:'Background Image Is Tiled' bool true" "${pl}" 2>/dev/null || true
+        i=$((i+1)); n=$((n+1))
+    done
+    ok "provisioned ${n} iTerm2 profile(s): tiled bg image + Blend 0.5"
+}
+
 say "building slab-menubar (swift build -c release)"
 cd "${SCRIPT_DIR}"
 swift build -c release >/dev/null
@@ -112,6 +136,8 @@ if [[ ! -x "${BUILT}" ]]; then
     exit 1
 fi
 ok "built: ${BUILT}"
+
+provision_iterm2_profiles
 
 say "unloading any existing menubar launch agent"
 if launchctl list | grep -q computer.slab.menubar; then

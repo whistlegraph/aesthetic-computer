@@ -80,6 +80,13 @@ enum Paths {
     /// terminals reads as a status display at a glance.
     static var themeByStatusFlag: String { "\(slabHome)/state/theme-by-status" }
 
+    /// When this file exists (and iTerm2 is installed), every slab-spawned
+    /// Claude session (restore-threads, restart-all) opens in iTerm2 rather
+    /// than Terminal.app — even while the user is typing in a Terminal
+    /// window. This is what makes the iTerm2-only tiled topic wallpapers the
+    /// default surface again. Toggled from the menubar's "Spawn in iTerm2".
+    static var preferItermFlag: String { "\(slabHome)/state/prefer-iterm" }
+
     /// When this file exists, status themes use the *light* (bright,
     /// sunlight-readable) palettes regardless of the macOS Auto-appearance
     /// schedule — so the wall stays readable outdoors even after the system

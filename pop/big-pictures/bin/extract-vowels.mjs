@@ -29,8 +29,8 @@
 //   • wave-wizard/samples/amazing-grace-dance/spec.json  (note order/midi)
 //   • pop/big-pictures/voice-takes/wavewizard/<line>-note-<i>.wav
 // Writes:
-//   • pop/big-pictures/out/amazing-vowels.wav            (the drone stem)
-//   • pop/big-pictures/out/amazing-vowels-preview.mp3    (quick listen)
+//   • pop/big-pictures/out/amaythingra-vowels.wav            (the drone stem)
+//   • pop/big-pictures/out/amaythingra-vowels-preview.mp3    (quick listen)
 //
 // Usage:
 //   node pop/big-pictures/bin/extract-vowels.mjs \
@@ -47,9 +47,9 @@ const REPO = resolve(HERE, "../../..");
 const POP  = resolve(REPO, "pop");
 const SPEC = resolve(REPO, "wave-wizard/samples/amazing-grace-dance/spec.json");
 const TAKES_DIR = resolve(POP, "big-pictures/voice-takes/wavewizard");
-const OUT  = resolve(POP, "big-pictures/out/amazing-vowels.wav");
+const OUT  = resolve(POP, "big-pictures/out/amaythingra-vowels.wav");
 const OUT_MP3 = OUT.replace(/\.wav$/, "-preview.mp3");
-const TMP  = "/tmp/amazing-vowels";
+const TMP  = "/tmp/amaythingra-vowels";
 mkdirSync(TMP, { recursive: true });
 mkdirSync(dirname(OUT), { recursive: true });
 
