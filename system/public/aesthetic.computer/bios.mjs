@@ -20837,15 +20837,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
     
-    // 🗒️ Source code file.
-    if (ext === "mjs" || ext === "lisp") {
+    // 🗒️ Source code file. (.mjs / .lisp native AC pieces, .js p5 sketches)
+    if (ext === "mjs" || ext === "lisp" || ext === "js") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
             type: "dropped:piece",
             content: {
-              name: file.name.replace(/\.(mjs|lisp)$/, ""),
+              name: file.name.replace(/\.(mjs|lisp|js)$/, ""),
               source: e.target.result,
+              isP5: ext === "js", // Route .js sketches through the p5 worker.
             },
           });
         };

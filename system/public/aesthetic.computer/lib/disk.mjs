@@ -7512,6 +7512,7 @@ async function load(
   devReload = false,
   loadedCallback,
   forceKidlisp = false, // Force interpretation as kidlisp even without prefix
+  forceP5 = false, // Force interpretation as a p5.js sketch (dropped .js files)
 ) {
   const loadFunctionStartTime = performance.now();
   diskTimings.loadStarted = Math.round(loadFunctionStartTime - diskTimingStart);
@@ -7976,6 +7977,54 @@ async function load(
             slug,
             source: sourceToRun,
             ext: "lisp",
+          };
+          if (logs.loading)
+            console.log("💌 Publishable:", store["publishable-piece"]);
+        }
+      } else if (
+        forceP5 ||
+        parsed?.ext === "js" ||
+        (path && path.endsWith(".js"))
+      ) {
+        // 🎨 p5.js sketch (dropped .js file) — run real p5 in this worker
+        // against an OffscreenCanvas blitted into screen.pixels (Option B),
+        // mirroring the URL fallback path for .js pieces.
+        sourceCode = sourceToRun;
+        originalCode = sourceCode;
+        pieceMetadata = {
+          code: slug || "p5",
+          trustLevel: "p5",
+          anonymous: true,
+        };
+
+        const compileStartTime = performance.now();
+        const fetchElapsed = Math.round(compileStartTime - fetchStartTime);
+        send({
+          type: "boot-log",
+          content: `compiling p5 (fetch: ${fetchElapsed}ms)`,
+        });
+
+        loadedModule = await makeP5WorkerModule({ slug, source: sourceToRun });
+
+        const compileEndTime = performance.now();
+        const compileElapsed = Math.round(compileEndTime - compileStartTime);
+        diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
+
+        send({
+          type: "boot-log",
+          content: `p5 compiled (${compileElapsed}ms)`,
+        });
+
+        send({
+          type: "boot-file",
+          content: { filename: path, source: sourceCode.slice(0, 8000) },
+        });
+
+        if (devReload) {
+          store["publishable-piece"] = {
+            slug,
+            source: sourceToRun,
+            ext: "js",
           };
           if (logs.loading)
             console.log("💌 Publishable:", store["publishable-piece"]);
@@ -10630,7 +10679,9 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "dropped:piece") {
     // Pass forceKidlisp=true if this was detected as KidLisp (e.g., from .lisp.html bundle)
     const forceKidlisp = content.isKidLisp === true;
-    load(content, false, false, true, undefined, forceKidlisp);
+    // Pass forceP5=true if this was a dropped .js sketch (run via the p5 worker).
+    const forceP5 = content.isP5 === true;
+    load(content, false, false, true, undefined, forceKidlisp, forceP5);
     return;
   }
 
