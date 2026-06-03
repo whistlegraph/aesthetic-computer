@@ -33,7 +33,7 @@ export const audience = {
   // stretches the timeline ~3× and rewrites words.json/segments.json).
   sing: false,
 
-  narration: `hey, i'm jeffrey scudder. i'm a painter, and for six years i've been building my own computer to make things with — aesthetic computer. here's what i can't stop thinking about. as everyone races to build ai, computing is getting pulled into the data center. your laptop is becoming a thin client, renting its intelligence by the month. the personal computer you actually own is quietly disappearing. i think home computing needs a revolution at the operating system layer. so i built one. aesthetic computer boots a fifty dollar surplus laptop into a creative instrument in seven seconds — no desktop, no account, no cloud. it has its own little language, kidlisp, and it is a commons: everything is open, and it all boots from a single usb stick. twenty years ago the laptop orchestra proved a room of laptops could be a real instrument, but it stayed locked inside rich universities. on surplus hardware, that can be planetary, and held in common. language models are the force doing the enclosing, but they are also what lets one artist build a whole operating system. so here is my question: can a creative os take ai in as a local, owned faculty, on your own terms, instead of a tenant of the cloud? that is my art and convergence question. thanks for watching.`,
+  narration: `hey, i'm artist jeffrey alan scudder, and here's what i can't stop thinking about. as everyone races to build ai, computing is getting pulled into the data center. your laptop is becoming a thin client, renting its intelligence by the month. the personal computer you actually own is quietly disappearing. i think home computing needs a revolution at the operating system layer. so i built one. aesthetic dot computer boots a fifty dollar surplus laptop into a creative instrument in seven seconds — no desktop, no account, no cloud. it has its own little language, kidlisp, and it is a commons: everything is open, and it all boots from a single usb stick. twenty years ago the laptop orchestra proved a room of laptops could be a real instrument, but it stayed locked inside rich universities. on surplus hardware, that can be planetary, and held in common. language models are the force doing the enclosing, but they are also what lets one artist build a whole operating system. so here is my question: can a creative O.S. take ai in as a local, owned faculty, on your own terms, instead of a tenant of the cloud? and that's the question of aesthetic dot computer, version twenty twenty-six. thanks for listening.`,
 
   // Whisper renders these dictionary-style; rewrite the displayed subtitles.
   // Longer/multi-word fixes first so they win before single-word fixes.
@@ -68,7 +68,7 @@ export const audience = {
     { name: "05_commons", marker: "it is a commons" },
     { name: "06_llms", marker: "language models are the force" },
     { name: "07_poised", marker: "can a creative" },
-    { name: "09_outro", marker: "my art and convergence" },
+    { name: "09_outro", marker: "the question of" },
     { name: "10_end", marker: "__END__", trailingSilenceSec: 3 },
   ],
 

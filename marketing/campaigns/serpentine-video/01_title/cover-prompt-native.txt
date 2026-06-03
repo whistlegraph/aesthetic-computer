@@ -1,0 +1,15 @@
+a horizontal 16:9 landscape COLORED-PENCIL DRAWING on paper — not a photograph. a limited, basic palette. build all tone from visible hatching and parallel striping; let the pencil strokes show their direction and pressure. tapered, slightly open edges; small areas left unfilled so the paper tooth shows through. colors mix optically — layered strokes that blend in the eye, with gentle moiré where strokes cross. confident, observed, hand-drawn marks. fully legible and in crisp focus — NO smudging, NO blur, NO soft wash, NO bokeh. compose wide for 16:9.
+
+jeffrey scudder at a plain wooden desk in a modest los angeles apartment, early morning. use the SHOOT + SELFIE identity refs for likeness — short dark hair, slim build, face readable. soft printed tee under an open flannel. he sits angled INTO his work, eyes down on the screen, fully engaged — not posing, not showing the laptop to the camera. compose wide: desk and laptop on one side, the room opening to the other.
+
+in front of him a citrus-green MacBook Neo (apple's official chartreuse-green), lid up. on the lid a small torn white-paper scrap taped on with a thick hand-penned butterfly in black marker (a whistlegraph butterfly — NOT an apple logo).
+
+the laptop SCREEN shows the real Aesthetic Computer "notepat" instrument interface — match the provided notepat-screen reference image, redrawn in colored pencil: a bright off-white screen filled with a grid of colorful rectangular keyboard pads (reds, oranges, yellows, greens, blues, purples), each pad with a tiny note label, a horizontal row of labeled instrument tabs across the middle (sine, tri, saw, square), and a small pixel character above the keys. it is NOT a green terminal — it is this bright, colorful playable instrument UI. real on-screen content, never a picture of this room.
+
+a small PALS logo — two simple pink line-art figures holding hands (match the pals-logo reference) — appears as a little sticker on the laptop body near the keyboard.
+
+warm low morning light through a window on one side; a soft multicolored glow from the bright notepat screen on his face, rendered as hatched pencil tone. a mug, a couple of books, a slim usb-stick-shaped vape pen with a tiny LED on the desk. pale-peach and warm-cream morning tones from optical pencil mixing.
+
+avoid: blur, bokeh, soft wash, neon glow that does not trace to a real source, recursive screens, childish cartoon styling or flat vector art (this is a sincere hand-drawn colored-pencil drawing), apple logo on the lid, tank tops, costumes, presentational pose, and a green-on-black terminal on this screen (the screen must be the bright colorful notepat UI, not a terminal).
+
+IMPORTANT laptop geometry: every laptop and monitor is oriented so its open SCREEN faces the viewer — the glowing screen is on the inside of the raised lid, the keyboard on the base in front of it; correct, right-way-round device geometry. NO screen on the back/outside of a lid, NO screen facing away from us, NO second invented screen, NO warped or doubled keyboard. we are looking at the front of each machine, reading its screen at a natural angle.
