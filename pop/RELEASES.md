@@ -205,10 +205,20 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   `~/Documents/Shelf/gens/ac-header/` (jeffrey refs +
   whistlegraph-butterfly.png + pals-logo.png), gen v6.
 
-## amaythingra (amazing grace, dance) — SUBMITTED (4:33 vowel-extraction remix)
+## amaythingra (amazing grace, dance) — SUBMITTED + PATCH PENDING (4:33 vowel-extraction remix)
 
 - **Lane:** `pop/big-pictures/c/` (C-engine bed) · 120 BPM 4/4 · G major
   · Loukeman-style deep-house remix of Amazing Grace.
+- **PATCH — UNRELEASED (2026-06-02, eve):** a revised master that has NOT been
+  released/uploaded yet — swap it in or upload as a changed audio file. Changes
+  vs the SUBMITTED cut: vowel sustain **loop period now beat-aligned to the kick
+  grid** (was drifting off-beat / loopy), plus **softer + more dynamic** vowels —
+  gentle per-voice vibrato (jazzy pitch movement) and amplitude scatter so the
+  drone breathes instead of sitting flat. Master **-14.0 LUFS / -1.7 dBTP**,
+  44.1 kHz/16-bit, 0 clipping. Burned to `~/Desktop/Amaythingra.wav` +
+  `~/Desktop/Amaythingra.mp3` (Title-Case) and re-packaged in
+  `~/Desktop/amaythingra-DistroKid/`. Rebuild: `extract-vowels.mjs` →
+  `bake.mjs --vox 0.22 --vox-delay 120 --vox-fadein 70 --vox-last 0 --package`.
 - **Status (2026-06-02):** SUBMITTED to DistroKid. Reworked into "amaythingra"
   — a 4:33 **vowel-extraction** remix: the hymn vocals stripped to OPEN/ROUNDED
   vowels only (ah/aw/uh — "ashhs and oooh", no consonants), ghosting in faint

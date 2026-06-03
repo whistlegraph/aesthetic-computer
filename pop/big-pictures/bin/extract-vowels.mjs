@@ -79,6 +79,17 @@ const STRETCH_CAP = 5.0;   // max rubberband ratio (loop first to stay under)
 // advances across skipped syllables, so the kept vowels stay on their
 // original onsets with the dropped ones simply left as breathing room.
 const KEEP_VOWELS = flag("vowels", "ah,aw,uh").split(",").map((s) => s.trim());
+// Kick grid: loop periods snap to whole beats so the vowel sustains repeat
+// ON the beat instead of drifting off it (@jeffrey "the loop could at least
+// be aligned to kicks"). 120 BPM → 0.5 s/beat, matching the C-engine bed.
+const BPM  = parseFloat(flag("bpm", "120"));
+const BEAT = 60 / BPM;
+// Softer + more dynamic: scale the whole drone down and vary each voice's
+// level/vibrato so it breathes (jazzier) instead of sitting flat (@jeffrey
+// "more varied in amplitude and pitch / a bit more jazzy and softer").
+const SOFTNESS = parseFloat(flag("soft", "0.82"));
+// Deterministic per-voice randomness (stable across renders / cache-safe).
+function nrand(seed) { const x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); }
 
 // ── tooling ───────────────────────────────────────────────────────────
 const WORLD_PY  = resolve(POP, ".venv/bin/python");
@@ -123,7 +134,7 @@ function makeGrain(takePath, id) {
 
 // ── sustain: WORLD-lock → aloop → moderate rubberband → envelope ────────
 // Returns a holdSec-long stereo drone locked to targetMidi. Cached by key.
-function sustain(grainPath, targetMidi, holdSec, fadeSec, outPath) {
+function sustain(grainPath, targetMidi, holdSec, fadeSec, outPath, vib = { f: 0, d: 0 }) {
   if (!NO_CACHE && existsSync(outPath)) return outPath;
   const targetName = midiToName(targetMidi);
   const pitched = outPath.replace(/\.wav$/, "-p.wav");
@@ -143,13 +154,21 @@ function sustain(grainPath, targetMidi, holdSec, fadeSec, outPath) {
   }
   const grainDur = dur(src);
 
-  // 2) loop the grain up to ~hold/CAP so the final stretch ratio is ≤ CAP
-  const loopTargetDur = Math.max(grainDur, holdSec / STRETCH_CAP);
-  const loops = Math.max(0, Math.ceil(loopTargetDur / grainDur) - 1);
+  // 2) Beat-align the loop period to the kick grid. Pick a power-of-two
+  //    beat count for the loop unit nearest the natural grain×CAP length;
+  //    it divides the (16×n-beat) hold evenly, so each repeat starts on a
+  //    beat. The final loop period = holdSec/reps ≈ Pb beats, grid-locked.
+  const desiredPb = (grainDur * STRETCH_CAP) / BEAT;
+  let Pb = [1, 2, 4, 8].reduce((a, b) =>
+    Math.abs(b - desiredPb) < Math.abs(a - desiredPb) ? b : a, 2);
+  while (Pb > 1 && (Pb * BEAT) / grainDur > STRETCH_CAP) Pb = Math.floor(Pb / 2);
+  const holdBeats = Math.max(1, Math.round(holdSec / BEAT));
+  const reps = Math.max(1, Math.round(holdBeats / Pb));
+  const loops = Math.max(0, reps - 1);
   const samples = Math.round(grainDur * 48000);
   if (loops > 0) {
     sh(`ffmpeg -y -loglevel error -i "${src}" ` +
-       `-af "aloop=loop=${loops}:size=${samples},atrim=duration=${loopTargetDur.toFixed(3)}" ` +
+       `-af "aloop=loop=${loops}:size=${samples}" ` +
        `-ar 48000 -ac 1 "${looped}"`);
   } else {
     execSync(`cp "${src}" "${looped}"`);
@@ -157,7 +176,7 @@ function sustain(grainPath, targetMidi, holdSec, fadeSec, outPath) {
   const loopedDur = dur(looped);
 
   // 3) moderate rubberband stretch to the exact hold
-  const ratio = (holdSec / loopedDur).toFixed(3);
+  const ratio = (holdSec / loopedDur).toFixed(4);
   try {
     sh(`rubberband --time ${ratio} --formant --crisp ${CRISP} ` +
        `"${looped}" "${stretched}" 2>/dev/null`);
@@ -165,12 +184,14 @@ function sustain(grainPath, targetMidi, holdSec, fadeSec, outPath) {
     execSync(`cp "${looped}" "${stretched}"`);
   }
 
-  // 4) envelope + per-voice loudnorm → stereo
+  // 4) envelope + gentle vibrato (jazzy, organic pitch movement so the
+  //    held vowel isn't dead-locked) + per-voice loudnorm → stereo
   const fOut = (holdSec - fadeSec).toFixed(2);
+  const vibStage = vib.d > 0 ? `vibrato=f=${vib.f.toFixed(2)}:d=${vib.d.toFixed(3)},` : "";
   sh(`ffmpeg -y -loglevel error -i "${stretched}" ` +
      `-af "afade=t=in:st=0:d=${fadeSec.toFixed(2)},` +
      `afade=t=out:st=${fOut}:d=${fadeSec.toFixed(2)},` +
-     `loudnorm=I=-20:TP=-2:LRA=6,aformat=channel_layouts=stereo" ` +
+     `${vibStage}loudnorm=I=-20:TP=-2:LRA=6,aformat=channel_layouts=stereo" ` +
      `-ar 48000 -ac 2 -c:a pcm_s16le "${outPath}"`);
   return outPath;
 }
@@ -219,11 +240,17 @@ for (const note of notes) {
   const id = note.idx.toString().padStart(2, "0");
   const grain = makeGrain(note.takePath, id);
   const fade = Math.min(note.holdSec * 0.45, 4);
+  // Per-voice variation (deterministic) — gentle vibrato (jazzy pitch
+  // movement) + amplitude scatter so the drone breathes softly instead of
+  // a flat wall (@jeffrey "more varied in amplitude and pitch, jazzy, softer").
+  const v1 = nrand(note.idx * 7 + 1), v2 = nrand(note.idx * 13 + 3), v3 = nrand(note.idx * 19 + 5);
+  const vib = { f: 3.4 + 2.6 * v1, d: 0.04 + 0.06 * v2 };   // ~3.4-6 Hz, subtle depth
+  const ampMul = SOFTNESS * (0.62 + 0.5 * v3);              // softer + ±dynamic
   for (const interval of HARMONY) {
     const hid = `${id}_${interval >= 0 ? "p" : "m"}${Math.abs(interval)}`;
     const droned = `${TMP}/${hid}-drone.wav`;
-    sustain(grain, note.targetMidi + interval, note.holdSec, fade, droned);
-    stems.push({ path: droned, onsetSec: note.onsetSec, gain: interval < 0 ? 0.7 : 1.0 });
+    sustain(grain, note.targetMidi + interval, note.holdSec, fade, droned, vib);
+    stems.push({ path: droned, onsetSec: note.onsetSec, gain: (interval < 0 ? 0.7 : 1.0) * ampMul });
   }
   made++;
   process.stdout.write(
@@ -243,7 +270,7 @@ if (DRONE_GAIN > 0) {
     const fid = `floor-${midi}`;
     const droned = `${TMP}/${fid}.wav`;
     sustain(floorGrain, midi, TOTAL, 8, droned);
-    stems.push({ path: droned, onsetSec: 0, gain: DRONE_GAIN });
+    stems.push({ path: droned, onsetSec: 0, gain: DRONE_GAIN * SOFTNESS });
     process.stdout.write(`  floor ${midiToName(midi)} hold ${TOTAL.toFixed(0)}s @ 0s (gain ${DRONE_GAIN})\n`);
   }
 }
