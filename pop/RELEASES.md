@@ -205,33 +205,28 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   `~/Documents/Shelf/gens/ac-header/` (jeffrey refs +
   whistlegraph-butterfly.png + pals-logo.png), gen v6.
 
-## amaythingra (amazing grace, dance) — SUBMITTED + PATCH PENDING (4:33 vowel-extraction remix)
+## amaythingra (amazing grace, dance) — SUBMITTED (4:33 vowel-extraction remix)
 
 - **Lane:** `pop/big-pictures/c/` (C-engine bed) · 120 BPM 4/4 · G major
   · Loukeman-style deep-house remix of Amazing Grace.
-- **PATCH — UNRELEASED (2026-06-02, eve):** a revised master that has NOT been
-  released/uploaded yet — swap it in or upload as a changed audio file. Changes
-  vs the SUBMITTED cut: vowel sustain **loop period now beat-aligned to the kick
-  grid** (was drifting off-beat / loopy), plus **softer + more dynamic** vowels —
-  gentle per-voice vibrato (jazzy pitch movement) and amplitude scatter so the
-  drone breathes instead of sitting flat. Master **-14.0 LUFS / -1.7 dBTP**,
-  44.1 kHz/16-bit, 0 clipping. Burned to `~/Desktop/Amaythingra.wav` +
-  `~/Desktop/Amaythingra.mp3` (Title-Case) and re-packaged in
-  `~/Desktop/amaythingra-DistroKid/`. Rebuild: `extract-vowels.mjs` →
-  `bake.mjs --vox 0.22 --vox-delay 120 --vox-fadein 70 --vox-last 0 --package`.
-- **Status (2026-06-02):** SUBMITTED to DistroKid. Reworked into "amaythingra"
-  — a 4:33 **vowel-extraction** remix: the hymn vocals stripped to OPEN/ROUNDED
-  vowels only (ah/aw/uh — "ashhs and oooh", no consonants), ghosting in faint
-  from ~2:00 and swelling through the back half. Master **-14.4 LUFS / -0.9
-  dBTP**, 44.1 kHz/16-bit, 0 clipping, stereo balance centered (peak L-R
-  -0.03 dB, oscillating). Deliverable:
-  `~/Desktop/amaythingra-DistroKid/amaythingra.wav` (tagged Amaythingra /
-  Aesthetic Dot Computer / Pixsies, + cover-embedded reference mp3 +
-  cover-3000.png).
-- **Pipeline now** (supersedes the bake-c-dance.mjs recipe below):
+- **Artist:** Aesthetic Dot Computer · **Album:** *Pixsies*
+- **Status:** SUBMITTED — **uploaded to DistroKid 2026-06-02**, awaiting go-live
+  in stores. Canonical URL pending (TODO: add when DistroKid surfaces it; then
+  flip to RELEASED + publish CDN assets, like marimbaba).
+- **The cut:** a 4:33 **vowel-extraction** remix — the hymn vocals stripped to
+  OPEN/ROUNDED vowels only (ah/aw/uh — "ashhs and oooh", no consonants), their
+  sustain loops **beat-aligned to the kick grid**, softened with per-voice
+  vibrato + amplitude scatter (jazzy, breathing), and ridden **deep in the mix**
+  (vox 0.07 + heavy reverb wash) so they ghost in faint from ~2:00 under the bed.
+- **Master:** **-14.0 LUFS / -1.6 dBTP**, 44.1 kHz/16-bit, 0 clipping, stereo
+  balance centered (peak L-R ~-0.03 dB). Deliverables: `~/Desktop/Amaythingra.wav`
+  + `~/Desktop/Amaythingra.mp3` (Title-Case tags) and the packaged set in
+  `~/Desktop/amaythingra-DistroKid/` (tagged WAV + cover-embedded mp3 + cover-3000.png).
+- **Pipeline** (supersedes the bake-c-dance.mjs recipe below):
   1. `node pop/big-pictures/bin/extract-vowels.mjs` → ah/ooh vowel drone stem
-     (gated to open+rounded vowels, tight grain window so consonants don't leak)
-  2. `node pop/big-pictures/bin/bake.mjs --vox 0.22 --vox-delay 120 --vox-fadein 70 --vox-last 0 --package`
+     (gated to open+rounded vowels, tight grain window, beat-aligned loops,
+     per-voice vibrato + amplitude variation)
+  2. `node pop/big-pictures/bin/bake.mjs --vox 0.07 --reverb 0.32 --vox-delay 120 --vox-fadein 70 --vox-last 0 --package`
      (C-engine bed → vowels sidechained to kick → FX → master → DistroKid package)
   - Bed (`c/amaythingra.c`): reverse-snare→snare @3:30, stochastic per-phrase
     808 shaping (tight/punchy/smooshy-washed), distinct longer woops at
