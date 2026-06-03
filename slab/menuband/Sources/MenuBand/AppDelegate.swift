@@ -19,6 +19,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// timer counts from here rather than the tape's buffer duration, which
     /// can read stale on the UI tick.
     private var recStartTime: CFTimeInterval = 0
+    /// Cached MP3 export, keyed by the source WAV's path. Every eject path
+    /// (REC-dot stop-and-drop, popover EJECT button, cassette drag-out)
+    /// funnels through `exportTapeMP3()` so they all yield the same
+    /// shareable MP3 with cover art; the transcode runs once per take and
+    /// is reused. A fresh take always produces a new (collision-suffixed)
+    /// WAV name, so a stale entry simply never matches — no explicit
+    /// invalidation needed. Access is serialized by `tapeExportLock`.
+    private var cachedTapeMP3: (wavPath: String, mp3: URL)?
+    /// Serializes the ffmpeg encode + cache read/write so an in-flight
+    /// pre-warm and a follow-up drag/eject can't launch two encoders
+    /// writing the same temp MP3. Held only around CPU/cache work — never
+    /// across a hop to the main thread — so it can't deadlock.
+    private let tapeExportLock = NSLock()
+    /// Tracks the tape's recording state across `onChange` ticks so we can
+    /// fire a single MP3 pre-warm on the recording→idle edge — covering
+    /// every stop path (icon REC dot, popover transport, keyboard, 90 s
+    /// auto-stop) from one place.
+    private var tapeWasRecording = false
     private var trackingArea: NSTrackingArea?
     private var typeModeHotkey: GlobalHotkey?
     private var focusCaptureHotkey: GlobalHotkey?
@@ -393,6 +411,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.onChange = { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                // Pre-warm the MP3 export on the recording→idle edge so the
+                // first drag-out / EJECT after a take feels instant. One
+                // hook covers all stop paths; the lock in exportTapeMP3
+                // makes overlap with an explicit stop-and-drop harmless.
+                let recordingNow = self.menuBand.tape.state == .recording
+                if self.tapeWasRecording && !recordingNow
+                    && self.menuBand.tape.hasRecording {
+                    self.prewarmTapeMP3()
+                }
+                self.tapeWasRecording = recordingNow
                 // Trigger the slide + flash whenever the octave shift
                 // changes — acts as the visual feedback for the
                 // ,/. keys (or popover stepper). Direction matches
@@ -2282,7 +2310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateIcon()
             return
         case .tapeStop:
-            menuBand.stopTape()
+            menuBand.stopTape()  // recording→idle edge pre-warms the MP3 cache
             updateIcon()
             return
         case .tapePlay:
@@ -2312,39 +2340,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateIcon()
             return
         case .tapeEject:
-            // Drop the WAV onto the Desktop with the cassette-art icon
-            // already attached by `tape.eject()`. The cassette body still
-            // owns the live drag-to-anywhere gesture; this button is the
-            // "didn't think to drag it" fallback. Stop any in-flight
-            // recording first so the eject sees a finalized buffer.
+            // Drop the finished take onto the Desktop as a shareable MP3
+            // (cover art embedded) — the same artifact the cassette
+            // drag-out and the REC-dot stop produce. The cassette body
+            // still owns the live drag-to-anywhere gesture; this button is
+            // the "didn't think to drag it" fallback. Stop any in-flight
+            // recording first so the export sees a finalized buffer.
             let stateBefore = menuBand.tape.state
             let hasRec = menuBand.tape.hasRecording
             let dur = menuBand.tape.durationSeconds
             NSLog("MenuBand: eject button pressed — state=\(stateBefore) hasRecording=\(hasRec) duration=\(dur)s")
             if stateBefore == .recording {
                 menuBand.stopTape()
+                stopRecTicker()
             }
-            if let src = menuBand.ejectTape() {
-                NSLog("MenuBand: eject wrote \(src.lastPathComponent)")
-                let desktop = FileManager.default.urls(
-                    for: .desktopDirectory, in: .userDomainMask).first
-                if let desktop = desktop {
-                    let dest = uniqueDestinationOnDesktop(
-                        in: desktop, preferredName: src.lastPathComponent)
-                    do {
-                        try FileManager.default.moveItem(at: src, to: dest)
-                        NSWorkspace.shared.activateFileViewerSelecting([dest])
-                    } catch {
-                        NSLog("MenuBand: tape eject move failed: \(error)")
-                        NSWorkspace.shared.activateFileViewerSelecting([src])
-                    }
-                } else {
-                    NSWorkspace.shared.activateFileViewerSelecting([src])
-                }
-            } else {
-                NSLog("MenuBand: eject button — nothing to eject (no recording)")
-                NSSound.beep()
-            }
+            dropTapeOnDesktop()  // export MP3 + reveal (or beep if empty)
             updateIcon()
             return
         case .note(let n):
@@ -2465,7 +2475,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if self.recStartTime == 0 { self.recStartTime = CACurrentMediaTime() }
                 KeyboardIconRenderer.recElapsed = CACurrentMediaTime() - self.recStartTime
             } else if self.recStartTime != 0 {
-                // Recording ended on its own — tear the ticker down.
+                // Recording ended on its own (hit the 90 s ceiling) — tear
+                // the ticker down. The recording→idle edge (handled in
+                // onChange) warms the MP3 cache for a snappy drag-out.
                 self.stopRecTicker()
                 return
             }
@@ -2484,31 +2496,95 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateIcon()
     }
 
-    /// Stop-and-drop: eject the finished take, transcode it to an MP3 with
-    /// the cassette art embedded as the ID3 cover (and stamped as the file
-    /// icon), then move it onto the Desktop and reveal it. Falls back to the
-    /// raw WAV if ffmpeg isn't available or the encode fails.
+    /// Stop-and-drop: export the finished take to a shareable MP3 (cover
+    /// art embedded), then move it onto the Desktop and reveal it. Runs the
+    /// transcode off the main thread; falls back to the raw WAV if ffmpeg
+    /// isn't available or the encode fails.
     private func dropTapeOnDesktop() {
-        guard let wav = menuBand.ejectTape() else {
+        guard menuBand.tape.hasRecording else {
             NSSound.beep()
             return
         }
         guard let desktop = FileManager.default.urls(
             for: .desktopDirectory, in: .userDomainMask).first else {
-            NSWorkspace.shared.activateFileViewerSelecting([wav])
+            if let f = exportTapeMP3() {
+                NSWorkspace.shared.activateFileViewerSelecting([f])
+            }
             return
         }
-        // No encoder → drop the WAV as-is (it already has the cassette icon).
-        guard let ffmpeg = Self.ffmpegPath() else {
-            revealOnDesktop(wav, desktop: desktop)
-            return
+        // Export off the main thread (ffmpeg blocks), reveal on completion.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let file = self?.exportTapeMP3() else { return }
+            DispatchQueue.main.async {
+                self?.revealOnDesktop(file, desktop: desktop)
+            }
         }
-        // Cover art = the cassette icon `tape.eject()` already stamped on
-        // the WAV; write it to a temp PNG so ffmpeg can embed it.
-        let cover = NSWorkspace.shared.icon(forFile: wav.path)
+    }
+
+    /// Eject the current take and return a shareable stereo MP3 with the
+    /// cassette cover art embedded + stamped as the file icon. Falls back
+    /// to the raw 4-channel WAV if ffmpeg is missing or the encode fails.
+    /// The transcode result is cached per take, so the three eject paths
+    /// (stop-and-drop, EJECT button, cassette drag-out) share one encode.
+    /// Safe to call on the main thread (drag-out needs the file
+    /// synchronously) or a background queue (stop-and-drop).
+    @discardableResult
+    private func exportTapeMP3() -> URL? {
+        // 1. Main-thread work first, outside the lock: `tape.eject()` renders
+        //    the WAV + stamps its icon via NSWorkspace, and we grab that
+        //    cover for the encoder. Doing this before locking keeps the lock
+        //    free of any main-thread hop (no deadlock when a background
+        //    pre-warm holds it while the main thread also wants to export).
+        let prep: (wav: URL, cover: NSImage)? = onMain {
+            guard let wav = self.menuBand.ejectTape() else { return nil }
+            return (wav, NSWorkspace.shared.icon(forFile: wav.path))
+        }
+        guard let prep = prep else { return nil }
+
+        // 2. Serialize cache lookup + encode. A second caller blocks here
+        //    until the first finishes, then hits the cache instead of
+        //    launching a duplicate ffmpeg against the same temp file.
+        tapeExportLock.lock()
+        if let c = cachedTapeMP3, c.wavPath == prep.wav.path,
+           FileManager.default.fileExists(atPath: c.mp3.path) {
+            tapeExportLock.unlock()
+            return c.mp3
+        }
+        let encoded = transcodeToMP3(wav: prep.wav, cover: prep.cover)
+        if let mp3 = encoded { cachedTapeMP3 = (prep.wav.path, mp3) }
+        tapeExportLock.unlock()
+
+        // 3. Stamp the cover as the file icon on main, outside the lock.
+        guard let mp3 = encoded else {
+            return prep.wav  // no encoder / encode failed — the WAV still plays
+        }
+        onMain { NSWorkspace.shared.setIcon(prep.cover, forFile: mp3.path, options: []) }
+        return mp3
+    }
+
+    /// Kick off the MP3 transcode for the just-finished take on a
+    /// background queue so the cache is warm by the time the user reaches
+    /// for drag-out or EJECT — keeps those paths feeling instant. No-op if
+    /// there's nothing recorded or the cache is already populated.
+    private func prewarmTapeMP3() {
+        guard menuBand.tape.hasRecording else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.exportTapeMP3()
+        }
+    }
+
+    /// Transcode the 4-channel tape WAV to a stereo MP3, embedding `cover`
+    /// (the cassette art) as the ID3 attached picture. Pure CPU/IO — no
+    /// NSWorkspace, no main-thread hops — so it's safe to call while
+    /// holding `tapeExportLock`. The caller stamps the file icon. Returns
+    /// nil if no ffmpeg is found or the encode fails.
+    private func transcodeToMP3(wav: URL, cover: NSImage) -> URL? {
+        guard let ffmpeg = Self.ffmpegPath() else { return nil }
+        // Write the cover to a temp PNG for ffmpeg to embed.
         let tmp = FileManager.default.temporaryDirectory
         let coverURL = tmp.appendingPathComponent("ac-tape-cover-\(UUID().uuidString).png")
         let haveCover = writePNG(cover, to: coverURL)
+        defer { try? FileManager.default.removeItem(at: coverURL) }
         let mp3 = tmp.appendingPathComponent(
             wav.deletingPathExtension().lastPathComponent + ".mp3")
         try? FileManager.default.removeItem(at: mp3)
@@ -2526,30 +2602,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         args += ["-c:a", "libmp3lame", "-b:a", "192k", "-ac", "2",
                  "-id3v2_version", "3", mp3.path]
 
-        // Encode off the main thread; reveal on completion.
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: ffmpeg)
-            proc.arguments = args
-            proc.standardOutput = nil
-            proc.standardError = nil
-            do { try proc.run(); proc.waitUntilExit() }
-            catch { NSLog("MenuBand: ffmpeg launch failed: \(error)") }
-            let ok = proc.terminationStatus == 0
-                && FileManager.default.fileExists(atPath: mp3.path)
-            try? FileManager.default.removeItem(at: coverURL)
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if ok {
-                    NSWorkspace.shared.setIcon(cover, forFile: mp3.path, options: [])
-                    self.revealOnDesktop(mp3, desktop: desktop)
-                    try? FileManager.default.removeItem(at: wav)  // keep only the mp3
-                } else {
-                    NSLog("MenuBand: mp3 encode failed (status \(proc.terminationStatus)) — dropping WAV")
-                    self.revealOnDesktop(wav, desktop: desktop)
-                }
-            }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: ffmpeg)
+        proc.arguments = args
+        proc.standardOutput = nil
+        proc.standardError = nil
+        do { try proc.run(); proc.waitUntilExit() }
+        catch {
+            NSLog("MenuBand: ffmpeg launch failed: \(error)")
+            return nil
         }
+        guard proc.terminationStatus == 0,
+              FileManager.default.fileExists(atPath: mp3.path) else {
+            NSLog("MenuBand: mp3 encode failed (status \(proc.terminationStatus))")
+            return nil
+        }
+        return mp3
+    }
+
+    /// Run `work` on the main thread and return its result, executing
+    /// inline if already on main (so callers on either thread are safe and
+    /// can't deadlock on `DispatchQueue.main.sync`).
+    @discardableResult
+    private func onMain<T>(_ work: () -> T) -> T {
+        if Thread.isMainThread { return work() }
+        return DispatchQueue.main.sync(execute: work)
     }
 
     /// Locate a usable ffmpeg (Homebrew arm64 / Intel). The launch-agent's
@@ -2637,10 +2714,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Begin a drag session whose pasteboard item is the freshly
-    /// rendered WAV. Mirrors `SheetMusicView.beginPDFDrag` — eager
+    /// exported MP3. Mirrors `SheetMusicView.beginPDFDrag` — eager
     /// render to a temp file BEFORE calling `beginDraggingSession`,
     /// then animate the cassette "ejecting" downward so the user
-    /// sees the source artifact leave the menubar.
+    /// sees the artifact leave the menubar. `exportTapeMP3()` is
+    /// usually a cache hit (pre-warmed on stop), so the synchronous
+    /// call here returns immediately; on a cold cache it transcodes
+    /// inline, and the cassette-eject animation masks the brief wait.
     @discardableResult
     private func startTapeEjectDrag(button: NSStatusBarButton,
                                     event: NSEvent) -> Bool {
@@ -2648,20 +2728,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("MenuBand: tape eject ignored — no recording")
             return false
         }
-        // Capture the result struct so we can use the actual cover
-        // art (waveform + date + duration) as the drag image. Falls
-        // back to a generic cassette glyph if eject fails.
-        guard let result = menuBand.tape.eject() else {
-            NSLog("MenuBand: tape eject failed to write stems")
+        // The shareable MP3 (or the raw WAV if ffmpeg is unavailable).
+        guard let file = exportTapeMP3() else {
+            NSLog("MenuBand: tape eject failed to write file")
             return false
         }
-        let dragItem = NSDraggingItem(pasteboardWriter: result.file as NSURL)
-        // Drag preview = the exact icon `eject()` just attached to
-        // the .wav file. Reading it back through `NSWorkspace`
-        // rather than re-rendering keeps the preview and the on-disk
-        // icon identical, so the user sees the same cassette artwork
+        let dragItem = NSDraggingItem(pasteboardWriter: file as NSURL)
+        // Drag preview = the exact icon the export stamped on the
+        // file. Reading it back through `NSWorkspace` rather than
+        // re-rendering keeps the preview and the on-disk icon
+        // identical, so the user sees the same cassette artwork
         // riding the cursor that they'll see in Finder after drop.
-        let previewIcon = NSWorkspace.shared.icon(forFile: result.file.path)
+        let previewIcon = NSWorkspace.shared.icon(forFile: file.path)
         let previewSize = NSSize(width: 96, height: 96)
         let local = button.convert(event.locationInWindow, from: nil)
         let dragFrame = NSRect(x: local.x - previewSize.width / 2,
