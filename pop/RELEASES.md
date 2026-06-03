@@ -205,15 +205,18 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   `~/Documents/Shelf/gens/ac-header/` (jeffrey refs +
   whistlegraph-butterfly.png + pals-logo.png), gen v6.
 
-## amaythingra (amazing grace, dance) — SUBMITTED · v2 FINAL master (4:33 vowel-extraction remix)
+## amaythingra (amazing grace, dance) — RELEASED · v2 FINAL master (4:33 vowel-extraction remix)
 
 - **Lane:** `pop/big-pictures/c/` (C-engine bed) · 120 BPM 4/4 · G major
   · Loukeman-style deep-house remix of Amazing Grace.
 - **Artist:** Aesthetic Dot Computer · **Album:** *Pixsies*
-- **Status:** **v2 is the FINAL master (2026-06-03).** v1 was uploaded to
-  DistroKid 2026-06-02 (awaiting go-live) — to ship v2, replace/re-upload the
-  DistroKid file from `~/Desktop/Amaythingra.wav` (next time it surfaces, fill
-  in the canonical URL + flip to RELEASED + publish CDN assets, like marimbaba).
+- **Status:** **RELEASED — v2 FINAL master (2026-06-03).** v2 re-uploaded to
+  DistroKid/stores by @jeffrey; CDN assets published. (v1 went to DistroKid
+  2026-06-02, superseded by v2.)
+- **Canonical assets** (DO Spaces CDN, `pop/` flat path like marimbaba):
+  - audio (wav) — https://assets.aesthetic.computer/pop/amaythingra.wav
+  - audio (mp3) — https://assets.aesthetic.computer/pop/amaythingra.mp3
+  - cover — https://assets.aesthetic.computer/pop/amaythingra.jpg
 - **The cut:** a 4:33 **vowel-extraction** remix — the hymn vocals stripped to
   OPEN/ROUNDED vowels only (ah/aw/uh — "ashhs and oooh", no consonants), their
   sustain loops **beat-aligned to the kick grid**, softened with per-voice
