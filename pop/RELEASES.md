@@ -205,19 +205,33 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   `~/Documents/Shelf/gens/ac-header/` (jeffrey refs +
   whistlegraph-butterfly.png + pals-logo.png), gen v6.
 
-## amazing grace (dance) — MASTERING (4:58 deep-house remix, ready for DistroKid)
+## amaythingra (amazing grace, dance) — SUBMITTED (4:33 vowel-extraction remix)
 
 - **Lane:** `pop/big-pictures/c/` (C-engine bed) · 120 BPM 4/4 · G major
-  · Loukeman-style deep-house remix of all 4 hymn verses, ULTRA-elongated
-  vocals (zing 14 s, grace 24 s, sound 16 s, see 14 s). Pre-baked
-  power-harmony stack: every syllable has +7 (perfect fifth), +12
-  (octave up) and -12 (octave down) rubberband copies preserving duration.
-- **Status (2026-05-29):** 4:58 master at -8.8 LUFS / -0.4 dBTP. DistroKid
-  cut at -8.9 LUFS / -1.0 dBTP (24-bit/44.1 kHz, 75 MB) ready in
-  `~/Documents/Shelf/amazing-grace-dance/distrokid/`. Mono-bass widening
-  via acrossover (200 Hz / 4th-order LR) — bass band force-summed to
-  mono, upper band extrastereo m=1.20. Verified mono-safe: bass L/R/sum
-  RMS all ~0.342.
+  · Loukeman-style deep-house remix of Amazing Grace.
+- **Status (2026-06-02):** SUBMITTED to DistroKid. Reworked into "amaythingra"
+  — a 4:33 **vowel-extraction** remix: the hymn vocals stripped to OPEN/ROUNDED
+  vowels only (ah/aw/uh — "ashhs and oooh", no consonants), ghosting in faint
+  from ~2:00 and swelling through the back half. Master **-14.4 LUFS / -0.9
+  dBTP**, 44.1 kHz/16-bit, 0 clipping, stereo balance centered (peak L-R
+  -0.03 dB, oscillating). Deliverable:
+  `~/Desktop/amaythingra-DistroKid/amaythingra.wav` (tagged Amaythingra /
+  Aesthetic Dot Computer / Pixsies, + cover-embedded reference mp3 +
+  cover-3000.png).
+- **Pipeline now** (supersedes the bake-c-dance.mjs recipe below):
+  1. `node pop/big-pictures/bin/extract-vowels.mjs` → ah/ooh vowel drone stem
+     (gated to open+rounded vowels, tight grain window so consonants don't leak)
+  2. `node pop/big-pictures/bin/bake.mjs --vox 0.22 --vox-delay 120 --vox-fadein 70 --vox-last 0 --package`
+     (C-engine bed → vowels sidechained to kick → FX → master → DistroKid package)
+  - Bed (`c/amaythingra.c`): reverse-snare→snare @3:30, stochastic per-phrase
+    808 shaping (tight/punchy/smooshy-washed), distinct longer woops at
+    2:56/3:00/3:10, powersaws lift an octave by ~3:45, build-dip into the 0:32
+    drop, centered fundamentals for stereo balance.
+- **Historical (2026-05-29, "amazing grace dance" 4:58 version):** 4:58 master
+  at -8.8 LUFS / -0.4 dBTP. DistroKid cut at -8.9 LUFS / -1.0 dBTP (24-bit/44.1
+  kHz, 75 MB) in `~/Documents/Shelf/amazing-grace-dance/distrokid/`. Mono-bass
+  widening via acrossover (200 Hz / 4th-order LR). Recipe below is from this
+  version.
 - **Bake recipe:**
   1. `pop/big-pictures/c/build-dance.sh` (C engine compiles → bed.wav)
   2. `node pop/big-pictures/c/bake-c-dance.mjs` (mixes 153+ harmony

@@ -608,6 +608,22 @@ static void snare808(double t0, double v, double pan) {
     perc_hit(t0, PW_NOISE, 3800, 0.22, 0.70 * v, 0.0004, 0.18, pan, 0.14);
 }
 
+// 808 snare with per-hit SHAPING so the backbeat morphs through the track
+// instead of being one fixed hit (@jeffrey): freqMul pitches it (down =
+// darker/smooshy), decMul stretches or tightens the length, wet washes it
+// into the Schroeder reverb tail (so it gets "dubbed by the tones / washed
+// around"), and dense adds a flam tick for a punchier, denser hit.
+static void snare808_shaped(double t0, double v, double pan,
+                            double freqMul, double decMul, double wet, int dense) {
+    perc_hit(t0, PW_SINE,  180.0 * freqMul, 0.20 * decMul, 0.55 * v, 0.0005, 0.17 * decMul, pan, 0.10 + wet);
+    perc_hit(t0, PW_SINE,  330.0 * freqMul, 0.14 * decMul, 0.32 * v, 0.0005, 0.11 * decMul, pan, 0.10 + wet);
+    perc_hit(t0, PW_NOISE, 3800.0 * freqMul, 0.22 * decMul, 0.70 * v, 0.0004, 0.18 * decMul, pan, 0.14 + wet);
+    if (dense) {
+        // flam tick a hair ahead + brighter snap → punchy and dense
+        perc_hit(t0 - 0.014, PW_NOISE, 4400.0 * freqMul, 0.05, 0.30 * v, 0.0003, 0.04, pan, 0.08);
+    }
+}
+
 // ── snare voice (filtered noise burst + low tone — the "BIZZ") ───────
 typedef struct {
     double pan;
@@ -1182,13 +1198,13 @@ static void render_track(void) {
         organ_render(t0, dur, c->root,
             (OrganOpts){ .atk = 0.30, .rel = 0.50,
                          .vib_rate = 4.5, .vib_depth = 6.0,
-                         .pan = -0.18, .gain = 0.10,
+                         .pan = 0.0, .gain = 0.10,   // loudest organ voice → CENTER (was left)
                          .wet_send = 0.35,
                          .sub_amt = 0.7, .upper_amt = 0.45 });
         organ_render(t0, dur, c->third,
             (OrganOpts){ .atk = 0.35, .rel = 0.50,
                          .vib_rate = 4.8, .vib_depth = 7.0,
-                         .pan = 0.0, .gain = 0.08,
+                         .pan = -0.18, .gain = 0.08,   // third LEFT, fifth RIGHT → symmetric spread
                          .wet_send = 0.35,
                          .sub_amt = 0.6, .upper_amt = 0.45 });
         organ_render(t0, dur, c->fifth,
@@ -1208,11 +1224,14 @@ static void render_track(void) {
     // first WOOP — long sustained bells, not short plinks.
     {
         const Chord *ca = chord_for_bar(8);    // chord at ~16 s
+        // Softer spread: the 16 s bell rings 8 s ALONE before its partner at
+        // 24 s, so a hard ±0.25 made the intro lean left. ±0.14 keeps a sense
+        // of width without smearing the whole intro to one side.
         glock_render(16.0, 42.0, ca->fifth + 12,
-            (GlockOpts){ .decay_s = 38.0, .pan = -0.25, .gain = 0.090, .wet_send = 0.72 });
+            (GlockOpts){ .decay_s = 38.0, .pan = -0.14, .gain = 0.090, .wet_send = 0.72 });
         const Chord *cb = chord_for_bar(12);   // ~24 s
         glock_render(24.0, 42.0, cb->root + 12,
-            (GlockOpts){ .decay_s = 38.0, .pan = 0.25, .gain = 0.090, .wet_send = 0.72 });
+            (GlockOpts){ .decay_s = 38.0, .pan = 0.14, .gain = 0.090, .wet_send = 0.72 });
         report("  long intro high bells @16 s + @24 s (38 s decay)");
     }
 
@@ -1244,7 +1263,10 @@ static void render_track(void) {
                        .pan = 0.0, .gain = 0.10, .wet_send = 0.32 });
         triangle_render(t0, dur, lo_b,
             (TriOpts){ .atk = 0.50, .rel = 0.70,
-                       .pan = -0.15, .gain = 0.06, .wet_send = 0.32 });
+                       // alternate L/R per 4-bar block so the low bell
+                       // OSCILLATES across the stereo field instead of
+                       // sitting left (@jeffrey "make sure it oscillates").
+                       .pan = (lo_variant % 2 ? -0.15 : 0.15), .gain = 0.06, .wet_send = 0.32 });
         // HIGH sine bells — SEEDED melodic sparkle. Each 4-bar block
         // draws a fresh set of 2-4 bells from a 3-octave pool of chord
         // tones, with varied pitch, timing, decay, gain and pan, so the
@@ -1652,10 +1674,40 @@ static void render_track(void) {
         for (int bar = 42; bar < TOTAL_BARS - 2; bar++) {
             if (bar >= 48 && bar < 64) continue;            // break
             const double t0 = bar * BAR;
-            snare808(t0 + 1.0 * SPB + humanize(t0 + 1, 15, 5), SNARE_VEL, -0.05);  // beat 2, laid back
-            snare808(t0 + 3.0 * SPB + humanize(t0 + 3, 15, 5), SNARE_VEL, +0.05);  // beat 4, laid back
+            // Character drifts per 4-bar PHRASE (not per hit) so the 808
+            // evolves gently through the track instead of lurching every
+            // backbeat (@jeffrey "too crazy"). Mostly normal; a phrase here
+            // and there leans tighter, punchier, or a touch washed. Only a
+            // tiny per-hit jitter rides on top.
+            uint32_t ph = (uint32_t)((bar / 4) * 2654435761u) | 1;
+            ph ^= ph << 13; ph ^= ph >> 17; ph ^= ph << 5;
+            const double pr = (double)ph / 4294967296.0;
+            double baseFreq, baseDec, baseWet, baseVel; int phDense = 0;
+            if (pr < 0.58) {            // NORMAL
+                baseFreq = 1.0;  baseDec = 1.0;  baseWet = 0.05; baseVel = 1.00;
+            } else if (pr < 0.74) {     // a touch TIGHTER / drier
+                baseFreq = 1.02; baseDec = 0.72; baseWet = 0.0;  baseVel = 0.86;
+            } else if (pr < 0.88) {     // a touch PUNCHIER
+                baseFreq = 1.0;  baseDec = 0.92; baseWet = 0.04; baseVel = 1.15; phDense = 1;
+            } else {                    // gently SMOOSHY / washed — quieter so the
+                                        // long tail sits BACK, not loud (@jeffrey)
+                baseFreq = 0.88; baseDec = 1.35; baseWet = 0.22; baseVel = 0.60;
+            }
+            for (int bt = 1; bt <= 3; bt += 2) {
+                uint32_t h = (uint32_t)((bar * 4 + bt) * 2246822519u) | 1;
+                h ^= h << 13; h ^= h >> 17; h ^= h << 5;
+                const double j = (double)h / 4294967296.0 - 0.5;   // -0.5..0.5
+                const double freqMul = baseFreq * (1.0 + 0.04 * j);
+                const double decMul  = baseDec  * (1.0 + 0.15 * j);
+                const double wet     = fmax(0.0, baseWet + 0.03 * j);
+                const double vel     = SNARE_VEL * baseVel * (1.0 + 0.10 * j);
+                const int dense = phDense && (bt == 3);   // flam only on the 4 of punchy phrases
+                const double pan = (bt == 1 ? -0.05 : 0.05);
+                const double th = t0 + bt * SPB + humanize(t0 + bt, 15, 5);
+                snare808_shaped(th, vel, pan, freqMul, decMul, wet, dense);
+            }
         }
-        report("  808 snare on backbeats from ~1:25 (ducked under vocals)");
+        report("  808 snare: gentle per-phrase drift (mostly normal, occasional tight/punchy/washed)");
 
         // ── reverse-snare → snare transition at 3:30 (bar 105) ───────────
         // A 1-bar reverse snare swells UP into the 3:30 downbeat and lands
@@ -1729,14 +1781,14 @@ static void render_track(void) {
         // they climb HIGHER by ~3:45 (@jeffrey). Sub stays low for weight;
         // the mid + top voices rise. Ramps in from bar 104 (~3:28).
         const int hi = (bar >= 104) ? 12 : 0;
-        powersaw_render(t0, dur, c->root - 12,           // sub saw — stays low for weight
-            (PowersawOpts){ .atk = 0.06 * csAtk, .rel = 0.30, .pan = -0.16,
+        powersaw_render(t0, dur, c->root - 12,           // sub saw — loudest, low weight → CENTER
+            (PowersawOpts){ .atk = 0.06 * csAtk, .rel = 0.30, .pan = 0.0,
                             .gain = 0.13 * csGain, .wet_send = 0.35, .detune_cents = 12.0 + csDet });
-        powersaw_render(t0, dur, c->root + hi,           // low-mid root (lifts late)
+        powersaw_render(t0, dur, c->root + hi,           // low-mid root — RIGHT
             (PowersawOpts){ .atk = 0.08 * csAtk, .rel = 0.30, .pan = +0.12,
                             .gain = 0.10 * csGain, .wet_send = 0.40, .detune_cents = 16.0 + csDet });
-        powersaw_render(t0, dur, top + hi,               // subtle upper voice (lifts late)
-            (PowersawOpts){ .atk = 0.10 * csAtk, .rel = 0.30, .pan = 0.0,
+        powersaw_render(t0, dur, top + hi,               // upper voice — LEFT (balances the root)
+            (PowersawOpts){ .atk = 0.10 * csAtk, .rel = 0.30, .pan = -0.12,
                             .gain = 0.07 * csGain, .wet_send = 0.40, .detune_cents = 18.0 + csDet });
     }
     report("  chord stabs + powersaw (chainsaw snarl ~1:30)");
