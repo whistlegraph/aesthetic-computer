@@ -1037,6 +1037,54 @@ static void glock_render(double t0, double dur, double midi, GlockOpts opt) {
     }
 }
 
+// ── turntable scratch (real vinyl "wiki-wiki") ───────────────────────
+// A DJ scratch = a pitched "record" tone whose playback speed is pushed
+// forward and PULLED BACK by hand, under a crossfader chop. We synthesize
+// the record as a buzzy, voice-ish harmonic tone, drive its groove phase
+// by a time-varying speed that swings positive/negative (forward/reverse
+// — phase literally runs backward on the pull), add vinyl surface noise
+// that rides with the motion, and gate the output with the fader so the
+// pull-backs read as the rhythmic "wika-wika" articulation. baseFreq is
+// the record's pitch in Hz; seed varies the gesture (push count + throw).
+static void scratch_render(double t0, double dur, double baseFreq,
+                           double gain, double pan, uint32_t seed) {
+    long iStart = (long)(t0 * SR);
+    long iEnd   = (long)((t0 + dur) * SR);
+    if (iStart < 0) iStart = 0;
+    if (iEnd > N) iEnd = N;
+    uint32_t s = seed | 1u;
+    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+    const int    pushes = 2 + (int)((double)s / 4294967296.0 * 3.0);   // 2..4 wiki-wikis
+    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+    const double depth  = 1.3 + 1.5 * ((double)s / 4294967296.0);      // hand-throw magnitude
+    double phase = 0.0;            // groove phase (runs backward on the pull)
+    uint32_t ns  = seed ^ 0xA5A5A5A5u;
+    for (long i = iStart; i < iEnd; i++) {
+        const double t = (i - iStart) / (double)SR;
+        const double u = (dur > 0) ? t / dur : 0.0;                    // 0..1
+        // amplitude env: fast attack, slight edge fades so it doesn't click
+        double env = (u < 0.04) ? (u / 0.04)
+                   : (u > 0.86) ? fmax(0.0, (1.0 - u) / 0.14) : 1.0;
+        // hand motion: speed swings forward(+)/back(-), forward-biased so
+        // the push is a touch longer/faster than the pull-back.
+        const double m     = sin(u * TAU * pushes);                    // -1..1
+        const double speed = depth * (m + 0.22);
+        phase += baseFreq * speed / (double)SR;                        // can decrease
+        const double ph = TAU * phase;
+        double tone = 0.5 * (sin(ph) + 0.5 * sin(2*ph) + 0.33 * sin(3*ph) + 0.2 * sin(4*ph));
+        ns ^= ns << 13; ns ^= ns >> 17; ns ^= ns << 5;
+        const double noise = ((double)ns / 4294967296.0 - 0.5);
+        tone += noise * 0.12 * fmin(1.0, fabs(speed));                 // surface hiss tracks motion
+        // crossfader: cut while pulling back (speed<0) → the "wika" chop
+        const double fader  = (speed >= 0.0) ? 1.0 : 0.18;
+        const double sample = env * gain * fader * tone;
+        const double sL = sample * (1.0 - 0.5 * pan);
+        const double sR = sample * (1.0 + 0.5 * pan);
+        L[i] += sL;  R[i] += sR;
+        WL[i] += sL * 0.22;  WR[i] += sR * 0.22;                       // light verb glue
+    }
+}
+
 // ── Schroeder reverb (long deep-house cathedral) ─────────────────────
 // Wetter feedback (0.88) + longer comb delays for sustain.
 typedef struct { float *buf; long size; long idx; float feedback; } Comb;
@@ -1671,9 +1719,39 @@ static void render_track(void) {
         // ashh/ooh drone (@jeffrey "bring those snares down when the jeffrey
         // vocals come in"). The 3:30 transition hit below stays loud.
         const double SNARE_VEL = 0.36;
+        // The final ~90 s drives to the resolve. @jeffrey: pull the 808 snare
+        // DOWN there so it isn't so loud, and SHAKE IT UP by occasionally
+        // swapping a bar's plain backbeats for a reverse-snare -> snare fill
+        // that swells into the next downbeat (same gesture as the 3:30 hero).
+        const int    LATE_START_BAR = (int)((TOTAL_SEC - 90.0) / BAR + 0.5);  // ~bar 92 (3:03)
+        const double LATE_DUCK      = 0.58;   // backbeat velocity multiplier in the last 90 s
         for (int bar = 42; bar < TOTAL_BARS - 2; bar++) {
             if (bar >= 48 && bar < 64) continue;            // break
             const double t0 = bar * BAR;
+            const int    late     = bar >= LATE_START_BAR;
+            const double lateDuck = late ? LATE_DUCK : 1.0;
+            // Snare stays SUBTLE most of the time (@jeffrey). Fade it in slowly
+            // rather than snapping to full: a gentle taste-in at the first
+            // entry, and — when the beat RETURNS after the break — a long
+            // 16 s swell up to full so it eases back under the drop.
+            double snareFade = 1.0;
+            if      (bar >= 42 && bar < 46) snareFade = 0.40 + 0.60 * ((bar - 42) / 4.0);
+            else if (bar >= 64 && bar < 72) snareFade = 0.15 + 0.85 * ((bar - 64) / 8.0);
+
+            // SHAKE-IT-UP fill: in the late region, ~1 bar in 5 trades its
+            // plain backbeats for a reverse-snare swell that lands a forward
+            // 808 on the NEXT downbeat. Steer clear of the 3:30 hero gesture
+            // (bars 103-105) and the outro so they stay clean.
+            uint32_t fh = (uint32_t)(bar * 2166136261u + 0x9e3779b9u) | 1;
+            fh ^= fh << 13; fh ^= fh >> 17; fh ^= fh << 5;
+            const int fill = late && bar < TOTAL_BARS - 3
+                             && (bar < 103 || bar > 105)
+                             && ((double)fh / 4294967296.0) < 0.20;
+            if (fill) {
+                snare_reverse_render(t0, BAR, 0.26, 0.0);            // gentle 2 s swell
+                snare808(t0 + BAR, SNARE_VEL * LATE_DUCK * 1.5, 0.0); // accented landing, still ducked
+                continue;                                            // skip plain backbeats this bar
+            }
             // Character drifts per 4-bar PHRASE (not per hit) so the 808
             // evolves gently through the track instead of lurching every
             // backbeat (@jeffrey "too crazy"). Mostly normal; a phrase here
@@ -1700,7 +1778,7 @@ static void render_track(void) {
                 const double freqMul = baseFreq * (1.0 + 0.04 * j);
                 const double decMul  = baseDec  * (1.0 + 0.15 * j);
                 const double wet     = fmax(0.0, baseWet + 0.03 * j);
-                const double vel     = SNARE_VEL * baseVel * (1.0 + 0.10 * j);
+                const double vel     = SNARE_VEL * baseVel * lateDuck * snareFade * (1.0 + 0.10 * j);
                 const int dense = phDense && (bt == 3);   // flam only on the 4 of punchy phrases
                 const double pan = (bt == 1 ? -0.05 : 0.05);
                 const double th = t0 + bt * SPB + humanize(t0 + bt, 15, 5);
@@ -1831,7 +1909,7 @@ static void render_track(void) {
         // resolution. The 8-step phrase spans 4 bars so it breathes over
         // the chord changes, then repeats.
         const int contour[8] = { 0, 2, 4, 3, 2, 1, 2, 0 };
-        for (int bar = 48; bar < 56; bar++) {   // first half of the break; vortex takes over at 56
+        for (int bar = 48; bar < 52; bar++) {   // the RESOLVING statement; lift + vortex follow
             const Chord *c = chord_for_bar(bar);
             // low→high chord tones in a warm mid bell register
             const int tones[5] = { c->root + 12, c->third + 12, c->fifth + 12,
@@ -1853,6 +1931,28 @@ static void render_track(void) {
         report("  resolved break melody: chord-tone bells (clean, no noise hat)");
     }
 
+    // 5a··· · PRE-VORTEX LIFT (~1:44-1:52, bars 52-55) — the 8 s that set the
+    //         vortex up, REDONE with /pop dance STUDY in mind ("a build is
+    //         tension that pays off on the drop downbeat"). Where bars 48-51
+    //         resolved DOWN to the root, these four bars do the opposite: a
+    //         stepwise ASCENT up the G-major scale that DEFERS resolution —
+    //         each step climbs higher, swells louder, rings longer — tilting
+    //         the ear up and forward so the vortex (and the drop) feel earned.
+    {
+        const double SPB = 60.0 / BPM;
+        const int root = PROG[0].root + 12;                  // tonic G, bright bell register
+        const int scale[8] = { 0, 2, 4, 5, 7, 9, 11, 12 };   // G-major degrees, climbing
+        for (int step = 0; step < 8; step++) {               // 8 eighths over the 4 bars
+            const double frac = step / 7.0;                   // 0..1 up the climb
+            const double at = 52.0 * BAR + step * 2.0 * SPB + humanize(52.0 + step, 10, 3);
+            glock_render(at, 1.2 + 1.4 * frac + 0.5, root + scale[step],
+                (GlockOpts){ .decay_s = 1.2 + 1.4 * frac,
+                             .pan = (step & 1 ? 0.18 : -0.18),
+                             .gain = 0.06 + 0.06 * frac, .wet_send = 0.80 });
+        }
+        report("  pre-vortex lift: ascending G-major bells deferring resolution into the vortex");
+    }
+
     // 5a·· · BELL VORTEX (~1:52-2:08) — @jeffrey: "the 2:00 mark with no
     //        kicks and just the sine bells… our chance for a banging bell
     //        vortex! use all our bells and whistles!" The empty break
@@ -1864,10 +1964,14 @@ static void render_track(void) {
         // a WIDE G-pentatonic pool across octaves = all the bells/whistles
         const int pool[] = { 55,57,59,62,64,67,69,71,74,76,79,81,83,86 }; // G3..D6
         const int npool = (int)(sizeof(pool) / sizeof(pool[0]));
+        // pool indices whose pitch is the DOMINANT D (62,74,86) — the last
+        // bar leans on these so the storm PULLS to the tonic G at the drop.
+        const int domIdx[3] = { 3, 8, 13 };
         uint32_t vr = 0xBE11C0DEu;
         for (int bar = 56; bar < 64; bar++) {
             const double t0 = bar * BAR;
             const double build = (double)(bar - 56) / 7.0;       // 0..1 toward the drop
+            const int lastBar = (bar == 63);                     // dominant pull into the drop
             const int subdiv = (bar < 60) ? 8 : 16;              // accelerate into the vortex
             for (int s = 0; s < subdiv; s++) {
                 vr ^= vr << 13; vr ^= vr >> 17; vr ^= vr << 5;
@@ -1875,10 +1979,20 @@ static void render_track(void) {
                 vr ^= vr << 13; vr ^= vr >> 17; vr ^= vr << 5;
                 const double r1 = (double)vr / 4294967296.0;
                 const double tb = t0 + s * (BAR / subdiv);
-                // SCRATCH flick: a quick 3-note pitch glissando (up or down)
-                // from a seed tone — reads like a turntable flick.
+                // SCRATCH flick: a quick 3-note pitch glissando (up or down).
+                // The seed tone ARCS UP with the build (rising register =
+                // rising tension, /pop dance STUDY); the final bar locks onto
+                // the dominant so the whole storm leans toward the resolve.
                 const int dir = (r0 < 0.5) ? 1 : -1;
-                int idx = (int)(r1 * (npool - 3)); if (idx < 0) idx = 0;
+                int idx;
+                if (lastBar) {
+                    idx = domIdx[(int)(r1 * 3.0) % 3];
+                } else {
+                    const double lo = 0.10 + 0.45 * build;       // register floor rises
+                    idx = (int)((lo + (0.45 - 0.15 * build) * r1) * (npool - 3));
+                }
+                if (idx < 0) idx = 0;
+                if (idx > npool - 3) idx = npool - 3;
                 for (int f = 0; f < 3; f++) {
                     const int m = pool[((idx + dir * f) % npool + npool) % npool];
                     // spinning pan = the vortex
@@ -1889,8 +2003,28 @@ static void render_track(void) {
                                      .gain = g, .wet_send = 0.55 });
                 }
             }
+            // REAL TURNTABLE SCRATCHES woven through the vortex flow (@jeffrey
+            // "actual scratching"). Count grows 1→2 as the build climbs, pitch
+            // rises with it, pan spins. The FINAL bar throws ONE decisive
+            // scratch pitched to the dominant (D) that pulls home into the G
+            // drop — the DJ hand dragging the record back onto the downbeat.
+            const int nScratch = lastBar ? 1 : (bar < 60 ? 1 : 2);
+            for (int sc = 0; sc < nScratch; sc++) {
+                vr ^= vr << 13; vr ^= vr >> 17; vr ^= vr << 5;
+                const double rs = (double)vr / 4294967296.0;
+                const double at = lastBar
+                    ? t0 + humanize(t0, 8, 2)
+                    : t0 + sc * (BAR / nScratch) + humanize(t0 + sc, 10, 3);
+                const double sdur  = lastBar ? (BAR * 0.92)
+                                             : (0.30 + 0.12 * build) * (0.85 + 0.3 * rs);
+                const double sgain = lastBar ? 0.22 : (0.13 + 0.09 * build);
+                const double span  = sin(at * 5.0 + sc) * 0.7;
+                const double freq  = lastBar ? 293.66                 // D4 = the dominant pull
+                                             : 190.0 + 150.0 * build + 40.0 * rs;
+                scratch_render(at, sdur, freq, sgain, span, vr | 1u);
+            }
         }
-        report("  bell vortex ~1:52-2:08: scratch glissandos + spinning pan, building into drop 2");
+        report("  bell vortex ~1:52-2:08: rising scratch-flick storm + REAL vinyl scratches, dominant pull into the G drop");
     }
 
     // 5a+ · HIHAT SPEED-UP — fast hi-hats in a metric accelerando through

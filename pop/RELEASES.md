@@ -205,23 +205,40 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   `~/Documents/Shelf/gens/ac-header/` (jeffrey refs +
   whistlegraph-butterfly.png + pals-logo.png), gen v6.
 
-## amaythingra (amazing grace, dance) — SUBMITTED (4:33 vowel-extraction remix)
+## amaythingra (amazing grace, dance) — SUBMITTED · v2 FINAL master (4:33 vowel-extraction remix)
 
 - **Lane:** `pop/big-pictures/c/` (C-engine bed) · 120 BPM 4/4 · G major
   · Loukeman-style deep-house remix of Amazing Grace.
 - **Artist:** Aesthetic Dot Computer · **Album:** *Pixsies*
-- **Status:** SUBMITTED — **uploaded to DistroKid 2026-06-02**, awaiting go-live
-  in stores. Canonical URL pending (TODO: add when DistroKid surfaces it; then
-  flip to RELEASED + publish CDN assets, like marimbaba).
+- **Status:** **v2 is the FINAL master (2026-06-03).** v1 was uploaded to
+  DistroKid 2026-06-02 (awaiting go-live) — to ship v2, replace/re-upload the
+  DistroKid file from `~/Desktop/Amaythingra.wav` (next time it surfaces, fill
+  in the canonical URL + flip to RELEASED + publish CDN assets, like marimbaba).
 - **The cut:** a 4:33 **vowel-extraction** remix — the hymn vocals stripped to
   OPEN/ROUNDED vowels only (ah/aw/uh — "ashhs and oooh", no consonants), their
   sustain loops **beat-aligned to the kick grid**, softened with per-voice
   vibrato + amplitude scatter (jazzy, breathing), and ridden **deep in the mix**
   (vox 0.07 + heavy reverb wash) so they ghost in faint from ~2:00 under the bed.
-- **Master:** **-14.0 LUFS / -1.6 dBTP**, 44.1 kHz/16-bit, 0 clipping, stereo
-  balance centered (peak L-R ~-0.03 dB). Deliverables: `~/Desktop/Amaythingra.wav`
-  + `~/Desktop/Amaythingra.mp3` (Title-Case tags) and the packaged set in
-  `~/Desktop/amaythingra-DistroKid/` (tagged WAV + cover-embedded mp3 + cover-3000.png).
+- **v2 break rebuild (2026-06-03, @jeffrey):** the ~1:36-2:08 break is now a
+  proper trance-style **build** (per `pop/dance/STUDY.md` — "tension that pays
+  off on the drop downbeat"). Bars 48-51 still state + resolve; **bars 52-55**
+  (~1:44-1:52) flip to an **ascending G-major bell climb that defers
+  resolution** (each step higher/louder/longer); **bars 56-63** keep the dense
+  swirling **bell vortex** but now arc **upward in register** and lean onto the
+  **dominant (D)** in the last bar. Real **turntable scratches** are woven
+  through the vortex (`scratch_render` in `c/amaythingra.c` — a vinyl "record"
+  tone with forward-push / backward-pull groove phase, surface hiss tracking
+  the hand speed, crossfader chop on the pull-back), growing 1→2 per bar, with
+  one decisive **D-pitched scratch dragging back onto the downbeat** as drop 2
+  lands on the tonic **G** at bar 64 (2:08). Plus: final-90s 808 backbeat
+  **ducked** + occasional **reverse-snare→snare fills**, and the 808 **fades in
+  slowly** when the beat returns after the break (subtle most of the track).
+- **Master (v2):** **-14.0 LUFS / -1.23 dBTP**, 44.1 kHz/16-bit, 0 clipping.
+  Deliverables: `~/Desktop/Amaythingra.wav` + `~/Desktop/Amaythingra.mp3`
+  (Title-Case tags) + `~/Desktop/Amaythingra-v2.wav` (48k/24-bit master) and the
+  packaged set in `~/Desktop/amaythingra-DistroKid/` (tagged WAV +
+  cover-embedded mp3 + cover-3000.png). Source masters live in
+  `~/Documents/Shelf/amaythingra/`.
 - **Pipeline** (supersedes the bake-c-dance.mjs recipe below):
   1. `node pop/big-pictures/bin/extract-vowels.mjs` → ah/ooh vowel drone stem
      (gated to open+rounded vowels, tight grain window, beat-aligned loops,
