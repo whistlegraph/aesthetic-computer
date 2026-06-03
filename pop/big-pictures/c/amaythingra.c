@@ -42,7 +42,7 @@
 // ── config ────────────────────────────────────────────────────────────
 static const int SR = 48000;
 static double BPM = 120.0;
-static double TOTAL_SEC = 274.0;   // ~4:34 — winds down + resolves (was a hard 5:00 cut, @jeffrey)
+static double TOTAL_SEC = 273.0;   // 4:33 exactly (@jeffrey) — winds down + resolves
 static const char *OUT_PATH = NULL;
 // --drive <x>: pre-tanh scale. 1.0 (default) keeps the original hard
 // tanh "limiter" used by the released cover. The vowel bake passes a
@@ -643,6 +643,33 @@ static void snare_render(double t0, SnareOpts opt) {
         const double sample = (0.75 * hp_out + 0.25 * tone) * env * opt.gain;
         L[i] += sample * (1.0 - 0.5 * opt.pan);
         R[i] += sample * (1.0 + 0.5 * opt.pan);
+    }
+}
+
+// ── reverse snare (the snare's noise burst, played backwards) ─────────
+// A high-passed noise wash whose envelope SWELLS from near-silent up to a
+// hard cut at t0+dur, brightening as it rises so it "opens up" and sucks
+// INTO a downbeat. Pair with a forward snare808 on the landing beat for a
+// "reverse-snare → snare" transition fill (@jeffrey, 3:30).
+static void snare_reverse_render(double t0, double dur, double gain, double pan) {
+    long iStart = (long)(t0 * SR);
+    long iEnd = iStart + (long)(dur * SR);
+    if (iStart < 0) iStart = 0;
+    if (iEnd > N) iEnd = N;
+    uint32_t s = (uint32_t)(t0 * 1000003.0) | 1;
+    double hp_in_prev = 0.0, hp_out_prev = 0.0;
+    for (long i = iStart; i < iEnd; i++) {
+        const double t = (i - iStart) / (double)SR;
+        const double u = t / dur;                 // 0 → 1 across the swell
+        const double env = u * u;                 // quadratic crescendo, rushing up late
+        const double bright = 0.5 + 0.45 * u;     // opens up toward the hit
+        s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+        const double noise = ((double)s / 4294967296.0) * 2.0 - 1.0;
+        const double hp_out = bright * (hp_out_prev + noise - hp_in_prev);
+        hp_in_prev = noise; hp_out_prev = hp_out;
+        const double sample = hp_out * env * gain;
+        L[i] += sample * (1.0 - 0.5 * pan);
+        R[i] += sample * (1.0 + 0.5 * pan);
     }
 }
 
@@ -1461,22 +1488,30 @@ static void render_track(void) {
                                 .pitch_hi = kphi * opf * 0.97, .pitch_lo = kplo * opf,
                                 .pitch_dur = kpdur, .decay_s = kdec * 0.8 });
             }
-            // REVERSE KICK — SPRINKLED, never earlier than ~30 s
-            // (@jeffrey 2026-05-29). Picks 6 strategic bar boundaries
-            // through the rest of the track instead of every 4 bars.
-            // Each is a 2-beat rising sweep building into the next bar.
-            const int rev_bars[] = { 23, 79, 95 };   // dropped 39 & 47 (1:18/1:34 "big crashes" — too dramatic, @jeffrey)
-            const int n_rev = sizeof(rev_bars) / sizeof(rev_bars[0]);
+            // REVERSE KICK "woops" — SPRINKLED, never earlier than ~30 s
+            // (@jeffrey 2026-05-29). Each entry tunes its OWN length + pitch
+            // range + pan so the late-track woops at ~3:00 and ~3:12 read as
+            // DISTINCT, longer swooshes rather than three identical sweeps
+            // (@jeffrey "those woops can be different longer").
+            //   bar 88 ≈ 2:56 · bar 90 ≈ 3:00 · bar 95 ≈ 3:10-3:12
+            typedef struct { int bar; double offBeats, gain, plo, phi, durBeats; } RevKick;
+            static const RevKick rev_kicks[] = {
+                { 23, 2, 1.6,  60, 220, 2 },    // mid-track sprinkle (unchanged)
+                { 79, 0, 2.0,  50, 260, 4 },    // major DROP-2 transition (big)
+                { 88, 0, 1.7,  40, 190, 6 },    // ~2:56 — long, low, slow "booooowub" rise
+                { 90, 1, 1.7,  64, 320, 5 },    // ~3:01 — later onset, sweeps higher/brighter
+                { 95, 0, 1.9,  72, 380, 8 },    // ~3:10 — longest, highest "wooooop" lifting into the outro
+            };
+            const int n_rev = sizeof(rev_kicks) / sizeof(rev_kicks[0]);
             for (int q = 0; q < n_rev; q++) {
-                if (bar == rev_bars[q]) {
-                    // Bigger sweeps on the major transition bars
-                    const int big = (bar == 15 || bar == 47 || bar == 79);
-                    reverse_kick_render(t0 + (big ? 0 : 2 * SPB),
+                if (bar == rev_kicks[q].bar) {
+                    const RevKick rk = rev_kicks[q];
+                    reverse_kick_render(t0 + rk.offBeats * SPB,
                         (ReverseKickOpts){ .pan = 0.0,
-                                           .gain = big ? 2.0 : 1.6,
-                                           .pitch_lo = big ? 50 : 60,
-                                           .pitch_hi = big ? 260 : 220,
-                                           .dur = big ? 4 * SPB : 2 * SPB });
+                                           .gain = rk.gain,
+                                           .pitch_lo = rk.plo,
+                                           .pitch_hi = rk.phi,
+                                           .dur = rk.durBeats * SPB });
                     break;
                 }
             }
@@ -1609,13 +1644,28 @@ static void render_track(void) {
     // drives the second half (skips the break + final outro) (@jeffrey).
     {
         const double SPB = 60.0 / BPM;
+        // Snares sit UNDER the vocals now they're back in the mix: backbeat
+        // velocity pulled down from 0.50 so the 808 doesn't fight the
+        // ashh/ooh drone (@jeffrey "bring those snares down when the jeffrey
+        // vocals come in"). The 3:30 transition hit below stays loud.
+        const double SNARE_VEL = 0.36;
         for (int bar = 42; bar < TOTAL_BARS - 2; bar++) {
             if (bar >= 48 && bar < 64) continue;            // break
             const double t0 = bar * BAR;
-            snare808(t0 + 1.0 * SPB + humanize(t0 + 1, 15, 5), 0.50, -0.05);  // beat 2, laid back
-            snare808(t0 + 3.0 * SPB + humanize(t0 + 3, 15, 5), 0.50, +0.05);  // beat 4, laid back
+            snare808(t0 + 1.0 * SPB + humanize(t0 + 1, 15, 5), SNARE_VEL, -0.05);  // beat 2, laid back
+            snare808(t0 + 3.0 * SPB + humanize(t0 + 3, 15, 5), SNARE_VEL, +0.05);  // beat 4, laid back
         }
-        report("  808 snare on backbeats from ~1:25");
+        report("  808 snare on backbeats from ~1:25 (ducked under vocals)");
+
+        // ── reverse-snare → snare transition at 3:30 (bar 105) ───────────
+        // A 1-bar reverse snare swells UP into the 3:30 downbeat and lands
+        // on a louder forward 808 hit — the "snare-reverse-snare" gesture
+        // (@jeffrey). Sits right where the 2:30-3:30 play-more bell section
+        // ends and the groove drives on into the outro.
+        const double land = 105.0 * BAR;                // 210.0 s = 3:30 downbeat
+        snare_reverse_render(land - BAR, BAR, 0.42, 0.0);   // 2 s crescendo swell
+        snare808(land, 0.85, 0.0);                          // the landing hit
+        report("  reverse-snare -> snare transition @3:30");
     }
 
     // OPENING SINE BELL REMOVED — the long G5/G6 sine tails read as
@@ -1675,13 +1725,17 @@ static void render_track(void) {
         const double csDet  = cs * 3.0;         // faint buzz only
         const double csGain = 1.0 + cs * 0.05;  // no real swell
         const double csAtk  = 1.0 - cs * 0.1;
-        powersaw_render(t0, dur, c->root - 12,           // sub saw — more low
+        // Lift the hymnal saws an octave through the late outro approach so
+        // they climb HIGHER by ~3:45 (@jeffrey). Sub stays low for weight;
+        // the mid + top voices rise. Ramps in from bar 104 (~3:28).
+        const int hi = (bar >= 104) ? 12 : 0;
+        powersaw_render(t0, dur, c->root - 12,           // sub saw — stays low for weight
             (PowersawOpts){ .atk = 0.06 * csAtk, .rel = 0.30, .pan = -0.16,
                             .gain = 0.13 * csGain, .wet_send = 0.35, .detune_cents = 12.0 + csDet });
-        powersaw_render(t0, dur, c->root,                // low-mid root
+        powersaw_render(t0, dur, c->root + hi,           // low-mid root (lifts late)
             (PowersawOpts){ .atk = 0.08 * csAtk, .rel = 0.30, .pan = +0.12,
                             .gain = 0.10 * csGain, .wet_send = 0.40, .detune_cents = 16.0 + csDet });
-        powersaw_render(t0, dur, top,                    // subtle upper voice
+        powersaw_render(t0, dur, top + hi,               // subtle upper voice (lifts late)
             (PowersawOpts){ .atk = 0.10 * csAtk, .rel = 0.30, .pan = 0.0,
                             .gain = 0.07 * csGain, .wet_send = 0.40, .detune_cents = 18.0 + csDet });
     }

@@ -37,9 +37,14 @@ const NOTES = [
   { tone: 659.25, dur: 0.15, vol: 0.70 }, // E5
   { tone: 783.99, dur: 0.20, vol: 0.80 }, // G5
 ];
-const GAP = 0.060;
+// @jeffrey: space the chimes out — ONE PER KICK, still on the beat. Each
+// note onset lands exactly one beat apart (0.5 s @ 120 BPM) so the three
+// chimes ring out on three consecutive kicks instead of a fast arpeggio.
+const BPM  = parseFloat(flag("bpm", "120"));
+const STEP = parseFloat(flag("step", (60 / BPM).toFixed(4))); // one beat / kick
 
-const totalSec = NOTES.reduce((s, n) => s + n.dur + GAP, 0) + 0.10;
+const lastNote = NOTES[NOTES.length - 1];
+const totalSec = (NOTES.length - 1) * STEP + lastNote.dur + 0.30;
 const N = Math.ceil(totalSec * SR);
 const buf = new Float32Array(N);
 
@@ -49,9 +54,9 @@ function triangle(phase) {
   return (2 / Math.PI) * Math.asin(Math.sin(2 * Math.PI * phase));
 }
 
-let cursor = 0; // seconds
+let step = 0; // note index → onset = step * STEP (one per kick, on the beat)
 for (const n of NOTES) {
-  const start = Math.round(cursor * SR);
+  const start = Math.round(step * STEP * SR);
   const len = Math.round(n.dur * SR);
   const atk = Math.round(0.003 * SR);
   const dec = n.dur * 0.6;
@@ -65,7 +70,7 @@ for (const n of NOTES) {
     const idx = start + i;
     if (idx < N) buf[idx] += s;
   }
-  cursor += n.dur + GAP;
+  step++;
 }
 
 // write a temp raw f32 → let ffmpeg wrap to 16-bit pcm wav (mono 48k)

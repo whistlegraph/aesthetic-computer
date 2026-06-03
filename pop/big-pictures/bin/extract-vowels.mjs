@@ -65,9 +65,20 @@ const CRISP           = flag("crisp", "2");                       // rubberband 
 const HARMONY = flag("harmony", "0,-12").split(",").map((s) => parseInt(s, 10));
 const DRONE_GAIN = parseFloat(flag("drone-gain", "0.18"));        // continuous floor level (0 = off)
 const NO_CACHE = argv.includes("--no-cache");
-const CORE_START = parseFloat(flag("core-start", "0.30"));
-const CORE_END   = parseFloat(flag("core-end", "0.68"));
+// Tighter default core window than before: pull the grain to the pure
+// vowel nucleus so consonant onsets/codas can't leak in (@jeffrey: "no
+// consonants in the jeffrey takes"). The min-length guard below still
+// widens it for short takes.
+const CORE_START = parseFloat(flag("core-start", "0.36"));
+const CORE_END   = parseFloat(flag("core-end", "0.62"));
 const STRETCH_CAP = 5.0;   // max rubberband ratio (loop first to stay under)
+// Vowel gate (@jeffrey: "only ashhhs and oooh"). Keep the open + rounded
+// vowels — ah (the "ashh") and aw/uh (the rounded "oooh") — and drop the
+// bright/closed syllables (zing=ih, grace/wretch=eh, sweet/me/see=ee,
+// saved=ay) whose hard consonant attacks carry the words. Timing still
+// advances across skipped syllables, so the kept vowels stay on their
+// original onsets with the dropped ones simply left as breathing room.
+const KEEP_VOWELS = flag("vowels", "ah,aw,uh").split(",").map((s) => s.trim());
 
 // ── tooling ───────────────────────────────────────────────────────────
 const WORLD_PY  = resolve(POP, ".venv/bin/python");
@@ -171,26 +182,31 @@ for (const sample of spec.samples) {
   if (!sample.score) continue;
   for (let i = 0; i < sample.score.notes.length; i++) {
     const n = sample.score.notes[i];
+    const vowel = (VOWELS[sample.name] || [])[i] || "ah";
+    // Advance the timeline for EVERY syllable so kept vowels keep their
+    // original onsets; only push the ones that pass the vowel gate.
+    const onsetSec = cumBeats * STRIDE_PER_BEAT;
+    cumBeats += n.beats;
+    if (!KEEP_VOWELS.includes(vowel)) continue;  // drop bright/closed vowels
     const takePath = `${TAKES_DIR}/${sample.name}-note-${i}.wav`;
     notes.push({
       idx: notes.length,
       sampleName: sample.name,
       noteIdx: i,
-      onsetSec: cumBeats * STRIDE_PER_BEAT,
+      onsetSec,
       holdSec: n.beats * HOLD_PER_BEAT,
       targetMidi: sample.score.rootMel + n.off,
-      vowel: (VOWELS[sample.name] || [])[i] || "ah",
+      vowel,
       takePath: existsSync(takePath) ? takePath : null,
     });
-    cumBeats += n.beats;
   }
 }
 const TOTAL = notes.length
   ? Math.max(...notes.map((n) => n.onsetSec + n.holdSec)) + 1
   : 0;
 console.log(
-  `vowel extraction: ${notes.length} syllables · onset span ` +
-  `${(cumBeats * STRIDE_PER_BEAT).toFixed(1)}s · total ${TOTAL.toFixed(1)}s\n` +
+  `vowel extraction: ${notes.length} syllables kept [${KEEP_VOWELS.join("/")}] · ` +
+  `onset span ${(cumBeats * STRIDE_PER_BEAT).toFixed(1)}s · total ${TOTAL.toFixed(1)}s\n` +
   `  hold/beat ${HOLD_PER_BEAT}s · stride/beat ${STRIDE_PER_BEAT}s · ` +
   `harmony [${HARMONY.join(", ")}] · drone ${DRONE_GAIN}\n`
 );

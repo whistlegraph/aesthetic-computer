@@ -46,9 +46,12 @@ const BED_GAIN    = flag("bed", "0.9");
 const REVERB      = parseFloat(flag("reverb", "0.22"));
 const VOX_FADEIN  = parseFloat(flag("vox-fadein", "15")); // slow swell into the track
 const VOX_DELAY   = parseFloat(flag("vox-delay", "1.5")); // true silence before the swell
+// @jeffrey: the jeffrey ahh/ooh vocals should ONLY appear in the last N
+// seconds — an outro vocal swell, not a full-length wash. >0 windows the
+// TAIL of the vowel stem and places it so it rides out the final N s.
+const VOX_LAST    = parseFloat(flag("vox-last", "60"));   // 0 = full-length (old behavior)
 const DRIVE       = flag("drive", "0.30");                // engine pre-tanh soft-clip (kills maxing)
 const MONO_KICK   = !argv.includes("--haas-kick");        // mono-solid low end (no HAAS phase smear)
-const PEAK_DB     = parseFloat(flag("peak", "-1.0"));     // master true-peak ceiling
 const MONO_BASS_HZ = parseFloat(flag("mono-bass", "120")); // fold bed lows below this to mono (0 = off)
 const BED_ONLY    = argv.includes("--bed-only");          // master just the bed, no vocals
 // Opening rebalance (@jeffrey 2026-06-02): the bed's crunchy kicks slam
@@ -57,8 +60,15 @@ const BED_ONLY    = argv.includes("--bed-only");          // master just the bed
 // swells up instead of punching in. The chainsaw/tornado FX were "wayyy
 // too loud" — knocked right down (now flag-tunable).
 const BED_FADEIN  = parseFloat(flag("bed-fadein", "6"));  // bed swell-in seconds (0 = off)
+// @jeffrey: more drama at the FIRST DROP (the 0:32 WOOP). Pull the build
+// DOWN over the seconds leading in (anticipation), then snap back to full
+// ON the drop so it hits harder by contrast. The dip ramps from 1.0 →
+// DROP_DIP across DROP_DIP_LEN s ending at DROP_AT, then jumps to full.
+const DROP_AT      = parseFloat(flag("drop-at", "32"));    // 0:32 WOOP downbeat
+const DROP_DIP     = parseFloat(flag("drop-dip", "0.58")); // build floor (1 = no dip)
+const DROP_DIP_LEN = parseFloat(flag("drop-dip-len", "6"));// seconds of dip before the drop
 const SAW_GAIN    = parseFloat(flag("saw", "0"));         // chainsaw sample REMOVED (@jeffrey)
-const WIND_GAIN   = parseFloat(flag("wind", "0.06"));     // tornado in break (was 0.20)
+const WIND_GAIN   = parseFloat(flag("wind", "0"));        // tornado REMOVED — too loud/annoying (@jeffrey)
 // @jeffrey 2026-06-02: an "aesthetic dot computer" voice stamp before the
 // drop, but the "com" is replaced by a single crow CAW (crow ≈ caw ≈ com)
 // landing at 2:09 ON THE BEAT (129.0 s = beat 258 on the 0.5 s grid).
@@ -75,11 +85,11 @@ const HUM_VERB    = parseFloat(flag("hum-verb", "0.30")); // reverb wash so the 
 // keep the bed + boot chime + car-horn intro + FX. The vowel stem stays
 // on disk; --no-vox just leaves it out of this mix.
 const NO_VOX      = argv.includes("--no-vox");
-const CHIME_GAIN  = parseFloat(flag("chime", "0"));       // boot chime REMOVED (@jeffrey)
+const CHIME_GAIN  = parseFloat(flag("chime", "0.5"));     // boot chime — flourish at the end of the drop (@jeffrey)
 // @jeffrey 2026-06-02: the boot chime sits WAY quiet + deep in reverb,
 // landing at ~32 s — right after the cowbell (24 s), as part of the build
 // ramp into the WOOP. ON THE BEAT (120 BPM → 32.0 s = bar 16 downbeat).
-const CHIME_DELAY = parseFloat(flag("chime-delay", "26.0"));
+const CHIME_DELAY = parseFloat(flag("chime-delay", "162.0")); // ~2:42, end of drop, on bar 81 downbeat
 
 const ENGINE   = `${C}/amaythingra`;
 const ENGINE_C = `${C}/amaythingra.c`;
@@ -236,13 +246,41 @@ if (!BED_ONLY && USE_HUM) {
 // Assemble the mix label list: bed always, vowels only when included,
 // then the intro layers.
 const mixLabels = [`[bedlvl]`];
-const stages = [bedCond, `[bedmain]volume=${BED_GAIN}${bedFade}[bedlvl]`];
+// Build-dip automation: 1.0 until (DROP_AT - DROP_DIP_LEN), ramp down to
+// DROP_DIP right at DROP_AT, then snap back to 1.0 — the anticipation dip
+// + drop impact. Disabled when DROP_DIP >= 1.
+const dipStart = (DROP_AT - DROP_DIP_LEN).toFixed(3);
+const dropAtS  = DROP_AT.toFixed(3);
+const dropAuto = DROP_DIP < 1
+  ? `,volume='if(lt(t,${dipStart}),1,if(lt(t,${dropAtS}),` +
+    `1-${(1 - DROP_DIP).toFixed(3)}*(t-${dipStart})/${DROP_DIP_LEN.toFixed(3)},1))':eval=frame`
+  : "";
+const stages = [bedCond, `[bedmain]volume=${BED_GAIN}${bedFade}${dropAuto}[bedlvl]`];
 if (keySplitStage) stages.push(keySplitStage);
 if (includeVox) {
-  stages.push(
-    `[1:a]aresample=48000,aformat=channel_layouts=stereo,${reverbStage}` +
+  let voxChain;
+  if (VOX_LAST > 0) {
+    // Outro-only vocals: take the TAIL of the vowel stem and place it so it
+    // occupies just the final VOX_LAST seconds of the track, swelling in.
+    // The master's 7 s tail fade rides it out at the very end.
+    const winLen = Math.min(VOX_LAST, voxDur);
+    const voxStart = Math.max(0, voxDur - winLen);
+    const placeMs = Math.round(Math.max(0, total - winLen) * 1000);
+    const fadeIn = Math.min(VOX_FADEIN, winLen * 0.4);
+    voxChain =
+      `[1:a]aresample=48000,aformat=channel_layouts=stereo,` +
+      `atrim=start=${voxStart.toFixed(3)}:end=${voxDur.toFixed(3)},asetpts=PTS-STARTPTS,` +
+      `${reverbStage}volume=${VOX_GAIN},` +
+      `afade=t=in:st=0:d=${fadeIn.toFixed(2)}:curve=exp,` +
+      `adelay=${placeMs}|${placeMs}[voxwet]`;
+  } else {
+    voxChain =
+      `[1:a]aresample=48000,aformat=channel_layouts=stereo,${reverbStage}` +
       `volume=${VOX_GAIN},afade=t=in:st=0:d=${VOX_FADEIN.toFixed(2)}:curve=exp,` +
-      `adelay=${voxDelayMs}|${voxDelayMs}[voxwet]`,
+      `adelay=${voxDelayMs}|${voxDelayMs}[voxwet]`;
+  }
+  stages.push(
+    voxChain,
     `[voxwet]${keyVox}sidechaincompress=threshold=0.04:ratio=${DUCK_RATIO}:` +
       `attack=5:release=240:makeup=2:level_sc=0.8[voxducked]`);
   mixLabels.push(`[voxducked]`);
@@ -423,4 +461,30 @@ console.log(`  sample peak: ${peakDb} dBFS · clipped samples: ${clipped}` +
 console.log(`\n✓ ${FINAL_WAV.replace(homedir(), "~")} (${dur(FINAL_WAV).toFixed(1)}s · 48k/24-bit master)`);
 console.log(`✓ ${DK_WAV.replace(homedir(), "~")}  ← DistroKid upload (44.1k/16-bit, ${LUFS} LUFS)`);
 console.log(`✓ ${FINAL_MP3.replace(homedir(), "~")}`);
+
+// ── DISTROKID PACKAGE (--package): refresh the tagged WAV + cover-embedded
+// mp3 on the Desktop so every bake keeps the release deliverable current.
+if (argv.includes("--package")) {
+  const PKG = `${homedir()}/Desktop/amaythingra-DistroKid`;
+  mkdirSync(PKG, { recursive: true });
+  const META = `-metadata title="Amaythingra" -metadata artist="Aesthetic Dot Computer" ` +
+    `-metadata album_artist="Aesthetic Dot Computer" -metadata album="Pixsies" ` +
+    `-metadata genre="Dance" -metadata date="2026"`;
+  const deskWav = `${homedir()}/Desktop/amaythingra.wav`;
+  const deskMp3 = `${homedir()}/Desktop/amaythingra.mp3`;
+  const cover3000 = `${PKG}/cover-3000.png`;
+  execSync(`ffmpeg -y -loglevel error -i "${DK_WAV}" -c:a copy ${META} "${deskWav}"`);
+  execSync(`cp "${deskWav}" "${PKG}/amaythingra.wav"`);
+  if (existsSync(cover3000)) {
+    const embed = "/tmp/amaythingra-cover-embed.jpg";
+    execSync(`magick "${cover3000}" -resize 1500x1500 -quality 90 "${embed}"`);
+    execSync(`ffmpeg -y -loglevel error -i "${FINAL_MP3}" -i "${embed}" -map 0:a -map 1:v ` +
+      `-c:a copy -c:v copy -id3v2_version 3 ${META} -metadata:s:v title="Album cover" ` +
+      `-disposition:v:0 attached_pic "${deskMp3}"`);
+  } else {
+    execSync(`ffmpeg -y -loglevel error -i "${FINAL_MP3}" -c:a copy ${META} "${deskMp3}"`);
+  }
+  execSync(`cp "${deskMp3}" "${PKG}/amaythingra-reference.mp3"`);
+  console.log(`✓ packaged → ${PKG.replace(homedir(), "~")} (tagged WAV + cover-embedded mp3, Title-Case)`);
+}
 console.log(`\n  open -a "QuickTime Player" "${FINAL_MP3}"`);
