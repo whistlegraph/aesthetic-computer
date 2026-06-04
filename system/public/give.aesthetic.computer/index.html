@@ -9228,6 +9228,10 @@
 
     // Initialize slideshow when DOM ready (after manifest fetch resolves)
     async function startJeffreysSlideshow() {
+      // TEMP: simplified give page (2026-06-04) — slideshow hidden via CSS;
+      // skip its JS so we don't fetch the heavy jeffrey master images.
+      // Remove this early return to restore the hero slideshow.
+      return;
       try {
         await loadJeffreysManifest();
       } catch (err) {
