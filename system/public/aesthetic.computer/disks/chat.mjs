@@ -807,6 +807,11 @@ function paint(
     ink(...topChrome, 255).box(0, 0, screen.width, topMargin);
   }
 
+  // Optional custom header backdrop (e.g. laklok's circus marquee). Painted
+  // over the chrome panel but UNDER the online counter + ticker, so it can
+  // fill the whole header without hiding them. Receives (api, topMargin).
+  options?.paintHeader?.(api, topMargin);
+
   // Interface
   {
     // Back to prompt arrow removed

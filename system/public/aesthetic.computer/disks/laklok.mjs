@@ -11,6 +11,10 @@ import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
 let client;
 
+// 📐 Top chrome height — shared between chat.paint (topMargin) and the circus
+// marquee so the banner fills the whole header down to the margin line.
+const LAK_TOP_MARGIN = 34;
+
 // 📱 laklok.com QR rendered in the top-right corner (see paintQR).
 let lakQRCells = null;
 
@@ -50,7 +54,7 @@ const LAK_CIRCUS_COLS = [
   [255, 150, 220], // pink
   [180, 150, 255], // violet
 ];
-function paintLaerKlokkenSign($) {
+function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
   const { ink, box, write, screen, text } = $;
   const now = typeof performance !== "undefined" ? performance.now() : 0;
   const t = now * 0.004;
@@ -59,7 +63,7 @@ function paintLaerKlokkenSign($) {
   // Unifont latin glyphs are a fixed 8px advance — no need to measure per frame.
   const CHAR_W = 8;
   const total = label.length * CHAR_W;
-  const headerH = 20; // short marquee strip across the top
+  const headerH = headerHeight; // marquee fills the header down to the margin
   const sx = 0;
   const sy = 0; // flush with the top of the screen (no gap)
   const sw = screen.width; // full-width banner across the header
@@ -116,8 +120,11 @@ function paint($) {
   chat.paint($, {
     otherChat: client.system,
     hideChrome: true,
-    topMargin: 34, // Shorter top chrome panel than the default 42.
-    presenceTop: 22, // Lift the "N online" counter to sit just under the marquee.
+    topMargin: LAK_TOP_MARGIN, // Shorter top chrome panel than the default 42.
+    // 🎪 Circus marquee as the header backdrop — fills the whole chrome panel,
+    // painted under the online counter so the counter stays readable on top.
+    paintHeader: (api, tm) => paintLaerKlokkenSign(api, tm),
+    presenceTop: 24, // "N online" counter sits low in the header, over the marquee.
     theme: {
       background: [180, 100, 60], // Warm terracotta/rust background
       chromeBg: [180, 100, 60], // Match background — no dark banners above/below fold
@@ -145,9 +152,9 @@ function paint($) {
     }
   });
 
-  // Decorative flashy sign on top of the header chrome.
-  paintLaerKlokkenSign($);
-  // 📱 laklok.com QR, top-right corner.
+  // 🎪 The circus marquee is painted as the chat header backdrop (via the
+  // paintHeader option above), so it fills the header under the counter.
+  // 📱 laklok.com QR, top-right corner (over everything).
   paintQR($);
 }
 
