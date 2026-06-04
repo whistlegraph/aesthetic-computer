@@ -104,6 +104,18 @@
             white-space: nowrap;
         }
 
+        /* Per-update illustration banner */
+        .illy-banner {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            display: block;
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            margin-bottom: 1.2em;
+            box-shadow: var(--shadow-soft);
+        }
+
         .sponsor-badge iframe {
             display: block;
             border: 1px solid var(--pink);
@@ -613,6 +625,10 @@
                 <div class="subtitle">aesthetic.computer — cash flow</div>
             </div>
         </div>
+
+        <!-- Per-update illy (generated via bills/bin/gen-illy.mjs); self-removes if absent -->
+        <img class="illy-banner" src="illy.jpg" alt="" onerror="this.remove()">
+
 
         <div class="bill-tabs" role="tablist" aria-label="Bills sections">
             <button class="bill-tab" type="button" data-view-target="income" role="tab" aria-selected="false">Income</button>

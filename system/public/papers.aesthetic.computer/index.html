@@ -162,6 +162,26 @@
         }
         .lang-badge.visible { opacity: 1; }
 
+        /* Top-right bills link */
+        .top-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--dim);
+            text-decoration: none;
+            border: 1px solid var(--box-border);
+            border-radius: 4px;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .top-link:hover { color: var(--pink); border-color: var(--pink); background: var(--box-bg); }
+        .top-link .top-link-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--pink); display: inline-block;
+        }
+
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.6em; }
         .sub a { color: var(--cyan); text-decoration: none; }
 
@@ -661,6 +681,7 @@
                 <div class="lang-option" data-lang="ru" data-flag="ru"><span class="fi fi-ru"></span> Русский</div>
             </div>
         </div>
+        <a class="top-link" href="https://bills.aesthetic.computer" title="aesthetic.computer cash flow & costs"><span class="top-link-dot"></span>bills</a>
     </div>
 
     <header class="hero" aria-label="papers">

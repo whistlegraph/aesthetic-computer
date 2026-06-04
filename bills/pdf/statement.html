@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aesthetic Computer — Billing Statement</title>
+<style>
+  @page { size: letter; margin: 0.6in 0.7in; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Berkeley Mono", "SF Mono", "Menlo", monospace;
+    color: #14141f;
+    font-size: 9.5px;
+    line-height: 1.5;
+    background: #fff;
+  }
+  :root {
+    --pink: #cd5c9b; --cyan: #0891b2; --green: #059669;
+    --gold: #b45309; --red: #dc2626; --purple: #7c3aed;
+    --dim: #6b6b78; --rule: #d8d8e0; --box: #f6f6f9;
+  }
+
+  /* Header */
+  .illy {
+    width: 100%; height: 150px; object-fit: cover;
+    border: 1px solid var(--rule); border-radius: 4px; display: block;
+    margin-bottom: 12px;
+  }
+  .masthead { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2px solid #14141f; padding-bottom: 6px; margin-bottom: 4px; }
+  .masthead h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .masthead .doc { font-size: 9px; color: var(--dim); text-align: right; }
+  .meta { display: flex; gap: 18px; font-size: 8.5px; color: var(--dim);
+    margin-bottom: 14px; flex-wrap: wrap; }
+  .meta b { color: #14141f; font-weight: 700; }
+
+  h2 { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 16px 0 6px; padding-bottom: 2px; border-bottom: 1px solid var(--rule); }
+  h2:first-of-type { margin-top: 4px; }
+
+  /* Summary cards */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
+  .c { border: 1px solid var(--rule); background: var(--box); border-radius: 4px; padding: 7px 8px; }
+  .c .l { font-size: 7px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); }
+  .c .v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .c .s { font-size: 7px; color: var(--dim); margin-top: 1px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 4px 0 2px; }
+  th { text-align: left; font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--dim); font-weight: 700; padding: 3px 5px; border-bottom: 1px solid #14141f; }
+  td { padding: 2.5px 5px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  td.money, th.money { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 700; border-top: 1px solid #14141f; border-bottom: none; }
+
+  .pill { display: inline-block; padding: 0 4px; font-size: 7px; text-transform: uppercase;
+    letter-spacing: 0.03em; border: 1px solid; border-radius: 3px; font-weight: 700; }
+  .p-green { color: var(--green); border-color: var(--green); }
+  .p-gold  { color: var(--gold);  border-color: var(--gold); }
+  .p-red   { color: var(--red);   border-color: var(--red); }
+  .p-cyan  { color: var(--cyan);  border-color: var(--cyan); }
+  .p-purple{ color: var(--purple);border-color: var(--purple); }
+
+  ul.checks { list-style: none; font-size: 9px; }
+  ul.checks li { padding: 1.5px 0 1.5px 16px; position: relative; }
+  ul.checks li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+  ul.checks li b { color: var(--pink); }
+
+  ol.verify { font-size: 9px; padding-left: 16px; }
+  ol.verify li { padding: 1px 0; }
+
+  .note { font-size: 8.5px; color: var(--dim); margin: 4px 0; line-height: 1.55; }
+  .note b { color: #14141f; }
+  code { font-size: 8.5px; background: var(--box); border: 1px solid var(--rule);
+    padding: 0 3px; border-radius: 2px; }
+
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .foot { margin-top: 18px; padding-top: 6px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; font-size: 7.5px; color: var(--dim); }
+
+  .pink { color: var(--pink); } .green { color: var(--green); } .red { color: var(--red); }
+</style>
+</head>
+<body>
+
+  <img class="illy" src="../out/bills-illy.png" alt="">
+
+  <div class="masthead">
+    <h1>Aesthetic Computer — Billing Statement</h1>
+    <div class="doc">STATEMENT<br>2026-06-04</div>
+  </div>
+  <div class="meta">
+    <span><b>Account</b> jeffrey · me@jas.life</span>
+    <span><b>Entity</b> Aesthetic Inc (EIN 33-1483385)</span>
+    <span><b>Period</b> June 2026</span>
+    <span><b>Live</b> bills.aesthetic.computer</span>
+  </div>
+
+  <h2>Summary</h2>
+  <div class="cards">
+    <div class="c"><div class="l">Recurring / month</div><div class="v">~$356</div><div class="s">fixed costs</div></div>
+    <div class="c"><div class="l">DigitalOcean</div><div class="v">~$248</div><div class="s">Apr & May: $248.40</div></div>
+    <div class="c"><div class="l">Gives all-time</div><div class="v green">$562</div><div class="s">25 gives · 6 supporters</div></div>
+    <div class="c"><div class="l">Status</div><div class="v green">Stable</div><div class="s">crisis resolved</div></div>
+  </div>
+  <p class="note">The emergency phase is over. A working laptop and restored Claude access came from the community; the recurring number above is the ordinary monthly cost of keeping every aesthetic.computer service online, before usage-based Anthropic API and per-transaction Stripe/PayPal fees.</p>
+
+  <h2>What's Covered</h2>
+  <ul class="checks">
+    <li><b>MacBook Neo</b> — a working daily laptop · gift from Fía</li>
+    <li><b>Claude Code Max</b> ($100/mo) — restored · first month paid by Sage</li>
+    <li><b>DigitalOcean</b> — all droplets active & paid · account current</li>
+    <li><b>Netlify takedown risk</b> — eliminated · site migrated to the <code>ac-lith</code> droplet</li>
+  </ul>
+  <p class="note"><b>The big change since March:</b> aesthetic.computer no longer runs on Netlify. In late March the whole site moved to a DigitalOcean droplet (<code>ac-lith</code>, 209.38.133.33) running Caddy + an Express adapter serving the same 125+ functions. Bandwidth went from 100&nbsp;GB to 4&nbsp;TB, and the recurring Netlify bill plus the "period ends, site goes dark" risk are gone.</p>
+
+  <h2>Recurring Monthly Costs</h2>
+  <table>
+    <thead><tr><th>Item</th><th>What</th><th class="money">Monthly</th></tr></thead>
+    <tbody>
+      <tr><td>DigitalOcean</td><td>7 droplets + Redis + 150GB volume + Spaces</td><td class="money">~$248</td></tr>
+      <tr><td>Claude Code Max</td><td>development subscription</td><td class="money">~$100</td></tr>
+      <tr><td>Domains (8)</td><td>renewals across registrars (~$100/yr)</td><td class="money">~$8</td></tr>
+      <tr class="total"><td>Recurring monthly</td><td>fixed costs</td><td class="money">~$356</td></tr>
+      <tr><td>+ Anthropic API</td><td>Claude Code usage</td><td class="money">usage</td></tr>
+      <tr><td>+ Stripe / PayPal</td><td>2.9% + $0.30 / ~2.2% + $0.30</td><td class="money">per-txn</td></tr>
+    </tbody>
+  </table>
+
+  <h2>DigitalOcean Detail — ~$248/mo</h2>
+  <div class="twocol">
+    <table>
+      <thead><tr><th>Droplet</th><th class="money">$/mo</th></tr></thead>
+      <tbody>
+        <tr><td>oven · s-8vcpu-16gb · 320GB</td><td class="money">~$96</td></tr>
+        <tr><td>ac-lith · s-2vcpu-4gb (host)</td><td class="money">~$24</td></tr>
+        <tr><td>help · s-2vcpu-4gb</td><td class="money">~$24</td></tr>
+        <tr><td>silo · s-2vcpu-4gb</td><td class="money">~$24</td></tr>
+        <tr><td>at/pds · s-2vcpu-4gb (nyc3)</td><td class="money">~$24</td></tr>
+        <tr><td>session · s-1vcpu-1gb</td><td class="money">~$6</td></tr>
+        <tr><td>legacy-2016 · 1GB (nyc1)</td><td class="money">~$6</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Resource</th><th class="money">$/mo</th></tr></thead>
+      <tbody>
+        <tr><td>Managed Redis/Valkey · db-s-1vcpu-1gb</td><td class="money">$15</td></tr>
+        <tr><td>Block Volume · 150GB nyc1</td><td class="money">$15</td></tr>
+        <tr><td>Spaces · 250GB + bandwidth</td><td class="money">$5</td></tr>
+        <tr><td>Backups / snapshots + overage</td><td class="money">~$9</td></tr>
+        <tr class="total"><td>Droplets ~$204 + resources ~$44</td><td class="money">~$248</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>DigitalOcean Invoice History</h2>
+  <table>
+    <thead><tr>
+      <th>Oct 25</th><th>Nov 25</th><th>Dec 25</th><th>Jan 26</th><th>Feb 26</th>
+      <th>Mar 26</th><th>Apr 26</th><th>May 26</th><th>Jun MTD</th>
+    </tr></thead>
+    <tbody><tr>
+      <td class="money">71.30</td><td class="money">154.74</td><td class="money">182.40</td>
+      <td class="money">110.40</td><td class="money">132.36</td><td class="money">189.12</td>
+      <td class="money">248.40</td><td class="money">248.40</td><td class="money">26.37</td>
+    </tr></tbody>
+  </table>
+  <p class="note">Run rate stepped up in April when <code>oven</code> was upgraded to 16GB/8vCPU for image/code/paper builds and the new <code>ac-lith</code> host came online. June month-to-date is through the 4th.</p>
+
+  <h2>Income Snapshot</h2>
+  <table>
+    <thead><tr><th>Channel</th><th>Detail</th><th class="money">Amount</th></tr></thead>
+    <tbody>
+      <tr><td>Gives (Stripe)</td><td>all-time · 25 gives · 6 monthly supporters</td><td class="money green">$562</td></tr>
+      <tr><td>Keeps (Tezos)</td><td>NFT mints · 2.5 XTZ/mint · live on bills page</td><td class="money">live</td></tr>
+    </tbody>
+  </table>
+
+  <h2>All Services</h2>
+  <table>
+    <thead><tr><th>Status</th><th>Service</th><th class="money">Monthly</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill p-green">active</span></td><td>DigitalOcean</td><td class="money">~$248</td><td>7 droplets incl. lith host + Redis + volume + Spaces</td></tr>
+      <tr><td><span class="pill p-green">active</span></td><td>Claude Code Max</td><td class="money">$100</td><td>restored — first month by Sage</td></tr>
+      <tr><td><span class="pill p-green">active</span></td><td>Anthropic API</td><td class="money">usage</td><td>Claude Code usage</td></tr>
+      <tr><td><span class="pill p-green">active</span></td><td>MongoDB</td><td class="money">$0</td><td>self-hosted on DO silo</td></tr>
+      <tr><td><span class="pill p-purple">retired</span></td><td>Netlify</td><td class="money">$0</td><td>migrated to ac-lith droplet</td></tr>
+      <tr><td><span class="pill p-red">closed</span></td><td>Shopify</td><td class="money">$0</td><td>store closed — reactivate vs. remove</td></tr>
+      <tr><td><span class="pill p-gold">verify</span></td><td>GitHub</td><td class="money">~$500?</td><td>confirm prior-months balance settled</td></tr>
+      <tr><td><span class="pill p-cyan">free</span></td><td>Cloudflare</td><td class="money">$0</td><td>8 zones, Workers — fronts the lith origin</td></tr>
+      <tr><td><span class="pill p-green">active</span></td><td>Firebase / GCP</td><td class="money">$0–50</td><td>free auth + Nanos VMs (verify)</td></tr>
+      <tr><td><span class="pill p-cyan">free</span></td><td>Auth0</td><td class="money">$0</td><td>free tier (7K users)</td></tr>
+      <tr><td><span class="pill p-green">active</span></td><td>Stripe / PayPal</td><td class="money">per-txn</td><td>payment processing</td></tr>
+      <tr><td><span class="pill p-cyan">free</span></td><td>Jamsocket</td><td class="money">$0</td><td>session orchestration</td></tr>
+      <tr><td><span class="pill p-green">active</span></td><td>Domains (8)</td><td class="money">~$8</td><td>~$100/yr across registrars</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Open Items to Verify</h2>
+  <ol class="verify">
+    <li>GitHub — confirm the ~$500 prior-months balance is settled.</li>
+    <li>Shopify — decide: reactivate the store or remove the shop integration.</li>
+    <li>GCP / Nanos — confirm no surprise VM spend.</li>
+    <li>Anthropic API — check burn rate at console.anthropic.com.</li>
+    <li>Domain renewals — check 8 zones for upcoming expirations.</li>
+  </ol>
+
+  <div class="foot">
+    <span>Generated 2026-06-04 · Aesthetic Computer billing</span>
+    <span>bills.aesthetic.computer · give.aesthetic.computer</span>
+  </div>
+
+</body>
+</html>
