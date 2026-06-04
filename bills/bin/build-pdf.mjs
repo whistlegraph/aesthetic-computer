@@ -24,8 +24,14 @@ const REPO = resolve(LANE, "..");
 
 const af = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
 const DATE = af("--date", "2026-06-04");
-const SRC = resolve(LANE, "pdf", "statement.html");
-const OUT = resolve(process.cwd(), af("--out", `${LANE}/out/aesthetic-computer-bills-${DATE}.pdf`));
+// --src selects which document to render: "statement" (internal, default) or
+// "share" (the donor-facing one-pager), or an explicit path.
+const SRC_ARG = af("--src", "statement");
+const SRC = SRC_ARG.includes("/") ? resolve(process.cwd(), SRC_ARG) : resolve(LANE, "pdf", `${SRC_ARG}.html`);
+const DEFAULT_OUT = SRC_ARG === "share"
+  ? `${LANE}/out/aesthetic-computer-support-${DATE}.pdf`
+  : `${LANE}/out/aesthetic-computer-bills-${DATE}.pdf`;
+const OUT = resolve(process.cwd(), af("--out", DEFAULT_OUT));
 const COPY_DIR = af("--copy", null);
 mkdirSync(dirname(OUT), { recursive: true });
 

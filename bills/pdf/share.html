@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aesthetic Computer — Support</title>
+<style>
+  @page { size: letter; margin: 0.55in 0.65in; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  :root {
+    --ink: #14141f; --dim: #5f5f6c; --rule: #dadae2;
+    --pink: #cd5c9b; --cyan: #0891b2; --green: #059669; --gold: #b45309;
+    --box: #f7f7fa;
+  }
+  body {
+    font-family: "Berkeley Mono", "SF Mono", "Menlo", monospace;
+    color: var(--ink); background: #fff; font-size: 10px; line-height: 1.55;
+  }
+
+  .illy { width: 100%; height: 188px; object-fit: cover; display: block;
+    border: 1px solid var(--rule); border-radius: 6px; margin-bottom: 14px; }
+
+  .head { display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2px solid var(--ink); padding-bottom: 8px; margin-bottom: 10px; }
+  h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.015em; line-height: 1; }
+  .head .tag { font-size: 9px; color: var(--dim); text-align: right; max-width: 50%; }
+  .lede { font-size: 11px; line-height: 1.6; margin-bottom: 14px; }
+  .lede b { color: var(--pink); }
+
+  h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--dim); margin: 14px 0 5px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-bottom: 4px; }
+  .s { border: 1px solid var(--rule); background: var(--box); border-radius: 5px; padding: 8px 9px; }
+  .s .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  .s .l { font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); margin-top: 3px; }
+  .s.green .v { color: var(--green); } .s.pink .v { color: var(--pink); } .s.cyan .v { color: var(--cyan); }
+
+  p { margin-bottom: 7px; }
+  .thanks { background: linear-gradient(135deg, rgba(205,92,155,0.10), rgba(8,145,178,0.08));
+    border: 1px solid var(--rule); border-left: 3px solid var(--pink);
+    border-radius: 5px; padding: 9px 11px; margin-bottom: 6px; }
+  .thanks b { color: var(--pink); }
+
+  /* Support / QR block */
+  .support { margin-top: 14px; border: 1.5px solid var(--ink); border-radius: 7px;
+    padding: 13px 15px; }
+  .support-h { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .support-sub { font-size: 9px; color: var(--dim); margin-bottom: 12px; }
+  .qrs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .qr { display: flex; align-items: center; gap: 12px; }
+  .qr img { width: 104px; height: 104px; border: 1px solid var(--rule); border-radius: 4px; }
+  .qr .label { min-width: 0; }
+  .qr .label .t { font-size: 13px; font-weight: 700; }
+  .qr .label .t.give { color: var(--pink); }
+  .qr .label .t.shop { color: var(--cyan); }
+  .qr .label .u { font-size: 9px; color: var(--ink); word-break: break-all; margin-top: 1px; }
+  .qr .label .d { font-size: 8.5px; color: var(--dim); margin-top: 4px; line-height: 1.5; }
+
+  .foot { margin-top: 13px; padding-top: 6px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; font-size: 8px; color: var(--dim); }
+  .foot a, a { color: var(--ink); text-decoration: none; }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+  <img class="illy" src="../out/bills-illy.png" alt="">
+
+  <div class="head">
+    <h1>Aesthetic&nbsp;Computer</h1>
+    <div class="tag">a mobile-first runtime &amp; social network for creative computing · est. by @jeffrey</div>
+  </div>
+
+  <p class="lede">Aesthetic Computer is a free, open place to make and share little interactive programs &mdash; drawings, instruments, games, generative art &mdash; from any phone or laptop. No app store, no sign-up wall: you type a word and a piece appears. It's run by one person and <b>kept alive by the people who use it</b>.</p>
+
+  <h2>Where it stands — June 2026</h2>
+  <div class="stats">
+    <div class="s cyan"><div class="v">~$356</div><div class="l">/mo to keep every service online</div></div>
+    <div class="s green"><div class="v">$562</div><div class="l">given all-time</div></div>
+    <div class="s pink"><div class="v">6</div><div class="l">monthly supporters</div></div>
+    <div class="s"><div class="v">1</div><div class="l">person running it</div></div>
+  </div>
+  <p>Everything &mdash; the website, the live multiplayer sessions, image &amp; code builds, storage, and the language behind every piece &mdash; runs on one small, self-owned server stack for about <b>$356 a month</b>, plus what creative work costs to make. It runs lean on purpose, and the full line-by-line breakdown is public.</p>
+
+  <h2>What your support already did</h2>
+  <div class="thanks">
+    <p style="margin:0"><b>The community kept the lights on this spring.</b> A working laptop arrived as a gift, restored development tools were covered by a friend, and the server bills are current. The hosting was moved onto infrastructure we fully control &mdash; no landlord that can pull the plug. Aesthetic Computer is stable because people chose to keep it that way.</p>
+  </div>
+
+  <div class="support">
+    <div class="support-h">Two ways to support the work</div>
+    <div class="support-sub">Scan with your phone camera &mdash; both open straight in your browser.</div>
+    <div class="qrs">
+      <div class="qr">
+        <img src="../../system/public/bills.aesthetic.computer/qr-give.png" alt="QR to give.aesthetic.computer">
+        <div class="label">
+          <div class="t give">give</div>
+          <div class="u">give.aesthetic.computer</div>
+          <div class="d">One-time or monthly. Every dollar goes straight to keeping the services online.</div>
+        </div>
+      </div>
+      <div class="qr">
+        <img src="../../system/public/bills.aesthetic.computer/qr-shop.png" alt="QR to shop.aesthetic.computer">
+        <div class="label">
+          <div class="t shop">shop</div>
+          <div class="u">shop.aesthetic.computer</div>
+          <div class="d">Prints, shirts &amp; objects from the work &mdash; support by taking a piece home.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Full transparent breakdown · <a href="https://bills.aesthetic.computer">bills.aesthetic.computer</a></span>
+    <span class="nowrap">Aesthetic Inc · 2026-06-04</span>
+  </div>
+
+</body>
+</html>
