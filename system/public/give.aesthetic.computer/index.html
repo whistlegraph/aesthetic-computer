@@ -6895,15 +6895,16 @@
   </style>
   <!-- TEMP: simplified give page (2026-06-04) — remove this block to restore -->
   <style id="temp-simplify-give">
-    /* hide the big jeffrey canvas / visual above the slider */
-    .gift-visual { display: none !important; }
-    /* hide the full grid of content previews under the give bar */
+    /* hide the stats + content-preview modules under the give bar
+       (jeffrey hero canvas + invest are intentionally kept/restored) */
     .stats-section,
     .kidlisp-preview,
     .chat-flip-container,
     .notepat-section,
     .tv-section-wrap,
     .apps-flip-container,
+    .shop-section,
+    .invest-section,
     .hacker-section { display: none !important; }
   </style>
   <!-- /TEMP -->
@@ -9228,10 +9229,6 @@
 
     // Initialize slideshow when DOM ready (after manifest fetch resolves)
     async function startJeffreysSlideshow() {
-      // TEMP: simplified give page (2026-06-04) — slideshow hidden via CSS;
-      // skip its JS so we don't fetch the heavy jeffrey master images.
-      // Remove this early return to restore the hero slideshow.
-      return;
       try {
         await loadJeffreysManifest();
       } catch (err) {
