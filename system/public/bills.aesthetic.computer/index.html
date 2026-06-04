@@ -628,87 +628,92 @@
         </div>
 
         <div class="goal-focus">
-            <div class="goal-kicker">Current goal</div>
-            <div class="goal-title">replace broken laptops for reliable daily development</div>
-            <div class="goal-amount">$2,310 target</div>
-            <p class="goal-sub">Money given right now goes directly to laptop replacements and setup costs.</p>
-            <p class="goal-links"><a href="https://give.aesthetic.computer">Give now at give.aesthetic.computer</a></p>
+            <div class="goal-kicker">Status — June 2026</div>
+            <div class="goal-title">the laptop crisis is over — thank you</div>
+            <div class="goal-amount">~$356/mo to keep running</div>
+            <p class="goal-sub">The emergency is past. A working MacBook Neo and restored Claude access came from the community. What's left is the ordinary monthly cost of keeping every aesthetic.computer service online — gives and keeps cover part of it, the rest comes out of pocket.</p>
+            <p class="goal-links"><a href="https://give.aesthetic.computer">Help cover a month at give.aesthetic.computer</a></p>
             <div class="goal-split">
-                <div class="goal-item goal-item-mac">
+                <div class="goal-item" style="opacity: 0.6;">
                     <div class="goal-item-label">macbook-neo</div>
-                    <div class="goal-item-value">$799</div>
-                    <div class="goal-item-note">A18 Pro, 13-inch, 512GB</div>
+                    <div class="goal-item-value" style="color: var(--green);">✓</div>
+                    <div class="goal-item-note">Gift from Fía 💗</div>
+                </div>
+                <div class="goal-item" style="opacity: 0.6;">
+                    <div class="goal-item-label">claude code max</div>
+                    <div class="goal-item-value" style="color: var(--green);">✓</div>
+                    <div class="goal-item-note">Paid — thanks Sage</div>
                 </div>
                 <div class="goal-item goal-item-framework">
                     <div class="goal-item-label">framework-12</div>
-                    <div class="goal-item-value">$1,300</div>
-                    <div class="goal-item-note">i5, 32GB RAM, 1TB NVMe</div>
+                    <div class="goal-item-value">~$1,300</div>
+                    <div class="goal-item-note">Still on the wishlist (not urgent)</div>
                 </div>
                 <div class="goal-item goal-item-buffer">
-                    <div class="goal-item-label">tax + setup buffer</div>
-                    <div class="goal-item-value">$211</div>
-                    <div class="goal-item-note">Adapters, tax, setup margin</div>
-                </div>
-                <div class="goal-item" style="opacity: 0.5;">
-                    <div class="goal-item-label"><s>claude code max</s></div>
-                    <div class="goal-item-value"><s>$100</s></div>
-                    <div class="goal-item-note">Paid! Thanks to Sage</div>
+                    <div class="goal-item-label">monthly nut</div>
+                    <div class="goal-item-value">~$356</div>
+                    <div class="goal-item-note">Servers + Claude + domains</div>
                 </div>
             </div>
         </div>
 
-        <h3>urgent — before april</h3>
+        <h3>what's covered now</h3>
         <div class="card">
-            <p><strong>1.</strong> Fix Netlify payment NOW — period ends ~Mar 27, aesthetic.computer at risk</p>
-            <p><strong>2.</strong> Resolve Shopify — shop.aesthetic.computer offline, /api/shop broken, product carousel dead</p>
-            <p><strong>3.</strong> Pay GitHub ~$500 — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
-            <p><s><strong>4.</strong> Restore Claude Code Max access</s> — PAID (thanks Sage!)</p>
+            <p><s><strong>MacBook Neo</strong> — a working daily laptop</s> — Fía got it for me 💗</p>
+            <p><s><strong>Claude Code Max $100/mo</strong> — restored</s> — paid by Sage</p>
+            <p><s><strong>DigitalOcean</strong> — all droplets active &amp; paid</s> — account current</p>
+            <p><s><strong>Netlify hosting risk</strong> — site at risk</s> — migrated off Netlify entirely (see below)</p>
         </div>
 
-        <h3>machine state — updated mar 23, 2026</h3>
+        <h3>the big change since march: own the server</h3>
+        <div class="card">
+            <p><strong>aesthetic.computer no longer runs on Netlify.</strong> In late March the whole site moved to a DigitalOcean droplet (<code>ac-lith</code>) running Caddy + an Express adapter that serves the same 125+ functions. No more per-function limits, no more "period ends, site goes dark" — just one VPS we control. Bandwidth went from 100GB to 4TB and the recurring Netlify bill ($19/mo + the threat of takedown) is gone.</p>
+        </div>
+
+        <h3>machine state — updated jun 4, 2026</h3>
         <table>
             <thead><tr><th>machine</th><th>type</th><th>state</th><th class="hide-mobile">notes</th></tr></thead>
             <tbody>
+                <tr><td>macbook-neo</td><td>laptop</td><td><span class="pill pill-green">primary</span></td><td class="hide-mobile">New daily driver — gift from Fía. Crisis resolved.</td></tr>
                 <tr><td>jeffrey-windows</td><td>desktop tower</td><td><span class="pill pill-green">fine</span></td><td class="hide-mobile">Primary desktop tower is healthy.</td></tr>
-                <tr><td>jeffrey-macbook</td><td>laptop</td><td><span class="pill pill-red">degraded</span></td><td class="hide-mobile">Screen broke; very difficult to use.</td></tr>
+                <tr><td>jeffrey-macbook (old)</td><td>laptop</td><td><span class="pill pill-red">degraded</span></td><td class="hide-mobile">Screen broke; retired in favor of the Neo.</td></tr>
                 <tr><td>x1-nano-g2</td><td>laptop</td><td><span class="pill pill-red">unstable</span></td><td class="hide-mobile">Random shutdowns tied to NVMe issues.</td></tr>
                 <tr><td>jas-fedora (x1 nano gen 1?)</td><td>laptop</td><td><span class="pill pill-red">offline</span></td><td class="hide-mobile">Broken shift key + smashed power port; out of commission.</td></tr>
-                <tr><td>mac-mini</td><td>server</td><td><span class="pill pill-cyan">not mine</span></td><td class="hide-mobile">Build server; not a personal laptop.</td></tr>
-                <tr><td>legacy-2016 / session-server / silo</td><td>vps</td><td><span class="pill pill-purple">servers</span></td><td class="hide-mobile">Infrastructure hosts, not personal laptops.</td></tr>
+                <tr><td>ac-lith / oven / silo / help / at / session / legacy</td><td>vps</td><td><span class="pill pill-purple">servers</span></td><td class="hide-mobile">DigitalOcean infrastructure hosts, not personal machines.</td></tr>
             </tbody>
         </table>
 
         <h3>where your money goes right now</h3>
         <div class="card">
-            <p><strong>transparent breakdown:</strong> Donations are prioritized for replacement laptops first so development can stay online.</p>
+            <p><strong>transparent breakdown:</strong> With the laptop and Claude covered, incoming support now goes straight to the monthly cost of keeping every service online. The recurring nut is roughly <strong>$356/mo</strong> before usage-based Anthropic API + Stripe fees.</p>
         </div>
         <table>
-            <thead><tr><th>item</th><th>target spec</th><th>est. one-time</th><th class="hide-mobile">pricing notes</th></tr></thead>
+            <thead><tr><th>item</th><th>what</th><th>monthly</th><th class="hide-mobile">notes</th></tr></thead>
             <tbody>
-                <tr><td>macbook-neo</td><td>A18 Pro, 13-inch, 512GB SSD, Touch ID model</td><td class="money">~$799</td><td class="hide-mobile">Apple lists MacBook Neo from $599; 512GB target budgeted above base.</td></tr>
-                <tr><td>framework-12</td><td>DIY i5-1334U, 32GB DDR5, 1TB NVMe, Linux (no Windows license)</td><td class="money">~$1300</td><td class="hide-mobile">Framework config math: $699 base + $405 (32GB) + $196 (1TB).</td></tr>
-                <tr style="color: var(--pink);"><td>wishlist subtotal</td><td>before tax/accessories</td><td class="money">~$2099</td><td class="hide-mobile">Funding target for replacements.</td></tr>
-                <tr><td>wishlist target (+10%)</td><td>tax + adapters + setup margin</td><td class="money">~$2310</td><td class="hide-mobile">10% buffer on subtotal for checkout reality.</td></tr>
-                <tr style="opacity: 0.5; text-decoration: line-through;"><td>claude code max</td><td>subscription restored</td><td class="money">$100</td><td class="hide-mobile">Paid — thanks to Sage!</td></tr>
-                <tr style="color: var(--red);"><td>current goal total</td><td>wishlist target (claude paid)</td><td class="money">~$2310</td><td class="hide-mobile">What incoming support is currently earmarked for.</td></tr>
+                <tr><td>digitalocean</td><td>7 droplets + Redis + volume + Spaces</td><td class="money">~$248</td><td class="hide-mobile">All infra incl. the new lith host. Apr &amp; May invoices both $248.40.</td></tr>
+                <tr><td>claude code max</td><td>development subscription</td><td class="money">~$100</td><td class="hide-mobile">Ongoing; first month covered by Sage.</td></tr>
+                <tr><td>domains (8)</td><td>renewals across registrars</td><td class="money">~$8</td><td class="hide-mobile">~$100/yr spread across 8 zones.</td></tr>
+                <tr style="color: var(--pink);"><td>recurring monthly</td><td>fixed costs</td><td class="money">~$356</td><td class="hide-mobile">What incoming support is earmarked for.</td></tr>
+                <tr><td>+ anthropic api</td><td>Claude Code usage</td><td class="money">usage</td><td class="hide-mobile">Variable, on top of the fixed nut.</td></tr>
+                <tr><td>+ stripe / paypal</td><td>payment fees</td><td class="money">per-txn</td><td class="hide-mobile">2.9% + $0.30 / ~2.2% + $0.30.</td></tr>
             </tbody>
         </table>
-        <div class="card">
-            <p><strong>sources:</strong> <a href="https://www.apple.com/shop/buy-mac">apple.com/shop/buy-mac</a> · <a href="https://www.apple.com/macbook-neo/specs/">apple.com/macbook-neo/specs</a> · <a href="https://frame.work/products/laptop12-diy-intel-13gen/configuration/new">frame.work laptop 12 configurator</a></p>
-        </div>
 
         <h3>completed</h3>
         <div class="card">
-            <p><s><strong>Pay DigitalOcean $412.34</strong></s> — DONE</p>
-            <p><s><strong>Restore Claude Code Max $100</strong></s> — PAID (thanks Sage!)</p>
+            <p><s><strong>Get a working laptop</strong></s> — MacBook Neo, gift from Fía 💗</p>
+            <p><s><strong>Restore Claude Code Max $100</strong></s> — paid by Sage</p>
+            <p><s><strong>Pay DigitalOcean $412.34 backlog</strong></s> — done; account current</p>
+            <p><s><strong>Escape the Netlify takedown risk</strong></s> — migrated to the ac-lith droplet</p>
         </div>
 
-        <h3>check in april</h3>
+        <h3>open items to verify</h3>
         <div class="card">
-            <p><strong>5.</strong> GCP/Nanos billing — <a href="https://console.cloud.google.com">console.cloud.google.com</a></p>
-            <p><strong>6.</strong> Domain renewal dates — check 8 domains for upcoming expirations</p>
-            <p><strong>7.</strong> Anthropic spend — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
-            <p><strong>8.</strong> Evaluate cost reduction plan — legacy-2016 + Redis + downgrades (~$107/mo savings)</p>
+            <p><strong>1.</strong> GitHub — confirm the ~$500 prior-months balance is settled — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
+            <p><strong>2.</strong> Shopify — store still closed; decide reactivate vs. remove the shop integration for good</p>
+            <p><strong>3.</strong> GCP/Nanos — confirm no surprise VM spend — <a href="https://console.cloud.google.com">console.cloud.google.com</a></p>
+            <p><strong>4.</strong> Anthropic API burn rate — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
+            <p><strong>5.</strong> Domain renewals — check 8 zones for upcoming expirations</p>
         </div>
 
         </section>
@@ -808,28 +813,30 @@
         <!-- Cost Totals -->
         <div class="stats">
             <div class="stat-box">
-                <div class="stat-label">overdue</div>
-                <div class="stat-value" style="color: var(--red);">~$619</div>
-                <div class="stat-sub">GitHub ~$500 + Netlify $19 + Claude $100</div>
+                <div class="stat-label">recurring monthly</div>
+                <div class="stat-value" style="color: var(--gold);">~$356</div>
+                <div class="stat-sub">DO $248 + Claude $100 + domains $8</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">monthly</div>
-                <div class="stat-value" style="color: var(--gold);">~$151</div>
+                <div class="stat-label">digitalocean</div>
+                <div class="stat-value" style="color: var(--gold);">~$248</div>
+                <div class="stat-sub">Apr &amp; May invoices: $248.40</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">offline</div>
-                <div class="stat-value" style="color: var(--red);">2</div>
-                <div class="stat-sub">Shopify + Netlify (critical)</div>
+                <div class="stat-label">jun month-to-date</div>
+                <div class="stat-value" style="color: var(--green);">$26</div>
+                <div class="stat-sub">DO usage as of Jun 4</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">can save</div>
-                <div class="stat-value" style="color: var(--green);">$107</div>
+                <div class="stat-label">to verify</div>
+                <div class="stat-value" style="color: var(--red);">~$500</div>
+                <div class="stat-sub">GitHub prior-months balance</div>
             </div>
         </div>
 
         <!-- SVG Cost Timeline -->
         <div class="timeline-wrap">
-            <h3>monthly cost trend</h3>
+            <h3>digitalocean monthly invoices</h3>
             <svg class="timeline-svg" id="timeline" viewBox="0 0 680 200" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
 
@@ -838,22 +845,22 @@
         <div class="service-map">
             <div class="svc income"><div class="svc-name">keeps</div><div class="svc-cost">tezos</div></div>
             <div class="svc income"><div class="svc-name">gives</div><div class="svc-cost">stripe</div></div>
-            <div class="svc down"><div class="svc-name">shopify</div><div class="svc-cost">offline</div></div>
-            <div class="svc ok"><div class="svc-name">claude-max</div><div class="svc-cost">$100/mo — paid!</div></div>
-            <div class="svc ok"><div class="svc-name">oven</div><div class="svc-cost">$48/mo</div></div>
+            <div class="svc ok"><div class="svc-name">lith</div><div class="svc-cost">$24/mo — host</div></div>
+            <div class="svc ok"><div class="svc-name">claude-max</div><div class="svc-cost">$100/mo</div></div>
+            <div class="svc ok"><div class="svc-name">oven</div><div class="svc-cost">$96/mo</div></div>
             <div class="svc ok"><div class="svc-name">silo</div><div class="svc-cost">$24/mo</div></div>
             <div class="svc ok"><div class="svc-name">help</div><div class="svc-cost">$24/mo</div></div>
-            <div class="svc ok"><div class="svc-name">session</div><div class="svc-cost">$7/mo</div></div>
-            <div class="svc ok"><div class="svc-name">at/pds</div><div class="svc-cost">$6/mo</div></div>
-            <div class="svc ok"><div class="svc-name">legacy</div><div class="svc-cost">$12/mo</div></div>
+            <div class="svc ok"><div class="svc-name">at/pds</div><div class="svc-cost">$24/mo</div></div>
+            <div class="svc ok"><div class="svc-name">session</div><div class="svc-cost">$6/mo</div></div>
+            <div class="svc ok"><div class="svc-name">legacy</div><div class="svc-cost">$6/mo</div></div>
             <div class="svc ok"><div class="svc-name">redis</div><div class="svc-cost">$15/mo</div></div>
+            <div class="svc ok"><div class="svc-name">volume</div><div class="svc-cost">$15/mo</div></div>
             <div class="svc ok"><div class="svc-name">spaces</div><div class="svc-cost">$5/mo</div></div>
-            <div class="svc down"><div class="svc-name">netlify</div><div class="svc-cost">$19/mo</div></div>
             <div class="svc free"><div class="svc-name">cloudflare</div><div class="svc-cost">free</div></div>
             <div class="svc free"><div class="svc-name">auth0</div><div class="svc-cost">free</div></div>
             <div class="svc free"><div class="svc-name">firebase</div><div class="svc-cost">free</div></div>
             <div class="svc ok"><div class="svc-name">anthropic</div><div class="svc-cost">usage</div></div>
-            <div class="svc free"><div class="svc-name">github</div><div class="svc-cost">free*</div></div>
+            <div class="svc down"><div class="svc-name">shopify</div><div class="svc-cost">closed</div></div>
             <div class="svc free"><div class="svc-name">jamsocket</div><div class="svc-cost">free</div></div>
         </div>
 
@@ -862,18 +869,18 @@
         <table>
             <thead><tr><th>status</th><th>service</th><th>monthly</th><th class="hide-mobile">notes</th></tr></thead>
             <tbody>
-                <tr><td><span class="pill pill-red">critical</span></td><td>Netlify</td><td class="money">$19</td><td class="hide-mobile">Pro plan — period ends ~Mar 27, site at risk</td></tr>
-                <tr><td><span class="pill pill-red">offline</span></td><td>Shopify</td><td class="money">$0</td><td class="hide-mobile">shop.aesthetic.computer down — store closed</td></tr>
-                <tr><td><span class="pill pill-red">overdue</span></td><td>GitHub</td><td class="money">~$500</td><td class="hide-mobile">Prior months (Codespaces/Copilot)</td></tr>
-                <tr><td><span class="pill pill-red">locked</span></td><td>Claude Code Max</td><td class="money">$100</td><td class="hide-mobile">Subscription overdue; account access currently blocked</td></tr>
-                <tr><td><span class="pill pill-green">active</span></td><td>DigitalOcean</td><td class="money">~$132</td><td class="hide-mobile">Paid — all droplets restored</td></tr>
-                <tr><td><span class="pill pill-green">active</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Self-hosted on DO silo — restored</td></tr>
-                <tr><td><span class="pill pill-cyan">free</span></td><td>Cloudflare</td><td class="money">$0</td><td class="hide-mobile">8 zones, 2 Workers</td></tr>
-                <tr><td><span class="pill pill-green">active</span></td><td>Firebase / GCP</td><td class="money">$0–50</td><td class="hide-mobile">Free auth + Nanos VMs (unknown)</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>DigitalOcean</td><td class="money">~$248</td><td class="hide-mobile">Paid — 7 droplets incl. the lith host + Redis + volume + Spaces</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>Claude Code Max</td><td class="money">$100</td><td class="hide-mobile">Restored — first month covered by Sage</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>Anthropic API</td><td class="money">Usage</td><td class="hide-mobile">Claude Code usage on top of Max</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Self-hosted on DO silo</td></tr>
+                <tr><td><span class="pill pill-purple">retired</span></td><td>Netlify</td><td class="money">$0</td><td class="hide-mobile">Migrated off — site now runs on the ac-lith droplet</td></tr>
+                <tr><td><span class="pill pill-red">closed</span></td><td>Shopify</td><td class="money">$0</td><td class="hide-mobile">shop.aesthetic.computer still closed — decide reactivate vs. remove</td></tr>
+                <tr><td><span class="pill pill-gold">verify</span></td><td>GitHub</td><td class="money">~$500?</td><td class="hide-mobile">Confirm prior-months balance is settled</td></tr>
+                <tr><td><span class="pill pill-cyan">free</span></td><td>Cloudflare</td><td class="money">$0</td><td class="hide-mobile">8 zones, Workers — now fronts the lith origin</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>Firebase / GCP</td><td class="money">$0–50</td><td class="hide-mobile">Free auth + Nanos VMs (verify)</td></tr>
                 <tr><td><span class="pill pill-cyan">free</span></td><td>Auth0</td><td class="money">$0</td><td class="hide-mobile">Free tier (7K users)</td></tr>
                 <tr><td><span class="pill pill-green">active</span></td><td>Stripe</td><td class="money">Per-txn</td><td class="hide-mobile">2.9% + $0.30</td></tr>
                 <tr><td><span class="pill pill-green">active</span></td><td>PayPal</td><td class="money">Per-txn</td><td class="hide-mobile">~2.2% + $0.30</td></tr>
-                <tr><td><span class="pill pill-green">active</span></td><td>Anthropic</td><td class="money">Usage</td><td class="hide-mobile">Claude Code API</td></tr>
                 <tr><td><span class="pill pill-cyan">free</span></td><td>Jamsocket</td><td class="money">$0</td><td class="hide-mobile">Session orchestration</td></tr>
                 <tr><td><span class="pill pill-green">active</span></td><td>Domains (8)</td><td class="money">~$8</td><td class="hide-mobile">~$100/yr across registrars</td></tr>
             </tbody>
@@ -881,30 +888,32 @@
 
         <!-- DigitalOcean -->
         <details>
-            <summary>digitalocean — ~$132/mo (paid, active)</summary>
+            <summary>digitalocean — ~$248/mo (paid, active)</summary>
             <div class="detail-body">
                 <h3 style="margin-top: 0;">droplets</h3>
                 <table>
                     <thead><tr><th>name</th><th>ip</th><th class="hide-mobile">size</th><th>$/mo</th></tr></thead>
                     <tbody>
-                        <tr><td>oven</td><td><code>137.184.237.166</code></td><td class="hide-mobile">s-4vcpu-8gb</td><td class="money">~$48</td></tr>
-                        <tr><td>help</td><td><code>146.190.150.173</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td></tr>
+                        <tr><td>oven</td><td><code>137.184.237.166</code></td><td class="hide-mobile">s-8vcpu-16gb · 320GB</td><td class="money">~$96</td></tr>
+                        <tr><td>ac-lith <span class="pill pill-green">host</span></td><td><code>209.38.133.33</code></td><td class="hide-mobile">s-2vcpu-4gb · 80GB</td><td class="money">~$24</td></tr>
+                        <tr><td>help</td><td><code>146.190.150.173</code></td><td class="hide-mobile">s-2vcpu-4gb · 80GB</td><td class="money">~$24</td></tr>
                         <tr><td>silo</td><td><code>64.23.151.169</code></td><td class="hide-mobile">s-2vcpu-4gb</td><td class="money">~$24</td></tr>
-                        <tr><td>legacy-2016</td><td><code>162.243.163.221</code></td><td class="hide-mobile">1GB</td><td class="money">~$12</td></tr>
-                        <tr><td>session</td><td><code>157.245.134.225</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$7</td></tr>
-                        <tr><td>at/pds</td><td><code>165.227.120.137</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$6</td></tr>
+                        <tr><td>at/pds</td><td><code>165.227.120.137</code></td><td class="hide-mobile">s-2vcpu-4gb — nyc3</td><td class="money">~$24</td></tr>
+                        <tr><td>session</td><td><code>157.245.134.225</code></td><td class="hide-mobile">s-1vcpu-1gb</td><td class="money">~$6</td></tr>
+                        <tr><td>legacy-2016</td><td><code>162.243.163.221</code></td><td class="hide-mobile">1GB — nyc1</td><td class="money">~$6</td></tr>
                     </tbody>
                 </table>
                 <h3>other resources</h3>
                 <table>
                     <thead><tr><th>resource</th><th>detail</th><th>$/mo</th></tr></thead>
                     <tbody>
-                        <tr><td>Managed Redis</td><td>1GB / 1vCPU — sfo3</td><td class="money">$15</td></tr>
+                        <tr><td>Managed Redis/Valkey</td><td>db-s-1vcpu-1gb — sfo3</td><td class="money">$15</td></tr>
                         <tr><td>Block Volume</td><td>150GB — nyc1</td><td class="money">$15</td></tr>
-                        <tr><td>Spaces</td><td>250GB + 1TB bw (7 buckets)</td><td class="money">$5</td></tr>
-                        <tr><td>Backup</td><td>legacy-2016 weekly</td><td class="money">$2.40</td></tr>
+                        <tr><td>Spaces</td><td>250GB + bandwidth (10 buckets)</td><td class="money">$5</td></tr>
+                        <tr><td>Backups / snapshots + bandwidth</td><td>legacy weekly + overage</td><td class="money">~$9</td></tr>
                     </tbody>
                 </table>
+                <p style="font-size: 0.78em; color: var(--dim); margin-top: 0.6em;">Droplet subtotal ~$204 + resources ~$44 ≈ $248/mo. Apr &amp; May invoices both $248.40; Jun MTD $26 as of the 4th.</p>
             </div>
         </details>
 
@@ -930,20 +939,20 @@
 
         <!-- Cost Reduction -->
         <details>
-            <summary>cost reduction opportunities (save ~$107/mo)</summary>
+            <summary>cost reduction opportunities (save ~$60/mo)</summary>
             <div class="detail-body">
                 <table>
                     <thead><tr><th>action</th><th>saves</th></tr></thead>
                     <tbody>
-                        <tr><td>Kill legacy-2016 + 150GB vol</td><td class="money" style="color: var(--green);">$27</td></tr>
-                        <tr><td>Downgrade oven → s-2vcpu-2gb</td><td class="money" style="color: var(--green);">$36</td></tr>
-                        <tr><td>Downgrade help → s-1vcpu-1gb</td><td class="money" style="color: var(--green);">$18</td></tr>
-                        <tr><td>Redis → Upstash free</td><td class="money" style="color: var(--green);">$15</td></tr>
-                        <tr><td>Evaluate AT/PDS droplet</td><td class="money" style="color: var(--green);">$6</td></tr>
+                        <tr><td>Kill legacy-2016 + 150GB volume + backup</td><td class="money" style="color: var(--green);">~$23</td></tr>
+                        <tr><td>Redis → Upstash free tier</td><td class="money" style="color: var(--green);">$15</td></tr>
+                        <tr><td>Right-size oven when not building</td><td class="money" style="color: var(--green);">varies</td></tr>
+                        <tr><td>Evaluate AT/PDS droplet</td><td class="money" style="color: var(--green);">~$24</td></tr>
                         <tr><td>Consolidate domains</td><td class="money" style="color: var(--green);">$5–10</td></tr>
-                        <tr style="color: var(--green);"><td>total possible</td><td class="money">~$107</td></tr>
+                        <tr style="color: var(--green);"><td>realistic total</td><td class="money">~$60</td></tr>
                     </tbody>
                 </table>
+                <p style="font-size: 0.78em; color: var(--dim); margin-top: 0.6em;">Note: oven was deliberately upgraded to 16GB/8vCPU ($96/mo) to run image/code/paper builds — downsizing it trades capacity for cost.</p>
             </div>
         </details>
 
@@ -1013,7 +1022,7 @@
         // LIVE DATA: Gives (Stripe)
         // ═══════════════════════════════════════════════════════════
 
-        const MONTHLY_COSTS_USD = 151;
+        const MONTHLY_COSTS_USD = 356;
 
         let givesMonthlyUSD = 0;
         let givesTotalUSD = 0;
@@ -1236,14 +1245,17 @@
         // ═══════════════════════════════════════════════════════════
 
         (function() {
+            // DigitalOcean monthly invoices (actual)
             const data = [
-                { month: 'Sep 25', cost: 62.40 },
                 { month: 'Oct 25', cost: 71.30 },
                 { month: 'Nov 25', cost: 154.74 },
                 { month: 'Dec 25', cost: 182.40 },
                 { month: 'Jan 26', cost: 110.40 },
                 { month: 'Feb 26', cost: 132.36 },
-                { month: 'Mar 26', cost: 132, partial: true },
+                { month: 'Mar 26', cost: 189.12 },
+                { month: 'Apr 26', cost: 248.40 },
+                { month: 'May 26', cost: 248.40 },
+                { month: 'Jun 26', cost: 26.37, partial: true },
             ];
 
             const svg = document.getElementById('timeline');
@@ -1271,7 +1283,7 @@
             function y(v) { return pad.top + chartH - (v / maxCost) * chartH; }
 
             // Grid lines
-            const gridSteps = [50, 100, 150, 200];
+            const gridSteps = [50, 100, 150, 200, 250];
             for (const v of gridSteps) {
                 if (v > maxCost) continue;
                 const yy = y(v);
@@ -1333,8 +1345,8 @@
                 svg.appendChild(monthLabel);
             }
 
-            // Baseline annotation
-            const baseY = y(62);
+            // Baseline annotation — pre-lith run rate
+            const baseY = y(132);
             svg.appendChild(el('line', {
                 x1: pad.left, y1: baseY, x2: W - pad.right, y2: baseY,
                 stroke: dim, 'stroke-width': 0.8, 'stroke-dasharray': '4,3'
@@ -1346,7 +1358,7 @@
                 'text-anchor': 'start',
                 'font-family': "'Berkeley Mono Variable', monospace"
             });
-            baseLabel.textContent = 'baseline';
+            baseLabel.textContent = 'pre-lith';
             svg.appendChild(baseLabel);
         })();
     </script>
