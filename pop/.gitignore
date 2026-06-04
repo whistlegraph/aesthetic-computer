@@ -23,6 +23,11 @@ big-pictures/c/out/
 big-pictures/c/amazing-dance
 big-pictures/c/amazinhym
 
+# hopehop — compiled C binary + render outputs + freesound-derived
+# autotune caches (sources .c/.mjs/.sh/.np/.illy.txt/kit.json ARE tracked)
+hopehop/c/hopehop
+hopehop/out/
+
 # pop/samples/ — third-party reference audio (downloaded from YouTube,
 # received via iMessage, etc.). Audio + chops + stems + render outputs
 # stay local; only the scripts and manifest are tracked.

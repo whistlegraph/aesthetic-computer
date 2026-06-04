@@ -1,0 +1,22 @@
+# hopehop — summer hip-hop / R&B beat. de la soul / native-tongues flavor:
+# bright jazzy boom-bap, walking upright bass, organ stabs, hand perc.
+# 96 BPM · 4/4 · heavy swung 16ths (~60% shuffle) · key of C
+#
+# This .np carries the topline flute "hook" (one syllable per note) so the
+# melody is playable on notepat. The full arrangement (organ stabs,
+# walking bass, congas/tambourine, flute, drums) lives in
+# bin/render-hopehop.mjs — the .np grid is monophonic so it holds only the
+# hook line, not the chord stack or the walk.
+#
+# 8-bar chord loop (one chord per bar, bright 7th voicings + ii-V motion):
+#   1 Fmaj7   5 Fmaj7
+#   2 Am7     6 Em7
+#   3 Dm7     7 Am7
+#   4 G7      8 Gm7→C7  (ii-V back to Fmaj7)
+#
+# walking upright bass: four quarter notes/bar, landing a step from the
+# next root each bar (see WALK[] in the renderer).
+
+hook
+A4:hope C5:e- A4:nough G4:to A4:on F4:in
+G4:the A4:sun D5:and A4:back C5:a- E5:gain A4:home

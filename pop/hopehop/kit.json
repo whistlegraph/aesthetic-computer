@@ -1,0 +1,114 @@
+{
+  "kick": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/437273-tr_808_kick_wav.wav",
+    "id": 437273,
+    "name": "TR-808 kick.wav",
+    "username": "derickgtwk",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.711542
+  },
+  "snare": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/278983-snare_trap_wav.wav",
+    "id": 278983,
+    "name": "snare trap.wav",
+    "username": "dflee4",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2
+  },
+  "ohat": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/317096-hat_open2_wav.wav",
+    "id": 317096,
+    "name": "hat open2.wav",
+    "username": "shpira",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 1.00002
+  },
+  "shaker": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/375638-shaker_shake7_wav.wav",
+    "id": 375638,
+    "name": "Shaker (shake7.wav)",
+    "username": "sgossner",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.234694
+  },
+  "rim": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/662274-playtime_rim.wav",
+    "id": 662274,
+    "name": "Playtime Rim",
+    "username": "adh.dreaming",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.0607937
+  },
+  "perc": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/35918-conga_wav.wav",
+    "id": 35918,
+    "name": "conga.wav",
+    "username": "altemark",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "duration": 0.0679365
+  },
+  "clap": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/493711-handclap05_wav.wav",
+    "id": 493711,
+    "name": "HandClap05.wav",
+    "username": "bastianpusch",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.489365
+  },
+  "hat": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/509971-hi_hat_closed_9_mp3.wav",
+    "id": 509971,
+    "name": "Hi-Hat Closed 9.mp3",
+    "username": "blakengouda",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.144739
+  },
+  "crash": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/269905-02_crash_med_cymbals_snares_wav.wav",
+    "id": 269905,
+    "name": "02_Crash_Med_Cymbals_&_Snares.wav",
+    "username": "Theriavirra",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "duration": 1.728
+  },
+  "tiger": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/528034-robot_tiger_roar_mp3.wav",
+    "id": 528034,
+    "name": "Robot Tiger Roar.mp3",
+    "username": "Poppletron",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.41739
+  },
+  "panther": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/536331-panther_wav.wav",
+    "id": 536331,
+    "name": "panther.wav",
+    "username": "XHwZQ6GV",
+    "license": "http://creativecommons.org/licenses/by/3.0/",
+    "duration": 3.58168
+  },
+  "panther2": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/571287-jaguar_growl_roar_wav.wav",
+    "id": 571287,
+    "name": "jaguar_growl_roar.wav",
+    "username": "Lewis.B.M",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.73996
+  },
+  "scratch": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/610673-scratch_3x_b_wav.wav",
+    "id": 610673,
+    "name": "Scratch 3x B.wav",
+    "username": "LiftPizzas",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.835918
+  },
+  "scratch2": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/661380-bassscratch_c_mp3.wav",
+    "id": 661380,
+    "name": "BassScratch C.mp3",
+    "username": "SaschaRettberg",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 1.24082
+  }
+}
