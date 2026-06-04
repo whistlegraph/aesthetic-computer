@@ -19,6 +19,10 @@ function boot({ api, wipe, debug, send, hud }) {
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system); // Use default font
 
+  // 🚫 chat.boot stamps a prompt.ac/chat QR to the LEFT of the HUD label; clear
+  // it so laklok shows only its own laklok.com QR in the top-right (paintQR).
+  hud.qr(null);
+
   // 📱 Generate the laklok.com QR once; painted top-right each frame.
   try {
     lakQRCells = qr("https://laklok.com").modules;
@@ -55,7 +59,7 @@ function paintLaerKlokkenSign($) {
   // Unifont latin glyphs are a fixed 8px advance — no need to measure per frame.
   const CHAR_W = 8;
   const total = label.length * CHAR_W;
-  const headerH = 24; // short marquee strip across the top
+  const headerH = 20; // short marquee strip across the top
   const sx = 0;
   const sy = 0; // flush with the top of the screen (no gap)
   const sw = screen.width; // full-width banner across the header
@@ -67,12 +71,13 @@ function paintLaerKlokkenSign($) {
   if (lettersW > sw - 4) return; // too wide for the screen
   const textLeft = Math.round(sx + (sw - lettersW) / 2);
 
-  // Striped circus backdrop (red / cream), slowly scrolling like a barber pole.
+  // Striped circus backdrop, slowly scrolling like a barber pole. Tuned to the
+  // warm dark-orange of the laklok rust background so it reads as one piece.
   const stripeW = 14;
   const scroll = Math.floor(t * 6);
   for (let bx = 0; bx < sw; bx += stripeW) {
     const odd = Math.floor((bx + scroll) / stripeW) % 2;
-    ink(odd ? [92, 20, 28] : [54, 32, 20]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
+    ink(odd ? [150, 78, 34] : [122, 60, 26]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
   }
   // Each character: its own circus color + individual vertical bounce.
   let cx = textLeft;
@@ -111,6 +116,8 @@ function paint($) {
   chat.paint($, {
     otherChat: client.system,
     hideChrome: true,
+    topMargin: 34, // Shorter top chrome panel than the default 42.
+    presenceTop: 22, // Lift the "N online" counter to sit just under the marquee.
     theme: {
       background: [180, 100, 60], // Warm terracotta/rust background
       chromeBg: [180, 100, 60], // Match background — no dark banners above/below fold

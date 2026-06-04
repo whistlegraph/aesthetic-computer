@@ -177,8 +177,10 @@ const MAX_OVERSCROLL = 60; // Max pixels past edge
 
 let rowHeight;
 const lineGap = 1,
-  topMargin = 42,
   leftMargin = 6;
+// Top chrome height. Defaults to 42; pieces can shrink it via options.topMargin
+// (reset from options at the top of every paint, so it's per-piece, not sticky).
+let topMargin = 42;
 
 // Dynamic bottom margin based on selected font
 function getBottomMargin(fontConfig, defaultBlockHeight) {
@@ -732,6 +734,10 @@ function paint(
   options,
 ) {
   const client = options?.otherChat || chat;
+
+  // Per-piece top chrome height (laklok shrinks it). Reset every frame so the
+  // override never leaks to other chat pieces in the same session.
+  topMargin = options?.topMargin ?? 42;
 
   // Pick radio station per chat (default "bj"/KPBJ; laer-klokken sets "r8dio")
   if (options?.radio && RADIO_STATIONS[options.radio]) {
@@ -1864,7 +1870,7 @@ function paint(
     // even when the HUD label box is tall (e.g. when a QR stamp is attached).
     const matrixChunky8Height = 8;
     const maxPresenceY = topMargin - matrixChunky8Height - 2;
-    const presenceY = Math.min(hudLabelBottom + 3, maxPresenceY);
+    const presenceY = options?.presenceTop ?? Math.min(hudLabelBottom + 3, maxPresenceY);
     const onlineFgColor = theme?.timestamp || 160;
     ink(0, 0, 0, 180).write(line, {
       x: presenceX + 1,
@@ -1908,7 +1914,7 @@ function paint(
       ? (hudLabelBox.y ?? 0) + (hudLabelBox.h ?? 0)
       : 12;
     const maxPresenceY = topMargin - matrixChunky8Height - 2;
-    const presenceY = Math.min(hudLabelBottom + 3, maxPresenceY);
+    const presenceY = options?.presenceTop ?? Math.min(hudLabelBottom + 3, maxPresenceY);
 
     const onlineFgColor = theme?.timestamp || 160;
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio

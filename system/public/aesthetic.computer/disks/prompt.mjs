@@ -265,7 +265,7 @@ let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 // 📊 FPS Meter state
 let fpsTimestamps = [];
 let currentFps = 0;
-let showFpsMeter = true; // Shown by default; toggle with backtick key
+let showFpsMeter = false; // Hidden by default; toggle with backtick key
 
 // 🚫 Content ticker controls
 const DISABLE_CONTENT_TICKER = false;
