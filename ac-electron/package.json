@@ -1,6 +1,6 @@
 {
   "name": "aesthetic-computer",
-  "version": "0.1.44",
+  "version": "0.1.45",
   "description": "Aesthetic Computer",
   "homepage": "https://aesthetic.computer",
   "author": "Aesthetic Computer <hi@aesthetic.computer>",
@@ -78,7 +78,15 @@
     "afterAllArtifactBuild": "scripts/notarize-dmg.js",
     "fileAssociations": [
       {
-        "ext": ["mp3", "wav", "flac", "ogg", "m4a", "aac", "opus"],
+        "ext": [
+          "mp3",
+          "wav",
+          "flac",
+          "ogg",
+          "m4a",
+          "aac",
+          "opus"
+        ],
         "name": "Audio File",
         "description": "Audio file playable in Aesthetic.Computer",
         "role": "Viewer",
