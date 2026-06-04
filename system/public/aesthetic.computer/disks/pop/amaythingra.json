@@ -1,0 +1,23 @@
+{
+  "slug": "amaythingra",
+  "title": "amaythingra",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "bpm": 120,
+  "key": "G major",
+  "meter": "4/4",
+  "duration": 273,
+  "audio": "/assets/pop/amaythingra.mp3",
+  "cover": "/assets/pop/amaythingra.jpg",
+  "sections": [
+    { "name": "intro",  "t": 0,   "code": "a" },
+    { "name": "build",  "t": 32,  "code": "b" },
+    { "name": "drop1",  "t": 64,  "code": "c" },
+    { "name": "break",  "t": 96,  "code": "d" },
+    { "name": "vortex", "t": 112, "code": "e" },
+    { "name": "drop2",  "t": 128, "code": "f" },
+    { "name": "outro",  "t": 192, "code": "g" },
+    { "name": "resolve","t": 248, "code": "h" }
+  ],
+  "credits": "vowel-extraction deep-house remix of amazing grace for the pixsies body. all instruments + composition: aesthetic dot computer."
+}

@@ -88,7 +88,11 @@ async function boot($, m) {
     console.warn("pop: audio preload failed", err);
   }
   try {
-    cover = await net.preload(manifest.cover);
+    // `net.preload` resolves with a `{ url, img }` wrapper — the decoded
+    // bitmap (with width/height/pixels) lives on `.img`. Unwrap it so the
+    // backdrop/strip/gallery painters get the real image, not the envelope.
+    const res = await net.preload(manifest.cover);
+    cover = res?.img || res;
   } catch (err) {
     console.warn("pop: cover preload failed", err);
   }
@@ -97,7 +101,10 @@ async function boot($, m) {
   illyErrors = new Array(manifest.sections.length).fill(null);
   manifest.sections.forEach((sec, i) => {
     if (!sec.illy) return;
-    net.preload(sec.illy).then((img) => {
+    net.preload(sec.illy).then((res) => {
+      // Unwrap the `{ url, img }` envelope — `.img` carries the decoded
+      // bitmap with real width/height/pixels.
+      const img = res?.img || res;
       if (!img || !img.width || !img.height) {
         illyErrors[i] = `${sec.illy} (no dimensions)`;
         console.warn(`pop: illy ${i} loaded but has no dimensions:`, sec.illy);
