@@ -7,16 +7,25 @@
 
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import * as chat from "./chat.mjs"; // Import chat everywhere.
+import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
 let client;
+
+// 📱 laklok.com QR rendered in the top-right corner (see paintQR).
+let lakQRCells = null;
 
 function boot({ api, wipe, debug, send, hud }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system); // Use default font
 
-  // 📱 Set QR code to appear LEFT of the HUD label (qr-stamp-label mode)
-  hud.qr("https://laklok.com");
+  // 📱 Generate the laklok.com QR once; painted top-right each frame.
+  try {
+    lakQRCells = qr("https://laklok.com").modules;
+  } catch (e) {
+    console.error("laklok QR generation failed:", e);
+    lakQRCells = null;
+  }
   // 🏷️ Ensure label shows piece name (not "chat"), pinned white so it doesn't
   // ride the red/orange/lime connection-status color.
   hud.label("laklok", "white");
@@ -46,7 +55,7 @@ function paintLaerKlokkenSign($) {
   // Unifont latin glyphs are a fixed 8px advance — no need to measure per frame.
   const CHAR_W = 8;
   const total = label.length * CHAR_W;
-  const headerH = 42; // chat's top header band (topMargin) — fill it fully
+  const headerH = 24; // short marquee strip across the top
   const sx = 0;
   const sy = 0; // flush with the top of the screen (no gap)
   const sw = screen.width; // full-width banner across the header
@@ -80,27 +89,21 @@ function paintLaerKlokkenSign($) {
   }
 }
 
-// 📊 Rolling-window FPS meter in the top-right (like prompt.mjs) — handy for
-// watching chat performance while iterating.
-let lakFpsStamps = [];
-function paintFps($) {
-  const { ink, write, screen, text } = $;
-  const now = typeof performance !== "undefined" ? performance.now() : 0;
-  lakFpsStamps.push(now);
-  while (lakFpsStamps.length && lakFpsStamps[0] < now - 1000) lakFpsStamps.shift();
-  const fps = lakFpsStamps.length;
-  const txt = `${fps} fps`;
-  const col = fps >= 55 ? [0, 200, 100, 230] : fps >= 30 ? [255, 200, 0, 230] : [255, 60, 60, 230];
-  const w = text?.box
-    ? text.box(txt, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width
-    : txt.length * 4;
-  const padX = 2, padY = 2;
-  const boxW = w + padX * 2;
-  const boxH = 11;
-  const boxX = screen.width - boxW - 3;
-  const boxY = 2;
-  ink(0, 0, 0, 170).box(boxX, boxY, boxW, boxH);
-  ink(col).write(txt, { x: boxX + padX, y: boxY + padY }, undefined, undefined, false, "MatrixChunky8");
+// 📱 laklok.com QR code, pinned to the top-right corner with a white border.
+function paintQR($) {
+  if (!lakQRCells) return;
+  const { ink, screen } = $;
+  const cells = lakQRCells;
+  const size = cells.length; // 1px per cell
+  const margin = 3;
+  const qrX = screen.width - size - 1 - margin; // -1 leaves room for the border
+  const qrY = margin;
+  ink(255, 255, 255).box(qrX, qrY, size + 2, size + 2); // white background + border
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (cells[y][x]) ink(0, 0, 0).box(qrX + 1 + x, qrY + 1 + y, 1, 1);
+    }
+  }
 }
 
 function paint($) {
@@ -137,8 +140,8 @@ function paint($) {
 
   // Decorative flashy sign on top of the header chrome.
   paintLaerKlokkenSign($);
-  // 📊 FPS meter, top-right corner.
-  paintFps($);
+  // 📱 laklok.com QR, top-right corner.
+  paintQR($);
 }
 
 function act($) {
