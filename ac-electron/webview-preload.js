@@ -23,7 +23,15 @@ window.acElectron = {
     console.log('[webview-preload] closeWindow');
     ipcRenderer.sendToHost('ac-close-window');
   },
-  
+
+  // Open an external URL in the system's default browser. bios.mjs routes
+  // jump("out:…") links here so they leave the app instead of navigating the
+  // webview in-app (window.open is popup-blocked across the worker boundary).
+  openExternal: (url) => {
+    console.log('[webview-preload] openExternal:', url);
+    return ipcRenderer.invoke('open-external-url', url);
+  },
+
   // Check if we're in Electron
   isElectron: true,
 

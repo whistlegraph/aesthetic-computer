@@ -13645,6 +13645,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             },
             "*",
           );
+        } else if (window.acElectron?.openExternal) {
+          // Electron app: open in the system browser via the webview-preload
+          // bridge → main's shell.openExternal. Avoids window.open, whose user
+          // gesture is lost across the worker boundary (popup-blocked → the
+          // fallback would otherwise navigate the webview in-app).
+          window.acElectron.openExternal(content.url);
         } else {
           // Try to open in a new tab. The user gesture was lost crossing the
           // worker postMessage boundary, so popup blockers may veto this.
