@@ -1312,12 +1312,15 @@ async function fun(event, context) {
           var bootTheme=params.get('boot')||'serious';var isSerious=bootTheme==='serious';
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
+          // In the Electron desktop app, follow the runtime's ac-density so the boot
+          // animation's pixel grid matches the main canvas (browser: unchanged).
+          var acDensity;try{acDensity=(window.acElectron&&parseInt(localStorage.getItem('ac-density')))||densityParam||1;}catch(e){acDensity=densityParam||1;}
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
           // Device mode with density=1 uses lower targetSCL for performance
-          var baseTargetSCL=3;var targetSCL=isDeviceMode&&densityParam===1?1:baseTargetSCL;
+          var baseTargetSCL=3;var targetSCL=window.acElectron?Math.max(1,acDensity):(isDeviceMode&&densityParam===1?1:baseTargetSCL);
           // Use visualViewport API for accurate sizing on iOS (avoids browser chrome issues)
           function getViewportSize(){var vv=window.visualViewport;return{w:vv?vv.width:window.innerWidth,h:vv?vv.height:window.innerHeight};}
-          var vp=getViewportSize();var SCL=1,W=Math.ceil(vp.w/SCL),H=Math.ceil(vp.h/SCL);c.width=W;c.height=H;
+          var vp=getViewportSize();var SCL=acDensity,W=Math.ceil(vp.w/SCL),H=Math.ceil(vp.h/SCL);c.width=W;c.height=H;
           function updateCanvasSize(){var vp=getViewportSize();W=Math.ceil(vp.w/SCL);H=Math.ceil(vp.h/SCL);c.width=W;c.height=H;c.style.width=vp.w+'px';c.style.height=vp.h+'px';x.imageSmoothingEnabled=false;}
           function updateScale(newSCL){SCL=newSCL;updateCanvasSize();for(var k in scrollYs)scrollYs[k]=0;}
           window.addEventListener('resize',updateCanvasSize);
