@@ -1249,7 +1249,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     ? resolution.density
     : (window.acPACK_DENSITY !== undefined
         ? window.acPACK_DENSITY
-        : (window.acElectron ? 1 : 2));
+        : (window.acElectron ? 3 : 2));
 
   // acFORCE_NOGAP pins gap=0 for packed M4L bundles loaded via data: URI
   // where there's no `?nogap` query param to read — equivalent behavior.
