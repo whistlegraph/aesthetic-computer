@@ -42,6 +42,13 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     private var hideWorkItem: DispatchWorkItem?
     private var isEnabled: Bool
 
+    /// [v1] The floating piano window is retired — its content folded
+    /// into the popover (single column). Every present-the-panel entry
+    /// point bails on this flag so the window never appears, while the
+    /// delegate object + its callbacks stay intact so AppDelegate's
+    /// many call sites keep compiling. Flip to false to revive it.
+    static let retiredForV1 = true
+
     private static let expandedOriginXKey = "notepat.unifiedPalette.expandedOriginX"
     private static let expandedOriginYKey = "notepat.unifiedPalette.expandedOriginY"
     private static let collapsedOriginXKey = "notepat.unifiedPalette.collapsedOriginX"
@@ -148,6 +155,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func toggleFromShortcut() {
+        if Self.retiredForV1 { return }
         if isEnabled {
             disable(reason: .shortcut)
             return
@@ -156,10 +164,12 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func showFromCommand(restoringTo previousApp: NSRunningApplication? = nil) {
+        if Self.retiredForV1 { return }
         enableAndShowPreferred(restoringTo: previousApp)
     }
 
     func show(restoringTo previousApp: NSRunningApplication? = nil) {
+        if Self.retiredForV1 { return }
         enableAndShowPreferred(restoringTo: previousApp)
     }
 
@@ -168,6 +178,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     /// the expanded panel is what the user sees, not the collapsed
     /// strip (which has no chooser).
     func showExpandedForPopover(restoringTo previousApp: NSRunningApplication? = nil) {
+        if Self.retiredForV1 { return }
         setEnabled(true)
         cancelPendingHide()
         hoverPresented = false  // popover is driving now, not hover
@@ -182,6 +193,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     /// The user's saved preferred state is left untouched so a
     /// standalone open later still honors it.
     func showCollapsedForPopover() {
+        if Self.retiredForV1 { return }
         setEnabled(true)
         cancelPendingHide()
         hoverPresented = false  // popover is driving now, not hover
@@ -245,6 +257,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func showIfNeeded() {
+        if Self.retiredForV1 { return }
         guard presentationState == .collapsed, !isCollapsedPresentationSuppressed, isEnabled, preferredPresentationState == .collapsed else { return }
         cancelPendingHide()
         if panel == nil {
@@ -275,6 +288,7 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     /// preferred state, and it bows out while the popover or the
     /// expanded view is driving the panel so it can't fight them.
     func showFromHover() {
+        if Self.retiredForV1 { return }
         guard !isCollapsedPresentationSuppressed, popoverFrameProvider?() == nil else { return }
         if presentationState == .expanded, panel?.isVisible == true { return }
         // Already up because of hover → just keep it up.

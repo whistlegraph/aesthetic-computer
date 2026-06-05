@@ -29,6 +29,10 @@ final class CollapsedPianoWaveformView: NSView {
     /// the user can see which physical keys play which notes while
     /// the chooser is open. Lit cells reflect held keys.
     private let qwertyMap = QwertyLayoutView()
+    /// Solid recessed "ground" behind the QWERTY map so the keymap
+    /// reads as a seated plate rather than floating glyphs on the
+    /// glass. Mirrors the instrument grid's housing fill + hairline.
+    private let qwertyBackground = NSView()
     /// Four-arrow cluster below the chooser — preview while held,
     /// commit on release. Mirrors the popover's old arrows hint
     /// position (under the keyboard) one level down.
@@ -59,6 +63,8 @@ final class CollapsedPianoWaveformView: NSView {
     private static let edgePadding: CGFloat = 6
     private static let gridPadding: CGFloat = 7
     private static let rowGap: CGFloat = 4
+    /// Padding between the QWERTY map and its recessed ground plate.
+    private static let qwertyGroundInset: CGFloat = 5
     private static let modeRowTopGap: CGFloat = 14
     /// Reserved at the top — hosts the chord-candidate row above
     /// the chooser. 30pt fits the FloatingChordCandidateCard's
@@ -68,8 +74,16 @@ final class CollapsedPianoWaveformView: NSView {
     /// under the bottom-leading fullscreen toggle button.
     private static let bottomInset: CGFloat = 12
 
-    init(menuBand: MenuBandController) {
+    /// When true the cluster paints NO panel surface of its own (no
+    /// liquid-glass backdrop, no opaque fallback fill) — it's being
+    /// hosted inside another glass surface (the v1 popover) and a second
+    /// backdrop would read as two stacked sheets. Only the grid's own
+    /// recessed housing remains.
+    private let embedded: Bool
+
+    init(menuBand: MenuBandController, embedded: Bool = false) {
         self.menuBand = menuBand
+        self.embedded = embedded
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = 10
@@ -82,6 +96,14 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentGridContainer.layer?.masksToBounds = true
         if #available(macOS 10.15, *) {
             instrumentGridContainer.layer?.cornerCurve = .continuous
+        }
+
+        qwertyBackground.translatesAutoresizingMaskIntoConstraints = false
+        qwertyBackground.wantsLayer = true
+        qwertyBackground.layer?.cornerRadius = 8
+        qwertyBackground.layer?.masksToBounds = true
+        if #available(macOS 10.15, *) {
+            qwertyBackground.layer?.cornerCurve = .continuous
         }
 
         instrumentList.menuBand = menuBand
@@ -207,11 +229,14 @@ final class CollapsedPianoWaveformView: NSView {
         addSubview(contentContainer)
         contentContainer.addSubview(instrumentGridContainer)
         instrumentGridContainer.addSubview(instrumentList)
+        contentContainer.addSubview(qwertyBackground)   // behind the keymap
         contentContainer.addSubview(qwertyMap)
         contentContainer.addSubview(arrowsCluster)
         contentContainer.addSubview(instrumentReadoutLabel)
         contentContainer.addSubview(modeStack)
-        installLiquidGlassBackgrounds()
+        // [v1] Skip our own glass backdrop when embedded in the popover's
+        // glass surface — otherwise the two stack into a doubled sheet.
+        if !embedded { installLiquidGlassBackgrounds() }
 
         // Panel widens to fit either the chooser or the keyboard
         // row (qwerty + gap + arrows cluster), whichever is larger.
@@ -240,6 +265,14 @@ final class CollapsedPianoWaveformView: NSView {
                 equalTo: contentContainer.leadingAnchor,
                 constant: (totalWidth - QwertyLayoutView.intrinsicSize.width - Self.rowGap - arrowsClusterWidth) / 2
             ),
+
+            // Recessed ground sits behind the keymap AND the arrow-key
+            // cluster to its right, inset a few points on each side so a
+            // hairline border frames the whole keyboard row as one plate.
+            qwertyBackground.leadingAnchor.constraint(equalTo: qwertyMap.leadingAnchor, constant: -Self.qwertyGroundInset),
+            qwertyBackground.trailingAnchor.constraint(equalTo: arrowsCluster.trailingAnchor, constant: Self.qwertyGroundInset),
+            qwertyBackground.topAnchor.constraint(equalTo: qwertyMap.topAnchor, constant: -Self.qwertyGroundInset),
+            qwertyBackground.bottomAnchor.constraint(equalTo: qwertyMap.bottomAnchor, constant: Self.qwertyGroundInset),
 
             arrowsCluster.leadingAnchor.constraint(equalTo: qwertyMap.trailingAnchor, constant: Self.rowGap),
             arrowsCluster.bottomAnchor.constraint(equalTo: qwertyMap.bottomAnchor),
@@ -370,6 +403,11 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentGridContainer.layer?.borderColor =
                 NSColor.white.withAlphaComponent(isDark ? 0.16 : 0.22).cgColor
             instrumentGridContainer.layer?.borderWidth = 1.0
+            qwertyBackground.layer?.backgroundColor =
+                NSColor.black.withAlphaComponent(isDark ? 0.26 : 0.10).cgColor
+            qwertyBackground.layer?.borderColor =
+                NSColor.white.withAlphaComponent(isDark ? 0.16 : 0.22).cgColor
+            qwertyBackground.layer?.borderWidth = 1.0
             layer?.backgroundColor = NSColor.clear.cgColor
         } else {
             instrumentGridContainer.layer?.backgroundColor =
@@ -377,10 +415,19 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentGridContainer.layer?.borderColor =
                 NSColor.separatorColor.withAlphaComponent(0.45).cgColor
             instrumentGridContainer.layer?.borderWidth = 1.0
+            qwertyBackground.layer?.backgroundColor =
+                NSColor.windowBackgroundColor.withAlphaComponent(isDark ? 0.26 : 0.50).cgColor
+            qwertyBackground.layer?.borderColor =
+                NSColor.separatorColor.withAlphaComponent(0.45).cgColor
+            qwertyBackground.layer?.borderWidth = 1.0
             layer?.backgroundColor = (isDark
                 ? NSColor(white: 0.06, alpha: 0.96)
                 : NSColor(white: 0.88, alpha: 0.96)).cgColor
         }
+        // [v1] Embedded in the popover's glass — never paint our own panel
+        // fill; let the single host surface show through. (The grid's
+        // recessed housing above stays for legibility.)
+        if embedded { layer?.backgroundColor = NSColor.clear.cgColor }
     }
 
     /// Mirror of `ExpandedPianoWaveformView.updateInstrumentReadout`

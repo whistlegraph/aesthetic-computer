@@ -1659,59 +1659,11 @@ final class MenuBandController {
     // normal `litNotes` user-input set. Sound emits the same way
     // a tap would; only the visual state is parallel.
 
-    /// Sound + light a note as part of an auto-playback session.
-    /// `displayNote` is the menubar-clamped key the renderer should
-    /// draw red — defaults to the played pitch when the caller
-    /// doesn't have an explicit display.
-    func startPlaybackNote(_ midiNote: UInt8, velocity: UInt8 = 100,
-                           displayNote: UInt8? = nil) {
-        let synthCh = nextMelodicChannel()
-        playbackChannel[midiNote] = synthCh
-        let mc: UInt8 = 0
-        if !midiMode {
-            synth.noteOn(midiNote, velocity: velocity, channel: synthCh)
-        }
-        midiNoteOn(midiNote, velocity: velocity, channel: mc)
-        let visualNote = displayNote ?? midiNote
-        let setLit = { [weak self] in
-            guard let self = self else { return }
-            if self.playbackLitNotes.insert(visualNote).inserted {
-                self.onLitChanged?()
-            }
-        }
-        if Thread.isMainThread { setLit() } else { DispatchQueue.main.async(execute: setLit) }
-    }
-
-    /// Release a note previously started with `startPlaybackNote`.
-    func stopPlaybackNote(_ midiNote: UInt8, displayNote: UInt8? = nil) {
-        let synthCh = playbackChannel.removeValue(forKey: midiNote) ?? channel(for: midiNote)
-        if !midiMode { synth.noteOff(midiNote, channel: synthCh) }
-        midi.noteOff(midiNote, channel: 0)
-        let visualNote = displayNote ?? midiNote
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if self.playbackLitNotes.remove(visualNote) != nil {
-                self.onLitChanged?()
-            }
-        }
-    }
-
-    /// Panic — called when superseding a playback session so the
-    /// previous take doesn't strand notes.
-    func releaseAllPlaybackNotes() {
-        for (note, ch) in playbackChannel {
-            if !midiMode { synth.noteOff(note, channel: ch) }
-            midi.noteOff(note, channel: 0)
-        }
-        playbackChannel.removeAll()
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if !self.playbackLitNotes.isEmpty {
-                self.playbackLitNotes.removeAll()
-                self.onLitChanged?()
-            }
-        }
-    }
+    // [v1 cutoff] startPlaybackNote / stopPlaybackNote /
+    // releaseAllPlaybackNotes removed — only the deleted SheetMusicView
+    // (PDF/MIDI score auto-playback) drove them. `playbackLitNotes` stays
+    // declared because the menubar renderer + AppDelegate still read it
+    // (it simply stays empty until score playback returns post-v1).
 
     // MARK: - Linger / bell-ring tail
 
@@ -1776,6 +1728,17 @@ final class MenuBandController {
     /// after the press" complaint.
     private var lingerFadeWork: [UInt8: [DispatchWorkItem]] = [:]
 
+    /// The still-ringing sustained-linger note on each synth channel,
+    /// tracked for the lifetime of its fade. A sustained linger keeps
+    /// its original noteOn alive while Expression ramps 127→0, so the
+    /// note is physically still sounding (just inaudible) until the
+    /// tail's cleanup noteOff. If a NEW note reuses this channel before
+    /// then, `cancelLingerFade` resets the channel volume back to 127 —
+    /// which, without first stopping the old note, snaps the faded-out
+    /// note back to full volume (the "it plays again after one press"
+    /// bug). We noteOff the tracked note before the volume reset.
+    private var lingeringNoteByChannel: [UInt8: UInt8] = [:]
+
     /// Cancel an in-flight Expression fade on `synthChannel` (if
     /// any) and immediately restore Expression to 127 so the next
     /// note on the channel plays at full volume. Call before every
@@ -1783,6 +1746,15 @@ final class MenuBandController {
     private func cancelLingerFade(channel synthChannel: UInt8) {
         if let items = lingerFadeWork.removeValue(forKey: synthChannel) {
             for w in items { w.cancel() }
+        }
+        // Kill the still-ringing lingering note on this channel BEFORE
+        // restoring the volume — otherwise resetting Expression/Volume
+        // to 127 resurrects the faded-out note at full gain.
+        if let stale = lingeringNoteByChannel.removeValue(forKey: synthChannel) {
+            if !midiMode { synth.noteOff(stale, channel: synthChannel) }
+            // Lingering notes are always melodic → outbound MIDI channel 0
+            // (matches midiNoteOn / releaseLingering's midiChannel: 0).
+            midi.noteOff(stale, channel: 0)
         }
         if !midiMode {
             synth.sendExpression(value: 127, channel: synthChannel)
@@ -1809,6 +1781,10 @@ final class MenuBandController {
     private func scheduleSustainedLingerFade(midiNote: UInt8,
                                              synthChannel: UInt8,
                                              midiChannel: UInt8) {
+        // Mark this note as ringing-but-fading on its channel so a new
+        // note that reuses the channel kills it (see cancelLingerFade)
+        // instead of snapping it back to full volume.
+        lingeringNoteByChannel[synthChannel] = midiNote
         // 100 hops over 10 s = every 100 ms. Linear ramp:
         // Ableton's stock devices (and most third-party plugins)
         // map CC7/CC11 to a near-linear audible volume curve, so
@@ -1860,10 +1836,15 @@ final class MenuBandController {
             guard let self = self else { return }
             if !self.midiMode { self.synth.noteOff(midiNote, channel: synthChannel) }
             self.midi.noteOff(midiNote, channel: midiChannel)
-            // Don't clear lingerFadeWork[synthChannel] here — leave
-            // it so a future noteOn knows the channel is in a faded
-            // state and runs cancelLingerFade to restore CC=127.
-            // (Cancelled items are harmless if cancel()-ed again.)
+            // Fade finished and the note is now off — it can no longer be
+            // resurrected, so stop tracking it (only clear if this same
+            // note is still the one registered; a newer note may have
+            // taken the slot). Don't clear lingerFadeWork[synthChannel]
+            // here — leave it so a future noteOn knows the channel is in a
+            // faded state and runs cancelLingerFade to restore CC=127.
+            if self.lingeringNoteByChannel[synthChannel] == midiNote {
+                self.lingeringNoteByChannel.removeValue(forKey: synthChannel)
+            }
         }
         items.append(tail)
         // 200 ms breathing room past the last ramp tick. AVAudio's

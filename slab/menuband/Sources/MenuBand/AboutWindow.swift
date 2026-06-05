@@ -300,27 +300,9 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         startClubButton.widthAnchor.constraint(equalToConstant: 264).isActive = true
         stack.addArrangedSubview(startClubButton)
 
-        // Plugins chip — opens the AU instrument picker. Beta surface
-        // for testing third-party AUs (angelsaw etc.) routed through
-        // Menu Band's audio engine. Hidden when no host is wired up.
-        // Tinted with `controlAccentColor` so the chip tracks whatever
-        // accent the user has set in System Settings (refreshed live
-        // by `refreshAccentChrome`).
-        if onOpenPlugins != nil {
-            stack.setCustomSpacing(10, after: nelaButton)
-            let pluginsBtn = MenuBandPopoverViewController.makeLinkButton(
-                attr: pluginsLabel(for: NSColor.controlAccentColor),
-                target: self,
-                action: #selector(openPlugins),
-                background: NSColor.controlAccentColor.withAlphaComponent(0.14),
-                border: NSColor.controlAccentColor.withAlphaComponent(0.55)
-            )
-            pluginsBtn.toolTip = "Beta — engage a Liam Hall pedal"
-            stack.addArrangedSubview(pluginsBtn)
-            // makeLinkButton always returns a HoverLinkButton — cast so
-            // we can refresh idle/hover NSColor refs on accent changes.
-            pluginsButton = pluginsBtn as? HoverLinkButton
-        }
+        // [v1 cutoff] Pedals (AU plugin picker) chip removed — Liam Hall
+        // pedals / third-party AU hosting are post-v1. The `onOpenPlugins`
+        // hook + AU picker code stay dormant for the post-release revival.
 
         // Language picker — same flag-chip pattern the popover used
         // to host. Lives in About now so the popover stays a tight
@@ -331,43 +313,10 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         let langRow = buildLanguagePicker()
         stack.addArrangedSubview(langRow)
 
-        // Tape-deck feature toggle — defaults off until the deck is
-        // ready to ship. Lives in the About window (not the popover)
-        // so it's tucked away as a beta switch, not a normal control.
-        stack.setCustomSpacing(12, after: langRow)
-        let tapeCheckbox = NSButton(
-            checkboxWithTitle: "Cassette deck (beta)",
-            target: self,
-            action: #selector(toggleTapeFeature(_:))
-        )
-        tapeCheckbox.state = UserDefaults.standard
-            .bool(forKey: KeyboardIconRenderer.tapeFeatureDefaultsKey)
-            ? .on : .off
-        tapeCheckbox.font = NSFont.systemFont(ofSize: 11)
-        tapeCheckbox.toolTip =
-            "Show the cassette tape deck in the menubar. Work in progress."
-        tapeCheckbox.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(tapeCheckbox)
-
-        // Right-hand percussion split — the upper-octave keys play the
-        // AC-native drum kit while the lower keys stay melodic. Off by
-        // default; also toggleable live with ⌘⌃⌥D.
-        let percCheckbox = NSButton(
-            checkboxWithTitle: "Percussion split (⌘⌃⌥D)",
-            target: self,
-            action: #selector(togglePercussionSplit(_:))
-        )
-        percCheckbox.state = (UserDefaults.standard
-            .bool(forKey: KeyboardIconRenderer.percussionLeftDefaultsKey)
-            || UserDefaults.standard
-            .bool(forKey: KeyboardIconRenderer.percussionRightDefaultsKey))
-            ? .on : .off
-        percCheckbox.font = NSFont.systemFont(ofSize: 11)
-        percCheckbox.toolTip =
-            "Both halves of the board play the drum kit (kick/snare/hats/…). "
-            + "Tap left-⌥ / right-⌥ to latch just one half."
-        percCheckbox.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(percCheckbox)
+        // [v1 cutoff] "Cassette deck (beta)" + "Percussion split" beta
+        // checkboxes removed — both features are post-v1. Their flags
+        // default off and their live shortcuts stay in place, so the
+        // toggles can return to About after release.
 
         // Crash-report summary — single orange ⚠️ button reading
         // "Menu Band crashed N times". Opens the scroll viewer where

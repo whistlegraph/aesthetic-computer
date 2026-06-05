@@ -1,33 +1,12 @@
-// Shared plumbing for "what KidLisp piece is the TV showing" so the
-// popover's KidLisp TV and the floating AestheticWebWindow can render
-// the SAME piece. Two renderers conform to `KidLispScreen`:
-//
-//   • KidLispTVView      — native Swift evaluator (phase-1 corpus)
-//   • KidLispTVWebView   — live aesthetic.computer in a WKWebView
+// Shared plumbing for the currently-selected KidLisp piece. The popover's
+// KidLisp TV used to render it too, but that was removed in the v1 cutoff;
+// `KidLispState` survives because the floating AestheticWebWindow (opened
+// from About) still mirrors a selected `$code` piece.
 //
 // `KidLispState.shared` is the single source of truth for the current
-// selection (a `$code` when one is known, plus the raw source for the
-// native fallback). The chooser writes to it; both surfaces read it.
+// selection (a `$code` when one is known, plus the raw source).
 
 import AppKit
-
-/// A view that can display a KidLisp piece. Adopted by both the native
-/// framebuffer view and the webview so `KidLispTVPanel` can hold either
-/// behind one type and `AppDelegate`'s wiring stays renderer-agnostic.
-protocol KidLispScreen: AnyObject {
-    /// Show a piece. `code` is the bare cache code (no `$`) when known —
-    /// the webview prefers it for a short `/$code` URL; the native
-    /// renderer ignores it and evaluates `source` directly.
-    func show(code: String?, source: String)
-
-    /// Click inside the screen well → owner pops the "$ pieces" chooser.
-    var onScreenClick: ((NSView, NSEvent) -> Void)? { get set }
-    /// 0–10 audio amplitude feed (native `amp`). Unused by the webview.
-    var ampProvider: (() -> Double)? { get set }
-    /// True while the app is latency-critical; native renderer skips
-    /// ticks. Unused by the webview.
-    var busyProvider: (() -> Bool)? { get set }
-}
 
 /// URL construction for AC KidLisp pieces. Centralized so the popover
 /// (clean embed) and the window (full chrome) build the same paths.
@@ -74,13 +53,23 @@ final class KidLispState {
     /// raw sources migrate forward (they load with `code == nil`).
     private static let sourceKey = "notepat.kidlispTV.source"
 
+    /// Fallback raw source when no `$code` is selected. (Formerly
+    /// `Self.defaultSource`, inlined here when the TV panel
+    /// was removed in the v1 cutoff.)
+    static let defaultSource: String = """
+        wipe black
+        ink rainbow
+        line 0 (- h/2 (* amp 5)) w (- h/2 (* amp 5))
+        line 0 (+ h/2 (* amp 5)) w (+ h/2 (* amp 5))
+        """
+
     private(set) var code: String?
     private(set) var source: String
 
     private init() {
         let d = UserDefaults.standard
         self.code = d.string(forKey: Self.codeKey)
-        self.source = d.string(forKey: Self.sourceKey) ?? KidLispTVPanel.defaultSource
+        self.source = d.string(forKey: Self.sourceKey) ?? Self.defaultSource
     }
 
     /// True when a real cached piece is selected (vs. the default /
@@ -104,16 +93,9 @@ final class KidLispState {
 
     func reset() {
         self.code = nil
-        self.source = KidLispTVPanel.defaultSource
+        self.source = Self.defaultSource
         let d = UserDefaults.standard
         d.removeObject(forKey: Self.codeKey)
         d.removeObject(forKey: Self.sourceKey)
     }
-}
-
-// MARK: - Native renderer conformance
-
-extension KidLispTVView: KidLispScreen {
-    /// The native evaluator only knows source text; ignore the code.
-    func show(code: String?, source: String) { setSource(source) }
 }

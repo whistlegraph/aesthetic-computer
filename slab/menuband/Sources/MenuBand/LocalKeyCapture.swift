@@ -154,7 +154,7 @@ final class LocalKeyCapture {
 /// and is in the key window's responder chain; `wantsRestingTouches`
 /// keeps a motionless finger counted instead of dropping it the moment
 /// it stops moving (the exact case that was snapping the bend back).
-private final class TouchSensorView: NSView {
+final class TouchSensorView: NSView {
     var onActiveChanged: ((Bool) -> Void)?
     private var lastActive = false
 
@@ -171,6 +171,13 @@ private final class TouchSensorView: NSView {
     }
 
     override var acceptsFirstResponder: Bool { true }
+
+    // Pure touch listener — never intercept the mouse. Returning nil
+    // from hitTest keeps clicks/drag flowing through to whatever
+    // control sits underneath (the popover's keys, buttons, grid),
+    // while indirect (trackpad) touches still arrive via the key
+    // window's responder chain because the view is first responder.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     override func touchesBegan(with event: NSEvent) { recompute(event) }
     override func touchesMoved(with event: NSEvent) { recompute(event) }

@@ -526,8 +526,13 @@ enum KeyboardIconRenderer {
     static var recElapsed: Double = 0          // seconds, drives timer + morph
     /// Slot width reserved at the left — full pill width while recording (so
     /// the keys don't jiggle as the bubble morphs open within the slot).
+    /// [v1] Returns 0 when the tape feature is disabled (the default), so
+    /// the menubar REC button to the left of the keys is cut and the piano
+    /// slides flush to the leading edge. The zero-width `recHitRect` also
+    /// self-disables the click target.
     static var recReservedWidth: CGFloat {
-        recDotLeadPad + (recActive ? recPillWidth : recDotDiameter) + recDotTrailGap
+        guard tapeFeatureEnabled else { return 0 }
+        return recDotLeadPad + (recActive ? recPillWidth : recDotDiameter) + recDotTrailGap
     }
 
     // ── Deck panel (transport buttons only — cassette is mounted to
@@ -831,8 +836,9 @@ enum KeyboardIconRenderer {
 
             // 🔴 REC dot — fixed slot at the far left, before the piano.
             // Solid red when idle; a blinking dot + elapsed timer while
-            // recording a tape. Only in the menubar layout (not the palette).
-            if tapeReservedInLayout {
+            // recording a tape. Only in the menubar layout (not the palette),
+            // and [v1] only when the tape feature is enabled (cut by default).
+            if tapeReservedInLayout && tapeFeatureEnabled {
                 drawRecIndicator(canvasHeight: size.height)
             }
 
