@@ -489,3 +489,6 @@ pop/**/__pycache__/
 pop/voice/.cache/
 system/backend/node_modules
 marketing/campaigns/serpentine-video/*/gens/
+
+# ac-shop frontpage editor backup (regenerated locally, not source of truth)
+ac-shop/.frontpage-backup.json
