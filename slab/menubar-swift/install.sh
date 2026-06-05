@@ -126,6 +126,41 @@ provision_iterm2_profiles() {
     ok "provisioned ${n} iTerm2 profile(s): tiled bg image + Blend 0.5"
 }
 
+# Disable Terminal.app's "Do you want to terminate the running processes?" modal
+# on every profile, so Slab can close provisioned windows without a popover.
+# The per-profile GUI control is Settings → Profiles → Shell → "Ask before
+# closing"; its plist key is `warnOnShellCloseAction` (0 = default/"if there
+# are processes other than the login shell…", 1 = always, 2 = never). We set
+# every Window Setting (the default profile + any Slab-* sets) to 2 so freshly
+# copied Slab-* sets inherit "never warn". The menubar can't set this via
+# AppleScript (Terminal only exposes `clean commands`), so it's done here.
+# Terminal caches prefs in memory and rewrites the plist on quit, so this is
+# only durable while it's NOT running.
+provision_terminal_close_warning() {
+    local pl="${HOME}/Library/Preferences/com.apple.Terminal.plist"
+    [[ -e "${pl}" ]] || { warn "Terminal prefs not found — skipping close-warning provisioning"; return 0; }
+    if pgrep -x "Terminal" >/dev/null 2>&1; then
+        warn "Terminal.app is running — skipping close-warning provisioning (quit Terminal and re-run to set 'Ask before closing → Never')"
+        return 0
+    fi
+    local pb=/usr/libexec/PlistBuddy n=0
+    # Enumerate profile names under "Window Settings": PlistBuddy prints each
+    # top-level profile as `    <name> = Dict {` at exactly 4 leading spaces.
+    # The plist embeds binary color/font archives, so force a byte-safe locale
+    # for sed and strip non-printable bytes before matching.
+    local names
+    names="$(${pb} -c "Print :'Window Settings'" "${pl}" 2>/dev/null \
+        | LC_ALL=C tr -cd '\11\12\15\40-\176' \
+        | LC_ALL=C sed -n 's/^    \([^ ].*\) = Dict {$/\1/p')"
+    local IFS=$'\n'
+    for name in ${names}; do
+        ${pb} -c "Set :'Window Settings':'${name}':warnOnShellCloseAction 2" "${pl}" 2>/dev/null \
+            || ${pb} -c "Add :'Window Settings':'${name}':warnOnShellCloseAction integer 2" "${pl}" 2>/dev/null || true
+        n=$((n+1))
+    done
+    ok "provisioned ${n} Terminal profile(s): Ask before closing → Never"
+}
+
 say "building slab-menubar (swift build -c release)"
 cd "${SCRIPT_DIR}"
 swift build -c release >/dev/null
@@ -138,6 +173,7 @@ fi
 ok "built: ${BUILT}"
 
 provision_iterm2_profiles
+provision_terminal_close_warning
 
 say "unloading any existing menubar launch agent"
 if launchctl list | grep -q computer.slab.menubar; then

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# slab-no-close-warn — set Terminal.app "Ask before closing" → Never on every
+# profile, so Slab-provisioned windows (and any others) close WITHOUT the
+# "Do you want to terminate the running processes?" modal.
+#
+# The per-profile GUI control is Settings → Profiles → Shell → "Ask before
+# closing". Its plist key is `warnOnShellCloseAction`:
+#     0 = default ("if there are processes other than the login shell and the
+#         processes listed in clean commands")
+#     1 = always warn
+#     2 = never warn   ← what we set
+#
+# Terminal.app only exposes `clean commands` over AppleScript (not the radio),
+# so the menubar can't set this at provisioning time — it has to be written to
+# the plist directly. Terminal caches prefs in memory and rewrites the plist on
+# quit, so this is ONLY durable while Terminal is NOT running. Quit Terminal
+# completely, run this, then relaunch Terminal.
+#
+# Slab-* settings sets are created by the menubar by copying the *default*
+# profile, so once the default profile carries warnOnShellCloseAction=2 every
+# future copied set inherits it. This script sets it on every existing profile
+# (default + all Slab-* sets) for good measure.
+set -u
+PL="$HOME/Library/Preferences/com.apple.Terminal.plist"
+PB=/usr/libexec/PlistBuddy
+[ -e "$PL" ] || { echo "slab-no-close-warn: no Terminal plist at $PL"; exit 1; }
+
+if pgrep -x Terminal >/dev/null 2>&1; then
+    echo "slab-no-close-warn: WARNING — Terminal.app is running."
+    echo "  Terminal rewrites this plist from memory on quit and will clobber"
+    echo "  these edits. Quit Terminal completely, then re-run this script."
+fi
+
+# Enumerate top-level profile names under "Window Settings". The plist embeds
+# binary NSFont/NSColor archives, so force a byte-safe locale and strip
+# non-printable bytes before the regex match.
+names="$("$PB" -c "Print :'Window Settings'" "$PL" 2>/dev/null \
+    | LC_ALL=C tr -cd '\11\12\15\40-\176' \
+    | LC_ALL=C sed -n 's/^    \([^ ].*\) = Dict {$/\1/p')"
+
+n=0
+while IFS= read -r name; do
+    [ -z "$name" ] && continue
+    "$PB" -c "Set :'Window Settings':'$name':warnOnShellCloseAction 2" "$PL" 2>/dev/null \
+        || "$PB" -c "Add :'Window Settings':'$name':warnOnShellCloseAction integer 2" "$PL" 2>/dev/null || true
+    n=$((n+1))
+done <<< "$names"
+
+echo "slab-no-close-warn: set warnOnShellCloseAction=2 (Never) on $n profile(s)"
