@@ -17,6 +17,7 @@ All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadat
 | Trancenwaltz | [RBG3k_XsfLA](https://youtu.be/RBG3k_XsfLA) | `cover-video.mjs --size 1920x1080` w/ v10b landscape illys |
 | Marimbaba (v3) | [jXdnJjdV_kY](https://youtu.be/jXdnJjdV_kY) | `preview-score-marimbaba-yt.mjs` — vignette removed (mirrors trancepenta-yt fix); replaces v2 `X63Ni-Lb_Kc` (deleted 2026-05-26, edges were crushed by the leftover contrast vignette) |
 | Helpabeach (v3) | [KVynj0RAwg8](https://youtu.be/KVynj0RAwg8) | `preview-score-helpabeach-yt.mjs` — multiply vignette half of `drawBacklight` dropped (warm sunset screen-glow kept); replaces v2 `WKdMYawwDPY` (deleted 2026-05-29 for the same side-darkening complaint) |
+| Amaythingra | [2FwOYCXS4UA](https://youtu.be/2FwOYCXS4UA) | `preview-score-yt.mjs` (big-pictures fork) — 32 cinematic beats, 3 render modes (photoreal office / glossy-grey metaverse / psychedelic AC-glitch degradation); chrome: per-slide tint, stained-glass colour-sep backlight, radial chromatic+blur edge-warp, glowy lanes, slide-blink bar, shimmer labels, kick beat-bump. Replaces `-at3b-chBbE`/`F-RhEL9OQ1g`/`KpK_MV8-178` (all deleted) |
 | Hellsine (v2) | [IjMGmPDvO4I](https://youtu.be/IjMGmPDvO4I) | `preview-score-hellsine-yt.mjs` — `drawVignette(c, v_i)` call removed from `paintSectionPanel` (function kept as dead code, mirrors marimbaba v3 / trancepenta-yt fix); replaces v1 `9KPUr6mA5e8` (deleted 2026-05-29, side-darkening crushed the felt-puppet panel edges); promoted to public 2026-05-29 |
 
 YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-29 the de-vignette pass burned 5 of 6 (hellsine v1 upload at 02:04Z + delete hellsine v1 + delete helpabeach v2 + upload hellsine v2 + upload helpabeach v3) — next YT churn must wait for the 24h rolling window to clear.
@@ -217,6 +218,47 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   - audio (wav) — https://assets.aesthetic.computer/pop/amaythingra.wav
   - audio (mp3) — https://assets.aesthetic.computer/pop/amaythingra.mp3
   - cover — https://assets.aesthetic.computer/pop/amaythingra.jpg
+- **Visualizers (storyline cut, 2026-06-04):** a 32-beat illustrated story —
+  **office → metaverse → office** — built like the marimbaba set.
+  - **youtube** · https://youtu.be/2FwOYCXS4UA (1920×1080 widescreen; the
+    CINEMATIC v2 cut — three render modes (real-world office = photoreal/textured ·
+    metaverse beach = glossy grey · degradation/spawn/dissolve = super-psychedelic
+    AC rainbow glitch), shot variety per beat (wide / close-up / ECU / first-person
+    POV / OTS / angles), and the full chrome stack: per-slide colour tint, stained-
+    glass colour-separation backlight, radial chromatic+blur edge-warp (periphery),
+    lanes clearish-in → bright+glowy-out, slide-change bar blink, shimmer side-
+    labels, kick beat-bump, dampened timecode. Replaced (all deleted): `-at3b-chBbE`
+    (smoothed-cam, pre-cinematic), `F-RhEL9OQ1g` (32-beat shaky), `KpK_MV8-178`
+    (16-beat). Title Case "Amaythingra"; hashtag-only desc
+    `#deephouse #amazinggrace #remix #visualizer #aestheticcomputer #pixsies`.
+  - **insta-story** (9:16) · `~/Documents/Shelf/amaythingra/amaythingra-insta-story.mp4`
+  - **canvas** (Spotify Canvas, 9:16, 8 s silent loop) ·
+    `~/Documents/Shelf/amaythingra/canvas/amaythingra-canvas-sequence.mp4`
+    (+ `~/Desktop/amaythingra-canvas.mp4`); 8-beat "a"-spine via
+    `pop/dance/bin/canvas-loop.mjs`.
+  - **Story (8 sections × 4 beats = 32, ~8.5 s each):** jeffrey bored in a drab
+    grey tech OFFICE staring at a WOMAN IN GREY (surfboard on the wall); MARK
+    ZUCKERBERG onboards him through a portal into a metaverse game; the office is
+    REPLICATED + warped inside it (the one woman → an army of grey selfie-girl
+    avatars, the wall surfboard → his wakeboard); DRONE-WARS erupt on the
+    horizon; he carves the maze, MARK grabs him in a tug-of-war, he wrenches free
+    and flies; the GAG (girls topple mid-selfie, never reacting); he breaks away
+    to the warm GROUP PIXSIES round-table (the human antidote); the world
+    dissolves and he's spat back into the office, discombobulated — then sees the
+    woman anew. THREE render modes (`build()` in gen-sections auto-routes):
+    real-world office beats = **photoreal/textured** (R_ blocks); metaverse-beach
+    beats = **glossy desaturated-grey** Horizon-Worlds render (`cover-prompt.v2.txt`
+    law); degradation beats (spawn / portal-void / dissolve — `PSYCH_SET`) =
+    **super-psychedelic AC rainbow glitch**. No laptop, no matrix code.
+  - **Pipeline** (auto-detects panel count per section, splits each section
+    evenly): `node pop/big-pictures/bin/gen-sections.mjs` (portrait `-p` set) ·
+    `… --landscape` (`-yt` set, 32 panels each) → `preview-score.mjs` (9:16
+    insta-story) · `preview-score-yt.mjs` (16:9 YouTube) · `canvas-loop.mjs`
+    (Canvas). Panels conditioned on jeffrey shoot/IG refs via gpt-image-2 edits.
+    NOTE: never run two `gen-sections` processes concurrently — parallel calls to
+    the OpenAI images/edits endpoint trip spurious 401s (sequential is reliable;
+    401 is now retried as transient). Upload via
+    `node toolchain/youtube/yt.mjs upload … --privacy public --category 10`.
 - **The cut:** a 4:33 **vowel-extraction** remix — the hymn vocals stripped to
   OPEN/ROUNDED vowels only (ah/aw/uh — "ashhs and oooh", no consonants), their
   sustain loops **beat-aligned to the kick grid**, softened with per-voice

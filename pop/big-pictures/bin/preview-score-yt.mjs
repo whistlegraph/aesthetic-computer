@@ -1,0 +1,1429 @@
+#!/usr/bin/env node
+// big-pictures/bin/preview-score-yt.mjs — YouTube widescreen storyline
+// visualizer for amaythingra (the 16:9 sibling of preview-score.mjs).
+//
+// Renders the 16 metaverse-session section panels (gen-sections.mjs
+// --landscape, 2 per musical section) into a 1920×1080 mp4 for the
+// YouTube release — matching the marimbaba / trancepenta -yt cuts. Built
+// on the shared engine (pop/lib/preview-shared.mjs + cover-engine.mjs).
+// Story: office → Mark onboards → grey metaverse beach (selfie-girl
+// replicas, drone wars, the Mark tug-of-war, the group pixsies) →
+// discombobulated back in the office. Features:
+//
+//   • THE STRING + SOUND ELEMENTS — a verlet-physics playhead string;
+//     amaythingra's note events (struct.json, the C-engine deep-house
+//     bed) ride past it as pitch-coloured blocks across 4 voice lanes
+//     (glock / pad / sub / kick). The four-on-floor kick drives the punch.
+//   • 3-LAYER BACKLIGHT behind the figures; FACE ZOOM breathing in/out
+//     (centre fallback, no forms.json yet).
+//   • TRANSITIONS — 6 types cycled across the 15 panel boundaries.
+//   • side pals watermarks, climbing title chars, segmented progress
+//     bar, timecode.
+//
+// Usage:
+//   node pop/big-pictures/bin/gen-sections.mjs --landscape  # → 16 -yt panels
+//   node pop/big-pictures/bin/preview-score-yt.mjs          # → the 1920×1080 mp4
+//   (needs out/amaythingra.struct.json + out/amaythingra.mp3)
+
+import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { createCanvas, loadImage } from "canvas";
+import * as progress from "../../lib/render-progress.mjs";
+import { getNoteColorForOctave } from "../../../system/public/aesthetic.computer/lib/note-colors.mjs";
+import {
+  checkYwftAvailable, decodeAudioMono, computeRmsEnvelope,
+  prerenderTitleChars, magickRenderText, drawCoverKenBurns,
+  drawTitleBounce, spawnFFmpegEncode, AUDIO_SR_DEFAULT,
+} from "../../lib/preview-shared.mjs";
+import { makeVerletString, hexToRgb } from "../../lib/cover-engine.mjs";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const LANE = resolve(HERE, "..");
+const REPO = resolve(LANE, "../..");
+
+const flags = {};
+for (let i = 2; i < process.argv.length; i++) {
+  const a = process.argv[i];
+  if (!a.startsWith("--")) continue;
+  const next = process.argv[i + 1];
+  if (next === undefined || next.startsWith("--")) flags[a.slice(2)] = true;
+  else { flags[a.slice(2)] = next; i++; }
+}
+
+const SLUG   = flags.slug  || "amaythingra";
+const TITLE  = flags.title || (SLUG.charAt(0).toUpperCase() + SLUG.slice(1));
+// YT fork: always landscape, always chromed (no --reel branch). Uses
+// the "-yt" landscape illy set from gen-sections.mjs --landscape.
+const COVER  = flags.cover  || `${LANE}/out/${SLUG}-yt-cover.png`;
+const AUDIO  = flags.audio  || `${LANE}/out/${SLUG}.mp3`;
+const STRUCT = flags.struct || `${LANE}/out/${SLUG}.struct.json`;
+const OUT    = flags.out    || `${LANE}/out/${SLUG}-preview-score-yt.mp4`;
+const FPS    = Number(flags.fps ?? 30);
+const SIZE   = flags.size || "1920x1080";
+const [W, H] = SIZE.split("x").map(Number);
+const REEL   = false;   // YT cut is always chromed
+// --start T --frames N → tiny test render (~1s) so layout tweaks can
+// be checked in seconds instead of an 11-min full render.
+const START_T = Number(flags.start ?? 0);
+const FRAMES_OVERRIDE = flags.frames ? Number(flags.frames) : null;
+
+checkYwftAvailable();
+for (const [name, p] of [["audio", AUDIO], ["struct", STRUCT]]) {
+  if (!existsSync(p)) {
+    console.error(`✗ ${name} missing: ${p.replace(REPO + "/", "")}`);
+    if (name === "struct") console.error(`  emit it: node pop/big-pictures/bin/bake.mjs  (writes out/amaythingra.struct.json)`);
+    process.exit(1);
+  }
+}
+
+const struct = JSON.parse(readFileSync(STRUCT, "utf8"));
+const DURATION = struct.totalSec;
+const FRAMES = Math.ceil(DURATION * FPS);
+const SECTIONS = struct.sections.slice().sort((a, b) => a.startSec - b.startSec);
+console.log(`▸ ${SLUG} storyline visualizer · ${W}x${H} · ${DURATION.toFixed(1)}s · ${FRAMES} frames · ${SECTIONS.length} sections`);
+
+// ── audio decode + envelope ──────────────────────────────────────────
+console.log("  decoding audio …");
+const { audio, sr: audioSr, audioPeak } = decodeAudioMono(AUDIO, AUDIO_SR_DEFAULT);
+const envelope = computeRmsEnvelope(audio, audioSr, FPS, DURATION);
+function envAt(t) {
+  const idx = Math.floor(t * FPS);
+  return (idx < 0 || idx >= envelope.length) ? 0 : envelope[idx];
+}
+
+// ── voice lanes — the marimba's sound elements ───────────────────────
+// 5 voices from struct.events. Each lane gets a base colour; individual
+// notes are tinted toward their notepat pitch-colour.
+const LANES = [
+  { key: "glock", color: "#ffd24a" },   // bright gold — the bell/hymn lead
+  { key: "pad",   color: "#7fb3c8" },   // soft blue — the dream-haze pad
+  { key: "sub",   color: "#c8643c" },   // deep terracotta — the sub bass
+  { key: "kick",  color: "#9a3b3b" },   // dark red — the four-on-floor pulse
+];
+const laneEvents = {};
+for (const L of LANES) {
+  const evs = (struct.events?.[L.key] || []).slice().sort((a, b) => a.t - b.t);
+  // STACKROW assignment — events that overlap in time within the same
+  // lane get bumped onto a sub-row so they don't draw on top of each
+  // other. Greedy: each event goes into the first row whose previous
+  // event has already ended.
+  const rowEndT = [];
+  let maxRows = 1;
+  for (const ev of evs) {
+    let row = 0;
+    while (row < rowEndT.length && rowEndT[row] > ev.t + 1e-4) row++;
+    ev.stackRow = row;
+    const evEnd = ev.t + (ev.dur || 0.25);
+    if (row >= rowEndT.length) rowEndT.push(evEnd);
+    else rowEndT[row] = evEnd;
+    if (row + 1 > maxRows) maxRows = row + 1;
+  }
+  L.maxStackRows = maxRows;
+  laneEvents[L.key] = evs;
+}
+const nEvents = Object.values(laneEvents).reduce((s, a) => s + a.length, 0);
+console.log(`  sound elements: ${nEvents} note events across ${LANES.length} voice lanes`);
+
+// bass onsets drive the "sharpen" punch (no kick in a lullaby).
+const punchTimes = laneEvents.kick.map((e) => e.t);
+function punchAt(t) {
+  let e = 0;
+  for (const pt of punchTimes) {
+    if (pt > t + 0.04) break;
+    const dt = t - pt;
+    const v = dt < 0 ? Math.max(0, 1 + dt / 0.03) : Math.exp(-dt / 0.5);
+    if (v > e) e = v;
+  }
+  return e;
+}
+
+// ── notepat pitch colour ─────────────────────────────────────────────
+const NOTE_NAMES = ["c","c#","d","d#","e","f","f#","g","g#","a","a#","b"];
+function midiToNotepatRgb(midi) {
+  if (!Number.isFinite(midi)) return [220, 220, 210];
+  const noteIdx = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  const c = getNoteColorForOctave(NOTE_NAMES[noteIdx], octave);
+  return Array.isArray(c) ? c : [c.r ?? 220, c.g ?? 220, c.b ?? 210];
+}
+
+// ── marimbaba identity ───────────────────────────────────────────────
+// Warm lullaby pastels — one tint per story section, the help call's
+// changing emotion (anticipation → hello → relief → cozy → uncertain →
+// wonder → effort → teamwork → triumph → drowsy calm).
+const SECTION_TINTS = {
+  intro:   "rgba(150,158,176,1)",   // cool slate — the office
+  build:   "rgba(166,176,190,1)",   // lighter grey — onboarding
+  drop1:   "rgba(176,170,168,1)",   // faint warm grey — arrival
+  break:   "rgba(150,166,176,1)",   // cool steel — the lull
+  vortex:  "rgba(136,156,178,1)",   // deep steel-blue — carve + conflict
+  drop2:   "rgba(186,168,156,1)",   // warmer taupe — the gag + pixsies
+  outro:   "rgba(160,168,180,1)",   // soft grey — riding off
+  resolve: "rgba(170,180,196,1)",   // pale grey-blue — back in the office
+};
+const TITLE_PALETTE = ["#f0e6cd", "#a6bcd6", "#b0c4a8", "#eec48c", "#d6b4b4"];
+const BACKLIGHT_RGB = "255,196,116";       // deeper warm desk-lamp amber (was too pale)
+
+// ── YWFT title + per-second timecode ─────────────────────────────────
+console.log("  rasterizing YWFT …");
+const assetsDir = AUDIO.replace(/\.mp3$/, ".assets");
+mkdirSync(assetsDir, { recursive: true });
+
+const titleFontSize = 96;
+// shadowColor: null — bake NO shadow into the pre-rendered chars, so
+// when we source-in tint each glyph we get a CLEAN letter alpha mask.
+// (We draw our own controlled black shadow + colored seep passes per
+// frame in drawPalsTitleChars.)
+const { chars: titleChars, totalWidth: titleTotalW } = await prerenderTitleChars({
+  text: TITLE, ptSize: titleFontSize, palette: TITLE_PALETTE,
+  shadowColor: null, assetsDir,
+});
+// ── Title/pals geometry (shared so the pals stamp lands SNUG against
+// the first char of each column with no animation overlap) ──────────
+const PALS_S      = 145;                       // pals stamp size (square)
+const PALS_HALF   = PALS_S / 2;
+const PALS_EDGE_X  = 64;                       // cx of pals (left side) — hug the edge
+const CHARS_EDGE_X = PALS_EDGE_X + 12;         // chars sit just inward of the pals
+const CHAR_SCALE  = 0.52;
+const CHAR_SPAN   = titleTotalW * CHAR_SCALE;  // vertical length of the rotated text column
+const BOUNCE_BUF  = 26;                        // vertical gap pals → first char (more breathing)
+const LEFT_CHARS_CY  = H * 0.82 - 16;        // bottom-left group nudged UP toward centre (+16px)
+const RIGHT_CHARS_CY = H * 0.18 + 32 + 16;   // top-right group nudged DOWN toward centre (+32+16px)
+// LEFT column reads top-down → 'm' at TOP of column; pals sits JUST
+// above it. RIGHT column reads bottom-up → 'm' at BOTTOM; pals sits
+// JUST below it. Both auto-snug, no manual y values to nudge.
+const LEFT_PALS_CY  = LEFT_CHARS_CY  - CHAR_SPAN / 2 - BOUNCE_BUF - PALS_HALF;
+const RIGHT_PALS_CY = RIGHT_CHARS_CY + CHAR_SPAN / 2 + BOUNCE_BUF + PALS_HALF;
+const TITLE_TOP_Y = 104;
+
+const tcFontSize = 60;
+const tcCache = new Map();
+async function getTcImg(text) {
+  if (tcCache.has(text)) return tcCache.get(text);
+  const safe = text.replace(/[^0-9]/g, "_");
+  const img = await magickRenderText(text, {
+    ptSize: tcFontSize, fill: "rgba(255,253,242,0.97)",
+    outPath: `${assetsDir}/tc.${safe}.png`,
+  });
+  const shadow = await magickRenderText(text, {
+    ptSize: tcFontSize, fill: "rgba(0,0,0,1)",
+    outPath: `${assetsDir}/tc.${safe}.shadow.png`,
+  });
+  const entry = { img, shadow };
+  tcCache.set(text, entry);
+  return entry;
+}
+const totMm = Math.floor(DURATION / 60);
+const totSs = Math.floor(DURATION - totMm * 60).toString().padStart(2, "0");
+for (let s = 0; s <= Math.ceil(DURATION); s++) {
+  const mm = Math.floor(s / 60);
+  const ss = (s - mm * 60).toString().padStart(2, "0");
+  await getTcImg(`${mm}:${ss} / ${totMm}:${totSs}`);
+}
+
+// ── canvas + section panels ──────────────────────────────────────────
+const canvas = createCanvas(W, H);
+const ctx = canvas.getContext("2d");
+// two offscreen layers for the transitions (prev panel / cur panel)
+const offA = createCanvas(W, H), offACtx = offA.getContext("2d");
+const offB = createCanvas(W, H), offBCtx = offB.getContext("2d");
+
+function safeName(n) {
+  return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+let coverImg = existsSync(COVER) ? await loadImage(COVER) : null;
+// PANELS — TWO visual beats per musical section (a/b), so the
+// illustration changes ~every 16 s while the note-train + tints stay
+// keyed to the 8 musical SECTIONS. YT fork: load the -yt landscape set
+// (sec-<i>-<name>-<half>.png), falling back to the old single-panel
+// naming, then the cover.
+// Discover however many beat panels exist per section (a, b, c, d, …)
+// and split the section evenly across them — cadence set by gen-sections
+// output, no hardcoded count. Falls back to single-panel naming, cover.
+const PANEL_SUFFIXES = ["a", "b", "c", "d", "e", "f"];
+const PANELS = [];
+for (let i = 0; i < SECTIONS.length; i++) {
+  const s = SECTIONS[i];
+  const nm = safeName(s.name);
+  const found = PANEL_SUFFIXES.filter((h) =>
+    existsSync(`${LANE}/out/${SLUG}-yt-sec-${i}-${nm}-${h}.png`));
+  const slots = found.length ? found : [null];
+  const span = (s.endSec - s.startSec) / slots.length;
+  slots.forEach((h, k) => PANELS.push({
+    startSec: s.startSec + k * span,
+    endSec:   s.startSec + (k + 1) * span,
+    name: s.name, half: h, si: i,
+  }));
+}
+const PANEL_IMGS = [];
+let haveImgs = 0;
+for (let j = 0; j < PANELS.length; j++) {
+  const P = PANELS[j];
+  const suffix = P.half ? `-${P.half}` : "";
+  const p    = `${LANE}/out/${SLUG}-yt-sec-${P.si}-${safeName(P.name)}${suffix}.png`;
+  const pOld = `${LANE}/out/${SLUG}-yt-sec-${P.si}-${safeName(P.name)}.png`;
+  if (existsSync(p))         { PANEL_IMGS[j] = await loadImage(p);    haveImgs++; }
+  else if (existsSync(pOld)) { PANEL_IMGS[j] = await loadImage(pOld); haveImgs++; }
+  else if (coverImg)         { PANEL_IMGS[j] = coverImg; }
+  else {
+    console.error(`✗ panel missing and no cover fallback: ${p.replace(REPO + "/", "")}`);
+    console.error(`  generate panels first: node pop/big-pictures/bin/gen-sections.mjs --landscape`);
+    process.exit(1);
+  }
+}
+const avgSec = (DURATION / PANELS.length).toFixed(1);
+console.log(`  panels: ${haveImgs}/${PANELS.length} (~${avgSec}s each)`);
+const imgW = PANEL_IMGS[0].width, imgH = PANEL_IMGS[0].height;
+
+// ── PER-PANEL chrome tint ────────────────────────────────────────────
+// Each slide gets its OWN colour: the section's base tint, hue-rotated +
+// enriched per a/b/c/d beat. The side pals logos, string glow, title
+// chars, progress bar + timecode all read this (via sectionTcRgb →
+// panelIndexAt), so the whole chrome re-tints on every slide change.
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (mx + mn) / 2;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return [h, s, l];
+}
+const BEAT_IDX = { a: 0, b: 1, c: 2, d: 3 };
+function varyTint(rgbaStr, beatIdx) {
+  const [r, g, b] = tintRgb(rgbaStr);
+  let [h, s, l] = rgbToHsl(r, g, b);
+  h = (h + beatIdx * 26 + 360) % 360;                 // a distinct hue per beat
+  s = Math.min(1, s + 0.12 + beatIdx * 0.04);         // chrome a touch richer
+  l = Math.max(0.32, Math.min(0.74, l + (beatIdx - 1.5) * 0.05));
+  return hslToRgb(h, s, l);                            // [r,g,b] 0..255
+}
+const PANEL_TINTS = PANELS.map((P) =>
+  varyTint(SECTION_TINTS[P.name] || "rgba(200,200,200,1)", BEAT_IDX[P.half] ?? 0));
+
+// ── figure + face bboxes (forms.json) ────────────────────────────────
+let FORMS = {};
+try {
+  // YT fork: prefer landscape-tuned forms (-yt-forms.json) if present;
+  // portrait bboxes are wrong for 1536×1024 landscape panels, so skip
+  // them if no -yt forms exist (graceful fallback: no zoom/backlight).
+  const ytFp = `${LANE}/${SLUG}-yt-forms.json`;
+  const fp   = `${LANE}/${SLUG}-forms.json`;
+  if (existsSync(ytFp)) FORMS = JSON.parse(readFileSync(ytFp, "utf8")).sections || {};
+  else if (existsSync(fp)) FORMS = {}; // skip portrait forms on landscape
+} catch { /* no forms → centre fallback */ }
+// Supports old shape `figure: [x,y,w,h]` and new shape
+// `figure: { figure: [...], face: [...] }`. Backwards-compatible.
+function _toBox(v) {
+  if (!v) return null;
+  if (Array.isArray(v)) return { x: v[0], y: v[1], w: v[2], h: v[3] };
+  if (Array.isArray(v.figure)) return { x: v.figure[0], y: v.figure[1], w: v.figure[2], h: v.figure[3] };
+  return null;
+}
+function _toFace(v) {
+  if (!v || Array.isArray(v)) return null;
+  if (Array.isArray(v.face)) return { x: v.face[0], y: v.face[1], w: v.face[2], h: v.face[3] };
+  return null;
+}
+function figureBoxes(name) {
+  const f = FORMS[name];
+  if (!f) return [];
+  return [_toBox(f.jeffrey), _toBox(f.gates)].filter(Boolean);
+}
+function faceBoxes(name) {
+  const f = FORMS[name];
+  if (!f) return [];
+  return [_toFace(f.jeffrey), _toFace(f.gates)].filter(Boolean);
+}
+const FRAME_ASPECT = W / H;
+// Grow a box about its centre to the frame's W:H aspect so the zoom
+// fills without side-crop.
+function fitFrameAspect(b) {
+  let { x, y, w, h } = b;
+  if (w / h > FRAME_ASPECT) { const nh = w / FRAME_ASPECT; y -= (nh - h) / 2; h = nh; }
+  else                       { const nw = h * FRAME_ASPECT; x -= (nw - w) / 2; w = nw; }
+  return { x, y, w, h };
+}
+// Use the explicit face box if forms.json carries one; otherwise
+// derive a generous frame-aspect box centred on the figure's head.
+function faceBoxFor(face, figure) {
+  if (face) return fitFrameAspect(face);
+  let w = figure ? Math.max(figure.w * 0.82, imgW * 0.42) : imgW * 0.42;
+  let h = w / FRAME_ASPECT;
+  if (h > imgH) { h = imgH; w = h * FRAME_ASPECT; }
+  const cx = figure ? figure.x + figure.w / 2 : imgW / 2;
+  const cy = figure ? figure.y + figure.h * 0.18 : imgH * 0.3;
+  let x = Math.max(0, Math.min(imgW - w, cx - w / 2));
+  let y = Math.max(0, Math.min(imgH - h, cy - h / 2));
+  return { x, y, w, h };
+}
+const WHOLE_BOX = { x: 0, y: 0, w: imgW, h: imgH };
+function lerpBox(a, b, t) {
+  return {
+    x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
+    w: a.w + (b.w - a.w) * t, h: a.h + (b.h - a.h) * t,
+  };
+}
+
+// ── pals watermark — two SIDE stamps, faithful to chillwave/dance ────
+// rasterize a sharp + a slightly-blurred copy, then tint each per
+// frame to the current section colour blended with a slow hue cycle;
+// stamp with multiply/burn/overlay + a source-over crisp top pass +
+// an LED-pulse screen glow driven by the audio amplitude. Two stamps
+// hug the LEFT-BOTTOM and RIGHT-TOP edges, rotated 90° with a
+// looping wiggle + swivel locked to the video timeline.
+const PALS_WM_SIZE = 212;
+let palsImg = null, palsBlur = null;
+const wmCanvas = createCanvas(8, 8);
+const wmCtx = wmCanvas.getContext("2d");
+{
+  const svg = `${REPO}/system/public/purple-pals.svg`;
+  const png = `${assetsDir}/pals-watermark.png`;
+  const blurPng = `${assetsDir}/pals-watermark-blur.png`;
+  if (existsSync(svg)) {
+    const r = spawnSync("rsvg-convert", ["-w", String(PALS_WM_SIZE * 2), "-h", String(PALS_WM_SIZE * 2), "-o", png, svg]);
+    if (r.status === 0 && existsSync(png)) {
+      palsImg = await loadImage(png);
+      // a whisper of edge softening so the vector stamps sit in the
+      // hand-drawn world (not a gaussian ghost — just kills the hard edge).
+      const rb = spawnSync("magick", [png, "-channel", "A", "-blur", "0x1.5", "+channel", blurPng]);
+      palsBlur = (rb.status === 0 && existsSync(blurPng)) ? await loadImage(blurPng) : palsImg;
+    }
+  }
+  console.log(`  pals watermark: ${palsImg ? "loaded" : "MISSING (skipped)"}`);
+}
+function hslToRgb(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+// Compute the pals's current frame colour (section tint blended with
+// the slow hue cycle) — shared by drawWatermark AND
+// drawPalsTitleChars so the climbing chars track the pals exactly.
+function palsFrameColor(audioT) {
+  const u = audioT * FPS / FRAMES;
+  const hue = ((u * 360 * 4) % 360 + 360) % 360;
+  const hRgb = hslToRgb(hue, 0.9, 0.62);
+  const [sr, sg, sb] = sectionTcRgb(audioT);
+  return [
+    Math.round(sr * 0.6 + hRgb[0] * 0.4),
+    Math.round(sg * 0.6 + hRgb[1] * 0.4),
+    Math.round(sb * 0.6 + hRgb[2] * 0.4),
+  ];
+}
+// Re-tint a pre-rendered title-char glyph (whose pixels have a baked
+// drop shadow) to a target rgb via source-in alpha mask. Uses its own
+// canvas (separate from wmCanvas) so tinting + drawing don't trample.
+const charTintCanvas = createCanvas(2, 2);
+const charTintCtx = charTintCanvas.getContext("2d");
+function tintCharGlyph(img, rgb) {
+  const w = img.width, h = img.height;
+  charTintCanvas.width = w; charTintCanvas.height = h;
+  charTintCtx.globalCompositeOperation = "source-over";
+  charTintCtx.clearRect(0, 0, w, h);
+  charTintCtx.drawImage(img, 0, 0);
+  charTintCtx.globalCompositeOperation = "source-in";
+  charTintCtx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  charTintCtx.fillRect(0, 0, w, h);
+  charTintCtx.globalCompositeOperation = "source-over";
+  return charTintCanvas;
+}
+function palsTinted(rgb, src) {
+  const ww = src.width, wh = src.height;
+  wmCanvas.width = ww; wmCanvas.height = wh;
+  wmCtx.clearRect(0, 0, ww, wh);
+  wmCtx.globalCompositeOperation = "source-over";
+  wmCtx.drawImage(src, 0, 0);
+  wmCtx.globalCompositeOperation = "source-in";
+  wmCtx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  wmCtx.fillRect(0, 0, ww, wh);
+  wmCtx.globalCompositeOperation = "source-over";
+  return wmCanvas;
+}
+function drawWatermark(audioT) {
+  if (!palsImg) return;
+  const s = 145;
+  // PERFECT-LOOP GEOMETRY: position / wiggle / swivel / hue locked to
+  // the full video timeline (u: 0 → 1 across all frames), INTEGER
+  // harmonics, so the last frame's pals sit exactly where frame 0's do.
+  const u = audioT * FPS / FRAMES;
+  const TAU = Math.PI * 2;
+  const hue = ((u * 360 * 4) % 360 + 360) % 360;       // 4 hue cycles
+  const hRgb = hslToRgb(hue, 0.9, 0.62);
+  const [sr, sg, sb] = sectionTcRgb(audioT);
+  const col = [
+    Math.round(sr * 0.6 + hRgb[0] * 0.4),
+    Math.round(sg * 0.6 + hRgb[1] * 0.4),
+    Math.round(sb * 0.6 + hRgb[2] * 0.4),
+  ];
+  // LED pulse: audio amplitude brightens + saturates the pals.
+  const env = Math.min(1, envAt(audioT));
+  const glow = env * env;
+  const hotRgb = hslToRgb(hue, 1.0, Math.min(0.88, 0.60 + 0.34 * glow));
+  const ledCol = [
+    Math.round(col[0] + (hotRgb[0] - col[0]) * glow),
+    Math.round(col[1] + (hotRgb[1] - col[1]) * glow),
+    Math.round(col[2] + (hotRgb[2] - col[2]) * glow),
+  ];
+  const wig  = 13 * Math.sin(TAU * 30 * u) + 4 * Math.sin(TAU * 10 * u);
+  const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u);
+  const inset = s * 0.34;
+  // Diagonal pals AT the corner edges — the title text starts NEXT
+  // to each pals (the logo is to the LEFT of where the text starts).
+  const spots = [
+    // PALS snug against the beginning of each text column:
+    //   left column reads top-down → pals just ABOVE the top 'm'
+    //   right column reads bottom-up → pals just BELOW the bottom 'm'
+    // Tight gap so the logo + first letter read as a single unit.
+    // pals cx + cy computed from the title geometry — SNUG against the
+    // first char of each column, with a small bounce-buffer so the
+    // per-char bounce never overlaps the stamp.
+    { cx: PALS_EDGE_X - wig,     cy: LEFT_PALS_CY,  rot:  Math.PI / 2 + swiv },
+    { cx: W - PALS_EDGE_X + wig, cy: RIGHT_PALS_CY, rot: -Math.PI / 2 - swiv },
+  ];
+  // pushed deep INTO the image — heavy multiply/burn/overlay, only a
+  // whisper of straight-source pass so it stains in.
+  const passes = [
+    ["multiply",   0.78], ["color-burn", 0.42],
+    ["overlay",    0.58], ["source-over", 0.06],
+  ];
+  for (const sp of spots) {
+    ctx.save();
+    ctx.translate(sp.cx, sp.cy);
+    ctx.rotate(sp.rot);
+    // tight dark drop shadow (real black tinted glyph, offset)
+    palsTinted([0, 0, 0], palsImg);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.26;
+    ctx.drawImage(wmCanvas, -s / 2 + 3, -s / 2 + 4, s, s);
+    // 4-pass seep
+    palsTinted(col, palsBlur);
+    for (const [op, a] of passes) {
+      ctx.globalCompositeOperation = op;
+      ctx.globalAlpha = a;
+      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+    }
+    // crisp top pass so the logo out-reads its own shadow
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.30;
+    ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+    // LED pulse — additive bloom + crisp hot core on loud hits
+    if (glow > 0.001) {
+      palsTinted(ledCol, palsBlur);
+      ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = 0.14 + 0.78 * glow;
+      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+      palsTinted(ledCol, palsImg);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 0.18 + 0.46 * glow;
+      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
+    }
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  // After each pals stamp, write the small "marimbaba" chars OVER it,
+  // rotated −90° so they read UP the side of the frame (matches the
+  // trancepenta-yt landscape chrome).
+  drawPalsTitleChars(audioT);
+}
+// "marimbaba" chars climbing VERTICALLY (rotated −90°) BESIDE each
+// pals stamp — left pals at bottom: text-column to its RIGHT,
+// right pals at top: text-column to its LEFT. Each char re-tinted
+// per frame to the pals's section+hue colour so type + logo read
+// as one family.
+function drawPalsTitleChars(audioT) {
+  if (!palsImg) return;
+  const s = 145;                            // matches drawWatermark
+  const u = audioT * FPS / FRAMES;
+  const TAU = Math.PI * 2;
+  const wig  = 13 * Math.sin(TAU * 30 * u) + 4 * Math.sin(TAU * 10 * u);
+  const inset = s * 0.34;
+  const charScale = CHAR_SCALE;
+  const span = titleTotalW * charScale;
+  const palsRgb = palsFrameColor(audioT);
+  // Chars share the SAME x-axis as the pals stamp (centred on the
+  // same vertical line so logo + type line up).
+  const spots = [
+    { charsCx: CHARS_EDGE_X - wig,     cy: LEFT_CHARS_CY,  rot:  Math.PI / 2 },
+    { charsCx: W - CHARS_EDGE_X + wig, cy: RIGHT_CHARS_CY, rot: -Math.PI / 2 },
+  ];
+  const startX = -span / 2;                 // centre the column on cy
+  for (const sp of spots) {
+    ctx.save();
+    ctx.translate(sp.charsCx, sp.cy);
+    ctx.rotate(sp.rot);
+    for (let i = 0; i < titleChars.length; i++) {
+      const ch = titleChars[i];
+      if (!ch.img) continue;
+      const x = startX + ch.prefixWidth * charScale;
+      const dw = ch.img.width * charScale;
+      const dh = ch.img.height * charScale;
+      const charEnv = envAt(audioT - i * 0.03);
+      const lift = 4 * Math.sin(audioT * 4.0 + i * 0.8) * (0.3 + charEnv);
+      const y = -dh / 2 + lift;
+      // SHIMMER — a glint travels along the letters (brightens each char
+      // toward white in sequence) so the side labels feel alive.
+      const sh = 0.5 + 0.5 * Math.sin(audioT * 3.2 - i * 0.7);
+      const charRgb = [
+        Math.round(palsRgb[0] + (255 - palsRgb[0]) * sh * 0.35),
+        Math.round(palsRgb[1] + (255 - palsRgb[1]) * sh * 0.35),
+        Math.round(palsRgb[2] + (255 - palsRgb[2]) * sh * 0.35),
+      ];
+      // 1) shadow stamp — IDENTICAL to the pals shadow: solid BLACK,
+      //    alpha 0.26, offset (3, 4). Matches the logo's look exactly.
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 0.26;
+      ctx.drawImage(tintCharGlyph(ch.img, [0, 0, 0]), x + 3, y + 4, dw, dh);
+      ctx.restore();
+      // 2) 4-pass SEEP — same blend stack the pals uses, so the type
+      //    soaks INTO the illustration the same way the logo does.
+      const charPasses = [
+        ["multiply",    0.78],
+        ["color-burn",  0.42],
+        ["overlay",     0.58],
+        ["source-over", 0.06],
+      ];
+      for (const [op, a] of charPasses) {
+        ctx.save();
+        ctx.globalCompositeOperation = op;
+        ctx.globalAlpha = a;
+        ctx.drawImage(tintCharGlyph(ch.img, charRgb), x, y, dw, dh);
+        ctx.restore();
+      }
+      // 3) crisp top pass — denser than the pals's 0.30 so the smaller
+      //    type still reads at the same on-screen density as the logo.
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 0.46;
+      ctx.drawImage(tintCharGlyph(ch.img, palsRgb), x, y, dw, dh);
+      ctx.restore();
+      // 4) LED screen pulse on loud chars (mirrors the pals LED bloom)
+      if (charEnv > 0.45) {
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.14 + 0.46 * Math.min(1, (charEnv - 0.45) / 0.55);
+        ctx.drawImage(tintCharGlyph(ch.img, charRgb), x, y, dw, dh);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+}
+// Brighten the section tint toward white by how far through the
+// section we are — so the watermark colour reads both WHICH section
+// and HOW FAR (progress), exactly like the chillwave/trancenwaltz cut.
+function sectionTcRgb(audioT) {
+  const i = panelIndexAt(audioT);          // PER-PANEL now (changes each slide)
+  const s = PANELS[i];
+  let [r, g, b] = PANEL_TINTS[i];
+  const span = Math.max(0.001, s.endSec - s.startSec);
+  const lp = Math.max(0, Math.min(1, (audioT - s.startSec) / span));
+  const k = 0.30 * lp;
+  r = Math.round(r + (255 - r) * k);
+  g = Math.round(g + (255 - g) * k);
+  b = Math.round(b + (255 - b) * k);
+  return [r, g, b];
+}
+
+// ── the verlet string ────────────────────────────────────────────────
+const PLAYHEAD_X = Math.round(W / 2);
+const PX_PER_SEC = 150;                      // lullaby scroll speed
+const _vs = makeVerletString(ctx, { W, H, playheadX: PLAYHEAD_X, duration: DURATION });
+
+// 5 lanes spread EVENLY across the canvas height (along the string)
+// so the tracks don't bunch toward one edge — they ride the string
+// from top to bottom.
+const LANE_TOP = 240, LANE_BOTTOM = H - 200;
+const LANE_H = (LANE_BOTTOM - LANE_TOP) / LANES.length;
+const laneCenterY = {};
+LANES.forEach((L, i) => { laneCenterY[L.key] = LANE_TOP + i * LANE_H + LANE_H / 2; });
+
+// Groove radius — note blocks curve about the canvas centre. The
+// chillwave/trancenwaltz ~85%·minDim gives the strong 3D-projection
+// arc the user likes (clear record-groove feel).
+const GROOVE_R = Math.round(Math.min(W, H) * 0.85);
+
+// ── illustration distortion UNDER the bent string ───────────────────
+// Ported faithfully from chillwave's warpUnderString: snapshot the
+// upright frame, counter-rotate it by -θ into a big square buffer,
+// then redraw a tall strip near the playhead under +θ with each row
+// shifted by the local string deflection. Two rotations cancel for the
+// CONTENT (illustration stays upright, never spins) while ONLY the
+// distortion field under the string lives in the string's rotated
+// frame — so the picture visibly bends where the string is bent.
+// Narrower strip (120 instead of 200) + more bands (24 vs 7) = the
+// warp reads as a LOCAL geometric bend at the string, not a global
+// strip-shift across the picture. WU_STR much gentler than the
+// trancenwaltz default (0.85) so the perspective shift stays subtle
+// — the picture barely flexes with the string instead of dragging
+// dramatically.
+const WU_HALF = 120, WU_W = WU_HALF * 2, WU_STEP = 4, WU_BANDS = 24;
+const WU_STR = 0.28, WU_BW = WU_W / WU_BANDS;
+const wuWin = new Float64Array(WU_BANDS);
+for (let b = 0; b < WU_BANDS; b++) {
+  wuWin[b] = Math.sin(Math.PI * ((b + 0.5) / WU_BANDS)) ** 2;
+}
+const WU_DSZ = Math.ceil(Math.hypot(W, H)) + 4;
+const wuSnap = createCanvas(W, H), wuSnapC = wuSnap.getContext("2d");
+const wuCR   = createCanvas(WU_DSZ, WU_DSZ), wuCRC = wuCR.getContext("2d");
+const ROT_CX = Math.round(W / 2), ROT_CY = Math.round(H / 2);
+function warpUnderString(theta) {
+  const { devPeak } = _vs.deflection();
+  if (Math.abs(devPeak) < 2) return;             // string ~straight → skip
+  // 1) snapshot the upright frame (illustration + backlight)
+  wuSnapC.clearRect(0, 0, W, H);
+  wuSnapC.drawImage(canvas, 0, 0);
+  // 2) counter-rotate it by −θ, centred in the big square buffer
+  wuCRC.setTransform(1, 0, 0, 1, 0, 0);
+  wuCRC.clearRect(0, 0, WU_DSZ, WU_DSZ);
+  wuCRC.translate(WU_DSZ / 2, WU_DSZ / 2);
+  wuCRC.rotate(-theta);
+  wuCRC.translate(-W / 2, -H / 2);
+  wuCRC.drawImage(wuSnap, 0, 0);
+  wuCRC.setTransform(1, 0, 0, 1, 0, 0);
+  // 3) redraw the strip under +θ, each band shifted by the local
+  //    string deflection (content upright, strip rotated with the string)
+  const sox = (WU_DSZ - W) / 2, soy = (WU_DSZ - H) / 2;
+  const x0 = Math.round(PLAYHEAD_X - WU_HALF);
+  ctx.save();
+  ctx.translate(ROT_CX, ROT_CY);
+  ctx.rotate(theta);
+  ctx.translate(-ROT_CX, -ROT_CY);
+  for (let y = 0; y < H; y += WU_STEP) {
+    const dx = (needleXAt(y) - PLAYHEAD_X) * WU_STR;
+    for (let b = 0; b < WU_BANDS; b++) {
+      const sx = b * WU_BW;
+      const shift = dx * wuWin[b];
+      ctx.drawImage(
+        wuCR, sox + x0 + sx, soy + y, WU_BW + 1, WU_STEP,
+        x0 + sx + shift, y, WU_BW + 1, WU_STEP,
+      );
+    }
+  }
+  ctx.restore();
+}
+
+// ── 3-LAYER BACKLIGHT ────────────────────────────────────────────────
+// Drawn onto whatever ctx the panel was drawn to (main OR an offscreen
+// transition layer) so the light travels with the panel through a
+// transition. Layer 1: warm glow rising from BEHIND the figures
+// [screen]. Layer 2: contrast vignette — darkens the periphery so the
+// lit centre reads backlit, not glow-on-top [multiply]. Layer 3 (the
+// per-figure halo) is drawn by the caller via drawFormBacklight.
+// ── STAINED-GLASS TRANSMISSION BACKLIGHT (trancenwaltz mechanism) ───
+// The illustration is treated as a stained-glass panel: each pixel's
+// LUMINANCE determines how much light passes through. Bright / light-
+// pencilled regions transmit (glow with the backlight colour); dark
+// linework + shadows act as leaded came — they block the light and
+// stay punchy. This is why the light reads as actually coming from
+// BEHIND the figures, not stamped on top. Computed once per panel
+// image (cached on a WeakMap), then composited per frame.
+const _transmissionMasks = new WeakMap();
+function getTransmissionMask(img) {
+  let m = _transmissionMasks.get(img);
+  if (m) return m;
+  const iw = img.width, ih = img.height;
+  const tmp = createCanvas(iw, ih);
+  const tctx = tmp.getContext("2d");
+  tctx.drawImage(img, 0, 0, iw, ih);
+  const id = tctx.getImageData(0, 0, iw, ih);
+  const px = id.data;
+  // Transmission curve: smoothstep across [LO, HI] in luminance, then
+  // raised to GAMMA so the dark half is crushed toward zero (lead lines
+  // fully block light → high contrast on darks). A small FLOOR lets a
+  // whisper of colour bleed through near-blacks so the panel doesn't
+  // read as dead matte.
+  // Cap max transmission at 0.65 so the brightest pixels (white
+  // typewriter, white paper, lamp highlight) don't blow out to pure
+  // white when the warm glow is composited additively.
+  const LO = 0.30, HI = 0.92, GAMMA = 1.7, FLOOR = 0.04, CAP = 0.65;
+  for (let i = 0; i < px.length; i += 4) {
+    const L = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+    let s = (L - LO) / (HI - LO);
+    s = s < 0 ? 0 : s > 1 ? 1 : s;
+    s = s * s * (3 - 2 * s);
+    const tA = Math.min(CAP, FLOOR + (1 - FLOOR) * Math.pow(s, GAMMA));
+    px[i] = 255; px[i + 1] = 255; px[i + 2] = 255;
+    px[i + 3] = Math.round(tA * 255);
+  }
+  tctx.putImageData(id, 0, 0);
+  _transmissionMasks.set(img, tmp);
+  return tmp;
+}
+// Shared offscreen for the gated glow.
+const glowCanvas = createCanvas(W, H);
+const glowCtx = glowCanvas.getContext("2d");
+
+// LAYER 1 — strong contrast vignette: deeply darken everything except
+// a tight pool around where the figures sit. Near-black corners.
+function drawVignette(c, intensity) {
+  const gx = W / 2, gy = H * 0.55;
+  c.save();
+  c.globalCompositeOperation = "multiply";
+  const vg = c.createRadialGradient(gx, gy, H * 0.10, gx, gy, H * 0.72);
+  vg.addColorStop(0,    "rgba(255,255,255,1)");
+  // WARM-TINTED darkening — amber/brown mid + deep-amber edges (not
+  // neutral grey), so the dark surround reads as night-lamp shadow,
+  // not cold blue. Preserves the original colored-pencil warmth.
+  vg.addColorStop(0.45, `rgba(168,118,72,${(0.62 + 0.12 * intensity).toFixed(3)})`);
+  vg.addColorStop(1,    `rgba(36,20,10,${(0.94).toFixed(3)})`);
+  c.fillStyle = vg;
+  c.fillRect(0, 0, W, H);
+  c.restore();
+  c.globalCompositeOperation = "source-over";
+}
+// LAYER 2 — TRANSMITTED light (stained-glass): stamp a hot radial glow
+// at each face region, gate it by the panel's transmission mask, then
+// composite additively. Light shines THROUGH the bright illustration
+// pixels at the face regions; dark linework blocks it. Reads as light
+// genuinely coming from behind the figures, never as an overlay.
+function drawTransmittedBacklight(c, sectionImg, xform, faces, intensity, audioT = 0) {
+  if (!xform || intensity <= 0.01) return;
+  const k = Math.min(1, intensity);
+  // STAINED-GLASS colour = warm base blended with THIS SLIDE's tint, so
+  // the transmitted light glows the section's colour (trancenwaltz-style).
+  const [pr, pg, pb] = sectionTcRgb(audioT);
+  const TC = `${Math.round(255 * 0.42 + pr * 0.58)},${Math.round(196 * 0.42 + pg * 0.58)},${Math.round(116 * 0.42 + pb * 0.58)}`;
+  // No forms.json → illuminate the WHOLE panel; the glow is gated below
+  // by the illustration's own luminance (the stained-glass transmission).
+  const regions = (faces && faces.length) ? faces
+    : [{ x: 0, y: 0, w: sectionImg.width, h: sectionImg.height }];
+  // Candle dance — tiny per-frame XY jitter on the glow source so the
+  // transmitted light visibly flutters where it falls through the
+  // illustration's bright pixels.
+  const jx = 3.5 * Math.sin(audioT * 17.3) + 1.5 * Math.sin(audioT * 41.0);
+  const jy = 3.5 * Math.cos(audioT * 21.7) + 1.5 * Math.cos(audioT * 37.0);
+  // Stamp the glow into the offscreen buffer at the region positions.
+  glowCtx.globalCompositeOperation = "source-over";
+  glowCtx.clearRect(0, 0, W, H);
+  for (const f of regions) {
+    const cx = xform.x + (f.x + f.w / 2) * xform.scale + jx;
+    const cy = xform.y + (f.y + f.h / 2) * xform.scale + jy;
+    const radius = Math.max(f.w, f.h) * xform.scale * 1.4;
+    if (radius <= 1) continue;
+    const g = glowCtx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    // All WARM (no white core) — so the glow tints the bright pixels
+    // with the lamp colour instead of blowing them out to pure white.
+    // The desk-lamp warmth matches the illustration's own diegetic light.
+    g.addColorStop(0.0,  `rgba(${TC},${(0.78 * k).toFixed(3)})`);
+    g.addColorStop(0.32, `rgba(${TC},${(0.58 * k).toFixed(3)})`);
+    g.addColorStop(0.65, `rgba(${TC},${(0.30 * k).toFixed(3)})`);
+    g.addColorStop(1.0,  `rgba(${TC},0)`);
+    glowCtx.globalCompositeOperation = "lighter";
+    glowCtx.fillStyle = g;
+    glowCtx.fillRect(
+      Math.max(0, cx - radius), Math.max(0, cy - radius),
+      Math.min(W, radius * 2), Math.min(H, radius * 2),
+    );
+  }
+  // GATE by the transmission mask — drawn at the same xform that drew
+  // the panel, so the mask aligns pixel-perfect with the illustration.
+  glowCtx.globalCompositeOperation = "destination-in";
+  const mask = getTransmissionMask(sectionImg);
+  glowCtx.drawImage(mask, xform.x, xform.y,
+    sectionImg.width * xform.scale, sectionImg.height * xform.scale);
+  glowCtx.globalCompositeOperation = "source-over";
+  // Composite onto the scene — softer additive wash so the illustration
+  // colours (cream paper, sage knit, blue shirt) still read.
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  c.globalAlpha = 0.45;
+  c.drawImage(glowCanvas, 0, 0);
+  c.globalAlpha = 0.12;
+  c.drawImage(glowCanvas, -4, -4, W + 8, H + 8);
+  c.restore();
+  c.globalCompositeOperation = "source-over";
+}
+// LAYER 3 — LEADED contrast: the inverse-mask pass keeps the darks
+// punchy (dark linework reads as the "leading" of the stained glass).
+// Stamp the same regions in a darker tone, destination-out by the mask
+// (so only the DARK parts of the panel get this treatment), multiply
+// onto the scene.
+function drawLeadedContrast(c, sectionImg, xform, faces, intensity, audioT = 0) {
+  if (!faces || !faces.length || !xform || intensity <= 0.01) return;
+  const k = Math.min(1, intensity);
+  // Out-of-phase candle jitter — the leaded layer flickers a touch
+  // differently from the transmitted layer so the two read as distinct.
+  const jx = 2.5 * Math.sin(audioT * 19.7 + 1.2) + 1.0 * Math.cos(audioT * 47.0);
+  const jy = 2.5 * Math.cos(audioT * 23.1 + 0.6) + 1.0 * Math.sin(audioT * 41.5);
+  glowCtx.globalCompositeOperation = "source-over";
+  glowCtx.clearRect(0, 0, W, H);
+  for (const f of faces) {
+    const cx = xform.x + (f.x + f.w / 2) * xform.scale + jx;
+    const cy = xform.y + (f.y + f.h / 2) * xform.scale + jy;
+    const radius = Math.max(f.w, f.h) * xform.scale * 1.4;
+    if (radius <= 1) continue;
+    const g = glowCtx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    g.addColorStop(0.0,  `rgba(70,52,38,${(0.55 * k).toFixed(3)})`);
+    g.addColorStop(0.50, `rgba(70,52,38,${(0.30 * k).toFixed(3)})`);
+    g.addColorStop(1.0,  "rgba(70,52,38,0)");
+    glowCtx.globalCompositeOperation = "lighter";
+    glowCtx.fillStyle = g;
+    glowCtx.fillRect(
+      Math.max(0, cx - radius), Math.max(0, cy - radius),
+      Math.min(W, radius * 2), Math.min(H, radius * 2),
+    );
+  }
+  // Keep ONLY where the panel is DARK (inverse of transmission).
+  glowCtx.globalCompositeOperation = "destination-out";
+  const mask = getTransmissionMask(sectionImg);
+  glowCtx.drawImage(mask, xform.x, xform.y,
+    sectionImg.width * xform.scale, sectionImg.height * xform.scale);
+  glowCtx.globalCompositeOperation = "source-over";
+  c.save();
+  c.globalCompositeOperation = "multiply";
+  c.globalAlpha = 0.28;
+  c.drawImage(glowCanvas, 0, 0);
+  c.restore();
+  c.globalCompositeOperation = "source-over";
+}
+
+// ── panel render (one section, with face-zoom + 3-layer light) ───────
+// zoomPad MUST be 1.0 — drawCoverKenBurns's zoom path only guarantees
+// the frame is covered when pad ≤ 1 (pad > 1 shrinks sc → black gaps).
+// envWobbleAmp = 0 + small wobbleAmp = SMOOTH camera, no amplitude
+// reactivity. Only the backlight beats with the audio — the camera
+// glides on its own slow pacing.
+const KB = { breathAmp: 0.05, breathPeriodSec: 18, wobbleAmp: 4, envWobbleAmp: 0, zoomPad: 1.0 };
+// Smooth global zoom LFO — continuous across section boundaries (no
+// per-section reset), no envelope coupling. ~3 gentle in/out pushes
+// over the lullaby. Lower amplitude than v8 so the zoom never crops a
+// figure off-frame; combined with bounding-box zoom (both heads), it
+// just BREATHES between the pair instead of punching tight.
+const ZOOM_CYCLES = 3;
+function zoomAt(audioT) {
+  const swing = 0.5 - 0.5 * Math.cos(2 * Math.PI * ZOOM_CYCLES * audioT / DURATION);
+  return 0.04 + 0.30 * swing;
+}
+// Zoom target = bounding box of ALL faces in the section (so BOTH
+// heads stay in frame at peak zoom), padded a touch and fit to the
+// frame's aspect. The camera focuses BETWEEN the heads by default,
+// never on a single face that crops the other one off.
+function zoomTargetBox(faces, figs) {
+  const src = faces.length ? faces : figs;
+  if (!src.length) return WHOLE_BOX;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const b of src) {
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+  }
+  const padX = (x1 - x0) * 0.12, padY = (y1 - y0) * 0.12;
+  return fitFrameAspect({
+    x: x0 - padX, y: y0 - padY,
+    w: (x1 - x0) + 2 * padX, h: (y1 - y0) + 2 * padY,
+  });
+}
+// EDGE WARP — a radial CHROMATIC + GEOMETRIC + BLUR distortion ringing
+// the frame edge (reality warping through a lens). No black bars: the
+// centre stays the sharp panel; the periphery is a blurred, bulged,
+// chromatically-split overlay (R pushed out / B pulled in radially).
+const _ewEdge = createCanvas(W, H), _ewEdgeC = _ewEdge.getContext("2d");
+const _ewChan = createCanvas(W, H), _ewChanC = _ewChan.getContext("2d");
+function _ewChannel(src, scale, tint) {   // scaled single-channel copy about centre
+  _ewChanC.setTransform(1, 0, 0, 1, 0, 0);
+  _ewChanC.globalCompositeOperation = "source-over";
+  _ewChanC.globalAlpha = 1;
+  _ewChanC.clearRect(0, 0, W, H);
+  _ewChanC.translate(W / 2, H / 2); _ewChanC.scale(scale, scale); _ewChanC.translate(-W / 2, -H / 2);
+  _ewChanC.drawImage(src, 0, 0);
+  _ewChanC.setTransform(1, 0, 0, 1, 0, 0);
+  _ewChanC.globalCompositeOperation = "multiply";
+  _ewChanC.fillStyle = tint; _ewChanC.fillRect(0, 0, W, H);
+  _ewChanC.globalCompositeOperation = "source-over";
+  return _ewChan;
+}
+function drawEdgeWarp(c) {
+  const cx = W / 2, cy = H / 2, minDim = Math.min(W, H);
+  _ewEdgeC.setTransform(1, 0, 0, 1, 0, 0);
+  _ewEdgeC.globalCompositeOperation = "source-over";
+  _ewEdgeC.globalAlpha = 1;
+  _ewEdgeC.clearRect(0, 0, W, H);
+  _ewEdgeC.filter = "blur(6px)";
+  _ewEdgeC.drawImage(_ewChannel(c.canvas, 1.0, "#00ff00"), 0, 0);   // green base
+  _ewEdgeC.globalCompositeOperation = "lighter";
+  _ewEdgeC.drawImage(_ewChannel(c.canvas, 1.02, "#ff0000"), 0, 0);  // red pushed OUT (subtle)
+  _ewEdgeC.drawImage(_ewChannel(c.canvas, 0.988, "#0000ff"), 0, 0); // blue pulled IN (subtle)
+  _ewEdgeC.filter = "none";
+  _ewEdgeC.globalCompositeOperation = "destination-out";              // keep only OUTER edge ring
+  const g = _ewEdgeC.createRadialGradient(cx, cy, minDim * 0.46, cx, cy, minDim * 0.66);
+  g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  _ewEdgeC.fillStyle = g; _ewEdgeC.fillRect(0, 0, W, H);
+  _ewEdgeC.globalCompositeOperation = "source-over";
+  c.drawImage(_ewEdge, 0, 0);
+}
+
+// Render section `idx` (zoomed + 3-layer backlit) onto target ctx `c`.
+// Returns the panel→frame xform.
+function renderPanel(c, idx, audioT, env, punch) {
+  const name = PANELS[idx].name;
+  const figs  = figureBoxes(name);
+  const faces = faceBoxes(name);
+  // Always focus on the CENTRE-POINT BETWEEN both heads (bounding box
+  // of all available faces) — both stay in frame at peak zoom, the
+  // camera just breathes in and out between them.
+  const z = zoomAt(audioT);
+  const zoomBox = lerpBox(WHOLE_BOX, zoomTargetBox(faces, figs), z);
+  // Camera pan is pure + SINUSOIDAL — env (continuous audio RMS) is
+  // zeroed so the camera never JITTERS. But punch (the four-on-floor
+  // kick) is KEPT: it gives a clean rhythmic zoom-BUMP on every kick
+  // (trancenwaltz-style illy bump) — a musical pop, not a shake — and
+  // the 3-layer backlight below bumps with it too.
+  const xform = drawCoverKenBurns(c, PANEL_IMGS[idx], audioT, {
+    ...KB, env: 0, punch, zoomBox, fillBackground: true,
+  });
+  // ── 3-LAYER STAINED-GLASS BACKLIGHT — candle-flickered ────────────
+  // Multi-freq noise gives the warm light a believable CANDLE
+  // FLUTTER; each layer has its own intensity envelope so the three
+  // layers visibly separate on hits + transitions.
+  const flicker = 1 + 0.20 * (
+      0.6 * Math.sin(audioT * 14.3 + idx * 0.7)
+    + 0.3 * Math.sin(audioT * 31.7 + idx * 1.3)
+    + 0.2 * Math.sin(audioT * 53.1 + idx * 0.4)
+  );
+  const t_i = (0.18 + 0.95 * env + 0.65 * punch) * flicker;  // transmitted glow — strong env
+  const l_i = (0.10 + 0.55 * env + 0.45 * punch) * flicker;  // leaded contrast — punchy darks
+  // (vignette removed — was crushing the panel edges; figures already pop
+  //  enough via the transmitted backlight + leaded contrast layers.)
+  // 2: TRANSMITTED light — gated by the panel's own luminance mask
+  //    AT a tiny per-frame XY jitter (candle dance) — only shines
+  //    through the bright illustration parts at each face region.
+  drawTransmittedBacklight(c, PANEL_IMGS[idx], xform, faces, t_i, audioT);
+  // 3: LEADED contrast — the inverse-mask multiply pass that keeps the
+  //    dark linework PUNCHY, like the lead between glass.
+  drawLeadedContrast(c, PANEL_IMGS[idx], xform, faces, l_i, audioT);
+  drawEdgeWarp(c);                  // radial chromatic + geometric + blur edge warp
+  return xform;
+}
+
+// ── TRANSITIONS — 6 fresh types, cycled across the 9 boundaries ──────
+const TRANS_S = 0.85;                        // fast changes
+const TRANSITIONS = ["iris", "blinds", "push", "zoomPunch", "pixel", "diagonal"];
+function transitionForBoundary(idx) { return TRANSITIONS[(idx - 1) % TRANSITIONS.length]; }
+const _pixCanvas = createCanvas(W, H), _pixCtx = _pixCanvas.getContext("2d");
+function applyTransition(kind, prevC, curC, p) {
+  // p 0→1. prevC/curC are the finished panel layers. Composites to main ctx.
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  if (kind === "iris") {
+    ctx.drawImage(prevC, 0, 0);
+    ctx.save();
+    const r = p * Math.hypot(W, H) * 0.62;
+    ctx.beginPath(); ctx.arc(W / 2, H * 0.52, r, 0, Math.PI * 2); ctx.clip();
+    ctx.drawImage(curC, 0, 0);
+    ctx.restore();
+  } else if (kind === "blinds") {
+    ctx.drawImage(prevC, 0, 0);
+    const N = 9, bh = H / N;
+    for (let i = 0; i < N; i++) {
+      const local = Math.max(0, Math.min(1, p * 1.6 - i * (0.6 / N)));
+      if (local <= 0) continue;
+      const h = bh * local;
+      ctx.drawImage(curC, 0, i * bh, W, h, 0, i * bh, W, h);
+    }
+  } else if (kind === "push") {
+    const dy = Math.round(p * H);
+    ctx.drawImage(prevC, 0, -dy);
+    ctx.drawImage(curC, 0, H - dy);
+  } else if (kind === "zoomPunch") {
+    // prev zooms out + fades; cur punches in from oversized.
+    const ps = 1 + 0.5 * p, cs = 1.6 - 0.6 * p;
+    ctx.globalAlpha = 1 - p;
+    ctx.drawImage(prevC, (W - W * ps) / 2, (H - H * ps) / 2, W * ps, H * ps);
+    ctx.globalAlpha = Math.min(1, p * 1.4);
+    ctx.drawImage(curC, (W - W * cs) / 2, (H - H * cs) / 2, W * cs, H * cs);
+    ctx.globalAlpha = 1;
+  } else if (kind === "pixel") {
+    ctx.drawImage(prevC, 0, 0);
+    const cell = 84, cols = Math.ceil(W / cell), rows = Math.ceil(H / cell);
+    _pixCtx.clearRect(0, 0, W, H);
+    _pixCtx.drawImage(curC, 0, 0);
+    for (let r = 0; r < rows; r++) for (let cx = 0; cx < cols; cx++) {
+      let h = ((r * 73856093) ^ (cx * 19349663)) >>> 0;
+      const thr = ((h % 1000) / 1000) * 0.85;
+      if (p <= thr) continue;
+      ctx.drawImage(_pixCanvas, cx * cell, r * cell, cell, cell, cx * cell, r * cell, cell, cell);
+    }
+  } else { // diagonal wipe
+    ctx.drawImage(prevC, 0, 0);
+    ctx.save();
+    const e = p * (W + H);
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(e, 0); ctx.lineTo(0, e); ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(curC, 0, 0);
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+}
+
+function panelIndexAt(t) {
+  let idx = 0;
+  for (let j = 0; j < PANELS.length; j++) if (t >= PANELS[j].startSec) idx = j;
+  return idx;
+}
+function sectionIndexAt(t) {
+  let idx = 0;
+  for (let i = 0; i < SECTIONS.length; i++) if (t >= SECTIONS[i].startSec) idx = i;
+  return idx;
+}
+
+// ── lanes + string draw (the sound elements riding the string) ───────
+// GEOMETRY + HIGHLIGHTING faithfully ported from pop/dance/bin/
+// cover-video.mjs (trancenwaltz):
+//   • Per-block aGroove rotation — each column rotated about the disc
+//     centre by (bx − playhead) / GROOVE_R, so the lanes are STRAIGHT
+//     at the needle and arc more the further out — a real record groove.
+//   • Flash highlighting — the whole event pumps to FULL opacity for
+//     a 0.18 s flashWindow after trigger (the "now firing" pulse).
+//   • Per-column press/held/played alpha is the WAVEFORM-pixel layer
+//     riding under the flash bump.
+//   • Audio-peak waveform: each column's amplitude comes from the
+//     actual mix peak in its tiny time window (mini-DAW per event).
+function needleXAt(y) { return _vs.needleXAt(y); }
+function drawLanes(audioT) {
+  const halfSpan = (W * 0.62) / PX_PER_SEC;
+  const FLASH_WIN = 0.18;
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const L of LANES) {
+    const yCBase = laneCenterY[L.key];
+    const laneRgb = hexToRgb(L.color);
+    // SUB-ROW layout — overlapping events spread vertically into
+    // stackRow slots so concurrent notes don't draw on top of each
+    // other. Cap visible rows at 3 to avoid crushing tiny bars.
+    const visibleRows = Math.min(L.maxStackRows ?? 1, 3);
+    const subH = (LANE_BOTTOM - LANE_TOP) / LANES.length / visibleRows;
+    for (const ev of laneEvents[L.key]) {
+      if (ev.t > audioT + halfSpan) break;
+      const dur = ev.dur || 0.25;
+      if (ev.t + dur < audioT - halfSpan) continue;
+      // Cap visible width so a long-sustain marimba note doesn't render
+      // as a 600-pixel slab (same trick trancenwaltz uses for pitched).
+      const visDur = Math.min(dur, 0.30);
+      const ex = PLAYHEAD_X + (ev.t - audioT) * PX_PER_SEC;
+      const ew = Math.max(4, visDur * PX_PER_SEC);
+      // place this event in its assigned sub-row (centred within the
+      // lane), so overlapping events don't stack on top of each other.
+      const rowIdx = Math.min(ev.stackRow ?? 0, visibleRows - 1);
+      const yC = yCBase - (LANE_BOTTOM - LANE_TOP) / LANES.length / 2
+               + subH / 2 + rowIdx * subH;
+      // No event-level flash: the HIGHLIGHT is per-column and fires only
+      // as each column CROSSES the string (the dt tiers below). The whole
+      // bar stays at full base so incoming bars read opaque coming in.
+      const baseAlpha = 1.0;
+      // pitch colour, mostly the notepat note-colour, touch of voice colour
+      const nrgb = midiToNotepatRgb(ev.midi);
+      const cr = Math.round(nrgb[0] * 0.78 + laneRgb[0] * 0.22);
+      const cg = Math.round(nrgb[1] * 0.78 + laneRgb[1] * 0.22);
+      const cb = Math.round(nrgb[2] * 0.78 + laneRgb[2] * 0.22);
+      const rgb = `${cr},${cg},${cb}`;
+      // Cap fullH at the sub-row height so stacked bars stay in lane.
+      const fullH = Math.min(Math.max(20, subH - 6), 30 + 86 * Math.min(1, ev.gain ?? 0.5));
+      const cols = Math.max(2, Math.floor(ew / 9));
+      const blockW = Math.max(3, ew / cols - 2);
+      const bend = (needleXAt(yC) - PLAYHEAD_X) * 0.5;
+      // Audio waveform sampling — per column, pull peak from the mix.
+      const startSamp = Math.max(0, Math.floor(ev.t * audioSr));
+      const endSamp = Math.min(audio.length - 1, Math.floor((ev.t + visDur) * audioSr));
+      const spc = (endSamp - startSamp) / cols;
+      for (let c = 0; c < cols; c++) {
+        const s0 = startSamp + Math.floor(c * spc);
+        const s1 = Math.min(endSamp, startSamp + Math.floor((c + 1) * spc));
+        let pk = 0;
+        for (let s = s0; s < s1; s++) { const a = Math.abs(audio[s]); if (a > pk) pk = a; }
+        pk = Math.min(1, (pk / audioPeak) * 1.6);
+        const tCol = ev.t + (c / cols) * visDur;
+        const dt = audioT - tCol;
+        let alpha, bright = 0;
+        if (dt < 0) alpha = 0.28;                              // INCOMING — clearish, ghosting in
+        else if (dt < 0.05) { alpha = 1.0; bright = 0.55; }    // CROSSING — bright highlight at the string
+        else { alpha = 0.92; bright = 0.85; }                  // PLAYED — very bright + glowy
+        alpha *= baseAlpha;
+        let fr = cr, fg = cg, fb = cb;                          // glow: lift toward white after crossing
+        if (bright > 0) {
+          fr = Math.round(cr + (255 - cr) * bright);
+          fg = Math.round(cg + (255 - cg) * bright);
+          fb = Math.round(cb + (255 - cb) * bright);
+        }
+        const half = Math.max(2, (pk * fullH) / 2);
+        const bx = ex + (c / cols) * ew + bend;
+        // GROOVE CURVE — rotate this block about the disc centre by
+        // (bx − playhead) / GROOVE_R so the track arcs along the record.
+        // GROOVE_R bumped LARGE for a GENTLE arc (no polar-projection
+        // feel) — the bars curve subtly along the disc instead of
+        // bending sharply at the edges.
+        const aGroove = (bx - PLAYHEAD_X) / GROOVE_R;
+        ctx.save();
+        ctx.translate(ROT_CX, ROT_CY);
+        ctx.rotate(aGroove);
+        ctx.translate(-ROT_CX, -ROT_CY);
+        ctx.fillStyle = `rgba(${fr},${fg},${fb},${alpha.toFixed(3)})`;
+        ctx.fillRect(bx, yC - half, blockW, half * 2);
+        ctx.restore();
+      }
+    }
+  }
+  ctx.restore();
+  ctx.globalCompositeOperation = "source-over";
+}
+
+// A bright additive overdraw of the string so the playhead spine reads
+// boldly over the illustration (the engine's own draw() is subtle).
+// Paint the string body in the pals base colour on TOP of the engine's
+// own draw, so the visible string colour MATCHES the logo family. The
+// engine's underlying draw still provides the dark shadow + per-segment
+// pluck highlights — this overlay just dominates the body colour.
+function drawStringGlow(env, audioT) {
+  const [r, g, b] = palsFrameColor(audioT);
+  ctx.save();
+  ctx.lineCap = "round";
+  // 1) Coloured BODY pass — thin, translucent, source-over.
+  ctx.globalCompositeOperation = "source-over";
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.42)`;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (let y = -20; y <= H + 20; y += 10) {
+    const x = needleXAt(y);
+    if (y <= -20) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // 2) Screen GLOW on top, env-driven so the string pulses with the
+  //    audio while keeping its pals colour identity. Also thin.
+  ctx.globalCompositeOperation = "screen";
+  ctx.strokeStyle = `rgba(${r},${g},${b},${(0.34 + 0.40 * env).toFixed(3)})`;
+  ctx.lineWidth = 3.4;
+  ctx.stroke();
+  ctx.restore();
+  ctx.globalCompositeOperation = "source-over";
+}
+
+// ── title ────────────────────────────────────────────────────────────
+// Title now flanks the SIDES like the pals watermarks: the letters of
+// "marimbaba" stack vertically — first half down the LEFT edge, second
+// half down the RIGHT edge — each bouncing and glowing with the audio
+// envelope. No more horizontal banner across the top.
+function drawTitle(audioT, env) {
+  const total = titleChars.length;
+  const half = Math.ceil(total / 2);
+  const charH = Math.ceil(titleFontSize * 1.05);
+  const leftH  = half * charH;
+  const rightH = (total - half) * charH;
+  const leftY0  = Math.round((H - leftH) / 2);
+  const rightY0 = Math.round((H - rightH) / 2);
+  const insetLeft  = 28;
+  const insetRight = 28;
+  for (let i = 0; i < total; i++) {
+    const ch = titleChars[i];
+    if (!ch.img) continue;
+    const onLeft = i < half;
+    const slot = onLeft ? i : i - half;
+    const xBase = onLeft ? insetLeft : W - ch.img.width - insetRight;
+    const yBase = (onLeft ? leftY0 : rightY0) + slot * charH;
+    // per-char envelope sample — staggered like a spectrum bar, so
+    // letters react in sequence as the audio passes.
+    const charEnv = envAt(audioT - i * 0.04);
+    // small horizontal wiggle (toward / away from the edge) + vertical
+    // bounce, both audio-reactive but gentle.
+    const wig = (onLeft ? 1 : -1) * (3 + 8 * charEnv) * Math.sin(audioT * 2.6 + i * 0.9);
+    const lift = (8 + 26 * charEnv) * Math.sin(audioT * 3.2 + i * 0.7);
+    const x = xBase + wig;
+    const y = yBase + lift;
+    // glow shadow only on loud chars (cheap when sparse)
+    if (charEnv > 0.5) {
+      ctx.save();
+      ctx.shadowColor = "rgba(255,236,170,0.92)";
+      ctx.shadowBlur = 12 * Math.min(1, (charEnv - 0.5) / 0.5);
+      ctx.drawImage(ch.img, x, y);
+      ctx.restore();
+    } else {
+      ctx.drawImage(ch.img, x, y);
+    }
+  }
+}
+
+// ── progress bar + timecode ──────────────────────────────────────────
+const PROGRESS_BAR_H = 22, PROGRESS_BAR_Y = H - PROGRESS_BAR_H;
+function tintRgb(s) {
+  const m = s.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  return m ? [+m[1], +m[2], +m[3]] : [200, 200, 200];
+}
+function drawProgressBar(audioT) {
+  ctx.save();
+  const playedX = Math.max(0, audioT) / DURATION * W;
+  const lastI = PANELS.length - 1;
+  // slide-change BLINK — pops white on the segment that just started.
+  const curI = panelIndexAt(audioT);
+  const sinceSlide = audioT - PANELS[curI].startSec;
+  const blink = (sinceSlide >= 0 && sinceSlide < 0.22) ? (1 - sinceSlide / 0.22) : 0;
+  for (let j = 0; j < PANELS.length; j++) {            // 32 per-PANEL segments
+    const P = PANELS[j];
+    const x0 = j === 0 ? 0 : (P.startSec / DURATION) * W;
+    const x1 = j === lastI ? W : (P.endSec / DURATION) * W;
+    const [r, g, b] = PANEL_TINTS[j];
+    ctx.fillStyle = `rgba(${Math.round(r * 0.16)},${Math.round(g * 0.16)},${Math.round(b * 0.16)},0.85)`;
+    ctx.fillRect(x0, PROGRESS_BAR_Y, x1 - x0, PROGRESS_BAR_H);
+    const fx1 = Math.min(x1, playedX);
+    if (fx1 > x0) {
+      ctx.fillStyle = `rgba(${r},${g},${b},0.96)`;
+      ctx.fillRect(x0, PROGRESS_BAR_Y, fx1 - x0, PROGRESS_BAR_H);
+    }
+    ctx.fillStyle = "rgba(255,253,242,0.35)";
+    ctx.fillRect(x1 - 1, PROGRESS_BAR_Y, 1, PROGRESS_BAR_H);
+    if (blink > 0 && j === curI) {                     // the just-started slide blinks
+      ctx.fillStyle = `rgba(255,255,250,${(blink * 0.7).toFixed(3)})`;
+      ctx.fillRect(x0, PROGRESS_BAR_Y, x1 - x0, PROGRESS_BAR_H);
+    }
+  }
+  ctx.restore();
+}
+const tcTint = createCanvas(8, 8), tcTintCtx = tcTint.getContext("2d");
+function drawTimecode(audioT) {
+  const sec = Math.min(Math.max(0, Math.floor(audioT)), Math.ceil(DURATION));
+  const mm = Math.floor(sec / 60), ss = (sec - mm * 60).toString().padStart(2, "0");
+  const entry = tcCache.get(`${mm}:${ss} / ${totMm}:${totSs}`);
+  if (!entry) return;
+  const { img, shadow } = entry;
+  const env = envAt(audioT);
+  const x = W - img.width - 32;
+  const y = PROGRESS_BAR_Y - img.height - 14 - 4 * env;   // gentle bounce (was 14*env)
+  ctx.save();
+  ctx.globalAlpha = 0.95;
+  ctx.drawImage(shadow, x + 3, y + 4);
+  ctx.drawImage(shadow, x + 2, y + 3);
+  ctx.globalAlpha = 1;
+  const [tr, tg, tb] = sectionTcRgb(audioT);   // per-panel tint
+  tcTint.width = img.width; tcTint.height = img.height;
+  tcTintCtx.clearRect(0, 0, img.width, img.height);
+  tcTintCtx.globalCompositeOperation = "source-over";
+  tcTintCtx.drawImage(img, 0, 0);
+  tcTintCtx.globalCompositeOperation = "source-in";
+  tcTintCtx.fillStyle = `rgb(${tr},${tg},${tb})`;
+  tcTintCtx.fillRect(0, 0, img.width, img.height);
+  ctx.drawImage(tcTint, x, y);
+  ctx.restore();
+}
+
+// ── render loop → ffmpeg ─────────────────────────────────────────────
+mkdirSync(dirname(OUT), { recursive: true });
+// --frames N → TEST MODE: skip ffmpeg, write each rendered frame as a
+// PNG to /tmp/marimba-test-NNNN.png. Pair with --start T to seek to a
+// specific time. Lets layout tweaks be verified in seconds.
+const TEST_MODE = FRAMES_OVERRIDE !== null;
+const startFrame = Math.max(0, Math.floor(START_T * FPS));
+const endFrame = Math.min(FRAMES, startFrame + (FRAMES_OVERRIDE ?? FRAMES));
+
+let ff = null;
+if (!TEST_MODE) {
+  ff = spawnFFmpegEncode({ audioPath: AUDIO, w: W, h: H, fps: FPS, outPath: OUT });
+  ff.on("error", (e) => { console.error(`✗ ffmpeg spawn failed: ${e.message}`); process.exit(1); });
+}
+
+progress.begin({ type: "video", label: `${SLUG} ${TEST_MODE ? "test" : "insta-story"} · ${endFrame - startFrame} frames` });
+console.log(`  rendering frames ${startFrame}..${endFrame - 1} (${endFrame - startFrame} frames)${TEST_MODE ? " → /tmp/marimba-test-*.png" : ""} …`);
+const t0 = Date.now();
+let prevNoteT = startFrame > 0 ? (startFrame / FPS) - 0.001 : -1;
+
+for (let f = startFrame; f < endFrame; f++) {
+  const audioT = f / FPS;
+  const env = Math.min(1, envAt(audioT));
+  const punch = punchAt(audioT);
+
+  // pluck the string for every note onset since the last frame
+  for (const L of LANES) {
+    const yC = laneCenterY[L.key];
+    const lrgb = hexToRgb(L.color);
+    let amp = L.key === "kick" ? 19 : L.key === "glock" ? 13 : 9;
+    for (const ev of laneEvents[L.key]) {
+      if (ev.t <= prevNoteT) continue;
+      if (ev.t > audioT) break;
+      const sign = (Math.floor(ev.t * 7) % 2) ? 1 : -1;
+      _vs.pluck(yC, amp, sign, lrgb);
+    }
+  }
+  prevNoteT = audioT;
+  _vs.step();
+
+  // ── scene: panel + face-zoom + 3-layer backlight, with transitions ─
+  const idx = panelIndexAt(audioT);
+  const seg = PANELS[idx];
+  const since = audioT - seg.startSec;
+  if (idx > 0 && since >= 0 && since < TRANS_S) {
+    let p = since / TRANS_S;
+    p = p * p * (3 - 2 * p);                 // smoothstep
+    renderPanel(offACtx, idx - 1, audioT, env, punch);
+    renderPanel(offBCtx, idx, audioT, env, punch);
+    applyTransition(transitionForBoundary(idx), offA, offB, p);
+  } else {
+    renderPanel(ctx, idx, audioT, env, punch);
+  }
+
+  // ── the sound elements + the string, over the scene ───────────────
+  // ── disc rotation — the string + lane note-blocks rotate as one
+  // record around the canvas centre. Slower than the chillwave /
+  // trancenwaltz 30 s period — about 1 full turn across the whole
+  // lullaby — so the lane curve reads as a calm, slow disc rather
+  // than a fast spin.
+  const theta = (audioT / DURATION) * Math.PI * 2;
+  // warpUnderString bends the storyline illustration where the string
+  // is bent — the picture stays UPRIGHT but the strip under the string
+  // slumps with the bend (chillwave's "string-vibe" effect).
+  warpUnderString(theta);
+  // Lanes + string rotate together as one disc. The illustration
+  // underneath stays upright (we don't wrap it).
+  _vs.withRotation(theta, () => {
+    drawLanes(audioT);
+    _vs.draw();
+    drawStringGlow(env, audioT);
+  });
+
+  // ── HUD ───────────────────────────────────────────────────────────
+  // drawWatermark draws BOTH the pals stamps and the small rotated
+  // "marimbaba" chars over each pals — the title now LIVES on the
+  // pals as side watermarks. Only the progress bar + timecode below
+  // are the "chrome" the reel strips.
+  // drawWatermark draws the pals stamps AND the rotated-90° "marimbaba"
+  // chars climbing up beside them (same side-stamp chrome as trancepenta-yt).
+  drawWatermark(audioT);
+  drawProgressBar(audioT);
+  drawTimecode(audioT);
+
+  if (TEST_MODE) {
+    const png = canvas.toBuffer("image/png");
+    const fname = `/tmp/marimba-test-${f.toString().padStart(4, "0")}.png`;
+    (await import("node:fs")).writeFileSync(fname, png);
+  } else {
+    const buf = canvas.toBuffer("raw");
+    if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
+  }
+
+  if (f % 30 === 0 || f === endFrame - 1) {
+    const done = f - startFrame + 1;
+    const total = endFrame - startFrame;
+    progress.update((done / Math.max(1, total)) * 100, { done, total });
+    process.stdout.write(`\r  frame ${done}/${total}  `);
+  }
+}
+if (!TEST_MODE) ff.stdin.end();
+if (!TEST_MODE) await new Promise((res, rej) => {
+  ff.on("close", (code) => code === 0 ? res() : rej(new Error(`ffmpeg exited ${code}`)));
+});
+progress.end();
+console.log(`\n✓ ${((Date.now() - t0) / 1000).toFixed(1)}s → ${OUT.replace(REPO + "/", "")}`);

@@ -167,7 +167,9 @@ export async function magickRenderLabel(text, opts) {
 // Returns [{ char, img, prefixWidth }].
 export async function prerenderTitleChars({ text, ptSize, palette, shadowColor, assetsDir }) {
   mkdirSync(assetsDir, { recursive: true });
-  const chars = text.toLowerCase().split("");
+  // Respect the caller's casing (e.g. a capitalized first letter); callers
+  // that want all-lowercase stamps simply pass a lowercase title.
+  const chars = text.split("");
   const out = [];
   let cum = "";
   let prefix = 0;
