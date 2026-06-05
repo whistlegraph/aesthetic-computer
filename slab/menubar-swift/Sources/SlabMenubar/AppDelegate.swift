@@ -1200,6 +1200,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             tm.append("    try")
             tm.append("      set font size of slabSS to font size of default settings")
             tm.append("    end try")
+            // Close windows without the "terminate running processes?" modal:
+            // `clean commands` is Terminal's allowlist of processes ignored when
+            // deciding whether to warn on close. Include shells + dev runtimes so
+            // Slab can close terminals (dev servers, REPLs) without a popover.
+            tm.append("    try")
+            tm.append("      set clean commands of slabSS to {\"screen\", \"tmux\", \"less\", \"more\", \"view\", \"mandoc\", \"tail\", \"log\", \"top\", \"htop\", \"bash\", \"zsh\", \"sh\", \"fish\", \"node\", \"npm\", \"pnpm\", \"yarn\", \"bun\", \"deno\", \"turbo\", \"vite\", \"tsx\", \"ts-node\", \"nodemon\", \"esbuild\", \"git\", \"ssh\", \"python\", \"python3\", \"ruby\", \"claude\"}")
+            tm.append("    end try")
             if let bg = pal.bg {
                 tm.append("    try")
                 tm.append("      set background color of slabSS to \(rgbStr(bg))")
