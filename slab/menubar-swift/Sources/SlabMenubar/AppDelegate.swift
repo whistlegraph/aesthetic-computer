@@ -1285,10 +1285,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         captureOriginalIfNeeded()
         let sessions = state.claudeSessions
         guard state.themeByStatus, !sessions.isEmpty else {
-            if lastDesktopTint != "" {
-                lastDesktopTint = ""
-                restoreDesktopWallpaper()
-            }
+            // No live sessions (or theme-by-status off): keep a SOLID color —
+            // a time-of-day idle tone — never the user's photo wallpaper.
+            // (jeffrey: always solid, never default back to the photo.)
+            applyIdleTint()
             return
         }
         let dark = effectiveDark()  // override-aware; NSApp/NSScreen → main only
@@ -1312,6 +1312,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Memo on the resolved color so any task change (→ new average)
         // re-applies, and an unchanged average doesn't even dispatch.
         let memoKey = "\(name)|\(color.0),\(color.1),\(color.2)"
+        if lastDesktopTint == memoKey { return }
+        lastDesktopTint = memoKey
+        let screens = NSScreen.screens
+        DispatchQueue.global(qos: .utility).async {
+            guard let path = DesktopTint.ensure(name: name, color: color)
+            else { return }
+            let url = URL(fileURLWithPath: path)
+            for s in screens {
+                try? NSWorkspace.shared.setDesktopImageURL(url, for: s, options: [:])
+            }
+        }
+    }
+
+    /// Idle desktop tone when no Claude session is live (or theme-by-status is
+    /// off): a flat color that drifts with time of day — warm dawn, cool
+    /// morning, bright midday, gold afternoon, amber dusk, deep-indigo night —
+    /// dimmed in dark mode. Slab keeps the desktop a solid color at all times
+    /// and never reverts to the user's photo wallpaper.
+    private func idleDesktopColor(dark: Bool) -> (Int, Int, Int) {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let b: (Int, Int, Int)   // base tone, 0–255
+        switch hour {
+        case 5..<8:   b = (224, 178, 168)  // dawn — warm rose
+        case 8..<11:  b = (176, 200, 232)  // morning — cool sky
+        case 11..<15: b = (208, 214, 220)  // midday — bright neutral
+        case 15..<18: b = (228, 198, 150)  // afternoon — gold
+        case 18..<21: b = (206, 150, 116)  // dusk — amber
+        default:      b = (44, 54, 92)     // night — deep indigo
+        }
+        let s = dark ? 0.42 : 1.0          // dim for dark mode, full in light
+        func c(_ v: Int) -> Int { min(65535, Int(Double(v) * 257.0 * s)) }
+        return (c(b.0), c(b.1), c(b.2))
+    }
+
+    /// Apply the time-of-day idle tone (memoized like applyDesktopTint, so it
+    /// only re-sets when the resolved color actually changes — e.g. crossing
+    /// a time-of-day boundary or an appearance flip).
+    private func applyIdleTint() {
+        let dark = effectiveDark()
+        let color = idleDesktopColor(dark: dark)
+        let name = "idle-\(dark ? "dark" : "light")"
+        let memoKey = "idle|\(name)|\(color.0),\(color.1),\(color.2)"
         if lastDesktopTint == memoKey { return }
         lastDesktopTint = memoKey
         let screens = NSScreen.screens
