@@ -1038,16 +1038,49 @@ async function buildPalsTrayImage() {
   // live tint). Adding a same-color stroke to the path thickens the line art
   // in vector space, so it stays crisp at every size.
   const baseFill = accentHex || '#cd5c9b';
-  const STROKE_W = 0.5; // extra outline weight, in the SVG's 24-unit viewBox
-  let svg = fs.readFileSync(svgPath, 'utf8');
-  svg = svg.replace(
-    /fill="#[0-9a-fA-F]{3,8}"/g,
-    `fill="${baseFill}" stroke="${baseFill}" stroke-width="${STROKE_W}" stroke-linejoin="round"`
-  );
-  const svgBuf = Buffer.from(svg);
+  const fr = parseInt(baseFill.slice(1, 3), 16);
+  const fg = parseInt(baseFill.slice(3, 5), 16);
+  const fb = parseInt(baseFill.slice(5, 7), 16);
 
-  // Rasterize the vector once at high resolution, trimmed to the figures.
-  const master = await sharp(svgBuf, { density: 1200 }).trim().png().toBuffer();
+  // The pals vector is OUTLINE geometry (a closed band tracing the two
+  // figures), so a plain fill renders as line-art. Rasterize the outline as a
+  // mask, flood-fill the exterior from the border, then paint every
+  // non-exterior pixel solid — giving filled figures, recolored to the accent.
+  const svg = fs.readFileSync(svgPath, 'utf8');
+  const outlineSvg = svg.replace(
+    /fill="#[0-9a-fA-F]{3,8}"/g,
+    // Embolden a touch so anti-aliased gaps stay sealed for the flood fill.
+    `fill="#000000" stroke="#000000" stroke-width="0.7" stroke-linejoin="round"`
+  );
+  const mask = await sharp(Buffer.from(outlineSvg), { density: 1200 })
+    .trim()
+    .extend({ top: 4, bottom: 4, left: 4, right: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const mW = mask.info.width, mH = mask.info.height, mBuf = mask.data;
+  const isWall = (i) => mBuf[i * 4 + 3] > 40; // outline pixel
+  const exterior = new Uint8Array(mW * mH);
+  const stk = [];
+  for (let x = 0; x < mW; x++) { stk.push(x); stk.push((mH - 1) * mW + x); }
+  for (let y = 0; y < mH; y++) { stk.push(y * mW); stk.push(y * mW + mW - 1); }
+  while (stk.length) {
+    const i = stk.pop();
+    if (exterior[i] || isWall(i)) continue;
+    exterior[i] = 1;
+    const x = i % mW, y = (i / mW) | 0;
+    if (x > 0) stk.push(i - 1);
+    if (x < mW - 1) stk.push(i + 1);
+    if (y > 0) stk.push(i - mW);
+    if (y < mH - 1) stk.push(i + mW);
+  }
+  // Solid accent silhouette; a thin 1px black border is added per-rep below.
+  const solid = Buffer.alloc(mW * mH * 4, 0);
+  for (let i = 0; i < mW * mH; i++) {
+    if (!exterior[i]) { solid[i * 4] = fr; solid[i * 4 + 1] = fg; solid[i * 4 + 2] = fb; solid[i * 4 + 3] = 255; }
+  }
+  // Rasterized solid figures, trimmed to content.
+  const master = await sharp(solid, { raw: { width: mW, height: mH, channels: 4 } }).trim().png().toBuffer();
 
   const SHRINK = 0.84;       // logo height relative to the full menubar slot
   const SHADOW_ALPHA = 0.7;  // hard drop-shadow opacity
@@ -1089,19 +1122,29 @@ async function buildPalsTrayImage() {
         canvas[i + 3] = Math.round(oa * 255);
       };
 
-      // Pass 1: tight hard drop shadow (black, offset 1pt down-right).
-      for (let y = 0; y < lh; y++) {
-        for (let x = 0; x < lw; x++) {
-          const a = logoBuf[(y * lw + x) * 4 + 3];
-          if (a > 0) put(ox + x + shDX, oy + y + shDY, 0, 0, 0, a * SHADOW_ALPHA);
-        }
-      }
-
-      // Pass 2: the crisp, accent-colored logo (sharp raw is RGBA).
+      // Accent fill + a black silhouette border (no drop shadow). The border
+      // thickness scales with the representation so it reads consistently at
+      // every DPI (thicker on retina reps where 1px would look hairline).
+      const AT = 128; // alpha threshold for "solidly inside the figure"
+      const BORDER = scale + 1; // black outline thickness, in this rep's px
       for (let y = 0; y < lh; y++) {
         for (let x = 0; x < lw; x++) {
           const j = (y * lw + x) * 4;
-          put(ox + x, oy + y, logoBuf[j + 2], logoBuf[j + 1], logoBuf[j], logoBuf[j + 3]);
+          const a = logoBuf[j + 3];
+          if (a <= 0) continue;
+          // Edge = solid pixel within BORDER px of a (near-)transparent pixel.
+          let edge = false;
+          if (a >= AT) {
+            for (let dy = -BORDER; dy <= BORDER && !edge; dy++) {
+              for (let dx = -BORDER; dx <= BORDER; dx++) {
+                const nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= lw || ny >= lh) { edge = true; break; }
+                if (logoBuf[(ny * lw + nx) * 4 + 3] < AT) { edge = true; break; }
+              }
+            }
+          }
+          if (edge) put(ox + x, oy + y, 0, 0, 0, 255);
+          else put(ox + x, oy + y, logoBuf[j + 2], logoBuf[j + 1], logoBuf[j], a);
         }
       }
 
@@ -1176,6 +1219,13 @@ async function createSystemTray() {
             }
           })
           .catch(() => {});
+        // Re-tint every AC window's chrome to the new accent.
+        const acc = getAccentRGB();
+        if (acc) {
+          for (const w of BrowserWindow.getAllWindows()) {
+            try { w.webContents.send('ac-accent', acc); } catch (_) {}
+          }
+        }
       });
     } catch (_) {}
   } else {
@@ -1874,26 +1924,30 @@ function getOffsetWindowPosition(sourceWindow, index = 0) {
 async function openAcPaneWindowInternal(options = {}) {
   const { sourceWindow = null, index = 0 } = options;
   
-  // Start with a wide window - extra height for mode tags at bottom
-  const winWidth = 680;
-  const winHeight = 520;
+  // Start with a smaller, cuter window - extra height for mode tags at bottom
+  const winWidth = 330;
+  const winHeight = 290;
   
   // Calculate position to avoid overlap
   const { x, y } = getOffsetWindowPosition(sourceWindow, index);
   
+  // 🪟 Native macOS chrome: the standard OS title bar + traffic lights + native
+  // resize, with a full-bleed webview below it. Set false to fall back to the
+  // custom card chrome.
+  const NATIVE_CHROME = !isPaperWM;
   const winOpts = {
     width: winWidth,
     height: winHeight,
     x,
     y,
-    minWidth: 320,
-    minHeight: 240,
-    title: 'AC Pane',
-    frame: false,
-    transparent: !isPaperWM,
-    hasShadow: isPaperWM,
+    minWidth: 260,
+    minHeight: 220,
+    title: options.piece || 'prompt',
+    frame: NATIVE_CHROME ? true : false,
+    transparent: NATIVE_CHROME ? false : !isPaperWM,
+    hasShadow: NATIVE_CHROME ? true : isPaperWM,
     alwaysOnTop: !isPaperWM && preferences.alwaysOnTop,
-    backgroundColor: isPaperWM ? '#000000' : '#00000000',
+    backgroundColor: NATIVE_CHROME ? '#111114' : (isPaperWM ? '#000000' : '#00000000'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -1904,6 +1958,9 @@ async function openAcPaneWindowInternal(options = {}) {
   // On PaperWM, use 'normal' type so the WM tiles it instead of floating
   if (isPaperWM) winOpts.type = 'normal';
   const win = new BrowserWindow(winOpts);
+  // Keep the native title bar showing the current piece (driven by
+  // 'set-current-piece'), not the flip-view document <title> ("AC Pane").
+  if (NATIVE_CHROME) win.on('page-title-updated', (e) => e.preventDefault());
 
   // Plumb the launch piece + environment base into the flip-view shell so
   // `--piece=NAME` (and `--dev`) actually route. The shell reads ?piece= and
@@ -1914,6 +1971,11 @@ async function openAcPaneWindowInternal(options = {}) {
   const query = { base: baseUrl };
   if (options.piece) query.piece = options.piece;
   if (isPaperWM) query.wm = 'paper';
+  if (NATIVE_CHROME) query.chrome = 'native';
+  // Tint the window chrome to the macOS system accent (kept in sync below via
+  // the 'accent-color-changed' broadcast). Backgrounds still follow light/dark.
+  const _acc = getAccentRGB();
+  if (_acc) query.accent = [_acc.r, _acc.g, _acc.b].map((c) => c.toString(16).padStart(2, '0')).join('');
   win.loadFile(getAppPath('renderer/flip-view.html'), { query });
 
   // 🎮 Grant sticky user activation to the host page so navigator.getGamepads()
@@ -2438,6 +2500,11 @@ ipcMain.handle('set-current-piece', (event, pieceName) => {
   currentPiece = pieceName || 'prompt';
   console.log('[main] Current piece updated:', currentPiece);
   updateTrayTitle();
+  // Reflect the current piece in the native window title bar.
+  try {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.setTitle(currentPiece);
+  } catch (_) {}
   return currentPiece;
 });
 

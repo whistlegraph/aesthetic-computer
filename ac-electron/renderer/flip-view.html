@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <script>if(new URLSearchParams(location.search).get('wm')==='paper')document.documentElement.classList.add('paperwm')</script>
+  <script>{const _q=new URLSearchParams(location.search);if(_q.get('wm')==='paper')document.documentElement.classList.add('paperwm');if(_q.get('chrome')==='native')document.documentElement.classList.add('native');}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AC Pane</title>
 
@@ -72,10 +72,10 @@
     /* Perspective container - static, provides 3D context */
     .flip-perspective {
       position: fixed;
-      top: 40px;  /* Extra space at top for flip animation headroom */
-      left: 30px;  /* Extra space for wider flip tabs */
-      right: 30px;  /* Extra space for wider flip tabs */
-      bottom: 56px;  /* Extra space at bottom for mode tags + flip headroom */
+      top: 22px;  /* Extra space at top for flip animation headroom */
+      left: 14px;  /* Extra space for wider flip tabs */
+      right: 14px;  /* Extra space for wider flip tabs */
+      bottom: 36px;  /* Extra space at bottom for mode tags + flip headroom */
       perspective: 1200px;
       perspective-origin: center center;
     }
@@ -264,13 +264,13 @@
       top: 100%;
       transform: translateX(-50%);
       z-index: 240;
-      height: 24px;
+      height: 15px;
       display: flex;
       flex-direction: row;
       align-items: center;
       justify-content: center;
-      padding: 4px 10px;
-      border-radius: 0 0 10px 10px;
+      padding: 1px 6px;
+      border-radius: 0 0 7px 7px;
       background: var(--ac-border-solid);
       border: 1px solid var(--ac-border);
       border-top: none;
@@ -286,7 +286,7 @@
     #volume-slider {
       -webkit-appearance: none;
       appearance: none;
-      width: 110px;
+      width: 68px;
       height: 4px;
       background: var(--ac-border-solid);
       border-radius: 2px;
@@ -335,56 +335,56 @@
       /* Debug: background: rgba(255,0,0,0.2); */
     }
     
-    /* Positions aligned with flip-perspective: top: 40px, left/right: 30px, bottom: 56px */
+    /* Positions aligned with flip-perspective: top: 22px, left/right: 14px, bottom: 36px */
     .resize-handle.top {
-      top: 34px; left: 24px; right: 24px; height: 12px;
+      top: 16px; left: 8px; right: 8px; height: 12px;
       cursor: n-resize;
     }
-    
+
     .resize-handle.bottom {
-      bottom: 50px; left: 24px; right: 24px; height: 12px;
+      bottom: 30px; left: 8px; right: 8px; height: 12px;
       cursor: s-resize;
     }
-    
+
     /* Left side - split into top and bottom sections, leaving gap for flip tab */
     .resize-handle.left-top {
-      left: 24px; top: 46px; height: calc(50% - 90px); width: 12px;
+      left: 8px; top: 28px; height: calc(50% - 90px); width: 12px;
       cursor: w-resize;
     }
-    
+
     .resize-handle.left-bottom {
-      left: 24px; bottom: 62px; height: calc(50% - 90px); width: 12px;
+      left: 8px; bottom: 42px; height: calc(50% - 90px); width: 12px;
       cursor: w-resize;
     }
-    
+
     /* Right side - split into top and bottom sections, leaving gap for flip tab */
     .resize-handle.right-top {
-      right: 24px; top: 46px; height: calc(50% - 90px); width: 12px;
+      right: 8px; top: 28px; height: calc(50% - 90px); width: 12px;
       cursor: e-resize;
     }
-    
+
     .resize-handle.right-bottom {
-      right: 24px; bottom: 62px; height: calc(50% - 90px); width: 12px;
+      right: 8px; bottom: 42px; height: calc(50% - 90px); width: 12px;
       cursor: e-resize;
     }
-    
+
     .resize-handle.top-left {
-      top: 34px; left: 24px; width: 16px; height: 16px;
+      top: 16px; left: 8px; width: 16px; height: 16px;
       cursor: nw-resize;
     }
-    
+
     .resize-handle.top-right {
-      top: 34px; right: 24px; width: 16px; height: 16px;
+      top: 16px; right: 8px; width: 16px; height: 16px;
       cursor: ne-resize;
     }
-    
+
     .resize-handle.bottom-left {
-      bottom: 50px; left: 24px; width: 16px; height: 16px;
+      bottom: 30px; left: 8px; width: 16px; height: 16px;
       cursor: sw-resize;
     }
-    
+
     .resize-handle.bottom-right {
-      bottom: 50px; right: 24px; width: 16px; height: 16px;
+      bottom: 30px; right: 8px; width: 16px; height: 16px;
       cursor: se-resize;
     }
     
@@ -447,9 +447,34 @@
       height: 100% !important;
     }
 
+    /* Native macOS chrome: real OS title bar + traffic lights (hiddenInset),
+       an accent-tinted drag strip across the top, and a full-bleed webview.
+       The custom card frame / flip / resize handles / volume are suppressed. */
+    html.native { background: var(--ac-front-bg, #111); }
+    html.native body { perspective: none; }
+    html.native .flip-perspective {
+      top: 0; left: 0; right: 0; bottom: 0; /* full-bleed webview under the native title bar */
+      perspective: none;
+    }
+    html.native .flip-card { transform-style: flat; transition: none; }
+    html.native .card-face { border: none; border-radius: 0; box-shadow: none; }
+    html.native .card-back,
+    html.native .flip-tab,
+    html.native .mode-tags,
+    html.native .volume-control,
+    html.native .resize-handle,
+    html.native .resize-overlay { display: none !important; }
+    html.native .card-front { position: absolute; inset: 0; }
+    html.native .card-front webview { width: 100% !important; height: 100% !important; }
+    /* No custom strip — the standard macOS title bar handles the top. */
+    .native-topbar { display: none !important; }
+
   </style>
 </head>
 <body>
+  <!-- Native chrome: accent-tinted top strip (drag region; traffic lights overlay left) -->
+  <div class="native-topbar">aesthetic.computer</div>
+
   <!-- Overlay to capture mouse during resize -->
   <div class="resize-overlay" id="resize-overlay"></div>
   
@@ -488,7 +513,7 @@
       <div class="card-face card-front">
         <!-- src is set by initWebviewSrc() from ?base=/?piece=. Start blank so a
              hardcoded URL doesn't commit first and swallow the real assignment. -->
-        <webview id="front-webview" src="about:blank" allowpopups preload="../webview-preload.js"></webview>
+        <webview id="front-webview" src="about:blank" allowpopups preload="../webview-preload.js" webpreferences="contextIsolation=no"></webview>
       </div>
     
     <!-- Back face: Terminal -->
@@ -499,7 +524,35 @@
   <script>
     const isPaperWM = document.documentElement.classList.contains('paperwm');
     const { ipcRenderer } = require('electron');
-    
+
+    // 🎨 Tint the chrome (frame border, volume, flip tab, glows) to the macOS
+    // system accent color. Backgrounds/text still follow light/dark. Accent
+    // arrives as ?accent=rrggbb on load and via 'ac-accent' IPC on change.
+    function applyAccentChrome(r, g, b) {
+      const root = document.documentElement;
+      const set = (name, a) => root.style.setProperty(name, `rgba(${r}, ${g}, ${b}, ${a})`);
+      set('--ac-border', 0.25);
+      set('--ac-border-solid', 0.4);
+      set('--ac-border-hover', 0.5);
+      set('--ac-border-active', 0.7);
+      set('--ac-accent', 0.6);
+      set('--ac-accent-glow', 0.5);
+      set('--ac-shadow-inner', 0.2);
+      set('--ac-tab-back', 0.45);
+      set('--ac-tab-back-hover', 0.65);
+      set('--ac-tab-back-accent', 0.55);
+      set('--ac-tab-back-accent-hover', 0.9);
+      // Native top strip: a near-solid accent bar.
+      root.style.setProperty('--ac-accent-bar', `rgba(${r}, ${g}, ${b}, 0.92)`);
+    }
+    try {
+      const a = new URLSearchParams(location.search).get('accent');
+      if (a && /^[0-9a-fA-F]{6}$/.test(a)) {
+        applyAccentChrome(parseInt(a.slice(0, 2), 16), parseInt(a.slice(2, 4), 16), parseInt(a.slice(4, 6), 16));
+      }
+    } catch (_) {}
+    ipcRenderer.on('ac-accent', (_e, c) => { if (c) applyAccentChrome(c.r, c.g, c.b); });
+
     const flipCard = document.querySelector('.flip-card');
     const webviewEl = document.getElementById('front-webview');
 
