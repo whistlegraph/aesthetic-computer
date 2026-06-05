@@ -4,6 +4,7 @@ import { z } from "zod";
 import { execFile as execFileCb, spawn as spawnCb, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { access, readFile, stat } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -34,6 +35,20 @@ const ACCOUNTS = {
   "jas-mail": "me@jas.life",
   "sotce-mail": "mail@sotce.net",
 };
+// Extra mail accounts (e.g. private client inboxes) are merged in from an
+// untracked config file so their identities never live in this public repo —
+// same convention as the Slab menubar's ~/.config/slab/mail-accounts.json.
+// Each entry: { "account": "<mbsync-channel>", "email": "<from address>" }.
+const EXTRA_ACCOUNTS_PATH =
+  process.env.AC_MAIL_EXTRA_ACCOUNTS ||
+  join(HOME, ".config", "slab", "mail-accounts.json");
+try {
+  for (const entry of JSON.parse(readFileSync(EXTRA_ACCOUNTS_PATH, "utf8"))) {
+    if (entry?.account && entry?.email) ACCOUNTS[entry.account] = entry.email;
+  }
+} catch {
+  // No extra accounts configured (or file unreadable/malformed) — fine.
+}
 const ACCOUNT_NAMES = Object.keys(ACCOUNTS);
 const INBOX_QUERY_ALL = ACCOUNT_NAMES.map((a) => `maildir:/${a}/INBOX`).join(" OR ");
 const DEFAULT_ACCOUNT = "ac-mail";

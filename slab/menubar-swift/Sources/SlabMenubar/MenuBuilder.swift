@@ -117,6 +117,19 @@ enum MenuBuilder {
         return it
     }
 
+    /// Extra mail accounts loaded from untracked `~/.config/slab/mail-accounts.json`
+    /// so client identities never appear in tracked code. Returns [] if absent
+    /// or malformed.
+    private static func extraMailAccounts() -> [(account: String, label: String)] {
+        guard let data = FileManager.default.contents(atPath: Paths.mailAccountsConfig),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: String]]
+        else { return [] }
+        return arr.compactMap { dict in
+            guard let account = dict["account"], !account.isEmpty else { return nil }
+            return (account, dict["label"] ?? account)
+        }
+    }
+
     /// Identifier prefix used to tag each pop-render NSMenuItem so
     /// `updatePopRenders(in:state:)` can find and rewrite it in place
     /// while the menu is open. Full identifier = prefix + heartbeat id.
@@ -435,6 +448,15 @@ enum MenuBuilder {
         sub.addItem(item("Sync jas-mail", selector: #selector(AppDelegate.syncJasMail), target: target))
         sub.addItem(item("Sync sotce-mail", selector: #selector(AppDelegate.syncSotceMail), target: target))
         sub.addItem(item("Sync quiltnet-mail", selector: #selector(AppDelegate.syncQuiltnetMail), target: target))
+        for acct in extraMailAccounts() {
+            let mi = NSMenuItem(title: "Sync \(acct.label)",
+                                action: #selector(AppDelegate.syncMailFromMenuItem(_:)),
+                                keyEquivalent: "")
+            mi.target = target
+            mi.representedObject = acct.account
+            mi.isEnabled = true
+            sub.addItem(mi)
+        }
         sub.addItem(.separator())
         sub.addItem(item("Open sync log", selector: #selector(AppDelegate.openSyncLog), target: target))
         parent.submenu = sub

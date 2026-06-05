@@ -592,6 +592,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func syncSotceMail() { syncMail(account: "sotce-mail") }
     @objc func syncQuiltnetMail() { syncMail(account: "quiltnet-mail") }
 
+    /// Sync an extra mail account whose mbsync channel name is carried on the
+    /// menu item's representedObject, so client account names live in untracked
+    /// config (see Paths.mailAccountsConfig) rather than tracked code.
+    @objc func syncMailFromMenuItem(_ sender: NSMenuItem) {
+        guard let account = sender.representedObject as? String, !account.isEmpty else { return }
+        syncMail(account: account)
+    }
+
     @objc func openSyncLog() {
         if FileManager.default.fileExists(atPath: Paths.mailSyncLog) {
             ShellRunner.run("/usr/bin/open", args: ["-a", "Console", Paths.mailSyncLog])

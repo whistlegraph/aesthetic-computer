@@ -32,6 +32,12 @@ enum Paths {
     static var imsgHelper: String { "\(slabBin)/imsg" }
     static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
 
+    /// Extra mbsync accounts beyond the AC-owned set (ac/jas/sotce/quiltnet),
+    /// loaded from untracked config so client identities never live in tracked
+    /// code — same convention as imsgConfig above. JSON shape:
+    /// [{ "account": "<mbsync-channel>", "label": "<menu label>" }].
+    static var mailAccountsConfig: String { "\(home)/.config/slab/mail-accounts.json" }
+
     static var activePromptsDir: String { "\(slabHome)/state/active-prompts" }
     static var awaitingPromptsDir: String { "\(slabHome)/state/awaiting-prompts" }
     static var activeSubagentsDir: String { "\(slabHome)/state/active-subagents" }
