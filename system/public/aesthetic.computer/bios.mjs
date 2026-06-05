@@ -1242,12 +1242,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 0; // Instant reframe (was 80ms)
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  // Use URL parameter, or acPACK_DENSITY (for bundles), or default to 2
+  // Use URL parameter, or acPACK_DENSITY (for bundles), else default to 2 —
+  // except the Electron desktop app, which defaults to density 1 (chunkier
+  // pixels; density 2 reads too fine on the desktop).
   let density = resolution.density !== undefined
     ? resolution.density
     : (window.acPACK_DENSITY !== undefined
         ? window.acPACK_DENSITY
-        : 2);
+        : (window.acElectron ? 1 : 2));
 
   // acFORCE_NOGAP pins gap=0 for packed M4L bundles loaded via data: URI
   // where there's no `?nogap` query param to read — equivalent behavior.
