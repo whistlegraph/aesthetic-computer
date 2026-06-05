@@ -1619,9 +1619,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             if nTerm > 0 {
                 lines.append("tell application \"Terminal\"")
+                // Tile only non-minimized windows (matches windowCount): a
+                // minimized window must neither consume a cell nor be moved.
+                lines.append("    set _slabVis to (every window whose miniaturized is false)")
                 for j in 0..<nTerm {
                     let cell = layout.cellAt(index: nIterm + j)
-                    lines.append("    set bounds of window \(j + 1) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+                    lines.append("    try")
+                    lines.append("      set bounds of item \(j + 1) of _slabVis to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+                    lines.append("    end try")
                 }
                 lines.append("end tell")
             }
@@ -1650,9 +1655,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private static func windowCount(app: String) -> Int {
         let spec = appSpecifier(app)
+        // Terminal exposes `miniaturized`, so minimized windows are excluded
+        // from the tile grid (they shouldn't consume a cell). iTerm2 doesn't
+        // expose it via AppleScript, so fall back to counting all windows.
+        let countExpr = app == "iTerm2"
+            ? "count windows"
+            : "count (windows whose miniaturized is false)"
         let script = """
         if \(spec) is running then
-          tell \(spec) to count windows
+          tell \(spec) to \(countExpr)
         else
           0
         end if
