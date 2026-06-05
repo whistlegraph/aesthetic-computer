@@ -26,14 +26,14 @@ export const PALETTE = {
 export const audience = {
   name: "serpentine",
   handle: "@aesthetic.computer",
-  voice: { provider: "jeffrey", voice: "neutral:0" },
+  voice: { provider: "jeffrey", voice: "neutral:0", speed: 1.08 },
 
   // This is a spoken proposal, NOT a sung recap — keep the plain ~2:50
   // narration. Disable the autotune/pitchsnap "sing" pass (which otherwise
   // stretches the timeline ~3× and rewrites words.json/segments.json).
   sing: false,
 
-  narration: `hey, i'm artist jeffrey alan scudder, and here's what i can't stop thinking about. as everyone races to build ai, computing is getting pulled into the data center. your laptop is becoming a thin client, renting its intelligence by the month. the personal computer you actually own is quietly disappearing. i think home computing needs a revolution at the operating system layer. so i built one. aesthetic dot computer boots a fifty dollar surplus laptop into a creative instrument in seven seconds — no desktop, no account, no cloud. it has its own little language, kidlisp, and it is a commons: everything is open, and it all boots from a single usb stick. twenty years ago the laptop orchestra proved a room of laptops could be a real instrument, but it stayed locked inside rich universities. on surplus hardware, that can be planetary, and held in common. language models are the force doing the enclosing, but they are also what lets one artist build a whole operating system. so here is my question: can a creative O.S. take ai in as a local, owned faculty, on your own terms, instead of a tenant of the cloud? and that's the question of aesthetic dot computer, version twenty twenty-six. thanks for listening.`,
+  narration: `Hey, I'm artist Jeffrey Alan Scudder, and here's what I can't stop thinking about. As everyone races to build higher-level intelligence services, computing is getting pulled into the data center. Your laptop is becoming a thin client, renting its intelligence by the month — and the personal computer you actually own is quietly disappearing. I think home computing needs a revolution at the operating system layer. Not another app — a different ground to stand on. So I built one. Aesthetic dot Computer boots a fifty-dollar surplus laptop straight into the notepat new media instrument. Notepat makes tunes you can type — so a song is something you write down and pass along, the way folk music has always moved. And here the picture, the code, and the music are one medium: you slide between drawing, programming, and playing without ever leaving the instrument. It's not a tool you use — you play it — and it all runs on an operating system built for nothing else. It is a commons. A tiny language, KidLisp, where a whole generative piece is six legible lines that live at their own web address. Twenty years ago the Princeton Laptop Orchestra proved a room of laptops could be a real instrument — but at fifteen hundred dollars a seat it stayed locked inside rich universities. Last year, when Windows ten ended, two hundred and forty million working computers became obsolete overnight. That's the raw material for a planetary orchestra — held in common, not thrown away. Three people with surplus laptops in a park can form a laptop orchestra. Language models are the force doing the enclosing — but they are also what lets one artist build and tend a whole operating system that used to take a company. So here is my question: can a creative o.s. take LLMs in as a local, owned faculty, on your own terms, instead of a tenant of the cloud? And that's the question of Aesthetic dot Computer, version twenty twenty-six. Thanks for listening.`,
 
   // Whisper renders these dictionary-style; rewrite the displayed subtitles.
   // Longer/multi-word fixes first so they win before single-word fixes.
@@ -66,6 +66,7 @@ export const audience = {
     { name: "03_os_layer", marker: "operating system layer" },
     { name: "04_creative_os", marker: "surplus laptop" },
     { name: "05_commons", marker: "it is a commons" },
+    { name: "05b_quote", marker: "three people" },
     { name: "06_llms", marker: "language models are the force" },
     { name: "07_poised", marker: "can a creative" },
     { name: "09_outro", marker: "the question of" },
@@ -105,8 +106,8 @@ export const audience = {
       <div class="frame">
         <div class="chapter" style="color:${PALETTE.dim}">01 · the creative os</div>
         <div class="title-stack">
-          <div class="huge" style="color:${PALETTE.cream}">a $50 laptop<br>→ an instrument<br>in 7 seconds</div>
-          <div class="sub" style="color:${PALETTE.amber}">no desktop · no account · no cloud</div>
+          <div class="huge" style="color:${PALETTE.cream}">notepat —<br>tunes you<br>can type</div>
+          <div class="sub" style="color:${PALETTE.amber}">picture · code · music — one medium</div>
         </div>
       </div>`,
 
@@ -116,6 +117,18 @@ export const audience = {
         <div class="title-stack">
           <div class="huge" style="color:${PALETTE.cream}">a planetary<br>laptop orchestra</div>
           <div class="sub" style="color:${PALETTE.amber}">kidlisp · a url per piece · held in common</div>
+        </div>
+      </div>`,
+
+    // 05b_quote is rendered in the widescreen cut as a paper-extract scene
+    // (the PLOrk PDF with a live highlight); this slide is only the portrait
+    // fallback.
+    "05b_quote": `
+      <div class="frame">
+        <div class="chapter" style="color:${PALETTE.dim}">from the paper</div>
+        <div class="title-stack">
+          <div class="huge" style="color:${PALETTE.cream}">three people<br>in a park</div>
+          <div class="sub" style="color:${PALETTE.amber}">plork'ing the planet — a verbatim extract</div>
         </div>
       </div>`,
 

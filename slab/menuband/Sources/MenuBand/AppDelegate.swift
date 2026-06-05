@@ -357,6 +357,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the space sensitivity so the two horizontal modes feel the
     /// same under the finger — only the modifier changes the target.
     private static let echoSensitivityPerPoint: Float = 1.0 / 200.0
+    /// [temp] Echo half of the horizontal fx axis (swipe RIGHT) is
+    /// disabled for now. The X axis stays bipolar in code but the
+    /// right side is clamped out, so only the left/space (reverb)
+    /// half responds. Flip back to `true` to restore echo.
+    private static let fxEchoEnabled = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
@@ -3092,8 +3097,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let xSens: Float = event.modifierFlags.contains(.option)
             ? Self.echoSensitivityPerPoint * Float(0.3)
             : Self.echoSensitivityPerPoint
-        fxX = max(Float(-1), min(Float(1), fxX + dx * xSens))
-        echoAmount = max(Float(0), fxX)
+        // [temp] When echo is disabled, cap the axis at 0 so a RIGHT
+        // swipe can't wind up any echo (and the puck won't drift into a
+        // dead right half); the LEFT/space half still runs normally.
+        let fxMax: Float = Self.fxEchoEnabled ? 1 : 0
+        fxX = max(Float(-1), min(fxMax, fxX + dx * xSens))
+        echoAmount = Self.fxEchoEnabled ? max(Float(0), fxX) : 0
         spaceAmount = max(Float(0), -fxX)
         cancelFxRelease()
         // Clamp the accumulator to ±bendRange so it can't wind up past the

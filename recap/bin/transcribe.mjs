@@ -52,9 +52,14 @@ if (!force && existsSync(wordsPath) && existsSync(hashFile)) {
 }
 
 console.log(`→ whisper-cli · ${MP3}`);
+// -dtw computes token-level timestamps via cross-attention dynamic time warping
+// — far more accurate word start/stop boundaries than the default heuristic,
+// which matters for the per-word karaoke captions. DTW is incompatible with
+// flash-attention (which is on by default), so -nfa disables it. Must match the
+// model preset (base.en).
 execFileSync(
   "whisper-cli",
-  ["-m", MODEL, "-f", MP3, "-ojf", "-of", `${ROOT}/out/recap`, "--max-len", "1", "-ml", "1", "-sow"],
+  ["-m", MODEL, "-f", MP3, "-ojf", "-of", `${ROOT}/out/recap`, "--max-len", "1", "-ml", "1", "-sow", "-nfa", "-dtw", "base.en"],
   { stdio: ["ignore", "ignore", "inherit"] },
 );
 

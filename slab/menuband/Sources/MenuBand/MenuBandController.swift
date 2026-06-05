@@ -864,6 +864,9 @@ final class MenuBandController {
         // range determines audible cap).
         let result = amount.finiteMagnitudeMultiply(8192)
         let value = Int16(result.safeClamped(Float(Int16.min), Float(Int16.max)))
+        // Remember the current bend so a freshly-allocated round-robin
+        // channel can be set to it at noteOn time (see currentBendValue).
+        currentBendValue = value
         // Channels currently sounding via either input path. Use
         // sets to dedupe — same channel can host both a tap and a
         // keyboard note when the user is using both at once.
@@ -1527,6 +1530,20 @@ final class MenuBandController {
     // play and ~7 doppler retriggers with their growing intervals.
     private var melodicVoiceCursor: UInt8 = 0         // round-robin 0..3 for live
     private var dopplerVoiceCursor: UInt8 = 4         // round-robin 4..7 for doppler retriggers
+    /// Last pitch-bend value pushed via `setBend` (centered = 0). Each
+    /// freshly-allocated round-robin channel is set to this at noteOn so
+    /// a new note never inherits a STALE bend left on that channel by an
+    /// earlier gesture — otherwise repeatedly pressing one key cycles
+    /// through 0…3 and audibly "oscillates" in pitch. When a bend is
+    /// active the new note correctly joins it; when idle it's centered.
+    private var currentBendValue: Int16 = 0
+    /// Center the pitch bend on a channel about to host a fresh note,
+    /// applying the current bend (0 when idle). No-op in MIDI mode (the
+    /// external DAW owns channel state there).
+    private func primeChannelBend(_ channel: UInt8) {
+        guard !midiMode else { return }
+        synth.sendPitchBend(value: currentBendValue, channel: channel)
+    }
 
     /// Linger tail length — how long after key release we hold the
     /// note before sending the cleanup noteOff. Long enough that the
@@ -1599,6 +1616,9 @@ final class MenuBandController {
         // their pan into subsequent taps on the same channel.
         if !midiMode {
             synth.setPan(pan, channel: synthCh)
+            // Prime the channel's bend (current bend, or centered when idle)
+            // so this tap can't inherit a stale bend on this round-robin slot.
+            primeChannelBend(synthCh)
             synth.noteOn(midiNote, velocity: velocity, channel: synthCh)
         }
         midiNoteOn(midiNote, velocity: velocity, channel: midiCh)
@@ -1885,6 +1905,7 @@ final class MenuBandController {
             DispatchQueue.main.asyncAfter(deadline: .now() + triggerAt) { [weak self] in
                 guard let self = self else { return }
                 let ch = self.nextDopplerChannel()
+                self.primeChannelBend(ch)
                 if !self.midiMode { self.synth.noteOn(midiNote, velocity: v, channel: ch) }
                 self.midiNoteOn(midiNote, velocity: v, channel: midiChannel)
                 DispatchQueue.main.asyncAfter(deadline: .now() + Self.dopplerNoteOffWindow) { [weak self] in
@@ -2434,6 +2455,10 @@ final class MenuBandController {
             // new note attacks at full volume (see startTapNote for
             // the parallel call site / rationale).
             cancelLingerFade(channel: synthCh)
+            // Center (or current-bend) this channel BEFORE the noteOn so it
+            // can't inherit a stale bend left by an earlier gesture on the
+            // same round-robin slot.
+            primeChannelBend(synthCh)
             midi.sendCC(10, value: pan, channel: 0)
             if !midiMode { synth.noteOn(note, velocity: 100, channel: synthCh) }
             midiNoteOn(note, velocity: 100, channel: 0)

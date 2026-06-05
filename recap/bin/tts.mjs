@@ -34,6 +34,9 @@ const body = {
   from: audience.narration,
   provider: audience.voice.provider,
   voice: audience.voice.voice,
+  // ElevenLabs jeffrey voice_settings.speed (0.7-1.2; say.js clamps). Default
+  // 1.0 reads slow for a spoken proposal; audience configs can override.
+  ...(typeof audience.voice.speed === "number" ? { speed: audience.voice.speed } : {}),
 };
 
 const inputHash = createHash("sha256")

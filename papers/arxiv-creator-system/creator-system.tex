@@ -1,0 +1,298 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+\definecolor{rowtint}{RGB}{244,238,246}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Two Personal Intelligence Systems: The Aesthetic.Computer Research Platter and the Creator System},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- a letter to Matty}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\cs}{\textsc{Creator System}}
+\newcommand{\yes}{{\color{acpurple}\textbf{$\bullet$}}}
+\newcommand{\no}{{\color{acgray}$\circ$}}
+
+\setlist[itemize]{leftmargin=1.1em, itemsep=1pt, topsep=2pt}
+\setlist[enumerate]{leftmargin=1.4em, itemsep=1pt, topsep=2pt}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{21pt}{25pt}\selectfont\color{acdark} Two Personal Intelligence Systems}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} The Aesthetic.Computer Research Platter and the Creator System, compared}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A letter to Matty, on what our two second-brains share, where they diverge, and what each could steal from the other}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Jeffrey Alan Scudder --- Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+The \cs{} by Matty Mo Studio and the \ac{} research platter are, independently, the same wager: that an LLM agent pointed at a structured, trust-aware archive of one person's real material produces output that sounds like that person because it \emph{is} that person, not the average of the internet. This letter compares the two systems feature-by-feature. They converge on a layered vault (raw sources $\rightarrow$ processed notes $\rightarrow$ synthesized canon $\rightarrow$ outputs), a source-trust hierarchy, and a library of Claude Code skills. They diverge on what each was built \emph{around}: the \cs{} is a productized, teachable kit --- onboarding flow, page templates, ingestion pipelines, advisory skills, an opt-in cohort network --- engineered to be handed to a stranger and personalized in ten minutes. The \ac{} platter is a code-native publishing mill: it lives inside a running monorepo, presses the project's internal thinking into \textbf{49} \mbox{arXiv-format} papers and \textbf{21} institutional dossiers, enforces machine-auditable provenance (a first-hand-only lexicon that filters AI-written text), and maintains \emph{callable identity assets} --- a POI-annotated photographic self, a voice clone, a 421\,GB media archive --- that the \cs{} has no analogue for. The honest finding: as a daily knowledge base the \cs{} is largely redundant for someone already running the platter; as a \emph{packaging pattern} it is the more instructive artifact, a working proof that a personal vault can be productized into a kit and a cohort. I close with what each system could borrow from the other, and why the interesting market move is not adopting the \cs{} but mirroring its packaging move with the platter's richer substrate.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{Introduction}
+
+Matty, we built the same thing without comparing notes, and the differences are the interesting part.
+
+Both systems start from a rejection. Most ``AI tools'' wrap a chat box around a prompt and let the model reach for whatever is statistically nearby. Both of ours instead wrap the model around a \emph{specific archive} --- a structured store of one person's journals, documents, code, press, and conversations --- on the premise that synthesis grounded in real material is worth more than fluent generality. Your \cs{} states this outright (``most AI tools wrap a chatbot around a prompt; this wraps a chatbot around your archive''). The \ac{} platter never said it that cleanly, but it has been the operating assumption the whole time.
+
+This letter is a structured comparison. \S\ref{sec:arch} lines up the two architectures. \S\ref{sec:features} is the feature matrix. \S\ref{sec:cs-only} catalogs what your system has that mine does not; \S\ref{sec:ac-only} the reverse. \S\ref{sec:discussion} answers the question that prompted the letter --- is one redundant given the other? --- and argues that the more useful reading is about packaging, not redundancy.
+
+A note on method: every count in this paper was read directly off the two repositories on \mbox{2026-06-03}, not estimated. Where I describe your system I am reading the public \cs{} v2026-05-01 release; where I describe mine I am reading the \texttt{aesthetic-computer} monorepo and its \texttt{papers/} tree.
+
+% ============ 2. ARCHITECTURE ============
+
+\section{Two Architectures, One Shape}
+\label{sec:arch}
+
+Both systems are layered vaults that move material upward in trust and synthesis. The folder names differ; the gradient is identical.
+
+\begin{center}
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}lX@{}}
+\toprule
+\textbf{Layer} & \textbf{Role (shared across both)} \\
+\midrule
+Sources & Immutable raw material. Never edited. \\
+Source notes & Processed extracts; \emph{conditional} --- not every source earns one. \\
+Canon & Durable synthesized knowledge: people, places, works, themes, timelines. \\
+Outputs & Reusable deliverables: bios, memos, decks, papers, copy. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\noindent The \cs{} encodes this as ten numbered folders (\texttt{00\_HOME} through \texttt{10\_META}) with an explicit constitution (\texttt{AGENTS.md}) defining page types, frontmatter schemas, and a four-level source hierarchy: L1 journals own emotional truth, L2 business documents own dates and amounts, L3 memoir is reflective, press is treated as possibly myth-shaped. The platter encodes the same gradient less formally but enforces it more aggressively in one place --- the lexicon (\S\ref{sec:ac-only}) --- where provenance is not a label but a filter.
+
+The deeper structural difference is \emph{where the vault lives}. The \cs{} is a free-standing Obsidian vault: a folder you can put anywhere, married to Claude Code, married to nothing else. The platter lives \emph{inside} a running software project. Its sources are commits, code comments, piece source files, lecture transcripts, and recap audio; its outputs deploy to \texttt{papers.aesthetic.computer}. The vault is not adjacent to the work --- it is the work, indexed.
+
+% ============ 3. FEATURE MATRIX ============
+
+\section{The Feature Matrix}
+\label{sec:features}
+
+{\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\columnwidth}{@{}Xcc@{}}
+\toprule
+\textbf{Capability} & \textbf{\cs} & \textbf{Platter} \\
+\midrule
+Layered source$\rightarrow$canon vault & \yes & \yes \\
+Source-trust hierarchy & \yes & \yes \\
+Agent ingestion pipeline & \yes & \yes \\
+Canon-page synthesis skill & \yes & \yes \\
+Structured onboarding (\texttt{let's go}) & \yes & \no \\
+Page-type templates + schemas & \yes & partial \\
+Ingestion tools for consumer exports & \yes & \no \\
+Advisory / decision skills & \yes & \no \\
+Opt-in cohort network & \yes & \no \\
+Documented SOP + recipes & \yes & partial \\
+Lives inside a code monorepo & \no & \yes \\
+First-hand-only provenance filter & \no & \yes \\
+Publishing mill (papers / cards) & \no & \yes \\
+Institutional dossier lane & \no & \yes \\
+Callable identity assets & \no & \yes \\
+Voice clone / audio self & \no & \yes \\
+Bulk media-archive hooks & \no & \yes \\
+Live email / calendar / drive & partial & \yes \\
+\bottomrule
+\end{tabularx}
+\par}
+
+\vspace{0.4em}
+\noindent The matrix splits cleanly. The \cs{}'s column is dense at the top --- the \emph{onboarding, teaching, and reflection} band. The platter's is dense at the bottom --- the \emph{integration, provenance, and production} band. Neither is a superset of the other. That is the whole finding, compressed.
+
+% ============ 4. WHAT THE CREATOR SYSTEM HAS ============
+
+\section{What the Creator System Has That the Platter Lacks}
+\label{sec:cs-only}
+
+\subsection{A front door}
+The platter has no \texttt{let's go}. Your system personalizes itself in one conversation --- name, practice, first source ingested, first canon page built, git initialized --- because it was designed to be handed to someone who has never seen it. Mine assumes its author is already inside it. For a system of one, that is fine; for anything else it is a wall.
+
+\subsection{Advisory skills --- a mode the platter has none of}
+This is the gap I felt most. The platter's skills are all \emph{centripetal}: pull material in, compress it, press it out as a paper. Your skill library adds a \emph{centrifugal} mode --- the system talking back:
+\begin{itemize}
+  \item \texttt{/council} --- twelve advisory personas evaluate a project, idea, or deal from every angle.
+  \item \texttt{/challenge} --- pressure-test a stated belief against the vault's own evidence.
+  \item \texttt{/drift} --- compare stated priorities against what the activity log actually shows.
+  \item \texttt{/connect}, \texttt{/emerge}, \texttt{/ideas} --- surface bridges and implications the archive contains but never stated.
+\end{itemize}
+The platter can write what I think. It cannot yet argue with me. These skills are portable in principle --- they are prompts over a vault --- and they are the first thing I would lift.
+
+\subsection{Ingestion tools for the messy real world}
+Six pipelines (\texttt{photo-processor}, \texttt{takeout-processor}, \texttt{chatgpt-ingest}, \texttt{facebook-ingest}, \texttt{press-ingest}, \texttt{granola-ingest}) turn platform exports into clean Markdown. The platter ingests \emph{code and commits} natively but has no equivalent for a Facebook archive or a Google Takeout dump. For a non-programmer creator, your tools \emph{are} the on-ramp.
+
+\subsection{It is a product}
+A README front door, 23 recipes, an SOP with manual fallbacks, an MIT license, a versioned changelog, and a cohort of real users filing friction logs. The platter is a workshop with the lights on and the door unlocked but no sign out front. Yours is a kit.
+
+% ============ 5. WHAT THE PLATTER HAS ============
+
+\section{What the Platter Has That the Creator System Lacks}
+\label{sec:ac-only}
+
+\subsection{It lives where the work happens}
+The platter is not pointed at the work from outside; it is grown from inside the \texttt{aesthetic-computer} monorepo. Sources are first-party and continuous: commit messages, code comments, piece source, lecture transcripts, recap audio. There is no ``export then import'' step because the archive and the practice are the same files.
+
+\subsection{Machine-auditable provenance}
+The \cs{} \emph{labels} trust (canonical / working / speculative). The platter, in the \texttt{jeffrey-lexicon}, \emph{enforces} it: a frequency-attributed dictionary of every word I have used first-hand, with AI-written text --- co-authored commits, machine-translated paragraphs, image-gen prompts --- excluded by source filter. A poisoned dictionary is no dictionary. This is a discipline the \cs{} gestures at and the platter operationalizes.
+
+\subsection{A publishing mill}
+The reason the platter exists: to make the project's thinking \emph{leave the building}. It presses raw material into \textbf{49} arXiv-format papers and a \textbf{21}-dossier lane of institutional fact-surfacing (Rhizome, Eyebeam, Creative Capital, the Mellon Foundation --- each with an EIN-anchored IRS~990 financial spine). The same \LaTeX{} source renders as a full paper or a single-sheet card. The \cs{} produces outputs; the platter produces \emph{publications}, with formats, targets, and a deploy step.
+
+\subsection{Callable identity assets}
+The strangest divergence. The platter maintains a canonical \emph{self} that pipelines can call by reference: a POI-annotated photographic index (headshots, candids, POV screenshots, face-matched archive selfies), a \texttt{jeffrey-pvc} voice clone wired into \texttt{/api/say}, and the lexicon as a textual self. ``A photograph of Jeffrey'' or ``Jeffrey's voice'' resolves to a concrete, annotated asset instead of a guess. The \cs{} models what you \emph{know}; the platter also models what you \emph{look and sound like}.
+
+\subsection{Hooks into the bulk archive and the live silos}
+The platter indexes a 421\,GB Dropbox archive (exhibitions, masters, lecture footage), a multi-gigabyte Instagram pull, and --- this session --- live Gmail, Calendar, and Drive through MCP. It reaches past the text vault into the heavy media and the live accounts.
+
+% ============ 6. DISCUSSION ============
+
+\section{Discussion: Redundant, or a Pattern?}
+\label{sec:discussion}
+
+\subsection{The redundancy question, answered}
+As a \emph{daily knowledge base}, the \cs{} is largely redundant for an operator already running the platter. Its core loop --- layered vault, agent ingestion, canon synthesis, source hierarchy --- is a subset of what the platter already does, minus the code-integration and the provenance enforcement. Adopting it as a second brain would trade rigor for nothing. That is the unsentimental read, and I think it is correct.
+
+\subsection{Why that is the wrong question}
+The redundancy framing misses what your system actually demonstrates. You took a personal vault --- the bespoke, undocumented kind every serious practitioner accretes --- and \emph{productized} it: onboarding, templates, recipes, license, cohort. The artifact's real lesson is not its feature set. It is the proof that the move is doable: a second brain can become a kit other people run, and a cohort other people pay for.
+
+The platter has a \emph{richer substrate} for exactly that move. \ac{} already carries the teaching posture, a programmable medium (KidLisp), the mill, and the identity layer. ``The AC Research Platter, as a kit'' --- or even as an AC piece --- is a more defensible product than anything that subordinates one practice to another's vault. In that reading your \cs{} is not a tool to adopt; it is the \emph{reference implementation} of the packaging pattern, and the most useful thing I can take from it is the shape of the box, not the contents.
+
+\subsection{What each should steal}
+\textbf{Platter $\leftarrow$ \cs{}:} the advisory skills (\texttt{/council}, \texttt{/challenge}, \texttt{/drift}) --- a reflection mode the mill lacks; the \texttt{let's go} onboarding shape, as the seed of a kit; the consumer-export ingestion tools, for the non-code material.
+
+\noindent\textbf{\cs{} $\leftarrow$ Platter:} provenance-as-filter, not just as label; a publishing/deploy lane so outputs can \emph{leave}; the notion of callable identity assets, so a vault can model not just what a creator knows but how they sound.
+
+% ============ 7. CONCLUSION ============
+
+\section{Conclusion}
+
+We built the same wager from opposite ends. You built outward --- from a vault toward a product a stranger can run. I built downward --- from a vault into the code, the provenance, and the published record. The systems are not competitors and neither is redundant in the way the question implied: one is a \emph{teachable kit with a reflection mode}, the other a \emph{code-native mill with a callable self}. The trade worth making is not adoption in either direction. It is the cross-pollination in \S\ref{sec:discussion}, and the recognition --- which your system is the clearest available proof of --- that a personal intelligence system, once it is good enough to live in, is also a thing you can hand to other people.
+
+\vspace{0.5em}
+\noindent\rule{\columnwidth}{0.4pt}
+\vspace{0.3em}
+
+{\footnotesize\color{acgray}\noindent Counts (papers, dossiers, archive size) read from \texttt{aesthetic-computer} and \cs{} v2026-05-01 on 2026-06-03. Drafted with Claude Code inside the vault it describes --- itself a small instance of the thesis.}
+
+\end{document}

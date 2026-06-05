@@ -949,20 +949,25 @@ function _ewChannel(src, scale, tint) {   // scaled single-channel copy about ce
   _ewChanC.globalCompositeOperation = "source-over";
   return _ewChan;
 }
-function drawEdgeWarp(c) {
+// First-person POV beats — warp HARDER (it's jeffrey's own eyes).
+const POV_SET = new Set(["intro-c", "build-c", "drop1-b", "break-c", "outro-b", "resolve-b"]);
+function drawEdgeWarp(c, boost = 1) {     // boost>1 = stronger warp (POV beats)
   const cx = W / 2, cy = H / 2, minDim = Math.min(W, H);
+  const div = 0.02 * boost;                                  // chromatic divergence
+  const blurPx = Math.round(6 * boost);                      // edge blur
+  const innerR = minDim * Math.max(0.18, 0.46 - 0.16 * (boost - 1));  // ring pulls inward
   _ewEdgeC.setTransform(1, 0, 0, 1, 0, 0);
   _ewEdgeC.globalCompositeOperation = "source-over";
   _ewEdgeC.globalAlpha = 1;
   _ewEdgeC.clearRect(0, 0, W, H);
-  _ewEdgeC.filter = "blur(6px)";
+  _ewEdgeC.filter = `blur(${blurPx}px)`;
   _ewEdgeC.drawImage(_ewChannel(c.canvas, 1.0, "#00ff00"), 0, 0);   // green base
   _ewEdgeC.globalCompositeOperation = "lighter";
-  _ewEdgeC.drawImage(_ewChannel(c.canvas, 1.02, "#ff0000"), 0, 0);  // red pushed OUT (subtle)
-  _ewEdgeC.drawImage(_ewChannel(c.canvas, 0.988, "#0000ff"), 0, 0); // blue pulled IN (subtle)
+  _ewEdgeC.drawImage(_ewChannel(c.canvas, 1 + div, "#ff0000"), 0, 0);       // red pushed OUT
+  _ewEdgeC.drawImage(_ewChannel(c.canvas, 1 - div * 0.6, "#0000ff"), 0, 0); // blue pulled IN
   _ewEdgeC.filter = "none";
   _ewEdgeC.globalCompositeOperation = "destination-out";              // keep only OUTER edge ring
-  const g = _ewEdgeC.createRadialGradient(cx, cy, minDim * 0.46, cx, cy, minDim * 0.66);
+  const g = _ewEdgeC.createRadialGradient(cx, cy, innerR, cx, cy, minDim * 0.66);
   g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(1, "rgba(0,0,0,0)");
   _ewEdgeC.fillStyle = g; _ewEdgeC.fillRect(0, 0, W, H);
   _ewEdgeC.globalCompositeOperation = "source-over";
@@ -1008,7 +1013,7 @@ function renderPanel(c, idx, audioT, env, punch) {
   // 3: LEADED contrast — the inverse-mask multiply pass that keeps the
   //    dark linework PUNCHY, like the lead between glass.
   drawLeadedContrast(c, PANEL_IMGS[idx], xform, faces, l_i, audioT);
-  drawEdgeWarp(c);                  // radial chromatic + geometric + blur edge warp
+  drawEdgeWarp(c, POV_SET.has(`${PANELS[idx].name}-${PANELS[idx].half}`) ? 2.4 : 1);  // POV beats warp harder
   return xform;
 }
 

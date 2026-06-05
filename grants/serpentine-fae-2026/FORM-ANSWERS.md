@@ -21,7 +21,7 @@
 ## Personal details
 
 **Full Name:** Jeffrey Alan Scudder
-**Email Address:** me@jas.life  **⟨confirm⟩** *(or mail@aesthetic.computer)*
+**Email Address:** mail@aesthetic.computer
 **Primary Residence:** Los Angeles, California, USA
 **Website or Online Presence:** https://aesthetic.computer
 **Are you applying as an individual or a collective?** Individual
@@ -137,15 +137,12 @@ Leave blank, or: "Travelling from Los Angeles for each intensive; covered travel
 
 ---
 
-## References  *(two — name, role/organisation, email, relationship)*  **⟨your call⟩**
+## References  *(two — name, role/organisation, email, relationship)*  — LOCKED 2026-06-04
 
-A reference is lighter than a written letter (they may simply be contacted). Candidates:
-- **Camille Klein** / **Alex Freundlich** — Whistlegraph co-owners; long-term collaborators.
-- **Julia Yerger** — collaborator (Radical Digital Painting; Johannes Vogt show).
-- **Artur Erman** — collaborator / peer.  · A **KADIST** curator who acquired your work.
-- **Goodiepal** (Kristian Vester) — toured Europe together.  · **Casey Reas** — in reserve per your call.
+A reference is lighter than a written letter (they may simply be contacted).
 
-→ Suggested pair: **Camille + Alex** (community/commons story), or one collaborator + one KADIST curator.
+1. **Casey Reas** — artist; Professor, UCLA Design Media Arts; host of the Social Software residency Jeffrey is currently in. Relationship: residency host / peer. **⟨add email⟩**
+2. **Julia Yerger** — collaborator (Radical Digital Painting; Johannes Vogt gallery show). Relationship: collaborator. **⟨add email⟩**
 
 ---
 

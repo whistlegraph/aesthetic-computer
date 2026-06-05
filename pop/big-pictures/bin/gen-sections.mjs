@@ -8,7 +8,7 @@
 //   MARK ZUCKERBERG onboards him into a metaverse game; the office gets
 //   WARPED + REPLICATED inside it (the one woman-in-grey becomes an army
 //   of grey selfie-girl avatars, the surfboard on the office wall becomes
-//   his wakeboard). Out on the grey lagoon DRONE-WARS erupt on the
+//   his wakeboard). Out on the Meta-blue lagoon DRONE-WARS erupt on the
 //   horizon; Mark's avatar tries to drag him back (a tug-of-war); jeffrey
 //   plows the oblivious girls over (none react), then finds the warm
 //   GROUP PIXSIES round-table — the human antidote to the hollow crowd —
@@ -60,6 +60,11 @@ const TAG   = LANDSCAPE ? "-yt" : "-p";
 const SLUG  = "amaythingra";
 mkdirSync(`${LANE}/out`, { recursive: true });
 
+// The whole metaverse keys to ONE colour — Meta's brand blue. Threaded
+// into every block so the virtual world reads as corporate Meta blue
+// (the water, the glitch, everything), never polychrome / rainbow.
+const META_BLUE = "#0668E1";   // Meta brand blue (RGB 6,104,225)
+
 // ── identity refs (mirrors marimba/bin/gen-sections.mjs) ─────────────
 const SHOOT_DIR   = `${REPO}/portraits/jeffrey/corpus/shoot-2k`;
 const ARCHIVE_DIR = `${REPO}/portraits/jeffrey/ig-archive/whistlegraph`;
@@ -92,13 +97,13 @@ function loadOpenAIKey() {
 
 // ── PORTRAIT / LANDSCAPE recomposition ───────────────────────────────
 const PORTRAIT_NOTE =
-`FRAME — compose for a TALL vertical 9:16 frame. HONOR THE SHOT DIRECTIVE in this beat exactly: a close-up / extreme close-up FILLS the frame with the face or detail (crop in tight — do NOT pull back); a first-person POV shows the scene through jeffrey's eyes; a wide shot lets the whole setting breathe. Keep a small calmer margin at the very top and very bottom for a wordmark + player UI. keep the glossy desaturated-grey metaverse render and the crisp NO-blur look.`;
+`FRAME — compose for a TALL vertical 9:16 frame. HONOR THE SHOT DIRECTIVE in this beat exactly: a close-up / extreme close-up FILLS the frame with the face or detail (crop in tight — do NOT pull back); a first-person POV shows the scene through jeffrey's eyes; a wide shot lets the whole setting breathe. Keep a small calmer margin at the very top and very bottom for a wordmark + player UI. keep the established per-mode render style and the crisp NO-blur look.`;
 const LANDSCAPE_NOTE =
-`FRAME — compose for a WIDE 3:2 / 16:9 frame. HONOR THE SHOT DIRECTIVE in this beat exactly: a close-up / extreme close-up FILLS the frame (crop in tight — do NOT pull back); a first-person POV shows the scene through jeffrey's eyes; a wide shot lets the whole setting stretch horizontally. Leave the upper third a little calmer for chrome. keep the glossy desaturated-grey metaverse render and the crisp NO-blur look.`;
+`FRAME — compose for a WIDE 3:2 / 16:9 frame. HONOR THE SHOT DIRECTIVE in this beat exactly: a close-up / extreme close-up FILLS the frame (crop in tight — do NOT pull back); a first-person POV shows the scene through jeffrey's eyes; a wide shot lets the whole setting stretch horizontally. Leave the upper third a little calmer for chrome. keep the established per-mode render style and the crisp NO-blur look.`;
 
 // ── shared scene law — STYLE + MOOD from cover-prompt.v2.txt ─────────
 const MEDIUM =
-`A COMPUTER-ANIMATED METAVERSE SCENE — a glossy real-time 3D game-engine render in the "metaverse avatar / Horizon Worlds" look: clean flat shading, smooth plasticky surfaces, simplified low-poly-ish geometry, slightly uncanny videogame-avatar characters with the soft rounded proportions and glossy plastic skin of a virtual-reality social-world avatar. This is NOT a photograph, NOT photoreal — it is a stylized glossy 3D-rendered CGI image, the way a corporate metaverse social app renders its avatars. Despite the cartoonish avatar render, the whole frame is deliberately DESATURATED and GREY-toned — an overcast, washed-out, almost colorless world, flat grey daylight, cold and joyless. NOT bright, NOT vivid, NOT a cheerful saturated children's cartoon, NOT Pixar-colorful — muted, low-contrast, cold, ironic. Deadpan, satirical. CRITICAL: CRISP and SHARP throughout — NO motion blur, NO depth-of-field blur, NO soft-focus, NO "blurred to suggest movement"; movement is conveyed only through pose and body lean. jeffrey's EXPRESSION + MOOD genuinely SHIFT per beat — read the EMOTION called out and let his face and posture show it clearly.`;
+`A COMPUTER-ANIMATED METAVERSE SCENE — a glossy real-time 3D game-engine render in the "metaverse avatar / Horizon Worlds" look: clean flat shading, smooth plasticky surfaces, simplified low-poly-ish geometry, slightly uncanny videogame-avatar characters with the soft rounded proportions and glossy plastic skin of a virtual-reality social-world avatar. This is NOT a photograph, NOT photoreal — it is a stylized glossy 3D-rendered CGI image, the way a corporate metaverse social app renders its avatars. Despite the cartoonish avatar render, the WHOLE frame is washed in META BLUE (#0668E1, Meta's corporate brand blue) — a cold, flat, monotone Meta-blue colour grade over everything (sky, water, avatars, light), like a corporate metaverse promo. NOT polychrome, NOT rainbow, NOT a cheerful saturated cartoon, NOT Pixar-colorful, NOT grey — monotone Meta blue, low-contrast, cold, ironic. Deadpan, satirical. CRITICAL: CRISP and SHARP throughout — NO motion blur, NO depth-of-field blur, NO soft-focus, NO "blurred to suggest movement"; movement is conveyed only through pose and body lean. jeffrey's EXPRESSION + MOOD genuinely SHIFT per beat — read the EMOTION called out and let his face and posture show it clearly.`;
 
 const JEFFREY =
 `JEFFREY — about 30, recognizable from the jeffrey reference photographs (medium-length brown hair, light beard, his real face) but RESTYLED as a glossy plasticky metaverse-avatar version of himself with smooth low-poly shading. He wears an open burgundy hoodie over a plain soft tee and casual board shorts (or chinos in the office), barefoot on the water / sneakers in the office. His burgundy hoodie is the ONLY faint warm colour in an otherwise colourless frame. He is the one avatar that feels alive; NOT centered as a lone hero — equal eye-line with others. NO laptop, NO device, NO phone in his hands ever.`;
@@ -116,19 +121,19 @@ const OFFICE =
 `THE OFFICE — a drab open-plan corporate TECH OFFICE rendered in the same glossy desaturated 3D style: rows of low grey cubicles, dark dead monitors, flat fluorescent ceiling light, grey carpet, a couple of sad potted plants, a glass-walled meeting room behind. Mounted on one wall as trendy startup decor is a single real SURFBOARD (the motif that later becomes jeffrey's wakeboard). Mundane, soul-less, washed-out corporate grey.`;
 
 const WORLD =
-`THE METAVERSE WORLD — a wide virtual tropical ocean off a low sand-dune coastline rendered in a game engine but drained of colour: flat grey overcast sky, pale silver-grey simple-shaded water with stylized low-poly waves, bleached dune grass on a far sandbar, a calm shallow lagoon-like plane, hazy distant low dunes. Cool, grey, overcast, empty and lonely despite the crowd — the office dream warped into a weird joyless beach.`;
+`THE METAVERSE WORLD — a wide virtual ocean off a low sand-dune coastline rendered in a game engine, the WHOLE scene in META BLUE (#0668E1): a flat Meta-blue sky and bright corporate META-BLUE WATER (#0668E1) with stylized low-poly waves, pale blue-tinted dune grass on a far sandbar, a calm shallow lagoon-like plane, hazy distant low dunes. Cold, monotone Meta blue, corporate and a little eerie — the office dream warped into a Meta-blue virtual beach. The water especially is unmistakably Meta blue (#0668E1).`;
 
 const DRONE =
-`THE DRONE WARS ON THE HORIZON — across the distant back horizon of the grey sea, a FEW SPLASHY EXPLOSIONS of water erupt from SEA-MINES / drone-strikes detonating far out: several tall white-grey PLUMES of water blasting straight up off the far waterline, crisp columns and fans of flung spray spaced across the horizon — a distant metaverse SEA-BATTLE playing out behind everything. ATMOSPHERIC distant water-plume blasts ONLY — clean crisp geometry, NO fire, NO gore, NO debris, NO visible boats or weapons — kept small on the far horizon in the faintly-colorized grey grade, never crowding jeffrey.`;
+`THE DRONE WARS ON THE HORIZON — across the distant back horizon of the Meta-blue sea, a FEW SPLASHY EXPLOSIONS of water erupt from SEA-MINES / drone-strikes detonating far out: several tall white-grey PLUMES of water blasting straight up off the far waterline, crisp columns and fans of flung spray spaced across the horizon — a distant metaverse SEA-BATTLE playing out behind everything. ATMOSPHERIC distant water-plume blasts ONLY — clean crisp geometry, NO fire, NO gore, NO debris, NO visible boats or weapons — kept small on the far horizon in the faintly-colorized grey grade, never crowding jeffrey.`;
 
 const PIXSIES =
 `THE GROUP PIXSIES — a single warm round (or oval) TABLE of "AC freaks": a small ETHNICALLY-DIVERSE band of joyful creative people aged 20s–60s gathered close, trading hand-made papers and odd hacker gear and little glowing handmade gadgets, leaning in, laughing, genuinely connected; a couple of small KIDS sit on the ground beside the table, and an ELDER plays a battered upright piano just behind. They are the human antidote to the hollow selfie crowd — rendered with a touch MORE warmth and life than the grey avatars (still inside the same metaverse render, just a small warm island of real connection amid the grey). jeffrey is a PEER among them, never centered, never a leader. ONE focal table only — NOT multiple tables, NOT a cafe full of tables.`;
 
 const PALETTE =
-`PALETTE — heavily DESATURATED, grey-toned, overcast: flat grey sky / ceiling, bleached silver-grey water / carpet, washed-out cool avatar skin, all the women + Mark in muted grey; jeffrey's burgundy hoodie the only faint warmth (and a slightly warmer pool of life around the pixsies table when present). Soft flat overcast light, no harsh sun, no neon, no vivid saturation. Cool, grey, ironic.`;
+`PALETTE — a monotone META BLUE (#0668E1) grade across the whole metaverse: Meta-blue sky, Meta-blue water, Meta-blue-tinted avatars; jeffrey's burgundy hoodie the only warm note (and a slightly warmer pool of life around the pixsies table when present). Flat corporate light, NO rainbow, NO polychrome, NO vivid multi-colour — just cold Meta blue. Ironic, corporate.`;
 
 const AVOID =
-`AVOID — any photographic / photoreal look; any illustration / colored-pencil / gouache / painterly hand look; BRIGHT, vivid, saturated, cheerful cartoon colour, Pixar-glossy palettes, neon, sunset glow, teal-and-orange grade, tropical aqua or vivid blue water (the whole frame stays a washed-out cold GREY); motion blur of ANY kind, soft-focus, "blurred to suggest movement"; ANY laptop, computer, green MacBook, phone-in-jeffrey's-hand, screen/monitor showing content, tablet held by jeffrey; ANY matrix code, binary digits, falling 1s and 0s, glowing code; the drone-war blasts rendered as fire/flame/gore/debris/boats/weapons (clean distant WATER PLUMES only) or a giant tsunami wall of water; multiple pixsies tables / a cafe of tables (ONE focal table only); jeffrey centered as a hero or lone-leader; the selfie girls reacting, noticing, or looking at jeffrey/camera; any selfie girl in a costume / lewd / runway outfit; jeffrey in a tank top, costume, or formalwear; any readable real-world brand wordmark or logo anywhere; app / phone / Story UI chrome, HUD, menus, health bars, or text overlaid; any readable text or wordmark in the image; any second wakeboard rider; phones showing the surrounding scene recursively.`;
+`AVOID — any photographic / photoreal look; any illustration / colored-pencil / gouache / painterly hand look; polychrome / RAINBOW / multicolour, cheerful Pixar palettes, neon, sunset glow, teal-and-orange grade, tropical aqua, or GREY water (the whole frame is monotone META BLUE #0668E1 — the water especially); motion blur of ANY kind, soft-focus, "blurred to suggest movement"; ANY laptop, computer, green MacBook, phone-in-jeffrey's-hand, screen/monitor showing content, tablet held by jeffrey; ANY matrix code, binary digits, falling 1s and 0s, glowing code; the drone-war blasts rendered as fire/flame/gore/debris/boats/weapons (clean distant WATER PLUMES only) or a giant tsunami wall of water; multiple pixsies tables / a cafe of tables (ONE focal table only); jeffrey centered as a hero or lone-leader; the selfie girls reacting, noticing, or looking at jeffrey/camera; any selfie girl in a costume / lewd / runway outfit; jeffrey in a tank top, costume, or formalwear; any readable real-world brand wordmark or logo anywhere; app / phone / Story UI chrome, HUD, menus, health bars, or text overlaid; any readable text or wordmark in the image; any second wakeboard rider; phones showing the surrounding scene recursively.`;
 
 // ── REAL-WORLD render mode (office beats — before/after the game) ────
 // Photoreal + textured, the tangible real world vs the glossy game.
@@ -141,7 +146,7 @@ const R_MARK =
 const R_GRAY_WOMAN =
 `THE WOMAN IN GREY — a real young woman jeffrey is quietly drawn to, PHOTOREAL: an all-grey office outfit (real grey knit / blouse + grey slacks or skirt), neat hair, calm, going about her work, NOT noticing him.`;
 const R_OFFICE =
-`THE OFFICE — a real, drab open-plan corporate TECH OFFICE, photoreal + textured: real grey fabric cubicle partitions, real monitors + keyboards, fluorescent ceiling panels, worn grey carpet, real potted plants, a glass-walled meeting room with real smudges + reflections. Mounted on one wall as startup decor: a real SURFBOARD (real fibreglass sheen). Mundane, washed-out corporate.`;
+`THE OFFICE — a real, drab open-plan corporate TECH OFFICE, photoreal + textured: real grey fabric cubicle partitions, real monitors + keyboards, fluorescent ceiling panels, worn grey carpet, real potted plants, a glass-walled meeting room with real smudges + reflections. Mounted on one wall as startup decor: a real SURFBOARD (real fibreglass sheen). The monitors + a glass-walled meeting-room screen glow a faint META BLUE (#0668E1); subtle Meta-blue corporate accents. Mundane, washed-out corporate.`;
 const R_PALETTE =
 `PALETTE — cool, desaturated, grey-graded but PHOTOGRAPHIC: real muted fluorescent-lit colour, jeffrey's burgundy hoodie the one warm note. No vivid saturation.`;
 const R_AVOID =
@@ -152,11 +157,11 @@ const REALIZE = new Map([[OFFICE, R_OFFICE], [GRAY_WOMAN, R_GRAY_WOMAN], [MARK, 
 // When the metaverse tears or assembles: NOT grey wireframe — FULL
 // super-psychedelic aesthetic.computer glitch.
 const PSYCH_MEDIUM =
-`A SUPER-PSYCHEDELIC AESTHETIC-COMPUTER GLITCH RENDER — the metaverse tearing apart / assembling: an explosive KALEIDOSCOPIC riot of SATURATED RAINBOW colour, vivid generative-art glitch, glowing neon polygon shards, datamosh smears, scan-lines, prismatic chromatic-split fragments, luminous trails — the AC (aesthetic.computer / kidlisp) visual language: bold, trippy, maximalist, luminous. NOT grey, NOT monochrome, NOT a plain boring wireframe — FULL psychedelic colour. Crisp glowing geometry, no motion blur. Deadpan-cosmic.`;
+`A META-BLUE DIGITAL GLITCH RENDER — the metaverse tearing apart / assembling, rendered ENTIRELY in META BLUE (#0668E1): glowing Meta-blue polygon shards, Meta-blue wireframe, datamosh smears, scan-lines and luminous Meta-blue trails over a deep blue-black void. MONOCHROME META BLUE — NOT polychrome, NOT rainbow, NOT multicolour, NOT psychedelic-colour; cold corporate Facebook/Meta blue only. Crisp glowing geometry, no motion blur. Deadpan, eerie, corporate-cosmic.`;
 const PSYCH_JEFFREY =
 `JEFFREY — recognizable from the references (brown hair, beard, his real face), his avatar caught mid-transition, breaking apart into / assembling out of glowing rainbow-coloured polygon shards.`;
 const PSYCH_AVOID =
-`AVOID — any grey / monochrome / desaturated treatment here (this beat is FULL psychedelic colour); photoreal look; a plain dull wireframe; readable text / logos; UI / HUD overlays; motion blur.`;
+`AVOID — ANY polychrome / rainbow / multicolour / psychedelic-colour (this beat is MONOCHROME META BLUE #0668E1 only); grey; photoreal look; readable text / logos; UI / HUD overlays; motion blur.`;
 const PSYCH_SET = new Set(["build-c", "build-d", "drop1-a", "outro-b", "outro-c", "outro-d"]);
 
 // ── per-beat story — office → metaverse → office, 8 sections × 2 ──────
@@ -168,7 +173,7 @@ const SECTION_ORDER = [
 ];
 
 const COVER_VARIANT =
-`COVER COMPOSITION — the locked amaythingra album-cover crop: jeffrey WAKEBOARDING across the flat grey metaverse water, framed UP CLOSE, full body large and near, knees bent, one arm out for balance, leaning into a confident carve that throws a sharp crisp fan of grey spray off the board's edge — a big open-mouthed delighted grin — carving THROUGH the scattered rows of stiff oblivious grey selfie-girl avatars (replicas of the office woman in grey), one or two caught mid-topple but still filming themselves. He rides as one element among the figures, equal eye-line, NOT a hero-center pose.`;
+`COVER COMPOSITION — the locked amaythingra album-cover crop: jeffrey WAKEBOARDING across the flat Meta-blue metaverse water, framed UP CLOSE, full body large and near, knees bent, one arm out for balance, leaning into a confident carve that throws a sharp crisp fan of grey spray off the board's edge — a big open-mouthed delighted grin — carving THROUGH the scattered rows of stiff oblivious grey selfie-girl avatars (replicas of the office woman in grey), one or two caught mid-topple but still filming themselves. He rides as one element among the figures, equal eye-line, NOT a hero-center pose.`;
 
 const BEATS = {
   intro: {
@@ -193,23 +198,23 @@ const BEATS = {
   },
   drop1: {
     a: { blocks: [WORLD], body:
-`SHOT — LOW ANGLE looking UP at jeffrey's avatar SPAWNING into being in a blank flat-grey loading void: glossy low-poly polygon shards + wireframe panels snapping together up his body, burgundy hoodie resolving, a faint wireframe horizon grid drawing in beneath. EMOTION — uncanny arrival, blinking wonder.` },
+`SHOT — LOW ANGLE looking UP at jeffrey's avatar SPAWNING into being in a blank flat-Meta-blue void: glossy low-poly polygon shards + wireframe panels snapping together up his body, burgundy hoodie resolving, a faint wireframe horizon grid drawing in beneath. EMOTION — uncanny arrival, blinking wonder.` },
     b: { blocks: [WORLD], body:
-`SHOT — FIRST-PERSON POV (jeffrey's FACE NOT SHOWN): looking down at his own newly-formed glossy plastic avatar hands turning over in front of the camera-eyes, then the grey beach + flat silver water rendering in around them. EMOTION — disoriented curiosity, "where am I".` },
+`SHOT — FIRST-PERSON POV (jeffrey's FACE NOT SHOWN): looking down at his own newly-formed glossy plastic avatar hands turning over in front of the camera-eyes, then the Meta-blue beach + flat silver water rendering in around them. EMOTION — disoriented curiosity, "where am I".` },
     c: { blocks: [WORLD, GIRLS, DRONE], body:
-`SHOT — WIDE ESTABLISHING, the full grey lagoon revealed: rows of the REPLICATED woman-in-grey selfie-girl avatars stretching back toward the horizon, every one filming herself; far out, the DRONE-WARS water-plumes erupting; a wakeboard materializing on the water near jeffrey (small in frame). EMOTION — dawning unease at the scale of it.` },
+`SHOT — WIDE ESTABLISHING, the full Meta-blue lagoon revealed: rows of the REPLICATED woman-in-grey selfie-girl avatars stretching back toward the horizon, every one filming herself; far out, the DRONE-WARS water-plumes erupting; a wakeboard materializing on the water near jeffrey (small in frame). EMOTION — dawning unease at the scale of it.` },
     d: { blocks: [WORLD, GIRLS], body:
 `SHOT — CLOSE-UP, two of the identical grey selfie-girl replicas side by side filling the frame, same face, same pose, both filming themselves, utterly oblivious — the uncanny clone reveal. jeffrey's shoulder/edge just in frame, recoiling. EMOTION — creeping dread, recognition.` },
   },
   break: {
     a: { blocks: [WORLD], body:
-`SHOT — CLOSE-UP, low over the water, on the WAKEBOARD (the office wall-surfboard, transformed) materializing on the flat grey surface with a faint spawn-shimmer, jeffrey's bare avatar feet stepping onto it, ripples spreading. EMOTION — tentative, figuring it out. tight on board + feet + water.` },
+`SHOT — CLOSE-UP, low over the water, on the WAKEBOARD (the office wall-surfboard, transformed) materializing on the flat Meta-blue surface with a faint spawn-shimmer, jeffrey's bare avatar feet stepping onto it, ripples spreading. EMOTION — tentative, figuring it out. tight on board + feet + water.` },
     b: { blocks: [WORLD, GIRLS], body:
 `SHOT — MEDIUM on jeffrey rising to standing on the wakeboard, arms out, wobbling to find balance among the frozen grey selfie-girls. EMOTION — focused, a determined little grin.` },
     c: { blocks: [WORLD, PIXSIES], body:
-`SHOT — FIRST-PERSON POV (jeffrey's FACE NOT SHOWN): skimming forward low over the grey water on the board, the front tip of the wakeboard + his own hands in foreground, and far ahead a small WARM GLOW — the GROUP PIXSIES round table — drawing his eye across the cold lagoon. EMOTION — a flicker of hope, drawn toward warmth.` },
+`SHOT — FIRST-PERSON POV (jeffrey's FACE NOT SHOWN): skimming forward low over the Meta-blue water on the board, the front tip of the wakeboard + his own hands in foreground, and far ahead a small WARM GLOW — the GROUP PIXSIES round table — drawing his eye across the cold lagoon. EMOTION — a flicker of hope, drawn toward warmth.` },
     d: { blocks: [WORLD, GIRLS, PIXSIES], body:
-`SHOT — WIDE HIGH ANGLE (bird's-eye-ish) looking down: jeffrey small on his board amid the scattered ranks of frozen grey selfie-girls, the warm little pixsies island glowing far across the grey lagoon, his wake cutting a line between them. EMOTION — the choice laid out, the maze ahead.` },
+`SHOT — WIDE HIGH ANGLE (bird's-eye-ish) looking down: jeffrey small on his board amid the scattered ranks of frozen grey selfie-girls, the warm little pixsies island glowing far across the Meta-blue lagoon, his wake cutting a line between them. EMOTION — the choice laid out, the maze ahead.` },
   },
   vortex: {
     a: { blocks: [WORLD, GIRLS, DRONE], body:
@@ -227,19 +232,19 @@ const BEATS = {
     b: { blocks: [WORLD, GIRLS], body:
 `SHOT — CLOSE-UP on ONE blonde grey replica caught mid-topple, water sloshing up past her shoulder, her face locked in the same blissed-out duck-lipped selfie expression, phone still raised, oblivious. EMOTION — deadpan absurdity. tight on her non-reacting face.` },
     c: { blocks: [WORLD, PIXSIES], body:
-`SHOT — MEDIUM, warm: jeffrey carves up to the GROUP PIXSIES round table and steps off the board, the diverse band turning to welcome him in as a peer, the cold grey lagoon behind, a warm candle-lit pocket here. EMOTION — relief, arrival, belonging.` },
+`SHOT — MEDIUM, warm: jeffrey carves up to the GROUP PIXSIES round table and steps off the board, the diverse band turning to welcome him in as a peer, the cold Meta-blue lagoon behind, a warm candle-lit pocket here. EMOTION — relief, arrival, belonging.` },
     d: { blocks: [PIXSIES], body:
 `SHOT — CLOSE-UP, warm, candlelit: jeffrey and two of the pixsies leaning in together over a small glowing handmade gadget on the table, hands and faces close, real delight, the elder's piano + a kid just behind in soft focus. EMOTION — genuine human connection, the heart of the piece.` },
   },
   outro: {
     a: { blocks: [WORLD, PIXSIES, DRONE], body:
-`SHOT — WIDE: jeffrey rides AWAY from the pixsies table back out onto the open grey lagoon, glancing back to wave; the pixsies wave warmly after him, the DRONE-WARS plumes receding small on the horizon. EMOTION — contented, a soft satisfied smile, leaving the warmth.` },
+`SHOT — WIDE: jeffrey rides AWAY from the pixsies table back out onto the open Meta-blue lagoon, glancing back to wave; the pixsies wave warmly after him, the DRONE-WARS plumes receding small on the horizon. EMOTION — contented, a soft satisfied smile, leaving the warmth.` },
     b: { blocks: [WORLD], body:
 `SHOT — FIRST-PERSON POV (jeffrey's FACE NOT SHOWN): his own hands + the front of the wakeboard in foreground beginning to BREAK APART into floating low-poly polygon shards as the grey world glitches and dissolves around his viewpoint. EMOTION — the ride ending, reality tugging back.` },
     c: { blocks: [], body:
 `SHOT — EXTREME CLOSE-UP on jeffrey's face, half of it already DISSOLVING into drifting polygon shards, eyes wide, the grey world gone to flat loading-void behind. EMOTION — bittersweet, being pulled out, a flicker of loss. face fills frame.` },
     d: { blocks: [], body:
-`SHOT — ABSTRACT WIDE: the entire grey metaverse SHATTERS into a rushing storm of low-poly polygon shards + pale portal light streaming/reversing past the camera toward a white-out. EMOTION — the violent yank back through, disorientation. no figures, pure transition.` },
+`SHOT — ABSTRACT WIDE: the entire Meta-blue metaverse SHATTERS into a rushing storm of low-poly polygon shards + pale portal light streaming/reversing past the camera toward a white-out. EMOTION — the violent yank back through, disorientation. no figures, pure transition.` },
   },
   resolve: {
     a: { blocks: [OFFICE, MARK], body:
@@ -256,19 +261,22 @@ const BEATS = {
 function safeName(n) {
   return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
+const POV_NOTE =
+`POV INTEGRITY — this is jeffrey's OWN first-person viewpoint (his eyes ARE the camera). The only part of jeffrey in frame is his own hands / forearms / body in the near foreground. ABSOLUTELY NO second jeffrey anywhere — no other man resembling jeffrey, no mirror / reflection / screen showing jeffrey's face. Any other people are clearly DIFFERENT individuals.`;
 function build(beat, tightCrop, psych) {
   const orient = LANDSCAPE
     ? `\n\n${LANDSCAPE_NOTE}`
     : (tightCrop ? "" : `\n\n${PORTRAIT_NOTE}`);
-  if (psych) {  // degradation: super-psychedelic AC glitch
-    return [PSYCH_MEDIUM, PSYCH_JEFFREY, beat.body, PSYCH_AVOID].join("\n\n") + orient + "\n";
+  const pov = beat.body.includes("FIRST-PERSON POV") ? `\n\n${POV_NOTE}` : "";
+  if (psych) {  // degradation: Meta-blue glitch
+    return [PSYCH_MEDIUM, PSYCH_JEFFREY, beat.body, PSYCH_AVOID].join("\n\n") + pov + orient + "\n";
   }
   if (beat.blocks.includes(OFFICE)) {  // real-world office: photoreal + textured
     const rb = beat.blocks.map((b) => REALIZE.get(b) || b);
-    return [R_MEDIUM, R_JEFFREY, ...rb, beat.body, R_PALETTE, R_AVOID].join("\n\n") + orient + "\n";
+    return [R_MEDIUM, R_JEFFREY, ...rb, beat.body, R_PALETTE, R_AVOID].join("\n\n") + pov + orient + "\n";
   }
-  return [MEDIUM, JEFFREY, ...beat.blocks, beat.body, PALETTE, AVOID].join("\n\n")  // glossy grey metaverse
-    + orient + "\n";
+  return [MEDIUM, JEFFREY, ...beat.blocks, beat.body, PALETTE, AVOID].join("\n\n")  // glossy Meta-blue metaverse
+    + pov + orient + "\n";
 }
 
 const apiKey = loadOpenAIKey();
