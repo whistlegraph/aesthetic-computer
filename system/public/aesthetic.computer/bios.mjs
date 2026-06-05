@@ -13634,7 +13634,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "web") {
       // console.log("Jumping to:", content.url, content.blank);
       if (content.blank === true) {
-        if (Aesthetic) {
+        if (window.acElectron?.openExternal) {
+          // Electron app: MUST be checked before the Aesthetic (iOS) branch —
+          // the desktop app's user-agent contains "Aesthetic", so `Aesthetic`
+          // is true here and would otherwise swallow the link into the iOS
+          // path (a no-op in Electron). Open in the system browser via the
+          // webview-preload bridge → main's shell.openExternal. Avoids
+          // window.open, whose user gesture is lost across the worker boundary.
+          window.acElectron.openExternal(content.url);
+        } else if (Aesthetic) {
           iOSAppSend({ type: "url", body: content.url });
         } else if (window.acVSCODE && window.parent !== window) {
           // In VSCode extension, send message to parent to handle external URL
@@ -13645,12 +13653,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             },
             "*",
           );
-        } else if (window.acElectron?.openExternal) {
-          // Electron app: open in the system browser via the webview-preload
-          // bridge → main's shell.openExternal. Avoids window.open, whose user
-          // gesture is lost across the worker boundary (popup-blocked → the
-          // fallback would otherwise navigate the webview in-app).
-          window.acElectron.openExternal(content.url);
         } else {
           // Try to open in a new tab. The user gesture was lost crossing the
           // worker postMessage boundary, so popup blockers may veto this.
