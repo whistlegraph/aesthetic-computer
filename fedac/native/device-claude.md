@@ -32,8 +32,14 @@ If trace files exist in `/mnt/trace/`, summarize active tracers.
 
 ### Network
 - curl is available for HTTP requests
-- git is available
-- `ssh` is available for Tangled pushes when the image was built via `ac-os` with a local Tangled key
+- `git` is baked into the image (`/bin/git`) — clone, commit, and push all work
+- Pushing: a git credential helper feeds `/github-pat` to GitHub over HTTPS, so
+  `git push` to the GitHub remote works without ssh. If `/github-pat` returns
+  401, the baked token is stale — re-flash from a host with a current
+  `gh auth token` (the flash step writes a fresh PAT into the image).
+- `ssh` (`/bin/ssh`) is baked when the builder image carries openssh-clients;
+  combined with a baked Tangled key at `/tmp/.ssh/tangled` it enables the
+  knot push mirror. The HTTPS path above is the primary, always-available route.
 - DNS works (8.8.8.8 / 1.1.1.1 fallback)
 
 ### Development

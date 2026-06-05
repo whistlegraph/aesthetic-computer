@@ -169,8 +169,13 @@ else
 fi
 
 # Additional tools Claude's Bash tool commonly wants: jq for JSON, file
-# for type detection, strace for debugging. Best-effort — skip if absent.
-for bin in jq file strace; do
+# for type detection, strace for debugging, git for version control, ssh
+# (OpenSSH client) for Tangled/GitHub pushes, rg (ripgrep) for code search.
+# Best-effort — skip if absent. git is installed in Dockerfile.builder; ssh
+# and rg require openssh-clients + ripgrep there (added in the same commit),
+# which only land once the builder image is rebuilt. The device commits over
+# HTTPS using /github-pat, so git alone is enough to unblock pushing.
+for bin in jq file strace git ssh rg; do
     SRC_BIN=$(command -v "$bin" 2>/dev/null || true)
     [ -z "$SRC_BIN" ] && continue
     cp -L "$SRC_BIN" "$IROOT/bin/$bin"
@@ -562,10 +567,29 @@ echo "root:x:0:" > "$IROOT/etc/group"
 echo "root:x:0:root" > "$IROOT/etc/passwd"
 
 # ── 2n: Claude Code ──
+# Prefer a freshly-fetched native binary from the official GCS "latest"
+# channel so every OTA ships current Claude Code, regardless of how stale
+# the binary baked into the builder image (Dockerfile.builder, fetched at
+# image-build time) has become. Fall back to the builder-baked binary if
+# the network fetch fails.
 CLAUDE_BIN=""
-for p in /claude-bin /usr/local/bin/claude-native /usr/local/bin/claude /root/.local/share/claude/versions/* /home/me/.local/share/claude/versions/*; do
-    [ -f "$p" ] && CLAUDE_BIN="$p" && break
-done
+CLAUDE_GCS="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases"
+CLAUDE_VER=$(curl -fsSL "${CLAUDE_GCS}/latest" 2>/dev/null || true)
+if [ -n "$CLAUDE_VER" ]; then
+    log "  Fetching Claude Code ${CLAUDE_VER} (latest from GCS)..."
+    if curl -fsSL "${CLAUDE_GCS}/${CLAUDE_VER}/linux-x64/claude" -o /tmp/claude-latest 2>/dev/null \
+        && [ -s /tmp/claude-latest ]; then
+        chmod +x /tmp/claude-latest
+        CLAUDE_BIN=/tmp/claude-latest
+    else
+        log "  Claude Code: GCS fetch failed — falling back to builder-baked binary"
+    fi
+fi
+if [ -z "$CLAUDE_BIN" ]; then
+    for p in /claude-bin /usr/local/bin/claude-native /usr/local/bin/claude /root/.local/share/claude/versions/* /home/me/.local/share/claude/versions/*; do
+        [ -f "$p" ] && CLAUDE_BIN="$p" && break
+    done
+fi
 if [ -n "$CLAUDE_BIN" ]; then
     cp "$CLAUDE_BIN" "$IROOT/bin/claude"
     chmod +x "$IROOT/bin/claude"

@@ -15,6 +15,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     elfutils-libelf-devel openssl-devel \
     gnu-efi-devel \
     curl jq file git tar xz findutils pkgconf-pkg-config zstd xorriso \
+    openssh-clients ripgrep \
     bash \
     ca-certificates \
     alsa-lib-devel libdrm-devel flite-devel SDL3-devel raylib-devel \
