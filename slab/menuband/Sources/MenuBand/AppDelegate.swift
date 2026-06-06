@@ -357,11 +357,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the space sensitivity so the two horizontal modes feel the
     /// same under the finger — only the modifier changes the target.
     private static let echoSensitivityPerPoint: Float = 1.0 / 200.0
-    /// [temp] Echo half of the horizontal fx axis (swipe RIGHT) is
-    /// disabled for now. The X axis stays bipolar in code but the
-    /// right side is clamped out, so only the left/space (reverb)
-    /// half responds. Flip back to `true` to restore echo.
-    private static let fxEchoEnabled = false
+    /// Echo half of the horizontal fx axis (swipe RIGHT). When false the
+    /// X axis is clamped to its left/space (reverb) half only; flip to
+    /// `false` again to temporarily disable echo.
+    private static let fxEchoEnabled = true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
