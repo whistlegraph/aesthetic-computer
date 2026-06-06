@@ -635,8 +635,11 @@ function genThumbnail(pdfPath, siteName) {
   }
   const tmpPrefix = join(THUMBS_DIR, `${siteName}.tmp`);
   try {
+    // Cards are physically small (4x6in), so render them at a higher DPI to
+    // keep the cover crisp; full pages stay at a lighter resolution.
+    const dpi = /-cards\.pdf$/.test(pdfPath) ? 110 : 72;
     execSync(
-      `pdftoppm -jpeg -jpegopt quality=72,progressive=y -r 60 -f 1 -l 1 "${pdfPath}" "${tmpPrefix}"`,
+      `pdftoppm -jpeg -jpegopt quality=75,progressive=y -r ${dpi} -f 1 -l 1 "${pdfPath}" "${tmpPrefix}"`,
       { stdio: "pipe", timeout: 30000 },
     );
     // pdftoppm appends -1 (or -01) for single page output
@@ -660,10 +663,19 @@ function genThumbnail(pdfPath, siteName) {
 function genAllThumbnails() {
   if (!existsSync(SITE_DIR)) return 0;
   let count = 0;
-  for (const name of readdirSync(SITE_DIR)) {
-    if (!name.endsWith(".pdf")) continue;
+  const pdfs = readdirSync(SITE_DIR).filter((n) => n.endsWith(".pdf"));
+  const pdfSet = new Set(pdfs);
+  for (const name of pdfs) {
     const siteName = name.slice(0, -4);
-    if (genThumbnail(join(SITE_DIR, name), siteName)) count++;
+    // The cards (4x6 single-sheet) variant is the cover art. Surface it via
+    // the base paper's thumbnail; don't waste a thumb on the cards file
+    // itself (the index never references `${siteName}-cards.jpg`).
+    if (siteName.endsWith("-cards")) continue;
+    // Prefer the cards PDF as the cover source — it's designed to read as a
+    // card, unlike the dense arXiv first page. Fall back to the full PDF.
+    const cardsName = `${siteName}-cards.pdf`;
+    const source = pdfSet.has(cardsName) ? cardsName : name;
+    if (genThumbnail(join(SITE_DIR, source), siteName)) count++;
   }
   return count;
 }
@@ -1087,7 +1099,7 @@ function updateIndex(entries) {
     const nosortAttr = nosort || archive ? " data-nosort" : "";
     return `
     <section class="${cls}" data-cat="${key}">
-        <div class="cat-head"><span class="cat-name">${title}</span><span class="cat-semi">;</span><span class="cat-count">${count}</span></div>
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">${title}</span><span class="cat-semi">;</span><span class="cat-count">${count}</span></div>
         <div class="cat-sub">${sub}</div>
         <div class="cat-list"${nosortAttr}>
 ${cardsHtml}        </div>
