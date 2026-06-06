@@ -5,11 +5,11 @@
 const KEY = process.env.ETHERSCAN_API_KEY;
 if (!KEY) { console.error('❌ Set ETHERSCAN_API_KEY env var'); process.exit(1); }
 
-// Floor-price providers (any one enables valuations). Priority: Alchemy → OpenSea → Reservoir.
+// Floor-price providers (any one enables valuations). Priority: Alchemy → OpenSea.
+// (Reservoir was dropped — Reservoir Tools wound down its NFT API and pivoted to relay.link.)
 const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY;
 const OPENSEA_KEY = process.env.OPENSEA_API_KEY;
-const RESERVOIR_KEY = process.env.RESERVOIR_API_KEY;
-const FLOOR_ENABLED = ALCHEMY_KEY || OPENSEA_KEY || RESERVOIR_KEY;
+const FLOOR_ENABLED = ALCHEMY_KEY || OPENSEA_KEY;
 
 const WALLETS = [
   { name: '4esthetic.eth', address: '0x5e6758C96A4cB5E2A1FE2E2772020dc8ad753b08' },
@@ -98,20 +98,6 @@ async function getFloorPrice(contractAddress) {
     } catch {}
   }
 
-  // Reservoir: needs an api key in 2026 (keyless requests are rejected).
-  if (RESERVOIR_KEY) {
-    try {
-      const resp = await fetch(`https://api.reservoir.tools/collections/v7?contract=${contractAddress}&limit=1`, { headers: { 'x-api-key': RESERVOIR_KEY } });
-      if (resp.ok) {
-        const d = await resp.json();
-        const c = d.collections?.[0];
-        if (c?.floorAsk?.price?.amount?.decimal) {
-          return { floor: c.floorAsk.price.amount.decimal, source: 'Reservoir', topBid: c.topBid?.price?.amount?.decimal };
-        }
-      }
-    } catch {}
-  }
-
   return null;
 }
 
@@ -120,8 +106,8 @@ console.log('║  🖼️  ETH NFT Holdings Report                              
 console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
 if (!FLOOR_ENABLED) {
-  console.log('ℹ️  No floor-price key set — counts only. Set ALCHEMY_API_KEY (recommended),');
-  console.log('   OPENSEA_API_KEY, or RESERVOIR_API_KEY to value holdings.\n');
+  console.log('ℹ️  No floor-price key set — counts only.');
+  console.log('   Set ALCHEMY_API_KEY (recommended) or OPENSEA_API_KEY to value holdings.\n');
 }
 
 let grandTotal = 0;
