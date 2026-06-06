@@ -265,6 +265,45 @@ export const handler = async (event, context) => {
     }
   }
 
+  // Get the cumulative count of all subscriptions ever created for the given
+  // productId (any status — active, canceled, etc.).
+  // TODO: Put this behind a redis cache... 24.10.14.01.23
+  async function getCumulativeSubscriptionCount(productId) {
+    try {
+      const stripe = Stripe(key);
+
+      // Fetch all subscriptions regardless of status.
+      let hasMore = true;
+      let totalSubscriptions = 0;
+      let startingAfter = undefined;
+
+      while (hasMore) {
+        const subscriptions = await stripe.subscriptions.list({
+          status: "all",
+          limit: 100, // Maximum allowed per request
+          starting_after: startingAfter,
+        });
+
+        // Filter subscriptions by the productId
+        const matchingSubscriptions = subscriptions.data.filter((sub) =>
+          sub.items.data.some((item) => item.price.product === productId),
+        );
+
+        totalSubscriptions += matchingSubscriptions.length;
+
+        // Check if more pages of subscriptions exist
+        hasMore = subscriptions.has_more;
+        if (hasMore) {
+          startingAfter = subscriptions.data[subscriptions.data.length - 1].id;
+        }
+      }
+
+      return totalSubscriptions;
+    } catch (err) {
+      shell.error("Error fetching cumulative subscription count:", err);
+    }
+  }
+
   const MAX_LINES = 19;
 
   // 🏠 Home, Chat, Page Routes
@@ -10107,7 +10146,7 @@ export const handler = async (event, context) => {
     `;
     return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
   } else if (path === "/subscribers" && method === "get") {
-    const subscribers = await getActiveSubscriptionCount(productId);
+    const subscribers = await getCumulativeSubscriptionCount(productId);
 
     if (subscribers !== undefined && subscribers !== null) {
       return respond(200, { subscribers });
