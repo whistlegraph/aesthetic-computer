@@ -5,6 +5,12 @@
 const KEY = process.env.ETHERSCAN_API_KEY;
 if (!KEY) { console.error('❌ Set ETHERSCAN_API_KEY env var'); process.exit(1); }
 
+// Floor-price providers (any one enables valuations). Priority: Alchemy → OpenSea → Reservoir.
+const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY;
+const OPENSEA_KEY = process.env.OPENSEA_API_KEY;
+const RESERVOIR_KEY = process.env.RESERVOIR_API_KEY;
+const FLOOR_ENABLED = ALCHEMY_KEY || OPENSEA_KEY || RESERVOIR_KEY;
+
 const WALLETS = [
   { name: '4esthetic.eth', address: '0x5e6758C96A4cB5E2A1FE2E2772020dc8ad753b08' },
   { name: 'whistlegraph.eth', address: '0x238c9c645c6EE83d4323A2449C706940321a0cBf' },
@@ -57,30 +63,54 @@ async function getHoldings(address) {
   return Object.values(collections).sort((a, b) => b.tokens.length - a.tokens.length);
 }
 
-async function getFloorPrice(contractAddress) {
-  // Use Etherscan token info + OpenSea collection stats via slug
-  // Try Blur API (no key needed for basic stats)
-  try {
-    const resp = await fetch(`https://api.blur.io/v1/collections/${contractAddress}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (resp.ok) {
-      const d = await resp.json();
-      if (d.collection?.floorPrice) return { floor: parseFloat(d.collection.floorPrice), source: 'Blur' };
-    }
-  } catch {}
+const slugCache = new Map();
 
-  // Try reservoir
-  try {
-    const resp = await fetch(`https://api.reservoir.tools/collections/v7?contract=${contractAddress}&limit=1`);
-    if (resp.ok) {
-      const d = await resp.json();
-      const c = d.collections?.[0];
-      if (c?.floorAsk?.price?.amount?.decimal) {
-        return { floor: c.floorAsk.price.amount.decimal, source: 'Reservoir', topBid: c.topBid?.price?.amount?.decimal };
+async function getFloorPrice(contractAddress) {
+  // Alchemy: getFloorPrice takes a contract address directly, returns ETH floor.
+  if (ALCHEMY_KEY) {
+    try {
+      const resp = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getFloorPrice?contractAddress=${contractAddress}`);
+      if (resp.ok) {
+        const d = await resp.json();
+        const candidates = [d.openSea?.floorPrice, d.looksRare?.floorPrice].filter((v) => typeof v === 'number' && v > 0);
+        if (candidates.length) return { floor: Math.min(...candidates), source: 'Alchemy' };
       }
-    }
-  } catch {}
+    } catch {}
+  }
+
+  // OpenSea v2: resolve collection slug from contract, then pull stats.
+  if (OPENSEA_KEY) {
+    try {
+      let slug = slugCache.get(contractAddress);
+      if (slug === undefined) {
+        const cr = await fetch(`https://api.opensea.io/api/v2/chain/ethereum/contract/${contractAddress}`, { headers: { 'x-api-key': OPENSEA_KEY } });
+        slug = cr.ok ? (await cr.json()).collection || null : null;
+        slugCache.set(contractAddress, slug);
+      }
+      if (slug) {
+        const sr = await fetch(`https://api.opensea.io/api/v2/collections/${slug}/stats`, { headers: { 'x-api-key': OPENSEA_KEY } });
+        if (sr.ok) {
+          const s = await sr.json();
+          const floor = s.total?.floor_price;
+          if (typeof floor === 'number' && floor > 0) return { floor, source: 'OpenSea' };
+        }
+      }
+    } catch {}
+  }
+
+  // Reservoir: needs an api key in 2026 (keyless requests are rejected).
+  if (RESERVOIR_KEY) {
+    try {
+      const resp = await fetch(`https://api.reservoir.tools/collections/v7?contract=${contractAddress}&limit=1`, { headers: { 'x-api-key': RESERVOIR_KEY } });
+      if (resp.ok) {
+        const d = await resp.json();
+        const c = d.collections?.[0];
+        if (c?.floorAsk?.price?.amount?.decimal) {
+          return { floor: c.floorAsk.price.amount.decimal, source: 'Reservoir', topBid: c.topBid?.price?.amount?.decimal };
+        }
+      }
+    } catch {}
+  }
 
   return null;
 }
@@ -88,6 +118,11 @@ async function getFloorPrice(contractAddress) {
 console.log('\n╔══════════════════════════════════════════════════════════════╗');
 console.log('║  🖼️  ETH NFT Holdings Report                                ║');
 console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+if (!FLOOR_ENABLED) {
+  console.log('ℹ️  No floor-price key set — counts only. Set ALCHEMY_API_KEY (recommended),');
+  console.log('   OPENSEA_API_KEY, or RESERVOIR_API_KEY to value holdings.\n');
+}
 
 let grandTotal = 0;
 let totalEstValue = 0;
