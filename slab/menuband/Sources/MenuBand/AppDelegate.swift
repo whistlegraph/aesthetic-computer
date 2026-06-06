@@ -2728,6 +2728,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
         appBeforePopover = nil
         let panelToFade = popoverPanel
+        // Capture the CURRENT content view now. The fade's completion
+        // runs ~0.14s later, by which point a language-change rebuild
+        // may have already swapped `popoverVC` to a freshly-shown VC —
+        // dereferencing `popoverVC` in the completion would then yank
+        // the NEW popover's view out of its panel and blank it. Pin the
+        // old view here so we only detach what we're actually fading.
+        let fadingContentView = popoverVC?.view
         // Drop the reference now so isPopoverPanelShown becomes
         // false synchronously — prevents toggle paths from racing
         // with the in-flight fade.
@@ -2745,8 +2752,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ctx.duration = 0.14
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 panel.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
-                self?.popoverVC?.view.removeFromSuperview()
+            }, completionHandler: {
+                fadingContentView?.removeFromSuperview()
                 panel.orderOut(nil)
                 // Reset alpha so the next show isn't invisible.
                 panel.alphaValue = 1
