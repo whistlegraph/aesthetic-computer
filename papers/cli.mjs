@@ -1233,7 +1233,7 @@ function writeFeed(papers, extras, PAPER_COPY) {
   const SITE_URL = "https://papers.aesthetic.computer";
   const FEED_URL = `${SITE_URL}/feed.xml`;
   const AUTHOR_NAME = "@jeffrey";
-  const AUTHOR_URI = "https://orcid.org/0009-0007-4460-4913";
+  const AUTHOR_URI = "https://prompt.ac/@jeffrey";
 
   const entries = [];
   for (const p of papers) {
