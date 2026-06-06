@@ -2822,6 +2822,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showPopover() {
         debugLog("showPopover entry; isPopoverPanelShown=\(isPopoverPanelShown)")
+        // Safety: clear any stranded pitch-bend cursor-hide. CGDisplayHide/
+        // Show are reference-counted and an interrupted bend (focus lost
+        // mid-gesture) can leak a hide that leaves the cursor invisible —
+        // restore it whenever the popover opens so the pointer is always
+        // present over the popover.
+        showSystemCursorIfNeeded()
         guard let button = statusItem.button,
               let buttonWindow = button.window else {
             debugLog("showPopover: no button/window — bail")
