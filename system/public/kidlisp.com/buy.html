@@ -3,6 +3,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>
+    // Deep-link no-flash guard: if the URL is a /$code permalink, mark the
+    // document before first paint so the opaque modal covers the home grid
+    // immediately (the listing data fills it in once it loads).
+    if (/^\/\$[^\/]/.test(location.pathname)) document.documentElement.classList.add('deeplink');
+  </script>
   <title>Buy KidLisp Keeps</title>
   <meta name="description" content="Collect KidLisp Keeps — interactive generative art on Tezos. Connect your wallet and buy directly." />
   <meta property="og:type" content="website" />
@@ -280,6 +286,8 @@
       flex-direction: column;
     }
     .modal-overlay.open { display: flex; }
+    /* Deep-link: show the opaque modal from first paint so the home grid never flashes */
+    html.deeplink .modal-overlay { display: flex; }
 
     .modal {
       flex: 1;
@@ -300,7 +308,7 @@
     }
 
     .modal-title {
-      font-size: 16px;
+      font-size: 21px;
       font-weight: 700;
       color: var(--purple);
       min-width: 0;
@@ -345,9 +353,9 @@
     }
 
     .modal-price {
-      font-size: 18px;
+      font-size: 23px;
       font-weight: 700;
-      color: var(--blue);
+      color: var(--gold);
     }
 
     .modal-info {
@@ -359,15 +367,15 @@
     }
 
     .modal-seller {
-      font-size: 10px;
-      color: var(--text2);
+      font-size: 13px;
+      color: var(--neon-pink);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .modal-permalink {
-      font-size: 10px;
+      font-size: 14px;
       font-family: var(--font-mono);
       color: var(--neon-cyan);
       cursor: pointer;
@@ -396,7 +404,7 @@
     .buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
     .buy-status {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text2);
       min-height: 16px;
       width: 100%;
@@ -406,14 +414,18 @@
 
     .modal-links {
       display: flex;
-      gap: 12px;
-      font-size: 11px;
+      gap: 16px;
+      font-size: 15px;
+      font-weight: 600;
     }
     .modal-links a {
       color: var(--text2);
       text-decoration: none;
     }
-    .modal-links a:hover { color: var(--accent); }
+    /* Color-coded explorer links */
+    .modal-links a:nth-child(1) { color: var(--purple); }   /* objkt */
+    .modal-links a:nth-child(2) { color: var(--neon-cyan); } /* tzkt */
+    .modal-links a:hover { text-decoration: underline; filter: brightness(1.2); }
 
     /* ── Empty / loading ── */
     .loading {
@@ -725,7 +737,7 @@
         <div class="modal-title" id="modal-title"></div>
         <button class="modal-close" id="modal-close">✕</button>
       </div>
-      <div class="modal-preview" id="modal-preview"></div>
+      <div class="modal-preview" id="modal-preview"><div class="loading">Loading keep…</div></div>
       <div class="modal-footer">
         <div class="modal-price" id="modal-price"></div>
         <div class="modal-info">
@@ -1217,6 +1229,28 @@
     }
   }
 
+  // Deep-link no-flash: on a /$code URL, open the modal shell synchronously at
+  // boot (before any fetch) so the home grid never shows. Real content fills in
+  // once listings load; if the code matches nothing we fall back to home.
+  let deepLinkPending = false;
+  function preloadDeepLink() {
+    const path = location.pathname.replace(/^\/+/, '');
+    if (!(path.startsWith('$') && path.length > 1)) return;
+    deepLinkPending = true;
+    document.getElementById('modal-title').textContent = path;
+    document.getElementById('modal-preview').innerHTML = '<div class="loading">Loading keep…</div>';
+    document.getElementById('modal-price').textContent = '';
+    document.getElementById('modal-seller').textContent = '';
+    document.getElementById('modal-permalink').textContent = '';
+    document.getElementById('modal-links').innerHTML = '';
+    buyStatus.textContent = '';
+    buyStatus.className = 'buy-status';
+    buyBtn.disabled = true;
+    buyBtn.textContent = 'Loading…';
+    overlay.classList.add('open');                          // real open state…
+    document.documentElement.classList.remove('deeplink');  // …so closeModal works
+  }
+
   // ── Purchase (shared logic) ──
   async function executePurchase(listing) {
     if (!walletAddress) {
@@ -1331,15 +1365,19 @@
       ];
       await resolveSellerNames(allAddrs);
       renderGrid();
-  
+
       // Route from URL on first load (after listings are available)
       if (!selectedListing) routeFromURL();
+      // Deep-link code matched nothing → drop the loading modal back to the shop
+      if (deepLinkPending && !selectedListing) closeModal(true);
     } catch (err) {
       console.error('[buy] Failed to load:', err);
+      if (deepLinkPending && !selectedListing) closeModal(true);
     }
   }
 
   // Boot
+  preloadDeepLink();   // open the modal shell before paint on /$code permalinks
   loadMarket();
   initWallet().catch(() => {});
 })();
