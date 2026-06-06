@@ -851,41 +851,56 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
-        // Small "About" link, bottom-left. Opens the custom About
-        // window which now hosts the language picker + plugins
-        // chip + version. The current language flag is prepended
-        // to the link so the chip reads as "settings hide here"
-        // rather than just a version button.
-        let aboutLink = NSButton()
-        aboutLink.bezelStyle = .recessed
-        aboutLink.isBordered = false
-        aboutLink.controlSize = .small
+        // "About" — colored bezel button (blue), peer to Jam and Quit.
+        // Opens the identity/settings window (icon + language + version).
+        // Keeps the current-language flag prepended so users know
+        // language lives in there.
+        let aboutButton = NSButton()
+        aboutButton.bezelStyle = .rounded
+        aboutButton.isBordered = true
+        aboutButton.bezelColor = .systemBlue
+        aboutButton.controlSize = .small
+        aboutButton.target = self
+        aboutButton.action = #selector(showAboutPanel(_:))
         let flag = Localization.language(for: Localization.current).flag
         let aboutTitle = NSMutableAttributedString(
-            string: "\(flag)  ",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 11),
-            ]
-        )
+            string: "\(flag) ",
+            attributes: [.font: NSFont.systemFont(ofSize: 11)])
         aboutTitle.append(NSAttributedString(
             string: L("popover.about.link"),
             attributes: [
-                .foregroundColor: NSColor.secondaryLabelColor,
-                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
-            ]
-        ))
-        aboutLink.attributedTitle = aboutTitle
-        aboutLink.target = self
-        aboutLink.action = #selector(showAboutPanel(_:))
-        aboutLink.toolTip = "About / language / plugins"
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            ]))
+        aboutButton.attributedTitle = aboutTitle
+        aboutButton.toolTip = "About / language / version"
+
+        // "Jam" — purple bezel button. The come-hang-out surface:
+        // Aesthetic.Computer + the computer-club invites (moved out of
+        // About into their own window).
+        let jamButton = NSButton()
+        jamButton.bezelStyle = .rounded
+        jamButton.isBordered = true
+        jamButton.bezelColor = .systemPurple
+        jamButton.controlSize = .small
+        jamButton.target = self
+        jamButton.action = #selector(showJamPanel(_:))
+        jamButton.attributedTitle = NSAttributedString(
+            string: "Jam",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            ])
+        jamButton.toolTip = "Aesthetic.Computer · computer clubs"
 
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
         quitRow.alignment = .centerY
-        quitRow.spacing = 8
+        quitRow.spacing = 6
         let quitSpacer = NSView()
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        quitRow.addArrangedSubview(aboutLink)
+        quitRow.addArrangedSubview(aboutButton)
+        quitRow.addArrangedSubview(jamButton)
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
@@ -2049,6 +2064,10 @@ final class MenuBandPopoverViewController: NSViewController {
                 menuBand?.presentPluginPicker()
             }
         )
+    }
+
+    @objc func showJamPanel(_ sender: Any?) {
+        JamWindowController.show()
     }
 
     @objc private func openNotepat() {
