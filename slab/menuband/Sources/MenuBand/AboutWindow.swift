@@ -25,7 +25,9 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     /// and Plugins chip are the two surfaces that take their tint from
     /// `controlAccentColor`; everything else in the About window is brand
     /// art (AC purple, NELA secondary label) and stays put.
-    private weak var iconView: NSImageView?
+    /// The icon ↔ QR two-card stack at the top of the panel: hover fans
+    /// the cards apart to peek, clicking shuffles the front card behind.
+    private weak var cardStack: CardStackView?
     private weak var pluginsButton: HoverLinkButton?
     private var accentObserver: NSObjectProtocol?
 
@@ -70,7 +72,29 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         ) { [weak self] _ in
             self?.refreshAccentChrome()
         }
+
+        // Dev affordances (mirroring the showAbout/showPopover remotes):
+        // drive the icon-card hover/flip from the shell so the animation
+        // can be triggered and screenshotted without a real pointer.
+        let dnc = DistributedNotificationCenter.default()
+        debugObservers.append(dnc.addObserver(
+            forName: .init("computer.aestheticcomputer.menuband.cardHover"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.cardHoverPreview.toggle()
+            self?.cardStack?.setHoverPreview(self?.cardHoverPreview ?? false)
+        })
+        debugObservers.append(dnc.addObserver(
+            forName: .init("computer.aestheticcomputer.menuband.cardFlip"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.cardStack?.flip()
+        })
     }
+
+    /// Tracks the toggled state of the `cardHover` debug remote.
+    private var cardHoverPreview = false
+    private var debugObservers: [NSObjectProtocol] = []
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) is not used")
@@ -81,6 +105,8 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         if let observer = accentObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+        let dnc = DistributedNotificationCenter.default()
+        for observer in debugObservers { dnc.removeObserver(observer) }
     }
 
     /// Open or refocus the singleton About window. Dedupes via the
@@ -142,74 +168,45 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
         ])
 
-        // App icon — prefer the hue-rotated tint that IconTinter
-        // generates against the current accent (matches the Finder
-        // icon the user sees everywhere else); fall back to the
-        // un-tinted bundle icon if the tinter can't reach the source
-        // (e.g. swift-run dev builds without an .app wrapper, where
-        // Bundle.main.url(forResource: "AppIcon") resolves but the
-        // CIHueAdjust chain might not).
+        // App icon — centered directly above the title, the same
+        // masthead rhythm as the standard macOS "About This Mac" panel.
+        // Prefer the hue-rotated tint that IconTinter generates against
+        // the current accent (matches the Finder icon the user sees
+        // everywhere else); fall back to the un-tinted bundle icon if
+        // the tinter can't reach the source (e.g. swift-run dev builds
+        // without an .app wrapper).
         if let icon = IconTinter.tintedIcon() ?? Self.loadAppIcon() {
-            let view = NSImageView(image: icon)
-            view.imageScaling = .scaleProportionallyUpOrDown
-            view.translatesAutoresizingMaskIntoConstraints = false
-            view.widthAnchor.constraint(equalToConstant: 96).isActive = true
-            view.heightAnchor.constraint(equalToConstant: 96).isActive = true
-            stack.addArrangedSubview(view)
-            iconView = view
+            // Two physical cards — the app icon in front, a QR code to
+            // prompt.ac/menuband behind. Hover fans them apart so the QR
+            // peeks out; clicking shuffles the front card behind the
+            // other (and plays a sparkle + particle burst). Modeled on
+            // the stacked card-deck in aesthetic.computer's wg.mjs.
+            let qr = Self.qrCodeImage(for: "https://prompt.ac/menuband", side: 96)
+            let cards = CardStackView(front: icon, back: qr)
+            cards.translatesAutoresizingMaskIntoConstraints = false
+            cards.toolTip = "prompt.ac/menuband"
+            cards.onFlip = { [weak self, weak cards] in
+                guard let self = self else { return }
+                EasterEggChord.shared.play()
+                if let cards = cards { self.burstParticles(from: cards) }
+            }
+            stack.addArrangedSubview(cards)
+            cardStack = cards
         }
 
+        // "Menu Band" is a coined brand name (à la GarageBand / Logic
+        // Pro), so it stays constant across languages — Apple localizes
+        // descriptive app names but never brand ones. The surrounding
+        // copy (tagline, links) is what gets localized.
         let nameLabel = NSTextField(labelWithString: "Menu Band")
         nameLabel.font = NSFont.systemFont(ofSize: 18, weight: .bold)
         nameLabel.alignment = .center
         stack.addArrangedSubview(nameLabel)
+        stack.setCustomSpacing(10, after: nameLabel)
 
-        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
-        let build = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "?"
-        // Mac-standard version line: "Version 0.9 (9)" — full
-        // marketing version + build number in parentheses.
-        let versionString = build == version ? "Version \(version)" : "Version \(version) (\(build))"
-        let versionLabel = NSTextField(labelWithString: versionString)
-        versionLabel.font = NSFont.systemFont(ofSize: 11)
-        versionLabel.textColor = .secondaryLabelColor
-        versionLabel.alignment = .center
-        stack.addArrangedSubview(versionLabel)
-
-        stack.setCustomSpacing(10, after: versionLabel)
-
-        // Scannable QR code → prompt.ac/menuband. Useful when the
-        // About panel is shown on a projector or shared screen so
-        // people in the room can grab the download URL on their
-        // phones without typing it. Click also opens the URL in
-        // the user's default browser as a fallback path.
-        if let qr = Self.qrCodeImage(
-            for: "https://prompt.ac/menuband", side: 124) {
-            let qrButton = NSButton(title: "",
-                                     target: self,
-                                     action: #selector(openMenubandLanding))
-            qrButton.image = qr
-            qrButton.imagePosition = .imageOnly
-            qrButton.isBordered = false
-            qrButton.bezelStyle = .regularSquare
-            qrButton.toolTip = "https://prompt.ac/menuband"
-            qrButton.translatesAutoresizingMaskIntoConstraints = false
-            qrButton.widthAnchor.constraint(equalToConstant: 124).isActive = true
-            qrButton.heightAnchor.constraint(equalToConstant: 124).isActive = true
-            stack.addArrangedSubview(qrButton)
-            // Tiny caption under the code so it reads as a real
-            // QR badge ("scan to install / share") and not just a
-            // decorative graphic.
-            let qrCaption = NSTextField(labelWithString: "prompt.ac/menuband")
-            qrCaption.font = NSFont.monospacedSystemFont(
-                ofSize: 9, weight: .regular)
-            qrCaption.textColor = .tertiaryLabelColor
-            qrCaption.alignment = .center
-            stack.setCustomSpacing(4, after: qrButton)
-            stack.addArrangedSubview(qrCaption)
-            stack.setCustomSpacing(14, after: qrCaption)
-        } else {
-            stack.setCustomSpacing(14, after: versionLabel)
-        }
+        // (Version moved to a small gray line above the copyright at the
+        // bottom — see the footer — matching how Terminal / Messages
+        // close their About panels.)
 
         // Tagline — body alone (the bold "Menu Band" lead was a
         // duplicate of the name label above; trimmed to one mention).
@@ -304,13 +301,12 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // pedals / third-party AU hosting are post-v1. The `onOpenPlugins`
         // hook + AU picker code stay dormant for the post-release revival.
 
-        // Language picker — same flag-chip pattern the popover used
-        // to host. Lives in About now so the popover stays a tight
-        // music-theory surface; the About link in the popover gets
-        // a flag-emoji indicator next to it so the user knows
-        // language settings live in here.
+        // Language — a single chip showing the current language; click
+        // pops a menu of every supported language (checkmark on the
+        // active one). Replaces the old wrap-to-three flag-chip grid so
+        // the About panel stays compact and Apple-clean.
         stack.setCustomSpacing(16, after: stack.arrangedSubviews.last ?? stack)
-        let langRow = buildLanguagePicker()
+        let langRow = buildLanguageButton()
         stack.addArrangedSubview(langRow)
 
         // [v1 cutoff] "Cassette deck (beta)" + "Percussion split" beta
@@ -375,88 +371,86 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             stack.addArrangedSubview(btn)
             flashButton = btn
         }
+
+        // (The QR code lives as a click-to-reveal easter egg on the app
+        // icon above — see toggleIconQR — rather than a standing footer
+        // badge, keeping the panel Apple-clean.)
+
+        // Version line — small gray, sitting just above the copyright,
+        // the way Terminal / Messages close their About panels.
+        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
+        let build = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "?"
+        let versionString = build == version
+            ? "Version \(version)" : "Version \(version) (\(build))"
+        let versionLabel = NSTextField(labelWithString: versionString)
+        versionLabel.font = NSFont.systemFont(ofSize: 11)
+        versionLabel.textColor = .secondaryLabelColor
+        versionLabel.alignment = .center
+        stack.setCustomSpacing(16, after: stack.arrangedSubviews.last ?? stack)
+        stack.addArrangedSubview(versionLabel)
+        stack.setCustomSpacing(4, after: versionLabel)
+
+        // Faint copyright line — the quiet footer every macOS About
+        // panel closes with (Terminal: "© 1991–2025 Apple Inc.",
+        // Finder: "™ & © 1983–2025 …"). Tertiary gray so it recedes
+        // beneath the brand chrome.
+        let copyright = NSTextField(labelWithString: "© 2026 Aesthetic, Inc.")
+        copyright.font = NSFont.systemFont(ofSize: 11)
+        copyright.textColor = .tertiaryLabelColor
+        copyright.alignment = .center
+        stack.addArrangedSubview(copyright)
     }
 
-    private func buildLanguagePicker() -> NSView {
-        // Outer column: "Language" label on top, then chips wrapped
-        // into rows of three. Wrapping is necessary because the About
-        // window is narrow (320pt) and 5+ language chips with native
-        // labels overflow a single row.
-        let outer = NSStackView()
-        outer.orientation = .vertical
-        outer.alignment = .centerX
-        outer.spacing = 6
-        outer.translatesAutoresizingMaskIntoConstraints = false
-
-        let label = NSTextField(labelWithString: L("popover.language.label"))
-        label.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        label.textColor = .secondaryLabelColor
-        outer.addArrangedSubview(label)
-
-        // Build all chips first so we can pack them three-per-row.
-        let chips: [NSButton] = Localization.supported.map { lang in
-            let isActive = (lang.code == Localization.current)
-            // Spaces inside the title give the chip visible breathing
-            // room around its layer-painted bezel — the chip's
-            // intrinsic width tracks the rendered text, so adding
-            // pad-spaces is the simplest way to enlarge the touch
-            // target without touching makeLinkButton's geometry.
-            let padded = "  \(lang.flag)  \(lang.label)  "
-            let attr = NSAttributedString(
-                string: padded,
-                attributes: [
-                    .font: NSFont.systemFont(
-                        ofSize: 11,
-                        weight: isActive ? .semibold : .regular),
-                    .foregroundColor: isActive
-                        ? NSColor.labelColor
-                        : NSColor.secondaryLabelColor,
-                ]
-            )
-            let accent = NSColor.controlAccentColor
-            let chip = MenuBandPopoverViewController.makeLinkButton(
-                attr: attr,
-                target: self,
-                action: #selector(languageChipClicked(_:)),
-                background: isActive
-                    ? accent.withAlphaComponent(0.18)
-                    : NSColor.clear,
-                border: isActive
-                    ? accent.withAlphaComponent(0.55)
-                    : NSColor.separatorColor.withAlphaComponent(0.5))
-            chip.identifier = NSUserInterfaceItemIdentifier(
-                rawValue: "menuband.about.lang.\(lang.code)")
-            chip.toolTip = lang.label
-            return chip
-        }
-
-        // Three chips per row keeps each chip readable at the
-        // narrower About-window width even with longer native
-        // labels like "Русский" / "日本語".
-        let perRow = 3
-        var index = 0
-        while index < chips.count {
-            let slice = Array(chips[index..<min(index + perRow, chips.count)])
-            let row = NSStackView(views: slice)
-            row.orientation = .horizontal
-            row.alignment = .centerY
-            row.spacing = 6
-            row.translatesAutoresizingMaskIntoConstraints = false
-            outer.addArrangedSubview(row)
-            index += perRow
-        }
-        return outer
+    private func buildLanguageButton() -> NSView {
+        // One chip showing the current language (flag + native label +
+        // a ⌄ affordance). Clicking pops an NSMenu of every supported
+        // language with a checkmark on the active one — far more compact
+        // than the old wrap-to-three chip grid, and it scales as we add
+        // languages without reflowing the panel.
+        let lang = Localization.language(for: Localization.current)
+        let title = "   \(lang.flag)   \(lang.label)   ⌄   "
+        let attr = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 14, weight: .medium),
+                .foregroundColor: NSColor.labelColor,
+            ]
+        )
+        let accent = NSColor.controlAccentColor
+        let chip = MenuBandPopoverViewController.makeLinkButton(
+            attr: attr,
+            target: self,
+            action: #selector(languageButtonClicked(_:)),
+            background: accent.withAlphaComponent(0.12),
+            border: accent.withAlphaComponent(0.40))
+        chip.toolTip = L("popover.language.label")
+        return chip
     }
 
-    @objc private func languageChipClicked(_ sender: NSButton) {
-        guard let id = sender.identifier?.rawValue else { return }
-        let prefix = "menuband.about.lang."
-        guard id.hasPrefix(prefix) else { return }
-        let code = String(id.dropFirst(prefix.count))
-        guard code != Localization.current else { return }
+    @objc private func languageButtonClicked(_ sender: NSButton) {
+        let menu = NSMenu()
+        for lang in Localization.supported {
+            let item = NSMenuItem(
+                title: "\(lang.flag)  \(lang.label)",
+                action: #selector(languageMenuPicked(_:)),
+                keyEquivalent: "")
+            item.target = self
+            item.representedObject = lang.code
+            item.state = (lang.code == Localization.current) ? .on : .off
+            menu.addItem(item)
+        }
+        // Drop the menu just below the chip's bottom-left so it reads as
+        // a popup attached to the control.
+        let origin = NSPoint(x: 0, y: sender.bounds.height + 4)
+        menu.popUp(positioning: nil, at: origin, in: sender)
+    }
+
+    @objc private func languageMenuPicked(_ sender: NSMenuItem) {
+        guard let code = sender.representedObject as? String,
+              code != Localization.current else { return }
         Localization.current = code
         // Rebuild the About content to apply the new strings + chip
-        // selection. Cheaper than tearing down the window.
+        // label. Cheaper than tearing down the window.
         if let content = window?.contentView {
             for sub in content.subviews { sub.removeFromSuperview() }
         }
@@ -525,6 +519,76 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         if let url = URL(string: "https://prompt.ac/menuband") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    // MARK: - Icon ↔ QR easter egg
+
+    /// Click the app icon to swivel it edge-on, swap to the QR code for
+    /// prompt.ac/menuband, and swivel back — a card-flip about the
+    /// vertical axis. Click again to flip home. A demo delight; the QR
+    /// isn't surfaced anywhere else in the panel.
+    /// A quick radial burst of small note glyphs from the icon's center,
+    /// in the AC palette. Self-removes after the cells live out.
+    private func burstParticles(from view: NSView) {
+        guard let host = view.superview, let hostLayer = host.layer else { return }
+        let emitter = CAEmitterLayer()
+        emitter.emitterPosition = CGPoint(x: view.frame.midX, y: view.frame.midY)
+        emitter.emitterShape = .circle
+        emitter.emitterMode = .outline
+        emitter.emitterSize = CGSize(width: 36, height: 36)
+        emitter.renderMode = .additive
+
+        let colors: [NSColor] = [
+            NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1), // AC purple
+            NSColor(red: 255/255, green: 107/255, blue: 157/255, alpha: 1), // pink
+            NSColor(red: 158/255, green: 212/255, blue: 80/255, alpha: 1),  // chartreuse
+        ]
+        emitter.emitterCells = colors.map { color in
+            let cell = CAEmitterCell()
+            cell.contents = Self.noteParticleImage(color: color)?
+                .cgImage(forProposedRect: nil, context: nil, hints: nil)
+            cell.birthRate = 90
+            cell.lifetime = 0.9
+            cell.lifetimeRange = 0.3
+            cell.velocity = 95
+            cell.velocityRange = 45
+            cell.emissionRange = .pi * 2
+            cell.yAcceleration = -120   // a little gravity so they arc
+            cell.scale = 0.5
+            cell.scaleRange = 0.35
+            cell.scaleSpeed = -0.3
+            cell.alphaSpeed = -1.1
+            cell.spin = 2.5
+            cell.spinRange = 4
+            return cell
+        }
+        hostLayer.addSublayer(emitter)
+
+        // Pulse: emit for a beat, then stop and clean up.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            emitter.birthRate = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            emitter.removeFromSuperlayer()
+        }
+    }
+
+    /// A small ♪ glyph rendered to an image in the given color, used as
+    /// an emitter-cell sprite.
+    private static func noteParticleImage(color: NSColor) -> NSImage? {
+        let side: CGFloat = 18
+        let image = NSImage(size: NSSize(width: side, height: side))
+        image.lockFocus()
+        let glyph = ["♪", "♫", "✦"].randomElement() ?? "♪"
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 14, weight: .bold),
+            .foregroundColor: color,
+        ]
+        let s = NSAttributedString(string: glyph, attributes: attrs)
+        let sz = s.size()
+        s.draw(at: NSPoint(x: (side - sz.width) / 2, y: (side - sz.height) / 2))
+        image.unlockFocus()
+        return image
     }
 
     /// Generate a high-contrast QR code at the requested side
@@ -630,9 +694,8 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     /// but bakes a CGColor into the layer on construction; we re-bake
     /// after refreshing the NSColor sources.
     private func refreshAccentChrome() {
-        if let iconView = iconView,
-           let tinted = IconTinter.tintedIcon() ?? Self.loadAppIcon() {
-            iconView.image = tinted
+        if let tinted = IconTinter.tintedIcon() ?? Self.loadAppIcon() {
+            cardStack?.setIconImage(tinted)
         }
         if let btn = pluginsButton {
             let accent = NSColor.controlAccentColor
@@ -685,5 +748,280 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         attr.addAttribute(.paragraphStyle, value: para,
                           range: NSRange(location: 0, length: attr.length))
         btn.attributedTitle = attr
+    }
+}
+
+/// Two stacked "cards" — the app icon in front, a QR code behind —
+/// modeled on the card-deck in aesthetic.computer's wg.mjs (absolutely
+/// stacked layers, offset drop shadows for depth). Hovering fans the
+/// back card out to peek; clicking shuffles the front card behind the
+/// other. The controller wires `onFlip` to play a sparkle + particles.
+final class CardStackView: NSView {
+    /// Fired on each click (the shuffle), for sound + particle juice.
+    var onFlip: (() -> Void)?
+
+    private let iconCard = CALayer()
+    private let qrCard = CALayer()
+    /// Which card is currently in front. Starts on the icon.
+    private var frontIsIcon = true
+    private var hovering = false
+    private var hoverTracking: NSTrackingArea?
+
+    private let iconSide: CGFloat = 96
+    private let qrSide: CGFloat = 96   // same size as the icon — a matching card
+
+    init(front: NSImage?, back: NSImage?) {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.masksToBounds = false
+        configureIcon(image: front)
+        configureQR(image: back)
+        // Add QR first so it sits behind; z-positions are managed in
+        // `relayout` and take over once laid out.
+        layer?.addSublayer(qrCard)
+        layer?.addSublayer(iconCard)
+    }
+
+    /// Continuous-corner radius as a fraction of the side — the macOS
+    /// app-icon "squircle" ratio, so the QR card's corners match the
+    /// app icon's rounding.
+    private static let cornerRatio: CGFloat = 0.2235
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// Reserve room for the fanned-out back card so the deck stays
+    /// centered in the panel and the peek isn't clipped by siblings.
+    override var intrinsicContentSize: NSSize { NSSize(width: 152, height: 128) }
+
+    override var isFlipped: Bool { false }
+
+    // Let a click work even when the About window isn't key.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = hoverTracking { removeTrackingArea(existing) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp],
+            owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverTracking = area
+    }
+
+    override func layout() {
+        super.layout()
+        let scale = window?.backingScaleFactor ?? 2
+        iconCard.contentsScale = scale
+        qrCard.contentsScale = scale
+        relayout(animated: false)
+    }
+
+    override func mouseEntered(with event: NSEvent) { setHoverPreview(true) }
+    override func mouseExited(with event: NSEvent) { setHoverPreview(false) }
+    override func mouseDown(with event: NSEvent) { flip() }
+
+    // MARK: - Public (also driven by debug notifications for validation)
+
+    /// Fan the cards out (or back) as if hovered.
+    func setHoverPreview(_ on: Bool) {
+        guard hovering != on else { return }
+        hovering = on
+        relayout(animated: true, springDamping: 15)
+    }
+
+    /// Shuffle the front card behind the other with a physical arc, and
+    /// fire the juice callback.
+    func flip() {
+        frontIsIcon.toggle()
+        shuffle()
+        onFlip?()
+    }
+
+    /// Replace the icon face (e.g. after a system-accent re-tint).
+    func setIconImage(_ image: NSImage) {
+        iconCard.contents = image.cgImage(
+            forProposedRect: nil, context: nil, hints: nil)
+    }
+
+    // MARK: - Geometry
+
+    /// The app-icon card. The icon art is already a transparent-corner
+    /// squircle, so its drop shadow follows that silhouette directly —
+    /// no extra rounding needed.
+    private func configureIcon(image: NSImage?) {
+        iconCard.bounds = CGRect(x: 0, y: 0, width: iconSide, height: iconSide)
+        iconCard.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        iconCard.contents = image?.cgImage(
+            forProposedRect: nil, context: nil, hints: nil)
+        iconCard.contentsGravity = .resizeAspect
+        iconCard.contentsScale = 2
+        applyCardShadow(iconCard, path: nil)
+    }
+
+    /// The QR card. A white rounded "tile" (matching the icon's
+    /// squircle corner curve) with the code inset by a quiet-zone
+    /// margin so the rounding never clips the finder patterns. The
+    /// shadow rides on the container via an explicit rounded
+    /// `shadowPath` (the white face clips its own contents, which would
+    /// otherwise clip the shadow too).
+    private func configureQR(image: NSImage?) {
+        let r = qrSide * Self.cornerRatio
+        qrCard.bounds = CGRect(x: 0, y: 0, width: qrSide, height: qrSide)
+        qrCard.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        qrCard.masksToBounds = false
+        applyCardShadow(qrCard, path: CGPath(
+            roundedRect: qrCard.bounds, cornerWidth: r, cornerHeight: r,
+            transform: nil))
+
+        let face = CALayer()
+        face.frame = qrCard.bounds
+        face.backgroundColor = NSColor.white.cgColor
+        face.cornerRadius = r
+        face.cornerCurve = .continuous
+        face.masksToBounds = true
+
+        let code = CALayer()
+        let pad = qrSide * 0.12
+        code.frame = qrCard.bounds.insetBy(dx: pad, dy: pad)
+        code.contents = image?.cgImage(
+            forProposedRect: nil, context: nil, hints: nil)
+        code.contentsGravity = .resizeAspect
+        code.contentsScale = 2
+        face.addSublayer(code)
+        qrCard.addSublayer(face)
+    }
+
+    /// Offset drop shadow shared by both cards — the wg deck's
+    /// `box-shadow: 4px 4px 12px rgba(0,0,0,.75)` feel.
+    private func applyCardShadow(_ card: CALayer, path: CGPath?) {
+        card.shadowColor = NSColor.black.cgColor
+        card.shadowOpacity = 0.45
+        card.shadowRadius = 6
+        card.shadowOffset = CGSize(width: 3, height: -3)   // down-right
+        card.shadowPath = path
+        card.masksToBounds = false
+    }
+
+    /// Target center for whichever card is in front / behind.
+    private func frontCenter(_ base: CGPoint) -> CGPoint {
+        hovering ? CGPoint(x: base.x - 7, y: base.y - 5) : base
+    }
+    private func backCenter(_ base: CGPoint) -> CGPoint {
+        let dx: CGFloat = hovering ? 30 : 6
+        let dy: CGFloat = hovering ? 22 : 5
+        return CGPoint(x: base.x + dx, y: base.y + dy)
+    }
+    private func backTilt() -> CGFloat { (hovering ? 12 : 3) * .pi / 180 }
+
+    // MARK: - Layout / animation
+
+    /// Settle both cards into their front/back slots with a spring, for
+    /// rest ↔ hover transitions (and the initial non-animated layout).
+    private func relayout(animated: Bool, springDamping: CGFloat = 18) {
+        guard bounds.width > 0 else { return }
+        let base = CGPoint(x: bounds.midX, y: bounds.midY)
+        let front = frontIsIcon ? iconCard : qrCard
+        let back = frontIsIcon ? qrCard : iconCard
+
+        settle(front, center: frontCenter(base), rotation: 0,
+               scale: hovering ? 1.04 : 1.0, z: 10,
+               shadowRadius: hovering ? 9 : 6,
+               animated: animated, damping: springDamping)
+        settle(back, center: backCenter(base), rotation: backTilt(),
+               scale: 1.0, z: 5, shadowRadius: hovering ? 8 : 6,
+               animated: animated, damping: springDamping)
+    }
+
+    /// The shuffle: the new front springs forward to center; the card
+    /// just sent back lifts off the top, arcs up-and-out, then tucks
+    /// down behind the other — dropping its z partway so it passes in
+    /// front during the lift and behind as it lands.
+    private func shuffle() {
+        guard bounds.width > 0 else { return }
+        let base = CGPoint(x: bounds.midX, y: bounds.midY)
+        let newFront = frontIsIcon ? iconCard : qrCard
+        let newBack = frontIsIcon ? qrCard : iconCard
+
+        // Incoming front: spring into place (a little bounce on arrival).
+        settle(newFront, center: frontCenter(base), rotation: 0,
+               scale: hovering ? 1.04 : 1.0, z: 10,
+               shadowRadius: hovering ? 9 : 7, animated: true, damping: 13)
+
+        // Outgoing card: arc out over the top, then tuck behind.
+        let start = newBack.presentation()?.position ?? newBack.position
+        let target = backCenter(base)
+        let apex = CGPoint(x: max(start.x, target.x) + 34,
+                           y: base.y + 50)            // up & out (y is up)
+        let path = CGMutablePath()
+        path.move(to: start)
+        path.addQuadCurve(to: target, control: apex)
+
+        let duration: CFTimeInterval = 0.5
+        let posAnim = CAKeyframeAnimation(keyPath: "position")
+        posAnim.path = path
+        posAnim.duration = duration
+        posAnim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let landTilt = backTilt()
+        let liftTransform = CATransform3DScale(
+            CATransform3DMakeRotation(-9 * .pi / 180, 0, 0, 1), 1.12, 1.12, 1)
+        let landTransform = CATransform3DScale(
+            CATransform3DMakeRotation(landTilt, 0, 0, 1), 1.0, 1.0, 1)
+        let tformAnim = CAKeyframeAnimation(keyPath: "transform")
+        tformAnim.values = [
+            newBack.presentation()?.transform ?? newBack.transform,
+            liftTransform,
+            landTransform,
+        ]
+        tformAnim.keyTimes = [0, 0.45, 1]
+        tformAnim.duration = duration
+        tformAnim.timingFunctions = [
+            CAMediaTimingFunction(name: .easeOut),
+            CAMediaTimingFunction(name: .easeIn),
+        ]
+
+        // Lifts off the top, then drops behind partway through.
+        newBack.zPosition = 20
+        let group = CAAnimationGroup()
+        group.animations = [posAnim, tformAnim]
+        group.duration = duration
+        newBack.add(group, forKey: "shuffle")
+        newBack.position = target
+        newBack.transform = landTransform
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration * 0.5) {
+            [weak newBack] in newBack?.zPosition = 5
+        }
+    }
+
+    /// Spring a card to a slot (position + transform), with the model
+    /// values set so it rests there once the spring settles.
+    private func settle(_ card: CALayer, center: CGPoint, rotation: CGFloat,
+                        scale: CGFloat, z: CGFloat, shadowRadius: CGFloat,
+                        animated: Bool, damping: CGFloat) {
+        let transform = CATransform3DScale(
+            CATransform3DMakeRotation(rotation, 0, 0, 1), scale, scale, 1)
+        card.zPosition = z
+        if animated {
+            let pos = CASpringAnimation(keyPath: "position")
+            pos.fromValue = card.presentation()?.position ?? card.position
+            pos.toValue = center
+            pos.damping = damping; pos.stiffness = 240; pos.mass = 1
+            pos.duration = pos.settlingDuration
+            let tform = CASpringAnimation(keyPath: "transform")
+            tform.fromValue = card.presentation()?.transform ?? card.transform
+            tform.toValue = transform
+            tform.damping = damping; tform.stiffness = 240; tform.mass = 1
+            tform.duration = tform.settlingDuration
+            card.add(pos, forKey: "pos")
+            card.add(tform, forKey: "tform")
+        }
+        card.position = center
+        card.transform = transform
+        card.shadowRadius = shadowRadius
     }
 }
