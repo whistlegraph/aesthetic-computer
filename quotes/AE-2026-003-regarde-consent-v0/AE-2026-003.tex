@@ -1,0 +1,417 @@
+% !TEX program = xelatex
+% Aesthetic Inc. — Code Quote for Regarde (Jayson Mittman)
+%   AE-2026-003 · two-page quote: Code Quote / Scope & Terms.
+%   The v0 subject-side consent prototype — router + verifiable receipt +
+%   walkthrough app. Work-for-hire, runs on the client's stack, NDA-first.
+% Build: ./build.fish — produces AE-2026-003.pdf (color) and
+%   AE-2026-003-grayscale.pdf. Each runs xelatex twice (remember-picture
+%   overlays need two passes); grayscale defines \GRAYSCALE.
+\documentclass[11pt]{article}
+\usepackage[margin=0.62in]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\usepackage{tikz}
+\usepackage{eso-pic}
+\pagestyle{empty}
+\flushbottom
+
+% === QUOTE METADATA ===
+\newcommand{\quoteid}{AE-2026-003}
+\newcommand{\permalink}{https://tangled.org/aesthetic.computer/core/blob/main/quotes/AE-2026-003-regarde-consent-v0/AE-2026-003.pdf}
+\newcommand{\permalinkdisplay}{tangled.org/aesthetic.computer/core/blob/main/quotes/AE-2026-003-regarde-consent-v0/AE-2026-003.pdf}
+
+% --- Aesthetic.Computer palette ---
+\definecolor{acink}{HTML}{1E1E1E}
+\definecolor{acpaper}{HTML}{FBFAFF}
+\definecolor{acline}{HTML}{E2DEEC}
+\definecolor{cellbg}{HTML}{FCFBFE}        % light cell background
+% --- Regarde accents ---
+\definecolor{regindigo}{HTML}{34418C}     % primary — dispatch / structure
+\definecolor{regverify}{HTML}{1E8A5B}     % verification green — receipts
+\definecolor{regamber}{HTML}{B8791A}      % the open question / caution
+\definecolor{regslate}{HTML}{3A3F4F}      % structural
+\definecolor{pricegreen}{HTML}{1E8A5B}    % prices
+% image paths — swappable so the gray build can point at desaturated copies
+\newcommand{\palsimg}{../../bills/invoices/pals.pdf}
+% grayscale build — compile with \def\GRAYSCALE{} (see build.fish).
+\newif\ifgraymode
+\ifdefined\GRAYSCALE\graymodetrue\fi
+\ifgraymode
+  \definecolor{acink}{gray}{0.12}
+  \definecolor{acpaper}{gray}{1.0}
+  \definecolor{acline}{gray}{0.78}
+  \definecolor{cellbg}{gray}{0.975}
+  \definecolor{regindigo}{gray}{0.28}
+  \definecolor{regverify}{gray}{0.36}
+  \definecolor{regamber}{gray}{0.50}
+  \definecolor{regslate}{gray}{0.30}
+  \definecolor{pricegreen}{gray}{0.20}
+  \renewcommand{\palsimg}{pals-gray.png}
+\fi
+
+\newfontfamily\acprocessing[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf, UprightFont=ywft-processing-regular,
+  BoldFont=ywft-processing-bold, ItalicFont=ywft-processing-alternate
+]{YWFT Processing}
+\newfontfamily\acberkeley[
+  Path=../../bills/invoices/,
+  Extension=.ttf, UprightFont=BerkeleyMonoVariable-Regular,
+  ItalicFont=BerkeleyMonoVariable-Italic
+]{BerkeleyMonoVariable}
+\hypersetup{hidelinks}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.42em}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\extrarowheight}{0pt}
+\setlength{\tabcolsep}{7pt}
+% even cell padding — equal ~5pt air above and below the text on every row.
+\newcommand{\cellstrut}{\rule[-7.3pt]{0pt}{20.3pt}}
+\arrayrulecolor{acline}
+
+% --- module spacing ---
+\newcommand{\headgap}{\par\vspace{0.7em}}
+\newcommand{\modgap}{\par\vspace{1.05em plus 0.5em minus 0.45em}}
+\newcommand{\pagefoot}{\par\vspace{2pt plus 1fil}\null}
+
+\newcommand{\acdot}{\textcolor{regindigo}{.}}
+\newcommand{\docslug}{regarde-consent-v0}
+\newcommand{\doctimestamp}{Issued June 6, 2026}
+
+% subheaders — color build: section color (#1) with a soft dark drop shadow.
+\newcommand{\subhead}[2]{{\acprocessing\fontsize{15pt}{17pt}\bfseries\selectfont%
+  \ifgraymode\textcolor{acink}{#2}\else
+  \makebox[0pt][l]{\raisebox{-0.9pt}{\hspace{0.9pt}\textcolor{acink!40}{#2}}}%
+  \textcolor{#1}{#2}\fi}}
+\newcommand{\heading}[2]{\subhead{#1}{#2}}
+\newcommand{\cellbgcolor}{cellbg}
+\newcommand{\cathead}[2]{%
+  \renewcommand{\cellbgcolor}{#1!8}%
+  \subhead{#1}{#2}%
+  \par\nopagebreak\vspace{0.55em}
+}
+\newcommand{\subtot}[2]{%
+  \par\vspace{2pt}\noindent\hfill
+  \begin{tikzpicture}
+    \node[font={\acberkeley\bfseries}, inner xsep=6pt, inner ysep=4pt]
+      (t) {\phantom{#2}};
+    \ifgraymode
+      \draw[fill=white, draw=acink, line width=1pt, rounded corners=6pt]
+        (t.south west) rectangle (t.north east);
+    \else
+      \filldraw[fill=#1, fill opacity=0.4, draw=#1, line width=1pt, rounded corners=6pt]
+        (t.south west) rectangle (t.north east);
+    \fi
+    \node[font={\acberkeley\bfseries}, text=black] at (t.center) {#2};
+  \end{tikzpicture}%
+  \par\smallskip
+}
+\newcommand{\grandtot}[1]{%
+  \par\vspace{2pt}\noindent\hfill
+  \begin{tikzpicture}
+    \node[font={\acberkeley\Large\bfseries}, inner xsep=9pt, inner ysep=7pt]
+      (t) {\phantom{#1}};
+    \ifgraymode
+      \draw[fill=white, draw=acink, line width=1.1pt, rounded corners=8pt]
+        (t.south west) rectangle (t.north east);
+    \else
+      \filldraw[fill=regindigo, fill opacity=0.30, draw=regindigo, line width=1.1pt, rounded corners=8pt]
+        (t.south west) rectangle (t.north east);
+    \fi
+    \node[font={\acberkeley\Large\bfseries}, text=black] at (t.center) {#1};
+  \end{tikzpicture}%
+  \par
+}
+
+\newcommand{\boxon}{\tikz[baseline=-0.45ex]{%
+  \draw[pricegreen,line width=1.2pt,line cap=round,line join=round]
+    (-1.05mm,0.05mm)--(-0.2mm,-0.9mm)--(1.3mm,1.1mm);}}
+\newcommand{\boxoff}{\tikz[baseline=-0.45ex]{%
+  \draw[acink!50,line width=0.8pt,rounded corners=0.4pt]
+    (-1.15mm,-1.05mm) rectangle (1.15mm,1.25mm);}}
+
+% === BACKGROUND — footer line + ledger line only. ===
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \draw[acline, line width=0.4pt]
+      ([xshift=0.62in,yshift=0.58in]current page.south west) --
+      ([xshift=-0.62in,yshift=0.58in]current page.south east);
+    \node[anchor=south, inner sep=0pt] at ([yshift=0.4in]current page.south)
+      {\makebox[\dimexpr\paperwidth-1.24in\relax]{{\acberkeley\footnotesize\color{acink}%
+        \doctimestamp\hfill \quoteid\ \ \textcolor{acline}{$\cdot$}\ \ \docslug\hfill \thepage\,/\,4}}};
+  \end{tikzpicture}%
+}
+
+% top page-map — one segment per page; the section you're on is lit
+\newcommand{\pageseg}[3]{%
+  \ifnum#1=#2 \textcolor{#3}{\rule{0.235\linewidth}{7pt}}%
+  \else \textcolor{#3!22!white}{\rule{0.235\linewidth}{7pt}}\fi
+}
+\newcommand{\acrule}[1]{%
+  \noindent
+  \pageseg{1}{#1}{regindigo}\hspace{0.02\linewidth}%
+  \pageseg{2}{#1}{regverify}\hspace{0.02\linewidth}%
+  \pageseg{3}{#1}{regamber}\hspace{0.02\linewidth}%
+  \pageseg{4}{#1}{regslate}%
+}
+
+% column prefixes
+\newcommand{\colcost}{regamber!14}
+\newcommand{\colstruct}{regindigo!9}
+\newcolumntype{L}{>{\columncolor{\cellbgcolor}\cellstrut\raggedright\arraybackslash}X}
+\newcolumntype{R}[1]{>{\columncolor{\colcost}\cellstrut\raggedleft\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\columncolor{\colstruct}\cellstrut\raggedright\arraybackslash}p{#1}}
+
+% rtable — wraps a table block and rounds its outer corners (clip)
+\newsavebox{\rtbox}
+\newenvironment{rtable}{\begin{lrbox}{\rtbox}}{%
+  \end{lrbox}%
+  \par\noindent
+  \begin{tikzpicture}
+    \node[inner sep=0pt] (rt) {\phantom{\usebox{\rtbox}}};
+    \begin{scope}
+      \clip[rounded corners=6pt] (rt.south west) rectangle (rt.north east);
+      \node[inner sep=0pt] at (rt.center) {\usebox{\rtbox}};
+    \end{scope}
+    \draw[rounded corners=6pt, acline, line width=0.9pt]
+      (rt.south west) rectangle (rt.north east);
+  \end{tikzpicture}\par
+}
+
+\begin{document}
+\pagecolor{acpaper}
+\color{acink}
+\fontsize{10.5pt}{12.9pt}\selectfont
+
+%% ====================== PAGE 1 — CODE QUOTE ======================
+
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{regindigo}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{regindigo}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- Regarde}}\\[0.22em]
+{{\acprocessing\Large\bfseries Subject-Side Consent --- v0 Prototype}}
+
+\vspace{0.45em}\acrule{1}
+
+\vspace{0.7em}
+
+\begin{tabularx}{\linewidth}{@{}Xr@{}}
+\textbf{Quote date:} June 6, 2026 & \textbf{Good through:} July 6, 2026 \\
+\textbf{Money:} US dollars & \textbf{If we start:} the day the NDA \& SOW are signed \\
+\end{tabularx}
+
+\vspace{0.7em}
+
+\begin{rtable}
+\begin{tabularx}{\linewidth}{L|L}
+\rowcolor{regindigo!12}
+\textbf{From} & \textbf{For} \\ \hline
+Aesthetic\acdot Computer & Regarde \\ \hline
+Authored by Jeffrey Alan Scudder & Jayson Mittman \\ \hline
+Billed under Aesthetic Inc. & Subject-side consent infrastructure \\
+\end{tabularx}
+\end{rtable}
+
+\headgap
+
+\heading{regindigo}{The short version}
+
+A working v0 of the subject-side mechanism --- the part the white paper makes the
+load-bearing argument for. A dispatch router that decides on the named person's
+terms, a verifiable receipt that anyone can check offline, and a small app that
+walks a request through the whole flow. It runs on \textbf{your} stack with no
+live tie to anything of mine, and the deliverable is yours outright. Two weeks
+from kickoff. The price is \textbf{\$2,750}, paid in two even halves.
+
+\modgap
+
+\heading{regverify}{What you're getting}
+
+\vspace{0.35em}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{L|R{2.6cm}}
+\rowcolor{regindigo!12}
+\textbf{Piece} & \textbf{Cost} \\ \hline
+Interface sketch --- the canonical payload \& receipt schema, one page, settled first & \$350.00 \\ \hline
+Dispatch router --- subject-keyed, the four operation classes, allow / deny / refuse & \$550.00 \\ \hline
+Verifiable receipt --- hash-chained, canonicalized, checks offline & \$550.00 \\ \hline
+Security \& infrastructure --- receipt crypto hardened, private isolated hosting for the build, prototype kept to private use & \$550.00 \\ \hline
+Walkthrough app --- drives one request end to end, request $\to$ decision $\to$ receipt & \$450.00 \\ \hline
+Proof-of-concept workflows \& handoff --- the demo flows, code handed over with notes & \$300.00 \\
+\end{tabularx}
+\end{rtable}
+
+\vspace{0.4em}
+\textit{Two weeks from kickoff \textcolor{acline}{$\bullet$} runs on your stack \textcolor{acline}{$\bullet$} work-for-hire, assigned to you \textcolor{acline}{$\bullet$} optional managed hosting (p.\,4)}
+
+\vspace{0.5em}
+\grandtot{Total\quad\$2,750.00}
+
+\modgap
+
+\heading{regamber}{How payment works}
+
+\vspace{0.35em}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{C{3.6cm}|L|R{2.2cm}}
+\rowcolor{regindigo!12}
+\textbf{Part} & \textbf{When} & \textbf{Amount} \\ \hline
+1 --- to begin & NDA \& SOW signed, schema work starts & \$1,375.00 \\ \hline
+2 --- on delivery & v0 handed over, running on your stack & \$1,375.00 \\
+\end{tabularx}
+\end{rtable}
+
+\pagefoot
+
+%% ================= PAGE 2 — IN PLAIN WORDS =================
+\pagebreak
+\pagecolor{acpaper}
+
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{regindigo}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{regindigo}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- Regarde}}\\[0.22em]
+{{\acprocessing\Large\bfseries In Plain Words}}
+
+\vspace{0.45em}\acrule{2}
+
+\headgap
+
+\cathead{regindigo}{The whole thing, without the jargon}
+Today, when a company wants to use someone's face or voice, it asks whatever
+middleman happens to be holding it --- and the person never gets a say. The idea
+in your paper flips that around: the request goes to the \textbf{person} first,
+and is answered on their terms. What I'm building is the working version of that
+flip --- small, but real, and something you can actually run.
+
+\modgap
+
+\cathead{regverify}{What you actually get}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{C{4.0cm}|L}
+\rowcolor{regindigo!12}
+\textbf{The piece} & \textbf{In plain words} \\ \hline
+Interface sketch & The one-page blueprint we both sign off on before anything gets built. \\ \hline
+Dispatch router & The gatekeeper. It takes each request, works out what kind it is, and answers on the person's terms --- yes, no, or ``I won't even say.'' \\ \hline
+Verifiable receipt & A tamper-proof receipt for every answer. Anyone can check later that it's real --- without calling you or me. \\ \hline
+Security \& infrastructure & The locks on all of it, built somewhere private and kept to you. \\ \hline
+Walkthrough app & A little screen that lets you watch one request go through, start to finish. \\ \hline
+Proof-of-concept workflows & A couple of worked examples, so it's something you run, not just read. \\
+\end{tabularx}
+\end{rtable}
+
+\pagefoot
+
+%% ================= PAGE 3 — SCOPE & TERMS =================
+\pagebreak
+\pagecolor{acpaper}
+
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{regindigo}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{regindigo}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- Regarde}}\\[0.22em]
+{{\acprocessing\Large\bfseries Scope \& Terms}}
+
+\vspace{0.45em}\acrule{3}
+
+\headgap
+
+\cathead{regindigo}{What the v0 is}
+A handful of small parts that fit together into one runnable flow:
+
+\vspace{0.3em}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{>{\columncolor{\cellbgcolor}\cellstrut}c|L}
+\boxon & \textbf{Dispatch router} --- the policy decision point, keyed to the named person. It reads a request, sorts it into one of the four classes (prediction, verification, data-operation, probe), and returns allow, deny, or refuse. \\ \hline
+\boxon & \textbf{Verifiable receipt} --- every decision emits a hash-chained, signed receipt. Issuer and verifier produce byte-identical canonical form from the same payload, so a receipt checks out offline with no call back to me. \\ \hline
+\boxon & \textbf{Security \& infrastructure} --- a hardening pass over the receipt mechanism (key handling, signature scheme, resistance to replay and forgery, closing the refusal side-channel), built on a private, isolated instance and kept to your private use throughout. \\ \hline
+\boxon & \textbf{Walkthrough app} --- a small interface that drives a single request through the whole path so the mechanism is something you can poke at, not just read. \\ \hline
+\boxon & \textbf{Proof-of-concept workflows} --- the canonical flows scripted as demos, including the refusal path (refusal-as-side-channel is the one to get right). \\
+\end{tabularx}
+\end{rtable}
+
+\modgap
+
+\cathead{regverify}{What runs where}
+The v0 is built to run \textbf{entirely on your stack}. No live dependency on
+the Aesthetic\acdot Computer PDS or on anything I host --- it stands on its own,
+and you can run it after I walk away. The first thing we settle is the
+\textbf{interface sketch}: the canonical payload and receipt schema on one page.
+Schema before metaphor --- it's the right first artifact and it doubles as our
+scope contract.
+
+\modgap
+
+\cathead{regamber}{The one thing to pin first}
+The verify-offline property lives or dies on determinism, so before any code
+the canonicalization is named and frozen. I'd propose \textbf{JCS / RFC 8785} as
+the default unless your filings point somewhere else --- agree that surface up
+front and the rest of the build is clean.
+
+\modgap
+
+\cathead{regslate}{Terms}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{>{\columncolor{\cellbgcolor}\cellstrut}c|L}
+\boxon & \textbf{Work-for-hire \& assignment} --- the deliverable, in full, is assigned to you. No retained claim, no shared ownership. \\ \hline
+\boxon & \textbf{NDA precedes schema} --- signed before we trade any schema; the interface sketch alone gets us into it, so it goes first. \\ \hline
+\boxon & \textbf{Consulting agreement \& SOW to follow} --- this quote sets price and shape; your counsel's paper carries the legal terms. \\ \hline
+\boxon & \textbf{Runs on your stack} --- delivered as code with handoff notes, no live tie to my infrastructure. \\ \hline
+\boxon & \textbf{Private use} --- the prototype is built on a private, isolated instance and kept to your private use; never published as a public Aesthetic\acdot Computer piece. \\ \hline
+\boxon & \textbf{Canonicalization} --- JCS / RFC 8785 proposed; confirm or redirect before kickoff. \\
+\end{tabularx}
+\end{rtable}
+
+\pagefoot
+
+%% ================= PAGE 4 — MANAGED HOSTING (OPTIONAL) =================
+\pagebreak
+\pagecolor{acpaper}
+
+{{\acprocessing\Large\bfseries\ifgraymode\textcolor{regindigo}{Code Quote}\else\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Code Quote}}}\textcolor{regindigo}{Code Quote}\fi}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- Regarde}}\\[0.22em]
+{{\acprocessing\Large\bfseries Managed Hosting}}
+
+\vspace{0.45em}\acrule{4}
+
+\headgap
+
+This part is \textbf{optional} and separate from the \$2,750 build on the other
+pages. The build is yours and runs on your stack --- you don't need me to host it.
+But if you'd rather it just run, I'll stand it up as \textbf{Aesthetic\acdot
+Computer managed secure hosting} on behalf of Regarde: a private, isolated
+instance, brought online and kept live, so there's always something to demo from
+during diligence. A flat \textbf{\$500} on top of the build --- \textbf{\$3,250}
+all in, with hosting handled.
+
+\modgap
+
+\cathead{regslate}{What's included}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{>{\columncolor{\cellbgcolor}\cellstrut}c|L}
+\boxon & A private, isolated instance --- brought online and kept live. \\ \hline
+\boxon & A domain registered and pointed at it. \\ \hline
+\boxon & Security patches and updates through the first year. \\ \hline
+\boxon & Backups, and the signing keys held securely on your behalf. \\ \hline
+\boxon & A status check before each diligence meeting, on request. \\
+\end{tabularx}
+\end{rtable}
+
+\vspace{0.4em}
+\subtot{regslate}{\$500 / first year}
+
+\modgap
+
+\cathead{regverify}{What's covered vs.\ a separate quote}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{L|L}
+\rowcolor{regindigo!12}
+\textbf{Covered by hosting} & \textbf{A separate quote} \\ \hline
+The instance, domain, patching \& backups & Anything new built on top --- a fresh code quote \\ \hline
+Keeping it live through the first year & Year-two renewal (hosting + domain), billed then \\ \hline
+Routine updates and status checks & Running it at production scale, or under an SLA \\
+\end{tabularx}
+\end{rtable}
+
+\vspace{0.4em}
+\textit{Optional and entirely separate from the \$2,750 build \textcolor{acline}{$\bullet$} cancel anytime \textcolor{acline}{$\bullet$} the code is yours either way}
+
+\pagefoot
+
+\end{document}
