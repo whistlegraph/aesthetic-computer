@@ -62,7 +62,7 @@ const CONFIG = {
     explorer: 'https://ghostnet.tzkt.io'
   },
   mainnet: {
-    rpc: 'https://mainnet.api.tez.ie',  // Changed from ecadinfra for better deployment support
+    rpc: 'https://rpc.tzbeta.net',  // mainnet.api.tez.ie + ecadinfra both dead (DNS); tzbeta is Foundation-run
     name: 'Mainnet',
     explorer: 'https://tzkt.io'
   },
