@@ -185,10 +185,8 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             let cards = CardStackView(front: icon, back: qr)
             cards.translatesAutoresizingMaskIntoConstraints = false
             cards.toolTip = "prompt.ac/menuband"
-            cards.onFlip = { [weak self, weak cards] in
-                guard let self = self else { return }
+            cards.onFlip = {
                 EasterEggChord.shared.play()
-                if let cards = cards { self.burstParticles(from: cards) }
             }
             stack.addArrangedSubview(cards)
             cardStack = cards
@@ -221,81 +219,9 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         body.preferredMaxLayoutWidth = 264
         stack.addArrangedSubview(body)
 
-        // Aesthetic.Computer chip — purple words flanking a pink dot, the
-        // same brand badge that used to live inline in the popover.
-        let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
-        let acLink = MenuBandPopoverViewController.makeLinkButton(
-            attr: MenuBandPopoverViewController.aestheticComputerTitle(),
-            target: self,
-            action: #selector(openAesthetic),
-            background: acPurple.withAlphaComponent(0.14),
-            border: acPurple.withAlphaComponent(0.55)
-        )
-        stack.addArrangedSubview(acLink)
-
-        // NELA Computer Club invite — wrapping clickable line
-        // beneath the AC chip. Click → opens
-        // https://nelacomputer.club in the user's default browser.
-        // Wraps to multi-line so the full sentence fits the
-        // narrow About panel width.
-        stack.setCustomSpacing(8, after: acLink)
-        let para = NSMutableParagraphStyle()
-        para.alignment = .center
-        para.lineBreakMode = .byWordWrapping
-        let nelaText = NSAttributedString(
-            string: L("popover.about.nela"),
-            attributes: [
-                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-                .foregroundColor: NSColor.secondaryLabelColor,
-                .underlineStyle: NSUnderlineStyle.single.rawValue,
-                .paragraphStyle: para,
-            ]
-        )
-        let nelaButton = NSButton(title: "",
-                                   target: self,
-                                   action: #selector(openNELA))
-        nelaButton.attributedTitle = nelaText
-        nelaButton.bezelStyle = .regularSquare
-        nelaButton.isBordered = false
-        nelaButton.cell?.wraps = true
-        nelaButton.cell?.lineBreakMode = .byWordWrapping
-        if let cell = nelaButton.cell as? NSButtonCell {
-            cell.imageScaling = .scaleNone
-        }
-        nelaButton.translatesAutoresizingMaskIntoConstraints = false
-        nelaButton.toolTip = "https://nelacomputer.club"
-        nelaButton.widthAnchor.constraint(equalToConstant: 264).isActive = true
-        stack.addArrangedSubview(nelaButton)
-
-        // Mikey's prompt to start your own — same wrapping style as
-        // the NELA invite, click → startacomputer.club. Sits directly
-        // below NELA so the two reads as a pair: "come hang out / or
-        // start your own."
-        stack.setCustomSpacing(4, after: nelaButton)
-        let startClubText = NSAttributedString(
-            string: L("popover.about.startaclub"),
-            attributes: [
-                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-                .foregroundColor: NSColor.secondaryLabelColor,
-                .underlineStyle: NSUnderlineStyle.single.rawValue,
-                .paragraphStyle: para,
-            ]
-        )
-        let startClubButton = NSButton(title: "",
-                                        target: self,
-                                        action: #selector(openStartAClub))
-        startClubButton.attributedTitle = startClubText
-        startClubButton.bezelStyle = .regularSquare
-        startClubButton.isBordered = false
-        startClubButton.cell?.wraps = true
-        startClubButton.cell?.lineBreakMode = .byWordWrapping
-        if let cell = startClubButton.cell as? NSButtonCell {
-            cell.imageScaling = .scaleNone
-        }
-        startClubButton.translatesAutoresizingMaskIntoConstraints = false
-        startClubButton.toolTip = "https://startacomputer.club"
-        startClubButton.widthAnchor.constraint(equalToConstant: 264).isActive = true
-        stack.addArrangedSubview(startClubButton)
+        // (Aesthetic.Computer badge + the NELA / start-a-club invites
+        // moved to the popover's "Jam" button → JamWindow. About stays a
+        // focused identity/settings panel.)
 
         // [v1 cutoff] Pedals (AU plugin picker) chip removed — Liam Hall
         // pedals / third-party AU hosting are post-v1. The `onOpenPlugins`
@@ -408,14 +334,23 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // than the old wrap-to-three chip grid, and it scales as we add
         // languages without reflowing the panel.
         let lang = Localization.language(for: Localization.current)
-        let title = "   \(lang.flag)   \(lang.label)   ⌄   "
-        let attr = NSAttributedString(
-            string: title,
+        // Build the title in runs so the down-chevron can be nudged up
+        // to sit centered with the text (the bare "⌄" glyph drops well
+        // below the baseline), and trim the leading pad so the flag sits
+        // close to the chip's left edge.
+        let attr = NSMutableAttributedString(
+            string: "\(lang.flag) \(lang.label)  ",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 14, weight: .medium),
                 .foregroundColor: NSColor.labelColor,
-            ]
-        )
+            ])
+        attr.append(NSAttributedString(
+            string: "⌄",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .bold),
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .baselineOffset: 2.5,
+            ]))
         let accent = NSColor.controlAccentColor
         let chip = MenuBandPopoverViewController.makeLinkButton(
             attr: attr,
@@ -499,16 +434,6 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Actions
 
-    @objc private func openAesthetic() {
-        // Open inside Menu Band's own glass-chromed webview instead
-        // of bouncing to Safari — same Mac-native desktop feel as
-        // the ac-electron app, but right out of the menubar piano.
-        // Anchor the AC window to the About window's right edge so
-        // they pair side-by-side instead of stacking on top of each
-        // other.
-        AestheticWebWindowController.showOrFocus(rightOf: window?.frame)
-    }
-
     @objc private func openUpdateLink() {
         if let url = URL(string: "https://prompt.ac/menuband") {
             NSWorkspace.shared.open(url)
@@ -519,76 +444,6 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         if let url = URL(string: "https://prompt.ac/menuband") {
             NSWorkspace.shared.open(url)
         }
-    }
-
-    // MARK: - Icon ↔ QR easter egg
-
-    /// Click the app icon to swivel it edge-on, swap to the QR code for
-    /// prompt.ac/menuband, and swivel back — a card-flip about the
-    /// vertical axis. Click again to flip home. A demo delight; the QR
-    /// isn't surfaced anywhere else in the panel.
-    /// A quick radial burst of small note glyphs from the icon's center,
-    /// in the AC palette. Self-removes after the cells live out.
-    private func burstParticles(from view: NSView) {
-        guard let host = view.superview, let hostLayer = host.layer else { return }
-        let emitter = CAEmitterLayer()
-        emitter.emitterPosition = CGPoint(x: view.frame.midX, y: view.frame.midY)
-        emitter.emitterShape = .circle
-        emitter.emitterMode = .outline
-        emitter.emitterSize = CGSize(width: 36, height: 36)
-        emitter.renderMode = .additive
-
-        let colors: [NSColor] = [
-            NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1), // AC purple
-            NSColor(red: 255/255, green: 107/255, blue: 157/255, alpha: 1), // pink
-            NSColor(red: 158/255, green: 212/255, blue: 80/255, alpha: 1),  // chartreuse
-        ]
-        emitter.emitterCells = colors.map { color in
-            let cell = CAEmitterCell()
-            cell.contents = Self.noteParticleImage(color: color)?
-                .cgImage(forProposedRect: nil, context: nil, hints: nil)
-            cell.birthRate = 90
-            cell.lifetime = 0.9
-            cell.lifetimeRange = 0.3
-            cell.velocity = 95
-            cell.velocityRange = 45
-            cell.emissionRange = .pi * 2
-            cell.yAcceleration = -120   // a little gravity so they arc
-            cell.scale = 0.5
-            cell.scaleRange = 0.35
-            cell.scaleSpeed = -0.3
-            cell.alphaSpeed = -1.1
-            cell.spin = 2.5
-            cell.spinRange = 4
-            return cell
-        }
-        hostLayer.addSublayer(emitter)
-
-        // Pulse: emit for a beat, then stop and clean up.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            emitter.birthRate = 0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            emitter.removeFromSuperlayer()
-        }
-    }
-
-    /// A small ♪ glyph rendered to an image in the given color, used as
-    /// an emitter-cell sprite.
-    private static func noteParticleImage(color: NSColor) -> NSImage? {
-        let side: CGFloat = 18
-        let image = NSImage(size: NSSize(width: side, height: side))
-        image.lockFocus()
-        let glyph = ["♪", "♫", "✦"].randomElement() ?? "♪"
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 14, weight: .bold),
-            .foregroundColor: color,
-        ]
-        let s = NSAttributedString(string: glyph, attributes: attrs)
-        let sz = s.size()
-        s.draw(at: NSPoint(x: (side - sz.width) / 2, y: (side - sz.height) / 2))
-        image.unlockFocus()
-        return image
     }
 
     /// Generate a high-contrast QR code at the requested side
@@ -618,18 +473,6 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
                             size: NSSize(width: side, height: side))
         image.isTemplate = false
         return image
-    }
-
-    @objc private func openNELA() {
-        if let url = URL(string: "https://nelacomputer.club") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    @objc private func openStartAClub() {
-        if let url = URL(string: "https://startacomputer.club") {
-            NSWorkspace.shared.open(url)
-        }
     }
 
     @objc private func openPlugins() {
@@ -766,9 +609,21 @@ final class CardStackView: NSView {
     private var frontIsIcon = true
     private var hovering = false
     private var hoverTracking: NSTrackingArea?
+    /// Container holding both cards. Spins as a unit on each click;
+    /// keeping the spin on the deck (not the cards) means it composes
+    /// cleanly with the cards' own slot-swap springs, and additive
+    /// impulses stack so rapid clicks build a continuous spin.
+    private let deck = CALayer()
 
-    private let iconSide: CGFloat = 96
-    private let qrSide: CGFloat = 96   // same size as the icon — a matching card
+    /// The card's full bounding box (both cards share it). The app-icon
+    /// art fills this with its own transparent margin (the macOS icon
+    /// grid); the QR tile is inset by that SAME margin so the two cards'
+    /// VISIBLE sizes line up instead of the QR overflowing the icon.
+    private let cardSide: CGFloat = 108
+    /// Transparent margin baked into a macOS app icon — the icon grid
+    /// insets the rounded square by (1024−824)/2/1024 ≈ 0.098 of the
+    /// canvas on each side. The QR tile matches it.
+    private let artMarginRatio: CGFloat = 0.098
 
     init(front: NSImage?, back: NSImage?) {
         super.init(frame: .zero)
@@ -777,9 +632,11 @@ final class CardStackView: NSView {
         configureIcon(image: front)
         configureQR(image: back)
         // Add QR first so it sits behind; z-positions are managed in
-        // `relayout` and take over once laid out.
-        layer?.addSublayer(qrCard)
-        layer?.addSublayer(iconCard)
+        // `relayout` and take over once laid out. Both live in the
+        // spinning `deck` container.
+        deck.addSublayer(qrCard)
+        deck.addSublayer(iconCard)
+        layer?.addSublayer(deck)
     }
 
     /// Continuous-corner radius as a fraction of the side — the macOS
@@ -791,7 +648,7 @@ final class CardStackView: NSView {
 
     /// Reserve room for the fanned-out back card so the deck stays
     /// centered in the panel and the peek isn't clipped by siblings.
-    override var intrinsicContentSize: NSSize { NSSize(width: 152, height: 128) }
+    override var intrinsicContentSize: NSSize { NSSize(width: 172, height: 144) }
 
     override var isFlipped: Bool { false }
 
@@ -818,6 +675,13 @@ final class CardStackView: NSView {
         let scale = window?.backingScaleFactor ?? 2
         iconCard.contentsScale = scale
         qrCard.contentsScale = scale
+        // The deck fills the view and pivots about its center so a spin
+        // rotates the whole pair around the middle.
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        deck.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        deck.bounds = CGRect(origin: .zero, size: bounds.size)
+        deck.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        CATransaction.commit()
         relayout(animated: false)
     }
 
@@ -831,15 +695,174 @@ final class CardStackView: NSView {
     func setHoverPreview(_ on: Bool) {
         guard hovering != on else { return }
         hovering = on
-        relayout(animated: true, springDamping: 15)
+        // Don't fight an in-flight shuffle; it settles into the right
+        // hover/rest layout when the queue drains.
+        if !shuffling { relayout(animated: true, springDamping: 15) }
     }
 
-    /// Shuffle the front card behind the other with a physical arc, and
-    /// fire the juice callback.
+    // MARK: - Shuffle
+
+    /// Queued count of pending tucks and whether one is animating.
+    /// Tucks run strictly one-at-a-time so the two cards never overlap
+    /// mid-swap — that's what keeps the z-order clean (no flicker) and
+    /// lets rapid clicks read as a continuous shuffle (the queue drains
+    /// back-to-back).
+    private var shuffleQueue = 0
+    private var shuffling = false
+    private var shuffleTick = 0
+
+    /// Enqueue one "tuck the top card behind the other" shuffle. Fires
+    /// the juice callback (throttled chord + particles) per click.
     func flip() {
-        frontIsIcon.toggle()
-        shuffle()
+        shuffleQueue += 1
+        emitNotesBurst()
         onFlip?()
+        if !shuffling { startNextTuck() }
+    }
+
+    /// A burst of little music notes puffing out from BETWEEN the two
+    /// cards (the emitter sits at a z between the back and front card),
+    /// so the front card partly occludes them — they read as coming
+    /// from the seam, not floating on top.
+    private func emitNotesBurst() {
+        guard bounds.width > 0 else { return }
+        let emitter = CAEmitterLayer()
+        emitter.emitterPosition = CGPoint(x: deck.bounds.midX,
+                                          y: deck.bounds.midY)
+        emitter.emitterShape = .circle
+        emitter.emitterMode = .outline
+        emitter.emitterSize = CGSize(width: cardSide * 0.42,
+                                     height: cardSide * 0.42)
+        emitter.renderMode = .additive
+        // Between the back card (z 5) and the front card (z 10).
+        emitter.zPosition = 7
+
+        let colors: [NSColor] = [
+            NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1), // purple
+            NSColor(red: 255/255, green: 107/255, blue: 157/255, alpha: 1), // pink
+            NSColor(red: 158/255, green: 212/255, blue: 80/255, alpha: 1),  // chartreuse
+        ]
+        emitter.emitterCells = colors.map { color in
+            let cell = CAEmitterCell()
+            cell.contents = Self.noteImage(color: color)?
+                .cgImage(forProposedRect: nil, context: nil, hints: nil)
+            cell.birthRate = 80
+            cell.lifetime = 0.9
+            cell.lifetimeRange = 0.3
+            cell.velocity = 90
+            cell.velocityRange = 45
+            cell.emissionRange = .pi * 2
+            cell.yAcceleration = -120
+            cell.scale = 0.5
+            cell.scaleRange = 0.35
+            cell.scaleSpeed = -0.3
+            cell.alphaSpeed = -1.1
+            cell.spin = 2.5
+            cell.spinRange = 4
+            return cell
+        }
+        deck.addSublayer(emitter)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            emitter.birthRate = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            emitter.removeFromSuperlayer()
+        }
+    }
+
+    /// A small music-note glyph rendered to an image in `color`.
+    private static func noteImage(color: NSColor) -> NSImage? {
+        let side: CGFloat = 18
+        let image = NSImage(size: NSSize(width: side, height: side))
+        image.lockFocus()
+        let glyph = ["♪", "♫", "♩", "♬"].randomElement() ?? "♪"
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 14, weight: .bold),
+            .foregroundColor: color,
+        ]
+        let s = NSAttributedString(string: glyph, attributes: attrs)
+        let sz = s.size()
+        s.draw(at: NSPoint(x: (side - sz.width) / 2, y: (side - sz.height) / 2))
+        image.unlockFocus()
+        return image
+    }
+
+    private func startNextTuck() {
+        guard shuffleQueue > 0, bounds.width > 0 else {
+            shuffling = false
+            // Settle into the resting (or hovered) stack layout.
+            relayout(animated: true, springDamping: 16)
+            return
+        }
+        shuffling = true
+        shuffleQueue -= 1
+        shuffleTick += 1
+
+        let base = CGPoint(x: deck.bounds.midX, y: deck.bounds.midY)
+        let moving = frontIsIcon ? iconCard : qrCard    // current front → behind
+        let staying = frontIsIcon ? qrCard : iconCard   // current back → front
+
+        // Exit vector: mostly downward (the window has vertical room
+        // there, so the card clears completely without being clipped by
+        // the window edge) with a slightly different angle each time.
+        // Distance > cardSide ⇒ the moving card ends up ENTIRELY outside
+        // the other card's box before the z-swap, so the swap never
+        // happens mid-overlap — no z-fighting, the illusion holds.
+        let jitter = CGFloat.random(in: -0.7...0.7)
+        let angle = -CGFloat.pi / 2 + jitter            // down ± ~40°
+        let dist = cardSide * 1.25
+        let ux = cos(angle), uy = sin(angle)
+        let out = CGPoint(x: base.x + ux * dist, y: base.y + uy * dist)
+        let nudge = CGPoint(x: base.x - ux * cardSide * 0.14,
+                            y: base.y - uy * cardSide * 0.14)
+        let half: CFTimeInterval = 0.15
+
+        // Phase 1 — moving slides OUT over the top (z above everything);
+        // staying rises to the front slot and nudges out of the way.
+        moving.zPosition = 100
+        staying.zPosition = 50
+        move(moving, to: out, scale: 0.96, dur: half, timing: .easeIn)
+        move(staying, to: nudge, scale: 1.0, dur: half, timing: .easeOut)
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            guard let self = self else { return }
+            // Fully clear now — drop it behind with zero overlap.
+            moving.zPosition = 10
+            // Phase 2 — moving returns to the (behind) slot; staying
+            // centers as the new front.
+            self.move(moving, to: base, scale: 0.9, dur: half, timing: .easeOut)
+            self.move(staying, to: base, scale: 1.0, dur: half,
+                      timing: .easeInEaseOut)
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { [weak self] in
+                guard let self = self else { return }
+                self.frontIsIcon.toggle()   // swap committed
+                self.startNextTuck()        // keep shuffling if queued
+            }
+            CATransaction.commit()
+        }
+        CATransaction.commit()
+    }
+
+    /// Animate a card's position + uniform scale together, reading the
+    /// from-value off the live presentation so re-entrant moves chain.
+    private func move(_ card: CALayer, to center: CGPoint, scale: CGFloat,
+                      dur: CFTimeInterval, timing: CAMediaTimingFunctionName) {
+        let transform = CATransform3DMakeScale(scale, scale, 1)
+        let pos = CABasicAnimation(keyPath: "position")
+        pos.fromValue = card.presentation()?.position ?? card.position
+        pos.toValue = center
+        let tform = CABasicAnimation(keyPath: "transform")
+        tform.fromValue = card.presentation()?.transform ?? card.transform
+        tform.toValue = transform
+        let group = CAAnimationGroup()
+        group.animations = [pos, tform]
+        group.duration = dur
+        group.timingFunction = CAMediaTimingFunction(name: timing)
+        card.add(group, forKey: "move")
+        card.position = center
+        card.transform = transform
     }
 
     /// Replace the icon face (e.g. after a system-accent re-tint).
@@ -854,7 +877,7 @@ final class CardStackView: NSView {
     /// squircle, so its drop shadow follows that silhouette directly —
     /// no extra rounding needed.
     private func configureIcon(image: NSImage?) {
-        iconCard.bounds = CGRect(x: 0, y: 0, width: iconSide, height: iconSide)
+        iconCard.bounds = CGRect(x: 0, y: 0, width: cardSide, height: cardSide)
         iconCard.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         iconCard.contents = image?.cgImage(
             forProposedRect: nil, context: nil, hints: nil)
@@ -870,24 +893,34 @@ final class CardStackView: NSView {
     /// `shadowPath` (the white face clips its own contents, which would
     /// otherwise clip the shadow too).
     private func configureQR(image: NSImage?) {
-        let r = qrSide * Self.cornerRatio
-        qrCard.bounds = CGRect(x: 0, y: 0, width: qrSide, height: qrSide)
+        qrCard.bounds = CGRect(x: 0, y: 0, width: cardSide, height: cardSide)
         qrCard.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         qrCard.masksToBounds = false
+
+        // Inset the white tile by the same transparent margin the app
+        // icon carries, so the QR's VISIBLE size matches the icon
+        // squircle (the margin is now "counted" in the shared box).
+        let margin = cardSide * artMarginRatio
+        let faceRect = qrCard.bounds.insetBy(dx: margin, dy: margin)
+        let r = faceRect.width * Self.cornerRatio
         applyCardShadow(qrCard, path: CGPath(
-            roundedRect: qrCard.bounds, cornerWidth: r, cornerHeight: r,
+            roundedRect: faceRect, cornerWidth: r, cornerHeight: r,
             transform: nil))
 
         let face = CALayer()
-        face.frame = qrCard.bounds
+        face.frame = faceRect
         face.backgroundColor = NSColor.white.cgColor
         face.cornerRadius = r
         face.cornerCurve = .continuous
         face.masksToBounds = true
 
+        // Quiet-zone inset for the code within the white tile so the
+        // rounded corners never clip the finder patterns.
         let code = CALayer()
-        let pad = qrSide * 0.12
-        code.frame = qrCard.bounds.insetBy(dx: pad, dy: pad)
+        let pad = faceRect.width * 0.11
+        code.frame = CGRect(x: pad, y: pad,
+                            width: faceRect.width - pad * 2,
+                            height: faceRect.height - pad * 2)
         code.contents = image?.cgImage(
             forProposedRect: nil, context: nil, hints: nil)
         code.contentsGravity = .resizeAspect
@@ -907,16 +940,17 @@ final class CardStackView: NSView {
         card.masksToBounds = false
     }
 
-    /// Target center for whichever card is in front / behind.
+    /// Target center for whichever card is in front / behind. Hover is
+    /// a gentle peek — just enough to show there are two cards.
     private func frontCenter(_ base: CGPoint) -> CGPoint {
-        hovering ? CGPoint(x: base.x - 7, y: base.y - 5) : base
+        hovering ? CGPoint(x: base.x - 3, y: base.y - 2) : base
     }
     private func backCenter(_ base: CGPoint) -> CGPoint {
-        let dx: CGFloat = hovering ? 30 : 6
-        let dy: CGFloat = hovering ? 22 : 5
+        let dx: CGFloat = hovering ? 13 : 6
+        let dy: CGFloat = hovering ? 9 : 5
         return CGPoint(x: base.x + dx, y: base.y + dy)
     }
-    private func backTilt() -> CGFloat { (hovering ? 12 : 3) * .pi / 180 }
+    private func backTilt() -> CGFloat { (hovering ? 6 : 3) * .pi / 180 }
 
     // MARK: - Layout / animation
 
@@ -929,73 +963,13 @@ final class CardStackView: NSView {
         let back = frontIsIcon ? qrCard : iconCard
 
         settle(front, center: frontCenter(base), rotation: 0,
-               scale: hovering ? 1.04 : 1.0, z: 10,
-               shadowRadius: hovering ? 9 : 6,
+               scale: hovering ? 1.02 : 1.0, z: 10,
+               shadowRadius: hovering ? 8 : 6,
                animated: animated, damping: springDamping)
         settle(back, center: backCenter(base), rotation: backTilt(),
-               scale: 1.0, z: 5, shadowRadius: hovering ? 8 : 6,
+               scale: hovering ? 0.92 : 0.9, z: 5,
+               shadowRadius: hovering ? 8 : 6,
                animated: animated, damping: springDamping)
-    }
-
-    /// The shuffle: the new front springs forward to center; the card
-    /// just sent back lifts off the top, arcs up-and-out, then tucks
-    /// down behind the other — dropping its z partway so it passes in
-    /// front during the lift and behind as it lands.
-    private func shuffle() {
-        guard bounds.width > 0 else { return }
-        let base = CGPoint(x: bounds.midX, y: bounds.midY)
-        let newFront = frontIsIcon ? iconCard : qrCard
-        let newBack = frontIsIcon ? qrCard : iconCard
-
-        // Incoming front: spring into place (a little bounce on arrival).
-        settle(newFront, center: frontCenter(base), rotation: 0,
-               scale: hovering ? 1.04 : 1.0, z: 10,
-               shadowRadius: hovering ? 9 : 7, animated: true, damping: 13)
-
-        // Outgoing card: arc out over the top, then tuck behind.
-        let start = newBack.presentation()?.position ?? newBack.position
-        let target = backCenter(base)
-        let apex = CGPoint(x: max(start.x, target.x) + 34,
-                           y: base.y + 50)            // up & out (y is up)
-        let path = CGMutablePath()
-        path.move(to: start)
-        path.addQuadCurve(to: target, control: apex)
-
-        let duration: CFTimeInterval = 0.5
-        let posAnim = CAKeyframeAnimation(keyPath: "position")
-        posAnim.path = path
-        posAnim.duration = duration
-        posAnim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
-        let landTilt = backTilt()
-        let liftTransform = CATransform3DScale(
-            CATransform3DMakeRotation(-9 * .pi / 180, 0, 0, 1), 1.12, 1.12, 1)
-        let landTransform = CATransform3DScale(
-            CATransform3DMakeRotation(landTilt, 0, 0, 1), 1.0, 1.0, 1)
-        let tformAnim = CAKeyframeAnimation(keyPath: "transform")
-        tformAnim.values = [
-            newBack.presentation()?.transform ?? newBack.transform,
-            liftTransform,
-            landTransform,
-        ]
-        tformAnim.keyTimes = [0, 0.45, 1]
-        tformAnim.duration = duration
-        tformAnim.timingFunctions = [
-            CAMediaTimingFunction(name: .easeOut),
-            CAMediaTimingFunction(name: .easeIn),
-        ]
-
-        // Lifts off the top, then drops behind partway through.
-        newBack.zPosition = 20
-        let group = CAAnimationGroup()
-        group.animations = [posAnim, tformAnim]
-        group.duration = duration
-        newBack.add(group, forKey: "shuffle")
-        newBack.position = target
-        newBack.transform = landTransform
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration * 0.5) {
-            [weak newBack] in newBack?.zPosition = 5
-        }
     }
 
     /// Spring a card to a slot (position + transform), with the model

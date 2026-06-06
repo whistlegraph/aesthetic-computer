@@ -27,10 +27,21 @@ final class EasterEggChord {
         engine.prepare()
     }
 
+    /// Minimum gap between triggers — rapid clicks beyond this rate are
+    /// swallowed so the sparkle doesn't machine-gun.
+    private var lastPlay: TimeInterval = 0
+
     func play() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastPlay > 0.08 else { return }
+        lastPlay = now
         guard ensureStarted() else { return }
         guard let buffer = makeChordBuffer() else { return }
-        player.scheduleBuffer(buffer, completionHandler: nil)
+        // `.interrupts` cancels any still-ringing chord and starts this
+        // one immediately, so overlapping clicks replace rather than
+        // pile up into a muddy stack.
+        player.scheduleBuffer(buffer, at: nil, options: .interrupts,
+                              completionHandler: nil)
         if !player.isPlaying { player.play() }
     }
 
