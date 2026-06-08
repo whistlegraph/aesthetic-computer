@@ -2,7 +2,17 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
- * Version: 1.5.1
+ * Version: 1.5.2
+ *
+ * v1.5.2 — Fía's 2026-06-08 catch:
+ *  - Mobile header was rendering Tom's wordmark twice — the `.custom-logo`
+ *    <img> sat above a redundant `<span class="site-title">Thomas
+ *    Lawson</span>` because Astra's own mobile media query
+ *    (`@media (max-width:921px) { .site-title { display: block } }`) flipped
+ *    the title back on while the logo image stayed visible. Hide the
+ *    `.ast-site-title-wrap` (title + description) sitewide so only the
+ *    image wordmark renders. Desktop was unaffected — the title was
+ *    display:none there already.
  *
  * v1.5.1 — Fía's 2026-05-29 corrections:
  *  - Bookshelf: shelf strips re-centred with the first/last-cover
@@ -267,6 +277,22 @@ li.menu-item-home {
 #ast-desktop-header .site-header-primary-section-left,
 .ast-desktop-header-content .ast-site-identity {
     padding-left: 2.5rem !important;
+}
+
+/* Mobile branding rendered the logotype TWICE — Tom's wordmark image
+   (`.custom-logo`) sat directly above a redundant `<span class="site-title">`
+   reading "Thomas Lawson" in plain text. Astra's desktop CSS hides the
+   site-title (display:none), but its own media query at ≤921px flips it back
+   to display:block, producing the doubled header Fía flagged on mobile.
+   Hide the title-wrap (site-title + site-description) at every breakpoint —
+   the wordmark image is the brand mark and the description is already
+   hidden everywhere (Fía, 2026-06-08). */
+.ast-site-title-wrap,
+.ast-mobile-header-wrap .ast-site-title-wrap,
+.ast-mobile-header-wrap .site-title,
+.ast-mobile-header-wrap .site-header .site-title,
+.ast-mobile-header-wrap .site-description {
+    display: none !important;
 }
 
 /* About / Contact sit at the logo's vertical centre — the header grid row
