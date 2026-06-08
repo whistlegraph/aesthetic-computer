@@ -111,6 +111,11 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
 - [ ] Terminal: full Unicode font support (bitmap glyphs for box drawing, block elements)
 - [ ] KidLisp GPU compositing: render effects on GPU buffer, recompose with CPU renderer
 
+**Host Tooling (slab/)** — @jeffrey's macOS host, not a deployed service
+- `slab/menubar-swift/` — native Swift menubar daemon (launchd `computer.slab.menubar`). Shows live Claude-session status, themes each Terminal.app/iTerm2 window by session state (working/awaiting/complete), tiles all windows into one grid, tints the desktop, and serves passphrases over a unix socket. Built + installed locally with `slab/menubar-swift/install.sh` (`swift build -c release` → universal arm64+x86_64 binary → app bundle + launchd agent); there is no remote deploy.
+- **Tiling auto-fits the type:** `tileNow` sizes each Terminal window's font to the grid (Far/Near/Tiny modes) and drives `View ▸ Default Font Size` per window so a live window actually adopts it — a per-window zoom otherwise silently overrides the profile font and is invisible to AppleScript. Floors keep it legible (Far 10 / Near 9 / Tiny 8). iTerm2 has no AppleScript font property, so it tiles by bounds only.
+- `slab/bin/ac-passphrase` — pinentry-free secret fetch from the daemon (see Development Environment below).
+
 **Other Projects**
 - `tezos/` — NFT/blockchain experiments
 - `grab/` — Media utilities
