@@ -500,7 +500,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if self.state.autoTile {
-                    self.tileNow()
+                    // Re-pin geometry only — skip the focus-stealing zoom
+                    // reset on this frequent automatic path.
+                    self.tileNowImpl(resetZoom: false)
                 }
                 self.refresh()
             }
@@ -749,6 +751,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         FileManager.default.createFile(atPath: path, contents: nil)
         try? FileManager.default.removeItem(atPath: Paths.tinyTextFlag)
+        // Update the live snapshot synchronously: `refresh()` re-derives
+        // textSize off a *background* gather that posts back later, so the
+        // immediate `tileNow()` would otherwise tile at the previous size.
+        state.textSize = .near
         refresh()
         tileNow()
     }
@@ -757,8 +763,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let path = Paths.tinyTextFlag
         let dir = (path as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        FileManager.default.createFile(atPath: path, contents: nil)
         try? FileManager.default.removeItem(atPath: Paths.nearTextFlag)
+        state.textSize = .tiny
         refresh()
         tileNow()
     }
@@ -766,6 +772,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func setTextFar() {
         try? FileManager.default.removeItem(atPath: Paths.nearTextFlag)
         try? FileManager.default.removeItem(atPath: Paths.tinyTextFlag)
+        state.textSize = .far
         refresh()
         tileNow()
     }
@@ -1218,8 +1225,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             tm.append("    try")
             tm.append("      set font name of slabSS to font name of default settings")
             tm.append("    end try")
+            // Keep the family from the user's default, but pin the size to the
+            // last tiled font so a re-theme on the blink tick doesn't bounce
+            // the window back to the un-tiled 12pt. Falls back to the default
+            // size before the first tile of the session.
             tm.append("    try")
-            tm.append("      set font size of slabSS to font size of default settings")
+            if let tiled = lastTiledFontSize {
+                tm.append("      set font size of slabSS to \(tiled)")
+            } else {
+                tm.append("      set font size of slabSS to font size of default settings")
+            }
             tm.append("    end try")
             // Close windows without the "terminate running processes?" modal:
             // `clean commands` is Terminal's allowlist of processes ignored when
@@ -1612,21 +1627,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Font is sized for the tightest cell: full-width / widest row, and
         // equal row height. A char cell is ~fontSize*0.6 wide, *1.2 tall in
-        // Menlo/SF Mono; target ~24 rows × ~80 cols of monospace.
+        // Menlo/SF Mono; target ~26 rows × ~84 cols of monospace.
         let innerW = max(1, geom.width / maxCols - 2 * tileGutter)
         let innerH = max(1, geom.height / rows - 2 * tileGutter)
-        let fontByH = Double(innerH) / (24.0 * 1.2)
-        let fontByW = Double(innerW) / (80.0 * 0.6)
+        let fontByH = Double(innerH) / (26.0 * 1.2)
+        let fontByW = Double(innerW) / (84.0 * 0.6)
         let raw = min(fontByH, fontByW)
         // Far = legible from a typical sitting distance (the auto-fit
-        // baseline). Near ≈ 60% — denser when sitting close. Tiny ≈ 40%
-        // — for cramming many panes at the edge of legibility.
+        // baseline). Near ≈ 75% — denser when sitting close. Tiny ≈ 60%
+        // — tightest pack. The floors are the load-bearing rule: a tiled
+        // wall must ALWAYS stay readable, so even the densest pack never
+        // drops below ~10pt (Monaspace Argon's comfortable lower bound).
         let scale: Double
         let floor: Int
         switch size {
-        case .far:  scale = 1.0;  floor = 8
-        case .near: scale = 0.6;  floor = 6
-        case .tiny: scale = 0.4;  floor = 4
+        case .far:  scale = 1.0;   floor = 10
+        case .near: scale = 0.85;  floor = 9
+        case .tiny: scale = 0.7;   floor = 8
         }
         let fontSize = max(floor, Int((raw * scale).rounded()))
 
@@ -1647,7 +1664,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Terminal gets bounds only — AppleScript can't set per-session decor
     /// or wallpaper on Terminal.app, so those windows tile but stay
     /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
-    @objc func tileNow() {
+    /// Menu / hotkey entry point: an explicit tile, which DOES reset each
+    /// Terminal window's font zoom so the grid-derived size actually lands.
+    @objc func tileNow() { tileNowImpl(resetZoom: true) }
+
+    /// `resetZoom`: when true, drive View ▸ Default Font Size on every
+    /// Terminal window so a live window adopts the new profile font (a
+    /// per-window zoom otherwise silently overrides it — see
+    /// slab-terminal-font-zoom). It steals focus for ~0.35 s/window, so the
+    /// frequent auto-retile-after-close path passes false (fresh/unchanged
+    /// windows already render their profile font).
+    func tileNowImpl(resetZoom: Bool) {
         guard let geom = Self.screenGeom() else { return }
         let textSize = state.textSize
         DispatchQueue.global(qos: .userInitiated).async {
@@ -1681,14 +1708,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 lines.append("end tell")
             }
             if nTerm > 0 {
+                // Terminal.app auto-fit, three ordered passes in ONE osascript
+                // so the sequence is deterministic. Windows are addressed by
+                // id (captured up front) because pass 2 reorders the list.
+                //  1. set each window's profile font to the grid-derived size
+                //  2. View ▸ Default Font Size on each window (System Events) —
+                //     the ONLY reliable way to make a LIVE window adopt a new
+                //     font. A per-window zoom (View ▸ Bigger/Smaller) silently
+                //     overrides the profile font and is invisible to
+                //     AppleScript, so pass 1 alone is a no-op on already-open
+                //     windows (see slab-terminal-font-zoom). Skipped when
+                //     resetZoom is false (frequent auto-retile path).
+                //  3. re-pin pixel bounds LAST so the reflow can't fight the
+                //     cell geometry.
+                // Minimized windows are excluded (matches windowCount): they
+                // neither consume a cell nor get moved.
                 lines.append("tell application \"Terminal\"")
-                // Tile only non-minimized windows (matches windowCount): a
-                // minimized window must neither consume a cell nor be moved.
-                lines.append("    set _slabVis to (every window whose miniaturized is false)")
+                lines.append("    set _slabIds to id of (every window whose miniaturized is false)")
+                lines.append("    repeat with _wid in _slabIds")
+                lines.append("      try")
+                lines.append("        set font size of current settings of (first window whose id is (contents of _wid)) to \(layout.fontSize)")
+                lines.append("      end try")
+                lines.append("    end repeat")
+                lines.append("end tell")
+                if resetZoom {
+                    lines.append("tell application \"Terminal\" to activate")
+                    lines.append("repeat with _wid in _slabIds")
+                    lines.append("  try")
+                    lines.append("    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1")
+                    lines.append("    delay 0.25")
+                    lines.append("    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1")
+                    lines.append("    delay 0.1")
+                    lines.append("  end try")
+                    lines.append("end repeat")
+                }
+                lines.append("tell application \"Terminal\"")
                 for j in 0..<nTerm {
                     let cell = layout.cellAt(index: nIterm + j)
                     lines.append("    try")
-                    lines.append("      set bounds of item \(j + 1) of _slabVis to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
+                    lines.append("      set bounds of (first window whose id is (item \(j + 1) of _slabIds)) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
                     lines.append("    end try")
                 }
                 lines.append("end tell")
