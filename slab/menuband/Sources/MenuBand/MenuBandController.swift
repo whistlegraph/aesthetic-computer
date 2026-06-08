@@ -2471,8 +2471,13 @@ final class MenuBandController {
             // through to the system.
         }
 
-        // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
-        if hasModifier { return false }
+        // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual —
+        // but ONLY gate this on key-DOWN. A key-up must ALWAYS reach the
+        // release path below, even while Ctrl/Option is still held; otherwise
+        // letting go of a note with Ctrl down strands the sounding note/chord
+        // (the bug: Cmd released fine because Cmd isn't in `hasModifier`, but
+        // Ctrl bailed here and never sent the note-off).
+        if hasModifier && isDown { return false }
 
         // Spacebar (keyCode 49) = reverse-replay (notepat-native parity).
         // Plain space rewinds the most-recent audio; we intercept it BEFORE
