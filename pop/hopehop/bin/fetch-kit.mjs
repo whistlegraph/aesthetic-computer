@@ -19,16 +19,20 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const KIT_PATH = resolve(HERE, "..", "kit.json");
 
 // role → freesound query + duration filter. Trap-leaning, punchy one-shots.
+// classic boom-bap / native-tongues flavor — dusty sampled-record one-shots,
+// vintage drum-machine + live hand-perc, NOT modern trap. CC-only.
 const ROLES = {
-  kick:  { query: "trap kick punchy 808",     filter: "duration:[0.1 TO 2]" },
-  snare: { query: "trap snare",               filter: "duration:[0.1 TO 2]" },
-  clap:  { query: "hand clap",                filter: "duration:[0.05 TO 1.5]" },
-  hat:   { query: "closed hihat",             filter: "duration:[0.02 TO 0.6]" },
-  ohat:  { query: "open hi hat",              filter: "duration:[0.05 TO 1.2]" },
-  shaker:{ query: "shaker percussion one shot", filter: "duration:[0.05 TO 1]" },
-  rim:   { query: "rim click percussion",     filter: "duration:[0.02 TO 0.8]" },
-  perc:  { query: "percussion conga hit",     filter: "duration:[0.05 TO 1.2]" },
-  crash: { query: "crash cymbal",             filter: "duration:[0.5 TO 4]" },
+  kick:  { query: "boom bap kick drum",               filter: "duration:[0.1 TO 1.2]" },
+  snare: { query: "boom bap snare",                   filter: "duration:[0.1 TO 1.5]" },
+  clap:  { query: "909 clap",                         filter: "duration:[0.05 TO 1.5]" },
+  hat:   { query: "lofi closed hihat",                filter: "duration:[0.02 TO 0.6]" },
+  ohat:  { query: "open hihat analog",                filter: "duration:[0.05 TO 1.2]" },
+  shaker:{ query: "shaker percussion one shot",       filter: "duration:[0.05 TO 1]" },
+  tamb:  { query: "tambourine one shot",              filter: "duration:[0.05 TO 1.2]" },
+  rim:   { query: "rimshot cross stick",              filter: "duration:[0.02 TO 0.8]" },
+  perc:  { query: "conga hit live percussion",        filter: "duration:[0.05 TO 1.2]" },
+  bongo: { query: "bongo hit",                        filter: "duration:[0.05 TO 1.2]" },
+  crash: { query: "vintage crash cymbal",             filter: "duration:[0.5 TO 4]" },
   panther:{ query: "panther",                 filter: "duration:[2 TO 6]" },   // #536331 = clean tonal roar
   panther2:{ query: "jaguar growl roar",      filter: "duration:[1 TO 5]" },   // alt big-cat voice
   scratch:{ query: "turntable scratch vinyl", filter: "duration:[0.1 TO 1.5]" },
@@ -37,9 +41,16 @@ const ROLES = {
 
 const argv = process.argv.slice(2);
 const LIST = argv.includes("--list");
-const pickArg = argv.find((a) => a.startsWith("--pick"));
+// --pick accepts one or more role=idx pairs, comma- or space-separated:
+//   --pick clap=2  ·  --pick "kick=0,clap=2,hat=1"  ·  --pick kick=0 clap=2
 const pins = {};
-if (pickArg) { const v = argv[argv.indexOf(pickArg) + 1] || ""; const [r, i] = v.split("="); if (r) pins[r] = parseInt(i, 10) || 0; }
+for (let i = 0; i < argv.length; i++) {
+  if (!argv[i].startsWith("--pick")) continue;
+  const specs = [];
+  if (argv[i].includes("=")) specs.push(...argv[i].replace(/^--pick=?/, "").split(","));
+  while (argv[i + 1] && !argv[i + 1].startsWith("--")) specs.push(...argv[++i].split(","));
+  for (const s of specs) { const [r, n] = s.split("="); if (r && n !== undefined) pins[r.trim()] = parseInt(n, 10) || 0; }
+}
 
 const kit = existsSync(KIT_PATH) ? JSON.parse(readFileSync(KIT_PATH, "utf8")) : {};
 

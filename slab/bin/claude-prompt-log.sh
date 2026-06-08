@@ -72,8 +72,11 @@ if [[ -n "$input" ]]; then
             printf '\033]0;%s\007' "$summary" > "/dev/$tty" 2>/dev/null
         fi
 
-        # User responded — clear any awaiting marker for this session.
+        # User responded — clear any awaiting marker for this session, plus a
+        # stale running-tool flag so the fresh turn's interrupt-detection
+        # starts clean (see claude-tool-heartbeat.sh).
         rm -f "$AWAITING_DIR/$session_id"
+        rm -f "$SLAB_HOME/state/running-tools/$session_id"
     fi
 
     mkdir -p "$(dirname "$PROMPT_LOG")"

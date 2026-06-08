@@ -57,6 +57,13 @@ final class MenuBandRewindVoice {
         d.wetDryMix = 0
         return d
     }()
+    /// Format-absorbing entry stage. The reversed clip is mono and may be at a
+    /// different rate than the device; an AVAudioUnit (pitch/delay) REJECTS a
+    /// reconnect to such a format (-10868, kAudioUnitErr_FormatNotSupported),
+    /// but a mixer node accepts any input-bus format and resamples/upmixes to
+    /// its own stable output. So the rate-matching reconnect lands HERE, and
+    /// the pitch/echo AUs downstream only ever see the mixer's steady format.
+    private let entryMixer = AVAudioMixerNode()
     private let mixer = AVAudioMixerNode()
     private weak var engine: AVAudioEngine?
     private var attached = false
@@ -97,6 +104,7 @@ final class MenuBandRewindVoice {
         guard !attached else { return }
         self.engine = engine
         engine.attach(player)
+        engine.attach(entryMixer)
         engine.attach(pitch)
         engine.attach(echo)
         engine.attach(mixer)
@@ -105,12 +113,16 @@ final class MenuBandRewindVoice {
         // breaks (and `scheduleBuffer` asserts) when the user is on a 96 kHz
         // interface or hot-swaps devices. The reversed clip is built in the
         // player's *actual* output format at play time (see `playReverse`).
-        // player → pitch → echo → mixer → mainMixerNode: the bend/echo ride
-        // the tape but stay private to this DRY sub-chain (no recapture).
-        engine.connect(player, to: pitch, format: nil)
+        // player → entryMixer → pitch → echo → mixer → mainMixerNode: the
+        // bend/echo ride the tape but stay private to this DRY sub-chain (no
+        // recapture). entryMixer absorbs the clip's mono/rate so the AUs only
+        // ever see a stable format (the -10868 crash fix).
+        engine.connect(player, to: entryMixer, format: nil)
+        engine.connect(entryMixer, to: pitch, format: nil)
         engine.connect(pitch, to: echo, format: nil)
         engine.connect(echo, to: mixer, format: nil)
         engine.connect(mixer, to: engine.mainMixerNode, format: nil)
+        entryMixer.outputVolume = 1.0
         mixer.outputVolume = 1.0
         attached = true
     }
@@ -242,9 +254,10 @@ final class MenuBandRewindVoice {
         }
         clip.frameLength = AVAudioFrameCount(count)
         if connectedRate != rate {
-            // Re-wire only the player→pitch segment to the clip's rate; the
-            // rest of the sub-chain stays device-rate (the AUs resample).
-            engine.connect(player, to: pitch, format: clipFormat)
+            // Re-wire only the player→entryMixer segment to the clip's rate.
+            // The mixer accepts the mono/rate and feeds the pitch/echo AUs a
+            // stable format — reconnecting an AU input here would throw -10868.
+            engine.connect(player, to: entryMixer, format: clipFormat)
             connectedRate = rate
         }
 

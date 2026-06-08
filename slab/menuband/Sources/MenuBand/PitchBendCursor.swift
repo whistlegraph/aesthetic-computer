@@ -19,11 +19,11 @@ enum PitchBendCursor {
     static let cursorSize = NSSize(width: 80, height: 80)
 
     static func image(forBend amount: Float) -> NSImage {
-        buildImage(bend: CGFloat(amount), echo: 0)
+        buildImage(bend: CGFloat(amount), echo: 0, keyDown: false)
     }
 
-    static func image(forBend bend: Float, echo: Float) -> NSImage {
-        buildImage(bend: CGFloat(bend), echo: CGFloat(echo))
+    static func image(forBend bend: Float, echo: Float, keyDown: Bool = false) -> NSImage {
+        buildImage(bend: CGFloat(bend), echo: CGFloat(echo), keyDown: keyDown)
     }
 
     static func cursor(forBend amount: Float) -> NSCursor {
@@ -34,7 +34,7 @@ enum PitchBendCursor {
         NSCursor(image: image(forBend: bend, echo: echo), hotSpot: hotSpot)
     }
 
-    private static func buildImage(bend: CGFloat, echo: CGFloat) -> NSImage {
+    private static func buildImage(bend: CGFloat, echo: CGFloat, keyDown: Bool) -> NSImage {
         let bendC = max(-1, min(1, bend))
         // `echo` is the bipolar fx-X driver in [-1, +1]: positive
         // (right) is echo, negative (left) is space/reverb. We keep
@@ -51,21 +51,21 @@ enum PitchBendCursor {
         return NSImage(size: size, flipped: false) { rect in
             if #available(macOS 11.0, *) {
                 appearance.performAsCurrentDrawingAppearance {
-                    drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark)
+                    drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark, keyDown: keyDown)
                 }
             } else {
-                drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark)
+                drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark, keyDown: keyDown)
             }
             return true
         }
     }
 
     private static func drawChart(in rect: NSRect, bend: CGFloat, echo: CGFloat,
-                                  isDark: Bool) {
-        // Modeled on a Menu Band keycap: a skeuomorphic key plate with a
-        // top-lit gradient, engraved axis "grooves" like the gaps between
-        // keys, a glossy black-key knob, and a defined keycap outline — so
-        // the pad reads as grounded and physical, not a flat light chip.
+                                  isDark: Bool, keyDown: Bool) {
+        // A Menu Band keycap plate, cleanly divided into four quadrants by a
+        // single thin cross (no axis labels, no arrowheads, no end-caps). The
+        // puck carries the live bend (Y) / echo (X) and lights up with the
+        // accent color while a note key is held.
         let chart = rect.insetBy(dx: 4, dy: 4)
         let radius: CGFloat = 7
         let body = NSBezierPath(roundedRect: chart, xRadius: radius, yRadius: radius)
@@ -78,54 +78,33 @@ enum PitchBendCursor {
         let plateBot = isDark
             ? NSColor(white: 0.13, alpha: 1)
             : NSColor(srgbRed: 0.90, green: 0.86, blue: 0.76, alpha: 1)
+        let cx = chart.midX, cy = chart.midY
+
         NSGraphicsContext.saveGraphicsState()
         body.addClip()
         NSGradient(starting: plateTop, ending: plateBot)?.draw(in: chart, angle: -90)
-        NSGraphicsContext.restoreGraphicsState()
 
-        let cx = chart.midX, cy = chart.midY
-
-        // Engraved axis grooves: a dark recess with a light bevel highlight
-        // offset just below/right, exactly like the seam between two keys.
+        // Clean dividing cross — one thin groove per axis, spanning the full
+        // plate (clipped to the rounded body), nothing on the ends.
         let groove = (isDark ? NSColor.black
                              : NSColor(srgbRed: 0.42, green: 0.36, blue: 0.26, alpha: 1))
-            .withAlphaComponent(isDark ? 0.7 : 0.55)
-        let bevel = (isDark ? NSColor(white: 0.4, alpha: 1) : NSColor.white)
-            .withAlphaComponent(isDark ? 0.5 : 0.8)
-        func grooveLine(_ a: NSPoint, _ b: NSPoint) {
-            let hi = NSBezierPath()
-            hi.move(to: NSPoint(x: a.x + 0.6, y: a.y - 0.6))
-            hi.line(to: NSPoint(x: b.x + 0.6, y: b.y - 0.6))
-            bevel.setStroke(); hi.lineWidth = 0.8; hi.stroke()
-            let p = NSBezierPath(); p.move(to: a); p.line(to: b)
-            groove.setStroke(); p.lineWidth = 1.0; p.stroke()
-        }
-        grooveLine(NSPoint(x: chart.minX + 6, y: cy), NSPoint(x: chart.maxX - 6, y: cy))
-        grooveLine(NSPoint(x: cx, y: chart.minY + 6), NSPoint(x: cx, y: chart.maxY - 6))
+            .withAlphaComponent(isDark ? 0.55 : 0.40)
+        groove.setStroke()
+        let hLine = NSBezierPath()
+        hLine.move(to: NSPoint(x: chart.minX, y: cy))
+        hLine.line(to: NSPoint(x: chart.maxX, y: cy))
+        hLine.lineWidth = 1
+        hLine.stroke()
+        let vLine = NSBezierPath()
+        vLine.move(to: NSPoint(x: cx, y: chart.minY))
+        vLine.line(to: NSPoint(x: cx, y: chart.maxY))
+        vLine.lineWidth = 1
+        vLine.stroke()
+        NSGraphicsContext.restoreGraphicsState()
 
-        // Axis labels: + / − (bend) and « space / » echo, inked to read on
-        // the plate.
-        let ink = isDark ? NSColor.white
-                         : NSColor(srgbRed: 0.30, green: 0.25, blue: 0.16, alpha: 1)
-        let labelAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 8, weight: .heavy),
-            .foregroundColor: ink.withAlphaComponent(0.55),
-        ]
-        let plus = NSAttributedString(string: "+", attributes: labelAttrs)
-        let minus = NSAttributedString(string: "−", attributes: labelAttrs)
-        let echoMark = NSAttributedString(string: "»", attributes: labelAttrs)
-        let spaceMark = NSAttributedString(string: "«", attributes: labelAttrs)
-        plus.draw(at: NSPoint(x: cx - plus.size().width / 2,
-                              y: chart.maxY - plus.size().height - 1))
-        minus.draw(at: NSPoint(x: cx - minus.size().width / 2, y: chart.minY + 1))
-        echoMark.draw(at: NSPoint(x: chart.maxX - echoMark.size().width - 2,
-                                  y: cy - echoMark.size().height / 2))
-        spaceMark.draw(at: NSPoint(x: chart.minX + 2,
-                                   y: cy - spaceMark.size().height / 2))
-
-        // Knob = a black key: a dark glossy puck (top-lit gradient) with a
-        // crisp dark outline. Position carries the live bend/echo; the
-        // color stays "black key" regardless so it reads as part of the kit.
+        // Puck. Position carries the live bend/echo. Default = a glossy
+        // "black key" puck; while a key is held it glows in the accent color.
+        let accent = NSColor.controlAccentColor
         let puckR: CGFloat = 6
         let halfW = chart.width / 2 - puckR - 3
         let halfH = chart.height / 2 - puckR - 3
@@ -135,16 +114,28 @@ enum PitchBendCursor {
         let knob = NSBezierPath(roundedRect: puckRect, xRadius: 3, yRadius: 3)
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        shadow.shadowBlurRadius = 2
+        if keyDown {
+            shadow.shadowColor = accent.withAlphaComponent(0.9)
+            shadow.shadowOffset = .zero
+            shadow.shadowBlurRadius = 5
+        } else {
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+            shadow.shadowOffset = NSSize(width: 0, height: -1)
+            shadow.shadowBlurRadius = 2
+        }
         shadow.set()
         knob.addClip()
-        NSGradient(starting: NSColor(white: 0.28, alpha: 1),
-                   ending: NSColor(white: 0.07, alpha: 1))?.draw(in: puckRect, angle: -90)
+        if keyDown {
+            let top = accent.blended(withFraction: 0.4, of: .white) ?? accent
+            NSGradient(starting: top, ending: accent)?.draw(in: puckRect, angle: -90)
+        } else {
+            NSGradient(starting: NSColor(white: 0.28, alpha: 1),
+                       ending: NSColor(white: 0.07, alpha: 1))?.draw(in: puckRect, angle: -90)
+        }
         NSGraphicsContext.restoreGraphicsState()
-        NSColor.black.withAlphaComponent(0.9).setStroke()
-        knob.lineWidth = 0.8
+        (keyDown ? (accent.blended(withFraction: 0.4, of: .black) ?? accent)
+                 : NSColor.black.withAlphaComponent(0.9)).setStroke()
+        knob.lineWidth = keyDown ? 1.0 : 0.8
         knob.stroke()
 
         // Keycap outline last so the whole pad is framed like a key.

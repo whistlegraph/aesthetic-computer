@@ -1,8 +1,4 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
-// Don't clear console if we're in an embedded/iframe context (like kidlisp.com editor)
-// if (window === window.top) {
-//   console.clear();
-// }
 
 // 📦 Early WebSocket module loader initialization
 // This runs before anything else to establish connection ASAP
@@ -1085,13 +1081,6 @@ if (
   }
 }
 
-// if (window.acDEBUG || window.acVSCODE) {
-//   console.log("🧭 URL pipeline", {
-//     originalUrl,
-//     sluggedUrl,
-//   });
-// }
-
 const pieceToLoad = sluggedUrl;
 bootLog(`parsing: ${pieceToLoad || 'prompt'}`);
 const parsed = parse(pieceToLoad);
@@ -1099,15 +1088,6 @@ const parsed = parse(pieceToLoad);
 if (hashLooksLikePaintingCode && hashCandidate && !parsed.hash) {
   parsed.hash = hashCandidate;
 }
-
-// if (window.acDEBUG || window.acVSCODE) {
-//   console.log("🧭 Parsed result", {
-//     text: parsed?.text,
-//     search: parsed?.search,
-//     hash: parsed?.hash,
-//     params: parsed?.params,
-//   });
-// }
 
 // Preserve the original search parameters that were stripped by slug()
 if (location.search) {
@@ -1512,32 +1492,10 @@ if (!sandboxed && !skipAuth) {
         }
       }
 
-      // const iframe = window.self !== window.top;
-
       window.acLOGIN = async (mode) => {
         const opts = { prompt: "login" }; // Never skip the login screen.
         if (mode === "signup") opts.screen_hint = mode;
-
-        //if (!iframe) {
         auth0Client.loginWithRedirect({ authorizationParams: opts });
-        //} else {
-        // window.parent.postMessage(
-        //   {
-        //     type: "externallyAuthenticate",
-        //     authUrl: "https://hi.aesthetic.computer",
-        //   },
-        //   "*",
-        // );
-        // console.log("🔐 Logging in with popup...");
-        // auth0Client
-        // .loginWithPopup()
-        // .then(() => {
-        // console.log("🔐 Logged in with popup");
-        // })
-        // .catch((error) => {
-        // console.error("🔐 Popup login error:", error);
-        // });
-        //}
       };
 
       if (location.pathname === "/hi") window.acLOGIN();
@@ -1674,32 +1632,15 @@ if (!sandboxed && !skipAuth) {
       });
     }
   });
-} else {
-  // Auth0 disabled in OBJKT mode
 }
 // #endregion
 
-// ***Incoming Message Responder***
-
-// - At the moment it is just for a work-in-progress figma widget but any
-//   window messages to be received here.
-// TODO: Finish FigJam Widget with iframe message based input & output.
-//         See also: https://www.figma.com/plugin-docs/working-with-images/
-
-// setTimeout(function() {
-//   console.log("attempting a real focus...")
-//   document.querySelector("#software-keyboard-input").focus();
-// }, 4000);
+// Incoming window-message responder (kidlisp.com embed, vscode, l5, docs, etc.).
 
 function receive(event) {
   // console.log("🌟 Event:", event);
   if (event.data?.type === "aesthetic-parent:focused") {
     window.acSEND?.({ type: "aesthetic-parent:focused" });
-    return;
-  }
-  if (event.data?.type === "figma-image-input") {
-    // TODO: Build image with width and height.
-    console.log("Bytes:", event.data.bytes.length);
     return;
   }
   if (event.data?.type === "clipboard:copy:confirmation") {
@@ -2036,4 +1977,3 @@ window.acRequestNotifications = function requestNotifications() {
   notificationsInitialized = true;
   initNotifications();
 };
-// Force redeploy Thu Dec 25 18:42:51 PST 2025

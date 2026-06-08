@@ -285,11 +285,12 @@ enum MenuBuilder {
         for s in sessions {
             let dot: String
             switch s.state {
-            case .awaiting: dot = "◉"
-            case .working:  dot = "●"
-            case .complete: dot = "✓"
-            case .blank:    dot = "·"   // tiny midpoint — fresh, nothing yet
-            case .stale:    dot = "○"
+            case .awaiting:    dot = "◉"
+            case .working:     dot = "●"
+            case .complete:    dot = "✓"
+            case .interrupted: dot = "✕"   // Esc'd, idle at the prompt
+            case .blank:       dot = "·"   // tiny midpoint — fresh, nothing yet
+            case .stale:       dot = "○"
             }
             let tail = s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)"
             // Blank sessions have no subject yet — substitute a placeholder
@@ -406,6 +407,7 @@ enum MenuBuilder {
         case .working:  dotColor = NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
         case .complete: dotColor = NSColor(deviceHue: 0.58, saturation: 0.30, brightness: 0.70, alpha: 1.0)
         case .awaiting: dotColor = NSColor(deviceHue: 0.10, saturation: 0.95, brightness: 0.95, alpha: 1.0)
+        case .interrupted: dotColor = NSColor(deviceHue: 0.78, saturation: 0.55, brightness: 0.80, alpha: 1.0) // violet
         case .blank:    dotColor = NSColor.tertiaryLabelColor
         case .stale:    dotColor = NSColor(deviceWhite: 0.55, alpha: 1.0)
         }
@@ -429,6 +431,8 @@ enum MenuBuilder {
             parts.append("turn complete (idle)")
         case .working:
             parts.append("working")
+        case .interrupted:
+            parts.append("interrupted (Esc'd, idle at prompt)")
         case .blank:
             parts.append("blank (no prompt yet)")
         case .stale:

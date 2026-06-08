@@ -75,6 +75,11 @@ const PAPER_MAP = {
     siteName: "repo-archaeology-26-arxiv",
     title: "Repository Archaeology",
   },
+  "arxiv-hand-and-loop": {
+    base: "handloop",
+    siteName: "hand-and-loop-26-arxiv",
+    title: "The Hand and the Loop",
+  },
   "arxiv-dead-ends": {
     base: "dead-ends",
     siteName: "dead-ends-26-arxiv",
@@ -211,6 +216,11 @@ const PAPER_MAP = {
     base: "penrose",
     siteName: "diagrams-from-data-26-arxiv",
     title: "Diagrams from Data",
+  },
+  "arxiv-nom": {
+    base: "nom",
+    siteName: "nom-games-26-arxiv",
+    title: "The nom Games",
   },
   "cv": {
     base: "cv",
@@ -385,6 +395,7 @@ const CATEGORIES = [
       "arxiv-fraserin",
       "arxiv-score-analysis",
       "arxiv-comp-strats",
+      "arxiv-nom",
       "essay-may-26",
     ],
   },
@@ -394,6 +405,7 @@ const CATEGORIES = [
     sub: "data turned back on the project itself — who uses it, what it cites, where it came from.",
     dirs: [
       "arxiv-archaeology",
+      "arxiv-hand-and-loop",
       "arxiv-network-audit",
       "arxiv-diversity",
       "arxiv-open-schools",
@@ -736,6 +748,7 @@ function updateIndex(entries) {
     "dead-ends-26-arxiv": 12,
     "folk-songs-26-arxiv": 13,
     "repo-archaeology-26-arxiv": 14,
+    "hand-and-loop-26-arxiv": 14.5,
     "network-audit-26-arxiv": 15,
     "kidlisp-reference-26-arxiv": 16,
     "citation-diversity-audit-26": 17,
@@ -875,6 +888,11 @@ function updateIndex(entries) {
       abstract:
         "Repository Archaeology traces the project through its git history. The paper shows how version control can become a narrative medium for design evolution.",
     },
+    "hand-and-loop-26-arxiv": {
+      detail: "Three Eras of My Own Code: Hand-Written, GPT-Grafted, Agentic &middot; arXiv 4pp",
+      abstract:
+        "The Hand and the Loop reads AC's git history across three eras — hand-written, GPT-grafted, and fully agentic — and asks honestly whether the codebase is better off. It weighs 5x velocity and five new subsystems against the loss of instrument-like minimalism, and argues for keeping the loop in the leaves while a human hand carves the foundational libraries.",
+    },
     "network-audit-26-arxiv": {
       detail: "Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp",
       abstract:
@@ -899,6 +917,11 @@ function updateIndex(entries) {
       detail: "",
       abstract:
         "Five Years from Now is a projection paper about where the project could go if current habits continue. It uses the near future to test the consequences of today's decisions.",
+    },
+    "nom-games-26-arxiv": {
+      detail: "Muncher Arcade for Aesthetic Computer &middot; arXiv",
+      abstract:
+        "The nom games rebuild MECC's Word and Number Munchers as Aesthetic Computer pieces --- mathnom, engnom, mexinom, and notenom. The paper shows how one shared engine and a reusable virtual synth controller turn each new subject or language into a content table rather than a new game, with the answer key in notenom doubling as a playable instrument.",
     },
     "aesthetic-may-26-essay": {
       detail: "Essay &middot; ~5pp",

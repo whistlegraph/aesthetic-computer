@@ -67,6 +67,25 @@ for f in "$SLAB_REPO/bin/"*; do
     chmod +x "$f"
 done
 
+# ------------ Monaspace Argon font (terminal-theming base) ------------
+# The Slab terminal profiles render in Monaspace Argon. Install it into the
+# user font dir if present in the repo seed (no-op if the seed omits fonts —
+# e.g. a slim checkout — in which case install Monaspace yourself).
+FONT_DIR="$HOME_DIR/Library/Fonts"
+if compgen -G "$SLAB_REPO/seed/fonts/*.otf" >/dev/null 2>&1; then
+    say "installing Monaspace Argon → $FONT_DIR"
+    mkdir -p "$FONT_DIR"
+    cp "$SLAB_REPO/seed/fonts/"*.otf "$FONT_DIR/"
+fi
+
+# ------------ Terminal profiles (Slab-* status themes + Grass base) ------------
+# Seeds the exact named settings sets the menubar switches between per Claude
+# session status, so a new machine looks identical from first launch.
+if [[ -f "$SLAB_REPO/seed/terminal-profiles.plist" ]]; then
+    say "seeding Terminal profiles (Grass + Slab-* status themes)"
+    "$SLAB_REPO/bin/slab-seed-terminal" || warn "terminal seed failed (continuing)"
+fi
+
 # ------------ Swift binary: live ambient synth ------------
 say "compiling lid-ambient-synth → $SLAB_BIN/lid-ambient-synth"
 swiftc -O -o "$SLAB_BIN/lid-ambient-synth" "$SLAB_REPO/bin/lid-ambient-synth.swift"

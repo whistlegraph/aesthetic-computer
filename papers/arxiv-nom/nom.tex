@@ -1,0 +1,277 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acgreen}{RGB}{70,200,90}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={The nom Games: A Muncher Arcade for Aesthetic Computer},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} the {\color{acgreen}nom}{\color{acpink}.}games}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A Muncher Arcade for Aesthetic Computer}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer/mathnom} \enspace$\cdot$\enspace \url{https://aesthetic.computer/notenom}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+The \texttt{nom} family is a set of muncher arcade pieces built inside \ac{}~\citep{scudder2026ac} in June 2026: \texttt{mathnom} (numbers), \texttt{engnom} (english words), \texttt{mexinom} (spanish, Mexican-flavored), and \texttt{notenom} (musical notes). They descend directly from MECC's \emph{Word Munchers} (1985) and \emph{Number Munchers} (1986)---a green creature eats grid squares that satisfy a rule (multiples, primes, rhymes) while dodging purple Troggles~\citep{mecc1986number}. Three of the four are thin wrappers over a single shared engine, \texttt{lib/nom.mjs}: the muncher, the 5$\times$5 board, the beat-measured timer, the troggles, and the per-mode board generator all live in one place, so a new subject or a new language is a content table, not a new game. The audio runs through a reusable \emph{virtual synth controller} (\texttt{lib/synth.mjs}) that wraps note synthesis and the shared 12-drum notepat kit~\citep{scudder2026notepat} into one instrument---which is why the metronome is a real kick, a held square sustains a chord, and \texttt{notenom} plays the actual pitch you eat. I describe what the games are, how the engine separates mechanics from content, and where the seam invites the next language, the next subject, and the next instrument.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+Edutainment had one good idea that everyone remembers and almost no one rebuilt: make the right answer something you eat. In \emph{Number Munchers}, a small green creature roams a grid of numbers, and you steer it onto the squares that are multiples of 3, or prime, or even---and only those squares---before a purple monster walks into you~\citep{mecc1986number}. The drill is real arithmetic. The wrapper is an arcade game. The kid playing it is doing a worksheet and does not notice.
+
+The \texttt{nom} games are that idea, rebuilt as \ac{} pieces and addressed the way everything in \ac{} is addressed---by typing a memorable noun. \texttt{aesthetic.computer/mathnom} is the number drill. \texttt{engnom} is english words. \texttt{mexinom} is spanish, flavored with Mexican street food and lotería animals. \texttt{notenom} is music: the grid is notes, and eating one plays it. They were all built in a few days of June 2026, and that speed is the point of the paper. After the first one, none of them were really a new game. They were a new column in a table.
+
+This is not a paper about a novel mechanic---the mechanic is forty years old and was good then. It is a paper about a seam. \ac{} pieces usually grow by accretion, one piece pulling infrastructure into existence around itself, the way \texttt{notepat} did~\citep{scudder2026notepat}. \texttt{nom} grew the other way: one engine, written once, then sliced into four games by swapping the content and the voice. The interesting object is the cut.
+
+\section{What the Munchers Were}
+
+\emph{Word Munchers} shipped in 1985, \emph{Number Munchers} in 1986, both from the Minnesota Educational Computing Consortium (MECC)---a state-funded outfit that put Apple II software into a generation of American classrooms~\citep{mecc1985word,mecc1986number}. If you were in a US school with a computer lab between roughly 1986 and 1998, you played one of these, probably right after \emph{The Oregon Trail} (also MECC).
+
+The loop is fixed. A 5-by-6 grid fills with candidates. A rule sits at the top: \emph{multiples of 4}, \emph{words that rhyme with} \emph{``goat''}. You drive the Muncher---a bug-eyed green mouth on legs---square to square and press a key to eat. Eat a correct one and it clears; eat a wrong one and you lose a life. Meanwhile the \emph{Troggles}, purple monsters with their own movement patterns, patrol the board, and walking into one also costs a life. Clear every correct square and the board advances. It is \emph{Pac-Man} crossed with a worksheet, and the worksheet is load-bearing.
+
+The lineage of ownership is its own small history of the edutainment industry collapsing into a holding company. MECC was privatized, then bought by SoftKey, which became \emph{The Learning Company}, which was acquired by Mattel in a deal so disastrous it is taught in business schools, then sold to Gores, then folded into \emph{Houghton Mifflin Harcourt}, which let the brand go quiet. The Munchers, as a living product, are gone. \citet{ito2009engineering} reads this whole genre---the ``academic'' children's software of the 80s and 90s---as a cultural form with its own logic, now mostly archived rather than played.
+
+One practical consequence matters here. There is no live trademark on ``Munchers'' as a software-game mark~\citep{uspto2024munchers}, and in any case the \texttt{nom} games are distinctly named and independently built---they share a genre with the Munchers the way every platformer shares a genre with \emph{Mario}. \texttt{nom} is an homage to a mechanic, not a port of a product.
+
+What \texttt{nom} keeps is the one idea worth keeping. \citet{habgood2011motivating} call it \emph{intrinsic integration}: the learning content and the game's core fantasy are the same act, not bolted together. You are not answering a question \emph{and then} being rewarded with a game. Eating the prime number \emph{is} the game. That is why Munchers worked and why a math drill dressed as a quiz does not~\citep{malone1981thinking}.
+
+\section{The nom Family}
+
+There are four pieces. All open on a title card and wait for a key or a tap.
+
+\subsection{mathnom --- numbers}
+
+The original drill, faithfully. Each board picks a numeric rule and a number range. Rules: \emph{multiples} of $n$ (shown as \texttt{X3}), \emph{factors} of a target (\texttt{F24}), \emph{primes}, \emph{evens}, \emph{odds}. The range varies per board---some boards stay in the friendly 0--9 zone, others climb to 40, 60, or 80, so the same rule (``evens'') is a different difficulty depending on the numbers on offer. The board generator builds the correct cells from the rule directly (a multiple of $n$ is $kn$; a factor of $n$ is pulled from $n$'s actual divisor list) and then re-tests every cell against the live predicate, so a board can never accidentally lie about which squares are correct.
+
+\texttt{mathnom} also accepts the other modes through colon params---\texttt{mathnom:words}, \texttt{mathnom:spanish}---but defaults to numbers, so navigating to it always resets to arithmetic.
+
+\subsection{engnom --- english words}
+
+Same engine, words instead of numbers. Categories: \textsc{animals}, \textsc{colors}, \textsc{fruits}, \textsc{rhymes} (words that rhyme with ``cat''), \textsc{s-words} (words starting with \emph{s}), and \textsc{doubles} (words with a doubled letter). Each category ships a list of correct words and a list of plausible-looking wrong ones, both three to five letters so they fit the tile. The color category is a small joke that works: when the rule is \textsc{colors}, a square that says \texttt{blue} is actually drawn blue.
+
+\subsection{mexinom --- spanish, Mexican-flavored}
+
+The same word game in spanish, with content chosen for cultural texture rather than a dictionary dump: \textsc{comida} (taco, mole, elote, salsa), \textsc{animales} (the lotería bestiary---gato, gallo, burro, coyote), \textsc{colores}, \textsc{frutas} (mango, guayaba, papaya), and \textsc{fiesta} (piñata, globo, dulce, vela). Strings are kept plain-ASCII so the bitmap font renders cleanly. The one extra behavior: on each correct munch, \texttt{mexinom} speaks the \emph{english} translation aloud---eat \texttt{elote}, hear ``corn.'' The game teaches the word by feeding you both halves of it in two senses at once.
+
+\subsection{notenom --- music}
+
+The departure. \texttt{notenom} is self-contained rather than a wrapper, but it shares the same arcade skeleton and the same audio layer. The grid is musical notes---pitch class plus octave---each note class given a fixed hue so the board reads like a scattered keyboard. The rules are musical: \textsc{c major} (eat the notes in the C-major scale), \textsc{a minor}, \textsc{g major}, \textsc{sharps} (any black key), \textsc{c chord} (C, E, G), \textsc{high} (octave $\geq$ 5), \textsc{low} (octave $\leq$ 3). The board plays its scale when it opens, an arpeggio when you clear it, and---this is the whole point---\textbf{eating a square plays that note}. \texttt{notenom} is an ear-training drill wearing a Muncher costume. Clear a \textsc{c major} board and you have, without being told to, played the C-major scale by hunting for it.
+
+\section{Architecture: One Engine, Four Games}
+
+\subsection{The shared engine}
+
+\texttt{lib/nom.mjs} is the entire game for three of the four pieces. It owns the 5$\times$5 grid, the muncher and its smoothed display position, the troggles and their patrol, the lives, the beat-based timer, the dynamic camera, every animation, and the board generator. \texttt{mathnom}, \texttt{engnom}, and \texttt{mexinom} are each about a dozen lines:
+
+\begin{quote}\small\ttfamily
+import \{ boot as nomBoot, sim,\\
+\hphantom{im}paint, act, meta \} from\\
+\hphantom{im}"../lib/nom.mjs";\\[0.3em]
+function boot(api) \{\\
+\hphantom{im}nomBoot(\{ ...api,\\
+\hphantom{imim}params: ["spanish"] \});\\
+\}
+\end{quote}
+
+That is \texttt{mexinom} in full, modulo comments. Each wrapper forces a mode at boot---\texttt{numbers}, \texttt{words}, or \texttt{spanish}---and re-exports the engine's lifecycle functions unchanged. The mode flag selects the board generator's content branch; the language flag (\texttt{en}/\texttt{es}) selects which word-round table to draw from. Nothing in the mechanics knows or cares whether a tile holds a prime, a fruit, or a piñata.
+
+The board generator is where mechanics and content meet, and the seam is deliberately narrow. For words, a category is just \verb|{ label, say, correct[], wrong[] }|: a token shown on screen, a phrase spoken aloud, and two word lists. For numbers, a rule is a predicate plus two generators (\verb|makeGood|, \verb|makeBad|) and the same \verb|label|/\verb|say| pair. Adding a subject means writing one of these records. Adding a language means writing a second word-round table and a translation map. The game does not grow; the table does.
+
+\subsection{The virtual synth controller}
+
+The reason these games sound like instruments rather than like sound effects is \texttt{lib/synth.mjs}. \texttt{Synth(sound)} wraps the piece's own audio API---\texttt{sound.synth} for synthesis, \texttt{sound.freq} for note-name-to-hertz---together with the shared 12-drum percussion kit (\texttt{lib/percussion.mjs}, the same kit \texttt{notepat} uses) into a single instrument object. One controller gives you \texttt{note()}, \texttt{chord()}, \texttt{hold()} (a sustained voice you kill later), and the full drum kit by name: \texttt{kick()}, \texttt{snare()}, \texttt{hat()}, \texttt{openHat()}, on up through the sharps to \texttt{cowbell()} and \texttt{tambo()}. It falls back to equal-tempered math if \texttt{sound.freq} is absent and returns an inert no-op proxy if audio is not ready yet, so a piece never crashes reaching for sound before the speaker exists.
+
+This is what makes the games musical instead of merely noisy:
+
+\begin{itemize}
+  \item The per-board timer is measured in \emph{beats}, not seconds. The metronome that counts those beats down is a real \texttt{kick()} from the drum kit, on a 74\,BPM groove (92 in \texttt{notenom}). Time is audible.
+  \item Holding the munch key sustains a soft three-voice chord (\texttt{hold()}d sine + fifth + octave) that releases when you let go. The board has a drone while you decide.
+  \item In \texttt{notenom}, the note you eat is literally \texttt{synth.note()} on that pitch. The instrument and the answer key are the same object.
+\end{itemize}
+
+\texttt{synth.mjs} is the quietly important artifact here. It is not specific to \texttt{nom}. Any \ac{} piece that wants pitched notes, chords, sustained voices, or drums can instantiate one in three lines and stop re-deriving frequencies and drum recipes by hand. \texttt{nom} is its first real customer; it wants to be infrastructure.
+
+\section{Feel}
+
+The mechanics are old. The feel is not, and most of the engine's lines go to feel rather than rules.
+
+\begin{itemize}
+  \item \textbf{Beat budget, not a clock.} You get a generous number of beats per board that tightens slightly as you progress. In the final three beats the whole board trembles and each remaining beat fires a distinct rising warning beep over the kick---a 3-2-1 you hear before you read it. A correct munch buys a beat back, so playing well slows time down.
+  \item \textbf{Color carries meaning.} Every digit 0--9 has its own fixed hue, and numbers are drawn digit by digit in those colors; letters borrow the same palette; in \texttt{notenom} each pitch class is a fixed color. The board is legible as a field of color before you read a single value.
+  \item \textbf{Found-set memory.} Distinct correct values you have already eaten light up green and tremble along the bottom---a running record of what the rule has turned out to mean this board. Wrong answers get X-ed out in place.
+  \item \textbf{The monster is alive.} The muncher fattens as it eats and shrinks and trembles as it starves; its body color drifts from healthy to a sickly orange as lives drain. A lost life is an anthropomorphic mini-monster that flies in from the bottom-left into the center of the board when it is spent. The avatar's state is the game's state.
+  \item \textbf{Camera that leans.} A smoothed follow-camera leans toward the muncher, punches its zoom on events, and shakes on a hit---borrowed from the dueling pieces in the system. A 5$\times$5 grid does not have to feel static.
+  \item \textbf{Spoken rules.} When a board opens, the rule is announced with an OpenAI voice---``multiples of three,'' ``animales,'' ``frutas''---so the game is playable, and partly teachable, with your eyes elsewhere.
+  \item \textbf{Every input.} Move with arrows, WASD, or vim's \texttt{hjkl}; munch with space or enter; or tap a square to slide to it and tap your own square to eat. Movement wraps around the edges, and the wrapped neighbors are drawn ghosted just outside each edge so the toroidal board reads honestly. Hovering highlights the cell under the pointer.
+\end{itemize}
+
+There are no scores and no levels in the part the player sees. There is an internal board counter that tightens difficulty, but it is never displayed. You are not climbing a number. You either clear the board or you do not, and then there is another board. The game is the verb, not the ladder.
+
+\section{The Seam Invites More}
+
+Because content is a table and mechanics are an engine, the roadmap is mostly a list of tables to write.
+
+\textbf{More languages.} A language is a word-round table plus a translation map. \texttt{mexinom} proves the shape; french, portuguese, japanese kana are the same record filled differently. The spoken-translation trick generalizes: any \texttt{nom} in language X can speak language Y on each munch and quietly become a vocabulary trainer between any pair.
+
+\textbf{More subjects.} Anything with a membership rule fits: \texttt{chemnom} (eat the noble gases, the alkali metals, the elements in period 3), \texttt{geonom} (eat the capitals, the landlocked countries, the states that border Texas), \texttt{bionom}, a grammar \texttt{nom} (eat the verbs). Each is one generator record. The hard part---the arcade, the troggles, the beat---is already paid for.
+
+\textbf{The synth as system infrastructure.} \texttt{synth.mjs} should outgrow \texttt{nom}. A reusable instrument controller that any piece can mount in three lines is the kind of shared surface that makes the \emph{next} musical piece cheap, the way \texttt{nom} made the next muncher cheap.
+
+\textbf{Procedural rules.} The number rules already compose from primitives; a model could propose rule sets (``eat the numbers whose digits sum to 7'') as long as the predicate is checkable---which it must be, since the generator re-tests every board against the live predicate anyway. Generated content, verified content.
+
+\textbf{Multiplayer.} \ac{} has dual-channel UDP+WS netcode; two munchers racing the same board, or chasing each other as the troggles, is a known-shaped addition, not a new system.
+
+\textbf{notenom as an instrument.} The music angle is the one with the most distance left to run. An ear-training drill that is also a playable grid of pitches is close to being a small instrument in its own right; the line between ``clear the C-major board'' and ``improvise on the C-major board'' is thin, and worth crossing.
+
+\section{Limitations}
+
+The honest catch: \texttt{notenom} is the odd one out. It is a self-contained reimplementation, not a wrapper, so it shares the \emph{audio} layer (\texttt{synth.mjs}) but re-implements the grid, the muncher, the troggles, and the timer rather than importing them from \texttt{lib/nom.mjs}. That divergence is a bug in the architecture's own thesis: a music \texttt{nom} \emph{should} be the same engine with a note-valued board and an audio-flavored generator record. Folding \texttt{notenom} back onto the shared engine is the cleanest next move, and until it happens any fix to the core loop has to be made twice.
+
+Other gaps are smaller and known. There is no score persistence or leaderboard---deliberately, but it forecloses the one bit of edutainment that motivates some kids. The troggles have a single movement personality; the original Munchers had several (some ate squares, some teleported), and the engine's TODO already lists them. The spoken-rule announcements depend on a network voice, so the teachable-with-eyes-closed property degrades offline. And the word lists are short enough that a determined player memorizes a category after a few boards---fine for the youngest players, thin for older ones.
+
+None of these touch the thesis. The engine cut is real, the content-as-table economy is real, and the synth controller is real and reusable. The work that remains is mostly writing more tables and pulling \texttt{notenom} back home.
+
+\section{Conclusion}
+
+\texttt{nom} is forty-year-old gameplay rebuilt as a content economy. The Munchers had one durable idea---make the correct answer the thing you eat~\citep{habgood2011motivating}---and that idea survives intact under a green creature on a 5$\times$5 grid. What is new is the seam. By writing the muncher, the board, the troggles, and the beat-timer once, in \texttt{lib/nom.mjs}, and treating each subject and each language as a record in a table, a fourth game costs a content list and a voice line, not a rewrite. The audio is real because a shared virtual synth controller makes it real---the metronome is a kick, the held square is a chord, and in \texttt{notenom} the answer key is an instrument you play by getting it right.
+
+The methodological point is small and reusable: when a genre is fixed and good, the engineering question is not ``what new mechanic,'' it is ``where is the cut between the part that stays and the part that varies.'' Put the cut in the right place and the next ten games are tables. \texttt{nom} found that cut for the muncher. The next subject is already mostly written---it just needs a list.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -52,6 +52,11 @@ struct RadioStation: Equatable {
     static let kpbj = RadioStation(
         id: "kpbj", label: "KPBJ", name: "KPBJ.FM",
         url: URL(string: "https://stream.kpbj.fm/")!)
+    // r8dio.dk — Danish stream via radio.co (/listen 302s to MP3, same decode
+    // path as NTS). Matches AC's r8dio piece (disks/r8dio.mjs).
+    static let r8dio = RadioStation(
+        id: "r8dio", label: "R8DIO", name: "r8dio.dk",
+        url: URL(string: "https://s3.radio.co/s7cd1ffe2f/listen")!)
     static let nts1 = RadioStation(
         id: "nts1", label: "NTS1", name: "NTS 1",
         url: URL(string: "https://stream-relay-geo.ntslive.net/stream")!)
@@ -60,7 +65,7 @@ struct RadioStation: Equatable {
         url: URL(string: "https://stream-relay-geo.ntslive.net/stream2")!)
 
     /// Display order in the chooser, left → right.
-    static let all: [RadioStation] = [.kpbj, .nts1, .nts2]
+    static let all: [RadioStation] = [.kpbj, .r8dio, .nts1, .nts2]
     static func by(id: String) -> RadioStation { all.first { $0.id == id } ?? .kpbj }
 }
 

@@ -10,8 +10,23 @@ struct ClaudeSession {
     ///              waiting for the next user prompt. Calm, no attention needed.
     /// `awaiting` — Notification fired; Claude paused mid-task and needs the
     ///              user (permission prompt, idle-on-input). Attention!
+    /// `interrupted` — the marker says `working` but no tool is mid-flight and
+    ///              there's been no hook activity for a while: Claude was
+    ///              interrupted (Esc) and is idle at the prompt. Claude Code
+    ///              fires NO hook on interrupt, so we infer it from staleness
+    ///              + the running-tool heartbeat (a long real tool keeps the
+    ///              marker fresh and stays `working`/green).
     /// `stale`    — claude_pid is gone; about to be reaped.
-    enum State { case blank, working, complete, awaiting, stale }
+    enum State { case blank, working, complete, awaiting, interrupted, stale }
+
+    /// Seconds of hook silence (no tool start/stop, no prompt) before a
+    /// `working` session is treated as interrupted. Generous so normal
+    /// between-tool thinking never trips it.
+    static let interruptIdleSeconds: TimeInterval = 45
+    /// A running-tool marker older than this is assumed orphaned (the tool was
+    /// interrupted mid-flight, so PostToolUse never fired) and no longer pins
+    /// the session green. Far beyond any real single tool call.
+    static let runningToolMaxAge: TimeInterval = 900
 
     let sessionId: String
     let cwd: String
@@ -115,6 +130,10 @@ enum ClaudeSessionReader {
                 // has overwritten it yet) — preserve so applyTerminalDecor
                 // paints the appearance-matched bg.
                 // (no-op: keep s.state == .blank)
+            } else if isInterrupted(sessionId: s.sessionId, markerPath: path) {
+                // No awaiting marker, but no tool is running and the session
+                // has gone quiet → interrupted (Esc) and idle. NOT green.
+                s.state = .interrupted
             } else {
                 s.state = .working
             }
@@ -130,11 +149,12 @@ enum ClaudeSessionReader {
         return sessions.sorted { a, b in
             func rank(_ st: ClaudeSession.State) -> Int {
                 switch st {
-                case .awaiting: return 0
-                case .complete: return 1
-                case .working:  return 2
-                case .blank:    return 3
-                case .stale:    return 4
+                case .awaiting:    return 0
+                case .interrupted: return 1
+                case .complete:    return 2
+                case .working:     return 3
+                case .blank:       return 4
+                case .stale:       return 5
                 }
             }
             let ra = rank(a.state), rb = rank(b.state)
@@ -207,5 +227,28 @@ enum ClaudeSessionReader {
     private static func pidAlive(_ pid: Int) -> Bool {
         guard pid > 0 else { return false }
         return kill(pid_t(pid), 0) == 0 || errno == EPERM
+    }
+
+    private static func mtime(_ path: String) -> Date? {
+        try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date
+    }
+
+    /// A `working` session is INTERRUPTED when no tool is actively running and
+    /// the active-prompt marker hasn't been touched (by a tool heartbeat) for
+    /// a while. The tool hooks (`claude-tool-heartbeat.sh`) `touch` the marker
+    /// on every PreToolUse/PostToolUse and keep a `running-tools/<sid>` flag
+    /// for the duration of a call — so a long legit tool stays green, but an
+    /// Esc'd, idle session flips out of green even though Claude fires no
+    /// interrupt hook.
+    private static func isInterrupted(sessionId: String, markerPath: String) -> Bool {
+        let now = Date()
+        // A fresh running-tool flag means a tool is genuinely mid-flight.
+        let toolPath = "\(Paths.runningToolsDir)/\(sessionId)"
+        if let tm = mtime(toolPath), now.timeIntervalSince(tm) < ClaudeSession.runningToolMaxAge {
+            return false
+        }
+        // Otherwise: idle if the marker (bumped by every tool hook) is stale.
+        guard let mm = mtime(markerPath) else { return false }
+        return now.timeIntervalSince(mm) > ClaudeSession.interruptIdleSeconds
     }
 }

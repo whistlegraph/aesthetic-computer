@@ -129,8 +129,8 @@ export const MatrixChunky8 = {
     '%': 4,
     '&': 5,
     '\'': 2,
-    '(': 4,
-    ')': 4,
+    '(': 3, // Match native BDF DWIDTH (was 4 — overshot kerning)
+    ')': 3, // Match native BDF DWIDTH (was 4 — overshot kerning)
     '*': 6,
     '+': 4,
     ',': 2,
@@ -219,7 +219,8 @@ export const MatrixChunky8 = {
   },
   // BDF overrides for character positioning adjustments
   bdfOverrides: {
-    // Star advance width (6) handles right-side spacing
+    // Star advance width (6) handles right-side spacing.
+    'y': { y: 2 } // Push the 'y' descender down 2px so it dips below baseline.
   }
 };
 

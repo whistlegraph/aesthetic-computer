@@ -1,0 +1,1515 @@
+// nom — shared engine for the muncher games (mathnom / engnom / mexinom), 2026.06.07
+// Move the muncher around a 5×5 grid and eat every square that satisfies the
+// rule at the top — but dodge the Troggles. `mathnom` = numbers, `engnom` = words.
+
+import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
+
+/* #region 📚 README
+  Controls:
+    Arrows / WASD — move the Muncher
+    Space / Enter — munch the current square
+    Tap a square  — jump straight to it
+    Tap off-board — munch the current square
+
+  Modes (pass after a colon):
+    munchers          → numbers
+    munchers:numbers  → numbers
+    munchers:words    → words
+#endregion */
+
+/* #region 🏁 TODO
+  - [] Add a leaderboard / score persistence.
+  - [] More Troggle personalities (some eat numbers, some teleport).
+  - [] Sound for the Troggle stomp.
+#endregion */
+
+const COLS = 5;
+const ROWS = 5;
+const START_LIVES = 3;
+
+// 🌐 Game state
+let mode = "number"; // "number" | "word"
+let lang = "en"; // word language: "en" (engnom) | "es" (mexinom)
+let state = "title"; // title | play | clear | over | win
+let grid = []; // [{ value, correct, eaten, flash }]
+let ruleLabel = ""; // short on-screen token (e.g. "X3")
+let ruleSpeech = ""; // spoken phrase (e.g. "multiples of 3")
+let muncher = { col: 2, row: 2 }; // logical grid position
+let muncherVis = { col: 2, row: 2 }; // smoothed display position (slides)
+let hover = null; // { col, row } cell under the mouse, for hover highlight
+let troggles = [];
+let lives = START_LIVES;
+let level = 1; // internal progression counter (board #) — never displayed
+let remaining = 0; // correct cells left to eat
+let foundValues = []; // distinct correct values eaten (shown in a bottom row)
+let lifeFlyers = []; // lost-life mini-monsters animating bottom-left → board center
+let boardCorrectTotal = 1; // correct cells the board started with (fatness gauge)
+let invuln = 0; // frames of post-hit immunity
+let mouth = 0; // muncher mouth animation phase
+let troggleClock = null;
+let message = ""; // transient feedback line
+let messageTimer = 0;
+
+// 🔊 + ✨ Feel
+let snd = null; // live sound handle (captured each frame)
+let synth = null; // virtual synth controller (notes + perc kit), lazy-created
+let speakFn = null; // live speak() handle (captured in act)
+let frames = 0; // global frame counter (drives legs + melody scheduler)
+let facing = { x: 1, y: 0 }; // direction the Muncher's mouth points
+let chompPhase = 0; // frames remaining in a chomp animation
+let combo = 0; // consecutive correct munches → rising pitch
+let melody = []; // queued notes: { at, type, tone, duration, volume }
+
+// 🎥 Dynamic camera (smoothed follow-lean + zoom punch + shake), à la dumduel.
+let cam = { x: 0, y: 0, zoom: 1, shake: 0 };
+let camTargetZoom = 1;
+let screenH = 512; // last seen screen height (for confetti culling)
+
+// 💀 / 🎉 Sequenced animations.
+let deathPhase = 0; // counts down during the death animation
+let deathPos = { col: 2, row: 2 }; // where the Muncher died
+let pendingOver = false; // game over fires after the death animation
+let clearPhase = 0; // counts down during the level-clear celebration
+let flashRed = 0; // red screen-flash intensity (death)
+let flashGold = 0; // gold screen-flash intensity (clear)
+let flashGreen = 0; // green screen-flash intensity (board start)
+let confetti = []; // { x, y, vx, vy, s, c } celebration bits
+
+// ⏳ Per-board countdown — measured in musical beats.
+const FPS = 60;
+const BPM = 74; // slower, more relaxed groove
+const BEAT = Math.round((60 / BPM) * FPS); // frames per beat
+let beatsLeft = 0; // beats of time remaining on this board
+let beatsMax = 1; // beats the board started with
+let beatPhase = 0; // frames elapsed into the current beat
+let beatPulse = 0; // brief visual pulse on each beat
+let heldChord = null; // sustained synth voices while munch is held
+
+// 🥾 Boot
+function boot({ params, hud, num: { randInt } }) {
+  const p = params?.[0];
+  if (p === "spanish" || p === "es" || p === "mexi" || p === "mexinom") {
+    mode = "word";
+    lang = "es";
+  } else if (p === "words" || p === "word" || p === "english" || p === "en") {
+    mode = "word";
+    lang = "en";
+  } else if (p) {
+    mode = "number";
+  }
+  hud?.label?.(""); // hide the top-left corner label
+  // Stay on the title until the player presses a key / taps.
+}
+
+// 🎲 Round generation ────────────────────────────────────────────────────────
+
+const { abs, floor, min, max, ceil, round, sin, cos, pow } = Math;
+
+function isPrime(n) {
+  if (n < 2) return false;
+  for (let i = 2; i * i <= n; i += 1) if (n % i === 0) return false;
+  return true;
+}
+
+// Every digit 0–9 has its own fixed color; numbers are drawn digit-by-digit.
+const DIGIT_COLORS = [
+  [255, 105, 97],  // 0 coral
+  [255, 170, 80],  // 1 orange
+  [255, 225, 90],  // 2 yellow
+  [150, 225, 90],  // 3 lime
+  [90, 220, 140],  // 4 green
+  [90, 215, 210],  // 5 teal
+  [95, 180, 255],  // 6 blue
+  [150, 150, 255], // 7 indigo
+  [200, 140, 255], // 8 violet
+  [255, 140, 210], // 9 pink
+];
+function charColor(ch) {
+  if (ch >= "0" && ch <= "9") return DIGIT_COLORS[ch.charCodeAt(0) - 48];
+  if (ch >= "a" && ch <= "z")
+    return DIGIT_COLORS[(ch.charCodeAt(0) - 97) % DIGIT_COLORS.length];
+  return [230, 230, 245];
+}
+// Darkened tint for a cell's background, keyed to its last character.
+function tileColor(str) {
+  const c = charColor(str[str.length - 1] || "0");
+  return [round(c[0] * 0.24) + 6, round(c[1] * 0.24) + 6, round(c[2] * 0.24) + 6];
+}
+
+// Color-name words → their actual color (EN + ES), so COLORS/COLORES squares
+// are literally that color.
+const COLOR_WORDS = {
+  red: [230, 60, 60], rojo: [230, 60, 60],
+  blue: [70, 120, 240], azul: [70, 120, 240],
+  green: [70, 200, 90], verde: [70, 200, 90],
+  pink: [240, 120, 180], rosa: [240, 120, 180],
+  gold: [240, 200, 70], oro: [240, 200, 70],
+  gray: [150, 150, 160], gris: [150, 150, 160],
+  black: [35, 35, 44], negro: [35, 35, 44],
+  white: [235, 235, 245], blanco: [235, 235, 245],
+  brown: [150, 90, 50], cafe: [150, 90, 50],
+  purple: [160, 90, 220], morado: [160, 90, 220],
+  tan: [210, 180, 140], lime: [160, 230, 90], teal: [80, 200, 190],
+  navy: [60, 80, 170], cyan: [90, 220, 230], rose: [230, 120, 140],
+};
+function luma(c) {
+  return 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+}
+
+// Spanish → English (spoken on each munch in mexinom).
+const TRANSLATE = {
+  taco: "taco", mole: "mole sauce", elote: "corn", chile: "chili", salsa: "salsa",
+  queso: "cheese", tamal: "tamale", atole: "atole", sopa: "soup", pan: "bread", frijol: "bean",
+  gato: "cat", perro: "dog", burro: "donkey", coyote: "coyote", puma: "puma", lobo: "wolf",
+  gallo: "rooster", toro: "bull", mono: "monkey", oso: "bear", pato: "duck",
+  rojo: "red", azul: "blue", gris: "gray", rosa: "pink", verde: "green", negro: "black",
+  blanco: "white", oro: "gold", cafe: "brown", morado: "purple",
+  mango: "mango", guayaba: "guava", lima: "lime", melon: "melon", papaya: "papaya",
+  mora: "berry", higo: "fig", coco: "coconut", pera: "pear", uva: "grape",
+  pinata: "piñata", globo: "balloon", dulce: "candy", musica: "music", baile: "dance",
+  feria: "fair", vela: "candle", regalo: "gift", fuego: "fire",
+  mesa: "table", silla: "chair", reloj: "clock", libro: "book", tren: "train", gorra: "cap",
+  clave: "key", vaso: "glass", foco: "bulb", muro: "wall", red: "net", taza: "cup", sol: "sun",
+  casa: "house", jugo: "juice", flor: "flower", mar: "sea", pie: "foot", ojo: "eye", mano: "hand",
+  dedo: "finger", luz: "light", rio: "river", sal: "salt", lapiz: "pencil", bota: "boot",
+  clavo: "nail", papel: "paper", caja: "box",
+};
+
+function shuffle(arr, rnd) {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = rnd(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Word categories: correct words + matching distractors.
+const WORD_ROUNDS = [
+  {
+    label: "ANIMALS", say: "animals",
+    correct: ["cat", "dog", "fox", "owl", "bee", "cow", "ant", "ram", "hen", "elk", "pig", "bat"],
+    wrong: ["cup", "rug", "jar", "fan", "pen", "map", "key", "box", "hat", "mug", "net", "log"],
+  },
+  {
+    label: "COLORS", say: "colors",
+    correct: ["red", "tan", "pink", "blue", "gold", "lime", "teal", "gray", "rose", "navy", "cyan"],
+    wrong: ["run", "leg", "sky", "ice", "oak", "bug", "dot", "sun", "egg", "tin", "pod"],
+  },
+  {
+    label: "FRUITS", say: "fruits",
+    correct: ["plum", "lime", "pear", "fig", "kiwi", "date", "lemon", "apple", "grape", "melon"],
+    wrong: ["desk", "sock", "lamp", "fork", "coin", "boot", "rope", "drum", "vase", "nail"],
+  },
+  {
+    label: "RHYMES", say: "words that rhyme with cat",
+    correct: ["cat", "hat", "bat", "rat", "mat", "sat", "fat", "vat", "pat", "flat", "chat"],
+    wrong: ["cot", "hit", "bet", "rot", "mug", "sit", "fan", "van", "pen", "top", "cup"],
+  },
+  {
+    label: "S-WORDS", say: "words starting with s",
+    correct: ["sun", "sky", "sea", "sip", "sad", "sob", "saw", "sit", "sum", "ski", "spy"],
+    wrong: ["fun", "dry", "tea", "tip", "mad", "job", "jaw", "fit", "gum", "fly", "cry"],
+  },
+  {
+    label: "DOUBLES", say: "words with double letters",
+    correct: ["bee", "see", "moo", "egg", "add", "odd", "ebb", "too", "zoo", "off", "ill", "boo"],
+    wrong: ["bet", "set", "mob", "ego", "ace", "old", "elf", "tot", "zip", "oaf", "ink", "bow"],
+  },
+];
+
+// 🇲🇽 Mexinom — Spanish word categories with a Mexican-culture flavor
+// (street food, lotería-style animals, fiesta colors, market fruit). Plain
+// ASCII (no accents) so the bitmap font renders cleanly.
+const ES_WORD_ROUNDS = [
+  {
+    label: "COMIDA", say: "comida mexicana",
+    correct: ["taco", "mole", "elote", "chile", "salsa", "queso", "tamal", "atole", "sopa", "pan", "frijol"],
+    wrong: ["mesa", "silla", "reloj", "libro", "tren", "gorra", "clave", "vaso", "foco", "muro", "red"],
+  },
+  {
+    label: "ANIMALES", say: "animales",
+    correct: ["gato", "perro", "burro", "coyote", "puma", "lobo", "gallo", "toro", "mono", "oso", "pato"],
+    wrong: ["mesa", "taza", "sol", "casa", "jugo", "reloj", "silla", "vaso", "tren", "flor", "muro"],
+  },
+  {
+    label: "COLORES", say: "colores",
+    correct: ["rojo", "azul", "gris", "rosa", "verde", "negro", "blanco", "oro", "cafe", "morado"],
+    wrong: ["pato", "mesa", "mar", "pie", "ojo", "mano", "dedo", "casa", "luz", "rio", "sal"],
+  },
+  {
+    label: "FRUTAS", say: "frutas",
+    correct: ["mango", "guayaba", "lima", "melon", "papaya", "mora", "higo", "coco", "pera", "uva"],
+    wrong: ["mesa", "sol", "tren", "lapiz", "bota", "vaso", "gorra", "clavo", "silla", "foco", "red"],
+  },
+  {
+    label: "FIESTA", say: "cosas de fiesta",
+    correct: ["pinata", "globo", "dulce", "musica", "baile", "feria", "vela", "regalo", "fuego"],
+    wrong: ["mesa", "tren", "reloj", "muro", "foco", "clavo", "papel", "caja", "vaso", "red"],
+  },
+];
+
+function newRound({ randInt }) {
+  // AC's randInt(n) is inclusive (0..n); wrap it to a 0..n-1 index helper.
+  const rnd = (n) => randInt(Math.max(1, n) - 1);
+  const total = COLS * ROWS;
+  // More correct cells as levels climb, but always solvable & not all-correct.
+  const nCorrect = min(total - 4, 5 + level + rnd(3));
+  const cells = [];
+
+  if (mode === "word") {
+    const rounds = lang === "es" ? ES_WORD_ROUNDS : WORD_ROUNDS;
+    const round = rounds[rnd(rounds.length)];
+    ruleLabel = round.label;
+    ruleSpeech = round.say;
+    const goods = shuffle([...round.correct], rnd);
+    const bads = shuffle([...round.wrong], rnd);
+    for (let i = 0; i < nCorrect; i += 1)
+      cells.push({ value: goods[i % goods.length], correct: true });
+    for (let i = 0; i < total - nCorrect; i += 1)
+      cells.push({ value: bads[i % bads.length], correct: false });
+  } else {
+    // Pick a numeric rule + a per-board number range: some boards stay tiny
+    // (0–9), others go bigger (up to 40/60/80).
+    const small = rnd(2) === 0;
+    const maxVal = small ? 9 : [40, 60, 80][rnd(3)];
+    const ri = (lo, hi) => lo + rnd(hi - lo + 1); // inclusive lo..hi
+    const rules = ["multiples", "factors", "primes", "even", "odd"];
+    const pick = rules[rnd(rules.length)];
+    let test, label, speech, makeGood, makeBad;
+
+    if (pick === "multiples") {
+      const n = 2 + rnd(small ? 3 : 8); // small: 2..4, big: 2..9
+      label = "X" + n; // "multiples of n", e.g. X3
+      speech = `multiples of ${n}`;
+      test = (v) => v % n === 0;
+      makeGood = () => (1 + rnd(floor(maxVal / n))) * n;
+      makeBad = () => {
+        let v;
+        do v = ri(1, maxVal); while (v % n === 0);
+        return v;
+      };
+    } else if (pick === "factors") {
+      const targets = small ? [6, 8, 9] : [12, 16, 18, 20, 24, 36, 48];
+      const n = targets[rnd(targets.length)];
+      const divs = [];
+      for (let i = 1; i <= n; i += 1) if (n % i === 0) divs.push(i);
+      label = "F" + n; // "factors of n", e.g. F24
+      speech = `factors of ${n}`;
+      test = (v) => n % v === 0;
+      makeGood = () => divs[rnd(divs.length)];
+      makeBad = () => {
+        let v;
+        do v = ri(2, n); while (n % v === 0);
+        return v;
+      };
+    } else if (pick === "primes") {
+      const primes = [];
+      for (let i = 2; i <= maxVal; i += 1) if (isPrime(i)) primes.push(i);
+      label = "PRIMES";
+      speech = "prime numbers";
+      test = (v) => isPrime(v);
+      makeGood = () => primes[rnd(primes.length)];
+      makeBad = () => {
+        let v;
+        do v = ri(4, maxVal); while (isPrime(v));
+        return v;
+      };
+    } else if (pick === "even") {
+      label = "EVENS";
+      speech = "even numbers";
+      test = (v) => v % 2 === 0;
+      makeGood = () => ri(0, floor(maxVal / 2)) * 2;
+      makeBad = () => ri(0, floor((maxVal - 1) / 2)) * 2 + 1;
+    } else {
+      label = "ODDS";
+      speech = "odd numbers";
+      test = (v) => v % 2 === 1;
+      makeGood = () => ri(0, floor((maxVal - 1) / 2)) * 2 + 1;
+      makeBad = () => ri(0, floor(maxVal / 2)) * 2;
+    }
+
+    ruleLabel = label;
+    ruleSpeech = speech;
+    for (let i = 0; i < nCorrect; i += 1)
+      cells.push({ value: makeGood(), correct: true });
+    for (let i = 0; i < total - nCorrect; i += 1)
+      cells.push({ value: makeBad(), correct: false });
+    // Double-check correctness against the live test (covers any edge cases).
+    cells.forEach((c) => (c.correct = test(c.value)));
+  }
+
+  shuffle(cells, rnd);
+  grid = cells.map((c) => ({ ...c, eaten: false, flash: 0, known: false, failed: false }));
+  remaining = grid.filter((c) => c.correct && !c.eaten).length;
+  boardCorrectTotal = max(1, remaining);
+  foundValues = [];
+
+  // Place muncher centrally, away from any troggle.
+  muncher = { col: 2, row: 2 };
+  muncherVis = { col: 2, row: 2 };
+  troggles = spawnTroggles(rnd);
+  invuln = 60;
+  facing = { x: 1, y: 0 };
+
+  // ⏳ Per-board beat budget (generous; tightens a little as levels climb).
+  beatsMax = max(28, 52 - level);
+  beatsLeft = beatsMax;
+  beatPhase = 0;
+
+  // Clear any leftover animation state from the previous round.
+  deathPhase = 0;
+  clearPhase = 0;
+  pendingOver = false;
+  flashRed = 0;
+  flashGold = 0;
+  confetti = [];
+  chompPhase = 0;
+}
+
+function spawnTroggles(rnd) {
+  const count = min(3, floor(level / 2)); // 0 at L1, 1 at L2-3, ...
+  const list = [];
+  for (let i = 0; i < count; i += 1) {
+    const horizontal = rnd(2) === 0;
+    list.push({
+      col: horizontal ? (rnd(2) ? 0 : COLS - 1) : rnd(COLS),
+      row: horizontal ? rnd(ROWS) : rnd(2) ? 0 : ROWS - 1,
+      dir: horizontal
+        ? { x: rnd(2) ? 1 : -1, y: 0 }
+        : { x: 0, y: rnd(2) ? 1 : -1 },
+      hue: [255, 90 + rnd(120), 60][i % 3],
+    });
+  }
+  return list;
+}
+
+function idx(col, row) {
+  return row * COLS + col;
+}
+
+// 🧮 Sim ───────────────────────────────────────────────────────────────────
+function sim({ gizmo, seconds, sound, num: { randInt } }) {
+  snd = sound;
+  if (sound && !synth) synth = Synth(sound);
+  frames += 1;
+  mouth = (mouth + 1) % 40;
+  if (invuln > 0) invuln -= 1;
+  if (chompPhase > 0) chompPhase -= 1;
+  if (messageTimer > 0) {
+    messageTimer -= 1;
+    if (messageTimer === 0) message = "";
+  }
+  grid.forEach((c) => {
+    if (c.flash > 0) c.flash -= 1;
+  });
+
+  // Fire any queued melody notes whose time has come.
+  for (let i = melody.length - 1; i >= 0; i -= 1) {
+    if (frames >= melody[i].at) {
+      note(melody[i]);
+      melody.splice(i, 1);
+    }
+  }
+
+  // 🎥 Camera: smooth lean toward the Muncher, ease zoom home, decay shake.
+  const cc = layout.cell || 32;
+  const target = deathPhase > 0 ? deathPos : muncher;
+  const leanX = (2 - target.col) * cc * 0.16;
+  const leanY = (2 - target.row) * cc * 0.16;
+  cam.x += (leanX - cam.x) * 0.1;
+  cam.y += (leanY - cam.y) * 0.1;
+  cam.zoom += (camTargetZoom - cam.zoom) * 0.18;
+  camTargetZoom += (1 - camTargetZoom) * 0.08;
+  cam.shake *= 0.86;
+  if (cam.shake < 0.05) cam.shake = 0;
+
+  // 🏃 Slide the Muncher's display position toward its logical cell.
+  muncherVis.col += (muncher.col - muncherVis.col) * 0.3;
+  muncherVis.row += (muncher.row - muncherVis.row) * 0.3;
+  if (abs(muncher.col - muncherVis.col) < 0.01) muncherVis.col = muncher.col;
+  if (abs(muncher.row - muncherVis.row) < 0.01) muncherVis.row = muncher.row;
+
+  if (flashRed > 0) flashRed -= 1;
+  if (flashGold > 0) flashGold -= 1;
+  if (flashGreen > 0) flashGreen -= 1;
+  if (beatPulse > 0) beatPulse -= 1;
+
+  // 💔 Life-flyers — lost lives sail from the bottom-left into the board.
+  if (lifeFlyers.length) {
+    lifeFlyers.forEach((f) => (f.t += 0.045));
+    lifeFlyers = lifeFlyers.filter((f) => f.t < 1);
+  }
+
+  // ✨ Confetti physics (level-clear).
+  if (confetti.length) {
+    confetti.forEach((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.12;
+    });
+    confetti = confetti.filter((p) => p.y < screenH + 40);
+  }
+
+  // 💀 Death animation timeline (world frozen while it plays out).
+  if (deathPhase > 0) {
+    deathPhase -= 1;
+    if (deathPhase === 0) {
+      if (pendingOver) {
+        pendingOver = false;
+        state = "over";
+        jingleOver();
+      } else {
+        muncher = { col: 2, row: 2 };
+        muncherVis = { col: 2, row: 2 };
+        invuln = 80;
+      }
+    }
+    return;
+  }
+
+  // 🎉 Level-clear celebration timeline.
+  if (clearPhase > 0) clearPhase -= 1;
+
+  if (state !== "play") return;
+
+  // ⏳ Beat-based timeline: each beat ticks (metronome), running out costs a
+  // life. Down to the last few beats, the whole board trembles.
+  beatPhase += 1;
+  if (beatPhase >= BEAT) {
+    beatPhase = 0;
+    beatPulse = 8;
+    if (beatsLeft > 0) {
+      beatsLeft -= 1;
+      tick(beatsLeft);
+    }
+    if (beatsLeft <= 0) timeUp();
+  }
+  if (beatsLeft <= 3) cam.shake = max(cam.shake, 2.4); // panic shake
+
+  // Troggles step on a steady beat (speeds up with level).
+  troggleClock ||= new gizmo.Hourglass(seconds(max(0.28, 0.7 - level * 0.04)), {
+    flipped: () => {
+      troggles.forEach((t) => {
+        let nc = t.col + t.dir.x;
+        let nr = t.row + t.dir.y;
+        if (nc < 0 || nc >= COLS) {
+          t.dir.x *= -1;
+          nc = t.col + t.dir.x;
+        }
+        if (nr < 0 || nr >= ROWS) {
+          t.dir.y *= -1;
+          nr = t.row + t.dir.y;
+        }
+        t.col = max(0, min(COLS - 1, nc));
+        t.row = max(0, min(ROWS - 1, nr));
+      });
+      checkTroggleHit();
+    },
+    autoFlip: true,
+  });
+  troggleClock?.step();
+}
+
+function checkTroggleHit() {
+  if (invuln > 0) return;
+  if (troggles.some((t) => t.col === muncher.col && t.row === muncher.row)) {
+    loseLife();
+  }
+}
+
+function loseLife() {
+  // Launch the lost life as a mini-monster flying into the board (from its
+  // bottom-left slot toward the board center).
+  lifeFlyers.push({ slot: lives - 1, t: 0 });
+  lives -= 1;
+  combo = 0;
+  killChord();
+  deathPos = { col: muncher.col, row: muncher.row };
+  deathPhase = 54; // play the death animation, then respawn / game over
+  cam.shake = 11; // hard jolt
+  flashRed = 18; // red flash
+  sadDeath();
+  flash(lives <= 0 ? "GAME OVER" : "OUCH!");
+  if (lives <= 0) pendingOver = true; // over fires when the animation ends
+}
+
+function flash(msg) {
+  message = msg;
+  messageTimer = 90;
+}
+
+// ⏳ Ran out of beats on this board.
+function timeUp() {
+  flash("TIME!");
+  loseLife();
+  beatsLeft = beatsMax; // fresh beats on respawn (if any lives remain)
+  beatPhase = 0;
+}
+
+// 🥁 Metronome tick — real notepat perc kit: kick on the downbeat, closed
+// hi-hat on the off-beats (falls back to a synth click if the kit is absent).
+// In the final 3 beats it plays a distinct, rising warning beep per count.
+const WARN_BEEPS = { 3: 700, 2: 950, 1: 1300 }; // rising pitch = more urgent
+function tick(remainingBeats) {
+  const warn = WARN_BEEPS[remainingBeats];
+  if (warn) {
+    if (synth) synth.kick({ volume: 0.4 }); // pulse under the beep
+    note({ type: "square", tone: warn, duration: 0.14, volume: 0.36, attack: 0.001 });
+    if (remainingBeats === 1) // last gasp: a quick second blip
+      playMelody([{ tone: warn * 1.5, type: "square", dur: 0.1, vol: 0.3, t: 6 }], 0);
+    return;
+  }
+  if (synth) {
+    if (remainingBeats % 4 === 0) synth.kick({ volume: 0.55 });
+    else synth.hat({ volume: 0.3 });
+  } else if (remainingBeats % 4 === 0) {
+    note({ type: "sine", tone: 92, duration: 0.09, volume: 0.22 });
+  } else {
+    note({ type: "square", tone: 1100, duration: 0.015, volume: 0.09 });
+  }
+}
+
+// 🎮 Movement + munching ─────────────────────────────────────────────────────
+function move(dx, dy) {
+  if (state !== "play" || deathPhase > 0) return;
+  const pc = muncher.col,
+    pr = muncher.row;
+  muncher.col = (muncher.col + dx + COLS) % COLS; // wrap around edges
+  muncher.row = (muncher.row + dy + ROWS) % ROWS;
+  if (dx || dy) facing = { x: dx, y: dy };
+  // On a wrap, snap the visual so it doesn't slide all the way across.
+  if (abs(muncher.col - pc) > 1) muncherVis.col = muncher.col;
+  if (abs(muncher.row - pr) > 1) muncherVis.row = muncher.row;
+  if (muncher.col !== pc || muncher.row !== pr) moveBlip();
+  checkTroggleHit();
+}
+
+// Tap-to-move: slide along ONE axis only (no diagonal jumps). Snap to the
+// tapped column (staying in this row) or the tapped row (staying in this
+// column), whichever the tap leans toward.
+// Tap-to-move: ONE square per tap toward the tapped cell. Tapping the cell the
+// muncher is already on munches it.
+function moveTo(col, row) {
+  if (state !== "play" || deathPhase > 0) return;
+  const dc = col - muncher.col,
+    dr = row - muncher.row;
+  if (dc === 0 && dr === 0) {
+    munch(); // nom the square you're standing on
+    return;
+  }
+  if (abs(dc) >= abs(dr)) move(Math.sign(dc), 0);
+  else move(0, Math.sign(dr));
+}
+
+function munch() {
+  if (state !== "play") return;
+  const cell = grid[idx(muncher.col, muncher.row)];
+  chompPhase = 10; // chomp animation regardless of outcome
+  if (!cell || cell.eaten) {
+    note({ type: "sine", tone: 200, duration: 0.04, volume: 0.18 });
+    return;
+  }
+  if (cell.failed) {
+    note({ type: "sine", tone: 150, duration: 0.04, volume: 0.14 }); // already X'd
+    return;
+  }
+  if (cell.correct) {
+    cell.eaten = true;
+    cell.flash = 14;
+    combo += 1;
+    remaining -= 1;
+    beatsLeft = min(beatsMax, beatsLeft + 1); // munching earns a beat back
+    chompGood();
+    camTargetZoom = 1.06; // tiny zoom punch on every good munch
+
+    // Collect the value + light up its (now frightened) duplicates.
+    const v = String(cell.value);
+    if (!foundValues.includes(v)) foundValues.push(v);
+    grid.forEach((c) => {
+      if (!c.eaten && String(c.value) === v) {
+        c.known = true;
+        c.flash = 14;
+      }
+    });
+
+    if (remaining === 1) flash("LAST ONE!");
+    // Speak the English translation (mexinom), else announce the last one.
+    if (mode === "word" && lang === "es") sayTranslation(v);
+    else if (remaining === 1) say("last one");
+    if (remaining <= 0) {
+      state = "clear";
+      clearPhase = 96;
+      camTargetZoom = 1.16; // bigger celebratory push-in
+      flashGold = 14;
+      spawnConfetti();
+      flash("LEVEL CLEAR!");
+      jingleClear();
+    }
+  } else {
+    cell.flash = 14;
+    cell.failed = true; // X it out — can't be tried again
+    if (mode === "word" && lang === "es") sayTranslation(cell.value);
+    chompBad();
+    loseLife();
+  }
+}
+
+// ⌨️ Smart munch (space/enter): munch what you're on; otherwise step toward the
+// nearest confirmed-green square and munch it if you land on one — so rapid
+// presses chain through a run of greens for combos.
+function smartMunch() {
+  if (state !== "play" || deathPhase > 0) return;
+  const cur = grid[idx(muncher.col, muncher.row)];
+  if (cur && cur.correct && !cur.eaten) {
+    munch();
+    return;
+  }
+  const tgt = nearestGreen();
+  if (!tgt) {
+    munch(); // nothing to chain to → normal munch (empty blip / risk)
+    return;
+  }
+  stepToward(tgt);
+  const now = grid[idx(muncher.col, muncher.row)];
+  if (now && now.correct && !now.eaten) munch(); // landed on a green → eat it
+}
+
+// Nearest known-green uneaten cell (toroidal distance), excluding the current.
+function nearestGreen() {
+  let best = null,
+    bestD = Infinity;
+  for (let r = 0; r < ROWS; r += 1)
+    for (let c = 0; c < COLS; c += 1) {
+      const cd = grid[idx(c, r)];
+      if (!cd || !cd.known || cd.eaten || cd.failed) continue;
+      const dc = min((c - muncher.col + COLS) % COLS, (muncher.col - c + COLS) % COLS);
+      const dr = min((r - muncher.row + ROWS) % ROWS, (muncher.row - r + ROWS) % ROWS);
+      const d = dc + dr;
+      if (d > 0 && d < bestD) {
+        bestD = d;
+        best = { col: c, row: r };
+      }
+    }
+  return best;
+}
+
+// One step toward a target, taking the shorter (possibly wrapping) direction.
+function stepToward(t) {
+  const dcF = (t.col - muncher.col + COLS) % COLS,
+    dcB = (muncher.col - t.col + COLS) % COLS;
+  const drF = (t.row - muncher.row + ROWS) % ROWS,
+    drB = (muncher.row - t.row + ROWS) % ROWS;
+  const colDist = min(dcF, dcB),
+    rowDist = min(drF, drB);
+  if (colDist >= rowDist && colDist > 0) move(dcF <= dcB ? 1 : -1, 0);
+  else if (rowDist > 0) move(0, drF <= drB ? 1 : -1);
+}
+
+// 🇲🇽 Speak the English translation of a Spanish answer.
+function sayTranslation(v) {
+  say(TRANSLATE[v] || String(v));
+}
+
+// 🔊 Sound ───────────────────────────────────────────────────────────────────
+function note({ type = "sine", tone, duration = 0.1, volume = 0.3, attack = 0.004 }) {
+  snd?.synth?.({
+    type,
+    tone,
+    attack,
+    decay: duration * 0.5,
+    sustain: 0,
+    release: 0.04,
+    volume,
+    duration,
+  });
+}
+
+// Schedule a little tune; each note plays `gap` frames after the previous
+// (unless it carries its own `t` offset). Times are relative to `frames` now.
+function playMelody(notes, gap = 6) {
+  let t = 0;
+  notes.forEach((n) => {
+    t = n.t != null ? n.t : t;
+    melody.push({
+      at: frames + t,
+      type: n.type || "sine",
+      tone: n.tone,
+      duration: n.dur || 0.12,
+      volume: n.vol || 0.3,
+    });
+    t += gap;
+  });
+}
+
+function moveBlip() {
+  note({ type: "sine", tone: 340, duration: 0.02, volume: 0.16 });
+}
+
+// 🗣️ Speak a phrase with the OpenAI voice (auto-cached on the AC CDN).
+function say(text) {
+  if (!text) return;
+  speakFn?.(text, "male:0", "cloud", { volume: 1, provider: "openai" });
+}
+
+// Stop the sustained held-munch chord.
+function killChord() {
+  heldChord?.forEach((v) => v?.kill?.(0.18));
+  heldChord = null;
+}
+
+// 🎹 Pentatonic note for the held "durational munch" chord (varies by cell).
+function pentatonic(col, row) {
+  const scale = [261.63, 293.66, 329.63, 392.0, 440.0]; // C D E G A
+  const oct = row < 2 ? 2 : row < 4 ? 1 : 0.5;
+  return scale[col % scale.length] * oct;
+}
+
+function chompGood() {
+  // A two-part "nom": a low chunk then a bright ping that rises with the combo.
+  const ping = 540 + min(combo, 8) * 45;
+  note({ type: "square", tone: 150, duration: 0.05, volume: 0.3 });
+  playMelody(
+    [
+      { tone: ping, type: "sine", dur: 0.07, vol: 0.32, t: 1 },
+      { tone: ping * 1.5, type: "triangle", dur: 0.05, vol: 0.22, t: 4 },
+    ],
+    0,
+  );
+}
+
+function chompBad() {
+  note({ type: "sawtooth", tone: 190, duration: 0.16, volume: 0.3 });
+  playMelody([{ tone: 120, type: "sawtooth", dur: 0.2, vol: 0.28, t: 3 }], 0);
+}
+
+// 😢 Death — a redder, sadder fall: a wobbling downward glissando into a
+// low, mournful sigh.
+function sadDeath() {
+  const notes = [];
+  const steps = 12;
+  for (let i = 0; i < steps; i += 1) {
+    const f = 415 * pow(2, -(i / 7)); // slide down ~1.7 octaves
+    notes.push({ tone: f, type: "triangle", dur: 0.09, vol: 0.3, t: i * 2 });
+  }
+  playMelody(notes, 0);
+  playMelody(
+    [
+      { tone: 147, type: "sine", dur: 0.45, vol: 0.34, t: steps * 2 + 3 }, // D3
+      { tone: 110, type: "sine", dur: 0.7, vol: 0.32, t: steps * 2 + 11 }, // A2
+    ],
+    0,
+  );
+}
+
+// 🎉 Level clear — triumphant fanfare with a sparkle on top.
+// 🏆 Victory melody — a triumphant ascending fanfare, a sparkle run, and a
+// big held final chord.
+function jingleClear() {
+  playMelody(
+    [
+      { tone: 523, dur: 0.12 }, // C5
+      { tone: 659, dur: 0.12 }, // E5
+      { tone: 784, dur: 0.12 }, // G5
+      { tone: 1047, dur: 0.16 }, // C6
+      { tone: 880, dur: 0.12 }, // A5
+      { tone: 988, dur: 0.12 }, // B5
+      { tone: 1047, dur: 0.14 }, // C6
+      { tone: 1319, dur: 0.34 }, // E6 hold
+    ],
+    6,
+  );
+  // sparkle run on top
+  playMelody(
+    [
+      { tone: 1568, type: "sine", dur: 0.08, vol: 0.2, t: 54 },
+      { tone: 2093, type: "sine", dur: 0.08, vol: 0.2, t: 60 },
+      { tone: 2637, type: "sine", dur: 0.16, vol: 0.2, t: 66 },
+    ],
+    0,
+  );
+  // big held C-major triad to finish
+  playMelody(
+    [
+      { tone: 523, type: "triangle", dur: 0.6, vol: 0.3, t: 70 },
+      { tone: 659, type: "triangle", dur: 0.6, vol: 0.24, t: 70 },
+      { tone: 784, type: "triangle", dur: 0.6, vol: 0.2, t: 70 },
+      { tone: 1047, type: "sine", dur: 0.6, vol: 0.2, t: 70 },
+    ],
+    0,
+  );
+  if (synth) synth.crash({ volume: 0.4 }); // cymbal hit on the win
+}
+
+function jingleOver() {
+  playMelody(
+    [
+      { tone: 392, type: "triangle", dur: 0.18 }, // G4
+      { tone: 311, type: "triangle", dur: 0.18 }, // Eb4 (minor turn)
+      { tone: 262, type: "triangle", dur: 0.22 }, // C4
+      { tone: 196, type: "triangle", dur: 0.5 }, // G3 long
+    ],
+    9,
+  );
+}
+
+// 🎊 Burst of confetti from the top of the board (deterministic, no RNG).
+function spawnConfetti() {
+  confetti = [];
+  const cols = [
+    [255, 210, 90],
+    [120, 235, 120],
+    [255, 120, 160],
+    [120, 180, 255],
+    [255, 255, 255],
+  ];
+  const bcx = layout.x + (layout.cell * COLS) / 2;
+  for (let i = 0; i < 44; i += 1) {
+    confetti.push({
+      x: bcx + (((i * 53) % 100) - 50) * (layout.cell * COLS) * 0.006,
+      y: layout.y + 4,
+      vx: (((i * 31) % 7) - 3) * 0.7,
+      vy: -2.4 - ((i * 17) % 5) * 0.5,
+      s: 2 + (i % 3),
+      c: cols[i % cols.length],
+    });
+  }
+}
+
+function startChirp() {
+  playMelody(
+    [
+      { tone: 392, dur: 0.06 },
+      { tone: 523, dur: 0.06 },
+      { tone: 784, dur: 0.1 },
+    ],
+    4,
+  );
+}
+
+// 🎪 Act ─────────────────────────────────────────────────────────────────────
+function act({ event: e, sound, speak, cursor, num: { randInt } }) {
+  snd = sound;
+  // ⌨️/🖱️ Input mode: pressing a key hides the cursor + hover; moving the mouse
+  // brings them back.
+  if (e.name?.startsWith?.("keyboard:down")) {
+    hover = null;
+    cursor?.("none");
+  }
+  if (e.is("move") || e.is("draw") || e.is("touch")) cursor?.("native");
+  speakFn = speak;
+  if (sound && !synth) synth = Synth(sound);
+  // Start / advance from non-play states; announce the new rule aloud.
+  const advance = () => {
+    if (state === "title") {
+      resetGame({ randInt });
+      newRound({ randInt });
+    } else if (state === "clear") {
+      level += 1;
+      newRound({ randInt });
+    } else if (state === "over" || state === "win") {
+      resetGame({ randInt });
+      newRound({ randInt });
+    } else return;
+    state = "play";
+    flashGreen = 16; // green "go!" flash on board start
+    startChirp();
+    say(ruleSpeech);
+  };
+
+  if (state !== "play") {
+    if (
+      e.is("keyboard:down:space") ||
+      e.is("keyboard:down:enter") ||
+      e.is("keyboard:down:return") ||
+      e.is("touch")
+    )
+      advance();
+    return;
+  }
+
+  // Release the held chord even mid-death so it never sticks.
+  if (
+    e.is("keyboard:up:space") ||
+    e.is("keyboard:up:enter") ||
+    e.is("keyboard:up:return") ||
+    e.is("lift")
+  )
+    killChord();
+
+  // 🖱️ Hover highlight — track the cell under the pointer.
+  if (e.is("move") || e.is("draw")) hover = cellAt(e.x, e.y);
+
+  if (deathPhase > 0) return; // ignore other input mid-death
+
+  // Movement — arrows + WASD + vim (hjkl).
+  if (e.is("keyboard:down:arrowleft") || e.is("keyboard:down:a") || e.is("keyboard:down:h")) move(-1, 0);
+  if (e.is("keyboard:down:arrowright") || e.is("keyboard:down:d") || e.is("keyboard:down:l")) move(1, 0);
+  if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:w") || e.is("keyboard:down:k")) move(0, -1);
+  if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:s") || e.is("keyboard:down:j")) move(0, 1);
+
+  // Munch (space + enter behave identically) — smart-chain to the nearest
+  // green, and sustain a pentatonic chord while held (durational, musical).
+  if (
+    e.is("keyboard:down:space") ||
+    e.is("keyboard:down:enter") ||
+    e.is("keyboard:down:return")
+  ) {
+    smartMunch();
+    if (!heldChord && synth) {
+      // Sustained pentatonic chord via the shared synth controller.
+      const root = pentatonic(muncher.col, muncher.row);
+      heldChord = [
+        synth.hold(root, { wave: "sine", volume: 0.18 }),
+        synth.hold(root * 1.5, { wave: "sine", volume: 0.12 }),
+        synth.hold(root * 2, { wave: "triangle", volume: 0.08 }),
+      ];
+    }
+  }
+
+  // Touch: tap a square to jump there; tap outside the board to munch.
+  if (e.is("touch")) {
+    const hit = cellAt(e.x, e.y);
+    if (hit) moveTo(hit.col, hit.row);
+    else munch();
+  }
+}
+
+function resetGame({ randInt }) {
+  lives = START_LIVES;
+  level = 1;
+  lifeFlyers = [];
+  troggleClock = null;
+  message = "";
+  messageTimer = 0;
+}
+
+// 📐 Layout helpers (recomputed each paint from current screen) ───────────────
+let layout = { x: 0, y: 0, cell: 32, top: 40 };
+
+function computeLayout(screen) {
+  screenH = screen.height;
+  // Wide margins so the board floats with lots of room around it.
+  const sideMargin = max(28, floor(screen.width * 0.12));
+  const top = 54; // header band (rule title + stats)
+  const bottomPad = 30; // HUD band (lives)
+  const availW = screen.width - sideMargin * 2;
+  const availH = screen.height - top - bottomPad;
+  const cell = max(18, floor(min(availW / COLS, availH / ROWS)));
+  const gw = cell * COLS;
+  const gh = cell * ROWS;
+  layout = {
+    cell,
+    baseCell: cell,
+    x: floor((screen.width - gw) / 2),
+    y: top + floor((availH - gh) / 2),
+    top,
+    bottomPad,
+  };
+}
+
+// 🎥 Fold the dynamic camera (zoom about board center + lean + shake) into the
+// live layout, so both drawing and touch hit-testing stay consistent.
+function applyCamera(screen) {
+  const z = cam.zoom;
+  const cell = max(8, round(layout.baseCell * z));
+  const gw = cell * COLS;
+  const gh = cell * ROWS;
+  const bx = floor((screen.width - gw) / 2);
+  const by =
+    layout.top + floor((screen.height - layout.top - layout.bottomPad - gh) / 2);
+  const shx = cam.shake ? sin(frames * 1.7) * cam.shake : 0;
+  const shy = cam.shake ? cos(frames * 2.3) * cam.shake : 0;
+  layout.cell = cell;
+  layout.x = round(bx + cam.x + shx);
+  layout.y = round(by + cam.y + shy);
+}
+
+function cellAt(px, py) {
+  const { x, y, cell } = layout;
+  const col = floor((px - x) / cell);
+  const row = floor((py - y) / cell);
+  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return null;
+  return { col, row };
+}
+
+// 🎨 Paint ───────────────────────────────────────────────────────────────────
+function paint({ wipe, ink, screen, write, box, line }) {
+  computeLayout(screen);
+  wipe(8, 10, 26);
+  paintBackground({ ink, box, screen });
+
+  if (state === "title") return paintTitle({ wipe, ink, screen, write });
+
+  applyCamera(screen); // dynamic camera → updates layout in place
+  const { x, y, cell } = layout;
+
+  const tf = beatsMax ? beatsLeft / beatsMax : 0;
+  const lowTime = beatsLeft <= 3 && state === "play";
+  const blink = (frames >> 2) % 2 === 0; // fast ~7.5Hz blink
+
+  // 😱 Whole-screen red blink when about to die.
+  if (lowTime && blink) ink(150, 0, 0, 115).box(0, 0, screen.width, screen.height);
+
+  // ⏳ Beat timeline bar across the very top.
+  const tcol = tf > 0.5 ? [120, 220, 120] : tf > 0.25 ? [240, 210, 90] : [240, 80, 80];
+  ink(20, 24, 44).box(0, 0, screen.width, 3 + (beatPulse > 4 ? 1 : 0));
+  ink(...tcol).box(0, 0, round(screen.width * tf), 3 + (beatPulse > 4 ? 1 : 0));
+
+  // ⏳ Big timer (beats left), top-left — blinks near zero.
+  const timeCol = lowTime ? (blink ? [255, 60, 60] : [255, 235, 120]) : tcol;
+  bigNum(ink, `${beatsLeft}`, 8, 8, 4, timeCol);
+
+  // Rule title, top-right (no levels, no score).
+  const ruleX = max(4, screen.width - 8 - ruleLabel.length * 12);
+  ink(255, 230, 120).write(ruleLabel, { x: ruleX, y: 9, size: 2 });
+
+  // Grid.
+  const gameOver = state === "over";
+  for (let r = 0; r < ROWS; r += 1) {
+    for (let c = 0; c < COLS; c += 1) {
+      const cx = x + c * cell;
+      const cy = y + r * cell;
+      const cd = grid[idx(c, r)];
+      const txt = String(cd.value);
+      const colorWord = COLOR_WORDS[txt]; // color-name → real color
+      const missed = gameOver && cd.correct && !cd.eaten; // answer you didn't get
+
+      // Tile background.
+      let bg;
+      if (cd.flash > 0) bg = cd.correct ? [40, 150, 70] : [160, 45, 45];
+      else if (cd.eaten) bg = [15, 17, 34];
+      else if (cd.failed) bg = [44, 22, 24];
+      else if (cd.known) bg = [40, 168, 80]; // confirmed-correct → whole square green
+      else if (missed) bg = [72, 74, 82]; // revealed missed answer = gray
+      else if (colorWord) bg = colorWord; // color squares ARE that color
+      else bg = tileColor(txt);
+      ink(...bg).box(cx + 1, cy + 1, cell - 2, cell - 2);
+
+      // Outline.
+      if (cd.known && !cd.eaten)
+        ink(150, 245, 170).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+      else if (missed)
+        ink(210, 214, 222).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+      else ink(60, 70, 120).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+
+      // 🖱️ Hover highlight.
+      if (hover && hover.col === c && hover.row === r && !cd.eaten && state === "play") {
+        ink(255, 255, 255, 28).box(cx + 1, cy + 1, cell - 2, cell - 2);
+        ink(235, 242, 255).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+      }
+
+      // Value — ONE color per answer (color-words use their hue + contrast).
+      if (!cd.eaten) {
+        const fs = txt.length * 12 <= cell - 8 ? 2 : 1;
+        let tx = cx + cell / 2 - (txt.length * 6 * fs) / 2;
+        let ty = cy + cell / 2 - fs * 4;
+        if (cd.known && !cd.failed) {
+          tx += sin(frames * 0.9 + c * 1.7) * 1.6; // afraid jitter
+          ty += cos(frames * 1.1 + r * 1.3) * 1.2;
+        }
+        let col;
+        if (cd.failed) col = [120, 95, 100];
+        else if (cd.known) col = [10, 40, 18]; // dark on the green known square
+        else if (missed) col = [228, 230, 238];
+        else if (colorWord) col = luma(colorWord) > 140 ? [25, 25, 30] : [245, 245, 255];
+        else col = charColor(txt[0]);
+        ink(...col).write(txt, { x: tx, y: ty, size: fs });
+
+        // ✖ X out tried-and-wrong cells (can't be tried again).
+        if (cd.failed) {
+          ink(225, 70, 70);
+          line(cx + 4, cy + 4, cx + cell - 4, cy + cell - 4);
+          line(cx + cell - 4, cy + 4, cx + 4, cy + cell - 4);
+        }
+      }
+    }
+  }
+
+  // 👻 Wrap preview — ONLY the wrap moves available from the muncher's current
+  // edge (the squares closest to its possible moves), ghosted just outside that
+  // edge. No far-side / whole-edge highlights.
+  const wrapHint = (destCol, destRow, gx, gy) => {
+    const cd = grid[idx(destCol, destRow)];
+    if (!cd || cd.eaten) return;
+    const t = String(cd.value);
+    const fs = t.length * 12 <= cell - 8 ? 2 : 1;
+    const gc = COLOR_WORDS[t] || charColor(t[0]);
+    ink(gc[0], gc[1], gc[2], 95).write(t, {
+      x: gx + cell / 2 - (t.length * 6 * fs) / 2,
+      y: gy + cell / 2 - fs * 4,
+      size: fs,
+    });
+    ink(110, 215, 255, 110).box(gx + 2, gy + 2, cell - 4, cell - 4, "outline");
+  };
+  const mc = muncher.col,
+    mr = muncher.row;
+  if (state === "play" && deathPhase === 0) {
+    if (mc === 0) wrapHint(COLS - 1, mr, x - cell, y + mr * cell); // wrap-left
+    if (mc === COLS - 1) wrapHint(0, mr, x + COLS * cell, y + mr * cell); // wrap-right
+    if (mr === 0) wrapHint(mc, ROWS - 1, x + mc * cell, y - cell); // wrap-up
+    if (mr === ROWS - 1) wrapHint(mc, 0, x + mc * cell, y + ROWS * cell); // wrap-down
+
+    // ✅ Emphasize any adjacent confirmed-correct (green) square you can step
+    // onto and munch — a pulsing bright-green ring beckons.
+    const pul = round(70 + 90 * (0.5 + 0.5 * sin(frames * 0.28)));
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nc = (mc + dx + COLS) % COLS,
+        nr = (mr + dy + ROWS) % ROWS;
+      const cd = grid[idx(nc, nr)];
+      if (cd && cd.known && !cd.eaten && !cd.failed) {
+        const ncx = x + nc * cell,
+          ncy = y + nr * cell;
+        ink(170, 255, 195, pul).box(ncx + 1, ncy + 1, cell - 2, cell - 2, "outline");
+        ink(170, 255, 195, pul).box(ncx + 2, ncy + 2, cell - 4, cell - 4, "outline");
+      }
+    }
+  }
+
+  // Troggles.
+  troggles.forEach((t) => {
+    const cx = x + t.col * cell;
+    const cy = y + t.row * cell;
+    paintTroggle({ ink, box, line }, cx, cy, cell, t.hue);
+  });
+
+  // Muncher — dying, celebrating, or normal.
+  if (deathPhase > 0) {
+    const cx = x + deathPos.col * cell;
+    const cy = y + deathPos.row * cell;
+    paintDeadMuncher({ ink, box, line }, cx, cy, cell);
+  } else if (!(invuln > 0 && (invuln >> 2) % 2 === 0)) {
+    const cx = x + muncherVis.col * cell;
+    const cy = y + muncherVis.row * cell;
+    paintMuncher({ ink, box }, cx, cy, cell, clearPhase > 0);
+  }
+
+  // ✨ Confetti (level-clear).
+  confetti.forEach((p) => ink(p.c[0], p.c[1], p.c[2]).box(p.x, p.y, p.s, p.s));
+
+  // 🎶 Beat ambience — faint blue/cyan/purple pulse each beat (winning vibes).
+  if (beatPulse > 0 && state === "play") {
+    const vibe = [[80, 120, 255], [80, 220, 230], [170, 110, 240]][(beatsMax - beatsLeft) % 3];
+    ink(vibe[0], vibe[1], vibe[2], beatPulse * 4).box(0, 0, screen.width, screen.height);
+  }
+
+  // 🔴 / 🟡 / 🟢 Full-screen flashes (death / clear / board-start).
+  if (flashRed > 0)
+    ink(210, 25, 25, min(190, flashRed * 11)).box(0, 0, screen.width, screen.height);
+  if (flashGold > 0)
+    ink(255, 215, 90, min(150, flashGold * 11)).box(0, 0, screen.width, screen.height);
+  if (flashGreen > 0)
+    ink(60, 220, 110, min(150, flashGreen * 11)).box(0, 0, screen.width, screen.height);
+
+  // 💚 Lives — little monsters bottom-left, all peering at the main muncher.
+  const mcx = x + muncherVis.col * cell + cell / 2;
+  const mcy = y + muncherVis.row * cell + cell / 2;
+  const lifeSz = 13,
+    lifeGap = 17,
+    lifeY = screen.height - lifeSz - 6;
+  for (let i = 0; i < lives; i += 1)
+    drawMiniMonster({ ink, box }, 6 + i * lifeGap, lifeY, lifeSz, mcx, mcy, healthColor(lives));
+
+  // 💔 Lost-life flyers sailing into the board center (life being used up).
+  const bcx = x + (cell * COLS) / 2,
+    bcy = y + (cell * ROWS) / 2;
+  lifeFlyers.forEach((f) => {
+    const sx = 6 + f.slot * lifeGap + lifeSz / 2;
+    const sy = lifeY + lifeSz / 2;
+    const e = f.t * f.t; // accelerate toward the muncher
+    const fx = sx + (bcx - sx) * e;
+    const fy = sy + (bcy - sy) * e;
+    const sz = max(4, lifeSz * (1 - 0.6 * f.t));
+    drawMiniMonster({ ink, box }, fx - sz / 2, fy - sz / 2, sz, bcx, bcy, [235, 95, 95]);
+  });
+
+  // 🔢 Items-left, bottom-right, big.
+  const leftN = `${remaining}`;
+  const lsz = 4;
+  const leftW = leftN.length * 6 * lsz;
+  const leftX = screen.width - 8 - leftW;
+  bigNum(ink, leftN, leftX, screen.height - 8 * lsz - 4, lsz, remaining <= 3 ? [245, 130, 130] : [150, 210, 175]);
+  ink(140, 165, 195).write("LEFT", { x: max(4, leftX - 28), y: screen.height - 14 });
+
+  // 🍽️ Collected answers — stack down the left, sized to fit the margin.
+  let fcy = layout.top + 52; // below the big timer
+  const leftRoom = layout.x - 6;
+  for (const v of foundValues) {
+    if (fcy > lifeY - 16) break;
+    const fits2 = v.length * 12 + 4 <= leftRoom;
+    const fs = fits2 ? 2 : 1;
+    const cwid = 6 * fs;
+    const w = v.length * cwid + 4;
+    const cw = COLOR_WORDS[v];
+    ink(...(cw || tileColor(v))).box(4, fcy, w, 8 * fs + 2);
+    const tcol = cw ? (luma(cw) > 140 ? [25, 25, 30] : [245, 245, 255]) : charColor(v[0]);
+    let tcx = 6;
+    for (const ch of v) {
+      ink(...tcol).write(ch, { x: tcx, y: fcy + 1, size: fs });
+      tcx += cwid;
+    }
+    fcy += 8 * fs + 4;
+  }
+
+  // 📣 Transient message banner — large, with a colored background.
+  if (message) {
+    const ms = 2;
+    const mw = message.length * 6 * ms;
+    const mx = max(4, round(screen.width / 2 - mw / 2));
+    const myy = layout.y - 8 * ms - 6; // just above the board
+    let mbg, mfg;
+    if (/OUCH|TIME|OVER/.test(message)) (mbg = [205, 45, 45]), (mfg = [255, 240, 240]);
+    else if (/CLEAR/.test(message)) (mbg = [45, 175, 85]), (mfg = [12, 30, 14]);
+    else if (/LAST/.test(message)) (mbg = [235, 200, 60]), (mfg = [40, 28, 0]);
+    else (mbg = [80, 90, 150]), (mfg = [240, 240, 255]);
+    ink(...mbg).box(mx - 5, myy - 3, mw + 10, 8 * ms + 6);
+    ink(0, 0, 0, 110).box(mx - 5, myy - 3, mw + 10, 8 * ms + 6, "outline");
+    ink(...mfg).write(message, { x: mx, y: myy, size: ms });
+  }
+
+  // Let the celebration play out, then show the prompt overlay.
+  if (state === "clear" && clearPhase === 0)
+    overlay({ ink, screen, write }, "LEVEL CLEAR", "press any key");
+  if (state === "over")
+    overlay({ ink, screen, write }, "GAME OVER", "press to retry");
+}
+
+// Cute monster: fatter the more it has eaten; shrinks + trembles when starving
+// (low on beats). Its mouth only moves while actually munching.
+// 🌌 Subtle animated backdrop — a slowly drifting dot grid that brightens on
+// each beat. Sits behind everything, low-contrast so it never distracts.
+function paintBackground({ ink, box, screen }) {
+  const sp = 40; // wide spacing → sparse
+  const dx = (frames * 0.18) % sp;
+  const dy = (frames * 0.11) % sp;
+  const pulse = beatPulse > 0 ? 6 : 0;
+  for (let gy = -sp; gy < screen.height + sp; gy += sp) {
+    for (let gx = -sp; gx < screen.width + sp; gx += sp) {
+      // Faint, just barely above the (8,10,26) background.
+      const b = 4 + pulse + 3 * sin((gx + gy) * 0.05 + frames * 0.035);
+      ink(14 + round(b * 0.4), 16 + round(b * 0.5), 32 + round(b)); // dim blue-violet
+      box(gx + dx, gy + dy, 2, 2);
+    }
+  }
+}
+
+// Big number in the default font (kerns cleanly at scale, unlike unifont).
+// Returns the end x. Default glyph advance ≈ 6px × size.
+function bigNum(ink, txt, x, y, sz, col) {
+  ink(...col).write(txt, { x, y, size: sz });
+  return x + txt.length * 6 * sz;
+}
+
+// Body color by remaining lives — visibly healthy → sickly.
+function healthColor(n) {
+  if (n >= 3) return [125, 235, 130]; // vibrant green
+  if (n === 2) return [205, 220, 95]; // yellow-green
+  return [235, 150, 70]; // sickly orange
+}
+
+// A tiny anthropomorphic monster (used for the lives icons + lost-life flyers),
+// with eyes that point toward a target (the main muncher).
+function drawMiniMonster({ ink, box }, x, y, s, lookX, lookY, color) {
+  const legH = max(1, floor(s * 0.18));
+  const bodyH = s - legH;
+  ink(round(color[0] * 0.7), round(color[1] * 0.7), round(color[2] * 0.7));
+  box(x + s * 0.14, y + bodyH, max(1, floor(s * 0.24)), legH);
+  box(x + s * 0.6, y + bodyH, max(1, floor(s * 0.24)), legH);
+  ink(...color).box(x, y, s, bodyH);
+  // eyes glance toward (lookX, lookY)
+  const cxp = x + s / 2,
+    cyp = y + bodyH / 2;
+  let dx = lookX - cxp,
+    dy = lookY - cyp;
+  const d = Math.hypot(dx, dy) || 1;
+  dx /= d;
+  dy /= d;
+  const eo = max(2, floor(s * 0.3));
+  const eyy = y + s * 0.22;
+  const eyL = x + s * 0.14,
+    eyR = x + s * 0.54;
+  ink(255).box(eyL, eyy, eo, eo);
+  ink(255).box(eyR, eyy, eo, eo);
+  const pup = max(1, floor(eo * 0.5));
+  const gx = round((dx * (eo - pup)) / 2),
+    gy = round((dy * (eo - pup)) / 2);
+  ink(20, 30, 20).box(eyL + (eo - pup) / 2 + gx, eyy + (eo - pup) / 2 + gy, pup, pup);
+  ink(20, 30, 20).box(eyR + (eo - pup) / 2 + gx, eyy + (eo - pup) / 2 + gy, pup, pup);
+}
+
+function paintMuncher({ ink, box }, cx, cy, cell, dance = false) {
+  const fullness = max(0, min(1, 1 - remaining / boardCorrectTotal)); // hungry→full
+  let scale = 0.72 + fullness * 0.4; // skinny → round
+  const dying = beatsLeft <= 3 && state === "play";
+  if (dying) scale *= 0.66 + 0.12 * abs(sin(frames * 0.8)); // shrink, panicked
+  const s = max(8, floor((cell - 2) * 0.8 * scale));
+  const legH = max(2, floor(s * 0.18));
+  const bodyH = s - legH;
+  const trem = dying ? 1.8 : 0;
+  const ox = dying ? sin(frames * 1.4) * trem : 0;
+  const oy =
+    (dance ? -abs(sin(frames * 0.45)) * s * 0.28 : 0) +
+    (dying ? cos(frames * 1.8) * trem : 0);
+  const x = cx + (cell - s) / 2 + ox;
+  const y = cy + (cell - s) / 2 + oy;
+
+  // 🦵 Legs — two simple feet that bob.
+  const bob = (frames >> (dance ? 1 : 3)) % 2;
+  const legW = max(2, floor(s * 0.26));
+  const footY = y + bodyH;
+  ink(60, 175, 80);
+  box(x + s * 0.12, footY - (bob ? 1 : 0), legW, legH);
+  box(x + s * 0.62, footY - (bob ? 0 : 1), legW, legH);
+
+  // 🟩 Body — one flat color.
+  // Body color reflects remaining lives (healthy → sickly); brightens if dying.
+  const hc = healthColor(lives);
+  ink(...(dying ? [min(255, hc[0] + 30), min(255, hc[1] + 20), hc[2]] : hc)).box(x, y, s, bodyH);
+
+  // 👀 Eyes — two squares; pupil glances toward the last move direction.
+  const eo = max(2, floor(s * 0.2));
+  const ey = y + s * 0.2;
+  const exL = x + s * 0.18,
+    exR = x + s * 0.56;
+  ink(255).box(exL, ey, eo, eo);
+  ink(255).box(exR, ey, eo, eo);
+  const pup = max(1, floor(eo * 0.5));
+  const gx = floor((eo - pup) / 2) * facing.x;
+  const gy = floor((eo - pup) / 2) * facing.y;
+  ink(20, 40, 25).box(exL + (eo - pup) / 2 + gx, ey + (eo - pup) / 2 + gy, pup, pup);
+  ink(20, 40, 25).box(exR + (eo - pup) / 2 + gx, ey + (eo - pup) / 2 + gy, pup, pup);
+
+  // 👄 Mouth — closed line; opens to a simple dark square while munching.
+  const my = y + bodyH * 0.66;
+  if (chompPhase > 0) {
+    ink(25, 40, 25).box(x + s * 0.3, my - s * 0.05, s * 0.4, s * 0.26);
+  } else {
+    ink(40, 80, 45).box(x + s * 0.32, my, s * 0.36, max(1, floor(s * 0.08)));
+  }
+}
+
+// 💀 The Muncher's sad end: turns deep red, sinks + squashes, X-ed-out eyes,
+// a frown, and a falling blue tear.
+function paintDeadMuncher({ ink, box, line }, cx, cy, cell) {
+  const inset = cell * 0.12;
+  const s = cell - inset * 2;
+  const p = 1 - deathPhase / 54; // 0 → 1 over the animation
+  const sink = s * 0.55 * p;
+  const x = cx + inset;
+  const y = cy + inset + sink;
+  const bodyH = s * (1 - 0.3 * p); // squash down as it sinks
+  const a = max(20, 255 - p * 130); // fade out
+
+  // Body — deep, sad red.
+  ink(170 - p * 70, 28, 30, a).box(x, y, s, bodyH);
+  ink(90, 12, 14, a).box(x, y, s, bodyH, "outline");
+
+  // ✖ Dead eyes.
+  const ex = max(3, floor(s * 0.16));
+  const ey = y + s * 0.16;
+  ink(25, 0, 0, a);
+  const xeye = (ox) => {
+    line(x + ox, ey, x + ox + ex, ey + ex);
+    line(x + ox + ex, ey, x + ox, ey + ex);
+  };
+  xeye(s * 0.16);
+  xeye(s * 0.56);
+
+  // ☹ Frown.
+  ink(30, 0, 0, a);
+  const my = y + bodyH * 0.64;
+  box(x + s * 0.3, my, s * 0.4, max(1, floor(s * 0.08)));
+  box(x + s * 0.26, my - max(1, floor(s * 0.06)), max(1, floor(s * 0.08)), max(1, floor(s * 0.06)));
+  box(x + s * 0.66 - s * 0.08, my - max(1, floor(s * 0.06)), max(1, floor(s * 0.08)), max(1, floor(s * 0.06)));
+
+  // 💧 Tear.
+  if ((frames >> 2) % 2)
+    ink(120, 180, 255, a).box(
+      x + s * 0.22,
+      ey + ex + 2 + p * s * 0.4,
+      max(1, floor(s * 0.08)),
+      max(2, floor(s * 0.16)),
+    );
+}
+
+// 😠 Troggle — an angry red enemy: eyes with pupils, slanted-down eyebrows,
+// and a jagged downturned mouth with fangs.
+function paintTroggle({ ink, box, line }, cx, cy, cell, hue) {
+  const pad = cell * 0.16;
+  const s = cell - pad * 2;
+  const x = cx + pad;
+  const y = cy + pad;
+  ink(205, 48, 46).box(x, y, s, s); // red body
+  ink(120, 14, 14).box(x, y, s, s, "outline");
+
+  // Eyes (white) with dark pupils that point at the muncher's general area.
+  const eo = max(2, floor(s * 0.2));
+  const ey = y + s * 0.32;
+  const exL = x + s * 0.16,
+    exR = x + s * 0.56;
+  ink(255).box(exL, ey, eo, eo);
+  ink(255).box(exR, ey, eo, eo);
+  const pup = max(1, floor(eo * 0.5));
+  ink(25, 0, 0).box(exL + (eo - pup) / 2, ey + (eo - pup) / 2 + 1, pup, pup);
+  ink(25, 0, 0).box(exR + (eo - pup) / 2, ey + (eo - pup) / 2 + 1, pup, pup);
+
+  // 😠 Angry eyebrows — slant down toward the center.
+  ink(20, 0, 0);
+  line(x + s * 0.1, y + s * 0.2, x + s * 0.38, y + s * 0.3);
+  line(x + s * 0.9, y + s * 0.2, x + s * 0.62, y + s * 0.3);
+
+  // 😡 Jagged, downturned mouth with two fangs.
+  const my = y + s * 0.7;
+  ink(25, 0, 0);
+  line(x + s * 0.22, my + s * 0.06, x + s * 0.4, my - s * 0.04);
+  line(x + s * 0.4, my - s * 0.04, x + s * 0.6, my - s * 0.04);
+  line(x + s * 0.6, my - s * 0.04, x + s * 0.78, my + s * 0.06);
+  ink(255);
+  box(x + s * 0.4, my - s * 0.04, max(1, floor(s * 0.08)), max(1, floor(s * 0.1)));
+  box(x + s * 0.54, my - s * 0.04, max(1, floor(s * 0.08)), max(1, floor(s * 0.1)));
+}
+
+function gameName() {
+  if (mode !== "word") return "MATHNOM";
+  return lang === "es" ? "MEXINOM" : "ENGNOM";
+}
+function editionText() {
+  if (mode !== "word") return "number edition";
+  return lang === "es" ? "edicion mexicana" : "english edition";
+}
+
+function paintTitle({ ink, screen, write }) {
+  ink(255, 230, 120).write(gameName(), { center: "x", y: screen.height / 2 - 40, size: 3 });
+  ink(120, 235, 120).write(editionText(), { center: "x", y: screen.height / 2 - 6 });
+  ink(180, 200, 255).write("eat squares that match the rule", { center: "x", y: screen.height / 2 + 14 });
+  ink(140, 160, 220).write("arrows move - space munches - dodge troggles", { center: "x", y: screen.height / 2 + 28 });
+  // Blinking prompt.
+  if (mouth < 24)
+    ink(255).write("press any key to start", { center: "x", y: screen.height / 2 + 54 });
+}
+
+function overlay({ ink, screen, write }, title, sub) {
+  // Lighter scrim so the board (incl. revealed missed answers) shows through.
+  ink(0, 0, 0, 125).box(0, 0, screen.width, screen.height);
+  // Big title on a colored banner — red for game over, green for clear.
+  const over = /OVER/.test(title);
+  const bg = over ? [195, 45, 45] : [45, 175, 85];
+  const ts = 3;
+  const tw = title.length * 6 * ts;
+  const tx = max(4, round(screen.width / 2 - tw / 2));
+  const ty = round(screen.height / 2 - 28);
+  ink(...bg).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12);
+  ink(0, 0, 0, 150).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12, "outline");
+  ink(255, 248, 230).write(title, { x: tx, y: ty, size: ts });
+  ink(210, 220, 255).write(sub, { center: "x", y: screen.height / 2 + 26 });
+}
+
+// 📰 Meta
+function meta() {
+  const title = mode !== "word" ? "Mathnom" : lang === "es" ? "Mexinom" : "Engnom";
+  return {
+    title,
+    desc: "Eat the squares that match the rule — mathnom (numbers), engnom (words), mexinom (español).",
+  };
+}
+
+export { boot, sim, paint, act, meta };

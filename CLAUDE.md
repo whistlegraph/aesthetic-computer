@@ -30,6 +30,10 @@ This repository uses an automated maintenance system called "AestheticAnts" (AA)
 
 **Important:** Do not modify `ants/mindset-and-rules.md` unless you are the queen (@jeffrey).
 
+## The Hand (Code Style)
+
+`HAND.md` at the repo root is the code-style guide — the companion to `papers/VOICE.md` (which governs prose). It codifies the terse, single-mind discipline of AC's hand-written era and how to keep new code legible as an *instrument*, not just runnable. Read it before writing or carving core code. Key idea: leaves (pieces) stay small and can be loop-generated; the foundational libs are the instrument and want knowability over raw terseness. The active "rehandify" campaign and its guardrails live at the bottom of that file.
+
 ## Development Commands
 
 ### Running the Development Environment
