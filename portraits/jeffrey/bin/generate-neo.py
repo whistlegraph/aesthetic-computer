@@ -16,11 +16,26 @@ from __future__ import annotations
 
 import argparse
 import base64
+import os
 import sys
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
 from openai import OpenAI
+
+# Progress heartbeat for the Slab menubar (shows a live "image" bar while a
+# gen is in flight). Optional — degrade to a no-op if the helper is absent.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from ac_heartbeat import Heartbeat
+except Exception:  # pragma: no cover
+    class Heartbeat:  # no-op fallback
+        def __init__(self, *a, **k): pass
+        def begin(self, *a, **k): return None
+        def update(self, *a, **k): pass
+        def end(self): pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 VAULT_ENV = REPO_ROOT / "aesthetic-computer-vault" / ".devcontainer" / "envs" / "devcontainer.env"
@@ -226,7 +241,22 @@ def main() -> int:
     print(f"settings: size={args.size} quality={args.quality} fidelity={args.input_fidelity} n={args.n}",
           file=sys.stderr)
 
-    for variant in selected:
+    # Slab menubar progress: one indeterminate "image" bar, per-variant counts.
+    # A keepalive thread refreshes updatedAt so the menubar's 120s staleness
+    # sweep never drops a bar mid-render (a single gpt-image call can be slow).
+    total = len(selected)
+    hb = Heartbeat(type="image", label=f"neo-jeffrey ×{total}")
+    hb.begin(pct=None)
+    _alive = {"on": True, "done": 0}
+    def _keepalive():
+        while _alive["on"]:
+            hb.update(pct=None, done=_alive["done"], total=total)
+            time.sleep(5)
+    _t = threading.Thread(target=_keepalive, daemon=True)
+    _t.start()
+
+    for vi, variant in enumerate(selected):
+        hb.update(pct=None, done=vi, total=total)
         print(f"\ngenerating {variant['name']}…", file=sys.stderr)
         try:
             files = [open(r, "rb") for r in refs]
@@ -264,7 +294,10 @@ def main() -> int:
                 print(f"  tokens: input={ip} output={op}", file=sys.stderr)
         except Exception as e:
             print(f"  ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        _alive["done"] = vi + 1
 
+    _alive["on"] = False
+    hb.end()
     return 0
 
 

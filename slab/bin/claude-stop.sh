@@ -35,6 +35,9 @@ session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
 # render to rainbow-pulse. Cleared on next UserPromptSubmit.
 if [[ -n "$session_id" ]]; then
     printf 'turn complete\n' > "$AWAITING_DIR/$session_id" 2>/dev/null
+    # Turn ended → no tool running; clear the heartbeat flag (see
+    # claude-tool-heartbeat.sh) so the next idle window detects cleanly.
+    rm -f "$SLAB_HOME/state/running-tools/$session_id" 2>/dev/null
 fi
 
 # Janitor: drop active-prompts whose claude_pid is dead (terminal closed),
@@ -47,7 +50,7 @@ for f in "$ACTIVE_DIR"/*; do
     [[ -z "$pid" || "$pid" == "0" ]] && continue
     if ! kill -0 "$pid" 2>/dev/null; then
         sid=$(basename "$f")
-        rm -f "$f" "$AWAITING_DIR/$sid"
+        rm -f "$f" "$AWAITING_DIR/$sid" "$SLAB_HOME/state/running-tools/$sid"
     fi
 done
 for f in "$AWAITING_DIR"/*; do

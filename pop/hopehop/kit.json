@@ -1,75 +1,75 @@
 {
   "kick": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/437273-tr_808_kick_wav.wav",
-    "id": 437273,
-    "name": "TR-808 kick.wav",
-    "username": "derickgtwk",
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/509597-boom_bap_kick_1.wav",
+    "id": 509597,
+    "name": "Boom Bap Kick 1",
+    "username": "tripjazz",
     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-    "duration": 0.711542
+    "duration": 0.199841
   },
   "snare": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/278983-snare_trap_wav.wav",
-    "id": 278983,
-    "name": "snare trap.wav",
-    "username": "dflee4",
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/676253-boom_bap_snare.wav",
+    "id": 676253,
+    "name": "Boom Bap Snare",
+    "username": "CrushedLoops",
     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-    "duration": 2
+    "duration": 0.545465
   },
   "ohat": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/317096-hat_open2_wav.wav",
-    "id": 317096,
-    "name": "hat open2.wav",
-    "username": "shpira",
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/638087-rd_6_o_hihat_wav.wav",
+    "id": 638087,
+    "name": "rd-6 o hihat.wav",
+    "username": "laffik",
     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-    "duration": 1.00002
+    "duration": 0.768821
   },
   "shaker": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/375638-shaker_shake7_wav.wav",
-    "id": 375638,
-    "name": "Shaker (shake7.wav)",
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/375636-shaker_shake5_wav.wav",
+    "id": 375636,
+    "name": "Shaker (shake5.wav)",
     "username": "sgossner",
     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-    "duration": 0.234694
+    "duration": 0.159955
   },
   "rim": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/662274-playtime_rim.wav",
-    "id": 662274,
-    "name": "Playtime Rim",
-    "username": "adh.dreaming",
-    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-    "duration": 0.0607937
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/142274-sd14x08tama_vhp_tsn_rm_v14_wav.wav",
+    "id": 142274,
+    "name": "SD14x08Tama-VHP,TSn-Rm-v14.wav",
+    "username": "quartertone",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "duration": 0.520833
   },
   "perc": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/35918-conga_wav.wav",
-    "id": 35918,
-    "name": "conga.wav",
-    "username": "altemark",
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/21387-dtumquintohl2_aif.wav",
+    "id": 21387,
+    "name": "dTumQuintoHL2.aif",
+    "username": "ramjac",
     "license": "https://creativecommons.org/licenses/by/4.0/",
-    "duration": 0.0679365
+    "duration": 0.529917
   },
   "clap": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/493711-handclap05_wav.wav",
-    "id": 493711,
-    "name": "HandClap05.wav",
-    "username": "bastianpusch",
-    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-    "duration": 0.489365
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/3718-909_clap_wav.wav",
+    "id": 3718,
+    "name": "909 clap.wav",
+    "username": "NoiseCollector",
+    "license": "http://creativecommons.org/licenses/by/3.0/",
+    "duration": 0.167528
   },
   "hat": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/509971-hi_hat_closed_9_mp3.wav",
-    "id": 509971,
-    "name": "Hi-Hat Closed 9.mp3",
-    "username": "blakengouda",
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/503778-lo_fi_hi_hat_wav.wav",
+    "id": 503778,
+    "name": "lo-fi hi hat.wav",
+    "username": "reathance",
     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-    "duration": 0.144739
+    "duration": 0.153855
   },
   "crash": {
-    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/269905-02_crash_med_cymbals_snares_wav.wav",
-    "id": 269905,
-    "name": "02_Crash_Med_Cymbals_&_Snares.wav",
-    "username": "Theriavirra",
-    "license": "https://creativecommons.org/licenses/by/4.0/",
-    "duration": 1.728
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/261413-crash_wav.wav",
+    "id": 261413,
+    "name": "crash.wav",
+    "username": "Logicogonist",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.15946
   },
   "tiger": {
     "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/528034-robot_tiger_roar_mp3.wav",
@@ -110,5 +110,21 @@
     "username": "SaschaRettberg",
     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
     "duration": 1.24082
+  },
+  "tamb": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/171658-tambourine_one_shot_wav.wav",
+    "id": 171658,
+    "name": "tambourine one shot.wav",
+    "username": "dfeltch",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.545669
+  },
+  "bongo": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/219155-bongo03_wav.wav",
+    "id": 219155,
+    "name": "Bongo03.wav",
+    "username": "Jagadamba",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.641701
   }
 }

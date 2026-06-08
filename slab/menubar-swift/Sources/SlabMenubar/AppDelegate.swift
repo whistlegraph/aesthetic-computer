@@ -286,7 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // so this only needs to come back on at the timer level.
         let blinkEnabled = false
         let needsBlink = blinkEnabled && state.themeByStatus && state.claudeSessions.contains {
-            $0.state == .complete || $0.state == .awaiting
+            $0.state == .complete || $0.state == .awaiting || $0.state == .interrupted
         }
         if needsBlink {
             if blinkTimer == nil {
@@ -836,11 +836,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func stateName(_ s: ClaudeSession.State) -> String {
         switch s {
-        case .blank:    return "blank"
-        case .working:  return "working"
-        case .complete: return "complete"
-        case .awaiting: return "awaiting"
-        case .stale:    return "stale"
+        case .blank:       return "blank"
+        case .working:     return "working"
+        case .complete:    return "complete"
+        case .awaiting:    return "awaiting"
+        case .interrupted: return "interrupted"
+        case .stale:       return "stale"
         }
     }
 
@@ -961,6 +962,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            bold: (65535, 65535, 50000), cursor: (65535, 46000, 10000)), "◉ awaiting")
                 : (Palette(bg: (65535, 59000, 45000), text: (26000, 13000, 0),
                            bold: (18000, 8000, 0), cursor: (65535, 35000, 0)), "◉ awaiting")
+        // Interrupted = muted violet (Esc'd, idle at the prompt — distinct
+        // from working-green, complete-slate, awaiting-amber). Blink nudges
+        // a touch brighter so a cut-off thread reads as "needs a nudge".
+        case .interrupted:
+            if blink {
+                return dark
+                    ? (Palette(bg: (12000, 4000, 18000), text: (54000, 46000, 64000),
+                               bold: (60000, 54000, 65535), cursor: (46000, 26000, 65535)), "✕ interrupted")
+                    : (Palette(bg: (54000, 47000, 64000), text: (22000, 8000, 34000),
+                               bold: (14000, 2000, 26000), cursor: (40000, 12000, 65535)), "✕ interrupted")
+            }
+            return dark
+                ? (Palette(bg: (8500, 2800, 13500), text: (54000, 46000, 64000),
+                           bold: (60000, 54000, 65535), cursor: (40000, 22000, 60000)), "✕ interrupted")
+                : (Palette(bg: (58000, 52000, 65535), text: (22000, 8000, 34000),
+                           bold: (14000, 2000, 26000), cursor: (34000, 12000, 60000)), "✕ interrupted")
         // Stale = deep red (process dead, escalate).
         case .stale:
             return dark
@@ -983,6 +1000,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .working:  s = "working"
         case .complete: s = "complete"
         case .awaiting: s = "awaiting"
+        // No dedicated Terminal.app settings set for interrupted — reuse the
+        // calm "complete" (slate) profile so Terminal users still leave green.
+        // iTerm2 + the menubar polygon use the distinct violet palette above.
+        case .interrupted: s = "complete"
         case .stale:    s = "stale"
         }
         let base = "Slab-\(s)-\(dark ? "dark" : "light")"
@@ -1037,7 +1058,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // Pulse only the attention states — every other state holds steady
             // so working/blank/stale sessions don't churn osascript on the
             // 0.6 s blink tick.
-            let isAttention = (s.state == .complete || s.state == .awaiting)
+            let isAttention = (s.state == .complete || s.state == .awaiting || s.state == .interrupted)
             let blink = isAttention && blinkPhase
             let decor = Self.statusDecor(for: s.state, dark: darkAppearance, blink: blink)
             var palette = decor.palette

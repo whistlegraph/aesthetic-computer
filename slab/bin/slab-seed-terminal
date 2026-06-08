@@ -1,0 +1,100 @@
+#!/bin/bash
+# slab-seed-terminal — install Slab's Terminal.app profiles onto this machine.
+#
+# Merges the canonical Slab terminal profiles (the "Grass" base + every
+# Slab-<state>-<dark|light>[-pulse] settings set) from the repo seed into the
+# local com.apple.Terminal preferences, so a fresh machine looks EXACTLY like
+# the reference machine the seed was captured from. Idempotent: re-running
+# overwrites each named profile with the seed version (a palette tweak in the
+# seed propagates on the next run).
+#
+# These named sets are what the Slab menubar switches between per Claude
+# session status (see AppDelegate.applyTerminalDecor). The menubar can also
+# auto-create them at runtime, but seeding guarantees byte-identical colors +
+# the right default profile from first launch.
+#
+# Usage:
+#   slab-seed-terminal                 # merge seed, set Grass as default+startup
+#   slab-seed-terminal --no-default    # merge profiles only, don't touch default
+#   slab-seed-terminal --seed PATH     # use a specific seed plist
+#
+# Requires: PlistBuddy (ships with macOS), Terminal.app NOT running (we quit it
+# first so it doesn't clobber our writes on exit, then you relaunch it).
+set -euo pipefail
+
+PB=/usr/libexec/PlistBuddy
+TERM_PLIST="$HOME/Library/Preferences/com.apple.Terminal.plist"
+
+# Locate the seed relative to this script (works whether run from repo or via
+# a symlink in ~/.local/bin — we resolve the symlink target).
+self="${BASH_SOURCE[0]}"
+while [[ -L "$self" ]]; do self="$(readlink "$self")"; done
+SLAB_REPO="$(cd "$(dirname "$self")/.." && pwd)"
+SEED="$SLAB_REPO/seed/terminal-profiles.plist"
+SET_DEFAULT=1
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-default) SET_DEFAULT=0 ;;
+    --seed) SEED="$2"; shift ;;
+    -h|--help) grep '^# ' "$0" | sed 's/^# //'; exit 0 ;;
+  esac
+  shift
+done
+
+SEED_LIST="${SEED%.plist}.list"
+[[ -f "$SEED" ]] || { echo "✗ seed not found: $SEED" >&2; exit 1; }
+[[ -f "$SEED_LIST" ]] || { echo "✗ seed manifest not found: $SEED_LIST" >&2; exit 1; }
+
+echo "• seeding Terminal profiles from $SEED"
+
+# Quit Terminal so its in-memory copy can't overwrite our plist edits on exit.
+if osascript -e 'application "Terminal" is running' 2>/dev/null | grep -q true; then
+  echo "• Terminal.app is running — quitting it so writes stick (relaunch after)"
+  osascript -e 'tell application "Terminal" to quit' 2>/dev/null || true
+  sleep 1
+fi
+
+# Ensure the plist + Window Settings dict exist.
+[[ -f "$TERM_PLIST" ]] || $PB -c "Save" "$TERM_PLIST" 2>/dev/null || \
+  /usr/bin/defaults write com.apple.Terminal _seedinit -bool true >/dev/null 2>&1 || true
+$PB -c "Print :'Window Settings'" "$TERM_PLIST" >/dev/null 2>&1 || \
+  $PB -c "Add :'Window Settings' dict" "$TERM_PLIST"
+
+# Profile names come from the manifest committed beside the seed (avoids
+# parsing PlistBuddy output, which embeds binary color blobs).
+names=$(cat "$SEED_LIST")
+
+count=0
+while IFS= read -r name; do
+  [[ -z "$name" ]] && continue
+  # Extract this profile from the seed into a standalone plist. plutil keypaths
+  # are dot-separated; Slab profile names contain no dots, so "Profiles.$name"
+  # is unambiguous. Then Delete any stale local copy and Merge the fresh one in.
+  tmp=$(mktemp -t slabseed)
+  if /usr/bin/plutil -extract "Profiles.$name" xml1 -o "$tmp" "$SEED" 2>/dev/null; then
+    $PB -c "Delete :'Window Settings':'$name'" "$TERM_PLIST" 2>/dev/null || true
+    $PB -c "Add :'Window Settings':'$name' dict" "$TERM_PLIST" 2>/dev/null || true
+    if $PB -c "Merge '$tmp' :'Window Settings':'$name'" "$TERM_PLIST" 2>/dev/null; then
+      echo "  ✓ $name"
+      count=$((count + 1))
+    else
+      echo "  ✗ $name (merge failed)" >&2
+    fi
+  else
+    echo "  ✗ $name (extract failed)" >&2
+  fi
+  rm -f "$tmp"
+done <<< "$names"
+
+if [[ "$SET_DEFAULT" == "1" ]]; then
+  defprofile=$($PB -c "Print :DefaultProfile" "$SEED" 2>/dev/null || echo "Grass")
+  /usr/bin/defaults write com.apple.Terminal "Default Window Settings" -string "$defprofile"
+  /usr/bin/defaults write com.apple.Terminal "Startup Window Settings" -string "$defprofile"
+  echo "• default + startup profile → $defprofile"
+fi
+
+# Flush the cfprefsd cache so the next Terminal launch reads our edits.
+/usr/bin/killall -u "$USER" cfprefsd 2>/dev/null || true
+
+echo "• seeded $count profiles. Relaunch Terminal.app to see them."

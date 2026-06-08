@@ -20,6 +20,18 @@
         "hooks": [
           { "type": "command", "command": "@HOME@/.local/bin/claude-tool-pre.sh", "async": true }
         ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "@HOME@/.local/bin/claude-tool-heartbeat.sh pre", "async": true }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          { "type": "command", "command": "@HOME@/.local/bin/claude-tool-heartbeat.sh post", "async": true }
+        ]
       }
     ],
     "UserPromptSubmit": [

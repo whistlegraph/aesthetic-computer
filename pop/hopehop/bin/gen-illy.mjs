@@ -1,52 +1,135 @@
 #!/usr/bin/env node
-// gen-illy.mjs — generate the hopehop album cover (text-to-image).
+// gen-illy.mjs — generate the hopehop album cover via gpt-image-2, then
+// embed it into the rendered mp3 as ID3 art.
 //
-// Lean standalone generator (no jeffrey-platter identity refs — hopehop's
-// cover is a panther/milkshake emblem, not a portrait). Calls gpt-image-2
-// /v1/images/generations with the prompt in hopehop.illy.txt.
-//
-//   node pop/hopehop/bin/gen-illy.mjs            # cached; skips if cover exists
-//   node pop/hopehop/bin/gen-illy.mjs --force    # regenerate
+// PHOTOGRAPHIC jeffrey cover: same identity-ref path as
+// pop/marimba/bin/gen-illy.mjs + pop/chillwave/bin/gen-illy.mjs (jeffrey
+// SHOOT + IG-archive refs + the whistlegraph-butterfly scrap), so hopehop
+// sits in the same jeffrey singles series. The prompt
+// (pop/hopehop/hopehop.illy.txt) drives a summer-jam stoop scene —
+// jeffrey + a panther cub + a strawberry milkshake — in a real
+// photographic register (golden-hour, 35mm grain), NOT the old
+// illustrated panther emblem.
 //
 // Output: pop/hopehop/out/hopehop-cover.png (1024x1024)
+// Embed:  pop/hopehop/out/hopehop.mp3       (ID3v2 attached picture)
+//
+//   node pop/hopehop/bin/gen-illy.mjs            # cached if cover exists
+//   node pop/hopehop/bin/gen-illy.mjs --force    # regenerate
+//   node pop/hopehop/bin/gen-illy.mjs --embed-only   # skip gen, just embed
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
 const REPO = resolve(LANE, "..", "..");
-const FORCE = process.argv.includes("--force");
-const PROMPT_PATH = resolve(LANE, "hopehop.illy.txt");
-const OUT_PATH = resolve(LANE, "out", "hopehop-cover.png");
 
-function loadKey() {
+const flags = {};
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i].startsWith("--")) flags[process.argv[i].slice(2)] = true;
+}
+const FORCE = flags.force === true;
+const SIZE = "1024x1024";
+
+const _af = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
+const PROMPT_PATH = resolve(process.cwd(), _af("--prompt", `${LANE}/hopehop.illy.txt`));
+const OUT_PATH    = resolve(process.cwd(), _af("--cover",  `${LANE}/out/hopehop-cover.png`));
+const MP3_PATH    = resolve(process.cwd(), _af("--mp3",    `${LANE}/out/hopehop.mp3`));
+mkdirSync(`${LANE}/out`, { recursive: true });
+
+// ── identity refs (mirrors marimba/chillwave gen-illy.mjs) ───────────
+const SHOOT_DIR   = `${REPO}/portraits/jeffrey/corpus/shoot-2k`;
+const ARCHIVE_DIR = `${REPO}/portraits/jeffrey/ig-archive/whistlegraph`;
+const REFS = [
+  `${SHOOT_DIR}/jeffery-av--07.jpg`,
+  `${SHOOT_DIR}/jeffery-av--01.jpg`,
+  `${SHOOT_DIR}/jeffery-av--04.jpg`,
+  `${ARCHIVE_DIR}/2018-12-02_Bq4ckGFFNtW.jpg`,
+  `${ARCHIVE_DIR}/2020-09-02_CEpxlO2FOvD.jpg`,
+  `${ARCHIVE_DIR}/2021-07-10_CRI095Vl7AO_1.jpg`,
+  `${ARCHIVE_DIR}/2025-01-25_DFQ2lHPzN_W.jpg`,
+  // the whistlegraph butterfly scrap — model DRAWS it, never composites
+  `${REPO}/pop/chillwave/assets/wg-scrap.png`,
+].filter((p) => {
+  if (existsSync(p)) return true;
+  console.warn(`  ⚠ ref missing, dropping: ${p}`);
+  return false;
+});
+
+function loadOpenAIKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
-  const vault = resolve(REPO, "aesthetic-computer-vault/.devcontainer/envs/devcontainer.env");
+  const vault = `${REPO}/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env`;
   if (existsSync(vault)) {
     for (const line of readFileSync(vault, "utf8").split("\n")) {
-      if (line.startsWith("OPENAI_API_KEY=")) return line.slice(15).trim().replace(/^['"]|['"]$/g, "");
+      if (line.startsWith("OPENAI_API_KEY=")) {
+        return line.slice("OPENAI_API_KEY=".length).trim().replace(/^['"]|['"]$/g, "");
+      }
     }
   }
-  throw new Error("OPENAI_API_KEY not set and not found in vault devcontainer.env");
+  throw new Error("OPENAI_API_KEY not set and not found in vault");
 }
 
-if (existsSync(OUT_PATH) && !FORCE) { console.log(`✓ cover exists (use --force): ${OUT_PATH}`); process.exit(0); }
+// ── embed the cover into the mp3 as ID3v2 attached picture ───────────
+function embedCover() {
+  if (!existsSync(OUT_PATH) || !existsSync(MP3_PATH)) {
+    console.warn(`  ⚠ skip embed — need both ${OUT_PATH} and ${MP3_PATH}`);
+    return;
+  }
+  const tmp = `${MP3_PATH}.embed.mp3`;
+  const r = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
+    "-i", MP3_PATH, "-i", OUT_PATH,
+    "-map", "0:a", "-map", "1:v", "-c", "copy", "-id3v2_version", "3",
+    "-metadata:s:v", "title=cover", "-metadata:s:v", "comment=Cover (front)",
+    "-disposition:v", "attached_pic", tmp], { stdio: "inherit" });
+  if (r.status !== 0 || !existsSync(tmp)) { console.error("✗ embed failed"); return; }
+  renameSync(tmp, MP3_PATH);
+  console.log(`✓ cover embedded → ${MP3_PATH.replace(REPO + "/", "")}`);
+}
 
+if (flags["embed-only"]) { embedCover(); process.exit(0); }
+
+if (existsSync(OUT_PATH) && !FORCE) {
+  console.log(`✓ cached cover → ${OUT_PATH.replace(REPO + "/", "")} (use --force to regen)`);
+  embedCover();
+  process.exit(0);
+}
+
+const apiKey = loadOpenAIKey();
 const prompt = readFileSync(PROMPT_PATH, "utf8").trim();
-const apiKey = loadKey();
-mkdirSync(dirname(OUT_PATH), { recursive: true });
+console.log(`▸ hopehop cover · ${SIZE} · ${REFS.length} jeffrey refs`);
+const t0 = Date.now();
 
-console.log("• generating hopehop cover (gpt-image-2, 1024x1024) …");
-const res = await fetch("https://api.openai.com/v1/images/generations", {
+const fd = new FormData();
+fd.append("model", "gpt-image-2");
+fd.append("prompt", prompt);
+fd.append("size", SIZE);
+fd.append("quality", "high");
+fd.append("n", "1");
+for (const ref of REFS) {
+  const buf = readFileSync(ref);
+  const ext = ref.toLowerCase().endsWith(".png") ? "png"
+            : ref.toLowerCase().endsWith(".webp") ? "webp" : "jpeg";
+  fd.append("image[]", new Blob([buf], { type: `image/${ext}` }), ref.split("/").pop());
+}
+const res = await fetch("https://api.openai.com/v1/images/edits", {
   method: "POST",
-  headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ model: "gpt-image-2", prompt, size: "1024x1024", n: 1 }),
+  headers: { Authorization: `Bearer ${apiKey}` },
+  body: fd,
 });
-if (!res.ok) { console.error(`✗ image API ${res.status}: ${await res.text()}`); process.exit(1); }
+if (!res.ok) {
+  console.error(`✗ OpenAI ${res.status}: ${(await res.text()).slice(0, 600)}`);
+  process.exit(1);
+}
 const json = await res.json();
 const b64 = json.data?.[0]?.b64_json;
-if (!b64) { console.error("✗ no image in response"); process.exit(1); }
+if (!b64) {
+  console.error(`✗ no image: ${JSON.stringify(json).slice(0, 280)}`);
+  process.exit(1);
+}
 writeFileSync(OUT_PATH, Buffer.from(b64, "base64"));
-console.log(`✓ ${OUT_PATH}`);
+console.log(`✓ ${((Date.now() - t0) / 1000).toFixed(1)}s → ${OUT_PATH.replace(REPO + "/", "")}`);
+
+embedCover();

@@ -37,10 +37,19 @@ const noOpen = hasFlag("--no-open");
 const outPath = (() => { const o = takeFlag("--out"); return o ? expand(o) : resolve(OUT_DIR, "hopehop.mp3"); })();
 const SWING = parseFloat(takeFlag("--swing") ?? "0.60");
 const SEED = parseInt(takeFlag("--seed") ?? "7", 10);
+// jeffrey-pvc lead vocal stem (from bin/say.mjs). When present it becomes
+// the lead: the Apple `say` adlibs + the panther HOOK melody drop out so
+// jeffrey's voice carries the words (panther stays on the bass + drop roar).
+const VOCAL_STEM = (() => { const v = takeFlag("--vocal-stem"); return v ? expand(v) : null; })();
+const VOCAL_GAIN = parseFloat(takeFlag("--vocal-gain") ?? "0.95");
+const VOCAL_OFFSET = takeFlag("--vocal-offset"); // seconds; default = end of 2-bar intro
+// tempo — forwarded to the C bed so render + bed stay in lock-step. Lower
+// BPM = slower, longer track (more room to stretch the sung vocal).
+const BPM = parseFloat(takeFlag("--bpm") ?? "82");
 mkdirSync(OUT_DIR, { recursive: true });
 
 // ── transport (must match c/hopehop.c) ───────────────────────────────
-const SR = 48000, BPM = 82, BEAT = 60 / BPM, BAR = BEAT * 4, S16 = BEAT / 4;
+const SR = 48000, BEAT = 60 / BPM, BAR = BEAT * 4, S16 = BEAT / 4;
 // arrangement arc (bar ranges) — mirrors the C bed's SECTIONS for FLOW.
 const ARC = [["intro", 2], ["groove", 8], ["hook", 8], ["break", 2], ["drop", 8], ["outro", 2]];
 const SEC_OF = []; for (const [nm, bars] of ARC) for (let i = 0; i < bars; i++) SEC_OF.push(nm);
@@ -57,7 +66,12 @@ if (!existsSync(BIN) || statSync(BIN).mtimeMs < statSync(SRC).mtimeMs) {
 }
 console.log("• rendering bed …");
 const bedWav = resolve(OUT_DIR, "hopehop.bed.wav");
-if (spawnSync(BIN, ["--out", bedWav, "--swing", String(SWING), "--seed", String(SEED), ...argv], { stdio: "inherit" }).status !== 0) process.exit(1);
+// the C bed is buffer-limited to --seconds; size it to the full 30-bar
+// arrangement at THIS bpm so lower tempos don't get truncated (kept the
+// render + bed bar grids in lock-step).
+const ARR_BARS = ARC.reduce((a, [, b]) => a + b, 0);
+const bedSeconds = (ARR_BARS * BAR + 0.5).toFixed(2);
+if (spawnSync(BIN, ["--out", bedWav, "--swing", String(SWING), "--seed", String(SEED), "--bpm", String(BPM), "--seconds", bedSeconds, ...argv], { stdio: "inherit" }).status !== 0) process.exit(1);
 
 // ── audio helpers ────────────────────────────────────────────────────
 function decodeF32(path, channels) {
@@ -165,7 +179,8 @@ function placePanther(midi, startSec, maxDurSec, gain, pan) {
 // --say-voice <name>.
 const SAY_VOICE = takeFlag("--say-voice") ?? "Samantha";
 const SAY_LINE = takeFlag("--say") ?? "want my,latina,gimme,thicc,milkshake,milkshake,mmm yeah";
-const ADLIBS = SAY_LINE.split(",").map((w) => w.trim()).filter(Boolean);
+// when a jeffrey-pvc stem leads, skip the Apple `say` adlib synth entirely
+const ADLIBS = VOCAL_STEM ? [] : SAY_LINE.split(",").map((w) => w.trim()).filter(Boolean);
 const SAY_DIR = resolve(OUT_DIR, "say-tuned"); mkdirSync(SAY_DIR, { recursive: true });
 const slugw = (t) => t.replace(/\W+/g, "_");
 function loadSafe(p) { try { return loadOneShot(p); } catch { return null; } }
@@ -237,7 +252,7 @@ function hatCell(bar, s, baseVel, subdiv) {
   const span = (t1 > t0 ? t1 - t0 : S16);
   for (let k = 0; k < subdiv; k++) {
     const v = baseVel * (subdiv > 1 ? 0.7 + 0.3 * (k / Math.max(1, subdiv - 1)) : 1) * (0.85 + 0.3 * rng());
-    place(S.hat, t0 + (span * k) / subdiv + hr(0.003), 0.42 * v, hr(0.3));
+    place(S.hat, t0 + (span * k) / subdiv + hr(0.003), 0.30 * v, hr(0.3));
   }
 }
 
@@ -253,6 +268,37 @@ function riser(endSec, durSec, gain) {
     L[i] += lp * env * Math.cos(a); R[i] += lp * env * Math.sin(a);
   }
 }
+
+// ── soft LEAD SYNTH — doubles/answers the sung pentatonic melody ──────
+// Mellow sine+harmonics with a slow attack + exponential body and a touch
+// of vibrato; sits an octave above the vocal (C4–C5) so the two lines
+// braid. A short stereo slap gives it air. Kept gentle so the voice leads.
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+function leadNote(midi, startSec, durSec, gain, pan) {
+  const f = mtof(midi), i0 = Math.round(startSec * SR), nLen = Math.floor(durSec * SR);
+  const atkN = Math.floor(0.018 * SR), relN = Math.floor(0.12 * SR);
+  const a = (pan * 0.5 + 0.5) * (Math.PI / 2), gL = Math.cos(a) * gain, gR = Math.sin(a) * gain;
+  for (let j = 0; j < nLen; j++) {
+    const i = i0 + j; if (i < 0 || i >= N) break;
+    const t = j / SR;
+    const vib = 1 + 0.006 * Math.sin(2 * Math.PI * 5.2 * t) * Math.min(1, t / 0.18); // gentle delayed vibrato
+    const ph = 2 * Math.PI * f * vib * t;
+    let s = Math.sin(ph) + 0.3 * Math.sin(2 * ph) + 0.12 * Math.sin(3 * ph); // soft, few harmonics
+    s *= 0.7;
+    let env = Math.exp(-2.0 * t);                       // mellow body decay
+    if (j < atkN) env *= j / atkN;                      // soft attack
+    if (j > nLen - relN) env *= (nLen - j) / relN;      // release tail
+    L[i] += s * env * gL; R[i] += s * env * gR;
+  }
+}
+// lead phrase per loop-bar: [step, midi, beats] — C-major pentatonic in
+// C4–C5, a call line that complements the vocal contour, resolving to C4.
+const LEAD_MEL = {
+  0: [[0, 67, 1.0], [8, 64, 1.0]], 1: [[4, 69, 1.2]],
+  2: [[0, 72, 1.0], [8, 69, 1.0]], 3: [[4, 67, 1.4]],
+  4: [[0, 64, 1.0], [8, 67, 1.0]], 5: [[4, 62, 1.2]],
+  6: [[0, 64, 1.0], [8, 67, 1.0]], 7: [[4, 60, 1.6]],
+};
 
 console.log("• sequencing trap layer (chill / flow-aware) …");
 for (let bar = 0; bar < TOTAL_BARS; bar++) {
@@ -298,12 +344,31 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   }
   if ((lb === 1 || lb === 5) && !rolls.has(14)) place(S.ohat, t16(bar, 14) + hr(0.003), 0.24, 0.25);
 
-  // PERC — shaker + rim + conga, panned (kept gentle)
+  // PERC — native-tongues hand percussion: shaker + rim + conga/quinto,
+  // tambourine jangle, bongo syncopation. panned, kept gentle.
   for (const s of [2, 6, 10, 14]) place(S.shaker, t16(bar, s) + hr(0.004), 0.26 * (0.8 + 0.4 * rng()) * build, hr(0.5));
   for (const s of (rng() < 0.5 ? [3, 11] : [3, 11, 6])) place(S.rim, t16(bar, s) + hr(0.004), 0.3 * (0.8 + 0.4 * rng()) * build, hr(0.55));
-  if (!isOutro && rng() < 0.6) place(S.perc, t16(bar, rng() < 0.5 ? 7 : 13) + hr(0.005), 0.28 * build, hr(0.45));
+  if (!isOutro && rng() < 0.6) place(S.perc, t16(bar, rng() < 0.5 ? 7 : 13) + hr(0.005), 0.3 * build, hr(0.45));
+  // tambourine — sparse, soft jangle on the backbeat (chill), right side
+  if (S.tamb && !isIntro && !isOutro) {
+    const tsteps = (sec === "hook" || isDrop) ? [8, 12] : [8];
+    for (const s of tsteps) if (rng() < 0.6) place(S.tamb, t16(bar, s) + hr(0.005), 0.10 * (0.8 + 0.4 * rng()) * build, 0.4 + hr(0.15));
+  }
+  // bongo — syncopated answer hits, panned opposite the conga
+  if (S.bongo && (sec === "groove" || sec === "hook" || isDrop) && rng() < 0.55)
+    place(S.bongo, t16(bar, [5, 7, 13, 15][Math.floor(rng() * 4)]) + hr(0.005), 0.26 * build, -0.4 + hr(0.15));
   // soft cymbal to mark the drop's downbeat (gentle, not a crash-out)
   if (isDrop && lb === 0) place(S.crash, t16(bar, 0), 0.28, 0.0);
+
+  // ── LEAD SYNTH — braids with the vocal melody through hook + drop ───
+  if ((sec === "hook" || isDrop) && !isBreak) {
+    for (const [s, midi, beats] of (LEAD_MEL[lb] || [])) {
+      if (rng() < 0.15) continue;                    // occasional breath
+      const g = (isDrop ? 0.2 : 0.16) * build;
+      leadNote(midi, t16(bar, s) + hr(0.004), beats * BEAT, g, hr(0.25));
+      leadNote(midi, t16(bar, s) + 0.11 + hr(0.004), beats * BEAT * 0.7, g * 0.3, -0.3); // stereo slap
+    }
+  }
 
   // ── PANTHER VOICE — sings the bass + the hook ──────────────────────
   const po = PANTHER_OCT * 12;
@@ -312,8 +377,9 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     placePanther(PAN_ROOT[lb] + po, t16(bar, 0) + hr(0.004), 1.7 * BEAT, 0.55, 0);
     if (rng() < 0.6) placePanther(PAN_ROOT[lb] + po, t16(bar, 8) + hr(0.004), 1.0 * BEAT, 0.4, 0);
   }
-  if (sec === "hook" || isDrop) {
-    // panther hook — the melodic lead (pitched up into a growl-sing)
+  if (!VOCAL_STEM && (sec === "hook" || isDrop)) {
+    // panther hook — the melodic lead (pitched up into a growl-sing).
+    // Silenced when jeffrey's vocal leads, so the voices don't fight.
     for (const [s, midi, mb] of (PAN_HOOK[lb] || []))
       placePanther(midi + po, t16(bar, s) + hr(0.004), mb * BEAT, 0.5, hr(0.2));
   }
@@ -336,8 +402,8 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   if (S.scratch2 && isDrop && rng() < 0.3) place(S.scratch2, t16(bar, [3, 7, 11][Math.floor(rng() * 3)]) + hr(0.005), 0.38, hr(0.5));
 }
 
-// ── sidechain pump (kicks punch through — deeper wiggle) ─────────────
-for (let i = 0; i < N; i++) { const d = 0.4 + 0.6 * duck[i]; L[i] *= d; R[i] *= d; }
+// ── sidechain pump (gentle — chill, not a hard wiggle) ───────────────
+for (let i = 0; i < N; i++) { const d = 0.66 + 0.34 * duck[i]; L[i] *= d; R[i] *= d; }
 
 // ── filter + volume automation (FLOW) ────────────────────────────────
 // One-pole LP whose cutoff opens over the intro and dips in the break,
@@ -365,24 +431,57 @@ for (let i = 0; i < N; i++) {
   L[i] = lpL * g; R[i] = lpR * g;
 }
 
+// ── jeffrey-pvc lead vocal — mixed clean over the finished bed ───────
+// Mixed AFTER the sidechain pump + filter automation so the voice stays
+// present and un-ducked (the ffmpeg master still EQs it). Starts at the
+// end of the 2-bar intro by default; lands the first "hope" on the groove.
+if (VOCAL_STEM) {
+  if (!existsSync(VOCAL_STEM)) { console.error(`✗ vocal stem not found: ${VOCAL_STEM}`); process.exit(1); }
+  const vI = decodeF32(VOCAL_STEM, 2);
+  const vN = Math.floor(vI.length / 2);
+  // ElevenLabs stems run quiet (~ -33 dB mean). Peak-normalize so VOCAL_GAIN
+  // is meaningful, then mix the voice forward and DUCK the bed under it.
+  let vpk = 0; for (let j = 0; j < vN * 2; j++) { const a = Math.abs(vI[j]); if (a > vpk) vpk = a; }
+  const norm = vpk > 0 ? 0.97 / vpk : 1;
+  const off = Math.round((VOCAL_OFFSET != null ? parseFloat(VOCAL_OFFSET) : 2 * BAR) * SR);
+  const fadeN = Math.floor(0.01 * SR);
+  // envelope follower on the (normalized) vocal → ducks the instrumental
+  const atk = Math.exp(-1 / (0.005 * SR)), rel = Math.exp(-1 / (0.18 * SR));
+  let venv = 0;
+  console.log(`• mixing jeffrey-pvc vocal: ${VOCAL_STEM.split("/").pop()} (peak-norm ×${norm.toFixed(2)} · gain ${VOCAL_GAIN} · duck bed)`);
+  for (let j = 0; j < vN; j++) {
+    const i = off + j; if (i < 0 || i >= N) break;
+    const vl = vI[j * 2] * norm, vr = vI[j * 2 + 1] * norm;
+    const mag = Math.max(Math.abs(vl), Math.abs(vr));
+    venv = mag > venv ? atk * venv + (1 - atk) * mag : rel * venv + (1 - rel) * mag;
+    const dip = 1 - 0.45 * Math.min(1, venv / 0.5);     // duck bed up to 45% under voice
+    let env = VOCAL_GAIN;
+    if (j < fadeN) env *= j / fadeN;                     // tiny in/out fades to avoid clicks
+    if (j > vN - fadeN) env *= (vN - j) / fadeN;
+    L[i] = L[i] * dip + vl * env; R[i] = R[i] * dip + vr * env;
+  }
+}
+
 // ── write mixed f32 → warm (less-bright, less-loud) master → mp3 ──────
 const mix = new Float32Array(N * 2);
 for (let i = 0; i < N; i++) { mix[i * 2] = L[i]; mix[i * 2 + 1] = R[i]; }
 const tmpRaw = resolve(tmpdir(), `hopehop-${SEED}.f32`);
 writeFileSync(tmpRaw, Buffer.from(mix.buffer));
 
-// hip-hop master: controlled sub, cleared mud, vocal presence + air,
-// bus glue, then loud-but-clean ceiling.
+// CHILL master: warm low-mids, mud trimmed gently, harsh presence + air
+// rolled OFF (soft / lo-fi), easy glue, quiet + dynamic loudness so the
+// track breathes instead of squashing flat.
 const MASTER = [
-  "highpass=f=30",
-  "equalizer=f=55:t=q:w=0.7:g=2.2",      // 808 / sub weight
-  "equalizer=f=250:t=q:w=1.1:g=-1.8",    // clear the mud so vocal + flute sit
-  "equalizer=f=1800:t=q:w=1.2:g=0.7",    // body
-  "equalizer=f=4200:t=q:w=1.0:g=1.4",    // vocal presence (say-vocal sits up)
-  "equalizer=f=10000:t=h:w=0.7:g=1.8",   // air / sheen
-  "acompressor=threshold=-20dB:ratio=2.5:attack=10:release=150:makeup=2.5",  // glue
+  "highpass=f=32",
+  "equalizer=f=60:t=q:w=0.8:g=1.6",      // gentle sub warmth
+  "equalizer=f=200:t=q:w=1.0:g=1.1",     // low-mid body / coziness
+  "equalizer=f=320:t=q:w=1.1:g=-1.0",    // light mud trim
+  "equalizer=f=3400:t=h:w=0.8:g=-0.8",   // gently tame harsh presence (still smooth)
+  "equalizer=f=8000:t=h:w=0.7:g=1.2",    // restore air → harmonies shimmer (emo sheen)
+  "equalizer=f=12000:t=h:w=0.7:g=1.0",   // top sparkle
+  "acompressor=threshold=-21dB:ratio=2.4:attack=15:release=200:makeup=2.2",  // tighter glue
   "alimiter=limit=0.97:level=false",
-  "loudnorm=I=-9.5:TP=-1.0:LRA=9",        // hip-hop loudness
+  "loudnorm=I=-10:TP=-1.0:LRA=9",         // loud, lush emo-rap level
 ].join(",");
 
 const ff = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
