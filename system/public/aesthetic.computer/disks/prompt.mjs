@@ -5754,7 +5754,9 @@ function paint($) {
   // at the bottom between the paste and enter buttons, like the KidLisp.com
   // button above. Hidden on the attract screen, and in KidLisp mode (which uses
   // the same slot). Tapping it jumps to the `notepat` piece.
-  if ($.system.prompt.input?.canType && !isKidlispMode) {
+  // 🎹 Notepat button temporarily disabled per request — flip `false` back to
+  // `$.system.prompt.input?.canType` to restore the short notepat link/badge.
+  if (false && !isKidlispMode) {
     const notepatLabel = "        notepat"; // leading spaces reserve the piano icon
     const notepatTextWidth = $.text.box(
       notepatLabel, undefined, undefined, undefined, undefined, "MatrixChunky8",

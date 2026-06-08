@@ -129,8 +129,8 @@ export const MatrixChunky8 = {
     '%': 4,
     '&': 5,
     '\'': 2,
-    '(': 4,
-    ')': 4,
+    '(': 3, // Match native BDF DWIDTH (was 4 — overshot kerning)
+    ')': 3, // Match native BDF DWIDTH (was 4 — overshot kerning)
     '*': 6,
     '+': 4,
     ',': 2,

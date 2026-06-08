@@ -4250,6 +4250,33 @@ void draw() {
         hidden: true,
         //TODO: shouldnt this go to nopaint site? nopaint.art
       },
+      mathnom: {
+        sig: "mathnom[:words|:spanish]",
+        desc: "Number Munchers-style grid game: munch squares that match the math rule (odds, evens, primes, multiples, factors) on a beat, dodge troggles.",
+        colon: [
+          { name: "mode", type: "enum", values: ["words", "spanish"], required: false, desc: "play the word edition (engnom) or spanish edition (mexinom) instead of numbers" },
+        ],
+        examples: ["mathnom", "mathnom:words", "mathnom:spanish"],
+        done: true,
+      },
+      engnom: {
+        sig: "engnom",
+        desc: "Word Munchers-style grid game: munch squares matching the word rule (animals, colors, fruits, rhymes, doubles). English word edition of mathnom.",
+        examples: ["engnom"],
+        done: true,
+      },
+      mexinom: {
+        sig: "mexinom",
+        desc: "Spanish (Mexican-flavored) word Munchers: comida, animales, colores, frutas, fiesta — speaks the English translation aloud as you munch.",
+        examples: ["mexinom"],
+        done: true,
+      },
+      notenom: {
+        sig: "notenom",
+        desc: "Musical Munchers-style grid game: munch the note squares that match the rule (C major, A minor, sharps, C chord, high, low) on the beat — each bite plays its note.",
+        examples: ["notenom"],
+        done: true,
+      },
       notepat: {
         sig: "notepat[:wave][:octave] [melody...]",
         desc: "A melodic keyboard instrument.",
