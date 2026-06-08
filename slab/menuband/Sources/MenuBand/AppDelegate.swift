@@ -2,6 +2,12 @@ import AppKit
 import AVFoundation
 import Carbon
 
+extension Notification.Name {
+    /// Posted whenever the set of currently-sounding notes changes, so the
+    /// About-window icon's live key glow can refresh.
+    static let menuBandLitNotesChanged = Notification.Name("menuBandLitNotesChanged")
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let menuBand = MenuBandController()
@@ -313,6 +319,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// keyboard note lifts. A small delay so a fast legato note change
     /// (release one key, press the next) doesn't flicker the overlay.
     private var pitchBendEndTimer: Timer?
+    /// While the pitch graph is open, releasing the last note doesn't kill
+    /// the bend immediately — for `pitchBendReleaseGrace` seconds, trackpad
+    /// movement re-engages the slide with no key held. Each move pushes this
+    /// deadline forward; when movement stops past it, the session ends.
+    private var pitchBendReleaseGraceUntil: Date?
     /// Local + global NSEvent monitors for trackpad scroll events.
     /// Held so we can teardown if needed (we don't, but per-instance
     /// retention is cleaner than globals).
@@ -334,6 +345,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// engaged for this long. Replaying within the window cancels
     /// the release outright — the sound never even starts to fade.
     private static let fxHoldDuration: TimeInterval = 3.5
+    /// Post-release "catch" window for the pitch graph: after the last
+    /// keyboard note lifts, trackpad movement keeps bending for this long
+    /// (re-armed on each move) so a fast release-then-swipe still grabs the
+    /// graph instead of dropping the gesture. 250–500ms reads as deliberate
+    /// without lingering.
+    private static let pitchBendReleaseGrace: TimeInterval = 0.4
     /// Once the hold expires, bend/space/echo ramp LINEARLY to 0
     /// over this long — a gentle glide off, never a sharp cutoff.
     private static let fxRampDuration: TimeInterval = 1.0
@@ -478,6 +495,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // momentary gap (fast legato note changes).
                 self.pitchBendEndTimer?.invalidate()
                 self.pitchBendEndTimer = nil
+                self.pitchBendReleaseGraceUntil = nil
                 if !self.pitchBendCursorLocked {
                     CGAssociateMouseAndMouseCursorPosition(0)
                     self.pitchBendCursorLocked = true
@@ -500,6 +518,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.lastLitCount = cur
             self.updateIcon()
             self.popoverVC?.refreshHeldNotes()
+            // Drive the About-window icon's live key glow (if open).
+            NotificationCenter.default.post(name: .menuBandLitNotesChanged,
+                                            object: nil)
             self.updatePianoWaveformWindow()
         }
         menuBand.onInstrumentVisualChange = { [weak self] in
@@ -625,6 +646,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pianoWaveformWindowDelegate.onStepDown = { [weak self] in
             self?.menuBand.stepMelodicProgram(delta: +InstrumentListView.cols)
         }
+        // The collapsed picker's "Keymap" button opens the full-screen
+        // keymap view (large piano + QWERTY + mode toggle).
+        pianoWaveformWindowDelegate.onOpenKeymap = { [weak self] in
+            self?.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
         pianoWaveformWindowDelegate.warmUp()
 
         // Four independent global controls: show the floating piano,
@@ -678,6 +704,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleShowAboutNotification(_:)),
             name: NSNotification.Name("computer.aestheticcomputer.menuband.showAbout"),
+            object: nil
+        )
+
+        // Sibling remote: open the full-screen keymap view directly (same
+        // path the popover's "Keymap" footer button drives). Lets the shell
+        // verify / screenshot the expanded keymap screen without clicking.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleShowKeymapNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.showKeymap"),
             object: nil
         )
 
@@ -2801,6 +2837,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.reloadPercussionSplit()
     }
 
+    @objc private func handleShowKeymapNotification(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            self?.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
+    }
+
     @objc private func handleShowAboutNotification(_ note: Notification) {
         debugLog("handleShowAboutNotification received")
         DispatchQueue.main.async { [weak self] in
@@ -3093,10 +3135,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // proved unreliable through the popover's key window, so the bend
         // never engaged at all — confirmed in the field with touch=false on
         // every move while keyHeld=true.)
-        guard menuBand.keyboardNotesHeld || shift else { return }
+        // While the pitch graph is still up after a release, a short "catch"
+        // window lets trackpad movement re-engage the bend with no key held
+        // — so a quick release-then-swipe grabs the graph instead of the
+        // gesture dropping. Gated on `pitchBendCursorPushed` (the overlay is
+        // genuinely open) so a plain mouse move on the menubar piano — which
+        // never opens the graph — still can't reactivate the bend.
+        let inReleaseGrace = pitchBendCursorPushed
+            && (pitchBendReleaseGraceUntil.map { $0.timeIntervalSinceNow > 0 } ?? false)
+        guard menuBand.keyboardNotesHeld || shift || inReleaseGrace else { return }
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
+        // Keep the catch window alive while the finger is still moving in the
+        // post-release grace (no key, no Shift). Stopping past the window
+        // lets `armPitchBendGraceCheck` tear the session down.
+        if inReleaseGrace && !menuBand.keyboardNotesHeld && !shift {
+            pitchBendReleaseGraceUntil = Date().addingTimeInterval(Self.pitchBendReleaseGrace)
+        }
         // Negate so swipe UP on trackpad → pitch UP (NSEvent.deltaY
         // is positive when the cursor moves DOWN on screen).
         let bendDelta = -dy * Self.bendSensitivityPerPoint
@@ -3281,14 +3337,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// note comes back (see onLitChanged). Shift is the deliberate
     /// exception — it keeps bending still-ringing notes with no key down.
     private func scheduleGraphicEndIfNoKeyHeld() {
+        pitchBendReleaseGraceUntil = Date().addingTimeInterval(Self.pitchBendReleaseGrace)
+        armPitchBendGraceCheck()
+    }
+
+    /// Fires when the post-release catch window elapses with no further
+    /// trackpad movement — movement (see `handlePitchBendCursorMove`) pushes
+    /// `pitchBendReleaseGraceUntil` forward, so the check reschedules itself
+    /// for the remainder. A held note or Shift cancels the teardown.
+    private func armPitchBendGraceCheck() {
         pitchBendEndTimer?.invalidate()
-        let t = Timer(timeInterval: 0.12, repeats: false) { [weak self] _ in
+        let remaining = max(0.05, pitchBendReleaseGraceUntil?.timeIntervalSinceNow ?? 0)
+        let t = Timer(timeInterval: remaining, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-            self.pitchBendEndTimer = nil
             let shift = NSEvent.modifierFlags.contains(.shift)
-            if !self.menuBand.keyboardNotesHeld && !shift {
-                self.endPitchBendSession()
+            if self.menuBand.keyboardNotesHeld || shift {
+                self.pitchBendEndTimer = nil
+                return
             }
+            // A move during the window pushed the deadline out — wait the
+            // remainder before tearing the graph down.
+            if let until = self.pitchBendReleaseGraceUntil,
+               until.timeIntervalSinceNow > 0 {
+                self.armPitchBendGraceCheck()
+                return
+            }
+            self.pitchBendEndTimer = nil
+            self.pitchBendReleaseGraceUntil = nil
+            self.endPitchBendSession()
         }
         RunLoop.main.add(t, forMode: .common)
         pitchBendEndTimer = t
@@ -3297,6 +3373,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func endPitchBendSession() {
         pitchBendEndTimer?.invalidate()
         pitchBendEndTimer = nil
+        pitchBendReleaseGraceUntil = nil
         // Clear the latched mode regardless of cursor-lock state so an
         // Esc / focus-loss always fully exits, even if the lock flag was
         // somehow already cleared.

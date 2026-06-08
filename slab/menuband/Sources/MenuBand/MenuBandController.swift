@@ -36,6 +36,13 @@ final class MenuBandController {
     private let tapeWaveformPinReason = "tape"
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
+    /// Ctrl-chord voices keyed by the root keyCode: each entry is the set of
+    /// (midi note, synth channel, display note) the chord is sounding, so the
+    /// matching key-up releases them all together (lingering like Shift).
+    private var heldChordKeys: [UInt16: [(note: UInt8, channel: UInt8, display: UInt8)]] = [:]
+    /// Per-chord linger flag (captured at press): a Ctrl-chord only rings
+    /// out on release when Shift was also held; otherwise it cuts cleanly.
+    private var heldChordLinger: [UInt16: Bool] = [:]
     /// Synth channel each held keystroke is voicing on. Mirrors
     /// `tapNoteChannel` for the menubar-tap path: round-robin across
     /// melodic channels 0–7 lets fast same-key retriggers overlap as
@@ -591,7 +598,11 @@ final class MenuBandController {
         get { UserDefaults.standard.integer(forKey: octaveShiftKey) }
         set {
             UserDefaults.standard.set(newValue, forKey: octaveShiftKey)
-            releaseAllHeldNotes()
+            // Held notes are stored by their actual (already octave-baked)
+            // MIDI value, so we DON'T release them here — a note you're
+            // holding keeps sounding at its original pitch when you bump the
+            // octave; only the NEXT press uses the new octave. (Their key-up
+            // still releases the correct stored note.)
             onChange?()
         }
     }
@@ -856,6 +867,30 @@ final class MenuBandController {
         synth.setEcho(amount)
     }
 
+    /// Speak a language's own name through the fx bus — the About-window
+    /// flat-map language picker calls this on each pick, so the spoken
+    /// name picks up whatever bend/space/echo the last gesture left on.
+    func speakLanguageName(_ text: String, languageCode: String) {
+        synth.speak(text, languageCode: languageCode)
+    }
+
+    /// One random drum hit for the About-window card-flip easter egg.
+    func playEasterEggDrum() {
+        synth.playEasterEggDrum()
+    }
+
+    /// Spacebar reverse-replay (notepat-native parity). Plays the most-recent
+    /// few seconds of what just sounded, backwards. The synth keeps a rolling
+    /// ring of its post-FX output at all times; this snapshots + reverses it.
+    /// Bounced to the main thread because `playKeyEvent` runs on the
+    /// KeyEventTap background thread and reverse playback mutates the engine
+    /// graph + schedules a player buffer (both main-thread-only).
+    func rewind() {
+        DispatchQueue.main.async { [weak self] in
+            self?.synth.playReverse()
+        }
+    }
+
     func setBend(amount: Float, allChannels: Bool = false) {
         // No clamp here — the trackpad accumulator can swing past
         // ±1 and the sample voice can vari-speed an arbitrary
@@ -904,6 +939,9 @@ final class MenuBandController {
             // slides in pitch with everything else.
             synth.setRadioPitchBend(amount: amount)
         }
+        // Speech easter-egg voice slides too — applied regardless of
+        // midiMode since it always sounds locally through the fx bus.
+        synth.setSpeechPitchBend(amount: amount)
         for ch in channels { midi.sendPitchBend(value: value, channel: ch) }
     }
 
@@ -1696,6 +1734,81 @@ final class MenuBandController {
     /// playing live notes over the linger without stealing voices.
     /// Drums always skip the synth.noteOff (existing convention) so
     /// the kit sample plays through.
+    /// Ctrl-chord: play & hold a major triad rooted on `rootNote`. Each
+    /// voice gets its own round-robin channel + pan so it sits like a real
+    /// chord, and all three light their display cells. Held under the root
+    /// keyCode so the key-up releases the whole chord (with linger).
+    private func playCtrlChord(keyCode: UInt16, rootNote: UInt8, shift: Int,
+                               minor: Bool, linger: Bool) {
+        // Ctrl = major triad (root, major 3rd, 5th); Ctrl+⌘ = minor triad
+        // (root, minor 3rd, 5th).
+        let intervals: [Int] = minor ? [0, 3, 7] : [0, 4, 7]
+        let pan = MenuBandLayout.panForKeyCode(keyCode)
+        var voices: [(note: UInt8, channel: UInt8, display: UInt8)] = []
+        for interval in intervals {
+            let v = Int(rootNote) + interval
+            guard v <= 127 else { continue }
+            let note = UInt8(v)
+            let ch = nextMelodicChannel()
+            let display = UInt8(max(60, min(83, Int(note) - shift * 12)))
+            if !midiMode { synth.setPan(pan, channel: ch) }
+            cancelLingerFade(channel: ch)
+            primeChannelBend(ch)
+            if !midiMode { synth.noteOn(note, velocity: 100, channel: ch) }
+            midiNoteOn(note, velocity: 100, channel: 0)
+            voices.append((note, ch, display))
+        }
+        guard !voices.isEmpty else { return }
+        heldLock.lock()
+        heldChordKeys[keyCode] = voices
+        heldChordLinger[keyCode] = linger
+        heldLock.unlock()
+        lastPlayedNote = rootNote
+        let displays = voices.map { $0.display }
+        let setLit = { [weak self] in
+            guard let self = self else { return }
+            var changed = false
+            for d in displays {
+                self.litDownAt[d] = CACurrentMediaTime()
+                if self.litNotes.insert(d).inserted { changed = true }
+            }
+            if changed { self.onLitChanged?() }
+        }
+        if Thread.isMainThread { setLit() } else { DispatchQueue.main.async(execute: setLit) }
+    }
+
+    /// Release a held Ctrl-chord (if any) for `keyCode`. Lingers each voice
+    /// out like Shift. Returns true if a chord was released.
+    @discardableResult
+    private func releaseCtrlChord(keyCode: UInt16) -> Bool {
+        heldLock.lock()
+        let voices = heldChordKeys.removeValue(forKey: keyCode)
+        let linger = heldChordLinger.removeValue(forKey: keyCode) ?? false
+        heldLock.unlock()
+        guard let voices = voices else { return false }
+        for voice in voices {
+            if linger {
+                releaseLingering(midiNote: voice.note, synthChannel: voice.channel,
+                                 midiChannel: 0, isDrum: false, originalVelocity: 100)
+            } else {
+                if !midiMode { synth.noteOff(voice.note, channel: voice.channel) }
+                midi.noteOff(voice.note)
+            }
+        }
+        let displays = voices.map { $0.display }
+        let extinguish = { [weak self] in
+            guard let self = self else { return }
+            var changed = false
+            for d in displays {
+                self.litDownAt.removeValue(forKey: d)
+                if self.litNotes.remove(d) != nil { changed = true }
+            }
+            if changed { self.onLitChanged?() }
+        }
+        if Thread.isMainThread { extinguish() } else { DispatchQueue.main.async(execute: extinguish) }
+        return true
+    }
+
     private func releaseLingering(midiNote: UInt8,
                                   synthChannel: UInt8,
                                   midiChannel: UInt8,
@@ -2077,7 +2190,10 @@ final class MenuBandController {
         let side = Self.lingerSide(rawFlags: flags.rawValue,
                                    shiftDown: flags.contains(.maskShift),
                                    capsOn: flags.contains(.maskAlphaShift))
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, lingerSide: side)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
+                            hasModifier: hasMod, lingerSide: side,
+                            chordModifier: flags.contains(.maskControl) || flags.contains(.maskCommand),
+                            chordMinor: flags.contains(.maskCommand))
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -2101,7 +2217,10 @@ final class MenuBandController {
         let side = Self.lingerSide(rawFlags: UInt64(flags.rawValue),
                                    shiftDown: flags.contains(.shift),
                                    capsOn: flags.contains(.capsLock))
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, lingerSide: side)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
+                            hasModifier: hasMod, lingerSide: side,
+                            chordModifier: flags.contains(.control) || flags.contains(.command),
+                            chordMinor: flags.contains(.command))
     }
 
     /// Shared note logic for both the global CGEventTap path and the
@@ -2111,9 +2230,45 @@ final class MenuBandController {
     /// past key-up so it rings on its release envelope (sustained
     /// voices) rather than cutting on release.
     @discardableResult
-    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none) -> Bool {
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false) -> Bool {
+        // Ctrl-chord: holding Ctrl + a note key plays & HOLDS that key's
+        // triad (the pressed note is the root), lingering on release just
+        // like Shift. Ctrl = major, Ctrl+⌘ = minor. Ctrl is global — no
+        // left/right sidedness. The release is checked on EVERY key-up (not
+        // gated by Ctrl still being held) so letting go of Ctrl first can't
+        // strand a sounding chord.
+        if !isDown, releaseCtrlChord(keyCode: keyCode) { return true }
+        if chordModifier, isDown {
+            let shift = octaveShift
+            if let root = MenuBandLayout.midiNote(forKeyCode: keyCode,
+                                                  octaveShift: shift, keymap: keymap) {
+                // CONSUME the whole keystroke — including auto-repeat — so a
+                // held Cmd/Ctrl + note combo can never reach the focused app
+                // and fire (or repeat-fire) its shortcut (Cmd-W, Cmd-Q,
+                // Cmd-Z, …). Only the first down triggers the chord.
+                if !isRepeat {
+                    playCtrlChord(keyCode: keyCode, rootNote: root, shift: shift,
+                                  minor: chordMinor, linger: lingerSide.isLingering)
+                }
+                return true
+            }
+            // Not a note key — fall through so real Cmd/Ctrl shortcuts that
+            // don't collide with a note (Cmd-Tab, Ctrl-arrow, …) still pass
+            // through to the system.
+        }
+
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
         if hasModifier { return false }
+
+        // Spacebar (keyCode 49) = reverse-replay (notepat-native parity).
+        // Plain space rewinds the most-recent audio; we intercept it BEFORE
+        // it can fall through to the note/typing path so it never leaks a
+        // note or a literal space character. Trigger on the first key-down
+        // (ignore auto-repeat); consume key-up too so it stays swallowed.
+        if keyCode == 49 /* kVK_Space */ {
+            if isDown && !isRepeat { rewind() }
+            return true
+        }
 
         // Enter-latch (notepat-native parity). Return (keyCode 36) is the
         // latch modifier: while it's held, notes you press get latched on
@@ -2603,11 +2758,22 @@ final class MenuBandController {
         latchArmedKeys.removeAll()
         latchedKeys.removeAll()
         enterLatchHeld = false
+        let chordSnapshot = heldChordKeys
+        heldChordKeys.removeAll()
+        heldChordLinger.removeAll()
         let drumSnapshot = heldDrumKeys
         let drumDisplaySnapshot = heldDrumDisplay
         heldDrumKeys.removeAll()
         heldDrumDisplay.removeAll()
         heldLock.unlock()
+        // Silence any held Ctrl-chord voices (panic() below also catches
+        // these, but be explicit so MIDI listeners get clean note-offs).
+        for (_, voices) in chordSnapshot {
+            for v in voices {
+                synth.noteOff(v.note, channel: v.channel)
+                midi.noteOff(v.note)
+            }
+        }
         // Release any held drum voices (open-hat foot pedal up) so a held
         // key doesn't ring forever across an octave change / split toggle,
         // and extinguish their hold lights.

@@ -19,6 +19,17 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     private var flashOn = false
     private let updateInfo: UpdateChecker.VersionInfo?
     private let onOpenPlugins: (() -> Void)?
+    /// Called when the user picks a language in the flat-map picker, with
+    /// the language's own name + short code — the host speaks it through
+    /// the Menu Band fx (easter egg). Nil = no audio, just the switch.
+    private let onSpeakLanguage: ((String, String) -> Void)?
+    /// Called on each icon-card flip to play a drum hit (paired with the
+    /// sparkle chord) so flipping the card builds a little beat.
+    private let onPlayDrum: (() -> Void)?
+    /// Returns the set of currently-sounding MIDI notes, polled on each
+    /// `menuBandLitNotesChanged` to drive the icon's live key glow.
+    private let litNotesProvider: (() -> Set<UInt8>)?
+    private var litNotesObserver: NSObjectProtocol?
 
     /// Live-updating chrome — rebuilt against the current system accent
     /// whenever `NSColor.systemColorsDidChangeNotification` fires. The icon
@@ -36,9 +47,15 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     private var crashViewer: CrashViewerWindowController?
 
     init(updateInfo: UpdateChecker.VersionInfo?,
-         onOpenPlugins: (() -> Void)? = nil) {
+         onOpenPlugins: (() -> Void)? = nil,
+         onSpeakLanguage: ((String, String) -> Void)? = nil,
+         onPlayDrum: (() -> Void)? = nil,
+         litNotesProvider: (() -> Set<UInt8>)? = nil) {
         self.updateInfo = updateInfo
         self.onOpenPlugins = onOpenPlugins
+        self.onSpeakLanguage = onSpeakLanguage
+        self.onPlayDrum = onPlayDrum
+        self.litNotesProvider = litNotesProvider
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 340),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -90,6 +107,23 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         ) { [weak self] _ in
             self?.cardStack?.flip()
         })
+
+        // Live icon keyboard: refresh the lit keys whenever the held-note
+        // set changes while the About window is open.
+        litNotesObserver = NotificationCenter.default.addObserver(
+            forName: .menuBandLitNotesChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.refreshLitKeys()
+        }
+    }
+
+    /// Map the currently-held MIDI notes onto the icon's 5 chromatic keys
+    /// (C C♯ D D♯ E) and light them. Pitch class folds onto the five keys
+    /// so any octave lands consistently and higher notes still animate.
+    private func refreshLitKeys() {
+        guard let provider = litNotesProvider else { return }
+        let indices = Set(provider().map { Int($0) % 12 % 5 })
+        cardStack?.setLitKeys(indices)
     }
 
     /// Tracks the toggled state of the `cardHover` debug remote.
@@ -107,6 +141,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         }
         let dnc = DistributedNotificationCenter.default()
         for observer in debugObservers { dnc.removeObserver(observer) }
+        if let o = litNotesObserver { NotificationCenter.default.removeObserver(o) }
     }
 
     /// Open or refocus the singleton About window. Dedupes via the
@@ -115,10 +150,16 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     /// orphan a live window.
     @discardableResult
     static func show(updateInfo: UpdateChecker.VersionInfo?,
-                     onOpenPlugins: (() -> Void)? = nil) -> AboutWindowController {
+                     onOpenPlugins: (() -> Void)? = nil,
+                     onSpeakLanguage: ((String, String) -> Void)? = nil,
+                     onPlayDrum: (() -> Void)? = nil,
+                     litNotesProvider: (() -> Set<UInt8>)? = nil) -> AboutWindowController {
         active?.close()
         let ctrl = AboutWindowController(updateInfo: updateInfo,
-                                         onOpenPlugins: onOpenPlugins)
+                                         onOpenPlugins: onOpenPlugins,
+                                         onSpeakLanguage: onSpeakLanguage,
+                                         onPlayDrum: onPlayDrum,
+                                         litNotesProvider: litNotesProvider)
         ctrl.present()
         return ctrl
     }
@@ -185,8 +226,9 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             let cards = CardStackView(front: icon, back: qr)
             cards.translatesAutoresizingMaskIntoConstraints = false
             cards.toolTip = "prompt.ac/menuband"
-            cards.onFlip = {
+            cards.onFlip = { [weak self] in
                 EasterEggChord.shared.play()
+                self?.onPlayDrum?()
             }
             stack.addArrangedSubview(cards)
             cardStack = cards
@@ -216,8 +258,23 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         let body = NSTextField(wrappingLabelWithString: String(bodyText))
         body.font = NSFont.systemFont(ofSize: 11)
         body.alignment = .center
+        body.translatesAutoresizingMaskIntoConstraints = false
         body.preferredMaxLayoutWidth = 264
-        stack.addArrangedSubview(body)
+        // Host the tagline in a fixed-height box and center it vertically.
+        // Translations wrap to 2–3 lines at different lengths; a constant
+        // box keeps the panel from reflowing / resizing as the user flips
+        // through the language map.
+        let bodyBox = NSView()
+        bodyBox.translatesAutoresizingMaskIntoConstraints = false
+        bodyBox.addSubview(body)
+        NSLayoutConstraint.activate([
+            bodyBox.widthAnchor.constraint(equalToConstant: 264),
+            bodyBox.heightAnchor.constraint(equalToConstant: 48),
+            body.leadingAnchor.constraint(equalTo: bodyBox.leadingAnchor),
+            body.trailingAnchor.constraint(equalTo: bodyBox.trailingAnchor),
+            body.centerYAnchor.constraint(equalTo: bodyBox.centerYAnchor),
+        ])
+        stack.addArrangedSubview(bodyBox)
 
         // (Aesthetic.Computer badge + the NELA / start-a-club invites
         // moved to the popover's "Jam" button → JamWindow. About stays a
@@ -227,13 +284,46 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // pedals / third-party AU hosting are post-v1. The `onOpenPlugins`
         // hook + AU picker code stay dormant for the post-release revival.
 
-        // Language — a single chip showing the current language; click
-        // pops a menu of every supported language (checkmark on the
-        // active one). Replaces the old wrap-to-three flag-chip grid so
-        // the About panel stays compact and Apple-clean.
+        // Language — a flat map of every supported language, shown all at
+        // once as chiclet cells (flag + native label) like the instrument
+        // picker. Click switches the language AND speaks its own name
+        // through the Menu Band fx (easter egg). Replaces the chip+dropdown.
         stack.setCustomSpacing(16, after: stack.arrangedSubviews.last ?? stack)
-        let langRow = buildLanguageButton()
-        stack.addArrangedSubview(langRow)
+        let langMap = LanguageMapView()
+        langMap.items = Localization.supported.map {
+            LanguageMapView.Item(code: $0.code, label: $0.label, flag: $0.flag)
+        }
+        langMap.selectedCode = Localization.current
+        langMap.translatesAutoresizingMaskIntoConstraints = false
+        langMap.onPick = { [weak self] item in self?.applyLanguage(item) }
+        langMap.widthAnchor.constraint(equalToConstant: 264).isActive = true
+        // Height comes from the view's intrinsic size (rows × rowH), so the
+        // grid grows with the number of languages.
+        stack.addArrangedSubview(langMap)
+        let langRow: NSView = langMap
+
+        // "Looking For Players?" — opens the Jam window (Aesthetic.Computer
+        // badge + computer-club invites). Lives right under the language
+        // chip so the come-hang-out surface is one tap from identity, and
+        // replaces the old purple "Jam" button that used to sit in the
+        // popover footer.
+        stack.setCustomSpacing(12, after: langRow)
+        let playersLink = NSButton(title: "",
+                                   target: self,
+                                   action: #selector(openLookingForPlayers(_:)))
+        let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
+        playersLink.attributedTitle = NSAttributedString(
+            string: L("popover.about.lookingForPlayers"),
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                .foregroundColor: acPurple,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+            ])
+        playersLink.bezelStyle = .regularSquare
+        playersLink.isBordered = false
+        playersLink.translatesAutoresizingMaskIntoConstraints = false
+        playersLink.toolTip = "Aesthetic.Computer · computer clubs"
+        stack.addArrangedSubview(playersLink)
 
         // [v1 cutoff] "Cassette deck (beta)" + "Percussion split" beta
         // checkboxes removed — both features are post-v1. Their flags
@@ -248,7 +338,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // primary brand chrome.
         let logs = CrashLogReader.recentLogs()
         if !logs.isEmpty {
-            stack.setCustomSpacing(14, after: langRow)
+            stack.setCustomSpacing(14, after: playersLink)
             let summary = logs.count == 1
                 ? L("popover.about.crash.summaryOne")
                 : L("popover.about.crash.summaryMany", String(logs.count))
@@ -286,7 +376,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
         if let info = updateInfo,
            UpdateChecker.isNewer(info.version, than: UpdateChecker.currentVersion()) {
-            stack.setCustomSpacing(16, after: langRow)
+            stack.setCustomSpacing(16, after: playersLink)
             let btn = NSButton(title: "Menu Band \(info.version) Now Available!",
                                target: self,
                                action: #selector(openUpdateLink))
@@ -306,8 +396,10 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // the way Terminal / Messages close their About panels.
         let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
         let build = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "?"
+        let versionWord = L("popover.about.version")
         let versionString = build == version
-            ? "Version \(version)" : "Version \(version) (\(build))"
+            ? "\(versionWord) \(version)"
+            : "\(versionWord) \(version) (\(build))"
         let versionLabel = NSTextField(labelWithString: versionString)
         versionLabel.font = NSFont.systemFont(ofSize: 11)
         versionLabel.textColor = .secondaryLabelColor
@@ -327,65 +419,23 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(copyright)
     }
 
-    private func buildLanguageButton() -> NSView {
-        // One chip showing the current language (flag + native label +
-        // a ⌄ affordance). Clicking pops an NSMenu of every supported
-        // language with a checkmark on the active one — far more compact
-        // than the old wrap-to-three chip grid, and it scales as we add
-        // languages without reflowing the panel.
-        let lang = Localization.language(for: Localization.current)
-        // Build the title in runs so the down-chevron can be nudged up
-        // to sit centered with the text (the bare "⌄" glyph drops well
-        // below the baseline), and trim the leading pad so the flag sits
-        // close to the chip's left edge.
-        let attr = NSMutableAttributedString(
-            string: "\(lang.flag) \(lang.label)  ",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 14, weight: .medium),
-                .foregroundColor: NSColor.labelColor,
-            ])
-        attr.append(NSAttributedString(
-            string: "⌄",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 11, weight: .bold),
-                .foregroundColor: NSColor.secondaryLabelColor,
-                .baselineOffset: 2.5,
-            ]))
-        let accent = NSColor.controlAccentColor
-        let chip = MenuBandPopoverViewController.makeLinkButton(
-            attr: attr,
-            target: self,
-            action: #selector(languageButtonClicked(_:)),
-            background: accent.withAlphaComponent(0.12),
-            border: accent.withAlphaComponent(0.40))
-        chip.toolTip = L("popover.language.label")
-        return chip
+    /// Open the Jam window ("Looking For Players?") — the social
+    /// come-hang-out surface (Aesthetic.Computer + computer-club invites).
+    @objc private func openLookingForPlayers(_ sender: Any?) {
+        JamWindowController.show()
     }
 
-    @objc private func languageButtonClicked(_ sender: NSButton) {
-        let menu = NSMenu()
-        for lang in Localization.supported {
-            let item = NSMenuItem(
-                title: "\(lang.flag)  \(lang.label)",
-                action: #selector(languageMenuPicked(_:)),
-                keyEquivalent: "")
-            item.target = self
-            item.representedObject = lang.code
-            item.state = (lang.code == Localization.current) ? .on : .off
-            menu.addItem(item)
-        }
-        // Drop the menu just below the chip's bottom-left so it reads as
-        // a popup attached to the control.
-        let origin = NSPoint(x: 0, y: sender.bounds.height + 4)
-        menu.popUp(positioning: nil, at: origin, in: sender)
-    }
-
-    @objc private func languageMenuPicked(_ sender: NSMenuItem) {
-        guard let code = sender.representedObject as? String,
-              code != Localization.current else { return }
-        Localization.current = code
-        // Rebuild the About content to apply the new strings + chip
-        // label. Cheaper than tearing down the window.
+    /// Pick a language from the flat map: speak its own name through the
+    /// Menu Band fx (easter egg — works even when re-picking the active
+    /// language), then switch + rebuild the panel so every string re-reads.
+    private func applyLanguage(_ item: LanguageMapView.Item) {
+        // Speak first so the audio fires regardless of whether this is a
+        // real switch — re-clicking your current language still talks.
+        onSpeakLanguage?(item.label, item.code)
+        guard item.code != Localization.current else { return }
+        Localization.current = item.code
+        // Rebuild the About content to apply the new strings. Cheaper than
+        // tearing down the window.
         if let content = window?.contentView {
             for sub in content.subviews { sub.removeFromSuperview() }
         }
@@ -605,6 +655,20 @@ final class CardStackView: NSView {
 
     private let iconCard = CALayer()
     private let qrCard = CALayer()
+    /// Which chromatic keys (0…4 = C C♯ D D♯ E) are currently lit. The
+    /// icon face is drawn dynamically (see `iconImage`), so lighting a key
+    /// just regenerates the face — the keyboard is part of the icon, not an
+    /// overlay on a static graphic.
+    private var litKeyIndices: Set<Int> = []
+    /// Distinct vivid tint per key so the lit keyboard reads as a small
+    /// rainbow, matching the colorful menubar piano aesthetic.
+    private static let keyColors: [NSColor] = [
+        NSColor(srgbRed: 1.00, green: 0.30, blue: 0.42, alpha: 1), // C  red-pink
+        NSColor(srgbRed: 1.00, green: 0.60, blue: 0.18, alpha: 1), // C♯ orange
+        NSColor(srgbRed: 1.00, green: 0.84, blue: 0.22, alpha: 1), // D  yellow
+        NSColor(srgbRed: 0.20, green: 0.82, blue: 0.70, alpha: 1), // D♯ teal
+        NSColor(srgbRed: 0.38, green: 0.62, blue: 1.00, alpha: 1), // E  blue
+    ]
     /// Which card is currently in front. Starts on the icon.
     private var frontIsIcon = true
     private var hovering = false
@@ -729,11 +793,13 @@ final class CardStackView: NSView {
         let emitter = CAEmitterLayer()
         emitter.emitterPosition = CGPoint(x: deck.bounds.midX,
                                           y: deck.bounds.midY)
-        emitter.emitterShape = .circle
-        emitter.emitterMode = .outline
-        emitter.emitterSize = CGSize(width: cardSide * 0.42,
-                                     height: cardSide * 0.42)
-        emitter.renderMode = .additive
+        // Emit from a single point at the seam as an upward fountain.
+        emitter.emitterShape = .point
+        emitter.emitterMode = .points
+        // Normal alpha blending (not additive) so the notes keep their
+        // own color + hard dark shadow and stay legible instead of
+        // blowing out to white where they overlap.
+        emitter.renderMode = .unordered
         // Between the back card (z 5) and the front card (z 10).
         emitter.zPosition = 7
 
@@ -746,43 +812,58 @@ final class CardStackView: NSView {
             let cell = CAEmitterCell()
             cell.contents = Self.noteImage(color: color)?
                 .cgImage(forProposedRect: nil, context: nil, hints: nil)
-            cell.birthRate = 80
-            cell.lifetime = 0.9
-            cell.lifetimeRange = 0.3
-            cell.velocity = 90
+            // Just a few notes: low birth rate over a very short burst
+            // (≈3 cells × rate × window → a handful total).
+            cell.birthRate = 32
+            // Fall longer: live long and arc down under gravity.
+            cell.lifetime = 2.4
+            cell.lifetimeRange = 0.5
+            // Pop UP: strong initial upward velocity in a tight cone.
+            cell.velocity = 130
             cell.velocityRange = 45
-            cell.emissionRange = .pi * 2
-            cell.yAcceleration = -120
-            cell.scale = 0.5
-            cell.scaleRange = 0.35
-            cell.scaleSpeed = -0.3
-            cell.alphaSpeed = -1.1
-            cell.spin = 2.5
-            cell.spinRange = 4
+            cell.emissionLongitude = .pi / 2     // straight up (+y)
+            cell.emissionRange = .pi / 4         // ~45° upward cone
+            cell.yAcceleration = -200            // gravity → arc back down
+            cell.scale = 0.7
+            cell.scaleRange = 0.2
+            cell.scaleSpeed = -0.05              // barely shrink → readable
+            // Fade less: start opaque, decay slowly over the long fall.
+            cell.alphaSpeed = -0.3
+            // Less rotation so the glyphs stay legible.
+            cell.spin = 0.4
+            cell.spinRange = 0.8
             return cell
         }
         deck.addSublayer(emitter)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+        // Very short emission window → only a handful of notes total.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
             emitter.birthRate = 0
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
             emitter.removeFromSuperlayer()
         }
     }
 
-    /// A small music-note glyph rendered to an image in `color`.
+    /// A small music-note glyph rendered to an image in `color`, with a
+    /// hard dark drop shadow (blur 0) for legibility against the panel.
     private static func noteImage(color: NSColor) -> NSImage? {
-        let side: CGFloat = 18
+        let side: CGFloat = 24
         let image = NSImage(size: NSSize(width: side, height: side))
         image.lockFocus()
         let glyph = ["♪", "♫", "♩", "♬"].randomElement() ?? "♪"
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.85)
+        shadow.shadowBlurRadius = 0                       // sharp, not soft
+        shadow.shadowOffset = NSSize(width: 1.5, height: -1.5)
+        shadow.set()
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 14, weight: .bold),
+            .font: NSFont.systemFont(ofSize: 16, weight: .bold),
             .foregroundColor: color,
         ]
         let s = NSAttributedString(string: glyph, attributes: attrs)
         let sz = s.size()
-        s.draw(at: NSPoint(x: (side - sz.width) / 2, y: (side - sz.height) / 2))
+        s.draw(at: NSPoint(x: (side - sz.width) / 2 - 0.75,
+                           y: (side - sz.height) / 2 + 0.75))
         image.unlockFocus()
         return image
     }
@@ -865,25 +946,125 @@ final class CardStackView: NSView {
         card.transform = transform
     }
 
-    /// Replace the icon face (e.g. after a system-accent re-tint).
+    /// Kept for API compatibility with the accent-refresh path. The icon
+    /// face is now drawn dynamically (fixed purple identity), so an
+    /// accent re-tint just redraws the current state rather than swapping
+    /// in a hue-rotated PNG.
     func setIconImage(_ image: NSImage) {
-        iconCard.contents = image.cgImage(
-            forProposedRect: nil, context: nil, hints: nil)
+        redrawIcon()
     }
 
     // MARK: - Geometry
 
-    /// The app-icon card. The icon art is already a transparent-corner
-    /// squircle, so its drop shadow follows that silhouette directly —
-    /// no extra rounding needed.
+    /// The app-icon card. The face is drawn dynamically by `iconImage` —
+    /// the purple squircle + the piano keyboard are one live drawing, so
+    /// notes light real keys instead of glowing over a static PNG.
     private func configureIcon(image: NSImage?) {
         iconCard.bounds = CGRect(x: 0, y: 0, width: cardSide, height: cardSide)
         iconCard.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        iconCard.contents = image?.cgImage(
-            forProposedRect: nil, context: nil, hints: nil)
         iconCard.contentsGravity = .resizeAspect
         iconCard.contentsScale = 2
         applyCardShadow(iconCard, path: nil)
+        redrawIcon()
+    }
+
+    /// Light the icon's piano keys for the given chromatic key indices
+    /// (0…4 = C C♯ D D♯ E). Driven live from held notes by the About
+    /// window; empty clears them. Cheap — redraws one small face image.
+    func setLitKeys(_ indices: Set<Int>) {
+        guard indices != litKeyIndices else { return }
+        litKeyIndices = indices
+        redrawIcon()
+    }
+
+    private func redrawIcon() {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        iconCard.contents = Self.iconImage(litKeys: litKeyIndices)
+            .cgImage(forProposedRect: nil, context: nil, hints: nil)
+        CATransaction.commit()
+    }
+
+    /// Draw the Menu Band app icon from scratch: a purple gradient
+    /// squircle with a cream piano keyboard (3 white + 2 black keys).
+    /// `litKeys` paints those chromatic keys in their vivid tints so the
+    /// icon becomes a live keyboard. Top-left origin (`flipped: true`).
+    static func iconImage(litKeys: Set<Int>, px: CGFloat = 256) -> NSImage {
+        // Palette sampled from the original AppIcon art.
+        let tl = NSColor(srgbRed: 211/255, green: 80/255, blue: 196/255, alpha: 1)
+        let br = NSColor(srgbRed: 67/255, green: 29/255, blue: 113/255, alpha: 1)
+        let cream = NSColor(srgbRed: 246/255, green: 242/255, blue: 232/255, alpha: 1)
+        let black = NSColor(srgbRed: 27/255, green: 26/255, blue: 25/255, alpha: 1)
+        let edge = NSColor(srgbRed: 40/255, green: 28/255, blue: 22/255, alpha: 1)
+        func R(_ x0: CGFloat, _ y0: CGFloat, _ x1: CGFloat, _ y1: CGFloat) -> CGRect {
+            CGRect(x: x0 * px, y: y0 * px, width: (x1 - x0) * px, height: (y1 - y0) * px)
+        }
+        return NSImage(size: NSSize(width: px, height: px), flipped: true) { _ in
+            // Squircle body (macOS icon margin baked in so it matches the
+            // QR card's visible size).
+            let margin = px * 0.098
+            let sq = CGRect(x: margin, y: margin, width: px - 2 * margin,
+                            height: px - 2 * margin)
+            let radius = sq.width * 0.2235
+            let body = NSBezierPath(roundedRect: sq, xRadius: radius, yRadius: radius)
+            if let ctx = NSGraphicsContext.current?.cgContext {
+                ctx.saveGState()
+                body.addClip()
+                let cs = CGColorSpaceCreateDeviceRGB()
+                if let g = CGGradient(colorsSpace: cs,
+                                      colors: [tl.cgColor, br.cgColor] as CFArray,
+                                      locations: [0, 1]) {
+                    // Flipped context: (minX,minY) is top-left, (maxX,maxY)
+                    // bottom-right → magenta TL to deep-purple BR.
+                    ctx.drawLinearGradient(
+                        g, start: CGPoint(x: sq.minX, y: sq.minY),
+                        end: CGPoint(x: sq.maxX, y: sq.maxY), options: [])
+                }
+                ctx.restoreGState()
+            } else {
+                tl.setFill(); body.fill()
+            }
+
+            // Cream keyboard plate.
+            let plate = R(0.254, 0.428, 0.744, 0.570)
+            let platePath = NSBezierPath(roundedRect: plate,
+                                         xRadius: px * 0.012, yRadius: px * 0.012)
+            cream.setFill(); platePath.fill()
+
+            // Lit white keys (drawn before dividers / black keys on top).
+            let whites: [(Int, CGFloat, CGFloat)] =
+                [(0, 0.254, 0.417), (2, 0.417, 0.580), (4, 0.580, 0.744)]
+            for (idx, x0, x1) in whites where litKeys.contains(idx) {
+                keyColors[idx].setFill()
+                NSBezierPath(roundedRect: CGRect(x: x0 * px + 2, y: 0.428 * px + 2,
+                                                 width: (x1 - x0) * px - 4,
+                                                 height: 0.142 * px - 4),
+                             xRadius: px * 0.01, yRadius: px * 0.01).fill()
+            }
+
+            // White-key dividers.
+            edge.setStroke()
+            for xf: CGFloat in [0.417, 0.580] {
+                let p = NSBezierPath()
+                p.move(to: CGPoint(x: xf * px, y: 0.432 * px))
+                p.line(to: CGPoint(x: xf * px, y: 0.566 * px))
+                p.lineWidth = px * 0.006
+                p.stroke()
+            }
+            // Plate outline.
+            edge.setStroke(); platePath.lineWidth = px * 0.008; platePath.stroke()
+
+            // Black keys (lit → their tint, else black).
+            let blacks: [(Int, CGFloat, CGFloat)] =
+                [(1, 0.369, 0.463), (3, 0.535, 0.629)]
+            for (idx, x0, x1) in blacks {
+                (litKeys.contains(idx) ? keyColors[idx] : black).setFill()
+                NSBezierPath(roundedRect: CGRect(x: x0 * px, y: 0.428 * px,
+                                                 width: (x1 - x0) * px,
+                                                 height: 0.098 * px),
+                             xRadius: px * 0.01, yRadius: px * 0.01).fill()
+            }
+            return true
+        }
     }
 
     /// The QR card. A white rounded "tile" (matching the icon's

@@ -22,19 +22,22 @@ final class InstrumentListView: NSView {
     static let rows = 16
     static let cellW: CGFloat = 28
     static let cellH: CGFloat = 14
-    /// Width of each radio-station cell in the top row (left of MIDI OUT).
-    static let stationCellW: CGFloat = 40
-    /// Special "instrument 0" addressable slot that lives above the
-    /// 1-128 grid. Picking it engages MIDI passthrough mode (notes go
-    /// out the virtual port instead of the internal synth). Replaces
-    /// the old in-popover MIDI toggle switch with a visual peer of the
-    /// patch slots, so the chooser is the single addressing surface.
+    /// Special "instrument 0" addressable slot that lives in a full-width
+    /// row ABOVE the 1-128 grid. Picking it engages MIDI passthrough mode
+    /// (notes go out the virtual port instead of the internal synth).
+    /// Replaces the old in-popover MIDI toggle switch with a visual peer of
+    /// the patch slots, so the chooser is the single addressing surface.
     static let midiOutH: CGFloat = 18
     static let midiOutGap: CGFloat = 3
+    /// Height of the radio-station strip that sits at the BOTTOM of the
+    /// board, below the patch grid. Matches the MIDI-OUT row so the two
+    /// full-width bands bookend the grid.
+    static let stationRowH: CGFloat = midiOutH
 
     static let preferredWidth:  CGFloat = cellW * CGFloat(cols)    // 224
-    static let preferredHeight: CGFloat = midiOutH + midiOutGap
-        + cellH * CGFloat(rows)                                    // 245
+    static let preferredHeight: CGFloat = midiOutH + midiOutGap    // top MIDI row
+        + cellH * CGFloat(rows)                                    // patch grid
+        + midiOutGap + stationRowH                                 // bottom radio row
 
     var selectedProgram: UInt8 = 0 { didSet { needsDisplay = true } }
     private(set) var hoveredProgram: UInt8?
@@ -62,8 +65,9 @@ final class InstrumentListView: NSView {
     /// music event.
     var onMusicKey: ((UInt16, Bool, Bool, NSEvent.ModifierFlags) -> Bool)?
 
-    /// Radio-station chooser cells that sit in the top row, to the LEFT of
-    /// the MIDI-OUT cell. Set by the host view; empty = no radio cells.
+    /// Radio-station chooser cells that sit in a full-width strip at the
+    /// BOTTOM of the board, below the patch grid. Set by the host view;
+    /// empty = no radio cells.
     var radioStations: [RadioStation] = [] { didSet { needsDisplay = true } }
     /// True while the radio ("voice −1") backend is the active instrument —
     /// fills the selected station cell, like `midiModeActive` fills MIDI OUT.
@@ -125,7 +129,15 @@ final class InstrumentListView: NSView {
 
     // MARK: - Geometry
 
+    /// The 1-128 patch grid sits below the full-width MIDI-OUT row.
     private static var gridYOffset: CGFloat { midiOutH + midiOutGap }
+    /// Total height of the 16-row patch grid.
+    private static var gridHeight: CGFloat { cellH * CGFloat(rows) }
+    /// Top edge (flipped coords) of the radio-station strip, which sits
+    /// at the BOTTOM of the board, below the patch grid.
+    private static var stationRowY: CGFloat {
+        gridYOffset + gridHeight + midiOutGap
+    }
 
     private func cellRect(program p: Int) -> NSRect {
         let col = p % Self.cols
@@ -136,31 +148,34 @@ final class InstrumentListView: NSView {
                       height: Self.cellH)
     }
 
-    /// Width reserved on the left of the top row for the radio-station cells.
-    private var radioStripWidth: CGFloat {
-        CGFloat(radioStations.count) * Self.stationCellW
+    /// Each station cell spans an equal share of the full board width so
+    /// the bottom strip reads as a balanced band, mirroring the full-width
+    /// MIDI-OUT row at the top.
+    private var stationCellWidth: CGFloat {
+        guard !radioStations.isEmpty else { return 0 }
+        return bounds.width / CGFloat(radioStations.count)
     }
 
     private func radioStationRect(_ i: Int) -> NSRect {
-        NSRect(x: CGFloat(i) * Self.stationCellW, y: 0,
-               width: Self.stationCellW, height: Self.midiOutH)
+        NSRect(x: CGFloat(i) * stationCellWidth, y: Self.stationRowY,
+               width: stationCellWidth, height: Self.stationRowH)
     }
 
-    /// Radio-cell index under a point in the top row, or nil.
+    /// Radio-cell index under a point in the bottom strip, or nil.
     private func radioStationIndex(at point: NSPoint) -> Int? {
-        guard point.y >= 0, point.y < Self.midiOutH else { return nil }
-        guard point.x >= 0, point.x < radioStripWidth else { return nil }
-        let i = Int(point.x / Self.stationCellW)
+        guard !radioStations.isEmpty else { return nil }
+        guard point.y >= Self.stationRowY,
+              point.y < Self.stationRowY + Self.stationRowH else { return nil }
+        guard point.x >= 0, point.x < bounds.width else { return nil }
+        let i = Int(point.x / stationCellWidth)
         return (i >= 0 && i < radioStations.count) ? i : nil
     }
 
-    /// "0 MIDI OUT" cell — occupies the top row to the RIGHT of the radio
-    /// strip (full width when there are no radio cells). Hit-test is
-    /// exclusive of the radio cells and the patch grid below.
+    /// "0 MIDI OUT" cell — a full-width row at the TOP of the board, above
+    /// the patch grid. Hit-test is exclusive of the patch grid below and
+    /// the radio strip at the bottom.
     private var midiOutRect: NSRect {
-        let x = radioStripWidth
-        return NSRect(x: x, y: 0,
-                      width: max(0, bounds.width - x), height: Self.midiOutH)
+        NSRect(x: 0, y: 0, width: bounds.width, height: Self.midiOutH)
     }
 
     private func program(at point: NSPoint) -> Int? {
@@ -253,8 +268,9 @@ final class InstrumentListView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        // MIDI OUT cell (slot 0) — accent-filled when active, outlined
-        // when inactive. Draws first so the patch grid renders below.
+        // MIDI OUT cell (slot 0) — full-width row at the TOP, accent-filled
+        // when active, outlined when inactive. Draws first so the patch
+        // grid renders below.
         let midiR = midiOutRect
         if midiR.intersects(dirtyRect) {
             let accent = NSColor.controlAccentColor
@@ -286,9 +302,10 @@ final class InstrumentListView: NSView {
                                  y: midiR.midY - size.height / 2))
         }
 
-        // Radio-station cells in the top row, to the left of MIDI OUT. Teal
-        // (vs. the MIDI cell's accent) so the radio strip reads distinctly;
-        // the tuned station fills solid while the radio backend is active.
+        // Radio-station cells in the full-width strip at the BOTTOM, below
+        // the patch grid. Teal (vs. the MIDI cell's accent) so the radio
+        // strip reads distinctly; the tuned station fills solid while the
+        // radio backend is active.
         for (i, st) in radioStations.enumerated() {
             let rr = radioStationRect(i)
             guard rr.intersects(dirtyRect) else { continue }

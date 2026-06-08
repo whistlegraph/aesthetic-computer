@@ -111,6 +111,11 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         set { pianoWaveformViewController.onStepDown = newValue }
     }
 
+    var onOpenKeymap: (() -> Void)? {
+        get { pianoWaveformViewController.onOpenKeymap }
+        set { pianoWaveformViewController.onOpenKeymap = newValue }
+    }
+
     var isCollapsedPresentationSuppressed: Bool = false {
         didSet {
             guard isCollapsedPresentationSuppressed != oldValue else { return }
@@ -178,7 +183,10 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     /// the expanded panel is what the user sees, not the collapsed
     /// strip (which has no chooser).
     func showExpandedForPopover(restoringTo previousApp: NSRunningApplication? = nil) {
-        if Self.retiredForV1 { return }
+        // NOTE: intentionally NOT gated by `retiredForV1`. The rest of the
+        // floating-window system stays retired, but this is the one live
+        // entry point — the popover's "Keymap" button opens the full-screen
+        // view as the official keymap screen (large piano + QWERTY + mode).
         setEnabled(true)
         cancelPendingHide()
         hoverPresented = false  // popover is driving now, not hover

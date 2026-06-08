@@ -111,6 +111,10 @@ final class MenuBandPopoverChrome: NSView {
     private let legacyVisualEffect: NSVisualEffectView?
     private let content: NSView
     private let maskLayer = CAShapeLayer()
+    /// Rounds the content view's own corners to match the backdrop
+    /// silhouette. Without it the masked glass backdrop is rounded but
+    /// the content (a plain rectangle on top) shows sharp corners.
+    private let contentMaskLayer = CAShapeLayer()
     private var arrowOffsetFromLeft: CGFloat = MenuBandPopoverPanel.cornerRadius
         + MenuBandPopoverPanel.arrowWidth / 2
 
@@ -141,6 +145,7 @@ final class MenuBandPopoverChrome: NSView {
         addSubview(backdrop)
 
         content.translatesAutoresizingMaskIntoConstraints = false
+        content.wantsLayer = true
         addSubview(content)
 
         NSLayoutConstraint.activate([
@@ -158,6 +163,7 @@ final class MenuBandPopoverChrome: NSView {
         ])
 
         backdrop.layer?.mask = maskLayer
+        content.layer?.mask = contentMaskLayer
     }
 
     /// Force the legacy NSVisualEffectView to re-tint against the
@@ -246,5 +252,15 @@ final class MenuBandPopoverChrome: NSView {
 
         maskLayer.path = path
         maskLayer.frame = bounds
+
+        // Clip the content view to the same rounded body rect so its
+        // corners match the backdrop instead of showing sharp edges.
+        let cb = content.bounds
+        if cb.width > 0, cb.height > 0 {
+            contentMaskLayer.path = CGPath(
+                roundedRect: cb, cornerWidth: radius, cornerHeight: radius,
+                transform: nil)
+            contentMaskLayer.frame = cb
+        }
     }
 }

@@ -15,6 +15,11 @@ final class ExpandedPianoWaveformView: NSView {
 
     private weak var menuBand: MenuBandController?
     private let contentStack = NSStackView()
+    /// Notepat / Conventional keymap toggle — moved here from the collapsed
+    /// picker so the full-screen view is the single place the layout is
+    /// chosen (it shows the large QWERTY that the choice drives).
+    private let modeStack = NSStackView()
+    private var modeButtons: [NSButton] = []
     private let waveformSection = NSView()
     private let waveformView = WaveformView()
     private let waveformBezel = NSView()
@@ -241,6 +246,39 @@ final class ExpandedPianoWaveformView: NSView {
         shortcutHintRow.addArrangedSubview(focusHintLabel)
         contentStack.addArrangedSubview(shortcutHintRow)
         contentStack.addArrangedSubview(qwertyView)
+
+        // Notepat / Conventional keymap toggle, centered under the QWERTY.
+        modeStack.orientation = .horizontal
+        modeStack.alignment = .centerY
+        modeStack.spacing = 8
+        modeStack.translatesAutoresizingMaskIntoConstraints = false
+        let modeSymbol = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+        let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
+            ("Notepat",
+             NotepatFavicon.image
+                ?? NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Notepat")?
+                    .withSymbolConfiguration(modeSymbol),
+             0),
+            ("Conventional",
+             NSImage(systemSymbolName: "pianokeys", accessibilityDescription: "Conventional")?
+                .withSymbolConfiguration(modeSymbol),
+             1),
+        ]
+        for spec in modeSpecs {
+            let b = NSButton(title: spec.label, target: self,
+                             action: #selector(modeButtonClicked(_:)))
+            b.tag = spec.tag
+            b.bezelStyle = .recessed
+            b.setButtonType(.pushOnPushOff)
+            b.controlSize = .regular
+            b.imagePosition = .imageLeading
+            b.imageHugsTitle = true
+            b.image = spec.image
+            b.translatesAutoresizingMaskIntoConstraints = false
+            modeButtons.append(b)
+            modeStack.addArrangedSubview(b)
+        }
+        contentStack.addArrangedSubview(modeStack)
         for label in [focusHintLabel, octaveHintLabel, layoutHintLabel] {
             label.font = NSFont.systemFont(ofSize: 10, weight: .bold)
             label.textColor = .secondaryLabelColor
@@ -475,6 +513,7 @@ final class ExpandedPianoWaveformView: NSView {
         updateShortcutHint()
         updateOctaveContext()
         updateHapticsControl()
+        updateModeToggle()
         let keyboardSize = keyboardSize()
         widthConstraint?.constant = max(keyboardSize.width + inset * 2, Self.expandedPanelWidth)
         waveformHeightConstraint?.constant = waveformHeight(for: keyboardSize)
@@ -487,6 +526,27 @@ final class ExpandedPianoWaveformView: NSView {
         updateWaveformLiveState(isPresented: isPresented)
         needsDisplay = true
         pianoView.needsDisplay = true
+    }
+
+    @objc private func modeButtonClicked(_ sender: NSButton) {
+        guard let menuBand else { return }
+        let next: Keymap = (sender.tag == 1) ? .ableton : .notepat
+        if menuBand.keymap != next { menuBand.keymap = next }
+        for button in modeButtons {
+            button.state = (button == sender) ? .on : .off
+        }
+        qwertyView.keymap = menuBand.keymap
+        refresh()
+    }
+
+    /// Sync the toggle + QWERTY to the controller's current keymap.
+    private func updateModeToggle() {
+        guard let menuBand else { return }
+        qwertyView.keymap = menuBand.keymap
+        for button in modeButtons {
+            let isAbleton = (button.tag == 1)
+            button.state = (menuBand.keymap == .ableton) == isAbleton ? .on : .off
+        }
     }
 
     func clearInteraction() {

@@ -63,7 +63,7 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 12
-        stack.edgeInsets = NSEdgeInsets(top: 26, left: 28, bottom: 26, right: 28)
+        stack.edgeInsets = NSEdgeInsets(top: 40, left: 28, bottom: 26, right: 28)
         stack.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -73,7 +73,32 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
         ])
 
-        let heading = NSTextField(labelWithString: "Jam")
+        // Colored-pencil banner — a communal notepat jam (generated in the
+        // marketing stack, house style). Sets the come-hang-out tone above
+        // the heading + links.
+        if let url = Bundle.module.url(forResource: "looking-for-players",
+                                       withExtension: "png"),
+           let banner = NSImage(contentsOf: url) {
+            let bannerView = NSImageView()
+            bannerView.image = banner
+            bannerView.imageScaling = .scaleProportionallyUpOrDown
+            bannerView.translatesAutoresizingMaskIntoConstraints = false
+            bannerView.wantsLayer = true
+            bannerView.layer?.cornerRadius = 8
+            bannerView.layer?.masksToBounds = true
+            if #available(macOS 10.15, *) {
+                bannerView.layer?.cornerCurve = .continuous
+            }
+            stack.addArrangedSubview(bannerView)
+            NSLayoutConstraint.activate([
+                bannerView.widthAnchor.constraint(equalToConstant: 264),
+                // 3:2 source → keep the aspect for the banner crop.
+                bannerView.heightAnchor.constraint(equalToConstant: 176),
+            ])
+            stack.setCustomSpacing(14, after: bannerView)
+        }
+
+        let heading = NSTextField(labelWithString: L("popover.about.lookingForPlayers"))
         heading.font = NSFont.systemFont(ofSize: 18, weight: .bold)
         heading.alignment = .center
         stack.addArrangedSubview(heading)

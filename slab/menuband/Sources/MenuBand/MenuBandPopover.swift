@@ -851,10 +851,29 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
-        // "About" — colored bezel button (blue), peer to Jam and Quit.
-        // Opens the identity/settings window (icon + language + version).
-        // Keeps the current-language flag prepended so users know
-        // language lives in there.
+        // "Keymap" — accent bezel button. Closes the popover and opens the
+        // full-screen keymap view (large piano + QWERTY + Notepat/
+        // Conventional toggle). Reuses the existing mini-visualizer-expand
+        // hook. Sits in the footer so Keymap / About / Quit share one
+        // bottom-aligned row.
+        let keymapButton = NSButton()
+        keymapButton.bezelStyle = .rounded
+        keymapButton.isBordered = true
+        keymapButton.bezelColor = .controlAccentColor
+        keymapButton.controlSize = .small
+        keymapButton.target = self
+        keymapButton.action = #selector(miniVisualizerClicked(_:))
+        keymapButton.attributedTitle = NSAttributedString(
+            string: "Keymap",
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            ])
+        keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
+
+        // "About" — colored bezel button (blue), peer to Keymap and Quit.
+        // Opens the identity/settings window (icon + flat-map language
+        // picker + version + the "Looking For Players?" link).
         let aboutButton = NSButton()
         aboutButton.bezelStyle = .rounded
         aboutButton.isBordered = true
@@ -862,36 +881,13 @@ final class MenuBandPopoverViewController: NSViewController {
         aboutButton.controlSize = .small
         aboutButton.target = self
         aboutButton.action = #selector(showAboutPanel(_:))
-        let flag = Localization.language(for: Localization.current).flag
-        let aboutTitle = NSMutableAttributedString(
-            string: "\(flag) ",
-            attributes: [.font: NSFont.systemFont(ofSize: 11)])
-        aboutTitle.append(NSAttributedString(
+        aboutButton.attributedTitle = NSAttributedString(
             string: L("popover.about.link"),
             attributes: [
                 .foregroundColor: NSColor.white,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-            ]))
-        aboutButton.attributedTitle = aboutTitle
-        aboutButton.toolTip = "About / language / version"
-
-        // "Jam" — purple bezel button. The come-hang-out surface:
-        // Aesthetic.Computer + the computer-club invites (moved out of
-        // About into their own window).
-        let jamButton = NSButton()
-        jamButton.bezelStyle = .rounded
-        jamButton.isBordered = true
-        jamButton.bezelColor = .systemPurple
-        jamButton.controlSize = .small
-        jamButton.target = self
-        jamButton.action = #selector(showJamPanel(_:))
-        jamButton.attributedTitle = NSAttributedString(
-            string: "Jam",
-            attributes: [
-                .foregroundColor: NSColor.white,
-                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ])
-        jamButton.toolTip = "Aesthetic.Computer · computer clubs"
+        aboutButton.toolTip = "About / language / version"
 
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
@@ -899,8 +895,8 @@ final class MenuBandPopoverViewController: NSViewController {
         quitRow.spacing = 6
         let quitSpacer = NSView()
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        quitRow.addArrangedSubview(keymapButton)
         quitRow.addArrangedSubview(aboutButton)
-        quitRow.addArrangedSubview(jamButton)
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
@@ -2062,6 +2058,15 @@ final class MenuBandPopoverViewController: NSViewController {
             updateInfo: latestRemoteVersion,
             onOpenPlugins: { [weak menuBand] in
                 menuBand?.presentPluginPicker()
+            },
+            onSpeakLanguage: { [weak menuBand] name, code in
+                menuBand?.speakLanguageName(name, languageCode: code)
+            },
+            onPlayDrum: { [weak menuBand] in
+                menuBand?.playEasterEggDrum()
+            },
+            litNotesProvider: { [weak menuBand] in
+                menuBand?.litNotes ?? []
             }
         )
     }
