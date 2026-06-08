@@ -261,6 +261,47 @@ systemctl reload caddy"
 echo -e "$GREEN-> Restarting lith...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith"
 
+# Purge the Cloudflare cache so new code is served immediately. Runtime .mjs
+# (kidlisp, disk, graph, …) are STATIC sub-imports without the ?v= cache-bust
+# boot.mjs puts on top-level modules, so the edge would otherwise serve stale
+# code until the TTL. Token comes from the env or the vault service env; if
+# absent we skip (the short Caddy TTL still bounds staleness).
+function get_cf_token
+    if set -q CLOUDFLARE_API_TOKEN
+        echo $CLOUDFLARE_API_TOKEN
+        return 0
+    end
+    for token_file in $SERVICE_ENV \
+        "$VAULT_DIR/help/deploy.env" "$VAULT_DIR/oven/deploy.env" "$VAULT_DIR/at/deploy.env"
+        test -f $token_file; or continue
+        set line (rg -m1 '^CLOUDFLARE_API_TOKEN=' $token_file)
+        if test -n "$line"
+            string replace -r '^CLOUDFLARE_API_TOKEN=' '' -- $line
+            return 0
+        end
+    end
+    return 1
+end
+
+echo -e "$GREEN-> Purging Cloudflare cache...$NC"
+set CF_TOKEN (get_cf_token)
+if test -z "$CF_TOKEN"
+    echo -e "$YELLOW   No CLOUDFLARE_API_TOKEN found — skipping purge (Caddy short TTL still applies).$NC"
+else
+    set CF_ZONE (curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=aesthetic.computer" \
+        -H "Authorization: Bearer $CF_TOKEN" -H "content-type: application/json" \
+        | python3 -c "import json,sys; r=json.load(sys.stdin).get('result') or []; print(r[0]['id'] if r else '')" 2>/dev/null)
+    if test -z "$CF_ZONE"
+        echo -e "$YELLOW   Could not resolve zone id — skipping purge.$NC"
+    else
+        set CF_RESULT (curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+            -H "Authorization: Bearer $CF_TOKEN" -H "content-type: application/json" \
+            --data '{"purge_everything":true}' \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print('ok' if d.get('success') else 'failed: '+str(d.get('errors')))" 2>/dev/null)
+        echo -e "$GREEN   purge: $CF_RESULT$NC"
+    end
+end
+
 echo -e "$GREEN-> Done. lith deployed to $TARGET_HOST$NC"
 
 # Mirror slab/menuband/ to its standalone GitHub repo. Runs after a

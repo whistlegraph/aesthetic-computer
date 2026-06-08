@@ -15,8 +15,17 @@
         level INFO
     }
     # --- Global performance headers ---
-    # Cache static assets (1h fresh, serve stale for 24h while revalidating)
-    @cacheable path *.mjs *.js *.css *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
+    # Code modules change every deploy — short TTL so rollouts are visible fast.
+    # (lib/disk .mjs are STATIC sub-imports without the ?v= cache-bust boot.mjs
+    # applies to top-level modules, so a long TTL pins clients to stale runtime
+    # code. The deploy script also purges the CDN; this bounds browser-side
+    # staleness to ~1min.)
+    @code path *.mjs *.js *.css *.lisp *.lua
+    header @code Cache-Control "public, max-age=60, stale-while-revalidate=300"
+    header @code Access-Control-Allow-Origin *
+
+    # Static assets: long cache (1h fresh, serve stale for 24h while revalidating)
+    @cacheable path *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
     header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
     header @cacheable Access-Control-Allow-Origin *
 
