@@ -76,7 +76,7 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
         // Colored-pencil banner — a communal notepat jam (generated in the
         // marketing stack, house style). Sets the come-hang-out tone above
         // the heading + links.
-        if let url = Bundle.module.url(forResource: "looking-for-players",
+        if let url = Bundle.appResources.url(forResource: "looking-for-players",
                                        withExtension: "png"),
            let banner = NSImage(contentsOf: url) {
             let bannerView = NSImageView()

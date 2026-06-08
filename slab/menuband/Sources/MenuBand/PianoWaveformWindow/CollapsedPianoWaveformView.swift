@@ -526,7 +526,7 @@ final class CollapsedPianoWaveformView: NSView {
     @objc private func whyKeymapClicked(_ sender: NSButton) {
         // Same fallback chain as the popover's whyKeymapButton —
         // bundled PDF first (offline-friendly), then the public URL.
-        if let url = Bundle.module.url(
+        if let url = Bundle.appResources.url(
             forResource: "keymaps-social-software-26-arxiv",
             withExtension: "pdf")
         {

@@ -55,7 +55,11 @@ verify_app() {
 
     local BIN="$APP/Contents/MacOS/MenuBand"
     local INFO="$APP/Contents/Info.plist"
-    local RES_BUNDLE="$APP/Contents/Resources/MenuBand_MenuBand.bundle"
+    # Resources are FLATTENED directly into Contents/Resources (read via
+    # Bundle.appResources → Bundle.main). This keeps them in a codesign-sealable
+    # location — the nested MenuBand_MenuBand.bundle is NOT shipped (Swift 6.3's
+    # accessor would want it at the unsealed .app root).
+    local RES_DIR="$APP/Contents/Resources"
 
     if [[ ! -f "$BIN" ]]; then
         err "missing binary: $BIN"; FAIL=1
@@ -63,27 +67,27 @@ verify_app() {
     if [[ ! -f "$INFO" ]]; then
         err "missing Info.plist: $INFO"; FAIL=1
     fi
-    if [[ ! -d "$RES_BUNDLE" ]]; then
-        err "missing resource bundle: $RES_BUNDLE"
-        err "  → on a fresh machine this app will crash with"
-        err "    'could not load resource bundle: from … or /Users/<dev>/…'"
-        err "  → install.sh must copy MenuBand_MenuBand.bundle into Contents/Resources/"
-        return 1
+    # A stray nested bundle at the .app root is a sign of the old (unsealable)
+    # layout — flag it so it never ships.
+    if [[ -e "$APP/MenuBand_MenuBand.bundle" ]]; then
+        err "nested MenuBand_MenuBand.bundle present at the .app root — fails codesign --strict"
+        err "  → install.sh must FLATTEN it into Contents/Resources instead"
+        FAIL=1
     fi
-    ok "resource bundle present"
 
     local missing=0
     for r in "${REQUIRED_RESOURCES[@]}"; do
-        if [[ ! -e "$RES_BUNDLE/$r" ]]; then
+        if [[ ! -e "$RES_DIR/$r" ]]; then
             err "  missing: $r"
             missing=$((missing + 1))
         fi
     done
     if (( missing > 0 )); then
-        err "$missing required resource(s) absent from MenuBand_MenuBand.bundle"
+        err "$missing required resource(s) absent from Contents/Resources"
+        err "  → on a fresh machine this app will crash on Bundle.appResources lookups"
         FAIL=1
     else
-        ok "all ${#REQUIRED_RESOURCES[@]} required resources present"
+        ok "all ${#REQUIRED_RESOURCES[@]} required resources present in Contents/Resources"
     fi
 
     # Scan the binary for hardcoded developer paths. We only care about
@@ -150,21 +154,16 @@ verify_app() {
     TMP="$(mktemp -d -t menuband-fresh-XXXX)"
     cp -R "$APP" "$TMP/"
     local copied="$TMP/$(basename "$APP")"
-    if [[ -d "$copied/Contents/Resources/MenuBand_MenuBand.bundle" ]]; then
-        local missing_in_copy=0
-        for r in "${REQUIRED_RESOURCES[@]}"; do
-            if [[ ! -e "$copied/Contents/Resources/MenuBand_MenuBand.bundle/$r" ]]; then
-                missing_in_copy=$((missing_in_copy + 1))
-            fi
-        done
-        if (( missing_in_copy == 0 )); then
-            ok "fresh-path simulation: bundle resolves at $(dirname "$TMP")/.../$(basename "$APP")"
-        else
-            err "fresh-path simulation: $missing_in_copy resources missing after copy"
-            FAIL=1
+    local missing_in_copy=0
+    for r in "${REQUIRED_RESOURCES[@]}"; do
+        if [[ ! -e "$copied/Contents/Resources/$r" ]]; then
+            missing_in_copy=$((missing_in_copy + 1))
         fi
+    done
+    if (( missing_in_copy == 0 )); then
+        ok "fresh-path simulation: resources resolve at $(dirname "$TMP")/.../$(basename "$APP")"
     else
-        err "fresh-path simulation: copied .app missing resource bundle"
+        err "fresh-path simulation: $missing_in_copy resources missing from Contents/Resources after copy"
         FAIL=1
     fi
     rm -rf "$TMP"

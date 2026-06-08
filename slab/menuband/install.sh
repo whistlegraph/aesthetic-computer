@@ -201,8 +201,15 @@ fi
 PKG_BUNDLE_NAME="MenuBand_MenuBand.bundle"
 PKG_BUNDLE_SRC="$(dirname "${ARM_BIN}")/${PKG_BUNDLE_NAME}"
 if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
-    rm -rf "${APP_RES}/${PKG_BUNDLE_NAME}"
-    cp -R "${PKG_BUNDLE_SRC}" "${APP_RES}/${PKG_BUNDLE_NAME}"
+    # FLATTEN the SwiftPM resource bundle's contents directly into
+    # Contents/Resources. The app reads them via Bundle.appResources →
+    # Bundle.main (see MASBundleShim.swift), so they live in a codesign-sealable
+    # location. We deliberately do NOT keep the nested .bundle: Swift 6.3's
+    # generated accessor resolves it at `Bundle.main.bundleURL` = the .app ROOT,
+    # and anything at the bundle root fails `codesign --strict` ("unsealed
+    # contents present in the bundle root") and breaks notarization.
+    rm -rf "${APP_DIR}/${PKG_BUNDLE_NAME}" "${APP_RES}/${PKG_BUNDLE_NAME}"
+    cp -R "${PKG_BUNDLE_SRC}/." "${APP_RES}/"
 fi
 
 # Sign with the best available identity.

@@ -48,7 +48,7 @@ enum Bravura {
     static func ensureRegistered() {
         guard !registered else { return }
         registered = true
-        guard let url = Bundle.module.url(forResource: "Bravura",
+        guard let url = Bundle.appResources.url(forResource: "Bravura",
                                           withExtension: "otf") else {
             NSLog("Bravura: Bravura.otf missing from bundle")
             return

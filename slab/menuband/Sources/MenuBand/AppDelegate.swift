@@ -1926,7 +1926,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// title-rendering bug), so callers should prefer the cached
     /// descriptors. Called once at launch.
     private static func registerBundledFonts() {
-        let bundle = Bundle.module
+        let bundle = Bundle.appResources
         for name in ["ywft-processing-regular", "ywft-processing-bold"] {
             guard let url = bundle.url(forResource: name, withExtension: "ttf") else {
                 NSLog("MenuBand: bundled font missing — \(name).ttf")

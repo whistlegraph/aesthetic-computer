@@ -1705,7 +1705,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // Prefer the copy bundled inside the app — opens in Preview offline,
         // no network round-trip — then fall back to the public hosted PDF if
         // the bundled resource somehow goes missing.
-        if let url = Bundle.module.url(
+        if let url = Bundle.appResources.url(
             forResource: "keymaps-social-software-26-arxiv",
             withExtension: "pdf")
         {
