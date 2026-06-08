@@ -677,6 +677,69 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 ---
 
+## moronbobasleep — WIP (10-minute Bachian remix of marimbaba)
+
+- **Lane:** `pop/moronboba/` · a 10:00 **remix of marimbaba**, the twin of
+  marimbaba the way `pop/sleephellsine/` is the twin of `pop/hellsine/` —
+  but it keeps the **actual marimba synth** (`pop/marimba/synths/marimba.mjs`),
+  which is what makes it a marimbaba *remix* and not a sleephellsine clone.
+  Began as a calm sleep drone; evolved (2026-06-08) into a slow, **Bachian,
+  rolling, ever-transforming** piece that travels through keys over its 10
+  minutes. "Moron" = the lullaby gone dozy + dumb-slow. Part of the *pixsies*
+  body.
+- **Artist:** Aesthetic Dot Computer (intended)
+- **Status:** WIP — sound + cover iterating (last pass 2026-06-08); not yet on
+  the CDN or DistroKid.
+- **Engine:** `pop/moronboba/bin/render-moronbobasleep.mjs` — a **generative**
+  renderer (deterministic per `--seed`, default `moronbobasleep`). It opens on
+  a real **CC0 rainforest-rain** sample (Freesound #634889 "El Yunque", by
+  lkillam7 — see `assets/.sfx-credits.txt`), big then settling to a bed, and
+  then builds a contrapuntal baroque texture over a fixed **functional
+  progression** (ii–V–I / plagal / modal Eb) in F major:
+  - **FIBONACCI-ARCH NIGHT NARRATIVE** — 9 movements (bars 3·5·8·13·21·34·55·34·13)
+    that are chapters of a night (drift → settle → sink → deepening → dreaming
+    → deep dream → THE DREAM → strange REM → dawn). Bar-counts grow to a LATE
+    peak so the climax lands near the **golden section** (~0.6 of the runtime),
+    then recede; each movement has its own dynamic **level**, key (gentle
+    journey, home at the ends), whistle **register**, and density — a real
+    arc, not a loop. A baked dynamic curve + a gentle (non-levelling) master
+    keep it (verified: per-minute loudness swells ≈ −21 → −17 → −21 dB);
+  - **broken-chord arpeggio** figuration (Prelude-in-C style), felt-soft;
+  - a **WHISTLE** top melody (MenuBand instrument-79 vibe — sine + breath +
+    fade-in vibrato + pitch scoop), voice-led + harmonised a third below;
+  - a **walking bass**, a **quaternary (alto)** inner voice in the bigger
+    movements (four-part harmony), a chord sparkle on a **Euclidean E(5,8)**
+    rhythm, **triplet** flourishes deep in;
+  - fractal **pterodactyl swoops** — gnarly self-similar up-then-dive screech
+    runs clustering at the climax;
+  - underneath: the **felted** 5-voice drone (warbly + fizzy, phaser + stereo
+    chorus) + deep sub **wub**, **reverso sine bells** that peak on chord
+    arrivals, and a lush Schroeder reverb;
+  - **sidechain tempering** — the bass pumps the drone/sub; the arpeggio ducks
+    under the whistle (voices breathe around each other);
+  - **SOFT FELT MALLETS** throughout (long mallet contact + slow attack).
+  Every render self-runs a **clip test** (sample/true peak + LUFS).
+- **Master:** `~/Documents/Shelf/moronboba/moronbobasleep-MASTER.wav`
+  (44.1 kHz / 24-bit) + `moronbobasleep.mp3` (320k). **Sleep** chain (kept
+  gentle so the dynamic arc lives): highpass 22 → +3 dB low shelf @ 85 → −1 dB
+  shelf @ 4.2 k → ONE soft slow glue comp (2:1, no leveller) → whisper of air
+  → 8 s fade-in / 14 s fade-out → **two-pass `loudnorm I=-16 TP=-1 LRA=18`**,
+  truncate to 10:00. Measured **≈ −16 LUFS / −2.6 dBTP, no clipping**. (Durable
+  home is `~/Documents/Shelf/` — Desktop auto-cleans, [[feedback_desktop_autocleaned]].)
+- **Cover:** `pop/moronboba/out/moronbobasleep-cover.png` (1024²,
+  gpt-image-2 via `bin/gen-illy.mjs` + `moronbobasleep.illy.txt`) —
+  marimbaba's cover identity reborn as **felt characters**: needle-felted
+  wool dolls of jeffrey + Bill Gates asleep, leaning together, in a ravey
+  **dayglow night-light** glow (neon stars, glowing full moon, foveated
+  soft edges), the **white IBM Selectric** (chrome type ball, from the
+  marimbaba video prompts) under their resting hands. jeffrey's yellow
+  Sailor pen + Gates' red pen kept; embedded in the mp3.
+- **Next:** ear-check the master → CDN
+  (`assets.aesthetic.computer/pop/moronbobasleep.jpg` / `.mp3`) →
+  DistroKid → promote this entry to **RELEASED**.
+
+---
+
 ### Mastering note (learned on trancenwaltz)
 
 The trance.mjs master chain renders **dark** (~16 dB roll-off into the
