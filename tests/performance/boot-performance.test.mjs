@@ -15,7 +15,19 @@
 // Single browser instance on purpose (8 GB machine — no parallel Chromium).
 
 import puppeteer from "puppeteer";
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
+
+// Optional logged-in session: a JSON file of localStorage key→value pairs
+// (the @@auth0spajs@@... entries from a real signed-in browser). When provided
+// via AC_SESSION_FILE, we inject them before navigation so boot takes the
+// authenticated path — that's where the historical ~8.7s userExists fetch hid.
+// Capture from a logged-in tab's devtools console with:
+//   copy(JSON.stringify(Object.fromEntries(Object.entries(localStorage))))
+function loadSession() {
+  const f = process.env.AC_SESSION_FILE;
+  if (!f || !existsSync(f)) return null;
+  try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; }
+}
 
 // Prefer a system Chrome (avoids puppeteer's version-pinned download). Override
 // with PUPPETEER_EXECUTABLE_PATH. Falls back to puppeteer's bundled binary.
@@ -107,6 +119,17 @@ async function run() {
   try {
     const page = await browser.newPage();
     await installBootProbe(page);
+
+    const session = loadSession();
+    if (session) {
+      await page.evaluateOnNewDocument((entries) => {
+        try { for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v); } catch {}
+      }, session);
+      console.log(`   session: injecting ${Object.keys(session).length} localStorage keys (authenticated path)\n`);
+    } else {
+      console.log(`   session: none — measuring the anonymous boot path\n`);
+    }
+
     await page.coverage.startJSCoverage({ resetOnNavigation: false });
 
     const wallStart = Date.now();
