@@ -41,6 +41,7 @@ Open follow-ups (queued, not blockers):
 - **Status:** RELEASED — delivered via DistroKid 2026-05-22, live in
   stores. Assets published to the AC assets CDN 2026-05-22.
 - **Listen (canonical):** https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG
+- **Apple Music:** https://music.apple.com/us/album/marimbaba/6772460819?i=6772460820
 - **Assets (AC CDN):**
   - audio — https://assets.aesthetic.computer/pop/marimbaba.mp3
   - cover — https://assets.aesthetic.computer/pop/marimbaba.jpg
@@ -101,6 +102,7 @@ Open follow-ups (queued, not blockers):
 - **Artist:** Aesthetic Dot Computer
 - **Released:** 2026-05-21 via DistroKid
 - **Listen (canonical):** https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8
+- **Apple Music:** https://music.apple.com/us/album/helpabeach/6772056808?i=6772057057
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=B1F5253A-11FA-40EF-83A89866A157829A (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run pop:assets:up`):
   - audio · https://assets.aesthetic.computer/pop/helpabeach.mp3 (320 k mp3 of the master, 151.1 s)
@@ -132,6 +134,7 @@ Open follow-ups (queued, not blockers):
 - **Lane:** `pop/dance/` · dark/emo/extreme war-arc trance-waltz, ~1:26
 - **Released:** 2026-05-17 via DistroKid
 - **Listen (canonical):** https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum
+- **Apple Music:** https://music.apple.com/us/album/trancenwaltz/6773318345?i=6773318348
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=8FF25085-8F58-4A3A-986A52A21D638805 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancenwaltz.mp3 (320 k mp3 of the bright master, 86.62 s)
@@ -214,6 +217,8 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **Status:** **RELEASED — v2 FINAL master (2026-06-03).** v2 re-uploaded to
   DistroKid/stores by @jeffrey; CDN assets published. (v1 went to DistroKid
   2026-06-02, superseded by v2.)
+- **Listen (canonical):** https://open.spotify.com/track/4hVFWMISa235ybIEfOYuwt
+- **Apple Music:** https://music.apple.com/us/album/amaythingra/6776359148?i=6776359150
 - **Canonical assets** (DO Spaces CDN, `pop/` flat path like marimbaba):
   - audio (wav) — https://assets.aesthetic.computer/pop/amaythingra.wav
   - audio (mp3) — https://assets.aesthetic.computer/pop/amaythingra.mp3
@@ -438,6 +443,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   in post-vortex. Spec: `pop/dance/trancepenta.md`.
 - **Released:** 2026-05-20 via DistroKid
 - **Listen (canonical):** https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG
+- **Apple Music:** _not yet distributed to Apple Music (only 5 of the 6 pixsies singles are on the artist's Apple catalog as of 2026-06-07); backfill once it propagates._
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=860FA7AC-AE6E-4B0A-ABC6E1514D273054 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancepenta.mp3 (320 k mp3 of the radio-balanced master, 190.69 s)
@@ -546,8 +552,8 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **Artist:** Aesthetic Dot Computer
 - **Released:** 2026-05-26 via DistroKid
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=5BAE15FB-BDDF-4C1D-8EBFB2E68D7D4A9C (admin-only)
-- **Listen (canonical):** _Spotify URL pending — fill in once the store
-  page is live._
+- **Listen (canonical):** https://open.spotify.com/track/1yauGyuJPMzDadtu8S5llk
+- **Apple Music:** https://music.apple.com/us/album/hellsine/6773624140?i=6773624141
 - **Form:** hardcore spine carrying a hand-composed John Williams arc —
   heroic D-minor leitmotif: overture (typewriter keys + sine strings
   hint, no kick) → statement (brass + gabber kick + first vocal pass) →
@@ -628,9 +634,10 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
     5 Hz wobble, 6 s pan sweep, 0.045 gain).
   - **Key 5 typewriter reverse-kick swell** (320 ms, 48 → 78 Hz,
     squared envelope) — only intentional reverse in the opening.
-- **Next:** Spotify URL drop-in once live · 3000² cover + CDN sync
+- **Next:** 3000² cover + CDN sync
   (`assets.aesthetic.computer/pop/hellsine.{mp3,jpg}`) · canvas/IG cut
-  via `pop/hellsine/bin/preview-score.mjs` (not yet built).
+  via `pop/hellsine/bin/preview-score.mjs` (not yet built). (Spotify +
+  Apple Music URLs now live — see Listen line above.)
 
 ## trancenwaltzi — RENDER (not yet released)
 
