@@ -840,7 +840,7 @@ final class MenuBandPopoverViewController: NSViewController {
         let quit = NSButton()
         quit.bezelStyle = .rounded
         quit.isBordered = true
-        quit.bezelColor = .systemRed
+        quit.bezelColor = .controlAccentColor
         quit.controlSize = .small
         quit.target = self
         quit.action = #selector(quitApp)
@@ -871,13 +871,13 @@ final class MenuBandPopoverViewController: NSViewController {
             ])
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
 
-        // "About" — colored bezel button (blue), peer to Keymap and Quit.
+        // "About" — accent bezel button, peer to Keymap and Quit.
         // Opens the identity/settings window (icon + flat-map language
         // picker + version + the "Looking For Players?" link).
         let aboutButton = NSButton()
         aboutButton.bezelStyle = .rounded
         aboutButton.isBordered = true
-        aboutButton.bezelColor = .systemBlue
+        aboutButton.bezelColor = .controlAccentColor
         aboutButton.controlSize = .small
         aboutButton.target = self
         aboutButton.action = #selector(showAboutPanel(_:))
