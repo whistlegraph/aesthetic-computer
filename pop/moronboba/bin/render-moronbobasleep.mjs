@@ -129,9 +129,21 @@ const ARP = 0.40;                 // one arpeggio note (~75 BPM 8ths) — flowin
 const ARPN = 8;                   // arpeggio notes per bar
 const BAR = ARP * ARPN;           // ~3.2 s per chord
 
-// ── a fixed FUNCTIONAL progression — real cadences, ii–V–I, a plagal Bb,
-//    and the modal Eb for colour. 0:F 1:Dm 2:Bb 3:C 4:Gm 5:Eb.
-const PROG = [0, 4, 3, 0,  1, 4, 3, 0,  2, 0, 4, 3,  5, 2, 3, 0];
+// ── a LIBRARY of functional progressions — each chapter gets its own, so the
+//    HARMONY itself goes on a journey (not one loop transposed). 0:F 1:Dm
+//    2:Bb 3:C 4:Gm 5:Eb.
+const PROGS = [
+  [0, 0, 3, 0],                       // calm tonic rock (drift)        F · F · C · F
+  [0, 2, 3, 0],                       // plagal sway (settle)           F · Bb · C · F
+  [0, 1, 4, 3],                       // ii–V begins (sink)             F · Dm · Gm · C
+  [1, 4, 3, 0,  2, 0, 4, 3],          // fuller turn (deepen)           Dm Gm C F · Bb F Gm C
+  [4, 3, 0, 1,  4, 3, 2, 0],          // dreaming                       Gm C F Dm · Gm C Bb F
+  [0, 4, 3, 1,  4, 5, 2, 3],          // deep dream (Eb colour)         F Gm C Dm · Gm Eb Bb C
+  [5, 2, 4, 5,  3, 0, 1, 4],          // strange REM (modal)            Eb Bb Gm Eb · C F Dm Gm
+  [2, 3, 0, 0],                       // plagal homecoming (dawn)       Bb · C · F · F
+];
+//                drift settle sink deepen dream deep THE  REM  dawn
+const MOVE_PROG = [0,    1,    2,   3,     4,    5,   5,   6,   7];
 
 // ── FORM: a FIBONACCI ARCH of 9 movements telling a NIGHT NARRATIVE — each is
 //    a chapter, and the bar-counts grow to a LATE peak so the climax (the
@@ -147,9 +159,10 @@ const MOVE_TR = [0,   0,    0,    2,    5,    7,    7,    3,    0];     // gentl
 const M_LEVEL = [0.26, 0.42, 0.58, 0.72, 0.85, 0.95, 1.0, 0.76, 0.42];// dynamic arc (baked into the mix)
 const M_WOCT  = [-12, -12,  -12,  -12,  0,    0,    0,   -12,  -12];   // whistle register per movement
 const MOVE = FIB.map((bars, i) => ({
-  bars, tr: MOVE_TR[i], level: M_LEVEL[i], woct: M_WOCT[i],
+  bars, tr: MOVE_TR[i], level: M_LEVEL[i], woct: M_WOCT[i], prog: PROGS[MOVE_PROG[i]],
   arp:     i >= 1,                              // no arpeggio in the opening "drift" (rain + pad only)
   arpDens: Math.min(1, 0.35 + 0.65 * M_LEVEL[i]),  // sparser when quiet
+  span:    M_LEVEL[i] > 0.8 ? 7 : M_LEVEL[i] > 0.55 ? 6 : 5,  // arpeggio range widens as the night deepens
   whistle: i >= 2,                              // the whistle enters on the 3rd chapter
   alto:    i >= 4 && i <= 7,                     // four-part harmony through the dream
   triplet: i === 5 || i === 6 ? 0.30 : 0.0,     // triplet flourishes only deep in
@@ -159,14 +172,14 @@ const MOVE = FIB.map((bars, i) => ({
 
 const chordTimeline = [];   // { t, dur, ci, tr, mi }
 {
-  let t = 0, b = 0;
+  let t = 0;
   for (let mi = 0; mi < MOVE.length; mi++) {
     const mv = MOVE[mi];
     for (let k = 0; k < mv.bars; k++) {
-      const ci = PROG[b % PROG.length];
+      const ci = mv.prog[k % mv.prog.length];     // each chapter walks its OWN progression
       chordTimeline.push({ t, dur: BAR, ci, tr: mv.tr, mi });
       for (const m of CHORDS[ci].pad) evPad.push({ startSec: t, midi: m + mv.tr, durSec: BAR + 3, gain: range(0.05, 0.075) });
-      t += BAR; b++;
+      t += BAR;
     }
   }
 }
@@ -241,28 +254,42 @@ const swoop = (t, ci, tr) => {
 // ── 3) the ARPEGGIO figuration — broken chord per bar (+ tr), TRIPLET
 //      flourishes per movement, ducked under the whistle; and the fractal
 //      pterodactyl SWOOPS replace a bar in the gnarly middle movements.
-const PATA = [0, 1, 2, 3, 4, 3, 2, 1];
-const PATB = [0, 2, 4, 2, 1, 3, 4, 2];
+// a LIBRARY of 8-step figurations (values 0..4, scaled to each chapter's
+// `span`) — the renderer walks THROUGH it so the arpeggio keeps reshaping
+// bar to bar instead of repeating two patterns forever.
+const PATS = [
+  [0, 1, 2, 3, 4, 3, 2, 1],   // pendulum up-down
+  [0, 2, 4, 2, 1, 3, 4, 2],   // broken thirds
+  [0, 1, 2, 4, 3, 2, 1, 0],   // climb then settle
+  [4, 3, 2, 1, 0, 1, 2, 3],   // descending start (inversion)
+  [0, 2, 1, 3, 2, 4, 3, 1],   // climbing zigzag
+  [0, 4, 1, 3, 2, 4, 0, 2],   // wide leaps
+  [0, 1, 0, 2, 0, 3, 0, 4],   // pedal-tone (Alberti-ish)
+  [4, 2, 0, 2, 4, 3, 1, 3],   // arch from the top
+];
 const TRIP = [0, 1, 2, 3, 4, 2, 0, 1, 2, 3, 4, 2];
 const nearMel = (ts) => { for (const m of melOnsets) if (Math.abs(m - ts) < 0.11) return true; return false; };
 {
+  let pidx = 0;
   for (let bi = 0; bi < chordTimeline.length; bi++) {
     const { t, ci, tr, mi } = chordTimeline[bi];
     const mv = MOVE[mi];
     if (!mv.arp) continue;                               // skip the opening drift
     if (rnd() < mv.gnarl) { swoop(t, ci, tr); continue; }   // pterodactyl bar
-    const tones = CHORDS[ci].roll.slice(0, 5).map((m) => m - 12 + tr);
+    const tones = CHORDS[ci].roll.slice(0, Math.min(mv.span, CHORDS[ci].roll.length)).map((m) => m - 12 + tr);
+    const sc = (v) => tones[Math.round((v / 4) * (tones.length - 1))];   // 0..4 → the chapter's range
     const triplet = rnd() < mv.triplet;
     const Nn = triplet ? 12 : ARPN, step = BAR / Nn;
-    const pat = triplet ? TRIP : (bi % 2 === 0 ? PATA : PATB);
+    pidx = (pidx + 1 + (rnd() < 0.3 ? 1 : 0)) % PATS.length;   // walk the figuration library
+    const pat = triplet ? TRIP : PATS[pidx];
     for (let n = 0; n < Nn; n++) {
       if (n !== 0 && rnd() > mv.arpDens) continue;        // thin the run when the chapter is quiet
       const ts = t + n * step;
       const accent = n === 0 ? 1.0 : (n === (Nn >> 1) ? 0.82 : 0.66);
       let g = 0.30 * accent * range(0.95, 1.05);
       if (nearMel(ts)) g *= 0.7;                          // duck under the whistle
-      evLead.push({ startSec: ts, midi: tones[pat[n % pat.length]], durSec: step * range(1.3, 1.8), gain: g });
-      if (n === 0) evLead.push({ startSec: t, midi: tones[2], durSec: ARP * 2.4, gain: g * 0.55 });
+      evLead.push({ startSec: ts, midi: sc(pat[n % pat.length]), durSec: step * range(1.3, 1.8), gain: g });
+      if (n === 0) evLead.push({ startSec: t, midi: tones[Math.min(2, tones.length - 1)], durSec: ARP * 2.4, gain: g * 0.55 });
     }
   }
 }

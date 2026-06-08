@@ -704,7 +704,12 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
     journey, home at the ends), whistle **register**, and density — a real
     arc, not a loop. A baked dynamic curve + a gentle (non-levelling) master
     keep it (verified: per-minute loudness swells ≈ −21 → −17 → −21 dB);
-  - **broken-chord arpeggio** figuration (Prelude-in-C style), felt-soft;
+  - **per-chapter PROGRESSIONS** — each movement walks its OWN functional
+    progression (calm tonic → ii–V–I → circle-ish turns → modal Eb in REM →
+    plagal homecoming), so the harmony itself journeys, not just the dynamics;
+  - **broken-chord arpeggio** figuration (Prelude-in-C style), felt-soft, drawn
+    from an **8-pattern library** the renderer walks through bar to bar (range
+    widening from 5→7 tones into the dream) so it keeps reshaping;
   - a **WHISTLE** top melody (MenuBand instrument-79 vibe — sine + breath +
     fade-in vibrato + pitch scoop), voice-led + harmonised a third below;
   - a **walking bass**, a **quaternary (alto)** inner voice in the bigger
