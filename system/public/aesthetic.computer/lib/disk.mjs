@@ -2304,11 +2304,11 @@ function redirectIfBrandedDomain() {
   if (!hostname) return false;
   // Match notepat.com or www.notepat.com (add more branded domains here as needed)
   if (hostname === "notepat.com" || hostname === "www.notepat.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer/notepat", blank: false } });
+    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
     return true;
   }
   if (hostname === "laklok.com" || hostname === "www.laklok.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer/laklok", blank: false } });
+    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
     return true;
   }
   return false;
