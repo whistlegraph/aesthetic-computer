@@ -31,14 +31,18 @@ final class MenuBandRewindVoice {
     /// single reverse window at REVERSE_MAX_AGE_MS = 12 s; we keep that as
     /// the ring ceiling so the buffer is generously sized.
     private let bufferSeconds: Double = 12.0
-    /// Window actually reversed per spacebar press. Notepat grabs "audio
-    /// since the previous press" (floored to a 500 ms minimum); Menu Band's
-    /// spacebar is a simple one-shot (no press-pair state), so we reverse a
-    /// fixed recent window. ~4 s is long enough to hear a phrase rewind but
-    /// short enough to feel like an instant replay.
-    private let captureSeconds: Double = 4.0
     /// Floor so a brief history still yields an audible clip.
     private let minCaptureSeconds: Double = 0.5
+    /// `CACurrentMediaTime()` of the previous Space press. The reverse window
+    /// is "audio SINCE the last press" (notepat semantics) — so rapid taps
+    /// reverse successive short chunks (a stutter), and a press after a long
+    /// phrase reverses the whole phrase. Floored to `minCaptureSeconds`,
+    /// capped at `bufferSeconds`. Set on attach so the first press measures
+    /// from launch.
+    private var lastPressTime: Double = 0
+    /// Bumped each press so a stale backstop timer from an earlier press
+    /// can't resume capture during a newer press's playback.
+    private var pressGeneration = 0
 
     private let player = AVAudioPlayerNode()
     private let mixer = AVAudioMixerNode()
@@ -68,12 +72,6 @@ final class MenuBandRewindVoice {
     /// Bool is fine (single-word, set-then-read, no torn state that matters).
     private var recording = true
 
-    /// Fixed render format for the player. The captured ring is mono; we
-    /// connect the player as mono and let the engine up-mix to the device.
-    private let renderFormat = AVAudioFormat(
-        commonFormat: .pcmFormatFloat32, sampleRate: 44_100,
-        channels: 1, interleaved: false)!
-
     // MARK: Attach
 
     /// Wire the rewind player into the engine. Called from
@@ -84,9 +82,15 @@ final class MenuBandRewindVoice {
         self.engine = engine
         engine.attach(player)
         engine.attach(mixer)
-        engine.connect(player, to: mixer, format: renderFormat)
-        engine.connect(mixer, to: engine.mainMixerNode, format: renderFormat)
+        // Connect with engine-derived (nil) formats so the rewind graph
+        // tracks the device's sample rate — a hardcoded 44.1k connection
+        // breaks (and `scheduleBuffer` asserts) when the user is on a 96 kHz
+        // interface or hot-swaps devices. The reversed clip is built in the
+        // player's *actual* output format at play time (see `playReverse`).
+        engine.connect(player, to: mixer, format: nil)
+        engine.connect(mixer, to: engine.mainMixerNode, format: nil)
         mixer.outputVolume = 1.0
+        lastPressTime = CACurrentMediaTime()
         attached = true
     }
 
@@ -159,10 +163,14 @@ final class MenuBandRewindVoice {
         // How many valid frames exist: the whole ring once it has wrapped,
         // otherwise only what's been written so far.
         let valid = Swift.min(framesWritten, cap)
-        // Capture window: the most-recent `captureSeconds`, floored to the
-        // minimum so a quiet/short history still yields an audible clip.
-        let want = Swift.max(Int(minCaptureSeconds * rate),
-                             Int(captureSeconds * rate))
+        // Capture window = audio SINCE the last press (notepat), floored to
+        // `minCaptureSeconds` and capped at the ring length. Rapid taps grab
+        // short successive chunks; a press after a phrase grabs the phrase.
+        let now = CACurrentMediaTime()
+        let sinceLast = lastPressTime > 0 ? (now - lastPressTime) : bufferSeconds
+        lastPressTime = now
+        let windowSec = Swift.min(bufferSeconds, Swift.max(minCaptureSeconds, sinceLast))
+        let want = Int(windowSec * rate)
         let count = Swift.min(valid, Swift.min(want, cap))
         guard count >= 256 else { ringLock.unlock(); return false }
         // Walk backward from the write head, emitting samples in REVERSE
@@ -177,48 +185,54 @@ final class MenuBandRewindVoice {
         }
         ringLock.unlock()
 
-        // --- Build a mono PCM buffer at the captured rate ---
-        guard let clipFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                             sampleRate: rate,
-                                             channels: 1, interleaved: false),
-              let clip = AVAudioPCMBuffer(pcmFormat: clipFormat,
+        // --- Build the clip in the player's ACTUAL output format ---
+        // (nil-connected, so it tracks the device). Building to match the
+        // player's format means `scheduleBuffer` never asserts on a sample-
+        // rate/channel mismatch — the bug that broke audio on a 96 kHz
+        // device. The ring is captured at the same device rate, so the
+        // reversed mono samples are copied into every output channel at the
+        // right speed.
+        let outFormat = player.outputFormat(forBus: 0)
+        guard outFormat.channelCount >= 1, outFormat.sampleRate > 0,
+              let clip = AVAudioPCMBuffer(pcmFormat: outFormat,
                                           frameCapacity: AVAudioFrameCount(count)),
-              let dst = clip.floatChannelData?[0]
+              let chData = clip.floatChannelData
         else { return false }
+        let chCount = Int(outFormat.channelCount)
         reversed.withUnsafeBufferPointer { src in
-            dst.update(from: src.baseAddress!, count: count)
+            guard let base = src.baseAddress else { return }
+            for c in 0..<chCount { chData[c].update(from: base, count: count) }
         }
         clip.frameLength = AVAudioFrameCount(count)
 
         // --- Pause capture, then play DRY into mainMixerNode ---
-        // Gate recording off for the playback duration so the reversed audio
-        // (which flows through the tapped mainMixerNode) is not recaptured.
+        // Gate recording off WHILE reverse-playing so the reversed audio
+        // (which flows through the tapped mainMixerNode) isn't recaptured.
+        // Capture resumes the instant Space is RELEASED (see `release()`),
+        // NOT when the clip ends — so notes you play right after letting go
+        // are captured immediately and the next press reverses THEM (this is
+        // the fix for the laggy/"adding-again" second run).
         recording = false
+        pressGeneration += 1
+        let gen = pressGeneration
         if !engine.isRunning { try? engine.start() }
         player.stop()
-        // The player was connected with `renderFormat` (44.1k mono). If the
-        // device is running at a different rate the engine resamples between
-        // our mixer and mainMixerNode; scheduling a clip at the captured rate
-        // is fine because AVAudioPlayerNode honours the buffer's own format.
-        let frameDuration = Double(count) / rate
-        player.scheduleBuffer(clip, at: nil, options: []) { [weak self] in
-            // Completion fires on a render thread — bounce to main to resume
-            // recording and re-arm the ring.
-            DispatchQueue.main.async { self?.finishReverse() }
-        }
+        player.scheduleBuffer(clip, at: nil, options: [], completionHandler: nil)
         if !player.isPlaying { player.play() }
-        // Safety net: if the completion handler is ever swallowed (engine
-        // reconfig mid-clip), resume recording shortly after the clip's
-        // natural end so we don't get stuck never recording again.
-        DispatchQueue.main.asyncAfter(deadline: .now() + frameDuration + 0.1) {
-            [weak self] in self?.finishReverse()
+        // Backstop only — if a Space key-up is ever dropped, don't get stuck
+        // muted: resume capture a bit after the clip would have ended, but
+        // only if no newer press has happened since.
+        let frameDuration = Double(count) / outFormat.sampleRate
+        DispatchQueue.main.asyncAfter(deadline: .now() + frameDuration + 2.0) {
+            [weak self] in
+            guard let self = self, self.pressGeneration == gen else { return }
+            self.finishReverse()
         }
         return true
     }
 
-    /// Stop any in-flight reverse clip and resume recording. Idempotent —
-    /// both the completion handler and the safety-net timer call it.
-    func stop() {
+    /// Space released — stop the reverse voice and resume live capture.
+    func release() {
         finishReverse()
     }
 

@@ -885,9 +885,22 @@ final class MenuBandController {
     /// Bounced to the main thread because `playKeyEvent` runs on the
     /// KeyEventTap background thread and reverse playback mutates the engine
     /// graph + schedules a player buffer (both main-thread-only).
+    /// True while the spacebar reverse-replay is sounding — drives the
+    /// popover waveform strip's direction indicator (◀ reverse vs ▶ live).
+    private(set) var isRewinding = false
+
     func rewind() {
+        isRewinding = true
         DispatchQueue.main.async { [weak self] in
             self?.synth.playReverse()
+        }
+    }
+
+    /// Spacebar released — stop reverse playback and resume capture.
+    func rewindRelease() {
+        isRewinding = false
+        DispatchQueue.main.async { [weak self] in
+            self?.synth.releaseReverse()
         }
     }
 
@@ -2266,7 +2279,14 @@ final class MenuBandController {
         // note or a literal space character. Trigger on the first key-down
         // (ignore auto-repeat); consume key-up too so it stays swallowed.
         if keyCode == 49 /* kVK_Space */ {
-            if isDown && !isRepeat { rewind() }
+            // Hold-to-reverse (notepat model): press starts reverse playback
+            // of the audio since the last press; release stops it and resumes
+            // live capture so the next press reverses whatever you play next.
+            if isDown {
+                if !isRepeat { rewind() }
+            } else {
+                rewindRelease()
+            }
             return true
         }
 

@@ -42,6 +42,9 @@ final class CollapsedPianoWaveformView: NSView {
     /// instrument," and the popover stays a music-theory surface.
     private let modeStack = NSStackView()
     private var modeButtons: [NSButton] = []
+    /// Live audio strip above the instrument name — shows the output
+    /// waveform + reverse/forward direction so spacebar-rewind is debuggable.
+    private let waveformStrip = WaveformStripView()
     /// Single accent-colored "Keymap" button under the instrument picker.
     /// Opens the full-screen liquid-glass keymap view (large piano + large
     /// QWERTY + the Notepat/Conventional mode toggle). The collapsed panel
@@ -253,9 +256,13 @@ final class CollapsedPianoWaveformView: NSView {
             ])
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
 
+        waveformStrip.menuBand = menuBand
+        waveformStrip.translatesAutoresizingMaskIntoConstraints = false
+
         addSubview(contentContainer)
         contentContainer.addSubview(instrumentGridContainer)
         instrumentGridContainer.addSubview(instrumentList)
+        contentContainer.addSubview(waveformStrip)
         contentContainer.addSubview(instrumentReadoutLabel)
         // [v1] Skip our own glass backdrop when embedded in the popover's
         // glass surface — otherwise the two stack into a doubled sheet.
@@ -272,7 +279,15 @@ final class CollapsedPianoWaveformView: NSView {
             contentContainer.topAnchor.constraint(equalTo: topAnchor),
             contentContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            // Active-instrument readout at the top of the picker.
+            // Live waveform strip pinned at the very top of the picker.
+            waveformStrip.topAnchor.constraint(
+                equalTo: contentContainer.topAnchor, constant: Self.topInset),
+            waveformStrip.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
+            waveformStrip.widthAnchor.constraint(
+                equalToConstant: InstrumentListView.preferredWidth),
+            waveformStrip.heightAnchor.constraint(equalToConstant: 22),
+
+            // Active-instrument readout below the strip.
             instrumentReadoutLabel.leadingAnchor.constraint(
                 greaterThanOrEqualTo: contentContainer.leadingAnchor,
                 constant: Self.edgePadding),
@@ -282,7 +297,7 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentReadoutLabel.centerXAnchor.constraint(
                 equalTo: contentContainer.centerXAnchor),
             instrumentReadoutLabel.topAnchor.constraint(
-                equalTo: contentContainer.topAnchor, constant: Self.topInset),
+                equalTo: waveformStrip.bottomAnchor, constant: Self.rowGap),
 
             // Instrument chooser grid below the readout.
             instrumentGridContainer.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),

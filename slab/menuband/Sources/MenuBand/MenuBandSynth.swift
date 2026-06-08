@@ -694,6 +694,12 @@ final class MenuBandSynth {
         return rewindVoice.playReverse()
     }
 
+    /// Spacebar released — stop the reverse voice and resume live capture so
+    /// notes played next are recorded for the following rewind.
+    func releaseReverse() {
+        rewindVoice.release()
+    }
+
     /// Play one random drum hit — the About-window card-flip easter egg
     /// pairs this with the sparkle chord so repeated flips build a little
     /// beat. Uses the live percussion kit (already attached to the bus).
