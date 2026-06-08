@@ -1560,7 +1560,92 @@ export function extractSayTexts(melodyState) {
       }
     }
   }
-  
+
   return texts;
+}
+
+// ── Playable state builders (shared by KidLisp's multi-track scheduler) ──────
+// Turn a parsed melody (from parseSequentialMelody/parseSimultaneousMelody) into
+// a runtime state with the scheduling fields the player and the highlighter both
+// expect. Keeps note arrays by reference (no copy).
+
+// Build a playable state for one sequence/segment (single or parallel).
+export function buildSequenceState(seqParsed) {
+  if (!seqParsed) return null;
+  if (seqParsed.type === "parallel") {
+    return {
+      type: "parallel",
+      tracks: seqParsed.tracks,
+      trackStates: seqParsed.tracks.map((track, i) => ({
+        trackIndex: i,
+        track,
+        noteIndex: 0,
+        nextNoteTargetTime: 0,
+        measurePosition: 0,
+      })),
+    };
+  }
+  const notes = seqParsed.tracks ? seqParsed.tracks[0] : seqParsed.notes || [];
+  return { type: "single", notes, index: 0, nextNoteTargetTime: 0, measurePosition: 0 };
+}
+
+// Total beats a sequence/segment occupies (its longest track).
+export function sequenceDurationBeats(seqParsed) {
+  if (!seqParsed) return 0;
+  const tracks =
+    seqParsed.type === "parallel"
+      ? seqParsed.tracks
+      : [seqParsed.tracks ? seqParsed.tracks[0] : seqParsed.notes || []];
+  let maxBeats = 0;
+  for (const tr of tracks) {
+    let b = 0;
+    for (const n of tr || []) b += n.duration || 1;
+    if (b > maxBeats) maxBeats = b;
+  }
+  return maxBeats;
+}
+
+// Build the top-level melody state for single / parallel / sequential.
+export function buildMelodyState(parsed, { baseTempo = 500 } = {}) {
+  if (!parsed) return null;
+
+  if (parsed.type === "sequential") {
+    return {
+      type: "sequential",
+      sequences: parsed.sequences,
+      currentSequence: 0,
+      currentSequenceState: buildSequenceState(parsed.sequences[0]),
+      baseTempo,
+      isFallback: false,
+    };
+  }
+
+  if (parsed.type === "parallel") {
+    return {
+      type: "parallel",
+      tracks: parsed.tracks,
+      trackStates: parsed.tracks.map((track, i) => ({
+        trackIndex: i,
+        track,
+        noteIndex: 0,
+        nextNoteTargetTime: 0,
+        measurePosition: 0,
+      })),
+      baseTempo,
+      isFallback: false,
+    };
+  }
+
+  // single (parseSimultaneousMelody returns { tracks:[track], type:'single' })
+  const notes = parsed.tracks ? parsed.tracks[0] : parsed.notes || [];
+  return {
+    type: "single",
+    notes,
+    index: 0,
+    nextNoteTargetTime: 0,
+    measurePosition: 0,
+    baseTempo,
+    isFallback: !!parsed.isFallback,
+  };
 }
 
