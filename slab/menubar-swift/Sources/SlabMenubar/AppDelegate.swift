@@ -251,14 +251,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // session is non-stale; pulse phase always advances (it drives both
         // awaiting brightness and stale blink). When the polygon goes away
         // entirely, stop the timer and reset phases.
-        if !state.claudeSessions.isEmpty || state.messageWaiting {
+        if !state.claudeSessions.isEmpty || state.messageWaiting || state.idleResting {
             if animTimer == nil {
                 let t = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
-                    self.rainbowPhase = (self.rainbowPhase + 0.025).truncatingRemainder(dividingBy: 1.0)
+                    // Idle rests at a gentle hue flow; active states cycle
+                    // faster (the awaiting throb reads off this phase).
+                    let rainbowStep: CGFloat = self.state.idleResting ? 0.006 : 0.025
+                    self.rainbowPhase = (self.rainbowPhase + rainbowStep).truncatingRemainder(dividingBy: 1.0)
                     if self.state.anyActive {
                         let rotSpeed = 0.004 + 0.012 * CGFloat(self.state.awaitingCount)
                         self.rotationPhase = (self.rotationPhase + rotSpeed)
+                            .truncatingRemainder(dividingBy: .pi * 2)
+                    } else if self.state.idleResting {
+                        // Slow spin — ~50 s per revolution. Enticing, not busy.
+                        self.rotationPhase = (self.rotationPhase + 0.010)
                             .truncatingRemainder(dividingBy: .pi * 2)
                     }
                     self.updateIcon()
@@ -400,6 +407,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // `config` creates the untracked stub if absent, then open it.
         ShellRunner.run(Paths.imsgHelper, args: ["config"])
         ShellRunner.run("/usr/bin/open", args: ["-t", Paths.imsgConfig])
+    }
+
+    // MARK: - Deskflow KVM
+
+    /// Read the launchd agent label from the untracked deskflow config.
+    /// Machine role/label/agent live there, never in tracked code.
+    private func deskflowAgent() -> String? {
+        guard let data = FileManager.default.contents(atPath: Paths.deskflowConfig),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let agent = obj["agent"] as? String, !agent.isEmpty
+        else { return nil }
+        return agent
+    }
+
+    private func deskflowPlistPath(_ agent: String) -> String {
+        "\(Paths.home)/Library/LaunchAgents/\(agent).plist"
+    }
+
+    @objc func deskflowStart() {
+        guard let agent = deskflowAgent() else { return }
+        ShellRunner.runAsync("/bin/launchctl",
+                             args: ["bootstrap", "gui/\(getuid())", deskflowPlistPath(agent)])
+    }
+
+    @objc func deskflowStop() {
+        guard let agent = deskflowAgent() else { return }
+        ShellRunner.runAsync("/bin/launchctl", args: ["bootout", "gui/\(getuid())/\(agent)"])
+    }
+
+    @objc func deskflowRestart() {
+        guard let agent = deskflowAgent() else { return }
+        // bootstrap first in case it isn't loaded, then kickstart -k to
+        // force a fresh respawn of the managed process.
+        let cmd = "/bin/launchctl bootstrap gui/\(getuid()) \(deskflowPlistPath(agent)) 2>/dev/null; "
+                + "/bin/launchctl kickstart -k gui/\(getuid())/\(agent)"
+        ShellRunner.runShellAsync(cmd)
+    }
+
+    @objc func openDeskflowLog() {
+        ShellRunner.run("/usr/bin/open", args: ["-a", "Console", Paths.deskflowLog])
+    }
+
+    @objc func openDeskflowConfig() {
+        // Write an untracked stub if absent, then open it for editing.
+        let path = Paths.deskflowConfig
+        if !FileManager.default.fileExists(atPath: path) {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? FileManager.default.createDirectory(
+                atPath: dir, withIntermediateDirectories: true)
+            let stub = """
+            {
+              "enabled": false,
+              "role": "server",
+              "label": "Deskflow",
+              "agent": "computer.aesthetic.deskflow"
+            }
+            """
+            try? stub.write(toFile: path, atomically: true, encoding: .utf8)
+        }
+        ShellRunner.run("/usr/bin/open", args: ["-t", path])
     }
 
     @objc func openDaemonLog() {

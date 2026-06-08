@@ -46,6 +46,9 @@ enum MenuBuilder {
         menu.addItem(buildTailnet(state: state, target: target))
         menu.addItem(buildMail(status: mailStatus, target: target))
         menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
+        if state.deskflow.configured {
+            menu.addItem(buildDeskflow(state: state, target: target))
+        }
 
         // Request for Audio — sing a /pop melody, one note at a time. The
         // wizard plays the pitch + shows the word per note, records, then
@@ -526,6 +529,41 @@ enum MenuBuilder {
             sub.addItem(info("Not set up — fill in the contact config:"))
         }
         sub.addItem(item("Edit contact config", selector: #selector(AppDelegate.openImsgConfig), target: target))
+        parent.submenu = sub
+        return parent
+    }
+
+    /// Deskflow KVM submenu. Parent title shows the configured label + role
+    /// + run state (green dot when a deskflow-core is alive); the submenu
+    /// drives the LaunchAgent (Start/Stop/Restart) so the KVM can be managed
+    /// without the GUI app. Only built when a deskflow.json marks this machine.
+    private static func buildDeskflow(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let d = state.deskflow
+        let roleTag = d.role.isEmpty ? "" : " (\(d.role))"
+        let dot = d.running ? "●" : "○"
+        let title = "\(dot) \(d.label)\(roleTag): \(d.running ? "running" : "stopped")"
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        // Tint the leading dot green when running, gray when stopped — same
+        // glance-vocabulary as the Claude session rows.
+        let attr = NSMutableAttributedString(string: title)
+        let dotColor = d.running
+            ? NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
+            : NSColor(deviceWhite: 0.55, alpha: 1.0)
+        attr.addAttribute(.foregroundColor, value: dotColor,
+                          range: NSRange(location: 0, length: 1))
+        parent.attributedTitle = attr
+
+        let sub = NSMenu()
+        let start = item("Start", selector: #selector(AppDelegate.deskflowStart), target: target)
+        start.isEnabled = !d.running
+        sub.addItem(start)
+        let stop = item("Stop", selector: #selector(AppDelegate.deskflowStop), target: target)
+        stop.isEnabled = d.running
+        sub.addItem(stop)
+        sub.addItem(item("Restart", selector: #selector(AppDelegate.deskflowRestart), target: target))
+        sub.addItem(.separator())
+        sub.addItem(item("Open Deskflow log", selector: #selector(AppDelegate.openDeskflowLog), target: target))
+        sub.addItem(item("Edit Deskflow config", selector: #selector(AppDelegate.openDeskflowConfig), target: target))
         parent.submenu = sub
         return parent
     }

@@ -37,8 +37,12 @@ enum IconRenderer {
             name = "square.stack.3d.up.fill"
             weight = .semibold
         } else {
-            name = "square.stack.3d.up"
-            weight = .regular
+            // Pure idle — nothing open. Instead of a static glyph, draw a
+            // slowly-spinning line with a rainbow flowing along its length:
+            // an enticing "resting" state that rhymes with the single-session
+            // line (n==1) but in colour. Themed for the current menubar.
+            let dark = state.forceBright ? false : AppDelegate.isDarkAppearance()
+            return idleLineImage(phase: phase, rotation: rotation, dark: dark)
         }
 
         let config = NSImage.SymbolConfiguration(pointSize: 14, weight: weight, scale: .medium)
@@ -172,6 +176,70 @@ enum IconRenderer {
             NSColor.white.setFill()
             NSBezierPath(rect: NSRect(x: cx - 1.5, y: cy - 0.5, width: 3, height: 1)).fill()
             NSBezierPath(rect: NSRect(x: cx - 0.5, y: cy - 1.5, width: 1, height: 3)).fill()
+        }
+
+        let img = NSImage(size: NSSize(width: pointsW, height: pointsH))
+        img.addRepresentation(rep)
+        img.isTemplate = false
+        return img
+    }
+
+    /// The idle "resting" icon — a single line through the center that spins
+    /// slowly while a rainbow flows along its length. Non-template (coloured),
+    /// 22×22 @2x like the polygon. `rotation` is the spin angle; `phase`
+    /// scrolls the hue. Saturation/brightness adapt to light vs dark so it
+    /// stays vivid on either menubar; a soft mid-line brightness taper makes
+    /// it glow in the middle and feather at the round-capped ends.
+    private static func idleLineImage(phase: CGFloat, rotation: CGFloat, dark: Bool) -> NSImage {
+        let pointsW: CGFloat = 22, pointsH: CGFloat = 22
+        let scale: CGFloat = 2
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(pointsW * scale),
+            pixelsHigh: Int(pointsH * scale),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return fallbackImage() }
+        rep.size = NSSize(width: pointsW, height: pointsH)
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        defer { NSGraphicsContext.restoreGraphicsState() }
+
+        let cx = pointsW / 2.0, cy = pointsH / 2.0
+        let radius: CGFloat = 9.5
+        let lineWidth: CGFloat = 1.8
+        let sat: CGFloat = dark ? 0.85 : 0.95
+        let bri: CGFloat = dark ? 1.0 : 0.82
+
+        let dirX = cos(rotation), dirY = sin(rotation)
+        // Stroke the line as short round-capped sub-segments, each one step
+        // further along the spectrum, so the line itself is a small moving
+        // rainbow rather than a flat colour.
+        let steps = 20
+        let hueSpread: CGFloat = 0.6   // fraction of the hue wheel spanned end-to-end
+        for i in 0..<steps {
+            let t0 = CGFloat(i) / CGFloat(steps)
+            let t1 = CGFloat(i + 1) / CGFloat(steps)
+            let o0 = (t0 * 2 - 1) * radius
+            let o1 = (t1 * 2 - 1) * radius
+            let p0 = NSPoint(x: cx + dirX * o0, y: cy + dirY * o0)
+            let p1 = NSPoint(x: cx + dirX * o1, y: cy + dirY * o1)
+            let hue = (phase + t0 * hueSpread).truncatingRemainder(dividingBy: 1.0)
+            let taper = 0.55 + 0.45 * sin(t0 * .pi)   // dim ends, bright middle
+            let seg = NSBezierPath()
+            seg.move(to: p0)
+            seg.line(to: p1)
+            seg.lineWidth = lineWidth
+            seg.lineCapStyle = .round
+            NSColor(deviceHue: hue, saturation: sat,
+                    brightness: bri * taper, alpha: 1.0).setStroke()
+            seg.stroke()
         }
 
         let img = NSImage(size: NSSize(width: pointsW, height: pointsH))

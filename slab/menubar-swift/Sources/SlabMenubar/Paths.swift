@@ -32,6 +32,16 @@ enum Paths {
     static var imsgHelper: String { "\(slabBin)/imsg" }
     static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
 
+    /// Deskflow KVM management. Role ("server"/"client"), display label, and
+    /// the launchd agent name live in untracked config so machine roles never
+    /// appear in tracked code (same convention as imsgConfig). JSON shape:
+    ///   { "enabled": true, "role": "server", "label": "Deskflow",
+    ///     "agent": "computer.aesthetic.deskflow" }
+    static var deskflowConfig: String { "\(home)/.config/slab/deskflow.json" }
+    /// Where the Deskflow server/client LaunchAgent writes its log (matches
+    /// the StandardOutPath in computer.aesthetic.deskflow.plist).
+    static var deskflowLog: String { "\(home)/Library/Logs/deskflow-core.log" }
+
     /// Extra mbsync accounts beyond the AC-owned set (ac/jas/sotce/quiltnet),
     /// loaded from untracked config so client identities never live in tracked
     /// code — same convention as imsgConfig above. JSON shape:

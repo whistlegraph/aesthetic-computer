@@ -22,6 +22,17 @@ enum TextSize {
     case far, near, tiny
 }
 
+/// Deskflow KVM status for the menubar. All machine-specific identity
+/// (role/label/agent) is read from the untracked `~/.config/slab/deskflow.json`
+/// so tracked code stays generic — same convention as the iMessage bridge.
+struct DeskflowState {
+    var configured: Bool = false   // a deskflow.json with "enabled": true exists
+    var running: Bool = false      // a deskflow-core process is alive
+    var role: String = ""          // "server" | "client" (display only)
+    var label: String = "Deskflow"
+    var agent: String = ""         // launchd label, e.g. computer.aesthetic.deskflow
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false
@@ -44,6 +55,9 @@ struct StateSnapshot {
     /// whole status surface (polygon icon + themed terminals) then carries a
     /// shared "she texted" accent until the thread is read.
     var messageWaiting: Bool = false
+    /// Deskflow KVM — present only on machines with a deskflow.json; the
+    /// menu shows a status line + Start/Stop/Restart for the LaunchAgent.
+    var deskflow: DeskflowState = DeskflowState()
     /// True when slab-call-record is actively capturing a meeting WAV.
     /// Populated from ~/.ac-meeting-recording.json — the recorder script
     /// owns the state file; the menubar only reads it.
@@ -57,6 +71,13 @@ struct StateSnapshot {
     var awaitingCount: Int { claudeSessions.filter { $0.state == .awaiting }.count }
     var anyAwaiting: Bool { awaitingCount > 0 }
     var anyActive: Bool { claudeSessions.contains(where: { $0.state != .stale }) }
+    /// Pure "resting" idle — nothing open and nothing pending. This is the
+    /// state the menubar shows as the slow, colour-flowing spinning line
+    /// (instead of a static glyph). messageWaiting is folded onto the
+    /// snapshot by AppDelegate after gather(), so it's authoritative here.
+    var idleResting: Bool {
+        claudeSessions.isEmpty && !messageWaiting && !ambientActive && !hasWork
+    }
 
     var statusLine: String {
         if anyAwaiting { return "\(awaitingCount) awaiting · \(totalActive) active" }
@@ -89,6 +110,7 @@ struct StateSnapshot {
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
         s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
         s.preferIterm = FileManager.default.fileExists(atPath: Paths.preferItermFlag)
+        s.deskflow = readDeskflow()
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         s.popRenders = readPopRenders()
@@ -96,6 +118,26 @@ struct StateSnapshot {
         s.callRecording = rec
         s.callRecordingPath = recPath
         return s
+    }
+
+    /// Read Deskflow KVM status. Returns an unconfigured state on machines
+    /// without a `~/.config/slab/deskflow.json` (or with "enabled": false),
+    /// so the menu item only appears where Deskflow is actually wired.
+    /// "running" is a cheap `pgrep` for a live deskflow-core — runs off the
+    /// main tick inside gather(), alongside the existing ioreg/pmset forks.
+    private static func readDeskflow() -> DeskflowState {
+        var d = DeskflowState()
+        guard let data = FileManager.default.contents(atPath: Paths.deskflowConfig),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (obj["enabled"] as? Bool) ?? false
+        else { return d }
+        d.configured = true
+        d.role = (obj["role"] as? String) ?? ""
+        d.label = (obj["label"] as? String) ?? "Deskflow"
+        d.agent = (obj["agent"] as? String) ?? ""
+        let pids = ShellRunner.output("/usr/bin/pgrep", args: ["-f", "deskflow-core"], timeout: 2)
+        d.running = !(pids?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        return d
     }
 
     /// Inspect ~/.ac-meeting-recording.json. The file exists only while
