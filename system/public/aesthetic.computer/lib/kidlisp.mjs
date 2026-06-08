@@ -5,7 +5,16 @@
 // ❤️‍🔥 TODO: Add UTC Support to s... timers. etc. to be compatible with 'clock.mjs'.
 //        - Selectabe values via game controller.
 
-import { parseMelody, noteToTone } from "./melody-parser.mjs";
+import {
+  parseMelody,
+  parseSequentialMelody,
+  buildMelodyState,
+  buildSequenceState,
+  sequenceDurationBeats,
+  noteToTone,
+} from "./melody-parser.mjs";
+import { buildColoredMelodyString } from "./melody-highlighter.mjs";
+import { createTransport, DEFAULT_BPM } from "./melody-transport.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
@@ -37,7 +46,7 @@ const KIDLISP_FUNCTIONS = new Set([
   "resolution", "scroll", "flip", "spin", "resetSpin", "smoothspin", "zoom", "blur", "contrast", "pan", "unpan",
   "mask", "unmask", "steal", "putback", "fill", "outline", "stroke", "nofill", "nostroke",
   // Animation
-  "wiggle", "sort", "fade", "jump", "bake", "frame", "fps", "auto-density", "scale",
+  "wiggle", "sort", "fade", "jump", "bake", "frame", "fps", "beat", "beatphase", "auto-density", "scale",
   // Variables
   "def", "set", "let", "var", "const",
   // Control
@@ -907,7 +916,7 @@ function readFromTokens(tokens) {
     // Check if the current token is a timing expression (both simple like "1.5s" and repeating like "2s...")
     const currentToken = tokens[0].value;
 
-    if (/^\d*\.?\d+s\.\.\.?$/.test(currentToken) || /^\d*\.?\d+s!?$/.test(currentToken)) {
+    if (/^\d*\.?\d+[sb]\.\.\.?$/.test(currentToken) || /^\d*\.?\d+[sb]!?$/.test(currentToken)) {
       // This is a timing token, collect it and all following expressions until we hit another timing token or end
       const timingExpr = [readExpression(tokens)]; // Read the timing token itself
 
@@ -916,8 +925,8 @@ function readFromTokens(tokens) {
         tokens.length > 0 &&
         tokens[0].value !== ")" &&
         tokens[0].value !== "," && // Stop at commas too
-        !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0].value) &&
-        !/^\d*\.?\d+s!?$/.test(tokens[0].value)
+        !/^\d*\.?\d+[sb]\.\.\.?$/.test(tokens[0].value) &&
+        !/^\d*\.?\d+[sb]!?$/.test(tokens[0].value)
       ) {
         const nextExpr = readExpression(tokens);
         timingExpr.push(nextExpr);
@@ -962,10 +971,10 @@ function atom(token) {
   if ((token[0] === '"' && token[token.length - 1] === '"') ||
       (token[0] === "'" && token[token.length - 1] === "'")) {
     return token; // Return string with quotes intact for later processing
-  } else if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
+  } else if (/^\d*\.?\d+[sb]\.\.\.?$/.test(token)) {
     // Preserve tokens like "1s...", "2s...", "1.5s..." as strings for timed iteration
     return token;
-  } else if (/^\d*\.?\d+s$/.test(token)) {
+  } else if (/^\d*\.?\d+[sb]$/.test(token)) {
     // Preserve tokens like "1s", "2s", "10s", "1.5s", "0.3s" as strings for timing
     return token;
   } else {
@@ -1258,7 +1267,10 @@ class KidLisp {
 
     // Melody state tracking
     this.melodies = new Map(); // Track active melodies
+    this.melodyByString = new Map(); // melodyString -> melodyState (for source highlighting)
     this.melodyTimers = new Map(); // Track timing for each melody
+    this.transport = null; // Shared beat transport (set by first melody); drives `b` timers + `beat`
+    this.transportMasterId = null; // melodyId that owns the transport tempo
 
     // Resolution state tracking
     this.halfResolutionApplied = false;
@@ -2242,17 +2254,35 @@ class KidLisp {
     this.evaluationCounts.set(type, (this.evaluationCounts.get(type) || 0) + 1);
   }
 
+  // ms per beat from the shared transport (falls back to the default tempo
+  // when no melody/transport exists yet, so `b` timers still behave sanely).
+  _beatMs() {
+    return this.transport ? this.transport.beatMs : 60000 / DEFAULT_BPM;
+  }
+
+  // Offset that phase-aligns wall-clock (s/f) cycle/blink boundaries to the
+  // transport origin, so visual timers line up with the melody downbeat. 0 when
+  // there is no transport → byte-identical to legacy behavior.
+  getTransportOffsetMs() {
+    return this.transport ? -this.transport.startMs : 0;
+  }
+
   // Parse timing tokens used by syntax highlighting animation.
-  // Supports both second-based (0.5s, 1s...) and frame-based (1f, 2f...) forms.
+  // Supports second (0.5s, 1s...), frame (1f, 2f...), and beat (1b, 0.5b...) forms.
   parseTimingTokenMeta(timingToken) {
     if (typeof timingToken !== "string") return null;
 
-    let match = timingToken.match(/^(\d*\.?\d+)([sf])(\.\.\.?)$/);
+    let match = timingToken.match(/^(\d*\.?\d+)([sfb])(\.\.\.?)$/);
     if (match) {
       const value = parseFloat(match[1]);
       if (!Number.isFinite(value)) return null;
       const unit = match[2];
-      const intervalMs = unit === "s" ? value * 1000 : (value / 60) * 1000;
+      const intervalMs =
+        unit === "s"
+          ? value * 1000
+          : unit === "b"
+            ? value * this._beatMs() // beats → ms via the shared transport
+            : (value / 60) * 1000; // frames (60fps)
       return {
         token: timingToken,
         value,
@@ -2264,12 +2294,17 @@ class KidLisp {
       };
     }
 
-    match = timingToken.match(/^(\d*\.?\d+)([sf])(!)?$/);
+    match = timingToken.match(/^(\d*\.?\d+)([sfb])(!)?$/);
     if (match) {
       const value = parseFloat(match[1]);
       if (!Number.isFinite(value)) return null;
       const unit = match[2];
-      const intervalMs = unit === "s" ? value * 1000 : (value / 60) * 1000;
+      const intervalMs =
+        unit === "s"
+          ? value * 1000
+          : unit === "b"
+            ? value * this._beatMs() // beats → ms via the shared transport
+            : (value / 60) * 1000; // frames (60fps)
       return {
         token: timingToken,
         value,
@@ -2327,7 +2362,7 @@ class KidLisp {
     };
   }
 
-  getTimingEditBlinkState(timingToken, now = performance.now(), offsetMs = 0) {
+  getTimingEditBlinkState(timingToken, now = performance.now(), offsetMs = this.getTransportOffsetMs()) {
     const profile = this.getTimingBlinkProfile(timingToken);
     const adjustedNow = now + offsetMs;
     const pulseMs = Math.max(1, profile.pulseMs);
@@ -2340,7 +2375,7 @@ class KidLisp {
     };
   }
 
-  getTimingCyclePosition(timingToken, totalArgs, now = performance.now(), offsetMs = 0) {
+  getTimingCyclePosition(timingToken, totalArgs, now = performance.now(), offsetMs = this.getTransportOffsetMs()) {
     if (!Number.isFinite(totalArgs) || totalArgs <= 0) return 0;
     const adjustedNow = now + offsetMs;
     const intervalMs = this.getTimingIntervalMs(timingToken);
@@ -2351,7 +2386,7 @@ class KidLisp {
   markTimingTriggered(timingToken) {
     const now = performance.now();
     const blinkProfile = this.getTimingBlinkProfile(timingToken);
-    const isDelayTimer = /^\d*\.?\d+[sf]!?$/.test(timingToken);
+    const isDelayTimer = /^\d*\.?\d+[sfb]!?$/.test(timingToken);
     const existingBlink = this.timingBlinks.get(timingToken);
 
     // Tiny timers can trigger every frame; preserve pulse anchor briefly so they visibly blink.
@@ -2409,7 +2444,7 @@ class KidLisp {
     }
 
     // For standard timers, keep one-shot flash behavior.
-    const isDelayTimer = blinkInfo.isDelayTimer ?? /^\d*\.?\d+[sf]!?$/.test(timingToken);
+    const isDelayTimer = blinkInfo.isDelayTimer ?? /^\d*\.?\d+[sfb]!?$/.test(timingToken);
     if (isDelayTimer) {
       return elapsed < blinkWindowMs;
     }
@@ -4911,7 +4946,7 @@ class KidLisp {
           lines[index - 1].split(")").length;
 
         // Check if line starts with a timing expression like "1.5s" or "2s..."
-        const timingMatch = line.match(/^(\d*\.?\d+s\.\.\.?)\s+(.+)$/);
+        const timingMatch = line.match(/^(\d*\.?\d+[sb]\.\.\.?)\s+(.+)$/);
         if (timingMatch && !line.startsWith("(")) {
           // Line starts with timing expression followed by other content
           // Keep it as a flat structure: 1.5s (zoom 0.75) becomes a single tokenized line
@@ -5096,72 +5131,189 @@ class KidLisp {
     return parseMelody(melodyString);
   }
 
-  playMelodyNote(api, melodyId) {
-    const melodyState = this.melodies.get(melodyId);
+  // Register + start a melody. Shared by the `melody` and `clock` builtins
+  // (the latter delegates here when given a string arg — "nice synergy" with
+  // the clock piece). Returns the melody string (def-like: re-runs are no-ops).
+  runMelody(api, args = []) {
+    if (args.length === 0) return;
+
+    const melodyString = unquoteString(args[0]);
+    const bpm = args.length > 1 ? parseFloat(args[1]) : 120; // Default 120 BPM
+    const timeSignature = args.length > 2 ? unquoteString(args[2]) : "4/4"; // Default 4/4
+    const feel = args.length > 3 ? unquoteString(args[3]) : "straight"; // Default straight
+
+    // Parse time signature
+    const [numerator, denominator] = timeSignature.split("/").map(Number);
+    const beatsPerMeasure = numerator;
+    const beatUnit = denominator; // 4 = quarter note, 8 = eighth note, etc.
+
+    // Convert BPM to ms per quarter note, adjusted for the beat unit.
+    let baseTempo = (60 / bpm) * 1000;
+    if (beatUnit === 8) baseTempo = baseTempo / 2;
+    else if (beatUnit === 2) baseTempo = baseTempo * 2;
+
+    const melodyId = melodyString + timeSignature + feel;
+
+    // Establish / update the shared beat transport. The first melody in a piece
+    // becomes the master; re-evaluating it (every frame) keeps tempo synced.
+    // Drives `b` timing units and the `beat`/`beatphase` vars. Runs before the
+    // def-like early return so live BPM edits take effect.
+    if (!this.transport) {
+      this.transport = createTransport({
+        bpm,
+        startMs: performance.now(),
+        timeSignature,
+      });
+      this.transportMasterId = melodyId;
+    } else if (melodyId === this.transportMasterId) {
+      this.transport.setBpm(bpm);
+    }
+
+    // def-like: already registered → don't redefine.
+    if (this.melodies.has(melodyId)) return;
+
+    // Parse single / parallel (space) / sequential (`>`) with full per-note timbre.
+    const parsed = parseSequentialMelody(melodyString, 4);
+    const melodyState = buildMelodyState(parsed, { baseTempo });
     if (!melodyState) return;
 
-    const noteData = melodyState.notes[melodyState.index];
-    if (!noteData) return;
+    // Attach feel/meta used by the scheduler + highlighter.
+    melodyState.timeSignature = timeSignature;
+    melodyState.beatsPerMeasure = beatsPerMeasure;
+    melodyState.beatUnit = beatUnit;
+    melodyState.feel = feel;
+    melodyState.isPlaying = false;
 
-    const { note, octave, duration } = noteData;
-    let noteDuration = duration * melodyState.baseTempo;
+    this.melodies.set(melodyId, melodyState);
+    this.melodyByString.set(melodyString, melodyState); // for source highlighting
 
-    // Apply swing/feel adjustments
-    if (melodyState.feel === "waltz" && melodyState.timeSignature === "3/4") {
-      // In waltz feel, slightly rush beats 2 and 3, emphasize beat 1
-      const beatInMeasure =
-        melodyState.measurePosition % melodyState.beatsPerMeasure;
-      if (beatInMeasure === 0) {
-        // Beat 1: slightly longer (emphasized)
-        noteDuration *= 1.05;
-      } else {
-        // Beats 2 and 3: slightly shorter (lighter)
-        noteDuration *= 0.98;
-      }
-    } else if (melodyState.feel === "swing") {
-      // Classic jazz swing: off-beats are delayed and shortened
-      const beatInMeasure =
-        melodyState.measurePosition % melodyState.beatsPerMeasure;
-      if (beatInMeasure % 1 !== 0) {
-        // Off-beat
-        noteDuration *= 0.9; // Shorter off-beats
-      }
-    }
+    // Kick playback immediately (first notes fire on this frame).
+    this.updateMelodies(api);
 
-    if (note !== "rest" && api.sound?.synth) {
-      // Convert note to tone format expected by the synth
-      const tone = this.noteToTone(note, octave);
-
-      api.sound.synth({
-        type: "sine",
-        tone: tone,
-        duration: (noteDuration / 1000) * 0.98, // 98% of the duration for smoother flow
-        attack: 0.01,
-        decay: 0.99,
-        volume: 0.8, // Increased volume to make it more audible
-      });
-    }
-
-    // Update measure position for swing calculations
-    melodyState.measurePosition += duration;
-
-    // Schedule next note based on current note's duration
-    melodyState.nextNoteTime = performance.now() + noteDuration;
-    melodyState.lastPlayTime = performance.now();
-
-    // Advance to next note
-    melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
+    return melodyString;
   }
 
-  // Update melody playback in simulation loop
+  // ── Multi-track melody scheduler ──────────────────────────────────────────
+  // Drives single / parallel / sequential melodies each frame. Mirrors
+  // clock.mjs's proven model: per-track `nextNoteTargetTime` ACCUMULATION (never
+  // now+duration, which drifts) with a 64-note catch-up cap for backgrounded
+  // tabs. Reads per-note timbre (waveType/volume/struck/sonicDuration/toneShift)
+  // from the parser output. Called once per frame from sim().
   updateMelodies(api) {
-    const currentTime = performance.now();
+    const now = performance.now();
+    for (const [, ms] of this.melodies) this._advanceMelody(api, ms, now);
+  }
 
-    for (const [melodyId, melodyState] of this.melodies) {
-      if (currentTime >= melodyState.nextNoteTime) {
-        this.playMelodyNote(api, melodyId);
+  _advanceMelody(api, ms, now) {
+    if (!ms) return;
+    if (ms.type === "parallel") {
+      for (const ts of ms.trackStates) this._advanceTrack(api, ms, ts, now);
+    } else if (ms.type === "sequential") {
+      const seq = ms.currentSequenceState;
+      if (seq) {
+        if (seq.type === "parallel") {
+          for (const ts of seq.trackStates) this._advanceTrack(api, ms, ts, now);
+        } else {
+          this._advanceSingle(api, ms, seq, now);
+        }
       }
+      // Time-based sequence advancement: loop the current `>` segment for its
+      // loopCount, then move on to the next.
+      if (ms.sequenceEndTime == null) {
+        ms.sequenceEndTime = now + this._sequenceDurationMs(ms, ms.currentSequence);
+      }
+      if (now >= ms.sequenceEndTime) this._advanceSequence(ms, now);
+    } else {
+      this._advanceSingle(api, ms, ms, now);
     }
+  }
+
+  // Advance one playable track-state {track, noteIndex, nextNoteTargetTime}.
+  _advanceTrack(api, ms, ts, now) {
+    if (!ts.track || ts.track.length === 0) return;
+    if (!ts.nextNoteTargetTime) ts.nextNoteTargetTime = now;
+    let catchup = 0;
+    while (now >= ts.nextNoteTargetTime && catchup < 64) {
+      const noteData = ts.track[ts.noteIndex];
+      if (!noteData) break;
+      ms.isPlaying = true;
+      this._playNote(api, ms, noteData, ts.trackIndex || 0);
+      ts.nextNoteTargetTime += this._noteDurationMs(ms, noteData, ts);
+      ts.noteIndex = (ts.noteIndex + 1) % ts.track.length;
+      catchup++;
+    }
+  }
+
+  // Single-track variant; advances `st.index` (what the highlighter reads).
+  _advanceSingle(api, ms, st, now) {
+    const notes = st.notes;
+    if (!notes || notes.length === 0) return;
+    if (!st.nextNoteTargetTime) st.nextNoteTargetTime = now;
+    let catchup = 0;
+    while (now >= st.nextNoteTargetTime && catchup < 64) {
+      const noteData = notes[st.index];
+      if (!noteData) break;
+      ms.isPlaying = true;
+      this._playNote(api, ms, noteData, 0);
+      st.nextNoteTargetTime += this._noteDurationMs(ms, noteData, st);
+      st.index = (st.index + 1) % notes.length;
+      catchup++;
+    }
+  }
+
+  // Note duration (ms) with waltz/swing feel applied via the state's own
+  // measurePosition accumulator.
+  _noteDurationMs(ms, noteData, st) {
+    let dur = (noteData.duration || 1) * ms.baseTempo;
+    const mp = st.measurePosition || 0;
+    if (ms.feel === "waltz" && ms.timeSignature === "3/4") {
+      dur *= mp % ms.beatsPerMeasure === 0 ? 1.05 : 0.98;
+    } else if (ms.feel === "swing") {
+      if ((mp % ms.beatsPerMeasure) % 1 !== 0) dur *= 0.9;
+    }
+    st.measurePosition = mp + (noteData.duration || 1);
+    return dur;
+  }
+
+  // Play a single note with full per-note timbre. Rests are silent but still
+  // consume their slot (the caller accumulates their duration regardless).
+  _playNote(api, ms, noteData, trackIndex) {
+    const note = noteData.note;
+    if (!note || note === "rest" || !api.sound?.synth) return;
+    const tone = this.noteToTone(note, noteData.octave);
+    const sonicMs =
+      (noteData.sonicDuration != null
+        ? noteData.sonicDuration
+        : noteData.duration || 1) * ms.baseTempo;
+    const struck = !!noteData.struck;
+    const opts = {
+      type: noteData.waveType || "sine",
+      tone,
+      duration: (sonicMs / 1000) * 0.98,
+      attack: struck ? 0.005 : 0.01,
+      decay: struck ? 0.9 : 0.99,
+      volume: noteData.volume != null ? noteData.volume : 0.8,
+    };
+    if (typeof noteData.toneShift === "number" && noteData.toneShift !== 0) {
+      opts.toneShift = noteData.toneShift;
+    }
+    api.sound.synth(opts);
+  }
+
+  // Total ms a sequence occupies (longest track × loopCount).
+  _sequenceDurationMs(ms, seqIndex) {
+    const seq = ms.sequences && ms.sequences[seqIndex];
+    if (!seq) return 0;
+    const loops = seq.loopCount || 1;
+    return sequenceDurationBeats(seq) * ms.baseTempo * loops;
+  }
+
+  // Move to the next `>` sequence (wrapping) and rebuild its playable state.
+  _advanceSequence(ms, now) {
+    if (!ms.sequences || ms.sequences.length === 0) return;
+    ms.currentSequence = (ms.currentSequence + 1) % ms.sequences.length;
+    ms.currentSequenceState = buildSequenceState(ms.sequences[ms.currentSequence]);
+    ms.sequenceEndTime = now + this._sequenceDurationMs(ms, ms.currentSequence);
   }
 
   // Convert note letter to frequency
@@ -6650,7 +6802,7 @@ class KidLisp {
               const timingToken = phase[0];
 
               // Check if this timing phase should be active
-              if (typeof timingToken === 'string' && /^\d*\.?\d+s\.\.\.?$/.test(timingToken)) {
+              if (typeof timingToken === 'string' && /^\d*\.?\d+[sb]\.\.\.?$/.test(timingToken)) {
                 // This is a timing expression - check if it should execute
                 if (this.evaluateTimingExpression && this.evaluateTimingExpression(api, timingToken)) {
                   activePhase = phase;
@@ -7512,8 +7664,21 @@ class KidLisp {
       f: (api) => { // Abbreviation for frame
         return api.paintCount || 0;
       },
-      clock: (api) => {
-        return Date.now(); // Returns UTC milliseconds since epoch
+      clock: (api, args = []) => {
+        // Polymorphic + synergistic with the `clock` piece: `(clock "cdefg" …)`
+        // plays a melody exactly like `(melody …)`; bare `(clock)` still returns
+        // UTC milliseconds since epoch.
+        if (args.length > 0) return this.runMelody(api, args);
+        return Date.now();
+      },
+      beat: (api) => {
+        // Running float beat counter from the shared transport (0 if no melody).
+        // Monotonic — e.g. (spin (* 2 beat)) accelerates locked to tempo.
+        return this.transport ? this.transport.getBeat(performance.now()) : 0;
+      },
+      beatphase: (api) => {
+        // 0..1 sawtooth within the current beat — e.g. (scroll 0 (* 10 beatphase)).
+        return this.transport ? this.transport.getPhase(performance.now()) : 0;
       },
       // 🎯 Performance monitoring functions (singleton behavior)
       perf: (api, args = []) => {
@@ -8200,63 +8365,7 @@ class KidLisp {
         return amplitudeValue;
       },
       // 🎵 Melody - plays a sequence of notes in a loop
-      melody: (api, args = []) => {
-        if (args.length === 0) return;
-
-        const melodyString = unquoteString(args[0]);
-        const bpm = args.length > 1 ? parseFloat(args[1]) : 120; // Default 120 BPM
-        const timeSignature = args.length > 2 ? unquoteString(args[2]) : "4/4"; // Default 4/4 time
-        const feel = args.length > 3 ? unquoteString(args[3]) : "straight"; // Default straight feel
-
-        // Parse time signature
-        const [numerator, denominator] = timeSignature.split("/").map(Number);
-        const beatsPerMeasure = numerator;
-        const beatUnit = denominator; // 4 = quarter note, 8 = eighth note, etc.
-
-        // Convert BPM to milliseconds per quarter note
-        // Adjust base tempo based on beat unit
-        let baseTempo = (60 / bpm) * 1000; // 60 seconds / BPM * 1000ms
-        if (beatUnit === 8) {
-          baseTempo = baseTempo / 2; // Eighth note gets the beat
-        } else if (beatUnit === 2) {
-          baseTempo = baseTempo * 2; // Half note gets the beat
-        }
-
-        const melodyId = melodyString + timeSignature + feel; // Include time signature and feel in ID
-
-        // Check if this melody is already defined and hasn't changed
-        if (this.melodies.has(melodyId)) {
-          // Melody already exists, don't redefine (like def behavior)
-          return;
-        }
-
-        // Parse the melody string into notes with durations
-        const notes = this.parseMelodyString(melodyString);
-
-        if (notes.length === 0) return;
-
-        // Store the melody state
-        const melodyState = {
-          notes: notes,
-          index: 0,
-          lastPlayTime: 0,
-          nextNoteTime: 0,
-          baseTempo: baseTempo,
-          timeSignature: timeSignature,
-          beatsPerMeasure: beatsPerMeasure,
-          beatUnit: beatUnit,
-          feel: feel,
-          measurePosition: 0, // Track position within the measure for swing
-          isPlaying: false,
-        };
-
-        this.melodies.set(melodyId, melodyState);
-
-        // Start playing immediately
-        this.playMelodyNote(api, melodyId);
-
-        return melodyString;
-      },
+      melody: (api, args = []) => this.runMelody(api, args),
       // 🔊 Speaker - returns whether sound is enabled
       speaker: (api) => {
         // PERFORMANCE: Ultra-fast implementation with minimal logic
@@ -10010,7 +10119,7 @@ class KidLisp {
             result = timingResult;
           }
           continue; // Skip normal function processing
-        } else if (typeof head === "string" && /^\d*\.?\d+s!?$/.test(head)) {
+        } else if (typeof head === "string" && /^\d*\.?\d+[sb]!?$/.test(head)) {
           // Handle second-based timing like "0s", "1s", "2s", "5s", "1.5s", "0.3s"
           // Also handle instant trigger modifier like "0.25s!", "1s!", "2s!"
 
@@ -10155,13 +10264,16 @@ class KidLisp {
           continue; // Skip normal function processing
         } else if (
           typeof head === "string" &&
-          /^\d*\.?\d+s\.\.\.?$/.test(head)
+          /^\d*\.?\d+[sb]\.\.\.?$/.test(head)
         ) {
           // Handle timed iteration like "1s...", "2s...", "1.5s..."
 
           // ✅ Allow timing expressions to work both at top-level and as function arguments
 
-          const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
+          // Interval in seconds — unit-aware (s/b) via the timing meta so beat
+          // (b) timers derive their interval from the shared transport tempo.
+          const _meta = this.parseTimingTokenMeta(head);
+          const seconds = _meta ? _meta.intervalMs / 1000 : parseFloat(head);
 
           // Get current time - use simulation time if available (for headless rendering), otherwise real time
           const currentTimeMs = this.getSimulationTime ? this.getSimulationTime() : Date.now();
@@ -10519,7 +10631,7 @@ class KidLisp {
                     ) {
                       // Check if this is a timing expression that needs full evaluation
                       if (Array.isArray(arg) && arg.length > 0 &&
-                        typeof arg[0] === "string" && /^\d*\.?\d+s\.\.\.?$/.test(arg[0])) {
+                        typeof arg[0] === "string" && /^\d*\.?\d+[sb]\.\.\.?$/.test(arg[0])) {
                         // Use full evaluation for timing expressions
                         const result = this.evaluate([arg], api, this.localEnv);
                         return result;
@@ -10788,7 +10900,7 @@ class KidLisp {
     }
 
     // Check if this is a timing expression like "1.5s" or "2s..." before processing as identifier
-    if (/^\d*\.?\d+s\.\.\.?$/.test(expression)) {
+    if (/^\d*\.?\d+[sb]\.\.\.?$/.test(expression)) {
       // This is a timing expression, evaluate it properly as an array
       return this.evaluate([expression], api, env);
     }
@@ -11026,6 +11138,33 @@ class KidLisp {
           const whitespace = this.syntaxHighlightSource.substring(sourceIndex, tokenIndex);
           result += whitespace;
 
+          // Special handling for a melody string literal: (melody "...") — color
+          // each note via the shared melody highlighter (same as clock.mjs).
+          const isMelodyArg =
+            token.length >= 2 &&
+            (token[0] === '"' || token[0] === "'") &&
+            token[token.length - 1] === token[0] &&
+            (tokens[i - 1] === "melody" || tokens[i - 1] === "clock");
+          if (isMelodyArg) {
+            const q = token[0];
+            const inner = token.slice(1, -1);
+            const quoteColor = color || "yellow";
+            const state = this.melodyByString?.get(inner) || null;
+            const coloredInner = buildColoredMelodyString(inner, state, {
+              now: performance.now(),
+              timingHasStarted: !!(state && state.isPlaying),
+              recentlyMutated: this.melodyRecentlyMutated || { noteIndex: -1, trackIndex: -1 },
+              mutationFlash: { active: false },
+              specialCharFlash: false,
+              triggeredAsteriskPositions: [],
+              getStampleStatus: () => null,
+            });
+            result += `\\${quoteColor}\\${q}${coloredInner}\\${quoteColor}\\${q}`;
+            lastColor = null; // reset so the next token re-emits its color
+            sourceIndex = tokenIndex + token.length;
+            continue;
+          }
+
           // Special handling for compound colors (like $codes and #codes)
           if (color.startsWith("COMPOUND:")) {
             const parts = color.split(":");
@@ -11098,7 +11237,7 @@ class KidLisp {
   // Check if a token is part of a timing expression and get its state
   getTimingTokenState(token, tokens, index) {
     // First, check if the current token itself is a timing token
-    if (/^\d*\.?\d+[sf]\.\.\.?$/.test(token)) {
+    if (/^\d*\.?\d+[sfb]\.\.\.?$/.test(token)) {
       // Cycle timers - sequential execution
       // Try to find this timing key in our active tracking
       // We need to check all possible timing keys since we don't know the exact arg count here
@@ -11127,7 +11266,7 @@ class KidLisp {
           };
         }
       }
-    } else if (/^\d*\.?\d+[sf]!?$/.test(token)) {
+    } else if (/^\d*\.?\d+[sfb]!?$/.test(token)) {
       // Delay timers - all contents blink when triggered
       return {
         timingKey: token,
@@ -11145,7 +11284,7 @@ class KidLisp {
       const prevToken = tokens[i];
 
       // Handle cycle timer arguments
-      if (/^\d*\.?\d+[sf]\.\.\.?$/.test(prevToken)) {
+      if (/^\d*\.?\d+[sfb]\.\.\.?$/.test(prevToken)) {
         // Try to find this timing key in our active tracking
         for (const [timingKey, data] of this.activeTimingExpressions) {
           if (timingKey.startsWith(prevToken + "_")) {
@@ -11181,7 +11320,7 @@ class KidLisp {
             }
           }
         }
-      } else if (/^\d*\.?\d+[sf]!?$/.test(prevToken)) {
+      } else if (/^\d*\.?\d+[sfb]!?$/.test(prevToken)) {
         // Handle delay timer arguments - always return state to control visibility
         const isBlinking = this.isTimingBlinking(prevToken);
         const isActive = this.isDelayTimerActive(prevToken);
@@ -11600,7 +11739,7 @@ class KidLisp {
     const timingExprState = this.getTimingExpressionState(token, tokens, index);
 
     // Check for cycle timing patterns (3s..., 5f..., etc.)
-    if (/^\d*\.?\d+[sf]\.\.\.?$/.test(token)) {
+    if (/^\d*\.?\d+[sfb]\.\.\.?$/.test(token)) {
       const timingState = this.getTimingTokenState(token, tokens, index);
       
       // In edit mode, simulate blinking based on time or frames
@@ -11630,7 +11769,7 @@ class KidLisp {
     }
 
     // Check for delay timing patterns (1.25s, 0.5s, 3f, 5f, etc.)
-    if (/^\d*\.?\d+[sf]!?$/.test(token)) {
+    if (/^\d*\.?\d+[sfb]!?$/.test(token)) {
       const timingState = this.getTimingTokenState(token, tokens, index);
       
       // In edit mode, simulate blinking based on time or frames  
@@ -11719,7 +11858,7 @@ class KidLisp {
         const prevToken = tokens[i];
         
         // Found a cycle timer token
-        if (/^\d*\.?\d+[sf]\.\.\.?$/.test(prevToken)) {
+        if (/^\d*\.?\d+[sfb]\.\.\.?$/.test(prevToken)) {
           // Check if current token is within this cycle timer's arguments
           const argInfo = this.getTokenArgPosition(tokens, i, index);
           if (argInfo !== null && argInfo.argIndex >= 0) {
@@ -11770,7 +11909,7 @@ class KidLisp {
         // Stop searching if we hit an opening paren that would enclose the timing expression
         if (prevToken === '(' && i < index - 1) {
           // Check if the next token after this paren is a cycle timer
-          if (i + 1 < tokens.length && !/^\d*\.?\d+[sf]\.\.\.?$/.test(tokens[i + 1])) {
+          if (i + 1 < tokens.length && !/^\d*\.?\d+[sfb]\.\.\.?$/.test(tokens[i + 1])) {
             break;
           }
         }
@@ -12048,7 +12187,7 @@ class KidLisp {
     }
 
     // Check for timing patterns (but exclude pure numbers which were handled above)
-    if (/^\d*\.?\d+[sf]!?$/.test(token)) {
+    if (/^\d*\.?\d+[sfb]!?$/.test(token)) {
       // Check if this timing token is currently blinking
       if (this.isTimingBlinking(token)) {
         return "red"; // Bright red flash when timing triggers
@@ -13877,7 +14016,7 @@ class KidLisp {
     // console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}:`, source);
 
     // Check for timing expressions like "0.1s...", "1s!", "0.5s" which are animation triggers
-    const hasTimingExpression = /\d+\.?\d*s\.\.\.?|\d+\.?\d*s!/.test(source);
+    const hasTimingExpression = /\d+\.?\d*[sb]\.\.\.?|\d+\.?\d*[sb]!/.test(source);
     
     const hasDynamicContent = hasTimingExpression ||
       source.includes('frame') ||
@@ -13999,7 +14138,7 @@ class KidLisp {
           // Check for timing expressions containing scroll
           if (Array.isArray(node)) {
             // Check if this is a timing expression like ["2s...", ["scroll", 1, 0, -1]]
-            if (node.length > 1 && typeof node[0] === 'string' && /^\d*\.?\d+s\.\.\.?$/.test(node[0])) {
+            if (node.length > 1 && typeof node[0] === 'string' && /^\d*\.?\d+[sb]\.\.\.?$/.test(node[0])) {
               // Check if any following elements contain scroll
               return node.slice(1).some(elem => {
                 if (Array.isArray(elem) && elem.length > 0 && elem[0] === 'scroll') {
@@ -14212,7 +14351,7 @@ class KidLisp {
   extractTimingExpressions(sourceCode) {
     const expressions = [];
     // Match patterns like (3s...) or (0.25s... something)
-    const timingRegex = /\(\s*(\d+(?:\.\d+)?s\.\.\.)/g;
+    const timingRegex = /\(\s*(\d+(?:\.\d+)?[sb]\.\.\.)/g;
     let match;
 
     while ((match = timingRegex.exec(sourceCode)) !== null) {
@@ -14286,7 +14425,7 @@ class KidLisp {
     if (!sourceCode) return null;
 
     // Look for timing patterns like "3s...", "1s...", "0.25s..."
-    const timingMatch = sourceCode.match(/(\d+(?:\.\d+)?s\.\.\.)/);
+    const timingMatch = sourceCode.match(/(\d+(?:\.\d+)?[sb]\.\.\.)/);
     return timingMatch ? timingMatch[1] : null;
   }
 
