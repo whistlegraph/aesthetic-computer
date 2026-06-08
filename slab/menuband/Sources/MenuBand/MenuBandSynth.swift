@@ -336,9 +336,11 @@ final class MenuBandSynth {
         percussion.attach(to: engine, output: postFxMixer)
         // Spacebar reverse-replay voice. Plays DRY into mainMixerNode (NOT
         // the pre-limiter bus) so the already-effected captured audio isn't
-        // re-processed. It records off the existing mainMixerNode tap (forked
-        // in `ingestWaveformBuffer`). The tap is pinned ON below, once the
-        // engine is running (`addWaveformTapPin` requires `started`).
+        // re-processed. Its rolling capture ring is fed from a dedicated tap
+        // on the `limiter` (installed below) — which is UPSTREAM of where the
+        // reverse player joins (mainMixerNode), so the reverse playback is
+        // NOT recaptured and the ring can keep recording continuously
+        // (including notes played WHILE reversing) without a feedback loop.
         rewindVoice.attach(to: engine)
         engine.prepare()
         // Request a smaller hardware IO buffer BEFORE the engine starts,
@@ -353,10 +355,13 @@ final class MenuBandSynth {
             NSLog("MenuBand synth engine start failed: \(error)")
             return
         }
-        // Pin the mainMixer tap on for the rewind ring — must run after
-        // `started` is true (the pin call no-ops otherwise) so the rolling
-        // capture buffer is always filling for spacebar reverse-replay.
-        addWaveformTapPin("rewind")
+        // Dedicated rewind-capture tap on the limiter (pre-mainMixer, so the
+        // reverse playback is excluded). Always-on: the ring keeps recording
+        // everything the user plays, even while a reverse is sounding.
+        let rewindFmt = limiter.outputFormat(forBus: 0)
+        limiter.installTap(onBus: 0, bufferSize: 256, format: rewindFmt) { [weak self] buffer, _ in
+            self?.rewindVoice.feed(buffer)
+        }
         applyOutputDeviceOverride()
         // Hog mode + buffer-size lowering on AVAudioEngine doesn't pan
         // out on macOS: even with `kAudioDevicePropertyHogMode` held by
@@ -694,11 +699,26 @@ final class MenuBandSynth {
         return rewindVoice.playReverse()
     }
 
-    /// Spacebar released — stop the reverse voice and resume live capture so
-    /// notes played next are recorded for the following rewind.
+    /// Spacebar released — stop the reverse voice. Capture stays frozen
+    /// until the next note (see `resumeRewindCapture`) so repeated presses
+    /// re-reverse the same window.
     func releaseReverse() {
         rewindVoice.release()
     }
+
+    /// The fixed reverse-window length, so the waveform strip can scrub
+    /// exactly that span in sync with the one-shot reverse playback.
+    var rewindWindowSeconds: Double { rewindVoice.captureSeconds }
+
+    /// Reverse playback progress (0…1), or nil if not reversing — for the
+    /// strip's exact, drift-free playhead.
+    func rewindProgress() -> Double? { rewindVoice.reverseProgress() }
+
+    /// Route the trackpad pitch-bend / echo onto the spacebar tape playback
+    /// (its own DRY inserts — see MenuBandRewindVoice), so moving the mouse
+    /// while space is held warps the reverse audio just like a live note.
+    func setRewindBend(amount: Float) { rewindVoice.setBend(amount: amount) }
+    func setRewindEcho(amount: Float) { rewindVoice.setEcho(amount: amount) }
 
     /// Play one random drum hit — the About-window card-flip easter egg
     /// pairs this with the sparkle chord so repeated flips build a little
@@ -708,6 +728,14 @@ final class MenuBandSynth {
             [.kick, .snare, .hatClosed, .clap, .tambo, .block, .cowbell, .snap, .ride]
         let drum = kit.randomElement() ?? .kick
         percussion.play(drum, velocity: 102, pan: 0)
+    }
+
+    /// Short wood-block tick for each octave step of the two-finger swipe —
+    /// gives the gesture a tactile detent. Panned by direction (up → right,
+    /// down → left) so a fast swipe reads as a little rising/falling clave run.
+    /// Dry (percussion bypasses the fx bus) so it stays crisp under any bend.
+    func playOctaveTick(up: Bool) {
+        percussion.play(.block, velocity: 88, pan: up ? 0.28 : -0.28)
     }
 
     /// Route the trackpad pitch-bend into the spoken-language easter-egg
@@ -1288,11 +1316,9 @@ final class MenuBandSynth {
         if let extra = onWaveformBuffer {
             extra(buffer)
         }
-        // Feed the rolling rewind ring from the SAME post-FX buffer (one tap
-        // per bus — we can't install a second on mainMixerNode). The voice
-        // self-gates while it's reverse-playing so its own output here isn't
-        // recaptured.
-        rewindVoice.feed(buffer)
+        // (The rewind ring is fed by its own dedicated `limiter` tap — see
+        // `start()` — not this mainMixer tap, so the reverse playback isn't
+        // recaptured.)
         guard let data = buffer.floatChannelData?[0] else { return }
         let frames = Int(buffer.frameLength)
         waveformLock.lock()

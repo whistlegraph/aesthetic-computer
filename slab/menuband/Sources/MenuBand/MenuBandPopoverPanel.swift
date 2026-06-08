@@ -55,6 +55,18 @@ final class MenuBandPopoverPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    /// Routes ⌃/⌘+letter chords to the note path WHEN the popover is the key
+    /// window (quiet-focus with the popover open). Mirrors `KeyCapturePanel`'s
+    /// override so a simultaneous ⌘+letter chords consistently and shadows the
+    /// matching system command — but we give focused controls (any text field)
+    /// first crack via `super`, so editing shortcuts there still work.
+    var keyEquivalentHandler: ((NSEvent) -> Bool)?
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if super.performKeyEquivalent(with: event) { return true }
+        if let handler = keyEquivalentHandler, handler(event) { return true }
+        return false
+    }
+
     /// Position the panel so that:
     ///   • the panel's top edge sits at `topScreenY` (the menubar bottom),
     ///   • the panel's left edge sits at `leftScreenX`,

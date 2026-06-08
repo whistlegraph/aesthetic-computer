@@ -285,7 +285,7 @@ final class CollapsedPianoWaveformView: NSView {
             waveformStrip.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
             waveformStrip.widthAnchor.constraint(
                 equalToConstant: InstrumentListView.preferredWidth),
-            waveformStrip.heightAnchor.constraint(equalToConstant: 22),
+            waveformStrip.heightAnchor.constraint(equalToConstant: 30),
 
             // Active-instrument readout below the strip.
             instrumentReadoutLabel.leadingAnchor.constraint(

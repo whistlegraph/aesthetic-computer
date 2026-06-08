@@ -143,6 +143,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// fine here but we keep the references for symmetry).
     private var globalShiftMonitor: Any?
     private var localShiftMonitor: Any?
+    /// Live chord-morph .flagsChanged monitors — while a note key is held,
+    /// pressing/releasing ⌃/⌘ re-voices it (single ↔ major/minor/sus) via
+    /// `menuBand.morphHeldKeys`. Rides the same global+local stream so it
+    /// works in TYPE mode and quiet-focus alike.
+    private var globalChordMorphMonitor: Any?
+    private var localChordMorphMonitor: Any?
     /// Double-tap right-⌘ → toggle Menu Band focus. A bare modifier
     /// can't be a Carbon hotkey, so this rides the same global/local
     /// .flagsChanged stream the shift monitor uses. Why double-tap:
@@ -337,10 +343,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var octaveScrollAccum: CGFloat = 0
     /// Pixels of accumulated swipe travel per octave step. Tuned
     /// low so a short flick on the menubar icon shows immediate
-    /// movement — the first ~16 pixels of any swipe already step
+    /// movement — the first ~9 pixels of any swipe already step
     /// once. Combined with momentum-decay filtering, that gives a
     /// responsive "incremental" feel without overshooting.
-    private static let octaveScrollPxPerStep: CGFloat = 16
+    private static let octaveScrollPxPerStep: CGFloat = 9
     /// After the last note/finger releases, ALL fx hold fully
     /// engaged for this long. Replaying within the window cancels
     /// the release outright — the sound never even starts to fade.
@@ -815,8 +821,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // wants to release focus without clicking another app. Also
             // the explicit exit for latched pitch-bend mode.
             if isDown && keyCode == 53 /* kVK_Escape */ {
-                NSSound(named: NSSound.Name("Tink"))?.play()
                 if self.pitchBendModeLatched { self.endPitchBendSession() }
+                // Esc is now the UNFOCUS gesture — it shows the same red
+                // flash + falling-bell cue the right-⌘ double-tap used to
+                // play on disarm (⌘⌘ is arm-only now).
+                FocusFlashOverlay.shared.flash(rising: false)
+                self.menuBand.playFocusCue(rising: false)
                 self.localCapture.disarm(reason: .cancelled)
                 return true
             }
@@ -911,6 +921,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         startAdaptiveLayoutChecks()
         startShiftStateMonitors()
+        startChordMorphMonitors()
         startRightCommandTapMonitor()
         startRightOptionTapMonitor()
         startLeftOptionTapMonitor()
@@ -1238,24 +1249,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// readies the menubar instrument for typing, with a little chime
     /// so the silent focus change is felt.
     private func toggleQuietFocusFromRightCommand() {
-        if localCapture.isArmed {
-            // Stop ("command again kills the focus state"): red glow
-            // + falling bell + all keys flash at once. No note.
-            FocusFlashOverlay.shared.flash(rising: false)
-            menuBand.playFocusCue(rising: false)
-            localCapture.disarm(reason: .cancelled)
-        } else {
-            // Arm focus capture WITHOUT touching the popover. The
-            // double-⌘ gesture used to pop the panel open as a visible
-            // target, but jas wants the shortcut to arm silently — the
-            // blue flash + rising bell below are the "it landed" cue, so
-            // no popover is needed. keepPopoverOpen:true also means an
-            // already-open popover is left as-is rather than closed.
-            beginFocusCaptureFromShortcut(keepPopoverOpen: true)
-            // Blue glow + rising bell + all keys flash at once.
-            FocusFlashOverlay.shared.flash(rising: true)
-            menuBand.playFocusCue(rising: true)
-        }
+        // Right-⌘ double-tap is FOCUS-ONLY now: it arms (or re-arms) quiet
+        // focus and is inert once already focused — unfocusing is Esc's job
+        // (see the localCapture Esc handler). Keeps the gesture a pure
+        // "bring me into play" action that can't accidentally drop focus.
+        guard !localCapture.isArmed else { return }
+        // Arm focus capture WITHOUT touching the popover — the blue glow +
+        // rising bell are the "it landed" cue. keepPopoverOpen:true leaves an
+        // already-open popover as-is rather than closing it.
+        beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+        FocusFlashOverlay.shared.flash(rising: true)
+        menuBand.playFocusCue(rising: true)
     }
 
     private func exitPianoFocusFromShortcut() {
@@ -1657,6 +1661,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             initialDirty = true
         }
         if initialDirty { updateIcon() }
+    }
+
+    /// Live chord morph: while a note key is physically held, watch ⌃/⌘ and
+    /// re-voice the held key between a single note and a triad. The chord
+    /// scheme matches the keyDown path — ⌃ = major, ⌘ = minor, ⌃+⌘ = sus —
+    /// so a note that started plain and one that started chorded morph the
+    /// same way. Both a global monitor (TYPE mode / background apps) and a
+    /// local one (quiet-focus, Menu Band frontmost) feed the same handler; the
+    /// controller no-ops when nothing is held, so wiring both is harmless.
+    private func startChordMorphMonitors() {
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            let flags = event.modifierFlags
+            let ctrl = flags.contains(.control)
+            let cmd = flags.contains(.command)
+            self.menuBand.morphHeldKeys(chordModifier: ctrl || cmd,
+                                        chordMinor: cmd,
+                                        chordSus: ctrl && cmd)
+        }
+        globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: .flagsChanged
+        ) { event in handler(event) }
+        localChordMorphMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .flagsChanged
+        ) { event in handler(event); return event }
     }
 
     /// Double-tap right-⌘ → toggle focus capture. Two bare right-⌘
@@ -2907,6 +2936,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 content: vc.view,
                 contentSize: contentSize)
 
+            // When the popover is key (quiet-focus + popover open), it — not
+            // the invisible capture panel — sees key-equivalents. Route ⌃/⌘+
+            // letter chords through the same local note path so they chord
+            // consistently and shadow Cut/Copy/etc. for mapped note keys.
+            panel.keyEquivalentHandler = { [weak self] event in
+                guard let self = self else { return false }
+                let flags = event.modifierFlags
+                guard flags.contains(.command) || flags.contains(.control) else { return false }
+                return self.menuBand.handleLocalKey(
+                    keyCode: event.keyCode, isDown: true,
+                    isRepeat: event.isARepeat, flags: flags)
+            }
+
             // Grow / shrink the whole popover when the notation staff
             // slides in or out (metronome on/off), keeping the top edge
             // pinned under the menubar.
@@ -3053,13 +3095,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if delta == 0 { return event }
         octaveScrollAccum += delta
         var stepped = false
+        // Direction is FLIPPED from the raw scroll delta: a natural-scroll
+        // swipe UP should raise the octave, but scrollingDeltaY is positive
+        // when content moves up. Each real step (octave actually changed —
+        // not clamped at ±4) fires a wood-block tick so the swipe has detents.
         while octaveScrollAccum >= Self.octaveScrollPxPerStep {
-            menuBand.stepOctave(delta: 1)
+            let before = menuBand.octaveShift
+            menuBand.stepOctave(delta: -1)
+            if menuBand.octaveShift != before { menuBand.playOctaveTick(up: false) }
             octaveScrollAccum -= Self.octaveScrollPxPerStep
             stepped = true
         }
         while octaveScrollAccum <= -Self.octaveScrollPxPerStep {
-            menuBand.stepOctave(delta: -1)
+            let before = menuBand.octaveShift
+            menuBand.stepOctave(delta: 1)
+            if menuBand.octaveShift != before { menuBand.playOctaveTick(up: true) }
             octaveScrollAccum += Self.octaveScrollPxPerStep
             stepped = true
         }
@@ -3143,7 +3193,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // never opens the graph — still can't reactivate the bend.
         let inReleaseGrace = pitchBendCursorPushed
             && (pitchBendReleaseGraceUntil.map { $0.timeIntervalSinceNow > 0 } ?? false)
-        guard menuBand.keyboardNotesHeld || shift || inReleaseGrace else { return }
+        // While the spacebar tape is reverse-playing, a mouse move bends + echoes
+        // the playback itself (the fx route onto the rewind voice's own inserts),
+        // so engage the gesture even with no key held.
+        guard menuBand.keyboardNotesHeld || shift || inReleaseGrace
+                || menuBand.isRewinding else { return }
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
