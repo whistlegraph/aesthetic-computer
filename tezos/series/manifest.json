@@ -1,0 +1,100 @@
+{
+  "contract": "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB",
+  "network": "mainnet",
+  "seed": 1,
+  "generatedAt": null,
+  "note": "Sub-series tagged by `series`. Run tezos/series/bridge.mjs to mint-cache as @jeffrey.",
+  "series": {
+    "feedback": [
+      {
+        "title": "drift",
+        "source": "; feedback · drift\n(once (wipe black))\n(ink (0.2s... lime green white))\n(circle (+ width/2 (* 40 (sin))) height/2 4)\n(scroll 2 0)\n(zoom 1.003)\n(blur 1)",
+        "code": null
+      },
+      {
+        "title": "vortex",
+        "source": "; feedback · vortex\n(once (wipe black))\n(ink (0.1s... red orange yellow lime green))\n(box (- width/2 3) (- height/2 3) 6 6)\n(spin 2)\n(zoom 1.02)\n(blur 1)",
+        "code": null
+      },
+      {
+        "title": "swell",
+        "source": "; feedback · swell\n(once (wipe navy))\n(ink (0.3s... aquamarine turquoise mediumblue))\n(circle width/2 height/2 (+ 6 (* 5 (sin))))\n(zoom 1.012)\n(scroll 0 1)\n(blur 1)",
+        "code": null
+      },
+      {
+        "title": "bloom",
+        "source": "; feedback · bloom\n(once (wipe black))\n(ink (0.15s... lime green white))\n(circle (+ width/2 (* 30 (sin))) height/2 5)\n(zoom 1.01)\n(spin 1)\n(blur 2)",
+        "code": null
+      },
+      {
+        "title": "weave",
+        "source": "; feedback · weave\n(once (wipe black))\n(ink (0.2s... lime green white))\n(box (+ width/2 (* 50 (sin))) (- height/2 2) 4 4)\n(scroll 1 1)\n(zoom 1.004)\n(blur 1)",
+        "code": null
+      },
+      {
+        "title": "ember",
+        "source": "; feedback · ember\n(once (wipe black))\n(ink (0.1s... red orange yellow lime green))\n(circle width/2 (+ height/2 (* 40 (sin))) 3)\n(scroll 0 -1)\n(zoom 0.997)\n(blur 1)",
+        "code": null
+      }
+    ],
+    "clock": [
+      {
+        "title": "tick",
+        "source": "; clock · tick\n(wipe black)\n(ink (1s... lime green white))\n(circle width/2 height/2 (+ 10 (* 8 (sin))))\n(ink white)\n(1s (box 0 (- height 10) width 10))",
+        "code": null
+      },
+      {
+        "title": "metronome",
+        "source": "; clock · metronome\n(0.5s (wipe black))\n(ink (1s... red orange yellow lime green))\n(box (1s... 8 (- width 24)) (- height/2 8) 16 16)",
+        "code": null
+      },
+      {
+        "title": "pulse",
+        "source": "; clock · pulse\n(wipe (1s... black navy))\n(ink (0.5s... springgreen lime yellow))\n(circle width/2 height/2 (+ 6 (* 20 (sin))))",
+        "code": null
+      },
+      {
+        "title": "grow",
+        "source": "; clock · grow\n(8s (wipe black))\n(ink (0.5s... violet deeppink white))\n(circle width/2 height/2 (* 6 (mod frame 80)))\n(blur 1)",
+        "code": null
+      },
+      {
+        "title": "pendulum",
+        "source": "; clock · pendulum\n(wipe black)\n(ink (1s... lime green white))\n(line width/2 0 (+ width/2 (* 60 (sin))) height)\n(ink white)\n(0.5s (circle (+ width/2 (* 60 (sin))) (- height 8) 5))",
+        "code": null
+      }
+    ],
+    "melody": [
+      {
+        "title": "ascend",
+        "source": "; melody · ascend\n(wipe black)\n(melody \"4cdefgab5c\" 132)\n(ink (0.1s... springgreen lime yellow))\n(circle width/2 height/2 (+ 8 (* 50 amplitude)))\n(blur 1)",
+        "code": null
+      },
+      {
+        "title": "waltz",
+        "source": "; melody · waltz\n(wipe (0.5s... midnightblue black))\n(melody \"5ceg5ceg 4c..\" 120 \"3/4\" \"waltz\")\n(ink (0.2s... red orange yellow lime green))\n(circle width/2 height/2 (+ 6 (* 45 amplitude)))",
+        "code": null
+      },
+      {
+        "title": "penta",
+        "source": "; melody · penta\n(wipe black)\n(melody \"5cdega6c\" 144 \"4/4\" \"swing\")\n(ink (0.15s... gold orange crimson))\n(circle width/2 height/2 (+ 6 (* 45 amplitude)))\n(spin 1)",
+        "code": null
+      },
+      {
+        "title": "duet",
+        "source": "; melody · duet\n(wipe black)\n(melody \"5ceg 3c4g\" 120)\n(ink (0.1s... aquamarine turquoise mediumblue))\n(circle (- width/2 30) height/2 (+ 6 (* 40 amplitude)))\n(circle (+ width/2 30) height/2 (+ 6 (* 40 amplitude)))",
+        "code": null
+      },
+      {
+        "title": "bells",
+        "source": "; melody · bells\n(wipe midnightblue)\n(melody \"{sine}6cegb6ce\" 160)\n(ink (0.1s... white aqua skyblue))\n(circle width/2 (+ height/2 (* 30 (sin))) (+ 4 (* 30 amplitude)))",
+        "code": null
+      },
+      {
+        "title": "drone",
+        "source": "; melody · drone\n(wipe black)\n(melody \"{sine}3c,,,3g,,,\" 60)\n(ink (0.3s... cyan teal blue navy))\n(box (- width/2 20) (- height/2 20) (+ 8 (* 60 amplitude)) (+ 8 (* 60 amplitude)))\n(blur 2)",
+        "code": null
+      }
+    ]
+  }
+}
