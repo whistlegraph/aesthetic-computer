@@ -1,0 +1,307 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={The Hand and the Loop: Three Eras of My Own Code},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% === PULL QUOTE ===
+\newcommand{\pull}[1]{%
+  \par\vspace{0.4em}
+  {\aclight\small\color{acpink}\itshape #1}\par
+  \vspace{0.4em}}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} The Hand and the Loop}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Three Eras of My Own Code, and What I Traded the Instrument For}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+I wrote \ac{} by hand for the first year --- 2,766 commits, terse lowercase fragments, single-letter variables that meant something. Then I started grafting GPT-written functions into it. Then I handed the whole thing to an agentic loop. This paper reads my own git history across those three eras and asks one question honestly: are we better off? The numbers are not subtle. Commit velocity went from \textasciitilde8/day to \textasciitilde40/day. \texttt{disk.mjs} went from 5,154 lines to 16,821. \texttt{bios.mjs} more than quadrupled. Emoji in commit subjects went from zero to hundreds, conventional prefixes from 0\% to 38.8\% in recent months, and starting 2026-02-09 roughly one in three commits credits a model as co-author. I gained five new subsystems in a fortnight. I lost the hand --- the instrument-like minimalism where every abbreviation was a decision. This is a reckoning with both, written from inside the codebase it measures. It is a companion to \emph{Repository Archaeology}~\citep{scudder2026archaeology}.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. THE HAND ============
+
+\section{The Hand (2022--2023)}
+
+I wrote everything. 2,766 commits in the first year, about eight a day. 82\% of them started lowercase --- not a style guide, just how I talk: \emph{``mo `sno` tweaks,''} \emph{``dont crash on glaze if webgl is disabled; update `sprite` for 12xN sheets.''} Backticks around piece names, semicolons chaining three changes into one line, \texttt{mo} for \emph{more}, \texttt{dont} without the apostrophe. No \texttt{fix:}, no \texttt{feat:}, no \texttt{chore:} --- zero conventional prefixes across all 2,766. Zero emoji in any subject.
+
+The code matched. \texttt{p2} was a point. \texttt{pA} and \texttt{pB} were two of them. \texttt{choose()} picked one of its arguments. \texttt{anyKey()} grabbed a random key off an object. Nobody named it \texttt{getRandomKey} because I knew what \texttt{choose} meant and so did anyone who lived in the idiom. \texttt{num.mjs} had functions like \texttt{even(n) \{ return n \% 2 === 0; \}} --- no guard, no null-check; it assumes you handed it a number because why would you not. \texttt{disk.mjs} in 2023 had 31 \texttt{try}/\texttt{catch} blocks and 144 null guards in 5,154 lines. The comments explained \emph{why}, not \emph{what}: \texttt{let USER; // a holder for the logged-in user. (defined in `boot`)}. Parenthetical, factual, sparse.
+
+And the pieces had a spine. Every one opened with the same four section headers --- \emph{Boot}, \emph{Paint}, \emph{Act}, \emph{Sim} --- each marked with a little glyph (a hiking boot for boot, a paint palette for paint). The only emoji I used back then lived in those headers and a books-glyph region marker; never in a commit, never in a log except one cheerful pile-of-poo I reused everywhere in the undo stack. It was an instrument. You learned the fingering once and every piece played the same way.
+
+\pull{zero conventional prefixes across 2,766 hand commits. zero emoji. just ``mo `sno` tweaks.''}
+
+% ============ 2. THE GRAFT ============
+
+\section{The Graft (2024 -- mid 2025)}
+
+The second era is the quiet one, and it's the one the metrics almost miss. 3,386 commits, still \textasciitilde6/day, still 84\% lowercase. Only six commits in the whole span carried a conventional prefix --- 0.18\%. The commit voice barely moved: \emph{``prevent font loading from blocking the initial ui,''} \emph{``load auth0 after boot,''} \emph{``rm prompt logs.''} Still mine, still terse.
+
+But underneath, I started grafting. I'd describe a self-contained function to GPT, it would write one, and I'd paste it in. These were islands --- a shader here, a parser helper there --- surrounded by hand-written code that still looked like me. \texttt{disk.mjs} crept from 5,154 to 6,729 lines. \texttt{try}/\texttt{catch} went 31 to 35. Null guards 144 to 178. Barely anything. The grafted functions came in a little more defensive, a little more verbose, but they were sanded down to fit the idiom because I was still the one placing every one of them. \texttt{kidlisp.mjs} was born here --- I hand-wrote it on 2024-06-02, \emph{``a lisp interpreter / compiler for writing Aesthetic Computer pieces,''} with an examples region and a \texttt{TODO} that asks \emph{``Could I get this to evaluate?''}
+
+This is the era I'd defend hardest, honestly. The model wrote functions; I wrote the architecture. The graft kept the hand's discipline because the hand was still doing the suturing.
+
+% ============ 3. THE LOOP ============
+
+\section{The Loop (mid 2025 -- 2026)}
+
+Then I handed it over. 13,785 commits in 12.5 months --- about 40 a day, five to six times the hand-era rate. Starting 2026-02-09 the trailers appear: \texttt{Co-Authored-By: Claude Opus}. One in three commits after that date credits the model~\citep{anthropic2026claudecode}. Conventional prefixes go from six total to 1,427, and in recent months 38.8\% of commits are \texttt{fix:}/\texttt{feat:}/\texttt{chore:}~\citep{conventionalcommits}. Emoji show up in subjects for the first time --- a sparkle, a heart, \emph{``nudge prompt corner label text to x:6 where it belongs.''}
+
+The files exploded. \texttt{disk.mjs}: 5,154 to 16,821. \texttt{bios.mjs}: 5,211 to 21,679, a 316\% jump. \texttt{graph.mjs} nearly tripled. \texttt{boot.mjs} went 203 to 2,039 lines --- a 604\% increase on a file whose whole job is to load \texttt{bios}. \texttt{speaker.mjs} went 226 to 1,020 lines with its if-checks going 13 to 87. The \texttt{try}/\texttt{catch} count in \texttt{disk.mjs} more than tripled to 104, null guards tripled to 434, emoji-decorated \texttt{console.log}s went 47 to 275. Every section got a banner comment. \texttt{fetchPieceMetadata} wraps a fetch in \texttt{try}/\texttt{catch}, warns on failure, and returns a typed \texttt{\{ trustLevel: ``untrusted'' \}} fallback. It is genuinely more resilient than anything I wrote by hand. It is also unmistakably not mine.
+
+And the breadth --- five new subsystems in roughly a fortnight. \texttt{papers/} (51 arxiv entries, including this one), \texttt{pop/} (215 files), \texttt{slab/} (a macOS desktop suite), the KidLisp realtime clock, the orchestration tooling. That doesn't happen by hand. That does not happen in a year by hand.
+
+\pull{the loop doesn't know the idiom. it knows JavaScript-in-general.}
+
+% ============ 4. WHAT CHANGED, MEASURABLY ============
+
+\section{What Changed, Measurably}
+
+Two things grew together: velocity and verbosity. 5$\times$ more commits, 3--6$\times$ larger core files. But here's the honest correction to the scary number --- comment \emph{density} held roughly steady, \textasciitilde24\% of lines in era one down to \textasciitilde21\% in era three (\textasciitilde16\% by another count). The files didn't bloat with chatter. They grew because real surface got added: permission systems, metadata fetching, KidLisp integration, VST bridges, beat detection with constants like \texttt{\#beatSensitivity = 1.15; // was 1.3}. The expansion is mostly feature, not fluff.
+
+The metadata of work changed harder than the work. Zero conventional prefixes to 38.8\%. Zero co-authorship trailers to one-in-three. Files-per-commit 4.0 to 5.4 --- the loop reaches across the codebase in a single move where I used to touch one piece. Merge commits dropped from 10.2\% to 3.0\%; the workflow went rebase-flat and direct.
+
+And crucially: the pieces stayed small. 384 of them now, median \textasciitilde200 lines. \texttt{stripes.mjs} is 24 lines, model-generated, and still reads like the hand --- \texttt{const \{ floor, sin, PI \} = Math;} then a loop. The bloat lives in the foundational libs, not the leaves. That distinction is the whole ballgame.
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\begin{tabularx}{\textwidth}{Xrrr}
+\toprule
+\textbf{Signal} & \textbf{Hand (2023)} & \textbf{Graft (2024--mid25)} & \textbf{Loop (mid25--26)} \\
+\midrule
+Commits in era & 2,766 & 3,386 & 13,785 \\
+Commits per day & \textasciitilde7.6 & \textasciitilde6.2 & \textasciitilde40.2 \\
+Lowercase-starting subjects & 82\% & 84\% & shifted to Title Case \\
+Conventional prefixes (\texttt{fix:}/\texttt{feat:}/\texttt{chore:}) & 0 (0\%) & 6 (0.18\%) & 1,427 (10.4\%; 38.8\% late) \\
+Emoji in commit subjects & 0 & 0--2 & hundreds \\
+\texttt{Co-Authored-By} model trailers & 0 & 0 & \textasciitilde3,234 (33\% after 2026-02-09) \\
+Files changed per commit & 4.0 & 4.3 & 5.4 \\
+Merge commits & 10.2\% & --- & 3.0\% \\
+\midrule
+\texttt{disk.mjs} lines & 5,154 & 6,729 & 16,821 \\
+\texttt{bios.mjs} lines & 5,211 & 5,552 & 21,679 \\
+\texttt{boot.mjs} lines & 203 & 519 & 2,039 \\
+\texttt{kidlisp.mjs} lines & new (2024-06-02) & 2,589 & 15,640 \\
+\texttt{disk.mjs} try/catch blocks & 31 & 35 & 104 \\
+\texttt{disk.mjs} null/undefined guards & 144 & 178 & 434 \\
+\texttt{disk.mjs} emoji \texttt{console.log}s & 47 & \textasciitilde50 & 275 \\
+Comment density (\% of lines) & \textasciitilde24\% & \textasciitilde22\% & \textasciitilde21\% \\
+Total pieces (disks) & 58 & incremental & 384 \\
+New subsystems built & 0 & 0 & papers, pop, slab, kidlisp \\
+\bottomrule
+\end{tabularx}
+\caption{The same codebase across three eras. Era boundaries: hand 2022-12-23 to 2023-12-31; graft 2024-01-01 to 2025-06-30; loop 2025-07-01 to 2026-06-08. Some era-two cells are unmeasured (---). Counts via git history and per-file inspection; sampled metrics noted in \S7.}
+\end{table*}
+
+% ============ 5. WHAT WE GAINED ============
+
+\section{What We Gained}
+
+I'm not going to be precious about this. I got resilience I never wrote. The \texttt{ableton} piece is full of \texttt{sound?.synth?.(...)} --- every audio call optional-chained so a missing synth degrades instead of crashing. The \texttt{aa.mjs} status function guards with \texttt{if (!hudRef) return;} before doing anything. That defensiveness is real and it has saved real sessions. The documentation, even if I didn't ask for it, means someone other than me can read \texttt{disk.mjs} now --- block comments tripled in absolute count.
+
+And I got reach. \texttt{papers.aesthetic.computer} --- the platter this very paper lives on --- exists because the loop could build academic-paper infrastructure while I was doing something else. The \texttt{pop} music subsystem, 215 files, a whole compositional pipeline. \texttt{slab}, a macOS desktop suite. KidLisp's global UTC clock landing \emph{``musically-timed animation, end to end.''} These are not refactors of things I had. They're capabilities I did not have and would not have had for years. 65$\times$ growth in \texttt{disks} lines of code, most of it breadth --- new pieces, new instruments, new lanes.
+
+The loop is a force multiplier on a real axis. That's not nothing. That's most of what I wanted when I picked up the tool.
+
+% ============ 6. WHAT WE LOST ============
+
+\section{What We Lost}
+
+The hand. Specifically: intentional minimalism. In era one every abbreviation was a decision --- \texttt{p2}, \texttt{choose}, \texttt{anyKey}, the lifecycle headers as a learned fingering. The terseness wasn't carelessness, it was the opposite --- it was knowing the idiom so well you could compress it. The loop doesn't know the idiom; it knows JavaScript-in-general. So it writes \texttt{currentBuffer} where I'd write \texttt{c}, it adds a \texttt{try}/\texttt{catch} where I'd let it crash and tell me, it names things for a stranger. The playful names --- \texttt{choose}, \texttt{flip}, \texttt{nonvalue} --- don't get generated. They get replaced by correct, generic, forgettable ones.
+
+And it over-engineers in the libs: separate reverb state objects for left and right where a shared structure would do; adaptive thresholds with tuning comments that read like they were copied from documentation. \texttt{boot.mjs} at 2,039 lines for a bootstrap is not better than \texttt{boot.mjs} at 203 --- it's just more. \texttt{disk.mjs} at 16,821 lines is a file I can no longer hold in my head, and I used to hold the whole system in my head. That was the point of the instrument: it fit a single mind.
+
+The commit voice went too. \emph{``mo `sno` tweaks''} became \emph{``chore(electron): bump version to 0.1.46.''} Both are fine. Only one sounds like a person made it.
+
+\pull{disk.mjs at 16,821 lines is a file i can no longer hold in my head --- and i used to hold the whole system there.}
+
+% ============ 7. LIMITATIONS ============
+
+\section{Limitations}
+
+The era boundaries are clean lines drawn through a messy continuum. I dated them hand 2022-12-23 to 2023-12-31, graft 2024-01-01 to 2025-06-30, loop 2025-07-01 to 2026-06-08 --- but grafting and hand-writing overlapped for months and nobody flipped a switch. Several metrics are sampled, not exhaustive: files-changed-per-commit comes from 100-commit samples per era, and a few era-two numbers were never measured at all (marked --- in Table 1; I did not invent them). Some counts are noisy --- raw emoji and conventional-prefix counts depend on regex over Unicode ranges and prefix matching, so undercounts are likely, and a couple of methods disagree (emoji-in-subjects lands anywhere from 57 to 715 depending on the range counted). Commit-volume comparisons annualize across uneven spans (343 loop days vs.\ 365 hand days), so the 5$\times$ is roughly right, not exact.
+
+And the deepest bias is that I'm the author measuring my own codebase and my own taste. ``Lost the hand'' is a value judgment, not a metric. A stranger reading \texttt{disk.mjs} might call the 2026 version simply better.
+
+% ============ 8. CONCLUSION ============
+
+\section{Conclusion: Are We Better Off?}
+
+Yes --- and I mean it without hedging on the axis that matters most to a working system: capability. Five subsystems in a fortnight, a music pipeline, a paper platter, defensive code that survives sessions my hand-written code would have crashed. I'd take that trade again. The loop let me build things I'd have needed years and collaborators to reach. That's real, and it's most of why I picked up the tool.
+
+But better-off is not the same as nothing-lost, and the honest verdict has a shape. Keep the loop where it earns its keep: the small pieces (\texttt{stripes} at 24 lines is fine, generated or not), the new infrastructure, the breadth. Constrain it where it hurts: the foundational libs are bloating past the point I can hold them in my head, and a system that no longer fits a single mind has lost the thing that made it an instrument. \texttt{boot.mjs} does not need 2,039 lines. \texttt{disk.mjs} at 16,821 needs a hand to come back and carve.
+
+What to preserve from the hand-written era: the discipline that terseness is a decision, not an accident. That a name like \texttt{choose} is worth more than \texttt{getRandomKey} because it teaches the idiom. That a commit can sound like a person. That the highest form of knowing a system is being able to write it small. The loop writes correct code. It does not yet write code that knows it's part of an instrument. That part is still mine to keep --- and I intend to.
+
+\pull{the bloat lives in the foundational libs, not the leaves. that distinction is the whole ballgame.}
+
+\vspace{0.5em}
+\noindent\textbf{Method.} All figures derive from the \texttt{whistlegraph/aesthetic-computer} git history (\textasciitilde20k commits, 2022-12-23 onward) and per-file inspection of \texttt{disk.mjs}, \texttt{bios.mjs}, \texttt{boot.mjs}, \texttt{kidlisp.mjs}, \texttt{speaker.mjs}, and sampled pieces at era-boundary revisions via \texttt{git show <rev>:<path>}. Commit-style counts use \texttt{git log} format filters over dated ranges.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

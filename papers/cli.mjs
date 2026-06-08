@@ -75,6 +75,11 @@ const PAPER_MAP = {
     siteName: "repo-archaeology-26-arxiv",
     title: "Repository Archaeology",
   },
+  "arxiv-hand-and-loop": {
+    base: "handloop",
+    siteName: "hand-and-loop-26-arxiv",
+    title: "The Hand and the Loop",
+  },
   "arxiv-dead-ends": {
     base: "dead-ends",
     siteName: "dead-ends-26-arxiv",
@@ -212,6 +217,11 @@ const PAPER_MAP = {
     siteName: "diagrams-from-data-26-arxiv",
     title: "Diagrams from Data",
   },
+  "arxiv-nom": {
+    base: "nom",
+    siteName: "nom-games-26-arxiv",
+    title: "The nom Games",
+  },
   "cv": {
     base: "cv",
     siteName: "jeffrey-alan-scudder-cv",
@@ -337,11 +347,93 @@ const DOSSIER_DIRS = [
   "arxiv-microvision",
   "arxiv-calarts-news",
 ];
-const DOSSIER_SET = new Set(DOSSIER_DIRS);
 const dossierRank = (dir) => {
   const i = DOSSIER_DIRS.indexOf(dir);
   return i === -1 ? 99 : i;
 };
+
+// Top-level index categories. Every listed (non-hidden, non-archived)
+// paper resolves to exactly one. Order here is the page order. The
+// "software" lane is populated from the `extras` array (JOSS/ELS), not
+// from PAPER_MAP, so its `dirs` stays empty. Lists flagged `nosort` keep
+// their curated DOM order and are skipped by the client-side sort bar.
+const CATEGORIES = [
+  {
+    key: "platform",
+    title: "platform &amp; language",
+    sub: "the runtime, the language, and the surfaces you actually touch.",
+    dirs: [
+      "arxiv-ac",
+      "arxiv-kidlisp",
+      "arxiv-os",
+      "arxiv-api",
+      "arxiv-pieces",
+      "arxiv-notepat",
+      "arxiv-kidlisp-reference",
+      "arxiv-kidlisp-cards",
+      "arxiv-keymaps",
+      "arxiv-url-tradition",
+      "arxiv-latency",
+      "arxiv-penrose",
+      "arxiv-identity",
+    ],
+  },
+  {
+    key: "essays",
+    title: "essays &amp; criticism",
+    sub: "arguments about creative computing — its lineage, its players, and its discontents.",
+    dirs: [
+      "arxiv-plork",
+      "arxiv-sustainability",
+      "arxiv-goodiepal",
+      "arxiv-whistlegraph",
+      "arxiv-complex",
+      "arxiv-dead-ends",
+      "arxiv-folk-songs",
+      "arxiv-futures",
+      "arxiv-holden",
+      "arxiv-fraserin",
+      "arxiv-score-analysis",
+      "arxiv-comp-strats",
+      "arxiv-nom",
+      "essay-may-26",
+    ],
+  },
+  {
+    key: "audits",
+    title: "audits &amp; field studies",
+    sub: "data turned back on the project itself — who uses it, what it cites, where it came from.",
+    dirs: [
+      "arxiv-archaeology",
+      "arxiv-hand-and-loop",
+      "arxiv-network-audit",
+      "arxiv-diversity",
+      "arxiv-open-schools",
+    ],
+  },
+  {
+    key: "dossiers",
+    title: "dossiers",
+    sub: "what's publicly recoverable about art-and-tech institutions and their largest funders — fact-surfacing, not argument.",
+    nosort: true,
+    dirs: [...DOSSIER_DIRS, "arxiv-ucla-arts"],
+  },
+  {
+    key: "software",
+    title: "software papers",
+    sub: "conventional software-paper summaries, for archival and citation.",
+    dirs: [], // populated from the `extras` array (JOSS / ELS)
+  },
+];
+
+// Papers retired to the quiet Archive section at the very bottom of the
+// page, regardless of their category. Keyed by `dir`.
+const ARCHIVE_DIRS = new Set(["arxiv-calarts"]);
+
+// dir -> category key (dossiers included; archived + software handled separately)
+const CATEGORY_OF = {};
+for (const c of CATEGORIES) for (const d of c.dirs) CATEGORY_OF[d] = c.key;
+const categoryOf = (dir) => CATEGORY_OF[dir] || "essays";
 
 function texName(base, lang) {
   return lang === "en" ? base : `${base}-${lang}`;
@@ -555,8 +647,11 @@ function genThumbnail(pdfPath, siteName) {
   }
   const tmpPrefix = join(THUMBS_DIR, `${siteName}.tmp`);
   try {
+    // Cards are physically small (4x6in), so render them at a higher DPI to
+    // keep the cover crisp; full pages stay at a lighter resolution.
+    const dpi = /-cards\.pdf$/.test(pdfPath) ? 110 : 72;
     execSync(
-      `pdftoppm -jpeg -jpegopt quality=72,progressive=y -r 60 -f 1 -l 1 "${pdfPath}" "${tmpPrefix}"`,
+      `pdftoppm -jpeg -jpegopt quality=75,progressive=y -r ${dpi} -f 1 -l 1 "${pdfPath}" "${tmpPrefix}"`,
       { stdio: "pipe", timeout: 30000 },
     );
     // pdftoppm appends -1 (or -01) for single page output
@@ -580,10 +675,19 @@ function genThumbnail(pdfPath, siteName) {
 function genAllThumbnails() {
   if (!existsSync(SITE_DIR)) return 0;
   let count = 0;
-  for (const name of readdirSync(SITE_DIR)) {
-    if (!name.endsWith(".pdf")) continue;
+  const pdfs = readdirSync(SITE_DIR).filter((n) => n.endsWith(".pdf"));
+  const pdfSet = new Set(pdfs);
+  for (const name of pdfs) {
     const siteName = name.slice(0, -4);
-    if (genThumbnail(join(SITE_DIR, name), siteName)) count++;
+    // The cards (4x6 single-sheet) variant is the cover art. Surface it via
+    // the base paper's thumbnail; don't waste a thumb on the cards file
+    // itself (the index never references `${siteName}-cards.jpg`).
+    if (siteName.endsWith("-cards")) continue;
+    // Prefer the cards PDF as the cover source — it's designed to read as a
+    // card, unlike the dense arXiv first page. Fall back to the full PDF.
+    const cardsName = `${siteName}-cards.pdf`;
+    const source = pdfSet.has(cardsName) ? cardsName : name;
+    if (genThumbnail(join(SITE_DIR, source), siteName)) count++;
   }
   return count;
 }
@@ -644,6 +748,7 @@ function updateIndex(entries) {
     "dead-ends-26-arxiv": 12,
     "folk-songs-26-arxiv": 13,
     "repo-archaeology-26-arxiv": 14,
+    "hand-and-loop-26-arxiv": 14.5,
     "network-audit-26-arxiv": 15,
     "kidlisp-reference-26-arxiv": 16,
     "citation-diversity-audit-26": 17,
@@ -697,8 +802,8 @@ function updateIndex(entries) {
     },
   ];
 
-  // Guest papers — moved to platter readings (OCR'd text files)
-  const guestPdfs = [];
+  // Guest papers were moved to platter readings (OCR'd text files); the
+  // lane is retired, so only the JOSS/ELS extras remain.
   const extras = [];
   for (const ex of extraPdfs) {
     const fp = join(SITE_DIR, ex.file);
@@ -783,6 +888,11 @@ function updateIndex(entries) {
       abstract:
         "Repository Archaeology traces the project through its git history. The paper shows how version control can become a narrative medium for design evolution.",
     },
+    "hand-and-loop-26-arxiv": {
+      detail: "Three Eras of My Own Code: Hand-Written, GPT-Grafted, Agentic &middot; arXiv 4pp",
+      abstract:
+        "The Hand and the Loop reads AC's git history across three eras — hand-written, GPT-grafted, and fully agentic — and asks honestly whether the codebase is better off. It weighs 5x velocity and five new subsystems against the loss of instrument-like minimalism, and argues for keeping the loop in the leaves while a human hand carves the foundational libraries.",
+    },
     "network-audit-26-arxiv": {
       detail: "Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp",
       abstract:
@@ -807,6 +917,11 @@ function updateIndex(entries) {
       detail: "",
       abstract:
         "Five Years from Now is a projection paper about where the project could go if current habits continue. It uses the near future to test the consequences of today's decisions.",
+    },
+    "nom-games-26-arxiv": {
+      detail: "Muncher Arcade for Aesthetic Computer &middot; arXiv",
+      abstract:
+        "The nom games rebuild MECC's Word and Number Munchers as Aesthetic Computer pieces --- mathnom, engnom, mexinom, and notenom. The paper shows how one shared engine and a reusable virtual synth controller turn each new subject or language into a content table rather than a new game, with the answer key in notenom doubling as a playable instrument.",
     },
     "aesthetic-may-26-essay": {
       detail: "Essay &middot; ~5pp",
@@ -968,7 +1083,7 @@ function updateIndex(entries) {
       ? `<a class="thumb" href="/${p.siteName}.pdf" tabindex="-1" aria-hidden="true"><img src="/thumbs/${thumbName}" alt="" loading="lazy" decoding="async"></a>`
       : "";
     return `
-    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
+    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""}${p.deprecated ? ` data-deprecated="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
         ${thumbHtml}<div class="body">
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
@@ -978,21 +1093,8 @@ function updateIndex(entries) {
     </div>\n`;
   }
 
-  // Build paper entries HTML — dossiers are split into their own
-  // "dossiers;" section so the fact-surfacing lane doesn't mix with the
-  // argumentative papers.
-  let papersHtml = "";
-  let dossiersHtml = "";
-  for (const p of papers) {
-    if (p.hidden) continue; // built + tracked, but not listed publicly
-    if (DOSSIER_SET.has(p.dir)) continue; // rendered in dossiers section below
-    papersHtml += renderPaper(p);
-  }
-  const dossierPapers = papers
-    .filter((p) => !p.hidden && DOSSIER_SET.has(p.dir))
-    .sort((a, b) => dossierRank(a.dir) - dossierRank(b.dir));
-  for (const p of dossierPapers) dossiersHtml += renderPaper(p);
-  for (const ex of extras) {
+  // Render one JOSS/ELS "software paper" card from the extras array.
+  function renderExtra(ex) {
     const createdStr = ex.created ? fmtDate(ex.created) : "";
     const revStr = ex.revisions > 0 ? `r${ex.revisions}` : "";
     const exKey = { "joss-ac": "joss-ac", "joss-kidlisp": "joss-kidlisp", "els-kidlisp": "els" }[ex.metaKey] || ex.metaKey;
@@ -1001,7 +1103,7 @@ function updateIndex(entries) {
     const exThumbHtml = exThumbExists
       ? `<a class="thumb" href="/${ex.file}" tabindex="-1" aria-hidden="true"><img src="/thumbs/${exSiteName}.jpg" alt="" loading="lazy" decoding="async"></a>`
       : "";
-    papersHtml += `
+    return `
     <div class="p" data-paper-id="${exKey}">
         ${exThumbHtml}<div class="body">
         <div class="title"><a href="/${ex.file}">${ex.title}</a></div>
@@ -1012,25 +1114,72 @@ function updateIndex(entries) {
     </div>\n`;
   }
 
-  // Build guest papers HTML
-  let guestHtml = "";
-  for (const g of guestPdfs) {
-    const fp = join(SITE_DIR, g.file);
-    if (existsSync(fp)) {
-      guestHtml += `
-    <div class="p guest" data-paper-id="${g.metaKey}" data-no-cards="1" data-created="${g.year}-01-01" data-updated="${g.year}-01-01T00:00:00.000Z">
-        <div class="title"><a href="/${g.file}">${g.title}</a></div>
-        <div class="detail">${g.detail}</div>
-        <div class="abstract">${g.abstract}</div>
-        <div class="meta-row"><span class="author">${g.author}</span><span class="created" title="Published">${g.year}</span></div>
-    </div>\n`;
-    }
+  // Wrap a category's cards in a labeled <section>. `count` is the number
+  // of cards; `nosort`/extra modifiers control the client-side sort.
+  function renderSection({ key, title, sub, nosort }, cardsHtml, count, archive = false) {
+    if (!cardsHtml) return "";
+    const cls = `cat${archive ? " cat--archive" : ""}`;
+    const nosortAttr = nosort || archive ? " data-nosort" : "";
+    return `
+    <section class="${cls}" data-cat="${key}">
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">${title}</span><span class="cat-semi">;</span><span class="cat-count">${count}</span></div>
+        <div class="cat-sub">${sub}</div>
+        <div class="cat-list"${nosortAttr}>
+${cardsHtml}        </div>
+    </section>\n`;
   }
 
-  // Read current index, replace paper entries between markers
-  let html = readFileSync(indexPath, "utf8");
+  // Bucket every listed paper into exactly one category; archived papers
+  // are pulled out to their own quiet section at the bottom.
+  const buckets = {};
+  for (const c of CATEGORIES) buckets[c.key] = [];
+  const archived = [];
+  for (const p of papers) {
+    if (p.hidden) continue; // built + tracked, but not listed publicly
+    if (ARCHIVE_DIRS.has(p.dir)) {
+      archived.push({ ...p, deprecated: true, psycho: false });
+      continue;
+    }
+    buckets[categoryOf(p.dir)].push(p);
+  }
+  // Dossiers keep their curated order; other lanes keep importance rank.
+  buckets.dossiers.sort((a, b) => dossierRank(a.dir) - dossierRank(b.dir));
 
-  // Replace everything between the sub line and the footer
+  const uncategorized = papers.filter(
+    (p) => !p.hidden && !ARCHIVE_DIRS.has(p.dir) && !CATEGORY_OF[p.dir],
+  );
+  if (uncategorized.length) {
+    console.log(
+      `  WARN ${uncategorized.length} uncategorized paper(s) → essays: ${uncategorized.map((p) => p.dir).join(", ")}`,
+    );
+  }
+
+  // Build the full categorized block (all sections, in page order).
+  let papersHtml = "";
+  for (const c of CATEGORIES) {
+    if (c.key === "software") {
+      const cards = extras.map(renderExtra).join("");
+      papersHtml += renderSection(c, cards, extras.length);
+    } else {
+      const list = buckets[c.key];
+      papersHtml += renderSection(c, list.map(renderPaper).join(""), list.length);
+    }
+  }
+  if (archived.length) {
+    papersHtml += renderSection(
+      {
+        key: "archive",
+        title: "archive",
+        sub: "deprecated — kept for the record, no longer actively maintained.",
+      },
+      archived.map(renderPaper).join(""),
+      archived.length,
+      true,
+    );
+  }
+
+  // Read current index, replace the categorized block between markers.
+  let html = readFileSync(indexPath, "utf8");
   const startMarker = "<!-- papers-start -->";
   const endMarker = "<!-- papers-end -->";
 
@@ -1055,29 +1204,13 @@ function updateIndex(entries) {
     }
   }
 
-  // Replace dossier entries between dossiers markers (own container so
-  // the client-side sort, which reorders only the first .p's parent,
-  // never scrambles this section).
-  const dossStart = "<!-- dossiers-start -->";
-  const dossEnd = "<!-- dossiers-end -->";
-  if (html.includes(dossStart)) {
-    const dBefore = html.slice(0, html.indexOf(dossStart) + dossStart.length);
-    const dAfter = html.slice(html.indexOf(dossEnd));
-    html = dBefore + "\n" + dossiersHtml + "\n    " + dAfter;
-  }
-
-  // Replace guest papers between guest markers
-  const guestStart = "<!-- guest-start -->";
-  const guestEnd = "<!-- guest-end -->";
-  if (guestHtml && html.includes(guestStart)) {
-    const gBefore = html.slice(0, html.indexOf(guestStart) + guestStart.length);
-    const gAfter = html.slice(html.indexOf(guestEnd));
-    html = gBefore + "\n" + guestHtml + "\n    " + gAfter;
-  }
-
   writeFileSync(indexPath, html);
-  const guestCount = guestPdfs.filter(g => existsSync(join(SITE_DIR, g.file))).length;
-  console.log(`  INDEX updated with ${papers.length + extras.length} papers + ${guestCount} guest papers.`);
+  const sectionCounts = CATEGORIES.map((c) =>
+    c.key === "software" ? `${c.key} ${extras.length}` : `${c.key} ${buckets[c.key].length}`,
+  ).join(", ");
+  console.log(
+    `  INDEX updated: ${papers.length + extras.length} papers across ${CATEGORIES.length} categories (${sectionCounts}${archived.length ? `, archive ${archived.length}` : ""}).`,
+  );
 
   writeFeed(papers, extras, PAPER_COPY);
 }
@@ -1123,7 +1256,7 @@ function writeFeed(papers, extras, PAPER_COPY) {
   const SITE_URL = "https://papers.aesthetic.computer";
   const FEED_URL = `${SITE_URL}/feed.xml`;
   const AUTHOR_NAME = "@jeffrey";
-  const AUTHOR_URI = "https://orcid.org/0009-0007-4460-4913";
+  const AUTHOR_URI = "https://prompt.ac/@jeffrey";
 
   const entries = [];
   for (const p of papers) {
