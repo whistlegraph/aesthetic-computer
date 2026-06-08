@@ -1,0 +1,8 @@
+A ~3-minute video proposal for the Serpentine Future Art Ecosystems (FAE) R&D Fellowship — Art × Convergence.
+
+As demand for AI compute pulls everything toward the data center, the personal computer is turning into a thin client. This is a pitch for the opposite move: re-founding the personal computer as a creative commons — a bare-metal creative operating system, shared languages (you make pieces in JavaScript or KidLisp), and a planetary laptop orchestra that runs on the surplus laptops the upgrade cycle throws away.
+
+Aesthetic Computer is a runtime, an operating system, and a social network for creative computing, built and given away over six years. A fifty-dollar ThinkPad boots into the instrument in about seven seconds.
+
+— Jeffrey Alan Scudder
+https://aesthetic.computer

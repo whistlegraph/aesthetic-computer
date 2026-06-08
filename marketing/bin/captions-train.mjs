@@ -16,6 +16,7 @@ import { readFileSync, mkdirSync, existsSync } from "node:fs";
 import { spawn, spawnSync, execSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import * as progress from "../../pop/lib/render-progress.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const FONT = `${process.env.HOME}/Library/Fonts/ywft-processing-bold.ttf`;
@@ -177,6 +178,7 @@ const ff = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y",
   "-f", "rawvideo", "-pix_fmt", "bgra", "-s", `${W}x${H}`, "-r", String(FPS), "-i", "-", "-c:v", "qtrle", OUT],
   { stdio: ["pipe", "inherit", "inherit"] });
 console.log(`▸ phrase-karaoke · ${phrases.length} phrases · ${DURATION.toFixed(1)}s · ${nFrames} frames -> ${OUT}`);
+progress.begin({ type: "video", label: `${cfg.name} captions · ${nFrames} frames` });
 
 let frame = startFrame, phScroll = null;
 function drawFrame() {
@@ -215,8 +217,10 @@ function drawFrame() {
 
   const ok = ff.stdin.write(Buffer.from(canvas.toBuffer("raw")));
   frame++;
+  const done = frame - startFrame;
+  progress.update((done / nFrames) * 100, { done, total: nFrames });
   if (frame >= startFrame + nFrames) { ff.stdin.end(); return; }
   if (ok) drawFrame(); else ff.stdin.once("drain", drawFrame);
 }
-ff.on("close", (code) => console.log(code === 0 ? `✓ ${OUT}` : `✗ ffmpeg exit ${code}`));
+ff.on("close", (code) => { progress.end(); console.log(code === 0 ? `✓ ${OUT}` : `✗ ffmpeg exit ${code}`); });
 drawFrame();

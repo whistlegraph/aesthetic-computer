@@ -14,6 +14,7 @@ import { mkdirSync, existsSync } from "node:fs";
 import { spawn, execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import * as progress from "../../pop/lib/render-progress.mjs";
 
 const FONT = `${process.env.HOME}/Library/Fonts/ywft-processing-bold.ttf`;
 const W = 1920, H = 1080, FPS = 30;
@@ -140,6 +141,8 @@ const ff = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y",
   { stdio: ["pipe", "inherit", "inherit"] });
 
 console.log(`▸ animated opener · ${DUR}s · ${Math.round(DUR * FPS)} frames -> ${OUT}`);
+const _openerTotal = Math.round(DUR * FPS);
+progress.begin({ type: "video", label: `${cfg.name} opener · ${_openerTotal} frames` });
 const scrimY = titleY + Math.round(tpx * 0.5);
 let frame = 0;
 function draw() {
@@ -174,8 +177,9 @@ function draw() {
   if (t < 0.6) { ctx.fillStyle = `rgba(0,0,0,${1 - t / 0.6})`; ctx.fillRect(0, 0, W, H); }
 
   const ok = ff.stdin.write(Buffer.from(canvas.toBuffer("raw")));
-  if (++frame >= Math.round(DUR * FPS)) { ff.stdin.end(); return; }
+  progress.update((frame / _openerTotal) * 100, { done: frame, total: _openerTotal });
+  if (++frame >= _openerTotal) { ff.stdin.end(); return; }
   if (ok) draw(); else ff.stdin.once("drain", draw);
 }
-ff.on("close", (code) => { console.log(code === 0 ? `✓ ${OUT}` : `✗ ffmpeg exit ${code}`); if (code === 0 && process.argv.includes("--open")) execSync(`open "${OUT}"`); });
+ff.on("close", (code) => { progress.end(); console.log(code === 0 ? `✓ ${OUT}` : `✗ ffmpeg exit ${code}`); if (code === 0 && process.argv.includes("--open")) execSync(`open "${OUT}"`); });
 draw();
