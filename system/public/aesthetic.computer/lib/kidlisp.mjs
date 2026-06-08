@@ -5137,10 +5137,25 @@ class KidLisp {
   runMelody(api, args = []) {
     if (args.length === 0) return;
 
-    const melodyString = unquoteString(args[0]);
-    const bpm = args.length > 1 ? parseFloat(args[1]) : 120; // Default 120 BPM
-    const timeSignature = args.length > 2 ? unquoteString(args[2]) : "4/4"; // Default 4/4
-    const feel = args.length > 3 ? unquoteString(args[3]) : "straight"; // Default straight
+    // Quotes are optional. Collect leading non-numeric args as the melody string
+    // (space-joined), so bare single — (clock cdefgabagfed) — and bare parallel
+    // — (clock ceg dfa) — both work. The first numeric arg after the notes is
+    // BPM, then optional time signature + feel.
+    const isNum = (s) => /^-?\d*\.?\d+$/.test(s);
+    const parts = [];
+    let ai = 0;
+    for (; ai < args.length; ai++) {
+      const a = unquoteString(String(args[ai]));
+      if (isNum(a) && parts.length > 0) break; // first number after notes = bpm
+      parts.push(a);
+    }
+    const melodyString = parts.join(" ").trim();
+    if (!melodyString) return;
+    const bpm =
+      ai < args.length ? parseFloat(unquoteString(String(args[ai++]))) || 120 : 120;
+    const timeSignature =
+      ai < args.length ? unquoteString(String(args[ai++])) : "4/4";
+    const feel = ai < args.length ? unquoteString(String(args[ai++])) : "straight";
 
     // Parse time signature
     const [numerator, denominator] = timeSignature.split("/").map(Number);
@@ -11138,18 +11153,44 @@ class KidLisp {
           const whitespace = this.syntaxHighlightSource.substring(sourceIndex, tokenIndex);
           result += whitespace;
 
-          // Special handling for a melody string literal: (melody "...") — color
-          // each note via the shared melody highlighter (same as clock.mjs).
-          const isMelodyArg =
+          // Special handling for a melody argument after (melody …) / (clock …):
+          // color each note via the shared highlighter (same as clock.mjs).
+          // Works for a QUOTED string ("ceg dfa") AND for BARE, unquoted note
+          // tokens (cdefgabagfed) — including parallel bare tracks, by walking
+          // back over earlier bare tracks to the melody/clock head.
+          const NOTEISH = /^[A-Za-z0-9#.,'^+\-{}\[\]>_~|]+$/;
+          const isQuoted =
             token.length >= 2 &&
             (token[0] === '"' || token[0] === "'") &&
-            token[token.length - 1] === token[0] &&
-            (tokens[i - 1] === "melody" || tokens[i - 1] === "clock");
+            token[token.length - 1] === token[0];
+          const looksLikeNotes =
+            /[a-gA-G]/.test(token) &&
+            NOTEISH.test(token) &&
+            !/^-?\d*\.?\d+$/.test(token);
+          const melodyHeadBefore = () => {
+            let j = i - 1;
+            while (j >= 0) {
+              const t = tokens[j];
+              if (t === "melody" || t === "clock") return true;
+              // step over earlier bare note tracks so parallel tracks all light up
+              if (/[a-gA-G]/.test(t) && NOTEISH.test(t) && !/^-?\d*\.?\d+$/.test(t)) {
+                j--;
+                continue;
+              }
+              return false;
+            }
+            return false;
+          };
+          const isMelodyArg = (isQuoted || looksLikeNotes) && melodyHeadBefore();
           if (isMelodyArg) {
-            const q = token[0];
-            const inner = token.slice(1, -1);
+            const inner = isQuoted ? token.slice(1, -1) : token;
             const quoteColor = color || "yellow";
-            const state = this.melodyByString?.get(inner) || null;
+            // Try the exact token, then the whole registered melody string (bare
+            // parallel tracks register under the space-joined key).
+            const state =
+              this.melodyByString?.get(inner) ||
+              this.melodyByString?.get(this.transportMasterId) ||
+              null;
             const coloredInner = buildColoredMelodyString(inner, state, {
               now: performance.now(),
               timingHasStarted: !!(state && state.isPlaying),
@@ -11159,7 +11200,12 @@ class KidLisp {
               triggeredAsteriskPositions: [],
               getStampleStatus: () => null,
             });
-            result += `\\${quoteColor}\\${q}${coloredInner}\\${quoteColor}\\${q}`;
+            if (isQuoted) {
+              const q = token[0];
+              result += `\\${quoteColor}\\${q}${coloredInner}\\${quoteColor}\\${q}`;
+            } else {
+              result += coloredInner;
+            }
             lastColor = null; // reset so the next token re-emits its color
             sourceIndex = tokenIndex + token.length;
             continue;
