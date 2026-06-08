@@ -528,6 +528,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.post(name: .menuBandLitNotesChanged,
                                             object: nil)
             self.updatePianoWaveformWindow()
+            // Refresh the pitch-bend pad so the puck's key-held highlight
+            // tracks note presses even without trackpad motion (no-op when
+            // the overlay isn't visible).
+            self.updatePitchBendOverlayImage()
         }
         menuBand.onInstrumentVisualChange = { [weak self] in
             DispatchQueue.main.async {
@@ -3324,7 +3328,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // closer/tinier proximity filter. Normalize bend by bendRange so
         // the puck reaches the grid edge exactly at the ±bendRange cap
         // (PitchBendCursor clamps the normalized value to ±1 internally).
-        PitchBendCursor.image(forBend: bendAmount / Self.bendRange, echo: fxX)
+        PitchBendCursor.image(forBend: bendAmount / Self.bendRange, echo: fxX,
+                              keyDown: menuBand.keyboardNotesHeld)
     }
 
     private func showPitchBendOverlay() {
