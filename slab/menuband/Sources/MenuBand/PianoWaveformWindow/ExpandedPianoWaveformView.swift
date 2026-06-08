@@ -754,7 +754,7 @@ final class ExpandedPianoWaveformView: NSView {
                 numberLabel = "GB"
                 familyColor = .systemPurple
             case .gm:
-                title = GeneralMIDI.programNames[safe]
+                title = GeneralMIDI.programName(safe)
                 numberLabel = String(format: "%03d", safe + 1)
                 familyColor = InstrumentListView.colorForProgram(safe)
             }

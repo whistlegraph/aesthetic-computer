@@ -1342,7 +1342,7 @@ final class MenuBandPopoverViewController: NSViewController {
             // so the user can identify the voice by either number or
             // name at a glance. e.g. "078 Whistle".
             title = String(format: "%03d %@", safe + 1,
-                           GeneralMIDI.programNames[safe])
+                           GeneralMIDI.programName(safe))
             famColor = InstrumentListView.colorForProgram(safe)
         }
         applyInstrumentReadoutStyle(title: title, famColor: famColor)

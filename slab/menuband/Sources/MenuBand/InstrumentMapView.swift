@@ -122,7 +122,7 @@ final class InstrumentListView: NSView {
             return "0 MIDI OUT - route notes to the virtual MIDI port; local synth is muted"
         }
         if let program = program(at: point) {
-            return "\(program + 1) \(GeneralMIDI.programNames[program]) - click to choose, drag to audition"
+            return "\(program + 1) \(GeneralMIDI.programName(program)) - click to choose, drag to audition"
         }
         return "1-128 are General MIDI voices; 0 is MIDI OUT"
     }

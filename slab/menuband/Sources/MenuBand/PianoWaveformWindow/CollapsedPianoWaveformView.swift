@@ -25,6 +25,10 @@ final class CollapsedPianoWaveformView: NSView {
     /// chooser grid. Uses YWFT Processing so the readout matches
     /// the popover's title typography. Color-keyed to the family.
     private let instrumentReadoutLabel = NSTextField(labelWithString: "")
+    /// Dark rounded "pill" behind the readout for contrast. A SIBLING behind
+    /// the label (not its parent) so the label never gets layer-backed — that
+    /// would soften the 1px Riso-misregister shadow (see note in init).
+    private let readoutBackground = NSView()
     /// QWERTY keymap visualization — moved out of the popover so
     /// the user can see which physical keys play which notes while
     /// the chooser is open. Lit cells reflect held keys.
@@ -236,6 +240,13 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentReadoutLabel.setContentHuggingPriority(.required, for: .vertical)
         instrumentReadoutLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+        // Dark contrast pill behind the readout. Fill + border are themed in
+        // refresh(); here just the shape.
+        readoutBackground.translatesAutoresizingMaskIntoConstraints = false
+        readoutBackground.wantsLayer = true
+        readoutBackground.layer?.cornerRadius = 7
+        readoutBackground.layer?.masksToBounds = true
+
         // Single accent "Keymap" button — opens the full-screen keymap
         // view. The QWERTY graphic + Notepat/Conventional mode toggle now
         // live there, so the collapsed panel is purely the instrument
@@ -263,6 +274,7 @@ final class CollapsedPianoWaveformView: NSView {
         contentContainer.addSubview(instrumentGridContainer)
         instrumentGridContainer.addSubview(instrumentList)
         contentContainer.addSubview(waveformStrip)
+        contentContainer.addSubview(readoutBackground)   // behind the label
         contentContainer.addSubview(instrumentReadoutLabel)
         // [v1] Skip our own glass backdrop when embedded in the popover's
         // glass surface — otherwise the two stack into a doubled sheet.
@@ -299,9 +311,19 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentReadoutLabel.topAnchor.constraint(
                 equalTo: waveformStrip.bottomAnchor, constant: Self.rowGap),
 
+            // Pill hugs the label with a little padding (h:10, v:4).
+            readoutBackground.leadingAnchor.constraint(
+                equalTo: instrumentReadoutLabel.leadingAnchor, constant: -10),
+            readoutBackground.trailingAnchor.constraint(
+                equalTo: instrumentReadoutLabel.trailingAnchor, constant: 10),
+            readoutBackground.topAnchor.constraint(
+                equalTo: instrumentReadoutLabel.topAnchor, constant: -4),
+            readoutBackground.bottomAnchor.constraint(
+                equalTo: instrumentReadoutLabel.bottomAnchor, constant: 4),
+
             // Instrument chooser grid below the readout.
             instrumentGridContainer.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
-            instrumentGridContainer.topAnchor.constraint(equalTo: instrumentReadoutLabel.bottomAnchor, constant: Self.rowGap),
+            instrumentGridContainer.topAnchor.constraint(equalTo: readoutBackground.bottomAnchor, constant: Self.rowGap),
             instrumentGridContainer.widthAnchor.constraint(
                 equalToConstant: InstrumentListView.preferredWidth + Self.gridPadding * 2
             ),
@@ -464,22 +486,23 @@ final class CollapsedPianoWaveformView: NSView {
             case .gm:
                 title = String(format: "%03d  %@",
                                safe + 1,
-                               GeneralMIDI.programNames[safe])
+                               GeneralMIDI.programName(safe))
                 badgeColor = familyColor
             }
         }
         let titleFont: NSFont = {
             if let desc = AppDelegate.ywftBoldDescriptor,
-               let font = NSFont(descriptor: desc, size: 13),
+               let font = NSFont(descriptor: desc, size: 16),
                font.familyName == "YWFT Processing" {
                 return font
             }
             NSLog("MenuBand: YWFT bold descriptor unavailable; collapsed-panel readout falling back to system font")
-            return NSFont.systemFont(ofSize: 13, weight: .black)
+            return NSFont.systemFont(ofSize: 16, weight: .black)
         }()
-        let textColor: NSColor = isDark ? .white : .black
+        // Always light text — the readout now sits on a dark contrast pill.
+        let textColor: NSColor = .white
         let shadow = NSShadow()
-        shadow.shadowColor = (badgeColor.highlight(withLevel: isDark ? 0.3 : 0.7) ?? badgeColor)
+        shadow.shadowColor = (badgeColor.highlight(withLevel: 0.4) ?? badgeColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)
         shadow.shadowBlurRadius = 0
         instrumentReadoutLabel.attributedStringValue = NSAttributedString(
@@ -491,6 +514,13 @@ final class CollapsedPianoWaveformView: NSView {
             ]
         )
         instrumentReadoutLabel.toolTip = title
+        // Dark pill + a 1px family-colored hairline so the readout keeps its
+        // instrument identity while gaining contrast.
+        readoutBackground.layer?.backgroundColor =
+            NSColor.black.withAlphaComponent(isDark ? 0.62 : 0.78).cgColor
+        readoutBackground.layer?.borderColor =
+            badgeColor.withAlphaComponent(0.85).cgColor
+        readoutBackground.layer?.borderWidth = 1.0
     }
 
     @objc private func whyKeymapClicked(_ sender: NSButton) {

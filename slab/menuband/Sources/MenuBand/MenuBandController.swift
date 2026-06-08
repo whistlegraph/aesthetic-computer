@@ -1182,7 +1182,7 @@ final class MenuBandController {
             return garageBandPatchURL?.deletingPathExtension().lastPathComponent ?? "GarageBand patch"
         case .gm:
             let safe = max(0, min(127, Int(effectiveMelodicProgram)))
-            return String(format: "%03d %@", safe + 1, GeneralMIDI.programNames[safe])
+            return String(format: "%03d %@", safe + 1, GeneralMIDI.programName(safe))
         }
     }
 
