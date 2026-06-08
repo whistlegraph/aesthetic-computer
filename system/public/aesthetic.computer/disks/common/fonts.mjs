@@ -219,7 +219,8 @@ export const MatrixChunky8 = {
   },
   // BDF overrides for character positioning adjustments
   bdfOverrides: {
-    // Star advance width (6) handles right-side spacing
+    // Star advance width (6) handles right-side spacing.
+    'y': { y: 2 } // Push the 'y' descender down 2px so it dips below baseline.
   }
 };
 

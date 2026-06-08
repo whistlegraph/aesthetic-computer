@@ -561,7 +561,14 @@ try {
 // Parse command line args
 const args = process.argv.slice(2);
 const startInDevMode = args.includes('--dev') || args.includes('--development');
-const pieceArg = args.find(a => a.startsWith('--piece=')) || args[args.indexOf('--piece') + 1];
+// NOTE: only read `--piece <name>` when the flag is actually present —
+// args.indexOf('--piece') is -1 when absent, and args[-1 + 1] = args[0] would
+// wrongly grab the first arg (e.g. '--dev'), making the piece '--dev', which
+// 404s on localhost and falls back to prompt-on-production.
+const pieceFlagIdx = args.indexOf('--piece');
+const pieceArg =
+  args.find((a) => a.startsWith('--piece=')) ||
+  (pieceFlagIdx >= 0 ? args[pieceFlagIdx + 1] : undefined);
 const initialPiece = pieceArg?.replace('--piece=', '') || 'prompt';
 
 // URLs - nogap removes the aesthetic gap border for desktop mode
@@ -1028,63 +1035,24 @@ async function buildPalsTrayImage() {
     return null;
   }
 
-  const accent = getAccentRGB();
-  const accentHex = accent
-    ? '#' + [accent.r, accent.g, accent.b].map((c) => c.toString(16).padStart(2, '0')).join('')
-    : null;
-  console.log('[tray] pals icon — accent:', accentHex || 'none (keeping original)');
+  // Always render the pals as PINK line-art (its native look) — ignore the
+  // system accent, and don't flood-fill it into a solid silhouette.
+  const PINK = '#cd5c9b';
+  console.log('[tray] pals icon — pink line-art');
 
-  // Recolor + embolden the single-fill pals vector at runtime (MenuBand-style
-  // live tint). Adding a same-color stroke to the path thickens the line art
-  // in vector space, so it stays crisp at every size.
-  const baseFill = accentHex || '#cd5c9b';
-  const fr = parseInt(baseFill.slice(1, 3), 16);
-  const fg = parseInt(baseFill.slice(3, 5), 16);
-  const fb = parseInt(baseFill.slice(5, 7), 16);
-
-  // The pals vector is OUTLINE geometry (a closed band tracing the two
-  // figures), so a plain fill renders as line-art. Rasterize the outline as a
-  // mask, flood-fill the exterior from the border, then paint every
-  // non-exterior pixel solid — giving filled figures, recolored to the accent.
   const svg = fs.readFileSync(svgPath, 'utf8');
-  const outlineSvg = svg.replace(
+  // Recolor the single-fill outline vector to pink; a faint same-color stroke
+  // keeps the thin line crisp at small sizes.
+  const pinkSvg = svg.replace(
     /fill="#[0-9a-fA-F]{3,8}"/g,
-    // Embolden a touch so anti-aliased gaps stay sealed for the flood fill.
-    `fill="#000000" stroke="#000000" stroke-width="0.7" stroke-linejoin="round"`
+    `fill="${PINK}" stroke="${PINK}" stroke-width="0.5" stroke-linejoin="round"`
   );
-  const mask = await sharp(Buffer.from(outlineSvg), { density: 1200 })
+  const master = await sharp(Buffer.from(pinkSvg), { density: 1200 })
     .trim()
-    .extend({ top: 4, bottom: 4, left: 4, right: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const mW = mask.info.width, mH = mask.info.height, mBuf = mask.data;
-  const isWall = (i) => mBuf[i * 4 + 3] > 40; // outline pixel
-  const exterior = new Uint8Array(mW * mH);
-  const stk = [];
-  for (let x = 0; x < mW; x++) { stk.push(x); stk.push((mH - 1) * mW + x); }
-  for (let y = 0; y < mH; y++) { stk.push(y * mW); stk.push(y * mW + mW - 1); }
-  while (stk.length) {
-    const i = stk.pop();
-    if (exterior[i] || isWall(i)) continue;
-    exterior[i] = 1;
-    const x = i % mW, y = (i / mW) | 0;
-    if (x > 0) stk.push(i - 1);
-    if (x < mW - 1) stk.push(i + 1);
-    if (y > 0) stk.push(i - mW);
-    if (y < mH - 1) stk.push(i + mW);
-  }
-  // Solid accent silhouette; a thin 1px black border is added per-rep below.
-  const solid = Buffer.alloc(mW * mH * 4, 0);
-  for (let i = 0; i < mW * mH; i++) {
-    if (!exterior[i]) { solid[i * 4] = fr; solid[i * 4 + 1] = fg; solid[i * 4 + 2] = fb; solid[i * 4 + 3] = 255; }
-  }
-  // Rasterized solid figures, trimmed to content.
-  const master = await sharp(solid, { raw: { width: mW, height: mH, channels: 4 } }).trim().png().toBuffer();
+    .png()
+    .toBuffer();
 
-  const SHRINK = 0.84;       // logo height relative to the full menubar slot
-  const SHADOW_ALPHA = 0.7;  // hard drop-shadow opacity
-
+  const SHRINK = 0.94;       // logo height relative to the full menubar slot
   const out = nativeImage.createEmpty();
   let added = 0;
 
@@ -1093,7 +1061,6 @@ async function buildPalsTrayImage() {
       const W = 34 * scale, H = 22 * scale;
       const lh = Math.max(1, Math.round(22 * SHRINK * scale));
 
-      // Crisp vector render at the exact rep size.
       const logo = await sharp(master)
         .resize({ height: lh, kernel: 'lanczos3' })
         .ensureAlpha()
@@ -1102,51 +1069,30 @@ async function buildPalsTrayImage() {
       const lw = logo.info.width;
       const logoBuf = logo.data; // RGBA
 
-      // Centered, nudged up 1px so the tight shadow has room below it.
       const ox = Math.round((W - lw) / 2);
-      const oy = Math.max(0, Math.round((H - lh) / 2) - 1);
-      const shDX = 1, shDY = 1; // 1px hard-edged shadow, hugging the logo
+      const oy = Math.max(0, Math.round((H - lh) / 2));
 
       const canvas = Buffer.alloc(W * H * 4, 0); // BGRA straight-alpha
-
       const put = (x, y, b, g, r, a) => {
         if (x < 0 || y < 0 || x >= W || y >= H || a <= 0) return;
-        const i = (y * W + x) * 4;
+        const idx = (y * W + x) * 4;
         const sa = a / 255;
-        const da = canvas[i + 3] / 255;
+        const da = canvas[idx + 3] / 255;
         const oa = sa + da * (1 - sa);
         if (oa <= 0) return;
-        canvas[i]     = Math.round((b * sa + canvas[i]     * da * (1 - sa)) / oa);
-        canvas[i + 1] = Math.round((g * sa + canvas[i + 1] * da * (1 - sa)) / oa);
-        canvas[i + 2] = Math.round((r * sa + canvas[i + 2] * da * (1 - sa)) / oa);
-        canvas[i + 3] = Math.round(oa * 255);
+        canvas[idx]     = Math.round((b * sa + canvas[idx]     * da * (1 - sa)) / oa);
+        canvas[idx + 1] = Math.round((g * sa + canvas[idx + 1] * da * (1 - sa)) / oa);
+        canvas[idx + 2] = Math.round((r * sa + canvas[idx + 2] * da * (1 - sa)) / oa);
+        canvas[idx + 3] = Math.round(oa * 255);
       };
 
-      // Accent fill + a black silhouette border (no drop shadow). The border
-      // thickness scales with the representation so it reads consistently at
-      // every DPI (thicker on retina reps where 1px would look hairline).
-      const AT = 128; // alpha threshold for "solidly inside the figure"
-      const BORDER = scale + 1; // black outline thickness, in this rep's px
-      for (let y = 0; y < lh; y++) {
+      // The pink line-art, no drop shadow.
+      for (let y = 0; y < lh; y++)
         for (let x = 0; x < lw; x++) {
-          const j = (y * lw + x) * 4;
-          const a = logoBuf[j + 3];
-          if (a <= 0) continue;
-          // Edge = solid pixel within BORDER px of a (near-)transparent pixel.
-          let edge = false;
-          if (a >= AT) {
-            for (let dy = -BORDER; dy <= BORDER && !edge; dy++) {
-              for (let dx = -BORDER; dx <= BORDER; dx++) {
-                const nx = x + dx, ny = y + dy;
-                if (nx < 0 || ny < 0 || nx >= lw || ny >= lh) { edge = true; break; }
-                if (logoBuf[(ny * lw + nx) * 4 + 3] < AT) { edge = true; break; }
-              }
-            }
-          }
-          if (edge) put(ox + x, oy + y, 0, 0, 0, 255);
-          else put(ox + x, oy + y, logoBuf[j + 2], logoBuf[j + 1], logoBuf[j], a);
+          const j2 = (y * lw + x) * 4;
+          const a = logoBuf[j2 + 3];
+          if (a > 0) put(ox + x, oy + y, logoBuf[j2 + 2], logoBuf[j2 + 1], logoBuf[j2], a);
         }
-      }
 
       out.addRepresentation({ scaleFactor: scale, width: W, height: H, buffer: canvas });
       added++;
