@@ -1,12 +1,12 @@
-a candid vertical photograph, sharp and honest — NOT cinematic. everything in
-crisp focus: NO motion blur, NO bokeh, NO out-of-focus areas anywhere. portrait
-orientation. a hand may appear, but no full figure centered.
+a candid horizontal photograph, sharp and honest — NOT cinematic. everything in
+crisp focus: NO motion blur, NO bokeh, NO out-of-focus areas anywhere. wide
+landscape orientation. a hand may appear, but no full figure centered.
 
 a conceptual still: the whole aesthetic-computer stack as one legible
 hand-drawn diagram, photographed flat on a desk. a single large sheet of plain
 paper sits on a warm wooden desk, with a clean hand-lettered marker diagram: a
 vertical stack of four labeled boxes connected by arrows, reading top to bottom
-"KERNEL → LANGUAGE → COMMUNITY → ARCHIVE", drawn confidently in black marker
+"KERNEL → LANGUAGES → COMMUNITY → ARCHIVE", drawn confidently in black marker
 with a couple of accents in terminal green and pink. one hand rests at the edge
 of the paper, a marker between the fingers, mid-thought — fingers and pen sharp
 and legible. the lettering is friendly and human, not a printed graphic.
@@ -21,5 +21,5 @@ pink accents.
 
 avoid: motion blur, bokeh, soft focus, a printed/vector infographic look (it
 must read as hand-lettered marker on paper), recursive screens, extra logos,
-cartoon styling, mis-spelled labels — the four words KERNEL, LANGUAGE,
+cartoon styling, mis-spelled labels — the four words KERNEL, LANGUAGES,
 COMMUNITY, ARCHIVE must be spelled correctly.

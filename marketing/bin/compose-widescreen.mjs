@@ -279,4 +279,22 @@ writeFileSync(`${TMP}/cmd.sh`, cmd);
 console.log(`inputs: ${inputs.length}, overlays: ${idx} · running ffmpeg → ${OUT}`);
 const r = spawnSync("bash", ["-c", cmd], { stdio: "inherit" });
 console.log(r.status === 0 ? `✓ DONE ${OUT}` : `✗ ffmpeg exit ${r.status}`);
+
+// ── opening title card: render the branded card → a short push-in clip → concat ahead ─
+if (r.status === 0 && cfg.titleCard) {
+  console.log("rendering animated opener…");
+  const opener = `${TMP}/opener.mp4`;
+  const ro = spawnSync("node", [`${REPO}/marketing/bin/opener-anim.mjs`, campArg], { stdio: "inherit" });
+  if (ro.status === 0 && existsSync(opener)) {
+    // re-encode the join (concat filter) → clean, continuous timestamps so every
+    // player handles the boundary (stream-copy concat stalls QuickTime at the cut).
+    const final = `${TMP}/final.mp4`;
+    const rc = spawnSync("bash", ["-c",
+      `ffmpeg -y -i "${opener}" -i "${OUT}" -filter_complex "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]" ` +
+      `-map "[v]" -map "[a]" -r ${FPS} -c:v libx264 -pix_fmt yuv420p -crf 12 -preset medium -c:a aac -b:a 192k -movflags +faststart "${final}"`],
+      { stdio: "inherit" });
+    if (rc.status === 0) { execSync(`mv "${final}" "${OUT}"`); console.log(`✓ opener prepended → ${OUT}`); }
+    else console.error("✗ opener concat failed");
+  }
+}
 process.exit(r.status === 0 ? 0 : 1);
