@@ -33,7 +33,7 @@ export const audience = {
   // stretches the timeline ~3× and rewrites words.json/segments.json).
   sing: false,
 
-  narration: `Hey, I'm artist Jeffrey Alan Scudder, and here's what I can't stop thinking about. As everyone races to build higher-level intelligence services, computing is getting pulled into the data center. Your laptop is becoming a thin client, renting its intelligence by the month — and the personal computer you actually own is quietly disappearing. I think home computing needs a revolution at the operating system layer. Not another app — a different ground to stand on. So I built one. Aesthetic dot Computer boots a fifty-dollar surplus laptop straight into the notepat new media instrument. Notepat makes tunes you can type — so a song is something you write down and pass along, the way folk music has always moved. And here the picture, the code, and the music are one medium: you slide between drawing, programming, and playing without ever leaving the instrument. It's not a tool you use — you play it — and it all runs on an operating system built for nothing else. It is a commons. A tiny language, KidLisp, where a whole generative piece is six legible lines that live at their own web address. Twenty years ago the Princeton Laptop Orchestra proved a room of laptops could be a real instrument — but at fifteen hundred dollars a seat it stayed locked inside rich universities. Last year, when Windows ten ended, two hundred and forty million working computers became obsolete overnight. That's the raw material for a planetary orchestra — held in common, not thrown away. Three people with surplus laptops in a park can form a laptop orchestra. Language models are the force doing the enclosing — but they are also what lets one artist build and tend a whole operating system that used to take a company. So here is my question: can a creative o.s. take LLMs in as a local, owned faculty, on your own terms, instead of a tenant of the cloud? And that's the question of Aesthetic dot Computer, version twenty twenty-six. Thanks for listening.`,
+  narration: `Hey, I'm Jeffrey Alan Scudder. I'm a painter, and for six years I've been writing software and patterning for my own computer — a place to make things and give them away. It's called Aesthetic Computer. Here's the thing I can't stop thinking about. As the demand for AI compute pulls everything toward the data center, your laptop is turning into a thin client — a window onto someone else's machine, rented by the month. The personal computer, the one you actually own, is quietly disappearing. I think home computing needs a revolution at the operating system layer. Not another app — a different ground to stand on. I've spent six years building one. So that's what I built. Aesthetic Computer native OS boots a surplus laptop — a fifty-dollar ThinkPad the upgrade cycle threw away — straight into a creative instrument in about seven seconds, greeting you by name. And here the picture, the code, and the music are one medium. You play notepat — tunes you can type, so a song is something you write down and pass along, the way folk music always has — and you slide between drawing, programming, and playing without ever leaving the instrument. It is a commons. You make pieces in JavaScript or KidLisp, or add runtime support for new kinds, and we build it all in public, our own language models working right alongside us. It holds paintings, tapes, and chats too, each at its own web address. Twenty years ago the Princeton Laptop Orchestra proved a room of laptops could be a real instrument, but at fifteen hundred dollars a seat it stayed locked inside rich universities. Last year, when Windows ten ended, two hundred and forty million working computers became obsolete overnight. That is the raw material for a planetary orchestra — held in common, not thrown away. Three people with surplus laptops in a park can be a laptop orchestra. Language models change all of this. They are what pulls computing into the data center — but they are also what lets one artist build and tend a whole operating system that once took a company. So here is the question I want to live inside for six months: can a creative OS take language models in as a local, owned faculty, on your own terms, instead of a tenant of the cloud? I think Aesthetic Computer can answer that, because it already holds the whole stack — the kernel, the languages, the community, the archive. With the fellowship, I'd harden the OS, prototype that local faculty, and grow the orchestra with my community here in Los Angeles — all of it in the open. That's my art and convergence question: what does it take to keep a computer personal — and held in common? Thanks for listening.`,
 
   // Whisper renders these dictionary-style; rewrite the displayed subtitles.
   // Longer/multi-word fixes first so they win before single-word fixes.
@@ -41,6 +41,9 @@ export const audience = {
     "Kid Lisp": "kidlisp",
     "kid lisp": "kidlisp",
     "KidLisp": "kidlisp",
+    "Java Script": "javascript",
+    "java script": "javascript",
+    "JavaScript": "javascript",
     "think pad": "thinkpad",
     "Think Pad": "thinkpad",
     "AC Native OS": "aesthetic computer native os",
@@ -67,9 +70,10 @@ export const audience = {
     { name: "04_creative_os", marker: "surplus laptop" },
     { name: "05_commons", marker: "it is a commons" },
     { name: "05b_quote", marker: "three people" },
-    { name: "06_llms", marker: "language models are the force" },
-    { name: "07_poised", marker: "can a creative" },
-    { name: "09_outro", marker: "the question of" },
+    { name: "06_llms", marker: "language models change" },
+    { name: "07_poised", marker: "the whole stack" },
+    { name: "08_plan", marker: "with the fellowship" },
+    { name: "09_outro", marker: "art and convergence" },
     { name: "10_end", marker: "__END__", trailingSilenceSec: 3 },
   ],
 
@@ -115,8 +119,8 @@ export const audience = {
       <div class="frame">
         <div class="chapter" style="color:${PALETTE.dim}">02 · the commons</div>
         <div class="title-stack">
-          <div class="huge" style="color:${PALETTE.cream}">a planetary<br>laptop orchestra</div>
-          <div class="sub" style="color:${PALETTE.amber}">kidlisp · a url per piece · held in common</div>
+          <div class="huge" style="color:${PALETTE.cream}">many kinds<br>of work, in<br>common</div>
+          <div class="sub" style="color:${PALETTE.amber}">js + kidlisp · paintings · tapes · chats · a url each</div>
         </div>
       </div>`,
 
@@ -125,10 +129,10 @@ export const audience = {
     // fallback.
     "05b_quote": `
       <div class="frame">
-        <div class="chapter" style="color:${PALETTE.dim}">from the paper</div>
+        <div class="chapter" style="color:${PALETTE.dim}">the raw material</div>
         <div class="title-stack">
           <div class="huge" style="color:${PALETTE.cream}">three people<br>in a park</div>
-          <div class="sub" style="color:${PALETTE.amber}">plork'ing the planet — a verbatim extract</div>
+          <div class="sub" style="color:${PALETTE.amber}">240M pcs freed when windows 10 ended · plork in a park</div>
         </div>
       </div>`,
 
@@ -146,7 +150,7 @@ export const audience = {
         <div class="chapter" style="color:${PALETTE.dim}">why aesthetic computer</div>
         <div class="title-stack">
           <div class="huge" style="color:${PALETTE.cream}">it holds the<br>whole stack</div>
-          <div class="sub" style="color:${PALETTE.amber}">kernel · language · community · archive</div>
+          <div class="sub" style="color:${PALETTE.amber}">kernel · languages · community · archive</div>
         </div>
       </div>`,
 

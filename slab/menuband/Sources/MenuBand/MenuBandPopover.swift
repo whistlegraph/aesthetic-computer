@@ -851,41 +851,52 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
-        // Small "About" link, bottom-left. Opens the custom About
-        // window which now hosts the language picker + plugins
-        // chip + version. The current language flag is prepended
-        // to the link so the chip reads as "settings hide here"
-        // rather than just a version button.
-        let aboutLink = NSButton()
-        aboutLink.bezelStyle = .recessed
-        aboutLink.isBordered = false
-        aboutLink.controlSize = .small
-        let flag = Localization.language(for: Localization.current).flag
-        let aboutTitle = NSMutableAttributedString(
-            string: "\(flag)  ",
+        // "Keymap" — accent bezel button. Closes the popover and opens the
+        // full-screen keymap view (large piano + QWERTY + Notepat/
+        // Conventional toggle). Reuses the existing mini-visualizer-expand
+        // hook. Sits in the footer so Keymap / About / Quit share one
+        // bottom-aligned row.
+        let keymapButton = NSButton()
+        keymapButton.bezelStyle = .rounded
+        keymapButton.isBordered = true
+        keymapButton.bezelColor = .controlAccentColor
+        keymapButton.controlSize = .small
+        keymapButton.target = self
+        keymapButton.action = #selector(miniVisualizerClicked(_:))
+        keymapButton.attributedTitle = NSAttributedString(
+            string: "Keymap",
             attributes: [
-                .font: NSFont.systemFont(ofSize: 11),
-            ]
-        )
-        aboutTitle.append(NSAttributedString(
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            ])
+        keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
+
+        // "About" — colored bezel button (blue), peer to Keymap and Quit.
+        // Opens the identity/settings window (icon + flat-map language
+        // picker + version + the "Looking For Players?" link).
+        let aboutButton = NSButton()
+        aboutButton.bezelStyle = .rounded
+        aboutButton.isBordered = true
+        aboutButton.bezelColor = .systemBlue
+        aboutButton.controlSize = .small
+        aboutButton.target = self
+        aboutButton.action = #selector(showAboutPanel(_:))
+        aboutButton.attributedTitle = NSAttributedString(
             string: L("popover.about.link"),
             attributes: [
-                .foregroundColor: NSColor.secondaryLabelColor,
-                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
-            ]
-        ))
-        aboutLink.attributedTitle = aboutTitle
-        aboutLink.target = self
-        aboutLink.action = #selector(showAboutPanel(_:))
-        aboutLink.toolTip = "About / language / plugins"
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            ])
+        aboutButton.toolTip = "About / language / version"
 
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
         quitRow.alignment = .centerY
-        quitRow.spacing = 8
+        quitRow.spacing = 6
         let quitSpacer = NSView()
         quitSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        quitRow.addArrangedSubview(aboutLink)
+        quitRow.addArrangedSubview(keymapButton)
+        quitRow.addArrangedSubview(aboutButton)
         quitRow.addArrangedSubview(quitSpacer)
         quitRow.addArrangedSubview(quit)
         stack.addArrangedSubview(quitRow)
@@ -1331,7 +1342,7 @@ final class MenuBandPopoverViewController: NSViewController {
             // so the user can identify the voice by either number or
             // name at a glance. e.g. "078 Whistle".
             title = String(format: "%03d %@", safe + 1,
-                           GeneralMIDI.programNames[safe])
+                           GeneralMIDI.programName(safe))
             famColor = InstrumentListView.colorForProgram(safe)
         }
         applyInstrumentReadoutStyle(title: title, famColor: famColor)
@@ -2047,8 +2058,21 @@ final class MenuBandPopoverViewController: NSViewController {
             updateInfo: latestRemoteVersion,
             onOpenPlugins: { [weak menuBand] in
                 menuBand?.presentPluginPicker()
+            },
+            onSpeakLanguage: { [weak menuBand] name, code in
+                menuBand?.speakLanguageName(name, languageCode: code)
+            },
+            onPlayDrum: { [weak menuBand] in
+                menuBand?.playEasterEggDrum()
+            },
+            litNotesProvider: { [weak menuBand] in
+                menuBand?.litNotes ?? []
             }
         )
+    }
+
+    @objc func showJamPanel(_ sender: Any?) {
+        JamWindowController.show()
     }
 
     @objc private func openNotepat() {

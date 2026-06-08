@@ -41,6 +41,7 @@ Open follow-ups (queued, not blockers):
 - **Status:** RELEASED — delivered via DistroKid 2026-05-22, live in
   stores. Assets published to the AC assets CDN 2026-05-22.
 - **Listen (canonical):** https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG
+- **Apple Music:** https://music.apple.com/us/album/marimbaba/6772460819?i=6772460820
 - **Assets (AC CDN):**
   - audio — https://assets.aesthetic.computer/pop/marimbaba.mp3
   - cover — https://assets.aesthetic.computer/pop/marimbaba.jpg
@@ -101,6 +102,7 @@ Open follow-ups (queued, not blockers):
 - **Artist:** Aesthetic Dot Computer
 - **Released:** 2026-05-21 via DistroKid
 - **Listen (canonical):** https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8
+- **Apple Music:** https://music.apple.com/us/album/helpabeach/6772056808?i=6772057057
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=B1F5253A-11FA-40EF-83A89866A157829A (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run pop:assets:up`):
   - audio · https://assets.aesthetic.computer/pop/helpabeach.mp3 (320 k mp3 of the master, 151.1 s)
@@ -132,6 +134,7 @@ Open follow-ups (queued, not blockers):
 - **Lane:** `pop/dance/` · dark/emo/extreme war-arc trance-waltz, ~1:26
 - **Released:** 2026-05-17 via DistroKid
 - **Listen (canonical):** https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum
+- **Apple Music:** https://music.apple.com/us/album/trancenwaltz/6773318345?i=6773318348
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=8FF25085-8F58-4A3A-986A52A21D638805 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancenwaltz.mp3 (320 k mp3 of the bright master, 86.62 s)
@@ -214,6 +217,8 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **Status:** **RELEASED — v2 FINAL master (2026-06-03).** v2 re-uploaded to
   DistroKid/stores by @jeffrey; CDN assets published. (v1 went to DistroKid
   2026-06-02, superseded by v2.)
+- **Listen (canonical):** https://open.spotify.com/track/4hVFWMISa235ybIEfOYuwt
+- **Apple Music:** https://music.apple.com/us/album/amaythingra/6776359148?i=6776359150
 - **Canonical assets** (DO Spaces CDN, `pop/` flat path like marimbaba):
   - audio (wav) — https://assets.aesthetic.computer/pop/amaythingra.wav
   - audio (mp3) — https://assets.aesthetic.computer/pop/amaythingra.mp3
@@ -438,6 +443,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   in post-vortex. Spec: `pop/dance/trancepenta.md`.
 - **Released:** 2026-05-20 via DistroKid
 - **Listen (canonical):** https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG
+- **Apple Music:** _not yet distributed to Apple Music (only 5 of the 6 pixsies singles are on the artist's Apple catalog as of 2026-06-07); backfill once it propagates._
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=860FA7AC-AE6E-4B0A-ABC6E1514D273054 (admin-only)
 - **CDN assets** (canonical, public — `system/public/assets/pop/`, gitignored, synced via `npm run assets:sync:up`):
   - audio · https://assets.aesthetic.computer/pop/trancepenta.mp3 (320 k mp3 of the radio-balanced master, 190.69 s)
@@ -546,8 +552,8 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **Artist:** Aesthetic Dot Computer
 - **Released:** 2026-05-26 via DistroKid
 - **DistroKid dashboard:** https://distrokid.com/dashboard/album/?albumuuid=5BAE15FB-BDDF-4C1D-8EBFB2E68D7D4A9C (admin-only)
-- **Listen (canonical):** _Spotify URL pending — fill in once the store
-  page is live._
+- **Listen (canonical):** https://open.spotify.com/track/1yauGyuJPMzDadtu8S5llk
+- **Apple Music:** https://music.apple.com/us/album/hellsine/6773624140?i=6773624141
 - **Form:** hardcore spine carrying a hand-composed John Williams arc —
   heroic D-minor leitmotif: overture (typewriter keys + sine strings
   hint, no kick) → statement (brass + gabber kick + first vocal pass) →
@@ -628,9 +634,10 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
     5 Hz wobble, 6 s pan sweep, 0.045 gain).
   - **Key 5 typewriter reverse-kick swell** (320 ms, 48 → 78 Hz,
     squared envelope) — only intentional reverse in the opening.
-- **Next:** Spotify URL drop-in once live · 3000² cover + CDN sync
+- **Next:** 3000² cover + CDN sync
   (`assets.aesthetic.computer/pop/hellsine.{mp3,jpg}`) · canvas/IG cut
-  via `pop/hellsine/bin/preview-score.mjs` (not yet built).
+  via `pop/hellsine/bin/preview-score.mjs` (not yet built). (Spotify +
+  Apple Music URLs now live — see Listen line above.)
 
 ## trancenwaltzi — RENDER (not yet released)
 
@@ -667,6 +674,74 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   (`assets.aesthetic.computer/pop/trancenwaltzi.jpg` / `.mp3`) → master
   ear-check → DistroKid (artist "Aesthetic Dot Computer") → add the
   **trancenwaltzi — RELEASED** entry here.
+
+---
+
+## moronbobasleep — WIP (10-minute Bachian remix of marimbaba)
+
+- **Lane:** `pop/moronboba/` · a 10:00 **remix of marimbaba**, the twin of
+  marimbaba the way `pop/sleephellsine/` is the twin of `pop/hellsine/` —
+  but it keeps the **actual marimba synth** (`pop/marimba/synths/marimba.mjs`),
+  which is what makes it a marimbaba *remix* and not a sleephellsine clone.
+  Began as a calm sleep drone; evolved (2026-06-08) into a slow, **Bachian,
+  rolling, ever-transforming** piece that travels through keys over its 10
+  minutes. "Moron" = the lullaby gone dozy + dumb-slow. Part of the *pixsies*
+  body.
+- **Artist:** Aesthetic Dot Computer (intended)
+- **Status:** WIP — sound + cover iterating (last pass 2026-06-08); not yet on
+  the CDN or DistroKid.
+- **Engine:** `pop/moronboba/bin/render-moronbobasleep.mjs` — a **generative**
+  renderer (deterministic per `--seed`, default `moronbobasleep`). It opens on
+  a real **CC0 rainforest-rain** sample (Freesound #634889 "El Yunque", by
+  lkillam7 — see `assets/.sfx-credits.txt`), big then settling to a bed, and
+  then builds a contrapuntal baroque texture over a fixed **functional
+  progression** (ii–V–I / plagal / modal Eb) in F major:
+  - **FIBONACCI-ARCH NIGHT NARRATIVE** — 9 movements (bars 3·5·8·13·21·34·55·34·13)
+    that are chapters of a night (drift → settle → sink → deepening → dreaming
+    → deep dream → THE DREAM → strange REM → dawn). Bar-counts grow to a LATE
+    peak so the climax lands near the **golden section** (~0.6 of the runtime),
+    then recede; each movement has its own dynamic **level**, key (gentle
+    journey, home at the ends), whistle **register**, and density — a real
+    arc, not a loop. A baked dynamic curve + a gentle (non-levelling) master
+    keep it (verified: per-minute loudness swells ≈ −21 → −17 → −21 dB);
+  - **per-chapter PROGRESSIONS** — each movement walks its OWN functional
+    progression (calm tonic → ii–V–I → circle-ish turns → modal Eb in REM →
+    plagal homecoming), so the harmony itself journeys, not just the dynamics;
+  - **broken-chord arpeggio** figuration (Prelude-in-C style), felt-soft, drawn
+    from an **8-pattern library** the renderer walks through bar to bar (range
+    widening from 5→7 tones into the dream) so it keeps reshaping;
+  - a **WHISTLE** top melody (MenuBand instrument-79 vibe — sine + breath +
+    fade-in vibrato + pitch scoop), voice-led + harmonised a third below;
+  - a **walking bass**, a **quaternary (alto)** inner voice in the bigger
+    movements (four-part harmony), a chord sparkle on a **Euclidean E(5,8)**
+    rhythm, **triplet** flourishes deep in;
+  - fractal **pterodactyl swoops** — gnarly self-similar up-then-dive screech
+    runs clustering at the climax;
+  - underneath: the **felted** 5-voice drone (warbly + fizzy, phaser + stereo
+    chorus) + deep sub **wub**, **reverso sine bells** that peak on chord
+    arrivals, and a lush Schroeder reverb;
+  - **sidechain tempering** — the bass pumps the drone/sub; the arpeggio ducks
+    under the whistle (voices breathe around each other);
+  - **SOFT FELT MALLETS** throughout (long mallet contact + slow attack).
+  Every render self-runs a **clip test** (sample/true peak + LUFS).
+- **Master:** `~/Documents/Shelf/moronboba/moronbobasleep-MASTER.wav`
+  (44.1 kHz / 24-bit) + `moronbobasleep.mp3` (320k). **Sleep** chain (kept
+  gentle so the dynamic arc lives): highpass 22 → +3 dB low shelf @ 85 → −1 dB
+  shelf @ 4.2 k → ONE soft slow glue comp (2:1, no leveller) → whisper of air
+  → 8 s fade-in / 14 s fade-out → **two-pass `loudnorm I=-16 TP=-1 LRA=18`**,
+  truncate to 10:00. Measured **≈ −16 LUFS / −2.6 dBTP, no clipping**. (Durable
+  home is `~/Documents/Shelf/` — Desktop auto-cleans, [[feedback_desktop_autocleaned]].)
+- **Cover:** `pop/moronboba/out/moronbobasleep-cover.png` (1024²,
+  gpt-image-2 via `bin/gen-illy.mjs` + `moronbobasleep.illy.txt`) —
+  marimbaba's cover identity reborn as **felt characters**: needle-felted
+  wool dolls of jeffrey + Bill Gates asleep, leaning together, in a ravey
+  **dayglow night-light** glow (neon stars, glowing full moon, foveated
+  soft edges), the **white IBM Selectric** (chrome type ball, from the
+  marimbaba video prompts) under their resting hands. jeffrey's yellow
+  Sailor pen + Gates' red pen kept; embedded in the mp3.
+- **Next:** ear-check the master → CDN
+  (`assets.aesthetic.computer/pop/moronbobasleep.jpg` / `.mp3`) →
+  DistroKid → promote this entry to **RELEASED**.
 
 ---
 

@@ -36,6 +36,17 @@ final class MenuBandController {
     private let tapeWaveformPinReason = "tape"
     private var keyTap: KeyEventTap?
     private var heldNotes: [UInt16: UInt8] = [:]
+    /// Chord EXTENSION voices for a held key, keyed by interval (semitones
+    /// above the root) → voice. The root itself (interval 0) always lives in
+    /// `heldNotes`/`heldKeyChannel` and is NEVER stored here, so a live chord
+    /// morph only ever adds / removes / swaps these extension tones — the root
+    /// keeps sounding untouched. Because the 5th (interval 7) is shared by
+    /// major/minor/sus, morphing between those qualities re-voices ONLY the
+    /// third (4 → 3 → 2); the root and 5th sustain through the change, so it
+    /// reads as the chord swapping its third, not a retrigger of the whole
+    /// stack. The matching key-up releases the root (normal single-note path)
+    /// plus every extension here together (lingering like Shift when armed).
+    private var morphExt: [UInt16: [Int: (note: UInt8, channel: UInt8, display: UInt8)]] = [:]
     /// Synth channel each held keystroke is voicing on. Mirrors
     /// `tapNoteChannel` for the menubar-tap path: round-robin across
     /// melodic channels 0–7 lets fast same-key retriggers overlap as
@@ -49,6 +60,21 @@ final class MenuBandController {
     /// once on press so a release-shift-mid-hold still rings out the
     /// note that was started under shift.
     private var heldKeyLinger: [UInt16: Bool] = [:]
+    /// Live chord-morph bookkeeping. While a note key is physically held,
+    /// pressing / releasing ⌃ / ⌘ re-voices that key between a single note
+    /// and a triad WITHOUT a fresh keystroke — the morph is driven by
+    /// `.flagsChanged` (see `morphHeldKeys`), so it works the same in TYPE
+    /// mode and quiet-focus. We capture the root pitch + octave shift + the
+    /// user's linger intent ONCE at press; the morph re-voices from those so
+    /// the chord stays anchored to the originally-pressed key no matter how
+    /// the octave shifts mid-hold. `morphQuality` is the CURRENT sounding
+    /// shape (0 = single, 1 = major, 2 = minor, 3 = sus) — compared against
+    /// the modifier-derived desired shape so an idempotent flagsChange (e.g.
+    /// Shift toggling) doesn't needlessly retrigger.
+    private var morphRoot: [UInt16: UInt8] = [:]
+    private var morphShift: [UInt16: Int] = [:]
+    private var morphLinger: [UInt16: Bool] = [:]
+    private var morphQuality: [UInt16: Int] = [:]
     /// Enter-latch (port of notepat-native): while Return is held, any
     /// note pressed is *latched* — its key-up is swallowed so the note
     /// sustains indefinitely. Backspace pops the most-recent latched
@@ -591,7 +617,11 @@ final class MenuBandController {
         get { UserDefaults.standard.integer(forKey: octaveShiftKey) }
         set {
             UserDefaults.standard.set(newValue, forKey: octaveShiftKey)
-            releaseAllHeldNotes()
+            // Held notes are stored by their actual (already octave-baked)
+            // MIDI value, so we DON'T release them here — a note you're
+            // holding keeps sounding at its original pitch when you bump the
+            // octave; only the NEXT press uses the new octave. (Their key-up
+            // still releases the correct stored note.)
             onChange?()
         }
     }
@@ -854,7 +884,55 @@ final class MenuBandController {
     /// every backend equally, independent of the selected instrument.
     func setEcho(amount: Float) {
         synth.setEcho(amount)
+        // Mirror onto the spacebar tape playback so a mouse swipe while space
+        // is held echoes the reverse audio too (its own insert — see synth).
+        synth.setRewindEcho(amount: amount)
     }
+
+    /// Speak a language's own name through the fx bus — the About-window
+    /// flat-map language picker calls this on each pick, so the spoken
+    /// name picks up whatever bend/space/echo the last gesture left on.
+    func speakLanguageName(_ text: String, languageCode: String) {
+        synth.speak(text, languageCode: languageCode)
+    }
+
+    /// One random drum hit for the About-window card-flip easter egg.
+    func playEasterEggDrum() {
+        synth.playEasterEggDrum()
+    }
+
+    /// Spacebar reverse-replay (notepat-native parity). Plays the most-recent
+    /// few seconds of what just sounded, backwards. The synth keeps a rolling
+    /// ring of its post-FX output at all times; this snapshots + reverses it.
+    /// Bounced to the main thread because `playKeyEvent` runs on the
+    /// KeyEventTap background thread and reverse playback mutates the engine
+    /// graph + schedules a player buffer (both main-thread-only).
+    /// True while the spacebar reverse-replay is sounding — drives the
+    /// popover waveform strip's direction indicator (◀ reverse vs ▶ live).
+    private(set) var isRewinding = false
+
+    func rewind() {
+        isRewinding = true
+        DispatchQueue.main.async { [weak self] in
+            self?.synth.playReverse()
+        }
+    }
+
+    /// Spacebar released — stop reverse playback. Capture stays frozen until
+    /// the next note (notepat's trick), so repeated presses re-reverse the
+    /// same window from the same start.
+    func rewindRelease() {
+        isRewinding = false
+        DispatchQueue.main.async { [weak self] in
+            self?.synth.releaseReverse()
+        }
+    }
+
+    /// Reverse window length (seconds) — for the waveform strip's scrub.
+    var rewindWindowSeconds: Double { synth.rewindWindowSeconds }
+
+    /// Reverse playback progress (0…1) or nil — for the strip's playhead.
+    func rewindProgress() -> Double? { synth.rewindProgress() }
 
     func setBend(amount: Float, allChannels: Bool = false) {
         // No clamp here — the trackpad accumulator can swing past
@@ -904,6 +982,12 @@ final class MenuBandController {
             // slides in pitch with everything else.
             synth.setRadioPitchBend(amount: amount)
         }
+        // Speech easter-egg voice slides too — applied regardless of
+        // midiMode since it always sounds locally through the fx bus.
+        synth.setSpeechPitchBend(amount: amount)
+        // Spacebar tape playback bends too (its own source-side pitch insert),
+        // so moving the mouse while space is held slides the reverse audio.
+        synth.setRewindBend(amount: amount)
         for ch in channels { midi.sendPitchBend(value: value, channel: ch) }
     }
 
@@ -958,6 +1042,12 @@ final class MenuBandController {
 
     func stepOctave(delta: Int) {
         octaveStepOnce(delta: delta)
+    }
+
+    /// Wood-block tick for an octave-swipe detent (swipe path only — key
+    /// presses stay silent per jas's earlier ask). `up` pans the tick.
+    func playOctaveTick(up: Bool) {
+        synth.playOctaveTick(up: up)
     }
 
     // MARK: - Instrument backend (GM vs GarageBand)
@@ -1092,7 +1182,7 @@ final class MenuBandController {
             return garageBandPatchURL?.deletingPathExtension().lastPathComponent ?? "GarageBand patch"
         case .gm:
             let safe = max(0, min(127, Int(effectiveMelodicProgram)))
-            return String(format: "%03d %@", safe + 1, GeneralMIDI.programNames[safe])
+            return String(format: "%03d %@", safe + 1, GeneralMIDI.programName(safe))
         }
     }
 
@@ -1696,6 +1786,225 @@ final class MenuBandController {
     /// playing live notes over the linger without stealing voices.
     /// Drums always skip the synth.noteOff (existing convention) so
     /// the kit sample plays through.
+    /// Semitone intervals (ABOVE the root, root excluded) for a chord quality.
+    /// 0 = single (no extensions), 1 = major, 2 = minor, 3 = sus. The 5th (7)
+    /// is shared by all three triads on purpose — see `setChordVoices`.
+    private static func chordIntervals(quality: Int) -> [Int] {
+        switch quality {
+        case 1: return [4, 7]   // major third + fifth
+        case 2: return [3, 7]   // minor third + fifth
+        case 3: return [2, 7]   // sus2 (second) + fifth
+        default: return []      // single note: root only
+        }
+    }
+
+    /// Re-voice a held key's chord EXTENSIONS to match `quality`, by diffing
+    /// the desired intervals against what's already sounding. Shared intervals
+    /// (the 5th across major/minor/sus) are left untouched — so flipping
+    /// quality only retriggers the tone that actually changes (the third),
+    /// and the root (in `heldNotes`) is never touched at all. That's the
+    /// "swap the third, don't retrigger the chord" feel. `pan`/`shift` mirror
+    /// the press-time voice so added tones sit where the root sits.
+    private func setChordVoices(keyCode: UInt16, rootNote: UInt8, shift: Int,
+                               quality: Int) {
+        let desired = Set(Self.chordIntervals(quality: quality))
+        let pan = MenuBandLayout.panForKeyCode(keyCode)
+        heldLock.lock()
+        var ext = morphExt[keyCode] ?? [:]
+        let current = Set(ext.keys)
+        var removedDisplays: [UInt8] = []
+        var addedDisplays: [UInt8] = []
+        // Remove intervals no longer wanted (hard-cut: a morph should leave a
+        // clean stack; the eventual key-up handles the lingering tail).
+        for iv in current.subtracting(desired) {
+            if let v = ext.removeValue(forKey: iv) {
+                if !midiMode { synth.noteOff(v.note, channel: v.channel) }
+                midi.noteOff(v.note)
+                removedDisplays.append(v.display)
+            }
+        }
+        // Add newly-wanted intervals on fresh round-robin channels.
+        for iv in desired.subtracting(current) {
+            let vNote = Int(rootNote) + iv
+            guard vNote <= 127 else { continue }
+            let note = UInt8(vNote)
+            let ch = nextMelodicChannel()
+            let display = UInt8(max(60, min(83, Int(note) - shift * 12)))
+            if !midiMode { synth.setPan(pan, channel: ch) }
+            cancelLingerFade(channel: ch)
+            primeChannelBend(ch)
+            if !midiMode { synth.noteOn(note, velocity: 100, channel: ch) }
+            midiNoteOn(note, velocity: 100, channel: 0)
+            ext[iv] = (note, ch, display)
+            addedDisplays.append(display)
+        }
+        if ext.isEmpty { morphExt.removeValue(forKey: keyCode) }
+        else { morphExt[keyCode] = ext }
+        heldLock.unlock()
+        guard !removedDisplays.isEmpty || !addedDisplays.isEmpty else { return }
+        let relight = { [weak self] in
+            guard let self = self else { return }
+            var changed = false
+            for d in removedDisplays {
+                // Keep a cell lit if the root (or another voice) still uses it.
+                let stillHeld = self.heldKeyDisplayNote.values.contains(d)
+                    || self.morphExt.values.contains { $0.values.contains { $0.display == d } }
+                if !stillHeld {
+                    self.litDownAt.removeValue(forKey: d)
+                    if self.litNotes.remove(d) != nil { changed = true }
+                }
+            }
+            for d in addedDisplays {
+                self.litDownAt[d] = CACurrentMediaTime()
+                if self.litNotes.insert(d).inserted { changed = true }
+            }
+            if changed { self.onLitChanged?() }
+        }
+        if Thread.isMainThread { relight() } else { DispatchQueue.main.async(execute: relight) }
+    }
+
+    /// Release a held key's chord extension voices (root is released by the
+    /// normal single-note path). Lingers each like Shift when `linger`. Returns
+    /// the display cells that were extinguished so the caller can repaint.
+    @discardableResult
+    private func releaseMorphExt(keyCode: UInt16, linger: Bool) -> [UInt8] {
+        heldLock.lock()
+        let ext = morphExt.removeValue(forKey: keyCode)
+        heldLock.unlock()
+        guard let ext = ext, !ext.isEmpty else { return [] }
+        var displays: [UInt8] = []
+        for (_, v) in ext {
+            if linger {
+                releaseLingering(midiNote: v.note, synthChannel: v.channel,
+                                 midiChannel: 0, isDrum: false, originalVelocity: 100)
+            } else {
+                if !midiMode { synth.noteOff(v.note, channel: v.channel) }
+                midi.noteOff(v.note)
+            }
+            displays.append(v.display)
+        }
+        let extinguish = { [weak self] in
+            guard let self = self else { return }
+            var changed = false
+            for d in displays {
+                let stillHeld = self.heldKeyDisplayNote.values.contains(d)
+                if !stillHeld {
+                    self.litDownAt.removeValue(forKey: d)
+                    if self.litNotes.remove(d) != nil { changed = true }
+                }
+            }
+            if changed { self.onLitChanged?() }
+        }
+        if Thread.isMainThread { extinguish() } else { DispatchQueue.main.async(execute: extinguish) }
+        return displays
+    }
+
+    // MARK: Live chord morph
+
+    /// Forget the morph intent for a key (called on physical key-up). Guarded
+    /// by `heldLock` because the morph dictionaries are written from the global
+    /// tap's background thread (keyDown) and read on main (the flagsChanged
+    /// morph monitor).
+    private func clearMorphState(_ keyCode: UInt16) {
+        heldLock.lock()
+        morphRoot.removeValue(forKey: keyCode)
+        morphShift.removeValue(forKey: keyCode)
+        morphLinger.removeValue(forKey: keyCode)
+        morphQuality.removeValue(forKey: keyCode)
+        heldLock.unlock()
+    }
+
+    /// Record the press-time morph intent for a key (called from both keyDown
+    /// branches). `quality`: 0 = single, 1 = major, 2 = minor, 3 = sus.
+    private func setMorphState(_ keyCode: UInt16, root: UInt8, shift: Int,
+                              linger: Bool, quality: Int) {
+        heldLock.lock()
+        morphRoot[keyCode] = root
+        morphShift[keyCode] = shift
+        morphLinger[keyCode] = linger
+        morphQuality[keyCode] = quality
+        heldLock.unlock()
+    }
+
+    /// Modifier-derived chord shape: 0 = single (no ⌃/⌘), 1 = major (⌃),
+    /// 2 = minor (⌘), 3 = sus (⌃+⌘). Mirrors the keyDown chord scheme so a
+    /// held note and a freshly-pressed chord agree on what each modifier means.
+    private static func chordQuality(modifier: Bool, minor: Bool, sus: Bool) -> Int {
+        guard modifier else { return 0 }
+        if sus { return 3 }
+        return minor ? 2 : 1
+    }
+
+    /// Re-voice every physically-held note key to match the current ⌃/⌘ state.
+    /// Driven by the AppDelegate's `.flagsChanged` monitors: while you hold a
+    /// letter, tapping ⌃ blooms it into a major triad, adding ⌘ swings it to
+    /// sus, dropping ⌃ leaves minor, releasing both collapses back to the lone
+    /// note — all live, with the key still down. Idempotent per key (skips when
+    /// the shape is unchanged) so the stream of flagsChanged events that a
+    /// single modifier press emits doesn't machine-gun retriggers.
+    func morphHeldKeys(chordModifier: Bool, chordMinor: Bool, chordSus: Bool) {
+        let desired = Self.chordQuality(modifier: chordModifier,
+                                        minor: chordMinor, sus: chordSus)
+        // Snapshot under the lock — the per-key revoice helpers below take
+        // `heldLock` themselves (NSLock isn't recursive), so we must NOT hold
+        // it across them. Copying the intent dictionaries up front also gives
+        // a stable view while we mutate them.
+        heldLock.lock()
+        let roots = morphRoot
+        let shifts = morphShift
+        let lingers = morphLinger
+        let qualities = morphQuality
+        heldLock.unlock()
+        for (keyCode, root) in roots {
+            let current = qualities[keyCode] ?? 0
+            if current == desired { continue }
+            let shift = shifts[keyCode] ?? 0
+            // The root stays put in `heldNotes` — only the chord extensions
+            // change. setChordVoices diffs intervals so the 5th sustains and
+            // just the third swaps (or both extensions drop when collapsing to
+            // a single note). No retrigger of the root, ever.
+            setChordVoices(keyCode: keyCode, rootNote: root, shift: shift,
+                           quality: desired)
+            // Only commit the new shape if the key is still held — a key-up
+            // that raced in between (global tap is on a bg thread) cleared the
+            // intent, and we must not resurrect morphQuality for a dead key.
+            heldLock.lock()
+            if morphRoot[keyCode] != nil { morphQuality[keyCode] = desired }
+            heldLock.unlock()
+        }
+        _ = lingers   // press-time linger is applied at key-up, not on morph
+    }
+
+    /// Play a lone melodic root note for `keyCode`. Used by the chord keyDown
+    /// path to establish the root in `heldNotes` before `setChordVoices` adds
+    /// the extensions — so a chord that's pressed all-at-once shares the exact
+    /// same root-in-`heldNotes` structure a morph relies on. Records
+    /// `heldKeyLinger` so the eventual key-up rings (or cuts) like any note.
+    private func playSingleVoice(keyCode: UInt16, note: UInt8, shift: Int, linger: Bool) {
+        let synthCh = nextMelodicChannel()
+        let displayNote = UInt8(max(60, min(83, Int(note) - shift * 12)))
+        heldLock.lock()
+        heldNotes[keyCode] = note
+        heldKeyChannel[keyCode] = synthCh
+        heldKeyDisplayNote[keyCode] = displayNote
+        heldKeyLinger[keyCode] = linger
+        heldLock.unlock()
+        lastPlayedNote = note
+        let pan = MenuBandLayout.panForKeyCode(keyCode)
+        if !midiMode { synth.setPan(pan, channel: synthCh) }
+        cancelLingerFade(channel: synthCh)
+        primeChannelBend(synthCh)
+        midi.sendCC(10, value: pan, channel: 0)
+        if !midiMode { synth.noteOn(note, velocity: 100, channel: synthCh) }
+        midiNoteOn(note, velocity: 100, channel: 0)
+        let setLit = { [weak self] in
+            guard let self = self else { return }
+            self.litDownAt[displayNote] = CACurrentMediaTime()
+            if self.litNotes.insert(displayNote).inserted { self.onLitChanged?() }
+        }
+        if Thread.isMainThread { setLit() } else { DispatchQueue.main.async(execute: setLit) }
+    }
+
     private func releaseLingering(midiNote: UInt8,
                                   synthChannel: UInt8,
                                   midiChannel: UInt8,
@@ -2077,7 +2386,11 @@ final class MenuBandController {
         let side = Self.lingerSide(rawFlags: flags.rawValue,
                                    shiftDown: flags.contains(.maskShift),
                                    capsOn: flags.contains(.maskAlphaShift))
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, lingerSide: side)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
+                            hasModifier: hasMod, lingerSide: side,
+                            chordModifier: flags.contains(.maskControl) || flags.contains(.maskCommand),
+                            chordMinor: flags.contains(.maskCommand),
+                            chordSus: flags.contains(.maskControl) && flags.contains(.maskCommand))
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -2101,7 +2414,11 @@ final class MenuBandController {
         let side = Self.lingerSide(rawFlags: UInt64(flags.rawValue),
                                    shiftDown: flags.contains(.shift),
                                    capsOn: flags.contains(.capsLock))
-        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, hasModifier: hasMod, lingerSide: side)
+        return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
+                            hasModifier: hasMod, lingerSide: side,
+                            chordModifier: flags.contains(.control) || flags.contains(.command),
+                            chordMinor: flags.contains(.command),
+                            chordSus: flags.contains(.control) && flags.contains(.command))
     }
 
     /// Shared note logic for both the global CGEventTap path and the
@@ -2111,9 +2428,68 @@ final class MenuBandController {
     /// past key-up so it rings on its release envelope (sustained
     /// voices) rather than cutting on release.
     @discardableResult
-    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none) -> Bool {
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false) -> Bool {
+        // Ctrl-chord: holding Ctrl + a note key plays & HOLDS that key's
+        // triad (the pressed note is the root), lingering on release just
+        // like Shift. Ctrl = major, Ctrl+⌘ = minor. Ctrl is global — no
+        // left/right sidedness. The release is checked on EVERY key-up (not
+        // gated by Ctrl still being held) so letting go of Ctrl first can't
+        // strand a sounding chord.
+        if !isDown {
+            // End of a physical hold: drop the morph intent so a future ⌃/⌘
+            // tap can't resurrect this key. The root + any chord extensions
+            // are released below by the normal single-note key-up path (the
+            // root lives in `heldNotes`; `releaseMorphExt` clears the rest).
+            clearMorphState(keyCode)
+        }
+        if chordModifier, isDown {
+            let shift = octaveShift
+            if let root = MenuBandLayout.midiNote(forKeyCode: keyCode,
+                                                  octaveShift: shift, keymap: keymap) {
+                // CONSUME the whole keystroke — including auto-repeat — so a
+                // held Cmd/Ctrl + note combo can never reach the focused app
+                // and fire (or repeat-fire) its shortcut (Cmd-W, Cmd-Q,
+                // Cmd-Z, …). Only the first down triggers the chord.
+                if !isRepeat {
+                    // Root into `heldNotes` (so it stays put through morphs and
+                    // the key-up releases it), then layer the chord extensions
+                    // on top — the exact structure a held note morphs into.
+                    playSingleVoice(keyCode: keyCode, note: root, shift: shift,
+                                    linger: lingerSide.isLingering)
+                    let quality = chordSus ? 3 : (chordMinor ? 2 : 1)
+                    setChordVoices(keyCode: keyCode, rootNote: root, shift: shift,
+                                   quality: quality)
+                    // Anchor the morph so releasing/adding ⌃/⌘ while the key is
+                    // still down re-voices between major/minor/sus/single.
+                    setMorphState(keyCode, root: root, shift: shift,
+                                  linger: lingerSide.isLingering, quality: quality)
+                }
+                return true
+            }
+            // Not a note key — fall through so real Cmd/Ctrl shortcuts that
+            // don't collide with a note (Cmd-Tab, Ctrl-arrow, …) still pass
+            // through to the system.
+        }
+
         // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual.
         if hasModifier { return false }
+
+        // Spacebar (keyCode 49) = reverse-replay (notepat-native parity).
+        // Plain space rewinds the most-recent audio; we intercept it BEFORE
+        // it can fall through to the note/typing path so it never leaks a
+        // note or a literal space character. Trigger on the first key-down
+        // (ignore auto-repeat); consume key-up too so it stays swallowed.
+        if keyCode == 49 /* kVK_Space */ {
+            // Hold-to-reverse (notepat model): press starts reverse playback
+            // of the audio since the last press; release stops it and resumes
+            // live capture so the next press reverses whatever you play next.
+            if isDown {
+                if !isRepeat { rewind() }
+            } else {
+                rewindRelease()
+            }
+            return true
+        }
 
         // Enter-latch (notepat-native parity). Return (keyCode 36) is the
         // latch modifier: while it's held, notes you press get latched on
@@ -2434,6 +2810,12 @@ final class MenuBandController {
             heldKeyChannel[keyCode] = synthCh
             heldKeyDisplayNote[keyCode] = displayNote
             heldKeyLinger[keyCode] = linger
+            // Morph anchor: a plain note press starts as a single voice, but
+            // tapping ⌃/⌘ while it's still held blooms it into a chord live.
+            morphRoot[keyCode] = note
+            morphShift[keyCode] = shift
+            morphLinger[keyCode] = linger
+            morphQuality[keyCode] = 0
             heldLock.unlock()
             if let prevNote = prevNote {
                 if !midiMode { synth.noteOff(prevNote, channel: prevCh ?? 0) }
@@ -2513,6 +2895,9 @@ final class MenuBandController {
             let displayNote = heldKeyDisplayNote.removeValue(forKey: keyCode)
             let wasLinger = heldKeyLinger.removeValue(forKey: keyCode) ?? false
             heldLock.unlock()
+            // Release any chord extensions stacked on this key (⌃/⌘ morph),
+            // ringing them out with the same linger the root gets.
+            releaseMorphExt(keyCode: keyCode, linger: wasLinger)
             guard let releasedNote = note else { return true }  // consume the up too
             if wasLinger {
                 // Keyboard always plays melodic (QWERTY notes start at
@@ -2573,6 +2958,8 @@ final class MenuBandController {
         let displayNote = heldKeyDisplayNote.removeValue(forKey: keyCode)
         let wasLinger = heldKeyLinger.removeValue(forKey: keyCode) ?? false
         heldLock.unlock()
+        clearMorphState(keyCode)
+        releaseMorphExt(keyCode: keyCode, linger: wasLinger)
         guard let releasedNote = note else { return }
         if wasLinger {
             releaseLingering(midiNote: releasedNote, synthChannel: synthCh,
@@ -2603,11 +2990,26 @@ final class MenuBandController {
         latchArmedKeys.removeAll()
         latchedKeys.removeAll()
         enterLatchHeld = false
+        let chordSnapshot = morphExt
+        morphExt.removeAll()
+        morphRoot.removeAll()
+        morphShift.removeAll()
+        morphLinger.removeAll()
+        morphQuality.removeAll()
         let drumSnapshot = heldDrumKeys
         let drumDisplaySnapshot = heldDrumDisplay
         heldDrumKeys.removeAll()
         heldDrumDisplay.removeAll()
         heldLock.unlock()
+        // Silence any held chord-extension voices (panic() below also catches
+        // these, but be explicit so MIDI listeners get clean note-offs). The
+        // roots ride along in `noteSnapshot` and are released further down.
+        for (_, ext) in chordSnapshot {
+            for (_, v) in ext {
+                synth.noteOff(v.note, channel: v.channel)
+                midi.noteOff(v.note)
+            }
+        }
         // Release any held drum voices (open-hat foot pedal up) so a held
         // key doesn't ring forever across an octave change / split toggle,
         // and extinguish their hold lights.

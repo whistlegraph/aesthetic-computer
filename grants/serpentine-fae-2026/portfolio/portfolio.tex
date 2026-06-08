@@ -1,0 +1,142 @@
+% !TEX program = xelatex
+% Jeffrey Alan Scudder — Selected Work (Serpentine FAE Fellowship portfolio)
+% Build:  tectonic -X compile portfolio.tex   (or xelatex portfolio.tex)
+% Matches the AC paper / CV house style: Latin Modern + AC palette.
+
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[top=0.7in, bottom=0.7in, left=0.9in, right=0.9in]{geometry}
+
+% === FONTS (Latin Modern via bundled OTFs — works under tectonic & MacTeX) ===
+\usepackage{fontspec}
+\setmainfont[
+  Extension = .otf,
+  UprightFont = lmroman10-regular,
+  BoldFont = lmroman10-bold,
+  ItalicFont = lmroman10-italic,
+  BoldItalicFont = lmroman10-bolditalic,
+]{lmroman10}
+\setsansfont[
+  Extension = .otf,
+  UprightFont = lmsans10-regular,
+  BoldFont = lmsans10-bold,
+  ItalicFont = lmsans10-oblique,
+]{lmsans10}
+\setmonofont[
+  Extension = .otf,
+  UprightFont = lmmono10-regular,
+  ItalicFont = lmmono10-italic,
+  Scale = 0.86,
+]{lmmono10}
+
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{adjustbox}
+
+% === AC palette (shared with arxiv-* papers + cv) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acrule}{RGB}{210,205,214}
+
+\hypersetup{colorlinks=true, linkcolor=acpurple, urlcolor=acpurple}
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+
+% A single work entry: image, then title/meta/caption block.
+% #1 image  #2 title  #3 year  #4 role  #5 link-text  #6 link-url  #7 caption
+\newcommand{\work}[7]{%
+  \begin{adjustbox}{center,cfbox=acrule 0.8pt 0pt}
+    \includegraphics[width=\textwidth, height=0.52\textheight, keepaspectratio]{#1}%
+  \end{adjustbox}\par
+  \vspace{0.9em}
+  {\sffamily\bfseries\Large\color{acdark} #2}\quad{\sffamily\color{acgray} #3}\par
+  \vspace{0.25em}
+  {\sffamily\small\color{acpink} #4}\hfill{\ttfamily\small\href{#6}{#5}}\par
+  \vspace{0.5em}
+  \begin{minipage}{\textwidth}\color{acdark}#7\end{minipage}\par
+}
+
+\begin{document}
+
+% ===================== COVER =====================
+\thispagestyle{empty}
+\vspace*{0.10\textheight}
+\begin{center}
+  {\sffamily\color{acgray}\large selected work}\\[0.5em]
+  {\bfseries\fontsize{34}{38}\selectfont\color{acdark} Jeffrey Alan Scudder}\\[0.7em]
+  {\sffamily\large\color{acpurple} Aesthetic Computer — a creative computing commons}\\[1.4em]
+  {\color{acgray}\rule{0.42\textwidth}{0.6pt}}\\[1.2em]
+  \begin{minipage}{0.80\textwidth}\centering\color{acdark}
+    A runtime, an operating system, and a social network for creative
+    computing, built and given away over six years. People make pieces in
+    JavaScript or KidLisp, alongside paintings, tapes, and chats — each living
+    at a web address anyone can open — and a surplus laptop boots into the whole
+    thing in about seven seconds. The five works that follow trace the commons
+    from a single piece down to the bare metal, and back out to the people who
+    gather around it.
+  \end{minipage}\\[1.6em]
+  {\sffamily\small\color{acgray}
+    aesthetic.computer \quad·\quad Serpentine FAE Fellowship — Art\,$\times$\,Convergence \quad·\quad 2026}
+\end{center}
+\vfill
+\begin{center}{\sffamily\footnotesize\color{acgray} Los Angeles, California}\end{center}
+\clearpage
+
+% ===================== 1. AESTHETIC COMPUTER / KIDLISP =====================
+\work{img/ac-kidlisp.png}{Aesthetic Computer}{the system / a KidLisp piece · 2020–}{author}%
+{aesthetic.computer}{https://aesthetic.computer}%
+{A runtime, OS, and social network where artists make pieces in JavaScript or
+KidLisp, alongside paintings, tapes, and chats --- each living at a shareable
+web address. The piece shown is live KidLisp: its source, its rendered output,
+and the short \texttt{\$code} that lets anyone open it are all on screen at
+once. This is the cultural commons the proposal sets out to re-found and
+sustain.}
+\clearpage
+
+% ===================== 2. AC NATIVE OS =====================
+\work{img/ac-native.png}{AC Native OS}{re-founding the personal computer · 2025–}{author}%
+{aesthetic.computer}{https://aesthetic.computer}%
+{A bare-metal Linux that boots any surplus laptop into the creative instrument
+in about seven seconds, with your identity living in the boot partition rather
+than a cloud login. A retired fifty-dollar ThinkPad becomes a personal computer
+you own outright --- and drops the cost of a networked laptop ensemble by two
+orders of magnitude, putting a planetary laptop orchestra within reach.}
+\clearpage
+
+% ===================== 3. NOTEPAT =====================
+\work{img/notepat.png}{notepat}{instrument · 2024}{author}%
+{aesthetic.computer/notepat}{https://aesthetic.computer/notepat}%
+{A musical instrument that turns a computer or phone keyboard into a playable,
+shareable score --- tunes you can type, so a song is something you write down
+and pass along. It is open-source, lives at a web address, and reached the
+front page of Hacker News: a tool built for other people to depend on and make
+their own work with.}
+\clearpage
+
+% ===================== 4. LAKLOK (community) =====================
+\work{img/laklok.png}{laklok}{the social layer · 2024–}{author}%
+{aesthetic.computer/laklok}{https://aesthetic.computer/laklok}%
+{A live, public chat room that is itself an Aesthetic Computer piece ---
+messages, images, and links shared in real time at its own web address. The
+everyday social layer of the commons, where a community gathers, talks, and
+passes work back and forth. The proposal's laptop orchestra grows out of rooms
+exactly like this one.}
+\clearpage
+
+% ===================== 5. WHISTLEGRAPH =====================
+\work{img/whistlegraph.png}{The Longest Whistlegraph Ever (so far)}{2022 · New Museum (Rhizome commission)}{co-creator, performer}%
+{sites.rhizome.org/the-longest-whistlegraph-ever-so-far}{https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/}%
+{Live, social drawing performed with Camille Klein and Alex Freundlich as
+Whistlegraph, premiered at the New Museum. A whistlegraph is an audio-visual
+work performed by hand --- drawing and singing a reproducible score into a
+poetic image. The performance-and-community lineage behind building tools
+people gather around and play together.}
+
+\end{document}

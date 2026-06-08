@@ -11,9 +11,30 @@
 // All text is pre-rendered to PNG via ImageMagick (YWFT renders correctly there,
 // unlike node-canvas) and overlaid timed by ffmpeg.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { execSync, spawnSync } from "node:child_process";
+import { execSync, spawnSync, spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import * as progress from "../../pop/lib/render-progress.mjs";
+
+// Run an ffmpeg command (bash -c string), parsing `frame=N` from stderr to feed
+// a Slab render-progress heartbeat. Returns the exit status.
+function ffmpegWithProgress(cmd, total, label) {
+  progress.begin({ type: "video", label });
+  return new Promise((res) => {
+    const p = spawn("bash", ["-c", cmd], { stdio: ["ignore", "inherit", "pipe"] });
+    let buf = "";
+    p.stderr.on("data", (d) => {
+      buf += d.toString();
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const ln of lines) {
+        const m = ln.match(/frame=\s*(\d+)/);
+        if (m && total) progress.update((Math.min(+m[1], total) / total) * 100, { done: +m[1], total });
+        process.stderr.write(ln + "\n");
+      }
+    });
+    p.on("close", (code) => { progress.end(); res(code); });
+  });
+}
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const FONT = `${process.env.HOME}/Library/Fonts/ywft-processing-bold.ttf`;
@@ -265,9 +286,12 @@ idx = sideOverlay(inputs, fc, cur, idx);
 // audio: narration + ambient bed (quiet)
 inputs.push(`-i ${NARR}`); const aNarr = idx++;
 const hasBed = BED && existsSync(BED);
-if (hasBed) { inputs.push(`-i ${BED}`); const aBed = idx++;
-  fc.push(`[${aNarr}:a]volume=1.0[an]`); fc.push(`[${aBed}:a]volume=0.32[ab]`);
-  fc.push(`[an][ab]amix=inputs=2:duration=longest:dropout_transition=0[aout]`);
+if (hasBed) { inputs.push(`-stream_loop -1 -i ${BED}`); const aBed = idx++;
+  // bed is shorter than the narration — loop it (stream_loop) and trim to the
+  // full runtime so the music plays all the way through, with gentle in/out.
+  fc.push(`[${aNarr}:a]volume=1.0[an]`);
+  fc.push(`[${aBed}:a]atrim=0:${DURATION.toFixed(2)},asetpts=N/SR/TB,volume=0.32,afade=t=in:st=0:d=0.8,afade=t=out:st=${(DURATION - 2.5).toFixed(2)}:d=2.5[ab]`);
+  fc.push(`[an][ab]amix=inputs=2:duration=first:dropout_transition=0[aout]`);
 } else { fc.push(`[${aNarr}:a]volume=1.0[aout]`); }
 
 const fcPath = `${TMP}/filter.txt`;
@@ -277,6 +301,25 @@ const cmd = `ffmpeg -y ${inputs.join(" ")} -filter_complex_script ${fcPath} ` +
   `-c:v libx264 -pix_fmt yuv420p -crf 12 -preset slow -c:a aac -b:a 192k "${OUT}"`;
 writeFileSync(`${TMP}/cmd.sh`, cmd);
 console.log(`inputs: ${inputs.length}, overlays: ${idx} · running ffmpeg → ${OUT}`);
-const r = spawnSync("bash", ["-c", cmd], { stdio: "inherit" });
-console.log(r.status === 0 ? `✓ DONE ${OUT}` : `✗ ffmpeg exit ${r.status}`);
-process.exit(r.status === 0 ? 0 : 1);
+const status = await ffmpegWithProgress(cmd, Math.ceil(DURATION * FPS), `${cfg.name} compose · ${Math.ceil(DURATION * FPS)} frames`);
+console.log(status === 0 ? `✓ DONE ${OUT}` : `✗ ffmpeg exit ${status}`);
+
+// ── opening title card: render the branded card → a short push-in clip → concat ahead ─
+if (status === 0 && cfg.titleCard) {
+  console.log("rendering animated opener…");
+  const opener = `${TMP}/opener.mp4`;
+  const ro = spawnSync("node", [`${REPO}/marketing/bin/opener-anim.mjs`, campArg], { stdio: "inherit" });
+  if (ro.status === 0 && existsSync(opener)) {
+    // re-encode the join (concat filter) → clean, continuous timestamps so every
+    // player handles the boundary (stream-copy concat stalls QuickTime at the cut).
+    const final = `${TMP}/final.mp4`;
+    const concatTotal = Math.ceil((DURATION + 4) * FPS); // opener (~4s) + recap
+    const rc = await ffmpegWithProgress(
+      `ffmpeg -y -i "${opener}" -i "${OUT}" -filter_complex "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]" ` +
+      `-map "[v]" -map "[a]" -r ${FPS} -c:v libx264 -pix_fmt yuv420p -crf 12 -preset medium -c:a aac -b:a 192k -movflags +faststart "${final}"`,
+      concatTotal, `${cfg.name} opener-join`);
+    if (rc === 0) { execSync(`mv "${final}" "${OUT}"`); console.log(`✓ opener prepended → ${OUT}`); }
+    else console.error("✗ opener concat failed");
+  }
+}
+process.exit(status === 0 ? 0 : 1);

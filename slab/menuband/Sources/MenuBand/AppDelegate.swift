@@ -2,6 +2,12 @@ import AppKit
 import AVFoundation
 import Carbon
 
+extension Notification.Name {
+    /// Posted whenever the set of currently-sounding notes changes, so the
+    /// About-window icon's live key glow can refresh.
+    static let menuBandLitNotesChanged = Notification.Name("menuBandLitNotesChanged")
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let menuBand = MenuBandController()
@@ -137,6 +143,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// fine here but we keep the references for symmetry).
     private var globalShiftMonitor: Any?
     private var localShiftMonitor: Any?
+    /// Live chord-morph .flagsChanged monitors — while a note key is held,
+    /// pressing/releasing ⌃/⌘ re-voices it (single ↔ major/minor/sus) via
+    /// `menuBand.morphHeldKeys`. Rides the same global+local stream so it
+    /// works in TYPE mode and quiet-focus alike.
+    private var globalChordMorphMonitor: Any?
+    private var localChordMorphMonitor: Any?
     /// Double-tap right-⌘ → toggle Menu Band focus. A bare modifier
     /// can't be a Carbon hotkey, so this rides the same global/local
     /// .flagsChanged stream the shift monitor uses. Why double-tap:
@@ -313,6 +325,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// keyboard note lifts. A small delay so a fast legato note change
     /// (release one key, press the next) doesn't flicker the overlay.
     private var pitchBendEndTimer: Timer?
+    /// While the pitch graph is open, releasing the last note doesn't kill
+    /// the bend immediately — for `pitchBendReleaseGrace` seconds, trackpad
+    /// movement re-engages the slide with no key held. Each move pushes this
+    /// deadline forward; when movement stops past it, the session ends.
+    private var pitchBendReleaseGraceUntil: Date?
     /// Local + global NSEvent monitors for trackpad scroll events.
     /// Held so we can teardown if needed (we don't, but per-instance
     /// retention is cleaner than globals).
@@ -326,14 +343,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var octaveScrollAccum: CGFloat = 0
     /// Pixels of accumulated swipe travel per octave step. Tuned
     /// low so a short flick on the menubar icon shows immediate
-    /// movement — the first ~16 pixels of any swipe already step
+    /// movement — the first ~9 pixels of any swipe already step
     /// once. Combined with momentum-decay filtering, that gives a
     /// responsive "incremental" feel without overshooting.
-    private static let octaveScrollPxPerStep: CGFloat = 16
+    private static let octaveScrollPxPerStep: CGFloat = 9
     /// After the last note/finger releases, ALL fx hold fully
     /// engaged for this long. Replaying within the window cancels
     /// the release outright — the sound never even starts to fade.
     private static let fxHoldDuration: TimeInterval = 3.5
+    /// Post-release "catch" window for the pitch graph: after the last
+    /// keyboard note lifts, trackpad movement keeps bending for this long
+    /// (re-armed on each move) so a fast release-then-swipe still grabs the
+    /// graph instead of dropping the gesture. 250–500ms reads as deliberate
+    /// without lingering.
+    private static let pitchBendReleaseGrace: TimeInterval = 0.4
     /// Once the hold expires, bend/space/echo ramp LINEARLY to 0
     /// over this long — a gentle glide off, never a sharp cutoff.
     private static let fxRampDuration: TimeInterval = 1.0
@@ -478,6 +501,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // momentary gap (fast legato note changes).
                 self.pitchBendEndTimer?.invalidate()
                 self.pitchBendEndTimer = nil
+                self.pitchBendReleaseGraceUntil = nil
                 if !self.pitchBendCursorLocked {
                     CGAssociateMouseAndMouseCursorPosition(0)
                     self.pitchBendCursorLocked = true
@@ -500,6 +524,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.lastLitCount = cur
             self.updateIcon()
             self.popoverVC?.refreshHeldNotes()
+            // Drive the About-window icon's live key glow (if open).
+            NotificationCenter.default.post(name: .menuBandLitNotesChanged,
+                                            object: nil)
             self.updatePianoWaveformWindow()
         }
         menuBand.onInstrumentVisualChange = { [weak self] in
@@ -625,6 +652,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pianoWaveformWindowDelegate.onStepDown = { [weak self] in
             self?.menuBand.stepMelodicProgram(delta: +InstrumentListView.cols)
         }
+        // The collapsed picker's "Keymap" button opens the full-screen
+        // keymap view (large piano + QWERTY + mode toggle).
+        pianoWaveformWindowDelegate.onOpenKeymap = { [weak self] in
+            self?.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
         pianoWaveformWindowDelegate.warmUp()
 
         // Four independent global controls: show the floating piano,
@@ -678,6 +710,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleShowAboutNotification(_:)),
             name: NSNotification.Name("computer.aestheticcomputer.menuband.showAbout"),
+            object: nil
+        )
+
+        // Sibling remote: open the full-screen keymap view directly (same
+        // path the popover's "Keymap" footer button drives). Lets the shell
+        // verify / screenshot the expanded keymap screen without clicking.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleShowKeymapNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.showKeymap"),
             object: nil
         )
 
@@ -779,8 +821,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // wants to release focus without clicking another app. Also
             // the explicit exit for latched pitch-bend mode.
             if isDown && keyCode == 53 /* kVK_Escape */ {
-                NSSound(named: NSSound.Name("Tink"))?.play()
                 if self.pitchBendModeLatched { self.endPitchBendSession() }
+                // Esc is now the UNFOCUS gesture — it shows the same red
+                // flash + falling-bell cue the right-⌘ double-tap used to
+                // play on disarm (⌘⌘ is arm-only now).
+                FocusFlashOverlay.shared.flash(rising: false)
+                self.menuBand.playFocusCue(rising: false)
                 self.localCapture.disarm(reason: .cancelled)
                 return true
             }
@@ -875,6 +921,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         startAdaptiveLayoutChecks()
         startShiftStateMonitors()
+        startChordMorphMonitors()
         startRightCommandTapMonitor()
         startRightOptionTapMonitor()
         startLeftOptionTapMonitor()
@@ -1202,24 +1249,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// readies the menubar instrument for typing, with a little chime
     /// so the silent focus change is felt.
     private func toggleQuietFocusFromRightCommand() {
-        if localCapture.isArmed {
-            // Stop ("command again kills the focus state"): red glow
-            // + falling bell + all keys flash at once. No note.
-            FocusFlashOverlay.shared.flash(rising: false)
-            menuBand.playFocusCue(rising: false)
-            localCapture.disarm(reason: .cancelled)
-        } else {
-            // Arm focus capture WITHOUT touching the popover. The
-            // double-⌘ gesture used to pop the panel open as a visible
-            // target, but jas wants the shortcut to arm silently — the
-            // blue flash + rising bell below are the "it landed" cue, so
-            // no popover is needed. keepPopoverOpen:true also means an
-            // already-open popover is left as-is rather than closed.
-            beginFocusCaptureFromShortcut(keepPopoverOpen: true)
-            // Blue glow + rising bell + all keys flash at once.
-            FocusFlashOverlay.shared.flash(rising: true)
-            menuBand.playFocusCue(rising: true)
-        }
+        // Right-⌘ double-tap is FOCUS-ONLY now: it arms (or re-arms) quiet
+        // focus and is inert once already focused — unfocusing is Esc's job
+        // (see the localCapture Esc handler). Keeps the gesture a pure
+        // "bring me into play" action that can't accidentally drop focus.
+        guard !localCapture.isArmed else { return }
+        // Arm focus capture WITHOUT touching the popover — the blue glow +
+        // rising bell are the "it landed" cue. keepPopoverOpen:true leaves an
+        // already-open popover as-is rather than closing it.
+        beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+        FocusFlashOverlay.shared.flash(rising: true)
+        menuBand.playFocusCue(rising: true)
     }
 
     private func exitPianoFocusFromShortcut() {
@@ -1621,6 +1661,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             initialDirty = true
         }
         if initialDirty { updateIcon() }
+    }
+
+    /// Live chord morph: while a note key is physically held, watch ⌃/⌘ and
+    /// re-voice the held key between a single note and a triad. The chord
+    /// scheme matches the keyDown path — ⌃ = major, ⌘ = minor, ⌃+⌘ = sus —
+    /// so a note that started plain and one that started chorded morph the
+    /// same way. Both a global monitor (TYPE mode / background apps) and a
+    /// local one (quiet-focus, Menu Band frontmost) feed the same handler; the
+    /// controller no-ops when nothing is held, so wiring both is harmless.
+    private func startChordMorphMonitors() {
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            let flags = event.modifierFlags
+            let ctrl = flags.contains(.control)
+            let cmd = flags.contains(.command)
+            self.menuBand.morphHeldKeys(chordModifier: ctrl || cmd,
+                                        chordMinor: cmd,
+                                        chordSus: ctrl && cmd)
+        }
+        globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: .flagsChanged
+        ) { event in handler(event) }
+        localChordMorphMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .flagsChanged
+        ) { event in handler(event); return event }
     }
 
     /// Double-tap right-⌘ → toggle focus capture. Two bare right-⌘
@@ -2728,6 +2793,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let m = popoverEscMonitor { NSEvent.removeMonitor(m); popoverEscMonitor = nil }
         appBeforePopover = nil
         let panelToFade = popoverPanel
+        // Capture the CURRENT content view now. The fade's completion
+        // runs ~0.14s later, by which point a language-change rebuild
+        // may have already swapped `popoverVC` to a freshly-shown VC —
+        // dereferencing `popoverVC` in the completion would then yank
+        // the NEW popover's view out of its panel and blank it. Pin the
+        // old view here so we only detach what we're actually fading.
+        let fadingContentView = popoverVC?.view
         // Drop the reference now so isPopoverPanelShown becomes
         // false synchronously — prevents toggle paths from racing
         // with the in-flight fade.
@@ -2745,8 +2817,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ctx.duration = 0.14
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 panel.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
-                self?.popoverVC?.view.removeFromSuperview()
+            }, completionHandler: {
+                fadingContentView?.removeFromSuperview()
                 panel.orderOut(nil)
                 // Reset alpha so the next show isn't invisible.
                 panel.alphaValue = 1
@@ -2794,6 +2866,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.reloadPercussionSplit()
     }
 
+    @objc private func handleShowKeymapNotification(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            self?.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
+    }
+
     @objc private func handleShowAboutNotification(_ note: Notification) {
         debugLog("handleShowAboutNotification received")
         DispatchQueue.main.async { [weak self] in
@@ -2815,6 +2893,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showPopover() {
         debugLog("showPopover entry; isPopoverPanelShown=\(isPopoverPanelShown)")
+        // Safety: clear any stranded pitch-bend cursor-hide. CGDisplayHide/
+        // Show are reference-counted and an interrupted bend (focus lost
+        // mid-gesture) can leak a hide that leaves the cursor invisible —
+        // restore it whenever the popover opens so the pointer is always
+        // present over the popover.
+        showSystemCursorIfNeeded()
         guard let button = statusItem.button,
               let buttonWindow = button.window else {
             debugLog("showPopover: no button/window — bail")
@@ -2851,6 +2935,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let panel = MenuBandPopoverPanel(
                 content: vc.view,
                 contentSize: contentSize)
+
+            // When the popover is key (quiet-focus + popover open), it — not
+            // the invisible capture panel — sees key-equivalents. Route ⌃/⌘+
+            // letter chords through the same local note path so they chord
+            // consistently and shadow Cut/Copy/etc. for mapped note keys.
+            panel.keyEquivalentHandler = { [weak self] event in
+                guard let self = self else { return false }
+                let flags = event.modifierFlags
+                guard flags.contains(.command) || flags.contains(.control) else { return false }
+                return self.menuBand.handleLocalKey(
+                    keyCode: event.keyCode, isDown: true,
+                    isRepeat: event.isARepeat, flags: flags)
+            }
 
             // Grow / shrink the whole popover when the notation staff
             // slides in or out (metronome on/off), keeping the top edge
@@ -2998,13 +3095,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if delta == 0 { return event }
         octaveScrollAccum += delta
         var stepped = false
+        // Direction is FLIPPED from the raw scroll delta: a natural-scroll
+        // swipe UP should raise the octave, but scrollingDeltaY is positive
+        // when content moves up. Each real step (octave actually changed —
+        // not clamped at ±4) fires a wood-block tick so the swipe has detents.
         while octaveScrollAccum >= Self.octaveScrollPxPerStep {
-            menuBand.stepOctave(delta: 1)
+            let before = menuBand.octaveShift
+            menuBand.stepOctave(delta: -1)
+            if menuBand.octaveShift != before { menuBand.playOctaveTick(up: false) }
             octaveScrollAccum -= Self.octaveScrollPxPerStep
             stepped = true
         }
         while octaveScrollAccum <= -Self.octaveScrollPxPerStep {
-            menuBand.stepOctave(delta: -1)
+            let before = menuBand.octaveShift
+            menuBand.stepOctave(delta: 1)
+            if menuBand.octaveShift != before { menuBand.playOctaveTick(up: true) }
             octaveScrollAccum += Self.octaveScrollPxPerStep
             stepped = true
         }
@@ -3080,10 +3185,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // proved unreliable through the popover's key window, so the bend
         // never engaged at all — confirmed in the field with touch=false on
         // every move while keyHeld=true.)
-        guard menuBand.keyboardNotesHeld || shift else { return }
+        // While the pitch graph is still up after a release, a short "catch"
+        // window lets trackpad movement re-engage the bend with no key held
+        // — so a quick release-then-swipe grabs the graph instead of the
+        // gesture dropping. Gated on `pitchBendCursorPushed` (the overlay is
+        // genuinely open) so a plain mouse move on the menubar piano — which
+        // never opens the graph — still can't reactivate the bend.
+        let inReleaseGrace = pitchBendCursorPushed
+            && (pitchBendReleaseGraceUntil.map { $0.timeIntervalSinceNow > 0 } ?? false)
+        // While the spacebar tape is reverse-playing, a mouse move bends + echoes
+        // the playback itself (the fx route onto the rewind voice's own inserts),
+        // so engage the gesture even with no key held.
+        guard menuBand.keyboardNotesHeld || shift || inReleaseGrace
+                || menuBand.isRewinding else { return }
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
+        // Keep the catch window alive while the finger is still moving in the
+        // post-release grace (no key, no Shift). Stopping past the window
+        // lets `armPitchBendGraceCheck` tear the session down.
+        if inReleaseGrace && !menuBand.keyboardNotesHeld && !shift {
+            pitchBendReleaseGraceUntil = Date().addingTimeInterval(Self.pitchBendReleaseGrace)
+        }
         // Negate so swipe UP on trackpad → pitch UP (NSEvent.deltaY
         // is positive when the cursor moves DOWN on screen).
         let bendDelta = -dy * Self.bendSensitivityPerPoint
@@ -3268,14 +3391,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// note comes back (see onLitChanged). Shift is the deliberate
     /// exception — it keeps bending still-ringing notes with no key down.
     private func scheduleGraphicEndIfNoKeyHeld() {
+        pitchBendReleaseGraceUntil = Date().addingTimeInterval(Self.pitchBendReleaseGrace)
+        armPitchBendGraceCheck()
+    }
+
+    /// Fires when the post-release catch window elapses with no further
+    /// trackpad movement — movement (see `handlePitchBendCursorMove`) pushes
+    /// `pitchBendReleaseGraceUntil` forward, so the check reschedules itself
+    /// for the remainder. A held note or Shift cancels the teardown.
+    private func armPitchBendGraceCheck() {
         pitchBendEndTimer?.invalidate()
-        let t = Timer(timeInterval: 0.12, repeats: false) { [weak self] _ in
+        let remaining = max(0.05, pitchBendReleaseGraceUntil?.timeIntervalSinceNow ?? 0)
+        let t = Timer(timeInterval: remaining, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-            self.pitchBendEndTimer = nil
             let shift = NSEvent.modifierFlags.contains(.shift)
-            if !self.menuBand.keyboardNotesHeld && !shift {
-                self.endPitchBendSession()
+            if self.menuBand.keyboardNotesHeld || shift {
+                self.pitchBendEndTimer = nil
+                return
             }
+            // A move during the window pushed the deadline out — wait the
+            // remainder before tearing the graph down.
+            if let until = self.pitchBendReleaseGraceUntil,
+               until.timeIntervalSinceNow > 0 {
+                self.armPitchBendGraceCheck()
+                return
+            }
+            self.pitchBendEndTimer = nil
+            self.pitchBendReleaseGraceUntil = nil
+            self.endPitchBendSession()
         }
         RunLoop.main.add(t, forMode: .common)
         pitchBendEndTimer = t
@@ -3284,6 +3427,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func endPitchBendSession() {
         pitchBendEndTimer?.invalidate()
         pitchBendEndTimer = nil
+        pitchBendReleaseGraceUntil = nil
         // Clear the latched mode regardless of cursor-lock state so an
         // Esc / focus-loss always fully exits, even if the lock flag was
         // somehow already cleared.

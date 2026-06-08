@@ -1,0 +1,252 @@
+{
+  "taiko": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/82712-taiko_drum_001_wav.wav",
+    "id": 82712,
+    "name": "TAIKO DRUM 001.wav",
+    "username": "sandyrb",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "duration": 2.43889,
+    "pitched": false,
+    "root": null
+  },
+  "gong": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/518292-gong_2_wav.wav",
+    "id": 518292,
+    "name": "gong 2.wav",
+    "username": "Logicogonist",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 5.82755,
+    "pitched": false,
+    "root": null
+  },
+  "choir": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/162168-aah2_wav.wav",
+    "id": 162168,
+    "name": "aah2.wav",
+    "username": "HuntersCrossbow",
+    "license": "http://creativecommons.org/licenses/by/3.0/",
+    "duration": 2.69351,
+    "pitched": true,
+    "root": "C4"
+  },
+  "brass": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/820070-cm_orch_hit_3_infernal_dance_2_207s.wav",
+    "id": 820070,
+    "name": "Cm Orch Hit +3 Infernal Dance [2.207s]",
+    "username": "astro_denticle",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.2071,
+    "pitched": true,
+    "root": "C3"
+  },
+  "strings": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/758483-arc_c.wav",
+    "id": 758483,
+    "name": "Arc - C",
+    "username": "James_KuKu",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 8.25,
+    "pitched": true,
+    "root": "C4"
+  },
+  "bass": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/560208-layered_bass_05_quick_synth_wav.wav",
+    "id": 560208,
+    "name": "layered bass 05 quick synth.wav",
+    "username": "johnnypanic",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 1.87372,
+    "pitched": true,
+    "root": "C2"
+  },
+  "ghost": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/46567-ludwig_black_beauty_snare_ghost_notes_unprocesse.wav",
+    "id": 46567,
+    "name": "Ludwig Black Beauty Snare Ghost Notes Unprocessed.wav",
+    "username": "pjcohen",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.423855,
+    "pitched": false,
+    "root": null
+  },
+  "hat": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/509971-hi_hat_closed_9_mp3.wav",
+    "id": 509971,
+    "name": "Hi-Hat Closed 9.mp3",
+    "username": "blakengouda",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.144739,
+    "pitched": false,
+    "root": null
+  },
+  "ohat": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/509984-hi_hat_open_1_mp3.wav",
+    "id": 509984,
+    "name": "Hi-Hat Open 1.mp3",
+    "username": "blakengouda",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.667188,
+    "pitched": false,
+    "root": null
+  },
+  "ride": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/799423-ride_bell_1_long.wav",
+    "id": 799423,
+    "name": "ride bell 1 long",
+    "username": "Logicogonist",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 1.73696,
+    "pitched": false,
+    "root": null
+  },
+  "shaker": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/375636-shaker_shake5_wav.wav",
+    "id": 375636,
+    "name": "Shaker (shake5.wav)",
+    "username": "sgossner",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.159955,
+    "pitched": false,
+    "root": null
+  },
+  "sub": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/6291-ppg_016_subfrequent_g_2_wav.wav",
+    "id": 6291,
+    "name": "PPG 016 Subfrequent G#2.wav",
+    "username": "Jovica",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "duration": 2.6705,
+    "pitched": true,
+    "root": "C1"
+  },
+  "reese": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/424432-angryreesebassf0160bpm_wav.wav",
+    "id": 424432,
+    "name": "AngryReeseBassF0160bpm.wav",
+    "username": "__stone__",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 3.375,
+    "pitched": true,
+    "root": "C2"
+  },
+  "lead": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/257363-overall_quality_of_single_note_flute_c4.wav",
+    "id": 257363,
+    "name": "overall quality of single note - flute - C4",
+    "username": "yano1",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 3.959,
+    "pitched": true,
+    "root": "C4"
+  },
+  "pad": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/46127-k_wstr_wav.wav",
+    "id": 46127,
+    "name": "k_wSTR.wav",
+    "username": "k0wax",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 5.31574,
+    "pitched": true,
+    "root": "C3"
+  },
+  "kick": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/337827-kick_short_tail_174_bpm_02_wav.wav",
+    "id": 337827,
+    "name": "Kick_Short_Tail_174_Bpm_02.wav",
+    "username": "hardwareshaba",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.34483,
+    "pitched": false,
+    "root": null
+  },
+  "snare": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/118312-lr_sn_0029_wav.wav",
+    "id": 118312,
+    "name": "LR_SN_0029.wav",
+    "username": "choomaque-crispydinner",
+    "license": "http://creativecommons.org/licenses/by/3.0/",
+    "duration": 0.273492,
+    "pitched": false,
+    "root": null
+  },
+  "animal": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/571287-jaguar_growl_roar_wav.wav",
+    "id": 571287,
+    "name": "jaguar_growl_roar.wav",
+    "username": "Lewis.B.M",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.73996,
+    "pitched": true,
+    "root": "C3"
+  },
+  "wolf": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/429109-15_wolfcrying_wav.wav",
+    "id": 429109,
+    "name": "15-WolfCrying.wav",
+    "username": "cazadordoblekatana",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 3.38993,
+    "pitched": true,
+    "root": "A3"
+  },
+  "cowbell": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/75338-cowbell_wav.wav",
+    "id": 75338,
+    "name": "Cowbell.wav",
+    "username": "Neotone",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.349887,
+    "pitched": false,
+    "root": null
+  },
+  "tom": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/581462-fractanimal_acoustic_drum_kit_mid_tom_2_wav.wav",
+    "id": 581462,
+    "name": "Fractanimal_Acoustic_Drum_Kit_Mid_Tom_2.wav",
+    "username": "johnnydekk",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 1.36662,
+    "pitched": false,
+    "root": null
+  },
+  "click": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/375399-snare_sfx_click_wav.wav",
+    "id": 375399,
+    "name": "Snare (sfx_click.wav)",
+    "username": "sgossner",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.195102,
+    "pitched": false,
+    "root": null
+  },
+  "rain": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/371710-raining.wav",
+    "id": 371710,
+    "name": "Raining",
+    "username": "Jofae",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 22.3864,
+    "pitched": false,
+    "root": null
+  },
+  "jungle": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/644989-jungle_forest_ambience.wav",
+    "id": 644989,
+    "name": "Jungle / Forest Ambience",
+    "username": "seventhsamurai",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 39.5312,
+    "pitched": false,
+    "root": null
+  },
+  "cricket": {
+    "path": "/Users/jas/aesthetic-computer-vault/personal/pop/freesound-cache/710399-landscape_nl_march_1131am_230302_0566.wav",
+    "id": 710399,
+    "name": "landscape NL March 1131AM 230302_0566",
+    "username": "klankbeeld",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "duration": 34.448,
+    "pitched": false,
+    "root": null
+  }
+}

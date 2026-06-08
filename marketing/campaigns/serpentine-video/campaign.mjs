@@ -18,9 +18,15 @@ export default {
   palette: { cream: "#fcf7c5", green: "#3dff88", shadow: "#000000" },
   wordmark: ["Aesthetic", "Computer"],   // rendered top-right with a bouncing dot between
 
-  // opening title card — a custom colored-pencil "Silly Symphonies" frame
-  // (title-card/gens/v1.png) with YWFT/AC type laid into its centre cartouche.
-  titleCard: { title: ["Aesthetic", "Computer"], subtitle: "A Computer of Your Own" },
+  // opening title card — a soft landscape "commons / planetary orchestra" gen
+  // (title-card/gens/v2.png), with YWFT type LIVE-rendered + per-character
+  // animated in cream with the AC hard drop shadow over the sky.
+  titleCard: {
+    gen: "title-card/gens/v2.png",
+    title: ["Aesthetic", "Computer"], subtitle: "A Computer of Your Own",
+    ink: "#fcf7c5", shadow: "#06120c", dot: "#3dff88", subInk: "#ffe7b0",
+    titleY: 150, titlePx: 116, subPx: 54, bgBlur: 4, dur: 4,
+  },
   caption: { bandY: 0.85 },              // word-train vertical centre (fraction of height; lower = nearer bottom)
 
   // per-segment accent color — drives the active-word glow + the slide-number
@@ -34,6 +40,7 @@ export default {
     "05b_quote": "#ffe026",     // yellow — the highlighted quote
     "06_llms": "#70f0e0",       // cyan — the machines
     "07_poised": "#ffbf3d",     // amber — the argument
+    "08_plan": "#ff70d0",       // magenta — the six months, in community
     "09_outro": "#3dff88",      // green — the question
     "10_end": "#3dff88",
   },
@@ -76,18 +83,19 @@ export default {
       "02_problem": "computing is being pulled into the data center · your laptop → a thin client",
       "03_os_layer": "a revolution at the OS layer · not another app — a different ground",
       "04_creative_os": "notepat — tunes you can type · picture · code · music — one medium",
-      "05_commons": "a planetary laptop orchestra · kidlisp · a url per piece · held in common",
+      "05_commons": "many kinds of work, in common · js + kidlisp · paintings · tapes · chats · a url each",
       "05b_quote": "from the paper · PLOrk'ing the Planet (2026), p.5",
       "06_llms": "a faculty, not a landlord · local · owned · on your own terms",
-      "07_poised": "it holds the whole stack · kernel · language · community · archive",
+      "07_poised": "it holds the whole stack · kernel · languages · community · archive",
+      "08_plan": "the six months · harden the os · local faculty · grow the orchestra — in the open",
       "09_outro": "keep a computer personal — and held in common",
       "10_end": "aesthetic computer · a computer of your own",
     },
     markers: {
       "01_title": "hey", "02_problem": "the data center", "03_os_layer": "operating system layer",
       "04_creative_os": "surplus laptop", "05_commons": "it is a commons",
-      "05b_quote": "three people", "06_llms": "language models are the force", "07_poised": "can a creative",
-      "09_outro": "the question of", "10_end": "__END__",
+      "05b_quote": "three people", "06_llms": "language models change", "07_poised": "the whole stack",
+      "08_plan": "with the fellowship", "09_outro": "art and convergence", "10_end": "__END__",
     },
     beats: {
       "01_title": "Who you are — title card over jeffrey at the citrus-green Neo.",

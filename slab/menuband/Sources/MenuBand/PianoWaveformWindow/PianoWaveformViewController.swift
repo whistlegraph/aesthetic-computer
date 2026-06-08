@@ -44,6 +44,11 @@ final class PianoWaveformViewController: NSViewController {
         set { collapsedView.onStepDown = newValue }
     }
 
+    var onOpenKeymap: (() -> Void)? {
+        get { collapsedView.onOpenKeymap }
+        set { collapsedView.onOpenKeymap = newValue }
+    }
+
     func setArrowHighlight(direction: Int, on: Bool) {
         collapsedView.setArrowHighlight(direction: direction, on: on)
     }

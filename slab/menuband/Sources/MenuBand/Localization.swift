@@ -24,6 +24,8 @@ enum Localization {
         Language(code: "zh", label: "中文", flag: "🇨🇳"),
         Language(code: "ja", label: "日本語", flag: "🇯🇵"),
         Language(code: "ru", label: "Русский", flag: "🇷🇺"),
+        // Danish — for the lær klokken community.
+        Language(code: "da", label: "Dansk", flag: "🇩🇰"),
     ]
 
     static let didChange = Notification.Name("MenuBandLanguageDidChange")
@@ -81,6 +83,7 @@ enum Localization {
         "zh": zh,
         "ja": ja,
         "ru": ru,
+        "da": da,
     ]
 
     private static let en: [String: String] = [
@@ -119,6 +122,8 @@ enum Localization {
         "popover.about.lead": "Menu Band",
         "popover.about.body": " makes the built-in macOS MIDI instruments playable right from the menu bar.",
         "popover.about.link": "About",
+        "popover.about.lookingForPlayers": "Looking For Players?",
+        "popover.about.version": "Version",
         "popover.about.quit": "Quit Menu Band",
         "popover.about.crash.send": "Send crash reports",
         "popover.about.crash.sending": "Sending…",
@@ -185,6 +190,8 @@ enum Localization {
         "popover.about.body":
             " hace tocables los instrumentos MIDI integrados de macOS directamente desde la barra de menús.",
         "popover.about.link": "Acerca de",
+        "popover.about.lookingForPlayers": "¿Buscas músicos?",
+        "popover.about.version": "Versión",
         "popover.about.quit": "Salir de Menu Band",
         "popover.about.crash.send": "Enviar informes de fallos",
         "popover.about.crash.sending": "Enviando…",
@@ -251,6 +258,8 @@ enum Localization {
         "popover.about.lead": "Menu Band",
         "popover.about.body": " 让 macOS 内置的 MIDI 乐器可以直接从菜单栏弹奏。",
         "popover.about.link": "关于",
+        "popover.about.lookingForPlayers": "寻找乐手?",
+        "popover.about.version": "版本",
         "popover.about.quit": "退出 Menu Band",
         "popover.about.crash.send": "发送崩溃报告",
         "popover.about.crash.sending": "发送中…",
@@ -315,6 +324,8 @@ enum Localization {
         "popover.about.lead": "Menu Band",
         "popover.about.body": " は macOS 内蔵の MIDI 楽器をメニューバーから直接演奏できます。",
         "popover.about.link": "概要",
+        "popover.about.lookingForPlayers": "仲間を募集中?",
+        "popover.about.version": "バージョン",
         "popover.about.quit": "Menu Band を終了",
         "popover.about.crash.send": "クラッシュレポートを送信",
         "popover.about.crash.sending": "送信中…",
@@ -382,6 +393,8 @@ enum Localization {
         "popover.about.body":
             " даёт играть на встроенных MIDI-инструментах macOS прямо из строки меню.",
         "popover.about.link": "О программе",
+        "popover.about.lookingForPlayers": "Ищете напарников?",
+        "popover.about.version": "Версия",
         "popover.about.quit": "Выйти из Menu Band",
         "popover.about.crash.send": "Отправить отчёты о сбоях",
         "popover.about.crash.sending": "Отправка…",
@@ -410,6 +423,75 @@ enum Localization {
             "и т. п.), или используйте Bartender / Hidden Bar для управления." +
             "\n\nMenu Band продолжит попытки каждые несколько секунд.",
         "alert.ok": "ОК",
+    ]
+
+    private static let da: [String: String] = [
+        // Popover — header / banner
+        "popover.octave": "Oktav",
+        "popover.octave.down": "Oktav ned",
+        "popover.octave.up": "Oktav op",
+        "popover.midi.label": "MIDI",
+        "popover.update.available": "Opdatering tilgængelig: %@",
+
+        // Popover — layout block
+        "popover.layout.label": "Tangentkort",
+        "popover.layout.notepat": "Notepat.com",
+        "popover.layout.ableton": "Ableton-computertastatur",
+        "popover.layout.hint": "⌃⌥⌘P skifter seneste-tast-tilstand",
+        "popover.layout.why": "Hvorfor dette tangentkort?",
+        "popover.layout.why.tooltip": "Åbn artiklen Keymaps as Social Software",
+
+        // Popover — shortcut rows
+        "popover.shortcuts.label": "Tastaturgenveje",
+        "popover.shortcuts.focus": "Fokusér menupiano",
+        "popover.shortcuts.floating": "Svævende piano",
+        "popover.shortcuts.show": "Vis",
+        "popover.shortcuts.focusButton": "Fokusér",
+        "popover.shortcuts.press": "Tryk",
+        "popover.shortcuts.pressKeys": "Tryk på taster",
+        "popover.shortcuts.use": "Brug ⌘, ⌃ eller ⌥",
+        "popover.shortcuts.saved": "Gemt %@",
+        "popover.shortcuts.unavailable": "Genvej utilgængelig",
+        "popover.shortcuts.reserved": "⌃⌥⌘P er reserveret",
+
+        // Popover — palette helpers
+        "popover.arrows.tooltip": "Piletaster flytter markeringen.",
+
+        // Popover — about / footer
+        "popover.about.lead": "Menu Band",
+        "popover.about.body":
+            " gør macOS' indbyggede MIDI-instrumenter spilbare direkte fra menulinjen.",
+        "popover.about.link": "Om",
+        "popover.about.lookingForPlayers": "Leder du efter medspillere?",
+        "popover.about.version": "Version",
+        "popover.about.quit": "Afslut Menu Band",
+        "popover.about.crash.send": "Send nedbrudsrapporter",
+        "popover.about.crash.sending": "Sender…",
+        "popover.about.crash.sentAll": "Sendt ✓",
+        "popover.about.crash.sentSome": "Sendt %@/%@ — prøv igen",
+        "popover.about.crash.sendOne": "Send 1 nedbrud",
+        "popover.about.crash.sendMany": "Send %@ nedbrud",
+        "popover.about.crash.viewOne": "Vis 1 nedbrud",
+        "popover.about.crash.viewMany": "Vis %@ nedbrud",
+        "popover.about.crash.summaryOne": "Menu Band gik ned 1 gang",
+        "popover.about.crash.summaryMany": "Menu Band gik ned %@ gange",
+        "popover.about.crash.viewerTitle": "Nedbrudsrapporter",
+        "popover.about.crash.sendToAC": "Send til Aesthetic.Computer",
+        "popover.about.nela": "Sig hej i NELA Computer Club — tirsdage i LA",
+        "popover.about.startaclub": "Start din egen computerklub",
+
+        // Popover — language switcher
+        "popover.language.label": "Sprog",
+
+        // Alerts
+        "alert.noMenuBarSpace.title":
+            "Menu Band kan ikke være i din menulinje",
+        "alert.noMenuBarSpace.body":
+            "Der er ikke plads i menulinjen — ikke engang til det kompakte ikon. " +
+            "Afslut en app, der fylder i menulinjen (slack, dropbox osv.), " +
+            "eller brug Bartender / Hidden Bar til at styre dem." +
+            "\n\nMenu Band prøver igen hvert par sekunder.",
+        "alert.ok": "OK",
     ]
 }
 

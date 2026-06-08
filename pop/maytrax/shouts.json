@@ -1,0 +1,32 @@
+{
+  "wake_up": {
+    "phrase": "wake up",
+    "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/wake_up.wav",
+    "sayPath": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/wake_up-say.wav"
+  },
+  "it_s_real": {
+    "phrase": "it's real",
+    "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/it_s_real.wav",
+    "sayPath": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/it_s_real-say.wav"
+  },
+  "hold_on": {
+    "phrase": "hold on",
+    "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/hold_on.wav",
+    "sayPath": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/hold_on-say.wav"
+  },
+  "let_go": {
+    "phrase": "let go",
+    "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/let_go.wav",
+    "sayPath": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/let_go-say.wav"
+  },
+  "follow_the_white_rabbit": {
+    "phrase": "follow the white rabbit",
+    "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/follow_the_white_rabbit.wav",
+    "sayPath": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/follow_the_white_rabbit-say.wav"
+  },
+  "now": {
+    "phrase": "now",
+    "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/now.wav",
+    "sayPath": "/Users/jas/aesthetic-computer/pop/maytrax/out/shouts/now-say.wav"
+  }
+}

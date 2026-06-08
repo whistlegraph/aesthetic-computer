@@ -1,0 +1,6 @@
+# moronbobasleep sample sources (CC0 / commercial-safe — see pop/SCORE.md)
+
+jungle-rain.wav — Freesound #634889 "El Yunque National Forest Rain" by lkillam7
+  license: CC0 1.0 (public domain)
+  url: https://freesound.org/s/634889/
+  use: rainy-rainforest ambience under the opening (loops, settles to a soft bed)

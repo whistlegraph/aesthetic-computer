@@ -39,27 +39,40 @@ function textPng(out, text, px, fill) {
 // base: gen scaled to fill height, centred on the letterbox ground
 execSync(`magick -size ${W}x${H} xc:'${BG}' \\( "${gen}" -resize x${H} \\) -gravity center -composite "${TMP}/tc_base.png"`);
 
-// title: two words STACKED (fits the oval cartouche), small green brand dot
-// between them, subtitle below — all centred.
+// title: two words on ONE line (the "aesthetic.computer" wordmark), small green
+// brand dot between them, subtitle below — all centred. Auto-scaled down so the
+// whole line fits inside the oval cartouche.
 const [pa, pb] = titleParts;
-const [waw, wah] = textPng(`${TMP}/tc_a.png`, pa, titlePx, INK);
-const [wbw, wbh] = textPng(`${TMP}/tc_b.png`, pb, titlePx, INK);
-const dotSide = Math.round(titlePx * 0.15);
+const maxW = Math.round(W * 0.74);
+let px = titlePx, waw, wah, wbw, wbh, dotSide, hg, totalW;
+for (let pass = 0; pass < 6; pass++) {
+  [waw, wah] = textPng(`${TMP}/tc_a.png`, pa, px, INK);
+  [wbw, wbh] = textPng(`${TMP}/tc_b.png`, pb, px, INK);
+  dotSide = Math.round(px * 0.16);
+  hg = Math.round(px * 0.30);                       // horizontal gap around the dot
+  totalW = waw + hg + dotSide + hg + wbw;
+  if (totalW <= maxW) break;
+  px = Math.round(px * maxW / totalW * 0.99);       // shrink to fit, retry
+}
 execSync(`magick -size ${dotSide}x${dotSide} xc:'${DOT}' "${TMP}/tc_dot.png"`);
-const lg = Math.round(titlePx * 0.16);
-const y1 = titleY, dy = y1 + wah + lg, y2 = dy + dotSide + lg;
+const lineH = Math.max(wah, wbh);
+const y1 = titleY;
+const xa = cx - Math.round(totalW / 2);
+const xdot = xa + waw + hg;
+const xb = xdot + dotSide + hg;
+const yDot = y1 + Math.round(lineH / 2 - dotSide / 2);
 const cmds = [`magick "${TMP}/tc_base.png"`,
-  `\\( "${TMP}/tc_a.png" \\) -gravity NorthWest -geometry +${cx - Math.round(waw / 2)}+${y1} -composite`,
-  `\\( "${TMP}/tc_dot.png" \\) -gravity NorthWest -geometry +${cx - Math.round(dotSide / 2)}+${dy} -composite`,
-  `\\( "${TMP}/tc_b.png" \\) -gravity NorthWest -geometry +${cx - Math.round(wbw / 2)}+${y2} -composite`];
+  `\\( "${TMP}/tc_a.png" \\) -gravity NorthWest -geometry +${xa}+${y1} -composite`,
+  `\\( "${TMP}/tc_dot.png" \\) -gravity NorthWest -geometry +${xdot}+${yDot} -composite`,
+  `\\( "${TMP}/tc_b.png" \\) -gravity NorthWest -geometry +${xb}+${y1} -composite`];
 
-// subtitle (centred, below the stacked title)
+// subtitle (centred, below the single-line title)
 if (sub) {
   const [sw] = textPng(`${TMP}/tc_sub.png`, sub, subPx, AMBER);
-  const sy = y2 + wbh + Math.round(lg * 2.2);
+  const sy = y1 + lineH + Math.round(px * 0.36);
   cmds.push(`\\( "${TMP}/tc_sub.png" \\) -gravity NorthWest -geometry +${cx - Math.round(sw / 2)}+${sy} -composite`);
 }
 cmds.push(`"${OUT}"`);
 execSync(cmds.join(" "));
 console.log(`✓ title card → ${OUT}`);
-execSync(`open -a Preview "${OUT}"`);
+if (process.argv.includes("--open")) execSync(`open -a Preview "${OUT}"`);
