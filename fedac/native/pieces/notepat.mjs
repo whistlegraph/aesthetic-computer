@@ -505,6 +505,32 @@ let djDerivedBPM = 0;        // 0 = not yet tapped, otherwise tapped BPM
 // Cached deck strip geometry from paint() for hit-testing in act()
 let djStrip = null;          // { x, y, w, h, btnPlay, btnPrev, btnNext, btnScan, btnTap }
 
+// Internet radio — same Menu Band stations as radio.mjs, tuned through the
+// shared deck (deck 0). F5 cycles stations; layer notepat over a live feed.
+const RADIO_STATIONS = [
+  { id: "kpbj",  name: "KPBJ.FM",  url: "https://stream.kpbj.fm/" },
+  { id: "r8dio", name: "r8dio.dk", url: "https://s3.radio.co/s7cd1ffe2f/listen" },
+  { id: "nts1",  name: "NTS 1",    url: "https://stream-relay-geo.ntslive.net/stream" },
+  { id: "nts2",  name: "NTS 2",    url: "https://stream-relay-geo.ntslive.net/stream2" },
+];
+let radioIdx = -1;           // -1 = no station tuned yet
+
+function djTuneRadio(sound, idx) {
+  if (RADIO_STATIONS.length === 0) return;
+  radioIdx = (idx + RADIO_STATIONS.length) % RADIO_STATIONS.length;
+  const st = RADIO_STATIONS[radioIdx];
+  djMsg("tuning " + st.name + "…"); // load briefly blocks on the connect
+  const ok = sound?.deck?.load(0, st.url);
+  if (ok) {
+    sound.deck.setSpeed?.(0, 1);
+    sound.deck.play(0);
+    djMsg("📻 " + st.name);
+    sound?.speak?.(st.name);
+  } else {
+    djMsg("can't reach " + st.name);
+  }
+}
+
 function djIsAudio(name) {
   if (name.startsWith(".")) return false;
   const dot = name.lastIndexOf(".");
@@ -2342,6 +2368,9 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
+    // F5 — cycle internet radio stations (KPBJ, r8dio, NTS 1/2) through
+    // the shared deck. Layer notepat melody over a live feed.
+    if (key === "f5") { djTuneRadio(sound, radioIdx + 1); return; }
     if (key === "[") {
       const d = sound?.deck?.decks?.[0];
       if (d?.loaded) {

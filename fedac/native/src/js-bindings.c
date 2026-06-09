@@ -3142,6 +3142,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
                 JS_SetPropertyStr(ctx, di, "title", JS_NewString(ctx, dk->decoder->title));
                 JS_SetPropertyStr(ctx, di, "artist", JS_NewString(ctx, dk->decoder->artist));
                 JS_SetPropertyStr(ctx, di, "finished", JS_NewBool(ctx, dk->decoder->finished));
+                JS_SetPropertyStr(ctx, di, "isStream", JS_NewBool(ctx, dk->decoder->is_stream));
                 JS_SetPropertyStr(ctx, di, "error", JS_NewString(ctx, dk->decoder->error ? dk->decoder->error_msg : ""));
                 JS_SetPropertyStr(ctx, di, "videoReady", JS_NewBool(ctx, dk->decoder->video_ready));
                 JS_SetPropertyStr(ctx, di, "videoWidth", JS_NewInt32(ctx, dk->decoder->video_width));

@@ -15,12 +15,23 @@
 #include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/time.h>
 #include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
 
 extern void ac_log(const char *fmt, ...);
 
 // --- Internal helpers ---
+
+// A path is a live network stream (radio) if it's an http(s) URL. Streams
+// have no duration, can't be seeked, and must not be peak-scanned (that
+// reads to EOF, which never comes). avformat_network_init() is required
+// before opening any network protocol; call it once, lazily.
+static int decoder_network_ready = 0;
+static int path_is_stream(const char *path) {
+    return path && (strncmp(path, "http://", 7) == 0 ||
+                    strncmp(path, "https://", 8) == 0);
+}
 
 static void extract_metadata(ACDeckDecoder *d, AVFormatContext *fmt) {
     const AVDictionaryEntry *tag = NULL;
@@ -63,6 +74,7 @@ static void *decoder_thread_fn(void *arg) {
     AVFrame *frame = av_frame_alloc();
     int max_out_samples = 8192;
     float *resample_buf = NULL;
+    int stream_errs = 0; // consecutive read failures on a live stream
 
     if (!pkt || !frame) {
         d->error = 1;
@@ -116,7 +128,19 @@ static void *decoder_thread_fn(void *arg) {
         // Read next packet
         int ret = av_read_frame(fmt_ctx, pkt);
         if (ret < 0) {
-            if (ret == AVERROR_EOF) {
+            if (d->is_stream && ret != AVERROR_EOF) {
+                // Live stream hiccup — the reconnect options retry inside
+                // av_read_frame; back off briefly and keep going rather than
+                // killing the deck. Latch an error only after sustained
+                // failure (~5s) so a dead station still surfaces.
+                if (++stream_errs > 50) {
+                    d->error = 1;
+                    snprintf(d->error_msg, sizeof(d->error_msg), "stream lost");
+                    d->decoding = 0;
+                } else {
+                    av_usleep(100000); // 100 ms
+                }
+            } else if (ret == AVERROR_EOF) {
                 d->finished = 1;
                 d->decoding = 0;
             } else {
@@ -125,6 +149,7 @@ static void *decoder_thread_fn(void *arg) {
             }
             continue;
         }
+        stream_errs = 0;
 
         if (pkt->stream_index != d->stream_idx) {
             av_packet_unref(pkt);
@@ -231,14 +256,35 @@ int deck_decoder_load(ACDeckDecoder *d, const char *path) {
     d->ring_read = 0;
     d->seek_requested = 0;
     d->speed = 1.0;
+    d->is_stream = path_is_stream(path);
     snprintf(d->path, sizeof(d->path), "%s", path);
     free_video_preview(d);
 
-    // Open file
+    // Open file (or network stream). For radio URLs, set HTTP reconnect +
+    // timeout options so a dropped connection retries instead of erroring
+    // out, and cap the probe so find_stream_info returns quickly on an
+    // endless Icecast MP3.
+    AVDictionary *opts = NULL;
+    if (d->is_stream) {
+        if (!decoder_network_ready) {
+            avformat_network_init();
+            decoder_network_ready = 1;
+        }
+        av_dict_set(&opts, "reconnect", "1", 0);
+        av_dict_set(&opts, "reconnect_streamed", "1", 0);
+        av_dict_set(&opts, "reconnect_on_network_error", "1", 0);
+        av_dict_set(&opts, "reconnect_delay_max", "5", 0);
+        av_dict_set(&opts, "rw_timeout", "15000000", 0); // 15s in microseconds
+        av_dict_set(&opts, "user_agent", "aesthetic-computer-native", 0);
+        av_dict_set(&opts, "probesize", "131072", 0);       // 128 KB
+        av_dict_set(&opts, "analyzeduration", "2000000", 0); // 2s
+    }
     AVFormatContext *fmt_ctx = NULL;
-    int ret = avformat_open_input(&fmt_ctx, path, NULL, NULL);
+    int ret = avformat_open_input(&fmt_ctx, path, NULL, opts ? &opts : NULL);
+    if (opts) av_dict_free(&opts);
     if (ret < 0) {
-        snprintf(d->error_msg, sizeof(d->error_msg), "cannot open: %s", path);
+        snprintf(d->error_msg, sizeof(d->error_msg),
+                 d->is_stream ? "cannot open stream (TLS/network?)" : "cannot open: %s", path);
         d->error = 1;
         return -1;
     }

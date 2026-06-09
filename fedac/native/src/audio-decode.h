@@ -49,6 +49,8 @@ typedef struct ACDeckDecoder {
     volatile int     loaded;         // file opened successfully
     volatile int     finished;       // reached end of file
     volatile int     error;
+    volatile int     is_stream;      // 1 = live network stream (radio): no
+                                     // duration, no seek, no peak pre-scan
     char             error_msg[128];
 
     // FFmpeg state (opaque, managed internally)

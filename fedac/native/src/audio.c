@@ -4470,8 +4470,11 @@ int audio_deck_load(ACAudio *audio, int deck, const char *path) {
     int ret = deck_decoder_load(dk->decoder, path);
     if (ret == 0) {
         dk->active = 1;
-        // Generate waveform peaks for visualization (decoded in background thread)
-        deck_decoder_generate_peaks(dk->decoder, 1024);
+        // Generate waveform peaks for visualization. Skip for live streams
+        // (radio): the peak pass reads the source to EOF, which never comes
+        // on an endless Icecast feed and would hang the caller.
+        if (!dk->decoder->is_stream)
+            deck_decoder_generate_peaks(dk->decoder, 1024);
     }
     return ret;
 }
