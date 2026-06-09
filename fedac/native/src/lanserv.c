@@ -46,12 +46,43 @@ typedef struct {
     volatile int ip_changed; // thread should rejoin multicast + announce
     time_t started;
     int http_port;
+    char fp[24];             // hardware fingerprint (16 hex) for the name
 } LanServ;
 
 static LanServ g_lan = {0};
 
 // ── small helpers ──────────────────────────────────────────────────────
 
+// Stable, memorable per-machine name derived from the hardware
+// fingerprint: "<adjective>-<animal>". Same machine → same name across
+// reflashes (the fp is hardware-derived). 32×32 = 1024 combinations —
+// ample for the fleet, and collisions still differ by the curated slot.
+static const char *LAN_ADJ[32] = {
+    "amber","azure","cobalt","coral","crimson","dusk","ember","frost",
+    "golden","hazel","indigo","ivory","jade","lunar","mauve","neon",
+    "olive","onyx","opal","pearl","quartz","rust","sable","scarlet",
+    "silver","slate","solar","teal","umber","velvet","violet","zinc",
+};
+static const char *LAN_ANIMAL[32] = {
+    "otter","fox","wolf","lynx","puma","hare","mink","stoat",
+    "heron","raven","finch","wren","swift","crane","ibis","lark",
+    "moth","newt","toad","carp","perch","tetra","koi","eel",
+    "gecko","skink","viper","adder","beetle","mantis","cicada","drake",
+};
+
+static void lan_name_from_fp(const char *fp, char *out, size_t outlen) {
+    // Two 8-hex-digit halves of the fp index the word lists.
+    char a[9] = {0}, b[9] = {0};
+    snprintf(a, sizeof(a), "%.8s", fp);
+    snprintf(b, sizeof(b), "%.8s", fp + 8);
+    unsigned long ai = strtoul(a, NULL, 16);
+    unsigned long bi = strtoul(b, NULL, 16);
+    snprintf(out, outlen, "%s-%s", LAN_ADJ[ai % 32], LAN_ANIMAL[bi % 32]);
+}
+
+// mDNS hostname. Prefers the curated slot (ac0, ac1, …) once the backend
+// has assigned one — re-read each call so it goes live without a restart.
+// Until then, every machine still gets a unique name from its fingerprint.
 static void lan_hostname(char *out, size_t outlen) {
     out[0] = 0;
     FILE *f = fopen("/mnt/.ac-device-slot", "r");
@@ -59,7 +90,14 @@ static void lan_hostname(char *out, size_t outlen) {
         if (fgets(out, (int)outlen, f)) out[strcspn(out, " \t\r\n")] = 0;
         fclose(f);
     }
-    if (!out[0]) snprintf(out, outlen, "notepat");
+    if (out[0]) return;
+    pthread_mutex_lock(&g_lan.lock);
+    int have_fp = g_lan.fp[0] != 0;
+    char fp[24];
+    snprintf(fp, sizeof(fp), "%s", g_lan.fp);
+    pthread_mutex_unlock(&g_lan.lock);
+    if (have_fp) lan_name_from_fp(fp, out, outlen);
+    else snprintf(out, outlen, "ac-device");
 }
 
 static void lan_snapshot(char *piece, size_t plen, char *ip, size_t iplen) {
@@ -676,6 +714,13 @@ void lanserv_start(const char *build_name) {
         g_lan.running = 0;
         ac_log("[lanserv] thread create failed\n");
     }
+}
+
+void lanserv_set_fingerprint(const char *fp) {
+    if (!g_lan.running || !fp) return;
+    pthread_mutex_lock(&g_lan.lock);
+    snprintf(g_lan.fp, sizeof(g_lan.fp), "%s", fp);
+    pthread_mutex_unlock(&g_lan.lock);
 }
 
 void lanserv_update(const char *piece, const char *ip) {

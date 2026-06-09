@@ -16,6 +16,10 @@
 
 void lanserv_start(const char *build_name);
 
+// Supply the hardware fingerprint once computed (drives the unique mDNS
+// name when no curated slot is assigned). Safe to call after lanserv_start.
+void lanserv_set_fingerprint(const char *fp);
+
 // Per-frame from the main loop: current piece + wifi ip ("" when down).
 void lanserv_update(const char *piece, const char *ip);
 

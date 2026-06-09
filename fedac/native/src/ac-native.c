@@ -3514,6 +3514,9 @@ int main(int argc, char *argv[]) {
     // splash can render the badge before wifi comes up. Cheap (~3 file
     // reads + one sha256 hash on a tiny string).
     compute_device_fingerprint();
+    // Hand the fingerprint to lanserv so each machine gets a unique mDNS
+    // name (<adjective>-<animal>.local) until a curated slot is assigned.
+    lanserv_set_fingerprint(ac_device_fp);
 
     // 📸 Bootpic snapshot: detached thread fires asap. Internally
     // waits 300ms then retries camera_open with backoff so it doesn't

@@ -5,10 +5,12 @@
 # Usage:
 #   scripts/dev-push.sh <host> [piece] [--watch]
 #
-#   scripts/dev-push.sh notepat.local              # push notepat + reload
+#   scripts/dev-push.sh neon-wolf.local            # push notepat + reload
 #   scripts/dev-push.sh 192.168.1.214 notepat --watch
 #
-# <host> is the device's mDNS name (slot.local / notepat.local) or IP.
+# <host> is the device's mDNS name (the unique <adjective>-<animal>.local
+# it announces, or its curated <slot>.local) or a bare IP. The device
+# prints its name on the connect line; `dns-sd -B _http._tcp` also lists it.
 # [piece] defaults to notepat. --watch re-pushes on save (0.5s mtime poll,
 # no fswatch dependency). Lib deps (the /lib modules the oven bakes) are
 # pushed when their mtimes change too — but QuickJS caches /lib imports
