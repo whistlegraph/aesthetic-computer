@@ -5919,11 +5919,13 @@ static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSV
     }
 
     // Key-only auth when an authorized_keys file is baked in (public OTA
-    // builds — root's home is "/" per /etc/passwd, so dropbear reads
-    // /.ssh/authorized_keys). -B (blank-password root) only as a fallback
-    // for local dev images without baked keys.
-    ac_log("[ssh] starting dropbear on port 22...\n");
-    if (access("/.ssh/authorized_keys", F_OK) == 0) {
+    // builds — root's home is /root per /etc/passwd, so dropbear reads
+    // /root/.ssh/authorized_keys). -B (blank-password root) only as a
+    // fallback for local dev images without baked keys.
+    int have_keys = (access("/root/.ssh/authorized_keys", F_OK) == 0);
+    ac_log("[ssh] starting dropbear on port 22 (authorized_keys=%s)...\n",
+           have_keys ? "/root/.ssh" : "none -> -B fallback");
+    if (have_keys) {
         system("dropbear -R -s -g -p 22 -P /tmp/dropbear.pid 2>/tmp/dropbear.log &");
     } else {
         system("dropbear -R -B -p 22 -P /tmp/dropbear.pid 2>/tmp/dropbear.log &");

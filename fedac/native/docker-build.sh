@@ -202,13 +202,21 @@ ln -s busybox "$IROOT/bin/wget" 2>/dev/null || true
 # notepat auto-starts sshd once wifi connects (system.startSSH in
 # js-bindings.c) and shows "ssh root@<ip>" on screen. OTA builds are
 # key-only: js_start_ssh disables password auth whenever
-# /.ssh/authorized_keys exists (root's home is "/"), which is baked here
-# from fedac/native/keys/authorized_keys. Without that file the daemon
-# falls back to -B (blank-password root) — local dev images only.
+# /root/.ssh/authorized_keys exists, baked here from
+# fedac/native/keys/authorized_keys. Without that file the daemon falls
+# back to -B (blank-password root) — local dev images only.
+#
+# IMPORTANT: dropbear looks up authorized_keys via the passwd home dir
+# (getpwnam, NOT $HOME — everything else on the device uses HOME=/tmp) and
+# REFUSES the file if the home dir or ~/.ssh is group/other-writable. So
+# root's home is a dedicated /root at 0700 (the rootfs "/" is too loose),
+# with ~/.ssh 0700 and authorized_keys 0600 — see the matching passwd
+# entry "root:x:0:0:root:/root:/bin/sh" below.
 DROPBEAR_BIN=$(command -v dropbear 2>/dev/null || true)
 DROPBEARKEY_BIN=$(command -v dropbearkey 2>/dev/null || true)
 if [ -n "$DROPBEAR_BIN" ] && [ -n "$DROPBEARKEY_BIN" ]; then
-    mkdir -p "$IROOT/usr/sbin" "$IROOT/etc/dropbear" "$IROOT/.ssh"
+    mkdir -p "$IROOT/usr/sbin" "$IROOT/etc/dropbear" "$IROOT/root/.ssh"
+    chmod 700 "$IROOT/root" "$IROOT/root/.ssh"
     cp -L "$DROPBEAR_BIN" "$IROOT/usr/sbin/dropbear"
     cp -L "$DROPBEARKEY_BIN" "$IROOT/usr/sbin/dropbearkey"
     chmod +x "$IROOT/usr/sbin/dropbear" "$IROOT/usr/sbin/dropbearkey"
@@ -221,9 +229,9 @@ if [ -n "$DROPBEAR_BIN" ] && [ -n "$DROPBEARKEY_BIN" ]; then
         done
     done
     if [ -f "$NATIVE/keys/authorized_keys" ]; then
-        cp "$NATIVE/keys/authorized_keys" "$IROOT/.ssh/authorized_keys"
-        chmod 600 "$IROOT/.ssh/authorized_keys"
-        log "  dropbear bundled (key-only via keys/authorized_keys)"
+        cp "$NATIVE/keys/authorized_keys" "$IROOT/root/.ssh/authorized_keys"
+        chmod 600 "$IROOT/root/.ssh/authorized_keys"
+        log "  dropbear bundled (key-only via /root/.ssh/authorized_keys)"
     else
         log "  dropbear bundled (no keys/authorized_keys — blank-password fallback)"
     fi
@@ -597,10 +605,12 @@ if [ -d /opt/alsa-ucm-conf-cros/ucm2 ]; then
 fi
 
 # ── 2m: /etc/group and /etc/passwd ──
-# Full 7-field passwd entry: dropbear resolves uid 0's home ("/", so
-# authorized_keys lives at /.ssh/) and login shell from here.
+# Full 7-field passwd entry: dropbear resolves uid 0's home (/root, 0700,
+# where authorized_keys lives) and login shell from here. Home is /root —
+# NOT "/" — because dropbear refuses authorized_keys under a loosely-permed
+# home; interactive shells still use HOME=/tmp (set by init + pty.c).
 echo "root:x:0:" > "$IROOT/etc/group"
-echo "root:x:0:0:root:/:/bin/sh" > "$IROOT/etc/passwd"
+echo "root:x:0:0:root:/root:/bin/sh" > "$IROOT/etc/passwd"
 
 # ── 2n: Claude Code ──
 # Prefer a freshly-fetched native binary from the official GCS "latest"
