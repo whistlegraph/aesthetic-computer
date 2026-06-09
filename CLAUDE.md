@@ -70,6 +70,22 @@ npm run test:perf:chrome
 npm run test:perf:lighthouse
 ```
 
+### Health Check (Doctor)
+
+Run a stack-wide preflight before debugging — it tells you *which* layer is
+sick (local dev servers, production hosts, the asset CDN, host tooling) so you
+don't chase the wrong one:
+
+```bash
+npm run doctor               # full sweep
+npm run doctor -- --local    # only local dev servers + host tooling
+npm run doctor -- --prod     # only production reachability
+npm run doctor -- --strict   # exit non-zero if a CRITICAL check fails (CI)
+```
+
+Stopped dev servers read as ⚠️ (advisory); only prod site + CDN are critical.
+Add checks in the `CHECKS` array of `toolchain/doctor.mjs` (dependency-free).
+
 ### Creating New Pieces
 
 ```bash
