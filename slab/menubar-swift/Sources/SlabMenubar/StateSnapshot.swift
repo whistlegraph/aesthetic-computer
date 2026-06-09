@@ -33,6 +33,37 @@ struct DeskflowState {
     var agent: String = ""         // launchd label, e.g. computer.aesthetic.deskflow
 }
 
+/// One assigned, incomplete Asana task as rendered in the menu. The URL is the
+/// task's permalink so a click opens it in the browser; due dates drive a small
+/// overdue/today marker.
+struct AsanaTask {
+    var name: String
+    var url: String
+    var due: String = ""       // "YYYY-MM-DD" or "" if undated
+    var overdue: Bool = false
+    var today: Bool = false
+}
+
+/// A project bucket holding the user's assigned tasks. Projectless tasks land
+/// in a synthetic "Inbox" bucket (the helper does the grouping).
+struct AsanaProject {
+    var name: String
+    var tasks: [AsanaTask]
+}
+
+/// Asana task state for the menubar, polled off-main via `slab/bin/asana`
+/// (mirrors the iMessage/mail bridges). All identity (account, token, project
+/// names) comes from Asana at runtime via the untracked config — nothing
+/// personal lives in tracked code. Present-but-unconfigured machines show a
+/// one-line "set up" hint instead of the task tree.
+struct AsanaState {
+    var configured: Bool = false
+    var label: String = "Asana: —"   // menu parent title from the helper
+    var user: String = ""
+    var count: Int = 0
+    var projects: [AsanaProject] = []
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false

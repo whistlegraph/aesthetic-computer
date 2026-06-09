@@ -6,6 +6,7 @@ enum MenuBuilder {
         mailStatus: String,
         imsgStatus: String,
         imsgConfigured: Bool,
+        asana: AsanaState,
         target: AppDelegate
     ) -> NSMenu {
         let menu = NSMenu()
@@ -15,6 +16,7 @@ enum MenuBuilder {
             mailStatus: mailStatus,
             imsgStatus: imsgStatus,
             imsgConfigured: imsgConfigured,
+            asana: asana,
             target: target
         )
         return menu
@@ -30,6 +32,7 @@ enum MenuBuilder {
         mailStatus: String,
         imsgStatus: String,
         imsgConfigured: Bool,
+        asana: AsanaState,
         target: AppDelegate
     ) {
         menu.removeAllItems()
@@ -46,6 +49,7 @@ enum MenuBuilder {
         menu.addItem(buildTailnet(state: state, target: target))
         menu.addItem(buildMail(status: mailStatus, target: target))
         menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
+        menu.addItem(buildAsana(state: asana, target: target))
         if state.deskflow.configured {
             menu.addItem(buildDeskflow(state: state, target: target))
         }
@@ -531,6 +535,70 @@ enum MenuBuilder {
         sub.addItem(item("Edit contact config", selector: #selector(AppDelegate.openImsgConfig), target: target))
         parent.submenu = sub
         return parent
+    }
+
+    /// Asana submenu — assigned, incomplete tasks grouped by project. The
+    /// parent title is the helper's "Asana: N" count; the submenu lists each
+    /// project as a disabled header followed by its task items (click → open
+    /// the task's permalink in the browser). Overdue tasks get a red dot,
+    /// today's a yellow one. Unconfigured machines show a one-line setup hint.
+    private static func buildAsana(state: AsanaState, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: state.label, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        if !state.configured {
+            sub.addItem(info("Not set up — paste a Personal Access Token:"))
+            sub.addItem(item("Edit Asana config",
+                             selector: #selector(AppDelegate.openAsanaConfig), target: target))
+            parent.submenu = sub
+            return parent
+        }
+
+        if state.projects.isEmpty {
+            sub.addItem(info("No assigned tasks 🎉"))
+        } else {
+            for (i, project) in state.projects.enumerated() {
+                if i > 0 { sub.addItem(.separator()) }
+                sub.addItem(info("\(project.name) (\(project.tasks.count))"))
+                for task in project.tasks {
+                    sub.addItem(asanaTaskItem(task, target: target))
+                }
+            }
+        }
+
+        sub.addItem(.separator())
+        sub.addItem(item("Refresh now", selector: #selector(AppDelegate.refreshAsanaNow), target: target))
+        sub.addItem(item("Open My Tasks in browser",
+                         selector: #selector(AppDelegate.openAsana), target: target))
+        sub.addItem(item("Edit Asana config",
+                         selector: #selector(AppDelegate.openAsanaConfig), target: target))
+        parent.submenu = sub
+        return parent
+    }
+
+    /// One task row. A leading ● is colored red when overdue, yellow when due
+    /// today; undated/future tasks get no dot. The due date is appended dim.
+    /// `representedObject` carries the permalink for `openAsanaTask(_:)`.
+    private static func asanaTaskItem(_ task: AsanaTask, target: AppDelegate) -> NSMenuItem {
+        let dot = (task.overdue || task.today) ? "● " : ""
+        let suffix = task.due.isEmpty ? "" : "  · \(task.due)"
+        let mi = NSMenuItem(title: "\(dot)\(task.name)\(suffix)",
+                            action: #selector(AppDelegate.openAsanaTask(_:)),
+                            keyEquivalent: "")
+        mi.target = target
+        mi.isEnabled = !task.url.isEmpty
+        mi.representedObject = task.url
+        if task.overdue || task.today {
+            let attr = NSMutableAttributedString(string: "\(dot)\(task.name)\(suffix)")
+            let hue = task.overdue ? 0.99 : 0.14   // red vs amber
+            attr.addAttribute(.foregroundColor,
+                              value: NSColor(deviceHue: hue, saturation: 0.85, brightness: 0.95, alpha: 1.0),
+                              range: NSRange(location: 0, length: 1))
+            mi.attributedTitle = attr
+            mi.toolTip = task.overdue ? "Overdue \(task.due)" : "Due today"
+        }
+        return mi
     }
 
     /// Deskflow KVM submenu. Parent title shows the configured label + role

@@ -32,6 +32,13 @@ enum Paths {
     static var imsgHelper: String { "\(slabBin)/imsg" }
     static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
 
+    /// Asana bridge for the task submenu. The Personal Access Token lives in
+    /// the untracked config below (never in tracked code) — same convention as
+    /// imsgConfig. The helper prints a JSON tree of assigned, incomplete tasks
+    /// grouped by project.
+    static var asanaHelper: String { "\(slabBin)/asana" }
+    static var asanaConfig: String { "\(home)/.config/slab/asana.json" }
+
     /// Deskflow KVM management. Role ("server"/"client"), display label, and
     /// the launchd agent name live in untracked config so machine roles never
     /// appear in tracked code (same convention as imsgConfig). JSON shape:

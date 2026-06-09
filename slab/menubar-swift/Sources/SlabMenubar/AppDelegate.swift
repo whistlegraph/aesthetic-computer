@@ -64,6 +64,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var imsgStatus = "—"
     private var imsgConfigured = false
     private var imsgUnread = 0
+    /// Asana task state. Polled off-main on a slow cadence (tasks don't change
+    /// second-to-second); the helper itself talks to the Asana REST API and
+    /// the token lives only in the untracked config (see slab-public-repo PII).
+    private var asanaTickCount = 29   // primed so the first tick loads tasks
+    private var asanaPending = false
+    private var asanaState = AsanaState()
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
     /// System-wide ⌘⌥T → re-tile claude terminals. Kept alive for the app's
@@ -172,6 +178,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.refreshImsgCount()
                 }
 
+                // Asana tasks change on a human cadence, not a chat one —
+                // poll every ~30 ticks (the REST round-trip is the cost here).
+                self.asanaTickCount += 1
+                if self.asanaTickCount >= 30 && !self.asanaPending {
+                    self.asanaTickCount = 0
+                    self.refreshAsana()
+                }
+
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
@@ -192,6 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             mailStatus: mailStatus,
             imsgStatus: imsgStatus,
             imsgConfigured: imsgConfigured,
+            asana: asanaState,
             target: self
         )
     }
@@ -367,7 +382,86 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Pull the Asana task tree off-main via `slab/bin/asana status`. The
+    /// helper always exits 0 and prints one JSON line: `{configured, label,
+    /// projects:[{name, tasks:[{name,url,due,overdue,today}]}]}`. We decode it
+    /// into `asanaState` for the lazy menu rebuild. Slow cadence, so the 8 s
+    /// timeout is comfortable.
+    private func refreshAsana() {
+        let helper = Paths.asanaHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            asanaState = AsanaState(configured: false, label: "Asana: helper missing")
+            return
+        }
+        asanaPending = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let out = ShellRunner.run(helper, args: ["status"], timeout: 12).output
+            let line = out.split(separator: "\n").last.map(String.init) ?? ""
+            let parsed = Self.parseAsana(line)
+            DispatchQueue.main.async {
+                self?.asanaState = parsed
+                self?.asanaPending = false
+            }
+        }
+    }
+
+    /// Decode one JSON status line into an AsanaState. Defensive: any missing
+    /// field collapses to an empty/unconfigured state rather than throwing.
+    private static func parseAsana(_ line: String) -> AsanaState {
+        guard let data = line.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return AsanaState(configured: false, label: "Asana: —") }
+        var s = AsanaState()
+        s.configured = (obj["configured"] as? Bool) ?? false
+        s.label = (obj["label"] as? String) ?? s.label
+        s.user = (obj["user"] as? String) ?? ""
+        s.count = (obj["count"] as? Int) ?? 0
+        let projects = (obj["projects"] as? [[String: Any]]) ?? []
+        s.projects = projects.map { p in
+            let tasks = (p["tasks"] as? [[String: Any]]) ?? []
+            return AsanaProject(
+                name: (p["name"] as? String) ?? "Project",
+                tasks: tasks.map { t in
+                    AsanaTask(
+                        name: (t["name"] as? String) ?? "(untitled)",
+                        url: (t["url"] as? String) ?? "",
+                        due: (t["due"] as? String) ?? "",
+                        overdue: (t["overdue"] as? Bool) ?? false,
+                        today: (t["today"] as? Bool) ?? false)
+                })
+        }
+        return s
+    }
+
     // MARK: - Menu actions
+
+    /// Force an immediate Asana re-poll from the submenu's "Refresh now".
+    @objc func refreshAsanaNow() {
+        asanaTickCount = 0
+        if !asanaPending { refreshAsana() }
+    }
+
+    /// Open Asana "My Tasks" in the browser.
+    @objc func openAsana() {
+        ShellRunner.runAsync(Paths.asanaHelper, args: ["open"])
+    }
+
+    /// Open one task's permalink (carried on the menu item's representedObject).
+    @objc func openAsanaTask(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? String, !url.isEmpty,
+              let u = URL(string: url) else { return }
+        NSWorkspace.shared.open(u)
+    }
+
+    /// Ensure the (untracked) Asana config exists, then open it for editing.
+    @objc func openAsanaConfig() {
+        ShellRunner.runAsync(Paths.asanaHelper, args: ["config"])
+        let path = Paths.asanaConfig
+        // Give the helper a beat to drop the stub, then open in the editor.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        }
+    }
 
     @objc func openImsg() {
         ShellRunner.runAsync(Paths.imsgHelper, args: ["open"])

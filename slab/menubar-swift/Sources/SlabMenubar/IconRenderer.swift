@@ -116,13 +116,18 @@ enum IconRenderer {
         // threads are working vs paused vs stale at a glance.
         if n == 1 {
             // Single horizontal line, rotated.
+            let col = sessionColor(visible[0].state, phase: phase, dark: dark)
             drawSegment(
                 center: NSPoint(x: cx, y: cy),
                 length: 2 * radius,
                 angle: rotation,
-                color: sessionColor(visible[0].state, phase: phase, dark: dark),
+                color: col,
                 lineWidth: lineWidth
             )
+            let h = NSPoint(x: cos(rotation) * radius, y: sin(rotation) * radius)
+            drawSubagentDots(from: NSPoint(x: cx - h.x, y: cy - h.y),
+                             to: NSPoint(x: cx + h.x, y: cy + h.y),
+                             count: visible[0].subagentCount, color: col, dark: dark)
         } else if n == 2 {
             // Two parallel bars, pivoting together. The pair tilts as one
             // rigid body — bars stay parallel and equidistant from center.
@@ -135,13 +140,18 @@ enum IconRenderer {
             for i in 0..<n {
                 let sign: CGFloat = (i == 0) ? 1 : -1
                 let center = NSPoint(x: cx + nx * half * sign, y: cy + ny * half * sign)
+                let col = sessionColor(visible[i].state, phase: phase, dark: dark)
                 drawSegment(
                     center: center,
                     length: length,
                     angle: rotation,
-                    color: sessionColor(visible[i].state, phase: phase, dark: dark),
+                    color: col,
                     lineWidth: lineWidth
                 )
+                let h = NSPoint(x: cos(rotation) * length / 2, y: sin(rotation) * length / 2)
+                drawSubagentDots(from: NSPoint(x: center.x - h.x, y: center.y - h.y),
+                                 to: NSPoint(x: center.x + h.x, y: center.y + h.y),
+                                 count: visible[i].subagentCount, color: col, dark: dark)
             }
         } else {
             // Regular n-gon. Vertices offset by π/n so the midpoint of edge
@@ -166,8 +176,11 @@ enum IconRenderer {
                 path.line(to: b)
                 path.lineWidth = lineWidth
                 path.lineCapStyle = .round
-                sessionColor(visible[k].state, phase: phase, dark: dark).setStroke()
+                let col = sessionColor(visible[k].state, phase: phase, dark: dark)
+                col.setStroke()
                 path.stroke()
+                drawSubagentDots(from: a, to: b, count: visible[k].subagentCount,
+                                 color: col, dark: dark)
             }
         }
 
@@ -258,6 +271,23 @@ enum IconRenderer {
         path.lineCapStyle = .round
         color.setStroke()
         path.stroke()
+    }
+
+    /// One small filled dot per in-flight subagent, spaced along a session's
+    /// edge (a→b). Spots are the edge colour brightened toward white so they
+    /// read as bright beads riding that segment. Capped so they stay legible
+    /// at menubar size; beyond the cap the last bead just doubles up.
+    private static func drawSubagentDots(from a: NSPoint, to b: NSPoint, count: Int, color: NSColor, dark: Bool) {
+        guard count > 0 else { return }
+        let shown = min(count, 7)
+        let r: CGFloat = 1.05
+        let dot = color.blended(withFraction: dark ? 0.74 : 0.58, of: .white) ?? color
+        dot.setFill()
+        for i in 0..<shown {
+            let t: CGFloat = shown == 1 ? 0.5 : 0.20 + 0.60 * CGFloat(i) / CGFloat(shown - 1)
+            let p = NSPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+            NSBezierPath(ovalIn: NSRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)).fill()
+        }
     }
 
     /// Per-session edge color, sourced from the SAME per-status palette that

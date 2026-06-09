@@ -44,6 +44,11 @@ struct ClaudeSession {
     /// resolved off-main during refresh (instant cache probe; empty until
     /// the async generator has produced one). Empty → leave bg image unset.
     var wallpaper: String = ""
+    /// Number of subagents currently in-flight under this session — both
+    /// `Task`-tool agents (per-session markers from `claude-tool-pre.sh`) and
+    /// live Workflow-tool agents (counted from the workflow journals). Drawn
+    /// as one dot per subagent along this session's polygon edge.
+    var subagentCount: Int = 0
 
     var shortSubject: String {
         let trimmed = subject.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -137,6 +142,7 @@ enum ClaudeSessionReader {
             } else {
                 s.state = .working
             }
+            s.subagentCount = subagentCount(for: s.sessionId)
             sessions.append(s)
             liveIds.insert(s.sessionId)
         }
@@ -173,6 +179,44 @@ enum ClaudeSessionReader {
             if validIds.contains(name) { continue }
             try? fm.removeItem(atPath: "\(awaitingDir)/\(name)")
         }
+    }
+
+    /// In-flight subagents for a session: per-session `Task` markers plus live
+    /// Workflow-tool agents. Cheap (a couple of directory reads + small journal
+    /// scans); runs off-main during the snapshot refresh.
+    static func subagentCount(for sessionId: String) -> Int {
+        guard !sessionId.isEmpty else { return 0 }
+        let fm = FileManager.default
+        var count = 0
+        // Task-tool agents: one marker file per agent under the session subdir.
+        let taskDir = "\(Paths.activeSubagentsDir)/\(sessionId)"
+        if let files = try? fm.contentsOfDirectory(atPath: taskDir) {
+            count += files.lazy.filter { !$0.hasPrefix(".") }.count
+        }
+        count += activeWorkflowAgents(for: sessionId)
+        return count
+    }
+
+    /// Workflow-tool agents don't fire the PreToolUse hook, so count them live
+    /// from each workflow run's journal: `started` events minus `result`
+    /// events = agents currently running.
+    private static func activeWorkflowAgents(for sessionId: String) -> Int {
+        let fm = FileManager.default
+        let projectsDir = "\(NSHomeDirectory())/.claude/projects"
+        guard let projects = try? fm.contentsOfDirectory(atPath: projectsDir) else { return 0 }
+        var active = 0
+        for proj in projects where !proj.hasPrefix(".") {
+            let wfDir = "\(projectsDir)/\(proj)/\(sessionId)/subagents/workflows"
+            guard let runs = try? fm.contentsOfDirectory(atPath: wfDir) else { continue }
+            for run in runs where run.hasPrefix("wf_") {
+                let journal = "\(wfDir)/\(run)/journal.jsonl"
+                guard let text = try? String(contentsOfFile: journal, encoding: .utf8) else { continue }
+                let started = text.components(separatedBy: "\"type\":\"started\"").count - 1
+                let done = text.components(separatedBy: "\"type\":\"result\"").count - 1
+                if started > done { active += started - done }
+            }
+        }
+        return active
     }
 
     private static func parse(path: String, fallbackId: String) -> ClaudeSession? {

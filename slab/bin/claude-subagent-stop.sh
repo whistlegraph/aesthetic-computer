@@ -1,7 +1,8 @@
 #!/bin/bash
-# SubagentStop hook: remove the oldest subagent marker and play a ping.
-# FIFO removal keeps the count accurate even if subagents finish out of order
-# (we don't need per-subagent correlation, just a correct total).
+# SubagentStop hook: remove this session's oldest subagent marker and play a
+# ping. FIFO-per-session removal keeps each session's count accurate even when
+# subagents finish out of order. Falls back to the globally-oldest marker if
+# the session subdir is empty, so counts can never leak upward.
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
@@ -10,8 +11,17 @@ SOUNDS="$SLAB_HOME/sounds"
 MUTE_FLAG="$SLAB_HOME/state/muted"
 
 mkdir -p "$SUBAGENT_DIR"
-oldest=$(ls -1tr "$SUBAGENT_DIR" 2>/dev/null | head -1)
-[[ -n "$oldest" ]] && rm -f "$SUBAGENT_DIR/$oldest"
+input=$(cat 2>/dev/null || true)
+session=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
+removed=0
+if [[ -n "$session" && -d "$SUBAGENT_DIR/$session" ]]; then
+    oldest=$(ls -1tr "$SUBAGENT_DIR/$session" 2>/dev/null | head -1)
+    if [[ -n "$oldest" ]]; then rm -f "$SUBAGENT_DIR/$session/$oldest"; removed=1; fi
+fi
+if [[ "$removed" == 0 ]]; then
+    oldest=$(ls -1tr "$SUBAGENT_DIR"/*/* 2>/dev/null | head -1)
+    [[ -n "$oldest" ]] && rm -f "$oldest"
+fi
 
 # Honor the menubar's "Mute ambient sonification" toggle — no ping / TTS
 # while muted. Marker accounting above still runs so counts stay correct.
