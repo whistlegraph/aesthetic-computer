@@ -2,10 +2,37 @@
 // Shows current version, checks for updates, downloads + flashes + reboots.
 // Jumped to from prompt.mjs via "os" command or from notepat OS button.
 
-const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
-const OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
-const OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
-const OS_INITRAMFS_URL = OS_BASE_URL + "native-notepat-latest.initramfs.cpio.gz";
+// Release source. Defaults to the DigitalOcean Spaces CDN the oven
+// publishes to; resolveOsSource() can repoint it at a LAN dev host.
+const OS_DEFAULT_BASE = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
+let OS_BASE_URL = OS_DEFAULT_BASE;
+let OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
+let OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
+let OS_INITRAMFS_URL = OS_BASE_URL + "native-notepat-latest.initramfs.cpio.gz";
+let osSourceDev = false; // true once pointed at a LAN/dev override
+
+// Dev source override. If /mnt/os-source.txt exists on the EFI partition
+// (first line = a base URL, e.g. "http://192.168.1.81:8888/os/"), OTA pulls
+// the .version / .vmlinuz / .initramfs.cpio.gz from there instead of the
+// CDN — flash a locally-built kernel over the LAN without a round trip
+// through the oven + CDN. Public OTA images never carry this file, so the
+// path is self-gating: production devices always use the CDN. Set it over
+// ssh (`echo http://host:port/os/ > /mnt/os-source.txt`) and remove the
+// file to return to CDN releases.
+function resolveOsSource(system) {
+  try {
+    const raw = system?.readFile?.("/mnt/os-source.txt");
+    if (!raw) return;
+    let base = raw.split("\n")[0].trim();
+    if (!/^https?:\/\//i.test(base)) return;
+    if (!base.endsWith("/")) base += "/";
+    OS_BASE_URL = base;
+    OS_VERSION_URL = base + "native-notepat-latest.version";
+    OS_VMLINUZ_URL = base + "native-notepat-latest.vmlinuz";
+    OS_INITRAMFS_URL = base + "native-notepat-latest.initramfs.cpio.gz";
+    osSourceDev = true;
+  } catch (_) {}
+}
 // POST install failures here so we can triage from MongoDB (collection
 // `os-install-reports`). See system/netlify/functions/os-install-report.mjs.
 const OS_REPORT_URL = "https://aesthetic.computer/api/os-install-report";
@@ -71,6 +98,44 @@ function setError(msg, fromState) {
   addTelemetry(`report queued: ${fromState} ${msg}`);
 }
 
+// Kick off the kernel download → flash for the currently selected target.
+// Shared by the `y` (install) and `b` (reflash boot usb) shortcuts.
+function startKernelInstall(system) {
+  const targets = system?.flashTargets || [];
+  const tgt = targets[flashTargetIdx];
+  globalThis.__osFlashDevice = tgt?.device || undefined;
+  progress = 0;
+  telemetry.length = 0;
+  // Preflight ESP space audit — refuse the install BEFORE downloading
+  // ~350 MB and BEFORE touching the partition if we can already see the
+  // ESP can't fit kernel + initramfs. Catches the historical brick where
+  // a tight ESP filled mid-write and the on-disk initramfs was silently
+  // truncated. Old kernels lacked diskFreeBytes, so guard with optional
+  // chaining and fall through (the C-side preflight catches it later).
+  const espMount = "/mnt"; // boot ESP is auto-mounted here
+  const espFree = system?.diskFreeBytes?.(espMount);
+  if (typeof espFree === "number" && espFree >= 0) {
+    const kernelNeed = remoteSize || 13_000_000;
+    const need = kernelNeed + OS_INITRAMFS_EXPECTED + OS_PREFLIGHT_MARGIN;
+    const freeMB = (espFree / 1048576).toFixed(0);
+    const needMB = (need / 1048576).toFixed(0);
+    addTelemetry(`preflight ESP=${espMount} free=${freeMB}MB need=${needMB}MB`);
+    if (espFree < need) {
+      addTelemetry("ABORT: insufficient ESP space for OTA");
+      addTelemetry("hint: free space on the boot partition or USB-reflash");
+      setError(`ESP only has ${freeMB}MB free (need ${needMB}MB)`, "preflight");
+      return;
+    }
+    addTelemetry("preflight OK — starting download");
+  } else {
+    addTelemetry("preflight: diskFreeBytes unavailable — skipping (C will retry)");
+  }
+  state = "downloading";
+  if (osSourceDev) addTelemetry("DEV SOURCE: " + OS_BASE_URL);
+  addTelemetry("fetching " + OS_VMLINUZ_URL.split("/").pop());
+  system?.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", (remoteSize || 93_000_000));
+}
+
 // Device manager state
 let deviceIdx = 0;
 let lastTargetCount = -1; // track hot-plug changes
@@ -97,6 +162,7 @@ function hasCreds(system) {
 
 function boot({ system }) {
   currentVersion = system?.version || "unknown";
+  resolveOsSource(system); // LAN dev override → /mnt/os-source.txt, else CDN
   // Default flash target: prefer non-boot device (e.g., NVMe when booting from USB)
   const targets = system?.flashTargets || [];
   const bootDev = system?.bootDevice;
@@ -184,39 +250,23 @@ function act({ event: e, sound, system }) {
   // Touch-like key shortcuts for available state
   if (state === "available") {
     if (e.is("keyboard:down:y") || e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
+      startKernelInstall(system);
+      return;
+    }
+    // 'b' — one-touch reflash of the live boot device (the USB you're
+    // running from), skipping the target cycle. boot() defaults the
+    // selector to a non-boot disk, so without this updating the live stick
+    // means tabbing to it first.
+    if (e.is("keyboard:down:b")) {
       const targets = system?.flashTargets || [];
-      const tgt = targets[flashTargetIdx];
-      const device = tgt?.device || undefined;
-      globalThis.__osFlashDevice = device;
-      progress = 0;
-      telemetry.length = 0;
-      // Preflight ESP space audit — refuse the install BEFORE downloading
-      // ~350 MB and BEFORE touching the partition if we can already see the
-      // ESP can't fit kernel + initramfs. Catches the historical brick where
-      // a tight ESP filled mid-write and the on-disk initramfs was silently
-      // truncated. Old kernels lacked diskFreeBytes, so guard with optional
-      // chaining and fall through (the C-side preflight catches it later).
-      const espMount = "/mnt"; // boot ESP is auto-mounted here
-      const espFree = system?.diskFreeBytes?.(espMount);
-      if (typeof espFree === "number" && espFree >= 0) {
-        const kernelNeed = remoteSize || 13_000_000;
-        const need = kernelNeed + OS_INITRAMFS_EXPECTED + OS_PREFLIGHT_MARGIN;
-        const freeMB = (espFree / 1048576).toFixed(0);
-        const needMB = (need / 1048576).toFixed(0);
-        addTelemetry(`preflight ESP=${espMount} free=${freeMB}MB need=${needMB}MB`);
-        if (espFree < need) {
-          addTelemetry("ABORT: insufficient ESP space for OTA");
-          addTelemetry("hint: free space on the boot partition or USB-reflash");
-          setError(`ESP only has ${freeMB}MB free (need ${needMB}MB)`, "preflight");
-          return;
-        }
-        addTelemetry("preflight OK — starting download");
+      const bootIdx = targets.findIndex(t => t.device === system?.bootDevice);
+      if (bootIdx >= 0) {
+        flashTargetIdx = bootIdx;
+        sound?.synth({ type: "triangle", tone: 660, duration: 0.08, volume: 0.12, attack: 0.003, decay: 0.06 });
+        startKernelInstall(system);
       } else {
-        addTelemetry("preflight: diskFreeBytes unavailable — skipping (C will retry)");
+        sound?.synth({ type: "square", tone: 180, duration: 0.12, volume: 0.1, attack: 0.004, decay: 0.1 });
       }
-      state = "downloading";
-      addTelemetry("fetching " + OS_VMLINUZ_URL.split("/").pop());
-      system?.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", (remoteSize || 93_000_000));
       return;
     }
     if (e.is("keyboard:down:n")) {
@@ -479,6 +529,13 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   ink(T.fg, T.fg + 10, T.fg);
   write("ac/native", { x: pad, y: 10, size: 2, font: "matrix" });
 
+  // Dev-source tag — visible in every state so a LAN-sourced flash is
+  // never mistaken for a CDN release.
+  if (osSourceDev) {
+    ink(255, 200, 60);
+    write("DEV SRC", { x: w - 52, y: 12, size: 1, font });
+  }
+
   // Connection status
   if (!wifi?.connected) {
     ink(T.err[0], T.err[1], T.err[2]);
@@ -566,6 +623,12 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     write("install? y/n", { x: pad, y: hintY, size: 1, font });
     ink(80, 80, 100);
     write("esc: back", { x: pad, y: hintY + 14, size: 1, font });
+    // One-touch reflash of the live boot device.
+    const selBoot = targets[flashTargetIdx]?.device === system?.bootDevice;
+    if (!selBoot && targets.some(t => t.device === system?.bootDevice)) {
+      ink(60, 140, 200);
+      write("b: reflash boot usb", { x: pad, y: hintY + 28, size: 1, font });
+    }
 
   } else if (state === "downloading") {
     ink(120, 140, 120);

@@ -462,7 +462,8 @@ let lastSpokenMsgKey = "";   // "from:text" of last TTS'd message (avoid repeats
 let wsStatus = "";           // "connecting" | "connected" | "error" | ""
 let wsConnectGrace = 0;      // frames to wait before declaring error (race-condition guard)
 let wsReconnectTimer = 0;   // frames until next reconnect attempt
-let chatMuted = false;       // mute TTS for incoming chat messages
+let chatMuted = true;        // incoming-chat TTS off by default on native
+                             // (instrument-name / status speech is separate)
 let wifiWasConnected = false;
 let wifiConnectFrame = -9999; // frame when WiFi last connected (cooldown guard)
 let lastBatPercent = -1;     // for battery change TTS

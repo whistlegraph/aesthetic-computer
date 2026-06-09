@@ -22,6 +22,19 @@ let spinSpeed = 0;      // record spin rate (0=stopped, 1=playing)
 let scratchSpeed = 0;   // current scratch velocity (-2 to 2)
 let wasPlaying = false;  // was playing before scratch started
 
+// Waveform overview — whole-track peaks fetched once per load.
+let peaks = null;       // Float array (0..1) or null until decoded
+
+// Hold-space + trackpad-X scratch.
+let spaceHeld = false;        // space key currently down
+let spaceScratchActive = false; // X movement exceeded the tap threshold
+let spaceMoved = 0;           // accumulated |dx| since space pressed
+let scratchPrevX = 0;         // last pen.x sampled in sim
+let wasPlayingBeforeScratch = false;
+
+// Auto-advance guard — advance once per track end, not every frame.
+let advancedForIdx = -1;
+
 // Button layout (computed in paint, used in act)
 let buttons = [];       // [{x, y, w, h, id, label}]
 
@@ -66,6 +79,8 @@ function loadTrack(sound) {
   const f = files[trackIdx];
   const ok = sound?.deck?.load(0, f.path);
   if (ok) {
+    peaks = null;            // re-fetch overview for the new track
+    advancedForIdx = -1;     // re-arm auto-advance for this track
     msg(f.name.replace(/\.[^.]+$/, ""));
     say(sound, f.name.replace(/\.[^.]+$/, ""));
     sound.deck.play(0);
@@ -172,18 +187,40 @@ function act({ event: e, sound, system, screen }) {
     return;
   }
 
-  if (!e.is("keyboard:down")) return;
-
-  if (e.is("keyboard:down:escape")) { system?.jump?.("prompt"); return; }
-
-  // Space: play/pause
+  // --- Hold-space + trackpad-X scratch ---
+  // Press space to enter scratch mode; sliding the pointer left/right
+  // scrubs the deck (sim() drives the speed from pen.x). A space tap with
+  // no slide falls through to play/pause on release.
   if (e.is("keyboard:down:space")) {
-    if (d?.loaded) {
-      if (d.playing) { dk.pause(0); spinSpeed = 0; msg("paused"); }
-      else { dk.play(0); spinSpeed = 1; msg("playing"); }
+    if (!spaceHeld && d?.loaded) {
+      spaceHeld = true;
+      spaceScratchActive = false;
+      spaceMoved = 0;
+      scratchPrevX = -1; // sim seeds this on its first frame
+      wasPlayingBeforeScratch = d.playing || false;
+    }
+    return; // ignore autorepeat; release handles the tap case
+  }
+  if (e.is("keyboard:up:space")) {
+    if (spaceHeld) {
+      spaceHeld = false;
+      if (spaceScratchActive) {
+        // Was scratching — restore prior transport.
+        if (wasPlayingBeforeScratch) { dk?.setSpeed(0, 1); dk?.play(0); spinSpeed = 1; }
+        else { dk?.setSpeed(0, 1); dk?.pause(0); spinSpeed = 0; }
+      } else if (d?.loaded) {
+        // Plain tap — play/pause toggle.
+        if (d.playing) { dk.pause(0); spinSpeed = 0; msg("paused"); }
+        else { dk.play(0); spinSpeed = 1; msg("playing"); }
+      }
+      spaceScratchActive = false;
     }
     return;
   }
+
+  if (!e.is("keyboard:down")) return;
+
+  if (e.is("keyboard:down:escape")) { system?.jump?.("prompt"); return; }
 
   // N: next track
   if (e.is("keyboard:down:n")) {
@@ -327,15 +364,36 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   //   h-24: time / speed
   //   h-32: progress bar
 
-  // Progress bar
+  // Waveform overview + playhead (falls back to a thin bar until the
+  // whole-track peaks finish decoding).
   const barY = h - 34;
   const barW = w - 8;
   const progress = d.duration > 0 ? d.position / d.duration : 0;
-  ink(T.bar[0], T.bar[1], T.bar[2]);
-  box(4, barY, barW, 4);
-  const pb = d.playing ? T.ok : [dim, dim + 20, dim];
-  ink(pb[0], pb[1], pb[2]);
-  box(4, barY, Math.max(1, Math.floor(barW * progress)), 4);
+  if (!peaks && d.loaded) peaks = sound?.deck?.getPeaks?.(0) || null;
+  const playedX = 4 + Math.floor(barW * progress);
+  if (peaks && peaks.length > 0) {
+    const cyW = barY + 2;        // vertical center of the strip
+    const HH = 11;               // half-height (strip spans ~22px)
+    const pb = d.playing ? T.ok : [dim + 30, dim + 30, dim + 30];
+    for (let x = 0; x < barW; x++) {
+      const pk = peaks[Math.floor((x / barW) * peaks.length)] || 0;
+      const colH = Math.max(1, Math.floor(pk * HH));
+      const played = 4 + x < playedX;
+      if (played) ink(pb[0], pb[1], pb[2]);
+      else ink(T.bar[0], T.bar[1], T.bar[2]);
+      box(4 + x, cyW - colH, 1, colH * 2);
+    }
+    // Playhead.
+    ink(T.accent[0], T.accent[1], T.accent[2]);
+    box(Math.min(4 + barW - 1, playedX), cyW - HH, 1, HH * 2);
+  } else {
+    // Decoding (or stream without peaks) — thin progress bar.
+    ink(T.bar[0], T.bar[1], T.bar[2]);
+    box(4, barY, barW, 4);
+    const pb = d.playing ? T.ok : [dim, dim + 20, dim];
+    ink(pb[0], pb[1], pb[2]);
+    box(4, barY, Math.max(1, Math.floor(barW * progress)), 4);
+  }
 
   // Time + speed
   ink(T.fgDim, T.fgDim, T.fgDim);
@@ -376,10 +434,13 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
     write(bd.label, { x: lx, y: ly, size: 1, font: F });
   }
 
-  // Drag state
-  if (dragging) {
+  // Scratch state — radial drag or hold-space + trackpad-X.
+  if (dragging || spaceScratchActive) {
     ink(T.accent[0], T.accent[1], T.accent[2]);
     write("SCRATCH", { x: cx - 21, y: cy - 5, size: 1, font: F });
+  } else if (spaceHeld) {
+    ink(T.warn[0], T.warn[1], T.warn[2]);
+    write("scrub ↔", { x: cx - 18, y: cy - 5, size: 1, font: F });
   }
 
   // Message toast
@@ -390,7 +451,36 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   }
 }
 
-function sim({ system, sound }) {
+function sim({ system, sound, pen }) {
+  const dk0 = sound?.deck;
+  const d0 = dk0?.decks?.[0];
+
+  // --- Hold-space + trackpad-X scratch ---
+  // While space is held, the pointer's horizontal velocity becomes the
+  // deck's playback speed: slide right = forward, left = reverse, hold
+  // still = silence. Released in act().
+  if (spaceHeld && d0?.loaded && pen) {
+    const px = pen.x ?? 0;
+    if (scratchPrevX < 0) scratchPrevX = px; // seed on first frame
+    const dx = px - scratchPrevX;
+    scratchPrevX = px;
+    spaceMoved += Math.abs(dx);
+    if (spaceMoved > 3) spaceScratchActive = true; // past the tap threshold
+    if (spaceScratchActive) {
+      // Map px/frame to speed. ~6px/frame ≈ 1x; clamp to a hard scratch range.
+      let sp = dx / 6;
+      if (sp > 3) sp = 3;
+      if (sp < -3) sp = -3;
+      scratchSpeed = sp;
+      dk0.setSpeed(0, sp);
+      if (!d0.playing) dk0.play(0); // engine must run to render the scrub
+    }
+  }
+
+  oldSim({ system, sound });
+}
+
+function oldSim({ system, sound }) {
   // USB hot-plug check every 3 seconds while active, or 15 seconds while idle.
   const mountPending = !!system?.mountMusicPending;
   const nowMounted = !!system?.mountMusicMounted;
@@ -413,10 +503,20 @@ function sim({ system, sound }) {
     say(sound, "USB DJ off");
     msg("USB removed");
   }
-  // Auto-advance when track ends
+  // Auto-advance when the track reaches the end. Fires once per track
+  // (advancedForIdx guard) regardless of whether the deck flips `playing`
+  // to false exactly at EOF, and never mid-scratch/seek. Skipped while a
+  // scratch is in progress so scrubbing past the tail doesn't skip tracks.
   const d = sound?.deck?.decks?.[0];
-  if (d?.loaded && !d.playing && d.position >= d.duration - 0.1 && d.duration > 0 && !dragging) {
-    trackIdx++;
+  const scratching = dragging || spaceScratchActive;
+  if (
+    d?.loaded && d.duration > 0 && !scratching &&
+    d.position >= d.duration - 0.25 &&
+    advancedForIdx !== trackIdx &&
+    files.length > 0
+  ) {
+    advancedForIdx = trackIdx; // claim this track so we advance only once
+    trackIdx = (trackIdx + 1) % files.length; // wrap at the end of the crate
     loadTrack(sound);
   }
 }
