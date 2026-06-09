@@ -2200,6 +2200,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let attackRate: CGFloat = 0.30
         let decayRate:  CGFloat = 0.045
         let isReleasing = now > ghostUntil
+        // Track whether any cell actually moved this tick. `updateIcon` is an
+        // expensive CoreGraphics redraw of the whole keyboard glyph; the per-
+        // cell arithmetic below is cheap. While the letters are HELD lit
+        // (all reached, ghost not yet expired) every cell sits pinned at its
+        // target and nothing moves — but the timer must keep ticking to catch
+        // the release transition (`now > ghostUntil`). So we keep ticking but
+        // only redraw when there's motion. This is what kept the menubar icon
+        // pinned at ~50% CPU: 60 Hz identical redraws during a static hold.
+        var moved = false
         for midi in 0...127 {
             let key = UInt8(midi)
             let cur = letterAlphas[key] ?? 0
@@ -2219,7 +2228,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let next = cur + (target - cur) * rate
             // Skip near-zero noise so we can detect the all-stable
             // state and stop the tick.
-            letterAlphas[key] = abs(next) < 0.001 ? 0 : next
+            let clamped: CGFloat = abs(next) < 0.001 ? 0 : next
+            if abs(clamped - cur) > 0.0005 { moved = true }
+            letterAlphas[key] = clamped
         }
 
         // 3. Park the timer when everything has fully decayed and the
@@ -2230,8 +2241,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             letterReached.removeAll()
             letterFadeTimer?.invalidate()
             letterFadeTimer = nil
+            updateIcon()   // draw the final cleared frame once
+            return
         }
-        updateIcon()
+        // Only repaint when a cell actually moved — a held, fully-lit ghost
+        // costs zero redraws until the release wave starts.
+        if moved { updateIcon() }
     }
 
     /// Per-cell alpha based on radial distance from the pivot. Fade-in

@@ -207,6 +207,22 @@ final class MenuBandSynth {
     /// reconfig has fully settled. This is the self-healing path.
     private var midiSynthBankDirty = false
 
+    /// Monotonic counter bumped on every `AVAudioEngineConfigurationChange`
+    /// (device switch / aux pull / rate change). The MIDISynth rebuild is
+    /// debounced against this: the heavy tear-down + sample-preload only runs
+    /// once the epoch has stopped advancing for a full settle window, so the
+    /// preload sweep never lands mid-reconfiguration (see
+    /// `scheduleMIDISynthRebuild`).
+    private var audioConfigEpoch = 0
+    /// The epoch the currently-armed rebuild timer was scheduled against, or
+    /// nil when no rebuild is pending. Used to coalesce a burst of switches
+    /// into one rebuild and to re-arm if a newer switch lands mid-wait.
+    private var rebuildArmedForEpoch: Int?
+    /// How long the audio device must stay quiet (no new config change) before
+    /// the MIDISynth is rebuilt. Long enough for CoreAudio's IO thread to
+    /// finish negotiating the new device/rate, short enough to feel instant.
+    private let midiSynthRebuildSettleDelay: TimeInterval = 0.30
+
     /// Serializes engine run-state (`start`/`pause`/`stop`) and graph
     /// mutations (`attach`/`connect`/`disconnect`) plus the one-shot
     /// MIDISynth preload sweep. These run from TWO threads: the main
@@ -418,7 +434,8 @@ final class MenuBandSynth {
         engineLock.lock()
         defer { engineLock.unlock() }
         guard started else { return }
-        NSLog("MenuBand: audio engine configuration changed (device switch) — recovering")
+        audioConfigEpoch &+= 1
+        NSLog("MenuBand: audio engine configuration changed (device switch \(audioConfigEpoch)) — recovering")
         // Mark the bank dirty no matter which recovery branch runs below —
         // the immediate reapply can be overwritten as the reconfig settles,
         // so the next note re-asserts the bank as a guaranteed backstop.
@@ -435,10 +452,63 @@ final class MenuBandSynth {
         // bank re-set OR an engine stop→start (both observed to no-op after
         // a device switch). The only reliable recovery is to REBUILD it —
         // tear the AU down and instantiate a fresh one, exactly like launch
-        // (fresh bank + program preload). Runs the heavy bring-up async,
-        // after this lock releases, so it can't deadlock on `engineLock`.
-        rebuildMIDISynth()
+        // (fresh bank + program preload).
+        //
+        // But the rebuild MUST NOT run now: the `applyOutputDeviceOverride` +
+        // `lowerOutputBufferSizeIfNeeded` writes above can each emit their OWN
+        // configuration-change, and CoreAudio's IO thread keeps negotiating
+        // the new device/rate for a beat after this notification fires.
+        // Rebuilding into that churn runs the sample preload while the engine
+        // is being re-paused/restarted underneath it — the program-change
+        // events miss the `EnablePreload` window and every instrument collapses
+        // to MIDISynth's empty-state sine (silent). That's the "instruments
+        // died after switching headphones" bug. So debounce: rebuild only once
+        // the device has been quiet for a full settle window. The lazy
+        // `reassertMIDISynthBankIfDirty` keeps the EXISTING AU limping on the
+        // right bank for any notes played during the wait.
+        scheduleMIDISynthRebuild()
         reassertActiveBackend()
+    }
+
+    /// Arm (or, if a burst of switches is in flight, re-arm) the debounced
+    /// MIDISynth rebuild. Called under `engineLock` from
+    /// `handleEngineConfigurationChange`. Idempotent within a burst — the
+    /// first switch arms the timer; later switches just bump `audioConfigEpoch`
+    /// and the fire handler notices it advanced and re-arms, so the rebuild
+    /// slides out to land only after the device finally goes quiet.
+    private func scheduleMIDISynthRebuild() {
+        guard rebuildArmedForEpoch == nil else { return }
+        armMIDISynthRebuildTimer()
+    }
+
+    private func armMIDISynthRebuildTimer() {
+        rebuildArmedForEpoch = audioConfigEpoch
+        DispatchQueue.main.asyncAfter(deadline: .now() + midiSynthRebuildSettleDelay) { [weak self] in
+            self?.fireMIDISynthRebuildTimer()
+        }
+    }
+
+    private func fireMIDISynthRebuildTimer() {
+        engineLock.lock()
+        defer { engineLock.unlock() }
+        guard let armedEpoch = rebuildArmedForEpoch else { return }
+        // Another switch landed while we waited — the device is still moving.
+        // Re-arm for the newer epoch so the preload only runs once a full
+        // settle window passes with no further change.
+        if armedEpoch != audioConfigEpoch {
+            armMIDISynthRebuildTimer()
+            return
+        }
+        rebuildArmedForEpoch = nil
+        guard started else { return }
+        if !engine.isRunning {
+            do { try engine.start() }
+            catch { NSLog("MenuBand: engine start before MIDISynth rebuild failed: \(error)") }
+        }
+        NSLog("MenuBand: device settled (epoch \(armedEpoch)) — rebuilding MIDISynth")
+        // Runs the heavy bring-up async, after this lock releases, so it can't
+        // deadlock on `engineLock`.
+        rebuildMIDISynth()
     }
 
     /// Tear down the (reset) MIDISynth and build a fresh one — the reliable
@@ -461,6 +531,11 @@ final class MenuBandSynth {
     // MARK: - MIDISynth (multi-timbral, instant switching)
 
     private func startMIDISynthBackend() {
+        // Snapshot the device epoch this build is for. Instantiation +
+        // configure run async; if a NEW device switch lands during that gap
+        // the samples we're about to preload are already for the wrong device,
+        // so `configureMIDISynth` re-arms a rebuild instead of trusting them.
+        let builtForEpoch = audioConfigEpoch
         let desc = AudioComponentDescription(
             componentType: kAudioUnitType_MusicDevice,
             componentSubType: kAudioUnitSubType_MIDISynth,
@@ -474,12 +549,12 @@ final class MenuBandSynth {
                     NSLog("MenuBand: MIDISynth instantiate failed: \(String(describing: error)) — staying on sampler fallback")
                     return
                 }
-                self.configureMIDISynth(avUnit)
+                self.configureMIDISynth(avUnit, builtForEpoch: builtForEpoch)
             }
         }
     }
 
-    private func configureMIDISynth(_ avUnit: AVAudioUnit) {
+    private func configureMIDISynth(_ avUnit: AVAudioUnit, builtForEpoch: Int = 0) {
         let au = avUnit.audioUnit
 
         // Hold the engine lock across the ENTIRE bring-up (bank set →
@@ -566,6 +641,17 @@ final class MenuBandSynth {
         updateSamplerRoutingForActiveBackend()
         scheduleIdleSuspendIfNeeded()
         NSLog("MenuBand: MIDISynth ready — instant program switching enabled")
+
+        // If the device switched again while this AU was instantiating +
+        // preloading, the samples we just faulted in are for the OLD device
+        // and may be silent on the new one. Re-arm the debounced rebuild so a
+        // fresh AU is built once the device finally settles. (builtForEpoch is
+        // 0 at launch, which only mismatches if a switch raced startup — also
+        // correct to rebuild then.)
+        if builtForEpoch != audioConfigEpoch {
+            NSLog("MenuBand: device switched during MIDISynth bring-up (built \(builtForEpoch), now \(audioConfigEpoch)) — re-arming rebuild")
+            scheduleMIDISynthRebuild()
+        }
 
         // The MIDISynth stays connected so keyboard input remains playable
         // while the popover is hidden. The inactive sampler outputs are

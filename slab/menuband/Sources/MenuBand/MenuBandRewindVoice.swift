@@ -36,8 +36,15 @@ final class MenuBandRewindVoice {
     /// `captureSeconds` of the ring. Because capture FREEZES while in reverse
     /// mode (see `recording`) and only resumes when a real note is next
     /// played, repeated presses re-reverse the SAME window from the same
-    /// start point — notepat's stutter gesture. Kept short + chunky.
-    let captureSeconds: Double = 1.5
+    /// start point — notepat's stutter gesture. A longer window so a press
+    /// reaches further back into the recent phrase (the ring holds 60 s, so
+    /// there's ample headroom).
+    let captureSeconds: Double = 4.0
+    /// Generation token for the in-flight reverse one-shot. Bumped on every
+    /// `playReverse` and `release` so a deferred release-fade can tell whether
+    /// it still owns the player (a fresh press between the fade and its stop
+    /// must NOT cut the new playback). See `release`.
+    private var playGeneration: UInt64 = 0
 
     private let player = AVAudioPlayerNode()
     /// Pitch + echo applied to the reverse playback ITSELF, so the trackpad
@@ -236,6 +243,22 @@ final class MenuBandRewindVoice {
         }
         ringLock.unlock()
 
+        // Declick: the window begins and ends on an arbitrary mid-waveform
+        // sample, so jumping straight from silence to that value (on press)
+        // and back (at the tail) snaps a click. A short raised-cosine fade at
+        // both ends ramps those discontinuities away — the "very slight fade
+        // in when reverse starts" that kills the spacebar pop, plus a matching
+        // tail fade so the one-shot lands in silence cleanly.
+        let fade = Swift.min(count / 2, Swift.max(1, Int(rate * 0.006)))
+        if fade > 1 {
+            for i in 0..<fade {
+                // 0→1 half-cosine: smooth (zero-slope) at the silent end.
+                let g = Float(0.5 - 0.5 * cos(Double.pi * Double(i) / Double(fade)))
+                reversed[i] *= g                 // fade in  (clip head)
+                reversed[count - 1 - i] *= g      // fade out (clip tail)
+            }
+        }
+
         // --- Build the clip at the RING's capture rate (mono) ---
         // The samples were captured at `rate`; the clip MUST declare that
         // same rate or it plays at the wrong speed. We then (re)connect the
@@ -267,6 +290,11 @@ final class MenuBandRewindVoice {
         // reversing land in the buffer and the next press reverses them too.
         if !engine.isRunning { try? engine.start() }
         player.stop()
+        // Own the player for this press — invalidates any pending release-fade
+        // from a prior press and restores full level (a release fade may have
+        // left the mixer ramped down).
+        playGeneration &+= 1
+        mixer.outputVolume = 1.0
         // One-shot reverse (notepat's loop:false): plays the captured window
         // backward once and falls into silence. Press again to re-reverse.
         player.scheduleBuffer(clip, at: nil, options: [], completionHandler: nil)
@@ -289,9 +317,19 @@ final class MenuBandRewindVoice {
 
     /// Space released — stop the reverse voice. Capture stays FROZEN (it only
     /// resumes on the next note) so repeated presses re-reverse the same
-    /// window.
+    /// window. A bare `player.stop()` mid-clip cuts a non-zero sample to
+    /// silence and clicks, so ramp the mixer down first (AVAudioMixerNode
+    /// smooths volume changes), then stop a beat later and restore level.
     func release() {
-        if player.isPlaying { player.stop() }
+        guard player.isPlaying else { return }
+        playGeneration &+= 1
+        let gen = playGeneration
+        mixer.outputVolume = 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+            guard let self = self, self.playGeneration == gen else { return }
+            if self.player.isPlaying { self.player.stop() }
+            self.mixer.outputVolume = 1.0
+        }
     }
 
 }
