@@ -75,18 +75,25 @@ let flashGold = 0; // gold screen-flash intensity (clear)
 let flashGreen = 0; // green screen-flash intensity (board start)
 let confetti = []; // { x, y, vx, vy, s, c } celebration bits
 
-// ⏳ Per-board countdown — measured in musical beats.
+// ⏳ Per-board countdown — measured in musical beats, ticked off the *wall
+// clock* (clock.time(), network-synced) rather than a free-running frame
+// counter. Every board everywhere shares the same global beat grid, so two
+// games started seconds apart still pulse in unison — like clocks naturally do.
 const FPS = 60;
 const BPM = 74; // slower, more relaxed groove
-const BEAT = Math.round((60 / BPM) * FPS); // frames per beat
+const BEAT_MS = (60 / BPM) * 1000; // milliseconds per beat (~810ms)
+let nowMs = 0; // last seen synced wall-clock time (ms), captured each sim
+let beatIndex = 0; // global beat number = floor(nowMs / BEAT_MS)
+let lastBeatIndex = null; // beat index at the previous tick (null until first)
 let beatsLeft = 0; // beats of time remaining on this board
 let beatsMax = 1; // beats the board started with
-let beatPhase = 0; // frames elapsed into the current beat
+let beatPhase = 0; // 0..1 fraction into the current beat (drives sub-beat feel)
 let beatPulse = 0; // brief visual pulse on each beat
 let heldChord = null; // sustained synth voices while munch is held
 
 // 🥾 Boot
-function boot({ params, hud, num: { randInt } }) {
+function boot({ params, hud, clock, num: { randInt } }) {
+  clock?.resync?.(); // network-sync the wall clock; board beats ride this grid
   const p = params?.[0];
   if (p === "spanish" || p === "es" || p === "mexi" || p === "mexinom") {
     mode = "word";
@@ -154,13 +161,48 @@ const COLOR_WORDS = {
   purple: [160, 90, 220], morado: [160, 90, 220],
   tan: [210, 180, 140], lime: [160, 230, 90], teal: [80, 200, 190],
   navy: [60, 80, 170], cyan: [90, 220, 230], rose: [230, 120, 140],
-  // 🇩🇰 Danish color words (ASCII-romanized æøå → ae/o/aa).
-  rod: [230, 60, 60], blaa: [70, 120, 240], gron: [70, 200, 90],
+  // 🇩🇰 Danish color words (real spelling — board renders them in MatrixChunky8).
+  "rød": [230, 60, 60], "blå": [70, 120, 240], "grøn": [70, 200, 90],
   gul: [240, 210, 70], sort: [35, 35, 44], hvid: [235, 235, 245],
-  graa: [150, 150, 160], brun: [150, 90, 50],
+  "grå": [150, 150, 160], brun: [150, 90, 50],
 };
 function luma(c) {
   return 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+}
+
+// 🔤 Text fitting ─────────────────────────────────────────────────────────────
+// Words render in MatrixChunky8 (proportional, ships real æ/ø/å glyphs, and its
+// tighter advances let long words fit). Numbers stay on the default 6×10 font.
+// We measure the rendered width (via the captured `text.box` API) so words can
+// be centered inside each grid cell with a real margin, dropping a size when a
+// word would otherwise overflow.
+let txtAPI = null; // captured each paint, for measuring text width
+const CELL_MARGIN = 5; // px inset on each side of a cell
+
+function cellFont() {
+  return mode === "word" ? "MatrixChunky8" : null; // null → default font_1
+}
+
+// Measure rendered { width, height } of `str` at `size` in `font`.
+function measureText(str, size, font) {
+  if (txtAPI?.box) {
+    const r = txtAPI.box(str, { x: 0, y: 0 }, undefined, size, false, font || undefined);
+    const w = r?.box?.width;
+    const h = r?.box?.height;
+    if (typeof w === "number" && w > 0)
+      return { width: w, height: typeof h === "number" && h > 0 ? h : (font ? 8 : 10) * size };
+  }
+  const adv = font === "MatrixChunky8" ? 5 : 6; // fallback advance estimate
+  return { width: str.length * adv * size, height: (font ? 8 : 10) * size };
+}
+
+// Largest size in {2,1} whose rendered width fits the cell (minus margin).
+function fitText(str, cell, font) {
+  const avail = max(8, cell - CELL_MARGIN * 2);
+  for (const size of [2, 1]) {
+    const m = measureText(str, size, font);
+    if (m.width <= avail || size === 1) return { ...m, size, font };
+  }
 }
 
 // Spanish → English (spoken on each munch in mexinom).
@@ -182,21 +224,21 @@ const TRANSLATE = {
   clavo: "nail", papel: "paper", caja: "box",
 };
 
-// 🇩🇰 Danish → English (spoken on each munch in dannom). Keys are ASCII-romanized
-// (æ→ae, ø→o, å→aa) to match the bitmap-font-safe words used on the board.
+// 🇩🇰 Danish → English (spoken on each munch in dannom). Real Danish spelling
+// (æ ø å) — the board renders these with MatrixChunky8, which has the glyphs.
 const TRANSLATE_DA = {
-  brod: "bread", ost: "cheese", polse: "sausage", kage: "cake", suppe: "soup",
-  smor: "butter", fisk: "fish", salt: "salt", sukker: "sugar", grod: "porridge", aeg: "egg",
+  "brød": "bread", ost: "cheese", "pølse": "sausage", kage: "cake", suppe: "soup",
+  "smør": "butter", fisk: "fish", salt: "salt", sukker: "sugar", "grød": "porridge", "æg": "egg",
   kat: "cat", hund: "dog", ko: "cow", gris: "pig", hest: "horse", and: "duck",
-  ravn: "raven", ulv: "wolf", bjorn: "bear", raev: "fox", mus: "mouse", faar: "sheep",
-  rod: "red", blaa: "blue", gron: "green", gul: "yellow", sort: "black",
-  hvid: "white", graa: "gray", brun: "brown",
-  aeble: "apple", paere: "pear", blomme: "plum", banan: "banana", drue: "grape",
-  fersken: "peach", citron: "lemon", melon: "melon", baer: "berry", blomster: "flowers",
-  lys: "candle", te: "tea", bog: "book", sofa: "sofa", taeppe: "blanket",
+  ravn: "raven", ulv: "wolf", "bjørn": "bear", "ræv": "fox", mus: "mouse", "får": "sheep",
+  "rød": "red", "blå": "blue", "grøn": "green", gul: "yellow", sort: "black",
+  hvid: "white", "grå": "gray", brun: "brown",
+  "æble": "apple", "pære": "pear", blomme: "plum", banan: "banana", drue: "grape",
+  fersken: "peach", citron: "lemon", melon: "melon", "bær": "berry",
+  lys: "candle", te: "tea", bog: "book", sofa: "sofa", "tæppe": "blanket",
   ild: "fire", ven: "friend", kaffe: "coffee", hus: "house", sten: "stone",
   tog: "train", stol: "chair", bord: "table", ur: "clock", glas: "glass",
-  sko: "shoe", dor: "door", vej: "road", regn: "rain", vind: "wind",
+  sko: "shoe", "dør": "door", vej: "road", regn: "rain", vind: "wind",
 };
 
 function shuffle(arr, rnd) {
@@ -272,34 +314,34 @@ const ES_WORD_ROUNDS = [
   },
 ];
 
-// 🇩🇰 Dannom — Danish word categories (mad, dyr, farver, frugt, hygge). Words are
-// ASCII-romanized (æ→ae, ø→o, å→aa) so the bitmap font renders cleanly; each munch
-// speaks the English translation aloud (see TRANSLATE_DA).
+// 🇩🇰 Dannom — Danish word categories (mad, dyr, farver, frugt, hygge) in real
+// Danish spelling (æ ø å). Rendered with MatrixChunky8 (has the glyphs); each
+// munch speaks the English translation aloud (see TRANSLATE_DA).
 const DA_WORD_ROUNDS = [
   {
     label: "MAD", say: "danish food",
-    correct: ["brod", "ost", "polse", "kage", "suppe", "smor", "fisk", "salt", "sukker", "grod", "aeg"],
-    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dor"],
+    correct: ["brød", "ost", "pølse", "kage", "suppe", "smør", "fisk", "salt", "sukker", "grød", "æg"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dør"],
   },
   {
     label: "DYR", say: "danish animals",
-    correct: ["kat", "hund", "ko", "gris", "hest", "and", "ravn", "ulv", "bjorn", "raev", "mus", "faar"],
-    wrong: ["hus", "taeppe", "ur", "bog", "tog", "stol", "glas", "sten", "vej", "dor"],
+    correct: ["kat", "hund", "ko", "gris", "hest", "and", "ravn", "ulv", "bjørn", "ræv", "mus", "får"],
+    wrong: ["hus", "tæppe", "ur", "bog", "tog", "stol", "glas", "sten", "vej", "dør"],
   },
   {
     label: "FARVER", say: "danish colors",
-    correct: ["rod", "blaa", "gron", "gul", "sort", "hvid", "graa", "brun"],
+    correct: ["rød", "blå", "grøn", "gul", "sort", "hvid", "grå", "brun"],
     wrong: ["kat", "bord", "regn", "vind", "hus", "sten", "sko", "glas", "vej", "ur"],
   },
   {
     label: "FRUGT", say: "danish fruit",
-    correct: ["aeble", "paere", "blomme", "banan", "drue", "fersken", "citron", "melon", "baer"],
-    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dor"],
+    correct: ["æble", "pære", "blomme", "banan", "drue", "fersken", "citron", "melon", "bær"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dør"],
   },
   {
     label: "HYGGE", say: "cozy danish things",
-    correct: ["lys", "te", "bog", "sofa", "taeppe", "ild", "ven", "kaffe"],
-    wrong: ["regn", "vind", "sten", "tog", "ur", "glas", "sko", "dor", "vej", "hus"],
+    correct: ["lys", "te", "bog", "sofa", "tæppe", "ild", "ven", "kaffe"],
+    wrong: ["regn", "vind", "sten", "tog", "ur", "glas", "sko", "dør", "vej", "hus"],
   },
 ];
 
@@ -407,9 +449,12 @@ function newRound({ randInt }) {
   facing = { x: 1, y: 0 };
 
   // ⏳ Per-board beat budget (generous; tightens a little as levels climb).
+  // Ticks ride the global wall-clock beat grid; resync the local index so the
+  // fresh board doesn't immediately burn a beat at start.
   beatsMax = max(28, 52 - level);
   beatsLeft = beatsMax;
   beatPhase = 0;
+  lastBeatIndex = null;
 
   // Clear any leftover animation state from the previous round.
   deathPhase = 0;
@@ -443,9 +488,13 @@ function idx(col, row) {
 }
 
 // 🧮 Sim ───────────────────────────────────────────────────────────────────
-function sim({ gizmo, seconds, sound, num: { randInt } }) {
+function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
   snd = sound;
   if (sound && !synth) synth = Synth(sound);
+  // 🕰️ Sample the network-synced wall clock and derive the global beat grid.
+  nowMs = clock?.time?.()?.getTime?.() ?? (nowMs + 1000 / FPS);
+  beatIndex = Math.floor(nowMs / BEAT_MS);
+  beatPhase = (nowMs % BEAT_MS) / BEAT_MS; // 0..1 within the current beat
   frames += 1;
   mouth = (mouth + 1) % 40;
   if (invuln > 0) invuln -= 1;
@@ -527,11 +576,13 @@ function sim({ gizmo, seconds, sound, num: { randInt } }) {
 
   if (state !== "play") return;
 
-  // ⏳ Beat-based timeline: each beat ticks (metronome), running out costs a
-  // life. Down to the last few beats, the whole board trembles.
-  beatPhase += 1;
-  if (beatPhase >= BEAT) {
-    beatPhase = 0;
+  // ⏳ Beat-based timeline, ticked off the global wall-clock grid: whenever the
+  // synced beat index advances, this board loses a beat (metronome + visual
+  // pulse). Running out costs a life. Because every board reads the same clock,
+  // their metronomes pulse together no matter when each one started.
+  if (lastBeatIndex === null) lastBeatIndex = beatIndex; // align on (re)start
+  if (beatIndex > lastBeatIndex) {
+    lastBeatIndex = beatIndex; // collapse any beats missed while backgrounded
     beatPulse = 8;
     if (beatsLeft > 0) {
       beatsLeft -= 1;
@@ -598,12 +649,13 @@ function timeUp() {
   flash("TIME!");
   loseLife();
   beatsLeft = beatsMax; // fresh beats on respawn (if any lives remain)
-  beatPhase = 0;
+  lastBeatIndex = beatIndex; // realign to the global grid, no instant re-tick
 }
 
-// 🥁 Metronome tick — real notepat perc kit: kick on the downbeat, closed
-// hi-hat on the off-beats (falls back to a synth click if the kit is absent).
-// In the final 3 beats it plays a distinct, rising warning beep per count.
+// 🥁 Metronome tick — real notepat perc kit: kick on the global downbeat (every
+// 4th beat of the shared wall-clock grid, so all boards land the kick together),
+// closed hi-hat on the off-beats (falls back to a synth click if the kit is
+// absent). In the final 3 beats it plays a distinct, rising warning beep.
 const WARN_BEEPS = { 3: 700, 2: 950, 1: 1300 }; // rising pitch = more urgent
 function tick(remainingBeats) {
   const warn = WARN_BEEPS[remainingBeats];
@@ -614,10 +666,11 @@ function tick(remainingBeats) {
       playMelody([{ tone: warn * 1.5, type: "square", dur: 0.1, vol: 0.3, t: 6 }], 0);
     return;
   }
+  const downbeat = beatIndex % 4 === 0; // global grid → synced across instances
   if (synth) {
-    if (remainingBeats % 4 === 0) synth.kick({ volume: 0.55 });
+    if (downbeat) synth.kick({ volume: 0.55 });
     else synth.hat({ volume: 0.3 });
-  } else if (remainingBeats % 4 === 0) {
+  } else if (downbeat) {
     note({ type: "sine", tone: 92, duration: 0.09, volume: 0.22 });
   } else {
     note({ type: "square", tone: 1100, duration: 0.015, volume: 0.09 });
@@ -973,13 +1026,10 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   };
 
   if (state !== "play") {
-    if (
-      e.is("keyboard:down:space") ||
-      e.is("keyboard:down:enter") ||
-      e.is("keyboard:down:return") ||
-      e.is("touch")
-    )
-      advance();
+    // "Press any key to start" — honor it literally: any key-down or a tap
+    // advances (previously only space/enter/touch did, so other keys felt like
+    // the title was stalling).
+    if (e.name?.startsWith?.("keyboard:down") || e.is("touch")) advance();
     return;
   }
 
@@ -1089,7 +1139,8 @@ function cellAt(px, py) {
 }
 
 // 🎨 Paint ───────────────────────────────────────────────────────────────────
-function paint({ wipe, ink, screen, write, box, line }) {
+function paint({ wipe, ink, screen, write, box, line, text }) {
+  txtAPI = text; // capture the measuring API for fitText/measureText
   computeLayout(screen);
   wipe(8, 10, 26);
   paintBackground({ ink, box, screen });
@@ -1155,10 +1206,13 @@ function paint({ wipe, ink, screen, write, box, line }) {
       }
 
       // Value — ONE color per answer (color-words use their hue + contrast).
+      // Sized + centered from the measured glyph box so it sits inside the cell
+      // with margin; words use MatrixChunky8 (proper æ/ø/å) and shrink to fit.
       if (!cd.eaten) {
-        const fs = txt.length * 12 <= cell - 8 ? 2 : 1;
-        let tx = cx + cell / 2 - (txt.length * 6 * fs) / 2;
-        let ty = cy + cell / 2 - fs * 4;
+        const font = cellFont();
+        const fit = fitText(txt, cell, font);
+        let tx = cx + (cell - fit.width) / 2;
+        let ty = cy + (cell - fit.height) / 2;
         if (cd.known && !cd.failed) {
           tx += sin(frames * 0.9 + c * 1.7) * 1.6; // afraid jitter
           ty += cos(frames * 1.1 + r * 1.3) * 1.2;
@@ -1169,7 +1223,7 @@ function paint({ wipe, ink, screen, write, box, line }) {
         else if (missed) col = [228, 230, 238];
         else if (colorWord) col = luma(colorWord) > 140 ? [25, 25, 30] : [245, 245, 255];
         else col = charColor(txt[0]);
-        ink(...col).write(txt, { x: tx, y: ty, size: fs });
+        ink(...col).write(txt, { x: tx, y: ty, size: fit.size }, undefined, undefined, false, font || undefined);
 
         // ✖ X out tried-and-wrong cells (can't be tried again).
         if (cd.failed) {
@@ -1188,13 +1242,14 @@ function paint({ wipe, ink, screen, write, box, line }) {
     const cd = grid[idx(destCol, destRow)];
     if (!cd || cd.eaten) return;
     const t = String(cd.value);
-    const fs = t.length * 12 <= cell - 8 ? 2 : 1;
+    const font = cellFont();
+    const fit = fitText(t, cell, font);
     const gc = COLOR_WORDS[t] || charColor(t[0]);
-    ink(gc[0], gc[1], gc[2], 95).write(t, {
-      x: gx + cell / 2 - (t.length * 6 * fs) / 2,
-      y: gy + cell / 2 - fs * 4,
-      size: fs,
-    });
+    ink(gc[0], gc[1], gc[2], 95).write(
+      t,
+      { x: gx + (cell - fit.width) / 2, y: gy + (cell - fit.height) / 2, size: fit.size },
+      undefined, undefined, false, font || undefined,
+    );
     ink(110, 215, 255, 110).box(gx + 2, gy + 2, cell - 4, cell - 4, "outline");
   };
   const mc = muncher.col,
@@ -1286,24 +1341,23 @@ function paint({ wipe, ink, screen, write, box, line }) {
   bigNum(ink, leftN, leftX, screen.height - 8 * lsz - 4, lsz, remaining <= 3 ? [245, 130, 130] : [150, 210, 175]);
   ink(140, 165, 195).write("LEFT", { x: max(4, leftX - 28), y: screen.height - 14 });
 
-  // 🍽️ Collected answers — stack down the left, sized to fit the margin.
+  // 🍽️ Collected answers — stack down the left, measured to fit the margin.
   let fcy = layout.top + 52; // below the big timer
   const leftRoom = layout.x - 6;
+  const font = cellFont();
   for (const v of foundValues) {
     if (fcy > lifeY - 16) break;
-    const fits2 = v.length * 12 + 4 <= leftRoom;
-    const fs = fits2 ? 2 : 1;
-    const cwid = 6 * fs;
-    const w = v.length * cwid + 4;
+    // Largest size whose measured width fits the left gutter.
+    let fit = measureText(v, 1, font);
+    const big = measureText(v, 2, font);
+    if (big.width + 4 <= leftRoom) fit = { ...big, size: 2 };
+    else fit = { ...fit, size: 1 };
+    const w = fit.width + 4;
     const cw = COLOR_WORDS[v];
-    ink(...(cw || tileColor(v))).box(4, fcy, w, 8 * fs + 2);
+    ink(...(cw || tileColor(v))).box(4, fcy, w, fit.height + 2);
     const tcol = cw ? (luma(cw) > 140 ? [25, 25, 30] : [245, 245, 255]) : charColor(v[0]);
-    let tcx = 6;
-    for (const ch of v) {
-      ink(...tcol).write(ch, { x: tcx, y: fcy + 1, size: fs });
-      tcx += cwid;
-    }
-    fcy += 8 * fs + 4;
+    ink(...tcol).write(v, { x: 6, y: fcy + 1, size: fit.size }, undefined, undefined, false, font || undefined);
+    fcy += fit.height + 4;
   }
 
   // 📣 Transient message banner — large, with a colored background.
