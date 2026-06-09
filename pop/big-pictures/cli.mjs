@@ -169,6 +169,7 @@ const STRETCHED = `${OUT}/${SLUG}-pitched-stretched.mp3`;
 const PAD       = `${OUT}/${SLUG}-pad.mp3`;
 const BED       = `${OUT}/${SLUG}-bed.mp3`;
 const MIX       = `${OUT}/${SLUG}-mix.mp3`;
+const MIXSFX    = `${OUT}/${SLUG}-mix-sfx.mp3`;
 const STAMPED   = `${OUT}/${SLUG}-stamped.mp3`;
 const FINAL     = `${OUT}/${SLUG}-final.mp3`;
 const STAMP_VOCAL = `${OUT}/ac-stamp-vocal.mp3`;
@@ -195,6 +196,7 @@ if (flags.status) {
   tally("pad/bells", PAD);
   tally("bed (waltz)", BED);
   tally("mix", MIX);
+  tally("mix+sfx", MIXSFX);
   tally("stamped", STAMPED);
   tally("final", FINAL);
   tally("Desktop copy", DESK);
@@ -287,6 +289,33 @@ function computeDuration() {
   }
   if (sectionCount > 1) beats += 2 * (sectionCount - 1); // inter-section rest
   return Math.ceil((beats * 60) / BPM);
+}
+
+// Parse a `<slug>.sfx.txt` cue sidecar. Each non-comment line:
+//   at=SEC gain=G dur=S [loop] : sound description
+// The head (before the colon) is whitespace-separated key=val tokens;
+// everything after the colon is the prompt.
+function parseSfxCues(path) {
+  const cues = [];
+  for (const raw of readFileSync(path, "utf8").split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const ci = line.indexOf(":");
+    if (ci === -1) continue;
+    const prompt = line.slice(ci + 1).trim();
+    if (!prompt) continue;
+    const cue = { at: 0, gain: 0.7, dur: null, loop: false, prompt };
+    for (const tok of line.slice(0, ci).trim().split(/\s+/)) {
+      if (!tok) continue;
+      const [k, v] = tok.split("=");
+      if (k === "at") cue.at = Number(v) || 0;
+      else if (k === "gain") cue.gain = Number(v);
+      else if (k === "dur") cue.dur = Math.max(0.5, Math.min(30, Number(v)));
+      else if (k === "loop") cue.loop = true;
+    }
+    cues.push(cue);
+  }
+  return cues;
 }
 
 // ── pipeline ─────────────────────────────────────────────────────────
@@ -428,7 +457,52 @@ step("7 · amix (vocal forward · vox 2.5 · pad 0.55 · bed 0.20)", () => {
                  "-c:a", "libmp3lame", "-q:a", "2", MIX]);
 });
 
-let TO_FINAL = MIX;
+// ── 7.5 · sfx overlay (optional) ─────────────────────────────────────
+// If a `<slug>.sfx.txt` sidecar exists, render each cue through
+// /api/sfx (ElevenLabs sound effects, content-hash cached by sfx.mjs)
+// and lay it onto the mix at its placement time. Sidecar line format:
+//   at=SEC gain=G dur=S [loop] : a short sound description
+// `at` defaults 0, `gain` defaults 0.7, `dur` omit = auto-length.
+let MIXED = MIX;
+const SFX_TXT = `${HERE}/${SLUG}.sfx.txt`;
+if (existsSync(SFX_TXT)) {
+  step("7.5 · sfx (ElevenLabs sound effects)", () => {
+    const cues = parseSfxCues(SFX_TXT);
+    if (!cues.length) { console.log("  ↪ no cues in sidecar"); return; }
+    const sfxDir = `${OUT}/sfx/${SLUG}`;
+    mkdirSync(sfxDir, { recursive: true });
+    const paths = [];
+    cues.forEach((c, i) => {
+      const p = `${sfxDir}/${String(i).padStart(2, "0")}.mp3`;
+      const args = ["bin/sfx.mjs", "--text", c.prompt, "--out", p];
+      if (c.dur != null) args.push("--duration", String(c.dur));
+      if (c.loop) args.push("--loop");
+      if (FORCE) args.push("--force");
+      run("node", args);
+      paths.push(p);
+    });
+    // [0]=mix, [1..n]=cues, each delayed + gained, all amixed (no normalize).
+    const inputs = ["-i", MIX];
+    for (const p of paths) inputs.push("-i", p);
+    const filters = [];
+    const labels = ["[0:a]"];
+    cues.forEach((c, i) => {
+      const d = Math.max(0, Math.round(c.at * 1000));
+      filters.push(`[${i + 1}:a]adelay=${d}|${d},volume=${c.gain}[s${i}]`);
+      labels.push(`[s${i}]`);
+    });
+    const amix = `${labels.join("")}amix=inputs=${cues.length + 1}:duration=first:dropout_transition=0:normalize=0`;
+    run("ffmpeg", ["-y", "-loglevel", "error", ...inputs,
+                   "-filter_complex", [...filters, amix].join(";"),
+                   "-c:a", "libmp3lame", "-q:a", "2", MIXSFX]);
+    MIXED = MIXSFX;
+    console.log(`  ✓ ${cues.length} sfx cue(s) layered`);
+  });
+} else {
+  console.log("▸ 7.5 · sfx (no <slug>.sfx.txt — skipped)\n");
+}
+
+let TO_FINAL = MIXED;
 if (STAMP) {
   step("8 · stamp (ac signoff · chipmunk + 4-bit crush)", () => {
     if (!existsSync(STAMP_VOCAL)) {
@@ -445,7 +519,7 @@ if (STAMP) {
     }
     const filter = "[0:a]apad=pad_dur=0.5[song];[1:a]volume=1.0[stamp];[song][stamp]concat=n=2:v=0:a=1";
     run("ffmpeg", ["-y", "-loglevel", "error",
-                   "-i", MIX, "-i", STAMP_FX,
+                   "-i", MIXED, "-i", STAMP_FX,
                    "-filter_complex", filter,
                    "-c:a", "libmp3lame", "-q:a", "2", STAMPED]);
   });
