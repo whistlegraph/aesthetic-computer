@@ -69,6 +69,7 @@ let melody = []; // queued notes: { at, type, tone, duration, volume }
 // 🎥 Dynamic camera (smoothed follow-lean + zoom punch + shake), à la dumduel.
 let cam = { x: 0, y: 0, zoom: 1, shake: 0 };
 let camTargetZoom = 1;
+const MAX_ZOOM = 1.18; // peak zoom punch — layout reserves headroom so it fits
 let screenH = 512; // last seen screen height (for confetti culling)
 
 // 💀 / 🎉 Sequenced animations.
@@ -1257,7 +1258,13 @@ function computeLayout(screen) {
   const bottomPad = 30; // HUD band (lives)
   const availW = screen.width - sideMargin * 2;
   const availH = screen.height - top - bottomPad;
-  const cell = max(18, floor(min(availW / COLS, availH / ROWS)));
+  // Resting fit inside the margined area …
+  const restFit = min(availW / COLS, availH / ROWS);
+  // … but never so large that the camera's max zoom punch overflows the full
+  // viewport — mobile screens are tight, so keep the whole board on-screen even
+  // at peak zoom (we still reserve a hair for lean + shake via the clamp below).
+  const zoomFit = min(screen.width / COLS, availH / ROWS) / MAX_ZOOM;
+  const cell = max(18, floor(min(restFit, zoomFit)));
   const gw = cell * COLS;
   const gh = cell * ROWS;
   layout = {
@@ -1277,14 +1284,23 @@ function applyCamera(screen) {
   const cell = max(8, round(layout.baseCell * z));
   const gw = cell * COLS;
   const gh = cell * ROWS;
-  const bx = floor((screen.width - gw) / 2);
-  const by =
-    layout.top + floor((screen.height - layout.top - layout.bottomPad - gh) / 2);
   const shx = cam.shake ? sin(frames * 1.7) * cam.shake : 0;
   const shy = cam.shake ? cos(frames * 2.3) * cam.shake : 0;
+  // Centered + lean + shake, then clamped so no edge ever leaves the viewport.
+  const bx = (screen.width - gw) / 2 + cam.x + shx;
+  const by = layout.top + (screen.height - layout.top - layout.bottomPad - gh) / 2 + cam.y + shy;
+  const pad = 2;
+  const maxX = screen.width - gw - pad; // rightmost on-screen origin
+  const maxY = screen.height - layout.bottomPad - gh; // keep clear of the HUD band
   layout.cell = cell;
-  layout.x = round(bx + cam.x + shx);
-  layout.y = round(by + cam.y + shy);
+  // If the (zoomed) board is wider/taller than the space, just center it;
+  // otherwise clamp the leaned/shaken position to the on-screen range.
+  layout.x = round(maxX < pad ? (screen.width - gw) / 2 : max(pad, min(maxX, bx)));
+  layout.y = round(
+    maxY < layout.top
+      ? layout.top + (screen.height - layout.top - layout.bottomPad - gh) / 2
+      : max(layout.top, min(maxY, by)),
+  );
 }
 
 function cellAt(px, py) {
