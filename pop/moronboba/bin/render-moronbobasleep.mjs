@@ -145,24 +145,28 @@ const PROGS = [
 //                drift settle sink deepen dream deep THE  REM  dawn
 const MOVE_PROG = [0,    1,    2,   3,     4,    5,   5,   6,   7];
 
-// ── FORM: a FIBONACCI ARCH of 9 movements telling a NIGHT NARRATIVE — each is
-//    a chapter, and the bar-counts grow to a LATE peak so the climax (the
-//    deepest dream) lands near the GOLDEN SECTION (~0.6 of the runtime), then
-//    recede to dawn. Calm throughout (sleep genre): the "climax" is the
-//    richest dream, never a loud drop. Each movement carries its own dynamic
-//    LEVEL, key, whistle REGISTER, density, and gnarl — so the 10 minutes
-//    genuinely transforms instead of holding one constant texture.
-//          drift settle  sink  deepen dream- DEEP   THE    REM    dawn
-//                                      -ing   dream  DREAM  strange
-const FIB     = [3,   5,    8,    13,   21,   34,   55,   34,   13];   // Σ=186 ≈ 9:55
-const MOVE_TR = [0,   0,    0,    2,    5,    7,    7,    3,    0];     // gentle key journey, home at the ends
-const M_LEVEL = [0.26, 0.42, 0.58, 0.72, 0.85, 0.95, 1.0, 0.76, 0.42];// dynamic arc (baked into the mix)
-const M_WOCT  = [-12, -12,  -12,  -12,  0,    0,    0,   -12,  -12];   // whistle register per movement
+// ── FORM: the 9-movement arc is DERIVED FROM a whistlegraph — Jeffrey Alan
+//    Scudder's "Lately When I Fly" (Feb 1, 2020). The sung performance was
+//    transcribed by a YIN pitch-tracker (bin/analyze-whistlegraph.mjs); the
+//    melody is a low arch, B2..C4 centred on E3, that climbs to its apex C4 at
+//    13.08s of 21.59s = 0.606 ≈ the GOLDEN SECTION, then descends and ENDS ON
+//    G3 — off the tonic, "off the ground," never landing. Each movement maps a
+//    lyric cell of the score; the key journey traces the flight, the dynamics
+//    trace his energy, and the whistle is locked into his own warm sung octave
+//    (so the melody flies in Jeffrey's register, not up in the bright highs).
+//          fly  pop+  lies  get   touch pick  off   the    float
+//               heart low   high  down  it.up the   GROUND away
+//    lyric: "lately when i fly / *pop my heart / lies low / as i get high /
+//            after we touch down / i pick it / up from off the / GROUND / …"
+const FIB     = [3,   5,    8,    13,   21,   34,   55,   34,   13];   // Σ=186 ≈ 9:55 — apex (mv6/7) ≈ golden section, mirroring his C4
+const MOVE_TR = [0,   1,   -5,   -2,    0,    2,    3,    3,    1];     // FLIGHT: takeoff · dip at "lies low" · gentle climb to the lift · floats aloft (never home; lift kept low so the marimba stays warm)
+const M_LEVEL = [0.30, 0.40, 0.34, 0.52, 0.64, 0.80, 0.92, 1.0, 0.46]; // his energy: confident takeoff · hush at "lies low" · apex at "off the GROUND"
+const M_WOCT  = [-24, -24,  -24,  -24,  -24,  -24,  -24, -24,  -24];   // whistle locked to Jeffrey's sung octave (B2..C4) — warm + low throughout
 const MOVE = FIB.map((bars, i) => ({
   bars, tr: MOVE_TR[i], level: M_LEVEL[i], woct: M_WOCT[i], prog: PROGS[MOVE_PROG[i]],
   arp:     i >= 1,                              // no arpeggio in the opening "drift" (rain + pad only)
   arpDens: Math.min(1, 0.35 + 0.65 * M_LEVEL[i]),  // sparser when quiet
-  span:    M_LEVEL[i] > 0.8 ? 7 : M_LEVEL[i] > 0.55 ? 6 : 5,  // arpeggio range widens as the night deepens
+  span:    M_LEVEL[i] > 0.55 ? 5 : 4,          // arpeggio kept tight + low (never climbs into the high marimba)
   whistle: i >= 2,                              // the whistle enters on the 3rd chapter
   alto:    i >= 4 && i <= 7,                     // four-part harmony through the dream
   triplet: i === 5 || i === 6 ? 0.30 : 0.0,     // triplet flourishes only deep in
@@ -214,7 +218,7 @@ const whistleEvents = [];
       if (rnd() > 0.4 + 0.55 * mv.level) continue;
       const ts = t + h * (BAR / 2), dur = (BAR / 2) * range(0.96, 1.12);
       const top = SCALE[idx] + tr + mv.woct;   // register follows the movement (low at edges)
-      whistleEvents.push({ t: ts, midi: top, dur, gain: 0.30 * range(0.95, 1.05), p: 0.14 });
+      whistleEvents.push({ t: ts, midi: top, dur, gain: 0.22 * range(0.95, 1.05), p: 0.14 });
       if (mv.level > 0.62) whistleEvents.push({ t: ts, midi: SCALE[Math.max(0, idx - 2)] + tr + mv.woct, dur: dur * 1.03, gain: 0.16, p: 0.26 });
       melOnsets.push(ts);
     }
@@ -231,7 +235,7 @@ const whistleEvents = [];
     const tgt = nearestIdx(SCALE[Math.min(idx, 6)], TRIAD[ci], 0, 6);
     if (idx < tgt) idx++; else if (idx > tgt) idx--;
     idx = Math.max(0, Math.min(6, idx));
-    evAlto.push({ startSec: t, midi: SCALE[idx] + tr, durSec: BAR * range(0.9, 1.05), gain: 0.12 });
+    evAlto.push({ startSec: t, midi: SCALE[idx] - 12 + tr, durSec: BAR * range(1.4, 1.7), gain: 0.12 });   // dropped an octave (was high marimba) + held longer
   }
 }
 
@@ -245,7 +249,7 @@ const swoop = (t, ci, tr) => {
     const ripple = 0.30 * Math.abs(Math.sin(Math.PI * x * 5));// nested fractal wobble
     let idx = Math.round((arch * 0.7 + ripple) * top);
     idx = Math.max(0, Math.min(top, idx));
-    let midi = sc[idx] + tr + 12;                             // screech octave up
+    let midi = sc[idx] + tr;                                  // in-register swoop (was a screech octave up)
     if (rnd() < 0.3) midi += (rnd() < 0.5 ? 1 : -1);          // gnarl chromatic
     evLead.push({ startSec: t + n * step, midi, durSec: step * range(1.0, 1.5), gain: 0.24 * range(0.9, 1.1) });
   }
@@ -288,7 +292,7 @@ const nearMel = (ts) => { for (const m of melOnsets) if (Math.abs(m - ts) < 0.11
       const accent = n === 0 ? 1.0 : (n === (Nn >> 1) ? 0.82 : 0.66);
       let g = 0.30 * accent * range(0.95, 1.05);
       if (nearMel(ts)) g *= 0.7;                          // duck under the whistle
-      evLead.push({ startSec: ts, midi: sc(pat[n % pat.length]), durSec: step * range(1.3, 1.8), gain: g });
+      evLead.push({ startSec: ts, midi: sc(pat[n % pat.length]), durSec: step * range(2.6, 3.4), gain: g });   // long overlap = legato, not staccato
       if (n === 0) evLead.push({ startSec: t, midi: tones[Math.min(2, tones.length - 1)], durSec: ARP * 2.4, gain: g * 0.55 });
     }
   }
@@ -321,7 +325,8 @@ const bassOnsets = [];
     si++;
     if (!onset) continue;
     const sp = CHORDS[ci].spark;
-    evSpark.push({ startSec: t, midi: sp[sp.length - 1] + tr, durSec: BAR * 0.8, gain: range(0.07, 0.11) });
+    // dropped an octave so the sparkle sits in a warmer register (was up at C6/A5)
+    evSpark.push({ startSec: t, midi: sp[sp.length - 1] - 12 + tr, durSec: BAR * 0.8, gain: range(0.06, 0.09) });
   }
 }
 
@@ -352,22 +357,22 @@ function foldGroup(events, { preset, decayMul, p, gain, haasMs = 0, params = nul
   console.log(`   · ${label}`);
 }
 
-// decays tuned for ROLLING — tighter rings so the tumbling notes stay
-// distinct and groovy (long rings would smear into mud), pad still blooms.
-// SOFT FELT MALLETS — a long mallet contact time low-passes the strike + a
-// slow amplitude attack, so every note blooms in soft and thick like it's
-// played with a felt-wrapped mallet (wide bell vibe, no hard "ping").
-const FELT_LEAD = { mallet: 0.009, attack: 0.007 };
-const FELT_SOFT = { mallet: 0.007, attack: 0.006 };
-const FELT_BASS = { mallet: 0.006, attack: 0.004 };
+// decays tuned for LEGATO BLOOM — long, soft rings that overlap and smear into
+// each other (NOT staccato): the tumbling notes melt together like a felt
+// lullaby instead of stabbing. SOFT FELT MALLETS — a long mallet contact time
+// low-passes the strike + a slow amplitude attack, so every note blooms in soft
+// and thick like it's played with a felt-wrapped mallet (wide bell, no "ping").
+const FELT_LEAD = { mallet: 0.016, attack: 0.014 };
+const FELT_SOFT = { mallet: 0.012, attack: 0.010 };
+const FELT_BASS = { mallet: 0.008, attack: 0.005 };
 // mix placement — spread the voices across the field so each has room: bass +
 // pad anchor the centre, arpeggio sits left, the inner alto centre-left, the
 // sparkle right; the whistle lead (rendered below) lands centre-right.
 foldGroup(evBass,  { preset: "bass",           decayMul: 1.15, p:  0.00, gain: 0.92, params: FELT_BASS, label: "walking bass" });
 foldGroup(evPad,   { preset: "vibraphone_off", decayMul: 3.0,  p:  0.00, gain: 0.38, haasMs: 14, params: FELT_SOFT, label: "pad bloom" });
-foldGroup(evLead,  { preset: "rosewood",       decayMul: 1.35, p: -0.26, gain: 0.82, params: FELT_LEAD, label: "arpeggio + swoops" });
-foldGroup(evAlto,  { preset: "rosewood",       decayMul: 2.4,  p: -0.08, gain: 0.55, params: FELT_SOFT, label: "quaternary (alto)" });
-foldGroup(evSpark, { preset: "kalimba",        decayMul: 1.6,  p:  0.46, gain: 0.50, params: FELT_SOFT, label: "chord sparkle" });
+foldGroup(evLead,  { preset: "rosewood",       decayMul: 2.8,  p: -0.26, gain: 0.50, params: FELT_LEAD, label: "arpeggio + swoops" });
+foldGroup(evAlto,  { preset: "rosewood",       decayMul: 3.2,  p: -0.08, gain: 0.40, params: FELT_SOFT, label: "quaternary (alto)" });
+foldGroup(evSpark, { preset: "kalimba",        decayMul: 2.0,  p:  0.46, gain: 0.30, params: FELT_SOFT, label: "chord sparkle" });
 
 // fractional delay read (linear interp) for the chorus lines.
 function readDelay(buf, w, d, len) {
@@ -712,10 +717,10 @@ const TOTAL_DUR = 600.0, FADE_OUT = 14.0, FADE_IN = 8.0;
 const PRE = [
   "highpass=f=22",
   "bass=g=3:f=85",                 // gentle low-shelf weight
-  "highshelf=f=4200:g=-1.0",
+  "highshelf=f=3200:g=-3.5",       // tame the bright marimba attack/ring (warmer, sleepier)
   // one soft, slow glue compressor — cohesion without flattening the arc
   "acompressor=threshold=-24dB:ratio=2:attack=80:release=700:makeup=1.5:knee=6",
-  "treble=g=0.8:f=9500",           // a whisper of air
+  "treble=g=-1.5:f=8000",          // pull the air/sizzle down — soft + matte for sleep
   `afade=t=in:st=0:d=${FADE_IN}`,
   `afade=t=out:st=${TOTAL_DUR - FADE_OUT}:d=${FADE_OUT}`,
 ].join(",");
