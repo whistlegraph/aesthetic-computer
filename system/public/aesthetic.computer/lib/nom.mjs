@@ -1,20 +1,22 @@
-// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom), 2026.06.07
+// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / notenom), 2026.06.07
 // Move the muncher around a 5×5 grid and eat every square that satisfies the
-// rule at the top — but dodge the Troggles. `numbnom` = numbers, `engnom` = words.
+// rule at the top — but dodge the Troggles. `numbnom` = numbers, `engnom` = words,
+// `notenom` = musical notes (note mode voices each square + plays the scale).
 
 import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
 
 /* #region 📚 README
   Controls:
-    Arrows / WASD — move the Muncher
-    Space / Enter — munch the current square
-    Tap a square  — jump straight to it
-    Tap off-board — munch the current square
+    Arrows / WASD   — move the Muncher
+    Space / Enter   — munch the current square
+    Swipe (mobile)  — move one square in the swipe direction
+    Tap (mobile)    — munch the current square
 
   Modes (pass after a colon):
     munchers          → numbers
     munchers:numbers  → numbers
     munchers:words    → words
+    munchers:notes    → musical notes (notenom)
 #endregion */
 
 /* #region 🏁 TODO
@@ -28,8 +30,9 @@ const ROWS = 5;
 const START_LIVES = 3;
 
 // 🌐 Game state
-let mode = "number"; // "number" | "word"
+let mode = "number"; // "number" | "word" | "note"
 let lang = "en"; // word language: "en" (engnom) | "es" (mexinom) | "da" (dannom)
+let noteScale = []; // current board's scale (note mode), played on board start
 let state = "title"; // title | play | clear | over | win
 let grid = []; // [{ value, correct, eaten, flash }]
 let ruleLabel = ""; // short on-screen token (e.g. "X3")
@@ -37,6 +40,9 @@ let ruleSpeech = ""; // spoken phrase (e.g. "multiples of 3")
 let muncher = { col: 2, row: 2 }; // logical grid position
 let muncherVis = { col: 2, row: 2 }; // smoothed display position (slides)
 let hover = null; // { col, row } cell under the mouse, for hover highlight
+let swipedGesture = false; // 👆 set on swipe:<dir>, suppresses the lift-tap munch
+let drag = null; // 👆 { sx, sy, x, y } live gesture, drawn as the swipe overlay
+const SWIPE_MIN = 24; // px to register a swipe — MUST match #detectSwipe in lib/pen.mjs
 let troggles = [];
 let lives = START_LIVES;
 let level = 1; // internal progression counter (board #) — never displayed
@@ -81,9 +87,10 @@ let confetti = []; // { x, y, vx, vy, s, c } celebration bits
 // games started seconds apart still pulse in unison — like clocks naturally do.
 const FPS = 60;
 const BPM = 74; // slower, more relaxed groove
-const BEAT_MS = (60 / BPM) * 1000; // milliseconds per beat (~810ms)
+const BEAT_MS = (60 / BPM) * 1000; // milliseconds per beat (~810ms, BPM 74)
+let beatMs = BEAT_MS; // active beat length (ms) — note mode overrides to BPM 92
 let nowMs = 0; // last seen synced wall-clock time (ms), captured each sim
-let beatIndex = 0; // global beat number = floor(nowMs / BEAT_MS)
+let beatIndex = 0; // global beat number = floor(nowMs / beatMs)
 let lastBeatIndex = null; // beat index at the previous tick (null until first)
 let beatsLeft = 0; // beats of time remaining on this board
 let beatsMax = 1; // beats the board started with
@@ -104,6 +111,8 @@ function boot({ params, hud, clock, num: { randInt } }) {
   } else if (p === "words" || p === "word" || p === "english" || p === "en") {
     mode = "word";
     lang = "en";
+  } else if (p === "notes" || p === "note" || p === "music" || p === "notenom") {
+    mode = "note";
   } else if (p) {
     mode = "number";
   }
@@ -204,6 +213,68 @@ function fitText(str, cell, font) {
     if (m.width <= avail || size === 1) return { ...m, size, font };
   }
 }
+
+// 🎵 Note model (notenom — `mode === "note"`) ────────────────────────────────
+const LETTERS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+// Each pitch class gets a fixed hue so the board reads like a little keyboard.
+const NOTE_COLORS = {
+  C: [255, 105, 97], "C#": [255, 150, 80], D: [255, 205, 90], "D#": [200, 225, 90],
+  E: [120, 220, 110], F: [90, 215, 175], "F#": [90, 205, 220], G: [95, 165, 255],
+  "G#": [150, 150, 255], A: [195, 130, 255], "A#": [235, 120, 220], B: [255, 120, 170],
+};
+function noteColor(letter) {
+  return NOTE_COLORS[letter] || [220, 220, 235];
+}
+function noteTile(letter) {
+  const c = noteColor(letter);
+  return [round(c[0] * 0.22) + 6, round(c[1] * 0.22) + 6, round(c[2] * 0.22) + 6];
+}
+function noteLabel(letter, oct) {
+  return letter + oct; // e.g. "C4", "F#5"
+}
+function cellNote(cell) {
+  return noteLabel(cell.letter, cell.oct).toLowerCase();
+}
+
+// 🎼 Note rules — one per board. `test(letter, oct)` decides correctness, `say`
+// is spoken on board start, and `scale` is the ascending run played underneath.
+const NOTE_ROUNDS = [
+  {
+    label: "C MAJOR", say: "c major",
+    test: (l) => ["C", "D", "E", "F", "G", "A", "B"].includes(l),
+    scale: ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"],
+  },
+  {
+    label: "A MINOR", say: "a minor",
+    test: (l) => ["A", "B", "C", "D", "E", "F", "G"].includes(l),
+    scale: ["A3", "B3", "C4", "D4", "E4", "F4", "G4", "A4"],
+  },
+  {
+    label: "G MAJOR", say: "g major",
+    test: (l) => ["G", "A", "B", "C", "D", "E", "F#"].includes(l),
+    scale: ["G3", "A3", "B3", "C4", "D4", "E4", "F#4", "G4"],
+  },
+  {
+    label: "SHARPS", say: "sharps",
+    test: (l) => l.includes("#"),
+    scale: ["C#4", "D#4", "F#4", "G#4", "A#4", "C#5"],
+  },
+  {
+    label: "C CHORD", say: "c chord",
+    test: (l) => ["C", "E", "G"].includes(l),
+    scale: ["C4", "E4", "G4", "C5"],
+  },
+  {
+    label: "HIGH", say: "high notes",
+    test: (l, o) => o >= 5,
+    scale: ["C5", "E5", "G5", "C6"],
+  },
+  {
+    label: "LOW", say: "low notes",
+    test: (l, o) => o <= 3,
+    scale: ["C3", "E3", "G3", "C4"],
+  },
+];
 
 // Spanish → English (spoken on each munch in mexinom).
 const TRANSLATE = {
@@ -353,7 +424,42 @@ function newRound({ randInt }) {
   const nCorrect = min(total - 4, 5 + level + rnd(3));
   const cells = [];
 
-  if (mode === "word") {
+  if (mode === "note") {
+    // 🎵 Build a board of note squares satisfying (or breaking) a musical rule.
+    const noteRound = NOTE_ROUNDS[rnd(NOTE_ROUNDS.length)];
+    const test = noteRound.test;
+    ruleLabel = noteRound.label;
+    ruleSpeech = noteRound.say;
+    noteScale = noteRound.scale;
+    const octs = [3, 4, 5]; // tight pool so HIGH/LOW rules have room to differ
+    const makeGood = () => {
+      for (let tries = 0; tries < 80; tries += 1) {
+        const l = LETTERS[rnd(LETTERS.length)];
+        const o = octs[rnd(octs.length)];
+        if (test(l, o)) return { letter: l, oct: o };
+      }
+      const m = noteRound.scale[rnd(noteRound.scale.length)].match(/^([A-G]#?)(\d)$/);
+      return { letter: m[1], oct: parseInt(m[2], 10) };
+    };
+    const makeBad = () => {
+      for (let tries = 0; tries < 80; tries += 1) {
+        const l = LETTERS[rnd(LETTERS.length)];
+        const o = octs[rnd(octs.length)];
+        if (!test(l, o)) return { letter: l, oct: o };
+      }
+      return { letter: "C", oct: 4 };
+    };
+    for (let i = 0; i < nCorrect; i += 1) {
+      const g = makeGood();
+      cells.push({ value: noteLabel(g.letter, g.oct), letter: g.letter, oct: g.oct, correct: true });
+    }
+    for (let i = 0; i < total - nCorrect; i += 1) {
+      const b = makeBad();
+      cells.push({ value: noteLabel(b.letter, b.oct), letter: b.letter, oct: b.oct, correct: false });
+    }
+    // Re-verify against the live rule (covers the fallback paths).
+    cells.forEach((c) => (c.correct = test(c.letter, c.oct)));
+  } else if (mode === "word") {
     const rounds = lang === "es" ? ES_WORD_ROUNDS : lang === "da" ? DA_WORD_ROUNDS : WORD_ROUNDS;
     const round = rounds[rnd(rounds.length)];
     ruleLabel = round.label;
@@ -449,11 +555,13 @@ function newRound({ randInt }) {
   facing = { x: 1, y: 0 };
 
   // ⏳ Per-board beat budget (generous; tightens a little as levels climb).
+  // Note mode runs a peppier groove (BPM 92) with a slightly tighter budget.
   // Ticks ride the global wall-clock beat grid; resync the local index so the
   // fresh board doesn't immediately burn a beat at start.
-  beatsMax = max(28, 52 - level);
+  beatsMax = mode === "note" ? max(24, 44 - level) : max(28, 52 - level);
   beatsLeft = beatsMax;
   beatPhase = 0;
+  beatMs = (60 / (mode === "note" ? 92 : BPM)) * 1000;
   lastBeatIndex = null;
 
   // Clear any leftover animation state from the previous round.
@@ -493,8 +601,8 @@ function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
   if (sound && !synth) synth = Synth(sound);
   // 🕰️ Sample the network-synced wall clock and derive the global beat grid.
   nowMs = clock?.time?.()?.getTime?.() ?? (nowMs + 1000 / FPS);
-  beatIndex = Math.floor(nowMs / BEAT_MS);
-  beatPhase = (nowMs % BEAT_MS) / BEAT_MS; // 0..1 within the current beat
+  beatIndex = Math.floor(nowMs / beatMs);
+  beatPhase = (nowMs % beatMs) / beatMs; // 0..1 within the current beat
   frames += 1;
   mouth = (mouth + 1) % 40;
   if (invuln > 0) invuln -= 1;
@@ -692,23 +800,6 @@ function move(dx, dy) {
   checkTroggleHit();
 }
 
-// Tap-to-move: slide along ONE axis only (no diagonal jumps). Snap to the
-// tapped column (staying in this row) or the tapped row (staying in this
-// column), whichever the tap leans toward.
-// Tap-to-move: ONE square per tap toward the tapped cell. Tapping the cell the
-// muncher is already on munches it.
-function moveTo(col, row) {
-  if (state !== "play" || deathPhase > 0) return;
-  const dc = col - muncher.col,
-    dr = row - muncher.row;
-  if (dc === 0 && dr === 0) {
-    munch(); // nom the square you're standing on
-    return;
-  }
-  if (abs(dc) >= abs(dr)) move(Math.sign(dc), 0);
-  else move(0, Math.sign(dr));
-}
-
 function munch() {
   if (state !== "play") return;
   const cell = grid[idx(muncher.col, muncher.row)];
@@ -727,7 +818,8 @@ function munch() {
     combo += 1;
     remaining -= 1;
     beatsLeft = min(beatsMax, beatsLeft + 1); // munching earns a beat back
-    chompGood();
+    if (mode === "note") noteMunchGood(cell);
+    else chompGood();
     camTargetZoom = 1.06; // tiny zoom punch on every good munch
 
     // Collect the value + light up its (now frightened) duplicates.
@@ -742,8 +834,9 @@ function munch() {
 
     if (remaining === 1) flash("LAST ONE!");
     // Speak the English translation (mexinom / dannom), else announce the last one.
+    // Note mode stays musical — no speech, the note itself sounds.
     if (mode === "word" && lang !== "en") sayTranslation(v);
-    else if (remaining === 1) say("last one");
+    else if (mode !== "note" && remaining === 1) say("last one");
     if (remaining <= 0) {
       state = "clear";
       clearPhase = 96;
@@ -756,8 +849,11 @@ function munch() {
   } else {
     cell.flash = 14;
     cell.failed = true; // X it out — can't be tried again
-    if (mode === "word" && lang !== "en") sayTranslation(cell.value);
-    chompBad();
+    if (mode === "note") noteMunchBad(cell);
+    else {
+      if (mode === "word" && lang !== "en") sayTranslation(cell.value);
+      chompBad();
+    }
     loseLife();
   }
 }
@@ -891,6 +987,32 @@ function chompBad() {
   playMelody([{ tone: 120, type: "sawtooth", dur: 0.2, vol: 0.28, t: 3 }], 0);
 }
 
+// 🎵 Note-mode munch — voice the square's actual note, then a combo ping above.
+function noteMunchGood(cell) {
+  if (!synth) return;
+  synth.note(cellNote(cell), { wave: "triangle", duration: 0.2, volume: 0.34 });
+  const top = 660 + min(combo, 8) * 40; // bright ping rises with the combo
+  synth.note(top, { wave: "sine", duration: 0.08, volume: 0.2 });
+}
+
+// 🎵 Wrong note — sound it anyway (so you hear what you bit), then a sour buzz.
+function noteMunchBad(cell) {
+  if (!synth) return;
+  synth.note(cellNote(cell), { wave: "triangle", duration: 0.2, volume: 0.34 });
+  synth.note(140, { wave: "sawtooth", duration: 0.18, volume: 0.3 });
+}
+
+// 🎼 Play the current board's rule scale ascending when a board begins.
+function playScale() {
+  if (!synth || !noteScale.length) return;
+  noteScale.forEach((n, i) => {
+    setTimeout(() => {
+      if (synth)
+        synth.note(String(n).toLowerCase(), { wave: "triangle", duration: 0.18, volume: 0.3 });
+    }, i * 110);
+  });
+}
+
 // 😢 Death — a redder, sadder fall: a wobbling downward glissando into a
 // low, mournful sigh.
 function sadDeath() {
@@ -1021,7 +1143,8 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
     } else return;
     state = "play";
     flashGreen = 16; // green "go!" flash on board start
-    startChirp();
+    if (mode === "note") playScale(); // 🎼 hear the scale you're hunting
+    else startChirp();
     say(ruleSpeech);
   };
 
@@ -1029,7 +1152,14 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
     // "Press any key to start" — honor it literally: any key-down or a tap
     // advances (previously only space/enter/touch did, so other keys felt like
     // the title was stalling).
-    if (e.name?.startsWith?.("keyboard:down") || e.is("touch")) advance();
+    if (e.name?.startsWith?.("keyboard:down")) {
+      advance();
+    } else if (e.is("touch")) {
+      advance();
+      // This tap *started* the board — swallow its release so the trailing
+      // lift doesn't immediately munch the center square.
+      swipedGesture = true;
+    }
     return;
   }
 
@@ -1042,6 +1172,20 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   )
     killChord();
 
+  // 📱 Tap anywhere to munch; a swipe (fired just before this lift) suppresses
+  // the tap. Always consume the flag here — even mid-death — so it can never
+  // leak into the next gesture.
+  if (e.is("lift")) {
+    const wasSwipe = swipedGesture;
+    swipedGesture = false;
+    drag = null; // clear the swipe overlay
+    if (!wasSwipe && deathPhase === 0) munch();
+  }
+
+  // 👆 Track the live gesture so paint can visualize the swipe threshold.
+  if (e.is("touch")) drag = { sx: e.x, sy: e.y, x: e.x, y: e.y };
+  if (e.is("draw") && drag) { drag.x = e.x; drag.y = e.y; }
+
   // 🖱️ Hover highlight — track the cell under the pointer.
   if (e.is("move") || e.is("draw")) hover = cellAt(e.x, e.y);
 
@@ -1053,6 +1197,13 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:w") || e.is("keyboard:down:k")) move(0, -1);
   if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:s") || e.is("keyboard:down:j")) move(0, 1);
 
+  // 📱 Swipe to move one square in that direction (flag it so the gesture's
+  // closing tap doesn't also munch — see the lift handler below).
+  if (e.is("swipe:left")) { move(-1, 0); swipedGesture = true; }
+  if (e.is("swipe:right")) { move(1, 0); swipedGesture = true; }
+  if (e.is("swipe:up")) { move(0, -1); swipedGesture = true; }
+  if (e.is("swipe:down")) { move(0, 1); swipedGesture = true; }
+
   // Munch (space + enter behave identically) — smart-chain to the nearest
   // green, and sustain a pentatonic chord while held (durational, musical).
   if (
@@ -1062,22 +1213,28 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   ) {
     smartMunch();
     if (!heldChord && synth) {
-      // Sustained pentatonic chord via the shared synth controller.
-      const root = pentatonic(muncher.col, muncher.row);
-      heldChord = [
-        synth.hold(root, { wave: "sine", volume: 0.18 }),
-        synth.hold(root * 1.5, { wave: "sine", volume: 0.12 }),
-        synth.hold(root * 2, { wave: "triangle", volume: 0.08 }),
-      ];
+      if (mode === "note") {
+        // 🎵 Sustain the square's actual note while held (a soft drone).
+        const cell = grid[idx(muncher.col, muncher.row)];
+        if (cell && !cell.eaten && !cell.failed) {
+          const n = cellNote(cell);
+          heldChord = [
+            synth.hold(n, { wave: "sine", volume: 0.14 }),
+            synth.hold(n, { wave: "triangle", volume: 0.08 }),
+          ];
+        }
+      } else {
+        // Sustained pentatonic chord via the shared synth controller.
+        const root = pentatonic(muncher.col, muncher.row);
+        heldChord = [
+          synth.hold(root, { wave: "sine", volume: 0.18 }),
+          synth.hold(root * 1.5, { wave: "sine", volume: 0.12 }),
+          synth.hold(root * 2, { wave: "triangle", volume: 0.08 }),
+        ];
+      }
     }
   }
 
-  // Touch: tap a square to jump there; tap outside the board to munch.
-  if (e.is("touch")) {
-    const hit = cellAt(e.x, e.y);
-    if (hit) moveTo(hit.col, hit.row);
-    else munch();
-  }
 }
 
 function resetGame({ randInt }) {
@@ -1188,6 +1345,7 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
       else if (cd.failed) bg = [44, 22, 24];
       else if (cd.known) bg = [40, 168, 80]; // confirmed-correct → whole square green
       else if (missed) bg = [72, 74, 82]; // revealed missed answer = gray
+      else if (mode === "note") bg = noteTile(cd.letter); // pitch-class tint
       else if (colorWord) bg = colorWord; // color squares ARE that color
       else bg = tileColor(txt);
       ink(...bg).box(cx + 1, cy + 1, cell - 2, cell - 2);
@@ -1221,6 +1379,7 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
         if (cd.failed) col = [120, 95, 100];
         else if (cd.known) col = [10, 40, 18]; // dark on the green known square
         else if (missed) col = [228, 230, 238];
+        else if (mode === "note") col = noteColor(cd.letter); // note's keyboard hue
         else if (colorWord) col = luma(colorWord) > 140 ? [25, 25, 30] : [245, 245, 255];
         else col = charColor(txt[0]);
         ink(...col).write(txt, { x: tx, y: ty, size: fit.size }, undefined, undefined, false, font || undefined);
@@ -1244,7 +1403,7 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
     const t = String(cd.value);
     const font = cellFont();
     const fit = fitText(t, cell, font);
-    const gc = COLOR_WORDS[t] || charColor(t[0]);
+    const gc = mode === "note" ? noteColor(cd.letter) : COLOR_WORDS[t] || charColor(t[0]);
     ink(gc[0], gc[1], gc[2], 95).write(
       t,
       { x: gx + (cell - fit.width) / 2, y: gy + (cell - fit.height) / 2, size: fit.size },
@@ -1353,11 +1512,36 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
     if (big.width + 4 <= leftRoom) fit = { ...big, size: 2 };
     else fit = { ...fit, size: 1 };
     const w = fit.width + 4;
-    const cw = COLOR_WORDS[v];
-    ink(...(cw || tileColor(v))).box(4, fcy, w, fit.height + 2);
-    const tcol = cw ? (luma(cw) > 140 ? [25, 25, 30] : [245, 245, 255]) : charColor(v[0]);
+    const ltr = mode === "note" ? v.slice(0, -1) : null; // "C4" → "C", "F#5" → "F#"
+    const cw = mode === "note" ? null : COLOR_WORDS[v];
+    const bgc = mode === "note" ? noteTile(ltr) : cw || tileColor(v);
+    ink(...bgc).box(4, fcy, w, fit.height + 2);
+    const tcol = mode === "note"
+      ? noteColor(ltr)
+      : cw ? (luma(cw) > 140 ? [25, 25, 30] : [245, 245, 255]) : charColor(v[0]);
     ink(...tcol).write(v, { x: 6, y: fcy + 1, size: fit.size }, undefined, undefined, false, font || undefined);
     fcy += fit.height + 4;
+  }
+
+  // 👆 Swipe overlay (mobile) — visualizes the SWIPE_MIN deadzone so the gesture
+  // is legible: a square that flips to green once the dominant axis clears the
+  // threshold, with a line to your finger + the resolved direction.
+  if (drag && state === "play" && deathPhase === 0) {
+    const dx = drag.x - drag.sx,
+      dy = drag.y - drag.sy;
+    const adx = abs(dx),
+      ady = abs(dy);
+    const past = max(adx, ady) >= SWIPE_MIN;
+    const c = past ? [120, 255, 160] : [255, 255, 255];
+    // Deadzone square (Chebyshev threshold) centered on the touch start.
+    ink(c[0], c[1], c[2], 70).box(drag.sx - SWIPE_MIN, drag.sy - SWIPE_MIN, SWIPE_MIN * 2, SWIPE_MIN * 2, "outline");
+    ink(c[0], c[1], c[2], 200).line(drag.sx, drag.sy, drag.x, drag.y); // vector to finger
+    ink(120, 220, 255).box(drag.sx - 1, drag.sy - 1, 3, 3); // origin dot
+    ink(255, 230, 60).box(drag.x - 2, drag.y - 2, 4, 4); // finger dot
+    if (past) {
+      const dir = adx >= ady ? (dx < 0 ? "LEFT" : "RIGHT") : dy < 0 ? "UP" : "DOWN";
+      ink(...c).write(dir, { x: round(drag.sx - dir.length * 3), y: drag.sy - SWIPE_MIN - 11 });
+    }
   }
 
   // 📣 Transient message banner — large, with a colored background.
@@ -1579,10 +1763,12 @@ function paintTroggle({ ink, box, line }, cx, cy, cell, hue) {
 }
 
 function gameName() {
+  if (mode === "note") return "NOTENOM";
   if (mode !== "word") return "NUMBNOM";
   return lang === "es" ? "MEXINOM" : lang === "da" ? "DANNOM" : "ENGNOM";
 }
 function editionText() {
+  if (mode === "note") return "music edition";
   if (mode !== "word") return "number edition";
   return lang === "es" ? "edicion mexicana" : lang === "da" ? "dansk udgave" : "english edition";
 }
@@ -1590,8 +1776,14 @@ function editionText() {
 function paintTitle({ ink, screen, write }) {
   ink(255, 230, 120).write(gameName(), { center: "x", y: screen.height / 2 - 40, size: 3 });
   ink(120, 235, 120).write(editionText(), { center: "x", y: screen.height / 2 - 6 });
-  ink(180, 200, 255).write("eat squares that match the rule", { center: "x", y: screen.height / 2 + 14 });
-  ink(140, 160, 220).write("arrows move - space munches - dodge troggles", { center: "x", y: screen.height / 2 + 28 });
+  ink(180, 200, 255).write(
+    mode === "note" ? "eat the notes that match the rule" : "eat squares that match the rule",
+    { center: "x", y: screen.height / 2 + 14 },
+  );
+  ink(140, 160, 220).write("swipe / arrows move · tap / space munch · dodge troggles", {
+    center: "x",
+    y: screen.height / 2 + 28,
+  });
   // Blinking prompt.
   if (mouth < 24)
     ink(255).write("press any key to start", { center: "x", y: screen.height / 2 + 54 });
@@ -1615,10 +1807,14 @@ function overlay({ ink, screen, write }, title, sub) {
 
 // 📰 Meta
 function meta() {
-  const title = mode !== "word" ? "Numbnom" : lang === "es" ? "Mexinom" : lang === "da" ? "Dannom" : "Engnom";
+  const title = mode === "note"
+    ? "Notenom"
+    : mode !== "word"
+      ? "Numbnom"
+      : lang === "es" ? "Mexinom" : lang === "da" ? "Dannom" : "Engnom";
   return {
     title,
-    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk).",
+    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk), notenom (notes).",
   };
 }
 

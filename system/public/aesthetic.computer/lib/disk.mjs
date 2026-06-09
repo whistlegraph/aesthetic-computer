@@ -13097,6 +13097,14 @@ async function makeFrame({ data: { type, content } }) {
           hudButtonActive: currentHUDButtonActive, // Add global HUD button flag
           is: (e) => {
             let [name, pointer] = e.split(":");
+            // 👆 Swipe events carry a *direction* in the second slot
+            // (swipe:left / swipe:right / swipe:up / swipe:down), not a pointer
+            // index. Bare `swipe` (or `swipe:any`) matches any direction.
+            if (data.name === "swipe") {
+              if (name !== "swipe") return false;
+              if (!pointer || pointer === "any") return data.isPrimary === true;
+              return data.direction === pointer && data.isPrimary === true;
+            }
             if (pointer) {
               if (pointer === "any") {
                 return name === data.name;

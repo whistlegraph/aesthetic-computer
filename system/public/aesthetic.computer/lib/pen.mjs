@@ -303,7 +303,12 @@ export class Pen {
       const pointerId = getPointerId(e);
       const pointer = pen.pointers[pointerId];
       if (!pointer) return;
-      if (pointer.drawing) pen.#event("lift", pointer);
+      if (pointer.drawing) {
+        // 👆 A finished gesture may be a directional swipe. Emit `swipe:<dir>`
+        // *before* `lift` so pieces can move on the swipe and suppress the tap.
+        pen.#detectSwipe(pointer);
+        pen.#event("lift", pointer);
+      }
       pointer.drawing = false;
       pointer.dragBox = undefined;
       pen.penCursor = true;
@@ -481,9 +486,27 @@ export class Pen {
     }
   }
 
+  // 👆 Classify a finished gesture as a directional swipe (left/right/up/down)
+  // and emit a `swipe:<direction>` pen event. The whole-gesture travel must
+  // clear `SWIPE_MIN` virtual pixels on its dominant axis; shorter gestures stay
+  // taps. Fired just before `lift` (see `up`) so pieces see the swipe first.
+  #detectSwipe(pointer) {
+    const start = pointer.penDragStartPos;
+    if (!start) return;
+    const dx = pointer.x - start.x;
+    const dy = pointer.y - start.y;
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+    const SWIPE_MIN = 24; // virtual pixels of travel needed to count as a swipe
+    if (Math.max(adx, ady) < SWIPE_MIN) return; // too short → it was a tap
+    const direction =
+      adx >= ady ? (dx < 0 ? "left" : "right") : dy < 0 ? "up" : "down";
+    this.#event("swipe", pointer, { direction });
+  }
+
   // TODO: Merge this logic into the above events & consolidate class properties.
   // Check the hardware for any changes.
-  #event(name, pointer) {
+  #event(name, pointer, extra = {}) {
     const pen = this;
 
     // 💁 Calculate pointer delta based on the pointer's lastEvent so it
@@ -509,6 +532,7 @@ export class Pen {
       pressure: pointer.pressure,
       drag: pointer.dragBox,
       penChanged: this.changedInPiece,
+      ...extra, // e.g. { direction } for swipe events
     });
 
     // Assign data to individual pointer.
