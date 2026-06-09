@@ -197,6 +197,40 @@ if [ -n "$CURL_BIN" ]; then
 fi
 # busybox wget as fallback
 ln -s busybox "$IROOT/bin/wget" 2>/dev/null || true
+
+# ── 2a3: dropbear SSH daemon + baked authorized_keys ──
+# notepat auto-starts sshd once wifi connects (system.startSSH in
+# js-bindings.c) and shows "ssh root@<ip>" on screen. OTA builds are
+# key-only: js_start_ssh disables password auth whenever
+# /.ssh/authorized_keys exists (root's home is "/"), which is baked here
+# from fedac/native/keys/authorized_keys. Without that file the daemon
+# falls back to -B (blank-password root) — local dev images only.
+DROPBEAR_BIN=$(command -v dropbear 2>/dev/null || true)
+DROPBEARKEY_BIN=$(command -v dropbearkey 2>/dev/null || true)
+if [ -n "$DROPBEAR_BIN" ] && [ -n "$DROPBEARKEY_BIN" ]; then
+    mkdir -p "$IROOT/usr/sbin" "$IROOT/etc/dropbear" "$IROOT/.ssh"
+    cp -L "$DROPBEAR_BIN" "$IROOT/usr/sbin/dropbear"
+    cp -L "$DROPBEARKEY_BIN" "$IROOT/usr/sbin/dropbearkey"
+    chmod +x "$IROOT/usr/sbin/dropbear" "$IROOT/usr/sbin/dropbearkey"
+    ln -sf /usr/sbin/dropbear "$IROOT/bin/dropbear"
+    ln -sf /usr/sbin/dropbearkey "$IROOT/bin/dropbearkey"
+    for bin in "$DROPBEAR_BIN" "$DROPBEARKEY_BIN"; do
+        for dep in $(ldd "$bin" 2>/dev/null | grep -oP '/\S+'); do
+            base=$(basename "$dep")
+            [ ! -f "$IROOT/lib64/$base" ] && cp -L "$(readlink -f "$dep")" "$IROOT/lib64/$base" 2>/dev/null || true
+        done
+    done
+    if [ -f "$NATIVE/keys/authorized_keys" ]; then
+        cp "$NATIVE/keys/authorized_keys" "$IROOT/.ssh/authorized_keys"
+        chmod 600 "$IROOT/.ssh/authorized_keys"
+        log "  dropbear bundled (key-only via keys/authorized_keys)"
+    else
+        log "  dropbear bundled (no keys/authorized_keys — blank-password fallback)"
+    fi
+else
+    log "  dropbear not on builder image — device ssh disabled"
+fi
+
 # Minimal udhcpc script to configure interface after getting lease
 mkdir -p "$IROOT/usr/share/udhcpc"
 cat > "$IROOT/usr/share/udhcpc/default.script" << 'UDHCPC_SCRIPT'
@@ -563,8 +597,10 @@ if [ -d /opt/alsa-ucm-conf-cros/ucm2 ]; then
 fi
 
 # ── 2m: /etc/group and /etc/passwd ──
+# Full 7-field passwd entry: dropbear resolves uid 0's home ("/", so
+# authorized_keys lives at /.ssh/) and login shell from here.
 echo "root:x:0:" > "$IROOT/etc/group"
-echo "root:x:0:root" > "$IROOT/etc/passwd"
+echo "root:x:0:0:root:/:/bin/sh" > "$IROOT/etc/passwd"
 
 # ── 2n: Claude Code ──
 # Prefer a freshly-fetched native binary from the official GCS "latest"

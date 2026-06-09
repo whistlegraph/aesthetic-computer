@@ -34,6 +34,7 @@
 #include "tts.h"
 #include "js-bindings.h"
 #include "machines.h"
+#include "lanserv.h"
 #include "recorder.h"
 #include "camera.h"
 #include <openssl/sha.h>
@@ -2684,6 +2685,13 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     // Initialize machines monitoring daemon
     machines_init(&g_machines);
 
+    // LAN dev server: HTTP control endpoint + mDNS (.local) responder
+#ifdef AC_BUILD_NAME
+    lanserv_start(AC_BUILD_NAME);
+#else
+    lanserv_start("dev");
+#endif
+
     // Read cached city once for both TTS greeting (f==10) and subtitle (f>130).
     char greet_city[96];
     read_cached_city(greet_city, sizeof greet_city);
@@ -5045,6 +5053,32 @@ int main(int argc, char *argv[]) {
                 }
             }
 
+            // LAN dev server: publish piece/ip for the status endpoint and
+            // mDNS announcer, then watch /tmp/ac-jump — the hot-reload
+            // trigger shared by lanserv HTTP and ssh
+            // (`echo notepat > /tmp/ac-jump`).
+            {
+                lanserv_update(rt->jump_target[0] ? rt->jump_target : rt->piece,
+                               (wifi && wifi->state == WIFI_STATE_CONNECTED)
+                                   ? wifi->ip_address : "");
+                if (access("/tmp/ac-jump", F_OK) == 0) {
+                    char jbuf[64] = {0};
+                    FILE *jf = fopen("/tmp/ac-jump", "r");
+                    if (jf) {
+                        if (fgets(jbuf, sizeof(jbuf), jf))
+                            jbuf[strcspn(jbuf, " \t\r\n")] = 0;
+                        fclose(jf);
+                    }
+                    unlink("/tmp/ac-jump");
+                    if (jbuf[0]) {
+                        strncpy(rt->jump_target, jbuf, sizeof(rt->jump_target) - 1);
+                        rt->jump_target[sizeof(rt->jump_target) - 1] = 0;
+                        rt->jump_requested = 1;
+                        ac_log("[lanserv] jump → %s\n", jbuf);
+                    }
+                }
+            }
+
             // Submit frame to recorder (after cursor overlay, before display)
             if (recorder_is_recording(recorder))
                 recorder_submit_video(recorder, screen->pixels, screen->stride);
@@ -5198,6 +5232,7 @@ int main(int argc, char *argv[]) {
     // Upload the complete boot-to-shutdown log before tearing down
     machines_flush_logs(&g_machines);
     machines_destroy(&g_machines);
+    lanserv_stop();
 
     if (logfile) { fclose(logfile); logfile = NULL; }
     sync();

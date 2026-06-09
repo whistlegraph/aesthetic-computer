@@ -5906,18 +5906,27 @@ static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSV
         return JS_NewBool(ctx, 0);
     }
 
-    // Generate host key if needed
+    // Host key: restore from the EFI partition so the device keeps a stable
+    // SSH identity across reboots (initramfs is volatile); generate + persist
+    // on first boot.
     if (access("/etc/dropbear/dropbear_ed25519_host_key", F_OK) != 0) {
-        ac_log("[ssh] generating host key...\n");
+        ac_log("[ssh] preparing host key...\n");
         system("mkdir -p /etc/dropbear && "
-               "dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null");
+               "{ cp /mnt/.dropbear_ed25519_host_key /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null || "
+               "{ dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null && "
+               "cp /etc/dropbear/dropbear_ed25519_host_key /mnt/.dropbear_ed25519_host_key 2>/dev/null; }; }");
     }
 
-    // Start dropbear (no password auth, only key-based or allow all for now)
-    // -R = generate keys if missing, -B = allow blank passwords (for root w/o passwd)
-    // -p 22 = listen on port 22, -F = foreground (& to background)
+    // Key-only auth when an authorized_keys file is baked in (public OTA
+    // builds — root's home is "/" per /etc/passwd, so dropbear reads
+    // /.ssh/authorized_keys). -B (blank-password root) only as a fallback
+    // for local dev images without baked keys.
     ac_log("[ssh] starting dropbear on port 22...\n");
-    system("dropbear -R -B -p 22 -P /tmp/dropbear.pid 2>/tmp/dropbear.log &");
+    if (access("/.ssh/authorized_keys", F_OK) == 0) {
+        system("dropbear -R -s -g -p 22 -P /tmp/dropbear.pid 2>/tmp/dropbear.log &");
+    } else {
+        system("dropbear -R -B -p 22 -P /tmp/dropbear.pid 2>/tmp/dropbear.log &");
+    }
     ssh_started = 1;
     ac_log("[ssh] dropbear started\n");
     return JS_NewBool(ctx, 1);

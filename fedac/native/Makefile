@@ -97,6 +97,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/camera.c \
         $(SRCDIR)/pty.c \
         $(SRCDIR)/machines.c \
+        $(SRCDIR)/lanserv.c \
         $(SRCDIR)/swank-bridge.c \
         $(SRCDIR)/js-bindings.c \
         $(SRCDIR)/audio-decode.c \
