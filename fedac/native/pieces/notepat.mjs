@@ -445,6 +445,11 @@ let wifiSelectedIdx = -1;
 let wifiPassword = "";
 let wifiPasswordMode = false;  // true = fullscreen password entry
 let shiftHeld = false;
+// Chord modifiers (Menu Band parity). Held with a note key, they fire a
+// triad instead of a single tone. control = major, alt = minor,
+// control+alt = sus2. Tracked here like shiftHeld and read at note-on.
+let ctrlHeld = false;
+let altHeld = false;
 
 // Analog keyboard (NuPhy Hall-Effect) detection. When a note-on event
 // arrives with an analog pressure value (0 < p < 1) that isn't the
@@ -646,6 +651,104 @@ function parseNote(name) {
   if (name.startsWith("-")) return [name.slice(1), -1];
   return [name, 0];
 }
+
+// === GENERAL MIDI INSTRUMENT MODEL (Menu Band parity) ===
+// There is no GM soundfont on bare metal, so each of the 128 GM programs
+// is mapped onto one of the engine's native waveforms via its family.
+// 16 families of 8 → a compact recipe table (NOT 128 hand-tuned lines).
+// A recipe = { wave, attack, decay, sustain, volume, detune? }. When a
+// melodic side has a gmProgram selected, note-on uses the recipe instead
+// of the freely-cycled `wave`. The custom kits (perc/war/zoo/lasers) are
+// untouched — GM only applies to the "off"/melodic layer.
+const GM_FAMILY_RECIPES = [
+  // 0  Piano            (0-7)   — modal grand
+  { wave: "piano",    attack: 0.002, decay: 0.9,  sustain: false, volume: 0.55, linger: "sustain" },
+  // 1  Chromatic/mallet (8-15)  — bell-like ping
+  { wave: "triangle", attack: 0.001, decay: 0.35, sustain: false, volume: 0.5,  linger: "staccato" },
+  // 2  Organ           (16-23)  — held square
+  { wave: "square",   attack: 0.004, decay: 0.2,  sustain: true,  volume: 0.4,  linger: "sustain" },
+  // 3  Guitar          (24-31)  — Karplus pluck
+  { wave: "harp",     attack: 0.001, decay: 0.6,  sustain: false, volume: 0.5,  linger: "staccato" },
+  // 4  Bass            (32-39)  — low body, medium decay
+  { wave: "triangle", attack: 0.002, decay: 0.5,  sustain: false, volume: 0.6,  linger: "staccato" },
+  // 5  Strings         (40-47)  — bowed swell
+  { wave: "sawtooth", attack: 0.08,  decay: 0.4,  sustain: true,  volume: 0.4,  linger: "sustain" },
+  // 6  Ensemble        (48-55)  — detuned section
+  { wave: "sawtooth", attack: 0.06,  decay: 0.4,  sustain: true,  volume: 0.38, detune: 0.06, linger: "sustain" },
+  // 7  Brass           (56-63)  — bright sustained saw
+  { wave: "sawtooth", attack: 0.02,  decay: 0.3,  sustain: true,  volume: 0.45, linger: "sustain" },
+  // 8  Reed            (64-71)  — reedy square/triangle
+  { wave: "square",   attack: 0.01,  decay: 0.3,  sustain: true,  volume: 0.4,  linger: "sustain" },
+  // 9  Pipe            (72-79)  — waveguide flute (perfect)
+  { wave: "whistle",  attack: 0.03,  decay: 0.3,  sustain: true,  volume: 0.42, linger: "sustain" },
+  // 10 Synth Lead      (80-87)  — bright square lead
+  { wave: "square",   attack: 0.004, decay: 0.3,  sustain: true,  volume: 0.42, linger: "sustain" },
+  // 11 Synth Pad       (88-95)  — slow sine swell
+  { wave: "sine",     attack: 0.12,  decay: 0.5,  sustain: true,  volume: 0.4,  linger: "sustain" },
+  // 12 Synth FX        (96-103) — airy sine + noise
+  { wave: "sine",     attack: 0.06,  decay: 0.4,  sustain: true,  volume: 0.38, noise: true, linger: "sustain" },
+  // 13 Ethnic          (104-111) — plucked/whistled
+  { wave: "harp",     attack: 0.001, decay: 0.6,  sustain: false, volume: 0.5,  linger: "staccato" },
+  // 14 Percussive      (112-119) — short triangle ping
+  { wave: "triangle", attack: 0.001, decay: 0.18, sustain: false, volume: 0.5,  linger: "staccato" },
+  // 15 Sound FX        (120-127) — noise
+  { wave: "noise",    attack: 0.001, decay: 0.3,  sustain: false, volume: 0.45, linger: "sustain" },
+];
+
+// Per-family pipe override: program 78 (Whistle) / 73 (Flute) etc. all stay
+// whistle. Bass split: synth-pluck basses (36-37 slap) want a faster decay.
+function gmRecipe(program) {
+  const p = Math.max(0, Math.min(127, program | 0));
+  const recipe = { ...GM_FAMILY_RECIPES[Math.floor(p / 8)] };
+  // Light per-program nuance: low basses sit on sine for a rounder body.
+  if (p >= 32 && p <= 33) recipe.wave = "sine";
+  return recipe;
+}
+
+// The 128 General MIDI Level 1 program names, VERBATIM from the MMA
+// RP-003 "General MIDI System Level 1" spec, Table 2 (program 1 = index 0).
+// Quirks are intentional and spec-exact: "Clavi", lowercase "Guitar
+// harmonics", one-word "SynthStrings"/"SynthBrass", "Synth Voice" (#55),
+// two-word "Bag pipe" (#110), "Shanai" (#112).
+const GM_PROGRAM_NAMES = [
+  "Acoustic Grand Piano","Bright Acoustic Piano","Electric Grand Piano","Honky-tonk Piano",
+  "Electric Piano 1","Electric Piano 2","Harpsichord","Clavi",
+  "Celesta","Glockenspiel","Music Box","Vibraphone","Marimba","Xylophone","Tubular Bells","Dulcimer",
+  "Drawbar Organ","Percussive Organ","Rock Organ","Church Organ","Reed Organ","Accordion","Harmonica","Tango Accordion",
+  "Acoustic Guitar (nylon)","Acoustic Guitar (steel)","Electric Guitar (jazz)","Electric Guitar (clean)",
+  "Electric Guitar (muted)","Overdriven Guitar","Distortion Guitar","Guitar harmonics",
+  "Acoustic Bass","Electric Bass (finger)","Electric Bass (pick)","Fretless Bass",
+  "Slap Bass 1","Slap Bass 2","Synth Bass 1","Synth Bass 2",
+  "Violin","Viola","Cello","Contrabass","Tremolo Strings","Pizzicato Strings","Orchestral Harp","Timpani",
+  "String Ensemble 1","String Ensemble 2","SynthStrings 1","SynthStrings 2","Choir Aahs","Voice Oohs","Synth Voice","Orchestra Hit",
+  "Trumpet","Trombone","Tuba","Muted Trumpet","French Horn","Brass Section","SynthBrass 1","SynthBrass 2",
+  "Soprano Sax","Alto Sax","Tenor Sax","Baritone Sax","Oboe","English Horn","Bassoon","Clarinet",
+  "Piccolo","Flute","Recorder","Pan Flute","Blown Bottle","Shakuhachi","Whistle","Ocarina",
+  "Lead 1 (square)","Lead 2 (sawtooth)","Lead 3 (calliope)","Lead 4 (chiff)","Lead 5 (charang)","Lead 6 (voice)","Lead 7 (fifths)","Lead 8 (bass + lead)",
+  "Pad 1 (new age)","Pad 2 (warm)","Pad 3 (polysynth)","Pad 4 (choir)","Pad 5 (bowed)","Pad 6 (metallic)","Pad 7 (halo)","Pad 8 (sweep)",
+  "FX 1 (rain)","FX 2 (soundtrack)","FX 3 (crystal)","FX 4 (atmosphere)","FX 5 (brightness)","FX 6 (goblins)","FX 7 (echoes)","FX 8 (sci-fi)",
+  "Sitar","Banjo","Shamisen","Koto","Kalimba","Bag pipe","Fiddle","Shanai",
+  "Tinkle Bell","Agogo","Steel Drums","Woodblock","Taiko Drum","Melodic Tom","Synth Drum","Reverse Cymbal",
+  "Guitar Fret Noise","Breath Noise","Seashore","Bird Tweet","Telephone Ring","Helicopter","Applause","Gunshot",
+];
+
+// GM selection state. gmProgram === null means "no GM" (use the freely
+// cycled `wave`). gmPassthrough === true means digit "0" was chosen: relay
+// MIDI but don't synthesize a local voice. Digit accumulation (max 3) with
+// a >0.8s gap starting a fresh buffer, exactly like Menu Band.
+let gmProgram = null;        // 0..127, or null
+let gmPassthrough = false;   // true = MIDI relay only, no local synth
+let gmDigitBuffer = "";      // accumulating digits
+let gmDigitLastMs = 0;       // Date.now() of last digit
+let gmNotice = null;         // { text, until } — transient program readout
+
+// Voices currently lingering (shift-held release tail). Each entry rides a
+// scheduled kill; tracked so stopAllSounds can sweep them too.
+let lingerVoices = [];
+
+// True when at least one grid side is melodic (kit "off"). GM program +
+// chord modifiers only apply on melodic sides.
+function anyMelodicSide() { return kitLeft === "off" || kitRight === "off"; }
 
 const LEFT_GRID = [
   ["c", "c#", "d", "d#"],
@@ -1882,6 +1985,48 @@ function flashArrowNotice(text) {
   envelopeNotice = { text, param: "arrow", mode: "", until: frame + 90 };
 }
 
+function flashGmNotice(text) {
+  gmNotice = { text, until: frame + 150 }; // ~2.5s
+}
+
+// Accumulate a digit into the GM-program buffer and, on each press, resolve
+// the current buffer value to a selection. Menu Band semantics: a >0.8s gap
+// since the last digit starts a fresh buffer; the buffer caps at 3 digits.
+function selectGmDigit(digit, sound, system) {
+  const now = Date.now();
+  if (now - gmDigitLastMs > 800) gmDigitBuffer = "";
+  gmDigitLastMs = now;
+  if (gmDigitBuffer.length >= 3) gmDigitBuffer = ""; // roll over past 3
+  gmDigitBuffer += digit;
+  const v = parseInt(gmDigitBuffer, 10);
+  if (v === 0) {
+    // "0" → MIDI passthrough toggle: relay only, no local synth.
+    gmPassthrough = !gmPassthrough;
+    gmProgram = null;
+    flashGmNotice(gmPassthrough ? "MIDI PASSTHRU" : "MIDI LOCAL");
+    sound?.synth?.({ type: "sine", tone: gmPassthrough ? 990 : 440, duration: 0.06, volume: 0.14, attack: 0.002, decay: 0.05 });
+    return;
+  }
+  gmPassthrough = false;
+  setGmProgram(Math.max(0, Math.min(127, v - 1)), sound, system);
+}
+
+// Commit a GM program: store it, flash its name, blip the new timbre, and
+// emit a MIDI Program Change over both transports (USB if the binding gains
+// programChange; UDP via the generic sendMidi event for the amxd plugin).
+function setGmProgram(program, sound, system) {
+  gmProgram = program;
+  const name = GM_PROGRAM_NAMES[program] || `Program ${program + 1}`;
+  flashGmNotice(`${program + 1}. ${name}`);
+  const recipe = gmRecipe(program);
+  sound?.synth?.({ type: recipe.wave === "sample" ? "sine" : recipe.wave, tone: 523.25, duration: 0.12, volume: 0.18, attack: recipe.attack, decay: 0.1 });
+  // Program Change relay. usbMidi.programChange is optional (no-op until the
+  // native binding adds it); UDP carries it as a generic event so the Max
+  // device can switch patches.
+  system?.usbMidi?.programChange?.(program, 0);
+  sendUdpMidiEvent(system, "program_change", program, 0, 0);
+}
+
 function noteToFreq(note, oct) {
   const idx = CHROMATIC.indexOf(note);
   if (idx < 0) return 440;
@@ -2010,6 +2155,13 @@ function udpMidiSendRecency() {
 
 function rememberSound(key, entry, system, velocity = 1) {
   if (!entry) return;
+  // Capture linger intent (Feature 4) at press time — shift may release
+  // before the key. lingerCat picks the fade shape: GM-recipe sustained
+  // families fade smoothly over ~4s; staccato families get a short tail.
+  if (entry.lingerOnRelease === undefined) entry.lingerOnRelease = shiftHeld;
+  if (entry.lingerCat === undefined) {
+    entry.lingerCat = gmProgram !== null ? gmRecipe(gmProgram).linger : "sustain";
+  }
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   // Stash the captured velocity on the entry so sim() can blend it with
@@ -2027,12 +2179,54 @@ function rememberSound(key, entry, system, velocity = 1) {
 function stopSoundKey(key, sound, system, fade) {
   const entry = sounds[key];
   if (!entry) return;
+  // MIDI passthrough notes (gmPassthrough) synthesize nothing locally — just
+  // relay the matching note_off(s) and drop the registry entry.
+  if (entry.passthroughNotes) {
+    for (const mn of entry.passthroughNotes) {
+      system?.usbMidi?.noteOff?.(mn, 0, 0);
+      sendUdpMidiEvent(system, "note_off", mn, 0, 0);
+    }
+    delete sounds[key];
+    return;
+  }
+  // Feature 4 — shift-held linger: instead of stopping now, let the voice(s)
+  // ring out and fade to silence. Sustained families fade smoothly over ~4s;
+  // staccato families get a shorter retrigger-style tail. MIDI note_off is
+  // still sent immediately so downstream gear isn't left hanging.
+  if (entry.lingerOnRelease) {
+    const tail = entry.lingerCat === "staccato" ? 1.2 : 4.0;
+    const list = entry.voices && entry.voices.length
+      ? entry.voices
+      : (entry.compositeVoices || [entry.synth || entry]);
+    for (const voice of list) {
+      if (!voice) continue;
+      // Prefer a smooth volume ramp when the voice exposes update(); fall
+      // back to a scheduled kill with a long fade.
+      if (typeof voice.update === "function") {
+        voice.update?.({ volume: 0 });
+        sound?.kill?.(voice, tail);
+      } else {
+        sound?.kill?.(voice, tail);
+      }
+    }
+    lingerVoices.push({ until: frame + Math.ceil(tail * 60) + 30 });
+    if (entry.midiNote !== undefined) {
+      system?.usbMidi?.noteOff?.(entry.midiNote, 0, entry.midiChannel || 0);
+      sendUdpMidiEvent(system, "note_off", entry.midiNote, 0, entry.midiChannel || 0);
+      pushUsbMidiRecent("<", entry.note, entry.octave);
+    }
+    if (entry.chordIvls) relayChordOff(entry, system);
+    delete sounds[key];
+    return;
+  }
   // Default fade to the user-selected decay mode (zero/short/long). For
   // sustained melodic notes the synth's own `decay` param never fires
   // because duration is infinite — the release envelope is controlled
   // here via the kill fade duration.
   if (fade === undefined) fade = currentDecay();
-  if (entry.compositeVoices) {
+  if (entry.voices && entry.voices.length > 1) {
+    for (const voice of entry.voices) sound?.kill?.(voice, fade);
+  } else if (entry.compositeVoices) {
     for (const voice of entry.compositeVoices) sound?.kill?.(voice, fade);
   } else {
     sound?.kill?.(entry.synth || entry, fade);
@@ -2042,7 +2236,20 @@ function stopSoundKey(key, sound, system, fade) {
     sendUdpMidiEvent(system, "note_off", entry.midiNote, 0, entry.midiChannel || 0);
     pushUsbMidiRecent("<", entry.note, entry.octave);
   }
+  if (entry.chordIvls) relayChordOff(entry, system);
   delete sounds[key];
+}
+
+// Relay note_off for the non-root chord tones (the root is sent via the
+// entry.midiNote path above; chordIvls always starts with 0 = root).
+function relayChordOff(entry, system) {
+  const root = noteToMidiNumber(entry.note, entry.octave);
+  for (const iv of entry.chordIvls) {
+    if (iv === 0) continue;
+    const mn = Math.max(0, Math.min(127, root + iv));
+    system?.usbMidi?.noteOff?.(mn, 0, 0);
+    sendUdpMidiEvent(system, "note_off", mn, 0, 0);
+  }
 }
 
 function releaseTouchNote(pid, sound, system, fade = 0.08) {
@@ -2059,9 +2266,14 @@ function releaseTouchNote(pid, sound, system, fade = 0.08) {
 function stopAllSounds(sound, system, fade = 0.08) {
   heldKeys.clear();
   stopReversePlayback(sound);
-  for (const key of Object.keys(sounds)) stopSoundKey(key, sound, system, fade);
+  // Force a hard stop even on linger-flagged entries so a panic/exit is silent.
+  for (const key of Object.keys(sounds)) {
+    if (sounds[key]) sounds[key].lingerOnRelease = false;
+    stopSoundKey(key, sound, system, fade);
+  }
   activeDrumKeys = {};
   ringingPercussionHolds = [];
+  lingerVoices = [];
   touchNotes = {};
   system?.usbMidi?.allNotesOff?.(0);
   sounds = {};
@@ -2247,6 +2459,12 @@ function act({ event: e, sound, wifi, system }) {
     sound?.synth?.({ type: "sine", tone: 880, duration: 0.025,
                      volume: 0.10, attack: 0.001, decay: 0.022, pan: 0 });
   }
+  // Chord modifiers — track control/alt the same way as shift. Held while a
+  // note key fires, they turn the note into a triad (see chord block below).
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "control") ctrlHeld = true;
+  else if (e.is("keyboard:up") && e.key?.toLowerCase() === "control") ctrlHeld = false;
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "alt") altHeld = true;
+  else if (e.is("keyboard:up") && e.key?.toLowerCase() === "alt") altHeld = false;
 
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
@@ -2387,14 +2605,32 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    if (key === ",") {
-      attackModeIdx = (attackModeIdx + 1) % ATTACK_MODES.length;
-      flashEnvelopeNotice("attack", ATTACK_MODES[attackModeIdx]);
+    // Octave shortcuts (Menu Band parity). `,` / `<` = octave down,
+    // `.` / `>` = octave up, clamped 0..8. (Native input.c never emits the
+    // shifted `<`/`>` glyphs — it sends `,`/`.` with shiftHeld set — so the
+    // base keys already cover both; the `<`/`>` aliases are defensive.)
+    if (key === "," || key === "<") {
+      octave = Math.max(0, octave - 1);
+      flashArrowNotice(`OCT ${octave}`);
+      sound?.synth?.({ type: "sine", tone: 330, duration: 0.05, volume: 0.12, attack: 0.002, decay: 0.04 });
       return;
     }
-    if (key === ".") {
-      decayModeIdx = (decayModeIdx + 1) % DECAY_MODES.length;
-      flashEnvelopeNotice("decay", DECAY_MODES[decayModeIdx]);
+    if (key === "." || key === ">") {
+      octave = Math.min(8, octave + 1);
+      flashArrowNotice(`OCT ${octave}`);
+      sound?.synth?.({ type: "sine", tone: 660, duration: 0.05, volume: 0.12, attack: 0.002, decay: 0.04 });
+      return;
+    }
+    // Attack/decay envelope cycling moved here off `,`/`.` (which now do
+    // octave). `/` cycles attack; shift+`/` cycles decay.
+    if (key === "/") {
+      if (shiftHeld) {
+        decayModeIdx = (decayModeIdx + 1) % DECAY_MODES.length;
+        flashEnvelopeNotice("decay", DECAY_MODES[decayModeIdx]);
+      } else {
+        attackModeIdx = (attackModeIdx + 1) % ATTACK_MODES.length;
+        flashEnvelopeNotice("attack", ATTACK_MODES[attackModeIdx]);
+      }
       return;
     }
 
@@ -2561,7 +2797,18 @@ function act({ event: e, sound, wifi, system }) {
       });
       return;
     }
-    if (key >= "1" && key <= "9") { octave = parseInt(key); return; }
+    // Number keys 0-9 → General MIDI program selection (Menu Band semantics).
+    // Digits accumulate into a buffer (max 3); a >0.8s gap starts fresh.
+    // Value v: v==0 toggles MIDI passthrough (relay only, no local synth);
+    // v>=1 selects GM program (v-1), clamped 0..127. So "1"→Acoustic Grand,
+    // "128"→Gunshot. Only meaningful while a side is melodic — when both
+    // sides are full kits there's no GM layer to target, so digits no-op.
+    // Octave is now driven by `,`/`.`, not the number row.
+    if (key >= "0" && key <= "9") {
+      if (!anyMelodicSide()) return;
+      selectGmDigit(key, sound, system);
+      return;
+    }
     if (key === "arrowleft") {
       arrowSelectedSide = 0;
       sound?.speak?.("left");
@@ -2746,6 +2993,74 @@ function act({ event: e, sound, wifi, system }) {
         activeDrumKeys[key] = triggerPercussionDown(
           sound, letter, noteOctave, drumVol, drumPan, drumPitch, key, drumName, offset, baseDrumVol
         );
+        trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
+        return;
+      }
+
+      // This grid side is melodic (the drum branch above returned for any
+      // active kit), so the GM instrument layer + chord modifiers apply.
+      // Chord triad intervals from the held modifier (Menu Band parity):
+      //   control = major (0,4,7), alt = minor (0,3,7),
+      //   control+alt = sus2 (0,2,7). No modifier = single note.
+      const chordIvls = ctrlHeld && altHeld ? [0, 2, 7]
+                      : ctrlHeld ? [0, 4, 7]
+                      : altHeld ? [0, 3, 7]
+                      : null;
+      // Linger intent captured at press time (shift may release first).
+      const lingerOnRelease = shiftHeld;
+
+      // MIDI passthrough: relay note(s) only, synthesize nothing locally.
+      if (gmPassthrough) {
+        const tones = chordIvls || [0];
+        const voices = []; // empty — nothing to kill, but keeps the registry shape
+        const midiNotes = tones.map((iv) => Math.max(0, Math.min(127, noteToMidiNumber(letter, noteOctave) + iv)));
+        for (const mn of midiNotes) {
+          system?.usbMidi?.noteOn?.(mn, velocityToMidi(velocity), 0);
+          sendUdpMidiEvent(system, "note_on", mn, velocityToMidi(velocity), 0);
+        }
+        sounds[key] = { passthroughNotes: midiNotes, voices, note: letter, octave: noteOctave, gridOffset: offset, lingerOnRelease };
+        if (enterHeld) heldKeys.add(key);
+        trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
+        return;
+      }
+
+      // GM program selected → synth via the family recipe (overrides `wave`)
+      // for a single note OR a chord. Each chord tone is its own voice; we
+      // store every voice id on sounds[key].voices so release kills them all.
+      if (gmProgram !== null || chordIvls) {
+        const recipe = gmProgram !== null ? gmRecipe(gmProgram) : null;
+        const useWave = recipe ? recipe.wave : (wave === "sample" ? "sine" : wave);
+        const atk = recipe ? recipe.attack : (quickMode ? 0.002 : currentAttack());
+        const recipeVol = recipe ? recipe.volume : 1.0;
+        const ivls = chordIvls || [0];
+        const voices = [];
+        for (const iv of ivls) {
+          const cf = playFreq * Math.pow(2, iv / 12);
+          // Spread voices a touch in the stereo field; detune ensemble.
+          const cpan = Math.max(-0.85, Math.min(0.85, pan + (iv ? (iv - 4) * 0.04 : 0)));
+          const ctone = recipe?.detune ? cf * (1 + recipe.detune * 0.01) : cf;
+          const v = sound.synth({
+            type: useWave, tone: ctone, duration: Infinity,
+            volume: vol * recipeVol, attack: atk, decay: currentDecay(), pan: cpan,
+          });
+          if (v) voices.push(v);
+          // Relay each chord tone over MIDI.
+          const mn = Math.max(0, Math.min(127, noteToMidiNumber(letter, noteOctave) + iv));
+          system?.usbMidi?.noteOn?.(mn, velocityToMidi(velocity), 0);
+          sendUdpMidiEvent(system, "note_on", mn, velocityToMidi(velocity), 0);
+        }
+        // Register with the chord-aware shape. We reuse compositeVoices so
+        // stopSoundKey's existing multi-voice kill path handles release.
+        const rootMidi = noteToMidiNumber(letter, noteOctave);
+        sounds[key] = {
+          synth: voices[0], compositeVoices: voices.length > 1 ? voices : null,
+          voices, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset,
+          baseVol: baseVol * recipeVol, midiNote: rootMidi, midiChannel: 0,
+          chordIvls: ivls.length > 1 ? ivls : null, velocity,
+          lingerOnRelease, lingerCat: recipe ? recipe.linger : "sustain",
+        };
+        if (enterHeld) heldKeys.add(key);
+        pushUsbMidiRecent(">", letter, noteOctave);
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
       }
@@ -5860,6 +6175,27 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     envelopeNotice = null;
   }
 
+  // GM instrument readout — program name flash on selection (number keys).
+  if (gmNotice && frame < gmNotice.until) {
+    const dark2 = isDark();
+    const remaining = gmNotice.until - frame;
+    const alpha = Math.min(255, Math.round(remaining * 2.2));
+    const txt = gmNotice.text;
+    const tw = Math.max(1, txt.length) * 6 + 12;
+    const tx = Math.floor((w - tw) / 2);
+    const ty = gridTop + gridH + 18;
+    ink(0, 0, 0, Math.floor(alpha * 0.7));
+    box(tx - 1, ty - 1, tw + 2, 14, true);
+    ink(dark2 ? 40 : 220, dark2 ? 60 : 230, dark2 ? 90 : 250, Math.floor(alpha * 0.9));
+    box(tx, ty, tw, 12, true);
+    ink(dark2 ? 120 : 30, dark2 ? 220 : 60, dark2 ? 255 : 90, alpha);
+    box(tx, ty, tw, 12, "outline");
+    ink(dark2 ? 220 : 20, dark2 ? 240 : 40, dark2 ? 255 : 80, alpha);
+    write(txt, { x: tx + 4, y: ty + 2, size: 1, font: "font_1" });
+  } else if (gmNotice) {
+    gmNotice = null;
+  }
+
   // === SLIDERS: fx mix, echo, pitch, bitcrush + per-effect X/Y routing + reset ===
   const settingsY = topBarH;
   const sliderH = 12;
@@ -6688,11 +7024,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const categories = [
       ["NOTES", [120, 200, 255], [
         ["a\u2013l ; '", "play notes"],
-        ["1\u20139",     "octave"],
+        ["0\u20139",     "GM instrument"],
+        [", .",          "octave \u2212 / +"],
+        ["/",            "attack (+shift decay)"],
         ["\u2190 \u2192", "select L/R side"],
         ["\u2191 \u2193", "volume up/down"],
-        [", .",          "attack / decay"],
-        ["shift",        "quick mode"],
+        ["ctrl/alt",     "maj / min chord"],
+        ["shift",        "accent + linger"],
       ]],
       ["DRUMS", [255, 140, 90], [
         ["pgup/pgdn",  "kit: off\u2192drums\u2192war"],
@@ -6967,6 +7305,8 @@ function sim({ pressures, sound }) {
     }
   }
   updateActivePercussionVoices(false);
+  // Prune expired linger bookkeeping (the engine fades the actual voices).
+  if (lingerVoices.length) lingerVoices = lingerVoices.filter((l) => l.until > frame);
 }
 
 function leave() {
