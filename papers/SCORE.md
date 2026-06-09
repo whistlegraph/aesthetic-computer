@@ -153,7 +153,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
-| The nom Games: A Muncher Arcade for Aesthetic Computer (mathnom / engnom / mexinom / notenom; one shared engine + virtual synth controller) | arXiv (LaTeX, ~5pp first-pass) | `arxiv-nom/nom.pdf` | `arxiv-nom/nom.tex` |
+| The nom Games: A Muncher Arcade for Aesthetic Computer (numbnom / engnom / mexinom / notenom; one shared engine + virtual synth controller) | arXiv (LaTeX, ~5pp first-pass) | `arxiv-nom/nom.pdf` | `arxiv-nom/nom.tex` |
 | MicroVision: A Dossier (Genealogy, Products, People, Money, Dilution Mechanics, Takeover Theory, 1993–2026) | arXiv (LaTeX, dossier, 7pp first-pass) | `arxiv-microvision/microvision.pdf` | `arxiv-microvision/microvision.tex` |
 | Comp Strats: Compositional Strategies in AC --- Aphorisms for a Shielded Media-Arts Practice | arXiv (LaTeX, ~7pp first-pass) | `arxiv-comp-strats/comp-strats.pdf` | `arxiv-comp-strats/comp-strats.tex` |
 | A Fraserin' Art + Tech (methodology essay + prior-art survey, labor-folk register) | arXiv (LaTeX, 7pp first-pass) | `arxiv-fraserin/fraserin.pdf` | `arxiv-fraserin/fraserin.tex` |

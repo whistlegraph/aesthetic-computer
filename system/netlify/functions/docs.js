@@ -4250,18 +4250,18 @@ void draw() {
         hidden: true,
         //TODO: shouldnt this go to nopaint site? nopaint.art
       },
-      mathnom: {
-        sig: "mathnom[:words|:spanish]",
+      numbnom: {
+        sig: "numbnom[:words|:spanish]",
         desc: "Number Munchers-style grid game: munch squares that match the math rule (odds, evens, primes, multiples, factors) on a beat, dodge troggles.",
         colon: [
           { name: "mode", type: "enum", values: ["words", "spanish"], required: false, desc: "play the word edition (engnom) or spanish edition (mexinom) instead of numbers" },
         ],
-        examples: ["mathnom", "mathnom:words", "mathnom:spanish"],
+        examples: ["numbnom", "numbnom:words", "numbnom:spanish"],
         done: true,
       },
       engnom: {
         sig: "engnom",
-        desc: "Word Munchers-style grid game: munch squares matching the word rule (animals, colors, fruits, rhymes, doubles). English word edition of mathnom.",
+        desc: "Word Munchers-style grid game: munch squares matching the word rule (animals, colors, fruits, rhymes, doubles). English word edition of numbnom.",
         examples: ["engnom"],
         done: true,
       },
@@ -4269,6 +4269,12 @@ void draw() {
         sig: "mexinom",
         desc: "Spanish (Mexican-flavored) word Munchers: comida, animales, colores, frutas, fiesta — speaks the English translation aloud as you munch.",
         examples: ["mexinom"],
+        done: true,
+      },
+      dannom: {
+        sig: "dannom",
+        desc: "Danish word Munchers: mad, dyr, farver, frugt, hygge — speaks the English translation aloud as you munch.",
+        examples: ["dannom"],
         done: true,
       },
       notenom: {

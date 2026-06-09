@@ -921,7 +921,7 @@ function updateIndex(entries) {
     "nom-games-26-arxiv": {
       detail: "Muncher Arcade for Aesthetic Computer &middot; arXiv",
       abstract:
-        "The nom games rebuild MECC's Word and Number Munchers as Aesthetic Computer pieces --- mathnom, engnom, mexinom, and notenom. The paper shows how one shared engine and a reusable virtual synth controller turn each new subject or language into a content table rather than a new game, with the answer key in notenom doubling as a playable instrument.",
+        "The nom games rebuild MECC's Word and Number Munchers as Aesthetic Computer pieces --- numbnom, engnom, mexinom, and notenom. The paper shows how one shared engine and a reusable virtual synth controller turn each new subject or language into a content table rather than a new game, with the answer key in notenom doubling as a playable instrument.",
     },
     "aesthetic-may-26-essay": {
       detail: "Essay &middot; ~5pp",

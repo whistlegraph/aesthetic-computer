@@ -3,10 +3,10 @@
 // animales, colores, frutas, fiesta. Reuses lib/nom.mjs and forces Spanish
 // word mode at boot.
 
-import { boot as mathnomBoot, sim, paint, act, meta } from "../lib/nom.mjs";
+import { boot as nomBoot, sim, paint, act, meta } from "../lib/nom.mjs";
 
 function boot(api) {
-  mathnomBoot({ ...api, params: ["spanish"] });
+  nomBoot({ ...api, params: ["spanish"] });
 }
 
 export { boot, sim, paint, act, meta };

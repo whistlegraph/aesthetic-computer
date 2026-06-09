@@ -1,6 +1,6 @@
-// nom — shared engine for the muncher games (mathnom / engnom / mexinom), 2026.06.07
+// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom), 2026.06.07
 // Move the muncher around a 5×5 grid and eat every square that satisfies the
-// rule at the top — but dodge the Troggles. `mathnom` = numbers, `engnom` = words.
+// rule at the top — but dodge the Troggles. `numbnom` = numbers, `engnom` = words.
 
 import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
 
@@ -29,7 +29,7 @@ const START_LIVES = 3;
 
 // 🌐 Game state
 let mode = "number"; // "number" | "word"
-let lang = "en"; // word language: "en" (engnom) | "es" (mexinom)
+let lang = "en"; // word language: "en" (engnom) | "es" (mexinom) | "da" (dannom)
 let state = "title"; // title | play | clear | over | win
 let grid = []; // [{ value, correct, eaten, flash }]
 let ruleLabel = ""; // short on-screen token (e.g. "X3")
@@ -91,6 +91,9 @@ function boot({ params, hud, num: { randInt } }) {
   if (p === "spanish" || p === "es" || p === "mexi" || p === "mexinom") {
     mode = "word";
     lang = "es";
+  } else if (p === "danish" || p === "da" || p === "dansk" || p === "dannom") {
+    mode = "word";
+    lang = "da";
   } else if (p === "words" || p === "word" || p === "english" || p === "en") {
     mode = "word";
     lang = "en";
@@ -151,6 +154,10 @@ const COLOR_WORDS = {
   purple: [160, 90, 220], morado: [160, 90, 220],
   tan: [210, 180, 140], lime: [160, 230, 90], teal: [80, 200, 190],
   navy: [60, 80, 170], cyan: [90, 220, 230], rose: [230, 120, 140],
+  // 🇩🇰 Danish color words (ASCII-romanized æøå → ae/o/aa).
+  rod: [230, 60, 60], blaa: [70, 120, 240], gron: [70, 200, 90],
+  gul: [240, 210, 70], sort: [35, 35, 44], hvid: [235, 235, 245],
+  graa: [150, 150, 160], brun: [150, 90, 50],
 };
 function luma(c) {
   return 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
@@ -173,6 +180,23 @@ const TRANSLATE = {
   casa: "house", jugo: "juice", flor: "flower", mar: "sea", pie: "foot", ojo: "eye", mano: "hand",
   dedo: "finger", luz: "light", rio: "river", sal: "salt", lapiz: "pencil", bota: "boot",
   clavo: "nail", papel: "paper", caja: "box",
+};
+
+// 🇩🇰 Danish → English (spoken on each munch in dannom). Keys are ASCII-romanized
+// (æ→ae, ø→o, å→aa) to match the bitmap-font-safe words used on the board.
+const TRANSLATE_DA = {
+  brod: "bread", ost: "cheese", polse: "sausage", kage: "cake", suppe: "soup",
+  smor: "butter", fisk: "fish", salt: "salt", sukker: "sugar", grod: "porridge", aeg: "egg",
+  kat: "cat", hund: "dog", ko: "cow", gris: "pig", hest: "horse", and: "duck",
+  ravn: "raven", ulv: "wolf", bjorn: "bear", raev: "fox", mus: "mouse", faar: "sheep",
+  rod: "red", blaa: "blue", gron: "green", gul: "yellow", sort: "black",
+  hvid: "white", graa: "gray", brun: "brown",
+  aeble: "apple", paere: "pear", blomme: "plum", banan: "banana", drue: "grape",
+  fersken: "peach", citron: "lemon", melon: "melon", baer: "berry", blomster: "flowers",
+  lys: "candle", te: "tea", bog: "book", sofa: "sofa", taeppe: "blanket",
+  ild: "fire", ven: "friend", kaffe: "coffee", hus: "house", sten: "stone",
+  tog: "train", stol: "chair", bord: "table", ur: "clock", glas: "glass",
+  sko: "shoe", dor: "door", vej: "road", regn: "rain", vind: "wind",
 };
 
 function shuffle(arr, rnd) {
@@ -248,6 +272,37 @@ const ES_WORD_ROUNDS = [
   },
 ];
 
+// 🇩🇰 Dannom — Danish word categories (mad, dyr, farver, frugt, hygge). Words are
+// ASCII-romanized (æ→ae, ø→o, å→aa) so the bitmap font renders cleanly; each munch
+// speaks the English translation aloud (see TRANSLATE_DA).
+const DA_WORD_ROUNDS = [
+  {
+    label: "MAD", say: "danish food",
+    correct: ["brod", "ost", "polse", "kage", "suppe", "smor", "fisk", "salt", "sukker", "grod", "aeg"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dor"],
+  },
+  {
+    label: "DYR", say: "danish animals",
+    correct: ["kat", "hund", "ko", "gris", "hest", "and", "ravn", "ulv", "bjorn", "raev", "mus", "faar"],
+    wrong: ["hus", "taeppe", "ur", "bog", "tog", "stol", "glas", "sten", "vej", "dor"],
+  },
+  {
+    label: "FARVER", say: "danish colors",
+    correct: ["rod", "blaa", "gron", "gul", "sort", "hvid", "graa", "brun"],
+    wrong: ["kat", "bord", "regn", "vind", "hus", "sten", "sko", "glas", "vej", "ur"],
+  },
+  {
+    label: "FRUGT", say: "danish fruit",
+    correct: ["aeble", "paere", "blomme", "banan", "drue", "fersken", "citron", "melon", "baer"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dor"],
+  },
+  {
+    label: "HYGGE", say: "cozy danish things",
+    correct: ["lys", "te", "bog", "sofa", "taeppe", "ild", "ven", "kaffe"],
+    wrong: ["regn", "vind", "sten", "tog", "ur", "glas", "sko", "dor", "vej", "hus"],
+  },
+];
+
 function newRound({ randInt }) {
   // AC's randInt(n) is inclusive (0..n); wrap it to a 0..n-1 index helper.
   const rnd = (n) => randInt(Math.max(1, n) - 1);
@@ -257,7 +312,7 @@ function newRound({ randInt }) {
   const cells = [];
 
   if (mode === "word") {
-    const rounds = lang === "es" ? ES_WORD_ROUNDS : WORD_ROUNDS;
+    const rounds = lang === "es" ? ES_WORD_ROUNDS : lang === "da" ? DA_WORD_ROUNDS : WORD_ROUNDS;
     const round = rounds[rnd(rounds.length)];
     ruleLabel = round.label;
     ruleSpeech = round.say;
@@ -633,8 +688,8 @@ function munch() {
     });
 
     if (remaining === 1) flash("LAST ONE!");
-    // Speak the English translation (mexinom), else announce the last one.
-    if (mode === "word" && lang === "es") sayTranslation(v);
+    // Speak the English translation (mexinom / dannom), else announce the last one.
+    if (mode === "word" && lang !== "en") sayTranslation(v);
     else if (remaining === 1) say("last one");
     if (remaining <= 0) {
       state = "clear";
@@ -648,7 +703,7 @@ function munch() {
   } else {
     cell.flash = 14;
     cell.failed = true; // X it out — can't be tried again
-    if (mode === "word" && lang === "es") sayTranslation(cell.value);
+    if (mode === "word" && lang !== "en") sayTranslation(cell.value);
     chompBad();
     loseLife();
   }
@@ -705,9 +760,10 @@ function stepToward(t) {
   else if (rowDist > 0) move(0, drF <= drB ? 1 : -1);
 }
 
-// 🇲🇽 Speak the English translation of a Spanish answer.
+// 🇲🇽 / 🇩🇰 Speak the English translation of a Spanish or Danish answer.
 function sayTranslation(v) {
-  say(TRANSLATE[v] || String(v));
+  const table = lang === "da" ? TRANSLATE_DA : TRANSLATE;
+  say(table[v] || String(v));
 }
 
 // 🔊 Sound ───────────────────────────────────────────────────────────────────
@@ -1469,12 +1525,12 @@ function paintTroggle({ ink, box, line }, cx, cy, cell, hue) {
 }
 
 function gameName() {
-  if (mode !== "word") return "MATHNOM";
-  return lang === "es" ? "MEXINOM" : "ENGNOM";
+  if (mode !== "word") return "NUMBNOM";
+  return lang === "es" ? "MEXINOM" : lang === "da" ? "DANNOM" : "ENGNOM";
 }
 function editionText() {
   if (mode !== "word") return "number edition";
-  return lang === "es" ? "edicion mexicana" : "english edition";
+  return lang === "es" ? "edicion mexicana" : lang === "da" ? "dansk udgave" : "english edition";
 }
 
 function paintTitle({ ink, screen, write }) {
@@ -1505,10 +1561,10 @@ function overlay({ ink, screen, write }, title, sub) {
 
 // 📰 Meta
 function meta() {
-  const title = mode !== "word" ? "Mathnom" : lang === "es" ? "Mexinom" : "Engnom";
+  const title = mode !== "word" ? "Numbnom" : lang === "es" ? "Mexinom" : lang === "da" ? "Dannom" : "Engnom";
   return {
     title,
-    desc: "Eat the squares that match the rule — mathnom (numbers), engnom (words), mexinom (español).",
+    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk).",
   };
 }
 

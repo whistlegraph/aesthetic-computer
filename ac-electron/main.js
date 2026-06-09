@@ -1230,9 +1230,10 @@ function rebuildTrayMenu() {
   }
   
   // 🟢 The nom muncher games.
-  menuItems.push({ label: 'mathnom — numbers', click: () => navigateToPiece('mathnom') });
+  menuItems.push({ label: 'numbnom — numbers', click: () => navigateToPiece('numbnom') });
   menuItems.push({ label: 'engnom — english', click: () => navigateToPiece('engnom') });
   menuItems.push({ label: 'mexinom — español', click: () => navigateToPiece('mexinom') });
+  menuItems.push({ label: 'dannom — dansk', click: () => navigateToPiece('dannom') });
   menuItems.push({ label: 'notenom — music', click: () => navigateToPiece('notenom') });
 
   menuItems.push({ type: 'separator' });

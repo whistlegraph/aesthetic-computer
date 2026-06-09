@@ -131,7 +131,7 @@
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
 \vspace{0.3em}
-{\small\color{acpurple} \url{https://aesthetic.computer/mathnom} \enspace$\cdot$\enspace \url{https://aesthetic.computer/notenom}}\par
+{\small\color{acpurple} \url{https://aesthetic.computer/numbnom} \enspace$\cdot$\enspace \url{https://aesthetic.computer/notenom}}\par
 \vspace{0.6em}
 \rule{\textwidth}{1.5pt}
 \vspace{0.5em}
@@ -144,7 +144,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-The \texttt{nom} family is a set of muncher arcade pieces built inside \ac{}~\citep{scudder2026ac} in June 2026: \texttt{mathnom} (numbers), \texttt{engnom} (english words), \texttt{mexinom} (spanish, Mexican-flavored), and \texttt{notenom} (musical notes). They descend directly from MECC's \emph{Word Munchers} (1985) and \emph{Number Munchers} (1986)---a green creature eats grid squares that satisfy a rule (multiples, primes, rhymes) while dodging purple Troggles~\citep{mecc1986number}. Three of the four are thin wrappers over a single shared engine, \texttt{lib/nom.mjs}: the muncher, the 5$\times$5 board, the beat-measured timer, the troggles, and the per-mode board generator all live in one place, so a new subject or a new language is a content table, not a new game. The audio runs through a reusable \emph{virtual synth controller} (\texttt{lib/synth.mjs}) that wraps note synthesis and the shared 12-drum notepat kit~\citep{scudder2026notepat} into one instrument---which is why the metronome is a real kick, a held square sustains a chord, and \texttt{notenom} plays the actual pitch you eat. I describe what the games are, how the engine separates mechanics from content, and where the seam invites the next language, the next subject, and the next instrument.
+The \texttt{nom} family is a set of muncher arcade pieces built inside \ac{}~\citep{scudder2026ac} in June 2026: \texttt{numbnom} (numbers), \texttt{engnom} (english words), \texttt{mexinom} (spanish, Mexican-flavored), and \texttt{notenom} (musical notes). They descend directly from MECC's \emph{Word Munchers} (1985) and \emph{Number Munchers} (1986)---a green creature eats grid squares that satisfy a rule (multiples, primes, rhymes) while dodging purple Troggles~\citep{mecc1986number}. Three of the four are thin wrappers over a single shared engine, \texttt{lib/nom.mjs}: the muncher, the 5$\times$5 board, the beat-measured timer, the troggles, and the per-mode board generator all live in one place, so a new subject or a new language is a content table, not a new game. The audio runs through a reusable \emph{virtual synth controller} (\texttt{lib/synth.mjs}) that wraps note synthesis and the shared 12-drum notepat kit~\citep{scudder2026notepat} into one instrument---which is why the metronome is a real kick, a held square sustains a chord, and \texttt{notenom} plays the actual pitch you eat. I describe what the games are, how the engine separates mechanics from content, and where the seam invites the next language, the next subject, and the next instrument.
 \end{quote}
 \vspace{0.5em}
 }]
@@ -153,7 +153,7 @@ The \texttt{nom} family is a set of muncher arcade pieces built inside \ac{}~\ci
 
 Edutainment had one good idea that everyone remembers and almost no one rebuilt: make the right answer something you eat. In \emph{Number Munchers}, a small green creature roams a grid of numbers, and you steer it onto the squares that are multiples of 3, or prime, or even---and only those squares---before a purple monster walks into you~\citep{mecc1986number}. The drill is real arithmetic. The wrapper is an arcade game. The kid playing it is doing a worksheet and does not notice.
 
-The \texttt{nom} games are that idea, rebuilt as \ac{} pieces and addressed the way everything in \ac{} is addressed---by typing a memorable noun. \texttt{aesthetic.computer/mathnom} is the number drill. \texttt{engnom} is english words. \texttt{mexinom} is spanish, flavored with Mexican street food and lotería animals. \texttt{notenom} is music: the grid is notes, and eating one plays it. They were all built in a few days of June 2026, and that speed is the point of the paper. After the first one, none of them were really a new game. They were a new column in a table.
+The \texttt{nom} games are that idea, rebuilt as \ac{} pieces and addressed the way everything in \ac{} is addressed---by typing a memorable noun. \texttt{aesthetic.computer/numbnom} is the number drill. \texttt{engnom} is english words. \texttt{mexinom} is spanish, flavored with Mexican street food and lotería animals. \texttt{notenom} is music: the grid is notes, and eating one plays it. They were all built in a few days of June 2026, and that speed is the point of the paper. After the first one, none of them were really a new game. They were a new column in a table.
 
 This is not a paper about a novel mechanic---the mechanic is forty years old and was good then. It is a paper about a seam. \ac{} pieces usually grow by accretion, one piece pulling infrastructure into existence around itself, the way \texttt{notepat} did~\citep{scudder2026notepat}. \texttt{nom} grew the other way: one engine, written once, then sliced into four games by swapping the content and the voice. The interesting object is the cut.
 
@@ -173,11 +173,11 @@ What \texttt{nom} keeps is the one idea worth keeping. \citet{habgood2011motivat
 
 There are four pieces. All open on a title card and wait for a key or a tap.
 
-\subsection{mathnom --- numbers}
+\subsection{numbnom --- numbers}
 
 The original drill, faithfully. Each board picks a numeric rule and a number range. Rules: \emph{multiples} of $n$ (shown as \texttt{X3}), \emph{factors} of a target (\texttt{F24}), \emph{primes}, \emph{evens}, \emph{odds}. The range varies per board---some boards stay in the friendly 0--9 zone, others climb to 40, 60, or 80, so the same rule (``evens'') is a different difficulty depending on the numbers on offer. The board generator builds the correct cells from the rule directly (a multiple of $n$ is $kn$; a factor of $n$ is pulled from $n$'s actual divisor list) and then re-tests every cell against the live predicate, so a board can never accidentally lie about which squares are correct.
 
-\texttt{mathnom} also accepts the other modes through colon params---\texttt{mathnom:words}, \texttt{mathnom:spanish}---but defaults to numbers, so navigating to it always resets to arithmetic.
+\texttt{numbnom} also accepts the other modes through colon params---\texttt{numbnom:words}, \texttt{numbnom:spanish}---but defaults to numbers, so navigating to it always resets to arithmetic.
 
 \subsection{engnom --- english words}
 
@@ -195,7 +195,7 @@ The departure. \texttt{notenom} is self-contained rather than a wrapper, but it 
 
 \subsection{The shared engine}
 
-\texttt{lib/nom.mjs} is the entire game for three of the four pieces. It owns the 5$\times$5 grid, the muncher and its smoothed display position, the troggles and their patrol, the lives, the beat-based timer, the dynamic camera, every animation, and the board generator. \texttt{mathnom}, \texttt{engnom}, and \texttt{mexinom} are each about a dozen lines:
+\texttt{lib/nom.mjs} is the entire game for three of the four pieces. It owns the 5$\times$5 grid, the muncher and its smoothed display position, the troggles and their patrol, the lives, the beat-based timer, the dynamic camera, every animation, and the board generator. \texttt{numbnom}, \texttt{engnom}, and \texttt{mexinom} are each about a dozen lines:
 
 \begin{quote}\small\ttfamily
 import \{ boot as nomBoot, sim,\\

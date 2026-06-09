@@ -4,7 +4,7 @@
 import { Synth } from "../lib/synth.mjs"; // shared virtual synth + perc kit
 
 /* #region 📚 README
-  A music edition of the "nom" grid game (sibling to mathnom / engnom).
+  A music edition of the "nom" grid game (sibling to numbnom / engnom).
   A green muncher hops a 5x5 grid of note squares. Eat every square that
   satisfies the musical rule shown up top before the beat-timer runs out.
   Each munch plays its note; the scale plays on board start, an arpeggio on
