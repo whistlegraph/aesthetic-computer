@@ -4277,6 +4277,12 @@ void draw() {
         examples: ["dannom"],
         done: true,
       },
+      rusnom: {
+        sig: "rusnom",
+        desc: "Russian word Munchers: еда, животные, цвета, фрукты, природа — speaks the English translation aloud as you munch.",
+        examples: ["rusnom"],
+        done: true,
+      },
       notenom: {
         sig: "notenom",
         desc: "Musical Munchers-style grid game: munch the note squares that match the rule (C major, A minor, sharps, C chord, high, low) on the beat — each bite plays its note.",

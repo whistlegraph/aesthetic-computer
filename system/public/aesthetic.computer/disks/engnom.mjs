@@ -3,10 +3,16 @@
 // numbers (animals, colors, rhymes, …). Reuses lib/nom.mjs wholesale and just
 // forces word mode at boot.
 
-import { boot as numnomBoot, sim, paint, act, meta } from "../lib/nom.mjs";
+import { boot as nomBoot, sim, paint, act, makeMeta } from "../lib/nom.mjs";
 
 function boot(api) {
-  numnomBoot({ ...api, params: ["words"] });
+  nomBoot({ ...api, params: ["words"] });
+}
+
+// Fixed identity (computed from params, not engine state) so the title is right
+// even though meta() runs before boot().
+function meta() {
+  return makeMeta(["words"]);
 }
 
 export { boot, sim, paint, act, meta };

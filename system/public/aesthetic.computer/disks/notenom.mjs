@@ -6,10 +6,16 @@
 // engnom (words), mexinom (español) and dannom (dansk) — this just forces note
 // mode (BPM 92, per-cell note voicing) at boot.
 
-import { boot as nomBoot, sim, paint, act, meta } from "../lib/nom.mjs";
+import { boot as nomBoot, sim, paint, act, makeMeta } from "../lib/nom.mjs";
 
 function boot(api) {
   nomBoot({ ...api, params: ["notes"] });
+}
+
+// Fixed note identity (computed from params, not engine state) so the title is
+// right even though meta() runs before boot().
+function meta() {
+  return makeMeta(["notes"]);
 }
 
 export { boot, sim, paint, act, meta };

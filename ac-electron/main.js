@@ -1234,6 +1234,7 @@ function rebuildTrayMenu() {
   menuItems.push({ label: 'engnom — english', click: () => navigateToPiece('engnom') });
   menuItems.push({ label: 'mexinom — español', click: () => navigateToPiece('mexinom') });
   menuItems.push({ label: 'dannom — dansk', click: () => navigateToPiece('dannom') });
+  menuItems.push({ label: 'rusnom — русский', click: () => navigateToPiece('rusnom') });
   menuItems.push({ label: 'notenom — music', click: () => navigateToPiece('notenom') });
 
   menuItems.push({ type: 'separator' });

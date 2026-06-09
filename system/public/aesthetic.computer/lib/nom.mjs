@@ -1,4 +1,4 @@
-// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / notenom), 2026.06.07
+// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / rusnom / notenom), 2026.06.07
 // Move the muncher around a 5×5 grid and eat every square that satisfies the
 // rule at the top — but dodge the Troggles. `numbnom` = numbers, `engnom` = words,
 // `notenom` = musical notes (note mode voices each square + plays the scale).
@@ -31,7 +31,7 @@ const START_LIVES = 3;
 
 // 🌐 Game state
 let mode = "number"; // "number" | "word" | "note"
-let lang = "en"; // word language: "en" (engnom) | "es" (mexinom) | "da" (dannom)
+let lang = "en"; // word language: "en" engnom | "es" mexinom | "da" dannom | "ru" rusnom
 let noteScale = []; // current board's scale (note mode), played on board start
 let state = "title"; // title | play | clear | over | win
 let grid = []; // [{ value, correct, eaten, flash }]
@@ -99,26 +99,67 @@ let beatPhase = 0; // 0..1 fraction into the current beat (drives sub-beat feel)
 let beatPulse = 0; // brief visual pulse on each beat
 let heldChord = null; // sustained synth voices while munch is held
 
-// 🥾 Boot
+// 🪧 Intro — the board is live from frame one (no title gate / "press any key").
+// A brief name+edition card fades over the playing board; the beat budget is
+// frozen until it clears so reading the title costs no time.
+const INTRO_FRAMES = 132; // ~2.2s at 60fps
+let introTimer = 0; // counts down while the intro card is showing
+let pendingStart = false; // announce the rule + play the start chime once audio is up
+
+// ♻️ Full state reset. This engine module is a session singleton shared by every
+// nom disk (numbnom/engnom/mexinom/dannom/rusnom/notenom), so its module-level
+// state survives navigation. boot() runs fresh on every entry, so reinitializing
+// everything here makes each piece a clean, self-contained AC piece — no bleed
+// between games (mirrors world_boot / nopaint_boot). Keep in sync with the
+// declarations at the top of the file.
+function reset() {
+  mode = "number"; lang = "en"; noteScale = [];
+  state = "title"; grid = []; ruleLabel = ""; ruleSpeech = "";
+  muncher = { col: 2, row: 2 }; muncherVis = { col: 2, row: 2 };
+  hover = null; swipedGesture = false; drag = null;
+  troggles = []; lives = START_LIVES; level = 1; remaining = 0;
+  foundValues = []; lifeFlyers = []; boardCorrectTotal = 1;
+  invuln = 0; mouth = 0; troggleClock = null; message = ""; messageTimer = 0;
+  snd = null; synth = null; speakFn = null; frames = 0;
+  facing = { x: 1, y: 0 }; chompPhase = 0; combo = 0; melody = [];
+  cam = { x: 0, y: 0, zoom: 1, shake: 0 }; camTargetZoom = 1; screenH = 512;
+  deathPhase = 0; deathPos = { col: 2, row: 2 }; pendingOver = false;
+  clearPhase = 0; flashRed = 0; flashGold = 0; flashGreen = 0; confetti = [];
+  beatMs = BEAT_MS; nowMs = 0; beatIndex = 0; lastBeatIndex = null;
+  beatsLeft = 0; beatsMax = 1; beatPhase = 0; beatPulse = 0; heldChord = null;
+  introTimer = 0; pendingStart = false;
+}
+
+// 🥾 Boot — reset all state, then drop straight onto a live board (no title gate
+// / "press any key"); a brief intro card fades over the playing board.
 function boot({ params, hud, clock, num: { randInt } }) {
+  reset();
   clock?.resync?.(); // network-sync the wall clock; board beats ride this grid
-  const p = params?.[0];
-  if (p === "spanish" || p === "es" || p === "mexi" || p === "mexinom") {
-    mode = "word";
-    lang = "es";
-  } else if (p === "danish" || p === "da" || p === "dansk" || p === "dannom") {
-    mode = "word";
-    lang = "da";
-  } else if (p === "words" || p === "word" || p === "english" || p === "en") {
-    mode = "word";
-    lang = "en";
-  } else if (p === "notes" || p === "note" || p === "music" || p === "notenom") {
-    mode = "note";
-  } else if (p) {
-    mode = "number";
-  }
+  const m = resolveMode(params);
+  mode = m.mode;
+  lang = m.lang;
   hud?.label?.(""); // hide the top-left corner label
-  // Stay on the title until the player presses a key / taps.
+  resetGame({ randInt });
+  newRound({ randInt });
+  state = "play";
+  introTimer = INTRO_FRAMES; // title/edition card over the live board (beats frozen)
+  flashGreen = 16; // green "go!" flash
+  pendingStart = true; // announce the rule + chime once audio is available
+}
+
+// Map the first colon param → { mode, lang }. Shared by boot() (sets the live
+// globals) and makeMeta() so a piece's identity is computed from its params,
+// not from leftover singleton state — the system calls meta() *before* boot(),
+// and this engine module is reused across nom pieces, so reading the globals in
+// meta() would otherwise mislabel (e.g. dannom showing the number edition).
+function resolveMode(params) {
+  const p = params?.[0];
+  if (p === "spanish" || p === "es" || p === "mexi" || p === "mexinom") return { mode: "word", lang: "es" };
+  if (p === "danish" || p === "da" || p === "dansk" || p === "dannom") return { mode: "word", lang: "da" };
+  if (p === "russian" || p === "ru" || p === "russkiy" || p === "rusnom") return { mode: "word", lang: "ru" };
+  if (p === "words" || p === "word" || p === "english" || p === "en") return { mode: "word", lang: "en" };
+  if (p === "notes" || p === "note" || p === "music" || p === "notenom") return { mode: "note", lang: "en" };
+  return { mode: "number", lang: "en" }; // default (incl. bare / numbers)
 }
 
 // 🎲 Round generation ────────────────────────────────────────────────────────
@@ -175,44 +216,70 @@ const COLOR_WORDS = {
   "rød": [230, 60, 60], "blå": [70, 120, 240], "grøn": [70, 200, 90],
   gul: [240, 210, 70], sort: [35, 35, 44], hvid: [235, 235, 245],
   "grå": [150, 150, 160], brun: [150, 90, 50],
+  // 🇷🇺 Russian color words (Cyrillic — board renders them in MatrixChunky8).
+  "красный": [230, 60, 60], "синий": [70, 120, 240], "зелёный": [70, 200, 90],
+  "жёлтый": [240, 210, 70], "чёрный": [35, 35, 44], "белый": [235, 235, 245],
+  "серый": [150, 150, 160], "розовый": [240, 120, 180],
 };
 function luma(c) {
   return 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 }
 
 // 🔤 Text fitting ─────────────────────────────────────────────────────────────
-// Words render in MatrixChunky8 (proportional, ships real æ/ø/å glyphs, and its
-// tighter advances let long words fit). Numbers stay on the default 6×10 font.
-// We measure the rendered width (via the captured `text.box` API) so words can
-// be centered inside each grid cell with a real margin, dropping a size when a
-// word would otherwise overflow.
-let txtAPI = null; // captured each paint, for measuring text width
-const CELL_MARGIN = 5; // px inset on each side of a cell
+// Word cells render in GNU unifont — fixed 8×16, highly legible, with full
+// coverage of every edition's glyphs (ASCII, Danish æ/ø/å, Cyrillic). Numbers/
+// notes stay on the default 6×10 font. Sizing is *measurement-free* on purpose:
+// measuring proportional widths via text.box was unreliable because non-ASCII
+// advances only arrive after the glyph BDF streams in, which scrambled early
+// frames. unifont's fixed 8px advance makes size + centering exact and stable.
+const CELL_MARGIN = 4; // px inset on each side of a cell
+const FONT_METRICS = {
+  unifont: { adv: 8, h: 16 }, // fixed-width — exact sizing, no async surprises
+  MatrixChunky8: { adv: 5, h: 8 }, // proportional (kept for reference)
+  _default: { adv: 6, h: 10 }, // font_1 (monospace)
+};
+const fontMetrics = (font) => FONT_METRICS[font] || FONT_METRICS._default;
 
 function cellFont() {
-  return mode === "word" ? "MatrixChunky8" : null; // null → default font_1
+  return mode === "word" ? "unifont" : null; // null → default font_1
 }
 
-// Measure rendered { width, height } of `str` at `size` in `font`.
-function measureText(str, size, font) {
-  if (txtAPI?.box) {
-    const r = txtAPI.box(str, { x: 0, y: 0 }, undefined, size, false, font || undefined);
-    const w = r?.box?.width;
-    const h = r?.box?.height;
-    if (typeof w === "number" && w > 0)
-      return { width: w, height: typeof h === "number" && h > 0 ? h : (font ? 8 : 10) * size };
-  }
-  const adv = font === "MatrixChunky8" ? 5 : 6; // fallback advance estimate
-  return { width: str.length * adv * size, height: (font ? 8 : 10) * size };
-}
-
-// Largest size in {2,1} whose rendered width fits the cell (minus margin).
+// Fit a label inside a cell: pick a size and, when a word is wider than the cell
+// even at size 1, wrap it onto two balanced lines (unifont is 16px tall, so two
+// lines still fit a square cell). All from a fixed nominal advance → stable, no
+// async jitter. Returns the line list + the chosen size and line height.
 function fitText(str, cell, font) {
-  const avail = max(8, cell - CELL_MARGIN * 2);
-  for (const size of [2, 1]) {
-    const m = measureText(str, size, font);
-    if (m.width <= avail || size === 1) return { ...m, size, font };
+  const { adv, h } = fontMetrics(font);
+  const inner = max(8, cell - CELL_MARGIN * 2);
+  const perLine = max(1, floor(inner / adv)); // chars per line at size 1
+  let lines, size;
+  if (str.length <= perLine) {
+    // Fits one line — bump to size 2 if both width and height still allow it.
+    size = str.length * adv * 2 <= inner && h * 2 <= inner ? 2 : 1;
+    lines = [str];
+  } else {
+    size = 1; // too wide for one line → split into two balanced lines
+    const half = ceil(str.length / 2);
+    lines = [str.slice(0, half), str.slice(half)];
   }
+  const lineH = h * size;
+  const width = Math.max(...lines.map((l) => l.length * adv * size));
+  return { lines, size, lineH, width, height: lines.length * lineH, font };
+}
+
+// Draw a (possibly two-line) cell label, centered in the cell with an optional
+// jitter offset + alpha. Shared by the live board and the wrap-preview ghosts.
+function drawCellText(ink, txt, cx, cy, cell, font, col, alpha = 255, jx = 0, jy = 0) {
+  const fit = fitText(txt, cell, font);
+  const { adv } = fontMetrics(font);
+  const baseY = cy + (cell - fit.height) / 2 + jy;
+  fit.lines.forEach((ln, i) => {
+    const lw = ln.length * adv * fit.size;
+    const lx = cx + (cell - lw) / 2 + jx;
+    const ly = baseY + i * fit.lineH;
+    const paint = alpha >= 255 ? ink(...col) : ink(col[0], col[1], col[2], alpha);
+    paint.write(ln, { x: lx, y: ly, size: fit.size }, undefined, undefined, false, font || undefined);
+  });
 }
 
 // 🎵 Note model (notenom — `mode === "note"`) ────────────────────────────────
@@ -311,6 +378,24 @@ const TRANSLATE_DA = {
   ild: "fire", ven: "friend", kaffe: "coffee", hus: "house", sten: "stone",
   tog: "train", stol: "chair", bord: "table", ur: "clock", glas: "glass",
   sko: "shoe", "dør": "door", vej: "road", regn: "rain", vind: "wind",
+};
+
+// 🇷🇺 Russian → English (spoken on each munch in rusnom). Cyrillic — the board
+// renders these with MatrixChunky8, which carries the full Russian alphabet.
+const TRANSLATE_RU = {
+  "хлеб": "bread", "сыр": "cheese", "суп": "soup", "мясо": "meat", "рыба": "fish",
+  "сахар": "sugar", "соль": "salt", "каша": "porridge", "яйцо": "egg", "масло": "butter", "торт": "cake",
+  "кот": "cat", "собака": "dog", "корова": "cow", "конь": "horse", "волк": "wolf",
+  "лиса": "fox", "медведь": "bear", "заяц": "hare", "мышь": "mouse", "коза": "goat", "бык": "bull", "овца": "sheep",
+  "красный": "red", "синий": "blue", "зелёный": "green", "жёлтый": "yellow", "чёрный": "black",
+  "белый": "white", "серый": "gray", "розовый": "pink",
+  "яблоко": "apple", "груша": "pear", "слива": "plum", "банан": "banana", "виноград": "grape",
+  "лимон": "lemon", "персик": "peach", "дыня": "melon", "ягода": "berry",
+  "солнце": "sun", "луна": "moon", "река": "river", "море": "sea", "гора": "mountain",
+  "небо": "sky", "дождь": "rain", "снег": "snow", "ветер": "wind", "звезда": "star",
+  "стол": "table", "стул": "chair", "книга": "book", "окно": "window", "дверь": "door",
+  "ключ": "key", "часы": "clock", "лампа": "lamp", "пол": "floor", "стена": "wall",
+  "дом": "house", "лес": "forest", "сад": "garden",
 };
 
 function shuffle(arr, rnd) {
@@ -417,6 +502,37 @@ const DA_WORD_ROUNDS = [
   },
 ];
 
+// 🇷🇺 Rusnom — Russian word categories (еда, животные, цвета, фрукты, природа)
+// in Cyrillic. Rendered with MatrixChunky8 (full Russian alphabet); each munch
+// speaks the English translation aloud (see TRANSLATE_RU).
+const RU_WORD_ROUNDS = [
+  {
+    label: "ЕДА", say: "russian food",
+    correct: ["хлеб", "сыр", "суп", "мясо", "рыба", "сахар", "соль", "каша", "яйцо", "масло", "торт"],
+    wrong: ["стол", "стул", "книга", "окно", "дверь", "ключ", "часы", "лампа", "пол", "стена"],
+  },
+  {
+    label: "ЖИВОТНЫЕ", say: "russian animals",
+    correct: ["кот", "собака", "корова", "конь", "волк", "лиса", "медведь", "заяц", "мышь", "коза", "бык", "овца"],
+    wrong: ["стол", "окно", "книга", "дверь", "ключ", "часы", "дом", "лампа", "пол", "стена"],
+  },
+  {
+    label: "ЦВЕТА", say: "russian colors",
+    correct: ["красный", "синий", "зелёный", "жёлтый", "чёрный", "белый", "серый", "розовый"],
+    wrong: ["кот", "стол", "окно", "дом", "ключ", "часы", "мышь", "рыба", "лес", "сад"],
+  },
+  {
+    label: "ФРУКТЫ", say: "russian fruit",
+    correct: ["яблоко", "груша", "слива", "банан", "виноград", "лимон", "персик", "дыня", "ягода"],
+    wrong: ["стол", "стул", "книга", "окно", "дверь", "ключ", "часы", "дом", "пол", "стена"],
+  },
+  {
+    label: "ПРИРОДА", say: "russian nature",
+    correct: ["солнце", "луна", "река", "море", "лес", "гора", "небо", "дождь", "снег", "ветер", "звезда"],
+    wrong: ["стол", "книга", "окно", "ключ", "часы", "дом", "лампа", "пол", "стена", "дверь"],
+  },
+];
+
 function newRound({ randInt }) {
   // AC's randInt(n) is inclusive (0..n); wrap it to a 0..n-1 index helper.
   const rnd = (n) => randInt(Math.max(1, n) - 1);
@@ -461,7 +577,7 @@ function newRound({ randInt }) {
     // Re-verify against the live rule (covers the fallback paths).
     cells.forEach((c) => (c.correct = test(c.letter, c.oct)));
   } else if (mode === "word") {
-    const rounds = lang === "es" ? ES_WORD_ROUNDS : lang === "da" ? DA_WORD_ROUNDS : WORD_ROUNDS;
+    const rounds = lang === "es" ? ES_WORD_ROUNDS : lang === "da" ? DA_WORD_ROUNDS : lang === "ru" ? RU_WORD_ROUNDS : WORD_ROUNDS;
     const round = rounds[rnd(rounds.length)];
     ruleLabel = round.label;
     ruleSpeech = round.say;
@@ -606,6 +722,7 @@ function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
   beatPhase = (nowMs % beatMs) / beatMs; // 0..1 within the current beat
   frames += 1;
   mouth = (mouth + 1) % 40;
+  if (introTimer > 0) introTimer -= 1; // intro card fade (beats + troggles frozen)
   if (invuln > 0) invuln -= 1;
   if (chompPhase > 0) chompPhase -= 1;
   if (messageTimer > 0) {
@@ -689,8 +806,10 @@ function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
   // synced beat index advances, this board loses a beat (metronome + visual
   // pulse). Running out costs a life. Because every board reads the same clock,
   // their metronomes pulse together no matter when each one started.
-  if (lastBeatIndex === null) lastBeatIndex = beatIndex; // align on (re)start
-  if (beatIndex > lastBeatIndex) {
+  // While the intro card is up, freeze the budget (keep the index aligned so it
+  // doesn't lurch when the grace ends).
+  if (lastBeatIndex === null || introTimer > 0) lastBeatIndex = beatIndex;
+  if (introTimer === 0 && beatIndex > lastBeatIndex) {
     lastBeatIndex = beatIndex; // collapse any beats missed while backgrounded
     beatPulse = 8;
     if (beatsLeft > 0) {
@@ -722,7 +841,7 @@ function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
     },
     autoFlip: true,
   });
-  troggleClock?.step();
+  if (introTimer === 0) troggleClock?.step(); // troggles hold still during the intro
 }
 
 function checkTroggleHit() {
@@ -910,9 +1029,9 @@ function stepToward(t) {
   else if (rowDist > 0) move(0, drF <= drB ? 1 : -1);
 }
 
-// 🇲🇽 / 🇩🇰 Speak the English translation of a Spanish or Danish answer.
+// 🇲🇽 / 🇩🇰 / 🇷🇺 Speak the English translation of a non-English answer.
 function sayTranslation(v) {
-  const table = lang === "da" ? TRANSLATE_DA : TRANSLATE;
+  const table = lang === "da" ? TRANSLATE_DA : lang === "ru" ? TRANSLATE_RU : TRANSLATE;
   say(table[v] || String(v));
 }
 
@@ -1118,6 +1237,15 @@ function startChirp() {
   );
 }
 
+// 🎬 Announce a freshly-started board: green flash, start chime (or the scale in
+// note mode), and speak the rule. Called on auto-start and on each advance.
+function announceBoard() {
+  flashGreen = 16;
+  if (mode === "note") playScale();
+  else startChirp();
+  say(ruleSpeech);
+}
+
 // 🎪 Act ─────────────────────────────────────────────────────────────────────
 function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   snd = sound;
@@ -1130,29 +1258,30 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   if (e.is("move") || e.is("draw") || e.is("touch")) cursor?.("native");
   speakFn = speak;
   if (sound && !synth) synth = Synth(sound);
-  // Start / advance from non-play states; announce the new rule aloud.
+
+  // 📣 The board auto-started in boot(); announce its rule + play the start chime
+  // the moment audio is actually available (boot has no sound/speak handle).
+  if (pendingStart && (synth || speakFn)) {
+    pendingStart = false;
+    announceBoard();
+  }
+
+  // Advance from end-of-board states (clear → next level, over/win → fresh game).
   const advance = () => {
-    if (state === "title") {
-      resetGame({ randInt });
-      newRound({ randInt });
-    } else if (state === "clear") {
+    if (state === "clear") {
       level += 1;
       newRound({ randInt });
     } else if (state === "over" || state === "win") {
       resetGame({ randInt });
       newRound({ randInt });
+      introTimer = INTRO_FRAMES; // re-show the title card on a fresh game
     } else return;
     state = "play";
-    flashGreen = 16; // green "go!" flash on board start
-    if (mode === "note") playScale(); // 🎼 hear the scale you're hunting
-    else startChirp();
-    say(ruleSpeech);
+    announceBoard();
   };
 
   if (state !== "play") {
-    // "Press any key to start" — honor it literally: any key-down or a tap
-    // advances (previously only space/enter/touch did, so other keys felt like
-    // the title was stalling).
+    // Any key-down or a tap advances from the clear/over overlays.
     if (e.name?.startsWith?.("keyboard:down")) {
       advance();
     } else if (e.is("touch")) {
@@ -1252,8 +1381,9 @@ let layout = { x: 0, y: 0, cell: 32, top: 40 };
 
 function computeLayout(screen) {
   screenH = screen.height;
-  // Wide margins so the board floats with lots of room around it.
-  const sideMargin = max(28, floor(screen.width * 0.12));
+  // Modest side margins — bigger cells give word editions (esp. Cyrillic in the
+  // 8px-wide unifont) the room to render legibly without crowding the edges.
+  const sideMargin = max(14, floor(screen.width * 0.06));
   const top = 54; // header band (rule title + stats)
   const bottomPad = 30; // HUD band (lives)
   const availW = screen.width - sideMargin * 2;
@@ -1313,12 +1443,9 @@ function cellAt(px, py) {
 
 // 🎨 Paint ───────────────────────────────────────────────────────────────────
 function paint({ wipe, ink, screen, write, box, line, text }) {
-  txtAPI = text; // capture the measuring API for fitText/measureText
   computeLayout(screen);
   wipe(8, 10, 26);
   paintBackground({ ink, box, screen });
-
-  if (state === "title") return paintTitle({ wipe, ink, screen, write });
 
   applyCamera(screen); // dynamic camera → updates layout in place
   const { x, y, cell } = layout;
@@ -1339,9 +1466,17 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
   const timeCol = lowTime ? (blink ? [255, 60, 60] : [255, 235, 120]) : tcol;
   bigNum(ink, `${beatsLeft}`, 8, 8, 4, timeCol);
 
-  // Rule title, top-right (no levels, no score).
-  const ruleX = max(4, screen.width - 8 - ruleLabel.length * 12);
-  ink(255, 230, 120).write(ruleLabel, { x: ruleX, y: 9, size: 2 });
+  // Rule title, top-right (no levels, no score). Word editions render it in
+  // MatrixChunky8 so Cyrillic / accented category labels (ЕДА, ФРУКТЫ, …) show
+  // real glyphs instead of the default font's "???".
+  const labelFont = cellFont();
+  const { adv: lAdv } = fontMetrics(labelFont);
+  const ruleX = max(4, screen.width - 8 - ruleLabel.length * lAdv * 2);
+  ink(255, 230, 120).write(
+    ruleLabel,
+    { x: ruleX, y: 9, size: 2 },
+    undefined, undefined, false, labelFont || undefined,
+  );
 
   // Grid.
   const gameOver = state === "over";
@@ -1380,16 +1515,14 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
       }
 
       // Value — ONE color per answer (color-words use their hue + contrast).
-      // Sized + centered from the measured glyph box so it sits inside the cell
-      // with margin; words use MatrixChunky8 (proper æ/ø/å) and shrink to fit.
+      // Centered in the cell with margin; word editions use unifont and wrap
+      // long words onto two lines so they never spill into neighbouring cells.
       if (!cd.eaten) {
         const font = cellFont();
-        const fit = fitText(txt, cell, font);
-        let tx = cx + (cell - fit.width) / 2;
-        let ty = cy + (cell - fit.height) / 2;
+        let jx = 0, jy = 0;
         if (cd.known && !cd.failed) {
-          tx += sin(frames * 0.9 + c * 1.7) * 1.6; // afraid jitter
-          ty += cos(frames * 1.1 + r * 1.3) * 1.2;
+          jx = sin(frames * 0.9 + c * 1.7) * 1.6; // afraid jitter
+          jy = cos(frames * 1.1 + r * 1.3) * 1.2;
         }
         let col;
         if (cd.failed) col = [120, 95, 100];
@@ -1398,7 +1531,7 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
         else if (mode === "note") col = noteColor(cd.letter); // note's keyboard hue
         else if (colorWord) col = luma(colorWord) > 140 ? [25, 25, 30] : [245, 245, 255];
         else col = charColor(txt[0]);
-        ink(...col).write(txt, { x: tx, y: ty, size: fit.size }, undefined, undefined, false, font || undefined);
+        drawCellText(ink, txt, cx, cy, cell, font, col, 255, jx, jy);
 
         // ✖ X out tried-and-wrong cells (can't be tried again).
         if (cd.failed) {
@@ -1418,13 +1551,8 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
     if (!cd || cd.eaten) return;
     const t = String(cd.value);
     const font = cellFont();
-    const fit = fitText(t, cell, font);
     const gc = mode === "note" ? noteColor(cd.letter) : COLOR_WORDS[t] || charColor(t[0]);
-    ink(gc[0], gc[1], gc[2], 95).write(
-      t,
-      { x: gx + (cell - fit.width) / 2, y: gy + (cell - fit.height) / 2, size: fit.size },
-      undefined, undefined, false, font || undefined,
-    );
+    drawCellText(ink, t, gx, gy, cell, font, gc, 95);
     ink(110, 215, 255, 110).box(gx + 2, gy + 2, cell - 4, cell - 4, "outline");
   };
   const mc = muncher.col,
@@ -1520,13 +1648,12 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
   let fcy = layout.top + 52; // below the big timer
   const leftRoom = layout.x - 6;
   const font = cellFont();
+  const { adv: fAdv, h: fH } = fontMetrics(font);
   for (const v of foundValues) {
     if (fcy > lifeY - 16) break;
-    // Largest size whose measured width fits the left gutter.
-    let fit = measureText(v, 1, font);
-    const big = measureText(v, 2, font);
-    if (big.width + 4 <= leftRoom) fit = { ...big, size: 2 };
-    else fit = { ...fit, size: 1 };
+    // Largest size whose nominal width fits the left gutter (stable, no async).
+    const size = v.length * fAdv * 2 + 4 <= leftRoom ? 2 : 1;
+    const fit = { size, width: v.length * fAdv * size, height: fH * size };
     const w = fit.width + 4;
     const ltr = mode === "note" ? v.slice(0, -1) : null; // "C4" → "C", "F#5" → "F#"
     const cw = mode === "note" ? null : COLOR_WORDS[v];
@@ -1575,6 +1702,10 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
     ink(0, 0, 0, 110).box(mx - 5, myy - 3, mw + 10, 8 * ms + 6, "outline");
     ink(...mfg).write(message, { x: mx, y: myy, size: ms });
   }
+
+  // 🪧 Intro card — name + native edition, fading over the live board. No
+  // instructions, no "press any key": the board is already playing.
+  if (introTimer > 0) paintIntro({ ink, screen, write, text });
 
   // Let the celebration play out, then show the prompt overlay.
   if (state === "clear" && clearPhase === 0)
@@ -1781,28 +1912,41 @@ function paintTroggle({ ink, box, line }, cx, cy, cell, hue) {
 function gameName() {
   if (mode === "note") return "NOTENOM";
   if (mode !== "word") return "NUMBNOM";
-  return lang === "es" ? "MEXINOM" : lang === "da" ? "DANNOM" : "ENGNOM";
+  return lang === "es" ? "MEXINOM" : lang === "da" ? "DANNOM" : lang === "ru" ? "RUSNOM" : "ENGNOM";
 }
+// Native edition subtitle, in each language's own script/diacritics. Rendered in
+// unifont (carries accents + Cyrillic) so the symbols are correct.
 function editionText() {
   if (mode === "note") return "music edition";
   if (mode !== "word") return "number edition";
-  return lang === "es" ? "edicion mexicana" : lang === "da" ? "dansk udgave" : "english edition";
+  return lang === "es" ? "edición mexicana"
+    : lang === "da" ? "dansk udgave"
+    : lang === "ru" ? "русское издание"
+    : "english edition";
 }
 
-function paintTitle({ ink, screen, write }) {
-  ink(255, 230, 120).write(gameName(), { center: "x", y: screen.height / 2 - 40, size: 3 });
-  ink(120, 235, 120).write(editionText(), { center: "x", y: screen.height / 2 - 6 });
-  ink(180, 200, 255).write(
-    mode === "note" ? "eat the notes that match the rule" : "eat squares that match the rule",
-    { center: "x", y: screen.height / 2 + 14 },
+// 🪧 Intro card over the live board — just the name + native edition, sized to
+// the screen, fading out near the end. No instructions, no "press any key".
+function paintIntro({ ink, screen, write }) {
+  const fade = introTimer > 44 ? 1 : introTimer / 44; // ease out over the last ~0.7s
+  const A = (v) => max(0, round(v * fade));
+  // Dim the board so the title reads, but let it show through (board already up).
+  ink(8, 10, 26, A(165)).box(0, 0, screen.width, screen.height);
+
+  const cy = round(screen.height / 2);
+  // Responsive game name (ASCII, default 6px font): fit ~78% of the width.
+  const name = gameName();
+  const nameSize = max(1, min(4, floor((screen.width * 0.78) / max(1, name.length * 6))));
+  const nameH = nameSize * 10;
+  ink(255, 230, 120, A(255)).write(name, { center: "x", y: cy - nameH, size: nameSize });
+
+  // Native edition subtitle in unifont (accents + Cyrillic render correctly).
+  const sub = editionText();
+  ink(150, 220, 255, A(255)).write(
+    sub,
+    { center: "x", y: cy + max(6, nameSize * 3) },
+    undefined, undefined, false, "unifont",
   );
-  ink(140, 160, 220).write("swipe / arrows move · tap / space munch · dodge troggles", {
-    center: "x",
-    y: screen.height / 2 + 28,
-  });
-  // Blinking prompt.
-  if (mouth < 24)
-    ink(255).write("press any key to start", { center: "x", y: screen.height / 2 + 54 });
 }
 
 function overlay({ ink, screen, write }, title, sub) {
@@ -1821,17 +1965,23 @@ function overlay({ ink, screen, write }, title, sub) {
   ink(210, 220, 255).write(sub, { center: "x", y: screen.height / 2 + 26 });
 }
 
-// 📰 Meta
-function meta() {
-  const title = mode === "note"
+// 📰 Meta — built from explicit params so the title is correct at load time,
+// independent of boot() ordering or leftover singleton state. Each wrapper
+// piece exports `meta() { return makeMeta([<its mode>]); }`.
+function makeMeta(params) {
+  const { mode: m, lang: l } = resolveMode(params);
+  const title = m === "note"
     ? "Notenom"
-    : mode !== "word"
+    : m !== "word"
       ? "Numbnom"
-      : lang === "es" ? "Mexinom" : lang === "da" ? "Dannom" : "Engnom";
+      : l === "es" ? "Mexinom" : l === "da" ? "Dannom" : l === "ru" ? "Rusnom" : "Engnom";
   return {
     title,
-    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk), notenom (notes).",
+    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk), rusnom (русский), notenom (notes).",
   };
 }
+function meta() {
+  return makeMeta([mode === "note" ? "notes" : mode === "word" ? lang : "numbers"]);
+}
 
-export { boot, sim, paint, act, meta };
+export { boot, sim, paint, act, meta, makeMeta };
