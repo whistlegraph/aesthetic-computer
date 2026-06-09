@@ -120,6 +120,40 @@ if (cmd === "targets") {
     await send(ws, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
   });
   console.log("clicked", x, y);
+} else if (cmd === "key") {
+  // key <Combo> [Combo...] — trusted key presses. Combos support modifiers:
+  //   key Backspace   key Meta+Enter   key Ctrl+a   key Shift+Tab
+  const KEYS = {
+    Backspace: { code: "Backspace", vk: 8 },
+    Delete: { code: "Delete", vk: 46 },
+    Enter: { code: "Enter", vk: 13, text: "\r" },
+    Tab: { code: "Tab", vk: 9 },
+    Escape: { code: "Escape", vk: 27 },
+    ArrowDown: { code: "ArrowDown", vk: 40 },
+    ArrowUp: { code: "ArrowUp", vk: 38 },
+  };
+  const MODS = { Alt: 1, Ctrl: 2, Control: 2, Meta: 4, Cmd: 4, Command: 4, Shift: 8 };
+  await withPage(async (ws) => {
+    for (const combo of rest) {
+      const parts = combo.split("+");
+      const name = parts.pop();
+      let modifiers = 0;
+      for (const p of parts) modifiers |= MODS[p] || 0;
+      const k = KEYS[name] || { code: `Key${name.toUpperCase()}`, vk: name.toUpperCase().charCodeAt(0), text: name.length === 1 ? name : undefined };
+      // only emit `text` for a bare keypress — a held modifier means a shortcut, not input
+      const text = k.text && modifiers === 0 ? { text: k.text } : {};
+      await send(ws, "Input.dispatchKeyEvent", { type: "keyDown", key: name, code: k.code, windowsVirtualKeyCode: k.vk, modifiers, ...text });
+      await send(ws, "Input.dispatchKeyEvent", { type: "keyUp", key: name, code: k.code, windowsVirtualKeyCode: k.vk, modifiers });
+    }
+  });
+  console.log("key", rest.join(" "));
+} else if (cmd === "type") {
+  // type <text…> — trusted text insertion into the focused element
+  const text = rest.join(" ");
+  await withPage(async (ws) => {
+    await send(ws, "Input.insertText", { text });
+  });
+  console.log("typed", JSON.stringify(text));
 } else if (cmd === "shot") {
   // shot <out.png> [WxH] — optional WxH sets the emulated viewport first
   const fs = await import("node:fs");
