@@ -2017,6 +2017,8 @@ function selectGmDigit(digit, sound, system) {
 function setGmProgram(program, sound, system) {
   gmProgram = program;
   const name = GM_PROGRAM_NAMES[program] || `Program ${program + 1}`;
+  // jeffrey loves logs — surface the selection in the device log too.
+  console.log(`[gm] select program ${String(program + 1).padStart(3, "0")} ${name}`);
   flashGmNotice(`${program + 1}. ${name}`);
   const recipe = gmRecipe(program);
   sound?.synth?.({ type: recipe.wave === "sample" ? "sine" : recipe.wave, tone: 523.25, duration: 0.12, volume: 0.18, attack: recipe.attack, decay: 0.1 });
@@ -2155,25 +2157,27 @@ function udpMidiSendRecency() {
 
 function rememberSound(key, entry, system, velocity = 1) {
   if (!entry) return;
-  // Capture linger/latch intent at press time — shift may release before the
-  // key. A shift-held note now LATCHES: lifting the key keeps it sounding
-  // (true sustain) by adding it to heldKeys, exactly like the Enter-hold
-  // latch. lingerCat is retained for the (now rare) fade-tail path.
-  const latchOnRelease = shiftHeld;
-  if (entry.lingerOnRelease === undefined) entry.lingerOnRelease = false;
+  // Capture linger intent at press time — shift may release before the key.
+  // Menu Band semantics: a shift-held note does NOT latch forever; on key-up
+  // it KEEPS sounding but FADES OUT over a few seconds (lingerTailSeconds=4
+  // for sustained families, ~1.2s for staccato). We flag lingerOnRelease so
+  // stopSoundKey() takes the timed-fade path instead of the hard stop.
+  // Enter-hold (heldKeys) remains a separate, permanent latch.
   if (entry.lingerCat === undefined) {
     entry.lingerCat = gmProgram !== null ? gmRecipe(gmProgram).linger : "sustain";
   }
+  // shiftHeld at press time arms the decaying linger tail (re-evaluated each
+  // press so re-triggering the same key with shift up clears it).
+  entry.lingerOnRelease = shiftHeld;
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   // Stash the captured velocity on the entry so sim() can blend it with
   // live pressure (55% velocity + 45% smoothed pressure).
   entry.velocity = velocity;
   sounds[key] = entry;
-  // While Enter is held OR shift was held at press, auto-latch the note into
-  // heldKeys so it sustains on key-up. Press the same key again (or panic) to
-  // release. Otherwise notes release normally.
-  if (enterHeld || latchOnRelease) heldKeys.add(key);
+  // Only the Enter-hold latch permanently sustains on key-up. Shift uses the
+  // decaying linger tail above, so it must NOT enter heldKeys.
+  if (enterHeld) heldKeys.add(key);
   system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   pushUsbMidiRecent(">", entry.note, entry.octave);
@@ -3035,9 +3039,10 @@ function act({ event: e, sound, wifi, system }) {
           sendUdpMidiEvent(system, "note_on", mn, velocityToMidi(velocity), 0);
         }
         sounds[key] = { passthroughNotes: midiNotes, voices, note: letter, octave: noteOctave, gridOffset: offset, lingerOnRelease: false };
-        // Shift/Enter latch passthrough notes too — the relayed note_off is
-        // deferred until un-latch so downstream gear holds the note.
-        if (enterHeld || lingerOnRelease) heldKeys.add(key);
+        // Only Enter-hold permanently latches passthrough notes. Shift no
+        // longer latches (it drives a decaying fade tail, but passthrough has
+        // no local voice to fade — it just relays note_off on release).
+        if (enterHeld) heldKeys.add(key);
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
       }
@@ -3075,12 +3080,13 @@ function act({ event: e, sound, wifi, system }) {
           voices, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset,
           baseVol: baseVol * recipeVol, midiNote: rootMidi, midiChannel: 0,
           chordIvls: ivls.length > 1 ? ivls : null, velocity,
-          lingerOnRelease: false, lingerCat: recipe ? recipe.linger : "sustain",
+          // Shift-held arms the decaying linger tail; the chord fades as a
+          // unit on release via stopSoundKey's multi-voice fade path.
+          lingerOnRelease, lingerCat: recipe ? recipe.linger : "sustain",
         };
-        // Shift-held → latch the whole chord (every voice lives on this one
-        // key, so latching the key keeps all chord tones ringing). Enter-hold
-        // latches too. Release by re-pressing the key or via panic.
-        if (enterHeld || lingerOnRelease) heldKeys.add(key);
+        // Only Enter-hold permanently latches; shift now fades (above), so it
+        // must NOT enter heldKeys.
+        if (enterHeld) heldKeys.add(key);
         pushUsbMidiRecent(">", letter, noteOctave);
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
@@ -4769,14 +4775,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
   const qrW = 28; // 25px QR + 2px left inset + 1px right padding before label
   const labelX = qrW + 4;
-  const labelW = 48; // "notepat.com" label width in matrix font at size=1
+  // Wordmark at size=2 (matrix glyph advance = 8px): "notepat" = 7*8 = 56px,
+  // ".com" follows at +56. The whole mark is ~14px tall, so it sits a touch
+  // lower than the size-1 status row to stay vertically centered in the bar.
+  const wmSize = 2;
+  const wmCh = 4 * wmSize; // matrix glyph advance per char at this size
+  const wmY = barY + 2;
+  const labelW = 11 * wmCh; // "notepat.com" = 11 glyphs
   const npHovered = hoverX >= 0 && hoverX <= labelX + labelW && hoverY < topBarH;
   if (npHovered) { ink(255, 255, 255, 20); box(labelX - 2, 0, labelW + 2, topBarH, true); }
   ink(FG, FG, FG, npHovered ? 255 : 200);
-  write("notepat", { x: labelX, y: barY, size: 1, font: "matrix" });
+  write("notepat", { x: labelX, y: wmY, size: wmSize, font: "matrix" });
   ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120, npHovered ? 255 : 200);
-  const dotComX = labelX + 7 * 4;
-  write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
+  const dotComX = labelX + 7 * wmCh;
+  write(".com", { x: dotComX, y: wmY, size: wmSize, font: "matrix" });
   // Whole top-left zone (QR + label) becomes the click target so tapping
   // either the QR or the text jumps to prompt.
   globalThis.__npBtn = { x: 0, w: labelX + labelW, h: topBarH };
@@ -4789,7 +4801,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Gives a quick visual of the sensor input + our smoothing headroom.
   const analogAgeMs = syncedNow() - lastAnalogKeyAt;
   if (lastAnalogKeyAt > 0 && analogAgeMs < 60000) {
-    const badgeX = dotComX + 4 * 4 + 6;
+    const badgeX = dotComX + 4 * wmCh + 6; // clear the size-scaled ".com"
     // Label
     ink(160, 220, 255, 220);
     write("nuphy", { x: badgeX, y: barY, size: 1, font: "matrix" });
@@ -6236,8 +6248,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const alpha = Math.min(255, Math.round(remaining * 2.2));
     const txt = gmNotice.text;
     const tw = Math.max(1, txt.length) * 6 + 12;
-    const tx = Math.floor((w - tw) / 2);
-    const ty = gridTop + gridH + 18;
+    // Same always-visible top-bar lane as the persistent readout below (was
+    // `gridTop + gridH + 18`, which fell off the bottom of the screen).
+    const tx = Math.min(Math.max(0, w - tw - 1), 30);
+    const ty = topBarH - 13;
     ink(0, 0, 0, Math.floor(alpha * 0.7));
     box(tx - 1, ty - 1, tw + 2, 14, true);
     ink(dark2 ? 40 : 220, dark2 ? 60 : 230, dark2 ? 90 : 250, Math.floor(alpha * 0.9));
@@ -6252,11 +6266,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // Persistent INSTRUMENT readout — always-on status line so the player can
   // see the current melodic voice (GM program, MIDI passthru, or legacy
-  // wave) at a glance, and watch the program number FORM as digits are
-  // typed. Sits just under the aux-pad row (same lane the transient gmNotice
-  // flash uses) so it never collides with the grid, sliders or DJ strip. The
-  // transient flash above takes visual priority while it's alive; this line
-  // fills the rest of the time.
+  // wave) at a glance, and watch the program number FORM as digits are typed.
+  //
+  // PREVIOUS BUG: this rendered at `gridTop + gridH + 18`, which resolves to
+  // `h - margin - 8 + 18 ≈ h + 1` — one pixel BELOW the bottom of the screen,
+  // so it was never visible. The transient gmNotice flash shared the same
+  // off-screen lane. It now anchors into the always-visible TOP BAR, on the
+  // lower-left row just under the size-2 wordmark, clamped to the screen.
   if (!(gmNotice && frame < gmNotice.until)) {
     const dark2 = isDark();
     // Mid-entry? gmDigitBuffer holds the partial number and gmDigitLastMs is
@@ -6280,8 +6296,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       accent = false;
     }
     const tw = Math.max(1, label.length) * 6 + 12;
-    const tx = Math.floor((w - tw) / 2);
-    const ty = gridTop + gridH + 18;
+    // Anchor in the top bar's lower-left row (under the wordmark, right of the
+    // QR), clamped so the whole chip stays on-screen. topBarH = 34, QR right
+    // edge ≈ 28, label glyphs are ~7px tall at size 1.
+    const tx = Math.min(Math.max(0, w - tw - 1), 30);
+    const ty = topBarH - 13; // ~21 — bottom row of the 34px bar
     ink(0, 0, 0, 140);
     box(tx - 1, ty - 1, tw + 2, 14, true);
     if (accent) {
@@ -6577,7 +6596,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const waveLabels = ["sine", "tri", "saw", "square", "pno", "harp", "whist", "sample"];
     const octBtnW = 22;                           // octave button
-    const recBtnW = 24;                           // REC button (rightmost, always visible)
+    // REC button (rightmost, always visible). Must hold a 4px red dot + 18px
+    // "REC" glyphs + insets without clipping the screen's right edge: dot at
+    // +3..+7, text at +9..+27, so the button needs ≥29px and a 1px right
+    // margin. Previously 24px clipped "REC" by ~3px off-screen.
+    const recBtnW = 30;
     const waveAreaW = w - octBtnW - recBtnW - 2;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
 

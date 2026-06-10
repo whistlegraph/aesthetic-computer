@@ -655,6 +655,8 @@ static void *lanserv_thread(void *arg) {
     if (mdns_fd < 0) ac_log("[lanserv] mdns bind failed: %s\n", strerror(errno));
 
     int announced = 0;
+    char announced_name[64] = "";
+    int name_check = 0;
     while (g_lan.running) {
         if (g_lan.ip_changed && mdns_fd >= 0) {
             g_lan.ip_changed = 0;
@@ -662,9 +664,8 @@ static void *lanserv_thread(void *arg) {
             // Announce twice ~1s apart per RFC 6762 probing/announcing guidance.
             mdns_announce(mdns_fd);
             announced = 1;
-            char host[64];
-            lan_hostname(host, sizeof(host));
-            ac_log("[lanserv] mdns announcing %s.local\n", host);
+            lan_hostname(announced_name, sizeof(announced_name));
+            ac_log("[lanserv] mdns announcing %s.local\n", announced_name);
         }
 
         fd_set rd;
@@ -684,6 +685,22 @@ static void *lanserv_thread(void *arg) {
             if (announced == 1 && mdns_fd >= 0) {
                 mdns_announce(mdns_fd);
                 announced = 2;
+            }
+            // Re-announce when the resolved name changes — the first announce
+            // can fire before the fingerprint is set or the curated slot
+            // (ac0) is fetched, leaving us on the "ac-device" fallback. Check
+            // every ~3s and re-announce under the new name once it resolves.
+            if (mdns_fd >= 0 && ++name_check >= 3) {
+                name_check = 0;
+                char now_name[64], ip[16], piece[64];
+                lan_hostname(now_name, sizeof(now_name));
+                lan_snapshot(piece, sizeof(piece), ip, sizeof(ip));
+                if (ip[0] && strcmp(now_name, announced_name) != 0) {
+                    snprintf(announced_name, sizeof(announced_name), "%s", now_name);
+                    mdns_announce(mdns_fd);
+                    ac_log("[lanserv] mdns re-announcing %s.local (name resolved)\n",
+                           now_name);
+                }
             }
             continue;
         }
