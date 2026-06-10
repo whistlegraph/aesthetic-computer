@@ -8,12 +8,12 @@
 //
 // Usage:
 //   node session-server/arena-probe.mjs                  # defaults to prod
-//   node session-server/arena-probe.mjs --url wss://session.aesthetic.computer
+//   node session-server/arena-probe.mjs --url wss://session-server.aesthetic.computer
 //   node session-server/arena-probe.mjs --url ws://localhost:8889 --handle probe1
 //   AC_PROBE_URL=ws://localhost:8889 node session-server/arena-probe.mjs
 //
 //   Flags:
-//     --url <ws-url>     default: wss://session.aesthetic.computer
+//     --url <ws-url>     default: wss://session-server.aesthetic.computer
 //     --world <name>     default: arena (also: land)
 //     --handle <name>    default: probe_<random4>
 //     --ping <ms>        default: 2000 (ping interval)
@@ -34,7 +34,7 @@ const flag = (name, fallback) => {
 };
 const has = (name) => argv.indexOf("--" + name) !== -1;
 
-const URL = flag("url", process.env.AC_PROBE_URL || "wss://session.aesthetic.computer");
+const URL = flag("url", process.env.AC_PROBE_URL || "wss://session-server.aesthetic.computer");
 const WORLD = flag("world", process.env.AC_PROBE_WORLD || "arena");
 const HANDLE = flag("handle", "probe_" + Math.random().toString(36).slice(2, 6));
 const PING_MS = +flag("ping", 2000);
