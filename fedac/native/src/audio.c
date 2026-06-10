@@ -112,6 +112,97 @@ static inline double clampd(double x, double lo, double hi) {
     return x;
 }
 
+// ============================================================
+// Sine wavetable — phase-increment lookup (GM synthesis library)
+// ============================================================
+// The repo rule (MEMORY.md "long sine phase-increment not sin(TAU*f*t)")
+// is to advance a phase register and read a wavetable, never call sin()
+// per sample for sustained tones. The modal-additive GM piano runs up to
+// 12 partials per voice × 32 voices, so a table read per partial is far
+// cheaper than 12 libm sin() calls. The dossier refers to this as wt_sin.
+// Linear-interpolated, single quadrant-symmetric table built once at init.
+#define WT_SIN_SIZE 4096
+static float wt_sin_table[WT_SIN_SIZE + 1];  // +1 guard for interp wrap
+static int   wt_sin_ready = 0;
+
+static void wt_sin_init(void) {
+    if (wt_sin_ready) return;
+    for (int i = 0; i <= WT_SIN_SIZE; i++) {
+        wt_sin_table[i] = (float)sin(2.0 * M_PI * (double)i / (double)WT_SIN_SIZE);
+    }
+    wt_sin_ready = 1;
+}
+
+// Read the sine wavetable at a normalized phase in [0,1). Wraps any phase.
+static inline double wt_sin(double phase) {
+    phase -= (double)(int)phase;          // fractional part
+    if (phase < 0.0) phase += 1.0;
+    double fpos = phase * (double)WT_SIN_SIZE;
+    int    i0 = (int)fpos;
+    double f = fpos - (double)i0;
+    return (double)wt_sin_table[i0] * (1.0 - f)
+         + (double)wt_sin_table[i0 + 1] * f;
+}
+
+// ============================================================
+// Bounded per-note stochasticism (docs/gm-synthesis/00-stochasticism.md)
+// ============================================================
+// All draws come from the voice's per-trigger noise_seed (seeded in
+// audio_synth from next_id). Call these ONCE at note-on and bake the
+// result into voice params — never per-sample (phase-increment rule).
+// The default 0.6 places the amplitude lever inside the percussion
+// ±10-25% band; the pitch lever is hard-capped at ±6 cents.
+
+// Global "organic" amount: 0 = bit-identical, 1 = max tasteful spread.
+static double g_organic_amount = 0.6;
+
+// Uniform [0,1) from the voice PRNG.
+static inline double voice_rand_unit(ACVoice *v) {
+    return (double)xorshift32(&v->noise_seed) / (double)UINT32_MAX;
+}
+
+// Bipolar [-1,1] from the voice PRNG. Workhorse for every jitter lever.
+static inline double voice_rand_bipolar(ACVoice *v) {
+    return voice_rand_unit(v) * 2.0 - 1.0;
+}
+
+// Cents → frequency ratio. 1200 cents = 1 octave. cents_to_ratio(0)==1.0.
+static inline double cents_to_ratio(double cents) {
+    return pow(2.0, cents / 1200.0);
+}
+
+// Bounded multiplicative jitter around `center` by ±`frac` (the percussion
+// `rj` idiom): center * (1 ± frac*organic*mul*u). Use for amp, decay,
+// attack, cutoff, FM index. Caller picks `frac` from the §4 table.
+static inline double voice_jitter(ACVoice *v, double center,
+                                  double frac, double mul) {
+    double u = voice_rand_bipolar(v);
+    return center * (1.0 + frac * g_organic_amount * mul * u);
+}
+
+// Bounded pitch detune in cents → ratio, HARD-CAPPED at ±6 cents regardless
+// of organic/mul so perceived pitch never moves audibly (invariant §4.1).
+#define ORGANIC_MAX_CENTS 6.0
+static inline double voice_detune(ACVoice *v, double freq,
+                                  double spread_cents, double mul) {
+    double cents = spread_cents * g_organic_amount * mul * voice_rand_bipolar(v);
+    if (cents >  ORGANIC_MAX_CENTS) cents =  ORGANIC_MAX_CENTS;
+    if (cents < -ORGANIC_MAX_CENTS) cents = -ORGANIC_MAX_CENTS;
+    return freq * cents_to_ratio(cents);
+}
+
+// Random start phase [0,1) for an additive/modal partial. Decorrelates
+// stacked same-notes so they don't phase-cancel. Free + identity-safe.
+static inline double voice_rand_phase(ACVoice *v) {
+    return voice_rand_unit(v);
+}
+
+// Small bounded pan offset (±0.05 spread), added to the voice's base pan.
+static inline double voice_pan_jitter(ACVoice *v, double base_pan, double mul) {
+    double off = 0.05 * g_organic_amount * mul * voice_rand_bipolar(v);
+    return clampd(base_pan + off, -1.0, 1.0);
+}
+
 static inline double compute_envelope(ACVoice *v) {
     double env = 1.0;
 
@@ -515,6 +606,335 @@ static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
 // (Old K-S banded waveguide piano + earlier modal-additive synth both
 // removed in favor of the Salamander sample bank above. Search the git
 // history for "Karplus-Strong" or "Bank/Välimäki" if you need to compare.)
+
+// ============================================================
+// GM synthesis library — Family 1: Piano (GM programs 1-8)
+// docs/gm-synthesis/01-piano-mallet-organ-guitar.md
+// docs/gm-synthesis/00-stochasticism.md
+// ============================================================
+// First vertical slice of the algorithmic General-MIDI voice set. Three
+// engines cover the eight Piano-family programs, selected per program by
+// gm_voice_init() from the data table below (mirroring the gun_presets[]
+// const-table pattern — timbre lives in DATA, not code, so families 2-16
+// extend it the same way):
+//
+//   GM 1-4 Acoustic/Bright/Electric-grand/Honky-tonk → WAVE_GMPIANO
+//       Modal additive with inharmonic stretched partials,
+//       f_n = n·f0·sqrt(1 + B·n²)  (Fletcher & Rossing 1998, eq. 12.12),
+//       per-partial exponential decay, a hammer-thump noise burst, and
+//       (honky-tonk) a second detuned string copy.
+//   GM 5-6 Electric Piano 1/2 (Rhodes tine / Wurli reed) → WAVE_EPIANO
+//       2-operator Chowning FM with an exponentially-decaying index plus a
+//       high-ratio attack "tine" operator, then an asymmetric-pickup tanh.
+//       Chowning (1973), JAES 21(7); Pfeifle & Bader (2017), DAFx-17.
+//   GM 7-8 Harpsichord / Clavi → WAVE_PLUCK
+//       Extended Karplus-Strong (Jaffe & Smith 1983, CMJ 7(2)) with a
+//       pluck-position comb, loop-damping LPF, stretch, and (clavi) a
+//       pickup-bite waveshaper. String delay line reuses whistle_bore_buf.
+//
+// Bounded note-on stochasticism (dossier 00) is applied ONCE at note-on:
+// per-partial amp/decay jitter, pitch detune (hard-capped ±6 cents), random
+// start phase, attack jitter. Family mul = 0.8 (pianos), 0.7 (FM), 0.9
+// (plucked) per dossier 00 §6.
+typedef struct {
+    WaveType wave;          // which engine renders this program
+    // -- Modal acoustic-piano params (WAVE_GMPIANO) --
+    int    partials;        // partial count (6-12)
+    double B;               // inharmonicity coefficient (treble grows it)
+    double partial_tilt;    // >1 boosts upper-partial amps (bright pianos)
+    double tilt_from;       // first partial index the tilt applies to
+    double tau0;            // fundamental T60 seconds (treble partials scale down)
+    double hammer_amp;      // hammer-thump mix gain
+    double hammer_ms;       // hammer-thump exp decay (ms)
+    double dual_cents;      // honky-tonk 2nd-copy detune (cents); 0 = single
+    double drive;           // per-voice tanh drive (electric grand); 0 = clean
+    // -- FM tine/reed params (WAVE_EPIANO) --
+    double fm_ratio;        // body modulator : carrier ratio
+    double fm_index0;       // initial body modulation index
+    double fm_index_ms;     // index decay time const (ms) → mellowing
+    double fm_tine_ratio;   // high-ratio attack "tine" operator : carrier
+    double fm_tine_index0;  // tine initial index
+    double fm_tine_ms;      // tine index decay (ms) — fast, the attack ping
+    double fm_pickup;       // asymmetric-pickup tanh bias (even-harmonic growl)
+    // -- Extended-KS params (WAVE_PLUCK) --
+    double ks_stretch;      // EKS stretch S (<1) — overall decay
+    double ks_loop_b;       // loop-LPF coefficient (brightness; lower=brighter)
+    double ks_beta;         // pluck position (fraction; near-bridge = nasal)
+    double ks_pick;         // pick-position comb mix
+    double ks_drive;        // output tanh drive (clavi bite); 0 = clean
+} GMProgramParams;
+
+#define GM_PIANO_PROGRAM_COUNT 8
+static const GMProgramParams gm_piano_programs[GM_PIANO_PROGRAM_COUNT] = {
+    // GM 1 — Acoustic Grand: reference modal voice, full partial map.
+    { .wave = WAVE_GMPIANO, .partials = 10, .B = 0.0009, .partial_tilt = 1.0,
+      .tilt_from = 0, .tau0 = 9.0, .hammer_amp = 0.18, .hammer_ms = 5.0,
+      .dual_cents = 0.0, .drive = 0.0 },
+    // GM 2 — Bright Acoustic: boost upper partials, harder/shorter hammer.
+    { .wave = WAVE_GMPIANO, .partials = 11, .B = 0.0010, .partial_tilt = 1.45,
+      .tilt_from = 4, .tau0 = 9.5, .hammer_amp = 0.24, .hammer_ms = 3.5,
+      .dual_cents = 0.0, .drive = 0.0 },
+    // GM 3 — Electric Grand (CP-70-ish): fewer cleaner partials, half B,
+    // light tanh drive for the "electrified" edge.
+    { .wave = WAVE_GMPIANO, .partials = 7, .B = 0.00045, .partial_tilt = 1.1,
+      .tilt_from = 1, .tau0 = 7.0, .hammer_amp = 0.10, .hammer_ms = 4.0,
+      .dual_cents = 0.0, .drive = 0.10 },
+    // GM 4 — Honky-tonk: dual detuned string copies (~14 cents), more clack.
+    { .wave = WAVE_GMPIANO, .partials = 9, .B = 0.0011, .partial_tilt = 1.15,
+      .tilt_from = 2, .tau0 = 6.0, .hammer_amp = 0.26, .hammer_ms = 4.5,
+      .dual_cents = 14.0, .drive = 0.0 },
+    // GM 5 — Electric Piano 1 (Rhodes tine): c:m≈1:1 body + 14:1 tine ping,
+    // index decays → mellow bell; mild pickup growl.
+    { .wave = WAVE_EPIANO, .fm_ratio = 1.0, .fm_index0 = 1.2, .fm_index_ms = 700.0,
+      .fm_tine_ratio = 14.0, .fm_tine_index0 = 0.9, .fm_tine_ms = 18.0,
+      .fm_pickup = 0.18 },
+    // GM 6 — Electric Piano 2 (Wurli reed): c:m≈1:2, stronger asym pickup,
+    // faster decay, hollow/reedy.
+    { .wave = WAVE_EPIANO, .fm_ratio = 2.0, .fm_index0 = 1.6, .fm_index_ms = 420.0,
+      .fm_tine_ratio = 10.0, .fm_tine_index0 = 0.7, .fm_tine_ms = 14.0,
+      .fm_pickup = 0.34 },
+    // GM 7 — Harpsichord: very bright EKS, pluck near bridge (β≈0.13),
+    // short-ish even decay, the comb is the signature; clean output.
+    { .wave = WAVE_PLUCK, .ks_stretch = 0.9965, .ks_loop_b = 0.18,
+      .ks_beta = 0.13, .ks_pick = 0.95, .ks_drive = 0.0 },
+    // GM 8 — Clavi: pluck very near the end (β≈0.05), thin bright tone, fast
+    // decay, tanh pickup bite for the funky electric edge.
+    { .wave = WAVE_PLUCK, .ks_stretch = 0.990, .ks_loop_b = 0.12,
+      .ks_beta = 0.05, .ks_pick = 0.9, .ks_drive = 0.5 },
+};
+
+// Note-on init for one GM Piano-family program (0-based: 0 = Acoustic Grand).
+// Selects v->type, fills the per-voice synthesis state from the program row,
+// and applies bounded note-on stochasticism (drawn ONCE here from the voice's
+// noise_seed). Programs outside 0..7 return -1 so the caller falls back to the
+// normal `type` path. `rng` is unused for now (the voice carries its own
+// noise_seed) but is accepted so future families can share an external stream.
+static int gm_voice_init(ACVoice *v, int program, double freq,
+                         double sample_rate, uint32_t *rng) {
+    (void)rng;
+    if (program < 0 || program >= GM_PIANO_PROGRAM_COUNT) return -1;
+    const GMProgramParams *p = &gm_piano_programs[program];
+    double sr = sample_rate > 0.0 ? sample_rate : (double)AUDIO_SAMPLE_RATE;
+    double f0 = freq < 20.0 ? 20.0 : freq;
+    v->gm_program = program;
+    v->type = p->wave;
+
+    if (p->wave == WAVE_GMPIANO) {
+        // --- Modal additive with inharmonic stretched partials (GM 1-4) ---
+        const double mul = 0.8;             // dossier 00 §6: acoustic piano
+        int N = p->partials;
+        if (N > GM_MAX_PARTIALS) N = GM_MAX_PARTIALS;
+        if (N < 1) N = 1;
+        v->p_count = N;
+        v->gm_dual = (p->dual_cents > 0.0) ? 1 : 0;
+        v->gm_drive = p->drive;
+        // Normalize so the partial set sums to a sane peak (1/sqrt(N) keeps
+        // the additive sum near unity for the velocity-1 case; soft_clip
+        // catches any residual peak).
+        double norm = 1.0 / sqrt((double)N);
+        double sum_check = 0.0;
+        for (int k = 0; k < N; k++) {
+            int n = k + 1;                  // harmonic number (1-based)
+            // Inharmonic stretch f_n = n·f0·sqrt(1 + B·n²).
+            double fn = (double)n * f0 * sqrt(1.0 + p->B * (double)(n * n));
+            // Per-partial detune (3-string phantom beating) under ±6c cap.
+            fn = voice_detune(v, fn, 6.0, mul);
+            if (fn > sr * 0.45) fn = sr * 0.45;  // anti-alias guard
+            v->p_finc[k] = fn / sr;
+            // Base amplitude: 1/n rolloff, optional upper-partial tilt for
+            // bright pianos, then ±15% per-partial amp jitter (zero-mean).
+            double a = norm / (double)n;
+            if (k >= (int)p->tilt_from) a *= p->partial_tilt;
+            a = voice_jitter(v, a, 0.15, mul);
+            v->p_amp[k] = a;
+            sum_check += a;
+            // Random start phase decorrelates stacked same-notes (additive
+            // tone has no transient to keep coherent).
+            v->p_phase[k] = voice_rand_phase(v);
+            // Per-partial T60: high partials die first (damping ~ n²),
+            // with ±15% decay jitter. dec_mult = exp(-1/(tau·sr)).
+            double tau = p->tau0 / (1.0 + 0.6 * (double)(n - 1));
+            tau = voice_jitter(v, tau, 0.15, mul);
+            if (tau < 0.02) tau = 0.02;
+            v->p_dec_mult[k] = exp(-1.0 / (tau * sr));
+            // Honky-tonk: second string copy, detuned by dual_cents, with
+            // its own random phase. Phase increment only — no extra amp/decay
+            // state (shares p_amp[k]/p_dec_mult[k] at render time).
+            if (v->gm_dual) {
+                double f2 = fn * cents_to_ratio(p->dual_cents);
+                if (f2 > sr * 0.45) f2 = sr * 0.45;
+                v->p2_finc[k] = f2 / sr;
+                v->p2_phase[k] = voice_rand_phase(v);
+            }
+        }
+        (void)sum_check;
+        // Hammer thump: short LPF noise burst (set up the envelope; the noise
+        // itself is consumed per-sample from noise_seed in the render loop).
+        double htau = (p->hammer_ms * 0.001);
+        if (htau < 0.0005) htau = 0.0005;
+        v->gm_hammer_amp = voice_jitter(v, p->hammer_amp, 0.15, mul);
+        v->gm_hammer_env = 1.0;
+        v->gm_hammer_dec = exp(-1.0 / (htau * sr));
+        v->gm_hammer_lp = 0.0;
+    } else if (p->wave == WAVE_EPIANO) {
+        // --- FM tine/reed (Chowning), GM 5-6 ---
+        const double mul = 0.7;             // dossier 00 §6: electric piano
+        // Carrier at f0, body modulator at fm_ratio·f0. Ratio gets a tiny
+        // (±2c spread) detune — an FM ratio error IS a sideband detune, so
+        // it rides the pitch ceiling, not the amplitude lever.
+        double fc = voice_detune(v, f0, 6.0, mul);
+        double fm = voice_detune(v, f0 * p->fm_ratio, 2.0, mul);
+        double ft = f0 * p->fm_tine_ratio;
+        if (fc > sr * 0.45) fc = sr * 0.45;
+        v->fm_cphase = 0.0; v->fm_cinc = fc / sr;
+        v->fm_mphase = 0.0; v->fm_minc = fm / sr;
+        v->fm_tphase = 0.0; v->fm_tinc = ft / sr;
+        // Index jitter ≈ the brightness/energy lever (±6%).
+        v->fm_index = voice_jitter(v, p->fm_index0, 0.06, mul);
+        v->fm_tindex = voice_jitter(v, p->fm_tine_index0, 0.06, mul);
+        double idec = p->fm_index_ms * 0.001;  if (idec < 0.001) idec = 0.001;
+        double tdec = p->fm_tine_ms * 0.001;   if (tdec < 0.0005) tdec = 0.0005;
+        v->fm_index_dec  = exp(-1.0 / (idec * sr));
+        v->fm_tindex_dec = exp(-1.0 / (tdec * sr));
+        v->fm_pickup_bias = p->fm_pickup;
+        v->fm_hp_x1 = 0.0; v->fm_hp_y1 = 0.0;
+    } else if (p->wave == WAVE_PLUCK) {
+        // --- Extended Karplus-Strong (harpsichord/clavi), GM 7-8 ---
+        const double mul = 0.9;             // dossier 00 §6: plucked
+        v->harp_lp1 = 0.0;
+        v->ks_stretch = p->ks_stretch;
+        v->ks_loop_b  = p->ks_loop_b;
+        // Pluck position β with ±8% jitter (player doesn't hit the same spot).
+        v->ks_beta = voice_jitter(v, p->ks_beta, 0.08, mul);
+        v->ks_pick_amt = p->ks_pick;
+        v->ks_drive = p->ks_drive;
+        // Seed the string delay line with one wavelength of bright noise.
+        // The excitation seed (noise_seed, fresh per trigger) IS the per-pluck
+        // organic variation. Harpsichord = bright (less pre-smoothing) than
+        // the nylon harp; we do a single light smoothing pass.
+        memset(v->whistle_bore_buf, 0, sizeof(v->whistle_bore_buf));
+        double string_delay = sr / f0;
+        const int STRING_N = 2048;
+        if (string_delay > (double)(STRING_N - 2)) string_delay = (double)(STRING_N - 2);
+        if (string_delay < 2.0) string_delay = 2.0;
+        int n = (int)string_delay;
+        double last = 0.0;
+        for (int i = 0; i < n; i++) {
+            double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
+            // Light one-pole smoothing (brighter than the harp's 0.5/0.5).
+            double filt = 0.75 * white + 0.25 * last;
+            last = white;
+            v->whistle_bore_buf[i] = (float)filt;
+        }
+        v->whistle_bore_w = n;
+    }
+    return 0;
+}
+
+// ── GM acoustic-piano render: modal additive + inharmonicity + hammer ──
+// (docs/gm-synthesis/01, GM 1-4). Phase-increment wavetable sines only.
+static inline double generate_gmpiano_sample(ACVoice *v, double sample_rate) {
+    (void)sample_rate;
+    double env = compute_envelope(v);
+    double s = 0.0;
+    int N = v->p_count;
+    for (int k = 0; k < N; k++) {
+        double a = v->p_amp[k];
+        s += a * wt_sin(v->p_phase[k]);
+        v->p_phase[k] += v->p_finc[k];
+        if (v->p_phase[k] >= 1.0) v->p_phase[k] -= 1.0;
+        if (v->gm_dual) {
+            // Second detuned string copy (honky-tonk) shares this partial's
+            // amplitude; its slightly different frequency beats with the first.
+            s += a * wt_sin(v->p2_phase[k]);
+            v->p2_phase[k] += v->p2_finc[k];
+            if (v->p2_phase[k] >= 1.0) v->p2_phase[k] -= 1.0;
+        }
+        v->p_amp[k] *= v->p_dec_mult[k];   // exp decay; high partials die first
+    }
+    if (v->gm_dual) s *= 0.5;              // two copies → keep level normalized
+    // Hammer thump: short LPF white-noise burst, exp-decaying envelope.
+    if (v->gm_hammer_env > 0.0001) {
+        double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
+        // 1-pole LPF (~ felt softness) — leak 0.2 of new sample in.
+        v->gm_hammer_lp = 0.2 * white + 0.8 * v->gm_hammer_lp;
+        s += v->gm_hammer_amp * v->gm_hammer_env * v->gm_hammer_lp;
+        v->gm_hammer_env *= v->gm_hammer_dec;
+    }
+    // Per-voice tanh drive for the "electrified" grand (GM 3); clean for others.
+    if (v->gm_drive > 0.0) {
+        double pre = 1.0 + 4.0 * v->gm_drive;
+        s = tanh(pre * s) * (1.0 / pre) * (1.0 + v->gm_drive);
+    }
+    return s * env;
+}
+
+// ── GM electric-piano render: 2-op FM tine + attack tine + pickup tanh ──
+// (docs/gm-synthesis/01, GM 5-6). Chowning FM, wavetable-sine operators.
+static inline double generate_epiano_sample(ACVoice *v, double sample_rate) {
+    (void)sample_rate;
+    double env = compute_envelope(v);
+    // Body modulator (index decays → bell-like mellowing) + high-ratio tine
+    // operator (fast-decaying index → the metallic attack "ping").
+    double bodymod = wt_sin(v->fm_mphase) * v->fm_index;
+    double tinemod = wt_sin(v->fm_tphase) * v->fm_tindex;
+    double car = wt_sin(v->fm_cphase + bodymod + tinemod);
+    v->fm_cphase += v->fm_cinc;  if (v->fm_cphase >= 1.0) v->fm_cphase -= 1.0;
+    v->fm_mphase += v->fm_minc;  if (v->fm_mphase >= 1.0) v->fm_mphase -= 1.0;
+    v->fm_tphase += v->fm_tinc;  if (v->fm_tphase >= 1.0) v->fm_tphase -= 1.0;
+    v->fm_index  *= v->fm_index_dec;
+    v->fm_tindex *= v->fm_tindex_dec;
+    // Asymmetric pickup nonlinearity — biased tanh injects even harmonics
+    // (the Rhodes/Wurli "growl"), then a DC blocker removes the bias the
+    // bias term would otherwise pump into the output.
+    double x = car;
+    if (v->fm_pickup_bias > 0.0) {
+        double biased = tanh(x + v->fm_pickup_bias);
+        double y = biased - v->fm_hp_x1 + 0.999 * v->fm_hp_y1;  // 1-pole DC block
+        v->fm_hp_x1 = biased;
+        v->fm_hp_y1 = y;
+        x = y;
+    }
+    return x * env;
+}
+
+// ── GM plucked render: extended Karplus-Strong (harpsichord/clavi) ──
+// (docs/gm-synthesis/01, GM 7-8). Reuses whistle_bore_buf string delay,
+// adds pluck-position comb, loop-damping LPF, stretch, and pickup drive.
+static inline double generate_pluck_sample(ACVoice *v, double sample_rate) {
+    double env = compute_envelope(v);
+    double freq = clampd(v->frequency, 50.0, sample_rate * 0.20);
+    double string_delay = sample_rate / freq;
+    const int STRING_N = 2048;
+    if (string_delay > (double)(STRING_N - 2)) string_delay = (double)(STRING_N - 2);
+    if (string_delay < 2.0) string_delay = 2.0;
+
+    // Delayed sample, one wavelength behind (fractional read).
+    double delayed = whistle_frac_read(v->whistle_bore_buf, STRING_N,
+                                       v->whistle_bore_w, string_delay);
+    // Pick-position comb (Jaffe-Smith H_β): subtract a tap at β·N → the
+    // bright nasal notches that are the harpsichord/clavi signature.
+    double tap_delay = v->ks_beta * string_delay;
+    if (tap_delay < 1.0) tap_delay = 1.0;
+    double picked = delayed - v->ks_pick_amt *
+        whistle_frac_read(v->whistle_bore_buf, STRING_N, v->whistle_bore_w, tap_delay);
+    // Loop damping (one-pole LPF; higher ks_loop_b = darker). harp_lp1 holds
+    // the filter state across samples.
+    double damp = (1.0 - v->ks_loop_b) * picked + v->ks_loop_b * v->harp_lp1;
+    v->harp_lp1 = damp;
+    // Stretch S (<1) sets overall decay.
+    double y = v->ks_stretch * damp;
+    v->whistle_bore_buf[v->whistle_bore_w] = (float)y;
+    v->whistle_bore_w = (v->whistle_bore_w + 1) % STRING_N;
+    // Output bite — clavi pickup waveshaper (clean for harpsichord).
+    double out = y;
+    if (v->ks_drive > 0.0) {
+        double pre = 1.0 + 4.0 * v->ks_drive;
+        out = tanh(pre * y) * (1.0 / pre) * (1.0 + v->ks_drive);
+    }
+    // Same loudness boost as the harp (K-S circulating amplitude is low).
+    return 2.5 * out * env;
+}
 
 // ============================================================
 // One-shot named-buffer bank (zoo / lasers / future kits)
@@ -1506,6 +1926,15 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
     case WAVE_PIANO:
         s = generate_piano_sample(v, sample_rate);
         break;
+    case WAVE_GMPIANO:
+        s = generate_gmpiano_sample(v, sample_rate);
+        break;
+    case WAVE_EPIANO:
+        s = generate_epiano_sample(v, sample_rate);
+        break;
+    case WAVE_PLUCK:
+        s = generate_pluck_sample(v, sample_rate);
+        break;
     default:
         s = 0.0;
     }
@@ -1515,8 +1944,11 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
         v->frequency += (v->target_frequency - v->frequency) * 0.0003; // ~5ms at 192kHz
     }
 
-    // Advance phase for basic oscillators; whistle/gun/harp/piano use their own state.
-    if (v->type != WAVE_WHISTLE && v->type != WAVE_GUN && v->type != WAVE_HARP && v->type != WAVE_PIANO) {
+    // Advance phase for basic oscillators; whistle/gun/harp/piano and the GM
+    // synthesis voices (gmpiano/epiano/pluck) manage their own phase state.
+    if (v->type != WAVE_WHISTLE && v->type != WAVE_GUN && v->type != WAVE_HARP &&
+        v->type != WAVE_PIANO && v->type != WAVE_GMPIANO && v->type != WAVE_EPIANO &&
+        v->type != WAVE_PLUCK) {
         v->phase += v->frequency / sample_rate;
         if (v->phase >= 1.0) v->phase -= 1.0;
     }
@@ -2397,6 +2829,9 @@ ACAudio *audio_init(void) {
     audio->actual_rate = AUDIO_SAMPLE_RATE; // default, overwritten after ALSA negotiation
     audio->glitch_rate = AUDIO_SAMPLE_RATE / 1600;
     pthread_mutex_init(&audio->lock, NULL);
+
+    // Build the sine wavetable used by the GM modal/FM voices (idempotent).
+    wt_sin_init();
 
     // Load piano sample bank from /samples/piano/. Idempotent: safe to
     // call from both audio_init paths in ac-native.c. Bank is global
@@ -3357,7 +3792,8 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
     v->started_at = audio->time;
 
     if (type == WAVE_NOISE || type == WAVE_WHISTLE || type == WAVE_GUN ||
-        type == WAVE_HARP || type == WAVE_PIANO) {
+        type == WAVE_HARP || type == WAVE_PIANO ||
+        type == WAVE_GMPIANO || type == WAVE_EPIANO || type == WAVE_PLUCK) {
         v->noise_seed = (uint32_t)(audio->next_id * 2654435761u);
     }
     if (type == WAVE_NOISE) {
@@ -3447,6 +3883,39 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
 
     pthread_mutex_unlock(&audio->lock);
     return v->id;
+}
+
+// GM synthesis voice (docs/gm-synthesis/01). Mirrors audio_synth_gun: do the
+// base voice setup (slot alloc, envelope fields, per-trigger noise_seed) via
+// audio_synth with a GM placeholder type so the seed is set, then run
+// gm_voice_init() to select the real engine + fill its state + apply note-on
+// stochasticism. Programs outside 0..7 return 0 so the JS caller can fall
+// back to the normal `type`-based audio_synth path. The base init passes
+// WAVE_GMPIANO purely to trigger seeding — gm_voice_init overwrites v->type.
+uint64_t audio_synth_gm(ACAudio *audio, int program, double freq,
+                        double duration, double volume, double attack,
+                        double decay, double pan) {
+    if (!audio) return 0;
+    if (program < 0 || program >= GM_PIANO_PROGRAM_COUNT) return 0;
+    uint64_t id = audio_synth(audio, WAVE_GMPIANO, freq, duration, volume,
+                              attack, decay, pan);
+    if (!id) return 0;
+
+    pthread_mutex_lock(&audio->lock);
+    ACVoice *v = NULL;
+    for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
+        if (audio->voices[i].id == id) { v = &audio->voices[i]; break; }
+    }
+    if (v) {
+        double sr = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
+        if (gm_voice_init(v, program, freq, sr, &v->noise_seed) < 0) {
+            // Shouldn't happen (range checked above) — leave as a harmless
+            // GMPIANO voice rather than a half-init state.
+            v->type = WAVE_GMPIANO;
+        }
+    }
+    pthread_mutex_unlock(&audio->lock);
+    return id;
 }
 
 void audio_kill(ACAudio *audio, uint64_t id, double fade) {
@@ -3707,6 +4176,14 @@ void audio_set_drive_mix(ACAudio *audio, float value) {
     if (value < 0.0f) value = 0.0f;
     if (value > 1.0f) value = 1.0f;
     audio->target_drive_mix = value;
+}
+
+// Global GM-synthesis organic amount (docs/gm-synthesis/00-stochasticism.md).
+// Scales every parametric note-on jitter lever; 0 restores bit-identical
+// synthesis. `audio` is accepted for API symmetry but the value lives in a
+// file-static so the note-on helpers stay dependency-free in the inner code.
+void audio_set_organic(double amt) {
+    g_organic_amount = clampd(amt, 0.0, 1.0);
 }
 
 // Wobble / flange dry/wet 0..1. LFO-modulated short delay blended with

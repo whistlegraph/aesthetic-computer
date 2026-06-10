@@ -32,7 +32,15 @@ typedef enum {
     WAVE_WHISTLE,
     WAVE_GUN,
     WAVE_HARP,
-    WAVE_PIANO
+    WAVE_PIANO,
+    // ── GM synthesis library (docs/gm-synthesis/01-piano-mallet-organ-guitar.md) ──
+    // Algorithmic per-instrument voices selected by a GM program row (see
+    // gm_voice_init + gm_piano_programs[] in audio.c). Appended AFTER the
+    // legacy types so existing enum values are untouched (WAVE_PIANO stays
+    // the Salamander sample path; these are additive, never a replacement).
+    WAVE_GMPIANO,   // modal additive + inharmonicity (acoustic pianos, GM 1-4)
+    WAVE_EPIANO,    // FM tine/reed, Chowning (electric pianos, GM 5-6)
+    WAVE_PLUCK      // extended Karplus-Strong (harpsichord/clavi, GM 7-8)
 } WaveType;
 
 // Gun voice presets. Two synthesis models are available per preset:
@@ -225,6 +233,45 @@ typedef struct {
     double piano_sample_pos;            // fractional read position
     double piano_sample_step;           // playback rate (target_f / anchor_f)
     double piano_sample_amp;            // velocity-derived gain
+    // === GM synthesis voice state (docs/gm-synthesis/01 + 00) ===
+    // Shared scratch for the algorithmic GM voices (WAVE_GMPIANO / WAVE_EPIANO
+    // / WAVE_PLUCK). A voice is only ever one wave type at a time, so these
+    // unions of purpose are safe to coexist. Filled at note-on by
+    // gm_voice_init() from the program row + bounded note-on stochasticism.
+    int    gm_program;                  // GM program 0-7 (for debug / routing)
+    // -- Modal additive partials (WAVE_GMPIANO; per-partial phase-increment
+    //    wavetable sines with inharmonic stretch + per-partial exp decay).
+    #define GM_MAX_PARTIALS 12
+    int    p_count;                     // active partial count (<= GM_MAX_PARTIALS)
+    double p_phase[GM_MAX_PARTIALS];    // 0..1 phase accumulators
+    double p_amp[GM_MAX_PARTIALS];      // current amplitude (decays each sample)
+    double p_finc[GM_MAX_PARTIALS];     // per-sample phase increment (f_n / sr)
+    double p_dec_mult[GM_MAX_PARTIALS]; // per-sample exp decay multiplier
+    int    gm_dual;                     // 1 = honky-tonk: render a 2nd detuned set
+    double p2_phase[GM_MAX_PARTIALS];   // 2nd (detuned) string copy phases
+    double p2_finc[GM_MAX_PARTIALS];    // 2nd copy phase increments
+    double gm_drive;                    // per-voice tanh drive (electric grand)
+    double gm_hammer_env;               // hammer-thump noise burst envelope
+    double gm_hammer_dec;               // per-sample hammer decay multiplier
+    double gm_hammer_amp;               // hammer mix gain
+    double gm_hammer_lp;                // 1-pole LPF state for hammer noise
+    // -- FM tine/reed operators (WAVE_EPIANO; 2-op carrier+modulator plus a
+    //    high-ratio attack "tine" operator, all wavetable sines). --
+    double fm_cphase, fm_cinc;          // carrier phase + increment
+    double fm_mphase, fm_minc;          // body modulator phase + increment
+    double fm_index, fm_index_dec;      // body mod index + per-sample decay
+    double fm_tphase, fm_tinc;          // tine (high-ratio) operator phase + inc
+    double fm_tindex, fm_tindex_dec;    // tine index + per-sample decay
+    double fm_pickup_bias;              // asymmetric-pickup tanh DC bias (growl)
+    double fm_hp_x1, fm_hp_y1;          // DC blocker after the pickup nonlinearity
+    // -- Extended Karplus-Strong (WAVE_PLUCK; harpsichord/clavi). String delay
+    //    line reuses whistle_bore_buf like WAVE_HARP. These add the
+    //    pick-position comb, loop damping, stretch + output waveshaper. --
+    double ks_stretch;                  // EKS stretch S (<1) — decay control
+    double ks_loop_b;                   // one-pole loop LPF coefficient (damping)
+    double ks_beta;                     // pluck position (fraction of string len)
+    double ks_pick_amt;                 // pick-position comb mix
+    double ks_drive;                    // output tanh drive (clavi pickup bite)
 } ACVoice;
 
 typedef struct {
@@ -436,6 +483,16 @@ uint64_t audio_synth_gun(ACAudio *audio, GunPreset preset, double duration,
 void audio_gun_voice_set_param(ACAudio *audio, uint64_t id,
                                const char *key, double value);
 
+// Add a GM-synthesis voice for Piano-family program 0-7 (0 = Acoustic Grand).
+// Selects the algorithmic engine (modal piano / FM e-piano / extended-KS
+// pluck) and applies bounded note-on stochasticism. Returns 0 (no voice) for
+// programs outside 0-7 so the caller can fall back to audio_synth() with the
+// requested `type`. See gm_voice_init() + gm_piano_programs[] in audio.c and
+// docs/gm-synthesis/01-piano-mallet-organ-guitar.md.
+uint64_t audio_synth_gm(ACAudio *audio, int program, double freq,
+                        double duration, double volume, double attack,
+                        double decay, double pan);
+
 // Kill a voice with fade
 void audio_kill(ACAudio *audio, uint64_t id, double fade);
 
@@ -458,6 +515,12 @@ void audio_set_fx_mix(ACAudio *audio, float mix);
 void audio_set_master_volume(ACAudio *audio, float value);
 void audio_set_drive_mix(ACAudio *audio, float value);
 void audio_set_wobble_mix(ACAudio *audio, float value);
+
+// Global "organic" amount for the GM synthesis library's bounded per-note
+// stochasticism (docs/gm-synthesis/00-stochasticism.md). 0.0 = bit-identical,
+// 1.0 = max tasteful spread. Default 0.6. Scales every parametric jitter
+// lever (per-partial amp/decay, pitch detune, FM index, attack, pan).
+void audio_set_organic(double amt);
 void audio_set_output_history_paused(ACAudio *audio, int paused);
 
 // Microphone — hot-mic mode (device stays open, recording toggles buffering)

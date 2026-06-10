@@ -3077,6 +3077,12 @@ function act({ event: e, sound, wifi, system }) {
           const v = sound.synth({
             type: useWave, tone: ctone, duration: Infinity,
             volume: vol * recipeVol, attack: atk, decay: currentDecay(), pan: cpan,
+            // Route to the bespoke native GM C voice when this program has one
+            // (0..7 piano family today); js_synth falls back to `type` for the
+            // not-yet-implemented programs. Each C voice applies bounded
+            // per-trigger stochasticism so the same note never renders an
+            // identical waveform.
+            gmProgram: gmProgram !== null ? gmProgram : undefined,
           });
           if (v) voices.push(v);
           // Relay each chord tone over MIDI.
