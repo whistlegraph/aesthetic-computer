@@ -2155,10 +2155,12 @@ function udpMidiSendRecency() {
 
 function rememberSound(key, entry, system, velocity = 1) {
   if (!entry) return;
-  // Capture linger intent (Feature 4) at press time — shift may release
-  // before the key. lingerCat picks the fade shape: GM-recipe sustained
-  // families fade smoothly over ~4s; staccato families get a short tail.
-  if (entry.lingerOnRelease === undefined) entry.lingerOnRelease = shiftHeld;
+  // Capture linger/latch intent at press time — shift may release before the
+  // key. A shift-held note now LATCHES: lifting the key keeps it sounding
+  // (true sustain) by adding it to heldKeys, exactly like the Enter-hold
+  // latch. lingerCat is retained for the (now rare) fade-tail path.
+  const latchOnRelease = shiftHeld;
+  if (entry.lingerOnRelease === undefined) entry.lingerOnRelease = false;
   if (entry.lingerCat === undefined) {
     entry.lingerCat = gmProgram !== null ? gmRecipe(gmProgram).linger : "sustain";
   }
@@ -2168,9 +2170,10 @@ function rememberSound(key, entry, system, velocity = 1) {
   // live pressure (55% velocity + 45% smoothed pressure).
   entry.velocity = velocity;
   sounds[key] = entry;
-  // While Enter is held, auto-latch new notes into heldKeys so they
-  // sustain on key-up. Otherwise notes release normally.
-  if (enterHeld) heldKeys.add(key);
+  // While Enter is held OR shift was held at press, auto-latch the note into
+  // heldKeys so it sustains on key-up. Press the same key again (or panic) to
+  // release. Otherwise notes release normally.
+  if (enterHeld || latchOnRelease) heldKeys.add(key);
   system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   pushUsbMidiRecent(">", entry.note, entry.octave);
@@ -2258,7 +2261,9 @@ function releaseTouchNote(pid, sound, system, fade = 0.08) {
   if (entry.drumHold) {
     releasePercussionHold(sound, entry.drumHold);
   } else if (entry.key) {
-    stopSoundKey(entry.key, sound, system, fade);
+    // Latched notes (shift-linger / Enter-hold) stay ringing on lift — match
+    // the keyboard key-up behavior.
+    if (!heldKeys.has(entry.key)) stopSoundKey(entry.key, sound, system, fade);
   }
   delete touchNotes[pid];
 }
@@ -2911,6 +2916,17 @@ function act({ event: e, sound, wifi, system }) {
     }
     // If this key is currently recording in per-key mode, suppress playback
     if (perKeyRecording === key) return;
+    // Latch toggle-off: a note that's currently LATCHED (shift-linger or
+    // Enter-hold) is still ringing in `sounds[key]`. Pressing its key again
+    // un-latches and stops it — the intuitive "press again to release" gesture
+    // for held notes. We force a hard stop (clear lingerOnRelease) so it
+    // doesn't re-enter a fade tail, and align with the existing heldKeys set.
+    if (noteName && sounds[key] && heldKeys.has(key)) {
+      heldKeys.delete(key);
+      if (sounds[key]) sounds[key].lingerOnRelease = false;
+      stopSoundKey(key, sound, system, quickMode ? 0.02 : 0.08);
+      return;
+    }
     if (noteName && !sounds[key]) {
       // Re-arm the audio-history ring before this note hits speakers.
       // Capture stays paused after a space-release so the ring doesn't
@@ -3018,8 +3034,10 @@ function act({ event: e, sound, wifi, system }) {
           system?.usbMidi?.noteOn?.(mn, velocityToMidi(velocity), 0);
           sendUdpMidiEvent(system, "note_on", mn, velocityToMidi(velocity), 0);
         }
-        sounds[key] = { passthroughNotes: midiNotes, voices, note: letter, octave: noteOctave, gridOffset: offset, lingerOnRelease };
-        if (enterHeld) heldKeys.add(key);
+        sounds[key] = { passthroughNotes: midiNotes, voices, note: letter, octave: noteOctave, gridOffset: offset, lingerOnRelease: false };
+        // Shift/Enter latch passthrough notes too — the relayed note_off is
+        // deferred until un-latch so downstream gear holds the note.
+        if (enterHeld || lingerOnRelease) heldKeys.add(key);
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
       }
@@ -3057,9 +3075,12 @@ function act({ event: e, sound, wifi, system }) {
           voices, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset,
           baseVol: baseVol * recipeVol, midiNote: rootMidi, midiChannel: 0,
           chordIvls: ivls.length > 1 ? ivls : null, velocity,
-          lingerOnRelease, lingerCat: recipe ? recipe.linger : "sustain",
+          lingerOnRelease: false, lingerCat: recipe ? recipe.linger : "sustain",
         };
-        if (enterHeld) heldKeys.add(key);
+        // Shift-held → latch the whole chord (every voice lives on this one
+        // key, so latching the key keeps all chord tones ringing). Enter-hold
+        // latches too. Release by re-pressing the key or via panic.
+        if (enterHeld || lingerOnRelease) heldKeys.add(key);
         pushUsbMidiRecent(">", letter, noteOctave);
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
@@ -5732,6 +5753,24 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Expose grid layout for touch hit-testing in act()
   globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
 
+  // Chord-tone HUD highlight: gather every MIDI note that's currently
+  // SOUNDING as part of a held chord, so drawGrid can light up the whole
+  // chord shape (root + extensions) on the board — not just the physically
+  // pressed key. `chordRootMidi` holds the pressed roots so we can tint the
+  // root differently from the +3/+4/+2/+7 extension tones. Tones whose MIDI
+  // number doesn't land on any on-board pad are simply not lit.
+  const chordToneMidi = new Set();   // all chord tones (root + extensions)
+  const chordRootMidi = new Set();   // just the pressed roots
+  for (const k of Object.keys(sounds)) {
+    const s = sounds[k];
+    if (!s) continue;
+    const ivls = s.chordIvls;
+    if (!ivls || ivls.length < 2) continue; // single notes use the normal path
+    const root = noteToMidiNumber(s.note, s.octave);
+    chordRootMidi.add(root);
+    for (const iv of ivls) chordToneMidi.add(Math.max(0, Math.min(127, root + iv)));
+  }
+
   function drawGrid(grid, startX, octOffset, side) {
     // Active kit for this side: "off" = melodic notes, "perc" = drums,
     // "war" = physically-modeled weapons. Colors, labels and notation
@@ -5750,7 +5789,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         // Use octOffset directly as the side's octave shift
         const noteOctave = octave + octOffset;
         const key = NOTE_TO_KEY[noteName];
-        const isActive = key && sounds[key] !== undefined;
+        const directActive = key && sounds[key] !== undefined;
+        // Chord-tone lighting: this pad lights up if its MIDI note is part of
+        // a held chord, even when its own key isn't physically pressed. Drum
+        // sides never participate (chords are melodic-only).
+        const padMidi = isKit ? -1 : noteToMidiNumber(letter, noteOctave);
+        const chordTone = !directActive && padMidi >= 0 && chordToneMidi.has(padMidi);
+        const chordIsRoot = chordTone && chordRootMidi.has(padMidi);
+        const isActive = directActive || chordTone;
         const trailInfo = key && trail[key];
         const sharp = letter.includes("#");
         const drumActive = isKit && kitNames && !!kitNames[letter];
@@ -5761,7 +5807,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         const isHovered = hoverX >= x && hoverX < x + btnW && hoverY >= y && hoverY < y + btnH;
 
         if (isActive) {
-          ink(nc[0], nc[1], nc[2]);
+          if (chordTone && !chordIsRoot) {
+            // Chord EXTENSION (the +2/+3/+4/+7 tones): dimmer note-color
+            // fill so the chord shape is visible but the pressed root still
+            // reads as the brightest pad.
+            ink(Math.floor(nc[0] * 0.7), Math.floor(nc[1] * 0.7), Math.floor(nc[2] * 0.7));
+          } else {
+            // Directly-pressed pad or chord root: full note color.
+            ink(nc[0], nc[1], nc[2]);
+          }
           box(x, y, btnW, btnH, true);
           ink(255, 255, 255);
         } else if (trailInfo && trailInfo.brightness > 0.05) {
@@ -6194,6 +6248,58 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write(txt, { x: tx + 4, y: ty + 2, size: 1, font: "font_1" });
   } else if (gmNotice) {
     gmNotice = null;
+  }
+
+  // Persistent INSTRUMENT readout — always-on status line so the player can
+  // see the current melodic voice (GM program, MIDI passthru, or legacy
+  // wave) at a glance, and watch the program number FORM as digits are
+  // typed. Sits just under the aux-pad row (same lane the transient gmNotice
+  // flash uses) so it never collides with the grid, sliders or DJ strip. The
+  // transient flash above takes visual priority while it's alive; this line
+  // fills the rest of the time.
+  if (!(gmNotice && frame < gmNotice.until)) {
+    const dark2 = isDark();
+    // Mid-entry? gmDigitBuffer holds the partial number and gmDigitLastMs is
+    // within the 0.8s commit window. Show it forming with a blinking caret.
+    const typingActive = gmDigitBuffer.length > 0 && (Date.now() - gmDigitLastMs) <= 800;
+    let label, accent;
+    if (typingActive) {
+      const caret = (frame % 30) < 15 ? "_" : " "; // ~0.5s blink
+      label = "prog " + gmDigitBuffer + caret; // e.g. "prog 12_"
+      accent = true;
+    } else if (gmPassthrough) {
+      label = "MIDI PASSTHRU";
+      accent = false;
+    } else if (gmProgram !== null) {
+      const num = String(gmProgram + 1).padStart(3, "0");
+      label = num + " " + (GM_PROGRAM_NAMES[gmProgram] || "");
+      accent = false;
+    } else {
+      // No GM: fall back to the legacy freely-cycled wave name.
+      label = "wave " + (wave || "—");
+      accent = false;
+    }
+    const tw = Math.max(1, label.length) * 6 + 12;
+    const tx = Math.floor((w - tw) / 2);
+    const ty = gridTop + gridH + 18;
+    ink(0, 0, 0, 140);
+    box(tx - 1, ty - 1, tw + 2, 14, true);
+    if (accent) {
+      // Live-typing: warm-highlight fill + bright outline so it reads as
+      // "entry in progress" rather than a committed selection.
+      ink(dark2 ? 70 : 250, dark2 ? 55 : 235, dark2 ? 20 : 180, 220);
+      box(tx, ty, tw, 12, true);
+      ink(dark2 ? 255 : 200, dark2 ? 230 : 140, dark2 ? 90 : 40);
+      box(tx, ty, tw, 12, "outline");
+      ink(dark2 ? 255 : 30, dark2 ? 245 : 30, dark2 ? 170 : 70);
+    } else {
+      ink(dark2 ? 28 : 235, dark2 ? 32 : 238, dark2 ? 42 : 244, 200);
+      box(tx, ty, tw, 12, true);
+      ink(dark2 ? 70 : 200, dark2 ? 90 : 205, dark2 ? 110 : 210);
+      box(tx, ty, tw, 12, "outline");
+      ink(dark2 ? 170 : 60, dark2 ? 190 : 70, dark2 ? 210 : 90);
+    }
+    write(label, { x: tx + 4, y: ty + 2, size: 1, font: "font_1" });
   }
 
   // === SLIDERS: fx mix, echo, pitch, bitcrush + per-effect X/Y routing + reset ===
