@@ -518,20 +518,23 @@ function netSim(cam) {
   specPos = null; // reset when re-entering spectator later.
 
   // Poll input state → usercmd each sim tick (120 Hz). Send at CMD_RATE.
-  // (arena.mjs already has `keyboardState` + `gamepadState` that we mirror.)
+  // Mirrors EVERY input source that drives cam-doll: keyboard, gamepad, AND
+  // the on-screen mobile buttons. Mobile buttons used to feed only cam-doll
+  // (setMovement) — the server never heard them, so reconciliation dragged
+  // touch players back toward their last keyboard position. Rubber-banding.
   // pmove convention: fwd=+1 moves along facing (forward), right=+1 strafes right.
-  netInput.fwd   = (keyboardState.w || keyboardState.arrowup)    ?  1
-                  : (keyboardState.s || keyboardState.arrowdown) ? -1 : 0;
-  netInput.right = (keyboardState.d || keyboardState.arrowright) ?  1
-                  : (keyboardState.a || keyboardState.arrowleft) ? -1 : 0;
+  netInput.fwd   = (keyboardState.w || keyboardState.arrowup || mobileButtonStates.up)    ?  1
+                  : (keyboardState.s || keyboardState.arrowdown || mobileButtonStates.down) ? -1 : 0;
+  netInput.right = (keyboardState.d || keyboardState.arrowright || mobileButtonStates.right) ?  1
+                  : (keyboardState.a || keyboardState.arrowleft || mobileButtonStates.left) ? -1 : 0;
   // Gamepad left-stick: stick-up (gy<0) is forward, stick-right (gx>0) is strafe right.
   if (gamepadState.connected) {
     const gx = gamepadState.axes[0] || 0, gy = gamepadState.axes[1] || 0;
     if (Math.abs(gx) > 0.3) netInput.right = gx > 0 ?  1 : -1;
     if (Math.abs(gy) > 0.3) netInput.fwd   = gy > 0 ? -1 :  1;
   }
-  netInput.jumping  = !!keyboardState.space || !!gamepadState.buttons?.[0];
-  netInput.crouching = !!keyboardState.shift || !!gamepadState.buttons?.[1];
+  netInput.jumping  = !!keyboardState.space || !!gamepadState.buttons?.[0] || !!mobileButtonStates.jump;
+  netInput.crouching = !!keyboardState.shift || !!gamepadState.buttons?.[1] || !!mobileButtonStates.crouch;
 
   // Non-spectator: produce + send usercmds.
   enqueueCmd(cam);

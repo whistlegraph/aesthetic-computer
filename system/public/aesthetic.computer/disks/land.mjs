@@ -9,6 +9,8 @@
   - [x] Meadow palette: grass ground, sky fog, soil island sides
   - [x] Trees (trunk colliders + visual canopies) and boulders
   - [x] Strip grenades / HP / lava
+  - [x] Jointed walk cycle (swinging legs/arms + feet) for all avatars
+  - [x] Smooth error-offset reconciliation (no 30 Hz correction judder)
   + Later
   - [ ] Flowers that respond to walking
   - [ ] Day/night cycle driven by server clock
@@ -71,14 +73,15 @@ const cmdOutbox = [];       // last CMD_BACKUP cmds only (wire-level backup wind
 // so they diverge by a small amount during sustained motion. Keep the dead
 // zone wide enough to ignore that physics-model jitter — otherwise the
 // 30Hz snap loop yanks the cam every frame and forward movement feels choppy.
-// Reconcile tuning — informed by arena-probe.mjs runs. A 5-unit prediction
-// drift (from a ~250ms network stall) previously triggered a 1-frame hard
-// snap that felt like a teleport. Raise the snap threshold and quadruple
-// the soft-K so 2–4 unit drifts catch up in ~5 frames instead of 20+ or a
-// visible teleport.
+// Reconcile tuning. Corrections are NOT stepped into the camera at snap
+// rate (that was the 30 Hz judder arena has) — reconcileLocal only records
+// the world-space error in `reconPending`, and netSim bleeds it into the
+// camera a little every 120 Hz tick. Same convergence (~99% in a second),
+// zero visible stepping.
 const RECONCILE_SNAP_THRESHOLD = 4.0;   // > this = hard snap (true teleport)
-const RECONCILE_SOFT_K = 0.18;          // ~90% convergence over ~12 frames
 const RECONCILE_DEAD_ZONE = 0.5;        // < this = ignore (model-jitter noise)
+const RECON_APPLY_K = 0.045;            // per-tick blend of pending error
+const reconPending = { x: 0, y: 0, z: 0 };
 
 // World cfg (LAND_CFG) is imported from lib/land-world.mjs — ONE copy shared
 // with the server, which instantiates this world from the same module.
@@ -357,6 +360,9 @@ function reconcileLocal() {
   lastReconDist = dist;
 
   if (dist < RECONCILE_DEAD_ZONE) {
+    // In tolerance — drop any leftover pending correction too, so we never
+    // keep nudging the camera after prediction has already converged.
+    reconPending.x = reconPending.y = reconPending.z = 0;
     lastReconKind = "skip";
     return;
   }
@@ -366,16 +372,16 @@ function reconcileLocal() {
     cam.x = -predicted.x;
     cam.y = -predicted.y;
     cam.z = -predicted.z;
+    reconPending.x = reconPending.y = reconPending.z = 0;
     reconCorrectionMs++;
     lastReconKind = "snap";
     return;
   }
 
-  // Small drift — blend cam toward predicted over ~5 frames.
-  cam.x += -dx * RECONCILE_SOFT_K;
-  cam.y += -dy * RECONCILE_SOFT_K;
-  cam.z += -dz * RECONCILE_SOFT_K;
-  reconCorrectionMs++;
+  // Small drift — record it; netSim applies it smoothly per sim tick.
+  reconPending.x = dx;
+  reconPending.y = dy;
+  reconPending.z = dz;
   lastReconKind = "soft";
 }
 
@@ -500,21 +506,39 @@ function netSim(cam) {
   }
   specPos = null; // reset when re-entering spectator later.
 
+  // 🧈 Bleed the pending reconcile correction into the camera a little each
+  // 120 Hz tick — continuous, instead of 30 Hz steps on snap arrival.
+  {
+    const pm = Math.abs(reconPending.x) + Math.abs(reconPending.y) + Math.abs(reconPending.z);
+    if (pm > 0.003) {
+      cam.x += -reconPending.x * RECON_APPLY_K;
+      cam.y += -reconPending.y * RECON_APPLY_K;
+      cam.z += -reconPending.z * RECON_APPLY_K;
+      reconPending.x *= 1 - RECON_APPLY_K;
+      reconPending.y *= 1 - RECON_APPLY_K;
+      reconPending.z *= 1 - RECON_APPLY_K;
+      reconCorrectionMs++;
+    }
+  }
+
   // Poll input state → usercmd each sim tick (120 Hz). Send at CMD_RATE.
-  // (land.mjs already has `keyboardState` + `gamepadState` that we mirror.)
+  // Mirrors EVERY input source that drives cam-doll: keyboard, gamepad, AND
+  // the on-screen mobile buttons. Mobile buttons used to feed only cam-doll
+  // (setMovement) — the server never heard them, so reconciliation dragged
+  // touch players back toward their last keyboard position. Rubber-banding.
   // pmove convention: fwd=+1 moves along facing (forward), right=+1 strafes right.
-  netInput.fwd   = (keyboardState.w || keyboardState.arrowup)    ?  1
-                  : (keyboardState.s || keyboardState.arrowdown) ? -1 : 0;
-  netInput.right = (keyboardState.d || keyboardState.arrowright) ?  1
-                  : (keyboardState.a || keyboardState.arrowleft) ? -1 : 0;
+  netInput.fwd   = (keyboardState.w || keyboardState.arrowup || mobileButtonStates.up)    ?  1
+                  : (keyboardState.s || keyboardState.arrowdown || mobileButtonStates.down) ? -1 : 0;
+  netInput.right = (keyboardState.d || keyboardState.arrowright || mobileButtonStates.right) ?  1
+                  : (keyboardState.a || keyboardState.arrowleft || mobileButtonStates.left) ? -1 : 0;
   // Gamepad left-stick: stick-up (gy<0) is forward, stick-right (gx>0) is strafe right.
   if (gamepadState.connected) {
     const gx = gamepadState.axes[0] || 0, gy = gamepadState.axes[1] || 0;
     if (Math.abs(gx) > 0.3) netInput.right = gx > 0 ?  1 : -1;
     if (Math.abs(gy) > 0.3) netInput.fwd   = gy > 0 ? -1 :  1;
   }
-  netInput.jumping  = !!keyboardState.space || !!gamepadState.buttons?.[0];
-  netInput.crouching = !!keyboardState.shift || !!gamepadState.buttons?.[1];
+  netInput.jumping  = !!keyboardState.space || !!gamepadState.buttons?.[0] || !!mobileButtonStates.jump;
+  netInput.crouching = !!keyboardState.shift || !!gamepadState.buttons?.[1] || !!mobileButtonStates.crouch;
 
   // Non-spectator: produce + send usercmds.
   enqueueCmd(cam);
@@ -597,9 +621,10 @@ function isGuestHandle(h) {
   return typeof h === "string" && (h.startsWith("guest_") || h.startsWith("swarm_"));
 }
 
-// Build a solid boxy humanoid mesh (head, torso, arms, legs) as a single
-// triangle Form so remote players read as bodies, not line drawings. The
-// origin sits at eye height so paintRemotes can place body.position at the
+// Build a solid boxy TORSO + HEAD mesh as a single triangle Form. Arms and
+// legs are separate per-frame forms (see buildLimb) so they can swing at
+// the shoulder/hip — a walk cycle instead of a stiff mannequin. The origin
+// sits at eye height so paintRemotes can place body.position at the
 // remote's eye coords without offset gymnastics. Face-side (+Z in body-local)
 // gets a darker visor tone so you can tell which way the player is looking.
 function buildRemoteBody(Form, colorRGB, watcher = false) {
@@ -667,28 +692,75 @@ function buildRemoteBody(Form, colorRGB, watcher = false) {
     south: visor, // +Z = face
   });
 
-  // Arms — thin boxes on either side of the torso.
-  pushBox(-0.50, -1.05, -0.12, -0.32, -0.40, 0.12, {
-    main: dark, top: main, bot: dark,
-  });
-  pushBox( 0.32, -1.05, -0.12,  0.50, -0.40, 0.12, {
-    main: dark, top: main, bot: dark,
-  });
-
-  // Legs — squarer boxes from hip to feet.
-  pushBox(-0.22, -2.00, -0.14, -0.04, -1.10, 0.14, {
-    main: dark, top: main, bot: [0, 0, 0, a],
-  });
-  pushBox( 0.04, -2.00, -0.14,  0.22, -1.10, 0.14, {
-    main: dark, top: main, bot: [0, 0, 0, a],
-  });
-
   const f = new Form(
     { type: "triangle", positions, colors },
     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
   );
   f.noFade = true;
   return f;
+}
+
+// Limb color tones from the player's handle color (matches the torso).
+function limbTones(colorRGB, watcher = false) {
+  const [R, G, B] = colorRGB;
+  const a = watcher ? 0.55 : 1.0;
+  const r = R / 255, g = G / 255, b = B / 255;
+  return {
+    main: [r, g, b, a],
+    dark: [r * 0.55, g * 0.55, b * 0.55, a],
+    boot: [0.12, 0.12, 0.16, a],
+  };
+}
+
+// 🦴 One swinging limb as a fresh per-frame Form. Form's Euler order is
+// X-outermost (T·Rx·Ry·Rz), so a swing in rotation[0] would pitch in WORLD
+// space, not body space. Instead the swing is baked into the vertices here
+// (rotate about X at the joint), and the caller sets only position + yaw.
+//   kind: "leg" | "arm"   side: -1 | 1   swing: radians (+ = forward)
+const LIMB_SPECS = {
+  leg: { jx: 0.13, jy: -1.10, w: 0.09, len: 0.90, d: 0.14, foot: true },
+  arm: { jx: 0.41, jy: -0.40, w: 0.09, len: 0.65, d: 0.12, foot: false },
+};
+function buildLimb(Form, kind, side, swing, tones) {
+  const s = LIMB_SPECS[kind];
+  const jx = s.jx * side, jy = s.jy;
+  const cs = Math.cos(swing), sn = Math.sin(swing);
+  // Rotate body-local (x, y, z) about the joint's X axis, then offset.
+  const place = (lx, ly, lz) => [jx + lx, jy + ly * cs - lz * sn, ly * sn + lz * cs, 1];
+  const positions = [], colors = [];
+  const quad = (A, B, C, D, c) => {
+    positions.push(A, B, C, A, C, D);
+    for (let i = 0; i < 6; i++) colors.push(c);
+  };
+  const box = (x0, y0, z0, x1, y1, z1, c, top) => {
+    const v = (x, y, z) => place(x, y, z);
+    quad(v(x0,y1,z0), v(x0,y1,z1), v(x1,y1,z1), v(x1,y1,z0), top ?? c);
+    quad(v(x0,y0,z0), v(x1,y0,z0), v(x1,y0,z1), v(x0,y0,z1), c);
+    quad(v(x0,y0,z0), v(x0,y1,z0), v(x1,y1,z0), v(x1,y0,z0), c);
+    quad(v(x1,y0,z1), v(x1,y1,z1), v(x0,y1,z1), v(x0,y0,z1), c);
+    quad(v(x1,y0,z0), v(x1,y1,z0), v(x1,y1,z1), v(x1,y0,z1), c);
+    quad(v(x0,y0,z1), v(x0,y1,z1), v(x0,y1,z0), v(x0,y0,z0), c);
+  };
+  box(-s.w, -s.len, -s.d, s.w, 0, s.d, tones.dark, tones.main);
+  if (s.foot) {
+    // 🦶 Foot — sticks forward (+Z) from the leg's end so feet read clearly.
+    box(-0.10, -s.len, s.d, 0.10, -s.len + 0.13, s.d + 0.24, tones.boot);
+  }
+  const f = new Form(
+    { type: "triangle", positions, colors },
+    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+  );
+  f.noFade = true;
+  return f;
+}
+
+// Walk-cycle pose for one avatar: returns the four limb swings (radians).
+// phase advances with distance traveled; amp eases with speed. Airborne →
+// a fixed scissor pose so jumps read as jumps.
+function limbSwings(phase, amp, onGround) {
+  if (!onGround) return { legL: 0.45, legR: -0.3, armL: -0.5, armR: 0.35 };
+  const sw = Math.sin(phase) * 0.7 * amp;
+  return { legL: sw, legR: -sw, armL: -sw * 0.8, armR: sw * 0.8 };
 }
 
 function handleHash(handle) {
@@ -724,9 +796,10 @@ function specColor(handle) {
   return hslToRgb(hue, 0.55, 0.72);
 }
 
-// Called from paint() once per frame.
-function paintRemotes(ink, form, Form) {
+// Called from paint() once per frame. dtMs = paint frame delta (for speed).
+function paintRemotes(ink, dtMs, Form) {
   const t = renderTimeNow();
+  const dtS = Math.max(1, dtMs || 16.7) / 1000;
   for (const [handle, o] of Object.entries(others)) {
     const sample = sampleOther(o, t);
     if (!sample) continue;
@@ -734,13 +807,41 @@ function paintRemotes(ink, form, Form) {
       const watcher = isGuestHandle(handle);
       const color = watcher ? specColor(handle) : handleColor(handle);
       o.body = buildRemoteBody(Form, color, watcher);
+      o.tones = limbTones(color, watcher);
+      o.walkPhase = (handleHash(handle) % 628) / 100; // desync strides
+      o.swingAmp = 0;
+      o.prevPos = null;
     }
+    // 🚶 Advance walk phase by ground distance covered since last frame.
+    if (o.prevPos) {
+      const d = Math.hypot(sample.x - o.prevPos.x, sample.z - o.prevPos.z);
+      o.walkPhase += d * 1.7;                       // rad per unit traveled
+      const spd = d / dtS;                          // u/s
+      const target = sample.onGround ? Math.min(1, spd / 5) : 0;
+      o.swingAmp += (target - o.swingAmp) * 0.15;
+    }
+    o.prevPos = { x: sample.x, z: sample.z };
+
     // Mirror local body positioning: Form.position uses (-x, y, -z).
     o.body.position[0] = -sample.x;
     o.body.position[1] = sample.y;
     o.body.position[2] = -sample.z;
     o.body.rotation[1] = sample.yaw;
     ink(255).form(o.body);
+
+    // 🦴 Limbs — fresh tiny forms each frame so they swing at the joints.
+    const sw = limbSwings(o.walkPhase, o.swingAmp, sample.onGround);
+    for (const [kind, side, swing] of [
+      ["leg", -1, sw.legL], ["leg", 1, sw.legR],
+      ["arm", -1, sw.armL], ["arm", 1, sw.armR],
+    ]) {
+      const limb = buildLimb(Form, kind, side, swing, o.tones);
+      limb.position[0] = -sample.x;
+      limb.position[1] = sample.y;
+      limb.position[2] = -sample.z;
+      limb.rotation[1] = sample.yaw;
+      ink(255).form(limb);
+    }
   }
 }
 
@@ -758,7 +859,10 @@ let shadowCrouch;  // dense inner dot + outer ring — crouched
 let plumbLine;     // vertical line from ground to the player's feet
 let bodyFeet;      // two foot wireframes, anchored to ground + yaw (1P only)
 let bodyArms;      // two arm wireframes, anchored to eye + yaw (1P only)
-let myBody;        // solid humanoid mesh (3P only — same shape as remotes)
+let myBody;        // solid torso+head mesh (3P only — same shape as remotes)
+let myTones;       // limb color tones for the local walk-cycle limbs
+let selfWalkPhase = 0;  // stride phase, advanced by distance in sim
+let selfSwingAmp = 0;   // eased swing amplitude (0..1)
 let platformEdge;  // bright outline at the ground's perimeter
 let obstacleForms = []; // solid pillar + wall meshes (one Form per shape)
 let obstacleEdges = []; // bright top-rim line forms paired with obstacleForms
@@ -807,7 +911,7 @@ function tryRespawn(system) {
   // like the player is "still falling" even though logical pos teleported.
   if (doll && zoomLevel > 0) {
     doll.setThirdPerson(false);
-    doll.setThirdPerson(true, ZOOM_DISTANCES[zoomLevel]);
+    doll.setThirdPerson(true, ZOOM_DISTANCES[zoomLevel], TP_CAM_HEIGHT);
   }
   return true;
 }
@@ -866,7 +970,9 @@ let perfSamplesSinceSwitch = 0;
 // further each click. More close-in steps for shoulder-camera views.
 // Middle-mouse still toggles between 1P and a default 3P.
 const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9, 12, 16, 24, 32];
-let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
+let zoomLevel = 5;           // default: third person, 3u back — whole body + feet
+const TP_CAM_HEIGHT = 0.6;   // camera rides lower than cam-doll's 1.5 default
+let defaultZoomApplied = false; // applyZoom once when the doll exists (sim)
 
 // 🎥 Player facing direction (decoupled from camera rotation)
 let playerFacing = 0; // Player body Y rotation (degrees), independent from camera
@@ -884,7 +990,7 @@ function applyZoom(doll) {
   if (!doll) return;
   const d = ZOOM_DISTANCES[zoomLevel];
   if (zoomLevel === 0) doll.setThirdPerson(false);
-  else doll.setThirdPerson(true, d);
+  else doll.setThirdPerson(true, d, TP_CAM_HEIGHT);
   // Drop any leftover orbit state when zoom changes. Otherwise a previous
   // right-drag's orbitAngle + orbitDistance keep the orbit branch (in sim)
   // displacing the camera around the player every frame, which reads as the
@@ -932,7 +1038,8 @@ let lastFrameTime = 0;
 // origin (even grids put the player on a 4-way corner junction, which makes
 // tile highlights look offset by half a tile).
 const GROUND_SIZE = LAND_SIZE;   // meadow half-size (lib/land-world.mjs)
-const GRID = 25;                 // odd → a centre tile under spawn
+const GRID = 17;                 // odd → a centre tile under spawn; kept coarse
+                                 // — the CPU rasterizer pays per triangle
 const GROUND_Y = LAND_CFG.groundY;
 const FOG_START_SQ = 18 * 18;
 const FOG_END_SQ = 34 * 34;   // never fully closes inside the island — a haze, not a wall
@@ -1010,13 +1117,10 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug, glaze }) {
+function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug }) {
   penLock();
   FormRef = Form;
   paintingRef = painting;
-
-  // ✨ Volumetric glaze post-effect (defaults to the `prompt` shader set).
-  glaze?.({ on: true });
 
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
@@ -1629,7 +1733,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
     const o = LAND_OBSTACLES[i];
     const baseColor = LAND_OBSTACLE_COLORS[i] ?? [0.4, 0.4, 0.45, 1.0];
     if (o.type === "cylinder") {
-      const segs = 14;
+      const segs = 10;
       const positions = [];
       const colors = [];
       const yLo = o.yMin, yHi = o.yMax;
@@ -1685,7 +1789,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       if (o.tree) {
         // 🍃 Canopy — visual only (no collision): a low-poly leaf cone with
         // an underside skirt back to the trunk so it reads from below.
-        const cSegs = 10;
+        const cSegs = 8;
         const baseR = Math.max(1.8, o.r * 4.5);
         const baseY = yHi - 0.6;
         const tipY = yHi + 2.2;
@@ -1796,7 +1900,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       [0.85, 0.6, 0.85, 1.0],  // violet
       [0.95, 0.65, 0.55, 1.0], // poppy
     ];
-    const FLOWER_COUNT = 140;
+    const FLOWER_COUNT = 90;
     const stem = [0.2, 0.4, 0.16, 1.0];
     for (let i = 0; i < FLOWER_COUNT; i++) {
       const h1 = Math.sin(i * 127.1 + 311.7) * 43758.5453;
@@ -1966,6 +2070,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   // (1P uses the bodyFeet/bodyArms wireframe helpers instead).
   const myColor = isGuestHandle(myHandle) ? specColor(myHandle) : handleColor(myHandle);
   myBody = buildRemoteBody(Form, myColor, isGuestHandle(myHandle));
+  myTones = limbTones(myColor, isGuestHandle(myHandle));
 }
 
 function sim({ system, pen, screen }) {
@@ -1976,6 +2081,13 @@ function sim({ system, pen, screen }) {
   // Advance the sim clock first so any logic below that wants elapsed
   // time sees the fresh value.
   simTime += 1 / SIM_HZ;
+
+  // 🎥 Default to third person once the doll exists (the meadow is about
+  // seeing yourself stroll, feet and all).
+  if (!defaultZoomApplied) {
+    defaultZoomApplied = true;
+    applyZoom(doll);
+  }
 
   // 🌾 Multiplayer: compose usercmd, batch & flush at CMD_RATE.
   netSim(cam);
@@ -2036,6 +2148,13 @@ function sim({ system, pen, screen }) {
 
   // Walk cycle phase advances with horizontal speed; fallback to slow drift.
   walkPhase += Math.max(0.002, speedSmoothed) * 8;
+  // 🦴 Self limb stride: phase by distance, amplitude eased by speed.
+  selfWalkPhase += speedSmoothed * 1.7;
+  {
+    const spd = speedSmoothed * SIM_HZ; // u/s
+    const target = phys?.onGround ? Math.min(1, spd / 5) : 0;
+    selfSwingAmp += (target - selfSwingAmp) * 0.05;
+  }
 
   // Player world position — cam stores negated world coords (see Camera
   // #transform). cam.y is the one exception and uses opposite inversion.
@@ -2370,7 +2489,7 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   // top so silhouettes read even when fog dims the body color.
   for (const f of obstacleForms) ink(255).form(f);
   for (const f of obstacleEdges) ink(255).form(f);
-  if (flowerField) ink(255).form(flowerField);
+  if (flowerField && !perfLowMode) ink(255).form(flowerField);
   if (hiPos.length > 0 && FormRef) {
     const hi = new FormRef(
       { type: "triangle", positions: hiPos, colors: hiCol },
@@ -2400,6 +2519,19 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     // other tabs see is what you see of yourself.
     if (zoomLevel > 0 && myBody) {
       ink(255).form(myBody);
+      // 🦴 Local walk-cycle limbs (same system as remotes).
+      const sw = limbSwings(selfWalkPhase, selfSwingAmp, phys?.onGround ?? true);
+      for (const [kind, side, swing] of [
+        ["leg", -1, sw.legL], ["leg", 1, sw.legR],
+        ["arm", -1, sw.armL], ["arm", 1, sw.armR],
+      ]) {
+        const limb = buildLimb(FormRef, kind, side, swing, myTones);
+        limb.position[0] = myBody.position[0];
+        limb.position[1] = myBody.position[1];
+        limb.position[2] = myBody.position[2];
+        limb.rotation[1] = myBody.rotation[1];
+        ink(255).form(limb);
+      }
     } else if (!perfLowMode) {
       if (bodyFeet) ink(255).form(bodyFeet);
       if (bodyArms) ink(255).form(bodyArms);
@@ -2407,7 +2539,7 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   }
 
   // 🌾 Remote players (interpolated from server snapshots, rendered ~100ms behind).
-  paintRemotes(ink, undefined, FormRef);
+  paintRemotes(ink, dt, FormRef);
 
   // --- HUD (top-right) ---
   // Layout, top to bottom:
