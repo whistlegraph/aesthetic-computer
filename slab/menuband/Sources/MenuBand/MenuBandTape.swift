@@ -14,6 +14,10 @@ extension Notification.Name {
     /// Fired when the user flips the right-hand percussion split in the
     /// About window. AppDelegate re-applies the split's side effects.
     static let menuBandPercussionSplitChanged = Notification.Name("MenuBandPercussionSplitChanged")
+    /// Fired when the user flips "Use AC OS MIDI" in the About window.
+    /// AppDelegate forwards the new flag to the synth so melodic notes
+    /// route through the native gm_synth voices (or back to MIDISynth).
+    static let menuBandUseACMIDIChanged = Notification.Name("MenuBandUseACMIDIChanged")
 }
 
 /// 90-second analog-style tape with **stem separation** baked in.

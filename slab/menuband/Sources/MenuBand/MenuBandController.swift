@@ -685,6 +685,15 @@ final class MenuBandController {
         applyPercussionSideEffects()
     }
 
+    /// Forward the About-window "Use AC OS MIDI" flag to the synth so
+    /// melodic notes route through (or away from) the native gm_synth
+    /// voices. Re-reads UserDefaults so the toggle is the source of truth.
+    func reloadUseACMIDI() {
+        let on = UserDefaults.standard.bool(
+            forKey: MenuBandSynth.useACMIDIDefaultsKey)
+        synth.setUseACMIDI(on)
+    }
+
     /// Audible confirmation for a percussion toggle — a kick when armed, a
     /// closed-hat tick when disarmed — so the gesture lands by ear. `pan`
     /// places the cue on the side that toggled (32 left, 96 right, 64 both).
@@ -995,6 +1004,9 @@ final class MenuBandController {
             // pitch-bend) — route the signed bend so the live stream
             // slides in pitch with everything else.
             synth.setRadioPitchBend(amount: amount)
+            // AC GM synth re-derives increments from the live frequency, so
+            // it ignores MIDI pitch-bend too — route the signed amount.
+            synth.setGMPitchBend(amount: amount)
         }
         // Speech easter-egg voice slides too — applied regardless of
         // midiMode since it always sounds locally through the fx bus.

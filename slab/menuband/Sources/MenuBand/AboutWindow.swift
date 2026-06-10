@@ -330,6 +330,39 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // default off and their live shortcuts stay in place, so the
         // toggles can return to About after release.
 
+        // "Use AC OS MIDI" — route melodic GM notes through the native
+        // Aesthetic Computer gm_synth voices (modal piano, FM Rhodes,
+        // Karplus pluck, modal bank, synth bass) instead of the system
+        // soundfont. Programs gm_synth doesn't implement fall back to
+        // MIDISynth, so the grid always sounds. Off by default.
+        stack.setCustomSpacing(14, after: playersLink)
+        let acMIDIRow = NSStackView()
+        acMIDIRow.orientation = .vertical
+        acMIDIRow.alignment = .leading
+        acMIDIRow.spacing = 1
+        acMIDIRow.translatesAutoresizingMaskIntoConstraints = false
+        let acMIDIToggle = NSButton(
+            checkboxWithTitle: "Use AC OS MIDI",
+            target: self,
+            action: #selector(toggleUseACMIDI(_:)))
+        acMIDIToggle.state = UserDefaults.standard
+            .bool(forKey: MenuBandSynth.useACMIDIDefaultsKey) ? .on : .off
+        acMIDIToggle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        acMIDIToggle.translatesAutoresizingMaskIntoConstraints = false
+        let acMIDISub = NSTextField(labelWithString:
+            "synthesize GM instruments with the Aesthetic Computer engine "
+            + "instead of the system soundfont")
+        acMIDISub.font = NSFont.systemFont(ofSize: 9, weight: .regular)
+        acMIDISub.textColor = .secondaryLabelColor
+        acMIDISub.lineBreakMode = .byWordWrapping
+        acMIDISub.maximumNumberOfLines = 2
+        acMIDISub.translatesAutoresizingMaskIntoConstraints = false
+        acMIDIRow.addArrangedSubview(acMIDIToggle)
+        acMIDIRow.addArrangedSubview(acMIDISub)
+        stack.addArrangedSubview(acMIDIRow)
+        acMIDIRow.widthAnchor.constraint(
+            equalTo: stack.widthAnchor, constant: -56).isActive = true
+
         // Crash-report summary — single orange ⚠️ button reading
         // "Menu Band crashed N times". Opens the scroll viewer where
         // the user can review the .ips contents and click Send to
@@ -553,6 +586,16 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             on, forKey: KeyboardIconRenderer.percussionRightDefaultsKey)
         NotificationCenter.default.post(
             name: .menuBandPercussionSplitChanged, object: nil)
+    }
+
+    /// Persist the "Use AC OS MIDI" flag and notify the runtime so the
+    /// synth flips melodic routing between the native gm_synth voices and
+    /// the system soundfont. AppDelegate forwards the new value to the synth.
+    @objc private func toggleUseACMIDI(_ sender: NSButton) {
+        let on = sender.state == .on
+        UserDefaults.standard.set(on, forKey: MenuBandSynth.useACMIDIDefaultsKey)
+        NotificationCenter.default.post(
+            name: .menuBandUseACMIDIChanged, object: nil)
     }
 
     /// Open a scroll panel containing the .ips text for every pending

@@ -14,8 +14,21 @@ let package = Package(
             name: "MenuBandLauncher",
             path: "Sources/MenuBandLauncher"
         ),
+        // The Aesthetic Computer GM synthesis core, shared verbatim from
+        // fedac/native/src/gm_synth.{c,h}. `Sources/CGMSynth/gm_synth.c`
+        // and `include/gm_synth.h` are SYMLINKS to those real files
+        // (single source of truth — no divergent copy), so a Menu Band
+        // build always compiles the same DSP that AC OS runs. The public
+        // umbrella header + module map live under `include/`, letting the
+        // Swift side `import CGMSynth`.
+        .target(
+            name: "CGMSynth",
+            path: "Sources/CGMSynth",
+            publicHeadersPath: "include"
+        ),
         .executableTarget(
             name: "MenuBand",
+            dependencies: ["CGMSynth"],
             path: "Sources/MenuBand",
             exclude: [
                 // Docs that live alongside source modules for discoverability —

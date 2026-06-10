@@ -408,6 +408,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .menuBandPercussionSplitChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleUseACMIDIToggled(_:)),
+            name: .menuBandUseACMIDIChanged,
+            object: nil
+        )
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             debugLog("heartbeat")
         }
@@ -2812,6 +2818,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handlePercussionSplitToggled(_ note: Notification) {
         menuBand.reloadPercussionSplit()
+    }
+
+    @objc private func handleUseACMIDIToggled(_ note: Notification) {
+        menuBand.reloadUseACMIDI()
     }
 
     @objc private func handleShowKeymapNotification(_ note: Notification) {

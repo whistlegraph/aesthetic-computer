@@ -1,0 +1,4 @@
+module CGMSynth {
+    header "gm_synth.h"
+    export *
+}
