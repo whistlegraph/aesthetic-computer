@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// arena-probe — a text-only spectator for the arena game.
+// arena-probe — a text-only spectator for any WorldManager world (arena, land).
 //
 // Connects to a session server over WebSocket, joins as a "probe", receives
 // snapshots, and reports latency / jitter / peer activity. Use to smoke-test
 // connectivity end-to-end (dev + prod), measure wire timing after a deploy,
-// or just watch the arena from a terminal.
+// or just watch a world from a terminal.
 //
 // Usage:
 //   node session-server/arena-probe.mjs                  # defaults to prod
@@ -14,6 +14,7 @@
 //
 //   Flags:
 //     --url <ws-url>     default: wss://session.aesthetic.computer
+//     --world <name>     default: arena (also: land)
 //     --handle <name>    default: probe_<random4>
 //     --ping <ms>        default: 2000 (ping interval)
 //     --status <ms>      default: 1000 (status line interval)
@@ -34,6 +35,7 @@ const flag = (name, fallback) => {
 const has = (name) => argv.indexOf("--" + name) !== -1;
 
 const URL = flag("url", process.env.AC_PROBE_URL || "wss://session.aesthetic.computer");
+const WORLD = flag("world", process.env.AC_PROBE_WORLD || "arena");
 const HANDLE = flag("handle", "probe_" + Math.random().toString(36).slice(2, 6));
 const PING_MS = +flag("ping", 2000);
 const STATUS_MS = +flag("status", 1000);
@@ -78,13 +80,14 @@ function log(...args) { if (!QUIET) console.log(...args); }
 // --- Connect + wire up ---
 
 function connect() {
-  ws = new WebSocket(URL);
+  // Local dev session servers run TLS with a self-signed cert — accept it.
+  ws = new WebSocket(URL, { rejectUnauthorized: false });
 
   ws.on("open", () => {
     connectedAt = Date.now();
     openedMs = connectedAt;
     log(`\n🛰️  connected to ${URL} as "${HANDLE}"`);
-    send("arena:hello", { handle: HANDLE, probe: true });
+    send(`${WORLD}:hello`, { handle: HANDLE, probe: true });
     // Start ping loop
     tickPing();
   });
@@ -96,13 +99,13 @@ function connect() {
     const body = typeof msg.content === "string" ? safeParse(msg.content) : msg.content;
     if (!t || !body) return;
 
-    if (t === "arena:welcome") {
+    if (t === `${WORLD}:welcome`) {
       stats.welcomed = true;
       stats.serverCfg = body.cfg;
-      log(`🏟️  welcome: you=${body.you} probe=${!!body.probe} roster=[${(body.roster||[]).join(", ")}] tick=${body.tick} serverMs=${body.serverMs}`);
+      log(`🛬 welcome: you=${body.you} probe=${!!body.probe} roster=[${(body.roster||[]).join(", ")}] tick=${body.tick} serverMs=${body.serverMs}`);
       return;
     }
-    if (t === "arena:snap") {
+    if (t === `${WORLD}:snap`) {
       const now = Date.now();
       stats.snapsRx++;
       if (stats.lastSnapAt) ring(stats.snapIntervals, now - stats.lastSnapAt);
@@ -111,19 +114,19 @@ function connect() {
       stats.players = body.players || [];
       return;
     }
-    if (t === "arena:join") {
+    if (t === `${WORLD}:join`) {
       const ev = `join ${body.handle}`;
       ring(stats.events, ev, 8);
       log(`🟢 ${ev}`);
       return;
     }
-    if (t === "arena:leave") {
+    if (t === `${WORLD}:leave`) {
       const ev = `leave ${body.handle}`;
       ring(stats.events, ev, 8);
       log(`🔴 ${ev}`);
       return;
     }
-    if (t === "arena:pong") {
+    if (t === `${WORLD}:pong`) {
       const rtt = Date.now() - body.ts;
       ring(stats.pingRttSamples, rtt, 20);
       return;
@@ -151,7 +154,7 @@ function tickPing() {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const ts = Date.now();
     stats.lastPingSentAt = ts;
-    send("arena:ping", { handle: HANDLE, ts });
+    send(`${WORLD}:ping`, { handle: HANDLE, ts });
   }, PING_MS);
 }
 
@@ -184,12 +187,12 @@ setInterval(() => {
 
 process.on("SIGINT", () => {
   console.log("\n👋 bye");
-  try { send("arena:bye", { handle: HANDLE }); } catch {}
+  try { send(`${WORLD}:bye`, { handle: HANDLE }); } catch {}
   try { ws?.close(); } catch {}
   process.exit(0);
 });
 
 // --- Go ---
 
-log(`🏟️  arena-probe → ${URL}`);
+log(`🛰️  world-probe [${WORLD}] → ${URL}`);
 connect();

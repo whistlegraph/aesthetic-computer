@@ -172,13 +172,20 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 
 // 🎯 Duel Manager — server-authoritative game for dumduel piece
 const duelManager = new DuelManager();
-// 🏟️  Arena Manager — Q3-style server-authoritative multiplayer for arena piece
-const arenaManager = new ArenaManager();
+// 🌐 World Managers — Q3-style server-authoritative multiplayer, one
+// instance per 3D world. Wire protocol is shared; only the event prefix
+// differs (`arena:*`, `land:*`). Routing below is generic over this map —
+// adding a world is one line here plus a cfg in lib/<name>-world.mjs.
+const worldManagers = {
+  arena: new WorldManager({ prefix: "arena", cfg: ARENA_CFG, spawns: ARENA_SPAWNS, icon: "🏟️" }),
+  land: new WorldManager({ prefix: "land", cfg: LAND_CFG, spawns: LAND_SPAWNS, icon: "🌾" }),
+};
 
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 import { DuelManager } from "./duel-manager.mjs"; // Server-authoritative duel game.
-import { ArenaManager } from "./arena-manager.mjs"; // Server-authoritative arena game.
+import { WorldManager, ARENA_CFG, ARENA_SPAWNS } from "./world-manager.mjs"; // Server-authoritative 3D worlds.
+import { LAND_CFG, LAND_SPAWNS } from "../system/public/aesthetic.computer/lib/land-world.mjs";
 
 // *** AC Machines — remote device monitoring ***
 // Devices connect via /machines?role=device&machineId=X&token=Y
@@ -2921,34 +2928,36 @@ wss.on("connection", async (ws, req) => {
         return;
       }
 
-      // 🏟️ Arena messages — routed to ArenaManager (server-authoritative)
-      if (msg.type === "arena:hello") {
-        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
-        if (parsed?.handle) {
-          // Ensure clients[id].handle is set so the WS-close handler can
-          // look it up and call playerLeave. Without this, probes + any
-          // client that hasn't sent a chat login message would leak forever.
-          if (!clients[id]) clients[id] = {};
-          clients[id].handle = parsed.handle;
-          arenaManager.playerJoin(parsed.handle, id, { probe: !!parsed.probe });
+      // 🌐 World messages (arena:*, land:*) — routed to the matching
+      // WorldManager. Generic over the worldManagers map so new worlds
+      // don't need new routing code. Consumes ALL messages with a known
+      // world prefix (unknown verbs are dropped, not relayed to everyone).
+      {
+        const sep = msg.type.indexOf(":");
+        const wm = sep > 0 ? worldManagers[msg.type.slice(0, sep)] : undefined;
+        if (wm) {
+          const verb = msg.type.slice(sep + 1);
+          let parsed;
+          try {
+            parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+          } catch { return; }
+          if (verb === "hello" && parsed?.handle) {
+            // Ensure clients[id].handle is set so the WS-close handler can
+            // look it up and call playerLeave. Without this, probes + any
+            // client that hasn't sent a chat login message would leak forever.
+            if (!clients[id]) clients[id] = {};
+            clients[id].handle = parsed.handle;
+            wm.playerJoin(parsed.handle, id, { probe: !!parsed.probe });
+          } else if (verb === "bye" && parsed?.handle) {
+            wm.playerLeave(parsed.handle);
+          } else if (verb === "cmd" && parsed?.handle) {
+            // WS fallback path; the fast path is the UDP channel.on("<world>:cmd", ...) handler.
+            wm.receiveCmd(parsed.handle, parsed);
+          } else if (verb === "ping" && parsed?.handle) {
+            wm.handlePing(parsed.handle, parsed.ts, id);
+          }
+          return;
         }
-        return;
-      }
-      if (msg.type === "arena:bye") {
-        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
-        if (parsed?.handle) arenaManager.playerLeave(parsed.handle);
-        return;
-      }
-      if (msg.type === "arena:cmd") {
-        // WS fallback path; the fast path is the UDP channel.on("arena:cmd", ...) handler.
-        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
-        if (parsed?.handle) arenaManager.receiveCmd(parsed.handle, parsed);
-        return;
-      }
-      if (msg.type === "arena:ping") {
-        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
-        if (parsed?.handle) arenaManager.handlePing(parsed.handle, parsed.ts, id);
-        return;
       }
 
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
@@ -2960,11 +2969,13 @@ wss.on("connection", async (ws, req) => {
     log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
     const departingHandle = normalizeProfileHandle(clients?.[id]?.handle);
     if (departingHandle) duelManager.playerLeave(departingHandle);
-    // Arena uses the raw handle (matches arena:hello), not the @-normalized form.
-    // Pass the closing wsId so a quick reload-race doesn't delete the
+    // Worlds use the raw handle (matches <world>:hello), not the @-normalized
+    // form. Pass the closing wsId so a quick reload-race doesn't delete the
     // freshly-rebound player (the new hello will have set a different wsId).
     const rawDepartingHandle = clients?.[id]?.handle;
-    if (rawDepartingHandle) arenaManager.playerLeave(rawDepartingHandle, id);
+    if (rawDepartingHandle) {
+      for (const wm of Object.values(worldManagers)) wm.playerLeave(rawDepartingHandle, id);
+    }
     removeNotepatMidiSubscriber(id);
 
     // Remove from VSCode clients if present
@@ -3154,31 +3165,32 @@ duelManager.setSendFunctions({
   },
 });
 
-// 🏟️ Wire ArenaManager send functions (same shape as DuelManager; separate source tag).
-arenaManager.setSendFunctions({
-  sendUDP: (channelId, event, data) => {
-    const entry = udpChannels[channelId];
-    if (entry?.channel?.webrtcConnection?.state === "open") {
-      try { entry.channel.emit(event, data); return true; } catch {}
-    }
-    return false;
-  },
-  sendWS: (wsId, type, content) => {
-    connections[wsId]?.send(pack(type, JSON.stringify(content), "arena"));
-  },
-  broadcastWS: (type, content) => {
-    everyone(pack(type, JSON.stringify(content), "arena"));
-  },
-  resolveUdpForHandle: (handle) => {
-    for (const [id, client] of Object.entries(clients)) {
-      if (client.handle === handle && udpChannels[id]) return id;
-    }
-    return null;
-  },
-  // Used to distinguish reconnect (old ws dead → silent refresh) from a
-  // real takeover (old ws still alive → demote to spectator).
-  isLive: (wsId) => connections[wsId]?.readyState === WebSocket.OPEN,
-});
+// 🌐 Wire WorldManager send functions (same shape as DuelManager; source tag
+// = the world prefix). Lifecycle broadcasts are member-scoped inside the
+// manager, so no broadcastWS/everyone hook here — that was the lobby leak.
+for (const wm of Object.values(worldManagers)) {
+  wm.setSendFunctions({
+    sendUDP: (channelId, event, data) => {
+      const entry = udpChannels[channelId];
+      if (entry?.channel?.webrtcConnection?.state === "open") {
+        try { entry.channel.emit(event, data); return true; } catch {}
+      }
+      return false;
+    },
+    sendWS: (wsId, type, content) => {
+      connections[wsId]?.send(pack(type, JSON.stringify(content), wm.prefix));
+    },
+    resolveUdpForHandle: (handle) => {
+      for (const [id, client] of Object.entries(clients)) {
+        if (client.handle === handle && udpChannels[id]) return id;
+      }
+      return null;
+    },
+    // Used to distinguish reconnect (old ws dead → silent refresh) from a
+    // real takeover (old ws still alive → demote to spectator).
+    isLive: (wsId) => connections[wsId]?.readyState === WebSocket.OPEN,
+  });
+}
 // #endregion
 
 // *** Status WebSocket Stream ***
@@ -3633,8 +3645,10 @@ io.onConnection((channel) => {
         log(`✅ UDP ${channel.id} handle: "${identity.handle}"`);
         // Resolve UDP channel for duel if this handle is in a duel
         duelManager.resolveUdpChannel(identity.handle, channel.id);
-        // Resolve UDP channel for arena if this handle is in the arena
-        arenaManager.resolveUdpChannel(identity.handle, channel.id);
+        // Resolve UDP channel for any world this handle is in
+        for (const wm of Object.values(worldManagers)) {
+          wm.resolveUdpChannel(identity.handle, channel.id);
+        }
       }
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
@@ -3832,21 +3846,24 @@ io.onConnection((channel) => {
     }
   });
 
-  // 🏟️ Arena usercmd over UDP (fast path; WS is the fallback)
-  channel.on("arena:cmd", (data) => {
-    if (channel.webrtcConnection.state !== "open") return;
-    try {
-      const parsed = typeof data === "string" ? JSON.parse(data) : data;
-      const handle = clients[channel.id]?.handle || parsed.handle;
-      if (!handle) return;
-      arenaManager.receiveCmd(handle, parsed);
-      if (!clients[channel.id]?.handle && parsed.handle) {
-        arenaManager.resolveUdpChannel(parsed.handle, channel.id);
+  // 🌐 World usercmds over UDP (fast path; WS is the fallback)
+  for (const wm of Object.values(worldManagers)) {
+    channel.on(`${wm.prefix}:cmd`, (data) => {
+      if (channel.webrtcConnection.state !== "open") return;
+      try {
+        const parsed = typeof data === "string" ? JSON.parse(data) : data;
+        const handle = clients[channel.id]?.handle || parsed.handle;
+        if (!handle) return;
+        wm.receiveCmd(handle, parsed);
+        // Re-resolve on every UDP cmd: a working client→server channel is
+        // the freshest promotion signal. The manager itself blocks
+        // re-promotion while its stall watchdog has demoted this player.
+        wm.resolveUdpChannel(handle, channel.id);
+      } catch (err) {
+        console.warn(`${wm.prefix}:cmd error:`, err);
       }
-    } catch (err) {
-      console.warn("arena:cmd error:", err);
-    }
-  });
+    });
+  }
 
   // 🎚️ Slide mode: real-time code value updates via UDP (lowest latency)
   channel.on("slide:code", (data) => {

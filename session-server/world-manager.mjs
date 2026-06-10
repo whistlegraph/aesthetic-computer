@@ -1,17 +1,18 @@
-// Arena Manager, 2026.04.20
-// Server-authoritative state for arena.mjs. Quake 3-inspired:
+// World Manager, 2026.06.09 (né Arena Manager, 2026.04.20)
+// Server-authoritative state for one 3D world (arena, land, ...). Q3-inspired:
 //   - fixed 60 Hz sim tick
 //   - clients send usercmd packets over UDP (geckos.io)
 //   - server broadcasts per-client snapshots at 30 Hz
-//   - per-client snapshot ring enables future delta compression (M9)
-//   - reliable lifecycle events (join/leave/kill/chat/probe) ride WS
+//   - per-client snapshot ring enables delta compression
+//   - reliable lifecycle events (join/leave/probe) ride WS
 //
-// Starts simple: full snapshots (no delta yet), no lag compensation, no
-// command backup decode. Those are later milestones — the wire formats
-// already carry the fields (messageNum, deltaNum, ackCmdSeq) so turning
-// them on is additive.
+// One instance per world. The wire protocol is identical across worlds;
+// only the event prefix differs (`arena:snap`, `land:snap`, ...). Lifecycle
+// broadcasts go to world MEMBERS only — never `everyone()` — so a busy
+// arena doesn't spray join/leave noise at chat clients (the old lobby
+// model's main leak).
 
-import { newState, pmove, unpackCmd, DEFAULT_CFG, BTN } from "../system/public/aesthetic.computer/lib/pmove.mjs";
+import { newState, pmove, unpackCmd, DEFAULT_CFG } from "../system/public/aesthetic.computer/lib/pmove.mjs";
 import { ARENA_OBSTACLES, ARENA_PHYSICS } from "../system/public/aesthetic.computer/lib/arena-world.mjs";
 
 const PLAYER_FIELDS = ["h","x","y","z","vx","vy","vz","yaw","pitch","c","g","a"];
@@ -23,7 +24,8 @@ const SNAP_RING = 32;             // per-client snapshot history depth
 const POS_HISTORY_MS = 500;       // rolling pos history for lag comp
 const STALE_TIMEOUT_MS = 30_000;  // evict players idle this long
 
-// Default arena world config — must match disks/arena.mjs.
+// Arena world config — must match disks/arena.mjs. (Land's cfg lives in
+// lib/land-world.mjs and is shared with the client — the better pattern.)
 export const ARENA_CFG = Object.freeze({
   ...DEFAULT_CFG,
   runSpeed: 10,
@@ -47,13 +49,18 @@ export const ARENA_CFG = Object.freeze({
 });
 
 // Spawn ring — spread players around the arena.
-const SPAWNS = [
+export const ARENA_SPAWNS = Object.freeze([
   { x:  6, z:  0 }, { x: -6, z:  0 }, { x:  0, z:  6 }, { x:  0, z: -6 },
   { x:  5, z:  5 }, { x: -5, z: -5 }, { x:  5, z: -5 }, { x: -5, z:  5 },
-];
+]);
 
-export class ArenaManager {
-  constructor() {
+export class WorldManager {
+  constructor({ prefix, cfg, spawns, icon = "🌐" } = {}) {
+    this.prefix = prefix;                            // "arena", "land", ...
+    this.cfg = Object.freeze({ ...DEFAULT_CFG, ...cfg });
+    this.spawns = spawns;
+    this.icon = icon;
+
     this.players = new Map();  // handle -> PlayerRecord
     this.probes = new Map();   // handle -> { wsId } — text-only spectators
     this.tick = 0;
@@ -63,22 +70,41 @@ export class ArenaManager {
     // Transport callbacks (set by session.mjs)
     this.sendUDP = null;        // (channelId, event, data) -> bool
     this.sendWS = null;         // (wsId, type, content)
-    this.broadcastWS = null;    // (type, content)
     this.resolveUdpForHandle = null; // (handle) -> channelId|null
     this.isLive = null;         // (wsId) -> bool; used to tell reconnect
                                 //   (old ws dead) apart from a genuine
                                 //   takeover (old ws still alive).
   }
 
-  setSendFunctions({ sendUDP, sendWS, broadcastWS, resolveUdpForHandle, isLive }) {
+  ev(name) { return `${this.prefix}:${name}`; }
+  tag(msg) { return `${this.icon}  ${this.prefix} ${msg}`; }
+
+  setSendFunctions({ sendUDP, sendWS, resolveUdpForHandle, isLive }) {
     this.sendUDP = sendUDP;
     this.sendWS = sendWS;
-    this.broadcastWS = broadcastWS;
     this.resolveUdpForHandle = resolveUdpForHandle;
     this.isLive = isLive;
   }
 
   now() { return Date.now() - this.startMs; }
+
+  // World-scoped broadcast: every member wsId (players + probes), no one
+  // else. This replaces the old `everyone()` broadcastWS, which leaked
+  // join/leave events to every client on the session server.
+  broadcastMembers(type, content) {
+    if (!this.sendWS) return;
+    const sent = new Set();
+    for (const rec of this.players.values()) {
+      if (rec.wsId == null || sent.has(rec.wsId)) continue;
+      sent.add(rec.wsId);
+      this.sendWS(rec.wsId, type, content);
+    }
+    for (const p of this.probes.values()) {
+      if (p.wsId == null || sent.has(p.wsId)) continue;
+      sent.add(p.wsId);
+      this.sendWS(p.wsId, type, content);
+    }
+  }
 
   // -- Lifecycle (WS-reliable) --
 
@@ -88,15 +114,15 @@ export class ArenaManager {
     // Text-only spectator / probe: no player body, just receive snaps.
     if (opts.probe) {
       this.probes.set(handle, { wsId });
-      this.sendWS?.(wsId, "arena:welcome", {
+      this.sendWS?.(wsId, this.ev("welcome"), {
         you: handle,
         probe: true,
-        cfg: ARENA_CFG,
+        cfg: this.cfg,
         serverMs: this.now(),
         tick: this.tick,
         roster: [...this.players.keys()],
       });
-      console.log(`🏟️  probe joined: ${handle} (${this.probes.size} probes)`);
+      console.log(this.tag(`probe joined: ${handle} (${this.probes.size} probes)`));
       this.ensureTick();
       return;
     }
@@ -119,11 +145,11 @@ export class ArenaManager {
         // needed, just refresh bookkeeping silently.
         const oldAlive = this.isLive ? !!this.isLive(oldWsId) : true;
         if (oldAlive) {
-          console.log(`🏟️  takeover: ${handle} (old wsId=${oldWsId} → new ${wsId})`);
-          this.sendWS?.(oldWsId, "arena:takeover", { handle, by: wsId });
+          console.log(this.tag(`takeover: ${handle} (old wsId=${oldWsId} → new ${wsId})`));
+          this.sendWS?.(oldWsId, this.ev("takeover"), { handle, by: wsId });
           this.probes.set(`${handle}#spec${oldWsId}`, { wsId: oldWsId });
         } else {
-          console.log(`🏟️  reconnect: ${handle} (old wsId=${oldWsId} dead → new ${wsId})`);
+          console.log(this.tag(`reconnect: ${handle} (old wsId=${oldWsId} dead → new ${wsId})`));
         }
       }
       rec.wsId = wsId;
@@ -135,12 +161,12 @@ export class ArenaManager {
       rec.snapHistory.fill(null);
       rec.lastSeenMs = this.now();
     } else {
-      const spawn = SPAWNS[this.players.size % SPAWNS.length];
+      const spawn = this.spawns[this.players.size % this.spawns.length];
       rec = {
         handle,
         wsId,
         udpChannelId: this.resolveUdpForHandle?.(handle) ?? null,
-        state: newState({ x: spawn.x, z: spawn.z, cfg: ARENA_CFG }),
+        state: newState({ x: spawn.x, z: spawn.z, cfg: this.cfg }),
         lastCmdMs: this.now(),         // for dt computation between cmds
         lastCmdSeq: 0,                 // highest client cmd seq processed
         snapHistory: new Array(SNAP_RING).fill(null),
@@ -152,18 +178,18 @@ export class ArenaManager {
       this.players.set(handle, rec);
     }
 
-    this.sendWS?.(wsId, "arena:welcome", {
+    this.sendWS?.(wsId, this.ev("welcome"), {
       you: handle,
       probe: false,
-      cfg: ARENA_CFG,
+      cfg: this.cfg,
       serverMs: this.now(),
       tick: this.tick,
       initialState: rec.state,
       roster: [...this.players.keys()],
     });
 
-    this.broadcastWS?.("arena:join", { handle });
-    console.log(`🏟️  joined: ${handle} (${this.players.size} players)`);
+    this.broadcastMembers(this.ev("join"), { handle });
+    console.log(this.tag(`joined: ${handle} (${this.players.size} players)`));
     this.ensureTick();
   }
 
@@ -188,7 +214,7 @@ export class ArenaManager {
     }
 
     if (this.probes.delete(handle)) {
-      console.log(`🏟️  probe left: ${handle} (${this.probes.size} probes)`);
+      console.log(this.tag(`probe left: ${handle} (${this.probes.size} probes)`));
       this.maybeStopTick();
       return;
     }
@@ -196,18 +222,21 @@ export class ArenaManager {
     if (!rec) { this.maybeStopTick(); return; }
     if (onlyIfWsId !== undefined && rec.wsId !== onlyIfWsId) {
       // Stale leave (reload race OR this was a spectator tab for a takeover).
-      console.log(`🏟️  stale leave for ${handle} (wsId=${onlyIfWsId} ≠ active ${rec.wsId}) — ignored`);
+      console.log(this.tag(`stale leave for ${handle} (wsId=${onlyIfWsId} ≠ active ${rec.wsId}) — ignored`));
       return;
     }
     this.players.delete(handle);
-    this.broadcastWS?.("arena:leave", { handle });
-    console.log(`🏟️  left: ${handle} (${this.players.size} players)`);
+    this.broadcastMembers(this.ev("leave"), { handle });
+    console.log(this.tag(`left: ${handle} (${this.players.size} players)`));
     this.maybeStopTick();
   }
 
   resolveUdpChannel(handle, channelId) {
     const rec = this.players.get(handle);
-    if (rec) rec.udpChannelId = channelId;
+    if (!rec) return;
+    // Respect the stall watchdog's block window (see broadcastSnapshots).
+    if (rec._udpBlockedUntil && this.now() < rec._udpBlockedUntil) return;
+    rec.udpChannelId = channelId;
   }
 
   // -- Input (UDP, high-frequency) --
@@ -216,15 +245,17 @@ export class ArenaManager {
     const rec = this.players.get(handle);
     if (!rec) return;
     if (!rec._firstCmdLogged) {
-      console.log(`🏟️  cmd:first handle=${handle} cmds=${(frame.cmds || []).length}`);
+      console.log(this.tag(`cmd:first handle=${handle} cmds=${(frame.cmds || []).length}`));
       rec._firstCmdLogged = true;
     }
     rec._cmdRxCount = (rec._cmdRxCount || 0) + 1;
     rec.lastSeenMs = this.now();
 
-    // Snap-ack: client tells us which snap they last saw.
+    // Snap-ack: client tells us which snap they last saw. Ack progress also
+    // feeds the UDP transport watchdog (see broadcastSnapshots).
     if (typeof frame.ack === "number" && frame.ack > rec.lastAckMessageNum) {
       rec.lastAckMessageNum = frame.ack;
+      rec._udpSnapsSinceAck = 0;
     }
 
     const cmds = Array.isArray(frame.cmds) ? frame.cmds : [];
@@ -248,7 +279,7 @@ export class ArenaManager {
       const dt = rec.lastCmdMs > 0
         ? Math.min((c.ms - rec.lastCmdMs) / 1000, 0.25)
         : 1 / TICK_RATE;
-      rec.state = pmove(rec.state, { ...c, dt }, ARENA_CFG);
+      rec.state = pmove(rec.state, { ...c, dt }, this.cfg);
       rec.lastCmdMs = c.ms;
       if (seq != null && seq > rec.lastCmdSeq) rec.lastCmdSeq = seq;
     }
@@ -259,14 +290,14 @@ export class ArenaManager {
   ensureTick() {
     if (this.tickInterval) return;
     this.tickInterval = setInterval(() => this.serverTick(), 1000 / TICK_RATE);
-    console.log(`🏟️  arena tick loop started (${TICK_RATE}Hz, snap ${SNAP_RATE}Hz)`);
+    console.log(this.tag(`tick loop started (${TICK_RATE}Hz, snap ${SNAP_RATE}Hz)`));
   }
 
   maybeStopTick() {
     if (this.players.size === 0 && this.probes.size === 0 && this.tickInterval) {
       clearInterval(this.tickInterval);
       this.tickInterval = null;
-      console.log(`🏟️  arena tick loop stopped (idle)`);
+      console.log(this.tag(`tick loop stopped (idle)`));
     }
   }
 
@@ -308,22 +339,17 @@ export class ArenaManager {
         rec._cmdRxCount = 0;
         rec._snapTxCount = 0;
       }
-      console.log(`🏟️  stats[5s] ${rows.join(" ")}`);
+      console.log(this.tag(`stats[5s] ${rows.join(" ")}`));
     }
   }
 
   sweepStale(nowMs) {
     for (const [handle, rec] of this.players) {
       if (nowMs - rec.lastSeenMs > STALE_TIMEOUT_MS) {
-        console.log(`🏟️  sweep ${handle} (idle ${((nowMs - rec.lastSeenMs) / 1000).toFixed(1)}s)`);
+        console.log(this.tag(`sweep ${handle} (idle ${((nowMs - rec.lastSeenMs) / 1000).toFixed(1)}s)`));
         this.players.delete(handle);
-        this.broadcastWS?.("arena:leave", { handle });
+        this.broadcastMembers(this.ev("leave"), { handle });
       }
-    }
-    for (const [handle, p] of this.probes) {
-      // Probes also expire; lastSeen isn't tracked for them today, so use
-      // a simple heuristic: if the ws is gone (we don't know), skip. No-op.
-      void handle; void p;
     }
     this.maybeStopTick();
   }
@@ -385,6 +411,7 @@ export class ArenaManager {
   broadcastSnapshots() {
     const serverMs = this.now();
     const players = this.composePlayersBlob();
+    const snapEvent = this.ev("snap");
 
     // Build one snapshot body per *player* because messageNum is per-client.
     for (const rec of this.players.values()) {
@@ -423,13 +450,31 @@ export class ArenaManager {
       // Write to ring for future delta base lookup.
       rec.snapHistory[messageNum % SNAP_RING] = { messageNum, serverMs, players };
 
+      // 🚑 UDP transport watchdog. A WebRTC datachannel can die silently —
+      // webrtcConnection.state stays "open" and emit() keeps "succeeding" —
+      // so a client whose UDP rx is dead starves on snaps forever while its
+      // WS is perfectly healthy (this read as "skippy"/frozen remotes). If
+      // the client hasn't advanced its snap-ack for ~2s of UDP sends,
+      // demote it back to WS; the next UDP identity/cmd re-resolves it.
+      if (rec.udpChannelId != null) {
+        rec._udpSnapsSinceAck = (rec._udpSnapsSinceAck || 0) + 1;
+        if (rec._udpSnapsSinceAck > SNAP_RATE * 2) {
+          console.log(this.tag(`udp stall: ${rec.handle} stopped acking — demoting snaps to WS`));
+          rec.udpChannelId = null;
+          rec._udpSnapsSinceAck = 0;
+          // Sticky: block re-promotion briefly so a dead-but-"open" channel
+          // doesn't flap UDP→WS→UDP every two seconds.
+          rec._udpBlockedUntil = this.now() + 30_000;
+        }
+      }
+
       // Prefer UDP, fall back to WS.
       let ok = false;
       if (rec.udpChannelId != null && this.sendUDP) {
-        ok = this.sendUDP(rec.udpChannelId, "arena:snap", snap);
+        ok = this.sendUDP(rec.udpChannelId, snapEvent, snap);
       }
       if (!ok && rec.wsId != null && this.sendWS) {
-        this.sendWS(rec.wsId, "arena:snap", snap);
+        this.sendWS(rec.wsId, snapEvent, snap);
       }
       if (ok || rec.wsId != null) rec._snapTxCount = (rec._snapTxCount || 0) + 1;
     }
@@ -437,7 +482,7 @@ export class ArenaManager {
     // Probes: always WS, full snap, messageNum=0 (they don't ack).
     for (const [handle, p] of this.probes) {
       if (p.wsId == null || !this.sendWS) continue;
-      this.sendWS(p.wsId, "arena:snap", {
+      this.sendWS(p.wsId, snapEvent, {
         messageNum: 0,
         deltaNum: 0,
         tick: this.tick,
@@ -453,7 +498,7 @@ export class ArenaManager {
   // -- Probe-specific --
 
   handlePing(handle, ts, wsId) {
-    this.sendWS?.(wsId, "arena:pong", { ts, serverMs: this.now() });
+    this.sendWS?.(wsId, this.ev("pong"), { ts, serverMs: this.now() });
   }
 }
 

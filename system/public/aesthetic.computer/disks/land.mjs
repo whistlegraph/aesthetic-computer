@@ -1,25 +1,28 @@
-// arena, 2025.4.7
-// Quake-style arena with large tessellated ground, player shadow, and speedometer.
+// land, 2026.6.9
+// A multiuser 3D meadow — grass, trees, boulders, sky. Forked from arena.mjs
+// with the combat stripped: same server-authoritative netcode, no lava, no
+// grenades, no HP. Just a field to wander together.
 
 /* #region 🏁 TODO
   + Done
-  - [x] Fork from fps.mjs
-  - [x] Large pre-tessellated ground plane
-  - [x] Speed meter HUD + FPS counter
-  - [x] Gravity + space-to-jump + shift-to-crouch (Quake-style)
-  - [x] Multiuser: WS+UDP wiring to session-server/arena-manager.mjs
-  - [x] Walls + pillars (solid meshes, shared client/server collision)
-  - [x] Strafe-jumping / bunny-hop acceleration (Q3 friction + air-accel)
-  - [x] Solid humanoid meshes for remote players
+  - [x] Fork from arena.mjs (shared WorldManager protocol, "land:" prefix)
+  - [x] Meadow palette: grass ground, sky fog, soil island sides
+  - [x] Trees (trunk colliders + visual canopies) and boulders
+  - [x] Strip grenades / HP / lava
+  + Later
+  - [ ] Flowers that respond to walking
+  - [ ] Day/night cycle driven by server clock
 #endregion */
 
 // ---------------------------------------------------------------------------
-// 🏟️ Multiuser networking (Q3-style: server-authoritative, UDP cmds + snaps).
-// See plans/arena-multiplayer.md §5 for the full design.
+// 🌾 Multiuser networking (Q3-style: server-authoritative, UDP cmds + snaps).
+// Same wire protocol as arena — see session-server/world-manager.mjs.
 // ---------------------------------------------------------------------------
 
 import { BTN, packCmd, pmove } from "../lib/pmove.mjs";
-import { ARENA_OBSTACLES, ARENA_OBSTACLE_COLORS, ARENA_PHYSICS } from "../lib/arena-world.mjs";
+import {
+  LAND_OBSTACLES, LAND_OBSTACLE_COLORS, LAND_PHYSICS, LAND_CFG, LAND_SIZE,
+} from "../lib/land-world.mjs";
 
 let myHandle = "guest";
 let netServer = null;       // WebSocket (reliable)
@@ -77,23 +80,8 @@ const RECONCILE_SNAP_THRESHOLD = 4.0;   // > this = hard snap (true teleport)
 const RECONCILE_SOFT_K = 0.18;          // ~90% convergence over ~12 frames
 const RECONCILE_DEAD_ZONE = 0.5;        // < this = ignore (model-jitter noise)
 
-// Arena world cfg — MUST match ARENA_CFG in session-server/arena-manager.mjs.
-// Duplicated (not imported) because lib code shouldn't depend on server code.
-const ARENA_CFG = Object.freeze({
-  runSpeed: 10, walkSpeed: 5, jumpVelocity: 8, gravity: 50,
-  groundY: -1.5, eyeHeight: 2.0, crouchEyeHeight: 1.2, crouchLerp: 0.25,
-  groundBounds: { xMin: -14, xMax: 14, zMin: -14, zMax: 14 },
-  deathFloorY: -30, deathFloorClearance: 0.3,
-  simHz: 60, hVelDecay: 0.9,
-  // 🏃 Q3 air-physics (mirrors server) — enables strafe-jump / bunny-hop.
-  airAccel: ARENA_PHYSICS.airAccel,
-  groundAccel: ARENA_PHYSICS.groundAccel,
-  airCapSpeed: ARENA_PHYSICS.airCapSpeed,
-  groundFriction: ARENA_PHYSICS.groundFriction,
-  // 🧱 Static walls + pillars (shared geometry).
-  obstacles: ARENA_OBSTACLES,
-  playerRadius: ARENA_PHYSICS.playerRadius,
-});
+// World cfg (LAND_CFG) is imported from lib/land-world.mjs — ONE copy shared
+// with the server, which instantiates this world from the same module.
 
 // Remote players (everyone except me)
 const others = {};          // handle -> { buffer: [{serverMs,x,y,z,yaw,...}], bodyFeet, bodyArms }
@@ -133,17 +121,17 @@ let myServerAckCmdMs = 0;
 let reconCamRef = null;
 let reconCorrectionMs = 0; // monotonic debug counter for HUD
 
-// 🔬 Perf ring — arena.mjs runs inside the disk.mjs Web Worker, so we cannot
+// 🔬 Perf ring — land.mjs runs inside the disk.mjs Web Worker, so we cannot
 // touch `window` directly. Instead we batch-send the ring to bios.mjs every
 // few frames; bios mirrors it onto window.__arena_perfStats for external
 // probes (artery/arena-probe.mjs).
-const ARENA_PERF_RING_SIZE = 240;         // ~4s @ 60fps
-const ARENA_PERF_SEND_EVERY = 15;         // batch every ~250ms @ 60fps
-const arenaPerfRing = new Array(ARENA_PERF_RING_SIZE);
-let arenaPerfRingIdx = 0;
-let arenaPerfRingLen = 0;
-let arenaPerfPaintsSinceSend = 0;
-let arenaPerfSend = null;                 // captured from boot's `send` arg
+const LAND_PERF_RING_SIZE = 240;         // ~4s @ 60fps
+const LAND_PERF_SEND_EVERY = 15;         // batch every ~250ms @ 60fps
+const landPerfRing = new Array(LAND_PERF_RING_SIZE);
+let landPerfRingIdx = 0;
+let landPerfRingLen = 0;
+let landPerfPaintsSinceSend = 0;
+let landPerfSend = null;                 // captured from boot's `send` arg
 let lastReconDist = 0;                    // |predicted − local| from last reconcile
 let lastReconKind = "none";               // "none" | "soft" | "snap" | "skip"
 
@@ -197,15 +185,15 @@ function flushCmds() {
     cmds: cmdOutbox.map((e) => e.cmd),
   };
   if (netUdp?.connected) {
-    netUdp.send("arena:cmd", frame);
+    netUdp.send("land:cmd", frame);
     // 🚑 UDP can die silently (channel still reports connected). If snaps
     // have gone quiet while the WS is alive, mirror cmds over WS too so the
     // server keeps seeing our acks and its stall watchdog can demote us to
     // WS snapshots instead of letting remotes freeze.
     const snapAge = netStats.lastSnapMs ? Date.now() - netStats.lastSnapMs : 0;
-    if (snapAge > 1500) netServer?.send("arena:cmd", frame);
+    if (snapAge > 1500) netServer?.send("land:cmd", frame);
   } else {
-    netServer?.send("arena:cmd", frame);
+    netServer?.send("land:cmd", frame);
   }
   netStats.cmdsTx++;
   netStats.lastCmdMs = Date.now();
@@ -219,13 +207,13 @@ function _mpDebug(snap, blobs) {
   if (!_mpFirstSnap) {
     _mpFirstSnap = true;
     console.log(
-      `🏟️  first snap: msg=${snap.messageNum} you=${snap.you} delta=${snap.deltaNum} players=[${blobs.map((p) => p.h).join(",")}]`,
+      `🌾  first snap: msg=${snap.messageNum} you=${snap.you} delta=${snap.deltaNum} players=[${blobs.map((p) => p.h).join(",")}]`,
     );
   }
   const roster = Object.keys(others).sort().join(",");
   if (roster !== _mpLastRoster) {
     _mpLastRoster = roster;
-    console.log(`🏟️  others roster (me=${myHandle}): [${roster || "—"}]`);
+    console.log(`🌾  others roster (me=${myHandle}): [${roster || "—"}]`);
   }
 }
 
@@ -336,11 +324,6 @@ function reconcileLocal() {
   // yanked to wherever they are. So just skip local pmove reconciliation
   // (we still update cam to follow them below if we want spectator-follow).
   if (netSpectator) return;
-  // 🎆 Knockback grace: a grenade explosion just punted us via applyImpulse.
-  // The server doesn't know about that impulse (it sees only WASD cmds), so
-  // its predicted state will diverge by several units. Skip reconciliation
-  // briefly so the blast actually launches us instead of being snapped back.
-  if (Date.now() < knockbackGraceUntil) return;
   const cam = reconCamRef;
 
   // Build a pmove-compatible state from the wire blob.
@@ -359,7 +342,7 @@ function reconcileLocal() {
   let prevMs = myServerAckCmdMs;
   for (const { cmd } of pendingCmds) {
     const dt = prevMs > 0 ? Math.min((cmd.ms - prevMs) / 1000, 0.25) : 1 / 60;
-    predicted = pmove(predicted, { ...cmd, dt }, ARENA_CFG);
+    predicted = pmove(predicted, { ...cmd, dt }, LAND_CFG);
     prevMs = cmd.ms;
   }
 
@@ -430,37 +413,37 @@ function netBoot({ net, handle, send, debug }) {
   const { socket, udp } = net;
 
   netUdp = udp?.((type, content) => {
-    if (type !== "arena:snap") return;
+    if (type !== "land:snap") return;
     const s = typeof content === "string" ? JSON.parse(content) : content;
     onSnap(s);
   });
 
   netServer = socket?.((id, type, content) => {
     if (type.startsWith("connected")) {
-      netServer.send("arena:hello", { handle: myHandle });
+      netServer.send("land:hello", { handle: myHandle });
       return;
     }
     const msg = typeof content === "string" ? JSON.parse(content) : content;
-    if (type === "arena:welcome") {
+    if (type === "land:welcome") {
       const roster = msg.roster || [];
       const peers = roster.filter((h) => h !== msg.you);
       console.log(
         peers.length
-          ? `🏟️  welcome → ${msg.you}; peers: ${peers.join(", ")}`
-          : `🏟️  welcome → ${msg.you} (arena empty)`,
+          ? `🌾  welcome → ${msg.you}; peers: ${peers.join(", ")}`
+          : `🌾  welcome → ${msg.you} (meadow empty)`,
       );
       return;
     }
-    if (type === "arena:snap") { onSnap(msg); return; }          // WS fallback
-    if (type === "arena:join") {
+    if (type === "land:snap") { onSnap(msg); return; }          // WS fallback
+    if (type === "land:join") {
       if (msg.handle !== myHandle && !others[msg.handle]) {
         others[msg.handle] = { buffer: [], bodyFeet: null, bodyArms: null, lastSeenMs: Date.now() };
       }
       return;
     }
-    if (type === "arena:leave") { delete others[msg.handle]; return; }
-    if (type === "arena:pong") { ping = Date.now() - msg.ts; return; }
-    if (type === "arena:takeover") {
+    if (type === "land:leave") { delete others[msg.handle]; return; }
+    if (type === "land:pong") { ping = Date.now() - msg.ts; return; }
+    if (type === "land:takeover") {
       // Another tab under the same handle displaced us. Flip to spectator
       // mode: stop sending cmds, keep receiving snaps, let the user watch
       // the other tab drive their avatar.
@@ -481,7 +464,7 @@ function netSim(cam) {
   if (netSpectator) {
     if (!specPos) {
       // Seed from the current cam position, lifted a bit so we start with a
-      // nice angle on the arena instead of clipping into the ground.
+      // nice angle on the meadow instead of clipping into the ground.
       specPos = { x: -cam.x, y: -cam.y + 5, z: -cam.z };
     }
     const dt = 1 / SIM_HZ;
@@ -511,14 +494,14 @@ function netSim(cam) {
     // Still ping so the HUD latency value stays live.
     if (Date.now() - lastPingSent > 2000) {
       lastPingSent = Date.now();
-      netServer?.send("arena:ping", { handle: myHandle, ts: Date.now() });
+      netServer?.send("land:ping", { handle: myHandle, ts: Date.now() });
     }
     return;
   }
   specPos = null; // reset when re-entering spectator later.
 
   // Poll input state → usercmd each sim tick (120 Hz). Send at CMD_RATE.
-  // (arena.mjs already has `keyboardState` + `gamepadState` that we mirror.)
+  // (land.mjs already has `keyboardState` + `gamepadState` that we mirror.)
   // pmove convention: fwd=+1 moves along facing (forward), right=+1 strafes right.
   netInput.fwd   = (keyboardState.w || keyboardState.arrowup)    ?  1
                   : (keyboardState.s || keyboardState.arrowdown) ? -1 : 0;
@@ -542,7 +525,7 @@ function netSim(cam) {
   // Periodic ping for latency HUD.
   if (Date.now() - lastPingSent > 2000) {
     lastPingSent = Date.now();
-    netServer?.send("arena:ping", { handle: myHandle, ts: Date.now() });
+    netServer?.send("land:ping", { handle: myHandle, ts: Date.now() });
   }
 }
 
@@ -609,7 +592,7 @@ function lerpAngle(a, b, k) {
 
 // Anonymous tabs (guest_xxxx or swarm_xxx from the load-test CLI) get a
 // "watcher" treatment — gray, translucent, tiny on the minimap — so the
-// visual prominence in the arena is reserved for people who claimed a handle.
+// visual prominence in the meadow is reserved for people who claimed a handle.
 function isGuestHandle(h) {
   return typeof h === "string" && (h.startsWith("guest_") || h.startsWith("swarm_"));
 }
@@ -766,8 +749,9 @@ function paintRemotes(ink, form, Form) {
 
 let groundPlane;
 let groundSkirt;   // solid opaque plate just under the ground that blocks
-                   // any lava bleed-through between ground tile seams
-let platformBlock;  // bottom and side faces for platform volume
+                   // any sky bleed-through between ground tile seams
+let platformBlock;  // bottom and side faces for the soil island volume
+let flowerField;    // decorative flowers (visual only, no collision)
 let shadowGround;  // ring + cross — standing on the ground
 let shadowAir;     // diagonal X — airborne
 let shadowCrouch;  // dense inner dot + outer ring — crouched
@@ -807,353 +791,18 @@ const DEBUG_DUMP_INTERVAL = 120; // sim ticks (= 1 s at SIM_HZ=120)
 let playerAlive = true;
 let deathTickAge = 0; // how long we've been dead (sim ticks, for UI fade-in)
 
-// 🎆 Grenade SFX — synthesis informed by lib/percussion.mjs's TR-808 kick:
-// `gonk` is a wood-tom-like thunk for the launcher (high noise tick + tonal
-// mid-low pop); `boom` is a stacked noise/sine burst for the detonation.
-// Voiced through sound.synth (same surface notepat.mjs uses).
-function playGonk(sound) {
-  if (!sound?.synth) return;
-  const tone = 420 + Math.random() * 80;
-  sound.synth({ type: "noise",    tone: 4500,    duration: 0.005, volume: 0.45, attack: 0.0001, decay: 0.0049, pan: 0 });
-  sound.synth({ type: "square",   tone,          duration: 0.025, volume: 0.55, attack: 0.0005, decay: 0.024,  pan: 0 });
-  sound.synth({ type: "sine",     tone: tone*0.5,duration: 0.060, volume: 0.95, attack: 0.001,  decay: 0.058,  pan: 0 });
-  sound.synth({ type: "sine",     tone: 90,      duration: 0.18,  volume: 0.55, attack: 0.002,  decay: 0.175,  pan: 0 });
-}
-function playBoom(sound) {
-  if (!sound?.synth) return;
-  sound.synth({ type: "noise",    tone: 1800, duration: 0.18,  volume: 1.0, attack: 0.001, decay: 0.18,  pan: 0 });
-  sound.synth({ type: "noise",    tone: 600,  duration: 0.45,  volume: 0.7, attack: 0.005, decay: 0.44,  pan: 0 });
-  sound.synth({ type: "sine",     tone: 75,   duration: 0.55,  volume: 1.1, attack: 0.003, decay: 0.54,  pan: 0 });
-  sound.synth({ type: "triangle", tone: 45,   duration: 0.40,  volume: 0.6, attack: 0.005, decay: 0.39,  pan: 0 });
-}
-// "Ouch/ow" — a brief layered yelp. Vocal-ish: noise breath + sine "ah" body
-// + triangle undertone, randomised per hit so back-to-back blasts don't read
-// as a sample loop. Volume scales with damage so a graze sounds smaller.
-function playOuch(sound, severity = 1) {
-  if (!sound?.synth) return;
-  const t = 300 + Math.random() * 90;
-  const v = Math.max(0.25, Math.min(1, severity));
-  sound.synth({ type: "noise",    tone: 900,    duration: 0.04, volume: 0.35 * v, attack: 0.005, decay: 0.035, pan: 0 });
-  sound.synth({ type: "sine",     tone: t,      duration: 0.10, volume: 0.65 * v, attack: 0.005, decay: 0.092, pan: 0 });
-  sound.synth({ type: "sine",     tone: t * 1.5,duration: 0.07, volume: 0.30 * v, attack: 0.005, decay: 0.064, pan: 0 });
-  sound.synth({ type: "triangle", tone: t * 0.7,duration: 0.22, volume: 0.55 * v, attack: 0.010, decay: 0.205, pan: 0 });
-}
-
-function damagePlayer(amount, doll) {
-  if (!playerAlive || amount <= 0) return;
-  playerHP = Math.max(0, playerHP - amount);
-  lastDamageMs = Date.now();
-  playOuch(soundRef, amount / BLAST_DAMAGE_MAX);
-  if (playerHP <= 0) {
-    // HP-zero death stays on the platform — no lava plunge required.
-    playerAlive = false;
-    deathTickAge = 0;
-    doll?.setFrozen?.(true);
-    doll?.clearHeldKeys?.();
-  }
-}
-
-function fireGrenade(cam, doll) {
-  if (!cam || myGrenade || !playerAlive || netSpectator) return;
-  // Spawn from the LOGICAL player position, not the chase-camera position.
-  // In 3P, cam.x/y/z include the 3P offset, so a naive `cam.x` would launch
-  // the grenade from behind/above the avatar — and as the blast knocks you
-  // around, the camera follows, making the explosion look pinned to you.
-  const phys = doll?.physics;
-  const cx = phys?.playerCamX ?? cam.x;
-  const cy = -(phys?.playerCamY ?? cam.y);
-  const cz = phys?.playerCamZ ?? cam.z;
-  const yaw = cam.rotY * Math.PI / 180;
-  const pit = cam.rotX * Math.PI / 180;
-  const cyR = Math.cos(yaw), syR = Math.sin(yaw);
-  const cpR = Math.cos(pit), spR = Math.sin(pit);
-  const flipX = (hoverFlipMode & 1) !== 0;
-  const flipZ = (hoverFlipMode & 2) !== 0;
-  let fx = syR * cpR;
-  let fy = spR;
-  let fz = cyR * cpR;
-  if (flipX) fx = -fx;
-  if (flipZ) fz = -fz;
-  myGrenade = {
-    x: cx + fx * 0.6,
-    y: cy + fy * 0.6 - 0.25,           // muzzle just below eye
-    z: cz + fz * 0.6,
-    vx: fx * GRENADE_SPEED,
-    vy: fy * GRENADE_SPEED + 2.0,      // gentle upward arc
-    vz: fz * GRENADE_SPEED,
-    t: 0,
-  };
-  playGonk(soundRef);
-}
-
-// Bounce a live grenade off the static walls + pillars. Restitution +
-// friction match the floor bounce so behaviour is consistent: hit a wall
-// hard, lose ~45% of inward speed; hit at a glancing angle, mostly slide.
-function resolveGrenadeObstacles(g) {
-  const r = GRENADE_RADIUS;
-  for (const o of ARENA_OBSTACLES) {
-    // Vertical filter — let the grenade arc above a low wall.
-    if (typeof o.yMax === "number" && g.y - r > o.yMax) continue;
-    if (typeof o.yMin === "number" && g.y + r < o.yMin) continue;
-    if (o.type === "cylinder") {
-      const dx = g.x - o.x;
-      const dz = g.z - o.z;
-      const d  = Math.hypot(dx, dz);
-      const minD = (o.r ?? 1) + r;
-      if (d >= minD) continue;
-      if (d < 1e-4) { g.x += minD; continue; }
-      const nx = dx / d, nz = dz / d;
-      g.x += nx * (minD - d);
-      g.z += nz * (minD - d);
-      const vd = g.vx * nx + g.vz * nz;
-      if (vd < 0) {
-        // Reflect with restitution, plus a touch of tangential friction.
-        g.vx -= (1 + GRENADE_BOUNCE_RESTITUTION) * vd * nx;
-        g.vz -= (1 + GRENADE_BOUNCE_RESTITUTION) * vd * nz;
-        g.vx *= GRENADE_BOUNCE_FRICTION;
-        g.vz *= GRENADE_BOUNCE_FRICTION;
-      }
-    } else if (o.type === "box") {
-      const cx = (o.xMin + o.xMax) * 0.5;
-      const cz = (o.zMin + o.zMax) * 0.5;
-      const hx = (o.xMax - o.xMin) * 0.5 + r;
-      const hz = (o.zMax - o.zMin) * 0.5 + r;
-      const dx = g.x - cx;
-      const dz = g.z - cz;
-      const ox = hx - Math.abs(dx);
-      const oz = hz - Math.abs(dz);
-      if (ox <= 0 || oz <= 0) continue;
-      if (ox < oz) {
-        g.x += dx >= 0 ? ox : -ox;
-        const inward = (dx >= 0 && g.vx < 0) || (dx < 0 && g.vx > 0);
-        if (inward) {
-          g.vx = -g.vx * GRENADE_BOUNCE_RESTITUTION;
-          g.vz *= GRENADE_BOUNCE_FRICTION;
-        }
-      } else {
-        g.z += dz >= 0 ? oz : -oz;
-        const inward = (dz >= 0 && g.vz < 0) || (dz < 0 && g.vz > 0);
-        if (inward) {
-          g.vz = -g.vz * GRENADE_BOUNCE_RESTITUTION;
-          g.vx *= GRENADE_BOUNCE_FRICTION;
-        }
-      }
-    }
-  }
-}
-
-function simGrenade(dt, doll, cam) {
-  if (!myGrenade) return;
-  myGrenade.t += dt;
-  myGrenade.vy -= GRENADE_GRAVITY * dt;
-  myGrenade.x += myGrenade.vx * dt;
-  myGrenade.y += myGrenade.vy * dt;
-  myGrenade.z += myGrenade.vz * dt;
-
-  // 🧱 Wall + pillar bounces — same obstacle list the player collides with.
-  // Done before floor bounce so a grenade that hits a wall low can still
-  // settle on the platform afterwards.
-  resolveGrenadeObstacles(myGrenade);
-
-  // Floor bounce — only on top of the platform; outside groundBounds the
-  // grenade flies off the edge and falls toward the lava (no edge wall).
-  const b = ARENA_CFG.groundBounds;
-  const onPlatform = myGrenade.x >= b.xMin && myGrenade.x <= b.xMax &&
-                     myGrenade.z >= b.zMin && myGrenade.z <= b.zMax;
-  const floorY = ARENA_CFG.groundY + GRENADE_RADIUS;
-  if (onPlatform && myGrenade.y <= floorY && myGrenade.vy < 0) {
-    myGrenade.y = floorY;
-    const incomingVy = myGrenade.vy;
-    myGrenade.vy = -incomingVy * GRENADE_BOUNCE_RESTITUTION;
-    // Apply ground friction only on real bounces. Otherwise gravity pulling
-    // a settled grenade barely below floorY each frame counts as a "bounce"
-    // and friction-kills horizontal momentum — the grenade dies on the spot
-    // instead of rolling to the platform edge.
-    if (Math.abs(incomingVy) > GRENADE_REST_VY * 2) {
-      myGrenade.vx *= GRENADE_BOUNCE_FRICTION;
-      myGrenade.vz *= GRENADE_BOUNCE_FRICTION;
-    }
-    if (Math.abs(myGrenade.vy) < GRENADE_REST_VY) myGrenade.vy = 0;
-  }
-
-  if (myGrenade.t >= GRENADE_FUSE) {
-    detonate(myGrenade.x, myGrenade.y, myGrenade.z, doll, cam);
-    myGrenade = null;
-    return;
-  }
-
-  // Past the lava floor without having detonated — fizzle so we don't render
-  // a grenade falling forever into the abyss.
-  if (myGrenade.y < ARENA_CFG.deathFloorY - 5) {
-    myGrenade = null;
-  }
-}
-
-function detonate(x, y, z, doll, cam) {
-  activeExplosion = { x, y, z, age: 0 };
-  playBoom(soundRef);
-  if (!doll || !cam) return;
-  // Player position in arena's logical world (same coord as the grenade).
-  const phys = doll.physics;
-  const ax = phys?.playerCamX ?? cam.x;
-  const ay = -(phys?.playerCamY ?? cam.y);
-  const az = phys?.playerCamZ ?? cam.z;
-  const dx = ax - x, dy = ay - y, dz = az - z;
-  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (dist >= EXPLOSION_RADIUS) return;
-  const falloff = 1 - dist / EXPLOSION_RADIUS;   // 1 at center → 0 at edge
-  const minD = Math.max(dist, 0.4);
-  const nx = dx / minD;
-  const ny = dy / minD;
-  const nz = dz / minD;
-  const horForce = EXPLOSION_KICK_HOR * (0.4 + 0.6 * falloff);
-  // Vertical = radial component scaled by falloff + a flat upward bias so
-  // ground-level blasts still launch you (ny ≈ 0 when grenade and feet share Y).
-  const vertImpulse = ny * EXPLOSION_KICK_VERT * (0.3 + 0.7 * falloff)
-                    + EXPLOSION_VERT_BIAS * falloff;
-  // cam-doll's applyImpulse takes "world" velocity in its own convention where
-  // cam.x = -worldX. Arena's logical X is just cam.x — so to push the player
-  // in arena's +X we feed the negated value here.
-  doll.applyImpulse?.({
-    x: -nx * horForce,
-    y: vertImpulse,
-    z: -nz * horForce,
-  });
-  // 💖 Splash damage — linear falloff with a small floor so even a graze stings.
-  const dmg = BLAST_DAMAGE_FLOOR + (BLAST_DAMAGE_MAX - BLAST_DAMAGE_FLOOR) * falloff;
-  damagePlayer(dmg, doll);
-  // Suspend pmove reconciliation briefly so the local knockback isn't yanked
-  // back to the server's prediction (server doesn't know about the blast).
-  knockbackGraceUntil = Date.now() + 1200;
-}
-
-function buildGrenadeForm(g) {
-  if (!FormRef) return null;
-  const r = GRENADE_RADIUS;
-  const heat = Math.min(1, g.t / GRENADE_FUSE);
-  const blink = (Math.sin(g.t * 36) * 0.5 + 0.5) * heat;
-  const col = [
-    1.0,
-    0.85 - heat * 0.55 + blink * 0.2,
-    0.25 - heat * 0.2 + blink * 0.05,
-    1.0,
-  ];
-  // Octahedron — 6 verts, 8 triangles. Reads as a small spinning shell.
-  // Bake spin + world position straight into vertex coords (matches the
-  // lava/ground/platform pattern); fresh forms with `pos: [...]` were not
-  // sticking to their world position when the player WASD'd.
-  const yaw = (g.t * 240) * Math.PI / 180;
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const place = (lx, ly, lz) => [
-    g.x + (lx * cy - lz * sy),
-    g.y + ly,
-    g.z + (lx * sy + lz * cy),
-    1,
-  ];
-  const v = [
-    place( 0,  r, 0), place( 0, -r, 0),
-    place( r,  0, 0), place(-r,  0, 0),
-    place( 0,  0, r), place( 0,  0,-r),
-  ];
-  const tris = [
-    [0,2,4],[0,4,3],[0,3,5],[0,5,2],
-    [1,4,2],[1,3,4],[1,5,3],[1,2,5],
-  ];
-  const positions = [], colors = [];
-  for (const [a, b, c] of tris) {
-    positions.push(v[a], v[b], v[c]);
-    colors.push(col, col, col);
-  }
-  const f = new FormRef(
-    { type: "triangle", positions, colors },
-    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
-  );
-  f.noFade = true;
-  return f;
-}
-
-function buildExplosionPill(ex) {
-  if (!FormRef) return null;
-  const t = ex.age / EXPLOSION_DURATION;
-  if (t >= 1) return null;
-  const ease = 1 - (1 - t) * (1 - t); // ease-out grow
-  // Sphere whose radius matches the physics blast radius — visual lines up
-  // with what actually pushes / damages you.
-  const R = EXPLOSION_RADIUS * (0.35 + ease * 0.65);
-  const H = 0;                          // pill → sphere
-  const alpha = Math.max(0, 1 - t);
-  const ringSegs = 16;
-  const hemiSegs = 5;
-
-  // Bake the world position straight into each vertex (use pos:[0,0,0])
-  // — fresh per-frame forms with non-zero `pos` weren't tracking the
-  // detonation point when the player moved, and absolute coords also let
-  // the platform's depth-buffer occlude wireframe behind it.
-  const ringPoints = (y, r) => {
-    const pts = [];
-    for (let i = 0; i < ringSegs; i++) {
-      const a = (i / ringSegs) * Math.PI * 2;
-      pts.push([
-        ex.x + Math.cos(a) * r,
-        ex.y + y,
-        ex.z + Math.sin(a) * r,
-        1,
-      ]);
-    }
-    return pts;
-  };
-  const allRings = [];
-  for (let i = 0; i <= hemiSegs; i++) {
-    const phi = -Math.PI / 2 + (i / hemiSegs) * (Math.PI / 2);
-    allRings.push(ringPoints(-H / 2 + R * Math.sin(phi), R * Math.cos(phi)));
-  }
-  for (let i = 1; i <= hemiSegs; i++) {
-    const phi = (i / hemiSegs) * (Math.PI / 2);
-    allRings.push(ringPoints( H / 2 + R * Math.sin(phi), R * Math.cos(phi)));
-  }
-  const positions = [], colors = [];
-  const orange = [1.0, 0.65, 0.2, alpha];
-  const yellow = [1.0, 0.95, 0.55, alpha * 0.85];
-  for (const ring of allRings) {
-    for (let i = 0; i < ringSegs; i++) {
-      positions.push(ring[i], ring[(i + 1) % ringSegs]);
-      colors.push(orange, orange);
-    }
-  }
-  for (let i = 0; i < ringSegs; i += 2) {
-    for (let r = 0; r < allRings.length - 1; r++) {
-      positions.push(allRings[r][i], allRings[r + 1][i]);
-      colors.push(yellow, yellow);
-    }
-  }
-  const f = new FormRef(
-    { type: "line", positions, colors },
-    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
-  );
-  f.noFade = true;
-  return f;
-}
-
 // Shared respawn trigger — touch, gamepad A, gamepad Start, and Space all
-// route through this so the "TAP TO RESPAWN" prompt accepts every input.
+// route through this so the "TAP TO RETURN" prompt accepts every input.
 function tryRespawn(system) {
   if (playerAlive || deathTickAge <= 30) return false;
   playerAlive = true;
   deathTickAge = 0;
   walkedTiles.clear();
   prevPlayerTile = null;
-  // 🎆 Drop any in-flight grenade and resume server reconciliation right away,
-  // otherwise the suspended reconcile from a fatal blast keeps the camera
-  // glued to the lava view even after cam-doll teleported back to spawn.
-  myGrenade = null;
-  activeExplosion = null;
-  knockbackGraceUntil = 0;
-  playerHP = MAX_HP;
-  lastDamageMs = 0;
   const doll = system?.fps?.doll;
   doll?.respawn?.(0, 0);
   // Force the 3P lerp to re-snap. Otherwise tpCurrent (which last lerped
-  // toward the falling-into-lava camera position) keeps the visual camera
+  // toward the falling-into-sky camera position) keeps the visual camera
   // floating near the death floor for ~half a second after respawn — looks
   // like the player is "still falling" even though logical pos teleported.
   if (doll && zoomLevel > 0) {
@@ -1203,50 +852,14 @@ let hoverFlipMode = 3; // flip both X and Z per recent experiments
 
 // ⚡ Adaptive-quality flags driven by measured render FPS. Auto-toggle in
 // paint() based on the rolling frame-time average. Pieces can override via the
-// HUD labels (future: click to pin). "LOW" = coarser tile, static lava, skip
-// body wireframes. "MED" = static lava only. "HIGH" = everything on.
+// HUD labels (future: click to pin). "LOW" = skip body wireframes. "MED" =
+// reserved. "HIGH" = everything on.
 let perfLowMode = false;
 let perfMedMode = false;
 const PERF_LOW_MS = 25;   // below ~40fps → drop to LOW
 const PERF_MED_MS = 18;   // below ~55fps → drop to MED
 const PERF_HIGH_MS = 14;  // above ~70fps → return to HIGH
 let perfSamplesSinceSwitch = 0;
-
-// 🎆 Grenade launcher — Q3-style projectile, click to fire one at a time.
-// One in-flight grenade per player; fuse-detonates after a beat into a pill-
-// shaped blast that knocks the firer (and the cam-doll) outward. The blast
-// can punt the player off the platform and into the lava — that's the trick.
-const GRENADE_RADIUS = 0.18;
-const GRENADE_SPEED = 8;              // initial m/s — slow enough that a forward
-                                      // shot still detonates within EXPLOSION_RADIUS
-                                      // of the firer (the arena is only ±14u wide)
-const GRENADE_GRAVITY = 22;           // m/s² (lighter than player gravity → arcs)
-const GRENADE_BOUNCE_RESTITUTION = 0.55;
-const GRENADE_BOUNCE_FRICTION = 0.78; // horizontal vel scaling per bounce
-const GRENADE_FUSE = 0.9;             // seconds before detonation
-const GRENADE_REST_VY = 1.0;          // settle threshold (avoid eternal jitter)
-const EXPLOSION_RADIUS = 7.5;         // world units; generous so forward shots
-                                      // still rocket-jump the firer
-const EXPLOSION_DURATION = 0.45;      // seconds the pill stays visible
-const EXPLOSION_KICK_HOR = 1.3;       // dolly impulse → ~12u horizontal flight
-const EXPLOSION_KICK_VERT = 14;       // worldYVel impulse (+ is up), units/sec
-const EXPLOSION_VERT_BIAS = 5;        // baseline upward bump even at edge
-
-let myGrenade = null;        // { x, y, z, vx, vy, vz, t } — local single-shot
-let activeExplosion = null;  // { x, y, z, age } — local visual effect
-let knockbackGraceUntil = 0; // ms timestamp; while < now() pmove reconcile is suspended
-let soundRef = null;         // captured in boot for synth access
-
-// 💖 Player HP — blast splash damage with linear falloff to the radius edge.
-// Center hits (~feet-stomp) score lethal damage, edge hits sting but survive,
-// so multiple self-blasts on the platform can kill you without ever touching
-// the lava. Reset on respawn.
-const MAX_HP = 100;
-const BLAST_DAMAGE_MAX = 90;        // direct-hit damage at falloff = 1
-const BLAST_DAMAGE_FLOOR = 6;       // edge-of-radius minimum (so a graze hurts)
-let playerHP = MAX_HP;
-let lastDamageMs = 0;               // wall-clock; drives the red flash overlay
-const HP_FLASH_DURATION = 0.35;     // seconds the screen tints red after a hit
 
 // 🔎 Camera zoom — wheel scroll steps between 1P and 3P at discrete distances.
 // Level 0 = first person. Levels 1..N = third person, pulling the camera back
@@ -1308,8 +921,7 @@ const SPEED_SMOOTH = 0.15;
 // 🕐 Sim-driven clock (seconds). Incremented each sim tick so every
 // gameplay-visible animation advances at a constant rate regardless of
 // paint FPS. Paint reads this instead of performance.now() for anything
-// that should feel tied to the simulation (lava flow, body bob timing in
-// the future, etc.).
+// that should feel tied to the simulation (body bob, etc.).
 let simTime = 0;
 
 // FPS tracking
@@ -1319,29 +931,26 @@ let lastFrameTime = 0;
 // Ground config. GRID is odd so there's a centre tile under the player at the
 // origin (even grids put the player on a 4-way corner junction, which makes
 // tile highlights look offset by half a tile).
-const GROUND_SIZE = 14;
-const GRID = 15;
-const GROUND_Y = -1.5;
-const FOG_START_SQ = 7 * 7;
-const FOG_END_SQ = 14 * 14;
+const GROUND_SIZE = LAND_SIZE;   // meadow half-size (lib/land-world.mjs)
+const GRID = 25;                 // odd → a centre tile under spawn
+const GROUND_Y = LAND_CFG.groundY;
+const FOG_START_SQ = 18 * 18;
+const FOG_END_SQ = 34 * 34;   // never fully closes inside the island — a haze, not a wall
 
-// 🏃 Quake-style movement tuning (AC-scaled ≈ Quake ÷ 32).
-//   Canonical Quake: FOV 90°, run 320 u/s, jump 270 u/s, gravity 800 u/s².
-// Here AC units ~ 32 Quake units, so numbers shrink proportionally.
+// 🚶 Movement reads straight from LAND_CFG so client prediction, reconcile,
+// and the server all integrate the exact same numbers — a stroll, not a
+// deathmatch (slower run, softer jump, floatier gravity than arena).
 const FOV = 90;
-const RUN_SPEED = 10;      // u/s (≈ 320 Quake u/s)
-const WALK_SPEED = 5;      // u/s crouched
-const JUMP_VELOCITY = 8;   // u/s initial → peak jump = jv²/(2g) AC units
-const GRAVITY = 50;        // u/s² (heavier / less lofty than Quake's 800-scaled ≈25)
-const EYE_HEIGHT = 2.0;    // AC units above ground (matches prior default cam.y=-0.5)
-const CROUCH_EYE = 1.2;
+const RUN_SPEED = LAND_CFG.runSpeed;
+const WALK_SPEED = LAND_CFG.walkSpeed;
+const JUMP_VELOCITY = LAND_CFG.jumpVelocity;
+const GRAVITY = LAND_CFG.gravity;
+const EYE_HEIGHT = LAND_CFG.eyeHeight;
+const CROUCH_EYE = LAND_CFG.crouchEyeHeight;
 
-// 💀 Death pit — declared before fpsOpts so it can be passed as deathFloorY.
-const DEATH_FLOOR_Y = -30;
-const DEATH_PAD = 60;        // half-size of the lava floor (generous)
-const DEATH_TILES = 14;      // (unused since donut build; kept for reference)
-const DEATH_STRIP_FREQ = 0.22;
-const DEATH_FLOW_SPEED = 1.8;
+// 🪂 The meadow is a floating island — walk off the edge and you fall into
+// the sky below until the death floor catches you, then tap to return.
+const DEATH_FLOOR_Y = LAND_CFG.deathFloorY;
 
 export const fpsOpts = {
   fov: FOV,
@@ -1355,96 +964,40 @@ export const fpsOpts = {
   groundY: GROUND_Y,
   eyeHeight: EYE_HEIGHT,
   crouchEyeHeight: CROUCH_EYE,
-  // Disable built-in camdoll touch controls; arena handles custom mobile UI instead
+  // Disable built-in camdoll touch controls; land handles custom mobile UI instead
   disableTouchControls: true,
   // Outside this XZ rectangle the floor clamp is disabled so the player
-  // falls into the pit below. Matches the ground plane's half-size.
+  // falls off the island. Matches the ground plane's half-size.
   groundBounds: {
     xMin: -GROUND_SIZE,
     xMax: GROUND_SIZE,
     zMin: -GROUND_SIZE,
     zMax: GROUND_SIZE,
   },
-  // Dead players stop on the lava instead of falling forever.
+  // Fallers rest at the death floor instead of falling forever.
   deathFloorY: DEATH_FLOOR_Y,
   // 🏃 Quake-style local prediction: cam-doll runs the same friction +
   // air-accel model as pmove on the server, so strafe-jump speed survives
   // reconciliation.
-  airAccel: ARENA_PHYSICS.airAccel,
-  groundAccel: ARENA_PHYSICS.groundAccel,
-  airCapSpeed: ARENA_PHYSICS.airCapSpeed,
-  groundFriction: ARENA_PHYSICS.groundFriction,
+  airAccel: LAND_PHYSICS.airAccel,
+  groundAccel: LAND_PHYSICS.groundAccel,
+  airCapSpeed: LAND_PHYSICS.airCapSpeed,
+  groundFriction: LAND_PHYSICS.groundFriction,
   // 🧱 Solid obstacle list resolved client-side too (matches server) so
   // local motion stays in sync with pmove without depending on the
   // reconciler to push the player back out of walls.
-  obstacles: ARENA_OBSTACLES,
-  playerRadius: ARENA_PHYSICS.playerRadius,
+  obstacles: LAND_OBSTACLES,
+  playerRadius: LAND_PHYSICS.playerRadius,
 };
 
-const BG = [45 / 255, 48 / 255, 55 / 255];
-const COLOR_A = [0.38, 0.35, 0.30, 1.0];
-const COLOR_B = [0.22, 0.20, 0.19, 1.0];
+// ☀️ Meadow palette. BG doubles as the fog/sky color.
+const BG = [0.55, 0.71, 0.89];           // soft sky blue
+const COLOR_A = [0.30, 0.52, 0.24, 1.0]; // sunlit grass
+const COLOR_B = [0.25, 0.45, 0.20, 1.0]; // shaded grass
 
-// Build a fresh lava floor Form with time-animated stripe colors. Now that
-// the Z-buffer correctly occludes, the lava is a FULL plane covering the
-// entire pit area — no donut cut-out needed. The ground depth-tests above it.
-// When perfLowMode is on, we build the lava once and cache it (no animation).
-let lavaCache = null;
-let lavaCacheFrame = -1;
-
-function buildLavaFloor(t) {
-  if (!FormRef) return null;
-  // When perf mode is low, return a cached static lava (skip stripe animation).
-  if (perfLowMode && lavaCache) return lavaCache;
-
-  // 🌋 Bound `t` before passing to Math.sin. On iOS Safari, paint `now` can
-  // arrive as an epoch-ms value (billions of seconds once divided by 1000),
-  // and Math.sin precision collapses at that magnitude — all triangles get
-  // the same value and the lava renders flat black. Mod by 2π*scale so the
-  // animation is continuous and arguments stay tiny.
-  const TWOPI = Math.PI * 2;
-  const tFlow = ((t * DEATH_FLOW_SPEED) % TWOPI);
-  const tSlow = ((t * 0.9) % TWOPI);
-
-  const positions = [];
-  const colors = [];
-  const deathY = DEATH_FLOOR_Y;
-  const STEP = perfLowMode ? 8 : 4; // coarser tessellation in low-perf mode
-  for (let z = -DEATH_PAD; z < DEATH_PAD; z += STEP) {
-    for (let x = -DEATH_PAD; x < DEATH_PAD; x += STEP) {
-      const x0 = x, z0 = z;
-      const x1 = Math.min(x + STEP, DEATH_PAD);
-      const z1 = Math.min(z + STEP, DEATH_PAD);
-      const cx = (x0 + x1) / 2;
-      const cz = (z0 + z1) / 2;
-      const w1 = Math.sin(cx * DEATH_STRIP_FREQ - tFlow + cz * 0.08);
-      const w2 = Math.sin(cx * 0.09 + cz * 0.27 - tSlow);
-      const glow = (w1 + w2 * 0.6) * 0.5;
-      const hot = 0.35 + Math.max(0, glow) * 0.65;
-      const r = 0.45 + hot * 0.55;
-      const g = hot * hot * 0.45;
-      const b = hot * hot * hot * 0.08;
-      const c = [r, g, b, 1.0];
-      positions.push(
-        [x0, deathY, z0, 1], [x0, deathY, z1, 1], [x1, deathY, z1, 1],
-        [x0, deathY, z0, 1], [x1, deathY, z1, 1], [x1, deathY, z0, 1],
-      );
-      for (let i = 0; i < 6; i++) colors.push(c);
-    }
-  }
-  const f = new FormRef(
-    { type: "triangle", positions, colors },
-    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
-  );
-  f.noFade = true;
-  if (perfLowMode) lavaCache = f;
-  return f;
-}
-
-// Ground fog: RGB lerps toward BG with distance so the arena "dissolves" into
-// the sky, but alpha stays a full 1.0. Dropping alpha lets the red death floor
-// show through the ground (no depth buffer → painter's order only), and the
-// RGB lerp already gives the visual fade.
+// Ground fog: RGB lerps toward the sky color with distance so the meadow
+// dissolves into the horizon; alpha stays a full 1.0 (no depth buffer →
+// painter's order only).
 function fogColor(base, distSq) {
   if (distSq <= FOG_START_SQ) return base;
   if (distSq >= FOG_END_SQ) return [BG[0], BG[1], BG[2], 1.0];
@@ -1457,11 +1010,10 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug, sound, glaze }) {
+function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send, debug, glaze }) {
   penLock();
   FormRef = Form;
   paintingRef = painting;
-  soundRef = sound;
 
   // ✨ Volumetric glaze post-effect (defaults to the `prompt` shader set).
   glaze?.({ on: true });
@@ -1472,9 +1024,9 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
 
   // 🔬 Capture `send` so paint() can batch the perf ring to bios.mjs (which
   // mirrors it onto window.__arena_perfStats for the external probe).
-  arenaPerfSend = send;
+  landPerfSend = send;
 
-  // 🏟️ Multiplayer: open WS + UDP, send arena:hello.
+  // 🌾 Multiplayer: open WS + UDP, send land:hello.
   netBoot({ net, handle, send, debug });
 
   // 🎯 Set initial cursor style
@@ -1785,78 +1337,6 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       box(5, 18, 1, 1);
     });
 
-    // 💣 Grenade button — fuse unlit (idle)
-    buttonBuffers.grenade_normal = painting(28, 28, (api) => {
-      const { wipe, ink, box, line } = api;
-      wipe(140, 50, 40, 255); // Deep TNT red
-      // Pineapple body (olive drab)
-      ink(70, 95, 70);
-      box(9, 12, 10, 11);
-      // Body shading (right side darker)
-      ink(50, 75, 50);
-      box(17, 12, 2, 11);
-      // Cross-hatch texture
-      ink(40, 65, 40);
-      line(9, 15, 18, 15);
-      line(9, 19, 18, 19);
-      line(12, 12, 12, 22);
-      line(15, 12, 15, 22);
-      // Highlight glint on body
-      ink(120, 150, 120);
-      box(10, 13, 1, 1);
-      // Top cap (steel)
-      ink(120, 120, 130);
-      box(11, 9, 6, 3);
-      ink(160, 160, 170);
-      box(11, 9, 6, 1);
-      // Pin ring (yellow)
-      ink(220, 200, 80);
-      line(17, 10, 22, 7);
-      box(21, 5, 3, 3);
-      ink(180, 160, 60);
-      box(22, 6, 1, 1);
-    });
-
-    // 💣 Grenade button — fuse lit (pressed/launching)
-    buttonBuffers.grenade_active = painting(28, 28, (api) => {
-      const { wipe, ink, box, line } = api;
-      wipe(220, 80, 50, 255); // Hot warning red
-      // Body
-      ink(90, 125, 90);
-      box(9, 12, 10, 11);
-      ink(60, 90, 60);
-      box(17, 12, 2, 11);
-      // Cross-hatch
-      ink(50, 80, 50);
-      line(9, 15, 18, 15);
-      line(9, 19, 18, 19);
-      line(12, 12, 12, 22);
-      line(15, 12, 15, 22);
-      // Brighter highlight
-      ink(160, 200, 160);
-      box(10, 13, 1, 1);
-      box(11, 13, 1, 1);
-      // Top cap (brighter)
-      ink(180, 180, 190);
-      box(11, 9, 6, 3);
-      // Spark trail rising from cap
-      ink(255, 220, 60);
-      line(14, 9, 14, 5);
-      box(13, 6, 1, 1);
-      box(15, 6, 1, 1);
-      // Flame burst
-      ink(255, 140, 40);
-      box(12, 2, 5, 3);
-      ink(255, 240, 120);
-      box(13, 3, 3, 1);
-      box(14, 1, 1, 1);
-      // Sparks flying outward
-      ink(255, 200, 100);
-      box(7, 7, 1, 1);
-      box(20, 9, 1, 1);
-      box(22, 4, 1, 1);
-    });
-
     // 🎥 View toggle — 1st person (default normal state)
     buttonBuffers.view_normal = painting(56, 28, (api) => {
       const { wipe, ink, box, line } = api;
@@ -2004,15 +1484,15 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   // 🔲 Ground skirt — a single opaque dark quad at the EXACT SAME Y as the
   // main ground plane, covering a slightly oversized XZ footprint. Drawn
   // BEFORE the ground so any rasterizer seams between ground tiles (painter's
-  // order, no depth buffer) reveal the dark skirt instead of the lava far
+  // order, no depth buffer) reveal the dark skirt instead of the sky far
   // below. The +0.5 AC-unit pad ensures the skirt also catches seams at the
   // platform outer edge.
   // Skirt sits 0.02 below the ground so painter's order places ground clearly
   // on top; oversized by 0.5 AC units on each side so the outer edge of the
-  // arena also has a backstop.
+  // meadow also has a backstop.
   const skirtY = GROUND_Y - 0.02;
   const skirtR = GROUND_SIZE + 0.5;
-  const skirtColor = [0.06, 0.06, 0.08, 1.0];
+  const skirtColor = [0.16, 0.11, 0.07, 1.0]; // topsoil under the grass
   groundSkirt = new Form(
     {
       type: "triangle",
@@ -2030,16 +1510,16 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   );
   groundSkirt.noFade = true;
 
-  // 🧱 Platform block — bottom and side faces to give the arena volume
+  // 🧱 Island block — bottom and side faces to give the meadow volume
   const platformDepth = 2.0; // thickness of the platform block
   const bottomY = GROUND_Y - platformDepth;
 
   // Different colors for each side
-  const bottomColor = [0.08, 0.08, 0.12, 1.0];     // Dark blue-black texture
-  const northColor = [0.22, 0.18, 0.14, 1.0];      // Brown
-  const southColor = [0.16, 0.20, 0.18, 1.0];      // Dark teal
-  const eastColor = [0.20, 0.16, 0.16, 1.0];       // Dark red-brown
-  const westColor = [0.18, 0.20, 0.14, 1.0];       // Dark olive
+  const bottomColor = [0.13, 0.09, 0.06, 1.0];     // deep earth
+  const northColor = [0.30, 0.21, 0.13, 1.0];      // topsoil brown
+  const southColor = [0.28, 0.20, 0.12, 1.0];
+  const eastColor = [0.32, 0.23, 0.14, 1.0];
+  const westColor = [0.27, 0.19, 0.12, 1.0];
 
   const platformGs = GROUND_SIZE;
 
@@ -2113,8 +1593,8 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   const edgeY = GROUND_Y + 0.04;
   const edgeDrop = GROUND_Y - 0.2;
   const gs = GROUND_SIZE;
-  const rim = [1, 0.9, 0.45, 0.95];
-  const drop = [1, 0.35, 0.15, 0.85];
+  const rim = [0.85, 0.9, 0.6, 0.8];   // dry-grass edge
+  const drop = [0.45, 0.32, 0.2, 0.7]; // soil falloff
   platformEdge = new Form(
     {
       type: "line",
@@ -2139,14 +1619,15 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   );
   platformEdge.noFade = true;
 
-  // 🧱 Pillars + walls — solid triangle meshes built from ARENA_OBSTACLES.
-  // The same list drives client/server collision (see lib/arena-world.mjs),
-  // so what you see is what blocks you.
+  // 🌳 Tree trunks + boulders — solid triangle meshes built from
+  // LAND_OBSTACLES. The same list drives client/server collision (see
+  // lib/land-world.mjs), so what you see is what blocks you. Canopies are
+  // added per-tree below (visual only — you can walk under the leaf edge).
   obstacleForms = [];
   obstacleEdges = [];
-  for (let i = 0; i < ARENA_OBSTACLES.length; i++) {
-    const o = ARENA_OBSTACLES[i];
-    const baseColor = ARENA_OBSTACLE_COLORS[i] ?? [0.4, 0.4, 0.45, 1.0];
+  for (let i = 0; i < LAND_OBSTACLES.length; i++) {
+    const o = LAND_OBSTACLES[i];
+    const baseColor = LAND_OBSTACLE_COLORS[i] ?? [0.4, 0.4, 0.45, 1.0];
     if (o.type === "cylinder") {
       const segs = 14;
       const positions = [];
@@ -2184,7 +1665,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       // Top rim outline so the pillar reads in depth even in fog.
       const rimPos = [];
       const rimCol = [];
-      const rim = [1, 0.85, 0.5, 0.85];
+      const rim = [0.6, 0.45, 0.3, 0.55]; // bark ring
       for (let s = 0; s < segs; s++) {
         const a0 = (s / segs) * Math.PI * 2;
         const a1 = ((s + 1) / segs) * Math.PI * 2;
@@ -2200,6 +1681,36 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       );
       fe.noFade = true;
       obstacleEdges.push(fe);
+
+      if (o.tree) {
+        // 🍃 Canopy — visual only (no collision): a low-poly leaf cone with
+        // an underside skirt back to the trunk so it reads from below.
+        const cSegs = 10;
+        const baseR = Math.max(1.8, o.r * 4.5);
+        const baseY = yHi - 0.6;
+        const tipY = yHi + 2.2;
+        const leaf = [0.20, 0.40, 0.16, 1.0];
+        const leafLight = [0.30, 0.52, 0.24, 1.0];
+        const cPos = [], cCol = [];
+        for (let s = 0; s < cSegs; s++) {
+          const a0 = (s / cSegs) * Math.PI * 2;
+          const a1 = ((s + 1) / cSegs) * Math.PI * 2;
+          const x0 = o.x + Math.cos(a0) * baseR, z0 = o.z + Math.sin(a0) * baseR;
+          const x1 = o.x + Math.cos(a1) * baseR, z1 = o.z + Math.sin(a1) * baseR;
+          const shade = 0.8 + 0.2 * Math.cos(a0 * 2);
+          const side = [leafLight[0] * shade, leafLight[1] * shade, leafLight[2] * shade, 1.0];
+          cPos.push([x0, baseY, z0, 1], [x1, baseY, z1, 1], [o.x, tipY, o.z, 1]);
+          cCol.push(side, side, leaf);
+          cPos.push([x1, baseY, z1, 1], [x0, baseY, z0, 1], [o.x, baseY - 0.4, o.z, 1]);
+          cCol.push(leaf, leaf, leaf);
+        }
+        const cf = new Form(
+          { type: "triangle", positions: cPos, colors: cCol },
+          { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+        );
+        cf.noFade = true;
+        obstacleForms.push(cf);
+      }
     } else if (o.type === "box") {
       const yLo = o.yMin, yHi = o.yMax;
       const x0 = o.xMin, x1 = o.xMax;
@@ -2221,7 +1732,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
         [x0, yHi, z0, 1], [x0, yHi, z1, 1], [x1, yHi, z1, 1], [x1, yHi, z0, 1],
         top,
       );
-      // Bottom (visible if you peek under, also shields lava bleed)
+      // Bottom (visible if you peek under, also shields sky bleed)
       quad(
         [x0, yLo, z0, 1], [x1, yLo, z0, 1], [x1, yLo, z1, 1], [x0, yLo, z1, 1],
         bot,
@@ -2254,7 +1765,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       obstacleForms.push(f);
 
       // Top edge outline — four lines around the wall's roof.
-      const rim = [1, 0.85, 0.5, 0.85];
+      const rim = [0.78, 0.78, 0.84, 0.6]; // boulder edge
       const ey = yHi + 0.01;
       const fe = new Form(
         {
@@ -2272,6 +1783,42 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
       fe.noFade = true;
       obstacleEdges.push(fe);
     }
+  }
+
+  // 🌼 Flowers — purely decorative, scattered deterministically (hash-based
+  // so every client sees the same field). Each flower is a stem triangle
+  // plus two crossed petal triangles; one static Form for the whole field.
+  {
+    const fPos = [], fCol = [];
+    const petals = [
+      [0.95, 0.9, 0.5, 1.0],   // buttercup
+      [0.95, 0.95, 0.95, 1.0], // daisy
+      [0.85, 0.6, 0.85, 1.0],  // violet
+      [0.95, 0.65, 0.55, 1.0], // poppy
+    ];
+    const FLOWER_COUNT = 140;
+    const stem = [0.2, 0.4, 0.16, 1.0];
+    for (let i = 0; i < FLOWER_COUNT; i++) {
+      const h1 = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+      const h2 = Math.sin(i * 269.5 + 183.3) * 43758.5453;
+      const fx = ((h1 - Math.floor(h1)) * 2 - 1) * (GROUND_SIZE - 1);
+      const fz = ((h2 - Math.floor(h2)) * 2 - 1) * (GROUND_SIZE - 1);
+      const c = petals[i % petals.length];
+      const s = 0.10 + (i % 3) * 0.03;
+      const y0 = GROUND_Y, y1 = GROUND_Y + 0.28 + (i % 4) * 0.06;
+      fPos.push([fx - 0.015, y0, fz, 1], [fx + 0.015, y0, fz, 1], [fx, y1, fz, 1]);
+      fCol.push(stem, stem, stem);
+      fPos.push(
+        [fx - s, y1, fz, 1], [fx + s, y1, fz, 1], [fx, y1 + s * 1.6, fz, 1],
+        [fx, y1, fz - s, 1], [fx, y1, fz + s, 1], [fx, y1 + s * 1.6, fz, 1],
+      );
+      fCol.push(c, c, c, c, c, c);
+    }
+    flowerField = new Form(
+      { type: "triangle", positions: fPos, colors: fCol },
+      { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+    );
+    flowerField.noFade = true;
   }
 
   // 🫥 Feet reference — three shadow symbols swapped based on physics state,
@@ -2352,8 +1899,6 @@ function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, s
   );
   plumbLine.noFade = true;
 
-  // (Death floor is rebuilt each paint — see buildLavaFloor.)
-
   // 🦶 Feet — two stubby boxes (top + side edges as lines) anchored under the
   // player. Yaw rotates the whole form each frame so they face where you look.
   const footBox = (dx, ySpan, color) => {
@@ -2432,22 +1977,14 @@ function sim({ system, pen, screen }) {
   // time sees the fresh value.
   simTime += 1 / SIM_HZ;
 
-  // 🏟️ Multiplayer: compose usercmd, batch & flush at CMD_RATE.
+  // 🌾 Multiplayer: compose usercmd, batch & flush at CMD_RATE.
   netSim(cam);
 
-  // 🎆 Grenade physics — integrate position, bounce, detonate after fuse.
-  // Runs at SIM_HZ so the trajectory is identical regardless of paint FPS.
-  simGrenade(1 / SIM_HZ, doll, cam);
-  if (activeExplosion) {
-    activeExplosion.age += 1 / SIM_HZ;
-    if (activeExplosion.age >= EXPLOSION_DURATION) activeExplosion = null;
-  }
-
-  // 📱 Update mobile button states (movement only — grenade/view fire from
-  // act() so we don't get double triggers).
+  // 📱 Update mobile button states (movement only — view fires from act()
+  // so we don't get double triggers).
   if (mobileButtons && doll) {
     for (const [name, btnData] of Object.entries(mobileButtons)) {
-      if (btnData.isGrenade || btnData.isView) continue;
+      if (btnData.isView) continue;
       const isPressed = btnData.btn?.down ?? false;
       const wasPressed = mobileButtonStates[name] ?? false;
 
@@ -2506,7 +2043,7 @@ function sim({ system, pen, screen }) {
   const pWorldZ = -playerCamZ;
   const pWorldY = -playerCamY;
 
-  // --- 💀 Death detection: hitting the red floor kills the player. ---
+  // --- 🪂 Fall detection: drifting below the island ends the stroll. ---
   if (playerAlive && pWorldY <= DEATH_FLOOR_Y + EYE_HEIGHT + 0.05) {
     playerAlive = false;
     deathTickAge = 0;
@@ -2662,7 +2199,7 @@ function sim({ system, pen, screen }) {
       ? `(${f2(lastHitWorld[0])}, ${f2(lastHitWorld[1])})`
       : "none";
     // Debug snapshot (commented out due to framework message handling issue)
-    // console.log("🏟️ arena snapshot:", { player, cam, phys, state, tiles, mouse, rayDir, speed });
+    // console.log("🌾 land snapshot:", { player, cam, phys, state, tiles, mouse, rayDir, speed });
   }
 
   // 🎥 Camera orbit effect (3P mode only): rotate camera around player by
@@ -2704,9 +2241,9 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   const avgDt = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
   const fps = Math.round(1000 / avgDt);
 
-  // 🔬 Per-frame perf sample — batch-sent to bios.mjs every ARENA_PERF_SEND_EVERY
+  // 🔬 Per-frame perf sample — batch-sent to bios.mjs every LAND_PERF_SEND_EVERY
   // frames where it's mirrored onto window.__arena_perfStats for external probes.
-  arenaPerfRing[arenaPerfRingIdx] = {
+  landPerfRing[landPerfRingIdx] = {
     t: now,
     dt,
     reconDist: lastReconDist,
@@ -2716,29 +2253,29 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     snapAge: netStats.lastSnapMs ? Date.now() - netStats.lastSnapMs : -1,
     reconCorrMs: reconCorrectionMs,
   };
-  arenaPerfRingIdx = (arenaPerfRingIdx + 1) % ARENA_PERF_RING_SIZE;
-  if (arenaPerfRingLen < ARENA_PERF_RING_SIZE) arenaPerfRingLen++;
+  landPerfRingIdx = (landPerfRingIdx + 1) % LAND_PERF_RING_SIZE;
+  if (landPerfRingLen < LAND_PERF_RING_SIZE) landPerfRingLen++;
   // Per-frame reset of the reconcile classifier so each sample reflects
   // *its own* frame, not the last non-skip reconcile that happened.
   lastReconKind = "none";
 
-  if (arenaPerfSend) {
-    arenaPerfPaintsSinceSend++;
-    if (arenaPerfPaintsSinceSend >= ARENA_PERF_SEND_EVERY) {
-      arenaPerfPaintsSinceSend = 0;
-      const samples = new Array(arenaPerfRingLen);
-      for (let i = 0; i < arenaPerfRingLen; i++) {
+  if (landPerfSend) {
+    landPerfPaintsSinceSend++;
+    if (landPerfPaintsSinceSend >= LAND_PERF_SEND_EVERY) {
+      landPerfPaintsSinceSend = 0;
+      const samples = new Array(landPerfRingLen);
+      for (let i = 0; i < landPerfRingLen; i++) {
         const idx =
-          (arenaPerfRingIdx - arenaPerfRingLen + i + ARENA_PERF_RING_SIZE) %
-          ARENA_PERF_RING_SIZE;
-        samples[i] = arenaPerfRing[idx];
+          (landPerfRingIdx - landPerfRingLen + i + LAND_PERF_RING_SIZE) %
+          LAND_PERF_RING_SIZE;
+        samples[i] = landPerfRing[idx];
       }
-      arenaPerfSend({
+      landPerfSend({
         type: "perf:arena",
         content: {
           samples,
           meta: {
-            size: arenaPerfRingLen,
+            size: landPerfRingLen,
             netSpectator,
             myHandle,
             ping,
@@ -2762,12 +2299,10 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   if (perfSamplesSinceSwitch > 30) {
     if (avgDt > PERF_LOW_MS && !perfLowMode) {
       perfLowMode = true; perfMedMode = true; perfSamplesSinceSwitch = 0;
-      lavaCache = null; // force rebuild at low tessellation
     } else if (avgDt > PERF_MED_MS && !perfMedMode) {
       perfMedMode = true; perfSamplesSinceSwitch = 0;
     } else if (avgDt < PERF_HIGH_MS && perfLowMode) {
       perfLowMode = false; perfSamplesSinceSwitch = 0;
-      lavaCache = null; // rebuild each frame again
     } else if (avgDt < PERF_HIGH_MS && perfMedMode) {
       perfMedMode = false; perfSamplesSinceSwitch = 0;
     }
@@ -2813,7 +2348,7 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     if (k === prevPlayerTile) continue;
     const { row, col } = tileFromKey(k);
     const alpha = (age / WALK_AGE_TICKS) * 0.35; // More subtle fade
-    pushQuad(row, col, [0.95, 0.85, 0.4, alpha]); // Muted warm gold
+    pushQuad(row, col, [0.55, 0.7, 0.4, alpha]); // trampled grass
   }
   // Hover (muted cyan, subtle).
   if (hoverTile) {
@@ -2825,22 +2360,17 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     pushQuad(row, col, [0.95, 0.95, 0.95, 0.15]); // Barely visible
   }
 
-  // Render scene — lava donut first (never under the main ground), then the
-  // dark skirt that seals any tile-seam gaps, then the ground, its glowing
-  // edge, tile highlights, feet shadow + body.
-  wipe(45, 48, 55);
-  // Drive lava animation from the sim clock, not paint time — decouples
-  // the flow speed from render FPS so the look is identical on 30fps and
-  // 120fps devices.
-  const lava = buildLavaFloor(simTime);
-  if (lava) ink(255).form(lava);
+  // Render scene — soil island block first, then the skirt that seals any
+  // tile-seam gaps, then the grass, tile highlights, feet shadow + body.
+  wipe(140, 181, 227); // sky — matches the BG fog color
   if (platformBlock) ink(255).form(platformBlock);  // bottom and side faces
   if (groundSkirt) ink(255).form(groundSkirt);
   ink(255).form(groundPlane);
-  // 🧱 Walls + pillars — solid bodies first, glowing rims on top so the
-  // silhouette reads even when fog dims the body color.
+  // 🌳 Trunks, canopies + boulders — solid bodies first, rim outlines on
+  // top so silhouettes read even when fog dims the body color.
   for (const f of obstacleForms) ink(255).form(f);
   for (const f of obstacleEdges) ink(255).form(f);
+  if (flowerField) ink(255).form(flowerField);
   if (hiPos.length > 0 && FormRef) {
     const hi = new FormRef(
       { type: "triangle", positions: hiPos, colors: hiCol },
@@ -2876,19 +2406,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     }
   }
 
-  // 🏟️ Remote players (interpolated from server snapshots, rendered ~100ms behind).
+  // 🌾 Remote players (interpolated from server snapshots, rendered ~100ms behind).
   paintRemotes(ink, undefined, FormRef);
-
-  // 🎆 Local grenade + pill-shaped explosion. Rebuilt per-frame because color
-  // alpha is baked into the geometry (matches the lava-floor approach above).
-  if (myGrenade) {
-    const gf = buildGrenadeForm(myGrenade);
-    if (gf) ink(255).form(gf);
-  }
-  if (activeExplosion) {
-    const ef = buildExplosionPill(activeExplosion);
-    if (ef) ink(255).form(ef);
-  }
 
   // --- HUD (top-right) ---
   // Layout, top to bottom:
@@ -2917,7 +2436,7 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     }
   };
 
-  // 1. Minimap — top-right, shows arena floor + everyone's position.
+  // 1. Minimap — top-right, shows the meadow + everyone's position.
   const mapSize = 64;
   const mapX = rX - mapSize;
   const mapY = margin;
@@ -2927,7 +2446,7 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   ink(80, 82, 96).box(mapX, mapY, 1, mapSize);
   ink(80, 82, 96).box(mapX + mapSize - 1, mapY, 1, mapSize);
   {
-    const { xMin, xMax, zMin, zMax } = ARENA_CFG.groundBounds;
+    const { xMin, xMax, zMin, zMax } = LAND_CFG.groundBounds;
     const wWorld = xMax - xMin;
     const hWorld = zMax - zMin;
     const inner = mapSize - 4;
@@ -2997,16 +2516,6 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   advance();
   if (watcherTotal > 0) {
     rightLabelMulti([[dim, "specs "], [[170, 200, 235], `${watcherTotal}`]], lineY);
-    advance();
-  }
-
-  // 💖 HP bar — number tinted by remaining health (green → yellow → red).
-  {
-    const pct = Math.max(0, Math.min(1, playerHP / MAX_HP));
-    const hpClr = pct > 0.5 ? [180, 230, 180]
-                : pct > 0.25 ? [230, 200, 110]
-                : [230, 110, 100];
-    rightLabelMulti([[dim, "hp "], [hpClr, `${Math.ceil(playerHP)}`]], lineY);
     advance();
   }
 
@@ -3104,32 +2613,21 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     box(px, py - 6, 1, 13);
   }
 
-  // 💢 Damage flash — quick red vignette on the most recent hit so the player
-  // gets a hit-feedback pulse beyond the HP number ticking down.
-  if (lastDamageMs > 0 && playerAlive) {
-    const ageS = (Date.now() - lastDamageMs) / 1000;
-    if (ageS < HP_FLASH_DURATION) {
-      const k = 1 - ageS / HP_FLASH_DURATION;
-      ink(220, 40, 30, Math.floor(k * 90));
-      box(0, 0, screen.width, screen.height);
-    }
-  }
-
-  // --- 💀 Death screen overlay (fade-in) ---
+  // --- 🪂 Fell-off-the-meadow overlay (fade-in) ---
   if (!playerAlive) {
     const fade = Math.min(1, deathTickAge / 24); // ~0.2 s ramp
-    ink(60, 0, 0, Math.floor(fade * 160));
+    ink(20, 30, 60, Math.floor(fade * 160));
     box(0, 0, screen.width, screen.height);
 
     const cx = screen.width / 2;
     const cy = screen.height / 2;
-    ink(255, 80, 80, Math.floor(fade * 255));
-    const died = "YOU DIED";
+    ink(220, 230, 255, Math.floor(fade * 255));
+    const died = "YOU DRIFTED OFF THE MEADOW";
     // MatrixChunky8 ≈ 4px/char; centre roughly.
     write(died, { x: Math.floor(cx - died.length * 4), y: Math.floor(cy - 12) }, undefined, undefined, false, font);
     if (deathTickAge > 30) {
       ink(230, 230, 230, 220);
-      const prompt = "TAP TO RESPAWN";
+      const prompt = "TAP TO RETURN";
       write(prompt, { x: Math.floor(cx - prompt.length * 4), y: Math.floor(cy + 6) }, undefined, undefined, false, font);
     }
   }
@@ -3239,8 +2737,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
 
         // Determine which buffer to render based on button state
         let bufferName = name;
-        if (name === "jump" || name === "crouch" || name === "up" || name === "down" || name === "left" || name === "right" || name === "grenade") {
-          // Jump/Crouch/Arrow/Grenade buttons have press-driven animation states
+        if (name === "jump" || name === "crouch" || name === "up" || name === "down" || name === "left" || name === "right") {
+          // Jump/Crouch/Arrow buttons have press-driven animation states
           bufferName = isPressed ? `${name}_active` : `${name}_normal`;
         } else if (name === "view") {
           // View toggle reflects the camera mode itself, not the momentary tap:
@@ -3395,13 +2893,7 @@ function act({ event: e, penLock, system, screen, ui }) {
       btnData.btn?.act(e, {
         down: () => {
           mobileButtonHit = true;
-          if (btnData.isGrenade) {
-            // 💣 Mobile grenade trigger — single fire on tap; gated identically
-            // to the click-to-fire path so we never double-spawn.
-            if (playerAlive && !myGrenade && !netSpectator) {
-              fireGrenade(doll.cam, doll);
-            }
-          } else if (btnData.isView) {
+          if (btnData.isView) {
             // 🎥 First/third-person toggle — flip between 1P (level 0) and the
             // default shoulder-cam (level 2).
             zoomLevel = zoomLevel === 0 ? 2 : 0;
@@ -3412,7 +2904,7 @@ function act({ event: e, penLock, system, screen, ui }) {
         },
         push: () => {},
         cancel: () => {
-          if (!btnData.isGrenade && !btnData.isView) {
+          if (!btnData.isView) {
             doll.setMovement(btnData.key, false);
           }
         },
@@ -3490,12 +2982,6 @@ function act({ event: e, penLock, system, screen, ui }) {
     if (tryRespawn(system)) return;
     // Don't re-lock on middle-click (1) or right-click (2) — reserved for camera control.
     if (!penLocked && e.button !== 1 && e.button !== 2) penLock();
-    // 🎆 Click-to-fire grenade — only after pen is locked, only when alive,
-    // and only one in-flight grenade at a time. The first click of a session
-    // locks the pen (above) and does not fire; subsequent left-clicks launch.
-    else if (e.button === 0 && playerAlive && !myGrenade && !netSpectator) {
-      fireGrenade(system?.fps?.doll?.cam, system?.fps?.doll);
-    }
   }
 
   // Space (jump key) also respawns when dead — parallels gamepad A.
@@ -3543,29 +3029,25 @@ function initMobileButtons(screen, ui) {
   const actionX = screen.width - btnSizeWide - padding;
   const actionY = screen.height - (btnSize * 3 + gap * 2 + bottomMargin);
 
-  // D-pad layout (center cell is the grenade trigger):
+  // D-pad layout:
   //     ↑
-  //  ← 💣 →
+  //  ←     →
   //     ↓
   mobileButtons = {
     up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "↑", isArrow: true },
     down: { btn: new ui.Button(moveX + btnSize + gap, moveY + (btnSize + gap) * 2, btnSize, btnSize), key: "back", label: "↓", isArrow: true },
     left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "←", isArrow: true },
     right: { btn: new ui.Button(moveX + (btnSize + gap) * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "→", isArrow: true },
-    grenade: { btn: new ui.Button(moveX + btnSize + gap, moveY + btnSize + gap, btnSize, btnSize), key: "grenade", label: "💣", color: [200, 60, 50], isGrenade: true },
     view: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: "view", label: "VIEW", color: [150, 110, 200], isView: true },
     jump: { btn: new ui.Button(actionX, actionY + btnSize + gap, btnSizeWide, btnSize), key: "jump", label: "JUMP", color: [50, 200, 100] },
     crouch: { btn: new ui.Button(actionX, actionY + (btnSize + gap) * 2, btnSizeWide, btnSize), key: "crouch", label: "CROUCH", color: [220, 150, 40] },
   };
 }
 
-// 🏟️ Lifecycle: tell the server we're leaving so our player record is
+// 🌾 Lifecycle: tell the server we're leaving so our player record is
 // deleted immediately instead of waiting for the 30s stale sweep.
 function leave() {
-  try { netServer?.send("arena:bye", { handle: myHandle }); } catch {}
-  myGrenade = null;
-  activeExplosion = null;
-  knockbackGraceUntil = 0;
+  try { netServer?.send("land:bye", { handle: myHandle }); } catch {}
 }
 
 export const system = "fps";
