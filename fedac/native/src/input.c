@@ -525,9 +525,25 @@ poll_evdev: ;
                     input->event_count++;
                 }
             } else if (ev.type == EV_REL) {
-                // Relative mouse movement
-                if (ev.code == REL_X) { input->pointer_x += ev.value; input->delta_x += ev.value; }
-                if (ev.code == REL_Y) { input->pointer_y += ev.value; input->delta_y += ev.value; }
+                // Relative mouse movement. Raw deltas are in PHYSICAL pixels
+                // and event coords are later divided by `scale`, so on a
+                // hi-DPI panel the pointer crawled (1 mouse unit = 1/scale
+                // logical px). Apply gain = scale * MOUSE_SENS so motion feels
+                // natural in logical space, with a fractional accumulator to
+                // preserve sub-pixel precision (no lost slow movement).
+                static const float MOUSE_SENS = 1.6f;
+                static float relacc_x = 0.f, relacc_y = 0.f;
+                float gain = (input->scale > 0 ? input->scale : 1) * MOUSE_SENS;
+                if (ev.code == REL_X) {
+                    relacc_x += ev.value * gain;
+                    int d = (int)relacc_x; relacc_x -= d;
+                    input->pointer_x += d; input->delta_x += d;
+                }
+                if (ev.code == REL_Y) {
+                    relacc_y += ev.value * gain;
+                    int d = (int)relacc_y; relacc_y -= d;
+                    input->pointer_y += d; input->delta_y += d;
+                }
                 // Clamp to display bounds
                 if (input->pointer_x < 0) input->pointer_x = 0;
                 if (input->pointer_y < 0) input->pointer_y = 0;

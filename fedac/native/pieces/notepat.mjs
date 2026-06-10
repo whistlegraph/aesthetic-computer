@@ -467,6 +467,8 @@ let lastSpokenMsgKey = "";   // "from:text" of last TTS'd message (avoid repeats
 let wsStatus = "";           // "connecting" | "connected" | "error" | ""
 let wsConnectGrace = 0;      // frames to wait before declaring error (race-condition guard)
 let wsReconnectTimer = 0;   // frames until next reconnect attempt
+let wsReconnectAttempts = 0; // for exponential backoff (reset on clean connect)
+let wsBacklogProcessed = false; // true once we've parsed the initial history dump
 let chatMuted = true;        // incoming-chat TTS off by default on native
                              // (instrument-name / status speech is separate)
 let wifiWasConnected = false;
@@ -2346,7 +2348,17 @@ function stopSampleRecording(sound, reason = "stop") {
 }
 
 function setWave(nextWave, sound) {
-  if (!nextWave || wave === nextWave) return;
+  if (!nextWave) return;
+  // Picking a basic wave (sine/triangle/.../sample) reroutes OFF any GM
+  // instrument — the GM program overrides `wave` when set, so clear it so
+  // the chosen wave actually sounds.
+  if (gmProgram !== null || gmPassthrough) {
+    gmProgram = null;
+    gmPassthrough = false;
+    gmDigitBuffer = "";
+    console.log("[gm] cleared — switched to wave " + nextWave);
+  }
+  if (wave === nextWave) return;
   const prev = wave;
   if (prev === "sample" && recording) stopSampleRecording(sound, "wave-exit");
   wave = nextWave;
@@ -5256,6 +5268,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const wasFirstConnect = (wsStatus !== "reconnecting" && wsStatus !== "connected");
     wsStatus = "connected";
     wsConnectGrace = 0;
+    wsReconnectAttempts = 0; // clean connect resets the backoff ramp
     // Chat connected ding — only on very first connect, never on reconnects
     if (wasFirstConnect && !globalThis.__wsEverConnected) {
       globalThis.__wsEverConnected = true;
@@ -5264,11 +5277,18 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   } else if (!system.ws?.connected && !system.ws?.connecting && wsConnectGrace === 0) {
     if (wsStatus === "connecting") wsStatus = "error";
-    // Auto-reconnect 2s after drop (server sends history then closes)
+    // Auto-reconnect with EXPONENTIAL BACKOFF. The chat server sends ~500
+    // messages of history then closes the socket, so a tight 2s reconnect
+    // loop hammered it — and each reconnect re-parsed a ~97KB JSON backlog on
+    // the main thread, which is a prime suspect for the 65ms frame hitches.
+    // Backoff: 5s, 10s, 20s, capped at 30s (300..1800 frames at 60fps). Chat
+    // is non-essential to notepat's core, so a slow reconnect is fine.
     if (wifi?.connected && wsReconnectTimer === 0 && wsStatus !== "connecting" && wsStatus !== "reconnecting") {
-      wsReconnectTimer = 120; // ~2s
+      const backoffFrames = Math.min(1800, 300 * Math.pow(2, Math.min(wsReconnectAttempts, 3)));
+      wsReconnectAttempts++;
+      wsReconnectTimer = backoffFrames;
       wsStatus = "reconnecting";
-      wsConnectGrace = 180;
+      wsConnectGrace = backoffFrames + 60;
       system.ws?.connect("wss://chat-system.aesthetic.computer/");
     }
   }
@@ -5283,19 +5303,32 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         const parseContent = (c) => (typeof c === "string" ? JSON.parse(c) : c);
         if (msg.type === "connected") {
           wsStatus = "connected"; // lock in even if server closes right after
-          const content = parseContent(msg.content);
-          const msgs = content?.messages || [];
-          console.log("ws connected: " + msgs.length + " messages");
-          const last = msgs.slice(-1)[0];
-          if (last) console.log("last msg: from=" + last.from + " text=" + (last.text || "").slice(0, 40));
-          if (last?.from && last?.text) {
-            const msgKey = last.from + ":" + last.text;
-            acMsg = { from: last.from, text: last.text };
-            // Only TTS on first connect, not on reconnects with the same last message
-            if (!chatMuted && msgKey !== lastSpokenMsgKey) {
-              lastSpokenMsgKey = msgKey;
-              sound?.speak(last.from + ": " + last.text);
+          // BACKLOG COST GUARD: the server's "connected" frame carries the
+          // entire ~500-message / ~97KB history. JSON.parse-ing that on the
+          // main thread *every* reconnect caused 65ms frame hitches. We only
+          // need the LATEST message for display (chat TTS is muted), and live
+          // "message" frames deliver new ones afterward — so parse the heavy
+          // backlog only ONCE (first connect). On reconnects, skip it
+          // entirely: the existing acMsg stays put until a fresh live message
+          // arrives. This keeps reconnect cheap and the parse off the hot path.
+          if (!wsBacklogProcessed) {
+            wsBacklogProcessed = true;
+            const content = parseContent(msg.content);
+            const msgs = content?.messages || [];
+            console.log("ws connected: " + msgs.length + " messages");
+            const last = msgs.slice(-1)[0];
+            if (last) console.log("last msg: from=" + last.from + " text=" + (last.text || "").slice(0, 40));
+            if (last?.from && last?.text) {
+              const msgKey = last.from + ":" + last.text;
+              acMsg = { from: last.from, text: last.text };
+              // Only TTS on first connect, not on reconnects with same last msg
+              if (!chatMuted && msgKey !== lastSpokenMsgKey) {
+                lastSpokenMsgKey = msgKey;
+                sound?.speak(last.from + ": " + last.text);
+              }
             }
+          } else {
+            console.log("ws reconnected (backlog parse skipped)");
           }
         } else if (msg.type === "message") {
           const m = parseContent(msg.content);
@@ -6242,16 +6275,38 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // GM instrument readout — program name flash on selection (number keys).
+  //
+  // POSITION: its own dedicated line just BELOW the DJ strip. The top bar
+  // (y 0..topBarH) is already full — QR (left), the size-2 "notepat.com"
+  // wordmark (x≈32..120, y≈5..19), the NuPhy badge, and the right-side
+  // clock/battery/volume cluster. Anchoring the readout in the top bar's
+  // lower-left row (the old `topBarH-13`) overlapped the wordmark, and the
+  // even-older `gridTop+gridH+18` fell off the bottom of the screen. The
+  // wave-button row IS the instrument selector, so the current melodic
+  // instrument reads naturally on the line directly beneath that whole
+  // selector + DJ block. We recompute the layout constants here (they are
+  // defined later in paint, after this block runs): sliders start at
+  // settingsY=topBarH with sliderH=12 over 7 rows, then the 14px wave row,
+  // then the 16px DJ strip — so the first clean line is topBarH + 12*7 +
+  // 14 + 16. Clamp into [0, h) and away from the record/waveform strip so
+  // it can never clip off-screen or collide on short displays.
+  const gmReadoutY = (() => {
+    const djStripBottom = topBarH + 12 * 7 + 14 + 16; // ≈ 148
+    // Keep above the record strip (top ≈ gridTop - 24) and on-screen.
+    const maxY = Math.max(topBarH, h - 14);
+    return Math.max(topBarH + 1, Math.min(djStripBottom + 2, maxY));
+  })();
   if (gmNotice && frame < gmNotice.until) {
     const dark2 = isDark();
     const remaining = gmNotice.until - frame;
     const alpha = Math.min(255, Math.round(remaining * 2.2));
     const txt = gmNotice.text;
     const tw = Math.max(1, txt.length) * 6 + 12;
-    // Same always-visible top-bar lane as the persistent readout below (was
-    // `gridTop + gridH + 18`, which fell off the bottom of the screen).
-    const tx = Math.min(Math.max(0, w - tw - 1), 30);
-    const ty = topBarH - 13;
+    // Render on the same dedicated INSTRUMENT line as the persistent readout
+    // below — its own row just under the DJ strip, clear of the top-bar
+    // wordmark/QR/NuPhy/status cluster (all of which live in y < topBarH).
+    const tx = Math.max(2, Math.min(w - tw - 1, 2));
+    const ty = gmReadoutY;
     ink(0, 0, 0, Math.floor(alpha * 0.7));
     box(tx - 1, ty - 1, tw + 2, 14, true);
     ink(dark2 ? 40 : 220, dark2 ? 60 : 230, dark2 ? 90 : 250, Math.floor(alpha * 0.9));
@@ -6268,11 +6323,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // see the current melodic voice (GM program, MIDI passthru, or legacy
   // wave) at a glance, and watch the program number FORM as digits are typed.
   //
-  // PREVIOUS BUG: this rendered at `gridTop + gridH + 18`, which resolves to
-  // `h - margin - 8 + 18 ≈ h + 1` — one pixel BELOW the bottom of the screen,
-  // so it was never visible. The transient gmNotice flash shared the same
-  // off-screen lane. It now anchors into the always-visible TOP BAR, on the
-  // lower-left row just under the size-2 wordmark, clamped to the screen.
+  // PREVIOUS BUGS: (1) rendered at `gridTop + gridH + 18` ≈ h + 1 — one pixel
+  // BELOW the screen, never visible; (2) then anchored at top-bar `topBarH-13`
+  // which OVERLAPPED the size-2 "notepat.com" wordmark. It now renders on its
+  // own dedicated INSTRUMENT line below the DJ strip (gmReadoutY), left-
+  // aligned at x=2, on-screen and clear of the wordmark/QR/NuPhy/status bar.
   if (!(gmNotice && frame < gmNotice.until)) {
     const dark2 = isDark();
     // Mid-entry? gmDigitBuffer holds the partial number and gmDigitLastMs is
@@ -6296,11 +6351,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       accent = false;
     }
     const tw = Math.max(1, label.length) * 6 + 12;
-    // Anchor in the top bar's lower-left row (under the wordmark, right of the
-    // QR), clamped so the whole chip stays on-screen. topBarH = 34, QR right
-    // edge ≈ 28, label glyphs are ~7px tall at size 1.
-    const tx = Math.min(Math.max(0, w - tw - 1), 30);
-    const ty = topBarH - 13; // ~21 — bottom row of the 34px bar
+    // Dedicated instrument line just below the DJ strip. Left-aligned at x=2;
+    // clamp right edge so even long GM names ("049 String Ensemble 1") stay
+    // on-screen. ty is the shared gmReadoutY computed above (in [0, h)).
+    const tx = Math.max(2, Math.min(2, w - tw - 1));
+    const ty = gmReadoutY;
     ink(0, 0, 0, 140);
     box(tx - 1, ty - 1, tw + 2, 14, true);
     if (accent) {
