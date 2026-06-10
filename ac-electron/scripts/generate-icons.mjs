@@ -67,7 +67,7 @@ async function generateIcons() {
   // with the familiar rounded-square silhouette.
   console.log('📱 Generating macOS icons (1024x1024, squircle-masked, dark + light)...');
   const ICON_SIZE = 1024;
-  const FG_SIZE = 824;
+  const FG_SIZE = 1008;
   const FG_OFFSET = Math.round((ICON_SIZE - FG_SIZE) / 2);
   const MASK_RADIUS = 228;
 
