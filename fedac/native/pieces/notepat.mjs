@@ -2209,14 +2209,12 @@ function stopSoundKey(key, sound, system, fade) {
       : (entry.compositeVoices || [entry.synth || entry]);
     for (const voice of list) {
       if (!voice) continue;
-      // Prefer a smooth volume ramp when the voice exposes update(); fall
-      // back to a scheduled kill with a long fade.
-      if (typeof voice.update === "function") {
-        voice.update?.({ volume: 0 });
-        sound?.kill?.(voice, tail);
-      } else {
-        sound?.kill?.(voice, tail);
-      }
+      // kill(voice, tail) ramps the engine voice's fade 1→0 over `tail`
+      // seconds (output is scaled by volume*fade), giving the linger
+      // ring-out. Do NOT call update({volume:0}) first — update sets the
+      // volume INSTANTLY (no ramp), muting the voice before the fade can
+      // run, which is what made shift-linger cut off on key-release.
+      sound?.kill?.(voice, tail);
     }
     lingerVoices.push({ until: frame + Math.ceil(tail * 60) + 30 });
     if (entry.midiNote !== undefined) {
