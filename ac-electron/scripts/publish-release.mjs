@@ -59,6 +59,21 @@ const s3 = new S3Client({
   responseChecksumValidation: "WHEN_REQUIRED",
 });
 
+// lib-storage's Upload force-defaults ChecksumAlgorithm to CRC32 on
+// CreateMultipartUpload (`this.params.ChecksumAlgorithm || CRC32`), which DO
+// Spaces rejects with InvalidArgument 400. Strip the checksum headers before
+// the request is signed.
+s3.middlewareStack.add(
+  (next) => async (args) => {
+    if (args.request?.headers) {
+      delete args.request.headers["x-amz-checksum-algorithm"];
+      delete args.request.headers["x-amz-sdk-checksum-algorithm"];
+    }
+    return next(args);
+  },
+  { step: "build", name: "stripChecksumHeadersForSpaces" },
+);
+
 // Files to upload: manifests + binaries matching current version
 const manifestFiles = ["latest-linux.yml", "latest-mac.yml", "latest.yml"];
 const binaryPatterns = [".AppImage", ".dmg", ".zip", ".exe", ".deb", ".rpm", ".blockmap"];
