@@ -113,9 +113,11 @@ final class QwertyLayoutView: NSView {
         // 0 is MIDI passthrough).
         [Cap(18, "1"), Cap(19, "2"), Cap(20, "3"), Cap(21, "4"), Cap(23, "5"),
          Cap(22, "6"), Cap(26, "7"), Cap(28, "8"), Cap(25, "9"), Cap(29, "0")],
-        // Top row: q w e r t y u i o p ]
+        // Top row: q w e r t y u i o p [ ] — the brackets are control
+        // caps: [ latches the LEFT half to percussion, ] the RIGHT half.
         [Cap(12, "q"), Cap(13, "w"), Cap(14, "e"), Cap(15, "r"), Cap(17, "t"),
-         Cap(16, "y"), Cap(32, "u"), Cap(34, "i"), Cap(31, "o"), Cap(35, "p"), Cap(30, "]")],
+         Cap(16, "y"), Cap(32, "u"), Cap(34, "i"), Cap(31, "o"), Cap(35, "p"),
+         Cap(33, "["), Cap(30, "]")],
         // Home row: a s d f g h j k l ; '
         [Cap(0, "a"), Cap(1, "s"), Cap(2, "d"), Cap(3, "f"), Cap(5, "g"),
          Cap(4, "h"), Cap(38, "j"), Cap(40, "k"), Cap(37, "l"), Cap(41, ";"), Cap(39, "'")],
@@ -136,6 +138,9 @@ final class QwertyLayoutView: NSView {
     /// "control" rather than "note".
     private static let voiceKeyCodes: Set<UInt16> =
         [18, 19, 20, 21, 23, 22, 26, 28, 25, 29]
+    /// Bracket caps — percussion-half latches ([ = left, ] = right).
+    /// Control keys like the octave / voice rows, never notes.
+    private static let percussionKeyCodes: Set<UInt16> = [33, 30]
     private static let keySize: CGFloat = 14
     private static let keyGap: CGFloat = 1
     private static let cornerRadius: CGFloat = 2.5
@@ -147,6 +152,7 @@ final class QwertyLayoutView: NSView {
             let octaves = MenuBandLayout.octaveKeyCodes(for: keymap)
             let isOctaveKey = (cap.kc == octaves.down || cap.kc == octaves.up)
             let isVoiceKey = Self.voiceKeyCodes.contains(cap.kc)
+                || Self.percussionKeyCodes.contains(cap.kc)
             let black = (st.map { Self.isBlackKey(semitone: $0) }) ?? false
             let isLit = litKeyCodes.contains(cap.kc)
             // Out-of-range: this key is mapped to a note, but at the

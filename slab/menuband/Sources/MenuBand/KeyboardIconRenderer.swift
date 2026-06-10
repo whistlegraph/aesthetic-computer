@@ -51,7 +51,7 @@ enum KeyboardIconRenderer {
     ]
 
     /// Set by AppDelegate when either percussion side toggles. Each half of
-    /// the board latches to drums independently (tap left-⌥ / right-⌥).
+    /// the board latches to drums independently (tap `[` left / `]` right).
     static var percussionLeftActive: Bool = false
     static var percussionRightActive: Bool = false
 
@@ -495,8 +495,8 @@ enum KeyboardIconRenderer {
     /// between MenuBandController (source of truth) and the About-window
     /// checkbox so the string never diverges.
     static let percussionSplitDefaultsKey = "notepat.percussionSplit"
-    /// Per-side latched percussion (tap left-⌥ / right-⌥). Source of truth
-    /// shared between MenuBandController and the About-window checkbox.
+    /// Per-side latched percussion (tap `[` left / `]` right). Source of
+    /// truth shared between MenuBandController and the About-window checkbox.
     static let percussionLeftDefaultsKey = "notepat.percussionLeft"
     static let percussionRightDefaultsKey = "notepat.percussionRight"
 
@@ -584,7 +584,7 @@ enum KeyboardIconRenderer {
         64: "e", 65: "f", 66: "w", 67: "g", 68: "r", 69: "a",
         70: "q", 71: "b", 72: "h", 73: "t", 74: "i", 75: "y",
         76: "j", 77: "k", 78: "u", 79: "l", 80: "o", 81: "m",
-        82: "p", 83: "n", 84: ";", 85: "'", 86: "]",
+        82: "p", 83: "n", 84: ";", 85: "'",
     ]
 
     // Ableton Live's M-mode QWERTY mapping: A=C, W=C#, S=D, E=D#, D=E,
@@ -1063,8 +1063,17 @@ enum KeyboardIconRenderer {
                         topGradient?.draw(in: topRect, angle: -90)
                         NSGraphicsContext.restoreGraphicsState()
                     }
-                    groove.setStroke()
-                    path.lineWidth = 0.7
+                    // Drum pads in dark mode get a heavier, darker seam —
+                    // the light slate groove disappears between two
+                    // color-washed pads, so neighboring drums read as one
+                    // blob without it.
+                    if drumColor != nil && isDark {
+                        NSColor.black.withAlphaComponent(0.85).setStroke()
+                        path.lineWidth = 1.0
+                    } else {
+                        groove.setStroke()
+                        path.lineWidth = 0.7
+                    }
                     path.stroke()
                     // Lit keys always wear their letter at full opacity (a
                     // mouse-press tap reveals just that letter). For unlit
@@ -1147,7 +1156,8 @@ enum KeyboardIconRenderer {
                     // accent drums — crash/splash/cowbell/block/tambo) with
                     // their pad color. Higher alpha than the naturals so it
                     // reads against the dark keycap.
-                    if let drumColor = Self.percussionDrumColor(forMidi: m), !isLit {
+                    let sharpDrumColor = Self.percussionDrumColor(forMidi: m)
+                    if let drumColor = sharpDrumColor, !isLit {
                         let b = vibe.blink
                         let c = b > 0.01
                             ? (drumColor.blended(withFraction: b * 0.85, of: .white) ?? drumColor)
@@ -1155,8 +1165,15 @@ enum KeyboardIconRenderer {
                         c.withAlphaComponent(min(1.0, 0.72 + b * 0.28)).setFill()
                         path.fill()
                     }
-                    groove.setStroke()
-                    path.lineWidth = 0.6
+                    // Same dark-mode drum seam as the naturals — the slate
+                    // groove is invisible around a color-washed sharp.
+                    if sharpDrumColor != nil && isDark {
+                        NSColor.black.withAlphaComponent(0.85).setStroke()
+                        path.lineWidth = 1.0
+                    } else {
+                        groove.setStroke()
+                        path.lineWidth = 0.6
+                    }
                     path.stroke()
                     if tileOffset == 0, let letter = labelByMidi[m] {
                         let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter

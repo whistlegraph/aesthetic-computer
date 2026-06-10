@@ -43,7 +43,8 @@ enum MenuBandLayout {
             (45, 23),  // N   +b
             (41, 24),  // ;  ++c
             (39, 25),  // '  ++c#
-            (30, 26),  // ]  ++d
+            // ] (30) is NOT a note — it latches the right-half percussion
+            // split (see playKeyEvent), alongside [ (33) for the left half.
         ]
         for (kc, st) in mapping { table[Int(kc)] = st }
         return table
@@ -87,8 +88,8 @@ enum MenuBandLayout {
         var t = [UInt8](repeating: 64, count: 128)
         // (row, col → keyCode mapping, mirrors notepat.mjs QWERTY rows)
         let rows: [[UInt16]] = [
-            // Row 0: q w e r t y u i o p ]
-            [12, 13, 14, 15, 17, 16, 32, 34, 31, 35, 30],
+            // Row 0: q w e r t y u i o p  (] is a percussion latch, not a note)
+            [12, 13, 14, 15, 17, 16, 32, 34, 31, 35],
             // Row 1: a s d f g h j k l ; '
             [0,  1,  2,  3,  5,  4,  38, 40, 37, 41, 39],
             // Row 2: z x c v b n m   (skipping the modifier bookends)
@@ -96,7 +97,7 @@ enum MenuBandLayout {
         ]
         let rowOffsets: [Double] = [0.0, 0.5, 1.0]
         // Match notepat: MAX_SPAN = max(row.length + offset). Rows are
-        // 11, 11.5, 8 here (we drop control / alt vs the JS source) so
+        // 10, 11.5, 8 here (we drop control / alt vs the JS source) so
         // MAX_SPAN = 11.5.
         let maxSpan: Double = 11.5
         let panRange: Double = 0.9

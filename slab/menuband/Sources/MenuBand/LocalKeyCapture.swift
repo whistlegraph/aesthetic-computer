@@ -142,17 +142,20 @@ final class LocalKeyCapture {
             self?.onTrackpadTouchActiveChanged?(active)
         }
         p.contentView = sensor
-        // Rob ⌃/⌘+letter chords from the system. The local keyDown monitor
+        // Rob ⌃/⌥/⌘+letter combos from the system. The local keyDown monitor
         // (above) doesn't reliably see modifier key-equivalents, and the
-        // morph path only fires once a bare note is already held. This makes a
-        // SIMULTANEOUS ⌘+x / ⌃+c chord consistent — and, for mapped note keys,
-        // deliberately shadows Cut/Copy/Paste/Undo/Save while quiet-focus is
-        // armed (returns true → the system shortcut never fires). Non-note
-        // combos (⌘-Tab, ⌘-Q) fall through to `super` and behave normally.
+        // morph path only fires once a bare note is already held. This makes
+        // a SIMULTANEOUS ⌃+c (major) / ⌥+c (minor) chord consistent — and,
+        // for mapped note keys, deliberately shadows Cut/Copy/Paste/Undo/Save
+        // while quiet-focus is armed (returns true → the system shortcut
+        // never fires; ⌘+note plays the plain note since ⌘ is chord-inert).
+        // Non-note combos (⌘-Tab, ⌘-Q) fall through to `super` and behave
+        // normally.
         p.keyEquivalentHandler = { [weak self] event in
             guard let self = self else { return false }
             let flags = event.modifierFlags
-            guard flags.contains(.command) || flags.contains(.control) else { return false }
+            guard flags.contains(.command) || flags.contains(.control)
+                || flags.contains(.option) else { return false }
             return self.onKey?(event.keyCode, true, event.isARepeat, flags) ?? false
         }
         panel = p

@@ -169,16 +169,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let rightCommandDoubleTapWindow: CFTimeInterval = 0.30
     private var popoverEscMonitor: Any?
 
-    /// Option's .flagsChanged virtual keycodes. A single bare TAP of either
-    /// Option latches that HALF of the board to percussion: left-⌥ (58) =
-    /// left half, right-⌥ (61) = right half. Tap again to release that side.
-    private static let rightOptionKeyCode: UInt16 = 61
-    private static let leftOptionKeyCode: UInt16 = 58
-    private var rightOptionMonitorGlobal: Any?
-    private var rightOptionMonitorLocal: Any?
-    private var leftOptionMonitorGlobal: Any?
-    private var leftOptionMonitorLocal: Any?
-
     /// Sandbox-friendly local key capture. Armed when the user clicks the
     /// menubar piano (without opening the popover). The companion ghost
     /// timer paints letter labels on the menubar keys briefly when armed
@@ -669,8 +659,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // ONLY system-wide key. It already arms AND disarms focus capture,
         // so the focus/exit global hotkeys are redundant; the piano-waveform
         // hotkey is dead (that overlay is retired); and layout + percussion
-        // toggles still fire from the LOCAL `localCapture.onKey` handler and
-        // the local ⌥ taps while Menu Band is focused. All other global
+        // toggles still fire from the LOCAL `localCapture.onKey` handler —
+        // `[`/`]` latch the percussion halves in-band. All other global
         // RegisterEventHotKey bindings stay unregistered:
         // _ = registerFocusCaptureHotkey(MenuBandShortcutPreferences.focusShortcut)
         // _ = registerPianoWaveformHotkey(MenuBandShortcutPreferences.playPaletteShortcut)
@@ -927,8 +917,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startShiftStateMonitors()
         startChordMorphMonitors()
         startRightCommandTapMonitor()
-        startRightOptionTapMonitor()
-        startLeftOptionTapMonitor()
         startVisualizerAnimation()
 
         // Retint the running app's icon (About panel + Dock) to the
@@ -1069,17 +1057,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.togglePercussionSplit()
         // Audible cue so the toggle lands without looking at the menubar.
         menuBand.playPercussionToggleCue(on: menuBand.percussionSplit)
-    }
-
-    private func toggleLeftPercussionFromShortcut() {
-        menuBand.togglePercussionLeft()
-        // Cue panned left so the side that toggled lands by ear.
-        menuBand.playPercussionToggleCue(on: menuBand.percussionLeft, pan: 32)
-    }
-
-    private func toggleRightPercussionFromShortcut() {
-        menuBand.togglePercussionRight()
-        menuBand.playPercussionToggleCue(on: menuBand.percussionRight, pan: 96)
     }
 
     @discardableResult
@@ -1667,22 +1644,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if initialDirty { updateIcon() }
     }
 
-    /// Live chord morph: while a note key is physically held, watch ⌃/⌘ and
+    /// Live chord morph: while a note key is physically held, watch ⌃/⌥ and
     /// re-voice the held key between a single note and a triad. The chord
-    /// scheme matches the keyDown path — ⌃ = major, ⌘ = minor, ⌃+⌘ = sus —
+    /// scheme matches the keyDown path — ⌃ = major, ⌥ = minor, ⌃+⌥ = sus —
     /// so a note that started plain and one that started chorded morph the
-    /// same way. Both a global monitor (TYPE mode / background apps) and a
-    /// local one (quiet-focus, Menu Band frontmost) feed the same handler; the
+    /// same way (⌘ is chord-inert; its shortcuts stay system shortcuts).
+    /// Both a global monitor (TYPE mode / background apps) and a local one
+    /// (quiet-focus, Menu Band frontmost) feed the same handler; the
     /// controller no-ops when nothing is held, so wiring both is harmless.
     private func startChordMorphMonitors() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
             let flags = event.modifierFlags
             let ctrl = flags.contains(.control)
-            let cmd = flags.contains(.command)
-            self.menuBand.morphHeldKeys(chordModifier: ctrl || cmd,
-                                        chordMinor: cmd,
-                                        chordSus: ctrl && cmd)
+            let opt = flags.contains(.option)
+            self.menuBand.morphHeldKeys(chordModifier: ctrl || opt,
+                                        chordMinor: opt,
+                                        chordSus: ctrl && opt)
         }
         globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -1740,55 +1718,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { handler($0) }
         rightCmdMonitorLocal = NSEvent.addLocalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
-        ) { handler($0); return $0 }
-    }
-
-    /// Single bare right-⌥ TAP latches the RIGHT half of the board to
-    /// percussion (tap again to release). Rides the same .flagsChanged
-    /// stream the shift / right-⌘ monitors already use (no new permission).
-    private func startRightOptionTapMonitor() {
-        let handler: (NSEvent) -> Void = { [weak self] event in
-            guard let self = self else { return }
-            guard event.type == .flagsChanged,
-                  event.keyCode == Self.rightOptionKeyCode else { return }
-            // .flagsChanged fires on press AND release; `.option` is set
-            // on the down edge, cleared on the up. Toggle on down only.
-            let isDown = event.modifierFlags.contains(.option)
-            guard isDown else { return }
-            // Bare right-⌥ only — ignore chords (⌥⌘, ⌥⇧, …) so an Option
-            // used as a real modifier in another app doesn't flip drums.
-            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard mask == .option else { return }
-            self.toggleRightPercussionFromShortcut()
-        }
-        // [v1] Local-only — bare right-⌥ flips drums ONLY while Menu Band
-        // is the active app (popover open / capture armed). No global
-        // monitor: the double right-⌘ tap is the sole system-wide key, so
-        // an Option press in another app never reaches percussion.
-        rightOptionMonitorLocal = NSEvent.addLocalMonitorForEvents(
-            matching: [.flagsChanged]
-        ) { handler($0); return $0 }
-    }
-
-    /// Single bare left-⌥ TAP latches the LEFT half of the board to
-    /// percussion (tap again to release) — the mirror of the right-⌥ tap.
-    private func startLeftOptionTapMonitor() {
-        let handler: (NSEvent) -> Void = { [weak self] event in
-            guard let self = self else { return }
-            guard event.type == .flagsChanged,
-                  event.keyCode == Self.leftOptionKeyCode else { return }
-            let isDown = event.modifierFlags.contains(.option)
-            guard isDown else { return }
-            // Bare left-⌥ only — ignore chords so a real Option modifier in
-            // another app doesn't flip drums.
-            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard mask == .option else { return }
-            self.toggleLeftPercussionFromShortcut()
-        }
-        // [v1] Local-only — mirror of the right-⌥ tap. Flips drums only
-        // while Menu Band is active; never system-wide.
-        leftOptionMonitorLocal = NSEvent.addLocalMonitorForEvents(
-            matching: [.flagsChanged]
         ) { handler($0); return $0 }
     }
 

@@ -505,6 +505,15 @@ final class MenuBandSynth {
             do { try engine.start() }
             catch { NSLog("MenuBand: engine start before MIDISynth rebuild failed: \(error)") }
         }
+        // Re-assert the output binding against the NOW-settled default
+        // device. The immediate recovery in `handleEngineConfigurationChange`
+        // can run while CoreAudio still reports the OLD device as default
+        // (the notification races the default-device flip), pinning the
+        // engine to a stale device and skipping the buffer lowering — the
+        // epochs whose logs miss "lowered IO buffer" are exactly those.
+        // After the settle window the default is trustworthy.
+        applyOutputDeviceOverride()
+        lowerOutputBufferSizeIfNeeded()
         NSLog("MenuBand: device settled (epoch \(armedEpoch)) — rebuilding MIDISynth")
         // Runs the heavy bring-up async, after this lock releases, so it can't
         // deadlock on `engineLock`.
@@ -610,8 +619,10 @@ final class MenuBandSynth {
         //    instant PC with no further loading.
         let engineWasRunning = engine.isRunning
         if engineWasRunning { engine.pause() }
+        let sweepStart = CACurrentMediaTime()
         preloadAllMelodicPrograms(au)
         preloadDrumKit(au)
+        let sweepMs = (CACurrentMediaTime() - sweepStart) * 1000.0
         // Always restart the engine after preload — selectMelodicProgram
         // below (and every subsequent noteOn) needs the render thread
         // alive to actually process the queued bank+PC MIDI events.
@@ -640,7 +651,7 @@ final class MenuBandSynth {
         midiSynthBankDirty = false   // fresh AU has the bank loaded
         updateSamplerRoutingForActiveBackend()
         scheduleIdleSuspendIfNeeded()
-        NSLog("MenuBand: MIDISynth ready — instant program switching enabled")
+        NSLog(String(format: "MenuBand: MIDISynth ready — instant program switching enabled (preload sweep %.1f ms)", sweepMs))
 
         // If the device switched again while this AU was instantiating +
         // preloading, the samples we just faulted in are for the OLD device
@@ -1126,12 +1137,24 @@ final class MenuBandSynth {
         guard AudioObjectGetPropertyData(
             AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceID
         ) == noErr, deviceID != 0 else { return }
+        // Skip the write when the AU is already bound to the default device —
+        // a redundant CurrentDevice set can still emit a configuration-change
+        // notification, and this is called from the settle-window rebuild
+        // path, where that echo would re-arm the rebuild forever.
+        var current = AudioDeviceID(0)
+        var curSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        if AudioUnitGetProperty(
+            au, kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global, 0, &current, &curSize
+        ) == noErr, current == deviceID { return }
         let status = AudioUnitSetProperty(
             au, kAudioOutputUnitProperty_CurrentDevice,
             kAudioUnitScope_Global, 0,
             &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size))
         if status != noErr {
             NSLog("MenuBand: output device override failed: \(status)")
+        } else {
+            NSLog("MenuBand: output device override — engine re-bound \(current) → \(deviceID)")
         }
     }
 
