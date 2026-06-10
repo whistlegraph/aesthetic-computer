@@ -5,7 +5,7 @@
  * - AC Pane (3D flip view with front webview + back terminal)
  */
 
-const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net, session, systemPreferences } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net, session, systemPreferences, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -523,18 +523,26 @@ function startSiloUpdateChecks() {
 app.setName('Aesthetic.Computer');
 process.title = 'Aesthetic.Computer';
 
-// Set dock icon on macOS
-if (process.platform === 'darwin') {
-  const iconPath = path.join(__dirname, 'build', 'icon.png');
+// Set dock icon on macOS — theme-aware: dark plate in dark mode, light plate
+// in light mode, re-applied live whenever the system appearance flips.
+function applyDockIcon() {
+  if (process.platform !== 'darwin' || !app.dock) return;
+  const variant = nativeTheme.shouldUseDarkColors ? 'icon.png' : 'icon-light.png';
+  const iconPath = path.join(__dirname, 'build', variant);
   try {
     const icon = nativeImage.createFromPath(iconPath);
     if (!icon.isEmpty()) {
       app.dock.setIcon(icon);
+      console.log(`[dock] icon → ${variant} (${nativeTheme.shouldUseDarkColors ? 'dark' : 'light'} appearance)`);
+    } else {
+      console.warn(`[dock] icon missing or empty: ${iconPath}`);
     }
   } catch (e) {
     console.warn('Could not set dock icon:', e.message);
   }
 }
+applyDockIcon();
+nativeTheme.on('updated', applyDockIcon);
 
 // On macOS, hide the dock icon when there are no visible windows so the app
 // acts as a pure menubar daemon. Shown again as soon as any window opens.

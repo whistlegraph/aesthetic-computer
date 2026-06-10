@@ -56,14 +56,16 @@ async function generateIcons() {
   await ensureDir(buildDir);
   await ensureDir(iconsDir);
   
-  // The SVG has a transparent background, let's add a background color
-  // for the app icon (purple to match the pals theme)
-  const backgroundColor = '#1a1a2e'; // Dark purple/navy background
+  // The SVG has a transparent background; the app icon adds a squircle plate
+  // behind it. Two plates: dark (default / icns) and light (dock swaps to it
+  // at runtime when the system is in light mode).
+  const backgroundColor = '#1a1a2e'; // Dark purple/navy plate
+  const lightBackgroundColor = '#f4f1f7'; // Light lavender-white plate
 
   // macOS icon layout: 1024x1024 canvas, ~100px padding around a 824x824 foreground,
   // then masked by a squircle (rounded rect with rx~228) so the Dock renders it
   // with the familiar rounded-square silhouette.
-  console.log('📱 Generating macOS icon (1024x1024, squircle-masked)...');
+  console.log('📱 Generating macOS icons (1024x1024, squircle-masked, dark + light)...');
   const ICON_SIZE = 1024;
   const FG_SIZE = 824;
   const FG_OFFSET = Math.round((ICON_SIZE - FG_SIZE) / 2);
@@ -83,21 +85,26 @@ async function generateIcons() {
       `</svg>`,
   );
 
-  await sharp({
-    create: {
-      width: ICON_SIZE,
-      height: ICON_SIZE,
-      channels: 4,
-      background: backgroundColor,
-    },
-  })
-    .composite([
-      { input: foreground, top: FG_OFFSET, left: FG_OFFSET },
-      { input: squircleMask, blend: 'dest-in' },
-    ])
-    .png()
-    .toFile(path.join(buildDir, 'icon.png'));
-  console.log('   ✅ build/icon.png (squircle)');
+  async function squircleIcon(plateColor, outName) {
+    await sharp({
+      create: {
+        width: ICON_SIZE,
+        height: ICON_SIZE,
+        channels: 4,
+        background: plateColor,
+      },
+    })
+      .composite([
+        { input: foreground, top: FG_OFFSET, left: FG_OFFSET },
+        { input: squircleMask, blend: 'dest-in' },
+      ])
+      .png()
+      .toFile(path.join(buildDir, outName));
+    console.log(`   ✅ build/${outName} (squircle, ${plateColor})`);
+  }
+
+  await squircleIcon(backgroundColor, 'icon.png');
+  await squircleIcon(lightBackgroundColor, 'icon-light.png');
   
   // Generate Linux icons at various sizes
   console.log('\n🐧 Generating Linux icons...');
