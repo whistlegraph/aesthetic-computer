@@ -429,8 +429,10 @@ let osCheckFrame = 0;        // frame when we started the version fetch
 let osUpdatePingVersion = ""; // last version we pinged to the user
 let flashTargetIdx = 0;      // index into system.flashTargets
 
-// Auto-update: background check on WiFi connect, silent download+flash+reboot
-// states: "idle" | "checking" | "downloading" | "flashing" | "rebooting"
+// Update CHECK only: a background version ping on WiFi connect that, if a
+// newer OS exists, speaks "system update available" and stops. NEVER
+// downloads, flashes, or reboots on its own — the user installs updates
+// manually via the OS panel. states: "idle" | "checking".
 let autoUpdate = {
   state: "idle",
   fetchPending: false,  // true = fetchResult belongs to auto-update version check
@@ -2411,15 +2413,11 @@ function notifyUpdateAvailable(sound, version) {
   osUpdatePingVersion = version;
   sound?.synth?.({ type: "sine", tone: 988, duration: 0.08, volume: 0.16, attack: 0.002, decay: 0.06 });
   sound?.synth?.({ type: "sine", tone: 1319, duration: 0.12, volume: 0.14, attack: 0.01, decay: 0.08 });
-  sound?.speak?.("os update available");
+  sound?.speak?.("system update available");
 }
 
-function startAutoUpdateDownload(system) {
-  autoUpdate.state = "downloading";
-  autoUpdate.lastError = "";
-  osProgress = 0;
-  system.fetchBinary?.(OS_VMLINUZ_URL, "/tmp/vmlinuz.new", OS_VMLINUZ_BYTES);
-}
+// (Removed startAutoUpdateDownload — the background path no longer downloads
+// or flashes; updates are user-initiated only, through the manual OS panel.)
 
 function boot({ wipe, system, sound }) {
   wipe(0);
@@ -5166,37 +5164,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     system.fetch?.("https://aesthetic.computer/api/clock");
   }
 
-  // Background auto-update state machine (runs independently of OS panel)
-  if (autoUpdate.state === "downloading") {
-    osProgress = system.fetchBinaryProgress ?? osProgress;
-    if (system.fetchBinaryDone) {
-      if (system.fetchBinaryOk) {
-        console.log("[os] auto-download complete, starting flash");
-        autoUpdate.state = "flashing";
-        system.flashUpdate?.("/tmp/vmlinuz.new"); // auto-detects boot device
-      } else {
-        console.log("[os] auto-download FAILED");
-        autoUpdate.lastError = "download failed";
-        autoUpdate.state = "checking";
-        autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
-      }
-    }
-  }
-  if (autoUpdate.state === "flashing") {
-    if (system.flashDone) {
-      if (system.flashOk) {
-        // Don't auto-reboot — just mark as ready. User must manually reboot via OS panel.
-        autoUpdate.state = "ready";
-        autoUpdate.lastError = "";
-        console.log("[os] auto-update flashed successfully, awaiting manual reboot");
-      } else {
-        console.log("[os] auto-flash FAILED");
-        autoUpdate.lastError = "flash failed";
-        autoUpdate.state = "checking";
-        autoUpdate.nextCheckFrame = frame + OS_AUTO_RETRY_FRAMES;
-      }
-    }
-  }
+  // NOTE: there is intentionally NO background auto-download / auto-flash /
+  // auto-reboot. The background path ONLY checks the version and speaks a
+  // "system update available" notice (notifyUpdateAvailable, above). All
+  // downloading + flashing happens solely through the manual OS panel, where
+  // the user explicitly confirms. (The old silent download→flash→reboot state
+  // machine was removed — a self-flashing reboot is too dangerous to run
+  // unattended, especially on a tight ESP.)
 
   // OS update panel state machine (manual, only when panel open)
   if (activeScreen === "os") {

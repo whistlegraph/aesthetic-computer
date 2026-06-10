@@ -371,7 +371,13 @@ INITRD_SHA=$(shasum -a 256 "${INITRAMFS}" | awk '{print $1}')
 mb_round_up() { echo $(( ($1 + 1048575) / 1048576 )); }
 DISK_MB=$(( DEV_BYTES / 1048576 ))
 STAGE_MB=$(( $(mb_round_up "${KERNEL_BYTES}") + $(mb_round_up "${INITRD_BYTES}") + 8 ))
-EFI_MB=$(( STAGE_MB + 96 ))
+# Size the ESP (ACEFI — the partition the device boots from and OTAs into) to
+# hold TWO full copies of the boot tree plus margin: the on-device OTA writes
+# the new kernel+initramfs ALONGSIDE the running ones before swapping, so a
+# +96 MB headroom (one copy) made on-device updates fail with "not enough ESP
+# space". 2× the staged size + 256 MB gives the OTA room to double-buffer.
+# ACBOOT (MAIN) absorbs the difference out of its ~29 GB — negligible.
+EFI_MB=$(( STAGE_MB * 2 + 256 ))
 MAIN_MB=$(( DISK_MB - EFI_MB - 64 ))   # 64 MB GPT + alignment headroom
 
 [ "${MAIN_MB}" -ge $(( STAGE_MB + 64 )) ] \
