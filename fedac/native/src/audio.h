@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "audio-decode.h"
+#include "gm_synth.h"   // standalone GM voice state (GMVoice) + render API
 
 #define AUDIO_SAMPLE_RATE 192000
 #define AUDIO_CHANNELS 2
@@ -40,7 +41,21 @@ typedef enum {
     // the Salamander sample path; these are additive, never a replacement).
     WAVE_GMPIANO,   // modal additive + inharmonicity (acoustic pianos, GM 1-4)
     WAVE_EPIANO,    // FM tine/reed, Chowning (electric pianos, GM 5-6)
-    WAVE_PLUCK      // extended Karplus-Strong (harpsichord/clavi, GM 7-8)
+    WAVE_PLUCK,     // extended Karplus-Strong (harpsichord/clavi, GM 7-8)
+    // ── GM synthesis batch 2 (dossiers 01/02/04) ──
+    // WAVE_MODAL  — parallel bank of decaying inharmonic sinusoids at measured
+    //   modal ratios. Chromatic Percussion (GM 9-15), Kalimba (109), and the
+    //   pitched metal/wood Percussive family (113-119). Reuses the p_*[] partial
+    //   arrays (phase/amp/finc/dec_mult) as the mode bank — a mode is just a
+    //   partial at an inharmonic ratio with its own exp decay. Struck-coherent
+    //   start phase (no random phase) for a crisp transient (dossier 00 §4c).
+    // WAVE_SYNTHBASS — subtractive: 1-2 detuned saw/square oscillators (optional
+    //   sub + FM) through a resonant envelope-swept LPF. Synth Bass 1/2 (GM
+    //   39-40) and the reed-as-saw APPROXIMATIONS for Bagpipe/Fiddle/Shanai
+    //   (110/111/112) pending the waveguide batch. Sustained variants set
+    //   sb_sustain + an optional drone partial.
+    WAVE_MODAL,
+    WAVE_SYNTHBASS
 } WaveType;
 
 // Gun voice presets. Two synthesis models are available per preset:
@@ -234,44 +249,16 @@ typedef struct {
     double piano_sample_step;           // playback rate (target_f / anchor_f)
     double piano_sample_amp;            // velocity-derived gain
     // === GM synthesis voice state (docs/gm-synthesis/01 + 00) ===
-    // Shared scratch for the algorithmic GM voices (WAVE_GMPIANO / WAVE_EPIANO
-    // / WAVE_PLUCK). A voice is only ever one wave type at a time, so these
-    // unions of purpose are safe to coexist. Filled at note-on by
-    // gm_voice_init() from the program row + bounded note-on stochasticism.
-    int    gm_program;                  // GM program 0-7 (for debug / routing)
-    // -- Modal additive partials (WAVE_GMPIANO; per-partial phase-increment
-    //    wavetable sines with inharmonic stretch + per-partial exp decay).
-    #define GM_MAX_PARTIALS 12
-    int    p_count;                     // active partial count (<= GM_MAX_PARTIALS)
-    double p_phase[GM_MAX_PARTIALS];    // 0..1 phase accumulators
-    double p_amp[GM_MAX_PARTIALS];      // current amplitude (decays each sample)
-    double p_finc[GM_MAX_PARTIALS];     // per-sample phase increment (f_n / sr)
-    double p_dec_mult[GM_MAX_PARTIALS]; // per-sample exp decay multiplier
-    int    gm_dual;                     // 1 = honky-tonk: render a 2nd detuned set
-    double p2_phase[GM_MAX_PARTIALS];   // 2nd (detuned) string copy phases
-    double p2_finc[GM_MAX_PARTIALS];    // 2nd copy phase increments
-    double gm_drive;                    // per-voice tanh drive (electric grand)
-    double gm_hammer_env;               // hammer-thump noise burst envelope
-    double gm_hammer_dec;               // per-sample hammer decay multiplier
-    double gm_hammer_amp;               // hammer mix gain
-    double gm_hammer_lp;                // 1-pole LPF state for hammer noise
-    // -- FM tine/reed operators (WAVE_EPIANO; 2-op carrier+modulator plus a
-    //    high-ratio attack "tine" operator, all wavetable sines). --
-    double fm_cphase, fm_cinc;          // carrier phase + increment
-    double fm_mphase, fm_minc;          // body modulator phase + increment
-    double fm_index, fm_index_dec;      // body mod index + per-sample decay
-    double fm_tphase, fm_tinc;          // tine (high-ratio) operator phase + inc
-    double fm_tindex, fm_tindex_dec;    // tine index + per-sample decay
-    double fm_pickup_bias;              // asymmetric-pickup tanh DC bias (growl)
-    double fm_hp_x1, fm_hp_y1;          // DC blocker after the pickup nonlinearity
-    // -- Extended Karplus-Strong (WAVE_PLUCK; harpsichord/clavi). String delay
-    //    line reuses whistle_bore_buf like WAVE_HARP. These add the
-    //    pick-position comb, loop damping, stretch + output waveshaper. --
-    double ks_stretch;                  // EKS stretch S (<1) — decay control
-    double ks_loop_b;                   // one-pole loop LPF coefficient (damping)
-    double ks_beta;                     // pluck position (fraction of string len)
-    double ks_pick_amt;                 // pick-position comb mix
-    double ks_drive;                    // output tanh drive (clavi pickup bite)
+    // The entire algorithmic GM voice set (modal piano / FM e-piano / extended
+    // Karplus-Strong pluck / modal bank / subtractive synth bass) now lives in
+    // the standalone, dependency-free gm_synth module so it can compile + be
+    // tested off-device (macOS, no ALSA) and later be shared into Menu Band.
+    // GMVoice owns ALL the per-voice GM DSP state — partial arrays, FM ops, KS
+    // string + its own delay buffers, modal bank, subtractive filter, its own
+    // attack/secondary noise biquad+envelopes, and its own xorshift seed. The
+    // engine fills it at note-on via gm_voice_init() and renders via
+    // gm_voice_render(); see gm_synth.h.
+    GMVoice gm;
 } ACVoice;
 
 typedef struct {
@@ -483,12 +470,14 @@ uint64_t audio_synth_gun(ACAudio *audio, GunPreset preset, double duration,
 void audio_gun_voice_set_param(ACAudio *audio, uint64_t id,
                                const char *key, double value);
 
-// Add a GM-synthesis voice for Piano-family program 0-7 (0 = Acoustic Grand).
-// Selects the algorithmic engine (modal piano / FM e-piano / extended-KS
-// pluck) and applies bounded note-on stochasticism. Returns 0 (no voice) for
-// programs outside 0-7 so the caller can fall back to audio_synth() with the
-// requested `type`. See gm_voice_init() + gm_piano_programs[] in audio.c and
-// docs/gm-synthesis/01-piano-mallet-organ-guitar.md.
+// Add a GM-synthesis voice for an implemented General-MIDI program (0-based;
+// 0 = Acoustic Grand). Batch 1: Piano family 0-7. Batch 2: Chromatic
+// Percussion 8-15, Guitar 24-31, Bass 32-39, Ethnic 104-111, Percussive
+// 112-119. Selects the algorithmic engine (modal piano / FM e-piano /
+// extended-KS pluck / modal bank / subtractive) and applies bounded note-on
+// stochasticism. Returns 0 (no voice) for unimplemented programs so the caller
+// can fall back to audio_synth() with the requested `type`. See gm_voice_init()
+// + the gm_*_programs[] tables in audio.c and docs/gm-synthesis/.
 uint64_t audio_synth_gm(ACAudio *audio, int program, double freq,
                         double duration, double volume, double attack,
                         double decay, double pan);
