@@ -167,7 +167,7 @@ function resolveMode(params) {
 
 // 🎲 Round generation ────────────────────────────────────────────────────────
 
-const { abs, floor, min, max, ceil, round, sin, cos, pow } = Math;
+const { abs, floor, min, max, round, sin, cos, pow } = Math;
 
 function isPrime(n) {
   if (n < 2) return false;
@@ -247,27 +247,18 @@ function cellFont() {
   return mode === "word" ? "unifont" : null; // null → default font_1
 }
 
-// Fit a label inside a cell: pick a size and, when a word is wider than the cell
-// even at size 1, wrap it onto two balanced lines (unifont is 16px tall, so two
-// lines still fit a square cell). All from a fixed nominal advance → stable, no
-// async jitter. Returns the line list + the chosen size and line height.
+// Fit a label inside a cell. Words are sacred: word mode always renders the
+// whole word on ONE line at scale 1 — never split / hyphenated, never scaled —
+// and computeLayout gives word boards the biggest cells the screen allows so
+// the longest word fits. Numbers/notes (short strings) still bump to size 2
+// when roomy. All from a fixed nominal advance → stable, no async jitter.
 function fitText(str, cell, font) {
   const { adv, h } = fontMetrics(font);
+  if (mode === "word")
+    return { lines: [str], size: 1, lineH: h, width: str.length * adv, height: h, font };
   const inner = max(8, cell - CELL_MARGIN * 2);
-  const perLine = max(1, floor(inner / adv)); // chars per line at size 1
-  let lines, size;
-  if (str.length <= perLine) {
-    // Fits one line — bump to size 2 if both width and height still allow it.
-    size = str.length * adv * 2 <= inner && h * 2 <= inner ? 2 : 1;
-    lines = [str];
-  } else {
-    size = 1; // too wide for one line → split into two balanced lines
-    const half = ceil(str.length / 2);
-    lines = [str.slice(0, half), str.slice(half)];
-  }
-  const lineH = h * size;
-  const width = Math.max(...lines.map((l) => l.length * adv * size));
-  return { lines, size, lineH, width, height: lines.length * lineH, font };
+  const size = str.length * adv * 2 <= inner && h * 2 <= inner ? 2 : 1;
+  return { lines: [str], size, lineH: h * size, width: str.length * adv * size, height: h * size, font };
 }
 
 // Draw a (possibly two-line) cell label, centered in the cell with an optional
@@ -1445,9 +1436,10 @@ let layout = { x: 0, y: 0, cell: 32, top: 40 };
 
 function computeLayout(screen) {
   screenH = screen.height;
-  // Modest side margins — bigger cells give word editions (esp. Cyrillic in the
-  // 8px-wide unifont) the room to render legibly without crowding the edges.
-  const sideMargin = max(14, floor(screen.width * 0.06));
+  // Word boards go near edge-to-edge: whole words render on one line at
+  // scale 1 (never split — see fitText), so cells get every pixel the screen
+  // has. Number/note boards keep the roomier framing.
+  const sideMargin = mode === "word" ? 4 : max(14, floor(screen.width * 0.06));
   const top = 54; // header band (rule title + stats)
   const bottomPad = 30; // HUD band (lives)
   const availW = screen.width - sideMargin * 2;
@@ -1457,8 +1449,10 @@ function computeLayout(screen) {
   // … but never so large that the camera's max zoom punch overflows the full
   // viewport — mobile screens are tight, so keep the whole board on-screen even
   // at peak zoom (we still reserve a hair for lean + shake via the clamp below).
+  // Word mode skips that reservation (cells need the width for whole words);
+  // applyCamera just centers the board during the brief zoom punches instead.
   const zoomFit = min(screen.width / COLS, availH / ROWS) / MAX_ZOOM;
-  const cell = max(18, floor(min(restFit, zoomFit)));
+  const cell = max(18, floor(mode === "word" ? restFit : min(restFit, zoomFit)));
   const gw = cell * COLS;
   const gh = cell * ROWS;
   layout = {
@@ -1542,7 +1536,11 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
     undefined, undefined, false, labelFont || undefined,
   );
 
-  // Grid.
+  // Grid — two passes: every tile background/outline first, THEN every label.
+  // Words always render whole at scale 1 (see fitText), so on a very tight
+  // screen a long word can be a touch wider than its cell; painting all the
+  // backgrounds first lets it bleed over the tile seam instead of getting
+  // overpainted by its neighbour's background.
   const gameOver = state === "over";
   for (let r = 0; r < ROWS; r += 1) {
     for (let c = 0; c < COLS; c += 1) {
@@ -1577,32 +1575,40 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
         ink(255, 255, 255, 28).box(cx + 1, cy + 1, cell - 2, cell - 2);
         ink(235, 242, 255).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
       }
+    }
+  }
+  for (let r = 0; r < ROWS; r += 1) {
+    for (let c = 0; c < COLS; c += 1) {
+      const cd = grid[idx(c, r)];
+      if (cd.eaten) continue;
+      const cx = x + c * cell;
+      const cy = y + r * cell;
+      const txt = String(cd.value);
+      const colorWord = COLOR_WORDS[txt];
+      const missed = gameOver && cd.correct && !cd.eaten;
 
-      // Value — ONE color per answer (color-words use their hue + contrast).
-      // Centered in the cell with margin; word editions use unifont and wrap
-      // long words onto two lines so they never spill into neighbouring cells.
-      if (!cd.eaten) {
-        const font = cellFont();
-        let jx = 0, jy = 0;
-        if (cd.known && !cd.failed) {
-          jx = sin(frames * 0.9 + c * 1.7) * 1.6; // afraid jitter
-          jy = cos(frames * 1.1 + r * 1.3) * 1.2;
-        }
-        let col;
-        if (cd.failed) col = [120, 95, 100];
-        else if (cd.known) col = [10, 40, 18]; // dark on the green known square
-        else if (missed) col = [228, 230, 238];
-        else if (mode === "note") col = noteColor(cd.letter); // note's keyboard hue
-        else if (colorWord) col = luma(colorWord) > 140 ? [25, 25, 30] : [245, 245, 255];
-        else col = charColor(txt[0]);
-        drawCellText(ink, txt, cx, cy, cell, font, col, 255, jx, jy);
+      // Value — ONE color per answer (color-words use their hue + contrast),
+      // centered in the cell. Word editions: unifont, whole word, scale 1.
+      const font = cellFont();
+      let jx = 0, jy = 0;
+      if (cd.known && !cd.failed) {
+        jx = sin(frames * 0.9 + c * 1.7) * 1.6; // afraid jitter
+        jy = cos(frames * 1.1 + r * 1.3) * 1.2;
+      }
+      let col;
+      if (cd.failed) col = [120, 95, 100];
+      else if (cd.known) col = [10, 40, 18]; // dark on the green known square
+      else if (missed) col = [228, 230, 238];
+      else if (mode === "note") col = noteColor(cd.letter); // note's keyboard hue
+      else if (colorWord) col = luma(colorWord) > 140 ? [25, 25, 30] : [245, 245, 255];
+      else col = charColor(txt[0]);
+      drawCellText(ink, txt, cx, cy, cell, font, col, 255, jx, jy);
 
-        // ✖ X out tried-and-wrong cells (can't be tried again).
-        if (cd.failed) {
-          ink(225, 70, 70);
-          line(cx + 4, cy + 4, cx + cell - 4, cy + cell - 4);
-          line(cx + cell - 4, cy + 4, cx + 4, cy + cell - 4);
-        }
+      // ✖ X out tried-and-wrong cells (can't be tried again).
+      if (cd.failed) {
+        ink(225, 70, 70);
+        line(cx + 4, cy + 4, cx + cell - 4, cy + cell - 4);
+        line(cx + cell - 4, cy + 4, cx + 4, cy + cell - 4);
       }
     }
   }
@@ -1709,14 +1715,18 @@ function paint({ wipe, ink, screen, write, box, line, text }) {
   ink(140, 165, 195).write("LEFT", { x: max(4, leftX - 28), y: screen.height - 14 });
 
   // 🍽️ Collected answers — stack down the left, measured to fit the margin.
+  // Word boards run near edge-to-edge, so on narrow screens there's no gutter
+  // at all — skip the list rather than stack it over the board.
   let fcy = layout.top + 52; // below the big timer
   const leftRoom = layout.x - 6;
   const font = cellFont();
   const { adv: fAdv, h: fH } = fontMetrics(font);
   for (const v of foundValues) {
+    if (leftRoom < 28) break;
     if (fcy > lifeY - 16) break;
-    // Largest size whose nominal width fits the left gutter (stable, no async).
-    const size = v.length * fAdv * 2 + 4 <= leftRoom ? 2 : 1;
+    // Largest size whose nominal width fits the left gutter (stable, no
+    // async) — words stay at scale 1, like the board (see fitText).
+    const size = mode !== "word" && v.length * fAdv * 2 + 4 <= leftRoom ? 2 : 1;
     const fit = { size, width: v.length * fAdv * size, height: fH * size };
     const w = fit.width + 4;
     const ltr = mode === "note" ? v.slice(0, -1) : null; // "C4" → "C", "F#5" → "F#"

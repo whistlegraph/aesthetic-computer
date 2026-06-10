@@ -1,7 +1,7 @@
 // Aesthetic Computer Service Worker
 // Caches JavaScript modules for faster subsequent loads
 
-const CACHE_NAME = 'ac-modules-v8'; // Bump: pull bios.mjs/disk.mjs out of the cache pipeline while we iterate on camera + telemetry
+const CACHE_NAME = 'ac-modules-v9'; // Bump: lib/ + systems/ go network-first (piece↔lib lockstep), flush caches that hold pre-catnom nom.mjs
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms (dev-friendly)
 
 // Critical modules to precache on install. NOTE: bios.mjs and lib/disk.mjs
@@ -36,6 +36,20 @@ const CACHEABLE_PATTERNS = [
   /\/aesthetic\.computer\/.*\.js$/,
   /\/aesthetic\.computer\/.*\.css$/,
   /\/aesthetic\.computer\/dep\/.*\.mjs$/,
+  /\/aesthetic\.computer\/systems\/.*\.mjs$/,
+];
+
+// Network-first (conditional revalidate; cache is only an offline/failure
+// fallback). Pieces under /disks/ are never cached, but they import shared
+// modules from /lib/ — when a commit changes a piece AND its lib together,
+// stale-while-revalidate hands the fresh piece a one-version-old lib and the
+// import explodes (e.g. catnom.mjs vs a cached nom.mjs missing an export).
+// Keeping piece-importable modules network-first preserves that lockstep;
+// the `cache: 'no-cache'` conditional fetch below makes the common case a
+// cheap 304. /systems/ rides along for the same reason (disk.mjs, itself
+// never cached, imports them).
+const NETWORK_FIRST_PATTERNS = [
+  /\/aesthetic\.computer\/lib\/.*\.mjs$/,
   /\/aesthetic\.computer\/systems\/.*\.mjs$/,
 ];
 
@@ -99,6 +113,9 @@ self.addEventListener('fetch', (event) => {
   
   // Check if this is a cacheable request
   const isCacheable = CACHEABLE_PATTERNS.some((pattern) => pattern.test(url.pathname));
+
+  // Piece-importable modules prefer the network (cache = fallback only)
+  const preferNetwork = NETWORK_FIRST_PATTERNS.some((pattern) => pattern.test(url.pathname));
   
   // For core modules, create a clean cache key without query params
   // This ensures disk.mjs?session-aesthetic=... matches cached /aesthetic.computer/lib/disk.mjs
@@ -160,7 +177,10 @@ self.addEventListener('fetch', (event) => {
               throw err;
             });
           
-          // Return cached response immediately, or wait for network
+          // Network-first modules wait for the (conditional, usually-304)
+          // fetch — its catch already falls back to cachedResponse offline.
+          // Everything else returns the cached response immediately (SWR).
+          if (preferNetwork) return fetchPromise;
           return cachedResponse || fetchPromise;
         });
       })
