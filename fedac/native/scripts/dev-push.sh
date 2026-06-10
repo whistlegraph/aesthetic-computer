@@ -40,12 +40,15 @@ for arg in "$@"; do
     esac
 done
 
+# Native pieces live in pieces/; web pieces that run natively verbatim
+# (docker-build.sh §2q — the nom games etc.) come straight from disks/.
 PIECE_FILE="$NATIVE/pieces/$PIECE.mjs"
-[ -f "$PIECE_FILE" ] || { echo "dev-push: no $PIECE_FILE" >&2; exit 1; }
+[ -f "$PIECE_FILE" ] || PIECE_FILE="$SRC/system/public/aesthetic.computer/disks/$PIECE.mjs"
+[ -f "$PIECE_FILE" ] || { echo "dev-push: no $PIECE in pieces/ or web disks/" >&2; exit 1; }
 
 # Same list as docker-build.sh §2p — modules pieces import as ../lib/X.mjs.
 LIB_FILES=()
-for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs percussion.mjs; do
+for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs percussion.mjs synth.mjs nom.mjs; do
     [ -f "$WEB_LIB/$libmjs" ] && LIB_FILES+=("$WEB_LIB/$libmjs")
 done
 

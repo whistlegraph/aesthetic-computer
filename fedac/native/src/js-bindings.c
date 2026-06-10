@@ -627,44 +627,57 @@ static JSValue js_write(JSContext *ctx, JSValueConst this_val, int argc, JSValue
         }
     }
 
-    // Check for font option: "matrix", "font_1"/"6x10", default is font_1 (6x10)
+    // Check for font option: "matrix"/"MatrixChunky8", "unifont",
+    // "font_1"/"6x10" (default). Web pieces also pass the font as the 6th
+    // positional arg — write(text, pos, bg, bounds, wordWrap, font) — so
+    // honor that form too (nom's word cells select "unifont" this way).
     int font_id = FONT_6X10;
-    if (argc >= 2 && JS_IsObject(argv[1])) {
-        JSValue font_v = JS_GetPropertyStr(ctx, argv[1], "font");
-        if (JS_IsString(font_v)) {
-            const char *fname = JS_ToCString(ctx, font_v);
-            if (fname) {
-                if (strcmp(fname, "matrix") == 0) font_id = FONT_MATRIX;
-                else if (strcmp(fname, "font_1") == 0 || strcmp(fname, "6x10") == 0)
-                    font_id = FONT_6X10;
-                JS_FreeCString(ctx, fname);
-            }
-        }
-        JS_FreeValue(ctx, font_v);
+    const char *fname = NULL;
+    if (argc >= 6 && JS_IsString(argv[5]))
+        fname = JS_ToCString(ctx, argv[5]);
+    JSValue font_v = JS_UNDEFINED;
+    if (!fname && argc >= 2 && JS_IsObject(argv[1])) {
+        font_v = JS_GetPropertyStr(ctx, argv[1], "font");
+        if (JS_IsString(font_v)) fname = JS_ToCString(ctx, font_v);
+    }
+    if (fname) {
+        if (strcmp(fname, "matrix") == 0 || strcmp(fname, "MatrixChunky8") == 0)
+            font_id = FONT_MATRIX;
+        else if (strcmp(fname, "unifont") == 0) font_id = FONT_UNIFONT;
+        else if (strcmp(fname, "font_1") == 0 || strcmp(fname, "6x10") == 0)
+            font_id = FONT_6X10;
+        JS_FreeCString(ctx, fname);
+    }
+    JS_FreeValue(ctx, font_v);
 
-        // Re-check center with correct font metrics for non-8x8 fonts
-        if (font_id != FONT_8X8) {
-            JSValue center2 = JS_GetPropertyStr(ctx, argv[1], "center");
-            if (JS_IsString(center2)) {
-                const char *cv = JS_ToCString(ctx, center2);
-                if (cv) {
-                    int tw = (font_id == FONT_MATRIX)
-                        ? font_measure_matrix(text, scale)
+    // Re-check center with correct font metrics for non-8x8 fonts
+    if (font_id != FONT_8X8 && argc >= 2 && JS_IsObject(argv[1])) {
+        JSValue center2 = JS_GetPropertyStr(ctx, argv[1], "center");
+        if (JS_IsString(center2)) {
+            const char *cv = JS_ToCString(ctx, center2);
+            if (cv) {
+                int tw = (font_id == FONT_MATRIX)
+                    ? font_measure_matrix(text, scale)
+                    : (font_id == FONT_UNIFONT)
+                        ? font_measure_unifont(text, scale)
                         : font_measure_6x10(text, scale);
-                    int th = (font_id == FONT_MATRIX)
-                        ? 8 * scale  // MatrixChunky8 ascent
+                int th = (font_id == FONT_MATRIX)
+                    ? 8 * scale  // MatrixChunky8 ascent
+                    : (font_id == FONT_UNIFONT)
+                        ? FONT_UNIFONT_H * scale
                         : FONT_6X10_CHAR_H * scale;
-                    if (strchr(cv, 'x')) x = (current_rt->graph->fb->width - tw) / 2;
-                    if (strchr(cv, 'y')) y = (current_rt->graph->fb->height - th) / 2;
-                    JS_FreeCString(ctx, cv);
-                }
+                if (strchr(cv, 'x')) x = (current_rt->graph->fb->width - tw) / 2;
+                if (strchr(cv, 'y')) y = (current_rt->graph->fb->height - th) / 2;
+                JS_FreeCString(ctx, cv);
             }
-            JS_FreeValue(ctx, center2);
         }
+        JS_FreeValue(ctx, center2);
     }
 
     if (font_id == FONT_MATRIX)
         font_draw_matrix(current_rt->graph, text, x, y, scale);
+    else if (font_id == FONT_UNIFONT)
+        font_draw_unifont(current_rt->graph, text, x, y, scale);
     else if (font_id == FONT_6X10)
         font_draw_6x10(current_rt->graph, text, x, y, scale);
     else
@@ -991,10 +1004,29 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
     JS_FreeValue(ctx, v);
 
+    // Optional GM-synthesis program (0-127). When present and >= 0 we try the
+    // bespoke algorithmic GM voice first; if that program is implemented
+    // (Piano family 0-7 in this slice) it wins and `type` is ignored. If not,
+    // audio_synth_gm returns 0 and we fall through to the `type`-based path so
+    // unimplemented programs still use notepat's family-recipe wave.
+    // docs/gm-synthesis/01-piano-mallet-organ-guitar.md
+    int gm_program = -1;
+    JSValue gmp_v = JS_GetPropertyStr(ctx, opts, "gmProgram");
+    if (JS_IsNumber(gmp_v)) {
+        double gd;
+        if (JS_ToFloat64(ctx, &gd, gmp_v) == 0) gm_program = (int)gd;
+    }
+    JS_FreeValue(ctx, gmp_v);
+
     // Create voice. Guns take a separate path so we can seed per-preset
     // DWG parameters (bore length, body modes, etc).
     uint64_t id;
-    if (is_gun) {
+    if (gm_program >= 0 && !is_gun &&
+        (id = audio_synth_gm(audio, gm_program, freq, duration, volume,
+                             attack, decay, pan)) != 0) {
+        ac_log("[synth] gm program=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
+               gm_program, freq, volume, duration, (unsigned long)id);
+    } else if (is_gun) {
         // Let `tone` (1.0 default) scale the combustion pressure so pads
         // can express accent via velocity. A JS caller passing tone=1.0
         // = unity pressure from the preset.
@@ -2012,7 +2044,27 @@ static JSValue make_event_object(JSContext *ctx, ACEvent *ev) {
     if (velocity < 1 && ev->type == AC_EVENT_KEYBOARD_DOWN) velocity = 1;
     JS_SetPropertyStr(ctx, obj, "velocity", JS_NewInt32(ctx, velocity));
     JS_SetPropertyStr(ctx, obj, "pressure", JS_NewFloat64(ctx, (double)ev->pressure));
-    JS_SetPropertyStr(ctx, obj, "name", JS_NewString(ctx, ev->key_name));
+
+    // Web parity: event.name is the full event string ("keyboard:down:space",
+    // "touch", "lift", …) — pieces test it with name.startsWith("keyboard:down")
+    // (the key alone lives in event.key / event.code above).
+    {
+        char full_name[96];
+        switch (ev->type) {
+        case AC_EVENT_KEYBOARD_DOWN:
+            snprintf(full_name, sizeof(full_name), "keyboard:down:%s", ev->key_name);
+            break;
+        case AC_EVENT_KEYBOARD_UP:
+            snprintf(full_name, sizeof(full_name), "keyboard:up:%s", ev->key_name);
+            break;
+        case AC_EVENT_TOUCH:    snprintf(full_name, sizeof(full_name), "touch"); break;
+        case AC_EVENT_DRAW:     snprintf(full_name, sizeof(full_name), "draw"); break;
+        case AC_EVENT_LIFT:     snprintf(full_name, sizeof(full_name), "lift"); break;
+        case AC_EVENT_REFRAMED: snprintf(full_name, sizeof(full_name), "reframed"); break;
+        default:                snprintf(full_name, sizeof(full_name), "%s", ev->key_name); break;
+        }
+        JS_SetPropertyStr(ctx, obj, "name", JS_NewString(ctx, full_name));
+    }
 
     // pointer sub-object
     JSValue pointer = JS_NewObject(ctx);
@@ -2054,6 +2106,25 @@ static JSValue js_num_randint(JSContext *ctx, JSValueConst this_val, int argc, J
     JS_ToInt32(ctx, &b, argv[1]);
     if (b <= a) return JS_NewInt32(ctx, a);
     return JS_NewInt32(ctx, a + rand() % (b - a + 1));
+}
+
+// num.randInt(n) — random integer 0..n INCLUSIVE (web-parity; nom and other
+// web pieces rely on the inclusive upper bound).
+static JSValue js_num_randint_single(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    int n = 0;
+    if (argc >= 1) JS_ToInt32(ctx, &n, argv[0]);
+    if (n <= 0) return JS_NewInt32(ctx, 0);
+    return JS_NewInt32(ctx, rand() % (n + 1));
+}
+
+// seconds(n) — convert wall seconds to sim ticks. Native calls sim() once
+// per ~60Hz display frame; pieces feed this straight into gizmo.Hourglass.
+static JSValue js_seconds(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    double s = 0;
+    if (argc >= 1) JS_ToFloat64(ctx, &s, argv[0]);
+    return JS_NewFloat64(ctx, s * 60.0);
 }
 
 // ============================================================
@@ -2249,6 +2320,55 @@ static const char *js_init_code =
     "};\n"
     // num.timestamp — returns a timestamp string
     "globalThis.__timestamp = function() { return Date.now().toString(36); };\n"
+    // setTimeout/clearTimeout — queued here, flushed once per sim tick from
+    // js_call_sim via __flushTimeouts (QuickJS has no event loop of its own).
+    // Browser-close-enough for the short audio/UI schedules pieces use.
+    "globalThis.__timeoutQueue = [];\n"
+    "globalThis.__timeoutId = 1;\n"
+    "globalThis.setTimeout = globalThis.setTimeout || function(fn, delayMs) {\n"
+    "  if (typeof fn !== 'function') return 0;\n"
+    "  var id = globalThis.__timeoutId++;\n"
+    "  globalThis.__timeoutQueue.push({ id: id, fn: fn, at: Date.now() + (Number(delayMs) || 0) });\n"
+    "  return id;\n"
+    "};\n"
+    "globalThis.clearTimeout = globalThis.clearTimeout || function(id) {\n"
+    "  var q = globalThis.__timeoutQueue;\n"
+    "  for (var i = 0; i < q.length; i++) if (q[i].id === id) { q.splice(i, 1); return; }\n"
+    "};\n"
+    "globalThis.__flushTimeouts = function() {\n"
+    "  var q = globalThis.__timeoutQueue;\n"
+    "  if (q.length === 0) return;\n"
+    "  var now = Date.now();\n"
+    "  for (var i = 0; i < q.length; ) {\n"
+    "    if (now >= q[i].at) { var e = q.splice(i, 1)[0]; try { e.fn(); } catch (err) { console.error('setTimeout cb error:', err); } }\n"
+    "    else i++;\n"
+    "  }\n"
+    "};\n"
+    // gizmo.Hourglass — repeatable sim-tick timer (mirror of web lib/gizmo.mjs).
+    // Pieces step it once per sim(); with autoFlip it fires `flipped` every
+    // `max` ticks (nom's troggle clock and friends).
+    "globalThis.__Hourglass = class Hourglass {\n"
+    "  constructor(max = 1, opts = {}, startingTicks = 0) {\n"
+    "    this.max = max; this.ticks = startingTicks; this.complete = false;\n"
+    "    this.flips = 0n; this.autoFlip = opts.autoFlip || false;\n"
+    "    this._completed = opts.completed; this._flipped = opts.flipped; this._every = opts.every;\n"
+    "  }\n"
+    "  step() {\n"
+    "    if (this.complete === true) return;\n"
+    "    this.ticks += 1;\n"
+    "    if (this._every) this._every();\n"
+    "    this.progress = this.ticks / this.max;\n"
+    "    if (this.ticks >= this.max) {\n"
+    "      this.complete = true; this.progress = 1;\n"
+    "      if (this._completed) this._completed(this.flips);\n"
+    "      if (this.autoFlip) this.flip();\n"
+    "    }\n"
+    "  }\n"
+    "  flip() {\n"
+    "    this.flips += 1n; this.ticks = 0; this.complete = false;\n"
+    "    if (this._flipped) this._flipped(this.flips, ...arguments);\n"
+    "  }\n"
+    "};\n"
     // nopaint_generateColoredLabel stub (native doesn't have HUD color highlighting)
     "globalThis.__nopaint_generateColoredLabel = function() {};\n"
     // Typeface constructor stub
@@ -7680,6 +7800,20 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         JS_SetPropertyStr(ctx, api, "clock", clock);
     }
 
+    // gizmo.Hourglass (sim-tick timer) + seconds(n) → sim ticks. Native runs
+    // sim once per ~60Hz frame, so seconds(n) = n * 60 (web is n * 120 with a
+    // 120Hz sim loop — same wall-clock result either way).
+    {
+        JSValue gizmo = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, gizmo, "Hourglass", JS_GetPropertyStr(ctx, global, "__Hourglass"));
+        JS_SetPropertyStr(ctx, api, "gizmo", gizmo);
+        JS_SetPropertyStr(ctx, api, "seconds", JS_NewCFunction(ctx, js_seconds, "seconds", 1));
+    }
+
+    // speak(text, voice?, mode?, opts?) — top-level TTS (web parity; voice /
+    // provider hints are ignored, the native espeak voice reads the text).
+    JS_SetPropertyStr(ctx, api, "speak", JS_NewCFunction(ctx, js_speak, "speak", 4));
+
     // typeface (no-op function)
     JS_SetPropertyStr(ctx, api, "typeface", JS_NewCFunction(ctx, js_noop, "typeface", 1));
 
@@ -7698,6 +7832,7 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         JS_SetPropertyStr(ctx, num, "clamp", JS_NewCFunction(ctx, js_num_clamp, "clamp", 3));
         JS_SetPropertyStr(ctx, num, "rand", JS_NewCFunction(ctx, js_num_rand, "rand", 0));
         JS_SetPropertyStr(ctx, num, "randIntRange", JS_NewCFunction(ctx, js_num_randint, "randIntRange", 2));
+        JS_SetPropertyStr(ctx, num, "randInt", JS_NewCFunction(ctx, js_num_randint_single, "randInt", 1));
 
         // max/min — just reference Math.max/min
         JSValue math = JS_GetPropertyStr(ctx, global, "Math");
@@ -8133,6 +8268,26 @@ void js_call_sim(ACRuntime *rt) {
             (float)(rt->input ? rt->input->delta_y : 0));
         // Consume trackpad delta
         if (rt->input) { rt->input->delta_x = 0; rt->input->delta_y = 0; }
+    }
+
+    // Pump the global setTimeout queue (prelude __flushTimeouts) once per
+    // sim tick — fires any callbacks whose deadline has passed.
+    {
+        JSValue global = JS_GetGlobalObject(rt->ctx);
+        JSValue flush = JS_GetPropertyStr(rt->ctx, global, "__flushTimeouts");
+        if (JS_IsFunction(rt->ctx, flush)) {
+            JSValue r = JS_Call(rt->ctx, flush, JS_UNDEFINED, 0, NULL);
+            if (JS_IsException(r)) {
+                JSValue exc = JS_GetException(rt->ctx);
+                const char *str = JS_ToCString(rt->ctx, exc);
+                fprintf(stderr, "[js] setTimeout cb error: %s\n", str ? str : "?");
+                if (str) JS_FreeCString(rt->ctx, str);
+                JS_FreeValue(rt->ctx, exc);
+            }
+            JS_FreeValue(rt->ctx, r);
+        }
+        JS_FreeValue(rt->ctx, flush);
+        JS_FreeValue(rt->ctx, global);
     }
 
     if (!JS_IsFunction(rt->ctx, rt->sim_fn)) return;

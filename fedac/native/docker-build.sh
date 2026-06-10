@@ -691,7 +691,7 @@ fi
 # These are pure JS with no DOM/browser deps — work in QuickJS as-is.
 # The module loader resolves "../lib/X.mjs" → "/lib/X.mjs" in the initramfs.
 mkdir -p "$IROOT/lib"
-for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs percussion.mjs; do
+for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs percussion.mjs synth.mjs nom.mjs; do
     SRC_LIB="$SRC/system/public/aesthetic.computer/lib/$libmjs"
     if [ -f "$SRC_LIB" ]; then
         cp "$SRC_LIB" "$IROOT/lib/$libmjs"
@@ -704,7 +704,7 @@ done
 # runtime. If you add a piece that uses browser-only APIs, the runtime
 # will throw — don't "port" the piece, expose the missing API in
 # js-bindings.c instead (so web and native stay in parity).
-for webpiece in clock.mjs arena.mjs speaker.mjs; do
+for webpiece in clock.mjs arena.mjs speaker.mjs catnom.mjs; do
     SRC_PIECE="$SRC/system/public/aesthetic.computer/disks/$webpiece"
     if [ -f "$SRC_PIECE" ]; then
         cp "$SRC_PIECE" "$IROOT/pieces/$webpiece"

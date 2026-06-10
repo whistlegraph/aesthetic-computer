@@ -371,3 +371,59 @@ int font_measure_6x10(const char *text, int scale) {
     }
     return len * FONT_6X10_W * scale;
 }
+
+// GNU unifont (8x16 cell, fixed 8px advance for the subset we carry). The
+// glyph table now includes ASCII, so this renders entire strings — full
+// parity with the web's "unifont" face (nom word cells, edition subtitles).
+// Unlike draw_unicode_glyph (baseline-matched into 6x10 text), this places
+// the 16px glyph cell's top-left at (x, y), like the web write() does.
+int font_draw_unifont(ACGraph *g, const char *text, int x, int y, int scale) {
+    if (!text) return x;
+    if (scale < 1) scale = 1;
+
+    int start_x = x;
+    const char *p = text;
+    while (*p) {
+        if (*p == '\n') {
+            x = start_x;
+            y += FONT_UNIFONT_H * scale;
+            p++;
+            continue;
+        }
+        int cp = utf8_next(&p);
+        if (cp <= 0) { if (cp == 0) break; continue; }
+        const UnicodeGlyph *u = unicode_lookup((uint32_t)cp);
+        if (!u) u = unicode_lookup((uint32_t)'?');
+        if (!u) { x += FONT_UNIFONT_W * scale; continue; }
+        // BDF cell top = baseline − ascent; for unifont (ascent 14, yoff −2)
+        // a full glyph spans rows 0..15 of the cell, so the cell top is y.
+        for (int row = 0; row < u->height && row < 16; row++) {
+            uint16_t bits = u->rows[row];
+            for (int col = 0; col < u->width; col++) {
+                if (bits & (0x8000 >> col)) {
+                    int px = x + (col + u->xoff) * scale;
+                    int py = y + (unicode_ascent - u->yoff - u->height + row) * scale;
+                    for (int sy = 0; sy < scale; sy++)
+                        for (int sx = 0; sx < scale; sx++)
+                            graph_plot(g, px + sx, py + sy);
+                }
+            }
+        }
+        x += u->dwidth * scale;
+    }
+    return x;
+}
+
+int font_measure_unifont(const char *text, int scale) {
+    if (!text) return 0;
+    if (scale < 1) scale = 1;
+    int w = 0;
+    const char *p = text;
+    while (*p && *p != '\n') {
+        int cp = utf8_next(&p);
+        if (cp <= 0) { if (cp == 0) break; continue; }
+        const UnicodeGlyph *u = unicode_lookup((uint32_t)cp);
+        w += u ? u->dwidth : FONT_UNIFONT_W;
+    }
+    return w * scale;
+}

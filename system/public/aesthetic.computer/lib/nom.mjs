@@ -1,7 +1,8 @@
-// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / rusnom / notenom), 2026.06.07
+// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / rusnom / notenom / catnom), 2026.06.07
 // Move the muncher around a 5×5 grid and eat every square that satisfies the
 // rule at the top — but dodge the Troggles. `numbnom` = numbers, `engnom` = words,
-// `notenom` = musical notes (note mode voices each square + plays the scale).
+// `notenom` = musical notes (note mode voices each square + plays the scale),
+// `catnom` = Categories-game rounds (AC pieces, code words, slang, vibes).
 
 import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
 
@@ -17,6 +18,7 @@ import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
     munchers:numbers  → numbers
     munchers:words    → words
     munchers:notes    → musical notes (notenom)
+    munchers:cat      → categories (catnom)
 #endregion */
 
 /* #region 🏁 TODO
@@ -31,7 +33,7 @@ const START_LIVES = 3;
 
 // 🌐 Game state
 let mode = "number"; // "number" | "word" | "note"
-let lang = "en"; // word language: "en" engnom | "es" mexinom | "da" dannom | "ru" rusnom
+let lang = "en"; // word language: "en" engnom | "es" mexinom | "da" dannom | "ru" rusnom | "cat" catnom
 let noteScale = []; // current board's scale (note mode), played on board start
 let state = "title"; // title | play | clear | over | win
 let grid = []; // [{ value, correct, eaten, flash }]
@@ -157,6 +159,7 @@ function resolveMode(params) {
   if (p === "spanish" || p === "es" || p === "mexi" || p === "mexinom") return { mode: "word", lang: "es" };
   if (p === "danish" || p === "da" || p === "dansk" || p === "dannom") return { mode: "word", lang: "da" };
   if (p === "russian" || p === "ru" || p === "russkiy" || p === "rusnom") return { mode: "word", lang: "ru" };
+  if (p === "cat" || p === "cats" || p === "categories" || p === "catnom") return { mode: "word", lang: "cat" };
   if (p === "words" || p === "word" || p === "english" || p === "en") return { mode: "word", lang: "en" };
   if (p === "notes" || p === "note" || p === "music" || p === "notenom") return { mode: "note", lang: "en" };
   return { mode: "number", lang: "en" }; // default (incl. bare / numbers)
@@ -398,6 +401,31 @@ const TRANSLATE_RU = {
   "дом": "house", "лес": "forest", "сад": "garden",
 };
 
+// 😼 Catnom glossary — spoken on each munch (slang → plain meaning, code →
+// one-line gloss), so eating a word teaches it. Words without an entry are
+// just echoed back.
+const TRANSLATE_CAT = {
+  // slang
+  rizz: "charisma", sus: "suspicious", cap: "a lie", goat: "greatest of all time",
+  mid: "just okay", drip: "a stylish look", slay: "did amazing", bet: "okay, deal",
+  yeet: "throw it hard", vibe: "a feeling", fam: "your people", bussin: "really good",
+  // code
+  bug: "a mistake in code", loop: "code that repeats", git: "saves code history",
+  byte: "eight bits", bool: "true or false", null: "nothing at all",
+  array: "a list of things", stack: "last in, first out", repo: "where code lives",
+  pixel: "one screen dot", code: "instructions", crash: "when code dies",
+  // aesthetic computer pieces
+  prompt: "where you type", paint: "draw pictures", chat: "talk to everyone",
+  notepat: "play notes", camera: "take pictures", wand: "draw in 3 d",
+  tone: "make a tone", smear: "smudge the paint", bleep: "tap to beep",
+  wipe: "clear the screen", melody: "play a tune",
+  // internet
+  wifi: "wireless internet", meme: "a shared joke", app: "a small program",
+  link: "tap to go there", post: "share it online", ping: "a quick hello",
+  spam: "junk messages", lag: "a slow connection", dm: "a direct message",
+  emoji: "a tiny picture", blog: "an online journal",
+};
+
 function shuffle(arr, rnd) {
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = rnd(i + 1);
@@ -533,6 +561,42 @@ const RU_WORD_ROUNDS = [
   },
 ];
 
+// 😼 Catnom — the Categories parlor game, nom-style: every board is one
+// category and you eat what belongs. Half the rounds are AC / code flavored,
+// half are everyday gen-z language — all still simple word-learning at heart.
+const CAT_WORD_ROUNDS = [
+  {
+    label: "SLANG", say: "slang words",
+    correct: ["rizz", "sus", "cap", "goat", "mid", "drip", "slay", "bet", "yeet", "vibe", "fam", "bussin"],
+    wrong: ["desk", "lamp", "fork", "sock", "rug", "mop", "jar", "pail", "hose", "rake", "crate"],
+  },
+  {
+    label: "CODE", say: "coding words",
+    correct: ["bug", "loop", "git", "byte", "bool", "null", "array", "stack", "repo", "pixel", "code", "crash"],
+    wrong: ["soup", "sand", "lake", "goose", "pony", "barn", "kite", "plum", "wool", "fog", "hay"],
+  },
+  {
+    label: "PIECES", say: "aesthetic computer pieces",
+    correct: ["prompt", "paint", "chat", "notepat", "wand", "tone", "camera", "smear", "bleep", "wipe", "melody"],
+    wrong: ["sofa", "ladder", "pickle", "anchor", "mitten", "faucet", "wallet", "helmet", "sponge", "teapot"],
+  },
+  {
+    label: "VIBES", say: "chill vibes",
+    correct: ["chill", "cozy", "calm", "lofi", "zen", "mellow", "soft", "comfy", "peace", "dream"],
+    wrong: ["loud", "rush", "panic", "gloom", "harsh", "fuss", "riot", "blare", "jolt", "grind"],
+  },
+  {
+    label: "KEYS", say: "keyboard keys",
+    correct: ["esc", "tab", "shift", "enter", "space", "ctrl", "alt", "caps", "home", "end", "del"],
+    wrong: ["door", "knob", "bell", "gate", "couch", "vent", "sill", "twig", "pond", "moss"],
+  },
+  {
+    label: "ONLINE", say: "internet words",
+    correct: ["wifi", "meme", "app", "link", "post", "blog", "ping", "spam", "lag", "dm", "emoji"],
+    wrong: ["cave", "quilt", "anvil", "plow", "broom", "candle", "stump", "wagon", "shovel", "brick"],
+  },
+];
+
 function newRound({ randInt }) {
   // AC's randInt(n) is inclusive (0..n); wrap it to a 0..n-1 index helper.
   const rnd = (n) => randInt(Math.max(1, n) - 1);
@@ -577,7 +641,7 @@ function newRound({ randInt }) {
     // Re-verify against the live rule (covers the fallback paths).
     cells.forEach((c) => (c.correct = test(c.letter, c.oct)));
   } else if (mode === "word") {
-    const rounds = lang === "es" ? ES_WORD_ROUNDS : lang === "da" ? DA_WORD_ROUNDS : lang === "ru" ? RU_WORD_ROUNDS : WORD_ROUNDS;
+    const rounds = lang === "es" ? ES_WORD_ROUNDS : lang === "da" ? DA_WORD_ROUNDS : lang === "ru" ? RU_WORD_ROUNDS : lang === "cat" ? CAT_WORD_ROUNDS : WORD_ROUNDS;
     const round = rounds[rnd(rounds.length)];
     ruleLabel = round.label;
     ruleSpeech = round.say;
@@ -1029,9 +1093,9 @@ function stepToward(t) {
   else if (rowDist > 0) move(0, drF <= drB ? 1 : -1);
 }
 
-// 🇲🇽 / 🇩🇰 / 🇷🇺 Speak the English translation of a non-English answer.
+// 🇲🇽 / 🇩🇰 / 🇷🇺 / 😼 Speak the meaning of a non-plain-English answer.
 function sayTranslation(v) {
-  const table = lang === "da" ? TRANSLATE_DA : lang === "ru" ? TRANSLATE_RU : TRANSLATE;
+  const table = lang === "da" ? TRANSLATE_DA : lang === "ru" ? TRANSLATE_RU : lang === "cat" ? TRANSLATE_CAT : TRANSLATE;
   say(table[v] || String(v));
 }
 
@@ -1912,7 +1976,7 @@ function paintTroggle({ ink, box, line }, cx, cy, cell, hue) {
 function gameName() {
   if (mode === "note") return "NOTENOM";
   if (mode !== "word") return "NUMBNOM";
-  return lang === "es" ? "MEXINOM" : lang === "da" ? "DANNOM" : lang === "ru" ? "RUSNOM" : "ENGNOM";
+  return lang === "es" ? "MEXINOM" : lang === "da" ? "DANNOM" : lang === "ru" ? "RUSNOM" : lang === "cat" ? "CATNOM" : "ENGNOM";
 }
 // Native edition subtitle, in each language's own script/diacritics. Rendered in
 // unifont (carries accents + Cyrillic) so the symbols are correct.
@@ -1922,6 +1986,7 @@ function editionText() {
   return lang === "es" ? "edición mexicana"
     : lang === "da" ? "dansk udgave"
     : lang === "ru" ? "русское издание"
+    : lang === "cat" ? "category edition"
     : "english edition";
 }
 
@@ -1974,10 +2039,10 @@ function makeMeta(params) {
     ? "Notenom"
     : m !== "word"
       ? "Numbnom"
-      : l === "es" ? "Mexinom" : l === "da" ? "Dannom" : l === "ru" ? "Rusnom" : "Engnom";
+      : l === "es" ? "Mexinom" : l === "da" ? "Dannom" : l === "ru" ? "Rusnom" : l === "cat" ? "Catnom" : "Engnom";
   return {
     title,
-    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk), rusnom (русский), notenom (notes).",
+    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk), rusnom (русский), notenom (notes), catnom (categories).",
   };
 }
 function meta() {

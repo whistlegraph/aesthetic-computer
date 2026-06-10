@@ -31,6 +31,7 @@ const CODE_NAMES = ["$roz"];
 // Piece descriptions (for tab completion display)
 const PIECE_DESC = {
   "notepat":       "synthesizer instrument",
+  "catnom":        "category muncher game",
   "os":            "system update (OTA)",
   "wifi":          "network picker",
   "claude":        "AI assistant",

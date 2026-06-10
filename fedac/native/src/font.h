@@ -11,10 +11,15 @@
 #define FONT_6X10_CHAR_W 6
 #define FONT_6X10_CHAR_H 10
 
+// GNU unifont metrics (8x16 cell, fixed 8px advance in our subset)
+#define FONT_UNIFONT_W 8
+#define FONT_UNIFONT_H 16
+
 // Font IDs
-#define FONT_8X8    0
-#define FONT_MATRIX 1
-#define FONT_6X10   2
+#define FONT_8X8     0
+#define FONT_MATRIX  1
+#define FONT_6X10    2
+#define FONT_UNIFONT 3
 
 // Initialize the built-in font
 void font_init(void);
@@ -38,5 +43,11 @@ int font_draw_6x10(ACGraph *g, const char *text, int x, int y, int scale);
 
 // Measure text width using 6x10 font
 int font_measure_6x10(const char *text, int scale);
+
+// Draw text using GNU unifont (8x16; ASCII + Latin-1/Ext-A + Cyrillic + Greek)
+int font_draw_unifont(ACGraph *g, const char *text, int x, int y, int scale);
+
+// Measure text width using unifont
+int font_measure_unifont(const char *text, int scale);
 
 #endif
