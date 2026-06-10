@@ -37,6 +37,7 @@ extern "C" {
 #define GM_MAX_PARTIALS    12     // modal-additive partial cap
 #define GM_KS_BIG_N        8192   // long KS delay line (guitar/bass — low notes)
 #define GM_BORE_N          2048   // short KS delay line (harpsichord/clavi)
+#define GM_FX_DELAY_N      8192   // per-voice FX echo ring (~170 ms @ 48k, ~43 @ 192k)
 
 // gm_synth's own engine enum. The host engine no longer needs to know which
 // WaveType a program maps to — gm_voice_init() stores the chosen engine here and
@@ -51,8 +52,36 @@ typedef enum {
     GM_ENGINE_WAVEGUIDE,  // bidirectional digital waveguide (bowed/brass/reed/flute)
     GM_ENGINE_ORGAN,      // additive Hammond drawbars + Leslie; free-reed accordion/harmonica
     GM_ENGINE_SUPERSAW,   // detuned multi-osc subtractive: ensemble / synth lead / synth pad
-    GM_ENGINE_FORMANT     // source-filter vocal formant bank: choir / voice / synth-voice
+    GM_ENGINE_FORMANT,    // source-filter vocal formant bank: choir / voice / synth-voice
+    GM_ENGINE_SYNTHFX,    // layered sound-design FX: rain/soundtrack/crystal/atmosphere/...
+    GM_ENGINE_SOUNDFX     // stochastic/noise sound effects: seashore/bird/applause/gunshot/...
 } GMEngine;
+
+// Sub-mode inside GM_ENGINE_SYNTHFX (GM 96-103). Each shares the generic
+// tonal-core + texture-bed + time-effect chain; the mode selects which time
+// effect and texture flavor dominate.
+typedef enum {
+    GM_FX_RAIN = 0,     // 96  FX1 — PhISEM droplets + S&H'd shimmer pair
+    GM_FX_SOUNDTRACK,   // 97  FX2 — detuned-saw pad, slow LFO-swept LPF
+    GM_FX_CRYSTAL,      // 98  FX3 — inharmonic FM bell + feedback delay
+    GM_FX_ATMOSPHERE,   // 99  FX4 — pad + filtered-noise bed
+    GM_FX_BRIGHTNESS,   // 100 FX5 — bright rising-FM pad
+    GM_FX_GOBLINS,      // 101 FX6 — dark ring-modded saw + S&H cutoff
+    GM_FX_ECHOES,       // 102 FX7 — bright source + regenerating dark delay
+    GM_FX_SCIFI         // 103 FX8 — swept osc + resonant filter + noise burst
+} GMSynthFxMode;
+
+// Sub-mode inside GM_ENGINE_SOUNDFX (GM 120-127).
+typedef enum {
+    GM_SFX_FRET = 0,    // 120 Guitar Fret Noise — swept filtered-noise squeak
+    GM_SFX_BREATH,      // 121 Breath Noise — band-passed noise puff (+PhISEM grain)
+    GM_SFX_SEASHORE,    // 122 Seashore — PhISEM surf + slow swell LFOs
+    GM_SFX_BIRD,        // 123 Bird Tweet — pitch-swept FM chirps, trilled syllables
+    GM_SFX_TELEPHONE,   // 124 Telephone Ring — gated dual sine (440+480) cadence
+    GM_SFX_HELICOPTER,  // 125 Helicopter — periodic-AM broadband noise + rumble
+    GM_SFX_APPLAUSE,    // 126 Applause — PhISEM crowd claps + swell
+    GM_SFX_GUNSHOT      // 127 Gunshot — noise crack burst + low boom decay
+} GMSoundFxMode;
 
 // Nonlinearity / excitation mode inside GM_ENGINE_WAVEGUIDE. The shared
 // bidirectional bore delay line is constant; the junction physics differ:
@@ -263,6 +292,71 @@ typedef struct {
     double fmt_attack_env, fmt_attack_inc;             // slow onset ramp
     double fmt_breath_lp, fmt_breath_amt;              // aspiration noise into formants
     double fmt_vib_phase[3], fmt_vib_inc[3], fmt_vib_depth; // decorrelated per-source vibrato
+
+    // -- Shared FX primitives (GM_ENGINE_SYNTHFX / GM_ENGINE_SOUNDFX) --
+    // Per-voice delay/echo ring (crystal/echoes/atmosphere feedback repeats).
+    float  fx_delay[GM_FX_DELAY_N];
+    int    fx_delay_w;
+    double fx_delay_samps;     // current delay length in samples
+    double fx_delay_fb;        // feedback gain (0..~0.85)
+    double fx_delay_mix;       // wet mix
+    double fx_delay_damp;      // 1-pole HF damping in the feedback path (0=bypass)
+    double fx_delay_lp;        // damping filter state
+    // LFO + sample-and-hold (slow modulation of cutoff/pitch/shimmer).
+    double fx_lfo_phase, fx_lfo_inc, fx_lfo_depth;
+    double fx_sh_phase, fx_sh_inc;   // S&H clock
+    double fx_sh_value;              // held random value [-1,1]
+    // Ring-mod carrier (goblins/rain shimmer/sci-fi).
+    double fx_ring_phase, fx_ring_inc, fx_ring_mix;
+    // Generic tonal-core oscillators (saw/sine/FM) shared by the FX engines.
+    double fx_o1_phase, fx_o1_inc;
+    double fx_o2_phase, fx_o2_inc;   // detuned partner / FM modulator / 2nd sine
+    double fx_o3_phase, fx_o3_inc;   // 3rd saw / shimmer partner
+    double fx_fm_index, fx_fm_index_env, fx_fm_index_dec; // FM mod depth + env
+    int    fx_fm_rising;             // 1 = index ramps UP into the note (brightness)
+    // State-variable LPF (Chamberlin) for pad/sci-fi sweeps.
+    double fx_svf_lp, fx_svf_bp;
+    double fx_cut, fx_cut_base, fx_res;
+    double fx_cut_env, fx_cut_env_dec;  // pitch/cutoff sweep envelope (sci-fi)
+    int    fx_cut_sweep_down;           // 1 = cutoff sweeps downward over the note
+    // Filtered-noise texture bed (atmosphere/rain/seashore/breath/helicopter).
+    double fx_noise_lp, fx_noise_lp2;   // cascaded 1-pole LP state
+    double fx_noise_hp_x1, fx_noise_hp_y1; // 1-pole HP state
+    double fx_noise_amt;                // texture/noise level
+    double fx_noise_bp0, fx_noise_bp2, fx_noise_bpa1, fx_noise_bpa2; // BP biquad
+    double fx_noise_bx1, fx_noise_bx2, fx_noise_by1, fx_noise_by2;
+    int    fx_noise_use_bp;             // 1 = route noise through the BP biquad
+    // Pitch / cutoff sweep multiplier (bird chirp, sci-fi zap, gunshot boom).
+    double fx_pitch_mult, fx_pitch_dec, fx_pitch_target;
+    // Amplitude envelopes internal to a trigger (bird syllables, gunshot boom).
+    double fx_amp_env, fx_amp_dec;      // self-decaying internal AD envelope
+    double fx_amp_env2, fx_amp_dec2;    // 2nd internal envelope (crack vs boom)
+    // Gate/cadence counter (telephone ring on/off, bird syllable gating).
+    double fx_gate_phase, fx_gate_inc;  // phase-increment cadence clock
+    double fx_gate_on_frac;             // duty fraction that is "on"
+    int    fx_gate_n, fx_gate_max;      // syllable/event counters
+    // Periodic-AM pulse (helicopter rotor blade-passage).
+    double fx_am_phase, fx_am_inc, fx_am_sharp, fx_am_depth;
+    // Boom oscillator (sci-fi / gunshot low thump).
+    double fx_boom_phase, fx_boom_inc;
+    double fx_out_scale;
+
+    // -- PhISEM particle engine (rain / seashore / applause / breath grains) --
+    double ph_energy;          // shake energy, leaks each sample
+    double ph_sys_decay;       // systemDecay (energy leak per sample)
+    double ph_snd_decay;       // soundDecay (per-collision ring decay)
+    double ph_num;             // numObjects (collision-probability scale)
+    double ph_snd_level;       // accumulated collision sound level
+    double ph_gain;            // output gain
+    // Up to 3 collision resonators (clap/drop/shore band-passes).
+    int    ph_nres;
+    double ph_res_a1[3], ph_res_a2[3], ph_res_b0[3];
+    double ph_res_y1[3], ph_res_y2[3];
+    // Slow swell LFOs that re-pump energy (seashore waves / applause swell).
+    int    ph_nswell;
+    double ph_swell_phase[3], ph_swell_inc[3];
+    double ph_swell_depth;
+    double ph_energy_floor;    // sustained density floor (rain/seashore vs one-shot)
 } GMVoice;
 
 // Build the wt_sin wavetable. Idempotent; safe to call repeatedly. gm_voice_init
@@ -273,10 +367,10 @@ void gm_synth_init(void);
 void gm_set_organic(double amt);
 
 // 1 if `program` (0-based GM) has a bespoke algorithmic voice in this build.
-// Implemented: Piano 0-7, Chromatic Perc 8-15, Organ 16-23, Guitar 24-31,
-// Bass 32-39, Strings 40-47, Ensemble 48-55, Brass 56-63, Reed 64-71,
-// Pipe 72-79, Synth Lead 80-87, Synth Pad 88-95, Ethnic 104-111,
-// Percussive 112-119.
+// Implemented: ALL 128 GM programs 0-127. Families: Piano 0-7, Chromatic Perc
+// 8-15, Organ 16-23, Guitar 24-31, Bass 32-39, Strings 40-47, Ensemble 48-55,
+// Brass 56-63, Reed 64-71, Pipe 72-79, Synth Lead 80-87, Synth Pad 88-95,
+// Synth FX 96-103, Ethnic 104-111, Percussive 112-119, Sound FX 120-127.
 int gm_program_implemented(int program);
 
 // Note-on init. Selects the engine, fills per-voice state from the matching

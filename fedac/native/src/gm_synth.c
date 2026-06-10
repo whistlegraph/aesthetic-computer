@@ -378,6 +378,177 @@ static const GMModalParams gm_kalimba_program = {
     .strike_amp = 0.07, .strike_ms = 2.0, .pitched = 1
 };
 
+// ============================================================
+// FX families — Synth Effects (GM 96-103) + Sound Effects (GM 120-127)
+// ============================================================
+// One data-driven param row drives BOTH FX engines. The engine + mode select
+// which generic primitives (tonal core / texture bed / time effect / PhISEM /
+// gate / sweep) participate. Code stays generic; variation lives here.
+typedef struct {
+    GMEngine engine;       // GM_ENGINE_SYNTHFX or GM_ENGINE_SOUNDFX
+    int      mode;         // GMSynthFxMode or GMSoundFxMode
+    // Tonal core (saw/sine/FM): detune of 2nd/3rd osc + FM ratio/index.
+    double core_o2_cents;  // detune of partner osc (cents); 0 = none
+    double core_o3_cents;  // detune of 3rd osc (cents); 0 = none
+    double fm_ratio;       // C:M ratio for FM core (0 = no FM)
+    double fm_index0;      // initial FM index
+    double fm_index_ms;    // FM index env time-constant (ms)
+    int    fm_rising;      // 1 = index ramps up into the note
+    // Filter (SVF) — base cutoff Hz, resonance, sweep envelope.
+    double cut0;           // base/relative cutoff (Hz). For SOUNDFX noise BP center.
+    double res;            // SVF / BP resonance
+    double cut_env;        // cutoff sweep amount (Hz, added then decays)
+    double cut_env_ms;     // sweep decay
+    int    cut_sweep_down; // 1 = sweep cutoff downward (sci-fi/fret)
+    // LFO + S&H rates.
+    double lfo_hz, lfo_depth;   // slow modulation (cutoff/amp)
+    double sh_hz;               // sample-and-hold clock (0 = none)
+    // Ring modulation.
+    double ring_hz, ring_mix;   // ring-mod carrier (0 = none)
+    // Delay / echo.
+    double delay_ms, delay_fb, delay_mix, delay_damp; // (delay_ms 0 = none)
+    // Texture / filtered-noise bed.
+    double noise_amt;      // noise level
+    double noise_lp_hz;    // noise low-pass (Hz)
+    double noise_hp_hz;    // noise high-pass (Hz, 0 = none)
+    int    noise_use_bp;   // 1 = band-pass biquad at cut0 instead of LP/HP
+    // PhISEM particle engine.
+    double ph_sys_decay, ph_snd_decay, ph_num, ph_gain;
+    double ph_res_f[3], ph_res_R[3], ph_res_g[3]; int ph_nres;
+    double ph_energy0, ph_energy_floor;
+    int    ph_nswell; double ph_swell_hz[3]; double ph_swell_depth;
+    // Pitch sweep (bird chirp / sci-fi zap / boom).
+    double pitch_start;    // start pitch multiplier (e.g. 5.0 = 5x then glide to 1)
+    double pitch_ms;       // glide time-constant
+    // Internal AD envelopes (bird/gunshot/sci-fi transients).
+    double amp_ms;         // primary internal decay (ms; 0 = sustained)
+    double amp2_ms;        // secondary (crack vs boom)
+    // Gate / cadence (telephone / bird syllables / helicopter AM).
+    double gate_hz;        // cadence rate (Hz)
+    double gate_on_frac;   // duty cycle that is on
+    int    gate_n;         // syllable/event count (bird); 0 = continuous
+    // Helicopter periodic-AM rotor.
+    double am_hz, am_sharp, am_depth;
+    // Boom / sub oscillator (sci-fi/gunshot).
+    double boom_hz;        // absolute boom freq (Hz); 0 = none
+    double out_scale;
+} GMFxParams;
+
+// ── Synth Effects (GM 96-103) ──
+#define GM_SYNTHFX_FIRST 96
+#define GM_SYNTHFX_COUNT 8
+static const GMFxParams gm_synthfx_programs[GM_SYNTHFX_COUNT] = {
+    // 96 FX1 rain — dense PhISEM droplets + ring-modded shimmer pair, S&H bend.
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_RAIN,
+      .core_o2_cents = 7.0, .ring_hz = 6.0, .ring_mix = 0.35,
+      .sh_hz = 7.0, .lfo_hz = 0.13, .lfo_depth = 0.4,
+      .ph_sys_decay = 0.9995, .ph_snd_decay = 0.92, .ph_num = 1200.0, .ph_gain = 0.6,
+      .ph_res_f = {2400.0, 0.0, 0.0}, .ph_res_R = {0.6, 0.0, 0.0}, .ph_res_g = {1.0, 0.0, 0.0},
+      .ph_nres = 1, .ph_energy0 = 0.00030, .ph_energy_floor = 0.00012,
+      .noise_amt = 0.0, .out_scale = 0.8 },
+    // 97 FX2 soundtrack — 3 detuned saws, slow LFO-swept LPF (sweeping pad).
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_SOUNDTRACK,
+      .core_o2_cents = -8.0, .core_o3_cents = 11.0,
+      .cut0 = 900.0, .res = 0.35, .lfo_hz = 0.18, .lfo_depth = 0.8,
+      .delay_ms = 0.0, .out_scale = 0.45 },
+    // 98 FX3 crystal — inharmonic FM bell (1:3.5) + bright feedback delay twinkle.
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_CRYSTAL,
+      .core_o2_cents = 5.0, .fm_ratio = 3.5, .fm_index0 = 3.0, .fm_index_ms = 280.0,
+      .delay_ms = 110.0, .delay_fb = 0.55, .delay_mix = 0.5, .delay_damp = 4500.0,
+      .amp_ms = 1400.0, .out_scale = 0.55 },
+    // 99 FX4 atmosphere — soft pad + filtered-noise bed, slow amp LFO.
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_ATMOSPHERE,
+      .core_o2_cents = -6.0, .cut0 = 1400.0, .res = 0.2,
+      .lfo_hz = 0.09, .lfo_depth = 0.6,
+      .noise_amt = 0.22, .noise_lp_hz = 2200.0, .noise_hp_hz = 250.0,
+      .delay_ms = 0.0, .out_scale = 0.5 },
+    // 100 FX5 brightness — saw + high-ratio FM with RISING index (brightens in).
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_BRIGHTNESS,
+      .core_o2_cents = 6.0, .fm_ratio = 7.0, .fm_index0 = 2.2, .fm_index_ms = 600.0,
+      .fm_rising = 1, .cut0 = 2600.0, .res = 0.3,
+      .lfo_hz = 0.35, .lfo_depth = 0.5, .out_scale = 0.42 },
+    // 101 FX6 goblins — dark ring-modded saw pair + S&H cutoff (ominous voice).
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_GOBLINS,
+      .core_o2_cents = -9.0, .ring_hz = 70.0, .ring_mix = 0.55,
+      .cut0 = 700.0, .res = 0.55, .sh_hz = 2.5, .lfo_depth = 0.7,
+      .noise_amt = 0.05, .noise_lp_hz = 1500.0, .out_scale = 0.5 },
+    // 102 FX7 echoes — bright FM ping into long regenerating dark delay.
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_ECHOES,
+      .fm_ratio = 2.0, .fm_index0 = 2.0, .fm_index_ms = 120.0,
+      .delay_ms = 160.0, .delay_fb = 0.7, .delay_mix = 0.65, .delay_damp = 3000.0,
+      .amp_ms = 600.0, .out_scale = 0.5 },
+    // 103 FX8 sci-fi — swept saw + resonant downward filter + pitch glide + noise crack.
+    { .engine = GM_ENGINE_SYNTHFX, .mode = GM_FX_SCIFI,
+      .ring_hz = 120.0, .ring_mix = 0.3,
+      .cut0 = 600.0, .res = 0.7, .cut_env = 5000.0, .cut_env_ms = 220.0, .cut_sweep_down = 1,
+      .pitch_start = 3.0, .pitch_ms = 180.0,
+      .noise_amt = 0.3, .noise_lp_hz = 6000.0, .amp2_ms = 40.0,
+      .boom_hz = 0.0, .out_scale = 0.5 },
+};
+
+// ── Sound Effects (GM 120-127) ──
+#define GM_SOUNDFX_FIRST 120
+#define GM_SOUNDFX_COUNT 8
+static const GMFxParams gm_soundfx_programs[GM_SOUNDFX_COUNT] = {
+    // 120 Guitar Fret Noise — short swept band-pass noise squeak (rising glide).
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_FRET,
+      .cut0 = 2200.0, .res = 4.0, .noise_use_bp = 1,
+      .cut_env = 1800.0, .cut_env_ms = 70.0, .cut_sweep_down = 0,
+      .noise_amt = 1.0, .amp_ms = 110.0, .out_scale = 0.7 },
+    // 121 Breath Noise — band-passed noise puff + faint PhISEM grain, soft AD.
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_BREATH,
+      .cut0 = 1600.0, .res = 1.2, .noise_use_bp = 1,
+      .noise_amt = 1.0, .amp_ms = 260.0, .lfo_hz = 6.0, .lfo_depth = 0.25,
+      .ph_sys_decay = 0.9990, .ph_snd_decay = 0.90, .ph_num = 600.0, .ph_gain = 0.4,
+      .ph_res_f = {1800.0, 0.0, 0.0}, .ph_res_R = {0.5, 0.0, 0.0}, .ph_res_g = {1.0, 0.0, 0.0},
+      .ph_nres = 1, .ph_energy0 = 0.00040, .ph_energy_floor = 0.0, .out_scale = 0.6 },
+    // 122 Seashore — PhISEM surf (huge numObjects) + 3 slow swell LFOs.
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_SEASHORE,
+      .ph_sys_decay = 0.99985, .ph_snd_decay = 0.94, .ph_num = 3000.0, .ph_gain = 0.32,
+      .ph_res_f = {1200.0, 3200.0, 0.0}, .ph_res_R = {0.55, 0.45, 0.0},
+      .ph_res_g = {1.0, 0.5, 0.0}, .ph_nres = 2,
+      .ph_energy0 = 0.00006, .ph_energy_floor = 0.000025,
+      .ph_nswell = 3, .ph_swell_hz = {0.16, 0.11, 0.071}, .ph_swell_depth = 0.00008,
+      .out_scale = 0.7 },
+    // 123 Bird Tweet — pitch-swept FM chirps, fast trill, 3 gated syllables.
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_BIRD,
+      .fm_ratio = 1.0, .fm_index0 = 0.6, .fm_index_ms = 30.0,
+      .pitch_start = 0.7, .pitch_ms = 18.0,
+      .lfo_hz = 45.0, .lfo_depth = 0.12,
+      .gate_hz = 9.0, .gate_on_frac = 0.55, .gate_n = 3,
+      .out_scale = 0.5 },
+    // 124 Telephone Ring — gated dual sine 440+480, 2 s on / 4 s off cadence.
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_TELEPHONE,
+      .gate_hz = 1.0 / 6.0, .gate_on_frac = 2.0 / 6.0,
+      .lfo_hz = 20.0, .lfo_depth = 0.0, .out_scale = 0.4 },
+    // 125 Helicopter — periodic-AM broadband noise (rotor chop) + low rumble.
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_HELICOPTER,
+      .noise_amt = 1.0, .noise_lp_hz = 2600.0, .noise_hp_hz = 120.0,
+      .am_hz = 14.0, .am_sharp = 3.0, .am_depth = 0.95,
+      .boom_hz = 55.0, .out_scale = 0.6 },
+    // 126 Applause — PhISEM crowd claps (hundreds), clap BP ~1.5k, global swell.
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_APPLAUSE,
+      .ph_sys_decay = 0.9994, .ph_snd_decay = 0.88, .ph_num = 800.0, .ph_gain = 0.7,
+      .ph_res_f = {1500.0, 0.0, 0.0}, .ph_res_R = {0.5, 0.0, 0.0}, .ph_res_g = {1.0, 0.0, 0.0},
+      .ph_nres = 1, .ph_energy0 = 0.00035, .ph_energy_floor = 0.00012,
+      .ph_nswell = 1, .ph_swell_hz = {0.08, 0.0, 0.0}, .ph_swell_depth = 0.00040,
+      .out_scale = 0.75 },
+    // 127 Gunshot — broadband noise crack burst + low boom with downward sweep.
+    { .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_GUNSHOT,
+      .noise_amt = 1.0, .noise_lp_hz = 9000.0, .noise_hp_hz = 400.0,
+      .amp_ms = 8.0, .amp2_ms = 140.0,
+      .boom_hz = 90.0, .pitch_start = 2.2, .pitch_ms = 60.0, .out_scale = 0.9 },
+};
+
+// ── Reverse Cymbal (GM 120 / 0-based 119) — bright noise under a RISING swell.
+// Pre-existing gap in the Percussive family (112-118 covered modal perc; 119
+// was unimplemented). It is a noise effect, so it rides the SOUNDFX engine. ──
+static const GMFxParams gm_revcymbal_program = {
+    .engine = GM_ENGINE_SOUNDFX, .mode = GM_SFX_FRET,   // reuse fret's noise path
+    .cut0 = 7000.0, .res = 1.0, .noise_use_bp = 1,
+    .noise_amt = 1.0, .out_scale = 0.6,
+};
+
 // ── Guitar family (GM 25-32) ──
 #define GM_GUITAR_FIRST 24
 #define GM_GUITAR_COUNT 8
@@ -1592,6 +1763,249 @@ static void gm_formant_init(GMVoice *v, const GMProgramParams *p, double f0,
     v->ss_out_scale = p->fmt_out_scale > 0.0 ? p->fmt_out_scale : 1.5;
 }
 
+// ── Build a 2-pole resonator (band-pass numerator) from f, pole-radius R. ──
+static void gm_fx_make_res(double f, double R, double sr,
+                           double *b0, double *a1, double *a2) {
+    if (f > sr * 0.45) f = sr * 0.45;
+    if (f < 20.0) f = 20.0;
+    if (R > 0.999) R = 0.999;  if (R < 0.0) R = 0.0;
+    double w = 2.0 * M_PI * f / sr;
+    *a1 = -2.0 * R * cos(w);
+    *a2 = R * R;
+    *b0 = 1.0 - R;   // simple normalized 2-pole resonator
+}
+
+// ── RBJ band-pass biquad (constant-skirt) into the fx noise biquad slots. ──
+static void gm_fx_make_bp(GMVoice *v, double f, double Q, double sr) {
+    if (f > sr * 0.45) f = sr * 0.45;  if (f < 40.0) f = 40.0;
+    if (Q < 0.3) Q = 0.3;  if (Q > 40.0) Q = 40.0;
+    double w0 = 2.0 * M_PI * f / sr;
+    double al = sin(w0) / (2.0 * Q);
+    double a0 = 1.0 + al;
+    v->fx_noise_bp0 = al / a0;
+    v->fx_noise_bp2 = -al / a0;
+    v->fx_noise_bpa1 = (-2.0 * cos(w0)) / a0;
+    v->fx_noise_bpa2 = (1.0 - al) / a0;
+    v->fx_noise_bx1 = v->fx_noise_bx2 = v->fx_noise_by1 = v->fx_noise_by2 = 0.0;
+}
+
+// FX note-on (GM_ENGINE_SYNTHFX + GM_ENGINE_SOUNDFX). Every lever takes bounded
+// per-trigger stochasticism — these FX are inherently probabilistic, so we lean
+// in (generous mul ~1.0 for the noise/particle families).
+static void gm_fx_init(GMVoice *v, const GMFxParams *p, double f0, double sr) {
+    const double mul = 1.0;   // FX families: lean into the spread.
+    v->fx_out_scale = p->out_scale > 0.0 ? p->out_scale : 0.5;
+
+    // Tonal core oscillators (FM modulator / detuned partners / shimmer).
+    double fc = voice_detune(v, f0, 6.0, mul);
+    v->fx_o1_phase = voice_rand_phase(v);
+    v->fx_o1_inc = fc / sr;
+    if (p->core_o2_cents != 0.0) {
+        double f2 = voice_detune(v, f0 * cents_to_ratio(p->core_o2_cents), 4.0, mul);
+        v->fx_o2_phase = voice_rand_phase(v);
+        v->fx_o2_inc = f2 / sr;
+    } else if (p->fm_ratio > 0.0) {
+        // o2 doubles as the FM modulator when there's no detuned partner.
+        v->fx_o2_phase = voice_rand_phase(v);
+        v->fx_o2_inc = (fc * p->fm_ratio) / sr;
+    }
+    if (p->core_o3_cents != 0.0) {
+        double f3 = voice_detune(v, f0 * cents_to_ratio(p->core_o3_cents), 5.0, mul);
+        v->fx_o3_phase = voice_rand_phase(v);
+        v->fx_o3_inc = f3 / sr;
+    }
+    if (p->fm_ratio > 0.0 && p->core_o2_cents != 0.0) {
+        // Dedicated FM modulator on o3 when o2 is busy being a detuned partner.
+        v->fx_o3_phase = voice_rand_phase(v);
+        v->fx_o3_inc = (fc * p->fm_ratio) / sr;
+    }
+    if (p->fm_ratio > 0.0) {
+        v->fx_fm_index = voice_jitter(v, p->fm_index0, 0.12, mul);
+        v->fx_fm_index_env = p->fm_rising ? 0.0 : v->fx_fm_index;
+        double idec = (p->fm_index_ms > 0.0 ? p->fm_index_ms : 300.0) * 0.001;
+        if (idec < 0.001) idec = 0.001;
+        v->fx_fm_index_dec = exp(-1.0 / (idec * sr));
+        v->fx_fm_rising = p->fm_rising;
+    }
+
+    // SVF filter (pad / sci-fi sweeps).
+    v->fx_cut_base = (p->cut0 > 0.0) ? p->cut0 : 2000.0;
+    v->fx_cut = voice_jitter(v, v->fx_cut_base, 0.15, mul);
+    v->fx_res = p->res;
+    v->fx_svf_lp = v->fx_svf_bp = 0.0;
+    if (p->cut_env > 0.0) {
+        v->fx_cut_env = p->cut_env;
+        double cdec = (p->cut_env_ms > 0.0 ? p->cut_env_ms : 200.0) * 0.001;
+        v->fx_cut_env_dec = exp(-1.0 / (cdec * sr));
+        v->fx_cut_sweep_down = p->cut_sweep_down;
+    }
+
+    // LFO + sample-and-hold.
+    if (p->lfo_hz > 0.0) {
+        v->fx_lfo_inc = voice_jitter(v, p->lfo_hz, 0.2, mul) / sr;
+        v->fx_lfo_depth = p->lfo_depth;
+        v->fx_lfo_phase = voice_rand_phase(v);
+    }
+    if (p->sh_hz > 0.0) {
+        v->fx_sh_inc = voice_jitter(v, p->sh_hz, 0.25, mul) / sr;
+        v->fx_sh_phase = voice_rand_phase(v);
+        v->fx_sh_value = voice_rand_bipolar(v);
+    }
+
+    // Ring modulator.
+    if (p->ring_hz > 0.0) {
+        v->fx_ring_inc = voice_jitter(v, p->ring_hz, 0.15, mul) / sr;
+        v->fx_ring_mix = p->ring_mix;
+        v->fx_ring_phase = voice_rand_phase(v);
+    }
+
+    // Delay / echo ring.
+    if (p->delay_ms > 0.0) {
+        memset(v->fx_delay, 0, sizeof(v->fx_delay));
+        v->fx_delay_w = 0;
+        double ds = voice_jitter(v, p->delay_ms, 0.08, mul) * 0.001 * sr;
+        if (ds > (double)(GM_FX_DELAY_N - 2)) ds = (double)(GM_FX_DELAY_N - 2);
+        if (ds < 1.0) ds = 1.0;
+        v->fx_delay_samps = ds;
+        v->fx_delay_fb = p->delay_fb;
+        v->fx_delay_mix = p->delay_mix;
+        if (p->delay_damp > 0.0) {
+            double fc2 = clampd(p->delay_damp, 100.0, sr * 0.45);
+            v->fx_delay_damp = 1.0 - exp(-2.0 * M_PI * fc2 / sr);
+        }
+        v->fx_delay_lp = 0.0;
+    }
+
+    // Texture / filtered-noise bed.
+    v->fx_noise_amt = p->noise_amt;
+    if (p->noise_use_bp) {
+        v->fx_noise_use_bp = 1;
+        double Q = (p->res > 0.5) ? p->res : 2.0;
+        gm_fx_make_bp(v, voice_jitter(v, p->cut0 > 0.0 ? p->cut0 : 1500.0, 0.12, mul),
+                      Q, sr);
+    } else {
+        v->fx_noise_use_bp = 0;
+        v->fx_noise_lp = v->fx_noise_lp2 = 0.0;
+        v->fx_noise_hp_x1 = v->fx_noise_hp_y1 = 0.0;
+    }
+
+    // PhISEM particle engine.
+    if (p->ph_num > 0.0) {
+        v->ph_sys_decay = p->ph_sys_decay > 0.0 ? p->ph_sys_decay : 0.999;
+        v->ph_snd_decay = p->ph_snd_decay > 0.0 ? p->ph_snd_decay : 0.95;
+        v->ph_num = voice_jitter(v, p->ph_num, 0.1, mul);
+        v->ph_gain = p->ph_gain > 0.0 ? p->ph_gain : 1.0;
+        v->ph_energy = voice_jitter(v, p->ph_energy0 > 0.0 ? p->ph_energy0 : 0.3,
+                                    0.2, mul);
+        v->ph_energy_floor = p->ph_energy_floor;
+        v->ph_snd_level = 0.0;
+        int nr = p->ph_nres;  if (nr < 1) nr = 1;  if (nr > 3) nr = 3;
+        v->ph_nres = nr;
+        for (int k = 0; k < nr; k++) {
+            double f = voice_jitter(v, p->ph_res_f[k] > 0.0 ? p->ph_res_f[k] : 1500.0,
+                                    0.1, mul);
+            gm_fx_make_res(f, p->ph_res_R[k], sr,
+                           &v->ph_res_b0[k], &v->ph_res_a1[k], &v->ph_res_a2[k]);
+            v->ph_res_y1[k] = v->ph_res_y2[k] = 0.0;
+        }
+        int ns = p->ph_nswell;  if (ns < 0) ns = 0;  if (ns > 3) ns = 3;
+        v->ph_nswell = ns;
+        for (int k = 0; k < ns; k++) {
+            v->ph_swell_inc[k] = voice_jitter(v, p->ph_swell_hz[k] > 0.0
+                                              ? p->ph_swell_hz[k] : 0.1, 0.3, mul) / sr;
+            v->ph_swell_phase[k] = voice_rand_phase(v);
+        }
+        v->ph_swell_depth = p->ph_swell_depth;
+    }
+
+    // Pitch sweep (bird chirp / sci-fi zap / gunshot boom).
+    if (p->pitch_start > 0.0) {
+        v->fx_pitch_mult = voice_jitter(v, p->pitch_start, 0.15, mul);
+        double pdec = (p->pitch_ms > 0.0 ? p->pitch_ms : 50.0) * 0.001;
+        if (pdec < 0.001) pdec = 0.001;
+        v->fx_pitch_dec = exp(-1.0 / (pdec * sr));
+    } else {
+        v->fx_pitch_mult = 1.0;
+        v->fx_pitch_dec = 1.0;
+    }
+
+    // Internal AD envelopes.
+    if (p->amp_ms > 0.0) {
+        v->fx_amp_env = 1.0;
+        double adec = p->amp_ms * 0.001;  if (adec < 0.0005) adec = 0.0005;
+        v->fx_amp_dec = exp(-1.0 / (adec * sr));
+    } else {
+        v->fx_amp_env = 1.0;
+        v->fx_amp_dec = 1.0;   // sustained
+    }
+    if (p->amp2_ms > 0.0) {
+        v->fx_amp_env2 = 1.0;
+        double adec = p->amp2_ms * 0.001;  if (adec < 0.0005) adec = 0.0005;
+        v->fx_amp_dec2 = exp(-1.0 / (adec * sr));
+    } else {
+        v->fx_amp_env2 = 0.0;
+        v->fx_amp_dec2 = 1.0;
+    }
+
+    // Gate / cadence clock.
+    if (p->gate_hz > 0.0) {
+        v->fx_gate_inc = voice_jitter(v, p->gate_hz, 0.08, mul) / sr;
+        v->fx_gate_on_frac = p->gate_on_frac > 0.0 ? p->gate_on_frac : 0.5;
+        v->fx_gate_phase = 0.0;
+        v->fx_gate_max = p->gate_n;
+        v->fx_gate_n = 0;
+    }
+
+    // Helicopter periodic-AM rotor.
+    if (p->am_hz > 0.0) {
+        v->fx_am_inc = voice_jitter(v, p->am_hz, 0.08, mul) / sr;
+        v->fx_am_sharp = p->am_sharp > 0.0 ? p->am_sharp : 2.0;
+        v->fx_am_depth = p->am_depth;
+        v->fx_am_phase = voice_rand_phase(v);
+    }
+
+    // Boom / sub oscillator (absolute Hz).
+    if (p->boom_hz > 0.0) {
+        v->fx_boom_inc = voice_jitter(v, p->boom_hz, 0.1, mul) / sr;
+        v->fx_boom_phase = voice_rand_phase(v);
+    }
+
+    // Reuse cut_base as base; keep noise LP/HP Hz in the BP fields when not BP.
+    // (handled in generator via p-derived coefficients computed once here.)
+    if (!p->noise_use_bp && p->noise_amt > 0.0) {
+        // store LP coeff in fx_noise_bp0, HP coeff in fx_noise_bp2 (1-pole g's).
+        double lpf = (p->noise_lp_hz > 0.0) ? p->noise_lp_hz : (sr * 0.4);
+        lpf = clampd(lpf, 50.0, sr * 0.45);
+        v->fx_noise_bp0 = 1.0 - exp(-2.0 * M_PI * lpf / sr);   // LP g
+        if (p->noise_hp_hz > 0.0) {
+            double hpf = clampd(p->noise_hp_hz, 20.0, sr * 0.4);
+            v->fx_noise_bp2 = exp(-2.0 * M_PI * hpf / sr);     // HP pole
+        } else {
+            v->fx_noise_bp2 = 0.0;                              // no HP
+        }
+    }
+
+    // ── Mode-specific absolute-frequency overrides ──
+    // Several SFX have fixed pitches independent of the MIDI note.
+    if (p->engine == GM_ENGINE_SOUNDFX) {
+        if (p->mode == GM_SFX_TELEPHONE) {
+            // Dual ring tones 440 + 480 Hz (US), tiny per-trigger detune.
+            v->fx_o1_inc = voice_detune(v, 440.0, 4.0, mul) / sr;
+            v->fx_o2_inc = voice_detune(v, 480.0, 4.0, mul) / sr;
+            v->fx_o1_phase = voice_rand_phase(v);
+            v->fx_o2_phase = voice_rand_phase(v);
+        } else if (p->mode == GM_SFX_BIRD) {
+            // Carrier in the 2-8 kHz bird band; modulator follows the FM ratio.
+            double base = voice_jitter(v, 3500.0, 0.25, mul);  // stochastic per chirp
+            base = clampd(base, 2000.0, 6500.0);
+            v->fx_o1_inc = base / sr;
+            v->fx_o2_inc = (base * (p->fm_ratio > 0.0 ? p->fm_ratio : 1.0)) / sr;
+            v->fx_o1_phase = voice_rand_phase(v);
+            v->fx_o2_phase = voice_rand_phase(v);
+        }
+    }
+}
+
 // Forward declare batch-2 dispatch (defined after gm_voice_init).
 static int gm_voice_init_batch2(GMVoice *v, int program, double freq,
                                 double sample_rate);
@@ -1610,8 +2024,10 @@ int gm_program_implemented(int program) {
     if (program >= 88 && program <= 95) return 1;             // Synth Pad
     if (program >= 64 && program <= 71) return 1;             // Reed
     if (program >= 72 && program <= 79) return 1;             // Pipe
+    if (program >= 96 && program <= 103) return 1;            // Synth FX
     if (program >= 104 && program <= 111) return 1;           // Ethnic
     if (program >= 112 && program <= 119) return 1;           // Percussive
+    if (program >= 120 && program <= 127) return 1;           // Sound FX
     return 0;
 }
 
@@ -1777,6 +2193,14 @@ static int gm_voice_init_batch2(GMVoice *v, int program, double freq,
         (void)f0;
         return 0;
     }
+    if (program == 119) {   // GM 120 Reverse Cymbal — rising-swell noise.
+        v->engine = GM_ENGINE_SOUNDFX;
+        gm_fx_init(v, &gm_revcymbal_program, f0, sr);
+        // Start at zero amplitude and rise (set in the generator via amp_env).
+        v->fx_amp_env = 0.0;
+        v->fx_amp_dec = exp(-1.0 / (0.7 * sr));  // ~0.7 s rise time-constant
+        return 0;
+    }
 
     // ── Strings (GM 41-48) ──
     if (program >= GM_STRINGS_FIRST && program <= GM_STRINGS_FIRST + 7) {
@@ -1894,6 +2318,24 @@ static int gm_voice_init_batch2(GMVoice *v, int program, double freq,
         }
         v->engine = GM_ENGINE_SUPERSAW;
         gm_supersaw_init(v, &gm_pad_programs[idx], f0, sr);
+        return 0;
+    }
+
+    // ── Synth FX (GM 97-104 / 0-based 96-103) — layered sound-design ──
+    if (program >= GM_SYNTHFX_FIRST &&
+        program < GM_SYNTHFX_FIRST + GM_SYNTHFX_COUNT) {
+        const GMFxParams *p = &gm_synthfx_programs[program - GM_SYNTHFX_FIRST];
+        v->engine = GM_ENGINE_SYNTHFX;
+        gm_fx_init(v, p, f0, sr);
+        return 0;
+    }
+
+    // ── Sound FX (GM 121-128 / 0-based 120-127) — stochastic/noise effects ──
+    if (program >= GM_SOUNDFX_FIRST &&
+        program < GM_SOUNDFX_FIRST + GM_SOUNDFX_COUNT) {
+        const GMFxParams *p = &gm_soundfx_programs[program - GM_SOUNDFX_FIRST];
+        v->engine = GM_ENGINE_SOUNDFX;
+        gm_fx_init(v, p, f0, sr);
         return 0;
     }
 
@@ -2552,6 +2994,379 @@ static inline double generate_formant_sample(GMVoice *v, double sample_rate,
     return clampd(out, -2.0, 2.0) * env;
 }
 
+// ── Shared FX helpers ──────────────────────────────────────────────────────
+
+// PhISEM one-sample tick: leak shake energy, stochastically fire collision
+// grains, ring them through the resonator bank. Inherently stochastic — the
+// random particle timing IS the stochasticism (no two renders alike).
+static inline double gm_phisem_tick(GMVoice *v) {
+    // Slow swell LFOs re-pump energy (ocean waves / applause swell).
+    double swell = 0.0;
+    for (int k = 0; k < v->ph_nswell; k++) {
+        swell += 0.5 * (1.0 + wt_sin(v->ph_swell_phase[k]));
+        v->ph_swell_phase[k] += v->ph_swell_inc[k];
+        if (v->ph_swell_phase[k] >= 1.0) v->ph_swell_phase[k] -= 1.0;
+    }
+    if (v->ph_nswell > 0) {
+        swell /= (double)v->ph_nswell;
+        double tgt = v->ph_energy_floor + v->ph_swell_depth * swell;
+        v->ph_energy += 0.0005 * (tgt - v->ph_energy);  // ease energy toward swell
+    }
+    v->ph_energy *= v->ph_sys_decay;
+    if (v->ph_energy < v->ph_energy_floor) v->ph_energy = v->ph_energy_floor;
+
+    // Poisson-ish collision: probability ∝ numObjects · energy. On a collision,
+    // inject a normalized impulse (energy sets density, not grain loudness).
+    double prob = v->ph_num * v->ph_energy;
+    if (voice_rand_unit(v) < prob) {
+        v->ph_snd_level += 1.0;
+    }
+    v->ph_snd_level *= v->ph_snd_decay;
+    double grain = v->ph_snd_level * voice_rand_bipolar(v);
+
+    double out = 0.0;
+    for (int k = 0; k < v->ph_nres; k++) {
+        double y = v->ph_res_b0[k] * grain
+                 - v->ph_res_a1[k] * v->ph_res_y1[k]
+                 - v->ph_res_a2[k] * v->ph_res_y2[k];
+        v->ph_res_y2[k] = v->ph_res_y1[k];
+        v->ph_res_y1[k] = y;
+        out += y;
+    }
+    return out * v->ph_gain;
+}
+
+// Filtered-noise texture bed (LP cascade + optional HP, or BP biquad). Returns
+// shaped noise in roughly [-1,1]. Coefficients are baked in gm_fx_init.
+static inline double gm_fx_noise_bed(GMVoice *v) {
+    double w = wg_white(v);
+    if (v->fx_noise_use_bp) {
+        double y = v->fx_noise_bp0 * w + v->fx_noise_bp2 * v->fx_noise_bx2
+                 - v->fx_noise_bpa1 * v->fx_noise_by1
+                 - v->fx_noise_bpa2 * v->fx_noise_by2;
+        v->fx_noise_bx2 = v->fx_noise_bx1; v->fx_noise_bx1 = w;
+        v->fx_noise_by2 = v->fx_noise_by1; v->fx_noise_by1 = y;
+        return y;
+    }
+    // 1-pole LP coeff held in fx_noise_bp0; HP pole in fx_noise_bp2.
+    double lpg = v->fx_noise_bp0 > 0.0 ? v->fx_noise_bp0 : 0.3;
+    v->fx_noise_lp += lpg * (w - v->fx_noise_lp);
+    v->fx_noise_lp2 += lpg * (v->fx_noise_lp - v->fx_noise_lp2);
+    double s = v->fx_noise_lp2;
+    if (v->fx_noise_bp2 > 0.0) {   // 1-pole HP via leaky differentiator
+        double a = v->fx_noise_bp2;
+        double y = a * (v->fx_noise_hp_y1 + s - v->fx_noise_hp_x1);
+        v->fx_noise_hp_x1 = s;
+        v->fx_noise_hp_y1 = y;
+        s = y;
+    }
+    return s;
+}
+
+// Per-voice delay/echo: read wet, mix dry+feedback back into the ring (with
+// optional HF damping so repeats dull as they fade).
+static inline double gm_fx_delay_tick(GMVoice *v, double dry) {
+    double wet = gm_frac_read(v->fx_delay, GM_FX_DELAY_N, v->fx_delay_w,
+                              v->fx_delay_samps);
+    if (v->fx_delay_damp > 0.0) {   // damp the feedback path
+        v->fx_delay_lp += v->fx_delay_damp * (wet - v->fx_delay_lp);
+        wet = v->fx_delay_lp;
+    }
+    double into = dry + v->fx_delay_fb * wet;
+    if (into > 4.0) into = 4.0;  if (into < -4.0) into = -4.0;
+    v->fx_delay[v->fx_delay_w] = (float)into;
+    v->fx_delay_w = (v->fx_delay_w + 1) % GM_FX_DELAY_N;
+    return dry * (1.0 - v->fx_delay_mix) + wet * v->fx_delay_mix;
+}
+
+// Advance + read the LFO (returns [-1,1]); advance the S&H clock.
+static inline double gm_fx_lfo_tri(GMVoice *v) {
+    double t = v->fx_lfo_phase;             // triangle in [-1,1]
+    double tri = (t < 0.5) ? (4.0 * t - 1.0) : (3.0 - 4.0 * t);
+    v->fx_lfo_phase += v->fx_lfo_inc;
+    if (v->fx_lfo_phase >= 1.0) v->fx_lfo_phase -= 1.0;
+    return tri;
+}
+static inline double gm_fx_sh(GMVoice *v) {
+    v->fx_sh_phase += v->fx_sh_inc;
+    if (v->fx_sh_phase >= 1.0) {
+        v->fx_sh_phase -= 1.0;
+        v->fx_sh_value = voice_rand_bipolar(v);  // resample (stochastic)
+    }
+    return v->fx_sh_value;
+}
+
+// Chamberlin SVF low-pass step. `cut` Hz, resonance v->fx_res.
+static inline double gm_fx_svf_lp(GMVoice *v, double in, double cut, double sr) {
+    cut = clampd(cut, 20.0, sr * 0.45);
+    double f = 2.0 * sin(M_PI * cut / sr);
+    if (f > 1.4) f = 1.4;
+    double q = 1.0 - v->fx_res;  if (q < 0.05) q = 0.05;
+    double hp = in - v->fx_svf_lp - q * v->fx_svf_bp;
+    v->fx_svf_bp += f * hp;
+    v->fx_svf_lp += f * v->fx_svf_bp;
+    return v->fx_svf_lp;
+}
+
+// ── GM_ENGINE_SYNTHFX: layered tonal-core + texture + time-effect ──
+static inline double generate_synthfx_sample(GMVoice *v, double sample_rate,
+                                             double env) {
+    double sr = sample_rate;
+    double s = 0.0;
+
+    if (v->engine == GM_ENGINE_SYNTHFX && v->program == 96) {
+        // FX1 rain: PhISEM droplets + ring-modded detuned shimmer pair (+S&H bend).
+        double drops = gm_phisem_tick(v);
+        double bend = 1.0 + 0.01 * gm_fx_sh(v);   // subtle pitch S&H on shimmer
+        double sh1 = wt_sin(v->fx_o1_phase);
+        double sh2 = wt_sin(v->fx_o2_phase);
+        v->fx_o1_phase += v->fx_o1_inc * bend;  if (v->fx_o1_phase >= 1.0) v->fx_o1_phase -= 1.0;
+        v->fx_o2_phase += v->fx_o2_inc * bend;  if (v->fx_o2_phase >= 1.0) v->fx_o2_phase -= 1.0;
+        double shimmer = 0.5 * (sh1 + sh2);
+        double ring = wt_sin(v->fx_ring_phase);
+        v->fx_ring_phase += v->fx_ring_inc;  if (v->fx_ring_phase >= 1.0) v->fx_ring_phase -= 1.0;
+        shimmer = (1.0 - v->fx_ring_mix) * shimmer + v->fx_ring_mix * shimmer * ring;
+        s = drops + 0.18 * shimmer;
+        return s * v->fx_out_scale * env;
+    }
+
+    // Generic layered FX for soundtrack/crystal/atmosphere/brightness/goblins/
+    // echoes/sci-fi. Build a tonal core, optionally FM/ring/filter/delay it,
+    // add a texture bed, apply internal envelopes.
+    double pmult = v->fx_pitch_mult;
+    if (v->fx_pitch_dec < 1.0) v->fx_pitch_mult = 1.0 + (v->fx_pitch_mult - 1.0) * v->fx_pitch_dec;
+
+    // FM index envelope (rising for brightness, decaying otherwise).
+    double fmidx = v->fx_fm_index;
+    if (v->fx_fm_index_dec > 0.0 && v->fx_fm_index_dec < 1.0) {
+        if (v->fx_fm_rising) {
+            v->fx_fm_index_env += (v->fx_fm_index - v->fx_fm_index_env)
+                                   * (1.0 - v->fx_fm_index_dec);
+            fmidx = v->fx_fm_index_env;
+        } else {
+            v->fx_fm_index_env *= v->fx_fm_index_dec;
+            fmidx = v->fx_fm_index_env;
+        }
+    }
+
+    // Modulator (o2 if it carries FM, else o3) → carrier.
+    double core;
+    if (v->fx_fm_index_dec != 0.0 && v->fx_fm_index > 0.0) {
+        double modph = (v->fx_o3_inc > 0.0) ? v->fx_o3_phase : v->fx_o2_phase;
+        double fmod = fmidx * wt_sin(modph);
+        if (v->fx_o3_inc > 0.0) {
+            v->fx_o3_phase += v->fx_o3_inc; if (v->fx_o3_phase >= 1.0) v->fx_o3_phase -= 1.0;
+        } else {
+            v->fx_o2_phase += v->fx_o2_inc; if (v->fx_o2_phase >= 1.0) v->fx_o2_phase -= 1.0;
+        }
+        core = wt_sin(v->fx_o1_phase + fmod);
+    } else {
+        // Detuned-saw pad core (1-3 saws).
+        double saw = 2.0 * v->fx_o1_phase - 1.0;
+        if (v->fx_o2_inc > 0.0) {
+            saw += 2.0 * v->fx_o2_phase - 1.0;
+            v->fx_o2_phase += v->fx_o2_inc * pmult; if (v->fx_o2_phase >= 1.0) v->fx_o2_phase -= 1.0;
+        }
+        if (v->fx_o3_inc > 0.0) {
+            saw += 2.0 * v->fx_o3_phase - 1.0;
+            v->fx_o3_phase += v->fx_o3_inc * pmult; if (v->fx_o3_phase >= 1.0) v->fx_o3_phase -= 1.0;
+        }
+        core = saw * 0.4;
+    }
+    v->fx_o1_phase += v->fx_o1_inc * pmult; if (v->fx_o1_phase >= 1.0) v->fx_o1_phase -= 1.0;
+
+    // Ring modulation (goblins/sci-fi growl).
+    if (v->fx_ring_inc > 0.0) {
+        double ring = wt_sin(v->fx_ring_phase);
+        v->fx_ring_phase += v->fx_ring_inc; if (v->fx_ring_phase >= 1.0) v->fx_ring_phase -= 1.0;
+        core = (1.0 - v->fx_ring_mix) * core + v->fx_ring_mix * core * ring;
+    }
+
+    // Filter (SVF) with LFO + S&H + sweep-envelope cutoff modulation.
+    double cut = v->fx_cut;
+    if (v->fx_lfo_inc > 0.0) {
+        double lfo = gm_fx_lfo_tri(v);
+        cut *= 1.0 + v->fx_lfo_depth * lfo;
+    }
+    if (v->fx_sh_inc > 0.0) {
+        double sh = gm_fx_sh(v);
+        cut *= 1.0 + 0.6 * sh;
+    }
+    if (v->fx_cut_env_dec > 0.0 && v->fx_cut_env_dec < 1.0) {
+        cut += v->fx_cut_sweep_down ? v->fx_cut_env : 0.0;
+        v->fx_cut_env *= v->fx_cut_env_dec;
+    }
+    if (v->fx_cut_base > 0.0) {
+        s = gm_fx_svf_lp(v, core, cut, sr);
+    } else {
+        s = core;
+    }
+
+    // Texture / filtered-noise bed.
+    if (v->fx_noise_amt > 0.0) {
+        double bedlfo = 1.0;
+        s += v->fx_noise_amt * gm_fx_noise_bed(v) * bedlfo;
+    }
+
+    // Internal amplitude envelope (crystal/echoes ping fade; sci-fi crack).
+    if (v->fx_amp_dec < 1.0) {
+        s *= v->fx_amp_env;
+        v->fx_amp_env *= v->fx_amp_dec;
+    }
+    if (v->fx_amp_dec2 < 1.0 && v->fx_amp_env2 > 0.0001) {
+        // sci-fi attack crack: short bright noise burst on top.
+        s += v->fx_amp_env2 * 0.5 * wg_white(v);
+        v->fx_amp_env2 *= v->fx_amp_dec2;
+    }
+
+    // Boom layer (sci-fi low thump).
+    if (v->fx_boom_inc > 0.0) {
+        s += 0.4 * wt_sin(v->fx_boom_phase);
+        v->fx_boom_phase += v->fx_boom_inc; if (v->fx_boom_phase >= 1.0) v->fx_boom_phase -= 1.0;
+    }
+
+    // Time effect: feedback delay (crystal twinkle / echoes).
+    if (v->fx_delay_samps > 0.0) {
+        s = gm_fx_delay_tick(v, s);
+    }
+
+    return clampd(s, -2.0, 2.0) * v->fx_out_scale * env;
+}
+
+// ── GM_ENGINE_SOUNDFX: stochastic / noise sound effects ──
+static inline double generate_soundfx_sample(GMVoice *v, double sample_rate,
+                                             double env) {
+    double sr = sample_rate;
+    double s = 0.0;
+    int mode = -1;
+    // Recover mode from program (stable + cheap).
+    int prog = v->program;
+    if (prog >= GM_SOUNDFX_FIRST && prog < GM_SOUNDFX_FIRST + GM_SOUNDFX_COUNT)
+        mode = prog - GM_SOUNDFX_FIRST;
+
+    if (prog == 119) {   // Reverse Cymbal — bright BP noise under a RISING swell.
+        double bed = gm_fx_noise_bed(v);
+        // amp_env climbs from 0 toward 1 (1-pole rise), giving the reverse swell.
+        v->fx_amp_env += (1.0 - v->fx_amp_dec) * (1.0 - v->fx_amp_env);
+        s = bed * v->fx_amp_env;
+        return clampd(s, -2.0, 2.0) * v->fx_out_scale * env;
+    }
+
+    switch (mode) {
+    case GM_SFX_SEASHORE:
+    case GM_SFX_APPLAUSE: {
+        s = gm_phisem_tick(v);
+        break;
+    }
+    case GM_SFX_BREATH: {
+        // Band-passed noise puff + faint PhISEM grain, soft AD + amp wobble.
+        double bed = gm_fx_noise_bed(v);
+        double grain = (v->ph_num > 0.0) ? gm_phisem_tick(v) : 0.0;
+        double wob = 1.0;
+        if (v->fx_lfo_inc > 0.0) {
+            wob = 1.0 + v->fx_lfo_depth * wt_sin(v->fx_lfo_phase);
+            v->fx_lfo_phase += v->fx_lfo_inc; if (v->fx_lfo_phase >= 1.0) v->fx_lfo_phase -= 1.0;
+        }
+        s = (bed + grain) * wob;
+        if (v->fx_amp_dec < 1.0) { s *= v->fx_amp_env; v->fx_amp_env *= v->fx_amp_dec; }
+        break;
+    }
+    case GM_SFX_FRET: {
+        // Short swept band-pass noise squeak. Slide the BP center via cut env.
+        double bed = gm_fx_noise_bed(v);
+        s = bed;
+        if (v->fx_amp_dec < 1.0) { s *= v->fx_amp_env; v->fx_amp_env *= v->fx_amp_dec; }
+        // Re-tune the BP center each block-ish (cheap: every sample, small step).
+        if (v->fx_cut_env_dec > 0.0 && v->fx_cut_env_dec < 1.0) {
+            double center = v->fx_cut_base
+                          + (v->fx_cut_sweep_down ? -v->fx_cut_env : v->fx_cut_env);
+            v->fx_cut_env *= v->fx_cut_env_dec;
+            gm_fx_make_bp(v, clampd(center, 200.0, sr * 0.45),
+                          v->fx_res > 0.5 ? v->fx_res : 4.0, sr);
+        }
+        break;
+    }
+    case GM_SFX_BIRD: {
+        // Pitch-swept FM chirp, fast trill, gated into syllables.
+        // Syllable gate: phase clock; count syllables, silence after gate_n.
+        double on = 1.0;
+        if (v->fx_gate_inc > 0.0) {
+            if (v->fx_gate_max > 0 && v->fx_gate_n >= v->fx_gate_max) {
+                on = 0.0;
+            } else {
+                on = (v->fx_gate_phase < v->fx_gate_on_frac) ? 1.0 : 0.0;
+            }
+            v->fx_gate_phase += v->fx_gate_inc;
+            if (v->fx_gate_phase >= 1.0) { v->fx_gate_phase -= 1.0; v->fx_gate_n++;
+                // Re-arm the chirp pitch sweep at each new syllable (stochastic).
+                v->fx_pitch_mult = 0.6 + 0.4 * voice_rand_unit(v);
+            }
+        }
+        double trill = 0.0;
+        if (v->fx_lfo_inc > 0.0) {
+            trill = v->fx_lfo_depth * wt_sin(v->fx_lfo_phase);
+            v->fx_lfo_phase += v->fx_lfo_inc; if (v->fx_lfo_phase >= 1.0) v->fx_lfo_phase -= 1.0;
+        }
+        double pm = v->fx_pitch_mult * (1.0 + trill);
+        if (v->fx_pitch_dec < 1.0) v->fx_pitch_mult = 1.0 + (v->fx_pitch_mult - 1.0) * v->fx_pitch_dec;
+        double fmod = v->fx_fm_index * wt_sin(v->fx_o2_phase);
+        v->fx_o2_phase += v->fx_o2_inc * pm; if (v->fx_o2_phase >= 1.0) v->fx_o2_phase -= 1.0;
+        s = wt_sin(v->fx_o1_phase + fmod) * on;
+        v->fx_o1_phase += v->fx_o1_inc * pm; if (v->fx_o1_phase >= 1.0) v->fx_o1_phase -= 1.0;
+        break;
+    }
+    case GM_SFX_TELEPHONE: {
+        // Gated dual sine 440+480 with ring cadence.
+        double on = (v->fx_gate_phase < v->fx_gate_on_frac) ? 1.0 : 0.0;
+        v->fx_gate_phase += v->fx_gate_inc;
+        if (v->fx_gate_phase >= 1.0) v->fx_gate_phase -= 1.0;
+        double t1 = wt_sin(v->fx_o1_phase);
+        double t2 = wt_sin(v->fx_o2_phase);
+        v->fx_o1_phase += v->fx_o1_inc; if (v->fx_o1_phase >= 1.0) v->fx_o1_phase -= 1.0;
+        v->fx_o2_phase += v->fx_o2_inc; if (v->fx_o2_phase >= 1.0) v->fx_o2_phase -= 1.0;
+        s = 0.5 * (t1 + t2) * on;
+        break;
+    }
+    case GM_SFX_HELICOPTER: {
+        // Periodic-AM broadband noise (rotor chop) + low rumble.
+        double bed = gm_fx_noise_bed(v);
+        // Pulse train: raise a sine to a power for a sharp blade-slap pulse.
+        double ph = v->fx_am_phase;
+        double pulse = 0.5 * (1.0 + wt_sin(ph));        // 0..1
+        pulse = pow(pulse, v->fx_am_sharp);
+        v->fx_am_phase += v->fx_am_inc; if (v->fx_am_phase >= 1.0) v->fx_am_phase -= 1.0;
+        double am = (1.0 - v->fx_am_depth) + v->fx_am_depth * pulse;
+        double chop = bed * am;
+        double rumble = 0.0;
+        if (v->fx_boom_inc > 0.0) {
+            rumble = 0.5 * (2.0 * v->fx_boom_phase - 1.0);  // low buzzy saw
+            v->fx_boom_phase += v->fx_boom_inc; if (v->fx_boom_phase >= 1.0) v->fx_boom_phase -= 1.0;
+        }
+        s = 0.7 * chop + 0.5 * rumble;
+        break;
+    }
+    case GM_SFX_GUNSHOT: {
+        // Broadband noise crack burst + low boom with downward pitch sweep.
+        double crack = gm_fx_noise_bed(v) * v->fx_amp_env;
+        v->fx_amp_env *= v->fx_amp_dec;
+        double pm = v->fx_pitch_mult;
+        if (v->fx_pitch_dec < 1.0) v->fx_pitch_mult = 1.0 + (v->fx_pitch_mult - 1.0) * v->fx_pitch_dec;
+        double boom = 0.0;
+        if (v->fx_boom_inc > 0.0 && v->fx_amp_env2 > 0.0001) {
+            boom = wt_sin(v->fx_boom_phase) * v->fx_amp_env2;
+            v->fx_boom_phase += v->fx_boom_inc * pm; if (v->fx_boom_phase >= 1.0) v->fx_boom_phase -= 1.0;
+            v->fx_amp_env2 *= v->fx_amp_dec2;
+        }
+        s = 0.8 * crack + 0.9 * boom;
+        break;
+    }
+    default:
+        s = 0.0;
+        break;
+    }
+    return clampd(s, -2.0, 2.0) * v->fx_out_scale * env;
+}
+
 double gm_voice_render(GMVoice *v, double sample_rate, double env,
                        double frequency) {
     switch (v->engine) {
@@ -2564,6 +3379,8 @@ double gm_voice_render(GMVoice *v, double sample_rate, double env,
     case GM_ENGINE_ORGAN:     return generate_organ_sample(v, sample_rate, env);
     case GM_ENGINE_SUPERSAW:  return generate_supersaw_sample(v, sample_rate, env);
     case GM_ENGINE_FORMANT:   return generate_formant_sample(v, sample_rate, env);
+    case GM_ENGINE_SYNTHFX:   return generate_synthfx_sample(v, sample_rate, env);
+    case GM_ENGINE_SOUNDFX:   return generate_soundfx_sample(v, sample_rate, env);
     default:                  return 0.0;
     }
 }
