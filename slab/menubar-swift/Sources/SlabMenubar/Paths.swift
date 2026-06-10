@@ -39,6 +39,16 @@ enum Paths {
     static var asanaHelper: String { "\(slabBin)/asana" }
     static var asanaConfig: String { "\(home)/.config/slab/asana.json" }
 
+    /// OVERTIME — autonomous task execution on machines armed as overtime
+    /// workers. The flag file is shared with the desktop badge (right-click
+    /// the avatar) and the worker LaunchAgent; the menubar is a third toggle
+    /// surface for the same state. Only armed machines (untracked config
+    /// below exists) show the menu item — machine identity stays out of
+    /// tracked code, same convention as imsgConfig.
+    static var overtimeConfig: String { "\(home)/.config/fuser-overtime/config.json" }
+    static var overtimeFlag: String { "\(home)/.local/share/desktop-badge/overtime" }
+    static var overtimeStatus: String { "\(home)/.local/share/desktop-badge/overtime-status" }
+
     /// Deskflow KVM management. Role ("server"/"client"), display label, and
     /// the launchd agent name live in untracked config so machine roles never
     /// appear in tracked code (same convention as imsgConfig). JSON shape:

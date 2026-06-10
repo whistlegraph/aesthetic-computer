@@ -12,10 +12,18 @@
 // the menubar to mirror (here: jeffrey@fuser.studio).
 //
 // Subcommands:
-//   asana status        JSON summary to stdout (default)
-//   asana config        print/create the config stub path
-//   asana open          open Asana "My Tasks" in the browser
-//   asana workspaces    list the account's workspaces (gid + name)
+//   asana status [--machine <name>]   JSON summary to stdout (default)
+//   asana task <gid>                  full detail for one task (incl. notes)
+//   asana comment <gid> <text…>       post a comment (story) on a task
+//   asana config                      print/create the config stub path
+//   asana open                        open Asana "My Tasks" in the browser
+//   asana workspaces                  list the account's workspaces (gid + name)
+//
+// Machines: an Asana tag whose name matches an entry in the config's
+// `machines` list routes that task to that machine. `--machine <name>`
+// filters status to that machine's tasks; untagged tasks route to the
+// config's `defaultMachine`. Machine names live ONLY in the untracked
+// config, never in this file.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -39,6 +47,12 @@ const CONFIG_STUB = {
   workspaceComment:
     "optional: pin a workspace gid (run `asana workspaces` to list). " +
     "Empty = use the account's first/default workspace.",
+  machines: [],
+  machinesComment:
+    "optional: machine names — an Asana tag matching one routes the task " +
+    "to that machine (`asana status --machine <name>`). Untagged tasks " +
+    "route to defaultMachine.",
+  defaultMachine: "",
 };
 
 function loadConfig() {
@@ -61,9 +75,14 @@ function writeStub() {
 
 // ─── Asana REST ────────────────────────────────────────────────────────────
 
-async function api(cfg, path) {
+async function api(cfg, path, init = {}) {
   const res = await fetch(`${API}${path}`, {
-    headers: { Authorization: `Bearer ${cfg.token}` },
+    method: init.method || "GET",
+    headers: {
+      Authorization: `Bearer ${cfg.token}`,
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: init.body ? JSON.stringify({ data: init.body }) : undefined,
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -75,9 +94,20 @@ async function api(cfg, path) {
   return (await res.json()).data;
 }
 
+// ─── machines ──────────────────────────────────────────────────────────────
+// A task's machines = its Asana tags that match a configured machine name
+// (case-insensitive). Tasks with no machine tag belong to `defaultMachine`.
+
+function machinesOf(cfg, task) {
+  const known = new Set((cfg.machines || []).map((m) => m.toLowerCase()));
+  return (task.tags || [])
+    .map((t) => (t.name || "").toLowerCase())
+    .filter((n) => known.has(n));
+}
+
 // ─── status ────────────────────────────────────────────────────────────────
 
-async function status() {
+async function status(machine) {
   const cfg = loadConfig();
   if (!cfg) {
     return { configured: false, label: "Asana: setup" };
@@ -100,7 +130,7 @@ async function status() {
   // Incomplete tasks assigned to me. `completed_since=now` filters to
   // not-yet-completed tasks; we pull the project memberships to group on.
   const fields =
-    "name,due_on,permalink_url,projects.name,assignee_status";
+    "name,due_on,permalink_url,projects.name,assignee_status,tags.name";
   let tasks;
   try {
     tasks = await api(
@@ -110,6 +140,17 @@ async function status() {
     );
   } catch (e) {
     return { configured: true, label: "Asana: error", error: e.body };
+  }
+
+  // Optional machine filter: tasks tagged for the machine, plus (when the
+  // machine is the configured default) every untagged task.
+  if (machine) {
+    const m = machine.toLowerCase();
+    const def = (cfg.defaultMachine || "").toLowerCase();
+    tasks = tasks.filter((t) => {
+      const ms = machinesOf(cfg, t);
+      return ms.length ? ms.includes(m) : m === def;
+    });
   }
 
   // Today, as YYYY-MM-DD in local time, for overdue/today flags.
@@ -135,6 +176,7 @@ async function status() {
       due: t.due_on || null,
       overdue: t.due_on ? t.due_on < today : false,
       today: t.due_on === today,
+      machines: machinesOf(cfg, t),
     };
     const projects = (t.projects && t.projects.length && t.projects) || [
       { name: "Inbox" },
@@ -160,11 +202,45 @@ async function status() {
     configured: true,
     user: me.name || "",
     workspace,
+    machine: machine || null,
     count: tasks.length,
     label: `Asana: ${tasks.length}`,
     projects,
     updated: now.toISOString(),
   };
+}
+
+// ─── task / comment ──────────────────────────────────────────────────────────
+
+async function taskDetail(gid) {
+  const cfg = loadConfig();
+  if (!cfg) return { configured: false };
+  const fields =
+    "name,notes,due_on,permalink_url,completed,assignee.name," +
+    "projects.name,tags.name";
+  const t = await api(cfg, `/tasks/${gid}?opt_fields=${encodeURIComponent(fields)}`);
+  return {
+    gid: t.gid,
+    name: t.name || "",
+    notes: t.notes || "",
+    due: t.due_on || null,
+    url: t.permalink_url || "",
+    completed: !!t.completed,
+    assignee: (t.assignee && t.assignee.name) || "",
+    projects: (t.projects || []).map((p) => p.name),
+    tags: (t.tags || []).map((x) => x.name),
+    machines: machinesOf(cfg, t),
+  };
+}
+
+async function comment(gid, text) {
+  const cfg = loadConfig();
+  if (!cfg) return { configured: false };
+  const story = await api(cfg, `/tasks/${gid}/stories`, {
+    method: "POST",
+    body: { text },
+  });
+  return { ok: true, gid, story: story.gid };
 }
 
 // ─── workspaces ──────────────────────────────────────────────────────────────
@@ -184,7 +260,18 @@ async function workspaces() {
 
 // ─── main ──────────────────────────────────────────────────────────────────
 
-const cmd = process.argv[2] || "status";
+const argv = process.argv.slice(2);
+const flags = {};
+const pos = [];
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a.startsWith("--")) {
+    const eq = a.indexOf("=");
+    if (eq > -1) flags[a.slice(2, eq)] = a.slice(eq + 1);
+    else flags[a.slice(2)] = argv[++i];
+  } else pos.push(a);
+}
+const cmd = pos[0] || "status";
 
 if (cmd === "config") {
   writeStub();
@@ -200,8 +287,14 @@ if (cmd === "open") {
 try {
   if (cmd === "workspaces") {
     console.log(JSON.stringify(await workspaces(), null, 2));
+  } else if (cmd === "task") {
+    if (!pos[1]) throw new Error("usage: asana task <gid>");
+    console.log(JSON.stringify(await taskDetail(pos[1]), null, 2));
+  } else if (cmd === "comment") {
+    if (!pos[1] || !pos[2]) throw new Error("usage: asana comment <gid> <text…>");
+    console.log(JSON.stringify(await comment(pos[1], pos.slice(2).join(" "))));
   } else {
-    console.log(JSON.stringify(await status()));
+    console.log(JSON.stringify(await status(flags.machine)));
   }
 } catch (e) {
   console.log(

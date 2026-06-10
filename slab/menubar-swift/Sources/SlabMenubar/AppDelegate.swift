@@ -453,6 +453,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.open(u)
     }
 
+    /// OVERTIME toggle — third surface for the same flag file the badge's
+    /// right-click and the remote `overtime … on` flip. Raising the flag
+    /// kickstarts the worker LaunchAgent so pickup is immediate instead of
+    /// waiting out its StartInterval.
+    @objc func toggleOvertime() {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: Paths.overtimeFlag) {
+            try? fm.removeItem(atPath: Paths.overtimeFlag)
+            try? fm.removeItem(atPath: Paths.overtimeStatus)
+        } else {
+            fm.createFile(atPath: Paths.overtimeFlag, contents: nil)
+            try? "idle — overtime on".write(toFile: Paths.overtimeStatus,
+                                            atomically: true, encoding: .utf8)
+            ShellRunner.runShellAsync(
+                "launchctl kickstart gui/$(id -u)/computer.aesthetic.overtimeworker")
+        }
+    }
+
     /// Ensure the (untracked) Asana config exists, then open it for editing.
     @objc func openAsanaConfig() {
         ShellRunner.runAsync(Paths.asanaHelper, args: ["config"])

@@ -50,6 +50,7 @@ enum MenuBuilder {
         menu.addItem(buildMail(status: mailStatus, target: target))
         menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
         menu.addItem(buildAsana(state: asana, target: target))
+        appendOvertime(to: menu, target: target)
         if state.deskflow.configured {
             menu.addItem(buildDeskflow(state: state, target: target))
         }
@@ -575,6 +576,29 @@ enum MenuBuilder {
                          selector: #selector(AppDelegate.openAsanaConfig), target: target))
         parent.submenu = sub
         return parent
+    }
+
+    /// OVERTIME toggle — only on machines armed as overtime workers (the
+    /// untracked config exists). Mirrors the badge's right-click toggle:
+    /// same flag file, same worker kickstart. While on, the worker's current
+    /// activity line rides along as the tooltip.
+    private static func appendOvertime(to menu: NSMenu, target: AppDelegate) {
+        // Armed workers carry a "machine" identity in their config; the
+        // control machine's config only lists machines — no item there.
+        guard let data = FileManager.default.contents(atPath: Paths.overtimeConfig),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let machine = json["machine"] as? String, !machine.isEmpty else { return }
+        let on = FileManager.default.fileExists(atPath: Paths.overtimeFlag)
+        let mi = item("⚡ Overtime — work Asana tasks autonomously",
+                      selector: #selector(AppDelegate.toggleOvertime), target: target)
+        mi.state = on ? .on : .off
+        if on, let s = try? String(contentsOfFile: Paths.overtimeStatus, encoding: .utf8),
+           let line = s.split(separator: "\n").first, !line.isEmpty {
+            mi.toolTip = "On — \(line). Click to stop picking new tasks (a running job finishes)."
+        } else {
+            mi.toolTip = "Work this machine's tagged Asana tasks one at a time — claude in a Terminal + a test browser, stall-watched, a draft PR per task."
+        }
+        menu.addItem(mi)
     }
 
     /// One task row. A leading ● is colored red when overdue, yellow when due
