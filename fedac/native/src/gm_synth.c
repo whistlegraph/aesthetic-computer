@@ -2127,6 +2127,15 @@ int gm_voice_init(GMVoice *v, int program, double freq, double sample_rate,
             last = white;
             v->bore_buf[i] = (float)filt;
         }
+        // Pluck-position comb baked into the excitation (Jaffe-Smith), matching
+        // gm_ks_big_init — keeps the pluck-position notch now that the comb no
+        // longer runs in the (formerly unstable) feedback loop.
+        int beta_tap = (int)(v->ks_beta * (double)n + 0.5);
+        if (beta_tap >= 1 && beta_tap < n) {
+            for (int i = n - 1; i >= beta_tap; i--) {
+                v->bore_buf[i] -= (float)(v->ks_pick_amt * (double)v->bore_buf[i - beta_tap]);
+            }
+        }
         v->bore_w = n;
     }
     return 0;
@@ -2424,31 +2433,35 @@ static inline double generate_pluck_sample(GMVoice *v, double sample_rate,
     if (string_delay < 2.0) string_delay = 2.0;
 
     double delayed = gm_frac_read(buf, N, *wptr, string_delay);
-    double tap_delay = v->ks_beta * string_delay;
-    if (tap_delay < 1.0) tap_delay = 1.0;
-    double picked = delayed - v->ks_pick_amt *
-        gm_frac_read(buf, N, *wptr, tap_delay);
+    // Pluck-position comb lives in the EXCITATION (baked once into the string
+    // buffer at init), NOT in the feedback loop. Applying it per-sample inside
+    // the loop pushed loop gain marginally above unity and blew the string up
+    // to inf/NaN at high notes. The loop is now a pure extended-KS delay +
+    // loss filter — unconditionally stable for ks_loop_b in [0,1].
+    double picked = delayed;
     double damp = (1.0 - v->ks_loop_b) * picked + v->ks_loop_b * v->harp_lp1;
     v->harp_lp1 = damp;
     double y = v->ks_stretch * damp;
+    // Jawari (sitar/shamisen buzzing-bridge) nonlinearity colours the OUTPUT
+    // only — it must NOT be fed back into the string, or it pumps energy into
+    // the loop and the sitar runs away. Compute the buzz here, add it to the
+    // output below; the clean `y` goes back into the delay.
+    double jbuzz = 0.0;
     if (v->ks_jawari_depth > 0.0) {
         double a = fabs(y);
         if (a > v->ks_jawari_thresh) {
             double over = (a - v->ks_jawari_thresh);
-            double buzz = v->ks_jawari_depth * tanh(6.0 * over) * (y < 0.0 ? -1.0 : 1.0);
-            y += buzz;
+            jbuzz = v->ks_jawari_depth * tanh(6.0 * over) * (y < 0.0 ? -1.0 : 1.0);
         }
     }
-    // Safety clamp on the value fed back into the delay loop. The KS loop gain
-    // can edge marginally above unity at high notes (the pluck-position comb is
-    // applied in-loop), which without a bound eventually overflows the float
-    // buffer to inf/NaN. Stable-region values never approach ±4, so this is a
-    // pure runaway guard and does not alter the timbre of normal plucks.
+    // Belt-and-suspenders feedback guard. With the pluck comb moved to the
+    // excitation and jawari kept output-only, the loop is now stable and this
+    // never fires in the normal range — kept purely against pathological input.
     if (y > 4.0) y = 4.0; else if (y < -4.0) y = -4.0;
     buf[*wptr] = (float)y;
     *wptr = (*wptr + 1) % N;
 
-    double s = y;
+    double s = y + jbuzz;
     if (v->atk_env > 0.0001) {
         double white = ((double)xorshift32(&v->rng_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
         double nf = v->nb0 * white + v->nb1 * v->nx1 + v->nb2 * v->nx2
