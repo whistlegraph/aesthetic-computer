@@ -189,6 +189,30 @@ typedef struct {
     double sb_breath;
     double sb_vib_hz;
     double sb_vib_depth;
+    // -- Digital waveguide (WAVEGUIDE): bowed / brass / reed / flute --
+    int    wg_mode;            // GMWaveguideMode
+    double wg_loop_damp;       // loop-loss coeff (darker = larger; bigger bore)
+    double wg_breath_max;      // pressure/bow-speed ceiling
+    double wg_noise;           // turbulence / bow-grind / chiff
+    double wg_attack_ms;       // onset ramp (slow bow / soft horn)
+    double wg_vib_hz;          // vibrato rate
+    double wg_vib_depth;       // vibrato depth (fraction of bore delay)
+    double wg_bow_beta;        // BOWED: bow position
+    double wg_bow_slope;       // BOWED: bow force
+    double wg_lip_pole;        // LIP: lip-resonance pole radius (0.997 trumpet)
+    double wg_lip_gain;        // LIP: lip filter gain
+    double wg_reed_offset;     // REED: STK reed table offset (0.6)
+    double wg_reed_slope;      // REED: STK reed table slope (-0.8)
+    int    wg_bore_invert;     // REED: 1 = clarinet cylinder (odd harmonics)
+    double wg_jet_ratio;       // JET: jet delay / bore delay
+    double wg_fmt_f;           // output formant/mute bandpass freq (0 = none)
+    double wg_fmt_q;           // output formant Q
+    double wg_fmt_gain;        // output formant mix
+    double wg_out_lp_hz;       // output LP cutoff (mute/dark bell; 0 = bypass)
+    double wg_out_scale;       // output gain
+    double wg_trem_hz;         // section/tremolo amplitude LFO rate (0 = none)
+    double wg_trem_depth;      // amplitude LFO depth
+    double wg_bore_mult;       // bore-length multiplier (1=string, 2=brass half-wave)
 } GMProgramParams;
 
 #define GM_PIANO_PROGRAM_COUNT 8
@@ -417,6 +441,246 @@ static const GMSynthBassRow gm_synthbass_programs[] = {
 };
 #define GM_SYNTHBASS_ROWS (int)(sizeof(gm_synthbass_programs)/sizeof(gm_synthbass_programs[0]))
 
+// ============================================================
+// Batch-3 families: digital-waveguide winds & strings.
+//   Strings 40-47, Brass 56-63, Reed 64-71, Pipe 72-79.
+// One bidirectional bore delay line + a mode-specific junction nonlinearity.
+// Variants within a family differ ONLY by data (loop damping, bore multiplier,
+// bow/lip/reed/jet coefficients, output formant/mute). See dossiers 02 & 03.
+// ============================================================
+
+// ── Strings (GM 41-48 / 0-based 40-47) ──
+// 40-43 Violin/Viola/Cello/Contrabass = bowed waveguide; 44 Tremolo = bowed +
+// amplitude LFO; 45 Pizzicato + 46 Harp = plucked (PLUCK engine, see init);
+// 47 Timpani = modal (see init). Bowed rows below.
+#define GM_STRINGS_FIRST 40
+static const GMProgramParams gm_strings_programs[5] = {
+    // 41 Violin — shortest bore, bright; body air ~280 / wood ~460, bridge hill.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_BOWED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.30, .wg_breath_max = 0.65, .wg_noise = 0.04,
+      .wg_attack_ms = 45.0, .wg_vib_hz = 5.5, .wg_vib_depth = 0.008,
+      .wg_bow_beta = 0.13, .wg_bow_slope = 3.0,
+      .wg_fmt_f = 2600.0, .wg_fmt_q = 1.2, .wg_fmt_gain = 0.30,
+      .wg_out_scale = 2.2 },
+    // 42 Viola — fifth lower, nasal; lower body modes, weakened bridge hill.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_BOWED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.36, .wg_breath_max = 0.63, .wg_noise = 0.045,
+      .wg_attack_ms = 48.0, .wg_vib_hz = 5.2, .wg_vib_depth = 0.008,
+      .wg_bow_beta = 0.12, .wg_bow_slope = 3.0,
+      .wg_fmt_f = 2000.0, .wg_fmt_q = 1.0, .wg_fmt_gain = 0.18,
+      .wg_out_scale = 2.2 },
+    // 43 Cello — long bore, warm woody corpus; low high-Q body modes.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_BOWED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.42, .wg_breath_max = 0.62, .wg_noise = 0.05,
+      .wg_attack_ms = 55.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.009,
+      .wg_bow_beta = 0.10, .wg_bow_slope = 3.2,
+      .wg_fmt_f = 1200.0, .wg_fmt_q = 2.0, .wg_fmt_gain = 0.34,
+      .wg_out_scale = 2.4 },
+    // 44 Contrabass — lowest, darkest loss, fundamental-dominated; bow grind.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_BOWED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.52, .wg_breath_max = 0.60, .wg_noise = 0.09,
+      .wg_attack_ms = 60.0, .wg_vib_hz = 4.8, .wg_vib_depth = 0.010,
+      .wg_bow_beta = 0.08, .wg_bow_slope = 3.4,
+      .wg_fmt_f = 100.0, .wg_fmt_q = 2.0, .wg_fmt_gain = 0.30,
+      .wg_out_scale = 2.6 },
+    // 45 Tremolo Strings — mid bowed voice + fast amplitude LFO + per-stroke grit.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_BOWED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.38, .wg_breath_max = 0.64, .wg_noise = 0.12,
+      .wg_attack_ms = 20.0, .wg_vib_hz = 5.3, .wg_vib_depth = 0.008,
+      .wg_bow_beta = 0.12, .wg_bow_slope = 3.0,
+      .wg_fmt_f = 2200.0, .wg_fmt_q = 1.2, .wg_fmt_gain = 0.25,
+      .wg_out_scale = 2.2, .wg_trem_hz = 9.0, .wg_trem_depth = 0.5 },
+};
+
+// 45 Pizzicato + 46 Harp use PLUCK; 47 Timpani uses MODAL. KS rows.
+// NOTE: the shared generate_pluck_sample applies the pluck-position comb inside
+// the feedback loop, which pushes loop gain marginally >1 for higher notes —
+// existing driven guitars stay bounded only because their tanh waveshaper caps
+// the loop (e.g. clavi prog 7). We give pizz/harp a small ks_drive for the same
+// guaranteed bound, and keep body resonance OFF (its parallel biquad is the
+// other pre-existing runaway path). The seed-baked comb still shapes the attack.
+static const GMProgramParams gm_pizz_program = {  // GM 46 Pizzicato Strings
+    .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.992, .ks_loop_b = 0.30,
+    .ks_beta = 0.15, .ks_pick = 0.85, .ks_drive = 0.22,
+    .ks_big = 1, .ks_exc_smooth = 0.35, .ks_attack_amp = 0.06, .ks_attack_ms = 2.0,
+};
+static const GMProgramParams gm_harp_program = {  // GM 47 Orchestral Harp
+    .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9985, .ks_loop_b = 0.28,
+    .ks_beta = 0.20, .ks_pick = 0.85, .ks_drive = 0.18,
+    .ks_big = 1, .ks_exc_smooth = 0.45, .ks_attack_amp = 0.04, .ks_attack_ms = 3.0,
+};
+// GM 48 Timpani — Rossing diametric modes (1,1)…(5,1): 1:1.5:2:2.44:2.9.
+static const GMModalParams gm_timpani_program = {
+    .name = "timpani", .nmodes = 5,
+    .ratio = {1.0, 1.5, 1.99, 2.44, 2.90},
+    .amp = {1.0, 0.6, 0.4, 0.28, 0.18},
+    .t60 = {1.8, 1.1, 0.8, 0.55, 0.4},
+    .strike_amp = 0.30, .strike_ms = 6.0, .bloom = 0.10, .pitched = 1,
+};
+
+// ── Brass (GM 57-64 / 0-based 56-63) ──
+// 56-60 Trumpet/Trombone/Tuba/MutedTrumpet/FrenchHorn = lip waveguide;
+// 61 Brass Section = lip + section shimmer; 62-63 SynthBrass = subtractive.
+#define GM_BRASS_FIRST 56
+// Brass lip model needs breath_max ~2.5-3.5 (the STK maxPressure region where
+// the valve self-oscillates) and lip_gain ~6-12; below that the bore is barely
+// excited, above it the valve saturates shut. Output scaled ~0.8-1.0.
+static const GMProgramParams gm_brass_programs[6] = {
+    // 57 Trumpet — short bright bore; high pressure, low loss.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+      .wg_loop_damp = 0.06, .wg_breath_max = 3.2, .wg_noise = 0.05,
+      .wg_attack_ms = 28.0, .wg_vib_hz = 5.5, .wg_vib_depth = 0.004,
+      .wg_lip_pole = 0.997, .wg_lip_gain = 10.0, .wg_out_scale = 1.0 },
+    // 58 Trombone — longer bore, darker loss, glissando-capable (slew at host).
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+      .wg_loop_damp = 0.10, .wg_breath_max = 3.0, .wg_noise = 0.05,
+      .wg_attack_ms = 40.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.004,
+      .wg_lip_pole = 0.997, .wg_lip_gain = 8.0, .wg_out_scale = 1.0 },
+    // 59 Tuba — longest bore, darkest, round soft attack.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+      .wg_loop_damp = 0.14, .wg_breath_max = 2.7, .wg_noise = 0.05,
+      .wg_attack_ms = 65.0, .wg_vib_hz = 4.5, .wg_vib_depth = 0.003,
+      .wg_lip_pole = 0.995, .wg_lip_gain = 6.0, .wg_out_scale = 1.0 },
+    // 60 Muted Trumpet — trumpet + mute LP + nasal mid bandpass.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+      .wg_loop_damp = 0.09, .wg_breath_max = 3.0, .wg_noise = 0.06,
+      .wg_attack_ms = 26.0, .wg_vib_hz = 5.5, .wg_vib_depth = 0.004,
+      .wg_lip_pole = 0.996, .wg_lip_gain = 9.0,
+      .wg_fmt_f = 1700.0, .wg_fmt_q = 2.5, .wg_fmt_gain = 0.45,
+      .wg_out_lp_hz = 3200.0, .wg_out_scale = 1.1 },
+    // 61 French Horn — long, mellow lip, dark loss, soft attack.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+      .wg_loop_damp = 0.12, .wg_breath_max = 2.8, .wg_noise = 0.04,
+      .wg_attack_ms = 55.0, .wg_vib_hz = 4.8, .wg_vib_depth = 0.003,
+      .wg_lip_pole = 0.995, .wg_lip_gain = 7.0,
+      .wg_out_lp_hz = 5000.0, .wg_out_scale = 1.0 },
+    // 62 Brass Section — bright lip + section amplitude shimmer.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+      .wg_loop_damp = 0.07, .wg_breath_max = 3.1, .wg_noise = 0.06,
+      .wg_attack_ms = 35.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.005,
+      .wg_lip_pole = 0.997, .wg_lip_gain = 9.0, .wg_out_scale = 1.0,
+      .wg_trem_hz = 6.0, .wg_trem_depth = 0.18 },
+};
+// 63-64 SynthBrass — subtractive saw + resonant LPF with brass filter-swell.
+static const GMProgramParams gm_synthbrass_programs[2] = {
+    // 63 SynthBrass 1 — 2 detuned saws → LPF swell 5.5k→1.8k over ~120 ms.
+    { .engine = GM_ENGINE_SYNTHBASS, .sb_o2_cents = 8.0, .sb_o2_mix = 0.7,
+      .sb_sub = 0.0, .sb_cut0 = 5500.0, .sb_cut1 = 1800.0, .sb_cut_ms = 120.0,
+      .sb_res = 0.45, .sb_psweep = 1.06, .sb_psweep_ms = 12.0, .sb_sustained = 1,
+      .sb_vib_hz = 5.0, .sb_vib_depth = 0.004 },
+    // 64 SynthBrass 2 — harder/brighter, faster snappier filter env, more res.
+    { .engine = GM_ENGINE_SYNTHBASS, .sb_o2_cents = 10.0, .sb_o2_mix = 0.6,
+      .sb_o2_sq = 1, .sb_sub = 0.0, .sb_cut0 = 6500.0, .sb_cut1 = 2200.0,
+      .sb_cut_ms = 70.0, .sb_res = 0.6, .sb_psweep = 1.08, .sb_psweep_ms = 9.0,
+      .sb_sustained = 1, .sb_vib_hz = 5.5, .sb_vib_depth = 0.005 },
+};
+
+// ── Reed (GM 65-72 / 0-based 64-71) ──
+// STK reed table (offset 0.6, slope ~-0.8); conical sax/oboe/bassoon = full
+// harmonics, clarinet cylinder = inverting reflection (odd harmonics).
+#define GM_REED_FIRST 64
+static const GMProgramParams gm_reed_programs[8] = {
+    // 65 Soprano Sax — short bright conical bore.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.40, .wg_breath_max = 0.85, .wg_noise = 0.10,
+      .wg_attack_ms = 18.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.005,
+      .wg_reed_offset = 0.6, .wg_reed_slope = -0.85, .wg_bore_invert = 0,
+      .wg_out_scale = 0.9 },
+    // 66 Alto Sax — classic sax buzz.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.45, .wg_breath_max = 0.85, .wg_noise = 0.12,
+      .wg_attack_ms = 20.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.005,
+      .wg_reed_offset = 0.6, .wg_reed_slope = -0.80, .wg_bore_invert = 0,
+      .wg_out_scale = 0.9 },
+    // 67 Tenor Sax — warmer/breathier.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.52, .wg_breath_max = 0.83, .wg_noise = 0.13,
+      .wg_attack_ms = 22.0, .wg_vib_hz = 4.8, .wg_vib_depth = 0.006,
+      .wg_reed_offset = 0.6, .wg_reed_slope = -0.75, .wg_bore_invert = 0,
+      .wg_out_scale = 0.95 },
+    // 68 Baritone Sax — dark, big noise floor.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.58, .wg_breath_max = 0.80, .wg_noise = 0.15,
+      .wg_attack_ms = 26.0, .wg_vib_hz = 4.6, .wg_vib_depth = 0.006,
+      .wg_reed_offset = 0.6, .wg_reed_slope = -0.70, .wg_bore_invert = 0,
+      .wg_out_scale = 1.0 },
+    // 69 Oboe — stiff double reed, thin nasal; singer's formant ~1.4 kHz.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.34, .wg_breath_max = 0.80, .wg_noise = 0.05,
+      .wg_attack_ms = 16.0, .wg_vib_hz = 5.5, .wg_vib_depth = 0.005,
+      .wg_reed_offset = 0.55, .wg_reed_slope = -0.90, .wg_bore_invert = 0,
+      .wg_fmt_f = 1400.0, .wg_fmt_q = 2.0, .wg_fmt_gain = 0.30, .wg_out_scale = 0.85 },
+    // 70 English Horn — alto oboe, rounder; formant ~1.1 kHz.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.40, .wg_breath_max = 0.80, .wg_noise = 0.06,
+      .wg_attack_ms = 18.0, .wg_vib_hz = 5.2, .wg_vib_depth = 0.005,
+      .wg_reed_offset = 0.55, .wg_reed_slope = -0.88, .wg_bore_invert = 0,
+      .wg_fmt_f = 1100.0, .wg_fmt_q = 2.0, .wg_fmt_gain = 0.28, .wg_out_scale = 0.9 },
+    // 71 Bassoon — bass double reed, hollow low; woody formant ~470 Hz + mild LP.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.50, .wg_breath_max = 0.80, .wg_noise = 0.07,
+      .wg_attack_ms = 22.0, .wg_vib_hz = 4.8, .wg_vib_depth = 0.005,
+      .wg_reed_offset = 0.58, .wg_reed_slope = -0.82, .wg_bore_invert = 0,
+      .wg_fmt_f = 470.0, .wg_fmt_q = 2.0, .wg_fmt_gain = 0.30,
+      .wg_out_lp_hz = 3500.0, .wg_out_scale = 0.95 },
+    // 72 Clarinet — CYLINDRICAL: invert bore reflection → odd harmonics, woody.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_REED, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.42, .wg_breath_max = 0.82, .wg_noise = 0.04,
+      .wg_attack_ms = 18.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.004,
+      .wg_reed_offset = 0.6, .wg_reed_slope = -0.80, .wg_bore_invert = 1,
+      .wg_out_scale = 0.9 },
+};
+
+// ── Pipe (GM 73-80 / 0-based 72-79) ──
+// Cook flute jet waveguide: jet delay + cubic + blowing noise. Bottle/ocarina
+// (76/79) are Helmholtz vessels → single resonant bandpass (helmholtz branch
+// modeled via a high loop damping + strong output formant).
+#define GM_PIPE_FIRST 72
+static const GMProgramParams gm_pipe_programs[8] = {
+    // 73 Piccolo — octave up; short bore handled by f0, very bright.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.10, .wg_breath_max = 0.55, .wg_noise = 0.06,
+      .wg_attack_ms = 12.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.004,
+      .wg_jet_ratio = 0.30, .wg_out_scale = 1.4 },
+    // 74 Flute — canonical Cook model.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.16, .wg_breath_max = 0.55, .wg_noise = 0.08,
+      .wg_attack_ms = 16.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.005,
+      .wg_jet_ratio = 0.32, .wg_out_scale = 1.5 },
+    // 75 Recorder — pure, minimal noise/vibrato.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.20, .wg_breath_max = 0.55, .wg_noise = 0.04,
+      .wg_attack_ms = 14.0, .wg_vib_hz = 4.5, .wg_vib_depth = 0.002,
+      .wg_jet_ratio = 0.32, .wg_out_scale = 1.5 },
+    // 76 Pan Flute — strong breathy chiff.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.18, .wg_breath_max = 0.55, .wg_noise = 0.22,
+      .wg_attack_ms = 18.0, .wg_vib_hz = 4.0, .wg_vib_depth = 0.005,
+      .wg_jet_ratio = 0.40, .wg_out_scale = 1.5 },
+    // 77 Blown Bottle — Helmholtz: heavy damping, strong resonant formant.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.55, .wg_breath_max = 0.55, .wg_noise = 0.18,
+      .wg_attack_ms = 24.0, .wg_vib_hz = 3.5, .wg_vib_depth = 0.004,
+      .wg_jet_ratio = 0.45, .wg_fmt_f = 0.0, .wg_fmt_q = 8.0, .wg_fmt_gain = 0.5,
+      .wg_out_scale = 1.6 },
+    // 78 Shakuhachi — very breathy, airy edge, expressive.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.20, .wg_breath_max = 0.55, .wg_noise = 0.25,
+      .wg_attack_ms = 22.0, .wg_vib_hz = 6.0, .wg_vib_depth = 0.010,
+      .wg_jet_ratio = 0.38, .wg_out_scale = 1.5 },
+    // 79 Whistle — tin/penny whistle, bright, higher jet ratio, lively vibrato.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.12, .wg_breath_max = 0.55, .wg_noise = 0.05,
+      .wg_attack_ms = 12.0, .wg_vib_hz = 6.0, .wg_vib_depth = 0.006,
+      .wg_jet_ratio = 0.45, .wg_out_scale = 1.4 },
+    // 80 Ocarina — Helmholtz vessel, pure, slightly hollow.
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_JET, .wg_bore_mult = 1.0,
+      .wg_loop_damp = 0.50, .wg_breath_max = 0.55, .wg_noise = 0.06,
+      .wg_attack_ms = 18.0, .wg_vib_hz = 4.5, .wg_vib_depth = 0.004,
+      .wg_jet_ratio = 0.50, .wg_fmt_f = 0.0, .wg_fmt_q = 6.0, .wg_fmt_gain = 0.4,
+      .wg_out_scale = 1.5 },
+};
+
 // ── Batch-2 note-on helpers ──
 
 // Set up up-to-3 parallel body-resonance band-pass biquads.
@@ -603,6 +867,123 @@ static void gm_synthbass_init(GMVoice *v, const GMProgramParams *p, double f0,
     }
 }
 
+// Digital-waveguide note-on (bowed / brass / reed / flute). Shares ks_buf as the
+// bidirectional bore delay line. Draws all parametric jitter first (dossier 00).
+static void gm_waveguide_init(GMVoice *v, const GMProgramParams *p, double f0,
+                              double sr) {
+    // Bowed strings & reeds & pipes sit at mul ~1.0 (dossier 00 §6); brass ~0.9.
+    double mul = (p->wg_mode == GM_WG_LIP) ? 0.9 : 1.0;
+    v->wg_mode = (GMWaveguideMode)p->wg_mode;
+
+    // -- Pitch micro-detune (hard-capped ±6c) baked into the bore length. --
+    double fdet = voice_detune(v, f0, 6.0, mul);
+    if (fdet < 20.0) fdet = 20.0;
+
+    double bore_mult = (p->wg_bore_mult > 0.0) ? p->wg_bore_mult : 1.0;
+    double base_delay = (sr / fdet) * bore_mult;
+    if (p->wg_mode == GM_WG_LIP) base_delay += 3.0;   // STK half-wave correction
+    else if (p->wg_mode == GM_WG_BOWED) base_delay -= 4.0; // filter group delay
+    if (base_delay < 4.0) base_delay = 4.0;
+    if (base_delay > (double)(GM_KS_BIG_N - 4)) base_delay = (double)(GM_KS_BIG_N - 4);
+    v->wg_base_delay = base_delay;
+
+    memset(v->ks_buf, 0, sizeof(v->ks_buf));
+    v->wg_w = 0;
+    v->wg_loop_lp = 0.0;
+    v->wg_loop_damp = clampd(p->wg_loop_damp, 0.0, 0.95);
+    v->wg_hp_x1 = v->wg_hp_y1 = 0.0;
+
+    // -- Breath/bow pressure: ceiling jittered (velocity/amp micro-jitter h). --
+    v->wg_breath = 0.0;
+    v->wg_breath_max = voice_jitter(v, p->wg_breath_max, 0.08, mul);
+    v->wg_noise_gain = p->wg_noise;
+
+    // -- Attack-time micro-jitter (g, ±12%). --
+    double atk_ms = voice_jitter(v, p->wg_attack_ms, 0.12, mul);
+    if (atk_ms < 1.0) atk_ms = 1.0;
+    v->wg_attack_ms = atk_ms;
+    v->wg_attack_env = 0.0;
+    v->wg_attack_inc = 1.0 / (atk_ms * 0.001 * sr);
+
+    // -- Vibrato: rate jitter (a), random phase (c). --
+    if (p->wg_vib_hz > 0.0) {
+        double vhz = voice_jitter(v, p->wg_vib_hz, 0.10, mul);
+        v->wg_vib_inc = vhz / sr;
+        v->wg_vib_depth = p->wg_vib_depth;
+        v->wg_vib_phase = voice_rand_phase(v);
+    } else {
+        v->wg_vib_inc = 0.0; v->wg_vib_depth = 0.0; v->wg_vib_phase = 0.0;
+    }
+
+    // -- Mode-specific junction setup. --
+    if (p->wg_mode == GM_WG_BOWED) {
+        v->wg_bow_beta = clampd(p->wg_bow_beta, 0.02, 0.5);
+        // Bow force / pluck-position-like jitter (e, ±8%) on the friction slope.
+        v->wg_bow_slope = voice_jitter(v, p->wg_bow_slope, 0.08, mul);
+    } else if (p->wg_mode == GM_WG_LIP) {
+        // Lip-resonance biquad bandpass tracking f0 (RBJ), near-unit pole.
+        double pole = p->wg_lip_pole > 0.0 ? p->wg_lip_pole : 0.997;
+        double flip = fdet;
+        if (flip > sr * 0.45) flip = sr * 0.45;
+        double w0 = 2.0 * M_PI * flip / sr;
+        double r = pole;
+        double cw = cos(w0);
+        // Resonator: H(z) with poles at r·e^{±jw0}; bandpass-ish 1-zero numerator.
+        v->wg_lip_a1 = -2.0 * r * cw;
+        v->wg_lip_a2 = r * r;
+        v->wg_lip_b0 = (1.0 - r);     // normalized gain at resonance
+        v->wg_lip_b1 = 0.0;
+        v->wg_lip_b2 = -(1.0 - r);
+        v->wg_lip_x1 = v->wg_lip_x2 = v->wg_lip_y1 = v->wg_lip_y2 = 0.0;
+        v->wg_lip_gain = p->wg_lip_gain > 0.0 ? p->wg_lip_gain : 0.03;
+    } else if (p->wg_mode == GM_WG_REED) {
+        v->wg_reed_offset = p->wg_reed_offset;
+        // Reed slope ≈ brightness/energy lever; jitter like FM index (f, ±6%).
+        v->wg_reed_slope = voice_jitter(v, p->wg_reed_slope, 0.06, mul);
+        v->wg_bore_invert = p->wg_bore_invert;
+    } else { // GM_WG_JET
+        v->wg_jet_ratio = p->wg_jet_ratio > 0.0 ? p->wg_jet_ratio : 0.32;
+    }
+
+    // -- Output formant/mute bandpass (RBJ bandpass) + LP + bell scale. --
+    v->wg_fmt_gain = 0.0;
+    if (p->wg_fmt_gain > 0.0) {
+        double ff = p->wg_fmt_f;
+        if (ff <= 0.0) ff = fdet;              // 0 => track the played pitch
+        if (ff > sr * 0.45) ff = sr * 0.45;
+        if (ff < 40.0) ff = 40.0;
+        double Q = p->wg_fmt_q > 0.1 ? p->wg_fmt_q : 1.0;
+        double w0 = 2.0 * M_PI * ff / sr;
+        double al = sin(w0) / (2.0 * Q);
+        double a0 = 1.0 + al;
+        v->wg_fmt_b0 = al / a0;
+        v->wg_fmt_b2 = -al / a0;
+        v->wg_fmt_a1 = (-2.0 * cos(w0)) / a0;
+        v->wg_fmt_a2 = (1.0 - al) / a0;
+        v->wg_fmt_x1 = v->wg_fmt_x2 = v->wg_fmt_y1 = v->wg_fmt_y2 = 0.0;
+        v->wg_fmt_gain = p->wg_fmt_gain;
+    }
+    if (p->wg_out_lp_hz > 0.0) {
+        double fc = p->wg_out_lp_hz;
+        if (fc > sr * 0.45) fc = sr * 0.45;
+        v->wg_out_lp_g = 1.0 - exp(-2.0 * M_PI * fc / sr);
+    } else {
+        v->wg_out_lp_g = 0.0;
+    }
+    v->wg_out_lp = 0.0;
+    v->wg_out_scale = p->wg_out_scale > 0.0 ? p->wg_out_scale : 1.5;
+
+    // -- Section / tremolo amplitude LFO. --
+    if (p->wg_trem_hz > 0.0) {
+        double thz = voice_jitter(v, p->wg_trem_hz, 0.10, mul);
+        v->wg_trem_inc = thz / sr;
+        v->wg_trem_depth = p->wg_trem_depth;
+        v->wg_trem_phase = voice_rand_phase(v);
+    } else {
+        v->wg_trem_inc = 0.0; v->wg_trem_depth = 0.0; v->wg_trem_phase = 0.0;
+    }
+}
+
 // Forward declare batch-2 dispatch (defined after gm_voice_init).
 static int gm_voice_init_batch2(GMVoice *v, int program, double freq,
                                 double sample_rate);
@@ -613,6 +994,10 @@ int gm_program_implemented(int program) {
     if (program >= 8 && program <= 15) return 1;              // Chromatic Perc
     if (program >= 24 && program <= 31) return 1;             // Guitar
     if (program >= 32 && program <= 39) return 1;             // Bass
+    if (program >= 40 && program <= 47) return 1;             // Strings
+    if (program >= 56 && program <= 63) return 1;             // Brass
+    if (program >= 64 && program <= 71) return 1;             // Reed
+    if (program >= 72 && program <= 79) return 1;             // Pipe
     if (program >= 104 && program <= 111) return 1;           // Ethnic
     if (program >= 112 && program <= 119) return 1;           // Percussive
     return 0;
@@ -781,6 +1166,58 @@ static int gm_voice_init_batch2(GMVoice *v, int program, double freq,
         return 0;
     }
 
+    // ── Strings (GM 41-48) ──
+    if (program >= GM_STRINGS_FIRST && program <= GM_STRINGS_FIRST + 7) {
+        int idx = program - GM_STRINGS_FIRST;   // 0..7
+        if (idx <= 4) {                          // 40-44 bowed (44 = tremolo)
+            v->engine = GM_ENGINE_WAVEGUIDE;
+            gm_waveguide_init(v, &gm_strings_programs[idx], f0, sr);
+            return 0;
+        }
+        if (idx == 5) {                          // 45 Pizzicato → KS
+            v->engine = GM_ENGINE_PLUCK;
+            gm_ks_big_init(v, &gm_pizz_program, f0, sr);
+            return 0;
+        }
+        if (idx == 6) {                          // 46 Harp → KS
+            v->engine = GM_ENGINE_PLUCK;
+            gm_ks_big_init(v, &gm_harp_program, f0, sr);
+            return 0;
+        }
+        // idx == 7 → 47 Timpani → modal
+        v->engine = GM_ENGINE_MODAL;
+        gm_modal_init(v, &gm_timpani_program, f0, sr);
+        return 0;
+    }
+
+    // ── Brass (GM 57-64) ──
+    if (program >= GM_BRASS_FIRST && program <= GM_BRASS_FIRST + 7) {
+        int idx = program - GM_BRASS_FIRST;     // 0..7
+        if (idx <= 5) {                          // 56-61 lip waveguide
+            v->engine = GM_ENGINE_WAVEGUIDE;
+            gm_waveguide_init(v, &gm_brass_programs[idx], f0, sr);
+            return 0;
+        }
+        // 62-63 SynthBrass → subtractive
+        v->engine = GM_ENGINE_SYNTHBASS;
+        gm_synthbass_init(v, &gm_synthbrass_programs[idx - 6], f0, sr);
+        return 0;
+    }
+
+    // ── Reed (GM 65-72) — all reed waveguide ──
+    if (program >= GM_REED_FIRST && program <= GM_REED_FIRST + 7) {
+        v->engine = GM_ENGINE_WAVEGUIDE;
+        gm_waveguide_init(v, &gm_reed_programs[program - GM_REED_FIRST], f0, sr);
+        return 0;
+    }
+
+    // ── Pipe (GM 73-80) — all flute jet waveguide ──
+    if (program >= GM_PIPE_FIRST && program <= GM_PIPE_FIRST + 7) {
+        v->engine = GM_ENGINE_WAVEGUIDE;
+        gm_waveguide_init(v, &gm_pipe_programs[program - GM_PIPE_FIRST], f0, sr);
+        return 0;
+    }
+
     // ── Subtractive: Synth Bass 1/2 (39-40) + reed approximations (110-112) ──
     for (int i = 0; i < GM_SYNTHBASS_ROWS; i++) {
         if (gm_synthbass_programs[i].program == program) {
@@ -881,6 +1318,12 @@ static inline double generate_pluck_sample(GMVoice *v, double sample_rate,
             y += buzz;
         }
     }
+    // Safety clamp on the value fed back into the delay loop. The KS loop gain
+    // can edge marginally above unity at high notes (the pluck-position comb is
+    // applied in-loop), which without a bound eventually overflows the float
+    // buffer to inf/NaN. Stable-region values never approach ±4, so this is a
+    // pure runaway guard and does not alter the timbre of normal plucks.
+    if (y > 4.0) y = 4.0; else if (y < -4.0) y = -4.0;
     buf[*wptr] = (float)y;
     *wptr = (*wptr + 1) % N;
 
@@ -1018,6 +1461,179 @@ static inline double generate_synthbass_sample(GMVoice *v, double sample_rate,
     return clampd(out, -1.5, 1.5) * env;
 }
 
+// White noise in [-1,1] from the voice PRNG (structural excitation).
+static inline double wg_white(GMVoice *v) {
+    return ((double)xorshift32(&v->rng_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
+}
+
+// ── Digital waveguide: bowed / brass / reed / flute. One shared bidirectional
+//    bore delay line + a mode-specific junction nonlinearity. ──
+static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
+                                               double env, double frequency) {
+    double sr = sample_rate;
+    const int N = GM_KS_BIG_N;
+
+    // Onset ramp → drives loudness AND (for lip/reed) brightness.
+    if (v->wg_attack_env < 1.0) {
+        v->wg_attack_env += v->wg_attack_inc;
+        if (v->wg_attack_env > 1.0) v->wg_attack_env = 1.0;
+    }
+    double onset = v->wg_attack_env;
+
+    // Vibrato modulates the effective bore delay.
+    double vib = 0.0;
+    if (v->wg_vib_inc > 0.0) {
+        vib = v->wg_vib_depth * wt_sin(v->wg_vib_phase);
+        v->wg_vib_phase += v->wg_vib_inc;
+        if (v->wg_vib_phase >= 1.0) v->wg_vib_phase -= 1.0;
+    }
+
+    // Track host frequency (glissando / pitch glide) while honoring the baked
+    // bore multiplier (brass half-wave). Re-derive delay each sample (cheap).
+    double bore_mult = (v->wg_mode == GM_WG_LIP) ? 2.0 : 1.0;
+    double delay = v->wg_base_delay;
+    if (frequency > 20.0) {
+        double f = clampd(frequency, 20.0, sr * 0.20);
+        double d = (sr / f) * bore_mult;
+        if (v->wg_mode == GM_WG_LIP) d += 3.0;
+        else if (v->wg_mode == GM_WG_BOWED) d -= 4.0;
+        delay = d;
+    }
+    delay *= (1.0 + vib);
+    if (delay < 4.0) delay = 4.0;
+    if (delay > (double)(N - 4)) delay = (double)(N - 4);
+
+    double white = wg_white(v);
+    double out = 0.0;
+
+    if (v->wg_mode == GM_WG_BOWED) {
+        // STK Bowed: two delay taps split at the bow point (bridge + neck).
+        double bridge_delay = delay * v->wg_bow_beta;
+        double neck_delay   = delay * (1.0 - v->wg_bow_beta);
+        if (bridge_delay < 1.0) bridge_delay = 1.0;
+        if (neck_delay < 1.0) neck_delay = 1.0;
+        double bow_velocity = v->wg_breath_max * onset
+                              * (1.0 + v->wg_noise_gain * white * (1.0 - onset));
+        // Bridge: 1-pole loss LPF then sign-invert; nut: rigid sign-invert.
+        double bore_out = gm_frac_read(v->ks_buf, N, v->wg_w, bridge_delay);
+        v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bore_out
+                        + v->wg_loop_damp * v->wg_loop_lp;
+        double bridge_refl = -v->wg_loop_lp;
+        double nut_refl = -gm_frac_read(v->ks_buf, N, v->wg_w, neck_delay);
+        double string_vel = bridge_refl + nut_refl;
+        double dv = bow_velocity - string_vel;
+        // STK BowTable friction: pow(|slope·dv|+0.75, -4), clamped [0.01,0.98].
+        double bt = fabs(v->wg_bow_slope * dv) + 0.75;
+        bt = pow(bt, -4.0);
+        if (bt < 0.01) bt = 0.01;
+        if (bt > 0.98) bt = 0.98;
+        double new_vel = dv * bt;
+        double inject = bridge_refl + new_vel;
+        // DC block before writing back into the loop.
+        double y = inject - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;
+        v->wg_hp_x1 = inject; v->wg_hp_y1 = y;
+        v->ks_buf[v->wg_w] = (float)y;
+        v->wg_w = (v->wg_w + 1) % N;
+        out = bridge_refl;
+    } else if (v->wg_mode == GM_WG_LIP) {
+        // STK Brass: breath pressure → lip-resonance biquad → quadratic valve.
+        double breath = v->wg_breath_max * onset;
+        breath += v->wg_noise_gain * white * 0.05;   // breath turbulence
+        double mouth = 0.3 * breath;
+        double bore_out = gm_frac_read(v->ks_buf, N, v->wg_w, delay);
+        v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bore_out
+                        + v->wg_loop_damp * v->wg_loop_lp;
+        double bore_pressure = 0.85 * v->wg_loop_lp;
+        double dp = mouth - bore_pressure;
+        // Lip resonance biquad (tracks f0).
+        double lf = v->wg_lip_b0 * dp + v->wg_lip_b1 * v->wg_lip_x1
+                    + v->wg_lip_b2 * v->wg_lip_x2
+                    - v->wg_lip_a1 * v->wg_lip_y1 - v->wg_lip_a2 * v->wg_lip_y2;
+        v->wg_lip_x2 = v->wg_lip_x1; v->wg_lip_x1 = dp;
+        v->wg_lip_y2 = v->wg_lip_y1; v->wg_lip_y1 = lf;
+        double opening = dp + v->wg_lip_gain * lf;
+        opening = opening * opening;                 // quadratic NL (pressure→area)
+        if (opening > 1.0) opening = 1.0;            // valve opens only so far
+        double mix = opening * mouth + (1.0 - opening) * bore_pressure;
+        double y = mix - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;  // DC block
+        v->wg_hp_x1 = mix; v->wg_hp_y1 = y;
+        v->ks_buf[v->wg_w] = (float)y;
+        v->wg_w = (v->wg_w + 1) % N;
+        out = y;
+    } else if (v->wg_mode == GM_WG_REED) {
+        // STK ReedTable bore: breath → reed reflection table → bore round trip.
+        double pTarget = 0.55 + 0.45 * onset;
+        v->wg_breath += (pTarget - v->wg_breath) * 0.01;
+        double Pm = v->wg_breath * v->wg_breath_max
+                    * (1.0 + v->wg_noise_gain * white);
+        double bore_out = gm_frac_read(v->ks_buf, N, v->wg_w, delay);
+        v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bore_out
+                        + v->wg_loop_damp * v->wg_loop_lp;
+        // Clarinet (cylindrical) inverts → odd harmonics; conical does not.
+        double refl = v->wg_bore_invert ? -v->wg_loop_lp : v->wg_loop_lp;
+        double pDiff = Pm - refl;
+        double reedRefl = v->wg_reed_offset + v->wg_reed_slope * pDiff;
+        if (reedRefl > 1.0) reedRefl = 1.0;
+        if (reedRefl < -1.0) reedRefl = -1.0;
+        double into_bore = refl + reedRefl * pDiff;
+        double y = into_bore - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;  // DC block
+        v->wg_hp_x1 = into_bore; v->wg_hp_y1 = y;
+        v->ks_buf[v->wg_w] = (float)y;
+        v->wg_w = (v->wg_w + 1) % N;
+        // STK reed output scaling (dossier 03) + soft saturation. Reeds genuinely
+        // overblow brighter at high notes; tanh self-limits instead of railing.
+        out = tanh(0.3 * y);
+    } else { // GM_WG_JET — Cook flute: jet delay + cubic + blowing noise.
+        double jet_delay = delay * v->wg_jet_ratio;
+        if (jet_delay < 1.0) jet_delay = 1.0;
+        double breath = v->wg_breath_max * onset;
+        // Stronger chiff at onset (1-env style turbulence weighting).
+        double turb = v->wg_noise_gain * white * (0.4 + 0.6 * (1.0 - onset));
+        double excitation = breath + breath * turb;
+        double bore_out = gm_frac_read(v->ks_buf, N, v->wg_w, delay);
+        v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bore_out
+                        + v->wg_loop_damp * v->wg_loop_lp;
+        double feedback = v->wg_loop_lp;
+        // Jet pressure: excitation + a reflected portion of the bore.
+        double jet_in = excitation + feedback * 0.6;
+        // Read jet delay from the same line one wavelength fraction back.
+        double jet = gm_frac_read(v->ks_buf, N, v->wg_w, jet_delay);
+        double pd = jet_in - 0.5 * jet;
+        // Cubic limit-cycle nonlinearity (Cook flute), clamped.
+        if (pd > 1.0) pd = 1.0; else if (pd < -1.0) pd = -1.0;
+        double nl = pd * (pd * pd - 1.0);
+        double into_bore = nl + feedback;
+        double y = into_bore - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;  // DC block
+        v->wg_hp_x1 = into_bore; v->wg_hp_y1 = y;
+        v->ks_buf[v->wg_w] = (float)y;
+        v->wg_w = (v->wg_w + 1) % N;
+        out = y;
+    }
+
+    // -- Output shaping: formant/mute bandpass, LP, bell scale. --
+    if (v->wg_fmt_gain > 0.0) {
+        double fb = v->wg_fmt_b0 * out + v->wg_fmt_b2 * v->wg_fmt_x2
+                    - v->wg_fmt_a1 * v->wg_fmt_y1 - v->wg_fmt_a2 * v->wg_fmt_y2;
+        v->wg_fmt_x2 = v->wg_fmt_x1; v->wg_fmt_x1 = out;
+        v->wg_fmt_y2 = v->wg_fmt_y1; v->wg_fmt_y1 = fb;
+        out += v->wg_fmt_gain * fb;
+    }
+    if (v->wg_out_lp_g > 0.0) {
+        v->wg_out_lp += v->wg_out_lp_g * (out - v->wg_out_lp);
+        out = v->wg_out_lp;
+    }
+    // Section / tremolo amplitude LFO.
+    if (v->wg_trem_inc > 0.0) {
+        double trem = 1.0 - v->wg_trem_depth * 0.5 * (1.0 - wt_sin(v->wg_trem_phase));
+        v->wg_trem_phase += v->wg_trem_inc;
+        if (v->wg_trem_phase >= 1.0) v->wg_trem_phase -= 1.0;
+        out *= trem;
+    }
+
+    out = clampd(out * v->wg_out_scale, -2.0, 2.0);
+    return out * env;
+}
+
 double gm_voice_render(GMVoice *v, double sample_rate, double env,
                        double frequency) {
     switch (v->engine) {
@@ -1026,6 +1642,7 @@ double gm_voice_render(GMVoice *v, double sample_rate, double env,
     case GM_ENGINE_PLUCK:     return generate_pluck_sample(v, sample_rate, env, frequency);
     case GM_ENGINE_MODAL:     return generate_modal_sample(v, sample_rate, env);
     case GM_ENGINE_SYNTHBASS: return generate_synthbass_sample(v, sample_rate, env);
+    case GM_ENGINE_WAVEGUIDE: return generate_waveguide_sample(v, sample_rate, env, frequency);
     default:                  return 0.0;
     }
 }

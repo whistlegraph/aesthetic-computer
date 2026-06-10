@@ -46,9 +46,23 @@ typedef enum {
     GM_ENGINE_GMPIANO,    // modal additive + inharmonicity (acoustic pianos)
     GM_ENGINE_EPIANO,     // 2-op FM tine/reed (electric pianos)
     GM_ENGINE_PLUCK,      // extended Karplus-Strong (harpsichord/clavi/guitar/bass/ethnic)
-    GM_ENGINE_MODAL,      // modal bank (chromatic perc / kalimba / percussive)
-    GM_ENGINE_SYNTHBASS   // subtractive (synth bass / reed approximations)
+    GM_ENGINE_MODAL,      // modal bank (chromatic perc / kalimba / percussive / timpani)
+    GM_ENGINE_SYNTHBASS,  // subtractive (synth bass / reed approximations / synth brass)
+    GM_ENGINE_WAVEGUIDE   // bidirectional digital waveguide (bowed/brass/reed/flute)
 } GMEngine;
+
+// Nonlinearity / excitation mode inside GM_ENGINE_WAVEGUIDE. The shared
+// bidirectional bore delay line is constant; the junction physics differ:
+//   BOWED — stick-slip friction (McIntyre-Schumacher-Woodhouse / STK BowTable)
+//   LIP   — pressure-controlled lip valve (STK Brass), quadratic NL
+//   REED  — saturating reed reflection (STK ReedTable); clarinet inverts bore
+//   JET   — Cook flute jet delay + cubic + blowing noise
+typedef enum {
+    GM_WG_BOWED = 0,
+    GM_WG_LIP,
+    GM_WG_REED,
+    GM_WG_JET
+} GMWaveguideMode;
 
 // Per-voice GM synthesis state. Self-contained: holds every field the GM voices
 // touched in ACVoice plus its own copies of the buffers/biquad/burst envelopes
@@ -144,6 +158,45 @@ typedef struct {
     double sb_breath_amt;
     double sb_vib_phase, sb_vib_inc;
     double sb_vib_depth;
+
+    // -- Digital waveguide (GM_ENGINE_WAVEGUIDE): bowed / brass / reed / flute --
+    GMWaveguideMode wg_mode;
+    // Shared bore delay line. Reuses ks_buf (GM_KS_BIG_N) so low brass/strings
+    // (contrabass ~33 Hz, tuba ~D1) fit at 192 kHz. wg_w is its write index.
+    int    wg_w;
+    double wg_base_delay;      // bore length in samples (sr/f or sr/f*2+3)
+    double wg_loop_lp;         // 1-pole loop-loss LPF state
+    double wg_loop_damp;       // loop-loss coefficient (darker = larger)
+    double wg_hp_x1, wg_hp_y1; // DC blocker after the junction
+    double wg_breath;          // smoothed breath/bow pressure target follower
+    double wg_breath_max;      // pressure/velocity ceiling (loudness+brightness)
+    double wg_noise_gain;      // turbulence / bow-grind / chiff amount
+    double wg_attack_ms;       // pressure ramp time (slow bow / soft horn onset)
+    double wg_attack_env;      // 0..1 onset ramp, climbs to 1
+    double wg_attack_inc;      // per-sample onset ramp increment
+    // Vibrato (all modes) — phase-increment LFO baked rate, depth in delay frac.
+    double wg_vib_phase, wg_vib_inc, wg_vib_depth;
+    // BOWED — friction junction.
+    double wg_bow_beta;        // bow position 0..1 (bridge..nut split ratio)
+    double wg_bow_slope;       // bow force / pressure (steeper = more pressure)
+    // LIP (brass) — lip resonance biquad tracking f0 + scatter gains.
+    double wg_lip_b0, wg_lip_b1, wg_lip_b2, wg_lip_a1, wg_lip_a2;
+    double wg_lip_x1, wg_lip_x2, wg_lip_y1, wg_lip_y2;
+    double wg_lip_gain;
+    // REED — STK reed table affine map + bore-reflection sign.
+    double wg_reed_offset, wg_reed_slope;
+    int    wg_bore_invert;     // 1 = clarinet (cylindrical, odd harmonics)
+    // JET (flute) — jet delay ratio (jet length / bore length).
+    double wg_jet_ratio;
+    // Output formant/mute/bell shaping: one biquad bandpass + a 1-pole tilt.
+    double wg_fmt_b0, wg_fmt_b2, wg_fmt_a1, wg_fmt_a2;
+    double wg_fmt_x1, wg_fmt_x2, wg_fmt_y1, wg_fmt_y2;
+    double wg_fmt_gain;        // 0 = no output formant biquad
+    double wg_out_lp;          // output LP state (mute / dark bell)
+    double wg_out_lp_g;        // output LP coefficient (0 = bypass)
+    double wg_out_scale;       // output gain
+    // Section shimmer (brass section / tremolo strings) — amplitude LFO.
+    double wg_trem_phase, wg_trem_inc, wg_trem_depth;
 } GMVoice;
 
 // Build the wt_sin wavetable. Idempotent; safe to call repeatedly. gm_voice_init
@@ -155,7 +208,8 @@ void gm_set_organic(double amt);
 
 // 1 if `program` (0-based GM) has a bespoke algorithmic voice in this build.
 // Implemented: Piano 0-7, Chromatic Perc 8-15, Guitar 24-31, Bass 32-39,
-// Ethnic 104-111, Percussive 112-119.
+// Strings 40-47, Brass 56-63, Reed 64-71, Pipe 72-79, Ethnic 104-111,
+// Percussive 112-119.
 int gm_program_implemented(int program);
 
 // Note-on init. Selects the engine, fills per-voice state from the matching
