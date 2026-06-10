@@ -145,7 +145,8 @@ ac_media_write_global_wifi_creds() {
   {"ssid":"GettyLink","pass":""},
   {"ssid":"Tondo_Guest","pass":"California"},
   {"ssid":"Eightfold Coffee","pass":"wecloseat430"},
-  {"ssid":"TP-Link_F12F","pass":"32139297"}
+  {"ssid":"TP-Link_F12F","pass":"32139297"},
+  {"ssid":"Plot","pass":"blanketfort"}
 ]
 EOF
 }

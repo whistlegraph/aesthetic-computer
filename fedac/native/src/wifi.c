@@ -680,6 +680,10 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     strncpy(creds[cred_count].ssid, "Eightfold Coffee", WIFI_SSID_MAX - 1);
     strncpy(creds[cred_count].pass, "wecloseat430", WIFI_PASS_MAX - 1);
     cred_count++;
+    // Plot
+    strncpy(creds[cred_count].ssid, "Plot", WIFI_SSID_MAX - 1);
+    strncpy(creds[cred_count].pass, "blanketfort", WIFI_PASS_MAX - 1);
+    cred_count++;
 
     FILE *fp = fopen("/mnt/wifi_creds.json", "r");
     if (fp) {

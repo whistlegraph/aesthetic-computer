@@ -351,7 +351,8 @@ WIFI_PRESETS_JSON='[
   {"ssid":"GettyLink","pass":""},
   {"ssid":"Tondo_Guest","pass":"California"},
   {"ssid":"Eightfold Coffee","pass":"wecloseat430"},
-  {"ssid":"TP-Link_F12F","pass":"32139297"}
+  {"ssid":"TP-Link_F12F","pass":"32139297"},
+  {"ssid":"Plot","pass":"blanketfort"}
 ]'
 
 INFO=$(diskutil info "${USB_DEV}" 2>/dev/null) || die "diskutil info failed for ${USB_DEV}"
