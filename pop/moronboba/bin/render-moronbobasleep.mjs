@@ -12,14 +12,24 @@
 //
 // "Moron" = the lullaby gone dozy and dumb-happy-slow. Stays home in F major
 // (marimbaba's world: F / Dm / Bb / C, all diatonic), wandering between the
-// four chords every ~16-22 s, voice-led by the pad's long ring.
+// chords every ~16-22 s, voice-led by the pad's long ring.
 //
-// Meter is free; a slow ~40 BPM pulse only sets cell note lengths. Events get
-// sparser toward the end — the piece itself falls asleep.
+// FORM — one NIGHT OF SLEEP. The nine chapters model real sleep architecture:
+// dusk → drowse → descend → deep sleep → a first dream → a still trough → the
+// long vivid dream (the crest, at the golden section) → the drift toward
+// morning → resolve. The energy ROTATES in slow waves (down-up-down-up-down)
+// instead of one straight ramp — that rocking carries a listener under. Every
+// figure stays at the lazy arpeggio pulse or slower: NO fast runs, no swoops,
+// no triplet flourishes. The harmony circles away from home through the
+// dreams and lands back on F at the end.
 //
-// Engine renders 10:10; the master truncates to 10:00 with a 60 s fade-in and
-// a 14 s fade-out, loudnorm'd to the -28 LUFS sleep target (same chain as
-// pop/sleephellsine/bin/bake.mjs).
+// LOOP — the final chapter dissolves to the same rain + pad that opens the
+// piece, the drone fades out, and the rain swells back to its opening level,
+// so 10:00 butt-joins 0:00 seamlessly. Play it on repeat all night.
+//
+// Engine renders 10:10; the master truncates to 10:00 with only click-guard
+// micro-fades (the composed dissolve is the real out) and a measured LINEAR
+// gain to -16 LUFS — no dynamic leveller, so the baked arc + seam survive.
 //
 // Run:
 //   node pop/moronboba/bin/render-moronbobasleep.mjs
@@ -40,7 +50,8 @@ const _argi = (k) => { const i = process.argv.indexOf(k); return i >= 0 ? proces
 
 // ── timing ─────────────────────────────────────────────────────────────
 const BPM = 96;                 // rolling 8th-note pulse (see ROLL below)
-const RENDER_SEC = 610;         // 10:10 — master truncates to 10:00
+const RENDER_SEC = 610;         // 10:10 — master truncates to MASTER_SEC
+const MASTER_SEC = 600;         // 10:00 — the LOOP seam lives here (end ≈ start)
 const ns = Math.ceil(RENDER_SEC * SR);
 
 function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
@@ -117,7 +128,7 @@ const CHORDS = [
 // ═══════════════════════════════════════════════════════════════════════
 //  PER-VOICE EVENT LISTS — gathered first, rendered in groups (low memory).
 // ═══════════════════════════════════════════════════════════════════════
-const evLead  = [];   // rosewood — the broken-chord arpeggio figuration + swoops
+const evLead  = [];   // rosewood — the broken-chord arpeggio figuration
 const evBass  = [];   // bass — the walking baroque bass
 const evPad   = [];   // vibraphone_off — the dream-haze pad bloom
 const evAlto  = [];   // rosewood — the quaternary inner voice (bigger movements)
@@ -140,38 +151,35 @@ const PROGS = [
   [4, 3, 0, 1,  4, 3, 2, 0],          // dreaming                       Gm C F Dm · Gm C Bb F
   [0, 4, 3, 1,  4, 5, 2, 3],          // deep dream (Eb colour)         F Gm C Dm · Gm Eb Bb C
   [5, 2, 4, 5,  3, 0, 1, 4],          // strange REM (modal)            Eb Bb Gm Eb · C F Dm Gm
-  [2, 3, 0, 0],                       // plagal homecoming (dawn)       Bb · C · F · F
+  [2, 3, 0, 0],                       // plagal homecoming (morning)    Bb · C · F · F
+  [0, 0, 2, 0],                       // tonic rest (resolve)           F · F · Bb · F
 ];
-//                drift settle sink deepen dream deep THE  REM  dawn
-const MOVE_PROG = [0,    1,    2,   3,     4,    5,   5,   6,   7];
+//                dusk drowse descend deep dream still vivid morning resolve
+const MOVE_PROG = [0,   1,     2,     3,   4,    1,    5,    7,      8];
 
-// ── FORM: the 9-movement arc is DERIVED FROM a whistlegraph — Jeffrey Alan
-//    Scudder's "Lately When I Fly" (Feb 1, 2020). The sung performance was
-//    transcribed by a YIN pitch-tracker (bin/analyze-whistlegraph.mjs); the
-//    melody is a low arch, B2..C4 centred on E3, that climbs to its apex C4 at
-//    13.08s of 21.59s = 0.606 ≈ the GOLDEN SECTION, then descends and ENDS ON
-//    G3 — off the tonic, "off the ground," never landing. Each movement maps a
-//    lyric cell of the score; the key journey traces the flight, the dynamics
-//    trace his energy, and the whistle is locked into his own warm sung octave
-//    (so the melody flies in Jeffrey's register, not up in the bright highs).
-//          fly  pop+  lies  get   touch pick  off   the    float
-//               heart low   high  down  it.up the   GROUND away
-//    lyric: "lately when i fly / *pop my heart / lies low / as i get high /
-//            after we touch down / i pick it / up from off the / GROUND / …"
-const FIB     = [3,   5,    8,    13,   21,   34,   55,   34,   13];   // Σ=186 ≈ 9:55 — apex (mv6/7) ≈ golden section, mirroring his C4
-const MOVE_TR = [0,   1,   -5,   -2,    0,    2,    3,    3,    1];     // FLIGHT: takeoff · dip at "lies low" · gentle climb to the lift · floats aloft (never home; lift kept low so the marimba stays warm)
-const M_LEVEL = [0.30, 0.40, 0.34, 0.52, 0.64, 0.80, 0.92, 1.0, 0.46]; // his energy: confident takeoff · hush at "lies low" · apex at "off the GROUND"
-const M_WOCT  = [-24, -24,  -24,  -24,  -24,  -24,  -24, -24,  -24];   // whistle locked to Jeffrey's sung octave (B2..C4) — warm + low throughout
+// ── FORM: one NIGHT OF SLEEP in nine chapters. Sleep is cyclical — you sink
+//    through light sleep into deep sleep, rise into a dream, sink again, dream
+//    once more (longer, more vivid), then drift up toward morning. The level
+//    curve traces those waves: two troughs, two dream crests, never loud. The
+//    key ROTATES away from home through the dreams (tr 0 → ±little orbits) and
+//    lands back on F for the last two chapters — the harmony genuinely
+//    RESOLVES instead of floating off. Chapter lengths follow the Fibonacci
+//    run, so the vivid dream crests near the golden section. The first and
+//    last chapters are the same material (rain + pad on the tonic) — the loop
+//    seam: another night begins.
+//          dusk  drowse descend deep  dream  still  vivid  morning resolve
+const FIB     = [3,    5,     8,     13,   21,    34,    55,    34,    13];    // Σ=186 bars ≈ 9:55 — the vivid dream sits at the golden section
+const MOVE_TR = [0,    0,     1,    -2,    2,    -1,     3,     0,     0];     // key rotation: orbits away in the dreams, lands home on F
+const M_LEVEL = [0.30, 0.44,  0.55,  0.36, 0.62,  0.42,  0.74,  0.50,  0.30];  // sleep waves: two troughs, two dream crests — capped well below loud
+const M_WOCT  = [-24, -24,  -24,  -24,  -24,  -24,  -24, -24,  -24];           // whistle locked to Jeffrey's sung octave (B2..C4) — warm + low throughout
 const MOVE = FIB.map((bars, i) => ({
   bars, tr: MOVE_TR[i], level: M_LEVEL[i], woct: M_WOCT[i], prog: PROGS[MOVE_PROG[i]],
-  arp:     i >= 1,                              // no arpeggio in the opening "drift" (rain + pad only)
+  arp:     i >= 1 && i <= 7,                    // dusk + resolve are rain/pad-only — the loop seam
   arpDens: Math.min(1, 0.35 + 0.65 * M_LEVEL[i]),  // sparser when quiet
   span:    M_LEVEL[i] > 0.55 ? 5 : 4,          // arpeggio kept tight + low (never climbs into the high marimba)
-  whistle: i >= 2,                              // the whistle enters on the 3rd chapter
-  alto:    i >= 4 && i <= 7,                     // four-part harmony through the dream
-  triplet: i === 5 || i === 6 ? 0.30 : 0.0,     // triplet flourishes only deep in
-  gnarl:   i === 6 ? 0.20 : i === 7 ? 0.32 : 0.0,  // pterodactyl swoops at the dream + the strange REM
-  sparkle: M_LEVEL[i] > 0.7,                     // high sparkle only when the texture is full
+  whistle: i >= 2 && i <= 7,                    // the whistle sleeps through the seam chapters
+  alto:    i === 4 || i === 6,                  // four-part harmony only inside the dreams
+  sparkle: M_LEVEL[i] > 0.55,                   // high sparkle only at the dream crests
 }));
 
 const chordTimeline = [];   // { t, dur, ci, tr, mi }
@@ -185,6 +193,13 @@ const chordTimeline = [];   // { t, dur, ci, tr, mi }
       for (const m of CHORDS[ci].pad) evPad.push({ startSec: t, midi: m + mv.tr, durSec: BAR + 3, gain: range(0.05, 0.075) });
       t += BAR;
     }
+  }
+  // carry the pad ACROSS the loop seam — the timeline ends at ~595 s but the
+  // master cuts at 600, so keep the resolve chord (F, home) blooming right up
+  // to the cut. On loop, the restart's first pad bars pick the same F haze
+  // back up over continuous rain: pad + rain on both sides of the seam.
+  for (; t < MASTER_SEC + 2; t += BAR) {
+    for (const m of CHORDS[0].pad) evPad.push({ startSec: t, midi: m, durSec: BAR + 3, gain: range(0.05, 0.075) });
   }
 }
 // F-major scale (midi, F4…F6) for the diatonic upper voices + their thirds.
@@ -239,25 +254,9 @@ const whistleEvents = [];
   }
 }
 
-// fractal PTERODACTYL SWOOP — a big up-then-dive arch with a nested faster
-// ripple inside it (self-similar), in the screech register, gnarly + chromatic.
-const swoop = (t, ci, tr) => {
-  const sc = CHORDS[ci].roll, top = sc.length - 1, Nn = 20, step = BAR / Nn;
-  for (let n = 0; n < Nn; n++) {
-    const x = n / (Nn - 1);
-    const arch = Math.sin(Math.PI * x);                       // 0→1→0 swoop
-    const ripple = 0.30 * Math.abs(Math.sin(Math.PI * x * 5));// nested fractal wobble
-    let idx = Math.round((arch * 0.7 + ripple) * top);
-    idx = Math.max(0, Math.min(top, idx));
-    let midi = sc[idx] + tr;                                  // in-register swoop (was a screech octave up)
-    if (rnd() < 0.3) midi += (rnd() < 0.5 ? 1 : -1);          // gnarl chromatic
-    evLead.push({ startSec: t + n * step, midi, durSec: step * range(1.0, 1.5), gain: 0.24 * range(0.9, 1.1) });
-  }
-};
-
-// ── 3) the ARPEGGIO figuration — broken chord per bar (+ tr), TRIPLET
-//      flourishes per movement, ducked under the whistle; and the fractal
-//      pterodactyl SWOOPS replace a bar in the gnarly middle movements.
+// ── 3) the ARPEGGIO figuration — broken chord per bar (+ tr), ducked under
+//      the whistle. The lazy 8th-note roll is the FASTEST thing in the piece —
+//      no triplets, no swoops, nothing quicker than the rocking pulse.
 // a LIBRARY of 8-step figurations (values 0..4, scaled to each chapter's
 // `span`) — the renderer walks THROUGH it so the arpeggio keeps reshaping
 // bar to bar instead of repeating two patterns forever.
@@ -271,21 +270,18 @@ const PATS = [
   [0, 1, 0, 2, 0, 3, 0, 4],   // pedal-tone (Alberti-ish)
   [4, 2, 0, 2, 4, 3, 1, 3],   // arch from the top
 ];
-const TRIP = [0, 1, 2, 3, 4, 2, 0, 1, 2, 3, 4, 2];
 const nearMel = (ts) => { for (const m of melOnsets) if (Math.abs(m - ts) < 0.11) return true; return false; };
 {
   let pidx = 0;
   for (let bi = 0; bi < chordTimeline.length; bi++) {
     const { t, ci, tr, mi } = chordTimeline[bi];
     const mv = MOVE[mi];
-    if (!mv.arp) continue;                               // skip the opening drift
-    if (rnd() < mv.gnarl) { swoop(t, ci, tr); continue; }   // pterodactyl bar
+    if (!mv.arp) continue;                               // skip the seam chapters
     const tones = CHORDS[ci].roll.slice(0, Math.min(mv.span, CHORDS[ci].roll.length)).map((m) => m - 12 + tr);
     const sc = (v) => tones[Math.round((v / 4) * (tones.length - 1))];   // 0..4 → the chapter's range
-    const triplet = rnd() < mv.triplet;
-    const Nn = triplet ? 12 : ARPN, step = BAR / Nn;
+    const Nn = ARPN, step = BAR / Nn;
     pidx = (pidx + 1 + (rnd() < 0.3 ? 1 : 0)) % PATS.length;   // walk the figuration library
-    const pat = triplet ? TRIP : PATS[pidx];
+    const pat = PATS[pidx];
     for (let n = 0; n < Nn; n++) {
       if (n !== 0 && rnd() > mv.arpDens) continue;        // thin the run when the chapter is quiet
       const ts = t + n * step;
@@ -370,7 +366,7 @@ const FELT_BASS = { mallet: 0.008, attack: 0.005 };
 // sparkle right; the whistle lead (rendered below) lands centre-right.
 foldGroup(evBass,  { preset: "bass",           decayMul: 1.15, p:  0.00, gain: 0.92, params: FELT_BASS, label: "walking bass" });
 foldGroup(evPad,   { preset: "vibraphone_off", decayMul: 3.0,  p:  0.00, gain: 0.38, haasMs: 14, params: FELT_SOFT, label: "pad bloom" });
-foldGroup(evLead,  { preset: "rosewood",       decayMul: 2.8,  p: -0.26, gain: 0.50, params: FELT_LEAD, label: "arpeggio + swoops" });
+foldGroup(evLead,  { preset: "rosewood",       decayMul: 2.8,  p: -0.26, gain: 0.50, params: FELT_LEAD, label: "arpeggio" });
 foldGroup(evAlto,  { preset: "rosewood",       decayMul: 3.2,  p: -0.08, gain: 0.40, params: FELT_SOFT, label: "quaternary (alto)" });
 foldGroup(evSpark, { preset: "kalimba",        decayMul: 2.0,  p:  0.46, gain: 0.30, params: FELT_SOFT, label: "chord sparkle" });
 
@@ -430,7 +426,10 @@ function readDelay(buf, w, d, len) {
     const subTarget = midiToFreq(c.bass + tr);
     subFs = subTarget + (subFs - subTarget) * glide;
     for (let n = 0; n < V; n++) { const tg = midiToFreq(c.drone[n] + tr); droneFs[n] = tg + (droneFs[n] - tg) * glide; }
-    const env = i < sneak ? i / sneak : 1;
+    // sneak in over 3 s; fade out over the last 12 s before the loop seam so
+    // the restart's own sneak-in doesn't pop (rain alone carries the seam).
+    const env = (i < sneak ? i / sneak : 1) *
+      (t > MASTER_SEC - 12 ? Math.max(0, (MASTER_SEC - t) / 12) : 1);
     while (ki < bassOnsets.length && bassOnsets[ki] <= t) { lastBass = bassOnsets[ki]; ki++; }
     const pump = 1 - pumpDepth * Math.exp(-(t - lastBass) / pumpTau);   // dip on bass, recover
 
@@ -669,8 +668,14 @@ function reversoBell(t0, midis, dur, gain, p) {
     const ratio = rsr / SR;                                         // 1.0 here (44.1k)
     for (let i = 0; i < ns; i++) {
       const t = i / SR;
-      // opening envelope: loud rain intro → settle to a soft constant bed.
-      const g = t < 14 ? 0.50 : t < 45 ? 0.50 - (0.50 - 0.16) * ((t - 14) / 31) : 0.16;
+      // loop-seam envelope: loud rain intro → settle to a soft constant bed →
+      // swell back to the opening level over the last 28 s, so 10:00 → 0:00
+      // is rain meeting rain at the same gain.
+      const g = t < 14 ? 0.50
+        : t < 45 ? 0.50 - (0.50 - 0.16) * ((t - 14) / 31)
+        : t < MASTER_SEC - 28 ? 0.16
+        : t < MASTER_SEC ? 0.16 + (0.50 - 0.16) * ((t - (MASTER_SEC - 28)) / 28)
+        : 0.50;
       const j = i * ratio;
       outL[i] += rainAt(j) * g;
       outR[i] += rainAt(j - haas * ratio) * g;
@@ -709,11 +714,12 @@ writeFileSync(rawPath, b);
 // ═══════════════════════════════════════════════════════════════════════
 //  SLEEP MASTER — gentle, so the baked dynamic ARC survives: clean low end,
 //  a touch of warmth + air, ONE soft, slow glue compressor (NOT a leveller —
-//  a leveller would flatten the night narrative), long fade-in, then a
-//  two-pass loudnorm to a calm -16 LUFS with a WIDE LRA (the arc lives in the
-//  dynamics). Writes a 24-bit WAV master + a 320k mp3.
+//  a leveller would flatten the night narrative), then a measured LINEAR gain
+//  to a calm -16 LUFS / -1 dBTP (the arc lives in the dynamics). Fades are
+//  click-guard MICRO-fades only — the composed rain seam does the real in/out
+//  so the file loops seamlessly. Writes a 24-bit WAV master + a 320k mp3.
 // ═══════════════════════════════════════════════════════════════════════
-const TOTAL_DUR = 600.0, FADE_OUT = 14.0, FADE_IN = 8.0;
+const TOTAL_DUR = MASTER_SEC, FADE_OUT = 0.25, FADE_IN = 0.15;   // click-guards only — any longer gouges a hole in the rain at the loop seam
 const PRE = [
   "highpass=f=22",
   "bass=g=3:f=85",                 // gentle low-shelf weight
@@ -724,21 +730,25 @@ const PRE = [
   `afade=t=in:st=0:d=${FADE_IN}`,
   `afade=t=out:st=${TOTAL_DUR - FADE_OUT}:d=${FADE_OUT}`,
 ].join(",");
-const LN = "loudnorm=I=-16:TP=-1:LRA=18";
-
-// pass 1 — measure the EQ'd/compressed signal
+// pass 1 — measure the EQ'd/compressed signal (loudnorm used as a METER only)
 console.log("[master] pass 1/2 — measuring loudness…");
 const meas = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-loglevel", "info",
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawPath,
-  "-af", `${PRE},${LN}:print_format=json`, "-to", String(TOTAL_DUR),
+  "-af", `${PRE},loudnorm=print_format=json`, "-to", String(TOTAL_DUR),
   "-f", "null", "-"], { encoding: "utf8" });
 const jf = (re) => { const m = (meas.stderr || "").match(re); return m ? m[1] : null; };
-const mI = jf(/"input_i"\s*:\s*"([^"]+)"/), mTP = jf(/"input_tp"\s*:\s*"([^"]+)"/),
-      mLRA = jf(/"input_lra"\s*:\s*"([^"]+)"/), mThr = jf(/"input_thresh"\s*:\s*"([^"]+)"/);
-const LN2 = (mI && mTP && mLRA && mThr)
-  ? `${LN}:measured_I=${mI}:measured_TP=${mTP}:measured_LRA=${mLRA}:measured_thresh=${mThr}:linear=true`
-  : LN;
-if (LN2 === LN) console.warn("   ! couldn't parse pass-1 measurement — falling back to single-pass");
+const mI = jf(/"input_i"\s*:\s*"([^"]+)"/), mTP = jf(/"input_tp"\s*:\s*"([^"]+)"/);
+// LINEAR GAIN master — never let loudnorm APPLY the normalization: its linear
+// mode silently reverts to DYNAMIC when the measured LRA beats the target,
+// and dynamic mode rode the loop-seam rain tail down ~12 dB (erasing the
+// composed end-swell). A plain volume gain — loudness up to -16 LUFS, clamped
+// so true peak stays under -1 dBTP — preserves the baked dynamic arc and the
+// rain seam exactly as composed.
+let gainDb = 0;
+if (mI && mTP) gainDb = Math.min(-16 - parseFloat(mI), -1 - parseFloat(mTP));
+else console.warn("   ! couldn't parse pass-1 measurement — applying unity gain");
+const VOL = `volume=${gainDb.toFixed(2)}dB`;
+console.log(`   · linear gain ${gainDb >= 0 ? "+" : ""}${gainDb.toFixed(2)} dB (measured ${mI ?? "?"} LUFS / ${mTP ?? "?"} dBTP)`);
 
 // pass 2 — apply → 24-bit WAV (release master) + 320k mp3
 const shelf = resolve(homedir(), "Documents", "Shelf", "moronboba");
@@ -747,14 +757,14 @@ const wavPath = resolve(shelf, "moronbobasleep-MASTER.wav");
 console.log("[master] pass 2/2 — applying → WAV + mp3…");
 const apply = (extra, dst) => spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawPath,
-  "-af", `${PRE},${LN2}`, "-to", String(TOTAL_DUR), ...extra, dst], { stdio: "inherit" });
+  "-af", `${PRE},${VOL}`, "-to", String(TOTAL_DUR), ...extra, dst], { stdio: "inherit" });
 const w = apply(["-ar", "44100", "-c:a", "pcm_s24le"], wavPath);
 const ff = apply(["-ar", "44100", "-c:a", "libmp3lame", "-b:a", "320k"], outPath);
 try { unlinkSync(rawPath); } catch {}
 if (w.status !== 0 || ff.status !== 0) { console.error("✗ ffmpeg master failed"); process.exit(1); }
 spawnSync("cp", [outPath, resolve(shelf, "moronbobasleep.mp3")]);
 console.log(`✓ release master → ${wavPath.replace(homedir(), "~")}`);
-console.log(`✓ ${outPath} (320k · two-pass · target -16 LUFS / -1 dBTP · dynamic arc)`);
+console.log(`✓ ${outPath} (320k · measured linear gain · target -16 LUFS / -1 dBTP · dynamic arc + loop seam intact)`);
 
 // ── CLIP TEST — measure the final build's sample peak + true peak + LUFS ──
 {
@@ -775,7 +785,7 @@ console.log(`✓ ${outPath} (320k · two-pass · target -16 LUFS / -1 dBTP · dy
 // ── struct.json — the chord walk, for any future visualizer ──────────────
 {
   const struct = {
-    _comment: "Chord map for moronbobasleep — the rolling marimbaba sleep mix. ~96 BPM 8th-note roll, F major + modal Gm/Eb (F/Dm/Bb/C/Gm/Eb walk). Master truncates the 10:10 render to 10:00. Derived from render-moronbobasleep.mjs.",
+    _comment: "Chord map for moronbobasleep — the rolling marimbaba sleep mix. ~96 BPM 8th-note roll, F major + modal Gm/Eb (F/Dm/Bb/C/Gm/Eb walk). Nine sleep-cycle chapters resolving home to F; the master truncates the 10:10 render to 10:00 and the end dissolves to the opening rain, so the file loops seamlessly. Derived from render-moronbobasleep.mjs.",
     bpm: BPM, scale: "major", rootMidi: 65, totalSec: TOTAL_DUR, renderSec: RENDER_SEC,
     chords: chordTimeline.map((c) => ({ name: CHORDS[c.ci].name, startSec: +c.t.toFixed(3), durSec: +c.dur.toFixed(3) })),
   };
