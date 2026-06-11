@@ -5,7 +5,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /workspaces/aesthetic-computer/memory/hook.mjs"
+            "command": "node \"$CLAUDE_PROJECT_DIR/memory/hook.mjs\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/toolchain/mcp/minis-mcp.mjs\" prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/toolchain/mcp/minis-mcp.mjs\" session-start",
+            "timeout": 10
           }
         ]
       }
@@ -27,7 +47,14 @@
       "Bash(pdftoppm:*)",
       "Bash(bibtex:*)",
       "Bash(kpsewhich:*)",
-      "Bash(chmod +x:*)"
+      "Bash(chmod +x:*)",
+      "Bash(ast-grep run:*)",
+      "Bash(ast-grep scan:*)",
+      "Bash(readtags:*)",
+      "Bash(fd:*)",
+      "Bash(oxlint:*)",
+      "Bash(difft:*)",
+      "Bash(tsgo --noEmit:*)"
     ]
   }
 }

@@ -21,7 +21,6 @@ import path from "node:path";
 const SERVERS = ["chrome-devtools-chicken", "chrome-devtools-panda"];
 const KEYWORDS = /\b(fuser|chicken|panda|minis)\b/i;
 const EXPIRY_HOURS = 12;
-const PROJECT = "/Users/jas/aesthetic-computer";
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const STAMP = path.join(os.homedir(), ".claude", "minis-mcp-active");
 
@@ -29,6 +28,10 @@ const mode = process.argv[2];
 const stdin = fs.readFileSync(0, "utf8");
 let input = {};
 try { input = JSON.parse(stdin || "{}"); } catch { /* tolerate empty stdin */ }
+
+// Portable across dev machines: the project key in ~/.claude.json is the
+// repo's absolute path on THIS machine.
+const PROJECT = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
 
 function readConfig() {
   return JSON.parse(fs.readFileSync(CLAUDE_JSON, "utf8"));
@@ -44,10 +47,16 @@ function disabledList(cfg) {
 }
 function out(obj) { console.log(JSON.stringify(obj)); }
 
+// No-op on machines where the minis' servers aren't configured (and on
+// fresh machines with no ~/.claude.json at all).
+let config;
+try { config = readConfig(); } catch { process.exit(0); }
+if (!SERVERS.some((s) => config.mcpServers?.[s])) process.exit(0);
+
 if (mode === "prompt") {
   if (!KEYWORDS.test(input.prompt || "")) process.exit(0);
   fs.writeFileSync(STAMP, String(Date.now()));
-  const cfg = readConfig();
+  const cfg = config;
   const dis = disabledList(cfg);
   if (!dis) process.exit(0);
   const before = dis.length;
@@ -68,7 +77,7 @@ if (mode === "prompt") {
     fresh = Date.now() - Number(fs.readFileSync(STAMP, "utf8")) < EXPIRY_HOURS * 3600 * 1000;
   } catch { /* no stamp → not fresh */ }
   if (fresh) process.exit(0);
-  const cfg = readConfig();
+  const cfg = config;
   const dis = disabledList(cfg);
   if (!dis) process.exit(0);
   const missing = SERVERS.filter((s) => !dis.includes(s));
