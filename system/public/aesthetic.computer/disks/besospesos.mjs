@@ -7,7 +7,29 @@
 // Simple logic in the nom-game spirit: one state machine, data-driven
 // dates, parametric pixel portraits, no assets.
 
-const { floor, round, max, min } = Math;
+import * as gm from "../lib/gm.mjs";
+
+const { floor, round, max, min, sin } = Math;
+
+// 🔤 Typography — unifont carries the dialogue (fixed 8px advance, exact
+// wrapping), MatrixChunky8 carries the chrome (HUD, names, hints). Same
+// pairing + metrics table as lib/nom.mjs.
+const FM = {
+  unifont: { adv: 8, h: 16 },
+  MatrixChunky8: { adv: 5, h: 8 },
+  _default: { adv: 6, h: 10 },
+};
+const fm = (font) => FM[font] || FM._default;
+const UNI = "unifont";
+const MC8 = "MatrixChunky8";
+
+// 🎨 Every answer gets its own color bar — rose for the heart-led choice,
+// amber for the playful one, peso-green for the invoice.
+const CHOICE_COLORS = [
+  [228, 60, 110], // rose
+  [196, 130, 30], // amber
+  [40, 140, 70], // peso green
+];
 
 // 💘 The roster. Each date is three questions; every choice moves the two
 // meters. besos >= KISS_AT after three questions wins that ceo's kiss.
@@ -167,6 +189,44 @@ const CEOS = [
       },
     ],
   },
+  {
+    key: "jeff",
+    name: "jeff bezos",
+    tagline: "he cannot open the box",
+    face: {
+      skin: [226, 178, 146],
+      hair: [120, 96, 76],
+      style: "bald",
+      shirt: [30, 38, 64], // navy tee
+      vest: [58, 60, 68], // the puffer vest
+    },
+    dates: [
+      {
+        line: "a box arrived at your door. i founded the company that shipped it. i cannot open it. the tape is... very good.",
+        choices: [
+          { label: "i have scissors. we'll do this together.", besos: 2, pesos: 0, reply: "'together,' he repeats, like a new word." },
+          { label: "you of all people deserve frustration-free packaging.", besos: 1, pesos: 0, reply: "he laughs the laugh. birds scatter outside." },
+          { label: "box-opening service: $600.", besos: -1, pesos: 600, reply: "he pays. 'it's a fair market,' he says, hurt." },
+        ],
+      },
+      {
+        line: "it's open. inside is a smaller box. inside that, presumably, a smaller one. i designed this funnel myself.",
+        choices: [
+          { label: "then let's enjoy the journey. box by box.", besos: 2, pesos: 0, reply: "four boxes in, your hands touch over the tape." },
+          { label: "it's boxes all the way down, jeff.", besos: 1, pesos: 0, reply: "'all the way down,' he whispers. 'infinite day one.'" },
+          { label: "per-box fee. compounding.", besos: -1, pesos: 1300, reply: "he respects the unit economics. the mood does not." },
+        ],
+      },
+      {
+        line: "the last box held a single packing slip. it says 'gift.' nobody has ever... how do i thank you?",
+        choices: [
+          { label: "stay. the smallest box is the doorbell — ring it anytime.", besos: 3, pesos: 0, reply: "un beso, bezos. the name was always a prophecy." },
+          { label: "write me a review. five stars.", besos: 2, pesos: 0, reply: "'verified purchase,' he murmurs, misty." },
+          { label: "prime rates. $2600.", besos: -2, pesos: 2600, reply: "delivered. signature required. door closed." },
+        ],
+      },
+    ],
+  },
 ];
 
 // 🧠 State.
@@ -187,6 +247,21 @@ let snd = null;
 let melody = []; // scheduled notes, nom-style: { at, type, tone, duration, volume }
 let floaters = []; // { x, y, vy, life, text, col } little ❤/$ pops
 let layout = null; // rebuilt in paint, hit-tested in act
+let zoom = 0; // smoothed closeness — the ceo drifts toward the camera as the date warms
+
+// 🎹 Ambient bed — GM pad (program 88, "new age") arpeggiating a slow
+// Am–F–C–G vamp via lib/gm.mjs samples; falls back to soft sine pad notes
+// through sound.synth when GM samples can't load (no AudioContext, offline).
+let gmPatch = null;
+let gmTried = false;
+let arpStep = 0;
+let lastArp = -999;
+const VAMP = [
+  [57, 60, 64], // Am
+  [53, 57, 60], // F
+  [48, 52, 55], // C
+  [55, 59, 62], // G
+];
 
 function reset() {
   state = "title";
@@ -237,6 +312,33 @@ function playMelody(notes, gap = 5) {
   });
 }
 
+// Kick off the GM patch load on the first user gesture (audio is unlocked
+// by then); harmless to call repeatedly.
+function ensureMusic() {
+  if (gmTried) return;
+  gmTried = true;
+  gm.loadPatch(88).then((p) => (gmPatch = p)).catch(() => {});
+}
+
+const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+// One soft vamp note every ~1.5s; chord advances every 4 notes. Warmth
+// (dateBesos) lifts every other note an octave — the bed gets dreamier
+// as the date goes well.
+function ambient() {
+  if (frames - lastArp < 90) return;
+  lastArp = frames;
+  const chord = VAMP[floor(arpStep / 4) % VAMP.length];
+  let m = chord[arpStep % 3];
+  if (state === "date" && dateBesos >= 3 && arpStep % 2 === 1) m += 12;
+  arpStep += 1;
+  if (gmPatch) {
+    gmPatch.play(m, { velocity: 30, duration: 2.6, attack: 0.5, release: 1.4 });
+  } else {
+    note({ type: "sine", tone: midiHz(m), duration: 2.2, volume: 0.05 });
+  }
+}
+
 const blip = () => note({ tone: 520, duration: 0.03, volume: 0.15 });
 const smooch = () => playMelody([{ tone: 880 }, { tone: 1175 }, { tone: 1568, dur: 0.2 }], 4);
 const cha = () => playMelody([{ type: "square", tone: 1320, vol: 0.12 }, { type: "square", tone: 1760, vol: 0.12, dur: 0.16 }], 3);
@@ -249,6 +351,7 @@ function spawnFloater(text, col, x, y) {
 function sim() {
   frames += 1;
   typed += 1.4; // typewriter speed (chars per frame-ish)
+  if (snd) ambient();
   melody = melody.filter((n) => {
     if (frames < n.at) return true;
     note(n);
@@ -316,11 +419,13 @@ function startDate(c) {
   dateBesos = 0;
   typed = 0;
   sel = 0;
+  zoom = 0;
   playMelody([{ tone: 392 }, { tone: 494 }, { tone: 587, dur: 0.18 }], 5);
 }
 
 function act({ event: e, sound }) {
   snd = sound;
+  if (e.is("touch") || e.name?.startsWith?.("keyboard:down")) ensureMusic();
 
   if (e.is("keyboard:down:escape") && state === "date") {
     // Walking out mid-date counts as a dud (gentle, but the door is real).
@@ -454,16 +559,33 @@ function drawCEO(ink, box, c, x, y, s, mood = 0) {
   }
 }
 
-// ❤️ Tiny bitmap heart.
+// ❤️ Tiny bitmap heart + a derived outline (edge pixels only) for the
+// empty slots in the besos meter.
 const HEART = ["0110110", "1111111", "1111111", "0111110", "0011100", "0001000"];
-function drawHeart(ink, box, x, y, s, col) {
+const HEART_OUTLINE = HEART.map((row, r) =>
+  row
+    .split("")
+    .map((v, c) => {
+      if (v !== "1") return "0";
+      const up = HEART[r - 1]?.[c] ?? "0";
+      const dn = HEART[r + 1]?.[c] ?? "0";
+      const lf = row[c - 1] ?? "0";
+      const rt = row[c + 1] ?? "0";
+      return up === "0" || dn === "0" || lf === "0" || rt === "0" ? "1" : "0";
+    })
+    .join(""),
+);
+
+function drawBits(ink, box, map, x, y, s, col) {
   ink(...col);
-  for (let r = 0; r < HEART.length; r += 1) {
-    for (let c = 0; c < 7; c += 1) {
-      if (HEART[r][c] === "1") box(x + c * s, y + r * s, s, s);
+  for (let r = 0; r < map.length; r += 1) {
+    for (let c = 0; c < map[r].length; c += 1) {
+      if (map[r][c] === "1") box(x + c * s, y + r * s, s, s);
     }
   }
 }
+const drawHeart = (ink, box, x, y, s, col) => drawBits(ink, box, HEART, x, y, s, col);
+const drawHeartOutline = (ink, box, x, y, s, col) => drawBits(ink, box, HEART_OUTLINE, x, y, s, col);
 
 function paint({ wipe, ink, box, screen, write, paste }) {
   const w = screen.width;
@@ -471,40 +593,49 @@ function paint({ wipe, ink, box, screen, write, paste }) {
   wipe(26, 12, 28); // dusky telenovela plum
   layout = { hits: [] };
 
-  const charW = 6;
-  const maxChars = max(12, floor((w - 16) / charW));
+  // 📐 Responsive type. unifont (16px) carries titles, names, and — on
+  // roomy screens — the dialogue itself; MatrixChunky8 carries the chrome
+  // and takes over dialogue on small screens where unifont would crowd
+  // the choice bars.
+  const dlgFont = h >= 340 ? UNI : MC8;
+  const dlgAdv = fm(dlgFont).adv;
+  const dlgLineH = fm(dlgFont).h + 2;
+  const maxChars = max(12, floor((w - 16) / dlgAdv));
+  const W = (str, x, y, col, font = MC8, size = 1) =>
+    ink(...col).write(str, { x, y, size }, undefined, undefined, false, font);
+  const center = (str, font = MC8, size = 1) => w / 2 - (str.length * fm(font).adv * size) / 2;
 
   // HUD — besos top-left, pesos top-right (skip on title).
   if (state !== "title") {
-    drawHeart(ink, box, 6, 6, 1, [255, 90, 140]);
-    ink(255, 190, 210).write(`${besos}`, { x: 16, y: 6 });
+    drawHeart(ink, box, 5, 5, 2, [255, 90, 140]);
+    W(`${besos}`, 23, 8, [255, 190, 210]);
     const ptxt = `$${pesos}`;
-    ink(140, 230, 140).write(ptxt, { x: w - 8 - ptxt.length * charW, y: 6 });
+    W(ptxt, w - 8 - ptxt.length * fm(MC8).adv, 8, [140, 230, 140]);
   }
 
   if (state === "title") {
     const cx = w / 2;
-    // floating hearts + pesos backdrop
-    for (let i = 0; i < 8; i += 1) {
-      const fy = (frames * (0.3 + (i % 3) * 0.2) + i * 47) % (h + 20) - 10;
-      const fx = (i * 73 + 20) % max(1, w - 14);
-      if (i % 2) drawHeart(ink, box, fx, h - fy, 1, [120, 40, 70]);
-      else ink(50, 90, 50).write("$", { x: fx, y: h - fy });
+    // floating hearts + pesos backdrop — filled and outlined, two depths
+    for (let i = 0; i < 10; i += 1) {
+      const fy = (frames * (0.3 + (i % 3) * 0.2) + i * 47) % (h + 24) - 12;
+      const fx = (i * 73 + 20) % max(1, w - 20);
+      if (i % 3 === 0) drawHeartOutline(ink, box, fx, h - fy, 2, [150, 60, 95]);
+      else if (i % 3 === 1) drawHeart(ink, box, fx, h - fy, 1 + (i % 2), [120, 40, 70]);
+      else W("$", fx, h - fy, [50, 90, 50]);
     }
-    ink(255, 120, 160).write("besos", { x: cx - 42, y: h / 3, size: 2 });
-    ink(140, 230, 140).write("pesos", { x: cx - 18, y: h / 3 + 18, size: 2 });
-    ink(230, 210, 220).write("a ceo dating sim", { x: cx - 8 * charW / 2 - charW * 4, y: h / 3 + 44 });
+    W("besos", cx - 56, h / 3, [255, 120, 160], UNI, 2);
+    W("pesos", cx - 24, h / 3 + 34, [140, 230, 140], UNI, 2);
+    W("a ceo dating sim", center("a ceo dating sim"), h / 3 + 72, [230, 210, 220]);
     if ((frames >> 5) % 2 === 0) {
-      ink(255, 230, 120).write("tap to fall in love", { x: cx - 9.5 * charW, y: h - 24 });
+      W("tap to fall in love", center("tap to fall in love"), h - 24, [255, 230, 120]);
     }
     return;
   }
 
   if (state === "select") {
-    ink(230, 210, 220).write("who needs you today?", { x: 8, y: 20 });
-    const open = CEOS.filter((c) => !progress[c.key]);
-    const cardH = max(34, floor((h - 56) / CEOS.length) - 4);
-    let cy = 34;
+    W("who needs you today?", 8, 22, [230, 210, 220]);
+    const cardH = max(34, floor((h - 48) / CEOS.length) - 4);
+    let cy = 36;
     let openIdx = 0;
     CEOS.forEach((c) => {
       const done = progress[c.key];
@@ -519,12 +650,14 @@ function paint({ wipe, ink, box, screen, write, paste }) {
       const s = max(2, floor(cardH / 18));
       drawCEO(ink, box, c, 8 + 8 * s, cy + cardH - 7 * s, s, done ? (done.kissed ? 1 : -1) : 0);
       const tx = 8 + 17 * s;
-      ink(done ? [120, 100, 115] : [255, 235, 240]).write(c.name, { x: tx, y: cy + 6 });
+      W(c.name, tx, cy + 4, done ? [120, 100, 115] : [255, 235, 240], UNI);
       if (done) {
-        if (done.kissed) { drawHeart(ink, box, tx, cy + 17, 1, [255, 90, 140]); ink(255, 150, 180).write("besada", { x: tx + 10, y: cy + 17 }); }
-        else ink(120, 100, 115).write("se fue...", { x: tx + 1, y: cy + 17 });
+        if (done.kissed) {
+          drawHeart(ink, box, tx, cy + 22, 1, [255, 90, 140]);
+          W("besada", tx + 11, cy + 22, [255, 150, 180]);
+        } else W("se fue...", tx + 1, cy + 22, [120, 100, 115]);
       } else {
-        ink(170, 140, 160).write(wrap(c.tagline, floor((w - tx - 8) / charW))[0] || "", { x: tx, y: cy + 17 });
+        W(wrap(c.tagline, floor((w - tx - 8) / fm(MC8).adv))[0] || "", tx, cy + 22, [170, 140, 160]);
         openIdx += 1;
       }
       cy += cardH + 4;
@@ -535,110 +668,129 @@ function paint({ wipe, ink, box, screen, write, paste }) {
   if (state === "date") {
     const a = art[ceo.key] || {};
     const mood = phase === "ask" ? 0 : (ceo.dates[q].choices[picked]?.besos ?? 0) > 0 ? 1 : (ceo.dates[q].choices[picked]?.besos ?? 0) < 0 ? -1 : 0;
-    const sceneMood = phase === "verdict" ? (dateBesos >= KISS_AT ? 1 : -1) : mood;
+    const kissed = dateBesos >= KISS_AT;
+    const sceneMood = phase === "verdict" ? (kissed ? 1 : -1) : mood;
+
+    // 💞 Closeness — each question pulls him nearer; a warm reply leans
+    // him in further; the kiss verdict brings him almost to the lens.
+    const targetZoom = phase === "verdict" ? (kissed ? 3 : 0.6) : q + (phase === "reply" && mood > 0 ? 0.5 : 0);
+    zoom += (targetZoom - zoom) * 0.06;
+
     let px = w / 2;
-    let py;
     let heartsX, heartsY, textY;
+    const bandY = floor(h * 0.55);
 
     if (a.bg && paste) {
       // 🏠 First-person pov backdrop, cover-cropped to the screen.
       const cover = max(w / a.bg.width, h / a.bg.height);
       paste(a.bg, (w - a.bg.width * cover) / 2, (h - a.bg.height * cover) / 2, cover);
       if (a.fg) {
-        // 🧍 The ceo stands in the open floor zone (center-right), idling
-        // with a slow sway; a happy beat lifts him slightly off his heels.
-        const fs = (h * 0.58) / a.fg.height;
-        const sway = Math.sin(frames / 38) * 1.5;
+        // 🧍 Bigger in frame, drifting toward camera + center as the date
+        // warms: scale, anchor, and sway all ride the zoom.
+        const fs = (h * (0.66 + zoom * 0.17)) / a.fg.height;
+        const sway = sin(frames / 38) * (1.5 + zoom);
         const lift = sceneMood > 0 ? -2 : 0;
-        px = w * 0.62;
-        paste(a.fg, px - (a.fg.width * fs) / 2 + sway, h * 0.72 - a.fg.height * fs + lift, fs);
+        px = w * (0.62 - zoom * 0.033);
+        const footY = h * (0.74 + zoom * 0.11);
+        paste(a.fg, px - (a.fg.width * fs) / 2 + sway, footY - a.fg.height * fs + lift, fs);
       }
+      // 🌹 Seduction wash — the room blushes as the hearts add up.
+      const blush = min(56, 5 + dateBesos * 7 + zoom * 9);
+      ink(255, 70, 130, blush).box(0, 0, w, h);
       // Dim the scene behind the dialogue band so text stays legible.
-      ink(20, 8, 20, 165).box(0, h * 0.55, w, h * 0.45);
-      py = 18; // name + hearts ride the top band over the art
-      ink(255, 235, 240).write(ceo.name, { x: 8, y: py });
+      ink(18, 7, 18, 175).box(0, bandY, w, h - bandY);
+      ink(18, 7, 18, 110).box(0, 16, w, 42); // top strip under name + meter
+      W(ceo.name, 8, 20, [255, 235, 240], UNI);
       heartsX = 8;
-      heartsY = py + 11;
-      textY = floor(h * 0.55) + 8;
+      heartsY = 40;
+      textY = bandY + 8;
     } else {
       // ✏️ Fallback: the parametric pixel portrait (art still loading / offline).
       const s = max(2, floor(min(w, h) / 56));
-      py = 18 + 10 * s;
+      const py = 18 + 10 * s;
       drawCEO(ink, box, ceo, px, py, s, sceneMood);
-      ink(255, 235, 240).write(ceo.name, { x: px - (ceo.name.length * charW) / 2, y: py + 8 * s });
-      heartsX = px - (KISS_AT * 9) / 2;
-      heartsY = py + 8 * s + 11;
-      textY = py + 8 * s + 24;
+      W(ceo.name, px - (ceo.name.length * fm(UNI).adv) / 2, py + 8 * s, [255, 235, 240], UNI);
+      heartsX = px - (KISS_AT * 17) / 2;
+      heartsY = py + 8 * s + 20;
+      textY = py + 8 * s + 42;
     }
 
-    // date besos meter — little hearts under the name
+    // 💗 Besos meter — big hearts, filled when earned, outlined when empty.
     for (let i = 0; i < KISS_AT; i += 1) {
-      drawHeart(ink, box, heartsX + i * 9, heartsY, 1, i < dateBesos ? [255, 90, 140] : [70, 45, 60]);
+      const hx = heartsX + i * 17;
+      if (i < dateBesos) drawHeart(ink, box, hx, heartsY, 2, [255, 90, 140]);
+      else drawHeartOutline(ink, box, hx, heartsY, 2, [255, 130, 165, 150]);
     }
 
     if (phase === "verdict") {
-      const kissed = dateBesos >= KISS_AT;
       const msg = kissed ? "un beso!!!" : "no beso. solo pesos.";
-      ink(kissed ? [255, 130, 170] : [160, 140, 160]).write(msg, { x: px - (msg.length * charW) / 2, y: textY + 8, size: 1 });
-      if (kissed) drawHeart(ink, box, px - 7, textY + 24, 2, [255, 90, 140]);
-      if ((frames >> 5) % 2 === 0) ink(255, 230, 120).write("tap", { x: px - 9, y: h - 16 });
+      W(msg, center(msg, UNI), textY + 6, kissed ? [255, 130, 170] : [160, 140, 160], UNI);
+      if (kissed) drawHeart(ink, box, px - 14, textY + 28, 4, [255, 90, 140]);
+      if ((frames >> 5) % 2 === 0) W("tap", px - 7, h - 14, [255, 230, 120]);
     } else {
       // dialogue (typewriter)
       const line = currentLine();
       const shown = line.slice(0, floor(typed));
       const lines = wrap(shown, maxChars);
       lines.forEach((ln, i) => {
-        ink(phase === "ask" ? [235, 225, 235] : [200, 235, 200]).write(ln, { x: 8, y: textY + i * 10 });
+        W(ln, 8, textY + i * dlgLineH, phase === "ask" ? [235, 225, 235] : [200, 235, 200], dlgFont);
       });
 
       if (phase === "ask" && typed >= line.length) {
-        // choice buttons stacked at the bottom
+        // 🎨 Choice bars — one color per answer, stacked from the bottom.
         const ch = ceo.dates[q].choices;
-        const bh = 22;
-        let by = h - (bh + 4) * ch.length - 6;
-        ch.forEach((c, i) => {
-          const isSel = i === sel;
-          if (isSel) ink(70, 36, 66).box(4, by, w - 8, bh);
-          ink(isSel ? [255, 160, 190] : [120, 80, 110]).box(4, by, w - 8, bh, "outline");
-          const lab = wrap(c.label, maxChars - 3);
-          ink(isSel ? [255, 240, 245] : [200, 180, 200]).write(`${i + 1}.${lab[0]}`, { x: 9, y: by + (lab.length > 1 ? 3 : 8) });
-          if (lab[1]) ink(isSel ? [255, 240, 245] : [200, 180, 200]).write(lab[1], { x: 9 + charW * 2, y: by + 12 });
-          layout.hits.push({ x: 4, y: by, w: w - 8, h: bh });
-          by += bh + 4;
+        const bLineH = fm(MC8).h + 2;
+        const labMax = floor((w - 26) / fm(MC8).adv);
+        const metas = ch.map((c, i) => {
+          const lab = wrap(`${i + 1}. ${c.label}`, labMax);
+          return { i, lab, bh: lab.length * bLineH + 9 };
+        });
+        let by = h - metas.reduce((acc, m) => acc + m.bh + 3, 0) - 4;
+        metas.forEach((m) => {
+          const col = CHOICE_COLORS[m.i % CHOICE_COLORS.length];
+          const isSel = m.i === sel;
+          ink(...col, isSel ? 235 : 120).box(3, by, w - 6, m.bh);
+          if (isSel) ink(255, 240, 245).box(3, by, w - 6, m.bh, "outline");
+          m.lab.forEach((ln, li) => W(ln, 10, by + 5 + li * bLineH, isSel ? [255, 250, 252] : [235, 215, 225]));
+          layout.hits.push({ x: 3, y: by, w: w - 6, h: m.bh });
+          by += m.bh + 3;
         });
       } else if (phase === "reply" && typed >= line.length && (frames >> 5) % 2 === 0) {
-        ink(255, 230, 120).write("tap", { x: px - 9, y: h - 16 });
+        W("tap", px - 7, h - 14, [255, 230, 120]);
       }
     }
   }
 
   if (state === "fin") {
     const cx = w / 2;
-    ink(255, 120, 160).write("fin", { x: cx - charW * 1.5 * 2, y: 24, size: 2 });
-    let y = 56;
+    W("fin", cx - 24, 24, [255, 120, 160], UNI, 2);
+    let y = 62;
     CEOS.forEach((c) => {
       const p = progress[c.key] || {};
-      if (p.kissed) drawHeart(ink, box, 10, y, 1, [255, 90, 140]);
-      ink(p.kissed ? [255, 235, 240] : [130, 110, 125]).write(c.name, { x: 22, y });
-      y += 12;
+      if (p.kissed) drawHeart(ink, box, 8, y + 2, 2, [255, 90, 140]);
+      else drawHeartOutline(ink, box, 8, y + 2, 2, [120, 80, 100]);
+      W(c.name, 26, y, p.kissed ? [255, 235, 240] : [130, 110, 125], UNI);
+      y += 19;
     });
-    y += 6;
-    ink(255, 190, 210).write(`besos: ${besos}/${CEOS.length}`, { x: 10, y });
-    ink(140, 230, 140).write(`pesos: $${pesos}`, { x: 10, y: y + 12 });
+    y += 8;
+    W(`besos: ${besos}/${CEOS.length}`, 10, y, [255, 190, 210], UNI);
+    W(`pesos: $${pesos}`, 10, y + 18, [140, 230, 140], UNI);
     const verdict =
       besos === CEOS.length ? "pure of heart. broke of pocket." :
       besos === 0 && pesos > 0 ? "cold. rich. alone. iconic." :
       pesos > 4000 ? "love is a line item." :
       "some kisses, some invoices. balance.";
     wrap(verdict, maxChars).forEach((ln, i) => {
-      ink(230, 210, 220).write(ln, { x: 10, y: y + 30 + i * 10 });
+      W(ln, 10, y + 40 + i * dlgLineH, [230, 210, 220], dlgFont);
     });
-    if ((frames >> 5) % 2 === 0) ink(255, 230, 120).write("tap to love again", { x: cx - 9 * charW, y: h - 16 });
+    if ((frames >> 5) % 2 === 0) {
+      W("tap to love again", center("tap to love again"), h - 16, [255, 230, 120]);
+    }
   }
 
   // floaters on top of everything
   floaters.forEach((f) => {
-    ink(...f.col, min(255, f.life * 6)).write(f.text, { x: f.x, y: f.y });
+    ink(...f.col, min(255, f.life * 6)).write(f.text, { x: f.x, y: f.y, size: 2 }, undefined, undefined, false, MC8);
   });
 }
 
